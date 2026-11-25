@@ -7,9 +7,8 @@
 import { describe, expect } from "vitest";
 import { UninterpretableReplyError } from "../../src/index.js";
 import { ReplyInterpreterNotUnderstoodDto } from "../../src/dto/index.js";
-import { ChannelOf } from "../../src/channels/channel-handler.js";
 import { PauseStatus, PausedExecutionRepository } from "../../src/index.js";
-import { override, replyWith, testWith } from "../../src/testing/index.js";
+import { replyWith, testWith } from "../../src/testing/index.js";
 import {
   BudgetOwnerReplyInterpreter,
   OwnerPurchaseWorkflowFinish,
@@ -20,7 +19,7 @@ import {
   QuestionInbox,
   QuestionsApplication,
   SpendingLimitAnswerDto,
-  SpendingLimitQuestion,
+  SpendingLimitQuestionExternalTask,
 } from "../flow/fixtures/questions.fixture.js";
 import { execute } from "../helpers/flow.js";
 
@@ -28,7 +27,7 @@ const test = testWith(QuestionsApplication);
 
 const owner = { ownerId: "alice" };
 const asking = { threadId: "purchase-1", ownerId: "alice" };
-const by = { answeredBy: "budget-owner-7" };
+const by = { actor: { id: "budget-owner-7" } };
 
 describe("#659 AC4: a code interpreter reads the reply into the answer", () => {
   test("AC4: 'up to 1200' is understood: the answer goes on the path", async ({ app }) => {
@@ -91,7 +90,7 @@ describe("#659 AC4: a chat-model interpreter answers with the answer DTO's tool"
       system: expect.stringContaining("the answer tool with the fields the reply gives"),
     });
     expect(interpreter.onlyRequest).not.toMatchObject({
-      system: expect.stringContaining("overrideArguments"),
+      system: expect.stringContaining("overrideInput"),
     });
     // the question's sensitive field is masked for the model too
     expect(JSON.stringify(interpreter.onlyRequest)).not.toContain("alice");
@@ -115,14 +114,14 @@ describe("#659 AC4: a chat-model interpreter answers with the answer DTO's tool"
 });
 
 /** A channel whose transport is down. */
-class DownChannel extends ChannelOf<SpendingLimitQuestion> {
+class DownChannel extends SpendingLimitQuestionExternalTask {
   send(): never {
     throw new Error("inbox unreachable");
   }
 }
 
 const down = testWith(QuestionsApplication, {
-  overrides: [override(SpendingLimitQuestion, DownChannel)],
+  services: [DownChannel],
 });
 
 describe("#659 AC2: a send that throws is the step's failure", () => {
@@ -139,7 +138,7 @@ describe("#659 AC2: a send that throws is the step's failure", () => {
         error: expect.objectContaining({
           code: "step.question",
           message: expect.stringContaining("inbox unreachable"),
-          details: expect.objectContaining({ question: "spending-limit-question" }),
+          details: expect.objectContaining({ question: "spending-limit-question-external-task" }),
         }),
       }),
     ]);

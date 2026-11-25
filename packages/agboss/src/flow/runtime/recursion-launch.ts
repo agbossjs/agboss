@@ -6,7 +6,7 @@ import { DepthLimitExceededError } from "./depth-limit.js";
 import type { RuntimeGraph } from "./graph-model.js";
 
 /**
- * The hard stop of a recursion (#264): a launch of `ThisWorkflow` that would run past the
+ * The hard stop of a recursion (#264): a launch of the workflow itself that would run past the
  * workflow's `maxDepth` does not start — no execution, no `onExecutionStart` — and fails the
  * launching step with `ChildExecutionFailedError` caused by `DepthLimitExceededError`, a child's own
  * limit (#263 S25): `.onError(LimitExceededError, …)` right after the launch takes it. The refused

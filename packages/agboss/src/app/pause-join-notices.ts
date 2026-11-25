@@ -1,6 +1,6 @@
 import type { ChannelSenderJoinFailed } from "../channels/channel-sender.js";
 import type { PauseNotice } from "../infrastructure/pause-notices.js";
-import type { PauseListenerJoinFailedEvent } from "../pause/notice-events.js";
+import type { ChannelListenerJoinFailedEvent } from "../pause/notice-events.js";
 import { listenerBaseOf, type EventSources } from "./pause-notices.js";
 
 /** The `joinFailed` notice's events (#945): split from `pause-notices.ts`. */
@@ -18,7 +18,8 @@ export function channelJoinFailedOf(sources: EventSources): ChannelSenderJoinFai
   return {
     deliveryId,
     pauseId: pause.pauseId,
-    value: pause.ask,
+    input: pause.input,
+    ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
     ...joinFailureOf(notice),
     at: notice.writtenAt,
   };
@@ -27,8 +28,8 @@ export function channelJoinFailedOf(sources: EventSources): ChannelSenderJoinFai
 /** The `joinFailed` event of a listener (#945). */
 export async function listenerJoinFailedOf(
   sources: EventSources,
-  allowAnswering: boolean,
-): Promise<PauseListenerJoinFailedEvent> {
-  const base = await listenerBaseOf(sources, allowAnswering);
+  includePauseIds: boolean,
+): Promise<ChannelListenerJoinFailedEvent> {
+  const base = await listenerBaseOf(sources, includePauseIds);
   return { ...base, ...joinFailureOf(sources.notice), at: sources.notice.writtenAt };
 }

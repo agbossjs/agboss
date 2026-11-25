@@ -1,6 +1,7 @@
+import { type Usd } from "../units/index.js";
 import type { ExecutionIdentity } from "../infrastructure/execution-lease.repository.js";
 import type { PendingPause } from "../pause/types.js";
-import type { App } from "./types.js";
+import type { AnyTenantApp } from "./types.js";
 
 /**
  * What a transport that runs executions under ids of its own (#807: A2A tasks, design §4.1.5,
@@ -24,7 +25,7 @@ export interface ExecutionCancelRequest extends ExecutionTreeOfThread {
 
 /** What `cancelExecution` found and did; in every case the request is kept until the tree ends. */
 export enum ExecutionCancelOutcome {
-  /** It ran on this instance: its signal aborted, it rejects with `ExecutionCancelledError`. */
+  /** It ran on this instance: its signal aborted, it resolves cancelled (`ExecutionStatus.Cancelled`). */
   Aborted = "aborted",
   /** It rested paused: ended here as cancelled (its pauses withdrawn, its undo run). */
   Ended = "ended",
@@ -50,6 +51,8 @@ export enum DurableExecutionStatus {
   Failed = "failed",
   /** It was cancelled. */
   Cancelled = "cancelled",
+  /** It was stopped (#1341). */
+  Stopped = "stopped",
 }
 
 export type DurableExecutionState =
@@ -65,10 +68,13 @@ export type DurableExecutionState =
        * strategies' memory update included — else its last checkpoint's, so a status repaired from
        * the records still signs its run report.
        */
-      readonly spentUsd: number;
+      readonly spentUsd: Usd;
+      /** The tokens it used (#1318). */
+      readonly spentTokens?: number;
     }
   | { readonly status: DurableExecutionStatus.Failed; readonly reason: string }
-  | { readonly status: DurableExecutionStatus.Cancelled };
+  | { readonly status: DurableExecutionStatus.Cancelled }
+  | { readonly status: DurableExecutionStatus.Stopped };
 
 /** What a workflow's app does to one of its trees. */
 export interface WorkflowExecutionControl {
@@ -89,7 +95,7 @@ const controls = new WeakMap<object, ExecutionControl>();
 
 /** Remembers an instance's control by its app (and by its infrastructure, for its own observers). */
 export const rememberExecutionControl = (
-  instance: Pick<App, "execute"> | object,
+  instance: Pick<AnyTenantApp, "execute"> | object,
   control: ExecutionControl,
 ): void => {
   controls.set(instance, control);
@@ -100,5 +106,5 @@ export const rememberExecutionControl = (
  * `createApp` (a test double) has none.
  */
 export const executionControlOf = (
-  instance: Pick<App, "execute"> | object,
+  instance: Pick<AnyTenantApp, "execute"> | object,
 ): ExecutionControl | undefined => controls.get(instance);

@@ -1,8 +1,10 @@
 /**
- * #262 PR 3 — components for the unit runners (`testTool`, `testJudge`, `testPii`, `testRag`,
- * `testGuardrail`): each injects what the runner gives (`ExecutionContext`, `SpendRecorder`,
+ * #262 PR 3 — components for the unit runners (`testUnit`, `testUnit`, `testUnit`, `testUnit`,
+ * `testUnit`): each injects what the runner gives (`ExecutionContext`, `SpendRecorder`,
  * `JudgeModel`, `ApplicationContext`) and a service the tests replace with `override(…)`.
  */
+import { RagScope } from "../../../src/rag/types.js";
+import { RagSource } from "../../../src/rag/rag-source.js";
 import {
   ApplicationContext,
   Decision,
@@ -18,19 +20,18 @@ import {
   SpendRecorder,
   TenantContext,
   Tool,
-  pii,
   type GuardrailRefusal,
   type JudgeHandler,
   type JudgeInput,
   type PiiMatch,
   type PiiPolicyHandler,
-  type ToolHandler,
+  inline,
 } from "../../../src/index.js";
 import { Rag } from "../../../src/components/decorators.js";
-import { OneOf, PlainTextDto, Text } from "../../../src/dto/index.js";
-import type { RagConnector, RagRetrieval } from "../../../src/rag/types.js";
+import { Enum, PlainTextDto, Text } from "../../../src/dto/index.js";
+import type { RagRetrieval } from "../../../src/rag/types.js";
 import { seconds, usd } from "../../../src/units/index.js";
-import { RagTenancy } from "../../../src/rag/types.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 // ── services the tests replace ──
 
@@ -87,14 +88,14 @@ export class JobList {
   timeout: seconds(5),
   deps: [ExecutionContext, SpendRecorder, JobBoardService],
 })
-export class SearchJobsTool implements ToolHandler<JobSearch, JobList> {
+export class SearchJobsTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly spendRecorder: SpendRecorder,
     private readonly jobBoardService: JobBoardService,
   ) {}
 
-  async run({ query }: JobSearch): Promise<JobList> {
+  async execute({ query }: JobSearch): Promise<JobList> {
     const jobs = await this.jobBoardService.search(query);
     this.spendRecorder.record({ service: "job-board", cost: usd(0.002) });
     const { step } = this.executionContext;
@@ -109,8 +110,8 @@ export class SearchJobsTool implements ToolHandler<JobSearch, JobList> {
   input: JobSearch,
   output: JobList,
 })
-export class BrokenJobsTool implements ToolHandler<JobSearch, JobList> {
-  run(): Promise<JobList> {
+export class BrokenJobsTool {
+  execute(): Promise<JobList> {
     return Promise.resolve({ jobs: "x" } as JobList);
   }
 }
@@ -120,37 +121,40 @@ export class BrokenJobsTool implements ToolHandler<JobSearch, JobList> {
 @Judge({
   name: "grounded-judge",
   model: "typesafe/jev-1.13",
-  reply: PlainTextDto,
+  modelProvider: TestDecisionsModelProvider,
+  output: PlainTextDto,
   deps: [JudgeModel],
 })
 export class GroundedJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output, task }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const answers = await this.judgeModel.decide({
-      state: { task, reply: reply.text },
-      questions: { grounded: Decision.noul("Is every claim of the reply grounded in the task?") },
+      state: { task, output: output.text },
+      questions: {
+        grounded: Decision.boolean("Is every claim of the reply grounded in the task?"),
+      },
     });
-    return answers.grounded.noul > 0.5
+    return answers.grounded.probability > 0.5
       ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: "cite the source of every claim" });
+      : JudgeVerdict.failed("cite the source of every claim");
   }
 }
 
 @Judge({
   name: "tone-judge",
   model: "moonshotai/kimi-k2.6",
-  reply: PlainTextDto,
+  output: PlainTextDto,
   deps: [JudgeModel],
 })
 export class ToneJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const said = await this.judgeModel.invoke(
-      `Is this polite? Answer PASS or FAIL.\n${reply.text}`,
+      `Is this polite? Answer PASS or FAIL.\n${output.text}`,
     );
-    return said.trim() === "PASS" ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "rude" });
+    return said.trim() === "PASS" ? JudgeVerdict.passed() : JudgeVerdict.failed("rude");
   }
 }
 
@@ -159,14 +163,16 @@ export class ToneJudge implements JudgeHandler<PlainTextDto> {
 @Rag({
   name: "handbook",
   description: "The team handbook",
-  tenancy: RagTenancy.PerTenant,
+  scope: RagScope.Tenant,
   topK: 2,
   deps: [JobBoardService],
 })
-export class HandbookRag implements RagConnector {
-  constructor(private readonly jobBoardService: JobBoardService) {}
+export class HandbookRag extends RagSource {
+  constructor(private readonly jobBoardService: JobBoardService) {
+    super();
+  }
 
-  async retrieve(
+  protected override async retrieve(
     query: string,
     options: { readonly topK: number; readonly signal: AbortSignal },
   ): Promise<RagRetrieval> {
@@ -175,7 +181,7 @@ export class HandbookRag implements RagConnector {
       source: `handbook#${String(index + 1)}`,
       text,
     }));
-    return { results, costUsd: 0.001 };
+    return { results, costUsd: usd(0.001) };
   }
 }
 
@@ -188,8 +194,9 @@ export class HandbookRag implements RagConnector {
 @InputGuardrail({
   name: "legal-advice-guardrail",
   description: "Blocks requests for legal advice",
-  prompt: "Does the message ask for legal advice?",
+  prompt: inline("Does the message ask for legal advice?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   threshold: 0.8,
   deps: [ApplicationContext, ExecutionContext],
 })
@@ -210,25 +217,22 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides contact details",
-  rules: [
-    pii(PiiKind.Email, PiiAction.replaceWithToken()),
-    pii(PiiKind.Phone, PiiAction.replacePart({ keepLast: 2 })),
-  ],
+  rules: [PiiKind.Email.tokenize(), PiiKind.Phone.mask({ keepLast: 2 })],
 })
 export class ContactPiiPolicy {}
 
 @PiiPolicy({
   name: "card-pii-policy",
   description: "Refuses card numbers",
-  rules: [pii(PiiKind.CardNumber, PiiAction.blockWithRefusal({ refusal: "No cards here." }))],
+  rules: [PiiKind.CardNumber.block("No cards here.")],
 })
 export class CardPiiPolicy {}
 
 @PiiPolicy({
   name: "name-pii-policy",
   description: "Finds people's names with a model",
-  rules: [pii(PiiKind.PersonName, PiiAction.replaceWithKind())],
-  detectWithModel: "moonshotai/kimi-k2.6",
+  rules: [PiiKind.PersonName.mask()],
+  model: "moonshotai/kimi-k2.6",
 })
 export class NamePiiPolicy {}
 
@@ -242,7 +246,7 @@ export class StaffDirectory {
 
 @PiiPolicy({
   name: "staff-id-pii-policy",
-  action: PiiAction.replaceWithToken(),
+  action: PiiAction.tokenize(),
   deps: [StaffDirectory],
 })
 export class StaffIdPiiPolicy implements PiiPolicyHandler {
@@ -256,18 +260,18 @@ export class StaffIdPiiPolicy implements PiiPolicyHandler {
   }
 }
 
-/** A name without the kind suffix: `[name.kind-suffix]`. */
+/** A name that is not kebab-case: `[name.not-kebab-case]`. */
 @PiiPolicy({
-  name: "contact-policy",
+  name: "Contact_Policy",
   description: "Misnamed",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 export class MisnamedPolicy {}
 
 // ── the project's context levels ──
 
 export class ShopTenantContext extends TenantContext {
-  @OneOf({ values: ["free", "pro"] })
+  @Enum(["free", "pro"])
   plan!: "free" | "pro";
 }
 
@@ -289,13 +293,13 @@ export class PlanReport {
   output: PlanReport,
   deps: [ShopTenantContext, ShopExecutionContext],
 })
-export class PlanReportTool implements ToolHandler<JobSearch, PlanReport> {
+export class PlanReportTool {
   constructor(
     private readonly shopTenantContext: ShopTenantContext,
     private readonly shopExecutionContext: ShopExecutionContext,
   ) {}
 
-  run(): Promise<PlanReport> {
+  execute(): Promise<PlanReport> {
     const { tenantId, plan } = this.shopTenantContext;
     const { userId } = this.shopExecutionContext;
     return Promise.resolve({ summary: `${userId}@${tenantId}: ${plan}` });

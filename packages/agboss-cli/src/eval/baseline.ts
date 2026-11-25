@@ -2,103 +2,23 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   CaseComparison,
-  CheckStatus,
   EVAL_RUN_KIND,
   EVAL_RUN_SCHEMA_VERSION,
   type EvalCasePasses,
   type EvalCaseReport,
+  type EvalModelUse,
   type EvalRunComparison,
   type EvalRunReport,
 } from "@agboss/core/eval";
 import { flagOption, textOption, type CommandContext } from "../cli/context.js";
 import { CliError, usageError } from "../cli/errors.js";
+import {
+  EVAL_BASELINE_KIND,
+  EVAL_BASELINE_SCHEMA_VERSION,
+  type CompactBaselineCase,
+  type CompactEvalBaseline,
+} from "./baseline-compact.js";
 import { readRunArtifact, runArtifactInvalid } from "./run-artifact.js";
-
-/** Compact baseline snapshot kind (`--save-baseline <file.json>`). */
-export const EVAL_BASELINE_KIND = "agboss.eval-baseline";
-export const EVAL_BASELINE_SCHEMA_VERSION = 1;
-
-/** Per-case metrics in a compact git-diff-friendly baseline file. */
-export interface CompactBaselineCase {
-  readonly caseId: string;
-  readonly caseHash: string;
-  readonly runs: number;
-  readonly passed: number;
-  readonly passAtK: boolean;
-  readonly passHatK: boolean;
-  readonly flaky: boolean;
-  readonly avgSpendUsd: number;
-  readonly verdictSummary: string;
-}
-
-/** Compact baseline file written by `agboss eval run --save-baseline <file.json>`. */
-export interface CompactEvalBaseline {
-  readonly kind: typeof EVAL_BASELINE_KIND;
-  readonly schemaVersion: typeof EVAL_BASELINE_SCHEMA_VERSION;
-  readonly suite: EvalRunReport["suite"];
-  readonly application: EvalRunReport["application"];
-  readonly workflow: EvalRunReport["workflow"];
-  readonly configHash: EvalRunReport["configHash"];
-  readonly start: EvalRunReport["start"];
-  readonly environment: EvalRunReport["environment"];
-  readonly runs: EvalRunReport["runs"];
-  readonly cascade: EvalRunReport["cascade"];
-  readonly startedAt: EvalRunReport["startedAt"];
-  readonly endedAt: EvalRunReport["endedAt"];
-  readonly summary: EvalRunReport["summary"];
-  readonly spend: EvalRunReport["spend"];
-  readonly cases: readonly CompactBaselineCase[];
-}
-
-function verdictSummaryOf(found: EvalCaseReport): string {
-  const names = [...new Set(found.runResults.flatMap((r) => r.checks.map((c) => c.check)))];
-  if (names.length === 0) return `${String(found.passed)}/${String(found.runs)} passed`;
-  const parts = names.map((check) => {
-    const ok = found.runResults.filter((r) =>
-      r.checks.some((c) => c.check === check && c.status === CheckStatus.Passed),
-    ).length;
-    return `${check}: ${String(ok)}/${String(found.runs)} passed`;
-  });
-  return `${String(found.passed)}/${String(found.runs)} passed (${parts.join(", ")})`;
-}
-
-function compactCaseOf(found: EvalCaseReport): CompactBaselineCase {
-  const totalSpend = found.runResults.reduce((sum, r) => sum + r.spentUsd, 0);
-  const avgSpendUsd =
-    found.runResults.length === 0 ? 0 : Number((totalSpend / found.runResults.length).toFixed(6));
-  return {
-    caseId: found.name,
-    caseHash: found.caseHash,
-    runs: found.runs,
-    passed: found.passed,
-    passAtK: found.passAtK,
-    passHatK: found.passHatK,
-    flaky: found.isUnstable,
-    avgSpendUsd,
-    verdictSummary: verdictSummaryOf(found),
-  };
-}
-
-/** Converts a full `EvalRunReport` into a compact, git-diff-friendly `CompactEvalBaseline`. */
-export function compactBaselineOf(report: EvalRunReport): CompactEvalBaseline {
-  return {
-    kind: EVAL_BASELINE_KIND,
-    schemaVersion: EVAL_BASELINE_SCHEMA_VERSION,
-    suite: report.suite,
-    application: report.application,
-    workflow: report.workflow,
-    configHash: report.configHash,
-    start: report.start,
-    environment: report.environment,
-    runs: report.runs,
-    cascade: report.cascade,
-    startedAt: report.startedAt,
-    endedAt: report.endedAt,
-    summary: report.summary,
-    spend: report.spend,
-    cases: report.cases.map(compactCaseOf),
-  };
-}
 
 function readCompactBaseline(
   file: string,
@@ -116,8 +36,15 @@ function readCompactBaseline(
     isUnstable: c.flaky,
     runResults: [],
   }));
+  // the file holds ISO 8601 text; the report holds `Date`s
+  const startedAt = new Date(String(raw.startedAt));
+  const endedAt = new Date(String(raw.endedAt));
+  if (Number.isNaN(startedAt.getTime()) || Number.isNaN(endedAt.getTime()))
+    throw runArtifactInvalid(file, `invalid ${EVAL_BASELINE_KIND}: startedAt or endedAt`);
   return {
     ...raw,
+    startedAt,
+    endedAt,
     kind: EVAL_RUN_KIND,
     schemaVersion: EVAL_RUN_SCHEMA_VERSION,
     cases,
@@ -219,4 +146,53 @@ export function regressionFailure(
   const cases = `${String(regressed.length)} case${regressed.length === 1 ? "" : "s"}`;
   const message = `${cases} regressed against ${comparison.file}: ${regressed.join(", ")}`;
   return new CliError("quality", "eval.regressed", message);
+}
+
+/** `provider/model`, how a use is named in a warning. */
+const useText = (use: EvalModelUse | undefined): string =>
+  use === undefined ? "none" : `${use.provider}/${use.model}`;
+
+/** The components whose model differs between two lists (a component in one only counts). */
+function drifted(before: readonly EvalModelUse[], now: readonly EvalModelUse[]) {
+  const names = [...new Set([...before, ...now].map((use) => use.component))];
+  return names.flatMap((component) => {
+    const was = before.find((use) => use.component === component);
+    const is = now.find((use) => use.component === component);
+    return useText(was) === useText(is) ? [] : [{ component, was, is }];
+  });
+}
+
+/** What changed in a profile, a model list or a judge list between the baseline and this run. */
+function driftOf(
+  kind: "model" | "judge",
+  before: readonly EvalModelUse[] | undefined,
+  now: readonly EvalModelUse[] | undefined,
+): string[] {
+  // a baseline that kept none (an older compact one) says nothing of them
+  if (before === undefined) return [];
+  const note =
+    kind === "judge" ? " — a changed verdict may be the judge's, not the candidate's" : "";
+  return drifted(before, now ?? []).map(
+    (found) =>
+      `${kind} drift: ${found.component} ran on ${useText(found.was)} in the baseline, on ${useText(found.is)} now${note}`,
+  );
+}
+
+/**
+ * What `--baseline` warns of besides the cases: the profile, the candidate's models and the judges
+ * the baseline ran on that this run did not. A judge that changed is the one that matters — the
+ * yardstick moved, so a case that "regressed" or "improved" may only have been judged differently.
+ */
+export function environmentWarningsOf(baseline: EvalRunReport, run: EvalRunReport): string[] {
+  const profile =
+    baseline.profile === run.profile
+      ? []
+      : [
+          `the baseline ran on profile ${baseline.profile ?? "none"}, this run on ${run.profile ?? "none"}`,
+        ];
+  return [
+    ...profile,
+    ...driftOf("model", baseline.models, run.models),
+    ...driftOf("judge", baseline.judges, run.judges),
+  ];
 }

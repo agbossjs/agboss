@@ -1,11 +1,11 @@
+import { hours, minutes, Ttl } from "../../../src/units/index.js";
 // #860 AC3 — workflows a direct-reply skill may not run (each breaks one rule of
 // `[a2a.message-skill-*]`), and an application that exposes one start of them as `A2AReply.Message`
 // on given stores.
-import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
-import { OutboundCalls } from "../../../src/app/outbound-calls.js";
-import { FencedEffects } from "../../../src/app/fenced-effects.js";
+import { A2AEndpoint, A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
+import { Idempotency } from "../../../src/app/idempotency.js";
 import { Application } from "../../../src/application/application.js";
-import { Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { Injectable, Tool } from "../../../src/components/decorators.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -13,10 +13,10 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import type { Produced } from "../../../src/index.js";
+import type { Tracked } from "../../../src/index.js";
 import { FencedEffectRepository } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { SqliteTestEnvironment } from "../../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import {
   BoardLookupTool,
@@ -30,15 +30,17 @@ import {
   TckWorkflowStart,
 } from "../../a2a-tck/tck.application.js";
 import { PriceLookupTool, QuoteWorkflow } from "./direct.application.js";
+import { inline } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 interface Message {
-  readonly message: Produced<WorkflowStartTextDto, unknown>;
+  readonly message: Tracked<WorkflowStartTextDto>;
 }
 
 /** A service two hops from the effect store: what a tool injects. */
 @Injectable({ deps: [FencedEffectRepository] })
 export class LedgerWriter {
-  constructor(readonly effects: FencedEffectRepository<unknown>) {}
+  constructor(readonly effects: FencedEffectRepository) {}
 }
 
 @Injectable({ deps: [LedgerWriter] })
@@ -55,10 +57,10 @@ export class LedgerService {
   readOnly: true,
   deps: [LedgerService],
 })
-export class LedgerReadTool implements ToolHandler<WorkflowStartTextDto, WorkflowFinishTextDto> {
+export class LedgerReadTool {
   constructor(readonly ledger: LedgerService) {}
 
-  run(): Promise<WorkflowFinishTextDto> {
+  execute(): Promise<WorkflowFinishTextDto> {
     return Promise.resolve({ text: "done" });
   }
 }
@@ -66,7 +68,7 @@ export class LedgerReadTool implements ToolHandler<WorkflowStartTextDto, Workflo
 @Agent({
   name: "busy-agent",
   description: "Calls every kind of tool",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
   tools: [PriceLookupTool, PingTool, BoardLookupTool, LedgerReadTool],
 })
@@ -74,12 +76,12 @@ export class BusyAgent {}
 
 @Action({
   name: "charge-action",
-  description: "Charges through OutboundCalls",
+  description: "Charges through Idempotency.sendOnce",
   input: { message: WorkflowStartTextDto },
-  deps: [OutboundCalls],
+  deps: [Idempotency],
 })
 export class ChargeAction {
-  constructor(readonly calls: OutboundCalls) {}
+  constructor(readonly calls: Idempotency) {}
 
   execute(_input: Message): Promise<void> {
     return Promise.resolve();
@@ -88,12 +90,12 @@ export class ChargeAction {
 
 @Action({
   name: "pay-action",
-  description: "Pays once, through FencedEffects",
+  description: "Pays once, through Idempotency.runOnce",
   input: { message: WorkflowStartTextDto },
-  deps: [FencedEffects],
+  deps: [Idempotency],
 })
 export class PayAction {
-  constructor(readonly effects: FencedEffects) {}
+  constructor(readonly effects: Idempotency) {}
 
   execute(_input: Message): Promise<void> {
     return Promise.resolve();
@@ -140,21 +142,16 @@ export class BusyWorkflowFinish {}
 @Workflow({
   name: "busy-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(BusyWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(BusyWorkflowStart)
       .toAction(ChargeAction)
       .toAction(PayAction)
       .toAction(ReserveAction)
       .toWorkflow(QuoteWorkflow)
-      .returns(WorkflowFinishTextDto)
       .toFinish(BusyWorkflowFinish),
-    start(BusyAgentWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(BusyAgent)
-      .toFinish(BusyWorkflowFinish),
+    onStart(BusyAgentWorkflowStart).toAgent(BusyAgent).toFinish(BusyWorkflowFinish),
   ],
-  mcp: [JobBoardServer],
   providers: [LedgerService, LedgerWriter],
 })
 export class BusyWorkflow {}
@@ -173,25 +170,26 @@ export function directRulesApplication(
   defaultSkill?: Class,
 ): Class {
   const name = exported === BusyWorkflowStart ? "busy-workflow-start" : "tck-workflow-start";
-  @A2AExpose({
+  @A2AEndpoint({
     name: "rules-a2a-expose",
     version: "1.0.0",
     description: "Direct replies",
-    exports: [exported],
-    skills: { [name]: { reply: A2AReply.Message }, ...skills },
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [{ start: exported, reply: skills[name]?.reply ?? A2AReply.Message }],
     ...(defaultSkill === undefined ? {} : { defaultSkill }),
   })
   class RulesA2AExpose {}
   const workflow = STARTS.get(exported);
   @Application({
     name: "rules-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: SqliteTestEnvironment,
     workflows: workflow === undefined ? [] : [workflow, QuoteWorkflow],
     budgets: TEST_BUDGETS,
     providers: [...providers, ...(exported === TckWorkflowStart ? [TckCallerChannel] : [])],
     ...(exported === TckWorkflowStart ? { executionContext: TckExecutionContext } : {}),
-    exposes: [RulesA2AExpose],
+    endpoints: [RulesA2AExpose],
   })
   class RulesApplication {}
   return RulesApplication;

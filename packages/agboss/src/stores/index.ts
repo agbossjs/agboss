@@ -21,19 +21,41 @@ export * from "./pause-contract-types.js";
 // `@agboss/mongodb` take it and give it to their applications
 export { SchemaSetup } from "./schema-setup.js";
 
+// the one paging shape of every listing (#1324e)
+export type { Page, PageQuery } from "../app/page.js";
+
+// the key of one protected write and the fence of the lease it runs under (#1317): made by
+// `Idempotency` for an application, by `effectKeyOf` in a store's own tests and tools
+export {
+  effectKeyOf,
+  FingerprintProblem,
+  type BusinessKeyOptions,
+  type EffectKeyOptions,
+  type FingerprintedKeyOptions,
+  type FingerprintKeys,
+  type OutboundCallKeyOptions,
+  type UnfingerprintedKeyOptions,
+} from "../infrastructure/fenced-effect-key.js";
+export type {
+  EffectKey,
+  EffectKeyFields,
+  EffectKeyMark,
+  OutboundCallKey,
+  OutboundCallKeyMark,
+} from "../infrastructure/effect-key.js";
+export type { ExecutionFence } from "../flow/context/execution-fence.js";
+
 // the rows at an outbound-call store's boundary (#505): an intent, its claim, its lease
 export { OutboundCallLeaseState } from "../infrastructure/execution-audit-log.repository.js";
 export type {
   OutboundCallClaim,
   OutboundCallIntent,
   OutboundCallLease,
-  OutboundCallPage,
   OutboundCallState,
   OutboundCallStatusQuery,
   OutboundCallStep,
 } from "../infrastructure/outbound-call.repository.js";
 // the in-memory fenced-effect store's transaction (a subclass of it, a test of a store's set)
-export { InMemoryFencedEffectTransaction } from "../infrastructure/in-memory-fenced-effect.repository.js";
 
 // the rules of a key a store keeps with the core's own helpers (#526 AC5): the name rule, the
 // business key's text (#538), the fingerprint (#825), the replay and conflict rule, where its row
@@ -65,6 +87,22 @@ export {
 } from "../infrastructure/cost-ledger.repository.js";
 // a lease's time left as its store says it (#533)
 export { remainingOf } from "../infrastructure/execution-lease.repository.js";
+
+// the cluster's leases (#1321e, D6): what a cluster driver implements, what a database lease store
+// mirrors them into, and the composition that orders the two writes
+export {
+  CLUSTER_LEASE_EXPIRY,
+  ClusterExecutionLeaseRepository,
+  ClusterLeaseSyncOutcome,
+  MirroredLeaseState,
+  type ClusterLeaseCoordinator,
+  type ClusterLeaseMirror,
+  type ClusterLeaseSync,
+  type ClusterLeaseTake,
+  type MirroredLease,
+} from "../infrastructure/cluster-lease.js";
+export { InMemoryCluster, type ClusterOutage } from "../infrastructure/in-memory-cluster-lease.js";
+export { SqliteClusterMirror } from "../infrastructure/sqlite/sqlite-cluster-mirror.js";
 // a direct A2A message's claim of its id among the A2A task store's messages (#860)
 export {
   DIRECT_MESSAGE_CLAIM,
@@ -73,9 +111,8 @@ export {
 // the class a refusal of minted ids names (#613)
 export { idGeneratorNameOf } from "../infrastructure/clock.js";
 // what a store reads of a pause, a log entry or a kept history record, given the parsed JSON it
-// holds (#934: 0.1.0 wrote `answeredBy` for who may answer, `answerer` / `responder` for the person):
-// every field they read is checked, the record that comes back has the new names, and a value that
-// is neither shape throws `StoredNamesUnreadableError`, naming the record's id and the field
+// holds (#934): every field they read is checked, only the 0.1.1 shape is read, and any other value
+// throws `StoredNamesUnreadableError`, naming the record's id and the field
 export { executionHistoryRecordOfJson } from "../infrastructure/stored-history.js";
 export { pauseAnswerRecordOfValue } from "../infrastructure/stored-step.js";
 export { pauseRecordOfJson } from "../infrastructure/stored-pause.js";
@@ -87,11 +124,50 @@ export {
   type StoredNamesUnreadableErrorOptions,
 } from "../infrastructure/stored-step.js";
 
-// an optional capability of a checkpoint saver (#962): its newest checkpoint of a thread's
-// namespace by `(step, id)` as one indexed read, which a marked thread's latest read uses
+// the step of a checkpoint (#962): the pure functions of the latest-by-step read; the saver
+// capability itself holds LangGraph types and stays in `@agboss/core/internal` (#1324)
 export {
-  hasLatestByStep,
+  compareCodePoints,
+  newestFirstOrder,
   NO_STEP,
   stepOf,
-  type LatestByStepCheckpointSaver,
 } from "../infrastructure/latest-by-step.js";
+export { childThreadOf } from "../infrastructure/checkpoint-threads.js";
+export {
+  StoreError,
+  StoreErrorKind,
+  type StoreErrorOfKind,
+  type StoreErrorStatics,
+} from "../core/error-families/store-errors.js";
+
+// the SQLite connection a store of your own extends beside (#1321): bound to `@DatabaseStorage`'s `SqliteDriver`
+export { SqliteConnection, SQLITE_HOLD_CAP } from "../infrastructure/sqlite/sqlite-connection.js";
+export type {
+  SqliteTransactionHandle,
+  SqliteTransactionParameters,
+  SqliteTransactionRun,
+  SqliteTransactionStatement,
+} from "../infrastructure/sqlite/sqlite-transaction.js";
+// storage drivers (#1321): what `PostgresDriver`, `MongoDriver` and `RedisDriver` are made with, and the
+// settings a connection reads once its application started
+export {
+  defineStorageDriver,
+  StorageRole,
+  type ClusterDriver,
+  type DatabaseDriver,
+  type DriverSettings,
+  type ObjectDriver,
+  type StorageDriver,
+  type StorageDriverSpec,
+  type StorageMigrate,
+  type StorageMigration,
+  type StorageMigrationOptions,
+} from "../storage/storage-driver.js";
+export {
+  CLUSTER_SETTINGS,
+  DATABASE_SETTINGS,
+  DEFAULT_WATCH_LIVENESS,
+  OBJECT_SETTINGS,
+  type DriverTimeouts,
+  type ResolvedSettings,
+} from "../storage/settings.js";

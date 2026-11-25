@@ -13,7 +13,15 @@ export const node = (name: string, kind: NodeKind, maxVisits?: unknown): FlowNod
   ({
     name,
     kind,
-    declaration: { kind, options: maxVisits === undefined ? {} : { maxVisits } },
+    declaration: {
+      kind,
+      options:
+        maxVisits === undefined
+          ? {}
+          : kind === NodeKind.Agent
+            ? { executionLimits: { maxVisits } }
+            : { maxVisits },
+    },
   }) as never;
 
 /** A component name, as the graph keys it. */
@@ -67,6 +75,9 @@ export const graphOf = (
 /** The context the step rules read: the workflow's name and `maxSteps`, and the graph. */
 export const contextOf = (graph: FlowGraph, maxSteps?: unknown): AnalysisContext =>
   ({
-    workflow: { name: "flow-workflow", ...(maxSteps === undefined ? {} : { maxSteps }) },
+    workflow: {
+      name: "flow-workflow",
+      ...(maxSteps === undefined ? {} : { executionLimits: { maxSteps } }),
+    },
     graph,
   }) as never;

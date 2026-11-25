@@ -1,13 +1,14 @@
-import type { JudgeHandlerClass } from "../../components/judge-decorators.js";
+import type { Class } from "../../components/injection.js";
+import type { EvalToolExpectations } from "./tool-expectations.js";
 
 /**
- * The checks of an eval suite (#396): what decides whether one run of a case passed, in the order
- * listed — `checkTrajectory()` (the case's tool expectations, deterministic, no model) and
- * `judgedBy(Judge)` (a `@Judge` on the finish's output: a code judge or a model judge). The order
- * and `cascade` are the author's, stated explicitly.
+ * The checks of an eval suite (#396): what decides whether one run of a case passed, in order — the
+ * `tools` expectations first (deterministic, no model, $0), then the `@Judge` classes of the suite
+ * and of the case (a code judge or a model judge, on the finish's output). The `cascade` is the
+ * author's, stated explicitly.
  */
 
-/** How a suite runs its checks after a failed one (`@EvalSuite({ cascade })`, required). */
+/** How a suite runs its checks after a failed one (`@EvalSuite({ cascade })`; default `StopAtFirstFailure`). */
 export enum EvalCascade {
   /** The first failed check stops the rest: they are reported `CheckStatus.Skipped`. */
   StopAtFirstFailure = "stop-at-first-failure",
@@ -23,27 +24,46 @@ export enum CheckStatus {
   Skipped = "skipped",
 }
 
-/** `checkTrajectory()`: each case's `tools` expectations against the run's tool calls. */
-export interface TrajectoryEvalCheck {
-  readonly trajectory: true;
+/** The tools check: the case's (and the suite's) `tools` against the run's tool calls. */
+export interface ToolsEvalCheck {
+  readonly tools: true;
 }
 
-/** `judgedBy(Judge)`: a `@Judge` on the output of the finish the run ended at. */
+/** A `@Judge` on the output of the finish the run ended at. */
 export interface JudgeEvalCheck {
-  readonly judge: JudgeHandlerClass;
+  readonly judge: Class<object>;
 }
 
-/** One check of an eval suite: the trajectory, or a judge. */
-export type EvalCheck = TrajectoryEvalCheck | JudgeEvalCheck;
-
-/** The trajectory check: every case's `tools` (required, forbidden, invariants) — no model, $0. */
-export const checkTrajectory = (): TrajectoryEvalCheck => Object.freeze({ trajectory: true });
-
-/**
- * A judge as a check of a suite (or of one case, `evalCase({ judges })`): it judges the output of
- * the finish the run ended at, so its `reply` is that finish's `output` (`[eval.judge-wrong-reply]`).
- */
-export const judgedBy = (judge: JudgeHandlerClass): JudgeEvalCheck => Object.freeze({ judge });
+/** One check of a run: the tools expectations, or a judge. */
+export type EvalCheck = ToolsEvalCheck | JudgeEvalCheck;
 
 /** Whether a check is a judge. */
 export const isJudgeCheck = (check: EvalCheck): check is JudgeEvalCheck => "judge" in check;
+
+/** The expectations a case has: the suite's and its own together; `undefined` when neither says any. */
+export function toolsOf(
+  suite: EvalToolExpectations | undefined,
+  own: EvalToolExpectations | undefined,
+): EvalToolExpectations | undefined {
+  const parts = [suite, own].filter((found) => found !== undefined);
+  const merged = {
+    required: parts.flatMap((found) => found.required ?? []),
+    forbidden: parts.flatMap((found) => found.forbidden ?? []),
+    invariants: parts.flatMap((found) => found.invariants ?? []),
+  };
+  const isEmpty = merged.required.length + merged.forbidden.length + merged.invariants.length === 0;
+  return isEmpty ? undefined : merged;
+}
+
+/** The checks one case runs, in order: its tools (when any), the suite's judges, then its own. */
+export function checksOf(
+  suite: { readonly judges: readonly Class<object>[]; readonly tools?: EvalToolExpectations },
+  written: { readonly judges?: readonly Class<object>[]; readonly tools?: EvalToolExpectations },
+): readonly EvalCheck[] {
+  const tools: readonly EvalCheck[] =
+    toolsOf(suite.tools, written.tools) === undefined ? [] : [{ tools: true }];
+  const judges = [...suite.judges, ...(written.judges ?? [])].map((judge): EvalCheck => ({
+    judge,
+  }));
+  return [...tools, ...judges];
+}

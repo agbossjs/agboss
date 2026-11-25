@@ -7,7 +7,7 @@ import {
 } from "../../infrastructure/execution-audit-log.repository.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { systemClock } from "../../infrastructure/clock.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import {
   StoreOutcomeSource,
   StoreOutcomeUnknownError,
@@ -101,7 +101,7 @@ export function timeoutAsRan<TStore extends Class>(store: TStore): TStore {
       const given = new AbortController();
       const answered = base.call(this, key, work);
       const gaveUp = systemClock.sleep(GIVES_UP_AFTER, given.signal).then(() => ({
-        status: FencedEffectStatus.Ran,
+        status: IdempotencyRunStatus.Ran,
         result: undefined,
         token: key.token,
       }));

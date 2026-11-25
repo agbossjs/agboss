@@ -38,7 +38,7 @@ const target: ContractTarget<ExplorerStores> = {
 };
 
 const world = (callBound?: number): ExplorerWorld => ({
-  ...worldOf(ExplorerWorldKind.Lease, 1, ClockSkew.none),
+  ...worldOf(ExplorerWorldKind.Lease, 1, ClockSkew.None),
   ...(callBound === undefined ? {} : { callBound: waitOf(callBound) }),
 });
 

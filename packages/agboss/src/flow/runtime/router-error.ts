@@ -71,8 +71,8 @@ export interface RouterDecisionErrorOptions extends RouterVisit {
 }
 
 /**
- * A router's answer is not allowed: a target outside its routes, a list after `.chooseOne(…)`, an
- * empty list without an `Always` route, an unknown or unreadable answer from its model. Never retried.
+ * A router's answer is not allowed: a target outside its routes, a list after `.onRoute(…)`, an
+ * unknown or unreadable answer from its model. Never retried.
  */
 export class RouterDecisionError extends RouterFailedError {
   static override readonly code = "step.router.invalid-decision" as const;

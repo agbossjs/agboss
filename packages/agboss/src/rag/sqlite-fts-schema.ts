@@ -1,16 +1,16 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
-import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 
 /**
- * The schema of `SqliteFtsConnector`'s index file (#700): every chunk and every file mark keyed by
- * its tenant. Version 0 (before #700) kept one index for every tenant; it is migrated in place, its
- * rows kept under the default tenant — what an execution that names no tenant is.
+ * The schema of `SqliteFtsRagSource`'s index file: every chunk and every file mark keyed by its
+ * scope (a tenant's, an owner's, a custom one, or the one key of a shared corpus). The index is
+ * derived data — the documents are its source — so a file of an older version is rebuilt, never
+ * migrated: its tables are dropped and the next retrieval (or `agboss rag index`) indexes again.
  */
 
-/** The version this connector writes (`PRAGMA user_version`). */
-export const FTS_SCHEMA_VERSION = 1;
+/** The version this source writes (`PRAGMA user_version`). */
+export const FTS_SCHEMA_VERSION = 2;
 
 /** An index file of a later version than this connector knows: it is never rewritten. */
 export class RagIndexVersionError extends AGBossError {
@@ -53,7 +53,7 @@ export function requireFts5(db: Fts5Probe, nodeVersion: string = process.version
   } catch (error) {
     if (!(error instanceof Error) || !/no such module: fts5/i.test(error.message)) throw error;
     throw new RagFts5UnavailableError({
-      message: `SqliteFtsConnector needs SQLite FTS5, which node:sqlite of Node ${nodeVersion} does not have — use Node ${FTS5_MIN_NODE} or later`,
+      message: `SqliteFtsRagSource needs SQLite FTS5, which node:sqlite of Node ${nodeVersion} does not have — use Node ${FTS5_MIN_NODE} or later`,
       cause: error,
     });
   }
@@ -63,12 +63,12 @@ export function requireFts5(db: Fts5Probe, nodeVersion: string = process.version
 const Version = z.object({ user_version: z.number() });
 const Table = z.object({ name: z.string() });
 
-const CREATE = `CREATE VIRTUAL TABLE IF NOT EXISTS chunks USING fts5(tenant_id UNINDEXED, source, text);
+const CREATE = `CREATE VIRTUAL TABLE IF NOT EXISTS chunks USING fts5(scope_id UNINDEXED, source, text);
   CREATE TABLE IF NOT EXISTS files (
-    tenant_id TEXT NOT NULL,
+    scope_id TEXT NOT NULL,
     source TEXT NOT NULL,
     hash TEXT NOT NULL,
-    PRIMARY KEY (tenant_id, source)
+    PRIMARY KEY (scope_id, source)
   );`;
 
 /** Runs `work` in one `BEGIN IMMEDIATE` transaction: all of it, or none of it. */
@@ -92,19 +92,14 @@ const tablesOf = (db: DatabaseSync): ReadonlySet<string> =>
       .map((row) => Table.parse(row).name),
   );
 
-/** Version 0 → 1: the tables of one shared index become the default tenant's. */
-function migrateFromVersion0(db: DatabaseSync): void {
-  db.exec(`ALTER TABLE files RENAME TO files_v0;
-    ALTER TABLE chunks RENAME TO chunks_v0;`);
-  db.exec(CREATE);
-  db.prepare("INSERT INTO files SELECT ?, source, hash FROM files_v0").run(DEFAULT_TENANT_ID);
-  db.prepare(
-    "INSERT INTO chunks (tenant_id, source, text) SELECT ?, source, text FROM chunks_v0",
-  ).run(DEFAULT_TENANT_ID);
-  db.exec("DROP TABLE files_v0; DROP TABLE chunks_v0;");
+/** An older index: its tables go, the documents it was built from are read again. */
+function dropOlderIndex(db: DatabaseSync): void {
+  const tables = tablesOf(db);
+  if (tables.has("files")) db.exec("DROP TABLE files");
+  if (tables.has("chunks")) db.exec("DROP TABLE chunks");
 }
 
-/** Creates or migrates the schema, in one transaction; a later version is refused. */
+/** Creates the schema (rebuilding an older index), in one transaction; a later version is refused. */
 export function openSchema(db: DatabaseSync): void {
   db.exec("PRAGMA busy_timeout = 5000");
   // a current file is opened without a write lock: a writer of this process may hold it, yielding
@@ -114,12 +109,12 @@ export function openSchema(db: DatabaseSync): void {
     const version = Version.parse(db.prepare("PRAGMA user_version").get()).user_version;
     if (version > FTS_SCHEMA_VERSION) {
       throw new RagIndexVersionError({
-        message: `the index file is of version ${String(version)}, this SqliteFtsConnector knows up to ${String(FTS_SCHEMA_VERSION)} — upgrade @agboss/core, or index into another file`,
+        message: `the index file is of version ${String(version)}, this SqliteFtsRagSource knows up to ${String(FTS_SCHEMA_VERSION)} — upgrade @agboss/core, or index into another file`,
       });
     }
     if (version === FTS_SCHEMA_VERSION) return;
-    if (tablesOf(db).has("files")) migrateFromVersion0(db);
-    else db.exec(CREATE);
+    dropOlderIndex(db);
+    db.exec(CREATE);
     db.exec(`PRAGMA user_version = ${String(FTS_SCHEMA_VERSION)}`);
   });
 }

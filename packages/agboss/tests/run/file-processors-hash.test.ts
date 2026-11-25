@@ -7,7 +7,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import type { Class } from "../../src/components/injection.js";
 import { FileRedactor } from "../../src/files/file-redactor.js";
 import { FileTranscriber } from "../../src/files/file-transcriber.js";
@@ -34,6 +34,7 @@ import {
   SharedPausedExecutionRepository,
 } from "../helpers/shared-infrastructure.js";
 import { MailV1, SendEmail, sent, Start } from "../app/fixtures/mail.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @Injectable()
 class PresidioImageRedactor extends FileRedactor {
@@ -79,6 +80,7 @@ const durable = [
 function deployment(processors: readonly Class[]): Class {
   @Application({
     name: "mail-v1-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [MailV1],
@@ -146,10 +148,10 @@ function scripted(): ScriptBook {
 async function resumedAcross(before: readonly Class[], after: readonly Class[]) {
   const book = scripted();
   const options = () => ({ processEnv: {}, gateway: createScriptedGateway(book) });
-  const first = await createAppWith(deployment(before), options());
+  const first = await createTestAppWith(deployment(before), options());
   const paused = await execute(first, Start, { text: "Email the boss" });
   await first.close();
-  const next = await createAppWith(deployment(after), options());
+  const next = await createTestAppWith(deployment(after), options());
   try {
     return await next.resume(answerOf(paused, { approved: true }));
   } finally {

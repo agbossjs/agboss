@@ -65,7 +65,7 @@ function look(pauses: readonly Due[], extra: { signal?: AbortSignal; ignoreAfter
           : {
               tenantId,
               runId,
-              bundle: runId.startsWith("foreign") ? "other-workflow" : "desk-workflow",
+              workflow: runId.startsWith("foreign") ? "other-workflow" : "desk-workflow",
             },
       ),
     ),

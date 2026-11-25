@@ -1,12 +1,12 @@
 import {
-  SqliteCheckpointSaver,
-  SqliteConnection,
   SqliteCostLedgerRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
   SqliteFencedEffectRepository,
   SqlitePausedExecutionRepository,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { SqliteChildExecutionQueueRepository } from "../../../../src/infrastructure/sqlite/sqlite-child-execution-queue.repository.js";
 import { SqliteExecutionLeaseRepository } from "../../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
@@ -22,7 +22,6 @@ import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
   name: "store-bound-sqlite-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [SqliteChargeWorkflow],
   observers: [RecoveryLog],
   providers: [

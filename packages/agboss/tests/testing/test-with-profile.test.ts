@@ -1,39 +1,14 @@
 /**
- * #895 D1: `testWith(App, { profile, profileRoot })` — a workflow under a profile in a test, as
- * `createApp(App, { profile, profileRoot })` runs it, with the test seams (scripted models, no keys).
+ * #895 D1 → #1318d1: `testWith(App, { profile })` — an application under profiles in a test, as
+ * `createApp(App, { profile })` runs it (`src/config/<name>.config.ts|yaml` next to the application
+ * file, over `base.config.*`), with the test seams (scripted models, no keys).
  */
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, win32 } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createApp, type AgentsConfigOf } from "../../src/index.js";
-import { ProfileError } from "../../src/config/profiles.js";
+import { ProfileError, ProfileErrorReason } from "../../src/config/profile-error.js";
 import { TestEnvironment } from "../../src/testing/environment.js";
 import { testWith, type TestApp } from "../../src/testing/index.js";
-import { ProfileApplication } from "./fixtures/profile.application.js";
-
-const WORKFLOWS = ["profile-boss-workflow", "profile-kid-workflow"] as const;
-
-/**
- * `profiles/<workflow>/<name>.yaml` under `root` for both workflows: the child's changes its
- * agent (`agents`), the parent has no agent — its profile only names a version.
- */
-function profilesIn(root: string, profiles: Readonly<Record<string, string>>): string {
-  for (const workflow of WORKFLOWS) {
-    mkdirSync(join(root, "profiles", workflow), { recursive: true });
-    for (const [name, agents] of Object.entries(profiles)) {
-      const head = `profile: ${name}\nversion: 1.0.0-${name}\n`;
-      const body =
-        workflow === "profile-kid-workflow" ? `${head}agents:\n  kid-agent:\n${agents}` : head;
-      writeFileSync(join(root, "profiles", workflow, `${name}.yaml`), body);
-    }
-  }
-  return root;
-}
-
-const PROFILES = { "low-thinking": "    thinking: low\n", "to-cloud": "    model: cloud/x\n" };
-const root = profilesIn(mkdtempSync(join(tmpdir(), "d1-")), PROFILES);
+import { ProfileApplication } from "./fixtures/profile-app/profile.application.js";
 
 const settingsOf = (app: TestApp, workflow: string): AgentsConfigOf<string> => {
   const found = app.settings[workflow];
@@ -41,47 +16,55 @@ const settingsOf = (app: TestApp, workflow: string): AgentsConfigOf<string> => {
   return found;
 };
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
+const reasonOf = async (attempt: Promise<unknown>): Promise<ProfileErrorReason | undefined> => {
+  try {
+    await attempt;
+  } catch (error) {
+    return error instanceof ProfileError ? error.reason : undefined;
+  }
+  return undefined;
+};
 
-describe("#895 D1: testWith applies a profile", () => {
-  const withProfile = testWith(ProfileApplication, { profile: "low-thinking", profileRoot: root });
+describe("#1318d1: testWith applies a profile", () => {
+  const lowThinking = testWith(ProfileApplication, { profile: "low-thinking" });
 
-  withProfile(
-    "#895 D1: the resolved settings show thinking low and the profile's version",
-    ({ app }) => {
-      const kidSettings = settingsOf(app, "profile-kid-workflow");
+  lowThinking("the resolved settings show thinking low and the profile's version", ({ app }) => {
+    const kidSettings = settingsOf(app, "profile-kid-workflow");
 
-      expect(kidSettings.agents["kid-agent"]?.thinking).toBe("low");
-      expect(kidSettings.version).toBe("1.0.0-low-thinking");
-      expect(
-        settingsOf(app, "profile-boss-workflow").agents["boss-agent"]?.thinking,
-      ).toBeUndefined();
-    },
-  );
+    expect(kidSettings.agents["kid-agent"]?.thinking).toBe("low");
+    expect(kidSettings.version).toBe("1.0.0-low-thinking");
+    expect(settingsOf(app, "profile-boss-workflow").agents["boss-agent"]?.thinking).toBeUndefined();
+  });
 
-  withProfile("#895 D1: a child workflow the application does not list gets it too", ({ app }) => {
-    expect(Object.keys(app.settings).sort()).toEqual([...WORKFLOWS]);
+  lowThinking("a child workflow the application does not list gets it too", ({ app }) => {
+    expect(Object.keys(app.settings).sort()).toEqual([
+      "profile-boss-workflow",
+      "profile-kid-workflow",
+    ]);
     expect(Object.values(app.settings).map((one) => one.version)).toEqual([
       "1.0.0-low-thinking",
       "1.0.0-low-thinking",
     ]);
   });
 
-  testWith(ProfileApplication)("#895 D1: no profile — the base settings", ({ app }) => {
-    expect(settingsOf(app, "profile-kid-workflow").agents["kid-agent"]?.thinking).toBeUndefined();
-    expect(settingsOf(app, "profile-kid-workflow").version).toBe("1.0.0");
-  });
-
-  testWith(ProfileApplication, { profile: "base", profileRoot: "/nowhere" })(
-    "#895 D1: the profile base is no profile (no file read)",
+  testWith(ProfileApplication)(
+    "no profile — the test profile has no file, the base settings",
     ({ app }) => {
+      expect(settingsOf(app, "profile-kid-workflow").agents["kid-agent"]?.thinking).toBeUndefined();
       expect(settingsOf(app, "profile-kid-workflow").version).toBe("1.0.0");
     },
   );
 
-  it("#895 D1: settings is read-only", () => {
+  testWith(ProfileApplication, { profile: "base" })(
+    "the profile base is base.config alone",
+    ({ app }) => {
+      // base.config.yaml: defaults.models.temperature 0.5 on every workflow
+      expect(settingsOf(app, "profile-kid-workflow").defaults.models.temperature).toBe(0.5);
+      expect(settingsOf(app, "profile-kid-workflow").version).toBe("1.0.0");
+    },
+  );
+
+  it("settings is read-only", () => {
     const readOnly = (app: TestApp): void => {
       // @ts-expect-error -- a test reads what was applied; it does not set it
       app.settings = {};
@@ -90,86 +73,156 @@ describe("#895 D1: testWith applies a profile", () => {
   });
 });
 
-describe("#895 D1: an unknown profile", () => {
-  const message = (name: string): RegExp =>
-    new RegExp(`no profile "${name}"[^\\n]*available: base, low-thinking, to-cloud`);
+describe("#1318d1: profiles layer left to right over base", () => {
+  const layered = (profile: string | readonly string[]) =>
+    TestEnvironment.of(ProfileApplication, { profile }).then(
+      (environment) =>
+        environment.assembled.workflows.find((one) => one.config.name === "profile-kid-workflow")
+          ?.config,
+    );
 
-  it("#895 D1: testWith — a ProfileError listing the available profiles, never ENOENT", async () => {
-    const failure = TestEnvironment.of(ProfileApplication, { profile: "nope", profileRoot: root });
+  it("a later profile wins per key, an earlier one's other keys stay, base is under both", async () => {
+    const config = await layered("low-thinking,economy");
 
-    await expect(failure).rejects.toBeInstanceOf(ProfileError);
-    await expect(failure).rejects.toThrow(message("nope"));
+    expect(config?.agents["kid-agent"]?.thinking).toBe("high");
+    expect(config?.agents["kid-agent"]?.temperature).toBe(0.2);
+    expect(config?.defaults.uncompactedTurns).toBe(2);
+    expect(config?.defaults.models.temperature).toBe(0.5);
+    // economy is later: its "*" version wins over low-thinking's own
+    expect(config?.version).toBe("1.0.0-economy");
   });
 
-  it("#895 D1: createApp — the same error", async () => {
-    const failure = createApp(ProfileApplication, { profile: "nope", profileRoot: root });
+  it("the order is the order given: economy then low-thinking ends on low", async () => {
+    const config = await layered(["economy", "low-thinking"]);
 
-    await expect(failure).rejects.toBeInstanceOf(ProfileError);
-    await expect(failure).rejects.toThrow(message("nope"));
+    expect(config?.agents["kid-agent"]?.thinking).toBe("low");
+    expect(config?.agents["kid-agent"]?.temperature).toBe(0.2);
+    expect(config?.version).toBe("1.0.0-low-thinking");
   });
 
-  it("#895 D1: no profiles directory at all — says so, still a ProfileError", async () => {
-    const empty = mkdtempSync(join(tmpdir(), "d1-empty-"));
-
-    await expect(
-      TestEnvironment.of(ProfileApplication, { profile: "nope", profileRoot: empty }),
-    ).rejects.toThrow(/no profile "nope"[^\n]*available: base$/m);
-  });
-});
-
-describe("#895 D1: a profile that switches a model to an unserved one", () => {
-  const unserved = /\[model\.unserved\] profile-kid-workflow agents\.kid-agent = cloud\/x/;
-
-  it("#895 D1: testWith reports [model.unserved] at assembly, not at the first call", async () => {
-    await expect(
-      TestEnvironment.of(ProfileApplication, { profile: "to-cloud", profileRoot: root }),
-    ).rejects.toThrow(unserved);
+  it("+ and , separate profiles alike", async () => {
+    expect((await layered("low-thinking+economy"))?.agents["kid-agent"]?.thinking).toBe("high");
+    expect((await layered(["low-thinking", "economy"]))?.agents["kid-agent"]?.thinking).toBe(
+      "high",
+    );
   });
 
-  it("#895 D1: createApp reports it the same way", async () => {
-    await expect(
-      createApp(ProfileApplication, { profile: "to-cloud", profileRoot: root }),
-    ).rejects.toThrow(unserved);
-  });
-});
-
-describe("#895 D1: profileRoot", () => {
-  const repo = mkdtempSync(join(tmpdir(), "d1-monorepo-"));
-  const pkg = join(repo, "packages", "app");
-  const here = pathToFileURL(join(pkg, "tests", "workflow.test.ts")).href;
-  profilesIn(pkg, PROFILES);
-
-  it("#895 D1: a monorepo package — fileURLToPath(new URL('..', import.meta.url)), cwd elsewhere", async () => {
-    vi.spyOn(process, "cwd").mockReturnValue(repo);
-    const packageRoot = fileURLToPath(new URL("..", here));
-
+  it("the application's context lists the profiles in layering order", async () => {
     const environment = await TestEnvironment.of(ProfileApplication, {
-      profile: "low-thinking",
-      profileRoot: packageRoot,
+      profile: "low-thinking,economy",
     });
 
-    expect(packageRoot.endsWith("app/") || packageRoot.endsWith("app\\")).toBe(true);
-    expect(environment.assembled.workflows.map((one) => one.config.version)).toEqual([
-      "1.0.0-low-thinking",
-      "1.0.0-low-thinking",
-    ]);
+    expect(environment.assembled.profiles).toEqual(["low-thinking", "economy"]);
   });
 
-  it("#895 D1: the default is process.cwd(), as in createApp", async () => {
-    vi.spyOn(process, "cwd").mockReturnValue(pkg);
-
-    const environment = await TestEnvironment.of(ProfileApplication, { profile: "low-thinking" });
-
-    expect(environment.assembled.workflows[0]?.config.version).toBe("1.0.0-low-thinking");
-  });
-
-  it("#895 D1: Windows path form — fileURLToPath gives C:\\…\\ (no leading slash), which joins", () => {
-    const windows = fileURLToPath("file:///C:/repo/packages/app/tests/..", { windows: true });
-
-    expect(windows).toBe("C:\\repo\\packages\\app\\");
-    expect(win32.join(windows, "profiles", "w", "p.yaml")).toBe(
-      "C:\\repo\\packages\\app\\profiles\\w\\p.yaml",
+  it("a prompt override replaces the declared prompt of that agent only", async () => {
+    const environment = await TestEnvironment.of(ProfileApplication, { profile: "terse" });
+    const kid = environment.assembled.workflows.find(
+      (one) => one.config.name === "profile-kid-workflow",
     );
-    expect(new URL("file:///C:/repo/packages/app/").pathname).toBe("/C:/repo/packages/app/");
+    const boss = environment.assembled.workflows.find(
+      (one) => one.config.name === "profile-boss-workflow",
+    );
+
+    expect(kid?.prompts["kid-agent"]).toBe("Answer in one line.");
+    expect(boss?.prompts).toEqual({});
+  });
+});
+
+describe("#1318d1: a profile that fails closed", () => {
+  const message = /no profile "nope" in .*config — available: /;
+
+  it("an unknown profile is a ProfileError (Unknown) listing the ones that exist, in testWith", async () => {
+    const failure = TestEnvironment.of(ProfileApplication, { profile: "nope" });
+
+    await expect(failure).rejects.toBeInstanceOf(ProfileError);
+    await expect(failure).rejects.toThrow(message);
+    expect(await reasonOf(TestEnvironment.of(ProfileApplication, { profile: "nope" }))).toBe(
+      ProfileErrorReason.Unknown,
+    );
+  });
+
+  it("createApp says the same", async () => {
+    await expect(createApp(ProfileApplication, { profile: "nope" })).rejects.toThrow(message);
+  });
+
+  it("one unknown among known ones fails the whole selection", async () => {
+    await expect(
+      TestEnvironment.of(ProfileApplication, { profile: ["low-thinking", "nope"] }),
+    ).rejects.toThrow(/no profile "nope"/);
+  });
+
+  it("<name>.config.ts and <name>.config.yaml together are Duplicate", async () => {
+    const attempt = TestEnvironment.of(ProfileApplication, { profile: "dup" });
+
+    await expect(attempt).rejects.toThrow(/profile "dup" has two files/);
+    expect(await reasonOf(TestEnvironment.of(ProfileApplication, { profile: "dup" }))).toBe(
+      ProfileErrorReason.Duplicate,
+    );
+  });
+
+  it.each([
+    ["an empty name", "low-thinking,,economy"],
+    ["a name that is none", "Low_Thinking"],
+    ["a name twice", "economy,economy"],
+  ])("%s is BadName", async (_what, profile) => {
+    expect(await reasonOf(TestEnvironment.of(ProfileApplication, { profile }))).toBe(
+      ProfileErrorReason.BadName,
+    );
+  });
+
+  it("a typo in a key is Invalid, naming the file and the path, never a value", async () => {
+    const attempt = TestEnvironment.of(ProfileApplication, { profile: "typo" });
+
+    await expect(attempt).rejects.toThrow(
+      /typo\.config\.yaml: workflows\.profile-kid-workflow\.agents\.kid-agent/,
+    );
+    expect(await reasonOf(TestEnvironment.of(ProfileApplication, { profile: "typo" }))).toBe(
+      ProfileErrorReason.Invalid,
+    );
+  });
+
+  it("an agent or a workflow the application does not have is Unknown", async () => {
+    await expect(
+      TestEnvironment.of(ProfileApplication, { profile: "ghost-agent" }),
+    ).rejects.toThrow(/workflows\.profile-kid-workflow: unknown agents: ghost-agent/);
+    await expect(
+      TestEnvironment.of(ProfileApplication, { profile: "ghost-workflow" }),
+    ).rejects.toThrow(/no such workflow in the application: ghost-workflow/);
+  });
+
+  it("a ${…} in a YAML file is Forbidden: only defineEnv reads the process environment", async () => {
+    const attempt = TestEnvironment.of(ProfileApplication, { profile: "interpolated" });
+
+    await expect(attempt).rejects.toThrow(
+      /interpolated\.config\.yaml: workflows\.profile-kid-workflow\.prompts\.kid-agent/,
+    );
+    expect(
+      await reasonOf(TestEnvironment.of(ProfileApplication, { profile: "interpolated" })),
+    ).toBe(ProfileErrorReason.Forbidden);
+  });
+
+  it("a YAML file cannot enable a disabled feature (memory), nor hold classes", async () => {
+    expect(
+      await reasonOf(TestEnvironment.of(ProfileApplication, { profile: "enable-memory" })),
+    ).toBe(ProfileErrorReason.Forbidden);
+    expect(await reasonOf(TestEnvironment.of(ProfileApplication, { profile: "yaml-class" }))).toBe(
+      ProfileErrorReason.Forbidden,
+    );
+  });
+});
+
+describe("#1318d1: a profile that switches a model to a provider the application does not have", () => {
+  const unserved =
+    /\[model\.missing-provider\] profile-kid-workflow agents\.kid-agent = cloud\/x: modelProvider cloud-model-provider is not listed/;
+
+  it("testWith reports it at assembly, not at the first call", async () => {
+    await expect(TestEnvironment.of(ProfileApplication, { profile: "to-cloud" })).rejects.toThrow(
+      unserved,
+    );
+  });
+
+  it("createApp reports it the same way", async () => {
+    await expect(createApp(ProfileApplication, { profile: "to-cloud" })).rejects.toThrow(unserved);
   });
 });

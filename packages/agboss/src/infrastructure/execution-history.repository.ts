@@ -5,6 +5,8 @@ import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { ExecutionAuditEventRecord } from "./execution-audit-log.repository.js";
 import type { OutboundCallRecord } from "./outbound-call.repository.js";
+import type { Page, PageQuery } from "../app/page.js";
+import { listingWindowOf, pageOfWindow } from "./listing-window.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 
@@ -15,7 +17,7 @@ import type { InMemoryDatabase } from "./in-memory-database.js";
  * nothing is kept), saved when its tree rests or ends and removed by the recovery sweep on the
  * `Clock` once it ended longer ago than that. Listed only in `@Application({ providers })`; the
  * built-in default is in memory, `SqliteExecutionHistoryRepository` keeps it in the application's
- * SQLite file. `agboss records export` reads it.
+ * SQLite file. `agboss executions export` reads it.
  */
 
 /** How a kept execution stands: resting at a pause, or ended. */
@@ -23,6 +25,7 @@ export enum ExecutionHistoryStatus {
   Paused = "paused",
   Finished = "finished",
   Failed = "failed",
+  Stopped = "stopped",
   Cancelled = "cancelled",
 }
 
@@ -71,15 +74,20 @@ export interface ExecutionHistoryRecord extends ExecutionRecord {
   readonly auditLog?: readonly ExecutionAuditEventRecord[];
   /**
    * Every call its tree made that left the system (#505), in the order recorded, masked like the
-   * record — so `agboss records export` carries them. None in a record saved before #505.
+   * record — so `agboss executions export` carries them. None in a record saved before #505.
    */
   readonly outboundCalls?: readonly OutboundCallRecord[];
 }
 
-/** A page of a listing: `limit` records after the first `offset`, oldest start first. */
-export interface ExecutionHistoryPage {
-  readonly offset: number;
-  readonly limit: number;
+/** Which records a listing reads: those started in `[from, to)`, a page of them (`cursor`, `limit`). */
+export interface ExecutionHistoryQuery extends PageQuery {
+  readonly from: Date;
+  readonly to: Date;
+}
+
+/** One tenant's records started in `[from, to)`. */
+export interface TenantExecutionHistoryQuery extends ExecutionHistoryQuery {
+  readonly tenantId: string;
 }
 
 export abstract class ExecutionHistoryRepository {
@@ -106,21 +114,19 @@ export abstract class ExecutionHistoryRepository {
 
   /** One tenant's records started in `[from, to)`, oldest first, a page of them. */
   abstract findAllByTenantIdAndStartedAtBetween(
-    tenantId: string,
-    from: Date,
-    to: Date,
-    page: ExecutionHistoryPage,
-  ): Promise<ExecutionHistoryRecord[]>;
+    query: TenantExecutionHistoryQuery,
+  ): Promise<Page<ExecutionHistoryRecord>>;
 
   /** Every tenant's records started in `[from, to)`, oldest first, a page of them. */
   abstract findAllByStartedAtBetween(
-    from: Date,
-    to: Date,
-    page: ExecutionHistoryPage,
-  ): Promise<ExecutionHistoryRecord[]>;
+    query: ExecutionHistoryQuery,
+  ): Promise<Page<ExecutionHistoryRecord>>;
 
-  /** Removes every record that ended before `cutoff` (the recovery sweep, `now - retention`). */
-  abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+  /**
+   * Removes every record that ended before `cutoff` (the recovery sweep, `now - retention`) and gives
+   * the number removed (`onTtlSweep`'s count).
+   */
+  abstract deleteExpired(cutoff: Date): Promise<number>;
 }
 
 /** The row key of a record (`\u0000` never occurs in an id). */
@@ -178,31 +184,32 @@ export class InMemoryExecutionHistoryRepository extends ExecutionHistoryReposito
   }
 
   async findAllByTenantIdAndStartedAtBetween(
-    tenantId: string,
-    from: Date,
-    to: Date,
-    page: ExecutionHistoryPage,
-  ): Promise<ExecutionHistoryRecord[]> {
+    query: TenantExecutionHistoryQuery,
+  ): Promise<Page<ExecutionHistoryRecord>> {
+    const window = listingWindowOf(query);
     const found = await this.#where(
-      (record) => record.tenantId === tenantId && startedBetween(record, from, to),
+      (record) =>
+        record.tenantId === query.tenantId && startedBetween(record, query.from, query.to),
     );
-    return found.slice(page.offset, page.offset + page.limit);
+    return pageOfWindow(found.slice(window.offset, window.offset + window.limit + 1), window);
   }
 
   async findAllByStartedAtBetween(
-    from: Date,
-    to: Date,
-    page: ExecutionHistoryPage,
-  ): Promise<ExecutionHistoryRecord[]> {
-    const found = await this.#where((record) => startedBetween(record, from, to));
-    return found.slice(page.offset, page.offset + page.limit);
+    query: ExecutionHistoryQuery,
+  ): Promise<Page<ExecutionHistoryRecord>> {
+    const window = listingWindowOf(query);
+    const found = await this.#where((record) => startedBetween(record, query.from, query.to));
+    return pageOfWindow(found.slice(window.offset, window.offset + window.limit + 1), window);
   }
 
-  deleteByEndedAtBefore(cutoff: Date): Promise<void> {
+  deleteExpired(cutoff: Date): Promise<number> {
+    let removed = 0;
     for (const [key, record] of this.database.executionHistory)
-      if (record.endedAt !== undefined && Date.parse(record.endedAt) < cutoff.getTime())
+      if (record.endedAt !== undefined && Date.parse(record.endedAt) < cutoff.getTime()) {
         this.database.executionHistory.delete(key);
-    return Promise.resolve();
+        removed += 1;
+      }
+    return Promise.resolve(removed);
   }
 
   /** The records that match, oldest start first, copies. */

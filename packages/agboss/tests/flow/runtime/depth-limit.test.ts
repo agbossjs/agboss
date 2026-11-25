@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect } from "vitest";
-import { DepthLimitExceededError, LimitExceededError, ThisWorkflow } from "../../../src/index.js";
+import { DepthLimitExceededError, LimitExceededError } from "../../../src/index.js";
 import { ChildExecutionStatus } from "../../../src/flow/runtime/child-records.js";
 import { TestConcurrency, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -10,6 +10,7 @@ import {
   DepthStoppedAction,
   RecursionApplication,
   resetRecursionLog,
+  ShallowWorkflow,
   ShallowWorkflowStart,
   SplitStoppedAction,
   SplitWorkflowStart,
@@ -18,8 +19,8 @@ import {
 /**
  * #264 AC6 — the hard stop: a recursion launched by code past `maxDepth` does not start; the level
  * above gets `ChildExecutionFailedError` caused by `DepthLimitExceededError`, which
- * `.onError(LimitExceededError, …)` right after `.toWorkflow(ThisWorkflow)` takes — and
- * `.onJoinError(LimitExceededError, …)` after a per-item launch's join.
+ * `.onError(LimitExceededError, …)` right after `.toWorkflow(() => ItsOwnClass)` takes — and
+ * `.onError(LimitExceededError, …)` after a per-item launch's join.
  */
 
 const test = testWith(RecursionApplication);
@@ -30,7 +31,7 @@ beforeEach(() => {
   resetRecursionLog();
 });
 
-describe("AC6: .toWorkflow(ThisWorkflow) by code past maxDepth", () => {
+describe("AC6: .toWorkflow(() => Self) by code past maxDepth", () => {
   test("a count that ends in time: two levels, no limit", async ({ app }) => {
     const result = await execute(app, CountdownWorkflowStart, { left: 1 });
 
@@ -79,7 +80,7 @@ describe("AC6: .toWorkflow(ThisWorkflow) by code past maxDepth", () => {
 
     expect(result).toFinishWith(CountStoppedWorkflowFinish, { depth: 1 });
     expect(result).toHaveHandledError(DepthLimitExceededError, {
-      at: ThisWorkflow,
+      at: ShallowWorkflow,
       by: DepthStoppedAction,
     });
     expect(result.handledErrors[0]?.error).toMatchObject({
@@ -89,9 +90,9 @@ describe("AC6: .toWorkflow(ThisWorkflow) by code past maxDepth", () => {
   });
 });
 
-describe("AC6: .toParallelWorkflows(ThisWorkflow) by code past maxDepth", () => {
+describe("AC6: .forEachItem(() => Self) by code past maxDepth", () => {
   real(
-    "each level-2 child's launch is refused; its .onJoinError finishes it",
+    "each level-2 child's launch is refused; its .onError finishes it",
     async ({ app, mockAction }) => {
       const result = await execute(app, SplitWorkflowStart, { left: 5 });
 

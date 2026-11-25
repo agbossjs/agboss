@@ -1,12 +1,12 @@
 import { AGBossError } from "../core/errors.js";
 /** Stable codes of a model setting that cannot work (startup and `agboss check --models`). */
 export type ModelProblemCode =
-  | "model.unserved"
-  | "model.ambiguous-provider"
+  | "model.missing-provider"
+  | "model.incompatible-provider"
+  | "model.missing"
   | "model.unknown-model"
   | "model.unsupported-setting"
   | "model.no-price"
-  | "model.fallback-unmapped"
   | "model.fallback-no-price"
   | "model.no-matching-endpoint"
   | "model.unsupported-input";

@@ -20,7 +20,6 @@ import {
   Clock,
   StoreClock,
   ExecutionLeaseRepository,
-  FencedEffectSettings,
   InMemoryFencedEffectRepository,
   Injectable,
   SqliteExecutionLeaseRepository,
@@ -37,7 +36,7 @@ import {
 
 const LEASE_DEPS = { deps: [StoreClock, ApplicationContext, IN_MEMORY_DATABASE] } as const;
 const EFFECT_DEPS = {
-  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository],
 } as const;
 
 @Injectable(EFFECT_DEPS)

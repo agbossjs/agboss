@@ -1,13 +1,12 @@
 import type { StoreDescriptor } from "../execution-lease.repository.js";
-import { z } from "zod";
 import type { OutboundCallLeaseState } from "../execution-audit-log.repository.js";
+import type { Page } from "../../app/page.js";
 import { Injectable } from "../../components/decorators.js";
 import { StoreClock, lazyLoad } from "../clock.js";
 import type { EffectKey } from "../fenced-effect.repository.js";
 import {
   OutboundCallRepository,
   OutboundCallStatus,
-  type OutboundCallPage,
   type OutboundCallStatusQuery,
   type OutboundCallLease,
   type OutboundCallFailure,
@@ -18,12 +17,14 @@ import {
   type OutboundCallState,
 } from "../outbound-call.repository.js";
 import { pendingOutboundCallOf } from "../fenced-effect-key.js";
-import { parsedStoredJson } from "../stored-step.js";
 import { sqlitePageOf } from "./sqlite-outbound-call-pages.js";
 import {
+  AS_READ,
   OUTBOUND_CALL_COLUMNS,
-  OUTBOUND_CALLS_SCHEMA,
-  upgradeOutboundCallsSeq,
+  recordFound,
+  recordOf,
+  storedUnder,
+  whereOf,
 } from "./sqlite-outbound-call-schema.js";
 import {
   checkSqliteCancel,
@@ -31,32 +32,7 @@ import {
   SqliteConnection,
   sqliteImplementation,
 } from "./sqlite-connection.js";
-import { ensureLeaseSchema } from "./sqlite-lease-schema.js";
-import {
-  checkSqliteFence,
-  FENCED_EFFECTS_SCHEMA,
-  RAISE_MARK,
-} from "./sqlite-fenced-effect.repository.js";
-
-const RecordRow = z.object({ record: z.string() });
-
-const BY_STEP = "scope_key = ? AND idempotency_key = ? AND name = ? AND business_key IS NULL";
-const BY_BUSINESS_KEY = "tenant_id = ? AND name = ? AND business_key = ?";
-
-/** Where `key`'s row is (#508): by its step, or by its tenant, name and business key. */
-const whereOf = (key: EffectKey): readonly [string, readonly string[]] =>
-  key.businessKey === undefined
-    ? [BY_STEP, [key.scopeKey, key.idempotencyKey, key.name]]
-    : [BY_BUSINESS_KEY, [key.tenantId, key.name, key.businessKey]];
-
-/** The row as its writer read it: its status, attempt and attempt owner (#508). */
-const AS_READ =
-  "status = ? AND json_extract(record, '$.attempt') = ? AND json_extract(record, '$.attemptOwner') = ?";
-
-/** A row's record, as the store wrote it. */
-const recordOf = (row: unknown): OutboundCallRecord =>
-  // written by this store from an OutboundCallRecord
-  parsedStoredJson("outbound call record", RecordRow.parse(row).record, {}) as OutboundCallRecord;
+import { checkSqliteFence, raiseSqliteMark } from "./sqlite-fenced-effect.repository.js";
 
 /**
  * `OutboundCallRepository` on the application's SQLite file (#505): one row per intent in
@@ -74,10 +50,6 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     private readonly clock: Pick<StoreClock, "now">,
   ) {
     super();
-    ensureLeaseSchema(connection);
-    connection.ensureSchema("fenced_effects", FENCED_EFFECTS_SCHEMA);
-    upgradeOutboundCallsSeq(connection);
-    connection.ensureSchema("outbound_calls", OUTBOUND_CALLS_SCHEMA);
   }
 
   /**
@@ -106,6 +78,8 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
   saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean> {
     return this.#fenced(key, () => {
       checkSqliteCancel(this.connection.database, key); // #909: a new intent is a new send
+      // recorded already — under the key, or under the digest of a secret since rotated
+      if (this.#found(key) !== undefined) return false;
       const record = pendingOutboundCallOf(key, intent, this.clock.now());
       const { changes } = this.connection.database
         .prepare(
@@ -137,22 +111,41 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     return this.#update(key, (found) => claimedOf(found, expected, claim, startedAt), true);
   }
 
-  markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean> {
-    return this.#ended(key, attemptOwner, { status: OutboundCallStatus.Completed, result });
+  markCompleted(
+    key: EffectKey,
+    attemptOwner: string,
+    result: string,
+    expiresAt: Date | null,
+  ): Promise<boolean> {
+    const ending = { status: OutboundCallStatus.Completed, result } as const;
+    return this.#ended(key, attemptOwner, ending, expiresAt);
   }
 
-  markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure): Promise<boolean> {
-    return this.#ended(key, attemptOwner, {
-      status: OutboundCallStatus.Failed,
-      failure: { ...failure },
-    });
+  markFailed(
+    key: EffectKey,
+    attemptOwner: string,
+    failure: OutboundCallFailure,
+    expiresAt: Date | null,
+  ): Promise<boolean> {
+    const ending = { status: OutboundCallStatus.Failed, failure: { ...failure } } as const;
+    return this.#ended(key, attemptOwner, ending, expiresAt);
   }
 
   /** The attempt of `attemptOwner` ended as `ending`, now: `false` when a newer one owns it. */
-  async #ended(key: EffectKey, attemptOwner: string, ending: OutboundCallEnding): Promise<boolean> {
+  async #ended(
+    key: EffectKey,
+    attemptOwner: string,
+    ending: OutboundCallEnding,
+    expiresAt: Date | null,
+  ): Promise<boolean> {
     const endedAt = this.clock.now().toISOString();
     const { endedOf } = await this.#changes;
-    return this.#update(key, (found) => endedOf(found, attemptOwner, ending, endedAt));
+    return this.#update(
+      key,
+      (found) => endedOf(found, attemptOwner, ending, endedAt),
+      false,
+      expiresAt?.getTime() ?? null,
+    );
   }
 
   findAllByTenantIdAndRootExecutionId(
@@ -172,7 +165,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
    * while it lives, through a `VACUUM` or a restore, and never given again. The cursor is the page's
    * last `seq`, as text.
    */
-  findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<OutboundCallPage> {
+  findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<Page<OutboundCallRecord>> {
     return sqlitePageOf(this.connection.database, query, recordOf);
   }
 
@@ -181,18 +174,15 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     return sqliteLeaseStateOf(this.connection.database, lease, this.clock.now());
   }
 
-  deleteByEndedAtBefore(cutoff: Date): Promise<void> {
-    this.connection.database
-      .prepare("DELETE FROM outbound_calls WHERE ended_at IS NOT NULL AND ended_at < ?")
-      .run(cutoff.getTime());
-    return Promise.resolve();
+  deleteExpired(now: Date): Promise<number> {
+    const { changes } = this.connection.database
+      .prepare("DELETE FROM outbound_calls WHERE expires_at IS NOT NULL AND expires_at <= ?")
+      .run(now.getTime());
+    return Promise.resolve(Number(changes));
   }
 
   #found(key: EffectKey): OutboundCallRecord | undefined {
-    const row = this.connection.database
-      .prepare(`SELECT record FROM outbound_calls WHERE ${whereOf(key)[0]}`)
-      .get(...whereOf(key)[1]);
-    return row === undefined ? undefined : recordOf(row);
+    return recordFound(this.connection.database, key);
   }
 
   /** A fenced change of the key's intent, written under the key's token; none recorded → nothing. */
@@ -200,13 +190,14 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
     key: EffectKey,
     change: (found: OutboundCallRecord) => OutboundCallRecord | undefined,
     isSend = false,
+    expiresAt: number | null = null,
   ): Promise<boolean> {
     return this.#fenced(key, () => {
       if (isSend) checkSqliteCancel(this.connection.database, key);
       const found = this.#found(key);
       if (found === undefined) return false;
       const changed = change(found);
-      return changed !== undefined && this.#written(key, changed, found);
+      return changed !== undefined && this.#written(key, changed, found, expiresAt);
     });
   }
 
@@ -216,18 +207,21 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
    * The reference for a port to a store with row locks: here `from` was read in this same `BEGIN
    * IMMEDIATE` transaction, so exactly one row changes — any other count is a bug, thrown (#626).
    */
-  #written(key: EffectKey, change: OutboundCallRecord, from: OutboundCallRecord): true {
+  #written(
+    key: EffectKey,
+    change: OutboundCallRecord,
+    from: OutboundCallRecord,
+    expiresAt: number | null,
+  ): true {
     const record = { ...change, token: key.token, leaseExecutionId: key.leaseExecutionId };
-    // a pending intent has no `endedAt`: an invalid date, whose NaN SQLite stores as NULL
-    const endedAt = new Date(record.endedAt ?? Number.NaN).getTime();
-    const [where, values] = whereOf(key);
+    const [where, values] = whereOf(storedUnder(key, from));
     const { changes } = this.connection.database
       .prepare(
-        `UPDATE outbound_calls SET status = ?, ended_at = ?, record = ? WHERE ${where} AND ${AS_READ}`,
+        `UPDATE outbound_calls SET status = ?, expires_at = ?, record = ? WHERE ${where} AND ${AS_READ}`,
       )
       .run(
         record.status,
-        endedAt,
+        expiresAt,
         JSON.stringify(record),
         ...values,
         from.status,
@@ -244,7 +238,7 @@ export class SqliteOutboundCallRepository extends OutboundCallRepository {
         this.connection.transaction(() => {
           const now = this.clock.now().getTime();
           checkSqliteFence(this.connection.database, key, now);
-          this.connection.database.prepare(RAISE_MARK).run(key.scopeKey, key.token, now);
+          raiseSqliteMark(this.connection.database, key, now);
           return work();
         }),
       );

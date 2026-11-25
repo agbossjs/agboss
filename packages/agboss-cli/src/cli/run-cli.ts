@@ -1,4 +1,5 @@
 import { inspect } from "node:util";
+import { AGBossError, BacktraceMode } from "@agboss/core";
 import { COMMANDS, commandName, type CommandSpec } from "./commands.js";
 import type { CliIo, CommandContext, CommandHandler, CommandOutcome } from "./context.js";
 import { envelopeOf, envelopeText, failedEnvelope, oneLine } from "./envelope.js";
@@ -12,8 +13,9 @@ const HANDLERS: Readonly<Record<string, () => Promise<CommandHandler>>> = {
   run: async () => (await import("../cli.js")).handle,
   describe: async () => (await import("../describe.js")).handle,
   check: async () => (await import("../check.js")).handle,
+  explain: async () => (await import("../explain.js")).handle,
   rag: async () => (await import("../rag-index.js")).handle,
-  records: async () => (await import("../records.js")).handle,
+  executions: async () => (await import("../executions.js")).handle,
   hub: async () => (await import("../hub/hub-cli.js")).handle,
   dev: async () => (await import("../dev.js")).handle,
   studio: async () => (await import("../studio.js")).handle,
@@ -135,11 +137,18 @@ function finish(call: Call, outcome: CommandOutcome): number {
   return EXIT_CODES[outcome.failure.kind];
 }
 
+/** `--debug`: a framework error as its report with every frame (#1325c), anything else as `util.inspect` shows it. */
+function debugText(thrown: unknown): string {
+  return thrown instanceof AGBossError
+    ? thrown.format({ backtrace: BacktraceMode.Full })
+    : inspect(thrown);
+}
+
 function fail(call: Call, thrown: unknown): number {
   const error = cliErrorOf(thrown);
   if (call.json) call.io.stdout.write(envelopeText(failedEnvelope(call.command, error)));
   call.io.stderr.write(`agboss ${call.command}: ${oneLine(error.message)}\n`);
-  if (call.debug) call.io.stderr.write(`${inspect(thrown)}\n`);
+  if (call.debug) call.io.stderr.write(`${debugText(thrown)}\n`);
   return EXIT_CODES[error.kind];
 }
 

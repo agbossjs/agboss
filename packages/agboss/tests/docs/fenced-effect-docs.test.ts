@@ -1,6 +1,6 @@
 /**
  * #906 AC5: no doc of the repository tells a component to inject a store's own class for a fenced
- * effect — `deps: [ExecutionContext, FencedEffects]` is the way (#890): the store is infrastructure,
+ * effect — `deps: [Idempotency]` is the way (#890): the store is infrastructure,
  * listed in `@Application({ providers })`, never in a component's `deps`. (The Wiki's pages are
  * checked by `check:docs --wiki`; the page that said so, Several-instances, is fixed with this.)
  */
@@ -52,12 +52,12 @@ describe("#906 AC5: no doc injects a store class for a fenced effect", () => {
     expect(found).toEqual([]);
   });
 
-  it("AC5: they say `FencedEffects` where the typed transaction is explained", () => {
+  it("AC5: they say `Idempotency` where the typed transaction is explained", () => {
     const skill = readFileSync(
       join(repo, "packages/agboss/skills/agboss/references/09-persistence-k8s-and-deploy.md"),
       "utf8",
     );
 
-    expect(skill).toContain("inject `FencedEffects`");
+    expect(skill).toContain("inject `Idempotency`");
   });
 });

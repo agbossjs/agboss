@@ -128,9 +128,15 @@ describe("#1366: the compiled graph", () => {
     });
     const reach = (component: unknown): Deps | undefined =>
       component === GhostChild ? sub : deps.childDepsOf?.(component as never);
+    // the child names the root's own class: an ancestor, which is no recursion of the child
+    const holder = withNode(deps, {
+      id: "ancestor-workflow" as ComponentName,
+      kind: NodeKind.Workflow,
+      component: deps.graph.type,
+    });
     const sub: Deps = {
-      ...ghost,
-      graph: { ...ghost.graph, type: GhostChild },
+      ...holder,
+      graph: { ...holder.graph, type: GhostChild },
       childDepsOf: reach,
     };
     const root: Deps = { ...ghost, childDepsOf: reach };

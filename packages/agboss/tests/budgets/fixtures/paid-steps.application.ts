@@ -19,6 +19,7 @@ import {
 } from "./paid-steps.workflow.js";
 import { PaidNestedWorkflow, PaidRefundWorkflow } from "./paid-nested.workflow.js";
 import { PaidStepsLog } from "./paid-steps.actions.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #634 — every paid step's workflow on the test budgets (the execution may spend $100, the tenant
@@ -26,6 +27,7 @@ import { PaidStepsLog } from "./paid-steps.actions.js";
  */
 @Application({
   name: "paid-steps-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [

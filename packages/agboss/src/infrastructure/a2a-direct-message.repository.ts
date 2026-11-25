@@ -1,3 +1,5 @@
+import { type Usd } from "../units/index.js";
+import type { A2AEndpointOwned } from "./a2a-task.repository.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
 
 /**
@@ -5,8 +7,8 @@ import type { StoreDescriptor } from "./execution-lease.repository.js";
  * with a direct `Message` (`A2AReply.Message`) — no task, no durable execution of the caller's to
  * follow. One row per accepted message, keyed `(tenantId, ownerId, messageId)`: `InFlight` while
  * an attempt makes its reply (bounded by `expiresAt`), `Completed` with the reply once made — a
- * resend within `@Application({ retention: { a2aMessages } })` (default `minutes(15)`) gets it,
- * never a second run of the skill. A failed reply is not kept.
+ * resend within its endpoint's `ttl.messages` (`@A2AEndpoint`, #1320) gets it, never a second run of
+ * the skill. A failed reply is not kept.
  *
  * One `messageId` is one message across both reply modes: `saveIfAbsent` claims the id among the
  * A2A task store's messages (`A2ATaskRepository`, a claim of no task: `taskId` `""`) in the same
@@ -38,7 +40,9 @@ export interface A2ADirectMessageReply {
   readonly finish: string;
   readonly output: unknown;
   /** What the run spent in all, in USD: what a trusted caller's run report signs. */
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
+  /** The tokens it used (#1318): what a trusted caller's run report signs beside the dollars. */
+  readonly spentTokens?: number;
 }
 
 /** One attempt at a reply: its root execution's id, when it began and until when it may run. */
@@ -51,7 +55,8 @@ export interface A2ADirectMessageAttempt {
 }
 
 /** A direct message as kept. */
-export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt {
+export interface A2ADirectMessageRecord
+  extends A2ADirectMessageKey, A2ADirectMessageAttempt, A2AEndpointOwned {
   /** The hash of what the message asked: a resend with another one is not the same message. */
   readonly requestHash: string;
   /** The skill (the exported start's name) it runs. */
@@ -153,14 +158,15 @@ export abstract class A2ADirectMessageRepository {
   ): Promise<readonly A2ADirectMessageRecord[]>;
 
   /**
-   * Removes at most `limit` completed messages accepted before `cutoff` — never one in flight, however
-   * old: a live attempt keeps its row, its id's claim and its reply to come (#860 D2) —, the oldest first, with the claims
-   * of their ids — and at most `limit` claims more left by messages removed before (a failed
-   * attempt's), and gives back the messages it removed (their attempts' files go next). Atomic
-   * against a resend of a failed message: a message kept keeps its claim.
+   * Removes, per endpoint, at most `limit` completed messages accepted before the endpoint's cutoff —
+   * never one in flight, however old: a live attempt keeps its row, its id's claim and its reply to
+   * come (#860 D2) —, the oldest first, with the claims of their ids — and at most `limit` claims
+   * more left by messages of the endpoint removed before (a failed attempt's), and gives back how
+   * many messages it removed. An endpoint with no entry is never swept. Atomic against a resend of a
+   * failed message: a message kept keeps its claim.
    */
-  abstract deleteByCreatedAtBefore(
-    cutoff: Date,
+  abstract deleteExpired(
+    cutoffsByEndpoint: ReadonlyMap<string, Date>,
     limit: number,
-  ): Promise<readonly A2ADirectMessageRecord[]>;
+  ): Promise<number>;
 }

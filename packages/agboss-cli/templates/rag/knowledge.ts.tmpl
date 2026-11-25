@@ -1,22 +1,23 @@
 import { join } from "node:path";
-import { Rag, RagTenancy, SqliteFtsConnector } from "@agboss/core/rag";
+import { Rag, RagScope, SqliteFtsRagSource } from "@agboss/core/rag";
 
 /**
- * Full-text search (SQLite FTS5, BM25) over {{folder}}/ — swap for your own RagConnector any time.
- * Each tenant indexes its own copy (`PerTenant`); notes every tenant may read can be `RagTenancy.Shared`.
+ * Full-text search (SQLite FTS5, BM25) over {{folder}}/ — swap for your own RagSource any time.
+ * One corpus every tenant reads (`RagScope.Shared`); notes of each tenant or owner would be
+ * `RagScope.Tenant` / `RagScope.Owner` with a `directory(scopeId)` lookup.
  */
 @Rag({
   name: "{{kebab}}-rag",
   description: "{{title}} — the notes in {{folder}}/",
-  tenancy: RagTenancy.PerTenant,
+  scope: RagScope.Shared,
   topK: 3,
 })
-export class {{pascal}}Rag extends SqliteFtsConnector {
+export class {{pascal}}Rag extends SqliteFtsRagSource {
   constructor() {
     super({
-      folder: join(process.cwd(), "{{folder}}"),
+      directory: join(process.cwd(), "{{folder}}"),
       // the index lives in the project's git-ignored .agboss/ (`npx agboss rag index` builds it)
-      sqlitePath: join(process.cwd(), ".agboss", "rag", "{{kebab}}-rag.sqlite"),
+      path: join(process.cwd(), ".agboss", "rag", "{{kebab}}-rag.sqlite"),
     });
   }
 }

@@ -2,10 +2,11 @@
  * #860 AC3 — `[a2a.message-store-not-shared]` in every form: the direct store and the task store
  * declare one backend, or the rule names both and the store to list — for every kind of task store,
  * an undeclared one, one of a kind no rule knows; several exposes named; an application with no
- * direct-reply skill (or no `@A2AExpose` at all) never checked.
+ * direct-reply skill (or no `@A2AEndpoint` at all) never checked.
  */
+import { hours, minutes } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
-import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint, A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
@@ -21,6 +22,7 @@ import {
   UndeclaredA2ATasks,
 } from "../fixtures/a2a-task-stores.fixture.js";
 import { QuoteWorkflow, QuoteWorkflowStart } from "../fixtures/direct.application.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** A direct store that declares no backend. */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
@@ -29,26 +31,27 @@ class UndeclaredDirectMessages extends InMemoryA2ADirectMessageRepository {
 }
 
 const exposeOf = (name: string, reply: A2AReply): Class => {
-  @A2AExpose({
+  @A2AEndpoint({
     name,
     version: "1.0.0",
     description: "Quotes",
-    exports: [QuoteWorkflowStart],
-    skills: { "quote-workflow-start": { reply } },
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [{ start: QuoteWorkflowStart, reply }],
   })
   class AnA2AExpose {}
   return AnA2AExpose;
 };
 
-const applicationWith = (providers: readonly Provider[], exposes: readonly Class[]): Class => {
+const applicationWith = (providers: readonly Provider[], endpoints: readonly Class[]): Class => {
   @Application({
     name: "stores-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: SqliteTestEnvironment,
     workflows: [QuoteWorkflow],
     budgets: TEST_BUDGETS,
     providers,
-    exposes,
+    endpoints,
   })
   class StoresApplication {}
   return StoresApplication;
@@ -104,12 +107,12 @@ describe("#860 AC3: [a2a.message-store-not-shared], each form", () => {
   });
 
   it("AC3: several exposes with direct-reply skills are named, comma-separated", async () => {
-    const exposes = [
+    const endpoints = [
       exposeOf("quotes-a2a-expose", A2AReply.Message),
       exposeOf("prices-a2a-expose", A2AReply.Message),
     ];
 
-    const found = await storeViolationsOf(applicationWith([MongoA2ATasks], exposes));
+    const found = await storeViolationsOf(applicationWith([MongoA2ATasks], endpoints));
 
     expect(found[0]?.message).toContain("(quotes-a2a-expose, prices-a2a-expose)");
   });

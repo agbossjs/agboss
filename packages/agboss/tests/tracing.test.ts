@@ -1,12 +1,21 @@
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
-import { CallbackHandler } from "@langfuse/langchain";
+import type { TracerProvider } from "@opentelemetry/api";
+import {
+  BasicTracerProvider,
+  InMemorySpanExporter,
+  SimpleSpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
 import { describe, expect, it } from "vitest";
-import { langfuseTracing } from "../src/tracing/langfuse.js";
-import { tracingOf, type ExecutionTracing, type TraceContext } from "../src/tracing/index.js";
+import {
+  tracingOf,
+  type ExecutionTracing,
+  type TraceContext,
+  type TracingAdapter,
+} from "../src/tracing/index.js";
 import { routeTo, fakeDeps, runText } from "./helpers.js";
+import { call } from "./tracing/callbacks.js";
 
-/** A workflow's route of the process's tracing (#1130). */
-const ROUTE = { workflow: "job-scout", owner: {} };
+const LINK = { workflow: "job-scout", threadId: "t 1", runId: "r-1", tenantId: "acme" };
 
 /** Records which graph nodes started — proves callbacks reach the graph. */
 class NodeRecorder extends BaseCallbackHandler {
@@ -19,55 +28,112 @@ class NodeRecorder extends BaseCallbackHandler {
   }
 }
 
-describe("tracing", () => {
-  it("is off without Langfuse settings", () => {
-    expect(langfuseTracing({}, undefined, ROUTE)).toBeUndefined();
-    expect(
-      langfuseTracing({ LANGFUSE_PUBLIC_KEY: "pk", LANGFUSE_SECRET_KEY: "sk" }, undefined, ROUTE),
-    ).toBeUndefined();
+/** A provider the caller owns: it counts what `app.close()` does to it. */
+class CountingProvider extends BasicTracerProvider {
+  readonly calls: string[] = [];
+  override async forceFlush(): Promise<void> {
+    this.calls.push("forceFlush");
+    await super.forceFlush();
+  }
+  override async shutdown(): Promise<void> {
+    this.calls.push("shutdown");
+    await super.shutdown();
+  }
+}
+
+/** An adapter the application owns. */
+function adapterOf(calls: string[], provider: TracerProvider = new BasicTracerProvider()) {
+  const adapter: TracingAdapter = {
+    tracerProvider: provider,
+    traceUrl: (ctx) => `http://traces/${encodeURIComponent(ctx.threadId)}?run=${ctx.runId}`,
+    forceFlush: () => {
+      calls.push("forceFlush");
+      return Promise.resolve();
+    },
+    shutdown: () => {
+      calls.push("shutdown");
+      return Promise.resolve();
+    },
+  };
+  return adapter;
+}
+
+describe("tracing (#1324f)", () => {
+  it("is off without a tracerProvider: no tracing, nothing loaded", async () => {
+    await expect(tracingOf(undefined, undefined, { workflow: "w", owner: {} })).resolves.toBe(
+      undefined,
+    );
   });
 
-  it("tracingOf loads Langfuse only when it is configured (#195)", async () => {
-    await expect(
-      tracingOf({ LANGFUSE_PUBLIC_KEY: "pk" }, undefined, ROUTE),
-    ).resolves.toBeUndefined();
-    const tracing = await tracingOf(
-      {
-        LANGFUSE_PUBLIC_KEY: "pk-lf-test",
-        LANGFUSE_SECRET_KEY: "sk-lf-test",
-        LANGFUSE_BASE_URL: "http://localhost:3000",
-        LANGFUSE_PROJECT_ID: "p1",
-      },
-      undefined,
-      ROUTE,
-    );
-    expect(tracing?.sessionUrl("t1")).toBe("http://localhost:3000/project/p1/sessions/t1");
-    await tracing?.shutdown();
+  it("an adapter links the execution: its workflow, thread, run and tenant", async () => {
+    const tracing = await tracingOf(adapterOf([]), undefined, { workflow: "job-scout", owner: {} });
+
+    expect(tracing?.traceUrl(LINK)).toBe("http://traces/t%201?run=r-1");
+    await tracing?.close();
   });
 
-  it("with settings: one Langfuse handler per run, session = thread, tag = bundle", async () => {
-    const tracing = langfuseTracing(
+  it("a plain TracerProvider has no link; one whose traceUrl throws gives none, never an error", async () => {
+    const plain = await tracingOf(new BasicTracerProvider(), undefined, {
+      workflow: "w",
+      owner: {},
+    });
+    expect(plain?.traceUrl(LINK)).toBeUndefined();
+    const throwing = await tracingOf(
       {
-        LANGFUSE_PUBLIC_KEY: "pk-lf-test",
-        LANGFUSE_SECRET_KEY: "sk-lf-test",
-        LANGFUSE_BASE_URL: "http://127.0.0.1:9",
+        tracerProvider: new BasicTracerProvider(),
+        traceUrl: () => {
+          throw new Error("backend down");
+        },
       },
       undefined,
-      ROUTE,
+      { workflow: "w", owner: {} },
     );
+    expect(throwing?.traceUrl(LINK)).toBeUndefined();
+    await plain?.close();
+    await throwing?.close();
+  });
 
-    const [handler] =
-      tracing?.callbacks({
-        bundle: "job-scout",
-        threadId: "t-1",
-        runId: "r-1",
-        tenantId: "acme",
-      }) ?? [];
+  it("one handler per run; the run's first span carries the thread as its session", async () => {
+    const exporter = new InMemorySpanExporter();
+    const provider = new BasicTracerProvider({
+      spanProcessors: [new SimpleSpanProcessor(exporter)],
+    });
+    const tracing = await tracingOf(provider, undefined, { workflow: "job-scout", owner: {} });
+    const context: TraceContext = {
+      bundle: "job-scout",
+      threadId: "t-1",
+      runId: "r-1",
+      tenantId: "acme",
+    };
 
-    expect(handler).toBeInstanceOf(CallbackHandler);
-    expect(handler).toMatchObject({ sessionId: "t-1", tags: ["job-scout", "tenant:acme"] });
-    expect(tracing?.sessionUrl("t-1")).toBeUndefined();
-    await tracing?.shutdown();
+    const handlers = tracing?.callbacks(context) ?? [];
+    expect(handlers).toHaveLength(1);
+    const [handler] = handlers;
+    if (handler === undefined) throw new Error("no handler");
+    call(
+      handler,
+      "handleChainStart",
+      { id: ["x"] },
+      { a: 1 },
+      "run-1",
+      undefined,
+      [],
+      {},
+      "chain",
+      "job",
+    );
+    call(handler, "handleChainEnd", { b: 2 }, "run-1");
+    await tracing?.close();
+
+    const [span] = exporter.getFinishedSpans();
+    expect(span?.name).toBe("job");
+    expect(span?.attributes).toMatchObject({
+      "session.id": "t-1",
+      "agboss.tenant.id": "acme",
+      "agboss.run.id": "r-1",
+      "input.value": '{"a":1}',
+      "output.value": '{"b":2}',
+    });
   });
 
   it("passes the callbacks to the graph run with the thread and run ids", async () => {
@@ -78,8 +144,8 @@ describe("tracing", () => {
         seen.push(context);
         return [recorder];
       },
-      sessionUrl: (threadId) => `http://traces/sessions/${threadId}`,
-      shutdown: () => Promise.resolve(),
+      traceUrl: (ctx) => `http://traces/sessions/${ctx.threadId}`,
+      close: () => Promise.resolve(),
     };
     const deps = {
       ...(await fakeDeps({ "test/router": [routeTo("alpha-agent")], "test/alpha": ["ok"] })),
@@ -102,26 +168,46 @@ describe("tracing", () => {
     expect(result.traceUrl).toBe(`http://traces/sessions/${result.threadId}`);
   });
 
-  it("links the conversation when the project id is known, and has no link without tracing", async () => {
-    const tracing = langfuseTracing(
-      {
-        LANGFUSE_PUBLIC_KEY: "pk",
-        LANGFUSE_SECRET_KEY: "sk",
-        LANGFUSE_BASE_URL: "http://localhost:3000/",
-        LANGFUSE_PROJECT_ID: "my project",
-      },
-      undefined,
-      ROUTE,
-    );
-
-    expect(tracing?.sessionUrl("t 1")).toBe(
-      "http://localhost:3000/project/my%20project/sessions/t%201",
-    );
-    await tracing?.shutdown();
+  it("without tracing the output has no link", async () => {
     const plain = await runText(
       "Hi",
       await fakeDeps({ "test/router": [routeTo("alpha-agent")], "test/alpha": ["ok"] }),
     );
     expect(plain.traceUrl).toBeUndefined();
+  });
+});
+
+describe("closing the tracing (#1324f)", () => {
+  it("an owned adapter is flushed, then shut down — once, with its application's last workflow", async () => {
+    const calls: string[] = [];
+    const adapter = adapterOf(calls);
+    const owner = {};
+    const first = await tracingOf(adapter, undefined, { workflow: "first", owner });
+    const second = await tracingOf(adapter, undefined, { workflow: "second", owner });
+
+    await first?.close();
+    expect(calls).toEqual(["forceFlush"]);
+    await second?.close();
+    // a second close of the same workflow changes nothing
+    await second?.close();
+
+    expect(calls).toEqual(["forceFlush", "forceFlush", "shutdown"]);
+  });
+
+  it("a caller's TracerProvider is only flushed: the caller shuts it down", async () => {
+    const provider = new CountingProvider();
+    const tracing = await tracingOf(provider, undefined, { workflow: "w", owner: {} });
+
+    await tracing?.close();
+
+    expect(provider.calls).toEqual(["forceFlush"]);
+  });
+
+  it("a provider that cannot flush (the API's bare TracerProvider) closes without error", async () => {
+    const inner = new BasicTracerProvider();
+    const bare: TracerProvider = { getTracer: (name) => inner.getTracer(name) };
+    const tracing = await tracingOf(bare, undefined, { workflow: "w", owner: {} });
+
+    await expect(tracing?.close()).resolves.toBeUndefined();
   });
 });

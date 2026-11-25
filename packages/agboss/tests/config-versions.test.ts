@@ -12,7 +12,7 @@ import { executionVersions } from "../src/run/versions.js";
 import { routeTo, fakeDeps, runText } from "./helpers.js";
 
 describe("config versions", () => {
-  it("#116: the flow's routers, their texts and the limits are part of the versions", async () => {
+  it("#116: the flow's routers and their texts are part of the versions", async () => {
     const deps = await fakeDeps({});
     const [main] = deps.routers;
     if (main === undefined) throw new Error("test router missing");
@@ -31,11 +31,47 @@ describe("config versions", () => {
       ...deps,
       routers: [{ ...main, model: "typesafe/jev-2" }],
     });
-    const limited = executionVersions({ ...deps, maxSteps: 3 });
 
     expect(reworded.promptVersion).not.toBe(base.promptVersion);
     expect(otherModel.modelVersion).not.toBe(base.modelVersion);
-    expect(limited.configHash).not.toBe(base.configHash);
+  });
+
+  it("#1318: the operational limits are in no hash: a profile tunes them and a paused run resumes", async () => {
+    const deps = await fakeDeps({});
+    const base = executionVersions(deps);
+    const [name] = Object.keys(deps.config.agents);
+    if (name === undefined) throw new Error("test agent missing");
+    const agent = deps.config.agents[name];
+    if (agent === undefined) throw new Error("test agent missing");
+    const tuned = executionVersions({
+      ...deps,
+      maxSteps: 3,
+      config: {
+        ...deps.config,
+        defaults: { ...deps.config.defaults, tools: { maxToolCalls: 99, maxResultSize: 1024 } },
+        agents: { ...deps.config.agents, [name]: { ...agent, maxToolCalls: 99, maxRetries: 7 } },
+      },
+    });
+
+    expect(tuned).toEqual(base);
+  });
+
+  it("#1318: a model change is still a change", async () => {
+    const deps = await fakeDeps({});
+    const base = executionVersions(deps);
+    const [name] = Object.keys(deps.config.agents);
+    const agent = name === undefined ? undefined : deps.config.agents[name];
+    if (name === undefined || agent === undefined) throw new Error("test agent missing");
+    const moved = executionVersions({
+      ...deps,
+      config: {
+        ...deps.config,
+        agents: { ...deps.config.agents, [name]: { ...agent, model: "other/model" } },
+      },
+    });
+
+    expect(moved.configHash).not.toBe(base.configHash);
+    expect(moved.modelVersion).not.toBe(base.modelVersion);
   });
 
   it("AC2: every run is labelled with the declared version and the config hash", async () => {

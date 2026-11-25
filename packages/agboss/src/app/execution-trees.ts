@@ -9,6 +9,8 @@ import { InvalidThreadIdError } from "../core/errors.js";
 import type { Turn } from "../turns/index.js";
 import { writeCancelRequest, type CancelParts } from "./cancel-requests.js";
 import { cancelledPaused } from "./cancel-paused.js";
+import { endedResultOf } from "./ended-output.js";
+import { storedOutputOf } from "../pii/final-output-mask.js";
 import { currentOutputOf } from "./current-output.js";
 import { rootRecordOf } from "./ended-tree.js";
 import {
@@ -18,7 +20,7 @@ import {
   type ExecutionCancelRequest,
   type ExecutionTreeOfThread,
 } from "./execution-control.js";
-import { CANCELLED_STOP_REASON, cancelledErrorOf, type LiveRuns } from "./live-runs.js";
+import type { LiveRuns } from "./live-runs.js";
 import type { TreeState } from "./tree-move-types.js";
 import { ExecutionStatus } from "./types.js";
 
@@ -48,64 +50,73 @@ async function checkedTree<T>(tree: ExecutionTreeOfThread, read: () => Promise<T
   });
 }
 
-/**
- * Whether a failed record says its execution was cancelled — by the reasons the framework writes
- * itself (`cancelledErrorOf`, `cancelledRecordOutcome`), never by reading free text.
- */
-function isCancelledRecord(record: Turn, threadId: string): boolean {
-  const reasons = [cancelledErrorOf(threadId).message, CANCELLED_STOP_REASON];
-  return reasons.includes(record.stopReason);
-}
-
 /** Whether the tree's own checkpoint thread (its root execution id) has a checkpoint. */
 async function hasCheckpoint(parts: CancelParts, runId: string): Promise<boolean> {
   const snapshot = await readingGraphOf(parts.deps).getState(runConfig(runId));
   return snapshot.createdAt !== undefined;
 }
 
-/** What a tree's own record says when it runs or failed; `undefined` for any other record. */
+/** What a tree's own record says when it runs or ended without a finish; `undefined` for any other record. */
 function recordStateOf(
+  parts: CancelParts,
   record: Turn | undefined,
-  threadId: string,
 ): DurableExecutionState | undefined {
-  if (record?.status === ExecutionRecordStatus.Running)
-    return { status: DurableExecutionStatus.Running };
-  const isFailed =
-    record?.status === ExecutionRecordStatus.Failed ||
-    record?.status === ExecutionRecordStatus.Guarded;
-  if (!isFailed) return undefined;
-  return isCancelledRecord(record, threadId)
-    ? { status: DurableExecutionStatus.Cancelled }
-    : { status: DurableExecutionStatus.Failed, reason: record.stopReason };
+  switch (record?.status) {
+    case ExecutionRecordStatus.Running:
+      return { status: DurableExecutionStatus.Running };
+    case ExecutionRecordStatus.Cancelled:
+      return { status: DurableExecutionStatus.Cancelled };
+    case ExecutionRecordStatus.Stopped:
+      return { status: DurableExecutionStatus.Stopped };
+    case ExecutionRecordStatus.Failed:
+    case ExecutionRecordStatus.Guarded:
+      return { status: DurableExecutionStatus.Failed, reason: record.stopReason };
+    case ExecutionRecordStatus.Answered:
+      return answeredStateOf(parts, record);
+    default:
+      return undefined;
+  }
 }
 
 /**
- * What a finished tree spent (#844): its record's cost once the record says it answered — the
- * turn's whole spend, its strategies' memory update too (`finishRun` writes the record after it) —,
- * else (its record gone with the thread's window) its last checkpoint's.
+ * A tree whose record says it answered (#1321d, Q11): its checkpoints are gone with the tree's end
+ * (`forgetTree`), so the record is all that is left — its finish, its masked output (with its
+ * finish DTO's prototype) and its spend, which is its cost; the tokens are not kept.
  */
-export const finishedSpendOf = (
-  record: Pick<Turn, "status" | "costUsd"> | undefined,
-  checkpointed: number,
-): number => (record?.status === ExecutionRecordStatus.Answered ? record.costUsd : checkpointed);
+const answeredStateOf = (parts: CancelParts, record: Turn): DurableExecutionState | undefined => {
+  const ended = endedResultOf(parts.deps.graph, record);
+  return ended === undefined
+    ? undefined
+    : {
+        status: DurableExecutionStatus.Finished,
+        finish: ended.finish,
+        output: ended.output,
+        spentUsd: ended.spend.totalUsd,
+      };
+};
 
-/** Its paused run, else its last checkpoint at a finish; `undefined` when it is at neither. */
+/**
+ * Its paused run, else its last checkpoint at a finish (a tree whose end is still being recorded —
+ * its record not yet `Answered`, its checkpoints not yet forgotten); `undefined` when it is at neither.
+ */
 async function restStateOf(
   parts: CancelParts,
   state: TreeState,
-  record: Turn | undefined,
 ): Promise<DurableExecutionState | undefined> {
   try {
     const output = await currentOutputOf(parts.deps, parts.paused, state);
-    return output.status === ExecutionStatus.Paused
-      ? { status: DurableExecutionStatus.Paused, pending: output.pending }
-      : {
-          status: DurableExecutionStatus.Finished,
-          // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
-          finish: definedOf(output.finish, "a finished output names its finish").name,
-          output: output.output,
-          spentUsd: finishedSpendOf(record, output.spend.totalUsd),
-        };
+    if (output.status === ExecutionStatus.Paused)
+      return { status: DurableExecutionStatus.Paused, pending: output.pending };
+    // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
+    const { name } = definedOf(output.finish, "a finished output names its finish");
+    return {
+      status: DurableExecutionStatus.Finished,
+      finish: name,
+      // a stored state's output has its finish DTO's sensitive fields masked (#1301)
+      output: storedOutputOf(parts.deps, name, output.output),
+      spentUsd: output.spend.totalUsd,
+      spentTokens: output.spend.totalTokens,
+    };
   } catch (error) {
     if (error instanceof NotPausedError) return undefined;
     throw error;
@@ -113,9 +124,9 @@ async function restStateOf(
 }
 
 /**
- * Where a tree is from its durable records: its record on its thread (a failure, a cancel, a run),
- * else its paused run or its last checkpoint (the finish and its output, read whatever record window
- * the thread's later turns left), else whether any checkpoint shows it began.
+ * Where a tree is from its durable records: its record on its thread (a failure, a stop, a cancel, a run,
+ * an answer — the checkpoints of an ended tree are gone, #1321d), else its paused run or a checkpoint
+ * still at a finish, else whether any checkpoint shows it began.
  */
 export async function executionStateOf(
   parts: CancelParts,
@@ -124,7 +135,7 @@ export async function executionStateOf(
   return checkedTree(tree, async () => {
     const state = stateOf(parts, tree);
     const record = await rootRecordOf(parts.deps, state);
-    const known = recordStateOf(record, tree.threadId) ?? (await restStateOf(parts, state, record));
+    const known = recordStateOf(parts, record) ?? (await restStateOf(parts, state));
     if (known !== undefined) return known;
     const isBegun = record !== undefined || (await hasCheckpoint(parts, tree.rootExecutionId));
     return { status: isBegun ? DurableExecutionStatus.Running : DurableExecutionStatus.NotStarted };
@@ -146,7 +157,11 @@ export async function cancelExecution(
     const { trees, clock, live } = parts;
     const tree = { tenantId: request.tenantId, rootExecutionId: request.rootExecutionId };
     const requestedAt = clock.now().toISOString();
-    await writeCancelRequest(parts, tree, { requestedAt, ownerId: request.ownerId ?? null });
+    await writeCancelRequest(parts, tree, {
+      requestedAt,
+      ownerId: request.ownerId ?? null,
+      threadId: request.threadId,
+    });
     if (live.abortExecution(tree, request.threadId)) return ExecutionCancelOutcome.Aborted;
     const durable = await executionStateOf(parts, request);
     switch (durable.status) {

@@ -2,9 +2,9 @@ import {
   Action,
   EmptyEnvironment,
   ExecutionContext,
-  listOf,
   Workflow,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -13,12 +13,13 @@ import {
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart, toAction } from "../../../helpers/flow.js";
 import {
   ItemDto,
   ItemResultDto,
   ItemsWorkflowStart,
   SummaryWorkflowFinish,
+  SummaryAction,
 } from "./fan-out.workflow.js";
 
 /**
@@ -45,8 +46,8 @@ export function resetRecoveryRuns(): void {
 export class RecoverableItemAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name } = input.item.value;
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name } = input.item;
     recoveryRuns.runs.push(name);
     const isFirstHold =
       name === "hold" && recoveryRuns.runs.filter((run) => run === name).length === 1;
@@ -64,12 +65,13 @@ export class RecoverableItemAction {
 @Workflow({
   name: "launch-recovery-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  executionLimits: { maxSteps: 20 },
   flow: [
-    start(ItemsWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelActions(RecoverableItemAction, { maxItems: 10 })
+    onStart(ItemsWorkflowStart)
+      .forEachItem(toAction(RecoverableItemAction), { takeFirst: 10 })
       .join()
-      .returns(listOf(ItemResultDto))
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })

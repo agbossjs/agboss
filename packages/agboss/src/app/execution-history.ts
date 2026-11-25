@@ -1,14 +1,17 @@
+import { storedInputOf } from "../pii/final-output-mask.js";
 import { maskedTreeRecordOf, treeMasksFor } from "./record-masks.js";
 import { ExecutionCancelledError } from "../core/errors.js";
+import { ExecutionStoppedError } from "../app/lease-stopped.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import { currentAuditEventOf } from "../infrastructure/execution-audit-log.repository.js";
 import { errorRecordOf } from "../core/error-record.js";
-import { buildCostReport, type UsageRecord } from "../finops/usage.js";
+import { CostReport, type UsageRecord } from "../finops/usage.js";
 import { compensationRecordsOf, type CompensationRecord } from "../flow/compensation.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
+import { finishPartOf } from "./history-finish.js";
 import {
   ExecutionHistoryStatus,
   type ExecutionHistoryRecord,
@@ -47,12 +50,20 @@ export interface HistoryEnd {
   readonly lostUsage?: readonly UsageRecord[];
 }
 
-/** How a tree whose pass returned stands: finished, or resting paused. */
+/** The history status of each way a pass of a tree returns. */
+const HISTORY_STATUS: Readonly<Record<ExecutionStatus, ExecutionHistoryStatus>> = {
+  [ExecutionStatus.Finished]: ExecutionHistoryStatus.Finished,
+  [ExecutionStatus.Paused]: ExecutionHistoryStatus.Paused,
+  [ExecutionStatus.Stopped]: ExecutionHistoryStatus.Stopped,
+  [ExecutionStatus.Cancelled]: ExecutionHistoryStatus.Cancelled,
+};
+
+/**
+ * How a tree whose pass returned stands: finished, resting paused, stopped or cancelled — the last
+ * two ended, never kept as `Paused` with no end (#1341).
+ */
 export const historyRestOf = (status: ExecutionStatus): HistoryEnd => ({
-  status:
-    status === ExecutionStatus.Finished
-      ? ExecutionHistoryStatus.Finished
-      : ExecutionHistoryStatus.Paused,
+  status: HISTORY_STATUS[status],
 });
 
 /**
@@ -65,16 +76,18 @@ export const historyEndOf = (
   lostUsage: readonly UsageRecord[] = [],
 ): HistoryEnd => ({
   status:
-    error instanceof ExecutionCancelledError
-      ? ExecutionHistoryStatus.Cancelled
-      : ExecutionHistoryStatus.Failed,
+    error instanceof ExecutionStoppedError
+      ? ExecutionHistoryStatus.Stopped
+      : error instanceof ExecutionCancelledError
+        ? ExecutionHistoryStatus.Cancelled
+        : ExecutionHistoryStatus.Failed,
   error,
   ...(compensations === undefined ? {} : { compensations }),
   ...(lostUsage.length === 0 ? {} : { lostUsage }),
 });
 
 /** The channels a record reads. */
-type RecordedState = Pick<
+export type RecordedState = Pick<
   ExecutionStateType,
   | "start"
   | "startInput"
@@ -91,10 +104,12 @@ type RecordedState = Pick<
   | "compensations"
   | "toolCalls"
   | "stepRecords"
+  | "launches"
+  | "handledErrors"
 >;
 
 /** Those channels as a state before its first write holds them. */
-const EMPTY_STATE: RecordedState = {
+export const EMPTY_STATE: RecordedState = {
   start: "",
   startInput: undefined,
   startedAt: "",
@@ -110,10 +125,12 @@ const EMPTY_STATE: RecordedState = {
   compensations: [],
   toolCalls: [],
   stepRecords: [],
+  launches: [],
+  handledErrors: [],
 };
 
 /** The root's last checkpoint state, every channel a record reads present. */
-async function checkpointStateOf(deps: AppDeps, state: TreeState): Promise<RecordedState> {
+export async function checkpointStateOf(deps: AppDeps, state: TreeState): Promise<RecordedState> {
   const snapshot = await readingGraphOf(deps).getState(runConfig(state.runId));
   // LangGraph boundary: a checkpoint's values are the flow's own state
   return { ...EMPTY_STATE, ...(snapshot.values as Partial<ExecutionStateType>) };
@@ -123,13 +140,13 @@ async function checkpointStateOf(deps: AppDeps, state: TreeState): Promise<Recor
 const originOf = (trusted: TrustedMesh | undefined) =>
   trusted === undefined ? {} : { origin: trusted.origin };
 
-/** What the flow kept, as `{ record: true }` gives it, and where a trusted mesh request came from. */
+/** What the flow kept, as `{ includeRecord: true }` gives it, and where a trusted mesh request came from. */
 const recordPartOf = (values: RecordedState, end: HistoryEnd) => ({
   path: values.path,
   scope: Object.values(values.scope),
   outdatedValues: values.outdatedValues,
   ...(values.lastError === null ? {} : { lastError: values.lastError }),
-  spend: buildCostReport([...values.usage, ...(end.lostUsage ?? [])]),
+  spend: CostReport.fromUsage([...values.usage, ...(end.lostUsage ?? [])]),
   children: withChildPauses(values.children, []),
   pauses: [],
   compensations: compensationRecordsOf(values.compensations),
@@ -137,10 +154,6 @@ const recordPartOf = (values: RecordedState, end: HistoryEnd) => ({
   steps: values.stepRecords,
   ...originOf(values.contexts.mesh?.trusted),
 });
-
-/** What it finished with; nothing unless it finished. */
-const finishPartOf = (deps: AppDeps, values: RecordedState) =>
-  values.finish === "" ? {} : { finish: nodeRecordIn(deps, values.finish), output: values.output };
 
 /** Who and what the execution is: its ids, application and workflow. */
 const identityOf = (deps: AppDeps, keeper: ExecutionHistoryKeeper, state: TreeState) => ({
@@ -177,7 +190,7 @@ function historyRecordOf(
     status: end.status,
     ...timesOf(values, end.status, keeper.clock.now().toISOString()),
     start: nodeRecordIn(deps, values.start),
-    input: values.startInput,
+    input: storedInputOf(deps, values.start, values.startInput),
     ...finishPartOf(deps, values),
     contexts: { tenant: values.contexts.tenant, execution: values.contexts.execution },
     ...(end.error === undefined ? {} : { error: errorRecordOf(end.error) }),

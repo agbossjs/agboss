@@ -6,21 +6,22 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import {
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
+import { CircuitBreakerPolicy } from "../../../../src/models/circuit-breaker-policy.js";
 
 /**
  * #649 — an agent whose only tool is its answer tool, on a real OpenAI-compatible HTTP provider: it
@@ -44,8 +45,8 @@ export class ClauseQueryDto {
   input: ClauseQueryDto,
   output: LegalReviewDto,
 })
-export class ClauseTextTool implements ToolHandler<ClauseQueryDto, LegalReviewDto> {
-  run({ number }: ClauseQueryDto): Promise<LegalReviewDto> {
+export class ClauseTextTool {
+  execute({ number }: ClauseQueryDto): Promise<LegalReviewDto> {
     return Promise.resolve({ clause: `clause ${number}` });
   }
 }
@@ -53,7 +54,7 @@ export class ClauseTextTool implements ToolHandler<ClauseQueryDto, LegalReviewDt
 @Agent({
   name: "legal-review-agent",
   description: "Reviews the contract",
-  prompt: "Cite the contract clause your review rests on.",
+  prompt: inline("Cite the contract clause your review rests on."),
   model: "wire/model",
   input: { message: WorkflowStartTextDto },
   output: LegalReviewDto,
@@ -63,7 +64,7 @@ export class LegalReviewAgent {}
 @Agent({
   name: "clause-reader-agent",
   description: "Reviews the contract, reading its clauses",
-  prompt: "Read the clauses you need, then cite the one your review rests on.",
+  prompt: inline("Read the clauses you need, then cite the one your review rests on."),
   model: "wire/model",
   input: { message: WorkflowStartTextDto },
   output: LegalReviewDto,
@@ -71,7 +72,11 @@ export class LegalReviewAgent {}
 })
 export class ClauseReaderAgent {}
 
-@WorkflowStart({ name: "review-workflow-start", description: "A contract", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "review-workflow-start",
+  description: "A contract",
+  input: WorkflowStartTextDto,
+})
 export class ReviewWorkflowStart {}
 
 @WorkflowStart({
@@ -81,7 +86,11 @@ export class ReviewWorkflowStart {}
 })
 export class ReadingWorkflowStart {}
 
-@WorkflowFinish({ name: "review-workflow-finish", description: "The review", output: LegalReviewDto })
+@WorkflowFinish({
+  name: "review-workflow-finish",
+  description: "The review",
+  output: LegalReviewDto,
+})
 export class ReviewWorkflowFinish {}
 
 @WorkflowFinish({
@@ -94,11 +103,10 @@ export class ReadingWorkflowFinish {}
 @Workflow({
   name: "review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ReviewWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ReviewWorkflowStart)
       .toAgent(LegalReviewAgent)
-      .returns(LegalReviewDto)
       .toFinish(ReviewWorkflowFinish),
   ],
 })
@@ -107,11 +115,10 @@ export class ReviewWorkflow {}
 @Workflow({
   name: "reading-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ReadingWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ReadingWorkflowStart)
       .toAgent(ClauseReaderAgent)
-      .returns(LegalReviewDto)
       .toFinish(ReadingWorkflowFinish),
   ],
 })
@@ -120,23 +127,24 @@ export class ReadingWorkflow {}
 @ModelProvider({
   name: "wire-model-provider",
   description: "An OpenAI-compatible server, stubbed",
-  serves: [/^wire\//],
-  baseUrl: "http://wire.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://wire.test/v1" }),
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "wire/model": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
   }),
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 50, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 50,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 })
-export class WireModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class WireModelProvider {}
 
 @Application({
   name: "one-answer-application",
+  modelProvider: WireModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ReviewWorkflow, ReadingWorkflow],

@@ -1,10 +1,11 @@
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { Window1Memory } from "../../helpers/window-memory.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Integer, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
   Agent,
   ExecutionContext,
-  Injectable,
+  Observer,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -13,18 +14,15 @@ import {
   type ExecutionEndEvent,
   type ExecutionStartEvent,
   type ModelStartEvent,
-  type OnActionStart,
-  type OnExecutionEnd,
-  type OnExecutionStart,
-  type OnModelStart,
-  type OnToolStart,
-  type ToolHandler,
   type ToolStartEvent,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What the components and the observer saw of their run, in order (reset with `resetSeen`). */
 export const seen = {
@@ -64,10 +62,10 @@ export class Query {
   output: Query,
   deps: [ExecutionContext],
 })
-export class Lookup implements ToolHandler<Query, Query> {
+export class Lookup {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     seen.tools.push(this.executionContext.executionId);
     return Promise.resolve(input);
   }
@@ -77,15 +75,15 @@ export class Lookup implements ToolHandler<Query, Query> {
 @Tool({
   name: "apply-tool",
   description: "Applies for a job",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: Query,
   output: Query,
   deps: [ExecutionContext],
 })
-export class Apply implements ToolHandler<Query, Query> {
+export class Apply {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     seen.tools.push(this.executionContext.executionId);
     return Promise.resolve(input);
   }
@@ -94,7 +92,7 @@ export class Apply implements ToolHandler<Query, Query> {
 @Agent({
   name: "searcher-agent",
   description: "Finds jobs",
-  prompt: "Find jobs. Return at most `limit` jobs.",
+  prompt: inline("Find jobs. Return at most `limit` jobs."),
   tools: [Lookup, Apply],
   model: "test/searcher",
   input: { search: SearchInDto },
@@ -109,17 +107,15 @@ export class Searcher {}
   input: { search: SearchInDto },
 })
 export class Shortlist {
-  execute(input: { readonly search: { readonly value: SearchInDto } }): Promise<void> {
-    seen.actions.push(input.search.value);
+  execute(input: { readonly search: SearchInDto }): Promise<void> {
+    seen.actions.push(input.search);
     return Promise.resolve();
   }
 }
 
 /** Every event's run id. */
-@Injectable()
-export class RunIds
-  implements OnExecutionStart, OnExecutionEnd, OnModelStart, OnToolStart, OnActionStart
-{
+@Observer()
+export class RunIds {
   onExecutionStart(event: ExecutionStartEvent): void {
     seen.events.push(`execution-start:${event.executionId}`);
   }
@@ -150,18 +146,18 @@ export class Done {}
 /** search → searcher → shortlist → done, observed. */
 @Workflow({
   name: "job-search-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 3 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   providers: [Shortlist],
   flow: [
-    start(SearchStart)
-      .returns(SearchInDto)
+    onStart(SearchStart)
       .toAgent(Searcher)
-      .returns(ShortlistDto)
       .toAction(Shortlist)
       .toFinish(Done),
   ],
@@ -170,6 +166,7 @@ export class JobSearch {}
 
 @Application({
   name: "job-search-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JobSearch],
@@ -181,7 +178,7 @@ export class JobSearchApplication {}
 @Agent({
   name: "typo-agent",
   description: "Names an input field in its instructions",
-  prompt: "Return at most {{input.limit}} jobs.",
+  prompt: inline("Return at most {{input.limit}} jobs."),
   model: "test/typo",
   input: { search: SearchInDto },
   output: ShortlistDto,
@@ -191,14 +188,14 @@ export class Typo {}
 /** Its agent's instructions name `{{input.limit}}`: instructions are static (#270 Q51). */
 @Workflow({
   name: "typo-search-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [
-    start(SearchStart)
-      .returns(SearchInDto)
+    onStart(SearchStart)
       .toAgent(Typo)
-      .returns(ShortlistDto)
       .toFinish(Done),
   ],
 })

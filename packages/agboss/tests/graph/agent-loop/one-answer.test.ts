@@ -99,7 +99,7 @@ describe("#649 AC1: an answer-only agent asks for one tool call per move, on the
     expect(
       toolBindingOf({
         tools,
-        answerTools: answerToolsOf(listOf(oneOf(LegalReviewDto, NoClauseDto))),
+        answerTools: answerToolsOf(listOf(LegalReviewDto, NoClauseDto)),
       }),
     ).toEqual({});
     expect(toolBindingOf({ tools, answerTools: NO_ANSWER_TOOLS })).toEqual({});

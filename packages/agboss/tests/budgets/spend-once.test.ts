@@ -134,7 +134,7 @@ async function countersOf(app: TestApp, executionId: string): Promise<readonly n
   ];
   return Promise.all(
     records.map(async (record) =>
-      Math.round((await ledger.findSpentByCounter(counterOf(record, now))) * 100),
+      Math.round((await ledger.findUsageByCounter(counterOf(record, now))).spent * 100),
     ),
   );
 }

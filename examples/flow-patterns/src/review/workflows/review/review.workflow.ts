@@ -1,15 +1,10 @@
-import { listOf, start, StepFailedError, toFinish, Workflow } from "@agboss/core";
-import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { onStart, StepFailedError, toFinish, Workflow, toAgent, Ttl } from "@agboss/core";
 import { EditorialPlanAction } from "../../actions/editorial-plan.action.js";
+import { ReviewReportAction } from "../../actions/review-report.action.js";
 import { FactCheckerAgent } from "../../agents/fact-checker/fact-checker.agent.js";
 import { SectionReviewerAgent } from "../../agents/section-reviewer/section-reviewer.agent.js";
 import { SectionSplitterAgent } from "../../agents/section-splitter/section-splitter.agent.js";
 import { StyleCriticAgent } from "../../agents/style-critic/style-critic.agent.js";
-import { EditorialPlanDto } from "../../dto/editorial-plan.dto.js";
-import { FactCheckDto } from "../../dto/fact-check.dto.js";
-import { SectionReviewDto } from "../../dto/section-review.dto.js";
-import { SectionDto } from "../../dto/section.dto.js";
-import { StyleNotesDto } from "../../dto/style-notes.dto.js";
 import { ReviewIncompleteWorkflowFinish } from "./review-incomplete.workflow-finish.js";
 import { ReviewWorkflowFinish } from "./review.workflow-finish.js";
 import { ReviewWorkflowStart } from "./review.workflow-start.js";
@@ -23,23 +18,22 @@ import { ReviewWorkflowStart } from "./review.workflow-start.js";
 @Workflow({
   name: "review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ReviewWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ReviewWorkflowStart)
       .toAgent(SectionSplitterAgent)
-      .returns(listOf(SectionDto))
-      .toParallelAgents(SectionReviewerAgent, { maxConcurrency: 3, maxItems: 20 })
+      .forEachItem(toAgent(SectionReviewerAgent), { takeFirst: 20, maxConcurrency: 3 })
       .join()
-      .returns(listOf(SectionReviewDto))
       .toAction(EditorialPlanAction)
-      .returns(EditorialPlanDto)
-      .toParallelAgents(StyleCriticAgent, FactCheckerAgent, FactCheckerAgent, { maxConcurrency: 2 })
+      .inParallel(
+        [toAgent(StyleCriticAgent), toAgent(FactCheckerAgent), toAgent(FactCheckerAgent)],
+        { maxConcurrency: 2 },
+      )
       .join()
-      .onJoinError(StepFailedError, toFinish(ReviewIncompleteWorkflowFinish))
-      .returns(StyleNotesDto)
-      .returns(listOf(FactCheckDto))
+      .onError(StepFailedError, toFinish(ReviewIncompleteWorkflowFinish))
+      .toAction(ReviewReportAction)
       .toFinish(ReviewWorkflowFinish),
   ],
-  maxSteps: 30, // the worst case: the splitter, 20 section reviews and the three critics
+  executionLimits: { maxSteps: 30 }, // the worst case: the splitter, 20 section reviews and the three critics
 })
 export class ReviewWorkflow {}

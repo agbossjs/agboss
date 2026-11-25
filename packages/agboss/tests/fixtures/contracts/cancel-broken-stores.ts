@@ -1,3 +1,4 @@
+import { withBuffer } from "./ambient-buffer.js";
 /**
  * #909 AC2: fencing stores whose cancel fence is broken the way a port to another database gets it
  * wrong — and the targets that build them. `cancel-sabotage.contract-fixture.ts` runs the contracts
@@ -12,22 +13,18 @@
  */
 import { effectKeyIdentityOf } from "../../../src/infrastructure/fenced-effect-key.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import {
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   type EffectKey,
-  type FencedEffectOutcome,
+  type IdempotencyRunOutcome,
   type FencedEffectWork,
 } from "../../../src/infrastructure/fenced-effect.repository.js";
-import {
-  InMemoryFencedEffectRepository,
-  type InMemoryFencedEffectTransaction,
-} from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
+import { InMemoryFencedEffectRepository } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import {
   checkInMemoryCancel,
   type InMemoryDatabase,
 } from "../../../src/infrastructure/in-memory-database.js";
-import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import type {
   FencedEffectTarget,
   OutboundCallTarget,
@@ -81,12 +78,11 @@ export const withoutCancelFence = {
       effects: new InMemoryFencedEffectRepository(
         seam.storeClock,
         withoutCancels(seam.database),
-        new FencedEffectSettings(),
         leases,
       ),
       leases,
     };
-  }) satisfies StoreFactory<FencedEffectTarget<InMemoryFencedEffectTransaction>>,
+  }) satisfies StoreFactory<FencedEffectTarget>,
   calls: ((seam: InstanceSeam) => {
     const leases = new InMemoryExecutionLeaseRepository(
       seam.storeClock,
@@ -112,33 +108,33 @@ export const withoutCancelFence = {
 export class CancelReadBeforeEffects extends CheckThenWriteEffects {
   protected override async runInTransaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<BufferedTransaction, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>> {
+    work: FencedEffectWork<TResult>,
+  ): Promise<IdempotencyRunOutcome<TResult>> {
     this.check(key);
     const found = this.results.get(effectKeyIdentityOf(key));
     if (found !== undefined) return this.replayOf(key, found);
     checkInMemoryCancel(this.seam.database, key);
     const transaction = new BufferedTransaction(false);
-    const result = await work(transaction);
+    const result = await withBuffer(transaction, work);
     this.check(key);
     const outcome = this.stored<TResult>(key, result);
     for (const write of transaction.writes) write();
-    return { ...outcome, status: FencedEffectStatus.Ran };
+    return { ...outcome, status: IdempotencyRunStatus.Ran };
   }
 }
 
 const cancelReadBeforeStores = brokenEffects(CancelReadBeforeEffects);
 
 /** The same store with business rows that wait: the write's transaction is open across a turn. */
-export const cancelReadBefore: StoreFactory<FencedEffectTarget<BufferedTransaction>> = (seam) => {
+export const cancelReadBefore: StoreFactory<FencedEffectTarget> = (seam) => {
   const built = cancelReadBeforeStores(seam);
   return {
     ...built,
     rows: {
       ...built.rows,
-      insert: async (transaction, row) => {
+      insert: async (row) => {
         await Promise.resolve();
-        await built.rows.insert(transaction, row);
+        await built.rows.insert(row);
       },
     },
   };

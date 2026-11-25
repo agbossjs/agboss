@@ -15,10 +15,11 @@ import {
 import { usd } from "../../src/units/index.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -32,7 +33,7 @@ describe("#1366: the spend of a limit error", () => {
       limit: 1,
       actual: 2,
       path: ["flow", "step"],
-      spentUsd: 0.25,
+      spentUsd: usd(0.25),
       usage: spent,
     });
 
@@ -47,7 +48,7 @@ describe("#1366: the spend of a limit error", () => {
       limit: 1,
       actual: 2,
       path: [],
-      spentUsd: 0,
+      spentUsd: usd(0),
     });
 
     expect(error.usage).toEqual([]);
@@ -61,11 +62,11 @@ describe("#1366: the spend of a limit error", () => {
       maxSpend: usd(1),
       spent: usd(1.5),
       path: ["flow"],
-      spentUsd: 1.5,
+      spentUsd: usd(1.5),
       usage: spent,
     });
 
-    expect(error).toMatchObject({ spentUsd: 1.5, usage: spent, path: ["flow"] });
+    expect(error).toMatchObject({ spentUsd: usd(1.5), usage: spent, path: ["flow"] });
   });
 
   it("a budget without records has none", () => {
@@ -76,7 +77,7 @@ describe("#1366: the spend of a limit error", () => {
       maxSpend: usd(1),
       spent: usd(1.5),
       path: ["flow"],
-      spentUsd: 1.5,
+      spentUsd: usd(1.5),
     });
 
     expect(error.usage).toEqual([]);
@@ -87,15 +88,15 @@ describe("#1366: the spend of a limit error", () => {
       workflow,
       maxSteps: 3,
       path: ["flow"],
-      spentUsd: 0.75,
+      spentUsd: usd(0.75),
     });
 
-    expect(error).toMatchObject({ spentUsd: 0.75, steps: 4 });
+    expect(error).toMatchObject({ spentUsd: usd(0.75), steps: 4 });
   });
 
   it("the depth limit has spent nothing: its step never ran", () => {
     const error = new DepthLimitExceededError({ workflow, maxDepth: 2, path: ["flow"] });
 
-    expect(error).toMatchObject({ spentUsd: 0, depth: 3 });
+    expect(error).toMatchObject({ spentUsd: usd(0), depth: 3 });
   });
 });

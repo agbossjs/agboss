@@ -3,16 +3,18 @@ import {
   Agent,
   EmptyEnvironment,
   ExecutionContext,
+  ResumeDecision,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowSettings,
   WorkflowStart,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import {
   SharedCheckpointSaver,
@@ -20,6 +22,7 @@ import {
   SharedPausedExecutionRepository,
 } from "../../helpers/shared-infrastructure.js";
 import { asked, MailLog, SendEmail } from "./mail.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #336 AC2 — a rolling deploy of a child workflow: the parent `mail-parent-workflow` stays 1.0.0,
@@ -44,10 +47,10 @@ export class HoldQuery {
   output: HoldQuery,
   deps: [ExecutionContext],
 })
-export class MailHold implements ToolHandler<HoldQuery, HoldQuery> {
+export class MailHold {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: HoldQuery): Promise<HoldQuery> {
+  execute(input: HoldQuery): Promise<HoldQuery> {
     const { signal } = this.executionContext;
     holds.push(signal);
     if (holds.length > 1) return Promise.resolve(input);
@@ -62,7 +65,7 @@ export class MailHold implements ToolHandler<HoldQuery, HoldQuery> {
 @Agent({
   name: "mailer-agent",
   description: "Sends the emails it is asked to",
-  prompt: "Send the email you are asked to send.",
+  prompt: inline("Send the email you are asked to send."),
   tools: [MailHold, SendEmail],
   model: "test/mailer",
 })
@@ -72,7 +75,7 @@ export class ChildMailerV1 {}
 @Agent({
   name: "mailer-agent",
   description: "Sends the emails it is asked to",
-  prompt: "Send the email you are asked to send, and sign it.",
+  prompt: inline("Send the email you are asked to send, and sign it."),
   tools: [MailHold, SendEmail],
   model: "test/mailer",
 })
@@ -111,9 +114,9 @@ const child = { name: "mail-child-workflow", defaults: { tools: { maxToolCalls: 
 @Workflow({
   ...child,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(MailChildStart)
-      .returns(WorkflowStartTextDto)
+    onStart(MailChildStart)
       .toAgent(ChildMailerV1)
       .toFinish(MailChildFinish),
   ],
@@ -122,10 +125,11 @@ export class MailChildV1 {}
 
 @Workflow({
   ...child,
+  modelProvider: TestModelProvider,
   version: "2.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(MailChildStart)
-      .returns(WorkflowStartTextDto)
+    onStart(MailChildStart)
       .toAgent(ChildMailerV2)
       .toFinish(MailChildFinish),
   ],
@@ -136,11 +140,10 @@ export class MailChildV2 {}
 @Workflow({
   name: "mail-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(MailParentStart)
-      .returns(WorkflowStartTextDto)
+    onStart(MailParentStart)
       .toWorkflow(MailChildV1)
-      .returns(WorkflowFinishTextDto)
       .toFinish(MailParentFinish),
   ],
 })
@@ -150,11 +153,10 @@ export class MailParentV1 {}
 @Workflow({
   name: "mail-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(MailParentStart)
-      .returns(WorkflowStartTextDto)
+    onStart(MailParentStart)
       .toWorkflow(MailChildV2)
-      .returns(WorkflowFinishTextDto)
       .toFinish(MailParentFinish),
   ],
 })
@@ -164,11 +166,10 @@ export class MailParentV2 {}
 @Workflow({
   name: "mail-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(MailParentStart)
-      .returns(WorkflowStartTextDto)
+    onStart(MailParentStart)
       .toWorkflow(MailChildV2)
-      .returns(WorkflowFinishTextDto)
       .toFinish(MailParentFinish),
   ],
 })
@@ -177,7 +178,7 @@ export class MailParentV2Migrating {
     return WorkflowSettings.builder()
       .onIncompatibleResume((resume) => {
         asked.push(resume);
-        return "resume";
+        return ResumeDecision.Resume;
       })
       .build();
   }
@@ -201,6 +202,7 @@ const deployment = {
 @Application({
   ...deployment,
   name: "mail-parent-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   workflows: [MailParentV1],
 })
@@ -209,6 +211,7 @@ export class MailParentV1Application {}
 @Application({
   ...deployment,
   name: "mail-parent-application",
+  modelProvider: TestModelProvider,
   version: "2.0.0",
   workflows: [MailParentV2],
 })
@@ -217,6 +220,7 @@ export class MailParentV2Application {}
 @Application({
   ...deployment,
   name: "mail-parent-application",
+  modelProvider: TestModelProvider,
   version: "2.0.0",
   workflows: [MailParentV2Migrating],
 })

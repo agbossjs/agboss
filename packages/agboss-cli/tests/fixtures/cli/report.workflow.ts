@@ -9,6 +9,8 @@ import {
   BudgetScope,
   EmptyEnvironment,
   type BudgetHandler,
+  inline,
+  Ttl,
 } from "../../../../agboss/src/index.js";
 import { Action } from "../../../../agboss/src/flow/decorators/action.js";
 import { Agent } from "../../../../agboss/src/flow/decorators/agent.js";
@@ -18,7 +20,8 @@ import { WorkflowStart } from "../../../../agboss/src/flow/decorators/workflow-s
 import { listOf } from "../../../../agboss/src/flow/dto-wrappers.js";
 import { Text } from "../../../../agboss/src/dto/index.js";
 import type { Usd } from "../../../../agboss/src/units/index.js";
-import { start } from "../../../../agboss/tests/flow/fixtures/paths.js";
+import { onStart, toWorkflow } from "../../../../agboss/tests/flow/fixtures/paths.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 /** One item of the batch. */
 export class ReportItemDto {
@@ -48,7 +51,7 @@ export class ItemReportWorkflowStart {}
 @Agent({
   name: "item-reporter-agent",
   description: "Reports on one item",
-  prompt: "Report on the item.",
+  prompt: inline("Report on the item."),
   model: "test/item-reporter",
   input: { item: ReportItemDto },
   output: ItemReportDto,
@@ -65,11 +68,10 @@ export class ItemReportWorkflowFinish {}
 @Workflow({
   name: "item-report-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ItemReportWorkflowStart)
-      .returns(ReportItemDto)
+    onStart(ItemReportWorkflowStart)
       .toAgent(ItemReporterAgent)
-      .returns(ItemReportDto)
       .toFinish(ItemReportWorkflowFinish),
   ],
 })
@@ -97,7 +99,7 @@ export class PickItemsAction {
 @Agent({
   name: "batch-reporter-agent",
   description: "Sums the item reports up",
-  prompt: "Sum the reports up.",
+  prompt: inline("Sum the reports up."),
   model: "test/batch-reporter",
   input: { reports: listOf(ItemReportDto) },
   output: BatchReportDto,
@@ -114,16 +116,13 @@ export class BatchReportWorkflowFinish {}
 @Workflow({
   name: "batch-report-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(BatchReportWorkflowStart)
-      .returns(listOf(ReportItemDto))
+    onStart(BatchReportWorkflowStart)
       .toAction(PickItemsAction)
-      .returns(listOf(ReportItemDto))
-      .toParallelWorkflows(ItemReportWorkflow, { maxConcurrency: 4, maxItems: 50 })
+      .forEachItem(toWorkflow(ItemReportWorkflow), { takeFirst: 50, maxConcurrency: 4 })
       .join()
-      .returns(listOf(ItemReportDto))
       .toAgent(BatchReporterAgent)
-      .returns(BatchReportDto)
       .toFinish(BatchReportWorkflowFinish),
   ],
 })
@@ -161,6 +160,7 @@ export class ReportExecutionBudget implements BudgetHandler {
 
 /** The application `agboss --application` loads (#268): the batch and, through it, its child. */
 @Application({
+  modelProvider: TestModelProvider,
   name: "report-application",
   version: "2.0.0",
   environment: EmptyEnvironment,

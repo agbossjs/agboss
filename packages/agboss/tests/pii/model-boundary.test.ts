@@ -71,7 +71,7 @@ describe("#120 AC9: the model sees a token, the tool gets the real value", () =>
   });
 });
 
-describe("#120 AC5: blockWithRefusal", () => {
+describe("#120 AC5: block", () => {
   const CARD = "4111 1111 1111 1111";
 
   it("an incoming message fails the execution with the refusal, before any model call", async () => {

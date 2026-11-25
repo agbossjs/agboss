@@ -16,7 +16,9 @@ import { DELIVERY_CASES } from "./paused-execution-delivery.cases.js";
 import { EXTEND_CASES } from "./paused-execution-extend.cases.js";
 import { EXTEND_RACE_CASES } from "./paused-execution-extend-race.cases.js";
 import { REASSIGN_CASES } from "./paused-execution-reassign.cases.js";
+import { REASSIGN_TRAIL_CASES } from "./paused-execution-reassign-trail.cases.js";
 import { REASSIGN_KEY_CASES } from "./paused-execution-reassign-key.cases.js";
+import { REASSIGN_CHANGE_CASES } from "./paused-execution-reassign-change.cases.js";
 import { REASSIGN_NOTICE_CASES } from "./paused-execution-reassign-notice.cases.js";
 import { REASSIGN_RACE_CASES } from "./paused-execution-reassign-race.cases.js";
 import { NOTICE_ORDER_CASES } from "./paused-execution-order.cases.js";
@@ -63,13 +65,13 @@ const NUL_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
     run: async ({ first, second }) => {
       const base = pausedRunOf("thread-1");
       const paused = { ...base, run: { ...base.run, startInput: { text: NUL_TEXT } } };
-      const ask = {
-        callId: "call-1",
-        tool: "charge",
-        arguments: { text: NUL_TEXT },
-        summary: NUL_TEXT,
+      const asked = {
+        ...pauseOf("pause-a"),
+        input: { text: NUL_TEXT },
+        toolCall: { callId: "call-1", tool: "charge", summary: NUL_TEXT },
+        assignees: [NUL_TEXT],
+        externalRef: NUL_TEXT,
       };
-      const asked = { ...pauseOf("pause-a"), ask };
 
       await first.save(paused);
       await first.findOrCreateByStepKey(asked);
@@ -183,8 +185,10 @@ export function pausedExecutionContract(target: ContractTarget<PausedExecutionRe
         title: "a reassignment moves a pause to a replacement (#946)",
         cases: [
           ...REASSIGN_CASES,
+          ...REASSIGN_TRAIL_CASES,
           ...REASSIGN_RACE_CASES,
           ...REASSIGN_NOTICE_CASES,
+          ...REASSIGN_CHANGE_CASES,
           ...REASSIGN_KEY_CASES,
         ],
       },

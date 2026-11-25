@@ -8,13 +8,28 @@
 export type Bytes = Brand<number, "Bytes">;
 
 // @public
+export const bytes: (amount: number) => Bytes;
+
+// @public
+export const days: (amount: number) => Milliseconds;
+
+// @public
+export const gb: (amount: number) => Bytes;
+
+// @public
 export const hours: (amount: number) => Milliseconds;
 
 // @public
 export const isWorkingDuration: (value: unknown) => value is WorkingDuration;
 
 // @public
+export const kb: (amount: number) => Bytes;
+
+// @public
 export const kilobytes: (amount: number) => Bytes;
+
+// @public
+export const mb: (amount: number) => Bytes;
 
 // @public
 export const megabytes: (amount: number) => Bytes;
@@ -23,28 +38,27 @@ export const megabytes: (amount: number) => Bytes;
 export type Milliseconds = Brand<number, "Milliseconds">;
 
 // @public
+export const min: (amount: number) => Milliseconds;
+
+// @public
 export const minutes: (amount: number) => Milliseconds;
 
 // @public
-export interface PlainErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly message: string;
-}
+export const ms: (amount: number) => Milliseconds;
+
+// @public
+export const sec: (amount: number) => Milliseconds;
 
 // @public
 export const seconds: (amount: number) => Milliseconds;
 
 // @public
-export class UnitError extends RangeError {
-    constructor(options: PlainErrorOptions);
-    // (undocumented)
-    static readonly code: "config.unit";
-    // (undocumented)
-    readonly code: "config.unit";
-    // (undocumented)
-    name: string;
+export const tb: (amount: number) => Bytes;
+
+// @public
+export enum Ttl {
+    Forever = "forever",
+    None = "none"
 }
 
 // @public
@@ -54,8 +68,16 @@ export type Usd = Brand<number, "Usd">;
 export const usd: (amount: number) => Usd;
 
 // @public
+export const workDays: (amount: number) => WorkingDuration;
+
+// @public
+export const workHours: (amount: number) => WorkingDuration;
+
+// @public
 export interface WorkingDuration {
-    readonly [workingDuration]: Milliseconds;
+    readonly [workingDuration]: true;
+    readonly amount: number;
+    readonly unit: WorkingUnit;
 }
 
 // @public
@@ -64,13 +86,11 @@ export const workingHours: (amount: number) => WorkingDuration;
 // @public
 export const workingMinutes: (amount: number) => WorkingDuration;
 
-// Warnings were encountered during analysis:
-//
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/units/index.ts - (ae-undocumented) Missing documentation for "code".
-// src/units/index.ts - (ae-undocumented) Missing documentation for "code".
-// src/units/index.ts - (ae-undocumented) Missing documentation for "name".
+// @public
+export type WorkingUnit = "ms" | "days";
+
+// @public
+export const workMin: (amount: number) => WorkingDuration;
 
 // (No @packageDocumentation comment for this package)
 

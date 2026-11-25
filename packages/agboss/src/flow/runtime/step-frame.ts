@@ -2,10 +2,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import { extractRunContext } from "../../core/run-context.js";
 import { NodeKind } from "../ast.js";
-import {
-  declaredMaxConcurrentExecutionsOf,
-  maxConcurrentExecutionsOf,
-} from "../decorators/workflow.js";
+import { maxConcurrencyUnder, type ExecutionLimitsOf } from "../decorators/workflow.js";
 import type { SlotClaim, SubtreeCap, TreeSlotRegistry } from "./launch/launch-registry.js";
 import type { QueueWatch, SlotHold } from "./launch/slot-queue.js";
 import type { WorkflowDescriptor } from "../context/execution-context.js";
@@ -23,7 +20,8 @@ import type { ComponentRecord } from "./records.js";
 import { componentKindOf } from "./join-keys.js";
 import { recordOfComponent } from "./workflow-keys.js";
 import { inStepEntry } from "./step-entries.js";
-import { outboundChainOf, type InboundMesh } from "../../mesh/inbound-mesh.js";
+import { meshFactsOf, rootMeshOf } from "./step-mesh.js";
+import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 
 /** The workflow an execution runs, as the runtime knows it before the execution starts. */
 export type WorkflowIdentity = Omit<WorkflowDescriptor, "startedVersion">;
@@ -31,27 +29,6 @@ export type WorkflowIdentity = Omit<WorkflowDescriptor, "startedVersion">;
 /** The version the execution started on: kept in state from its first node, so a resume keeps it. */
 export const startedVersionOf = (state: ExecutionStateType, workflow: WorkflowIdentity): string =>
   state.startedVersion === "" ? workflow.version : state.startedVersion;
-
-/** The origin and deadline an execution's contexts keep (#398 PR 2), as its frames' facts. */
-const meshFactsOf = (
-  contexts: ExecutionStateType["contexts"],
-): Pick<ExecutionFacts, "origin" | "deadline" | "quorumDeadlineAt"> => ({
-  ...(contexts.mesh?.trusted === undefined ? {} : { origin: contexts.mesh.trusted.origin }),
-  ...(contexts.deadline === undefined ? {} : { deadline: contexts.deadline }),
-  ...(contexts.quorumDeadlineAt === undefined
-    ? {}
-    : { quorumDeadlineAt: contexts.quorumDeadlineAt }),
-});
-
-/** A root's call chain for its mesh calls (#398): what reached it, then its own hop. */
-const rootMeshOf = (
-  contexts: RuntimeContexts,
-  state: ExecutionStateType,
-  executionId: string,
-): InboundMesh => {
-  const entry = { application: contexts.application.name, start: state.start };
-  return outboundChainOf(entry, executionId, state.contexts.mesh);
-};
 
 /** The pass through `node` this visit is, from 1 — the counter `maxVisits` checks (#280 Q43). */
 export const visitNumberOf = (node: RuntimeNode, state: ExecutionStateType): number =>
@@ -75,6 +52,8 @@ export interface StepFrameDeps {
   readonly contexts: RuntimeContexts;
   /** Every component's record with its join keys (#268 S93), by `name`. */
   readonly components: ReadonlyMap<string, ComponentRecord>;
+  /** The execution's observers, masked by its workflow's policies (`reportFrameEvent`). */
+  readonly observer?: ExecutionObserverManager;
 }
 
 /**
@@ -98,7 +77,7 @@ export function stepFrameAt(
   site: StepSite,
   state: ExecutionStateType,
   config: RunnableConfig | undefined,
-  { workflow, contexts, components }: StepFrameDeps,
+  { workflow, contexts, components, observer }: StepFrameDeps,
 ): FrameSpec {
   const { run } = extractRunContext(config, state.runId);
   const executionId: string = run.runId;
@@ -127,9 +106,10 @@ export function stepFrameAt(
       values: state.contexts.execution,
       // where its request came from and its deadline (#398 PR 2): its contexts', a child's its root's
       ...meshFactsOf(state.contexts),
-      // the lease its steps run under (#471): the root's, or an AnyInstance child's own
+      // the lease its steps run under (#471): the root's, or an AnyWorker child's own
       ...(run.lease === undefined ? {} : { lease: run.lease }),
       observability: run.observability,
+      ...(observer === undefined ? {} : { observer }),
       correlationKey: state.piiKey ?? run.correlationKey,
       fingerprintKeys: run.fingerprintKeys,
       // a child execution (#263): its parent's execution and launching step, its item; a root: the
@@ -162,12 +142,16 @@ const takesSlot = (node: RuntimeNode): boolean =>
   node.kind === NodeKind.Agent || node.kind === NodeKind.Router || node.kind === NodeKind.Action;
 
 /** The subtrees below the root whose own cap is smaller than every cap around them. */
-function subtreesOf(line: readonly ExecutionFacts[], treeCap: number): readonly SubtreeCap[] {
+function subtreesOf(
+  line: readonly ExecutionFacts[],
+  treeCap: number,
+  limitsOf: ExecutionLimitsOf,
+): readonly SubtreeCap[] {
   const subtrees: SubtreeCap[] = [];
   let enclosing = treeCap;
   // Stryker disable next-line MethodExpression: the root's own cap is the tree's (`enclosing`), never below it: it is passed over whether or not it is sliced off
   for (const member of line.slice(1)) {
-    const own = declaredMaxConcurrentExecutionsOf(member.workflow.type);
+    const own = limitsOf(member.workflow.type).maxConcurrency;
     if (own === undefined || own >= enclosing) continue;
     subtrees.push({ executionId: member.executionId, maxConcurrentExecutions: own });
     enclosing = own;
@@ -200,15 +184,15 @@ interface TreeClaim {
 }
 
 /** The step's claim and the tree it is on. */
-function claimAt(site: TreeSlotSite): TreeClaim {
+function claimAt(site: TreeSlotSite, limitsOf: ExecutionLimitsOf): TreeClaim {
   const line = executionsFromRootOf(site.execution);
   const root = line[0] ?? site.execution;
-  const cap = maxConcurrentExecutionsOf(root.workflow.type);
+  const cap = maxConcurrencyUnder(limitsOf, root.workflow.type);
   const claim: SlotClaim = {
     executionId: site.execution.executionId,
     depth: line.length,
     closesBranch: closesBranch(site.graph, site.state),
-    subtrees: subtreesOf(line, cap),
+    subtrees: subtreesOf(line, cap, limitsOf),
   };
   return { root, cap, claim };
 }
@@ -222,7 +206,7 @@ const cancelledWaiting = (what: string): ExecutionCancelledError =>
  * instance's (#332), with the same claim; a quorum's deadline excludes both waits (#279).
  */
 async function takeSlots(site: TreeSlotSite, slots: TreeSlotRegistry): Promise<SlotHold> {
-  const { root, cap, claim } = claimAt(site);
+  const { root, cap, claim } = claimAt(site, slots.limitsOf);
   const { clock } = extractRunContext(site.config, site.state.runId);
   const { signal } = site.execution;
   const tree = await slots.slotsOf(root, cap, clock).take(claim, signal, site.watch);

@@ -9,7 +9,7 @@ import { launchLabel } from "./join-groups.js";
  * (node, open actions, side paths entered), so the first path found to a state is a shortest one.
  * An undoable action opens when it succeeds (any edge but its `.onError`), and closes when its
  * committing action succeeds or its undo action runs (whether the undo then succeeds or not — a
- * failed undo is the side path's own `.onError`). Entering an `.onError` / `.onJoinError` side path
+ * failed undo is the side path's own `.onError`). Entering an `.onError` side path
  * records the actions open there: they must be undone, newest first, before a finish. A join opens
  * the launch's undoable action branches; a failed join's finished branches are undone
  * automatically (#340), so its side path owes only what was open before the launch.
@@ -140,7 +140,20 @@ function sidePathLabel(edge: FlowEdge): string {
   const error = edge.error?.name ?? "Error";
   return edge.kind === EdgeKind.Error || edge.launch === undefined
     ? `.onError(${error}, …) side path after ${edge.from}`
-    : `.onJoinError(${error}, …) side path after the join of ${launchLabel(edge.launch)}`;
+    : `.onError(${error}, …) side path after the join of ${launchLabel(edge.launch)}`;
+}
+
+/**
+ * What a join edge opens (#1284): every undoable branch of the launch — and, on the edge of one
+ * `.onGroup([A, B], …)`, only the targets of that group: the other branches did not count on this
+ * path, so what they did is not owed by it (undoing a completed-but-excluded branch is the join's, #1281b).
+ */
+function joinedBy(edge: FlowEdge): readonly ComponentName[] {
+  const group = edge.join?.group;
+  const branches = edge.launch?.branches.map((branch) => branch.node) ?? [];
+  if (group === undefined) return branches;
+  const targets = new Set(group.targets);
+  return branches.filter((node) => targets.has(node));
 }
 
 /** Leaving `state.node` along `edge`: what succeeded opens or commits, a side path owes the rest. */
@@ -152,7 +165,7 @@ function leaving(state: WalkState, edge: FlowEdge, undoables: Undoables): WalkSt
       next = closing(next, action);
   }
   if (edge.kind === EdgeKind.Join)
-    for (const branch of edge.launch?.branches ?? []) next = opening(next, branch.node, undoables);
+    for (const node of joinedBy(edge)) next = opening(next, node, undoables);
   if ((edge.kind === EdgeKind.Error || edge.kind === EdgeKind.JoinError) && next.open.length > 0) {
     const entry = { label: sidePathLabel(edge), node: state.node, owed: [...next.open].reverse() };
     next = { ...next, sidePaths: [...next.sidePaths, entry] };

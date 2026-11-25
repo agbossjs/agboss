@@ -1,13 +1,20 @@
 import { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
-import { listOf, optional, Wrapper, type OutputShape, type ValueShape } from "../dto-wrappers.js";
-import { LAUNCH_CALLS } from "../launch-step.js";
+import {
+  listOfElement,
+  optional,
+  Wrapper,
+  type OutputShape,
+  type ValueShape,
+} from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import {
   isTextAgent,
   outputOf,
+  valueWrite,
   type FlowLaunch,
   type FlowNode,
   type LaunchBranch,
+  type ValueWrite,
 } from "./flow-graph.js";
 import { shapeLabel } from "./labels.js";
 import { slotOfValue, writtenValue, type SlotKey } from "./scope.js";
@@ -15,17 +22,17 @@ import { slotOfValue, writtenValue, type SlotKey } from "./scope.js";
 /**
  * What the join of a launch gives (#273): one value per class the branches give — `listOf(XDto)`
  * for a repeated agent, two agents with one `output` and a per-item launch; `optional(XDto)` for a
- * branch whose router route is `OnDemand` or `Skip`; nothing for an action without `output`. A
+ * branch a router chooses or a `skip()` drops; nothing for an action without `output`. A
  * branch whose output no join value can carry (a list of lists, a lone `oneOf`) is a problem.
  */
 
-/** One value of a join: the branches that give it, and the shape `.join().returns(…)` names. */
+/** One value of a join: the branches that give it, and the shape the join gives for them. */
 export interface JoinGroup {
   readonly slot: SlotKey;
   readonly producers: readonly ComponentName[];
   /** Several values of one class (copies, several agents, a per-item launch): always a list. */
   readonly isSeveral: boolean;
-  /** What `.join().returns(…)` writes for it; undefined when nothing can (`problem` says why). */
+  /** What the join writes for it; undefined when nothing can (`problem` says why). */
   readonly shape?: ValueShape;
   readonly problem?: string;
 }
@@ -74,13 +81,13 @@ function groupOf(launch: FlowLaunch, gathered: Gathered): JoinGroup {
           problem: `${names} gives ${label}, several times — a join holds no list of lists; launch it once, or give it one value per run`,
         }
       : withShape(producers, output, false);
-  if (isList) return withShape(producers, listOf(output), true);
+  if (isList) return withShape(producers, listOfElement(output), true);
   if (typeof output !== "function")
     return {
       slot,
       producers,
       isSeveral,
-      problem: `${names} gives ${label} — a join takes one class per branch; branch it with .toAgent(…).returns(${label}).switch(…) instead`,
+      problem: `${names} gives ${label} — a join takes one class per branch; branch it with .toOneOf([…]) on its agent instead`,
     };
   const [branch] = branches;
   return withShape(producers, branch?.isOptional === true ? optional(output) : output, false);
@@ -99,6 +106,10 @@ export function joinGroupsOf(launch: FlowLaunch, nodeOf: NodeLookup): readonly J
     .sort((first, second) => first.slot.localeCompare(second.slot));
 }
 
+/** The values a join writes: one per group that can carry one, derived from the branches (#1270). */
+export const valuesOfGroups = (groups: readonly JoinGroup[]): readonly ValueWrite[] =>
+  groups.flatMap((group) => (group.shape === undefined ? [] : [valueWrite(group.shape, false)]));
+
 /** The producers of a value the join writes into `slot`: its group's, else every branch. */
 export function producersOfSlot(
   launch: FlowLaunch,
@@ -109,18 +120,7 @@ export function producersOfSlot(
   return group?.producers ?? launch.branches.map((branch) => branch.node).sort();
 }
 
-/** How a message names a launch: `planner-agent → toParallelAgents(researcher-agent, critic-agent)`. */
+/** How a message names a launch: `planner-agent → inParallel(researcher-agent, critic-agent)`. */
 export function launchLabel(launch: FlowLaunch): string {
-  return `${launch.launcher} → ${LAUNCH_CALLS[launch.targetKind]}(${launch.listed.join(", ")})`;
-}
-
-/**
- * The key of a launch's `JoinOutputs` entry, as the typed builder spells it from the launch as
- * written: `toParallelAgents(researcher-agent, critic-agent, critic-agent)`, a router's
- * `support-router.toParallelAgents(…)`, a per-item `toParallelAgents(company-check-agent) per item`.
- */
-export function launchKeyOf(launch: FlowLaunch): string {
-  const prefix = launch.isRouterLaunch ? `${launch.launcher}.` : "";
-  const suffix = launch.items === undefined ? "" : " per item";
-  return `${prefix}${LAUNCH_CALLS[launch.targetKind]}(${launch.listed.join(", ")})${suffix}`;
+  return `${launch.launcher} → ${launch.call}(${launch.listed.join(", ")})`;
 }

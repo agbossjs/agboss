@@ -4,18 +4,13 @@
  */
 import { ComponentError } from "../../src/components/metadata.js";
 import { PromptError } from "../../src/components/prompt-problems.js";
-import { ProfileError } from "../../src/config/profiles.js";
+import { ProfileError } from "../../src/config/profile-error.js";
 import { DtoError } from "../../src/dto/errors.js";
 import { EnvironmentError, EnvironmentErrorCode } from "../../src/environments/errors.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { ApplicationLoadError, WorkflowLoadError } from "../../src/loader/load-errors.js";
 import { ConfigurationError } from "../../src/models/problems.js";
 import { ModelProviderError } from "../../src/models/model-provider.decorator.js";
-import { PromptCachingError } from "../../src/models/prompt-caching.js";
-import { RateLimitPolicyError } from "../../src/models/policies/rate-limit-policy.js";
-import { ReasoningError } from "../../src/models/reasoning.js";
-import { RetryPolicyError } from "../../src/models/retry-policy.js";
-import { UnitError } from "../../src/units/index.js";
 import { ModelFailure } from "../../src/models/model-failure.js";
 import {
   AppCloseTimeoutError,
@@ -61,11 +56,6 @@ export const plainFixtures: Readonly<Record<string, object>> = Object.fromEntrie
   }),
   fx(ModelProviderError, { message }),
   fx(ProfileError, { message }),
-  fx(UnitError, { message }),
-  fx(ReasoningError, { message }),
-  fx(PromptCachingError, { message }),
-  fx(RetryPolicyError, { message }),
-  fx(RateLimitPolicyError, { message }),
   fx(TestFailure, { code: "test.app-closed", message }),
   fx(LiveCallBlockedError, { message }),
   fx(CassetteMissingError, { message }),

@@ -1,6 +1,7 @@
-import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { Text } from "../../../../src/dto/index.js";
 import {
+  Observer,
   Action,
   Agent,
   ChildExecutionFailedError,
@@ -19,19 +20,26 @@ import {
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionStartEvent,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type OnExecutionStart,
-  type Produced,
-  type ToolHandler,
+  type Tracked,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
+import { Metadata } from "../../../../src/flow/metadata.js";
 import { Application } from "../../../../src/application/application.js";
 import { usd, type Usd } from "../../../../src/units/index.js";
 import { Budget, BudgetScope, type BudgetHandler } from "../../../../src/budgets/budget.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { agent, caseOf, start, toAgent, toFinish, toWorkflow } from "../../../helpers/flow.js";
+import {
+  onAgent,
+  onStart,
+  toAgent,
+  toFinish,
+  toWorkflow,
+  toAction,
+} from "../../../helpers/flow.js";
 import { ItemDto, ItemFailedError, ItemResultDto, SummaryDto } from "./fan-out.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #263 PR 2 — child workflows at run time. A code child (`item-check-workflow`: one action that
@@ -123,8 +131,8 @@ export class CheckItemAction {
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name, delay, outcome } = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name, delay, outcome } = input.item;
     this.read(name);
     childLog.events.push(`start ${name}`);
     childLog.inFlight += 1;
@@ -185,11 +193,10 @@ export class ItemCheckedWorkflowFinish {}
 @Workflow({
   name: "item-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ItemCheckWorkflowStart)
-      .returns(ItemDto)
+    onStart(ItemCheckWorkflowStart)
       .toAction(CheckItemAction)
-      .returns(ItemResultDto)
       .toFinish(ItemCheckedWorkflowFinish),
   ],
 })
@@ -204,47 +211,67 @@ export class ItemCheckWorkflow {}
 })
 export class CheckItemsWorkflowStart {}
 
-@WorkflowFinish({
-  name: "checks-summary-workflow-finish",
+@Action({
+  name: "checks-summary-action",
   description: "What was checked",
   input: { results: listOf(ItemResultDto) },
   output: SummaryDto,
 })
-export class ChecksSummaryWorkflowFinish {
-  finish(input: { readonly results: readonly Produced<ItemResultDto, unknown>[] }): SummaryDto {
-    childLog.producers.push(...input.results.map((result) => result.producer));
+export class ChecksSummaryAction {
+  async execute(input: {
+    readonly results: readonly Tracked<ItemResultDto>[];
+  }): Promise<SummaryDto> {
+    childLog.producers.push(...input.results.map((result) => Metadata.createdBy(result)));
     return {
       text: input.results
-        .map((result) => result.value.name)
+        .map((result) => result.name)
         .join(", "),
     };
   }
 }
 
-/** The launch failed: what the side path sees is the scope before the launch — the items. */
 @WorkflowFinish({
-  name: "checks-failed-workflow-finish",
+  name: "checks-summary-workflow-finish",
+  description: "What was checked",
+  output: SummaryDto,
+})
+export class ChecksSummaryWorkflowFinish {}
+
+/** The launch failed: what the side path sees is the scope before the launch — the items. */
+@Action({
+  name: "checks-failed-action",
   description: "The items were not all checked",
   input: { items: listOf(ItemDto) },
   output: SummaryDto,
 })
-export class ChecksFailedWorkflowFinish {
-  finish(input: { readonly items: readonly Produced<ItemDto, unknown>[] }): SummaryDto {
+export class ChecksFailedAction {
+  async execute(input: { readonly items: readonly Tracked<ItemDto>[] }): Promise<SummaryDto> {
     return { text: `failed on one of ${String(input.items.length)}` };
   }
 }
+
+@WorkflowFinish({
+  name: "checks-failed-workflow-finish",
+  description: "The items were not all checked",
+  output: SummaryDto,
+})
+export class ChecksFailedWorkflowFinish {}
 
 /** One child per item, two at a time; a failed child is caught by its class. */
 @Workflow({
   name: "check-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(CheckItemsWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(ItemCheckWorkflow, { maxConcurrency: 2, maxItems: 10 })
+    onStart(CheckItemsWorkflowStart)
+      .forEachItem(toWorkflow(ItemCheckWorkflow), { takeFirst: 10, maxConcurrency: 2 })
       .join()
-      .onJoinError(ChildExecutionFailedError, toFinish(ChecksFailedWorkflowFinish))
-      .returns(listOf(ItemResultDto))
+      .onError(
+        ChildExecutionFailedError,
+        toAction(ChecksFailedAction)
+          .toFinish(ChecksFailedWorkflowFinish),
+      )
+      .toAction(ChecksSummaryAction)
       .toFinish(ChecksSummaryWorkflowFinish),
   ],
 })
@@ -264,28 +291,38 @@ export class CheckOneWorkflowStart {}
 })
 export class OneCheckedWorkflowFinish {}
 
-@WorkflowFinish({
-  name: "one-failed-workflow-finish",
+@Action({
+  name: "one-failed-action",
   description: "The item could not be checked",
   input: { item: ItemDto },
   output: SummaryDto,
 })
-export class OneFailedWorkflowFinish {
-  finish(input: { readonly item: Produced<ItemDto, unknown> }): SummaryDto {
-    return { text: `could not check ${input.item.value.name}` };
+export class OneFailedAction {
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<SummaryDto> {
+    return { text: `could not check ${input.item.name}` };
   }
 }
+
+@WorkflowFinish({
+  name: "one-failed-workflow-finish",
+  description: "The item could not be checked",
+  output: SummaryDto,
+})
+export class OneFailedWorkflowFinish {}
 
 /** One child, one way in: its failure is caught right after it by the cause's class. */
 @Workflow({
   name: "check-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(CheckOneWorkflowStart)
-      .returns(ItemDto)
+    onStart(CheckOneWorkflowStart)
       .toWorkflow(ItemCheckWorkflow)
-      .onError(ItemFailedError, toFinish(OneFailedWorkflowFinish))
-      .returns(ItemResultDto)
+      .onError(
+        ItemFailedError,
+        toAction(OneFailedAction)
+          .toFinish(OneFailedWorkflowFinish),
+      )
       .toFinish(OneCheckedWorkflowFinish),
   ],
 })
@@ -302,11 +339,10 @@ export class CheckBareWorkflowStart {}
 @Workflow({
   name: "check-bare-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(CheckBareWorkflowStart)
-      .returns(ItemDto)
+    onStart(CheckBareWorkflowStart)
       .toWorkflow(ItemCheckWorkflow)
-      .returns(ItemResultDto)
       .toFinish(OneCheckedWorkflowFinish),
   ],
 })
@@ -331,11 +367,10 @@ export class ItemDeepCheckedWorkflowFinish {}
 @Workflow({
   name: "item-deep-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ItemDeepCheckWorkflowStart)
-      .returns(ItemDto)
+    onStart(ItemDeepCheckWorkflowStart)
       .toWorkflow(ItemCheckWorkflow)
-      .returns(ItemResultDto)
       .toFinish(ItemDeepCheckedWorkflowFinish),
   ],
 })
@@ -351,12 +386,12 @@ export class DeepCheckItemsWorkflowStart {}
 @Workflow({
   name: "deep-check-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(DeepCheckItemsWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(ItemDeepCheckWorkflow, { maxItems: 10 })
+    onStart(DeepCheckItemsWorkflowStart)
+      .forEachItem(toWorkflow(ItemDeepCheckWorkflow), { takeFirst: 10 })
       .join()
-      .returns(listOf(ItemResultDto))
+      .toAction(ChecksSummaryAction)
       .toFinish(ChecksSummaryWorkflowFinish),
   ],
 })
@@ -371,8 +406,8 @@ export class DeepCheckItemsWorkflow {}
   output: ItemResultDto,
 })
 export class FallbackCheckAction {
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    return Promise.resolve({ name: `${input.item.value.name} (fallback)` });
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    return Promise.resolve({ name: `${input.item.name} (fallback)` });
   }
 }
 
@@ -393,11 +428,10 @@ export class FallbackCheckedWorkflowFinish {}
 @Workflow({
   name: "fallback-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FallbackCheckWorkflowStart)
-      .returns(ItemDto)
+    onStart(FallbackCheckWorkflowStart)
       .toAction(FallbackCheckAction)
-      .returns(ItemResultDto)
       .toFinish(FallbackCheckedWorkflowFinish),
   ],
 })
@@ -421,17 +455,15 @@ export class RecheckedWorkflowFinish {}
 @Workflow({
   name: "check-or-fallback-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(CheckOrFallbackWorkflowStart)
-      .returns(ItemDto)
+    onStart(CheckOrFallbackWorkflowStart)
       .toAction(CheckItemAction)
       .onError(
         StepFailedError,
         toWorkflow(FallbackCheckWorkflow)
-          .returns(ItemResultDto)
           .toFinish(RecheckedWorkflowFinish),
       )
-      .returns(ItemResultDto)
       .toFinish(OneCheckedWorkflowFinish),
   ],
 })
@@ -447,12 +479,12 @@ export class ItemConfirmationDto {
 @Tool({
   name: "confirm-review-tool",
   description: "Confirms an item's review",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: ItemConfirmationDto,
   output: ItemConfirmationDto,
 })
-export class ConfirmReviewTool implements ToolHandler<ItemConfirmationDto, ItemConfirmationDto> {
-  run(input: ItemConfirmationDto): Promise<ItemConfirmationDto> {
+export class ConfirmReviewTool {
+  execute(input: ItemConfirmationDto): Promise<ItemConfirmationDto> {
     return Promise.resolve(input);
   }
 }
@@ -460,9 +492,9 @@ export class ConfirmReviewTool implements ToolHandler<ItemConfirmationDto, ItemC
 @Agent({
   name: "item-reviewer-agent",
   description: "Reviews one item",
-  prompt: "Review the item.",
+  prompt: inline("Review the item."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 5,
+  executionLimits: { maxVisits: 5 },
   tools: [ConfirmReviewTool],
   input: { item: ItemDto },
   output: oneOf(ItemResultDto, ItemNoteDto),
@@ -486,19 +518,13 @@ export class ItemReviewedWorkflowFinish {}
 @Workflow({
   name: "item-review-workflow",
   version: "1.0.0",
-  maxSteps: 2,
+  historyTtl: Ttl.Forever,
+  executionLimits: { maxSteps: 2 },
   flow: [
-    start(ItemReviewWorkflowStart)
-      .returns(ItemDto)
+    onStart(ItemReviewWorkflowStart)
       .toAgent(ItemReviewerAgent),
-    agent(ItemReviewerAgent)
-      .returns(oneOf(ItemResultDto, ItemNoteDto))
-      .switch(
-        caseOf(ItemResultDto)
-          .toFinish(ItemReviewedWorkflowFinish),
-        caseOf(ItemNoteDto)
-          .toAgent(ItemReviewerAgent),
-      ),
+    onAgent(ItemReviewerAgent)
+      .toOneOf([toFinish(ItemReviewedWorkflowFinish), toAgent(ItemReviewerAgent)]),
   ],
 })
 export class ItemReviewWorkflow {}
@@ -513,7 +539,7 @@ export class ReviewItemsWorkflowStart {}
 @Agent({
   name: "review-rescue-agent",
   description: "Says what to do when a review ran out of steps",
-  prompt: "Say what to do.",
+  prompt: inline("Say what to do."),
   model: "moonshotai/kimi-k2.6",
   input: { items: listOf(ItemDto) },
   output: SummaryDto,
@@ -527,39 +553,47 @@ export class ReviewRescueAgent {}
 })
 export class ReviewsWorkflowFinish {}
 
-@WorkflowFinish({
-  name: "reviews-summary-workflow-finish",
+@Action({
+  name: "reviews-summary-action",
   description: "What was reviewed",
   input: { results: listOf(ItemResultDto) },
   output: SummaryDto,
 })
-export class ReviewsSummaryWorkflowFinish {
-  finish(input: { readonly results: readonly Produced<ItemResultDto, unknown>[] }): SummaryDto {
+export class ReviewsSummaryAction {
+  async execute(input: {
+    readonly results: readonly Tracked<ItemResultDto>[];
+  }): Promise<SummaryDto> {
     return {
       text: input.results
-        .map((result) => result.value.name)
+        .map((result) => result.name)
         .join(", "),
     };
   }
 }
 
+@WorkflowFinish({
+  name: "reviews-summary-workflow-finish",
+  description: "What was reviewed",
+  output: SummaryDto,
+})
+export class ReviewsSummaryWorkflowFinish {}
+
 /** A child over its own maxSteps is a child's failure: its handler may lead to an agent (S25). */
 @Workflow({
   name: "review-items-workflow",
   version: "1.0.0",
-  maxSteps: 4,
+  historyTtl: Ttl.Forever,
+  executionLimits: { maxSteps: 4 },
   flow: [
-    start(ReviewItemsWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(ItemReviewWorkflow, { maxConcurrency: 2, maxItems: 10 })
+    onStart(ReviewItemsWorkflowStart)
+      .forEachItem(toWorkflow(ItemReviewWorkflow), { takeFirst: 10, maxConcurrency: 2 })
       .join()
-      .onJoinError(
+      .onError(
         ChildExecutionFailedError,
         toAgent(ReviewRescueAgent)
-          .returns(SummaryDto)
           .toFinish(ReviewsWorkflowFinish),
       )
-      .returns(listOf(ItemResultDto))
+      .toAction(ReviewsSummaryAction)
       .toFinish(ReviewsSummaryWorkflowFinish),
   ],
 })
@@ -572,36 +606,46 @@ export class ReviewItemsWorkflow {}
 })
 export class ReviewOneWorkflowStart {}
 
-@WorkflowFinish({
-  name: "review-stopped-workflow-finish",
+@Action({
+  name: "review-stopped-action",
   description: "The review stopped on its steps",
   input: { item: ItemDto },
   output: SummaryDto,
 })
-export class ReviewStoppedWorkflowFinish {
-  finish(input: { readonly item: Produced<ItemDto, unknown> }): SummaryDto {
-    return { text: `stopped on ${input.item.value.name}` };
+export class ReviewStoppedAction {
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<SummaryDto> {
+    return { text: `stopped on ${input.item.name}` };
   }
 }
+
+@WorkflowFinish({
+  name: "review-stopped-workflow-finish",
+  description: "The review stopped on its steps",
+  output: SummaryDto,
+})
+export class ReviewStoppedWorkflowFinish {}
 
 /** A handler naming the limit catches the child's limit through the cause chain. */
 @Workflow({
   name: "review-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ReviewOneWorkflowStart)
-      .returns(ItemDto)
+    onStart(ReviewOneWorkflowStart)
       .toWorkflow(ItemReviewWorkflow)
-      .onError(StepsLimitExceededError, toFinish(ReviewStoppedWorkflowFinish))
-      .returns(ItemResultDto)
+      .onError(
+        StepsLimitExceededError,
+        toAction(ReviewStoppedAction)
+          .toFinish(ReviewStoppedWorkflowFinish),
+      )
       .toFinish(ItemReviewedWorkflowFinish),
   ],
 })
 export class ReviewOneWorkflow {}
 
 /** Every child execution event, in order. */
-@Injectable()
-export class ChildEventLog implements OnExecutionStart, OnExecutionEnd, OnExecutionError {
+@Observer()
+export class ChildEventLog {
   onExecutionStart(event: ExecutionStartEvent): void {
     childLog.starts.push(event);
   }
@@ -617,6 +661,7 @@ export class ChildEventLog implements OnExecutionStart, OnExecutionEnd, OnExecut
 
 @Application({
   name: "children-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   tenantContext: ShopTenantContext,
@@ -651,6 +696,7 @@ export class ItemReviewExecutionBudget implements BudgetHandler {
 /** The model child and its parent, with the child's own execution budget. */
 @Application({
   name: "child-budgets-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   tenantContext: ShopTenantContext,

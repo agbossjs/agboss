@@ -68,18 +68,29 @@ export async function instancePartsOf(
   clock: Clock,
   log: FrameworkLog,
   stores: InstanceStores,
+  contexts: { readonly application: { readonly instanceId: string } },
 ): Promise<SharedInstanceParts> {
   const { executionTrees: trees, childQueue: queue, rateLimits } = stores;
+  const { instanceId } = contexts.application;
   const stepEntries = new StepEntries();
   const stepsAtStop = stepsAtStopOf(stepEntries, stopDeadlineOf(clock), log);
   const compensation = {
     timeout: assembled.compensationTimeout,
+    interruptTimeout: assembled.shutdownTimeout,
     registry: new CompensationRegistry(),
     log,
     trees,
   };
   const stepSlots = await stepSlotsOf(assembled, clock);
-  const remoteChildren = { queue, rateLimits, clock };
+  const remoteChildren = {
+    queue,
+    rateLimits,
+    clock,
+    instanceId,
+    claimTimeout: assembled.childClaimTimeout,
+    defaultPlacement: assembled.childPlacement,
+    placements: assembled.componentOptions.placements,
+  };
   const notices = pauseNoticeHubOf(
     assembled,
     { pausedExecutions: stores.pausedExecutions, clock },

@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PauseKind,
-  questionAskOf,
+  pauseInputOf,
   isApprovalPause,
   isQuestionPause,
   type PauseRecord,
@@ -23,7 +23,7 @@ describe("#801: a pause's kind", () => {
     // as a store that does not keep `kind` reads it back (JSON drops it)
     const { kind, ...kept } = questionPauseOf("q-lost");
     const lost = JSON.parse(JSON.stringify(kept)) as PauseRecord;
-    expect(kind).toBe(PauseKind.Question);
+    expect(kind).toBe(PauseKind.ExternalTask);
 
     expect(() => isApprovalPause(lost)).toThrow(/pause q-lost: kind undefined is no PauseKind/);
     expect(() => isQuestionPause({ kind: "approve" as PauseKind, pauseId: "x" })).toThrow(
@@ -32,13 +32,13 @@ describe("#801: a pause's kind", () => {
   });
 });
 
-describe("#801: questionAskOf", () => {
+describe("#801: pauseInputOf", () => {
   it("brands an object as it is", () => {
     const ask = { item: "laptop" };
-    expect(questionAskOf(ask)).toBe(ask);
+    expect(pauseInputOf(ask)).toBe(ask);
   });
 
   it.each([null, undefined, "laptop", 7, ["laptop"]])("refuses %j", (value) => {
-    expect(() => questionAskOf(value)).toThrow(TypeError);
+    expect(() => pauseInputOf(value)).toThrow(TypeError);
   });
 });

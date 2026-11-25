@@ -31,7 +31,7 @@ const passOn = (ledger: InMemoryCostLedgerRepository): BudgetMeter =>
   meterOf({ ledger, clock: systemClock }, [budget], 0);
 
 const spentIn = (ledger: InMemoryCostLedgerRepository) =>
-  ledger.findSpentByCounter(counterOf(budget, systemClock.now()));
+  ledger.findUsageByCounter(counterOf(budget, systemClock.now())).then((usage) => usage.spent);
 
 /** A ledger whose next write is kept but answers with an error: its answer was lost. */
 class LostAnswerLedger extends InMemoryCostLedgerRepository {

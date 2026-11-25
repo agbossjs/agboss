@@ -1,7 +1,8 @@
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { startComponents, stopComponents } from "../../src/components/container/lifecycle.js";
-import { ApplicationStoppingError, ExecutionCancelledError, type App } from "../../src/index.js";
+import { ApplicationStoppingError, ExecutionCancelledError } from "../../src/index.js";
+import type { AnyTenantApp as App } from "../../src/app/types.js";
 import {
   Ask,
   rejections,
@@ -22,6 +23,7 @@ import {
   LifecycleApplication,
 } from "./fixtures/lifecycle.workflow.js";
 import { execute } from "../helpers/flow.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 beforeEach(() => {
   events.length = 0;
@@ -88,12 +90,12 @@ const scriptedApp = async (): Promise<App> => {
   book
     .scriptOf("agent:scout-agent")
     .thenReturn(callTool(SearchJobsTool, { text: "TS" }), replyWith("found"));
-  return createAppWith(LifecycleApplication, { gateway: createScriptedGateway(book) });
+  return createTestAppWith(LifecycleApplication, { gateway: createScriptedGateway(book) });
 };
 
 /** An app whose observer records the refused requests. */
 const observedApp = (): Promise<App> =>
-  createAppWith(ApplicationsApplication, {
+  createTestAppWith(ApplicationsApplication, {
     gateway: createScriptedGateway(new ScriptBook()),
   });
 
@@ -144,7 +146,7 @@ describe("#261 AC3: after app.close() no new execution is accepted", () => {
     gate.open();
 
     expect(cancelled).toEqual({ cancelled: true });
-    await expect(running).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(running).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     await closing;
   });
 });
@@ -199,7 +201,7 @@ describe("#261 AC3: lifecycle hooks — errors", () => {
 
   it("a failing onInit of a real component: the app does not start, the error names it", async () => {
     await expect(
-      createAppWith(BrokenLifecycleApplication, {
+      createTestAppWith(BrokenLifecycleApplication, {
         gateway: createScriptedGateway(new ScriptBook()),
       }),
     ).rejects.toThrow("[di.hook-failed] BrokenPoolProvider.onInit failed: no database at start");

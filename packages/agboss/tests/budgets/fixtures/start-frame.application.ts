@@ -8,6 +8,7 @@ import {
   ShopTenantContext,
   ShopTenantMonthlyBudget,
 } from "./budgets.application.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #1356: an execution budget that reads the frame of the start in which its `maxSpend()` runs (the
@@ -96,6 +97,7 @@ const threadOf = (context: ExecutionContext): string => {
 
 @Application({
   name: "frame-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BriefWorkflow],

@@ -8,7 +8,7 @@
  * suite's scenario 25.)
  */
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { CANCELLED_STOP_REASON } from "../../src/app/live-runs.js";
+import { CANCELLED_STOP_REASON } from "../../src/app/cancelled-run.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
 import {
   ExecutionLeaseRepository,
@@ -156,7 +156,7 @@ async function expectCancelled(tree: Awaited<ReturnType<typeof restingTree>>): P
     resolution: PauseResolution.Cancelled,
   });
   expect(await tree.record()).toMatchObject({
-    status: "failed",
+    status: "cancelled",
     stopReason: CANCELLED_STOP_REASON,
   });
   expect(await tree.pausedRun()).toBeUndefined();

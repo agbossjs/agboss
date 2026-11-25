@@ -4,7 +4,7 @@
  * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`, `limit.depth` (#264), `limit.mesh-loop`, `limit.hops` (#398); `step` ⊃ `step.failed` (`StepFailedError`, #273 S22) ⊃
  * `step.agent`, `step.action`, `step.guard`, `step.router`, `step.arbiter`, `step.quorum` (#279),
  * `step.child` (`ChildExecutionFailedError`, #263) and `step.tool-blocked` (`ToolBlockedError`, #384);
- * `step.pause-expired` (`PauseExpiredError`, #941) is a pause whose deadline passed, `pause.expiry-handler` (`ExpiryHandlerError`) why its expiry decision fell back to failing;
+ * `step.pause-expired` (`PauseExpiredError`, #941) is a pause whose deadline passed, `pause.expiry-handler-failed` (`ExpiryHandlerError`) why its expiry decision fell back to failing;
  * `pause.closed` (`PauseClosedError`, #939) is a late answer to a closed pause, with its reason.
  */
 export {
@@ -25,6 +25,11 @@ export {
   type ThreadIdsExhaustedErrorOptions,
 } from "./core/errors.js";
 export { errorRecordOf, type ErrorRecord } from "./core/error-record.js";
+// diagnostics and backtraces (#1325c)
+export { BacktraceMode } from "./core/diagnostics/backtrace.js";
+export type { ErrorDiagnostics, ErrorFormatOptions } from "./core/diagnostics/error-report.js";
+export type { ExecutionSpanFrame } from "./core/diagnostics/span-trace.js";
+export type { LabeledSpan, SourceSpan } from "./core/diagnostics/source-span.js";
 export {
   GraphRuleError,
   type GraphRuleErrorOptions,
@@ -85,7 +90,6 @@ export {
 export { ToolBlockedError, type ToolBlockedErrorOptions } from "./graph/tool-blocked-error.js";
 export { NotAWorkflowStartError } from "./flow/runtime/start-input.js";
 export { PiiRefusedError, type PiiRefusedErrorOptions } from "./pii/errors.js";
-export { CompactionError, type CompactionErrorOptions } from "./compaction/errors.js";
 export { PiiDetectionFailedError } from "./pii/detectors/model.js";
 export {
   ChildExecutionFailedError,
@@ -127,7 +131,7 @@ export {
 } from "./eval/suite/errors.js";
 export * from "./app/pause-closed-error.js";
 export * from "./flow/runtime/pause-expired-error.js";
-export { NotPausedError, PauseAnswererError, UnknownPauseError } from "./run/resume-agent.js";
+export { NotPausedError, UnknownPauseError } from "./run/resume-agent.js";
 export {
   ReplyInterpreterMissingError,
   UninterpretableReplyError,
@@ -139,41 +143,8 @@ export {
   ThreadOwnerError,
   UnknownThreadError,
 } from "./core/errors.js";
-export {
-  DecisionError,
-  DecisionRequestError,
-  DecisionResponseError,
-  ModelKind,
-  ModelKindError,
-  type ModelKindErrorOptions,
-} from "./llm/decision-errors.js";
+export { ModelKind, ModelKindError, type ModelKindErrorOptions } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./core/errors.js";
-export {
-  SyncWorkRequiredError,
-  type SyncWorkRequiredErrorOptions,
-} from "./infrastructure/sqlite/sqlite-fenced-effect.repository.js";
-export {
-  InvalidNotSentTrustError,
-  OutboundCallSupersededError,
-  type InvalidNotSentTrustErrorOptions,
-} from "./app/outbound-call-contract.js";
-export type {
-  OutboundCallSupersededErrorOptions,
-  OutboundCallUnmaskedErrorOptions,
-} from "./app/outbound-call-types.js";
-export {
-  OutboundCallInFlightError,
-  OutboundCallPayloadTooLargeError,
-  OutboundCallResultNotStoredError,
-  OutboundCallUnmaskedError,
-  OutboundCallUnreconciledError,
-  type OutboundCallInFlightErrorOptions,
-  type OutboundCallPayloadTooLargeErrorOptions,
-  type OutboundCallResultNotStoredErrorOptions,
-  type OutboundCallResultNotStoredReason,
-  type OutboundCallUnreconciledErrorOptions,
-  type OutboundCallUnreconciledReason,
-} from "./app/outbound-calls.js";
 export {
   CostLedgerCutoffInvalidError,
   type CostLedgerCutoffInvalidErrorOptions,
@@ -182,28 +153,20 @@ export {
   type CostLedgerEntryExpiredErrorOptions,
   type CostLedgerEntryInvalidErrorOptions,
 } from "./finops/ledger-mark.js";
-export {
-  FencedEffectResultTooLargeError,
-  BusinessKeyConflictError,
-  InvalidBusinessKeyError,
-  InvalidFencedEffectNameError,
-  type InvalidFencedEffectNameErrorOptions,
-  type FencedEffectResultTooLargeErrorOptions,
-  type BusinessKeyConflictErrorOptions,
-  type FingerprintNotJsonErrorOptions,
-  type InvalidBusinessKeyErrorOptions,
-} from "./infrastructure/fenced-effect.repository.js";
-export {
-  FencedEffectStoreMismatchError,
-  type FencedEffectStoreMismatchErrorOptions,
-} from "./infrastructure/in-memory-fenced-effect.repository.js";
 export { cancelFencedErrorOf } from "./app/handed-over.js";
 export {
   ExecutionCancelFencedError,
-  ExecutionFencedError,
+  fencedRefusalOf,
   ExecutionLeaseLostError,
   type ExecutionCancelFencedErrorOptions,
   type ExecutionLeaseLostErrorOptions,
-  type ExecutionFencedErrorOptions,
   type FencedWriteRefusal,
 } from "./app/lease-lost.js";
+// a stop (#1341b): the abort reason of a stopped execution, and a fenced write's refusal by an Immediate stop
+export {
+  ExecutionPausedError,
+  ExecutionPauseFencedError,
+  ExecutionStopFencedError,
+  ExecutionStoppedError,
+  type InterruptFenced,
+} from "./app/lease-stopped.js";

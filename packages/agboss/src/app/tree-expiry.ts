@@ -1,3 +1,4 @@
+import { isExternallyPaused } from "./external-pause.js";
 import { ResumeReason } from "../core/observability.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
@@ -75,11 +76,13 @@ const ENDED: readonly (string | undefined)[] = [
   ExecutionRecordStatus.Answered,
   ExecutionRecordStatus.Failed,
   ExecutionRecordStatus.Guarded,
+  ExecutionRecordStatus.Stopped,
+  ExecutionRecordStatus.Cancelled,
 ];
 
 /**
- * Whether a drain that rejected ended the run (#1074): its record is `answered`, `failed` or
- * `guarded` — the run's own outcome (a run deadline reached, an uncaught `fail()` of the expiry),
+ * Whether a drain that rejected ended the run (#1074): its record is `answered`, `failed`,
+ * `guarded`, `stopped` or `cancelled` — the run's own outcome (a run deadline reached, an uncaught `fail()` of the expiry),
  * recorded and observed (`onExecutionError`) by the pass itself, not a failure of the expiry. A
  * record that is not read, or still moving, leaves the rejection what it is: the machinery's.
  */
@@ -116,8 +119,11 @@ async function drainedAfterExpiry(
 
 /** What an expiry move needs of the mover that holds the tree (`tree-moves.ts`). */
 export interface ExpiryHooks {
-  /** A cancel request or an undo under way ends the tree at the take: its error, the lease released. */
-  readonly endedAtTake: (state: TreeState, lease: HeldExecutionLease) => Promise<Error | undefined>;
+  /** A cancel request or an undo under way ends the tree at the take: its output or error, the lease released. */
+  readonly endedAtTake: (
+    state: TreeState,
+    lease: HeldExecutionLease,
+  ) => Promise<ExecutionOutput | Error | undefined>;
   /** `onExecutionResume(Expired)` for the pass the expiry starts. */
   readonly announce: (resume: TreeResume | undefined, state: TreeState) => Promise<void>;
   /** The drain under the held lease: it releases the lease. */
@@ -148,6 +154,11 @@ export async function expiredMove(
   if (lease === undefined) return;
   try {
     if ((await hooks.endedAtTake(state, lease)) !== undefined) return;
+    // frozen from outside (#1341c): its expiry waits for `app.unpause`, a due pause is not expired
+    if (await isExternallyPaused(parts.leases, treeOf(state))) {
+      await lease.release();
+      return;
+    }
     const resting = await isResting(parts, state, interrupted.turnId);
     // a resting tree is this instance's to move: from here the expiry is real work — the channel's
     // handler, and the pass after it — and counts against the cap (#1092); the look waits only

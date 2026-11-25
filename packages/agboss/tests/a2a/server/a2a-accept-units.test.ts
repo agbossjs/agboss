@@ -42,7 +42,7 @@ const hello = (contextId = "") => messageOf("m-1", ["hello"], { contextId });
 describe("#824: a new message's task", () => {
   it("saved submitted under a minted id, with the caller's peer; started with exactly the caller's options", async () => {
     const script = scriptOf();
-    const parts = unitParts(script, newTasks(), { maxTaskDuration: seconds(90) });
+    const parts = unitParts(script, newTasks());
     const resolved = { ownerId: "dana", peer: "orders-application", tenant: { tenantId: "acme" } };
     // execution values of a start that declares them: this unit app's types declare none
     Reflect.set(resolved, "execution", { userId: "u-1" });
@@ -64,14 +64,13 @@ describe("#824: a new message's task", () => {
       { text: "hello" },
     ]);
     expect(Object.keys(run?.options ?? {}).sort()).toEqual(
-      ["deadline", "execution", "onStream", "ownerId", "tenant", "threadId"].sort(),
+      ["execution", "onStream", "ownerId", "tenant", "threadId"].sort(),
     );
     expect(run?.options).toMatchObject({
       threadId: "ctx-7",
       tenant: { tenantId: "acme" },
       ownerId: "dana",
       execution: { userId: "u-1" },
-      deadline: seconds(90),
     });
     expect(reservedExecutionIdOf(run?.options ?? {})).toBe(task.taskId);
   });

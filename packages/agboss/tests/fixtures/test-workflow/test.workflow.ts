@@ -1,3 +1,4 @@
+import { Window5Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   DecidedBy,
@@ -5,16 +6,19 @@ import {
   Router,
   Tool,
   Workflow,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Reasoning, ReasoningEffort } from "../../../src/models/index.js";
-import { DateTime, TimeZone, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { route, start } from "../../helpers/flow.js";
+import { IsoDateTime, TimeZone, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { onStart, toFinish, toAgent } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../test-flow/test.flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { PersonalDataGuardrail, PromptInjectionGuardrail } from "../guardrails.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const price = { inputPerMTok: 0.5, outputPerMTok: 3, cacheReadPerMTok: 0.1 };
 class ClockQuery {
@@ -23,7 +27,7 @@ class ClockQuery {
 }
 
 class ClockTime {
-  @DateTime()
+  @IsoDateTime()
   iso!: string;
 
   @TimeZone()
@@ -37,9 +41,9 @@ class ClockTime {
   input: ClockQuery,
   output: ClockTime,
 })
-export class Clock implements ToolHandler<ClockQuery, ClockTime> {
+export class Clock {
   constructor(private readonly now: () => Date = () => new Date("2026-09-25T10:00:00Z")) {}
-  run({ timeZone }: ClockQuery): Promise<ClockTime> {
+  execute({ timeZone }: ClockQuery): Promise<ClockTime> {
     // an unknown time zone throws — the model sees it as a tool error
     new Intl.DateTimeFormat("en-GB", { timeZone })
       .format(this.now());
@@ -57,7 +61,7 @@ export class Clock implements ToolHandler<ClockQuery, ClockTime> {
   model: "test/researcher",
   price,
   tools: [Clock],
-  promptUrls: ["./researcher.prompt.md"],
+  prompt: "./researcher.prompt.md",
 })
 export class Researcher {}
 
@@ -67,7 +71,7 @@ export class Researcher {}
   model: "test/coder",
   price,
   reasoning: Reasoning.on({ effort: ReasoningEffort.Low }),
-  promptUrls: ["./coder.prompt.md"],
+  prompt: "./coder.prompt.md",
 })
 export class Coder {}
 
@@ -75,8 +79,9 @@ export class Coder {}
   name: "main-router",
   description: "Sends the message to an agent, or ends",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick who handles the message.",
+  prompt: inline("Pick who handles the message."),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { message: WorkflowStartTextDto },
   maxVisits: 10,
   routes: [
@@ -91,10 +96,11 @@ export class MainRouter {}
 @Workflow({
   name: "test-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: {
       temperature: 0,
-      maxTokens: TokenLimit.MODEL_MAX,
+      maxTokens: TokenLimit.ModelMax,
       reasoning: Reasoning.modelDecides(),
       cache: true,
     },
@@ -102,17 +108,18 @@ export class MainRouter {}
     guardrail: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
   },
-  uncompactedTurns: 5,
+  memory: Window5Memory,
   guardrails: [PromptInjectionGuardrail, PersonalDataGuardrail],
   flow: [
-    start(TestChat)
-      .returns(WorkflowStartTextDto)
+    onStart(TestChat)
       .toRouter(MainRouter)
-      .chooseOne(
-        route(NoAnswer),
-        route(Researcher)
+      .onRoute(toFinish(NoAnswer))
+      .onRoute(
+        toAgent(Researcher)
           .toFinish(TestAnswer),
-        route(Coder)
+      )
+      .onRoute(
+        toAgent(Coder)
           .toFinish(TestAnswer),
       ),
   ],
@@ -121,6 +128,7 @@ export class TestWorkflow {}
 
 @Application({
   name: "test-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TestWorkflow],

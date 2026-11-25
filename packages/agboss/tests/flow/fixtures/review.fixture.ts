@@ -1,4 +1,4 @@
-import { agent, caseOf, route, start } from "../../../src/flow/builder.js";
+import { onAgent, onStart, toAgent, toFinish } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
@@ -13,11 +13,13 @@ import { ArticleDto, ArticleRequestDto } from "./dtos.js";
 import { ApprovalDto, CritiqueDto, DraftDto, ResearchDto } from "./review-dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
- * #271 — the review loop (`caseOf(…, { about: DraftDto })` after the reviewer, #299) and a polish
- * loop (an action's `.returns(listOf(CritiqueDto), { about: DraftDto })`).
+ * #271 — the review loop (`caseOf(…)` after the reviewer, #299) and a polish
+ * loop (an action's ``).
  */
 
 @WorkflowStart({
@@ -30,7 +32,7 @@ export class StoryWorkflowStart {}
 @Agent({
   name: "researcher-agent",
   description: "Researches the subject",
-  prompt: "Research the subject.",
+  prompt: inline("Research the subject."),
   model: "moonshotai/kimi-k2.6",
   input: {
     request: ArticleRequestDto,
@@ -42,9 +44,9 @@ export class ResearcherAgent {}
 @Agent({
   name: "story-writer-agent",
   description: "Writes the article, or rewrites it from the reviewer's notes",
-  prompt: "Write the article.",
+  prompt: inline("Write the article."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 4,
+  executionLimits: { maxVisits: 4 },
   input: {
     request: ArticleRequestDto,
     research: ResearchDto,
@@ -57,9 +59,9 @@ export class StoryWriterAgent {}
 @Agent({
   name: "story-reviewer-agent",
   description: "Approves the draft or asks for changes",
-  prompt: "Review the draft.",
+  prompt: inline("Review the draft."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 4,
+  executionLimits: { maxVisits: 4 },
   input: {
     draft: DraftDto,
   },
@@ -70,7 +72,7 @@ export class StoryReviewerAgent {}
 @Agent({
   name: "publisher-agent",
   description: "Prepares the approved draft for publishing",
-  prompt: "Prepare the draft.",
+  prompt: inline("Prepare the draft."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: DraftDto,
@@ -88,35 +90,30 @@ export class PublisherAgent {}
 export class StoryWorkflowFinish {}
 
 export const storyPaths = [
-  start(StoryWorkflowStart)
-    .returns(ArticleRequestDto)
+  onStart(StoryWorkflowStart)
     .toAgent(ResearcherAgent)
-    .returns(ResearchDto)
     .toAgent(StoryWriterAgent),
 
-  agent(StoryWriterAgent)
-    .returns(DraftDto)
+  onAgent(StoryWriterAgent)
     .toAgent(StoryReviewerAgent)
-    .returns(oneOf(ApprovalDto, DraftChangesDto))
-    .switch(
-      caseOf(DraftChangesDto, { about: DraftDto })
-        .toAgent(StoryWriterAgent),
-      caseOf(ApprovalDto, { about: DraftDto })
-        .toAgent(PublisherAgent)
-        .returns(ArticleDto)
+    .toOneOf([
+      toAgent(StoryWriterAgent),
+      toAgent(PublisherAgent)
         .toFinish(StoryWorkflowFinish),
-    ),
+    ]),
 ] as const;
 
 @Workflow({
   name: "story-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: storyPaths,
 })
 export class StoryWorkflow {}
 
 @Application({
   name: "story-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [StoryWorkflow],
@@ -127,9 +124,9 @@ export class StoryApplication {}
 @Agent({
   name: "polish-agent",
   description: "Polishes the draft by the critiques",
-  prompt: "Polish the draft.",
+  prompt: inline("Polish the draft."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: {
     request: ArticleRequestDto,
     critiques: optional(listOf(CritiqueDto)),
@@ -149,7 +146,7 @@ export class PolishAgent {}
 })
 export class CritiqueAction implements ActionHandler<CritiqueAction> {
   execute(input: InputOf<CritiqueAction>): Promise<OutputOf<CritiqueAction>> {
-    return Promise.resolve([{ remark: `shorter than ${String(input.draft.value.text.length)}` }]);
+    return Promise.resolve([{ remark: `shorter than ${String(input.draft.text.length)}` }]);
   }
 }
 
@@ -165,6 +162,7 @@ export class PolishedWorkflowFinish {}
   description: "Polishes again or stops",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   maxVisits: 3,
   input: {
     critiques: listOf(CritiqueDto),
@@ -179,22 +177,22 @@ export class CritiqueRouter {}
 @Workflow({
   name: "polish-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StoryWorkflowStart)
-      .returns(ArticleRequestDto)
+    onStart(StoryWorkflowStart)
       .toAgent(PolishAgent),
-    agent(PolishAgent)
-      .returns(DraftDto)
+    onAgent(PolishAgent)
       .toAction(CritiqueAction)
-      .returns(listOf(CritiqueDto), { about: DraftDto })
       .toRouter(CritiqueRouter)
-      .chooseOne(route(PolishAgent), route(PolishedWorkflowFinish)),
+      .onRoute(toAgent(PolishAgent))
+      .onRoute(toFinish(PolishedWorkflowFinish)),
   ],
 })
 export class PolishWorkflow {}
 
 @Application({
   name: "polish-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PolishWorkflow],

@@ -1,9 +1,10 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #807 — the A2A task status mapping, projection and read repair on their own: an in-memory task
  * store and an execution control of the test's, every branch of each.
  */
 import { describe, expect, it } from "vitest";
-import { InvalidA2APageTokenError } from "../../src/index.js";
+import { InvalidA2APageTokenError } from "../../src/stores/index.js";
 import {
   DurableExecutionStatus,
   ExecutionCancelOutcome,
@@ -24,15 +25,14 @@ import {
   A2ATaskSaveStatus,
   A2ATaskState,
   type A2ATaskKey,
-  type A2ATaskRecord,
   type A2ATaskStatus,
 } from "../../src/infrastructure/a2a-task.repository.js";
 import { InMemoryA2ATaskRepository } from "../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { PauseKind, type PendingPause } from "../../src/pause/types.js";
 import { IncompatibleResumeError } from "../../src/run/resume-guard.js";
 import { seconds } from "../../src/units/index.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const NINE = new Date("2026-01-05T09:00:00.000Z");
 const KEY = { tenantId: "default", taskId: "task-1" };
@@ -40,13 +40,15 @@ const KEY = { tenantId: "default", taskId: "task-1" };
 const pause = (overrides: Partial<PendingPause> = {}): PendingPause =>
   ({
     pauseId: "p-1",
-    answerer: PauseAnswerer.ThreadOwner,
+    respondent: PauseRespondent.Owner,
     step: "clerk-agent",
-    channel: "terminal-user-channel",
+    channel: "owner-tool-approval",
     childExecutionId: undefined,
     itemIndex: undefined,
     kind: PauseKind.Approval,
-    ask: { tool: "charge-tool", args: { text: "10 USD" } },
+    input: { text: "10 USD" },
+    assignees: undefined,
+    trail: [],
     ...overrides,
   }) as PendingPause;
 
@@ -95,6 +97,7 @@ async function storeWith(
 ) {
   const tasks = new InMemoryA2ATaskRepository(new InMemoryDatabase());
   const save = await tasks.saveIfAbsent({
+    endpoint: "orders-a2a-expose",
     ...KEY,
     ownerId: "alice",
     contextId: "ctx-1",
@@ -111,19 +114,21 @@ async function storeWith(
 const WORKING: A2ATaskStatus = { state: A2ATaskState.Working, pendingPauses: [] };
 
 describe("#807: an execution's state as its task's status", () => {
-  it("pauses a caller may answer → INPUT_REQUIRED with each pause's id, kind and ask only", () => {
-    expect(pausedStatusOf([pause(), pause({ pauseId: "p-2", kind: PauseKind.Question })])).toEqual({
+  it("pauses a caller may answer → INPUT_REQUIRED with each pause's id, kind and input only", () => {
+    expect(
+      pausedStatusOf([pause(), pause({ pauseId: "p-2", kind: PauseKind.ExternalTask })]),
+    ).toEqual({
       state: A2ATaskState.InputRequired,
       pendingPauses: [
-        { pauseId: "p-1", kind: PauseKind.Approval, ask: pause().ask },
-        { pauseId: "p-2", kind: PauseKind.Question, ask: pause().ask },
+        { pauseId: "p-1", kind: PauseKind.Approval, input: pause().input },
+        { pauseId: "p-2", kind: PauseKind.ExternalTask, input: pause().input },
       ],
     });
   });
 
   it("pauses only channels answer → WORKING, naming each channel once (G13)", () => {
     const channelOnly = (channel: string) =>
-      pause({ pauseId: undefined, answerer: PauseAnswerer.Channel, channel });
+      pause({ pauseId: undefined, respondent: PauseRespondent.Delegate, channel });
 
     expect(pausedStatusOf([channelOnly("a"), channelOnly("b"), channelOnly("a")])).toEqual({
       state: A2ATaskState.Working,
@@ -137,7 +142,7 @@ describe("#807: an execution's state as its task's status", () => {
 
     expect(status).toEqual({
       state: A2ATaskState.InputRequired,
-      pendingPauses: [{ pauseId: "p-1", kind: PauseKind.Approval, ask: pause().ask }],
+      pendingPauses: [{ pauseId: "p-1", kind: PauseKind.Approval, input: pause().input }],
       message: "awaiting slack out of band",
     });
   });
@@ -148,7 +153,7 @@ describe("#807: an execution's state as its task's status", () => {
     }
 
     expect(failedStatusOf(new ExecutionCancelledError({ message: "stop" }))).toEqual({
-      state: A2ATaskState.Canceled,
+      state: A2ATaskState.Cancelled,
       pendingPauses: [],
     });
     expect(failedStatusOf(new LimitError("too many"))).toEqual({
@@ -211,18 +216,23 @@ describe("#807: an execution's state as its task's status", () => {
     [{ status: DurableExecutionStatus.Running }, WORKING],
     [{ status: DurableExecutionStatus.Paused, pending: [pause()] }, pausedStatusOf([pause()])],
     [
-      { status: DurableExecutionStatus.Finished, finish: "f", output: { a: 1 }, spentUsd: 0.5 },
+      {
+        status: DurableExecutionStatus.Finished,
+        finish: "f",
+        output: { a: 1 },
+        spentUsd: usd(0.5),
+      },
       {
         state: A2ATaskState.Completed,
         pendingPauses: [],
         finish: "f",
         output: { a: 1 },
-        spentUsd: 0.5,
+        spentUsd: usd(0.5),
       },
     ],
     [
       { status: DurableExecutionStatus.Cancelled },
-      { state: A2ATaskState.Canceled, pendingPauses: [] },
+      { state: A2ATaskState.Cancelled, pendingPauses: [] },
     ],
     [
       { status: DurableExecutionStatus.Failed, reason: "it broke" },
@@ -273,7 +283,7 @@ const FINISHED = {
   status: DurableExecutionStatus.Finished,
   finish: "f",
   output: 1,
-  spentUsd: 0.2,
+  spentUsd: usd(0.2),
 } as const;
 
 describe("#807: the projection on its own", () => {
@@ -313,8 +323,8 @@ describe("#807: the projection on its own", () => {
   });
 
   it("an end → COMPLETED from the records, with what it spent (#810); nothing while they show no finish", async () => {
-    const spend = { totalUsd: 0.25 };
-    const end = { ...(eventOf() as object), finish: { name: "f" }, spend } as never;
+    const spend = { totalUsd: usd(0.25) };
+    const end = { ...(eventOf() as object), finish: { name: "f" }, output: 1, spend } as never;
     const { tasks } = await storeWith(WORKING);
 
     const running = scripted([{ status: DurableExecutionStatus.Running }]);
@@ -330,7 +340,7 @@ describe("#807: the projection on its own", () => {
       pendingPauses: [],
       finish: "f",
       output: 1,
-      spentUsd: 0.25,
+      spentUsd: usd(0.25),
     });
   });
 
@@ -366,7 +376,42 @@ describe("#807: the projection on its own", () => {
 
     expect((await running.tasks.findById(KEY))?.version).toBe(1);
     expect((await failed.tasks.findById(KEY))?.status).toEqual(failedStatusOf(new Error("x")));
-    expect((await cancelled.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Canceled);
+    expect((await cancelled.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Cancelled);
+  });
+
+  it("#1341: a cancel → CANCELED and a stop → CANCELED, each only once the records show that end", async () => {
+    const cancelled = await storeWith(WORKING);
+    const early = await storeWith(WORKING);
+    const stopped = await storeWith(WORKING);
+    const wrong = await storeWith(WORKING);
+    const event = eventOf();
+
+    await projectionOf(
+      cancelled.tasks,
+      scripted([{ status: DurableExecutionStatus.Cancelled }]).control,
+    ).projection.onExecutionCancel(event);
+    // the record still runs: recovery or a holder ends it — no final status written early
+    await projectionOf(
+      early.tasks,
+      scripted([{ status: DurableExecutionStatus.Running }]).control,
+    ).projection.onExecutionCancel(event);
+    await projectionOf(
+      stopped.tasks,
+      scripted([{ status: DurableExecutionStatus.Stopped }]).control,
+    ).projection.onExecutionStop(event);
+    // a stop event whose records say another end changes nothing
+    await projectionOf(
+      wrong.tasks,
+      scripted([{ status: DurableExecutionStatus.Cancelled }]).control,
+    ).projection.onExecutionStop(event);
+
+    expect((await cancelled.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Cancelled);
+    expect((await early.tasks.findById(KEY))?.version).toBe(1);
+    expect((await stopped.tasks.findById(KEY))?.status.state).toBe(A2ATaskState.Cancelled);
+    expect((await wrong.tasks.findById(KEY))?.version).toBe(1);
+    expect(durableStatusOf({ status: DurableExecutionStatus.Stopped })).toEqual(
+      durableStatusOf({ status: DurableExecutionStatus.Cancelled }),
+    );
   });
 
   it("an incompatible resume changes nothing and reads nothing; a terminal task is left", async () => {
@@ -554,7 +599,7 @@ describe("#807: read repair on its own", () => {
     expect(requested.status).toEqual({
       state: A2ATaskState.Submitted,
       pendingPauses: [],
-      cancelRequestedAt: after(60_000).toISOString(),
+      cancelRequestedAt: after(60_000),
     });
     expect(early).toBe(requested);
     expect(settled.status.errorCode).toBe(A2A_START_LOST);
@@ -584,14 +629,16 @@ describe("#810: the mesh's statuses", () => {
       await import("../../src/mesh/mesh-errors.js");
     const { rejectedStatusOf } = await import("../../src/a2a/tasks/task-status.js");
 
-    expect(rejectedStatusOf(new HopsLimitExceededError({ entry, chain, maxMeshHops: 1 }))).toEqual({
+    expect(
+      rejectedStatusOf(new HopsLimitExceededError({ entry, callChain: chain, maxMeshHops: 1 })),
+    ).toEqual({
       state: A2ATaskState.Rejected,
       pendingPauses: [],
       errorCode: "limit.hops",
       message: "the task was rejected: limit.hops",
       errorDetails: expect.objectContaining({ entry, chain, maxMeshHops: 1 }),
     });
-    expect(rejectedStatusOf(new MeshLoopDetectedError({ entry, chain }))).toMatchObject({
+    expect(rejectedStatusOf(new MeshLoopDetectedError({ entry, callChain: chain }))).toMatchObject({
       errorCode: "limit.mesh-loop",
       errorDetails: { entry, chain },
     });
@@ -601,7 +648,7 @@ describe("#810: the mesh's statuses", () => {
     const { HopsLimitExceededError, MeshLoopDetectedError } =
       await import("../../src/mesh/mesh-errors.js");
 
-    expect(failedStatusOf(new MeshLoopDetectedError({ entry, chain }))).toEqual({
+    expect(failedStatusOf(new MeshLoopDetectedError({ entry, callChain: chain }))).toEqual({
       state: A2ATaskState.Failed,
       pendingPauses: [],
       errorCode: "limit.mesh-loop",
@@ -609,7 +656,7 @@ describe("#810: the mesh's statuses", () => {
       errorDetails: expect.objectContaining({ entry, chain }),
     });
     expect(
-      failedStatusOf(new HopsLimitExceededError({ entry, chain, maxMeshHops: 2 })),
+      failedStatusOf(new HopsLimitExceededError({ entry, callChain: chain, maxMeshHops: 2 })),
     ).toMatchObject({
       state: A2ATaskState.Failed,
       errorCode: "limit.hops",
@@ -620,12 +667,12 @@ describe("#810: the mesh's statuses", () => {
   it("#844: a completion always keeps what it spent", async () => {
     const { completedStatusOf } = await import("../../src/a2a/tasks/task-status.js");
 
-    expect(completedStatusOf("f", 1, 0.5)).toStrictEqual({
+    expect(completedStatusOf("f", 1, usd(0.5))).toStrictEqual({
       state: A2ATaskState.Completed,
       pendingPauses: [],
       finish: "f",
       output: 1,
-      spentUsd: 0.5,
+      spentUsd: usd(0.5),
     });
   });
 });

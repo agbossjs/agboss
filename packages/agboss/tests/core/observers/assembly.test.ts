@@ -1,13 +1,6 @@
-import { createAppWith } from "../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import {
-  ComponentError,
-  Injectable,
-  type OnAgentStart,
-  type OnExecutionRejected,
-  type OnExecutionPause,
-  type OnExecutionResume,
-} from "../../../src/index.js";
+import { ComponentError, Injectable, Observer } from "../../../src/index.js";
 import { closestHook } from "../../../src/components/observer-checks.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
@@ -15,8 +8,8 @@ import { createSqliteTurnStore } from "../../../src/turns/index.js";
 import { applicationWith } from "./fixture.js";
 
 /** A typo next to a real hook: compiles, rejected at assembly with the hook it meant. */
-@Injectable()
-class TypoObserver implements OnAgentStart {
+@Observer()
+class TypoObserver {
   onAgentStart(): void {
     /* real hook */
   }
@@ -26,11 +19,12 @@ class TypoObserver implements OnAgentStart {
 }
 
 /** No hook at all. */
-@Injectable()
+@Observer()
 class EmptyObserver {}
 
-/** Only a misspelled hook: rejected by `tsc` already, and at assembly. */
-@Injectable()
+/** Only a misspelled hook: rejected by `tsc` already (at its decorator), and at assembly. */
+// @ts-expect-error — OnlyTypo shares no hook with ExecutionObserver
+@Observer()
 class OnlyTypo {
   onToolFinish(): void {
     /* never a hook */
@@ -38,9 +32,9 @@ class OnlyTypo {
 }
 
 /** Lifecycle hooks are not observer hooks, and not typos either. */
-@Injectable()
-class LifecycleObserver implements OnAgentStart {
-  onStart(): void {
+@Observer()
+class LifecycleObserver {
+  onReady(): void {
     /* lifecycle */
   }
   onAgentStart(): void {
@@ -49,8 +43,8 @@ class LifecycleObserver implements OnAgentStart {
 }
 
 /** Only the pause / resume hooks (#244): a valid observer. */
-@Injectable()
-class PauseObserver implements OnExecutionPause, OnExecutionResume {
+@Observer()
+class PauseObserver {
   onExecutionPause(): void {
     /* real hook */
   }
@@ -60,8 +54,8 @@ class PauseObserver implements OnExecutionPause, OnExecutionResume {
 }
 
 /** A typo of the pause hook next to the real one. */
-@Injectable()
-class PausedTypo implements OnExecutionPause {
+@Observer()
+class PausedTypo {
   onExecutionPause(): void {
     /* real hook */
   }
@@ -71,16 +65,16 @@ class PausedTypo implements OnExecutionPause {
 }
 
 /** Only the refused-request hook (#246): a valid observer. */
-@Injectable()
-class RejectedObserver implements OnExecutionRejected {
+@Observer()
+class RejectedObserver {
   onExecutionRejected(): void {
     /* real hook */
   }
 }
 
 /** The PII policy hooks removed in #120 PR 1: never emitted, so an observer with them fails. */
-@Injectable()
-class PiiPolicyObserver implements OnExecutionRejected {
+@Observer()
+class PiiPolicyObserver {
   onExecutionRejected(): void {
     /* real hook */
   }
@@ -90,8 +84,8 @@ class PiiPolicyObserver implements OnExecutionRejected {
 }
 
 /** A typo of the refused-request hook next to the real one. */
-@Injectable()
-class RejectedTypo implements OnExecutionRejected {
+@Observer()
+class RejectedTypo {
   onExecutionRejected(): void {
     /* real hook */
   }
@@ -101,7 +95,7 @@ class RejectedTypo implements OnExecutionRejected {
 }
 
 const assemblyError = async (observers: Parameters<typeof applicationWith>[1]): Promise<string> =>
-  createAppWith(applicationWith("checked-workflow", observers), {
+  createTestAppWith(applicationWith("checked-workflow", observers), {
     processEnv: {},
     gateway: createScriptedGateway(new ScriptBook()),
   }).then(
@@ -126,7 +120,7 @@ describe("@Application observers are checked at assembly", () => {
   });
 
   it("rejects a class with only a misspelled hook, at tsc and at assembly", async () => {
-    // @ts-expect-error — OnlyTypo shares no hook with ExecutionObserver
+    // @ts-expect-error — and listing it is refused by its type as well
     expect(await assemblyError([OnlyTypo])).toContain("did you mean onToolEnd?");
   });
 

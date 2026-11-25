@@ -4,17 +4,17 @@ import {
   Agent,
   Application,
   Channel,
-  ChannelOf,
   ChannelOutcome,
-  ChannelRole,
-  PauseAnswerer,
+  PauseRespondent,
   TokenLimit,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ChannelAsk,
-  type ToolHandler,
+  inline,
+  ToolApproval,
+  Ttl,
 } from "../../../../../agboss/src/index.js";
 import {
   Text,
@@ -22,8 +22,10 @@ import {
   WorkflowStartTextDto,
 } from "../../../../../agboss/src/dto/index.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
-import { start } from "../../../../../agboss/tests/helpers/flow.js";
+import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
 import { StreamEnvironment } from "./environments/app.environment.js";
+import { days } from "../../../../../agboss/src/units/index.js";
+import { StreamModelProvider } from "../stream-model-provider.js";
 
 @WorkflowStart({
   name: "pause-ask-workflow-start",
@@ -49,18 +51,21 @@ class RefundDone {
   status!: string;
 }
 
-@ChannelRole({
-  name: "pause-refund-approval-channel",
+@ToolApproval({
+  name: "pause-refund-tool-approval",
   description: "Approves refunds",
-  approves: RefundRequest,
-  answerer: PauseAnswerer.ThreadOwner,
+  input: RefundRequest,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
 })
-export abstract class PauseRefundApproval extends ChannelOf<PauseRefundApproval> {}
+export class PauseRefundToolApproval {}
 
 /** Posts nothing: the terminal asks the thread's owner. */
-@Channel({ name: "pause-silent-refund-channel" })
-export class PauseSilentRefundChannel extends PauseRefundApproval {
-  send(_ask: ChannelAsk<PauseRefundApproval>): Promise<ChannelOutcome<PauseRefundApproval>> {
+@Channel({ name: "pause-silent-refund-channel", target: PauseRefundToolApproval, ttl: days(1) })
+export class PauseSilentRefundChannel {
+  send(
+    _ask: ChannelAsk<PauseRefundToolApproval>,
+  ): Promise<ChannelOutcome<PauseRefundToolApproval>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -70,10 +75,10 @@ export class PauseSilentRefundChannel extends PauseRefundApproval {
   description: "Refunds an order",
   input: RefundRequest,
   output: RefundDone,
-  channel: PauseRefundApproval,
+  approval: PauseRefundToolApproval,
 })
-export class PauseRefund implements ToolHandler<RefundRequest, RefundDone> {
-  run({ orderId }: RefundRequest): Promise<RefundDone> {
+export class PauseRefund {
+  execute({ orderId }: RefundRequest): Promise<RefundDone> {
     return Promise.resolve({ status: `refunded ${orderId}` });
   }
 }
@@ -81,7 +86,7 @@ export class PauseRefund implements ToolHandler<RefundRequest, RefundDone> {
 @Agent({
   name: "pause-clerk-agent",
   description: "Refunds orders",
-  prompt: "Refund the order the user names.",
+  prompt: inline("Refund the order the user names."),
   model: "stream/model",
   tools: [PauseRefund],
 })
@@ -90,17 +95,18 @@ export class PauseClerk {}
 @Workflow({
   name: "pause-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PauseAskStart)
-      .returns(WorkflowStartTextDto)
+    onStart(PauseAskStart)
       .toAgent(PauseClerk)
       .toFinish(PauseAnswerFinish),
   ],
-  defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+  defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
 })
 export class PauseWorkflow {}
 
 @Application({
+  modelProvider: StreamModelProvider,
   name: "stream-pause-application",
   version: "1.0.0",
   environment: StreamEnvironment,

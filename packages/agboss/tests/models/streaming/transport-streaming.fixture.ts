@@ -8,10 +8,11 @@ import {
   type ModelProviderRequest,
   type ModelProviderResponse,
   type ModelProviderStream,
-  type ModelProviderUsage,
+  type TokenUsage,
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { bedrockApplicationOn, workflowsOn } from "../transport/bedrock-apps.fixture.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /** #1011: a transport provider that streams its text — a scripted SDK client of streams. */
 
@@ -37,7 +38,10 @@ export class StreamSdkClient {
 
   complete(invocation: StreamInvocation): Promise<ModelProviderResponse> {
     this.completed.push(invocation);
-    return Promise.resolve({ text: "whole", usage: { inputTokens: 10, outputTokens: 5 } });
+    return Promise.resolve({
+      text: "whole",
+      usage: { inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    });
   }
 }
 
@@ -55,9 +59,11 @@ export class ScriptedStreamClient extends StreamSdkClient {
   }
 }
 
-export const usageOf = (inputTokens: number, outputTokens: number): ModelProviderUsage => ({
+export const usageOf = (inputTokens: number, outputTokens: number): TokenUsage => ({
   inputTokens,
   outputTokens,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
 });
 
 /** Never settles: an SDK that forgot to end it. */
@@ -68,15 +74,15 @@ async function* chunksThen(chunks: readonly string[], then: () => Promise<void>)
   await then();
 }
 
-/** A stream of `chunks` that ends cleanly, its usage settling with `usage`. */
+/** A stream of `chunks` that ends cleanly, its result settling with `usage`. */
 export const streamOf =
   (chunks: readonly string[], usage = usageOf(1_000_000, 500_000)): StreamScript =>
   () => ({
     textStream: chunksThen(chunks, () => Promise.resolve()),
-    usage: Promise.resolve(usage),
+    result: Promise.resolve({ usage }),
   });
 
-/** `chunks`, then the stream throws `error`; its usage settles with what was used up to then, or rejects. */
+/** `chunks`, then the stream throws `error`; its result settles with what was used up to then, or rejects. */
 export const failingAfter =
   (
     chunks: readonly string[],
@@ -85,23 +91,24 @@ export const failingAfter =
   ): StreamScript =>
   () => ({
     textStream: chunksThen(chunks, () => Promise.reject(error)),
-    usage: usage === "settles" ? Promise.resolve(usageOf(100, 50)) : Promise.reject(error),
+    result:
+      usage === "settles" ? Promise.resolve({ usage: usageOf(100, 50) }) : Promise.reject(error),
   });
 
-/** `chunks`, a clean end, and a usage that rejects. */
+/** `chunks`, a clean end, and a result that rejects. */
 export const usageRejects =
   (chunks: readonly string[], error: Error): StreamScript =>
   () => ({
     textStream: chunksThen(chunks, () => Promise.resolve()),
-    usage: Promise.reject(error),
+    result: Promise.reject(error),
   });
 
-/** `chunks`, a clean end, and a usage that never settles. */
+/** `chunks`, a clean end, and a result that never settles. */
 export const usageNeverSettles =
   (chunks: readonly string[]): StreamScript =>
   () => ({
     textStream: chunksThen(chunks, () => Promise.resolve()),
-    usage: never(),
+    result: never(),
   });
 
 /** `chunks`, then the stream goes silent (no end, no error). */
@@ -109,7 +116,7 @@ export const silentAfter =
   (chunks: readonly string[]): StreamScript =>
   () => ({
     textStream: chunksThen(chunks, never),
-    usage: never(),
+    result: never(),
   });
 
 /** The stream fails before any chunk. */
@@ -117,7 +124,7 @@ export const failingFirst =
   (error: Error): StreamScript =>
   () => ({
     textStream: chunksThen([], () => Promise.reject(error)),
-    usage: Promise.reject(error),
+    result: Promise.reject(error),
   });
 
 /** Chunks, then it waits for the request's signal and ends with its reason (what an SDK does). */
@@ -136,14 +143,13 @@ export const abortedAfter =
     stopped.catch(() => undefined);
     return {
       textStream: chunksThen(chunks, () => stopped),
-      usage: stopped,
+      result: stopped,
     };
   };
 
 @ModelProvider({
   name: "stream-1011-model-provider",
   description: "A transport that streams",
-  serves: [/^stream-t\//],
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "stream-t/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },
@@ -155,7 +161,11 @@ export const abortedAfter =
     jitter: false,
     retryOn: TRANSIENT_FAILURES,
   }),
-  circuitBreakerPolicy: { failureThreshold: 2, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 2,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
   deps: [StreamSdkClient],
 })
 export class StreamingModelProvider implements ModelProviderHandler {

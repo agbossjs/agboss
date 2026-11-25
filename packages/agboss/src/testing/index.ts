@@ -4,8 +4,8 @@
  * `clock`), scripted model turns (`replyWith`, `callTool`, `routeTo`, `decideWith`, `failWith`,
  * `waitFor`, the invalid turns `callToolWithInvalidArguments`,
  * `callToolWithTruncatedArguments`, `replyWithInvalidAnswer`, bound to inputs with `when(…)`), the schedule of parallel branches
- * (`TestConcurrency`), the unit runners of single components (`testTool`, `testAction`,
- * `testJudge`, `testPii`, `testRouter`, `testArbiter`, `testRag`, `testGuardrail`, `testToolInterceptor`, `testCompaction`, `testReplyInterpreter`) and the matchers
+ * (`TestConcurrency`), the unit runners of single components (`testUnit`, `testUnit`,
+ * `testUnit`, `testUnit`, `testUnit`, `testUnit`, `testUnit`, `testUnit`, `testUnit`, `testUnit`, `testUnit`) and the matchers
  * (register them with `setupFiles: ["@agboss/core/testing/setup"]`). Vitest is an optional peer
  * dependency.
  * Wiki → Testing.
@@ -14,11 +14,15 @@ import "../polyfills/symbol-metadata.js";
 import "./vitest-types.js";
 
 export { testWith, type WorkflowFixtures } from "./test-with.js";
+export { TestModelProvider, TestDecisionsModelProvider } from "./test-model-provider.js";
 export type { TestWithOptions } from "./environment.js";
+export type { TestWithSeams } from "./test-with-seams.js";
 export type { TestInstanceOptions } from "./instances.js";
 export type { TestApp } from "./test-app.js";
 export type { A2AServerFixture, A2ATestServer } from "./a2a-server.js";
-export type { AgentSlice, RouterSlice, ToolSlice, ToolClassOf } from "./slices.js";
+export type { McpServerFixture, McpServerFixtureOptions, McpTestServer } from "./mcp-server.js";
+export type { A2AStub, BoundaryStub, RagStub } from "./boundary-stubs.js";
+export type { AgentSlice, RouterSlice, ToolSlice, ToolClassOf, TestRunOptions } from "./slices.js";
 export {
   replyWith,
   callTool,
@@ -26,6 +30,8 @@ export {
   routeTo,
   decideWith,
   failWith,
+  streamWith,
+  failStreamAfter,
   waitFor,
   ModelCallFailedError,
   type ModelCallFailedErrorOptions,
@@ -53,11 +59,20 @@ export type {
   RouteTurn,
   ScriptedAnswer,
   ScriptedTurn,
+  StreamFailureTurn,
+  StreamTurn,
   ToolCallTurn,
   ToolCallsTurn,
   WaitTurn,
 } from "./turns.js";
-export type { ChatLine, ModelRequest, ModelScript, WhenScript } from "./script-book.js";
+export { AutoApproveChannel, AutoRejectChannel } from "../channels/test-channels.js";
+export type {
+  ChatLine,
+  ChatToolDefinition,
+  ModelRequest,
+  ModelScript,
+  WhenScript,
+} from "./script-book.js";
 export type {
   DeepPartial,
   InputMatcherOf,
@@ -103,7 +118,6 @@ export type { TestLeases } from "./leases.js";
 export type { TestFenceOptions } from "./fence.js";
 export { SequentialIdGenerator } from "./id-generator.js";
 export { TestConcurrency, step, type OrderedStep } from "./concurrency/test-concurrency.js";
-export { override, type Override } from "./units/override.js";
 export type {
   UnitCallOptions,
   UnitClock,
@@ -112,42 +126,46 @@ export type {
   UnitOptions,
   UnitRun,
 } from "./units/unit-types.js";
+export { testService, type ServiceRunner } from "./units/test-service.js";
+export { testDto, type DtoTestHarness } from "./test-dto.js";
 export {
-  testTool,
-  type ToolInputOf,
-  type ToolInstance,
-  type ToolOutputOf,
-  type ToolRunner,
-} from "./units/test-tool.js";
+  testModule,
+  type TestModule,
+  type TestModuleApplicationOptions,
+  type TestModuleOptions,
+} from "./test-module.js";
+export { testAgent, type AgentRunner, type TestAgentOptions } from "./test-agent.js";
+export type { ActionSlice } from "./slices.js";
 export {
-  testAction,
-  type ActionInputOf,
-  type ActionOutputOf,
-  type ActionRunner,
-} from "./units/test-action.js";
-export { testJudge, type JudgeRunner } from "./units/test-judge.js";
-export {
-  testReplyInterpreter,
-  type ReplyInterpreterReading,
-  type ReplyInterpreterRunner,
-  type ReplyInterpreterRunnerInput,
+  testUnit,
+  type FailClosed,
+  type IsFlowNode,
+  type OtherUnitRunners,
+  type UnitRunnerOf,
+} from "./units/test-unit.js";
+export type { ToolInstance, ToolRunner } from "./units/test-tool.js";
+export type { ToolInputOf, ToolOutputOf } from "../tools/index.js";
+export type { ActionInputOf, ActionOutputOf, ActionRunner } from "./units/test-action.js";
+export type { JudgeRunner } from "./units/test-judge.js";
+export type {
+  ReplyInterpreterReading,
+  ReplyInterpreterRunner,
+  ReplyInterpreterRunnerInput,
 } from "./units/test-reply-interpreter.js";
-export { testPii, type PiiRunner } from "./units/test-pii.js";
-export { testRouter, type RouterRunner } from "./units/test-router.js";
-export { testArbiter, type ArbiterRunner } from "./units/test-arbiter.js";
-export { testRag, type RagCallOptions, type RagRunner } from "./units/test-rag.js";
-export {
-  testGuardrail,
-  type GuardrailCallOptions,
-  type GuardrailCheck,
-  type GuardrailRunner,
+export type { PiiRunner } from "./units/test-pii.js";
+export type { RouterRunner } from "./units/test-router.js";
+export type { ArbiterRunner } from "./units/test-arbiter.js";
+export type { RagCallOptions, RagRunner } from "./units/test-rag.js";
+export type {
+  GuardrailCallOptions,
+  GuardrailCheck,
+  GuardrailRunner,
 } from "./units/test-guardrail.js";
-export { testToolInterceptor, type ToolInterceptorRunner } from "./units/test-tool-interceptor.js";
-export {
-  testCompaction,
-  type CompactionRequest,
-  type CompactionResult,
-  type CompactionRunner,
+export type { ToolInterceptorRunner } from "./units/test-tool-interceptor.js";
+export type {
+  CompactionRequest,
+  CompactionResult,
+  CompactionRunner,
 } from "./units/test-compaction.js";
 export {
   AppCloseTimeoutError,
@@ -188,7 +206,6 @@ export { mcpServerStub } from "../components/mcp-client.js";
 export { signedMeshEnvelope, type SignedMeshEnvelopeOptions } from "./mesh-envelope.js";
 
 export { VcrMode, type VcrConfig } from "./vcr.js";
-export * from "./vcr-deprecated.js";
 export type * from "./public-types.js";
 /** @beta Type machinery of the scripted turns and the matchers: not a contract, names may change. */
 export type * as TestingTypes from "./testing-types.js";

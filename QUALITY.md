@@ -83,8 +83,8 @@ holds from its type**, not guess it from the name.
 ## Agents (LangGraph)
 
 - **The workflow file is the graph.** `@Workflow({ flow: [...] })` is a list of paths —
-  `start(…)` / `agent(…)` / `router(…)` / `action(…)` with `.returns`, `.toAgent` / `.toRouter` /
-  `.toAction` / `.toFinish`, `.chooseOne(route(…)…)`, `.switch(caseOf(…)…)` and `.onError(…)`
+  `onStart(…)` / `onAgent(…)` / `onRouter(…)` / `onAction(…)` with `.toAgent` / `.toRouter` /
+  `.toAction` / `.toFinish`, `.onRoute(…)`, `.toOneOf([…])` and `.onError(…)`
   (CLAUDE.md → The flow: paths); nodes are `@WorkflowStart`, `@Router`, `@Agent`, `@Action`,
   `@WorkflowFinish`. Each node reads its `input` from the path's scope; `.agboss/types.d.ts`
   (`agboss check`) types it.
@@ -92,27 +92,31 @@ holds from its type**, not guess it from the name.
   (`GraphRuleError` with stable codes). A new rule gets a code and a test.
 - **Config-driven.** Agents, models, reasoning and caching live in the workflow's components
   (`@Agent`, `@Router`, `@Workflow`), assembled into the config and validated at startup; steps
-  live in `@Workflow({ maxSteps })` and money in the application's `@Budget`s, not in config.
+  live in `@Workflow({ executionLimits: { maxSteps } })` and money in the application's `@Budget`s, not in config.
   Every chat model inherits `defaults.chat`; each router names its own `model` or takes
   `defaults.router.model`; guardrails take `defaults.guardrail.model` (Jev), never the router's —
   `defaults` cascade application → workflow → component (#261). Model choice is config, never code. Reference: Wiki → Configuration.
-- **`TokenLimit.MODEL_MAX` is the only way to say "no output cap"** — never a magic large number.
-- **Models come from model providers** (`@ModelProvider`, `@agboss/core/models`, #151): application
-  infrastructure, listed only in `@Application({ providers })` (#266; none → the built-in OpenRouter
-  - Decisions providers, one listed → the list is complete); each model of the application is
-    served by exactly one listed provider (`serves`) — `[model.unserved]` /
-    `[model.ambiguous-provider]` at assembly, a workflow never picks one; reasoning and caching are the
-    provider's, a component may override them (`reasoning`, `cache`). Cache markers and
-    every other provider-specific request field are set in one place, the provider's wire form
-    (`toWireRequest`) — no provider-specific request code outside `src/models` / `src/llm`.
+- **`TokenLimit.ModelMax` is the only way to say "no output cap"** — never a magic large number.
+- **Models come from model providers** (`@ModelProvider({ driver, … })`, `@agboss/core/models`, #151,
+  #1313): application infrastructure, an empty class whose driver speaks one protocol; there is no
+  built-in provider and no provider is picked by a model's name. A component reaches one through
+  `modelProvider` (its own, its workflow's, else `@Application({ modelProvider })`): none anywhere is
+  `[model.missing-provider]` at assembly, a kind that does not fit (a chat model on a decisions
+  driver) `[model.incompatible-provider]`; reasoning and caching are the provider's, a component may
+  override them (`reasoning`, `cache`). Cache markers and
+  every other provider-specific request field are set in one place, the provider's wire form
+  (`toWireRequest`) — no provider-specific request code outside `src/models` / `src/llm`.
 - **Provider policies are the provider's** (#266): `retryPolicy` is the only place backoff is set
   (a sleeping retry holds no slot); `rateLimitPolicy` and `circuitBreakerPolicy` keep their shared
   state — slots, per-minute windows, the 429 pause, the open breaker — in the application's
   `RateLimitRepository`, never in process memory, and read the time from its `Clock`.
 - **Settings must fit their models**: checked against the provider's capabilities at startup and
   by `agboss check --models` (in `make check`), all problems at once; nothing is silently substituted.
+- **Prompts are files first** (#1347): `prompt` is a `PromptSource` — a path to a `.prompt.md` file
+  (`./`, `../` or `/`), `inline("…")` or `` inline`…` `` (the common indentation is removed), or a list of those; a
+  bare string that is no path does not compile (`[prompt.bare-text]` for a JavaScript caller).
 - **Prompts are checked at assembly** (#199): every agent, router and route prompt is read
-  (`promptUrls` eagerly) and its `{{variables}}` checked against `promptVariables` —
+  and its `{{variables}}` checked against `promptVariables` —
   `[prompt.unknown-variable] file:line …`, `[prompt.missing-file]`, all at once, also by
   `agboss check`; what a node reads comes in its input message, never as `{{input.…}}`
   (`[prompt.input-in-instructions]`). `promptVersion` hashes the rendered texts, never file paths.
@@ -120,10 +124,10 @@ holds from its type**, not guess it from the name.
   `RouteOutcome` union (`decided` | `failed`); they import only `config`, `finops`, `llm`, and the
   rest of the code imports them only via `src/routers/index.ts` — ESLint-enforced. Routers are
   tested on their own (`packages/agboss/tests/routers/`), the graph adapter separately.
-- **`@Router` = how + what.** `decidedBy` says who chooses: a model router's `prompt` /
-  `promptUrls` say how, its `routes` what each choice means (`{ prompt, target }`, the text
+- **`@Router` = how + what.** `decidedBy` says who chooses: a model router's `prompt` says how, its
+  `routes` what each choice means (`{ prompt, target }`, the text
   required); a code router's `route(input)` (`implements RouterHandler<Self>`) decides by types,
-  never by matching text. `.chooseOne(route(…)…)` in the flow lists exactly those targets
+  never by matching text. One `.onRoute(toX(Target)…)` per route in the flow lists exactly those targets
   (`[router.routes-mismatch]`). A route
   **to a workflow finish** is worded as a stop instruction ("Stop and send the answer: …") — worded as
   "the answer is ready", Jev kept sending the turn back to the last agent (#116).
@@ -140,12 +144,12 @@ holds from its type**, not guess it from the name.
   model providers) and injected; tests inject scripted models or fakes through the same gateway.
 - Prompts live in `src/prompts/` (agents, graph) and `src/routers/prompts.ts` (routers own their
   prompts to stay isolated). No prompt strings inside nodes.
-- Tools: `input` / `output` DTO classes (`*.dto.ts`), tested standalone (`testTool(Tool, { overrides })`, `@agboss/core/testing`)
+- Tools: `input` / `output` DTO classes (`*.dto.ts`), tested standalone (`testUnit(Tool, { overrides })`, `@agboss/core/testing`)
   before being wired into a graph. Agents run the framework's own loop (`src/graph/agent-loop/`) —
   no `createAgent`, no middlewares; side-effecting tools pass
   `executionContext.step.idempotencyKey` (`deps: [ExecutionContext]`) to the external service.
 - **Bound every loop**: a node's `maxVisits` (required on a node on a cycle —
-  `graph.cycle-without-max-visits`), the run's steps limit (`@Workflow({ maxSteps })` — visits of
+  `graph.cycle-without-max-visits`), the run's steps limit (`@Workflow({ executionLimits: { maxSteps } })` — visits of
   agents and routers, default (agents + routers) × 3), and LangGraph `recursionLimit` only as a
   safety net far above the steps.
 
@@ -157,20 +161,20 @@ holds from its type**, not guess it from the name.
   Jev) reports each call's exact cost (`costSource: "api"`); otherwise tokens × its price table
   (`ModelCost.fromPrices`, `costSource: "price-table"`). A call with neither fails.
 - **Money limits are `@Budget` components** (#261), every one listed in
-  `@Application({ budgets })` and written in `config/budget.config.ts`: `@Budget({ name, scope,
+  `@Application({ budgets })` and written in `src/budgets/`: `@Budget({ name, scope,
 period?, workflow?, deps? })` + `implements BudgetHandler` (`maxSpend(): Usd | Promise<Usd>`, no
   parameters — the data come through the constructor: `ExecutionContext`, the project's tenant
   context, a billing service; never the request body). `BudgetScope.Execution` — one full pass of
   `app.execute`, a workflow's own (`workflow: X`) or the default; `BudgetScope.Tenant` /
   `Application` — per `BudgetPeriod.Day | Week | Month` (UTC). Assembly requires an execution budget
   for every workflow (own or the default), a tenant and an application budget, and no duplicates
-  (`[budget.*-required]`, `[budget.duplicate-…]`). Steps are `@Workflow({ maxSteps })`, visits each
+  (`[budget.*-required]`, `[budget.duplicate-…]`). Steps are `@Workflow({ executionLimits: { maxSteps } })`, visits each
   node's `maxVisits` — counts, never money.
   - `maxSpend()` is read **once per execution**, at its start (in its frame: an injected
     `ExecutionContext` reads it), and kept in its state for the whole execution — a resume and a
     recovery count against the same amounts; the ledger keeps the last one read.
-  - The ledger (`CostLedgerRepository`: listed in `@Application({ providers })`, else the built-in
-    in-memory one — nothing in the home folder) keeps one counter per budget, scope key (the
+  - The ledger (`CostLedgerRepository`, a store of the application's `@DatabaseStorage`, else the in-memory
+    storage — nothing in the home folder; its entries live `ledgerEntriesTtl`) keeps one counter per budget, scope key (the
     application's name, the `tenantId`, the execution's id) and period; every call's cost is added
     to all of the execution's counters while it streams, so a crashed execution's spend still counts.
   - Before the first step every budget is checked: one exhausted **rejects** the execution
@@ -193,7 +197,7 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
   - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
     parallel executions of one tenant may overrun it a little, and a budget is exceeded by at most
     the calls in flight when it was exhausted (their cost is known only after them; with
-    `TokenLimit.MODEL_MAX` one call is bounded only by the model), plus (#664) the spend of the
+    `TokenLimit.ModelMax` one call is bounded only by the model), plus (#664) the spend of the
     steps it never holds back — the undos, automatic or a side path's, and the actions of the side
     path that took a limit, step by step (no check bounds what they cost) —, plus, across
     instances, what the steps spend — other trees' and the tree's own on another instance — that
@@ -205,7 +209,7 @@ $40`). Limit errors are one class per limit, all `LimitExceededError`s: `StepsLi
     siblings' spend while they run; a tally that exhausts a budget aborts the in-flight model and
     tool calls of every branch through `executionContext.signal` (an aborted call's partial cost is
     unknown and not recorded), the branches fail with that `BudgetExceededError` and the launch
-    with it, into a code-only `.onJoinError(BudgetExceededError, …)`. Other instances see the spend
+    with it, into a code-only `.onError(BudgetExceededError, …)`. Other instances see the spend
     through the ledger only. A call that exhausts a budget runs none of the tools its move asks for.
   - `maxSteps` is checked at assembly: `[limits.max-steps-too-low]` (no finish fits in a hand-set
     `maxSteps`, or the default (agents + routers) × 3 cannot hold the worst case of a per-item

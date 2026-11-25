@@ -1,33 +1,43 @@
 /**
- * #825 AC7 — the application's idempotency keys, read at start: a named field without a value fails
- * the start naming the field, a field that holds no `Secret` too; under `testWith` (its `fallback`)
- * a field with no value gets the test's keys, never a field of another type.
+ * #825 AC7, #1317 — the application's idempotency keys, read at start from its database storage
+ * (`idempotencySecret`, `previousIdempotencySecret`): a secret without a value fails the start naming
+ * the variable; under `testWith` (its `fallback`) a secret with no value gets the test's keys; an
+ * application with no storage gets the test's keys only. (The `idempotencyKeyField` options of
+ * `@Application`, and the environment field they named, are gone: nothing of them is tested.)
  */
 import { describe, expect, it } from "vitest";
 import {
-  idempotencyKeysOf,
+  applicationIdempotencyKeysOf,
   TEST_IDEMPOTENCY_KEYS,
-  type IdempotencyKeySource,
 } from "../../src/application/idempotency-key.js";
 import { EnvironmentError, EnvironmentErrorCode } from "../../src/environments/errors.js";
 import { unitEnvironmentOf } from "../../src/environments/resolve.js";
 import { secret } from "../../src/index.js";
-import type { Environment } from "../../src/flow/generated-types.js";
+import type { FingerprintKeys } from "../../src/infrastructure/fenced-effect-key.js";
 
-const sourceOf = (
-  environment: Record<string, unknown>,
-  more: Partial<IdempotencyKeySource> = {},
-): IdempotencyKeySource => ({
-  application: "keys-application",
-  field: "idempotencyKey",
-  environment: unitEnvironmentOf(environment),
-  env: {},
-  ...more,
-});
+interface Secrets {
+  readonly idempotencySecret?: ReturnType<typeof secret>;
+  readonly previousIdempotencySecret?:
+    ReturnType<typeof secret> | ReturnType<typeof secret.optional>;
+}
 
-const refusalOf = (source: IdempotencyKeySource): unknown => {
+/** An assembled application whose database storage names `secrets` (none: no storage at all). */
+const assembledWith = (secrets?: Secrets) =>
+  ({
+    name: "keys-application",
+    workflows: [],
+    storage: secrets === undefined ? undefined : { database: { meta: secrets } },
+  }) as never;
+
+const keysOf = (
+  secrets: Secrets | undefined,
+  env: NodeJS.ProcessEnv = {},
+  fallback?: FingerprintKeys,
+) => applicationIdempotencyKeysOf(assembledWith(secrets), unitEnvironmentOf({}), env, fallback);
+
+const refusalOf = (run: () => unknown): unknown => {
   try {
-    idempotencyKeysOf(source);
+    run();
   } catch (error) {
     return error;
   }
@@ -35,68 +45,64 @@ const refusalOf = (source: IdempotencyKeySource): unknown => {
 };
 
 describe("#825 AC7: the idempotency keys at start", () => {
-  it("no field named: no keys", () => {
-    expect(idempotencyKeysOf(sourceOf({}, { field: undefined }))).toBeUndefined();
+  it("no storage and no fallback: no keys", () => {
+    expect(keysOf(undefined)).toEqual({});
   });
 
-  it("the field's variable set: the current key; the previous one beside it during a rotation", () => {
-    const environment = { idempotencyKey: secret("KEY_V2"), previousKey: secret("KEY_V1") };
+  it("the secret's variable set: the current key; the previous one beside it during a rotation", () => {
     const env = { KEY_V2: "v2", KEY_V1: "v1" };
 
-    expect(idempotencyKeysOf(sourceOf(environment, { env }))).toEqual({ current: "v2" });
-    expect(idempotencyKeysOf(sourceOf(environment, { env, previousField: "previousKey" }))).toEqual(
-      { current: "v2", previous: "v1" },
-    );
+    expect(keysOf({ idempotencySecret: secret("KEY_V2") }, env)).toEqual({
+      fingerprintKeys: { current: "v2" },
+    });
+    expect(
+      keysOf(
+        { idempotencySecret: secret("KEY_V2"), previousIdempotencySecret: secret("KEY_V1") },
+        env,
+      ),
+    ).toEqual({ fingerprintKeys: { current: "v2", previous: "v1" } });
   });
 
-  it("a named field whose variable is unset fails the start, naming the field — never a value", () => {
-    const refused = refusalOf(sourceOf({ idempotencyKey: secret("KEY_V2") }));
+  it("a secret whose variable is unset fails the start, naming the variable — never a value", () => {
+    const refused = refusalOf(() => keysOf({ idempotencySecret: secret("KEY_V2") }));
 
     expect(refused).toBeInstanceOf(EnvironmentError);
     expect(refused).toMatchObject({
       code: EnvironmentErrorCode.MissingVariables,
-      message: expect.stringContaining(
-        '@Application({ idempotencyKeyField: "idempotencyKey" }) has no value',
-      ),
+      message: expect.stringContaining("KEY_V2 is not set"),
     });
   });
 
-  it("a named previous field without a value fails the start too", () => {
-    const environment = { idempotencyKey: secret("KEY_V2"), previousKey: secret("KEY_V1") };
+  it("a previous secret without a value fails the start too; an optional one may be unset", () => {
+    const both = {
+      idempotencySecret: secret("KEY_V2"),
+      previousIdempotencySecret: secret("KEY_V1"),
+    };
 
+    expect(refusalOf(() => keysOf(both, { KEY_V2: "v2" }))).toMatchObject({
+      code: EnvironmentErrorCode.MissingVariables,
+    });
     expect(
-      refusalOf(sourceOf(environment, { env: { KEY_V2: "v2" }, previousField: "previousKey" })),
-    ).toMatchObject({ code: EnvironmentErrorCode.MissingVariables });
+      keysOf({ ...both, previousIdempotencySecret: secret.optional("KEY_V1") }, { KEY_V2: "v2" }),
+    ).toEqual({ fingerprintKeys: { current: "v2" } });
   });
 
-  it("a field that holds no Secret, or none at all, is refused naming it", () => {
-    for (const environment of [{ idempotencyKey: "a literal key" }, {}])
-      expect(refusalOf(sourceOf(environment))).toMatchObject({
-        code: EnvironmentErrorCode.InvalidValue,
-        message: expect.stringContaining('names no Secret — set idempotencyKey: secret("…")'),
-      });
-  });
-
-  it("under testWith: a field with no value — left out, or its variable unset — gets the test's keys", () => {
+  it("under testWith: a secret with no value gets the test's keys; one set is the key", () => {
     const fallback = TEST_IDEMPOTENCY_KEYS;
-    const rotating = { previousField: "previousKey", fallback };
+    const rotating = {
+      idempotencySecret: secret("KEY_V2"),
+      previousIdempotencySecret: secret("KEY_V1"),
+    };
 
-    expect(idempotencyKeysOf(sourceOf({}, rotating))).toEqual(TEST_IDEMPOTENCY_KEYS);
-    expect(idempotencyKeysOf(sourceOf({ idempotencyKey: secret("KEY_V2") }, { fallback }))).toEqual(
-      { current: TEST_IDEMPOTENCY_KEYS.current },
-    );
+    expect(keysOf(rotating, {}, fallback)).toEqual({ fingerprintKeys: TEST_IDEMPOTENCY_KEYS });
+    expect(keysOf(rotating, { KEY_V2: "v2" }, fallback)).toEqual({
+      fingerprintKeys: { current: "v2", previous: TEST_IDEMPOTENCY_KEYS.previous },
+    });
   });
 
-  it("under testWith: a value set is the key, and a field that holds no Secret is still refused", () => {
-    const fallback = TEST_IDEMPOTENCY_KEYS;
-    const given = sourceOf(
-      { idempotencyKey: secret("KEY_V2") },
-      { env: { KEY_V2: "v2" }, fallback },
-    );
-
-    expect(idempotencyKeysOf(given)).toEqual({ current: "v2" });
-    expect(refusalOf(sourceOf({ idempotencyKey: "a literal key" }, { fallback }))).toMatchObject({
-      code: EnvironmentErrorCode.InvalidValue,
+  it("under testWith: an application with no storage gets the test's keys", () => {
+    expect(keysOf(undefined, {}, TEST_IDEMPOTENCY_KEYS)).toEqual({
+      fingerprintKeys: TEST_IDEMPOTENCY_KEYS,
     });
   });
 });

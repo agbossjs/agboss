@@ -1,6 +1,8 @@
 import type { Class } from "../../components/injection.js";
 import type { ExecutionInputOf, ExecutionOptionsOf, OutputOf } from "../../flow/generated-types.js";
-import type { JudgeEvalCheck } from "./checks.js";
+import type { ExecutionStatus } from "../../app/types.js";
+import type { EvalAttemptHook } from "./attempts.js";
+import type { EvalPauseScript } from "./pauses.js";
 import type { EvalToolExpectations } from "./tool-expectations.js";
 
 /**
@@ -13,6 +15,8 @@ import type { EvalToolExpectations } from "./tool-expectations.js";
 /** One turn a case runs: the input of the suite's start (`app.execute(Start, input)`). */
 export interface EvalTurn<TInput = unknown> {
   readonly input: TInput;
+  /** The pauses this turn meets, answered in this order (`answerPause`, `replyToPause`). */
+  readonly pauses?: readonly EvalPauseScript[];
 }
 
 /** One past turn written into the case's thread, not run: a start's input and a finish's output. */
@@ -33,14 +37,27 @@ export interface EvalCase {
   readonly execution?: unknown;
   /** Past turns written into the thread before the first turn, oldest first. */
   readonly history?: readonly EvalPastTurn[];
-  /** The turns run on the thread, in order; at least one. The checks judge the last. */
-  readonly turns: readonly EvalTurn[];
-  /** What the run's tool calls must and must not be (`checkTrajectory()`). */
+  /**
+   * The turns run on the thread, in order; at least one. The checks judge the last. Or, for one
+   * turn, `input` (and its `pauses`) instead.
+   */
+  readonly turns?: readonly EvalTurn[];
+  /** A single turn's input: the shorthand of `turns: [turn(input, { pauses })]`. */
+  readonly input?: unknown;
+  /** The pauses of the single turn `input`; a multi-turn case puts them in `turn(input, { pauses })`. */
+  readonly pauses?: readonly EvalPauseScript[];
+  /** How the last turn must end; default `ExecutionStatus.Finished`. A mismatch fails the run. */
+  readonly expectedStatus?: ExecutionStatus;
+  /** What the run's tool calls must and must not be, checked before the judges. */
   readonly tools?: EvalToolExpectations;
-  /** Judges of this case only, after the suite's checks. */
-  readonly judges?: readonly JudgeEvalCheck[];
+  /** `@Judge` classes of this case only, after the suite's. */
+  readonly judges?: readonly Class<object>[];
   /** Rewordings of the last turn (`--metamorphic`): the same tools, the same key arguments. */
   readonly variants?: readonly EvalTurn[];
+  /** Before each run of this case (after the suite's `beforeAttempt`): reset what the run reads. */
+  readonly beforeAttempt?: EvalAttemptHook;
+  /** After each run of this case, passed or not (before the suite's `afterAttempt`). */
+  readonly afterAttempt?: EvalAttemptHook;
 }
 
 /**
@@ -54,10 +71,19 @@ export type EvalValueOf<TValue> = TValue extends readonly (infer TItem)[]
     : TValue;
 
 /** The turns of a case for a start: its input, typed by the generated `.agboss/types.d.ts`. */
-export interface EvalTurnsOf<TStart> {
-  readonly turns: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
-  readonly variants?: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
-}
+export type EvalTurnsOf<TStart> =
+  | {
+      readonly turns: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
+      readonly input?: never;
+      readonly pauses?: never;
+      readonly variants?: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
+    }
+  | {
+      readonly input: EvalValueOf<ExecutionInputOf<TStart>>;
+      readonly pauses?: readonly EvalPauseScript[];
+      readonly turns?: never;
+      readonly variants?: readonly EvalTurn<EvalValueOf<ExecutionInputOf<TStart>>>[];
+    };
 
 /** `tenant` / `execution` of a case for a start: required where its application declares them. */
 export type EvalContextsOf<TStart> = {
@@ -71,23 +97,45 @@ export type EvalContextsOf<TStart> = {
  * input, `tenant` / `execution` its application's context values — required where the application
  * declares its own context classes, as at `app.execute`.
  */
-export type EvalCaseOf<TStart> = Omit<EvalCase, "tenant" | "execution" | "turns" | "variants"> &
+export type EvalCaseOf<TStart> = Omit<
+  EvalCase,
+  "tenant" | "execution" | "turns" | "input" | "pauses" | "variants"
+> &
   EvalContextsOf<TStart> &
   EvalTurnsOf<TStart>;
 
 /** One turn of a case: the input of the suite's start, checked against it by the suite. */
-export const turn = <const TInput>(input: TInput): EvalTurn<TInput> => Object.freeze({ input });
+export const turn = <const TInput>(
+  input: TInput,
+  options: { readonly pauses?: readonly EvalPauseScript[] } = {},
+): EvalTurn<TInput> => Object.freeze({ input, ...options });
+
+/** The turns a case runs: its own, or the one turn its `input` and `pauses` say. */
+export function turnsOfCase(written: EvalCase): readonly EvalTurn[] {
+  if (written.turns !== undefined) return written.turns;
+  if (!("input" in written)) return [];
+  return [
+    { input: written.input, ...(written.pauses === undefined ? {} : { pauses: written.pauses }) },
+  ];
+}
+
+/** What `pastTurn` takes (#1328): the start and its input, the finish and its output. */
+export interface PastTurnOptions<TStart extends Class, TFinish extends Class> {
+  readonly start: TStart;
+  readonly input: ExecutionInputOf<InstanceType<TStart>>;
+  readonly finish: TFinish;
+  readonly output: OutputOf<InstanceType<TFinish>>;
+}
 
 /**
- * One past turn of a case's thread, written and not run: `start` with its `input`, answered by
- * `finish` with its `output` — the thread's memory reads it as `start <name>` / `finish <name>`.
+ * One past turn of a case's thread, written and not run: `pastTurn({ start, input, finish, output })` —
+ * `start` with its `input`, answered by `finish` with its `output`; the thread's memory reads it as
+ * `start <name>` / `finish <name>`.
  */
 export function pastTurn<TStart extends Class, TFinish extends Class>(
-  start: TStart,
-  input: ExecutionInputOf<InstanceType<TStart>>,
-  finish: TFinish,
-  output: OutputOf<InstanceType<TFinish>>,
+  options: PastTurnOptions<TStart, TFinish>,
 ): EvalPastTurn {
+  const { start, input, finish, output } = options;
   return Object.freeze({ start, input, finish, output });
 }
 

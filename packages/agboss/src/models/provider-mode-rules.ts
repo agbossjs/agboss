@@ -2,41 +2,41 @@ import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
 import type { Provider } from "../components/injection.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import {
-  circuitBreakerPolicyOf,
-  hasProviderMethod,
+  fallbackOf,
+  isDriverOptions,
+  isModelProviderClass,
   isTransportClass,
   modelProviderOf,
   type ModelProviderType,
 } from "./model-provider.decorator.js";
 import { modelPricesProblemOf } from "./cost.js";
+import { fallbackCycleOf } from "./fallback-chain.js";
 import { listedModelProvidersOf, withFallbacks } from "./resolution.js";
 
 /**
- * A `@ModelProvider` is either HTTP — `baseUrl` (and `apiKey`, `baseUrlField`), a `chat` /
- * `routeTo` class — or a transport (#385): `complete(request)`, `deps`, no base URL or key. Both at
- * once, or neither, is `[model-provider.both-modes]` (the decorator's overloads make it a compile
- * error too).
+ * A `@ModelProvider` is either a driver — `driver`, an empty class — or a transport (#385):
+ * `complete(request)` and its `deps`. Both at once, or neither, is `[model-provider.both-modes]`
+ * (the decorator's overloads make it a compile error too).
  */
 
-const HTTP_FIELDS = ["baseUrl", "baseUrlField", "apiKey"] as const;
-
-/** The HTTP fields the decorator sets. */
-const httpFieldsOf = (cls: ModelProviderType): readonly string[] =>
-  HTTP_FIELDS.filter((field) => Reflect.get(modelProviderOf(cls), field) !== undefined);
+/** A driver provider speaks its driver's protocol: its class is empty (#1313). */
+const driverModeProblemOf = (cls: ModelProviderType): string | undefined =>
+  isTransportClass(cls)
+    ? "sets a driver and implements complete(request) — the driver makes its calls: remove the method"
+    : undefined;
 
 /** What is wrong with a provider's mode, if anything. */
 function modeProblemOf(cls: ModelProviderType): string | undefined {
-  const fields = httpFieldsOf(cls);
+  return isDriverOptions(modelProviderOf(cls)) ? driverModeProblemOf(cls) : ownModeProblemOf(cls);
+}
+
+/** What is wrong with a transport provider's mode, if anything. */
+function ownModeProblemOf(cls: ModelProviderType): string | undefined {
   const isTransport = isTransportClass(cls);
-  if (isTransport && fields.length > 0)
-    return `implements complete(request) and sets ${fields.join(", ")} — a transport makes its own calls: remove them`;
-  if (isTransport && hasProviderMethod(cls, "chat"))
-    return "has both chat(request) and complete(request) — keep one: HTTP (chat) or a transport (complete)";
   const deps = modelProviderOf(cls).deps ?? [];
   if (!isTransport && deps.length > 0)
     return "has deps but no complete(request) — only a transport provider is created by the container";
-  if (!isTransport && fields.length === 0)
-    return "has neither a baseUrl (HTTP) nor complete(request) (a transport)";
+  if (!isTransport) return "has neither a driver nor complete(request) (a transport)";
   return undefined;
 }
 
@@ -51,55 +51,6 @@ export function providerModeViolations(
     if (problem === undefined) return [];
     const message = `${modelProviderOf(cls).name} (${cls.name}) ${problem}`;
     return [violation("model-provider.both-modes", message, [application])];
-  });
-}
-
-/**
- * `[model-provider.circuit-breaker-required]` for every listed model provider and breaker fallback
- * without `circuitBreakerPolicy` (#521): the type requires it, a JS project or a cast can leave it
- * out — named at assembly, never a crash on its first read.
- */
-export function providerBreakerViolations(
-  application: string,
-  providers: readonly Provider[] | undefined,
-): RuleViolation[] {
-  const classes = withFallbacks(listedModelProvidersOf(providers));
-  return classes
-    .filter((cls) => circuitBreakerPolicyOf(modelProviderOf(cls)) === undefined)
-    .map((cls) => {
-      const message =
-        `${modelProviderOf(cls).name} (${cls.name}) has no circuitBreakerPolicy — set ` +
-        "circuitBreakerPolicy: { failureThreshold, window, openFor } on its @ModelProvider";
-      return violation("model-provider.circuit-breaker-required", message, [application]);
-    });
-}
-
-/** Whether an HTTP provider's instance is an OpenAI-compatible one whose class sets no `requestFields`. */
-function lacksRequestFields(cls: ModelProviderType): boolean {
-  if (isTransportClass(cls)) return false;
-  // an HTTP @ModelProvider class takes no arguments (the decorator's overload requires it)
-  const instance: object = Reflect.construct(cls, []) as object;
-  if (typeof Reflect.get(instance, "wirePlanOf") !== "function") return false;
-  const fields: unknown = Reflect.get(instance, "requestFields");
-  return typeof fields !== "object" || fields === null;
-}
-
-/**
- * `[model-provider.request-fields-missing]` (#644) for every listed OpenAI-compatible provider whose
- * class sets no `requestFields`: the type requires it (`abstract`), a JS project or a run before
- * `tsc` can leave it out — named at assembly and by `agboss check`, never a `TypeError` at the first
- * model call.
- */
-export function providerFieldsViolations(
-  application: string,
-  providers: readonly Provider[] | undefined,
-): RuleViolation[] {
-  const classes = withFallbacks(listedModelProvidersOf(providers));
-  return classes.filter(lacksRequestFields).map((cls) => {
-    const message =
-      `${modelProviderOf(cls).name} (${cls.name}) sets no requestFields — an OpenAI-compatible ` +
-      "provider says which request fields it sends: override readonly requestFields = {} (none)";
-    return violation("model-provider.request-fields-missing", message, [application]);
   });
 }
 
@@ -133,9 +84,74 @@ export function providerPriceViolations(
   const classes = withFallbacks(listedModelProvidersOf(providers));
   return classes.flatMap((cls) => {
     const { name, cost } = modelProviderOf(cls);
-    const problem = cost.kind === "from-prices" ? modelPricesProblemOf(cost.prices) : undefined;
+    const problem = cost?.kind === "from-prices" ? modelPricesProblemOf(cost.prices) : undefined;
     return problem === undefined
       ? []
       : [violation("model.price-invalid", `${name} (${cls.name}): ${problem}`, [application])];
   });
+}
+
+/**
+ * `[model-provider.fallback-cycle]` for a provider whose fallback chain returns to a provider it has
+ * passed (`A → B → A`), and `[model.incompatible-fallback-provider]` for a fallback of the other kind:
+ * a chat provider falls back to a chat provider, a decisions provider to a decisions one.
+ */
+export function providerFallbackViolations(
+  scope: string,
+  providers: readonly Provider[] | undefined,
+): RuleViolation[] {
+  const classes = withFallbacks(listedModelProvidersOf(providers));
+  return classes.flatMap((cls) => {
+    const options = modelProviderOf(cls);
+    const next = fallbackOf(options)?.provider;
+    if (next === undefined) return [];
+    if (!isModelProviderClass(next)) {
+      const message = `${options.name} (${cls.name}) names a fallback that is no @ModelProvider class`;
+      return [violation("model-provider.fallback-cycle", message, [scope])];
+    }
+    const found = fallbackCycleOf(cls);
+    const cycle =
+      found?.[0] === cls
+        ? [
+            violation(
+              "model-provider.fallback-cycle",
+              `${options.name} (${cls.name}): its fallback chain comes back to ${modelProviderOf(found.at(-1) ?? cls).name}`,
+              [scope],
+            ),
+          ]
+        : [];
+    const backup = modelProviderOf(next);
+    const kind = (candidate: typeof options): string | undefined =>
+      isDriverOptions(candidate) ? candidate.driver.kind : undefined;
+    const [own, other] = [kind(options), kind(backup)];
+    const mismatch =
+      own !== undefined && other !== undefined && own !== other
+        ? [
+            violation(
+              "model.incompatible-fallback-provider",
+              `${options.name} (${cls.name}) is a ${own} provider and falls back to ${backup.name} (${next.name}), a ${other} one`,
+              [scope],
+            ),
+          ]
+        : [];
+    return [...cycle, ...mismatch];
+  });
+}
+
+/**
+ * Every provider rule over the providers a place names (#1313): mode, timeout
+ * and price. The application runs it over its listed providers and its own `modelProvider`; a workflow's
+ * assembly runs it over every provider its cascade names (the workflow's, its agents', its components'),
+ * so a provider named only there is checked exactly like a listed one.
+ */
+export function providerRuleViolations(
+  scope: string,
+  providers: readonly Provider[] | undefined,
+): RuleViolation[] {
+  return [
+    ...providerModeViolations(scope, providers),
+    ...providerTimeoutViolations(scope, providers),
+    ...providerPriceViolations(scope, providers),
+    ...providerFallbackViolations(scope, providers),
+  ];
 }

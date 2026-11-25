@@ -1,0 +1,6 @@
+# the coder's prompt replaced: `compareProfiles(CodeReviewApplication, { profiles: ["base", "terse"] })`
+workflows:
+  code-review-workflow:
+    version: 1.0.0-terse
+    prompts:
+      coder-agent: Code tersely.

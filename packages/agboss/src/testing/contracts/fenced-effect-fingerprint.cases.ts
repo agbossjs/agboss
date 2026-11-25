@@ -1,6 +1,6 @@
+import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { expect } from "vitest";
-import { BusinessKeyConflictError } from "../../infrastructure/fenced-effect-key.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
   businessKeyOf,
@@ -18,7 +18,7 @@ import {
  * calls in flight on one instance, one with `""` and one with none, are not joined.
  */
 
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
 /** `null`: no fingerprint; `""`: the empty one. */
 type Fingerprint = "" | null;
@@ -26,11 +26,8 @@ type Fingerprint = "" | null;
 const nameOf = (fingerprint: Fingerprint): string =>
   fingerprint === null ? "none" : 'fingerprint ""';
 
-const storedApart = <TTransaction>(
-  written: Fingerprint,
-  asked: Fingerprint,
-): Case<TTransaction> => ({
-  name: `#574: under one business key a call with ${nameOf(asked)} after one with ${nameOf(written)} is BusinessKeyConflictError: nothing runs`,
+const storedApart = (written: Fingerprint, asked: Fingerprint): Case => ({
+  name: `#574: under one business key a call with ${nameOf(asked)} after one with ${nameOf(written)} is IdempotencyError.KeyConflict: nothing runs`,
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
     await first.effects.runOnce(
@@ -45,13 +42,13 @@ const storedApart = <TTransaction>(
       ),
     );
 
-    expect(refused).toBeInstanceOf(BusinessKeyConflictError);
+    expect(refused).toBeInstanceOf(IdempotencyError.KeyConflict);
     expect(count.runs).toBe(1);
     expect(await first.rows.committed()).toEqual(["r1"]);
   },
 });
 
-const emptyReplaysEmpty = <TTransaction>(): Case<TTransaction> => ({
+const emptyReplaysEmpty = (): Case => ({
   name: '#574: under one business key fingerprint "" replays "": the store keeps the empty text, not none',
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -66,7 +63,7 @@ const emptyReplaysEmpty = <TTransaction>(): Case<TTransaction> => ({
     );
 
     expect(again).toEqual({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { receipt: "r1" },
       token: 1,
       replayedFrom: { executionId: "execution-1", nodeId: "charge-action", visitNumber: 1 },
@@ -75,10 +72,7 @@ const emptyReplaysEmpty = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const inFlightApart = <TTransaction>(
-  leading: Fingerprint,
-  following: Fingerprint,
-): Case<TTransaction> => ({
+const inFlightApart = (leading: Fingerprint, following: Fingerprint): Case => ({
   name: `#574: on one instance a call with ${nameOf(following)} in flight beside one with ${nameOf(leading)} is refused, not joined`,
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
@@ -91,18 +85,18 @@ const inFlightApart = <TTransaction>(
 
     expect(outcomes[0]).toMatchObject({
       status: "fulfilled",
-      value: { status: FencedEffectStatus.Ran },
+      value: { status: IdempotencyRunStatus.Ran },
     });
     expect(outcomes[1]).toMatchObject({
       status: "rejected",
-      reason: expect.any(BusinessKeyConflictError) as unknown,
+      reason: expect.any(IdempotencyError.KeyConflict) as unknown,
     });
     expect(count.runs).toBe(1);
     expect(await first.rows.committed()).toEqual(["r1"]);
   },
 });
 
-const racingApart = <TTransaction>(): Case<TTransaction> => ({
+const racingApart = (): Case => ({
   name: '#574: two instances racing under one business key, one with fingerprint "" and one with none, write once and refuse the other',
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -118,24 +112,24 @@ const racingApart = <TTransaction>(): Case<TTransaction> => ({
 
     const ran = outcomes.filter((outcome) => outcome.status === "fulfilled");
     const refused = outcomes.filter((outcome) => outcome.status === "rejected");
-    expect(ran).toMatchObject([{ value: { status: FencedEffectStatus.Ran } }]);
-    expect(refused).toMatchObject([{ reason: expect.any(BusinessKeyConflictError) as unknown }]);
+    expect(ran).toMatchObject([{ value: { status: IdempotencyRunStatus.Ran } }]);
+    expect(refused).toMatchObject([
+      { reason: expect.any(IdempotencyError.KeyConflict) as unknown },
+    ]);
     expect(count.runs).toBe(1);
     expect(await first.rows.committed()).toHaveLength(1);
   },
 });
 
 /** The empty-fingerprint cases. */
-export const fingerprintCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
+export const fingerprintCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "an empty fingerprint is not none",
   cases: [
-    storedApart<TTransaction>("", null),
-    storedApart<TTransaction>(null, ""),
-    emptyReplaysEmpty<TTransaction>(),
-    inFlightApart<TTransaction>("", null),
-    inFlightApart<TTransaction>(null, ""),
-    racingApart<TTransaction>(),
+    storedApart("", null),
+    storedApart(null, ""),
+    emptyReplaysEmpty(),
+    inFlightApart("", null),
+    inFlightApart(null, ""),
+    racingApart(),
   ],
 });

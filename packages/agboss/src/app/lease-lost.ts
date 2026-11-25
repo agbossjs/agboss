@@ -1,3 +1,4 @@
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import { AGBossError, ExecutionCancelledError } from "../core/errors.js";
 import type { EffectKey } from "../infrastructure/effect-key.js";
 import { definedOf } from "../infrastructure/clock.js";
@@ -14,7 +15,7 @@ export interface ExecutionLeaseLostErrorOptions {
  * The instance lost the lease of the tree it was moving (#265, Q58): the lease expired — the holder
  * was frozen or cut off longer than the lease, or its store never confirmed a renewal (#335) — and
  * another instance took it or may take it now, and continues the tree. Not a failure of the
- * execution: it reaches neither `.onError`, `onError` nor the record; only the moving call rejects.
+ * execution: it reaches neither `.onError` nor the record; only the moving call rejects.
  */
 export class ExecutionLeaseLostError extends AGBossError {
   static override readonly code: string = "execution.lease-lost";
@@ -23,7 +24,7 @@ export class ExecutionLeaseLostError extends AGBossError {
     "execution.lease-lost" | "execution.lease-lost.fenced" | "execution.lease-lost.not-started";
   override name = "ExecutionLeaseLostError";
   /**
-   * The execution whose lease was lost: the root of the tree, or a `ChildPlacement.AnyInstance`
+   * The execution whose lease was lost: the root of the tree, or a `ChildPlacement.AnyWorker`
    * child that holds a lease of its own (#333) — the historic name of `ExecutionLease.rootExecutionId`.
    */
   readonly rootExecutionId: string;
@@ -54,7 +55,9 @@ export function leaseExpiredError(rootExecutionId: string): ExecutionLeaseLostEr
  * next take has nothing to continue — it ends the run's record as failed (`NothingToRecoverError`).
  * The same class, fields and `cause` as `lost`; its `code` is `execution.lease-lost.not-started` and its message says that the run did not start.
  */
-export function leaseLostBeforeStartError(lost: ExecutionLeaseLostError): ExecutionLeaseLostError {
+export function leaseLostBeforeStartError(
+  lost: Pick<ExecutionLeaseLostError, "rootExecutionId" | "cause">,
+): ExecutionLeaseLostError {
   const error = new ExecutionLeaseLostError({
     rootExecutionId: lost.rootExecutionId,
     cause: lost.cause,
@@ -117,64 +120,34 @@ export interface FencedWriteRefusal {
   readonly cause?: unknown;
 }
 
-/** Every fact of a refused write (#890): its scope key and that key's parts, and the tokens. */
-export interface ExecutionFencedErrorOptions extends FencedWriteRefusal {
-  /** The scope's tenant (the scope key's first part). */
-  readonly tenantId: string;
-  /** The execution whose lease the write ran under (the scope key's second part). */
-  readonly leaseExecutionId: string;
-}
-
 class InvalidScopeKeyError extends TypeError {
   override name = "InvalidScopeKeyError";
 }
 
 /**
- * An external system refused a write of this execution (#471): it saw a newer token of the lease's
- * scope (`observedToken > token`, a newer take holds the lease), or — a store of the core's — the
- * lease is over at the write's token (expired, released, never taken; #567: its message says only
- * that). A hand-over, like the
- * lease lost it extends: no `.onError`, no compensation, no failed record — the moving call rejects
- * with it, and the tree goes on where the lease is held. `fence.fencedError(observedToken)` builds it for
- * the current step; a repository that has only what it wrote builds it from the scope key
- * (`ExecutionFencedError.of({ scopeKey, token, observedToken })`).
+ * The refusal of a write that knows only its scope key and tokens — a repository's (#890): the
+ * `ExecutionError.Fenced` of a hand-over (#471). The key is read into its tenant and execution; one
+ * that is no scope key (`<tenant>:<execution>`, each URI-encoded) is a `TypeError` here, where the
+ * store builds it. `fence.fencedError(observedToken)` builds the same for the current step. The
+ * token seen newer is a newer take of the lease; the same token or none is only a lease that is
+ * over (#567) — a hand-over either way: no `.onError`, no compensation, no failed record, the moving
+ * call rejects with it and the tree goes on where the lease is held.
  */
-export class ExecutionFencedError extends ExecutionLeaseLostError {
-  static override readonly code = "execution.lease-lost.fenced" as const;
-  declare readonly code: typeof ExecutionFencedError.code;
-  override name = "ExecutionFencedError";
-  readonly scopeKey: string;
-  readonly tenantId: string;
-  /** The execution whose lease the write ran under (equals the inherited `rootExecutionId`). */
-  readonly leaseExecutionId: string;
-  readonly token: number;
-  readonly observedToken: number | undefined;
-
-  /**
-   * The refusal of a write that knows only its scope key and tokens — a repository's (#890): the
-   * key read into its tenant and execution; one that is no scope key (`<tenant>:<execution>`, each
-   * URI-encoded) is a `TypeError` here, where the store builds it, never in the constructor.
-   */
-  static of(refusal: FencedWriteRefusal): ExecutionFencedError {
-    const scope = scopeOfKey(refusal.scopeKey);
-    if (scope === undefined)
-      throw new InvalidScopeKeyError(
-        `${JSON.stringify(refusal.scopeKey)} is not a scope key (executionContext.fence.scopeKey)`,
-      );
-    return new ExecutionFencedError({ ...refusal, ...scope });
-  }
-
-  /** Every fact given as is: it never throws — a store's `catch` builds it safely (#890). */
-  constructor(options: ExecutionFencedErrorOptions) {
-    const { scopeKey, tenantId, leaseExecutionId, token, observedToken, cause } = options;
-    super({ rootExecutionId: leaseExecutionId, cause });
-    this.scopeKey = scopeKey;
-    this.tenantId = tenantId;
-    this.leaseExecutionId = leaseExecutionId;
-    this.token = token;
-    this.observedToken = observedToken;
-    this.message = `a write of lease scope ${scopeKey} with token ${String(token)} was refused: ${fencedReasonOf(options)}`;
-  }
+export function fencedRefusalOf(refusal: FencedWriteRefusal): ExecutionError.Fenced {
+  const scope = scopeOfKey(refusal.scopeKey);
+  if (scope === undefined)
+    throw new InvalidScopeKeyError(
+      `${JSON.stringify(refusal.scopeKey)} is not a scope key (executionContext.fence.scopeKey)`,
+    );
+  const { scopeKey, token, observedToken, cause } = refusal;
+  return new ExecutionError.Fenced({
+    message: `a write of lease scope ${scopeKey} with token ${String(token)} was refused: ${fencedReasonOf(refusal)}`,
+    scopeKey,
+    token,
+    observedToken,
+    ...scope,
+    ...(cause === undefined ? {} : { cause }),
+  });
 }
 
 /**
@@ -219,7 +192,7 @@ export interface ExecutionCancelFencedErrorOptions {
   readonly tenantId: string;
   /** The root of the tree whose cancel refused it. */
   readonly rootExecutionId: string;
-  /** The execution whose lease the write ran under (the root, or an `AnyInstance` child). */
+  /** The execution whose lease the write ran under (the root, or an `AnyWorker` child). */
   readonly leaseExecutionId: string;
   readonly token: number;
   /** The effect's or the call's name, never its business key. */

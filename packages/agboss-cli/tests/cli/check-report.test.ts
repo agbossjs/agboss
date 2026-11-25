@@ -27,16 +27,16 @@ describe("#268 AC5: the worst case per start, decorators only", () => {
         "report-application 2.0.0, environment dev",
         "",
         "Worst case of one batch-report-workflow-start call",
-        "  workflow executions     51  1 batch-report-workflow + 50 item-report-workflow (maxItems 50)",
-        "  at the same time        5   1 batch-report-workflow + 4 item-report-workflow (maxConcurrency 4)",
-        "  agent and router steps  51  1 in batch-report-workflow (longest path) + 50 × 1 in item-report-workflow (longest path)",
-        "  nesting depth           2   batch-report-workflow → item-report-workflow",
+        "  workflow executions  51  1 batch-report-workflow + 50 item-report-workflow (maxItems 50)",
+        "  at the same time     5   1 batch-report-workflow + 4 item-report-workflow (maxConcurrency 4)",
+        "  steps                52  2 in batch-report-workflow (longest path) + 50 × 1 in item-report-workflow (longest path)",
+        "  nesting depth        2   batch-report-workflow → item-report-workflow",
         "",
         "Worst case of one item-report-workflow-start call",
-        "  workflow executions     1  1 item-report-workflow",
-        "  at the same time        1  1 item-report-workflow",
-        "  agent and router steps  1  1 in item-report-workflow (longest path)",
-        "  nesting depth           1  item-report-workflow",
+        "  workflow executions  1  1 item-report-workflow",
+        "  at the same time     1  1 item-report-workflow",
+        "  steps                1  1 in item-report-workflow (longest path)",
+        "  nesting depth        1  item-report-workflow",
         "",
       ].join("\n"),
     );
@@ -58,7 +58,7 @@ describe("#268 AC5: the worst case per start, decorators only", () => {
               rows: [
                 { measure: "workflow executions", total: 51 },
                 { measure: "at the same time", total: 5 },
-                { measure: "agent and router steps", total: 51 },
+                { measure: "steps", total: 52 },
                 { measure: "nesting depth", total: 2 },
               ],
             },
@@ -71,12 +71,12 @@ describe("#268 AC5: the worst case per start, decorators only", () => {
 });
 
 describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a value", () => {
-  it("flow-patterns' dev: secret, optional and defaulted variables, no values (M1)", () => {
+  it("flow-patterns' dev: the file's variables and the storage's (defineEnv), secret, optional and defaulted, no values (M1)", () => {
     const call = agbossProcess(["check", "--env", "dev"], FLOW_PATTERNS, {
       OPENROUTER_API_KEY: "sk-or-not-printed",
       AGBOSS_SQLITE_PATH: ":memory:",
       PII_PSEUDONYM_KEY: "pii-key-not-printed",
-      IDEMPOTENCY_KEY: "idempotency-key-not-printed",
+      AGBOSS_IDEMPOTENCY_SECRET: "idempotency-key-not-printed",
     });
 
     expect(call.code).toBe(0);
@@ -85,21 +85,21 @@ describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a 
         "flow-patterns-application 1.0.0, environment dev",
         "",
         "Worst case of one offer-workflow-start call",
-        "  workflow executions     1   1 offer-workflow",
-        "  at the same time        1   1 offer-workflow",
-        "  agent and router steps  12  12 in offer-workflow (maxSteps)",
-        "  nesting depth           1   offer-workflow",
+        "  workflow executions  1   1 offer-workflow",
+        "  at the same time     1   1 offer-workflow",
+        "  steps                12  12 in offer-workflow (maxSteps)",
+        "  nesting depth        1   offer-workflow",
         "",
       ].join("\n"),
     );
     expect(call.stdout).toContain(
       [
         "dev environment needs 5 process variables:",
-        "  OPENROUTER_API_KEY   secret",
-        "  OPENROUTER_BASE_URL  value, optional",
-        "  AGBOSS_SQLITE_PATH   value, has a default",
-        "  PII_PSEUDONYM_KEY    secret",
-        "  IDEMPOTENCY_KEY      secret",
+        "  OPENROUTER_API_KEY         secret",
+        "  OPENROUTER_BASE_URL        value, optional",
+        "  AGBOSS_SQLITE_PATH         value, has a default",
+        "  AGBOSS_IDEMPOTENCY_SECRET  secret",
+        "  PII_PSEUDONYM_KEY          secret",
         "",
       ].join("\n"),
     );
@@ -123,8 +123,8 @@ describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a 
               { variable: "OPENROUTER_API_KEY", use: "secret", required: true },
               { variable: "OPENROUTER_BASE_URL", use: "value", optional: true },
               { variable: "AGBOSS_SQLITE_PATH", use: "value", required: false, optional: false },
+              { variable: "AGBOSS_IDEMPOTENCY_SECRET", use: "secret", required: true },
               { variable: "PII_PSEUDONYM_KEY", use: "secret", required: true },
-              { variable: "IDEMPOTENCY_KEY", use: "secret", required: true },
             ],
           },
         },

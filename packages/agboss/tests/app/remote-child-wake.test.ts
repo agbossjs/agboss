@@ -1,5 +1,5 @@
 /**
- * #917 — a parent waiting for its `ChildPlacement.AnyInstance` child is woken by the child's
+ * #917 — a parent waiting for its `ChildPlacement.AnyWorker` child is woken by the child's
  * completion itself, not by the cleanup that follows it (the lease's retire, its end's
  * announcement): the clock is never advanced, so only the in-process wake-up can end the wait.
  */

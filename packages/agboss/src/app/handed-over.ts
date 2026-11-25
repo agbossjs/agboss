@@ -1,50 +1,64 @@
+import {
+  ExecutionPauseFencedError,
+  ExecutionStopFencedError,
+  type InterruptFenced,
+} from "./lease-stopped.js";
 import { currentFrame, type FrameLease, type FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
 import { ApplicationStoppingError } from "../core/errors.js";
-import {
-  ExecutionCancelFencedError,
-  ExecutionFencedError,
-  ExecutionLeaseLostError,
-} from "./lease-lost.js";
+import { ExecutionError, isHandOverError } from "../core/error-families/run-errors.js";
+import { ExecutionCancelFencedError, ExecutionLeaseLostError } from "./lease-lost.js";
 
 /**
  * Work that stopped without failing (#265): its instance lost the tree's lease
  * (`ExecutionLeaseLostError`), or stopped and interrupted it (`ApplicationStoppingError`, the
- * shutdown timeout passed), or an external system fenced one of its writes (`ExecutionFencedError`,
+ * shutdown timeout passed), or an external system fenced one of its writes (`ExecutionError.Fenced`,
  * #471 — found anywhere in the error's cause chain). Another instance continues the tree: it reaches
- * neither `.onError`, `onError` nor the record (which stays `running`), and the tree keeps its keys.
+ * neither `.onError` nor the record (which stays `running`), and the tree keeps its keys.
  */
 export const isHandedOver = (error: unknown): boolean =>
   error instanceof ExecutionLeaseLostError ||
   error instanceof ApplicationStoppingError ||
+  isHandOverError(error) ||
   fencedErrorOf(error) !== undefined;
 
-/** The two ways work is handed over. */
-export type HandedOver = ExecutionLeaseLostError | ApplicationStoppingError;
+/** A write an external system refused (#471): a store's `ExecutionError.Fenced`, or the family's (#1317c). */
+export type FencedRefusalError = ExecutionError.Fenced;
+
+/** The ways work is handed over: its lease lost, its instance stopping, a write of it fenced. */
+export type HandedOver = ExecutionLeaseLostError | ApplicationStoppingError | ExecutionError.Fenced;
 
 /** Why a signal stopped the work, when it was handed over; `undefined` otherwise. */
 export function handedOverReason(signal: AbortSignal | undefined): HandedOver | undefined {
   const reason: unknown = signal?.aborted === true ? signal.reason : undefined;
-  return reason instanceof ExecutionLeaseLostError || reason instanceof ApplicationStoppingError
+  return reason instanceof ExecutionLeaseLostError ||
+    reason instanceof ApplicationStoppingError ||
+    reason instanceof ExecutionError.Fenced
     ? reason
     : undefined;
 }
 
 /**
- * The `ExecutionFencedError` behind `error` (#471): the error itself, or one in its `cause` chain or
- * an `AggregateError`'s `errors` (a driver that wraps it, `Promise.any`) — cycles are walked once.
+ * The fenced refusal behind `error` (#471): the error itself, or one in its `cause` chain or an
+ * `AggregateError`'s `errors` (a driver that wraps it, `Promise.any`) — cycles are walked once. The
+ * error found is returned as it is: `fence.fencedError()`'s `ExecutionError.Fenced` (#1317c) stays
+ * the family's, never rebuilt as another class.
  */
-export const fencedErrorOf = (error: unknown): ExecutionFencedError | undefined =>
-  errorOfClass(error, ExecutionFencedError);
+export const fencedErrorOf = (error: unknown): FencedRefusalError | undefined =>
+  errorOfClass(error, ExecutionError.Fenced) ?? errorOfClass(error, ExecutionError.Fenced);
 
 /**
  * The `ExecutionCancelFencedError` behind `error` (#909): the error itself, or one in its `cause`
  * chain or an `AggregateError`'s `errors` — a store's refusal of a write after its tree's cancel,
  * however a driver or a step wrapped it.
  */
-export const cancelFencedErrorOf = (error: unknown): ExecutionCancelFencedError | undefined =>
-  errorOfClass(error, ExecutionCancelFencedError);
+export const cancelFencedErrorOf = (
+  error: unknown,
+): ExecutionCancelFencedError | InterruptFenced | undefined =>
+  errorOfClass(error, ExecutionCancelFencedError) ??
+  errorOfClass(error, ExecutionStopFencedError) ??
+  errorOfClass(error, ExecutionPauseFencedError);
 
 /**
  * A step under `lease` met its tree's cancel in `error` (#909): `tell` it (the audit row and the
@@ -64,7 +78,7 @@ export function cancelMet(
 /** The first error of `type` in `error`'s cause chain (an `AggregateError`'s too); cycles are walked once. */
 function errorOfClass<T extends Error>(
   error: unknown,
-  type: new (...args: never[]) => T,
+  type: abstract new (...args: never[]) => T,
 ): T | undefined {
   const seen = new Set<unknown>();
   const pending: unknown[] = [error];
@@ -81,7 +95,7 @@ function errorOfClass<T extends Error>(
 }
 
 /** What stops the lease a fenced write ran under (`execution-leases.ts` registers each held one). */
-type FencedHolder = (error: ExecutionFencedError) => void;
+type FencedHolder = (error: FencedRefusalError) => void;
 
 /** Keyed by scope and token; `undefined`, a holder's key before it holds, is never a key here. */
 const holders = new Map<string | undefined, FencedHolder>();

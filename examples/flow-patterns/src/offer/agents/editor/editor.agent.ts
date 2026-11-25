@@ -6,13 +6,13 @@ import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
 @Agent({
   name: "editor-agent",
   description: "Rewrites the draft by the review notes",
-  promptUrls: ["./editor.prompt.md"],
+  prompt: "./editor.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,
     changes: ChangesRequestedDto,
   },
   output: OfferDraftDto,
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
 })
 export class EditorAgent {}

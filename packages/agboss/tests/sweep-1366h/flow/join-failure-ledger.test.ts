@@ -1,5 +1,6 @@
+import { usd } from "../../../src/units/index.js";
 /**
- * #1366: a launch that fails with no `.onJoinError` side path to take it throws the branch's error, and the
+ * #1366: a launch that fails with no `.onError` side path to take it throws the branch's error, and the
  * spend of the undo it ran first (#340) reaches no state: it is written to the ledger at once, so no paid
  * compensation is ever lost. With a side path the spend travels in the state and is not written twice.
  */
@@ -22,10 +23,11 @@ const { failedJoined } = await import("../../../src/flow/runtime/launch/join-fai
 const { BranchStatus } = await import("../../../src/flow/runtime/launch/records.js");
 
 const undoSpend: UsageRecord = {
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "refund-action",
   model: "m",
-  costUsd: 0.75,
+  costUsd: usd(0.75),
   costSource: CostSource.Api,
 };
 

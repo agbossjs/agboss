@@ -9,7 +9,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -23,7 +24,7 @@ import {
   MortalExecutionLeaseRepository,
   RecoveryLog,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { ChargeWorkflow, FencedExecutionBudget } from "./fenced-effect.workflow.js";
 
 /**
@@ -63,9 +64,9 @@ export class TakeSlotAction {
   constructor(private readonly rateLimits: RateLimitRepository) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<SlotReceiptDto> {
-    const key = input.message.value.text;
+    const key = input.message.text;
     const slot = await this.rateLimits.acquire(key, 1, seconds(60));
     return { key: slot?.key ?? "none" };
   }
@@ -80,13 +81,8 @@ export class SlotWorkflowFinish {}
 @Workflow({
   name: "slot-workflow",
   version: "1.0.0",
-  flow: [
-    start(SlotWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(TakeSlotAction)
-      .returns(SlotReceiptDto)
-      .toFinish(SlotWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(SlotWorkflowStart).toAction(TakeSlotAction).toFinish(SlotWorkflowFinish)],
 })
 export class SlotWorkflow {}
 
@@ -94,7 +90,6 @@ export class SlotWorkflow {}
   name: "store-bound-leased-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow, SlotWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],

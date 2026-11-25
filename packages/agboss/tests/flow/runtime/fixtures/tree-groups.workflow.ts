@@ -4,9 +4,10 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import {
   GroupDoneDto,
   GroupDto,
@@ -28,8 +29,8 @@ import {
   output: listOf(TaskDto),
 })
 export class GroupTasksAction {
-  execute(input: { readonly group: Produced<GroupDto, unknown> }): Promise<TaskDto[]> {
-    return Promise.resolve(input.group.value.tasks);
+  execute(input: { readonly group: Tracked<GroupDto> }): Promise<TaskDto[]> {
+    return Promise.resolve(input.group.tasks);
   }
 }
 
@@ -40,8 +41,8 @@ export class GroupTasksAction {
   output: GroupDoneDto,
 })
 export class CloseGroupAction {
-  execute(input: { readonly group: Produced<GroupDto, unknown> }): Promise<GroupDoneDto> {
-    const { name } = input.group.value;
+  execute(input: { readonly group: Tracked<GroupDto> }): Promise<GroupDoneDto> {
+    const { name } = input.group;
     treeLog.events.push(`close ${name}`);
     return Promise.resolve({ name });
   }
@@ -54,18 +55,19 @@ export class GroupWorkflowStart {}
 export class GroupDoneWorkflowFinish {}
 
 const groupPath = (from: typeof GroupWorkflowStart) =>
-  start(from)
-    .returns(GroupDto)
+  onStart(from)
     .toAction(GroupTasksAction)
-    .returns(listOf(TaskDto))
-    .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 5, maxItems: 10 })
+    .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 10, maxConcurrency: 5 })
     .join()
-    .returns(listOf(TaskDoneDto))
     .toAction(CloseGroupAction)
-    .returns(GroupDoneDto)
     .toFinish(GroupDoneWorkflowFinish);
 
-@Workflow({ name: "group-workflow", version: "1.0.0", flow: [groupPath(GroupWorkflowStart)] })
+@Workflow({
+  name: "group-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: [groupPath(GroupWorkflowStart)],
+})
 export class GroupWorkflow {}
 
 @WorkflowStart({ name: "narrow-group-workflow-start", description: "One group", input: GroupDto })
@@ -75,8 +77,9 @@ export class NarrowGroupWorkflowStart {}
 @Workflow({
   name: "narrow-group-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [groupPath(NarrowGroupWorkflowStart)],
-  maxConcurrentExecutions: 1,
+  executionLimits: { maxConcurrency: 1 },
 })
 export class NarrowGroupWorkflow {}
 
@@ -87,32 +90,39 @@ export class NarrowGroupWorkflow {}
 })
 export class GroupsWorkflowStart {}
 
-@WorkflowFinish({
-  name: "groups-done-workflow-finish",
+@Action({
+  name: "groups-done-action",
   description: "Every group done",
   input: { done: listOf(GroupDoneDto) },
   output: GroupDoneDto,
 })
-export class GroupsDoneWorkflowFinish {
-  finish(input: { readonly done: readonly Produced<GroupDoneDto, unknown>[] }): GroupDoneDto {
-    const names = input.done.map((group) => group.value.name);
+export class GroupsDoneAction {
+  async execute(input: { readonly done: readonly Tracked<GroupDoneDto>[] }): Promise<GroupDoneDto> {
+    const names = input.done.map((group) => group.name);
     return { name: names.join(", ") };
   }
 }
+
+@WorkflowFinish({
+  name: "groups-done-workflow-finish",
+  description: "Every group done",
+  output: GroupDoneDto,
+})
+export class GroupsDoneWorkflowFinish {}
 
 /** Groups of tasks, one execution of the tree at work at a time. */
 @Workflow({
   name: "groups-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(GroupsWorkflowStart)
-      .returns(listOf(GroupDto))
-      .toParallelWorkflows(GroupWorkflow, { maxConcurrency: 5, maxItems: 10 })
+    onStart(GroupsWorkflowStart)
+      .forEachItem(toWorkflow(GroupWorkflow), { takeFirst: 10, maxConcurrency: 5 })
       .join()
-      .returns(listOf(GroupDoneDto))
+      .toAction(GroupsDoneAction)
       .toFinish(GroupsDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 1,
+  executionLimits: { maxConcurrency: 1 },
 })
 export class GroupsWorkflow {}
 
@@ -127,14 +137,14 @@ export class NarrowGroupsWorkflowStart {}
 @Workflow({
   name: "narrow-groups-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(NarrowGroupsWorkflowStart)
-      .returns(listOf(GroupDto))
-      .toParallelWorkflows(NarrowGroupWorkflow, { maxConcurrency: 5, maxItems: 10 })
+    onStart(NarrowGroupsWorkflowStart)
+      .forEachItem(toWorkflow(NarrowGroupWorkflow), { takeFirst: 10, maxConcurrency: 5 })
       .join()
-      .returns(listOf(GroupDoneDto))
+      .toAction(GroupsDoneAction)
       .toFinish(GroupsDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 4,
+  executionLimits: { maxConcurrency: 4 },
 })
 export class NarrowGroupsWorkflow {}

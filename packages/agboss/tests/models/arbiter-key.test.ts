@@ -2,16 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   Agent,
   Arbiter,
-  DecidedBy,
   EmptyEnvironment,
   listOf,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Action,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { Text, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { EnvironmentError } from "../../src/environments/errors.js";
 import {
@@ -20,8 +22,9 @@ import {
   TestOpenRouterProvider,
 } from "./providers.fixture.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 import { providerStub } from "./stub.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 class AnsDto {
   @Text({ prompt: "a" }) a!: string;
@@ -30,43 +33,58 @@ class OutDto {
   @Text({ prompt: "o" }) o!: string;
 }
 
-@Agent({ name: "ans-agent", description: "A", prompt: "A.", model: "local/llama", output: AnsDto })
+@Agent({
+  name: "ans-agent",
+  description: "A",
+  prompt: inline("A."),
+  model: "local/llama",
+  modelProvider: LocalModelProvider,
+  output: AnsDto,
+})
 class AnsAgent {}
 
 @Arbiter({
   name: "ans-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "moonshotai/kimi-k2.6",
-  prompt: "Count it.",
-  criteria: [{ agent: AnsAgent, prompt: "ok" }],
+  modelProvider: TestOpenRouterProvider,
+  prompt: inline("Count it."),
+  criteria: [{ target: AnsAgent, prompt: "ok" }],
 })
 class AnsArbiter {}
 
 @WorkflowStart({ name: "ans-start-workflow-start", description: "q", input: WorkflowStartTextDto })
 class AnsStart {}
 
-@WorkflowFinish({
-  name: "ans-finish-workflow-finish",
+@Action({
+  name: "ans-finish-action",
   description: "f",
   input: { answers: listOf(AnsDto) },
   output: OutDto,
 })
-class AnsFinish {
-  finish(i: { readonly answers: readonly Produced<AnsDto, unknown>[] }): OutDto {
+class AnsAction {
+  async execute(i: { readonly answers: readonly Tracked<AnsDto>[] }): Promise<OutDto> {
     return { o: String(i.answers.length) };
   }
 }
 
+@WorkflowFinish({
+  name: "ans-finish-workflow-finish",
+  description: "f",
+  output: OutDto,
+})
+class AnsFinish {}
+
 @Workflow({
   name: "ans-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(AnsStart)
-      .returns(WorkflowStartTextDto)
-      .toParallelAgents(AnsAgent, AnsAgent)
-      .acceptedBy(AnsArbiter)
+    onStart(AnsStart)
+      .inParallel([toAgent(AnsAgent), toAgent(AnsAgent)])
+      .arbitratedBy(AnsArbiter)
       .joinQuorum({ min: 2 })
-      .returns(listOf(AnsDto))
+      .toAction(AnsAction)
       .toFinish(AnsFinish),
   ],
 })
@@ -84,12 +102,12 @@ class AnsAppApplication {}
 
 describe("#716: an arbiter-only provider", () => {
   it("still fails at createApp without the OpenRouter key", async () => {
-    const started = createAppWith(AnsAppApplication, {
+    const started = createTestAppWith(AnsAppApplication, {
       processEnv: {},
       providerFetch: providerStub([], [{ id: "local/llama" }]).fetch,
     });
 
     await expect(started).rejects.toBeInstanceOf(EnvironmentError);
-    await expect(started).rejects.toThrow(/no openRouterApiKey/);
+    await expect(started).rejects.toThrow(/OPENROUTER_API_KEY is not set/);
   });
 });

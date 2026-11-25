@@ -11,16 +11,26 @@ import { minutes, seconds } from "../../src/units/index.js";
 import { ENV, instanceCalls, KEYS } from "./gateway.js";
 import { TestOpenRouterProvider } from "./providers.fixture.js";
 import { completion, providerStub, type StubReply } from "./stub.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
-const policy = { failureThreshold: 3, window: minutes(1), openFor: seconds(30) };
+const policy = CircuitBreakerPolicy.fixed({
+  failureThreshold: 3,
+  failureWindow: minutes(1),
+  openDuration: seconds(30),
+});
 const AGENT = { kind: "agent", agent: "scout" } as const;
-const KIMI = { model: "moonshotai/kimi-k2.6", temperature: 0, maxTokens: 1 };
+const KIMI = {
+  model: "moonshotai/kimi-k2.6",
+  modelProvider: "openrouter-model-provider",
+  temperature: 0,
+  maxTokens: 1,
+};
 
 /** OpenRouter's gateway (its fallback: the backup) with its breaker already open (#385: the chat model falls back). */
 async function openedGateway(send: typeof fetch) {
   const calls = instanceCalls();
   const options = modelProviderOf(TestOpenRouterProvider);
-  const breaker = calls.breakerOf(options.name, options.circuitBreakerPolicy);
+  const breaker = calls.breakerOf(options.name, options.circuitBreakerPolicy ?? policy);
   for (let failure = 0; failure < 3; failure++) await breaker.recordFailure();
   const directory = ModelProviderDirectory.of([TestOpenRouterProvider]);
   return createProviderGateway(directory, { env: ENV, environment: KEYS, calls, send });
@@ -39,7 +49,6 @@ function breakerClient(
     {
       provider: "openrouter",
       timeout: seconds(5),
-      retryPolicy: RetryPolicy.none(),
       breaker,
       clock,
     },
@@ -66,6 +75,24 @@ describe("AC6: the circuit breaker", () => {
       provider: "openrouter",
     });
     expect(stub.requests).toHaveLength(3);
+  });
+
+  it("a moderation 403 or a per-request 404 does not open the breaker for every tenant", async () => {
+    const moderated = { status: 403, body: { error: { code: "content_policy_violation" } } };
+    const { send, breaker } = breakerClient([moderated, moderated, moderated, { status: 404 }]);
+
+    for (let call = 0; call < 4; call++) expect((await send()).status).toBeGreaterThanOrEqual(403);
+
+    expect(await breaker.isOpen()).toBe(false);
+  });
+
+  it("a 401, or a 403 naming the provider's quota, opens it", async () => {
+    const quota = { status: 403, body: { error: { code: "insufficient_quota" } } };
+    const { send, breaker } = breakerClient([{ status: 401 }, quota, { status: 401 }]);
+
+    for (let call = 0; call < 3; call++) await send();
+
+    expect(await breaker.isOpen()).toBe(true);
   });
 
   it("AC6: failures spread wider than the window do not open it; a success clears the count", async () => {
@@ -157,7 +184,7 @@ describe("AC6: the circuit breaker", () => {
   it("AC6: without the instance's shared calls (the model check) a connection has no breaker", async () => {
     const failing = providerStub([{ status: 500 }]);
     const connection = connectionOf(
-      { ...modelProviderOf(TestOpenRouterProvider), retryPolicy: RetryPolicy.none() },
+      { ...modelProviderOf(TestOpenRouterProvider), retryPolicy: undefined },
       { env: ENV, environment: KEYS, requireKeys: false, send: failing.fetch },
     );
 

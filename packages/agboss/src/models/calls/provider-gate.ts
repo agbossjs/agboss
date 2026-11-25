@@ -49,6 +49,11 @@ export class ProviderGate {
   #wake: AbortController | undefined;
   readonly #keys: Readonly<Record<"slots" | "calls" | "tokens" | "cooldown", string>>;
 
+  /** A tenant's slots per round under the policy's `TenantWeighted`; none for any other strategy. */
+  get tenantWeight(): RateLimitPolicy["tenantWeight"] {
+    return this.options.policy.tenantWeight;
+  }
+
   constructor(private readonly options: ProviderGateOptions) {
     this.#queue = new TenantFairQueue(options.policy.balancing);
     const { provider } = options;

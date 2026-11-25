@@ -1,23 +1,26 @@
-import { Agent, EmptyEnvironment, Workflow } from "../../../src/index.js";
+import { Agent, EmptyEnvironment, Tool, Workflow, inline, Ttl } from "../../../src/index.js";
 import { WorkflowFinish, WorkflowStart, type Class } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
-  ModelReranker,
   Rag,
-  RagMode,
-  RagTenancy,
-  Reranker,
-  type RagConnector,
+  RagQueryDto,
+  RagReranker,
+  RagScope,
+  RagSearchResultsDto,
+  RagSource,
   type RagRetrieval,
   type RagRetrieveOptions,
+  type RagSearchResultDto,
 } from "../../../src/rag/index.js";
-import type { RagSearchResultDto } from "../../../src/dto/standard/framework.js";
+import { ragMeta } from "../../../src/components/rag.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { CardPiiPolicy, ContactPiiPolicy, PII_KEY_VARIABLE } from "../../pii/pii.fixture.js";
 import { ShopExecutionContext } from "../../pii/sensitive.fixture.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../../models/providers.fixture.js";
 
 /**
  * #708 — a knowledge base whose candidates hold PII, reranked by the core's LLM reranker, read by
@@ -37,22 +40,38 @@ export const PEOPLE: readonly RagSearchResultDto[] = [
   { source: "rota.md", text: "On-call starts after the third month." },
 ];
 
-class Passages implements RagConnector {
-  constructor(private readonly passages: readonly RagSearchResultDto[]) {}
+class Passages extends RagSource {
+  constructor(private readonly passages: readonly RagSearchResultDto[]) {
+    super();
+  }
 
-  retrieve(_query: string, options: RagRetrieveOptions): Promise<RagRetrieval> {
-    return Promise.resolve({ results: this.passages.slice(0, options.topK) });
+  protected override retrieve(_query: string, options: RagRetrieveOptions): RagRetrieval {
+    return { results: this.passages.slice(0, options.topK) };
   }
 }
 
-@Reranker({ name: "people-reranker", description: "Reranks on a model", model: "local/llama" })
-export class PeopleReranker extends ModelReranker {}
+@RagReranker({
+  name: "people-reranker",
+  description: "Reranks on a model",
+  candidates: 3,
+  model: "local/llama",
+})
+export class PeopleReranker {}
+
+@RagReranker({
+  name: "cards-reranker",
+  description: "Reranks on a model",
+  candidates: 2,
+  model: "local/llama",
+})
+export class CardsReranker {}
 
 @Rag({
   name: "people-rag",
   description: "Who to ask",
-  tenancy: RagTenancy.PerTenant,
-  rerank: { by: PeopleReranker, candidates: 3, topK: 3 },
+  scope: RagScope.Tenant,
+  topK: 3,
+  reranker: PeopleReranker,
 })
 export class PeopleRag extends Passages {
   constructor() {
@@ -63,8 +82,9 @@ export class PeopleRag extends Passages {
 @Rag({
   name: "cards-rag",
   description: "Payment notes",
-  tenancy: RagTenancy.PerTenant,
-  rerank: { by: PeopleReranker, candidates: 2, topK: 2 },
+  scope: RagScope.Tenant,
+  topK: 2,
+  reranker: CardsReranker,
 })
 export class CardsRag extends Passages {
   constructor() {
@@ -75,14 +95,33 @@ export class CardsRag extends Passages {
   }
 }
 
-/** One workflow: a start, an agent with its own PII policies reading `rag` in `mode`, a finish. */
-function workflowWith(name: string, rag: Class, mode: RagMode): { workflow: Class; start: Class } {
+/** One workflow: a start, an agent with its own PII policies reading `rag` as `mode`, a finish. */
+function workflowWith(
+  name: string,
+  rag: Class<Passages>,
+  mode: "tool" | "context",
+): { workflow: Class; start: Class } {
+  @Tool({
+    name: `search-${ragMeta(rag).name}-tool`,
+    description: "Searches the docs",
+    input: RagQueryDto,
+    output: RagSearchResultsDto,
+    readOnly: true,
+    deps: [rag],
+  })
+  class SearchTool {
+    constructor(private readonly docs: Passages) {}
+
+    execute({ query }: RagQueryDto): Promise<RagSearchResultsDto> {
+      return this.docs.search(query);
+    }
+  }
   @Agent({
     name: `${name}-agent`,
     description: "Answers",
-    prompt: "Answer from the docs.",
+    prompt: inline("Answer from the docs."),
     model: "local/llama",
-    rag: [{ use: rag, mode }],
+    ...(mode === "tool" ? { tools: [SearchTool] } : { rag: [rag] }),
     piiPolicies: [ContactPiiPolicy, CardPiiPolicy],
   })
   class ReaderAgent {}
@@ -100,22 +139,26 @@ function workflowWith(name: string, rag: Class, mode: RagMode): { workflow: Clas
   class Finish {}
   @Workflow({
     name: `${name}-workflow`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
-    flow: [start(Start).returns(WorkflowStartTextDto).toAgent(ReaderAgent).toFinish(Finish)],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(Start).toAgent(ReaderAgent).toFinish(Finish)],
     defaults: { models: { temperature: 0 }, router: { model: "typesafe/jev-1.13" } },
+    providers: [rag, SearchTool],
   })
   class ReaderWorkflow {}
   return { workflow: ReaderWorkflow, start: Start };
 }
 
-export const PEOPLE_TOOL = workflowWith("people-tool", PeopleRag, RagMode.Tool);
-export const PEOPLE_CONTEXT = workflowWith("people-context", PeopleRag, RagMode.Context);
-export const CARDS_TOOL = workflowWith("cards-tool", CardsRag, RagMode.Tool);
-export const CARDS_CONTEXT = workflowWith("cards-context", CardsRag, RagMode.Context);
+export const PEOPLE_TOOL = workflowWith("people-tool", PeopleRag, "tool");
+export const PEOPLE_CONTEXT = workflowWith("people-context", PeopleRag, "context");
+export const CARDS_TOOL = workflowWith("cards-tool", CardsRag, "tool");
+export const CARDS_CONTEXT = workflowWith("cards-context", CardsRag, "context");
 
 /** The application: no PII policies of its own — the agents' policies are the only ones. */
 @Application({
   name: "rerank-pii-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   executionContext: ShopExecutionContext,

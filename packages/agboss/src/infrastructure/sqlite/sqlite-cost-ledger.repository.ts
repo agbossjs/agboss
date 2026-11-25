@@ -1,54 +1,29 @@
 import { z } from "zod";
 import { BudgetScope } from "../../budgets/budget.js";
 import { Injectable } from "../../components/decorators.js";
-import { totalCost } from "../../finops/usage.js";
-import { usd, type Usd } from "../../units/index.js";
+import { totalCost, totalTokens } from "../../finops/usage.js";
+import { usd } from "../../units/index.js";
 import {
   CostLedgerRepository,
   expiredEntriesOf,
   invalidLedgerCutoffErrorOf,
   invalidLedgerEntryErrorOf,
   unrecordedEntriesOf,
+  NO_USAGE,
   type BudgetAccount,
+  type BudgetLimit,
+  type BudgetUsage,
   type CostCounter,
   type LedgerEntry,
 } from "../cost-ledger.repository.js";
 import { CostLedgerEntryExpiredError } from "../../finops/ledger-mark.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
-/** One counter per budget, scope key and period; the last `maxSpend()` per budget and scope key. */
-const SCHEMA = `CREATE TABLE IF NOT EXISTS cost_ledger (
-  budget TEXT NOT NULL, scope TEXT NOT NULL, scope_key TEXT NOT NULL, period TEXT NOT NULL,
-  spent_usd REAL NOT NULL, PRIMARY KEY (budget, scope, scope_key, period));
-CREATE TABLE IF NOT EXISTS cost_ledger_max_spend (
-  budget TEXT NOT NULL, scope TEXT NOT NULL, scope_key TEXT NOT NULL, max_spend_usd REAL NOT NULL,
-  PRIMARY KEY (budget, scope, scope_key));
-CREATE TABLE IF NOT EXISTS cost_ledger_entries (
-  ledger_id TEXT NOT NULL PRIMARY KEY, made_at INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS cost_ledger_entries_pruned (
-  id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1), pruned_before INTEGER NOT NULL);`;
-
-/**
- * The entries' date (#771), on a file #727 wrote without it: an entry kept before it is dated
- * "never" — never pruned, never refused (a retry of it made earlier than any cutoff it would get
- * is held) — so pruning cannot reach one whose save may still come; delete those rows by hand once
- * no pass from before the upgrade runs.
- */
-const ENTRY_DATE = `INTEGER NOT NULL DEFAULT ${String(Number.MAX_SAFE_INTEGER)}`;
-
-/** The entries by date, for the sweep's prune (after the column exists). */
-const ENTRY_DATE_INDEX =
-  "CREATE INDEX IF NOT EXISTS cost_ledger_entries_made_at ON cost_ledger_entries (made_at)";
-
-/**
- * The migration of a file written before budgets (#261 PR 5, #265 S69 e): the old table counted
- * one key (a workflow's name) per UTC day for `settings().limits`, which no budget reads — it is
- * dropped, and the budgets' counters start from zero.
- */
-const BUDGETS_MIGRATION = "DROP TABLE cost_ledger;";
-
-const SpentRow = z.object({ spent_usd: z.number() });
-const MaxSpendRow = z.object({ max_spend_usd: z.number() });
+const UsageRow = z.object({ spent_usd: z.number(), tokens: z.number() });
+const LimitRow = z.object({
+  max_spend_usd: z.number().nullable(),
+  max_tokens: z.number().nullable(),
+});
 const PrunedRow = z.object({ pruned_before: z.number() });
 
 /** The scope as stored: one of `BudgetScope`'s values. */
@@ -67,16 +42,6 @@ const scopeOf = (account: BudgetAccount): string => z.enum(BudgetScope).parse(ac
 export class SqliteCostLedgerRepository extends CostLedgerRepository {
   constructor(private readonly connection: SqliteConnection) {
     super();
-    connection.transaction(() => {
-      const columns = connection.columnsOf("cost_ledger");
-      if (columns.length > 0 && !columns.includes("budget"))
-        connection.database.exec(BUDGETS_MIGRATION);
-    });
-    connection.ensureSchema("cost_ledger", SCHEMA);
-    connection.addColumn("cost_ledger_entries", "made_at", ENTRY_DATE);
-    connection.transaction(() => {
-      connection.database.exec(ENTRY_DATE_INDEX);
-    });
   }
 
   /** The pruning mark (#771, kept in ms): entries made before it may have been removed; none yet → `undefined`. */
@@ -91,14 +56,16 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     return this.connection.ping();
   }
 
-  findSpentByCounter(counter: CostCounter): Promise<Usd> {
+  findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
     const row = this.connection.database
       .prepare(
-        `SELECT spent_usd FROM cost_ledger
+        `SELECT spent_usd, tokens FROM cost_ledger
          WHERE budget = ? AND scope = ? AND scope_key = ? AND period = ?`,
       )
       .get(counter.budget, scopeOf(counter), counter.key, counter.period);
-    return Promise.resolve(usd(row === undefined ? 0 : SpentRow.parse(row).spent_usd));
+    if (row === undefined) return Promise.resolve(NO_USAGE);
+    const held = UsageRow.parse(row);
+    return Promise.resolve({ spent: usd(held.spent_usd), tokens: held.tokens });
   }
 
   saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void> {
@@ -145,13 +112,14 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
         (id, madeAt) => entry.run(id, madeAt.getTime()).changes === 1,
       );
       const spent = totalCost(added);
+      const tokens = totalTokens(added);
       const statement = this.connection.database.prepare(
-        `INSERT INTO cost_ledger VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO cost_ledger VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT (budget, scope, scope_key, period)
-         DO UPDATE SET spent_usd = spent_usd + excluded.spent_usd`,
+         DO UPDATE SET spent_usd = spent_usd + excluded.spent_usd, tokens = tokens + excluded.tokens`,
       );
       for (const counter of counters)
-        statement.run(counter.budget, scopeOf(counter), counter.key, counter.period, spent);
+        statement.run(counter.budget, scopeOf(counter), counter.key, counter.period, spent, tokens);
     });
     return refused;
   }
@@ -176,22 +144,31 @@ export class SqliteCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined> {
+  findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined> {
     const row = this.connection.database
       .prepare(
-        `SELECT max_spend_usd FROM cost_ledger_max_spend
+        `SELECT max_spend_usd, max_tokens FROM cost_ledger_max_spend
          WHERE budget = ? AND scope = ? AND scope_key = ?`,
       )
       .get(account.budget, scopeOf(account), account.key);
-    return Promise.resolve(
-      row === undefined ? undefined : usd(MaxSpendRow.parse(row).max_spend_usd),
-    );
+    if (row === undefined) return Promise.resolve(undefined);
+    const held = LimitRow.parse(row);
+    return Promise.resolve({
+      ...(held.max_spend_usd === null ? {} : { maxSpend: usd(held.max_spend_usd) }),
+      ...(held.max_tokens === null ? {} : { maxTokens: held.max_tokens }),
+    });
   }
 
-  saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void> {
+  saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void> {
     this.connection.database
-      .prepare("INSERT OR REPLACE INTO cost_ledger_max_spend VALUES (?, ?, ?, ?)")
-      .run(account.budget, scopeOf(account), account.key, maxSpend);
+      .prepare("INSERT OR REPLACE INTO cost_ledger_max_spend VALUES (?, ?, ?, ?, ?)")
+      .run(
+        account.budget,
+        scopeOf(account),
+        account.key,
+        limit.maxSpend ?? null,
+        limit.maxTokens ?? null,
+      );
     return Promise.resolve();
   }
 }

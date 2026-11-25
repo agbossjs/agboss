@@ -11,136 +11,175 @@ import {
   withRedactionValues,
 } from "../../src/files/redaction-values.js";
 import type { AgentsConfigOf } from "../../src/config/types.js";
-import {
-  ModelProvider,
-  OpenAiCompatibleProvider,
-  type NoRequestFields,
-} from "../../src/models/index.js";
+import { env } from "../../src/environments/env-readers.js";
+import { secret } from "../../src/environments/secret.js";
+import { ModelProvider, OpenAiCompatibleDriver, OpenRouterDriver } from "../../src/models/index.js";
 import {
   modelProviderOf,
   type ModelProviderType,
 } from "../../src/models/model-provider.decorator.js";
 import { directoryOf } from "../../src/models/workflow-models.js";
-import {
-  ModelPurpose,
-  registeredOf,
-  type RegisteredModelProvider,
-} from "../../src/models/resolve.js";
+import { ModelKind } from "../../src/models/model-kind.js";
+import { registeredOf, type RegisteredModelProvider } from "../../src/models/resolve.js";
 import type { ModelUse, ModelUseKey } from "../../src/models/uses.js";
 import { seconds } from "../../src/units/index.js";
-import { httpOptionsOf, LocalModelProvider } from "../models/providers.fixture.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
-const BASE = httpOptionsOf(LocalModelProvider);
+const common = {
+  timeout: seconds(5),
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: seconds(60),
+    openDuration: seconds(30),
+  }),
+};
 
-const optionsOf = (over: {
-  readonly name: string;
-  readonly serves: RegExp;
-  readonly baseUrl: string;
-  readonly apiKey?: string;
-  readonly baseUrlField?: string;
-}) => ({
-  ...BASE,
-  name: over.name,
-  serves: [over.serves],
-  baseUrl: over.baseUrl,
-  apiKey: over.apiKey,
-  baseUrlField: over.baseUrlField,
-  circuitBreakerPolicy: { failureThreshold: 5, window: seconds(60), openFor: seconds(30) },
-});
-
-@ModelProvider(
-  optionsOf({
-    name: "p1-model-provider",
-    serves: /^p1\//u,
+@ModelProvider({
+  ...common,
+  name: "p1-model-provider",
+  driver: OpenAiCompatibleDriver({ baseUrl: "https://s.example/v1", apiKey: secret("KEY_P") }),
+})
+class P1 {}
+// the same server and key as P1: another class
+@ModelProvider({
+  ...common,
+  name: "p2-model-provider",
+  driver: OpenAiCompatibleDriver({ baseUrl: "https://s.example/v1", apiKey: secret("KEY_P") }),
+})
+class P2 {}
+// the same server, another key
+@ModelProvider({
+  ...common,
+  name: "p3-model-provider",
+  driver: OpenAiCompatibleDriver({ baseUrl: "https://s.example/v1", apiKey: secret("KEY_Q") }),
+})
+class P3 {}
+// another server, the same key
+@ModelProvider({
+  ...common,
+  name: "p4-model-provider",
+  driver: OpenAiCompatibleDriver({ baseUrl: "https://t.example/v1", apiKey: secret("KEY_P") }),
+})
+class P4 {}
+// the same key, the base URL read from another variable
+@ModelProvider({
+  ...common,
+  name: "p5-model-provider",
+  driver: OpenAiCompatibleDriver({ baseUrl: env("PROXY_URL"), apiKey: secret("KEY_P") }),
+})
+class P5 {}
+// the same server and key, another header: another account
+@ModelProvider({
+  ...common,
+  name: "p6-model-provider",
+  driver: OpenAiCompatibleDriver({
     baseUrl: "https://s.example/v1",
-    apiKey: "keyP",
+    apiKey: secret("KEY_P"),
+    headers: { "x-tenant": "acme" },
   }),
-)
-class P1 extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
-// the same server and key field as P1: another class
-@ModelProvider(
-  optionsOf({
-    name: "p2-model-provider",
-    serves: /^p2\//u,
+})
+class P6 {}
+// the same server and key, extra request fields that may send the call to another upstream
+@ModelProvider({
+  ...common,
+  name: "p7-model-provider",
+  driver: OpenAiCompatibleDriver({
     baseUrl: "https://s.example/v1",
-    apiKey: "keyP",
+    apiKey: secret("KEY_P"),
+    requestFields: { top_k: 40 },
   }),
-)
-class P2 extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
-// the same server, another key field
-@ModelProvider(
-  optionsOf({
-    name: "p3-model-provider",
-    serves: /^p3\//u,
+})
+class P7 {}
+@ModelProvider({
+  ...common,
+  name: "p8-model-provider",
+  driver: OpenAiCompatibleDriver({
     baseUrl: "https://s.example/v1",
-    apiKey: "keyQ",
+    apiKey: secret("KEY_P"),
+    requestFields: { top_k: 40 },
   }),
-)
-class P3 extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
-// another server, the same key field
-@ModelProvider(
-  optionsOf({
-    name: "p4-model-provider",
-    serves: /^p4\//u,
-    baseUrl: "https://t.example/v1",
-    apiKey: "keyP",
-  }),
-)
-class P4 extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
-// the same server and key field, another environment field for the base URL
-@ModelProvider(
-  optionsOf({
-    name: "p5-model-provider",
-    serves: /^p5\//u,
+})
+class P8 {}
+@ModelProvider({
+  ...common,
+  name: "or1-model-provider",
+  driver: OpenRouterDriver({ apiKey: secret("KEY_P"), routing: { only: ["fireworks"] } }),
+})
+class Or1 {}
+@ModelProvider({
+  ...common,
+  name: "or2-model-provider",
+  driver: OpenRouterDriver({ apiKey: secret("KEY_P"), routing: { only: ["together"] } }),
+})
+class Or2 {}
+@ModelProvider({
+  ...common,
+  name: "or3-model-provider",
+  driver: OpenRouterDriver({ apiKey: secret("KEY_P"), routing: { only: ["fireworks"] } }),
+})
+class Or3 {}
+@ModelProvider({
+  ...common,
+  name: "fn-model-provider",
+  driver: OpenAiCompatibleDriver({
     baseUrl: "https://s.example/v1",
-    apiKey: "keyP",
-    baseUrlField: "proxyUrl",
+    apiKey: secret("KEY_P"),
+    requestFields: { pick: () => 1 },
   }),
-)
-class P5 extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
-// no key field: nothing says whose credentials these are
-@ModelProvider(
-  optionsOf({
-    name: "k-model-provider",
-    serves: /^(?:k|\/k)\/|^(?:m|\/m)$/u,
-    baseUrl: "https://k.example/v1",
+})
+class Fn {}
+@ModelProvider({
+  ...common,
+  name: "fn2-model-provider",
+  driver: OpenAiCompatibleDriver({
+    baseUrl: "https://s.example/v1",
+    apiKey: secret("KEY_P"),
+    requestFields: { pick: () => 1 },
   }),
-)
-class Keyless extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+})
+class Fn2 {}
 
-// serves the one model of the vendor "q" that is served at all
-@ModelProvider(
-  optionsOf({
-    name: "q-model-provider",
-    serves: /^q\/2$/u,
-    baseUrl: "https://q.example/v1",
-    apiKey: "keyQ2",
-  }),
-)
-class Q extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+// no key: nothing says whose credentials these are
+@ModelProvider({
+  ...common,
+  name: "k-model-provider",
+  driver: OpenAiCompatibleDriver({ baseUrl: "https://k.example/v1" }),
+})
+class Keyless {}
 
-const PROVIDERS: readonly ModelProviderType[] = [P1, P2, P3, P4, P5, Keyless, Q];
+const PROVIDERS: readonly ModelProviderType[] = [
+  P1,
+  P2,
+  P3,
+  P4,
+  P5,
+  P6,
+  P7,
+  P8,
+  Or1,
+  Or2,
+  Or3,
+  Fn,
+  Keyless,
+];
 const directory = directoryOf(PROVIDERS);
 
-const use = (key: ModelUseKey, model: string): ModelUse => ({
-  key,
-  model,
-  purpose: ModelPurpose.Chat,
-});
+/** The provider each test vendor's models go to, as a component's `modelProvider` says (`p1/a` → p1). */
+const providerNameOf = (model: string): string | undefined => {
+  if (model === "m" || model === "/m" || model.startsWith("k/")) return "k-model-provider";
+  const vendor = model.split("/")[0] ?? "";
+  return /^p[1-6]$/u.test(vendor) ? `${vendor}-model-provider` : undefined;
+};
+
+const use = (key: ModelUseKey, model: string): ModelUse => {
+  const modelProvider = providerNameOf(model);
+  return {
+    key,
+    model,
+    purpose: ModelKind.Chat,
+    ...(modelProvider === undefined ? {} : { modelProvider }),
+  };
+};
 const providerOf = (found: ModelUse): RegisteredModelProvider | undefined => {
   const resolution = directory.resolve(found);
   return resolution.kind === "resolved" ? resolution.provider : undefined;
@@ -172,7 +211,7 @@ function sends(
 
 const pair = (agentModel: string, redactorModel: string): ModelUse[] => [
   use("agents.x-agent", agentModel),
-  use("files.redactor.x-agent", redactorModel),
+  use("fileMaskers.x-agent", redactorModel),
 ];
 
 describe("the setting decides first, the providers second", () => {
@@ -185,39 +224,46 @@ describe("the setting decides first, the providers second", () => {
   });
 
   it("a missing use of the agent or of the redactor is never the same provider", () => {
-    expect(sends(RedactionValues.SameProvider, [use("files.redactor.x-agent", "p1/b")])).toBe(
-      false,
-    );
+    expect(sends(RedactionValues.SameProvider, [use("fileMaskers.x-agent", "p1/b")])).toBe(false);
     expect(sends(RedactionValues.SameProvider, [use("agents.x-agent", "p1/a")])).toBe(false);
   });
 
-  it("a use no provider serves, on either side, is never the same provider", () => {
+  it("a use no provider is named for, on either side, is never the same provider", () => {
     expect(sends(RedactionValues.SameProvider, pair("zzz/a", "p1/b"))).toBe(false);
     expect(sends(RedactionValues.SameProvider, pair("p1/a", "zzz/b"))).toBe(false);
-    // the same vendor, but only the redactor's model is served
-    expect(sends(RedactionValues.SameProvider, pair("q/1", "q/2"))).toBe(false);
   });
 
   it("each use is found by its own key, among the uses of other agents", () => {
-    const others = [use("agents.other", "zzz/a"), use("files.redactor.other", "p3/b")];
+    const others = [use("agents.other", "zzz/a"), use("fileMaskers.other", "p3/b")];
 
     expect(sends(RedactionValues.SameProvider, [...others, ...pair("p1/a", "p1/b")])).toBe(true);
   });
 });
 
 describe("two providers are one only by the same server under the same key", () => {
-  it("one server and one key field are the same, whatever the class", () => {
+  it("one server and one key are the same, whatever the class", () => {
     expect(sends(RedactionValues.SameProvider, pair("p1/a", "p2/a"))).toBe(false); // other vendor
     expect(isSameProvider(used("p1/a", P1), used("p1/b", P2))).toBe(true);
   });
 
-  it("a key field, a base URL or the base URL's own field that differs is another provider", () => {
+  it("a key, a base URL, the variable of the base URL or a header that differs is another provider", () => {
     expect(isSameProvider(used("p1/a", P1), used("p1/b", P3))).toBe(false);
     expect(isSameProvider(used("p1/a", P1), used("p1/b", P4))).toBe(false);
     expect(isSameProvider(used("p1/a", P1), used("p1/b", P5))).toBe(false);
+    expect(isSameProvider(used("p1/a", P1), used("p1/b", P6))).toBe(false);
   });
 
-  it("the same class is the same provider, even with no key field; two classes with none are not", () => {
+  it("request fields and routing are part of the identity: any difference, or fields that cannot be compared, is not the same", () => {
+    expect(isSameProvider(used("p1/a", P1), used("p1/b", P7))).toBe(false); // extra fields on one side
+    expect(isSameProvider(used("p1/a", P7), used("p1/b", P8))).toBe(true); // deep-equal fields
+    expect(isSameProvider(used("a/a", Or1), used("a/b", Or2))).toBe(false); // another upstream pinned
+    expect(isSameProvider(used("a/a", Or1), used("a/b", Or3))).toBe(true);
+    expect(isSameProvider(used("p1/a", Fn), used("p1/b", Fn))).toBe(true); // the same class is itself
+    // a function in the fields on both sides (two classes): not comparable, not the same
+    expect(isSameProvider(used("p1/a", Fn), used("p1/b", Fn2))).toBe(false);
+  });
+
+  it("the same class is the same provider, even with no key; two classes with none are not", () => {
     expect(isSameProvider(used("k/a", Keyless), used("k/b", Keyless))).toBe(true);
     expect(isSameProvider(used("k/a", Keyless), used("k/b", P2))).toBe(false);
   });
@@ -229,10 +275,10 @@ describe("two providers are one only by the same server under the same key", () 
     expect(isSameProvider(used("/m", Keyless), used("/m", Keyless))).toBe(true);
   });
 
-  it("providers that are no HTTP server are never the same server, whatever fields they carry alike", () => {
+  it("providers that are no driver are never the same server, whatever fields they carry alike", () => {
     const transport = (type: ModelProviderType): RegisteredModelProvider => ({
       ...registeredOf(type),
-      options: { ...modelProviderOf(P1), baseUrl: undefined, baseUrlField: undefined } as never,
+      options: (({ driver: _driver, ...rest }) => rest)(modelProviderOf(P1)),
     });
 
     expect(
@@ -245,7 +291,7 @@ describe("two providers are one only by the same server under the same key", () 
 
   it("a redaction provider with no breaker policy at all is judged on its identity, not crashed on", () => {
     const { circuitBreakerPolicy: _breaker, ...bare } = modelProviderOf(P1);
-    const noBreaker: RegisteredModelProvider = { ...registeredOf(P1), options: bare as never };
+    const noBreaker: RegisteredModelProvider = { ...registeredOf(P1), options: bare };
 
     expect(
       isSameProvider(

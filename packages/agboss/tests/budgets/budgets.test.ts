@@ -45,6 +45,7 @@ import {
   EditStart,
   GateRouter,
 } from "../flow/runtime/fixtures/edit.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const shop = testWith(ShopApplication);
 const cheap = testWith(CheapEditApplication);
@@ -106,7 +107,7 @@ describe("#261 AC10: maxSpend() is read once per execution, in its context", () 
         scope: BudgetScope.Tenant,
         key: "acme",
       };
-      expect(await ledger.findMaxSpendByAccount(account)).toBe(0.05);
+      expect(await ledger.findLimitByAccount(account)).toEqual({ maxSpend: 0.05 });
     },
   );
 });
@@ -138,7 +139,7 @@ describe("#261 AC10: every budget is checked before the first step", () => {
         scope: BudgetScope.Tenant,
         key: "acme",
       };
-      expect(await lastLedger().findMaxSpendByAccount(account)).toBeUndefined();
+      expect(await lastLedger().findLimitByAccount(account)).toBeUndefined();
     },
   );
 
@@ -199,7 +200,7 @@ describe("#261 AC10: every model call is counted in all of the execution's budge
     const day = app.clock.now().toISOString().slice(0, 10);
     const month = `${day.slice(0, 7)}-01`;
     const spent = (budget: string, scope: BudgetScope, key: string, period: string) =>
-      ledger.findSpentByCounter({ budget, scope, key, period });
+      ledger.findUsageByCounter({ budget, scope, key, period }).then((usage) => usage.spent);
     expect(await spent("shop-tenant-daily-budget", BudgetScope.Tenant, "acme", day)).toBeCloseTo(
       0.03,
     );
@@ -270,6 +271,7 @@ describe("#261 AC10: a budget's maxSpend() is unit-tested without the container"
 function applicationWith(budgets: readonly Class[]) {
   @Application({
     name: "budgets-rules-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [BriefWorkflow],
@@ -313,8 +315,7 @@ async function violationsOf(application: new () => object): Promise<readonly str
 describe("#261 AC10: every workflow, every tenant and the application are capped (assembly)", () => {
   it("[budget.execution-budget-required] / tenant / application — all at once", async () => {
     expect(await violationsOf(applicationWith([]))).toEqual([
-      "[budget.execution-budget-required] brief-workflow has no execution budget and there is no default — add one with workflow: BriefWorkflow or one without workflow",
-      "[budget.tenant-budget-required] budgets-rules-application has no tenant budget — add a @Budget({ scope: BudgetScope.Tenant, period }) to its budgets",
+      "[budget.execution-budget-required] brief-workflow has no execution budget and there is no default — set budget: on its @Workflow, add one with workflow: BriefWorkflow or one without workflow",
       "[budget.application-budget-required] budgets-rules-application has no application budget — add a @Budget({ scope: BudgetScope.Application, period }) to its budgets",
     ]);
   });

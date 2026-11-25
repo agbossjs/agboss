@@ -45,7 +45,7 @@ export const testConfig: AgentsConfigOf<TestAgent> = {
   name: "test-bundle",
   version: "1.0.0",
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, thinking: "default", cache: true },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax, thinking: "default", cache: true },
     router: testRouter,
     tools: { maxToolCalls: 3 },
     uncompactedTurns: 2,
@@ -68,7 +68,7 @@ export const testConfig: AgentsConfigOf<TestAgent> = {
 export { StarWorkflow };
 
 export const testDefaults: WorkflowDefaults = {
-  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
+  models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
   router: { model: "typesafe/jev-test" },
   tools: { maxToolCalls: 3 },
 };
@@ -196,13 +196,14 @@ export const runText = (
 export const routeTo = (next: string, reason = "test"): string => JSON.stringify({ next, reason });
 
 export const usageRecord = (caller: string, costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   caller,
   model: "test/m",
   inputTokens: 0,
   outputTokens: 0,
   cacheReadTokens: 0,
   cacheWriteTokens: 0,
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.PriceTable,
 });
 
@@ -236,18 +237,18 @@ export function recordingRouters<TDeps extends AgentExecutionDeps<string>>(
 
 /**
  * A resume of a run on its own (no app, #267 S35): the decision recorded on the run's first pending
- * pause (`Pending → Resolved`, answered by `answeredBy`), then the run moved with the tree's answers.
+ * pause (`Pending → Resolved`, answered by `actor`), then the run moved with the tree's answers.
  * A run that is no longer paused moves with none — `resumeAgent` refuses it (`NotPausedError`).
  */
 export async function resumeWith(
   paused: AgentExecutionOutput,
   decision: unknown,
   deps: AgentExecutionDeps<string>,
-  answeredBy = "tester",
+  actor = "tester",
 ): Promise<AgentExecutionOutput> {
   const [pending] = paused.pending;
   if (pending !== undefined) {
-    const answer = { decision, answeredBy };
+    const answer = { decision, actor: { id: actor } };
     await deps.pause?.pauses.resolveByTenantIdAndPauseId(
       paused.tenantId,
       pending.pauseId,
@@ -257,7 +258,7 @@ export async function resumeWith(
     );
   }
   const none = {
-    ...{ values: {}, pauseIds: [], taken: [], decisions: [], answeredBy: [] },
+    ...{ values: {}, pauseIds: [], taken: [], decisions: [], actors: [] },
     ...{ reasons: [], hasUnansweredExpiry: false },
   };
   return resumeAgent(paused, (await treeResumeNow(deps, paused)) ?? none, deps);

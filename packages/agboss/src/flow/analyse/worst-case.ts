@@ -1,8 +1,11 @@
+import { itemBoundOf } from "./flow-graph.js";
 import { NodeKind } from "../ast.js";
 import { maxStepsOf } from "./steps.js";
 import type { ComponentName } from "../registry.js";
 import type { Class } from "../../components/injection.js";
 import { declarationOf } from "../decorators/declaration.js";
+import type { ExecutionLimitsOf } from "../decorators/workflow.js";
+import type { WorkflowExecutionLimits } from "../decorators/workflow.js";
 import {
   EdgeKind,
   reachableFrom,
@@ -25,7 +28,8 @@ import { mostStepsFrom } from "./steps.js";
  */
 
 export interface WorstCase {
-  readonly start: ComponentName;
+  /** The name of the start the call enters through. */
+  readonly start: string;
   /** The `name` of the workflow the start opens. */
   readonly workflow: string;
   readonly executions: number;
@@ -46,8 +50,8 @@ export interface WorstCase {
 
 /** An edge into a child workflow in a worst case: how many it starts, how many at once, and why. */
 export interface WorstCaseChild {
-  /** The step the edge leaves. */
-  readonly from: ComponentName;
+  /** The name of the step the edge leaves. */
+  readonly from: string;
   /** How many children the edge starts: `maxItems` of a per-item launch, else 1. */
   readonly count: number;
   /** How many of them at once: `maxConcurrency` (at most `count`), else `count`. */
@@ -56,7 +60,7 @@ export interface WorstCaseChild {
   readonly maxItems?: number;
   /** A per-item launch's `maxConcurrency`; absent when unset or for one child. */
   readonly maxConcurrency?: number;
-  /** `ThisWorkflow` (#264): the workflow again, one level deeper (bounded by `maxDepth`). */
+  /** A recursion (#264): the workflow again, one level deeper (bounded by `maxDepth`). */
   readonly isRecursive: boolean;
   /** The child's worst start. */
   readonly worst: WorstCase;
@@ -74,7 +78,9 @@ function launchesFrom(graph: FlowGraph, start: ComponentName): readonly FlowLaun
 function launchParts(launch: FlowLaunch): readonly string[] {
   const label = launchLabel(launch);
   return [
-    ...(launch.maxItems === undefined ? [] : [`maxItems ${String(launch.maxItems)} on ${label}`]),
+    ...(itemBoundOf(launch) === undefined
+      ? []
+      : [`maxItems ${String(itemBoundOf(launch))} on ${label}`]),
     ...(launch.maxConcurrency === undefined
       ? []
       : [`maxConcurrency ${String(launch.maxConcurrency)} on ${label}`]),
@@ -96,13 +102,12 @@ interface Place {
   readonly above: readonly Class[];
   readonly self: Class;
   readonly depth: number;
+  /** The limits of each workflow as the profiles leave them: a child's are read here, not from its decorator. */
+  readonly limitsOf: ExecutionLimitsOf;
 }
 
-/** The count limits of a workflow (`@Workflow({ maxSteps, maxDepth })`). */
-export interface Limits {
-  readonly maxSteps?: number;
-  readonly maxDepth?: number;
-}
+/** The count limits of a workflow (`@Workflow({ executionLimits: { maxSteps, maxDepth } })`). */
+export type Limits = Pick<WorkflowExecutionLimits, "maxSteps" | "maxDepth">;
 
 const NO_CHILDREN: ChildrenCase = {
   executions: 0,
@@ -124,11 +129,11 @@ interface Width {
 function widthOf(edge: FlowEdge): Width {
   const launch = edge.kind === EdgeKind.Launch ? edge.launch : undefined;
   if (launch?.items === undefined) return { count: 1, atOnce: 1 };
-  const count = launch.maxItems ?? 1;
+  const count = itemBoundOf(launch) ?? 1;
   return {
     count,
     atOnce: Math.min(launch.maxConcurrency ?? count, count),
-    ...(launch.maxItems === undefined ? {} : { maxItems: launch.maxItems }),
+    ...(itemBoundOf(launch) === undefined ? {} : { maxItems: itemBoundOf(launch) }),
     ...(launch.maxConcurrency === undefined ? {} : { maxConcurrency: launch.maxConcurrency }),
   };
 }
@@ -138,8 +143,8 @@ function childCaseOf(workflow: Class, at: Place): WorstCase | undefined {
   const declaration = declarationOf(workflow);
   if (declaration?.kind !== NodeKind.Workflow || at.above.includes(workflow)) return undefined;
   const { graph } = walkFlow(declaration.options.flow, workflow);
-  const below = { above: [...at.above, workflow], self: workflow, depth: at.depth + 1 };
-  const cases = worstCasesBelow(graph, declaration.options, below);
+  const below = { ...at, above: [...at.above, workflow], self: workflow, depth: at.depth + 1 };
+  const cases = worstCasesBelow(graph, at.limitsOf(workflow), below);
   return cases.reduce<WorstCase | undefined>(
     (worst, next) => (worst === undefined || next.executions > worst.executions ? next : worst),
     undefined,
@@ -147,7 +152,7 @@ function childCaseOf(workflow: Class, at: Place): WorstCase | undefined {
 }
 
 /**
- * The worst case of `ThisWorkflow` (#264): the workflow again, one level deeper — none from its
+ * The worst case of a recursion (#264, #1287): the workflow again, one level deeper — none from its
  * last level (`maxDepth`), where a recursive launch is never offered or fails before it starts.
  */
 function recursiveCaseOf(at: Place, maxDepth: number | undefined): WorstCase | undefined {
@@ -234,8 +239,13 @@ function worstCasesBelow(graph: FlowGraph, limits: Limits, at: Place): readonly 
 }
 
 /** The worst case of one call of each start of a workflow (`self`, at the root: depth 1). */
-export function worstCasesOf(graph: FlowGraph, limits: Limits, self: Class): readonly WorstCase[] {
-  return worstCasesBelow(graph, limits, { above: [], self, depth: 1 });
+export function worstCasesOf(
+  graph: FlowGraph,
+  limits: Limits,
+  self: Class,
+  limitsOf: ExecutionLimitsOf,
+): readonly WorstCase[] {
+  return worstCasesBelow(graph, limits, { above: [], self, depth: 1, limitsOf });
 }
 
 /** The start log's line (#261): `Worst case of one x-workflow-start call: 1 workflow execution, …`. */
@@ -246,6 +256,6 @@ export function worstCaseLine(worst: WorstCase): string {
       : `${String(worst.executions)} workflow executions`;
   return (
     `Worst case of one ${worst.start} call: ${executions}, ` +
-    `${String(worst.concurrentExecutions)} at the same time, ${String(worst.steps)} agent and router steps`
+    `${String(worst.concurrentExecutions)} at the same time, ${String(worst.steps)} steps`
   );
 }

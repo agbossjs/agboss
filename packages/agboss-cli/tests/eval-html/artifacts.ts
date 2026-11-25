@@ -3,8 +3,9 @@
  * them: a stable case, an unstable one (passed, failed a check, hit a limit) and a failing one (a
  * turn that paused, a check the cascade skipped).
  */
-import { CheckStatus, EvalCascade } from "@agboss/core/eval";
+import { CheckStatus, EvalCascade, EvalCheckKind } from "@agboss/core/eval";
 import type { EvalCaseReport, EvalRunReport, EvalRunResult } from "@agboss/core/eval";
+import { usd } from "@agboss/core/units";
 
 const passedRun = (run: number): EvalRunResult => ({
   run,
@@ -13,15 +14,18 @@ const passedRun = (run: number): EvalRunResult => ({
   finish: "refund-workflow-finish",
   passed: true,
   checks: [
-    { check: "trajectory", status: CheckStatus.Passed },
+    { check: "trajectory", kind: EvalCheckKind.Tools, status: CheckStatus.Passed },
     {
       check: "polite-refund-judge",
+      kind: EvalCheckKind.Judge,
       status: CheckStatus.Passed,
       metrics: { politeness: 0.92, tone: "warm" },
-      spentUsd: 0.0021,
+      spentUsd: usd(0.0021),
     },
   ],
-  spentUsd: 0.0123,
+  executionUsd: usd(0.0123),
+  judgeUsd: usd(0),
+  totalUsd: usd(0.0123),
 });
 
 const failedRun = (run: number): EvalRunResult => ({
@@ -33,12 +37,20 @@ const failedRun = (run: number): EvalRunResult => ({
   checks: [
     {
       check: "trajectory",
+      kind: EvalCheckKind.Tools,
       status: CheckStatus.Failed,
       reason: "delete-order-tool called (forbidden)",
     },
-    { check: "polite-refund-judge", status: CheckStatus.Skipped, skippedBy: "trajectory" },
+    {
+      check: "polite-refund-judge",
+      kind: EvalCheckKind.Judge,
+      status: CheckStatus.Skipped,
+      skippedBy: "trajectory",
+    },
   ],
-  spentUsd: 0.0098,
+  executionUsd: usd(0.0098),
+  judgeUsd: usd(0),
+  totalUsd: usd(0.0098),
 });
 
 const errorRun = (run: number, code: string, message: string): EvalRunResult => ({
@@ -47,7 +59,9 @@ const errorRun = (run: number, code: string, message: string): EvalRunResult => 
   passed: false,
   checks: [],
   error: { code, message },
-  spentUsd: 0.004,
+  executionUsd: usd(0.004),
+  judgeUsd: usd(0),
+  totalUsd: usd(0.004),
 });
 
 /** A case's report from its runs, as `caseReportOf` builds it. */
@@ -71,7 +85,7 @@ export function caseOf(name: string, runResults: readonly EvalRunResult[]): Eval
 export function artifactOf(cases: readonly EvalCaseReport[], runs = 3): EvalRunReport {
   return {
     kind: "agboss.eval-run",
-    schemaVersion: 1,
+    schemaVersion: 5,
     suite: "refunds-eval-suite",
     application: { name: "refunds-application", version: "1.4.0" },
     workflow: { name: "refunds-workflow", version: "1.4.0" },
@@ -80,8 +94,8 @@ export function artifactOf(cases: readonly EvalCaseReport[], runs = 3): EvalRunR
     environment: "eval",
     runs,
     cascade: EvalCascade.StopAtFirstFailure,
-    startedAt: "2026-01-05T09:00:00.000Z",
-    endedAt: "2026-01-05T09:03:05.000Z",
+    startedAt: new Date("2026-01-05T09:00:00.000Z"),
+    endedAt: new Date("2026-01-05T09:03:05.000Z"),
     cases,
     summary: {
       cases: cases.length,
@@ -91,7 +105,7 @@ export function artifactOf(cases: readonly EvalCaseReport[], runs = 3): EvalRunR
       judgeCalls: 4,
       skippedByCascade: 1,
     },
-    spend: { totalUsd: 0.0602 },
+    spend: { executionUsd: usd(0.05), judgeUsd: usd(0.0102), totalUsd: usd(0.0602) },
   };
 }
 

@@ -3,20 +3,28 @@
  * workflows, names are unique in the application, budgets are `@Budget`s, infrastructure is listed
  * only in `@Application({ providers })`, by inheritance — every violation at once.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { Budget, BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
 import type { Class } from "../../src/components/injection.js";
-import { Agent, GraphRuleError, Injectable, Workflow, WorkflowFinish } from "../../src/index.js";
-import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
+import {
+  Agent,
+  GraphRuleError,
+  Injectable,
+  Workflow,
+  WorkflowFinish,
+  inline,
+  Ttl,
+} from "../../src/index.js";
+import { WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { usd, type Usd } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { testDefaults } from "../helpers.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import {
   OrdersAgent,
   OrdersWorkflow,
@@ -24,6 +32,7 @@ import {
   RefundsWorkflowStart,
 } from "./fixtures/desks.application.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** The codes and messages an application's assembly fails with. */
 async function violationsOf(application: Class): Promise<string[]> {
@@ -59,7 +68,12 @@ class NotABudget {
 })
 class Misnamed {}
 
-@Agent({ name: "orders-agent", description: "Another", prompt: "Answer.", model: "test/beta" })
+@Agent({
+  name: "orders-agent",
+  description: "Another",
+  prompt: inline("Answer."),
+  model: "test/beta",
+})
 class OtherOrdersAgent {}
 
 @WorkflowFinish({ name: "other-workflow-finish", description: "d", output: WorkflowFinishTextDto })
@@ -68,18 +82,15 @@ class OtherFinish {}
 @Workflow({
   name: "orders-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
-  flow: [
-    start(RefundsWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(OtherOrdersAgent)
-      .toFinish(OtherFinish),
-  ],
+  flow: [onStart(RefundsWorkflowStart).toAgent(OtherOrdersAgent).toFinish(OtherFinish)],
 })
 class SecondOrdersWorkflow {}
 
 @Application({
   name: "clashing-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OrdersWorkflow, SecondOrdersWorkflow, OrdersAgent],
@@ -90,19 +101,16 @@ class ClashingApplication {}
 @Workflow({
   name: "ledgered-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
-  flow: [
-    start(RefundsWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(OrdersAgent)
-      .toFinish(OrdersWorkflowFinish),
-  ],
+  flow: [onStart(RefundsWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
   providers: [InMemoryCostLedgerRepository],
 })
 class LedgeredWorkflow {}
 
 @Application({
   name: "ledgered-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LedgeredWorkflow],
@@ -119,7 +127,6 @@ describe("#261: the rules of an application, all at once", () => {
       '[name.kind-suffix] "daily" on @Budget — name it "daily-budget"',
       "[name.kind-suffix] class DailyLimit — name it DailyLimitBudget",
       "[budget.not-a-budget] NotABudget in misnamed's budgets has no @Budget({ name, scope, … }) decorator",
-      "[budget.tenant-budget-required] misnamed has no tenant budget — add a @Budget({ scope: BudgetScope.Tenant, period }) to its budgets",
     ]);
   });
 
@@ -146,6 +153,7 @@ class SecondPausedExecutionRepository extends InMemoryPausedExecutionRepository 
 
 @Application({
   name: "two-pauses-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OrdersWorkflow],
@@ -158,7 +166,7 @@ describe("#261: an infrastructure contract has one implementation", () => {
   it("two listed implementations of one contract are ambiguous", async () => {
     const { createApp } = await import("../../src/application/create-app.js");
 
-    await expect(createAppWith(TwoPausesApplication, { processEnv: {} })).rejects.toThrow(
+    await expect(createTestAppWith(TwoPausesApplication, { processEnv: {} })).rejects.toThrow(
       '[di.ambiguous-implementation] the app depends on PausedExecutionRepository, and 2 listed classes implement it: FirstPausedExecutionRepository (@Application "two-pauses-application"), SecondPausedExecutionRepository (@Application "two-pauses-application") — list one',
     );
   });

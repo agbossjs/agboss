@@ -15,6 +15,7 @@ import { seconds, type Milliseconds } from "../../../src/units/index.js";
 import { milliseconds } from "../time.js";
 import { instanceCalls } from "../gateway.js";
 import { advanceUntil } from "../slow-provider.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 const encoder = new TextEncoder();
 const URL = "http://stall.test/v1/chat/completions";
@@ -105,11 +106,14 @@ function clientOf(
     "stall-provider",
     extra.rooms === undefined ? undefined : RateLimitPolicy.of({ maxConcurrentCalls: extra.rooms }),
   );
-  const breaker = calls.breakerOf("stall-provider", {
-    failureThreshold: extra.opensAt ?? 1000,
-    window: seconds(600),
-    openFor: seconds(600),
-  });
+  const breaker = calls.breakerOf(
+    "stall-provider",
+    CircuitBreakerPolicy.fixed({
+      failureThreshold: extra.opensAt ?? 1000,
+      failureWindow: seconds(600),
+      openDuration: seconds(600),
+    }),
+  );
   const fetchOf = resilientFetch(
     {
       provider: "stall-provider",

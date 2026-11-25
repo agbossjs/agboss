@@ -22,7 +22,7 @@ import { CreditService } from "../../services/credit.service.js";
   input: {
     order: CreditOrderDto,
   },
-  routes: [{ target: ApprovalAgent }, { target: ChargeCardAction }],
+  routes: [ApprovalAgent, ChargeCardAction],
   deps: [ExecutionContext, CreditService],
 })
 export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
@@ -32,7 +32,7 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
   ) {}
 
   async route(input: InputOf<CreditLimitRouter>): Promise<Route<CreditLimitRouter>> {
-    const { customerId, total } = input.order.value;
+    const { customerId, total } = input.order;
     const limit = await this.creditService.limitOf({
       customerId,
       requestKey: this.executionContext.step.idempotencyKey,

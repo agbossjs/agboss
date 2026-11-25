@@ -1,44 +1,69 @@
 import { priceOf } from "./cost.js";
-import {
-  modelProviderOf,
-  servesModel,
-  type ModelProviderOptions,
-} from "./model-provider.decorator.js";
+import { fallbackHopsOf } from "./fallback-chain.js";
+import type { ModelInputKind } from "./content.js";
+import { sharedInputs } from "./capabilities.js";
+import type { ModelProviderType } from "./model-provider.decorator.js";
 import type { ModelProblem } from "./problems.js";
+import { registeredOf, type RegisteredModelProvider } from "./resolve.js";
 import type { ModelUse } from "./uses.js";
 
 /**
- * A provider's fallback must take over every model the workflow uses on it (#202): mapped
- * (`circuitBreakerPolicy.fallbackModels`) to a model the fallback serves, and priced by it when
- * the fallback prices from a table — otherwise a fallback call would resend the primary's model
- * id or be billed at the primary's prices.
+ * Every provider of a provider's fallback chain must take over the model the workflow uses on it
+ * (#202, #1313): be sent the model it is mapped to (`fallback.models`, a role it shares, else the same
+ * name), and price it when it prices from a table — otherwise a fallback call would send a model the
+ * hop does not serve or be billed at the primary's prices.
  */
 export function fallbackProblems(
   use: ModelUse,
-  provider: ModelProviderOptions,
+  provider: RegisteredModelProvider,
 ): readonly ModelProblem[] {
-  const { fallback, fallbackModels = {} } = provider.circuitBreakerPolicy;
-  if (fallback === undefined) return [];
-  const backup = modelProviderOf(fallback);
-  const mapped = fallbackModels[use.model];
-  const problem = (code: ModelProblem["code"], supported: string): ModelProblem => ({
-    code,
-    key: use.key,
-    value: use.model,
-    model: use.model,
-    supported,
+  return fallbackHopsOf(provider.type, use.model).flatMap((hop) => {
+    const problem = (code: ModelProblem["code"], supported: string): ModelProblem => ({
+      code,
+      key: use.key,
+      value: use.model,
+      model: use.model,
+      supported,
+    });
+    const { options, model } = hop;
+    if (options.cost?.kind === "from-prices" && priceOf(options.cost, model) === undefined) {
+      return [problem("model.fallback-no-price", `${options.name} has no price for ${model}`)];
+    }
+    return [];
   });
-  if (mapped === undefined || !servesModel(backup, mapped)) {
-    const given = mapped === undefined ? "no fallbackModels entry" : `${mapped} is not served`;
-    return [
-      problem(
-        "model.fallback-unmapped",
-        `${provider.name} falls back to ${backup.name}: ${given} — map it in circuitBreakerPolicy.fallbackModels`,
-      ),
-    ];
+}
+
+/** What checking one use found: its problems, and the kinds of input its model says it takes. */
+interface HopResult {
+  readonly problems: readonly ModelProblem[];
+  readonly inputs?: readonly ModelInputKind[];
+}
+
+/**
+ * A use checked on every hop of its provider's fallback chain, as the model each hop is asked for
+ * (#1313): only what the component set stays (the hop's own provider decides its defaults and its
+ * prices); the problems of every hop, and the input kinds all of them take.
+ */
+export async function fallbackUseResults(
+  use: ModelUse,
+  provider: RegisteredModelProvider,
+  checkHop: (hopUse: ModelUse, registered: RegisteredModelProvider) => Promise<HopResult>,
+): Promise<HopResult> {
+  const results: HopResult[] = [];
+  for (const hop of fallbackHopsOf(provider.type, use.model)) {
+    const settings =
+      use.settings === undefined ? {} : { settings: { ...use.settings, price: undefined } };
+    const hopUse: ModelUse = {
+      ...use,
+      model: hop.model,
+      modelProvider: hop.options.name,
+      ...settings,
+    };
+    results.push(await checkHop(hopUse, registeredOf(hop.cls as ModelProviderType)));
   }
-  if (backup.cost.kind === "from-prices" && priceOf(backup.cost, mapped) === undefined) {
-    return [problem("model.fallback-no-price", `${backup.name} has no price for ${mapped}`)];
-  }
-  return [];
+  const inputs = results.map((each) => each.inputs).reduce(sharedInputs, undefined);
+  return {
+    problems: results.flatMap((each) => each.problems),
+    ...(inputs === undefined ? {} : { inputs }),
+  };
 }

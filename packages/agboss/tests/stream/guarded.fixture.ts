@@ -5,37 +5,36 @@
  */
 import {
   Agent,
-  DecidedBy,
   EmptyEnvironment,
   GuardrailVerdict,
   OutputGuardrail,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
+  type GuardrailContent,
   type GuardrailHandler,
   type PiiRefusal,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { FlowJudge } from "./agents.fixture.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
 @OutputGuardrail({
   name: "forbidden-word-guardrail",
   description: "Blocks answers with the forbidden word",
-  decidedBy: DecidedBy.Code,
   refusal: "Refused.",
 })
 export class ForbiddenWordGuardrail implements GuardrailHandler {
-  check(text: string): GuardrailVerdict {
+  check({ text }: GuardrailContent): GuardrailVerdict {
     return text.includes("FORBIDDEN") ? GuardrailVerdict.blocked() : GuardrailVerdict.passed();
   }
 }
@@ -43,7 +42,7 @@ export class ForbiddenWordGuardrail implements GuardrailHandler {
 @PiiPolicy({
   name: "audit-card-pii-policy",
   description: "Refuses card numbers",
-  rules: [pii(PiiKind.CardNumber, PiiAction.blockWithRefusal())],
+  rules: [PiiKind.CardNumber.block()],
 })
 export class AuditCardPiiPolicy implements PiiRefusal {
   refusal(): string {
@@ -57,28 +56,28 @@ export class EchoQuery {
 }
 
 @Tool({ name: "echo-tool", description: "Echoes", input: EchoQuery, output: EchoQuery })
-export class EchoTool implements ToolHandler<EchoQuery, EchoQuery> {
-  run(input: EchoQuery): Promise<EchoQuery> {
+export class EchoTool {
+  execute(input: EchoQuery): Promise<EchoQuery> {
     return Promise.resolve(input);
   }
 }
 
 @Agent({
   name: "guarded-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes",
   model: "local/llama",
   guardrails: [ForbiddenWordGuardrail],
   piiPolicies: [AuditCardPiiPolicy],
   judges: [FlowJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
   tools: [EchoTool],
 })
 export class GuardedAgent {}
 
 @Agent({
   name: "card-only-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes",
   model: "local/llama",
   piiPolicies: [AuditCardPiiPolicy],
@@ -87,7 +86,7 @@ export class CardOnlyAgent {}
 
 @Agent({
   name: "guardrail-only-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes",
   model: "local/llama",
   guardrails: [ForbiddenWordGuardrail],
@@ -111,9 +110,8 @@ class GuardedFinish {}
 @Workflow({
   name: "guarded-workflow",
   version: "1.0.0",
-  flow: [
-    start(GuardedStart).returns(WorkflowStartTextDto).toAgent(GuardedAgent).toFinish(GuardedFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(GuardedStart).toAgent(GuardedAgent).toFinish(GuardedFinish)],
   defaults: DEFAULTS,
 })
 class GuardedWorkflow {}
@@ -131,9 +129,8 @@ class CardFinish {}
 @Workflow({
   name: "card-workflow",
   version: "1.0.0",
-  flow: [
-    start(CardStart).returns(WorkflowStartTextDto).toAgent(CardOnlyAgent).toFinish(CardFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(CardStart).toAgent(CardOnlyAgent).toFinish(CardFinish)],
   defaults: DEFAULTS,
 })
 class CardWorkflow {}
@@ -155,18 +152,15 @@ class GuardrailFinish {}
 @Workflow({
   name: "guardrail-workflow",
   version: "1.0.0",
-  flow: [
-    start(GuardrailStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(GuardrailOnlyAgent)
-      .toFinish(GuardrailFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(GuardrailStart).toAgent(GuardrailOnlyAgent).toFinish(GuardrailFinish)],
   defaults: DEFAULTS,
 })
 class GuardrailWorkflow {}
 
 @Application({
   name: "guarded-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [GuardedWorkflow, CardWorkflow, GuardrailWorkflow],

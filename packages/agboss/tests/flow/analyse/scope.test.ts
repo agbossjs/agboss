@@ -12,15 +12,9 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { Action } from "../../../src/flow/decorators/action.js";
-import {
-  ExpertDraftDto,
-  FastDraftDto,
-  LoyaltyOfferDto,
-  OrderStatusDto,
-} from "../fixtures/data-dtos.js";
+import { ExpertDraftDto, LoyaltyOfferDto, OrderStatusDto } from "../fixtures/data-dtos.js";
 import {
   OfferDraftDto,
-  OfferSentDto,
   ProfileDto,
   ResumeMissingDto,
   ReviewDto,
@@ -35,7 +29,7 @@ import {
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
-import { agent, returnsEach, route, start } from "../fixtures/paths.js";
+import { onAgent, onStart, toAgent } from "../fixtures/paths.js";
 import {
   FastAnswerAgent,
   LoyaltyAgent,
@@ -43,22 +37,22 @@ import {
   SupportWorkflow,
   SupportWorkflowFinish,
   SupportWorkflowStart,
+  SupportAction,
 } from "../fixtures/support.fixture.js";
+import { inline, Ttl } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** The path scope (#270 AC4) on the data-flow engine (#272 S10). */
 
 @Workflow({
   name: "overwrite-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
+    onStart(KitWorkflowStart)
       .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
       .toAgent(EditKitAgent)
-      .returns(OfferDraftDto)
       .toAction(SendKitAction)
-      .returns(OfferSentDto)
       .toFinish(SentKitWorkflowFinish),
   ],
 })
@@ -67,7 +61,7 @@ class OverwriteWorkflow {}
 @Agent({
   name: "drafts-kit-agent",
   description: "Drafts several offers",
-  prompt: "Draft them.",
+  prompt: inline("Draft them."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -79,13 +73,11 @@ class DraftsKitAgent {}
 @Workflow({
   name: "list-is-not-single-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
+    onStart(KitWorkflowStart)
       .toAgent(DraftsKitAgent)
-      .returns(listOf(OfferDraftDto))
       .toAction(SendKitAction)
-      .returns(OfferSentDto)
       .toFinish(SentKitWorkflowFinish),
   ],
 })
@@ -94,7 +86,7 @@ class ListIsNotSingleWorkflow {}
 @Agent({
   name: "strict-expert-agent",
   description: "Needs a loyalty offer on every path",
-  prompt: "Reply carefully.",
+  prompt: inline("Reply carefully."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -109,6 +101,7 @@ class StrictExpertAgent {}
   description: "Picks how to answer",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: {
     order: OrderStatusDto,
   },
@@ -123,18 +116,15 @@ class StrictRouter {}
 @Workflow({
   name: "witness-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SupportWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(SupportWorkflowStart)
       .toAgent(OrderAgent)
-      .returns(OrderStatusDto)
       .toRouter(StrictRouter)
-      .chooseOne(
-        route(FastAnswerAgent).returns(FastDraftDto).toAgent(StrictExpertAgent),
-        route(LoyaltyAgent).returns(LoyaltyOfferDto).toAgent(StrictExpertAgent),
-        route(StrictExpertAgent),
-      ),
-    agent(StrictExpertAgent).returns(ExpertDraftDto).toFinish(SupportWorkflowFinish),
+      .onRoute(toAgent(FastAnswerAgent).toAgent(StrictExpertAgent))
+      .onRoute(toAgent(LoyaltyAgent).toAgent(StrictExpertAgent))
+      .onRoute(toAgent(StrictExpertAgent)),
+    onAgent(StrictExpertAgent).toAction(SupportAction).toFinish(SupportWorkflowFinish),
   ],
 })
 class WitnessWorkflow {}
@@ -152,7 +142,7 @@ class ContractWorkflowStart {}
 @Agent({
   name: "contract-summary-agent",
   description: "Sums the review up",
-  prompt: "Sum up.",
+  prompt: inline("Sum up."),
   model: "moonshotai/kimi-k2.6",
   input: {
     review: ReviewDto,
@@ -171,13 +161,9 @@ class ContractWorkflowFinish {}
 @Workflow({
   name: "contract-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ContractWorkflowStart)
-      .returns(ReviewDto)
-      .returns(ReviewDto)
-      .toAgent(ContractSummaryAgent)
-      .returns(ShortlistDto)
-      .toFinish(ContractWorkflowFinish),
+    onStart(ContractWorkflowStart).toAgent(ContractSummaryAgent).toFinish(ContractWorkflowFinish),
   ],
 })
 class ContractWorkflow {}
@@ -201,38 +187,44 @@ const manyDtos = Array.from({ length: 13 }, (_, index) => {
 })
 class WideWorkflowStart {}
 
-@WorkflowFinish({
-  name: "wide-workflow-finish",
+@Action({
+  name: "wide-action",
   description: "Reads them all",
   input: Object.fromEntries(
     manyDtos.map((dto, index) => [`field${String(index + 1)}`, optional(dto)]),
   ),
   output: ShortlistDto,
 })
-class WideWorkflowFinish {
-  finish(): ShortlistDto {
+class WideAction {
+  async execute(): Promise<ShortlistDto> {
     return { candidates: "" };
   }
 }
 
+@WorkflowFinish({
+  name: "wide-workflow-finish",
+  description: "Reads them all",
+  output: ShortlistDto,
+})
+class WideWorkflowFinish {}
+
 @Workflow({
   name: "wide-workflow",
   version: "1.0.0",
-  flow: [
-    returnsEach(start(WideWorkflowStart), manyDtos.map(optional)).toFinish(WideWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(WideWorkflowStart).toAction(WideAction).toFinish(WideWorkflowFinish)],
 })
 class WideWorkflow {}
 
 @Agent({
   name: "screen-agent",
   description: "Screens each candidate",
-  prompt: "Screen them.",
+  prompt: inline("Screen them."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
   },
-  output: listOf(oneOf(ProfileDto, ResumeMissingDto)),
+  output: listOf(ProfileDto, ResumeMissingDto),
 })
 class ScreenAgent {}
 
@@ -240,7 +232,7 @@ class ScreenAgent {}
   name: "file-profiles-action",
   description: "Files the profiles found",
   input: {
-    results: listOf(oneOf(ResumeMissingDto, ProfileDto)),
+    results: listOf(ResumeMissingDto, ProfileDto),
   },
 })
 class FileProfilesAction {
@@ -273,11 +265,10 @@ class ScreenedWorkflowFinish {}
 @Workflow({
   name: "screen-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
+    onStart(KitWorkflowStart)
       .toAgent(ScreenAgent)
-      .returns(listOf(oneOf(ProfileDto, ResumeMissingDto)))
       .toAction(FileProfilesAction)
       .toFinish(ScreenedWorkflowFinish),
   ],
@@ -287,11 +278,10 @@ class ScreenWorkflow {}
 @Workflow({
   name: "filtered-screen-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
+    onStart(KitWorkflowStart)
       .toAgent(ScreenAgent)
-      .returns(listOf(oneOf(ProfileDto, ResumeMissingDto)))
       .toAction(FileOnlyProfilesAction)
       .toFinish(ScreenedWorkflowFinish),
   ],
@@ -344,19 +334,15 @@ describe("#270 AC4: the path scope", () => {
     );
   });
 
-  it("#299 AC1 (S53): a listOf(oneOf(…)) reaches a field of the whole list, in any order of classes", () => {
+  it("#299 AC1 (S53): a listOf(…) reaches a field of the whole list, in any order of classes", () => {
     expect(inputShapesOf(analyseWorkflow(ScreenWorkflow), "file-profiles-action")).toEqual([
       [present("results", "screen-agent")],
     ]);
   });
 
-  it("#299 AC1 (S53): it never fills a listOf(one class) — no filtered slot", () => {
-    expect(checkWorkflow(FilteredScreenWorkflow).errors).toContainEqual(
-      expect.objectContaining({
-        code: "input.missing-on-path",
-        message:
-          "filtered-screen-workflow: file-only-profiles-action.profiles (listOf(ProfileDto)) is not produced on the path kit-workflow-start → screen-agent → file-only-profiles-action",
-      }),
+  it("#1288b: a polymorphic list also fills a typed slice per class (it replaces the #299 S53 rule)", () => {
+    expect(checkWorkflow(FilteredScreenWorkflow).errors.map((found) => found.code)).not.toContain(
+      "input.missing-on-path",
     );
   });
 
@@ -373,7 +359,7 @@ describe("#270 AC4: the path scope", () => {
 
 describe("#270 AC4, #272 S10: one engine over sets of abstract scopes", () => {
   it("field correlation is kept: the finish gets { fast } or { expert }, never neither", () => {
-    expect(inputShapesOf(analyseWorkflow(SupportWorkflow), "support-workflow-finish")).toEqual([
+    expect(inputShapesOf(analyseWorkflow(SupportWorkflow), "support-action")).toEqual([
       [absent("fast"), present("expert", "expert-answer-agent")],
       [present("fast", "fast-answer-agent"), absent("expert")],
     ]);
@@ -398,7 +384,7 @@ describe("#270 AC4, #272 S10: one engine over sets of abstract scopes", () => {
     expect(checkWorkflow(WideWorkflow).errors).toEqual([
       expect.objectContaining({
         code: "flow.analysis-too-large",
-        message: `wide-workflow: wide-workflow-finish is reached with more than 4096 path scopes — the slots ${slots} multiply them; move a branch into a child workflow (agboss generate workflow …)`,
+        message: `wide-workflow: wide-action is reached with more than 4096 path scopes — the slots ${slots} multiply them; move a branch into a child workflow (agboss generate workflow …)`,
       }),
     ]);
   });

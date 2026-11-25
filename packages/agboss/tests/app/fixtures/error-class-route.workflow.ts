@@ -4,22 +4,22 @@ import {
   ChildPlacement,
   EmptyEnvironment,
   ExecutionContext,
-  Injectable,
+  Observer,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
+import type { Class } from "../../../src/components/injection.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
-import { BookingDto, BookItemAction, ConfirmBookingAction } from "./finished-undo.workflow.js";
+import { BookItemAction, ConfirmBookingAction } from "./finished-undo.workflow.js";
 
 /**
  * #598 — a parent's side path on its child's own error class, taken the same way on every holder:
@@ -63,8 +63,8 @@ export function resetRoutes(): void {
 export class DeclinableChargeAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name, outcome } = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name, outcome } = input.item;
     routeSeen.runs.push(`${name} on ${this.executionContext.tenant.application.instanceId}`);
     await routeSeen.gate.opened;
     const isFirst = routeSeen.runs.filter((run) => run.startsWith(`${name} on`)).length === 1;
@@ -74,67 +74,92 @@ export class DeclinableChargeAction {
   }
 }
 
-@WorkflowStart({ name: "decline-check-workflow-start", description: "An item", input: ItemDto })
-export class DeclineCheckWorkflowStart {}
-
-@WorkflowFinish({ name: "decline-checked-workflow-finish", description: "Charged", output: ItemResultDto })
-export class DeclineCheckedWorkflowFinish {}
-
-@Workflow({
-  name: "decline-check-workflow",
-  version: "1.0.0",
-  flow: [
-    start(DeclineCheckWorkflowStart)
-      .returns(ItemDto)
-      .toAction(DeclinableChargeAction)
-      .returns(ItemResultDto)
-      .toFinish(DeclineCheckedWorkflowFinish),
-  ],
-})
-export class DeclineCheckWorkflow {}
-
-@WorkflowStart({ name: "decline-booking-workflow-start", description: "An item", input: ItemDto })
-export class DeclineBookingWorkflowStart {}
-
-@WorkflowFinish({ name: "decline-booked-workflow-finish", description: "Booked, charged", output: ItemResultDto })
-export class DeclineBookedWorkflowFinish {}
+/** The child that charges once; `where` names it, `placement` is where it runs. */
+function declineCheckOf(where: string, placement: ChildPlacement): Class {
+  @WorkflowStart({
+    name: `decline-check-${where}-workflow-start`,
+    description: "An item",
+    input: ItemDto,
+  })
+  class Start {}
+  @WorkflowFinish({
+    name: `decline-checked-${where}-workflow-finish`,
+    description: "Charged",
+    output: ItemResultDto,
+  })
+  class Finish {}
+  @Workflow({
+    name: `decline-check-${where}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    placement,
+    flow: [
+      onStart(Start)
+        .toAction(DeclinableChargeAction)
+        .toFinish(Finish),
+    ],
+  })
+  class Check {}
+  return Check;
+}
 
 /** The child with an undo: booked first (undone by a cancel), then charged. */
-@Workflow({
-  name: "decline-booking-workflow",
-  version: "1.0.0",
-  flow: [
-    start(DeclineBookingWorkflowStart)
-      .returns(ItemDto)
-      .toAction(BookItemAction)
-      .returns(BookingDto)
-      .toAction(DeclinableChargeAction)
-      .returns(ItemResultDto)
-      .toAction(ConfirmBookingAction)
-      .toFinish(DeclineBookedWorkflowFinish),
-  ],
-})
-export class DeclineBookingWorkflow {}
+function declineBookingOf(where: string, placement: ChildPlacement): Class {
+  @WorkflowStart({
+    name: `decline-booking-${where}-workflow-start`,
+    description: "An item",
+    input: ItemDto,
+  })
+  class Start {}
+  @WorkflowFinish({
+    name: `decline-booked-${where}-workflow-finish`,
+    description: "Booked, charged",
+    output: ItemResultDto,
+  })
+  class Finish {}
+  @Workflow({
+    name: `decline-booking-${where}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    placement,
+    flow: [
+      onStart(Start)
+        .toAction(BookItemAction)
+        .toAction(DeclinableChargeAction)
+        .toAction(ConfirmBookingAction)
+        .toFinish(Finish),
+    ],
+  })
+  class Booking {}
+  return Booking;
+}
 
-@WorkflowFinish({ name: "declined-workflow-finish", description: "The declined item", output: ItemDto })
+@WorkflowFinish({
+  name: "declined-workflow-finish",
+  description: "The declined item",
+  output: ItemDto,
+})
 export class DeclinedWorkflowFinish {}
 
-@WorkflowFinish({ name: "paid-workflow-finish", description: "The item paid", output: ItemResultDto })
+@WorkflowFinish({
+  name: "paid-workflow-finish",
+  description: "The item paid",
+  output: ItemResultDto,
+})
 export class PaidWorkflowFinish {}
 
-/** A parent of `child` placed `placement`, its side path on the child's own error class. */
-function parentOf(name: string, child: object, placement: ChildPlacement) {
+/** A parent of `child`, its side path on the child's own error class. */
+function parentOf(name: string, child: Class) {
   @WorkflowStart({ name: `${name}-workflow-start`, description: "An item to pay", input: ItemDto })
   class ParentStart {}
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(ParentStart)
-        .returns(ItemDto)
-        .toWorkflow(child as typeof DeclineCheckWorkflow, { placement })
+      onStart(ParentStart)
+        .toWorkflow(child)
         .onError(PaymentDeclinedError, toFinish(DeclinedWorkflowFinish))
-        .returns(ItemResultDto)
         .toFinish(PaidWorkflowFinish),
     ],
   })
@@ -143,17 +168,34 @@ function parentOf(name: string, child: object, placement: ChildPlacement) {
 }
 
 export const PARENTS = [
-  { child: "ParentInstance", ...parentOf("pay-local", DeclineCheckWorkflow, ChildPlacement.ParentInstance) },
-  { child: "AnyInstance", ...parentOf("pay-remote", DeclineCheckWorkflow, ChildPlacement.AnyInstance) },
-  { child: "ParentInstance with an undo", ...parentOf("book-local", DeclineBookingWorkflow, ChildPlacement.ParentInstance) },
-  { child: "AnyInstance with an undo", ...parentOf("book-remote", DeclineBookingWorkflow, ChildPlacement.AnyInstance) },
+  {
+    child: "CurrentProcess",
+    ...parentOf("pay-local", declineCheckOf("local", ChildPlacement.CurrentProcess)),
+  },
+  {
+    child: "AnyWorker",
+    ...parentOf("pay-remote", declineCheckOf("remote", ChildPlacement.AnyWorker)),
+  },
+  {
+    child: "CurrentProcess with an undo",
+    ...parentOf("book-local", declineBookingOf("local", ChildPlacement.CurrentProcess)),
+  },
+  {
+    child: "AnyWorker with an undo",
+    ...parentOf("book-remote", declineBookingOf("remote", ChildPlacement.AnyWorker)),
+  },
 ] as const;
 
-const CHILDREN: ReadonlySet<string> = new Set(["decline-check-workflow", "decline-booking-workflow"]);
+const CHILDREN: ReadonlySet<string> = new Set([
+  "decline-check-local-workflow",
+  "decline-check-remote-workflow",
+  "decline-booking-local-workflow",
+  "decline-booking-remote-workflow",
+]);
 
 /** Every root finish and every failure, with the instance that announced it. */
-@Injectable({ deps: [ApplicationContext] })
-export class RouteLog implements OnExecutionEnd, OnExecutionError {
+@Observer({ deps: [ApplicationContext] })
+export class RouteLog {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   onExecutionEnd(event: ExecutionEndEvent): void {

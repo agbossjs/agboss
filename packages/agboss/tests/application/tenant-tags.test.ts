@@ -3,7 +3,7 @@
  * paused executions, the thread, the standard LangGraph fields of a run (`metadata`, `tags`) and
  * the trace exporter's — so one organization's data and traces are found by its id.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { answerOf } from "../helpers/flow.js";
 import { describe, expect, it } from "vitest";
 import {
@@ -27,12 +27,15 @@ const haifa = { tenantId: "haifa-clinic", units: [] };
 const levi = { clinician: { clinicianId: "c-12" }, unitId: "icu" };
 
 /** The clinic over scripted models: the bed agent books a bed (a pause), then answers. */
-async function clinicApp(): Promise<Awaited<ReturnType<typeof createAppWith>>> {
+async function clinicApp(): Promise<Awaited<ReturnType<typeof createTestAppWith>>> {
   const book = new ScriptBook();
   book
     .scriptOf("agent:bed-agent")
     .thenReturn(callTool(BookBedTool, { ward: "icu" }), replyWith(BedsDto, { text: "booked" }));
-  return createAppWith(ClinicApplication, { processEnv: {}, gateway: createScriptedGateway(book) });
+  return createTestAppWith(ClinicApplication, {
+    processEnv: {},
+    gateway: createScriptedGateway(book),
+  });
 }
 
 describe("#261 AC6: every stored record carries tenantId", () => {
@@ -49,7 +52,9 @@ describe("#261 AC6: every stored record carries tenantId", () => {
       .findByTenantIdAndThreadId("haifa-clinic", paused.threadId);
     await app.resume(answerOf(paused, { approved: true }), { tenantId: "haifa-clinic" });
     const records = app.resolve(ExecutionRecordRepository);
-    const [record] = await records.findByStatus(ExecutionRecordStatus.Answered, 10);
+    const {
+      items: [record],
+    } = await records.findByStatus({ status: ExecutionRecordStatus.Answered, limit: 10 });
 
     expect(stored?.run).toMatchObject({ tenantId: "haifa-clinic", threadId: paused.threadId });
     expect(record).toMatchObject({ tenantId: "haifa-clinic", threadId: paused.threadId });

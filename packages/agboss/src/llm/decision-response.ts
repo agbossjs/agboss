@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { CostSource, type UsageRecord } from "../finops/usage.js";
-import { DecisionResponseError } from "./decision-errors.js";
+import { usd } from "../units/index.js";
+import { CostSource, NO_PROVIDER, type UsageRecord } from "../finops/usage.js";
+import { DecisionError } from "../core/error-families/config-errors.js";
 import type { DecisionAnswer, DecisionQuestion, DecisionQuestions } from "./decisions.js";
 
 const Probabilities = z.record(z.string(), z.number().min(0).max(1));
@@ -12,7 +13,7 @@ const AnswerSchema = z.discriminatedUnion("type", [
     probabilities: Probabilities,
     confidence: z.number(),
   }),
-  z.object({ type: z.literal("noul"), noul: z.number().min(0).max(1) }),
+  z.object({ type: z.literal("boolean"), probability: z.number().min(0).max(1) }),
   z.object({
     type: z.literal("score"),
     score: z.number().int().nonnegative(),
@@ -46,6 +47,8 @@ export interface DecisionAsked {
   readonly caller: string;
   readonly model: string;
   readonly questions: DecisionQuestions;
+  /** The provider the call's cascade resolved; a fallback that answered is told by `served`. */
+  readonly provider?: string | undefined;
 }
 
 /** Why an answer does not fit its question, or undefined when it does. */
@@ -75,8 +78,8 @@ function answerOf(
   raw: unknown,
   model: string,
 ): DecisionAnswer {
-  const fail = (why: string): DecisionResponseError =>
-    new DecisionResponseError({
+  const fail = (why: string): DecisionError.InvalidResponse =>
+    new DecisionError.InvalidResponse({
       message: `Decisions API (${model}) answer to "${id}": ${why}`,
       details: { model, question: id },
     });
@@ -91,12 +94,12 @@ function answerOf(
 /**
  * The Decisions API's response, validated against the questions asked: every question answered
  * with its own type, a choice among its options, a score within its levels. Anything else is a
- * `DecisionResponseError` (`model.decision.invalid-response`). The cost is `usage.cost`.
+ * `DecisionError.InvalidResponse` (`model.decision.invalid-response`). The cost is `usage.cost`.
  */
 export function readDecision(raw: unknown, asked: DecisionAsked): DecisionOutcome {
   const parsed = ResponseSchema.safeParse(raw);
   if (!parsed.success) {
-    throw new DecisionResponseError({
+    throw new DecisionError.InvalidResponse({
       message: `Decisions API (${asked.model}): malformed response`,
       details: { model: asked.model },
     });
@@ -113,11 +116,12 @@ export function readDecision(raw: unknown, asked: DecisionAsked): DecisionOutcom
     usage: {
       caller: asked.caller,
       model: model ?? asked.model,
+      provider: asked.provider ?? NO_PROVIDER,
       inputTokens: usage?.input_tokens ?? 0,
       outputTokens: usage?.output_tokens ?? 0,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
-      costUsd: usage?.cost ?? 0,
+      costUsd: usd(usage?.cost ?? 0),
       costSource: CostSource.Api,
     },
   };

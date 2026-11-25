@@ -1,9 +1,7 @@
-import { group, start, Workflow } from "@agboss/core";
+import { onStart, toAgent, toFinish, Workflow, Ttl } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
-import { CandidateDto } from "../../../panel/dto/candidate.dto.js";
 import { FastScreenAgent } from "../../agents/fast-screen/fast-screen.agent.js";
 import { LegalCheckAgent } from "../../agents/legal-check/legal-check.agent.js";
-import { FastScreenDto, LegalReviewDto } from "../../dto/intake.dto.js";
 import { IntakeReportWorkflowFinish } from "./intake-report.workflow-finish.js";
 import { QuickScreenWorkflowFinish } from "./quick-screen.workflow-finish.js";
 import { IntakeWorkflowStart } from "./intake.workflow-start.js";
@@ -16,21 +14,13 @@ import { IntakeWorkflowStart } from "./intake.workflow-start.js";
 @Workflow({
   name: "intake-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(IntakeWorkflowStart)
-      .returns(CandidateDto)
-      .toParallelAgents(LegalCheckAgent, FastScreenAgent)
-      .joinQuorumGroups(
-        group(LegalCheckAgent)
-          .priority(1)
-          .returns(LegalReviewDto)
-          .toFinish(IntakeReportWorkflowFinish),
-        group(FastScreenAgent)
-          .priority(2)
-          .returns(FastScreenDto)
-          .toFinish(QuickScreenWorkflowFinish),
-        { deadline: seconds(30) },
-      ),
+    onStart(IntakeWorkflowStart)
+      .inParallel([toAgent(LegalCheckAgent), toAgent(FastScreenAgent)])
+      .joinQuorumGroups({ deadline: seconds(30) })
+      .onGroup([LegalCheckAgent], { priority: 1 }, toFinish(IntakeReportWorkflowFinish))
+      .onGroup([FastScreenAgent], { priority: 2 }, toFinish(QuickScreenWorkflowFinish)),
   ],
 })
 export class IntakeWorkflow {}

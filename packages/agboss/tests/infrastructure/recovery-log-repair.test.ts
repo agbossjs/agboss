@@ -98,7 +98,7 @@ describe("#939 AC5: the retention writes a lost log entry before it removes the 
     expect(await logOf()).toMatchObject([
       {
         resolution: PauseResolution.Replied,
-        answeredBy: "manager-17",
+        actor: { id: "manager-17" },
         decision: { approved: true },
       },
     ]);
@@ -110,8 +110,8 @@ describe("#939 AC5: the retention writes a lost log entry before it removes the 
     await pauses.findOrCreateByStepKey(pauseOf("p-d", "run-1:clerk-agent:1:call-1"));
     const decision: PauseAnswer = {
       decision: { approved: true },
-      answeredBy: "refund-channel",
-      byChannel: true,
+      actor: { id: "refund-channel" },
+      byDelegate: true,
     };
     await pauses.resolveByTenantIdAndPauseId("default", "p-d", decision, CLOSED, NO_RECIPIENTS);
     await pauses.markTakenByTenantIdAndPauseId("default", "p-d");
@@ -119,7 +119,7 @@ describe("#939 AC5: the retention writes a lost log entry before it removes the 
     await sweep();
 
     expect(await logOf()).toMatchObject([
-      { resolution: PauseResolution.Decided, answeredBy: "refund-channel" },
+      { resolution: PauseResolution.Decided, actor: { id: "refund-channel" } },
     ]);
   });
 
@@ -146,7 +146,7 @@ describe("#939 AC5: the retention writes a lost log entry before it removes the 
     await sweep();
 
     expect(await logOf()).toMatchObject([
-      { isTaken: false, resolution: PauseResolution.TreeEnded, answeredBy: "manager-17" },
+      { isTaken: false, resolution: PauseResolution.TreeEnded, actor: { id: "manager-17" } },
     ]);
   });
 

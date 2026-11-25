@@ -1,7 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 
 /**
- * AWS Signature Version 4 for S3 (#859, `S3A2AFileRepository`): the `Authorization` header of one
+ * AWS Signature Version 4 for S3 (#859, `S3FileRepository`): the `Authorization` header of one
  * request — the canonical request (method, path, sorted query, the signed headers, the payload's
  * SHA-256), the string to sign for its date, region and `s3`, and the key derived from the secret
  * for that day. Pure: the date, the keys and the request come in.

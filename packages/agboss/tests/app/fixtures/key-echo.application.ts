@@ -1,36 +1,32 @@
-import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
-  ExecutionContext,
+  Idempotency,
   InMemoryFencedEffectRepository,
   Injectable,
-  NotSentTrust,
-  OutboundCallReconciliation,
-  OutboundCalls,
+  OutboundRecovery,
+  Reconciliation,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  effectKeyOf,
   type ActionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionRejectedEvent,
-  type OnActionEnd,
-  type OnExecutionError,
-  type OnExecutionRejected,
-  type Produced,
-  FingerprintPolicy,
+  type Tracked,
+  Observer,
+  Ttl,
 } from "../../../src/index.js";
+import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
  * #538 acceptance — where a refused key could leak: an action that keys a fenced effect by the
- * text it is given (`effectKeyOf`), one that sends a call under a key built by hand with that
- * text (`OutboundCalls.send`), a listed `RecordingLogger`, and an observer of the hooks that carry
+ * text it is given (`Idempotency.runOnce`), one that sends a call under that
+ * text (`Idempotency.sendOnce`), a listed `RecordingLogger`, and an observer of the hooks that carry
  * an error or a refused request.
  */
 
@@ -46,8 +42,8 @@ export function resetEchoSeen(): void {
 }
 
 /** Keeps every refusal, error and action end. */
-@Injectable()
-export class EchoObserver implements OnExecutionRejected, OnExecutionError, OnActionEnd {
+@Observer()
+export class EchoObserver {
   onExecutionRejected(event: ExecutionRejectedEvent): void {
     echoSeen.events.push(event);
   }
@@ -60,7 +56,7 @@ export class EchoObserver implements OnExecutionRejected, OnExecutionError, OnAc
 }
 
 interface Message {
-  readonly message: Produced<WorkflowStartTextDto, unknown>;
+  readonly message: Tracked<WorkflowStartTextDto>;
 }
 
 @Action({
@@ -68,23 +64,22 @@ interface Message {
   description: "Writes one fenced effect keyed by the business key it is given",
   input: { message: WorkflowStartTextDto },
   output: WorkflowFinishTextDto,
-  deps: [ExecutionContext, InMemoryFencedEffectRepository],
+  deps: [Idempotency],
 })
 export class KeyedEffectAction {
-  constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: InMemoryFencedEffectRepository,
-  ) {}
+  constructor(private readonly idempotency: Idempotency) {}
 
   async execute(input: Message): Promise<WorkflowFinishTextDto> {
     // the key's text is what this fixture is about: its work is the same whatever the key (#825)
-    const key = effectKeyOf(this.executionContext, "charge", {
-      businessKey: input.message.value.text,
-      fingerprintPolicy: FingerprintPolicy.None,
-    });
-    await this.fencedEffects.runOnce(key, () => {
-      echoSeen.ran += 1;
-      return { done: true };
+    await this.idempotency.runOnce({
+      name: "charge",
+      key: input.message.text,
+      withoutFingerprint: true,
+      ttl: hours(24),
+      execute: () => {
+        echoSeen.ran += 1;
+        return { done: true };
+      },
     });
     return { text: "charged" };
   }
@@ -92,30 +87,28 @@ export class KeyedEffectAction {
 
 @Action({
   name: "hand-keyed-send-action",
-  description: "Sends one call under a key built by hand with the business key it is given",
+  description: "Sends one call under the business key it is given",
   input: { message: WorkflowStartTextDto },
   output: WorkflowFinishTextDto,
-  deps: [ExecutionContext, OutboundCalls],
+  deps: [Idempotency],
 })
 export class HandKeyedSendAction {
-  constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
-  ) {}
+  constructor(private readonly idempotency: Idempotency) {}
 
   async execute(input: Message): Promise<WorkflowFinishTextDto> {
-    const valid = effectKeyOf(this.executionContext, "charge", { businessKey: "order:1" });
-    const byHand = effectKeyForTesting(valid, { businessKey: input.message.value.text });
-    await this.outboundCalls.send(byHand, {
+    await this.idempotency.sendOnce({
+      name: "charge",
+      key: input.message.text,
       target: "payments",
       operation: "charge",
       request: { amountUsd: 10 },
+      timeout: seconds(15),
+      ttl: hours(48),
       send: () => {
         echoSeen.ran += 1;
         return Promise.resolve({ receipt: "r1" });
       },
-      notSent: { trust: NotSentTrust.Lookup },
-      reconcile: () => Promise.resolve(OutboundCallReconciliation.notSent()),
+      recovery: OutboundRecovery.permanentLookup<never>(() => Reconciliation.notExecuted()),
     });
     return { text: "sent" };
   }
@@ -152,26 +145,16 @@ export class HandKeyedFinish {}
 @Workflow({
   name: "keyed-effect-workflow",
   version: "1.0.0",
-  flow: [
-    start(KeyedEffectStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(KeyedEffectAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(KeyedFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(KeyedEffectStart).toAction(KeyedEffectAction).toFinish(KeyedFinish)],
 })
 export class KeyedEffectWorkflow {}
 
 @Workflow({
   name: "hand-keyed-workflow",
   version: "1.0.0",
-  flow: [
-    start(HandKeyedStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(HandKeyedSendAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(HandKeyedFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(HandKeyedStart).toAction(HandKeyedSendAction).toFinish(HandKeyedFinish)],
 })
 export class HandKeyedWorkflow {}
 
@@ -179,7 +162,6 @@ export class HandKeyedWorkflow {}
   name: "key-echo-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [KeyedEffectWorkflow, HandKeyedWorkflow],
   providers: [InMemoryFencedEffectRepository, RecordingLogger],
   budgets: TEST_BUDGETS,

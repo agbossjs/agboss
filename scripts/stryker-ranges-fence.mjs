@@ -4,7 +4,16 @@
 export function takeoverShard() {
   return {
     configFile: "vitest.mutation-takeover.config.ts",
-    mutate: ["src/app/lease-yields.ts", "src/app/execution-leases.ts", "src/app/handed-over.ts"],
+    mutate: [
+      "src/app/lease-yields.ts",
+      "src/app/execution-leases.ts",
+      "src/app/handed-over.ts",
+      // #1325a: a hand-over is no failure (its kinds, codes and the record guard) and the families' classes
+      "src/core/error-families/run-errors.ts:216-237",
+      "src/core/error-families/family.ts",
+      // a paid family error's spend, read through the report finops/cost-report sets
+      "src/core/error-families/spend-report.ts",
+    ],
   };
 }
 
@@ -44,6 +53,7 @@ export function fenceWorkersShard() {
     configFile: "vitest.mutation-fence-workers.config.ts",
     mutate: [
       "src/app/remote/child-workers.ts",
+      "src/app/remote/claimed-child-run.ts",
       "src/app/remote/pre-held.ts",
       "src/flow/runtime/step-frame.ts",
     ],
@@ -70,6 +80,8 @@ export function cancelRunsShard() {
     configFile: "vitest.mutation-cancel-x-runs.config.ts",
     mutate: [
       "src/app/live-runs.ts",
+      "src/app/live-run-index.ts",
+      "src/app/cancelled-run.ts",
       "src/a2a/client/a2a-waiter.ts",
       "src/flow/runtime/launch/branch-end.ts",
     ],
@@ -88,6 +100,7 @@ export function cancelPausesShard() {
       "src/app/tree-end-pauses.ts",
       "src/flow/runtime/launch/withdrawn-pauses.ts",
       "src/flow/runtime/pause.ts",
+      "src/flow/runtime/pause-open.ts",
     ],
   };
 }

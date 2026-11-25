@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: the spend of the agent's model boundary — what the check of a final answer cost is kept whether the answer
  * is taken or is invalid (a token nobody gave the model), so the ledger holds every paid detection.
@@ -9,10 +10,11 @@ import { outgoingMove } from "../../src/graph/agent-loop/model-pii.js";
 import { DetectionMode } from "../../src/pii/runtime-policy.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

@@ -17,7 +17,7 @@ import { hours, minutes, seconds } from "../../src/units/index.js";
 
 const CODE = "application.retention-invalid";
 const DEFAULT_HINT =
-  "@Application({ retention: { fencedEffects: hours(24), meshAnswers: hours(24) } })";
+  "@Application({ retention: { pauseRecords: hours(24), auditLog: hours(24) } })";
 const hint = (...fields: string[]): string =>
   `@Application({ retention: { ${fields.map((field) => `${field}: hours(24)`).join(", ")} } })`;
 const messagesOf = (application: string, options: unknown): string[] =>
@@ -27,27 +27,19 @@ describe("#1366: the retentions with their defaults", () => {
   it("every one that is not given is its default; execution records are kept only when asked", () => {
     const out = retentionOf(undefined);
 
-    expect(out).toEqual({ ...DEFAULT_RETENTION, a2aFiles: DEFAULT_RETENTION.a2aTasks });
+    expect(out).toEqual({ ...DEFAULT_RETENTION });
     expect(Object.keys(out)).not.toContain("executionRecords");
   });
 
-  it("each one given is the one used, and the files follow their task's unless given", () => {
+  it("each one given is the one used", () => {
     const given = {
       pauseRecords: hours(1),
       executionRecords: hours(2),
       auditLog: hours(3),
       costLedgerEntries: hours(4),
-      fencedEffects: hours(5),
-      outboundCalls: hours(6),
-      meshAnswers: hours(7),
-      a2aTasks: hours(8),
-      a2aMessages: hours(9),
     };
 
-    expect(retentionOf(given)).toEqual({ ...given, a2aFiles: hours(8) });
-    expect(retentionOf({ a2aTasks: hours(8), a2aFiles: hours(2) }).a2aFiles).toBe(hours(2));
-    expect(retentionOf({ a2aFiles: hours(2) }).a2aTasks).toBe(DEFAULT_RETENTION.a2aTasks);
-    expect(retentionOf({ a2aFiles: hours(2) }).a2aMessages).toBe(minutes(15));
+    expect(retentionOf(given)).toEqual(given);
   });
 
   it("is read by the sweep under its own names, execution records only when kept", () => {
@@ -58,11 +50,7 @@ describe("#1366: the retentions with their defaults", () => {
       pauseRecordRetention: DEFAULT_RETENTION.pauseRecords,
       executionRecordRetention: hours(2),
       auditLogRetention: DEFAULT_RETENTION.auditLog,
-      a2aTaskRetention: DEFAULT_RETENTION.a2aTasks,
-      a2aFileRetention: DEFAULT_RETENTION.a2aTasks,
-      a2aMessageRetention: DEFAULT_RETENTION.a2aMessages,
       ledgerEntryRetention: DEFAULT_RETENTION.costLedgerEntries,
-      meshAnswerRetention: DEFAULT_RETENTION.meshAnswers,
     });
     expect(Object.keys(none)).not.toContain("executionRecordRetention");
   });
@@ -72,7 +60,7 @@ describe("#1366: what a retention may not be", () => {
   it("nothing is wrong with none, or with positive durations above the lease", () => {
     expect(retentionViolations("app", undefined)).toEqual([]);
     expect(retentionViolations("app", {})).toEqual([]);
-    expect(retentionViolations("app", { fencedEffects: hours(1), auditLog: seconds(1) })).toEqual(
+    expect(retentionViolations("app", { pauseRecords: hours(1), auditLog: seconds(1) })).toEqual(
       [],
     );
   });
@@ -119,7 +107,7 @@ describe("#1366: what a retention may not be", () => {
     expect(retentionViolations("app", { auditLog: century })).toEqual([]);
   });
 
-  it.each(["fencedEffects", "outboundCalls", "costLedgerEntries", "a2aMessages"])(
+  it.each(["costLedgerEntries"])(
     "%s, which a fenced write relies on, is above the lease: 30 s is refused, one millisecond more is not",
     (field) => {
       expect(messagesOf("app", { [field]: seconds(30) })).toEqual([
@@ -130,42 +118,19 @@ describe("#1366: what a retention may not be", () => {
   );
 
   it("the others may be under the lease", () => {
-    expect(
-      retentionViolations("app", { pauseRecords: seconds(1), meshAnswers: seconds(1) }),
-    ).toEqual([]);
+    expect(retentionViolations("app", { pauseRecords: seconds(1), auditLog: seconds(1) })).toEqual(
+      [],
+    );
   });
 
   it("a field it does not know is a typo, a renamed one says where it went; every problem comes at once", () => {
     expect(
       messagesOf("app", { auditlog: hours(1), leaseEvents: hours(1), pauseRecords: -1 }),
     ).toEqual([
-      `its retention.auditlog is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries, fencedEffects, outboundCalls, meshAnswers, a2aTasks, a2aFiles, a2aMessages) — ${DEFAULT_HINT}`,
+      `its retention.auditlog is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries) — ${DEFAULT_HINT}`,
       `its retention.leaseEvents is renamed: the audit log's rows are kept for retention.auditLog — ${DEFAULT_HINT}`,
       `its retention.pauseRecords is -1, not a positive duration — ${hint("pauseRecords")}`,
     ]);
-  });
-});
-
-describe("#1366: the files of an A2A task", () => {
-  it("are not kept longer than their task, as given or by default", () => {
-    const fix = hint("a2aTasks", "a2aFiles");
-
-    expect(messagesOf("app", { a2aTasks: hours(1), a2aFiles: hours(2) })).toEqual([
-      `its retention.a2aFiles is 7200000 ms, above a2aTasks' 3600000 ms — a file outliving its task is read by no one — ${fix}`,
-    ]);
-    expect(messagesOf("app", { a2aFiles: hours(25) })).toEqual([
-      `its retention.a2aFiles is 90000000 ms, above a2aTasks' 86400000 ms — a file outliving its task is read by no one — ${fix}`,
-    ]);
-  });
-
-  it("as long as, or shorter than, their task's are fine, and so is a files retention that is no number (refused on its own)", () => {
-    expect(retentionViolations("app", { a2aTasks: hours(2), a2aFiles: hours(2) })).toEqual([]);
-    expect(retentionViolations("app", { a2aTasks: hours(2), a2aFiles: hours(1) })).toEqual([]);
-    expect(retentionViolations("app", { a2aFiles: hours(1) })).toEqual([]);
-    expect(messagesOf("app", { a2aFiles: "long" })).toHaveLength(1);
-    expect(messagesOf("app", { a2aTasks: "long", a2aFiles: hours(99) }).join()).not.toContain(
-      "outliving",
-    );
   });
 });
 
@@ -203,10 +168,6 @@ describe("#1366: an option of before #834", () => {
       executionRecordRetention: hours(1),
       leaseEventRetention: hours(1),
       ledgerEntryRetention: hours(1),
-      fencedEffects: { retention: hours(1) },
-      outboundCalls: { retention: hours(1) },
-      mesh: { idempotencyRetention: hours(1) },
-      a2a: { taskRetention: hours(1) },
     };
 
     const found = movedRetentionViolations("desk", moved);
@@ -216,10 +177,6 @@ describe("#1366: an option of before #834", () => {
       "its executionRecordRetention is gone — @Application({ retention: { executionRecords } }) sets it now",
       "its leaseEventRetention is gone — @Application({ retention: { auditLog } }) sets it now",
       "its ledgerEntryRetention is gone — @Application({ retention: { costLedgerEntries } }) sets it now",
-      "its fencedEffects.retention is gone — @Application({ retention: { fencedEffects } }) sets it now",
-      "its outboundCalls.retention is gone — @Application({ retention: { outboundCalls } }) sets it now",
-      "its mesh.idempotencyRetention is gone — @Application({ retention: { meshAnswers } }) sets it now",
-      "its a2a.taskRetention is gone — @Application({ retention: { a2aTasks } }) sets it now",
     ]);
     expect(found.every((item) => item.code === CODE && item.nodes[0] === "desk")).toBe(true);
   });
@@ -227,30 +184,10 @@ describe("#1366: an option of before #834", () => {
   it("an option that never held a retention, or holds none of those, is no violation", () => {
     expect(movedRetentionViolations("desk", {})).toEqual([]);
     expect(
-      movedRetentionViolations("desk", { fencedEffects: { backend: "x" }, mesh: "on" }),
+      movedRetentionViolations("desk", { pauseRecords: { backend: "x" }, mesh: "on" }),
     ).toEqual([]);
-    expect(movedRetentionViolations("desk", { fencedEffects: null, outboundCalls: 4 })).toEqual([]);
-  });
-
-  it("an a2a option without its retention is gone too, whatever it is; with it, it is only the retention that moved", () => {
-    const gone =
-      "its a2a option is gone — how long A2A tasks are kept is @Application({ retention: { a2aTasks } })";
-
-    expect(movedRetentionViolations("desk", { a2a: {} }).map((item) => item.message)).toEqual([
-      gone,
-    ]);
-    expect(movedRetentionViolations("desk", { a2a: {} })[0]?.nodes).toEqual(["desk"]);
-    expect(movedRetentionViolations("desk", { a2a: "on" }).map((item) => item.message)).toEqual([
-      gone,
-    ]);
-    expect(movedRetentionViolations("desk", { a2a: null }).map((item) => item.message)).toEqual([
-      gone,
-    ]);
-    expect(
-      movedRetentionViolations("desk", { a2a: { taskRetention: 1 } }).map((item) => item.message),
-    ).toEqual([
-      "its a2a.taskRetention is gone — @Application({ retention: { a2aTasks } }) sets it now",
-    ]);
-    expect(movedRetentionViolations("desk", {})).toEqual([]);
+    expect(movedRetentionViolations("desk", { pauseRecords: null, costLedgerEntries: 4 })).toEqual(
+      [],
+    );
   });
 });

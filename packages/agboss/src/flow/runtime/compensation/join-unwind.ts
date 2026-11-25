@@ -1,3 +1,4 @@
+import { ExecutionStoppedError } from "../../../app/lease-stopped.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { extractRunContext } from "../../../core/run-context.js";
 import type { ExecutionTree } from "../../../infrastructure/execution-tree.repository.js";
@@ -17,15 +18,18 @@ import { stepFrameAt } from "../step-frame.js";
 import type { UndoSite } from "./undo.js";
 import { unwound, type UnwindSite } from "./unwind.js";
 import { markUndone, withUndoneMarks, type UndoneMarks } from "./unwinding-marks.js";
+import { heldUndoSiteOf, holderOf } from "./held-entries.js";
 
 /**
  * The automatic undo of a failed join (#340 Q3, `CompensationReason.JoinFailed`): before its
- * `.onJoinError` side path runs — or the branch's error fails the execution — the launch's
+ * `.onError` side path runs — or the branch's error fails the execution — the launch's
  * finished undoable branches are undone, newest first. It first awaits the launch's branches whose
  * bodies still run (#340 Q-A, up to `compensationTimeout`), so one that returns meanwhile is undone
  * too; the entries are the state's and the instance registry's. An undo that fails does not stop
  * the others; then the execution fails with `CompensationFailedError` (its cause the branch's error),
- * which no side path takes — the undo's spend written to the ledger first (#340 S4). Durable once
+ * which no side path takes — the undo's spend written to the ledger first (#340 S4). A child
+ * workflow's branch is undone the same way (#1281b): the entries its finish moved up to the
+ * launching execution, each in the child's own workflow, newest first with the actions'. Durable once
  * (#607): each undo that succeeded is marked done in the tree's store
  * (`@agboss/compensated/<compensationKey>`) before the next undo starts and before the join's update
  * or error is written, and the entries are read through those marks first — so a holder that takes
@@ -40,6 +44,12 @@ export interface JoinUnwindSite {
   readonly deps: JoinDeps;
   /** The error the join fails with: the cause of a `CompensationFailedError`. */
   readonly cause: unknown;
+  /**
+   * A quorum join that went on (#1281): only the entries of these branches (their ticket indexes —
+   * completed, yet not counted) are undone, as `CompensationReason.QuorumExcluded`; absent: a failed
+   * join, every entry of the launch.
+   */
+  readonly excluded?: ReadonlySet<number> | undefined;
 }
 
 /** The undo site of the join: the launching step's execution, the instance's parts. */
@@ -59,7 +69,10 @@ function undoSiteOf(site: JoinUnwindSite): UndoSite & { readonly tree: Execution
     clock: extractRunContext(config, state.runId).clock,
     timeout: deps.compensation?.timeout ?? COMPENSATION_TIMEOUT,
     stepEntries: deps.stepEntries,
-    reason: CompensationReason.JoinFailed,
+    reason:
+      site.excluded === undefined
+        ? CompensationReason.JoinFailed
+        : CompensationReason.QuorumExcluded,
     tree,
   };
 }
@@ -68,21 +81,32 @@ function undoSiteOf(site: JoinUnwindSite): UndoSite & { readonly tree: Execution
 async function unwindSiteOf(site: JoinUnwindSite): Promise<UnwindSite> {
   const undo = undoSiteOf(site);
   const { executionId } = undo.execution;
-  const ids = new Set(site.ticket.branches.map((branch) => branch.nodeId));
+  const { excluded } = site;
+  const branches = site.ticket.branches.filter(
+    (branch) => excluded === undefined || excluded.has(branch.index),
+  );
+  const ids = new Set(branches.map((branch) => branch.nodeId));
+  // the launching execution's own entries of the launch, and the ones its child branches' finishes
+  // moved up to it (#1281b)
   const covers = (entry: CompensationEntry): boolean =>
-    entry.launchId === site.ticket.launchId && entry.executionId === executionId;
+    entry.launchId === site.ticket.launchId &&
+    holderOf(entry) === executionId &&
+    (excluded === undefined ||
+      (entry.branchIndex !== undefined && excluded.has(entry.branchIndex)));
   const marks: UndoneMarks = { trees: site.deps.compensation?.trees, tree: undo.tree };
   return {
     tree: undo.tree,
     covers,
     runs: (entry) => entry.executionId === executionId && ids.has(entry.nodeId),
     known: await withUndoneMarks(marks, site.state.compensations.filter(covers)),
-    undoSiteOf: () => undo,
+    // a child's entry undoes in its own workflow, under the launching step's lease (#1281b)
+    undoSiteOf: (entry) => heldUndoSiteOf(undo, site.deps, entry),
     parts: site.deps.compensation,
     stepEntries: undo.stepEntries,
     clock: undo.clock,
     timeout: undo.timeout,
     isSealing: false,
+    isStopped: site.cause instanceof ExecutionStoppedError,
     record: (usage) => site.deps.limits.budgets.record(usage),
     onUndone: (entry) => markUndone(marks, entry),
   };

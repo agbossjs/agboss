@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (money-runtime shard) — where a run's spend is recorded, forwarded or carried in the flow runtime, each rule on
  * its own over fakes: what a visit's records and its code's services report, what a router's visit spends (the masking
@@ -54,10 +55,11 @@ vi.mock("../../../src/flow/runtime/launch/router-decision.js", () => ({
 vi.mock("../../../src/flow/observers/execution-event.js", () => ({ reportNodeEvent: vi.fn() }));
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -170,7 +172,7 @@ describe("#1366: the lost passes a step records", () => {
     expect(reportUsage.mock.calls[0]?.[0]).toMatchObject({
       caller: "agent:n#2",
       model: "unknown",
-      costUsd: 0,
+      costUsd: usd(0),
       costSource: CostSource.Unknown,
       ledgerKey: { id: "unknown:root:n#2:task-1:1" },
     });
@@ -374,7 +376,7 @@ describe("#1366: the cost a child's record and a turn report", () => {
       rootExecutionId: "root",
       depth: 2,
       status: ChildExecutionStatus.Failed,
-      spend: { totalUsd: 0.75, calls: 2 },
+      spend: { totalUsd: usd(0.75), calls: 2 },
       error: { message: "broke" },
       path: [],
       children: [],
@@ -405,7 +407,7 @@ describe("#1366: the cost a child's record and a turn report", () => {
     expect(out).toMatchObject({
       itemIndex: 3,
       output: { o: 1 },
-      spend: { totalUsd: 0 },
+      spend: { totalUsd: usd(0) },
       path: ["p"],
     });
     expect("finish" in out).toBe(true);
@@ -442,13 +444,13 @@ describe("#1366: the cost a child's record and a turn report", () => {
   });
 
   it("the record of a turn that is running carries the cost so far; a failed one the cost of what it spent", () => {
-    expect(runningOutcome(["a", "b"], 0.5)).toEqual({
+    expect(runningOutcome(["a", "b"], usd(0.5))).toEqual({
       replyWith: "",
       status: "running",
       stopReason: "",
       route: ["a", "b"],
       steps: [],
-      costUsd: 0.5,
+      costUsd: usd(0.5),
     });
     expect(failedOutcome(new Error("it broke"), [record(0.5), record(0.25)])).toEqual({
       replyWith: "",
@@ -456,7 +458,7 @@ describe("#1366: the cost a child's record and a turn report", () => {
       stopReason: "it broke",
       route: [],
       steps: [],
-      costUsd: 0.75,
+      costUsd: usd(0.75),
     });
   });
 
@@ -550,7 +552,7 @@ describe("#1366: what a router's visit spends", () => {
 
     expect(vi.mocked(runGuardrails).mock.calls[0]?.[1]).toMatchObject({
       text: "the input",
-      element: "r",
+      component: expect.objectContaining({ name: "r" }),
     });
     expect(budgets.tally.mock.calls.map((c) => c[0].map((u) => u.caller))).toEqual([
       [],
@@ -682,7 +684,7 @@ describe("#1366: what a router's visit spends", () => {
     expect(onRouterEnd).toHaveBeenCalledWith({
       base: true,
       name: "r",
-      update: { route: "yes", reason: "because" },
+      output: { route: "yes", reason: "because" },
     });
   });
 
@@ -700,7 +702,7 @@ describe("#1366: what a router's visit spends", () => {
     expect(onRouterEnd).toHaveBeenCalledWith({
       base: true,
       name: "r",
-      update: { route: "a, b", reason: "both" },
+      output: { route: "a, b", reason: "both" },
     });
   });
 });

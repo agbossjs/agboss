@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (shard `fence-tree`) on their own: the end of a tree whose instance died (`orphan-tree.ts`) is made
  * only under the tree's lease, a resting one by the cancel path; a child's failure is announced only by the
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   forgetTree: vi.fn(),
   endRestingCancelled: vi.fn(),
   wakeAnswered: vi.fn(),
+  wakeParked: vi.fn(),
   isFailureClaimed: vi.fn(),
   hasUndoableActions: vi.fn(),
   unwoundChild: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock("../../src/app/cancel-resting.js", () => ({
 }));
 vi.mock("../../src/app/answered-wake.js", () => ({
   wakeAnsweredOf: () => mocks.wakeAnswered,
+  wakeParkedOf: () => mocks.wakeParked,
 }));
 
 const record = (overrides: Record<string, unknown> = {}) =>
@@ -81,7 +84,7 @@ describe("#1366: the orphan look's end of a tree", () => {
     const release = vi.fn(() => Promise.resolve());
     const { parts, tryHold } = partsOf({ release });
 
-    expect(await orphanEndsOf(parts).closeOrphan(record({ runId: null }))).toBe(false);
+    expect(await orphanEndsOf(parts, {} as never).closeOrphan(record({ runId: null }))).toBe(false);
 
     expect(tryHold).not.toHaveBeenCalled();
     expect(mocks.forgetTree).not.toHaveBeenCalled();
@@ -92,7 +95,7 @@ describe("#1366: the orphan look's end of a tree", () => {
     const release = vi.fn(() => Promise.resolve());
     const { parts, tryHold } = partsOf({ release });
 
-    expect(await orphanEndsOf(parts).closeOrphan(record())).toBe(true);
+    expect(await orphanEndsOf(parts, {} as never).closeOrphan(record())).toBe(true);
 
     expect(tryHold).toHaveBeenCalledOnce();
     expect(tryHold).toHaveBeenCalledWith(
@@ -112,7 +115,7 @@ describe("#1366: the orphan look's end of a tree", () => {
   it("a root whose record names no version: the workflow's version is the one it started on", async () => {
     const { parts } = partsOf({ release: () => Promise.resolve() });
 
-    await orphanEndsOf(parts).closeOrphan(record({ configVersion: null }));
+    await orphanEndsOf(parts, {} as never).closeOrphan(record({ configVersion: null }));
 
     expect(mocks.forgetTree).toHaveBeenCalledWith(
       parts,
@@ -124,7 +127,9 @@ describe("#1366: the orphan look's end of a tree", () => {
   it("a cancelled root: its end is the cancel's, as app.cancel ends it", async () => {
     const { parts } = partsOf({ release: () => Promise.resolve() });
 
-    await orphanEndsOf(parts).closeOrphan(record({ stopReason: "the run was cancelled" }));
+    await orphanEndsOf(parts, {} as never).closeOrphan(
+      record({ status: ExecutionRecordStatus.Cancelled, stopReason: "the run was cancelled" }),
+    );
 
     const [, , cause] = mocks.forgetTree.mock.calls[0] as [unknown, unknown, unknown];
     expect(cause).toBeInstanceOf(ExecutionCancelledError);
@@ -133,7 +138,7 @@ describe("#1366: the orphan look's end of a tree", () => {
   it("a lease held elsewhere: false, the tree left to a later look", async () => {
     const { parts, tryHold } = partsOf(undefined);
 
-    expect(await orphanEndsOf(parts).closeOrphan(record())).toBe(false);
+    expect(await orphanEndsOf(parts, {} as never).closeOrphan(record())).toBe(false);
 
     expect(tryHold).toHaveBeenCalledOnce();
     expect(mocks.forgetTree).not.toHaveBeenCalled();
@@ -144,7 +149,9 @@ describe("#1366: the orphan look's end of a tree", () => {
     const { parts } = partsOf({ release });
     mocks.forgetTree.mockRejectedValue(new Error("the store is down"));
 
-    await expect(orphanEndsOf(parts).closeOrphan(record())).rejects.toThrow("the store is down");
+    await expect(orphanEndsOf(parts, {} as never).closeOrphan(record())).rejects.toThrow(
+      "the store is down",
+    );
 
     expect(release).toHaveBeenCalledOnce();
   });
@@ -153,7 +160,7 @@ describe("#1366: the orphan look's end of a tree", () => {
     const { parts, tryHold } = partsOf({ release: () => Promise.resolve() });
     mocks.endRestingCancelled.mockResolvedValue(false);
 
-    const ended = await orphanEndsOf(parts).closeOrphan(
+    const ended = await orphanEndsOf(parts, {} as never).closeOrphan(
       record({ status: ExecutionRecordStatus.Paused }),
     );
 
@@ -173,14 +180,17 @@ describe("#1366: the orphan look's end of a tree", () => {
     const { parts } = partsOf(undefined);
 
     expect(
-      await orphanEndsOf(parts).closeOrphan(record({ status: ExecutionRecordStatus.Paused })),
+      await orphanEndsOf(parts, {} as never).closeOrphan(
+        record({ status: ExecutionRecordStatus.Paused }),
+      ),
     ).toBe(true);
   });
 
   it("the second look is the answered-wake of the same parts", async () => {
     const { parts } = partsOf(undefined);
 
-    expect(orphanEndsOf(parts).wakeAnswered).toBe(mocks.wakeAnswered);
+    expect(orphanEndsOf(parts, {} as never).wakeAnswered).toBe(mocks.wakeAnswered);
+    expect(orphanEndsOf(parts, {} as never).wakeParked).toBe(mocks.wakeParked);
   });
 });
 
@@ -482,7 +492,7 @@ describe("#1366: failedChild", () => {
   it("the spend a failure reports goes to the parent's step, once each", async () => {
     const { frame, services } = frameOf({ assertHeld: vi.fn() });
     const { parent, record } = parentOf(frame);
-    const spend = [{ costUsd: 1 }, { costUsd: 2 }] as never;
+    const spend = [{ costUsd: usd(1) }, { costUsd: usd(2) }] as never;
 
     await failed(
       parent,
@@ -492,13 +502,13 @@ describe("#1366: failedChild", () => {
     ).catch(() => undefined);
 
     expect(services.reportUsage).toHaveBeenCalledTimes(2);
-    expect(services.reportUsage).toHaveBeenNthCalledWith(1, { costUsd: 1 });
-    expect(services.reportUsage).toHaveBeenNthCalledWith(2, { costUsd: 2 });
+    expect(services.reportUsage).toHaveBeenNthCalledWith(1, { costUsd: usd(1) });
+    expect(services.reportUsage).toHaveBeenNthCalledWith(2, { costUsd: usd(2) });
     expect(record).not.toHaveBeenCalled();
   });
 
   it("a failed undo carries no spend: it is written to the ledger now — by class and by record, never for another error", async () => {
-    const spend = [{ costUsd: 3 }] as never;
+    const spend = [{ costUsd: usd(3) }] as never;
     const undoFailed = new CompensationFailedError({ failures: [], cause: undefined });
     const recorded = new RecordedError(errorRecordOf(undoFailed));
     for (const [error, isWritten] of [
@@ -574,7 +584,7 @@ describe("#1366: failedChild of a child that has nothing to hand its parent", ()
       undo: { child: { deps: { graph: { nodes: new Map() } }, workflow: ENDED.workflow }, run: {} },
     } as never;
     const own = new ExecutionCancelledError({ message: "stopped" });
-    const spend = [{ costUsd: 1 }] as never;
+    const spend = [{ costUsd: usd(1) }] as never;
 
     for (const announces of [false, true]) {
       const thrown = await failedChild(

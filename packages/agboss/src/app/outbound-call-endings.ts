@@ -1,6 +1,7 @@
 import { errorRecordOf } from "../core/error-record.js";
 import { cancelFencedErrorOf } from "./handed-over.js";
-import { ExecutionFencedError } from "./lease-lost.js";
+import {} from "./lease-lost.js";
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import { StoreOutcomeUnknownError } from "../infrastructure/store-call-timeout.js";
 import { parsedStoredJson } from "../infrastructure/stored-step.js";
 import { OutboundCallEventOutcome } from "../infrastructure/execution-audit-log.repository.js";
@@ -8,8 +9,12 @@ import {
   OutboundCallStatus,
   type OutboundCallRecord,
 } from "../infrastructure/outbound-call.repository.js";
-import { replayedFromOf, reportedKeyOf } from "./outbound-call-business.js";
-import { OutboundCallSupersededError } from "./outbound-call-contract.js";
+import { replayedFromOf } from "./outbound-call-business.js";
+import {
+  supersededError,
+  unreconciledError,
+  resultNotStoredError,
+} from "./outbound-call-errors.js";
 import {
   maskedTextOf,
   notStoredOf,
@@ -20,11 +25,10 @@ import {
 } from "./outbound-call-parts.js";
 import {
   OutboundCallSendStatus,
-  OutboundCallResultNotStoredError,
-  OutboundCallUnreconciledError,
   type OutboundCallOutcome,
   type OutboundCallUnreconciledReason,
-} from "./outbound-calls.js";
+} from "./outbound-call-types.js";
+import type { OutboundCallError } from "../core/error-families/effect-errors.js";
 
 /**
  * How a call ends (#505, #508), loaded with the protocol: replayed from a completed intent, or
@@ -36,7 +40,7 @@ import {
  * Attempt `attempt` was answered after a newer one took the intent over (#508): both reached the
  * other system. Told as `AttemptSuperseded`, naming the newer attempt when the intent can still be read —
  * else "unknown", never a guess — and logged as an error on the instance's log, lease or none. The
- * newer attempt, `undefined` when unknown (#795: `OutboundCallSupersededError.supersededBy`).
+ * newer attempt, `undefined` when unknown (#795: `OutboundCallError.Superseded.supersededBy`).
  */
 export async function superseded<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
@@ -68,11 +72,11 @@ export async function supersededErrorOf<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   attempt: number,
   cause?: unknown,
-): Promise<OutboundCallSupersededError> {
+): Promise<OutboundCallError.Superseded> {
   const supersededBy = await superseded(run, attempt);
-  const idempotencyKey = reportedKeyOf(run.key, run.idempotencyKey);
+  const { idempotencyKey } = run;
   const { target, operation } = run.options;
-  return new OutboundCallSupersededError({
+  return supersededError({
     call: run.key.name,
     target,
     operation,
@@ -96,7 +100,7 @@ export async function fencedEnd<TRequest, TResult>(
   try {
     return await write();
   } catch (error) {
-    if (error instanceof ExecutionFencedError) {
+    if (error instanceof ExecutionError.Fenced || error instanceof ExecutionError.Fenced) {
       const { name } = run.key;
       const { operation, target } = run.options;
       const text = `outbound call "${name}" (${operation} on ${target}) attempt ${String(attempt)} was answered after its lease was handed over: the answer is not stored and the new holder reconciles the intent — check ${target} if it was sent again`;
@@ -146,13 +150,13 @@ export async function unreconciledOf<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
   why: Unreconciled,
-): Promise<OutboundCallUnreconciledError> {
+): Promise<OutboundCallError.Unreconciled> {
   told(run, OutboundCallEventOutcome.Unknown, [OutboundCallStatus.Pending, found.attempt]);
-  const idempotencyKey = reportedKeyOf(run.key, run.idempotencyKey);
+  const { idempotencyKey } = run;
   const detail = await maskedTextOf(run, why.detail);
   const { target, operation } = run.options;
   const { reason, cause } = why;
-  return new OutboundCallUnreconciledError({
+  return unreconciledError({
     call: run.key.name,
     target,
     operation,
@@ -165,19 +169,23 @@ export async function unreconciledOf<TRequest, TResult>(
 
 /**
  * A completed intent's stored result — masked by the PII policies — and who made it (#508); one
- * whose result was not stored is `OutboundCallResultNotStoredError`, nothing sent again.
+ * whose result was not stored is `OutboundCallError.ResultNotStored`, nothing sent again.
  */
 export function replayed<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
 ): OutboundCallOutcome<TResult> {
-  const stored = parsedStoredJson("outbound call result", found.result ?? "null", {
-    name: run.key.name,
+  const stored = parsedStoredJson({
+    what: "outbound call result",
+    text: found.result ?? "null",
+    ids: {
+      name: run.key.name,
+    },
   });
   // answered, its result not stored (#508): no result to give, never the marker as one
   const notStored = notStoredOf(stored);
   if (notStored !== undefined)
-    throw new OutboundCallResultNotStoredError({
+    throw resultNotStoredError({
       call: run.key.name,
       target: run.options.target,
       operation: run.options.operation,

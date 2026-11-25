@@ -1,13 +1,10 @@
+import { workflowWindowOf } from "../memory/memory.decorator.js";
 import { withoutUndefined } from "../types/defined.js";
 import type { AgentsConfig, ChatDefaults, RouterModel } from "../config/types.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf, type WorkflowDeclaration } from "../flow/decorators/declaration.js";
 import type { ModelDefaults, WorkflowDefaults } from "../flow/decorators/workflow.js";
-import { isDecisionModel } from "../models/decision-models.js";
-import {
-  DEFAULT_UNCOMPACTED_TURNS,
-  type UncompactedTurns,
-} from "../compaction/compaction.decorator.js";
+import { DEFAULT_UNCOMPACTED_TURNS, type UncompactedTurns } from "../memory/memory.decorator.js";
 import type { Class } from "./injection.js";
 import { ComponentError } from "./metadata.js";
 import type { WorkflowMeta } from "./meta-types.js";
@@ -21,9 +18,8 @@ import type { WorkflowMeta } from "./meta-types.js";
 /** A model's temperature when neither the component nor `defaults.models` sets one. */
 export const DEFAULT_TEMPERATURE = 0;
 
-/** A router model by id: a decision model, or a chat model asked for JSON. */
-export const routerModelOfId = (model: string): RouterModel =>
-  isDecisionModel(model) ? { kind: "jev", model } : { kind: "llm", model };
+/** A router model by id: a chat model asked for JSON (a decision model is told by its provider's driver at assembly). */
+export const routerModelOfId = (model: string): RouterModel => ({ kind: "llm", model });
 
 const chatDefaultsOf = (models: ModelDefaults | undefined): ChatDefaults =>
   withoutUndefined({
@@ -34,8 +30,8 @@ const chatDefaultsOf = (models: ModelDefaults | undefined): ChatDefaults =>
   });
 
 /**
- * The config's defaults: the cascaded `defaults` and the workflow's window — its own
- * `uncompactedTurns`, else its application's, else `DEFAULT_UNCOMPACTED_TURNS` (#120 PR 3).
+ * The config's defaults: the cascaded `defaults` and the workflow's window — its `memory`'s
+ * `uncompactedTurns`, else `DEFAULT_UNCOMPACTED_TURNS` (#1303).
  */
 export function configDefaultsOf(
   defaults: WorkflowDefaults | undefined,
@@ -68,18 +64,19 @@ export function moduleOf(workflow: Class): WorkflowMeta {
   if (cached !== undefined) return cached;
   const { options, source } = workflowDeclarationOf(workflow);
   const module: WorkflowMeta = withoutUndefined({
+    type: workflow,
     name: options.name,
     version: options.version,
     source,
-    defaults: configDefaultsOf(options.defaults, options.uncompactedTurns),
+    defaults: configDefaultsOf(options.defaults, workflowWindowOf(options.memory)),
     piiPolicies: options.piiPolicies,
     excludePiiPolicies: options.excludePiiPolicies,
     guardrails: options.guardrails,
     toolInterceptors: options.toolInterceptors,
-    compaction: options.compaction,
-    uncompactedTurns: options.uncompactedTurns,
-    mcp: options.mcp,
+    excludeToolInterceptors: options.excludeToolInterceptors,
+    memory: options.memory,
     providers: options.providers,
+    services: options.services,
     promptVariables: options.promptVariables,
   });
   modules.set(workflow, module);

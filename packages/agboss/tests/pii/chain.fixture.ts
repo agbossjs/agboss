@@ -7,7 +7,7 @@ import {
   Agent,
   ChildPlacement,
   DecidedBy,
-  Injectable,
+  Observer,
   PiiAction,
   PiiPolicy,
   Router,
@@ -18,21 +18,19 @@ import {
   type AgentStartEvent,
   type ExecutionEndEvent,
   type ExecutionStartEvent,
-  type OnAgentEnd,
-  type OnAgentStart,
-  type OnExecutionEnd,
-  type OnExecutionStart,
   type PiiMatch,
   type PiiPolicyHandler,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { hours } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { caseOf, route, start } from "../helpers/flow.js";
-import { oneOf } from "../../src/flow/dto-wrappers.js";
+import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { ContactPiiPolicy } from "./pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 export const ROOT_SECRET = "ROOT-7731";
 export const CHILD_SECRET = "CHILD-5512";
@@ -47,14 +45,14 @@ const matchesOf = (text: string, value: string): readonly PiiMatch[] => {
   return found;
 };
 
-@PiiPolicy({ name: "root-secret-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "root-secret-pii-policy", action: PiiAction.mask() })
 export class RootSecretPiiPolicy implements PiiPolicyHandler {
   findMatches(text: string): readonly PiiMatch[] {
     return matchesOf(text, ROOT_SECRET);
   }
 }
 
-@PiiPolicy({ name: "child-secret-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "child-secret-pii-policy", action: PiiAction.mask() })
 export class ChildSecretPiiPolicy implements PiiPolicyHandler {
   findMatches(text: string): readonly PiiMatch[] {
     return matchesOf(text, CHILD_SECRET);
@@ -64,8 +62,8 @@ export class ChildSecretPiiPolicy implements PiiPolicyHandler {
 /** Every event an observer saw, as JSON, with the workflow it names. */
 export const chainSeen: { hook: string; workflow: string; text: string }[] = [];
 
-@Injectable()
-export class ChainObserver implements OnExecutionStart, OnExecutionEnd, OnAgentStart, OnAgentEnd {
+@Observer()
+export class ChainObserver {
   private see(hook: string, event: { readonly workflow: { readonly name: string } }): void {
     chainSeen.push({ hook, workflow: event.workflow.name, text: JSON.stringify(event) });
   }
@@ -88,7 +86,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 10 };
 @Agent({
   name: "chain-child-agent",
   description: "Answers in the child",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/chain-child",
   price,
 })
@@ -97,7 +95,7 @@ export class ChainChildAgent {}
 @Agent({
   name: "chain-peek-agent",
   description: "Sees the root's secret at its model",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/chain-peek",
   price,
   excludePiiPolicies: [RootSecretPiiPolicy],
@@ -107,7 +105,7 @@ export class ChainPeekAgent {}
 @Agent({
   name: "chain-open-agent",
   description: "Its workflow excludes the root's secret at its models",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/chain-open",
   price,
 })
@@ -131,7 +129,7 @@ export class ChainChildDirectFinish {}
   name: "chain-child-router",
   description: "Sends the message to the child's agent",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick who handles it.",
+  prompt: inline("Pick who handles it."),
   model: "test/chain-router",
   input: { message: WorkflowStartTextDto },
   maxVisits: 1,
@@ -153,11 +151,12 @@ export class ChainChildStart {}
 @Workflow({
   name: "chain-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChainChildStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChainChildStart)
       .toRouter(ChainChildRouter)
-      .chooseOne(route(ChainChildAgent).toFinish(ChainChildFinish), route(ChainChildDirectFinish)),
+      .onRoute(toAgent(ChainChildAgent).toFinish(ChainChildFinish))
+      .onRoute(toFinish(ChainChildDirectFinish)),
   ],
   piiPolicies: [ChildSecretPiiPolicy],
 })
@@ -181,12 +180,8 @@ export class ChainPeekFinish {}
 @Workflow({
   name: "chain-peek-workflow",
   version: "1.0.0",
-  flow: [
-    start(ChainPeekStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ChainPeekAgent)
-      .toFinish(ChainPeekFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ChainPeekStart).toAgent(ChainPeekAgent).toFinish(ChainPeekFinish)],
   piiPolicies: [ChildSecretPiiPolicy],
 })
 export class ChainPeekWorkflow {}
@@ -209,12 +204,8 @@ export class ChainOpenFinish {}
 @Workflow({
   name: "chain-open-workflow",
   version: "1.0.0",
-  flow: [
-    start(ChainOpenStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ChainOpenAgent)
-      .toFinish(ChainOpenFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ChainOpenStart).toAgent(ChainOpenAgent).toFinish(ChainOpenFinish)],
   piiPolicies: [ChildSecretPiiPolicy],
   excludePiiPolicies: [RootSecretPiiPolicy],
 })
@@ -237,7 +228,7 @@ export class ChainFarFinish {}
 @Agent({
   name: "chain-far-agent",
   description: "Answers in a child on any instance",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/chain-far",
   price,
 })
@@ -245,14 +236,11 @@ export class ChainFarAgent {}
 
 /** A child queued for any instance. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "chain-far-workflow",
   version: "1.0.0",
-  flow: [
-    start(ChainFarStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ChainFarAgent)
-      .toFinish(ChainFarFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ChainFarStart).toAgent(ChainFarAgent).toFinish(ChainFarFinish)],
   piiPolicies: [ChildSecretPiiPolicy],
 })
 export class ChainFarWorkflow {}
@@ -287,30 +275,14 @@ export class ChainRootDirectFinish {}
 @Workflow({
   name: "chain-root-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChainRootStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChainRootStart)
       .toWorkflow(ChainChildWorkflow)
-      .returns(oneOf(WorkflowFinishTextDto, WorkflowStartTextDto))
-      .switch(
-        caseOf(WorkflowFinishTextDto).toFinish(ChainRootFinish),
-        caseOf(WorkflowStartTextDto).toFinish(ChainRootDirectFinish),
-      ),
-    start(ChainPeekRootStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(ChainPeekWorkflow)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(ChainRootFinish),
-    start(ChainOpenRootStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(ChainOpenWorkflow)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(ChainRootFinish),
-    start(ChainFarRootStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(ChainFarWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(WorkflowFinishTextDto)
-      .toFinish(ChainRootFinish),
+      .toOneOf([toFinish(ChainRootFinish), toFinish(ChainRootDirectFinish)]),
+    onStart(ChainPeekRootStart).toWorkflow(ChainPeekWorkflow).toFinish(ChainRootFinish),
+    onStart(ChainOpenRootStart).toWorkflow(ChainOpenWorkflow).toFinish(ChainRootFinish),
+    onStart(ChainFarRootStart).toWorkflow(ChainFarWorkflow).toFinish(ChainRootFinish),
   ],
   piiPolicies: [RootSecretPiiPolicy],
 })
@@ -320,18 +292,14 @@ export class ChainRootWorkflow {}
 @Workflow({
   name: "chain-plain-root-workflow",
   version: "1.0.0",
-  flow: [
-    start(ChainPlainRootStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(ChainPeekWorkflow)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(ChainRootFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ChainPlainRootStart).toWorkflow(ChainPeekWorkflow).toFinish(ChainRootFinish)],
 })
 export class ChainPlainRootWorkflow {}
 
 @Application({
   name: "chain-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChainRootWorkflow, ChainPlainRootWorkflow],

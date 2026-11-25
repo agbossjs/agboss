@@ -4,7 +4,7 @@
  * `resume` / `cancel` the workflow of the thread; one container for the whole application.
  */
 import { createApp } from "../../src/application/create-app.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Class } from "../../src/components/injection.js";
 import { GraphRuleError } from "../../src/index.js";
@@ -65,7 +65,7 @@ describe("#261 AC1: app.execute runs any workflow of the application by its star
   });
 
   it("the app carries the application's name and version, not a workflow's", async () => {
-    const app = await createAppWith(DesksApplication, {
+    const app = await createTestAppWith(DesksApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     });
@@ -75,7 +75,7 @@ describe("#261 AC1: app.execute runs any workflow of the application by its star
   });
 
   it("ambiguous start: one start in two workflows fails assembly", async () => {
-    const built = createAppWith(AmbiguousApplication, { processEnv: {} });
+    const built = createTestAppWith(AmbiguousApplication, { processEnv: {} });
 
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     await expect(built).rejects.toThrow(
@@ -107,7 +107,7 @@ describe("#261 AC2: one container for the application", () => {
   it("a workflow's service gets the ledger the application lists; spend is saved there", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:orders-agent").thenReturn(replyWith("ok", { cost: usd(0.25) }));
-    const app = await createAppWith(DesksApplication, {
+    const app = await createTestAppWith(DesksApplication, {
       processEnv: {},
       gateway: createScriptedGateway(book),
     });

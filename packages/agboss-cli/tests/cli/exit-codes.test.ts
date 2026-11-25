@@ -79,8 +79,9 @@ describe("#198 AC2: usage, project and conflict errors by exit code", () => {
     });
     const debug = await agboss(["describe", "--application", NOT_AN_APPLICATION, "--debug"]);
     expect(debug.code).toBe(3);
+    // the report of #1325c with every frame: the chain, then the stack, two lines per frame
     expect(debug.stderr).toMatch(
-      /ApplicationLoadError: \S+none\.workflow\.ts: expected[\s\S]*\n\s+at /,
+      /\nError:\n {3}0: \S+none\.workflow\.ts: expected[\s\S]*\nStack backtrace:\n {3}0: \S+\n\s+at /,
     );
   });
 

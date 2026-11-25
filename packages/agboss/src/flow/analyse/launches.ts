@@ -7,14 +7,7 @@ import {
   type ValueWrite,
 } from "./flow-graph.js";
 import { producersOfSlot, type JoinGroup } from "./join-groups.js";
-import {
-  isAboutWritten,
-  outdate,
-  readSlots,
-  stepAlong,
-  type OutdatingStep,
-  type Provenance,
-} from "./outdating.js";
+import { outdate, readSlots, stepAlong, type OutdatingStep, type Provenance } from "./outdating.js";
 import {
   afterWrites,
   slotOfDto,
@@ -83,18 +76,17 @@ export function branchReads(
   return [...new Set([...read.filter((slot) => slot !== item), slotOfValue(items)])].sort();
 }
 
-/** What a value of the join is built from: what its branches read, `{ about }` respected. */
+/** What a value of the join is built from: what its branches read. */
 function builtFromOf(
   atLaunch: AbstractScope,
   launch: FlowLaunch,
   group: GroupWrites,
   provenance: Provenance,
 ): readonly SlotKey[] {
-  const written = new Set(group.writes.map(slotOfWrite));
   const read = group.producers.flatMap((branch) =>
     branchReads(atLaunch, launch, branch, provenance),
   );
-  return [...new Set(read)].filter((slot) => !isAboutWritten(atLaunch, slot, written)).sort();
+  return [...new Set(read)].sort();
 }
 
 interface Written {
@@ -133,7 +125,7 @@ function joinWrites(
 }
 
 /**
- * The settled answers of a failed launch on its `.onJoinError(…)` side path (#945): each branch
+ * The settled answers of a failed launch on its `.onError(…)` side path (#945): each branch
  * output is one optional slot (it may have answered or not) — never one scope per subset —, a
  * list the finished items' list. A slot the scope holds already stays as it is.
  */
@@ -142,7 +134,7 @@ function settledAnswers(step: OutdatingStep, groups: readonly JoinGroup[]): Outd
   for (const group of groups) {
     if (group.shape === undefined) continue;
     const { slot, producers } = group;
-    const base = { producers: [...producers], builtFrom: [], about: [] };
+    const base = { producers: [...producers], builtFrom: [] };
     if (group.isSeveral) next.set(slot, { ...base, status: SlotStatus.Current, count: SEVERAL });
     else if (next.get(slot)?.status !== SlotStatus.Current)
       next.set(slot, { ...base, status: SlotStatus.Maybe, count: 1 });
@@ -166,7 +158,7 @@ export function stepOf(
   return launched.flatMap((step) => joinWrites(step, join, provenance));
 }
 
-/** Every value a join writes, with the branches that give it (`[flow.unused-output]`, `{ about }`). */
+/** Every value a join writes, with the branches that give it (`[flow.unused-output]`). */
 export interface JoinValueWrite {
   readonly edge: FlowEdge;
   readonly write: ValueWrite;

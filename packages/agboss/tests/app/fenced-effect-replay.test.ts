@@ -5,7 +5,7 @@
  * the first receipt. Two calls on one key in one step run the write once.
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { ExecutionLeaseLostError, FencedEffectStatus } from "../../src/index.js";
+import { ExecutionLeaseLostError, IdempotencyRunStatus } from "../../src/index.js";
 import { TestConcurrency, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -47,7 +47,7 @@ describe("#500 AC1: one call charges once", () => {
 
     expect(result.output).toEqual({ chargeId: "charge-order-7-1" });
     expect(book.charges).toEqual([{ order: "order-7", token: 1, chargeId: "charge-order-7-1" }]);
-    expect(book.runs).toEqual([{ token: 1, status: FencedEffectStatus.Ran }]);
+    expect(book.runs).toEqual([{ token: 1, status: IdempotencyRunStatus.Ran }]);
   });
 
   two(
@@ -68,8 +68,8 @@ describe("#500 AC1: one call charges once", () => {
 
       expect(book.charges).toEqual([{ order: "order-7", token: 1, chargeId: "charge-order-7-1" }]);
       expect(book.runs).toEqual([
-        { token: 1, status: FencedEffectStatus.Ran },
-        { token: 2, status: FencedEffectStatus.Replayed },
+        { token: 1, status: IdempotencyRunStatus.Ran },
+        { token: 2, status: IdempotencyRunStatus.Replayed },
       ]);
       expect(end?.output).toEqual({ chargeId: "charge-order-7-1" });
 
@@ -93,8 +93,8 @@ describe("#500 AC3: two calls on one key in one step", () => {
       expect(result.output).toEqual({ chargeId: "order-8" });
       expect(book.charges).toHaveLength(1);
       expect(book.runs.map((run) => run.status)).toEqual([
-        FencedEffectStatus.Ran,
-        FencedEffectStatus.Joined,
+        IdempotencyRunStatus.Ran,
+        IdempotencyRunStatus.Joined,
       ]);
     },
   );

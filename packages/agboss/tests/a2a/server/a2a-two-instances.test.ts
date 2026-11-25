@@ -27,12 +27,12 @@ import {
   seen,
   Step,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "../fixtures/task.application.js";
 import { eventually, rpc, text, userMessage, type RpcAnswer } from "./rpc.js";
 
 const two = testWith(OrdersApplication, { instances: 2, allowNetwork: ["127.0.0.1"] });
-const listener = { expose: OrdersA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { endpoint: OrdersA2AExpose, authenticator: BearerAuthenticator };
 const done = replyWith(ReceiptDto, { text: "Done." });
 const goNow = (messageId: string) => ({
   message: userMessage(messageId, [text("go")]),

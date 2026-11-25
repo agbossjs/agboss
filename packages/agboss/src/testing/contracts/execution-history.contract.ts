@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { buildCostReport } from "../../finops/usage.js";
+import { CostReport } from "../../finops/usage.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import {
   ExecutionHistoryStatus,
@@ -18,7 +18,7 @@ const recordOf = (
   path: ["desk-workflow-start", "desk-agent", "desk-workflow-finish"],
   scope: [],
   outdatedValues: [],
-  spend: buildCostReport([]),
+  spend: CostReport.fromUsage([]),
   children: [],
   pauses: [],
   compensations: [],
@@ -50,7 +50,7 @@ const DAY = {
   from: new Date("2026-01-05T00:00:00.000Z"),
   to: new Date("2026-01-06T00:00:00.000Z"),
 };
-const ALL = { offset: 0, limit: 100 };
+const ALL = { limit: 100 };
 
 const idsOf = (records: readonly ExecutionHistoryRecord[]): string[] =>
   records.map((record) => record.executionId);
@@ -92,15 +92,30 @@ const HISTORY_CASES: readonly ContractCase<ExecutionHistoryRepository>[] = [
       );
       await first.save(recordOf("e4", { startedAt: "2026-01-06T00:00:00.000Z" }));
 
-      const all = await second.findAllByStartedAtBetween(DAY.from, DAY.to, ALL);
-      const page = await second.findAllByStartedAtBetween(DAY.from, DAY.to, {
-        offset: 1,
+      const all = await second.findAllByStartedAtBetween({ ...DAY, ...ALL });
+      const first1 = await second.findAllByStartedAtBetween({ ...DAY, limit: 1 });
+      const page = await second.findAllByStartedAtBetween({
+        ...DAY,
         limit: 1,
+        cursor: first1.nextCursor,
       });
-      const acme = await second.findAllByTenantIdAndStartedAtBetween("acme", DAY.from, DAY.to, ALL);
-      expect(idsOf(all)).toEqual(["e1", "e3", "e2"]);
-      expect(idsOf(page)).toEqual(["e3"]);
-      expect(idsOf(acme)).toEqual(["e1", "e2"]);
+      const last = await second.findAllByStartedAtBetween({
+        ...DAY,
+        limit: 1,
+        cursor: page.nextCursor,
+      });
+      const acme = await second.findAllByTenantIdAndStartedAtBetween({
+        tenantId: "acme",
+        ...DAY,
+        ...ALL,
+      });
+      expect(idsOf(all.items)).toEqual(["e1", "e3", "e2"]);
+      expect(all.nextCursor).toBeUndefined();
+      expect(idsOf(first1.items)).toEqual(["e1"]);
+      expect(idsOf(page.items)).toEqual(["e3"]);
+      expect(idsOf(last.items)).toEqual(["e2"]);
+      expect(last.nextCursor).toBeUndefined();
+      expect(idsOf(acme.items)).toEqual(["e1", "e2"]);
     },
   },
   {
@@ -123,7 +138,7 @@ const HISTORY_CASES: readonly ContractCase<ExecutionHistoryRepository>[] = [
       await first.save(recordOf("e2", { endedAt: "2026-01-05T12:00:00.000Z" }));
       await first.save(recordOf("e3", { status: ExecutionHistoryStatus.Paused }));
 
-      await second.deleteByEndedAtBefore(new Date("2026-01-05T10:00:00.000Z"));
+      await second.deleteExpired(new Date("2026-01-05T10:00:00.000Z"));
 
       expect(idsOf(await first.findAllByTenantIdAndThreadId("acme", "thread-1"))).toEqual([
         "e2",

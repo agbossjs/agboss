@@ -3,11 +3,12 @@ import { z } from "zod";
 import { describeWorkflow } from "../src/describe/describe-workflow.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
 import { defineTool } from "../src/tools/index.js";
-import { resolveTools, type AssembledWorkflow } from "../src/workflow.js";
+import { type AssembledWorkflow } from "../src/workflow.js";
 import { Greetings } from "./components/fixture/components.js";
 import { TestWorkflow } from "./fixtures/test-workflow/test.workflow.js";
 import { HistoryOfferWorkflow } from "./flow/fixtures/history.fixture.js";
 import { PolishWorkflow, StoryWorkflow } from "./flow/fixtures/review.fixture.js";
+import { resolveTools } from "../src/workflow.js";
 
 const test = await workflowOf(TestWorkflow);
 const greetings = await workflowOf(Greetings);
@@ -26,9 +27,9 @@ describe("describe a workflow", () => {
     const lines = after(describeWorkflow(greetings), "  greeter-agent  ");
 
     expect(
-      lines.some((l) => l.includes("· greet-tool (local) ← Greeter (GREETING, ROUTER_FACTORY)")),
+      lines.some((l) => l.includes("· greet-tool (local) ← Greeter (GREETING, DecisionModel)")),
     ).toBe(true);
-    expect(lines.some((l) => l.includes("· read-file-tool (MCP files)"))).toBe(true);
+    expect(lines.some((l) => l.includes("· read-file-tool (local)"))).toBe(true);
     expect(after(describeWorkflow(test), "  coder-agent  ")).toContain("    tools: none");
   });
 
@@ -39,18 +40,18 @@ describe("describe a workflow", () => {
     const paused: AssembledWorkflow = {
       ...greetings,
       tools: [
-        { ...resolvedGreetingsTools[0], channel: "terminal-user-channel" },
+        { ...resolvedGreetingsTools[0], approval: "terminal-tool-approval" },
         ...resolvedGreetingsTools.slice(1),
       ],
     };
 
     expect(
       describeWorkflow(paused).some((l) =>
-        l.includes("· greet-tool (channel:terminal-user-channel, local, uses channel)"),
+        l.includes("· greet-tool (approval:terminal-tool-approval, local, waits for approval)"),
       ),
     ).toBe(true);
     expect(describeWorkflow(paused)).toContain(
-      "pause     on — tools with channel wait for external signal",
+      "pause     on — tools with an approval wait for external signal",
     );
   });
 
@@ -80,13 +81,13 @@ describe("describe a workflow", () => {
     const limits = lines.indexOf("limits");
     expect(lines.slice(limits, limits + 8)).toEqual([
       "limits",
-      "  maxSteps 9 (default: (agents + routers) × 3) · steps 1–2",
+      "  maxSteps 9 (default: (agents + routers + actions + external tasks) × 3) · steps 1–2",
       "  maxVisits main-router 10",
       "  Worst case of one chat-workflow-start call",
-      "    workflow executions     1  1 test-workflow",
-      "    at the same time        1  1 test-workflow",
-      "    agent and router steps  2  2 in test-workflow (longest path)",
-      "    nesting depth           1  test-workflow",
+      "    workflow executions  1  1 test-workflow",
+      "    at the same time     1  1 test-workflow",
+      "    steps                2  2 in test-workflow (longest path)",
+      "    nesting depth        1  test-workflow",
     ]);
     expect(describeWorkflow(test, "fast")[0]).toMatch(
       /^test-workflow 1\.0\.0 \(profile fast\) · config [0-9a-f]{8}$/,
@@ -100,16 +101,13 @@ describe("describe a workflow", () => {
 
     expect(section("flow", "inputs")).toEqual([
       "flow",
-      "  start(TestChat)",
-      "    .returns(WorkflowStartTextDto)",
+      "  onStart(TestChat)",
       "    .toRouter(MainRouter)",
-      "    .chooseOne(",
-      "      route(NoAnswer),",
-      "      route(Researcher)",
-      "        .toFinish(TestAnswer),",
-      "      route(Coder)",
-      "        .toFinish(TestAnswer)",
-      "    )",
+      "    .onRoute(toFinish(NoAnswer))",
+      "    .onRoute(toAgent(Researcher)",
+      "      .toFinish(TestAnswer))",
+      "    .onRoute(toAgent(Coder)",
+      "      .toFinish(TestAnswer))",
     ]);
     expect(section("inputs", "routers")).toEqual([
       "inputs",
@@ -119,39 +117,22 @@ describe("describe a workflow", () => {
     ]);
   });
 
-  it("#271 M2, #299: each value written { about }, in the flow too, and each field's producers", () => {
+  it("#271 M2, #1277: each field's producers, the flow as written; no about section", () => {
     const lines = describeWorkflow(story);
-    const section = (name: string, next: string): string[] =>
-      lines.slice(lines.indexOf(name), lines.indexOf(next));
 
-    expect(section("about", "routers")).toEqual([
-      "about",
-      "  story-reviewer-agent → ApprovalDto { about: DraftDto }",
-      "  story-reviewer-agent → DraftChangesDto { about: DraftDto }",
-    ]);
-    expect(lines).toEqual(
-      expect.arrayContaining([
-        "    .returns(oneOf(ApprovalDto, DraftChangesDto))",
-        "      caseOf(DraftChangesDto, { about: DraftDto })",
-      ]),
-    );
+    expect(lines).not.toContain("about");
+    expect(lines).toEqual(expect.arrayContaining(["    .toOneOf(["]));
     expect(lines).toContain(
       "  publisher-agent ← draft: story-writer-agent, approval: story-reviewer-agent",
     );
-    expect(describeWorkflow(polish)).toEqual(
-      expect.arrayContaining([
-        "  critique-action → listOf(CritiqueDto) { about: DraftDto }",
-        "    .returns(listOf(CritiqueDto), { about: DraftDto })",
-      ]),
-    );
-    expect(describeWorkflow(test)).not.toContain("about");
+    expect(describeWorkflow(polish)).toEqual(expect.arrayContaining(["flow"]));
   });
 
-  it("#299 S56: a historyOf field says so, with its limit", () => {
+  it("#299 S56: a historyOf field says so, with its maxPrevious", () => {
     expect(describeWorkflow(history)).toEqual(
       expect.arrayContaining([
-        "  review-draft-action ← draft: draft-editor-agent | first-draft-agent (latest, historyOf, limit 2)",
-        "  draft-history-workflow-finish ← drafts: draft-editor-agent | first-draft-agent (latest, historyOf)",
+        "  review-draft-action ← draft: draft-editor-agent | first-draft-agent (latest, historyOf, maxPrevious 2)",
+        "  draft-history-action ← drafts: draft-editor-agent | first-draft-agent (latest, historyOf)",
       ]),
     );
   });

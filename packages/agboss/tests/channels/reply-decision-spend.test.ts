@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: what a decision-model reply interpreter cost — the masking of the reply and the decision call are both in
  * the reading's usage, whether the model answered yes / no or gave no answer, so the ledger holds each paid call.
@@ -8,10 +9,11 @@ import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage
 import type { DecisionOutcome } from "../../src/llm/decision-response.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -39,7 +41,7 @@ describe("#1366: the usage of a decision interpreter's reading", () => {
     const read = await readByDecision(
       interpreter as never,
       input,
-      siteAnswering({ approved: { type: "noul", noul: 0.9 } }),
+      siteAnswering({ approved: { type: "boolean", probability: 0.9 } }),
     );
 
     expect(read).toMatchObject({ kind: "answered", answer: { approved: true } });

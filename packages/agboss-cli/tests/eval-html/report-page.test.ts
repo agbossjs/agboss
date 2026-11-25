@@ -5,10 +5,11 @@
  */
 import { createHash } from "node:crypto";
 import { ComponentKind } from "@agboss/core";
-import { CheckStatus } from "@agboss/core/eval";
+import { CheckStatus, EvalCheckKind } from "@agboss/core/eval";
 import { describe, expect, it } from "vitest";
 import { renderEvalReportPage } from "../../src/eval/html/report-page.js";
 import { artifactOf, caseOf, REFUNDS_ARTIFACT } from "./artifacts.js";
+import { usd } from "@agboss/core/units";
 
 const PAGE = renderEvalReportPage(REFUNDS_ARTIFACT);
 
@@ -51,7 +52,7 @@ describe("#397 PR 1: the HTML report of a run artifact", () => {
   it("a version 3 artifact's header (#397 PR 3): profile, AGBoss, masking policies, models", () => {
     const page = renderEvalReportPage({
       ...REFUNDS_ARTIFACT,
-      schemaVersion: 3,
+      schemaVersion: 5,
       profile: "cheaper",
       agbossVersion: "0.1.0",
       piiPolicies: ["contact-pii-policy"],
@@ -161,13 +162,16 @@ describe("#397 PR 1: the HTML report of a run artifact", () => {
           checks: [
             {
               check: "<b>judge</b>",
+              kind: EvalCheckKind.Judge,
               status: CheckStatus.Failed,
               reason: "</script><script>alert(2)</script>",
               metrics: { "<i>": "'quoted'" },
             },
           ],
           error: { code: "x", message: "a <br> & b" },
-          spentUsd: 0,
+          executionUsd: usd(0),
+          judgeUsd: usd(0),
+          totalUsd: usd(0),
         },
       ]),
     ]);

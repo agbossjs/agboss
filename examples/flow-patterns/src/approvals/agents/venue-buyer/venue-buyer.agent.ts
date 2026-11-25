@@ -7,7 +7,7 @@ import { PlacePurchaseTool } from "../../tools/place-purchase.tool.js";
 @Agent({
   name: "venue-buyer-agent",
   description: "Books the venue",
-  promptUrls: ["./venue-buyer.prompt.md"],
+  prompt: "./venue-buyer.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     request: WorkflowStartTextDto,

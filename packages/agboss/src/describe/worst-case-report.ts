@@ -8,7 +8,7 @@ import type { WorstCase, WorstCaseChild } from "../flow/analyse/worst-case.js";
  * Worst case of one screening-workflow-start call
  *   workflow executions     51   1 screening-workflow + 50 company-check-workflow (maxItems 50)
  *   at the same time        5    1 screening-workflow + 4 company-check-workflow (maxConcurrency 4)
- *   agent and router steps  512  12 in screening-workflow (maxSteps) + 50 × 10 in company-check-workflow (maxSteps)
+ *   steps  512  12 in screening-workflow (maxSteps) + 50 × 10 in company-check-workflow (maxSteps)
  *   nesting depth           2    screening-workflow → company-check-workflow
  * ```
  */
@@ -17,7 +17,7 @@ import type { WorstCase, WorstCaseChild } from "../flow/analyse/worst-case.js";
 export enum WorstCaseMeasure {
   Executions = "workflow executions",
   ConcurrentExecutions = "at the same time",
-  Steps = "agent and router steps",
+  Steps = "steps",
   Depth = "nesting depth",
 }
 
@@ -127,16 +127,16 @@ function depthText(worst: WorstCase, maxDepth: number | undefined): string {
 
 /** What the root workflow's limits add to the report. */
 export interface WorstCaseLimits {
-  /** `@Workflow({ maxConcurrentExecutions })` of the root: how many of the tree work at once (#264). */
-  readonly maxConcurrentExecutions: number;
-  /** `@Workflow({ maxDepth })` of a recursive root. */
+  /** `@Workflow({ executionLimits: { maxConcurrency } })` of the root: how many of the tree work at once (#264). */
+  readonly maxConcurrency: number;
+  /** `@Workflow({ executionLimits: { maxDepth } })` of a recursive root. */
   readonly maxDepth?: number;
 }
 
-/** `— at most 4 at work at once (maxConcurrentExecutions 4)` when the tree's cap is lower. */
+/** `— at most 4 at work at once (maxConcurrency 4)` when the tree's cap is lower. */
 const atWorkText = (worst: WorstCase, limits: WorstCaseLimits): string =>
-  worst.children.length > 0 && limits.maxConcurrentExecutions < worst.concurrentExecutions
-    ? ` — at most ${String(limits.maxConcurrentExecutions)} at work at once (maxConcurrentExecutions ${String(limits.maxConcurrentExecutions)})`
+  worst.children.length > 0 && limits.maxConcurrency < worst.concurrentExecutions
+    ? ` — at most ${String(limits.maxConcurrency)} at work at once (maxConcurrency ${String(limits.maxConcurrency)})`
     : "";
 
 /** The four rows of one start's worst case. */

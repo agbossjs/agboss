@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the approval of a tool call at the loop's approval step, each rule on its own over
  * fakes: the interpreter's spend of a free-text reply is the loop's spend from now on (#267 PR 3), what the approver
@@ -27,10 +28,11 @@ vi.mock("../../src/flow/context/frame.js", async (original) => ({
 }));
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -41,6 +43,7 @@ const stateOf = () =>
     from: { usage: 1 },
     flowPath: ["a"],
     toolLoopIteration: 0,
+    prepared: { c1: { kind: "ready", args: { to: "x" }, shown: { to: "x" }, from: "model" } },
   }) as never;
 
 const call = { callId: "c1", tool: "write-tool", args: { to: "x" } };
@@ -53,7 +56,7 @@ function setup(options: { tool?: object | undefined; approval?: object | undefin
       usage: [record(0.25, "interpreter")],
     }),
   );
-  const tool = "tool" in options ? options.tool : { name: "write-tool", channel: "ch", input: {} };
+  const tool = "tool" in options ? options.tool : { name: "write-tool", approval: "ch", input: {} };
   const approval = "approval" in options ? options.approval : { requestApproval };
   const deps = {
     agent: { name: "alpha", tools: tool === undefined ? [] : [tool] },
@@ -91,20 +94,39 @@ describe("#1366: the spend of an approval", () => {
     expect(signal).toBeInstanceOf(AbortSignal);
   });
 
+  it("#1295c: the approver is shown the call's arguments as they were prepared (masked), never the model's own", async () => {
+    const { node, requestApproval } = setup();
+    const masked = {
+      ...(stateOf() as object),
+      prepared: {
+        c1: { kind: "ready", args: { to: "alice@example.com" }, shown: { to: "<email:7f3a91>" } },
+      },
+    } as never;
+    vi.mocked(awaitingApproval).mockReturnValue([
+      { ...call, args: { to: "alice@example.com" } },
+    ] as never);
+
+    await node(masked, undefined);
+
+    const [ask] = requestApproval.mock.calls[0] ?? [];
+    expect(ask).toMatchObject({ arguments: { to: "<email:7f3a91>" } });
+    expect(JSON.stringify(ask)).not.toContain("alice@example.com");
+  });
+
   it("the reason and the arguments the approver gave are kept, and nothing the approver did not give", async () => {
     const { node, requestApproval } = setup();
     requestApproval.mockResolvedValue({
       approved: true,
       by: "boss",
       reason: "fine",
-      overrideArguments: { to: "y" },
+      overrideInput: { to: "y" },
       usage: [],
     });
 
     const out = await node(stateOf(), undefined);
 
     expect(out.decisions).toEqual({
-      c1: { approved: true, by: "boss", reason: "fine", overrideArguments: { to: "y" } },
+      c1: { approved: true, by: "boss", reason: "fine", overrideInput: { to: "y" } },
     });
     expect(out.usage).toEqual([]);
   });

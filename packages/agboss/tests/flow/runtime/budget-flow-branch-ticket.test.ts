@@ -88,7 +88,7 @@ describe("#1366: the item of a per-item run", () => {
     class OtherDto {
       readonly other = true;
     }
-    const several = launchOf(listOf(oneOf(CompanyDto, OtherDto)));
+    const several = launchOf(listOf(CompanyDto, OtherDto));
     const withList = {
       ...(state as object),
       scope: {

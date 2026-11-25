@@ -27,7 +27,7 @@ const near = testWith(ChainChargeApplication);
 
 describe("#1150 AC3: a child's outbound call under its chain", () => {
   near(
-    "AC3: a ParentInstance child's stored request is masked by its root's policy too",
+    "AC3: a CurrentProcess child's stored request is masked by its root's policy too",
     async ({ app }) => {
       await execute(app, ChainNearChargeStart, { text: "order-7 alice@example.com" });
 
@@ -42,7 +42,7 @@ describe("#1150 AC3: a child's outbound call under its chain", () => {
 
 const far = testWith(ChainChargeApplication, { instances: 2 });
 
-describe("#1150 AC4: an AnyInstance child's outbound call on another instance", () => {
+describe("#1150 AC4: an AnyWorker child's outbound call on another instance", () => {
   far("AC4: stored masked by the chain whose names its launch carried", async ({ apps }) => {
     const [a, b] = apps;
     if (a === undefined || b === undefined) throw new Error("two instances");

@@ -13,7 +13,8 @@ import { sqliteFaultTarget } from "./sqlite-target.js";
 /**
  * #1191 — a run waits for every pause its notice invariant checks, not only those a rest listed. The
  * replacement of a reassignment (scenario 28) is created while the tree rests: no pass lists it,
- * only the tree's record does, and its `closed` notice was once not waited for.
+ * only the tree's record does, and its `closed` notice was once not waited for. A listener hears the move
+ * itself as one `reassigned` of the replacement (#1307d), where it heard `opened` of it.
  */
 describe("#1191: the run waits for a reassignment replacement's closed notice", () => {
   const DELAY = seconds(2);
@@ -21,6 +22,7 @@ describe("#1191: the run waits for a reassignment replacement's closed notice", 
   it("the replacement's closed notice held 2 s on pod b's delivery: the run waits and is green", async () => {
     const started = systemClock.now().getTime();
     let released: number | undefined;
+    let replacementKey: string | undefined;
     let holdFailure: unknown;
     const delayed = {
       ...s28ReassignKill,
@@ -33,9 +35,11 @@ describe("#1191: the run waits for a reassignment replacement's closed notice", 
           .then(async (sent) => {
             const newId = String(sent.pauseId);
             const key = pauseKeyOf("default", newId);
+            replacementKey = key;
+            // a listener hears a move to another channel as one `reassigned` of the replacement (#1307d)
             await cluster.next(
-              "the replacement told opened",
-              (e) => e.type === "pause-notice" && e.notice === "opened" && e.pauseKey === key,
+              "the replacement told reassigned",
+              (e) => e.type === "pause-notice" && e.notice === "reassigned" && e.pauseKey === key,
             );
             const b = cluster.pods.find((pod) => pod.name === "b");
             if (b === undefined) throw new Error("no pod b");
@@ -65,9 +69,12 @@ describe("#1191: the run waits for a reassignment replacement's closed notice", 
     expect(holdFailure, String(holdFailure)).toBeUndefined();
     expect(released, "the hold was released").toBeDefined();
     const closed = run.events.filter(
-      (event) => event.type === "pause-notice" && event.notice === "closed",
+      (event) =>
+        event.type === "pause-notice" &&
+        event.notice === "closed" &&
+        event.pauseKey === replacementKey,
     );
-    expect(closed.length).toBeGreaterThan(1);
+    expect(closed.length).toBeGreaterThan(0);
     expect(systemClock.now().getTime() - started).toBeGreaterThanOrEqual(DELAY);
   }, 240_000);
 });

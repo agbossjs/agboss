@@ -3,23 +3,22 @@
  * allowed cities, a company lookup (local and over MCP), a ping tool whose interceptor misbehaves on
  * request. Every interceptor writes what it saw to `interceptorLog`, in order.
  */
+import { McpTransport } from "../../src/config/mcp-server-config.js";
 import {
   ExecutionContext,
   TenantContext,
   Tool,
   ToolCallDecision,
   ToolInterceptor,
-  type AfterToolCall,
-  type BeforeToolCall,
+  BeforeTool,
   type ToolCallContext,
   type ToolCallResultContext,
-  type ToolHandler,
 } from "../../src/index.js";
-import { ListOf, Text } from "../../src/dto/index.js";
-import { McpServer, McpServerClient, McpTool } from "../../src/mcp/index.js";
+import { List, Text } from "../../src/dto/index.js";
+import { McpServer, McpServerClient } from "../../src/mcp/index.js";
 
 export class JobScoutTenantContext extends TenantContext {
-  @ListOf(Text)
+  @List(Text)
   allowedCities!: string[];
 }
 
@@ -82,10 +81,10 @@ const isRecordWith = (value: unknown, key: string): value is Record<string, unkn
   description: "Writes every tool call to the audit log",
   deps: [ExecutionContext],
 })
-export class AuditToolInterceptor implements BeforeToolCall, AfterToolCall {
+export class AuditToolInterceptor {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+  beforeAnyTool(call: ToolCallContext): ToolCallDecision {
     const { idempotencyKey } = this.executionContext.step;
     interceptorLog.push({
       by: "audit:before",
@@ -96,7 +95,7 @@ export class AuditToolInterceptor implements BeforeToolCall, AfterToolCall {
     return ToolCallDecision.allow();
   }
 
-  afterToolCall(call: ToolCallResultContext): unknown {
+  afterAnyTool(call: ToolCallResultContext): unknown {
     interceptorLog.push({
       by: "audit:after",
       tool: call.tool.name,
@@ -107,44 +106,16 @@ export class AuditToolInterceptor implements BeforeToolCall, AfterToolCall {
   }
 }
 
-/** The issue's example (the workflow's): a city outside the tenant's goes back to the model. */
-@ToolInterceptor({
-  name: "tenant-scope-tool-interceptor",
-  description: "Checks that tool arguments respect the tenant's allowed cities",
-  deps: [JobScoutTenantContext],
-})
-export class TenantScopeToolInterceptor implements BeforeToolCall {
-  constructor(private readonly jobScoutTenantContext: JobScoutTenantContext) {}
-
-  beforeToolCall(call: ToolCallContext): Promise<ToolCallDecision> {
-    interceptorLog.push({ by: "scope:before", tool: call.tool.name, input: call.input });
-    if (
-      typeof call.input === "object" &&
-      call.input !== null &&
-      "city" in call.input &&
-      typeof call.input.city === "string" &&
-      !this.jobScoutTenantContext.allowedCities.includes(call.input.city)
-    ) {
-      return Promise.resolve(
-        ToolCallDecision.replyToModel({
-          message: `City "${call.input.city}" is not allowed for this tenant.`,
-        }),
-      );
-    }
-    return Promise.resolve(ToolCallDecision.allow());
-  }
-}
-
 /** On the company tools: a sanctioned company is blocked — the step fails. */
 @ToolInterceptor({
   name: "company-block-tool-interceptor",
   description: "Blocks lookups of sanctioned companies",
 })
-export class CompanyBlockToolInterceptor implements BeforeToolCall {
-  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+export class CompanyBlockToolInterceptor {
+  beforeAnyTool(call: ToolCallContext): ToolCallDecision {
     interceptorLog.push({ by: "block:before", tool: call.tool.name, input: call.input });
     return isRecordWith(call.input, "company") && call.input.company === "evil-corp"
-      ? ToolCallDecision.block({ reason: "evil-corp is sanctioned" })
+      ? ToolCallDecision.block("evil-corp is sanctioned")
       : ToolCallDecision.allow();
   }
 }
@@ -154,8 +125,8 @@ export class CompanyBlockToolInterceptor implements BeforeToolCall {
   name: "stamp-tool-interceptor",
   description: "Marks job listings as checked",
 })
-export class StampToolInterceptor implements AfterToolCall {
-  afterToolCall(call: ToolCallResultContext): unknown {
+export class StampToolInterceptor {
+  afterAnyTool(call: ToolCallResultContext): unknown {
     interceptorLog.push({
       by: "stamp:after",
       tool: call.tool.name,
@@ -172,8 +143,8 @@ export class StampToolInterceptor implements AfterToolCall {
   name: "moody-tool-interceptor",
   description: "Throws, decides nothing or answers the wrong shape when asked to",
 })
-export class MoodyToolInterceptor implements BeforeToolCall, AfterToolCall {
-  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+export class MoodyToolInterceptor {
+  beforeAnyTool(call: ToolCallContext): ToolCallDecision {
     const mode = isRecordWith(call.input, "mode") ? call.input.mode : undefined;
     if (mode === "throw") throw new ScopeServiceDownError("the scope service is down");
     // a project written without types: no decision at all
@@ -181,7 +152,7 @@ export class MoodyToolInterceptor implements BeforeToolCall, AfterToolCall {
     return ToolCallDecision.allow();
   }
 
-  afterToolCall(call: ToolCallResultContext): unknown {
+  afterAnyTool(call: ToolCallResultContext): unknown {
     const mode = isRecordWith(call.input, "mode") ? call.input.mode : undefined;
     if (mode === "big") return { text: "y ".repeat(2048) };
     return mode === "shape" ? { wrong: 1 } : call.output;
@@ -195,8 +166,8 @@ export class MoodyToolInterceptor implements BeforeToolCall, AfterToolCall {
   output: JobList,
   toolInterceptors: [StampToolInterceptor],
 })
-export class JobSearchTool implements ToolHandler<JobQuery, JobList> {
-  run({ city }: JobQuery): Promise<JobList> {
+export class JobSearchTool {
+  execute({ city }: JobQuery): Promise<JobList> {
     toolRuns.push(`job-search-tool:${city}`);
     return Promise.resolve({ listing: `Engineer in ${city}, write to hr@acme.com` });
   }
@@ -210,18 +181,39 @@ export class JobSearchTool implements ToolHandler<JobQuery, JobList> {
   toolInterceptors: [CompanyBlockToolInterceptor],
   excludeToolInterceptors: [AuditToolInterceptor],
 })
-export class CompanyTool implements ToolHandler<CompanyQuery, CompanyInfo> {
-  run({ company }: CompanyQuery): Promise<CompanyInfo> {
+export class CompanyTool {
+  execute({ company }: CompanyQuery): Promise<CompanyInfo> {
     toolRuns.push(`company-tool:${company}`);
     return Promise.resolve({ summary: `${company} builds things` });
   }
 }
 
 @Tool({ name: "ping-tool", description: "Answers pong", input: PingQuery, output: PingReply })
-export class PingTool implements ToolHandler<PingQuery, PingReply> {
-  run({ mode }: PingQuery): Promise<PingReply> {
+export class PingTool {
+  execute({ mode }: PingQuery): Promise<PingReply> {
     toolRuns.push(`ping-tool:${mode}`);
     return Promise.resolve({ text: "pong" });
+  }
+}
+
+/**
+ * The issue's example (the workflow's): a city outside the tenant's goes back to the model — one
+ * `@BeforeTool` method on the job search, the validated input in its hand.
+ */
+@ToolInterceptor({
+  name: "tenant-scope-tool-interceptor",
+  description: "Checks that tool arguments respect the tenant's allowed cities",
+  deps: [JobScoutTenantContext],
+})
+export class TenantScopeToolInterceptor {
+  constructor(private readonly jobScoutTenantContext: JobScoutTenantContext) {}
+
+  @BeforeTool(JobSearchTool)
+  cityInScope({ city }: JobQuery): ToolCallDecision {
+    interceptorLog.push({ by: "scope:before", tool: "job-search-tool", input: { city } });
+    return this.jobScoutTenantContext.allowedCities.includes(city)
+      ? ToolCallDecision.allow()
+      : ToolCallDecision.reply(`City "${city}" is not allowed for this tenant.`);
   }
 }
 
@@ -230,15 +222,14 @@ const boardTools = { lookup: { input: CompanyQuery, output: CompanyInfo } };
 /** A job board over MCP (stubbed in tests: `mcpOf(JobBoardServer)`). */
 @McpServer({
   name: "board",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: process.execPath,
   args: [],
   tools: boardTools,
 })
 export class JobBoardServer extends McpServerClient<typeof boardTools> {}
 
-@McpTool({
-  server: JobBoardServer,
+@Tool({
   name: "board-lookup-tool",
   description: "A company on the job board",
   input: CompanyQuery,
@@ -246,10 +237,10 @@ export class JobBoardServer extends McpServerClient<typeof boardTools> {}
   toolInterceptors: [CompanyBlockToolInterceptor],
   deps: [JobBoardServer],
 })
-export class BoardLookupTool implements ToolHandler<CompanyQuery, CompanyInfo> {
+export class BoardLookupTool {
   constructor(private readonly server: JobBoardServer) {}
 
-  run(query: CompanyQuery): Promise<CompanyInfo> {
+  execute(query: CompanyQuery): Promise<CompanyInfo> {
     return this.server.call("lookup", query);
   }
 }

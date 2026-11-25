@@ -14,7 +14,14 @@ import {
 } from "../../../src/infrastructure/a2a-task.repository.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
-import { callerOf, refusalOf, savedTask, scriptOf, unitParts } from "./support/unit-parts.js";
+import {
+  callerOf,
+  refusalOf,
+  savedTask,
+  scriptOf,
+  UNIT_ENDPOINT,
+  unitParts,
+} from "./support/unit-parts.js";
 
 const request = (fields: Partial<ListTasksRequest> = {}): ListTasksRequest => ({
   tenant: "",
@@ -68,8 +75,9 @@ describe("#824: ListTasks", () => {
 
     expect(none).toEqual({ tasks: [], nextPageToken: "next", pageSize: 50, totalSize: 7 });
     expect(queries).toStrictEqual([
-      { tenantId: "acme", ownerId: "dana", pageSize: 50, pageToken: "" },
+      { endpoint: UNIT_ENDPOINT, tenantId: "acme", ownerId: "dana", pageSize: 50, pageToken: "" },
       {
+        endpoint: UNIT_ENDPOINT,
         tenantId: "acme",
         ownerId: "dana",
         contextId: "ctx-1",

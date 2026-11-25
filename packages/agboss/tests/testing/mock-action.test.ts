@@ -41,9 +41,7 @@ describe("AC9: mockAction(A) runs the real action and records its calls", () => 
     const result = await app.execute(OrderWorkflowStart, { orderId: "7" });
 
     expect(result).toFinishWith(OrderWorkflowFinish, { trackingNumber: "track-7" });
-    expect(mockAction(ReserveStockAction).inputs).toMatchObject([
-      { order: { value: { orderId: "7" } } },
-    ]);
+    expect(mockAction(ReserveStockAction).inputs).toMatchObject([{ order: { orderId: "7" } }]);
     expect(mockAction(ReserveStockAction)).toHaveBeenCalledWith({ order: { orderId: "7" } });
     expect(mockAction(ReserveStockAction)).toHaveBeenCalledTimes(1);
     expect(mockAction(ReserveStockAction)).toHaveReturned(StockReservationDto, {

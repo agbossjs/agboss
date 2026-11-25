@@ -14,6 +14,7 @@ import {
   ConfigurationError,
   ModelCost,
   ModelProvider,
+  OpenAiCompatibleDriver,
   RetryPolicy,
   type ModelCapabilities,
   type ModelProviderHandler,
@@ -30,18 +31,25 @@ import {
   ScriptedBedrockClient,
 } from "./bedrock-provider.fixture.js";
 import { transportApp } from "./transport-app.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 const transport = {
   description: "A transport",
-  serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 1, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 1,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 };
 
-// @ts-expect-error -- a transport (complete) with a base URL: both modes at once
-@ModelProvider({ ...transport, name: "both-model-provider", baseUrl: "http://both.test/v1" })
+// a transport (complete) with a driver: both modes at once
+@ModelProvider({
+  ...transport,
+  name: "both-model-provider",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://both.test/v1" }),
+})
 class BothModelProvider implements ModelProviderHandler {
   complete(): Promise<ModelProviderResponse> {
     return Promise.resolve(answer("never"));
@@ -81,7 +89,7 @@ class ListingModelProvider implements ModelProviderHandler {
 }
 
 describe("#385: a transport provider at assembly, in describe and in configHash", () => {
-  it("[model-provider.both-modes]: complete(request) with a baseUrl fails the application's assembly", async () => {
+  it("[model-provider.both-modes]: complete(request) with a driver fails the application's assembly", async () => {
     const application = bedrockApplicationOn({
       name: "both-application",
       providers: [BothModelProvider],
@@ -91,7 +99,7 @@ describe("#385: a transport provider at assembly, in describe and in configHash"
 
     await expect(assembled).rejects.toBeInstanceOf(GraphRuleError);
     await expect(assembled).rejects.toThrow(
-      /\[model-provider\.both-modes\] both-model-provider \(BothModelProvider\) implements complete\(request\) and sets baseUrl/,
+      /\[model-provider\.both-modes\] both-model-provider \(BothModelProvider\) sets a driver and implements complete\(request\)/,
     );
   });
 
@@ -112,7 +120,7 @@ describe("#385: a transport provider at assembly, in describe and in configHash"
     if (workflow === undefined) throw new Error("a workflow");
 
     expect(applicationLines(describedApplicationOf(assembled))).toContain(
-      "  bedrock-model-provider → BedrockModelProvider (listed in @Application providers) · serves /^bedrock\\//" +
+      "  bedrock-model-provider → BedrockModelProvider (listed in @Application providers)" +
         " · transport: BedrockModelProvider.complete()",
     );
     expect(describeWorkflow(workflow)).toContain(

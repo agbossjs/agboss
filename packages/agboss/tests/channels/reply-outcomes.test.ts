@@ -1,16 +1,13 @@
 /**
  * #267 S124 (PR 4): (a) a decision model (Jev) reads a reply for an approval role — approve / refuse
- * only, one `Decision.noul("approved")` scripted with `decideWith({ approved: 0.9 })`, no `reason`,
- * no `overrideArguments`; (b) a code interpreter returns `ReplyInterpretation.understood(decision)` or
- * `ReplyInterpretation.notUnderstood({ reason })` — the latter is `UninterpretableReplyError` with
+ * only, one `Decision.boolean("approved")` scripted with `decideWith({ approved: 0.9 })`, no `reason`,
+ * no `overrideInput`; (b) a code interpreter returns `ChannelInterpretation.understood(decision)` or
+ * `ChannelInterpretation.notUnderstood({ reason })` — the latter is `UninterpretableReplyError` with
  * that reason and the pause stays pending; a throw is a crash (its error the cause); what is neither
  * does not compile, and at run time (a JS interpreter) is a crash too.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  ReplyInterpretation,
-  type ReplyInterpreterHandler,
-} from "../../src/channels/channel-role.decorator.js";
+import { ChannelInterpretation } from "../../src/channels/channel-interpreter.js";
 import { PauseStatus, UninterpretableReplyError } from "../../src/index.js";
 import { callTool, decideWith, replyWith, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
@@ -33,7 +30,7 @@ const test = testWith(TreasuryApplication);
 
 beforeEach(resetReplyDesk);
 
-const clerk = { answeredBy: "clerk-4" };
+const clerk = { actor: { id: "clerk-4" } };
 
 /** The clerk's only ask: its pause's id is the reply key. */
 function depositPauseId(): string {
@@ -43,7 +40,7 @@ function depositPauseId(): string {
 }
 
 describe("#267 S124 a: a decision model reads an approval's reply", () => {
-  test("P(yes) above one half approves: one Decision.noul about the question and the reply", async ({
+  test("P(yes) above one half approves: one Decision.boolean about the question and the reply", async ({
     app,
     mockLlm,
   }) => {
@@ -56,7 +53,7 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
 
     const done = await app.resume(
       { pauseId: depositPauseId(), reply: "sure, go ahead" },
-      { ...clerk, record: true },
+      { ...clerk, includeRecord: true },
     );
 
     expect(done).toFinishWith(TreasuryWorkflowFinish, { text: "Returned." });
@@ -66,12 +63,12 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
       state: expect.stringMatching(/"leaseId": "L-9"[\s\S]*### reply\n"sure, go ahead"/),
       questions: {
         approved: {
-          type: "noul",
+          type: "boolean",
           instructions: expect.stringContaining("The clerk answered a deposit return."),
         },
       },
     });
-    // approve / refuse only: no reason, no overrideArguments
+    // approve / refuse only: no reason, no overrideInput
     expect(done.record?.pauses).toMatchObject([{ decision: { approved: true } }]);
   });
 
@@ -88,7 +85,7 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
 
     const done = await app.resume(
       { pauseId: depositPauseId(), reply: "no, the flat is damaged" },
-      { ...clerk, record: true },
+      { ...clerk, includeRecord: true },
     );
 
     expect(done).toFinishWith(TreasuryWorkflowFinish, { text: "Not returned." });
@@ -167,8 +164,8 @@ describe("#267 S124 b: a code interpreter returns its outcome", () => {
     mockOf,
   }) => {
     mockOf(ExpenseReplyInterpreter).interpret.mockReturnValue(
-      // an untyped (JS) interpreter: overrideArguments without approved: true is not a decision
-      ReplyInterpretation.understood({ approved: false, overrideArguments: { purpose: "x" } }),
+      // an untyped (JS) interpreter: overrideInput without approved: true is not a decision
+      ChannelInterpretation.understood({ approved: false, overrideInput: { purpose: "x" } }),
     );
     mockLlm(TreasurerAgent).thenReturn(callTool(BookExpenseTool, { purpose: "lunch" }));
     const paused = await execute(app, TreasuryWorkflowStart, { text: "book lunch" });
@@ -198,13 +195,12 @@ describe("#267 S124 b: a code interpreter returns its outcome", () => {
   });
 
   it("a plain object, or a bare decision, does not compile as interpret's result", () => {
-    class PlainReader implements ReplyInterpreterHandler<ExpenseReplyInterpreter> {
-      // @ts-expect-error — interpret returns ReplyInterpretation.understood(…) / .notUnderstood(…)
+    class PlainReader {
       interpret(): { approved: boolean } {
         return { approved: true };
       }
     }
-    const notUnderstood = ReplyInterpretation.notUnderstood({ reason: "unclear" });
+    const notUnderstood = ChannelInterpretation.notUnderstood("unclear");
 
     expect(PlainReader.name).toBe("PlainReader");
     expect(notUnderstood).toEqual({ kind: "not-understood", reason: "unclear" });

@@ -17,6 +17,7 @@ import {
   resetFanOut,
   type ItemDto,
 } from "./fixtures/fan-out.workflow.js";
+import { ExecutionStatus } from "../../../src/app/types.js";
 
 /** #273 AC7, S20, S22: a failed branch cancels its siblings; the join takes it, or the execution fails. */
 
@@ -51,21 +52,20 @@ describe("AC7: FailFast", () => {
     },
   );
 
-  items(
-    "onJoinError by cause chain: the domain error inside ActionFailedError",
-    async ({ app }) => {
-      const result = await execute(app, ItemsWorkflowStart, [ok("a"), bad("b")], { record: true });
+  items("onError by cause chain: the domain error inside ActionFailedError", async ({ app }) => {
+    const result = await execute(app, ItemsWorkflowStart, [ok("a"), bad("b")], {
+      includeRecord: true,
+    });
 
-      expect(result).toFinishWith(ItemsFailedWorkflowFinish);
-      expect(result.record?.lastError).toMatchObject({
-        code: "step.action",
-        details: { nodeId: "process-item-action", itemIndex: 1, visitNumber: 1 },
-        cause: { code: "test.item-failed" },
-      });
-      const failed = result.launches[0]?.branches[1];
-      expect(failed).toMatchObject({ itemIndex: 1, status: BranchStatus.Failed });
-    },
-  );
+    expect(result).toFinishWith(ItemsFailedWorkflowFinish);
+    expect(result.record?.lastError).toMatchObject({
+      code: "step.action",
+      details: { nodeId: "process-item-action", itemIndex: 1, visitNumber: 1 },
+      cause: { code: "test.item-failed" },
+    });
+    const failed = result.launches[0]?.branches[1];
+    expect(failed).toMatchObject({ itemIndex: 1, status: BranchStatus.Failed });
+  });
 
   items("cancelled branches' spend still counted", async ({ app }) => {
     const result = await execute(app, ItemsWorkflowStart, [bad("x"), ok("slow", 500)]);
@@ -98,7 +98,7 @@ async function untilEvent(event: string): Promise<void> {
 
 describe("S21: a cancel of the execution is no branch outcome", () => {
   items(
-    "app.cancel during a launch aborts every branch and rejects: no join, no .onJoinError",
+    "app.cancel during a launch aborts every branch and rejects: no join, no .onError",
     async ({ app }) => {
       const run = execute(app, ItemsWorkflowStart, [ok("a", 500), ok("b", 500)]);
       run.catch(() => undefined);
@@ -106,7 +106,7 @@ describe("S21: a cancel of the execution is no branch outcome", () => {
 
       await app.cancel(fanOut.threads[0] ?? "");
 
-      await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+      await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
       expect(fanOut.events).toEqual(expect.arrayContaining(["aborted a", "aborted b"]));
     },
   );

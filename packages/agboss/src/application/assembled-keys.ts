@@ -2,6 +2,7 @@ import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import type { ApplicationOptions } from "./application.js";
 import type { AssembledApplication } from "./assemble.js";
+import { assembledStorageOf } from "../storage/storage-assembly.js";
 import { listedClassesOf } from "./application-rules.js";
 import { declaredKeysOf, type DeclaredKeys } from "./key-field-rules.js";
 
@@ -15,13 +16,9 @@ import { declaredKeysOf, type DeclaredKeys } from "./key-field-rules.js";
 export interface AssembledKeyFields {
   /** `@Application({ piiKeyField })` (#120, #825): the environment field of its PII key. */
   readonly piiKeyField?: string;
-  /** `@Application({ idempotencyKeyField })` (#825): the field of its business-key fingerprints' key. */
-  readonly idempotencyKeyField?: string;
-  /** `@Application({ previousIdempotencyKeyField })` (#825): the key it rotates from. */
-  readonly previousIdempotencyKeyField?: string;
   /**
-   * The other keys it declares, by field (#825): its model providers' `apiKey`s, the mesh's
-   * `signingKey`, the `Secret`s its listed classes read — what no key field may read the variable of.
+   * The other keys it declares, by field (#825): its model providers' `apiKey`s, the
+   * `Secret`s its listed classes read — what no key field may read the variable of.
    */
   readonly otherKeys?: DeclaredKeys;
 }
@@ -32,35 +29,28 @@ export interface AssembledKeyFields {
  */
 export const keyFieldsOf = (
   options: ApplicationOptions,
-): Pick<
-  AssembledApplication,
-  | "piiPolicies"
-  | "piiKeyField"
-  | "idempotencyKeyField"
-  | "previousIdempotencyKeyField"
-  | "otherKeys"
-> => ({
+): Pick<AssembledApplication, "piiPolicies" | "piiKeyField" | "otherKeys"> => ({
   piiPolicies: options.piiPolicies ?? [],
-  otherKeys: declaredKeysOf(options, listedClassesOf(options)),
+  otherKeys: declaredKeysOf(listedClassesOf(options)),
   ...(options.piiKeyField === undefined ? {} : { piiKeyField: options.piiKeyField }),
-  ...(options.idempotencyKeyField === undefined
-    ? {}
-    : { idempotencyKeyField: options.idempotencyKeyField }),
-  ...(options.previousIdempotencyKeyField === undefined
-    ? {}
-    : { previousIdempotencyKeyField: options.previousIdempotencyKeyField }),
 });
 
 /**
  * `[application.idempotency-key-required]` (#825): a component that can make a business key — it
- * reaches `OutboundCalls` or a fenced-effect store through its `deps` — in an application that names
- * no `idempotencyKeyField`: a business key's fingerprint is keyed by it, never an unkeyed digest.
+ * reaches `Idempotency` (`runOnce` / `sendOnce`) or a fenced-effect store through its `deps` — in an
+ * application whose `@DatabaseStorage` names no `idempotencySecret`, or that names no storage at
+ * all (a test's assembly, or one that runs no effect, excepted): a business key's fingerprint is
+ * keyed by it, never an unkeyed digest.
  */
 export function idempotencyKeyViolations(
   options: ApplicationOptions,
   workflows: readonly AssembledWorkflow[],
+  isExempt = false,
 ): RuleViolation[] {
-  if (options.idempotencyKeyField !== undefined) return [];
+  // no `@DatabaseStorage` is no secret either: the application fails at assembly, not at its first
+  // keyed call — a test's assembly gets the test's keys for the in-memory defaults
+  const database = assembledStorageOf(options.storage)?.database;
+  if (database === undefined ? isExempt : database.meta.idempotencySecret !== undefined) return [];
   const use = workflows.find(
     (workflow) => workflow.businessKeyWriter !== undefined,
   )?.businessKeyWriter;
@@ -69,7 +59,7 @@ export function idempotencyKeyViolations(
   return [
     violation(
       "application.idempotency-key-required",
-      `${use.component.name} ${reaches} can write under a business key, whose fingerprint is keyed by the application's idempotency key — name a Secret field of the environment: @Application({ idempotencyKeyField: "idempotencyKey" }) with idempotencyKey: secret("AGBOSS_IDEMPOTENCY_KEY")`,
+      `${use.component.name} ${reaches} can write under a business key, whose fingerprint is keyed by the application's idempotency key — ${database === undefined ? "declare a @DatabaseStorage and name" : "name"} the secret in @DatabaseStorage({ …, idempotencySecret: secret("AGBOSS_IDEMPOTENCY_SECRET") })`,
       [options.name],
     ),
   ];

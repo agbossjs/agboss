@@ -2,8 +2,8 @@ import { nameOf } from "../../components/name-of.js";
 import { judgeClassesOf } from "../../components/judge-parts.js";
 import { isCodeJudge } from "../../components/judge-decorators.js";
 import { normalisePromptText } from "../../components/prompt-render.js";
-import type { AssembledCompactions } from "../../compaction/assembly.js";
-import { CompactionStrategy } from "../../compaction/compaction.decorator.js";
+import type { AssembledMemories } from "../../memory/assembly.js";
+import { CompactionStrategy } from "../../memory/memory.decorator.js";
 import type { AssembledReplyInterpreter } from "../../channels/discovery.js";
 import type { AssembledGuardrails } from "../../guardrails/assembly.js";
 import type { AssembledPii } from "../../pii/assembly.js";
@@ -11,12 +11,11 @@ import { isCustomPolicy } from "../../pii/pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "../../pii/policy-checks.js";
 import { versionOf } from "../../turns/index.js";
 import type { ArbiterClass } from "../ast.js";
-import { arbiterOf, isCodeArbiter } from "../decorators/arbiter.js";
-import { DecidedBy } from "../decorators/router.js";
+import { arbiterOf, isDeclarativeArbiter } from "../decorators/arbiter.js";
 import { agentMetasOf } from "./agents.js";
 import type { RuntimeGraph } from "./graph-model.js";
 import { describedShapeOf, dtoSchemaHashOf } from "./join-keys.js";
-import { arbiterClassesOf } from "./launch/runtime-launch.js";
+import { arbiterClassesOf, type ModelArbiterUse } from "./launch/runtime-launch.js";
 import { ComponentKind, type ComponentRecord } from "./records.js";
 
 /**
@@ -33,9 +32,11 @@ import { ComponentKind, type ComponentRecord } from "./records.js";
 export interface ModelComponentSource {
   readonly graph: RuntimeGraph;
   readonly guardrails?: AssembledGuardrails | undefined;
-  readonly compactions?: AssembledCompactions | undefined;
+  readonly memories?: AssembledMemories | undefined;
   readonly replyInterpreters?: readonly AssembledReplyInterpreter[] | undefined;
   readonly pii?: AssembledPii | undefined;
+  /** The model arbiters with the prompts assembly read (#1347). */
+  readonly arbiters?: readonly ModelArbiterUse[] | undefined;
 }
 
 const recordOf = (
@@ -45,7 +46,7 @@ const recordOf = (
   schemaHash: string | undefined,
 ): ComponentRecord => ({ name, kind, promptHash, schemaHash });
 
-/** The model judges of the agents: the reply each judges. */
+/** The model judges of the agents: the output each judges. */
 const judgeRecordsOf = (graph: RuntimeGraph): ComponentRecord[] =>
   [...judgeClassesOf(agentMetasOf(graph)).values()].flatMap(({ meta }) =>
     isCodeJudge(meta)
@@ -55,26 +56,33 @@ const judgeRecordsOf = (graph: RuntimeGraph): ComponentRecord[] =>
             meta.name,
             ComponentKind.Judge,
             undefined,
-            versionOf(describedShapeOf(meta.reply)),
+            versionOf(describedShapeOf(meta.output)),
           ),
         ],
   );
 
 /** The hash of a model arbiter's texts — its prompt and each agent's criterion — as describe gives it. */
-export function arbiterPromptHashOf(arbiter: ArbiterClass): string | undefined {
+export function arbiterPromptHashOf(
+  arbiter: ArbiterClass,
+  uses: readonly ModelArbiterUse[] = [],
+): string | undefined {
   const options = arbiterOf(arbiter)?.options;
-  if (options === undefined || isCodeArbiter(options)) return undefined;
-  const criteria = options.criteria.map(({ agent, prompt }) => ({
-    agent: nameOf(agent),
+  if (options === undefined || !isDeclarativeArbiter(options)) return undefined;
+  const criteria = options.criteria.map(({ target, prompt }) => ({
+    target: nameOf(target),
     prompt: normalisePromptText(prompt),
   }));
-  return versionOf({ prompt: normalisePromptText(options.prompt), criteria });
+  const prompt = uses.find((use) => use.name === options.name)?.prompt ?? "";
+  return versionOf({ prompt: normalisePromptText(prompt), criteria });
 }
 
-const arbiterRecordsOf = (graph: RuntimeGraph): ComponentRecord[] =>
+const arbiterRecordsOf = (
+  graph: RuntimeGraph,
+  uses: readonly ModelArbiterUse[] | undefined,
+): ComponentRecord[] =>
   arbiterClassesOf(graph.launches).flatMap((arbiter) => {
     const name = arbiterOf(arbiter)?.options.name;
-    const promptHash = arbiterPromptHashOf(arbiter);
+    const promptHash = arbiterPromptHashOf(arbiter, uses);
     return name === undefined || promptHash === undefined
       ? []
       : [recordOf(name, ComponentKind.Arbiter, promptHash, undefined)];
@@ -82,7 +90,7 @@ const arbiterRecordsOf = (graph: RuntimeGraph): ComponentRecord[] =>
 
 const guardrailRecordsOf = (guardrails: AssembledGuardrails | undefined): ComponentRecord[] =>
   (guardrails?.guardrails ?? []).flatMap((guardrail) =>
-    guardrail.decidedBy === DecidedBy.Code
+    guardrail.kind === "code"
       ? []
       : [
           recordOf(
@@ -94,15 +102,15 @@ const guardrailRecordsOf = (guardrails: AssembledGuardrails | undefined): Compon
         ],
   );
 
-const compactionRecordsOf = (compactions: AssembledCompactions | undefined): ComponentRecord[] =>
-  (compactions?.compactions ?? []).flatMap((compaction) =>
-    compaction.strategy === CompactionStrategy.SummaryQueue ||
-    compaction.strategy === CompactionStrategy.SingleSummary
+const memoryRecordsOf = (memories: AssembledMemories | undefined): ComponentRecord[] =>
+  (memories?.memories ?? []).flatMap((memory) =>
+    memory.mode === CompactionStrategy.SummaryQueue ||
+    memory.mode === CompactionStrategy.SingleSummary
       ? [
           recordOf(
-            compaction.name,
-            ComponentKind.Compaction,
-            versionOf({ prompt: compaction.prompt, strategy: compaction.strategy }),
+            memory.name,
+            ComponentKind.Memory,
+            versionOf({ prompt: memory.prompt, strategy: memory.mode }),
             undefined,
           ),
         ]
@@ -118,7 +126,7 @@ const interpreterRecordsOf = (
       : [
           recordOf(
             interpreter.name,
-            ComponentKind.ReplyInterpreter,
+            ComponentKind.ChannelInterpreter,
             versionOf({ instructions: interpreter.instructions }),
             dtoSchemaHashOf(interpreter.answer),
           ),
@@ -129,8 +137,8 @@ const interpreterRecordsOf = (
 const piiRecordsOf = (pii: AssembledPii | undefined): ComponentRecord[] =>
   (pii?.classes ?? []).flatMap((cls) => {
     const meta = piiPolicyMetaOf(cls);
-    if (meta === undefined || isCustomPolicy(meta) || meta.detectWithModel === undefined) return [];
-    const targets = meta.rules.map((rule) => rule.target);
+    if (meta === undefined || isCustomPolicy(meta) || meta.model === undefined) return [];
+    const targets = meta.rules.map((rule) => rule.target.id);
     return [recordOf(meta.name, ComponentKind.PiiPolicy, versionOf({ targets }), undefined)];
   });
 
@@ -139,8 +147,8 @@ export function modelComponentRecordsOf(source: ModelComponentSource): readonly 
   const records = [
     ...judgeRecordsOf(source.graph),
     ...guardrailRecordsOf(source.guardrails),
-    ...arbiterRecordsOf(source.graph),
-    ...compactionRecordsOf(source.compactions),
+    ...arbiterRecordsOf(source.graph, source.arbiters),
+    ...memoryRecordsOf(source.memories),
     ...interpreterRecordsOf(source.replyInterpreters),
     ...piiRecordsOf(source.pii),
   ];

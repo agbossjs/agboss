@@ -1,5 +1,4 @@
 import { isWorkingDuration, type WorkingDuration } from "./index.js";
-import { amountOf } from "./working-time.js";
 
 /**
  * A duration as a person writes it (#941, `agboss describe`): the largest unit that divides it —
@@ -13,9 +12,10 @@ const UNITS: readonly (readonly [string, number])[] = [
 
 /** A deadline's length as a person writes it: working time says so (#944), `2 h of working time`. */
 export function spanLabel(span: number | WorkingDuration): string {
-  return isWorkingDuration(span)
-    ? `${durationLabel(amountOf(span))} of working time`
-    : durationLabel(span);
+  if (!isWorkingDuration(span)) return durationLabel(span);
+  return span.unit === "days"
+    ? `${String(span.amount)} working days`
+    : `${durationLabel(span.amount)} of working time`;
 }
 
 export function durationLabel(ms: number): string {

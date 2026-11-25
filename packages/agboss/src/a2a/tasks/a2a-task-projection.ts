@@ -1,14 +1,10 @@
+import type { ExecutionObserver } from "../../core/observer-hooks.js";
 import type {
-  OnExecutionEnd,
-  OnExecutionError,
-  OnExecutionPause,
-  OnExecutionResume,
-  OnExecutionStart,
-} from "../../core/observer-hooks.js";
-import type {
+  ExecutionCancelEvent,
   ExecutionEndEvent,
   ExecutionErrorEvent,
   ExecutionPauseEvent,
+  ExecutionStopEvent,
 } from "../../core/observability.js";
 import type { ExecutionEvent } from "../../flow/observers/execution-event.js";
 import { DurableExecutionStatus, type ExecutionControl } from "../../app/execution-control.js";
@@ -20,7 +16,13 @@ import {
   type A2ATaskStatus,
 } from "../../infrastructure/a2a-task.repository.js";
 import { IncompatibleResumeError } from "../../run/resume-guard.js";
-import { completedStatusOf, failedStatusOf, pausedStatusOf, WORKING } from "./task-status.js";
+import {
+  CANCELED,
+  completedStatusOf,
+  failedStatusOf,
+  pausedStatusOf,
+  WORKING,
+} from "./task-status.js";
 import { taskChanged } from "./task-changes.js";
 
 /** How many times a write lost to another writer is read and tried again. */
@@ -37,7 +39,7 @@ export interface A2ATaskProjectionParts {
 
 /**
  * The A2A task projection (#807, design §4.1.3 step 7): a framework observer, registered when the
- * application exposes an `@A2AExpose`, that moves a root execution's task — the task whose id is
+ * application exposes an `@A2AEndpoint`, that moves a root execution's task — the task whose id is
  * the execution's reserved id, on the task's own context — with its events: start and resume →
  * `WORKING`, a rest at pauses → `INPUT_REQUIRED` (or `WORKING` with a message for channel-only
  * pauses), an end → `COMPLETED` with the finish's output, an error → `FAILED` with its code /
@@ -47,9 +49,7 @@ export interface A2ATaskProjectionParts {
  * write is a compare-and-set on the task's version and a terminal status is never left. Events are
  * at most once (#562, #597): a status they miss is repaired on read.
  */
-export class A2ATaskProjection
-  implements OnExecutionStart, OnExecutionPause, OnExecutionResume, OnExecutionEnd, OnExecutionError
-{
+export class A2ATaskProjection implements ExecutionObserver {
   constructor(private readonly parts: A2ATaskProjectionParts) {}
 
   onExecutionStart(event: ExecutionEvent): Promise<void> {
@@ -64,13 +64,32 @@ export class A2ATaskProjection
     return this.#move(event, () => Promise.resolve(WORKING));
   }
 
-  /** The output is no event's: read from the records, once the finish is durable. */
+  /**
+   * The finish and the output are the event's: an ended tree's checkpoints are gone with it (#1321d),
+   * so the records only say that it finished (its answered record is durable).
+   */
   onExecutionEnd(event: ExecutionEndEvent): Promise<void> {
     return this.#move(event, async () => {
       const state = await this.#durableStateOf(event);
       return state.status === DurableExecutionStatus.Finished
-        ? completedStatusOf(state.finish, state.output, event.spend.totalUsd)
+        ? completedStatusOf(event.finish.name, event.output, event.spend.totalUsd)
         : undefined;
+    });
+  }
+
+  /** A cancel is terminal once the records show it (#1341): the task is `canceled`. */
+  onExecutionCancel(event: ExecutionCancelEvent): Promise<void> {
+    return this.#move(event, async () => {
+      const { status } = await this.#durableStateOf(event);
+      return status === DurableExecutionStatus.Cancelled ? CANCELED : undefined;
+    });
+  }
+
+  /** A stop is terminal once the records show it (#1341): A2A has no stopped task, it is `canceled`. */
+  onExecutionStop(event: ExecutionStopEvent): Promise<void> {
+    return this.#move(event, async () => {
+      const { status } = await this.#durableStateOf(event);
+      return status === DurableExecutionStatus.Stopped ? CANCELED : undefined;
     });
   }
 

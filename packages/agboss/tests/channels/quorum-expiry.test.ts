@@ -232,7 +232,7 @@ describe("Q11: a plain .join() follows its FailurePolicy", () => {
     });
   });
 
-  test("AC3: Expired under FailFast in a plain join enters .onJoinError, not the main path", async ({
+  test("AC3: Expired under FailFast in a plain join enters .onError, not the main path", async ({
     app,
     clock,
     mockLlm,

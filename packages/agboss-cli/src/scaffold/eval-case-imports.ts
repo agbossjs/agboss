@@ -80,6 +80,11 @@ export function importEdits(source: ts.SourceFile, written: CaseSource): Edit[] 
       added.push(`import { ${[...names].sort().join(", ")} } from "${specifier}";\n`);
     else edits.push({ at: into.elements.end, text: listAfter(into, [...names].sort()) });
   }
+  const core = written.core.filter((name) => !imported.has(name));
+  const coreImport = existing.get("@agboss/core");
+  if (core.length > 0 && coreImport !== undefined)
+    edits.push({ at: coreImport.elements.end, text: listAfter(coreImport, core) });
+  else if (core.length > 0) added.push(`import { ${core.join(", ")} } from "@agboss/core";\n`);
   const last = source.statements.filter(ts.isImportDeclaration).at(-1);
   if (added.length > 0)
     edits.push({ at: last === undefined ? 0 : last.end + 1, text: added.join("") });

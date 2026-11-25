@@ -6,7 +6,7 @@
  * message per pause: `{ pauseId, ok, expiresAt, previousExpiresAt, error }`;
  * `... <file> dump <ids as JSON>` reports `{ [pauseId]: expiresAt }`. Results go over IPC (#1128), never stdout.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { nextFromParent, report } from "../helpers/child-channel.js";
 import { hours } from "../../src/units/index.js";
@@ -17,7 +17,7 @@ import { managerFlow, told } from "../flow/fixtures/pause-extension.fixture.js";
 const [file = "", mode = "", first = "", second = ""] = process.argv.slice(2);
 const SLOT_MS = 40;
 
-const app = await createAppWith(SqliteExtensionProcessApplication, {
+const app = await createTestAppWith(SqliteExtensionProcessApplication, {
   processEnv: { ...process.env, AGBOSS_SQLITE_TEST_PATH: file },
 });
 try {
@@ -39,7 +39,7 @@ try {
       const wait = begin + index * SLOT_MS - Date.now();
       if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
       const outcome = await app
-        .extendPause({ pauseId, expiresIn: hours(Number(first)) }, { answeredBy: "manager-17" })
+        .extendPause({ pauseId, expiresIn: hours(Number(first)) }, { actor: { id: "manager-17" } })
         .then(
           (done) => ({
             ok: true,

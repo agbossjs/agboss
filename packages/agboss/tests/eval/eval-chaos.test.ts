@@ -154,7 +154,7 @@ describe("#396 PR 6: at a transport's complete()", () => {
   const answer: ModelProviderResponse = {
     text: "confirmed",
     toolCalls: [{ id: "call-1", name: "lookup-tool", arguments: { orderId: "7", note: "x" } }],
-    usage: { inputTokens: 1, outputTokens: 1 },
+    usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 },
   };
   const complete = () => Promise.resolve(answer);
   const request = { model: "m", messages: [], tools: [] } as never;

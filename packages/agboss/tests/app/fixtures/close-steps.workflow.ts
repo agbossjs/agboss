@@ -3,7 +3,7 @@ import {
   Action,
   Agent,
   ApplicationContext,
-  Clock, StoreClock,
+  StoreClock,
   EmptyEnvironment,
   ExecutionContext,
   Injectable,
@@ -13,21 +13,22 @@ import {
   WorkflowStart,
   type ExecutionLease,
   type OnDestroy,
-  type Produced,
-  type ToolHandler,
+  type Tracked,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
-import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import {
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #367 — a step whose body ignores its signal: the first run of the slow action (and of the slow
@@ -105,11 +106,9 @@ export class SlowAction {
     readonly teardown: Teardown,
   ) {}
 
-  async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): Promise<ReceiptDto> {
+  async execute(input: { readonly message: Tracked<WorkflowStartTextDto> }): Promise<ReceiptDto> {
     await slowBody("action", this.executionContext.signal);
-    return { text: `done: ${input.message.value.text}` };
+    return { text: `done: ${input.message.text}` };
   }
 }
 
@@ -126,13 +125,13 @@ export class Query {
   timeout: seconds(600),
   deps: [ExecutionContext, Teardown],
 })
-export class SlowTool implements ToolHandler<Query, Query> {
+export class SlowTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     readonly teardown: Teardown,
   ) {}
 
-  async run(input: Query): Promise<Query> {
+  async execute(input: Query): Promise<Query> {
     await slowBody("tool", this.executionContext.signal);
     return input;
   }
@@ -141,7 +140,7 @@ export class SlowTool implements ToolHandler<Query, Query> {
 @Agent({
   name: "worker-agent",
   description: "Calls the slow tool",
-  prompt: "Do what you are asked.",
+  prompt: inline("Do what you are asked."),
   tools: [SlowTool],
   model: "test/worker",
   input: { message: WorkflowStartTextDto },
@@ -172,11 +171,10 @@ export class ToolWorkflowFinish {}
 @Workflow({
   name: "slow-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SlowWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(SlowWorkflowStart)
       .toAction(SlowAction)
-      .returns(ReceiptDto)
       .toFinish(SlowWorkflowFinish),
   ],
   providers: [Teardown],
@@ -185,13 +183,13 @@ export class SlowWorkflow {}
 
 @Workflow({
   name: "tool-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
-    start(ToolWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ToolWorkflowStart)
       .toAgent(WorkerAgent)
-      .returns(ReceiptDto)
       .toFinish(ToolWorkflowFinish),
   ],
   providers: [Teardown],
@@ -201,12 +199,13 @@ export class ToolWorkflow {}
 /** A minute to stop: interrupted at 55 s, its bodies awaited in the 5 s grace (#367 S3). */
 @Application({
   name: "close-steps-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SlowWorkflow, ToolWorkflow],
   observers: [RecoveryLog],
   providers: [LoggedExecutionLeaseRepository, StampedExecutionRecordRepository, RecordingLogger],
   budgets: TEST_BUDGETS,
-  shutdownTimeout: seconds(60),
+  executionLimits: { shutdownTimeout: seconds(60) },
 })
 export class CloseStepsApplication {}

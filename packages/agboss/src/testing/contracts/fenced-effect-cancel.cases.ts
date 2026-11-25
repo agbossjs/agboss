@@ -1,7 +1,8 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
 import { ExecutionCancelledError } from "../../core/errors.js";
-import { ExecutionCancelFencedError, ExecutionFencedError } from "../../app/lease-lost.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import {
@@ -20,15 +21,15 @@ import {
  * (`ExecutionLeaseRepository.requestCancel`), a new effect of the tree is refused in the transaction
  * that checks its lease — `ExecutionCancelFencedError`, the work not run, nothing written. Not
  * refused: a result stored before (it replays), an undo's key (`isCompensation`), another tree's or
- * tenant's effect; a stale token is still `ExecutionFencedError`, the hand-over. A cancel asked
+ * tenant's effect; a stale token is still `ExecutionError.Fenced`, the hand-over. A cancel asked
  * while a write's transaction is open lands after it, or the write is refused — never the write
  * landing after the cancel answered.
  */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
-const writeRefused = <TTransaction>(): Case<TTransaction> => ({
+const writeRefused = (): Case => ({
   name: "#909 AC1: a write after its tree's durable cancel is refused — ExecutionCancelFencedError (an ExecutionCancelledError, never a hand-over), the work not run, nothing written",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -42,7 +43,7 @@ const writeRefused = <TTransaction>(): Case<TTransaction> => ({
 
     expect(refused).toBeInstanceOf(ExecutionCancelFencedError);
     expect(refused).toBeInstanceOf(ExecutionCancelledError);
-    expect(refused).not.toBeInstanceOf(ExecutionFencedError);
+    expect(refused).not.toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({
       code: "execution.cancelled.fenced",
       tenantId: "default",
@@ -56,7 +57,7 @@ const writeRefused = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const storedBeforeReplays = <TTransaction>(): Case<TTransaction> => ({
+const storedBeforeReplays = (): Case => ({
   name: "#909 AC1: an effect stored before the cancel replays after it — by its step and by its business key — while a new effect of the tree is refused",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -76,11 +77,11 @@ const storedBeforeReplays = <TTransaction>(): Case<TTransaction> => ({
     );
 
     expect(byStep).toMatchObject({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { receipt: "step" },
     });
     expect(byBusinessKey).toMatchObject({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { receipt: "business" },
     });
     expect(another).toBeInstanceOf(ExecutionCancelFencedError);
@@ -89,7 +90,7 @@ const storedBeforeReplays = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const undoPasses = <TTransaction>(): Case<TTransaction> => ({
+const undoPasses = (): Case => ({
   name: "#909: an undo's key (isCompensation) writes after the cancel — the cancel's own unwinding refunds through it — and replays",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -104,13 +105,13 @@ const undoPasses = <TTransaction>(): Case<TTransaction> => ({
     const ran = await first.effects.runOnce(undo, writing(first.rows, "refund", count));
     const again = await first.effects.runOnce(undo, writing(first.rows, "refund-2", count));
 
-    expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, token: lease.token });
-    expect(again).toMatchObject({ status: FencedEffectStatus.Replayed });
+    expect(ran).toMatchObject({ status: IdempotencyRunStatus.Ran, token: lease.token });
+    expect(again).toMatchObject({ status: IdempotencyRunStatus.Replayed });
     expect(await second.rows.committed()).toEqual(["refund"]);
   },
 });
 
-const otherTreesUntouched = <TTransaction>(): Case<TTransaction> => ({
+const otherTreesUntouched = (): Case => ({
   name: "#909: a cancel of another tree, or of another tenant's tree of the same id, refuses nothing",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -123,19 +124,14 @@ const otherTreesUntouched = <TTransaction>(): Case<TTransaction> => ({
     const own = await first.effects.runOnce(keyOf(mine), writing(first.rows, "mine", count));
     const theirs = await first.effects.runOnce(keyOf(acme), writing(first.rows, "acme", count));
 
-    expect(own.status).toBe(FencedEffectStatus.Ran);
-    expect(theirs.status).toBe(FencedEffectStatus.Ran);
+    expect(own.status).toBe(IdempotencyRunStatus.Ran);
+    expect(theirs.status).toBe(IdempotencyRunStatus.Ran);
     expect(count.runs).toBe(2);
   },
 });
 
 /** The cancel as a fence of the fenced effect. */
-export const cancelCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
+export const cancelCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "a tree's cancel is a fence (#909)",
-  cases: [
-    writeRefused<TTransaction>(),
-    storedBeforeReplays<TTransaction>(),
-    undoPasses<TTransaction>(),
-    otherTreesUntouched<TTransaction>(),
-  ],
+  cases: [writeRefused(), storedBeforeReplays(), undoPasses(), otherTreesUntouched()],
 });

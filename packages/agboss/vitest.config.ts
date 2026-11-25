@@ -46,8 +46,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
-      // thin entry points, exercised by `npm run studio` and `npm run schema`
-      exclude: ["src/studio.ts", "src/graph/studio-graph.ts", "src/config/write-profile-schema.ts"],
+      // thin entry points, exercised by `npm run studio`
+      exclude: ["src/studio.ts", "src/graph/studio-graph.ts"],
       reporter: SHARD_RUN ? [] : ["text", "html", "json-summary"],
       thresholds: SHARD_RUN
         ? undefined

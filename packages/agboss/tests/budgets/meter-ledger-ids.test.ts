@@ -18,6 +18,7 @@ import {
   InMemoryCostLedgerRepository,
   type CostCounter,
   type LedgerEntry,
+  type BudgetUsage,
 } from "../../src/infrastructure/cost-ledger.repository.js";
 import { VirtualClock } from "../../src/testing/index.js";
 import type { Usd } from "../../src/units/index.js";
@@ -45,9 +46,9 @@ class ScriptedLedger extends InMemoryCostLedgerRepository {
   /** Each write waits for the next of these, when there is one. */
   readonly holds: Promise<void>[] = [];
 
-  override findSpentByCounter(counter: CostCounter): Promise<Usd> {
+  override findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
     this.reads += 1;
-    return super.findSpentByCounter(counter);
+    return super.findUsageByCounter(counter);
   }
 
   override async saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]) {
@@ -72,7 +73,7 @@ const meterOf = (
 ): BudgetMeter => new BudgetMeter([record], ledger, clock, spentBefore, undefined, counted);
 
 const counted = (ledger: ScriptedLedger): Promise<Usd> =>
-  ledger.findSpentByCounter(counterOf(budget, NOW));
+  ledger.findUsageByCounter(counterOf(budget, NOW)).then((usage) => usage.spent);
 
 /** What a check counts for the budget, and the execution's total it names. */
 function checked(meter: BudgetMeter, state: readonly UsageRecord[]) {

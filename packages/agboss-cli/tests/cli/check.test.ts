@@ -9,7 +9,6 @@ import {
   fixture,
   agboss,
   ledgerWarning,
-  piiKeyWarning,
   TEST_APPLICATION_REPORT,
 } from "./agboss.js";
 
@@ -31,17 +30,22 @@ interface CheckResult {
 }
 
 describe("#198 AC3: agboss check runs every key-free validation", () => {
-  it("a graph rule violation: file code message lines, exit 3, no API key", async () => {
+  it("a graph rule violation: a rustc-style snippet under the user's own line, exit 3, no API key", async () => {
     const call = await agboss(["check", "--application", BROKEN], CWD);
 
     expect(call.code).toBe(3);
     const lines = call.stdout.trimEnd().split("\n");
     expect(lines).toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/^\S*broken\.workflow\.ts graph\.dead-end \S/),
-        expect.stringMatching(/^\S*broken\.workflow\.ts graph\.unreachable-node \S/),
+        expect.stringMatching(/^error\[graph\.dead-end\]: \S/),
+        expect.stringMatching(/^ +--> \S*broken\.workflow\.ts:\d+:\d+$/),
+        expect.stringMatching(/^ +\| +\^+ `researcher-agent` breaks this rule$/),
+        expect.stringMatching(/^error\[graph\.unreachable-node\]: \S/),
+        "For more information about this error, try `agboss explain graph.dead-end`.",
       ]),
     );
+    // the quoted line is the user's source, whole
+    expect(call.stdout).toContain("|       .toAgent(Researcher),");
     expect(call.stderr).toMatch(/^agboss check: \d+ problem\(s\) in /);
   });
 
@@ -62,6 +66,10 @@ describe("#198 AC3: agboss check runs every key-free validation", () => {
       expect.arrayContaining(["graph.dead-end", "graph.unreachable-node"]),
     );
     expect(result.problems.every((p) => p.file === BROKEN)).toBe(true);
+    // the snippet's places are for people: a problem of --json keeps its one shape
+    expect(result.problems.every((p) => Object.keys(p).sort().join() === "code,file,message")).toBe(
+      true,
+    );
   });
 
   it("a sound workflow passes: ok line, exit 0", async () => {
@@ -69,7 +77,7 @@ describe("#198 AC3: agboss check runs every key-free validation", () => {
 
     expect(call).toMatchObject({ code: 0, stderr: "" });
     expect(call.stdout).toBe(
-      `types: .agboss/types.d.ts\n${TEST_APPLICATION_REPORT}${ledgerWarning(WORKFLOW)}${piiKeyWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
+      `types: .agboss/types.d.ts\n${TEST_APPLICATION_REPORT}${ledgerWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
     );
   });
 
@@ -93,9 +101,10 @@ describe("#199 + #198: the prompts check runs on every agboss check", () => {
     expect(call.stdout.trimEnd().split("\n")).toEqual([
       "types: .agboss/types.d.ts",
       `${BAD_PROMPTS} prompt.unknown-variable @Router "main-router" prompt:2 {{bords}} — known: boards`,
-      `${TYPO}:4 prompt.unknown-variable {{knownPlace}} — known: boards, boardCount`,
+      `${TYPO}:4 prompt.unknown-variable {{knownPlace}} — known: boards, boardCount, spare`,
+      `${BAD_PROMPTS} prompt.unused-variable @Agent "scout-agent": promptVariables.spare is not used — no {{spare}} in its prompt`,
     ]);
-    expect(call.stderr).toMatch(/^agboss check: 2 problem\(s\) in /);
+    expect(call.stderr).toMatch(/^agboss check: 3 problem\(s\) in /);
   });
 
   it("--prompts is still accepted (prompts are always checked); --json carries the line", async () => {
@@ -110,7 +119,7 @@ describe("#199 + #198: the prompts check runs on every agboss check", () => {
       file: TYPO,
       line: 4,
       code: "prompt.unknown-variable",
-      message: "{{knownPlace}} — known: boards, boardCount",
+      message: "{{knownPlace}} — known: boards, boardCount, spare",
     });
   });
 
@@ -119,7 +128,7 @@ describe("#199 + #198: the prompts check runs on every agboss check", () => {
 
     expect(call).toMatchObject({
       code: 0,
-      stdout: `types: .agboss/types.d.ts\n${TEST_APPLICATION_REPORT}${ledgerWarning(WORKFLOW)}${piiKeyWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
+      stdout: `types: .agboss/types.d.ts\n${TEST_APPLICATION_REPORT}${ledgerWarning(WORKFLOW)}ok: ${WORKFLOW} — ${CHECKS_RUN}\n`,
     });
   });
 });
@@ -131,6 +140,8 @@ describe("#261 AC14: the application's assembly warnings in agboss check", () =>
 
     expect(warned.code).toBe(0);
     expect(warned.stdout).toContain(ledgerWarning(WORKFLOW));
+    // #1301b: the per-execution PII key warning is gone with the removed piiKeyField
+    expect(warned.stdout).not.toContain("pii-instance-key");
     expect(strict.code).toBe(3);
     expect((envelope(strict).result as CheckResult).problems).toContainEqual({
       file: WORKFLOW,
@@ -139,45 +150,34 @@ describe("#261 AC14: the application's assembly warnings in agboss check", () =>
         "in-memory cost ledger: each application instance counts budgets on its own and the counters reset on restart",
     });
   });
-
-  it("#120 S94: no piiKeyField — [application.pii-instance-key] printed, an error under --strict", async () => {
-    const warned = await agboss(["check", "--application", WORKFLOW], CWD);
-    const strict = await agboss(["check", "--strict", "--application", WORKFLOW, "--json"], CWD);
-
-    expect(warned.stdout).toContain(piiKeyWarning(WORKFLOW));
-    expect(strict.code).toBe(3);
-    expect((envelope(strict).result as CheckResult).problems).toContainEqual(
-      expect.objectContaining({ file: WORKFLOW, code: "application.pii-instance-key" }),
-    );
-  });
 });
 
-describe("#521 AC1: agboss check on a model provider without circuitBreakerPolicy", () => {
-  it("AC1: one [model-provider.circuit-breaker-required] problem naming the provider and the field, exit 3, no crash", async () => {
+/** The breaker is optional (#1313b): a provider without one is not a problem, only a provider that trips none. */
+const breakerProblems = (call: Awaited<ReturnType<typeof agboss>>) =>
+  (envelope(call).result as CheckResult).problems.filter(
+    (problem) =>
+      problem.code.includes("circuit-breaker") || problem.message.includes("circuitBreakerPolicy"),
+  );
+
+describe("#521 / #1313b: agboss check on a model provider without circuitBreakerPolicy", () => {
+  it("no breaker problem is raised and nothing crashes: the breaker is optional", async () => {
     const call = await agboss(["check", "--application", NO_BREAKER, "--json"], CWD);
 
-    expect(call.code).toBe(3);
-    expect((envelope(call).result as CheckResult).problems).toContainEqual({
-      file: NO_BREAKER,
-      code: "model-provider.circuit-breaker-required",
-      message:
-        "unguarded-model-provider (UnguardedModelProvider) has no circuitBreakerPolicy — set circuitBreakerPolicy: { failureThreshold, window, openFor } on its @ModelProvider",
-    });
+    expect(breakerProblems(call)).toEqual([]);
     expect(call.stderr).not.toMatch(/Cannot read properties/);
+    // the provider is in use, its models served: nothing is a problem, the run passes
+    expect(call.code).toBe(0);
+    expect((envelope(call).result as CheckResult).problems).toEqual([]);
   });
 });
 
-describe("#521 AC1 acceptance: agboss check on circuitBreakerPolicy: null", () => {
-  it("AC1: the same named problem, exit 3, never a TypeError", async () => {
+describe("#521 / #1313b acceptance: agboss check on circuitBreakerPolicy: null", () => {
+  it("null is the same as none: no breaker problem, never a TypeError", async () => {
     const call = await agboss(["check", "--application", NULL_BREAKER, "--json"], CWD);
 
-    expect(call.code).toBe(3);
-    expect((envelope(call).result as CheckResult).problems).toContainEqual({
-      file: NULL_BREAKER,
-      code: "model-provider.circuit-breaker-required",
-      message:
-        "null-breaker-model-provider (NullBreakerModelProvider) has no circuitBreakerPolicy — set circuitBreakerPolicy: { failureThreshold, window, openFor } on its @ModelProvider",
-    });
+    expect(breakerProblems(call)).toEqual([]);
     expect(call.stderr).not.toMatch(/Cannot (read|destructure) propert/);
+    expect(call.code).toBe(0);
+    expect((envelope(call).result as CheckResult).problems).toEqual([]);
   });
 });

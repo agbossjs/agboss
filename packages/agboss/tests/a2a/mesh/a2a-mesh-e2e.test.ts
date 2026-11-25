@@ -7,6 +7,9 @@
  * run report is charged as `max(verified spend, price)`.
  */
 import "./fixtures/keys.js";
+import { STRANGER_KEYS } from "./fixtures/keys.js";
+import { signMeshHttp } from "../../../src/mesh/mesh-http.js";
+import { VirtualClock } from "../../../src/testing/clock.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
   A2A_MESH_EXTENSION,
@@ -33,7 +36,8 @@ import {
   DOWNSTREAM_LOOP,
   peer,
   resetPeer,
-  STRANGER_TOKEN,
+  CALLER_TOKEN,
+  PEER_APPLICATION,
   StrictPeerApplication,
 } from "./fixtures/peer/peer.application.js";
 import { executionSpentOf, servePeer, type ServedPeer } from "./fixtures/serve-peer.js";
@@ -181,15 +185,40 @@ describe("#810 AC1: a chain the peer refuses is a REJECTED task: the same limit 
     });
   });
 
-  test("an untrusted caller's envelope is a claim: its chain checked, its report none — the price", async ({
-    app,
+  test("a caller whose signature is no peer's is refused 401 before anything runs; an unsigned one is the authenticator's to judge", async ({
     clock,
   }) => {
-    served.push(await servePeer(clock));
-    caller.token = STRANGER_TOKEN;
+    const peerApp = await servePeer(clock);
+    served.push(peerApp);
+    const body = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ListTasks", params: {} });
+    const url = `${peerApp.origin}/a2a`;
+    const strangerHeader = signMeshHttp(
+      {
+        application: "caller-application",
+        keys: { signingKey: STRANGER_KEYS.privateKey, peers: new Map() },
+        clock: new VirtualClock(),
+        envelopeTtl: 60_000,
+      },
+      { audience: PEER_APPLICATION, method: "POST", url: "http://peer.test/a2a", body },
+    );
+    const post = (headers: Record<string, string>) =>
+      fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json", "a2a-version": "1.0", ...headers },
+        body,
+      });
 
-    const result = await execute(app, CallerWorkflowStart, { text: "hello" });
+    const forged = await post({
+      authorization: `Bearer ${CALLER_TOKEN}`,
+      "x-agboss-mesh": strangerHeader ?? "",
+    });
+    const unsigned = await post({ authorization: `Bearer ${CALLER_TOKEN}` });
+    const anonymous = await post({});
 
-    expect(result.spend.totalUsd).toBeCloseTo(PRICE);
+    expect(forged.status).toBe(401);
+    expect(await forged.json()).toMatchObject({ code: "mesh.signature-invalid" });
+    expect(unsigned.status).not.toBe(401);
+    expect(anonymous.status).toBe(401);
+    expect(peer.runs).toEqual([]);
   });
 });

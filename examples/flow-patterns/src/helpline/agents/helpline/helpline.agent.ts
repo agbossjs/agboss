@@ -1,4 +1,4 @@
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { ReadPolicyTool } from "../../mcp/read-policy.mcp.js";
 import { AskDeskTool } from "../../tools/ask-desk.tool.js";
 
@@ -9,10 +9,11 @@ import { AskDeskTool } from "../../tools/ask-desk.tool.js";
 @Agent({
   name: "helpline-agent",
   description: "Answers a caller's question about an order through the help desk",
-  prompt:
+  prompt: inline(
     "Ask the help desk with ask-desk-tool, passing the caller's id and question, then repeat its answer. For returns or shipping rules, read the policy with read-policy-tool.",
+  ),
   model: "moonshotai/kimi-k2.6",
   tools: [AskDeskTool, ReadPolicyTool],
-  maxToolCalls: 3,
+  executionLimits: { maxToolCalls: 3 },
 })
 export class HelplineAgent {}

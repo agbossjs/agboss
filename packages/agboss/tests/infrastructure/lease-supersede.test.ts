@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #508 final check — a lease an outbound call's check closed (`leaseStateOf` → `LeaseClosed`): its
  * epoch unchanged, safety rests on the `released` mark alone. On the in-memory and SQLite stores
@@ -7,7 +8,7 @@
  * `outboundCallContract`, so an external store proves them too.)
  */
 import { describe, expect, it } from "vitest";
-import { ExecutionFencedError } from "../../src/app/lease-lost.js";
+import {} from "../../src/app/lease-lost.js";
 import { OutboundCallLeaseState } from "../../src/infrastructure/execution-audit-log.repository.js";
 import type { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import type { FencedEffectRepository } from "../../src/infrastructure/fenced-effect.repository.js";
@@ -23,7 +24,7 @@ import { storeTargets, type StoreFactory } from "./contracts/store-kinds.js";
 interface Stores {
   readonly leases: ExecutionLeaseRepository;
   readonly calls: OutboundCallRepository;
-  readonly effects: FencedEffectRepository<unknown>;
+  readonly effects: FencedEffectRepository;
 }
 
 const inMemory: StoreFactory<Stores> = (seam) => {
@@ -40,7 +41,7 @@ describe.each(storeTargets(inMemory, sqlite))(
   "#508: a lease closed by an outbound call's check ($name)",
   (target) => {
     it(
-      "its holder's fenced-effect write at token N is ExecutionFencedError — the work never runs",
+      "its holder's fenced-effect write at token N is ExecutionError.Fenced — the work never runs",
       withTarget(target, async ({ clock, first, second }) => {
         const lease = await leaseOf(first, "execution-1", seconds(30));
         await clock.advance(seconds(31));
@@ -57,7 +58,7 @@ describe.each(storeTargets(inMemory, sqlite))(
         });
 
         expect(closed).toBe(OutboundCallLeaseState.LeaseClosed);
-        await expect(write).rejects.toBeInstanceOf(ExecutionFencedError);
+        await expect(write).rejects.toBeInstanceOf(ExecutionError.Fenced);
         expect(isRun).toBe(false);
       }),
     );

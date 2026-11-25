@@ -1,28 +1,29 @@
+import { argsDigestOf } from "../../src/graph/agent-loop/move-entries.js";
+import { usd } from "../../src/units/index.js";
 /** #1269: the files of a tool's result — read, guarded, counted and stored — called with fake deps. */
 import { z } from "zod";
 import { describe, expect, it } from "vitest";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import { FileDto } from "../../src/dto/standard/file.js";
 import type { BudgetCheck } from "../../src/budgets/budget-check.js";
 import { GuardrailSide } from "../../src/components/policy-decorators.js";
 import { Nested, Text } from "../../src/dto/index.js";
 import { schemaOf } from "../../src/dto/schema.js";
 import { CostSource } from "../../src/finops/cost-source.js";
 import type { UsageRecord } from "../../src/finops/usage.js";
-import { DecidedBy } from "../../src/flow/decorators/router.js";
 import type { AgentLoopDeps, AgentDefinition } from "../../src/graph/agent-loop/deps.js";
 import type { ClosedResult } from "../../src/graph/agent-loop/tool-pii.js";
-import type { ToolTask } from "../../src/graph/agent-loop/state.js";
+import { PreparedFrom, type ToolTask } from "../../src/graph/agent-loop/state.js";
 import type { GuardrailOutcome } from "../../src/core/observability.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
 import { taskFilesOf, toolFilesOf, withFiles } from "../../src/files/tool-files.js";
 import { NO_FILES, type FileRuntime } from "../../src/files/visit-files.js";
 import type { RuntimeGuardrail } from "../../src/guardrails/runtime.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
-import { PiiAction } from "../../src/pii/actions.js";
+import {} from "../../src/pii/actions.js";
 import { PiiKind } from "../../src/pii/kinds.js";
-import { pii, type PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
+import { type PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { runtimePolicyOf } from "../../src/pii/runtime-policy.js";
 import type { AnyTool, ToolOutput } from "../../src/tools/index.js";
@@ -30,6 +31,7 @@ import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
 import { PDF_BYTES, inline, sha256Of } from "./reader.factory.js";
 import { NO_REDACTION } from "./runtime-parts.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 class ScanQueryDto {
   @Text({ prompt: "which scan" })
@@ -37,8 +39,8 @@ class ScanQueryDto {
 }
 
 class ScanResultDto {
-  @Nested(A2AFileDto, { prompt: "the scan" })
-  file!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the scan" })
+  file!: FileDto;
 }
 
 const scanTool: AnyTool = {
@@ -53,9 +55,10 @@ const scanTool: AnyTool = {
 const opaqueTool: AnyTool = { ...scanTool, name: "opaque-tool", output: z.object({}) };
 
 const usageOf = (caller: string): UsageRecord => ({
+  provider: "test-provider",
   caller,
   model: "m",
-  costUsd: 0,
+  costUsd: usd(0),
   costSource: CostSource.Tool,
   inputTokens: 1,
   outputTokens: 1,
@@ -72,8 +75,7 @@ function runtimeOf(
   const base = resolvedFilesOf({
     agent: ModelFiles.of({}).options,
     defaults: undefined,
-    skills: [],
-    a2aFiles: undefined,
+    limits: DEFAULT_FILE_LIMITS,
     hasPiiPolicy: false,
   });
   return {
@@ -92,7 +94,7 @@ function runtimeOf(
       return Promise.resolve({ text: "the scan", usage: usageOf("transcriber") });
     },
     context: () => ({
-      store: new InMemoryA2AFileRepository(new InMemoryDatabase()),
+      store: new InMemoryFileRepository(new InMemoryDatabase()),
       tenantId: "t",
       ownerId: "o",
       signal: new AbortController().signal,
@@ -149,6 +151,14 @@ const taskOf = (over: Partial<ToolTask> = {}): ToolTask => ({
   tool: "scan-tool",
   args: {},
   runId: "r1",
+  prepared: {
+    kind: "ready",
+    args: {},
+    shown: {},
+    from: PreparedFrom.Model,
+    tool: "scan-tool",
+    argsDigest: argsDigestOf({}),
+  },
   ...over,
 });
 
@@ -281,7 +291,7 @@ function guardrailOf(
       name: "the-guard",
       description: "d",
       side: GuardrailSide.Input,
-      decidedBy: DecidedBy.Code,
+      kind: "code",
     },
     decide: (checked, spent) => {
       asked.push(checked);
@@ -305,7 +315,7 @@ describe("taskFilesOf: the input guardrails on the files", () => {
     const files = await taskFilesOf(deps, scanTool, taskOf(), okOf({ file: PDF }));
 
     expect(asked).toMatchObject([
-      { text: "", element: "the-agent", side: "input", files: [{ pieces: [{}] }] },
+      { text: "", component: { name: "the-agent" }, side: "input", files: [{ pieces: [{}] }] },
     ]);
     expect(callersOf(files.usage)).toEqual(["transcriber", "guard"]);
     expect(files.decisions).toMatchObject([{ side: "input", isBlocked: false, probability: 0 }]);
@@ -428,7 +438,7 @@ describe("withFiles", () => {
     const meta: PiiPolicyMeta = {
       name: "blocking-pii-policy",
       description: "blocks cards",
-      rules: [pii(PiiKind.CardNumber, PiiAction.blockWithRefusal({ refusal: "No cards." }))],
+      rules: [PiiKind.CardNumber.block("No cards.")],
       deps: [],
     };
     const blocking = new PiiPolicySet(

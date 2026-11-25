@@ -1,4 +1,6 @@
 import { SqliteConnection } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
+import type { Class } from "../../../src/components/injection.js";
+import { Metadata, type Tracked } from "../../../src/flow/metadata.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import {
@@ -24,11 +26,11 @@ export class HangingPriceListService extends PriceListService {
   }
 }
 
-/** A `Produced` record of a value, as a step reads it: `{ producer, value }`, the producer's class. */
-export const produced = <TProducer, TValue>(
+/** A value as a step reads it: tracked, its creator the producer's class. */
+export const produced = <TProducer extends Class, TValue extends object>(
   producer: TProducer,
   value: TValue,
-): { readonly producer: TProducer; readonly value: TValue } => ({ producer, value });
+): Tracked<TValue, TProducer> => Metadata.with(value, { createdBy: producer });
 
 /** A code router (in no workflow) whose `route()` answers a target outside its routes. */
 @Router({
@@ -36,10 +38,10 @@ export const produced = <TProducer, TValue>(
   description: "Answers outside its routes",
   decidedBy: DecidedBy.Code,
   input: { request: QuoteRequestDto },
-  routes: [{ target: PriceQuoteAction }],
+  routes: [PriceQuoteAction],
 })
 export class OffRouteRouter {
-  route(): unknown {
+  route(): typeof ManualQuoteWorkflowFinish {
     return ManualQuoteWorkflowFinish;
   }
 }

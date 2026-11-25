@@ -3,7 +3,7 @@
  * it prints as `***` everywhere — logs, JSON (traces), errors, `agboss describe` — and only
  * `.reveal()` gives the value.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
 import {
@@ -23,7 +23,7 @@ const VALUE = "s3cret-value";
 
 async function resolvedToken(): Promise<Secret> {
   const book = new ScriptBook();
-  const app = await createAppWith(SettingsApplication, {
+  const app = await createTestAppWith(SettingsApplication, {
     processEnv: { FIXTURE_API_TOKEN: VALUE },
     gateway: createScriptedGateway(book),
     connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
@@ -49,7 +49,7 @@ describe("#261 AC9: *** everywhere, reveal()", () => {
 
   it("the whole environment prints without the value", async () => {
     const book = new ScriptBook();
-    const app = await createAppWith(SettingsApplication, {
+    const app = await createTestAppWith(SettingsApplication, {
       processEnv: { FIXTURE_API_TOKEN: VALUE },
       gateway: createScriptedGateway(book),
       connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),

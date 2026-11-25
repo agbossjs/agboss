@@ -1,4 +1,5 @@
 import {
+  Observer,
   listOf,
   Action,
   EmptyEnvironment,
@@ -8,16 +9,17 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type CompensationEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
-  type OnCompensationEnd,
-  type OnExecutionError,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
+import { ExecutionCancelledError } from "../../../../src/core/errors.js";
 import { Application } from "../../../../src/application/application.js";
 import { seconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { start, toAction, toFinish } from "../../../helpers/flow.js";
+import { onStart, toAction, toWorkflow } from "../../../helpers/flow.js";
 import {
   ChargeCardAction,
   ConfirmSeatAction,
@@ -32,11 +34,12 @@ import {
   RoomDto,
   SeatConfirmedDto,
   SeatConfirmedWorkflowFinish,
-  SeatDto,
   UndoDesk,
   UndoDeskError,
   UndoRequestDto,
+  ReservedAction,
 } from "./undo.workflow.js";
+import { toFinish } from "../../../helpers/flow.js";
 
 /**
  * #340 PR 3 — executions that end without a finish: the reservations of `undo.workflow.ts`, a
@@ -64,25 +67,32 @@ export class WaitAction {
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  async execute(input: { readonly request: Produced<UndoRequestDto, unknown> }): Promise<void> {
-    await this.unwindGate.wait(input.request.value.guest, this.executionContext.signal);
+  async execute(input: { readonly request: Tracked<UndoRequestDto> }): Promise<void> {
+    await this.unwindGate.wait(input.request.guest, this.executionContext.signal);
+  }
+}
+
+@Action({
+  name: "seat-and-room-action",
+  description: "The confirmed seat and the room",
+  input: { seat: SeatConfirmedDto, room: RoomDto },
+  output: ReservedDto,
+})
+export class SeatAndRoomAction {
+  async execute(input: {
+    readonly seat: Tracked<SeatConfirmedDto>;
+    readonly room: Tracked<RoomDto>;
+  }): Promise<ReservedDto> {
+    return { summary: `${input.seat.seatId} + ${input.room.roomId}` };
   }
 }
 
 @WorkflowFinish({
   name: "seat-and-room-workflow-finish",
   description: "The confirmed seat and the room",
-  input: { seat: SeatConfirmedDto, room: RoomDto },
   output: ReservedDto,
 })
-export class SeatAndRoomWorkflowFinish {
-  finish(input: {
-    readonly seat: Produced<SeatConfirmedDto, unknown>;
-    readonly room: Produced<RoomDto, unknown>;
-  }): ReservedDto {
-    return { summary: `${input.seat.value.seatId} + ${input.room.value.roomId}` };
-  }
-}
+export class SeatAndRoomWorkflowFinish {}
 
 @WorkflowStart({
   name: "unwind-workflow-start",
@@ -95,16 +105,14 @@ export class UnwindWorkflowStart {}
 @Workflow({
   name: "unwind-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(UnwindWorkflowStart)
-      .returns(UndoRequestDto)
+    onStart(UnwindWorkflowStart)
       .toAction(HoldSeatAction)
-      .returns(SeatDto)
       .toAction(ReserveRoomAction)
-      .returns(RoomDto)
       .toAction(WaitAction)
       .toAction(ConfirmSeatAction)
-      .returns(SeatConfirmedDto)
+      .toAction(SeatAndRoomAction)
       .toFinish(SeatAndRoomWorkflowFinish),
   ],
   providers: [UndoDesk, UnwindGate],
@@ -122,16 +130,14 @@ export class UnwindCommittedWorkflowStart {}
 @Workflow({
   name: "unwind-committed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(UnwindCommittedWorkflowStart)
-      .returns(UndoRequestDto)
+    onStart(UnwindCommittedWorkflowStart)
       .toAction(HoldSeatAction)
-      .returns(SeatDto)
       .toAction(ConfirmSeatAction)
-      .returns(SeatConfirmedDto)
       .toAction(ReserveRoomAction)
-      .returns(RoomDto)
       .toAction(WaitAction)
+      .toAction(SeatAndRoomAction)
       .toFinish(SeatAndRoomWorkflowFinish),
   ],
   providers: [UndoDesk, UnwindGate],
@@ -149,13 +155,11 @@ export class UnwindSidePathWorkflowStart {}
 @Workflow({
   name: "unwind-side-path-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(UnwindSidePathWorkflowStart)
-      .returns(UndoRequestDto)
+    onStart(UnwindSidePathWorkflowStart)
       .toAction(HoldSeatAction)
-      .returns(SeatDto)
       .toAction(ReserveRoomAction)
-      .returns(RoomDto)
       .toAction(ChargeCardAction)
       .onError(
         UndoDeskError,
@@ -165,7 +169,6 @@ export class UnwindSidePathWorkflowStart {}
           .toFinish(NotReservedWorkflowFinish),
       )
       .toAction(ConfirmSeatAction)
-      .returns(SeatConfirmedDto)
       .toFinish(SeatConfirmedWorkflowFinish),
   ],
   providers: [UndoDesk, UnwindGate],
@@ -186,11 +189,10 @@ export class RoomReservedWorkflowFinish {}
 @Workflow({
   name: "unwind-room-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(UnwindRoomWorkflowStart)
-      .returns(UndoRequestDto)
+    onStart(UnwindRoomWorkflowStart)
       .toAction(ReserveRoomAction)
-      .returns(RoomDto)
       .toAction(WaitAction)
       .toFinish(RoomReservedWorkflowFinish),
   ],
@@ -205,32 +207,39 @@ export class UnwindRoomWorkflow {}
 })
 export class UnwindManyWorkflowStart {}
 
-@WorkflowFinish({
-  name: "rooms-reserved-workflow-finish",
+@Action({
+  name: "rooms-reserved-action",
   description: "Every room",
   input: { rooms: listOf(RoomDto) },
   output: ReservedDto,
 })
-export class RoomsReservedWorkflowFinish {
-  finish(input: { readonly rooms: readonly Produced<RoomDto, unknown>[] }): ReservedDto {
+export class RoomsReservedAction {
+  async execute(input: { readonly rooms: readonly Tracked<RoomDto>[] }): Promise<ReservedDto> {
     return {
       summary: input.rooms
-        .map((room) => room.value.roomId)
+        .map((room) => room.roomId)
         .join(", "),
     };
   }
 }
 
+@WorkflowFinish({
+  name: "rooms-reserved-workflow-finish",
+  description: "Every room",
+  output: ReservedDto,
+})
+export class RoomsReservedWorkflowFinish {}
+
 /** A child per guest: a failing one aborts the others (`FailFast`), each undoes its own room. */
 @Workflow({
   name: "unwind-many-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(UnwindManyWorkflowStart)
-      .returns(listOf(UndoRequestDto))
-      .toParallelWorkflows(UnwindRoomWorkflow, { maxConcurrency: 2, maxItems: 5 })
+    onStart(UnwindManyWorkflowStart)
+      .forEachItem(toWorkflow(UnwindRoomWorkflow), { takeFirst: 5, maxConcurrency: 2 })
       .join()
-      .returns(listOf(RoomDto))
+      .toAction(RoomsReservedAction)
       .toFinish(RoomsReservedWorkflowFinish),
   ],
 })
@@ -247,18 +256,17 @@ export class UnwindParentWorkflowStart {}
 @Workflow({
   name: "unwind-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(UnwindParentWorkflowStart)
-      .returns(UndoRequestDto)
+    onStart(UnwindParentWorkflowStart)
       .toAction(ReserveSeatAction)
-      .returns(SeatDto)
       .toWorkflow(UnwindRoomWorkflow)
       .onError(
         StepFailedError,
         toAction(ReleaseSeatAction)
           .toFinish(NotReservedWorkflowFinish),
       )
-      .returns(RoomDto)
+      .toAction(ReservedAction)
       .toFinish(ReservedWorkflowFinish),
   ],
   providers: [UndoDesk],
@@ -271,14 +279,22 @@ export const unwindSeen: {
   readonly errors: ExecutionErrorEvent[];
 } = { undos: [], errors: [] };
 
-@Injectable()
-export class UnwindLog implements OnCompensationEnd, OnExecutionError {
+@Observer()
+export class UnwindLog {
   onCompensationEnd(event: CompensationEndEvent): void {
     unwindSeen.undos.push(event);
   }
 
   onExecutionError(event: ExecutionErrorEvent): void {
     unwindSeen.errors.push(event);
+  }
+
+  /** A cancel (#1341) is the root's end as an error was: kept error-shaped, with the cancel as its error. */
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    unwindSeen.errors.push({
+      ...event,
+      error: new ExecutionCancelledError({ message: `thread "${event.threadId}" was cancelled` }),
+    });
   }
 }
 
@@ -295,6 +311,6 @@ export class UnwindLog implements OnCompensationEnd, OnExecutionError {
   ],
   observers: [UnwindLog],
   budgets: TEST_BUDGETS,
-  compensationTimeout: seconds(5),
+  executionLimits: { compensationTimeout: seconds(5) },
 })
 export class UnwindApplication {}

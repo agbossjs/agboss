@@ -1,12 +1,12 @@
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { OfferDraftDto, ShortlistDto } from "./dtos.js";
 import {
   BrokenAgent,
   DraftAgent,
   OfferFailedWorkflowFinish,
   OfferWorkflowStart,
 } from "./offer.fixture.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * A workflow whose broken-agent reads what no path gives (`[input.missing-on-path]`): its generated
@@ -16,13 +16,11 @@ import { start } from "./paths.js";
 @Workflow({
   name: "broken-offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OfferWorkflowStart)
-      .returns(ShortlistDto)
+    onStart(OfferWorkflowStart)
       .toAgent(DraftAgent)
-      .returns(OfferDraftDto)
       .toAgent(BrokenAgent)
-      .returns(OfferDraftDto)
       .toFinish(OfferFailedWorkflowFinish),
   ],
 })

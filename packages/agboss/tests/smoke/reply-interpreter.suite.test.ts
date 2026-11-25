@@ -3,6 +3,7 @@
  * prompt: "ok but only up to $500" is the capped approval, "🤷" is not understood. Real models via
  * OpenRouter: only `make smoke`, skipped without a key, never in CI.
  */
+import { TestOpenRouterProvider } from "../models/providers.fixture.js";
 import { describe, expect, it } from "vitest";
 import type { AssembledReplyInterpreter } from "../../src/channels/discovery.js";
 import { readByModel } from "../../src/channels/reply-reader.js";
@@ -11,7 +12,7 @@ import { ToolCallApprovalDecisionDto } from "../../src/dto/standard/framework.js
 import { resolveEnvironment } from "../../src/environments/resolve.js";
 import { secret } from "../../src/environments/secret.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
-import { OpenRouterModelProvider } from "../../src/models/index.js";
+import {} from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { instanceCalls } from "../models/gateway.js";
@@ -30,11 +31,11 @@ class PlacePurchaseOrderDto {
 }
 
 const interpreter: AssembledReplyInterpreter = {
-  channel: "purchase-approval-channel",
+  target: "purchase-tool-approval",
   interpreter: PlacePurchaseOrderDto, // its class is not read on this path
   name: "purchase-reply-interpreter",
   answer: ToolCallApprovalDecisionDto,
-  approves: PlacePurchaseOrderDto,
+  input: PlacePurchaseOrderDto,
   model: MODEL,
   instructions: "Read the approver's reply to the purchase order.",
 };
@@ -55,7 +56,7 @@ function site() {
     },
     process.env,
   );
-  const gateway = createProviderGateway(ModelProviderDirectory.of([OpenRouterModelProvider]), {
+  const gateway = createProviderGateway(ModelProviderDirectory.of([TestOpenRouterProvider]), {
     env: process.env,
     environment,
     calls: instanceCalls(),
@@ -77,7 +78,7 @@ describe.skipIf(!process.env.OPENROUTER_API_KEY)(`smoke: a reply interpreter on 
       kind: "answered",
       answer: {
         approved: true,
-        overrideArguments: {
+        overrideInput: {
           supplier: "Acme",
           itemDescription: "40 office chairs",
           amountUsd: 500,

@@ -35,7 +35,7 @@ export function ledgerMemoryShard() {
   return {
     configFile: "vitest.mutation-ledger-memory.config.ts",
     mutate: [
-      "src/run/memory.ts",
+      "src/run/compact-before-run.ts",
       "src/run/compaction-parts.ts",
       // the model call and its record, the summary asked again shorter, the stored cost and the budget
       // left; what is due and what the model reads are not money
@@ -65,14 +65,16 @@ export function ledgerA2aClientShard() {
     configFile: "vitest.mutation-ledger-a2a-client.config.ts",
     mutate: [
       "src/a2a/client/a2a-client.ts",
+      // an endpoint's ttl: a limit above the lease
+      "src/a2a/a2a-endpoint-ttl.ts",
       // the assembly's rules of a contract: the price is the one that is money, and the choice of the agents whose price is checked (the providers' list) is mutated with it; what is left out is names, descriptions and finish names
       ...wholeFile("src/a2a/a2a-rules.ts", {
         contractNameViolations:
           "checks the suffix of an exposed class's name; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
         startsOf:
           "lists the workflow starts of the workflows; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
-        exposeViolations:
-          "checks an application's exposes are exposes, named once, described and exporting a start; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
+        endpointViolations:
+          "checks an application's endpoints are endpoints, named once, described and listing a start once; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
         problemsOf:
           "names the finish names a target does not have; no number, limit, deadline, step count, spend, ledger id, fence or cancel is decided there",
         targetFinishesViolations:
@@ -84,12 +86,22 @@ export function ledgerA2aClientShard() {
 
 /**
  * The `ledger-retention` shard (#1366): what the sweep removes once its retention is over — the ledger's old
- * entries (#771) with the other kinds of rows beside them — and the spend of a knowledge base's search (#268):
- * its cost and a reranker's records into the call's frame.
+ * entries (#771) with the other kinds of rows beside them — and a knowledge base's search (#268): the scope
+ * its every call is made for (a data-isolation boundary: it fails closed), its cost, tokens and a reranker's
+ * records into the call's frame, each under its own caller.
  */
 export function ledgerRetentionShard() {
   return {
     configFile: "vitest.mutation-ledger-retention.config.ts",
-    mutate: ["src/infrastructure/retention-sweep.ts", "src/components/rag.ts"],
+    mutate: [
+      "src/infrastructure/retention-sweep.ts",
+      "src/components/rag.ts",
+      "src/components/rag-reranker.ts",
+      "src/components/rag-retrieval.ts",
+      "src/components/rag-scope.ts",
+      "src/rag/rag-source.ts",
+      "src/rag/retrieval-spend.ts",
+      "src/finops/explicit-caller.ts",
+    ],
   };
 }

@@ -1,4 +1,4 @@
-import { Agent, Decision, Judge, Workflow, Router } from "../../../src/index.js";
+import { Agent, Decision, Judge, Workflow, Router, inline, Ttl } from "../../../src/index.js";
 import {
   JudgeModel,
   JudgeVerdict,
@@ -6,42 +6,50 @@ import {
   type JudgeInput,
 } from "../../../src/index.js";
 import { LUNA } from "./decision-judged.workflow.js";
-import { PlainTextDto, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { PlainTextDto, Text } from "../../../src/dto/index.js";
 import { DecidedBy, WorkflowFinish } from "../../../src/index.js";
-import { route, start } from "../../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
+import { LocalModelProvider, TestDecisionsProvider } from "../../models/providers.fixture.js";
 
 /** On a chat model, yet asks for a decision. */
-@Judge({ name: "chat-decider", model: "local/judge", reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "chat-decider", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
 export class ChatDecider implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     const a = await this.judgeModel.decide({
-      state: reply.text,
-      questions: { ok: Decision.noul("The reply is fine") },
+      state: output.text,
+      questions: { ok: Decision.boolean("The reply is fine") },
     });
-    return a.ok.noul > 0.5 ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "not fine" });
+    return a.ok.probability > 0.5 ? JudgeVerdict.passed() : JudgeVerdict.failed("not fine");
   }
 }
 
 /** On a decision model, yet chats. */
-@Judge({ name: "decision-chatter", model: LUNA, reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({
+  name: "decision-chatter",
+  model: LUNA,
+  modelProvider: TestDecisionsModelProvider,
+  output: PlainTextDto,
+  deps: [JudgeModel],
+})
 export class DecisionChatter implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
-    const fine = (await this.judgeModel.invoke(`Is this fine? ${reply.text}`)) === "yes";
-    return fine ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "not fine" });
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const fine = (await this.judgeModel.invoke(`Is this fine? ${output.text}`)) === "yes";
+    return fine ? JudgeVerdict.passed() : JudgeVerdict.failed("not fine");
   }
 }
 
 @Agent({
   name: "chat-judged-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Judged by a chat model asked to decide",
   model: "local/llama",
   judges: [ChatDecider],
@@ -50,7 +58,7 @@ export class ChatJudged {}
 
 @Agent({
   name: "decision-judged-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Judged by a decision model asked to chat",
   model: "local/llama",
   judges: [DecisionChatter],
@@ -60,9 +68,9 @@ export class DecisionJudged {}
 @Workflow({
   name: "chat-decider-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TaskStart)
-      .returns(WorkflowStartTextDto)
+    onStart(TaskStart)
       .toAgent(ChatJudged)
       .toFinish(Reply),
   ],
@@ -72,6 +80,7 @@ export class ChatDeciderDesk {}
 
 @Application({
   name: "chat-decider-desk-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChatDeciderDesk],
@@ -83,9 +92,9 @@ export class ChatDeciderDeskApplication {}
 @Workflow({
   name: "decision-chatter-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TaskStart)
-      .returns(WorkflowStartTextDto)
+    onStart(TaskStart)
       .toAgent(DecisionJudged)
       .toFinish(Reply),
   ],
@@ -95,6 +104,7 @@ export class DecisionChatterDesk {}
 
 @Application({
   name: "decision-chatter-desk-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DecisionChatterDesk],
@@ -111,14 +121,19 @@ export class AskDto {
 
 @Agent({
   name: "intake-agent",
-  prompt: "Read.",
+  prompt: inline("Read."),
   description: "Reads the ask",
   model: "local/llama",
   output: AskDto,
 })
 export class Intake {}
 
-@Agent({ name: "coder-agent", prompt: "Code.", description: "Writes code", model: "local/llama" })
+@Agent({
+  name: "coder-agent",
+  prompt: inline("Code."),
+  description: "Writes code",
+  model: "local/llama",
+})
 export class Coder {}
 
 @WorkflowFinish({ name: "as-is-workflow-finish", description: "The ask, as is", output: AskDto })
@@ -129,8 +144,10 @@ export class AsIs {}
   name: "triage-router",
   description: "Sends coding asks to the coder",
   decidedBy: DecidedBy.Model,
-  prompt: "Who handles this?",
+  prompt: inline("Who handles this?"),
   model: LUNA,
+  // the real Decisions wire (a base URL and a key): the wire test reads what goes out
+  modelProvider: TestDecisionsProvider,
   input: { ask: AskDto },
   routes: [
     { prompt: "A coding ask", target: Coder },
@@ -142,17 +159,16 @@ export class Triage {}
 @Workflow({
   name: "luna-routed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TaskStart)
-      .returns(WorkflowStartTextDto)
+    onStart(TaskStart)
       .toAgent(Intake)
-      .returns(AskDto)
       .toRouter(Triage)
-      .chooseOne(
-        route(Coder)
+      .onRoute(
+        toAgent(Coder)
           .toFinish(Reply),
-        route(AsIs),
-      ),
+      )
+      .onRoute(toFinish(AsIs)),
   ],
   defaults: DEFAULTS,
 })
@@ -160,6 +176,7 @@ export class LunaRouted {}
 
 @Application({
   name: "luna-routed-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LunaRouted],

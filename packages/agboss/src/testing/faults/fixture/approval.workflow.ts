@@ -1,10 +1,15 @@
-import { Workflow, WorkflowFinish, WorkflowStart, Action, type Produced } from "../../../index.js";
+import {
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  Action,
+  type Tracked,
+  ExternalTask,
+} from "../../../index.js";
 import { Channel } from "../../../components/decorators.js";
-import { ChannelOf } from "../../../channels/channel-handler.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../channels/channel-role.decorator.js";
 import type { Class } from "../../../components/injection.js";
-import { Flag, Text } from "../../../dto/index.js";
+import { Bool, Text } from "../../../dto/index.js";
 import { NodeKind, type PathSource } from "../../../flow/ast.js";
 import { fromSource, type PathBuilder } from "../../../flow/path-builder.js";
 import {
@@ -12,13 +17,11 @@ import {
   FaultChargeDeclinedError,
   FaultReserveAction,
 } from "./order.actions.js";
-import {
-  FaultChargeDto,
-  FaultOrderDto,
-  FaultPaymentDto,
-  FaultReservationDto,
-} from "./order.dto.js";
+import { FaultOrderDto, FaultPaymentDto, FaultReservationDto } from "./order.dto.js";
 import { FaultPayAction } from "./pay.action.js";
+import { PauseRespondent } from "../../../pause/respondent.js";
+import { days } from "../../../units/index.js";
+import { Ttl } from "../../../index.js";
 
 /**
  * The fault fixture's approved order (#811 AC4, served over A2A only): reserve (undoable), then a
@@ -27,7 +30,7 @@ import { FaultPayAction } from "./pay.action.js";
  * by the pause's atomic transition: the scenario reads which won from the charge and the payment.
  */
 
-const start = (source: Class): PathBuilder<PathSource> =>
+const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
 /** What the question asks: the order to approve. */
@@ -38,7 +41,7 @@ export class FaultApprovalAskDto {
 
 /** The caller's answer. */
 export class FaultApprovalDto {
-  @Flag({ prompt: "whether the order may be charged" })
+  @Bool({ prompt: "whether the order may be charged" })
   approved!: boolean;
 }
 
@@ -50,9 +53,9 @@ export class FaultApprovalDto {
 })
 export class FaultAskAction {
   execute(input: {
-    readonly reservation: Produced<FaultReservationDto, unknown>;
+    readonly reservation: Tracked<FaultReservationDto>;
   }): Promise<FaultApprovalAskDto> {
-    return Promise.resolve({ orderId: input.reservation.value.orderId });
+    return Promise.resolve({ orderId: input.reservation.orderId });
   }
 }
 
@@ -62,25 +65,31 @@ export class FaultAskAction {
   input: { approval: FaultApprovalDto },
 })
 export class FaultApprovedAction {
-  execute(input: { readonly approval: Produced<FaultApprovalDto, unknown> }): Promise<void> {
-    if (input.approval.value.approved) return Promise.resolve();
+  execute(input: { readonly approval: Tracked<FaultApprovalDto> }): Promise<void> {
+    if (input.approval.approved) return Promise.resolve();
     return Promise.reject(new FaultChargeDeclinedError("the order was not approved"));
   }
 }
 
-@ChannelRole({
-  name: "fault-approval-question",
+@ExternalTask({
+  name: "fault-approval-external-task",
   description: "Asks the task's caller to approve its order",
-  ask: FaultApprovalAskDto,
-  answer: FaultApprovalDto,
-  answerer: PauseAnswerer.ThreadOwner,
+  input: FaultApprovalAskDto,
+  output: FaultApprovalDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
 })
-export abstract class FaultApprovalQuestion extends ChannelOf<FaultApprovalQuestion> {}
+export class FaultApprovalExternalTask {}
 
 /** The caller answers over A2A: the question waits for its follow-up. */
-@Channel({ name: "fault-caller-channel", description: "The A2A task's caller" })
-export class FaultCallerChannel extends FaultApprovalQuestion {
-  send(): Promise<ChannelOutcome<FaultApprovalQuestion>> {
+@Channel({
+  name: "fault-caller-channel",
+  description: "The A2A task's caller",
+  target: FaultApprovalExternalTask,
+  ttl: days(1),
+})
+export class FaultCallerChannel {
+  send(): Promise<ChannelOutcome<FaultApprovalExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -102,20 +111,15 @@ export class FaultApprovalWorkflowFinish {}
 @Workflow({
   name: "fault-approval-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FaultApprovalWorkflowStart)
-      .returns(FaultOrderDto)
+    onStart(FaultApprovalWorkflowStart)
       .toAction(FaultReserveAction)
-      .returns(FaultReservationDto)
       .toAction(FaultAskAction)
-      .returns(FaultApprovalAskDto)
-      .toQuestion(FaultApprovalQuestion)
-      .returns(FaultApprovalDto)
+      .toExternalTask(FaultApprovalExternalTask)
       .toAction(FaultApprovedAction)
       .toAction(FaultChargeAction)
-      .returns(FaultChargeDto)
       .toAction(FaultPayAction)
-      .returns(FaultPaymentDto)
       .toFinish(FaultApprovalWorkflowFinish),
   ],
 })

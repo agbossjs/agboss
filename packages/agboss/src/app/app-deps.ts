@@ -1,6 +1,7 @@
-import type { MeterProvider } from "@opentelemetry/api";
+import type { MeterProvider, TracerProvider } from "@opentelemetry/api";
 import { withChainedChildren } from "./pii-chain.js";
 import { type AssembledWorkflow } from "../workflow.js";
+import { historySourcesOf } from "./history-sources.js";
 import { redactorValuesViolations } from "../files/redactor-rules.js";
 import { throwIfViolated } from "../graph/rule-error.js";
 import type { StepSlots } from "./step-slots.js";
@@ -14,14 +15,14 @@ import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { EvalDeps } from "../eval/eval.js";
 import type { AgentExecutionDeps } from "../run/types.js";
-import { tracingOf } from "../tracing/index.js";
+import type { TracingAdapter } from "../tracing/index.js";
 import type { ModelGateway } from "../llm/gateway.js";
 import { createModelRegistry } from "../llm/registry.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
 import type { ChaosOptions } from "../eval/chaos/chaos-failure.js";
 import { startedModels } from "./started-models.js";
 import { appModelsFor } from "./models.js";
-import { connectMcpServers, type McpConnections, type TransportFactory } from "../tools/index.js";
+import type { McpConnections, McpIdentity, TransportFactory } from "../tools/index.js";
 import {
   evaluationFor,
   flowFor,
@@ -31,7 +32,15 @@ import {
   servicesFor,
   toolLookup,
 } from "./parts.js";
-import { closeOf, configKeeperOf, observedBy, treeDepsOf } from "./app-deps-parts.js";
+import {
+  closeOf,
+  configKeeperOf,
+  connectConfigured,
+  mcpIdentityOf,
+  observedBy,
+  treeDepsOf,
+} from "./app-deps-parts.js";
+import { tracingFor } from "./tracing-for.js";
 import { ownNoticesOf } from "./own-notices.js";
 import { startedOwn } from "./own-start.js";
 import { historyKeeperOf, type ExecutionHistoryKeeper } from "./execution-history.js";
@@ -45,6 +54,7 @@ import type { Clock } from "../infrastructure/clock.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
 import type { BudgetHandler } from "../budgets/budget.js";
+import type { OverlaidBudgets } from "../budgets/budget-overlay.js";
 import type { Class } from "../components/injection.js";
 import { lifecycleOf } from "./workflow-lifecycle.js";
 import {
@@ -88,6 +98,7 @@ export type McpConnect = (
   bundle: AssembledWorkflow,
   config: AgentsConfigOf<string>,
   env: NodeJS.ProcessEnv,
+  identity: McpIdentity,
 ) => Promise<McpConnections>;
 
 /** Everything an app may be given instead of its production default. */
@@ -122,6 +133,13 @@ export interface AppDepsOptions {
    * (`metrics.getMeterProvider()`). Absent = no metrics: nothing loaded, no store read.
    */
   readonly meterProvider?: MeterProvider;
+  /**
+   * Where the instance's spans go (#1324f, Wiki → Tracing): an OpenTelemetry `TracerProvider` the
+   * caller owns (`app.close()` flushes it), or a `TracingAdapter` the application owns (`app.close()`
+   * flushes and shuts it down, `ExecutionOutput.traceUrl` comes from it). Every value is masked by
+   * the workflow's PII policies before it reaches a span. Absent = no tracing.
+   */
+  readonly tracerProvider?: TracerProvider | TracingAdapter;
 }
 
 /**
@@ -138,17 +156,6 @@ export interface BuildOptions extends AppDepsOptions {
    */
   readonly gatewayOverProviders?: (real: () => ModelGateway) => ModelGateway;
 }
-
-const connectConfigured =
-  (transport: TransportFactory | undefined): McpConnect =>
-  (bundle, config, env) =>
-    connectMcpServers(
-      config.mcpServers,
-      bundle.mcpServers,
-      bundle.serverTools ?? [],
-      env,
-      transport,
-    );
 
 /**
  * What the application gives each of its workflows: the infrastructure (one per application) and,
@@ -188,8 +195,11 @@ export interface WorkflowDepsParts {
 }
 
 /** The budgets an application lists, and its name (the key of its application budgets). */
-export interface BudgetListing {
+export interface BudgetListing extends OverlaidBudgets {
+  /** Every budget: the ones listed and the ones workflows attach (#1318). */
   readonly budgets: readonly Class[];
+  /** The ones some workflow attaches: never another workflow's default. */
+  readonly attached?: readonly Class[] | undefined;
   readonly applicationName: string;
 }
 
@@ -209,12 +219,6 @@ const budgetsOf = (
         clock,
       };
 
-/** A workflow's tracing route (#1130): its spans go to its application instance's Langfuse only. */
-const traceRouteOf = (workflow: string, parts: WorkflowDepsParts) => ({
-  workflow,
-  owner: parts.infrastructure, // one per application instance
-});
-
 /**
  * The run dependencies of one workflow of an application: its model providers behind the model
  * gateway (every model setting checked against its model first), MCP servers, and the application's
@@ -222,11 +226,16 @@ const traceRouteOf = (workflow: string, parts: WorkflowDepsParts) => ({
  * the components' `onInit` → `onStart` run at the end (a failing one stops the start, MCP and
  * tracing are closed); with it the application runs them once for all its workflows.
  */
-/** What of the application's providers is in `configHash`: transport providers (#385), its own file redactor and transcriber (#1269). */
+/** What of the application's providers is in `configHash`: transport providers (#385), its own file redactor and transcriber (#1269); and its reply interpreters' instructions (#1347c). */
 const hashedProvidersOf = (
   bundle: AssembledWorkflow,
-): Pick<AppDeps, "modelProviders" | "ownFileRedactor" | "ownFileTranscriber"> => ({
+): Pick<
+  AppDeps,
+  "modelProviders" | "ownFileRedactor" | "ownFileTranscriber" | "replyInterpreters" | "rerankers"
+> => ({
   modelProviders: bundle.modelProviders,
+  replyInterpreters: bundle.replyInterpreters,
+  rerankers: bundle.rerankers,
   ownFileRedactor: bundle.ownFileRedactor,
   ownFileTranscriber: bundle.ownFileTranscriber,
 });
@@ -246,10 +255,10 @@ export async function createWorkflowDeps(
   const services = servicesFor(bundle, gateway, contexts, lifecycle.options);
   const { tools, config } = await startedModels(bundle, started, services, lifecycle);
   const connect = options.connectMcp ?? connectConfigured(options.transport);
-  const mcp = await connect(bundle, config, env);
+  const mcp = await connect(bundle, config, env, mcpIdentityOf(contexts));
   throwIfViolated(redactorValuesViolations(bundle, config, contexts));
-  const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts.piiKey);
-  const tracing = await tracingOf(env, pii.observability, traceRouteOf(config.name, parts));
+  const pii = piiFor(bundle, config, { gateway, services, contexts, env }, parts);
+  const tracing = await tracingFor(options, pii.observability, config.name, parts);
   const components = componentsAtStart(bundle, services);
   const budgets = budgetsOf(parts.budgets, components.container, parts.infrastructure, clock);
   const own = ownNoticesOf(parts.notices);
@@ -262,7 +271,7 @@ export async function createWorkflowDeps(
     ...policiesFor(bundle, services, config, gateway),
     tools: toolLookup(tools),
     pause: pauseFor(checkpointer, parts.infrastructure.pausedExecutions, turns, own.notices),
-    ...(bundle.compactions === undefined ? {} : { compactions: bundle.compactions }),
+    ...(bundle.memories === undefined ? {} : { memories: bundle.memories }),
     ...components,
     pii,
     budgets,
@@ -274,7 +283,7 @@ export async function createWorkflowDeps(
     replies: repliesFor(bundle, config, gateway, components.container),
     ...observedBy(parts.observer, parts.infrastructure.logger, clock, pii.observability),
     ...treeDepsOf(parts.infrastructure, withChainedChildren(parts, pii)), // #1150
-    ...historyKeeperOf(parts, { clock, contexts, pii, answers: turns }),
+    ...historyKeeperOf(historySourcesOf(parts, bundle), { clock, contexts, pii, answers: turns }),
     close: closeOf(parts.created === undefined ? lifecycle.created : undefined, mcp, tracing),
   };
   const snapshot = configKeeperOf(deps);

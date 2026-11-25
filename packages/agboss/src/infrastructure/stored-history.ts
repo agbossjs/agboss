@@ -6,7 +6,7 @@ import {
 } from "./execution-history.repository.js";
 import {
   ExecutionAuditEventKind,
-  FencedEffectEventOutcome,
+  IdempotencyRunEventOutcome,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
@@ -33,7 +33,7 @@ import { PauseAnswerRecordSchema, readStored, StoredComponent } from "./stored-s
  * A kept `ExecutionHistoryRecord` as a store keeps it as JSON (#401, #934), read whole: every
  * field the type has is checked — a field 0.1.0 already kept is required, one added after is
  * optional (`auditLog`, `outboundCalls`, a cost report's `unknownCalls`) —, the pauses of the
- * record and of its children's, at any depth, are read with the new names (a 0.1.0 entry too), and
+ * record and of its children's, at any depth, are read in the 0.1.1 shape (no old name), and
  * a key the type does not know is dropped. What comes out is the type, asserted nowhere.
  */
 
@@ -89,9 +89,9 @@ const StoredAuditEvent: z.ZodType<ExecutionAuditEventRecord> = z.discriminatedUn
   }),
   z.object({
     ...eventBase,
-    kind: z.literal(ExecutionAuditEventKind.FencedEffect),
+    kind: z.literal(ExecutionAuditEventKind.IdempotencyRun),
     name: text,
-    outcome: z.enum(FencedEffectEventOutcome),
+    outcome: z.enum(IdempotencyRunEventOutcome),
     step: auditStep,
     writtenToken: count.optional(),
     replayedFrom: origin.optional(),

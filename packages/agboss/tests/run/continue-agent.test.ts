@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #265 S30 edges of continuing an interrupted execution from its last checkpoint: a run is
  * `running` while it moves and completed when it ends; a graph that had already finished is only
@@ -104,14 +105,14 @@ describe("#265 S30: continuing an interrupted execution", () => {
       runId: "run-lost",
       threadId,
       tenantId: "default",
-      bundle: "test-bundle-workflow",
+      workflow: "test-bundle-workflow",
       task: "start chat-workflow-start: Hi",
       replayOf: null,
       promptVersion: "p",
       modelVersion: "m",
       configVersion: null,
       configHash: null,
-      ...runningOutcome([], 0),
+      ...runningOutcome([], usd(0)),
     });
 
     const continued = continueAgent(

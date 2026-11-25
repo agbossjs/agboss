@@ -5,11 +5,12 @@
  * `createApp` and in `testWith`; the built-in default keeps the formats (random UUIDs). A `pauseId`
  * never comes from it: a random 128-bit token in every case.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { ExecutionStatus } from "../../src/app/types.js";
-import type { App, ExecutionOutput } from "../../src/index.js";
+import type { ExecutionOutput } from "../../src/index.js";
+import type { AnyTenantApp as App } from "../../src/app/types.js";
 import { SequentialIdGenerator, testWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -77,7 +78,7 @@ async function pausedAndResumed(
 async function scriptedApp(application: typeof PrefixedIdsApplication): Promise<App> {
   const book = new ScriptBook();
   book.scriptOf("agent:child-refund-agent").thenAnswer(confirmer);
-  return createAppWith(application, { gateway: createScriptedGateway(book) });
+  return createTestAppWith(application, { gateway: createScriptedGateway(book) });
 }
 
 describe("#313 AC2: under testWith the ids are deterministic", () => {

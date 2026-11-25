@@ -27,7 +27,7 @@ const budget = new BudgetExceededError({
   maxSpend: usd(0.01),
   spent: usd(0.02),
   path: ["order", "buyer"],
-  spentUsd: 0.02,
+  spentUsd: usd(0.02),
 });
 
 /** What a serialising checkpointer gives back. */
@@ -52,8 +52,10 @@ describe("#194: error records", () => {
         actual: 0.02,
         budget: { name: "shop-execution-budget", kind: "budget" },
         scope: "execution",
+        unit: "usd",
         maxSpend: 0.01,
         spent: 0.02,
+        usedTokens: 0,
       },
     });
     expect(roundTrip(errorRecordOf(agent))).toMatchObject({

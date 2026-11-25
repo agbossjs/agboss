@@ -18,9 +18,11 @@ import {
   SpendingLimitAnswerDto,
 } from "../flow/fixtures/questions.fixture.js";
 import { execute } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @Application({
   name: "kept-questions-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PurchaseWorkflow, OwnerPurchaseWorkflow],
@@ -43,7 +45,7 @@ describe("#1366: the kept record of a run with a model interpreter", () => {
     const done = await app.resume(
       { pauseId, reply: "fine, up to eight hundred" },
       {
-        answeredBy: "budget-owner-7",
+        actor: { id: "budget-owner-7" },
       },
     );
 

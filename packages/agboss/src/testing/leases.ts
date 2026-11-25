@@ -1,12 +1,9 @@
 import type { ExecutionLeaseGate } from "../application/lease-gate.js";
-import {
-  ExecutionLeaseRepository,
-  type ExecutionIdentity,
-  type ExecutionLease,
-} from "../infrastructure/execution-lease.repository.js";
+import {} from "../infrastructure/execution-lease.repository.js";
+import type { ExecutionLeaseRepository } from "../infrastructure/execution-lease.repository.js";
 import { Clock } from "../infrastructure/clock.js";
-import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { Milliseconds } from "../units/index.js";
+import { GatedExecutionLeaseRepository } from "./gated-lease-repository.js";
 import { TestSetupError } from "./errors.js";
 import type { TestApp } from "./test-app.js";
 
@@ -76,76 +73,6 @@ const abortOf = (signal: AbortSignal): Promise<void> =>
       { once: true },
     );
   });
-
-/** The instance's lease store behind its gate: every call waits while the instance is frozen. */
-class GatedExecutionLeaseRepository extends ExecutionLeaseRepository {
-  constructor(
-    private readonly repository: ExecutionLeaseRepository,
-    private readonly gate: LeaseGate,
-  ) {
-    super();
-  }
-
-  async ping(): Promise<void> {
-    await this.gate.passed();
-    return this.repository.ping();
-  }
-
-  async claimExecutionId(identity: ExecutionIdentity): Promise<boolean> {
-    await this.gate.passed();
-    return this.repository.claimExecutionId(identity);
-  }
-
-  async acquire(
-    tenantId: string,
-    rootExecutionId: string,
-    duration: Milliseconds,
-  ): Promise<ExecutionLease | undefined> {
-    await this.gate.passed();
-    return this.repository.acquire(tenantId, rootExecutionId, duration);
-  }
-
-  async renew(
-    executionLease: ExecutionLease,
-    duration: Milliseconds,
-  ): Promise<Milliseconds | undefined> {
-    await this.gate.passed();
-    return this.repository.renew(executionLease, duration);
-  }
-
-  async release(executionLease: ExecutionLease): Promise<void> {
-    await this.gate.passed();
-    return this.repository.release(executionLease);
-  }
-
-  async retire(executionLease: ExecutionLease): Promise<void> {
-    await this.gate.passed();
-    return this.repository.retire(executionLease);
-  }
-
-  async yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined> {
-    await this.gate.passed();
-    return this.repository.yield(executionLease);
-  }
-
-  async reclaim(
-    executionLease: ExecutionLease,
-    duration: Milliseconds,
-  ): Promise<ExecutionLease | undefined> {
-    await this.gate.passed();
-    return this.repository.reclaim(executionLease, duration);
-  }
-
-  async requestCancel(tree: ExecutionTree): Promise<void> {
-    await this.gate.passed();
-    return this.repository.requestCancel(tree);
-  }
-
-  isCancelRequested(tree: ExecutionTree): Promise<boolean> {
-    // a read, not an ask for a lease: a frozen instance's frozen ask is the take's (#520), not this
-    return this.repository.isCancelRequested(tree);
-  }
-}
 
 /** The clock the instance's lease timers sleep on: a sleep that ends while frozen waits for thaw. */
 class GatedClock extends Clock {

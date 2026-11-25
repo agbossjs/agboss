@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import type { ExecutionStreamEvent } from "../../../src/run/types.js";
+import { ExecutionStatus } from "../../../src/app/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../../src/run/types.js";
 import {
   ModelCallError,
   ModelFailure,
@@ -21,6 +22,7 @@ import {
   silentAfter,
   streamOf,
   usageNeverSettles,
+  usageOf,
   usageRejects,
   type StreamScript,
 } from "./transport-streaming.fixture.js";
@@ -32,7 +34,7 @@ import {
  */
 
 const deltas = (events: readonly ExecutionStreamEvent[]): string[] =>
-  events.flatMap((event) => (event.kind === "textDelta" ? [event.delta] : []));
+  events.flatMap((event) => (event.kind === StreamEventKind.TextDelta ? [event.delta] : []));
 
 async function appOn(scripts: readonly StreamScript[], clock = new VirtualClock()) {
   const client = new ScriptedStreamClient(scripts);
@@ -65,9 +67,7 @@ describe("#1011: a transport provider streams its text", { timeout: 30_000 }, ()
   });
 
   it("AC3: the usage is counted once, as the plain call's (tokens x price)", async () => {
-    const { app } = await appOn([
-      streamOf(["a", "b"], { inputTokens: 1_000_000, outputTokens: 500_000 }),
-    ]);
+    const { app } = await appOn([streamOf(["a", "b"], usageOf(1_000_000, 500_000))]);
 
     const done = await execute(app, ChatStart, { text: "hi" }, { onStream: () => undefined });
 
@@ -202,7 +202,8 @@ describe("#1011: a transport provider streams its text", { timeout: 30_000 }, ()
           },
         },
       );
-      await expect(run).rejects.toThrow();
+      // a caller's abort is an outcome, not an error (#1341)
+      await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     };
 
     await abort();

@@ -1,6 +1,7 @@
+import { TestOpenRouterProvider } from "../models/providers.fixture.js";
 import { describe, expect, it } from "vitest";
 import { createJevClient } from "../../src/llm/jev-client.js";
-import { ModelFailure, OpenRouterModelProvider, RetryPolicy } from "../../src/models/index.js";
+import { ModelFailure, RetryPolicy } from "../../src/models/index.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { resilientFetch } from "../../src/models/resilient-fetch.js";
 import { milliseconds } from "../models/time.js";
@@ -28,10 +29,7 @@ const neverAnswers: typeof fetch = (_url, init) =>
 describe("model calls: the provider's timeout and retries (#95, now on the provider #151)", () => {
   it("AC1: a request that gets no replyWith fails at the provider's timeout on its clock instead of hanging", async () => {
     const clock = new VirtualClock();
-    const send = resilientFetch(
-      { provider: "p", timeout: milliseconds(50), retryPolicy: RetryPolicy.none(), clock },
-      neverAnswers,
-    );
+    const send = resilientFetch({ provider: "p", timeout: milliseconds(50), clock }, neverAnswers);
 
     const sent = send("http://p.test/chat/completions");
     const outcome = settledFlag(sent);
@@ -67,7 +65,7 @@ describe("model calls: the provider's timeout and retries (#95, now on the provi
   });
 
   it("AC3: sensible defaults on the built-in provider: a 2-minute timeout, 3 attempts on transient failures", () => {
-    const options = modelProviderOf(OpenRouterModelProvider);
+    const options = modelProviderOf(TestOpenRouterProvider);
 
     expect(options.timeout).toBe(minutes(2));
     expect(options.retryPolicy).toMatchObject({
@@ -87,7 +85,7 @@ describe("Jev calls: the standard fetch abort signal (#95)", () => {
       clock,
     );
 
-    const decided = jev({ model: "typesafe/jev", input: "x", options: [] } as never);
+    const decided = jev({ model: "typesafe/jev", state: "x", questions: {} });
     const outcome = settledFlag(decided);
     await clock.advance(milliseconds(49));
     expect(outcome.isSettled()).toBe(false);

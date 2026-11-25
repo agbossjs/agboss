@@ -1,3 +1,4 @@
+import { hours, minutes, Ttl } from "../../../../src/units/index.js";
 /**
  * #1366: the file store rule reports, per violation, the code and the node it names (the
  * application, or the expose whose skill options are wrong), measures the tier in KB (256 KB is the
@@ -9,69 +10,98 @@ import {
   a2aFileStoreViolations,
   inlineFilesWarningOf,
 } from "../../../../src/a2a/a2a-file-store-rule.js";
-import { A2AExpose } from "../../../../src/a2a/a2a-expose.decorator.js";
-import type { A2AFileOptions } from "../../../../src/a2a/files/a2a-file-options.js";
+import { A2AEndpoint } from "../../../../src/a2a/a2a-endpoint.decorator.js";
+import { FilePolicy, type FilePolicyOptions } from "../../../../src/files/file-policy.js";
+import { Workflow } from "../../../../src/flow/decorators/workflow.js";
 import type { Provider } from "../../../../src/components/injection.js";
-import { InMemoryA2AFileRepository } from "../../../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../../../src/infrastructure/execution-lease.repository.js";
-import { LocalDiskA2AFileRepository } from "../../../../src/infrastructure/local-disk-a2a-file.repository.js";
+import { LocalDiskFileRepository } from "../../../../src/infrastructure/local-disk-file.repository.js";
 import { kilobytes } from "../../../../src/units/index.js";
 import { PostgresLeases } from "../../../application/fixtures/store-backends.fixture.js";
 import { PostgresA2ATasks } from "../../../a2a/fixtures/a2a-task-stores.fixture.js";
 import {
   FileReviewWorkflow,
   FileReviewWorkflowStart,
+  fileReviewFlow,
 } from "../../../a2a/fixtures/files.application.js";
+import { ComponentOptions } from "../../../../src/components/component-options.js";
 
-const sized = (total: number): A2AFileOptions => ({
+const sized = (total: number): FilePolicyOptions => ({
   maxFileSize: kilobytes(total),
   maxTotalFileSize: kilobytes(total),
 });
 
-@A2AExpose({
+let counter = 0;
+
+/** The file review workflow under a `@FilePolicy` of these options. */
+function workflowWith(options: FilePolicyOptions) {
+  counter += 1;
+  @FilePolicy({ ttl: hours(24), name: `sized-${String(counter)}-file-policy`, ...options })
+  class SizedPolicy {}
+
+  @Workflow({
+    name: `sized-${String(counter)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow: fileReviewFlow,
+    filePolicy: SizedPolicy,
+  })
+  class SizedWorkflow {}
+  return SizedWorkflow;
+}
+
+@FilePolicy({ ttl: hours(24), name: "zero-files-file-policy", maxFiles: 0 })
+class ZeroFilesPolicy {}
+
+@A2AEndpoint({
   name: "rules-a2a-expose",
   version: "1.0.0",
   description: "files",
-  exports: [FileReviewWorkflowStart],
-  skills: { "file-review-workflow-start": { tags: ["files"], files: { maxFiles: 0 } } },
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [{ start: FileReviewWorkflowStart, tags: ["files"], filePolicy: ZeroFilesPolicy }],
 })
 class BadSkillExpose {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "plain-a2a-expose",
   version: "1.0.0",
   description: "files",
-  exports: [FileReviewWorkflowStart],
-  skills: { "file-review-workflow-start": { tags: ["files"] } },
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [{ start: FileReviewWorkflowStart, tags: ["files"] }],
 })
 class PlainExpose {}
 
-const optionsOf = (over: Record<string, unknown>) =>
-  ({
+const optionsOf = (over: Record<string, unknown>) => {
+  const { files, ...rest } = over;
+  return {
     name: "rules-application",
-    workflows: [FileReviewWorkflow],
-    exposes: [PlainExpose],
-    ...over,
-  }) as never;
+    workflows: [
+      files === undefined ? FileReviewWorkflow : workflowWith(files as FilePolicyOptions),
+    ],
+    endpoints: [PlainExpose],
+    ...rest,
+  } as never;
+};
 
 const outcomeOf = (over: Record<string, unknown>) =>
-  a2aFileStoreViolations(optionsOf(over)).map((found) => ({
+  a2aFileStoreViolations(optionsOf(over), ComponentOptions.none).map((found) => ({
     code: found.code,
     nodes: found.nodes,
     message: found.message,
   }));
 
 describe("#1366 the nodes a violation names", () => {
-  it("options of the application name the application, a skill's the expose", () => {
-    const found = outcomeOf({ exposes: [BadSkillExpose], a2aFiles: { maxFiles: 0 } });
+  it("a workflow's policy names the application, a skill's the expose", () => {
+    const found = outcomeOf({ endpoints: [BadSkillExpose], files: { maxFiles: 0 } });
     expect(found.map(({ code, nodes }) => ({ code, nodes }))).toEqual([
-      { code: "a2a.file-options-invalid", nodes: ["rules-application"] },
-      { code: "a2a.file-options-invalid", nodes: ["rules-a2a-expose"] },
+      { code: "file-policy.invalid", nodes: ["rules-application"] },
+      { code: "file-policy.invalid", nodes: ["rules-a2a-expose"] },
     ]);
   });
 
   it("file-store-required and file-store-not-shared name the application and show the KB", () => {
-    const required = outcomeOf({ a2aFiles: sized(1024), providers: [] });
+    const required = outcomeOf({ files: sized(1024), providers: [] });
     expect(required).toHaveLength(1);
     expect(required[0]).toMatchObject({
       code: "a2a.file-store-required",
@@ -80,8 +110,8 @@ describe("#1366 the nodes a violation names", () => {
     expect(required[0]?.message).toMatch(/keep up to 1024 KB of files, above the 256 KB/);
 
     const notShared = outcomeOf({
-      a2aFiles: sized(1024),
-      providers: [PostgresLeases, PostgresA2ATasks, InMemoryA2AFileRepository],
+      files: sized(1024),
+      providers: [PostgresLeases, PostgresA2ATasks, InMemoryFileRepository],
     });
     expect(notShared).toHaveLength(1);
     expect(notShared[0]).toMatchObject({
@@ -94,21 +124,21 @@ describe("#1366 the nodes a violation names", () => {
 
 describe("#1366 tiers and absent options", () => {
   it("no providers listed at all: above 256 KB a store is required", () => {
-    expect(outcomeOf({ a2aFiles: sized(300) }).map(({ code }) => code)).toEqual([
+    expect(outcomeOf({ files: sized(300) }).map(({ code }) => code)).toEqual([
       "a2a.file-store-required",
     ]);
   });
 
   it("no exposes listed: no files, no violation", () => {
-    expect(outcomeOf({ exposes: undefined, a2aFiles: sized(1024) })).toEqual([]);
+    expect(outcomeOf({ endpoints: undefined, files: sized(1024) })).toEqual([]);
   });
 
   it("256 KB exactly needs no store; a store of one host is the same with every one-host backend", () => {
-    expect(outcomeOf({ a2aFiles: sized(256) })).toEqual([]);
-    for (const store of [InMemoryA2AFileRepository, LocalDiskA2AFileRepository]) {
+    expect(outcomeOf({ files: sized(256) })).toEqual([]);
+    for (const store of [InMemoryFileRepository, LocalDiskFileRepository]) {
       expect(
         outcomeOf({
-          a2aFiles: sized(257),
+          files: sized(257),
           providers: [PostgresLeases, PostgresA2ATasks, store],
         }).map(({ code }) => code),
       ).toEqual(["a2a.file-store-not-shared"]);
@@ -119,9 +149,9 @@ describe("#1366 tiers and absent options", () => {
     const providers: Provider[] = [
       PostgresLeases,
       InMemoryExecutionLeaseRepository,
-      InMemoryA2AFileRepository,
+      InMemoryFileRepository,
     ];
-    expect(outcomeOf({ a2aFiles: sized(1024), providers }).map(({ code }) => code)).toEqual([
+    expect(outcomeOf({ files: sized(1024), providers }).map(({ code }) => code)).toEqual([
       "a2a.file-store-not-shared",
     ]);
   });
@@ -131,9 +161,9 @@ describe("#1366 inlineFilesWarningOf", () => {
   const sourcesOf = (total: number) => ({
     name: "rules-application",
     providers: [],
-    exposes: [PlainExpose],
-    workflows: [FileReviewWorkflow],
-    a2aFiles: sized(total),
+    endpoints: [PlainExpose],
+    workflows: [workflowWith(sized(total))],
+    options: ComponentOptions.none,
   });
 
   it("a warning between 64 and 256 KB (both edges), showing the KB; none outside", () => {
@@ -145,7 +175,7 @@ describe("#1366 inlineFilesWarningOf", () => {
 
   it("none when a store is listed", () => {
     expect(
-      inlineFilesWarningOf({ ...sourcesOf(100), providers: [InMemoryA2AFileRepository] }),
+      inlineFilesWarningOf({ ...sourcesOf(100), providers: [InMemoryFileRepository] }),
     ).toBeUndefined();
   });
 });

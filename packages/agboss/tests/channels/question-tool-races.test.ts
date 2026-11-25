@@ -14,7 +14,7 @@ import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { callTool, callTools, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import {
-  ApproverQuestion,
+  ApproverExternalTask,
   BuyerAgent,
   BuyerDesk,
   BuyerWorkflowFinish,
@@ -52,7 +52,7 @@ const statusOf = async (app: TestApp, pauseId: string): Promise<PauseStatus | un
 
 describe("#712 AC4: exactly one answer wins", () => {
   test("AC4: a second answer after the first is PauseClosedError", async ({ app, mockLlm }) => {
-    mockLlm(BuyerAgent).thenReturn(callTool(ApproverQuestion, laptop), replyWith("done"));
+    mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop), replyWith("done"));
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy" }, asking);
     const done = await app.resume(answerOf(paused, yes), owner);
 
@@ -66,7 +66,7 @@ describe("#712 AC4: exactly one answer wins", () => {
     apps,
     mockLlm,
   }) => {
-    mockLlm(BuyerAgent).thenReturn(callTool(ApproverQuestion, laptop), replyWith("done"));
+    mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop), replyWith("done"));
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy" }, asking);
 
     const settled = await Promise.allSettled([
@@ -88,7 +88,7 @@ describe("#712 AC4: exactly one answer wins", () => {
     apps,
     mockLlm,
   }) => {
-    mockLlm(BuyerAgent).thenReturn(callTool(ApproverQuestion, laptop), replyWith("done"));
+    mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop), replyWith("done"));
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy" }, asking);
 
     const done = await second(apps).resume(answerOf(paused, yes), owner);
@@ -104,7 +104,7 @@ describe("#712 AC4: cancel, tenants and owners", () => {
     app,
     mockLlm,
   }) => {
-    mockLlm(BuyerAgent).thenReturn(callTool(ApproverQuestion, laptop));
+    mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop));
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy" }, asking);
     const pauseId = paused.pending[0]?.pauseId ?? "";
 
@@ -118,7 +118,7 @@ describe("#712 AC4: cancel, tenants and owners", () => {
     app,
     mockLlm,
   }) => {
-    mockLlm(BuyerAgent).thenReturn(callTool(ApproverQuestion, laptop));
+    mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop));
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy" }, asking);
     const pauseId = paused.pending[0]?.pauseId ?? "";
 
@@ -139,15 +139,15 @@ describe("#712 AC4: maxVisits, several calls of one move, a failing channel", ()
       request.kind === "chat" && request.messages.some((line) => line.role === "tool")
         ? replyWith("both answered")
         : callTools(
-            callTool(ApproverQuestion, laptop),
-            callTool(ApproverQuestion, { item: "dock", priceUsd: 200 }),
+            callTool(ApproverExternalTask, laptop),
+            callTool(ApproverExternalTask, { item: "dock", priceUsd: 200 }),
           ),
     );
     const first = await execute(app, BuyerWorkflowStart, { text: "buy" }, asking);
-    expect(first.pending.map((pause) => pause.ask)).toEqual([laptop]);
+    expect(first.pending.map((pause) => pause.input)).toEqual([laptop]);
 
     const next = await app.resume(answerOf(first, yes), owner);
-    expect(next.pending.map((pause) => pause.ask)).toEqual([{ item: "dock", priceUsd: 200 }]);
+    expect(next.pending.map((pause) => pause.input)).toEqual([{ item: "dock", priceUsd: 200 }]);
 
     const done = await app.resume(answerOf(next, no), owner);
     expect(done).toFinishWith(BuyerWorkflowFinish, { text: "both answered" });
@@ -159,9 +159,9 @@ describe("#712 AC4: maxVisits, several calls of one move, a failing channel", ()
     mockLlm,
   }) => {
     mockLlm(BuyerAgent).thenReturn(
-      callTool(ApproverQuestion, laptop),
-      callTool(ApproverQuestion, laptop),
-      callTool(ApproverQuestion, laptop),
+      callTool(ApproverExternalTask, laptop),
+      callTool(ApproverExternalTask, laptop),
+      callTool(ApproverExternalTask, laptop),
     );
     const first = await execute(app, BuyerWorkflowStart, { text: "buy" }, asking);
     const again = await app.resume(answerOf(first, { approved: true, limitUsd: 500 }), owner);
@@ -182,8 +182,8 @@ describe("#712 AC4: a budget exhausted meanwhile asks nobody", () => {
     mockOf(TestTenantDailyBudget).maxSpend.mockReturnValue(usd(0.01));
     mockLlm(BuyerAgent).thenAnswer(() =>
       callTools(
-        callTool(ApproverQuestion, laptop),
-        callTool(ApproverQuestion, { item: "dock", priceUsd: 200 }),
+        callTool(ApproverExternalTask, laptop),
+        callTool(ApproverExternalTask, { item: "dock", priceUsd: 200 }),
       ),
     );
     mockLlm(OwnerBuyerAgent).thenReturn(replyWith("spent", { cost: usd(0.02) }));
@@ -208,7 +208,7 @@ describe("#712 AC4: a channel that fails", () => {
   down(
     "AC4: a send that throws fails the agent's step, the channel's error its cause",
     async ({ app, mockLlm }) => {
-      mockLlm(BuyerAgent).thenReturn(callTool(ApproverQuestion, laptop));
+      mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop));
 
       await expect(execute(app, BuyerWorkflowStart, { text: "buy" }, asking)).rejects.toFailWith(
         AgentFailedError,
@@ -220,7 +220,7 @@ describe("#712 AC4: a channel that fails", () => {
   wrong(
     "AC4: a channel's decided(…) that is no valid answer fails the step, the validation its cause",
     async ({ app, mockLlm }) => {
-      mockLlm(BuyerAgent).thenReturn(callTool(ApproverQuestion, laptop));
+      mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop));
 
       await expect(execute(app, BuyerWorkflowStart, { text: "buy" }, asking)).rejects.toFailWith(
         AgentFailedError,

@@ -1,4 +1,3 @@
-import type { RagConnector } from "../rag/types.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import type { DtoClass } from "../dto/types.js";
@@ -6,8 +5,9 @@ import { ModelFailure } from "../models/model-failure.js";
 import { seconds, type Milliseconds } from "../units/index.js";
 import { millisecondsOf, type ClockDuration } from "./clock.js";
 import { TestSetupError } from "./errors.js";
-import { questionRoleOf } from "../channels/discovery.js";
-import type { ChannelQuestionOf, ToolNameOf } from "../flow/generated-types.js";
+import { externalTaskOf } from "../channels/discovery.js";
+import type { PauseInputOf, ToolNameOf } from "../flow/generated-types.js";
+import type { ExternalTaskClass } from "../components/decorators.js";
 import type {
   AnswerDetails,
   AnswerTurn,
@@ -18,6 +18,8 @@ import type {
   ReplyTurn,
   RouteTurn,
   ScriptedAnswer,
+  StreamFailureTurn,
+  StreamTurn,
   ToolCallTurn,
   ToolCallsTurn,
   WaitTurn,
@@ -58,30 +60,28 @@ export function replyWith(
   return { kind: "answer", dto: textOrDto, value: detailsOrValue, details: answerDetails };
 }
 
-/** A tool class, typed by the input its `run` takes. */
+/** A tool class, typed by the input its `execute` takes. */
 export type ToolClass<TInput extends object> = Class<{
-  run(input: TInput): Promise<unknown>;
+  execute(input: TInput): unknown;
 }>;
 
-/** The input a tool's `run` takes: what `callTool(Tool, args)` checks `args` by. */
+/** The input a tool's `execute` takes: what `callTool(Tool, args)` checks `args` by. */
 export type CalledToolArguments<TInstance> = TInstance extends {
-  run(input: infer TInput extends object): Promise<unknown>;
+  execute(input: infer TInput extends object): unknown;
 }
   ? TInput
   : never;
 
 /**
- * The name an agent's model calls a `@Tool` / `@McpTool` class by — a `@Rag`'s search tool too
- * (#703), a question role's name (#712).
+ * The name an agent's model calls a `@Tool` class by, or an external task's name (#712).
  */
 export function toolNameOf(tool: Class): string {
-  const role = questionRoleOf(tool);
+  const role = externalTaskOf(tool);
   if (role !== undefined) return role.name;
   const meta = componentOf(tool);
-  if (meta?.kind === "rag") return `search-${meta.meta.name}-tool`;
-  if (meta?.kind !== "tool" && meta?.kind !== "mcp-tool") {
+  if (meta?.kind !== "tool") {
     throw new TestSetupError({
-      message: `${tool.name} is not a @Tool, @McpTool, @Rag or question role`,
+      message: `${tool.name} is not a @Tool or an @ExternalTask`,
     });
   }
   return meta.meta.name;
@@ -96,18 +96,13 @@ export function callTool<TTool extends ToolClass<never>>(
   tool: TTool,
   args: NoInfer<CalledToolArguments<InstanceType<TTool>>>,
 ): ToolCallTurn<ToolNameOf<InstanceType<TTool>>>;
-/** A knowledge base's search (#703): `callTool(HandbookRag, { query: "on-call" })` — its tool mode. */
-export function callTool<TRag extends Class<RagConnector>>(
-  rag: TRag,
-  args: { readonly query: string },
-): ToolCallTurn<SearchToolNameOf<InstanceType<TRag>>>;
 /**
- * A question role the agent asks (#712): `callTool(SpendingLimitQuestion, { item, priceUsd })` —
- * the arguments typed by the role's `ask` (the generated `ChannelRoles`), the turn by its name.
+ * An external task the agent asks (#712): `callTool(SpendingLimitExternalTask, { item, priceUsd })` —
+ * the arguments typed by the task's `input` (the generated `PauseTargets`), the turn by its name.
  */
-export function callTool<TRole extends Class<{ send(ask: never): Promise<unknown> }>>(
+export function callTool<TRole extends ExternalTaskClass>(
   role: TRole,
-  args: NoInfer<ChannelQuestionOf<InstanceType<TRole>>>,
+  args: NoInfer<PauseInputOf<InstanceType<TRole>>>,
 ): ToolCallTurn<ToolNameOf<InstanceType<TRole>>>;
 export function callTool(tool: Class, args: object): ToolCallTurn {
   return {
@@ -116,10 +111,6 @@ export function callTool(tool: Class, args: object): ToolCallTurn {
     args: Object.fromEntries(Object.entries(args)),
   };
 }
-
-/** The search tool a knowledge base gives its agents (#703, #679): `search-<rag>-tool`. */
-export type SearchToolNameOf<TRag> =
-  string extends ToolNameOf<TRag> ? string : `search-${ToolNameOf<TRag>}-tool`;
 
 /**
  * An agent's model calls several tools in one move (#508): `callTools(callTool(ChargeTool, a),
@@ -134,10 +125,10 @@ export function callTools<const TCalls extends readonly [ToolCallTurn, ...ToolCa
 
 /**
  * What a model router chose (Q55), checked against the router `mockLlm(R)` scripts: after
- * `.chooseOne(…)` exactly one target — `routeTo(ProfilerAgent)`, `routeTo(ChatWorkflowFinish, {
- * cost })`; before `.toParallelAgents(…)` the `OnDemand` targets it launches — `routeTo()` (only
- * with an `Always` route), `routeTo(CultureScoreAgent)`. A target outside the router's routes, an
- * `Always` target or a wrong count does not compile.
+ * `.onRoute(…)` exactly one target — `routeTo(ProfilerAgent)`, `routeTo(ChatWorkflowFinish, {
+ * cost })`; in `toRouter(R).chooseMany([…])` the targets it launches — `routeTo()` (none),
+ * `routeTo(CultureScoreAgent)`. A target outside the router's routes or a wrong count does not
+ * compile.
  */
 export function routeTo<const TTargets extends readonly Class[]>(
   ...targets: TTargets
@@ -163,6 +154,27 @@ export const decideWith = (
 
 /** The model call fails: `failWith(ModelFailure.Timeout)`. */
 export const failWith = (failure: ModelFailure): FailureTurn => ({ kind: "failure", failure });
+
+/**
+ * An agent's model answers with text a streaming call hears chunk by chunk (#1311):
+ * `streamWith(["3 jobs ", "found"], { cost })` — the answer is the chunks joined, so a call that
+ * does not stream gets the same text as `replyWith("3 jobs found")`. Empty chunks are skipped.
+ */
+export const streamWith = (chunks: readonly string[], details: AnswerDetails = {}): StreamTurn => ({
+  kind: "stream",
+  chunks,
+  details,
+});
+
+/**
+ * The model's stream breaks after its chunks (#1311): `failStreamAfter(["3 jo"], ModelFailure.Timeout)`
+ * — a streaming call hears the chunks, then fails as `failWith(failure)` does; a call that does not
+ * stream fails at once, without them.
+ */
+export const failStreamAfter = (
+  chunks: readonly string[],
+  failure: ModelFailure,
+): StreamFailureTurn => ({ kind: "stream-failure", chunks, failure });
 
 /**
  * The next turn answers only after this long on the test's clock:

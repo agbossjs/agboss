@@ -1,6 +1,6 @@
 import { errorRecordOf, RecordedError } from "../../../src/core/error-record.js";
 import { describe, expect, it } from "vitest";
-import { AGBossError, ExecutionCancelledError } from "../../../src/core/errors.js";
+import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import {
   CompensationEntryStatus,
   CompensationReason,
@@ -110,7 +110,8 @@ describe("@agboss/unwinding", () => {
 
     expect(mark?.reason).toBe(CompensationReason.ExecutionFailed);
     expect(error).toBeInstanceOf(RecordedError);
-    expect(error).not.toBeInstanceOf(AGBossError);
+    // a RecordedError is an AGBossError (#1325), but of a foreign original: it is no framework error and says `internal`
+    expect(error).toMatchObject({ isFramework: false, code: "internal" });
     expect(error && errorRecordOf(error).lineage).toEqual(["Error"]);
     expect(error?.message).toBe("a string thrown");
   });

@@ -441,7 +441,7 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
       answers: {
         expire: (answered) =>
           answered.status === PauseStatus.Resolved && answered.answer !== undefined
-            ? { ...answered, answer: { ...answered.answer, answeredBy: "manager-17" } }
+            ? { ...answered, answer: { ...answered.answer, actor: { id: "manager-17" } } }
             : answered,
       },
     },

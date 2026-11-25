@@ -32,7 +32,7 @@ describe("#809: the typed client's types", () => {
       target: { application: "quote-application", skill: "quote-workflow-start" },
       input: QuoteQuestionDto,
       output: QuoteDto,
-      price: usd(0.01),
+      costPerCall: usd(0.01),
       mesh: A2AMesh.Required,
       allowedOrigins: ["https://rpc.quotes.example"],
     })

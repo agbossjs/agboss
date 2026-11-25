@@ -5,23 +5,25 @@
  */
 import { describe, expect, it } from "vitest";
 import { answerRecordOf } from "../../src/infrastructure/pause-answer-log.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
 import { PauseKind, PauseResolution, PauseStatus } from "../../src/infrastructure/pause-record.js";
 import { PauseStepKeyMismatchError } from "../../src/flow/runtime/pause-chain.js";
-import { pauseStep, type PauseChannel } from "../../src/flow/runtime/pause.js";
+import { pauseStep } from "../../src/flow/runtime/pause.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 import { testFrame } from "../helpers/frame.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import { targetOfChannel, type FlatChannel } from "../helpers/pause-target.js";
 
 const clock = new VirtualClock();
-const ask = { callId: "call-1", tool: "refund", arguments: { orderId: "7" }, summary: "refund 7" };
-const question = { kind: PauseKind.Approval, step: "desk-clerk-agent", ask };
-const channel: PauseChannel = {
+const toolCall = { callId: "call-1", tool: "refund", summary: "refund 7" };
+const input = { orderId: "7" };
+const question = { kind: PauseKind.Approval, step: "desk-clerk-agent", input, toolCall };
+const channel: FlatChannel = {
   name: "refund-approval-channel",
-  answerer: PauseAnswerer.Channel,
+  respondent: PauseRespondent.Delegate,
   sender: { send: () => Promise.resolve(ChannelOutcome.decided({ approved: true })) },
 };
 const answers = {
@@ -32,7 +34,7 @@ const answers = {
 const siteOf = (pauses: InMemoryPausedExecutionRepository) => ({
   pauses,
   answers,
-  channel,
+  target: targetOfChannel(channel),
   frame: testFrame(),
   signal: undefined,
   clock,
@@ -41,7 +43,10 @@ const siteOf = (pauses: InMemoryPausedExecutionRepository) => ({
 });
 
 /** A pause already stored under the step's own key, answered, asking `stored`. */
-async function storedUnderStepKey(stored: unknown) {
+async function storedUnderStepKey(stored: {
+  readonly input: Readonly<Record<string, unknown>>;
+  readonly toolCall?: typeof toolCall;
+}) {
   const pauses = new InMemoryPausedExecutionRepository();
   const frame = testFrame();
   const stepKey = frame.step.idempotencyKey;
@@ -50,14 +55,15 @@ async function storedUnderStepKey(stored: unknown) {
     ...base,
     tenantId: frame.execution.tenant.tenantId,
     rootExecutionId: frame.execution.executionId,
-    ask: stored as typeof ask,
+    input: stored.input,
+    ...(stored.toolCall === undefined ? {} : { toolCall: stored.toolCall }),
     isSent: true,
   };
   await pauses.findOrCreateByStepKey(record);
   await pauses.resolveByTenantIdAndPauseId(
     record.tenantId,
     "pause-x",
-    { decision: { approved: true }, answeredBy: "someone" },
+    { decision: { approved: true }, actor: { id: "someone" } },
     clock.now(),
     NO_RECIPIENTS,
   );
@@ -67,10 +73,8 @@ async function storedUnderStepKey(stored: unknown) {
 describe("#946: a record found by a step key is reused only for its own question", () => {
   it("the same question (the keys of its arguments in another order too) is answered from the record", async () => {
     const reordered = {
-      summary: ask.summary,
-      arguments: { orderId: "7" },
-      tool: "refund",
-      callId: "call-1",
+      input: { orderId: "7" },
+      toolCall: { summary: toolCall.summary, tool: "refund", callId: "call-1" },
     };
     const pauses = await storedUnderStepKey(reordered);
 
@@ -80,7 +84,7 @@ describe("#946: a record found by a step key is reused only for its own question
   });
 
   it("another question under the same key is refused, never answered; the message names the key, not the id", async () => {
-    const other = { ...ask, arguments: { orderId: "8" } };
+    const other = { input: { orderId: "8" }, toolCall };
     const pauses = await storedUnderStepKey(other);
 
     const refused: unknown = await pauseStep(siteOf(pauses), question).catch((e: unknown) => e);
@@ -95,11 +99,11 @@ describe("#946: a record found by a step key is reused only for its own question
   });
 
   it("another kind under the same key is refused too", async () => {
-    const pauses = await storedUnderStepKey(ask);
+    const pauses = await storedUnderStepKey({ input, toolCall });
 
     const refused: unknown = await pauseStep(siteOf(pauses), {
       ...question,
-      kind: PauseKind.Question,
+      kind: PauseKind.ExternalTask,
     }).catch((e: unknown) => e);
 
     expect(refused).toBeInstanceOf(PauseStepKeyMismatchError);

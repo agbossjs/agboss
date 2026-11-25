@@ -1,6 +1,7 @@
 /** A judged text agent served over A2A (#1004, #1006): `a2aServer(listener)` streams its answers. */
+import { hours, minutes, Ttl } from "../../src/units/index.js";
 import { Injectable } from "../../src/components/decorators.js";
-import { A2AExpose, A2ACallerResolution, type A2ACallerResolver } from "../../src/a2a/index.js";
+import { A2AEndpoint } from "../../src/a2a/index.js";
 import {
   Agent,
   EmptyEnvironment,
@@ -12,29 +13,32 @@ import {
   WorkflowStart,
   type JudgeHandler,
   type JudgeInput,
+  inline,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
+import { HttpAuthResult, HttpAuthenticator } from "../../src/index.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
-@Judge({ name: "a2a-audit-judge", model: "local/judge", reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "a2a-audit-judge", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
 export class A2AJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
-    const said = await this.judgeModel.invoke(`RUBRIC ${reply.text}`);
-    return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "no" });
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const said = await this.judgeModel.invoke(`RUBRIC ${output.text}`);
+    return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed("no");
   }
 }
 
 @Agent({
   name: "a2a-audit-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes",
   model: "local/llama",
   judges: [A2AJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class A2AWriter {}
 
@@ -48,39 +52,42 @@ class A2AStart {}
 })
 class A2AFinish {}
 
-@Injectable()
-export class AuditCallerResolver implements A2ACallerResolver<typeof A2AStart> {
-  resolveCaller(): A2ACallerResolution<typeof A2AStart> {
-    return A2ACallerResolution.resolved({});
+@HttpAuthenticator()
+export class AuditAuthenticator {
+  authenticate(): HttpAuthResult {
+    return HttpAuthResult.authenticated({});
   }
 }
 
 @Workflow({
   name: "a2a-audit-workflow",
   version: "1.0.0",
-  flow: [start(A2AStart).returns(WorkflowStartTextDto).toAgent(A2AWriter).toFinish(A2AFinish)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(A2AStart).toAgent(A2AWriter).toFinish(A2AFinish)],
   defaults: DEFAULTS,
-  providers: [AuditCallerResolver],
+  providers: [AuditAuthenticator],
 })
 class A2AWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "a2a-audit-a2a-expose",
   description: "Served",
   version: "1.0.0",
-  exports: [A2AStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [A2AStart],
 })
 export class AuditA2AExpose {}
 
 @Application({
   name: "a2a-audit-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [A2AWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
-  exposes: [AuditA2AExpose],
+  endpoints: [AuditA2AExpose],
 })
 export class A2AJudgedApplication {}
 
-export const judgedListener = { expose: AuditA2AExpose, callerResolver: AuditCallerResolver };
+export const judgedListener = { endpoint: AuditA2AExpose, authenticator: AuditAuthenticator };

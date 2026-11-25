@@ -31,10 +31,34 @@ describe("#1356: the fallback's mark", () => {
   it("reads the model, and priced only when it is true", () => {
     const of = (mark: unknown) => fallbackMarkOf({ usage: { [FALLBACK_MARK]: mark } });
 
-    expect(of({ model: "backup/m", priced: true })).toEqual({ model: "backup/m", priced: true });
-    expect(of({ model: "backup/m", priced: false })).toEqual({ model: "backup/m", priced: false });
-    expect(of({ model: "backup/m" })).toEqual({ model: "backup/m", priced: false });
-    expect(of({ model: "backup/m", priced: "true" })).toEqual({ model: "backup/m", priced: false });
+    expect(of({ model: "backup/m", priced: true })).toEqual({
+      provider: undefined,
+      earlier: [],
+      model: "backup/m",
+      priced: true,
+      unpriced: false,
+    });
+    expect(of({ model: "backup/m", priced: false })).toEqual({
+      provider: undefined,
+      earlier: [],
+      model: "backup/m",
+      priced: false,
+      unpriced: false,
+    });
+    expect(of({ model: "backup/m" })).toEqual({
+      provider: undefined,
+      earlier: [],
+      model: "backup/m",
+      priced: false,
+      unpriced: false,
+    });
+    expect(of({ model: "backup/m", priced: "true" })).toEqual({
+      provider: undefined,
+      earlier: [],
+      model: "backup/m",
+      priced: false,
+      unpriced: false,
+    });
   });
 
   it("is none when no fallback served the call, or the mark is not a model's", () => {
@@ -83,10 +107,10 @@ describe("#1356: the cost category of a caller", () => {
     ["judge:fact-check", CostCategory.Review],
     ["tool:search", CostCategory.Tools],
     ["action:refund", CostCategory.Tools],
-    ["compaction:thread", CostCategory.Compaction],
-    ["rag:rerank", CostCategory.Retrieval],
+    ["memory:thread", CostCategory.Memory],
+    ["rag:rerank", CostCategory.Rag],
     ["files:describe", CostCategory.Files],
-    ["guardrail:pii", CostCategory.Guards],
+    ["guardrail:pii", CostCategory.Guardrails],
     ["router:quality:pick", CostCategory.Review],
     ["router:pick", CostCategory.Routing],
     ["writer", CostCategory.Agents],

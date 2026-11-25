@@ -33,6 +33,8 @@ class WhenEntry implements WhenScript {
 function returnedOf(turn: ScriptedTurn): ReturnedValue | undefined {
   if (turn.kind === "answer") return { dto: turn.dto, value: turn.value };
   if (turn.kind === "reply") return { dto: WorkflowFinishTextDto, value: { text: turn.text } };
+  if (turn.kind === "stream")
+    return { dto: WorkflowFinishTextDto, value: { text: turn.chunks.join("") } };
   return undefined;
 }
 

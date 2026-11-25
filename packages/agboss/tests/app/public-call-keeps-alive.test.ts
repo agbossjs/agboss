@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import type { App } from "../../src/index.js";
 import { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
@@ -35,7 +35,7 @@ afterAll(() => {
 
 /** A paused thread on a fresh file whose tree this process holds for `heldFor` ms of real time. */
 async function heldThread(file: string, heldFor: number): Promise<{ pauseId: string }> {
-  const app = await createAppWith(HeldCancelApplication, {
+  const app = await createTestAppWith(HeldCancelApplication, {
     env: "dev",
     processEnv: { HELD_CANCEL_SQLITE_PATH: file },
   });
@@ -123,7 +123,7 @@ describe("#1093: a pending public call keeps the process alive", () => {
   // the call settles in a script that does nothing else only while the wrapper keeps it alive
   it("a script that only calls app.extendPause prints the result and exits 0", async () => {
     const file = join(folder, "held-extend.sqlite");
-    const app = await createAppWith(HeldCancelApplication, {
+    const app = await createTestAppWith(HeldCancelApplication, {
       env: "dev",
       processEnv: { HELD_CANCEL_SQLITE_PATH: file },
     });
@@ -143,7 +143,7 @@ describe("#1093: a pending public call keeps the process alive", () => {
   // #946: the reassignment's transaction is as slow, and its new send follows it
   it("a script that only calls app.reassignPause prints the result and exits 0", async () => {
     const file = join(folder, "held-reassign.sqlite");
-    const app = await createAppWith(HeldCancelApplication, {
+    const app = await createTestAppWith(HeldCancelApplication, {
       env: "dev",
       processEnv: { HELD_CANCEL_SQLITE_PATH: file },
     });

@@ -4,15 +4,15 @@ Read this when unsafe input must be refused before a model reads it, an answer m
 before it leaves an agent, or personal data must never reach a model as is. Quality checks that
 retry an answer are judges (`03-components-di-and-lifecycle.md`); guardrails only block.
 
-| Need                                                               | Use                                                                            |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| refuse a request before the model reads it                         | `@InputGuardrail` — a yes / no question; P(yes) ≥ `threshold` blocks           |
-| stop an answer before it leaves the agent                          | `@OutputGuardrail`                                                             |
-| block by a rule in code (a deny list, a regex), no model           | `decidedBy: DecidedBy.Code` + `implements GuardrailHandler` (`check(text)`)    |
-| hide contact, government, financial or credential data from models | a declarative `@PiiPolicy({ rules: [pii(PiiKind…, PiiAction…)] })`             |
-| hide your own identifiers (employee ids, case numbers)             | `@PiiPolicy({ action, deps })` + `implements PiiPolicyHandler` (`findMatches`) |
-| mask one DTO or context field wherever it goes                     | `sensitive: PiiAction.replaceWithToken()` on its decorator                     |
-| refuse a message that contains a card number                       | `pii(PiiKind.CardNumber, PiiAction.blockWithRefusal(…))`                       |
+| Need                                                               | Use                                                                               |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| refuse a request before the model reads it                         | `@InputGuardrail` — a yes / no question; P(yes) ≥ `threshold` blocks              |
+| stop an answer before it leaves the agent                          | `@OutputGuardrail`                                                                |
+| block by a rule in code (a deny list, a regex), no model           | `@OutputGuardrail()` with no `prompt` + a class with `check(content)`             |
+| hide contact, government, financial or credential data from models | a declarative `@PiiPolicy({ rules: [PiiKind….mask() / .tokenize() / .block()] })` |
+| hide your own identifiers (employee ids, case numbers)             | `@PiiPolicy({ action, deps })` + `implements PiiPolicyHandler` (`findMatches`)    |
+| mask one DTO or context field wherever it goes                     | `sensitive: PiiAction.tokenize()` on its decorator                                |
+| refuse a message that contains a card number                       | `PiiKind.CardNumber.block("…")`                                                   |
 
 ## Guardrails
 
@@ -20,10 +20,10 @@ The project's execution context (identity only) and a service the refusal reads:
 
 ```ts file=src/clinic/contexts/clinic-execution.context.ts
 import { ExecutionContext } from "@agboss/core";
-import { OneOf } from "@agboss/core/dto";
+import { Enum } from "@agboss/core/dto";
 
 export class ClinicExecutionContext extends ExecutionContext {
-  @OneOf({ values: ["en", "he"] })
+  @Enum(["en", "he"])
   locale!: "en" | "he";
 }
 ```
@@ -39,17 +39,36 @@ export class RefusalTextService {
 }
 ```
 
+A decision model (Jev) is served by a decisions provider — a component naming one says so with `modelProvider`:
+
+```ts file=src/model-providers/decisions.model-provider.ts
+import { secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Jev and the other decision models, on OpenRouter's Decisions API",
+  driver: DecisionsDriver({ baseUrl: "https://openrouter.ai/api/v1", apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
+```
+
 ```ts file=src/clinic/guardrails/legal-advice/legal-advice.guardrail.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
 // a computed refusal: the sender's language, from a service
-import { InputGuardrail, type GuardrailRefusal } from "@agboss/core";
+import { InputGuardrail, type GuardrailRefusal, inline } from "@agboss/core";
 import { ClinicExecutionContext } from "../../contexts/clinic-execution.context.js";
 import { RefusalTextService } from "../../services/refusal-text.service.js";
 
 @InputGuardrail({
   name: "legal-advice-guardrail",
   description: "Blocks requests for legal advice",
-  prompt: "Does the message ask for legal advice?",
-  model: "typesafe/jev-1.13", // a decision model: one Decision.noul; a chat model: one answer tool
+  prompt: inline("Does the message ask for legal advice?"),
+  model: "typesafe/jev-1.13", // a decision model: one Decision.boolean; a chat model: one answer tool
+  modelProvider: DecisionsModelProvider,
   threshold: 0.8,
   deps: [ClinicExecutionContext, RefusalTextService],
 })
@@ -67,23 +86,24 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
 
 ```ts file=src/clinic/guardrails/no-diagnosis/no-diagnosis.guardrail.ts
 // a fixed refusal; no model: defaults.guardrail.model
-import { OutputGuardrail } from "@agboss/core";
+import { OutputGuardrail, inline } from "@agboss/core";
 
 @OutputGuardrail({
   name: "no-diagnosis-guardrail",
   description: "Blocks answers that diagnose",
-  prompt: "Does the answer give a medical diagnosis?",
+  prompt: inline("Does the answer give a medical diagnosis?"),
   threshold: 0.7,
   refusal: "I can't diagnose. Please see a doctor.",
 })
 export class NoDiagnosisGuardrail {}
 ```
 
-A guardrail decided by code (#383) is the same component without a model: `decidedBy:
-DecidedBy.Code` and the class's `check(text)` (`implements GuardrailHandler`) returns
-`GuardrailVerdict.passed()` or `GuardrailVerdict.blocked()` — no `prompt`, `promptUrls`, `model` or
-`threshold` (they do not compile), no model call, cost 0. Its refusal is the decorator's text or the
-class's `refusal()` (`implements GuardrailHandler, GuardrailRefusal`), as for a model guardrail:
+A guardrail decided by code (#383) is the same component without a model: set no `prompt`, `threshold` or `model` and give the
+class a `check(content)` (the `GuardrailHandler` shape; no `implements` needed; `GuardrailContent`: `text`, `files`, `component` — its `ComponentRecord` — and `side`), which returns
+`GuardrailVerdict.passed()` or `GuardrailVerdict.blocked(refusal?)` — no `prompt`, `model` or
+`threshold` (they do not compile), no model call, cost 0. Its refusal is the one `blocked(refusal)` gives (per call, thread-safe: never stash it on the
+instance), else the decorator's text, else the class's `refusal(content)`; none of the three fails
+closed:
 
 ```ts file=src/clinic/services/blocklist.service.ts
 import { Injectable } from "@agboss/core";
@@ -99,33 +119,33 @@ export class BlocklistService {
 ```ts file=src/clinic/guardrails/tenant-blocklist/tenant-blocklist.guardrail.ts
 // decided by code: the tenant's deny list, no model
 import {
-  DecidedBy,
   GuardrailVerdict,
   OutputGuardrail,
   TenantContext,
-  type GuardrailHandler,
+  type GuardrailContent,
 } from "@agboss/core";
 import { BlocklistService } from "../../services/blocklist.service.js";
 
 @OutputGuardrail({
   name: "tenant-blocklist-guardrail",
   description: "Blocks replies containing words forbidden by the tenant",
-  decidedBy: DecidedBy.Code, // absent = DecidedBy.Model
   refusal: "The response contained restricted terms.",
   deps: [TenantContext, BlocklistService],
 })
-export class TenantBlocklistGuardrail implements GuardrailHandler {
+export class TenantBlocklistGuardrail {
   constructor(
     private readonly tenantContext: TenantContext,
     private readonly blocklistService: BlocklistService,
   ) {}
 
-  async check(text: string): Promise<GuardrailVerdict> {
+  async check({ text }: GuardrailContent): Promise<GuardrailVerdict> {
     const hasForbidden = await this.blocklistService.containsBlockedTerms(
       this.tenantContext.tenantId,
       text,
     );
-    return hasForbidden ? GuardrailVerdict.blocked() : GuardrailVerdict.passed();
+    return hasForbidden
+      ? GuardrailVerdict.blocked("The response contained restricted terms.")
+      : GuardrailVerdict.passed();
   }
 }
 ```
@@ -133,7 +153,7 @@ export class TenantBlocklistGuardrail implements GuardrailHandler {
 - **What it reads**: an input guardrail reads the visit's input message of an agent or a model
   router — **masked** by that element's PII policies — before the first model call (a resume never
   checks again); an output guardrail reads the agent's answer (its text or its answer's JSON,
-  masked) as it leaves the loop. A code guardrail's `check(text)` gets the same masked text — it
+  masked) as it leaves the loop. A code guardrail's `check(content)` gets the same masked text in `content.text` — it
   sees `<email:7f3a91>`, never the address; a rule on raw values belongs in a `@PiiPolicy`
   detector.
 - **Blocked** → the execution fails with `GuardrailBlockedError` (`guardrail.blocked`: `guard`,
@@ -146,11 +166,11 @@ export class TenantBlocklistGuardrail implements GuardrailHandler {
   router takes input guardrails only; a code router calls no model and takes none. A child workflow
   gets its own workflow's lists over the application's.
 - **The model**: `model`, else `defaults.guardrail.model` (application or workflow) — never
-  `defaults.router.model`, no built-in (`[guardrail.no-model]`); a code guardrail needs none.
+  `defaults.router.model`, no built-in (`[model.missing-provider]`); a code guardrail needs none.
 - Spend `guardrail:<name>` (category `guards`), counted in the budgets — none for a code guardrail;
   events `onGuardrailStart` / `onGuardrailEnd` for both. `agboss describe` prints a code one as
-  `tenant-blocklist-guardrail — output · decidedBy: code · refusal: "…" · on …`; `configHash` covers
-  its `decidedBy`, side and refusal.
+  `tenant-blocklist-guardrail — output · code · refusal: "…" · on …`; `configHash` covers
+  its kind (code), side and refusal.
 
 The caller sends the refusal instead of an answer:
 
@@ -179,20 +199,20 @@ try {
 
 ```ts file=src/clinic/pii-policies/contact.pii-policy.ts
 // declarative: only the kinds a rule names are found
-import { PiiAction, PiiGroup, PiiKind, PiiPolicy, pii, type PiiRefusal } from "@agboss/core";
+import { PiiGroup, PiiKind, PiiPolicy, type PiiRefusal } from "@agboss/core";
 
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides contact details and refuses card numbers",
   rules: [
-    pii(PiiGroup.Contact, PiiAction.replaceWithKind()), // <phone>, <postal-code>, …
-    pii(PiiKind.Email, PiiAction.replaceWithToken()), // a kind rule beats its group: <email:7f3a91>
-    pii(PiiKind.CardNumber, PiiAction.blockWithRefusal()), // the text: refusal(kind) below
+    PiiGroup.Contact.mask(), // <phone>, <postal-code>, …
+    PiiKind.Email.tokenize(), // a kind rule beats its group: <email:7f3a91>
+    PiiKind.CardNumber.block(), // the text: refusal(kind) below
   ],
 })
 export class ContactPiiPolicy implements PiiRefusal {
   refusal(kind: PiiKind): string {
-    return `Please do not send a ${kind} here.`;
+    return `Please do not send a ${kind.id} here.`;
   }
 }
 ```
@@ -218,7 +238,7 @@ import { PatientRegistryService } from "../services/patient-registry.service.js"
 
 @PiiPolicy({
   name: "patient-id-pii-policy",
-  action: PiiAction.replaceWithToken(), // the model reads <patient-id:…>
+  action: PiiAction.tokenize(), // the model reads <patient-id:…>
   deps: [PatientRegistryService],
 })
 export class PatientIdPiiPolicy implements PiiPolicyHandler {
@@ -231,11 +251,26 @@ export class PatientIdPiiPolicy implements PiiPolicyHandler {
 ```
 
 ```ts file=src/environments/app.environment.ts
-import type { Secret } from "@agboss/core";
+export class ClinicEnvironment {} // the PII key is the storage's piiSecret, below
+```
 
-export class ClinicEnvironment {
-  piiPseudonymKey?: Secret; // the HMAC key of tokens: one token per value on every instance
-}
+```ts file=src/clinic/storages/clinic.database-storage.ts
+import { DatabaseStorage, SqliteDriver, defineEnv, env, secret } from "@agboss/core";
+import { hours } from "@agboss/core/units";
+
+const storageEnv = defineEnv({
+  path: env("AGBOSS_SQLITE_PATH", { default: ".agboss/clinic.sqlite" }),
+  piiSecret: secret("PII_PSEUDONYM_KEY"), // the HMAC key of tokens: one token per value on every instance
+});
+
+@DatabaseStorage({
+  name: "clinic-database-storage",
+  driver: SqliteDriver({ path: storageEnv.path }),
+  auditLogTtl: hours(24 * 7),
+  ledgerEntriesTtl: hours(24),
+  piiSecret: storageEnv.piiSecret, // no storage supplies a key; a test's testWith has its own
+})
+export class ClinicDatabaseStorage {}
 ```
 
 ```ts file=src/environments/test.environment.ts
@@ -254,20 +289,20 @@ export class PatientMessageDto {
   @Text({ prompt: "the patient's message" })
   text!: string;
 
-  @Text({ prompt: "the patient's name", sensitive: PiiAction.replaceWithToken() }) // masked wherever it goes
+  @Text({ prompt: "the patient's name", sensitive: PiiAction.tokenize() }) // masked wherever it goes
   patientName!: string;
 }
 ```
 
 ```ts file=src/clinic/agents/clinic/clinic.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PatientMessageDto } from "../../dto/patient-message.dto.js";
 import { LegalAdviceGuardrail } from "../../guardrails/legal-advice/legal-advice.guardrail.js";
 
 @Agent({
   name: "clinic-agent",
   description: "Answers patients' practical questions",
-  prompt: "Answer practical questions about appointments. Never diagnose.",
+  prompt: inline("Answer practical questions about appointments. Never diagnose."),
   model: "moonshotai/kimi-k2.6",
   input: { message: PatientMessageDto },
   guardrails: [LegalAdviceGuardrail], // this agent's model only
@@ -276,7 +311,7 @@ export class ClinicAgent {}
 ```
 
 ```ts file=src/clinic/agents/billing/billing.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PatientMessageDto } from "../../dto/patient-message.dto.js";
 import { NoDiagnosisGuardrail } from "../../guardrails/no-diagnosis/no-diagnosis.guardrail.js";
 import { PatientIdPiiPolicy } from "../../pii-policies/patient-id.pii-policy.js";
@@ -284,7 +319,7 @@ import { PatientIdPiiPolicy } from "../../pii-policies/patient-id.pii-policy.js"
 @Agent({
   name: "billing-agent",
   description: "Answers billing questions",
-  prompt: "Answer billing questions.",
+  prompt: inline("Answer billing questions."),
   model: "moonshotai/kimi-k2.6",
   input: { message: PatientMessageDto },
   excludeGuardrails: [NoDiagnosisGuardrail], // billing answers cannot diagnose
@@ -294,7 +329,8 @@ export class BillingAgent {}
 ```
 
 ```ts file=src/clinic/routers/clinic/clinic.router.ts
-import { DecidedBy, Router } from "@agboss/core";
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
+import { DecidedBy, Router, inline } from "@agboss/core";
 import { BillingAgent } from "../../agents/billing/billing.agent.js";
 import { ClinicAgent } from "../../agents/clinic/clinic.agent.js";
 import { PatientMessageDto } from "../../dto/patient-message.dto.js";
@@ -304,7 +340,8 @@ import { PatientMessageDto } from "../../dto/patient-message.dto.js";
   description: "Sends a message to the agent that answers it",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick who answers the patient.",
+  modelProvider: DecisionsModelProvider,
+  prompt: inline("Pick who answers the patient."),
   input: { message: PatientMessageDto }, // read masked: the policies apply to routers too
   routes: [
     { prompt: "Appointments and practical questions", target: ClinicAgent },
@@ -331,7 +368,7 @@ export class ClinicWorkflowFinish {}
 ```
 
 ```ts file=src/clinic/workflows/clinic/clinic.workflow.ts
-import { Workflow, route, start } from "@agboss/core";
+import { Workflow, onStart, toAgent, toRouter, toFinish, Ttl } from "@agboss/core";
 import { BillingAgent } from "../../agents/billing/billing.agent.js";
 import { ClinicAgent } from "../../agents/clinic/clinic.agent.js";
 import { PatientMessageDto } from "../../dto/patient-message.dto.js";
@@ -345,18 +382,20 @@ import { ClinicWorkflowStart } from "./clinic.workflow-start.js";
 @Workflow({
   name: "clinic-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ClinicWorkflowStart)
-      .returns(PatientMessageDto)
+    onStart(ClinicWorkflowStart)
       .toRouter(ClinicRouter)
-      .chooseOne(
-        route(ClinicAgent)
+      .onRoute(
+        toAgent(ClinicAgent)
           .toFinish(ClinicWorkflowFinish),
-        route(BillingAgent)
+      )
+      .onRoute(
+        toAgent(BillingAgent)
           .toFinish(ClinicWorkflowFinish),
       ),
   ],
-  maxSteps: 2,
+  executionLimits: { maxSteps: 2 },
   piiPolicies: [PatientIdPiiPolicy], // every agent and router of this workflow
   providers: [RefusalTextService, PatientRegistryService],
 })
@@ -399,7 +438,25 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/clinic.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application } from "@agboss/core";
 import { ApplicationDailyBudget } from "./clinic/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./clinic/budgets/execution.budget.js";
@@ -407,20 +464,23 @@ import { TenantDailyBudget } from "./clinic/budgets/tenant-daily.budget.js";
 import { ClinicExecutionContext } from "./clinic/contexts/clinic-execution.context.js";
 import { NoDiagnosisGuardrail } from "./clinic/guardrails/no-diagnosis/no-diagnosis.guardrail.js";
 import { ContactPiiPolicy } from "./clinic/pii-policies/contact.pii-policy.js";
+import { ClinicDatabaseStorage } from "./clinic/storages/clinic.database-storage.js";
 import { ClinicWorkflow } from "./clinic/workflows/clinic/clinic.workflow.js";
 import { ClinicEnvironment } from "./environments/app.environment.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "clinic-application",
   version: "1.0.0",
   environment: ClinicEnvironment,
   executionContext: ClinicExecutionContext, // execute(…, { execution: { locale } })
-  piiKeyField: "piiPseudonymKey", // names the Secret field of the environment
+  storage: ClinicDatabaseStorage, // its piiSecret is the PII key of the tokens
   workflows: [ClinicWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   guardrails: [NoDiagnosisGuardrail], // every agent of every workflow
   piiPolicies: [ContactPiiPolicy], // every agent and router of every workflow
-  defaults: { guardrail: { model: "typesafe/jev-1.13" } }, // guardrails without their own model
+  defaults: { guardrail: { model: "typesafe/jev-1.13" } }, // the model of guardrails without their own; each still names its decisions `modelProvider`
 })
 export class ClinicApplication {}
 ```
@@ -431,7 +491,7 @@ How PII masking works — the **model boundary** (S38):
   message, tool results — and its move is **revealed before any DTO is validated**: a tool gets the
   real `alice@example.com`, an `@Email` field validates the address. Code — actions, finishes, code
   routers, channels, tools — always holds real values; so do the scope and the checkpoint.
-- Only `replaceWithToken()` is reversible (HMAC-SHA256; its map is the checkpoint's `piiTokens`
+- Only `tokenize()` is reversible (HMAC-SHA256; its map is the checkpoint's `piiTokens`
   channel, surviving pauses, resumes and recovery). A token a model invents (no map knows it) is an
   invalid answer: the model reads why and answers again.
 - **Block rules**: in what comes in or in an answer → the execution fails with `PiiRefusedError`
@@ -442,14 +502,18 @@ How PII masking works — the **model boundary** (S38):
   `result.record` are always masked by the application's and the workflow's lists.
 - **Detection**: formats are validated (Luhn, IBAN, Israeli ID, SSN rules, …); kinds without a
   format (`PersonName`, `StreetAddress`, `DateOfBirth`, `PassportNumber`, …) need
-  `detectWithModel: "<chat model>"` on the policy (`[pii.kind-needs-model]`); a detection answer that
+  `model: "<chat model>"` on the policy (`[pii.kind-needs-model]`); a detection answer that
   is not the JSON asked for fails closed (`PiiDetectionFailedError`).
-- **The key**: a policy's own `pseudonymKey: secret("…")`, else `@Application({ piiKeyField })`.
-  Neither → a key per root execution and the warning `[application.pii-instance-key]`.
+- **The key**: a policy's own `secret: secret("…")`, else the application's
+  `@DatabaseStorage({ piiSecret: secret("…") })` (no storage has a fixed one).
+  A `tokenize()` rule or a `sensitive: PiiAction.tokenize()` field with neither fails the start,
+  `[pii.secret-required]`. Rotating: the old key as `previousSecret` / `previousPiiSecret`
+  (`secret.optional(…)`): a thread keeps one token per value, old tokens still reveal. The
+  `Logger` a component injects is masked like the framework's log.
 
-Actions: `PiiAction.replaceWithKind()` → `<israeli-id>`; `replacePart({ keepLast: 4 })` /
-`replacePart({ keepDomain: true })` / `replacePart({ pattern })` → `•••• 4242`;
-`replaceWithToken()` → `<email:7f3a91>`; `blockWithRefusal({ refusal })` or `blockWithRefusal()` with
+Actions: `PiiAction.mask()` → `<israeli-id>`; `mask({ keepLast: 4 })` /
+`mask({ keepDomain: true })` / `mask({ pattern })` → `•••• 4242`;
+`tokenize()` → `<email:7f3a91>`; `block("…")` or `block()` with
 `implements PiiRefusal`.
 
 ## Testing
@@ -461,11 +525,11 @@ import { LegalAdviceGuardrail } from "./src/clinic/guardrails/legal-advice/legal
 -->
 
 ```ts
-import { decideWith, testGuardrail, testPii } from "@agboss/core/testing";
+import { decideWith, testUnit } from "@agboss/core/testing";
 import { expect, it } from "vitest";
 
 it("blocks a legal question with the refusal in the sender's language", async () => {
-  const check = testGuardrail(LegalAdviceGuardrail, {
+  const check = testUnit(LegalAdviceGuardrail, {
     model: decideWith({ blocks: 0.95 }),
     execution: { locale: "he" }, // the ClinicExecutionContext fields the refusal reads
     executionContext: ClinicExecutionContext,
@@ -477,7 +541,7 @@ it("blocks a legal question with the refusal in the sender's language", async ()
 });
 
 it("a model reads a token, its answer gets the address back", async () => {
-  const contacts = testPii([ContactPiiPolicy]);
+  const contacts = testUnit([ContactPiiPolicy]);
 
   const { output: masked } = await contacts.mask("Mail alice@example.com");
 
@@ -486,34 +550,35 @@ it("a model reads a token, its answer gets the address back", async () => {
 });
 ```
 
-A code guardrail runs its `check(text)` on its own container — no `model` option (one is a
-`TestSetupError`): `testGuardrail(TenantBlocklistGuardrail, { tenant: { tenantId: "acme" } })("…")`
+A code guardrail runs its `check(content)` on its own container — no `model` option (one is a
+`TestSetupError`): `testUnit(TenantBlocklistGuardrail, { tenant: { tenantId: "acme" } })("…")`
 → `{ isBlocked: true, probability: 1, refusal }` or `{ isBlocked: false, probability: 0 }`; in
 `testWith(App)` it is not scripted (`mockLlm` of it names why) — `mockOf()` the services its `check`
 uses.
 
 In `testWith(App)` an unscripted model guardrail passes; `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))`
 blocks, and `rejects.toFailWith(GuardrailBlockedError, { guard: "legal-advice-guardrail" })`
-asserts it. A key field (`piiKeyField`, `idempotencyKeyField`) or a policy's `pseudonymKey` whose variable is unset gets a fixed test key.
+asserts it. A policy's `secret` or the storage's `piiSecret` whose variable is unset gets a fixed test key.
 
 ## Rule codes
 
-| Code                                                                | Cause → fix                                                                                       |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `[guardrail.no-model]`                                              | no `model` and no `defaults.guardrail.model` → set one (the router's is not used)                 |
-| `[guardrail.missing-refusal]` / `[guardrail.refusal-twice]`         | neither / both a `refusal` text and a `refusal()` method → exactly one                            |
-| `[guardrail.no-prompt]`                                             | no question → `prompt` or `promptUrls`                                                            |
-| `[guardrail.missing-handler]`                                       | `DecidedBy.Code` without `check(text)` → `implements GuardrailHandler`                            |
-| `[guardrail.threshold-invalid]`                                     | `threshold` outside (0, 1] → e.g. `0.8`                                                           |
-| `[guardrail.output-on-router]`                                      | an `@OutputGuardrail` on a router → on the agents                                                 |
-| `[guardrail.no-model-call]`                                         | guardrails on a code router → remove them (it calls no model)                                     |
-| `[guardrail.exclude-not-inherited]` / `[pii.exclude-not-inherited]` | excluding what the element does not inherit → remove the exclude                                  |
-| `[guardrail.not-a-guardrail]` / `[pii.not-a-policy]`                | a class without the decorator in a list → decorate it                                             |
-| `[pii.conflicting-rules]`                                           | two policies give one kind different actions → one action per kind                                |
-| `[pii.missing-refusal]` / `[pii.unused-refusal]`                    | `blockWithRefusal()` without `refusal(kind)` / a `refusal` nobody uses                            |
-| `[pii.kind-needs-model]`                                            | a kind without a format and no `detectWithModel` → add it, or drop the kind                       |
-| `[pii.original-file]` / `[pii.redacted-needs-kinds]`                | `FileView.Original` under a masking policy / `Redacted` under your own detector → see Files above |
-| `[application.pii-instance-key]`                                    | tokens without an application key (a warning) → `@Application({ piiKeyField })`                   |
+| Code                                                                | Cause → fix                                                                                                                |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `[model.missing-provider]`                                          | no `model`, no `defaults.guardrail.model` and no `modelProvider` in the cascade → set one (the router's model is not used) |
+| `[guardrail.missing-refusal]` / `[guardrail.refusal-twice]`         | a model guardrail with neither / any guardrail with both a `refusal` text and a `refusal(content)` method                  |
+| `[guardrail.no-prompt]`                                             | no question → `prompt`                                                                                                     |
+| `[guardrail.missing-handler]`                                       | a guardrail with no `prompt`, `threshold` or `model` whose class has no `check(content)`                                   |
+| `[guardrail.threshold-invalid]`                                     | `threshold` outside (0, 1] → e.g. `0.8`                                                                                    |
+| `[guardrail.output-on-router]`                                      | an `@OutputGuardrail` on a router → on the agents                                                                          |
+| `[guardrail.no-model-call]`                                         | guardrails on a code router → remove them (it calls no model)                                                              |
+| `[guardrail.exclude-not-inherited]` / `[pii.exclude-not-inherited]` | excluding what the element does not inherit → remove the exclude                                                           |
+| `[guardrail.not-a-guardrail]` / `[pii.not-a-policy]`                | a class without the decorator in a list → decorate it                                                                      |
+| `[pii.conflicting-rules]`                                           | two policies give one kind different actions → one action per kind                                                         |
+| `[pii.duplicate-target]`                                            | one policy names a kind or a group in two rules → one rule per target                                                      |
+| `[pii.missing-refusal]` / `[pii.unused-refusal]`                    | `block()` without `refusal(kind)` / a `refusal` nobody uses                                                                |
+| `[pii.kind-needs-model]`                                            | a kind without a format and no `model` → add it, or drop the kind                                                          |
+| `[pii.original-file]` / `[pii.redacted-needs-kinds]`                | `FileView.Original` under a masking policy / `Redacted` under your own detector → see Files above                          |
+| `[pii.secret-required]`                                             | a `tokenize()` rule or field and no key → `@DatabaseStorage({ piiSecret })`                                                |
 
 ## Pitfalls
 

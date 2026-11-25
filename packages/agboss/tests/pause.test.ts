@@ -1,8 +1,8 @@
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it } from "vitest";
-import { TerminalUserChannel } from "../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "./flow/fixtures/owner-approval.fixture.js";
 import { DtoValidationError, Text } from "../src/dto/index.js";
-import { NotPausedError, Tool, type ToolHandler } from "../src/index.js";
+import { NotPausedError, Tool } from "../src/index.js";
 import { ScriptedChatModel, type Reply } from "./fakes/scripted-model.js";
 import { toolWorkflowOf } from "./fixtures/test-flow/star.workflow.js";
 import { fakeDeps, memoryLedger, resumeWith, runText } from "./helpers.js";
@@ -25,12 +25,12 @@ class EmailSent {
 @Tool({
   name: "send-email-tool",
   description: "Send an email",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: Email,
   output: EmailSent,
 })
-class SendEmail implements ToolHandler<Email, EmailSent> {
-  run({ to }: Email): Promise<EmailSent> {
+class SendEmail {
+  execute({ to }: Email): Promise<EmailSent> {
     sent.push(to);
     return Promise.resolve({ status: `sent to ${to}` });
   }
@@ -79,7 +79,8 @@ describe("pause seam", () => {
       pending: [
         {
           step: "alpha-agent",
-          ask: { tool: "send-email-tool", arguments: { to: "boss@example.com" } },
+          toolCall: { tool: "send-email-tool" },
+          input: { to: "boss@example.com" },
         },
       ],
     });

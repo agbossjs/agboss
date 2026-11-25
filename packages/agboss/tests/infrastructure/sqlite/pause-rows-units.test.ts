@@ -17,15 +17,12 @@ import {
   SqlitePauseRows,
   toPauseRecord,
 } from "../../../src/infrastructure/sqlite/sqlite-pause-row-statements.js";
-import { preparePauseTables } from "../../../src/infrastructure/sqlite/sqlite-pause-schema.js";
 import { pauseOf } from "../../../src/testing/contracts/paused-execution-data.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
 
 /** A connection to a new file with the pause tables made. */
 function opened() {
-  const connection = connectionTo(temporarySqlitePath());
-  preparePauseTables(connection);
-  return connection;
+  return connectionTo(temporarySqlitePath());
 }
 
 /** The row `pauses` keeps for the pause with `id`. */
@@ -44,7 +41,7 @@ describe("#1356: a pause row", () => {
     const resolved: PauseRecord = {
       ...pending,
       status: PauseStatus.Resolved,
-      answer: { decision: { approved: true }, answeredBy: undefined },
+      answer: { decision: { approved: true }, actor: undefined },
       resolution: PauseResolution.Replied,
       resolvedAt: "2026-11-20T10:00:00.000Z",
     };

@@ -1,0 +1,4 @@
+a2aEndpoints:
+  ghost-a2a-expose:
+    ttl:
+      tasks: 7200000

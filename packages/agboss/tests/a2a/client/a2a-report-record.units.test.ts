@@ -4,6 +4,7 @@
  * false }` in the step's record; one with a verified report is charged it and recorded as the
  * report says; a task that did not complete, or a call that knows no task, records nothing.
  */
+import { MESH_DEFAULTS } from "../../helpers/mesh-settings.js";
 import { generateKeyPairSync } from "node:crypto";
 import { TaskState, type Task } from "@a2a-js/sdk";
 import { describe, expect, it } from "vitest";
@@ -17,8 +18,9 @@ import type { ToolCallRemote } from "../../../src/mesh/mesh-call.js";
 import { encodeRunReport, takeRunReport } from "../../../src/mesh/mesh-report.js";
 import { rememberContextMeshSettings, type MeshSettings } from "../../../src/mesh/mesh-settings.js";
 import { VirtualClock } from "../../../src/testing/index.js";
-import { hours, UnitError, usd } from "../../../src/units/index.js";
+import { hours, usd } from "../../../src/units/index.js";
 import { scripts, SdkAgent } from "./support/sdk-agent.js";
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 
 const PEER = "peer-application";
 const BODY = "body-hash";
@@ -49,9 +51,9 @@ const taskOf = (state: TaskState, report?: string): Task => ({
   metadata: report === undefined ? undefined : { [A2A_MESH_EXTENSION]: { report } },
 });
 
-const signedReport = (spentUsd: number, executionId = TASK, issuedAt = NOW): string =>
+const signedReport = (spent: number, executionId = TASK, issuedAt = NOW): string =>
   encodeRunReport(
-    { issuer: PEER, executionId, spentUsd, bodyHash: BODY, issuedAt },
+    { issuer: PEER, executionId, spentUsd: usd(spent), bodyHash: BODY, issuedAt },
     peerKeys.privateKey,
   );
 
@@ -114,15 +116,12 @@ async function settled(
   const settings: MeshSettings = {
     application: "caller-application",
     maxMeshHops: 8,
-    keys: { peers: new Map([[PEER, peerKeys.publicKey]]) },
+    keys: { peers: new Map([[PEER, [peerKeys.publicKey]]]) },
+    ...MESH_DEFAULTS,
     clock: new VirtualClock(NOW),
     idempotencyRetention: hours(1),
-    a2aTaskRetention: hours(1),
-    a2aFileRetention: hours(1),
-    a2aMessageRetention: hours(1),
-    a2aFiles: undefined,
     workflows: [],
-    exposes: [],
+    endpoints: [],
     contracts: () => Promise.reject(new Error("no contracts in a unit")),
   };
   if (!withoutSettings) rememberContextMeshSettings(application as never, settings);
@@ -133,7 +132,7 @@ async function settled(
     recordRemote: (remote: ToolCallRemote) => remotes.push(remote),
   };
   const spec = {
-    execution: { tenant: { application } },
+    execution: { tenant: { application }, signal: new AbortController().signal },
     step: {},
     services: withoutServices
       ? {}
@@ -171,7 +170,7 @@ describe("#1382: a settle at a price that is no amount charges nothing and throw
     async (price) => {
       await expect(
         settled(taskOf(TaskState.TASK_STATE_COMPLETED, signedReport(3)), true, { price }),
-      ).rejects.toThrow(UnitError);
+      ).rejects.toThrow(ConfigError.Unit);
     },
   );
 
@@ -194,7 +193,7 @@ describe("#844: a meshed call's settle says when no report was verified", () => 
   it("a report signed by another key is none verified: report: false", async () => {
     const stranger = generateKeyPairSync("ed25519");
     const forged = encodeRunReport(
-      { issuer: PEER, executionId: TASK, spentUsd: 3, bodyHash: BODY, issuedAt: NOW },
+      { issuer: PEER, executionId: TASK, spentUsd: usd(3), bodyHash: BODY, issuedAt: NOW },
       stranger.privateKey,
     );
     expect((await settled(taskOf(TaskState.TASK_STATE_COMPLETED, forged))).remotes).toEqual([

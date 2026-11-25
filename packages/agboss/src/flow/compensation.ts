@@ -1,4 +1,3 @@
-import { AGBossError } from "../core/errors.js";
 import type { ErrorRecord } from "../core/error-record.js";
 import { NodeKind } from "./ast.js";
 import type { StepRecord } from "./context/execution-context.js";
@@ -33,10 +32,17 @@ export const COMPENSATION_TIMEOUT: Milliseconds = seconds(15);
 
 /** Why an undo action ran. */
 export enum CompensationReason {
-  /** An `.onError` / `.onJoinError` side path ran it, as `agboss check` requires. */
+  /** An `.onError` side path ran it, as `agboss check` requires. */
   SidePath = "side-path",
-  /** A join failed after some of its branches finished: their undo ran before `.onJoinError`. */
+  /** A join failed after some of its branches finished: their undo ran before `.onError`. */
   JoinFailed = "join-failed",
+  /** A quorum join went on without a branch that had already completed: its undo ran at the join (#1281). */
+  QuorumExcluded = "quorum-excluded",
+  /**
+   * A plain step failed and its `.onError` took it: what its finished children left open was undone before
+   * the side path ran (#1281, D8) — the side path cannot name a child's own undo.
+   */
+  StepFailed = "step-failed",
   /** The execution failed without a finish (an uncaught failure or limit). */
   ExecutionFailed = "execution-failed",
   /** The execution was cancelled (`app.cancel`). */
@@ -69,37 +75,10 @@ export interface CompensationRecord {
   readonly endedAt: string;
 }
 
-/** What a failed automatic undo takes (#906): the undos that threw, and the error that started it. */
-export interface CompensationFailedErrorOptions {
-  /** The undo actions that threw. */
-  readonly failures: readonly CompensationRecord[];
-  /** The error that started the undo (`toFailWith(Original)` matches through it). */
-  readonly cause?: unknown;
-}
-
-/**
- * An automatic undo failed (#340 Q4): every other undo still ran, then the execution fails with
- * this error — `failures` are the undo actions that threw, `cause` the error that started the undo
- * (`toFailWith(Original)` matches through it). Never taken by `.onError` / `.onJoinError`.
- */
-export class CompensationFailedError extends AGBossError {
-  /** `compensation.failed`. */
-  static override readonly code = "compensation.failed" as const;
-  declare readonly code: typeof CompensationFailedError.code;
-  override name = "CompensationFailedError";
-  /** The undo actions that failed, newest first (each `CompensationStatus.Failed`). */
-  readonly failures: readonly CompensationRecord[];
-
-  constructor(options: CompensationFailedErrorOptions) {
-    const { failures, cause } = options;
-    const undone = failures.map(
-      (f) =>
-        `${f.compensator.name} (compensates ${f.compensated.component.name}): ${f.error?.message ?? "failed"}`,
-    );
-    super(`An automatic undo failed — ${undone.join("; ")}; the others ran`, { cause });
-    this.failures = failures;
-  }
-}
+export {
+  CompensationFailedError,
+  type CompensationFailedErrorOptions,
+} from "./compensation-failed.js";
 
 /** Where an entry of the `compensations` channel stands. */
 export enum CompensationEntryStatus {
@@ -131,6 +110,18 @@ export interface CompensationEntry {
   readonly committer?: string;
   /** The launch whose branch it is (#273); absent outside a launch. */
   readonly launchId?: string;
+  /** Which branch of that launch it is (its ticket's index, #1281): what a quorum join excludes it by. */
+  readonly branchIndex?: number;
+  /**
+   * The execution whose state holds it, once a child's finish moved it up to its parent (#1281b);
+   * absent: its own `executionId`.
+   */
+  readonly heldBy?: string;
+  /**
+   * The holder's nodes of the child workflows, down to the one that opened it (#1281b): where its
+   * undo runs; absent: an entry of the holder's own workflow.
+   */
+  readonly childPath?: readonly string[];
   /** What the undo reads, by slot: as the scope held it right after the action. */
   readonly input: ScopeRecords;
   readonly status: CompensationEntryStatus;
@@ -184,10 +175,12 @@ export function touchesCompensations(
   const isAction = declaration.kind === NodeKind.Action;
   if (isAction && declaration.options.compensateWith !== undefined) return true;
   const open = entries.filter((entry) => entry.status === CompensationEntryStatus.Open);
-  if (declaration.kind === NodeKind.Finish)
-    return open.some((entry) => entry.committer === undefined);
+  // a finish commits its open entries, or moves them up to its parent (#1281b)
+  if (declaration.kind === NodeKind.Finish) return open.length > 0;
+  // a committer or an undo of the holder's own workflow only: a child's moved entry is not its node's
+  const own = open.filter((entry) => entry.childPath === undefined);
   return (
-    isAction && open.some((entry) => entry.committer === node.id || entry.compensator === node.id)
+    isAction && own.some((entry) => entry.committer === node.id || entry.compensator === node.id)
   );
 }
 
@@ -204,9 +197,12 @@ export interface VisitCompensationSite {
   /** What the visit threw, when its `.onError` took it. */
   readonly failure?: unknown;
   readonly parts?: CompensationParts | undefined;
+  /** The place in the tree's durable order the visit's new entry takes (#1281), claimed before the visit writes. */
+  readonly sequence?: number | undefined;
   /** A branch of a launch (#273): its launch, and its own value (written by the join only). */
   readonly branch?: {
     readonly launchId: string;
+    readonly branchIndex?: number | undefined;
     readonly value: NodeValue | undefined;
     readonly dtos: ReadonlyMap<string, DtoClass>;
   };
@@ -218,7 +214,11 @@ export async function compensationsOfVisit(
 ): Promise<{ readonly compensations?: CompensationEntry[] }> {
   if (!touchesCompensations(site.node, site.entries)) return {};
   const { entriesOfVisit } = await lazyLoad(import("./runtime/compensation/visit-entries.js"));
-  const written = entriesOfVisit(site);
+  const { claimedSequence, opensEntry } = await lazyLoad(
+    import("./runtime/compensation/durable-order.js"),
+  );
+  const sequence = opensEntry(site) ? await claimedSequence(site) : undefined;
+  const written = entriesOfVisit(sequence === undefined ? site : { ...site, sequence });
   return written.length === 0 ? {} : { compensations: [...written] };
 }
 
@@ -259,7 +259,7 @@ export interface BranchCompensationSite {
   readonly view: ExecutionStateType;
   readonly frame: FrameSpec;
   readonly config: RunnableConfig | undefined;
-  readonly branch: { readonly launchId: string; readonly value: NodeValue | undefined };
+  readonly branch: Omit<NonNullable<VisitCompensationSite["branch"]>, "dtos">;
   readonly deps: {
     readonly graph: { readonly dtos: ReadonlyMap<string, DtoClass> };
     readonly compensation?: CompensationParts | undefined;
@@ -294,16 +294,16 @@ export interface FailedJoinUndo {
 }
 
 /**
- * A failed join undoes its finished undoable branches before `.onJoinError` or the failure (#340
- * Q3): the runtime is loaded only for a launch of an action that declares its undo.
+ * A failed join undoes its finished undoable branches before `.onError` or the failure (#340
+ * Q3), a child workflow's branch the entries its finish moved up (#1281b): the runtime is loaded
+ * only for a launch of an action that declares its undo, or of a child workflow.
  */
 export async function compensationsOfFailedJoin(site: JoinUnwindSite): Promise<FailedJoinUndo> {
-  const isUndoable = site.ticket.branches.some((branch) => {
-    const declaration = site.deps.graph.nodes.get(branch.node)?.declaration;
-    return (
-      declaration?.kind === NodeKind.Action && declaration.options.compensateWith !== undefined
-    );
-  });
+  const kinds = site.ticket.branches.map((branch) => site.deps.graph.nodes.get(branch.node)?.kind);
+  const canLeave = kinds.some((kind) => kind === NodeKind.Action || kind === NodeKind.Workflow);
+  if (!canLeave) return {};
+  const { canLeaveEntries } = await lazyLoad(import("./runtime/compensation/held-entries.js"));
+  const isUndoable = site.ticket.branches.some((branch) => canLeaveEntries(site.deps, branch.node));
   if (!isUndoable) return {};
   const { unwoundJoin } = await lazyLoad(import("./runtime/compensation/join-unwind.js"));
   return unwoundJoin(site);

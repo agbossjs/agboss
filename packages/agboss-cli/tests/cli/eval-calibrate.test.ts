@@ -7,9 +7,10 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CheckStatus, type EvalLabel, type EvalRunResult } from "@agboss/core/eval";
+import { CheckStatus, type EvalLabel, type EvalRunResult, EvalCheckKind } from "@agboss/core/eval";
 import { artifactOf, caseOf } from "../eval-html/artifacts.js";
 import { agboss, envelope } from "./agboss.js";
+import { usd } from "@agboss/core/units";
 
 const CWD = mkdtempSync(join(tmpdir(), "agboss-eval-calibrate-"));
 const JUDGE = "polite-refund-judge";
@@ -20,14 +21,17 @@ const runOf = (run: number, passed: boolean, length: number): EvalRunResult => (
   executionId: `execution-${String(run)}`,
   passed,
   checks: [
-    { check: "trajectory", status: CheckStatus.Passed },
+    { check: "trajectory", kind: EvalCheckKind.Tools, status: CheckStatus.Passed },
     {
       check: JUDGE,
+      kind: EvalCheckKind.Judge,
       status: passed ? CheckStatus.Passed : CheckStatus.Failed,
       metrics: { length },
     },
   ],
-  spentUsd: 0,
+  executionUsd: usd(0),
+  judgeUsd: usd(0),
+  totalUsd: usd(0),
 });
 
 const REPORT = join(CWD, "main.json");

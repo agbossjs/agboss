@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { relative } from "node:path";
 import { applicationPathOf } from "./cli/application-path.js";
-import { flagOption, type CommandContext, type CommandHandler } from "./cli/context.js";
+import { flagOption, textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { checkCommandOf, watchedFolderOf, type PassOptions } from "./cli/dev.js";
 import { envOption } from "./cli/environment.js";
 import type { CommandLine } from "./cli/studio.js";
@@ -30,7 +30,7 @@ function runChild(context: CommandContext, line: CommandLine): Promise<void> {
 }
 
 /**
- * `agboss dev [--env <name>] [--strict] [--application <path>]` (#268 AC6) — watch mode: the types
+ * `agboss dev [--profile <name>] [--env <name>] [--strict] [--application <path>]` (#268 AC6) — watch mode: the types
  * regenerated and the assembly problems printed on every change of the application's sources,
  * until Ctrl+C.
  */
@@ -39,6 +39,7 @@ export const handle: CommandHandler = async (context) => {
   const folder = watchedFolderOf(path.file);
   const pass: PassOptions = {
     file: path.file,
+    profile: textOption(context.values, "profile"),
     env: envOption(context),
     strict: flagOption(context.values, "strict"),
   };

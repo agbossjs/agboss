@@ -18,7 +18,7 @@ export class CancelFlightAction implements ActionHandler<CancelFlightAction> {
   async execute(input: InputOf<CancelFlightAction>): Promise<void> {
     // run automatically on a failed join: the key is "<book-flight-action's key>:compensation"
     await this.bookingDeskService.cancelFlight(
-      input.flight.value.bookingId,
+      input.flight.bookingId,
       this.executionContext.step.idempotencyKey,
     );
   }

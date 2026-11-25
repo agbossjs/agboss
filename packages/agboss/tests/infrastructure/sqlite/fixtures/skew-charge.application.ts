@@ -4,10 +4,10 @@ import {
   StoreClock,
   StoreTimeSource,
   Injectable,
-  SqliteConnection,
   SqliteExecutionLeaseRepository,
   SqliteOutboundCallRepository,
 } from "../../../../src/index.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";
@@ -48,7 +48,6 @@ export class CallerClockOutboundCallRepository extends SqliteOutboundCallReposit
 const charge = {
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,

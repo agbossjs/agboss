@@ -1,7 +1,7 @@
+// prettier-ignore
 import {
   EvalCascade,
   EvalSuite,
-  checkTrajectory,
   evalCase,
   turn,
 } from "../../../../../src/eval/index.js";
@@ -15,7 +15,6 @@ import { DeskWorkflowStart } from "../../../../flow/fixtures/eval-desk.fixture.j
   name: "refunds-eval-suite",
   description: "Refunds are looked up and made",
   start: DeskWorkflowStart,
-  checks: [checkTrajectory()],
   cascade: EvalCascade.StopAtFirstFailure,
   cases: [
     evalCase({

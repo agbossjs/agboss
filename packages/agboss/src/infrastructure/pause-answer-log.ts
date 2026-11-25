@@ -1,14 +1,14 @@
 import { originalStepKeyOf } from "./pause-replacement.js";
-import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import { bareRecordOf, ComponentKind } from "../flow/runtime/records.js";
 import type { ExecutionRecordRepository } from "./execution-record.repository.js";
 import {
   callIdOfPause,
-  pauseAnswererOf,
+  pauseRespondentOf,
   PauseResolution,
   type PauseRecord,
 } from "./pause-record.js";
+import { PauseRespondent } from "../pause/respondent.js";
 
 /**
  * Where a resolved pause is written (#267 S107): the execution records — the permanent history
@@ -47,10 +47,10 @@ function recordOf(
   resolution: PauseResolution,
   hasAnswer: boolean,
 ): PauseAnswerRecord {
-  const answerer = pauseAnswererOf(pause);
-  const answeredBy = hasAnswer ? pause.answer?.answeredBy : undefined;
+  const respondent = pauseRespondentOf(pause);
+  const actor = hasAnswer ? pause.answer?.actor : undefined;
   return {
-    pauseId: answerer === PauseAnswerer.Channel ? undefined : pause.pauseId,
+    pauseId: respondent === PauseRespondent.Delegate ? undefined : pause.pauseId,
     executionId: pause.executionId,
     step: {
       component: pause.component ?? bareRecordOf(pause.step, ComponentKind.Agent),
@@ -64,17 +64,28 @@ function recordOf(
       toolLoopIteration: pause.toolLoopIteration,
       validationAttempts: pause.validationAttempts ?? 0,
     },
-    role: pause.channel,
-    answerer,
-    answeredBy,
-    responder: answeredBy,
+    target: pause.target,
+    ...(pause.channel === undefined ? {} : { channel: pause.channel }),
+    respondent,
+    actor,
     resolution,
     askedAt: pause.askedAt,
     resolvedAt: pause.resolvedAt,
     decision: hasAnswer ? pause.answer?.decision : undefined,
-    asked: pause.ask,
+    ...custodyOf(pause),
   };
 }
+
+/** What the log entry keeps of what a pause asked and who had it. */
+const custodyOf = (
+  pause: PauseRecord,
+): Pick<PauseAnswerRecord, "input" | "toolCall" | "assignees" | "externalRef" | "trail"> => ({
+  input: pause.input,
+  ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
+  ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
+  ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
+  trail: pause.trail,
+});
 
 /** Writes that a pause's answer was not taken into its tree's execution records (wins in any order). */
 export const logPauseNotTaken = (

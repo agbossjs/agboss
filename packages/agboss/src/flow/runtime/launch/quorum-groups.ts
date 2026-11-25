@@ -8,9 +8,9 @@ import type { CountedAnswer, QuorumOutcome } from "./quorum.js";
  * waits; no group able to complete any more decides it at once (not reached).
  */
 
-/** One group's places: its agents by node name as listed (repeats included), its priority. */
+/** One group's places: its targets by node name as listed (repeats included), its priority. */
 export interface GroupPlaces {
-  readonly agents: readonly string[];
+  readonly targets: readonly string[];
   readonly priority?: number;
 }
 
@@ -24,7 +24,7 @@ export function tally(names: readonly string[]): ReadonlyMap<string, number> {
 }
 
 /** How many copies of each agent a group needs. */
-const needsOf = (group: GroupPlaces): ReadonlyMap<string, number> => tally(group.agents);
+const needsOf = (group: GroupPlaces): ReadonlyMap<string, number> => tally(group.targets);
 
 const countOf = (counts: ReadonlyMap<string, number>, node: string): number =>
   counts.get(node) ?? 0;
@@ -98,7 +98,7 @@ export function groupOutcomeOf(
   const winner = winnerOf(groups, completionsOf(groups, counted));
   const group = winner === undefined ? undefined : groups[winner];
   if (winner === undefined || group === undefined) return { isReached: false, counted };
-  const agents = new Set(group.agents);
+  const agents = new Set(group.targets);
   const own = counted.filter((answer) => agents.has(answer.node));
   return { isReached: true, counted: own, group: winner };
 }

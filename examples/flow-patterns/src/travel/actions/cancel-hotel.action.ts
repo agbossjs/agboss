@@ -17,7 +17,7 @@ export class CancelHotelAction implements ActionHandler<CancelHotelAction> {
 
   async execute(input: InputOf<CancelHotelAction>): Promise<void> {
     await this.bookingDeskService.cancelHotel(
-      input.hotel.value.bookingId,
+      input.hotel.bookingId,
       this.executionContext.step.idempotencyKey,
     );
   }

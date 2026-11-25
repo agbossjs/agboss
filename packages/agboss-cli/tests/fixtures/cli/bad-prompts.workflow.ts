@@ -6,24 +6,27 @@ import {
   EmptyEnvironment,
   Router,
   Workflow,
+  inline,
+  Ttl,
 } from "../../../../agboss/src/index.js";
 import { WorkflowStartTextDto } from "../../../../agboss/src/dto/index.js";
 import { testDefaults } from "../../../../agboss/tests/helpers.js";
-import { route, start } from "../../../../agboss/tests/helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../../../../agboss/tests/helpers/flow.js";
 import {
   NoAnswer,
   TestAnswer,
   TestChat,
 } from "../../../../agboss/tests/fixtures/test-flow/test.flow.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
-// `agboss check` fixture (#199): a {{typo}} in the agent's prompt file and one in the router's prompt
+// `agboss check` fixture (#199): a {{typo}} in the agent's prompt file and one in the router's prompt, and an unused key (#1347c)
 
 @Agent({
   name: "scout-agent",
   description: "Scouts job boards",
   model: "test/alpha",
-  promptUrls: ["./typo.prompt.md"],
-  promptVariables: { boardCount: "2" },
+  prompt: "./typo.prompt.md",
+  promptVariables: { boardCount: "2", spare: "unused" },
 })
 export class Scout {}
 
@@ -31,7 +34,7 @@ export class Scout {}
   name: "main-router",
   description: "Sends the task to the scout, or ends",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick one.\nThe boards: {{bords}}",
+  prompt: inline("Pick one.\nThe boards: {{bords}}"),
   model: "typesafe/jev-1.13",
   input: { message: WorkflowStartTextDto },
   maxVisits: 4,
@@ -45,16 +48,16 @@ export class Main {}
 @Workflow({
   name: "prompts-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: [
-    start(TestChat)
-      .returns(WorkflowStartTextDto)
+    onStart(TestChat)
       .toRouter(Main)
-      .chooseOne(
-        route(Scout)
+      .onRoute(
+        toAgent(Scout)
           .toFinish(TestAnswer),
-        route(NoAnswer),
-      ),
+      )
+      .onRoute(toFinish(NoAnswer)),
   ],
   promptVariables: { boards: "LinkedIn, AllJobs" },
 })
@@ -63,6 +66,7 @@ export class BadPrompts {}
 /** The application `agboss --application` loads (#268): this workflow alone. */
 @Application({
   name: "prompts-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BadPrompts],

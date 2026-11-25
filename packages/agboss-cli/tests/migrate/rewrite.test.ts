@@ -22,7 +22,7 @@ describe("migrateImports (#195)", () => {
       'import { WorkflowSettings, type WorkflowDefinition } from "@agboss/core/core";',
       'import { usd } from "@agboss/core/units";',
       "// a comment that stays",
-      'import { TerminalUserChannel } from "@agboss/core/channels";',
+      'import { AutoApproveChannel } from "@agboss/core/channels";',
       "",
       "export const x = 1;",
       "",
@@ -32,7 +32,7 @@ describe("migrateImports (#195)", () => {
 
     expect(after.text).toBe(
       [
-        'import { Workflow, provide, from, WorkflowSettings, type WorkflowDefinition, TerminalUserChannel } from "@agboss/core";',
+        'import { Workflow, provide, from, WorkflowSettings, type WorkflowDefinition, AutoApproveChannel } from "@agboss/core";',
         'import { usd } from "@agboss/core/units";',
         "// a comment that stays",
         "",
@@ -46,7 +46,7 @@ describe("migrateImports (#195)", () => {
   it("imports renamed names under their new name and keeps the local name", () => {
     const after = migrate(
       [
-        'import { Injectable, ROUTER_FACTORY, type Router } from "@agboss/core/core";',
+        'import { Injectable, WorkflowObserver as Observer } from "@agboss/core/core";',
         'import type { Duration, TestClock } from "@agboss/core/testing";',
         'import { testWith } from "@agboss/core/testing";',
       ].join("\n"),
@@ -54,7 +54,7 @@ describe("migrateImports (#195)", () => {
 
     expect(after.text).toBe(
       [
-        'import { Injectable, ROUTER_FACTORY, type RouterEngine as Router } from "@agboss/core";',
+        'import { Injectable, ExecutionObserver as Observer } from "@agboss/core";',
         'import type { ClockDuration as Duration, VirtualClock as TestClock } from "@agboss/core/testing";',
         'import { testWith } from "@agboss/core/testing";',
       ].join("\n"),
@@ -101,7 +101,7 @@ describe("migrateImports (#195)", () => {
   it("rewrites re-exports, type-only imports, namespaces, import() and import types", () => {
     const after = migrate(
       [
-        'export { Agent as A, type Router } from "@agboss/core/core";',
+        'export { Agent as A, type WorkflowObserver as Observer } from "@agboss/core/core";',
         'import type { ToolHandler } from "@agboss/core/tool";',
         'import * as graph from "@agboss/core/graph";',
         'import * as core from "@agboss/core/core";',
@@ -113,7 +113,7 @@ describe("migrateImports (#195)", () => {
 
     expect(after.text).toBe(
       [
-        'export { Agent as A, type RouterEngine as Router } from "@agboss/core";',
+        'export { Agent as A, type ExecutionObserver as Observer } from "@agboss/core";',
         'import type { ToolHandler } from "@agboss/core";',
         'import * as graph from "@agboss/core";',
         'import * as core from "@agboss/core";',
@@ -124,7 +124,7 @@ describe("migrateImports (#195)", () => {
     );
     // `core.Router` was the engine type: a namespace use of a renamed name needs a look by hand
     expect(after.warnings).toEqual([
-      'src/x.ts:4: "@agboss/core/core" as a whole — renamed or moved there: Router, WorkflowObserver, WorkflowCancelledError; check them by hand',
+      'src/x.ts:4: "@agboss/core/core" as a whole — renamed or moved there: WorkflowObserver, WorkflowCancelledError; check them by hand',
     ]);
   });
 

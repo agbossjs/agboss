@@ -43,7 +43,7 @@ export interface EvalRunComparison {
   readonly file: string;
   /** What the baseline ran on and when. */
   readonly configHash: string;
-  readonly startedAt: string;
+  readonly startedAt: Date;
   readonly runs: number;
   readonly cases: readonly EvalCaseComparison[];
   /** The names of the cases that regressed. */

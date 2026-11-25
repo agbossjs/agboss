@@ -1,3 +1,4 @@
+import { hours } from "../../../src/units/index.js";
 /**
  * #859 AC3: the rules of a file, one by one — the descriptor's own rule, the media check of the
  * bytes, the addresses a file is never fetched from, the fetch of a file by url (origins, redirects,
@@ -7,13 +8,13 @@ import type { LookupAddress } from "node:dns";
 import { describe, expect, it } from "vitest";
 import { maxBodySizeOf } from "../../../src/a2a/a2a-http.js";
 import {
-  A2AFileDto,
-  A2AFileSource,
+  FileDto,
+  FilePayloadSource,
   fileFieldsOf,
   fileSourceOf,
   WorkflowFinishFileDto,
   WorkflowFinishFilesDto,
-} from "../../../src/a2a/files/a2a-file.dto.js";
+} from "../../../src/dto/standard/file.js";
 import { guardedLookupOf, isDeniedAddress } from "../../../src/a2a/files/a2a-file-address.js";
 import {
   fetchedFile,
@@ -21,10 +22,11 @@ import {
   type FileFetch,
 } from "../../../src/a2a/files/a2a-file-fetch.js";
 import {
-  DEFAULT_A2A_FILE_LIMITS,
+  DEFAULT_FILE_LIMITS,
+  FilePolicy,
   fileLimitsOf,
-  fileOptionsViolations,
-} from "../../../src/a2a/files/a2a-file-options.js";
+  filePolicyViolations,
+} from "../../../src/files/file-policy.js";
 import { isOfMediaType } from "../../../src/a2a/files/a2a-media-check.js";
 import { validate } from "../../../src/dto/schema.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
@@ -34,7 +36,7 @@ import { PDF, PNG, scriptedTransport, TEXT } from "./support.js";
 
 const SHA = "a".repeat(64);
 
-describe("#859: the file descriptor (A2AFileDto)", () => {
+describe("#859: the file descriptor (FileDto)", () => {
   it("is exactly one of fileId, inline or url; bytes name their digest and size", () => {
     const ok = [
       { mediaType: "application/pdf", fileId: "t.0", sha256: SHA, sizeBytes: 3 },
@@ -55,12 +57,12 @@ describe("#859: the file descriptor (A2AFileDto)", () => {
       { mediaType: "text/plain", url: "file:///etc/passwd" },
     ];
 
-    expect(ok.map((file) => fileSourceOf(validate(A2AFileDto, file)))).toEqual([
-      A2AFileSource.Stored,
-      A2AFileSource.Inline,
-      A2AFileSource.Url,
+    expect(ok.map((file) => fileSourceOf(validate(FileDto, file)))).toEqual([
+      FilePayloadSource.Stored,
+      FilePayloadSource.Inline,
+      FilePayloadSource.Url,
     ]);
-    for (const file of bad) expect(() => validate(A2AFileDto, file)).toThrow();
+    for (const file of bad) expect(() => validate(FileDto, file)).toThrow();
   });
 
   it("a DTO's file fields: one, a list, in declaration order; the standard finishes'", () => {
@@ -74,7 +76,7 @@ describe("#859: the file descriptor (A2AFileDto)", () => {
     expect(fileFieldsOf(WorkflowFinishFilesDto)).toEqual([
       { name: "files", isList: true, isOptional: false },
     ]);
-    expect(fileFieldsOf(A2AFileDto)).toEqual([]);
+    expect(fileFieldsOf(FileDto)).toEqual([]);
   });
 });
 
@@ -298,33 +300,36 @@ describe("#859 AC3: the fetch of a file by url", () => {
 });
 
 describe("#859: the file options and the body they need", () => {
-  it("a skill's own fields over the application's over the defaults", () => {
-    const limits = fileLimitsOf({ maxFiles: 2, maxFileSize: kilobytes(8) }, { maxFiles: 1 });
+  it("a skill's own fields over its workflow's over the defaults", () => {
+    @FilePolicy({ ttl: hours(24), maxFiles: 2, maxFileSize: kilobytes(8) })
+    class WorkflowPolicy {}
+    @FilePolicy({ ttl: hours(24), maxFiles: 1 })
+    class SkillPolicy {}
+    const limits = fileLimitsOf(WorkflowPolicy, SkillPolicy);
 
-    expect(limits).toEqual({ ...DEFAULT_A2A_FILE_LIMITS, maxFiles: 1, maxFileSize: kilobytes(8) });
+    expect(limits).toEqual({ ...DEFAULT_FILE_LIMITS, maxFiles: 1, maxFileSize: kilobytes(8) });
   });
 
-  it("[a2a.file-options-invalid]: sizes and counts whole from 1, lower-case types, https: origins", () => {
-    const violations = fileOptionsViolations(
-      "app",
-      {
-        maxFileSize: kilobytes(0),
-        maxTotalFileSize: 1.5 as never,
-        maxFiles: 0,
-        allowedMediaTypes: ["Image/PNG", "pdf"],
-        allowedFileOrigins: ["http://a.example", "https://a.example/path", "https://ok.example"],
-      },
-      ["app"],
-    );
+  it("[file-policy.invalid]: sizes and counts whole from 1, lower-case types, https: origins", () => {
+    @FilePolicy({
+      ttl: hours(24),
+      maxFileSize: kilobytes(0),
+      maxTotalFileSize: 1.5 as never,
+      maxFiles: 0,
+      allowedMediaTypes: ["Image/PNG", "pdf"],
+      allowedOrigins: ["http://a.example", "https://a.example/path", "https://ok.example"],
+    })
+    class BadPolicy {}
+    const violations = filePolicyViolations("app", BadPolicy, ["app"]);
 
-    expect(violations.map((each) => each.code)).toEqual(Array(7).fill("a2a.file-options-invalid"));
-    expect(fileOptionsViolations("app", undefined, ["app"])).toEqual([]);
+    expect(violations.map((each) => each.code)).toEqual(Array(7).fill("file-policy.invalid"));
+    expect(filePolicyViolations("app", undefined, ["app"])).toEqual([]);
   });
 
   it("maxBodySize: as given, else 1 MB, else room for the largest maxTotalFileSize as base64", () => {
     const skill = (maxTotalFileSize: Bytes, takesFiles = true) => ({
       inputFiles: takesFiles ? [{ name: "file", isList: false, isOptional: false }] : [],
-      fileLimits: { ...DEFAULT_A2A_FILE_LIMITS, maxTotalFileSize },
+      fileLimits: { ...DEFAULT_FILE_LIMITS, maxTotalFileSize },
     });
 
     expect(maxBodySizeOf(kilobytes(10), [skill(kilobytes(4096))])).toBe(kilobytes(10));

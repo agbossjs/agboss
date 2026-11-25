@@ -17,7 +17,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { CheckStatus, type EvalRunResult } from "@agboss/core/eval";
+import { CheckStatus, type EvalRunResult, EvalCheckKind } from "@agboss/core/eval";
 import { openExecutionHistory, type OpenedExecutionHistory } from "@agboss/core/internal";
 import { SqliteHistoryApplication } from "../../../agboss/tests/infrastructure/sqlite/fixtures/history.application.js";
 import {
@@ -29,6 +29,7 @@ import { etagOf, type GoldenSource } from "../../src/eval/ui/golden-case.js";
 import { goldenSourceOf } from "../../src/eval/ui/golden-source.js";
 import { respondTo, type EvalUiRequest, type EvalUiSettings } from "../../src/eval/ui/ui-routes.js";
 import { artifactOf, caseOf } from "../eval-html/artifacts.js";
+import { usd } from "@agboss/core/units";
 
 /** The framework's package: the fixtures' project, read only. */
 const PACKAGE = new URL("../../../agboss/", import.meta.url).pathname;
@@ -62,8 +63,10 @@ const ranRun = (
   ...(executionId === undefined ? {} : { executionId }),
   finish: "desk-workflow-finish",
   passed: true,
-  checks: [{ check: "trajectory", status: CheckStatus.Passed }],
-  spentUsd: 0.01,
+  checks: [{ check: "trajectory", kind: EvalCheckKind.Tools, status: CheckStatus.Passed }],
+  executionUsd: usd(0.01),
+  judgeUsd: usd(0),
+  totalUsd: usd(0.01),
 });
 
 const ARTIFACT = artifactOf(

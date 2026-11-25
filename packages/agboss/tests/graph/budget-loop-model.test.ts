@@ -1,9 +1,11 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules around one model call of an agent's loop, each on its own over fakes:
  * the exhausted signal on the call in flight, the check before the call (after a stop by an exhausted budget first),
  * the agent's `modelCalls` and `toolCalls` limits with the spend they carry, the spend counted at once and
  * the check after the call that asks for tools.
  */
+import { StreamDiscardReason } from "../../src/run/types.js";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
@@ -37,10 +39,11 @@ vi.mock("../../src/graph/agent-loop/model-pii.js", () => ({
 }));
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -196,7 +199,7 @@ describe("#1366: the agent's limits", () => {
     const failure = await node(stateOf({ modelCalls: 2 }), undefined).catch((e: unknown) => e);
 
     expect(failure).toBeInstanceOf(LimitExceededError);
-    expect(failure).toMatchObject({ limit: 2, actual: 3, path: ["a", "b"], spentUsd: 1.5 });
+    expect(failure).toMatchObject({ limit: 2, actual: 3, path: ["a", "b"], spentUsd: usd(1.5) });
     expect((failure as LimitExceededError).usage).toEqual([record(0.5, "loop")]);
     expect((failure as Error).message).toContain("agents.alpha.limits.modelCalls");
     expect(invoke).not.toHaveBeenCalled();
@@ -292,7 +295,7 @@ describe("#1366: the spend of a call is counted at once", () => {
     expect(budgets.check).toHaveBeenCalledTimes(2);
     const spent = [
       record(0.125, "mask"),
-      expect.objectContaining({ costUsd: 0.25 }),
+      expect.objectContaining({ costUsd: usd(0.25) }),
       record(0.0625, "check"),
     ];
     expect(budgets.check).toHaveBeenLastCalledWith(
@@ -424,7 +427,7 @@ describe("#1366: what the move asks for", () => {
     returning(moveOf([]));
     await reply.node(stateOf(), undefined);
 
-    expect(tools.attempt.discard).toHaveBeenCalledWith("tool-turn");
+    expect(tools.attempt.discard).toHaveBeenCalledWith(StreamDiscardReason.ToolTurn);
     expect(reply.attempt.discard).not.toHaveBeenCalled();
   });
 
@@ -434,7 +437,7 @@ describe("#1366: what the move asks for", () => {
 
     await node(stateOf(), undefined);
 
-    expect(attempt.discard).toHaveBeenCalledWith("invalid-answer");
+    expect(attempt.discard).toHaveBeenCalledWith(StreamDiscardReason.InvalidAnswer);
   });
 
   it("an agent with no stream of its answer has nothing to retract", async () => {
@@ -488,7 +491,7 @@ describe("#1366: the spend of a call that broke", () => {
       record(0.125, "mask"),
     ]);
     expect((failure as AgentFailedError).cause).toEqual(new Error("provider down"));
-    expect(attempt.discard).toHaveBeenCalledWith("stream-broken");
+    expect(attempt.discard).toHaveBeenCalledWith(StreamDiscardReason.StreamBroken);
   });
 
   it("a call that broke is not tallied here: the failure carries its spend to the ledger", async () => {
@@ -514,9 +517,10 @@ describe("#1366: what the observer hears of a model call", () => {
 
     expect(onModelStart).toHaveBeenCalledWith({
       base: true,
-      modelName: "m",
-      callerName: "alpha",
-      rawPayload: [new HumanMessage("hi")],
+      model: "m",
+      provider: "(none)",
+      caller: "alpha",
+      messages: [{ role: "user", content: "hi" }],
     });
   });
 
@@ -540,10 +544,11 @@ describe("#1366: what the observer hears of a model call", () => {
     expect(onModelEnd).toHaveBeenCalledWith({
       base: true,
       model: "m",
-      callerName: "alpha",
-      rawContent: "answer",
-      usage: { promptTokens: 10, completionTokens: 4, totalTokens: 14 },
-      calculatedCost: 0.25,
+      provider: "(none)",
+      caller: "alpha",
+      content: "answer",
+      usage: { inputTokens: 10, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      costUsd: usd(0.25),
     });
   });
 

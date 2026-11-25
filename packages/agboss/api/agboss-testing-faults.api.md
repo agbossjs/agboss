@@ -11,9 +11,9 @@ export const FAULT_SABOTAGE_SCENARIOS: readonly FaultScenario[];
 export const FAULT_SCENARIOS: readonly FaultScenario[];
 
 // @public
-export interface FaultBusinessRows<TTransaction = unknown> {
-    committed(app: App): Promise<readonly string[]>;
-    insert(transaction: TTransaction, row: string): void | Promise<void>;
+export interface FaultBusinessRows {
+    committed(app: AnyTenantApp): Promise<readonly string[]>;
+    insert(row: string): void | Promise<void>;
 }
 
 // @public
@@ -96,9 +96,9 @@ export interface FaultShard {
 }
 
 // @public
-export interface FaultStoreSet<TTransaction = unknown> {
+export interface FaultStoreSet {
     // (undocumented)
-    readonly businessRows: FaultBusinessRows<TTransaction>;
+    readonly businessRows: FaultBusinessRows;
     // (undocumented)
     readonly environment: FaultEnvironment;
     readonly providers: readonly Class[];
@@ -165,9 +165,20 @@ export class HoldPoints {
     disarm(armId: string): void;
     get held(): readonly HeldOperation[];
     onHeld(listener: (operation: HeldOperation) => void): () => void;
-    reach(point: string, phase: HoldPhase, key: string | undefined, signal?: AbortSignal): Promise<void>;
+    reach(input: HoldReach): Promise<void>;
     release(holdId: string): boolean;
     releaseAll(): void;
+}
+
+// @public
+export interface HoldReach {
+    readonly key?: string | undefined;
+    // (undocumented)
+    readonly phase: HoldPhase;
+    // (undocumented)
+    readonly point: string;
+    // (undocumented)
+    readonly signal?: AbortSignal | undefined;
 }
 
 // @public
@@ -276,7 +287,6 @@ export enum StoreHoldPoint {
     PauseCloseUntaken = "pause.closeUntaken",
     PausedRunDelete = "pausedRun.delete",
     PauseExpire = "pause.expire",
-    PauseExtend = "pause.extend",
     PauseFind = "pause.find",
     PauseMarkSent = "pause.markSent",
     PauseMarkTaken = "pause.markTaken",
@@ -286,6 +296,7 @@ export enum StoreHoldPoint {
     PauseReassign = "pause.reassign",
     PauseRemind = "pause.remind",
     PauseResolve = "pause.resolve",
+    PauseSetTimeout = "pause.setTimeout",
     TreeSaveIfAbsent = "executionTree.saveIfAbsent"
 }
 
@@ -294,8 +305,8 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 
 // Warnings were encountered during analysis:
 //
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
 // src/testing/faults/fault-stores.ts - (ae-undocumented) Missing documentation for "environment".
 // src/testing/faults/fault-stores.ts - (ae-undocumented) Missing documentation for "businessRows".
 // src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "Before".
@@ -306,6 +317,9 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 // src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "point".
 // src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "phase".
 // src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "key".
+// src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "point".
+// src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "phase".
+// src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "signal".
 // src/testing/faults/invariants/violations.ts - (ae-undocumented) Missing documentation for "invariant".
 // src/testing/faults/invariants/violations.ts - (ae-undocumented) Missing documentation for "message".
 // src/testing/faults/invariants/violations.ts - (ae-undocumented) Missing documentation for "scenario".

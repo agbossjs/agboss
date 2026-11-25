@@ -10,7 +10,7 @@ import { PauseResolution, type PauseRecord } from "../infrastructure/pause-recor
 /**
  * A channel's own decision for a pause (#946): the channel that was asked again by a reassignment
  * decides at once (`ChannelOutcome.decided`). It is the channel's, never a person's: no caller is
- * checked and no request is observed (`answeredByOf` and `admit` are skipped), and `answeredBy` is the
+ * checked and no request is observed (`actorOf` and `admit` are skipped), and the `actor` is the
  * channel's name for a channel's pause and a thread owner's alike — the owner only reassigned it.
  * Recorded as an answer (`Pending → Resolved`, the store's compare-and-set: of two sends that decide, a
  * crash's re-send included, one applies — a pause already closed is applied once, a no-op), logged `decided`
@@ -39,7 +39,7 @@ export const channelDecisionOf =
       parts,
       pause,
       request,
-      channel,
+      { id: channel },
       PauseResolution.Decided,
     ).catch((error: unknown) => {
       // answered, cancelled or expired meanwhile — another send's decision, or the run's own end

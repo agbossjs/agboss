@@ -15,7 +15,7 @@ import { A2ADirectMessageRepository } from "../infrastructure/a2a-direct-message
 import { messageSkillsOf } from "./a2a-message-skill-rule.js";
 
 /**
- * Fail closed at assembly (#824): an application that serves A2A (`@A2AExpose`) dedupes a message
+ * Fail closed at assembly (#824): an application that serves A2A (`@A2AEndpoint`) dedupes a message
  * and finds a task in its `A2ATaskRepository`, so on leases its instances share (any backend but
  * `in-memory`) its tasks must be shared by them too: on its lease store's own backend, or on a
  * backend kind known to be shared by instances on any host (`postgres`, `mongodb`). Anything else —
@@ -45,12 +45,12 @@ function isShared(leases: string | undefined, tasks: string | undefined): boolea
   return tasks === leases || SHARED.has(kindOf(tasks));
 }
 
-/** The names of the application's `@A2AExpose`s. */
-const a2aExposesOf = (options: ApplicationOptions): readonly string[] =>
-  // Stryker disable next-line ArrayDeclaration: an entry that is no class is no @A2AExpose: none either way
-  (options.exposes ?? []).flatMap((expose) => {
-    const meta = componentOf(expose);
-    return meta?.kind === "a2a-expose" ? [meta.meta.name] : [];
+/** The names of the application's `@A2AEndpoint`s. */
+const a2aEndpointsOf = (options: ApplicationOptions): readonly string[] =>
+  // Stryker disable next-line ArrayDeclaration: an entry that is no class is no @A2AEndpoint: none either way
+  (options.endpoints ?? []).flatMap((endpoint) => {
+    const meta = componentOf(endpoint);
+    return meta?.kind === "a2a-endpoint" ? [meta.meta.name] : [];
   });
 
 /** `PostgresLeases (backend "postgres"), which its instances share` and the like. */
@@ -89,12 +89,12 @@ function fixOf(leases: string | undefined): string {
 
 /** `[a2a.task-store-not-shared]` of an application, or none. */
 export function a2aTaskStoreViolations(options: ApplicationOptions): RuleViolation[] {
-  const exposes = a2aExposesOf(options);
+  const served = a2aEndpointsOf(options);
   // Stryker disable next-line ArrayDeclaration: an entry that is no class is no store: the defaults either way
   const providers = options.providers ?? [];
   const leases = leaseStoreOf(providers);
   // no A2A served, or two lease or two task stores (their ambiguity is reported first, #960)
-  if (exposes.length === 0 || leases === undefined || hasTwoListed(providers, A2ATaskRepository))
+  if (served.length === 0 || leases === undefined || hasTwoListed(providers, A2ATaskRepository))
     return [];
   const choice = definedOf(
     implementationsOf(providers).find(({ contract }) => contract === A2ATaskRepository),
@@ -103,7 +103,7 @@ export function a2aTaskStoreViolations(options: ApplicationOptions): RuleViolati
   );
   const [leaseBackend, taskBackend] = [backendOf(leases), backendOf(choice.implementation)];
   if (isShared(leaseBackend, taskBackend)) return [];
-  const message = `${options.name} serves A2A (${exposes.join(", ")}) on ${leasesText(leases, leaseBackend)}, but keeps its A2A tasks in ${tasksText(choice.implementation, taskBackend, choice.reason)}: a message resent to another instance would start a second execution — ${fixOf(leaseBackend)}`;
+  const message = `${options.name} serves A2A (${served.join(", ")}) on ${leasesText(leases, leaseBackend)}, but keeps its A2A tasks in ${tasksText(choice.implementation, taskBackend, choice.reason)}: a message resent to another instance would start a second execution — ${fixOf(leaseBackend)}`;
   return [violation("a2a.task-store-not-shared", message, [options.name])];
 }
 
@@ -127,11 +127,11 @@ const DIRECT_STORE_OF_KIND: Readonly<Record<string, string>> = {
 };
 
 /** The names of the application's exposes with a direct-reply skill. */
-const directExposesOf = (options: ApplicationOptions): readonly string[] =>
-  // Stryker disable next-line ArrayDeclaration: no exposes, no skills either way
-  (options.exposes ?? []).flatMap((expose) => {
-    const meta = componentOf(expose);
-    return meta?.kind === "a2a-expose" && messageSkillsOf(meta.meta).length > 0
+const directEndpointsOf = (options: ApplicationOptions): readonly string[] =>
+  // Stryker disable next-line ArrayDeclaration: no endpoints, no skills either way
+  (options.endpoints ?? []).flatMap((endpoint) => {
+    const meta = componentOf(endpoint);
+    return meta?.kind === "a2a-endpoint" && messageSkillsOf(meta.meta).length > 0
       ? [meta.meta.name]
       : [];
   });
@@ -164,12 +164,12 @@ function directFixOf(tasks: string | undefined): string {
 
 /** `[a2a.message-store-not-shared]` of an application, or none. */
 export function a2aMessageStoreViolations(options: ApplicationOptions): RuleViolation[] {
-  const exposes = directExposesOf(options);
-  if (exposes.length === 0) return [];
+  const served = directEndpointsOf(options);
+  if (served.length === 0) return [];
   const tasks = implementationOf(options, A2ATaskRepository);
   const messages = implementationOf(options, A2ADirectMessageRepository);
   const [taskBackend, messageBackend] = [backendOf(tasks), backendOf(messages)];
   if (taskBackend !== undefined && taskBackend === messageBackend) return [];
-  const message = `${options.name} answers direct A2A messages (${exposes.join(", ")}) from ${shownStore(messages, messageBackend)}, but keeps its A2A tasks in ${shownStore(tasks, taskBackend)}: a message's id is claimed among its tasks' messages, so a resend or a task message of the same id would run the skill again — ${directFixOf(taskBackend)}`;
+  const message = `${options.name} answers direct A2A messages (${served.join(", ")}) from ${shownStore(messages, messageBackend)}, but keeps its A2A tasks in ${shownStore(tasks, taskBackend)}: a message's id is claimed among its tasks' messages, so a resend or a task message of the same id would run the skill again — ${directFixOf(taskBackend)}`;
   return [violation("a2a.message-store-not-shared", message, [options.name])];
 }

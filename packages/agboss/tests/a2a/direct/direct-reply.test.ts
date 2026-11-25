@@ -9,12 +9,12 @@ import { describe, expect } from "vitest";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../../../src/a2a/index.js";
 import { A2ADirectMessageRepository } from "../../../src/infrastructure/a2a-direct-message.repository.js";
 import { replyWith, testWith } from "../../../src/testing/index.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { DirectApplication, QuoteAgent, QuotesA2AExpose } from "../fixtures/direct.application.js";
 import { errorInfoOf, errorOf, rpc, text, userMessage, type RpcAnswer } from "../server/rpc.js";
 
 const test = testWith(DirectApplication);
-const listener = { expose: QuotesA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { endpoint: QuotesA2AExpose, authenticator: BearerAuthenticator };
 const QUOTE = { [A2A_SKILLS_EXTENSION]: { skill: "quote-workflow-start" } };
 const ACK = { [A2A_SKILLS_EXTENSION]: { skill: "ack-workflow-start" } };
 

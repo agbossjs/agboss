@@ -19,6 +19,8 @@ import {
   FaultExpiringChannel,
   FaultExpiringWorkflow,
   FaultPauseChannel,
+  FaultPauseDeputyChannel,
+  FaultPauseSelector,
   FaultPauseWorkflow,
 } from "./pause.workflow.js";
 import { FaultPauseListener } from "./pause.listener.js";
@@ -27,7 +29,7 @@ import {
   FaultSecondPauseChannel,
   FaultTwicePauseWorkflow,
 } from "./window.workflow.js";
-import { FaultA2AExpose, FaultCallerResolver, keepsA2ATasks } from "./fault.a2a.js";
+import { FaultA2AEndpoint, FaultAuthenticator, keepsA2ATasks } from "./fault.a2a.js";
 import { breaksContract, isOutsideHolds, sabotagedStoreOf } from "../sabotage-stores.js";
 import type { FaultStoreSabotage } from "../pod-protocol.js";
 import { FaultPodLink } from "./pod-link.js";
@@ -98,16 +100,16 @@ export const heldProvidersOf = (
  */
 interface FaultA2AParts {
   readonly workflows: readonly Class[];
-  readonly exposes: readonly Class[];
+  readonly endpoints: readonly Class[];
   readonly providers: readonly Class[];
 }
 
 function a2aPartsOf(stores: FaultStoreSet): FaultA2AParts {
-  if (!keepsA2ATasks(stores.providers)) return { workflows: [], exposes: [], providers: [] };
+  if (!keepsA2ATasks(stores.providers)) return { workflows: [], endpoints: [], providers: [] };
   return {
     workflows: [FaultApprovalWorkflow],
-    exposes: [FaultA2AExpose],
-    providers: [FaultCallerResolver, FaultCallerChannel],
+    endpoints: [FaultA2AEndpoint],
+    providers: [FaultAuthenticator, FaultCallerChannel],
   };
 }
 
@@ -120,8 +122,6 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
     name: "fault-application",
     version: "1.0.0",
     environment: faultEnvironmentOf(stores.environment.contract),
-    // #825: the fenced charge and the payment are under business keys: one key for every pod
-    idempotencyKeyField: FAULT_IDEMPOTENCY_KEY_FIELD,
     workflows: [
       FaultOrderWorkflow,
       FaultBatchWorkflow,
@@ -131,18 +131,26 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
       ...(expiring ? [FaultExpiringWorkflow] : []),
       ...a2a.workflows,
     ],
-    ...(a2a.exposes.length === 0 ? {} : { exposes: a2a.exposes }),
+    ...(a2a.endpoints.length === 0 ? {} : { endpoints: a2a.endpoints }),
+    channelSelectors: [FaultPauseSelector],
     observers: [FaultObserver],
     budgets: [FaultApplicationBudget, FaultTenantBudget, FaultExecutionBudget],
     retention: { executionRecords: hours(24) },
-    ...(shutdownTimeout === undefined ? {} : { shutdownTimeout }),
-    ...(maxConcurrentSteps === undefined ? {} : { maxConcurrentSteps }),
+    ...(shutdownTimeout === undefined && maxConcurrentSteps === undefined
+      ? {}
+      : {
+          executionLimits: {
+            ...(shutdownTimeout === undefined ? {} : { shutdownTimeout }),
+            ...(maxConcurrentSteps === undefined ? {} : { maxConcurrentSteps }),
+          },
+        }),
     providers: [
       ...heldProvidersOf(stores.providers, sabotage),
       FaultPodClock,
       FaultModelProvider,
       FaultPodLink,
       FaultPauseChannel,
+      FaultPauseDeputyChannel,
       FaultSecondPauseChannel,
       ...(expiring ? [FaultExpiringChannel] : []),
       FaultPauseListener,
@@ -152,11 +160,10 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
   })(faultApplicationClass());
 }
 
-/** The field of the fixture's idempotency key (#825), beside the store set's own fields. */
-export const FAULT_IDEMPOTENCY_KEY_FIELD = "faultIdempotencyKey";
-
-/** The variable every pod reads its idempotency key from — the same in every pod of a run. */
-export const FAULT_IDEMPOTENCY_KEY_VARIABLE = "AGBOSS_FAULT_IDEMPOTENCY_KEY";
+/** The idempotency key every pod of a run fingerprints with (#825): the same in each. */
+export const FAULT_IDEMPOTENCY_KEYS = Object.freeze({
+  current: "agboss-fault-suite-idempotency-key",
+});
 
 const environments = new WeakMap<Class, Class>();
 

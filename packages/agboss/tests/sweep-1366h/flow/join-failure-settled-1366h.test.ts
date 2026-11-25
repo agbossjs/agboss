@@ -1,5 +1,5 @@
 /**
- * #1366: a failed launch with an `.onJoinError` side path starts it with the answers already settled — the
+ * #1366: a failed launch with an `.onError` side path starts it with the answers already settled — the
  * finished branches' values, one write per group that has a shape, none for the branches whose undo ran in
  * this join (by the launch's own compensations only) — and with the config only when there is one; the
  * failing branch's node is the launcher when the record is of no ticketed branch; a branch with no error
@@ -38,7 +38,6 @@ vi.mock("../../../src/flow/runtime/workflow-keys.js", async (original) => ({
 const { failedJoined, failureRecordOf, failingRecordOf } =
   await import("../../../src/flow/runtime/launch/join-failure.js");
 const { BranchStatus } = await import("../../../src/flow/runtime/launch/records.js");
-const { FailurePolicy } = await import("../../../src/flow/decorators/router.js");
 
 const failure = { name: "Error", code: "Error", lineage: [], message: "boom" };
 const failedRecord = {
@@ -85,7 +84,7 @@ beforeEach(() => {
 });
 
 describe("#1366: the answers a side path starts with", () => {
-  it("one value write per group with a shape (none for a group without), no written shapes, the launch's groups", async () => {
+  it("one value write per group with a shape (none for a group without), the launch's groups", async () => {
     const groups = [
       { slot: "s1", producers: ["a"], isSeveral: false, shape },
       { slot: "s2", producers: ["b"], isSeveral: false, problem: "none" },
@@ -103,7 +102,6 @@ describe("#1366: the answers a side path starts with", () => {
     expect(edge.join).toStrictEqual({
       launch: "the-launch",
       values: [{ shape, isCase: false }],
-      written: [],
       groups,
     });
   });
@@ -118,7 +116,7 @@ describe("#1366: the answers a side path starts with", () => {
     );
 
     const edge = joinedCall()[1] as { join: unknown };
-    expect(edge.join).toStrictEqual({ launch: "the-launch", values: [], written: [], groups: [] });
+    expect(edge.join).toStrictEqual({ launch: "the-launch", values: [], groups: [] });
   });
 
   it("the finished branches are given; those undone by THIS launch's compensations are left out", async () => {
@@ -249,7 +247,7 @@ describe("#1366: the failing records", () => {
       status: BranchStatus.Expired,
       read: [],
     });
-    const ticket = { branches: [{ node: "a", nodeId: "a", failure: FailurePolicy.Skip }] };
+    const ticket = { branches: [{ node: "a", nodeId: "a", skip: ["*"] }] };
     expect(failingRecordOf({} as never, ticket as never, [expired(5)] as never)).toStrictEqual(
       expired(5),
     );

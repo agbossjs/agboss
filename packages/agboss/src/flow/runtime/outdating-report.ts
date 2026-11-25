@@ -69,8 +69,7 @@ function reasonText(
   const by = `replaced by ${label(cascade.trigger)} from ${cascade.trigger.producer}`;
   if (record.outdated.reason === OutdatedReason.Replaced) return `${label(record)} outdated: ${by}`;
   const cause = cascade.outdated.find((value) => record.builtFrom.includes(value.valueId));
-  const how = record.outdated.reason === OutdatedReason.AboutReplaced ? "about" : "built from";
-  const through = cause === undefined ? "" : `${how} ${label(cause)}, `;
+  const through = cause === undefined ? "" : `built from ${label(cause)}, `;
   return `${label(record)} outdated: ${through}${by}`;
 }
 

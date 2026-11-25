@@ -4,9 +4,9 @@ import {
   outboundCallPageOf,
   pageLimitOf,
   placeOfCursor,
-  type OutboundCallPage,
   type OutboundCallStatusQuery,
 } from "../outbound-call-pages.js";
+import type { Page } from "../../app/page.js";
 import type { OutboundCallRecord } from "../outbound-call-record.js";
 
 const PagedRow = z.object({ seq: z.number().int(), record: z.string() });
@@ -24,11 +24,11 @@ export function sqlitePageOf(
   database: DatabaseSync,
   query: OutboundCallStatusQuery,
   recordOf: (row: unknown) => OutboundCallRecord,
-): Promise<OutboundCallPage> {
+): Promise<Page<OutboundCallRecord>> {
   return new Promise((resolve) => {
-    const { tenantId, status, after } = query;
+    const { tenantId, status, cursor } = query;
     const limit = pageLimitOf(query.limit);
-    const from = after === undefined ? 0 : placeOfCursor(after);
+    const from = cursor === undefined ? 0 : placeOfCursor(cursor);
     const rows = database
       .prepare(PAGE)
       .all(tenantId, status, from, limit + 1)

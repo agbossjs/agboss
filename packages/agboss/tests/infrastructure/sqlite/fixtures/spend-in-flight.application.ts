@@ -1,7 +1,5 @@
 import {
-  SqliteCheckpointSaver,
   SqliteChildExecutionQueueRepository,
-  SqliteConnection,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -9,6 +7,8 @@ import {
   SqlitePausedExecutionRepository,
   SqliteRateLimitRepository,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
 import type {
@@ -47,7 +47,7 @@ export class HeldParentSqliteLedger extends SqliteCostLedgerRepository {
   environment: SqliteTestEnvironment,
   workflows: [AnyPayItemsWorkflow, ParentPayWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 1,
+  executionLimits: { maxConcurrentSteps: 1 },
   providers: [
     SqliteCheckpointSaver,
     HeldParentSqliteLedger,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { Injectable, OutboundCallUnreconciledError } from "@agboss/core";
-import { override, testAction } from "@agboss/core/testing";
+import { Injectable, OutboundCallError } from "@agboss/core";
+import { testUnit } from "@agboss/core/testing";
 import { seconds } from "@agboss/core/units";
 import { BookFlightAction } from "../../../src/travel/actions/book-flight.action.js";
 import {
@@ -8,7 +8,6 @@ import {
   FlightBookingState,
   type FlightLookup,
 } from "../../../src/travel/services/booking-desk.service.js";
-import { TripWorkflowStart } from "../../../src/travel/workflows/trip/trip.workflow-start.js";
 
 /**
  * #505 — the flight booking is a call that leaves the system: its intent is recorded before the
@@ -59,12 +58,12 @@ class FakeBookingDeskService extends BookingDeskService {
 }
 
 const REQUEST = {
-  request: { producer: TripWorkflowStart, value: { destination: "Lisbon", nights: 3 } },
+  request: { destination: "Lisbon", nights: 3 },
 };
 
 const runner = () =>
-  testAction(BookFlightAction, {
-    overrides: [override(BookingDeskService, FakeBookingDeskService)],
+  testUnit(BookFlightAction, {
+    services: [FakeBookingDeskService],
   });
 
 /** A runner whose first booking was left pending: frozen at the airline until its timeout. */
@@ -86,7 +85,7 @@ beforeEach(() => {
   airline.lookup = undefined;
 });
 
-it("testAction: an undoable action, its service overridden", async () => {
+it("testUnit: an undoable action, its service overridden", async () => {
   const { output } = await runner()(REQUEST);
 
   expect(output.bookingId).toContain("Lisbon");
@@ -111,11 +110,11 @@ describe("#505: the booking left pending, one test per verdict", () => {
     expect(new Set(airline.calls).size).toBe(1);
   });
 
-  it("the airline cannot say yet: OutboundCallUnreconciledError, nothing booked again", async () => {
+  it("the airline cannot say yet: OutboundCallError.Unreconciled, nothing booked again", async () => {
     const run = await leftPending("after");
     airline.lookup = { state: FlightBookingState.Processing };
 
-    await expect(run(REQUEST)).rejects.toBeInstanceOf(OutboundCallUnreconciledError);
+    await expect(run(REQUEST)).rejects.toBeInstanceOf(OutboundCallError.Unreconciled);
     expect(airline.calls).toHaveLength(1);
   });
 });

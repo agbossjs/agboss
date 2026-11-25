@@ -1,4 +1,4 @@
-import { testTool } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 {{imports}}
 
@@ -17,7 +17,7 @@ describe("{{snake}}", () => {
     const input: {{inputType}} = {{input}};
 
     // the tool on its own container (its API service created there), in a tool call's frame
-    await testTool({{pascal}}Tool)(input);
+    await testUnit({{pascal}}Tool)(input);
 
     expect(calls).toHaveLength(1);
 {{urlCheck}}

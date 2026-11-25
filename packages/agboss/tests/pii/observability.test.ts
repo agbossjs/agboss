@@ -1,14 +1,7 @@
 /** #120 AC7: logs, traces, events and the record are masked by the application's lists. */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import {
-  Injectable,
-  PiiAction,
-  type OnAgentStart,
-  type OnModelStart,
-  type OnToolEnd,
-  type OnToolStart,
-} from "../../src/index.js";
+import { Observer, PiiAction } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import type {
   AgentStartEvent,
@@ -34,35 +27,38 @@ import {
   OpenStart,
   OpenWorkflow,
   PII_KEY_VARIABLE,
+  PiiAppStorage,
   PiiStart,
   PiiWorkflow,
   SendEmail,
 } from "./pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const EMAIL = "alice@example.com";
 
 /** Every event the observers saw, as text. */
 const seen: string[] = [];
 
-@Injectable()
-class SeeingObserver implements OnAgentStart, OnToolStart, OnToolEnd, OnModelStart {
+@Observer()
+class SeeingObserver {
   onAgentStart(event: AgentStartEvent): void {
     seen.push(event.input);
   }
   onToolStart(event: ToolStartEvent): void {
-    seen.push(JSON.stringify(event.arguments));
+    seen.push(JSON.stringify(event.input));
   }
   onToolEnd(event: ToolEndEvent): void {
-    seen.push(event.update);
+    seen.push(event.output);
   }
   onModelStart(event: ModelStartEvent): void {
-    seen.push(event.rawPayload.map((message) => JSON.stringify(message.content)).join(" "));
+    seen.push(event.messages.map((message) => JSON.stringify(message.content)).join(" "));
     throw new Error(`observer broke on ${EMAIL}`);
   }
 }
 
 @Application({
   name: "seen-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PiiWorkflow, OpenWorkflow],
@@ -70,11 +66,12 @@ class SeeingObserver implements OnAgentStart, OnToolStart, OnToolEnd, OnModelSta
   observers: [SeeingObserver],
   providers: [RecordingLogger],
   budgets: TEST_BUDGETS,
+  storage: PiiAppStorage,
 })
 class SeenApplication {}
 
 async function seenApp(book: ScriptBook) {
-  return createAppWith(SeenApplication, {
+  return createTestAppWith(SeenApplication, {
     processEnv: { [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" },
     gateway: createScriptedGateway(book),
   });
@@ -90,7 +87,7 @@ describe("#120 AC7: observability is masked by the whole list", () => {
       .thenReturn(callTool(SendEmail, { to: EMAIL, body: "hi" }), replyWith(`wrote ${EMAIL}`));
     const app = await seenApp(book);
 
-    const result = await execute(app, PiiStart, { text: `to ${EMAIL}` }, { record: true });
+    const result = await execute(app, PiiStart, { text: `to ${EMAIL}` }, { includeRecord: true });
 
     expect(seen.length).toBeGreaterThan(3);
     expect(seen.join("\n")).not.toContain(EMAIL);
@@ -119,7 +116,7 @@ describe("#120 AC7: observability is masked by the whole list", () => {
 });
 
 class ShopTenantContext extends TenantContext {
-  @Text({ sensitive: PiiAction.replaceWithKind() })
+  @Text({ sensitive: PiiAction.mask() })
   owner!: string;
 }
 
@@ -132,7 +129,7 @@ describe("#120 AC7: a trace's spans", () => {
   it("hides the execution's PII channels and sensitive context fields in a state", async () => {
     const state = {
       piiTokens: { "<email:aaaaaa>": EMAIL },
-      piiValues: [{ value: "Dana", label: "owner", action: PiiAction.replaceWithKind() }],
+      piiValues: [{ value: "Dana", label: "owner", action: PiiAction.mask() }],
       contexts: { tenant: { tenantId: "acme", owner: "Dana" }, execution: {} },
     };
     const shown = await mask.traceData(JSON.stringify(state));

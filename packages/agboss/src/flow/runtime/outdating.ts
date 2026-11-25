@@ -1,3 +1,5 @@
+import { twinSlotsOf } from "../analyse/slices.js";
+import type { SlotKey } from "../analyse/scope.js";
 import {
   OutdatedReason,
   type OutdatedValueRecord,
@@ -43,19 +45,6 @@ function reachedFrom(root: ScopeValueRecord, rest: readonly ScopeValueRecord[]):
   return reached;
 }
 
-/** Why a value reached by a cascade was outdated: through what it is about, or what it read. */
-function reasonOf(
-  record: ScopeValueRecord,
-  outdated: ReadonlyMap<string, ScopeValueRecord>,
-): OutdatedReason {
-  const about = record.about ?? [];
-  const isAbout = record.builtFrom.some((source) => {
-    const cause = outdated.get(source);
-    return cause !== undefined && about.includes(cause.slot);
-  });
-  return isAbout ? OutdatedReason.AboutReplaced : OutdatedReason.BuiltFromReplaced;
-}
-
 const byValueId = (first: ScopeValueRecord, second: ScopeValueRecord): number =>
   first.valueId.localeCompare(second.valueId);
 
@@ -83,19 +72,26 @@ export function writeAndOutdate(scope: ScopeRecords, written: ScopeRecords): Wri
   const rootOf = new Map<string, ScopeValueRecord>();
   const replaced = new Set<string>();
   for (const trigger of triggers) {
-    const older = scope[trigger.slot];
-    if (older === undefined) continue;
-    replaced.add(older.valueId);
-    for (const valueId of reachedFrom(older, rest))
-      if (!rootOf.has(valueId)) rootOf.set(valueId, trigger);
+    // the value it replaces, and the twins it makes stale: the slices of a polymorphic list, the lists a slice is part of (#1288b)
+    const stale = [
+      scope[trigger.slot],
+      ...twinSlotsOf(
+        trigger.slot as SlotKey,
+        rest.map((record) => record.slot as SlotKey),
+      ).map((slot) => scope[slot]),
+    ].filter((record) => record !== undefined);
+    for (const older of stale) {
+      replaced.add(older.valueId);
+      for (const valueId of reachedFrom(older, rest))
+        if (!rootOf.has(valueId)) rootOf.set(valueId, trigger);
+    }
   }
   const old = Object.values(scope).filter((record) => rootOf.has(record.valueId));
-  const outdatedById = new Map(old.map((record) => [record.valueId, record] as const));
   const outdated = old
     .map((record): OutdatedValueRecord => {
       const reason = replaced.has(record.valueId)
         ? OutdatedReason.Replaced
-        : reasonOf(record, outdatedById);
+        : OutdatedReason.BuiltFromReplaced;
       const root = rootOf.get(record.valueId)?.valueId ?? "";
       return { ...record, outdated: { byValueId: root, reason } };
     })

@@ -1,3 +1,4 @@
+import { fencedRefusalOf } from "../../../src/app/lease-lost.js";
 /**
  * #1366 (shard `cancel-x-runs`): how a branch that threw ends (`branch-end.ts`) — cancelled when its launch was
  * aborted or its pause withdrawn, a hand-over and a cancel of the execution passed through as they are, the
@@ -6,12 +7,11 @@
 import { describe, expect, it } from "vitest";
 import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { newRunContext } from "../../../src/core/run-context.js";
-import { ExecutionFencedError, ExecutionLeaseLostError } from "../../../src/app/lease-lost.js";
+import { ExecutionLeaseLostError } from "../../../src/app/lease-lost.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import { PauseWithdrawnError } from "../../../src/flow/runtime/pause.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { LimitExceededError } from "../../../src/graph/limits.js";
-import { FailurePolicy } from "../../../src/flow/decorators/router.js";
 import { ArbiterError } from "../../../src/flow/runtime/launch/quorum-errors.js";
 import {
   BranchErrors,
@@ -27,12 +27,12 @@ const stepFailed = (): Error => Object.create(StepFailedError.prototype) as Erro
 const arbiterFailed = (): Error => Object.create(ArbiterError.prototype) as Error;
 const expired = (): Error => Object.create(PauseExpiredError.prototype) as Error;
 
-function siteOf(options: { aborted?: boolean; failure?: FailurePolicy; isQuorum?: boolean } = {}) {
+function siteOf(options: { aborted?: boolean; skip?: readonly string[]; isQuorum?: boolean } = {}) {
   const controller = new AbortController();
   if (options.aborted === true) controller.abort();
   return {
     live: { controller },
-    ticket: { failure: options.failure ?? FailurePolicy.FailFast },
+    ticket: { skip: options.skip ?? [] },
     isQuorum: options.isQuorum ?? false,
   } as never;
 }
@@ -53,21 +53,15 @@ describe("#1366: the status of a branch that threw", () => {
     );
   });
 
-  it("an arbiter's error, or anything that is no step failure: failed — whatever the policy", () => {
-    expect(failedStatusOf(siteOf({ failure: FailurePolicy.Skip }), arbiterFailed())).toBe(
-      BranchStatus.Failed,
-    );
+  it("an arbiter's error, or anything that is no step failure: failed — whatever it skips", () => {
+    expect(failedStatusOf(siteOf({ skip: ["*"] }), arbiterFailed())).toBe(BranchStatus.Failed);
     expect(failedStatusOf(siteOf({ isQuorum: true }), arbiterFailed())).toBe(BranchStatus.Failed);
-    expect(failedStatusOf(siteOf({ failure: FailurePolicy.Skip }), new Error("a limit"))).toBe(
-      BranchStatus.Failed,
-    );
+    expect(failedStatusOf(siteOf({ skip: ["*"] }), new Error("a limit"))).toBe(BranchStatus.Failed);
     expect(failedStatusOf(siteOf({ isQuorum: true }), "plain text")).toBe(BranchStatus.Failed);
   });
 
-  it("a step failure: skipped under Skip or in a quorum, else failed", () => {
-    expect(failedStatusOf(siteOf({ failure: FailurePolicy.Skip }), stepFailed())).toBe(
-      BranchStatus.Skipped,
-    );
+  it("a step failure: skipped under skip() or in a quorum, else failed", () => {
+    expect(failedStatusOf(siteOf({ skip: ["*"] }), stepFailed())).toBe(BranchStatus.Skipped);
     expect(failedStatusOf(siteOf({ isQuorum: true }), stepFailed())).toBe(BranchStatus.Skipped);
     expect(failedStatusOf(siteOf(), stepFailed())).toBe(BranchStatus.Failed);
   });
@@ -144,7 +138,7 @@ describe("#1366: the stops that are no outcome of a branch", () => {
   it("a fenced write behind the branch's error is a hand-over: it is the one thrown, before the cancel the signal says", () => {
     const stop = new AbortController();
     stop.abort(new ExecutionCancelledError({ message: "cancelled" }));
-    const fenced = ExecutionFencedError.of({ scopeKey: "acme:root-1", token: 1, observedToken: 2 });
+    const fenced = fencedRefusalOf({ scopeKey: "acme:root-1", token: 1, observedToken: 2 });
 
     expect(() => {
       passThroughStops({ signal: stop.signal }, "exec-1", new Error("wrapped", { cause: fenced }));

@@ -4,7 +4,7 @@ import { childClassesOf } from "../flow/analyse/child-workflow.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 
 /**
- * The ways into a child workflow (#1150): every static path of `.toWorkflow` / `.toParallelWorkflows`
+ * The ways into a child workflow (#1150): every static path of `.toWorkflow` / `.forEachItem`
  * / `route` edges from an application's workflows down to it, each with the `@Workflow`-level PII
  * policies of the workflows above it (an agent's or router's own list is never inherited). Read from
  * the decorators only — what assembly checks a child's exclusions and conflicts against, and what
@@ -40,7 +40,7 @@ function partsOf(workflow: Class): WorkflowParts | undefined {
   return {
     name: options.name,
     policies: options.piiPolicies ?? [],
-    children: childClassesOf(options.flow),
+    children: childClassesOf(options.flow, workflow),
   };
 }
 

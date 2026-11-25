@@ -1,7 +1,10 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { HEALTH_CHECK_KEYS } from "../components/decorator-options.js";
 import { MAX_TIMEOUT, timerProblemOf } from "../units/timer-limits.js";
+import { seconds } from "../units/index.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
-import { kindSuffixProblem, NameKind } from "../flow/names.js";
+import { kebabNameProblem, resolvedName } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { Milliseconds } from "../units/index.js";
 
@@ -33,16 +36,11 @@ export enum HealthComponentKind {
   /** The pause timers (#940): `Unhealthy` when their last tick is older than three intervals. */
   PauseTimers = "pause-timers",
   /** One of the instance's stores (#265 contracts, the checkpoint saver): its `ping()`. */
-  Store = "store",
+  Storage = "storage",
   /** A model provider (#266): its circuit breaker's state, never a model call. */
   ModelProvider = "model-provider",
   /** A project's `@HealthCheck`. */
-  Project = "project",
-  /**
-   * The instance's step slots (#332, `@Application({ maxConcurrentSteps })`, component
-   * `step-slots`): `Degraded` while every slot is busy; reported only when the cap is set.
-   */
-  StepSlots = "step-slots",
+  HealthCheck = "health-check",
 }
 
 /** One component of a report. */
@@ -64,6 +62,16 @@ export interface HealthComponentReport {
 export interface HealthReport {
   readonly status: HealthStatus;
   readonly components: readonly HealthComponentReport[];
+  /**
+   * Every step slot is taken (`@Application({ maxConcurrentSteps })`: no free slot; never `true`
+   * without a cap). Orthogonal to `status`: saturation never hides a `Degraded` component, and a
+   * `Degraded` one never defeats backpressure.
+   */
+  readonly isBusy: boolean;
+  /** The instance lives: `status` is not `Unhealthy` — a liveness probe answers 200 with it. */
+  readonly isAlive: boolean;
+  /** The instance takes new work: `status` is not `Unhealthy` and it is not `isBusy` — 200, else 503. */
+  readonly isReady: boolean;
 }
 
 declare const healthCheckResult: unique symbol;
@@ -86,16 +94,10 @@ export interface FailedHealthCheckResult {
 /** A health check's result: `HealthCheckResult.healthy()` / `.degraded(…)` / `.unhealthy(…)`. */
 export type HealthCheckResult = HealthyCheckResult | FailedHealthCheckResult;
 
-/** `HealthCheckResult.degraded({ reason })` / `.unhealthy({ reason })` — why it is not healthy. */
-export interface HealthCheckResultOptions {
-  readonly reason: string;
-}
-
 const failed = (
   status: HealthStatus.Degraded | HealthStatus.Unhealthy,
-  options: HealthCheckResultOptions,
-): FailedHealthCheckResult =>
-  Object.freeze({ status, reason: options.reason }) as FailedHealthCheckResult;
+  reason: string,
+): FailedHealthCheckResult => Object.freeze({ status, reason }) as FailedHealthCheckResult;
 
 /** The only way to build a health check's result (#300 S1, like `JudgeVerdict`). */
 export const HealthCheckResult = {
@@ -104,27 +106,37 @@ export const HealthCheckResult = {
     return Object.freeze({ status: HealthStatus.Healthy }) as HealthyCheckResult;
   },
   /** It works with less (a slow replica, a fallback in use): the instance stays ready, degraded. */
-  degraded(options: HealthCheckResultOptions): FailedHealthCheckResult {
-    return failed(HealthStatus.Degraded, options);
+  degraded(reason: string): FailedHealthCheckResult {
+    return failed(HealthStatus.Degraded, reason);
   },
   /** It does not work: the instance is not ready. */
-  unhealthy(options: HealthCheckResultOptions): FailedHealthCheckResult {
-    return failed(HealthStatus.Unhealthy, options);
+  unhealthy(reason: string): FailedHealthCheckResult {
+    return failed(HealthStatus.Unhealthy, reason);
   },
 } as const;
 
-/** What a `@HealthCheck` class implements. */
-export interface HealthCheckHandler {
-  /** Checks one dependency: `HealthCheckResult.healthy()`, `.degraded({ reason })`, `.unhealthy({ reason })`. */
-  readonly check: () => Promise<HealthCheckResult>;
+/** What `check(ctx)` of a `@HealthCheck` receives. */
+export interface HealthCheckContext {
+  /** Aborted when the check passes its `timeout`: pass it to the call that reaches the dependency. */
+  readonly signal: AbortSignal;
 }
 
-/** `@HealthCheck` options. */
+/** What a `@HealthCheck` class has: `check`, sync or async; a check that takes no `ctx` is valid. */
+export interface HealthCheckHandler {
+  /** Checks one dependency: `HealthCheckResult.healthy()`, `.degraded(reason)`, `.unhealthy(reason)`. */
+  check(ctx: HealthCheckContext): HealthCheckResult | Promise<HealthCheckResult>;
+}
+
+/** How long a `@HealthCheck`'s `check()` may take unless it says. */
+export const HEALTH_CHECK_TIMEOUT: Milliseconds = seconds(5);
+
+/** `@HealthCheck` options: every one optional. */
 export interface HealthCheckOptions<TDeps extends readonly Token[] = readonly Token[]> {
-  /** Ends with `-health-check` (`crm-health-check`), unique in the application. */
-  readonly name: string;
-  /** How long `check()` may take (`seconds(2)`): past it the check is `Unhealthy`, timed out; at most 24 hours (`[limits.timeout-invalid]`, #1141). */
-  readonly timeout: Milliseconds;
+  /** Kebab-case, unique in the application; the class name in kebab-case when left out (`CrmHealthCheck` → `crm-health-check`). */
+  readonly name?: string;
+  readonly description?: string;
+  /** How long `check()` may take (default `seconds(5)`): past it the check is `Unhealthy`, timed out; at most 24 hours (`[limits.timeout-invalid]`, #1141). */
+  readonly timeout?: Milliseconds;
   /** The constructor's dependencies, in order (compiler-checked), injected by the container. */
   readonly deps?: TDeps;
 }
@@ -132,27 +144,31 @@ export interface HealthCheckOptions<TDeps extends readonly Token[] = readonly To
 /** What `@HealthCheck` records about a class. */
 export interface HealthCheckMeta {
   readonly name: string;
+  readonly description?: string;
   readonly timeout: Milliseconds;
   readonly deps: readonly Token[];
 }
 
 /**
- * A project's own readiness check: `@HealthCheck({ name, timeout, deps? })` on a class that
- * `implements HealthCheckHandler`, created by the application's container like any component and
+ * A project's own readiness check: `@HealthCheck({ name?, timeout?, deps? })` on a class with
+ * a `check(ctx?)` method, created by the application's container like any component and
  * listed only in `@Application({ healthChecks })`. `app.checkReadiness()` runs every one under its
  * own `timeout` on the application's `Clock`; one that throws or passes it is `Unhealthy` in the
  * report — the probe never rejects.
  */
 export function HealthCheck<const TDeps extends readonly Token[] = []>(
-  options: HealthCheckOptions<TDeps>,
+  options: HealthCheckOptions<TDeps> = {},
 ) {
   return <TClass extends new (...args: ResolvedAll<TDeps>) => HealthCheckHandler>(
     value: TClass,
   ): TClass => {
-    const { name, timeout } = options;
+    recordOptionKeys(value, "HealthCheck", options, HEALTH_CHECK_KEYS);
+    const { description, timeout = HEALTH_CHECK_TIMEOUT } = options;
+    const name = resolvedName(options.name, value);
+    const meta = { name, timeout, deps: options.deps ?? [] };
     recordComponent(value, {
       kind: "health-check",
-      meta: { name, timeout, deps: options.deps ?? [] },
+      meta: description === undefined ? meta : { ...meta, description },
     });
     return value;
   };
@@ -179,12 +195,12 @@ function listedViolations(application: string, cls: Class): RuleViolation[] {
     return [
       violation(
         "health.not-a-health-check",
-        `${classNameOf(cls)} in ${application}'s healthChecks has no @HealthCheck({ name, timeout }) decorator`,
+        `${classNameOf(cls)} in ${application}'s healthChecks has no @HealthCheck() decorator`,
         [application],
       ),
     ];
   }
-  const problem = kindSuffixProblem(meta.name, NameKind.HealthCheck);
+  const problem = kebabNameProblem(meta.name, "@HealthCheck");
   const tooLong = timerProblemOf("timeout", meta.timeout, MAX_TIMEOUT);
   return [
     ...(problem === undefined ? [] : [violation(problem.code, problem.message, [application])]),
@@ -217,7 +233,7 @@ function duplicateViolations(application: string, checks: readonly Class[]): Rul
 /**
  * The rules of `@Application({ healthChecks })`, at assembly with the application's other rules:
  * every listed class is a `@HealthCheck` (`[health.not-a-health-check]`), its `name` ends with
- * `-health-check` (`[name.kind-suffix]`) and is the only one of its name (`[health.duplicate-name]`).
+ * kebab-case (`[name.not-kebab-case]`) and is the only one of its name (`[health.duplicate-name]`).
  */
 export function healthCheckRuleViolations(options: HealthCheckList): RuleViolation[] {
   const checks = options.healthChecks ?? [];

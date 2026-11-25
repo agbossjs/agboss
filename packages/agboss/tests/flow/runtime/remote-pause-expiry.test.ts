@@ -1,5 +1,5 @@
 /**
- * #941 I17: a pause of an any-instance child (`ChildPlacement.AnyInstance`) expires through its
+ * #941 I17: a pause of an any-instance child (`ChildPlacement.AnyWorker`) expires through its
  * root — the root's lease, the root's record, the root's drain; its deadline is the run's, the
  * child's frame carries the root's. The root fails with `DeadlineExceededError`, the child's pause
  * is `Expired`, the instance that did not start the run may be the one that expires it.

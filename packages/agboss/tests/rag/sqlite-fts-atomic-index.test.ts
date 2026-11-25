@@ -1,9 +1,11 @@
+import { usd } from "../../src/units/index.js";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { retrieve, index } from "./access.js";
 import { describe, expect, it } from "vitest";
-import { SqliteFtsConnector } from "../../src/rag/sqlite-fts.js";
+import { SqliteFtsRagSource } from "../../src/rag/sqlite-fts.js";
 
 /**
  * #891 AC5 — `index()` (what `agboss rag index` runs) builds a tenant's index whole or not at all:
@@ -14,20 +16,20 @@ import { SqliteFtsConnector } from "../../src/rag/sqlite-fts.js";
  */
 
 const signal = new AbortController().signal;
-const tenantId = "acme";
+const scopeId = "acme";
 
 async function folderWith(files: Readonly<Record<string, string>>) {
   const root = await mkdtemp(join(tmpdir(), "fts-atomic-"));
   for (const [name, text] of Object.entries(files)) await writeFile(join(root, name), text);
-  const connector = new SqliteFtsConnector({
-    folder: root,
-    sqlitePath: join(root, "i", "f.sqlite"),
+  const connector = new SqliteFtsRagSource({
+    directory: root,
+    path: join(root, "i", "f.sqlite"),
   });
   return { root, connector };
 }
 
-const sourcesOf = async (connector: SqliteFtsConnector, query: string): Promise<string[]> =>
-  (await connector.retrieve(query, { topK: 20, tenantId, signal })).results
+const sourcesOf = async (connector: SqliteFtsRagSource, query: string): Promise<string[]> =>
+  (await retrieve(connector, query, { topK: 20, tenantId: scopeId, scopeId, signal })).results
     .map((hit) => `${hit.source}: ${hit.text}`)
     .sort();
 
@@ -38,12 +40,12 @@ describe("#891 AC5: an interrupted index run leaves no partial tenant index", ()
       "b.md": "Beta secret is blue.",
       "c.md": "Gamma secret is green.",
     });
-    await connector.index({ tenantId, signal });
+    await index(connector, { tenantId: scopeId, scopeId, signal });
     await writeFile(join(root, "a.md"), "Alpha secret is azure now.");
     await rm(join(root, "b.md"));
     await mkdir(join(root, "b.md")); // read after a.md: reading it fails the run midway
 
-    await expect(connector.index({ tenantId, signal })).rejects.toThrow();
+    await expect(index(connector, { tenantId: scopeId, scopeId, signal })).rejects.toThrow();
 
     expect(await sourcesOf(connector, "secret")).toEqual([
       "a.md: Alpha secret is amber.",
@@ -59,7 +61,7 @@ describe("#891 AC5: an interrupted index run leaves no partial tenant index", ()
     });
     await mkdir(join(root, "b.md"));
 
-    await expect(connector.index({ tenantId, signal })).rejects.toThrow();
+    await expect(index(connector, { tenantId: scopeId, scopeId, signal })).rejects.toThrow();
     await rm(join(root, "b.md"), { recursive: true });
     await writeFile(join(root, "b.md"), "Beta secret is blue.");
 
@@ -75,12 +77,12 @@ describe("#891 AC5: an interrupted index run leaves no partial tenant index", ()
       "a.md": "Alpha secret is amber.",
       "b.md": "Beta secret is blue.",
     });
-    await connector.index({ tenantId, signal });
+    await index(connector, { tenantId: scopeId, scopeId, signal });
     await writeFile(join(root, "a.md"), "Alpha secret is azure now.");
     await writeFile(join(root, "b.md"), "Beta secret is black now.");
     const caller = new AbortController();
 
-    const run = connector.index({ tenantId, signal: caller.signal });
+    const run = index(connector, { tenantId: scopeId, scopeId, signal: caller.signal });
     caller.abort(new Error("interrupted"));
     await expect(run).rejects.toThrow("interrupted");
 
@@ -95,13 +97,13 @@ describe("#891 AC5: an interrupted index run leaves no partial tenant index", ()
       "a.md": "Alpha secret is amber.",
       "b.md": "Beta secret is blue.",
     });
-    await connector.index({ tenantId, signal });
+    await index(connector, { tenantId: scopeId, scopeId, signal });
     await writeFile(join(root, "a.md"), "Alpha secret is azure now.");
     await rm(join(root, "b.md"));
 
-    const report = await connector.index({ tenantId, signal });
+    const report = await index(connector, { tenantId: scopeId, scopeId, signal });
 
-    expect(report).toEqual({ documents: 1, chunks: 1, skipped: 0, costUsd: 0 });
+    expect(report).toEqual({ documents: 1, chunks: 1, skipped: 0, costUsd: usd(0) });
     expect(await sourcesOf(connector, "secret")).toEqual(["a.md: Alpha secret is azure now."]);
   });
 
@@ -115,12 +117,12 @@ describe("#891 AC5: an interrupted index run leaves no partial tenant index", ()
       Array.from({ length: 400 }, (_, n) => [`d${String(n)}.md`, body("old")]),
     );
     const { root, connector } = await folderWith(files);
-    const sqlitePath = join(root, "i", "f.sqlite");
-    await connector.index({ tenantId, signal });
+    const path = join(root, "i", "f.sqlite");
+    await index(connector, { tenantId: scopeId, scopeId, signal });
     const oldChunks = (await sourcesOf(connector, "old")).length;
     for (const name of Object.keys(files)) await writeFile(join(root, name), body("new"));
     const caller = new AbortController();
-    const probe = new DatabaseSync(sqlitePath);
+    const probe = new DatabaseSync(path);
     probe.exec("PRAGMA busy_timeout = 0");
     const writing = (): boolean => {
       try {
@@ -131,7 +133,7 @@ describe("#891 AC5: an interrupted index run leaves no partial tenant index", ()
       }
     };
 
-    const run = connector.index({ tenantId, signal: caller.signal });
+    const run = index(connector, { tenantId: scopeId, scopeId, signal: caller.signal });
     const settled = run.then(
       () => "done",
       () => "aborted",
@@ -149,6 +151,8 @@ describe("#891 AC5: an interrupted index run leaves no partial tenant index", ()
     probe.close();
     expect((await sourcesOf(connector, "old")).length).toBe(oldChunks);
     expect(await sourcesOf(connector, "new")).toEqual([]);
-    await expect(connector.index({ tenantId, signal })).resolves.toMatchObject({ documents: 400 });
+    await expect(index(connector, { tenantId: scopeId, scopeId, signal })).resolves.toMatchObject({
+      documents: 400,
+    });
   });
 });

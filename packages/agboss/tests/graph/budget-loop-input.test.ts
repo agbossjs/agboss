@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules of an agent's input step, each on its own over fakes: the check
  * before a model call that reads a file (with the spend of the loop so far), the failures that rise as they are and
@@ -11,7 +12,6 @@ import { makeInputNode } from "../../src/graph/agent-loop/input-node.js";
 import { LimitExceededError } from "../../src/graph/limits.js";
 import { gatherKnowledge } from "../../src/graph/nodes/knowledge.js";
 import { PiiRefusedError } from "../../src/pii/errors.js";
-import { memoryViewOf } from "../../src/graph/agent-loop/memory-view.js";
 import { loopPoliciesOf } from "../../src/graph/agent-loop/model-pii.js";
 import { guardedFilesOf } from "../../src/files/guarded-files.js";
 import { fileMaskOf } from "../../src/files/file-mask.js";
@@ -19,9 +19,6 @@ import { runGuardrails } from "../../src/guardrails/runtime.js";
 import { maskedModelText } from "../../src/pii/model-boundary.js";
 
 vi.mock("../../src/graph/nodes/knowledge.js", () => ({ gatherKnowledge: vi.fn() }));
-vi.mock("../../src/graph/agent-loop/memory-view.js", () => ({
-  memoryViewOf: vi.fn(() => Promise.resolve({ summaries: [], history: [] })),
-}));
 vi.mock("../../src/graph/agent-loop/model-pii.js", () => ({ loopPoliciesOf: vi.fn() }));
 vi.mock("../../src/files/guarded-files.js", () => ({ guardedFilesOf: vi.fn() }));
 vi.mock("../../src/files/file-mask.js", () => ({ fileMaskOf: vi.fn() }));
@@ -37,10 +34,11 @@ vi.mock("../../src/files/visit-files.js", async (original) => ({
 }));
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -69,6 +67,8 @@ const stateOf = (changes: Record<string, unknown> = {}) =>
     from: { usage: 1 },
     flowPath: ["a"],
     inputMessage: "hello",
+    summaries: [],
+    history: [],
     approvals: [],
     piiTokens: {},
     inputFiles: [],
@@ -101,7 +101,6 @@ const file = { fileId: "f1" };
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(memoryViewOf).mockResolvedValue({ summaries: [], history: [] });
   vi.mocked(loopPoliciesOf).mockReturnValue(undefined);
 });
 
@@ -202,7 +201,7 @@ describe("#1366: the check before a model call that reads a file", () => {
         limit: 1,
         actual: 2,
         path: [],
-        spentUsd: 0,
+        spentUsd: usd(0),
         usage: [],
       }),
       new PiiRefusedError({ message: "pii" } as never),
@@ -259,12 +258,12 @@ describe("#1366: the request the input step builds", () => {
 
   it("the thread's memory comes first as a message of its own, when there is one", async () => {
     const { node } = setup();
-    vi.mocked(memoryViewOf).mockResolvedValue({
+    const memory = {
       summaries: ["a summary"],
       history: [{ start: "start x: 1", finish: "finish y: 2" }],
-    });
+    };
 
-    const out = await node(stateOf(), undefined);
+    const out = await node(stateOf(memory), undefined);
 
     expect(listOf(out.messages)).toHaveLength(2);
     expect(textOf(listOf(out.messages)[0])).toContain("a summary");
@@ -308,7 +307,10 @@ describe("#1366: the request the input step builds", () => {
     ]);
     expect(runGuardrails).toHaveBeenCalledWith(
       ["g"],
-      expect.objectContaining({ element: "alpha", side: "input" }),
+      expect.objectContaining({
+        component: expect.objectContaining({ name: "alpha" }),
+        side: "input",
+      }),
       "observer",
     );
   });

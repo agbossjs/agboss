@@ -1,6 +1,6 @@
+import { ComponentOptions } from "../components/component-options.js";
 import { BranchErrors } from "../flow/runtime/launch/branch-end.js";
 import type { BranchScheduler } from "../flow/runtime/launch/branch-schedule.js";
-import type { BaseMemoryStrategy } from "../memory/types.js";
 import type { JudgeInstance } from "../components/judge-decorators.js";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
@@ -32,6 +32,7 @@ import type { ContainerOptions } from "../components/container/container.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { ReplyReaderParts } from "../channels/reply-reader.js";
 import type { Class } from "../components/injection.js";
+import { decisionServiceOf } from "../components/decision-target.js";
 
 export class UnknownToolError extends Error {
   override name = "UnknownToolError";
@@ -77,9 +78,12 @@ export const servicesFor = (
   container: ContainerOptions,
 ): WorkflowServices => ({
   router: (name) => defaultRouterOf(name, bundle.config, gateway),
+  decide: decisionServiceOf(bundle, gateway),
   contexts,
   container,
   rerankModel: rerankerBindingOf(bundle.config, gateway),
+  rerankInstructions: (reranker) =>
+    bundle.rerankers?.find((found) => found.name === reranker)?.prompt ?? "",
 });
 
 /** Context-mode knowledge bases per agent, when the workflow has any. */
@@ -90,15 +94,6 @@ export function knowledgeFor(
   const byAgent = bundle.knowledge?.(services);
   return byAgent === undefined ? {} : { knowledge: (agent) => byAgent.get(agent) ?? [] };
 }
-
-/** The agents' own memory strategies (`@Agent({ memoryStrategy })`), from the container. */
-export const memoryFor = (
-  bundle: AssembledWorkflow,
-  services: WorkflowServices,
-): { readonly memory?: ReadonlyMap<string, BaseMemoryStrategy> } => {
-  const memory = bundle.memoryStrategies?.(services);
-  return memory === undefined ? {} : { memory };
-};
 
 /** The agents' judges by name, created by the workflow's container. */
 export const judgesFor = (
@@ -119,7 +114,7 @@ export const pauseFor = (
 
 /**
  * The workflow's guardrails (#120): each on its own model or `defaults.guardrail.model` (resolved at
- * assembly — `[guardrail.no-model]` otherwise), its refusal class from the workflow's container.
+ * assembly — `[model.missing-provider]` otherwise), its refusal class from the workflow's container.
  */
 export const guardrailsFor = (
   bundle: AssembledWorkflow,
@@ -179,10 +174,12 @@ export const flowFor = (
   AgentExecutionDeps<string>,
   | "graph"
   | "maxSteps"
+  | "executionLimitsOf"
   | "routers"
   | "routerFor"
   | "launchDecisionFor"
   | "arbiterModelFor"
+  | "arbiters"
   | "branchErrors"
   | "branchScheduler"
 > => {
@@ -194,10 +191,12 @@ export const flowFor = (
   return {
     graph: bundle.graph,
     maxSteps: bundle.maxSteps,
+    executionLimitsOf: (bundle.componentOptions ?? ComponentOptions.none).executionLimitsOf,
     routers: bundle.routers,
     routerFor: flowRouterFactory(routerDeps),
     launchDecisionFor: flowLaunchDeciderFactory(routerDeps),
-    arbiterModelFor: flowArbiterModelFactory(routerDeps),
+    arbiterModelFor: flowArbiterModelFactory(routerDeps, bundle.arbiters),
+    ...(bundle.arbiters === undefined ? {} : { arbiters: bundle.arbiters }),
     // a launch's branch errors, kept across passes (a withdrawal's join rethrows the original)
     branchErrors: new BranchErrors(),
     // a test's schedule of the branches (#262 S33); none in production

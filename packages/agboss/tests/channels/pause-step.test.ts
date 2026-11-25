@@ -10,36 +10,33 @@
 import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
 import { describe, expect, it } from "vitest";
 import type { PauseAnswerRecord } from "../../src/flow/runtime/execution-record.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import type { ChannelSenderAsk } from "../../src/channels/channel-sender.js";
 import { PauseKind, PauseResolution, PauseStatus } from "../../src/infrastructure/pause-record.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
-import {
-  ChannelSendError,
-  pauseStep,
-  PauseWithdrawnError,
-  type PauseChannel,
-} from "../../src/flow/runtime/pause.js";
+import { ChannelSendError, pauseStep, PauseWithdrawnError } from "../../src/flow/runtime/pause.js";
 import { testFrame } from "../helpers/frame.js";
 import { closeTreePauses } from "../../src/app/tree-end-pauses.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { PauseNoticeKind } from "../../src/infrastructure/pause-notices.js";
 import { seconds } from "../../src/units/index.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import { targetOfChannel, type FlatChannel } from "../helpers/pause-target.js";
 
 const question = {
   kind: PauseKind.Approval,
   step: "desk-clerk-agent",
-  ask: { callId: "call-1", tool: "refund", arguments: { orderId: "7" }, summary: "refund 7" },
+  input: { orderId: "7" },
+  toolCall: { callId: "call-1", tool: "refund", summary: "refund 7" },
 };
 
 /** A channel that answers with the outcomes given, one per `send`, and keeps what it was sent. */
 function channelOf(...outcomes: readonly (() => Promise<unknown>)[]) {
   const sent: ChannelSenderAsk[] = [];
-  const channel: PauseChannel = {
+  const channel: FlatChannel = {
     name: "refund-approval-channel",
-    answerer: PauseAnswerer.Channel,
+    respondent: PauseRespondent.Delegate,
     sender: {
       send: (ask) => {
         sent.push(ask);
@@ -61,10 +58,10 @@ const answers = {
     Promise.resolve([]),
 };
 
-const siteOf = (pauses: InMemoryPausedExecutionRepository, channel: PauseChannel) => ({
+const siteOf = (pauses: InMemoryPausedExecutionRepository, channel: FlatChannel) => ({
   pauses,
   answers,
-  channel,
+  target: targetOfChannel(channel),
   frame: testFrame(),
   signal: undefined,
   clock,
@@ -116,7 +113,7 @@ describe("#267 S35: the pause step", () => {
       {
         status: PauseStatus.Taken,
         resolution: PauseResolution.Decided,
-        answer: { decision: { approved: false }, answeredBy: undefined },
+        answer: { decision: { approved: false }, actor: undefined },
         askedAt: "2026-01-05T09:00:00.000Z",
         resolvedAt: "2026-01-05T09:00:00.000Z",
       },
@@ -138,7 +135,7 @@ describe("#267 S35: the pause step", () => {
         testFrame().execution.executionId,
       );
       if (pause === undefined) throw new Error("no record before send");
-      const answer = { decision: { approved: true }, answeredBy: "manager-17" };
+      const answer = { decision: { approved: true }, actor: { id: "manager-17" } };
       await pauses.resolveByTenantIdAndPauseId(
         tenantId,
         pause.pauseId,
@@ -172,9 +169,12 @@ describe("#267 S35: the pause step", () => {
       copyNumber: 1,
       kind: question.kind,
       step: question.step,
+      target: "refund-approval-tool-approval",
       channel: channel.name,
-      answerer: PauseAnswerer.Channel,
-      ask: question.ask,
+      respondent: PauseRespondent.Delegate,
+      input: question.input,
+      toolCall: question.toolCall,
+      trail: [],
       status: PauseStatus.Pending,
       isSent: true,
       askedAt: clock.now().toISOString(),
@@ -195,7 +195,10 @@ describe("#267 S35: the pause step", () => {
 });
 
 /** Who hears of a pause in these tests: its channel and one listener. */
-const RECIPIENTS = { channel: "refund-approval-channel", listeners: ["audit-pause-listener"] };
+const RECIPIENTS = {
+  channel: "refund-approval-channel",
+  listeners: ["audit-pause-listener"],
+};
 
 describe("#940: the pause's notices are written by its changes", () => {
   it("AC2: not for a pause its channel decided at once: the tree's end writes no notice", async () => {
@@ -277,7 +280,7 @@ describe("#940: the pause's notices are written by its changes", () => {
     await pauses.resolveByTenantIdAndPauseId(
       tenantId,
       waiting.pauseId,
-      { decision: { approved: true }, answeredBy: "manager-17" },
+      { decision: { approved: true }, actor: { id: "manager-17" } },
       clock.now(),
       NO_RECIPIENTS,
     );

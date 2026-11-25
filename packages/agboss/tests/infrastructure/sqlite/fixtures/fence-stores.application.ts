@@ -1,11 +1,11 @@
+import { fencedRefusalOf } from "../../../../src/app/lease-lost.js";
+import { ExecutionError } from "../../../../src/core/error-families/run-errors.js";
 import { DatabaseSync } from "node:sqlite";
 import {
   ApplicationContext,
   Clock,
   StoreClock,
-  ExecutionFencedError,
   Injectable,
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -13,6 +13,7 @@ import {
   SqlitePausedExecutionRepository,
   type ExecutionLease,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { Application } from "../../../../src/application/application.js";
 import { InMemoryExecutionLeaseRepository } from "../../../../src/infrastructure/execution-lease.repository.js";
 import { IN_MEMORY_DATABASE } from "../../../../src/infrastructure/in-memory-database.js";
@@ -21,6 +22,7 @@ import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";
 import { SqliteTestEnvironment } from "./environments/app.environment.js";
 import {
+  ArtifactLedger,
   ledger,
   ReleaseWorkflow,
   Staged,
@@ -88,9 +90,9 @@ export function externalRows(): readonly LedgerRow[] {
 
 /**
  * The ledger in SQLite: one transaction raises the scope's mark (`incoming >= highest`) and writes
- * the artifact once by its key; a token below the mark is refused (`ExecutionFencedError`).
+ * the artifact once by its key; a token below the mark is refused (`ExecutionError.Fenced`).
  */
-@Injectable()
+@Injectable({ injectAs: ArtifactLedger })
 export class SqliteArtifactLedger {
   readonly #database = new DatabaseSync(external.path, { timeout: 5000 });
 
@@ -107,7 +109,7 @@ export class SqliteArtifactLedger {
         const found = database.prepare(HIGHEST).get(row.scopeKey);
         database.exec("ROLLBACK");
         ledger.refused.push({ scopeKey: row.scopeKey, token: row.token });
-        throw ExecutionFencedError.of({
+        throw fencedRefusalOf({
           scopeKey: row.scopeKey,
           token: row.token,
           observedToken: Number(found?.highest),

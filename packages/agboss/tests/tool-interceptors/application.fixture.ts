@@ -5,20 +5,20 @@
  */
 import {
   Agent,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { kilobytes } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import {
   AuditToolInterceptor,
   BoardLookupTool,
@@ -30,11 +30,12 @@ import {
   PingTool,
   TenantScopeToolInterceptor,
 } from "./components.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides email addresses from models",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
+  rules: [PiiKind.Email.tokenize()],
 })
 export class ContactPiiPolicy {}
 
@@ -51,7 +52,7 @@ export class ScoutAnswer {}
 @Agent({
   name: "scout-agent",
   description: "Searches jobs and companies",
-  prompt: "Help with the job search.",
+  prompt: inline("Help with the job search."),
   model: "test/scout",
   tools: [JobSearchTool, CompanyTool, BoardLookupTool, PingTool],
   toolInterceptors: [MoodyToolInterceptor],
@@ -61,9 +62,9 @@ export class ScoutAgent {}
 @Workflow({
   name: "scout-workflow",
   version: "1.0.0",
-  flow: [start(ScoutStart).returns(WorkflowStartTextDto).toAgent(ScoutAgent).toFinish(ScoutAnswer)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ScoutStart).toAgent(ScoutAgent).toFinish(ScoutAnswer)],
   toolInterceptors: [TenantScopeToolInterceptor],
-  mcp: [JobBoardServer],
   defaults: { tools: { maxResultSize: kilobytes(1) } },
 })
 export class ScoutWorkflow {}
@@ -82,7 +83,7 @@ export class QuietAnswer {}
 @Agent({
   name: "quiet-agent",
   description: "Searches without an audit",
-  prompt: "Search quietly.",
+  prompt: inline("Search quietly."),
   model: "test/quiet",
   tools: [JobSearchTool, CompanyTool],
   excludeToolInterceptors: [AuditToolInterceptor],
@@ -92,12 +93,14 @@ export class QuietAgent {}
 @Workflow({
   name: "quiet-workflow",
   version: "1.0.0",
-  flow: [start(QuietStart).returns(WorkflowStartTextDto).toAgent(QuietAgent).toFinish(QuietAnswer)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(QuietStart).toAgent(QuietAgent).toFinish(QuietAnswer)],
 })
 export class QuietWorkflow {}
 
 @Application({
   name: "scout-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ScoutWorkflow, QuietWorkflow],

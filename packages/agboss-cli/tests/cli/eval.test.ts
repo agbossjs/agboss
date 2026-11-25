@@ -4,7 +4,7 @@
  * checks the application's eval suites (Loop 0). The fixture's models answer through a transport
  * provider: no key, no network.
  */
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -249,7 +249,7 @@ describe("#396 PR 3: agboss eval run --baseline", () => {
       }[];
     };
     expect(snapshot.kind).toBe("agboss.eval-baseline");
-    expect(snapshot.schemaVersion).toBe(1);
+    expect(snapshot.schemaVersion).toBe(2);
     expect(snapshot.cases).toHaveLength(2);
     expect(snapshot.cases[0]).toMatchObject({
       caseId: "looks-order-7-up",
@@ -372,7 +372,7 @@ describe("#396 PR 3: agboss eval run --baseline", () => {
 
   it("a file that is no run artifact: exit 2, eval.run-invalid, before anything runs", async () => {
     const path = join(CWD, "not-a-run.json");
-    writeFileSync(path, JSON.stringify({ kind: "agboss.eval-run", schemaVersion: 5 }));
+    writeFileSync(path, JSON.stringify({ kind: "agboss.eval-run", schemaVersion: 4 }));
     const call = await agboss(
       [...RUN, "--suite", "desk-eval-suite", "--baseline", path, "--json"],
       CWD,
@@ -382,7 +382,7 @@ describe("#396 PR 3: agboss eval run --baseline", () => {
     expect(envelope(call)).toMatchObject({
       error: {
         code: "eval.run-invalid",
-        message: `${path} is not a run artifact this agboss reads: schemaVersion 5 — this agboss reads 1 to 4`,
+        message: `${path} is not a run artifact this agboss reads: schemaVersion 4 — this agboss reads 5 only`,
       },
     });
   });
@@ -394,12 +394,7 @@ describe("#396 PR 3: agboss eval run --baseline", () => {
     expect(call.stderr).toContain("--fail-on-regression needs --baseline");
   });
 
-  it("--profile runs the suite on a profile of the workflow (profiles/<workflow>/<name>.yaml)", async () => {
-    mkdirSync(join(CWD, "profiles", "lookup-workflow"), { recursive: true });
-    writeFileSync(
-      join(CWD, "profiles", "lookup-workflow", "next.yaml"),
-      "profile: next\nversion: 1.0.0-next\n",
-    );
+  it("--profile runs the suite on a profile of the application (config/next.config.yaml next to it)", async () => {
     const call = await agboss(
       [...RUN, "--suite", "desk-eval-suite", "--profile", "next", "--json"],
       CWD,

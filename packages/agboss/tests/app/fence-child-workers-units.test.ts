@@ -6,6 +6,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
+import { ExecutionPauseFencedError, ExecutionPausedError } from "../../src/app/lease-stopped.js";
 import { startChildWorkers, type ChildWorkers } from "../../src/app/remote/child-workers.js";
 import { remoteChildSignals } from "../../src/flow/runtime/remote/remote-child-signals.js";
 import { ExecutionRecordStatus } from "../../src/infrastructure/execution-record.repository.js";
@@ -82,15 +83,15 @@ function clockOf() {
 }
 
 function lease() {
-  let cancelled: (() => void) | undefined;
+  let cancelled: ((cause?: Error) => void) | undefined;
   const controller = new AbortController();
   return {
     signal: controller.signal,
     release: vi.fn(() => Promise.resolve()),
-    whenCancelFound: vi.fn((found: () => void) => {
+    whenCancelFound: vi.fn((found: (cause?: Error) => void) => {
       cancelled = found;
     }),
-    foundCancel: () => cancelled?.(),
+    foundCancel: (cause?: Error) => cancelled?.(cause),
     lose: () => {
       controller.abort(new Error("the lease was lost"));
     },
@@ -328,6 +329,40 @@ describe("#1366: the claims of a worker", () => {
     expect((signal?.reason as Error).message).toBe("the child's tree was cancelled");
     expect(mocks.watchRunningChild).toHaveBeenCalledOnce();
     expect(mocks.watchRunningChild.mock.calls[0]?.[1]).toMatchObject({ executionId: "child-1" });
+  });
+
+  it("a write refused by the tree's Immediate pause parks the child: its signal ends with a pause, not a cancel or a stop", async () => {
+    const held = lease();
+    const s = setup({ held: [held] });
+    let signal: AbortSignal | undefined;
+    mocks.completedChild.mockImplementation(
+      (_parts: unknown, _row: unknown, _lease: unknown, given: AbortSignal) => {
+        signal = given;
+        return new Promise((resolve) => {
+          given.addEventListener("abort", () => {
+            resolve(undefined);
+          });
+        });
+      },
+    );
+    s.rows.push(row("child-1"));
+    s.start();
+    await until(() => signal !== undefined);
+
+    held.foundCancel(
+      ExecutionPauseFencedError.of({
+        scopeKey: "acme:child-1",
+        tenantId: "acme",
+        leaseExecutionId: "child-1",
+        rootExecutionId: "root-1",
+        token: 1,
+        name: "charge",
+      }),
+    );
+
+    expect(signal?.aborted).toBe(true);
+    expect(signal?.reason).toBeInstanceOf(ExecutionPausedError);
+    expect((signal?.reason as Error).message).toBe("the child's tree was paused");
   });
 
   it.each(["lease", "interruption"])("the child's signal ends with its %s", async (which) => {

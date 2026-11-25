@@ -1,13 +1,10 @@
 import { beforeEach, describe, expect } from "vitest";
-import {
-  ChildExecutionFailedError,
-  RouterDecisionError,
-  ThisWorkflow,
-} from "../../../src/index.js";
+import { ChildExecutionFailedError, RouterDecisionError } from "../../../src/index.js";
 import { replyWith, routeTo, testWith, type ModelRequest } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
   ChainDoneWorkflowFinish,
+  ChainWorkflow,
   ChainWorkflowStart,
   CodeChainWorkflowStart,
   LinkAgent,
@@ -25,7 +22,7 @@ import {
 
 /**
  * #264 AC4 — the soft stop: on the last level (`depth === maxDepth`) a choice that launches
- * `ThisWorkflow` is not offered. The researcher's `TopicTooBroadDto` leaves its response schema
+ * the workflow itself is not offered. The researcher's `TopicTooBroadDto` leaves its response schema
  * (its answer tool is not bound), a model router's model does not see its recursive route, a code
  * router that returns it fails with `RouterDecisionError`.
  */
@@ -61,7 +58,10 @@ describe("AC4: an agent's recursive variant leaves its schema on the last level"
   }) => {
     mockLlm(ResearcherAgent).thenAnswer(deeper);
     mockLlm(MergeAgent).thenAnswer((request) =>
-      replyWith(TopicReportDto, { title: "merged", text: textOf(request).slice(0, 10) }),
+      replyWith(TopicReportDto, {
+        title: "merged",
+        text: textOf(request).slice(0, 10),
+      }),
     );
 
     const result = await execute(app, TopicResearchWorkflowStart, { title: "t", level: 0 });
@@ -82,14 +82,14 @@ describe("AC4: a model router does not see a recursive route on the last level",
     app,
     mockLlm,
   }) => {
-    mockLlm(LinkRouter).thenReturn(routeTo(ThisWorkflow));
+    mockLlm(LinkRouter).thenReturn(routeTo(ChainWorkflow));
     mockLlm(LinkAgent).thenReturn(replyWith(LinkDoneDto, { name: "end" }));
 
     const result = await execute(app, ChainWorkflowStart, { name: "a" });
 
     expect(result).toFinishWith(ChainDoneWorkflowFinish, { name: "end" });
     // one model call: on the last level the one route left needs no model (a single option)
-    expect(mockLlm(LinkRouter).requests.map(optionsOf)).toEqual([["link-agent", "this-workflow"]]);
+    expect(mockLlm(LinkRouter).requests.map(optionsOf)).toEqual([["chain-workflow", "link-agent"]]);
     expect(result.children.map((child) => [child.depth, child.path])).toEqual([
       [2, ["chain-workflow-start", "link-router", "link-agent", "chain-done-workflow-finish"]],
     ]);

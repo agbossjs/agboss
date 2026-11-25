@@ -13,10 +13,11 @@ import {
   newRecordOf,
   reminderOf,
 } from "../../../src/flow/runtime/pause-record-made.js";
-import type { PauseChannel, PauseQuestion } from "../../../src/flow/runtime/pause.js";
+import type { PauseQuestion } from "../../../src/flow/runtime/pause.js";
 import { PauseKind } from "../../../src/infrastructure/pause-record.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
-import { hours, minutes, workingHours } from "../../../src/units/index.js";
+import { hours, minutes, workingHours, type WorkingDuration } from "../../../src/units/index.js";
+import { targetOfChannel, type FlatChannel } from "../../helpers/pause-target.js";
 
 const ASKED = new Date("2026-01-01T00:00:00.000Z");
 
@@ -55,16 +56,16 @@ const frameOf = (step: StepFacts, parent?: FrameSpec): FrameSpec =>
     },
   }) as never;
 
-const channel: PauseChannel = {
+const channel: FlatChannel = {
   name: "ops",
   sender: {} as never,
-  answerer: {} as never,
+  respondent: {} as never,
 };
 
 const question: PauseQuestion = {
-  kind: PauseKind.Question,
+  kind: PauseKind.ExternalTask,
   step: "ask",
-  ask: {} as never,
+  input: {},
 };
 
 const noCalendar = (): Promise<Date> => Promise.reject(new Error("no calendar"));
@@ -73,7 +74,7 @@ describe("#1366: the record a pause step makes", () => {
   it("has no boundAt, remindAt or toolLoopIteration when none applies", async () => {
     const record = await newRecordOf(
       frameOf(stepOf("ask")),
-      channel,
+      targetOfChannel(channel),
       question,
       new VirtualClock(ASKED),
       noCalendar,
@@ -88,7 +89,7 @@ describe("#1366: the record a pause step makes", () => {
   it("carries the toolLoopIteration of a step inside a tool loop", async () => {
     const record = await newRecordOf(
       frameOf(stepOf("ask", { toolLoopIteration: 3 })),
-      channel,
+      targetOfChannel(channel),
       question,
       new VirtualClock(ASKED),
       noCalendar,
@@ -100,7 +101,7 @@ describe("#1366: the record a pause step makes", () => {
   it("carries the reminder when the deadline is far enough, as an ISO instant", async () => {
     const record = await newRecordOf(
       frameOf(stepOf("ask")),
-      { ...channel, expiresIn: hours(2), remindBefore: hours(1) },
+      targetOfChannel({ ...channel, expiresIn: hours(2), remindBefore: hours(1) }),
       question,
       new VirtualClock(ASKED),
       noCalendar,
@@ -113,7 +114,7 @@ describe("#1366: the record a pause step makes", () => {
   it("lists only its own branch key for a step of a root execution", async () => {
     const record = await newRecordOf(
       frameOf(stepOf("ask")),
-      channel,
+      targetOfChannel(channel),
       question,
       new VirtualClock(ASKED),
       noCalendar,
@@ -126,7 +127,7 @@ describe("#1366: the record a pause step makes", () => {
     const launcher = frameOf(stepOf("launch"));
     const record = await newRecordOf(
       frameOf(stepOf("ask"), launcher),
-      channel,
+      targetOfChannel(channel),
       question,
       new VirtualClock(ASKED),
       noCalendar,
@@ -156,9 +157,9 @@ describe("#1366: the deadline fields hold only what is set", () => {
 describe("#1366: a working-time reminder asks the calendar only for a deadline", () => {
   it("asks nothing and is none when there is no deadline, whatever the lead", async () => {
     const asked: number[] = [];
-    const counting = (from: Date, amount: number): Promise<Date> => {
-      asked.push(amount);
-      return Promise.resolve(new Date(from.getTime() + amount));
+    const counting = (from: Date, amount: WorkingDuration): Promise<Date> => {
+      asked.push(amount.amount);
+      return Promise.resolve(new Date(from.getTime() + amount.amount));
     };
 
     const none = await reminderOf(

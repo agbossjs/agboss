@@ -5,10 +5,16 @@ import {
   type OutboundCallRecord,
 } from "../infrastructure/outbound-call.repository.js";
 import type { Milliseconds } from "../units/index.js";
-import type { OutboundCallSupersededError } from "./outbound-call-contract.js";
+import type { OutboundCallError } from "../core/error-families/effect-errors.js";
 import { fencedEnd, supersededErrorOf } from "./outbound-call-endings.js";
 import { NotSentTrust } from "./outbound-call-contract.js";
-import { maskedFailureOf, subjectOf, told, type CallRun } from "./outbound-call-parts.js";
+import {
+  endExpiryOf,
+  maskedFailureOf,
+  subjectOf,
+  told,
+  type CallRun,
+} from "./outbound-call-parts.js";
 
 /**
  * When the outcome of a call is not known (#657, #658), loaded with the protocol: an error `send`
@@ -99,10 +105,10 @@ export function keyRetentionRefusalOf<TRequest, TResult>(
   const { notSent, target } = run.options;
   if (notSent.trust === NotSentTrust.Lookup) return undefined;
   const { keyRetention } = notSent;
-  const margin = run.parts.settings.attemptTimeout;
+  const margin = run.options.timeout;
   // an age not recorded is as old as can be: refused
   if ((keyAge ?? Number.POSITIVE_INFINITY) + margin < keyRetention) return undefined;
-  const kept = `${target} keeps keys for ${String(keyRetention)} ms (keyRetention), and a resend may take ${String(margin)} ms to arrive (attemptTimeout)`;
+  const kept = `${target} keeps keys for ${String(keyRetention)} ms (the recovery window), and a resend may take ${String(margin)} ms to arrive (the call's timeout)`;
   const age =
     keyAge === undefined
       ? "when the key was first sent is not recorded"
@@ -114,7 +120,7 @@ export function keyRetentionRefusalOf<TRequest, TResult>(
  * Attempt `attempt` threw `error`, its step not aborted: `Failed` (fenced, for its owner) only when
  * the call's `isDefiniteFailure` says the other system did not carry it out (#657); anything else
  * leaves it `Pending`, so the next call reconciles it before anything is sent again. A definite
- * failure answered after a newer attempt took the intent over is `OutboundCallSupersededError`
+ * failure answered after a newer attempt took the intent over is `OutboundCallError.Superseded`
  * (#795, the failure its `cause`): the newer attempt may have been carried out.
  */
 export async function failedOrPending<TRequest, TResult>(
@@ -122,7 +128,7 @@ export async function failedOrPending<TRequest, TResult>(
   attempt: number,
   owner: string,
   error: unknown,
-): Promise<OutboundCallSupersededError | undefined> {
+): Promise<OutboundCallError.Superseded | undefined> {
   if (!isDefiniteFailureOf(run, error)) {
     // the other system's error, nothing to write: a call joined to this one shares it
     run.answer.isAnswered = true;
@@ -130,7 +136,7 @@ export async function failedOrPending<TRequest, TResult>(
     return undefined;
   }
   const failure = await maskedFailureOf(run, error);
-  const isFailed = () => run.parts.repository.markFailed(run.key, owner, failure);
+  const isFailed = () => run.parts.repository.markFailed(run.key, owner, failure, endExpiryOf(run));
   const isRecorded = await fencedEnd(run, attempt, isFailed);
   // shared only once the end is written (#928): a hand-over before it is nobody's answer to share
   run.answer.isAnswered = true;

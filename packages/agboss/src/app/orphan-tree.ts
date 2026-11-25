@@ -3,10 +3,18 @@ import type { Turn } from "../turns/index.js";
 import { rootTakeOf } from "./execution-leases.js";
 import { endOfRecord } from "./tree-end-pauses.js";
 import { forgetTree, treeOf, type TreeEndParts } from "./tree-ends.js";
-import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
+import {
+  ExecutionRecordStatus,
+  type ExecutionRecordRepository,
+} from "../infrastructure/execution-record.repository.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import type { CancelParts } from "./cancel-requests.js";
-import { wakeAnsweredOf, type WakeAnswered } from "./answered-wake.js";
+import {
+  wakeAnsweredOf,
+  wakeParkedOf,
+  type WakeAnswered,
+  type WakeParked,
+} from "./answered-wake.js";
 
 /**
  * Finishing the end of a tree whose instance died in the middle of it (#939, #910 I13): under the
@@ -52,9 +60,15 @@ export interface OrphanEnds {
   readonly closeOrphan: CloseOrphanTree;
   /** Marks `running` one of its `paused` roots beside an untaken answer (the same look, #1187). */
   readonly wakeAnswered: WakeAnswered;
+  /** Marks `running` one of its `paused` roots an `app.unpause` died on (the parked look, #1341c). */
+  readonly wakeParked: WakeParked;
 }
 
-export const orphanEndsOf = (parts: OrphanTreeParts): OrphanEnds => ({
+export const orphanEndsOf = (
+  parts: OrphanTreeParts,
+  records: Pick<ExecutionRecordRepository, "statusHistory">,
+): OrphanEnds => ({
   closeOrphan: closeOrphanTreeOf(parts),
   wakeAnswered: wakeAnsweredOf(parts),
+  wakeParked: wakeParkedOf(parts, records),
 });

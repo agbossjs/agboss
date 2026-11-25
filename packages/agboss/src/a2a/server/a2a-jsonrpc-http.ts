@@ -1,5 +1,4 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { Extensions } from "@a2a-js/sdk";
 import { VersionNotSupportedError } from "@a2a-js/sdk/errors";
 import {
   JsonRpcTransportHandler,
@@ -7,12 +6,11 @@ import {
   validateVersion,
   type A2ARequestHandler,
 } from "@a2a-js/sdk/server";
-import type { Class } from "../../components/injection.js";
 import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import type { Bytes } from "../../units/index.js";
-import type { A2ACaller, A2ACallerResolver } from "../a2a-caller.js";
-import { admitCaller } from "../a2a-caller-gate.js";
-import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
+import type { HttpAuthenticatorHandler } from "../../http/http-authenticator.js";
+import type { Class } from "../../components/injection.js";
+import { admittedPeerOf, callerOfPeer, externalCallerOf, refuse } from "./a2a-peer-gate.js";
 import { A2A_VERSION, AGENT_CARD_PATH, type ServedAgentCard } from "./a2a-card.js";
 import {
   bodyWithin,
@@ -24,8 +22,15 @@ import {
   type BindingLog,
 } from "./a2a-http-io.js";
 import { admittedRequestOf, type AdmittedRequest } from "./a2a-admitted.js";
-import { admittedMeshOf, requestMeshOf, type A2ARequestMesh } from "./a2a-mesh-admission.js";
-import { callerState } from "./a2a-server-parts.js";
+import { admittedMeshOf, requestMeshOf, tenantRefusalOf } from "./a2a-mesh-admission.js";
+import {
+  contextOf,
+  extensionHeadersOf,
+  fieldOf,
+  headerOf,
+  isAsyncIterable,
+  versionOf,
+} from "./a2a-rpc-context.js";
 
 /**
  * The JSON-RPC 2.0 binding on `node:http` (#808, spec §9, design §4.1.1–4.1.2): `GET
@@ -40,17 +45,20 @@ import { callerState } from "./a2a-server-parts.js";
 
 const HTTP_NOT_FOUND = 404;
 
-const VERSION_HEADER = "a2a-version";
-const EXTENSIONS_HEADER = "a2a-extensions";
 const TRACEPARENT_HEADER = "traceparent";
-/** What an empty or missing `A2A-Version` means (spec §3.6). */
-const LEGACY_VERSION = "0.3";
 
 /** What the binding serves with. */
 export interface A2AHttpBinding {
   readonly card: ServedAgentCard;
   readonly handler: A2ARequestHandler;
-  readonly resolver: A2ACallerResolver<Class>;
+  /** Absent: only signed mesh peers call (`a2aHttpListener` checked it may be). */
+  readonly authenticator?: HttpAuthenticatorHandler;
+  /** The `@A2AEndpoint` it serves: what a peer's `allowEndpoints` is matched against. */
+  readonly endpoint: Class;
+  /** The origin the listener is reached at (`publicUrl`): a peer's signature must be made for it. */
+  readonly origin: string;
+  /** The host's own error hook (`a2aHttpListener({ onError })`). */
+  readonly onError?: (error: unknown, req: IncomingMessage) => void;
   /** The application's mesh settings: its name (the audience it accepts), its peers' keys. */
   readonly mesh: MeshSettings;
   readonly base: string;
@@ -83,12 +91,16 @@ function isServedVersion(version: string, binding: A2AHttpBinding): boolean {
 }
 
 /** The request's JSON; `undefined` once answered (`413`, `-32700`) or its caller hung up. */
-async function bodyJsonOf(req: IncomingMessage, res: ServerResponse, max: Bytes): Promise<unknown> {
-  const text = await bodyWithin(req, res, max);
-  if (text === undefined) return undefined;
-  const body = jsonOf(text);
+async function bodyJsonOf(
+  req: IncomingMessage,
+  res: ServerResponse,
+  max: Bytes,
+): Promise<{ readonly body: unknown; readonly raw: string } | undefined> {
+  const raw = await bodyWithin(req, res, max);
+  if (raw === undefined) return undefined;
+  const body = jsonOf(raw);
   if (body === undefined) sendJson(res, NOT_JSON);
-  return body;
+  return body === undefined ? undefined : { body, raw };
 }
 
 /** The JSON of a body; `undefined` when it is none (the transport answers the parse error). */
@@ -98,51 +110,6 @@ function jsonOf(text: string): unknown {
   } catch {
     return undefined;
   }
-}
-
-const fieldOf = (value: unknown, name: string): unknown =>
-  typeof value === "object" && value !== null ? Reflect.get(value, name) : undefined;
-
-const headerOf = (req: IncomingMessage, name: string): string | undefined => {
-  const value = req.headers[name];
-  return Array.isArray(value) ? value.join(",") : value;
-};
-
-const isAsyncIterable = (value: unknown): value is AsyncIterable<unknown> =>
-  typeof value === "object" && value !== null && Symbol.asyncIterator in value;
-
-/** The requested A2A version: none, or empty, means 0.3 (spec §3.6). */
-const versionOf = (req: IncomingMessage): string => {
-  const asked = headerOf(req, VERSION_HEADER) ?? "";
-  return asked === "" ? LEGACY_VERSION : asked;
-};
-
-/** The answer's headers: the extensions the call activated (echoed, spec §4.6). */
-function extensionHeadersOf(context: ServerCallContext): Record<string, string> {
-  const activated = context.activatedExtensions ?? [];
-  return activated.length === 0 ? {} : { [EXTENSIONS_HEADER]: activated.join(", ") };
-}
-
-/** The extensions a call activates when it asks for them: both of ours (echoed, spec §4.6). */
-const SERVED_EXTENSIONS = [A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION] as const;
-
-/** The call's context: its version, extensions, and the admitted caller with the request's end. */
-function contextOf(
-  req: IncomingMessage,
-  closed: AbortSignal,
-  caller: A2ACaller<Class>,
-  admitted: AdmittedRequest,
-  mesh: A2ARequestMesh,
-) {
-  const requestedExtensions = Extensions.parseServiceParameter(headerOf(req, EXTENSIONS_HEADER));
-  const context = new ServerCallContext({
-    requestedVersion: versionOf(req),
-    requestedExtensions,
-    state: callerState(caller, closed, admitted, mesh),
-  });
-  for (const uri of SERVED_EXTENSIONS)
-    if (requestedExtensions.includes(uri)) context.addActivatedExtension(uri);
-  return context;
 }
 
 /** Serves one JSON-RPC request, as described above. */
@@ -156,8 +123,9 @@ async function serveRpc(
   res.once("close", () => {
     closed.abort();
   });
-  const body = await bodyJsonOf(req, res, binding.maxBodySize);
-  if (body === undefined) return;
+  const read = await bodyJsonOf(req, res, binding.maxBodySize);
+  if (read === undefined) return;
+  const { body, raw } = read;
   const text = JSON.stringify(body);
   const id = fieldOf(body, "id");
   const { log } = binding;
@@ -176,7 +144,7 @@ async function serveRpc(
     sendJson(res, wireSafeAnswer(answer, log));
     return;
   }
-  await serveAdmitted(binding, { req, res, closed, body, admitted, transport });
+  await serveAdmitted(binding, { req, res, closed, body, raw, admitted, transport });
 }
 
 /** One request of a caller's operation, once its version and its operation are read. */
@@ -185,22 +153,38 @@ interface AdmittedRpc {
   readonly res: ServerResponse;
   readonly closed: AbortController;
   readonly body: unknown;
+  /** The body as received: what the peer's `X-AGBoss-Mesh` signature binds. */
+  readonly raw: string;
   readonly admitted: AdmittedRequest;
   readonly transport: JsonRpcTransportHandler;
 }
 
-/** Its envelope checked, its caller resolved, then the transport's answer (JSON or events). */
+/** Its mesh header and envelope checked, its caller authenticated, then the transport's answer. */
 async function serveAdmitted(binding: A2AHttpBinding, rpc: AdmittedRpc): Promise<void> {
   const { req, res, closed, body, admitted } = rpc;
   const { log } = binding;
-  // the envelope before the resolver and before anything runs (design §4.1.2 step 3)
+  // the signature before everything it claims, the envelope before the authenticator and before
+  // anything runs (design §4.1.2 step 3)
+  const request = {
+    req,
+    res,
+    raw: rpc.raw,
+    operation: admitted.operation,
+    taskId: admitted.taskId,
+  };
+  const peer = await admittedPeerOf({ ...binding, log }, request);
+  if (peer === undefined) return;
   const verdict = admittedMeshOf(binding.mesh, admitted.operation, body, res);
   if (verdict === undefined) return;
-  const asked = {
-    operation: admitted.operation,
-    ...(admitted.taskId === "" ? {} : { taskId: admitted.taskId }),
-  };
-  const gate = await admitCaller(binding.resolver, { ...asked, http: req }, res, log);
+  const mismatch = peer.kind === "peer" ? tenantRefusalOf(peer, verdict.envelope) : undefined;
+  if (mismatch !== undefined) {
+    refuse(res, mismatch);
+    return;
+  }
+  const gate =
+    peer.kind === "peer"
+      ? { isAdmitted: true as const, caller: callerOfPeer(peer) }
+      : await externalCallerOf({ ...binding, log }, request);
   if (!gate.isAdmitted) return;
   if (res.destroyed) closed.abort();
   const mesh = requestMeshOf(verdict, gate.caller.peer, headerOf(req, TRACEPARENT_HEADER));

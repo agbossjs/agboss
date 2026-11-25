@@ -1,15 +1,15 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #501 PR 3 — the fenced effect (#500) in the audit log: every call of `runOnce` from a
- * step is a `FencedEffect` row and an `onFencedEffect` — ran, replayed, joined or refused, never its
+ * step is a `FencedEffect` row and an `onIdempotencyRun` — ran, replayed, joined or refused, never its
  * result. With the takeover (PR 1) and the hand-over (PR 2) they let a verifier tell, from
  * `app.auditLogOf` alone, a zombie refused at its protected write from one that never reached it
  * (AC2), and a replayed effect from a new write (AC3).
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
-  ExecutionFencedError,
   ExecutionAuditEventKind,
-  FencedEffectEventOutcome,
+  IdempotencyRunEventOutcome,
   HandOverReason,
   HandOverSite,
   type ExecutionAuditEventRecord,
@@ -75,8 +75,8 @@ function verdictOf(rows: readonly ExecutionAuditEventRecord[]): ZombieVerdict {
   if (takeover === undefined) return ZombieVerdict.NoTakeover;
   const isRefused = rows.some(
     (row) =>
-      row.kind === ExecutionAuditEventKind.FencedEffect &&
-      row.outcome === FencedEffectEventOutcome.Refused &&
+      row.kind === ExecutionAuditEventKind.IdempotencyRun &&
+      row.outcome === IdempotencyRunEventOutcome.Refused &&
       row.holderInstanceId !== takeover.holderInstanceId,
   );
   return isRefused ? ZombieVerdict.Refused : ZombieVerdict.NeverAttempted;
@@ -85,7 +85,7 @@ function verdictOf(rows: readonly ExecutionAuditEventRecord[]): ZombieVerdict {
 /** The kind (and outcome) of each row, in order. */
 const shapeOf = (rows: readonly ExecutionAuditEventRecord[]): readonly string[] =>
   rows.map((row) =>
-    row.kind === ExecutionAuditEventKind.FencedEffect ? `${row.kind}:${row.outcome}` : row.kind,
+    row.kind === ExecutionAuditEventKind.IdempotencyRun ? `${row.kind}:${row.outcome}` : row.kind,
   );
 
 /** The root of the first charge: the only tree of these tests. */
@@ -131,15 +131,15 @@ describe("#501 AC2: a refused zombie from one that never wrote, from the public 
       const error = await rejectionOf(call);
       const rows = await rootOf(instance(apps, 1), ROOT);
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
+      expect(error).toBeInstanceOf(ExecutionError.Fenced);
       expect(shapeOf(rows)).toEqual([
         ExecutionAuditEventKind.Takeover,
-        `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
-        `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Refused}`,
+        `${ExecutionAuditEventKind.IdempotencyRun}:${IdempotencyRunEventOutcome.Ran}`,
+        `${ExecutionAuditEventKind.IdempotencyRun}:${IdempotencyRunEventOutcome.Refused}`,
         ExecutionAuditEventKind.HandedOver,
       ]);
       expect(rows[2]).toEqual({
-        kind: ExecutionAuditEventKind.FencedEffect,
+        kind: ExecutionAuditEventKind.IdempotencyRun,
         occurredAt: expect.any(String),
         tenantId: "default",
         rootExecutionId: ROOT,
@@ -148,7 +148,7 @@ describe("#501 AC2: a refused zombie from one that never wrote, from the public 
         token: 1,
         holderInstanceId: "instance-1",
         name: "charge",
-        outcome: FencedEffectEventOutcome.Refused,
+        outcome: IdempotencyRunEventOutcome.Refused,
         step: {
           nodeId: "charge-order-action",
           visitNumber: 1,
@@ -176,7 +176,7 @@ describe("#501 AC2: a refused zombie from one that never wrote, from the public 
 
       expect(shapeOf(rows)).toEqual([
         ExecutionAuditEventKind.Takeover,
-        `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
+        `${ExecutionAuditEventKind.IdempotencyRun}:${IdempotencyRunEventOutcome.Ran}`,
       ]);
       expect(rows[1]).toMatchObject({ holderInstanceId: "instance-2", token: 2, writtenToken: 2 });
       expect(leaseSeen.handOvers).toEqual([]);
@@ -207,7 +207,7 @@ describe("#501 AC2: a refused zombie from one that never wrote, from the public 
 
     expect(verdictOf(rows)).toBe(ZombieVerdict.NoTakeover);
     expect(shapeOf(rows)).toEqual([
-      `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
+      `${ExecutionAuditEventKind.IdempotencyRun}:${IdempotencyRunEventOutcome.Ran}`,
     ]);
   });
 });
@@ -221,9 +221,9 @@ describe("#501 AC3: a replayed fenced effect is told apart from a new write", ()
       const rows = await rootOf(instance(apps, 1), ROOT);
 
       expect(shapeOf(rows)).toEqual([
-        `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
+        `${ExecutionAuditEventKind.IdempotencyRun}:${IdempotencyRunEventOutcome.Ran}`,
         ExecutionAuditEventKind.Takeover,
-        `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Replayed}`,
+        `${ExecutionAuditEventKind.IdempotencyRun}:${IdempotencyRunEventOutcome.Replayed}`,
       ]);
       expect(rows[0]).toMatchObject({ holderInstanceId: "instance-1", token: 1, writtenToken: 1 });
       expect(rows[2]).toMatchObject({ holderInstanceId: "instance-2", token: 2, writtenToken: 1 });
@@ -241,12 +241,12 @@ describe("#501 AC3: a replayed fenced effect is told apart from a new write", ()
     const rows = await rootOf(app, result.executionId);
 
     expect(shapeOf(rows)).toEqual([
-      `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Ran}`,
-      `${ExecutionAuditEventKind.FencedEffect}:${FencedEffectEventOutcome.Joined}`,
+      `${ExecutionAuditEventKind.IdempotencyRun}:${IdempotencyRunEventOutcome.Ran}`,
+      `${ExecutionAuditEventKind.IdempotencyRun}:${IdempotencyRunEventOutcome.Joined}`,
     ]);
     expect(leaseSeen.fencedEffects.map((event) => event.outcome)).toEqual([
-      FencedEffectEventOutcome.Ran,
-      FencedEffectEventOutcome.Joined,
+      IdempotencyRunEventOutcome.Ran,
+      IdempotencyRunEventOutcome.Joined,
     ]);
   });
 
@@ -259,7 +259,7 @@ describe("#501 AC3: a replayed fenced effect is told apart from a new write", ()
     expect(JSON.stringify(leaseSeen.fencedEffects)).not.toContain("charge-order-7");
     expect(leaseSeen.fencedEffects[0]).toMatchObject({
       name: "charge",
-      outcome: FencedEffectEventOutcome.Ran,
+      outcome: IdempotencyRunEventOutcome.Ran,
       step: { nodeId: "charge-order-action" },
       workflow: { name: "charge-workflow" },
     });

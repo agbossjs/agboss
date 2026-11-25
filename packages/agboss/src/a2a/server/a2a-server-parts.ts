@@ -1,8 +1,8 @@
+import { randomUUID } from "node:crypto";
 import type { ServerCallContext } from "@a2a-js/sdk/server";
 import type { ExecutionControl } from "../../app/execution-control.js";
 import type { ExecutionOptions } from "../../app/types.js";
 import { EXECUTION_LEASE } from "../../app/lease-fence.js";
-import type { Class } from "../../components/injection.js";
 import { keyTextRuleOf } from "../../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../../flow/context/tenant-context.js";
 import {
@@ -16,7 +16,8 @@ import { taskChanged } from "../tasks/task-changes.js";
 import type { Clock, IdGenerator } from "../../infrastructure/clock.js";
 import type { FrameworkLog, LogSubject } from "../../infrastructure/logger.js";
 import type { Milliseconds } from "../../units/index.js";
-import type { A2AApp, A2ACaller, A2AOperation } from "../a2a-caller.js";
+import type { HttpCaller } from "../../http/http-auth.js";
+import type { A2AApp, A2AOperation } from "../a2a-caller.js";
 import { repairedTask } from "../tasks/a2a-task-repair.js";
 import type { LocalRuns } from "./a2a-local-runs.js";
 import type { ServedSkill } from "./a2a-skills.js";
@@ -24,9 +25,10 @@ import type { AdmittedRequest } from "./a2a-admitted.js";
 import type { A2ARequestMesh } from "./a2a-mesh-admission.js";
 import type { MeshSettings } from "../../mesh/mesh-settings.js";
 import { invalidParams, taskNotFound } from "./a2a-wire-errors.js";
-import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
+import type { FileRepository } from "../../infrastructure/file.repository.js";
 import type { FileFetches } from "../files/a2a-file-fetches.js";
 import type { FileFetchSlots } from "../files/a2a-file-slots.js";
+import type { FileLimits } from "../../files/file-policy.js";
 import type { FileTransport } from "../files/a2a-file-transport.js";
 import type { A2ADirectMessageRepository } from "../../infrastructure/a2a-direct-message.repository.js";
 
@@ -38,6 +40,8 @@ import type { A2ADirectMessageRepository } from "../../infrastructure/a2a-direct
 
 export interface A2AServerParts {
   readonly app: A2AApp;
+  /** The `@A2AEndpoint({ name })` served: what its tasks and messages are kept under (#1320). */
+  readonly endpoint: string;
   readonly tasks: A2ATaskRepository;
   readonly control: ExecutionControl;
   readonly clock: Clock;
@@ -45,8 +49,6 @@ export interface A2AServerParts {
   readonly skills: readonly ServedSkill[];
   readonly runs: LocalRuns;
   readonly log: FrameworkLog;
-  /** Every task's execution deadline (`a2aHttpListener({ maxTaskDuration })`); none when unset. */
-  readonly maxTaskDuration: Milliseconds | undefined;
   /**
    * The application's mesh settings (#810): its name and `maxMeshHops` (what refuses a chain), its
    * signing key (what signs a trusted task's run report).
@@ -61,28 +63,27 @@ export interface A2AServerParts {
 /** What the direct-reply skills (#860, `A2AReply.Message`) work with. */
 export interface A2ADirectParts {
   readonly messages: A2ADirectMessageRepository;
-  /** The skill a message that names none runs (`@A2AExpose({ defaultSkill })`), if any. */
+  /** The skill a message that names none runs (`@A2AEndpoint({ defaultSkill })`), if any. */
   readonly defaultSkill: ServedSkill | undefined;
 }
 
 /** A listener's files (#859): the store, the fetch of a file by `url` and its bound. */
 export interface A2AServerFiles {
-  /** The application's `A2AFileRepository`; the built-in default keeps none (inline). */
-  readonly store: A2AFileRepository;
+  /** The application's `FileRepository`; the built-in default keeps none (inline). */
+  readonly store: FileRepository;
   /** A test's own transport; `undefined`: the built-in `node:https` one. */
   readonly transport: FileTransport | undefined;
-  readonly timeout: Milliseconds;
   /** The fetches in flight (#904): a concurrent duplicate of a message joins its file's fetch. */
   readonly fetches: FileFetches;
-  /** How many fetches run at once across messages (#1256). */
-  readonly slots: FileFetchSlots;
+  /** The slots a skill's fetches run in (#1256): its policy's own pool, else the application's shared one. */
+  readonly slotsOf: (limits: FileLimits) => FileFetchSlots;
 }
 
 /** The admitted caller of one request, and the request's own end (its connection closed). */
 export interface A2ARequestCaller {
   /** What the resolver admitted it for: the operation and task, as the transport decoded them. */
   readonly admitted: AdmittedRequest;
-  readonly caller: A2ACaller<Class>;
+  readonly caller: HttpCaller;
   readonly tenantId: string;
   readonly ownerId: string | undefined;
   /** Aborted when the request's connection closes: what waits for the task stops — never the task. */
@@ -122,7 +123,7 @@ export const callerOptionsOf = (caller: A2ARequestCaller): CallerOptions => call
 
 /** The call context's state holding an admitted caller. */
 export function callerState(
-  caller: A2ACaller<Class>,
+  caller: HttpCaller,
   signal: AbortSignal,
   admitted: AdmittedRequest,
   mesh: A2ARequestMesh,
@@ -181,17 +182,58 @@ export const repairedOf = (
     task,
   );
 
+/** The caller with another owner: what its tasks, messages and executions are kept under. */
+const ownedBy = (request: A2ARequestCaller, ownerId: string): A2ARequestCaller => ({
+  ...request,
+  ownerId,
+  caller: { ...request.caller, ownerId },
+});
+
+/**
+ * The caller of a new task or message: one that names no owner (anonymous, or a tenant's key) gets an
+ * owner of its own for it — unique, made at random, never from the request — so its task is its alone
+ * and a resent `messageId` of another caller finds nothing of it.
+ */
+export const forNewTask = (request: A2ARequestCaller): A2ARequestCaller =>
+  request.ownerId === undefined ? ownedBy(request, `${TASK_OWNER_PREFIX}${randomUUID()}`) : request;
+
+/** The owners this A2A path makes itself, for a caller that names none: the only ones a task id opens. */
+export const TASK_OWNER_PREFIX = "a2a-task:";
+
+/** Whether `ownerId` is one this path made for a new task — not an `anonymous:` or `mcp-session:` one. */
+export const isTaskOwner = (ownerId: string | undefined): boolean =>
+  ownerId?.startsWith(TASK_OWNER_PREFIX) === true;
+
+/**
+ * The caller of an operation on the task `taskId`: one that names no owner holds the task's id as the
+ * right to it — when the task was made for such a caller (its owner is an `a2a-task:` one this path made; an `anonymous:` or `mcp-session:` task is never reached by its id here), the
+ * caller acts as that owner. Any other task is still "not found".
+ */
+export async function forTask(
+  parts: A2AServerParts,
+  request: A2ARequestCaller,
+  taskId: string,
+): Promise<A2ARequestCaller> {
+  if (request.ownerId !== undefined || keyTextRuleOf(taskId) !== undefined) return request;
+  const task = await parts.tasks.findById({ tenantId: request.tenantId, taskId });
+  if (task?.endpoint !== parts.endpoint || !isTaskOwner(task.ownerId)) return request;
+  return ownedBy(request, task.ownerId ?? "");
+}
+
 /** The caller's task by its id, repaired; another owner's is "not found" too (spec §3.3). */
 export async function ownedTask(
   parts: A2AServerParts,
   caller: A2ARequestCaller,
   taskId: string,
 ): Promise<A2ATaskRecord> {
+  // no owner, no task: a caller with none (never made by a listener, which binds one) owns nothing
+  if (caller.ownerId === undefined) throw taskNotFound();
   const key: A2ATaskKey = { tenantId: caller.tenantId, taskId };
   // the empty id, like every other that is no key's text, names no task
   const isKey = keyTextRuleOf(taskId) === undefined;
   const task = isKey ? await parts.tasks.findById(key) : undefined;
-  if (task === undefined || task.ownerId !== caller.ownerId) throw taskNotFound();
+  // another endpoint's task is "not found" too: two endpoints on one store never see each other's
+  if (task?.ownerId !== caller.ownerId || task.endpoint !== parts.endpoint) throw taskNotFound();
   return repairedOf(parts, task);
 }
 

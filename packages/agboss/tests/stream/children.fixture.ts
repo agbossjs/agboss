@@ -5,14 +5,17 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type Produced,
+  type Tracked,
+  Action,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart, toWorkflow } from "../helpers/flow.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { ChildWriter } from "./agents.fixture.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
 @WorkflowStart({
   name: "child-writer-workflow-start",
@@ -32,9 +35,8 @@ class ChildFinish {}
 @Workflow({
   name: "child-writer-workflow",
   version: "1.0.0",
-  flow: [
-    start(ChildStart).returns(WorkflowStartTextDto).toAgent(ChildWriter).toFinish(ChildFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ChildStart).toAgent(ChildWriter).toFinish(ChildFinish)],
   defaults: { models: { temperature: 0, maxTokens: 1000 } },
 })
 class ChildWriterWorkflow {}
@@ -53,13 +55,8 @@ class OnceFinish {}
 @Workflow({
   name: "once-workflow",
   version: "1.0.0",
-  flow: [
-    start(OnceStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(ChildWriterWorkflow)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(OnceFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(OnceStart).toWorkflow(ChildWriterWorkflow).toFinish(OnceFinish)],
 })
 class OnceWorkflow {}
 
@@ -70,30 +67,37 @@ class OnceWorkflow {}
 })
 export class FanStart {}
 
-@WorkflowFinish({
-  name: "fan-workflow-finish",
+@Action({
+  name: "fan-action",
   description: "The answers",
   input: { answers: listOf(WorkflowFinishTextDto) },
   output: WorkflowFinishTextDto,
 })
-class FanFinish {
-  finish(input: {
-    readonly answers: readonly Produced<WorkflowFinishTextDto, unknown>[];
-  }): WorkflowFinishTextDto {
-    return { text: input.answers.map((answer) => answer.value.text).join(" | ") };
+class FanAction {
+  async execute(input: {
+    readonly answers: readonly Tracked<WorkflowFinishTextDto>[];
+  }): Promise<WorkflowFinishTextDto> {
+    return { text: input.answers.map((answer) => answer.text).join(" | ") };
   }
 }
+
+@WorkflowFinish({
+  name: "fan-workflow-finish",
+  description: "The answers",
+  output: WorkflowFinishTextDto,
+})
+class FanFinish {}
 
 /** One child per item, in parallel. */
 @Workflow({
   name: "fan-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FanStart)
-      .returns(listOf(WorkflowStartTextDto))
-      .toParallelWorkflows(ChildWriterWorkflow, { maxItems: 4 })
+    onStart(FanStart)
+      .forEachItem(toWorkflow(ChildWriterWorkflow), { takeFirst: 4 })
       .join()
-      .returns(listOf(WorkflowFinishTextDto))
+      .toAction(FanAction)
       .toFinish(FanFinish),
   ],
 })
@@ -101,6 +105,7 @@ class FanWorkflow {}
 
 @Application({
   name: "stream-children-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OnceWorkflow, FanWorkflow, ChildWriterWorkflow],

@@ -1,21 +1,23 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: what masking a custom compaction's input cost — every paid detection of its summaries and
  * turns is in the usage the compaction hands back, so the budget left for the next compaction and the
  * run's spend see it.
  */
 import { describe, expect, it, vi } from "vitest";
-import type { CompactionInput } from "../../src/compaction/compaction.decorator.js";
-import { CompactionStrategy } from "../../src/compaction/compaction.decorator.js";
+import type { CompactionInput } from "../../src/memory/memory.decorator.js";
+import { CUSTOM_COMPACTION } from "../../src/memory/memory.decorator.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import type { CompactionRun } from "../../src/run/compaction.js";
 import { compactWithHandler } from "../../src/run/custom-compaction.js";
 import type { Turn } from "../../src/turns/index.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -44,7 +46,8 @@ function run() {
   const base: CompactionRun = {
     tenantId: "t",
     threadId: "th",
-    budgetLeftUsd: 10,
+    budgetLeftUsd: usd(10),
+    budgetLeftTokens: undefined,
     callbacks: [],
     tokens: {},
     inFrame: (work) => work(),
@@ -78,7 +81,7 @@ describe("#1366: the usage of a custom compaction's masking", () => {
       },
     };
     const { base, recorded } = run();
-    const compaction = { name: "graph", strategy: CompactionStrategy.Custom, type: Object };
+    const compaction = { name: "graph", strategy: CUSTOM_COMPACTION, type: Object };
 
     const outcome = await compactWithHandler(deps as never, compaction as never, base, [turn("a")]);
 

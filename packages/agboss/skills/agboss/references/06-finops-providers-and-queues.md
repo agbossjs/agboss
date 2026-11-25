@@ -3,16 +3,16 @@
 Read this when you set or change what an application may spend (`@Budget`), which server answers a
 model (`@ModelProvider`), how calls are retried, rate-limited, queued between tenants or cut off by a
 circuit breaker, or what a non-model service costs (`SpendRecorder`). Counts (`maxSteps`,
-`maxVisits`, `maxConcurrentExecutions`) are in reference 02; the stores that share the counters
+`maxVisits`, `maxConcurrency`) are in reference 02; the stores that share the counters
 between instances in reference 09.
 
 ## Three things that are not the same
 
-| Protects              | Set with                                                                      | Hitting it                                                                                |
-| --------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| money                 | `@Budget` components in `@Application({ budgets })`                           | `BudgetExceededError` (`limit.budget`): rejected before the first step, or stopped        |
-| the graph             | `@Workflow({ maxSteps })`, `maxVisits`, `maxDepth`, `maxConcurrentExecutions` | `StepsLimitExceededError`, `VisitsLimitExceededError`, `DepthLimitExceededError`; a queue |
-| a provider's capacity | `@ModelProvider({ rateLimitPolicy, retryPolicy, circuitBreakerPolicy })`      | a call waits in a tenant-fair queue; never an error, never money                          |
+| Protects              | Set with                                                                                  | Hitting it                                                                                |
+| --------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| money                 | `@Budget` components in `@Application({ budgets })`                                       | `BudgetExceededError` (`limit.budget`): rejected before the first step, or stopped        |
+| the graph             | `@Workflow({ executionLimits: { maxSteps } })`, `maxVisits`, `maxDepth`, `maxConcurrency` | `StepsLimitExceededError`, `VisitsLimitExceededError`, `DepthLimitExceededError`; a queue |
+| a provider's capacity | `@ModelProvider({ rateLimitPolicy, retryPolicy, circuitBreakerPolicy })`                  | a call waits in a tenant-fair queue; never an error, never money                          |
 
 ## Budgets
 
@@ -23,10 +23,10 @@ budget and one application budget — no execution runs uncapped.
 ```ts file=src/billing/contexts/shop-tenant.context.ts
 // contexts/shop-tenant.context.ts — the tenant's own fields, given per execution (identity, never secrets)
 import { TenantContext } from "@agboss/core";
-import { Decimal } from "@agboss/core/dto";
+import { Float } from "@agboss/core/dto";
 
 export class ShopTenantContext extends TenantContext {
-  @Decimal({ min: 0 })
+  @Float({ min: 0 })
   dailyBudgetUsd!: number;
 }
 ```
@@ -108,6 +108,18 @@ export class InvoiceExecutionBudget implements BudgetHandler {
 
 - The options are discriminated by `scope`: `period` is required for `Tenant` / `Application` and does
   not compile on `Execution`; `workflow: X` exists only on `Execution`.
+- **Tokens, `limit()`, shared budgets (#1318):** A budget limits dollars, tokens or both: `maxSpend` and `maxTokens` in
+  `@Budget({ … })` (constants, or `env.usd(…)` / `env.integer(…)` read when the application starts, no class body needed), or a
+  `limit()` returning `{ maxSpend?, maxTokens? }` for an amount read from a service, in the start step's frame. Say it in one place:
+  `[budget.missing-limit]` is a budget that limits nothing, `[budget.conflicting-limit]` one that declares and also has `limit()`.
+  Both caps are enforced and each fails closed — an amount or a count that is no number refuses the execution before its first
+  step. A call that cost `$0` but used tokens (an unpriced CLI or local model, `CostSource.Unpriced`) is spend: it is written to the
+  ledger, waited for before a checkpoint and counted by `maxTokens`; `BudgetExceededError.unit` says which cap was hit
+  (`BudgetUnit.Usd` or `Tokens`) beside `maxSpend?`, `spent`, `maxTokens?`, `usedTokens`. `@Workflow({ budget: ThatBudget })`
+  attaches one, found without listing it in `@Application({ budgets })`; a budget's counter is keyed by its name, the scope key and
+  the period — never by a workflow — so five workflows that attach one budget share one cap. Pruning ledger entries
+  (`deleteByMadeAtBefore`) never lowers a counter, dollars or tokens. A trusted mesh caller's claim carries `remainingTokens`, and a
+  signed run report `spend.totalTokens`, charged even when the remote run cost nothing.
 - **`maxSpend()` is read once per execution**, at its start, in the start step's frame (an injected
   `ExecutionContext` or tenant context is readable), and kept for the whole execution: a resume, a
   restart and a recovery count against the same amounts.
@@ -134,7 +146,7 @@ export class InvoiceExecutionBudget implements BudgetHandler {
   application's `CostLedgerRepository` — the built-in in-memory one counts per instance and resets on
   restart (`[application.in-memory-cost-ledger]`); list `SqliteCostLedgerRepository` (reference 09).
 - **The terms** (#817): **cost** is what one call cost (`UsageRecord.costUsd`, `CostLine`,
-  `CostSource.Api | PriceTable | Tool | Unknown`, `CostCategory`); **spend** what was consumed against a
+  `CostSource.Api | PriceTable | Tool | Unpriced | Unknown`, `CostCategory`); **spend** what was consumed against a
   budget (`result.spend`, `findSpentByCounter`, `spentUsd`); **usage** tokens only (`TokenUsage`).
   A record's place in the ledger is its one state `UsageRecord.ledger` (`ledgerMarkOf(record)`:
   `LedgerState.Written` with `ledgerId` + `madeAt: Date`, or `LedgerState.RecordedElsewhere`); the
@@ -157,16 +169,16 @@ export class TaxQuery {
 ```
 
 ```ts file=src/billing/dto/tax-rate.dto.ts
-import { Decimal } from "@agboss/core/dto";
+import { Float } from "@agboss/core/dto";
 
 export class TaxRate {
-  @Decimal({ prompt: "the VAT rate, 0 to 1", min: 0, max: 1 })
+  @Float({ prompt: "the VAT rate, 0 to 1", min: 0, max: 1 })
   rate!: number;
 }
 ```
 
 ```ts file=src/billing/tools/tax-rate.tool.ts
-import { ExecutionContext, SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, SpendRecorder, Tool } from "@agboss/core";
 import { seconds, usd } from "@agboss/core/units";
 import { TaxQuery } from "../dto/tax-query.dto.js";
 import { TaxRate } from "../dto/tax-rate.dto.js";
@@ -179,13 +191,13 @@ import { TaxRate } from "../dto/tax-rate.dto.js";
   timeout: seconds(5),
   deps: [ExecutionContext, SpendRecorder],
 })
-export class TaxRateTool implements ToolHandler<TaxQuery, TaxRate> {
+export class TaxRateTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  run({ country }: TaxQuery): Promise<TaxRate> {
+  execute({ country }: TaxQuery): Promise<TaxRate> {
     this.executionContext.signal.throwIfAborted();
     this.spendRecorder.record({ service: "tax-api", cost: usd(0.001) }); // counted in every budget
     return Promise.resolve({ rate: country === "IL" ? 0.18 : 0.2 });
@@ -196,94 +208,75 @@ export class TaxRateTool implements ToolHandler<TaxQuery, TaxRate> {
 ## Model providers
 
 A workflow and its components name **models** only; the application lists the **providers** that
-serve them, in `@Application({ providers })` (never a workflow's: `[di.infrastructure-in-workflow]`).
+serve them, in `@Application({ providers })` (never a workflow's: `[di.infrastructure-in-workflow]`),
+and names its default chat provider in `@Application({ modelProvider })`. There are no built-in
+providers and no `serves` patterns: a provider is a class you write, an empty one with a **driver**
+or a transport with `complete(request)`.
 
-- **None listed** → the built-in `OpenRouterModelProvider` (every chat model, its key the `Secret`
-  field `openRouterApiKey` of the environment) and `DecisionsModelProvider` (the decision models,
-  `DECISION_MODELS`: Jev and the others — routers, guardrails, decision judges).
-- **At least one listed** → the list is complete: the built-ins are not added. An application that
-  lists its own chat provider and uses Jev lists `DecisionsModelProvider` too.
-- Every model of the application must resolve to exactly one listed provider by `serves`, for its
-  purpose (chat or decision): `[model.unserved]`, `[model.ambiguous-provider]` — one model through two
-  providers is two model strings. `npx agboss describe` prints `model: … → <provider>`.
-- A provider's `name` ends with `-model-provider` (`[name.kind-suffix]`).
-
-```ts file=src/environments/app.environment.ts
-import type { Secret } from "@agboss/core";
-
-export class AppEnvironment {
-  openRouterApiKey?: Secret; // optional: the test environment leaves the keys out
-  backupApiKey?: Secret;
-  openRouterBaseUrl?: string; // a proxy or a stub; unset → the decorator's baseUrl
-}
-```
-
-```ts file=src/environments/dev.environment.ts
-import { env, secret } from "@agboss/core";
-import type { AppEnvironment } from "./app.environment.js";
-
-export const environment: AppEnvironment = {
-  openRouterApiKey: secret("OPENROUTER_API_KEY"),
-  backupApiKey: secret("BACKUP_API_KEY"),
-  openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL"),
-};
-```
-
-```ts file=src/environments/test.environment.ts
-import type { AppEnvironment } from "./app.environment.js";
-
-export const environment: AppEnvironment = {}; // tests script every model: no key
-```
+- **The cascade**: a component's `modelProvider`, else its `@Workflow({ modelProvider })`, else the
+  application's. A model nothing in the cascade serves, or a component that names no model and no
+  provider, is `[model.missing-provider]`, at assembly, before any call.
+- **A model's kind is its provider's**: a `ModelDriver` (what the three driver functions return) speaks chat (`OpenRouterDriver`,
+  `OpenAiCompatibleDriver`, or a transport class) or decisions (`DecisionsDriver` — Jev and the
+  other decision models in `DECISION_MODELS`, for routers, guardrails, decision judges and arbiters). A chat model
+  on a decisions provider, or a decision model on a chat one, is `[model.incompatible-provider]`. So
+  the application's `modelProvider` is the chat one, and a router, guardrail or arbiter on Jev names
+  `modelProvider: DecisionsModelProvider` itself (or its workflow's `modelProvider` does).
+- **`model` and `models`** on the provider: `model` is the default of a component that names none,
+  `models` maps role names to vendor names (`{ default: "gpt-4.1", fast: "gpt-4.1-mini" }`: a component's
+  `model: "fast"` is the vendor's `gpt-4.1-mini`; any other name goes to the server as written).
+- A provider's `name` is optional: kebab-case, the class name in kebab-case by default (`[name.not-kebab-case]`).
+  `npx agboss describe` prints `model: … → <provider>`.
 
 ```ts file=src/billing/model-providers/backup.model-provider.ts
 // model-providers/backup.model-provider.ts — an OpenAI-compatible server, priced from a table
+import { env, secret } from "@agboss/core";
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
-  RetryPolicy,
-  type NoRequestFields,
 } from "@agboss/core/models";
 import { minutes, seconds, usd } from "@agboss/core/units";
 
 @ModelProvider({
   name: "backup-model-provider",
   description: "Our own inference server, used while OpenRouter's breaker is open",
-  serves: [/^backup\//],
-  baseUrl: "http://inference.internal:8000/v1",
-  apiKey: "backupApiKey", // a Secret field of the application's environment
+  driver: OpenAiCompatibleDriver({
+    baseUrl: env("BACKUP_BASE_URL", { default: "http://inference.internal:8000/v1" }),
+    apiKey: secret("BACKUP_API_KEY"),
+  }),
+  models: { default: "backup/kimi" },
   timeout: minutes(1),
   cost: ModelCost.fromPrices({
     "backup/kimi": { inputPerMillion: usd(0.4), outputPerMillion: usd(1.6) },
   }),
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
-export class BackupModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class BackupModelProvider {}
 ```
 
 ```ts file=src/billing/model-providers/openrouter.model-provider.ts
 // model-providers/openrouter.model-provider.ts — every policy of one provider, app-wide
+import { env, secret } from "@agboss/core";
 import {
+  CircuitBreakerPolicy,
   CachedPart,
   CacheRetention,
   ModelCost,
   ModelFailure,
   ModelProvider,
-  OpenRouterProvider,
+  OpenRouterDriver,
   PromptCaching,
   ProviderSort,
   QueueBalancingStrategy,
   RateLimitPolicy,
   Reasoning,
   RetryPolicy,
-  type OpenRouterFields,
 } from "@agboss/core/models";
 import { minutes, seconds } from "@agboss/core/units";
 import { BackupModelProvider } from "./backup.model-provider.js";
@@ -291,14 +284,15 @@ import { BackupModelProvider } from "./backup.model-provider.js";
 @ModelProvider({
   name: "openrouter-model-provider",
   description: "OpenRouter — the chat models",
-  serves: [/^moonshotai\//, /^deepseek\//],
-  baseUrl: "https://openrouter.ai/api/v1", // the default…
-  baseUrlField: "openRouterBaseUrl", // …unless this text field of the environment sets one
-  apiKey: "openRouterApiKey",
+  driver: OpenRouterDriver({
+    apiKey: secret("OPENROUTER_API_KEY"), // read once, at start; a test needs none
+    baseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" }), // a proxy or a stub
+    routing: { sort: ProviderSort.Price }, // OpenRouter's routing between upstreams
+  }),
   timeout: minutes(2), // per attempt, from the moment the call has room
   cost: ModelCost.fromResponse(), // OpenRouter reports each call's cost: exact
   reasoning: Reasoning.modelDecides(), // components may override it (reasoning: Reasoning.on(…))
-  promptCaching: PromptCaching.whereSupported({
+  promptCaching: PromptCaching.on({
     retention: CacheRetention.FiveMinutes,
     cachedParts: [CachedPart.SystemPrompt, CachedPart.Tools, CachedPart.History],
   }),
@@ -312,42 +306,81 @@ import { BackupModelProvider } from "./backup.model-provider.js";
   rateLimitPolicy: RateLimitPolicy.of({
     maxConcurrentCalls: 8, // for the whole application: every execution, tenant and instance
     perMinute: { calls: 120, tokens: 400_000 },
-    balancing: QueueBalancingStrategy.TenantWeighted, // a tenant gets up to its weight per round
+    balancing: QueueBalancingStrategy.TenantWeighted, // a tenant gets up to its weight per round…
+    tenantWeight: (tenant) => (tenant.tenantId === "acme" ? 3 : 1), // …the policy's own, from 1
   }),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5, // 5 failed calls within a minute open it for 30 s
-    window: minutes(1),
-    openFor: seconds(30),
-    fallback: BackupModelProvider, // while open, calls go there…
-    fallbackModels: { "moonshotai/kimi-k2.6": "backup/kimi" }, // …each model mapped to one it serves
-  },
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
+  fallback: { provider: BackupModelProvider, models: { "moonshotai/kimi-k2.6": "backup/kimi" } },
 })
-export class AppOpenRouterModelProvider extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = {
-    provider: { sort: ProviderSort.Price }, // OpenRouter's routing between upstreams
-  };
-}
+export class AppOpenRouterModelProvider {}
 ```
 
-**Pinning the host (#395):** `OpenRouterRouting` — `order`, `only`, `ignore` (hosts by OpenRouter's
+```ts file=src/billing/model-providers/decisions.model-provider.ts
+// model-providers/decisions.model-provider.ts — Jev and the other decision models
+import { env, secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Decision models on OpenRouter's Decisions API",
+  driver: DecisionsDriver({
+    apiKey: secret("OPENROUTER_API_KEY"),
+    baseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" }),
+  }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
+```
+
+The application's environment declares only what the code reads through `ApplicationContext`; the keys
+and URLs of the providers are `secret(…)` / `env(…)` in their drivers, read once at start (a test sets none:
+it scripts every model).
+
+```ts file=src/environments/app.environment.ts
+export class AppEnvironment {}
+```
+
+```ts file=src/environments/dev.environment.ts
+import type { AppEnvironment } from "./app.environment.js";
+
+export const environment: AppEnvironment = {};
+```
+
+```ts file=src/environments/test.environment.ts
+import type { AppEnvironment } from "./app.environment.js";
+
+export const environment: AppEnvironment = {}; // tests script every model: no key
+```
+
+**Pinning the host (#395):** `OpenRouterRouting` (the driver's `routing`) — `order`, `only`, `ignore` (hosts by OpenRouter's
 slug, `fireworks`), `sort` (`ProviderSort`), `quantizations` (`Quantization.Bf16`, `Fp8`, …) and
 `allowFallbacks` — is camelCase in TypeScript; only the request body is OpenRouter's snake_case
 (`allow_fallbacks`). Pin the host and precision when results must not drift between upstreams
-(evals, a benchmark): `provider: { only: ["fireworks"], quantizations: [Quantization.Bf16],
+(evals, a benchmark): `routing: { only: ["fireworks"], quantizations: [Quantization.Bf16],
 allowFallbacks: false }`. Every call's `UsageRecord.servedBy` names the host that served it
 (OpenRouter's `provider`, a plain or a streamed answer). `npx agboss check --models` checks each
 served model's endpoints: a pinned host that does not serve it, or no allowed host at a pinned
-quantization, is `[model.no-matching-endpoint]`; the endpoints are never asked at start.
+quantization, is `[model.no-matching-endpoint]`; the endpoints are never asked at start. Other drivers'
+options: `OpenAiCompatibleDriver({ baseUrl, apiKey?, headers?, requestFields? })` (the request fields an
+OpenAI-compatible server takes beyond the Chat Completions ones), `DecisionsDriver({ baseUrl, apiKey?, headers?, path?, knownModels? })`.
+A fallback hop must be of the same kind as its provider (`[model.incompatible-fallback-provider]`),
+and a chain may not loop (`[model-provider.fallback-cycle]`).
 
 ### A custom transport: `complete(request)`
 
 A provider that is not an OpenAI-compatible HTTP server — AWS Bedrock through its SDK, Vertex AI,
 a corporate gateway with its own authorisation — `implements ModelProviderHandler` with
-`complete(request)` (#385): no `baseUrl`, `baseUrlField` or `apiKey` (both modes at once do not
+`complete(request)` (#385): no `driver` (both at once do not
 compile and fail assembly with `[model-provider.both-modes]`), its services through `deps`. The
 application's container creates it on its first call — one instance per application — and an
 injected `TenantContext` reads the calling execution. Everything of the gateway runs around
-`complete()` unchanged: `serves`, the budgets before the call and the ledger after it, the
+`complete()` unchanged: the cascade, the budgets before the call and the ledger after it, the
 `rateLimitPolicy` queue and its 429 pause, `retryPolicy`, `circuitBreakerPolicy` (readiness
 `Degraded`, its `fallback` either way between HTTP and transport providers), PII masking, the answer
 tools of a DTO agent, traces, and `mockLlm` in `testWith` (which answers above it: `complete()` is
@@ -396,6 +429,7 @@ export class BedrockSdkClient {
 // model-providers/bedrock.model-provider.ts — a transport: the class makes the call itself
 import { TenantContext } from "@agboss/core";
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
   QueueBalancingStrategy,
@@ -412,7 +446,7 @@ import { BedrockSdkClient } from "../services/bedrock-sdk-client.service.js";
 @ModelProvider({
   name: "bedrock-model-provider",
   description: "AWS Bedrock through its SDK",
-  serves: [/^bedrock\//],
+  model: "bedrock/claude", // the default model of a component that names none
   timeout: minutes(2), // per attempt: request.signal aborts at it
   cost: ModelCost.fromPrices({
     "bedrock/claude": { inputPerMillion: usd(3), outputPerMillion: usd(15) },
@@ -428,8 +462,8 @@ import { BedrockSdkClient } from "../services/bedrock-sdk-client.service.js";
     jitter: true,
     retryOn: TRANSIENT_FAILURES,
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
-  deps: [BedrockSdkClient, TenantContext], // reasoning / promptCaching unset: off
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
+  deps: [BedrockSdkClient, TenantContext], // reasoning unset: off; promptCaching unset: automatic
 })
 export class BedrockModelProvider implements ModelProviderHandler {
   constructor(
@@ -453,20 +487,22 @@ export class BedrockModelProvider implements ModelProviderHandler {
   (`ModelProviderMessage { role: ModelProviderMessageRole, text, toolCalls?, toolCallId? }`, text
   only, masked), `tools` (`ModelProviderToolDefinition { name, description, parameters }` — the
   agent's own and its `answer-<dto>` tools), `temperature`, `maxTokens` (`undefined` =
-  `TokenLimit.MODEL_MAX`), `reasoning`, `promptCaching`, `signal` (pass it to the SDK; an SDK that
+  `TokenLimit.ModelMax`), `reasoning`, `promptCaching`, `signal` (pass it to the SDK; an SDK that
   ignores it is cut at `timeout` anyway, a `Timeout`).
 - **The answer** (`ModelProviderResponse`): `text`, `toolCalls?` (`ModelProviderToolCall { id,
-name, arguments }`), `usage` (`ModelProviderUsage { inputTokens, outputTokens, cacheReadTokens?,
-cacheWriteTokens? }` — the rate limit's tokens and the price table's), `cost?` (exact,
+name, arguments }`), `usage` (`TokenUsage { inputTokens, outputTokens, cacheReadTokens,
+cacheWriteTokens }`, as a streamed call's `result.usage` — the rate limit's tokens and the price table's), `cost?` (exact,
   `costSource: CostSource.Api`; else the table), `finishReason?` (`FinishReason.Length`).
 - **Streaming** (optional, #1011): `stream(request): ModelProviderStream` — `{ textStream:
-AsyncIterable<string>, usage: Promise<ModelProviderUsage> }`, as the Vercel AI SDK's `streamText`
-  — makes each chunk a `textDelta` of `onStream`; without it the whole answer is one delta at the end.
+AsyncIterable<string>, result: Promise<ModelProviderStreamResult> }`, as the Vercel AI SDK's
+  `streamText`; `result` is `{ usage: TokenUsage, cost?, finishReason? }` (#1311), what the plain
+  answer holds beside its text — makes each chunk a `StreamEventKind.TextDelta` of `onStream`;
+  without it the whole answer is one delta at the end.
   Used for a call with no tools bound (a text stream carries no tool call: those go through
   `complete()`). Same attempt runner: a failure before the first chunk is retried, one after text
   fails the call (never retried, counted once by the breaker); each wait is bound by `timeout`, and
-  `usage` must settle when the stream ends, fails or is aborted (`request.signal`) — one that never
-  settles is a typed `Timeout`.
+  `result` must settle when the stream ends, fails or is aborted (`request.signal`) — after a
+  failure with what the call used so far; one that never settles is a typed `Timeout`.
 - **Failures**: throw `new ModelProviderFailureError({ failure: ModelFailure.…, retryAfter?, cause? })` — the
   retry policy retries the failures it lists, `RateLimited` pauses the whole queue for
   `retryAfter`, the breaker counts it. Any other error is not retried and counted by the breaker.
@@ -479,30 +515,34 @@ AsyncIterable<string>, usage: Promise<ModelProviderUsage> }`, as the Vercel AI S
 - `capabilities(model, connection)` is optional on a transport: given, it is checked at start like
   an HTTP provider's; absent, its models' settings are not checked (`npx agboss check --models`
   never creates a transport). `npx agboss describe` prints `bedrock-model-provider →
-BedrockModelProvider (…) · serves /^bedrock\// · transport: BedrockModelProvider.complete()`
+BedrockModelProvider (…) · transport: BedrockModelProvider.complete()`
   and each `model: bedrock/claude → bedrock-model-provider`; the class is in `configHash`.
 
 ### The three policies
 
-| Policy                 | Its one duty                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `retryPolicy`          | retries **this** call — `RetryPolicy.exponential({ … })`, `.fixed({ maxAttempts, delay, retryOn })`, `.none()`; the only place backoff is set. Only the listed `ModelFailure`s are retried (`Timeout`, `RateLimited`, `ServerError`, `NetworkError`); a 4xx is the answer. `Retry-After` is honoured; a wait between attempts holds no slot                                                                                                                                             |
-| `rateLimitPolicy`      | how many calls go out — `RateLimitPolicy.of({ maxConcurrentCalls?, perMinute?: { calls?, tokens? }, balancing? })`, at least one limit. Without it there is no limit. A call without room **waits** (never an error, never a cost): the tenant-fair queue → the 429 pause → the per-minute tokens → a slot → the per-minute calls. A 429 pauses the provider's whole queue for `Retry-After` on every instance and halves that instance's concurrency, which grows back by one a minute |
-| `circuitBreakerPolicy` | `{ failureThreshold, window, openFor, fallback?, fallbackModels? }` (required): that many failed calls within the window open it for `openFor`; while open, calls go to the `fallback` provider with each model mapped by `fallbackModels`, or fail fast with `ModelCallError` `model.circuit-open`. An open breaker makes readiness `Degraded`                                                                                                                                         |
+| Policy                 | Its one duty                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `retryPolicy`          | retries **this** call — `RetryPolicy.exponential({ … })`, `.fixed({ maxAttempts, delay, retryOn })`; omitted: no retries; the only place backoff is set. Only the listed `ModelFailure`s are retried (`Timeout`, `RateLimited`, `ServerError`, `NetworkError`); a 4xx is the answer. `Retry-After` is honoured; a wait between attempts holds no slot                                                                                                                                                                           |
+| `rateLimitPolicy`      | how many calls go out — `RateLimitPolicy.of({ maxConcurrentCalls?, perMinute?: { calls?, tokens? }, balancing? })`, at least one limit. Without it there is no limit. A call without room **waits** (never an error, never a cost): the tenant-fair queue → the 429 pause → the per-minute tokens → a slot → the per-minute calls. A 429 pauses the provider's whole queue for `Retry-After` on every instance and halves that instance's concurrency, which grows back by one a minute                                         |
+| `circuitBreakerPolicy` | `CircuitBreakerPolicy.fixed({ failureThreshold, failureWindow, openDuration, halfOpenProbes? })` or `.exponential({ …, initialOpenDuration, maxOpenDuration, jitter })` (optional): that many failed calls within `failureWindow` open it; after an open it is half-open (`halfOpenProbes` calls try the provider; a success closes it, a failure opens it again). Open, calls go to the provider's `fallback` or fail fast with `ModelCallError` `model.circuit-open`. An open or half-open breaker makes readiness `Degraded` |
 
-The fallback — HTTP or a transport, either way round — serves its own model strings;
-every model used on the primary must be mapped to one it serves (`model.fallback-unmapped`), priced
-when it prices from a table (`model.fallback-no-price`) — checked at start and by
-`npx agboss check --models`.
+`fallback` is on `@ModelProvider`: a class, or `{ provider, models }`, chaining (`A → B → C`). It
+answers an open or half-open breaker and a call that failed after its retries (timeout, 429, 5xx,
+broken connection, refused key, unknown model, used-up quota) — never a caller's cancel, an input the
+model cannot take, or a request refused as wrong (400, 422). Each hop is asked for the model its
+`models` entry names, else the same role of its own `models`, else the same name; it serves its own
+model strings and prices (`model.fallback-unmapped` when it does not serve it, `model.fallback-no-price`,
+`model.unknown-model`) — checked at start and by `npx agboss check --models`. The call is recorded under
+the provider that answered.
 
 **Fairness between tenants** (`balancing`, `QueueBalancingStrategy`) — who gets a free slot:
 
-| Strategy                         | A free slot goes to                                                                                     |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `TenantRoundRobin` (the default) | the waiting tenants in turn, first in first out inside one                                              |
-| `TenantLeastInFlight`            | the waiting tenant with the fewest calls in flight                                                      |
-| `TenantWeighted`                 | round-robin, a tenant up to its `weight` slots per round (`tenant: { tenantId, weight: 3 }`, default 1) |
-| `Fifo`                           | one queue in arrival order                                                                              |
+| Strategy                         | A free slot goes to                                                                                               |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `TenantRoundRobin` (the default) | the waiting tenants in turn, first in first out inside one                                                        |
+| `TenantLeastInFlight`            | the waiting tenant with the fewest calls in flight                                                                |
+| `TenantWeighted`                 | round-robin, a tenant up to `tenantWeight(tenant)` slots per round (the policy's own function, an integer from 1) |
+| `Fifo`                           | one queue in arrival order                                                                                        |
 
 The queue is per instance; the slots, windows, pause and breaker are shared through the
 application's `RateLimitRepository` (`SqliteRateLimitRepository` or your own, reference 09). Every
@@ -521,11 +561,11 @@ wait runs on the application's `Clock` — tests move it with `clock.advance(…
 
 - `ModelCost.fromResponse()` — the provider reports each call's cost (OpenRouter's `usage.cost`, the
   Decisions API): exact. `ModelCost.fromPrices({ "<model>": { inputPerMillion: usd(…),
-outputPerMillion: usd(…), cachedInputPerMillion?: usd(…) } })` — tokens × the table; a model it does
+outputPerMillion: usd(…), cacheReadPerMillion?: usd(…), cacheWritePerMillion?: usd(…) } })` — tokens × the table; a model it does
   not price is `model.no-price` at start. A call with neither fails: never silently free.
 - `reasoning` (`Reasoning.modelDecides()`, `.on({ effort: ReasoningEffort.High })`,
-  `.on({ budget: { tokens } })`, `.off()`) and `promptCaching` (`PromptCaching.whereSupported({ … })`,
-  `.off()`) are required on an HTTP provider (a transport's default to off) and overridden by a
+  `.on({ budget: { tokens } })`, `.off()`) and `promptCaching` (`PromptCaching.on({ … })`,
+  `.off()`) are the provider's defaults (unset: reasoning `modelDecides()`, caching automatic where supported; a transport's off) and overridden by a
   component (`reasoning`, `cache`).
 - At start and with `npx agboss check --models` every model setting is checked against what its
   model supports — all problems at once (`model.unsupported-setting`, `model.unknown-model`; with
@@ -554,7 +594,7 @@ export class InvoiceWorkflowStart {}
 ```
 
 ```ts file=src/billing/agents/invoice/invoice.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { InvoiceDraftDto } from "../../dto/invoice-draft.dto.js";
 import { TaxRateTool } from "../../tools/tax-rate.tool.js";
@@ -562,7 +602,7 @@ import { TaxRateTool } from "../../tools/tax-rate.tool.js";
 @Agent({
   name: "invoice-agent",
   description: "Drafts an invoice with the right VAT",
-  prompt: "Draft the invoice; look the VAT rate up with tax-rate-tool.",
+  prompt: inline("Draft the invoice; look the VAT rate up with tax-rate-tool."),
   model: "moonshotai/kimi-k2.6", // served by openrouter-model-provider (backup/kimi while its breaker is open)
   input: { request: WorkflowStartTextDto },
   output: InvoiceDraftDto,
@@ -580,7 +620,7 @@ export class InvoiceWorkflowFinish {}
 ```
 
 ```ts file=src/billing/workflows/invoice/invoice.workflow.ts
-import { Workflow, start } from "@agboss/core";
+import { Workflow, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { InvoiceAgent } from "../../agents/invoice/invoice.agent.js";
 import { InvoiceDraftDto } from "../../dto/invoice-draft.dto.js";
@@ -590,14 +630,13 @@ import { InvoiceWorkflowStart } from "./invoice.workflow-start.js";
 @Workflow({
   name: "invoice-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(InvoiceWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(InvoiceWorkflowStart)
       .toAgent(InvoiceAgent)
-      .returns(InvoiceDraftDto)
       .toFinish(InvoiceWorkflowFinish),
   ],
-  maxSteps: 2,
+  executionLimits: { maxSteps: 2 },
 })
 export class InvoiceWorkflow {}
 ```
@@ -628,8 +667,8 @@ import { AppEnvironment } from "./environments/app.environment.js";
     ExecutionBudget,
     InvoiceExecutionBudget,
   ],
-  // the list is complete: no built-in provider is added (no decision model is used here)
-  providers: [AppOpenRouterModelProvider, BackupModelProvider],
+  modelProvider: AppOpenRouterModelProvider, // explicit: the chat provider of every agent here
+  providers: [AppOpenRouterModelProvider, BackupModelProvider], // the fallback is listed too
 })
 export class BillingApplication {}
 ```
@@ -649,7 +688,7 @@ const app = await createApp(BillingApplication, { env: "prod" });
 const result = await app.execute(
   InvoiceWorkflowStart,
   { text: "Invoice 3 hours of consulting to Acme Ltd, Israel" },
-  { tenant: { tenantId: "acme", weight: 3, dailyBudgetUsd: 5 } }, // weight: TenantWeighted's share
+  { tenant: { tenantId: "acme", dailyBudgetUsd: 5 } },
 );
 
 // every result carries its spend: total, calls, by category, model and caller, and every call in order
@@ -660,9 +699,13 @@ await app.close();
 
 **A lost pass's cost is not known (#853):** a model call sent by a pass that dies before its answer (a `kill -9`, a frozen instance) leaves no amount — the recovery or the resume that takes the tree over and runs the step again records one ledger entry per lost pass first: `CostSource.Unknown`, `costUsd` 0, under `unknown:<rootExecutionId>:<step>:<task>:<lease token of the lost pass>` (`UsageRecord.ledgerKey`), so two takers, or a re-run lost in turn, write it once, and a second lost pass gets its own; a budget counts it as nothing. `result.spend.unknownCalls` (and the CLI's total, `… of unknown cost`) counts them next to `totalUsd` / `calls`, which hold only known costs; `agboss.instance.costs.unknown` (`{pass}`, `workflow`) adds them as the pass records them — whether the execution then finishes, fails or is cancelled (#875; a pass lost again before its checkpoint has its taker record them again, counted again) — and a takeover whose read of the lost passes fails (logged `cost.unknown-unrecorded`, none recorded) adds one to `agboss.instance.costs.unknown_unrecorded` (`{read}`, `workflow`). Found from the tree's audit log (a takeover at the head checkpoint from a lease that expired) and the checkpoint (no write there finished the step's task — a pause's, its resume's or an error's does not): nothing is written on a pass that takes no tree over. Limits: Unknown is "maybe nothing" — a taker that died before it ran the step is a lost pass too; only an agent's or a model router's step of the root workflow (a branch too, one cancelled before it runs included) records one — a call inside a child workflow and a lease released by a graceful stop past `shutdownTimeout` are not counted.
 
-`spend.byCategory` has every key — `agents`, `routing`, `guards`, `review`, `tools`, `compaction`,
-`retrieval`; callers are named `tool:<name>`, `action:<name>`, `router:<name>`, `guardrail:<name>`,
-`arbiter:<name>`, `compaction:<name>`, `rag:<name>`, or the agent's name.
+`spend.byCategory` has every key — `agents`, `routing`, `guardrails`, `review`, `tools`, `memory`,
+`rag`, `files`, `pii`, `arbiters`, `pauses`; callers are named `tool:<name>`, `action:<name>`,
+`router:<name>`, `guardrail:<name>`, `arbiter:<name>`, `memory:<name>`, `rag:<name>`,
+`reranker:<name>`, `pii:<name>`, `files:<name>`, `channel-interpreter:<name>`, or the agent's name.
+Every amount is `Usd`; `spend` also carries tokens — `inputTokens`, `outputTokens`,
+`cacheReadTokens`, `cacheWriteTokens`, `totalTokens` — and is built with `CostReport.empty()`,
+`CostReport.sum(reports)` or `CostReport.fromUsage(records)`.
 
 ## Testing the money
 
@@ -721,6 +764,6 @@ which stops the execution before its next agent or router step.
 - Retries in a service around a model call: the provider's `retryPolicy` is the only backoff.
 - A rate limit per tenant through budgets: budgets are money; capacity is `rateLimitPolicy` and its
   `balancing`.
-- Listing one provider and forgetting `DecisionsModelProvider` while using Jev: `[model.unserved]`.
+- Naming no `modelProvider` on the application, or a Jev router without its decisions provider: `[model.missing-provider]` or `[model.incompatible-provider]`.
 - Expecting the in-memory ledger to share counters: each instance counts alone — list
   `SqliteCostLedgerRepository` (or your own) in production.

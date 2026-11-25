@@ -12,11 +12,15 @@ import type { AnalysisContext } from "./context.js";
  * stops.
  */
 
-const isBounded = (node: FlowNode): boolean =>
-  (node.declaration.kind === NodeKind.Agent ||
-    node.declaration.kind === NodeKind.Router ||
-    node.declaration.kind === NodeKind.Question) &&
-  node.declaration.options.maxVisits !== undefined;
+const isBounded = (node: FlowNode): boolean => {
+  const { declaration } = node;
+  if (declaration.kind === NodeKind.Agent)
+    return declaration.options.executionLimits?.maxVisits !== undefined;
+  return (
+    (declaration.kind === NodeKind.Router || declaration.kind === NodeKind.Question) &&
+    declaration.options.maxVisits !== undefined
+  );
+};
 
 export function cycleRules(context: AnalysisContext): readonly RuleViolation[] {
   const unbounded = [...context.graph.nodes.values()].filter((node) => !isBounded(node));

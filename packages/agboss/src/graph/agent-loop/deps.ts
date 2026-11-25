@@ -1,9 +1,9 @@
+import type { DeclaredCriterion } from "../../judges/declarative-judge.js";
 import { UNREADABLE_ARGUMENTS } from "../../prompts/agents.js";
 import type { BudgetCheck } from "../../budgets/execution-budgets.js";
 import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import type { AIMessage } from "@langchain/core/messages";
 import type { JudgeBinding, ModelBinding } from "../../llm/registry.js";
-import type { BaseMemoryStrategy } from "../../memory/types.js";
 import type { KnowledgeSource } from "../../rag/types.js";
 import type { AnyTool } from "../../tools/index.js";
 import type { FileRuntime } from "../../files/visit-files.js";
@@ -16,7 +16,7 @@ import type { ToolInterceptorChains } from "../../tool-interceptors/runtime.js";
 import type { ToolCallApproval } from "./approval.js";
 import type { JudgePoints } from "./judge-points.js";
 import type { AgentLoopLimits } from "./limits.js";
-import type { JudgeReplyShape, RunnableJudge } from "../../components/judge-decorators.js";
+import type { JudgeOutputShape, RunnableJudge } from "../../components/judge-decorators.js";
 
 /** Everything needed to run one configured agent. */
 export interface AgentDefinition {
@@ -35,8 +35,6 @@ export interface AgentDefinition {
   readonly maxResultSize: Bytes;
   /** The files its model reads (#899); absent = none: no byte goes to the model. */
   readonly files?: ResolvedModelFiles;
-  /** What of the thread memory the agent sees; absent = the built-in sliding window. */
-  readonly memory?: BaseMemoryStrategy;
   /** Context-mode knowledge bases: retrieved before the first model call. */
   readonly knowledge: readonly KnowledgeSource[];
   /** Quality gates of the reply (`@Agent({ judges })`), each with its own model; none = no gate. */
@@ -49,10 +47,12 @@ export interface AgentDefinition {
 export interface AgentJudge {
   readonly name: string;
   readonly handler: RunnableJudge;
-  /** What it judges (`@Judge({ reply })`): the shape of its input. */
-  readonly reply: JudgeReplyShape;
-  /** Its model; none for a code judge (`DecidedBy.Code`, #396). */
+  /** What it judges (`@Judge({ output })`): the shape of its input. */
+  readonly output: JudgeOutputShape;
+  /** Its model; none for a code judge (`$0`). */
   readonly binding?: JudgeBinding;
+  /** A declarative judge's criterion (#1290): its model decides it, its class has no code. */
+  readonly declared?: DeclaredCriterion;
 }
 
 /** What an agent's loop is built from. */
@@ -73,6 +73,8 @@ export interface AgentLoopDeps {
   readonly observer?: ExecutionObserverManager;
   /** What it reads its files with (#899); absent: the agent did not opt in. */
   readonly fileRuntime?: FileRuntime | undefined;
+  /** Brings the inline files of a tool's output under the inline cap (#1316); absent: nothing is held to it. */
+  readonly inlineFiles?: ((value: unknown) => Promise<void>) | undefined;
 }
 
 /** One tool call of a move, with its id (assigned by the loop when the model gives none). */

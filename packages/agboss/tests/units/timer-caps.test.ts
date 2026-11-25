@@ -11,32 +11,26 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { ComponentError } from "../../src/components/metadata.js";
 import { testWith } from "../../src/testing/index.js";
-import { toolExpiryViolations } from "../../src/components/tool-expiry-rules.js";
+import { toolNameViolations } from "../../src/components/assemble-checks.js";
 import { Text } from "../../src/dto/index.js";
 import { countQuorumOf } from "../../src/flow/quorum-step.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { SystemClock } from "../../src/infrastructure/clock.js";
-import { outboundCallsViolations } from "../../src/infrastructure/fenced-effect-settings.js";
+import { Idempotency } from "../../src/app/idempotency.js";
+import { OutboundMasking } from "../../src/app/outbound-masking.js";
+import { hours } from "../../src/units/index.js";
 import { meshContextValuesOf } from "../../src/mesh/mesh-context-values.js";
-import {
-  EmptyEnvironment,
-  HealthCheck,
-  HealthCheckResult,
-  Tool,
-  type HealthCheckHandler,
-  type ToolHandler,
-} from "../../src/index.js";
+import { EmptyEnvironment, HealthCheck, HealthCheckResult, Tool } from "../../src/index.js";
 import {
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../src/models/index.js";
 import { defineTool } from "../../src/tools/define-tool.js";
-import { UnitError, minutes, seconds, usd, type Milliseconds } from "../../src/units/index.js";
+import { minutes, seconds, usd, type Milliseconds } from "../../src/units/index.js";
 import {
   MAX_DEADLINE,
   MAX_TIMEOUT,
@@ -45,6 +39,8 @@ import {
 } from "../../src/units/timer-limits.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { ProbeWorkflow } from "../health/fixtures/health.application.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 const over = (max: Milliseconds): Milliseconds => (max + 1) as Milliseconds;
 
@@ -61,12 +57,20 @@ async function timeoutProblemsOf(application: new () => object): Promise<string[
     .map((one) => one.message);
 }
 
-function applicationWith(options: {
+function applicationWith({
+  shutdownTimeout,
+  compensationTimeout,
+  ...options
+}: {
   readonly shutdownTimeout?: Milliseconds;
   readonly compensationTimeout?: Milliseconds;
   readonly healthChecks?: never[];
   readonly providers?: never[];
 }): new () => object {
+  const executionLimits = {
+    ...(shutdownTimeout === undefined ? {} : { shutdownTimeout }),
+    ...(compensationTimeout === undefined ? {} : { compensationTimeout }),
+  };
   class CappedApplication {
     readonly isCapped = true;
   }
@@ -76,6 +80,7 @@ function applicationWith(options: {
     environment: EmptyEnvironment,
     workflows: [ProbeWorkflow],
     budgets: TEST_BUDGETS,
+    executionLimits,
     ...options,
   })(CappedApplication);
   return CappedApplication;
@@ -90,7 +95,7 @@ describe("#1141: the caps are under the timer's limit", () => {
   });
 
   it("refuses NaN and Infinity, names the field, accepts the cap", () => {
-    expect(() => checkedTimer("x", Number.NaN, MAX_TIMEOUT)).toThrow(UnitError);
+    expect(() => checkedTimer("x", Number.NaN, MAX_TIMEOUT)).toThrow(ConfigError.Unit);
     expect(() => checkedTimer("x", Infinity, MAX_TIMEOUT)).toThrow(/x is Infinity ms/u);
     expect(checkedTimer("x", MAX_TIMEOUT, MAX_TIMEOUT)).toBe(MAX_TIMEOUT);
   });
@@ -114,29 +119,47 @@ describe("#1141: @Application timers", () => {
     it(`${field}: cap + 1 refused naming the field, the cap accepted`, async () => {
       const refused = await timeoutProblemsOf(applicationWith({ [field]: over(MAX_TIMEOUT) }));
       expect(refused).toHaveLength(1);
-      expect(refused[0]).toContain(`its ${field} is ${String(MAX_TIMEOUT + 1)} ms`);
+      expect(refused[0]).toContain(`its executionLimits.${field} is ${String(MAX_TIMEOUT + 1)} ms`);
       expect(await timeoutProblemsOf(applicationWith({ [field]: MAX_TIMEOUT }))).toEqual([]);
     });
   }
 
-  it("outboundCalls.attemptTimeout: cap + 1 refused naming the field, the cap accepted", () => {
-    const refused = outboundCallsViolations("app", { attemptTimeout: over(MAX_TIMEOUT) });
-    expect(refused).toHaveLength(1);
-    expect(refused[0]?.code).toBe("application.outbound-calls-invalid");
-    expect(refused[0]?.message).toContain("attemptTimeout is 86400001 ms");
-    expect(outboundCallsViolations("app", { attemptTimeout: MAX_TIMEOUT })).toEqual([]);
+  it("Idempotency timeout: cap + 1 refused naming the field, the cap not refused as a timer", async () => {
+    const idempotency = new Idempotency(
+      {} as never,
+      {} as never,
+      new OutboundMasking({ requiresMask: false }),
+      {} as never,
+      {} as never,
+    );
+    const execute = () => "done";
+    const refused = idempotency.runOnce({
+      name: "charge",
+      ttl: hours(24),
+      timeout: over(MAX_TIMEOUT),
+      execute,
+    });
+    await expect(refused).rejects.toThrow(/timeout is 86400001 ms/u);
+    // the cap is a timer's: what refuses it now is the lease bound, not the timer cap
+    const atCap = idempotency.runOnce({
+      name: "charge",
+      ttl: hours(24),
+      timeout: MAX_TIMEOUT,
+      execute,
+    });
+    await expect(atCap).rejects.toThrow(/not below the lease/u);
   });
 });
 
 @HealthCheck({ name: "long-health-check", timeout: over(MAX_TIMEOUT) })
-class LongHealthCheck implements HealthCheckHandler {
+class LongHealthCheck {
   check(): Promise<HealthCheckResult> {
     return Promise.resolve(HealthCheckResult.healthy());
   }
 }
 
 @HealthCheck({ name: "capped-health-check", timeout: MAX_TIMEOUT })
-class CappedHealthCheck implements HealthCheckHandler {
+class CappedHealthCheck {
   check(): Promise<HealthCheckResult> {
     return Promise.resolve(HealthCheckResult.healthy());
   }
@@ -159,20 +182,20 @@ function providerWith(timeout: Milliseconds): never {
   @ModelProvider({
     name: "wire-model-provider",
     description: "stub",
-    serves: [/^wire\//],
-    baseUrl: "http://wire.test/v1",
+    driver: OpenAiCompatibleDriver({ baseUrl: "http://wire.test/v1" }),
     timeout,
     cost: ModelCost.fromPrices({
       "wire/model": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
     }),
     reasoning: Reasoning.off(),
     promptCaching: PromptCaching.off(),
-    retryPolicy: RetryPolicy.none(),
-    circuitBreakerPolicy: { failureThreshold: 50, window: minutes(1), openFor: seconds(30) },
+    circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+      failureThreshold: 50,
+      failureWindow: minutes(1),
+      openDuration: seconds(30),
+    }),
   })
-  class WireModelProvider extends OpenAiCompatibleProvider {
-    override readonly requestFields: NoRequestFields = {};
-  }
+  class WireModelProvider {}
   return WireModelProvider as never;
 }
 
@@ -237,23 +260,22 @@ describe("#1141: a tool's timeout", () => {
     expect(() => defineTool(definition(MAX_TIMEOUT))).not.toThrow();
   });
 
-  it("@Tool / @McpTool: [limits.timeout-invalid] at assembly", () => {
+  it("@Tool: [limits.timeout-invalid] at assembly", () => {
     const toolWith = (timeout: Milliseconds): never => {
       @Tool({ name: "slow-tool", description: "d", input: Query, output: Query, timeout })
-      class SlowTool implements ToolHandler<Query, Query> {
-        run(): Promise<Query> {
+      class SlowTool {
+        execute(): Promise<Query> {
           return Promise.resolve(new Query());
         }
       }
       return SlowTool as never;
     };
-    const refused = toolExpiryViolations({
+    const refused = toolNameViolations({
       local: [toolWith(over(MAX_TIMEOUT))],
-      mcp: [],
     });
     expect(refused.map((one) => one.code)).toEqual(["limits.timeout-invalid"]);
     expect(refused[0]?.message).toContain("timeout is 86400001 ms");
-    expect(toolExpiryViolations({ local: [toolWith(MAX_TIMEOUT)], mcp: [] })).toEqual([]);
+    expect(toolNameViolations({ local: [toolWith(MAX_TIMEOUT)] })).toEqual([]);
   });
 });
 
@@ -266,27 +288,10 @@ describe("#1141: A2A", () => {
         {
           ...options,
           expose: {},
-          callerResolver: {},
+          authenticator: {},
           publicUrl: "https://x.test",
         } as never,
       );
-
-  it("fileFetchTimeout: cap + 1 refused naming the field", () => {
-    expect(listener({ fileFetchTimeout: over(MAX_TIMEOUT) })).toThrow(
-      /\[a2a.timeout-invalid\].*fileFetchTimeout is 86400001 ms/u,
-    );
-  });
-
-  it("maxTaskDuration: cap + 1 refused naming the field", () => {
-    expect(listener({ maxTaskDuration: over(MAX_DEADLINE) })).toThrow(
-      /\[a2a.timeout-invalid\].*maxTaskDuration is 2073600001 ms/u,
-    );
-  });
-
-  it("a caps accepted: the listener's own checks go on (not the timeout's)", () => {
-    for (const options of [{ fileFetchTimeout: MAX_TIMEOUT }, { maxTaskDuration: MAX_DEADLINE }])
-      expect(listener(options)).not.toThrow(/timeout-invalid/u);
-  });
 
   it("a client call's timeout: cap + 1 refused naming the field, the cap accepted", () => {
     expect(() => {

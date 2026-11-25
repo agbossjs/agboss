@@ -23,12 +23,12 @@ import { registerFencedEffectContract } from "./fenced-effect.contract.js";
 import { optOutOf } from "./fencing-gate.js";
 import { meshRequestContract } from "./mesh-request.contract.js";
 import { a2aTaskContract } from "./a2a-task.contract.js";
-import { a2aFileContract } from "./a2a-file.contract.js";
+import { fileContract } from "./file.contract.js";
 import {
   a2aDirectMessageContract,
   type A2ADirectMessageStores,
 } from "./a2a-direct-message.contract.js";
-import type { A2AFileRepository } from "../../infrastructure/a2a-file.repository.js";
+import type { FileRepository } from "../../infrastructure/file.repository.js";
 import type { OutboundCallTarget } from "./outbound-call-data.js";
 import { registerOutboundCallContract } from "./outbound-call.contract.js";
 import { pausedExecutionContract } from "./paused-execution.contract.js";
@@ -55,7 +55,7 @@ export type StoreEntry<TStore> =
   | Omit<ContractTarget<TStore>, "name">;
 
 /** The stores a set claims, by contract: give each one the set has. */
-export interface StoreSet<TTransaction = unknown> {
+export interface StoreSet {
   readonly checkpointSaver?: StoreEntry<BaseCheckpointSaver>;
   readonly childExecutionQueue?: StoreEntry<ChildExecutionQueueRepository>;
   readonly costLedger?: StoreEntry<CostLedgerRepository>;
@@ -64,12 +64,12 @@ export interface StoreSet<TTransaction = unknown> {
   readonly executionAuditLog?: StoreEntry<ExecutionAuditLogRepository>;
   readonly executionRecord?: StoreEntry<ExecutionRecordRepository>;
   readonly executionTree?: StoreEntry<ExecutionTreeRepository>;
-  readonly fencedEffect?: StoreEntry<FencedEffectTarget<TTransaction>>;
+  readonly fencedEffect?: StoreEntry<FencedEffectTarget>;
   readonly meshRequest?: StoreEntry<MeshRequestRepository>;
   /** The A2A tasks (#807). */
   readonly a2aTask?: StoreEntry<A2ATaskRepository>;
   /** The A2A tasks' files (#859). */
-  readonly a2aFile?: StoreEntry<A2AFileRepository>;
+  readonly a2aFile?: StoreEntry<FileRepository>;
   /** The direct A2A messages' replies (#860), with the A2A task store beside them. */
   readonly a2aDirectMessage?: StoreEntry<A2ADirectMessageStores>;
   readonly outboundCall?: StoreEntry<OutboundCallTarget>;
@@ -78,12 +78,12 @@ export interface StoreSet<TTransaction = unknown> {
 }
 
 /** A store set under test. */
-export interface StoreConformanceOptions<TTransaction = unknown> {
+export interface StoreConformanceOptions {
   /** Shown in every suite's title: "PostgreSQL". */
   readonly name: string;
   /** Before each test of a store without a reset of its own: an empty backing store. */
   reset?(): void | Promise<void>;
-  readonly stores: StoreSet<TTransaction>;
+  readonly stores: StoreSet;
   /**
    * The fencing contracts a set with a lease store has no store of — a set of coordination stores
    * (leases, rate limits, the queue on Redis) says `["fencedEffect", "outboundCall"]`; an
@@ -149,10 +149,8 @@ const each = <TStore>(
  * Runs, in its own vitest file, every contract `options.stores` claims and the store set's
  * cases; throws `StoreConformanceError` for a set whose fencing contracts do not hold together.
  */
-export function storeConformance<TTransaction>(
-  options: StoreConformanceOptions<TTransaction>,
-): void {
-  const set = options as StoreConformanceOptions;
+export function storeConformance(options: StoreConformanceOptions): void {
+  const set = options;
   const { stores } = set;
   const claimed = Object.entries(stores).flatMap(([key, store]) =>
     store === undefined ? [] : [key],
@@ -174,7 +172,7 @@ export function storeConformance<TTransaction>(
   });
   each(set, stores.meshRequest, meshRequestContract);
   each(set, stores.a2aTask, a2aTaskContract);
-  each(set, stores.a2aFile, a2aFileContract);
+  each(set, stores.a2aFile, fileContract);
   each(set, stores.a2aDirectMessage, a2aDirectMessageContract);
   const outboundCall = each(set, stores.outboundCall, (target) => {
     registerOutboundCallContract(target, fencing);

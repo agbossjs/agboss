@@ -100,6 +100,9 @@ export const REFUSED_KEYS: readonly (readonly [string, KeyTextRule, string])[] =
   ["the Ohm sign U+2126", KeyTextRule.NotNfc, "order:Ω"],
   ["Hangul jamo ᄀ + ᅡ", KeyTextRule.NotNfc, "order:가"],
   ["combining marks out of order", KeyTextRule.NotNfc, "á̧"],
+  // #1321d: it joins a child's checkpoint thread to its parent's, so no key may hold it
+  ["the child separator /child/", KeyTextRule.ReservedSeparator, "root/child/x-evil"],
+  ["the child separator at the edge", KeyTextRule.ReservedSeparator, "/child/"],
 ];
 
 export const ACCEPTED_KEYS: readonly (readonly [string, string])[] = [

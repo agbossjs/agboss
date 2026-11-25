@@ -5,6 +5,7 @@
  */
 import {
   ChildExecutionStatus,
+  ExecutionStatus,
   CompensationReason,
   CompensationStatus,
   ComponentKind,
@@ -12,7 +13,7 @@ import {
   PauseResolution,
   ToolCallStatus,
 } from "@agboss/core";
-import { CaseComparison, CheckStatus } from "@agboss/core/eval";
+import { CaseComparison, CheckStatus, EvalCheckKind } from "@agboss/core/eval";
 import type {
   EvalExecutionTrace,
   EvalRunReport,
@@ -20,6 +21,7 @@ import type {
   EvalStepTrace,
 } from "@agboss/core/eval";
 import { artifactOf, caseOf } from "./artifacts.js";
+import { usd } from "@agboss/core/units";
 
 /** One step of a trace; the agent's carries a model call, a tool call, a guardrail and a judge. */
 export function stepOf(
@@ -39,9 +41,9 @@ export function stepOf(
     toolCalls: [],
     guardrailDecisions: [],
     judgeVerdicts: [],
-    spentUsd: 0,
-    startedAt: "2026-01-05T09:00:00.000Z",
-    endedAt: "2026-01-05T09:00:00.850Z",
+    spentUsd: usd(0),
+    startedAt: new Date("2026-01-05T09:00:00.000Z"),
+    endedAt: new Date("2026-01-05T09:00:00.850Z"),
     ...parts,
   };
 }
@@ -49,15 +51,16 @@ export function stepOf(
 const agentStep = (orderId: string): EvalStepTrace =>
   stepOf("refund-agent", ComponentKind.Agent, {
     validationAttempts: 1,
-    spentUsd: 0.012,
+    spentUsd: usd(0.012),
     modelCalls: [
       {
         caller: "refund-agent",
         model: "moonshotai/kimi-k2.6",
+        provider: "openrouter",
         inputTokens: 812,
         outputTokens: 64,
         cacheReadTokens: 512,
-        costUsd: 0.012,
+        costUsd: usd(0.012),
       },
     ],
     toolCalls: [
@@ -69,6 +72,8 @@ const agentStep = (orderId: string): EvalStepTrace =>
         output: { status: `order ${orderId} arrived broken`, contact: "<email>" },
         isResultTruncated: true,
         validationAttempts: 0,
+        startedAt: new Date("2026-01-05T09:00:01.000Z"),
+        endedAt: new Date("2026-01-05T09:00:02.000Z"),
       },
     ],
     guardrailDecisions: [
@@ -92,6 +97,7 @@ export function traceOf(
 ): EvalExecutionTrace {
   return {
     executionId: `execution-${orderId}`,
+    status: ExecutionStatus.Finished,
     path: ["refund-workflow-start", "refund-agent", "refund-workflow-finish"],
     steps: [
       stepOf("refund-workflow-start", ComponentKind.WorkflowStart),
@@ -116,14 +122,17 @@ const tracedRun = (run: number, passed: boolean, trace: EvalExecutionTrace): Eva
   passed,
   checks: [
     passed
-      ? { check: "trajectory", status: CheckStatus.Passed }
+      ? { check: "trajectory", kind: EvalCheckKind.Tools, status: CheckStatus.Passed }
       : {
           check: "trajectory",
+          kind: EvalCheckKind.Tools,
           status: CheckStatus.Failed,
           reason: 'get-order-tool not called with {"orderId":"7"}',
         },
   ],
-  spentUsd: 0.012,
+  executionUsd: usd(0.012),
+  judgeUsd: usd(0),
+  totalUsd: usd(0.012),
   trace,
 });
 
@@ -139,11 +148,10 @@ const FULL_TRACE = traceOf("7", {
   pauses: [
     {
       nodeId: "refund-agent",
-      role: "refund-approval-channel",
+      target: "refund-approval-tool-approval-3",
       resolution: PauseResolution.Replied,
-      answeredBy: "owner-1",
-      responder: "owner-1",
-      decision: { approved: true },
+      actor: { id: "owner-1" },
+      output: { approved: true },
     },
   ],
   compensations: [
@@ -169,7 +177,7 @@ const FULL_TRACE = traceOf("7", {
 const withExpectation = <TCase extends ReturnType<typeof caseOf>>(found: TCase): TCase => ({
   ...found,
   expectation: {
-    requiredTools: [{ tool: "get-order-tool", arguments: { orderId: "7" } }],
+    requiredTools: [{ tool: "get-order-tool", input: { orderId: "7" } }],
     forbiddenTools: ["delete-order-tool"],
     invariantTools: ["refund-tool"],
     checks: ["trajectory", "answer-grounded-judge"],
@@ -195,11 +203,11 @@ export const TRACED_ARTIFACT: EvalRunReport = {
     ],
     2,
   ),
-  schemaVersion: 2,
+  schemaVersion: 5,
   baseline: {
     file: ".agboss/eval/main.json",
     configHash: "1b2c3d4e5f",
-    startedAt: "2026-01-04T09:00:00.000Z",
+    startedAt: new Date("2026-01-04T09:00:00.000Z"),
     runs: 2,
     cases: [
       {

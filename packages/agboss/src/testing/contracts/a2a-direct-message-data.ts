@@ -1,3 +1,4 @@
+import { usd } from "../../units/index.js";
 import {
   A2ADirectMessageSaveStatus,
   type A2ADirectMessageKey,
@@ -8,6 +9,9 @@ import {
 } from "../../infrastructure/a2a-direct-message.repository.js";
 import type { A2ATaskRepository } from "../../infrastructure/a2a-task.repository.js";
 import { NUL_TEXT } from "./nul-text.js";
+import { ENDPOINT } from "./a2a-task-data.js";
+
+export { cutoffsOf, ENDPOINT } from "./a2a-task-data.js";
 
 /** The data of the direct-message contract's cases (#860). */
 
@@ -28,6 +32,7 @@ export const newMessage = (
   messageId: string,
   overrides: Partial<NewA2ADirectMessage> = {},
 ): NewA2ADirectMessage => ({
+  endpoint: ENDPOINT,
   tenantId: "default",
   ownerId: "alice",
   messageId,
@@ -52,7 +57,7 @@ export const keyOf = (message: A2ADirectMessageKey): A2ADirectMessageKey => ({
 export const REPLY: A2ADirectMessageReply = {
   finish: "quote-workflow-finish",
   output: { text: NUL_TEXT, lines: [{ sku: "a", amount: 12.5 }], paid: true },
-  spentUsd: 0.0125,
+  spentUsd: usd(0.0125),
 };
 
 /** The message `saveIfAbsent` saved; fails the case when it did not. */

@@ -11,12 +11,14 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type OnStart,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { seconds, type Milliseconds } from "../../../src/units/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #262 PR 1 — a clerk whose tools read the time through an injected `Clock` and wait past their
@@ -105,10 +107,10 @@ export class Query {
   output: Query,
   deps: [StampService],
 })
-export class Stamp implements ToolHandler<Query, Query> {
+export class Stamp {
   constructor(private readonly stampService: StampService) {}
 
-  run(): Promise<Query> {
+  execute(): Promise<Query> {
     const text = this.stampService.stamp();
     seen.stamps.push(text);
     return Promise.resolve({ text });
@@ -124,10 +126,10 @@ export class Stamp implements ToolHandler<Query, Query> {
   timeout: seconds(5),
   deps: [ExecutionContext],
 })
-export class SlowLookup implements ToolHandler<Query, Query> {
+export class SlowLookup {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(): Promise<Query> {
+  execute(): Promise<Query> {
     const { signal } = this.executionContext;
     seen.lookups.push(signal);
     hooks.lookupStarted?.();
@@ -142,7 +144,7 @@ export class SlowLookup implements ToolHandler<Query, Query> {
 @Agent({
   name: "clock-clerk-agent",
   description: "Stamps and looks up",
-  prompt: "Do what you are asked.",
+  prompt: inline("Do what you are asked."),
   tools: [Stamp, SlowLookup],
   model: "test/clerk",
   input: { message: WorkflowStartTextDto },
@@ -165,20 +167,26 @@ export class ClockWorkflowStart {}
 export class ClockReceiptWorkflowFinish {}
 
 const flow = [
-  start(ClockWorkflowStart)
-    .returns(WorkflowStartTextDto)
+  onStart(ClockWorkflowStart)
     .toAgent(ClockClerk)
-    .returns(ReceiptDto)
     .toFinish(ClockReceiptWorkflowFinish),
 ];
 
 const defaults = { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 4 } };
 
-@Workflow({ name: "clock-workflow", version: "1.0.0", defaults, flow, providers: [StampService] })
+@Workflow({
+  name: "clock-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  defaults,
+  flow,
+  providers: [StampService],
+})
 export class ClockWorkflow {}
 
 @Application({
   name: "clock-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClockWorkflow],
@@ -189,6 +197,7 @@ export class ClockApplication {}
 
 @Application({
   name: "fixed-clock-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClockWorkflow],
@@ -199,6 +208,7 @@ export class FixedClockApplication {}
 
 @Application({
   name: "context-clock-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClockWorkflow],
@@ -210,6 +220,7 @@ export class ContextClockApplication {}
 @Workflow({
   name: "clocked-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults,
   flow,
   providers: [StampService, FixedClockProvider],
@@ -218,6 +229,7 @@ export class ClockedWorkflow {}
 
 @Application({
   name: "clocked-workflow-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClockedWorkflow],

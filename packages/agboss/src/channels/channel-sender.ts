@@ -1,4 +1,5 @@
 import type { PauseClosedReason } from "../infrastructure/pause-record.js";
+import type { PauseActor, PauseToolCallSummary, PauseTrailEntry } from "./pause-contexts.js";
 import type { PauseDeliveredEvent } from "../pause/notice-events.js";
 
 /**
@@ -10,22 +11,26 @@ export interface ChannelSender {
   send(ask: ChannelSenderSend): Promise<unknown>;
   onPauseClosed?(event: ChannelSenderClosed): Promise<void>;
   onPauseAnswerNotTaken?(event: ChannelSenderNotTaken): Promise<void>;
-  onPauseExtended?(event: ChannelSenderExtended): Promise<void>;
+  onPauseTimeoutChanged?(event: ChannelSenderExtended): Promise<void>;
   onPauseExpiring?(event: ChannelSenderExpiring): Promise<void>;
+  onPauseReassigned?(event: ChannelSenderReassigned): Promise<void>;
   onPauseJoinFailed?(event: ChannelSenderJoinFailed): Promise<void>;
-  /** What the expiry of a pause it sent means (#941); absent: `PauseExpiration.fail()`. */
-  onPauseExpired?(ask: ChannelSenderAsk): unknown;
 }
 
-/** The ask as the framework builds it: the pause's id and the question. */
+/** The ask as the framework builds it: the pause's id and what it asks. */
 export interface ChannelSenderAsk {
   readonly pauseId: string;
-  readonly value: unknown;
+  /** What it asks (the tool call's arguments, or the external task's input), `sensitive` fields masked. */
+  readonly input: unknown;
+  /** The tool call an approval waits on. */
+  readonly toolCall?: PauseToolCallSummary;
 }
 
-/** The ask a channel is sent: the pause's id and question — and, on a reassigned send, who it is for and what it replaces (#946). */
+/** The ask a channel is sent: the pause's id and question, its deadline, who it is for, its chain of custody — and, on a reassigned send, what it replaces (#946). */
 export interface ChannelSenderSend extends ChannelSenderAsk {
-  readonly assignee?: string;
+  readonly expiresAt?: Date;
+  readonly assignees?: readonly string[];
+  readonly trail: readonly PauseTrailEntry[];
   readonly replaces?: { readonly pauseId: string };
 }
 
@@ -33,7 +38,7 @@ export interface ChannelSenderSend extends ChannelSenderAsk {
 export interface ChannelSenderClosed extends ChannelSenderAsk, PauseDeliveredEvent {
   readonly reason: PauseClosedReason;
   readonly closedAt: string;
-  readonly answeredBy?: string;
+  readonly actor?: PauseActor;
   readonly answer?: unknown;
 }
 
@@ -41,7 +46,7 @@ export interface ChannelSenderClosed extends ChannelSenderAsk, PauseDeliveredEve
 export interface ChannelSenderNotTaken extends ChannelSenderAsk, PauseDeliveredEvent {
   readonly reason: PauseClosedReason.Cancelled | PauseClosedReason.TreeEnded;
   readonly at: string;
-  readonly answeredBy?: string;
+  readonly actor?: PauseActor;
   readonly answer: unknown;
 }
 
@@ -54,6 +59,19 @@ export interface ChannelSenderExtended extends ChannelSenderAsk, PauseDeliveredE
 /** A reminder as the framework builds it (#942). */
 export interface ChannelSenderExpiring extends ChannelSenderAsk, PauseDeliveredEvent {
   readonly expiresAt: string;
+}
+
+/** An in-place reassignment as the framework builds it (#1307d). */
+export interface ChannelSenderReassigned extends ChannelSenderAsk, PauseDeliveredEvent {
+  readonly previousTarget: string;
+  readonly previousChannel: string;
+  readonly channel: string;
+  readonly assignees?: readonly string[];
+  readonly previousAssignees?: readonly string[];
+  readonly externalRef?: string;
+  readonly expiresAt?: string;
+  readonly previousExpiresAt?: string;
+  readonly reason?: string;
 }
 
 /** A failed join as the framework builds it (#945). */

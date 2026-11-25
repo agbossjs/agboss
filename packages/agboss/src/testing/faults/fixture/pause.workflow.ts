@@ -3,13 +3,13 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pauseKeyOf,
   type DecideExpiration,
+  ExternalTask,
 } from "../../../index.js";
 import { Channel } from "../../../components/decorators.js";
-import { ChannelOf } from "../../../channels/channel-handler.js";
+import { ChannelSelector } from "../../../channels/channel-selector.js";
+import { pauseKeyOf } from "../../../infrastructure/pause-record.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../channels/channel-role.decorator.js";
 import type { Class } from "../../../components/injection.js";
 import { NodeKind, type PathSource } from "../../../flow/ast.js";
 import { fromSource, type PathBuilder } from "../../../flow/path-builder.js";
@@ -20,15 +20,12 @@ import {
   FaultAskAction,
 } from "./approval.workflow.js";
 import { FaultChargeAction, FaultReserveAction } from "./order.actions.js";
-import {
-  FaultChargeDto,
-  FaultOrderDto,
-  FaultPaymentDto,
-  FaultReservationDto,
-} from "./order.dto.js";
+import { FaultOrderDto, FaultPaymentDto } from "./order.dto.js";
 import { FaultPayAction } from "./pay.action.js";
 import { FaultPodLink } from "./pod-link.js";
-import { seconds } from "../../../units/index.js";
+import { seconds, days } from "../../../units/index.js";
+import { PauseRespondent } from "../../../pause/respondent.js";
+import { Ttl } from "../../../index.js";
 
 /**
  * The fault fixture's paused order (#959): reserve (undoable), a question the order's thread owner
@@ -37,17 +34,41 @@ import { seconds } from "../../../units/index.js";
  * A2A only): the scenarios kill a pod around its pause.
  */
 
-const start = (source: Class): PathBuilder<PathSource> =>
+const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
-@ChannelRole({
-  name: "fault-pause-question",
+@ExternalTask({
+  name: "fault-pause-external-task",
   description: "Asks the order's thread owner to approve it",
-  ask: FaultApprovalAskDto,
-  answer: FaultApprovalDto,
-  answerer: PauseAnswerer.ThreadOwner,
+  input: FaultApprovalAskDto,
+  output: FaultApprovalDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
 })
-export abstract class FaultPauseQuestion extends ChannelOf<FaultPauseQuestion> {}
+export class FaultPauseExternalTask {}
+
+/** What a send of the fault channels is given. */
+interface FaultSend {
+  readonly pauseId: string;
+  readonly assignees?: readonly string[];
+  readonly replaces?: { readonly pauseId: string };
+}
+
+/** Tells the test the send, and waits for the reply. */
+function toldSend(
+  link: FaultPodLink,
+  ask: FaultSend,
+): Promise<ChannelOutcome<FaultPauseExternalTask>> {
+  link.emit("pause-sent", {
+    pauseKey: pauseKeyOf("default", ask.pauseId),
+    pauseId: ask.pauseId,
+    ...(ask.assignees?.[0] === undefined ? {} : { assignee: ask.assignees[0] }),
+    ...(ask.replaces === undefined
+      ? {}
+      : { replacesKey: pauseKeyOf("default", ask.replaces.pauseId) }),
+  });
+  return Promise.resolve(ChannelOutcome.awaitReply());
+}
 
 /**
  * Nobody is sent anything: the question waits for its `app.resume`. Each send is told to the test
@@ -58,26 +79,46 @@ export abstract class FaultPauseQuestion extends ChannelOf<FaultPauseQuestion> {
   name: "fault-pause-channel",
   description: "Waits for the order's answer",
   deps: [FaultPodLink],
+  target: FaultPauseExternalTask,
+  ttl: days(1),
 })
-export class FaultPauseChannel extends FaultPauseQuestion {
-  constructor(private readonly faultPodLink: FaultPodLink) {
-    super();
-  }
+export class FaultPauseChannel {
+  constructor(private readonly faultPodLink: FaultPodLink) {}
 
-  send(ask: {
-    readonly pauseId: string;
-    readonly assignee?: string;
-    readonly replaces?: { readonly pauseId: string };
-  }): Promise<ChannelOutcome<FaultPauseQuestion>> {
-    this.faultPodLink.emit("pause-sent", {
-      pauseKey: pauseKeyOf("default", ask.pauseId),
-      pauseId: ask.pauseId,
-      ...(ask.assignee === undefined ? {} : { assignee: ask.assignee }),
-      ...(ask.replaces === undefined
-        ? {}
-        : { replacesKey: pauseKeyOf("default", ask.replaces.pauseId) }),
-    });
-    return Promise.resolve(ChannelOutcome.awaitReply());
+  send(ask: FaultSend): Promise<ChannelOutcome<FaultPauseExternalTask>> {
+    return toldSend(this.faultPodLink, ask);
+  }
+}
+
+/** Two channels serve the question's target: the first asks the owner, unless a reassignment names the other. */
+@ChannelSelector({
+  name: "fault-pause-selector",
+  description: "Asks the order's question through the owner's channel",
+  target: FaultPauseExternalTask,
+})
+export class FaultPauseSelector {
+  selectChannel(): Class {
+    return FaultPauseChannel;
+  }
+}
+
+/**
+ * The second channel of the same target: a reassignment that names it moves the question to it (a
+ * replacement, #946), where one that only names another assignee changes the pause in place — so a
+ * replacement exists for a pod to be killed before it is sent.
+ */
+@Channel({
+  name: "fault-pause-deputy-channel",
+  description: "Waits for the deputy's answer",
+  deps: [FaultPodLink],
+  target: FaultPauseExternalTask,
+  ttl: days(1),
+})
+export class FaultPauseDeputyChannel {
+  constructor(private readonly faultPodLink: FaultPodLink) {}
+
+  send(ask: FaultSend): Promise<ChannelOutcome<FaultPauseExternalTask>> {
+    return toldSend(this.faultPodLink, ask);
   }
 }
 
@@ -98,20 +139,15 @@ export class FaultPauseWorkflowFinish {}
 @Workflow({
   name: "fault-pause-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FaultPauseWorkflowStart)
-      .returns(FaultOrderDto)
+    onStart(FaultPauseWorkflowStart)
       .toAction(FaultReserveAction)
-      .returns(FaultReservationDto)
       .toAction(FaultAskAction)
-      .returns(FaultApprovalAskDto)
-      .toQuestion(FaultPauseQuestion)
-      .returns(FaultApprovalDto)
+      .toExternalTask(FaultPauseExternalTask)
       .toAction(FaultApprovedAction)
       .toAction(FaultChargeAction)
-      .returns(FaultChargeDto)
       .toAction(FaultPayAction)
-      .returns(FaultPaymentDto)
       .toFinish(FaultPauseWorkflowFinish),
   ],
 })
@@ -120,38 +156,39 @@ export class FaultPauseWorkflow {}
 /** How long the expiring question waits, in the fault clock's time (3 s of real time at scale 10). */
 export const FAULT_EXPIRES_IN = seconds(30);
 
-@ChannelRole({
-  name: "fault-expiring-question",
+@ExternalTask({
+  name: "fault-expiring-external-task",
   description: "Asks the order's thread owner to approve it within 30 seconds",
-  ask: FaultApprovalAskDto,
-  answer: FaultApprovalDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  expiresIn: FAULT_EXPIRES_IN,
-})
-export abstract class FaultExpiringQuestion extends ChannelOf<FaultExpiringQuestion> {}
-
-/**
- * Nobody is sent anything; when nobody answers in time the channel approves the order itself and
- * tells the test each time its decision was asked (a handler a crash lets run twice, #941 I5).
- */
-@Channel({
-  name: "fault-expiring-channel",
-  description: "Approves the order itself when nobody answers",
+  input: FaultApprovalAskDto,
+  output: FaultApprovalDto,
+  respondent: PauseRespondent.Owner,
+  timeout: FAULT_EXPIRES_IN,
   deps: [FaultPodLink],
 })
-export class FaultExpiringChannel extends FaultExpiringQuestion {
-  constructor(private readonly faultPodLink: FaultPodLink) {
-    super();
-  }
+export class FaultExpiringExternalTask {
+  constructor(private readonly faultPodLink: FaultPodLink) {}
 
-  send(): Promise<ChannelOutcome<FaultExpiringQuestion>> {
-    return Promise.resolve(ChannelOutcome.awaitReply());
-  }
-
-  // untyped here: the package's own fixtures have no generated tables (the role's answer is a type of them)
-  onPauseExpired(ask: { readonly pauseId: string }): DecideExpiration<{ approved: boolean }> {
-    this.faultPodLink.emit("pause-expiry-asked", { pauseKey: pauseKeyOf("default", ask.pauseId) });
+  /**
+   * When nobody answers in time the target approves the order itself and tells the test each time
+   * its decision was asked (a handler a crash lets run twice, #941 I5). Untyped here: the package's
+   * own fixtures have no generated tables (the target's answer is a type of them).
+   */
+  onExpired(ctx: { readonly pauseKey: string }): DecideExpiration<{ approved: boolean }> {
+    this.faultPodLink.emit("pause-expiry-asked", { pauseKey: ctx.pauseKey });
     return PauseExpiration.decide({ approved: true });
+  }
+}
+
+/** Nobody is sent anything: the order waits for its thread owner or for the expiry. */
+@Channel({
+  name: "fault-expiring-channel",
+  description: "Sends nothing: the order waits for its owner",
+  target: FaultExpiringExternalTask,
+  ttl: days(1),
+})
+export class FaultExpiringChannel {
+  send(): Promise<ChannelOutcome<FaultExpiringExternalTask>> {
+    return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
@@ -172,20 +209,15 @@ export class FaultExpiringWorkflowFinish {}
 @Workflow({
   name: "fault-expiring-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FaultExpiringWorkflowStart)
-      .returns(FaultOrderDto)
+    onStart(FaultExpiringWorkflowStart)
       .toAction(FaultReserveAction)
-      .returns(FaultReservationDto)
       .toAction(FaultAskAction)
-      .returns(FaultApprovalAskDto)
-      .toQuestion(FaultExpiringQuestion)
-      .returns(FaultApprovalDto)
+      .toExternalTask(FaultExpiringExternalTask)
       .toAction(FaultApprovedAction)
       .toAction(FaultChargeAction)
-      .returns(FaultChargeDto)
       .toAction(FaultPayAction)
-      .returns(FaultPaymentDto)
       .toFinish(FaultExpiringWorkflowFinish),
   ],
 })

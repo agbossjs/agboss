@@ -5,13 +5,13 @@ import { declarationOf, type ComponentDeclaration } from "../decorators/declarat
 import { ComponentRegistry, type ComponentName } from "../registry.js";
 import type { FlowNode } from "./flow-graph.js";
 import { classLabel, toCallOf } from "./labels.js";
-import { isThisWorkflow } from "../this-workflow.js";
 
 /**
  * The nodes of one workflow's graph, by `name` (#272: one class = one node). A class is looked up
  * where the flow mentions it; an undecorated class, a class of another kind than the transition
- * names, and a second class under a taken `name` are reported once each. `ThisWorkflow` (#264) is
- * the node `this-workflow` standing for `self`, the workflow whose flow is walked.
+ * names, and a second class under a taken `name` are reported once each. `self`, the workflow whose
+ * flow is walked, may name its own class (`toWorkflow(() => Self)`, #1287): a node of its own name
+ * that launches the workflow again, marked `recursionOf`.
  */
 export class NodeTable {
   private readonly registry = new ComponentRegistry();
@@ -48,13 +48,12 @@ export class NodeTable {
     return name;
   }
 
-  /** The node of a class: `ThisWorkflow` carries the walked workflow's declaration (#264). */
+  /** The node of a class; the walked workflow's own class is a recursion (#264, #1287). */
   private nodeOf(component: Class, kind: NodeKind, declaration: ComponentDeclaration): FlowNode {
     const name = declaration.options.name as ComponentName;
-    const self = this.self === undefined ? undefined : declarationOf(this.self);
-    if (!isThisWorkflow(component) || this.self === undefined || self === undefined)
-      return { name, kind, component, declaration };
-    return { name, kind, component, declaration: self, recursionOf: this.self };
+    return component === this.self
+      ? { name, kind, component, declaration, recursionOf: component }
+      : { name, kind, component, declaration };
   }
 
   /** The nodes, sorted by name. */
@@ -79,7 +78,8 @@ export class NodeTable {
 const undefinedNode = (kind: NodeKind): string =>
   `${toCallOf(kind)}(…) names a class that is undefined while the flow is built — usually a ` +
   "circular import, as in mutual recursion (A → B → A), which is not supported: a workflow " +
-  "launches itself with ThisWorkflow, and one workflow never launches another that launches it";
+  "launches itself with toWorkflow(() => ItsOwnClass), and one workflow never launches another " +
+  "that launches it";
 
 const notANode = (component: Class, kind: NodeKind): string =>
   `${toCallOf(kind)}(${classLabel(component)}): ${classLabel(component)} has no ` +

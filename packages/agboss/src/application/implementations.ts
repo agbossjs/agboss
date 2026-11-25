@@ -8,6 +8,7 @@ import {
   optsOutOfLeaseCheck,
   storeDescriptorOf,
 } from "../infrastructure/execution-lease.repository.js";
+import { idStoreClassOf } from "./id-store-class.js";
 import { A2ATaskRepository } from "../infrastructure/a2a-task.repository.js";
 import { FencedEffectRepository } from "../infrastructure/fenced-effect.repository.js";
 import { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
@@ -34,6 +35,8 @@ export enum ImplementationReason {
   Listed = "listed",
   /** None listed: the built-in default. */
   Default = "default",
+  /** A store the application's `@DatabaseStorage` / `@ClusterStorage` driver provides. */
+  Storage = "storage",
 }
 
 /** One contract and the class that implements it. */
@@ -47,24 +50,37 @@ export interface ImplementationChoice {
 const listedClasses = (providers: readonly Provider[]): readonly Class[] =>
   providers.filter((provider): provider is Class => typeof provider === "function");
 
-/** Each contract with its implementation, in the order of the built-in defaults. */
-export function implementationsOf(providers: readonly Provider[]): readonly ImplementationChoice[] {
+/**
+ * Each contract with its implementation, in the order of the built-in defaults. `fromStorage` names
+ * the classes the application's storage drivers provide: they are in `providers` too, but no one listed
+ * them there.
+ */
+export function implementationsOf(
+  providers: readonly Provider[],
+  fromStorage: ReadonlySet<Class> = new Set(),
+): readonly ImplementationChoice[] {
   const listed = listedClasses(providers);
   return [...INFRASTRUCTURE_DEFAULTS].map(([contract, fallback]) => {
     const found = listed.find((cls) => infrastructureContractOf(cls) === contract);
-    return found === undefined
-      ? { contract, implementation: fallback, reason: ImplementationReason.Default }
-      : { contract, implementation: found, reason: ImplementationReason.Listed };
+    if (found === undefined)
+      return { contract, implementation: fallback, reason: ImplementationReason.Default };
+    const reason = fromStorage.has(found)
+      ? ImplementationReason.Storage
+      : ImplementationReason.Listed;
+    return { contract, implementation: found, reason };
   });
 }
 
+/** Why a choice is the one used, as `describe` words it. */
+const REASON_TEXT: Readonly<Record<ImplementationReason, string>> = {
+  [ImplementationReason.Listed]: "listed in @Application providers",
+  [ImplementationReason.Default]: "built-in default: none listed",
+  [ImplementationReason.Storage]: "provided by the storage's driver",
+};
+
 /** `CostLedgerRepository → SqliteCostLedgerRepository (listed in @Application providers)`. */
 export const implementationLine = (choice: ImplementationChoice): string =>
-  `${tokenName(choice.contract)} → ${tokenName(choice.implementation)} (${
-    choice.reason === ImplementationReason.Listed
-      ? "listed in @Application providers"
-      : "built-in default: none listed"
-  })`;
+  `${tokenName(choice.contract)} → ${tokenName(choice.implementation)} (${REASON_TEXT[choice.reason]})`;
 
 /**
  * The built-in in-memory classes (and LangGraph's `MemorySaver` listed as it is): lost on restart,
@@ -212,7 +228,7 @@ function pairViolations(
  * stores, two listed stores of a fencing contract, and each listed fencing store — unless it opts
  * out with `LeaseCheck.WithoutDoubleChargeProtection` (the start warns) — beside the application's
  * lease store (listed, else the in-memory default). An unlisted default fencing store is checked at
- * its first call (`FencedEffectStoreMismatchError`).
+ * its first call (`IdempotencyError.StoreMismatch`).
  */
 export function storeBackendViolations(
   application: string,
@@ -229,7 +245,7 @@ export function storeBackendViolations(
       "A2A task stores (A2ATaskRepository)",
     ),
   );
-  const leases = leaseStoreOf(providers);
+  const leases = fencedLeaseStoreOf(providers);
   for (const fencing of FENCING_CONTRACTS) {
     const stores = listedOf(classes, fencing.contract);
     const what = `${fencing.kind.slice(fencing.kind.indexOf(" ") + 1)}s (${fencing.contract.name})`;
@@ -240,6 +256,15 @@ export function storeBackendViolations(
   }
   return found;
 }
+
+/**
+ * The lease store the fencing stores check their writes against (#526, #1321e, D6): the durable
+ * lease store bound to `EXECUTION_ID_STORE` — what a `@ClusterStorage` application has: the cluster
+ * decides who holds the lease, but the database's row (the lease mirrored into it first, the marks
+ * and the fence on it) is what a fenced write is checked by — else the listed lease store.
+ */
+export const fencedLeaseStoreOf = (providers: readonly Provider[]): Class | undefined =>
+  idStoreClassOf(providers) ?? leaseStoreOf(providers);
 
 /** The listed classes that are `contract` or extend it. */
 const listedOf = (classes: readonly Class[], contract: Class): readonly Class[] =>

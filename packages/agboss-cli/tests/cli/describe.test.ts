@@ -79,20 +79,26 @@ describe("#489 AC2: #268 AC4 agboss describe on flow-patterns' desk application"
               { name: "decisions-model-provider", className: "DecisionsModelProvider" },
             ].map((provider) => expect.objectContaining(provider) as unknown),
           ),
-          channels: [
+          channels: expect.arrayContaining([
             expect.objectContaining({
-              name: "purchase-approval-channel",
+              name: "purchase-tool-approval",
               question: "PurchaseOrder",
               answer: "ToolCallApprovalDecisionDto",
               implementation: "TerminalPurchaseApprovalChannel",
               tools: ["place-purchase-tool (offsite-booking-workflow)"],
             }),
             expect.objectContaining({
-              name: "recruiter-approval-channel",
+              name: "recruiter-tool-approval",
               implementation: "RecruiterInboxChannel",
               tools: ["send-offer-letter-tool (send-offer-workflow)"],
             }),
-          ],
+            // an external task asks through its channel too: the pause's target names who answers
+            expect.objectContaining({
+              name: "legal-sign-off-external-task",
+              implementation: "LegalInboxChannel",
+              askedBy: ["legal-sign-off-external-task (contract-committee-workflow)"],
+            }),
+          ]),
         },
       },
     });
@@ -107,12 +113,11 @@ describe("#268 AC4: agboss describe on flow-patterns — what the public surface
     expect(call.code).toBe(0);
     expect(lines).toEqual(
       expect.arrayContaining([
-        "  start(OfferWorkflowStart)",
-        "  agent(ReviewerAgent)",
-        "  reviewer-agent ← draft: draft-agent | editor-agent (latest, historyOf, limit 1)",
-        "    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))",
-        "      caseOf(ChangesRequestedDto, { about: OfferDraftDto })",
-        "  reviewer-agent → ChangesRequestedDto { about: OfferDraftDto }",
+        "  onStart(OfferWorkflowStart)",
+        "  onAgent(ReviewerAgent)",
+        "  reviewer-agent ← draft: draft-agent | editor-agent (latest, historyOf, maxPrevious 1)",
+        "",
+        "    .toOneOf([",
         "  desk-router  decisions typesafe/jev-1.13 (own) · maxVisits 1 — Sends an order to the intake, ends on anything else",
         "  credit-limit-router  code — Sends large orders for approval, charges the rest",
       ]),
@@ -175,10 +180,11 @@ describe("#268 S93: agboss describe --json is the declarative snapshot the recor
               expect.objectContaining({
                 launcher: "panel-workflow-start",
                 quorum: { kind: "count", min: 2, max: 3, deadline: 30_000 },
-                acceptedBy: [
-                  [{ name: "in-range-arbiter", kind: "arbiter", decidedBy: "code" }],
-                  [expect.objectContaining({ decidedBy: "model", promptHash: HASH })],
-                ],
+                arbitratedBy: {
+                  name: "panel-score-arbiter",
+                  kind: "arbiter",
+                  decidedBy: "code",
+                },
               }),
             ],
           }),

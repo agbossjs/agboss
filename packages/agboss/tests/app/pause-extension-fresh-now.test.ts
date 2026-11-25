@@ -12,7 +12,7 @@ import {
   WorkingCalendar,
   WorkingWeek,
   type WorkingCalendarHandler,
-  type WorkingTimeRequest,
+  type WorkingCalendarContext,
 } from "../../src/index.js";
 import { PauseStatus } from "../../src/index.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
@@ -28,7 +28,7 @@ import { TEL_AVIV } from "../calendar/helpers.js";
 import { milliseconds } from "../calendar/units.js";
 
 const ORDER = { orderId: "o-1" };
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 const DEADLINE = "2026-11-22T08:30:00.000Z";
 
 /** The calendar's slowness: how long the next call takes on the virtual clock (once). */
@@ -39,7 +39,7 @@ const slow = {
 
 @WorkingCalendar({ name: "slow-working-calendar" })
 class SlowCalendar implements WorkingCalendarHandler {
-  async addWorkingTime(request: WorkingTimeRequest): Promise<Date> {
+  async addWorkingTime(request: WorkingCalendarContext): Promise<Date> {
     const takes = slow.takes;
     slow.takes = undefined;
     if (takes !== undefined) await slow.clock?.advance(takes);
@@ -47,7 +47,7 @@ class SlowCalendar implements WorkingCalendarHandler {
   }
 }
 
-/** The channel's `onPauseExpired`: counted, then held until the test lets it go. */
+/** The target onExpired: counted, then held until the test lets it go. */
 const expiry = { entered: 0, gate: Promise.resolve() };
 
 const desk = workingApp("fresh-now-desk", {

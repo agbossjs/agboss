@@ -1,11 +1,16 @@
-import type { PauseChannel } from "../flow/runtime/pause.js";
 import type { Class } from "../components/injection.js";
 import { stopComponents } from "../components/container/lifecycle.js";
 import { ExecutionObserverManager } from "../core/observer-manager.js";
 import { executionIdsOf, type Clock } from "../infrastructure/clock.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import { frameworkLogOf, type FrameworkLog, type Logger } from "../infrastructure/logger.js";
-import type { McpConnections } from "../tools/index.js";
+import {
+  connectMcpServers,
+  type McpConnections,
+  type McpIdentity,
+  type TransportFactory,
+} from "../tools/index.js";
+import type { McpConnect } from "./app-deps.js";
 import type { ExecutionTracing } from "../tracing/index.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { GraphDeps } from "../graph/deps.js";
@@ -24,22 +29,6 @@ import type { ExecutionAuditLogRepository } from "../infrastructure/execution-au
 import type { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
 import type { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
 import type { PiiRuntime } from "../pii/runtime.js";
-
-/**
- * The workflow's channel of a name (#267). The channels are created here, with the app (so their
- * lifecycle hooks run and a missing dependency fails at start).
- */
-export const channelLookup = (
-  bundle: AssembledWorkflow,
-  services: WorkflowServices,
-): ((channelName: string) => PauseChannel) => {
-  const channels = bundle.channels?.(services);
-  return (channelName: string): PauseChannel => {
-    const channel = channels?.get(channelName);
-    if (!channel) throw new Error(`Unknown channel: ${channelName}`);
-    return channel;
-  };
-};
 
 /** The container's instances: lookup by class. */
 export interface ContainerDeps {
@@ -79,7 +68,7 @@ export const releaseOf =
     try {
       await mcp.close();
     } finally {
-      await tracing?.shutdown();
+      await tracing?.close();
     }
   };
 
@@ -228,3 +217,23 @@ export const historyKeeperOf = (
           outboundCalls: sources.infrastructure.outboundCalls,
         },
       };
+
+/** What an MCP server's handshake says: the application's name and version. */
+export const mcpIdentityOf = (contexts: RuntimeContexts): McpIdentity => ({
+  name: contexts.application.name,
+  version: contexts.application.version,
+  application: contexts.application,
+});
+
+/** How the MCP servers of a workflow get connected by default: their configured transports. */
+export const connectConfigured =
+  (transport: TransportFactory | undefined): McpConnect =>
+  (bundle, _config, env, identity) =>
+    connectMcpServers(
+      bundle.mcpServerConfigs,
+      bundle.mcpServers,
+      bundle.serverTools ?? [],
+      env,
+      transport,
+      identity,
+    );

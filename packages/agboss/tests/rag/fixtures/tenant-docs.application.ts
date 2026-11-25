@@ -1,25 +1,26 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Agent, EmptyEnvironment, InjectionToken, provide, Workflow } from "../../../src/index.js";
+import { Agent, EmptyEnvironment, Tool, Workflow, inline, Ttl } from "../../../src/index.js";
 import { WorkflowFinish, WorkflowStart } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
   Rag,
-  RagTenancy,
-  RagMode,
-  SqliteFtsConnector,
-  type SqliteFtsOptions,
+  RagQueryDto,
+  RagScope,
+  RagSearchResultsDto,
+  SqliteFtsRagSource,
 } from "../../../src/rag/index.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
+import { LocalModelProvider } from "../../models/providers.fixture.js";
 
 /**
  * #700 AC1 — two tenants, each its own folder of documents on one SQLite FTS index: tenant B's
- * vault code is in B's folder only. One agent searches (tool mode), one is given the results first
- * (context mode).
+ * vault code is in B's folder only. One agent searches (through a `@Tool` that injects the knowledge base), one is given the results first
+ * (`rag: [...]`).
  */
 
 const root = mkdtempSync(join(tmpdir(), "rag-tenants-"));
@@ -32,32 +33,52 @@ mkdirSync(join(root, "b"));
 writeFileSync(join(root, "a", "hours.md"), "# Hours\n\nThe office opens at nine every morning.");
 writeFileSync(join(root, "b", "vault.md"), "# Vault\n\nThe vault code is plum seventeen.");
 
-export const TENANT_DOCS = new InjectionToken<SqliteFtsOptions>("TENANT_DOCS");
-
 @Rag({
   name: "tenant-docs-rag",
   description: "The tenant's own documents",
-  tenancy: RagTenancy.PerTenant,
+  scope: RagScope.Tenant,
   topK: 3,
-  deps: [TENANT_DOCS],
 })
-export class TenantDocsRag extends SqliteFtsConnector {}
+export class TenantDocsRag extends SqliteFtsRagSource {
+  constructor() {
+    super({
+      directory: ({ tenantId }) => (tenantId === undefined ? undefined : FOLDERS.get(tenantId)),
+      path: join(root, "index", "docs.sqlite"),
+    });
+  }
+}
+
+@Tool({
+  name: "search-tenant-docs",
+  description: "Searches the tenant's documents",
+  input: RagQueryDto,
+  output: RagSearchResultsDto,
+  readOnly: true,
+  deps: [TenantDocsRag],
+})
+export class SearchTenantDocsTool {
+  constructor(private readonly docs: TenantDocsRag) {}
+
+  execute({ query }: RagQueryDto): Promise<RagSearchResultsDto> {
+    return this.docs.search(query);
+  }
+}
 
 @Agent({
   name: "searching-agent",
   description: "Searches the tenant's documents",
-  prompt: "Answer from the documents.",
+  prompt: inline("Answer from the documents."),
   model: "local/llama",
-  rag: [{ use: TenantDocsRag, mode: RagMode.Tool }],
+  tools: [SearchTenantDocsTool],
 })
 export class SearchingAgent {}
 
 @Agent({
   name: "reading-agent",
   description: "Reads the tenant's documents given first",
-  prompt: "Answer from the documents.",
+  prompt: inline("Answer from the documents."),
   model: "local/llama",
-  rag: [{ use: TenantDocsRag, mode: RagMode.Context }],
+  rag: [TenantDocsRag],
 })
 export class ReadingAgent {}
 
@@ -90,19 +111,13 @@ export class SearchFinish {}
 export class ReadFinish {}
 
 const DEFAULTS = { models: { temperature: 0 }, router: { model: "typesafe/jev-1.13" } } as const;
-const PROVIDERS = [
-  provide(TENANT_DOCS, {
-    folder: (tenantId: string) => FOLDERS.get(tenantId),
-    sqlitePath: join(root, "index", "docs.sqlite"),
-  }),
-];
+const PROVIDERS = [TenantDocsRag, SearchTenantDocsTool];
 
 @Workflow({
   name: "search-workflow",
   version: "1.0.0",
-  flow: [
-    start(SearchStart).returns(WorkflowStartTextDto).toAgent(SearchingAgent).toFinish(SearchFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(SearchStart).toAgent(SearchingAgent).toFinish(SearchFinish)],
   defaults: DEFAULTS,
   providers: PROVIDERS,
 })
@@ -111,7 +126,8 @@ export class SearchWorkflow {}
 @Workflow({
   name: "read-workflow",
   version: "1.0.0",
-  flow: [start(ReadStart).returns(WorkflowStartTextDto).toAgent(ReadingAgent).toFinish(ReadFinish)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ReadStart).toAgent(ReadingAgent).toFinish(ReadFinish)],
   defaults: DEFAULTS,
   providers: PROVIDERS,
 })
@@ -119,6 +135,7 @@ export class ReadWorkflow {}
 
 @Application({
   name: "tenant-docs-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SearchWorkflow, ReadWorkflow],

@@ -1,20 +1,14 @@
 import { describe, expect, it } from "vitest";
 import * as a2a from "../../src/a2a/index.js";
-import * as channels from "../../src/channels/index.js";
-import * as core from "../../src/core/index.js";
 import * as dto from "../../src/dto/index.js";
 import * as evals from "../../src/eval/index.js";
-import * as graph from "../../src/graph/index.js";
 import * as root from "../../src/index.js";
 import * as internal from "../../src/internal.js";
 import * as mcp from "../../src/mcp/index.js";
-import * as memory from "../../src/memory/index.js";
 import * as models from "../../src/models/index.js";
 import * as rag from "../../src/rag/index.js";
-import * as router from "../../src/router/index.js";
 import * as stores from "../../src/stores/index.js";
 import * as testing from "../../src/testing/index.js";
-import * as tool from "../../src/tool/index.js";
 import * as testingVitest from "../../src/testing/vitest.js";
 import * as units from "../../src/units/index.js";
 
@@ -29,15 +23,9 @@ const ENTRIES: Readonly<Record<string, object>> = {
   "./mcp": mcp,
   "./rag": rag,
   "./a2a": a2a,
-  "./memory": memory,
   "./eval": evals,
   "./stores": stores,
   "./internal": internal,
-  "./core": core,
-  "./graph": graph,
-  "./router": router,
-  "./tool": tool,
-  "./channels": channels,
 };
 
 /** The flow DSL before #272 (AC8): none of these is a name of any entry any more. */
@@ -101,39 +89,37 @@ describe("#272 AC8: the path grammar replaces the old flow DSL in every entry", 
       "WorkflowFinish",
       "WorkflowSettings",
       "WorkflowStart",
-      "action",
-      "agent",
-      "caseOf",
-      "isVariant",
+      "onAction",
+      "onAgent",
       "listOf",
       "oneOf",
       "optional",
-      "route",
-      "router",
-      "start",
+      "onRouter",
+      "onStart",
       "toAction",
       "toAgent",
       "toFinish",
       "toRouter",
-      "variant",
     ];
 
     expect(Object.keys(root)).toEqual(expect.arrayContaining(expected));
   });
 
-  it("agboss/dto exports the wrappers too, the same values as the root", () => {
-    for (const name of ["listOf", "oneOf", "optional", "variant", "isVariant"] as const) {
-      expect(dto[name]).toBe(root[name]);
+  it("agboss/dto no longer re-exports the wrappers: the root entry is their one import path (#1288)", () => {
+    for (const name of ["listOf", "oneOf", "optional", "historyOf"]) {
+      expect(name in dto).toBe(false);
+      expect(name in root).toBe(true);
     }
   });
 
-  it("agboss/graph is deprecated (#195): what it still has are the root's values", () => {
-    for (const [name, value] of Object.entries(graph)) {
-      expect(root[name as keyof typeof root]).toBe(value);
+  it("variant and isVariant are gone from every entry (F1, #1288)", () => {
+    for (const name of ["variant", "isVariant"]) {
+      expect(name in dto).toBe(false);
+      expect(name in root).toBe(false);
     }
   });
 
-  it("agboss/eval (#396) exports the suite's decorator and builders and the artifact's values, nothing that runs", () => {
+  it("agboss/eval (#396) exports the suite's decorator and builders, the artifact's values, and the two calls that run a suite (#1328): nothing runs at import", () => {
     expect(Object.keys(evals).sort()).toEqual(
       [
         "CaseComparison",
@@ -142,11 +128,14 @@ describe("#272 AC8: the path grammar replaces the old flow DSL in every entry", 
         "EVAL_RUN_KIND",
         "EVAL_RUN_SCHEMA_VERSION",
         "EvalCascade",
+        "EvalCheckKind",
         "EvalSuite",
-        "checkTrajectory",
+        "answerPause",
+        "compareEvalSuite",
         "evalCase",
-        "judgedBy",
         "pastTurn",
+        "replyToPause",
+        "runEvalSuite",
         "toolCall",
         "toolInvariant",
         "turn",
@@ -157,14 +146,26 @@ describe("#272 AC8: the path grammar replaces the old flow DSL in every entry", 
   it("export the unit helpers", () => {
     expect(Object.keys(units).sort()).toEqual(
       [
-        "UnitError",
+        "Ttl",
+        "bytes",
+        "days",
+        "gb",
         "hours",
         "isWorkingDuration",
+        "kb",
         "kilobytes",
+        "mb",
         "megabytes",
+        "min",
         "minutes",
+        "ms",
+        "sec",
         "seconds",
+        "tb",
         "usd",
+        "workDays",
+        "workHours",
+        "workMin",
         "workingHours",
         "workingMinutes",
       ].sort(),

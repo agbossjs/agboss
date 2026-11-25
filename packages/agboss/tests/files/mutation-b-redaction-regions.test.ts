@@ -3,7 +3,11 @@
  * a regions list, which numbers are a fraction of the image, and the structural message of each refusal.
  */
 import { describe, expect, it } from "vitest";
-import { regionsOf, RegionsAnswerError } from "../../src/files/redaction-regions.js";
+import {
+  regionsOf,
+  RegionsAnswerError,
+  UNKNOWN_TARGET,
+} from "../../src/files/redaction-regions.js";
 
 const KNOWN = new Set(["card-number", "value"]);
 const NBSP = String.fromCharCode(0xa0);
@@ -61,13 +65,31 @@ describe("what is a regions list", () => {
     expect(refusal(answerOf(true))).toBe("region 1 of 1 is no object");
   });
 
-  it("a target that is not known, or not a text, is refused, by its place", () => {
-    expect(refusal(answerOf({ ...BOX, target: "email" }))).toBe(
-      "region 1 of 1 names an unknown target",
-    );
-    expect(refusal(answerOf({ ...BOX, target: 5 }))).toBe("region 1 of 1 names an unknown target");
-    expect(refusal(answerOf({ x: 0.1, y: 0.1, w: 0.2, h: 0.2 }))).toBe(
-      "region 1 of 1 names an unknown target",
+  it("#1301: a target that is not known, or not a text, is kept as the unknown target (painted), and counted", () => {
+    const counts: number[] = [];
+    const unknown = { ...BOX, target: UNKNOWN_TARGET };
+
+    expect(
+      regionsOf(answerOf({ ...BOX, target: "email" }), KNOWN, undefined, (n) => counts.push(n)),
+    ).toEqual([unknown]);
+    expect(regionsOf(answerOf({ ...BOX, target: 5 }), KNOWN)).toEqual([unknown]);
+    expect(regionsOf(answerOf({ x: 0.1, y: 0.1, w: 0.2, h: 0.2 }), KNOWN)).toEqual([
+      { x: 0.1, y: 0.1, w: 0.2, h: 0.2, target: UNKNOWN_TARGET },
+    ]);
+    expect(
+      regionsOf(
+        answerOf(BOX, { ...BOX, target: "a" }, { ...BOX, target: "b" }),
+        KNOWN,
+        undefined,
+        (n) => counts.push(n),
+      ),
+    ).toHaveLength(3);
+    expect(counts).toEqual([1, 2]);
+  });
+
+  it("an unknown target with a region out of bounds is still refused: it cannot be painted", () => {
+    expect(refusal(answerOf({ ...BOX, target: "email", w: 0 }))).toBe(
+      "region 1 of 1 is out of bounds",
     );
   });
 });

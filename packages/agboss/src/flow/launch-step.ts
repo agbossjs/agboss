@@ -1,158 +1,58 @@
-import type { Class } from "../components/injection.js";
 import {
-  NodeKind,
   QuorumKind,
   StepKind,
+  type ForEachItemStep,
+  type InParallelStep,
   type JoinStep,
-  type LaunchStep,
-  type LaunchTargetKind,
   type Step,
 } from "./ast.js";
-import { isWrapper, Wrapper } from "./dto-wrappers.js";
-import { placementOptionOf, type ChildPlacement } from "./child-placement.js";
-import { FlowSyntaxError } from "./flow-syntax-error.js";
 
 /**
- * The launch step of the path builder (#273): `.toParallelAgents(A, B, …, { maxConcurrency,
- * maxItems })` — and `.toParallelWorkflows(W, …)`, one child per item (#263) — read from its arguments, and the order a launch imposes on the steps around it — a
- * launch is followed by `.join()`, a join by its `.onJoinError(…)`, `.returns(…)` and one `.to…(…)`.
+ * The order a launch imposes on the steps around it (#273): a launch (`.inParallel([…])`,
+ * `.forEachItem(…)`) is followed by `.join()`, a join by its `.onError(…)` and one `.to…(…)`.
  * The typed builder makes the wrong forms compile errors; these checks hold for untyped code.
  */
 
 export { FlowSyntaxError } from "./flow-syntax-error.js";
 
-/** The call that launches each kind. */
-export const LAUNCH_CALLS: Readonly<Record<LaunchTargetKind, string>> = {
-  [NodeKind.Agent]: "toParallelAgents",
-  [NodeKind.Action]: "toParallelActions",
-  [NodeKind.Workflow]: "toParallelWorkflows",
-};
-
-/** `{ maxConcurrency, maxItems, placement }`, read from the last argument. */
-interface ReadOptions {
-  readonly maxConcurrency?: number;
-  readonly maxItems?: number;
-  readonly placement?: ChildPlacement;
-}
-
-const isPositiveInteger = (value: unknown): value is number =>
-  typeof value === "number" && Number.isInteger(value) && value > 0;
-
-function limitOf(options: object, key: keyof ReadOptions, call: string): number | undefined {
-  const value: unknown = Reflect.get(options, key);
-  if (value === undefined) return undefined;
-  if (!isPositiveInteger(value))
-    throw new FlowSyntaxError({ message: `${call}(…, { ${key} }) takes a positive integer` });
-  return value;
-}
-
-function optionsOf(last: unknown, call: string): ReadOptions {
-  if (typeof last !== "object" || last === null)
-    throw new FlowSyntaxError({
-      message: `${call}(…) takes component classes, then { maxConcurrency, maxItems }`,
-    });
-  const maxConcurrency = limitOf(last, "maxConcurrency", call);
-  const maxItems = limitOf(last, "maxItems", call);
-  const placement = placementOptionOf(last, `${call}(…, { placement })`);
-  return {
-    ...(maxConcurrency === undefined ? {} : { maxConcurrency }),
-    ...(maxItems === undefined ? {} : { maxItems }),
-    ...(placement === undefined ? {} : { placement }),
-  };
-}
-
-/** Whether the step before carries a list: `.returns(listOf(XDto))` right before the launch. */
-const carriesList = (previous: Step | undefined): boolean =>
-  previous?.kind === StepKind.Returns &&
-  isWrapper(previous.value.shape) &&
-  previous.value.shape.kind === Wrapper.List;
-
-/** Where a launch stands: the step before it, and whether that step is a router. */
-export interface LaunchSite {
-  readonly previous: Step | undefined;
-  readonly followsRouter: boolean;
-}
-
-/** A child workflow launch (#263) runs one child per item: one workflow, right after a list. */
-function childLaunchProblem(targets: readonly unknown[], site: LaunchSite): string | undefined {
-  if (targets.length !== 1)
-    return "toParallelWorkflows(W, { maxConcurrency, maxItems }) launches one child workflow class";
-  return carriesList(site.previous)
-    ? undefined
-    : "toParallelWorkflows(W, …) runs one child per item — write .returns(listOf(XDto)) right before it";
-}
-
-/** Why the launch cannot stand where it does: a router launches agents only; a child, per item. */
-function siteProblem(
-  targetKind: LaunchTargetKind,
-  targets: readonly unknown[],
-  site: LaunchSite,
-): string | undefined {
-  if (site.followsRouter && targetKind !== NodeKind.Agent)
-    return `a router launches agents only — .toParallelAgents(…), not ${LAUNCH_CALLS[targetKind]}(…)`;
-  return targetKind === NodeKind.Workflow ? childLaunchProblem(targets, site) : undefined;
-}
-
-/** The launch step of `.toParallelAgents(…)` / `.toParallelActions(…)` / `.toParallelWorkflows(…)`. */
-export function launchStepOf(
-  targetKind: LaunchTargetKind,
-  args: readonly unknown[],
-  site: LaunchSite,
-): LaunchStep {
-  const call = LAUNCH_CALLS[targetKind];
-  const last = args[args.length - 1];
-  const hasOptions = args.length > 0 && typeof last !== "function";
-  const targets = hasOptions ? args.slice(0, -1) : args;
-  if (targets.length === 0 || targets.some((target) => typeof target !== "function"))
-    throw new FlowSyntaxError({ message: `${call}(…) takes one or more component classes` });
-  const problem = siteProblem(targetKind, targets, site);
-  if (problem !== undefined) throw new FlowSyntaxError({ message: problem });
-  const options = hasOptions ? optionsOf(last, call) : {};
-  if (options.placement !== undefined && targetKind !== NodeKind.Workflow)
-    throw new FlowSyntaxError({
-      message: `${call}(…, { placement }): only a child workflow has a placement`,
-    });
-  return Object.freeze({
-    kind: StepKind.Launch,
-    targetKind,
-    targets: Object.freeze([...(targets as readonly Class[])]),
-    perItem: targets.length === 1 && carriesList(site.previous),
-    ...options,
-  });
-}
-
 /**
- * What may follow a join: `.onError(…)` is named, anything but a transition refused; nothing follows
- * `.joinQuorumGroups(…)` — each group continues its own path (#279).
+ * What may follow a join (its `.onError(…)` is the join's own, `PathBuilder.onError`): anything but a transition is refused; nothing follows
+ * `.joinQuorumGroups(…)` — each `.onGroup(…)` continues its own path (#279, #1284).
  */
 function afterJoinProblem(join: JoinStep, next: Step): string | undefined {
   if (join.quorum?.kind === QuorumKind.Groups)
-    return "nothing follows .joinQuorumGroups(…) but .onJoinError(…) — each group continues its own path";
+    return "nothing follows .joinQuorumGroups(…) but its .onError(…) and .onGroup(…)s — each group continues its own path";
   if (next.kind === StepKind.To) return undefined;
-  return next.kind === StepKind.OnError
-    ? ".onError(…) does not follow a join — use .onJoinError(E, …) right after .join()"
-    : "after .join() the path goes on with .onJoinError(…), .returns(…) and one .to…(…)";
+  return "after .join() the path goes on with .onError(…) and one .to…(…)";
 }
 
-/** Why a join cannot follow the launch before it: a launch with arbiters needs a quorum (AC12). */
-function quorumJoinProblem(launch: LaunchStep, isQuorum: boolean): string | undefined {
-  if (!isQuorum)
-    return launch.acceptedBy === undefined
-      ? undefined
-      : ".acceptedBy(…) is followed by .joinQuorum(…) or .joinQuorumGroups(…), not .join()";
-  return launch.targetKind === NodeKind.Agent
-    ? undefined
-    : "a quorum counts agents' answers — .joinQuorum(…) follows .toParallelAgents(…)";
+/** Why a quorum join cannot follow the launch before it: groups need a launch of fixed branches, not one per item. */
+function quorumProblem(launch: InParallelStep | ForEachItemStep, join: JoinStep) {
+  if (join.quorum?.kind === QuorumKind.Groups && launch.kind === StepKind.ForEachItem)
+    return "a .forEachItem(…) launch runs one target per item — .joinQuorum(…) counts its answers; .joinQuorumGroups(…) groups different targets";
+  return undefined;
 }
+
+/** Why a join cannot follow the launch before it: a launch with an arbiter needs a quorum (AC12). */
+function joinProblem(launch: InParallelStep | ForEachItemStep, join: JoinStep): string | undefined {
+  if (join.quorum === undefined)
+    return launch.arbitratedBy === undefined
+      ? undefined
+      : ".arbitratedBy(…) is followed by .joinQuorum(…) or .joinQuorumGroups(…), not .join()";
+  return quorumProblem(launch, join);
+}
+
+/** Whether a step launches branches that a `.join()` follows. */
+export const isLaunching = (step: Step | undefined): step is InParallelStep | ForEachItemStep =>
+  step?.kind === StepKind.InParallel || step?.kind === StepKind.ForEachItem;
 
 /** Why `next` cannot follow `previous` around a launch; undefined when it can. */
 export function launchOrderProblem(previous: Step | undefined, next: Step): string | undefined {
-  const isLaunch = previous?.kind === StepKind.Launch;
+  const isLaunch = isLaunching(previous);
   if (isLaunch !== (next.kind === StepKind.Join))
     return isLaunch
       ? "a parallel launch is followed by .join()"
-      : ".join() follows a parallel launch: .toParallelAgents(…), .toParallelActions(…) or .toParallelWorkflows(…)";
-  if (previous?.kind === StepKind.Launch && next.kind === StepKind.Join)
-    return quorumJoinProblem(previous, next.quorum !== undefined);
+      : ".join() follows a parallel launch: .inParallel([…]) or .forEachItem(…)";
+  if (isLaunching(previous) && next.kind === StepKind.Join) return joinProblem(previous, next);
   return previous?.kind === StepKind.Join ? afterJoinProblem(previous, next) : undefined;
 }

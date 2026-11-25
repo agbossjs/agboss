@@ -1,0 +1,4 @@
+workflows:
+  limits-spin-workflow:
+    executionLimits:
+      maxStep: 3

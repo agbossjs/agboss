@@ -1,5 +1,10 @@
 import type { Counter, Meter } from "@opentelemetry/api";
-import type { ExecutionEndEvent, ExecutionErrorEvent } from "../core/observability.js";
+import type {
+  ExecutionCancelEvent,
+  ExecutionEndEvent,
+  ExecutionErrorEvent,
+  ExecutionStopEvent,
+} from "../core/observability.js";
 import type { ExecutionObserver } from "../core/observer-hooks.js";
 import type { UnknownCostTally } from "../core/observer-manager.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
@@ -19,7 +24,10 @@ import { ExecutionOutcome, METRICS, type MetricSpec } from "./metric-catalog.js"
 export const counterOf = (meter: Meter, spec: MetricSpec): Counter =>
   meter.createCounter(spec.name, { unit: spec.unit, description: spec.description });
 
-/** `agboss.instance.executions.ended`'s outcome of a failure: a cancel, or a failure. */
+/**
+ * `agboss.instance.executions.ended`'s outcome of a failure: a failure, or a child's cancel (a
+ * root's cancel is `onExecutionCancel`, #1341).
+ */
 const outcomeOf = (error: Error): ExecutionOutcome =>
   error instanceof ExecutionCancelledError ? ExecutionOutcome.Cancelled : ExecutionOutcome.Failed;
 
@@ -38,6 +46,12 @@ export function metricsObserverOf(meter: Meter): ExecutionObserver {
     },
     onExecutionEnd: (event: ExecutionEndEvent) => {
       ended.add(1, { workflow: event.workflow.name, outcome: ExecutionOutcome.Finished });
+    },
+    onExecutionStop: (event: ExecutionStopEvent) => {
+      ended.add(1, { workflow: event.workflow.name, outcome: ExecutionOutcome.Stopped });
+    },
+    onExecutionCancel: (event: ExecutionCancelEvent) => {
+      ended.add(1, { workflow: event.workflow.name, outcome: ExecutionOutcome.Cancelled });
     },
     onExecutionError: (event: ExecutionErrorEvent) => {
       ended.add(1, { workflow: event.workflow.name, outcome: outcomeOf(event.error) });

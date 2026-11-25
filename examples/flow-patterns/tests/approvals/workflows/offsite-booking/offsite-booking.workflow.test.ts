@@ -47,7 +47,7 @@ describe("two purchases wait for the thread's owner at once", () => {
     expect(
       paused.pending.map((pause) => [
         pause.step,
-        pause.kind === PauseKind.Approval ? pause.ask.arguments : pause.kind,
+        pause.kind === PauseKind.Approval ? pause.input : pause.kind,
       ]),
     ).toEqual([
       ["venue-buyer-agent", VENUE],
@@ -117,7 +117,7 @@ describe("two purchases wait for the thread's owner at once", () => {
 
 /** Two instances on one SQLite file (#265): the pause is found and resumed by the other one. */
 instancesFilePerTest();
-const twoInstances = testWith(FlowPatternsApplication, { instances: 2, env: "instances" });
+const twoInstances = testWith(FlowPatternsApplication, { instances: 2 });
 
 twoInstances(
   "paused on one instance, answered on the other: the other finishes it",

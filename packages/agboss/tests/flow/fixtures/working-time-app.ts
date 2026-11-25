@@ -1,45 +1,81 @@
 import { Application } from "../../../src/application/application.js";
-import { ChannelOf } from "../../../src/channels/channel-handler.js";
 import { PauseExpiration, type FailExpiration } from "../../../src/channels/pause-expiration.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
-import { Channel, Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { Channel, Tool } from "../../../src/components/decorators.js";
 import type { Class } from "../../../src/components/injection.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import type { WorkingCalendarSource } from "../../../src/calendar/working-calendar.js";
+import {
+  WorkingCalendar,
+  type WorkingCalendarSource,
+} from "../../../src/calendar/working-calendar.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
+import { isWorkingWeek, type WorkingWeekOptions } from "../../../src/calendar/working-week.js";
+import type {
+  WorkingCalendarContext,
+  WorkingCalendarHandler,
+} from "../../../src/calendar/working-calendar.js";
 import type { Milliseconds, WorkingDuration } from "../../../src/units/index.js";
 import { RecordExtensionAction } from "./pause-extension.fixture.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { ExpiryDecisionDto, ExpiryDoneDto, ExpiryOrderDto } from "./expiry.fixture.js";
 import { AgentRefundDoneDto, AgentRefundDto } from "./agent-expiry.fixture.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
+import { inline, ExternalTask, ToolApproval, Ttl } from "../../../src/index.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
+import { days } from "../../../src/units/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
- * #944: an application with one question role (its times and calendar) and a workflow that asks it —
+ * #944: an application with one external task (its times and calendar) and a workflow that asks it —
  * the pause's deadline in working time, built per test so every case has its own names. What the
  * channel was sent and told (`onPauseExpiring`) is kept in the returned `told`.
  */
 
 type Span = Milliseconds | WorkingDuration;
 
+/**
+ * The calendar class a test's source is (#1310): a class as it is, a grid (`WorkingWeek.of(…)`) as
+ * an adapter class the container creates (listed with the other providers), and plain week options
+ * as a declared `@WorkingCalendar({ week })` class.
+ */
+function calendarOf(
+  name: string,
+  source: WorkingCalendarSource | WorkingWeekOptions | undefined,
+): { readonly cls?: Class; readonly listed: readonly Class[] } {
+  if (source === undefined) return { listed: [] };
+  if (typeof source === "function") return { cls: source, listed: [] };
+  if (isWorkingWeek(source)) {
+    const grid = source as WorkingCalendarHandler;
+    @WorkingCalendar({ name: `${name}-grid-calendar` })
+    class GridCalendar {
+      async addWorkingTime(request: WorkingCalendarContext): Promise<Date> {
+        return await grid.addWorkingTime(request);
+      }
+    }
+    return { cls: GridCalendar, listed: [GridCalendar] };
+  }
+  @WorkingCalendar({ name: `${name}-declared-calendar`, week: source as WorkingWeekOptions })
+  class DeclaredCalendar {}
+  return { cls: DeclaredCalendar, listed: [] };
+}
+
 /** What a working-time application is made of. */
 export interface WorkingAppConfig {
   readonly role: {
     readonly expiresIn?: Span;
     readonly remindBefore?: Span;
-    readonly workingCalendar?: WorkingCalendarSource;
+    readonly workingCalendar?: WorkingCalendarSource | WorkingWeekOptions;
   };
-  /** The question step's own `expiresIn` over the role's. */
+  /** A timeout of its own over the role's (a target of its own since #1307). */
   readonly step?: Span;
-  /** `@Application({ workingCalendar })`. */
-  readonly calendar?: WorkingCalendarSource;
+  /** The calendar of the target when the role names none. */
+  readonly calendar?: WorkingCalendarSource | WorkingWeekOptions;
   /** Other providers: calendar classes and what they read. */
   readonly providers?: readonly Class[];
-  /** The channel's `onPauseExpired` (#1148): what it does when the pause's deadline is looked at. */
+  /** The target's `onExpired` (#1148): what it does when the pause's deadline is looked at. */
   readonly onExpired?: () => Promise<FailExpiration>;
 }
 
@@ -61,6 +97,8 @@ export interface WorkingApp {
 /** What `workingParts` made: everything but the application (its file decides where `environments/` is). */
 export interface WorkingParts extends Omit<WorkingApp, "application"> {
   readonly channel: Class;
+  /** The calendar classes the application lists. */
+  readonly calendars: readonly Class[];
 }
 
 /**
@@ -69,29 +107,41 @@ export interface WorkingParts extends Omit<WorkingApp, "application"> {
  */
 export function workingParts(name: string, config: WorkingAppConfig): WorkingParts {
   const told: WorkingTold = { sent: [], expiring: [] };
-  @ChannelRole({
-    name: `${name}-question`,
+  const { cls: calendar, listed } = calendarOf(
+    name,
+    config.role.workingCalendar ?? config.calendar,
+  );
+  const timeout = config.step ?? config.role.expiresIn ?? days(365);
+  @ExternalTask({
+    name: `${name}-question-external-task`,
     description: "d",
-    ask: ExpiryOrderDto,
-    answer: ExpiryDecisionDto,
-    answerer: PauseAnswerer.Channel,
-    ...config.role,
+    input: ExpiryOrderDto,
+    output: ExpiryDecisionDto,
+    respondent: PauseRespondent.Delegate,
+    timeout,
+    ...(config.role.remindBefore === undefined ? {} : { remindBefore: config.role.remindBefore }),
+    ...(calendar === undefined ? {} : { calendar }),
   })
-  abstract class SomeQuestion extends ChannelOf<SomeQuestion> {}
-  @Channel({ name: `${name}-channel`, description: "d" })
-  class SomeChannel extends SomeQuestion {
-    send(ask: unknown): Promise<ChannelOutcome<SomeQuestion>> {
+  class SomeQuestionExternalTask {
+    onExpired(): Promise<FailExpiration> {
+      return config.onExpired?.() ?? Promise.resolve(PauseExpiration.fail());
+    }
+  }
+  @Channel({
+    name: `${name}-channel`,
+    description: "d",
+    target: SomeQuestionExternalTask,
+    ttl: days(1),
+  })
+  class SomeChannel {
+    send(ask: unknown): Promise<ChannelOutcome<SomeQuestionExternalTask>> {
       told.sent.push(ask as { pauseId: string });
       return Promise.resolve(ChannelOutcome.awaitReply());
     }
 
-    override onPauseExpiring(event: { expiresAt: string; deliveryId: string }): Promise<void> {
+    onPauseExpiring(event: { expiresAt: string; deliveryId: string }): Promise<void> {
       told.expiring.push(event);
       return Promise.resolve();
-    }
-
-    onPauseExpired(): Promise<FailExpiration> {
-      return config.onExpired?.() ?? Promise.resolve(PauseExpiration.fail());
     }
   }
   @WorkflowStart({ name: `${name}-workflow-start`, description: "d", input: ExpiryOrderDto })
@@ -101,16 +151,11 @@ export function workingParts(name: string, config: WorkingAppConfig): WorkingPar
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(SomeStart)
-        .returns(ExpiryOrderDto)
-        .toQuestion(
-          SomeQuestion,
-          config.step === undefined ? undefined : { expiresIn: config.step },
-        )
-        .returns(ExpiryDecisionDto)
+      onStart(SomeStart)
+        .toExternalTask(SomeQuestionExternalTask)
         .toAction(RecordExtensionAction)
-        .returns(ExpiryDoneDto)
         .toFinish(SomeFinish),
     ],
   })
@@ -118,8 +163,9 @@ export function workingParts(name: string, config: WorkingAppConfig): WorkingPar
   return {
     start: SomeStart,
     workflow: SomeWorkflow,
-    role: SomeQuestion,
+    role: SomeQuestionExternalTask,
     channel: SomeChannel,
+    calendars: listed,
     told,
   };
 }
@@ -128,12 +174,12 @@ export function workingApp(name: string, config: WorkingAppConfig): WorkingApp {
   const parts = workingParts(name, config);
   @Application({
     name: `${name}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [parts.workflow],
     budgets: TEST_BUDGETS,
-    providers: [parts.channel, ...(config.providers ?? [])],
-    ...(config.calendar === undefined ? {} : { workingCalendar: config.calendar }),
+    providers: [parts.channel, ...parts.calendars, ...(config.providers ?? [])],
   })
   class SomeApplication {}
   return { ...parts, application: SomeApplication };
@@ -149,42 +195,47 @@ export interface WorkingToolApp {
   readonly tool: Class;
 }
 
-/** An approval role asked through an agent's tool (its own `expiresIn` over the role's). */
+/** A tool approval asked through an agent's tool (its timeout and calendar are the approval's own). */
 export function workingToolApp(
   name: string,
   config: Omit<WorkingAppConfig, "step"> & { toolExpiresIn?: Span },
 ): WorkingToolApp {
-  @ChannelRole({
-    name: `${name}-approval`,
+  const { cls: calendar, listed } = calendarOf(
+    name,
+    config.role.workingCalendar ?? config.calendar,
+  );
+  @ToolApproval({
+    name: `${name}-tool-approval`,
     description: "d",
-    approves: AgentRefundDto,
-    answerer: PauseAnswerer.Channel,
-    ...config.role,
+    input: AgentRefundDto,
+    respondent: PauseRespondent.Delegate,
+    timeout: config.toolExpiresIn ?? config.role.expiresIn ?? days(365),
+    ...(config.role.remindBefore === undefined ? {} : { remindBefore: config.role.remindBefore }),
+    ...(calendar === undefined ? {} : { calendar }),
   })
-  abstract class SomeApproval extends ChannelOf<SomeApproval> {}
-  @Channel({ name: `${name}-channel`, description: "d" })
-  class SomeChannel extends SomeApproval {
-    send(): Promise<ChannelOutcome<SomeApproval>> {
+  class SomeToolApproval {}
+  @Channel({ name: `${name}-channel`, description: "d", target: SomeToolApproval, ttl: days(1) })
+  class SomeChannel {
+    send(): Promise<ChannelOutcome<SomeToolApproval>> {
       return Promise.resolve(ChannelOutcome.awaitReply());
     }
   }
   @Tool({
     name: `${name}-refund-tool`,
     description: "d",
-    channel: SomeApproval,
-    ...(config.toolExpiresIn === undefined ? {} : { expiresIn: config.toolExpiresIn }),
+    approval: SomeToolApproval,
     input: AgentRefundDto,
     output: AgentRefundDoneDto,
   })
-  class SomeTool implements ToolHandler<AgentRefundDto, AgentRefundDoneDto> {
-    run(): Promise<AgentRefundDoneDto> {
+  class SomeTool {
+    execute(): Promise<AgentRefundDoneDto> {
       return Promise.resolve({ text: "done" });
     }
   }
   @Agent({
     name: `${name}-agent`,
     description: "d",
-    prompt: "Refund.",
+    prompt: inline("Refund."),
     model: "moonshotai/kimi-k2.6",
     tools: [SomeTool],
     input: { request: AgentRefundDto },
@@ -198,29 +249,28 @@ export function workingToolApp(
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(SomeStart)
-        .returns(AgentRefundDto)
+      onStart(SomeStart)
         .toAgent(SomeAgent)
-        .returns(AgentRefundDoneDto)
         .toFinish(SomeFinish),
     ],
   })
   class SomeWorkflow {}
   @Application({
     name: `${name}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [SomeWorkflow],
     budgets: TEST_BUDGETS,
-    providers: [SomeChannel, ...(config.providers ?? [])],
-    ...(config.calendar === undefined ? {} : { workingCalendar: config.calendar }),
+    providers: [SomeChannel, ...listed, ...(config.providers ?? [])],
   })
   class SomeApplication {}
   return {
     application: SomeApplication,
     workflow: SomeWorkflow,
-    role: SomeApproval,
+    role: SomeToolApproval,
     start: SomeStart,
     agent: SomeAgent,
     tool: SomeTool,

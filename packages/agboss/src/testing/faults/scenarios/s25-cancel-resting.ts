@@ -40,8 +40,8 @@ async function expectEndedCancelled(
   );
   expectThat(
     cluster,
-    !state.hasPausedRun && state.rootStatus === "failed",
-    `${order.orderId} was to end failed with no paused run, it is ${JSON.stringify({ root: state.rootStatus, run: state.hasPausedRun })}`,
+    !state.hasPausedRun && state.rootStatus === "cancelled",
+    `${order.orderId} was to end cancelled with no paused run, it is ${JSON.stringify({ root: state.rootStatus, run: state.hasPausedRun })}`,
   );
   expectThat(
     cluster,

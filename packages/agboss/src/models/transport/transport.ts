@@ -1,3 +1,4 @@
+import type { TokenUsage } from "../../finops/usage.js";
 import type { Usd } from "../../units/index.js";
 import type { ModelProviderPart } from "../content.js";
 import type { FinishReason } from "../finish-reason.js";
@@ -52,35 +53,31 @@ export interface ModelProviderToolDefinition {
   readonly parameters: Readonly<Record<string, unknown>>;
 }
 
-/** What one call used; `inputTokens` includes the cached ones (OpenAI-compatible accounting). */
-export interface ModelProviderUsage {
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  readonly cacheReadTokens?: number;
-  readonly cacheWriteTokens?: number;
-}
-
 /**
  * A streamed answer (#1011), in the shape of the Vercel AI SDK's `streamText`: the text as its chunks
- * come, and what the call used. `usage` must settle once the stream ends — also when it fails or is
- * aborted (`request.signal`); the gateway bounds both by the provider's `timeout`, and one that
- * does not settle is a `ModelProviderFailureError` (`ModelFailure.Timeout`), never a hang.
+ * come, and how the call ended. `result` must settle once the stream ends — also when it fails or is
+ * aborted (`request.signal`), with what the call used so far; the gateway bounds both by the
+ * provider's `timeout`, and one that does not settle is a `ModelProviderFailureError`
+ * (`ModelFailure.Timeout`), never a hang.
  */
 export interface ModelProviderStream {
   readonly textStream: AsyncIterable<string>;
-  readonly usage: Promise<ModelProviderStreamUsage>;
+  /** How the call ended (#1311): its usage, its exact cost and why the model stopped. */
+  readonly result: Promise<ModelProviderStreamResult>;
 }
 
 /**
- * What a streamed call settles with (#1249): its usage and, as the plain call's response has them,
- * its exact `cost` (a provider with `ModelCost.fromResponse()` must report it: a streamed call
- * without one cannot be accounted) and why the model stopped.
+ * What a streamed call settles with (#1249, #1311), as `ModelProviderResponse` holds it beside its
+ * text: its usage and, when known, its exact `cost` (a provider with `ModelCost.fromResponse()` must
+ * report it: a streamed call without one cannot be accounted) and why the model stopped.
  */
-export interface ModelProviderStreamUsage extends ModelProviderUsage {
+export interface ModelProviderStreamResult {
+  /** What the call used; `inputTokens` includes the cached ones. */
+  readonly usage: TokenUsage;
   /** The call's exact cost (`costSource: "api"`); absent = tokens x the decorator's price table. */
-  readonly cost?: Usd;
-  /** Why the model stopped: `FinishReason.Length` when the answer was cut at `maxTokens`. */
-  readonly finishReason?: FinishReason;
+  readonly cost?: Usd | undefined;
+  /** Why the model stopped: `FinishReason.Stop`, `Length` (cut at `maxTokens`), `ToolCalls`, `ContentFilter`. */
+  readonly finishReason?: FinishReason | undefined;
 }
 
 /** One model call as the gateway hands it to `complete(request)`. */
@@ -91,11 +88,11 @@ export interface ModelProviderRequest {
   /** Empty when the caller binds none. */
   readonly tools: readonly ModelProviderToolDefinition[];
   readonly temperature: number;
-  /** `undefined` = `TokenLimit.MODEL_MAX`: no ceiling of the framework's own. */
+  /** `undefined` = `TokenLimit.ModelMax`: no ceiling of the framework's own. */
   readonly maxTokens: number | undefined;
   /** The component's, else the provider's (`Reasoning.off()` when it sets none). */
   readonly reasoning: Reasoning;
-  /** The component's, else the provider's (`PromptCaching.off()` when it sets none). */
+  /** The component's, else the provider's (automatic caching where supported when it sets none). */
   readonly promptCaching: PromptCaching;
   /** The attempt's `timeout`, the execution's cancel and an exhausted budget: pass it to the SDK. */
   readonly signal: AbortSignal;
@@ -105,7 +102,7 @@ export interface ModelProviderRequest {
 export interface ModelProviderResponse {
   readonly text: string;
   readonly toolCalls?: readonly ModelProviderToolCall[];
-  readonly usage: ModelProviderUsage;
+  readonly usage: TokenUsage;
   /**
    * The call's exact cost (`costSource: "api"`); absent = tokens × the decorator's
    * `ModelCost.fromPrices(…)` — with `ModelCost.fromResponse()` an answer without it cannot be accounted.

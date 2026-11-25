@@ -4,22 +4,22 @@
 
 - **Calling an A2A v1.0 agent** — another AGBoss application or any compliant agent (#809, on the
   official `@a2a-js/sdk`; [§4](#4-the-client-side--a2a-v10-809)): a `…A2AAgent` class that `extends
-  A2AClient<In, Out>` with `@A2AAgent({ name, url, target?, input?, output?, price?, mesh?,
-  allowedOrigins?, deps })`, listed in `providers` and injected into a `@Tool` or an `@Action`
+A2AClient<In, Out>` with `@A2AAgent({ name, url, target?, input?, output?, costPerCall?, mesh?,
+allowedOrigins?, deps })`, listed in `providers` and injected into a `@Tool` or an `@Action`
   ([Components](Components)); `execute(input, call)` sends the input and returns the remote output,
   both validated by the contract's DTOs, `send(message, call)` an untyped call's `A2ATaskResult`.
-- **Serving a workflow** — an `@A2AExpose` listed in `@Application({ exposes })`, served by
-  `a2aHttpListener(app, { expose, callerResolver, publicUrl, base? })` as an **A2A v1.0 agent**
+- **Serving a workflow** — an `@A2AEndpoint` listed in `@Application({ endpoints })`, served by
+  `a2aHttpListener(app, { endpoint, authenticator, publicUrl, base? })` as an **A2A v1.0 agent**
   (#808, [the specification](https://a2a-protocol.org/v1.0.0/specification/)): its Agent Card at
   `<base>/.well-known/agent-card.json` and the JSON-RPC 2.0 binding at `POST <base>`. Any A2A v1.0
   client calls it — the official SDK `@a2a-js/sdk`, which the server is built on, or another
   vendor's. This page is mostly about this side. (The 0.1.0 wire is gone, with no shim: [Upgrading to 0.1.1](Upgrading-to-0.1.1).)
 
-## 1. Who calls — the caller resolver
+## 1. Who calls — the HTTP authenticator
 
 The framework never guesses a tenant from a request. The host says who calls, for every request,
-with a **caller resolver**: an ordinary `@Injectable` that `implements A2ACallerResolver<typeof
-Start>`, listed in `@Application({ providers })` or a `@Workflow({ providers })` and created by the
+with an **`@HttpAuthenticator`**: a class with `authenticate(request)` (sync or async, no
+`implements`), listed in `@Application({ services })` and created by the
 application's container like any service — its own services through `deps`, its environment, its
 hooks and a test's `override(…)` apply; never `new`.
 
@@ -41,35 +41,29 @@ export class ApiKeyDirectory {
 export class SupportWorkflowStart {}
 -->
 
-```ts file=shop.a2a-caller-resolver.ts
-import {
-  A2ACallerResolution,
-  A2AOperation,
-  type A2ACallerRequest,
-  type A2ACallerResolver,
-} from "@agboss/core/a2a";
+```ts file=shop.http-authenticator.ts
+import { HttpAuthenticator, HttpAuthResult, HttpSecurity, type HttpAuthRequest } from "@agboss/core";
+import { A2AOperation } from "@agboss/core/a2a";
 
-@Injectable({ deps: [ApiKeyDirectory] }) // created by the container, like any service
-export class ShopA2aCallerResolver implements A2ACallerResolver<typeof SupportWorkflowStart> {
+// created by the container, like any service; its schemes are the card's securitySchemes
+@HttpAuthenticator({ deps: [ApiKeyDirectory], schemes: [HttpSecurity.bearer()] })
+export class ShopHttpAuthenticator {
   constructor(private readonly apiKeyDirectory: ApiKeyDirectory) {}
 
-  async resolveCaller(
-    request: A2ACallerRequest,
-  ): Promise<A2ACallerResolution<typeof SupportWorkflowStart>> {
+  async authenticate(
+    request: HttpAuthRequest,
+  ): Promise<HttpAuthResult> {
     const header: string = request.http.headers.authorization ?? "";
     if (!header.startsWith("Bearer ")) {
-      return A2ACallerResolution.unauthenticated({
-        reason: "no API key",
-        challenge: 'Bearer realm="a2a"',
-      });
+      return HttpAuthResult.unauthenticated("no API key", { challenge: 'Bearer realm="a2a"' });
     }
     const grant = await this.apiKeyDirectory.grantOf(header.slice("Bearer ".length));
-    if (grant === undefined) return A2ACallerResolution.unauthenticated({ reason: "unknown API key" });
+    if (grant === undefined) return HttpAuthResult.unauthenticated("unknown API key");
     const isResume = request.operation === A2AOperation.SendMessage && request.taskId !== undefined;
     if (isResume && !grant.canAnswerPauses) {
-      return A2ACallerResolution.forbidden({ reason: "this key may not answer pauses" });
+      return HttpAuthResult.forbidden("this key may not answer pauses");
     }
-    return A2ACallerResolution.resolved({
+    return HttpAuthResult.authenticated({
       tenant: { tenantId: grant.tenantId }, // the declared TenantContext's values: typed, required
       ownerId: grant.clientId, // the thread's owner — also who may answer its pauses
     });
@@ -77,22 +71,22 @@ export class ShopA2aCallerResolver implements A2ACallerResolver<typeof SupportWo
 }
 ```
 
-- `resolveCaller({ operation, taskId?, http })` gets the JSON-RPC method as an `A2AOperation`
+- `authenticate({ operation, taskId?, http })` gets the JSON-RPC method as an `A2AOperation`
   (`SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`),
   the task it names (a `SendMessage` with a `taskId` answers a task's pause), and the raw
   `IncomingMessage` — its headers and its socket (a client certificate for mTLS). The body is read
   first (up to `maxBodySize`, default 1 MB, else `413`) and decoded once — by the SDK's own decoder,
   the one the handler acts on, so `task_id`, a number or a key given twice names the same task to
   both — for the operation and the task only: nothing of it runs, and no header is written, before
-  the resolver answers. Should the request the handler decodes ever differ from the admitted one,
+  the authenticator answers. Should the request the handler decodes ever differ from the admitted one,
   it is refused: `-32602`, `a2a.request-mismatch`.
-- It answers with `A2ACallerResolution` only (`A2ACallerResolutionKind`; branded — a plain object
-  does not compile): `resolved(caller)`, `unauthenticated({ reason, challenge? })` or
-  `forbidden({ reason })`. `A2ACaller<typeof Start>` is the `tenant`, `ownerId` and `execution` of
-  `app.execute(Start, …)`'s options — typed by the start's application: with a declared
-  `TenantContext` its values are required ([Context and Authorization](Context-And-Authorization)).
-- A single-tenant host says so: `resolveCaller() { return A2ACallerResolution.resolved({}); }` — it
-  does not compile when the application declares a `TenantContext`. There is no default.
+- It answers with `HttpAuthResult` only (`HttpAuthKind`; branded — a plain object
+  does not compile): `authenticated(caller)`, `unauthenticated(reason, { challenge? })` or
+  `forbidden(reason)`. The `HttpCaller` is the `tenant`, `ownerId` and `execution` of
+  `app.execute(Start, …)`'s options, plus the mesh `peer` and an optional `rateLimitKey`: with a declared
+  `TenantContext` its values are required when the request runs ([Context and Authorization](Context-And-Authorization)).
+- A single-tenant host says so: `authenticate() { return HttpAuthResult.authenticated({}); }` — a
+  request that runs without the tenant an application declares is refused. There is no default.
 
 ## 2. Serving — `a2aHttpListener(app, options)`
 
@@ -105,45 +99,57 @@ const app = await createApp(ShopApplication, { env: "prod" });
 
 createServer(
   a2aHttpListener(app, {
-    expose: ShopA2AExpose, // listed in @Application({ exposes })
-    callerResolver: ShopA2aCallerResolver, // the class: its instance is the container's
+    endpoint: ShopA2AExpose, // listed in @Application({ endpoints })
+    authenticator: ShopHttpAuthenticator, // the class: its instance is the container's
     publicUrl: "https://shop.example", // where callers reach it: the card's interface URL
     base: "/a2a",
-    // maxBodySize: kilobytes(1024), maxTaskDuration: minutes(10)
+    // maxBodySize: kilobytes(1024)
   }),
 ).listen(8080);
 ```
 
-The listener takes the resolver's instance from the application's container when it is built: a
-class neither the application nor any of its workflows lists stops it there —
-`[a2a.caller-resolver-not-listed] ShopA2aCallerResolver is not listed …` — and an expose the
-application does not list too: `[application.expose-unlisted]`; a `publicUrl` that is no absolute
+The listener takes the authenticator's instance from the application's container when it is built: a
+class without `@HttpAuthenticator` stops it there —
+`[http.not-an-authenticator] … is not an @HttpAuthenticator` — and an endpoint the
+application does not list too: `[application.endpoint-unlisted]`; a `publicUrl` that is no absolute
 http(s) URL is `[a2a.public-url-invalid]`. `app` is an `A2AApp` (`execute`, `resume`, `cancel`,
 `resolve` of `App`): `createApp`'s app and `testWith`'s `app` both fit.
 
+The `authenticator` is required. The one way to serve callers nobody vouches for is
+`allowAnonymous: true` (default `false`), allowed only in an application with no `tenantContext` of its own and
+not beside an authenticator; a listener made with neither — or with `allowAnonymous` and a `tenantContext` —
+is not built: `ConfigError` `[http.authenticator-required-for-tenant-context]` (a `@Mesh({ inboundMode: Strict })`
+with a peer that propagates its tenant, which only signed peers call, needs none). Nothing is bound to the
+connection, which a proxy pools: a caller that names no owner (anonymous, or a tenant's key the authenticator
+gives no `ownerId`) owns no task — each of its new tasks has an owner of its own, the task's unpredictable id is
+the right to get, continue and cancel it, another caller's resent `messageId` finds nothing of it, and
+`ListTasks` is `403 a2a.list-forbidden`. `mcpHttpListener` follows the same rule: an anonymous caller is
+`anonymous:<Mcp-Session-Id>`, a tenant with no `ownerId` `mcp-session:<Mcp-Session-Id>` inside its tenant; the
+id is issued at `initialize`, and a `POST` and a `GET` of one client may use different connections.
+
 **The Agent Card** (`GET <base>/.well-known/agent-card.json`, `ETag`, `Last-Modified` — when the
 listener built it, at its first request (#811) —, `Cache-Control: max-age=300`):
-the expose's `name`, `description`, `version` and `provider`; one skill per exported start (its id
-the start's name, its description the start's, `tags` from `@A2AExpose({ skills })`, default the
+the endpoint's `name`, `description`, `version` and `provider`; one skill per listed start (its id
+the start's name, its description the start's, `tags` from `@A2AEndpoint({ skills: [{ start, tags }] })`, default the
 application's name; `inputModes` `text/plain` for a `WorkflowStartTextDto` start, else
 `application/json`); `capabilities.streaming: true`, no push notifications; the skills extension
 `https://agboss.dev/a2a/skills/v1` (`A2A_SKILLS_EXTENSION`) whose `params.skills[id]` holds each
 skill's input JSON Schema, its `schemaHash` and each finish's output schema; `securitySchemes` from
-`@A2AExpose({ security: [A2ASecurity.bearer()] })` (`.apiKey({ header })`,
+`@HttpAuthenticator({ schemes: [HttpSecurity.bearer()] })` (`.apiKey({ header })`,
 `.oauth2ClientCredentials({ tokenUrl, scopes })`, `.mtls()` — any one accepted; described only, the
-resolver enforces it); one interface `{ url: publicUrl + base, protocolBinding: "JSONRPC",
+authenticator enforces it); one interface `{ url: publicUrl + base, protocolBinding: "JSONRPC",
 protocolVersion: "1.0" }`.
 
 **The JSON-RPC binding** (`POST <base>`, `A2A-Version: 1.0` required — none means 0.3: `-32009`):
 
-| Method | What it does |
-| --- | --- |
-| `SendMessage` | a new task (no `taskId`), or a follow-up answering one; blocking until the task is over or waits for its caller, or `configuration.returnImmediately` |
-| `SendStreamingMessage` | the same, its changes as server-sent events: the task first, status updates (an agent's tool call as it starts: `WORKING` with the text `calling <tool>`, #848), the agent's answer text (never a judge's, router's or other internal model's, #1004) as chunks of the task's output artifact (`artifactUpdate` `<taskId>:output`: the stream's first chunk `append: false`, the next of the same step `append: true`; a retry or another step starts it anew `append: false`, a retracted step empties it, and a task that ends FAILED, CANCELED or REJECTED after text ends with an empty `lastChunk: true` before its last status, #1006), the finish's output replacing it (`append: false`, `lastChunk: true`), the last status (#833) |
-| `GetTask` / `ListTasks` | the caller's tasks only (another's is `-32001`), newest status first, paged (`nextPageToken` `""` on the last page), by context, state and `statusTimestampAfter` — a task whose status changed at or after that time, as a2a.proto says ("greater than or equal"; #811: the SDK's own store filters `>`, the official TCK tests no boundary; #960: the store contract's own bound stays `>`, the server passes one millisecond before), a fraction below the millisecond rounded up to it; an RFC 3339 time with its offset only (one of no offset, which the server's zone would decide, is `-32602`); `totalSize` every task the filters match before paging, `pageSize` the page size used (#824) |
-| `CancelTask` | that task only — never another of its context; one not started yet is fenced and `CANCELED` at once; one that is over `-32002` |
-| `SubscribeToTask` | the task first, then its changes until it is over (`-32004` when it is over already) |
-| push methods / `GetExtendedAgentCard` | `-32003` / `-32004` — the card declares no extended card, and an operation of a capability not declared is `UnsupportedOperationError` (spec §3.3.4; `-32007` is for an agent that declares one; #811) |
+| Method                                | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SendMessage`                         | a new task (no `taskId`), or a follow-up answering one; blocking until the task is over or waits for its caller, or `configuration.returnImmediately`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `SendStreamingMessage`                | the same, its changes as server-sent events: the task first, status updates (an agent's tool call as it starts: `WORKING` with the text `calling <tool>`, #848), the agent's answer text (never a judge's, router's or other internal model's, #1004) as chunks of the task's output artifact (`artifactUpdate` `<taskId>:output`: the stream's first chunk `append: false`, the next of the same step `append: true`; a retry or another step starts it anew `append: false`, a retracted step empties it, and a task that ends FAILED, CANCELED or REJECTED after text ends with an empty `lastChunk: true` before its last status, #1006), the finish's output replacing it (`append: false`, `lastChunk: true`), the last status (#833) |
+| `GetTask` / `ListTasks`               | the caller's tasks only (another's is `-32001`), newest status first, paged (`nextPageToken` `""` on the last page), by context, state and `statusTimestampAfter` — a task whose status changed at or after that time, as a2a.proto says ("greater than or equal"; #811: the SDK's own store filters `>`, the official TCK tests no boundary; #960: the store contract's own bound stays `>`, the server passes one millisecond before), a fraction below the millisecond rounded up to it; an RFC 3339 time with its offset only (one of no offset, which the server's zone would decide, is `-32602`); `totalSize` every task the filters match before paging, `pageSize` the page size used (#824)                                       |
+| `CancelTask`                          | that task only — never another of its context; one not started yet is fenced and `CANCELED` at once; one that is over `-32002`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `SubscribeToTask`                     | the task first, then its changes until it is over (`-32004` when it is over already)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| push methods / `GetExtendedAgentCard` | `-32003` / `-32004` — the card declares no extended card, and an operation of a capability not declared is `UnsupportedOperationError` (spec §3.3.4; `-32007` is for an agent that declares one; #811)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 - **A message** names its skill in `metadata["https://agboss.dev/a2a/skills/v1"].skill` (optional
   with one export; else `-32602` listing the skill ids) and carries text parts (a text start) or one
@@ -151,10 +157,16 @@ protocolVersion: "1.0" }`.
   the fields and the schema in the error's `metadata`); a file part is `-32005` unless the start's
   input holds files (below). Its `contextId` is the task's thread (the caller's own, or one minted).
 - **One task is one root execution**, under the task's id, kept in `A2ATaskRepository`
-  (`@Application({ retention: { a2aTasks } })`). The same `messageId` from the same tenant and owner
+  (its endpoint's `ttl.tasks`). The same `messageId` from the same tenant and owner
   gets the same task — never a second run, on any instance; with other content it is `-32602`. A
   task whose start was lost (a crash right after it was accepted) is started by the resend, under
   the same id, once.
+  **A storage limit:** a finished tree leaves no checkpoints and its record rotates with its
+  retention (`historyTtl`), so a task whose worker died before `onExecutionEnd` is repaired from the
+  record only while the record is alive (`Completed`, with the masked `output` and `spentUsd`); once it
+  has rotated and the task's `startTimeout` has passed it closes as `Failed` (`a2a.start-lost`), never as
+  a started execution — what reads the storage then sees `NotStarted`
+  ([Execution history](Execution-history#a-storage-limit-a-finished-tree-that-has-rotated-reads-notstarted)).
 - **The task store is shared by the instances** (#824). "On any instance" holds only when every
   instance reads one store, so the store declares its backend (`static store = { backend }`, #825) and assembly checks it: an
   application that serves A2A on a lease store its instances share (any backend but `in-memory`)
@@ -172,7 +184,7 @@ protocolVersion: "1.0" }`.
   task is gone once it is older than the retention (a follow-up saved while its task was removed, #960),
   so its id is free again. A status a store does not know a key of is kept as written.
 - **A task outlives its connection**: a caller that disconnects never cancels it; it reads it again
-  with `GetTask` or `SubscribeToTask`. `maxTaskDuration` gives every task an execution deadline.
+  with `GetTask` or `SubscribeToTask`.
 - **Pauses**: a pause the caller answers is `TASK_STATE_INPUT_REQUIRED`, its pauses (`pauseId`,
   `kind`, `ask`) in the status message's `data` part; a follow-up `SendMessage` with the same `taskId`
   answers it — one `data` part `{ pauseId?, decision }` (`pauseId` optional with one pause) or a text
@@ -205,12 +217,12 @@ protocolVersion: "1.0" }`.
   (`stream.listener-failed`, with the `executionId` and `tenantId`, never the text); the run and
   the other listeners go on.
 
-| The resolver returns                       | The caller gets                                                                                     |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `resolved({ tenant, ownerId, execution })` | the operation, for that tenant and owner                                                            |
-| `unauthenticated({ reason, challenge })`   | `401`, `WWW-Authenticate: <challenge>`, `{ "code": "a2a.caller-unauthenticated", "error": reason }` |
-| `forbidden({ reason })`                    | `403`, `{ "code": "a2a.caller-forbidden", "error": reason }`                                        |
-| it throws (or answers anything else)       | `500`, `{ "code": "a2a.caller-resolution-failed", "error": "the caller could not be resolved" }`    |
+| The authenticator returns                       | The caller gets                                                                                     |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `authenticated({ tenant, ownerId, execution })` | the operation, for that tenant and owner                                                            |
+| `unauthenticated(reason, { challenge })`        | `401`, `WWW-Authenticate: <challenge>`, `{ "code": "a2a.caller-unauthenticated", "error": reason }` |
+| `forbidden(reason)`                             | `403`, `{ "code": "a2a.caller-forbidden", "error": reason }`                                        |
+| it throws (or answers anything else)            | `500`, `{ "code": "a2a.caller-resolution-failed", "error": "the caller could not be resolved" }`    |
 
 - A refused request **runs nothing**: no task, no `onExecutionStart`, no thread, no record, no model
   call — and never as the default tenant. A streaming caller gets the real status too.
@@ -218,30 +230,30 @@ protocolVersion: "1.0" }`.
 
 ### Files — `raw` and `url` parts (#859)
 
-A skill takes files when its start's input DTO has `A2AFileDto` fields — `@Nested(A2AFileDto)` for
-one, `@ListOf(A2AFileDto)` for several (`@agboss/core/a2a`). A step holds a file as a descriptor
+A skill takes files when its start's input DTO has `FileDto` fields — `@File()` for
+one, `@List(FileDto)` for several (`@agboss/core/dto`). A step holds a file as a descriptor
 (`mediaType`, `filename`, `sha256`, `sizeBytes`, and where its bytes are: `fileId` in the store,
-`inline` base64, or `url`) and reads its bytes with the `A2AFiles` service (`deps: [A2AFiles]`,
+`inline` base64, or `url`) and reads its bytes with the `Files` service (`deps: [Files]`,
 `read(file)`); it makes one with `save({ bytes, mediaType, filename })` or names one by reference
 with `fromUrl(url, { mediaType, filename })`. A finish whose output holds files —
 `WorkflowFinishFileDto { file }`, `WorkflowFinishFilesDto { files }`, or any DTO with file fields —
 answers with one file part per file (`metadata[skills-uri].field` naming its field), then one
 `data` part of its other fields. The card lists the media types a skill takes in `inputModes` and
-what `A2AFiles.save` takes — the application's `a2aFiles`, else the defaults — in `outputModes`
+what `Files.save` takes — the workflow's `filePolicy`, else the defaults — in `outputModes`
 (#904).
 
 **The card never asks for a file field in a data part** (#904; a finish's outputs too, #916):
-`@A2AExpose({ cardFileFields })`, per skill too (`skills: { [id]: { cardFileFields } }`, over the
+`@A2AEndpoint({ cardFileFields })`, per skill too (`skills: [{ start, cardFileFields }]`, over the
 expose's; an invalid value or a skill not exported is `[a2a.file-options-invalid]` /
 `[a2a.unknown-skill-option]`):
 
-| `A2ACardFileFields` | The skill's `input` schema and each finish's output schema in the skills extension |
-| --- | --- |
-| `Extension` (default) | the file fields left out (and out of `required`), declared beside them as `files: { <field>: { list, optional, mediaTypes } }` (the input) and `outputFiles: { <finish>: { <field>: { list, optional, mediaTypes } } }` (#916) |
-| `Marker` | each file field kept as `{ "x-agboss-file-part": { list, optional, mediaTypes }, description }` (#916: the declaration `Extension` makes; was `true`), never in `required` — a strict ajv compiles it once the keyword is declared (`ajv.addVocabulary(["x-agboss-file-part"])`) |
+| `A2ACardFileFields`   | The skill's `input` schema and each finish's output schema in the skills extension                                                                                                                                                                                               |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Extension` (default) | the file fields left out (and out of `required`), declared beside them as `files: { <field>: { list, optional, mediaTypes } }` (the input) and `outputFiles: { <finish>: { <field>: { list, optional, mediaTypes } } }` (#916)                                                   |
+| `Marker`              | each file field kept as `{ "x-agboss-file-part": { list, optional, mediaTypes }, description }` (#916: the declaration `Extension` makes; was `true`), never in `required` — a strict ajv compiles it once the keyword is declared (`ajv.addVocabulary(["x-agboss-file-part"])`) |
 
-The media types are those the skill takes (its `files`, else the application's `a2aFiles`) for the
-input, what `A2AFiles.save` takes for the outputs. Either way a standard validator accepts a data
+The media types are those the skill takes (its `filePolicy` over its workflow's) for the
+input, what `Files.save` takes for the outputs. Either way a standard validator accepts a data
 part without file fields; the entry names the mode (`cardFileFields`), `agboss describe --json` names
 it per export, and the AGBoss client's schema check — the same under either mode — compares its
 input DTO without its file fields, then its file fields with the declared ones (a missing required
@@ -250,35 +262,36 @@ skill does not take as a file), and its output DTO the same way against each fin
 requires that the finish does not give or gives optionally, a list against one file, a field the
 finish gives as files that it reads as data).
 
-| Rule | What happens |
-| --- | --- |
-| where a file goes | into the field its part names in `metadata["https://agboss.dev/a2a/skills/v1"].field`; unnamed ones in order — each one-file field not filled yet takes one, the first list the rest; one left over `-32602 a2a.too-many-files-for-field` |
-| a data part naming a file field | `-32602 a2a.file-field-in-data` — a descriptor is the server's, never the caller's, with file parts or without |
-| a file below the top level | `[a2a.nested-file-field]` at assembly — an exported start's input, its finishes' outputs and an `@A2AAgent`'s DTOs hold `A2AFileDto` in top-level fields only; a client built with such a contract refuses to call |
-| limits | `@A2AExpose({ skills: { [id]: { files } } })` over `@Application({ a2aFiles })`: `maxFileSize` (64 KB), `maxTotalFileSize` (64 KB), `maxFiles` (5) — `-32602 a2a.file-too-large` / `a2a.files-too-large` / `a2a.too-many-files`; `[a2a.file-options-invalid]` at assembly |
-| media types | `allowedMediaTypes` (PNG, JPEG, WebP, GIF, PDF, plain text, Markdown, CSV, JSON): another `-32005 a2a.file-media-type`; the bytes checked against the declared type (signatures, valid UTF-8, JSON) — `-32602 a2a.media-type-mismatch` |
-| a file by `url` | fetched once at the admission, before the task is kept: `https:` on an origin of `allowedFileOrigins` only (none listed: `a2a.file-url-not-allowed`; another `a2a.file-origin-denied`), `GET`, redirects followed by hand — at most 3, each target's origin checked —, never an address of a range of the IANA special-purpose registries that is not globally reachable — loopback, private, link-local, CGNAT, `192.0.0.0/24`, benchmarking, documentation, reserved, multicast, unique-local, site-local, `2001::/23`, `64:ff9b:1::/48`, … — nor an IPv6 one carrying such an IPv4 (IPv4-mapped, -translated, -compatible, NAT64 `64:ff9b::/96`, 6to4: checked as that IPv4; #904) (the lookup's answer checked, `a2a.file-address-denied`), never a url with a user or a password (`a2a.file-origin-denied`, on a redirect too; #904), never through a proxy nor `node:http(s)` — the fetch has its own connection and its own HTTP/1.1 exchange on it (#1138): the guarded lookup resolves the name once and checks every answer, a raw TCP socket is connected to the vetted address (that address as the host, and a `lookup` that answers only it), its remote address is checked at `connect` before any byte (else the socket is destroyed), then TLS starts on that socket, with the host as SNI and for its certificate, and the fetch writes its own `GET` on it (`Connection: close`; the response read strictly: status line, headers, a `chunked`, `Content-Length` or close-delimited body; only a `200` is the file: any other status, a 2xx too — a `206` is a part (no `Range` is sent), a `204` has none —, is `a2a.file-fetch-failed` with none of the response in it, #1331) — so `NODE_USE_ENV_PROXY` / `--use-env-proxy` / `HTTPS_PROXY`, a replaced `https.globalAgent` or `global-agent` never carry it: behind a proxy the lookup would check the proxy's address only (#916); a deployment whose egress must go through a proxy takes no file by url. What holds: **one TCP connection per request, to the vetted address only** — no `ClientRequest`, agent or global agent is ever constructed or asked, so a replaced `ClientRequest` (one that drops `agent` and `createConnection`, assigns `http.globalAgent` or a keep-alive agent, sets the url's name back or builds options of its own), an agent or an interceptor makes no DNS lookup and no connection for the fetch, whatever its resolver's timing — a resolver that answers in the same tick too —; nothing is pooled or reused, so a fetch after a refused one connects anew; each redirect hop goes through the same steps; a name with one denied address among its answers (a mix of public and private, an IPv4-mapped or other embedded form) is refused before any connect; **0 bytes to a denied peer** (no TCP payload, no ClientHello, no request), the TLS socket destroyed on every failure (#1022). What stays outside: a patch of `net` or `tls` itself acts on its own — pass-through wrappers (APM agents) work, one that reroutes the connection is refused at the peer check with nothing sent (its own TCP connection was made), and a `net` patch that lies about `remoteAddress` cannot be detected; `ClientRequest` wrappers no longer see the request (the span below stands for it). Each request is one OpenTelemetry `CLIENT` span (`@opentelemetry/api`, a no-op without an SDK; method, status, `server.address`, `server.port`, `url.full` without query or fragment; no trace header (`traceparent`, `baggage`) is sent; an error status with `error.type` when the fetch fails or is refused — also after a 2xx status line: a body past `maxFileSize` `a2a.file-too-large`, one cut by the deadline or the request's end `ABORT_ERR`, one the peer resets its error's code (`ECONNRESET`), #1139; not in Langfuse's isolated provider; dd-trace's http plugin does not see it unless Datadog's OpenTelemetry `TracerProvider` bridge is registered; #1021) —, the read stopped at `maxFileSize`, bound to the request's end and `a2aHttpListener({ fileFetchTimeout })` (10 s; `a2a.file-fetch-failed`), and across all messages at most `a2aHttpListener({ maxConcurrentFileFetches })` (16) fetches at once: one without a slot waits in a queue of four per slot, its wait part of `fileFetchTimeout`, and past the queue it is refused `a2a.file-fetch-busy`; a tenant holds at most `maxConcurrentFileFetchesPerTenant` of them (a quarter by default, at least 1) and four queue places per slot of its share, however many owners it has, and inside it each owner (a caller with no owner is its tenant's one anonymous owner) at most `maxConcurrentFileFetchesPerOwner` (a quarter of the tenant's share by default, at least 1) and four places per slot of that; a fetch over either share is refused `a2a.file-fetch-busy` at once, so one tenant's flood leaves the other tenants their slots and one owner's flood the tenant's other owners (#1256, #1297); a model's read of a file by url (`ModelFiles`, #899) takes a slot of the same limiter, with the same keys (its tenant, and the thread's owner inside it), when the listener has no `maxConcurrentFileFetches*` option of its own: the application's default slots are shared by its listeners and its models' reads, and over them the read fails as a download failure whose cause is `a2a.file-fetch-busy` (#1332) |
-| a resend | the same `messageId` with the same bytes (their SHA-256) or url gets the same task, nothing fetched again; other bytes `-32602 a2a.message-id-reused` |
-| concurrent duplicates | the same message sent again while its file is fetched joins that fetch: each url fetched once on a listener (the last request to leave aborts it); across instances each fetches at most once (#904) |
-| a follow-up | text or data only: a file `-32005` |
-| `maxBodySize` | unset: 1 MB, or room for the largest `maxTotalFileSize` as base64 and 256 KB more |
+| Rule                            | What happens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| where a file goes               | into the field its part names in `metadata["https://agboss.dev/a2a/skills/v1"].field`; unnamed ones in order — each one-file field not filled yet takes one, the first list the rest; one left over `-32602 a2a.too-many-files-for-field`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| a data part naming a file field | `-32602 a2a.file-field-in-data` — a descriptor is the server's, never the caller's, with file parts or without                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| a file below the top level      | `[a2a.nested-file-field]` at assembly — an exported start's input, its finishes' outputs and an `@A2AAgent`'s DTOs hold `FileDto` in top-level fields only; a client built with such a contract refuses to call                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| limits                          | the workflow's `@FilePolicy` (a skill's `filePolicy` only tightens it): `maxFileSize` (64 KB), `maxTotalFileSize` (64 KB), `maxFiles` (5) — `-32602 a2a.file-too-large` / `a2a.files-too-large` / `a2a.too-many-files`; `[file-policy.invalid]` / `[a2a.skill-file-policy-exceeds-workflow]` at assembly                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| media types                     | `allowedMediaTypes` (PNG, JPEG, WebP, GIF, PDF, plain text, Markdown, CSV, JSON): another `-32005 a2a.file-media-type`; the bytes checked against the declared type (signatures, valid UTF-8, JSON) — `-32602 a2a.media-type-mismatch`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| a file by `url`                 | fetched once at the admission, before the task is kept: `https:` on an origin of the policy's `allowedOrigins` only (none listed: `a2a.file-url-not-allowed`; another `a2a.file-origin-denied`), `GET`, redirects followed by hand — at most 3, each target's origin checked —, never an address of a range of the IANA special-purpose registries that is not globally reachable — loopback, private, link-local, CGNAT, `192.0.0.0/24`, benchmarking, documentation, reserved, multicast, unique-local, site-local, `2001::/23`, `64:ff9b:1::/48`, … — nor an IPv6 one carrying such an IPv4 (IPv4-mapped, -translated, -compatible, NAT64 `64:ff9b::/96`, 6to4: checked as that IPv4; #904) (the lookup's answer checked, `a2a.file-address-denied`), never a url with a user or a password (`a2a.file-origin-denied`, on a redirect too; #904), never through a proxy nor `node:http(s)` — the fetch has its own connection and its own HTTP/1.1 exchange on it (#1138): the guarded lookup resolves the name once and checks every answer, a raw TCP socket is connected to the vetted address (that address as the host, and a `lookup` that answers only it), its remote address is checked at `connect` before any byte (else the socket is destroyed), then TLS starts on that socket, with the host as SNI and for its certificate, and the fetch writes its own `GET` on it (`Connection: close`; the response read strictly: status line, headers, a `chunked`, `Content-Length` or close-delimited body; only a `200` is the file: any other status, a 2xx too — a `206` is a part (no `Range` is sent), a `204` has none —, is `a2a.file-fetch-failed` with none of the response in it, #1331) — so `NODE_USE_ENV_PROXY` / `--use-env-proxy` / `HTTPS_PROXY`, a replaced `https.globalAgent` or `global-agent` never carry it: behind a proxy the lookup would check the proxy's address only (#916); a deployment whose egress must go through a proxy takes no file by url. What holds: **one TCP connection per request, to the vetted address only** — no `ClientRequest`, agent or global agent is ever constructed or asked, so a replaced `ClientRequest` (one that drops `agent` and `createConnection`, assigns `http.globalAgent` or a keep-alive agent, sets the url's name back or builds options of its own), an agent or an interceptor makes no DNS lookup and no connection for the fetch, whatever its resolver's timing — a resolver that answers in the same tick too —; nothing is pooled or reused, so a fetch after a refused one connects anew; each redirect hop goes through the same steps; a name with one denied address among its answers (a mix of public and private, an IPv4-mapped or other embedded form) is refused before any connect; **0 bytes to a denied peer** (no TCP payload, no ClientHello, no request), the TLS socket destroyed on every failure (#1022). What stays outside: a patch of `net` or `tls` itself acts on its own — pass-through wrappers (APM agents) work, one that reroutes the connection is refused at the peer check with nothing sent (its own TCP connection was made), and a `net` patch that lies about `remoteAddress` cannot be detected; `ClientRequest` wrappers no longer see the request (the span below stands for it). Each request is one OpenTelemetry `CLIENT` span (`@opentelemetry/api`, a no-op without an SDK; method, status, `server.address`, `server.port`, `url.full` without query or fragment; no trace header (`traceparent`, `baggage`) is sent; an error status with `error.type` when the fetch fails or is refused — also after a 2xx status line: a body past `maxFileSize` `a2a.file-too-large`, one cut by the deadline or the request's end `ABORT_ERR`, one the peer resets its error's code (`ECONNRESET`), #1139; not in Langfuse's isolated provider; dd-trace's http plugin does not see it unless Datadog's OpenTelemetry `TracerProvider` bridge is registered; #1021) —, the read stopped at `maxFileSize`, bound to the request's end and `a2aHttpListener({ fileFetchTimeout })` (10 s; `a2a.file-fetch-failed`), and across all messages at most `a2aHttpListener({ maxConcurrentFileFetches })` (16) fetches at once: one without a slot waits in a queue of four per slot, its wait part of `fileFetchTimeout`, and past the queue it is refused `a2a.file-fetch-busy`; a tenant holds at most `maxConcurrentFileFetchesPerTenant` of them (a quarter by default, at least 1) and four queue places per slot of its share, however many owners it has, and inside it each owner (a caller with no owner is its tenant's one anonymous owner) at most `maxConcurrentFileFetchesPerOwner` (a quarter of the tenant's share by default, at least 1) and four places per slot of that; a fetch over either share is refused `a2a.file-fetch-busy` at once, so one tenant's flood leaves the other tenants their slots and one owner's flood the tenant's other owners (#1256, #1297); a model's read of a file by url (`ModelFiles`, #899) takes a slot of the same limiter, with the same keys (its tenant, and the thread's owner inside it), when the listener has no `maxConcurrentFileFetches*` option of its own: the application's default slots are shared by its listeners and its models' reads, and over them the read fails as a download failure whose cause is `a2a.file-fetch-busy` (#1332) |
+| a resend                        | the same `messageId` with the same bytes (their SHA-256) or url gets the same task, nothing fetched again; other bytes `-32602 a2a.message-id-reused`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| concurrent duplicates           | the same message sent again while its file is fetched joins that fetch: each url fetched once on a listener (the last request to leave aborts it); across instances each fetches at most once (#904)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| a follow-up                     | text or data only: a file `-32005`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `maxBodySize`                   | unset: 1 MB, or room for the largest `maxTotalFileSize` as base64 and 256 KB more                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
-**Where the bytes are.** With no `A2AFileRepository` listed, a file rides inline in its task's own
+**Where the bytes are.** With no `FileRepository` listed, a file rides inline in its task's own
 records (the checkpoint, the task's output) — silently up to 64 KB, with the warning
 `[a2a.inline-files-without-store]` up to 256 KB (an error under `--strict`), above it
-`[a2a.file-store-required]`. A listed store keeps it under the task (`InMemoryA2AFileRepository`,
-`LocalDiskA2AFileRepository` on the environment's `a2aFilesPath`, `S3A2AFileRepository` — a bucket
+`[a2a.file-store-required]`. A listed store keeps it under the task (`InMemoryFileRepository`,
+`LocalDiskFileRepository` on the environment's `a2aFilesPath`, `S3FileRepository` — a bucket
 every instance reaches, on plain `fetch` with Signature Version 4: `a2aS3Bucket`, `a2aS3Region`,
 `a2aS3Endpoint?` (an S3-compatible store), `a2aS3Prefix?`, `a2aS3AccessKeyId`,
-`a2aS3SecretAccessKey`; every key within S3's 255-byte segments and 1024-byte keys for every valid id — a long id in pieces, one past 300 characters as its digest —, a file's metadata in its object's body, `a2aS3Prefix` at most 99 bytes (#904) —, or your own, proved by
-`a2aFileContract`); on leases the instances share, one host's store with files above 256 KB is
+`a2aS3SecretAccessKey`; every key within S3's 255-byte segments and 1024-byte keys for every valid id — a long id in pieces, one past 300 characters as its digest —, a file's metadata in its object's body, `a2aS3Prefix` at most 87 bytes (#904, #1316) —, or your own, proved by
+`fileContract`); on leases the instances share, one host's store with files above 256 KB is
 `[a2a.file-store-not-shared]`. A task's files are its own: a step reads no other task's, a task's
-artifact serves only its own. They are removed `@Application({ retention: { a2aFiles } })` after
-the task is over (default and at most `a2aTasks`) — never while it waits, however long an
-`INPUT_REQUIRED` task is paused.
+artifact serves only its own. They are removed `@FilePolicy({ ttl })` after
+the task's execution (its whole tree) has ended (`hours(24)` by default, `Ttl.Forever`: never) — never while it runs or
+waits, however long an `INPUT_REQUIRED` task is paused. `Files.save({ ttl })` may keep one file
+for less, never for more.
 
-**The client.** `execute(input)` sends `A2AClientFile.fromBytes(bytes, { mediaType, filename })`
-(a `raw` part) or `A2AClientFile.fromUrl(url, …)` (a `url` part) in an input's file fields, a
+**The client.** `execute(input)` sends `FileDto.fromBytes(bytes, { mediaType, filename })`
+(a `raw` part) or `FileDto.fromUrl(url, …)` (a `url` part) in an input's file fields, a
 stored file of the calling task read first; an answer's file parts fill the output DTO's file
 fields (a foreign agent's unnamed parts into `WorkflowFinishFileDto` / `WorkflowFinishFilesDto`,
 or the DTO's only file field), never a descriptor from a data part; `send` gives
@@ -286,7 +299,7 @@ or the DTO's only file field), never a descriptor from a data part; `send` gives
 `url` through the client's own fetch, on its origins only.
 
 A pause's decision never carries a file (#900): a follow-up `{ pauseId?, decision }` holding an
-object shaped as an `A2AFileDto` — a `mediaType` with a `fileId`, `sha256`, `inline` or `url` — at
+object shaped as an `FileDto` — a `mediaType` with a `fileId`, `sha256`, `inline` or `url` — at
 any depth is `-32602 a2a.file-field-in-data`, nothing resumed (the scan bounded: 64 levels, 10 000
 values, else `a2a.answer-shape`).
 
@@ -296,17 +309,21 @@ A skill may answer with a `Message` instead of a task — a quote, a lookup, a c
 nothing to pause for, nothing to follow up.
 
 ```ts no-check: the two starts and their workflows are not written out on this page
-import { A2AExpose, A2AReply } from "@agboss/core/a2a";
+import { A2AEndpoint, A2AReply } from "@agboss/core/a2a";
+import { hours, minutes } from "@agboss/core/units";
 
-@A2AExpose({
-  name: "quotes-a2a-expose",
+@A2AEndpoint({
+  name: "quotes",
   version: "1.0.0",
   description: "Answers price questions at once; acknowledges orders as tasks",
-  exports: [QuoteWorkflowStart, OrderWorkflowStart],
-  skills: { "quote-workflow-start": { reply: A2AReply.Message } }, // default A2AReply.Task
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [
+    { start: QuoteWorkflowStart, reply: A2AReply.Message }, // default A2AReply.Task
+    OrderWorkflowStart,
+  ],
   defaultSkill: QuoteWorkflowStart, // a message that names no skill runs it
 })
-export class QuotesA2AExpose {}
+export class QuotesA2AEndpoint {}
 ```
 
 - **The answer.** `SendMessage` returns a `Message` (no `taskId`): the finish's output as a text
@@ -316,16 +333,16 @@ export class QuotesA2AExpose {}
   follow-up naming the skill with a `taskId`, is `-32001`.
 - **Stateless, checked at assembly** on every node of the skill's workflow (fail closed: a node
   another start reaches counts): no pause (a question step, a question role, a tool with a
-  channel — `[a2a.message-skill-pause]`), no fenced effect, `OutboundCalls` or `@A2AAgent` in any
+  channel — `[a2a.message-skill-pause]`), no `Idempotency` or `@A2AAgent` in any
   `deps` a node or a tool reaches (`[a2a.message-skill-effect]`), only `@Tool({ readOnly: true })`
-  tools and no `@McpTool` (`[a2a.message-skill-tool]`), no `compensateWith` / `committedBy`
+  tools (`[a2a.message-skill-tool]`), no `compensateWith` / `committedBy`
   (`[a2a.message-skill-compensation]`), no child workflow or recursion
-  (`[a2a.message-skill-child]`). Reading a `@Rag` and the message's files (`A2AFiles`) is fine. A
+  (`[a2a.message-skill-child]`). Reading a `@Rag` and the message's files (`Files`) is fine. A
   `reply` for no export, a `defaultSkill` that is none: `[a2a.unknown-skill-option]`.
 - **Once per `messageId`.** The reply is kept in the application's `A2ADirectMessageRepository`
   (in memory by default; `SqliteA2ADirectMessageRepository`, `PostgresA2ADirectMessageRepository`,
   `MongoA2ADirectMessageRepository`; your own passes `a2aDirectMessageContract`) for
-  `@Application({ retention: { a2aMessages } })` (default `minutes(15)`, published on the card as
+  the endpoint's `ttl.messages` (published on the card as
   the mesh extension's `messageIdempotencyRetention`): a resend gets the same message, a concurrent
   duplicate waits for it (the store read every 250 ms, bounded) — the model is called and charged
   once. A message's id is claimed among the A2A task store's messages in the same atomic write, so
@@ -338,19 +355,19 @@ export class QuotesA2AExpose {}
   pass alone. That instance keeps, for a skill that can call a model, one call of unknown cost in
   the run's record, as a lost pass of #853: `spend.unknownCalls` 1, a line `lost-pass:<workflow>`
   of no amount (`CostSource.Unknown`, ledger key `unknown:lost-run:<tenantId>:<runId>`) — what
-  `agboss records export` writes — counted in `agboss.instance.costs.unknown`. The message of an
+  `agboss executions export` writes — counted in `agboss.instance.costs.unknown`. The message of an
   attempt lost to a crash is taken over by exactly one resend or by the sweep, which removes its
   files. A failed attempt keeps nothing: a resend runs it again.
 - **A live attempt is never swept.** The sweep removes completed replies only, the oldest first,
-  once `retention.a2aMessages` passed since their message was accepted; an attempt in flight keeps
+  once the endpoint's `ttl.messages` passed since their reply was kept; an attempt in flight keeps
   its row, its id's claim and its reply to come however old its message is. A message taken over
   is accepted anew — its retention counts from the takeover — so a reply a takeover keeps is never
   thrown away under a waiting resend.
 - **The client.** `A2AClient` takes a `Message` answer without waiting for a task; a message with no
   output it can read is `A2ARemoteCallError` `no-task`. For a skill whose card says `reply:
-  "message"`, an ambiguous send is resent with its `messageId` only within the card's
+"message"`, an ambiguous send is resent with its `messageId` only within the card's
   `messageIdempotencyRetention` (15 min when it declares none) — never the tasks' 24 h; past it the
-  call fails closed, `OutboundCallUnreconciledError`.
+  call fails closed, `OutboundCallError.Unreconciled`.
 
 ## 4. The client side — A2A v1.0 (#809)
 
@@ -381,18 +398,18 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
   `getHeaders()`) never leave its origins — and a redirect off them is refused, never followed.
 - **The message.** `execute(input)` sends one `data` part (`application/json`; one `text` part for
   `WorkflowStartTextDto`) and names the skill in `message.metadata["https://agboss.dev/a2a/skills/v1"]
-  = { skill }`; `send(message)` takes a text, `{ data }` or the parts; `reply(taskId, answer)`
+= { skill }`; `send(message)` takes a text, `{ data }` or the parts; `reply(taskId, answer)`
   continues a task that waits for input; `getTask(taskId)`, `cancel(taskId)`, `agentCard()`.
 - **The accept** is one `SendMessage` with `returnImmediately`, through
-  [Outbound calls](Several-instances) inside an execution (`a2a.<agent>[.reply][.<call.key>]`): its
+  [`Idempotency.sendOnce`](Several-instances) inside an execution (`a2a.<agent>[.reply][.<call.key>]`): its
   `messageId` is derived from the step's key, the same on every attempt. A send of unknown outcome
-  (no answer, a 5xx, `-32603`) is reconciled, never resent blindly:
+  (no answer, a 5xx, `-32603`) is recovered, never resent blindly:
 
-  | Peer | What a send of unknown outcome becomes |
-  | --- | --- |
-  | AGBoss (its card's mesh extension declares `params.idempotencyRetention`) | sent again with the same `messageId` — the agent returns the same task — within that retention (`NotSentTrust.KeyReplay`); past it `OutboundCallUnreconciledError` |
-  | foreign, a reply to a known task | `GetTask`: the task no longer waits for input → the reply arrived; else unknown |
-  | foreign, a new message | `OutboundCallUnreconciledError` (`foreign A2A peer`): nothing is sent again |
+  | Peer                                                                      | What a send of unknown outcome becomes                                                                                                                                     |
+  | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | AGBoss (its card's mesh extension declares `params.idempotencyRetention`) | sent again with the same `messageId` — the agent returns the same task — within that retention (`OutboundRecovery.replayWithin`); past it `OutboundCallError.Unreconciled` |
+  | foreign, a reply to a known task                                          | `GetTask`: the task no longer waits for input → the reply arrived; else unknown                                                                                            |
+  | foreign, a new message                                                    | `OutboundCallError.Unreconciled` (`foreign A2A peer`): nothing is sent again                                                                                               |
 
   The peer's trust is recorded with the intent: a card that changed since (a foreign peer now
   declaring a retention) is unknown, never a resend. A foreign peer's reply counts as arrived only
@@ -403,6 +420,7 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
   messages need their own `call.key` (`[a2a.repeated-call]`; 1–40 of `[A-Za-z0-9._-]`). A step of no
   composed application (a unit runner's) has nothing to record into: `[a2a.outside-application]`,
   nothing sent — mock the client there.
+
 - **Waiting** is a pure read, safe after any crash: `SubscribeToTask` when the card streams (a
   dropped stream is opened again, then polling), else `GetTask` polled on the `Clock` (250 ms
   doubling to 5 s). A task that works — an out-of-band pause included — is waited for up to the
@@ -414,7 +432,7 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
 - **Outcomes.** COMPLETED → the output, read from the artifact an AGBoss finish marks
   (`metadata[skills-uri].finish`) when the task has one, else from every artifact in order (none readable: `A2ARemoteCallError`, was `A2ARemoteError`);
   FAILED / REJECTED → `A2ATaskFailedError` (an AGBoss peer's `limit.mesh-loop` / `limit.hops` → the
-  same `MeshLoopDetectedError` / `HopsLimitExceededError`); CANCELED → `A2ATaskCanceledError`;
+  same `MeshLoopDetectedError` / `HopsLimitExceededError`); CANCELED → `A2ATaskCancelledError`;
   INPUT_REQUIRED → `A2ATaskInterruptedError` from `execute` (a remote pause is not a local one yet),
   the task from `send`; a JSON-RPC error → `A2AProtocolError` (`rpcCode`); a refused caller →
   `A2ACallerRejectedError`. Only codes: an agent's message, status text or body is never kept.
@@ -429,13 +447,13 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
   with no envelope to send is refused too, and `result.peer.mesh` is `true` only once one rode and
   the agent echoed the extension in its answer's `A2A-Extensions` (#810, spec §4.6) — an agent that
   does not is called without the mesh, said in the tool call's record (`remote: { application,
-  executionId: <task id>, mesh: false }`) and in `agboss describe` (`a2a agents`: `mesh: required` /
+executionId: <task id>, mesh: false }`) and in `agboss describe` (`a2a agents`: `mesh: required` /
   `mesh: not guaranteed (foreign peer)`). The `price` is charged to the step (`a2a:<application>`)
   when the call is accepted — a call that later runs out of time or fails there is charged too; a
   call the agent refused before anything ran (its task `REJECTED` at the accept: a mesh loop, a
   chain past its `maxMeshHops`) is charged nothing, its price neither, on any pass, a takeover's
   replay of the accept too (#849, as in 0.1.0), said in the tool call's record (`remote: {
-  application, executionId, refused: true }`). Only an AGBoss agent the mesh rode to refuses so:
+application, executionId, refused: true }`). Only an AGBoss agent the mesh rode to refuses so:
   a `REJECTED` task with a mesh limit; any other `REJECTED` answer is charged as accepted. The
   refusal is the agent's word, so it is fail-closed: such a task is never waited on and none of its
   output is used; the client reads it once more (`GetTask`) — still refused, the limit is thrown;
@@ -444,7 +462,7 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
   report's spend above it at the end (the report must name the call's task); a completed task with
   no run report the caller verifies — an untrusted caller, a peer that signs nothing, another body's
   or task's report — is charged the price alone and said so in the tool call's record (`remote: {
-  application, executionId, report: false }`, #844). **Exactly once across
+application, executionId, report: false }`, #844). **Exactly once across
   passes (#810):** both charges are made on every pass that reaches the accept — a takeover that
   replays the accept an earlier pass recorded too — under the call's own ledger identity
   (`UsageRecord.ledgerKey`: `a2a:<messageId>:price`, dated by the accept; `a2a:<messageId>:report`,
@@ -455,10 +473,10 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
 
 ## 5. Testing — the `a2aServer` fixture
 
-`testWith`'s `a2aServer({ expose, callerResolver, base? })` serves the test's `app` through
+`testWith`'s `a2aServer({ endpoint, authenticator, base? })` serves the test's `app` through
 `a2aHttpListener` on `127.0.0.1:0` and returns `{ url }` (`A2ATestServer`); the loopback is open
-for it (no `allowNetwork` needed) and the server is closed at the test's end. The resolver comes
-from the test app's container, so `override(ApiKeyDirectory, FixedApiKeyDirectory)` and `mockOf`
+for it (no `allowNetwork` needed) and the server is closed at the test's end. The authenticator comes
+from the test app's container, so `FixedApiKeyDirectory` and `mockOf`
 reach it.
 
 ```ts no-check: ShopApplication and its workflow are not written out on this page
@@ -470,10 +488,10 @@ class FixedApiKeyDirectory extends ApiKeyDirectory {
   }
 }
 
-const test = testWith(ShopApplication, { overrides: [override(ApiKeyDirectory, FixedApiKeyDirectory)] });
+const test = testWith(ShopApplication, { services: [FixedApiKeyDirectory] });
 
 test("an unknown key is 401 and never runs", async ({ a2aServer }) => {
-  const { url } = await a2aServer({ expose: ShopA2AExpose, callerResolver: ShopA2aCallerResolver });
+  const { url } = await a2aServer({ endpoint: ShopA2AExpose, authenticator: ShopHttpAuthenticator });
 
   // any A2A v1.0 client calls the listener; a plain JSON-RPC SendMessage is the smallest one
   const sent = await fetch(url, {
@@ -520,19 +538,19 @@ caller's own hop last. Ids only: no `ownerId`, no `tenantId`, no input values. O
 
 **On the receiver the envelope is a claim** — unless a trusted peer signed it
 ([below](#trusted-peers--signed-envelopes-398-pr-2)). The listener reads it into
-`A2ACallerRequest.envelope` for the resolver: never the tenant. An envelope it cannot read (not an unsecured JWS of `schema: 1`, too long, a hop without
+`HttpAuthRequest.envelope` for the mesh checks: never the tenant. An envelope it cannot read (not an unsecured JWS of `schema: 1`, too long, a hop without
 its id) is ignored: the request runs as one without — stripping it is no different. What
 the receiver applies anyway (a caller can only make its own request fail with it):
 
-| The chain the request arrives with                             | The answer (MCP; over A2A a `REJECTED` task, §6.1)                               |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| already lists this application **and** this start              | `409 { "code": "limit.mesh-loop", "error", "details": { "entry", "chain" } }`    |
-| already lists `@Application({ maxMeshHops })` applications (8) | `409 { "code": "limit.hops", "error", "details": { …, "maxMeshHops", "hops" } }` |
-| anything else                                                  | the run — its own calls carry the chain on, its hop added                        |
+| The chain the request arrives with                  | The answer (MCP; over A2A a `REJECTED` task, §6.1)                               |
+| --------------------------------------------------- | -------------------------------------------------------------------------------- |
+| already lists this application **and** this start   | `409 { "code": "limit.mesh-loop", "error", "details": { "entry", "chain" } }`    |
+| already lists `@Mesh({ maxHops })` applications (8) | `409 { "code": "limit.hops", "error", "details": { …, "maxMeshHops", "hops" } }` |
+| anything else                                       | the run — its own calls carry the chain on, its hop added                        |
 
 A refusal runs nothing (no observer event, no record), like a refused caller. A loop is the same
 `(application, start)` twice — at any depth; another start of the same application is not one.
-`maxMeshHops` counts applications (`hops` = the chain + the receiver); anything but a whole number
+`maxHops` counts applications (`hops` = the chain + the receiver); anything but a whole number
 from 1 is `[limits.max-mesh-hops-invalid]`. A resume is not checked: its execution has its chain.
 
 **On the caller** a `409` (MCP), or over A2A the `REJECTED` task's code and details ([§4](#4-the-client-side--a2a-v10-809)), is rethrown as `MeshLoopDetectedError` (`limit.mesh-loop`:
@@ -543,9 +561,9 @@ would loop again) — so a whole chain `A → B → A` fails at every hop, deter
 the path (its side path leads to actions and finishes only, as for every limit):
 
 <!-- snippet-context
-import { Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, start, toFinish } from "@agboss/core";
+import { inline, Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, Ttl } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
-@Agent({ name: "orders-agent", description: "Orders", prompt: "Answer.", model: "moonshotai/kimi-k2.6" })
+@Agent({ name: "orders-agent", description: "Orders", prompt: inline("Answer."), model: "moonshotai/kimi-k2.6" })
 export class OrdersAgent {}
 @WorkflowStart({ name: "orders-workflow-start", description: "A question", input: WorkflowStartTextDto })
 export class OrdersWorkflowStart {}
@@ -559,9 +577,9 @@ export class LoopedWorkflowFinish {}
 @Workflow({
   name: "orders-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OrdersWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(OrdersWorkflowStart)
       .toAgent(OrdersAgent) // its tool calls the billing application over A2A
       .onError(
         MeshLoopDetectedError, // billing called back into orders-workflow-start
@@ -575,65 +593,87 @@ export class OrdersWorkflow {}
 
 ### Trusted peers — signed envelopes (#398 PR 2)
 
-An application that names its keys in `@Application({ mesh })` (`MeshOptions`, each peer a
-`MeshPeer`) signs every envelope it sends and
-every run report it answers with (JWS `EdDSA`, Ed25519); its `peers` are the applications whose
-signatures it checks. Keys are PEM in environment fields, named by field as a `@ModelProvider`'s
-`apiKey` is: the private key a `Secret` field (PKCS #8, `-----BEGIN PRIVATE KEY-----`), a peer's
-public key a plain text field (SPKI, `-----BEGIN PUBLIC KEY-----`) — it is public.
+An application whose `@Application({ mesh })` is a `@Mesh` class (#1320) signs every envelope it
+sends, every run report it answers with and every HTTP request of its clients (JWS `EdDSA`,
+Ed25519); its `peers` are the applications whose signatures it checks. Keys are PEM in process
+variables read through `defineEnv`: the signing key a `secret(…)` (PKCS #8,
+`-----BEGIN PRIVATE KEY-----`), a peer's public keys — `verifyKeys`, any of them verifies, so a
+rotation lists the old and the new one — `secret(…)` / `secret.optional(…)` references (SPKI,
+`-----BEGIN PUBLIC KEY-----`).
 
 <!-- snippet-context
-import { Application, type Secret } from "@agboss/core";
+import { Application, EmptyEnvironment, Mesh, MeshInboundMode, defineEnv, secret } from "@agboss/core";
 import { minutes } from "@agboss/core/units";
 export class BillingWorkflow {} // a @Workflow of its own
 -->
 
 ```ts
-// environments/billing.environment.ts — the contract; each environment sets
-// meshSigningKey: secret("MESH_SIGNING_KEY"), ordersPublicKey: env("ORDERS_PUBLIC_KEY")
-export class BillingEnvironment {
-  meshSigningKey!: Secret;
-  ordersPublicKey!: string;
-}
+const meshEnv = defineEnv({
+  signingKey: secret("MESH_SIGNING_KEY"),
+  ordersKey: secret("ORDERS_PUBLIC_KEY"),
+  ordersNextKey: secret.optional("ORDERS_PUBLIC_KEY_NEXT"), // set during a rotation
+});
+
+@Mesh({
+  signingKey: meshEnv.signingKey,
+  inboundMode: MeshInboundMode.Strict, // a request to a mesh endpoint must be a peer's, signed
+  deduplicationTtl: minutes(30), // how long a trusted request's answer is kept (above envelopeTtl + 2 × maxClockSkew)
+  maxHops: 8, // how many applications one call chain may pass through
+  peers: [
+    {
+      application: "orders-application",
+      verifyKeys: [meshEnv.ordersKey, meshEnv.ordersNextKey],
+      propagateTenant: true, // the peer's signed tenantId is the caller's tenant
+    },
+  ],
+})
+export class BillingMesh {}
 
 @Application({
   name: "billing-application",
   version: "1.0.0",
-  environment: BillingEnvironment,
+  environment: EmptyEnvironment,
   workflows: [BillingWorkflow],
-  mesh: {
-    signingKey: "meshSigningKey",
-    peers: [{ application: "orders-application", verifyKey: "ordersPublicKey" }],
-  },
-  retention: { meshAnswers: minutes(30) }, // how long a trusted request's answer is kept
+  mesh: BillingMesh,
 })
 export class BillingApplication {}
 ```
 
-At assembly a key field the contract lacks is `[mesh.signing-key-missing]` /
-`[mesh.unknown-peer-key]`, a peer listed twice `[mesh.duplicate-peer]`; at start a field that holds
-no Ed25519 key of its kind fails it — `[mesh.invalid-key] meshSigningKey holds no Ed25519 private
-key (PKCS #8 PEM) (…)`, never the value. `maxMeshHops` stays a setting of its own.
+Every HTTP request of an AGBoss client to a peer carries `X-AGBoss-Mesh`, a JWS over `{ issuer,
+audience, origin, jti, method, path, bodyHash, issuedAt, expiresIn, tenantId? }`: the receiver
+verifies the signature with the issuer's keys first, then the audience and origin, the date (at
+most `maxClockSkew` ahead, `expiresIn` capped by its own `envelopeTtl`) and that method, path and
+body are this request's; each `(issuer, jti)` is admitted once (`mesh.replayed`; the shared
+`MeshRequestRepository` — unavailable, nothing is admitted, `503 mesh.replay-check-unavailable`).
+A refusal is `401 { code }` (`mesh.signature-invalid`, `mesh.peer-unknown`, `mesh.envelope-expired`,
+`mesh.audience-mismatch`, `mesh.request-mismatch`, `mesh.signature-missing`) or `403`
+(`mesh.endpoint-forbidden`, `mesh.tenant-mismatch`) with a fixed text, never the peer's. A verified
+peer's tasks are owned by `mesh:<peer>`; `allowEndpoints` limits the endpoints it may call.
+At assembly: `[mesh.not-a-mesh]`, `[mesh.limit-invalid]`, `[mesh.duplicate-peer]`,
+`[mesh.peer-without-keys]`, `[mesh.unknown-endpoint]`, `[limits.max-mesh-hops-invalid]`; at start a
+key that is no Ed25519 key fails it — `[mesh.invalid-key] mesh signingKey holds no Ed25519 private
+key (PKCS #8 PEM) (…)`, never the value.
 
 A signed envelope adds `issuedAt`, `expiresIn` (`PT60S`), `bodyHash` (`sha256:<hex>` of the body),
 and the caller's claims `budget { remaining, currency: "USD" }` (what its execution has left) and
 `deadline { remaining }` (ISO 8601 duration: the calling tool's timeout or its execution's
 deadline, the earlier). `origin.step.tool` names the calling tool.
 
-**A request is trusted only when both hold:** the caller resolver names its `peer` —
-`A2ACallerResolution.resolved({ …, peer: "orders-application" })`, what your transport proved
+**A request is trusted only when both hold:** the authenticator names its `peer` —
+`HttpAuthResult.authenticated({ …, peer: "orders-application" })`, what your transport proved
 (mTLS, a token) — and the envelope carries that peer's valid signature. The order of a `POST`:
 
 1. the envelope read; a signed one of a known issuer verified — its signature, then `issuedAt` +
    `expiresIn` on the application's `Clock` (30 s of tolerance): a bad one is `401`
-   `{ "code": "mesh.signature-invalid" | "mesh.envelope-expired" }`, before the resolver;
+   `{ "code": "mesh.signature-invalid" | "mesh.envelope-expired" }`, before the authenticator;
 2. the caller resolved (above), then the chain (loops, hops);
 3. the body: a trusted envelope's `bodyHash` must be its hash — else `401 mesh.body-mismatch`;
 4. over MCP a trusted call is deduplicated by `(tenant, peer, _meta.callId)` in the application's
    `MeshRequestRepository` ([Several instances](Several-instances);
    [MCP](Mcp#4-calls-between-agboss-applications--_meta-398)): a repeat gets the kept answer
-   without running, one while the first still runs an error result `mesh.request-in-progress`; a
-   run that did not answer is forgotten. Over A2A every caller, signed or not, is deduplicated by
+   without running, one while the first still runs an error result `mesh.request-in-progress`, one
+   that asks another tool or other arguments `mesh.idempotency-key-reused`; a run that did not
+   answer is forgotten, and a row is swept once expired and answered, an unanswered one once its lease lapsed too (#1319c). Over A2A every caller, signed or not, is deduplicated by
    `messageId` in the task and message stores (§2);
 5. the run.
 
@@ -649,12 +689,12 @@ client's request.
 
 What a trusted request gets — an untrusted one none of it:
 
-| From the caller                      | The receiver                                                                                                  |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `budget.remaining`                   | one more execution budget, `caller-budget` — it only lowers its own: `BudgetExceededError` (`"limited"`)      |
-| `deadline.remaining`                 | the execution's deadline, the smaller of it and its own: `DeadlineExceededError` (`limit.deadline`)           |
-| `origin` and the chain's length      | `executionContext.origin`, the execution record's `origin` and every observer event's — its resumes' and recoveries' too (`ExecutionOrigin`) |
-| its body and idempotency key         | the body checked, the request deduplicated                                                                    |
+| From the caller                 | The receiver                                                                                                                                 |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `budget.remaining`              | one more execution budget, `caller-budget` — it only lowers its own: `BudgetExceededError` (`"limited"`)                                     |
+| `deadline.remaining`            | the execution's deadline, the smaller of it and its own: `DeadlineExceededError` (`limit.deadline`)                                          |
+| `origin` and the chain's length | `executionContext.origin`, the execution record's `origin` and every observer event's — its resumes' and recoveries' too (`ExecutionOrigin`) |
+| its body and idempotency key    | the body checked, the request deduplicated                                                                                                   |
 
 `ExecutionOrigin` is the caller's `MeshOrigin` plus `application` (the peer) and `hops` (the
 applications before this one). Its answer carries the run report (A2A: `task.metadata[uri].report`; MCP:
@@ -676,27 +716,27 @@ The envelope's `audience` and a contract price come with declared contracts ([§
 
 `a2aHttpListener` reads the envelope of a `SendMessage` / `SendStreamingMessage` from the message
 **as the SDK's transport decodes it** — what is checked is what runs — once its `A2A-Version` and
-its operation are read, **before the caller resolver and before anything runs**:
+its operation are read, **before the authenticator and before anything runs**:
 
 1. **The audience, first**: an envelope addressed to another application is `401 { "code":
-   "mesh.audience-mismatch" }`, a signed one addressed to none `401 mesh.audience-missing` — against
+"mesh.audience-mismatch" }`, a signed one addressed to none `401 mesh.audience-missing` — against
    the application's own `@Application({ name })`, whoever signed it and whatever its `mesh`
    settings (with none at all it still fails closed), before any signature is looked at.
 2. **A known issuer's signature** (`mesh.peers`): `401 mesh.signature-invalid`; its replay window
    (`issuedAt` + `expiresIn`, the `Clock`): `401 mesh.envelope-expired`; its `bodyHash` against
    `meshBodyHashOf` of the decoded message: `401 mesh.body-mismatch` — an envelope cannot be moved
    to another message. A signed envelope of an unknown issuer is an unsigned claim.
-3. The caller resolved; the request is **trusted** when the resolver's `peer` is the envelope's
+3. The caller resolved; the request is **trusted** when the authenticator's `peer` is the envelope's
    verified issuer.
 4. **The chain**, on every envelope, trusted or not: one that already passed through this skill, or
    is as long as `maxMeshHops`, is accepted as a **`REJECTED` task** — `status.message.metadata[uri]
-   = { code: "limit.mesh-loop" | "limit.hops", details: { entry, chain, maxMeshHops? } }`, nothing
+= { code: "limit.mesh-loop" | "limit.hops", details: { entry, chain, maxMeshHops? } }`, nothing
    started, a resend of its `messageId` gets it again — which the AGBoss client rebuilds into the
    same `MeshLoopDetectedError` / `HopsLimitExceededError`.
 5. The execution runs with the envelope's chain, and a trusted caller's origin
    (`executionContext.origin`), budget (`caller-budget` — a step's spend past it fails the remote
    execution with `limit.budget`) and deadline. The card declares the extension
-   (`params.idempotencyRetention` = `@Application({ retention: { a2aTasks } })`, how long a
+   (`params.idempotencyRetention` = the endpoint's `ttl.tasks`, how long a
    `messageId` is deduplicated) and the answer echoes it in `A2A-Extensions` when it was asked.
 6. **The run report**: a trusted task keeps its first message's `bodyHash`
    (`A2ATaskRecord.meshBodyHash`) and, once `COMPLETED`, carries the report the application signs
@@ -715,7 +755,7 @@ can compare applications without running them.
 **The caller** — an `@A2AAgent` names what it calls, sends, gets back and costs:
 
 <!-- snippet-context
-import { Tool, type ToolHandler } from "@agboss/core";
+import { Tool } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class InvoiceQuestionDto {
   @Text({ prompt: "the question about an invoice" })
@@ -738,7 +778,7 @@ import { usd } from "@agboss/core/units";
   target: { application: "billing-application", skill: "billing-workflow-start" },
   input: InvoiceQuestionDto, // the target skill's input, validated before it is sent
   output: InvoiceAnswerDto, // its finish's output, validated when it comes
-  price: usd(0.05), // one call's price by contract
+  costPerCall: usd(0.05), // one call's cost by contract, charged once per call
 })
 export class BillingDeskA2AAgent extends A2AClient<InvoiceQuestionDto, InvoiceAnswerDto> {}
 
@@ -749,10 +789,10 @@ export class BillingDeskA2AAgent extends A2AClient<InvoiceQuestionDto, InvoiceAn
   output: InvoiceAnswerDto,
   deps: [BillingDeskA2AAgent],
 })
-export class AskBillingTool implements ToolHandler<InvoiceQuestionDto, InvoiceAnswerDto> {
+export class AskBillingTool {
   constructor(private readonly billingDeskA2AAgent: BillingDeskA2AAgent) {}
 
-  run(question: InvoiceQuestionDto): Promise<InvoiceAnswerDto> {
+  execute(question: InvoiceQuestionDto): Promise<InvoiceAnswerDto> {
     return this.billingDeskA2AAgent.execute(question); // typed by the contract
   }
 }
@@ -760,25 +800,24 @@ export class AskBillingTool implements ToolHandler<InvoiceQuestionDto, InvoiceAn
 
 - `execute(input, call?)` replaces `execute(input, OutputDto, call?)` (breaking, [Changelog](Changelog)).
   A client built by hand states the contract: `new A2AClient({ url, contract: { application?, skill?,
-  input, output } })` (`A2AClientContract`, #809); without its DTOs, `execute` throws
+input, output } })` (`A2AClientContract`, #809); without its DTOs, `execute` throws
   `[a2a.no-contract]` (`send` needs none).
-- Names: `-a2a-agent` on a `…A2AAgent` class (`[name.kind-suffix]`, both checked, like `@Application`
-  and `@Budget`); `target` is optional (#809: a foreign agent has no application) and names a
+- Names: kebab-case, no suffix needed (`[name.not-kebab-case]`); `target` is optional (#809: a foreign agent has no application) and names a
   `skill` (was `start`). Files: `a2a/<name>.a2a-agent.ts`.
 - **The price**: the calling tool's spend records the larger of `price` and the spend a
   trusted peer's signed run report gives — the price alone without one — as `a2a:<application>`;
   nothing for a call the agent `REJECTED` before anything ran (#849).
 - **The audience**: the envelope's `audience` is `target.application` (over MCP an `@McpServer({
-  target: { application, expose } })`'s). A receiver of another name refuses it, signed or not,
-  before its resolver — `401 { "code": "mesh.audience-mismatch" }` (MCP: an error result with that
+target: { application, expose } })`'s). A receiver of another name refuses it, signed or not,
+  before its authenticator — `401 { "code": "mesh.audience-mismatch" }` (MCP: an error result with that
   code): a call meant for one application is never run by another it was forwarded to. A signed
   envelope must name one (#809): a sender signs only with an audience, and a signed envelope without
   one is refused as `mesh.audience-missing` before its signature is verified (the receivers' shared
   check; over MCP an error result with that code, on the A2A listener `401`, #810) — else any
   receiver could replay it to another application as its issuer's signed word.
 
-**The receiver** — an `@A2AExpose` (mirrors `@McpExpose`) names what it serves, listed with its
-`@McpExpose`s in `@Application({ exposes })`:
+**The receiver** — an `@A2AEndpoint` (mirrors `@McpEndpoint`) names what it serves, listed with its
+`@McpEndpoint`s in `@Application({ endpoints })`:
 
 <!-- snippet-context
 import { Application, EmptyEnvironment, WorkflowStart } from "@agboss/core";
@@ -789,33 +828,35 @@ export class BillingWorkflow {} // a @Workflow of its own
 -->
 
 ```ts
-import { A2AExpose } from "@agboss/core/a2a";
+import { A2AEndpoint } from "@agboss/core/a2a";
+import { hours, minutes } from "@agboss/core/units";
 
-// a2a/billing.a2a-expose.ts
-@A2AExpose({
-  name: "billing-a2a-expose",
+// a2a/billing.a2a-endpoint.ts
+@A2AEndpoint({
+  name: "billing",
   version: "1.0.0",
   description: "Answers billing questions", // the Agent Card's description (#808)
-  exports: [BillingWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) }, // how long its finished tasks and replies are kept
+  skills: [BillingWorkflowStart],
 })
-export class BillingA2AExpose {}
+export class BillingA2AEndpoint {}
 
 @Application({
   name: "billing-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BillingWorkflow],
-  exposes: [BillingA2AExpose],
+  endpoints: [BillingA2AEndpoint],
 })
 export class BillingApplication {}
 ```
 
-- `[name.kind-suffix]` (`-a2a-expose`, a `…A2AExpose` class), `[application.expose-unknown-start]`
-  (an export that is no start of the application's workflows), `[application.not-an-expose]`,
-  `[application.duplicate-expose]` at assembly.
+- `[name.not-kebab-case]`, `[application.endpoint-unknown-start]`
+  (an export that is no start of the application's workflows), `[application.not-an-endpoint]`,
+  `[application.duplicate-endpoint]` at assembly.
 - With one export a message may leave its skill out; with several it names one in
   `metadata["https://agboss.dev/a2a/skills/v1"].skill`, or the expose sets a `defaultSkill`.
-- `[a2a.expose-description-required]` (a blank `description`), and two warnings, errors under
+- `[a2a.endpoint-description-required]` (a blank `description`), and two warnings, errors under
   `--strict`: `[a2a.skill-tags]` (a skill with no `skills: { [start]: { tags } }`; the card says the
   application's name) and `[a2a.unpriced-foreign-peer]` (an `@A2AAgent` without `target.application`
   and without `price`: a foreign peer's spend is invisible to the budgets) (#812).
@@ -826,7 +867,7 @@ export class BillingApplication {}
 {
   "exports": [
     {
-      "kind": "a2a", "expose": "billing-a2a-expose", "version": "1.0.0",
+      "kind": "a2a", "expose": "billing", "version": "1.0.0",
       "skill": "billing-workflow-start", "workflow": "billing-workflow", "reply": "task", "cardFileFields": "extension",
       "input": { "dto": "InvoiceQuestionDto", "schemaHash": "600a…" },
       "outputs": [{ "finish": "billing-answer-workflow-finish", "dto": "InvoiceAnswerDto", "schemaHash": "6b22…" }]
@@ -873,14 +914,14 @@ Every consumed contract whose target application is among the snapshots (or is t
 is checked against that application's exports — an `@A2AAgent`'s `target.application` and
 `target.skill` (paired with the export's `skill`, the exported start's name), an `@McpServer`'s `target: { application, expose }` and its tools:
 
-| Code | When |
-| --- | --- |
-| `[federation.missing-target]` | the target application exports no such skill (or no such tool under that expose); never for a foreign `@A2AAgent`, which is skipped |
-| `[federation.incompatible-schema]` | the export's input does not accept every value the consumer may send, or the consumer's output does not accept every value one of the export's finishes may give — of those its `target.finishes` names, when it names some (#916) |
-| `[federation.unknown-finish]` | the consumer's `target.finishes` names a finish the export's start does not have (#916) |
-| `[federation.snapshot-schema]` | a file that is not an `agboss describe --json` output with `application.contracts` (or a path that does not exist) |
-| `[federation.duplicate-application]` | two snapshots of one application |
-| `[federation.version-not-bumped]` | the project's own earlier snapshot is among them, an `@A2AExpose` start's schema changed and its `version` did not — a warning, an error under `--strict` |
+| Code                                 | When                                                                                                                                                                                                                               |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[federation.missing-target]`        | the target application exports no such skill (or no such tool under that expose); never for a foreign `@A2AAgent`, which is skipped                                                                                                |
+| `[federation.incompatible-schema]`   | the export's input does not accept every value the consumer may send, or the consumer's output does not accept every value one of the export's finishes may give — of those its `target.finishes` names, when it names some (#916) |
+| `[federation.unknown-finish]`        | the consumer's `target.finishes` names a finish the export's start does not have (#916)                                                                                                                                            |
+| `[federation.snapshot-schema]`       | a file that is not an `agboss describe --json` output with `application.contracts` (or a path that does not exist)                                                                                                                 |
+| `[federation.duplicate-application]` | two snapshots of one application                                                                                                                                                                                                   |
+| `[federation.version-not-bumped]`    | the project's own earlier snapshot is among them, an `@A2AEndpoint` start's schema changed and its `version` did not — a warning, an error under `--strict`                                                                        |
 
 The comparison is **structural**, never by hash: an equal `schemaHash` is only the fast path. Each
 difference is one reason, named by its field path — a field now required that the sender may leave

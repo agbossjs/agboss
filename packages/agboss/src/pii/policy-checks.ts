@@ -1,5 +1,6 @@
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
+import { kebabNameProblem } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { PiiActionKind, actionText, isSameAction, type AnyPiiAction } from "./actions.js";
 import { isPiiGroup, MODEL_ONLY_KINDS, type PiiKind } from "./kinds.js";
@@ -9,9 +10,12 @@ import {
   type DeclarativePiiPolicyMeta,
   type PiiPolicyMeta,
 } from "./pii-policy.decorator.js";
-import { kindActionsOf } from "./policy-rules.js";
+import { duplicateTargetsOf, kindActionsOf } from "./policy-rules.js";
 
-/** The assembly checks of `@PiiPolicy` classes (#120): names, refusals, model kinds, conflicts. */
+/**
+ * The assembly checks of `@PiiPolicy` classes (#120, #1301): names, targets named twice, refusals,
+ * model kinds, conflicts.
+ */
 
 /** A class's `@PiiPolicy` record, if it has one. */
 export const piiPolicyMetaOf = (cls: Class): PiiPolicyMeta | undefined => {
@@ -23,7 +27,7 @@ const hasRefusalMethod = (cls: Class): boolean =>
   typeof (cls.prototype as { readonly refusal?: unknown } | undefined)?.refusal === "function";
 
 const isBlockWithoutText = (action: AnyPiiAction): boolean =>
-  action.kind === PiiActionKind.BlockWithRefusal && action.refusal === undefined;
+  action.kind === PiiActionKind.Block && action.refusal === undefined;
 
 function refusalViolations(cls: Class, meta: DeclarativePiiPolicyMeta): RuleViolation[] {
   const needsMethod = meta.rules.some((rule) => isBlockWithoutText(rule.action));
@@ -32,7 +36,7 @@ function refusalViolations(cls: Class, meta: DeclarativePiiPolicyMeta): RuleViol
     return [
       violation(
         "pii.missing-refusal",
-        `${meta.name}: a blockWithRefusal() rule has no text — give it { refusal } or implement PiiRefusal (refusal(kind))`,
+        `${meta.name}: a block() rule has no text — give it block("…") or implement PiiRefusal (refusal(kind))`,
         [cls.name],
       ),
     ];
@@ -48,27 +52,22 @@ function refusalViolations(cls: Class, meta: DeclarativePiiPolicyMeta): RuleViol
 }
 
 function modelViolations(cls: Class, meta: DeclarativePiiPolicyMeta): RuleViolation[] {
-  if (meta.detectWithModel !== undefined) return [];
+  if (meta.model !== undefined) return [];
   const kinds = meta.rules.flatMap((rule) =>
     !isPiiGroup(rule.target) && MODEL_ONLY_KINDS.has(rule.target) ? [rule.target] : [],
   );
   return kinds.map((kind) =>
     violation(
       "pii.kind-needs-model",
-      `${meta.name}: ${kind} has no format to detect — set detectWithModel to find it in free text`,
+      `${meta.name}: ${kind.id} has no format to detect — set model to find it in free text`,
       [cls.name],
     ),
   );
 }
 
 function ownViolations(cls: Class, meta: PiiPolicyMeta): RuleViolation[] {
-  const name = meta.name.endsWith("-pii-policy")
-    ? []
-    : [
-        violation("name.kind-suffix", `${meta.name}: a PII policy's name ends with -pii-policy`, [
-          cls.name,
-        ]),
-      ];
+  const problem = kebabNameProblem(meta.name, "a PII policy");
+  const name = problem === undefined ? [] : [violation(problem.code, problem.message, [cls.name])];
   const files =
     meta.files === undefined || Object.values(PiiFileAction).includes(meta.files)
       ? []
@@ -80,10 +79,10 @@ function ownViolations(cls: Class, meta: PiiPolicyMeta): RuleViolation[] {
           ),
         ];
   if (isCustomPolicy(meta)) return [...name, ...files];
-  const own = kindActionsOf(meta.rules).conflicts.map((conflict) =>
+  const own = duplicateTargetsOf(meta.rules).map((target) =>
     violation(
-      "pii.conflicting-rules",
-      `${meta.name}: ${conflict.kind} has two actions — ${actionText(conflict.actions[0])} and ${actionText(conflict.actions[1])}`,
+      "pii.duplicate-target",
+      `${meta.name}: ${target.id} is named by more than one rule — give each kind or group one rule`,
       [cls.name],
     ),
   );
@@ -130,7 +129,7 @@ export function conflictViolations(where: string, classes: readonly Class[]): Ru
     return [
       violation(
         "pii.conflicting-rules",
-        `${where}: ${kind} is ${actionText(first.action)} in ${first.policy} but ${actionText(other.action)} in ${other.policy}`,
+        `${where}: ${kind.id} is ${actionText(first.action)} in ${first.policy} but ${actionText(other.action)} in ${other.policy}`,
         [where, first.policy, other.policy],
       ),
     ];

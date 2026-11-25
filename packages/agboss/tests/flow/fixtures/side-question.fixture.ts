@@ -1,6 +1,5 @@
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
@@ -17,13 +16,13 @@ import {
   PurchaseQuestionDto,
   PurchaseWorkflowFinish,
   QuestionInbox,
-  SpendingLimitAnswerDto,
-  SpendingLimitQuestion,
+  SpendingLimitQuestionExternalTask,
 } from "./questions.fixture.js";
-import { start, toQuestion } from "./paths.js";
+import { onStart, toExternalTask } from "./paths.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
- * #933 — `.onError(E, toQuestion(Q)…)`: a purchase whose placing check fails asks the thread's owner
+ * #933 — `.onError(E, toExternalTask(Q)…)`: a purchase whose placing check fails asks the thread's owner
  * for a spending limit on the side path (the question of `questions.fixture.ts`), then places the
  * purchase within the answered limit.
  */
@@ -41,27 +40,27 @@ export class FlakyCheckAction implements ActionHandler<FlakyCheckAction> {
   }
 }
 
-@WorkflowStart({ name: "side-question-workflow-start", description: "d", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "side-question-workflow-start",
+  description: "d",
+  input: WorkflowStartTextDto,
+})
 export class SideQuestionWorkflowStart {}
 
 @Workflow({
   name: "side-question-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SideQuestionWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(SideQuestionWorkflowStart)
       .toAction(DraftQuestionAction)
-      .returns(PurchaseQuestionDto)
       .toAction(FlakyCheckAction)
       .onError(
         StepFailedError,
-        toQuestion(SpendingLimitQuestion)
-          .returns(SpendingLimitAnswerDto)
+        toExternalTask(SpendingLimitQuestionExternalTask)
           .toAction(PlacePurchaseAction)
-          .returns(PurchasePlacedDto)
           .toFinish(PurchaseWorkflowFinish),
       )
-      .returns(PurchasePlacedDto)
       .toFinish(PurchaseWorkflowFinish),
   ],
   providers: [QuestionInbox],

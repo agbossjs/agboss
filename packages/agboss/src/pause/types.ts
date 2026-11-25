@@ -1,17 +1,17 @@
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
-import type { PauseAnswerer } from "../channels/channel-role.decorator.js";
-import type { ToolCallApprovalAskDto } from "../dto/standard/framework.js";
+import type { PauseToolCallSummary } from "../channels/pause-contexts.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import type { PauseTally } from "./pause-tally.js";
 import {
   NO_RECIPIENTS,
   PauseKind,
-  questionAskOf,
+  pauseInputOf,
   type PauseRecipients,
   type PauseRecord,
-  type QuestionAsk,
+  type PauseTrailRecord,
 } from "../infrastructure/pause-record.js";
+import { type PauseRespondent } from "./respondent.js";
 
 /**
  * The pause seam: what an execution pauses on (#267 S35) — the checkpointer LangGraph's
@@ -58,26 +58,37 @@ export const noticesWritten = (
   seam?.notices?.delivered();
 };
 
-export { PauseKind, questionAskOf };
+export { PauseKind, pauseInputOf };
 
 /** What every pending pause has, whatever it asks: where it waits and who answers it. */
 export interface PendingPauseBase {
   /**
-   * The pause's id, what `app.resume` takes — only for a `PauseAnswerer.ThreadOwner` pause. A
-   * `PauseAnswerer.Channel` pause's id is the right to answer it: only its channel has it (AC3).
+   * The pause's id, what `app.resume` takes — only for a `PauseRespondent.Owner` pause. A
+   * `PauseRespondent.Delegate` pause's id is the right to answer it: only its channel has it (AC3).
    */
   readonly pauseId?: string;
   /** Who may answer it: the thread's owner, or whoever the channel's side authenticates. */
-  readonly answerer: PauseAnswerer;
-  /** @deprecated 0.1.0's name of `answerer`, the same value, until 0.2: use `answerer`. */
-  readonly answeredBy: PauseAnswerer;
+  readonly respondent: PauseRespondent;
   /**
    * The step that asks: the agent whose tool call waits (or that asks a question role through its
    * tool, #712), or a question role's step (#659).
    */
   readonly step: string;
-  /** The channel asked (a role's name, or a concrete `@Channel`'s). */
-  readonly channel: string;
+  /** The pause target it waits under (a `@ToolApproval`'s or `@ExternalTask`'s name). */
+  readonly target: string;
+  /** The channel asked; absent for an owner's pause nobody is asked about. */
+  readonly channel?: string;
+  /**
+   * What it asks, `sensitive` fields masked and PII tokenized: the arguments of the tool call an
+   * approval waits for, or a question role's ask (#659) as `Readonly<Record<string, unknown>>`.
+   */
+  readonly input: Readonly<Record<string, unknown>>;
+  /** Who it is for (a queue's members); absent: nobody in particular. */
+  readonly assignees?: readonly string[];
+  /** The id the channel's own system gave it (a ticket key); absent until the channel returned one. */
+  readonly externalRef?: string;
+  /** Its chain of custody, newest last: `opened`, then every reassignment. */
+  readonly trail: readonly PauseTrailRecord[];
   /** The child execution it waits in (#263); `undefined` in the root. */
   readonly childExecutionId: string | undefined;
   /** The item of a per-item launch it waits in (no copy of the item: its index is enough). */
@@ -93,18 +104,13 @@ export interface PendingPauseBase {
 /** A tool call waiting for its approval. */
 export interface PendingApproval extends PendingPauseBase {
   readonly kind: PauseKind.Approval;
-  /** The question: the tool call waiting for an approval, `sensitive` fields masked. */
-  readonly ask: ToolCallApprovalAskDto;
+  /** The tool call waiting for an approval: its id, the tool and a one-sentence summary. */
+  readonly toolCall: PauseToolCallSummary;
 }
 
 /** A question role's step waiting for its answer (#659). */
 export interface PendingQuestion extends PendingPauseBase {
-  readonly kind: PauseKind.Question;
-  /**
-   * The question role's ask, `sensitive` fields masked — opaque: read it as
-   * `const fields: Readonly<Record<string, unknown>> = pending.ask` (the role's ask DTO).
-   */
-  readonly ask: QuestionAsk;
+  readonly kind: PauseKind.ExternalTask;
 }
 
 /**
@@ -140,6 +146,6 @@ export interface ApprovalRecord extends AgentToolCall {
    */
   readonly by: string;
   readonly reason?: string;
-  readonly overrideArguments?: Record<string, unknown>;
+  readonly overrideInput?: Record<string, unknown>;
   readonly result?: string;
 }

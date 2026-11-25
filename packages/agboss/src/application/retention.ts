@@ -1,20 +1,16 @@
 import { EXECUTION_LEASE } from "../app/lease-fence.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import {
-  DEFAULT_FENCED_EFFECT_RETENTION,
-  DEFAULT_OUTBOUND_CALL_RETENTION,
-} from "../infrastructure/fenced-effect-settings.js";
-import { DEFAULT_IDEMPOTENCY_RETENTION } from "../mesh/mesh-defaults.js";
-import { hours, minutes, type Milliseconds } from "../units/index.js";
+import { hours, type Milliseconds } from "../units/index.js";
 import { shownValueOf } from "../core/shown-value.js";
 
 /**
  * `@Application({ retention })` (#834): how long each kind of row the application keeps stays
  * after it is done with, every one removed by the recovery sweep on the `Clock` — the one place a
- * retention is set. Sizes and timeouts stay with their feature (`fencedEffects.maxResultSize`,
- * `outboundCalls.attemptTimeout`). Each is a positive duration (`[application.retention-invalid]`);
- * the fencing ones — `fencedEffects`, `outboundCalls`, `costLedgerEntries` — above the lease's 30 s,
- * so a late zombie or a retried write is still refused, never let through.
+ * retention is set. The rows of `Idempotency` are not here: each call names its own `ttl`
+ * (#1317), kept as the row's `expires_at`. Sizes and timeouts stay with their call (`maxResultSize`,
+ * `timeout`). Each is a positive duration (`[application.retention-invalid]`); the fencing one —
+ * `costLedgerEntries` — above the lease's 30 s, so a late zombie or a retried write is still
+ * refused, never let through.
  */
 export interface RetentionOptions {
   /**
@@ -26,7 +22,7 @@ export interface RetentionOptions {
   /**
    * The history of each root execution after it ended (#401) — its `ExecutionHistoryRecord`, masked
    * like its traces, saved in the `ExecutionHistoryRepository` when its tree rests or ends and read
-   * by `agboss records export`. On the built-in in-memory store it warns
+   * by `agboss executions export`. On the built-in in-memory store it warns
    * `[application.in-memory-execution-history]`.
    *
    * @defaultValue unset: **nothing is kept** — unlike every other retention, the safe default for
@@ -47,41 +43,6 @@ export interface RetentionOptions {
    * `hours(24)`.
    */
   readonly costLedgerEntries?: Milliseconds;
-  /**
-   * A fenced effect's stored result and its scope's mark (#500, `FencedEffectRepository`) after it
-   * was stored. Above the lease, so a late zombie is still refused. Default `hours(24)`.
-   */
-  readonly fencedEffects?: Milliseconds;
-  /**
-   * A `Completed` or `Failed` outbound call after it ended (#505, `OutboundCalls`); a `Pending` one
-   * is never removed. Above the lease: an intent outlives the holder that may still complete it.
-   * Default `hours(168)` — reconciliation may come days later.
-   */
-  readonly outboundCalls?: Milliseconds;
-  /**
-   * A trusted mesh request's answer, kept for a repeat of its idempotency key (#398 PR 2,
-   * `MeshRequestRepository`). Default `minutes(30)`.
-   */
-  readonly meshAnswers?: Milliseconds;
-  /**
-   * A finished A2A task after its last status change (#807) — and with it the ids of its messages:
-   * a message resent within it gets the same task, never a second execution. An unfinished task is
-   * never removed. Default `hours(24)`.
-   */
-  readonly a2aTasks?: Milliseconds;
-  /**
-   * The files of an A2A task (#859, `A2AFileRepository`) after the task is over — never while it is
-   * not: a paused, `INPUT_REQUIRED` task keeps them however long it waits. At most `a2aTasks`: a
-   * file outliving its task is read by no one. Default `a2aTasks`.
-   */
-  readonly a2aFiles?: Milliseconds;
-  /**
-   * A direct A2A message's reply (#860, `A2AReply.Message`, `A2ADirectMessageRepository`) after it
-   * was accepted — and with it its `messageId`: a resend within it gets the same reply, the skill
-   * never runs twice; after it the id is free. Published on the Agent Card as the mesh extension's
-   * `messageIdempotencyRetention`. Above the lease. Default `minutes(15)`.
-   */
-  readonly a2aMessages?: Milliseconds;
 }
 
 /** The retentions an application runs with: each set one, else its default (`executionRecords` stays unset). */
@@ -91,29 +52,17 @@ export interface ApplicationRetention {
   readonly executionRecords?: Milliseconds;
   readonly auditLog: Milliseconds;
   readonly costLedgerEntries: Milliseconds;
-  readonly fencedEffects: Milliseconds;
-  readonly outboundCalls: Milliseconds;
-  readonly meshAnswers: Milliseconds;
-  readonly a2aTasks: Milliseconds;
-  readonly a2aFiles: Milliseconds;
-  readonly a2aMessages: Milliseconds;
 }
 
 /** The defaults of every retention but `executionRecords` (unset = nothing kept). */
-export const DEFAULT_RETENTION: Readonly<
-  Omit<ApplicationRetention, "executionRecords" | "a2aFiles">
-> = Object.freeze({
-  pauseRecords: hours(24),
-  auditLog: hours(24),
-  // a pass retries a lost write at its next read of the counters, seconds later: only a pass
-  // asleep for a day meets the refusal
-  costLedgerEntries: hours(24),
-  fencedEffects: DEFAULT_FENCED_EFFECT_RETENTION,
-  outboundCalls: DEFAULT_OUTBOUND_CALL_RETENTION,
-  meshAnswers: DEFAULT_IDEMPOTENCY_RETENTION as Milliseconds,
-  a2aTasks: hours(24),
-  a2aMessages: minutes(15),
-});
+export const DEFAULT_RETENTION: Readonly<Omit<ApplicationRetention, "executionRecords">> =
+  Object.freeze({
+    pauseRecords: hours(24),
+    auditLog: hours(24),
+    // a pass retries a lost write at its next read of the counters, seconds later: only a pass
+    // asleep for a day meets the refusal
+    costLedgerEntries: hours(24),
+  });
 
 /** Every field of `RetentionOptions`: a key outside them is a typo, never a silent default. */
 const RETENTION_FIELDS: readonly (keyof RetentionOptions)[] = [
@@ -121,12 +70,6 @@ const RETENTION_FIELDS: readonly (keyof RetentionOptions)[] = [
   "executionRecords",
   "auditLog",
   "costLedgerEntries",
-  "fencedEffects",
-  "outboundCalls",
-  "meshAnswers",
-  "a2aTasks",
-  "a2aFiles",
-  "a2aMessages",
 ];
 
 /**
@@ -134,25 +77,7 @@ const RETENTION_FIELDS: readonly (keyof RetentionOptions)[] = [
  * an intent or a ledger entry would let a zombie's late write — or a retried one — through; a
  * direct message's row (#860) would go while its reply is still being made, and a resend run again.
  */
-const ABOVE_THE_LEASE: ReadonlySet<keyof RetentionOptions> = new Set([
-  "fencedEffects",
-  "outboundCalls",
-  "costLedgerEntries",
-  "a2aMessages",
-]);
-
-/** #859: how long an A2A task's files are kept once it is over — by default as long as the task. */
-const fileRetentionOf = (given: RetentionOptions): Milliseconds =>
-  given.a2aFiles ?? given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks;
-
-/** The A2A retentions (#807, #859, #860) with their defaults. */
-const a2aRetentionOf = (
-  given: RetentionOptions,
-): Pick<ApplicationRetention, "a2aTasks" | "a2aFiles" | "a2aMessages"> => ({
-  a2aTasks: given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks,
-  a2aFiles: fileRetentionOf(given),
-  a2aMessages: given.a2aMessages ?? DEFAULT_RETENTION.a2aMessages,
-});
+const ABOVE_THE_LEASE: ReadonlySet<keyof RetentionOptions> = new Set(["costLedgerEntries"]);
 
 /** `@Application({ retention })` with the defaults filled in. */
 export function retentionOf(options: RetentionOptions | undefined): ApplicationRetention {
@@ -162,10 +87,6 @@ export function retentionOf(options: RetentionOptions | undefined): ApplicationR
     ...(given.executionRecords === undefined ? {} : { executionRecords: given.executionRecords }),
     auditLog: given.auditLog ?? DEFAULT_RETENTION.auditLog,
     costLedgerEntries: given.costLedgerEntries ?? DEFAULT_RETENTION.costLedgerEntries,
-    fencedEffects: given.fencedEffects ?? DEFAULT_RETENTION.fencedEffects,
-    outboundCalls: given.outboundCalls ?? DEFAULT_RETENTION.outboundCalls,
-    meshAnswers: given.meshAnswers ?? DEFAULT_RETENTION.meshAnswers,
-    ...a2aRetentionOf(given),
   };
 }
 
@@ -194,6 +115,7 @@ const hintOf = (...fields: readonly string[]): string =>
 /** A retention renamed before 0.1.1 (#889): refused naming its new name, never a silent default. */
 const RENAMED: ReadonlyMap<string, string> = new Map([
   ["leaseEvents", "the audit log's rows are kept for retention.auditLog"],
+  ["meshAnswers", "how long a trusted request's answer is kept is @Mesh({ deduplicationTtl })"],
 ]);
 
 /** Why a field `retentionViolations` does not know is refused: renamed, or a typo. */
@@ -210,7 +132,7 @@ const unknownFieldProblem = (field: string): string => {
  */
 export function retentionViolations(application: string, options: unknown): RuleViolation[] {
   if (options === undefined) return [];
-  const fail = (text: string, hint = hintOf("fencedEffects", "meshAnswers")): RuleViolation =>
+  const fail = (text: string, hint = hintOf("pauseRecords", "auditLog")): RuleViolation =>
     violation("application.retention-invalid", `its retention${text} — ${hint}`, [application]);
   if (!isPlainObject(options))
     return [fail(` is ${shownValueOf(options)}, not an object of retentions`)];
@@ -224,20 +146,7 @@ export function retentionViolations(application: string, options: unknown): Rule
       const problem = retentionProblem(field, given[field]);
       return problem === undefined ? [] : [fail(`.${field} ${problem}`, hintOf(field))];
     }),
-    ...fileRetentionViolations(given, fail),
   ];
-}
-
-/** #859: `a2aFiles` above `a2aTasks` (as given or by default) keeps files no task reads. */
-function fileRetentionViolations(
-  given: Readonly<Record<string, unknown>>,
-  fail: (text: string, hint: string) => RuleViolation,
-): RuleViolation[] {
-  const files = given.a2aFiles;
-  const tasks = given.a2aTasks ?? DEFAULT_RETENTION.a2aTasks;
-  if (typeof files !== "number" || typeof tasks !== "number" || files <= tasks) return [];
-  const problem = `.a2aFiles is ${String(files)} ms, above a2aTasks' ${String(tasks)} ms — a file outliving its task is read by no one`;
-  return [fail(problem, hintOf("a2aTasks", "a2aFiles"))];
 }
 
 /** An object literal (or one without a prototype): a `Map` or a class instance keeps no retentions. */
@@ -248,7 +157,7 @@ export const isPlainObject = (value: unknown): value is object =>
 
 /** A retention option of before #834, where it was and where it is now. */
 interface MovedRetention {
-  /** The option holding it (`fencedEffects`), or none for one of `@Application` itself. */
+  /** The option holding it (`a2a`), or none for one of `@Application` itself. */
   readonly within?: string;
   readonly key: string;
   readonly now: keyof RetentionOptions;
@@ -259,10 +168,6 @@ const MOVED: readonly MovedRetention[] = [
   { key: "executionRecordRetention", now: "executionRecords" },
   { key: "leaseEventRetention", now: "auditLog" },
   { key: "ledgerEntryRetention", now: "costLedgerEntries" },
-  { within: "fencedEffects", key: "retention", now: "fencedEffects" },
-  { within: "outboundCalls", key: "retention", now: "outboundCalls" },
-  { within: "mesh", key: "idempotencyRetention", now: "meshAnswers" },
-  { within: "a2a", key: "taskRetention", now: "a2aTasks" },
 ];
 
 /**
@@ -284,14 +189,7 @@ export function movedRetentionViolations(application: string, options: object): 
       ),
     ];
   });
-  // an `a2a` without its retention is gone too: the option held nothing else
-  const a2a = given.a2a;
-  const isBareA2A =
-    a2a !== undefined && !(typeof a2a === "object" && a2a !== null && "taskRetention" in a2a);
-  if (!isBareA2A) return found;
-  const gone =
-    "its a2a option is gone — how long A2A tasks are kept is @Application({ retention: { a2aTasks } })";
-  return [...found, violation("application.retention-invalid", gone, [application])];
+  return found;
 }
 
 /** How long the sweep keeps each kind of rows (`@Application({ retention })`, #834). */
@@ -300,12 +198,7 @@ export interface AssembledRetentions {
   readonly pauseRecordRetention: Milliseconds;
   readonly executionRecordRetention?: Milliseconds;
   readonly auditLogRetention: Milliseconds;
-  readonly a2aTaskRetention: Milliseconds;
-  readonly a2aFileRetention: Milliseconds;
-  /** How long a direct A2A message's reply is kept (`retention.a2aMessages`, #860). */
-  readonly a2aMessageRetention: Milliseconds;
   readonly ledgerEntryRetention: Milliseconds;
-  readonly meshAnswerRetention: Milliseconds;
 }
 
 export const assembledRetentionsOf = (retention: ApplicationRetention): AssembledRetentions => ({
@@ -314,9 +207,5 @@ export const assembledRetentionsOf = (retention: ApplicationRetention): Assemble
     ? {}
     : { executionRecordRetention: retention.executionRecords }),
   auditLogRetention: retention.auditLog,
-  a2aTaskRetention: retention.a2aTasks,
-  a2aFileRetention: retention.a2aFiles,
-  a2aMessageRetention: retention.a2aMessages,
   ledgerEntryRetention: retention.costLedgerEntries,
-  meshAnswerRetention: retention.meshAnswers,
 });

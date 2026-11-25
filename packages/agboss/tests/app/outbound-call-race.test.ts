@@ -1,30 +1,30 @@
 /**
  * #505 — a new attempt is a compare-and-set: two callers that read one intent move it once, and only
  * the winner sends. The loser reads the intent again and follows the protocol — the winner's
- * result replayed, its pending attempt in flight (`OutboundCallInFlightError`), nothing sent — at
+ * result replayed, its pending attempt in flight (`OutboundCallError.InFlight`), nothing sent — at
  * most three reads. The rival is a real second caller interleaved at the store: between this
  * call's read and its move, it moves the same intent through the same store.
  */
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   ExecutionLeaseRepository,
   Injectable,
   InMemoryOutboundCallRepository,
-  OutboundCallInFlightError,
   OutboundCallRepository,
   OutboundCallStatus,
-  type EffectKey,
   type OutboundCallRecord,
 } from "../../src/index.js";
+import { type EffectKey } from "../../src/stores/index.js";
 import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { stateOf } from "../../src/app/outbound-call-business.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
-import { override, testAction } from "../../src/testing/index.js";
+import { testUnit } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { ChargeOrderAction, resetRuns, runs } from "./fixtures/outbound-call.workflow.js";
 import { gateway, letChargesGo, resetGateway } from "./fixtures/payment-gateway.js";
 
-const order = { message: { value: { text: "order-1" } } } as never;
+const order = { message: { text: "order-1" } } as never;
 
 /** What the rival does between this call's read and its move, and how many reads it acts on. */
 enum RivalMove {
@@ -54,19 +54,24 @@ class RacedOutboundCallRepository extends InMemoryOutboundCallRepository {
     if (!(await super.markPending(key, stateOf(found), claim))) return;
     rival.moves += 1;
     if (rival.move === RivalMove.Completes)
-      await this.markCompleted(key, "rival", '{"chargeId":"ch-rival"}');
+      await this.markCompleted(key, "rival", '{"chargeId":"ch-rival"}', null);
     if (rival.move === RivalMove.KeepsFailing)
-      await this.markFailed(key, "rival", {
-        name: "Error",
-        code: "Error",
-        message: "declined again",
-      });
+      await this.markFailed(
+        key,
+        "rival",
+        {
+          name: "Error",
+          code: "Error",
+          message: "declined again",
+        },
+        null,
+      );
   }
 }
 
 const raced = () =>
-  testAction(ChargeOrderAction, {
-    overrides: [override(OutboundCallRepository, RacedOutboundCallRepository)],
+  testUnit(ChargeOrderAction, {
+    services: [RacedOutboundCallRepository],
   });
 
 /** A runner whose first run failed at the provider: its intent `Failed`, attempt 1. */
@@ -90,7 +95,7 @@ describe("#505: a new attempt is a compare-and-set", () => {
     const run = await failedOnce();
     Object.assign(rival, { move: RivalMove.Resends, reads: 1 });
 
-    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallInFlightError);
+    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallError.InFlight);
     expect(gateway.calls).toHaveLength(1); // the first attempt only: the rival's send is its own
     expect(rival.moves).toBe(1);
   });
@@ -110,7 +115,7 @@ describe("#505: a new attempt is a compare-and-set", () => {
     const run = await failedOnce();
     Object.assign(rival, { move: RivalMove.KeepsFailing, reads: 10 });
 
-    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallInFlightError);
+    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallError.InFlight);
     expect(rival.moves).toBe(3);
     expect(gateway.calls).toHaveLength(1);
   });
@@ -124,7 +129,7 @@ describe("#505: a new attempt is a compare-and-set", () => {
     await expect(first).rejects.toThrow();
     Object.assign(rival, { move: RivalMove.Resends, reads: 1 });
 
-    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallInFlightError);
+    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallError.InFlight);
     expect(gateway.lookups).toHaveLength(1);
     expect(gateway.calls).toHaveLength(1);
   });

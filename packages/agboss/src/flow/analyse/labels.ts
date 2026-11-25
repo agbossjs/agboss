@@ -32,9 +32,9 @@ export function shapeLabel(shape: ValueShape | OutputShape | HistoryWrapper): st
     case Wrapper.OneOf:
       return `oneOf(${sortedVariants(shape).map(dtoLabel).join(", ")})`;
     case Wrapper.History:
-      return shape.limit === undefined
+      return shape.maxPrevious === undefined
         ? `historyOf(${dtoLabel(shape.dto)})`
-        : `historyOf(${dtoLabel(shape.dto)}, { limit: ${String(shape.limit)} })`;
+        : `historyOf(${dtoLabel(shape.dto)}, { maxPrevious: ${String(shape.maxPrevious)} })`;
   }
 }
 
@@ -45,25 +45,25 @@ const TO_CALLS: Readonly<Record<NodeKind, string>> = {
   [NodeKind.Action]: "toAction",
   [NodeKind.Finish]: "toFinish",
   [NodeKind.Workflow]: "toWorkflow",
-  [NodeKind.Question]: "toQuestion",
-  [NodeKind.Start]: "start",
+  [NodeKind.Question]: "toExternalTask",
+  [NodeKind.Start]: "onStart",
 };
 
 export const toCallOf = (kind: NodeKind): string => TO_CALLS[kind];
 
-/** The builder call an own path of a kind starts with: `agent`, `router`, `action`, `start`. */
-export function sourceCallOf(kind: NodeKind): string {
-  return kind === NodeKind.Start ? "start" : kind;
-}
+/** The builder call an own path of a kind starts with: `onAgent`, `onRouter`, `onAction`, `onStart`. */
+const SOURCE_CALLS: Readonly<Record<NodeKind, string>> = {
+  [NodeKind.Agent]: "onAgent",
+  [NodeKind.Router]: "onRouter",
+  [NodeKind.Action]: "onAction",
+  [NodeKind.Finish]: "toFinish",
+  [NodeKind.Workflow]: "onWorkflow",
+  [NodeKind.Question]: "onExternalTask",
+  [NodeKind.Start]: "onStart",
+};
 
-/** A path as a message names it: `start(OfferWorkflowStart)`, `agent(ReviewerAgent)`. */
-/** `{ about: PlanDto }`, `{ about: [PlanDto, BudgetDto] }` — as the flow writes it (#299). */
-export function aboutLabel(about: readonly DtoClass[]): string {
-  const [one] = about;
-  const targets =
-    about.length === 1 && one !== undefined ? dtoLabel(one) : `[${about.map(dtoLabel).join(", ")}]`;
-  return `{ about: ${targets} }`;
-}
+export const sourceCallOf = (kind: NodeKind): string => SOURCE_CALLS[kind];
 
+/** A path as a message names it: `onStart(OfferWorkflowStart)`, `onAgent(ReviewerAgent)`. */
 export const pathLabel = (source: PathSource): string =>
   `${sourceCallOf(source.kind)}(${classLabel(source.node)})`;

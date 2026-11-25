@@ -1,0 +1,3 @@
+defaults:
+  models:
+    temperature: 0.5

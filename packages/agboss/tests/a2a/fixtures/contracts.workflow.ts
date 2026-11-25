@@ -1,12 +1,7 @@
-import {
-  A2AAgent,
-  A2ACallerResolution,
-  A2AClient,
-  A2AExpose,
-  type A2ACallerResolver,
-} from "../../../src/a2a/index.js";
+import { A2AAgent, A2AClient, A2AEndpoint } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";
-import { McpServer, McpTool } from "../../../src/components/decorators.js";
+import { McpServer } from "../../../src/components/decorators.js";
+import { McpTransport } from "../../../src/config/mcp-server-config.js";
 import { McpServerClient } from "../../../src/components/mcp-client.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
@@ -17,12 +12,16 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  Ttl,
 } from "../../../src/index.js";
-import { McpExpose } from "../../../src/mcp/index.js";
-import { usd } from "../../../src/units/index.js";
+import { McpEndpoint } from "../../../src/mcp/index.js";
+import { defineEnv, secret } from "../../../src/environments/index.js";
+import { DatabaseStorage, SqliteDriver } from "../../../src/storage/index.js";
+import { hours, minutes, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
+import { HttpAuthResult, HttpAuthenticator } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * Declared contracts (#398 PR 3): a shop that exports two starts over A2A and one over MCP, and
@@ -45,7 +44,7 @@ export class InvoiceAnswerDto {
   target: { application: "billing-application", skill: "billing-workflow-start" },
   input: InvoiceQuestionDto,
   output: InvoiceAnswerDto,
-  price: usd(0.05),
+  costPerCall: usd(0.05),
 })
 export class BillingDeskA2AAgent extends A2AClient<InvoiceQuestionDto, InvoiceAnswerDto> {}
 
@@ -68,10 +67,10 @@ export class OracleA2AAgent extends A2AClient {}
   output: InvoiceAnswerDto,
   deps: [BillingDeskA2AAgent],
 })
-export class AskBillingTool implements ToolHandler<InvoiceQuestionDto, InvoiceAnswerDto> {
+export class AskBillingTool {
   constructor(private readonly billingDeskA2AAgent: BillingDeskA2AAgent) {}
 
-  run(question: InvoiceQuestionDto): Promise<InvoiceAnswerDto> {
+  execute(question: InvoiceQuestionDto): Promise<InvoiceAnswerDto> {
     return this.billingDeskA2AAgent.execute(question);
   }
 }
@@ -90,25 +89,24 @@ const kbTools = { search: { input: SearchQueryDto, output: SearchHitDto } };
 
 @McpServer({
   name: "kb",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: "kb-server",
-  target: { application: "kb-application", expose: "kb-mcp-expose" },
+  target: { application: "kb-application", endpoint: "kb-mcp-expose" },
   tools: kbTools,
 })
 export class KbServer extends McpServerClient<typeof kbTools> {}
 
-@McpTool({
-  server: KbServer,
+@Tool({
   name: "search-kb-tool",
   description: "Searches the knowledge base",
   input: SearchQueryDto,
   output: SearchHitDto,
   deps: [KbServer],
 })
-export class SearchKbTool implements ToolHandler<SearchQueryDto, SearchHitDto> {
+export class SearchKbTool {
   constructor(private readonly kbServer: KbServer) {}
 
-  run(query: SearchQueryDto): Promise<SearchHitDto> {
+  execute(query: SearchQueryDto): Promise<SearchHitDto> {
     return this.kbServer.call("search", query);
   }
 }
@@ -167,33 +165,33 @@ export class RefundWorkflowFinish {}
 })
 export class KbWorkflowFinish {}
 
-@Injectable()
-export class OpenCallerResolver implements A2ACallerResolver<typeof QuoteWorkflowStart> {
-  resolveCaller(): A2ACallerResolution<typeof QuoteWorkflowStart> {
-    return A2ACallerResolution.resolved({});
+@HttpAuthenticator()
+export class OpenAuthenticator {
+  authenticate(): HttpAuthResult {
+    return HttpAuthResult.authenticated({});
   }
 }
 
 @Workflow({
   name: "quote-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(QuoteWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(QuoteWorkflowStart)
       .toAgent(QuoteDeskAgent)
       .toFinish(QuoteWorkflowFinish),
   ],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
-  providers: [BillingDeskA2AAgent, WeatherA2AAgent, OracleA2AAgent, OpenCallerResolver],
+  providers: [BillingDeskA2AAgent, WeatherA2AAgent, OracleA2AAgent, OpenAuthenticator],
 })
 export class QuoteWorkflow {}
 
 @Workflow({
   name: "refund-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RefundWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(RefundWorkflowStart)
       .toFinish(RefundWorkflowFinish),
   ],
 })
@@ -202,54 +200,69 @@ export class RefundWorkflow {}
 @Workflow({
   name: "kb-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KbWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(KbWorkflowStart)
       .toAgent(KbDeskAgent)
       .toFinish(KbWorkflowFinish),
   ],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
-  mcp: [KbServer],
 })
 export class KbWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "shop-a2a-expose",
   description: "Served over A2A",
   version: "2.0.0",
-  exports: [QuoteWorkflowStart, RefundWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [QuoteWorkflowStart, RefundWorkflowStart],
 })
 export class ShopA2AExpose {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "quote-a2a-expose",
   description: "Served over A2A",
   version: "1.0.0",
-  exports: [QuoteWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [QuoteWorkflowStart],
 })
 export class QuoteA2AExpose {}
 
-@McpExpose({ name: "shop-mcp-expose", version: "1.0.0", exports: [RefundWorkflowStart] })
-export class ShopMcpExpose {}
+@McpEndpoint({ name: "shop-mcp-expose", version: "1.0.0", tools: [RefundWorkflowStart] })
+export class ShopMcpEndpoint {}
 
 /** The shop served over A2A: two exported starts, one listed expose left out of `exposes`. */
 @Application({
   name: "shop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, RefundWorkflow],
   budgets: TEST_BUDGETS,
-  exposes: [ShopA2AExpose, ShopMcpExpose],
+  endpoints: [ShopA2AExpose, ShopMcpEndpoint],
 })
 export class ShopApplication {}
+
+const shopSecrets = defineEnv({ idempotencySecret: secret("AGBOSS_IDEMPOTENCY_SECRET") });
+
+/** The shop's rows (#1321): its tool reaches the billing desk, so the application names a key. */
+@DatabaseStorage({
+  driver: SqliteDriver({ path: ":memory:" }),
+  auditLogTtl: hours(1),
+  ledgerEntriesTtl: hours(1),
+  idempotencySecret: shopSecrets.idempotencySecret,
+})
+export class ShopDatabaseStorage {}
 
 /** The same with a knowledge base: what `describe --json` lists (assembled, never started). */
 @Application({
   name: "shop-kb-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, RefundWorkflow, KbWorkflow],
+  storage: ShopDatabaseStorage,
   budgets: TEST_BUDGETS,
-  exposes: [ShopA2AExpose, ShopMcpExpose],
+  endpoints: [ShopA2AExpose, ShopMcpEndpoint],
 })
 export class ShopKbApplication {}

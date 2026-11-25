@@ -227,7 +227,7 @@ describe("#474: the layout rules find what they guard against", () => {
   });
 
   it("AC4: a ts block with file=, or without a class, needs nothing more", () => {
-    const flow = "export const paths = [start(A).toFinish(B)] as const;\n";
+    const flow = "export const paths = [onStart(A).toFinish(B)] as const;\n";
 
     expect(classWithoutFileOf(sample("ts", "src/dto/a.dto.ts", "export class ADto {}"))).toEqual(
       [],
@@ -299,7 +299,7 @@ describe("#474: the layout rules find what they guard against", () => {
 
   it.each([
     ["agents/support/support.prompt.md", "agents/support/support.agent.ts"],
-    ["compactions/notes/notes.prompt.md", "compactions/notes/notes.compaction.ts"],
+    ["memories/notes/notes.prompt.md", "memories/notes/notes.memory.ts"],
     ["routers/main/main.prompt.md", "routers/main/main.router.ts"],
   ])("AC4: a .prompt.md beside its component is fine (%s)", (prompt, component) => {
     const files = projectOf(`src/desk/${prompt}`, `src/desk/${component}`);
@@ -643,7 +643,7 @@ const STATED: readonly (readonly [string, string, readonly string[]])[] = [
       "never inline `CREATE TABLE`",
       "never string-interpolated SQL",
       "`sqliteConnection.database`",
-      "listed in `@Application({ providers })`, never a workflow's",
+      "the application's SQLite storage provides it",
       "`sqliteConnection.transaction(() => …)`",
       "no `await` inside",
     ],
@@ -654,7 +654,7 @@ const STATED: readonly (readonly [string, string, readonly string[]])[] = [
     [
       "`SqliteConnection`",
       "never an internal helper",
-      "Both are listed in `@Application({ providers })` — `SqliteConnection` too",
+      "the application's SQLite storage driver provides it",
       "`ensureSchema`",
       "`?` parameters",
       "never build queries with string interpolation",
@@ -677,9 +677,9 @@ const STATED: readonly (readonly [string, string, readonly string[]])[] = [
       "monotonic fencing token",
       "`ExecutionLeaseLostError`",
       "every 30 s",
-      "`@Application({ maxConcurrentSteps })`",
+      "`@Application({ executionLimits: { maxConcurrentSteps } })`",
       "once its 30 s lease expires",
-      "`SqliteChildExecutionQueueRepository`",
+      "`@ClusterStorage` beside it",
     ],
   ],
 ];

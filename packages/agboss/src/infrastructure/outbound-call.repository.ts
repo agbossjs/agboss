@@ -1,32 +1,13 @@
 import { markBusinessKeyWriter } from "../components/container/fenced-reach.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
 import type { EffectKey } from "./fenced-effect.repository.js";
-import { Injectable } from "../components/decorators.js";
-import { StoreClock, lazyLoad } from "./clock.js";
-import { ExecutionLeaseRepository, LeaseCheck } from "./execution-lease.repository.js";
-import {
-  checkInMemoryFence,
-  inMemoryLeaseMismatch,
-  raiseInMemoryMark,
-} from "./in-memory-fenced-effect.repository.js";
-import { effectKeyIdentityOf, pendingOutboundCallOf } from "./fenced-effect-key.js";
-import {
-  inMemoryPageOf,
-  nextPlaceIn,
-  type OutboundCallPage,
-  type OutboundCallStatusQuery,
-} from "./outbound-call-pages.js";
-import {
-  checkInMemoryCancel,
-  IN_MEMORY_DATABASE,
-  prunedCallsBefore,
-  type InMemoryDatabase,
-} from "./in-memory-database.js";
+import { LeaseCheck } from "./execution-lease.repository.js";
+import type { OutboundCallStatusQuery } from "./outbound-call-pages.js";
+import type { Page } from "../app/page.js";
 import type { OutboundCallLeaseState } from "./execution-audit-log.repository.js";
 import type {
   OutboundCallClaim,
   OutboundCallLease,
-  OutboundCallEnding,
   OutboundCallFailure,
   OutboundCallIntent,
   OutboundCallRecord,
@@ -43,21 +24,7 @@ import type {
  * Several-instances.
  */
 
-/** Where an intent stands. */
-export enum OutboundCallStatus {
-  /**
-   * Recorded, and sent or about to be — or answered with an error of unknown outcome (#657): what
-   * happened is not known here, and the next call reconciles it.
-   */
-  Pending = "pending",
-  /** The other system answered: its result is stored. */
-  Completed = "completed",
-  /**
-   * The other system definitely did not carry it out (#657: an error `isDefiniteFailure` named):
-   * the next call sends it again, the same key.
-   */
-  Failed = "failed",
-}
+export { OutboundCallStatus } from "./outbound-call-status.js";
 
 export {
   DEFAULT_OUTBOUND_CALL_PAGE,
@@ -80,7 +47,7 @@ export type {
  * Infrastructure (#505): the intents of calls that leave the system, one per key. Every write and
  * the lookup by key are **fenced** like a fenced effect (#500) — in one transaction, the lease the
  * key names (its epoch, held, not expired) and the scope's high-water mark are checked first, so a
- * zombie can neither read, record nor complete an intent: `ExecutionFencedError`, a hand-over.
+ * zombie can neither read, record nor complete an intent: `ExecutionError.Fenced`, a hand-over.
  * Listed only in `@Application({ providers })`; the built-in default is in memory
  * (`InMemoryOutboundCallRepository`), `SqliteOutboundCallRepository` keeps them in the application's
  * SQLite file. A store reads the leases of the lease store of its database, so the two are listed
@@ -121,14 +88,22 @@ export abstract class OutboundCallRepository {
   /**
    * The intent is `Completed` with `result` (its JSON) — fenced, and only while `attemptOwner` still
    * owns its attempt (a compare-and-set): `false` when a newer attempt took it over, nothing changed.
+   * `expiresAt` is when the ended intent may be removed (`deleteExpired`); `null`: never
+   * (`Ttl.Forever`). A pending intent has none.
    */
-  abstract markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean>;
+  abstract markCompleted(
+    key: EffectKey,
+    attemptOwner: string,
+    result: string,
+    expiresAt: Date | null,
+  ): Promise<boolean>;
 
-  /** The intent is `Failed` with `failure` — fenced, and only while `attemptOwner` owns it. */
+  /** The intent is `Failed` with `failure` — fenced, and only while `attemptOwner` owns it; `expiresAt` as `markCompleted`. */
   abstract markFailed(
     key: EffectKey,
     attemptOwner: string,
     failure: OutboundCallFailure,
+    expiresAt: Date | null,
   ): Promise<boolean>;
 
   /** Every call of one tree of a tenant, in the order recorded. */
@@ -145,10 +120,16 @@ export abstract class OutboundCallRepository {
    * exactly once, whatever is recorded or leaves the status between pages; none is listed twice.
    * `after` is the store's own opaque text, given back as it was handed out.
    */
-  abstract findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<OutboundCallPage>;
+  abstract findAllByTenantIdAndStatus(
+    query: OutboundCallStatusQuery,
+  ): Promise<Page<OutboundCallRecord>>;
 
-  /** Removes the `Completed` and `Failed` intents that ended before `cutoff`; never a `Pending` one. */
-  abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+  /**
+   * Removes the `Completed` and `Failed` intents whose `expiresAt` has come (`<= now`, the recovery
+   * sweep, on the `Clock`); never a `Pending` one, nor one with no expiry (`Ttl.Forever`). The
+   * number removed. An intent claimed for a new attempt has no expiry again until it ends.
+   */
+  abstract deleteExpired(now: Date): Promise<number>;
 
   /**
    * The state of `lease` — `(tenantId, leaseExecutionId)` at `token` (#508) —, in one atomic step:
@@ -162,155 +143,6 @@ export abstract class OutboundCallRepository {
    * both win: the lease is renewed and `Live`, or `LeaseClosed` and not renewable.
    */
   abstract leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;
-}
-
-/**
- * The built-in default (#505): the intents in the instance's `InMemoryDatabase`, beside the
- * in-memory leases and the scopes' marks it checks — the instances of one test share them. Every
- * fenced method checks the key's lease and the scope's mark first, then raises the mark.
- */
-@Injectable({ deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] })
-export class InMemoryOutboundCallRepository extends OutboundCallRepository {
-  static override readonly store: StoreDescriptor = { backend: "in-memory" };
-
-  /**
-   * @internal The container injects the instance's in-memory database: left out of the declarations.
-   */
-  constructor(
-    private readonly clock: Pick<StoreClock, "now">,
-    private readonly database: InMemoryDatabase,
-    private readonly leases: ExecutionLeaseRepository,
-  ) {
-    super();
-  }
-
-  /**
-   * How it changes an intent (#658), loaded when the store is made, not with the root import (its
-   * module budget): long loaded by the first change.
-   */
-  readonly #changes = lazyLoad(import("./outbound-call-changes.js"));
-
-  /** The store's time as a record keeps it (#658: when a read by key read). */
-  #now(): string {
-    return this.clock.now().toISOString();
-  }
-
-  ping(): Promise<void> {
-    return Promise.resolve();
-  }
-
-  findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined> {
-    return this.#fenced(key, () => {
-      const found = this.database.outboundCalls.get(effectKeyIdentityOf(key));
-      // a copy of the row, read now (#658)
-      return found === undefined ? undefined : { ...structuredClone(found), readAt: this.#now() };
-    });
-  }
-
-  saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean> {
-    return this.#fenced(key, () => {
-      checkInMemoryCancel(this.database, key); // #909: a new intent is a new send
-      const row = effectKeyIdentityOf(key);
-      if (this.database.outboundCalls.has(row)) return false;
-      this.database.outboundCalls.set(
-        row,
-        structuredClone(pendingOutboundCallOf(key, intent, this.clock.now())),
-      );
-      // its place in the record order (#825): after every intent recorded before it, never reused
-      this.database.outboundCallOrder.set(row, nextPlaceIn(this.database));
-      return true;
-    });
-  }
-
-  async markPending(
-    key: EffectKey,
-    expected: OutboundCallState,
-    claim: OutboundCallClaim,
-  ): Promise<boolean> {
-    const { claimedOf } = await this.#changes;
-    const startedAt = this.clock.now();
-    // #909: a new attempt is a new send, refused after the tree's cancel
-    return this.#changed(key, (found) => claimedOf(found, expected, claim, startedAt), true);
-  }
-
-  markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean> {
-    return this.#ended(key, attemptOwner, { status: OutboundCallStatus.Completed, result });
-  }
-
-  markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure): Promise<boolean> {
-    return this.#ended(key, attemptOwner, {
-      status: OutboundCallStatus.Failed,
-      failure: { ...failure },
-    });
-  }
-
-  /** The attempt of `attemptOwner` ended as `ending`, now: `false` when a newer one owns it. */
-  async #ended(key: EffectKey, attemptOwner: string, ending: OutboundCallEnding): Promise<boolean> {
-    const { endedOf } = await this.#changes;
-    const endedAt = this.clock.now().toISOString();
-    return this.#changed(key, (found) => endedOf(found, attemptOwner, ending, endedAt));
-  }
-
-  findAllByTenantIdAndRootExecutionId(
-    tenantId: string,
-    rootExecutionId: string,
-  ): Promise<readonly OutboundCallRecord[]> {
-    return this.#where(
-      (row) => row.tenantId === tenantId && row.rootExecutionId === rootExecutionId,
-    );
-  }
-
-  findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<OutboundCallPage> {
-    return inMemoryPageOf(this.database, query);
-  }
-
-  async leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState> {
-    const { inMemoryLeaseStateOf } = await lazyLoad(import("./live-lease.js"));
-    return inMemoryLeaseStateOf(this.database, lease, this.clock.now());
-  }
-
-  deleteByEndedAtBefore(cutoff: Date): Promise<void> {
-    prunedCallsBefore(this.database, cutoff.getTime());
-    return Promise.resolve();
-  }
-
-  /** The rows that match, in the order recorded, as copies. */
-  #where(matches: (row: OutboundCallRecord) => boolean): Promise<readonly OutboundCallRecord[]> {
-    const found = [...this.database.outboundCalls.values()].filter(matches);
-    return Promise.resolve(found.map((row) => structuredClone(row)));
-  }
-
-  /**
-   * A fenced change of the key's intent, written under the key's lease and token; none recorded, or
-   * `change` declines (`undefined`) → nothing, `false`.
-   */
-  #changed(
-    key: EffectKey,
-    change: (found: OutboundCallRecord) => OutboundCallRecord | undefined,
-    isSend = false,
-  ): Promise<boolean> {
-    return this.#fenced(key, () => {
-      if (isSend) checkInMemoryCancel(this.database, key);
-      const row = effectKeyIdentityOf(key);
-      const found = this.database.outboundCalls.get(row);
-      const changed = found === undefined ? undefined : change(found);
-      if (changed === undefined) return false;
-      const owner = { token: key.token, leaseExecutionId: key.leaseExecutionId };
-      this.database.outboundCalls.set(row, { ...changed, ...owner });
-      return true;
-    });
-  }
-
-  /** `work` after the fencing checks (the mark raised): one synchronous step, nothing in between. */
-  #fenced<TValue>(key: EffectKey, work: () => TValue): Promise<TValue> {
-    const mismatch = inMemoryLeaseMismatch(this, this.leases);
-    if (mismatch !== undefined) return Promise.reject(mismatch);
-    return new Promise((resolve) => {
-      checkInMemoryFence(this.database, this.clock, key);
-      raiseInMemoryMark(this.database, this.clock, key);
-      resolve(work());
-    });
-  }
 }
 
 // #825: a component that reaches the store itself writes under business keys as OutboundCalls does

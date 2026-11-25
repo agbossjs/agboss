@@ -72,6 +72,12 @@ function partsOf(
         ? Promise.reject(options.marked)
         : Promise.resolve(options.marked ?? false),
     ),
+    // both marks of the lease row in one read (#1341b)
+    markedOf: vi.fn(() =>
+      options.marked instanceof Error
+        ? Promise.reject(options.marked)
+        : Promise.resolve({ isCancelRequested: options.marked ?? false }),
+    ),
     hold: vi.fn((_tree: unknown, _held: unknown, _take: TakeSeen) => Promise.resolve(lease)),
     tryHold: vi.fn((_tree: unknown, _take: TakeSeen) =>
       Promise.resolve(options.holds === false ? undefined : lease),
@@ -231,7 +237,10 @@ describe("#1356: the cancel of a thread resting paused", () => {
 
     expect(await cancelledPaused(parts, THREAD)).toBe(true);
 
-    expect(leases.requestCancel).toHaveBeenCalledWith(TREE);
+    expect(leases.requestCancel).toHaveBeenCalledWith(
+      TREE,
+      expect.objectContaining({ toStatus: "cancelling", trigger: "cancel" }),
+    );
     expect(trees.saveIfAbsentInTree).toHaveBeenCalledWith(TREE, CANCEL_REQUEST_KEY, {
       requestedAt: "2026-11-20T10:00:00.000Z",
       ownerId: null,
@@ -282,10 +291,10 @@ describe("#1356: the cancel of a thread resting paused", () => {
     // the thread's paused run is run-2 by now: the one asked for was moved by its holder
     expect(await cancelledPaused(parts, THREAD, "run-1")).toBe(false);
 
-    expect(leases.requestCancel).toHaveBeenCalledWith({
-      tenantId: "acme",
-      rootExecutionId: "run-1",
-    });
+    expect(leases.requestCancel).toHaveBeenCalledWith(
+      { tenantId: "acme", rootExecutionId: "run-1" },
+      expect.objectContaining({ toStatus: "cancelling", trigger: "cancel" }),
+    );
     expect(ended.end).not.toHaveBeenCalled();
   });
 
@@ -297,7 +306,7 @@ describe("#1356: the cancel of a thread resting paused", () => {
 
     it("ended as cancelled by its holder: the cancel did its job, and the keys of the tree are removed", async () => {
       const { parts, trees, turns } = moved({
-        status: "failed",
+        status: "cancelled",
         threadId: "thread-1",
         stopReason: 'thread "thread-1" was cancelled',
       });
@@ -309,7 +318,7 @@ describe("#1356: the cancel of a thread resting paused", () => {
 
     it("the stop reason the framework writes for a cancel counts as one", async () => {
       const { parts } = moved({
-        status: "failed",
+        status: "cancelled",
         threadId: "thread-1",
         stopReason: "the run was cancelled",
       });
@@ -419,7 +428,10 @@ describe("#1356: `app.cancel` of a thread", () => {
       cancelled: true,
     });
 
-    expect(leases.requestCancel.mock.calls).toEqual([[trees[0]], [trees[1]]]);
+    expect(leases.requestCancel.mock.calls).toEqual([
+      [trees[0], expect.objectContaining({ toStatus: "cancelling", trigger: "cancel" })],
+      [trees[1], expect.objectContaining({ toStatus: "cancelling", trigger: "cancel" })],
+    ]);
     expect(paused.drop).toHaveBeenCalledWith(THREAD);
   });
 
@@ -429,7 +441,10 @@ describe("#1356: `app.cancel` of a thread", () => {
     expect(await cancelThread(parts, "thread-1", { tenantId: "acme" })).toEqual({
       cancelled: true,
     });
-    expect(leases.requestCancel).toHaveBeenCalledWith(TREE);
+    expect(leases.requestCancel).toHaveBeenCalledWith(
+      TREE,
+      expect.objectContaining({ toStatus: "cancelling", trigger: "cancel" }),
+    );
   });
 
   it("else its execution on another instance gets a request, as its owner's", async () => {
@@ -440,7 +455,7 @@ describe("#1356: `app.cancel` of a thread", () => {
         runId: "run-1",
         threadId: "thread-1",
         tenantId: "acme",
-        bundle: "bundle-a",
+        workflow: "bundle-a",
         status: "running",
       },
     ]);

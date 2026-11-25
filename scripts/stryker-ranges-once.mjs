@@ -20,8 +20,9 @@ export function onceChildShard() {
     configFile: "vitest.mutation-once-child.config.ts",
     mutate: [
       "src/flow/runtime/child.ts",
-      "src/flow/runtime/remote/remote-child.ts",
-      "src/app/remote/{child-end-event,queued-child-run}.ts",
+      "src/flow/runtime/child-value.ts",
+      "src/flow/runtime/remote/{remote-child,remote-claim}.ts",
+      "src/app/remote/{child-end-event,queued-child-run,queued-child-stream-config}.ts",
     ],
   };
 }
@@ -37,6 +38,8 @@ export function onceMeshShard() {
       "src/mesh/outbound-mesh.ts",
       "src/mcp/mcp-dedupe.ts",
       "src/mcp/mcp-run-report.ts",
+      // the identity and ledger key of one MCP call, keyless included: two calls never share one (#1319)
+      "src/components/mcp-call-identity.ts",
       "src/infrastructure/mesh-request.repository.ts",
       "src/infrastructure/sqlite/sqlite-mesh-request.repository.ts",
     ],

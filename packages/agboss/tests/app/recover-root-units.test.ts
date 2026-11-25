@@ -10,7 +10,11 @@ import type { AppDeps } from "../../src/app/app-deps.js";
 import { problemOf, recoverRootOf } from "../../src/app/recover-root.js";
 import { recordEndedOf, recoveryPassOf, RootCalls } from "../../src/app/recovery-pass.js";
 import type { TreeMoves } from "../../src/app/tree-moves.js";
-import { IncompatibleResumeError, type IncompatibleResume } from "../../src/run/resume-guard.js";
+import {
+  IncompatibleResumeError,
+  ResumeDecision,
+  type IncompatibleResume,
+} from "../../src/run/resume-guard.js";
 import type { InterruptedRun } from "../../src/run/continue-agent.js";
 import type { Turn } from "../../src/turns/index.js";
 
@@ -73,7 +77,7 @@ describe("#633: recoverRootOf", () => {
       deps,
       moves: moves as never,
       current: { workflowVersion: "", configHash: "" },
-      policy: () => "resume",
+      policy: () => ResumeDecision.Resume,
     });
 
     await recover(recordOf({ configVersion: "0.9.0" }), signal);
@@ -136,7 +140,7 @@ describe("#633: recoverRootOf", () => {
       current,
       policy: (resume) => {
         seen.push(resume);
-        return "resume";
+        return ResumeDecision.Resume;
       },
     });
     const leaving = recoverRootOf({

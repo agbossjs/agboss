@@ -3,8 +3,7 @@
  * the visit a branch brings back counts its own step once, and the run's next step is checked against the steps the branches took.
  */
 import { describe, expect, it } from "vitest";
-import { buildCostReport } from "../../../src/finops/usage.js";
-import { FailurePolicy } from "../../../src/flow/decorators/router.js";
+import { CostReport } from "../../../src/finops/usage.js";
 import {
   ChildExecutionStatus,
   type EndedChildRecord,
@@ -28,7 +27,7 @@ import {
 } from "../fixtures/launch.fixture.js";
 import { ScreeningApplication } from "./fixtures/launch.applications.js";
 
-/** `ScreeningApplication` has `maxSteps: 9`: the screening agent, one audit per company, then the ranker. */
+/** `ScreeningApplication` has `executionLimits: { maxSteps: 9 }`: the screening agent, one audit per company, then the ranker. */
 const screening = testWith(ScreeningApplication, { concurrency: TestConcurrency.Real });
 
 const companies = (count: number) =>
@@ -85,7 +84,7 @@ const endedChild: EndedChildRecord = {
   input: {},
   status: ChildExecutionStatus.Finished,
   path: [],
-  spend: buildCostReport([]),
+  spend: CostReport.fromUsage([]),
   toolCalls: [],
   steps: [],
   children: [],
@@ -101,7 +100,6 @@ describe("#1366: the visit a branch brings back", () => {
         copyNumber: 2,
         visitNumber: 1,
         stepsBefore: 0,
-        failure: FailurePolicy.FailFast,
       },
       children: [endedChild],
       piiTokens: { a: "1" },

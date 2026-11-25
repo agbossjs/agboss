@@ -1,11 +1,28 @@
 import { describe, expectTypeOf, it } from "vitest";
-import { anyOf, group, start, toFinish } from "../../src/flow/builder.js";
+import * as builder from "../../src/flow/builder.js";
+import { onStart, toAction, toAgent, toFinish } from "../../src/flow/builder.js";
+import type { FlowPath } from "../../src/flow/ast.js";
 import { ExecutionContext } from "../../src/flow/context/execution-context.js";
-import { Arbiter, OnAnswer } from "../../src/flow/decorators/arbiter.js";
-import { DecidedBy } from "../../src/flow/decorators/router.js";
+import {
+  Arbiter,
+  ArbiterModel,
+  Arbitrate,
+  type ArbitratedAnswerOf,
+  type ArbiterAnswerOf,
+} from "../../src/flow/decorators/arbiter.js";
+import type { WorkflowFinishTextDto } from "../../src/dto/index.js";
+import {
+  CommitteeChildWorkflow,
+  CommitteeNoteAgent,
+  FinanceDirectorExternalTask,
+  LegalSignOffExternalTask,
+  type SignOffDto,
+} from "./fixtures/committee.fixture.js";
+import * as index from "../../src/index.js";
+import { Metadata, type Tracked } from "../../src/flow/metadata.js";
 import { listOf, optional } from "../../src/flow/dto-wrappers.js";
 import { StepFailedError } from "../../src/graph/errors.js";
-import { seconds } from "../../src/units/index.js";
+import { seconds, workDays } from "../../src/units/index.js";
 import {
   AuditorAgent,
   CultureScoreAgent,
@@ -28,171 +45,168 @@ import {
   CandidateReviewWorkflowStart,
   DealRoomOpenedWorkflowFinish,
 } from "./fixtures/quorum-agents.js";
-import {
-  AuditDto,
-  CandidateDto,
-  CultureScoreDto,
-  DealCritiqueDto,
-  DealDto,
-  FastScreenDto,
-  LegalReviewDto,
-  SalaryFitDto,
-  ScoreDto,
-  SkillsScoreDto,
-} from "./fixtures/quorum-dtos.js";
+import { CandidateDto, DealCritiqueDto, ScoreDto, SkillsScoreDto } from "./fixtures/quorum-dtos.js";
 import { GoodScoreArbiter, ValidScoreArbiter } from "./fixtures/quorum.fixture.js";
 
-/** #279 — quorums at compile time: what may follow a launch, what `.returns` may promise, arbiters. */
+/** #279 — quorums at compile time: what may follow a launch, arbiters, groups. */
 
 const scores = () =>
-  start(CandidateReviewWorkflowStart)
-    .returns(CandidateDto)
-    .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent);
+  onStart(CandidateReviewWorkflowStart).inParallel([
+    toAgent(ScoreAAgent),
+    toAgent(ScoreBAgent),
+    toAgent(ScoreCAgent),
+  ]);
 const fit = () =>
-  start(FitReviewWorkflowStart)
-    .returns(CandidateDto)
-    .toParallelAgents(SkillsScoreAgent, CultureScoreAgent, SalaryFitAgent);
+  onStart(FitReviewWorkflowStart).inParallel([
+    toAgent(SkillsScoreAgent),
+    toAgent(CultureScoreAgent),
+    toAgent(SalaryFitAgent),
+  ]);
 const deal = () =>
-  start(DealWorkflowStart)
-    .returns(DealDto)
-    .toParallelAgents(LegalAgent, DealCriticAgent, DealCriticAgent, AuditorAgent, FastScreenAgent, {
-      maxConcurrency: 4,
-    });
-const fastGroup = () =>
-  group(FastScreenAgent).priority(3).returns(FastScreenDto).toFinish(QuickRejectWorkflowFinish);
+  onStart(DealWorkflowStart).inParallel(
+    [
+      toAgent(LegalAgent),
+      toAgent(DealCriticAgent),
+      toAgent(DealCriticAgent),
+      toAgent(AuditorAgent),
+      toAgent(FastScreenAgent),
+    ],
+    { maxConcurrency: 4 },
+  );
+
+class OfficeCalendar {
+  readonly name = "office";
+}
 
 describe("#279 AC11 / AC12: arbiters and quorum joins after a launch", () => {
-  it("options are always an object; .acceptedBy(…).join() does not compile", () => {
+  it("options are always an object; .arbitratedBy(…).join() does not compile", () => {
     // @ts-expect-error — the number shorthand is gone: .joinQuorum({ min: 2 })
     scores().joinQuorum(2);
-    // @ts-expect-error — after .acceptedBy(…) a quorum join, never .join()
-    scores().acceptedBy(ValidScoreArbiter).join();
+    // @ts-expect-error — after .arbitratedBy(…) a quorum join, never .join()
+    scores().arbitratedBy(ValidScoreArbiter).join();
     // @ts-expect-error — a deadline has a unit: seconds(30), not 30
     scores().joinQuorum({ min: 2, deadline: 30 });
     scores()
-      .acceptedBy(GoodScoreArbiter)
-      .acceptedBy(anyOf(GoodScoreArbiter, ValidScoreArbiter))
+      .arbitratedBy(GoodScoreArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) });
-    expectTypeOf(scores().acceptedBy(ValidScoreArbiter)).toHaveProperty("joinQuorumGroups");
+    // @ts-expect-error — working time needs the calendar that counts it (#1306)
+    scores().joinQuorum({ min: 2, deadline: workDays(5) });
+    // @ts-expect-error — a calendar beside a plain duration counts nothing (#1306)
+    scores().joinQuorum({ min: 2, deadline: seconds(30), calendar: OfficeCalendar });
+    scores().joinQuorum({ min: 2, deadline: workDays(5), calendar: OfficeCalendar });
+    // @ts-expect-error — one arbiter per launch: .arbitratedBy(A).arbitratedBy(B) does not compile (no anyOf, no and / or)
+    scores().arbitratedBy(GoodScoreArbiter).arbitratedBy(ValidScoreArbiter);
+    // @ts-expect-error — anyOf(…) is gone with .acceptedBy(…)
+    const gone: unknown = index.anyOf;
+    expectTypeOf(gone).toBeUnknown();
+    expectTypeOf(scores().arbitratedBy(ValidScoreArbiter)).toHaveProperty("joinQuorumGroups");
   });
 
-  it("AC4: .onJoinError right after the quorum, .onError does not compile", () => {
+  it("AC4: .onError right after the quorum, .onJoinError does not compile", () => {
     const joined = scores().joinQuorum({ min: 2 });
     joined
-      .onJoinError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
-      .returns(listOf(ScoreDto))
+      .onError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
       .toAgent(ScoreSummaryAgent);
-    // @ts-expect-error — .onError does not follow a join: .onJoinError(E, …)
-    joined.onError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish));
-    expectTypeOf(joined).toHaveProperty("onJoinError");
+    // @ts-expect-error — the join's handler is `.onError`: `.onJoinError` is gone (#1281)
+    joined.onJoinError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish));
+    expectTypeOf(joined).toHaveProperty("onError");
   });
 });
 
-describe("#279 AC14: what .joinQuorum(…).returns(…) may promise", () => {
+describe("#279 AC14: what follows .joinQuorum(…)", () => {
   it("min below the agents: every single answer is optional", () => {
     const joined = fit().joinQuorum({ min: 2 });
-    joined
-      .returns(optional(SkillsScoreDto))
-      .returns(optional(CultureScoreDto))
-      .returns(optional(SalaryFitDto))
-      .toAgent(FitSummaryAgent);
-    // @ts-expect-error — the quorum may leave skills-score-agent out: optional(SkillsScoreDto)
-    joined.returns(SkillsScoreDto);
-    expectTypeOf(joined).toHaveProperty("returns");
+    joined.toAgent(FitSummaryAgent);
+    expectTypeOf(joined).toHaveProperty("toAgent");
   });
 
   it("min equal to the agents: required answers are allowed", () => {
     const joined = fit().joinQuorum({ min: 3 });
-    joined.returns(SkillsScoreDto).returns(CultureScoreDto).returns(SalaryFitDto);
-    // @ts-expect-error — every answer is counted: not optional(…)
-    joined.returns(optional(SkillsScoreDto));
-    expectTypeOf(joined).toHaveProperty("returns");
+    joined.toAgent(FitSummaryAgent);
+    expectTypeOf(joined).toHaveProperty("toAgent");
   });
 
   it("one output class of several agents stays a list", () => {
-    scores().joinQuorum({ min: 2 }).returns(listOf(ScoreDto)).toAgent(ScoreSummaryAgent);
-    // @ts-expect-error — three agents with one output give a list
-    scores().joinQuorum({ min: 2 }).returns(optional(ScoreDto));
+    scores().joinQuorum({ min: 2 }).toAgent(ScoreSummaryAgent);
     expectTypeOf(scores()).toHaveProperty("joinQuorum");
   });
 });
 
-describe("#279 AC7 / AC13: groups name their values and continue their own path", () => {
-  it("a repeated class is listOf in every group; listed agents are required", () => {
-    deal().joinQuorumGroups(
-      group(LegalAgent, DealCriticAgent)
-        .priority(1)
-        .returns(LegalReviewDto)
-        .returns(listOf(DealCritiqueDto))
-        .toAgent(FullReviewAgent),
-      group(AuditorAgent)
-        .returns(AuditDto)
-        .toAction(OpenDealRoomAction)
-        .toFinish(DealRoomOpenedWorkflowFinish),
-      fastGroup(),
-      { deadline: seconds(60) },
-    );
-    deal().joinQuorumGroups(
-      // @ts-expect-error — deal-critic-agent is launched twice: listOf(DealCritiqueDto), even for one copy
-      group(LegalAgent, DealCriticAgent)
-        .returns(LegalReviewDto)
-        .returns(DealCritiqueDto)
-        .toAgent(FullReviewAgent),
-      fastGroup(),
-    );
-    deal().joinQuorumGroups(
-      // @ts-expect-error — a listed agent is present when its group wins: not optional(…)
-      group(AuditorAgent)
-        .returns(optional(AuditDto))
-        .toAction(OpenDealRoomAction)
-        .toFinish(DealRoomOpenedWorkflowFinish),
-    );
+describe("#279 AC7 / AC13, #1284: groups continue their own path", () => {
+  it(".joinQuorumGroups({ deadline }) is incomplete until a group: .onGroup([targets], options?, subPath)", () => {
+    const groups = deal()
+      .joinQuorumGroups({ deadline: seconds(60) })
+      .onError(StepFailedError, toFinish(QuickRejectWorkflowFinish))
+      .onGroup([LegalAgent, DealCriticAgent], { priority: 1 }, toAgent(FullReviewAgent))
+      .onGroup([AuditorAgent], toAction(OpenDealRoomAction).toFinish(DealRoomOpenedWorkflowFinish))
+      .onGroup([FastScreenAgent], { priority: 3 }, toFinish(QuickRejectWorkflowFinish));
+    expectTypeOf(groups).toHaveProperty("onGroup");
     expectTypeOf(deal()).toHaveProperty("joinQuorumGroups");
+    deal().joinQuorumGroups().onGroup([FastScreenAgent], toFinish(QuickRejectWorkflowFinish));
   });
 
-  it("a group without a continuation does not compile; nothing follows the groups", () => {
-    // @ts-expect-error — a group continues its own path with .to…(…)
-    deal().joinQuorumGroups(group(FastScreenAgent).returns(FastScreenDto));
+  it("without a group it is no path; min / max do not apply; .onError is only before the first group", () => {
+    const joining = deal().joinQuorumGroups({ deadline: seconds(60) });
+    // @ts-expect-error — at least one .onGroup(…) makes it a path
+    const incomplete: FlowPath = joining;
+    expectTypeOf(incomplete).toBeObject();
     // @ts-expect-error — min / max do not apply to groups
-    deal().joinQuorumGroups(fastGroup(), { min: 1 });
-    const joined = deal().joinQuorumGroups(fastGroup());
-    // @ts-expect-error — no common continuation after .joinQuorumGroups(…)
+    deal().joinQuorumGroups({ min: 1 });
+    // @ts-expect-error — a bare number is no deadline
+    deal().joinQuorumGroups({ deadline: 30 });
+    // @ts-expect-error — working time needs the calendar that counts it (#1306)
+    deal().joinQuorumGroups({ deadline: workDays(5) });
+    deal().joinQuorumGroups({ deadline: workDays(5), calendar: OfficeCalendar });
+    const joined = joining.onGroup([FastScreenAgent], toFinish(QuickRejectWorkflowFinish));
+    // @ts-expect-error — .onError(E, …) stands before the first .onGroup(…), never after one
+    joined.onError(StepFailedError, toFinish(QuickRejectWorkflowFinish));
+    // @ts-expect-error — no common continuation after the groups: each group continues its own path
     joined.toAgent(FullReviewAgent);
-    joined.onJoinError(StepFailedError, toFinish(QuickRejectWorkflowFinish));
-    expectTypeOf(joined).toHaveProperty("onJoinError");
+    // @ts-expect-error — targets are one or more classes
+    joining.onGroup([], toFinish(QuickRejectWorkflowFinish));
+    // @ts-expect-error — a group continues its own path: a path, not nothing
+    joining.onGroup([FastScreenAgent]);
+    expectTypeOf(joined).toHaveProperty("onGroup");
+    expectTypeOf(joining).toHaveProperty("onError");
+  });
+
+  it("group(…) and .priority(n) are gone", () => {
+    // @ts-expect-error — group(…).priority(n) is .onGroup([…], { priority: n }, subPath)
+    const gone: unknown = builder.group;
+    expectTypeOf(gone).toBeUnknown();
   });
 });
 
-describe("#279 AC6: @OnAnswer(Agent) checks the method; options by decidedBy", () => {
+describe("#279 AC6: @Arbitrate(…targets) checks the method; the options say how it decides", () => {
   it("the answer's type, the return type and one parameter", () => {
-    @Arbiter({ name: "typed-score-arbiter", decidedBy: DecidedBy.Code, deps: [ExecutionContext] })
+    @Arbiter({ name: "typed-score-arbiter", deps: [ExecutionContext] })
     class TypedScoreArbiter {
       constructor(readonly executionContext: ExecutionContext) {}
 
-      @OnAnswer(ScoreAAgent)
+      @Arbitrate(ScoreAAgent)
       fromScoreA(answer: ScoreDto): boolean {
         return answer.score > this.executionContext.step.visitNumber;
       }
 
-      @OnAnswer(ScoreBAgent)
+      @Arbitrate(ScoreBAgent)
       async fromScoreB(answer: ScoreDto): Promise<boolean> {
         return Promise.resolve(answer.score > 0);
       }
 
       // @ts-expect-error — score-c-agent answers ScoreDto, not CandidateDto
-      @OnAnswer(ScoreCAgent)
+      @Arbitrate(ScoreCAgent)
       fromScoreC(answer: CandidateDto): boolean {
         return answer.name !== "";
       }
 
       // @ts-expect-error — an arbiter answers whether the answer counts: a boolean
-      @OnAnswer(ScoreAAgent)
+      @Arbitrate(ScoreAAgent)
       scoreText(answer: ScoreDto): string {
         return String(answer.score);
       }
 
       // @ts-expect-error — one parameter, the answer
-      @OnAnswer(ScoreBAgent)
+      @Arbitrate(ScoreBAgent)
       fromTwo(answer: ScoreDto, extra: string): boolean {
         return answer.score > extra.length;
       }
@@ -201,21 +215,80 @@ describe("#279 AC6: @OnAnswer(Agent) checks the method; options by decidedBy", (
   });
 
   it("the other strategy's options do not compile", () => {
-    const criteria = [{ agent: ScoreAAgent, prompt: "p" }] as const;
-    const code = { name: "x-arbiter", decidedBy: DecidedBy.Code, criteria } as const;
-    const model = {
-      name: "y-arbiter",
-      decidedBy: DecidedBy.Model,
-      model: "m",
-      prompt: "p",
-    } as const;
+    const criteria = [{ target: ScoreAAgent, prompt: "p" }] as const;
+    const model = { name: "y-arbiter", model: "m", prompt: "p" } as const;
     const deps = [ExecutionContext] as const;
     // @ts-expect-error — a code arbiter has no criteria: its methods judge
-    Arbiter(code);
+    Arbiter({ name: "x-arbiter", criteria, deps: [] }).bind(null);
     // @ts-expect-error — a model arbiter needs its criteria
     Arbiter(model);
     // @ts-expect-error — a model arbiter has no deps
     Arbiter({ ...model, criteria, deps });
+    // @ts-expect-error — `decidedBy` is gone: criteria or @Arbitrate methods decide how it decides
+    Arbiter({ name: "z-arbiter", decidedBy: "code" });
     expectTypeOf(Arbiter).toBeFunction();
+  });
+
+  it("@Arbitrate(A, B) takes the union of their answers; the removed @OnAnswer is gone (#1283)", () => {
+    @Arbiter({ name: "union-arbiter" })
+    class UnionArbiter {
+      @Arbitrate(ScoreAAgent, ScoreBAgent)
+      isMeaningful(answer: ArbitratedAnswerOf<[typeof ScoreAAgent, typeof ScoreBAgent]>): boolean {
+        expectTypeOf(Metadata.createdBy(answer)).toEqualTypeOf<
+          typeof ScoreAAgent | typeof ScoreBAgent
+        >();
+        return answer.score > 0;
+      }
+
+      @Arbitrate(ScoreCAgent)
+      isPlain(answer: ScoreDto): boolean {
+        return answer.score > 0;
+      }
+    }
+    expectTypeOf<ArbitratedAnswerOf<[typeof ScoreAAgent, typeof ScoreBAgent]>>().toEqualTypeOf<
+      Tracked<ScoreDto, typeof ScoreAAgent> | Tracked<ScoreDto, typeof ScoreBAgent>
+    >();
+    expectTypeOf(UnionArbiter).toBeConstructibleWith();
+    // @ts-expect-error — @OnAnswer is @Arbitrate(…targets)
+    const removed: unknown = index.OnAnswer;
+    expectTypeOf(removed).toBeUnknown();
+  });
+
+  it("the answer of an @ExternalTask, a text @Agent and a @Workflow target is typed (#1283b)", () => {
+    expectTypeOf<ArbiterAnswerOf<typeof LegalSignOffExternalTask>>().toEqualTypeOf<SignOffDto>();
+    expectTypeOf<
+      ArbiterAnswerOf<typeof CommitteeNoteAgent>
+    >().toEqualTypeOf<WorkflowFinishTextDto>();
+    expectTypeOf<ArbiterAnswerOf<typeof CommitteeChildWorkflow>>().not.toBeNever();
+
+    @Arbiter()
+    class MixedArbiter {
+      @Arbitrate(LegalSignOffExternalTask, FinanceDirectorExternalTask)
+      isApproved(
+        answer: ArbitratedAnswerOf<
+          [typeof LegalSignOffExternalTask, typeof FinanceDirectorExternalTask]
+        >,
+      ): boolean {
+        expectTypeOf(Metadata.createdBy(answer)).toEqualTypeOf<
+          typeof LegalSignOffExternalTask | typeof FinanceDirectorExternalTask
+        >();
+        return answer.approved;
+      }
+
+      @Arbitrate(CommitteeNoteAgent)
+      isNote(answer: WorkflowFinishTextDto): boolean {
+        return answer.text !== "";
+      }
+    }
+    expectTypeOf(MixedArbiter).toBeConstructibleWith();
+  });
+
+  it("model / modelProvider need ArbiterModel in deps; with it they compile (#1283)", () => {
+    // @ts-expect-error — no ArbiterModel injected: a code arbiter has no model
+    Arbiter({ name: "no-model-arbiter", model: "fast" });
+    Arbiter({ name: "hybrid-arbiter", model: "fast", deps: [ArbiterModel] });
+    Arbiter();
+    Arbiter({ deps: [ExecutionContext] });
+    expectTypeOf<ArbiterModel>().toHaveProperty("decide");
   });
 });

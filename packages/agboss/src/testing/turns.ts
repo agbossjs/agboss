@@ -26,7 +26,7 @@ export interface DecisionDetails {
   readonly cost?: Usd;
 }
 
-/** A scripted answer to one decision question: P(yes) (`noul`), an option (`choice`), a level's index or text (`score`). */
+/** A scripted answer to one decision question: the probability of yes (`boolean`), an option (`choice`), a level's index or text (`score`). */
 export type ScriptedAnswer = number | string;
 
 /** Optional parts of a scripted decision (`decideWith`). */
@@ -138,6 +138,28 @@ export interface FailureTurn {
 }
 
 /**
+ * A text reply a streaming call hears chunk by chunk (#1311, #1328): `streamWith(["3 jobs ", "found"])`.
+ * A call that does not stream gets the chunks joined, as one reply.
+ */
+export interface StreamTurn {
+  readonly kind: "stream";
+  /** The text of each chunk, in order: the answer is their concatenation. */
+  readonly chunks: readonly string[];
+  readonly details: AnswerDetails;
+}
+
+/**
+ * A stream that breaks after its chunks (#1311, #1328): `failStreamAfter(["3 jo"], ModelFailure.Timeout)`.
+ * A call that does not stream never hears the chunks: it fails at once.
+ */
+export interface StreamFailureTurn {
+  readonly kind: "stream-failure";
+  /** The chunks delivered before the failure. */
+  readonly chunks: readonly string[];
+  readonly failure: ModelFailure;
+}
+
+/**
  * The call takes this long on the test's clock before the next turn answers it:
  * `thenReturn(waitFor(seconds(31)), replyWith("late"))` — the call waits until `clock.advance`
  * reaches it (or its signal aborts); it is not a call of its own. Advance in steps shorter than the
@@ -163,6 +185,8 @@ export type ScriptedTurn =
   | RouteTurn
   | DecideTurn
   | FailureTurn
+  | StreamTurn
+  | StreamFailureTurn
   | WaitTurn;
 
 /** A turn of a kind. */

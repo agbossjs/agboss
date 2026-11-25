@@ -19,18 +19,17 @@ import {
   PiiKind,
   PiiPolicy,
   TenantContext,
-  pii,
   type RedactionResult,
 } from "../../src/index.js";
 import type { RuleViolation } from "../../src/graph/rule-error.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { kilobytes } from "../../src/units/index.js";
 import { readerApplication, type ReaderOptions } from "./reader.factory.js";
 
 @PiiPolicy({
   name: "redactor-rules-cards-pii-policy",
   description: "Hides cards",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
   files: PiiFileAction.Mask,
 })
 class CardsPolicy {}
@@ -158,7 +157,7 @@ describe("[files.redacted-needs-store]", () => {
     expect(found).toEqual([
       {
         code: "files.redacted-needs-store",
-        message: `${name}: FileView.Redacted with maxFileSize over ${String(MAX_INLINE_REDACTED)} bytes needs an A2AFileRepository in @Application({ providers }): a redacted copy over that does not fit in an execution's state`,
+        message: `${name}: FileView.Redacted with maxFileSize over ${String(MAX_INLINE_REDACTED)} bytes needs a FileRepository in @Application({ providers }): a redacted copy over that does not fit in an execution's state`,
         nodes: [name],
       },
     ]);
@@ -167,7 +166,7 @@ describe("[files.redacted-needs-store]", () => {
   it("a file store or a limit that fits leaves none", async () => {
     const stored = await thrownBy({
       files: REDACTED(["image/png"], kilobytes(65)),
-      providers: [InMemoryA2AFileRepository],
+      providers: [InMemoryFileRepository],
     });
     const fits = await thrownBy({
       files: REDACTED(["image/png"], kilobytes(64)),
@@ -180,7 +179,7 @@ describe("[files.redacted-needs-store]", () => {
 });
 
 class PersonContext extends ExecutionContext {
-  @Text({ optional: true, sensitive: PiiAction.replaceWithKind() })
+  @Text({ optional: true, sensitive: PiiAction.mask() })
   person?: string;
 }
 
@@ -195,7 +194,7 @@ class PlainTenant extends TenantContext {
 }
 
 class SensitiveTenant extends TenantContext {
-  @Text({ optional: true, sensitive: PiiAction.replaceWithKind() })
+  @Text({ optional: true, sensitive: PiiAction.mask() })
   owner?: string;
 }
 
@@ -219,7 +218,7 @@ describe("[files.redactor-values-withheld]", () => {
       executionContext: PersonContext,
     });
 
-    const message = `${name}: its contexts hold sensitive values and it reads FileView.Redacted, but the built-in redactor's model on openrouter-model-provider may not be told them — the agent's model is on openrouter-model-provider; serve both from one provider, or set defaults.files.redactionValues: RedactionValues.Always to send the values wherever the redactor runs (redactionValues is same-provider)`;
+    const message = `${name}: its contexts hold sensitive values and it reads FileView.Redacted, but the built-in redactor's model on test-model-provider may not be told them — the agent's model is on test-model-provider; serve both from one provider, or set defaults.files.redactionValues: RedactionValues.Always to send the values wherever the redactor runs (redactionValues is same-provider)`;
     expect(found).toEqual([{ code: "files.redactor-values-withheld", message, nodes: [name] }]);
   });
 
@@ -246,7 +245,7 @@ describe("[files.redactor-values-withheld]", () => {
     });
 
     expect(found[0]?.message).toContain(
-      "but your own FileRedactor PngRedactor may not be told them — the agent's model is on openrouter-model-provider;",
+      "but your own FileRedactor PngRedactor may not be told them — the agent's model is on test-model-provider;",
     );
   });
 

@@ -49,6 +49,18 @@ export function a2aServerShard() {
       "src/a2a/server/a2a-mesh-admission.ts",
       // #1256: the slots of the fetches of files by url, across messages
       "src/a2a/files/a2a-file-slots.ts",
+      // #1320: the signed HTTP request of a peer — verified first, admitted once, allowed this endpoint
+      "src/mesh/mesh-http.ts",
+      "src/mesh/mesh-http-admission.ts",
+      "src/a2a/server/a2a-peer-gate.ts",
+      "src/mcp/mcp-http-gate.ts",
+      // #1319: an MCP session belongs to the identity that opened it
+      "src/mcp/mcp-http-listener.ts",
+      "src/mcp/mcp-http-io.ts",
+      "src/mcp/mcp-public-url.ts",
+      "src/mcp/mcp-session-identity.ts",
+      // #1320: the mesh's numbers: hops from 1, a deduplication that outlives a signature
+      "src/mesh/mesh-rules.ts",
     ],
   };
 }
@@ -75,6 +87,9 @@ export function a2aClientShard() {
       "src/a2a/client/a2a-charges.ts",
       "src/a2a/client/a2a-echo.ts",
       "src/mesh/mesh-verification.ts",
+      // #1320: what a client signs and to whom — never across an origin
+      "src/mesh/outbound-http.ts",
+      "src/tools/mcp/signed-fetch.ts",
     ],
   };
 }
@@ -89,7 +104,7 @@ export function a2aDirectShard() {
   return {
     configFile: "vitest.mutation-a2a-direct.config.ts",
     mutate: [
-      "src/a2a/**/a2a-{direct-*,forged-files,message-skill-rule,call-peer}.ts",
+      "src/a2a/**/a2a-{direct-*,forged-files,message-skill-rule,effect-reach,call-peer}.ts",
       "src/infrastructure/**/*a2a-direct-message*.ts",
     ],
   };
@@ -112,6 +127,15 @@ export function streamShard() {
       "src/models/{chat-openai,usage-once,event-stream-lines,served-by}.ts",
       "src/a2a/server/a2a-{sse-write,subscriber-queue,artifact-view}.ts",
       "src/models/calls/event-stream-guard.ts",
+      // #1399: what a stream that failed mid-way had spent — the record, the error's carrier, the counter
+      "src/finops/partial-usage.ts",
+      "src/models/transport/stream-partial.ts",
+      // #1311b: a transport stream's chunks as they come
+      "src/models/transport/transport-chunks.ts",
+      "src/graph/agent-loop/chunk-counter.ts",
+      // #1399: the same for a call of any other component, and a fallback's share of it
+      "src/finops/charged-call.ts",
+      "src/finops/failed-decision.ts",
     ],
   };
 }

@@ -1,3 +1,4 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 /**
  * #501 PR 2 — the hand-over's record, unit by unit: `recordedHandOver` records once per error and
  * lease scope, at the first site with a frame and a lease that records (so the sites a hand-over is
@@ -10,12 +11,12 @@ import { recordedHandOver } from "../../src/app/handed-over.js";
 import {
   fencedEffectEventOf,
   handOverEventOf,
-  recordFencedEffect,
+  recordIdempotencyRun,
   recordHandOver,
-  type FencedEffectReport,
+  type IdempotencyRunReport,
   type HandOverReport,
 } from "../../src/app/audit-log.js";
-import { ExecutionFencedError, ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
+import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
 import { AuditLogReports, type AuditLogWriter } from "../../src/app/execution-leases.js";
 import { ExecutionObserverManager } from "../../src/core/observer-manager.js";
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
@@ -24,7 +25,7 @@ import type { StepHandedOverEvent } from "../../src/flow/observers/audit-log.js"
 import type { ExecutionLease } from "../../src/infrastructure/execution-lease.repository.js";
 import {
   ExecutionAuditEventKind,
-  FencedEffectEventOutcome,
+  IdempotencyRunEventOutcome,
   HandOverReason,
   HandOverSite,
   InMemoryExecutionAuditLogRepository,
@@ -148,7 +149,7 @@ const reportOf = (error: HandOverReport["error"]): HandOverReport => ({
 
 describe("#501: why a step was handed over, and the tokens its event names", () => {
   it("a fenced write: Fenced, the refused write's own scope and token and the token it met", () => {
-    const fenced = ExecutionFencedError.of({
+    const fenced = fencedRefusalOf({
       scopeKey: "acme:execution-9",
       token: 1,
       observedToken: 2,
@@ -167,7 +168,7 @@ describe("#501: why a step was handed over, and the tokens its event names", () 
   });
 
   it("a fenced write that does not say what it met has no observedToken", () => {
-    const fenced = ExecutionFencedError.of({ scopeKey: "acme:execution-9", token: 1 });
+    const fenced = fencedRefusalOf({ scopeKey: "acme:execution-9", token: 1 });
 
     expect(handOverEventOf(reportOf(fenced), HELD)).not.toHaveProperty("observedToken");
   });
@@ -298,12 +299,12 @@ describe("#501: a held lease's hand-overs", () => {
 });
 
 /** A refused call of the effect `charge` at the test frame's step. */
-const refusedCharge = (): FencedEffectReport => ({
+const refusedCharge = (): IdempotencyRunReport => ({
   event: nodeEventOf(testFrame()),
   name: "charge",
   scopeKey: "default:execution-1",
   token: 1,
-  outcome: FencedEffectEventOutcome.Refused,
+  outcome: IdempotencyRunEventOutcome.Refused,
   observedToken: 2,
 });
 
@@ -312,7 +313,7 @@ describe("#501: a fenced effect's call in the audit log", () => {
     const event = fencedEffectEventOf(
       {
         ...refusedCharge(),
-        outcome: FencedEffectEventOutcome.Ran,
+        outcome: IdempotencyRunEventOutcome.Ran,
         observedToken: undefined,
         writtenToken: 1,
       },
@@ -335,7 +336,7 @@ describe("#501: a fenced effect's call in the audit log", () => {
     });
 
     await expect(
-      recordFencedEffect(events, refusedCharge(), "instance-1"),
+      recordIdempotencyRun(events, refusedCharge(), "instance-1"),
     ).resolves.toBeUndefined();
 
     expect(rows).toEqual([]);
@@ -348,13 +349,13 @@ describe("#501: a fenced effect's call in the audit log", () => {
     reports.held(LEASE);
 
     reports.stepCall(events, (recording, log, holder) =>
-      recording.recordFencedEffect(log, refusedCharge(), holder),
+      recording.recordIdempotencyRun(log, refusedCharge(), holder),
     );
     reports.handOver(events, reportOf(lost()), "default:execution-1");
     await reports.settled();
 
     expect(rows.map((row) => row.kind)).toEqual([
-      ExecutionAuditEventKind.FencedEffect,
+      ExecutionAuditEventKind.IdempotencyRun,
       ExecutionAuditEventKind.HandedOver,
     ]);
   });
@@ -367,10 +368,10 @@ describe("#501: a fenced effect's call in the audit log", () => {
 
     const charged = refusedCharge();
     unheld.stepCall(events, (recording, log, holder) =>
-      recording.recordFencedEffect(log, charged, holder),
+      recording.recordIdempotencyRun(log, charged, holder),
     );
     unlogged.stepCall(undefined, (recording, log, holder) =>
-      recording.recordFencedEffect(log, charged, holder),
+      recording.recordIdempotencyRun(log, charged, holder),
     );
     await Promise.all([unheld.settled(), unlogged.settled()]);
 

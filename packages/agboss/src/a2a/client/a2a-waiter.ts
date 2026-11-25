@@ -97,8 +97,8 @@ export class Waiter {
           // only this task's CANCELED answer is its cancel
           outcome:
             task.id === taskId && stateOf(task) === TaskState.TASK_STATE_CANCELED
-              ? A2ACancelOutcome.Canceled
-              : A2ACancelOutcome.NotCanceled,
+              ? A2ACancelOutcome.Cancelled
+              : A2ACancelOutcome.NotCancelled,
           task,
         }),
         (): Canceled => ({ outcome: A2ACancelOutcome.Refused }),
@@ -118,7 +118,7 @@ export class Waiter {
       agent,
       taskId,
       contextId: safeTaskIdOf(this.#task?.contextId ?? task?.contextId) ?? "",
-      deadlineAt: (deadlineAt ?? clock.now()).toISOString(),
+      deadlineAt: deadlineAt ?? clock.now(),
       cancel: outcome,
     });
   }

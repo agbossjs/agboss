@@ -16,16 +16,16 @@ import {
 } from "../../infrastructure/fixtures/recovery.workflow.js";
 import {
   asked,
-  BearerCallerResolver,
+  BearerAuthenticator,
   EXPLODING_TOKEN,
   RESOLVER_SECRET,
   resetAsked,
-} from "../fixtures/bearer-caller-resolver.js";
+} from "../fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "../fixtures/task.application.js";
 import { errorInfoOf, errorOf, post, rpc, rpcBody, sseEvents, text, userMessage } from "./rpc.js";
 
 const test = testWith(OrdersApplication);
-const listener = { expose: OrdersA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { endpoint: OrdersA2AExpose, authenticator: BearerAuthenticator };
 const done = replyWith(ReceiptDto, { text: "Done." });
 const send = (messageId: string) => ({ message: userMessage(messageId, [text("go")]) });
 
@@ -150,9 +150,12 @@ describe("#808 AC5: the caller resolver gets the operation and the task", () => 
     expect(answer.headers.get("www-authenticate")).toBe('Bearer realm="a2a"');
     expect(answer.body).toEqual({ code: "a2a.caller-unauthenticated", error: "no token" });
     expect(mockLlm(Clerk)).toHaveBeenCalledTimes(0);
-    const page = await app
-      .resolve(A2ATaskRepository)
-      .list({ tenantId: "default", ownerId: undefined, pageSize: 10 });
+    const page = await app.resolve(A2ATaskRepository).list({
+      endpoint: "orders-a2a-expose",
+      tenantId: "default",
+      ownerId: undefined,
+      pageSize: 10,
+    });
     expect(page.tasks).toEqual([]);
   });
 

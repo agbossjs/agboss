@@ -1,36 +1,35 @@
 /**
- * #795 — the outbound-call contract fails closed. Every `send` declares how far its `notSent()` is
- * trusted (`notSent: { trust: NotSentTrust.Lookup }` or `{ trust: NotSentTrust.KeyReplay,
- * keyRetention }`): leaving it out does not compile, and a JavaScript caller that leaves it out, or
- * gives a trust or a retention that is not one, is refused before anything is recorded or sent. An
- * attempt answered after a newer one took its intent over is an error, `OutboundCallSupersededError`,
+ * #795 — the outbound-call contract fails closed. Every `sendOnce` declares how far its
+ * `notExecuted()` is trusted (`recovery: OutboundRecovery.replayWithin(…)`, `.permanentLookup(…)`
+ * or `.lookupWithin(…)`): leaving it out does not compile, and a JavaScript caller that leaves it
+ * out, or gives a recovery or a window that is not one, is refused before anything is recorded or sent. An
+ * attempt answered after a newer one took its intent over is an error, `OutboundCallError.Superseded`,
  * never a normal outcome. Settings built by hand say whether a request is stored only masked.
  */
+import {
+  IdempotencyError,
+  OutboundCallError,
+} from "../../src/core/error-families/effect-errors.js";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   InMemoryOutboundCallRepository,
-  InvalidFencedEffectNameError,
-  InvalidNotSentTrustError,
-  NotSentTrust,
   OutboundCallEventOutcome,
   OutboundCallSendStatus,
-  OutboundCallReconciliation,
-  OutboundCallSettings,
-  OutboundCallSupersededError,
-  OutboundCallUnreconciledError,
-  StepFailedError,
-  type EffectKey,
+  OutboundRecovery,
+  Reconciliation,
+  type IdempotencySendOptions,
   type OutboundCallFailure,
-  type OutboundCallNotSent,
-  type OutboundCallSendOptions,
 } from "../../src/index.js";
+import { OutboundMasking } from "../../src/app/outbound-masking.js";
+import { supersededError } from "../../src/app/outbound-call-errors.js";
+import { type EffectKey } from "../../src/stores/index.js";
 import { stateOf } from "../../src/app/outbound-call-business.js";
 import { untilReached } from "../helpers/reached.js";
 import {
   FakeGatewayFault,
   FakePaymentGateway,
 } from "../../src/testing/gateway/fake-payment-gateway.js";
-import { hours, minutes, type Milliseconds } from "../../src/units/index.js";
+import { hours, minutes, seconds, type Milliseconds } from "../../src/units/index.js";
 import {
   gatewayCharge,
   outboundFrame,
@@ -38,10 +37,11 @@ import {
   type GatewayChargeRequest,
   type GatewayPaymentReceipt,
   type OutboundFrame,
+  type OutboundSendCase,
   lookupKeyOf,
 } from "../helpers/outbound-frame.js";
 
-type ChargeOptions = OutboundCallSendOptions<GatewayChargeRequest, GatewayPaymentReceipt>;
+type ChargeOptions = OutboundSendCase<GatewayChargeRequest, GatewayPaymentReceipt>;
 
 /** A gateway with no lookup, keeping keys a day: a replay of the key is how it tells an outcome. */
 const replayOnly = (frame: OutboundFrame) =>
@@ -59,102 +59,106 @@ async function pendingFor(frame: OutboundFrame, gateway: FakePaymentGateway, age
   return key;
 }
 
-describe("#795 AC1: the notSent trust is required", () => {
-  it("leaving notSent out, or a KeyReplay without its keyRetention, does not compile", () => {
+describe("#795 AC1: the recovery is required", () => {
+  it("leaving recovery out, or a recovery that no OutboundRecovery factory made, does not compile", () => {
     const gateway = new FakePaymentGateway({ clock: outboundFrame().clock });
-    const { notSent: _, ...withoutTrust } = gatewayCharge(gateway);
+    const { recovery: _, ...withoutRecovery } = gatewayCharge(gateway);
 
-    // @ts-expect-error — no notSent: the author must say how far a notSent() is trusted
-    const missing: ChargeOptions = withoutTrust;
-    // @ts-expect-error — a key's replay is trusted only within the other system's retention
-    const noRetention: OutboundCallNotSent = { trust: NotSentTrust.KeyReplay };
-    // @ts-expect-error — a lookup has no retention to declare
-    const lookupRetention: OutboundCallNotSent = { trust: NotSentTrust.Lookup, keyRetention: 1 };
+    // @ts-expect-error — no recovery: the author must say how far a notExecuted() is trusted
+    const missing: ChargeOptions = withoutRecovery;
+    // @ts-expect-error — a look-alike object is no recovery: only OutboundRecovery's factories make one
+    const lookalike: OutboundRecovery = { kind: "replay-within", keyTtl: hours(24) };
 
-    expect([missing, noRetention, lookupRetention]).toHaveLength(3);
-    expectTypeOf<ChargeOptions["notSent"]>().toEqualTypeOf<OutboundCallNotSent>();
+    expect([missing, lookalike]).toHaveLength(2);
+    expectTypeOf<ChargeOptions["recovery"]>().toExtend<OutboundRecovery<GatewayPaymentReceipt>>();
   });
 
-  const IS_TRUSTED = "say how far a notSent() of reconcile is trusted";
+  const NOT_A_RECOVERY = "not one OutboundRecovery made";
   const NOT_A_DURATION = "not a positive, finite duration";
-  const { KeyReplay, Lookup } = NotSentTrust;
+  const lookup = () => Reconciliation.notExecuted();
+  // a JavaScript caller's values: anything at all where the recovery or its window goes
+  const unmade = (kind: string, keyTtl: unknown) => ({
+    ...OutboundRecovery.replayWithin(hours(24)),
+    kind,
+    keyTtl,
+  });
   it.each([
-    ["no notSent", undefined, `notSent is undefined, not a { trust }: ${IS_TRUSTED}`],
-    ["a notSent of null", null, `notSent is null, not a { trust }: ${IS_TRUSTED}`],
+    ["no recovery", undefined, `recovery is undefined, ${NOT_A_RECOVERY}`],
+    ["a recovery of null", null, `recovery is null, ${NOT_A_RECOVERY}`],
+    ["a recovery that is not an object", "lookup", `recovery is lookup, ${NOT_A_RECOVERY}`],
     [
-      "a notSent that is not an object",
-      "lookup",
-      `notSent is lookup, not a { trust }: ${IS_TRUSTED}`,
+      "an object no factory made",
+      { kind: "replay-within", keyTtl: hours(24) },
+      `recovery is an object, ${NOT_A_RECOVERY}`,
     ],
     [
-      "an unknown trust",
-      { trust: "always" },
-      "notSent.trust is always, neither NotSentTrust.Lookup nor NotSentTrust.KeyReplay",
+      "a copy of a recovery (a spread drops the mark)",
+      unmade("replay-within", hours(24)),
+      `recovery is an object, ${NOT_A_RECOVERY}`,
     ],
     [
-      "a trust of a null-prototype object (its text cannot be made)",
-      { trust: Object.create(null) as unknown },
-      "notSent.trust is an object, neither NotSentTrust.Lookup nor NotSentTrust.KeyReplay",
+      "a null-prototype object (its text cannot be made)",
+      Object.create(null) as unknown,
+      `recovery is an object, ${NOT_A_RECOVERY}`,
     ],
     [
-      "a KeyReplay with an object keyRetention",
-      { trust: KeyReplay, keyRetention: Object.create(null) as unknown },
-      `a KeyReplay's keyRetention is an object, ${NOT_A_DURATION}`,
+      "a window that is an object",
+      OutboundRecovery.replayWithin(Object.create(null) as Milliseconds),
+      `the key window is an object, ${NOT_A_DURATION}`,
     ],
     [
-      "a KeyReplay without keyRetention",
-      { trust: KeyReplay },
-      `a KeyReplay's keyRetention is undefined, ${NOT_A_DURATION}`,
+      "a window that is a text",
+      OutboundRecovery.replayWithin("86400000" as never),
+      `the key window is 86400000, ${NOT_A_DURATION}`,
     ],
     [
-      "a KeyReplay with a text keyRetention",
-      { trust: KeyReplay, keyRetention: "86400000" },
-      `a KeyReplay's keyRetention is 86400000, ${NOT_A_DURATION}`,
+      "a zero window",
+      OutboundRecovery.replayWithin(0 as Milliseconds),
+      `the key window is 0, ${NOT_A_DURATION}`,
     ],
     [
-      "a KeyReplay with a zero keyRetention",
-      { trust: KeyReplay, keyRetention: 0 },
-      `a KeyReplay's keyRetention is 0, ${NOT_A_DURATION}`,
+      "a negative window",
+      OutboundRecovery.lookupWithin(-1 as Milliseconds, lookup),
+      `the key window is -1, ${NOT_A_DURATION}`,
     ],
     [
-      "a KeyReplay with a negative keyRetention",
-      { trust: KeyReplay, keyRetention: -1 },
-      `a KeyReplay's keyRetention is -1, ${NOT_A_DURATION}`,
+      "a window NaN",
+      OutboundRecovery.replayWithin(Number.NaN as Milliseconds),
+      `the key window is NaN, ${NOT_A_DURATION}`,
     ],
     [
-      "a KeyReplay with keyRetention NaN",
-      { trust: KeyReplay, keyRetention: Number.NaN },
-      `a KeyReplay's keyRetention is NaN, ${NOT_A_DURATION}`,
+      "an infinite window",
+      OutboundRecovery.lookupWithin(Number.POSITIVE_INFINITY as Milliseconds, lookup),
+      `the key window is Infinity, ${NOT_A_DURATION}`,
     ],
     [
-      "a KeyReplay with an infinite keyRetention",
-      { trust: KeyReplay, keyRetention: Number.POSITIVE_INFINITY },
-      `a KeyReplay's keyRetention is Infinity, ${NOT_A_DURATION}`,
+      "a window not above the call's timeout",
+      OutboundRecovery.replayWithin(seconds(15)),
+      "the key window (15000 ms) is not above the call's timeout (15000 ms): a crash could never be reconciled inside it",
     ],
     [
-      "a Lookup with a keyRetention",
-      { trust: Lookup, keyRetention: hours(24) },
-      "a Lookup has no keyRetention: the record it reads does not expire",
+      "a ttl below the window",
+      OutboundRecovery.replayWithin(hours(72)),
+      "the call's ttl (172800000 ms) is below the key window (259200000 ms)",
     ],
   ])(
     "a JavaScript caller with %s is refused: nothing recorded, nothing sent",
-    async (_, notSent, problem) => {
+    async (_, recovery, problem) => {
       const frame = outboundFrame();
       const gateway = new FakePaymentGateway({ clock: frame.clock });
       const { key } = await frame.keyIn("execution-1");
-      // a JavaScript caller's options: anything at all where the trust goes
-      const options: ChargeOptions = { ...gatewayCharge(gateway), notSent: notSent as never };
+      const options: ChargeOptions = { ...gatewayCharge(gateway), recovery: recovery as never };
 
       const refused = await rejectionOf(frame.send(key, options));
 
-      expect(refused).toBeInstanceOf(InvalidNotSentTrustError);
+      expect(refused).toBeInstanceOf(OutboundCallError.InvalidRecovery);
       expect(refused).toMatchObject({
-        code: "outbound-call.invalid-not-sent-trust",
-        name: "InvalidNotSentTrustError",
+        code: "outbound-call.invalid-recovery",
+        name: "OutboundCallError.InvalidRecovery",
         call: "charge",
         problem,
         details: { call: "charge" },
-        message: `outbound call "charge" was refused: ${problem} — notSent: { trust: NotSentTrust.Lookup } or { trust: NotSentTrust.KeyReplay, keyRetention: hours(24) }; nothing was recorded or sent`,
+        message: `outbound call "charge" was refused: ${problem} — recovery: OutboundRecovery.replayWithin(hours(24)), .permanentLookup(…) or .lookupWithin(hours(24), …); nothing was recorded or sent`,
       });
       expect(gateway.payments).toEqual([]);
       expect(await frame.store.findByKey(lookupKeyOf(key))).toBeUndefined();
@@ -162,13 +166,13 @@ describe("#795 AC1: the notSent trust is required", () => {
     },
   );
 
-  it("a KeyReplay with the smallest positive keyRetention is one: sent", async () => {
+  it("a window just above the call's timeout is one: sent", async () => {
     const frame = outboundFrame();
     const gateway = new FakePaymentGateway({ clock: frame.clock });
     const { key } = await frame.keyIn("execution-1");
-    const notSent = { trust: KeyReplay, keyRetention: 1 as Milliseconds } as const;
+    const recovery = OutboundRecovery.replayWithin((seconds(15) + 1) as Milliseconds);
 
-    expect(await frame.send(key, gatewayCharge(gateway, { notSent }))).toMatchObject({
+    expect(await frame.send(key, gatewayCharge(gateway, { recovery }))).toMatchObject({
       status: OutboundCallSendStatus.Sent,
     });
   });
@@ -177,9 +181,11 @@ describe("#795 AC1: the notSent trust is required", () => {
     const frame = outboundFrame();
     const gateway = new FakePaymentGateway({ clock: frame.clock });
     const key = await pendingFor(frame, gateway, hours(72));
-    const notSent = () => OutboundCallReconciliation.notSent();
+    const recovery = OutboundRecovery.permanentLookup<GatewayPaymentReceipt>(() =>
+      Reconciliation.notExecuted(),
+    );
 
-    const outcome = await frame.send(key, gatewayCharge(gateway, { reconcile: notSent }));
+    const outcome = await frame.send(key, gatewayCharge(gateway, { recovery }));
 
     expect(outcome).toMatchObject({ status: OutboundCallSendStatus.Sent, attempt: 2 });
   });
@@ -188,14 +194,11 @@ describe("#795 AC1: the notSent trust is required", () => {
     const frame = outboundFrame();
     const gateway = replayOnly(frame);
     const key = await pendingFor(frame, gateway, hours(25));
-    const replay = gatewayCharge(gateway, {
-      reconcile: () => OutboundCallReconciliation.notSent(),
-      notSent: { trust: NotSentTrust.KeyReplay, keyRetention: hours(24) },
-    });
+    const replay = gatewayCharge(gateway, { recovery: OutboundRecovery.replayWithin(hours(24)) });
 
     const refused = await rejectionOf(frame.send(key, replay));
 
-    expect(refused).toBeInstanceOf(OutboundCallUnreconciledError);
+    expect(refused).toBeInstanceOf(OutboundCallError.Unreconciled);
     expect(gateway.payments).toHaveLength(1);
   });
 
@@ -203,22 +206,18 @@ describe("#795 AC1: the notSent trust is required", () => {
     const frame = outboundFrame();
     const gateway = replayOnly(frame);
     const key = await pendingFor(frame, gateway, minutes(10));
-    const replay = gatewayCharge(gateway, {
-      reconcile: () => OutboundCallReconciliation.notSent(),
-      notSent: { trust: NotSentTrust.KeyReplay, keyRetention: hours(24) },
-    });
+    const replay = gatewayCharge(gateway, { recovery: OutboundRecovery.replayWithin(hours(24)) });
 
     expect(await frame.send(key, replay)).toMatchObject({ attempt: 2 });
     expect(gateway.payments).toHaveLength(1);
   });
 });
 
-describe("#795 AC3: OutboundCallSupersededError", () => {
-  it("is a StepFailedError with a literal code; Superseded is no outcome status", () => {
-    expectTypeOf(OutboundCallSupersededError.code).toEqualTypeOf<"outbound-call.superseded">();
-    expect(OutboundCallSupersededError.code).toBe("outbound-call.superseded");
+describe("#795 AC3: OutboundCallError.Superseded", () => {
+  it("is an OutboundCallError with a literal code; Superseded is no outcome status", () => {
+    expect(OutboundCallError.Superseded.code).toBe("outbound-call.superseded");
     expect(Object.values(OutboundCallSendStatus)).not.toContain("superseded");
-    const error = new OutboundCallSupersededError({
+    const error = supersededError({
       call: "charge",
       target: "payments",
       operation: "charge",
@@ -227,9 +226,9 @@ describe("#795 AC3: OutboundCallSupersededError", () => {
       supersededBy: 2,
     });
 
-    expect(error).toBeInstanceOf(StepFailedError);
-    expect(error.name).toBe("OutboundCallSupersededError");
-    expect(error.usage).toEqual([]);
+    expectTypeOf(error.code).toEqualTypeOf<"outbound-call.superseded">();
+    expect(error).toBeInstanceOf(OutboundCallError);
+    expect(error.name).toBe("OutboundCallError.Superseded");
     expect(error).toMatchObject({
       code: "outbound-call.superseded",
       call: "charge",
@@ -249,11 +248,10 @@ describe("#795 AC3: OutboundCallSupersededError", () => {
       attempt: 1,
       supersededBy: 2,
     });
-    expect(error.component).toMatchObject({ name: "charge" });
   });
 
   it("the newer attempt unknown: supersededBy is undefined, never a guess", () => {
-    const error = new OutboundCallSupersededError({
+    const error = supersededError({
       call: "charge",
       target: "payments",
       operation: "charge",
@@ -271,11 +269,11 @@ describe("#795 AC3: OutboundCallSupersededError", () => {
 describe("#795 AC4: settings built by hand fail closed", () => {
   it("requiresMask is required in the options; none given at all is masked", () => {
     // @ts-expect-error — whether a request is stored only masked is never a silent default
-    const unsaid = new OutboundCallSettings({});
+    const unsaid = new OutboundMasking({});
 
-    expect(unsaid).toBeInstanceOf(OutboundCallSettings);
-    expect(new OutboundCallSettings().requiresMask).toBe(true); // none given: masked
-    expect(new OutboundCallSettings({ requiresMask: false }).requiresMask).toBe(false);
+    expect(unsaid).toBeInstanceOf(OutboundMasking);
+    expect(new OutboundMasking().requiresMask).toBe(true); // none given: masked
+    expect(new OutboundMasking({ requiresMask: false }).requiresMask).toBe(false);
   });
 
   it.each([
@@ -284,7 +282,7 @@ describe("#795 AC4: settings built by hand fail closed", () => {
     ["a requiresMask that is not a boolean", { requiresMask: "no" }],
   ])("a JavaScript caller with %s requires the mask", (_, options) => {
     // a JavaScript caller's options: anything at all, or none
-    expect(new OutboundCallSettings(options as never).requiresMask).toBe(true);
+    expect(new OutboundMasking(options as never).requiresMask).toBe(true);
   });
 });
 
@@ -296,17 +294,17 @@ class TakenOverOutboundCallRepository extends InMemoryOutboundCallRepository {
 
   override async markCompleted(key: EffectKey, owner: string, result: string) {
     await this.#takeOver(key);
-    return super.markCompleted(key, owner, result);
+    return super.markCompleted(key, owner, result, null);
   }
 
   override async markFailed(key: EffectKey, owner: string, failure: OutboundCallFailure) {
     await this.#takeOver(key);
-    return super.markFailed(key, owner, failure);
+    return super.markFailed(key, owner, failure, null);
   }
 
   override findByKey(key: EffectKey) {
     if (this.#isTakenOver && TakenOverOutboundCallRepository.isUnreadable)
-      return Promise.reject(new InvalidFencedEffectNameError({ length: 0 }));
+      return Promise.reject(new IdempotencyError.InvalidName({ length: 0 }));
     return super.findByKey(key);
   }
 
@@ -320,7 +318,7 @@ class TakenOverOutboundCallRepository extends InMemoryOutboundCallRepository {
 }
 
 describe("#795 review: a superseded attempt fails every caller, whatever it answered", () => {
-  it("a definite failure answered after a newer attempt took over: OutboundCallSupersededError, the decline its cause", async () => {
+  it("a definite failure answered after a newer attempt took over: OutboundCallError.Superseded, the decline its cause", async () => {
     TakenOverOutboundCallRepository.isUnreadable = false;
     const frame = outboundFrame({ store: TakenOverOutboundCallRepository });
     const gateway = new FakePaymentGateway({ clock: frame.clock });
@@ -333,7 +331,7 @@ describe("#795 review: a superseded attempt fails every caller, whatever it answ
 
     const failed = await rejectionOf(frame.send(key, options));
 
-    expect(failed).toBeInstanceOf(OutboundCallSupersededError);
+    expect(failed).toBeInstanceOf(OutboundCallError.Superseded);
     expect(failed).toMatchObject({ attempt: 1, supersededBy: 2, cause: declined });
     expect(frame.logger.entries.map((entry) => [entry.code, entry.message])).toContainEqual([
       "outbound-call.superseded",
@@ -364,8 +362,8 @@ describe("#795 review: a superseded attempt fails every caller, whatever it answ
     const joined = rejectionOf(frame.send(key, options));
     answer();
 
-    expect(await first).toBeInstanceOf(OutboundCallSupersededError);
-    expect(await joined).toBeInstanceOf(OutboundCallSupersededError);
+    expect(await first).toBeInstanceOf(OutboundCallError.Superseded);
+    expect(await joined).toBeInstanceOf(OutboundCallError.Superseded);
     expect(gateway.payments).toHaveLength(1);
   });
 
@@ -383,7 +381,7 @@ describe("#795 review: a superseded attempt fails every caller, whatever it answ
       expect.objectContaining({
         code: "outbound-call.superseded",
         message: expect.stringContaining(
-          "(the intent could not be read: fenced-effect.invalid-name)",
+          "(the intent could not be read: idempotency.invalid-name)",
         ) as unknown,
       }),
     );
@@ -391,24 +389,24 @@ describe("#795 review: a superseded attempt fails every caller, whatever it answ
 });
 
 describe("#795 review: the trust is read once, as checked", () => {
-  it("a notSent that turns into a Lookup after the check (a getter) is still a KeyReplay: the expired key is not resent", async () => {
+  it("a recovery that turns into a lookup after the check (a getter) is still a replay: the expired key is not resent", async () => {
     const frame = outboundFrame();
     const gateway = replayOnly(frame);
     const key = await pendingFor(frame, gateway, hours(25));
     let reads = 0;
     const options = {
-      ...gatewayCharge(gateway, { reconcile: () => OutboundCallReconciliation.notSent() }),
-      get notSent(): OutboundCallNotSent {
+      ...gatewayCharge(gateway),
+      get recovery(): OutboundRecovery<GatewayPaymentReceipt> {
         reads += 1;
         return reads === 1
-          ? { trust: NotSentTrust.KeyReplay, keyRetention: hours(24) }
-          : { trust: NotSentTrust.Lookup };
+          ? OutboundRecovery.replayWithin(hours(24))
+          : OutboundRecovery.permanentLookup(() => Reconciliation.notExecuted());
       },
     };
 
     const refused = await rejectionOf(frame.send(key, options));
 
-    expect(refused).toBeInstanceOf(OutboundCallUnreconciledError);
+    expect(refused).toBeInstanceOf(OutboundCallError.Unreconciled);
     expect(gateway.payments).toHaveLength(1);
     expect(reads).toBe(1);
   });

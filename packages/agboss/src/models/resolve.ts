@@ -1,20 +1,15 @@
-import { isCatchAllProvider } from "./catch-all.js";
-import type { ModelProviderHandler } from "./handler.js";
+import { driverHandlerOf, type ModelDriver } from "./model-driver.js";
+import type { ModelProviderHandler, ProviderHandler } from "./handler.js";
 import {
   hasProviderMethod,
   isTransportClass,
   modelProviderOf,
-  servesModel,
   type KeptModelProviderOptions,
   type ModelProviderType,
 } from "./model-provider.decorator.js";
+import { isDriverOptions } from "./model-provider.decorator.js";
+import { ModelKind } from "./model-kind.js";
 import type { ModelProblem } from "./problems.js";
-
-/** What a model is used for: a chat model (agents, compaction, LLM routers) or a decision (decision models). */
-export enum ModelPurpose {
-  Chat = "chat",
-  Decision = "decision",
-}
 
 /**
  * A registered provider: its options, its class and, for an HTTP provider, its instance — a
@@ -23,7 +18,7 @@ export enum ModelPurpose {
 export interface RegisteredModelProvider {
   readonly options: KeptModelProviderOptions;
   readonly type: ModelProviderType;
-  readonly handler: ModelProviderHandler | undefined;
+  readonly handler: ProviderHandler | undefined;
 }
 
 /** Which provider serves a model, or why none can. */
@@ -35,71 +30,93 @@ export type ProviderResolution =
 export interface ProviderQuery {
   readonly key: string;
   readonly model: string;
-  readonly purpose: ModelPurpose;
+  readonly purpose: ModelKind;
+  /**
+   * The provider its component's cascade names (`modelProvider`: the component's, its workflow's or
+   * its application's), by `name` (#1313). Absent: no provider serves it (`[model.missing-provider]`).
+   */
+  readonly modelProvider?: string | undefined;
 }
 
-/** What the class can serve, read from its methods (a transport's `complete` is a chat model). */
-const canServe = (provider: RegisteredModelProvider, purpose: ModelPurpose): boolean =>
-  purpose === ModelPurpose.Chat
-    ? hasProviderMethod(provider.type, "chat") || hasProviderMethod(provider.type, "complete")
-    : hasProviderMethod(provider.type, "routeTo");
+/** What the provider can serve: a driver says it; for a custom class its methods do (`complete` is a chat model, `decide` a decision one). */
+const canServe = (provider: RegisteredModelProvider, purpose: ModelKind): boolean => {
+  const { driver } = driverOf(provider);
+  if (driver !== undefined) return driver.kind === purpose;
+  return purpose === ModelKind.Chat
+    ? hasProviderMethod(provider.type, "complete")
+    : hasProviderMethod(provider.type, "decide");
+};
+
+/** The provider's driver, when it is a driver provider (#1313). */
+const driverOf = (
+  provider: RegisteredModelProvider,
+): { readonly driver: ModelDriver | undefined } => ({
+  driver: isDriverOptions(provider.options) ? provider.options.driver : undefined,
+});
 
 const names = (providers: readonly RegisteredModelProvider[]): string =>
   providers.map((provider) => provider.options.name).join(", ");
 
-/** A provider class as registered: an HTTP one constructed with no arguments, a transport not yet. */
+/** A provider class as registered: a driver's handler, a transport not yet (the container creates it). */
 export function registeredOf(cls: ModelProviderType): RegisteredModelProvider {
+  const options = modelProviderOf(cls);
   return {
-    options: modelProviderOf(cls),
+    options,
     type: cls,
-    handler: isTransportClass(cls)
-      ? undefined
-      : // an HTTP @ModelProvider class takes no arguments (the decorator's overload requires it)
-        new (cls as unknown as new () => ModelProviderHandler)(),
+    // a driver provider's handler is its driver's (#1313); a transport provider's is made by the container
+    handler: isDriverOptions(options)
+      ? driverHandlerOf(options.driver)
+      : isTransportClass(cls)
+        ? undefined
+        : handlerOf(cls),
   };
 }
 
-/**
- * The providers that serve a model: a built-in catch-all (#454) only when no other of them claims
- * it — an explicit `serves` wins over the catch-all, two explicit claims stay ambiguous.
- */
-function claimantsOf(serving: readonly RegisteredModelProvider[]): RegisteredModelProvider[] {
-  const explicit = serving.filter((provider) => !isCatchAllProvider(provider.type));
-  return explicit.length === 0 ? [...serving] : explicit;
+/** A custom provider class without `complete`: constructed with no arguments (all its members are optional). */
+function handlerOf(cls: ModelProviderType): ModelProviderHandler {
+  const made: unknown = Reflect.construct(cls, []);
+  return typeof made === "object" && made !== null ? made : {};
 }
 
 /**
- * The application's model providers (`@Application({ providers })`, #266) and who serves which
- * model: exactly one provider by `serves` (and the purpose it can serve) — a built-in catch-all
- * yields to a provider that claims the model (#454); a workflow or a component never picks one.
+ * The application's model providers (`@Application({ providers })`, #266) and which serves a model
+ * use: the one its cascade names (`modelProvider`: the component's, its workflow's or its
+ * application's) — there is no routing by a model's name.
  */
 export class ModelProviderDirectory {
   constructor(readonly providers: readonly RegisteredModelProvider[]) {}
 
-  /** The `@ModelProvider` classes, each registered (an HTTP one constructed with no arguments). */
+  /** The `@ModelProvider` classes, each registered. */
   static of(classes: readonly ModelProviderType[]): ModelProviderDirectory {
     return new ModelProviderDirectory(classes.map(registeredOf));
   }
 
-  /** The one provider serving the model for its purpose; none or several is a problem. */
+  /**
+   * The provider a model use goes to: the cascade's (`query.modelProvider`), which must be listed
+   * and speak the purpose's protocol. A use whose cascade names none is `[model.missing-provider]`.
+   */
   resolve(query: ProviderQuery): ProviderResolution {
-    const serving = claimantsOf(
-      this.providers.filter(
-        (provider) =>
-          servesModel(provider.options, query.model) && canServe(provider, query.purpose),
-      ),
-    );
     const problem = (code: ModelProblem["code"], supported: string): ProviderResolution => ({
       kind: "problem",
       problem: { code, key: query.key, value: query.model, model: query.model, supported },
     });
-    const [only, ...others] = serving;
-    if (only === undefined)
+    if (query.modelProvider === undefined)
       return problem(
-        "model.unserved",
-        `no listed provider serves it for ${query.purpose} (listed: ${names(this.providers)})`,
+        "model.missing-provider",
+        `no modelProvider is set for it — name one on the component, its workflow or its application (listed: ${names(this.providers)})`,
       );
-    if (others.length === 0) return { kind: "resolved", provider: only };
-    return problem("model.ambiguous-provider", `served by several providers: ${names(serving)}`);
+    const name = query.modelProvider;
+    const provider = this.providers.find((candidate) => candidate.options.name === name);
+    if (provider === undefined)
+      return problem(
+        "model.missing-provider",
+        `modelProvider ${name} is not listed in @Application({ providers }) (listed: ${names(this.providers)})`,
+      );
+    if (!canServe(provider, query.purpose))
+      return problem(
+        "model.incompatible-provider",
+        `${name} does not serve ${query.purpose} models`,
+      );
+    return { kind: "resolved", provider };
   }
 }

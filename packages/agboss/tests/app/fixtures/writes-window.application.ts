@@ -121,7 +121,6 @@ export class WindowMemoryCheckpoints extends InMemoryCheckpointSaver {
   name: "writes-window-memory-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],

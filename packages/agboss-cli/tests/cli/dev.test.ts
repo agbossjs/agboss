@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { checkCommandOf, watchedFolderOf } from "../../src/cli/dev.js";
@@ -34,11 +33,16 @@ describe("#268 AC6: what a pass runs", () => {
     expect(watchedFolderOf("/p/desk.application.ts")).toBe("/p");
   });
 
-  it("agboss check in a child: this Node, this CLI, the application by path, --env and --strict", () => {
+  it("agboss check in a child: this Node, this CLI, the application by path, --profile, --env and --strict", () => {
     const entry = { execArgv: ["--import", "tsx"], script: "/cli/main.ts" };
 
     expect(
-      checkCommandOf(entry, { file: "/p/src/a.application.ts", env: undefined, strict: false }),
+      checkCommandOf(entry, {
+        file: "/p/src/a.application.ts",
+        profile: undefined,
+        env: undefined,
+        strict: false,
+      }),
     ).toEqual({
       command: process.execPath,
       args: [
@@ -50,13 +54,18 @@ describe("#268 AC6: what a pass runs", () => {
         "/p/src/a.application.ts",
       ],
     });
-    expect(checkCommandOf(entry, { file: "/a.ts", env: "prod", strict: true }).args).toEqual([
+    expect(
+      checkCommandOf(entry, { file: "/a.ts", profile: "prod,economy", env: "prod", strict: true })
+        .args,
+    ).toEqual([
       "--import",
       "tsx",
       "/cli/main.ts",
       "check",
       "--application",
       "/a.ts",
+      "--profile",
+      "prod,economy",
       "--env",
       "prod",
       "--strict",
@@ -77,10 +86,11 @@ const applicationSource = (start: string): string => `import {
   BudgetPeriod,
   BudgetScope,
   EmptyEnvironment,
+  Ttl,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  start,
+  onStart,
 } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { usd } from "@agboss/core/units";
@@ -96,7 +106,7 @@ export class MessageWorkflowStart {}
 })
 export class EchoAction {
   execute(input) {
-    return Promise.resolve({ text: input.message.value.text });
+    return Promise.resolve({ text: input.message.text });
   }
 }
 
@@ -106,11 +116,10 @@ export class EchoWorkflowFinish {}
 @Workflow({
   name: "echo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(MessageWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(MessageWorkflowStart)
       .toAction(EchoAction)
-      .returns(WorkflowFinishTextDto)
       .toFinish(EchoWorkflowFinish),
   ],
 })

@@ -1,6 +1,6 @@
-import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { AGBossError } from "../../../../src/core/errors.js";
-import { OneOf, Text } from "../../../../src/dto/index.js";
+import { Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
   Agent,
@@ -8,12 +8,14 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
-import { start, toAgent, toFinish } from "../../../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** A payment failed: the general case. */
 export class PaymentError extends AGBossError {
@@ -30,7 +32,7 @@ export class OrderDto {
   @Text({ prompt: "the order id" })
   id!: string;
 
-  @OneOf({ values: ["pay", "decline", "fail", "crash"], prompt: "how the charge goes" })
+  @Enum(["pay", "decline", "fail", "crash"], { prompt: "how the charge goes" })
   outcome!: "pay" | "decline" | "fail" | "crash";
 }
 
@@ -52,8 +54,8 @@ export class ApologyDto {
   output: ReceiptDto,
 })
 export class ChargeAction {
-  execute(input: { readonly order: { readonly value: OrderDto } }): Promise<ReceiptDto> {
-    const { id, outcome } = input.order.value;
+  execute(input: { readonly order: OrderDto }): Promise<ReceiptDto> {
+    const { id, outcome } = input.order;
     if (outcome === "decline") return Promise.reject(new CardDeclinedError(`card for ${id}`));
     if (outcome === "fail") return Promise.reject(new PaymentError(`payment for ${id}`));
     if (outcome === "crash") return Promise.reject(new Error("the ledger is down"));
@@ -70,12 +72,12 @@ export class RefundQuery {
 @Tool({
   name: "refund-tool",
   description: "Refunds an order",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: RefundQuery,
   output: RefundQuery,
 })
-export class RefundTool implements ToolHandler<RefundQuery, RefundQuery> {
-  run(input: RefundQuery): Promise<RefundQuery> {
+export class RefundTool {
+  execute(input: RefundQuery): Promise<RefundQuery> {
     return Promise.resolve(input);
   }
 }
@@ -83,7 +85,7 @@ export class RefundTool implements ToolHandler<RefundQuery, RefundQuery> {
 @Agent({
   name: "apologizer-agent",
   description: "Apologizes for a declined card, refunding what was taken",
-  prompt: "Apologize; refund the order.",
+  prompt: inline("Apologize; refund the order."),
   model: "test/apologizer",
   tools: [RefundTool],
   input: { order: OrderDto },
@@ -118,18 +120,16 @@ export class DeclinedFinish {}
 @Workflow({
   name: "pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PayStart)
-      .returns(OrderDto)
+    onStart(PayStart)
       .toAction(ChargeAction)
       .onError(PaymentError, toFinish(PaymentFailedFinish))
       .onError(
         CardDeclinedError,
         toAgent(ApologizerAgent)
-          .returns(ApologyDto)
           .toFinish(DeclinedFinish),
       )
-      .returns(ReceiptDto)
       .toFinish(PaidFinish),
   ],
 })
@@ -137,6 +137,7 @@ export class PayWorkflow {}
 
 @Application({
   name: "pay-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PayWorkflow],

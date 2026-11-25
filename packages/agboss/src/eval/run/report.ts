@@ -1,3 +1,4 @@
+import { type Usd } from "../../units/index.js";
 import type { JudgeMetrics } from "../../components/judge-decorators.js";
 import { CheckStatus, type EvalCascade } from "../suite/checks.js";
 import type { EvalRunComparison } from "./comparison.js";
@@ -18,18 +19,28 @@ export const EVAL_RUN_KIND = "agboss.eval-run";
 /**
  * The version of the artifact's shape a run writes: a reader refuses one it does not know. 2 (#397
  * PR 2) adds each run's `trace` and each case's `expectation`; 3 (#397 PR 3) what the run ran on —
- * `profile`, `agbossVersion`, `models`, `piiPolicies`; 4 (#397 PR 5b) each run's `tenantId`.
- * Versions 1 to 3 are still read.
+ * `profile`, `agbossVersion`, `models`, `piiPolicies`; 4 (#397 PR 5b) each run's `tenantId`;
+ * 5 (#1328) the spend split into execution and judge, `Date` timestamps, `judges`, and each check's
+ * `kind`. Only the current version is read: an older artifact is re-run, not converted.
  */
-export const EVAL_RUN_SCHEMA_VERSION = 4;
+export const EVAL_RUN_SCHEMA_VERSION = 5;
 
-/** The versions this agboss reads: every one it ever wrote. */
-export type EvalRunSchemaVersion = 1 | 2 | 3 | typeof EVAL_RUN_SCHEMA_VERSION;
+/** The version this agboss reads. */
+export type EvalRunSchemaVersion = typeof EVAL_RUN_SCHEMA_VERSION;
+
+/** What decided one check: the tools expectations, a judge, or the metamorphic variants. */
+export enum EvalCheckKind {
+  Tools = "tools",
+  Judge = "judge",
+  Metamorphic = "metamorphic",
+}
 
 /** What one check decided on one run. */
 export interface EvalCheckResult {
-  /** `trajectory`, or the judge's `name`. */
+  /** `trajectory`, `metamorphic`, or the judge's `name`. */
   readonly check: string;
+  /** What decided it: a judge named `trajectory` is still a `Judge`. */
+  readonly kind: EvalCheckKind;
   readonly status: CheckStatus;
   /** Why it failed. */
   readonly reason?: string;
@@ -38,7 +49,7 @@ export interface EvalCheckResult {
   /** What a judge measured. */
   readonly metrics?: JudgeMetrics;
   /** What a judge's model calls cost, in USD (a model judge only). */
-  readonly spentUsd?: number;
+  readonly spentUsd?: Usd;
 }
 
 /** Why a run has no checks: a turn failed or paused before the last one ended. */
@@ -66,8 +77,12 @@ export interface EvalRunResult {
   readonly checks: readonly EvalCheckResult[];
   /** The turn that could not end, when one could not (its checks then do not run). */
   readonly error?: EvalRunError;
-  /** The turns' executions and the judges' model calls, in USD. */
-  readonly spentUsd: number;
+  /** What the run's turns cost: the candidate's own executions, in USD. */
+  readonly executionUsd: Usd;
+  /** What the judges' model calls cost, in USD. */
+  readonly judgeUsd: Usd;
+  /** `executionUsd` and `judgeUsd`. */
+  readonly totalUsd: Usd;
   /**
    * The last turn's execution step by step, masked (#397 PR 2, schemaVersion 2); absent when that
    * turn threw before it had a record, and in a version 1 artifact.
@@ -113,9 +128,12 @@ export interface EvalRunComponent {
   readonly version: string;
 }
 
-/** What a run spent: every turn's execution and every judge's model calls, in USD. */
+/** What a run spent: every turn's execution, every judge's model calls, and both, in USD. */
 export interface EvalRunSpend {
-  readonly totalUsd: number;
+  /** The candidate's executions only: what a baseline compares. */
+  readonly executionUsd: Usd;
+  readonly judgeUsd: Usd;
+  readonly totalUsd: Usd;
 }
 
 /** The whole run artifact. */
@@ -132,9 +150,9 @@ export interface EvalRunReport {
   /** How many times each case ran: the k of pass@k. */
   readonly runs: number;
   readonly cascade: EvalCascade;
-  /** ISO 8601, the application's `Clock`. */
-  readonly startedAt: string;
-  readonly endedAt: string;
+  /** The application's `Clock`; ISO 8601 in the file. */
+  readonly startedAt: Date;
+  readonly endedAt: Date;
   readonly cases: readonly EvalCaseReport[];
   readonly summary: EvalRunSummary;
   readonly spend: EvalRunSpend;
@@ -144,6 +162,8 @@ export interface EvalRunReport {
   readonly agbossVersion?: string;
   /** Every agent's and model router's model and provider (schemaVersion 3). */
   readonly models?: readonly EvalModelUse[];
+  /** Every model judge the suite ran, with the provider it was pinned to (schemaVersion 5). */
+  readonly judges?: readonly EvalModelUse[];
   /** The PII policies that masked its records and traces (schemaVersion 3). */
   readonly piiPolicies?: readonly string[];
   /** `--metamorphic` (#396 PR 7): every case's variants ran too, as the check `metamorphic`. */
@@ -179,7 +199,7 @@ export function caseReportOf(
 /** The suite's totals over its cases. */
 export function summaryOf(cases: readonly EvalCaseReport[]): EvalRunSummary {
   const checks = cases.flatMap((found) => found.runResults.flatMap((result) => result.checks));
-  const judges = checks.filter((check) => isJudgeCheckName(check.check));
+  const judges = checks.filter(isJudgeResult);
   return {
     cases: cases.length,
     passAtK: cases.filter((found) => found.passAtK).length,
@@ -196,6 +216,6 @@ export const TRAJECTORY_CHECK = "trajectory";
 /** The name of the `--metamorphic` check in reports (#396 PR 7). */
 export const METAMORPHIC_CHECK = "metamorphic";
 
-/** The checks decided by code, never a judge: neither counted as judge calls nor calibrated. */
-export const isJudgeCheckName = (check: string): boolean =>
-  check !== TRAJECTORY_CHECK && check !== METAMORPHIC_CHECK;
+/** Whether a result is a judge's: the tools and metamorphic checks are neither counted as judge calls nor calibrated. */
+export const isJudgeResult = (check: EvalCheckResult): boolean =>
+  check.kind === EvalCheckKind.Judge;

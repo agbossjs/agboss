@@ -11,9 +11,10 @@ import {
 import type { RouterAnswerOf } from "../../flow/generated-types.js";
 import type { ModelRouterDeclaration } from "../../flow/runtime/routers.js";
 import { TestSetupError } from "../errors.js";
+import type { Untracked } from "../../flow/metadata.js";
 import type { RecordedInputOf } from "../script-types.js";
 import { routerKeyOf } from "../scripted-gateway.js";
-import { checkedCodeAnswer, modelDecision } from "./router-unit.js";
+import { checkedCodeAnswer, isLaunchScript, modelDecision } from "./router-unit.js";
 import { callTimeoutOf, UnitSite } from "./unit-site.js";
 import type { UnitCallOptions, UnitClock, UnitModelOptions, UnitRun } from "./unit-types.js";
 
@@ -35,7 +36,7 @@ type UnitRouter =
 function routerOf(router: Class): UnitRouter {
   const declaration = declarationOf(router);
   if (declaration?.kind !== NodeKind.Router)
-    throw new TestSetupError({ message: `testRouter(${router.name}): not a @Router` });
+    throw new TestSetupError({ message: `testUnit(${router.name}): not a @Router` });
   const { options } = declaration;
   return isCodeRouter(options) ? { options } : { options, model: { ...declaration, options } };
 }
@@ -46,24 +47,27 @@ function routerOf(router: Class): UnitRouter {
  * target outside its routes is `RouterDecisionError`). A code router (`DecidedBy.Code`) is created
  * by its own container (`deps`, `overrides`, the `environment`) and its `route(input)` runs in the
  * frame of its step, at no cost; a model router's texts are loaded and its model answers from
- * `model` — `routeTo(X)` after `.chooseOne(…)`, `decideWith(…)` / `routeTo(…)` for the `OnDemand`
- * routes of a launch — its spend as `router:<name>`.
+ * `model` — `routeTo(X)` after `.onRoute(…)`, `decideWith(…)` / `routeTo(…)` of none or several
+ * for the routes of a `chooseMany([…])` launch — its spend as `router:<name>`.
  */
-export function testRouter<
+export function routerUnit<
   TRouter extends Class,
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
 >(
   router: TRouter,
   options: UnitModelOptions<InstanceType<TRouter>, TExecution, TTenant> = {},
-): RouterRunner<RecordedInputOf<InstanceType<TRouter>>, RouterAnswerOf<InstanceType<TRouter>>> {
+): RouterRunner<
+  Untracked<RecordedInputOf<InstanceType<TRouter>>>,
+  RouterAnswerOf<InstanceType<TRouter>>
+> {
   const unit = routerOf(router);
   const declared = unit.options;
   const site = new UnitSite(options);
   if (unit.model !== undefined)
     site.scriptModel(routerKeyOf(declared.name), router.name, options.model);
   const run = (
-    input: RecordedInputOf<InstanceType<TRouter>>,
+    input: Untracked<RecordedInputOf<InstanceType<TRouter>>>,
     call: UnitCallOptions = {},
   ): Promise<UnitRun<RouterAnswerOf<InstanceType<TRouter>>>> => {
     const caller = routerKeyOf(declared.name);
@@ -75,7 +79,7 @@ export function testRouter<
         const answer: unknown = await instance.route(input);
         return checkedCodeAnswer(declared, answer) as RouterAnswerOf<InstanceType<TRouter>>;
       }
-      const decided = await modelDecision(site, unit.model, input);
+      const decided = await modelDecision(site, unit.model, input, isLaunchScript(options.model));
       spent.push(...decided.usage);
       // the answer checked against its routes: what the generated `RouterAnswerOf<R>` names
       const answer: unknown = decided.answer;

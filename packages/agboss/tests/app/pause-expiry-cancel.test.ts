@@ -70,7 +70,8 @@ describe("#941 AC8: a cancel beats an expiry", () => {
     });
     await until(() => expiry.closed.length === 1);
     expect(expiry.closed[0]?.reason).toBe("expired");
-    expect(expiry.errors[0]).toBeInstanceOf(ExecutionCancelledError);
+    expect(expiry.errors).toEqual([]);
+    expect(expiry.cancels).toHaveLength(1);
     expect(expiry.asked).toHaveLength(0);
     expect(expiry.directorAsked).toHaveLength(0);
   });
@@ -88,9 +89,10 @@ describe("#941 AC8: a cancel beats an expiry", () => {
     await requestCancelOf(app, paused.executionId);
 
     await clock.advance(hours(24));
-    await until(() => expiry.errors.length === 1);
+    await until(() => expiry.cancels.length === 1);
 
-    expect(expiry.errors[0]).toBeInstanceOf(ExecutionCancelledError);
+    expect(expiry.errors).toEqual([]);
+    expect(expiry.cancels).toHaveLength(1);
     expect(expiry.asked).toHaveLength(0);
     expect(expiry.directorAsked).toHaveLength(0);
     const [pause] = await pausesOf(paused.executionId);
@@ -123,9 +125,10 @@ describe("#941 AC8: a cancel beats an expiry", () => {
     await until(() => expiry.asked.length === 1);
     await requestCancelOf(app, paused.executionId);
     release();
-    await until(() => expiry.errors.length === 1);
+    await until(() => expiry.cancels.length === 1);
 
-    expect(expiry.errors[0]).toBeInstanceOf(ExecutionCancelledError);
+    expect(expiry.errors).toEqual([]);
+    expect(expiry.cancels).toHaveLength(1);
     expect(expiry.recorded).toEqual([]);
     expect(expiry.ended).toEqual([]);
     // the decision was never recorded: the tree's end closed the pause, `Expired` by its deadline
@@ -183,7 +186,8 @@ describe("#941 AC8: a cancel beats an expiry", () => {
       release();
 
       await expect(cancelled).resolves.toEqual({ cancelled: true });
-      expect(expiry.errors[0]).toBeInstanceOf(ExecutionCancelledError);
+      expect(expiry.errors).toEqual([]);
+      expect(expiry.cancels).toHaveLength(1);
       expect(expiry.recorded).toEqual([]);
       expect(expiry.ended).toEqual([]);
       const [pause] = await pausesOf(paused.executionId);
@@ -211,7 +215,8 @@ describe("#941 AC8: a cancel beats an expiry", () => {
 
       await expect(cancelled).resolves.toEqual({ cancelled: true });
       expect(expiry.directorAsked).toEqual([]);
-      expect(expiry.errors[0]).toBeInstanceOf(ExecutionCancelledError);
+      expect(expiry.errors).toEqual([]);
+      expect(expiry.cancels).toHaveLength(1);
     });
 
     test("AC8: app.cancel after the look read the due pauses, before it takes the tree: the handler is never asked", async ({
@@ -235,7 +240,8 @@ describe("#941 AC8: a cancel beats an expiry", () => {
       await expect(started?.result).resolves.toEqual({ cancelled: true });
       expect(expiry.asked).toEqual([]);
       expect(expiry.recorded).toEqual([]);
-      expect(expiry.errors[0]).toBeInstanceOf(ExecutionCancelledError);
+      expect(expiry.errors).toEqual([]);
+      expect(expiry.cancels).toHaveLength(1);
     });
 
     test("AC8: app.cancel after the decision is recorded, before the run continues: the decided path never runs", async ({
@@ -255,7 +261,8 @@ describe("#941 AC8: a cancel beats an expiry", () => {
       await expect(started?.result).resolves.toEqual({ cancelled: true });
       expect(expiry.recorded).toEqual([]);
       expect(expiry.ended).toEqual([]);
-      expect(expiry.errors[0]).toBeInstanceOf(ExecutionCancelledError);
+      expect(expiry.errors).toEqual([]);
+      expect(expiry.cancels).toHaveLength(1);
     });
   });
 });

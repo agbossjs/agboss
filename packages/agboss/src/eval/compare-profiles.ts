@@ -3,14 +3,13 @@ import { createAppDeps, type AppDeps, type AppDepsOptions } from "../app/app-dep
 import type { Class } from "../components/injection.js";
 import type { Environment } from "../flow/generated-types.js";
 import type { ModelGateway } from "../llm/gateway.js";
-import { ProfileError } from "../config/profiles.js";
+import { ProfileError, ProfileErrorReason } from "../config/profile-error.js";
 import { environmentFor } from "../environments/load.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
 import { startsOfApplication } from "../application/application-starts.js";
 import { environmentOwnerOf } from "../application/create-app.js";
 import type { ApplicationClass } from "../application/types.js";
 import { nameOf } from "../components/name-of.js";
-import { withProfile } from "../profile-workflow.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { pairwise, runProfile, type ProfileOutcome } from "./compare.js";
 import { configDiff, profileReport, type ProfileReport } from "./compare-report.js";
@@ -40,13 +39,14 @@ export interface CompareProfilesOptions {
   readonly meterProvider?: MeterProvider;
   /** A start of the application: its workflow is the one compared (#396 PR 5). */
   readonly start: Class;
-  /** At least two; the first is the baseline; `base` is the workflow without a profile. */
+  /**
+   * At least two; the first is the baseline; each is a selection (`"prod"`, `"prod+economy"` — a comma
+   * separates the profiles here, so layers are joined with `+`); `base` is the application without one.
+   */
   readonly profiles: readonly string[];
   readonly tasks: readonly string[];
   /** The environment name, as `createApp`'s `env`. */
   readonly env?: string | undefined;
-  /** `profiles/<workflow>/<profile>.yaml` under it (default: the working directory). */
-  readonly profileRoot?: string;
 }
 
 interface ProfileRun {
@@ -79,18 +79,21 @@ async function compareRuns(
  * model gateway), judges every profile pairwise against the first, and closes the apps.
  */
 export async function compareBundleProfiles(
-  bundle: AssembledWorkflow,
+  bundleOf: (profile: string) => Promise<AssembledWorkflow>,
   names: readonly string[],
-  options: AppDepsOptions & { readonly profileRoot?: string },
+  options: AppDepsOptions,
   tasksOf: (base: AppDeps) => Promise<readonly string[]>,
 ): Promise<ProfileComparison> {
   if (names.length < 2) {
-    throw new ProfileError({ message: `compare needs at least two profiles, e.g. base,<profile>` });
+    throw new ProfileError({
+      reason: ProfileErrorReason.BadName,
+      message: `compare needs at least two profiles, e.g. base,<profile>`,
+    });
   }
   const runs = await Promise.all(
     names.map(async (name) => ({
       name,
-      deps: await createAppDeps(await withProfile(bundle, name, options.profileRoot), options),
+      deps: await createAppDeps(await bundleOf(name), options),
     })),
   );
   try {
@@ -132,15 +135,29 @@ export async function compareProfilesWith<TApplication extends Class>(
   application: ApplicationClass<TApplication>,
   options: CompareProfilesOptions & { readonly gateway?: ModelGateway },
 ): Promise<ProfileComparison> {
-  const assembled = await applicationOf(application, {}, WHERE);
-  const workflow = workflowOfStart(application, assembled, options.start);
+  const base = await applicationOf(application, { withoutIdempotencyKeys: true }, WHERE);
   const environment = await environmentFor(
-    environmentOwnerOf(assembled),
+    environmentOwnerOf(base),
     options,
     options.processEnv ?? process.env,
   );
+  // each profile is its own assembly of the application: its constants go on before the model cascade
+  const workflowOf = async (profile: string): Promise<AssembledWorkflow> =>
+    workflowOfStart(
+      application,
+      await applicationOf(
+        application,
+        {
+          profile: profile.split("+"),
+          processEnv: options.processEnv,
+          withoutIdempotencyKeys: true,
+        },
+        WHERE,
+      ),
+      options.start,
+    );
   return compareBundleProfiles(
-    workflow,
+    workflowOf,
     options.profiles,
     { ...options, ...(environment === undefined ? {} : { environment }) },
     () => Promise.resolve(options.tasks),

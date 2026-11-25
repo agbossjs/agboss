@@ -1,20 +1,21 @@
-import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
+import { Window5Memory } from "../../../helpers/window-memory.js";
+import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
   Agent,
   DecidedBy,
-  Injectable,
+  Observer,
   Router,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type OnValuesOutdated,
-  type ToolHandler,
   type ValuesOutdatedEvent,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { oneOf, optional } from "../../../../src/flow/dto-wrappers.js";
-import { agent, caseOf, route, start } from "../../../helpers/flow.js";
+import { onAgent, onStart, toAgent, toFinish } from "../../../helpers/flow.js";
 import { DraftChangesDto } from "../../fixtures/data-dtos.js";
 import { ArticleDto, ArticleRequestDto } from "../../fixtures/dtos.js";
 import {
@@ -29,6 +30,8 @@ import {
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #271 PR 2 — workflows that outdate at run time: the review loop of the issue (the reviewer's
@@ -44,8 +47,8 @@ export const resetOutdatingLog = (): void => {
   outdatingEvents.length = 0;
 };
 
-@Injectable()
-export class OutdatingLog implements OnValuesOutdated {
+@Observer()
+export class OutdatingLog {
   onValuesOutdated(event: ValuesOutdatedEvent): void {
     outdatingEvents.push(event);
   }
@@ -60,12 +63,12 @@ export class EditorQuestion {
 @Tool({
   name: "ask-editor-tool",
   description: "Asks the editor about the draft",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: EditorQuestion,
   output: EditorQuestion,
 })
-export class AskEditorTool implements ToolHandler<EditorQuestion, EditorQuestion> {
-  run(input: EditorQuestion): Promise<EditorQuestion> {
+export class AskEditorTool {
+  execute(input: EditorQuestion): Promise<EditorQuestion> {
     return Promise.resolve(input);
   }
 }
@@ -76,7 +79,7 @@ export class LoopWorkflowStart {}
 @Agent({
   name: "loop-researcher-agent",
   description: "Researches the topic",
-  prompt: "Research the topic.",
+  prompt: inline("Research the topic."),
   model: "moonshotai/kimi-k2.6",
   input: { request: ArticleRequestDto },
   output: ResearchDto,
@@ -86,9 +89,9 @@ export class LoopResearcherAgent {}
 @Agent({
   name: "loop-writer-agent",
   description: "Writes the draft, or rewrites it from the notes",
-  prompt: "Write the draft.",
+  prompt: inline("Write the draft."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 8,
+  executionLimits: { maxVisits: 8 },
   input: {
     request: ArticleRequestDto,
     research: ResearchDto,
@@ -101,9 +104,9 @@ export class LoopWriterAgent {}
 @Agent({
   name: "loop-reviewer-agent",
   description: "Approves the draft or asks for changes",
-  prompt: "Review the draft.",
+  prompt: inline("Review the draft."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 8,
+  executionLimits: { maxVisits: 8 },
   tools: [AskEditorTool],
   input: { draft: DraftDto },
   output: oneOf(ApprovalDto, DraftChangesDto),
@@ -113,7 +116,7 @@ export class LoopReviewerAgent {}
 @Agent({
   name: "loop-publisher-agent",
   description: "Publishes the approved draft",
-  prompt: "Publish the draft.",
+  prompt: inline("Publish the draft."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: DraftDto, approval: ApprovalDto },
   output: ArticleDto,
@@ -127,31 +130,27 @@ export class LoopWorkflowFinish {}
 @Workflow({
   name: "loop-workflow",
   version: "1.0.0",
-  maxSteps: 30,
+  historyTtl: Ttl.Forever,
+  memory: Window5Memory,
+  executionLimits: { maxSteps: 30 },
   flow: [
-    start(LoopWorkflowStart)
-      .returns(ArticleRequestDto)
+    onStart(LoopWorkflowStart)
       .toAgent(LoopResearcherAgent)
-      .returns(ResearchDto)
       .toAgent(LoopWriterAgent),
-    agent(LoopWriterAgent)
-      .returns(DraftDto)
+    onAgent(LoopWriterAgent)
       .toAgent(LoopReviewerAgent)
-      .returns(oneOf(ApprovalDto, DraftChangesDto))
-      .switch(
-        caseOf(DraftChangesDto, { about: DraftDto })
-          .toAgent(LoopWriterAgent),
-        caseOf(ApprovalDto, { about: DraftDto })
-          .toAgent(LoopPublisherAgent)
-          .returns(ArticleDto)
+      .toOneOf([
+        toAgent(LoopWriterAgent),
+        toAgent(LoopPublisherAgent)
           .toFinish(LoopWorkflowFinish),
-      ),
+      ]),
   ],
 })
 export class LoopWorkflow {}
 
 @Application({
   name: "loop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LoopWorkflow],
@@ -170,9 +169,9 @@ export class JobsWorkflowStart {}
 @Agent({
   name: "profile-agent",
   description: "Builds the candidate's profile",
-  prompt: "Build the profile.",
+  prompt: inline("Build the profile."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { message: WorkflowStartTextDto },
   output: CandidateProfileDto,
 })
@@ -181,9 +180,9 @@ export class ProfileAgent {}
 @Agent({
   name: "search-agent",
   description: "Finds jobs for the profile",
-  prompt: "Find jobs.",
+  prompt: inline("Find jobs."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { profile: CandidateProfileDto },
   output: JobListDto,
 })
@@ -192,9 +191,9 @@ export class SearchAgent {}
 @Agent({
   name: "score-agent",
   description: "Scores the jobs",
-  prompt: "Score the jobs.",
+  prompt: inline("Score the jobs."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { jobs: JobListDto },
   output: JobScoresDto,
 })
@@ -209,9 +208,9 @@ export class AdviceDto {
 @Agent({
   name: "advice-agent",
   description: "Advises on the jobs",
-  prompt: "Advise.",
+  prompt: inline("Advise."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   output: AdviceDto,
 })
 export class AdviceAgent {}
@@ -219,9 +218,9 @@ export class AdviceAgent {}
 @Agent({
   name: "pick-agent",
   description: "Picks the job to apply for",
-  prompt: "Pick a job.",
+  prompt: inline("Pick a job."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { scores: JobScoresDto, advice: AdviceDto },
   output: JobPickDto,
 })
@@ -234,8 +233,9 @@ export class JobsWorkflowFinish {}
   name: "jobs-router",
   description: "Starts over with a new profile, or stops",
   decidedBy: DecidedBy.Model,
-  prompt: "Is the pick good?",
+  prompt: inline("Is the pick good?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   maxVisits: 3,
   input: { pick: JobPickDto },
   routes: [
@@ -249,29 +249,27 @@ export class JobsRouter {}
 @Workflow({
   name: "jobs-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  historyTtl: Ttl.Forever,
+  memory: Window5Memory,
+  executionLimits: { maxSteps: 20 },
   flow: [
-    start(JobsWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(JobsWorkflowStart)
       .toAgent(ProfileAgent),
-    agent(ProfileAgent)
-      .returns(CandidateProfileDto)
+    onAgent(ProfileAgent)
       .toAgent(SearchAgent)
-      .returns(JobListDto)
       .toAgent(ScoreAgent)
-      .returns(JobScoresDto)
       .toAgent(AdviceAgent)
-      .returns(AdviceDto)
       .toAgent(PickAgent)
-      .returns(JobPickDto)
       .toRouter(JobsRouter)
-      .chooseOne(route(ProfileAgent), route(JobsWorkflowFinish)),
+      .onRoute(toAgent(ProfileAgent))
+      .onRoute(toFinish(JobsWorkflowFinish)),
   ],
 })
 export class JobsWorkflow {}
 
 @Application({
   name: "jobs-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JobsWorkflow],

@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { findFormatRanges } from "../../src/pii/detectors/find.js";
 import { PiiKind } from "../../src/pii/kinds.js";
-import { testPii } from "../../src/testing/index.js";
+import { testUnit } from "../../src/testing/index.js";
 import { ContactPiiPolicy } from "../testing/fixtures/units.js";
 
 const EMAIL = new Set([PiiKind.Email]);
@@ -27,7 +27,7 @@ describe("#729 AC1: a file named after an address", () => {
   });
 
   it("the extension stays as it is: a token for the address, .pdf after it", async () => {
-    const pii = testPii([ContactPiiPolicy]);
+    const pii = testUnit([ContactPiiPolicy]);
 
     const { output } = await pii.mask("see anna@acme.com.pdf");
 
@@ -45,7 +45,7 @@ describe("#729 AC3: never fewer addresses than before — a glued suffix falls b
   });
 
   it("an address glued to a letter is still masked", async () => {
-    const pii = testPii([ContactPiiPolicy]);
+    const pii = testUnit([ContactPiiPolicy]);
 
     const { output } = await pii.mask("write anna@acme.comX now");
 

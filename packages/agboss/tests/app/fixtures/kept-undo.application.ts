@@ -16,6 +16,7 @@ import {
   UnwindSidePathWorkflow,
   UnwindWorkflow,
 } from "../../flow/runtime/fixtures/unwind.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #635 — every way a root's tree ends undone, its history kept (`retention.executionRecords`): a
@@ -25,13 +26,14 @@ import {
  */
 @Application({
   name: "kept-undo-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [UnwindWorkflow, UnwindSidePathWorkflow, UnwindManyWorkflow, UnwindGuestWorkflow],
   observers: [UnwindLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository, GuestInboxChannel],
   budgets: TEST_BUDGETS,
-  compensationTimeout: seconds(60),
+  executionLimits: { compensationTimeout: seconds(60) },
   retention: { executionRecords: hours(24) },
 })
 export class KeptUndoApplication {}

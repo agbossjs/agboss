@@ -5,52 +5,43 @@ import {
   StepKind,
   type ChooseOneStep,
   type FlowPath,
+  type OnFinishStep,
   type OnErrorStep,
-  type ReturnsStep,
   type Step,
-  type SwitchStep,
   type ToStep,
 } from "../ast.js";
-import { Wrapper } from "../dto-wrappers.js";
-import { declarationOf } from "../decorators/declaration.js";
 import type { ComponentName } from "../registry.js";
-import {
-  EdgeKind,
-  edgeKey,
-  valueWrite,
-  writesLeaving,
-  type FlowEdge,
-  type FlowGraph,
-  type FlowLaunch,
-} from "./flow-graph.js";
-import { dtoLabel } from "./labels.js";
+import { EdgeKind, edgeKey, type FlowEdge, type FlowGraph, type FlowLaunch } from "./flow-graph.js";
 import {
   MentionKind,
   type BranchSite,
   type JoinErrorSite,
   type Mention,
   type QuorumSite,
+  type OneOfSite,
   type Placement,
-  type SwitchSite,
   type WalkedFlow,
 } from "./walked-flow.js";
 import { NodeTable } from "./nodes.js";
-import { nextCursor, type Cursor } from "./walk-cursor.js";
+import { cursorAt, kindOfTarget, type Cursor } from "./walk-cursor.js";
+import { walkOneOf, walkOnFinish, type BranchRecorder } from "./walk-one-of.js";
+import { isLaunching } from "../launch-step.js";
 import { walkJoin, walkLaunch, type LaunchRecorder } from "./walk-launch.js";
 import { isGroupsJoin } from "./walk-quorum.js";
 
 /**
  * Walks the paths of a flow once (#272 PR 2): builds the graph (nodes, edges with what each step
  * returns), and records what the syntactic rules read — where every node is mentioned (placement),
- * how deep (depth), and every `switch` / `chooseOne` / `onError` with the node it follows.
+ * how deep (depth), and every `onRoute` / `onError` with the node it follows.
  */
 
-class FlowWalker implements LaunchRecorder {
+class FlowWalker implements LaunchRecorder, BranchRecorder {
   readonly edges: FlowEdge[] = [];
   readonly starts: ComponentName[] = [];
   readonly mentions: Mention[] = [];
   readonly placements: Placement[] = [];
-  readonly switches: SwitchSite[] = [];
+  readonly oneOfs: OneOfSite[] = [];
+  readonly onFinishes: BranchSite<OnFinishStep>[] = [];
   readonly choices: BranchSite<ChooseOneStep>[] = [];
   readonly errorHandlers: BranchSite<OnErrorStep>[] = [];
   readonly launches: FlowLaunch[] = [];
@@ -67,7 +58,7 @@ class FlowWalker implements LaunchRecorder {
       if (path.source.kind === NodeKind.Start) this.starts.push(source);
       else this.mentions.push({ node: source, kind: MentionKind.OwnPath, isContinued: true });
     }
-    this.walkSteps(path.steps, nextCursor(source, 0, path.source));
+    this.walkSteps(path.steps, cursorAt(this.table, source, 0, path.source));
   }
 
   /** Walks a step list; returns whether it reached a node of its own (a `.to…` step). */
@@ -85,13 +76,15 @@ class FlowWalker implements LaunchRecorder {
 
   /** One step; returns where the walk stands after it (every kind of step has its case). */
   private walkStep(step: Step, cursor: Cursor, isFollowed: boolean): Cursor {
+    if (isLaunching(step)) return walkLaunch(this, step, cursor);
     switch (step.kind) {
-      case StepKind.Returns:
-        return this.returns(step, cursor);
       case StepKind.To:
         return this.enter(step, cursor, isFollowed);
-      case StepKind.Switch:
-        this.walkSwitch(step, cursor);
+      case StepKind.OneOf:
+        walkOneOf(this, step, cursor, (steps, inner) => this.walkSteps(steps, inner));
+        return cursor;
+      case StepKind.OnFinish:
+        walkOnFinish(this, step, cursor, (steps, inner) => this.walkSteps(steps, inner));
         return cursor;
       case StepKind.ChooseOne:
         this.walkChooseOne(step, cursor);
@@ -99,28 +92,15 @@ class FlowWalker implements LaunchRecorder {
       case StepKind.OnError:
         this.walkOnError(step, cursor);
         return cursor;
-      case StepKind.Launch:
-        return walkLaunch(this, step, cursor);
       case StepKind.Join:
         return walkJoin(this, step, cursor, (steps, inner) => this.walkSteps(steps, inner));
     }
   }
 
-  /**
-   * A `.returns(…)`: its value travels on the next edge; a `oneOf` waits for its `.switch` (one
-   * followed by a transition is the returns rule's `[flow.returns-mismatch]`).
-   */
-  private returns(step: ReturnsStep, cursor: Cursor): Cursor {
-    const { shape, about } = step.value;
-    if (typeof shape !== "function" && shape.kind === Wrapper.OneOf)
-      return { ...cursor, oneOf: shape };
-    return { ...cursor, writes: [...cursor.writes, valueWrite(shape, about, false)] };
-  }
-
-  private enter(step: ToStep, cursor: Cursor, isContinued: boolean): Cursor {
+  enter(step: ToStep, cursor: Cursor, isContinued: boolean): Cursor {
     const target = this.table.resolve(step.target, step.targetKind);
     if (target !== undefined) this.arrive(target, cursor, isContinued);
-    return nextCursor(target, cursor.depth, cursor.path);
+    return cursorAt(this.table, target, cursor.depth, cursor.path);
   }
 
   /** A mention of `target` reached from the cursor: its placement, mention and incoming edge. */
@@ -128,7 +108,7 @@ class FlowWalker implements LaunchRecorder {
     this.placements.push({ node: target, depth: cursor.depth, path: cursor.path });
     this.mentions.push({ node: target, kind: MentionKind.Entry, isContinued });
     if (isContinued && this.table.node(target).kind === NodeKind.Finish) {
-      const message = `${target} is a finish — nothing follows .toFinish(…) or route(…) of a finish`;
+      const message = `${target} is a finish — nothing follows .toFinish(…) or .onRoute(toFinish(…)) of a finish`;
       this.violations.push(violation("graph.next-after-workflow-finish", message, [target]));
     }
     const from = cursor.current;
@@ -138,35 +118,13 @@ class FlowWalker implements LaunchRecorder {
       from,
       to: target,
       kind,
-      writes: writesLeaving(this.table.node(from), kind, cursor.writes),
+      writes: cursor.writes,
+      ...(cursor.caseKey === undefined ? {} : { caseKey: cursor.caseKey }),
       ...(error === undefined ? {} : { error }),
       ...(launch === undefined ? {} : { launch }),
       ...(join === undefined ? {} : { join }),
       ...(settled === undefined ? {} : { settled }),
     });
-  }
-
-  private walkSwitch(step: SwitchStep, cursor: Cursor): void {
-    if (cursor.current === undefined) return;
-    const { oneOf: returned } = cursor;
-    this.switches.push({
-      node: cursor.current,
-      step,
-      ...(returned === undefined ? {} : { returned }),
-    });
-    for (const branch of step.cases) {
-      const inner: Cursor = {
-        current: cursor.current,
-        writes: [valueWrite(branch.dto, branch.about, true)],
-        entry: EdgeKind.Case,
-        path: cursor.path,
-        depth: cursor.depth + 1,
-      };
-      if (!this.walkSteps(branch.path.steps, inner)) {
-        const message = `${cursor.current}: caseOf(${dtoLabel(branch.dto)}) leads nowhere — continue it with .to…(…)`;
-        this.violations.push(violation("graph.dead-end", message, [cursor.current]));
-      }
-    }
   }
 
   private walkChooseOne(step: ChooseOneStep, cursor: Cursor): void {
@@ -176,7 +134,7 @@ class FlowWalker implements LaunchRecorder {
       const target = this.table.resolve(route.target, kindOfTarget(route.target));
       if (target === undefined) continue;
       this.arrive(target, { ...cursor, entry: EdgeKind.Route, depth }, route.path.steps.length > 0);
-      this.walkSteps(route.path.steps, nextCursor(target, depth, cursor.path));
+      this.walkSteps(route.path.steps, cursorAt(this.table, target, depth, cursor.path));
     }
   }
 
@@ -197,11 +155,7 @@ class FlowWalker implements LaunchRecorder {
   }
 }
 
-/** A route target's kind is the kind its class is declared with (the builder checked it). */
-const kindOfTarget = (target: ToStep["target"]): NodeKind =>
-  declarationOf(target)?.kind ?? NodeKind.Agent;
-
-/** Walks every path of a flow; `self` is the workflow it belongs to (`ThisWorkflow`, #264). */
+/** Walks every path of a flow; `self` is the workflow it belongs to (a recursion names it, #264, #1287). */
 export function walkFlow(flow: readonly FlowPath[], self?: Class): WalkedFlow {
   const walker = new FlowWalker(new NodeTable(self));
   for (const path of flow) walker.walkPath(path);
@@ -217,7 +171,8 @@ export function walkFlow(flow: readonly FlowPath[], self?: Class): WalkedFlow {
     graph,
     mentions: walker.mentions,
     placements: walker.placements,
-    switches: walker.switches,
+    oneOfs: walker.oneOfs,
+    onFinishes: walker.onFinishes,
     choices: walker.choices,
     errorHandlers: walker.errorHandlers,
     launches: walker.launches,

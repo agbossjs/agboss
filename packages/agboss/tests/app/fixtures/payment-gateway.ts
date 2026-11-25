@@ -1,6 +1,6 @@
 import {
   Injectable,
-  OutboundCallReconciliation,
+  Reconciliation,
   type OutboundCall,
   type OutboundCallLookup,
 } from "../../../src/index.js";
@@ -110,19 +110,17 @@ export class PaymentDeclinedError extends Error {
 export const isDeclined = (error: unknown): boolean => error instanceof PaymentDeclinedError;
 
 /** A plain object where a verdict belongs: a hook that breaks its contract (JavaScript). */
-const notAVerdict = (): OutboundCallReconciliation<ChargeReceipt> =>
-  JSON.parse('{"verdict":"completed"}') as OutboundCallReconciliation<ChargeReceipt>;
+const notAVerdict = (): Reconciliation<ChargeReceipt> =>
+  JSON.parse('{"verdict":"completed"}') as Reconciliation<ChargeReceipt>;
 
 /** The verdict the lever asks for, or the provider's books. */
-function verdictOf(lookup: OutboundCallLookup): OutboundCallReconciliation<ChargeReceipt> {
+function verdictOf(lookup: OutboundCallLookup): Reconciliation<ChargeReceipt> {
   const found = gateway.charges.get(lookup.idempotencyKey);
   if (gateway.lookup === LookupMode.Unknown)
-    return OutboundCallReconciliation.unknown({ reason: "the bank has not settled it" });
+    return Reconciliation.unknown("the bank has not settled it");
   if (gateway.lookup === LookupMode.Throws) throw new Error("the provider's lookup is down");
   if (gateway.lookup === LookupMode.NoVerdict) return notAVerdict();
-  return found === undefined
-    ? OutboundCallReconciliation.notSent()
-    : OutboundCallReconciliation.completed(found);
+  return found === undefined ? Reconciliation.notExecuted() : Reconciliation.completed(found);
 }
 
 @Injectable()
@@ -144,7 +142,7 @@ export class PaymentGateway {
   }
 
   /** What happened to a key: from the books, or as the lever says. */
-  reconcile(lookup: OutboundCallLookup): OutboundCallReconciliation<ChargeReceipt> {
+  reconcile(lookup: OutboundCallLookup): Reconciliation<ChargeReceipt> {
     gateway.lookups.push({ idempotencyKey: lookup.idempotencyKey, attempt: lookup.attempt });
     gateway.storedRequests.push(lookup.storedRequest);
     return verdictOf(lookup);

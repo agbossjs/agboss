@@ -6,25 +6,28 @@
 import {
   Agent,
   Arbiter,
-  DecidedBy,
   EmptyEnvironment,
   OutputGuardrail,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type Produced,
+  type Tracked,
+  Action,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
 @OutputGuardrail({
   name: "chat-guardrail",
   description: "Blocks an answer on a chat model",
-  prompt: "Is the answer forbidden?",
+  prompt: inline("Is the answer forbidden?"),
   model: "local/llama",
   threshold: 0.8,
   refusal: "Refused.",
@@ -33,7 +36,7 @@ export class ChatGuardrail {}
 
 @Agent({
   name: "guarded-text-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes",
   model: "local/llama",
   guardrails: [ChatGuardrail],
@@ -57,12 +60,8 @@ class GuardedTextFinish {}
 @Workflow({
   name: "guarded-text-workflow",
   version: "1.0.0",
-  flow: [
-    start(GuardedTextStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(GuardedTextAgent)
-      .toFinish(GuardedTextFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(GuardedTextStart).toAgent(GuardedTextAgent).toFinish(GuardedTextFinish)],
   defaults: { models: { temperature: 0, maxTokens: 1000 } },
 })
 class GuardedTextWorkflow {}
@@ -80,7 +79,7 @@ export class OwnersDto {
 @Agent({
   name: "owner-answer-agent",
   description: "Names the rota's owner",
-  prompt: "Name the owner.",
+  prompt: inline("Name the owner."),
   model: "local/llama",
   output: OwnerDto,
 })
@@ -88,10 +87,9 @@ export class OwnerAgent {}
 
 @Arbiter({
   name: "chat-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "local/llama",
-  prompt: "Count an answer that names an owner.",
-  criteria: [{ agent: OwnerAgent, prompt: "Names the owner" }],
+  prompt: inline("Count an answer that names an owner."),
+  criteria: [{ target: OwnerAgent, prompt: "Names the owner" }],
 })
 export class ChatArbiter {}
 
@@ -102,28 +100,35 @@ export class ChatArbiter {}
 })
 export class OwnersStart {}
 
-@WorkflowFinish({
-  name: "owners-workflow-finish",
+@Action({
+  name: "owners-action",
   description: "The owners",
   input: { answers: listOf(OwnerDto) },
   output: OwnersDto,
 })
-class OwnersFinish {
-  finish(input: { readonly answers: readonly Produced<OwnerDto, unknown>[] }): OwnersDto {
-    return { owners: input.answers.map((answer) => answer.value.owner).join("; ") };
+class OwnersAction {
+  async execute(input: { readonly answers: readonly Tracked<OwnerDto>[] }): Promise<OwnersDto> {
+    return { owners: input.answers.map((answer) => answer.owner).join("; ") };
   }
 }
+
+@WorkflowFinish({
+  name: "owners-workflow-finish",
+  description: "The owners",
+  output: OwnersDto,
+})
+class OwnersFinish {}
 
 @Workflow({
   name: "owners-quorum-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OwnersStart)
-      .returns(WorkflowStartTextDto)
-      .toParallelAgents(OwnerAgent, OwnerAgent)
-      .acceptedBy(ChatArbiter)
+    onStart(OwnersStart)
+      .inParallel([toAgent(OwnerAgent), toAgent(OwnerAgent)])
+      .arbitratedBy(ChatArbiter)
       .joinQuorum({ min: 2 })
-      .returns(listOf(OwnerDto))
+      .toAction(OwnersAction)
       .toFinish(OwnersFinish),
   ],
 })
@@ -131,6 +136,7 @@ class OwnersWorkflow {}
 
 @Application({
   name: "internal-kinds-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [GuardedTextWorkflow, OwnersWorkflow],

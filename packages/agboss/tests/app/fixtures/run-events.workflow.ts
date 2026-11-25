@@ -1,9 +1,10 @@
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { Window1Memory } from "../../helpers/window-memory.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
   Agent,
-  Injectable,
+  Observer,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -13,6 +14,7 @@ import {
   type ChannelEndEvent,
   type ChannelStartEvent,
   type ExecutionEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
   type ExecutionEvent,
   type ExecutionPauseEvent,
@@ -21,25 +23,15 @@ import {
   type ExecutionStartEvent,
   type ModelStartEvent,
   type NodeEvent,
-  type OnActionStart,
-  type OnAgentStart,
-  type OnChannelEnd,
-  type OnChannelStart,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type OnExecutionPause,
-  type OnExecutionRejected,
-  type OnExecutionResume,
-  type OnExecutionStart,
-  type OnModelStart,
-  type OnToolStart,
-  type ToolHandler,
   type ToolStartEvent,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** One observer event: the hook, the run and thread it carried, and what else the test checks. */
 export interface SeenEvent {
@@ -85,8 +77,8 @@ export class Query {
 
 /** A read tool. */
 @Tool({ name: "lookup-tool", description: "Looks jobs up", input: Query, output: Query })
-export class Lookup implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+export class Lookup {
+  execute(input: Query): Promise<Query> {
     return Promise.resolve(input);
   }
 }
@@ -95,12 +87,12 @@ export class Lookup implements ToolHandler<Query, Query> {
 @Tool({
   name: "apply-tool",
   description: "Applies for a job",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: Query,
   output: Query,
 })
-export class Apply implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+export class Apply {
+  execute(input: Query): Promise<Query> {
     return Promise.resolve(input);
   }
 }
@@ -108,7 +100,7 @@ export class Apply implements ToolHandler<Query, Query> {
 @Agent({
   name: "clerk-agent",
   description: "Applies for jobs",
-  prompt: "Apply for the jobs asked for.",
+  prompt: inline("Apply for the jobs asked for."),
   tools: [Lookup, Apply],
   model: "test/clerk",
   input: { message: WorkflowStartTextDto },
@@ -124,22 +116,8 @@ export class FileAway {
 }
 
 /** Records every execution-level event and the node events, each with its execution and thread. */
-@Injectable()
-export class RunLog
-  implements
-    OnExecutionStart,
-    OnExecutionPause,
-    OnExecutionResume,
-    OnExecutionEnd,
-    OnExecutionError,
-    OnExecutionRejected,
-    OnAgentStart,
-    OnModelStart,
-    OnToolStart,
-    OnChannelStart,
-    OnChannelEnd,
-    OnActionStart
-{
+@Observer()
+export class RunLog {
   private push(hook: string, event: ExecutionEvent, detail?: unknown): void {
     events.push({ hook, runId: event.executionId, threadId: event.threadId, detail });
   }
@@ -165,6 +143,9 @@ export class RunLog
   }
   onExecutionError(event: ExecutionErrorEvent): void {
     this.pushExecution("execution-error", event, event.error);
+  }
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    this.pushExecution("execution-cancel", event, event.compensations);
   }
   onExecutionRejected(event: ExecutionRejectedEvent): void {
     rejections.push(event);
@@ -203,17 +184,16 @@ export class Done {}
 @Workflow({
   name: "applications-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 3 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   providers: [FileAway],
   flow: [
-    start(Ask)
-      .returns(WorkflowStartTextDto)
+    onStart(Ask)
       .toAgent(Clerk)
-      .returns(AnswerDto)
       .toAction(FileAway)
       .toFinish(Done),
   ],
@@ -222,6 +202,7 @@ export class Applications {}
 
 @Application({
   name: "applications-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Applications],

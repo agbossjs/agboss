@@ -1,5 +1,5 @@
 import type { Class } from "../components/injection.js";
-import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
+import { arbiterOf, isDeclarativeArbiter } from "../flow/decorators/arbiter.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { DecidedBy } from "../flow/decorators/router.js";
 import { QuorumKind, type ArbiterClass, type Quorum } from "../flow/ast.js";
@@ -9,23 +9,26 @@ import {
   type FlowLaunch,
   type ValueWrite,
 } from "../flow/analyse/flow-graph.js";
+import { calendarNameOf } from "../calendar/calendar-source.js";
+import { isWorkingDuration } from "../units/index.js";
+import { amountOf } from "../units/working-time.js";
 import { shapeLabel } from "../flow/analyse/labels.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { ComponentKind } from "../flow/runtime/records.js";
 import { arbiterPromptHashOf } from "../flow/runtime/model-component-keys.js";
+import type { ModelArbiterUse } from "../flow/runtime/launch/runtime-launch.js";
 
 /**
  * The flow of a workflow as data (#268 S92 / S93, `agboss describe --json`): every edge as the
- * analyser built it — `.to…` steps, `caseOf(…)` cases, `route(…)` routes, launches and joins with
- * what each puts on the path and what it is `about` —, the `.onError` / `.onJoinError` table, and
+ * analyser built it — `.to…` steps, a `.toOneOf([…])` branch cases, `.onRoute(…)` routes, launches and joins with
+ * what each puts on the path —, the `.onError` table, and
  * every launch with its quorum and arbiter tree, each arbiter with its hashes.
  */
 
-/** One value an edge puts on the path: its shape, and what it is about. */
+/** One value an edge puts on the path: its shape. */
 export interface EdgeValueSnapshot {
   readonly value: string;
-  readonly about?: readonly string[];
-  /** Written by `caseOf(…)`: the switch chose the edge by it. */
+  /** Written by a `.toOneOf([…])` branch: the switch chose the edge by it. */
   readonly isCase?: true;
 }
 
@@ -37,16 +40,16 @@ export interface EdgeSnapshot {
   readonly writes: readonly EdgeValueSnapshot[];
   /** The error class an `error` / `join-error` edge takes. */
   readonly error?: string;
-  /** A join edge of `.joinQuorumGroups(…)`: the group it continues, its agents as listed. */
+  /** A join edge of `.joinQuorumGroups(…)`: the group it continues, its targets as listed. */
   readonly group?: readonly string[];
 }
 
-/** One row of the `.onError` / `.onJoinError` table: where, which class, the side path's first node. */
+/** One row of the `.onError` table: where, which class, the side path's first node. */
 export interface ErrorHandlerSnapshot {
   readonly at: string;
   readonly error: string;
   readonly by: string;
-  /** `error` for `.onError(…)`, `join-error` for `.onJoinError(…)`. */
+  /** `error` for a step's `.onError(…)`, `join-error` for a join's `.onError(…)`. */
   readonly kind: EdgeKind;
 }
 
@@ -65,21 +68,26 @@ export interface QuorumSnapshot {
   readonly kind: QuorumKind;
   readonly min?: number;
   readonly max?: number;
-  /** In milliseconds. */
+  /** In milliseconds; for working time (`isDeadlineWorking`) in its own unit: working ms, or working days. */
   readonly deadline?: number;
-  readonly groups?: readonly { readonly agents: readonly string[]; readonly priority?: number }[];
+  /** `true` when `deadline` is working time (#1306), counted by `calendar`. */
+  readonly isDeadlineWorking?: true;
+  /** The `@WorkingCalendar` class that counts a working `deadline`. */
+  readonly calendar?: string;
+  readonly groups?: readonly { readonly targets: readonly string[]; readonly priority?: number }[];
 }
 
-/** One launch: who launches what, how wide, its quorum and its arbiters (`.acceptedBy`, `anyOf`). */
+/** One launch: who launches what, how wide, its quorum and its arbiter (`.arbitratedBy`). */
 export interface LaunchSnapshot {
   readonly launcher: string;
   readonly targets: readonly string[];
   readonly isPerItem: boolean;
   readonly maxConcurrency?: number;
   readonly maxItems?: number;
+  readonly takeFirst?: number;
   readonly quorum?: QuorumSnapshot;
-  /** Each `.acceptedBy(…)` in path order (an AND); its arbiters an `anyOf` (the first that accepts). */
-  readonly acceptedBy: readonly (readonly ArbiterSnapshot[])[];
+  /** The launch's one `.arbitratedBy(A)` arbiter. */
+  readonly arbitratedBy?: ArbiterSnapshot;
 }
 
 const nameOf = (component: Class): string =>
@@ -87,7 +95,6 @@ const nameOf = (component: Class): string =>
 
 const valueOf = (write: ValueWrite): EdgeValueSnapshot => ({
   value: shapeLabel(write.shape),
-  ...(write.about === undefined ? {} : { about: write.about.map((dto) => dto.name) }),
   ...(write.isCase ? { isCase: true } : {}),
 });
 
@@ -97,7 +104,7 @@ const edgeOf = (edge: FlowEdge): EdgeSnapshot => ({
   kind: edge.kind,
   writes: edge.writes.map(valueOf),
   ...(edge.error === undefined ? {} : { error: edge.error.name }),
-  ...(edge.join?.group === undefined ? {} : { group: edge.join.group.agents }),
+  ...(edge.join?.group === undefined ? {} : { group: edge.join.group.targets }),
 });
 
 /** Every edge of the graph, in the analyser's canonical order. */
@@ -113,22 +120,38 @@ export const errorHandlersOf = (graph: RuntimeGraph): readonly ErrorHandlerSnaps
   );
 
 /** An arbiter with its hashes: a model one's prompt and criteria. */
-function arbiterSnapshotOf(arbiter: ArbiterClass): ArbiterSnapshot {
+function arbiterSnapshotOf(
+  arbiter: ArbiterClass,
+  uses: readonly ModelArbiterUse[],
+): ArbiterSnapshot {
   const options = arbiterOf(arbiter)?.options;
   const name = options?.name ?? arbiter.name;
   const base = { name, kind: ComponentKind.Arbiter, schemaHash: undefined };
-  if (options === undefined || isCodeArbiter(options))
+  if (options === undefined || !isDeclarativeArbiter(options))
     return { ...base, decidedBy: DecidedBy.Code, promptHash: undefined };
   return {
     ...base,
     decidedBy: DecidedBy.Model,
     model: options.model,
-    promptHash: arbiterPromptHashOf(arbiter),
+    promptHash: arbiterPromptHashOf(arbiter, uses),
+  };
+}
+
+/** The quorum's deadline, flagged when it is working time, with the calendar that counts it. */
+function deadlineOf(
+  quorum: Quorum,
+): Pick<QuorumSnapshot, "deadline" | "isDeadlineWorking" | "calendar"> {
+  const { deadline, calendar } = quorum;
+  if (deadline === undefined) return {};
+  return {
+    deadline: amountOf(deadline),
+    ...(isWorkingDuration(deadline) ? { isDeadlineWorking: true as const } : {}),
+    ...(calendar === undefined ? {} : { calendar: calendarNameOf(calendar) }),
   };
 }
 
 function quorumOf(quorum: Quorum): QuorumSnapshot {
-  const deadline = quorum.deadline === undefined ? {} : { deadline: quorum.deadline };
+  const deadline = deadlineOf(quorum);
   if (quorum.kind === QuorumKind.Count)
     return {
       kind: quorum.kind,
@@ -137,22 +160,32 @@ function quorumOf(quorum: Quorum): QuorumSnapshot {
       ...deadline,
     };
   const groups = quorum.groups.map((group) => ({
-    agents: group.agents.map(nameOf),
+    targets: group.targets.map(nameOf),
     ...(group.priority === undefined ? {} : { priority: group.priority }),
   }));
   return { kind: quorum.kind, groups, ...deadline };
 }
 
-const launchOf = (launch: FlowLaunch, quorum: Quorum | undefined): LaunchSnapshot => ({
+const launchOf = (
+  launch: FlowLaunch,
+  quorum: Quorum | undefined,
+  uses: readonly ModelArbiterUse[],
+): LaunchSnapshot => ({
   launcher: launch.launcher,
   targets: launch.listed,
   isPerItem: launch.items !== undefined,
   ...(launch.maxConcurrency === undefined ? {} : { maxConcurrency: launch.maxConcurrency }),
   ...(launch.maxItems === undefined ? {} : { maxItems: launch.maxItems }),
+  ...(launch.takeFirst === undefined ? {} : { takeFirst: launch.takeFirst }),
   ...(quorum === undefined ? {} : { quorum: quorumOf(quorum) }),
-  acceptedBy: (launch.acceptedBy ?? []).map((step) => step.arbiters.map(arbiterSnapshotOf)),
+  ...(launch.arbitratedBy === undefined
+    ? {}
+    : { arbitratedBy: arbiterSnapshotOf(launch.arbitratedBy, uses) }),
 });
 
 /** Every launch of the graph. */
-export const launchesOfGraph = (graph: RuntimeGraph): readonly LaunchSnapshot[] =>
-  graph.launches.map((launch) => launchOf(launch.launch, launch.quorum));
+export const launchesOfGraph = (
+  graph: RuntimeGraph,
+  uses: readonly ModelArbiterUse[] = [],
+): readonly LaunchSnapshot[] =>
+  graph.launches.map((launch) => launchOf(launch.launch, launch.quorum, uses));

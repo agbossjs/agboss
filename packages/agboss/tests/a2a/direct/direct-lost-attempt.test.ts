@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #860 (design §5): an attempt lost in flight — its run stopped without its reply, its `expiresAt`
  * passed — is settled once by whoever removes or takes the message over: its files removed (its
@@ -14,13 +15,13 @@ import {
   type NewA2ADirectMessage,
 } from "../../../src/infrastructure/a2a-direct-message.repository.js";
 import { InMemoryA2ADirectMessageRepository } from "../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
-import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
-import { A2AFileRepository } from "../../../src/infrastructure/a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
+import { FileRepository } from "../../../src/infrastructure/file.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { replyWith, testWith } from "../../../src/testing/index.js";
 import { minutes, seconds } from "../../../src/units/index.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { DirectApplication, QuoteAgent, QuotesA2AExpose } from "../fixtures/direct.application.js";
 import { rpc, text, userMessage } from "../server/rpc.js";
 import { textMessage } from "../server/sdk-client.js";
@@ -28,6 +29,7 @@ import { textMessage } from "../server/sdk-client.js";
 const NINE = new Date("2026-01-05T09:00:00.000Z");
 
 const lostMessage = (overrides: Partial<NewA2ADirectMessage> = {}): NewA2ADirectMessage => ({
+  endpoint: "quotes-a2a-expose",
   tenantId: "default",
   ownerId: "dana",
   messageId: "m-1",
@@ -45,9 +47,15 @@ const lostMessage = (overrides: Partial<NewA2ADirectMessage> = {}): NewA2ADirect
 function sweepOn(clock: VirtualClock) {
   const database = new InMemoryDatabase();
   const messages = new InMemoryA2ADirectMessageRepository(database);
-  const files = new InMemoryA2AFileRepository(database);
+  const files = new InMemoryFileRepository(database);
   const deleteByOwner = vi.spyOn(files, "deleteByOwner");
-  const expiry = a2aDirectMessageExpiryOf({ messages, files, clock, retention: minutes(15) });
+  const expiry = a2aDirectMessageExpiryOf({
+    messages,
+    files,
+    clock,
+    endpoint: "quotes-a2a-expose",
+    retention: minutes(15),
+  });
   const sweep = () =>
     expiry.remove?.(new Date(clock.now().getTime() - minutes(15))) ?? Promise.resolve();
   return { messages, deleteByOwner, sweep };
@@ -83,10 +91,10 @@ describe("#860: the sweep of the direct messages", () => {
     expect(deleteByOwner).not.toHaveBeenCalled();
   });
 
-  it("messages accepted before the retention go, with their attempts' files; younger ones stay", async () => {
+  it("messages accepted before the retention go, their attempts' files stay for the file policy's ttl (#1316); younger ones stay", async () => {
     const clock = new VirtualClock(NINE);
     const { messages, deleteByOwner, sweep } = sweepOn(clock);
-    const reply = { finish: "quote-workflow-finish", output: { text: "12.50" }, spentUsd: 0 };
+    const reply = { finish: "quote-workflow-finish", output: { text: "12.50" }, spentUsd: usd(0) };
     await messages.saveIfAbsent(lostMessage());
     await messages.completeIfInFlight(lostMessage(), "run-lost", reply, NINE);
     await clock.advance(minutes(10));
@@ -100,12 +108,13 @@ describe("#860: the sweep of the direct messages", () => {
 
     expect(await messages.findByKey(lostMessage())).toBeUndefined();
     expect(await messages.findByKey(lostMessage({ messageId: "m-2" }))).toBeDefined();
-    expect(deleteByOwner.mock.calls).toEqual([[{ tenantId: "default", ownerId: "run-lost" }]]);
+    // a short message retention never wipes the files early
+    expect(deleteByOwner).not.toHaveBeenCalled();
   });
 });
 
 const test = testWith(DirectApplication);
-const listener = { expose: QuotesA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { endpoint: QuotesA2AExpose, authenticator: BearerAuthenticator };
 const QUOTE = { [A2A_SKILLS_EXTENSION]: { skill: "quote-workflow-start" } };
 
 describe("#860: a resend that finds its attempt lost", () => {
@@ -118,6 +127,7 @@ describe("#860: a resend that finds its attempt lost", () => {
     mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
     const { url } = await a2aServer(listener);
     const requestHash = requestHashOf(
+      "quotes-a2a-expose",
       "quote-workflow-start",
       textMessage("m-1", "price?", { metadata: QUOTE }),
     );
@@ -125,7 +135,7 @@ describe("#860: a resend that finds its attempt lost", () => {
     await app
       .resolve(A2ADirectMessageRepository)
       .saveIfAbsent(lostMessage({ requestHash, startedAt: now, createdAt: now, expiresAt: now }));
-    const deleteByOwner = vi.spyOn(app.resolve(A2AFileRepository), "deleteByOwner");
+    const deleteByOwner = vi.spyOn(app.resolve(FileRepository), "deleteByOwner");
 
     const answer = await rpc(url, "SendMessage", {
       message: userMessage("m-1", [text("price?")], { metadata: QUOTE }),

@@ -1,15 +1,16 @@
 import {
   ChildPlacement,
+  DecidedBy,
   EmptyEnvironment,
   LimitExceededError,
-  oneOf,
-  ThisWorkflow,
+  Router,
   Workflow,
   WorkflowStart,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { caseOf, route, start, toAction } from "../../../helpers/flow.js";
+import { onStart, toAction, toWorkflow, toAgent, toFinish } from "../../../helpers/flow.js";
 import {
   ChainDoneWorkflowFinish,
   CountDoneDto,
@@ -18,18 +19,17 @@ import {
   CountDto,
   CountStoppedDto,
   CountStoppedWorkflowFinish,
-  DeeperRouter,
   DepthStoppedAction,
   LinkAgent,
-  LinkDoneDto,
   LinkDto,
 } from "./recursion.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
- * #333 PR 3 — a recursion whose every level runs on any instance (`ChildPlacement.AnyInstance`):
+ * #333 PR 3 — a recursion whose every level runs on any instance (`ChildPlacement.AnyWorker`):
  * `remote-countdown-workflow` (`maxDepth: 3`) goes one level deeper by code until its count is
  * spent — level 3 runs on a worker, and its launch of level 4 is refused there; `remote-chain-workflow`
- * (`maxDepth: 2`) a code router whose route launches `ThisWorkflow` — on the last level, on a worker,
+ * (`maxDepth: 2`) a code router whose route launches itself — on the last level, on a worker,
  * that route is not ready (the soft stop).
  */
 
@@ -41,34 +41,25 @@ import {
 export class RemoteCountdownWorkflowStart {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "remote-countdown-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RemoteCountdownWorkflowStart)
-      .returns(CountDto)
+    onStart(RemoteCountdownWorkflowStart)
       .toAction(CountdownAction)
-      .returns(oneOf(CountDto, CountDoneDto))
-      .switch(
-        caseOf(CountDto)
-          .toWorkflow(ThisWorkflow, { placement: ChildPlacement.AnyInstance })
+      .toOneOf([
+        toWorkflow(() => RemoteCountdownWorkflow)
           .onError(
             LimitExceededError,
             toAction(DepthStoppedAction)
-              .returns(CountStoppedDto)
               .toFinish(CountStoppedWorkflowFinish),
           )
-          .returns(oneOf(CountDoneDto, CountStoppedDto))
-          .switch(
-            caseOf(CountDoneDto)
-              .toFinish(CountDoneWorkflowFinish),
-            caseOf(CountStoppedDto)
-              .toFinish(CountStoppedWorkflowFinish),
-          ),
-        caseOf(CountDoneDto)
-          .toFinish(CountDoneWorkflowFinish),
-      ),
+          .toOneOf([toFinish(CountDoneWorkflowFinish), toFinish(CountStoppedWorkflowFinish)]),
+        toFinish(CountDoneWorkflowFinish),
+      ]),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class RemoteCountdownWorkflow {}
 
@@ -79,29 +70,46 @@ export class RemoteCountdownWorkflow {}
 })
 export class RemoteChainWorkflowStart {}
 
+/** Always one link further: on the last level that route is not ready. */
+@Router({
+  name: "remote-deeper-router",
+  description: "Always goes one link further, on any instance",
+  decidedBy: DecidedBy.Code,
+  input: { link: LinkDto },
+  maxVisits: 1,
+  routes: [() => RemoteChainWorkflow, LinkAgent],
+})
+export class RemoteDeeperRouter {
+  route(): unknown {
+    return RemoteChainWorkflow;
+  }
+}
+
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "remote-chain-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RemoteChainWorkflowStart)
-      .returns(LinkDto)
-      .toRouter(DeeperRouter)
-      .chooseOne(
-        route(ThisWorkflow, { placement: ChildPlacement.AnyInstance })
-          .returns(LinkDoneDto)
+    onStart(RemoteChainWorkflowStart)
+      .toRouter(RemoteDeeperRouter)
+      .onRoute(
+        toWorkflow(() => RemoteChainWorkflow)
           .toFinish(ChainDoneWorkflowFinish),
-        route(LinkAgent)
-          .returns(LinkDoneDto)
+      )
+      .onRoute(
+        toAgent(LinkAgent)
           .toFinish(ChainDoneWorkflowFinish),
       ),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class RemoteChainWorkflow {}
 
 /** On the built-in in-memory stores: the test's instances share the queue. */
 @Application({
   name: "remote-recursion-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RemoteCountdownWorkflow, RemoteChainWorkflow],

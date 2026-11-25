@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import {
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   type FencedEffectWork,
 } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractGroup } from "./define.js";
@@ -24,16 +24,14 @@ const RESULT: NulReceipt = { receipt: NUL_TEXT, lines: [NUL_TEXT] };
 
 /** A write that inserts the row `r1` and gives `RESULT`. */
 const writingNul =
-  <TTransaction>(
-    rows: FencedEffectBusinessRows<TTransaction>,
-  ): FencedEffectWork<TTransaction, NulReceipt> =>
-  (transaction) => {
-    const inserted = rows.insert(transaction, "r1");
+  (rows: FencedEffectBusinessRows): FencedEffectWork<NulReceipt> =>
+  () => {
+    const inserted = rows.insert("r1");
     return inserted === undefined ? RESULT : inserted.then(() => RESULT);
   };
 
 /** The texts of a result: as the write gave them, and replayed the same. */
-export const textCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
+export const textCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "texts as they were handed over",
   cases: [
     {
@@ -44,8 +42,12 @@ export const textCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTra
         const ran = await first.effects.runOnce(key, writingNul(first.rows));
         const replayed = await second.effects.runOnce(key, writingNul(second.rows));
 
-        expect(ran).toEqual({ status: FencedEffectStatus.Ran, result: RESULT, token: 1 });
-        expect(replayed).toEqual({ status: FencedEffectStatus.Replayed, result: RESULT, token: 1 });
+        expect(ran).toEqual({ status: IdempotencyRunStatus.Ran, result: RESULT, token: 1 });
+        expect(replayed).toEqual({
+          status: IdempotencyRunStatus.Replayed,
+          result: RESULT,
+          token: 1,
+        });
       },
     },
   ],

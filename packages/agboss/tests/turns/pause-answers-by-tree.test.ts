@@ -1,7 +1,6 @@
 /**
- * #676 — the pause answer log keeps one answer per pause of a tree. A file of version 14 keyed it by
- * tenant and step key only; opening it rebuilds the table on (tenant, tree, step key) with every
- * row, its order and its rowid kept, and another tree's answer under the same step key is kept.
+ * #676 — the pause answer log keeps one answer per pause of a tree: it is keyed by (tenant, tree,
+ * step key), so another tree's answer under the same step key is kept, with every row's order.
  */
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,19 +11,13 @@ import { createSqliteTurnStore, openTurnDatabase } from "../../src/turns/index.j
 
 const STEP_KEY = "child-7:refund-agent:1:call-1";
 
-/** A database as version 14 left it: the log keyed by tenant and step key, two answers of a tree. */
-async function version14(): Promise<string> {
-  const path = join(await mkdtemp(join(tmpdir(), "terns-")), "v14.sqlite");
+/** A database file with two answers of a tree in the log. */
+async function withTwoAnswers(): Promise<string> {
+  const path = join(await mkdtemp(join(tmpdir(), "terns-")), "answers.sqlite");
   openTurnDatabase(path).close();
   const old = new DatabaseSync(path);
-  old.exec(`DROP TABLE pause_answers;
-    CREATE TABLE pause_answers (tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL,
-      step_key TEXT NOT NULL, asked_at TEXT NOT NULL, record TEXT NOT NULL,
-      PRIMARY KEY (tenant_id, step_key));
-    CREATE INDEX pause_answers_by_root ON pause_answers(tenant_id, root_execution_id);
-    INSERT INTO pause_answers VALUES ('acme', 'old-root', '${STEP_KEY}', '2026-01-05T09:00:00.000Z', 'second asked first');
-    INSERT INTO pause_answers VALUES ('acme', 'old-root', 'child-7:refund-agent:1:call-0', '2026-01-05T09:00:00.000Z', 'tie, saved after');
-    PRAGMA user_version = 14;`);
+  old.exec(`INSERT INTO pause_answers VALUES ('acme', 'old-root', '${STEP_KEY}', '2026-01-05T09:00:00.000Z', 'second asked first');
+    INSERT INTO pause_answers VALUES ('acme', 'old-root', 'child-7:refund-agent:1:call-0', '2026-01-05T09:00:00.000Z', 'tie, saved after');`);
   old.close();
   return path;
 }
@@ -44,8 +37,8 @@ const keyOf = (path: string): string[] => {
 };
 
 describe("#676: the pause answer log, one answer per pause of a tree", () => {
-  it("a file of version 14 is rebuilt by tree, its answers and their order kept", async () => {
-    const path = await version14();
+  it("a pause of another tree under the same step key is kept, the answers in their order", async () => {
+    const path = await withTwoAnswers();
     const store = createSqliteTurnStore(path, () => new Date());
 
     await store.appendPauseAnswer({

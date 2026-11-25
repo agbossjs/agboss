@@ -1,10 +1,10 @@
 import type { Class } from "../../components/injection.js";
-import type { CountQuorum, ReturnedValue } from "../ast.js";
+import type { CountQuorum } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
-import { isValueShape, optional, Wrapper, type ValueShape } from "../dto-wrappers.js";
+import { optional, Wrapper, type ValueShape } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
-import { valueWrite, type FlowLaunch, type ValueWrite } from "./flow-graph.js";
-import { joinGroupsOf, launchKeyOf, type JoinGroup, type NodeLookup } from "./join-groups.js";
+import type { FlowLaunch } from "./flow-graph.js";
+import { joinGroupsOf, type JoinGroup, type NodeLookup } from "./join-groups.js";
 
 /**
  * What a quorum join gives (#279, AC13, AC14). The shape comes from the launch: a repeated agent
@@ -41,10 +41,10 @@ const required = (shape: ValueShape): ValueShape =>
 /** The values of one group: the join's values its agents give — present, a list stays a list. */
 export function groupQuorumGroupsOf(
   launch: FlowLaunch,
-  agents: readonly ComponentName[],
+  targets: readonly ComponentName[],
   nodeOf: NodeLookup,
 ): readonly JoinGroup[] {
-  const listed = new Set(agents);
+  const listed = new Set(targets);
   return joinGroupsOf(launch, nodeOf).flatMap((group) => {
     const producers = group.producers.filter((producer) => listed.has(producer));
     if (producers.length === 0) return [];
@@ -54,20 +54,10 @@ export function groupQuorumGroupsOf(
   });
 }
 
-/** A group's agents by name, as listed; an undecorated class keeps its class name. */
-export const groupAgentNames = (agents: readonly Class[]): readonly ComponentName[] =>
-  agents.map(
-    (agent) =>
-      (declarationOf(agent)?.options.name ?? (agent.name || "(anonymous class)")) as ComponentName,
+/** A group's targets by name, as listed; an undecorated class keeps its class name. */
+export const groupTargetNames = (targets: readonly Class[]): readonly ComponentName[] =>
+  targets.map(
+    (target) =>
+      (declarationOf(target)?.options.name ??
+        (target.name || "(anonymous class)")) as ComponentName,
   );
-
-/** The `JoinOutputs` key of a group: `<launch> group(<agents as listed>)`, as the builder spells it. */
-export const groupKeyOf = (launch: FlowLaunch, agents: readonly ComponentName[]): string =>
-  `${launchKeyOf(launch)} group(${agents.join(", ")})`;
-
-/** The values of a `.returns(…)` chain a join (or a quorum group) writes. */
-export function joinValuesOf(returns: readonly ReturnedValue[]): readonly ValueWrite[] {
-  return returns.flatMap((value) =>
-    isValueShape(value.shape) ? [valueWrite(value.shape, value.about, false)] : [],
-  );
-}

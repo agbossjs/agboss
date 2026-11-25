@@ -1,18 +1,18 @@
-import { Workflow } from "../../../../src/index.js";
-import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
+import { Workflow, Ttl } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { ApiClient, ChatStart, Clerk, Reply, settingsDefaults } from "../app/settings.workflow.js";
 import { SettingsEnvironment } from "../app/environments/app.environment.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** The same service, but its application has only a dev environment: no test.environment.ts. */
 @Workflow({
   name: "untested-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChatStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChatStart)
       .toAgent(Clerk)
       .toFinish(Reply),
   ],
@@ -23,6 +23,7 @@ export class UntestedApp {}
 
 @Application({
   name: "untested-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: SettingsEnvironment,
   workflows: [UntestedApp],

@@ -9,18 +9,17 @@ import type { FrameworkLog } from "../infrastructure/logger.js";
 import { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import { ExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
 import { ChildExecutionQueueRepository } from "../infrastructure/child-execution-queue.repository.js";
-import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
+import { launchesQueued } from "../flow/analyse/child-placements.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { componentOf } from "../components/metadata.js";
-import { hasSensitiveFields } from "../dto/redact.js";
 import type { DtoClass } from "../dto/types.js";
 import { NodeKind } from "../flow/ast.js";
 import { piiChainTexts } from "../describe/pii-policies.js";
 import { implementationsOf, isInMemory, notAtomicStoresOf } from "./implementations.js";
 import { inlineFilesWarningOf } from "../a2a/a2a-file-store-rule.js";
-import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 import { a2aCardWarningsOf } from "../a2a/a2a-card-warnings.js";
 import type { ProviderModule } from "../components/container/registrations.js";
+import type { ComponentOptions } from "../components/component-options.js";
 
 /**
  * What an application instance logs at start, once (#261): only what the decorators say — no
@@ -40,22 +39,13 @@ export interface WarningSources {
   readonly providers: readonly Provider[];
   readonly budgets: readonly Provider[];
   readonly workflows: readonly AssembledWorkflow[];
-  /**
-   * Whether PII tokens are made with a key of the instance (#120 S94): an instance knows it from its
-   * start; `agboss check` from `@Application({ piiKeyField })` not being set.
-   */
-  readonly isPiiKeyOfInstance?: boolean;
   /** `@Application({ retention: { executionRecords } })` (#401): root executions are kept when it is set. */
   readonly executionRecordRetention?: number | undefined;
-  /** The application's own PII policies (#644: a policy makes tokens, so the key matters). */
-  readonly piiPolicies?: readonly Class[];
-  /** Its declared contexts: a `sensitive` field of theirs makes tokens too (#644). */
-  readonly tenantContext?: Class;
-  readonly executionContext?: Class;
-  /** The application's name, exposes and `a2aFiles` (#859): where its A2A files ride. */
+  /** The application's name and exposes (#859): where its A2A files ride. */
   readonly name?: string;
-  readonly exposes?: readonly Class[];
-  readonly a2aFiles?: A2AFileOptions | undefined;
+  readonly endpoints?: readonly Class[];
+  /** The options of the components under the selected profiles (#1318c). */
+  readonly componentOptions: ComponentOptions;
   /** The application's own and its workflows' providers (#812: where an `@A2AAgent` is listed). */
   readonly modules?: readonly ProviderModule[];
 }
@@ -72,33 +62,25 @@ const IN_MEMORY_LEDGER: AssemblyWarning = {
  */
 function inMemoryPauses(records: boolean, checkpoints: boolean): AssemblyWarning {
   const stores = [
-    ...(records
-      ? ["the pause records (PausedExecutionRepository — list SqlitePausedExecutionRepository)"]
-      : []),
-    ...(checkpoints ? ["the checkpoints (BaseCheckpointSaver — list SqliteCheckpointSaver)"] : []),
+    ...(records ? ["the pause records (PausedExecutionRepository)"] : []),
+    ...(checkpoints ? ["the checkpoints (BaseCheckpointSaver)"] : []),
   ];
   return {
     code: "application.in-memory-pauses",
-    message: `in-memory pauses: ${stores.join(" and ")} are kept in memory — another application instance cannot resume a pause and it is lost on restart`,
+    message: `in-memory pauses: ${stores.join(" and ")} are kept in memory — another application instance cannot resume a pause and it is lost on restart — name a durable @DatabaseStorage in @Application({ storage })`,
   };
 }
 
 const IN_MEMORY_EXECUTION_HISTORY: AssemblyWarning = {
   code: "application.in-memory-execution-history",
   message:
-    "in-memory execution history: retention.executionRecords keeps each instance's executions in its own memory — another instance and agboss records export do not see them, and they are lost on restart",
+    "in-memory execution history: retention.executionRecords keeps each instance's executions in its own memory — another instance and agboss executions export do not see them, and they are lost on restart",
 };
 
 const IN_MEMORY_CHILD_QUEUE: AssemblyWarning = {
   code: "application.in-memory-child-queue",
   message:
-    "in-memory child queue: children launched with placement: ChildPlacement.AnyInstance run only on the instance that launched them — list SqliteChildExecutionQueueRepository (or your own ChildExecutionQueueRepository) so any instance claims them",
-};
-
-const PII_INSTANCE_KEY: AssemblyWarning = {
-  code: "application.pii-instance-key",
-  message:
-    "no @Application({ piiKeyField }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with piiKeyField",
+    "in-memory child queue: children of a workflow with a placement other than CurrentProcess run only on the instance that launched them — name a durable @DatabaseStorage in @Application({ storage }) (or list your own ChildExecutionQueueRepository) so another instance claims them",
 };
 
 /** A listed fencing store that opts out of the atomic lease check (#526): what it gives up, and where to read why (#543). */
@@ -107,37 +89,16 @@ const notAtomic = (store: Class): AssemblyWarning => ({
   message: `${store.name} declares LeaseCheck.WithoutDoubleChargeProtection: it checks the lease outside its write's transaction, so a holder whose lease was taken over can still write — no protection against a double charge or a second owner's write; it passes no fencing case of storeConformance and must never back payments (Wiki → Your-own-store#an-opted-out-store-and-storeconformance-543)`,
 });
 
-/** The DTOs of a workflow's tools: an agent's `@Tool` / `@McpTool` input and output. */
-const toolDtosOf = (workflow: AssembledWorkflow): readonly DtoClass[] =>
+/** The DTOs of a workflow's tools: an agent's `@Tool` input and output. */
+export const toolDtosOf = (workflow: AssembledWorkflow): readonly DtoClass[] =>
   [...workflow.graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
     if (declaration.kind !== NodeKind.Agent) return [];
     return (declaration.options.tools ?? []).flatMap((cls): readonly DtoClass[] => {
       const component = componentOf(cls);
-      return component?.kind === "tool" || component?.kind === "mcp-tool"
-        ? [component.meta.input, component.meta.output]
-        : [];
+      return component?.kind === "tool" ? [component.meta.input, component.meta.output] : [];
     });
   });
-
-/**
- * Whether anything of the application makes a PII token (#644): a PII policy (the application's or
- * a workflow's), or a `sensitive` field of a DTO on a path, of a tool or of a context. Without one
- * the key a token would be made with is never used, and the instance-key warning is noise.
- */
-function makesPiiTokens(sources: WarningSources): boolean {
-  const workflows = sources.workflows;
-  if ((sources.piiPolicies?.length ?? 0) > 0) return true;
-  if (workflows.some((workflow) => (workflow.pii?.classes.length ?? 0) > 0)) return true;
-  const contexts = [sources.tenantContext, sources.executionContext].flatMap((cls) =>
-    cls === undefined ? [] : [cls as DtoClass],
-  );
-  const dtos = [
-    ...contexts,
-    ...workflows.flatMap((workflow) => [...workflow.graph.dtos.values(), ...toolDtosOf(workflow)]),
-  ];
-  return dtos.some(hasSensitiveFields);
-}
 
 /** Whether a tenant or an application budget is listed (counted across executions). */
 const hasPeriodBudget = (budgets: readonly Provider[]): boolean =>
@@ -152,16 +113,16 @@ const canPause = (workflows: readonly AssembledWorkflow[]): boolean =>
 
 /** Whether a workflow launches a child on any instance (#333 PR 2). */
 const launchesAnywhere = (workflows: readonly AssembledWorkflow[]): boolean =>
-  workflows.some((workflow) => launchesOnAnyInstance(workflow.graph.nodes.values()));
+  workflows.some((workflow) => launchesQueued(workflow.graph.nodes.values()));
 
 /** `[a2a.inline-files-without-store]` (#859), when its A2A files ride inline above 64 KB. */
 function inlineFilesOf(sources: WarningSources): AssemblyWarning[] {
   const message = inlineFilesWarningOf({
     name: sources.name ?? "the application",
     providers: sources.providers,
-    exposes: sources.exposes ?? [],
+    endpoints: sources.endpoints ?? [],
     workflows: sources.workflows.map((workflow) => workflow.graph.type),
-    a2aFiles: sources.a2aFiles,
+    options: sources.componentOptions,
   });
   return message === undefined ? [] : [{ code: "a2a.inline-files-without-store", message }];
 }
@@ -190,7 +151,6 @@ export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWa
       launchesAnywhere(sources.workflows) && inMemory(ChildExecutionQueueRepository),
       IN_MEMORY_CHILD_QUEUE,
     ],
-    [sources.isPiiKeyOfInstance === true && makesPiiTokens(sources), PII_INSTANCE_KEY],
   ];
   return [
     ...found.flatMap(([applies, warning]) => (applies ? [warning] : [])),

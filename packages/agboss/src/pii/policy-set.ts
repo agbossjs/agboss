@@ -29,7 +29,20 @@ export interface MaskedSearch {
   readonly usage: readonly UsageRecord[];
 }
 
-function valueFindings(text: string, values: readonly SensitiveValue[], key: string): PiiFinding[] {
+/** The keys a set's own keys rotate from (`previousPiiSecret`): tokens and every digest kept beside them. */
+export interface PreviousPiiKeys {
+  /** The root of the tokens of sensitive fields and values. */
+  readonly fieldKey?: string | undefined;
+  /** The root of every other digest (hash, caches). */
+  readonly rootKey?: string | undefined;
+}
+
+function valueFindings(
+  text: string,
+  values: readonly SensitiveValue[],
+  key: string,
+  previousKey: string | undefined,
+): PiiFinding[] {
   return values.flatMap((sensitive) => {
     // Stryker disable next-line ArrayDeclaration: equivalent: a text in the place of no findings is dropped as no finding (it has no range)
     const found: PiiFinding[] = [];
@@ -46,6 +59,7 @@ function valueFindings(text: string, values: readonly SensitiveValue[], key: str
         label,
         action,
         key,
+        ...(previousKey === undefined ? {} : { previousKey }),
         policy: label,
         rank: -2,
       });
@@ -66,6 +80,8 @@ export class PiiPolicySet {
      * would be an oracle for whoever reads the checkpoint.
      */
     private readonly rootKey: string = fieldKey,
+    /** The keys `fieldKey` and `rootKey` rotate from (`previousPiiSecret`): none when not rotating. */
+    readonly previous: PreviousPiiKeys = {},
   ) {}
 
   /** Whether nothing is masked here. */
@@ -74,12 +90,12 @@ export class PiiPolicySet {
   }
 
   /**
-   * Whether a policy has a block rule (`blockWithRefusal`): an answer that holds such a value is
+   * Whether a policy has a block rule (`block`): an answer that holds such a value is
    * refused, so what streams of it waits for that check (#1006).
    */
   get blocks(): boolean {
     return this.policies.some((policy) =>
-      [...policy.actions.values()].some((action) => action.kind === PiiActionKind.BlockWithRefusal),
+      [...policy.actions.values()].some((action) => action.kind === PiiActionKind.Block),
     );
   }
 
@@ -88,7 +104,7 @@ export class PiiPolicySet {
     return this.policies.map(({ meta }) => ({
       name: meta.name,
       masks: isCustomPolicy(meta) ? meta.action : meta.rules,
-      model: isCustomPolicy(meta) ? null : (meta.detectWithModel ?? null),
+      model: isCustomPolicy(meta) ? null : (meta.model ?? null),
       files: meta.files ?? null,
     }));
   }
@@ -100,10 +116,26 @@ export class PiiPolicySet {
    * handed to a place that masks differently.
    */
   get fingerprint(): string {
+    return this.fingerprintUnder(this.fieldKey, this.rootKey);
+  }
+
+  /**
+   * What `fingerprint` was under the keys being rotated out (`previousPiiSecret`): a lookup of a cached
+   * transcription made before the rotation tries it after `fingerprint`. None when the set is not
+   * rotating, so a lookup never repeats itself.
+   */
+  get previousFingerprint(): string | undefined {
+    const { fieldKey, rootKey } = this.previous;
+    return fieldKey === undefined && rootKey === undefined
+      ? undefined
+      : this.fingerprintUnder(fieldKey ?? this.fieldKey, rootKey ?? this.rootKey);
+  }
+
+  private fingerprintUnder(fieldKey: string, rootKey: string): string {
     const values = this.values.map(({ value, label, action }) => [label, value, action]);
-    const tokenKey = purposeDigestOf(this.fieldKey, PiiKeyPurpose.KeyId, "");
+    const tokenKey = purposeDigestOf(fieldKey, PiiKeyPurpose.KeyId, "");
     const text = JSON.stringify([this.hashedPolicies, tokenKey, values]);
-    return purposeDigestOf(this.rootKey, PiiKeyPurpose.PolicyHash, text).slice(0, 32);
+    return purposeDigestOf(rootKey, PiiKeyPurpose.PolicyHash, text).slice(0, 32);
   }
 
   /**
@@ -112,8 +144,18 @@ export class PiiPolicySet {
    * sorted — never the values it was not told, never a token key (a copy holds no token).
    */
   redactionDigestOf(sent: readonly string[]): string {
+    return this.redactionDigestUnder(this.rootKey, sent);
+  }
+
+  /** `redactionDigestOf` under the root being rotated out; none when the set is not rotating. */
+  previousRedactionDigestOf(sent: readonly string[]): string | undefined {
+    const { rootKey } = this.previous;
+    return rootKey === undefined ? undefined : this.redactionDigestUnder(rootKey, sent);
+  }
+
+  private redactionDigestUnder(rootKey: string, sent: readonly string[]): string {
     const text = JSON.stringify([this.hashedPolicies, [...sent].sort()]);
-    return purposeDigestOf(this.rootKey, PiiKeyPurpose.FileCache, text).slice(0, 32);
+    return purposeDigestOf(rootKey, PiiKeyPurpose.FileCache, text).slice(0, 32);
   }
 
   /**
@@ -125,11 +167,25 @@ export class PiiPolicySet {
     return `${isIncoming ? "in" : "out"}:${purposeDigestOf(this.rootKey, PiiKeyPurpose.MaskCache, text)}`;
   }
 
+  /** `maskCacheKeyOf` under the root being rotated out; none when the set is not rotating. */
+  previousMaskCacheKeyOf(text: string, isIncoming: boolean): string | undefined {
+    const { rootKey } = this.previous;
+    return rootKey === undefined
+      ? undefined
+      : `${isIncoming ? "in" : "out"}:${purposeDigestOf(rootKey, PiiKeyPurpose.MaskCache, text)}`;
+  }
+
   /** The same policies with the sensitive values of one execution. */
   withValues(values: readonly SensitiveValue[]): PiiPolicySet {
     return values.length === 0
       ? this
-      : new PiiPolicySet(this.policies, this.fieldKey, [...this.values, ...values], this.rootKey);
+      : new PiiPolicySet(
+          this.policies,
+          this.fieldKey,
+          [...this.values, ...values],
+          this.rootKey,
+          this.previous,
+        );
   }
 
   /**
@@ -140,7 +196,9 @@ export class PiiPolicySet {
   withFieldKey(key: string | null | undefined): PiiPolicySet {
     return key === null || key === undefined || key === this.fieldKey
       ? this
-      : new PiiPolicySet(this.policies, key, this.values, this.rootKey);
+      : new PiiPolicySet(this.policies, key, this.values, this.rootKey, {
+          rootKey: this.previous.rootKey,
+        });
   }
 
   /** Every policy's findings in `text`, applied; new tokens made against `known`. */
@@ -150,7 +208,7 @@ export class PiiPolicySet {
     const searches = await Promise.all(this.policies.map((policy) => policy.find(text, mode)));
     const findings = [
       ...searches.flatMap((search) => search.findings),
-      ...valueFindings(text, this.values, this.fieldKey),
+      ...valueFindings(text, this.values, this.fieldKey, this.previous.fieldKey),
     ];
     return {
       masked: maskedText(text, withoutOverlaps(findings), known),
@@ -163,7 +221,7 @@ export class PiiPolicySet {
     if (this.isEmpty || text === "") return text;
     const findings = [
       ...this.policies.flatMap((policy) => policy.findNow(text)),
-      ...valueFindings(text, this.values, this.fieldKey),
+      ...valueFindings(text, this.values, this.fieldKey, this.previous.fieldKey),
     ];
     return findings.length === 0 ? text : maskedText(text, withoutOverlaps(findings), {}).text;
   }
@@ -183,7 +241,7 @@ export class PiiPolicySet {
   } {
     const kinds = new Set<PiiKind>(this.policies.flatMap((policy) => [...policy.actions.keys()]));
     const blocking = this.policies.filter((policy) =>
-      [...policy.actions.values()].some((action) => action.kind === PiiActionKind.BlockWithRefusal),
+      [...policy.actions.values()].some((action) => action.kind === PiiActionKind.Block),
     );
     return {
       kinds: [...kinds],
@@ -192,7 +250,7 @@ export class PiiPolicySet {
         ...new Set(
           blocking.flatMap((policy) =>
             [...policy.actions].flatMap(([kind, action]) =>
-              action.kind === PiiActionKind.BlockWithRefusal ? [kind] : [],
+              action.kind === PiiActionKind.Block ? [kind] : [],
             ),
           ),
         ),
@@ -210,8 +268,11 @@ export class PiiPolicySet {
   async refusalForKind(kind: PiiKind): Promise<PiiRefusedError | undefined> {
     for (const policy of this.policies) {
       const action = policy.actions.get(kind);
-      if (action?.kind === PiiActionKind.BlockWithRefusal)
-        return new PiiRefusedError({ kind, refusal: await policy.refusalOf(kind, action) });
+      if (action?.kind === PiiActionKind.Block)
+        return new PiiRefusedError({
+          kind: kind.id,
+          refusal: await policy.refusalOf(kind, action),
+        });
     }
     return undefined;
   }
@@ -222,7 +283,7 @@ export class PiiPolicySet {
     usage: readonly UsageRecord[],
   ): Promise<PiiRefusedError | undefined> {
     const [finding] = blocked;
-    if (finding?.action.kind !== PiiActionKind.BlockWithRefusal) return undefined;
+    if (finding?.action.kind !== PiiActionKind.Block) return undefined;
     const policy = this.policies.find((candidate) => candidate.name === finding.policy);
     const refusal = (await policy?.refusalOf(finding.kind, finding.action)) ?? "";
     return new PiiRefusedError({ kind: finding.label, refusal, usage });

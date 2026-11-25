@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #396 PR 4 — `agboss eval calibrate`: a judge's verdicts in a run artifact against people's labels
  * (S2 C4–C5, Q8) — pairwise Cohen's κ between the judge and each labeler and between labelers, the
@@ -13,6 +14,7 @@ import {
   type EvalLabel,
   type EvalRunReport,
   type EvalRunResult,
+  EvalCheckKind,
 } from "../../src/eval/index.js";
 import { calibrateJudges } from "../../src/eval/calibrate/calibrate.js";
 import { cohenKappa, type RatedPair } from "../../src/eval/calibrate/kappa.js";
@@ -35,10 +37,17 @@ const runOf = (
   executionId: `execution-${String(run)}`,
   passed,
   checks: [
-    { check: "trajectory", status: CheckStatus.Passed },
-    { check: JUDGE, status: passed ? CheckStatus.Passed : CheckStatus.Failed, metrics },
+    { check: "trajectory", kind: EvalCheckKind.Tools, status: CheckStatus.Passed },
+    {
+      check: JUDGE,
+      kind: EvalCheckKind.Judge,
+      status: passed ? CheckStatus.Passed : CheckStatus.Failed,
+      metrics,
+    },
   ],
-  spentUsd: 0,
+  executionUsd: usd(0),
+  judgeUsd: usd(0),
+  totalUsd: usd(0),
 });
 
 const reportOf = (runResults: readonly EvalRunResult[]): EvalRunReport => {
@@ -54,11 +63,11 @@ const reportOf = (runResults: readonly EvalRunResult[]): EvalRunReport => {
     environment: "eval",
     runs: runResults.length,
     cascade: EvalCascade.RunAll,
-    startedAt: "2026-01-05T09:00:00.000Z",
-    endedAt: "2026-01-05T09:01:00.000Z",
+    startedAt: new Date("2026-01-05T09:00:00.000Z"),
+    endedAt: new Date("2026-01-05T09:01:00.000Z"),
     cases,
     summary: summaryOf(cases),
-    spend: { totalUsd: 0 },
+    spend: { executionUsd: usd(0), judgeUsd: usd(0), totalUsd: usd(0) },
   };
 };
 
@@ -187,7 +196,14 @@ describe("#396 PR 4: a judge against its labels", () => {
       runOf(1, Y),
       {
         ...skipped,
-        checks: [{ check: JUDGE, status: CheckStatus.Skipped, skippedBy: "trajectory" }],
+        checks: [
+          {
+            check: JUDGE,
+            kind: EvalCheckKind.Judge,
+            status: CheckStatus.Skipped,
+            skippedBy: "trajectory",
+          },
+        ],
       },
     ]);
     const calibration = calibrated(withSkip, [

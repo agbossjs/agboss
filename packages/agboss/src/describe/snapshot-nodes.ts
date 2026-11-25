@@ -1,19 +1,11 @@
 import { toolInterceptorsAt } from "./tool-interceptors.js";
-import { memoryPlanOf, readerOf } from "../compaction/plan.js";
-import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
+import { memoryPlanOf, readerOf } from "../memory/plan.js";
+import type { UncompactedTurns } from "../memory/memory.decorator.js";
 import { promptTextOf } from "../components/prompt-render.js";
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
-import type { RagMode, RagTenancy } from "../rag/types.js";
+import type { RagScope } from "../rag/types.js";
 import { NodeKind } from "../flow/ast.js";
-import {
-  DecidedBy,
-  failurePolicyOf,
-  isCodeRouter,
-  routesOf,
-  spawnPolicyOf,
-  type FailurePolicy,
-  type SpawnPolicy,
-} from "../flow/decorators/router.js";
+import { DecidedBy, isCodeRouter, routesOf } from "../flow/decorators/router.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import {
@@ -47,12 +39,11 @@ type AgentSettings = AssembledWorkflow["config"]["agents"][string];
  * action's `compensateWith` / `committedBy` (#339).
  */
 
-/** One knowledge base of an agent (#796: whose content it serves). */
+/** One knowledge base of an agent (whose content it serves). */
 export interface RagSnapshot {
   readonly name: string;
-  readonly mode: RagMode;
   readonly topK: number;
-  readonly tenancy: RagTenancy;
+  readonly scope: RagScope;
 }
 
 /** An agent's internals. */
@@ -67,7 +58,7 @@ export interface AgentSnapshot {
   /** What its model reads of one tool result (a tool without its own) and knowledge block, in bytes (#336). */
   readonly maxResultSize: number;
   readonly uncompactedTurns: UncompactedTurns;
-  readonly compaction?: string;
+  readonly memory?: string;
   readonly tools: readonly string[];
   readonly rag: readonly RagSnapshot[];
   readonly guardrails: ElementGuardrailsSnapshot;
@@ -86,8 +77,6 @@ export interface AgentSnapshot {
 export interface RouteSnapshot {
   readonly target: string;
   readonly prompt?: string;
-  readonly spawn: SpawnPolicy;
-  readonly failure: FailurePolicy;
 }
 
 /** A router's internals. */
@@ -132,7 +121,7 @@ function modelSettingsOf(
   providers: ReadonlyMap<string, string>,
 ) {
   const { defaults } = bundle.config;
-  const { limits } = resolveAgentLimits(agent.maxToolCalls, defaults.tools?.maxToolCalls);
+  const { limits } = resolveAgentLimits(agent, defaults.tools?.maxToolCalls);
   const thinking = agent.thinking ?? defaults.models.thinking;
   return {
     model: agent.model,
@@ -152,13 +141,13 @@ function agentOf(
 ): AgentSnapshot | undefined {
   const agent = bundle.config.agents[name];
   if (agent === undefined) return undefined;
-  const reader = readerOf(memoryPlanOf(bundle.config, bundle.compactions), name);
+  const reader = readerOf(memoryPlanOf(bundle.config, bundle.memories), name);
   return {
     ...modelSettingsOf(bundle, name, agent, providers),
     uncompactedTurns: reader.window,
-    ...(reader.compaction === undefined ? {} : { compaction: reader.compaction.name }),
+    ...(reader.compaction === undefined ? {} : { memory: reader.compaction.name }),
     tools: agent.tools ?? [],
-    rag: (agent.rag ?? []).map(({ name, mode, topK, tenancy }) => ({ name, mode, topK, tenancy })),
+    rag: (agent.rag ?? []).map(({ name, topK, scope }) => ({ name, topK, scope })),
     guardrails: guardrailsAt(bundle, name),
     ...toolInterceptorsAt(bundle, name),
     piiPolicies: piiPoliciesAt(bundle, name),
@@ -183,8 +172,6 @@ function routerOf(
     return {
       target,
       ...(prompt === undefined ? {} : { prompt }),
-      spawn: spawnPolicyOf(options, route),
-      failure: failurePolicyOf(route),
     };
   });
   if (isCodeRouter(options) || loaded === undefined) return { decidedBy: DecidedBy.Code, routes };

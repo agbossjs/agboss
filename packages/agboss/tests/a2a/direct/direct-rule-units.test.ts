@@ -6,14 +6,11 @@
  * workflow, an export, an expose) read past without a throw; a skill option of no reply; the start
  * of no listed workflow; every violation placed on the application.
  */
+import { hours, minutes, Ttl } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
-import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
-import {
-  messageSkillsOf,
-  messageSkillViolations,
-} from "../../../src/a2a/a2a-message-skill-rule.js";
+import { A2AEndpoint, A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
+import { messageSkillViolations } from "../../../src/a2a/a2a-message-skill-rule.js";
 import type { ApplicationOptions } from "../../../src/application/application.js";
-import { componentOf } from "../../../src/components/metadata.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { NodeKind } from "../../../src/flow/ast.js";
@@ -21,12 +18,12 @@ import { declarationOf } from "../../../src/flow/decorators/declaration.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { McpExpose } from "../../../src/mcp/mcp-expose.decorator.js";
+import { McpEndpoint } from "../../../src/mcp/mcp-endpoint.decorator.js";
 import {
   OnceLevelWorkflow,
   OnceLevelWorkflowStart,
 } from "../../app/fixtures/undo-once.workflow.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import {
   AskingAgent,
   CallingAction,
@@ -35,6 +32,9 @@ import {
   LateEffectAction,
   PlainAgent,
   PlainTool,
+  PortAction,
+  PortMcpServer,
+  UnboundPortAction,
   SecondLedgerAgent,
   TokenAction,
 } from "../fixtures/direct-rule-units.fixture.js";
@@ -53,10 +53,15 @@ function skillOf(nodes: readonly Class[]): { readonly start: Class; readonly wor
   const id = `unit-rule-${String((made += 1))}`;
   @WorkflowStart({ name: `${id}-workflow-start`, description: id, input: WorkflowStartTextDto })
   class Start {}
-  let path = start(Start).returns(WorkflowStartTextDto);
+  let path = onStart(Start);
   for (const node of nodes)
     path = declarationOf(node)?.kind === NodeKind.Agent ? path.toAgent(node) : path.toAction(node);
-  @Workflow({ name: `${id}-workflow`, version: "1.0.0", flow: [path.toFinish(UnitRuleFinish)] })
+  @Workflow({
+    name: `${id}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow: [path.toFinish(UnitRuleFinish)],
+  })
   class Made {}
   return { start: Start, workflow: Made };
 }
@@ -64,31 +69,35 @@ function skillOf(nodes: readonly Class[]): { readonly start: Class; readonly wor
 const nameOf = (start: Class): string => declarationOf(start)?.options.name ?? start.name;
 
 /** An expose of `exports` whose first export answers with a direct message, `skills` over it. */
-function exposeOf(exports: readonly Class[], skills: Record<string, object> = {}): Class {
+function exposeOf(exports: readonly Class[]): Class {
   const first = exports[0];
-  const name = first === undefined ? "none" : nameOf(first);
-  @A2AExpose({
+  @A2AEndpoint({
     name: "unit-rule-a2a-expose",
     version: "1.0.0",
     description: "Direct replies",
-    exports: [...exports],
-    skills: { [name]: { reply: A2AReply.Message }, ...skills },
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: exports.map((start) => (start === first ? { start, reply: A2AReply.Message } : start)),
   })
   class Made {}
   return Made;
 }
 
-const violationsOf = (workflows: readonly Class[], exposes: readonly Class[]) =>
+const violationsOf = (
+  workflows: readonly Class[],
+  endpoints: readonly Class[],
+  more: Partial<ApplicationOptions> = {},
+) =>
   messageSkillViolations({
     name: "unit-rule-application",
     workflows,
-    exposes,
+    endpoints,
+    ...more,
   } as ApplicationOptions);
 
 /** The problems of a skill running `nodes`: each `[code] text`, the skill's prefix cut. */
-function problemsOf(nodes: readonly Class[]): string[] {
+function problemsOf(nodes: readonly Class[], more: Partial<ApplicationOptions> = {}): string[] {
   const { start: exported, workflow } = skillOf(nodes);
-  return violationsOf([workflow], [exposeOf([exported])]).map(
+  return violationsOf([workflow], [exposeOf([exported])], more).map(
     (found) =>
       `[${found.code}] ${found.message.replace(/^.* must be stateless, but /, "").replace(/ — answer with a task.*$/, "")}`,
   );
@@ -97,15 +106,24 @@ function problemsOf(nodes: readonly Class[]): string[] {
 describe("#860: a direct-reply skill's problems, each with its code and text", () => {
   it("an agent's question role and approval tool are pauses; a class of no decorator among its tools is read past", () => {
     expect(problemsOf([AskingAgent])).toEqual([
-      "[a2a.message-skill-pause] asking-agent asks TckInputQuestion (a question role)",
+      "[a2a.message-skill-pause] asking-agent asks TckInputExternalTask (an external task)",
       "[a2a.message-skill-pause] ApprovedReadTool asks for approval",
     ]);
   });
 
   it("an effect behind a harmless service, and an A2A client, are effects; a token and a cycle of deps are none", () => {
     expect(problemsOf([LateEffectAction, CallingAction, TokenAction, PlainAgent])).toEqual([
-      "[a2a.message-skill-effect] Made injects OutboundCalls, which changes things outside the run",
+      "[a2a.message-skill-effect] Made injects Idempotency, which changes things outside the run",
       "[a2a.message-skill-effect] Made injects RuleA2AAgent, which changes things outside the run",
+    ]);
+  });
+
+  it("a port bound by injectAs to an MCP server is that effect; a port bound to nothing is refused", () => {
+    expect(problemsOf([PortAction], { services: [PortMcpServer] })).toEqual([
+      "[a2a.message-skill-effect] Made injects PortMcpServer, which changes things outside the run",
+    ]);
+    expect(problemsOf([UnboundPortAction])).toEqual([
+      "[a2a.message-skill-effect] Made injects UnboundPort, which changes things outside the run",
     ]);
   });
 
@@ -155,41 +173,22 @@ describe("#860: what the direct-reply rule reads past", () => {
 
   it("a workflow, an export or an expose of no decorator, an MCP expose: nothing thrown, nothing found", () => {
     const { start: exported, workflow } = skillOf([PlainAgent]);
-    @McpExpose({ name: "unit-rule-mcp-expose", version: "1.0.0", exports: [exported] })
-    class UnitMcpExpose {}
+    @McpEndpoint({ name: "unit-rule-mcp-expose", version: "1.0.0", tools: [exported] })
+    class UnitMcpEndpoint {}
 
     expect(violationsOf([PlainTool, workflow], [exposeOf([exported, PlainTool])])).toEqual([]);
-    expect(violationsOf([workflow], [UnitMcpExpose, PlainTool])).toEqual([]);
-  });
-
-  it("an option of no reply for no export is no unknown reply; an export of no name never answers with a message", () => {
-    const { start: exported, workflow } = skillOf([PlainAgent]);
-    const expose = exposeOf([exported, PlainTool], {
-      "files-only": { files: { maxFiles: 1 } },
-      undefined: { reply: A2AReply.Message },
-    });
-    const meta = componentOf(expose);
-    if (meta?.kind !== "a2a-expose") throw new Error("not an expose");
-
-    const codes = violationsOf([workflow], [expose]).map((found) => found.message);
-
-    expect(codes).toEqual([
-      "unit-rule-a2a-expose sets the reply of undefined, which it does not export — name an exported start",
-    ]);
-    expect(messageSkillsOf(meta.meta)).toEqual([exported]);
-    expect(violationsOf([workflow], [expose]).map((found) => found.nodes)).toEqual([
-      ["unit-rule-application"],
-    ]);
+    expect(violationsOf([workflow], [UnitMcpEndpoint, PlainTool])).toEqual([]);
   });
 
   it("a defaultSkill of no export is placed on the application", () => {
     const { start: exported, workflow } = skillOf([PlainAgent]);
-    @A2AExpose({
+    @A2AEndpoint({
       name: "unit-default-a2a-expose",
       version: "1.0.0",
       description: "Direct replies",
-      exports: [exported],
       defaultSkill: PlainTool,
+      ttl: { tasks: hours(24), messages: minutes(15) },
+      skills: [exported],
     })
     class DefaultExpose {}
 

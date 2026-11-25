@@ -9,7 +9,7 @@ import type { GraphDeps } from "../../graph/deps.js";
 export function seamApprovalOf(deps: GraphDeps<string>): ToolCallApproval | undefined {
   if (deps.pause === undefined) return undefined;
   return pauseSeamApproval({
-    channelOf: deps.channelOf,
+    targetOf: deps.targetOf,
     pauses: deps.pause.pauses,
     answers: deps.pause.answers,
     notices: deps.pause.notices,

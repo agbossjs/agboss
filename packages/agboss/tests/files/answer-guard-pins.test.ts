@@ -7,16 +7,17 @@ import { NO_REDACTION } from "./runtime-parts.js";
 import { describe, expect, it } from "vitest";
 import { seenPicker } from "../../src/files/answer-files.js";
 import { sha256Of } from "../../src/files/file-bytes.js";
-import { ModelFileUnavailableReason } from "../../src/files/file-errors.js";
+import { FileUnavailableReason } from "../../src/files/file-errors.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { FileView, ModelFiles } from "../../src/files/model-files.js";
 import type { FileRuntime } from "../../src/files/visit-files.js";
 import { answerFilesViewed } from "../../src/flow/runtime/runners/answer-guard.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, seconds } from "../../src/units/index.js";
 import { PNG, scriptedTransport } from "../a2a/files/support.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 const URL_OF = "https://files.example/a.png";
 const CHANGED = Buffer.concat([PNG, Buffer.from("changed")]);
@@ -28,8 +29,7 @@ const runtimeOn = (served: Record<string, { body: Uint8Array }>): FileRuntime =>
     settings: resolvedFilesOf({
       agent: ModelFiles.of({ views: [FileView.Original] }).options,
       defaults: undefined,
-      skills: [],
-      a2aFiles: undefined,
+      limits: DEFAULT_FILE_LIMITS,
       hasPiiPolicy: false,
     }),
     maxResultSize: kilobytes(8),
@@ -37,7 +37,7 @@ const runtimeOn = (served: Record<string, { body: Uint8Array }>): FileRuntime =>
     transcriberKey: () => "t",
     transcribe: () => Promise.reject(new Error("none")),
     context: () => ({
-      store: new InMemoryA2AFileRepository(new InMemoryDatabase()),
+      store: new InMemoryFileRepository(new InMemoryDatabase()),
       tenantId: "acme",
       ownerId: "root-1",
       signal: new AbortController().signal,
@@ -84,6 +84,6 @@ describe("AC4: an answer file is pinned to the digest the agent saw", () => {
   it("changed after the first read: digest-mismatch, nothing is checked in its new form", async () => {
     const run = viewedOn(runtimeOn({ [URL_OF]: { body: CHANGED } }), picked);
 
-    await expect(run).rejects.toMatchObject({ reason: ModelFileUnavailableReason.DigestMismatch });
+    await expect(run).rejects.toMatchObject({ reason: FileUnavailableReason.DigestMismatch });
   });
 });

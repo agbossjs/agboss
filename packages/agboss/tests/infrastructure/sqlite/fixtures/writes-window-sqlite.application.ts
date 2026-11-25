@@ -2,8 +2,6 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import type { CheckpointTuple } from "@langchain/langgraph";
 import {
   Injectable,
-  SqliteCheckpointSaver,
-  SqliteConnection,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -11,6 +9,8 @@ import {
   SqliteFencedEffectRepository,
   SqlitePausedExecutionRepository,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { withHoldPoints } from "../../../../src/testing/faults/held-stores.js";
 import { RecordingLogger } from "../../../helpers/log.js";
@@ -55,7 +55,6 @@ const HeldSqliteLeases = withHoldPoints(SqliteExecutionLeaseRepository);
   name: "writes-window-sqlite-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [SqliteChargeWorkflow],
   observers: [RecoveryLog],
   providers: [

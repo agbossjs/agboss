@@ -17,8 +17,6 @@ export interface RunValue {
   readonly slot: SlotKey;
   readonly producer: ComponentName;
   readonly builtFrom: readonly number[];
-  /** What the value is about (`{ about }` of its write in the flow, #299). */
-  readonly about?: SlotKey;
   /** Sources the value's own write outdated (the new value is never outdated by its cascade). */
   readonly exempt: readonly number[];
   /** Sources still current after the write: the only ones a later renewal can outdate it through. */
@@ -29,7 +27,6 @@ export class Run {
   private readonly values = new Map<number, RunValue>();
   private readonly current = new Map<SlotKey, number>();
   private readonly latest = new Map<SlotKey, number>();
-  readonly aboutBroken: string[] = [];
 
   status(slot: SlotKey): SlotStatus {
     if (this.current.has(slot)) return SlotStatus.Current;
@@ -50,19 +47,9 @@ export class Run {
     return value !== undefined && this.latest.get(value.slot) === id;
   }
 
-  /** A step's write: the values of `slots`, built from `read`, about `about` when it is given. */
-  write(
-    producer: ComponentName,
-    slots: readonly SlotKey[],
-    read: readonly SlotKey[],
-    about?: SlotKey,
-  ): void {
-    const counted = [...read, ...(about === undefined ? [] : [about])]
-      .flatMap((slot) => this.current.get(slot) ?? [])
-      .filter((id) => {
-        const answersAbout = this.values.get(id)?.about;
-        return answersAbout === undefined || !slots.includes(answersAbout);
-      });
+  /** A step's write: the values of `slots`, built from `read`. */
+  write(producer: ComponentName, slots: readonly SlotKey[], read: readonly SlotKey[]): void {
+    const counted = read.flatMap((slot) => this.current.get(slot) ?? []);
     const builtFrom = [...new Set(counted)].sort((first, second) => first - second);
     const outdatedNow = this.cascade(slots);
     const exempt = builtFrom.filter((source) => outdatedNow.has(source));
@@ -70,19 +57,10 @@ export class Run {
     for (const slot of slots) {
       const id = this.values.size + 1;
       const value: RunValue = { id, slot, producer, builtFrom, exempt, live };
-      this.values.set(id, about === undefined ? value : { ...value, about });
+      this.values.set(id, value);
       this.current.set(slot, id);
       this.latest.set(slot, id);
     }
-  }
-
-  /** The about edge is never followed (S10): no value is outdated directly by an answer about it. */
-  private checkAbout(outdated: RunValue, cause: number): void {
-    const answer = this.values.get(cause);
-    if (answer?.about === outdated.slot)
-      this.aboutBroken.push(
-        `${answer.producer}'s answer outdated the ${outdated.slot} it is about`,
-      );
   }
 
   private cascade(slots: readonly SlotKey[]): ReadonlySet<number> {
@@ -93,7 +71,6 @@ export class Run {
       for (const [slot, id] of [...this.current]) {
         const value = this.values.get(id);
         if (!value?.builtFrom.includes(cause)) continue;
-        this.checkAbout(value, cause);
         this.current.delete(slot);
         outdated.add(id);
         queue.push(id);
@@ -115,7 +92,6 @@ export class Run {
         status: this.status(slot),
         producers: [value.producer],
         builtFrom,
-        about: value.about === undefined ? [] : [value.about],
         count: 1,
       });
     }

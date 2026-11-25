@@ -1,4 +1,8 @@
+import { shownContentOf } from "../models/messages.js";
 import type { ChatModelUser, DecisionSpec, ModelGateway } from "../llm/gateway.js";
+import type { ProviderKinds } from "../models/use-purpose.js";
+import type { ModelProviderType } from "../models/model-provider.decorator.js";
+import { providerKindsOf } from "../models/resolution.js";
 import { componentOf } from "../components/metadata.js";
 import type { Class } from "../components/injection.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -95,6 +99,7 @@ function usageOf(spec: DecisionSpec, details: DecisionDetails): UsageRecord | un
   return {
     caller: routerCaller(spec.router),
     model,
+    provider: "scripted",
     inputTokens: 0,
     outputTokens: 0,
     cacheReadTokens: 0,
@@ -143,7 +148,7 @@ function outcomeOf(turn: ScriptedTurn, spec: DecisionSpec, script: ComponentScri
 /** A router's decision request, as `mockLlm(Router).requests` records it. */
 const decisionRequestOf = (spec: DecisionSpec): ModelRequest => ({
   kind: "decision",
-  input: spec.request.input,
+  input: shownContentOf(spec.request.input),
   options: spec.request.options.map((option) => option.name),
   routes: Object.fromEntries(spec.request.options.map((o) => [o.name, o.description])),
   instructions: spec.request.instructions ?? "",
@@ -159,6 +164,11 @@ function unscriptedRanking(script: ComponentScript): void {
   if (!script.isScripted) script.thenReturnAlways(replyWith('{"ranking":[]}'));
 }
 
+/** What each provider of the workflows speaks, by name: what the gateway tells a model's kind by. */
+export const kindsOf = (
+  workflows: readonly { readonly modelProviders: readonly ModelProviderType[] }[],
+): ProviderKinds => providerKindsOf(workflows.flatMap((workflow) => workflow.modelProviders));
+
 /**
  * The model gateway of a test: every chat model and every decision answers by script. A failure
  * that must fail the test (no script, script exhausted, not a route) is reported to the book and
@@ -167,8 +177,11 @@ function unscriptedRanking(script: ComponentScript): void {
 export function createScriptedGateway(
   book: ScriptBook,
   clock: Clock = new VirtualClock(),
+  kinds: ProviderKinds = new Map(),
 ): ModelGateway {
   return {
+    // what a model is is told by its provider's driver (#1313): a decision provider's models decide
+    kindOf: (modelProvider) => (modelProvider === undefined ? undefined : kinds.get(modelProvider)),
     chatModel: ({ user, settings }) => {
       if (user.kind === "compaction") unscriptedSummary(book.scriptOf(chatKeyOf(user)));
       if (user.kind === "reranker") unscriptedRanking(book.scriptOf(chatKeyOf(user)));

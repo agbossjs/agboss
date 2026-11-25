@@ -6,10 +6,12 @@ import {
   RestTransportFactory,
   type Client,
 } from "@a2a-js/sdk/client";
-import { A2ACallerRejectedError } from "../a2a-caller.js";
+import { A2AError } from "../../core/error-families/remote-errors.js";
 import { A2AOriginSite } from "./a2a-guard-errors.js";
 import { observeEcho, type EchoWatch } from "./a2a-echo.js";
 import { originRefusalOf, type OriginPolicy } from "./a2a-origins.js";
+import { MESH_HTTP_HEADER } from "../../mesh/mesh-http.js";
+import { meshHttpHeaderOf, type OutboundHttpRequest } from "../../mesh/outbound-http.js";
 
 /**
  * The client's wire (#809): the official SDK's `Client` over the agent's card, every request
@@ -88,16 +90,16 @@ async function isA2AErrorBody(response: Response, isJsonRpc: boolean): Promise<b
 }
 
 /** A `401` / `403` naming an `a2a.caller-*` code: an AGBoss server refused the caller (#387). */
-async function callerRejectionOf(response: Response): Promise<A2ACallerRejectedError | undefined> {
+async function callerRejectionOf(response: Response): Promise<A2AError.CallerRejected | undefined> {
   if (response.status !== HTTP_UNAUTHORIZED && response.status !== HTTP_FORBIDDEN) return undefined;
   const body = await bodyOf(response);
   const wireCode = String(isRecord(body) ? body.code : undefined);
   if (!/^a2a\.caller-[a-z-]{1,40}$/u.test(wireCode)) return undefined;
   // the server's reason is its own text: the code says what happened
-  return new A2ACallerRejectedError({
+  return new A2AError.CallerRejected({
     httpStatus: response.status,
     wireCode,
-    reason: "refused by the agent's caller resolver",
+    message: `the A2A server rejected the caller (${String(response.status)} ${wireCode})`,
   });
 }
 
@@ -124,6 +126,39 @@ async function headersFor(
     headers.set(name, value);
   });
   return headers;
+}
+
+/**
+ * The mesh's own header of this hop (#1320): set last, so neither the client's `headers` nor its
+ * `getHeaders()` can name it; a hop with nothing to sign carries none (never a stale one).
+ */
+function withMeshHeader(
+  headers: Headers,
+  audience: string | undefined,
+  request: OutboundHttpRequest,
+) {
+  const signature = meshHttpHeaderOf(audience, request);
+  if (signature === undefined) headers.delete(MESH_HTTP_HEADER);
+  else headers.set(MESH_HTTP_HEADER, signature);
+}
+
+/** The init of one hop: the request's own, the merged headers (the mesh's last), no redirect followed. */
+function hopInitOf(
+  init: RequestInit | undefined,
+  headers: Headers,
+  audience: string | undefined,
+  hop: { readonly url: string; readonly home: string },
+): RequestInit {
+  const { url, home } = hop;
+  const isHome = new URL(url).origin === new URL(home).origin;
+  // a hop that leaves the origin the request was made to is never signed: its header would be
+  // replayable there (#1320)
+  withMeshHeader(headers, isHome ? audience : undefined, {
+    url,
+    method: init?.method ?? "GET",
+    body: init?.body,
+  });
+  return { ...init, headers, redirect: "manual" };
 }
 
 /** One fetch: a network failure as `A2ANetworkError`, an aborted one as its reason. */
@@ -192,16 +227,19 @@ export function wireFetchOf(
   headersOf: () => Promise<Record<string, string>>,
   policy: OriginPolicy,
   echo?: EchoWatch,
+  audience?: string,
 ): typeof fetch {
   return async (input, init) => {
     let url = urlOfInput(input);
     const refused = originRefusalOf(policy, url, A2AOriginSite.Request);
     if (refused !== undefined) throw refused;
+    const home = url;
     const headers = await headersFor(headersOf, init);
     const isGet = (init?.method ?? "GET").toUpperCase() === "GET";
     const isJsonRpc = isJsonRpcRequest(init);
     for (let redirects = 0; ; redirects += 1) {
-      const response = await fetchedOnce(fetcher, url, { ...init, headers, redirect: "manual" });
+      const hop = hopInitOf(init, headers, audience, { url, home });
+      const response = await fetchedOnce(fetcher, url, hop);
       const answer = await answerOf(policy, response, { url, isGet, isJsonRpc, redirects });
       if (answer instanceof Response) {
         if (echo !== undefined) {

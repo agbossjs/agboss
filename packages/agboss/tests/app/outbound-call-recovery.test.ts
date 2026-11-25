@@ -6,6 +6,7 @@
  * decides — completed (the step continues with the provider's receipt), not sent (sent once more,
  * the same key, attempt 2) or unknown (the step fails, the intent stays pending for an operator).
  */
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
   ExecutionLeaseLostError,
@@ -45,7 +46,7 @@ afterEach(() => {
 });
 
 /** The key the charge of the first execution goes with. */
-const KEY = "execution-1:charge-order-action:1:charge";
+const KEY = "ck1UbYR5__kMqLRyhGpWwpKf5iAQLJJ-r52_O7pIlEo";
 
 /**
  * A's charge frozen in the provider (before or after it processed the charge), A's lease stalled,
@@ -128,7 +129,7 @@ describe("#505 AC2: the provider never got it — sent once more", () => {
 
 describe("#505 AC3: nobody can say — a defined error, the intent pending", () => {
   two(
-    "AC3: unknown → OutboundCallUnreconciledError, intent pending, listed by pendingOutboundCallsOf",
+    "AC3: unknown → OutboundCallError.Unreconciled, intent pending, listed by pendingOutboundCallsOf",
     async ({ apps, clock, leases }) => {
       gateway.gates.after = 1;
       gateway.lookup = LookupMode.Unknown;
@@ -136,7 +137,7 @@ describe("#505 AC3: nobody can say — a defined error, the intent pending", () 
       await killedBeforeTheAnswer(apps, clock, leases);
       const [end] = await ends(1);
 
-      // the side path of OutboundCallUnreconciledError took it: the error is the defined one
+      // the side path of OutboundCallError.Unreconciled took it: the error is the defined one
       expect(end?.finish).toBe("unreconciled-workflow-finish");
       const pending = (await instance(apps, 1).pendingOutboundCallsOf({ tenantId: "default" }))
         .calls;

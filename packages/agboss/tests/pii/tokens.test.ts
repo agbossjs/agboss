@@ -34,18 +34,20 @@ describe("#120: tokens survive a pause, a resume and a recovery", () => {
     const restarted = await recoverApp();
     const done = await restarted.resume(answerOf(paused, approve));
 
-    expect(paused.pending).toMatchObject([{ ask: { arguments: { to: "dana@acme.com" } } }]);
+    // #1295c: the approver sees the arguments masked, never the real address
+    expect(paused.pending).toMatchObject([{ input: { to: expect.stringMatching(/^<email:/) } }]);
+    expect(JSON.stringify(paused.pending)).not.toContain("dana@acme.com");
     expect(approvedRecipients).toEqual(["dana@acme.com"]);
     expect(done.output).toEqual({ text: "Sent to dana@acme.com." });
   });
 });
 
 describe("#120: what is stored", () => {
-  test("replaceWithKind and replacePart make no tokens", () => {
+  test("mask() and mask(part) make no tokens", () => {
     const text = "call 555 and 000000018";
     const findings = [
-      { start: 5, end: 8, label: "phone", action: PiiAction.replacePart({ keepLast: 1 }) },
-      { start: 13, end: 22, label: "israeli-id", action: PiiAction.replaceWithKind() },
+      { start: 5, end: 8, label: "phone", action: PiiAction.mask({ keepLast: 1 }) },
+      { start: 13, end: 22, label: "israeli-id", action: PiiAction.mask() },
     ].map((item) => ({ ...item, policy: "p", key: "k", rank: 0 }));
 
     expect(maskedText(text, findings, {})).toEqual({

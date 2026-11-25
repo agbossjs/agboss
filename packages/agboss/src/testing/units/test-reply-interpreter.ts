@@ -1,18 +1,20 @@
 import type { Class } from "../../components/injection.js";
+import type { DtoClass } from "../../dto/types.js";
 import { PromptLoader } from "../../components/prompt-render.js";
 import {
-  channelRoleOf,
-  isQuestionRole,
-  type FoundChannelRole,
-} from "../../channels/channel-role.decorator.js";
+  findPauseTarget,
+  isExternalTask,
+  type FoundPauseTarget,
+} from "../../channels/pause-targets.js";
 import { validDecisionOf } from "../../channels/decision.js";
 import type { AssembledReplyInterpreter } from "../../channels/discovery.js";
-import { roleInterpreterOf } from "../../channels/role-interpreter.js";
+import { targetInterpreterOf } from "../../channels/role-interpreter.js";
 import { readReplyBy } from "../../channels/reply-reading.js";
 import { schemaOf, validate } from "../../dto/schema.js";
+import { ToolCallApprovalDecisionDto } from "../../dto/standard/framework.js";
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import { currentFrame } from "../../flow/context/frame.js";
-import type { ChannelAnswerOf, ChannelQuestionOf } from "../../flow/generated-types.js";
+import type { PauseOutputOf, PauseInputOf } from "../../flow/generated-types.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import { throwIfViolated } from "../../graph/rule-error.js";
 import { PiiPolicySet } from "../../pii/policy-set.js";
@@ -23,19 +25,19 @@ import { unitRouterDeps } from "./unit-models.js";
 import type { UnitCallOptions, UnitClock, UnitModelOptions, UnitRun } from "./unit-types.js";
 
 /**
- * A role's `@ReplyInterpreter` on its own (#644), as `app.resume({ pauseId, reply })` runs it: the
+ * A role's `@ChannelInterpreter` on its own (#644), as `app.resume({ pauseId, reply })` runs it: the
  * question and the reply in, the role's answer — validated as the role validates a decision — or
  * why the reply is not understood out, never a paused execution.
  */
 
 /** What one reading gave: the role's answer, or — the pause would stay pending — why there is none. */
 export type ReplyInterpreterReading<TRole> =
-  | { readonly isUnderstood: true; readonly answer: ChannelAnswerOf<TRole> }
+  | { readonly isUnderstood: true; readonly answer: PauseOutputOf<TRole> }
   | { readonly isUnderstood: false; readonly reason: string };
 
 /** What one reading takes: the pause's question and the free-text reply. */
 export interface ReplyInterpreterRunnerInput<TRole> {
-  readonly ask: ChannelQuestionOf<TRole>;
+  readonly ask: PauseInputOf<TRole>;
   readonly reply: string;
 }
 
@@ -49,31 +51,39 @@ export interface ReplyInterpreterRunner<TRole> extends UnitClock {
 
 /** A role and its interpreter. */
 interface RoleInterpreter {
-  readonly found: FoundChannelRole;
+  readonly found: FoundPauseTarget;
   readonly interpreter: AssembledReplyInterpreter;
 }
 
 /** The role and its interpreter, checked as at assembly. */
 async function interpreterOfRole(role: Class): Promise<RoleInterpreter> {
-  const found = channelRoleOf(role);
+  const found = findPauseTarget(role);
   if (found === undefined)
-    throw new TestSetupError({ message: `testReplyInterpreter(${role.name}): not a @ChannelRole` });
+    throw new TestSetupError({
+      message: `testUnit(${role.name}): not a @ToolApproval or @ExternalTask`,
+    });
   const loader = new PromptLoader();
-  const { interpreter, violations } = await roleInterpreterOf(found, loader);
+  const { interpreter, violations } = await targetInterpreterOf(found, loader);
   loader.throwIfAny();
   throwIfViolated(violations);
   if (interpreter === undefined)
     throw new TestSetupError({
-      message: `testReplyInterpreter(${role.name}): ${found.options.name} names no replyInterpreter — it is answered with a decision only`,
+      message: `testUnit(${role.name}): ${found.options.name} names no channelInterpreter — it is answered with a decision only`,
     });
   return { found, interpreter };
 }
 
 /** How the role validates an answer: a question's `answer` DTO, an approval's decision. */
-const validatorOf = ({ options }: FoundChannelRole): ((decision: unknown) => unknown) =>
-  isQuestionRole(options)
-    ? (decision) => validate(options.answer, decision)
-    : (decision) => validDecisionOf(decision, { input: schemaOf(options.approves) });
+const validatorOf = ({ options }: FoundPauseTarget): ((decision: unknown) => unknown) =>
+  isExternalTask(options)
+    ? (decision) => validate(options.output, decision)
+    : approvalValidatorOf(options.input);
+
+/** An approval's decision: the tool's input when the target names it, the plain decision otherwise. */
+const approvalValidatorOf = (input: DtoClass | undefined): ((decision: unknown) => unknown) =>
+  input === undefined
+    ? (decision) => validate(ToolCallApprovalDecisionDto, decision)
+    : (decision) => validDecisionOf(decision, { input: schemaOf(input) });
 
 /** One call of a runner, without its clock. */
 type ReadReply<TRole> = (
@@ -107,7 +117,7 @@ function readingsOf<TRole extends Class>(
         {
           ask: input.ask,
           reply: input.reply,
-          label: `testReplyInterpreter(${role.name})`,
+          label: `testUnit(${role.name})`,
           validate: validatorOf(found),
           beforeModelCall: () => Promise.resolve(),
           callbacks: [],
@@ -118,20 +128,20 @@ function readingsOf<TRole extends Class>(
       );
       spent.push(...reading.usage);
       return reading.kind === "read"
-        ? { isUnderstood: true, answer: reading.decision as ChannelAnswerOf<InstanceType<TRole>> }
+        ? { isUnderstood: true, answer: reading.decision as PauseOutputOf<InstanceType<TRole>> }
         : { isUnderstood: false, reason: reading.error.reason };
     });
   };
 }
 
 /**
- * `testReplyInterpreter(Role, options)`: the role's interpreter created by its own container (a code
+ * `testUnit(Role, options)`: the role's interpreter created by its own container (a code
  * one's `deps`, `overrides`, the `environment`), a model one answering from `model` —
  * `replyWith(AnswerDto, { … })` for its answer tool, `replyWith(ReplyInterpreterNotUnderstoodDto,
  * { reason })` for "not understood" (`{ cost }` its spend, `reply-interpreter:<name>`); its rules
  * checked first, as at assembly.
  */
-export function testReplyInterpreter<
+export function replyInterpreterUnit<
   TRole extends Class,
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
@@ -144,7 +154,7 @@ export function testReplyInterpreter<
     const { name, model } = assembled.interpreter;
     if (model === undefined && options.model !== undefined)
       throw new TestSetupError({
-        message: `testReplyInterpreter(${role.name}): ${name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
+        message: `testUnit(${role.name}): ${name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
       });
     site.scriptModel(replyInterpreterKeyOf(name), name, options.model);
     return assembled;

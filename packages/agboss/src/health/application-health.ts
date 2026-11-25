@@ -39,10 +39,17 @@ const worstOf = (components: readonly HealthComponentReport[]): HealthStatus =>
     HealthStatus.Healthy,
   );
 
-export const healthReportOf = (components: readonly HealthComponentReport[]): HealthReport => ({
-  status: worstOf(components),
-  components,
-});
+/** Whether every step slot is taken: no capped slot is free (never without a cap). */
+const isBusyOf = (sources: HealthSources): boolean => sources.stepSlots?.freeSlots() === 0;
+
+export const healthReportOf = (
+  components: readonly HealthComponentReport[],
+  isBusy: boolean,
+): HealthReport => {
+  const status = worstOf(components);
+  const isAlive = status !== HealthStatus.Unhealthy;
+  return { status, components, isBusy, isAlive, isReady: isAlive && !isBusy };
+};
 
 /** The instance itself: `Unhealthy` from `app.close()` on. */
 const applicationOutcome = (sources: HealthSources): ProbeOutcome =>
@@ -93,11 +100,12 @@ const livenessComponents = (sources: HealthSources): HealthComponentReport[] => 
 
 export function applicationHealthOf(sources: HealthSources): ApplicationHealth {
   return {
-    checkLiveness: () => Promise.resolve(healthReportOf(livenessComponents(sources))),
+    checkLiveness: () =>
+      Promise.resolve(healthReportOf(livenessComponents(sources), isBusyOf(sources))),
     checkReadiness: async () => {
       const live = livenessComponents(sources);
       const reached = await Promise.all(readinessProbes(sources));
-      return healthReportOf([...live, ...reached]);
+      return healthReportOf([...live, ...reached], isBusyOf(sources));
     },
   };
 }

@@ -20,7 +20,7 @@ const test = testWith(PickLoopApplication);
 const who = {
   tenant: { tenantId: "acme", plan: "pro" },
   execution: { userId: "u1" },
-  record: true,
+  includeRecord: true,
 };
 
 beforeEach(resetChildLog);

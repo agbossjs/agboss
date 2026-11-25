@@ -4,8 +4,9 @@
  * Every place that walks DTOs: an agent's answer tool, an input, a tool's DTOs; a DTO used twice
  * is not a cycle.
  */
+import { Window2Memory } from "../../helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
-import { createAppWith } from "../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import {
   Agent,
   GraphRuleError,
@@ -13,17 +14,19 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Reasoning } from "../../../src/models/index.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { workflowOf } from "../../../src/testing/workflow-of.js";
 import { applicationWith, workflowWith } from "../../components/fixture/deps-contract.workflow.js";
 import type { DtoClass } from "../../../src/dto/types.js";
 import { DtoError, Text } from "../../../src/dto/index.js";
 import { DiamondDto, PingDto, SelfDto, TreeDto } from "../../dto/fixtures-cycles.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const workflowDefaults = {
   defaults: {
@@ -31,7 +34,7 @@ const workflowDefaults = {
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 2 },
   },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 };
 
 const agentWith = (options: Partial<Parameters<typeof Agent>[0]>) => {
@@ -57,7 +60,7 @@ describe("#1080: an agent's output that holds itself", () => {
   it.each([
     ["itself", SelfDto, "reader-agent: SelfDto → SelfDto"],
     ["itself through another DTO", PingDto, "reader-agent: PingDto → PongDto → PingDto"],
-    ["itself through ListOf", TreeDto, "reader-agent: TreeDto → TreeDto"],
+    ["itself through List", TreeDto, "reader-agent: TreeDto → TreeDto"],
   ] as const)(
     "a DTO holding %s: start fails naming the agent and the cycle",
     async (_l, dto, text) => {
@@ -76,7 +79,7 @@ describe("#1080: an agent's output that holds itself", () => {
     const agent = agentWith({ output: PingDto });
 
     const error = await failureOf(() =>
-      createAppWith(applicationWith("cyc-workflow", {}, agent), { processEnv: {} }),
+      createTestAppWith(applicationWith("cyc-workflow", {}, agent), { processEnv: {} }),
     );
 
     expect(error).toBeInstanceOf(GraphRuleError);
@@ -91,7 +94,7 @@ describe("#1080: an agent's output that holds itself", () => {
     @Agent({
       name: "diamond-agent",
       description: "d",
-      prompt: "p",
+      prompt: inline("p"),
       model: "test/r",
       price: { inputPerMTok: 1, outputPerMTok: 10 },
       input: { diamond: DiamondDto },
@@ -100,14 +103,10 @@ describe("#1080: an agent's output that holds itself", () => {
     class DiamondAgent {}
     @Workflow({
       name: "diamond-workflow",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
-      flow: [
-        start(DiamondStart)
-          .returns(DiamondDto)
-          .toAgent(DiamondAgent)
-          .returns(DiamondDto)
-          .toFinish(DiamondFinish),
-      ],
+      historyTtl: Ttl.Forever,
+      flow: [onStart(DiamondStart).toAgent(DiamondAgent).toFinish(DiamondFinish)],
       ...workflowDefaults,
     })
     class Diamond {}
@@ -141,7 +140,8 @@ describe("#1080: an input that holds itself", () => {
     @Workflow({
       name: "keep-workflow",
       version: "1.0.0",
-      flow: [start(KeepStart).returns(SelfDto).toAction(Keep).toFinish(KeepFinish)],
+      historyTtl: Ttl.Forever,
+      flow: [onStart(KeepStart).toAction(Keep).toFinish(KeepFinish)],
       ...workflowDefaults,
     })
     class KeepWorkflow {}
@@ -164,8 +164,8 @@ describe("#1080: a tool's DTOs", () => {
 
   const toolOf = (input: DtoClass, output: DtoClass) => {
     @Tool({ name: "cyc-tool", description: "d", input, output })
-    class CycTool implements ToolHandler<never, never> {
-      run(): Promise<never> {
+    class CycTool {
+      execute(): Promise<never> {
         return Promise.reject(new Error("unused"));
       }
     }

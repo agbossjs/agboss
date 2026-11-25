@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: what the budgets are asked before a branch's model arbiter calls its model — the whole spend so far:
  * the execution's records, the services' and what the arbiter spent already, so a call that would pass the
@@ -8,10 +9,11 @@ import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage
 import { arbiterDepsFor } from "../../src/flow/runtime/launch/branch-quorum.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

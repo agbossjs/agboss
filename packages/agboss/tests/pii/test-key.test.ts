@@ -3,7 +3,7 @@
  * test's fixed key when the test process does not set its variable; a test that sets it keeps its
  * own; production still refuses to start without it.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
 import { tokenOf } from "../../src/pii/tokens.js";
@@ -18,7 +18,8 @@ import { PII_KEY_VARIABLE } from "./pii.fixture.js";
 
 /** The variable of the fixture's `piiPseudonymKey: secret("PII_APP_KEY")`. */
 const APP_KEY_VARIABLE = "PII_APP_KEY";
-const MESSAGE = { text: "EMP-0042 at ann@acme.io", author: "zoe-7" };
+const MESSAGE = { text: "EMP-0042 at ann@acme.io, from zoe-7" };
+const EXECUTION = { execution: { userId: "zoe-7" } };
 
 const test = testWith(KeyedApplication);
 
@@ -34,18 +35,18 @@ describe("#778: the application's key under testWith, its variable not set", () 
   test("runs and makes the application's tokens with the test key", async ({ app, mockLlm }) => {
     const agent = mockLlm(KeyedAgent).thenReturn(replyWith("ok"));
 
-    await execute(app, KeyedStart, MESSAGE);
+    await execute(app, KeyedStart, MESSAGE, EXECUTION);
 
     const sent = requestText(agent.onlyRequest);
     expect(sent).toContain(tokenOf("employee-token", "EMP-0042", TEST_PSEUDONYM_KEY, {}));
-    expect(sent).toContain(tokenOf("author", "zoe-7", TEST_PSEUDONYM_KEY, {}));
+    expect(sent).toContain(tokenOf("user-id", "zoe-7", TEST_PSEUDONYM_KEY, {}));
   });
 
   test("an empty variable counts as not set", async ({ app, mockLlm }) => {
     vi.stubEnv(APP_KEY_VARIABLE, "");
     const agent = mockLlm(KeyedAgent).thenReturn(replyWith("ok"));
 
-    await execute(app, KeyedStart, MESSAGE);
+    await execute(app, KeyedStart, MESSAGE, EXECUTION);
 
     expect(requestText(agent.onlyRequest)).toContain(
       tokenOf("employee-token", "EMP-0042", TEST_PSEUDONYM_KEY, {}),
@@ -66,7 +67,7 @@ describe("#778: the application's key under testWith, its variable set by the te
   test("keeps the test's own value", async ({ app, mockLlm }) => {
     const agent = mockLlm(KeyedAgent).thenReturn(replyWith("ok"));
 
-    await execute(app, KeyedStart, MESSAGE);
+    await execute(app, KeyedStart, MESSAGE, EXECUTION);
 
     const sent = requestText(agent.onlyRequest);
     expect(sent).toContain(tokenOf("employee-token", "EMP-0042", OWN_APP_KEY, {}));
@@ -76,7 +77,7 @@ describe("#778: the application's key under testWith, its variable set by the te
 
 describe("#778: production without the application's key", () => {
   it("createApp refuses to start, naming the field and its variable", async () => {
-    const failure = await createAppWith(KeyedApplication, {
+    const failure = await createTestAppWith(KeyedApplication, {
       processEnv: { [PII_KEY_VARIABLE]: "own-policy-key" },
       gateway: createScriptedGateway(new ScriptBook()),
     }).catch((error: unknown) => error);

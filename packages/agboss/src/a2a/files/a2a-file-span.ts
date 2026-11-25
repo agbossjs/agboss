@@ -11,8 +11,8 @@ import { hostOf } from "./a2a-file-address.js";
  * query or fragment (a pre-signed S3/GCS token never reaches a trace). No propagation header is injected into the request.
  *
  * `trace.getTracer` is the global API: a no-op until the host registers an SDK. The framework's
- * Langfuse tracing uses an isolated provider (`langfuseTracing`), so this span never reaches
- * Langfuse unless the host's own global provider exports it there. dd-trace's http plugin is not
+ * The run's tracing goes to the `tracerProvider` given to `createApp` (never a global one), so this
+ * span never reaches it unless the host's own global provider exports it there. dd-trace's http plugin is not
  * involved (it takes part only when Datadog's OpenTelemetry `TracerProvider` is registered).
  */
 export interface FileFetchSpan {

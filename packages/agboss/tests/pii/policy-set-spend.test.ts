@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (files-pii shard) — what a policy set's model detectors cost: a search carries the spend of every policy's
  * detector, a text that is empty is searched by nobody and costs nothing, and the refusal of a blocked finding carries
@@ -11,10 +12,11 @@ import { DetectionMode } from "../../src/pii/runtime-policy.js";
 import { PiiActionKind } from "../../src/pii/actions.js";
 
 const record = (costUsd: number, caller = "pii"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -60,7 +62,7 @@ describe("#1366: the spend of a search", () => {
 });
 
 describe("#1366: the refusal of a blocked finding", () => {
-  const blocking = { kind: PiiActionKind.BlockWithRefusal } as never;
+  const blocking = { kind: PiiActionKind.Block } as never;
   const finding = (policy: string, action: unknown = blocking) =>
     ({ policy, kind: "email", label: "email", action }) as never;
 
@@ -94,10 +96,7 @@ describe("#1366: the refusal of a blocked finding", () => {
 
     expect(await set.refusalError([], [])).toBeUndefined();
     expect(
-      await set.refusalError(
-        [finding("a-pii-policy", { kind: PiiActionKind.ReplaceWithKind })],
-        [],
-      ),
+      await set.refusalError([finding("a-pii-policy", { kind: PiiActionKind.Mask })], []),
     ).toBeUndefined();
   });
 });

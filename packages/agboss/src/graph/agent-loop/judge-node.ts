@@ -1,22 +1,25 @@
 import { HumanMessage } from "@langchain/core/messages";
-import { runJudgeCall } from "../../components/judge-call.js";
+import { verdictOfJudge } from "../../judges/declarative-judge.js";
+import { BudgetExceededError } from "../limits.js";
 import type {
   AnyJudgeInput,
-  JudgeReplyShape,
+  JudgeOutputShape,
   JudgeVerdict,
 } from "../../components/judge-decorators.js";
 import { PlainTextDto } from "../../dto/standard/framework.js";
 import type { DtoClass } from "../../dto/types.js";
 import { isWrapper, Wrapper } from "../../flow/dto-wrappers.js";
+import { hydratedIfDto as asInstance } from "../../dto/hydrate.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { AgentFailedError, QualityGateError, type JudgeRejection } from "../errors.js";
 import type { AsyncNode } from "../types.js";
 import type { AgentJudge, AgentLoopDeps } from "./deps.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import { meteredModel } from "./judge-model.js";
+import { judgeBudgetCheckOf } from "./judge-budget.js";
+import { verdictRecordOf } from "./judge-verdict-record.js";
 import { loopPoliciesOf } from "./model-pii.js";
 import { modelReadingMaskOf, type ModelReadingMask } from "../../pii/model-boundary.js";
-import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import type { JudgeVerdictRecord } from "../../flow/runtime/step-records.js";
 import { carryRecords } from "../../flow/runtime/carried-records.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
@@ -25,6 +28,8 @@ import { countBoundOf } from "../count-limit.js";
 import type { JudgedFiles } from "./judge-files.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
 import { agentStreamOf } from "../../run/stream/agent-stream.js";
+import { StreamDiscardReason } from "../../run/types.js";
+import { AgentRetryReason, reportAgentRetry } from "./retry-event.js";
 
 /**
  * The class of each value of the answer (#262 S125): the class of the answer tool it was answered
@@ -48,7 +53,7 @@ function classAt(classes: readonly DtoClass[], index: number): DtoClass {
   return dto;
 }
 
-/** The items of a list answer as values: a `listOf(oneOf(…))` answer keeps `{ variant, value }`. */
+/** The items of a list answer as values: a `listOf(…)` answer keeps `{ variant, value }`. */
 function itemValuesOf(deps: AgentLoopDeps, value: unknown): readonly unknown[] {
   const items: readonly unknown[] = Array.isArray(value) ? value : [];
   if (!deps.agent.answerTools.hasVariants) return items;
@@ -61,20 +66,20 @@ function itemValuesOf(deps: AgentLoopDeps, value: unknown): readonly unknown[] {
  * The one class a `listOf(XDto)` judge's `variant` names: the class of the agent's list — or, when
  * the agent's list may hold several classes (each extending `XDto`), the judge's `XDto`.
  */
-function listClassOf(deps: AgentLoopDeps, reply: JudgeReplyShape): DtoClass {
+function listClassOf(deps: AgentLoopDeps, output: JudgeOutputShape): DtoClass {
   const [only, ...others] = deps.agent.answerTools.tools;
   if (only !== undefined && others.length === 0) return only.dto;
   const element =
-    typeof reply === "function" || reply.kind !== Wrapper.List ? reply : reply.element;
+    typeof output === "function" || output.kind !== Wrapper.List ? output : output.element;
   if (typeof element !== "function") throw new TypeError("a list judge of one class has one class");
   return element;
 }
 
 /**
- * What a judge reads (#262 S115, S125), in the shape of its `reply`: the validated answer and the
+ * What a judge reads (#262 S115, S125), in the shape of its `output`: the validated answer and the
  * class it validated as — a text agent's text as a `PlainTextDto`; one value with its answer
- * tool's class; a list with its one class, or, for a `listOf(oneOf(…))` judge, each item as
- * `{ variant, value }`. Each judge gets its own copy, so no judge changes the answer the step gives.
+ * tool's class; a list with its one class, or, for a `listOf(A, B, …)` judge, each item an
+ * instance of its class. Each judge gets its own copy, so no judge changes the answer the step gives.
  */
 function judgedInputOf(
   state: AgentLoopStateType,
@@ -90,23 +95,26 @@ function judgedInputOf(
     toolCalls: state.trajectory,
     files,
   };
-  if (state.answer === null) return { ...base, variant: PlainTextDto, reply: { text } };
+  if (state.answer === null) return { ...base, variant: PlainTextDto, output: { text } };
   const value: unknown = structuredClone(state.answer.value);
   const classes = answeredClassesOf(state, deps);
   if (!deps.agent.answerTools.isList) {
     const [variant] = classes;
     if (variant === undefined) throw new TypeError(`${deps.agent.name}: an answer without a class`);
-    return { ...base, variant, reply: value };
+    return { ...base, variant, output: asInstance(variant, value) };
   }
   const items = itemValuesOf(deps, value);
-  const { reply } = judge;
+  const { output } = judge;
   const judgesVariants =
-    typeof reply !== "function" && reply.kind === Wrapper.List && isWrapper(reply.element);
-  if (!judgesVariants) return { ...base, variant: listClassOf(deps, reply), reply: items };
-  // a `listOf(oneOf(…))` judge: each item with its own class (`VariantOf`)
+    typeof output !== "function" && output.kind === Wrapper.List && isWrapper(output.element);
+  if (!judgesVariants) {
+    const variant = listClassOf(deps, output);
+    return { ...base, variant, output: items.map((item) => asInstance(variant, item)) };
+  }
+  // a `listOf(A, B, …)` judge: each item an instance of the class it validated as
   return {
     ...base,
-    reply: items.map((item, index) => ({ variant: classAt(classes, index), value: item })),
+    output: items.map((item, index) => asInstance(classAt(classes, index), item)),
   };
 }
 
@@ -118,19 +126,6 @@ async function judgedFilesOfLazily(
   const { judgedFilesOf } = await lazyLoad(import("./judge-files.js"));
   return judgedFilesOf(state, deps);
 }
-
-/** A verdict as the step's record keeps it (#395 C3). */
-const verdictRecordOf = (
-  judge: string,
-  attempt: number,
-  verdict: JudgeVerdict,
-): JudgeVerdictRecord => ({
-  judge: bareRecordOf(judge, ComponentKind.Judge),
-  attempt,
-  passed: verdict.passed,
-  ...(verdict.passed ? {} : { reason: verdict.reason }),
-  ...(verdict.metrics === undefined ? {} : { metrics: verdict.metrics }),
-});
 
 /** A judge's model reads as the agent's model does (#708): its policies, values and tokens. */
 const judgeReadingOf = (
@@ -153,13 +148,20 @@ async function rejectionsOf(
   spent.usage.push(...seen.usage);
   for (const judge of judges) {
     const input = judgedInputOf(state, deps, judge, text, seen.files);
-    const event = { name: judge.name, agentName: agent };
+    const event = { judge: judge.name, agent };
     await reportNodeEvent((base) =>
       deps.observer?.onJudgeStart({ ...base, ...event, input: text }),
     );
-    const model = meteredModel(judge, spent.usage, judgeReadingOf(state, deps), seen.pieces);
-    const verdict: JudgeVerdict = await runJudgeCall(model, () => judge.handler.judge(input)).catch(
+    const model = meteredModel(
+      judge,
+      spent.usage,
+      judgeReadingOf(state, deps),
+      seen.pieces,
+      judgeBudgetCheckOf(state, deps, spent.usage),
+    );
+    const verdict: JudgeVerdict = await verdictOfJudge(judge, input, model).catch(
       (error: unknown) => {
+        if (error instanceof BudgetExceededError) throw error;
         throw new AgentFailedError({
           agent,
           usage: [...loopUsage(state), ...spent.usage],
@@ -169,7 +171,7 @@ async function rejectionsOf(
     );
     spent.verdicts.push(verdictRecordOf(judge.name, state.retries, verdict));
     await reportNodeEvent((base) =>
-      deps.observer?.onJudgeEnd({ ...base, ...event, update: verdict }),
+      deps.observer?.onJudgeEnd({ ...base, ...event, output: verdict }),
     );
     if (!verdict.passed) rejected.push({ judge: judge.name, reason: verdict.reason });
   }
@@ -207,7 +209,7 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
     const usage = [...deps.budgets.tally(judged, state.flowPath)];
     if (rejected.length === 0) return { usage, judgeVerdicts: verdicts };
     // what the reply streamed is retracted, whether a retry follows or the agent fails (#1006)
-    agentStreamOf(config)?.discardLast("judge-rejected");
+    agentStreamOf(config)?.discardLast(StreamDiscardReason.JudgeRejected);
     if (state.retries >= maxRetries) {
       const error = new QualityGateError({
         agent,
@@ -218,6 +220,13 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       carryRecords(error, { judgeVerdicts: verdicts }); // this round's, after the loop's (#395 S6)
       throw error;
     }
+    const feedback = retryPrompt(rejected);
+    await reportAgentRetry(deps, {
+      reason: AgentRetryReason.JudgeRejected,
+      attempt: state.retries + 1,
+      maxAttempts: maxRetries + 1,
+      feedback,
+    });
     return {
       reply: null,
       answer: null,
@@ -226,7 +235,7 @@ export function makeJudgeNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       retries: 1,
       usage,
       judgeVerdicts: verdicts,
-      messages: [new HumanMessage(retryPrompt(rejected))],
+      messages: [new HumanMessage(feedback)],
     };
   };
 }

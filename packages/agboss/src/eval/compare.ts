@@ -1,3 +1,4 @@
+import { type Usd, usd } from "../units/index.js";
 import { systemClock } from "../infrastructure/clock.js";
 import { recordApplicationSpend } from "../budgets/application-spend.js";
 import { isPeriodBudgetExhausted } from "../graph/limits.js";
@@ -21,7 +22,7 @@ export interface ProfileOutcome {
   readonly version: string;
   readonly answers: readonly (string | undefined)[];
   readonly scores: readonly (number | undefined)[];
-  readonly costUsd: number;
+  readonly costUsd: Usd;
   readonly latenciesMs: readonly number[];
   readonly failed: number;
   readonly stoppedBy?: string;
@@ -32,8 +33,8 @@ export const TIE_BELOW = 0.6;
 
 async function judged(evaluation: EvalDeps, request: RouteRequest) {
   const outcome = await evaluation.judge.route(request);
-  if (outcome.usage !== undefined)
-    await recordApplicationSpend(evaluation.budgets, [outcome.usage]);
+  const spent = [...(outcome.usage === undefined ? [] : [outcome.usage]), ...(outcome.spent ?? [])];
+  if (spent.length > 0) await recordApplicationSpend(evaluation.budgets, spent);
   return outcome;
 }
 
@@ -46,7 +47,7 @@ export async function runProfile(
   const answers: (string | undefined)[] = [];
   const scores: (number | undefined)[] = [];
   const latenciesMs: number[] = [];
-  let costUsd = 0;
+  let costUsd: Usd = usd(0);
   let failed = 0;
   for (const task of tasks) {
     const started = clock();
@@ -54,7 +55,7 @@ export async function runProfile(
       const request = requestOfTask(run.deps.graph, task);
       const result = await executeAgent(request, run.deps);
       latenciesMs.push(clock() - started);
-      costUsd += result.cost.totalUsd;
+      costUsd = usd(costUsd + result.cost.totalUsd);
       const [turn] = await run.deps.turns.byIds([result.turnId]);
       answers.push(turn?.replyWith);
       scores.push(

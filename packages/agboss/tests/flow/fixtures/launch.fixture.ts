@@ -1,12 +1,8 @@
-import { start, toAction } from "../../../src/flow/builder.js";
+import { onStart, skip, toAction, toAgent, toRouter } from "../../../src/flow/builder.js";
+import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import {
-  DecidedBy,
-  FailurePolicy,
-  Router,
-  SpawnPolicy,
-} from "../../../src/flow/decorators/router.js";
+import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
@@ -25,6 +21,9 @@ import {
   ScreeningFailedDto,
 } from "./launch-dtos.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "./review-dtos.js";
+import { inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #273 — the issue's four launches, each a workflow of its own: different agents (a repeated one),
@@ -44,7 +43,7 @@ export class ResearchWorkflowStart {}
 @Agent({
   name: "planner-agent",
   description: "Plans the article",
-  prompt: "Plan the article.",
+  prompt: inline("Plan the article."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -56,7 +55,7 @@ export class PlannerAgent {}
 @Agent({
   name: "plan-researcher-agent",
   description: "Researches the plan",
-  prompt: "Research the plan.",
+  prompt: inline("Research the plan."),
   model: "moonshotai/kimi-k2.6",
   input: {
     plan: PlanDto,
@@ -68,7 +67,7 @@ export class PlanResearcherAgent {}
 @Agent({
   name: "critic-agent",
   description: "Criticises the plan",
-  prompt: "Criticise the plan.",
+  prompt: inline("Criticise the plan."),
   model: "moonshotai/kimi-k2.6",
   input: {
     plan: PlanDto,
@@ -80,7 +79,7 @@ export class CriticAgent {}
 @Agent({
   name: "article-writer-agent",
   description: "Writes the article from the plan, the research and the critiques",
-  prompt: "Write the article.",
+  prompt: inline("Write the article."),
   model: "moonshotai/kimi-k2.6",
   input: {
     plan: PlanDto,
@@ -100,18 +99,17 @@ export class ArticleDraftWorkflowFinish {}
 
 @Workflow({
   name: "research-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ResearchWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ResearchWorkflowStart)
       .toAgent(PlannerAgent)
-      .returns(PlanDto)
-      .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
+      .inParallel([toAgent(PlanResearcherAgent), toAgent(CriticAgent), toAgent(CriticAgent)], {
+        maxConcurrency: 3,
+      })
       .join()
-      .returns(ResearchDto)
-      .returns(listOf(CritiqueDto))
       .toAgent(ArticleWriterAgent)
-      .returns(ArticleDraftDto)
       .toFinish(ArticleDraftWorkflowFinish),
   ],
 })
@@ -129,7 +127,7 @@ export class ScreeningWorkflowStart {}
 @Agent({
   name: "screening-agent",
   description: "Finds the companies",
-  prompt: "Find the companies.",
+  prompt: inline("Find the companies."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -141,7 +139,7 @@ export class ScreeningAgent {}
 @Agent({
   name: "company-audit-agent",
   description: "Checks one company",
-  prompt: "Check the company.",
+  prompt: inline("Check the company."),
   model: "moonshotai/kimi-k2.6",
   input: {
     company: CompanyDto, // the item of this run
@@ -153,7 +151,7 @@ export class CompanyAuditAgent {}
 @Agent({
   name: "ranker-agent",
   description: "Ranks the checked companies",
-  prompt: "Rank the companies.",
+  prompt: inline("Rank the companies."),
   model: "moonshotai/kimi-k2.6",
   input: {
     checks: listOf(CompanyCheckDto), // one per item
@@ -193,27 +191,23 @@ export class ScreeningFailedWorkflowFinish {}
 @Workflow({
   name: "screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ScreeningWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ScreeningWorkflowStart)
       .toAgent(ScreeningAgent)
-      .returns(listOf(CompanyDto))
-      .toParallelAgents(CompanyAuditAgent, { maxConcurrency: 3, maxItems: 50 })
+      .forEachItem(toAgent(CompanyAuditAgent), { takeFirst: 50, maxConcurrency: 3 })
       .join()
-      .onJoinError(
+      .onError(
         LimitExceededError,
         toAction(NotifyOperatorAction)
-          .returns(ScreeningFailedDto)
           .toFinish(ScreeningFailedWorkflowFinish),
       )
-      .returns(listOf(CompanyCheckDto))
       .toAgent(RankerAgent)
-      .returns(RankingDto)
       .toFinish(RankingWorkflowFinish),
   ],
-  // the worst case (50 items) takes 52 steps: the default (agents + routers) × 3 cannot hold it
+  // the worst case (50 items) takes 52 steps: the default (agents + routers + actions + external tasks) × 3 cannot hold it
   // (#273 S68 f); 9 stops a long list, into the join's handler
-  maxSteps: 9,
+  executionLimits: { maxSteps: 9 },
 })
 export class ScreeningWorkflow {}
 
@@ -236,7 +230,7 @@ export class CheckoutWorkflowStart {}
 })
 export class ChargePaymentAction implements ActionHandler<ChargePaymentAction> {
   execute(input: InputOf<ChargePaymentAction>): Promise<OutputOf<ChargePaymentAction>> {
-    return Promise.resolve({ paymentId: input.message.value.text, amount: 1 });
+    return Promise.resolve({ paymentId: input.message.text, amount: 1 });
   }
 }
 
@@ -249,7 +243,7 @@ export class ChargePaymentAction implements ActionHandler<ChargePaymentAction> {
 })
 export class SendReceiptAction implements ActionHandler<SendReceiptAction> {
   async execute(input: InputOf<SendReceiptAction>): Promise<void> {
-    await Promise.resolve(input.payment.value.paymentId);
+    await Promise.resolve(input.payment.paymentId);
   }
 }
 
@@ -262,7 +256,7 @@ export class SendReceiptAction implements ActionHandler<SendReceiptAction> {
 })
 export class UpdateCrmAction implements ActionHandler<UpdateCrmAction> {
   async execute(input: InputOf<UpdateCrmAction>): Promise<void> {
-    await Promise.resolve(input.payment.value.paymentId);
+    await Promise.resolve(input.payment.paymentId);
   }
 }
 
@@ -275,7 +269,7 @@ export class UpdateCrmAction implements ActionHandler<UpdateCrmAction> {
 })
 export class ReserveGoodsAction implements ActionHandler<ReserveGoodsAction> {
   async execute(input: InputOf<ReserveGoodsAction>): Promise<void> {
-    await Promise.resolve(input.payment.value.paymentId);
+    await Promise.resolve(input.payment.paymentId);
   }
 }
 
@@ -289,14 +283,14 @@ export class PaymentWorkflowFinish {}
 @Workflow({
   name: "checkout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(CheckoutWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(CheckoutWorkflowStart)
       .toAction(ChargePaymentAction)
-      .returns(PaymentDto)
-      .toParallelActions(SendReceiptAction, UpdateCrmAction, ReserveGoodsAction, {
-        maxConcurrency: 3,
-      })
+      .inParallel(
+        [toAction(SendReceiptAction), toAction(UpdateCrmAction), toAction(ReserveGoodsAction)],
+        { maxConcurrency: 3 },
+      )
       .join() // three side effects without output: nothing to name
       .toFinish(PaymentWorkflowFinish), // reads PaymentDto from the path
   ],
@@ -315,7 +309,7 @@ export class HelpDeskWorkflowStart {}
 @Agent({
   name: "order-lookup-agent",
   description: "Looks the order up",
-  prompt: "Look the order up.",
+  prompt: inline("Look the order up."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -327,7 +321,7 @@ export class OrderLookupAgent {}
 @Agent({
   name: "refund-policy-agent",
   description: "Reads the refund policy",
-  prompt: "Quote the refund policy.",
+  prompt: inline("Quote the refund policy."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -339,7 +333,7 @@ export class RefundPolicyAgent {}
 @Agent({
   name: "loyalty-offer-agent",
   description: "Finds an offer for the customer",
-  prompt: "Find an offer.",
+  prompt: inline("Find an offer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -353,26 +347,19 @@ export class LoyaltyOfferAgent {}
   description: "Picks everyone needed for the customer's message",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick everyone needed for the customer's message.",
+  modelProvider: TestDecisionsModelProvider,
+  prompt: inline("Pick everyone needed for the customer's message."),
   input: {
     message: WorkflowStartTextDto,
   },
-  routes: [
-    { target: OrderLookupAgent, spawn: SpawnPolicy.Always },
-    {
-      target: RefundPolicyAgent,
-      spawn: SpawnPolicy.OnDemand,
-      prompt: "The message is about returns",
-    },
-    { target: LoyaltyOfferAgent, spawn: SpawnPolicy.Always, failure: FailurePolicy.Skip },
-  ],
+  routes: [{ target: RefundPolicyAgent, prompt: "The message is about returns" }],
 })
 export class HelpDeskRouter {}
 
 @Agent({
   name: "answer-agent",
   description: "Writes the reply from the branches' results",
-  prompt: "Write the reply.",
+  prompt: inline("Write the reply."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -394,17 +381,18 @@ export class HelpDeskWorkflowFinish {}
 @Workflow({
   name: "help-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HelpDeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toRouter(HelpDeskRouter)
-      .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent)
+    onStart(HelpDeskWorkflowStart)
+      .inParallel([
+        toAgent(OrderLookupAgent),
+        toAgent(LoyaltyOfferAgent)
+          .onError(StepError, skip()),
+        toRouter(HelpDeskRouter)
+          .chooseMany([toAgent(RefundPolicyAgent)]),
+      ])
       .join()
-      .returns(OrderStatusDto)
-      .returns(optional(RefundPolicyDto))
-      .returns(optional(LoyaltyOfferDto))
       .toAgent(AnswerAgent)
-      .returns(CustomerReplyDto)
       .toFinish(HelpDeskWorkflowFinish),
   ],
 })
@@ -426,18 +414,18 @@ export class OffersWorkflowStart {}
   input: {
     message: WorkflowStartTextDto,
   },
-  routes: [{ target: RefundPolicyAgent, spawn: SpawnPolicy.Always }, { target: LoyaltyOfferAgent }],
+  routes: [LoyaltyOfferAgent],
 })
 export class OffersRouter implements RouterHandler<OffersRouter> {
   route(input: InputOf<OffersRouter>): RouterAnswerOf<OffersRouter> {
-    return input.message.value.text.includes("loyal") ? [LoyaltyOfferAgent] : [];
+    return input.message.text.includes("loyal") ? [LoyaltyOfferAgent] : [];
   }
 }
 
 @Agent({
   name: "offers-answer-agent",
   description: "Answers with the policy and maybe an offer",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     refund: RefundPolicyDto,
@@ -457,16 +445,16 @@ export class OffersWorkflowFinish {}
 @Workflow({
   name: "offers-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OffersWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toRouter(OffersRouter)
-      .toParallelAgents(RefundPolicyAgent, LoyaltyOfferAgent)
+    onStart(OffersWorkflowStart)
+      .inParallel([
+        toAgent(RefundPolicyAgent),
+        toRouter(OffersRouter)
+          .chooseMany([toAgent(LoyaltyOfferAgent)]),
+      ])
       .join()
-      .returns(RefundPolicyDto)
-      .returns(optional(LoyaltyOfferDto))
       .toAgent(OffersAnswerAgent)
-      .returns(CustomerReplyDto)
       .toFinish(OffersWorkflowFinish),
   ],
 })

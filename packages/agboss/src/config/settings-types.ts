@@ -5,10 +5,10 @@
  * checks that each pair is the same type, so the two cannot drift.
  */
 import type { ResolvedModelFiles } from "../files/file-settings.js";
-import type { CompactionStrategy } from "../compaction/compaction.decorator.js";
+import type { CompactionStrategy } from "../memory/memory.decorator.js";
 import type { CachedPart, CacheRetention } from "../models/prompt-caching.js";
 import type { ReasoningEffort } from "../models/reasoning.js";
-import type { RagMode, RagTenancy, RerankFailurePolicy } from "../rag/types.js";
+import type { RagScope, RerankFailurePolicy } from "../rag/types.js";
 import type { TokenLimit, TurnLimit } from "./types.js";
 
 /** USD per 1M tokens — take from openrouter.ai/models. Cache prices fall back to input price. */
@@ -19,8 +19,8 @@ export interface Price {
   cacheWritePerMTok?: number | undefined;
 }
 
-/** An output ceiling: a whole number of tokens, or `TokenLimit.MODEL_MAX` — what the model allows. */
-export type MaxTokens = number | TokenLimit.MODEL_MAX;
+/** An output ceiling: a whole number of tokens, or `TokenLimit.ModelMax` — what the model allows. */
+export type MaxTokens = number | TokenLimit.ModelMax;
 
 /**
  * A component's reasoning: "default" = the model decides, an effort level ("none" = off),
@@ -47,7 +47,7 @@ export type Thinking =
 export type CacheSetting =
   | boolean
   | {
-      kind: "where-supported";
+      kind: "on";
       retention: CacheRetention;
       cachedParts: readonly CachedPart[];
       key?: string | undefined;
@@ -63,14 +63,18 @@ export interface ModelSettings {
   cache?: CacheSetting | undefined;
   /** Overrides the provider's price table; the provider's own cost comes first. */
   price?: Price | undefined;
+  /** The `@ModelProvider` this model is served from, by `name` (#1313); absent = by `serves`. */
+  modelProvider?: string | undefined;
+  /** The provider has no `cost`: a call left unpriced is `CostSource.Unpriced` (#1313). */
+  unpriced?: true | undefined;
 }
 
 /**
- * A `@Compaction` in use, by name: its strategy and — when it writes summaries — its model, how
+ * A `@Memory` that compacts, by name: its strategy and — when it writes summaries — its model, how
  * many turns gather before a compaction, and for a queue how many summaries are kept.
  */
 export interface CompactionSettings {
-  strategy: CompactionStrategy;
+  strategy: CompactionStrategy | "custom";
   model?: ModelSettings | undefined;
   turnsBetweenCompactions?: number | undefined;
   summaryQueueLength?: number | undefined;
@@ -82,7 +86,9 @@ export interface AgentSettings extends ModelSettings {
   /** Tool names from the registry. */
   tools?: string[] | undefined;
   /** How many recent turns of the thread the agent sees in full. */
-  uncompactedTurns?: number | TurnLimit.ALL | undefined;
+  uncompactedTurns?: number | TurnLimit.All | undefined;
+  /** Model calls per call of the agent; crossing it fails the run. */
+  maxModelCalls?: number | undefined;
   /** Tool calls per call of the agent; crossing it fails the run. */
   maxToolCalls?: number | undefined;
   /** Judges of the agent's reply (names in `judges`), and how often a rejected reply is retried. */
@@ -90,36 +96,17 @@ export interface AgentSettings extends ModelSettings {
   maxRetries?: number | undefined;
   /** Files for the agent's model (#899), every level applied; absent = no byte goes to the model. */
   files?: ResolvedModelFiles | undefined;
-  /** Knowledge bases the agent uses: name, mode and passages per retrieval. */
+  /** Knowledge bases the agent uses: name, scope and passages per retrieval. */
   rag?:
     | {
         name: string;
-        mode: RagMode;
         topK: number;
-        tenancy: RagTenancy;
+        scope: RagScope;
         rerank?:
           { reranker: string; candidates: number; onFailure: RerankFailurePolicy } | undefined;
       }[]
     | undefined;
 }
-
-/** An MCP server connection. Secrets are never here: only names of env variables. */
-export type McpServerConfig =
-  | {
-      transport: "stdio";
-      target?: { application: string; expose: string } | undefined;
-      command: string;
-      args?: string[] | undefined;
-      /** Names of env variables passed to the server process. */
-      env?: string[] | undefined;
-    }
-  | {
-      transport: "http";
-      target?: { application: string; expose: string } | undefined;
-      url: string;
-      /** Header name → name of the env variable holding its value. */
-      headers?: Record<string, string> | undefined;
-    };
 
 /** A workflow's config: its name and version, the defaults, the MCP servers and every agent. */
 export interface AgentsConfig {
@@ -135,14 +122,16 @@ export interface AgentsConfig {
       cache?: CacheSetting | undefined;
     };
     /** The model of `ROUTER_FACTORY` routers and of eval; none = they need their own. */
-    router?: { kind: "jev"; model: string } | (ModelSettings & { kind: "llm" }) | undefined;
+    router?:
+      | { kind: "jev"; model: string; modelProvider?: string | undefined }
+      | (ModelSettings & { kind: "llm" })
+      | undefined;
     tools?: { maxToolCalls?: number | undefined; maxResultSize?: number | undefined } | undefined;
     /** Recent turns every agent and model router sees in full. */
-    uncompactedTurns: number | TurnLimit.ALL;
+    uncompactedTurns: number | TurnLimit.All;
   };
-  mcpServers?: Record<string, McpServerConfig> | undefined;
   /** The `@Compaction`s its agents and model routers use, by name. */
-  compactions?: Record<string, CompactionSettings> | undefined;
+  memories?: Record<string, CompactionSettings> | undefined;
   /** `@Judge` models by judge name. */
   judges?: Record<string, ModelSettings> | undefined;
   agents: Record<string, AgentSettings>;

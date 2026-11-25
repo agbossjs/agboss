@@ -110,6 +110,9 @@ export async function outgoingMove(
   const messages = unknownTokenMessages(revealed.move, revealed.unknownTokens);
   return {
     kind: "invalid",
-    update: { ...invalidAnswer(state, deps, problem, messages), usage: [...spent, ...usage] },
+    update: {
+      ...(await invalidAnswer(state, deps, problem, messages)),
+      usage: [...spent, ...usage],
+    },
   };
 }

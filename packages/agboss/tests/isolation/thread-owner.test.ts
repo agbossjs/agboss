@@ -1,5 +1,6 @@
 /** #202 AC1: a thread belongs to its owner — another owner cannot continue, resume or cancel it. */
-import { createAppWith, type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { ThreadOwnerError } from "../../src/index.js";
 import { resetSharedDatabase } from "../helpers/shared-infrastructure.js";
@@ -28,7 +29,7 @@ describe("#202 AC1: threads are bound to their owner", () => {
   it("AC1: another owner cannot continue a thread — nothing runs, its history is never read", async () => {
     const book = new ScriptBook();
     const cashier = book.scriptOf("agent:cashier-agent").thenReturnAlways(replyWith("Hello."));
-    const app = await createAppWith(PaymentsApplication, offline(book));
+    const app = await createTestAppWith(PaymentsApplication, offline(book));
     const first = await execute(app, ChatStart, { text: "my card is 4111" }, { ownerId: "alice" });
 
     const intruder = execute(
@@ -64,12 +65,12 @@ describe("#202 AC1: threads are bound to their owner", () => {
   it("AC1: another owner cannot resume or cancel a paused run; its owner resumes it", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:cashier-agent").thenReturn(callTool(Pay, card), replyWith("Paid."));
-    const app = await createAppWith(PaymentsApplication, offline(book));
+    const app = await createTestAppWith(PaymentsApplication, offline(book));
     const log = app.resolve(PaymentLog);
     const paused = await execute(app, ChatStart, { text: "pay A-1" }, { ownerId: "alice" });
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ ask: { tool: "pay-tool" } }],
+      pending: [{ toolCall: { tool: "pay-tool" } }],
     });
 
     await expect(app.resume(answerOf(paused, approve), { ownerId: "bob" })).rejects.toBeInstanceOf(
@@ -90,7 +91,7 @@ describe("#202 AC1: threads are bound to their owner", () => {
   it("AC1: the owner cancels its own paused run; threads without an owner work as before", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:cashier-agent").thenReturn(callTool(Pay, card), replyWith("Hi."));
-    const app = await createAppWith(PaymentsApplication, offline(book));
+    const app = await createTestAppWith(PaymentsApplication, offline(book));
     const paused = await execute(app, ChatStart, { text: "pay A-1" }, { ownerId: "alice" });
 
     expect(await app.cancel(paused.threadId, { ownerId: "alice" })).toEqual({ cancelled: true });
@@ -108,7 +109,7 @@ describe("#202 AC1: threads are bound to their owner", () => {
     resetSharedDatabase();
     const book = new ScriptBook();
     book.scriptOf("agent:cashier-agent").thenReturnAlways(replyWith("Hello."));
-    const first = await createAppWith(DurablePaymentsApplication, offline(book));
+    const first = await createTestAppWith(DurablePaymentsApplication, offline(book));
     const { threadId: thread } = await execute(
       first,
       ChatStart,
@@ -117,7 +118,7 @@ describe("#202 AC1: threads are bound to their owner", () => {
     );
     await first.close();
 
-    const second = await createAppWith(DurablePaymentsApplication, offline(book));
+    const second = await createTestAppWith(DurablePaymentsApplication, offline(book));
     const intruder = execute(
       second,
       ChatStart,

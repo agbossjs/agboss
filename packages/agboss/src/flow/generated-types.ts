@@ -1,23 +1,29 @@
 import type { NodeKind } from "./ast.js";
 import type { ExecutionOptions } from "../app/types.js";
 import type { ContextValues, TenantValues } from "./context/context-values.js";
-import type {
-  ToolCallApprovalAskDto,
-  ToolCallApprovalDecisionDto,
-} from "../dto/standard/framework.js";
 
-export type { HistoryOf, Produced } from "./dto-wrappers.js";
+export type { HistoryOf } from "./dto-wrappers.js";
+export type { Tracked } from "./metadata.js";
+// the brand `.agboss/types.d.ts` puts on an `@Application` class (#1324e)
+export { agbossTenantContext } from "../app/tenant-args.js";
+/** The kinds a brand carries (`NodeKind.Agent`): the generated file imports it from here. */
+export type { NodeKind };
 
 /**
  * The tables `.agboss/types.d.ts` fills by declaration merging (#272 S3, #270 → Generated types).
- * Every table is keyed by the component's `name`; every component class is branded with its name
- * (`readonly [agbossComponent]?: "draft-agent"`, merged into the class's instance type), so empty
+ * Every table is keyed by the component's `name`; every component class is branded with its name and
+ * kind (`readonly [agbossComponent]?: { readonly name: "draft-agent"; readonly kind: NodeKind.Agent }`,
+ * merged into the class's instance type), so empty
  * classes become distinct types. Before generation a lookup gives `MissingGeneratedTypes`, which
  * names the fix. Until PR 4 exports this module from `@agboss/core`, the generator (`flow/types/`) augments
- * it here; it imports `Produced` and `HistoryOf` from here too, so the generated file names one module.
+ * it here; it imports `Tracked` and `HistoryOf` from here too, so the generated file names one module.
  */
 
-/** The brand key on component classes; its value is the component's `name`. */
+/**
+ * The brand key on component classes: its value is `{ name, kind }`, merged into the class's instance
+ * type by `.agboss/types.d.ts` only (a decorator never types its class, so a recursive reference
+ * to a class from inside its own decorator argument compiles, #1287).
+ */
 export const agbossComponent: unique symbol = Symbol("agboss.component");
 
 /** The brand key on DTO classes; its value is the class name (keeps empty marker DTOs distinct). */
@@ -29,7 +35,7 @@ declare const notGenerated: unique symbol;
 declare const noOutput: unique symbol;
 declare const noInput: unique symbol;
 
-/** A producer without `output` (an `@Action` done for its side effect): no `.returns` after it. */
+/** A producer without `output` (an `@Action` done for its side effect): it gives no value. */
 export interface NoOutput {
   readonly [noOutput]: true;
 }
@@ -49,115 +55,103 @@ export interface GeneratedTypeError {
   readonly __error: string;
 }
 
-/** What every producer gives, by name: starts (their input), agents, actions; `NoOutput` for none. */
-export interface ProducerOutputs {
-  readonly [notGenerated]?: never;
-}
-
 /**
- * What the join of each launch gives (#273), keyed by the launch as written —
- * `toParallelAgents(researcher-agent, critic-agent, critic-agent)`,
- * `support-router.toParallelAgents(…)`, `toParallelAgents(company-check-agent) per item`: one value
- * per class the branches give (a tuple for several), `listOf` for copies and per-item runs,
- * `optional` for a branch that may be missing; `NoOutput` when its actions give nothing.
+ * The tables `.agboss/types.d.ts` fills by declaration merging, one namespace so a generated file
+ * adds nothing else to `@agboss/core`'s names (#1324g): `AGBossTypes.Inputs`, `.Outputs`, …
  */
-export interface JoinOutputs {
-  readonly [notGenerated]?: never;
+export declare namespace AGBossTypes {
+  /** What every producer gives, by name: starts (their input), agents, actions; `NoOutput` for none. */
+  export interface ProducerOutputs {
+    readonly [notGenerated]?: never;
+  }
+
+  /** Each node's input, path-sensitive (`Tracked` DTOs; a plain DTO for tools). */
+  export interface Inputs {
+    readonly [notGenerated]?: never;
+  }
+
+  /** What a handler returns, by name (`OutputOf<Self>`). */
+  export interface Outputs {
+    readonly [notGenerated]?: never;
+  }
+
+  /**
+   * Input and output per start: `app.execute(Start, input)` and `result.output`; `tenant` /
+   * `execution` — the context subclasses its application declares (#261), typing the options.
+   */
+  export interface WorkflowStarts {
+    readonly [notGenerated]?: never;
+  }
+
+  /**
+   * The finishes of each child workflow by its `name`, as classes (`typeof KycFraudFinish | …`):
+   * what `.onFinish(ChildFinish, subPath)` names after `.toWorkflow(W)` (#1275b).
+   */
+  export interface WorkflowFinishes {
+    readonly [notGenerated]?: never;
+  }
+
+  /**
+   * The DTO classes the generated file brands, by class name (S39): each is augmented with
+   * `readonly [agbossDto]?: "XDto"`, so empty marker DTOs and same-shaped DTOs are distinct types.
+   */
+  export interface DtoBrands {
+    readonly [notGenerated]?: never;
+  }
+
+  /** The targets a router decides on (`Route<R>`, #280): every route of the router. */
+  export interface Routes {
+    readonly [notGenerated]?: never;
+  }
+
+  /**
+   * What a router answers, by name: a code router's `route()` (#280), a model router's scripted
+   * `routeTo(…)` in tests (#262) — one target after `.onRoute(…)`; after `.inParallel(…)`
+   * (#273) a list, `readonly Route<R>[]`, which may be empty (#1279).
+   */
+  export interface RouterAnswers {
+    readonly [notGenerated]?: never;
+  }
+
+  /**
+   * What each pause target asks and is answered with (#1307), by the target's `name`:
+   * `@ToolApproval` — `input` the gated tools' input, `output` the `ApprovalDecision` of it;
+   * `@ExternalTask` — its `input` and `output` DTOs.
+   */
+  export interface PauseTargets {
+    readonly [notGenerated]?: never;
+  }
+
+  /**
+   * The tools an agent's model may call, by the agent's `name` (#679): the names its scripted
+   * `callTool(…)` / `callTools(…)` turns are checked against — its `@Tool` classes and
+   * its tool-mode knowledge bases' `search-<rag>-tool`.
+   */
+  export interface AgentTools {
+    readonly [notGenerated]?: never;
+  }
+
+  /**
+   * The output each `@Judge` judges, by the judge's `name` (#1290): `JudgeInput<Self>` reads it —
+   * the output's value as the judge gets it (`readonly (A | B)[]` for a `listOf(A, B)`).
+   */
+  export interface JudgeOutputs {
+    readonly [notGenerated]?: never;
+  }
 }
 
-/**
- * `ThisWorkflow` per recursive workflow (#264 S112), keyed by the workflow's `name`: `input` — the
- * problems of launching it (`[graph.no-matching-start]`, `[input.missing-on-path]`, …) or
- * `NoInput`; `output` — what one child gives (its finishes' outputs); `join` — what the join of its
- * per-item launch gives, when it has one. `@Workflow({ name, flow })` checks the `.returns(…)` after
- * each `ThisWorkflow` launch of its flow against it.
- */
-export interface ThisWorkflowOutputs {
-  readonly [notGenerated]?: never;
-}
-
-/** Each node's input, path-sensitive (`Produced` fields; a plain DTO for tools). */
-export interface Inputs {
-  readonly [notGenerated]?: never;
-}
-
-/** What a handler returns, by name (`OutputOf<Self>`). */
-export interface Outputs {
-  readonly [notGenerated]?: never;
-}
-
-/**
- * Input and output per start: `app.execute(Start, input)` and `result.output`; `tenant` /
- * `execution` — the context subclasses its application declares (#261), typing the options.
- */
-export interface WorkflowStarts {
-  readonly [notGenerated]?: never;
-}
-
-/**
- * The DTO classes the generated file brands, by class name (S39): each is augmented with
- * `readonly [agbossDto]?: "XDto"`, so empty marker DTOs and same-shaped DTOs are distinct types.
- */
-export interface DtoBrands {
-  readonly [notGenerated]?: never;
-}
-
-/** The targets a router decides on (`Route<R>`, #280): its `SpawnPolicy.Always` routes left out. */
-export interface Routes {
-  readonly [notGenerated]?: never;
-}
-
-/**
- * What a router answers, by name: a code router's `route()` (#280), a model router's scripted
- * `routeTo(…)` in tests (#262) — one target after `.chooseOne(…)`; after `.toParallelAgents(…)`
- * (#273) a list — `readonly [Route<R>, ...Route<R>[]]` without an `Always` route, so `[]` does
- * not compile.
- */
-export interface RouterAnswers {
-  readonly [notGenerated]?: never;
-}
-
-/**
- * What each channel role asks and how it is answered (#267), by the role's `name`: a role with
- * `approves: XDto` asks `ToolCallApprovalAskDto` with `arguments: XDto` and is answered with
- * `ToolCallApprovalDecisionDto` with `overrideArguments?: XDto`; a question role (#659) with `ask` /
- * `answer` asks and is answered with those DTOs. A concrete `@Channel` a tool names as is approves
- * those tools. The built-in channels approve any tool.
- */
-export interface ChannelRoles {
-  readonly [notGenerated]?: never;
-  readonly "terminal-user-channel": {
-    readonly ask: ToolCallApprovalAskDto;
-    readonly answer: ToolCallApprovalDecisionDto;
-  };
-  readonly "auto-approve-channel": {
-    readonly ask: ToolCallApprovalAskDto;
-    readonly answer: ToolCallApprovalDecisionDto;
-  };
-  readonly "auto-reject-channel": {
-    readonly ask: ToolCallApprovalAskDto;
-    readonly answer: ToolCallApprovalDecisionDto;
-  };
-}
-
-/**
- * What a channel of `TRole` is asked (`ChannelAsk<TRole>["value"]`), from the generated
- * `ChannelRoles` entry of the role: the tool call an approval role approves, a question role's
- * `ask` (#659); `MissingGeneratedTypes` before `agboss check`.
- */
-export type ChannelQuestionOf<TRole> =
-  GeneratedEntry<ChannelRoles, TRole> extends { readonly ask: infer TAsk }
-    ? TAsk
+/** What a pause of `TTarget` asks (its generated `PauseTargets` entry); `never` for `never`. */
+export type PauseInputOf<TTarget> = [TTarget] extends [never]
+  ? never
+  : GeneratedEntry<AGBossTypes.PauseTargets, TTarget> extends { readonly input: infer TInput }
+    ? TInput
     : MissingGeneratedTypes;
 
-/**
- * The answer that decides a pause of `TRole` (`ChannelOutcome.decided(…)`, a reply): the
- * `ToolCallApprovalDecisionDto` of an approval role's `approves`, a question role's `answer` (#659);
- * `MissingGeneratedTypes` before `agboss check`.
- */
-export type ChannelAnswerOf<TRole> =
-  GeneratedEntry<ChannelRoles, TRole> extends { readonly answer: infer TAnswer }
-    ? TAnswer
+/** What answers a pause of `TTarget` (its generated `PauseTargets` entry); `never` for `never`. */
+export type PauseOutputOf<TTarget> = [TTarget] extends [never]
+  ? never
+  : GeneratedEntry<AGBossTypes.PauseTargets, TTarget> extends { readonly output: infer TOutput }
+    ? TOutput
     : MissingGeneratedTypes;
 
 /**
@@ -170,33 +164,29 @@ export interface Environment {
 }
 
 /** The `name` a branded component carries; `never` when it is not branded (not generated). */
-export type NameOf<TInstance> = TInstance extends {
-  readonly [agbossComponent]?: infer TName extends string;
-}
-  ? string extends TName
-    ? never
-    : TName
-  : never;
+export type NameOf<T> =
+  InstanceOrSelf<T> extends {
+    readonly [agbossComponent]?: { readonly name: infer TName extends string };
+  }
+    ? string extends TName
+      ? never
+      : TName
+    : never;
 
-/** A component's kind, read from its name's suffix (`-agent`, `-router`, … — `[name.kind-suffix]`). */
-export type KindOfName<TName extends string> = TName extends `${string}-workflow-start`
-  ? NodeKind.Start
-  : TName extends `${string}-workflow-finish`
-    ? NodeKind.Finish
-    : TName extends `${string}-workflow`
-      ? NodeKind.Workflow
-      : TName extends `${string}-agent`
-        ? NodeKind.Agent
-        : TName extends `${string}-router`
-          ? NodeKind.Router
-          : TName extends `${string}-action`
-            ? NodeKind.Action
-            : TName extends `${string}-question`
-              ? NodeKind.Question
-              : never;
+/** An instance's own type, or the instance type of a class: a lookup takes either. */
+export type InstanceOrSelf<T> = T extends abstract new (...args: never[]) => infer TInstance
+  ? TInstance
+  : T;
 
-/** A component's kind from its brand; `never` when it is not branded. */
-export type KindOf<TInstance> = KindOfName<NameOf<TInstance>>;
+/** A component's kind from its brand; `never` when it is not branded or its brand has no kind. */
+export type KindOf<T> =
+  InstanceOrSelf<T> extends {
+    readonly [agbossComponent]?: { readonly kind: infer TKind extends NodeKind };
+  }
+    ? NodeKind extends TKind
+      ? never
+      : TKind
+    : never;
 
 /** An entry of a generated table for a component, or `MissingGeneratedTypes`. */
 export type GeneratedEntry<TTable, TInstance> =
@@ -208,7 +198,7 @@ export type GeneratedEntry<TTable, TInstance> =
 
 /**
  * The tools an agent's model may call, by the agent's `name` (#679): the names its scripted
- * `callTool(…)` / `callTools(…)` turns are checked against — its `@Tool` / `@McpTool` classes and
+ * `callTool(…)` / `callTools(…)` turns are checked against — its `@Tool` classes and
  * its tool-mode knowledge bases' `search-<rag>-tool`.
  */
 export interface AgentTools {
@@ -220,35 +210,30 @@ export interface AgentTools {
  * component without generated types (then nothing is checked).
  */
 export type AgentToolNamesOf<TSelf> =
-  GeneratedEntry<AgentTools, TSelf> extends infer TNames extends string ? TNames : string;
+  GeneratedEntry<AGBossTypes.AgentTools, TSelf> extends infer TNames extends string
+    ? TNames
+    : string;
 
 /** The name an agent's model calls a tool class by (#679): its brand, `string` before `agboss check`. */
 export type ToolNameOf<TTool> = [NameOf<TTool>] extends [never] ? string : NameOf<TTool>;
 
 /** A node's input as its handler takes it (`execute(input: InputOf<Self>)`). */
-export type InputOf<TInstance> = GeneratedEntry<Inputs, TInstance>;
+export type InputOf<TInstance> = GeneratedEntry<AGBossTypes.Inputs, TInstance>;
 
 /** What a handler returns (`Promise<OutputOf<Self>>`). */
-export type OutputOf<TInstance> = GeneratedEntry<Outputs, TInstance>;
+export type OutputOf<TInstance> = GeneratedEntry<AGBossTypes.Outputs, TInstance>;
 
-/** What a producer gives on the path (`.returns(…)` is checked against it). */
-export type ProducerOutputOf<TInstance> = GeneratedEntry<ProducerOutputs, TInstance>;
-
-/** What the join of a launch gives (`.join().returns(…)` is checked against it, #273). */
-export type JoinOutputOf<TKey extends string> = [TKey] extends [never]
-  ? MissingGeneratedTypes
-  : TKey extends keyof JoinOutputs
-    ? JoinOutputs[TKey]
-    : MissingGeneratedTypes;
+/** What a producer gives on the path: the value the flow continues with. */
+export type ProducerOutputOf<TInstance> = GeneratedEntry<AGBossTypes.ProducerOutputs, TInstance>;
 
 /** One target a router decides on (#280): the union of its routes' targets but `Always` ones. */
-export type Route<TInstance> = GeneratedEntry<Routes, TInstance>;
+export type Route<TInstance> = GeneratedEntry<AGBossTypes.Routes, TInstance>;
 
 /** What a code router's `route()` returns: `Route<Self>`, or a list of it before a launch. */
-export type RouterAnswerOf<TInstance> = GeneratedEntry<RouterAnswers, TInstance>;
+export type RouterAnswerOf<TInstance> = GeneratedEntry<AGBossTypes.RouterAnswers, TInstance>;
 
 /** The generated entry of a start: `{ input; output }`. */
-export type WorkflowStartEntry<TInstance> = GeneratedEntry<WorkflowStarts, TInstance>;
+export type WorkflowStartEntry<TInstance> = GeneratedEntry<AGBossTypes.WorkflowStarts, TInstance>;
 
 /** What `app.execute(Start, input)` takes: the start's input as plain DTOs (#270). */
 export type ExecutionInputOf<TInstance> =

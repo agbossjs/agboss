@@ -51,22 +51,22 @@ describe("#120 PR 4: the fingerprint covers what an element's model reads outsid
   it("each element's sub-tree: its policies, window, compaction and judges", async () => {
     expect(await elementOf({ judgeModel: "test/judge" }, "answer-agent")).toEqual({
       uncompactedTurns: 3,
-      compaction: "queue-compaction",
+      memory: "queue-memory",
       piiPolicies: [
         {
           name: "contact-pii-policy",
-          rules: [{ target: "email", action: { kind: "replace-with-token" } }],
+          rules: [{ target: "email", action: { kind: "tokenize" } }],
         },
       ],
       judges: [{ name: "polite-judge", model: "test/judge" }],
     });
     expect(await elementOf({ routerTurns: 1, isAgentExcludingPii: true }, "help-router")).toEqual({
       uncompactedTurns: 1,
-      compaction: "queue-compaction",
+      memory: "router-window-memory",
       piiPolicies: [
         {
           name: "contact-pii-policy",
-          rules: [{ target: "email", action: { kind: "replace-with-token" } }],
+          rules: [{ target: "email", action: { kind: "tokenize" } }],
         },
       ],
     });
@@ -78,11 +78,11 @@ describe("#120 PR 4: the fingerprint covers what an element's model reads outsid
     expect(await configHashOf({ isAgentExcludingPii: true })).not.toBe(base);
     expect(await elementOf({ isAgentExcludingPii: true }, "answer-agent")).toEqual({
       uncompactedTurns: 3,
-      compaction: "queue-compaction",
+      memory: "queue-memory",
     });
   });
 
-  it("a policy's action, a replacePart pattern by its text, changes the fingerprint", async () => {
+  it("a policy's action, a mask(part) pattern by its text, changes the fingerprint", async () => {
     const partial = await elementOf({ isPolicyPartial: true }, "answer-agent");
 
     expect(await configHashOf({ isPolicyPartial: true })).not.toBe(await configHashOf());

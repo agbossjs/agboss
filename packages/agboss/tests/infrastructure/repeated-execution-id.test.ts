@@ -85,7 +85,9 @@ async function finishedRoot(app: Pick<App, "execute">, id: string): Promise<void
 
 /** The root executions still `running`: what a recovery would continue. */
 const runningRoots = (app: Pick<App, "resolve">) =>
-  app.resolve(ExecutionRecordRepository).findByStatus(ExecutionRecordStatus.Running, 100);
+  app
+    .resolve(ExecutionRecordRepository)
+    .findByStatus({ status: ExecutionRecordStatus.Running, limit: 100 });
 
 describe("#591: a repeated root id is refused before anything of the new tree is written", () => {
   test("after the first tree finished: refused; its audit log is untouched; the next id runs", async ({
@@ -156,7 +158,7 @@ describe("#591: a repeated root id is refused before anything of the new tree is
     expect(crashed).toBeInstanceOf(Error);
     expect(duplicateIn(crashed)).not.toBeInstanceOf(DuplicateExecutionIdError);
     expectRefused(repeated, "half-made");
-    expect(await runningRoots(app)).toEqual([]);
+    expect((await runningRoots(app)).items).toEqual([]);
     expect((await execute(app, CountdownWorkflowStart, { left: 0 })).status).toBe(
       ExecutionStatus.Finished,
     );

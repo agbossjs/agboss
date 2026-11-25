@@ -19,16 +19,7 @@ export class AddressDto {
 }
 
 // @public
-export class AttachmentDto {
-    // (undocumented)
-    content?: string;
-    // (undocumented)
-    mediaType: string;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    url?: string;
-}
+export const Bool: FieldFactory<boolean, object>;
 
 // @public
 export class ContactInfoDto {
@@ -45,10 +36,6 @@ export const CountryCode: FieldFactory<string, object>;
 export const CurrencyCode: FieldFactory<string, object>;
 
 // @public
-const Date_2: FieldFactory<string, object>;
-export { Date_2 as Date }
-
-// @public
 export class DateRangeDto {
     // (undocumented)
     from: string;
@@ -59,9 +46,6 @@ export class DateRangeDto {
 }
 
 // @public
-export const DateTime: FieldFactory<string, object>;
-
-// @public
 export class DateTimeRangeDto {
     // (undocumented)
     from: string;
@@ -70,15 +54,15 @@ export class DateTimeRangeDto {
 }
 
 // @public
-export const Decimal: FieldFactory<number, NumberLimits>;
-
-// @public
 export const DecimalString: FieldFactory<string, DecimalStringLimits>;
 
 // @public (undocumented)
 export interface DecimalStringLimits {
     readonly scale?: number;
 }
+
+// @public
+export type DtoCheck<TDto> = (value: TDto) => undefined | boolean | ValidationIssue<TDto> | readonly ValidationIssue<TDto>[];
 
 // @public
 export type DtoClass<T = object> = abstract new () => T;
@@ -117,13 +101,11 @@ export interface DtoIssue {
 
 declare namespace DtoTypes {
     export {
-        ListOfFactory,
-        PlainFieldContext,
-        ListElementShape,
-        OneOfVariants,
-        OptionalInnerShape,
-        PartialVariant,
-        Wrapper
+        EnumFactory,
+        ListFactory,
+        ListField,
+        OptionalListField,
+        PlainFieldContext
     }
 }
 
@@ -149,11 +131,26 @@ export interface DtoValidationErrorOptions {
     readonly issues: readonly DtoIssue[];
 }
 
-// @public
-export const Duration: FieldFactory<string, object>;
-
 // @public (undocumented)
 export const Email: FieldFactory<string, object>;
+
+// @public (undocumented)
+export const Enum: EnumFactory;
+
+// @public
+interface EnumFactory {
+    // (undocumented)
+    <const V extends readonly [string, ...string[]]>(values: V, options: EnumOptions<V[number]> & OptionalField): FieldDecorator<V[number] | undefined>;
+    // (undocumented)
+    <const V extends readonly [string, ...string[]]>(values: V, options?: EnumOptions<V[number]> & RequiredField<V[number]>): FieldDecorator<V[number]>;
+    // (undocumented)
+    <const E extends Readonly<Record<string, string>>>(values: E, options: EnumOptions<E[keyof E]> & OptionalField): FieldDecorator<E[keyof E] | undefined>;
+    // (undocumented)
+    <const E extends Readonly<Record<string, string>>>(values: E, options?: EnumOptions<E[keyof E]> & RequiredField<E[keyof E]>): FieldDecorator<E[keyof E]>;
+}
+
+// @public
+export type EnumOptions<T extends string> = FieldOptions<T>;
 
 // @public
 export type FieldDecorator<T> = <This>(value: undefined, context: ClassFieldDecoratorContext<This, T> & PlainFieldContext<This>) => (initial: T) => T;
@@ -176,66 +173,104 @@ export interface FieldOptions<T> {
 }
 
 // @public
-export const Flag: FieldFactory<boolean, object>;
+function File_2(options: FileFieldOptions & OptionalField): FieldDecorator<FileDto | undefined>;
+
+// @public (undocumented)
+function File_2(options?: FileFieldOptions & {
+    readonly optional?: false;
+}): FieldDecorator<FileDto>;
+export { File_2 as File }
 
 // @public
-export interface HistoryOf<TValue> {
+export class FileDto {
     // (undocumented)
-    readonly current: TValue;
+    fileId?: string;
     // (undocumented)
-    readonly previous: readonly TValue[];
+    filename?: string;
+    static fromBytes(bytes: Uint8Array, options: FileDtoOptions): FileDto;
+    static fromUrl(url: string, options: FileDtoOptions): FileDto;
+    // (undocumented)
+    inline?: string;
+    // (undocumented)
+    mediaType: string;
+    // (undocumented)
+    sha256?: string;
+    // (undocumented)
+    sizeBytes?: number;
+    // (undocumented)
+    url?: string;
 }
 
 // @public
-export function historyOf<const TDto extends DtoClass>(dto: TDto, options?: HistoryOptions): HistoryWrapper<TDto>;
-
-// @public
-export interface HistoryOptions {
-    readonly limit?: number;
+export interface FileDtoOptions {
+    // (undocumented)
+    readonly filename?: string;
+    // (undocumented)
+    readonly mediaType: string;
 }
 
 // @public
-export interface HistoryWrapper<TDto extends DtoClass = DtoClass> {
-    // (undocumented)
-    readonly dto: TDto;
-    // (undocumented)
-    readonly kind: Wrapper.History;
-    // (undocumented)
-    readonly limit?: number;
+export type FileFieldOptions = Pick<FieldOptions<FileDto>, "prompt">;
+
+// @public
+export enum FilePayloadSource {
+    Inline = "inline",
+    Stored = "stored",
+    Url = "url"
 }
+
+// @public
+export const Float: FieldFactory<number, NumberLimits>;
 
 // @public
 export const Integer: FieldFactory<number, NumberLimits>;
 
 // @public
-export function isVariant<TItem extends ProducedValue<unknown, unknown>, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, ProducedValue<InstanceType<TDto>, unknown>>;
+export const IsoDate: FieldFactory<string, object>;
 
 // @public
-export function isVariant<TItem extends {
-    readonly variant: DtoClass;
-}, TDto extends DtoClass>(item: TItem, dto: TDto): item is Extract<TItem, {
-    readonly variant: DtoClass<InstanceType<TDto>>;
-}>;
+export const IsoDateTime: FieldFactory<string, object>;
 
 // @public
-type ListElementShape = DtoClass | OneOfWrapper;
+export const IsoDuration: FieldFactory<string, object>;
+
+// @public
+export const jsonSchemaOf: (dto: DtoClass) => Readonly<Record<string, unknown>>;
+
+// @public
+export const KeyText: FieldFactory<string, KeyTextOptions>;
+
+// @public
+export interface KeyTextOptions {
+    readonly maxLength?: number;
+    readonly minLength?: number;
+    readonly pattern?: RegExp;
+}
+
+// @public
+export const List: ListFactory;
+
+// @public
+interface ListFactory {
+    // (undocumented)
+    <T>(item: ListItem<T>, options: ListOptions<T> & OptionalField): OptionalListField<T>;
+    // (undocumented)
+    <T>(item: ListItem<T>, options?: ListOptions<T> & RequiredField<T[]>): ListField<T>;
+    // (undocumented)
+    <const V extends readonly [string, ...string[]]>(values: V, options: ListOptions<V[number]> & OptionalField): OptionalListField<V[number]>;
+    // (undocumented)
+    <const V extends readonly [string, ...string[]]>(values: V, options?: ListOptions<V[number]> & RequiredField<V[number][]>): ListField<V[number]>;
+    // (undocumented)
+    <const E extends Readonly<Record<string, string>>>(values: E, options: ListOptions<E[keyof E]> & OptionalField): OptionalListField<E[keyof E]>;
+    // (undocumented)
+    <const E extends Readonly<Record<string, string>>>(values: E, options?: ListOptions<E[keyof E]> & RequiredField<E[keyof E][]>): ListField<E[keyof E]>;
+}
+
+// @public
+type ListField<T> = FieldDecorator<T[]> & FieldDecorator<readonly T[]>;
 
 // @public
 export type ListItem<T> = DtoClass<T> | ((options: never) => FieldDecorator<T>);
-
-// @public
-export const ListOf: ListOfFactory;
-
-// @public (undocumented)
-export function listOf<const TElement extends ListElementShape>(element: TElement): ListWrapper<TElement>;
-
-// @public
-interface ListOfFactory {
-    // (undocumented)
-    <T>(item: ListItem<T>, options: ListOptions<T> & OptionalField): FieldDecorator<T[] | undefined>;
-    // (undocumented)
-    <T>(item: ListItem<T>, options?: ListOptions<T> & RequiredField<T[]>): FieldDecorator<T[]>;
-}
 
 // @public (undocumented)
 export type ListOptions<T> = FieldOptions<T[]> & {
@@ -244,12 +279,7 @@ export type ListOptions<T> = FieldOptions<T[]> & {
 };
 
 // @public
-export interface ListWrapper<TElement extends ListElementShape = ListElementShape> {
-    // (undocumented)
-    readonly element: TElement;
-    // (undocumented)
-    readonly kind: Wrapper.List;
-}
+export const maskDto: <T extends object>(dto: DtoClass<T>, value: T) => Record<string, unknown>;
 
 // @public
 export const MediaType: FieldFactory<string, object>;
@@ -281,34 +311,6 @@ export interface NumberLimits {
 }
 
 // @public
-export function OneOf<const V extends readonly [string, ...string[]]>(options: OneOfOptions<V> & OptionalField): FieldDecorator<V[number] | undefined>;
-
-// @public (undocumented)
-export function OneOf<const V extends readonly [string, ...string[]]>(options: OneOfOptions<V> & RequiredField<V[number]>): FieldDecorator<V[number]>;
-
-// @public (undocumented)
-export function oneOf<const TVariants extends OneOfVariants>(...variants: TVariants): OneOfWrapper<TVariants>;
-
-// @public (undocumented)
-export type OneOfOptions<V extends readonly string[]> = FieldOptions<V[number]> & {
-    readonly values: V;
-};
-
-// @public
-type OneOfVariants = readonly [DtoClass, DtoClass, ...DtoClass[]];
-
-// @public
-export interface OneOfWrapper<TVariants extends OneOfVariants = OneOfVariants> {
-    // (undocumented)
-    readonly kind: Wrapper.OneOf;
-    // (undocumented)
-    readonly variants: TVariants;
-}
-
-// @public (undocumented)
-export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;
-
-// @public
 export interface OptionalField {
     // (undocumented)
     readonly default?: never;
@@ -316,24 +318,8 @@ export interface OptionalField {
     readonly optional: true;
 }
 
-// @public
-type OptionalInnerShape = DtoClass | ListWrapper;
-
-// @public
-export interface OptionalWrapper<TInner extends OptionalInnerShape = OptionalInnerShape> {
-    // (undocumented)
-    readonly inner: TInner;
-    // (undocumented)
-    readonly kind: Wrapper.Optional;
-}
-
-// @public
-export type OutputShape = DtoClass | ListWrapper | OneOfWrapper;
-
-// @public
-type PartialVariant<TDto extends DtoClass> = Partial<InstanceType<TDto>> & {
-    readonly [variantClass]: TDto;
-};
+// @public (undocumented)
+type OptionalListField<T> = FieldDecorator<T[] | undefined> & FieldDecorator<readonly T[] | undefined>;
 
 // @public
 export class PersonNameDto {
@@ -360,37 +346,6 @@ interface PlainFieldContext<This> {
 export class PlainTextDto {
     // (undocumented)
     text: string;
-}
-
-// @public
-export type Produced<TValue, TProducer> = TValue extends unknown ? ProducedValue<TValue, TProducer> : never;
-
-// @public (undocumented)
-export interface ProducedValue<TValue, TProducer> {
-    // (undocumented)
-    readonly producer: TProducer;
-    // (undocumented)
-    readonly value: TValue;
-}
-
-// @public
-export class RagSearchResultDto {
-    // (undocumented)
-    score?: number;
-    // (undocumented)
-    source: string;
-    // (undocumented)
-    text: string;
-}
-
-// @public
-export class RagSourceReferenceDto {
-    // (undocumented)
-    quote?: string;
-    // (undocumented)
-    title: string;
-    // (undocumented)
-    url?: string;
 }
 
 // @public
@@ -448,7 +403,7 @@ export class ToolCallApprovalDecisionDto {
     // (undocumented)
     approved: boolean;
     // (undocumented)
-    overrideArguments?: ToolArguments;
+    overrideInput?: ToolArguments;
     // (undocumented)
     reason?: string;
 }
@@ -460,30 +415,59 @@ export const Url: FieldFactory<string, object>;
 export const Uuid: FieldFactory<string, object>;
 
 // @public
-export type ValueOf<TShape> = TShape extends DtoClass<infer TValue> ? TValue : TShape extends ListWrapper<infer TElement> ? readonly ValueOf<TElement>[] : TShape extends OneOfWrapper<infer TVariants> ? InstanceType<TVariants[number]> : TShape extends OptionalWrapper<infer TInner> ? ValueOf<TInner> | undefined : TShape extends HistoryWrapper<infer TDto> ? HistoryOf<InstanceType<TDto>> : never;
+export function Validate<TDto extends object>(check: DtoCheck<TDto>): <C extends abstract new () => TDto>(value: C, context: ClassDecoratorContext<C>) => void;
 
 // @public
-export type ValueShape = DtoClass | ListWrapper | OptionalWrapper;
+export function validate<T extends object>(dto: DtoClass<T>, raw: unknown): T;
 
 // @public
-export type Variant<TDto extends DtoClass> = InstanceType<TDto> & {
-    readonly [variantClass]: TDto;
+export type ValidationError = ValidationError.DtoInvalid | ValidationError.TenantRequired;
+
+// @public
+export namespace ValidationError {
+    export type DtoInvalid = ErrorVariant<ValidationErrorKind.DtoInvalid, "validation.dto-invalid"> & {
+        readonly dto: string;
+        readonly issues: readonly DtoIssue[];
+    };
+    export type TenantRequired = ErrorVariant<ValidationErrorKind.TenantRequired, "validation.tenant-required"> & {
+        readonly operation: string;
+    };
+}
+
+// @public
+export const ValidationError: FamilyConstructor<ValidationError, {
+    DtoInvalid: ValidationError.DtoInvalid;
+    TenantRequired: ValidationError.TenantRequired;
+}>;
+
+// @public
+export enum ValidationErrorKind {
+    // (undocumented)
+    DtoInvalid = "dto-invalid",
+    // (undocumented)
+    TenantRequired = "tenant-required"
+}
+
+// @public
+export type ValidationIssue<TDto> = string | {
+    readonly field?: keyof TDto & string;
+    readonly reason: string;
 };
 
 // @public
-export function variant<TDto extends DtoClass>(dto: TDto, value: InstanceType<TDto>): Variant<TDto>;
+export class WorkflowFinishFileDto {
+    // (undocumented)
+    file: FileDto;
+}
 
 // @public
-export function variant<TDto extends DtoClass>(dto: TDto, value: Partial<InstanceType<TDto>>): PartialVariant<TDto>;
+export class WorkflowFinishFilesDto {
+    // (undocumented)
+    files: FileDto[];
+}
 
 // @public
-export type VariantOf<TValue> = TValue extends unknown ? {
-    readonly variant: DtoClass<TValue>;
-    readonly value: TValue;
-} : never;
-
-// @public
-export class WorkflowFinishTextDto {
+export class WorkflowFinishTextDto extends PlainTextDto {
     // (undocumented)
     text: string;
 }
@@ -510,26 +494,24 @@ export class WorkflowStartTextDto {
     text: string;
 }
 
-// @public
-enum Wrapper {
-    // (undocumented)
-    History = "history",
-    // (undocumented)
-    List = "list",
-    // (undocumented)
-    OneOf = "one-of",
-    // (undocumented)
-    Optional = "optional"
-}
-
 // Warnings were encountered during analysis:
 //
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "DtoInvalid".
+// src/core/error-families/effect-errors.ts - (ae-undocumented) Missing documentation for "TenantRequired".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Email".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Url".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Uuid".
-// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "OneOfOptions".
-// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "OneOf".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Enum".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "ListOptions".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "OptionalListField".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
+// src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "__call".
 // src/dto/decorators.ts - (ae-undocumented) Missing documentation for "Nested".
@@ -553,10 +535,6 @@ enum Wrapper {
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "timeZone".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "from".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "to".
-// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "name".
-// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "url".
-// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "content".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "street".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "city".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "region".
@@ -566,12 +544,20 @@ enum Wrapper {
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "family".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "email".
 // src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "phone".
-// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "title".
-// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "url".
-// src/dto/standard/domain.ts - (ae-undocumented) Missing documentation for "quote".
+// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "filename".
+// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "mediaType".
+// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "filename".
+// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "fileId".
+// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "sha256".
+// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "sizeBytes".
+// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "url".
+// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "inline".
+// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "File".
+// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "file".
+// src/dto/standard/file.ts - (ae-undocumented) Missing documentation for "files".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "author".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "question".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "options".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "replyWith".
@@ -582,12 +568,10 @@ enum Wrapper {
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "summary".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "approved".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "reason".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "overrideArguments".
+// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "overrideInput".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "reason".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
 // src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "source".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "score".
 // src/dto/types.ts - (ae-undocumented) Missing documentation for "sensitive".
 // src/dto/types.ts - (ae-undocumented) Missing documentation for "example".
 // src/dto/types.ts - (ae-undocumented) Missing documentation for "optional".
@@ -606,27 +590,6 @@ enum Wrapper {
 // src/dto/types.ts - (ae-undocumented) Missing documentation for "static".
 // src/dto/types.ts - (ae-undocumented) Missing documentation for "__call".
 // src/dto/types.ts - (ae-undocumented) Missing documentation for "__call".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "Optional".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "List".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "OneOf".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "History".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "kind".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "variants".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "kind".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "element".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "kind".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "inner".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "kind".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "dto".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "limit".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "current".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "previous".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "optional".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "listOf".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "oneOf".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "ProducedValue".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "producer".
-// src/flow/dto-wrappers.ts - (ae-undocumented) Missing documentation for "value".
 
 // (No @packageDocumentation comment for this package)
 

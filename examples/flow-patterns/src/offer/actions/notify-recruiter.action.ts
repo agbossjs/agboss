@@ -15,6 +15,6 @@ export class NotifyRecruiterAction implements ActionHandler<NotifyRecruiterActio
   constructor(private readonly inbox: RecruiterInbox) {}
 
   async execute(input: InputOf<NotifyRecruiterAction>): Promise<void> {
-    await this.inbox.notify(`The offer was not approved: ${input.draft.value.text}`);
+    await this.inbox.notify(`The offer was not approved: ${input.draft.text}`);
   }
 }

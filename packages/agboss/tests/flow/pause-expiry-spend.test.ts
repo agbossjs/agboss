@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: the spend a pause's expiry fails the step with — when the run's deadline bound the pause the failure is
  * `DeadlineExceededError` with the execution's spend (its state's records and the step's own) and the step's
@@ -13,10 +14,11 @@ import { PauseExpiryBound, type PauseRecord } from "../../src/infrastructure/pau
 import { DeadlineExceededError } from "../../src/budgets/execution-deadline.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -62,7 +64,7 @@ describe("#1366: what a pause's expiry fails the step with", () => {
     const error = expiryFailureOf(pause(PauseExpiryBound.RunDeadline), given.site);
 
     expect(error).toBeInstanceOf(DeadlineExceededError);
-    expect(error).toMatchObject({ spentUsd: 0.75, usage: given.usage, path: ["flow", "ask"] });
+    expect(error).toMatchObject({ spentUsd: usd(0.75), usage: given.usage, path: ["flow", "ask"] });
     expect(given.checked).toEqual([given.state, given.usage]);
   });
 

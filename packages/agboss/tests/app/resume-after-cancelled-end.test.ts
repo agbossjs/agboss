@@ -24,6 +24,7 @@ import {
   resetLease,
   seen,
 } from "../infrastructure/fixtures/lease.workflow.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const approve = { approved: true };
 const THREAD = "t-901";
@@ -87,14 +88,14 @@ describe("#901: a resume taken by the holder's drain, its tree then cancelled, m
     const moved = execute(first, OrderWorkflowStart, { text: "charge" }, { threadId: THREAD });
 
     // the drain's pass reads the request at its first renewal: cancelled, undone, the record failed
-    await expect(moved).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(moved).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(cancels).toEqual([ExecutionCancelOutcome.Requested]);
     // the waiting resume takes the lease the drain released: the tree ended, its answer runs nowhere
     await expect(resumed.call).rejects.toBeInstanceOf(PauseClosedError);
     await clock.advance(seconds(31));
     expect(seen.charges).toEqual([]);
-    expect(seen.completed).toEqual(["paused", "failed"]);
+    expect(seen.completed).toEqual(["paused", "cancelled"]);
     const [record] = (await seen.records[0]?.lastTurns(DEFAULT_TENANT_ID, THREAD, 1)) ?? [];
-    expect(record?.status).toBe("failed");
+    expect(record?.status).toBe("cancelled");
   });
 });

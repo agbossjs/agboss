@@ -1,5 +1,5 @@
 /**
- * #1150 — a child queued for any instance (`ChildPlacement.AnyInstance`) runs on another instance
+ * #1150 — a child queued for any instance (`ChildPlacement.AnyWorker`) runs on another instance
  * under its chain's PII policies: its launch carries the names of the policies above it, the worker
  * chains the child's own deps with them (bug 1: its spans and steps were masked by the root's or its
  * own alone); a name the worker's application does not know fails the child, never runs it
@@ -76,7 +76,7 @@ describe("#1150 AC4: a child on another instance is masked by its chain", () => 
     const agent = mockLlm(ChainFarAgent);
     agent.thenReturn(replyWith(`done ${CHILD_SECRET}`));
 
-    const result = await execute(a, ChainFarRootStart, { text: TEXT }, { record: true });
+    const result = await execute(a, ChainFarRootStart, { text: TEXT }, { includeRecord: true });
 
     expect(carried).toEqual([["contact-pii-policy", "root-secret-pii-policy"]]);
     const text = agent.requests.map(requestText).join("\n");

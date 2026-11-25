@@ -1,3 +1,4 @@
+import { Window2Memory } from "../helpers/window-memory.js";
 import {
   Agent,
   ExecutionContext,
@@ -7,18 +8,25 @@ import {
   type WorkflowDefinition,
   PiiAction,
   Tool,
-  type ToolHandler,
+  Ttl,
 } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
 import { usd, type Usd } from "../../src/units/index.js";
-import { ApprovalDesk, ChatAppChannel, ChatStart, Reply } from "../channels/approval.workflow.js";
-import { start } from "../helpers/flow.js";
+import {
+  ApprovalDesk,
+  ChatAppChannel,
+  ChatAppToolApproval,
+  ChatStart,
+  Reply,
+} from "../channels/approval.workflow.js";
+import { onStart } from "../helpers/flow.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS, TestApplicationDailyBudget } from "../flow/fixtures/budgets.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../src/budgets/budget.js";
 import { SharedExecutionRecordRepository } from "../helpers/shared-infrastructure.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What the payment tool got: the owner of each call (`executionContext.ownerId`) and the cards charged. */
 @Injectable()
@@ -31,7 +39,7 @@ class PayRequest {
   @Text({ prompt: "the order id" })
   orderId!: string;
 
-  @Text({ prompt: "the card number", sensitive: PiiAction.replacePart({ keepLast: 4 }) })
+  @Text({ prompt: "the card number", sensitive: PiiAction.mask({ keepLast: 4 }) })
   cardNumber!: string;
 }
 
@@ -46,16 +54,16 @@ class PayDone {
   description: "Charges a card for an order",
   input: PayRequest,
   output: PayDone,
-  channel: ChatAppChannel,
+  approval: ChatAppToolApproval,
   deps: [PaymentLog, ExecutionContext],
 })
-export class Pay implements ToolHandler<PayRequest, PayDone> {
+export class Pay {
   constructor(
     private readonly log: PaymentLog,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  run({ orderId, cardNumber }: PayRequest): Promise<PayDone> {
+  execute({ orderId, cardNumber }: PayRequest): Promise<PayDone> {
     this.log.owners.push(this.executionContext.ownerId);
     this.log.cards.push(cardNumber);
     return Promise.resolve({ status: `paid ${orderId}` });
@@ -66,7 +74,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 10 };
 
 @Agent({
   name: "cashier-agent",
-  promptUrls: ["./cashier.prompt.md"],
+  prompt: "./cashier.prompt.md",
   description: "Takes payments",
   model: "test/cashier",
   price,
@@ -84,14 +92,14 @@ const defaults = {
 @Workflow({
   name: "payments-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChatStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChatStart)
       .toAgent(Cashier)
       .toFinish(Reply),
   ],
   defaults,
-  uncompactedTurns: 2,
+  memory: Window2Memory,
   providers: [ApprovalDesk, PaymentLog],
 })
 export class Payments implements WorkflowDefinition {
@@ -103,9 +111,11 @@ export class Payments implements WorkflowDefinition {
 
 @Application({
   name: "payments-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Payments],
+  channels: [ChatAppChannel],
   budgets: TEST_BUDGETS,
 })
 export class PaymentsApplication {}
@@ -113,9 +123,11 @@ export class PaymentsApplication {}
 /** The payments over a durable record repository: a restarted instance keeps the threads' owners. */
 @Application({
   name: "durable-payments-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Payments],
+  channels: [ChatAppChannel],
   providers: [SharedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
 })
@@ -129,7 +141,7 @@ export class DraftDto {
 
 @Agent({
   name: "drafter-agent",
-  promptUrls: ["./cashier.prompt.md"],
+  prompt: "./cashier.prompt.md",
   description: "Drafts",
   model: "test/drafter",
   price,
@@ -140,7 +152,7 @@ export class Drafter {}
 
 @Agent({
   name: "editor-agent",
-  promptUrls: ["./cashier.prompt.md"],
+  prompt: "./cashier.prompt.md",
   description: "Edits",
   model: "test/editor",
   price,
@@ -152,16 +164,15 @@ export class Editor {}
 @Workflow({
   name: "capped-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChatStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChatStart)
       .toAgent(Drafter)
-      .returns(DraftDto)
       .toAgent(Editor)
       .toFinish(Reply),
   ],
   defaults,
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 })
 export class Capped {}
 
@@ -181,6 +192,7 @@ export class CappedTenantDailyBudget implements BudgetHandler {
 
 @Application({
   name: "capped-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Capped],

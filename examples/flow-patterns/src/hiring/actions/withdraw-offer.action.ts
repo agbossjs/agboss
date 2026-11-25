@@ -17,7 +17,7 @@ export class WithdrawOfferAction implements ActionHandler<WithdrawOfferAction> {
 
   async execute(input: InputOf<WithdrawOfferAction>): Promise<void> {
     await this.atsClientService.withdrawOffer(
-      input.offer.value.offerId,
+      input.offer.offerId,
       this.executionContext.step.idempotencyKey,
     );
   }

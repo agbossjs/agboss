@@ -1,17 +1,17 @@
 /**
  * #262 PR 4 (S113, S115): a judge sees the agent's answer as its DTO — `@Judge({ reply })` +
  * `JudgeHandler<TReply>`; `reply` a DTO class, `oneOf(A, B)` or `PlainTextDto`; an agent whose
- * output its judge does not judge fails assembly with `[judge.wrong-reply]`; a failed verdict's
+ * output its judge does not judge fails assembly with `[judge.wrong-output]`; a failed verdict's
  * `reason` goes back to the agent for its retry. PR 5 (S125): `input.variant` is the class the answer
  * validated as — from the answer tool the agent used — and `JudgeInput<A | B>` a discriminated union
- * on it; a `listOf(oneOf(A, B))` judge reads each item as `VariantOf<A | B>`.
+ * on it; a `listOf(A, B)` judge reads each item as an instance of its class.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import { JudgeVerdict, QualityGateError, type JudgeInput } from "../../src/index.js";
-import { isVariant, PlainTextDto, type VariantOf } from "../../src/dto/index.js";
-import { replyWith, testJudge, testWith, type ModelRequest } from "../../src/testing/index.js";
+import { PlainTextDto } from "../../src/dto/index.js";
+import { replyWith, testUnit, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { offline } from "../components/fixture/deps-contract.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { TaskStart } from "./fixtures/judged.workflow.js";
@@ -65,11 +65,11 @@ const REPORT: JobReportDto = { jobs: [JOB] };
 const seenOf = (calls: readonly (readonly unknown[])[]): readonly unknown[] =>
   calls.map(([variant]) => variant);
 
-/** S125: `isVariant` narrows a oneOf judge's input; reading `reply` before it does not compile. */
+/** S125: `instanceof` narrows a oneOf judge's output; reading it before does not compile. */
 const salaryOf = (input: JudgeInput<OfferDto | RefusalDto>): number | undefined => {
   // @ts-expect-error -- not narrowed yet: the reply may be a RefusalDto
-  const unnarrowed: number = input.reply.salary;
-  return isVariant(input, OfferDto) ? input.reply.salary : unnarrowed;
+  const unnarrowed: number = input.output.salary;
+  return input.output instanceof OfferDto ? input.output.salary : unnarrowed;
 };
 
 describe("a DTO judge", () => {
@@ -177,38 +177,38 @@ describe("a oneOf judge", () => {
     expect(textsOf(retry).at(-1)).toContain("[fair-decision-judge] a refusal says why");
   });
 
-  it("on its own: each variant with its class, narrowed by isVariant", async () => {
-    const runJudge = testJudge(FairDecisionJudge);
+  it("on its own: each variant with its class, narrowed by instanceof", async () => {
+    const runJudge = testUnit(FairDecisionJudge);
 
     const offer = await runJudge({
       variant: OfferDto,
-      reply: { salary: 10 },
+      output: { salary: 10 },
       task: "screen Ann",
       attempt: 0,
     });
     const refusal = await runJudge({
       variant: RefusalDto,
-      reply: { why: " " },
+      output: { why: " " },
       task: "screen Ann",
       attempt: 0,
     });
 
     expect(offer.output).toEqual(JudgeVerdict.passed({ metrics: { salary: 10 } }));
-    expect(refusal.output).toEqual(JudgeVerdict.failed({ reason: "a refusal says why" }));
+    expect(refusal.output).toEqual(JudgeVerdict.failed("a refusal says why"));
     const task = { task: "t", attempt: 0, toolCalls: [], files: [] } as const;
-    expect(salaryOf({ variant: OfferDto, reply: { salary: 3 }, ...task })).toBe(3);
+    expect(salaryOf({ variant: OfferDto, output: { salary: 3 }, ...task })).toBe(3);
   });
 
   it("a variant with another class's value does not compile", async () => {
-    const runJudge = testJudge(FairDecisionJudge);
+    const runJudge = testUnit(FairDecisionJudge);
 
     // @ts-expect-error -- variant OfferDto with a RefusalDto value
-    const wrong = runJudge({ variant: OfferDto, reply: { why: "x" }, task: "t", attempt: 0 });
+    const wrong = runJudge({ variant: OfferDto, output: { why: "x" }, task: "t", attempt: 0 });
     // @ts-expect-error -- a oneOf judge's input names its variant
-    const missing = runJudge({ reply: { salary: 1 }, task: "t", attempt: 0 });
+    const missing = runJudge({ output: { salary: 1 }, task: "t", attempt: 0 });
 
-    // given as is: the judge reads the variant it was told
-    await expect(wrong).resolves.toMatchObject({ output: { passed: false } });
+    // given as is: a value that is no OfferDto stays plain, so the judge reads it as the refusal
+    await expect(wrong).resolves.toMatchObject({ output: { passed: true } });
     await expect(missing).rejects.toThrow(TypeError);
   });
 });
@@ -236,11 +236,11 @@ describe("a list judge", () => {
   });
 
   it("on its own: variant is the list's one class; another class does not compile", async () => {
-    const runJudge = testJudge(JobsJudge);
+    const runJudge = testUnit(JobsJudge);
 
-    const { output } = await runJudge({ variant: JobDto, reply: [JOB], task: "t", attempt: 0 });
+    const { output } = await runJudge({ variant: JobDto, output: [JOB], task: "t", attempt: 0 });
     // @ts-expect-error -- a list of JobDto has variant JobDto, not JobReportDto
-    const wrong = runJudge({ variant: JobReportDto, reply: [JOB], task: "t", attempt: 0 });
+    const wrong = runJudge({ variant: JobReportDto, output: [JOB], task: "t", attempt: 0 });
 
     expect(output).toEqual(JudgeVerdict.passed({ metrics: { jobs: 1 } }));
     await expect(wrong).resolves.toMatchObject({ output: { passed: true } });
@@ -267,38 +267,39 @@ describe("a list-of-oneOf judge", () => {
     expect(variants[2]).toBe(RefusalDto);
   });
 
-  it("on its own: testJudge takes each item as { variant, value }", async () => {
-    const reply: readonly VariantOf<OfferDto | RefusalDto>[] = [
-      { variant: OfferDto, value: { salary: 1 } },
-      { variant: RefusalDto, value: { why: "no TypeScript" } },
+  it("on its own: testUnit takes each item as an instance of its class", async () => {
+    const items: readonly (OfferDto | RefusalDto)[] = [
+      Object.assign(new OfferDto(), { salary: 1 }),
+      Object.assign(new RefusalDto(), { why: "no TypeScript" }),
     ];
 
-    const { output } = await testJudge(DecisionsJudge)({ reply, task: "the panel", attempt: 0 });
+    const { output } = await testUnit(DecisionsJudge)({
+      output: items,
+      task: "the panel",
+      attempt: 0,
+    });
 
     expect(output).toEqual(JudgeVerdict.passed({ metrics: { offers: 1 } }));
   });
 
-  it("an item of a wrong pair, or a plain value, does not compile", async () => {
-    const runJudge = testJudge(DecisionsJudge);
+  it("an item that is no decision does not compile", async () => {
+    const runJudge = testUnit(DecisionsJudge);
     const task = { task: "t", attempt: 0 } as const;
 
-    // @ts-expect-error -- variant RefusalDto with an OfferDto value
-    const wrong = runJudge({ reply: [{ variant: RefusalDto, value: { salary: 1 } }], ...task });
-    // @ts-expect-error -- each item names its class: { variant, value }, never the value alone
-    const plain = runJudge({ reply: [{ salary: 1 }], ...task });
+    // @ts-expect-error -- an item is an OfferDto or a RefusalDto
+    const stranger = runJudge({ output: [{ unrelated: 1 }], ...task });
 
-    await expect(wrong).resolves.toMatchObject({ output: { passed: true } });
-    await expect(plain).resolves.toMatchObject({ output: { passed: true } });
+    await expect(stranger).resolves.toMatchObject({ output: { passed: true } });
   });
 });
 
 describe("a text judge", () => {
   it("has variant PlainTextDto, the class of its { text } reply", async () => {
-    const runJudge = testJudge(TextJudge);
+    const runJudge = testUnit(TextJudge);
 
     const { output } = await runJudge({
       variant: PlainTextDto,
-      reply: { text: "ok" },
+      output: { text: "ok" },
       task: "t",
       attempt: 0,
     });
@@ -307,10 +308,10 @@ describe("a text judge", () => {
   });
 });
 
-describe("[judge.wrong-reply]", () => {
+describe("[judge.wrong-output]", () => {
   const wrongReplies = (workflow: Class): readonly string[] =>
     checkWorkflow(workflow)
-      .errors.filter(({ code }) => code === "judge.wrong-reply")
+      .errors.filter(({ code }) => code === "judge.wrong-output")
       .map(({ message }) => message);
 
   it("a oneOf output whose variant its judge does not judge, and a text agent with a DTO judge", () => {
@@ -335,7 +336,7 @@ describe("[judge.wrong-reply]", () => {
   it("a list output with a judge of one value", () => {
     expect(wrongReplies(WrongListReplyWorkflow)).toEqual([
       expect.stringMatching(
-        /list-judged-scout-agent answers listOf\(JobDto\), but its judge AnswerGroundedJudge judges JobReportDto — the agent answers a list: set @Judge\(\{ reply: listOf\(…\) \}\)/u,
+        /list-judged-scout-agent answers listOf\(JobDto\), but its judge AnswerGroundedJudge judges JobReportDto — the agent answers a list: set @Judge\(\{ output: listOf\(…\) \}\)/u,
       ),
     ]);
   });
@@ -354,8 +355,8 @@ describe("[judge.wrong-reply]", () => {
   });
 
   it("fails the application's assembly before any model call", async () => {
-    await expect(createAppWith(WrongReplyApplication, offline())).rejects.toThrow(
-      /\[judge\.wrong-reply\]/u,
+    await expect(createTestAppWith(WrongReplyApplication, offline())).rejects.toThrow(
+      /\[judge\.wrong-output\]/u,
     );
   });
 });

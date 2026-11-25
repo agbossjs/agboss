@@ -4,15 +4,17 @@ import {
   listOf,
   Workflow,
   WorkflowStart,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
+import { ItemDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import {
   RemoteChecksWorkflowFinish,
   RemoteItemWorkflow,
+  RemoteChecksAction,
 } from "../../flow/runtime/fixtures/remote-children.workflow.js";
 
 /**
@@ -33,17 +35,13 @@ export class MetricsBatchWorkflowStart {}
 @Workflow({
   name: "metrics-batch-workflow",
   version: "1.0.0",
-  maxConcurrentExecutions: 30,
+  historyTtl: Ttl.Forever,
+  executionLimits: { maxConcurrency: 30 },
   flow: [
-    start(MetricsBatchWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(RemoteItemWorkflow, {
-        maxConcurrency: 20,
-        maxItems: 20,
-        placement: ChildPlacement.AnyInstance,
-      })
+    onStart(MetricsBatchWorkflowStart)
+      .forEachItem(toWorkflow(RemoteItemWorkflow), { takeFirst: 20, maxConcurrency: 20 })
       .join()
-      .returns(listOf(ItemResultDto))
+      .toAction(RemoteChecksAction)
       .toFinish(RemoteChecksWorkflowFinish),
   ],
 })
@@ -57,13 +55,13 @@ const SHAPE = {
 } as const;
 
 /** One step at a time per instance. */
-@Application({ name: "metrics-application", maxConcurrentSteps: 1, ...SHAPE })
+@Application({ name: "metrics-application", executionLimits: { maxConcurrentSteps: 1 }, ...SHAPE })
 export class MetricsApplication {}
 
 /** One step at a time, its log recorded (`logged`). */
 @Application({
   name: "logged-metrics-application",
-  maxConcurrentSteps: 1,
+  executionLimits: { maxConcurrentSteps: 1 },
   providers: [RecordingLogger],
   ...SHAPE,
 })

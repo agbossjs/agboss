@@ -2,7 +2,7 @@ import type { BuiltApp } from "../app/create-app.js";
 import { graphDepsNamed } from "../app/own-deps.js";
 import type { AppDeps } from "../app/app-deps.js";
 import { listensTo, recipientsOf } from "../app/pause-notices.js";
-import type { ListenerReceiver } from "../app/pause-notice-receive.js";
+import type { ListenerHooks, ListenerReceiver } from "../app/pause-notice-receive.js";
 import type { PauseNoticeDelivery } from "../app/pause-notice-delivery.js";
 import type { Class } from "../components/injection.js";
 import { lazyLoad } from "../infrastructure/clock.js";
@@ -10,13 +10,10 @@ import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { PauseRecipients, PauseRecord } from "../infrastructure/pause-record.js";
 import type { PauseNotices } from "../pause/types.js";
+import { CHANNEL_LISTENER_HOOKS } from "../pause/channel-listener.js";
 import type { PauseTally } from "../pause/pause-tally.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
-import {
-  listenersOf,
-  pauseListenerOf,
-  type PauseListenerHandler,
-} from "../pause/pause-listener.js";
+import { listenersOf, channelListenerOf } from "../pause/channel-listener.js";
 import type { AssembledApplication } from "./assemble.js";
 
 /**
@@ -51,13 +48,14 @@ export interface PauseNoticeHub {
   readonly settled: () => Promise<void>;
 }
 
-const isHandler = (value: unknown): value is PauseListenerHandler =>
+/** Every hook a listener may have, each optional. */
+const LISTENER_HOOKS = CHANNEL_LISTENER_HOOKS;
+
+const isHandler = (value: unknown): value is ListenerHooks =>
   typeof value === "object" &&
   value !== null &&
-  "onPauseOpened" in value &&
-  typeof value.onPauseOpened === "function" &&
-  "onPauseClosed" in value &&
-  typeof value.onPauseClosed === "function";
+  // a `@ChannelListener`'s hooks are optional, its rules check it has one
+  LISTENER_HOOKS.some((hook) => typeof Reflect.get(value, hook) === "function");
 
 /** The `channel:<name>` of every channel of the instance that listens to a notice (V11.4). */
 const listeningChannels = (workflows: readonly BuiltApp[]): readonly string[] => [
@@ -74,7 +72,7 @@ const listeningChannels = (workflows: readonly BuiltApp[]): readonly string[] =>
 function senderIn(deps: AppDeps, pause: PauseRecord): ChannelSender | undefined {
   const own = graphDepsNamed(deps, pause.workflow);
   try {
-    return own?.channelOf?.(pause.channel).sender;
+    return pause.channel === undefined ? undefined : own?.channelOf?.(pause.channel).sender;
   } catch {
     // a channel this workflow does not have: nobody to tell
     return undefined;
@@ -105,7 +103,7 @@ class Hub implements PauseNoticeHub {
     private readonly log: FrameworkLog,
   ) {
     this.#classes = listenersOf(assembled.providers);
-    this.#names = this.#classes.flatMap((cls) => pauseListenerOf(cls)?.name ?? []);
+    this.#names = this.#classes.flatMap((cls) => channelListenerOf(cls)?.name ?? []);
   }
 
   interruptedBy(signal: AbortSignal): void {
@@ -142,7 +140,7 @@ class Hub implements PauseNoticeHub {
     const senderOf = (pause: PauseRecord): ChannelSender | undefined => {
       const own = graphDepsNamed(depsOf(), pause.workflow) ?? depsOf();
       try {
-        return own.channelOf?.(pause.channel).sender;
+        return pause.channel === undefined ? undefined : own.channelOf?.(pause.channel).sender;
       } catch {
         // a channel this workflow does not have: nobody to tell
         return undefined;
@@ -198,12 +196,12 @@ class Hub implements PauseNoticeHub {
 
   /** The listener of a name: its one instance, from the first workflow's container. */
   #listenerOf(name: string): ListenerReceiver | undefined {
-    const cls = this.#classes.find((one) => pauseListenerOf(one)?.name === name);
-    const meta = cls === undefined ? undefined : pauseListenerOf(cls);
+    const cls = this.#classes.find((one) => channelListenerOf(one)?.name === name);
+    const meta = cls === undefined ? undefined : channelListenerOf(cls);
     const [first] = this.#workflows;
     if (cls === undefined || meta === undefined || first === undefined) return undefined;
     const handler: unknown = first.app.resolve(cls);
-    return isHandler(handler) ? { handler, allowAnswering: meta.allowAnswering } : undefined;
+    return isHandler(handler) ? { handler, includePauseIds: meta.includePauseIds } : undefined;
   }
 
   /** The deps of the root workflow of a pause: its own, or its thread's (a child's pause). */

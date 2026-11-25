@@ -9,7 +9,7 @@ import { fx } from "./error-options.fx.js";
 const workflow = { name: "refund-workflow", version: "1", startedVersion: "1", configHash: "a" };
 const entry = { application: "orders", start: "orders-workflow-start" };
 const chain = [{ ...entry, executionId: "root-1" }];
-const lost = { path: ["refund-agent"], spentUsd: 0.5 };
+const lost = { path: ["refund-agent"], spentUsd: usd(0.5) };
 const paid = { usage: [] };
 
 export const flowFixtures: Readonly<Record<string, object>> = Object.fromEntries([
@@ -32,12 +32,13 @@ export const flowFixtures: Readonly<Record<string, object>> = Object.fromEntries
   fx(root.AgentAnswerInvalidError, { agent: "refund-agent", ...paid, attempts: 3 }),
   fx(root.GuardFailedError, { guard: "pii-guard", ...paid, reason: "its model did not answer" }),
   fx(root.ActionFailedError, { action: "charge-action" }),
-  fx(root.QuestionFailedError, { question: "limit-question" }),
+  fx(root.QuestionFailedError, { question: "limit-external-task" }),
   fx(root.PauseExpiredError, {
-    step: "limit-question",
+    step: "limit-external-task",
     stepKind: ComponentKind.Question,
+    target: "limit-external-task",
     channel: "limit-channel",
-    kind: root.PauseKind.Question,
+    kind: root.PauseKind.ExternalTask,
     expiresAt: "2026-01-05T09:00:00.000Z",
     ...paid,
   }),
@@ -71,9 +72,6 @@ export const flowFixtures: Readonly<Record<string, object>> = Object.fromEntries
   fx(root.PiiDetectionFailedError, { message: "it went wrong", ...paid }),
   fx(root.RouterFailedError, { nodeId: "triage-router", visitNumber: 1 }),
   fx(root.RouterDecisionError, { nodeId: "triage-router", visitNumber: 1, reason: "no route" }),
-  fx(rag.RagFts5UnavailableError, { message: "this Node has no FTS5" }),
-  fx(rag.RagIndexVersionError, { message: "the index is of a later version" }),
-  fx(rag.RerankFailedError, { rag: "faq-rag", reranker: "llm-reranker", ...paid }),
   fx(root.LimitExceededError, { key: "maxSteps", limit: 3, actual: 4, ...lost }),
   fx(root.BudgetExceededError, {
     budget: { name: "tenant-daily-budget" },
@@ -96,7 +94,7 @@ export const flowFixtures: Readonly<Record<string, object>> = Object.fromEntries
     deadlineAt: "2026-01-01T00:00:30.000Z",
     ...lost,
   }),
-  fx(root.MeshLoopDetectedError, { entry, chain, ...lost }),
-  fx(root.HopsLimitExceededError, { entry, chain, maxMeshHops: 8, ...lost }),
+  fx(root.MeshLoopDetectedError, { entry, callChain: chain, ...lost }),
+  fx(root.HopsLimitExceededError, { entry, callChain: chain, maxMeshHops: 8, ...lost }),
   fx(root.CompensationFailedError, { failures: [] }),
 ]);

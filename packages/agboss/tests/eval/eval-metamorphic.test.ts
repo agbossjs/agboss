@@ -6,14 +6,14 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   CheckStatus,
+  EvalCheckKind,
   EvalCascade,
   EvalSuite,
-  checkTrajectory,
   evalCase,
   toolCall,
   turn,
 } from "../../src/eval/index.js";
-import { runEvalSuite } from "../../src/eval/run/run-suite.js";
+import { runSuiteOn } from "../../src/eval/run/run-suite.js";
 import { TestEnvironment } from "../../src/testing/environment.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import type { BuiltApplication } from "../../src/application/create-app.js";
@@ -41,7 +41,6 @@ const refundCase = {
   name: "reworded-eval-suite",
   description: "A reworded request calls the same tools",
   start: DeskWorkflowStart,
-  checks: [checkTrajectory()],
   cascade: EvalCascade.RunAll,
   cases: [evalCase(refundCase)],
 })
@@ -51,7 +50,6 @@ class RewordedEvalSuite {}
   name: "stopping-reworded-eval-suite",
   description: "The cascade stops before the variants",
   start: DeskWorkflowStart,
-  checks: [checkTrajectory()],
   cascade: EvalCascade.StopAtFirstFailure,
   cases: [evalCase(refundCase)],
 })
@@ -81,13 +79,14 @@ describe("#396 PR 7: agboss eval run --metamorphic", () => {
       .mockLlm(DeskAgent)
       .thenReturn(lookUp, refund, answer("Refunded."), lookUp, refund, answer("Money back."));
 
-    const report = await runEvalSuite(built, RewordedEvalSuite, { runs: 1, metamorphic: true });
+    const report = await runSuiteOn(built, RewordedEvalSuite, { runs: 1, metamorphic: true });
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run?.checks).toEqual([
-      { check: "trajectory", status: CheckStatus.Passed },
+      { check: "trajectory", kind: EvalCheckKind.Tools, status: CheckStatus.Passed },
       expect.objectContaining({
         check: "metamorphic",
+        kind: EvalCheckKind.Metamorphic,
         status: CheckStatus.Passed,
         metrics: { variants: 1 },
       }),
@@ -103,7 +102,7 @@ describe("#396 PR 7: agboss eval run --metamorphic", () => {
       .mockLlm(DeskAgent)
       .thenReturn(lookUp, refund, answer("Refunded."), lookUp, answer("I looked it up."));
 
-    const report = await runEvalSuite(built, RewordedEvalSuite, { runs: 1, metamorphic: true });
+    const report = await runSuiteOn(built, RewordedEvalSuite, { runs: 1, metamorphic: true });
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run?.passed).toBe(false);
@@ -132,8 +131,8 @@ describe("#396 PR 7: agboss eval run --metamorphic", () => {
         answer("Money back."),
       );
 
-    const plain = await runEvalSuite(built, RewordedEvalSuite, { runs: 1 });
-    const metamorphic = await runEvalSuite(built, RewordedEvalSuite, {
+    const plain = await runSuiteOn(built, RewordedEvalSuite, { runs: 1 });
+    const metamorphic = await runSuiteOn(built, RewordedEvalSuite, {
       runs: 1,
       metamorphic: true,
     });
@@ -149,13 +148,14 @@ describe("#396 PR 7: agboss eval run --metamorphic", () => {
     const { env, built } = await evalApp();
     env.mockLlm(DeskAgent).thenReturn(lookUp, answer("Looked it up."));
 
-    const report = await runEvalSuite(built, StoppingRewordedEvalSuite, {
+    const report = await runSuiteOn(built, StoppingRewordedEvalSuite, {
       runs: 1,
       metamorphic: true,
     });
 
     expect(report.cases[0]?.runResults[0]?.checks[1]).toEqual({
       check: "metamorphic",
+      kind: EvalCheckKind.Metamorphic,
       status: CheckStatus.Skipped,
       skippedBy: "trajectory",
     });

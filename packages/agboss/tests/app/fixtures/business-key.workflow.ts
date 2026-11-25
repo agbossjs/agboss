@@ -1,34 +1,35 @@
+import { onEffectCommit } from "../../../src/infrastructure/in-memory-effect-writes.js";
 import {
   Integer,
-  listOf,
   Text,
   WorkflowFinishTextDto,
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
+import { listOf, Ttl } from "../../../src/index.js";
 import {
   Action,
   Agent,
-  ExecutionContext,
+  Idempotency,
   InMemoryFencedEffectRepository,
-  NotSentTrust,
-  OutboundCalls,
+  OutboundRecovery,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  effectKeyOf,
-  type FencedEffectStatus,
+  type IdempotencyRunStatus,
   type OutboundCallSendStatus,
-  type Produced,
-  type ToolHandler,
+  type Tracked,
+  inline,
 } from "../../../src/index.js";
+import { hours, minutes } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { PaymentGateway, type ChargeReceipt } from "./payment-gateway.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
+import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #508 — an order charged under its business key `order:<id>`, whatever step, execution or thread
@@ -39,7 +40,7 @@ import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environ
 /** The charges written through the fenced effect, and what each call saw. */
 export const ledger = {
   charges: [] as { readonly orderId: string; readonly amountUsd: number }[],
-  effects: [] as FencedEffectStatus[],
+  effects: [] as IdempotencyRunStatus[],
   outbound: [] as OutboundCallSendStatus[],
   /** How many coming outbound charges freeze before they are sent; the frozen gates. */
   freeze: 0,
@@ -78,18 +79,19 @@ export class ChargeResultDto {
 
 /** Charges `request` once per order through the fenced effect; another amount is a conflict. */
 async function chargedOnce(
-  executionContext: ExecutionContext,
-  fencedEffects: InMemoryFencedEffectRepository,
+  idempotency: Idempotency,
   request: ChargeRequestDto,
 ): Promise<ChargeResultDto> {
   const { orderId, amountUsd } = request;
-  const key = effectKeyOf(executionContext, "charge", {
-    businessKey: `order:${orderId}`,
+  const outcome = await idempotency.runOnce({
+    name: "charge",
+    key: `order:${orderId}`,
     fingerprint: { amountUsd },
-  });
-  const outcome = await fencedEffects.runOnce(key, (transaction) => {
-    transaction.onCommit(() => ledger.charges.push({ orderId, amountUsd }));
-    return { chargeId: `charge-${orderId}-${String(ledger.charges.length + 1)}` };
+    ttl: hours(24),
+    execute: () => {
+      onEffectCommit(() => ledger.charges.push({ orderId, amountUsd }));
+      return { chargeId: `charge-${orderId}-${String(ledger.charges.length + 1)}` };
+    },
   });
   ledger.effects.push(outcome.status);
   return outcome.result;
@@ -100,16 +102,13 @@ async function chargedOnce(
   description: "Charges an order",
   input: ChargeRequestDto,
   output: ChargeResultDto,
-  deps: [ExecutionContext, InMemoryFencedEffectRepository],
+  deps: [Idempotency],
 })
-export class ChargeOrderTool implements ToolHandler<ChargeRequestDto, ChargeResultDto> {
-  constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: InMemoryFencedEffectRepository,
-  ) {}
+export class ChargeOrderTool {
+  constructor(private readonly idempotency: Idempotency) {}
 
-  run(request: ChargeRequestDto): Promise<ChargeResultDto> {
-    return chargedOnce(this.executionContext, this.fencedEffects, request);
+  execute(request: ChargeRequestDto): Promise<ChargeResultDto> {
+    return chargedOnce(this.idempotency, request);
   }
 }
 
@@ -118,25 +117,19 @@ export class ChargeOrderTool implements ToolHandler<ChargeRequestDto, ChargeResu
   description: "Charges the order through the fenced effect, under its business key",
   input: { request: ChargeRequestDto },
   output: ChargeResultDto,
-  deps: [ExecutionContext, InMemoryFencedEffectRepository],
+  deps: [Idempotency],
 })
 export class ChargeOrderAction {
-  constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: InMemoryFencedEffectRepository,
-  ) {}
+  constructor(private readonly idempotency: Idempotency) {}
 
-  execute(input: {
-    readonly request: Produced<ChargeRequestDto, unknown>;
-  }): Promise<ChargeResultDto> {
-    return chargedOnce(this.executionContext, this.fencedEffects, input.request.value);
+  execute(input: { readonly request: Tracked<ChargeRequestDto> }): Promise<ChargeResultDto> {
+    return chargedOnce(this.idempotency, input.request);
   }
 }
 
 /** What the outbound charge needs: the step's context, the service and the provider. */
 interface OutboundSite {
-  readonly executionContext: ExecutionContext;
-  readonly outboundCalls: OutboundCalls;
+  readonly idempotency: Idempotency;
   readonly paymentGateway: PaymentGateway;
 }
 
@@ -157,19 +150,19 @@ async function frozenWhenAsked(signal: AbortSignal): Promise<void> {
 /** Charges `request` once per order through the provider, as a call that leaves the system. */
 async function sentOnce(site: OutboundSite, request: ChargeRequestDto): Promise<ChargeResultDto> {
   const { orderId, amountUsd } = request;
-  const key = effectKeyOf(site.executionContext, "charge", {
-    businessKey: `order:${orderId}`,
-  });
-  const outcome = await site.outboundCalls.send(key, {
+  const outcome = await site.idempotency.sendOnce({
+    name: "charge",
+    key: `order:${orderId}`,
     target: "payments",
     operation: "charge",
     request: { orderId, amountUsd },
+    timeout: minutes(2),
+    ttl: hours(48),
     send: async (call): Promise<ChargeReceipt> => {
       await frozenWhenAsked(call.signal);
       return site.paymentGateway.charge(call);
     },
-    notSent: { trust: NotSentTrust.Lookup },
-    reconcile: (call) => site.paymentGateway.reconcile(call),
+    recovery: OutboundRecovery.permanentLookup((lookup) => site.paymentGateway.reconcile(lookup)),
   });
   ledger.outbound.push(outcome.status);
   return { chargeId: outcome.result.chargeId };
@@ -180,18 +173,17 @@ async function sentOnce(site: OutboundSite, request: ChargeRequestDto): Promise<
   description: "Charges an order through the payment provider",
   input: ChargeRequestDto,
   output: ChargeResultDto,
-  deps: [ExecutionContext, OutboundCalls, PaymentGateway],
+  deps: [Idempotency, PaymentGateway],
 })
-export class SendChargeTool implements ToolHandler<ChargeRequestDto, ChargeResultDto> {
+export class SendChargeTool {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
+    private readonly idempotency: Idempotency,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
-  run(request: ChargeRequestDto): Promise<ChargeResultDto> {
-    const { executionContext, outboundCalls, paymentGateway } = this;
-    return sentOnce({ executionContext, outboundCalls, paymentGateway }, request);
+  execute(request: ChargeRequestDto): Promise<ChargeResultDto> {
+    const { idempotency, paymentGateway } = this;
+    return sentOnce({ idempotency, paymentGateway }, request);
   }
 }
 
@@ -200,26 +192,23 @@ export class SendChargeTool implements ToolHandler<ChargeRequestDto, ChargeResul
   description: "Charges the order through the payment provider, under its business key",
   input: { request: ChargeRequestDto },
   output: ChargeResultDto,
-  deps: [ExecutionContext, OutboundCalls, PaymentGateway],
+  deps: [Idempotency, PaymentGateway],
 })
 export class SendChargeAction {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
+    private readonly idempotency: Idempotency,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
-  execute(input: {
-    readonly request: Produced<ChargeRequestDto, unknown>;
-  }): Promise<ChargeResultDto> {
-    const { executionContext, outboundCalls, paymentGateway } = this;
-    return sentOnce({ executionContext, outboundCalls, paymentGateway }, input.request.value);
+  execute(input: { readonly request: Tracked<ChargeRequestDto> }): Promise<ChargeResultDto> {
+    const { idempotency, paymentGateway } = this;
+    return sentOnce({ idempotency, paymentGateway }, input.request);
   }
 }
 
 @Agent({
   name: "cashier-agent",
-  prompt: "Charge the customer's order with charge-order-tool.",
+  prompt: inline("Charge the customer's order with charge-order-tool."),
   description: "Charges orders",
   model: "local/llama",
   tools: [ChargeOrderTool, SendChargeTool],
@@ -243,9 +232,9 @@ export class CashierFinish {}
 @Workflow({
   name: "cashier-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(CashierStart)
-      .returns(WorkflowStartTextDto)
+    onStart(CashierStart)
       .toAgent(CashierAgent)
       .toFinish(CashierFinish),
   ],
@@ -271,11 +260,10 @@ export class OrderChargedFinish {}
 @Workflow({
   name: "charge-order-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChargeOrderStart)
-      .returns(ChargeRequestDto)
+    onStart(ChargeOrderStart)
       .toAction(ChargeOrderAction)
-      .returns(ChargeResultDto)
       .toFinish(OrderChargedFinish),
   ],
 })
@@ -298,11 +286,10 @@ export class ChargeSentFinish {}
 @Workflow({
   name: "send-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SendChargeStart)
-      .returns(ChargeRequestDto)
+    onStart(SendChargeStart)
       .toAction(SendChargeAction)
-      .returns(ChargeResultDto)
       .toFinish(ChargeSentFinish),
   ],
   providers: [PaymentGateway],
@@ -321,34 +308,41 @@ export class ChargeSummaryDto {
 })
 export class SendChargesStart {}
 
-@WorkflowFinish({
-  name: "charges-sent-workflow-finish",
+@Action({
+  name: "charges-sent-action",
   description: "The charges, in the join's order",
   input: { results: listOf(ChargeResultDto) },
   output: ChargeSummaryDto,
 })
-export class ChargesSentFinish {
-  finish(input: {
-    readonly results: readonly Produced<ChargeResultDto, unknown>[];
-  }): ChargeSummaryDto {
+export class ChargesSentAction {
+  async execute(input: {
+    readonly results: readonly Tracked<ChargeResultDto>[];
+  }): Promise<ChargeSummaryDto> {
     return {
       chargeIds: input.results
-        .map((result) => result.value.chargeId)
+        .map((result) => result.chargeId)
         .join(", "),
     };
   }
 }
 
+@WorkflowFinish({
+  name: "charges-sent-workflow-finish",
+  description: "The charges, in the join's order",
+  output: ChargeSummaryDto,
+})
+export class ChargesSentFinish {}
+
 /** One branch per order of the list, at once: two branches of one tree may charge one order. */
 @Workflow({
   name: "send-charges-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SendChargesStart)
-      .returns(listOf(ChargeRequestDto))
-      .toParallelActions(SendChargeAction, { maxItems: 4 })
+    onStart(SendChargesStart)
+      .forEachItem(toAction(SendChargeAction), { takeFirst: 4 })
       .join()
-      .returns(listOf(ChargeResultDto))
+      .toAction(ChargesSentAction)
       .toFinish(ChargesSentFinish),
   ],
   providers: [PaymentGateway],
@@ -357,9 +351,9 @@ export class SendChargesWorkflow {}
 
 @Application({
   name: "business-key-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [CashierWorkflow, ChargeOrderWorkflow, SendChargeWorkflow, SendChargesWorkflow],
   providers: [...MODEL_PROVIDERS, InMemoryFencedEffectRepository],
   budgets: TEST_BUDGETS,

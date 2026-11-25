@@ -7,7 +7,7 @@ import type { ExecutionTree } from "../infrastructure/execution-tree.repository.
 import type { Clock } from "../infrastructure/clock.js";
 import type { HeldExecutionLease, RenewalCheck } from "./execution-leases.js";
 import { reclaimedOf, reportTake, type LeaseTake, type LeaseTaking } from "./execution-leases.js";
-import { FencedHolders, isHandedOver } from "./handed-over.js";
+import { FencedHolders, isHandedOver, type FencedRefusalError } from "./handed-over.js";
 import {
   EXECUTION_LEASE,
   expireInBackground,
@@ -16,12 +16,7 @@ import {
   renewInBackground,
   sentAtOf,
 } from "./lease-fence.js";
-import {
-  ExecutionLeaseLostError,
-  leaseTakenWhileYieldedError,
-  scopeKeyOf,
-  type ExecutionFencedError,
-} from "./lease-lost.js";
+import { ExecutionLeaseLostError, leaseTakenWhileYieldedError, scopeKeyOf } from "./lease-lost.js";
 import { Abandonment } from "./lease-abandon.js";
 import { leasedRenewal, leaseScope } from "./lease-scope.js";
 import type { StoreOutcomeUnknownError } from "../infrastructure/store-call-timeout.js";
@@ -148,7 +143,7 @@ export class HeldLease extends ReportingLease implements HeldExecutionLease {
   }
 
   /** An external system fenced a write of this lease's token (#471): the holder stops with it. */
-  fenced(error: ExecutionFencedError): void {
+  fenced(error: FencedRefusalError): void {
     // a no-op once aborted: the first reason stays
     this.#lost.abort(error);
   }
@@ -170,7 +165,9 @@ export class HeldLease extends ReportingLease implements HeldExecutionLease {
   }
 
   enterStep(): Promise<() => void> {
-    return this.#yields.enterStep();
+    // an `AfterStep` stop (#1341b): the step in flight finishes, no new one starts
+    const stopped = this.stoppedAfterStep;
+    return stopped === undefined ? this.#yields.enterStep() : Promise.reject(stopped);
   }
 
   async yieldWhile<T>(wait: () => Promise<T>): Promise<T> {

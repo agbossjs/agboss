@@ -14,6 +14,7 @@ import { logged, RecordingLogger, resetLogged } from "../helpers/log.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { ChargeWorkflow } from "../app/fixtures/fenced-effect.workflow.js";
 import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 beforeEach(() => {
   resetLogged();
@@ -22,16 +23,16 @@ beforeEach(() => {
 const assembledWith = (costLedgerEntries?: Milliseconds) => {
   @Application({
     name: "ledger-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: IdempotencyKeyEnvironment,
-    idempotencyKeyField: "idempotencyKey",
     workflows: [ChargeWorkflow],
     budgets: TEST_BUDGETS,
     providers: [InMemoryFencedEffectRepository],
     ...(costLedgerEntries === undefined ? {} : { retention: { costLedgerEntries } }),
   })
   class LedgerApplication {}
-  return applicationOf(LedgerApplication);
+  return applicationOf(LedgerApplication, { withoutIdempotencyKeys: true });
 };
 
 describe("#771, #834: @Application({ retention: { costLedgerEntries } }) at assembly", () => {
@@ -60,7 +61,6 @@ describe("#771, #834: @Application({ retention: { costLedgerEntries } }) at asse
   name: "short-ledger-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   budgets: TEST_BUDGETS,
   providers: [InMemoryFencedEffectRepository, RecordingLogger],

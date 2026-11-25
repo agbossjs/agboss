@@ -102,7 +102,7 @@ describe("#1366: the loop a call would make", () => {
     expect(run).toThrow(
       new MeshLoopDetectedError({
         entry: { application: "billing", start: "charge" },
-        chain: chain,
+        callChain: chain,
       }),
     );
   });
@@ -206,7 +206,7 @@ describe("#1366: what a call is charged and settled", () => {
     expect(reportUsage).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         caller: "service:a2a:billing",
-        costUsd: 0.5,
+        costUsd: usd(0.5),
         ledgerKey: priceLedgerKeyOf(charged),
       }),
     );

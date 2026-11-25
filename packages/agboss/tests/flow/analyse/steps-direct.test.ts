@@ -155,16 +155,16 @@ describe("#1366: a hand-set maxSteps against every path through a node", () => {
     expect(found(stuck, 0)).toEqual([]);
   });
 
-  it("does not count a start or an action as a step", () => {
+  it("counts an action as a step (#1278), a start as none", () => {
     const quiet = graphOf(
       [start("S"), action("X"), agent("A"), finish("F")],
       [edge("S", "X"), edge("X", "A"), edge("A", "F")],
       ["S"],
     );
 
-    expect(found(quiet, 1)).toEqual([]);
-    expect(found(quiet, 0).map((one) => one.message)).toEqual([
-      "the shortest path from S takes 1 steps, but maxSteps is 0",
+    expect(found(quiet, 2)).toEqual([]);
+    expect(found(quiet, 1).map((one) => one.message)).toEqual([
+      "the shortest path from S takes 2 steps, but maxSteps is 1",
     ]);
   });
 });
@@ -180,24 +180,20 @@ describe("#1366: maxSteps that is not a count, or unused", () => {
       expect(found(chain, value)).toEqual([
         {
           code: "limits.count-invalid",
-          message: `${FLOW} has maxSteps: ${shown}, not a whole number of steps from 0 — @Workflow({ maxSteps: 12 }) sets it; leave it out for the default`,
+          message: `${FLOW} has executionLimits.maxSteps: ${shown}, not a whole number of steps from 0 — @Workflow({ executionLimits: { maxSteps: 12 } }) sets it; leave it out for the default`,
           nodes: [FLOW],
         },
       ]);
     }
   });
 
-  it("names a maxSteps on a flow with no agent or router", () => {
-    const none = graphOf(
-      [start("S"), action("X"), finish("F")],
-      [edge("S", "X"), edge("X", "F")],
-      ["S"],
-    );
+  it("names a maxSteps on a flow with no agent, router, action or external task", () => {
+    const none = graphOf([start("S"), finish("F")], [edge("S", "F")], ["S"]);
 
     expect(found(none, 5)).toEqual([
       {
         code: "limits.max-steps-unused",
-        message: `${FLOW} has maxSteps: 5, but it has no agent or router — steps are always 0; remove maxSteps`,
+        message: `${FLOW} has executionLimits.maxSteps: 5, but it has no agent, router, action or external task — steps are always 0; remove maxSteps`,
         nodes: [],
       },
     ]);
@@ -221,7 +217,7 @@ describe("#1366: the default maxSteps against the worst case", () => {
       {
         code: "limits.max-steps-too-low",
         message:
-          "the worst case from S takes 11 steps, but the default maxSteps (agents + routers) × 3 is 6 — set @Workflow({ maxSteps })",
+          "the worst case from S takes 11 steps, but the default maxSteps (agents + routers + actions + external tasks) × 3 is 6 — set @Workflow({ executionLimits: { maxSteps } })",
         nodes: ["S"],
       },
     ]);
@@ -353,9 +349,12 @@ describe("#1366: the steps limit a run takes", () => {
     expect(maxStepsOf(chain, 7)).toBe(7);
     expect(maxStepsOf(chain, 0)).toBe(0);
     expect(maxStepsOf(chain, undefined)).toBe(6);
-    const quiet = graphOf([start("S"), action("X"), finish("F")], [], ["S"]);
+    const quiet = graphOf([start("S"), finish("F")], [], ["S"]);
 
     expect(maxStepsOf(quiet, undefined)).toBe(0);
+    expect(maxStepsOf(graphOf([start("S"), action("X"), finish("F")], [], ["S"]), undefined)).toBe(
+      3,
+    );
   });
 });
 
@@ -406,16 +405,16 @@ describe("#1366: a weight that is no number fails closed", () => {
 });
 
 describe("#1366: what the bounds read of a graph's edges", () => {
-  it("counts a branch that is no agent as no step, however many copies", () => {
+  it("counts an action branch as a step, once per copy (#1278)", () => {
     const graph = graphOf(
       [start("S"), agent("L"), action("X"), finish("F")],
       [edge("S", "L"), edge("L", "X", EdgeKind.Launch), join("L", "F", [branch("X", 3, true)])],
       ["S"],
     );
 
-    expect(found(graph, 1)).toEqual([]);
-    expect(found(graph, 0).map((one) => one.message)).toEqual([
-      "the shortest path from S takes 1 steps, but maxSteps is 0",
+    expect(found(graph, 4)).toEqual([]);
+    expect(found(graph, 3).map((one) => one.message)).toEqual([
+      "the shortest path from S takes 4 steps, but maxSteps is 3",
     ]);
   });
 
@@ -455,7 +454,7 @@ describe("#1366: what the bounds read of a graph's edges", () => {
     );
     const errorEdge = graph.edges[2];
 
-    expect(found(graph, 2)).toEqual([]);
+    expect(found(graph, 3)).toEqual([]);
     expect(errorEdge && mostRunning(graph, errorEdge)).toBe(0);
   });
 

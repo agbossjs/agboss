@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #633 (unwind shard) — a tree taken over mid-undo (`unwinding-takeover.ts`, #340 PR 4) and a
  * pass's root unwind (`tree-unwind.ts`) on their own: with the mark the undo is finished under the
@@ -41,7 +42,7 @@ const FAILED_TURN: Turn = {
   runId: "root-1",
   threadId: "thread-1",
   tenantId: "acme",
-  bundle: "desk-workflow",
+  workflow: "desk-workflow",
   createdAt: "2026-11-20T10:00:00.000Z",
   task: "",
   replyWith: "",
@@ -49,7 +50,7 @@ const FAILED_TURN: Turn = {
   stopReason: "",
   route: [],
   steps: [],
-  costUsd: 0,
+  costUsd: usd(0),
   promptVersion: "",
   modelVersion: "",
   replayOf: null,
@@ -75,6 +76,7 @@ function leaseOf() {
     enterStep: () => Promise.resolve(() => undefined),
     afterEachRenewal: () => undefined,
     whenCancelFound: () => undefined,
+    stopAfterStep: () => undefined,
     yieldWhile: (wait) => wait(),
     release,
   };
@@ -91,6 +93,12 @@ function partsOf(lease?: HeldExecutionLease) {
     hold: () => Promise.reject(new Error("not held here")),
     requestCancel: () => Promise.resolve(),
     isCancelRequested: () => Promise.resolve(false),
+    requestStop: () => Promise.resolve(),
+    stopOf: () => Promise.resolve(undefined),
+    markedOf: () => Promise.resolve({ isCancelRequested: false }),
+    requestPause: () => Promise.resolve(),
+    unpause: () => Promise.resolve(),
+    pauseOf: () => Promise.resolve({}),
   };
   const deps: Partial<AppDeps> = {
     log,
@@ -126,7 +134,7 @@ describe("#633: a lease taken of a tree mid-undo", () => {
 
     const error = await endedUnwindingAtTake(parts, STATE, lease);
 
-    expect(error?.message).toBe("declined");
+    expect((error as Error | undefined)?.message).toBe("declined");
     expect(mocks.endedWithoutPass.mock.calls[0]?.[2]).toMatchObject({ signal, lease });
     expect(warn).toHaveBeenCalledWith(
       "compensation.recovered",

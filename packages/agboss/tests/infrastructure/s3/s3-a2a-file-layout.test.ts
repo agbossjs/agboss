@@ -1,9 +1,10 @@
 /**
- * #904 item 4: every key `S3A2AFileRepository` writes fits S3 and MinIO — each segment at most 255
+ * #904 item 4: every key `S3FileRepository` writes fits S3 and MinIO — each segment at most 255
  * bytes, the key at most 1024 — for every valid id (a key's text: 1 to 200 UTF-16 code units), a
  * digest past the length an id may take; an id the key names is read back; a prefix that leaves no
  * room is refused.
  */
+import { bytes as byteSize } from "../../../src/units/index.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
@@ -14,7 +15,7 @@ import {
   prefixProblemOf,
   segmentOf,
   textOf,
-} from "../../../src/infrastructure/s3/s3-a2a-file-layout.js";
+} from "../../../src/infrastructure/s3/s3-file-layout.js";
 
 const bytesOf = (text: string): number => Buffer.byteLength(text, "utf8");
 
@@ -37,7 +38,7 @@ describe("#904 item 4: the bucket's layout", () => {
           fileId,
           mediaType: "application/pdf",
           sha256: "a".repeat(64),
-          sizeBytes: 1,
+          sizeBytes: byteSize(1),
           createdAt: new Date("2026-01-05T09:00:00.000Z"),
         };
         const index = indexKeyOf(file);

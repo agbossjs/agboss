@@ -1,27 +1,42 @@
 import { AGBossError } from "../core/errors.js";
 import { ExecutionStatus } from "../app/types.js";
-import { buildCostReport, totalCost } from "../finops/usage.js";
-import { finishLine } from "../flow/runtime/history.js";
+import { CostReport, totalCost } from "../finops/usage.js";
+import { maskedFinishLine } from "../flow/runtime/history.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import type { UsageRecord } from "../finops/usage.js";
+import type { ObservabilityMask } from "../pii/observability-mask.js";
+import type { FieldMask } from "../dto/redact.js";
+import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
+import { maskedFinishOutput, storedFieldMask } from "../pii/final-output-mask.js";
 import type { TurnOutcome } from "../turns/index.js";
-import { updateMemoryAfter } from "./memory.js";
 import type { FinishContext } from "./execute.js";
 import type { WaitingPause } from "../pause/index.js";
 import { isWaiting, pausedLoopsOf, pausedUsageOf } from "./paused.js";
 import { unrecordedOf } from "../finops/record-stream.js";
 import { openPausesOf, waitingPausesOf } from "./waiting-pauses.js";
-import type { AgentExecutionOutput, AgentExecutionDeps, ExecutionData } from "./types.js";
+import type { AgentExecutionOutput, ExecutionData } from "./types.js";
+import { traceUrlFieldOf } from "../tracing/trace-url.js";
 
-/** The Turn of an execution: a finished one's finish line (S8), a paused one waits. */
-export function outcomeOf(
+/**
+ * The Turn of an execution: a finished one's finish line (S8), a paused one waits. The line is
+ * written masked by the observability policies (#1321d): once the tree's checkpoints are forgotten
+ * it is all a late resume reads, and no raw PII stays in the store.
+ */
+export async function outcomeOf(
   state: ExecutionStateType,
   usage: readonly UsageRecord[],
   paused: boolean,
-): TurnOutcome {
+  mask?: ObservabilityMask,
+  fields?: { readonly graph: Pick<RuntimeGraph, "nodes">; readonly mask: FieldMask },
+): Promise<TurnOutcome> {
   const finished = !paused && state.finish !== "";
+  // the finish DTO's sensitive fields first (#1301): a token or a mask is all the line keeps of them
+  const stored =
+    fields === undefined
+      ? state.output
+      : maskedFinishOutput(fields.graph, state.finish, state.output, fields.mask);
   return {
-    replyWith: finished ? finishLine(state.finish, state.output) : "",
+    replyWith: finished ? await maskedFinishLine(state.finish, stored, mask) : "",
     status: paused ? "paused" : "answered",
     stopReason: paused ? "waiting for approval" : "",
     route: state.path,
@@ -43,13 +58,13 @@ const pathOf = (state: ExecutionStateType, pending: readonly WaitingPause[]): re
   return first === undefined ? state.path : [...state.path, first.step];
 };
 
-const traceUrlOf = <TName extends string>(
-  deps: AgentExecutionDeps<TName>,
-  threadId: string,
-): { traceUrl?: string } => {
-  const traceUrl = deps.tracing?.sessionUrl(threadId);
-  return traceUrl === undefined ? {} : { traceUrl };
-};
+const traceUrlOf = <TName extends string>(ctx: FinishContext<TName>): { traceUrl?: string } =>
+  traceUrlFieldOf(ctx.deps.tracing, {
+    workflow: ctx.deps.config.name,
+    threadId: ctx.base.threadId,
+    runId: ctx.runId,
+    tenantId: ctx.base.tenantId,
+  });
 
 /** Where the execution stopped: paused inside an agent's loop (its spend so far is there), or not. */
 async function stoppedState<TName extends string>(
@@ -91,6 +106,34 @@ function assertEnded(runId: string, state: ExecutionStateType, paused: boolean):
   );
 }
 
+/** The mask the finish line is written through: the workflow's observability, none without PII policies. */
+const maskOf = <TName extends string>(ctx: FinishContext<TName>): ObservabilityMask | undefined =>
+  ctx.deps.pii?.observability;
+
+/**
+ * The Turn written: a new one, a paused one completed, or a finish written only while no stop or
+ * cancel is under way (#1341b) — the look before it is not
+ * enough — a remote `app.cancel` may mark the tree between that look and this write —, so the write
+ * reads the mark's history row in its own transaction and refuses over it; the run then ends as
+ * that mark, never `answered` beside a cancel that answered `cancelled: true`.
+ */
+async function writtenTurnOf<TName extends string>(
+  ctx: FinishContext<TName>,
+  outcome: TurnOutcome,
+  turn: { readonly existingTurnId: string | undefined; readonly paused: boolean },
+): Promise<string> {
+  const { existingTurnId: turnId, paused } = turn;
+  if (turnId === undefined) return (await ctx.deps.turns.append({ ...ctx.base, ...outcome })).id;
+  if (paused) await ctx.deps.turns.complete(turnId, outcome);
+  if (paused || (await ctx.deps.turns.completeUnlessInterrupted(turnId, outcome))) return turnId;
+  throw (
+    (await ctx.deps.compensation?.interrupted?.()) ??
+    new AGBossError(
+      `execution ${ctx.runId} is being stopped or cancelled: its finish is not recorded over the request`,
+    )
+  );
+}
+
 /** Writes (or completes) the Turn and shapes the result: finished or paused. */
 export async function finishRun<TName extends string>(
   ctx: FinishContext<TName>,
@@ -99,24 +142,19 @@ export async function finishRun<TName extends string>(
 ): Promise<AgentExecutionOutput> {
   const { usage, paused, pending } = await stoppedState(ctx, state);
   assertEnded(ctx.runId, state, paused);
-  const finishedLine = outcomeOf(state, usage, paused).replyWith;
-  // #844: the strategies' memory update is the turn's spend too — made before the record says the
-  // turn ended, so the record's cost is what the end event reports (a task read repair completes
-  // from the record signs the same spend)
-  const memory = paused
-    ? { usage: [] }
-    : await updateMemoryAfter(ctx, usage, { start: ctx.base.task, finish: finishedLine });
-  const outcome = outcomeOf(state, [...usage, ...memory.usage], paused);
-  let turnId = existingTurnId;
-  if (turnId === undefined) turnId = (await ctx.deps.turns.append({ ...ctx.base, ...outcome })).id;
-  else await ctx.deps.turns.complete(turnId, outcome);
+  // a finish never lands over a durable stop or cancel mark (#1341b): the run ends as that
+  const interrupted = paused ? undefined : await ctx.deps.compensation?.interrupted?.();
+  if (interrupted !== undefined) throw interrupted;
+  const fields = { graph: ctx.deps.graph, mask: storedFieldMask(ctx.deps.pii, state) };
+  const outcome = await outcomeOf(state, usage, paused, maskOf(ctx), fields);
+  const turnId = await writtenTurnOf(ctx, outcome, { existingTurnId, paused });
   return {
     status: paused ? ExecutionStatus.Paused : ExecutionStatus.Finished,
     start: state.start,
     startInput: state.startInput,
     path: pathOf(state, pending),
     budgetUsd: ctx.budgetUsd,
-    cost: buildCostReport([...usage, ...memory.usage]),
+    cost: CostReport.fromUsage(usage),
     threadId: ctx.base.threadId,
     tenantId: ctx.base.tenantId,
     turnId,
@@ -136,7 +174,7 @@ export async function finishRun<TName extends string>(
     },
     ...endOf(state, paused),
     pending,
-    ...traceUrlOf(ctx.deps, ctx.base.threadId),
+    ...traceUrlOf(ctx),
     ...((ctx.compacted ?? []).length === 0 ? {} : { compacted: ctx.compacted }),
   };
 }

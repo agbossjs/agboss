@@ -1,8 +1,11 @@
+import { type Bytes, type Usd } from "../units/index.js";
+import type { InterruptReason } from "../app/interrupt-types.js";
+import type { PauseActor } from "../channels/pause-contexts.js";
 import type { CompensationRecord } from "../flow/compensation.js";
 import type { GuardrailSide } from "../components/policy-decorators.js";
-import type { BaseMessage, MessageContent } from "@langchain/core/messages";
+import type { ShownModelMessage } from "../models/messages.js";
 import type { JudgeVerdict } from "../components/judge-decorators.js";
-import type { CostReport } from "../finops/usage.js";
+import type { CostReport, TokenUsage } from "../finops/usage.js";
 import type { ExecutionEvent, NodeEvent } from "../flow/observers/execution-event.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { NodeValue } from "../flow/runtime/scope.js";
@@ -26,12 +29,12 @@ export interface StartEvent<I> extends NodeEvent {
 /** The end of a named part of a step, with what it produced. */
 export interface EndEvent<U> extends NodeEvent {
   readonly name: string;
-  readonly update: U;
+  readonly output: U;
 }
 
 /** An agent starts: `input` is its input message (#270 Q51). */
 export type AgentStartEvent = StartEvent<string>;
-/** An agent answered: `update` is its value (and its class for a `oneOf`). */
+/** An agent answered: `output` is its value (and its class for a `oneOf`). */
 export type AgentEndEvent = EndEvent<NodeValue>;
 
 /** A router starts: `input` is its input message. */
@@ -53,37 +56,41 @@ export type RagEndEvent = EndEvent<RagRetrieval>;
 
 /** A tool is called by an agent, with the model's (validated) arguments. */
 export interface ToolStartEvent extends NodeEvent {
-  readonly toolName: string;
-  readonly agentName: string;
-  readonly arguments: Readonly<Record<string, unknown>>;
+  /** The tool's name. */
+  readonly tool: string;
+  /** The agent that called it; absent for a standalone `@Tool` call through an `@McpEndpoint`. */
+  readonly agent?: string;
+  readonly input: Readonly<Record<string, unknown>>;
 }
 
-/** A tool returned: `update` is the text the model sees. */
+/** A tool returned: `output` is the text the model sees. */
 export interface ToolEndEvent extends NodeEvent {
-  readonly toolName: string;
-  readonly agentName: string;
-  readonly update: string;
-  /** Whether the result was cut at its `maxResultSize` (`update` then ends with the marker, #336). */
+  readonly tool: string;
+  /** The agent that called it; absent for a standalone `@Tool` call through an `@McpEndpoint`. */
+  readonly agent?: string;
+  readonly output: string;
+  /** Whether the result was cut at its `maxResultSize` (`output` then ends with the marker, #336). */
   readonly isResultTruncated: boolean;
 }
 
 /**
- * What a guardrail checks (#120): its side, the agent or router whose model it guards, and the text
+ * What a guardrail checks (#120): its side, the agent or router whose model it guards (its
+ * `component`), and the text
  * — as that model reads it (masked by the element's PII policies), or the agent's answer.
  */
 export interface GuardrailInput {
   readonly side: GuardrailSide;
-  readonly element: string;
+  readonly component: ComponentRecord;
   readonly text: string;
   /** The files it checks with the text (#899 §9): what they are, never their bytes. */
-  readonly files?: readonly GuardedFileShown[];
+  readonly files?: readonly FileSummary[];
 }
 
 /** A file a guardrail checks, as observers see it: its media type, name, size and digest. */
-export interface GuardedFileShown {
+export interface FileSummary {
   readonly mediaType: string;
   readonly filename?: string;
-  readonly sizeBytes: number;
+  readonly sizeBytes: Bytes;
   readonly sha256: string;
 }
 export type GuardrailStartEvent = StartEvent<GuardrailInput>;
@@ -93,54 +100,80 @@ export interface GuardrailOutcome {
   readonly isBlocked: boolean;
   readonly probability: number;
 }
-/** A guardrail decided: `update` is its outcome (a blocked one then fails the execution). */
+/** A guardrail decided: `output` is its outcome (a blocked one then fails the execution). */
 export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
 
-/** An `@Action` starts with its input fields (`Produced` values). */
+/** An `@Action` starts with its input fields (tracked DTOs). */
 export type ActionStartEvent = StartEvent<Readonly<Record<string, unknown>>>;
-/** An action finished: `update` is what its `execute` returned. */
+/** An action finished: `output` is what its `execute` returned. */
 export type ActionEndEvent = EndEvent<unknown>;
 
 /** An approval request goes out on a channel: `input` is the tool call's arguments. */
 export type ChannelStartEvent = StartEvent<unknown>;
-/** A channel answered: `update` is the raw decision, before the channel's adapter reads it. */
+/** A channel answered: `output` is the raw decision, before the channel's adapter reads it. */
 export type ChannelEndEvent = EndEvent<unknown>;
 
-/** A model is called by an agent (`callerName`) with the conversation so far. */
+/** A model is called by an agent (`caller`) with the conversation so far. */
 export interface ModelStartEvent extends NodeEvent {
-  readonly modelName: string;
-  readonly callerName: string;
-  readonly rawPayload: readonly BaseMessage[];
-}
-
-/** The tokens of one model call. */
-export interface ModelUsage {
-  readonly promptTokens: number;
-  readonly completionTokens: number;
-  readonly totalTokens: number;
+  readonly model: string;
+  /** The `@ModelProvider` the call goes to, by its `name`; `(none)` when no provider names the model. */
+  readonly provider: string;
+  readonly caller: string;
+  /** The conversation so far, without the instructions: plain messages, files by their meta, never their bytes. */
+  readonly messages: readonly ShownModelMessage[];
 }
 
 /** A model answered: its content, token usage and cost. */
 export interface ModelEndEvent extends NodeEvent {
   readonly model: string;
-  readonly callerName: string;
-  readonly rawContent: MessageContent;
-  readonly usage: ModelUsage;
-  readonly calculatedCost?: number;
+  /** The `@ModelProvider` that served it (a fallback's, when one answered), by its `name`; `(none)` when none is named. */
+  readonly provider: string;
+  readonly caller: string;
+  /** What the model said: its text. */
+  readonly content: string;
+  /** What the call used: input and output tokens, the cache's apart. */
+  readonly usage: TokenUsage;
+  /** What it cost, by its price (`0` for a free or unpriced model). */
+  readonly costUsd: Usd;
+}
+
+/** Why an agent ran its model again inside one step: what the retry loop corrected. */
+export enum AgentRetryReason {
+  /** The answer did not parse or validate against the agent's output. */
+  InvalidAnswer = "invalid-answer",
+  /** The model called a tool with arguments that do not match its input. */
+  InvalidToolInput = "invalid-tool-input",
+  /** A judge rejected the answer, and the agent tries again with its feedback. */
+  JudgeRejected = "judge-rejected",
+}
+
+/** An agent corrects itself: one iteration of its internal retry loop (`onAgentRetry`). */
+export interface AgentRetryEvent extends NodeEvent {
+  /** The agent's name. */
+  readonly agent: string;
+  readonly reason: AgentRetryReason;
+  /** The attempt that just failed, from 1. */
+  readonly attempt: number;
+  /** How many attempts the agent may make in all. */
+  readonly maxAttempts: number;
+  /** What the model is told about the failure (masked like any observed text). */
+  readonly feedback: string;
 }
 
 /** A judge evaluates an agent's reply (`input`). */
 export interface JudgeStartEvent extends NodeEvent {
-  readonly name: string;
-  readonly agentName: string;
+  /** The judge's name. */
+  readonly judge: string;
+  /** The agent whose reply it evaluates. */
+  readonly agent: string;
   readonly input: unknown;
 }
 
 /** A judge's verdict. */
 export interface JudgeEndEvent extends NodeEvent {
-  readonly name: string;
-  readonly agentName: string;
-  readonly update: JudgeVerdict;
+  readonly judge: string;
+  readonly agent: string;
+  readonly output: JudgeVerdict;
 }
 
 /** An execution starts (`onExecutionStart`): once, at `app.execute` — a resume does not start it again. */
@@ -148,11 +181,14 @@ export type ExecutionStartEvent = ExecutionEvent;
 
 /**
  * An execution ended at a finish (`onExecutionEnd`): once per execution, also when it finishes
- * after a resume — a pause is `onExecutionPause`, a failure `onExecutionError`.
+ * after a resume — a pause is `onExecutionPause`, a failure `onExecutionError`, a stop
+ * `onExecutionStop`, a cancel `onExecutionCancel`.
  */
 export interface ExecutionEndEvent extends ExecutionEvent {
   /** The workflow finish it reached. */
   readonly finish: ComponentRecord;
+  /** What the execution produced: the finish's value (`result.output`). */
+  readonly output: unknown;
   /** What it cost, all its passes together. */
   readonly spend: CostReport;
 }
@@ -160,10 +196,14 @@ export interface ExecutionEndEvent extends ExecutionEvent {
 /**
  * An execution paused (`ExecutionStatus.Paused`) because nothing else of it can move: `pending` is
  * every pause it waits for (#267 S35) — fired again after a partial resume when others remain; a
- * `PauseAnswerer.Channel` pause comes without its `pauseId`.
+ * `PauseRespondent.Delegate` pause comes without its `pauseId`.
  */
 export interface ExecutionPauseEvent extends ExecutionEvent {
   readonly pending: readonly PendingPause[];
+  /** An operator's `app.pause` froze it (#1341c): nothing but `app.unpause` moves it, an open pause included. */
+  readonly isExternallyPaused: boolean;
+  /** Why the operator paused it, when they said. */
+  readonly reason?: string | undefined;
 }
 
 /** Why an execution continues (#265 S30). */
@@ -180,6 +220,8 @@ export enum ResumeReason {
    * `PauseExpiredError`, or goes on with the answer the channel decided on expiry.
    */
   Expired = "expired",
+  /** `app.unpause` lifted an operator's freeze (#1341c): the tree continues from its last checkpoint. */
+  Unpaused = "unpaused",
 }
 
 /**
@@ -193,16 +235,47 @@ export interface ExecutionResumeEvent extends ExecutionEvent {
   /** The decision it continues with (`undefined` for a recovery that takes none). */
   readonly decision: unknown;
   /**
-   * Who gave it (#267 AC4): the resume's `answeredBy` for a `PauseAnswerer.Channel` pause, the
-   * owner for a `ThreadOwner` one (`undefined` for an unowned thread, or a recovery that takes none).
+   * Who gave it (#267 AC4): the resume's `actor` for a `PauseRespondent.Delegate` pause, the owner
+   * (`{ id: ownerId }`) for a `ThreadOwner` one (`undefined` for an unowned thread, or a recovery
+   * that takes none).
    */
-  readonly answeredBy: string | undefined;
+  readonly actor: PauseActor | undefined;
+  /**
+   * Why the operator unpaused it (`ResumeReason.Unpaused`, #1341c), when they said; never the
+   * `reason` of this event, which is a `ResumeReason`.
+   */
+  readonly unpauseReason?: string | undefined;
 }
 
 /**
- * An execution failed (`onExecutionError`) — also after a resume, or cancelled while paused
- * (`ExecutionCancelledError`) — or a resume of a paused one was refused as incompatible
- * (`IncompatibleResumeError`; it stays paused).
+ * An execution was stopped (`onExecutionStop`, #1341): halted where it stood, its partial results
+ * kept, nothing undone. Once per execution.
+ */
+export interface ExecutionStopEvent extends ExecutionEvent {
+  /** Why it was stopped, when the operator said. */
+  readonly reason?: string | undefined;
+  /** What it cost, all its passes together. */
+  readonly spend: CostReport;
+}
+
+/**
+ * An execution was cancelled (`onExecutionCancel`, #1341) — a running one, or one that rested
+ * paused: aborted, and what it had left undoable undone. Once per execution; a cancel whose undo
+ * failed is `onExecutionError` (`ExecutionError.CompensationFailed`).
+ */
+export interface ExecutionCancelEvent extends ExecutionEvent {
+  /** Why it was cancelled, when the operator said. */
+  readonly reason?: string | undefined;
+  /** The undo actions that ran for it (#340); `[]` when none ran. */
+  readonly compensations: readonly CompensationRecord[];
+  /** What it cost, all its passes together. */
+  readonly spend: CostReport;
+}
+
+/**
+ * An execution failed (`onExecutionError`) — also after a resume — or a resume of a paused one was
+ * refused as incompatible (`IncompatibleResumeError`; it stays paused). A cancel is
+ * `onExecutionCancel`, never an error.
  */
 export interface ExecutionErrorEvent extends ExecutionEvent {
   readonly error: Error;
@@ -213,11 +286,31 @@ export interface ExecutionErrorEvent extends ExecutionEvent {
   readonly compensations: readonly CompensationRecord[];
 }
 
+/**
+ * A step's `executionContext.onInterrupted` cleanup threw (`onInterruptCleanupError`, #1341b): the
+ * cleanups after it still ran, and the execution's own outcome is unchanged — `onExecutionError` is
+ * only for what an execution fails with. A node event: `step` is the interrupted step.
+ */
+export interface InterruptCleanupErrorEvent extends NodeEvent {
+  /** The component whose step was interrupted. */
+  readonly component: ComponentRecord;
+  /** Why the step was interrupted. */
+  readonly reason: InterruptReason;
+  /** What the cleanup threw. */
+  readonly error: unknown;
+}
+
 /** What a caller asked the app for (#269): `app.execute`, `app.resume` or `app.cancel`. */
 export enum ExecutionOperation {
   Execute = "execute",
   Resume = "resume",
   Cancel = "cancel",
+  /** `app.stop` (#1341b). */
+  Stop = "stop",
+  /** `app.pause` (#1341c). */
+  Pause = "pause",
+  /** `app.unpause` (#1341c). */
+  Unpause = "unpause",
 }
 
 /**

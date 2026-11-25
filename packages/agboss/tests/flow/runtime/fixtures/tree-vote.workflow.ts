@@ -1,4 +1,4 @@
-import { Flag, Text } from "../../../../src/dto/index.js";
+import { Bool, Text } from "../../../../src/dto/index.js";
 import {
   Agent,
   DecidedBy,
@@ -9,10 +9,13 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Action,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
-import { caseOf, route, start, toFinish } from "../../../helpers/flow.js";
+import { onStart, toFinish, toAction, toWorkflow, toAgent } from "../../../helpers/flow.js";
 import {
   GroupDoneDto,
   TaskDoneDto,
@@ -30,7 +33,7 @@ import {
  */
 
 export class VoteDto {
-  @Flag({ prompt: "whether to go ahead" })
+  @Bool({ prompt: "whether to go ahead" })
   yes!: boolean;
 }
 
@@ -47,7 +50,7 @@ export class NotVotedDto {
 @Agent({
   name: "first-voter-agent",
   description: "Votes on a task",
-  prompt: "Vote on the task.",
+  prompt: inline("Vote on the task."),
   model: "moonshotai/kimi-k2.6",
   input: { task: TaskDto },
   output: VoteDto,
@@ -57,7 +60,7 @@ export class FirstVoterAgent {}
 @Agent({
   name: "second-voter-agent",
   description: "Votes on a task",
-  prompt: "Vote on the task.",
+  prompt: inline("Vote on the task."),
   model: "moonshotai/kimi-k2.6",
   input: { task: TaskDto },
   output: VoteDto,
@@ -67,42 +70,60 @@ export class SecondVoterAgent {}
 @WorkflowStart({ name: "vote-workflow-start", description: "A task to vote on", input: TaskDto })
 export class VoteWorkflowStart {}
 
-@WorkflowFinish({
-  name: "voted-workflow-finish",
+@Action({
+  name: "voted-action",
   description: "The vote decided",
   input: { task: TaskDto, votes: listOf(VoteDto) },
   output: VotedDto,
 })
-export class VotedWorkflowFinish {
-  finish(input: { readonly task: Produced<TaskDto, unknown> }): VotedDto {
-    treeLog.events.push(`voted ${input.task.value.name}`);
-    return { name: input.task.value.name };
+export class VotedAction {
+  async execute(input: { readonly task: Tracked<TaskDto> }): Promise<VotedDto> {
+    treeLog.events.push(`voted ${input.task.name}`);
+    return { name: input.task.name };
+  }
+}
+
+@WorkflowFinish({
+  name: "voted-workflow-finish",
+  description: "The vote decided",
+  output: VotedDto,
+})
+export class VotedWorkflowFinish {}
+
+@Action({
+  name: "not-voted-action",
+  description: "The vote did not come in time",
+  input: { task: TaskDto },
+  output: NotVotedDto,
+})
+export class NotVotedAction {
+  async execute(input: { readonly task: Tracked<TaskDto> }): Promise<NotVotedDto> {
+    treeLog.events.push(`not voted ${input.task.name}`);
+    return { name: input.task.name };
   }
 }
 
 @WorkflowFinish({
   name: "not-voted-workflow-finish",
   description: "The vote did not come in time",
-  input: { task: TaskDto },
   output: NotVotedDto,
 })
-export class NotVotedWorkflowFinish {
-  finish(input: { readonly task: Produced<TaskDto, unknown> }): NotVotedDto {
-    treeLog.events.push(`not voted ${input.task.value.name}`);
-    return { name: input.task.value.name };
-  }
-}
+export class NotVotedWorkflowFinish {}
 
 @Workflow({
   name: "vote-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(VoteWorkflowStart)
-      .returns(TaskDto)
-      .toParallelAgents(FirstVoterAgent, SecondVoterAgent)
+    onStart(VoteWorkflowStart)
+      .inParallel([toAgent(FirstVoterAgent), toAgent(SecondVoterAgent)])
       .joinQuorum({ min: 2, deadline: seconds(30) })
-      .onJoinError(QuorumNotReachedError, toFinish(NotVotedWorkflowFinish))
-      .returns(listOf(VoteDto))
+      .onError(
+        QuorumNotReachedError,
+        toAction(NotVotedAction)
+          .toFinish(NotVotedWorkflowFinish),
+      )
+      .toAction(VotedAction)
       .toFinish(VotedWorkflowFinish),
   ],
 })
@@ -114,11 +135,11 @@ export class VoteWorkflow {}
   description: "Works on a task, or has it voted on",
   decidedBy: DecidedBy.Code,
   input: { task: TaskDto },
-  routes: [{ target: TaskWorkflow }, { target: VoteWorkflow }],
+  routes: [TaskWorkflow, VoteWorkflow],
 })
 export class TaskKindRouter {
-  route(input: { readonly task: Produced<TaskDto, unknown> }): unknown {
-    return input.task.value.seconds > 0 ? TaskWorkflow : VoteWorkflow;
+  route(input: { readonly task: Tracked<TaskDto> }): unknown {
+    return input.task.seconds > 0 ? TaskWorkflow : VoteWorkflow;
   }
 }
 
@@ -138,22 +159,17 @@ export class MixedNotVotedWorkflowFinish {}
 @Workflow({
   name: "mixed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(MixedWorkflowStart)
-      .returns(TaskDto)
+    onStart(MixedWorkflowStart)
       .toRouter(TaskKindRouter)
-      .chooseOne(
-        route(TaskWorkflow)
-          .returns(TaskDoneDto)
+      .onRoute(
+        toWorkflow(TaskWorkflow)
           .toFinish(TaskDoneWorkflowFinish),
-        route(VoteWorkflow)
-          .returns(oneOf(NotVotedDto, VotedDto))
-          .switch(
-            caseOf(NotVotedDto)
-              .toFinish(MixedNotVotedWorkflowFinish),
-            caseOf(VotedDto)
-              .toFinish(MixedVotedWorkflowFinish),
-          ),
+      )
+      .onRoute(
+        toWorkflow(VoteWorkflow)
+          .toOneOf([toFinish(MixedNotVotedWorkflowFinish), toFinish(MixedVotedWorkflowFinish)]),
       ),
   ],
 })
@@ -166,30 +182,39 @@ export class MixedWorkflow {}
 })
 export class VotingWorkflowStart {}
 
-@WorkflowFinish({
-  name: "voting-done-workflow-finish",
+@Action({
+  name: "voting-done-action",
   description: "Every item done",
-  input: { results: listOf(oneOf(NotVotedDto, TaskDoneDto, VotedDto)) },
+  input: { results: listOf(NotVotedDto, TaskDoneDto, VotedDto) },
   output: GroupDoneDto,
 })
-export class VotingDoneWorkflowFinish {
-  finish(input: { readonly results: readonly Produced<unknown, unknown>[] }): GroupDoneDto {
+export class VotingDoneAction {
+  async execute(input: {
+    readonly results: readonly Tracked<NotVotedDto | TaskDoneDto | VotedDto>[];
+  }): Promise<GroupDoneDto> {
     return { name: `${String(input.results.length)} done` };
   }
 }
+
+@WorkflowFinish({
+  name: "voting-done-workflow-finish",
+  description: "Every item done",
+  output: GroupDoneDto,
+})
+export class VotingDoneWorkflowFinish {}
 
 /** One execution of the tree at work at a time. */
 @Workflow({
   name: "voting-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(VotingWorkflowStart)
-      .returns(listOf(TaskDto))
-      .toParallelWorkflows(MixedWorkflow, { maxConcurrency: 5, maxItems: 5 })
+    onStart(VotingWorkflowStart)
+      .forEachItem(toWorkflow(MixedWorkflow), { takeFirst: 5, maxConcurrency: 5 })
       .join()
-      .returns(listOf(oneOf(NotVotedDto, TaskDoneDto, VotedDto)))
+      .toAction(VotingDoneAction)
       .toFinish(VotingDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 1,
+  executionLimits: { maxConcurrency: 1 },
 })
 export class VotingWorkflow {}

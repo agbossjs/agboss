@@ -43,7 +43,9 @@ const JsonObject = z.record(z.string(), z.unknown());
 export function toPauseRecord(row: unknown): PauseRecord {
   const r = PauseRow.parse(row);
   return pauseRecordOfJson({
-    ...JsonObject.parse(parsedStoredJson("pause", r.pause, { pauseId: r.pause_id })),
+    ...JsonObject.parse(
+      parsedStoredJson({ what: "pause", text: r.pause, ids: { pauseId: r.pause_id } }),
+    ),
     tenantId: r.tenant_id,
     pauseId: r.pause_id,
     stepKey: r.step_key,
@@ -52,7 +54,13 @@ export function toPauseRecord(row: unknown): PauseRecord {
     isSent: r.is_sent === 1,
     ...(r.answer === null
       ? {}
-      : { answer: parsedStoredJson("pause answer", r.answer, { pauseId: r.pause_id }) }),
+      : {
+          answer: parsedStoredJson({
+            what: "pause answer",
+            text: r.answer,
+            ids: { pauseId: r.pause_id },
+          }),
+        }),
     ...resolutionOf(r),
     ...(r.resolved_at === null ? {} : { resolvedAt: r.resolved_at }),
     ...(r.expires_at === null ? {} : { expiresAt: r.expires_at }),
@@ -76,15 +84,19 @@ const storedOf = (pause: PauseRecord): string =>
     component: pause.component,
     toolLoopIteration: pause.toolLoopIteration,
     validationAttempts: pause.validationAttempts,
+    target: pause.target,
     channel: pause.channel,
     branchKeys: pause.branchKeys,
-    answerer: pause.answerer,
-    ask: pause.ask,
+    respondent: pause.respondent,
+    input: pause.input,
+    toolCall: pause.toolCall,
+    trail: pause.trail,
+    externalRef: pause.externalRef,
     expiryBound: pause.expiryBound,
     boundAt: pause.boundAt,
     expiryProblem: pause.expiryProblem,
     closedFirst: pause.closedFirst,
-    assignee: pause.assignee,
+    assignees: pause.assignees,
     reassignedTo: pause.reassignedTo,
     reassignedFrom: pause.reassignedFrom,
   });
@@ -111,7 +123,7 @@ export class SqlitePauseRows {
   insert(pause: PauseRecord): void {
     this.database
       .prepare(
-        "INSERT INTO pauses (tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause, expires_at, remind_at, channel) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO pauses (tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause, expires_at, remind_at, target) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       )
       .run(
         pause.tenantId,
@@ -123,7 +135,7 @@ export class SqlitePauseRows {
         storedOf(pause),
         pause.expiresAt ?? null,
         pause.remindAt ?? null,
-        pause.channel,
+        pause.target,
       );
   }
 

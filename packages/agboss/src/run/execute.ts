@@ -1,4 +1,6 @@
+import { type Usd } from "../units/index.js";
 import { ExecutionCancelledError } from "../core/errors.js";
+import { ExecutionStoppedError, isPause } from "../app/lease-stopped.js";
 import { handedOverOf, isHandedOver } from "../app/handed-over.js";
 import { drainRecordingUsage } from "../finops/record-stream.js";
 import { totalCost, type UsageRecord } from "../finops/usage.js";
@@ -17,7 +19,7 @@ export type TurnBase = Pick<
   | "runId"
   | "threadId"
   | "tenantId"
-  | "bundle"
+  | "workflow"
   | "task"
   | "replayOf"
   | "promptVersion"
@@ -73,7 +75,8 @@ export async function recordFailure(
   write: (ended: unknown) => Promise<unknown>,
   unwind?: RootUnwind,
 ): Promise<unknown> {
-  if (isHandedOver(error)) return error;
+  // an operator's pause parks the tree (#1341c): nothing undone, no record written — it stays `running` until the drain parks it
+  if (isHandedOver(error) || isPause(error)) return error;
   const ended = unwind === undefined ? error : await unwind(error);
   await write(ended);
   return ended;
@@ -83,7 +86,7 @@ export async function recordFailure(
  * The record of an execution while its tree moves (#265 S30): `running`, what it visited and spent
  * so far — what recovery continues when its instance dies.
  */
-export const runningOutcome = (route: readonly string[], costUsd: number): TurnOutcome => ({
+export const runningOutcome = (route: readonly string[], costUsd: Usd): TurnOutcome => ({
   replyWith: "",
   status: "running",
   stopReason: "",
@@ -92,9 +95,15 @@ export const runningOutcome = (route: readonly string[], costUsd: number): TurnO
   costUsd,
 });
 
+/** The record of an execution that ended with `error`: a cancel is `cancelled` (#1341), the rest `failed`. */
 export const failedOutcome = (error: unknown, spent: readonly UsageRecord[]): TurnOutcome => ({
   replyWith: "",
-  status: "failed",
+  status:
+    error instanceof ExecutionStoppedError
+      ? "stopped"
+      : error instanceof ExecutionCancelledError
+        ? "cancelled"
+        : "failed",
   stopReason: errorMessage(error),
   route: [],
   steps: [],

@@ -6,7 +6,7 @@ import type { StoreDescriptor } from "../../../src/infrastructure/execution-leas
  * an opted-out parent is an atomic store again — its author's latest word.
  */
 import { LeaseCheck } from "../../../src/infrastructure/execution-lease.repository.js";
-import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/in-memory-outbound-call.repository.js";
 
 /** The parent that opts out. */
 export class OptedOutParentCalls extends InMemoryOutboundCallRepository {

@@ -1,78 +1,66 @@
 /**
  * The workflow's graph (the root entry, #272): the path builder (`start`, `agent`, `router`, `action`,
- * `workflow`, `question`, `route`, `caseOf`, the side-path starters, `ThisWorkflow`), the decorators
+ * `workflow`, `question`, the side-path starters), the decorators
  * with their `<Kind>Options`, the handler contracts, the DTO wrappers, the tables
  * `.agboss/types.d.ts` fills and their lookups, and the workflow settings and limits.
  */
 export {
-  action,
-  agent,
-  anyOf,
-  caseOf,
-  group,
-  question,
-  route,
-  router,
-  start,
+  onAction,
+  onAgent,
+  onExternalTask,
+  onRouter,
+  onStart,
   toAction,
   toAgent,
   toFinish,
-  toQuestion,
+  toExternalTask,
   toRouter,
   toWorkflow,
-  workflow,
+  onWorkflow,
 } from "../flow/builder.js";
-export { ThisWorkflow, type ThisWorkflowOutputs } from "../flow/this-workflow.js";
-export { ChildPlacement, type ChildStepOptions } from "../flow/child-placement.js";
+export {
+  Metadata,
+  type MetadataOptions,
+  type Tracked,
+  type WithoutTrack,
+  type Untracked,
+  type ValueMetadata,
+} from "../flow/metadata.js";
+export { ChildPlacement } from "../flow/child-placement.js";
+export type { IsolatedWorkerOptions } from "../application/application.js";
+export * from "./flow-parallel.js";
 
 export type {
   AfterStep,
   AfterValue,
   BuiltPath,
-  CaseHead,
-  CasePath,
   ErrorHandling,
-  GroupHead,
   PathHead,
-  ReturnsOptions,
-  RouteContinuation,
-  RouteHead,
-  RoutePath,
   RouterStep,
   SideHead,
   SidePath,
   SourceHead,
+  StartOfPath,
   Switching,
   Transitions,
 } from "../flow/builder-types.js";
-export type { JoinValues, Returning, StepValues, ValuesSource } from "../flow/returns-types.js";
+export type { RouteCheck, RouteMore, RoutesOf, RouteStep } from "../flow/route-types.js";
+export type { AgentsLaunched, JoinErrorHandling, Joined, Launched } from "../flow/launch-types.js";
 export type {
-  AgentsLaunched,
-  JoinErrorHandling,
-  Joined,
-  Launched,
-  ChildLaunchCheck,
-  LaunchOptions,
-  Launches,
-  RouterLaunches,
-  WorkflowLaunchOptions,
-} from "../flow/launch-types.js";
-export type {
-  GroupPath,
-  GroupStart,
-  GroupValues,
+  FixedArbitratedQuorums,
   GroupsJoined,
+  GroupsJoining,
+  QuorumDeadline,
+  QuorumGroupOptions,
   QuorumGroupsOptions,
   QuorumJoined,
   QuorumOptions,
   Quorums,
 } from "../flow/quorum-types.js";
-export type { AnyOfArbiters, ArbiterChoice } from "../flow/quorum-step.js";
 export {
   NodeKind,
   QuorumKind,
   StepKind,
-  type AcceptedBy,
   type ArbiterClass,
   type ChooseOneRoute,
   type ChooseOneStep,
@@ -82,71 +70,61 @@ export {
   type GroupsQuorum,
   type JoinErrorHandler,
   type JoinStep,
-  type LaunchStep,
-  type LaunchTargetKind,
+  type OneOfStep,
+  type OnFinishStep,
   type OnErrorStep,
   type PathSource,
   type Quorum,
   type QuorumGroup,
-  type ReturnedValue,
-  type ReturnsStep,
   type Step,
   type SubPath,
-  type SwitchCase,
-  type SwitchStep,
   type ToStep,
 } from "../flow/ast.js";
-export { Agent, RagMode, type AgentOptions, type AgentRag } from "../flow/decorators/agent.js";
+export { Agent, type AgentExecutionLimits, type AgentOptions } from "../flow/decorators/agent.js";
 export { Action, type ActionOptions } from "../flow/decorators/action.js";
 export {
   Arbiter,
-  OnAnswer,
+  ArbiterModel,
+  Arbitrate,
   type AnswerJudgement,
+  type ArbitratedAnswerOf,
   type ArbiterAnswerOf,
   type ArbiterCriterion,
   type ArbiterDecorator,
   type ArbiterOptions,
+  type ArbitrateDecorator,
   type CodeArbiterOptions,
   type ModelArbiterOptions,
-  type OnAnswerDecorator,
 } from "../flow/decorators/arbiter.js";
 export {
   DecidedBy,
-  FailurePolicy,
   Router,
-  SpawnPolicy,
   type CodeRouterOptions,
-  type CodeRouterRoute,
+  type RouteChecked,
   type ModelRouterOptions,
   type RouterOptions,
-  type RouterRoute,
 } from "../flow/decorators/router.js";
 export { WorkflowStart, type WorkflowStartOptions } from "../flow/decorators/workflow-start.js";
 export { WorkflowFinish, type WorkflowFinishOptions } from "../flow/decorators/workflow-finish.js";
 export {
   Workflow,
-  type FlowDefaults,
   type GuardrailDefaults,
   type ModelDefaults,
   type RouterDefaults,
   type ToolDefaults,
+  type ApplicationDefaults,
+  type ChildWorkflowDefaults,
   type WorkflowDefaults,
+  type WorkflowExecutionLimits,
   type WorkflowOptions,
 } from "../flow/decorators/workflow.js";
 export type { InputFieldShape, InputFields } from "../flow/decorators/declaration.js";
-export type {
-  ActionHandler,
-  ActionResult,
-  FinishHandler,
-  RouterHandler,
-} from "../flow/handlers.js";
+export type { ActionHandler, ActionResult, RouterHandler } from "../flow/handlers.js";
 export {
   historyOf,
-  isVariant,
   listOf,
   oneOf,
   optional,
-  variant,
   type HistoryOf,
   type HistoryOptions,
   type HistoryWrapper,
@@ -154,40 +132,27 @@ export {
   type OneOfWrapper,
   type OptionalWrapper,
   type OutputShape,
-  type Produced,
-  type ProducedValue,
   type ValueOf,
   type ValueShape,
-  type Variant,
-  type VariantOf,
 } from "../flow/dto-wrappers.js";
 export {
+  type AGBossTypes,
   agbossComponent,
   agbossDto,
-  type ChannelAnswerOf,
-  type ChannelQuestionOf,
-  type ChannelRoles,
-  type DtoBrands,
   type ExecutionInputOf,
   type ExecutionOptionsArgs,
   type ExecutionOptionsOf,
   type ExecutionOutputOf,
   type GeneratedTypeError,
   type InputOf,
-  type Inputs,
-  type JoinOutputOf,
-  type JoinOutputs,
   type MissingGeneratedTypes,
   type NoInput,
   type NoOutput,
   type OutputOf,
-  type Outputs,
-  type ProducerOutputs,
+  type PauseInputOf,
+  type PauseOutputOf,
   type Route,
   type RouterAnswerOf,
-  type RouterAnswers,
-  type Routes,
-  type WorkflowStarts,
 } from "../flow/generated-types.js";
 export type { ComponentRecord } from "../flow/runtime/records.js";
 export type { ExecutionRecord, PauseAnswerRecord } from "../flow/runtime/execution-record.js";

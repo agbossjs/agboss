@@ -22,10 +22,8 @@ import {
 } from "../infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../infrastructure/in-memory-database.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
-import {
-  FencedEffectSettings,
-  OutboundCallSettings,
-} from "../infrastructure/fenced-effect-settings.js";
+import { OutboundMasking } from "../app/outbound-masking.js";
+import { ComponentOptions } from "../components/component-options.js";
 import {
   CONTAINER_DEFAULTS,
   INFRASTRUCTURE_DEFAULTS,
@@ -33,9 +31,13 @@ import {
   infrastructureOf,
   type Infrastructure,
 } from "../infrastructure/contracts.js";
+import type { BudgetListing } from "../app/app-deps.js";
 import { StoreBounds } from "../app/store-bounds.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { containerProvidersOf } from "../models/resolution.js";
+import { settingsEntriesOf, type ResolvedStorage } from "../storage/settings.js";
+import { resolvedStorageOfOptions } from "../storage/storage-fields.js";
+import { attachedBudgetsOf, budgetsOfApplication } from "../budgets/budget-rules.js";
 import { applicationDeclarationOf, applicationsListing } from "./application.js";
 
 /** What the shared container of an application instance is built from besides its providers. */
@@ -64,10 +66,12 @@ export interface ApplicationContainerSources {
   readonly instances?: ReadonlyMap<Class, unknown>;
   /** A test's instance (`testWith`): an unlisted `Logger` is silent. */
   readonly quiet?: boolean | undefined;
-  /** `@Application({ fencedEffects })` (#500), as the fenced-effect store reads it; else the defaults. */
-  readonly fencedEffects?: FencedEffectSettings | undefined;
-  /** `@Application({ outboundCalls })` (#505), as `OutboundCalls` and its store read it. */
-  readonly outboundCalls?: OutboundCallSettings | undefined;
+  /** Whether a call's request is stored only masked (#505), as `Idempotency` reads it; else it is. */
+  readonly outboundMasking?: OutboundMasking | undefined;
+  /** The storage components' drivers' settings, resolved (#1321): what the connections read. */
+  readonly storage?: ResolvedStorage | undefined;
+  /** The options of the components as the selected profiles leave them (#1318c): what every reader asks; none = as declared. */
+  readonly componentOptions?: ComponentOptions | undefined;
 }
 
 /** The parts every container of one application instance shares (one instance per class). */
@@ -87,12 +91,10 @@ export function applicationContainerOf(
       [StoreClock, sources.storeClock ?? new StoreClock(StoreTimeSource.Database, clock)],
       [IdGenerator, idGenerator],
       [IN_MEMORY_DATABASE, sources.database ?? new InMemoryDatabase()],
-      [FencedEffectSettings, sources.fencedEffects ?? new FencedEffectSettings()],
+      ...settingsEntriesOf(sources.storage),
+      [ComponentOptions, sources.componentOptions ?? ComponentOptions.none],
       // no assembled settings (a store opened on its own): fail closed, every request masked (#795)
-      [
-        OutboundCallSettings,
-        sources.outboundCalls ?? new OutboundCallSettings({ requiresMask: true }),
-      ],
+      [OutboundMasking, sources.outboundMasking ?? new OutboundMasking({ requiresMask: true })],
       ...contextValuesOf(sources.contexts),
     ]),
     bounds,
@@ -201,13 +203,19 @@ function listingApplicationOf(bundle: AssembledWorkflow) {
  * The budgets of a workflow run on its own (eval, replay, golden, compare): its application's
  * (#261), so those runs are checked and counted like the application's; none when it stands alone.
  */
-export function standaloneBudgetsOf(
-  bundle: AssembledWorkflow,
-): { readonly budgets: readonly Class[]; readonly applicationName: string } | undefined {
+export function standaloneBudgetsOf(bundle: AssembledWorkflow): BudgetListing | undefined {
   const declaration = listingApplicationOf(bundle);
   if (declaration === undefined) return undefined;
   const { options } = declaration;
-  return { budgets: options.budgets ?? [], applicationName: options.name };
+  // the profile the workflow was assembled under: its limits and its attached budgets, as the application counts them
+  const { budgetOverlays } = bundle;
+  const overlaid = { ...options, budgetOverlays };
+  return {
+    budgets: budgetsOfApplication(overlaid),
+    attached: attachedBudgetsOf(overlaid),
+    ...(budgetOverlays === undefined ? {} : { budgetOverlays }),
+    applicationName: options.name,
+  };
 }
 
 /** The providers of the one loaded application that lists the workflow (none: it stands alone). */
@@ -238,11 +246,17 @@ export function standaloneInfrastructure(
   const modules = [applicationProvidersOf(bundle)];
   const container = onCreate === undefined ? {} : { onCreate };
   const clock = clockOf(modules, container);
+  const storage = resolvedStorageOfOptions(
+    listingApplicationOf(bundle)?.options.storage,
+    process.env,
+  );
   return resolveInfrastructure(
     applicationContainerOf(
       {
         modules,
         clock,
+        storage,
+        componentOptions: bundle.componentOptions,
         contexts: contextsOutsideExecution(bundle.config, options.environment, clock),
       },
       container,

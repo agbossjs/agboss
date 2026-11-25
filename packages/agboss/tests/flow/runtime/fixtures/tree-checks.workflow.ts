@@ -1,4 +1,4 @@
-import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { Text } from "../../../../src/dto/index.js";
 import {
   Agent,
@@ -6,10 +6,11 @@ import {
   Tool,
   Workflow,
   WorkflowStart,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
-import { start } from "../../../helpers/flow.js";
-import { BatchDoneWorkflowFinish } from "./tree-batch.workflow.js";
+import { onStart, toWorkflow } from "../../../helpers/flow.js";
+import { BatchDoneWorkflowFinish, BatchDoneAction } from "./tree-batch.workflow.js";
 import { TaskDoneDto, TaskDoneWorkflowFinish, TaskDto } from "./tree-task.workflow.js";
 
 /** #264 PR 2 — a paused child holds no slot: checks of tasks, one asking for a confirmation. */
@@ -22,12 +23,12 @@ export class TaskConfirmationDto {
 @Tool({
   name: "confirm-task-tool",
   description: "Confirms a task",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: TaskConfirmationDto,
   output: TaskConfirmationDto,
 })
-export class ConfirmTaskTool implements ToolHandler<TaskConfirmationDto, TaskConfirmationDto> {
-  run(input: TaskConfirmationDto): Promise<TaskConfirmationDto> {
+export class ConfirmTaskTool {
+  execute(input: TaskConfirmationDto): Promise<TaskConfirmationDto> {
     return Promise.resolve(input);
   }
 }
@@ -35,7 +36,7 @@ export class ConfirmTaskTool implements ToolHandler<TaskConfirmationDto, TaskCon
 @Agent({
   name: "task-checker-agent",
   description: "Checks one task, asking for a confirmation when it must",
-  prompt: "Check the task.",
+  prompt: inline("Check the task."),
   model: "moonshotai/kimi-k2.6",
   tools: [ConfirmTaskTool],
   input: { task: TaskDto },
@@ -49,11 +50,10 @@ export class TaskCheckWorkflowStart {}
 @Workflow({
   name: "task-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TaskCheckWorkflowStart)
-      .returns(TaskDto)
+    onStart(TaskCheckWorkflowStart)
       .toAgent(TaskCheckerAgent)
-      .returns(TaskDoneDto)
       .toFinish(TaskDoneWorkflowFinish),
   ],
 })
@@ -69,14 +69,14 @@ export class ChecksWorkflowStart {}
 @Workflow({
   name: "checks-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChecksWorkflowStart)
-      .returns(listOf(TaskDto))
-      .toParallelWorkflows(TaskCheckWorkflow, { maxConcurrency: 5, maxItems: 10 })
+    onStart(ChecksWorkflowStart)
+      .forEachItem(toWorkflow(TaskCheckWorkflow), { takeFirst: 10, maxConcurrency: 5 })
       .join()
-      .returns(listOf(TaskDoneDto))
+      .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 1,
+  executionLimits: { maxConcurrency: 1 },
 })
 export class ChecksWorkflow {}

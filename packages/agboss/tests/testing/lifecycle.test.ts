@@ -24,7 +24,7 @@ const scriptTurn = (mockLlm: (node: typeof MainRouter) => ModelScript, text: str
 describe("AC12: lifecycle is the test context's job", () => {
   test.fails("a test that fails after the app started (its onStop still runs)", async ({ app }) => {
     lifecycle.length = 0;
-    await app.tool(OrderStatus).invoke({ orderId: "1" });
+    await app.runTool(OrderStatus, { orderId: "1" });
 
     throw new Error("the test fails here");
   });
@@ -37,7 +37,7 @@ describe("AC12: lifecycle is the test context's job", () => {
     lifecycle.length = 0;
     mockOf(OrderBook).statusOf.mockResolvedValue("mocked");
 
-    await app.tool(OrderStatus).invoke({ orderId: "1" });
+    await app.runTool(OrderStatus, { orderId: "1" });
     await app.close();
 
     expect(lifecycle).toEqual([]);

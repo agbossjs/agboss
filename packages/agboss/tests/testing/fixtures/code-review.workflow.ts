@@ -1,3 +1,4 @@
+import { Window2Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   DecidedBy,
@@ -7,14 +8,18 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import { Reasoning } from "../../../src/models/index.js";
-import { agent, route, start } from "../../helpers/flow.js";
+import { onAgent, onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const price = { inputPerMTok: 1, outputPerMTok: 2 };
 
@@ -32,7 +37,7 @@ export class ReviewDto {
 
 @Agent({
   name: "coder-agent",
-  promptUrls: ["./coder.prompt.md"],
+  prompt: "./coder.prompt.md",
   description: "Writes the code",
   model: "test/coder",
   price,
@@ -43,7 +48,7 @@ export class Coder {}
 
 @Agent({
   name: "reviewer-agent",
-  promptUrls: ["./reviewer.prompt.md"],
+  prompt: "./reviewer.prompt.md",
   description: "Reviews the code",
   model: "test/reviewer",
   price,
@@ -70,8 +75,9 @@ export class PullRequest {}
   name: "review-gate-router",
   description: "Sends the code back to the coder or opens the pull request",
   decidedBy: DecidedBy.Model,
-  prompt: "Is the review clean?",
+  prompt: inline("Is the review clean?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { review: ReviewDto },
   maxVisits: 3,
   routes: [
@@ -88,34 +94,35 @@ export class Unused {}
 /** The code-review cycle: the gate sends the code back to the coder until the review is clean. */
 @Workflow({
   name: "code-review-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TaskStart)
-      .returns(WorkflowStartTextDto)
+    onStart(TaskStart)
       .toAgent(Coder),
-    agent(Coder)
-      .returns(CodeDto)
-      .toAgent(Reviewer)
-      .returns(ReviewDto, { about: CodeDto }) // the review is about this code (#271)
+    onAgent(Coder)
+      .toAgent(Reviewer) // the review is about this code (#271)
       .toRouter(ReviewGate)
-      .chooseOne(route(Coder), route(PullRequest)),
+      .onRoute(toAgent(Coder))
+      .onRoute(toFinish(PullRequest)),
   ],
   defaults: {
     models: {
       temperature: 0,
-      maxTokens: TokenLimit.MODEL_MAX,
+      maxTokens: TokenLimit.ModelMax,
       reasoning: Reasoning.modelDecides(),
       cache: true,
     },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 2 },
   },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 })
 export class CodeReview {}
 
 @Application({
   name: "code-review-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CodeReview],

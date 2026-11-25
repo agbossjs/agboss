@@ -1,6 +1,7 @@
 import type { Clock } from "../../infrastructure/clock.js";
 import type { RateLimitRepository } from "../../infrastructure/rate-limit.repository.js";
-import { CircuitBreaker, type CircuitBreakerPolicy } from "../circuit-breaker.js";
+import { CircuitBreaker, type CircuitTransition } from "../circuit-breaker.js";
+import type { CircuitBreakerPolicy } from "../circuit-breaker-policy.js";
 import type { RateLimitPolicy } from "../policies/rate-limit-policy.js";
 import { ProviderGate } from "./provider-gate.js";
 
@@ -11,6 +12,7 @@ import { ProviderGate } from "./provider-gate.js";
  */
 export class ProviderCalls {
   readonly #gates = new Map<string, ProviderGate>();
+  readonly #listeners = new Set<(provider: string, transition: CircuitTransition) => void>();
 
   constructor(
     readonly rateLimits: RateLimitRepository,
@@ -32,9 +34,20 @@ export class ProviderCalls {
     return gate;
   }
 
+  /** Tells `listener` of every state change of every breaker of this instance (`onCircuitStateChange`). */
+  observe(listener: (provider: string, transition: CircuitTransition) => void): void {
+    this.#listeners.add(listener);
+  }
+
   /** The provider's breaker: its state in the repository, so every breaker of it agrees. */
   breakerOf(provider: string, policy: CircuitBreakerPolicy): CircuitBreaker {
-    return new CircuitBreaker(provider, policy, { rateLimits: this.rateLimits, clock: this.clock });
+    return new CircuitBreaker(provider, policy, {
+      rateLimits: this.rateLimits,
+      clock: this.clock,
+      onTransition: (transition) => {
+        for (const listener of this.#listeners) listener(provider, transition);
+      },
+    });
   }
 }
 

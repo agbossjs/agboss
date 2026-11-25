@@ -40,7 +40,7 @@ export const PROFILE: OptionSpec = {
   name: "profile",
   type: "string",
   value: "<name>",
-  help: "apply profiles/<workflow>/<name>.yaml",
+  help: "layer src/config/<name>.config.ts|yaml over base (a,b or a+b: left to right; default dev)",
 };
 export const THREAD: OptionSpec = {
   name: "thread",
@@ -54,18 +54,28 @@ export const ENV: OptionSpec = {
   value: "<name>",
   help: "the environment: environments/<name>.environment.ts next to the application (default dev)",
 };
+/** The two that choose what an application runs on: its profiles, its environment. */
+export const PROFILE_AND_ENV: readonly OptionSpec[] = [PROFILE, ENV];
 export const DRY_RUN: OptionSpec = {
   name: "dry-run",
   type: "boolean",
   help: "show what would be written, write nothing",
 };
 
-/** `agboss rag index --tenant <id>` (#700): whose knowledge bases to build (#797: required with a tenant context). */
+/** `agboss rag index --tenant <id>`: the tenant a non-shared knowledge base is built for. */
 export const INDEX_TENANT: OptionSpec = {
   name: "tenant",
   type: "string",
   value: "<id>",
-  help: 'the tenant whose knowledge bases to build — required when the application declares a tenant context (rag.tenant-required); without it: the tenant "default"',
+  help: "the tenant to build for — required for a knowledge base whose @Rag declares a scope other than Shared (rag.tenant-required): an owner id or a custom key is unique within a tenant only",
+};
+
+/** `agboss rag index --scope <id>`: whose passages to build — required only for a knowledge base whose scope is not Shared. */
+export const INDEX_SCOPE: OptionSpec = {
+  name: "scope",
+  type: "string",
+  value: "<id>",
+  help: "the owner's or custom scope's id within the tenant — required for an Owner or Custom knowledge base (rag.scope-required); a Tenant one is the tenant's own, a Shared one has none",
 };
 
 /** A string option: `--<name> <value>`. */
@@ -95,4 +105,14 @@ export const COMMON_OPTIONS: readonly OptionSpec[] = [
 export const optionsOf = (spec: CommandSpec): readonly OptionSpec[] => [
   ...spec.options,
   ...COMMON_OPTIONS,
+];
+
+/** `agboss rag index`'s options. */
+export const RAG_INDEX_OPTIONS: readonly OptionSpec[] = [
+  APPLICATION,
+  text("rag", "<name>", "only this knowledge base"),
+  INDEX_TENANT,
+  INDEX_SCOPE,
+  PROFILE,
+  ENV,
 ];

@@ -10,7 +10,7 @@ import {
   listedClassesOf,
 } from "../../src/application/application-rules.js";
 import { Budget, BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
-import { EmptyEnvironment, Injectable } from "../../src/index.js";
+import { EmptyEnvironment, Injectable, Ttl } from "../../src/index.js";
 import { ModelCost, ModelProvider, RetryPolicy } from "../../src/models/index.js";
 import type { TransportModelProviderOptions } from "../../src/models/model-provider.decorator.js";
 import { minutes, seconds, usd, type Usd } from "../../src/units/index.js";
@@ -27,9 +27,9 @@ import {
   SpendReportService,
 } from "./fixtures/desks.application.js";
 import { Workflow } from "../../src/index.js";
-import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { testDefaults } from "../helpers.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 class ShopApplication {
   readonly fixture = true;
@@ -68,11 +68,13 @@ class NotABudget {
 const transport = (name: string): TransportModelProviderOptions => ({
   name,
   description: "A transport",
-  serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 1, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 1,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 });
 
 @ModelProvider(transport("shop-model-provider"))
@@ -82,7 +84,7 @@ class ShopModelProvider {
   }
 }
 
-@ModelProvider(transport("shop-provider"))
+@ModelProvider(transport("Shop_Provider"))
 class MisnamedModelProvider {
   complete() {
     return Promise.resolve(answer("never"));
@@ -97,13 +99,9 @@ class PlainService {
 @Workflow({
   name: "infra-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
-  flow: [
-    start(OrdersWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(OrdersAgent)
-      .toFinish(OrdersWorkflowFinish),
-  ],
+  flow: [onStart(OrdersWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
   providers: [
     RecordingCostLedgerRepository,
     ShopModelProvider,
@@ -212,8 +210,8 @@ describe("#1366: applicationRuleViolations", () => {
 
     expect(found(ShopApplication, given)).toEqual([
       {
-        code: "name.kind-suffix",
-        message: '"shop-provider" on @ModelProvider — name it "shop-provider-model-provider"',
+        code: "name.not-kebab-case",
+        message: '"Shop_Provider" on @ModelProvider — a name is kebab-case: "shop-provider"',
         nodes: ["shop-application"],
       },
     ]);
@@ -249,13 +247,9 @@ describe("#1366: applicationRuleViolations", () => {
     @Workflow({
       name: "plain-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       defaults: testDefaults,
-      flow: [
-        start(OrdersWorkflowStart)
-          .returns(WorkflowStartTextDto)
-          .toAgent(OrdersAgent)
-          .toFinish(OrdersWorkflowFinish),
-      ],
+      flow: [onStart(OrdersWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
       providers: [Undecorated],
     })
     class PlainWorkflow {
@@ -264,13 +258,9 @@ describe("#1366: applicationRuleViolations", () => {
     @Workflow({
       name: "bare-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       defaults: testDefaults,
-      flow: [
-        start(OrdersWorkflowStart)
-          .returns(WorkflowStartTextDto)
-          .toAgent(OrdersAgent)
-          .toFinish(OrdersWorkflowFinish),
-      ],
+      flow: [onStart(OrdersWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
     })
     class BareWorkflow {
       readonly fixture = true;

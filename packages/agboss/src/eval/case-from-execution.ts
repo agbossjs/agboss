@@ -1,5 +1,8 @@
+import { ExecutionStatus } from "../app/types.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { sortedJson } from "../flow/runtime/json.js";
+import { PauseResolution } from "../infrastructure/pause-record.js";
+import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import { ToolCallStatus, type ToolCallRecord } from "../flow/runtime/tool-calls.js";
 import {
   ExecutionHistoryStatus,
@@ -12,7 +15,8 @@ import {
  * case's required calls — plain data by component name, for a generator to write as an
  * `evalCase({ … })` (`agboss generate eval-case --from-execution`) or a page to save as one (#397
  * PR 5: "save as golden case"). Values are taken as observed: from the execution history they are
- * masked, as it keeps them.
+ * masked, as it keeps them. The pauses a person answered become the turn's scripted answers
+ * (`answerPause`), and a run that was stopped or cancelled the case's `expectedStatus`.
  */
 
 /** One finished turn of a thread: where it started and with what, where it finished and with what. */
@@ -35,12 +39,30 @@ export interface ObservedExecution {
   readonly history: readonly ObservedTurn[];
   /** The tool calls of its own agents, in call order. */
   readonly toolCalls: readonly ToolCallRecord[];
+  /** The pauses of its tree that were resolved, in the order they were asked. */
+  readonly pauses: readonly PauseAnswerRecord[];
+  /** How it ended. */
+  readonly status: ExecutionHistoryStatus;
 }
 
-/** A call the case requires: the tool by name and the arguments it was called with. */
+/** A call the case requires: the tool by name and the input it was called with. */
 export interface DraftToolCall {
   readonly tool: string;
-  readonly arguments: unknown;
+  readonly input: unknown;
+}
+
+/** A pause a person answered: the target by name (its role's or channel's) and what was decided. */
+export interface DraftPause {
+  readonly target: string;
+  readonly decision: unknown;
+  /** Who answered, when the record kept it: a placeholder id (`actor-1`), never the real one. */
+  readonly actor?: { readonly id: string };
+}
+
+/** One turn of the drafted case: the start's input and the pauses it met. */
+export interface DraftTurn {
+  readonly input: unknown;
+  readonly pauses?: readonly DraftPause[];
 }
 
 /** The case, by component names: what `evalCase({ … })` will say. */
@@ -53,8 +75,10 @@ export interface EvalCaseDraft {
   /** Its execution values; none when it had none. */
   readonly execution?: Readonly<Record<string, unknown>>;
   readonly history: readonly ObservedTurn[];
-  readonly turns: readonly { readonly input: unknown }[];
+  readonly turns: readonly DraftTurn[];
   readonly required: readonly DraftToolCall[];
+  /** How the run must end when it did not finish: `Stopped` or `Cancelled`; none for the default. */
+  readonly expectedStatus?: ExecutionStatus.Stopped | ExecutionStatus.Cancelled;
 }
 
 /** Calls a tool ran (not refused before it): what a case can require again. */
@@ -73,8 +97,43 @@ function requiredCallsOf(calls: readonly ToolCallRecord[]): readonly DraftToolCa
     const key = `${tool}\u0000${sortedJson(call.input)}`;
     if (seen.has(key)) return [];
     seen.add(key);
-    return [{ tool, arguments: call.input }];
+    return [{ tool, input: call.input }];
   });
+}
+
+/**
+ * The pauses a person answered: replied, with a decision kept; the target is the pause target asked.
+ * The decision is the record's, masked like its inputs and outputs (the history masks the pauses
+ * by their execution's chain). The person who answered is not masked data but an identity — an
+ * owner id or a credential: a drafted case, saved as a golden file, names a placeholder instead
+ * (`actor-1`, `actor-2` …, one per person, stable within the case).
+ */
+function pausesOf(pauses: readonly PauseAnswerRecord[]): readonly DraftPause[] {
+  const placeholders = new Map<string, string>();
+  const placeholderOf = (person: string): string => {
+    const known = placeholders.get(person);
+    if (known !== undefined) return known;
+    const made = `actor-${String(placeholders.size + 1)}`;
+    placeholders.set(person, made);
+    return made;
+  };
+  return pauses.flatMap((pause) =>
+    pause.resolution === PauseResolution.Replied && pause.decision !== undefined
+      ? [
+          {
+            target: pause.target,
+            decision: pause.decision,
+            ...(pause.actor === undefined ? {} : { actor: { id: placeholderOf(pause.actor.id) } }),
+          },
+        ]
+      : [],
+  );
+}
+
+/** What a record that did not finish expects of its replay: a stop or a cancel; none otherwise. */
+function expectedStatusOf(status: ExecutionHistoryStatus): EvalCaseDraft["expectedStatus"] {
+  if (status === ExecutionHistoryStatus.Stopped) return ExecutionStatus.Stopped;
+  return status === ExecutionHistoryStatus.Cancelled ? ExecutionStatus.Cancelled : undefined;
 }
 
 /** The tenant values worth stating: any but the default tenant's bare id. */
@@ -86,14 +145,17 @@ function tenantOf(tenant: Readonly<Record<string, unknown>>) {
 
 /** The case `name` would be, drafted from `observed`. */
 export function evalCaseDraftOf(name: string, observed: ObservedExecution): EvalCaseDraft {
+  const pauses = pausesOf(observed.pauses);
+  const expectedStatus = expectedStatusOf(observed.status);
   return {
     name,
     start: observed.start,
     ...tenantOf(observed.tenant),
     ...(Object.keys(observed.execution).length === 0 ? {} : { execution: observed.execution }),
     history: observed.history,
-    turns: [{ input: observed.input }],
+    turns: [{ input: observed.input, ...(pauses.length === 0 ? {} : { pauses }) }],
     required: requiredCallsOf(observed.toolCalls),
+    ...(expectedStatus === undefined ? {} : { expectedStatus }),
   };
 }
 
@@ -128,5 +190,7 @@ export function observedExecutionOf(
     execution: record.contexts.execution,
     history: earlier.flatMap(turnOf),
     toolCalls: record.toolCalls,
+    pauses: record.pauses,
+    status: record.status,
   };
 }

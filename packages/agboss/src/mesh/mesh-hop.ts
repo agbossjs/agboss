@@ -1,6 +1,6 @@
 /**
  * The mesh (#398): AGBoss applications calling each other over A2A (`A2AClient` → `a2aHttpListener`)
- * and MCP (an `@McpServer` → `createMcpService`). Each request carries the chain of applications it
+ * and MCP (an `@McpServer` → `connectMcp`). Each request carries the chain of applications it
  * passed through, so a call that comes back to where it started is refused before it runs.
  */
 

@@ -24,7 +24,7 @@ import { taskNotCancelable, taskNotFound } from "./a2a-wire-errors.js";
  * `-32002`.
  */
 
-const CANCELED: A2ATaskStatus = { state: A2ATaskState.Canceled, pendingPauses: [] };
+const CANCELED: A2ATaskStatus = { state: A2ATaskState.Cancelled, pendingPauses: [] };
 
 /** The task once its cancel is asked for: `CANCELED`, or still moving while its holder stops. */
 export async function canceledTask(
@@ -56,6 +56,6 @@ export async function canceledTask(
 /** The task after its cancel; one another end took first is not cancelable (`-32002`). */
 function canceledOrRefused(task: A2ATaskRecord): A2ATaskRecord {
   const { state } = task.status;
-  if (isTerminalA2ATaskState(state) && state !== A2ATaskState.Canceled) throw taskNotCancelable();
+  if (isTerminalA2ATaskState(state) && state !== A2ATaskState.Cancelled) throw taskNotCancelable();
   return task;
 }

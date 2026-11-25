@@ -9,7 +9,7 @@ import { modelSummaryOf } from "../../src/models/workflow-models.js";
 import { Priced } from "./fixtures/priced.workflow.js";
 import { LocalModelProvider } from "./providers.fixture.js";
 import { KIMI_ENTRY, providerStub } from "./stub.js";
-import { KEYS } from "./gateway.js";
+import { ENV, KEYS } from "./gateway.js";
 
 const config = (agents: AgentsConfigOf<string>["agents"]): AgentsConfigOf<string> => ({
   name: "check",
@@ -25,9 +25,9 @@ const config = (agents: AgentsConfigOf<string>["agents"]): AgentsConfigOf<string
 
 describe("AC6: the check runs at every startup, before any model call", () => {
   it("AC6: a workflow whose settings do not fit fails with a ConfigurationError listing every problem", async () => {
-    const stub = providerStub([], [KIMI_ENTRY]);
+    const stub = providerStub([], [KIMI_ENTRY, { id: "backup/kimi-k2.6" }]);
     const start = createAppDeps(await workflowOf(Priced), {
-      processEnv: { TERN_DB: ":memory:" },
+      processEnv: { TERN_DB: ":memory:", ...ENV },
       environment: KEYS,
       providerFetch: stub.fetch,
     });
@@ -41,16 +41,18 @@ describe("AC6: the check runs at every startup, before any model call", () => {
 
   it("AC6: the startup log shows each model's provider, reasoning and caching, and where they come from", async () => {
     const deps = await createAppDeps(await workflowOf(Priced), {
-      processEnv: { TERN_DB: ":memory:" },
+      processEnv: { TERN_DB: ":memory:", ...ENV },
       environment: KEYS,
-      providerFetch: providerStub([], [KIMI_ENTRY, { id: "local/llama" }]).fetch,
+      providerFetch: providerStub(
+        [],
+        [KIMI_ENTRY, { id: "local/llama" }, { id: "backup/kimi-k2.6" }],
+      ).fetch,
     });
     await deps.close();
 
     expect(deps.models).toEqual([
-      "agents.summariser-agent  local/llama · provider local-model-provider · reasoning off (inherited from local-model-provider) · caching where supported (24h; system-prompt) (inherited from local-model-provider) · cost from the price table",
-      "agents.writer-agent  moonshotai/kimi-k2.6 · provider openrouter-model-provider · reasoning off · caching where supported (5m; system-prompt, tools, history) (inherited from openrouter-model-provider) · cost from the response",
-      "defaults.router  typesafe/jev-1.13 · provider decisions-model-provider · cost from the response",
+      "agents.summariser-agent  local/llama · provider local-model-provider · reasoning off (inherited from local-model-provider) · caching on (24h; system-prompt) (inherited from local-model-provider) · cost from the price table",
+      "agents.writer-agent  moonshotai/kimi-k2.6 · provider openrouter-model-provider · reasoning off · caching on (5m; system-prompt, tools, history) (inherited from openrouter-model-provider) · cost from the response",
     ]);
     expect(
       modelSummaryOf(

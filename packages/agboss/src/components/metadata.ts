@@ -1,25 +1,22 @@
-import type { McpServerConfig } from "../config/types.js";
+import type { McpServerConfig } from "../config/mcp-server-config.js";
 import type { DtoClass } from "../dto/types.js";
-import type { Bytes, Milliseconds, WorkingDuration } from "../units/index.js";
+import type { Bytes, Milliseconds } from "../units/index.js";
 import type { ServerTools } from "./mcp-client.js";
 import type { Class, Token } from "./injection.js";
 import type { ChannelOptions } from "./decorators.js";
-import type { McpExposeOptions } from "../mcp/mcp-expose.decorator.js";
+import type { McpEndpointOptions } from "../mcp/mcp-endpoint.decorator.js";
 import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 
 /** `@Tool` — its options as recorded. */
 export interface ToolMeta {
   readonly name: string;
   readonly description: string;
-  readonly prompt?: string;
-  readonly promptUrls?: readonly string[];
-  readonly channel?: Class;
+  /** The `@ToolApproval` its calls wait for (#1307). */
+  readonly approval?: Class;
   /** Whether it only reads (#860): what a direct-reply A2A skill's agents may call. */
   readonly readOnly?: boolean;
   /** How long one call may run (`seconds(5)`); default 30 s. */
   readonly timeout?: Milliseconds;
-  /** The deadline of its approval pause (#941), over its channel role's; only with `channel`. */
-  readonly expiresIn?: Milliseconds | WorkingDuration;
   /** What a model reads of one result at most (`kilobytes(256)`); default `defaults.tools`. */
   readonly maxResultSize?: Bytes;
   /** `@ToolInterceptor` classes of this tool, over its agent's, workflow's and application's (#384). */
@@ -29,11 +26,6 @@ export interface ToolMeta {
   readonly input: DtoClass;
   readonly output: DtoClass;
   readonly deps: readonly Token[];
-}
-
-/** `@McpTool`: a tool whose server is among its dependencies. */
-export interface McpToolMeta extends ToolMeta {
-  readonly server: Class;
 }
 
 /** What a decorator recorded about a class. */
@@ -47,13 +39,12 @@ export type ComponentMeta =
         readonly tools: ServerTools;
       };
     }
-  | { readonly kind: "mcp-tool"; readonly meta: McpToolMeta }
-  /** `@McpExpose` (`@agboss/core/mcp`): what `createMcpService` exposes to MCP clients. */
-  | { readonly kind: "mcp-expose"; readonly meta: McpExposeOptions }
-  /** `@A2AExpose` (`@agboss/core/a2a`, #398 PR 3): what `a2aHttpListener` serves to A2A callers. */
+  /** `@McpEndpoint` (`@agboss/core/mcp`): what `connectMcp` / `mcpHttpListener` expose to MCP clients. */
+  | { readonly kind: "mcp-endpoint"; readonly meta: McpEndpointOptions }
+  /** `@A2AEndpoint` (`@agboss/core/a2a`, #1320): what `a2aHttpListener` serves to A2A callers. */
   | {
-      readonly kind: "a2a-expose";
-      readonly meta: import("../a2a/a2a-expose.decorator.js").A2AExposeOptions;
+      readonly kind: "a2a-endpoint";
+      readonly meta: import("../a2a/a2a-endpoint.decorator.js").A2AEndpointMeta;
     }
   | {
       readonly kind: "channel";
@@ -65,18 +56,16 @@ export type ComponentMeta =
       readonly meta: {
         readonly name: string;
         readonly description: string;
-        readonly prompt?: string;
-        readonly promptUrls?: readonly string[];
-        /** Whose content it serves (#796); checked at assembly — a JS caller may leave it out. */
-        readonly tenancy: import("../rag/types.js").RagTenancy;
-        /** What the agent gets per retrieval: `topK`, or `rerank.topK` (#703). */
+        /** Whose content it serves; checked at assembly — a JS caller may leave it out. */
+        readonly scope: import("../rag/types.js").RagScope;
+        /** What the agent gets per retrieval. */
         readonly topK: number;
-        /** Fetch `candidates`, rerank, keep `topK` (#703). */
-        readonly rerank?: import("../rag/types.js").RagRerank;
+        /** A `@RagReranker` class: fetch its `candidates`, keep `topK`. */
+        readonly reranker?: Class;
         readonly deps: readonly Token[];
       };
     }
-  /** `@Reranker` (#703): re-orders a knowledge base's candidates — by model or by code. */
+  /** `@RagReranker`: re-orders a knowledge base's candidates — by model or by code. */
   | {
       readonly kind: "reranker";
       readonly meta: import("../rag/reranker.decorator.js").RecordedRerankerMeta;
@@ -96,16 +85,16 @@ export type ComponentMeta =
       readonly kind: "tool-interceptor";
       readonly meta: import("../tool-interceptors/decorator.js").ToolInterceptorMeta;
     }
-  /** `@Compaction` (#120 PR 3): how turns older than the readers' window are summarised. */
+  /** `@Memory` (#1303): how long a thread is kept, what readers see of it and how old turns are summarised. */
   | {
-      readonly kind: "compaction";
-      readonly meta: import("../compaction/compaction.decorator.js").CompactionMeta;
+      readonly kind: "memory";
+      readonly meta: import("../memory/memory.decorator.js").MemoryMeta;
     }
+  /** `@Mesh` (#1320): the application's identity and rules in the mesh, listed in `@Application({ mesh })`. */
+  | { readonly kind: "mesh"; readonly meta: import("../mesh/mesh.decorator.js").MeshMeta }
   | {
       readonly kind: "judge";
-      readonly meta: import("./judge-decorators.js").JudgeMeta & {
-        readonly deps: readonly Token[];
-      };
+      readonly meta: import("./judge-decorators.js").JudgeRecord;
     }
   /** `@Budget` (#261): a money limit, listed in `@Application({ budgets })`. */
   | { readonly kind: "budget"; readonly meta: import("../budgets/budget.js").BudgetMeta }
@@ -114,17 +103,47 @@ export type ComponentMeta =
       readonly kind: "health-check";
       readonly meta: import("../health/health-check.js").HealthCheckMeta;
     }
-  /** `@PauseListener` (#940): an application-wide listener of every pause, listed in `providers`. */
+  /** `@ChannelSelector` (#1307): picks the channel when two or more serve one target. */
   | {
-      readonly kind: "pause-listener";
-      readonly meta: import("../pause/pause-listener.js").PauseListenerMeta;
+      readonly kind: "channel-selector";
+      readonly meta: import("../channels/channel-selector.js").ChannelSelectorMeta;
+    }
+  /** `@HttpAuthenticator` (#1316): who calls an HTTP listener, named by the listener's `authenticator`. */
+  | {
+      readonly kind: "http-authenticator";
+      readonly meta: import("../http/http-authenticator.js").HttpAuthenticatorMeta;
+    }
+  /** `@FilePolicy` (#1316): what a workflow's files may be, named by `filePolicy` on `@Workflow`. */
+  | {
+      readonly kind: "file-policy";
+      readonly meta: import("../files/file-policy.js").FilePolicyMeta;
+    }
+  /** `@Observer` (#1343): an execution observer, listed in `@Application({ observers })`. */
+  | { readonly kind: "observer"; readonly meta: import("../core/observer-hooks.js").ObserverMeta }
+  /** `@ChannelListener` (#940, #1310c): an application-wide listener of every pause, listed in `channelListeners`. */
+  | {
+      readonly kind: "channel-listener";
+      readonly meta: import("../pause/channel-listener.js").ChannelListenerMeta;
     }
   /** `@WorkingCalendar` (#944): a working-time calendar, listed in `providers`. */
   | {
       readonly kind: "working-calendar";
       readonly meta: import("../calendar/working-calendar.js").WorkingCalendarMeta;
     }
-  | { readonly kind: "a2a-agent"; readonly meta: import("../a2a/a2a-decorator.js").A2AAgentMeta };
+  | { readonly kind: "a2a-agent"; readonly meta: import("../a2a/a2a-decorator.js").A2AAgentMeta }
+  /** `@DatabaseStorage` / `@ClusterStorage` / `@ObjectStorage` (#1321): where the rows go, listed in `@Application({ storage })`. */
+  | {
+      readonly kind: "database-storage";
+      readonly meta: import("../storage/storage-decorators.js").DatabaseStorageMeta;
+    }
+  | {
+      readonly kind: "cluster-storage";
+      readonly meta: import("../storage/storage-decorators.js").ClusterStorageMeta;
+    }
+  | {
+      readonly kind: "object-storage";
+      readonly meta: import("../storage/storage-decorators.js").ObjectStorageMeta;
+    };
 
 /** Decorator metadata per class. Symbol.metadata is not available at runtime on Node 26. */
 const components = new WeakMap<object, ComponentMeta>();
@@ -166,21 +185,28 @@ export function requireComponent<K extends ComponentMeta["kind"]>(
 const kindName: Readonly<Record<ComponentMeta["kind"], string>> = {
   "pii-policy": "@PiiPolicy",
   guardrail: "@InputGuardrail / @OutputGuardrail",
-  compaction: "@Compaction",
+  memory: "@Memory",
+  mesh: "@Mesh",
   "tool-interceptor": "@ToolInterceptor",
   tool: "Tool",
   "mcp-server": "McpServer",
-  "mcp-tool": "McpTool",
-  "mcp-expose": "McpExpose",
-  "a2a-expose": "A2AExpose",
+  "mcp-endpoint": "McpEndpoint",
+  "a2a-endpoint": "A2AEndpoint",
   "a2a-agent": "A2AAgent",
   injectable: "Injectable",
   rag: "Rag",
-  reranker: "Reranker",
+  reranker: "RagReranker",
   judge: "Judge",
   channel: "Channel",
+  "channel-selector": "ChannelSelector",
+  "http-authenticator": "HttpAuthenticator",
+  "file-policy": "FilePolicy",
   budget: "Budget",
   "health-check": "HealthCheck",
-  "pause-listener": "PauseListener",
+  observer: "Observer",
+  "channel-listener": "ChannelListener",
   "working-calendar": "WorkingCalendar",
+  "database-storage": "DatabaseStorage",
+  "cluster-storage": "ClusterStorage",
+  "object-storage": "ObjectStorage",
 };

@@ -31,7 +31,7 @@ const kinds: readonly (readonly [string, () => PausedExecutionRepository])[] = [
 
 const T = (hour: number): string => `2026-11-20T${String(hour).padStart(2, "0")}:00:00.000Z`;
 const at = (hour: number): Date => new Date(T(hour));
-const answer = { decision: { approved: true }, answeredBy: undefined };
+const answer = { decision: { approved: true }, actor: undefined };
 
 /** A pause of `tree` in `tenant`, with the deadline and reminder given. */
 const pause = (
@@ -103,27 +103,27 @@ describe.each(kinds)("#1356: the pause store %s", (_kind, make) => {
     const none = await store.reassignByTenantIdAndPauseId(
       "default",
       "p-none",
-      { pauseId: "p-x", assignee: "anna" },
+      { pauseId: "p-x", assignees: ["anna"] },
       at(10),
       NO_RECIPIENTS,
     );
     const made = await store.reassignByTenantIdAndPauseId(
       "default",
       "p-1",
-      { pauseId: "p-2", assignee: "anna" },
+      { pauseId: "p-2", assignees: ["anna"] },
       at(10),
       NO_RECIPIENTS,
     );
 
     expect(none).toBeUndefined();
-    expect(made).toMatchObject({ pauseId: "p-2", assignee: "anna", reassignedFrom: "p-1" });
+    expect(made).toMatchObject({ pauseId: "p-2", assignees: ["anna"], reassignedFrom: "p-1" });
     expect(await store.findByTenantIdAndPauseId("default", "p-x")).toBeUndefined();
     // a pause that is not there makes no replacement, though the id it names is another pause's
     expect(
       await store.reassignByTenantIdAndPauseId(
         "default",
         "p-none",
-        { pauseId: "p-1", assignee: "anna" },
+        { pauseId: "p-1", assignees: ["anna"] },
         at(10),
         NO_RECIPIENTS,
       ),
@@ -139,14 +139,14 @@ describe.each(kinds)("#1356: the pause store %s", (_kind, make) => {
     const made = await store.reassignByTenantIdAndPauseId(
       "default",
       "p-1",
-      { pauseId: "p-4", assignee: "anna" },
+      { pauseId: "p-4", assignees: ["anna"] },
       at(10),
       NO_RECIPIENTS,
     );
     const again = await store.reassignByTenantIdAndPauseId(
       "default",
       "p-4",
-      { pauseId: "p-5", assignee: "ben" },
+      { pauseId: "p-5", assignees: ["ben"] },
       at(11),
       NO_RECIPIENTS,
     );

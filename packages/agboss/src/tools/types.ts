@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import type { DtoClass } from "../dto/types.js";
 import type { Clock } from "../infrastructure/clock.js";
-import type { Bytes, Milliseconds, WorkingDuration } from "../units/index.js";
+import type { Bytes, Milliseconds } from "../units/index.js";
 
 /**
  * What the framework hands its own tool wrapper per call (internal, #280): the call's signal (the
@@ -44,11 +44,10 @@ export interface QuestionToolFacts {
 export interface Tool<TName extends string = string, TInput = unknown, TOutput = unknown> {
   readonly name: TName;
   readonly description: string;
-  readonly channel?: string;
+  /** The name of the `@ToolApproval` the tool's calls wait for (#1307); none: they run without a pause. */
+  readonly approval?: string;
   /** How long one call may run. */
   readonly timeout: Milliseconds;
-  /** The deadline of its approval pause (#941), over its channel role's; none → the role's. */
-  readonly expiresIn?: Milliseconds | WorkingDuration;
   /** The tool's own bound on its rendered result (#336); none → its workflow's `defaults.tools`. */
   readonly maxResultSize?: Bytes;
   readonly input: z.ZodType<TInput>;

@@ -3,7 +3,7 @@ import type { AssembledWorkflow } from "../workflow.js";
 
 /**
  * Each guardrail (#120): its side and threshold, its model and where it came from — a code one
- * (#383) `decidedBy: code`, no threshold, no model —, its refusal — the text, or `Class.refusal()`
+ * (#383) code, no threshold, no model —, its refusal — the text, or `Class.refusal()`
  * when the class computes it — and the agents and routers it guards.
  */
 export function guardrailLines(bundle: AssembledWorkflow): string[] {
@@ -19,7 +19,7 @@ export function guardrailLines(bundle: AssembledWorkflow): string[] {
     ...assembled.guardrails.map((g) => {
       const decision = isModelGuardrail(g)
         ? `${g.side} ≥${String(g.threshold)} · ${g.model} (${g.isOwnModel ? "own" : "defaults.guardrail"})`
-        : `${g.side} · decidedBy: code`;
+        : `${g.side} · code`;
       const refusal =
         g.refusal === undefined ? `${g.type.name}.refusal()` : JSON.stringify(g.refusal);
       return `  ${g.name} — ${decision} · refusal: ${refusal} · on ${users(g.type)}`;

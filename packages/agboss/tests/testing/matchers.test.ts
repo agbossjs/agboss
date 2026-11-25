@@ -1,8 +1,8 @@
+import { usd } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { bareRecordOf, ComponentKind } from "../../src/flow/runtime/records.js";
 import { ExecutionStatus, type ExecutionOutput } from "../../src/app/types.js";
-import { buildCostReport } from "../../src/finops/usage.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
+import { CostReport } from "../../src/finops/usage.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
 import {
@@ -24,16 +24,17 @@ import {
   Writer,
   DeskApplication,
 } from "./fixtures/desk.workflow.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const PATH = ["chat-workflow-start", "main-router", "writer-agent", "reply-workflow-finish"];
 
-const run = (parts: Partial<ExecutionOutput>): ExecutionOutput => ({
+const run = (parts: Record<string, unknown>): ExecutionOutput => ({
   threadId: "thread-1",
   tenantId: "default",
   executionId: "run-1",
   status: ExecutionStatus.Finished,
   path: PATH,
-  spend: buildCostReport([]),
+  spend: CostReport.fromUsage([]),
   launches: [],
   children: [],
   handledErrors: [],
@@ -54,13 +55,13 @@ const paused = run({
     {
       kind: PauseKind.Approval,
       pauseId: "pause-1",
-      answerer: PauseAnswerer.ThreadOwner,
-      answeredBy: PauseAnswerer.ThreadOwner,
+      respondent: PauseRespondent.Owner,
       step: "support-agent",
-      channel: "terminal-user-channel",
+      channel: "owner-tool-approval",
       childExecutionId: undefined,
       itemIndex: undefined,
-      ask: { callId: "call-1", tool: "save-note-tool", arguments: {}, summary: "save a note" },
+      input: {},
+      toolCall: { callId: "call-1", tool: "save-note-tool", summary: "save a note" },
     },
   ],
 });
@@ -99,6 +100,51 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
     }).toThrow("it ended finished without a finish");
   });
 
+  it("toStopWith and toCancelWith name the operator's command and, when given, its reason (#1341)", () => {
+    const stopped = run({
+      status: ExecutionStatus.Stopped,
+      finish: undefined,
+      output: undefined,
+      reason: "enough",
+    });
+    const cancelled = run({
+      status: ExecutionStatus.Cancelled,
+      finish: undefined,
+      output: undefined,
+    });
+
+    expect(stopped).toStopWith();
+    expect(stopped).toStopWith("enough");
+    expect(cancelled).toCancelWith();
+    expect(stopped).not.toCancelWith();
+    expect(cancelled).not.toStopWith();
+    expect(stopped).not.toStopWith("another reason");
+    expect(() => {
+      expect(stopped).toStopWith("another reason");
+    }).toThrow(
+      'expected the run to be stopped for "another reason", it ended stopped for "enough"',
+    );
+    expect(() => {
+      expect(cancelled).toCancelWith("withdrawn");
+    }).toThrow('expected the run to be cancelled for "withdrawn", it ended cancelled for null');
+    expect(() => {
+      expect(run({})).toStopWith();
+    }).toThrow('expected the run to be stopped, it finished at "reply-workflow-finish"');
+    expect(() => {
+      expect(paused).toCancelWith();
+    }).toThrow('expected the run to be cancelled, it paused at "support-agent"');
+    expect(() => {
+      expect(run({})).not.toStopWith();
+      expect(stopped).not.toStopWith();
+    }).toThrow("expected not the run to be stopped");
+    expect(() => {
+      expect({}).toStopWith();
+    }).toThrow("toStopWith: expected a run result");
+    expect(() => {
+      expect({}).toCancelWith();
+    }).toThrow("toCancelWith: expected a run result");
+  });
+
   it("toFailWith matches a class and its fields along the cause chain (#262 AC10)", () => {
     const router = new RouterDecisionError({
       nodeId: "main-router",
@@ -110,7 +156,7 @@ describe("AC12: matchers by class — a passing and a failing case, readable fai
       limit: 1,
       actual: 2,
       path: ["writer-agent"],
-      spentUsd: 2,
+      spentUsd: usd(2),
     });
     const agent = new AgentFailedError({
       agent: "writer-agent",

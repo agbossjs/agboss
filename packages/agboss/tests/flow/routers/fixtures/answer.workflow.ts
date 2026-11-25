@@ -1,4 +1,5 @@
-import { OneOf, Text } from "../../../../src/dto/index.js";
+import { usd, Ttl } from "../../../../src/units/index.js";
+import { Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
   DecidedBy,
@@ -9,10 +10,11 @@ import {
   WorkflowStart,
 } from "../../../../src/index.js";
 import { LimitExceededError } from "../../../../src/graph/limits.js";
-import { route, start, toFinish } from "../../../helpers/flow.js";
+import { onStart, toFinish, toAction } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #280 S19 — a code router whose answer the test picks: a target, a class outside its routes (what
@@ -35,7 +37,7 @@ export const ANSWERS = [
 export type Answer = (typeof ANSWERS)[number];
 
 export class AskDto {
-  @OneOf({ values: ANSWERS, prompt: "what the router answers" })
+  @Enum(ANSWERS, { prompt: "what the router answers" })
   answer!: Answer;
 }
 
@@ -95,7 +97,13 @@ const answerOf = (answer: Answer): unknown => {
     case "crash":
       throw new TypeError("route() has a bug");
     case "limit":
-      throw new LimitExceededError({ key: "maxSteps", limit: 1, actual: 2, path: ["ask-router"], spentUsd: 0 });
+      throw new LimitExceededError({
+        key: "maxSteps",
+        limit: 1,
+        actual: 2,
+        path: ["ask-router"],
+        spentUsd: usd(0),
+      });
   }
 };
 
@@ -105,28 +113,28 @@ const answerOf = (answer: Answer): unknown => {
   description: "Answers what the input says",
   decidedBy: DecidedBy.Code,
   input: { ask: AskDto },
-  routes: [{ target: LeftAction }, { target: RightAction }],
+  routes: [LeftAction, RightAction],
 })
 export class AskRouter {
-  route(input: { readonly ask: { readonly value: AskDto } }): unknown {
-    return answerOf(input.ask.value.answer);
+  route(input: { readonly ask: AskDto }): unknown {
+    return answerOf(input.ask.answer);
   }
 }
 
 @Workflow({
   name: "ask-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(AskWorkflowStart)
-      .returns(AskDto)
+    onStart(AskWorkflowStart)
       .toRouter(AskRouter)
       .onError(LedgerDownError, toFinish(HeldWorkflowFinish))
-      .chooseOne(
-        route(LeftAction)
-          .returns(DoneDto)
+      .onRoute(
+        toAction(LeftAction)
           .toFinish(DoneWorkflowFinish),
-        route(RightAction)
-          .returns(DoneDto)
+      )
+      .onRoute(
+        toAction(RightAction)
           .toFinish(DoneWorkflowFinish),
       ),
   ],
@@ -135,6 +143,7 @@ export class AskWorkflow {}
 
 @Application({
   name: "ask-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AskWorkflow],
@@ -146,17 +155,17 @@ export class AskApplication {}
 @Workflow({
   name: "ask-caught-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(AskWorkflowStart)
-      .returns(AskDto)
+    onStart(AskWorkflowStart)
       .toRouter(AskRouter)
       .onError(RouterFailedError, toFinish(RefusedWorkflowFinish))
-      .chooseOne(
-        route(LeftAction)
-          .returns(DoneDto)
+      .onRoute(
+        toAction(LeftAction)
           .toFinish(DoneWorkflowFinish),
-        route(RightAction)
-          .returns(DoneDto)
+      )
+      .onRoute(
+        toAction(RightAction)
           .toFinish(DoneWorkflowFinish),
       ),
   ],

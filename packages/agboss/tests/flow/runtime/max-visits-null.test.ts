@@ -15,36 +15,33 @@ import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { VisitsLimitExceededError } from "../../../src/flow/runtime/errors.js";
 import { runtimeGraphOf } from "../../../src/flow/runtime/graph-model.js";
 import { checkVisit, type ExecutionLimits } from "../../../src/flow/runtime/limits.js";
-import {
-  ChangesRequestedDto,
-  DraftApprovedDto,
-  OfferDraftDto,
-  OfferSentDto,
-  ShortlistDto,
-} from "../fixtures/dtos.js";
+import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto } from "../fixtures/dtos.js";
 import {
   DraftKitAgent,
   KitWorkflowStart,
   SendKitAction,
+  TakeApprovalKitAction,
+  TakeChangesKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { agent, caseOf, start } from "../fixtures/paths.js";
+import { onAgent, onStart, toAgent, toAction } from "../fixtures/paths.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 @Agent({
   name: "null-bound-edit-agent",
   description: "Edits the draft",
-  prompt: "Edit it.",
+  prompt: inline("Edit it."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto },
   output: OfferDraftDto,
-  maxVisits: null as never,
+  executionLimits: { maxVisits: null as never },
 })
 class NullBoundEditAgent {}
 
 @Agent({
   name: "null-bound-review-agent",
   description: "Reviews the draft",
-  prompt: "Review it.",
+  prompt: inline("Review it."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto },
   output: oneOf(ChangesRequestedDto, DraftApprovedDto),
@@ -54,24 +51,13 @@ class NullBoundReviewAgent {}
 @Workflow({
   name: "null-bound-loop-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
-      .toAgent(NullBoundReviewAgent),
-    agent(NullBoundReviewAgent)
-      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-      .switch(
-        caseOf(ChangesRequestedDto)
-          .toAgent(NullBoundEditAgent)
-          .returns(OfferDraftDto)
-          .toAgent(NullBoundReviewAgent),
-        caseOf(DraftApprovedDto)
-          .toAction(SendKitAction)
-          .returns(OfferSentDto)
-          .toFinish(SentKitWorkflowFinish),
-      ),
+    onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(NullBoundReviewAgent),
+    onAgent(NullBoundReviewAgent).toOneOf([
+      toAction(TakeChangesKitAction).toAgent(NullBoundEditAgent).toAgent(NullBoundReviewAgent),
+      toAction(TakeApprovalKitAction).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
+    ]),
   ],
 })
 class NullBoundLoopWorkflow {}

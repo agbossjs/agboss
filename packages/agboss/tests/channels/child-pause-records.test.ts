@@ -2,7 +2,7 @@
  * #267 S124 c (PR 4): a child execution's record lists the pauses its own steps asked —
  * `ChildExecutionRecord.pauses`, in `result.children` and `result.record.children` alike — while the
  * root's `record.pauses` keeps the whole tree's. A single child (`.toWorkflow`) and a per-item one
- * (`.toParallelWorkflows`, one child per line, each pausing on its own).
+ * (`.forEachItem`, one child per line, each pausing on its own).
  */
 import { beforeEach, describe, expect } from "vitest";
 import { PauseResolution, type ChildExecutionRecord, type PendingPause } from "../../src/index.js";
@@ -56,17 +56,16 @@ describe("#267 S124 c: a single child's record lists its own pauses", () => {
 
     const done = await app.resume(
       { pauseId: pending?.pauseId ?? "", reply: yes },
-      { ...owner, record: true },
+      { ...owner, includeRecord: true },
     );
 
     expect(done).toFinishWith(TreasuryDeskWorkflowFinish, { text: "Booked." });
     const [child] = done.children;
     const asked = {
       executionId: pending?.childExecutionId,
-      role: "expense-approval-channel",
+      target: "expense-tool-approval",
       resolution: PauseResolution.Replied,
-      answeredBy: "alice",
-      responder: "alice",
+      actor: { id: "alice" },
       decision: { approved: true },
     };
     expect(child?.executionId).toBe(pending?.childExecutionId);
@@ -100,7 +99,7 @@ describe("#267 S124 c: each per-item child's record lists its own pauses", () =>
     await app.resume({ pauseId: lunch.pauseId, reply: yes }, owner);
     const done = await app.resume(
       { pauseId: taxi.pauseId, reply: '{"approved":false}' },
-      { ...owner, record: true },
+      { ...owner, includeRecord: true },
     );
 
     expect(done).toFinishWith(TreasuryBatchWorkflowFinish, { text: "Both booked." });

@@ -8,9 +8,9 @@
  *   and inside a step (`effectKeyOf`, and a key built by hand at `OutboundCalls.send`) —
  *   and nothing runs under a refused thread id.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
-import { InvalidBusinessKeyError } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { logged, resetLogged } from "../helpers/log.js";
@@ -171,7 +171,7 @@ describe("#538 acceptance: a business key refused inside a step is in no log ent
         (thrown: unknown) => thrown,
       );
 
-      await expect(Promise.reject(error as Error)).rejects.toFailWith(InvalidBusinessKeyError, {
+      await expect(Promise.reject(error as Error)).rejects.toFailWith(IdempotencyError.InvalidKey, {
         rule,
       });
       expect(echoSeen.ran).toBe(0);

@@ -17,15 +17,14 @@ import {
   Clock,
   StoreClock,
   ExecutionLeaseRepository,
-  FencedEffectSettings,
   InMemoryFencedEffectRepository,
   Injectable,
   LeaseCheck,
-  SqliteConnection,
   type StoreDescriptor,
   SqliteExecutionLeaseRepository,
   SqliteFencedEffectRepository,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import {
   PostgresLeases,
   storesApplication,
@@ -33,7 +32,7 @@ import {
 } from "./fixtures/store-backends.fixture.js";
 
 const EFFECT_DEPS = {
-  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository],
 } as const;
 
 /** The backend computed when it is read, as from a setting. */
@@ -69,12 +68,12 @@ class CapitalisedEffects extends InMemoryFencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: "Postgres" };
 }
 
-@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
+@Injectable({ deps: [SqliteConnection, StoreClock] })
 class RedeclaredSqliteEffects extends SqliteFencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: "postgres" };
 }
 
-@Injectable({ deps: [SqliteConnection, StoreClock, FencedEffectSettings] })
+@Injectable({ deps: [SqliteConnection, StoreClock] })
 class OwnSqliteEffects extends SqliteFencedEffectRepository {}
 
 @Injectable(EFFECT_DEPS)

@@ -1,6 +1,6 @@
-import { createAppWith, type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -22,8 +22,8 @@ function offline(book: ScriptBook): BuildApplicationOptions {
   };
 }
 
-/** Who answers through the desk (a `PauseAnswerer.Channel` role: the desk knows its staff). */
-const dana = { answeredBy: "dana" };
+/** Who answers through the desk (a `PauseRespondent.Delegate` role: the desk knows its staff). */
+const dana = { actor: { id: "dana" } };
 
 /** The answer to the desk's first ask: by the `pauseId` the channel was sent. */
 function deskAnswer(desk: ApprovalDesk, decision: unknown): ResumeRequest {
@@ -34,7 +34,7 @@ function deskAnswer(desk: ApprovalDesk, decision: unknown): ResumeRequest {
 
 /** The refunds app, its desk, and a run paused at the refund call. */
 async function pausedRefund(book: ScriptBook) {
-  const app = await createAppWith(RefundsApplication, offline(book));
+  const app = await createTestAppWith(RefundsApplication, offline(book));
   const desk = app.resolve(ApprovalDesk);
   const paused = await execute(app, ChatStart, { text: "refund order A-1" });
   return { app, desk, paused };
@@ -46,13 +46,19 @@ describe("#261: a channel reads the execution through its ExecutionContext", () 
     book
       .scriptOf("agent:clerk-agent")
       .thenReturn(callTool(Refund, { orderId: "A-1" }), replyWith("Refunded."));
-    const app = await createAppWith(RefundsApplication, offline(book));
+    const app = await createTestAppWith(RefundsApplication, offline(book));
     const desk = app.resolve(ApprovalDesk);
 
     await execute(app, ChatStart, { text: "refund order A-1" }, { tenant: { tenantId: "acme" } });
 
     expect(desk.tenants).toEqual(["acme"]);
-    expect(Object.keys(desk.posted[0] ?? {})).toEqual(["pauseId", "value"]);
+    expect(Object.keys(desk.posted[0] ?? {})).toEqual([
+      "pauseId",
+      "input",
+      "toolCall",
+      "expiresAt",
+      "trail",
+    ]);
     await app.close();
   });
 });
@@ -67,12 +73,15 @@ describe("#188: approval through a @Channel", () => {
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ step: "clerk-agent", ask: { tool: "refund-tool" } }],
+      pending: [{ step: "clerk-agent", toolCall: { tool: "refund-tool" } }],
     });
     expect(desk.posted).toEqual([
       {
         pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
-        value: expect.objectContaining({ tool: "refund-tool", arguments: { orderId: "A-1" } }),
+        input: { orderId: "A-1" },
+        toolCall: expect.objectContaining({ tool: "refund-tool" }),
+        expiresAt: expect.any(Date),
+        trail: [expect.objectContaining({ action: "opened" })],
       },
     ]);
     expect(desk.refunded).toEqual([]);
@@ -126,7 +135,7 @@ describe("#188: approval through a @Channel", () => {
 
   it("channels are created by the container: an unregistered channel dependency fails the build", async () => {
     await expect(
-      createAppWith(AuditedRefundsApplication, offline(new ScriptBook())),
+      createTestAppWith(AuditedRefundsApplication, offline(new ScriptBook())),
     ).rejects.toThrow(
       'AuditedRefundApprovalChannel: "AUDIT_LOG" is not registered in @Workflow({ providers })',
     );

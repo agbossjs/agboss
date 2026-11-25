@@ -16,11 +16,11 @@ import { replayed } from "../../../src/app/outbound-call-endings.js";
 import { resumeMapOf } from "../../../src/flow/runtime/child-own-thread.js";
 import { decodedRun } from "../../../src/flow/runtime/remote/remote-child-run.js";
 import { remoteFailureOf } from "../../../src/flow/runtime/remote/remote-failure.js";
-import { LocalDiskA2AFileRepository } from "../../../src/infrastructure/local-disk-a2a-file.repository.js";
+import { LocalDiskFileRepository } from "../../../src/infrastructure/local-disk-file.repository.js";
 import {
   ownerOfEntryBody,
   storedMetadataOf,
-} from "../../../src/infrastructure/s3/s3-a2a-file-layout.js";
+} from "../../../src/infrastructure/s3/s3-file-layout.js";
 import { SqliteExecutionAuditLogRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-audit-log.repository.js";
 import { SqliteExecutionTreeRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-tree.repository.js";
 import { SqliteFencedEffectRepository } from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
@@ -31,7 +31,6 @@ import { directMessageOf } from "../../../src/infrastructure/sqlite/sqlite-a2a-d
 import { messageOf, taskOf } from "../../../src/infrastructure/sqlite/sqlite-a2a-task-rows.js";
 import { toMailbox } from "../../../src/infrastructure/sqlite/sqlite-pause-notice-schema.js";
 import { StoredNamesUnreadableError } from "../../../src/infrastructure/stored-step.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { businessKeyOf, keyOf } from "../../../src/testing/contracts/fenced-effect-data.js";
@@ -100,8 +99,16 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
     const connection = connectionTo(temporarySqlitePath());
     const mesh = new SqliteMeshRequestRepository(connection);
     const key = { tenantId: "default", peer: "peer-1", idempotencyKey: "key-1" };
-    await mesh.saveIfAbsent({ ...key, createdAt: iso });
-    await mesh.saveResponse(key, "ok");
+    await mesh.saveIfAbsent({
+      ...key,
+      tool: "t",
+      requestHash: "h",
+      createdAt: iso,
+      attemptId: "a",
+      expiresAt: iso,
+      lockedUntil: iso,
+    });
+    await mesh.saveResponse(key, "a", "ok");
     connection.database.prepare("UPDATE mesh_requests SET response = ?").run(NOT_JSON);
 
     await refused(
@@ -113,6 +120,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
 
   it("an a2a task's status, and an a2a message's reply", async () => {
     const task = {
+      endpoint: "orders-a2a-expose",
       tenant_id: "default",
       task_id: "task-1",
       owner_id: "",
@@ -127,6 +135,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
       mesh_body_hash: null,
     };
     const message = {
+      endpoint: "orders-a2a-expose",
       tenant_id: "default",
       owner_id: "",
       message_id: "message-1",
@@ -142,6 +151,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
 
   it("an a2a direct message's reply", async () => {
     const row = {
+      endpoint: "orders-a2a-expose",
       tenant_id: "default",
       owner_id: "",
       message_id: "message-1",
@@ -184,7 +194,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
     const calls = new SqliteOutboundCallRepository(connection, storeClockOf(new VirtualClock()));
     connection.database
       .prepare(
-        "INSERT INTO outbound_calls (scope_key, idempotency_key, name, tenant_id, root_execution_id, status, ended_at, record, business_key) VALUES ('s', 'i', 'charge', 'default', 'run-1', 'pending', NULL, ?, NULL)",
+        "INSERT INTO outbound_calls (scope_key, idempotency_key, name, tenant_id, root_execution_id, status, expires_at, record, business_key) VALUES ('s', 'i', 'charge', 'default', 'run-1', 'pending', NULL, ?, NULL)",
       )
       .run(NOT_JSON);
 
@@ -220,11 +230,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
       environmentName: "test",
       environment: NO_ENVIRONMENT_VALUES,
     });
-    const effects = new SqliteFencedEffectRepository(
-      connection,
-      storeClockOf(clock),
-      new FencedEffectSettings(),
-    );
+    const effects = new SqliteFencedEffectRepository(connection, storeClockOf(clock));
     const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);
     const lease = await leases.acquire("default", "execution-1", hours(1));
     if (lease === undefined) throw new Error("the lease is held");
@@ -269,7 +275,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
   it("an a2a file's metadata on disk", async () => {
     const folder = mkdtempSync(join(tmpdir(), "agboss-1166-files-"));
     folders.push(folder);
-    const files = new LocalDiskA2AFileRepository({
+    const files = new LocalDiskFileRepository({
       environment: { a2aFilesPath: folder },
     } as never);
     const name = (text: string) => createHash("sha256").update(text).digest("hex");

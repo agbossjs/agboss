@@ -7,8 +7,9 @@ import {
   DRY_RUN,
   ENV,
   flag,
-  INDEX_TENANT,
+  RAG_INDEX_OPTIONS,
   PROFILE,
+  PROFILE_AND_ENV,
   START,
   text,
   THREAD,
@@ -16,6 +17,8 @@ import {
 } from "./options.js";
 
 import { CHECK_COMMAND } from "./check-command.js";
+import { EXPLAIN_COMMAND } from "./explain-command.js";
+import { MIGRATE_COMMAND } from "./migrate-command.js";
 
 export { COMMON_OPTIONS, optionsOf, type CommandSpec, type OptionSpec } from "./options.js";
 import { EVAL_CASE_OPTIONS, EVAL_COMMAND } from "./eval-commands.js";
@@ -40,8 +43,7 @@ const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       text("input-file", "<file>", "the start's input from a JSON file"),
       APPLICATION,
       THREAD,
-      PROFILE,
-      ENV,
+      ...PROFILE_AND_ENV,
     ],
   },
   eval: EVAL_COMMAND,
@@ -53,20 +55,19 @@ const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       APPLICATION,
       text("version", "<v>", "the prompt version to replay", { required: true }),
       text("limit", "N", "how many tasks", { default: "100" }),
-      PROFILE,
-      ENV,
+      ...PROFILE_AND_ENV,
     ],
   },
   golden: {
     summary: "save recent real tasks of a start's workflow as a golden set",
-    usage: "agboss golden add [--start <name>] --name <name> [--from-last N]",
+    usage: "agboss golden add [--start <name>] --name <name> [--from-last N] [--profile <name>]",
     positionals: "add",
     options: [
       START,
       APPLICATION,
       text("name", "<name>", "the set: golden/<workflow>/<name>.yaml", { required: true }),
       text("from-last", "N", "how many recent tasks", { default: "20" }),
-      ENV,
+      ...PROFILE_AND_ENV,
     ],
   },
   compare: {
@@ -96,32 +97,33 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   check: CHECK_COMMAND,
   dev: {
     summary: "watch mode: the types regenerated and the problems printed on every change",
-    usage: "agboss dev [--strict] [--env <name>] [--application <path>]",
+    usage: "agboss dev [--strict] [--profile <name>] [--env <name>] [--application <path>]",
     options: [
       APPLICATION,
       flag("strict", "the analyser's warnings are errors, as in agboss check --strict"),
-      ENV,
+      ...PROFILE_AND_ENV,
     ],
   },
   studio: {
     summary: "LangGraph Studio on every workflow of the application, children inside their parent",
-    usage: "agboss studio [--port N] [--env <name>] [--application <path>]",
+    usage: "agboss studio [--port N] [--profile <name>] [--env <name>] [--application <path>]",
     options: [
       APPLICATION,
       text("port", "N", "the port of the local Studio server", { default: "2024" }),
-      ENV,
+      ...PROFILE_AND_ENV,
     ],
   },
   rag: {
     summary: "build / update the application's knowledge bases",
-    usage: "agboss rag index [--rag <name>] [--tenant <id>] [--env <name>] [--application <path>]",
+    usage:
+      "agboss rag index [--rag <name>] [--tenant <id>] [--scope <id>] [--profile <name>] [--env <name>] [--application <path>]",
     positionals: "index",
-    options: [APPLICATION, text("rag", "<name>", "only this knowledge base"), INDEX_TENANT, ENV],
+    options: RAG_INDEX_OPTIONS,
   },
-  records: {
+  executions: {
     summary: "export the application's kept execution records as JSON Lines (masked)",
     usage:
-      "agboss records export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--env <name>] [--application <path>]",
+      "agboss executions export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--profile <name>] [--env <name>] [--application <path>]",
     positionals: "export",
     options: [
       APPLICATION,
@@ -130,7 +132,7 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       text("out", "<file.jsonl>", "where to write them, one record per line", { required: true }),
       text("since", "<date>", "records started at or after this ISO 8601 date or time"),
       text("until", "<date>", "records started before this ISO 8601 date or time"),
-      ENV,
+      ...PROFILE_AND_ENV,
     ],
   },
   hub: HUB_COMMAND,
@@ -186,12 +188,7 @@ const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       DRY_RUN,
     ],
   },
-  migrate: {
-    summary: "rewrite imports of deprecated entries (@agboss/core/core, …) to @agboss/core's",
-    usage: "agboss migrate imports [<path>…] [--dry-run]",
-    positionals: "imports [<path>…]",
-    options: [DRY_RUN],
-  },
+  migrate: MIGRATE_COMMAND,
   help: {
     summary: "this list, or one command's options",
     usage: "agboss help [<command>] [--json]",
@@ -203,6 +200,7 @@ const SCAFFOLD_COMMANDS: Readonly<Record<string, CommandSpec>> = {
 export const COMMANDS: Readonly<Record<string, CommandSpec>> = {
   ...START_COMMANDS,
   ...APPLICATION_COMMANDS,
+  explain: EXPLAIN_COMMAND,
   ...SCAFFOLD_COMMANDS,
 };
 

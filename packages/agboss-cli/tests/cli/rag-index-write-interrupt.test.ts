@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { SqliteFtsConnector } from "../../../agboss/src/rag/sqlite-fts.js";
+import { SqliteFtsRagSource } from "../../../agboss/src/rag/sqlite-fts.js";
+import { index } from "../../../agboss/tests/rag/access.js";
 import { fixture } from "./agboss.js";
 
 /**
@@ -38,8 +39,8 @@ describe("#891 D1: SIGINT in the write phase of agboss rag index", () => {
     const folder = await mkdtemp(join(tmpdir(), "rag-write-"));
     const sqlitePath = join(folder, "index.sqlite");
     for (const name of names) await writeFile(join(folder, name), text(name, "old"));
-    const old = new SqliteFtsConnector({ folder, sqlitePath });
-    await old.index({ tenantId: "default", signal: new AbortController().signal });
+    const old = new SqliteFtsRagSource({ directory: folder, path: sqlitePath });
+    await index(old, { signal: new AbortController().signal });
     for (const name of names) await writeFile(join(folder, name), text(name, "new"));
 
     const countOf = (like: string): unknown => {

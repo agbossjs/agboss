@@ -1,17 +1,12 @@
+import type { PauseTargetOverrides } from "../channels/pause-targets.js";
+import type { MemoryOverrides } from "../memory/memory.decorator.js";
+import type { PromptVariables } from "./prompt-variables.js";
+import type { PromptSource } from "./prompt-source.js";
 import type { AgentSettings, AgentsConfig } from "../config/types.js";
 import type { ModelFiles } from "../files/model-files.js";
-import type { RagMode } from "../rag/types.js";
-import type { JudgeHandlerClass } from "./judge-decorators.js";
 import type { AgentToolClass } from "./decorators.js";
-import type { BaseMemoryStrategy } from "../memory/types.js";
+import type { ModelCascade } from "../models/model-cascade.js";
 import type { Class, Provider } from "./injection.js";
-import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
-
-/** An agent's use of a `@Rag` knowledge base; both fields required (no defaults). */
-export interface RagBinding {
-  readonly use: Class;
-  readonly mode: RagMode;
-}
 
 /**
  * The guardrails an agent or a router adds to what it inherits (`@Application` → `@Workflow`), and
@@ -32,13 +27,9 @@ export interface ToolInterceptorFields {
   readonly excludeToolInterceptors?: readonly Class[];
 }
 
-/**
- * The memory an agent or a router reads (#120 PR 3): its own `@Compaction` and how many recent turns
- * it sees in full — single settings, over the workflow's and the application's.
- */
-export interface CompactionFields {
-  readonly compaction?: Class;
-  readonly uncompactedTurns?: UncompactedTurns;
+/** The memory an agent or a router reads (#1303): its own `@Memory` class, over the workflow's. */
+export interface MemoryFields {
+  readonly memory?: Class;
 }
 
 /**
@@ -55,35 +46,32 @@ export interface PiiPolicyFields {
  * tools (class references), knowledge bases, judges and memory.
  */
 export interface AgentMeta
-  extends GuardrailFields, PiiPolicyFields, CompactionFields, ToolInterceptorFields {
+  extends GuardrailFields, PiiPolicyFields, MemoryFields, ToolInterceptorFields {
   readonly name: string;
   readonly description: string;
-  readonly prompt?: string;
-  readonly promptUrls?: readonly string[];
-  readonly model: string;
-  /**
-   * This agent's memory strategy (a `BaseMemoryStrategy` subclass from `@agboss/core/memory`,
-   * created by the workflow's container); other agents use the built-in one (`uncompactedTurns`,
-   * `compaction`).
-   */
-  readonly memoryStrategy?: Class<BaseMemoryStrategy>;
+  readonly prompt?: PromptSource;
+  readonly model?: string;
+  /** The `@ModelProvider` class its model is served from (#1313); left out: its workflow's, its application's. */
+  readonly modelProvider?: Class;
   /** Overrides the model provider's price table; the provider's own reported cost comes first. */
   readonly price?: AgentSettings["price"];
   readonly thinking?: AgentSettings["thinking"];
   readonly temperature?: number;
   readonly maxTokens?: AgentSettings["maxTokens"];
   /** `{{key}}` in agent prompts is replaced with the value (assembly fails on unknown keys). */
-  readonly promptVariables?: Readonly<Record<string, string>>;
+  readonly promptVariables?: PromptVariables;
   readonly cache?: AgentSettings["cache"];
+  /** Model calls per call of the agent (`agents.<name>.limits.modelCalls`); default 12. */
+  readonly maxModelCalls?: number;
   /** Tool calls per call of the agent (`agents.<name>.limits.toolCalls`); default 20. */
   readonly maxToolCalls?: number;
-  /** `@Tool` or `@McpTool` classes, and question roles (#712). */
+  /** `@Tool` classes, and question roles (#712). */
   readonly tools?: readonly AgentToolClass[];
   /** `@Judge` classes. */
-  readonly judges?: readonly JudgeHandlerClass[];
+  readonly judges?: readonly Class<object>[];
   readonly maxRetries?: number;
-  /** Knowledge bases: `{ use: CompanyDocs, mode: RagMode.Tool }` — `mode` is required. */
-  readonly rag?: readonly RagBinding[];
+  /** Knowledge bases (`@Rag` classes): their passages come with the input, before the first model call. */
+  readonly rag?: readonly Class[];
   /** Files for the agent's model (#899): the sources, views and limits it opted in to. */
   readonly files?: ModelFiles;
   /** The file the agent is declared in. */
@@ -95,6 +83,8 @@ export interface AgentMeta
  * graph is the analysed flow, kept apart. Built once per workflow class (`moduleOf`).
  */
 export interface WorkflowMeta {
+  /** The `@Workflow` class: how the application that lists it is found (`agboss check`'s container). */
+  readonly type?: Class;
   readonly name: string;
   readonly version: string;
   /** The file the workflow is declared in. */
@@ -107,11 +97,18 @@ export interface WorkflowMeta {
   readonly guardrails?: readonly Class[];
   /** `@ToolInterceptor` classes of every agent's tool calls, over the application's (#384). */
   readonly toolInterceptors?: readonly Class[];
-  /** `@Compaction` of every agent and model router, over the application's (#120 PR 3). */
-  readonly compaction?: Class;
-  /** Recent turns seen in full by every agent and model router, over the application's. */
-  readonly uncompactedTurns?: UncompactedTurns;
-  readonly mcp?: readonly Class[];
+  /** Application-level tool interceptors removed for every agent of the workflow (#1295). */
+  readonly excludeToolInterceptors?: readonly Class[];
+  /** `@Memory` of every agent and model router (#1303); none: the workflow is stateless. */
+  readonly memory?: Class;
+  /** What the selected profiles change of the memories, by memory name (the workflow reads them as changed). */
+  readonly memoryOverrides?: MemoryOverrides | undefined;
+  /** What the selected profiles change of the pause targets, by target name (the workflow's channels read them as changed). */
+  readonly pauseOverrides?: PauseTargetOverrides | undefined;
   readonly providers?: readonly Provider[];
-  readonly promptVariables?: Readonly<Record<string, string>>;
+  /** `@Workflow({ services })` (#1324): scoped to the workflow's own container. */
+  readonly services?: readonly Provider[];
+  readonly promptVariables?: PromptVariables;
+  /** The workflow's and its application's `modelProvider` (#1313), the levels over a component's own. */
+  readonly modelCascade?: ModelCascade;
 }

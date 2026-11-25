@@ -1,5 +1,3 @@
-import type { SqliteConnection } from "./sqlite-connection.js";
-
 /**
  * The pauses of `SqlitePausedExecutionRepository` (#267 S35): one row per pause, unique per step
  * key of a tree (#663); every change of a pending pause is one conditional `UPDATE … WHERE status =
@@ -11,7 +9,7 @@ export const PAUSES_TABLE = `CREATE TABLE IF NOT EXISTS pauses (
   tenant_id TEXT NOT NULL, pause_id TEXT NOT NULL, step_key TEXT NOT NULL,
   root_execution_id TEXT NOT NULL, status TEXT NOT NULL, is_sent INTEGER NOT NULL,
   pause TEXT NOT NULL, answer TEXT, resolution TEXT, resolved_at TEXT,
-  expires_at TEXT, remind_at TEXT, channel TEXT, seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  expires_at TEXT, remind_at TEXT, target TEXT, seq INTEGER PRIMARY KEY AUTOINCREMENT,
   UNIQUE (tenant_id, pause_id), UNIQUE (tenant_id, root_execution_id, step_key));`;
 
 /** #910: the deadline and reminder scans, and a tenant's pages (`seq` is the insertion sequence). */
@@ -19,103 +17,10 @@ export const PAUSES_INDEXES = `CREATE INDEX IF NOT EXISTS pauses_by_root ON paus
 CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);
 CREATE INDEX IF NOT EXISTS pauses_pending_by_expiry ON pauses (status, expires_at);
 CREATE INDEX IF NOT EXISTS pauses_pending_by_remind ON pauses (status, remind_at);
-CREATE INDEX IF NOT EXISTS pauses_by_tenant ON pauses (tenant_id, status, channel);
-CREATE INDEX IF NOT EXISTS pauses_without_channel ON pauses (seq) WHERE channel IS NULL;
+CREATE INDEX IF NOT EXISTS pauses_by_tenant ON pauses (tenant_id, status, target);
 CREATE INDEX IF NOT EXISTS pauses_pending_unsent ON pauses (seq) WHERE status = 'pending' AND is_sent = 0;`;
 
 export const PAUSES_SCHEMA = `${PAUSES_TABLE}\n${PAUSES_INDEXES}`;
-
-/**
- * #663: a file whose pauses were unique per step key of a tenant — the table rebuilt unique per
- * step key of a tree, its rows in their order (`findAllByRoot` reads by `rowid`). Its indexes
- * follow the renamed table and go with it; they are made again on the new one.
- */
-const PAUSE_COLUMNS = `tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause, answer,
-  resolution, resolved_at`;
-const PAUSES_TREE_MIGRATION = `ALTER TABLE pauses RENAME TO pauses_before_trees;
-${PAUSES_TABLE}
-INSERT INTO pauses (${PAUSE_COLUMNS}) SELECT ${PAUSE_COLUMNS} FROM pauses_before_trees ORDER BY rowid;
-DROP TABLE pauses_before_trees;
-${PAUSES_INDEXES}`;
-
-/**
- * The migration of a file written before the pause answer records (#267 S107): the answer column
- * was named `resolution`; how and when a pause was resolved get columns of their own.
- */
-const PAUSE_ANSWERS_MIGRATION = `ALTER TABLE pauses RENAME COLUMN resolution TO answer;
-ALTER TABLE pauses ADD COLUMN resolution TEXT;
-ALTER TABLE pauses ADD COLUMN resolved_at TEXT;
-CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);`;
-
-/**
- * 0.1.1: a pause stores its `kind` and names its `step` (`agent` before). A row written before is
- * rewritten once, by the rule it was written under: a question role's component is a question,
- * every other pause an approval (an approval's row from before components, #268 S93, too). Rows
- * that have a `kind` are left as they are, so it runs at every open and changes a file once; a row
- * that is not JSON is left to fail its own read. A file opened by 0.1.1 is not read by 0.1.0 again.
- */
-const PAUSE_KIND_MIGRATION = `UPDATE pauses SET pause = json_set(json_remove(pause, '$.agent'), '$.step', json_extract(pause, '$.agent'),
-    '$.kind', CASE json_extract(pause, '$.component.kind') WHEN 'question' THEN 'question' ELSE 'approval' END)
-  WHERE json_valid(pause) AND json_type(pause, '$.kind') IS NULL AND json_type(pause, '$.agent') = 'text';`;
-
-/**
- * #910: a pause's deadline, reminder and channel get columns of their own (the scans and a tenant's
- * pages read them); `channel` is backfilled from the record's JSON, `expires_at` and `remind_at`
- * are empty — no pause stored before had a deadline.
- */
-const PAUSE_EXPIRY_MIGRATION = `ALTER TABLE pauses ADD COLUMN expires_at TEXT;
-ALTER TABLE pauses ADD COLUMN remind_at TEXT;
-ALTER TABLE pauses ADD COLUMN channel TEXT;`;
-/**
- * #1104: it runs at every open, not once with the column: a process of an older version still on the
- * file inserts pauses with no `channel` (its INSERT names none). `pauses_without_channel` makes it a
- * look at those rows only; a page filtered by channel finds them before this runs (`sqlite-pause-scans.ts`).
- */
-export const PAUSE_CHANNEL_BACKFILL = `UPDATE pauses SET channel = json_extract(pause, '$.channel') WHERE channel IS NULL AND json_valid(pause);`;
-
-/**
- * #935: `seq`, the insertion sequence a page's cursor reads, is a declared `INTEGER PRIMARY KEY
- * AUTOINCREMENT` — an undeclared rowid is given again after the highest row is deleted, so a paged
- * scan skipped a row inserted then. A file without it has its table rebuilt, each row keeping its
- * old `rowid` as its `seq` — the numbering keeps its gaps, so a cursor issued before the upgrade
- * still names the same place (as `outbound_calls` was, #825); the indexes follow the dropped table
- * and are made again.
- */
-const PAUSE_COLUMNS_ALL = `${PAUSE_COLUMNS}, expires_at, remind_at, channel`;
-const PAUSES_SEQ_MIGRATION = `ALTER TABLE pauses RENAME TO pauses_before_seq;
-${PAUSES_TABLE}
-INSERT INTO pauses (seq, ${PAUSE_COLUMNS_ALL}) SELECT rowid, ${PAUSE_COLUMNS_ALL} FROM pauses_before_seq ORDER BY rowid;
-DROP TABLE pauses_before_seq;
-${PAUSES_INDEXES}`;
-
-/** Migrates a file's pauses written by an older version (inside a transaction): S107, #663, 0.1.1, #910, #935. */
-export function migratePauses(connection: SqliteConnection): void {
-  const columns = connection.columnsOf("pauses");
-  migrateBeforeDeadlines(connection, columns);
-  // the table is rebuilt or altered above: a file that had no `channel` column gets it
-  // Stryker disable next-line StringLiteral: a file with a channel column has the deadline columns too, and the check inside is the one that decides
-  if (columns.length > 0 && !columns.includes("channel")) {
-    if (!connection.columnsOf("pauses").includes("expires_at"))
-      connection.database.exec(PAUSE_EXPIRY_MIGRATION);
-  }
-  const now = connection.columnsOf("pauses");
-  if (now.length > 0 && !now.includes("seq")) connection.database.exec(PAUSES_SEQ_MIGRATION);
-  // #1104: and filled at every open, as the kind is — after the rebuild, which keeps the column
-  if (connection.columnsOf("pauses").includes("channel"))
-    connection.database.exec(
-      `CREATE INDEX IF NOT EXISTS pauses_without_channel ON pauses (seq) WHERE channel IS NULL;\n${PAUSE_CHANNEL_BACKFILL}`,
-    );
-}
-
-/** The migrations of files written before deadlines (S107, #663, 0.1.1). */
-function migrateBeforeDeadlines(connection: SqliteConnection, columns: readonly string[]): void {
-  if (columns.length > 0 && !columns.includes("resolved_at"))
-    connection.database.exec(PAUSE_ANSWERS_MIGRATION);
-  // #663: unique per step key of a tenant — a pause of another tree with that step key hits it
-  if (connection.uniqueIndexesOf("pauses").includes("tenant_id,step_key"))
-    connection.database.exec(PAUSES_TREE_MIGRATION);
-  if (columns.length > 0) connection.database.exec(PAUSE_KIND_MIGRATION);
-}
 
 /** The paused runs of `SqlitePausedExecutionRepository`: one row per thread of a tenant (#261). */
 export const PAUSED_RUNS_SCHEMA = `CREATE TABLE IF NOT EXISTS paused_executions (
@@ -123,47 +28,9 @@ export const PAUSED_RUNS_SCHEMA = `CREATE TABLE IF NOT EXISTS paused_executions 
   workflow_version TEXT NOT NULL, config_hash TEXT NOT NULL, paused_at TEXT NOT NULL,
   PRIMARY KEY (tenant_id, thread_id));`;
 
-/**
- * The migration of a file written before tenants (#261, #265 S69 e): the table keyed by the thread
- * alone is rebuilt keyed by tenant + thread, its rows in the tenant `"default"`.
- */
-export const TENANT_MIGRATION = `ALTER TABLE paused_executions RENAME TO paused_executions_before_tenants;
-${PAUSED_RUNS_SCHEMA}
-INSERT INTO paused_executions SELECT 'default', thread_id, run_id, run, workflow_version,
-  config_hash, paused_at FROM paused_executions_before_tenants;
-DROP TABLE paused_executions_before_tenants;`;
-
-/**
- * The migration of a file written before pauses had records of their own (#267 S35): a thread's
- * pause kept its status and decision in its row; they now live in `pauses`, one row per pause.
- */
-export const PAUSE_RECORDS_MIGRATION = `ALTER TABLE paused_executions DROP COLUMN status;
-ALTER TABLE paused_executions DROP COLUMN decision;`;
-
 export const NOTICES_SCHEMA = `CREATE TABLE IF NOT EXISTS pause_notices (
   tenant_id TEXT NOT NULL, pause_id TEXT NOT NULL, recipient TEXT NOT NULL, notices TEXT NOT NULL,
   delivered INTEGER NOT NULL, attempts INTEGER NOT NULL, next_attempt_at TEXT NOT NULL,
   head_written_at TEXT, is_dead INTEGER NOT NULL, problem TEXT, claim_token TEXT, claimed_until TEXT,
   PRIMARY KEY (tenant_id, pause_id, recipient));
 CREATE INDEX IF NOT EXISTS pause_notices_due ON pause_notices (is_dead, next_attempt_at);`;
-
-/**
- * Makes the file's pause tables and migrates a file an older version wrote — at construction, in one
- * transaction, as every SQLite store does (the logic behind it loads later, and never opens a
- * transaction of its own to make a table).
- */
-export function preparePauseTables(connection: SqliteConnection): void {
-  connection.transaction(() => {
-    const columns = connection.columnsOf("paused_executions");
-    if (columns.length > 0 && !columns.includes("tenant_id"))
-      connection.database.exec(TENANT_MIGRATION);
-    else if (columns.includes("status")) connection.database.exec(PAUSE_RECORDS_MIGRATION);
-    migratePauses(connection);
-  });
-  // Stryker disable next-line StringLiteral: the name only keys the connection's memory that it ran this DDL, which is idempotent
-  connection.ensureSchema("paused_executions", PAUSED_RUNS_SCHEMA);
-  // Stryker disable next-line StringLiteral: the name only keys the connection's memory that it ran this DDL, which is idempotent
-  connection.ensureSchema("pauses", PAUSES_SCHEMA);
-  // Stryker disable next-line StringLiteral: the name only keys the connection's memory that it ran this DDL, which is idempotent
-  connection.ensureSchema("pause_notices", NOTICES_SCHEMA);
-}

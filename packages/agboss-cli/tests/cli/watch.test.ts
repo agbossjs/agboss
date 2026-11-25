@@ -161,7 +161,7 @@ describe("#268 AC6: the watch loop", () => {
   it.each([
     ["src/agents/a.agent.ts", true],
     ["src/agents/a.prompt.md", true],
-    ["profiles/offer-workflow/cheap.yaml", true],
+    ["src/config/cheap.config.yaml", true],
     ["src/.agboss/types.d.ts", false],
     ["node_modules/agboss/dist/index.js", false],
     ["src/data/resume.pdf", false],

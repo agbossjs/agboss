@@ -2,7 +2,7 @@ import { effectKeyForTesting } from "../effect-key.js";
 import { scopeKeyOf } from "../../../app/lease-lost.js";
 import { OutboundCallLeaseState } from "../../../infrastructure/execution-audit-log.repository.js";
 import {
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   type EffectKey,
 } from "../../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../../units/index.js";
@@ -59,8 +59,8 @@ async function written(run: ExplorerRun, instance: number, tree: string): Promis
   run.writes.add(`${String(instance)}|${tree}|${String(token)}`);
   const isAfterCancel = run.observer.cancelled.has(tree);
   const row = `effect:${tree}:instance-${String(instance)}:${String(token)}`;
-  const outcome = await effects.runOnce(effectKeyOf(tree, token), (transaction) => {
-    const inserted = rows.insert(transaction, row);
+  const outcome = await effects.runOnce(effectKeyOf(tree, token), () => {
+    const inserted = rows.insert(row);
     return inserted === undefined ? row : inserted.then(() => row);
   });
   run.observer.accepted(
@@ -70,7 +70,7 @@ async function written(run: ExplorerRun, instance: number, tree: string): Promis
     now,
   );
   // a replay answers a result stored before; only a write that ran is an effect (#909)
-  const isRan = outcome.status === FencedEffectStatus.Ran;
+  const isRan = outcome.status === IdempotencyRunStatus.Ran;
   run.observer.acceptedAfterCancel(
     `instance-${String(instance)}'s fenced effect`,
     tree,

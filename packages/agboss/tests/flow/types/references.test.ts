@@ -9,7 +9,8 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { generateFlowTypes } from "../../../src/flow/types/generate.js";
 import { ImportTable, moduleSpecifier } from "../../../src/flow/types/imports.js";
 import { ClassLocator } from "../../../src/flow/types/locate.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * How the generated file names classes (#272 S2, S3): import paths from the modules that export
@@ -45,7 +46,8 @@ const workflowOf = (name: string, startClass: Class, input: DtoClass = TextDto):
   @Workflow({
     name,
     version: "1.0.0",
-    flow: [start(startClass).returns(input).toFinish(TextWorkflowFinish)],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(startClass).toFinish(TextWorkflowFinish)],
   })
   class SomeWorkflow {}
   return SomeWorkflow;
@@ -57,7 +59,7 @@ class TextWorkflowFinish {}
 @Agent({
   name: "unused-agent",
   description: "Unused",
-  prompt: "Do it.",
+  prompt: inline("Do it."),
   model: "moonshotai/kimi-k2.6",
 })
 class UnusedAgent {}
@@ -173,7 +175,7 @@ describe("S3 / S5: names that key the tables are unique in the application", () 
 
     expect(text).toContain('declare module "@agboss/core" {');
     expect(text).toContain(
-      'import type { NoInput, agbossComponent, agbossDto } from "@agboss/core";',
+      'import type { NoInput, NodeKind, agbossComponent, agbossDto } from "@agboss/core";',
     );
   });
 });

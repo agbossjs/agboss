@@ -11,18 +11,22 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   secret,
   type PiiMatch,
   type PiiPolicyHandler,
   type PiiRefusal,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
+import { DatabaseStorage } from "../../src/storage/index.js";
+import { defineStorageDriver, StorageRole } from "../../src/stores/index.js";
+import { hours } from "../../src/units/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** The variable the test key is read from. */
 export const PII_KEY_VARIABLE = "PII_TEST_PSEUDONYM_KEY";
@@ -30,31 +34,28 @@ export const PII_KEY_VARIABLE = "PII_TEST_PSEUDONYM_KEY";
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides contact details from models",
-  rules: [
-    pii(PiiKind.Email, PiiAction.replaceWithToken()),
-    pii(PiiKind.Phone, PiiAction.replacePart({ keepLast: 2 })),
-  ],
-  pseudonymKey: secret(PII_KEY_VARIABLE),
+  rules: [PiiKind.Email.tokenize(), PiiKind.Phone.mask({ keepLast: 2 })],
+  secret: secret(PII_KEY_VARIABLE),
 })
 export class ContactPiiPolicy {}
 
 @PiiPolicy({
   name: "card-pii-policy",
   description: "Refuses card numbers",
-  rules: [pii(PiiKind.CardNumber, PiiAction.blockWithRefusal())],
-  pseudonymKey: secret(PII_KEY_VARIABLE),
+  rules: [PiiKind.CardNumber.block()],
+  secret: secret(PII_KEY_VARIABLE),
 })
 export class CardPiiPolicy implements PiiRefusal {
   refusal(kind: PiiKind): string {
-    return `Please do not send a ${kind}.`;
+    return `Please do not send a ${kind.id}.`;
   }
 }
 
 @PiiPolicy({
   name: "government-pii-policy",
   description: "Hides government ids",
-  rules: [pii(PiiGroup.Government, PiiAction.replaceWithKind())],
-  pseudonymKey: secret(PII_KEY_VARIABLE),
+  rules: [PiiGroup.Government.mask()],
+  secret: secret(PII_KEY_VARIABLE),
 })
 export class GovernmentPiiPolicy {}
 
@@ -66,7 +67,7 @@ export class EmployeeDirectory {
 
 @PiiPolicy({
   name: "employee-id-pii-policy",
-  action: PiiAction.replaceWithKind(),
+  action: PiiAction.mask(),
   deps: [EmployeeDirectory],
 })
 export class EmployeeIdPiiPolicy implements PiiPolicyHandler {
@@ -99,7 +100,7 @@ export class EmailSent {
   @Text({ prompt: "what happened" })
   status!: string;
 
-  @Text({ prompt: "the account", sensitive: PiiAction.replaceWithToken() })
+  @Text({ prompt: "the account", sensitive: PiiAction.tokenize() })
   account!: string;
 }
 
@@ -110,13 +111,13 @@ export class EmailSent {
   output: EmailSent,
   deps: [Outbox, ExecutionContext],
 })
-export class SendEmail implements ToolHandler<EmailSend, EmailSent> {
+export class SendEmail {
   constructor(
     private readonly outbox: Outbox,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  run({ to, body }: EmailSend): Promise<EmailSent> {
+  execute({ to, body }: EmailSend): Promise<EmailSent> {
     this.executionContext.signal.throwIfAborted();
     this.outbox.sent.push(to);
     const status = `sent to ${to}: ${body}${this.outbox.note}`;
@@ -129,7 +130,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 10 };
 @Agent({
   name: "support-agent",
   description: "Answers customers",
-  prompt: "Answer the customer.",
+  prompt: inline("Answer the customer."),
   model: "test/support",
   price,
   tools: [SendEmail],
@@ -139,7 +140,7 @@ export class SupportAgent {}
 @Agent({
   name: "open-agent",
   description: "Sees contact details",
-  prompt: "Answer the customer.",
+  prompt: inline("Answer the customer."),
   model: "test/open",
   price,
   excludePiiPolicies: [ContactPiiPolicy],
@@ -179,7 +180,8 @@ const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 3 } } as c
 @Workflow({
   name: "pii-workflow",
   version: "1.0.0",
-  flow: [start(PiiStart).returns(WorkflowStartTextDto).toAgent(SupportAgent).toFinish(PiiFinish)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(PiiStart).toAgent(SupportAgent).toFinish(PiiFinish)],
   defaults,
   piiPolicies: [CardPiiPolicy, EmployeeIdPiiPolicy],
   providers: [Outbox, EmployeeDirectory],
@@ -188,18 +190,37 @@ export class PiiWorkflow {}
 
 @Workflow({
   name: "open-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
-  flow: [start(OpenStart).returns(WorkflowStartTextDto).toAgent(OpenAgent).toFinish(OpenFinish)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(OpenStart).toAgent(OpenAgent).toFinish(OpenFinish)],
   defaults,
 })
 export class OpenWorkflow {}
 
+/** In-memory stores with the application's PII key in a variable (a test's tokens need a key, #1301). */
+@DatabaseStorage({
+  driver: defineStorageDriver({
+    role: StorageRole.Database,
+    backend: "in-memory",
+    describes: "in memory",
+    settings: { kind: "in-memory" },
+    providers: [],
+  }),
+  auditLogTtl: hours(1),
+  ledgerEntriesTtl: hours(1),
+  piiSecret: secret("PII_APP_KEY"),
+})
+export class PiiAppStorage {}
+
 @Application({
   name: "pii-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PiiWorkflow, OpenWorkflow],
   piiPolicies: [ContactPiiPolicy, GovernmentPiiPolicy],
   budgets: TEST_BUDGETS,
+  storage: PiiAppStorage,
 })
 export class PiiApplication {}

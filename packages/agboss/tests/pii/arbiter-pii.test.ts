@@ -9,22 +9,26 @@ import { beforeEach, describe, expect } from "vitest";
 import {
   Agent,
   Arbiter,
-  DecidedBy,
   EmptyEnvironment,
   listOf,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Action,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Text, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { decideWith, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart, toAgent } from "../helpers/flow.js";
 import { requestText, tokensIn } from "./boundary.helpers.js";
 import { ContactPiiPolicy, PII_KEY_VARIABLE } from "./pii.fixture.js";
+import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
 const EMAIL = "alice@example.com";
 
@@ -41,7 +45,7 @@ export class OwnersDto {
 @Agent({
   name: "contact-answer-agent",
   description: "Names the rota's owner",
-  prompt: "Name the owner.",
+  prompt: inline("Name the owner."),
   model: "local/llama",
   output: OwnerAnswerDto,
   piiPolicies: [ContactPiiPolicy],
@@ -50,10 +54,10 @@ class ContactAnswerAgent {}
 
 @Arbiter({
   name: "contact-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer that names an owner.",
-  criteria: [{ agent: ContactAnswerAgent, prompt: "Names the owner with a contact" }],
+  modelProvider: TestDecisionsModelProvider,
+  prompt: inline("Count an answer that names an owner."),
+  criteria: [{ target: ContactAnswerAgent, prompt: "Names the owner with a contact" }],
 })
 class ContactArbiter {}
 
@@ -64,28 +68,37 @@ class ContactArbiter {}
 })
 class OwnersStart {}
 
-@WorkflowFinish({
-  name: "owners-workflow-finish",
+@Action({
+  name: "owners-action",
   description: "The owners",
   input: { answers: listOf(OwnerAnswerDto) },
   output: OwnersDto,
 })
-class OwnersFinish {
-  finish(input: { readonly answers: readonly Produced<OwnerAnswerDto, unknown>[] }): OwnersDto {
-    return { owners: input.answers.map((answer) => answer.value.owner).join("; ") };
+class OwnersAction {
+  async execute(input: {
+    readonly answers: readonly Tracked<OwnerAnswerDto>[];
+  }): Promise<OwnersDto> {
+    return { owners: input.answers.map((answer) => answer.owner).join("; ") };
   }
 }
+
+@WorkflowFinish({
+  name: "owners-workflow-finish",
+  description: "The owners",
+  output: OwnersDto,
+})
+class OwnersFinish {}
 
 @Workflow({
   name: "owners-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OwnersStart)
-      .returns(WorkflowStartTextDto)
-      .toParallelAgents(ContactAnswerAgent, ContactAnswerAgent)
-      .acceptedBy(ContactArbiter)
+    onStart(OwnersStart)
+      .inParallel([toAgent(ContactAnswerAgent), toAgent(ContactAnswerAgent)])
+      .arbitratedBy(ContactArbiter)
       .joinQuorum({ min: 2 })
-      .returns(listOf(OwnerAnswerDto))
+      .toAction(OwnersAction)
       .toFinish(OwnersFinish),
   ],
 })
@@ -93,6 +106,7 @@ class OwnersWorkflow {}
 
 @Application({
   name: "owners-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OwnersWorkflow],

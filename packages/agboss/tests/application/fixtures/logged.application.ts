@@ -1,3 +1,4 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import { Application } from "../../../src/application/application.js";
 import {
   Budget,
@@ -5,7 +6,7 @@ import {
   BudgetScope,
   type BudgetHandler,
 } from "../../../src/budgets/budget.js";
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
@@ -14,16 +15,18 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import {
   SharedCheckpointSaver,
   SharedPausedExecutionRepository,
 } from "../../helpers/shared-infrastructure.js";
 import { RecordingCostLedgerRepository } from "./desks.application.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #261 PR 6 — applications whose log the tests read (a `RecordingLogger` listed): the start log,
@@ -73,12 +76,12 @@ export class NoteDto {
 @Tool({
   name: "send-note-tool",
   description: "Sends a note",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: NoteDto,
   output: NoteDto,
 })
-export class SendNote implements ToolHandler<NoteDto, NoteDto> {
-  run(input: NoteDto): Promise<NoteDto> {
+export class SendNote {
+  execute(input: NoteDto): Promise<NoteDto> {
     return Promise.resolve(input);
   }
 }
@@ -86,7 +89,7 @@ export class SendNote implements ToolHandler<NoteDto, NoteDto> {
 @Agent({
   name: "scribe-agent",
   description: "Writes notes",
-  prompt: "Write.",
+  prompt: inline("Write."),
   model: "test/scribe",
 })
 export class ScribeAgent {}
@@ -94,7 +97,7 @@ export class ScribeAgent {}
 @Agent({
   name: "sender-agent",
   description: "Sends notes",
-  prompt: "Send.",
+  prompt: inline("Send."),
   model: "test/sender",
   tools: [SendNote],
 })
@@ -128,14 +131,10 @@ export class SentWorkflowFinish {}
 @Workflow({
   name: "note-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { temperature: 0 } },
-  uncompactedTurns: 1,
-  flow: [
-    start(NoteWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ScribeAgent)
-      .toFinish(NoteWorkflowFinish),
-  ],
+  memory: Window1Memory,
+  flow: [onStart(NoteWorkflowStart).toAgent(ScribeAgent).toFinish(NoteWorkflowFinish)],
 })
 export class NoteWorkflow {}
 
@@ -143,20 +142,17 @@ export class NoteWorkflow {}
 @Workflow({
   name: "send-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
-  uncompactedTurns: 1,
-  flow: [
-    start(SendWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(SenderAgent)
-      .toFinish(SentWorkflowFinish),
-  ],
+  memory: Window1Memory,
+  flow: [onStart(SendWorkflowStart).toAgent(SenderAgent).toFinish(SentWorkflowFinish)],
 })
 export class SendWorkflow {}
 
 /** Both workflows on the built-in in-memory infrastructure: both warnings. */
 @Application({
   name: "logged-application",
+  modelProvider: TestModelProvider,
   version: "2.3.0",
   environment: EmptyEnvironment,
   workflows: [NoteWorkflow, SendWorkflow],
@@ -168,6 +164,7 @@ export class LoggedApplication {}
 /** The same on durable stores of its own: no warning. */
 @Application({
   name: "durable-logged-application",
+  modelProvider: TestModelProvider,
   version: "2.3.0",
   environment: EmptyEnvironment,
   workflows: [NoteWorkflow, SendWorkflow],
@@ -184,6 +181,7 @@ export class DurableLoggedApplication {}
 /** No pause possible, in-memory ledger: only the ledger's warning. */
 @Application({
   name: "note-logged-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [NoteWorkflow],

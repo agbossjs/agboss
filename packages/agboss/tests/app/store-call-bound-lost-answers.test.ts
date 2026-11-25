@@ -38,7 +38,7 @@ class HeldClaims {
   constructor(private readonly points: HoldPoints) {}
 
   async claim(key: string | undefined): Promise<string | undefined> {
-    await this.points.reach(StoreHoldPoint.ChildClaim, HoldPhase.After, key);
+    await this.points.reach({ point: StoreHoldPoint.ChildClaim, phase: HoldPhase.After, key: key });
     return key;
   }
 }
@@ -52,7 +52,7 @@ describe("#720 twin (hold-points): a held answer, never released, is bounded", (
     const { store, clock } = boundedOver(ChildExecutionQueueRepository, new HeldClaims(points));
     // another phase: through
     await expect(
-      points.reach(StoreHoldPoint.ChildClaim, HoldPhase.Before, "c-1"),
+      points.reach({ point: StoreHoldPoint.ChildClaim, phase: HoldPhase.Before, key: "c-1" }),
     ).resolves.toBeUndefined();
 
     const first = outcomeOf(store.claim("c-1"));

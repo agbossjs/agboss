@@ -1,6 +1,8 @@
 import { effectiveBoundOf } from "../infrastructure/pause-bound.js";
 import { isPauseExpiration, PauseExpirationKind } from "../channels/pause-expiration.js";
-import type { ChannelSender } from "../channels/channel-sender.js";
+import { movedOnExpiry, reassignmentOf, type ExpiryOutcome } from "./pause-expiry-reassign.js";
+import type { ExpiredContext } from "../channels/pause-contexts.js";
+import type { PauseTarget } from "../flow/runtime/pause-channel.js";
 import { answerValidatorOf } from "../channels/decision.js";
 import {
   ExpiryProblem,
@@ -20,6 +22,7 @@ import { pauseTallyOf } from "../pause/pause-tally.js";
 import { treeQuestionAnswersOf, treeToolsOf } from "./child-deps.js";
 import { callInFrame, NoticeTimeoutError } from "./pause-notice-call.js";
 import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
+import { trailOf } from "../flow/runtime/pause-chain.js";
 import { ownDepsOf } from "./own-deps.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 
@@ -57,7 +60,7 @@ const FAILED: PauseExpiry = {};
 
 /** What a channel's expiry decision came to: the expiry to record, or why it fell back to `fail()`. */
 function fellBackTo(parts: TreeMoveParts, pause: PauseRecord, problem: ExpiryProblem): PauseExpiry {
-  const text = `pause expiry decision of channel ${pause.channel} fell back to fail(): ${problem}`;
+  const text = `pause expiry decision of target ${pause.target} fell back to fail(): ${problem}`;
   parts.deps.log.warn(
     "pause.expiry-handler-failed",
     `${text} (pauseKey ${pauseKeyOf(pause.tenantId, pause.pauseId)})`,
@@ -69,37 +72,41 @@ function fellBackTo(parts: TreeMoveParts, pause: PauseRecord, problem: ExpiryPro
   return { problem };
 }
 
-/** The decision a returned value is: `fail()`, or `decide(answer)` validated like a resume's. */
-function decisionOf(parts: TreeMoveParts, pause: PauseRecord, value: unknown): PauseExpiry {
+/** The decision a returned value is: `fail()`, `decide(answer)` validated like a resume's, or a reassignment. */
+function decisionOf(parts: TreeMoveParts, pause: PauseRecord, value: unknown): ExpiryOutcome {
   if (!isPauseExpiration(value)) return fellBackTo(parts, pause, ExpiryProblem.HandlerFailed);
   if (value.kind === PauseExpirationKind.Fail) return FAILED;
+  if (value.kind === PauseExpirationKind.Reassign)
+    return reassignmentOf(value) ?? fellBackTo(parts, pause, ExpiryProblem.AnswerInvalid);
   try {
     const checks = { tools: treeToolsOf(parts.deps), questions: treeQuestionAnswersOf(parts.deps) };
     const decision = answerValidatorOf(pause, checks)(value.answer);
-    return { answer: { decision, answeredBy: undefined } };
+    return { answer: { decision, actor: undefined } };
   } catch {
     return fellBackTo(parts, pause, ExpiryProblem.AnswerInvalid);
   }
 }
 
-/** The channel's decision of what the expiry of `pause` means, called in the pause's frame under its timeout. */
-async function askedChannel(
+/** What the expiry of `pause` means, as its target says: called in the pause's frame under its timeout. */
+async function askedTarget(
   parts: TreeMoveParts,
-  decide: NonNullable<ChannelSender["onPauseExpired"]>,
+  decide: NonNullable<PauseTarget["onExpired"]>,
   pause: PauseRecord,
   interruption: AbortSignal | undefined,
-): Promise<PauseExpiry> {
+): Promise<ExpiryOutcome> {
   const { deps } = parts;
   const own = ownDepsOf(deps, pause.workflow);
-  const timeout = isApprovalPause(pause) ? own.tools(pause.ask.tool).timeout : DEFAULT_TOOL_TIMEOUT;
+  const timeout = isApprovalPause(pause)
+    ? own.tools(pause.toolCall.tool).timeout
+    : DEFAULT_TOOL_TIMEOUT;
   // the frame is read from the stores outside the handler's try: a store that fails is the look's
-  // to retry, never a decision recorded against the channel
+  // to retry, never a decision recorded against the target
   const tree = await pauseTreeOf(deps, pause, await treeStateOf(deps, pause.rootExecutionId));
   const frame = pauseFrameOf(deps, pause, tree);
   try {
     const value = await callInFrame(
       { frame, timeout, clock: parts.clock, interruption },
-      async () => decide({ pauseId: pause.pauseId, value: pause.ask }),
+      async () => decide(expiredContextOf(pause) as never),
     );
     return decisionOf(parts, pause, value);
   } catch (error) {
@@ -114,15 +121,29 @@ async function askedChannel(
   }
 }
 
-/** The channel that sent `pause`; `undefined` when a deploy removed it (its pause expires as `fail()`). */
-function senderOf(parts: TreeMoveParts, pause: PauseRecord): ChannelSender | undefined {
+/** What `onExpired` reads of the pause that ran out its deadline. */
+function expiredContextOf(pause: PauseRecord): ExpiredContext<never> {
+  return {
+    pauseKey: pauseKeyOf(pause.tenantId, pause.pauseId),
+    input: pause.input as never,
+    ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
+    askedAt: new Date(pause.askedAt),
+    firstAskedAt: new Date(pause.trail[0]?.at ?? pause.askedAt),
+    expiresAt: new Date(pause.expiresAt ?? pause.askedAt),
+    ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
+    ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
+    trail: trailOf(pause),
+  };
+}
+
+/** The target of `pause` in its workflow now; `undefined` when a deploy removed it (its pause expires as `fail()`). */
+function targetOf(parts: TreeMoveParts, pause: PauseRecord): PauseTarget | undefined {
   try {
-    // Stryker disable next-line OptionalChaining: a workflow with no channels throws on the call, and the catch below answers the same `undefined`
-    return ownDepsOf(parts.deps, pause.workflow).channelOf?.(pause.channel).sender;
+    return ownDepsOf(parts.deps, pause.workflow).targetOf?.(pause.target);
   } catch {
-    // a channel a deploy removed: no sender
+    // a target a deploy removed: no handler
+    return undefined;
   }
-  return undefined;
 }
 
 /** What the expiry of one pause records: none from a bound that is not its own, else its channel's decision. */
@@ -130,13 +151,33 @@ async function expiryOf(
   parts: TreeMoveParts,
   pause: PauseRecord,
   interruption: AbortSignal | undefined,
-): Promise<PauseExpiry> {
+): Promise<ExpiryOutcome> {
   const bound = effectiveBoundOf(pause);
   if (bound === PauseExpiryBound.RunDeadline || bound === PauseExpiryBound.Quorum) return FAILED;
-  const sender = senderOf(parts, pause);
-  if (sender?.onPauseExpired === undefined) return FAILED;
-  // Stryker disable next-line OptionalChaining: the handler is there — `sender.onPauseExpired` was checked above; the call only narrows its type
-  return askedChannel(parts, (ask) => sender.onPauseExpired?.(ask), pause, interruption);
+  const handler = targetOf(parts, pause)?.onExpired;
+  if (handler === undefined) return FAILED;
+  return askedTarget(parts, handler, pause, interruption);
+}
+
+/** The pause expired with `expiry` by the store's compare-and-set: its notices, its tally, its answer logged; `false` when it closed meanwhile. */
+async function expiredPause(
+  parts: TreeMoveParts,
+  pause: PauseRecord,
+  expiry: PauseExpiry,
+): Promise<boolean> {
+  const stores = parts.deps.pause;
+  const applied = await stores?.pauses.expireByTenantIdAndPauseId(
+    pause.tenantId,
+    pause.pauseId,
+    expiry,
+    parts.clock.now(),
+    recipientsIn(stores, pause),
+  );
+  if (stores === undefined || applied === undefined) return false;
+  noticesWritten(stores);
+  pauseTallyOf(stores)?.closed(applied);
+  await logPauseAnswer(stores.answers, applied, applied.resolution ?? PauseResolution.Expired);
+  return true;
 }
 
 /**
@@ -157,21 +198,14 @@ export async function expirePauses(
     const tree = { tenantId: pause.tenantId, rootExecutionId: pause.rootExecutionId };
     // a cancel always beats an expiry (#941): once requested, no decision is asked or recorded
     if (await isCancelRequested(parts.trees, tree)) break;
-    const expiry = await expiryOf(parts, pause, interruption);
+    const outcome = await expiryOf(parts, pause, interruption);
     // ...and one requested while the handler ran: its decision is dropped, the cancel ends the tree
     if (await isCancelRequested(parts.trees, tree)) break;
-    const applied = await stores.pauses.expireByTenantIdAndPauseId(
-      pause.tenantId,
-      pause.pauseId,
-      expiry,
-      parts.clock.now(),
-      recipientsIn(stores, pause),
-    );
-    if (applied === undefined) continue;
-    noticesWritten(stores);
-    pauseTallyOf(stores)?.closed(applied);
-    await logPauseAnswer(stores.answers, applied, applied.resolution ?? PauseResolution.Expired);
-    closed += 1;
+    const moved = await movedOnExpiry(parts, pause, outcome);
+    if (moved === "done") closed += 1;
+    if (moved !== "failed") continue;
+    const expiry: PauseExpiry = "reassign" in outcome ? FAILED : outcome;
+    if (await expiredPause(parts, pause, expiry)) closed += 1;
   }
   return closed;
 }

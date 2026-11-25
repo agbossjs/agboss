@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #824 (mutation shard `a2a-server`): the server's wait and cancel on their own — when a send
  * stops waiting, a wait's read once its run here ended (forced from the records) or not (as kept),
@@ -33,7 +34,7 @@ const FINISHED = {
   status: DurableExecutionStatus.Finished,
   finish: "unit-workflow-finish",
   output: { text: "done" },
-  spentUsd: 0,
+  spentUsd: usd(0),
 } as const;
 
 const newTasks = () => new InMemoryA2ATaskRepository(new InMemoryDatabase());
@@ -119,7 +120,7 @@ describe("#824: CancelTask", () => {
 
     const canceled = await canceledTask(unitParts(script, tasks), callerOf(), "task-1");
 
-    expect(canceled.status).toEqual({ state: A2ATaskState.Canceled, pendingPauses: [] });
+    expect(canceled.status).toEqual({ state: A2ATaskState.Cancelled, pendingPauses: [] });
     expect(script.calls).toEqual(["claim task-1"]);
   });
 
@@ -130,7 +131,7 @@ describe("#824: CancelTask", () => {
 
     const canceled = await canceledTask(unitParts(script, tasks), callerOf(), "task-1");
 
-    expect(canceled.status.state).toBe(A2ATaskState.Canceled);
+    expect(canceled.status.state).toBe(A2ATaskState.Cancelled);
     expect(script.calls).toEqual(["claim task-1", "cancel task-1 dana", "state task-1"]);
   });
 
@@ -141,7 +142,7 @@ describe("#824: CancelTask", () => {
 
     const canceled = await canceledTask(unitParts(script, tasks), callerOf(), "task-1");
 
-    expect(canceled.status.state).toBe(A2ATaskState.Canceled);
+    expect(canceled.status.state).toBe(A2ATaskState.Cancelled);
     expect(script.calls).toEqual(["cancel task-1 dana", "state task-1"]);
   });
 
@@ -171,7 +172,7 @@ describe("#824: CancelTask", () => {
 
     const canceled = await canceledTask(parts, callerOf(), "task-1");
 
-    expect([isEnded, canceled.status.state]).toEqual([true, A2ATaskState.Canceled]);
+    expect([isEnded, canceled.status.state]).toEqual([true, A2ATaskState.Cancelled]);
   });
 
   it("another end first (the records say finished), or over already: -32002", async () => {

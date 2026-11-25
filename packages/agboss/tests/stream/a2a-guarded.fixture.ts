@@ -1,13 +1,16 @@
 /** The guarded agents (#1006) served over A2A: what a client's socket receives of a blocked answer. */
-import { A2AExpose, A2ACallerResolution, type A2ACallerResolver } from "../../src/a2a/index.js";
+import { hours, minutes, Ttl } from "../../src/units/index.js";
+import { A2AEndpoint } from "../../src/a2a/index.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { GuardedAgent } from "./guarded.fixture.js";
+import { HttpAuthResult, HttpAuthenticator } from "../../src/index.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
 @WorkflowStart({
   name: "wire-guarded-workflow-start",
@@ -23,44 +26,42 @@ class WireGuardedStart {}
 })
 class WireGuardedFinish {}
 
-@Injectable()
-export class WireCallerResolver implements A2ACallerResolver<typeof WireGuardedStart> {
-  resolveCaller(): A2ACallerResolution<typeof WireGuardedStart> {
-    return A2ACallerResolution.resolved({});
+@HttpAuthenticator()
+export class WireAuthenticator {
+  authenticate(): HttpAuthResult {
+    return HttpAuthResult.authenticated({});
   }
 }
 
 @Workflow({
   name: "wire-guarded-workflow",
   version: "1.0.0",
-  flow: [
-    start(WireGuardedStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(GuardedAgent)
-      .toFinish(WireGuardedFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(WireGuardedStart).toAgent(GuardedAgent).toFinish(WireGuardedFinish)],
   defaults: DEFAULTS,
-  providers: [WireCallerResolver],
+  providers: [WireAuthenticator],
 })
 class WireGuardedWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "wire-guarded-a2a-expose",
   description: "Served",
   version: "1.0.0",
-  exports: [WireGuardedStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [WireGuardedStart],
 })
 export class WireA2AExpose {}
 
 @Application({
   name: "wire-guarded-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [WireGuardedWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
-  exposes: [WireA2AExpose],
+  endpoints: [WireA2AExpose],
 })
 export class WireApplication {}
 
-export const wireListener = { expose: WireA2AExpose, callerResolver: WireCallerResolver };
+export const wireListener = { endpoint: WireA2AExpose, authenticator: WireAuthenticator };

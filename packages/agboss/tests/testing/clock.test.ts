@@ -4,7 +4,8 @@
  * pauses, backoff and leases with `clock.advance(…)`, without real waiting; an application may list
  * its own `Clock`, which production uses. The gate rule itself: tests/lint/no-direct-time.test.ts.
  */
-import { createAppWith, type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { GraphRuleError } from "../../src/index.js";
@@ -145,7 +146,7 @@ describe("#262 AC12: the clock fixture is the application's Clock", () => {
 
 describe("#262: a Clock the application lists", () => {
   it("is the clock of every part outside tests: the start, the components", async () => {
-    const app = await createAppWith(FixedClockApplication, {
+    const app = await createTestAppWith(FixedClockApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     });
@@ -175,7 +176,7 @@ describe("#262: a Clock the application lists", () => {
   );
 
   it("may not depend on the application's contexts: they read their start from it", async () => {
-    const starting = createAppWith(ContextClockApplication, {
+    const starting = createTestAppWith(ContextClockApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     });
@@ -249,7 +250,6 @@ describe("#262 AC12: a model call's waits run on the clock", () => {
         provider: "p",
 
         timeout: seconds(5),
-        retryPolicy: RetryPolicy.none(),
         clock,
       },
       neverAnswers,

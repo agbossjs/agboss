@@ -1,5 +1,5 @@
 import { Injectable } from "../../../src/components/decorators.js";
-import { action, route, start, toFinish } from "../../../src/flow/builder.js";
+import { onAction, onStart, toFinish, toAgent, toAction } from "../../../src/flow/builder.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
@@ -14,7 +14,9 @@ import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "./credit-dto
 import { WorkflowStartTextDto } from "./dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #280 — the credit-limit flow: a code router inside a model router's route. */
 
@@ -39,7 +41,7 @@ export class CreditWorkflowStart {}
 @Agent({
   name: "order-intake-agent",
   description: "Reads the order from the message",
-  prompt: "Read the order.",
+  prompt: inline("Read the order."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -51,7 +53,7 @@ export class OrderIntakeAgent {}
 @Agent({
   name: "approval-agent",
   description: "Approves a large order",
-  prompt: "Approve the order or not.",
+  prompt: inline("Approve the order or not."),
   model: "moonshotai/kimi-k2.6",
   input: {
     order: CreditOrderDto,
@@ -71,7 +73,7 @@ export class ApprovalAgent {}
 })
 export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
   execute(input: InputOf<ChargeCardAction>): Promise<OutputOf<ChargeCardAction>> {
-    return Promise.resolve({ chargeId: `charge-${input.order.value.customerId}` });
+    return Promise.resolve({ chargeId: `charge-${input.order.customerId}` });
   }
 }
 
@@ -106,7 +108,7 @@ export const creditDecisions: { nodeId: string; visitNumber: number; key: string
   input: {
     order: CreditOrderDto,
   },
-  routes: [{ target: ApprovalAgent }, { target: ChargeCardAction }],
+  routes: [ApprovalAgent, ChargeCardAction],
   deps: [ExecutionContext, CreditService],
 })
 export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
@@ -122,8 +124,8 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
       visitNumber: step.visitNumber,
       key: step.idempotencyKey,
     });
-    const limit = await this.creditService.limitOf(input.order.value.customerId);
-    return input.order.value.total > limit ? ApprovalAgent : ChargeCardAction;
+    const limit = await this.creditService.limitOf(input.order.customerId);
+    return input.order.total > limit ? ApprovalAgent : ChargeCardAction;
   }
 }
 
@@ -132,7 +134,8 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
   description: "Sends an order to the intake, ends on anything else",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick who handles the customer's message.",
+  modelProvider: TestDecisionsModelProvider,
+  prompt: inline("Pick who handles the customer's message."),
   input: {
     message: WorkflowStartTextDto,
   },
@@ -144,32 +147,29 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
 export class DeskRouter {}
 
 export const creditPaths = [
-  start(CreditWorkflowStart)
-    .returns(WorkflowStartTextDto)
+  onStart(CreditWorkflowStart)
     .toRouter(DeskRouter)
-    .chooseOne(
-      route(OrderIntakeAgent)
-        .returns(CreditOrderDto)
+    .onRoute(
+      toAgent(OrderIntakeAgent)
         .toRouter(CreditLimitRouter)
         .onError(CreditServiceUnavailableError, toFinish(OrderHeldWorkflowFinish))
-        .chooseOne(
-          route(ApprovalAgent)
-            .returns(CreditApprovalDto)
+        .onRoute(
+          toAgent(ApprovalAgent)
             .toAction(ChargeCardAction),
-          route(ChargeCardAction),
-        ),
-      route(NoOrderWorkflowFinish),
-    ),
+        )
+        .onRoute(toAction(ChargeCardAction)),
+    )
+    .onRoute(toFinish(NoOrderWorkflowFinish)),
 
   // two ways in (ApprovalAgent, CreditLimitRouter) → its own path
-  action(ChargeCardAction)
-    .returns(ChargeResultDto)
+  onAction(ChargeCardAction)
     .toFinish(CreditWorkflowFinish),
 ] as const;
 
 @Workflow({
   name: "credit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: creditPaths,
   providers: [CreditService],
 })
@@ -177,6 +177,7 @@ export class CreditWorkflow {}
 
 @Application({
   name: "credit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CreditWorkflow],
@@ -190,6 +191,7 @@ export class CreditApplication {}
   description: "Sends large orders for approval, charges the rest",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: {
     order: CreditOrderDto,
   },
@@ -201,35 +203,33 @@ export class CreditApplication {}
 export class CreditLimitByModelRouter {}
 
 export const creditByModelPaths = [
-  start(CreditWorkflowStart)
-    .returns(WorkflowStartTextDto)
+  onStart(CreditWorkflowStart)
     .toRouter(DeskRouter)
-    .chooseOne(
-      route(OrderIntakeAgent)
-        .returns(CreditOrderDto)
+    .onRoute(
+      toAgent(OrderIntakeAgent)
         .toRouter(CreditLimitByModelRouter)
-        .chooseOne(
-          route(ApprovalAgent)
-            .returns(CreditApprovalDto)
+        .onRoute(
+          toAgent(ApprovalAgent)
             .toAction(ChargeCardAction),
-          route(ChargeCardAction),
-        ),
-      route(NoOrderWorkflowFinish),
-    ),
-  action(ChargeCardAction)
-    .returns(ChargeResultDto)
+        )
+        .onRoute(toAction(ChargeCardAction)),
+    )
+    .onRoute(toFinish(NoOrderWorkflowFinish)),
+  onAction(ChargeCardAction)
     .toFinish(CreditWorkflowFinish),
 ] as const;
 
 @Workflow({
   name: "credit-by-model-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: creditByModelPaths,
 })
 export class CreditByModelWorkflow {}
 
 @Application({
   name: "credit-by-model-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CreditByModelWorkflow],

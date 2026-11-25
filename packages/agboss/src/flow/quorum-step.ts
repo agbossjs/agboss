@@ -1,73 +1,49 @@
 import { MAX_DEADLINE, timerProblemOf } from "../units/timer-limits.js";
 import type { Class } from "../components/injection.js";
-import type { Milliseconds } from "../units/index.js";
+import { isWorkingDuration, type Milliseconds, type WorkingDuration } from "../units/index.js";
+import { MAX_SPAN_DAYS, MAX_SPAN_MS, spanText, type TimeSpan } from "../units/working-time.js";
 import {
-  NodeKind,
   QuorumKind,
   StepKind,
-  type AcceptedBy,
   type ArbiterClass,
   type CountQuorum,
+  type ForEachItemStep,
   type GroupsQuorum,
-  type LaunchStep,
+  type InParallelStep,
+  type JoinStep,
   type QuorumGroup,
   type Step,
+  type SubPath,
 } from "./ast.js";
-import { FlowSyntaxError } from "./launch-step.js";
+import { FlowSyntaxError, isLaunching } from "./launch-step.js";
 
 /**
- * The quorum steps of the path builder (#279), read from their arguments: `.acceptedBy(A)` /
- * `.acceptedBy(anyOf(A, B))` right after an agents' launch, `.joinQuorum({ min, max, deadline })`
- * and `.joinQuorumGroups(group(…)…, { deadline })` after it — and the order they impose: an
- * `.acceptedBy(…)` is followed by a quorum join, never by `.join()`. The typed builder makes the
- * wrong forms compile errors; these checks hold for untyped code.
+ * The quorum steps of the path builder (#279), read from their arguments: `.arbitratedBy(A)` right
+ * after a launch (#1282), `.joinQuorum({ min, max, deadline })` and `.joinQuorumGroups(group(…)…, {
+ * deadline })` after it — and the order they impose: an `.arbitratedBy(…)` is followed by a quorum
+ * join, never by `.join()`. The typed builder makes the wrong forms compile errors; these checks hold
+ * for untyped code.
  */
 
-declare const anyOfArbiters: unique symbol;
-
-/** `anyOf(A, B, …)` inside `.acceptedBy(…)` (S57): tried in order, the first that accepts wins. */
-export interface AnyOfArbiters {
-  readonly [anyOfArbiters]?: true;
-  readonly arbiters: readonly [ArbiterClass, ArbiterClass, ...ArbiterClass[]];
-}
-
-/** What `.acceptedBy(…)` takes: one `@Arbiter` class, or `anyOf(…)` of several. */
-export type ArbiterChoice = ArbiterClass | AnyOfArbiters;
-
-const ANY_OF = new WeakSet<object>();
-
-/** `anyOf(FastCodeArbiter, DeepModelArbiter)`: the model arbiter runs only when the code one rejects. */
-export function anyOf(
-  ...arbiters: readonly [ArbiterClass, ArbiterClass, ...ArbiterClass[]]
-): AnyOfArbiters {
-  if (arbiters.length < 2 || arbiters.some((arbiter) => typeof arbiter !== "function"))
-    throw new FlowSyntaxError({ message: "anyOf(…) takes two or more @Arbiter classes" });
-  const choice: AnyOfArbiters = Object.freeze({ arbiters: Object.freeze(arbiters) });
-  ANY_OF.add(choice);
-  return choice;
-}
-
-/** The `AcceptedBy` of `.acceptedBy(choice)`. */
-export function acceptedByOf(choice: unknown): AcceptedBy {
-  if (typeof choice === "function")
-    return Object.freeze({ arbiters: Object.freeze([choice as ArbiterClass]) });
-  if (typeof choice === "object" && choice !== null && ANY_OF.has(choice))
-    return Object.freeze({ arbiters: (choice as AnyOfArbiters).arbiters });
+/** The `@Arbiter` class of `.arbitratedBy(A)`: one per launch (no `anyOf`, no `and` / `or` trees). */
+export function arbitratedByOf(arbiter: unknown): ArbiterClass {
+  if (typeof arbiter === "function") return arbiter as ArbiterClass;
   throw new FlowSyntaxError({
-    message: ".acceptedBy(…) takes an @Arbiter class, or anyOf(A, B, …)",
+    message:
+      ".arbitratedBy(…) takes one @Arbiter class — the rule it decides by lives in that class",
   });
 }
 
-/** The launch `.acceptedBy(…)` extends: right after an agents' launch (or another `.acceptedBy`). */
-export function acceptingLaunch(previous: Step | undefined): LaunchStep {
-  if (previous?.kind !== StepKind.Launch)
+/** The launch `.arbitratedBy(…)` extends: right after a launch that gives answers a quorum counts. */
+export function arbitratingLaunch(previous: Step | undefined): InParallelStep | ForEachItemStep {
+  if (!isLaunching(previous))
     throw new FlowSyntaxError({
       message:
-        ".acceptedBy(…) stands right after .toParallelAgents(…), before .joinQuorum(…) / .joinQuorumGroups(…)",
+        ".arbitratedBy(…) stands right after .inParallel([…]) or .forEachItem(…), before .joinQuorum(…) / .joinQuorumGroups(…)",
     });
-  if (previous.targetKind !== NodeKind.Agent)
+  if (previous.arbitratedBy !== undefined)
     throw new FlowSyntaxError({
-      message: ".acceptedBy(…) judges agents' answers — after .toParallelAgents(…)",
+      message: ".arbitratedBy(…) is written once per launch — one @Arbiter class decides it",
     });
   return previous;
 }
@@ -75,18 +51,58 @@ export function acceptingLaunch(previous: Step | undefined): LaunchStep {
 const isPositiveInteger = (value: unknown): value is number =>
   typeof value === "number" && Number.isInteger(value) && value > 0;
 
-/** `{ deadline }`: a positive duration (`seconds()`, `minutes()`, `hours()`), when given. */
-function deadlineOf(options: object, call: string): Milliseconds | undefined {
-  const deadline: unknown = Reflect.get(options, "deadline");
-  if (deadline === undefined) return undefined;
+/** What a quorum's `{ deadline, calendar }` come to: a plain or working duration, and the calendar that counts a working one. */
+interface QuorumTime {
+  readonly deadline?: TimeSpan;
+  readonly calendar?: Class;
+}
+
+/** A working deadline's length: positive (the constructor guarantees it) and within the longest a deadline may be. */
+function workingProblemOf(deadline: WorkingDuration): string | undefined {
+  const largest = deadline.unit === "days" ? MAX_SPAN_DAYS : MAX_SPAN_MS;
+  return deadline.amount > largest
+    ? `deadline is ${spanText(deadline)}, above its largest of ${String(largest)} ${deadline.unit === "days" ? "working days" : "ms of working time"}`
+    : undefined;
+}
+
+/** A plain deadline: a positive duration within the timer's cap. */
+function plainDeadlineOf(deadline: unknown, call: string): Milliseconds {
   if (typeof deadline !== "number" || !Number.isFinite(deadline) || deadline <= 0)
     throw new FlowSyntaxError({
-      message: `${call}({ deadline }) takes a positive duration: seconds(30), minutes(2), hours(1)`,
+      message: `${call}({ deadline }) takes a positive duration: seconds(30), minutes(2), hours(1), workDays(5)`,
     });
   const tooLong = timerProblemOf("deadline", deadline, MAX_DEADLINE);
   if (tooLong !== undefined)
     throw new FlowSyntaxError({ message: `${call}({ deadline }): ${tooLong}` });
   return deadline as Milliseconds;
+}
+
+/** A working deadline, within its largest. */
+function workingDeadlineOf(deadline: WorkingDuration, call: string): WorkingDuration {
+  const problem = workingProblemOf(deadline);
+  if (problem !== undefined)
+    throw new FlowSyntaxError({ message: `${call}({ deadline }): ${problem}` });
+  return deadline;
+}
+
+/**
+ * `{ deadline, calendar }`: a positive duration (`seconds(30)`, `minutes(2)`, `hours(1)`), or working
+ * time (`workDays(5)`) with the `@WorkingCalendar` class that counts it (#1306). A working deadline
+ * without `calendar` passes here and fails assembly (`[calendar.required-for-working-duration]`);
+ * a `calendar` beside a plain deadline, or none, is a mistake of its own.
+ */
+function quorumTimeOf(options: object, call: string): QuorumTime {
+  const deadline: unknown = Reflect.get(options, "deadline");
+  const calendar: unknown = Reflect.get(options, "calendar");
+  if (calendar !== undefined && typeof calendar !== "function")
+    throw new FlowSyntaxError({ message: `${call}({ calendar }) takes a @WorkingCalendar class` });
+  const named = calendar === undefined ? {} : { calendar: calendar as Class };
+  if (isWorkingDuration(deadline)) return { deadline: workingDeadlineOf(deadline, call), ...named };
+  if (calendar !== undefined)
+    throw new FlowSyntaxError({
+      message: `${call}({ calendar }) counts working time: give deadline as workDays(…), workHours(…) or workMin(…), or leave calendar out`,
+    });
+  return deadline === undefined ? {} : { deadline: plainDeadlineOf(deadline, call) };
 }
 
 /** `.joinQuorum({ min, max, deadline })`: options are always an object (AC11). */
@@ -104,72 +120,93 @@ export function countQuorumOf(options: unknown): CountQuorum {
     throw new FlowSyntaxError({
       message: ".joinQuorum({ min, max }) takes an integer max of at least min",
     });
-  const deadline = deadlineOf(options, ".joinQuorum");
   return Object.freeze({
     kind: QuorumKind.Count,
     min,
     ...(max === undefined ? {} : { max }),
-    ...(deadline === undefined ? {} : { deadline }),
+    ...quorumTimeOf(options, ".joinQuorum"),
   });
 }
 
-/** `{ deadline }` of `.joinQuorumGroups(…)`: `min` / `max` do not apply to groups. */
-function groupsDeadlineOf(options: object): Milliseconds | undefined {
+/** `{ deadline, calendar }` of `.joinQuorumGroups(…)`: `min` / `max` do not apply to groups. */
+function groupsTimeOf(options: object): QuorumTime {
   if (Reflect.has(options, "min") || Reflect.has(options, "max"))
     throw new FlowSyntaxError({
-      message: ".joinQuorumGroups(…, { deadline }) — min / max do not apply to groups",
+      message: ".joinQuorumGroups({ deadline }) — min / max do not apply to groups",
     });
-  return deadlineOf(options, ".joinQuorumGroups");
+  return quorumTimeOf(options, ".joinQuorumGroups");
 }
 
-/** The groups and the options of `.joinQuorumGroups(group(…)…, { deadline })`. */
-export function groupsQuorumOf(
-  args: readonly unknown[],
-  asGroup: (path: unknown) => QuorumGroup | undefined,
-): GroupsQuorum {
-  const last = args[args.length - 1];
-  const group = asGroup(last);
-  const options = group === undefined && typeof last === "object" && last !== null ? last : {};
-  const paths = group === undefined && args.length > 0 ? args.slice(0, -1) : args;
-  const groups = paths.map(asGroup);
-  if (groups.length === 0 || groups.some((found) => found === undefined))
+/** `.joinQuorumGroups({ deadline })` (#1284): the join of a launch whose groups follow as `.onGroup(…)`s. */
+export function groupsQuorumOf(options: unknown): GroupsQuorum {
+  if (options !== undefined && (typeof options !== "object" || options === null))
     throw new FlowSyntaxError({
       message:
-        ".joinQuorumGroups(…) takes group(…) paths, then { deadline } — min / max do not apply to groups",
+        ".joinQuorumGroups(…) takes its options as an object: .joinQuorumGroups({ deadline })",
     });
-  const deadline = groupsDeadlineOf(options);
   return Object.freeze({
     kind: QuorumKind.Groups,
-    groups: Object.freeze(groups as readonly QuorumGroup[]),
-    ...(deadline === undefined ? {} : { deadline }),
+    groups: Object.freeze([]),
+    ...groupsTimeOf(options ?? {}),
   });
 }
 
-/** `group(…).priority(n)`: 1 is the highest. */
-export function priorityOf(priority: unknown): number {
+/** `{ priority }` of `.onGroup(…)`: 1 is the highest. */
+export function priorityOf(options: unknown): number | undefined {
+  if (options === undefined) return undefined;
+  if (typeof options !== "object" || options === null)
+    throw new FlowSyntaxError({
+      message: ".onGroup([targets], options, subPath) takes its options as an object: { priority }",
+    });
+  const priority: unknown = Reflect.get(options, "priority");
+  if (priority === undefined) return undefined;
   if (!isPositiveInteger(priority))
     throw new FlowSyntaxError({
-      message: "group(…).priority(n) takes a positive integer — 1 is the highest",
+      message: ".onGroup([…], { priority }, …) takes a positive integer — 1 is the highest",
     });
   return priority;
 }
 
-/** `group(A, B, …).priority(n)` of `.joinQuorumGroups(…)` (#279). */
-export interface GroupStart {
-  readonly kind: "group";
-  readonly agents: readonly Class[];
-  readonly priority?: number;
+/** One `.onGroup([A, B], { priority }, subPath)`: its targets (one or more classes of the launch), priority and own path. */
+export function quorumGroupOf(targets: unknown, options: unknown, path: SubPath): QuorumGroup {
+  if (
+    !Array.isArray(targets) ||
+    targets.length === 0 ||
+    targets.some((target) => typeof target !== "function")
+  )
+    throw new FlowSyntaxError({
+      message:
+        ".onGroup([…], …) takes one or more classes of the launch: .onGroup([LegalAgent, CriticAgent], …)",
+    });
+  const priority = priorityOf(options);
+  const group = { targets: Object.freeze([...(targets as readonly Class[])]), path };
+  return Object.freeze(priority === undefined ? group : { ...group, priority });
 }
 
-/** A group as `.joinQuorumGroups(…)` keeps it: its leading `.returns(…)` are its values. */
-export function quorumGroupOf(start: GroupStart, steps: readonly Step[]): QuorumGroup {
-  const { agents, priority } = start;
-  const firstStep = steps.findIndex((step) => step.kind !== StepKind.Returns);
-  const split = firstStep === -1 ? steps.length : firstStep;
-  const returns = steps
-    .slice(0, split)
-    .flatMap((step) => (step.kind === StepKind.Returns ? [step.value] : []));
-  const path = Object.freeze({ steps: Object.freeze(steps.slice(split)) });
-  const group = { agents, returns: Object.freeze(returns), path };
-  return Object.freeze(priority === undefined ? group : { ...group, priority });
+/** The groups' join `.onGroup(…)` extends: the last step must be a `.joinQuorumGroups(…)`, with `given` arguments after the targets. */
+export function groupsJoinOf(
+  last: Step | undefined,
+  given: number,
+): JoinStep & { readonly quorum: GroupsQuorum } {
+  if (last?.kind !== StepKind.Join || last.quorum?.kind !== QuorumKind.Groups)
+    throw new FlowSyntaxError({
+      message: ".onGroup(…) stands right after .joinQuorumGroups(…) or another .onGroup(…)",
+    });
+  if (given < 1 || given > 2)
+    throw new FlowSyntaxError({
+      message: ".onGroup(targets, subPath) or .onGroup(targets, { priority }, subPath)",
+    });
+  return last as JoinStep & { readonly quorum: GroupsQuorum };
+}
+
+/** `join` with one more group. */
+export function withGroup(
+  join: JoinStep & { readonly quorum: GroupsQuorum },
+  group: QuorumGroup,
+): JoinStep {
+  const quorum = Object.freeze({
+    ...join.quorum,
+    groups: Object.freeze([...join.quorum.groups, group]),
+  });
+  return Object.freeze({ ...join, quorum });
 }

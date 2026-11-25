@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-reply shard) — the budget rules of reading a free-text reply for a pause of a tree, each on its own
  * over fakes: the reading is counted in the tree's budgets as they were read at its start (none without the
@@ -15,10 +16,11 @@ vi.mock("../../src/budgets/execution-budgets.js", async (original) => ({
 }));
 
 const record = (costUsd: number, caller = "reply"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -72,7 +74,7 @@ beforeEach(() => {
 describe("#1366: the reading is counted in the tree's budgets", () => {
   it("as the tree's records were read at its start, with the cost of the run so far", async () => {
     const { answering, parts } = setup();
-    const run = { cost: { totalUsd: 1.5 }, path: ["a"] };
+    const run = { cost: { totalUsd: usd(1.5) }, path: ["a"] };
 
     await answering(pause as never, "yes", run as never, (d) => d);
 
@@ -102,7 +104,7 @@ describe("#1366: the reading is counted in the tree's budgets", () => {
 describe("#1366: the check before the interpreter's model call", () => {
   it("reads the counters anew, then checks them with the run's spend and path, before the reading; the cost is recorded after", async () => {
     const { answering, meter, order } = setup();
-    const run = { cost: { totalUsd: 1.5 }, path: ["a", "b"] };
+    const run = { cost: { totalUsd: usd(1.5) }, path: ["a", "b"] };
 
     const out = await answering(pause as never, "yes", run as never, (d) => d);
 
@@ -115,7 +117,7 @@ describe("#1366: the check before the interpreter's model call", () => {
   it("a run with no path yet is checked on the empty path", async () => {
     const { answering, meter } = setup();
 
-    await answering(pause as never, "yes", { cost: { totalUsd: 0 } } as never, (d) => d);
+    await answering(pause as never, "yes", { cost: { totalUsd: usd(0) } } as never, (d) => d);
 
     expect(meter.check).toHaveBeenCalledWith(0, []);
   });

@@ -15,7 +15,7 @@ export interface ListedWorkflow {
 
 /** The `@Workflow` declaration a workflow module needs to be found by its name. */
 export const workflowDeclaration = ({ className, name }: ListedWorkflow): string =>
-  `\n@Workflow({ name: "${name}", version: "1.0.0", flow: [] })\nexport class ${className} {}\n`;
+  `\n@Workflow({ name: "${name}", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })\nexport class ${className} {}\n`;
 
 /** Writes `src/desk.application.ts` listing `workflow`, and package.json pointing at it. */
 export function writeApplication(root: string, workflow: ListedWorkflow): string {

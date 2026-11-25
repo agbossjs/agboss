@@ -10,17 +10,17 @@ import {
   ApplicationContext,
   EmptyEnvironment,
   ExecutionContext,
-  Injectable,
+  Observer,
   StepFailedError,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ActionStartEvent,
-  type OnActionStart,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start, toAction } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import { EndOnceLog } from "./child-end-once.workflow.js";
@@ -49,8 +49,8 @@ export function armActionGate(action: string): void {
 }
 
 /** Holds the first `onActionStart` of the armed action (then disarms), on whichever instance. */
-@Injectable({ deps: [ApplicationContext] })
-export class ActionStartGate implements OnActionStart {
+@Observer({ deps: [ApplicationContext] })
+export class ActionStartGate {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   onActionStart(event: ActionStartEvent): Promise<void> | undefined {
@@ -73,10 +73,10 @@ export class ActionStartGate implements OnActionStart {
 export class ChargeItemAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly result: { readonly value: ItemResultDto } }): Promise<ItemResultDto> {
+  execute(input: { readonly result: ItemResultDto }): Promise<ItemResultDto> {
     const { instanceId } = this.executionContext.tenant.application;
-    actionGate.charged.push(`${input.result.value.name} on ${instanceId}`);
-    return Promise.resolve(input.result.value);
+    actionGate.charged.push(`${input.result.name} on ${instanceId}`);
+    return Promise.resolve(input.result);
   }
 }
 
@@ -91,14 +91,12 @@ export class SideKeptWorkflowFinish {}
 @Workflow({
   name: "side-undo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SideUndoWorkflowStart)
-      .returns(ItemDto)
+    onStart(SideUndoWorkflowStart)
       .toAction(BookItemAction)
-      .returns(BookingDto)
       .toAction(GatedItemAction)
       .onError(StepFailedError, toAction(CancelBookingAction).toFinish(SideUndoneWorkflowFinish))
-      .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)
       .toFinish(SideKeptWorkflowFinish),
   ],
@@ -114,13 +112,11 @@ export class ChargedWorkflowFinish {}
 @Workflow({
   name: "charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChargeWorkflowStart)
-      .returns(ItemDto)
+    onStart(ChargeWorkflowStart)
       .toAction(GatedItemAction)
-      .returns(ItemResultDto)
       .toAction(ChargeItemAction)
-      .returns(ItemResultDto)
       .toFinish(ChargedWorkflowFinish),
   ],
 })

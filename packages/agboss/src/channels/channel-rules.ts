@@ -1,103 +1,85 @@
-import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import { isWorkingDuration } from "../units/index.js";
-import { amountOf, MAX_SPAN_MS, spanText, type TimeSpan } from "../units/working-time.js";
+import {
+  amountOf,
+  MAX_SPAN_MS,
+  MAX_SPAN_DAYS,
+  unitOf,
+  type TimeSpan,
+} from "../units/working-time.js";
+import type { ComponentOptions } from "../components/component-options.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
 import { isCountLimit, shownLimit } from "../graph/count-limit.js";
 import { GraphRuleError, violation, type RuleViolation } from "../graph/rule-error.js";
-import { channelRoleOf, isQuestionRole } from "./channel-role.decorator.js";
-import { replyInterpreterViolations } from "./discovery.js";
-import { workingTimeViolations } from "./working-time-rules.js";
 import {
-  channelNameOf,
-  channelUsesOf,
-  isChannelRole,
-  rolesOf,
-  type ChannelUse,
-} from "./discovery.js";
+  channelTargetOf,
+  isExternalTask,
+  listedClassesOf,
+  findPauseTarget,
+} from "./pause-targets.js";
+import { pauseTargetViolations } from "./pause-target-rules.js";
+import { replyInterpreterViolations, targetsOfUses } from "./discovery.js";
+import { pauseTimingViolations } from "./pause-timing-rules.js";
+import { channelUsesOf, type ChannelUse } from "./discovery.js";
 
 /**
- * The assembly rules of channels (#267): a tool's input is the `approves` of its role
- * (`[channel.wrong-tool]`), a role has one implementation among the providers
- * (`[di.missing-implementation]`, `[di.ambiguous-implementation]`), a reply interpreter belongs
- * to one role (`[channel.shared-interpreter]`) and is a valid `@ReplyInterpreter` (#267 PR 3). All
- * violations at once.
+ * The assembly rules of pause targets and their channels (#267, #1307): a tool's input is the
+ * `input` of its `@ToolApproval` (`[channel.wrong-tool]`), a target has a channel when it needs one
+ * (`[channel.missing-for-target]`, `[channel.ambiguous-for-target]`), a channel interpreter belongs
+ * to one target (`[channel.shared-interpreter]`) and is a valid `@ChannelInterpreter` (#267 PR 3).
+ * All violations at once.
  */
 
 const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
 
-/** The listed classes that extend `role` (the role itself is not its implementation). */
-export function implementationsOf(role: Class, modules: readonly ProviderModule[]): Class[] {
-  const listed = modules.flatMap((module) =>
-    module.providers.filter((provider): provider is Class => typeof provider === "function"),
-  );
-  return [...new Set(listed)].filter(
-    (cls) =>
-      Object.prototype.isPrototypeOf.call(role.prototype, cls.prototype) &&
-      // Stryker disable next-line ConditionalExpression: equivalent: `role.prototype` is not in its own prototype chain, so the first test is already false for the role itself; the guard says what the rule is
-      cls !== role,
-  );
+/** The listed channels that serve `target`: a `@Channel({ target })` names it. */
+export function channelsOf(target: Class, modules: readonly ProviderModule[]): Class[] {
+  return listedClassesOf(modules).filter((cls) => channelTargetOf(cls) === target);
 }
 
 /**
- * A tool approved through a role must take the role's `approves` DTO; a question role (#659) approves
- * none — it is asked by a flow step, `.toQuestion(Role)`.
+ * A tool approved through a target must take the target's `input` DTO (a target with none approves
+ * any tool); an external task approves no tool — it is asked by a flow step, `.toExternalTask(Task)`.
  */
 function wrongToolViolations(uses: readonly ChannelUse[]): RuleViolation[] {
   return uses.flatMap((use) => {
-    const found = channelRoleOf(use.channel);
-    if (found === undefined || use.isQuestion === true) return [];
+    const found = findPauseTarget(use.target);
+    if (use.isQuestion === true) return [];
+    if (found === undefined) {
+      return [
+        violation(
+          "channel.wrong-tool",
+          `tool ${use.tool} names ${nameOf(use.target)} as its approval, which is no @ToolApproval — name a @ToolApproval class`,
+          [use.tool],
+        ),
+      ];
+    }
     const { options } = found;
-    if (!isQuestionRole(options) && options.approves === use.toolInput) return [];
-    const why = isQuestionRole(options)
-      ? `${options.name} asks a question (ask / answer), it approves no tool — ask it with .toQuestion(${nameOf(found.role)})`
-      : `${options.name} approves ${nameOf(options.approves)}`;
+    if (
+      !isExternalTask(options) &&
+      (options.input === undefined || options.input === use.toolInput)
+    )
+      return [];
+    const why = isExternalTask(options)
+      ? `${options.name} is an external task, it approves no tool — ask it with .toExternalTask(${nameOf(found.target)})`
+      : `${options.name} approves ${nameOf(options.input as Class)}`;
     return [
       violation(
         "channel.wrong-tool",
-        `tool ${use.tool} (input ${nameOf(use.toolInput)}) names channel ${nameOf(use.channel)}, but ${why} — name a role whose approves is ${nameOf(use.toolInput)}`,
+        `tool ${use.tool} (input ${nameOf(use.toolInput)}) names ${nameOf(use.target)} as its approval, but ${why} — name a @ToolApproval whose input is ${nameOf(use.toolInput)}`,
         [use.tool, options.name],
       ),
     ];
   });
 }
 
-/** Every role a tool names has exactly one implementation among the providers. */
-function implementationViolations(
-  uses: readonly ChannelUse[],
-  modules: readonly ProviderModule[],
-): RuleViolation[] {
-  const roles = [...new Set(uses.map((use) => use.channel))].filter(isChannelRole);
-  return roles.flatMap((role) => {
-    const found = implementationsOf(role, modules);
-    const name = channelNameOf(role);
-    if (found.length === 1) return [];
-    if (found.length === 0) {
-      return [
-        violation(
-          "di.missing-implementation",
-          `channel role ${nameOf(role)} (${name}) has no implementation — list a @Channel class that extends ${nameOf(role)} in @Application({ providers })`,
-          [name],
-        ),
-      ];
-    }
-    return [
-      violation(
-        "di.ambiguous-implementation",
-        `channel role ${nameOf(role)} (${name}) has ${String(found.length)} implementations: ${found.map(nameOf).join(", ")} — list one (one question to several places is one implementation that sends to each)`,
-        [name],
-      ),
-    ];
-  });
-}
-
-/** One reply interpreter belongs to one role, so its input and output are exact. */
+/** One channel interpreter belongs to one target, so its input and output are exact. */
 export function sharedInterpreterViolations(uses: readonly ChannelUse[]): RuleViolation[] {
   const byInterpreter = new Map<Class, string[]>();
-  for (const { options } of rolesOf(uses)) {
-    if (options.replyInterpreter === undefined) continue;
-    const names = byInterpreter.get(options.replyInterpreter) ?? [];
-    byInterpreter.set(options.replyInterpreter, [...names, options.name]);
+  for (const { options } of targetsOfUses(uses)) {
+    if (options.channelInterpreter === undefined) continue;
+    const names = byInterpreter.get(options.channelInterpreter) ?? [];
+    byInterpreter.set(options.channelInterpreter, [...names, options.name]);
   }
   return [...byInterpreter].flatMap(([interpreter, roles]) =>
     roles.length < 2
@@ -105,7 +87,7 @@ export function sharedInterpreterViolations(uses: readonly ChannelUse[]): RuleVi
       : [
           violation(
             "channel.shared-interpreter",
-            `reply interpreter ${nameOf(interpreter)} is used by ${roles.join(" and ")} — an interpreter belongs to one role; give each role its own`,
+            `channel interpreter ${nameOf(interpreter)} is used by ${roles.join(" and ")} — an interpreter belongs to one target; give each target its own`,
             roles,
           ),
         ],
@@ -113,51 +95,38 @@ export function sharedInterpreterViolations(uses: readonly ChannelUse[]): RuleVi
 }
 
 /** The shortest deadline a pause may have (#941). */
-const MIN_EXPIRES_IN_MS = 1000;
+const MIN_PAUSE_TIMEOUT_MS = 1000;
 
-/** `14400000 ms`, or `7200000 ms of working time`. */
-const msOf = (span: unknown): string =>
-  isWorkingDuration(span) ? spanText(span) : `${String(span)} ms`;
-
-/** Whether `value` is a finite amount of milliseconds in `[min, MAX_SPAN_MS]`, plain or working (#944). */
+/**
+ * Whether `value` is a finite amount of milliseconds in `[min, MAX_SPAN_MS]`, plain or working
+ * (#944) — or, for `workDays`, a positive number of working days up to `MAX_SPAN_DAYS` (a day count
+ * is no millisecond count: `min` does not apply to it).
+ */
 const isSpanBetween = (value: unknown, min: number): value is TimeSpan => {
+  if (isWorkingDuration(value) && value.unit === "days")
+    return Number.isFinite(value.amount) && value.amount > 0 && value.amount <= MAX_SPAN_DAYS;
   const amount =
     typeof value === "number" ? value : isWorkingDuration(value) ? amountOf(value) : Number.NaN;
   return Number.isFinite(amount) && amount >= min && amount <= MAX_SPAN_MS;
 };
 
 /** Whether `value` is a duration of at least `seconds(1)` and at most 5 years: plain, or working time (#944). */
-export const isExpiresIn = (value: unknown): value is TimeSpan =>
-  isSpanBetween(value, MIN_EXPIRES_IN_MS);
-
-/** `[channel.expires-in-invalid]`: a role's `expiresIn` is a positive finite duration ≥ `seconds(1)`. */
-function expiresInViolations(uses: readonly ChannelUse[]): RuleViolation[] {
-  return rolesOf(uses).flatMap(({ options }) => {
-    const { expiresIn } = options;
-    if (expiresIn === undefined || isExpiresIn(expiresIn)) return [];
-    return [
-      violation(
-        "channel.expires-in-invalid",
-        `channel role ${options.name}: expiresIn is ${spanText(expiresIn)} — a deadline is a positive finite duration of at least seconds(1) and at most 5 years, like hours(24)`,
-        [options.name],
-      ),
-    ];
-  });
-}
+export const isPauseTimeout = (value: unknown): value is TimeSpan =>
+  isSpanBetween(value, MIN_PAUSE_TIMEOUT_MS);
 
 /**
- * `[limits.count-invalid]` (#1373): a question role's `maxVisits`, which also bounds the questions
+ * `[limits.count-invalid]` (#1373): an external task's `maxVisits`, which also bounds the questions
  * an agent asks through it as a tool, is a whole number from 0; the value is named by its kind only.
  */
 function maxVisitsViolations(uses: readonly ChannelUse[]): RuleViolation[] {
-  return rolesOf(uses).flatMap(({ options }) => {
-    if (!isQuestionRole(options)) return [];
+  return targetsOfUses(uses).flatMap(({ options }) => {
+    if (!isExternalTask(options)) return [];
     const { maxVisits } = options;
     if (maxVisits === undefined || isCountLimit(maxVisits)) return [];
     return [
       violation(
         "limits.count-invalid",
-        `channel role ${options.name}: maxVisits is ${shownLimit(maxVisits)}, not a whole number from 0 — maxVisits: 3 sets it; leave it out for no limit`,
+        `external task ${options.name}: maxVisits is ${shownLimit(maxVisits)}, not a whole number from 0 — maxVisits: 3 sets it; leave it out for no limit`,
         [options.name],
       ),
     ];
@@ -170,67 +139,45 @@ export const isRemindBefore = (value: unknown): value is TimeSpan =>
 
 /**
  * Whether a reminder is not shorter than the deadline it precedes: plain with plain, working with
- * working (#944) — a plain amount against working time is not comparable here (the wall-clock
- * time working time takes is the calendar's to say), so it is no problem of the role.
+ * working of the same unit (#944) — a plain amount against working time, or working days against
+ * working hours, is not comparable here (the wall-clock time working time takes is the calendar's
+ * to say), so it is no problem of the role.
  */
 export const isNotShorter = (remindBefore: TimeSpan, expiresIn: unknown): boolean =>
   (typeof expiresIn === "number" || isWorkingDuration(expiresIn)) &&
   isWorkingDuration(remindBefore) === isWorkingDuration(expiresIn) &&
+  unitOf(remindBefore) === unitOf(expiresIn as TimeSpan) &&
   amountOf(remindBefore) >= amountOf(expiresIn as TimeSpan);
 
-/**
- * `[channel.remind-before-invalid]` (#942): a role's `remindBefore` is a positive finite duration,
- * shorter than the role's own `expiresIn` (a reminder at or after the deadline never goes out).
- */
-function remindBeforeViolations(uses: readonly ChannelUse[]): RuleViolation[] {
-  return rolesOf(uses).flatMap(({ options }) => {
-    const { remindBefore, expiresIn } = options;
-    if (remindBefore === undefined) return [];
-    const problem = !isRemindBefore(remindBefore)
-      ? `remindBefore is ${spanText(remindBefore)} — a reminder is a positive finite duration of at most 5 years, like hours(2)`
-      : isNotShorter(remindBefore, expiresIn)
-        ? `remindBefore (${msOf(remindBefore)}) is not shorter than its expiresIn (${msOf(expiresIn)}) — the reminder would go out at or before the pause is asked`
-        : undefined;
-    if (problem === undefined) return [];
-    return [
-      violation("channel.remind-before-invalid", `channel role ${options.name}: ${problem}`, [
-        options.name,
-      ]),
-    ];
-  });
-}
-
-/** The rules of one workflow's channels (its children included) over the providers it sees. */
+/** The rules of one workflow's pause targets (its children's included) over the providers it sees. */
 export function channelRuleViolations(
   uses: readonly ChannelUse[],
   modules: readonly ProviderModule[],
-  defaultCalendar?: WorkingCalendarSource,
+  options: ComponentOptions,
 ): RuleViolation[] {
   return [
     ...wrongToolViolations(uses),
-    ...implementationViolations(uses, modules),
+    ...pauseTargetViolations(uses, modules, options),
     ...replyInterpreterViolations(uses),
     ...maxVisitsViolations(uses),
-    ...expiresInViolations(uses),
-    ...remindBeforeViolations(uses),
-    ...workingTimeViolations(uses, modules, defaultCalendar),
+    ...pauseTimingViolations(uses, modules),
   ];
 }
 
 /**
- * The channels of one workflow (#267), its children's included, checked at its assembly: each
- * tool's input is its role's `approves`, each role has one implementation among the providers; a
- * workflow on its own also one interpreter per role (an application checks that across workflows).
+ * The pause targets of one workflow (#267), its children's included, checked at its assembly: each
+ * tool's input is its approval's `input`, each target has the channels it needs; a workflow on its
+ * own also one interpreter per target (an application checks that across workflows).
  */
 export function checkChannels(
   workflow: Class,
   modules: readonly ProviderModule[],
+  options: ComponentOptions,
   isStandalone: boolean,
-  defaultCalendar?: WorkingCalendarSource,
 ): void {
   const uses = channelUsesOf([workflow]);
   const violations = [
-    ...channelRuleViolations(uses, modules, defaultCalendar),
+    ...channelRuleViolations(uses, modules, options),
     ...(isStandalone ? sharedInterpreterViolations(uses) : []),
   ];
   if (violations.length > 0) throw new GraphRuleError({ violations });

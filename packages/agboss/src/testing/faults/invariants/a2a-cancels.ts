@@ -1,5 +1,5 @@
 import { A2ATaskState } from "../../../infrastructure/a2a-task.repository.js";
-import { FencedEffectStatus } from "../../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../../infrastructure/fenced-effect.repository.js";
 import type { FaultRun, PodEventFact } from "../facts.js";
 import { compareAt, type HistoryOperation, type OperationEvent } from "../operation-history.js";
 import { StoreHoldPoint } from "../store-points.js";
@@ -41,7 +41,7 @@ export const effectsOf = (run: FaultRun, rootId: string): readonly HistoryOperat
       return false;
     if (factsOf(invoke.input).isCompensation === true) return false;
     if (invoke.operation === StoreHoldPoint.FencedEffectWrite)
-      return outputOf(complete).status === FencedEffectStatus.Ran;
+      return outputOf(complete).status === IdempotencyRunStatus.Ran;
     return (
       (invoke.operation === StoreHoldPoint.OutboundSaveIfAbsent ||
         invoke.operation === StoreHoldPoint.OutboundMarkPending) &&
@@ -89,8 +89,8 @@ export function canceledViolations(
   writes: readonly HistoryOperation[],
 ): FaultViolation[] {
   const isCanceled =
-    answers.some((answer) => answer.state === A2ATaskState.Canceled) ||
-    writes.some(({ complete }) => outputOf(complete).state === A2ATaskState.Canceled);
+    answers.some((answer) => answer.state === A2ATaskState.Cancelled) ||
+    writes.some(({ complete }) => outputOf(complete).state === A2ATaskState.Cancelled);
   const anchor = cancelAnchorOf(run, taskId);
   const asked = run.events.some(
     (event) =>

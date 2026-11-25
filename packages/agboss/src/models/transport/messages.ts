@@ -111,6 +111,9 @@ function checkResponse(
   });
 }
 
+/** A token count a JavaScript provider may leave out (the types ask for it): none is 0. */
+const countOf = (count: number): number => (Number.isFinite(count) ? count : 0);
+
 /** The provider's answer as the agent loop's message: text, tool calls, usage, cost, finish reason. */
 export function aiMessageOf(response: unknown, model: string, provider: string): AIMessage {
   checkResponse(response, provider);
@@ -128,8 +131,8 @@ export function aiMessageOf(response: unknown, model: string, provider: string):
       output_tokens: usage.outputTokens,
       total_tokens: usage.inputTokens + usage.outputTokens,
       input_token_details: {
-        cache_read: usage.cacheReadTokens ?? 0,
-        cache_creation: usage.cacheWriteTokens ?? 0,
+        cache_read: countOf(usage.cacheReadTokens),
+        cache_creation: countOf(usage.cacheWriteTokens),
       },
     },
     response_metadata: {

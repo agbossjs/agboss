@@ -63,7 +63,7 @@ const storeMsOf = (at: string, scale: number): number =>
 function outputOf({ complete }: HistoryOperation): unknown {
   if (complete === undefined) return UNKNOWN;
   if (complete.error === undefined) return complete.output ?? null;
-  return complete.error.name === "ExecutionFencedError" ? "fenced" : UNKNOWN;
+  return complete.error.name === "ExecutionError.Fenced" ? "fenced" : UNKNOWN;
 }
 
 /**

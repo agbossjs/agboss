@@ -1,8 +1,6 @@
-import {
-  createApp,
-  createAppWith,
-  type BuildApplicationOptions,
-} from "../../src/application/create-app.js";
+import { Window2Memory } from "../helpers/window-memory.js";
+import { createApp, type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { NotAWorkflowStartError } from "../../src/app/create-app.js";
 import {
@@ -11,9 +9,10 @@ import {
   PauseClosedError,
   GraphRuleError,
   WorkflowStart,
+  inline,
+  Ttl,
 } from "../../src/index.js";
-import { DtoValidationError, Text, WorkflowStartTextDto } from "../../src/dto/index.js";
-import { createSqliteTurnStore } from "../../src/turns/index.js";
+import { DtoValidationError, Text } from "../../src/dto/index.js";
 import { replyWith, callTool, routeTo } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -31,7 +30,6 @@ import {
   Writer,
   DeskApplication,
 } from "../testing/fixtures/desk.workflow.js";
-import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
 import {
   CodeDto,
   Coder,
@@ -42,11 +40,12 @@ import {
   TaskStart,
   CodeReviewApplication,
 } from "../testing/fixtures/code-review.workflow.js";
-import { agent, execute, start, answerOf } from "../helpers/flow.js";
+import { onAgent, execute, onStart, answerOf } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** Everything external given: scripted models, memory stores, stubbed MCP servers. */
 function offline(book: ScriptBook, stubs = new McpStubs(book)): BuildApplicationOptions {
@@ -75,7 +74,7 @@ class TicketStart {}
 @Agent({
   name: "ticket-agent",
   description: "Answers tickets",
-  prompt: "Answer the ticket.",
+  prompt: inline("Answer the ticket."),
   model: "test/support",
   input: { ticket: TicketDto },
 })
@@ -90,19 +89,20 @@ const defaults = {
 @Workflow({
   name: "two-starts-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TicketStart).returns(TicketDto).toAgent(TicketAgent).toFinish(Reply),
-    start(ChatStart).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Reply),
+    onStart(TicketStart).toAgent(TicketAgent).toFinish(Reply),
+    onStart(ChatStart).toAgent(Writer).toFinish(Reply),
   ],
   defaults,
-  uncompactedTurns: 2,
-  mcp: [NotesServer],
+  memory: Window2Memory,
   providers: [OrderBook],
 })
 class TwoStarts {}
 
 @Application({
   name: "two-starts-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TwoStarts],
@@ -113,17 +113,16 @@ export class TwoStartsApplication {}
 @Workflow({
   name: "broken-workflow",
   version: "1.0.0",
-  flow: [
-    start(ChatStart).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Reply),
-    agent(Support).toFinish(Reply),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ChatStart).toAgent(Writer).toFinish(Reply), onAgent(Support).toFinish(Reply)],
   defaults,
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 })
 class Broken {}
 
 @Application({
   name: "broken-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Broken],
@@ -135,7 +134,7 @@ describe("AC12: createApp — the real app", () => {
   it("assembles before any model call and reports every assembly error at once", async () => {
     const book = new ScriptBook();
 
-    const built = createAppWith(BrokenApplication, offline(book));
+    const built = createTestAppWith(BrokenApplication, offline(book));
 
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     const codes = await built.catch((error: unknown) =>
@@ -151,7 +150,7 @@ describe("AC12: createApp — the real app", () => {
       .thenReturn(replyWith(CodeDto, { text: "v1" }, { cost: usd(0.002) }));
     book.scriptOf("agent:reviewer-agent").thenReturn(replyWith(ReviewDto, { text: "clean" }));
     book.scriptOf("router:review-gate-router").thenReturn(routeTo(PullRequest));
-    const app = await createAppWith(CodeReviewApplication, offline(book));
+    const app = await createTestAppWith(CodeReviewApplication, offline(book));
 
     const result = await execute(app, TaskStart, { text: "Add a flag" });
     await app.close();
@@ -170,7 +169,6 @@ describe("AC12: createApp — the real app", () => {
       "1.0.0",
       [
         "[application.in-memory-cost-ledger] in-memory cost ledger: each application instance counts budgets on its own and the counters reset on restart",
-        "[application.pii-instance-key] no @Application({ piiKeyField }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with piiKeyField",
       ],
     ]);
   });
@@ -183,14 +181,14 @@ describe("AC12: createApp — the real app", () => {
     book
       .scriptOf("agent:support-agent")
       .thenReturn(callTool(SaveNote, { title: "a", text: "b" }), replyWith("Saved."));
-    const app = await createAppWith(DeskApplication, offline(book, stubs));
+    const app = await createTestAppWith(DeskApplication, offline(book, stubs));
 
     const paused = await execute(app, ChatStart, { text: "save a note" });
     const done = await app.resume(answerOf(paused, { approved: true }));
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ step: "support-agent", ask: { tool: "save-note-tool" } }],
+      pending: [{ step: "support-agent", toolCall: { tool: "save-note-tool" } }],
     });
     expect(paused).toFollowPath([ChatStart, MainRouter, Support]);
     expect(done).toMatchObject({
@@ -206,7 +204,7 @@ describe("AC12: createApp — the real app", () => {
 
   it("close runs onStop of the components it started, once", async () => {
     lifecycle.length = 0;
-    const app = await createAppWith(DeskApplication, offline(new ScriptBook()));
+    const app = await createTestAppWith(DeskApplication, offline(new ScriptBook()));
     const started = [...lifecycle];
 
     await app.close();
@@ -218,7 +216,7 @@ describe("AC12: createApp — the real app", () => {
 
   it("checks the start and its input DTO before any call", async () => {
     const book = new ScriptBook();
-    const app = await createAppWith(CodeReviewApplication, offline(book));
+    const app = await createTestAppWith(CodeReviewApplication, offline(book));
 
     await expect(execute(app, ChatStart, { text: "hi" })).rejects.toBeInstanceOf(
       NotAWorkflowStartError,
@@ -235,7 +233,7 @@ describe("AC12: createApp — the real app", () => {
     const book = new ScriptBook();
     book.scriptOf("agent:ticket-agent").thenReturn(replyWith("ticket"));
     book.scriptOf("agent:writer-agent").thenReturn(replyWith("chat"));
-    const app = await createAppWith(TwoStartsApplication, offline(book));
+    const app = await createTestAppWith(TwoStartsApplication, offline(book));
 
     const ticket = await execute(app, TicketStart, { text: "printer broken", id: "T-1" });
     const chat = await execute(app, ChatStart, { text: "hi" });
@@ -249,12 +247,12 @@ describe("AC12: createApp — the real app", () => {
   });
 });
 
-describe("#834 AC4: createApp takes env, profile, profileRoot and meterProvider only", () => {
+describe("#834 AC4: createApp takes env, profile and meterProvider only", () => {
   it("a JavaScript caller's seam is refused, naming where it goes — never ignored", async () => {
-    const seams = { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) };
+    const seams = { clock: {}, gateway: createScriptedGateway(new ScriptBook()) };
 
     await expect(createApp(CodeReviewApplication, seams as never)).rejects.toThrow(
-      "createApp takes only env, profile, profileRoot, meterProvider — not processEnv, gateway: infrastructure and settings go in @Application({ … }), test seams in testWith",
+      "createApp takes only env, profile, meterProvider, tracerProvider, handleSignals, processEnv — not clock, gateway: infrastructure and settings go in @Application({ … }), test seams in testWith",
     );
   });
 
@@ -262,7 +260,7 @@ describe("#834 AC4: createApp takes env, profile, profileRoot and meterProvider 
     "options that are not an object of the four (%s) are refused",
     async (options) => {
       await expect(createApp(CodeReviewApplication, options as never)).rejects.toThrow(
-        /createApp takes an object of env, profile, profileRoot, meterProvider — not/,
+        /createApp takes an object of env, profile, meterProvider, tracerProvider, handleSignals, processEnv — not/,
       );
     },
   );
@@ -273,12 +271,12 @@ describe("#834 AC4: createApp takes env, profile, profileRoot and meterProvider 
       /createApp takes an object of env/,
     );
     await expect(createApp(CodeReviewApplication, { [Symbol("seam")]: true })).rejects.toThrow(
-      /createApp takes only env, profile, profileRoot, meterProvider — not Symbol\(seam\)/,
+      /createApp takes only env, profile, meterProvider, tracerProvider, handleSignals, processEnv — not Symbol\(seam\)/,
     );
   });
 
   it("the internal build path takes the seams: what testWith and the CLI use", async () => {
-    const app = await createAppWith(CodeReviewApplication, offline(new ScriptBook()));
+    const app = await createTestAppWith(CodeReviewApplication, offline(new ScriptBook()));
 
     expect(app.warnings).toEqual(expect.any(Array));
     await app.close();

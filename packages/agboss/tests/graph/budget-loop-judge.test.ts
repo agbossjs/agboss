@@ -1,8 +1,10 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules of the quality gate after an agent's reply, each on its own over
  * fakes: what the judges' models cost is counted at once (#338) and the budgets' tallied form is the loop's
  * spend, whichever way the gate ends — a pass, a send-back for a retry, or a `QualityGateError`, which carries it.
  */
+import { StreamDiscardReason } from "../../src/run/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { makeJudgeNode } from "../../src/graph/agent-loop/judge-node.js";
@@ -33,10 +35,11 @@ const listOf = <T>(value: readonly T[] | object | undefined): T[] =>
   Array.isArray(value) ? (value as T[]) : [];
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -221,7 +224,7 @@ describe("#1366: what a rejection retracts and carries", () => {
     await fail.node(stateOf({ retries: 0 }), undefined).catch(() => undefined);
 
     expect(discardLast).toHaveBeenCalledTimes(2);
-    expect(discardLast).toHaveBeenCalledWith("judge-rejected");
+    expect(discardLast).toHaveBeenCalledWith(StreamDiscardReason.JudgeRejected);
   });
 
   it("a reply that passes is not retracted", async () => {
@@ -298,22 +301,22 @@ describe("#1366: the spend of the files the judges read, and of a judge that bro
     const onJudgeStart = vi.fn();
     const onJudgeEnd = vi.fn();
     const { node } = setup([judgeOf("j1", { passed: false, reason: "too long" })], {
-      observer: { onJudgeStart, onJudgeEnd },
+      observer: { onJudgeStart, onJudgeEnd, onAgentRetry: vi.fn() },
     });
 
     await node(stateOf(), undefined);
 
     expect(onJudgeStart).toHaveBeenCalledWith({
       base: true,
-      name: "j1",
-      agentName: "alpha",
+      judge: "j1",
+      agent: "alpha",
       input: "the reply",
     });
     expect(onJudgeEnd).toHaveBeenCalledWith({
       base: true,
-      name: "j1",
-      agentName: "alpha",
-      update: { passed: false, reason: "too long" },
+      judge: "j1",
+      agent: "alpha",
+      output: { passed: false, reason: "too long" },
     });
   });
 

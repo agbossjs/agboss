@@ -26,4 +26,25 @@ export const internalImportRules = {
 };
 
 /** Every block of the AGBoss rules, in the order the repository's config lists them. */
-export const agbossRules = [componentStateRules, directTimeRules, internalImportRules];
+/**
+ * The error families (#1325): a type, a namespace of the variants' types and a constructor share one
+ * name, which only a declared (type-only) namespace can do.
+ */
+const errorFamilyRules = {
+  files: ["packages/agboss/src/core/error-families/*.ts", "packages/agboss/src/core/result.ts"],
+  rules: { "@typescript-eslint/no-namespace": ["error", { allowDeclarations: true }] },
+};
+
+/** `AGBossTypes` (#1324g): the tables `.agboss/types.d.ts` fills, one declared (type-only) namespace. */
+const generatedTypesRules = {
+  files: ["packages/agboss/src/flow/generated-types.ts"],
+  rules: { "@typescript-eslint/no-namespace": ["error", { allowDeclarations: true }] },
+};
+
+export const agbossRules = [
+  componentStateRules,
+  directTimeRules,
+  internalImportRules,
+  errorFamilyRules,
+  generatedTypesRules,
+];

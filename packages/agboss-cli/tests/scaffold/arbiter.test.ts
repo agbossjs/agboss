@@ -25,8 +25,10 @@ function projectWith(launches: readonly (readonly string[])[]): string {
       return `import { ${agent} } from "./agents/${id}.agent.js";`;
     })
     .join("\n");
+  const call = (launch: readonly string[]) =>
+    `.inParallel([${launch.map((agent) => `toAgent(${agent})`).join(", ")}])`;
   const paths = launches
-    .map((launch) => `start(S).toParallelAgents(${launch.join(", ")}).joinQuorum({ min: 1 })`)
+    .map((launch) => `onStart(S)${call(launch)}.joinQuorum({ min: 1 })`)
     .join(",\n");
   const review = {
     module: "src/review/review.workflow.ts",
@@ -44,7 +46,7 @@ function projectWith(launches: readonly (readonly string[])[]): string {
 const options = { workflow: "review-workflow" };
 
 describe("#279: agboss generate arbiter", () => {
-  it("one @OnAnswer method per distinct agent of the launch, named from<Agent>", async () => {
+  it("one @Arbitrate method for the distinct agents of the launch", async () => {
     const root = projectWith([["ScoreAAgent", "CriticAgent", "CriticAgent"]]);
 
     const { create, modify } = await planGenerate("arbiter", "valid-score-arbiter", options, root);
@@ -53,13 +55,13 @@ describe("#279: agboss generate arbiter", () => {
     const [file] = create;
     expect(file?.path).toBe("src/review/arbiters/valid-score/valid-score.arbiter.ts");
     expect(file?.content).toContain('name: "valid-score-arbiter"');
-    expect(file?.content).toContain("decidedBy: DecidedBy.Code");
+    expect(file?.content).not.toContain("decidedBy");
     expect(file?.content).toContain("export class ValidScoreArbiter {");
     expect(file?.content).toContain('import { ScoreAAgent } from "../../agents/scorea.agent.js";');
     expect(file?.content).toContain(
-      "  @OnAnswer(ScoreAAgent)\n  fromScoreA(answer: ArbiterAnswerOf<typeof ScoreAAgent>): boolean {",
+      "  @Arbitrate(ScoreAAgent, CriticAgent)\n  isMeaningful(answer: ArbitratedAnswerOf<[typeof ScoreAAgent, typeof CriticAgent]>): boolean {",
     );
-    expect(file?.content.match(/@OnAnswer\(CriticAgent\)/g)).toHaveLength(1);
+    expect(file?.content.match(/@Arbitrate\(/g)).toHaveLength(1);
   });
 
   it("several launches: --agent names the one to judge", async () => {
@@ -74,16 +76,15 @@ describe("#279: agboss generate arbiter", () => {
       { ...options, agent: "audit-agent" },
       root,
     );
-    expect(create[0]?.content).toContain("fromCritic(");
-    expect(create[0]?.content).toContain("fromAudit(");
-    expect(create[0]?.content).not.toContain("fromScoreA(");
+    expect(create[0]?.content).toContain("@Arbitrate(CriticAgent, AuditAgent)");
+    expect(create[0]?.content).not.toContain("ScoreAAgent");
   });
 
   it("a workflow without an agents' launch has nothing to judge", async () => {
     const root = projectWith([]);
 
     await expect(planGenerate("arbiter", "pick-arbiter", options, root)).rejects.toThrow(
-      "has no .toParallelAgents(…) launch to judge",
+      "has no agents' launch (.inParallel([…]) or .forEachItem(…)) to judge",
     );
   });
 

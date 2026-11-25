@@ -1,15 +1,15 @@
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
   ModelProviderMessageRole,
-  RetryPolicy,
   type ModelProviderHandler,
   type ModelProviderRequest,
   type ModelProviderResponse,
 } from "@agboss/core/models";
 import { minutes, seconds, usd } from "@agboss/core/units";
 
-const USAGE = { inputTokens: 1000, outputTokens: 100 };
+const USAGE = { inputTokens: 1000, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 };
 
 /**
  * A transport model provider (#385) for the `harness/…` models: it answers by the request — no
@@ -20,13 +20,15 @@ const USAGE = { inputTokens: 1000, outputTokens: 100 };
 @ModelProvider({
   name: "harness-model-provider",
   description: "Answers by the request, offline",
-  serves: [/^harness\//],
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "harness/desk": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
   }),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 })
 export class HarnessModelProvider implements ModelProviderHandler {
   complete(request: ModelProviderRequest): Promise<ModelProviderResponse> {

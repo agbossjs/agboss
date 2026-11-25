@@ -176,6 +176,7 @@ describe("#1366: how an error words the rules of a key's text", () => {
         "lone-surrogate": "it contains a lone surrogate (half of a UTF-16 pair, no character)",
         "not-nfc": "it is not in Unicode normalization form C (NFC): normalize it with text.normalize("NFC") where it is made",
         "private-or-noncharacter": "it contains a private-use character (Unicode Co) or a noncharacter (U+FDD0–U+FDEF, U+xFFFE, U+xFFFF)",
+        "reserved-separator": "it contains the reserved child-thread separator (slash, child, slash)",
         "space-separator": "it contains a space other than U+0020 (Unicode Zs: a no-break, thin or ideographic space, …) or a line or paragraph separator (U+2028, U+2029)",
         "spacing": "it starts or ends with a space (U+0020), or has two in a row: a key's spaces are single and inside",
         "unassigned": "it contains a code point unassigned in this runtime's Unicode (Cn): a later version may give it another meaning",

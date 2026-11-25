@@ -18,15 +18,17 @@ import {
   SendKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { action, route, start } from "../fixtures/paths.js";
+import { onAction, onStart, toAgent, toAction } from "../fixtures/paths.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
+import { inline, Ttl } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** The data rules of #270 (AC7, AC19, AC22) on the abstract scopes. */
 
 @Agent({
   name: "needs-unrelated-agent",
   description: "Reads what no path gives",
-  prompt: "Read it.",
+  prompt: inline("Read it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -40,20 +42,15 @@ class NeedsUnrelatedAgent {}
 @Workflow({
   name: "missing-workflow",
   version: "1.0.0",
-  flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(NeedsUnrelatedAgent)
-      .returns(OfferDraftDto)
-      .toFinish(DraftKitWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(KitWorkflowStart).toAgent(NeedsUnrelatedAgent).toFinish(DraftKitWorkflowFinish)],
 })
 class MissingWorkflow {}
 
 @Agent({
   name: "redraft-kit-agent",
   description: "Drafts again from the shortlist, ignoring the draft",
-  prompt: "Draft it again.",
+  prompt: inline("Draft it again."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -65,13 +62,11 @@ class RedraftKitAgent {}
 @Workflow({
   name: "dead-store-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
+    onStart(KitWorkflowStart)
       .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
       .toAgent(RedraftKitAgent)
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ],
 })
@@ -82,6 +77,7 @@ class DeadStoreWorkflow {}
   description: "Sends the draft, or drafts it again",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: {
     shortlist: ShortlistDto,
   },
@@ -95,16 +91,13 @@ class BranchRouter {}
 @Workflow({
   name: "read-on-one-branch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
+    onStart(KitWorkflowStart)
       .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
       .toRouter(BranchRouter)
-      .chooseOne(
-        route(SendKitAction).returns(OfferSentDto).toFinish(SentKitWorkflowFinish),
-        route(RedraftKitAgent).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
-      ),
+      .onRoute(toAction(SendKitAction).toFinish(SentKitWorkflowFinish))
+      .onRoute(toAgent(RedraftKitAgent).toFinish(DraftKitWorkflowFinish)),
   ],
 })
 class ReadOnOneBranchWorkflow {}
@@ -112,7 +105,7 @@ class ReadOnOneBranchWorkflow {}
 @Agent({
   name: "drafts-agent",
   description: "Drafts several offers",
-  prompt: "Draft them.",
+  prompt: inline("Draft them."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -139,6 +132,7 @@ class CollectDraftsAction {
   description: "Drafts several offers or none",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: {
     shortlist: ShortlistDto,
   },
@@ -159,15 +153,13 @@ class ShortlistKitWorkflowFinish {}
 @Workflow({
   name: "optional-list-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
+    onStart(KitWorkflowStart)
       .toRouter(DraftsRouter)
-      .chooseOne(
-        route(DraftsAgent).returns(listOf(OfferDraftDto)).toAction(CollectDraftsAction),
-        route(CollectDraftsAction),
-      ),
-    action(CollectDraftsAction).toFinish(ShortlistKitWorkflowFinish),
+      .onRoute(toAgent(DraftsAgent).toAction(CollectDraftsAction))
+      .onRoute(toAction(CollectDraftsAction)),
+    onAction(CollectDraftsAction).toFinish(ShortlistKitWorkflowFinish),
   ],
 })
 class OptionalListWorkflow {}
@@ -175,12 +167,8 @@ class OptionalListWorkflow {}
 @Workflow({
   name: "no-list-workflow",
   version: "1.0.0",
-  flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAction(CollectDraftsAction)
-      .toFinish(DraftKitWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(KitWorkflowStart).toAction(CollectDraftsAction).toFinish(DraftKitWorkflowFinish)],
 })
 class NoListWorkflow {}
 

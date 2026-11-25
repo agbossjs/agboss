@@ -3,32 +3,36 @@
 // that reach an effect after a harmless one, an A2A client, an injection token, a cycle of deps; an
 // action committed with no undo; two agents sharing a tool that writes.
 import { A2AAgent, A2AClient } from "../../../src/a2a/index.js";
-import { OutboundCalls } from "../../../src/app/outbound-calls.js";
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
-import { Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { McpServer } from "../../../src/components/decorators.js";
+import { McpServerClient } from "../../../src/components/mcp-client.js";
+import { McpTransport } from "../../../src/config/mcp-server-config.js";
+import { Idempotency } from "../../../src/app/idempotency.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
+import { Injectable, Tool } from "../../../src/components/decorators.js";
 import { InjectionToken, type Class } from "../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import type { Produced } from "../../../src/index.js";
-import { TckInputQuestion } from "../../a2a-tck/tck.application.js";
+import type { Tracked } from "../../../src/index.js";
 import { LedgerReadTool } from "./direct-rules.fixture.js";
+import { TckInputExternalTask } from "../../a2a-tck/tck.application.js";
+import { inline } from "../../../src/index.js";
 
 interface Message {
-  readonly message: Produced<WorkflowStartTextDto, unknown>;
+  readonly message: Tracked<WorkflowStartTextDto>;
 }
 
 /** A tool the run pauses before: it reads only. */
 @Tool({
   name: "approved-read-tool",
   description: "Reads, once approved",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: WorkflowStartTextDto,
   output: WorkflowFinishTextDto,
   readOnly: true,
 })
-export class ApprovedReadTool implements ToolHandler<WorkflowStartTextDto, WorkflowFinishTextDto> {
-  run(): Promise<WorkflowFinishTextDto> {
+export class ApprovedReadTool {
+  execute(): Promise<WorkflowFinishTextDto> {
     return Promise.resolve({ text: "read" });
   }
 }
@@ -41,19 +45,19 @@ export class PlainTool {
 @Agent({
   name: "asking-agent",
   description: "Asks its caller, asks for approval, calls a class of no decorator",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
-  tools: [TckInputQuestion, ApprovedReadTool, PlainTool as never],
+  tools: [TckInputExternalTask, ApprovedReadTool, PlainTool],
 })
 export class AskingAgent {}
 
-@Agent({ name: "plain-agent", description: "Tools: none", prompt: "Answer.", model: "x/y" })
+@Agent({ name: "plain-agent", description: "Tools: none", prompt: inline("Answer."), model: "x/y" })
 export class PlainAgent {}
 
 @Agent({
   name: "first-ledger-agent",
   description: "Reads the ledger",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "x/y",
   tools: [LedgerReadTool],
 })
@@ -62,7 +66,7 @@ export class FirstLedgerAgent {}
 @Agent({
   name: "second-ledger-agent",
   description: "Reads the ledger too",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "x/y",
   tools: [LedgerReadTool],
 })
@@ -93,7 +97,7 @@ const action = (name: string, deps: readonly unknown[]) => {
 };
 
 /** Harmless first, the effect second. */
-export const LateEffectAction = action("late-effect-action", [HarmlessService, OutboundCalls]);
+export const LateEffectAction = action("late-effect-action", [HarmlessService, Idempotency]);
 export const CallingAction = action("calling-action", [RuleA2AAgent]);
 export const TokenAction = action("token-action", [REGION, LoopService]);
 
@@ -119,3 +123,32 @@ export class CommittedAction {
     return Promise.resolve();
   }
 }
+
+/** An abstract port, bound to an MCP server with `injectAs`. */
+export abstract class RemoteSearchPort {
+  abstract search(): void;
+}
+
+@McpServer({
+  name: "port-mcp-server",
+  transport: McpTransport.Stdio,
+  command: "unused",
+  tools: {},
+  injectAs: RemoteSearchPort,
+})
+export class PortMcpServer
+  extends McpServerClient<Record<string, never>>
+  implements RemoteSearchPort
+{
+  search(): void {
+    return undefined;
+  }
+}
+
+/** An abstract port nothing in the application is bound to. */
+export abstract class UnboundPort {
+  abstract read(): void;
+}
+
+export const PortAction = action("port-action", [RemoteSearchPort]);
+export const UnboundPortAction = action("unbound-port-action", [UnboundPort]);

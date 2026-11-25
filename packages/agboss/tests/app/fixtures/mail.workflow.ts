@@ -1,8 +1,9 @@
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { Window1Memory } from "../../helpers/window-memory.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
-  Injectable,
+  Observer,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -12,13 +13,10 @@ import {
   type ExecutionEvent,
   type ExecutionPauseEvent,
   type ExecutionRejectedEvent,
-  type OnExecutionError,
-  type OnExecutionPause,
-  type OnExecutionRejected,
+  inline,
 } from "../../../src/index.js";
-import type { IncompatibleResume } from "../../../src/run/resume-guard.js";
-import type { ToolHandler } from "../../../src/index.js";
-import { start } from "../../helpers/flow.js";
+import { ResumeDecision, type IncompatibleResume } from "../../../src/run/resume-guard.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import {
@@ -26,7 +24,8 @@ import {
   SharedExecutionRecordRepository,
   SharedPausedExecutionRepository,
 } from "../../helpers/shared-infrastructure.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** Emails the tool really sent, in order (the tests reset it). */
 export const sent: string[] = [];
@@ -47,8 +46,8 @@ const idsOf = (event: ExecutionEvent): { readonly runId: string; readonly thread
   threadId: event.threadId,
 });
 
-@Injectable()
-export class MailLog implements OnExecutionPause, OnExecutionError, OnExecutionRejected {
+@Observer()
+export class MailLog {
   onExecutionPause(event: ExecutionPauseEvent): void {
     observed.push({ hook: "pause", state: idsOf(event) });
   }
@@ -75,12 +74,12 @@ export class Sent {
 @Tool({
   name: "send-email-tool",
   description: "Sends an email",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: Email,
   output: Sent,
 })
-export class SendEmail implements ToolHandler<Email, Sent> {
-  run({ to }: Email): Promise<Sent> {
+export class SendEmail {
+  execute({ to }: Email): Promise<Sent> {
     sent.push(to);
     return Promise.resolve({ status: `sent to ${to}` });
   }
@@ -89,7 +88,7 @@ export class SendEmail implements ToolHandler<Email, Sent> {
 @Agent({
   name: "mailer-agent",
   description: "Sends the emails it is asked to",
-  prompt: "Send the email you are asked to send.",
+  prompt: inline("Send the email you are asked to send."),
   tools: [SendEmail],
   model: "test/mailer",
 })
@@ -111,14 +110,14 @@ export class Finish {}
 
 const workflow = {
   name: "mail-workflow",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 2 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [
-    start(Start)
-      .returns(WorkflowStartTextDto)
+    onStart(Start)
       .toAgent(Mailer)
       .toFinish(Finish),
   ],
@@ -129,17 +128,19 @@ const workflow = {
 export class MailV1 {}
 
 /** The next deployment: another version, so another config hash; no resume policy. */
-@Workflow({ ...workflow, version: "2.0.0" })
+@Workflow({ ...workflow, modelProvider: TestModelProvider, version: "2.0.0" })
 export class MailV2 {}
 
 /** The next deployment, declaring that runs paused under 1.0.0 may continue on it. */
-@Workflow({ ...workflow, version: "2.0.0" })
+@Workflow({ ...workflow, modelProvider: TestModelProvider, version: "2.0.0" })
 export class MailV2Migrating {
   settings(): WorkflowSettings {
     return WorkflowSettings.builder()
       .onIncompatibleResume((resume) => {
         asked.push(resume);
-        return resume.paused.workflowVersion === "1.0.0" ? "resume" : "reject";
+        return resume.paused.workflowVersion === "1.0.0"
+          ? ResumeDecision.Resume
+          : ResumeDecision.Reject;
       })
       .build();
   }
@@ -154,6 +155,7 @@ const durable = [
 
 @Application({
   name: "mail-v1-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [MailV1],
@@ -165,6 +167,7 @@ export class MailV1Application {}
 
 @Application({
   name: "mail-v2-application",
+  modelProvider: TestModelProvider,
   version: "2.0.0",
   environment: EmptyEnvironment,
   workflows: [MailV2],
@@ -176,6 +179,7 @@ export class MailV2Application {}
 
 @Application({
   name: "mail-v2-migrating-application",
+  modelProvider: TestModelProvider,
   version: "2.0.0",
   environment: EmptyEnvironment,
   workflows: [MailV2Migrating],
@@ -188,6 +192,7 @@ export class MailV2MigratingApplication {}
 /** The first deployment with the built-in in-memory paused executions (checkpoints still shared). */
 @Application({
   name: "mail-v1-memory-pauses-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [MailV1],
@@ -200,6 +205,7 @@ export class MailV1MemoryPausesApplication {}
 /** The first deployment on the built-in in-memory infrastructure (one app instance per test). */
 @Application({
   name: "mail-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [MailV1],

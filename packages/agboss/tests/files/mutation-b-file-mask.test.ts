@@ -3,16 +3,16 @@
  */
 import { describe, expect, it } from "vitest";
 import { fileMaskOf } from "../../src/files/file-mask.js";
-import { PiiAction } from "../../src/pii/actions.js";
+import {} from "../../src/pii/actions.js";
 import { PiiKind } from "../../src/pii/kinds.js";
-import { pii, type PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
+import { type PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { runtimePolicyOf } from "../../src/pii/runtime-policy.js";
 
 const meta: PiiPolicyMeta = {
   name: "cards-pii-policy",
   description: "cards",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
   deps: [],
 };
 const set = new PiiPolicySet([runtimePolicyOf({ meta, instance: {}, key: "k" })], "field-key");

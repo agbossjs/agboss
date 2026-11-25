@@ -9,21 +9,13 @@ import type { BranchSite } from "../walked-flow.js";
 import type { AnalysisContext } from "./context.js";
 
 /**
- * Router rules (#272 AC6, #270, #280): the targets of `.chooseOne(route(…)…)` and of
+ * Router rules (#272 AC6, #270, #280): the targets of `.onRoute(…)`s (or of `chooseMany([…])`) and of
  * `@Router({ routes })` are the same set (order does not matter) — `[router.routes-mismatch]`; a
  * target listed twice — `[router.duplicate-route]`; `input` required and non-empty —
- * `[router.empty-input]`; a model router's model of its own or `defaults.router.model` —
- * `[router.no-model]`; `spawn` / `failure` only before a launch (`.toParallelAgents(…)`, #273), never
- * with `.chooseOne(…)` — `[router.policy-with-choose-one]`; `.chooseOne(…)` only after a router —
- * `[graph.choose-from-non-router]`. Before a launch the routes' own rules are `launchViolations`
- * (`router-launch.ts`, applied by the launch rules, #273).
+ * `[router.empty-input]`; a model router's route has its prompt — `[router.no-prompt]`; a model
+ * router's model comes from the model cascade (`[model.missing]`, #1279); `.onRoute(…)` only after a
+ * router — `[graph.choose-from-non-router]`.
  */
-
-/** The targets whose route sets a launch policy (`spawn` / `failure`) explicitly. */
-const withPolicies = (declaration: RouterDeclaration): readonly string[] =>
-  routesOf(declaration.options)
-    .filter((route) => route.spawn !== undefined || route.failure !== undefined)
-    .map((route) => targetLabel(route.target));
 
 /** A target as a message names it: its component `name`, else its class. */
 export const targetLabel = (target: Class): string => {
@@ -39,17 +31,17 @@ const missingFrom = (labels: readonly string[], other: readonly string[]): reado
 
 /** How a message names where the flow lists a router's targets. */
 export interface RouteListing {
-  /** `.chooseOne(…)`, `.toParallelAgents(…)`. */
+  /** `.onRoute(…)`, `.chooseMany([…])`. */
   readonly call: string;
-  /** How one target is named there: `route(…) to `, or nothing. */
+  /** How one target is named there: `.onRoute(…) to `, or nothing. */
   readonly item: string;
 }
 
-const CHOOSE_ONE: RouteListing = { call: ".chooseOne(…)", item: "route(…) to " };
+const ON_ROUTE: RouteListing = { call: ".onRoute(…)", item: "" };
 
 /**
- * The targets a router's choice lists in the flow (`.chooseOne(route(…)…)` or a launch's,
- * `call`) and its `@Router({ routes })`: the same set, each listed once.
+ * The targets a router's choice lists in the flow (`.onRoute(…)`s, or `.chooseMany([…])`, `call`) and
+ * its `@Router({ routes })`: the same set, each listed once.
  */
 export function routeSetViolations(
   router: FlowNode,
@@ -57,7 +49,7 @@ export function routeSetViolations(
   inFlow: readonly string[],
   call: RouteListing,
 ): readonly RuleViolation[] {
-  const declared = declaration.options.routes.map((route) => targetLabel(route.target));
+  const declared = routesOf(declaration.options).map((route) => targetLabel(route.target));
   const notDeclared = missingFrom(inFlow, declared);
   const notInFlow = missingFrom(declared, inFlow);
   const found: RuleViolation[] = duplicates(inFlow).map((target) => {
@@ -81,15 +73,7 @@ function choiceViolations(
   site: BranchSite<ChooseOneStep>,
 ): readonly RuleViolation[] {
   const inFlow = site.step.routes.map((route) => targetLabel(route.target));
-  const found = [...routeSetViolations(router, declaration, inFlow, CHOOSE_ONE)];
-  const policies = withPolicies(declaration);
-  if (policies.length > 0) {
-    const message =
-      `${router.name}: spawn / failure on the routes to ${policies.join(", ")} apply to a parallel ` +
-      `launch (.toParallelAgents(…)) — remove them for .chooseOne(…)`;
-    found.push(violation("router.policy-with-choose-one", message, [router.name]));
-  }
-  return found;
+  return routeSetViolations(router, declaration, inFlow, ON_ROUTE);
 }
 
 function declarationRules(
@@ -99,20 +83,22 @@ function declarationRules(
 ): readonly RuleViolation[] {
   const { options } = declaration;
   const found: RuleViolation[] = duplicates(
-    options.routes.map((route) => targetLabel(route.target)),
+    routesOf(options).map((route) => targetLabel(route.target)),
   ).map((target) => {
     const message = `${router.name}: @Router({ routes }) lists ${target} twice — list each target once`;
     return violation("router.duplicate-route", message, [router.name]);
   });
+  const unprompted = isCodeRouter(options)
+    ? []
+    : routesOf(options).filter((route) => (route.prompt ?? "").trim() === "");
+  if (unprompted.length > 0) {
+    const targets = unprompted.map((route) => targetLabel(route.target)).join(", ");
+    const message = `${router.name}: the routes to ${targets} have no prompt — the model decides each by its prompt; write one`;
+    found.push(violation("router.no-prompt", message, [router.name]));
+  }
   if (Object.keys(options.input).length === 0) {
     const message = `${router.name} has an empty input — declare what it chooses by: input: { message: XDto }`;
     found.push(violation("router.empty-input", message, [router.name]));
-  }
-  const hasModel =
-    options.model !== undefined || context.workflow.defaults?.router?.model !== undefined;
-  if (!isCodeRouter(options) && !hasModel) {
-    const message = `${router.name} uses DecidedBy.Model but has no model — set model or defaults.router.model`;
-    found.push(violation("router.no-model", message, [router.name]));
   }
   return found;
 }
@@ -126,7 +112,7 @@ export function routerRules(context: AnalysisContext): readonly RuleViolation[] 
     if (node === undefined) return [];
     if (node.declaration.kind === NodeKind.Router)
       return choiceViolations(node, node.declaration, site);
-    const message = `${node.name} is not a router — .chooseOne(…) follows .toRouter(…) or router(…)`;
+    const message = `${node.name} is not a router — .onRoute(…) follows .toRouter(…) or onRouter(…)`;
     return [violation("graph.choose-from-non-router", message, [node.name])];
   });
   return [

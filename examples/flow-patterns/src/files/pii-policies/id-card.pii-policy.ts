@@ -1,4 +1,4 @@
-import { PiiAction, PiiFileAction, PiiKind, PiiPolicy, pii } from "@agboss/core";
+import { PiiFileAction, PiiKind, PiiPolicy } from "@agboss/core";
 
 /**
  * What the KYC agent's model never sees as it is: a card number and an ID number are blacked
@@ -9,9 +9,9 @@ import { PiiAction, PiiFileAction, PiiKind, PiiPolicy, pii } from "@agboss/core"
   name: "id-card-pii-policy",
   description: "Black out card numbers and ID numbers in a photo; refuse an SSN",
   rules: [
-    pii(PiiKind.CardNumber, PiiAction.replaceWithKind()),
-    pii(PiiKind.IsraeliId, PiiAction.replaceWithKind()),
-    pii(PiiKind.UsSsn, PiiAction.blockWithRefusal({ refusal: "Please do not send an SSN." })),
+    PiiKind.CardNumber.mask(),
+    PiiKind.IsraeliId.mask(),
+    PiiKind.UsSsn.block("Please do not send an SSN."),
   ],
   // a block rule refuses an image whole by default: what a model says an image holds is a guardrail, not a
   // guarantee. This policy accepts that for the KYC photo — its model redactor decides, an SSN found refuses.

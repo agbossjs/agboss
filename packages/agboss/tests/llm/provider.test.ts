@@ -8,7 +8,10 @@ import { TestOpenRouterProvider } from "../models/providers.fixture.js";
 const defaults: ChatDefaults = { temperature: 0 };
 
 const send = async (settings: ModelSettings): Promise<Record<string, unknown>> => {
-  const [body] = await wireBodies([TestOpenRouterProvider], [resolveSettings(settings, defaults)]);
+  const [body] = await wireBodies(
+    [TestOpenRouterProvider],
+    [resolveSettings({ modelProvider: "openrouter-model-provider", ...settings }, defaults)],
+  );
   return body ?? {};
 };
 
@@ -17,11 +20,11 @@ describe("provider routing and the output ceiling (#97, now on the provider #151
     expect((await send({ model: "a/b" })).provider).toEqual({ ignore: ["Inceptron"] });
   });
 
-  it("AC2: 8192 output tokens by default; no ceiling only when TokenLimit.MODEL_MAX is set explicitly", async () => {
+  it("AC2: 8192 output tokens by default; no ceiling only when TokenLimit.ModelMax is set explicitly", async () => {
     expect((await send({ model: "a/b" })).max_tokens).toBe(8192);
     expect((await send({ model: "a/b", maxTokens: 2000 })).max_tokens).toBe(2000);
     expect(
-      (await send({ model: "a/b", maxTokens: TokenLimit.MODEL_MAX })).max_tokens,
+      (await send({ model: "a/b", maxTokens: TokenLimit.ModelMax })).max_tokens,
     ).toBeUndefined();
   });
 });

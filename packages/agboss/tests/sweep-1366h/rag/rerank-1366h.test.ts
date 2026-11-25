@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366: a reranking is checked and traced as its contract says: more than topK results, a passage that is no
  * candidate or one given twice fail it (the retrieval's own first topK on a fallback, the error of FailStep
@@ -24,11 +25,11 @@ const B = { source: "b.md", text: "beta", score: 0.8 };
 const C = { source: "c.md", text: "gamma", score: 0.7 };
 
 const retrieve = (results: readonly (typeof A)[] = [A, B, C]) =>
-  vi.fn(() => Promise.resolve({ results, costUsd: 0.5 }));
+  vi.fn(() => Promise.resolve({ results, costUsd: usd(0.5) }));
 const callOf = (topK: number, signal = new AbortController().signal): RerankCall => ({
   query: "q",
   topK,
-  tenantId: "t",
+  scopeId: "t",
   signal,
 });
 
@@ -102,7 +103,7 @@ describe("#1366: a reranking that breaks its contract fails", () => {
 describe("#1366: when the reranker is called", () => {
   it("an empty retrieval is returned as it is and calls no reranker", async () => {
     const rerank = vi.fn(() => Promise.resolve({ results: [] }));
-    const empty = { results: [], costUsd: 0.25 };
+    const empty = { results: [], costUsd: usd(0.25) };
 
     const found = await rerankedRetrieval(
       () => Promise.resolve(empty),

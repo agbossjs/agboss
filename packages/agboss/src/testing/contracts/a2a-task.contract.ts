@@ -1,6 +1,7 @@
 import type { A2ATaskRepository } from "../../infrastructure/a2a-task.repository.js";
 import { A2A_TASK_ACCEPT_CASES } from "./a2a-task-accept.cases.js";
-import { A2A_TASK_LIST_CASES, A2A_TASK_SWEEP_CASES } from "./a2a-task-list.cases.js";
+import { A2A_TASK_ENDPOINT_CASES, A2A_TASK_SWEEP_CASES } from "./a2a-task-endpoint.cases.js";
+import { A2A_TASK_LIST_CASES } from "./a2a-task-list.cases.js";
 import { A2A_TASK_STATUS_CASES } from "./a2a-task-status.cases.js";
 import { A2A_TASK_ORPHAN_CASES, A2A_TASK_STATUS_KEY_CASES } from "./a2a-task-tails.cases.js";
 import { pingOf, registerContract } from "./define.js";
@@ -20,6 +21,7 @@ export function a2aTaskContract(target: ContractTarget<A2ATaskRepository>): void
       { title: "status", cases: [...A2A_TASK_STATUS_CASES, ...A2A_TASK_STATUS_KEY_CASES] },
       { title: "listing", cases: A2A_TASK_LIST_CASES },
       { title: "retention", cases: [...A2A_TASK_SWEEP_CASES, ...A2A_TASK_ORPHAN_CASES] },
+      { title: "endpoints", cases: A2A_TASK_ENDPOINT_CASES },
     ],
     pingOf,
   );

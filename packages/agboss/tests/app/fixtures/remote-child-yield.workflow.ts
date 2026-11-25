@@ -7,7 +7,7 @@ import {
   ChildPlacement,
   EmptyEnvironment,
   ExecutionContext,
-  Injectable,
+  Observer,
   listOf,
   Tool,
   Workflow,
@@ -16,23 +16,27 @@ import {
   type ChannelAsk,
   type ExecutionEndEvent,
   type ExecutionStartEvent,
-  type OnExecutionEnd,
-  type OnExecutionStart,
-  type Produced,
-  type ToolHandler,
+  type Tracked,
+  inline,
+  ToolApproval,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import {
   ItemDto,
   ItemResultDto,
   SummaryWorkflowFinish,
+  SummaryAction,
 } from "../../flow/runtime/fixtures/fan-out.workflow.js";
+import { days } from "../../../src/units/index.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
- * #516 — a parent waiting for its `ChildPlacement.AnyInstance` children while another instance's
+ * #516 — a parent waiting for its `ChildPlacement.AnyWorker` children while another instance's
  * recovery sweep looks for `running` roots. A child's gated step holds every item named `gate…`
  * until the test opens the gate; a review child asks for a confirmation of every item named
  * `ask…` through a channel that records the pause's id; an item whose `outcome` is `fail` fails its
@@ -106,8 +110,8 @@ async function passGate(executionContext: ExecutionContext, name: string): Promi
 export class GatedItemAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name, outcome } = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name, outcome } = input.item;
     await passGate(this.executionContext, name);
     // #520: an item to fail fails its child once past the gate
     if (outcome === "fail") throw new Error(`item ${name} failed`);
@@ -128,19 +132,26 @@ export class GatedItemAction {
 export class GatedResultAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: {
-    readonly result: Produced<ItemResultDto, unknown>;
-  }): Promise<ItemResultDto> {
-    const { name } = input.result.value;
+  async execute(input: { readonly result: Tracked<ItemResultDto> }): Promise<ItemResultDto> {
+    const { name } = input.result;
     await passGate(this.executionContext, name);
     return { name };
   }
 }
 
 /** A channel the confirmation names as is: records the pause's id and waits for the answer. */
-@Channel({ name: "recording-channel" })
+/** What RecordingChannel asks for: the approval of the tools that name it. */
+@ToolApproval({
+  name: "recording-tool-approval",
+  description: "Approval of the tools asked through RecordingChannel",
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+})
+export class RecordingToolApproval {}
+
+@Channel({ name: "recording-channel", target: RecordingToolApproval, ttl: days(1) })
 export class RecordingChannel {
-  send(ask: ChannelAsk<RecordingChannel>): Promise<ChannelOutcome<RecordingChannel>> {
+  send(ask: ChannelAsk<RecordingToolApproval>): Promise<ChannelOutcome<RecordingToolApproval>> {
     yieldSeen.pauseIds.push(ask.pauseId);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
@@ -154,12 +165,12 @@ export class ItemConfirmDto {
 @Tool({
   name: "confirm-item-tool",
   description: "Confirms an item",
-  channel: RecordingChannel,
+  approval: RecordingToolApproval,
   input: ItemConfirmDto,
   output: ItemConfirmDto,
 })
-export class ConfirmItemTool implements ToolHandler<ItemConfirmDto, ItemConfirmDto> {
-  run(input: ItemConfirmDto): Promise<ItemConfirmDto> {
+export class ConfirmItemTool {
+  execute(input: ItemConfirmDto): Promise<ItemConfirmDto> {
     return Promise.resolve(input);
   }
 }
@@ -167,7 +178,7 @@ export class ConfirmItemTool implements ToolHandler<ItemConfirmDto, ItemConfirmD
 @Agent({
   name: "yield-reviewer-agent",
   description: "Reviews one item, confirming it first when asked to",
-  prompt: "Review the item.",
+  prompt: inline("Review the item."),
   model: "moonshotai/kimi-k2.6",
   tools: [ConfirmItemTool],
   input: { item: ItemDto },
@@ -190,13 +201,13 @@ export class YieldCheckWorkflowStart {}
 export class YieldCheckedWorkflowFinish {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "yield-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(YieldCheckWorkflowStart)
-      .returns(ItemDto)
+    onStart(YieldCheckWorkflowStart)
       .toAction(GatedItemAction)
-      .returns(ItemResultDto)
       .toFinish(YieldCheckedWorkflowFinish),
   ],
 })
@@ -217,15 +228,14 @@ export class YieldReviewWorkflowStart {}
 export class YieldReviewedWorkflowFinish {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "yield-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(YieldReviewWorkflowStart)
-      .returns(ItemDto)
+    onStart(YieldReviewWorkflowStart)
       .toAgent(YieldReviewerAgent)
-      .returns(ItemResultDto)
       .toAction(GatedResultAction)
-      .returns(ItemResultDto)
       .toFinish(YieldReviewedWorkflowFinish),
   ],
 })
@@ -248,11 +258,10 @@ export class YieldOneWorkflowFinish {}
 @Workflow({
   name: "yield-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(YieldOneWorkflowStart)
-      .returns(ItemDto)
-      .toWorkflow(YieldCheckWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
+    onStart(YieldOneWorkflowStart)
+      .toWorkflow(YieldCheckWorkflow)
       .toFinish(YieldOneWorkflowFinish),
   ],
 })
@@ -268,16 +277,12 @@ export class YieldReviewsWorkflowStart {}
 @Workflow({
   name: "yield-reviews-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(YieldReviewsWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(YieldReviewWorkflow, {
-        maxConcurrency: 2,
-        maxItems: 5,
-        placement: ChildPlacement.AnyInstance,
-      })
+    onStart(YieldReviewsWorkflowStart)
+      .forEachItem(toWorkflow(YieldReviewWorkflow), { takeFirst: 5, maxConcurrency: 2 })
       .join()
-      .returns(listOf(ItemResultDto))
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -297,8 +302,8 @@ export const announceHold = {
 };
 
 /** Every execution's start and end, by workflow name and execution id. */
-@Injectable()
-export class YieldLog implements OnExecutionStart, OnExecutionEnd {
+@Observer()
+export class YieldLog {
   onExecutionStart(event: ExecutionStartEvent): void {
     yieldSeen.starts.push(`${event.workflow.name} ${event.executionId}`);
   }
@@ -315,10 +320,12 @@ export class YieldLog implements OnExecutionStart, OnExecutionEnd {
 
 @Application({
   name: "remote-child-yield-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [YieldOneWorkflow, YieldReviewsWorkflow],
   observers: [YieldLog],
+  channels: [RecordingChannel],
   providers: [RecordingLogger],
   budgets: TEST_BUDGETS,
 })

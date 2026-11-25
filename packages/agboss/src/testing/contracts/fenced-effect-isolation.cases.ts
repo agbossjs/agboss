@@ -1,8 +1,11 @@
+import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { expect } from "vitest";
+import type { Clock } from "../../infrastructure/clock.js";
 import {
-  FencedEffectResultTooLargeError,
-  FencedEffectStatus,
+  IdempotencyRunStatus,
+  type EffectKey,
 } from "../../infrastructure/fenced-effect.repository.js";
+import { effectKeyForTesting } from "./effect-key.js";
 import { minutes, seconds } from "../../units/index.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
@@ -17,12 +20,12 @@ import {
 /** The fenced-effect contract's isolation, limits and housekeeping (#500). */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
 /** 64 KB of text and the quotes around it: one byte above the default `maxResultSize`. */
 const OVERSIZED = "x".repeat(64 * 1024 - 1);
 
-const namesApart = <TTransaction>(): Case<TTransaction> => ({
+const namesApart = (): Case => ({
   name: "another name or idempotency key of the step is a row of its own",
   run: async ({ first }) => {
     const count: WriteCount = { runs: 0 };
@@ -38,15 +41,15 @@ const namesApart = <TTransaction>(): Case<TTransaction> => ({
     ]);
 
     expect(outcomes.map((outcome) => outcome.status)).toEqual([
-      FencedEffectStatus.Ran,
-      FencedEffectStatus.Ran,
-      FencedEffectStatus.Ran,
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Ran,
     ]);
     expect([...(await first.rows.committed())].sort()).toEqual(["a", "b", "c"]);
   },
 });
 
-const scopesApart = <TTransaction>(): Case<TTransaction> => ({
+const scopesApart = (): Case => ({
   name: "another scope has its own mark: a newer token of one scope refuses nothing of another",
   run: async ({ clock, first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -58,23 +61,23 @@ const scopesApart = <TTransaction>(): Case<TTransaction> => ({
 
     const outcome = await first.effects.runOnce(keyOf(other), writing(first.rows, "b", count));
 
-    expect(outcome).toMatchObject({ status: FencedEffectStatus.Ran, token: 1 });
+    expect(outcome).toMatchObject({ status: IdempotencyRunStatus.Ran, token: 1 });
   },
 });
 
-const oversizedRefused = <TTransaction>(): Case<TTransaction> => ({
+const oversizedRefused = (): Case => ({
   name: "a result above maxResultSize is refused and its write rolled back",
   run: async ({ first, second }) => {
     const key = keyOf(await leaseOf(first));
 
     const refused = await rejectionOf(
-      first.effects.runOnce(key, (transaction) => {
-        const inserted = first.rows.insert(transaction, "r1");
+      first.effects.runOnce(key, () => {
+        const inserted = first.rows.insert("r1");
         return inserted === undefined ? OVERSIZED : inserted.then(() => OVERSIZED);
       }),
     );
 
-    expect(refused).toBeInstanceOf(FencedEffectResultTooLargeError);
+    expect(refused).toBeInstanceOf(IdempotencyError.ResultTooLarge);
     expect(refused).toMatchObject({
       effect: "charge",
       size: 64 * 1024 + 1,
@@ -84,38 +87,59 @@ const oversizedRefused = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const deletionFollowsClock = <TTransaction>(): Case<TTransaction> => ({
-  name: "deleteByStoredAtBefore removes the results stored before its cutoff, on the Clock",
+/** `key` expiring `after` the case's now (`null`: for good, `Ttl.Forever`). */
+const expiringIn = (key: EffectKey, clock: Pick<Clock, "now">, after: number | null): EffectKey =>
+  effectKeyForTesting(key, {
+    expiresAt: after === null ? null : new Date(clock.now().getTime() + after),
+  });
+
+const deletionFollowsClock = (): Case => ({
+  name: "deleteExpired removes the results whose expiry has come, on the Clock, and counts them; a result with no expiry (Ttl.Forever) stays",
   run: async ({ clock, first, second }) => {
     const count: WriteCount = { runs: 0 };
     const lease = await leaseOf(first);
-    const early = keyOf(lease, "early");
-    const late = keyOf(lease, "late");
-    await first.effects.runOnce(early, writing(first.rows, "e", count));
+    const short = expiringIn(keyOf(lease, "short"), clock, minutes(5));
+    const long = expiringIn(keyOf(lease, "long"), clock, minutes(50));
+    const forever = expiringIn(keyOf(lease, "forever"), clock, null);
+    for (const key of [short, long, forever])
+      await first.effects.runOnce(key, writing(first.rows, key.name, count));
     await clock.advance(minutes(10));
-    await first.effects.runOnce(late, writing(first.rows, "l", count));
 
-    await second.effects.deleteByStoredAtBefore(new Date("2026-01-05T09:05:00.000Z"));
+    // the scope's mark keeps the latest expiry — Forever — so only the short result goes
+    expect(await second.effects.deleteExpired(clock.now())).toBe(1);
 
-    expect((await first.effects.runOnce(early, writing(first.rows, "e2", count))).status).toBe(
-      FencedEffectStatus.Ran,
-    );
-    expect((await first.effects.runOnce(late, writing(first.rows, "l2", count))).status).toBe(
-      FencedEffectStatus.Replayed,
-    );
+    const status = async (key: EffectKey): Promise<IdempotencyRunStatus> =>
+      (await first.effects.runOnce(key, writing(first.rows, `${key.name}2`, count))).status;
+    expect(await status(short)).toBe(IdempotencyRunStatus.Ran);
+    expect(await status(long)).toBe(IdempotencyRunStatus.Replayed);
+    expect(await status(forever)).toBe(IdempotencyRunStatus.Replayed);
   },
 });
 
-export const isolationCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
-  title: "isolation",
-  cases: [namesApart<TTransaction>(), scopesApart<TTransaction>()],
+const markKeepsLatestExpiry = (): Case => ({
+  name: "a scope's mark keeps the latest expiry written under it: a short ttl never truncates a long one, Forever wins over any date",
+  run: async ({ clock, first, second }) => {
+    const count: WriteCount = { runs: 0 };
+    const lease = await leaseOf(first);
+    const long = expiringIn(keyOf(lease, "long"), clock, minutes(50));
+    const short = expiringIn(keyOf(lease, "short"), clock, minutes(5));
+    await first.effects.runOnce(long, writing(first.rows, "l", count));
+    await first.effects.runOnce(short, writing(first.rows, "s", count));
+    await clock.advance(minutes(10));
+    // the short result only: the mark still holds the long one's expiry
+    expect(await second.effects.deleteExpired(clock.now())).toBe(1);
+    await clock.advance(minutes(50));
+    // the long result and the mark with it
+    expect(await second.effects.deleteExpired(clock.now())).toBe(2);
+  },
 });
 
-export const housekeepingCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
+export const isolationCases = (): ContractGroup<FencedEffectTarget> => ({
+  title: "isolation",
+  cases: [namesApart(), scopesApart()],
+});
+
+export const housekeepingCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "limits and housekeeping",
-  cases: [oversizedRefused<TTransaction>(), deletionFollowsClock<TTransaction>()],
+  cases: [oversizedRefused(), deletionFollowsClock(), markKeepsLatestExpiry()],
 });

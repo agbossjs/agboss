@@ -1,7 +1,10 @@
+import { hours, Ttl } from "../../src/units/index.js";
+import { Window5Memory } from "../helpers/window-memory.js";
 /**
  * #899: a reader application on demand — an agent with the files setting a test gives it, a tool that
  * returns a file, a bundle of input files — so each test says only what it changes.
  */
+import { bytes as byteSize } from "../../src/units/index.js";
 import { createHash } from "node:crypto";
 import {
   Agent,
@@ -10,32 +13,32 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  inline as inlinePrompt,
 } from "../../src/index.js";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
-import type { A2AFileOptions } from "../../src/a2a/files/a2a-file-options.js";
+import { FileDto } from "../../src/dto/standard/file.js";
+import { FilePolicy, type FilePolicyOptions } from "../../src/files/file-policy.js";
 import { Application } from "../../src/application/application.js";
 import type { ExecutionContextClass } from "../../src/flow/context/context-values.js";
 import type { Class } from "../../src/components/injection.js";
-import type { JudgeHandlerClass } from "../../src/components/judge-decorators.js";
 import type { DtoClass } from "../../src/dto/types.js";
-import { ListOf, Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
+import { List, Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import type { ModelFiles } from "../../src/files/model-files.js";
 import type { WorkflowDefaults } from "../../src/flow/decorators/workflow.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
-import type { A2AFileKey, A2AFileMetadata } from "../../src/infrastructure/a2a-file.repository.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import type { FileKey, FileMetadata } from "../../src/infrastructure/file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What a caller sends: a document, more pages, a note. */
 export class BundleDto {
-  @Nested(A2AFileDto, { prompt: "the document" })
-  document!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the document" })
+  document!: FileDto;
 
-  @ListOf(A2AFileDto, { prompt: "more files", optional: true })
-  pages?: A2AFileDto[];
+  @List(FileDto, { prompt: "more files", optional: true })
+  pages?: FileDto[];
 
   @Text({ prompt: "a note", optional: true })
   note?: string;
@@ -47,12 +50,12 @@ export class FetchQueryDto {
 }
 
 export class FetchedDto {
-  @Nested(A2AFileDto, { prompt: "the file" })
-  file!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the file" })
+  file!: FileDto;
 }
 
 /** The files `fetch-tool` hands out, by the name asked. */
-export const FETCHABLE = new Map<string, A2AFileDto>();
+export const FETCHABLE = new Map<string, FileDto>();
 
 @Tool({
   name: "fetch-tool",
@@ -60,8 +63,8 @@ export const FETCHABLE = new Map<string, A2AFileDto>();
   input: FetchQueryDto,
   output: FetchedDto,
 })
-export class FetchTool implements ToolHandler<FetchQueryDto, FetchedDto> {
-  run({ name }: FetchQueryDto): Promise<FetchedDto> {
+export class FetchTool {
+  execute({ name }: FetchQueryDto): Promise<FetchedDto> {
     const file = FETCHABLE.get(name);
     return file === undefined
       ? Promise.reject(new Error("no such file"))
@@ -81,7 +84,7 @@ export const sha256Of = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");
 
 /** An inline descriptor of bytes. */
-export const inline = (bytes: Buffer, mediaType: string, filename: string): A2AFileDto => ({
+export const inline = (bytes: Buffer, mediaType: string, filename: string): FileDto => ({
   mediaType,
   filename,
   inline: bytes.toString("base64"),
@@ -97,11 +100,12 @@ export interface ReaderOptions {
   /** Policies the agent leaves out of the application's. */
   readonly excludePiiPolicies?: readonly Class[];
   readonly defaults?: WorkflowDefaults;
-  readonly a2aFiles?: A2AFileOptions;
+  /** The workflow's `@FilePolicy` options: its limits, types and origins (#1316). */
+  readonly filePolicy?: FilePolicyOptions;
   readonly model?: string;
   readonly guardrails?: readonly Class[];
   /** Output guardrails of the agent: attached on the agent's `guardrails` list as the classes say. */
-  readonly judges?: readonly JudgeHandlerClass[];
+  readonly judges?: readonly Class<object>[];
   /** The execution context class: its `sensitive` fields are values PII policies hide (#899 §6). */
   readonly executionContext?: ExecutionContextClass;
   /** The agent answers in this DTO (and the workflow finishes with it). */
@@ -117,8 +121,8 @@ export interface ReaderApp {
 
 /** start → agent → finish, the agent answering in `output` when it has one. */
 function flowOf(output: DtoClass | undefined, startNode: Class, agent: Class, finish: Class) {
-  const toAgent = start(startNode).returns(BundleDto).toAgent(agent);
-  return output === undefined ? toAgent.toFinish(finish) : toAgent.returns(output).toFinish(finish);
+  const toAgent = onStart(startNode).toAgent(agent);
+  return output === undefined ? toAgent.toFinish(finish) : toAgent.toFinish(finish);
 }
 
 /** The agent's options a test gives: only the ones it names. */
@@ -143,7 +147,7 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
   @Agent({
     name: `reader-${suffix}-agent`,
     description: "Reads the bundle",
-    prompt: "Read the files.",
+    prompt: inlinePrompt("Read the files."),
     model,
     input: { bundle: BundleDto },
     tools: [FetchTool],
@@ -165,9 +169,16 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
   })
   class ReaderFinish {}
 
+  @FilePolicy({ ttl: hours(24), name: `reader-${suffix}-file-policy`, ...options.filePolicy })
+  class ReaderFilePolicy {}
+
   @Workflow({
     name: `reader-${suffix}-workflow`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    memory: Window5Memory,
+    filePolicy: ReaderFilePolicy,
     flow: [flowOf(options.output, ReaderStart, ReaderAgent, ReaderFinish)],
     defaults: { models: { temperature: 0 }, ...options.defaults },
   })
@@ -175,13 +186,12 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
 
   @Application({
     name: `reader-${suffix}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [ReaderWorkflow],
-    providers:
-      options.providers === undefined ? [InMemoryA2AFileRepository] : [...options.providers],
+    providers: options.providers === undefined ? [InMemoryFileRepository] : [...options.providers],
     ...(options.piiPolicies === undefined ? {} : { piiPolicies: [...options.piiPolicies] }),
-    ...(options.a2aFiles === undefined ? {} : { a2aFiles: options.a2aFiles }),
     ...(options.executionContext === undefined
       ? {}
       : { executionContext: options.executionContext }),
@@ -194,16 +204,16 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
 
 /** A store that serves one stored file to any task and counts how often its bytes are read. */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
-export class CountingFileRepository extends InMemoryA2AFileRepository {
+export class CountingFileRepository extends InMemoryFileRepository {
   static reads = 0;
 
-  override findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined> {
+  override findMetadata(key: FileKey): Promise<FileMetadata | undefined> {
     const meta = {
       ...key,
       ownerId: "execution-1",
       mediaType: "application/pdf",
       sha256: sha256Of(PDF_BYTES),
-      sizeBytes: PDF_BYTES.byteLength,
+      sizeBytes: byteSize(PDF_BYTES.byteLength),
       createdAt: new Date(0),
     };
     return Promise.resolve(meta);

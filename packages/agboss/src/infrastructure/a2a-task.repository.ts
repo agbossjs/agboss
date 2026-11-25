@@ -1,6 +1,6 @@
 import { AGBossError } from "../core/errors.js";
 import type { PauseKind } from "../pause/types.js";
-import type { Milliseconds } from "../units/index.js";
+import { Milliseconds, Usd } from "../units/index.js";
 import type { Expiry } from "./expiry.js";
 import type { StoreDescriptor } from "./execution-lease.repository.js";
 
@@ -11,8 +11,9 @@ import type { StoreDescriptor } from "./execution-lease.repository.js";
  * resent with the same id finds the task it was accepted for, never a second one. A task's status
  * moves by compare-and-set on its `version` (one more per change), and a terminal status never
  * changes again (sticky): a stale writer's late `WORKING` cannot overwrite `COMPLETED`. Finished
- * tasks are removed by the recovery sweep after `@Application({ retention: { a2aTasks } })`
- * (default `hours(24)`); unfinished ones never are. Listed only in `@Application({ providers })`;
+ * tasks are removed by the recovery sweep after their endpoint's `ttl.tasks` (`@A2AEndpoint`, #1320;
+ * each row names its `endpoint`, so two endpoints keep their rows for their own time);
+ * unfinished ones never are. Listed only in `@Application({ providers })`;
  * the built-in default is in memory, `SqliteA2ATaskRepository` shares the tasks between instances
  * on one file. A store of your own proves itself with `a2aTaskContract`
  * (`@agboss/core/testing/contracts`).
@@ -25,18 +26,22 @@ export enum A2ATaskState {
   InputRequired = "TASK_STATE_INPUT_REQUIRED",
   Completed = "TASK_STATE_COMPLETED",
   Failed = "TASK_STATE_FAILED",
-  Canceled = "TASK_STATE_CANCELED",
+  Cancelled = "TASK_STATE_CANCELED",
   Rejected = "TASK_STATE_REJECTED",
+  /** A remote agent's: it waits for the caller to authenticate. An application never writes it. */
+  AuthRequired = "TASK_STATE_AUTH_REQUIRED",
+  /** A remote agent's answer that names no state (or one this version does not know). Never written. */
+  Unspecified = "TASK_STATE_UNSPECIFIED",
 }
 
 /** The states a task never leaves (§4.1.3): it is over. */
 export type A2ATerminalTaskState =
-  A2ATaskState.Completed | A2ATaskState.Failed | A2ATaskState.Canceled | A2ATaskState.Rejected;
+  A2ATaskState.Completed | A2ATaskState.Failed | A2ATaskState.Cancelled | A2ATaskState.Rejected;
 
 const TERMINAL: ReadonlySet<A2ATaskState> = new Set<A2ATaskState>([
   A2ATaskState.Completed,
   A2ATaskState.Failed,
-  A2ATaskState.Canceled,
+  A2ATaskState.Cancelled,
   A2ATaskState.Rejected,
 ]);
 
@@ -58,13 +63,20 @@ export interface A2AMessageKey {
   readonly messageId: string;
 }
 
+/** The `@A2AEndpoint({ name })` that accepted a task or a message: whose `ttl` its rows are kept for. */
+export interface A2AEndpointOwned {
+  readonly endpoint: string;
+}
+
 /** A pause the task waits for, as a caller may answer it (`INPUT_REQUIRED`). */
 export interface A2ATaskPause {
   /** What a follow-up message names; absent for a pause only its channel may answer. */
   readonly pauseId?: string;
   readonly kind: PauseKind;
-  /** The question, masked as the execution's pending pauses are. */
-  readonly ask: unknown;
+  /** What it asks, masked as the execution's pending pauses are. */
+  readonly input: unknown;
+  /** The tool call an approval waits on. */
+  readonly toolCall?: unknown;
 }
 
 /**
@@ -92,18 +104,21 @@ export interface A2ATaskStatus {
    * when that was missed, by read repair from its records (#844): what a trusted caller's run report
    * signs.
    */
-  readonly spentUsd?: number;
+  readonly spentUsd?: Usd;
+  /** The tokens its execution used (#1318), kept with `spentUsd`. */
+  readonly spentTokens?: number;
   /** Why it failed or was rejected: a stable code (`limit.hops`, `a2a.start-lost`, …). */
   readonly errorCode?: string;
   /**
-   * When read repair asked a start it could not fence out to stop (ISO 8601): the task settles
-   * `a2a.start-lost` one start timeout later, unless its execution began meanwhile. Never on the wire.
+   * When read repair asked a start it could not fence out to stop: the task settles
+   * `a2a.start-lost` one start timeout later, unless its execution began meanwhile. Never on the
+   * wire. A store keeps it as JSON (ISO 8601) and reads it back as a `Date`.
    */
-  readonly cancelRequestedAt?: string;
+  readonly cancelRequestedAt?: Date;
 }
 
 /** A task as kept. */
-export interface A2ATaskRecord extends A2ATaskKey {
+export interface A2ATaskRecord extends A2ATaskKey, A2AEndpointOwned {
   readonly ownerId: string | undefined;
   /** Its A2A `contextId`: its execution's thread. */
   readonly contextId: string;
@@ -126,7 +141,7 @@ export interface A2ATaskRecord extends A2ATaskKey {
 }
 
 /** An accepted message as kept: the task it was accepted for, and its reply once it has one. */
-export interface A2AMessageRecord extends A2AMessageKey {
+export interface A2AMessageRecord extends A2AMessageKey, A2AEndpointOwned {
   /** The hash of what the message asked: a resend with another one is not the same message. */
   readonly requestHash: string;
   readonly taskId: string;
@@ -161,7 +176,7 @@ export type A2ATaskSave =
   | { readonly status: A2ATaskSaveStatus.TaskIdTaken };
 
 /** Which tasks `list` reads: a caller's, newest status first. */
-export interface A2ATaskQuery {
+export interface A2ATaskQuery extends A2AEndpointOwned {
   readonly tenantId: string;
   readonly ownerId: string | undefined;
   readonly contextId?: string;
@@ -247,15 +262,18 @@ export abstract class A2ATaskRepository {
   abstract list(query: A2ATaskQuery): Promise<A2ATaskPage>;
 
   /**
-   * Removes the terminal tasks whose status changed before `cutoff`, with their messages — and
-   * every message whose task is gone and whose `savedAt` is before `cutoff` (#960: a follow-up saved
-   * while its task was removed), so its id is free again.
+   * Removes, per endpoint, the terminal tasks whose status changed before the endpoint's cutoff, with
+   * their messages — and every message of the endpoint whose task is gone and whose `savedAt` is
+   * before its cutoff (#960: a follow-up saved while its task was removed), so its id is free again;
+   * gives back how many tasks it removed. An endpoint with no entry (`Ttl.Forever`) is never swept,
+   * and a direct message's claim (`taskId` `""`) is never removed here.
    */
-  abstract deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void>;
+  abstract deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number>;
 }
 
 /** A task as `saveIfAbsent` keeps it: version 1, its status as of its acceptance. */
 export const savedA2ATaskOf = (task: NewA2ATask): A2ATaskRecord => ({
+  endpoint: task.endpoint,
   tenantId: task.tenantId,
   taskId: task.taskId,
   ownerId: task.ownerId,
@@ -271,6 +289,7 @@ export const savedA2ATaskOf = (task: NewA2ATask): A2ATaskRecord => ({
 
 /** The first message of a new task. */
 export const firstA2AMessageOf = (task: NewA2ATask): A2AMessageRecord => ({
+  endpoint: task.endpoint,
   tenantId: task.tenantId,
   ownerId: task.ownerId,
   messageId: task.messageId,
@@ -279,12 +298,18 @@ export const firstA2AMessageOf = (task: NewA2ATask): A2AMessageRecord => ({
   savedAt: task.acceptedAt,
 });
 
-/** The recovery sweep's removal of finished tasks (#807), after `retention` on the `Clock`. */
+/**
+ * The recovery sweep's removal of one endpoint's finished tasks (#807, #1320), after its `ttl.tasks` on
+ * the `Clock`.
+ */
 export const a2aTaskExpiryOf = (
-  tasks: Pick<A2ATaskRepository, "deleteTerminalByStatusAtBefore">,
+  tasks: Pick<A2ATaskRepository, "deleteExpired">,
+  endpoint: string,
   retention: Milliseconds,
 ): Expiry => ({
-  what: "the finished A2A tasks",
-  remove: (cutoff: Date) => tasks.deleteTerminalByStatusAtBefore(cutoff),
+  what: `the finished A2A tasks of ${endpoint}`,
+  remove: async (cutoff: Date) => {
+    await tasks.deleteExpired(new Map([[endpoint, cutoff]]));
+  },
   retention,
 });

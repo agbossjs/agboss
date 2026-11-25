@@ -24,7 +24,7 @@ import {
  */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
 /** How long the work waits for the cancel to answer before it ends (real time: a bounded race). */
 const CANCEL_WAIT = 500 as Milliseconds;
@@ -36,14 +36,14 @@ interface Seen {
 }
 
 /** The write's work: its row, then the cancel asked and waited for, a bounded while. */
-function writingThroughCancel<TTransaction>(
-  stores: { first: FencedEffectTarget<TTransaction>; second: FencedEffectTarget<TTransaction> },
+function writingThroughCancel(
+  stores: { first: FencedEffectTarget; second: FencedEffectTarget },
   lease: ExecutionLease,
   seen: Seen,
-): FencedEffectWork<TTransaction, Receipt> {
+): FencedEffectWork<Receipt> {
   const receipt: Receipt = { receipt: "holder" };
-  return (transaction) => {
-    const inserted = stores.first.rows.insert(transaction, "holder");
+  return () => {
+    const inserted = stores.first.rows.insert("holder");
     if (inserted === undefined) return receipt;
     return inserted.then(async () => {
       seen.cancel ??= stores.second.leases.requestCancel(treeOf(lease));
@@ -57,7 +57,7 @@ function writingThroughCancel<TTransaction>(
   };
 }
 
-const cancelDuringWrite = <TTransaction>(): Case<TTransaction> => ({
+const cancelDuringWrite = (): Case => ({
   name: "#909 AC2: a cancel asked while the write's transaction is open: the write landed and the cancel answered after it, or the write was refused — never the write landing after the cancel answered",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -89,9 +89,7 @@ const cancelDuringWrite = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** The cancel asked while a write's transaction is open. */
-export const cancelRaceCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
+export const cancelRaceCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "a cancel asked while a write is open (#909)",
-  cases: [cancelDuringWrite<TTransaction>()],
+  cases: [cancelDuringWrite()],
 });

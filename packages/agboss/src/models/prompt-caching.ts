@@ -1,4 +1,4 @@
-import { causeOptionOf, type PlainErrorOptions } from "../core/errors.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
 /** How long a cached prompt prefix lives. */
 export enum CacheRetention {
   FiveMinutes = "5m",
@@ -13,7 +13,7 @@ export enum CachedPart {
   History = "history",
 }
 
-/** `PromptCaching.whereSupported({ … })`. */
+/** What `PromptCaching.on({ … })` keeps: every field set. */
 export interface PromptCachingOptions {
   readonly retention: CacheRetention;
   readonly cachedParts: readonly CachedPart[];
@@ -21,32 +21,56 @@ export interface PromptCachingOptions {
   readonly key?: string;
 }
 
-/** Whether prompts are cached: where the model supports it (with these settings), or off. */
+/** Whether prompts are cached: `on` (these settings; a model that cannot honour them fails the startup check), or off. */
 export type PromptCaching =
-  ({ readonly kind: "where-supported" } & PromptCachingOptions) | { readonly kind: "off" };
+  ({ readonly kind: "on" } & PromptCachingOptions) | { readonly kind: "off" };
 
-/**
- * A value out of range, as the platform's `RangeError`, so `catch` keeps telling it from other errors;
- * made as every framework error is (#906): `{ message, cause }`, with a literal `code`.
- */
-export class PromptCachingError extends RangeError {
-  static readonly code = "config.prompt-caching" as const;
-  readonly code = PromptCachingError.code;
-  override name = "PromptCachingError";
+const DEFAULT_CACHED_PARTS: readonly CachedPart[] = Object.freeze([
+  CachedPart.SystemPrompt,
+  CachedPart.Tools,
+  CachedPart.History,
+]);
 
-  constructor(options: PlainErrorOptions) {
-    super(options.message, causeOptionOf(options.cause));
-  }
+/** What `PromptCaching.on({ … })` takes: each field has its default. */
+export interface PromptCachingOnOptions {
+  /** Default `CacheRetention.FiveMinutes`. */
+  readonly retention?: CacheRetention;
+  /** Default `[SystemPrompt, Tools, History]`; at least one. */
+  readonly cachedParts?: readonly CachedPart[];
+  /** A cache key, for providers that route by one (OpenAI `prompt_cache_key`). */
+  readonly key?: string;
 }
 
+/**
+ * The caching of a provider that sets none (#1313): the system prompt, the tools and the history at
+ * `FiveMinutes`, wherever the model supports it — and silently none where it does not, unlike an
+ * explicit `PromptCaching`, which the startup check refuses on a model that cannot honour it. A
+ * singleton, told apart by identity (`isAutoCaching`); to a transport it is its defaults.
+ */
+export const AUTO_PROMPT_CACHING: PromptCaching = Object.freeze({
+  kind: "on",
+  retention: CacheRetention.FiveMinutes,
+  cachedParts: Object.freeze([CachedPart.SystemPrompt, CachedPart.Tools, CachedPart.History]),
+});
+
+/** Whether `caching` is the provider's default (see `AUTO_PROMPT_CACHING`), not a setting made on purpose. */
+export const isAutoCaching = (caching: PromptCaching): boolean => caching === AUTO_PROMPT_CACHING;
+
 export const PromptCaching = {
-  whereSupported(options: PromptCachingOptions): PromptCaching {
-    if (options.cachedParts.length === 0) {
-      throw new PromptCachingError({
+  /** Cache the prompt; defaults: `FiveMinutes`, `[SystemPrompt, Tools, History]`. Fails the startup check where the model cannot. */
+  on(options: PromptCachingOnOptions = {}): PromptCaching {
+    const cachedParts = options.cachedParts ?? DEFAULT_CACHED_PARTS;
+    if (cachedParts.length === 0) {
+      throw new ConfigError.PromptCaching({
         message: "cachedParts needs at least one part (or use PromptCaching.off())",
       });
     }
-    return Object.freeze({ kind: "where-supported", ...options });
+    return Object.freeze({
+      kind: "on",
+      retention: options.retention ?? CacheRetention.FiveMinutes,
+      cachedParts: Object.freeze([...cachedParts]),
+      ...(options.key === undefined ? {} : { key: options.key }),
+    });
   },
   off(): PromptCaching {
     return Object.freeze({ kind: "off" });
@@ -62,7 +86,7 @@ export function promptCachingOfSetting(
 }
 
 export function promptCachingLabel(caching: PromptCaching): string {
-  return caching.kind === "off"
-    ? "off"
-    : `where supported (${caching.retention}; ${caching.cachedParts.join(", ")})`;
+  if (caching.kind === "off") return "off";
+  if (isAutoCaching(caching)) return "auto (system prompt, tools, history; 5m, where supported)";
+  return `on (${caching.retention}; ${caching.cachedParts.join(", ")})`;
 }

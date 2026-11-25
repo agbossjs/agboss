@@ -6,7 +6,7 @@
 [![CI](https://github.com/agbossjs/agboss/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 [![coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/agbossjs/agboss/badges/coverage.json)](https://github.com/agbossjs/agboss/actions/workflows/ci.yml)
 
-**AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source TypeScript framework with static verification for complex multi-agent workflows on top of [LangGraph](https://www.langchain.com/langgraph). Agents, actions, routers, arbiters, tools, MCP servers, A2A services, and knowledge bases are strictly typed decorator components — assembled in an `@Application` container with constructor dependency injection, compile-time structural Path Scope verification (`agboss check`), declared action compensation (`compensateWith` / `committedBy`) with explicit rollback side paths (`.onError` / `.onJoinError` to an undo `@Action`) and automatic LIFO compensation, two-phase human-in-the-loop pauses (`@ChannelRole`), pre-call FinOps budgets (`@Budget`), boundary PII token masking (`@PiiPolicy`), multi-instance SQLite WAL leases and child work-stealing (`ChildPlacement.AnyInstance`), signed Agent Mesh envelopes (`@A2AExpose`, `@A2AAgent`, `agboss hub`), and a 5-loop evaluation & testing pipeline (`@EvalSuite`, `testWith` + 10 unit runners).
+**AGBoss** ([agboss.dev](https://agboss.dev)) is an open-source TypeScript framework with static verification for complex multi-agent workflows on top of [LangGraph](https://www.langchain.com/langgraph). Agents, actions, routers, arbiters, tools, MCP servers, A2A services, and knowledge bases are strictly typed decorator components — assembled in an `@Application` container with constructor dependency injection, compile-time structural Path Scope verification (`agboss check`), declared action compensation (`compensateWith` / `committedBy`) with explicit rollback side paths (`.onError` to an undo `@Action`) and automatic LIFO compensation, two-phase human-in-the-loop pauses (`@ToolApproval`, `@ExternalTask`, `@Channel`), pre-call FinOps budgets (`@Budget`), boundary PII token masking (`@PiiPolicy`), multi-instance SQLite WAL leases and child work-stealing (`ChildPlacement.AnyWorker`), signed Agent Mesh envelopes (`@A2AEndpoint`, `@A2AAgent`, `agboss hub`), and a 5-loop evaluation & testing pipeline (`@EvalSuite`, `testWith` + 10 unit runners).
 
 > **Current release (`v0.1.1`):** [`@agboss/core@0.1.1`](https://www.npmjs.com/package/@agboss/core) (production runtime) and [`@agboss/cli@0.1.1`](https://www.npmjs.com/package/@agboss/cli) (CLI & static workflow compiler) are publicly published on `registry.npmjs.org` under the official `agboss` npm organization.
 
@@ -25,7 +25,7 @@ npm install
 `npm exec --yes --package=@agboss/cli@0.1.1 -- agboss create my-app` (also available via `npx --yes --package=@agboss/cli@0.1.1 agboss create my-app`) scaffolds a complete project where `package.json` already lists [`@agboss/core`](https://www.npmjs.com/package/@agboss/core) in `dependencies` and [`@agboss/cli`](https://www.npmjs.com/package/@agboss/cli) in `devDependencies`, alongside `AGENTS.md` and `CLAUDE.md` (`@AGENTS.md`). Running `npm install` triggers `"postinstall": "npm run types"`, which runs `agboss check`, generates `.agboss/types.d.ts` for TypeScript, and unpacks 13 version-matched reference guides into `.claude/skills/agboss/` (`SKILL.md` + `references/01..13`) for your AI coding agent.
 
 ```bash
-cp .env.example .env && npm run chat
+cp .env.example .env && npx agboss chat
 # every name is the full one, as in `name` (#268): the CLI never adds a suffix for you
 npx agboss g tool refund-tool --workflow my-app-workflow --agent my-app-assistant-agent
 # one tool per OpenAPI 3 operation (DTOs, a client in services/, tests), wired into the agent
@@ -50,15 +50,15 @@ Why two packages?
 - **`@agboss/cli` (`devDependencies`)** — the static graph compiler (`agboss check`), code generator (`agboss generate`), dev watcher (`agboss dev`), LangGraph Studio bridge (`agboss studio`), and local visual UI servers (`agboss eval ui`, `agboss hub ui`) that stay out of production container images.
 
 <!-- snippet-context
-import { Tool, type ToolHandler } from "@agboss/core";
+import { Tool } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class JobQuery {
   @Text({ prompt: "what to look for" })
   query!: string;
 }
 @Tool({ name: "greenhouse-jobs-tool", description: "Finds jobs", input: JobQuery, output: JobQuery })
-export class GreenhouseJobs implements ToolHandler<JobQuery, JobQuery> {
-  run(input: JobQuery): Promise<JobQuery> {
+export class GreenhouseJobs {
+  execute(input: JobQuery): Promise<JobQuery> {
     return Promise.resolve(input);
   }
 }
@@ -71,7 +71,7 @@ import { Agent } from "@agboss/core";
 @Agent({
   name: "scout-agent",
   description: "Finds jobs",
-  promptUrls: ["./scout.prompt.md"],
+  prompt: "./scout.prompt.md",
   model: "moonshotai/kimi-k2.6",
   tools: [GreenhouseJobs],
 })
@@ -79,20 +79,20 @@ export class ScoutAgent {}
 ```
 
 <!-- snippet-context
-import { Agent, DecidedBy, Injectable, Router, WorkflowFinish, WorkflowStart } from "@agboss/core";
+import { Agent, DecidedBy, Injectable, Router, WorkflowFinish, WorkflowStart, inline } from "@agboss/core";
 import { WorkflowFinishTextDto } from "@agboss/core/dto";
 import { ScoutAgent } from "./agents/scout.agent.js";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
 @WorkflowFinish({ name: "chat-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class ChatWorkflowFinish {}
-@Agent({ name: "profiler-agent", description: "Reads the resume", prompt: "Read the resume.", model: "moonshotai/kimi-k2.6" })
+@Agent({ name: "profiler-agent", description: "Reads the resume", prompt: inline("Read the resume."), model: "moonshotai/kimi-k2.6" })
 export class ProfilerAgent {}
 @Router({
   name: "main-router",
   description: "Sends the message to the agent that answers it",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick the agent that answers the message.",
+  prompt: inline("Pick the agent that answers the message."),
   input: { message: WorkflowStartTextDto },
   routes: [
     { prompt: "Reading the resume", target: ProfilerAgent },
@@ -106,20 +106,22 @@ export class JobFitJudge {}
 
 ```ts file=src/job-scout.workflow.ts
 // src/job-scout.workflow.ts — the paths, defaults and providers; money is the application's budgets
-import { Workflow, route, start } from "@agboss/core";
+import { Workflow, onStart, toRouter, toFinish, toAgent, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 
 @Workflow({
   name: "job-scout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChatWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChatWorkflowStart)
       .toRouter(MainRouter) // picks one of its @Router({ routes })
-      .chooseOne(
-        route(ProfilerAgent)
+      .onRoute(
+        toAgent(ProfilerAgent)
           .toFinish(ChatWorkflowFinish),
-        route(ScoutAgent)
+      )
+      .onRoute(
+        toAgent(ScoutAgent)
           .toFinish(ChatWorkflowFinish),
       ),
   ],
@@ -128,27 +130,31 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
   },
-  uncompactedTurns: 5, // the last 5 turns of the thread in full (older ones: a @Compaction's summaries)
   providers: [JobFitJudge],
 })
 export class JobScout {}
 ```
 
-The application is the one entry (#261): it lists the workflows, the infrastructure (a class that
-`extends CostLedgerRepository`, `ExecutionRecordRepository`, `PausedExecutionRepository`,
-LangGraph's `BaseCheckpointSaver` or one of the shared contracts of #265 — `ExecutionLeaseRepository`,
-`ExecutionTreeRepository`, `RateLimitRepository`; none listed → the built-in in-memory ones, nothing
-written to the home folder; the SQLite ones below), its **model providers** and every budget.
-`createApp` and `testWith` take it, never a workflow.
+The application is the one entry (#261): it lists the workflows, its **storage** (`storage:` — a
+`@DatabaseStorage` class, #1321, optionally with a `@ClusterStorage` and an `@ObjectStorage`; none
+listed → the built-in in-memory storage, nothing written to the home folder), the infrastructure
+classes (`providers`: `Clock`, `IdGenerator`, your own services), its **model provider**
+(`modelProvider`), every budget and its health checks (`healthChecks`). `createApp` and `testWith`
+take it, never a workflow.
 
-Model providers are infrastructure too (#266): `@ModelProvider` classes listed in
-`@Application({ providers })` — none listed → the built-in `OpenRouterModelProvider` (chat) and
-`DecisionsModelProvider` (Jev and the other decision models); one listed → the list is complete,
-the built-ins are not added next to it. A workflow and its components only name models; every model
-of the application (agents, model routers, the default router, guardrails, compactions, judges) resolves
-to exactly one listed provider by `serves` at assembly — none → `[model.unserved]`, two →
-`[model.ambiguous-provider]` (one model through two providers = two model strings, each in one
-`serves`; the built-ins yield a model another listed provider claims, #454). `agboss describe` prints `model: … → <provider>` for each, `agboss check --models` checks
+Model providers are infrastructure too (#266, #1313): a `@ModelProvider({ driver, timeout, … })`
+class is an empty class whose **driver** (`OpenRouterDriver`, `OpenAiCompatibleDriver`,
+`DecisionsDriver`) speaks one protocol and holds the connection — base URL and key are settings of
+the driver (`secret("OPENROUTER_API_KEY")`, `env(…)`), not fields of the environment. There is no
+built-in provider and no provider is picked by a model's name: `@Application({ modelProvider })` names
+the default one, and a workflow or a component overrides it with its own `modelProvider`
+(component → workflow → application). A component that names none and an application that names none
+fail assembly with `[model.missing-provider]`. A provider's own `model` / `models` (role names such as
+`default` and `fast` to the vendor's names) say which model a component with no `model` of its own
+gets. What a provider serves is its driver's kind: a chat driver answers agents and chat routers,
+`DecisionsDriver` the decision models (Jev and the others) — a component of that kind names it
+(`modelProvider: DecisionsModelProvider`), and `[model.incompatible-provider]` says when a kind does
+not fit. `agboss describe` prints `model: … → <provider>` for each, `agboss check --models` checks
 every model of every workflow of the application against its provider:
 
 A provider's **policies** are app-wide too: `retryPolicy` retries one call (attempts, exponential
@@ -161,33 +167,36 @@ default, `TenantLeastInFlight`, `TenantWeighted` by `tenant.weight`, `Fifo`), an
 provider's whole queue for `Retry-After` on every instance, then halves this instance's
 concurrency and grows it back by one a minute; `circuitBreakerPolicy` stops calling a provider that
 is down — its state in `RateLimitRepository` as well. Without `rateLimitPolicy` there is no limit:
-set it per your provider plan. A provider's `name` ends with `-model-provider`; its key is a
-`Secret` field of the application's environment (`apiKey: "openRouterApiKey"`):
+set it per your provider plan. A provider's `name` is optional (kebab-case; the class name by default); its key is a
+`secret(…)` of its driver (`apiKey: secret("OPENROUTER_API_KEY")`):
 
 ```ts file=src/model-providers/openrouter.model-provider.ts
-// src/model-providers/openrouter.model-provider.ts — job-scout's chat models, with its own request fields
+// src/model-providers/openrouter.model-provider.ts — job-scout's chat models, with its own routing
+import { env, secret } from "@agboss/core";
 import {
+  CircuitBreakerPolicy,
+  DecisionsDriver,
   ModelCost,
   ModelProvider,
-  OpenRouterProvider,
-  OPENROUTER_BASE_URL,
+  OpenRouterDriver,
   PromptCaching,
   QueueBalancingStrategy,
   RateLimitPolicy,
   Reasoning,
   RetryPolicy,
   TRANSIENT_FAILURES,
-  type OpenRouterFields,
 } from "@agboss/core/models";
 import { minutes, seconds } from "@agboss/core/units";
 
 @ModelProvider({
   name: "openrouter-model-provider",
   description: "OpenRouter — every chat model job-scout uses",
-  serves: [/.*/], // its chat models; decision models go to DecisionsModelProvider (no chat there)
-  baseUrl: OPENROUTER_BASE_URL,
-  baseUrlField: "openRouterBaseUrl", // the environment may set another (a proxy, a stub)
-  apiKey: "openRouterApiKey", // a Secret field of the application's environment
+  driver: OpenRouterDriver({
+    apiKey: secret("OPENROUTER_API_KEY"),
+    baseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" }), // a proxy, a stub
+    routing: { ignore: ["Inceptron"] }, // the request fields OpenRouter reads
+  }),
+  model: "moonshotai/kimi-k2.6", // a component with no model of its own
   timeout: minutes(2), // per attempt, from the moment it has room
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -204,33 +213,41 @@ import { minutes, seconds } from "@agboss/core/units";
     perMinute: { calls: 120 },
     balancing: QueueBalancingStrategy.TenantRoundRobin,
   }),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
-export class OpenRouterModelProvider extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = { provider: { ignore: ["Inceptron"] } };
-}
+export class OpenRouterModelProvider {}
+
+// Jev and the other decision models: a router or a channel interpreter of that kind names it
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Decision models on OpenRouter's Decisions API",
+  driver: DecisionsDriver({
+    apiKey: secret("OPENROUTER_API_KEY"),
+    baseUrl: env("OPENROUTER_BASE_URL", { default: "https://openrouter.ai/api/v1" }),
+  }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
 ```
 
 ```ts file=src/environments/app.environment.ts
-// src/environments/app.environment.ts — the key both providers read; `test` leaves it out
-import type { Secret } from "@agboss/core";
-
+// src/environments/app.environment.ts — the fields of the application's own settings; the model
+// provider's key is not here: its driver reads secret("OPENROUTER_API_KEY") when the application starts
 export class AppEnvironment {
-  openRouterApiKey?: Secret; // dev, prod: openRouterApiKey: secret("OPENROUTER_API_KEY")
-  openRouterBaseUrl?: string; // env.optional("OPENROUTER_BASE_URL"): unset → the provider's baseUrl
+  tenantName?: string;
 }
 ```
 
 ```ts file=src/job-scout.application.ts
 // src/job-scout.application.ts — what createApp(JobScoutApplication, { env }) and testWith run
 import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope } from "@agboss/core";
-import { DecisionsModelProvider } from "@agboss/core/models";
 import { usd, type Usd } from "@agboss/core/units";
 import { AppEnvironment } from "./environments/app.environment.js";
 import { JobScout } from "./job-scout.workflow.js";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
-// config/budget.config.ts in a project: the whole application, a tenant per day, every execution
+// budgets/application.budgets.ts in a project: the whole application, a tenant per day, every execution
 @Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class ApplicationDailyBudget implements BudgetHandler {
   maxSpend(): Usd {
@@ -257,46 +274,82 @@ export class ExecutionBudget implements BudgetHandler {
   version: "1.0.0",
   environment: AppEnvironment,
   workflows: [JobScout], // app.execute(ChatWorkflowStart, …) runs the workflow of that start
-  providers: [OpenRouterModelProvider, DecisionsModelProvider], // every model resolves to one
+  modelProvider: OpenRouterModelProvider, // the default of every component; a router of decision models names its own
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget], // checked before each step
 })
 export class JobScoutApplication {}
 ```
 
-Every storage contract has a ready **SQLite** implementation (#265), enabled only by listing it:
-`SqliteExecutionRecordRepository`, `SqliteCostLedgerRepository`, `SqlitePausedExecutionRepository`,
-`SqliteCheckpointSaver`, `SqliteExecutionLeaseRepository`, `SqliteExecutionTreeRepository`,
-`SqliteRateLimitRepository`. They share one file per application instance — `sqlitePath` of the
-environment contract, required only when one is listed (else `[environment.missing-field]`
-names it); WAL, `busy_timeout`, every atomic operation in `BEGIN IMMEDIATE`, time from the
-framework's clock. With them `--thread`, `agboss eval score` / `replay` / `golden` see what earlier
-processes wrote, a pause survives a restart, and another instance on the file recovers a run
-whose process died; tests run on `sqlitePath: ":memory:"`. One file serves one machine (Wiki →
-Several-instances):
+Where the durable rows go is one **storage component** (#1321): `@DatabaseStorage({ driver, auditLogTtl,
+ledgerEntriesTtl, … })` names a driver and every store of the database — records, ledger, pauses, leases,
+trees, rate limits, checkpoints, the child queue, the fenced effect, the outbound calls, the audit log,
+mesh requests, A2A tasks — is created by it over one connection per storage, never listed one by one.
+The core ships `SqliteDriver({ path })` (and `SqliteDriver.inMemory()` for tests): WAL, `busy_timeout`,
+every atomic operation in `BEGIN IMMEDIATE`, time from the framework's clock. The application takes it as
+`storage: StoreStorage` (or `{ database, cluster?, objects? }` with a `@ClusterStorage` and an
+`@ObjectStorage` beside it); none → `InMemoryDatabaseStorage`, nothing written to the home folder and
+an assembly warning. The two secrets of the application — the PII key and the idempotency key — are fields
+of the storage (`piiSecret`, `idempotencySecret`, read as `secret(…)`; rotation by `previous…`), and
+`auditLogTtl` / `ledgerEntriesTtl` are required, like a workflow's `historyTtl`. With a file storage
+`--thread`, `agboss eval score` / `replay` / `golden` see what earlier processes wrote, a pause survives a
+restart, and another instance on the file recovers a run whose process died; tests run on
+`SqliteDriver.inMemory()`. One file serves one machine (Wiki → Several-instances):
 
 <!-- snippet-context
-import { SqliteCheckpointSaver, SqliteExecutionLeaseRepository, SqliteExecutionRecordRepository, SqlitePausedExecutionRepository, env } from "@agboss/core";
+import { DatabaseStorage, SqliteDriver, defineEnv, env, secret } from "@agboss/core";
+import { hours } from "@agboss/core/units";
 -->
 
 ```ts
-// environments/app.environment.ts — the contract declares the file
-export class StoreEnvironment {
-  sqlitePath!: string; // required because SQLite implementations are listed
-}
+// storages/job-scout.database-storage.ts — the file is read from the environment when the application starts
+const databaseEnv = defineEnv({
+  path: env("AGBOSS_SQLITE_PATH", { default: ".agboss/job-scout.sqlite" }),
+});
 
-// environments/dev.environment.ts — a file of the project (git-ignored), or AGBOSS_SQLITE_PATH
-export const environment: StoreEnvironment = {
-  sqlitePath: env("AGBOSS_SQLITE_PATH", { default: ".agboss/job-scout.sqlite" }),
-};
+@DatabaseStorage({
+  name: "job-scout-database-storage",
+  driver: SqliteDriver({ path: databaseEnv.path }),
+  auditLogTtl: hours(24 * 30),
+  ledgerEntriesTtl: hours(24 * 30),
+  piiSecret: secret("PII_PSEUDONYM_KEY"),
+})
+export class JobScoutDatabaseStorage {}
 
-// @Application({ …, environment: StoreEnvironment, providers: durableStores })
-export const durableStores = [
-  SqliteExecutionRecordRepository,
-  SqlitePausedExecutionRepository,
-  SqliteCheckpointSaver,
-  SqliteExecutionLeaseRepository,
-];
+// @Application({ …, storage: JobScoutDatabaseStorage })
 ```
+
+**Several machines: PostgreSQL** (#482, #483). Pods on different machines share no file; they
+share one PostgreSQL database through [`@agboss/postgres`](https://github.com/agbossjs/postgres), a
+package of its own released with the core (its version is the core's, its peer dependency
+`@agboss/core` of that version). It ships a `PostgresDriver`, the same `@DatabaseStorage` component with
+another driver — one `pg` pool per instance, a store for every contract above:
+
+```sh
+npm install @agboss/postgres
+```
+
+```ts no-check: @agboss/postgres is a package of agbossjs/postgres, not installed in this repository
+import { DatabaseStorage, secret } from "@agboss/core";
+import { hours } from "@agboss/core/units";
+import { PostgresDriver } from "@agboss/postgres";
+
+@DatabaseStorage({
+  name: "job-scout-database-storage",
+  driver: PostgresDriver({ url: secret("DATABASE_URL") }),
+  auditLogTtl: hours(24 * 30),
+  ledgerEntriesTtl: hours(24 * 30),
+  piiSecret: secret("PII_PSEUDONYM_KEY"),
+})
+export class JobScoutDatabaseStorage {}
+```
+
+The schema is created by the package's versioned migrations, run before the new version starts —
+`agboss migrate` (a Kubernetes Job) applies them; a second run changes nothing, and an instance never
+starts on a database older or newer than its package (`PostgresSchemaMissingError`,
+`PostgresSchemaTooNewError`). Every pod's pool counts against the server's `max_connections`; a lease's
+expiry is decided by the database's own `clock_timestamp()`, so the pods' clocks may disagree.
+Wiki → Running-on-PostgreSQL has the whole setup, its limits and how the stores are proved
+(`storeConformance` and `faultSuite` against a real PostgreSQL).
 
 **Time is the application's `Clock`** (#262, infrastructure like the stores): every time the
 framework reads (the ledger's day, records, leases) and every wait it makes (lease renewals,
@@ -323,34 +376,30 @@ export class ReminderService {
 }
 ```
 
-A rule needs no model: `@Router({ decidedBy: DecidedBy.Code, routes: [{ target: A }, { target: B }] })`
+A rule needs no model: `@Router({ decidedBy: DecidedBy.Code, routes: [A, B] })`
 on a class that `implements RouterHandler<Self>` decides in `route(input)`, returning one of its
-targets (`Route<Self>`) — no model call, cost 0, the same flow. Routes may carry the options of a
-parallel launch (#273): `spawn` (stated on every route of a model router before a launch —
-`SpawnPolicy.Always` or `SpawnPolicy.OnDemand`; `OnDemand` by default on a code router's) and
-`failure` (`FailurePolicy.FailFast` by default)
+targets (`Route<Self>`) — no model call, cost 0, the same flow. A router in a launch is a branch,
+`toRouter(R).chooseMany([…])` (#1279), and `.onError(E, skip())` on a branch lets a failed one drop out
 ([Wiki → Routers](https://github.com/agbossjs/agboss/wiki/Routers)).
 
-Several steps at once are a **parallel launch** (#273): `.toParallelAgents(ResearcherAgent,
-CriticAgent, CriticAgent, { maxConcurrency: 3 })` or `.toParallelActions(…)`, always followed by
-`.join()` and the values the branches give — `.join().returns(ResearchDto).returns(listOf(CritiqueDto))`,
-checked against the generated `JoinOutputs`; one agent after `.returns(listOf(CompanyDto))` runs once
+Several steps at once are a **parallel launch** (#273): `.inParallel([toAgent(ResearcherAgent), toAgent(CriticAgent), toAgent(CriticAgent)], { maxConcurrency: 3 })` or `.inParallel([toAction(…)])`, always followed by
+`.join()`, whose values — one per class the branches give — are derived from them; one agent right
+after a step whose output is `listOf(CompanyDto)` runs once
 per item (`{ maxItems }` required; a longer list is truncated, never an error — `result.launches`
 says `{ items, taken }`). At most `maxConcurrency` branches run at once, a new one starting as
-another ends; a failed branch cancels the others and the join takes `.onJoinError(E, …)`
+another ends; a failed branch cancels the others and the join takes `.onError(E, …)`
 ([Wiki → Workflow](https://github.com/agbossjs/agboss/wiki/Workflow)).
 
 Not every answer is always needed: a **quorum** (#279) counts them — `.joinQuorum({ min: 2, max: 3,
-deadline: seconds(30) })` goes on with the counted answers, `.joinQuorumGroups(group(LegalAgent,
-CriticAgent).priority(1).returns(…).toAgent(…), …)` with the first complete group (by priority),
+deadline: seconds(30) })` goes on with the counted answers, `.joinQuorumGroups({ deadline }).onGroup([LegalAgent,
+CriticAgent], { priority: 1 }, toAgent(…)…)` with the first complete group (by priority),
 each group on its own path. `@Arbiter` classes decide which answers count, attached with
-`.acceptedBy(X)` before the quorum (a chain is an AND, `anyOf(A, B)` stops at the first that
-accepts): by model, a criterion per agent; by code, one `@OnAnswer(Agent)` method per agent. A single
-answer a quorum may leave out is `optional(XDto)` in `.returns(…)` — the compiler and `agboss check`
-say so on the quorum. At run time the quorum is decided as answers arrive: once `max` answers are
+`.arbitratedBy(X)` before the quorum (one arbiter per launch): by model, a criterion per target; by code, `@Arbitrate(A, B)` methods (with `ArbiterModel` injected, code that asks its own model only where it must). A single
+answer a quorum may leave out is `optional(XDto)` — a step that requires it fails `agboss check` with
+`[input.missing-on-path]`. At run time the quorum is decided as answers arrive: once `max` answers are
 counted (or a group has won, or the quorum can no longer be reached) the other branches are
 cancelled; the deadline runs on the application's `Clock`; not reached → `QuorumNotReachedError`
-into `.onJoinError(…)`; a failing arbiter is `ArbiterError`. `result.launches` and `onQuorumDecided`
+into `.onError(…)`; a failing arbiter is `ArbiterError`. `result.launches` and `onQuorumDecided`
 show each answer as counted, rejected (and by which arbiter), surplus or cancelled, and the winning
 group; `agboss generate arbiter` writes a code arbiter for a launch
 ([Wiki → Parallel](https://github.com/agbossjs/agboss/wiki/Parallel)).
@@ -360,41 +409,38 @@ A whole **workflow is a step** too (#263): `.toWorkflow(CompanyCheckWorkflow)` r
 outputs", runnable and testable on its own. Its start is chosen by the class of what comes in (one
 start, else the one taking the chain's current value; `[graph.no-matching-start]` /
 `[graph.ambiguous-start]` otherwise), its scope starts with that input only, and its result is
-branched by class — `.returns(oneOf(CompanyScoreDto, CompanyRejectedDto)).switch(caseOf(…)…)`, one
-case per finish output class. `.toParallelWorkflows(CompanyCheckWorkflow, { maxConcurrency: 3,
-maxItems: 50 })` runs one child per item, joined as `.join().returns(listOf(oneOf(…)))`; a child
-reached from two places has its own path `workflow(W).onError(…).returns(oneOf(…)).switch(…)`.
+branched by class — `.toOneOf([…])` over its `oneOf(CompanyScoreDto, CompanyRejectedDto)`, one
+case per finish output class. `.forEachItem(toWorkflow(CompanyCheckWorkflow), { takeFirst: 50, maxConcurrency: 3 })` runs one child per item, joined into `listOf(…)`; a child
+reached from two places has its own path `onWorkflow(W).onError(…).toOneOf([…])`.
 At run time each child is an execution of its own — its id, steps and `maxSteps`, no history —
 inside its parent's checkpoint and budgets; an uncaught failure of its own fails the parent's step
 with `ChildExecutionFailedError`, and `result.children` holds the nested records
 ([Wiki → Workflow-as-a-step](https://github.com/agbossjs/agboss/wiki/Workflow-as-a-step)).
 
-A workflow may **launch itself** (#264): `ThisWorkflow` stands for the enclosing workflow in
-`.toWorkflow(ThisWorkflow)`, `route(ThisWorkflow)` or `.toParallelWorkflows(ThisWorkflow, { maxItems
-})` — a topic too broad for one report researched subtopic by subtopic by the same workflow. A
-recursive workflow sets `@Workflow({ maxDepth: 3 })` (`[graph.recursion-without-depth]`); the root is
+A workflow may **launch itself** (#264, #1287): a thunk of its own class stands for it in
+`.toWorkflow(() => Self)`, `route(() => Self)` or `.forEachItem(toWorkflow(() => Self), { takeFirst: maxItems })` — a topic too broad for one report researched subtopic by subtopic by the same workflow. A
+recursive workflow sets `@Workflow({ executionLimits: { maxDepth: 3 } })` (`[graph.recursion-without-depth]`); the root is
 at depth 1 (`executionContext.depth`, and each child record's `depth`), so the last level is
 `depth === maxDepth`. There the framework stops it, never the prompt: an agent's `oneOf` variant
-whose `caseOf(…)` launches `ThisWorkflow` leaves its response schema, a model router does not see such
+whose `.toOneOf([…])` branch launches the workflow itself leaves its response schema, a model router does not see such
 a route, a code router returning one fails with `RouterDecisionError` — so every such branch keeps a
 way out (`[graph.recursion-without-exit]`); a launch decided by code past `maxDepth` does not start
 and fails its step with `ChildExecutionFailedError` caused by `DepthLimitExceededError`
 (`.onError(LimitExceededError, …)` takes it). Only direct recursion: a workflow launching one that
 launches it is `[graph.mutual-recursion]`. The root's execution budget counts every level; each
-level has its own `maxSteps`; `agboss describe` prints `recursive: ThisWorkflow, maxDepth 3, on the
-last level: researcher-agent → TopicReportDto only`. Each recursive workflow is typed by its own
-entry: the `.returns(…)` after a `ThisWorkflow` launch is checked by `@Workflow({ name, flow })`
-against the generated `ThisWorkflowOutputs[name]`, so one project holds recursive workflows with
-different finishes.
+level has its own `maxSteps`; `agboss describe` prints `recursive: maxDepth 3, on the
+last level: researcher-agent → TopicReportDto only`. A launch of itself is typed like any child's:
+`typeof Self` carries the generated brand, so one project holds recursive workflows with different
+finishes.
 
-The whole tree shares one **concurrency cap** (#264): `@Workflow({ maxConcurrentExecutions: 6 })` of
+The whole tree shares one **concurrency cap** (#264): `@Workflow({ executionLimits: { maxConcurrency: 6 } })` of
 the root (default 10) — how many executions of the tree, the root and all its descendants, work on a
 step at once. A step without a free slot waits in a queue — a throttle, never an error; an execution
 waiting at a join, for its child or paused holds no slot (an execution's parallel branches share its
 one). The queue serves a parent whose children have all finished first, then the deepest execution,
 every 10 s of waiting counting as one level deeper (the application's `Clock`). A launch's
 `maxConcurrency` and the cap both hold — the stricter wins; a child workflow's own smaller
-`maxConcurrentExecutions` limits its subtree (a larger one is `[limits.child-concurrency-above-parent]`,
+`maxConcurrency` limits its subtree (a larger one is `[limits.child-concurrency-above-parent]`,
 a warning). Time in the queue does not count toward a quorum's `deadline`. The slots are in-process
 under the tree's lease: after a pause or a crash the next pass rebuilds the queue from the unfinished
 tasks, and a `FailFast` failure empties it. A slot is an execution, not model load — provider
@@ -417,8 +463,16 @@ npx agboss describe [--json]                    # the application: workflows, st
 npx agboss check --env prod                     # types, assembly, the worst case per start, prod's process variables
 npx agboss dev                                  # watch mode: types regenerated, problems printed on change
 npx agboss studio                               # LangGraph Studio on every workflow — no studio.ts, no langgraph.json
-npx agboss --help                               # run, eval, replay, golden, compare, records, hub, rag index
+npx agboss --help                               # run, eval, replay, golden, compare, rag index
 ```
+
+`agboss dev` reruns `agboss check` in a short-lived process on every change of the application's
+`src/` (debounced): `.agboss/types.d.ts` stays current and assembly problems show as you type.
+`agboss studio [--env <name>] [--port N]` builds every workflow of the application — the children
+too — writes the Studio config into the git-ignored `.agboss/` (`studio.ts`, `langgraph.json`) and
+starts LangGraph's dev server on it; a child workflow is drawn inside its parent (a subgraph,
+`forEachItem(toWorkflow(…))` included), and a problem — assembly, a missing variable — stops it before the
+server starts.
 
 A command that runs one workflow (`chat`, `run`, `eval`, `replay`, `golden add`, `compare`) takes
 it by its start's full name, `--start chat-workflow-start` — optional when the application has one
@@ -466,21 +520,27 @@ of another version, which Claude Code prefers, is `[skills.shadowed]`. A problem
 
 1. **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** — First-run starter, real async HTTP service DI (`PricingCatalogService` with `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with multi-tenant headers, `202 Accepted` on pauses, and `/health/live` + `/health/ready` probes), and `testWith` + `mockOf`.
 2. **[`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof)** — Side-by-side proof of 4 production graph bugs (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, `[flow.uncompensated-action]`) that pass `tsc --noEmit` in raw LangGraph `Annotation.Root` (`langgraph-broken/`) and are caught before runtime by `agboss check` (`agboss-broken/` vs `agboss-fixed/`).
-3. **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** — Support & refund desk proving reversible `@PiiPolicy` (`replaceWithToken`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`replyToModel`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction`, and a 5-loop `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$).
-4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.toParallelAgents().acceptedBy().joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`onPauseClosed()`, `PauseClosedError`, SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter).
-5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyInstance`, `SqliteChildExecutionQueueRepository`, recursive `ThisWorkflow` (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `IncompatibleResumeError`.
-6. **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** — 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AExpose` and `@McpTool` / `@McpExpose`, Ed25519 mesh envelope (A2A message metadata / MCP `_meta`), the billing Agent Card tested and called by the official SDK client, `MeshLoopDetectedError` & `HopsLimitExceededError`, MCP `_meta.callId` deduplication via `SqliteMeshRequestRepository`, and `agboss check --federation` Blast Radius.
+3. **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** — Support & refund desk proving reversible `@PiiPolicy` (`tokenize()`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`reply`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction`, and a 5-loop `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$).
+4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.inParallel([…]).arbitratedBy(…).joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`onPauseClosed()`, `PauseClosedError`, SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter).
+5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyWorker`, `SqliteDriver`, recursive a thunk of its own class (`() => Self`) (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `IncompatibleResumeError`.
+6. **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** — 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AEndpoint` and `@McpServer` / `@McpEndpoint`, Ed25519 mesh envelope (A2A message metadata / MCP `_meta`), the billing Agent Card tested and called by the official SDK client, `MeshLoopDetectedError` & `HopsLimitExceededError`, MCP `_meta.callId` deduplication via `SqliteMeshRequestRepository`, and `agboss check --federation` Blast Radius.
 7. **[`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)** — Side-by-side comparison of raw `@langchain/langgraph` (`before-langgraph/support.graph.ts` with 15-field `Annotation.Root` God State, string-keyed `addConditionalEdges`, unbounded `Send()`, dynamic prompt interpolation) vs AGBoss (`after-agboss/src/` + `after-agboss/tests/` with 10 narrow `@Dto`s, `@Router`, bounded `.toParallelAgents()`, `@Action`, `@Channel`, and `agboss check --strict`).
-8. **[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout)** — resume → proposed search brief → Greenhouse jobs ranked by Jev, the job scout the snippets above come from: typed child workflows, per-item launches, a quorum and a budget on a real multi-step agent, offline at $0 against the published `@agboss/core`.
+8. **[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout)** — the job scout the snippets above come from (in this repository until #489): resume → proposed search brief → Greenhouse jobs ranked by Jev — typed child workflows, per-item launches, a quorum and a budget on a real multi-step agent; its `check`, `test` and `demo` scripts run offline at $0 against the published `@agboss/core`, `demo:live` with `OPENROUTER_API_KEY`.
+9. **[`09-review-loop-and-routing`](https://github.com/agbossjs/agboss-examples/tree/main/09-review-loop-and-routing)** — one credit application routed by a `DecidedBy.Code` router (0 calls, $0) and a `DecidedBy.Model` router onto the same routes, `[router.routes-mismatch]` on a missing route, and a critique ↔ editor loop bounded by `maxVisits` and `historyOf(CreditMemoDto, { maxPrevious: 2 })`.
+10. **[`10-quorum-groups-and-replies`](https://github.com/agbossjs/agboss-examples/tree/main/10-quorum-groups-and-replies)** — four parallel reviews in two `.joinQuorumGroups(…)` groups behind arbiter chains (`.acceptedBy(code)`, `anyOf(code, model)`) with recorded `BranchVerdict`s, `QuorumNotReachedError` on a deadline, and a free-text approval read by a `@ChannelInterpreter`.
+11. **[`11-safe-payments`](https://github.com/agbossjs/agboss-examples/tree/main/11-safe-payments)** — every payment race of the Payments taxonomy done wrong and done right against a stub gateway: a lost answer, a crash, a zombie, two executions, a duplicated webhook, a refund retried — one charge and one refund.
+12. **[`12-payment-gateways`](https://github.com/agbossjs/agboss-examples/tree/main/12-payment-gateways)** — the Payments contract on ten gateways, a verdict per gateway from its own docs, and the wiring of each supported one on its official SDK against a stub of its documented behaviour.
+13. **[`13-rag-reranking`](https://github.com/agbossjs/agboss-examples/tree/main/13-rag-reranking)** — a knowledge base reranked before the agent reads it: Cohere Rerank on its official SDK behind a code `@Reranker`, its cost in the budgets, a fallback to the retriever's order on a 503.
+14. **[`14-kubernetes-postgres-scaling`](https://github.com/agbossjs/agboss-examples/tree/main/14-kubernetes-postgres-scaling)** — workers an autoscaler scales on queued work: the core's OpenTelemetry metrics through the Prometheus exporter, KEDA and HPA configs, `terminationGracePeriodSeconds` matched to `app.close({ timeout })`.
 
 ### In-Repository Example
 
-[`examples/flow-patterns`](https://github.com/agbossjs/agboss/tree/main/examples/flow-patterns) — the flow's patterns with scripted tests only
-(no model key): `src/offer/` a review loop (`agent(ReviewerAgent).returns(oneOf(…)).switch(…)`,
-`caseOf(ChangesRequestedDto, { about: OfferDraftDto })`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
+[`examples/flow-patterns`](examples/flow-patterns) — the flow's patterns with scripted tests only
+(no model key): `src/offer/` a review loop (`onAgent(ReviewerAgent).toOneOf([…])`,
+a branch that reads `ChangesRequestedDto`, `.onError(VisitsLimitExceededError, …)`), `src/credit/` a code
 router (`DecidedBy.Code`, `route(input)` through `deps`) beside a model router, `src/review/`
 parallel launches in waves (a reviewer per section, then a critic beside two fact checker copies),
-`src/topic/` a workflow that researches its subtopics itself (`ThisWorkflow`, `maxDepth`, #264).
+`src/topic/` a workflow that researches its subtopics itself (`() => TopicResearchWorkflow`, `maxDepth`, #264).
 Point the CLI at it:
 
 ```bash
@@ -495,28 +555,28 @@ Runtime package `@agboss/core` + dev/CI companion `@agboss/cli`; the root `@agbo
 
 - `@agboss/core` — `@Workflow`, `@Agent`, `@Router`, `@Arbiter`, `@Tool`, `@ToolInterceptor`, `@Injectable`, `@Action`,
   `@WorkflowStart` / `@WorkflowFinish`, `@Judge`, `@InputGuardrail` / `@OutputGuardrail`,
-  `@PiiPolicy`, `@ChannelRole`, `@Compaction`,
+  `@PiiPolicy`, `@ToolApproval`, `@ExternalTask`, `@Memory`,
   `InjectionToken`, `provide`, `env`, `secret`, `Secret`, the context levels (`ApplicationContext`,
-  `TenantContext`, `ExecutionContext`, `ContextValues`), the path builder (`start`,
-  `agent`, `router`, `action`, `route`, `caseOf`, `toAgent`, `toAction`, `toWorkflow`, `toParallelWorkflows`, `toFinish`, `ChildPlacement`, …),
+  `TenantContext`, `ExecutionContext`, `ContextValues`), the path builder (`onStart`,
+  `onAgent`, `onRouter`, `onAction`, `toAgent`, `toAction`, `toWorkflow`, `forEachItem`, `inParallel`, `toFinish`, `ChildPlacement`, …),
   `WorkflowSettings`, `@Application`, `createApp`, `@Budget`, the infrastructure contracts and SQLite / in-memory repositories (`Clock`,
   `IdGenerator`, `ChildExecutionQueueRepository`, `ExecutionHistoryRepository`, `MeshRequestRepository`, …),
   `Decision`, observers, errors and types
-- `@agboss/core/dto` — field decorators (`@Text`, `@ListOf`, …), the DTO wrappers (`listOf`, `oneOf`,
+- `@agboss/core/dto` — field decorators (`@Text`, `@List`, …), the DTO wrappers (`listOf`, `oneOf`,
   `optional`, `variant`) and the standard DTOs
 - `@agboss/core/units` — `usd()`, `seconds()`, `minutes()`, `hours()`, `kilobytes()`
-- `@agboss/core/models` — model providers (`@ModelProvider`, `OpenRouterModelProvider`, `DecisionsModelProvider`, listed in `@Application({ providers })`)
-- `@agboss/core/testing` — `testWith`, the 10 unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction`), the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
+- `@agboss/core/models` — model providers (`@ModelProvider`, `OpenRouterDriver`, `OpenAiCompatibleDriver`, `DecisionsDriver`, named by `@Application({ modelProvider })`)
+- `@agboss/core/testing` — `testWith`, the 10 unit runners (`testUnit`), the scripts (`replyWith`, `routeTo`, `when`, `waitFor`, …), `ToolFailure`,
   `mcpOf`, `VirtualClock`, `SequentialIdGenerator`, VCR (`+ @agboss/core/testing/setup`: the matchers)
-- `@agboss/core/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `checkTrajectory`, `judgedBy`
-- `@agboss/core/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`, `@McpTool`,
-  `@McpExpose`, `@Rag`, `@A2AAgent`, `@A2AExpose`, `a2aHttpListener`, `A2ACallerResolver`, memory)
+- `@agboss/core/eval` — `@EvalSuite`, `EvalCascade`, `evalCase`, `turn`, `pastTurn`, `toolCall`, `toolInvariant`, `answerPause`, `replyToPause`
+- `@agboss/core/mcp`, `/rag`, `/a2a`, `/memory` — integrations (`@McpServer`,
+  `@McpEndpoint`, `@Rag`, `@A2AAgent`, `@A2AEndpoint`, `a2aHttpListener`, `HttpAuthenticator`, memory)
 - `@agboss/core/eslint` — ESLint plugin (`agboss/no-component-state`, `agboss/no-direct-time`)
 
 Importing `@agboss/core` has no side effects: tracing, the MCP SDK and SQLite load only when an app
 uses them. The old entries `@agboss/core/core`, `/graph`, `/router`, `/tool` and `/channels` are
 deprecated re-exports for one minor release (`/concurrency` went with the old flow DSL, #272); `agboss migrate imports` rewrites them
-(and the renamed `Router` engine type → `RouterEngine`, root `McpServer` → `McpExpose` from
+(and the renamed `Router` engine type → `RouterEngine`, root `McpServer` → `McpEndpoint` from
 `@agboss/core/mcp`, testing `Duration` → `ClockDuration`, `TestClock` → `VirtualClock`). Every entry's surface is in
 `packages/agboss/api/*.api.md`; `npm run api:update` after an intended API change.
 
@@ -538,7 +598,7 @@ One set per application, in `environments/` next to the application file (#261).
 plain class with declared fields only, declared once in the application:
 
 <!-- snippet-context
-import { Application, Workflow, WorkflowStart, start, WorkflowFinish } from "@agboss/core";
+import { Application, Workflow, WorkflowStart, onStart, WorkflowFinish, Ttl } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { Budget, BudgetScope, BudgetPeriod, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
@@ -549,9 +609,9 @@ export class AuditWorkflowFinish {}
 @Workflow({
   name: "audit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(AuditWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(AuditWorkflowStart)
       .toFinish(AuditWorkflowFinish),
   ],
 })
@@ -674,49 +734,54 @@ export class AuditStoreService {
 - `environment` is required: an application with no settings declares the framework's empty
   contract, `@Application({ environment: EmptyEnvironment })` (any contract without fields works the
   same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets an empty environment.)
-- Model provider keys are part of it (#266): each `@ModelProvider` names the `Secret` field that
-  holds its key (`apiKey: "openRouterApiKey"`; the built-ins read `openRouterApiKey`), set with
-  `openRouterApiKey: secret("OPENROUTER_API_KEY")` in each environment that calls models — a test
-  environment may leave it out (tests script or replay models). A missing key fails the start of an
-  app that calls the provider; `agboss check` (without `--models`) reads the contract's shape and
-  writes the types without one. A base URL is read the same way: `baseUrlField:
-"openRouterBaseUrl"` with `openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")` — no `{ default }`:
-  unset, it is `undefined` and the provider uses its decorator's `baseUrl` (#266 S87).
+- Model provider keys are not fields of the environment contract (#1313): a driver reads its own
+  settings — `OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY"), baseUrl: env("OPENROUTER_BASE_URL",
+{ default: "https://openrouter.ai/api/v1" }) })` — from the process when the application starts. A
+  missing key fails the start of an app that calls the provider, naming the variable, never a value;
+  `agboss check` (without `--models`) reads the shape and writes the types without one. The same holds
+  for the storage's keys (`piiSecret`, `idempotencySecret`) and its driver's connection. A test app
+  scripts or replays its models and needs none.
 - `env.optional("X")` (`env.integer.optional`, `env.flag.optional`) reads a variable that may be
   unset — `undefined` then, for an optional field of the contract (`x?: string`); a set value is
   still checked, and `agboss check --env` marks it `(optional)` (#266 S90).
 
 ## Quality gates (judges)
 
-`@Agent({ judges: [AnswerGroundedJudge], maxRetries: 1 })` runs every judge on the agent's reply. A
-judge is a `@Judge({ name, model, reply, deps })` class implementing `JudgeHandler<TReply>`; the
-container creates it with its `deps`, and its **own** model is called through the model gateway, so
-its spend is in the run's cost report (`judge:<name>`, category `review`). A judge sees the agent's
-answer **as its DTO** (#262 S115): `reply` names what it judges, in every shape an agent's `output`
-has — a DTO class, `oneOf(A, B)` (the reply is `A | B`), `listOf(XDto)` (a `readonly XDto[]`) or
-`PlainTextDto` for a text agent (`{ text }`) — and `judge({ variant, reply, task, attempt })` gets
+`@Agent({ judges: [AnswerGroundedJudge], executionLimits: { maxRetries: 1 } })` runs every judge on the agent's reply. A
+judge is a `@Judge({ output, deps })` class with a `judge(input)` method (sync or async); the
+container creates it with its `deps`. One that injects `JudgeModel` (`deps: [JudgeModel]`) calls its
+**own** model through the model gateway, so its spend is in the run's cost report (`judge:<name>`,
+category `review`); one that does not is decided by code, at `$0`. A judge sees the agent's
+answer **as its DTO** (#262 S115): `output` names what it judges, in every shape an agent's `output`
+has — a DTO class, `oneOf(A, B)` (the output is `A | B`), `listOf(XDto)` (a `readonly XDto[]`) or
+`PlainTextDto` for a text agent (`{ text }`) — and `judge({ variant, output, task, attempt })` gets
 the validated answer object, never a serialized string, and `variant`, the class it validated as
 (#262 S125): the class of the answer tool the agent used, never guessed from the answer's shape. For
 a `oneOf(A, B)` judge `JudgeInput<A | B>` is a discriminated union on `variant`, and
-`isVariant(input, A)` narrows `reply` to `A`; a single DTO, `listOf(XDto)` or `PlainTextDto` judge
-has `variant` as that one class; a `listOf(oneOf(A, B))` judge reads
-`reply: readonly VariantOf<A | B>[]` — each item `{ variant, value }`, narrowed by
-`isVariant(item, A)`. An agent whose `output` its judge does not judge
-fails assembly with `[judge.wrong-reply]`: a text agent with a DTO judge, a DTO agent with another
+`input.output instanceof A` narrows `output` to `A`; a single DTO, `listOf(XDto)` or `PlainTextDto` judge
+has `variant` as that one class; a `listOf(A, B)` judge reads
+`output: readonly (A | B)[]` — each item an instance of its class (`item instanceof A`). An agent whose `output` its judge does not judge
+fails assembly with `[judge.wrong-output]`: a text agent with a DTO judge, a DTO agent with another
 class, a `oneOf` variant the judge does not cover, a list agent with a judge of one value or the
 other way round. A verdict is built with `JudgeVerdict.passed({ metrics? })` or
-`JudgeVerdict.failed({ reason, metrics? })` — the only way; a failed verdict's `reason` goes back to
+`JudgeVerdict.failed(reason, { metrics? })` — the only way; a failed verdict's `reason` goes back to
 the agent for its retry, and once `maxRetries` retries are spent the run throws `QualityGateError`
 (`code: "step.agent.quality-gate"`, `rejections: [{ judge, reason }]`). A judge without a model
 fails at app start (`[judge.no-model]`).
+
+A judge that only asks its model needs no code: an empty class with a `prompt` (a `.prompt.md` file next
+to it, or `inline(…)`) and an optional `threshold` in `(0, 1]` is a **declarative judge**. Its model answers
+one structured verdict — `{ passed, reason }`, or with a `threshold` `{ score, reason }` that passes at
+`score >= threshold` — and an answer that is no verdict fails the agent closed. The budgets are checked before
+each of its model calls, and in tests it passes unless scripted.
 
 A judge's model comes through the constructor (`deps: [JudgeModel]`): a chat model
 (`judgeModel.invoke(...)`) or a **decision model** (`judgeModel.decide({ state, questions })`) —
 every model of OpenRouter's Decisions API:
 `typesafe/jev-1.13`, `openai/gpt-6-luna-decisions`, `perplexity/pplx-decider-v1(.1)-27b`,
 `cloudflare/clef(-flash|-omni)`, `upstage/solar-decide`, `inception/mercury-decide`
-(`DECISION_MODELS`; `DecisionsModelProvider` serves them, `JevModelProvider` is its deprecated alias).
-Questions come from `Decision.noul` (yes/no → `noul` = P(yes)), `Decision.choice` (→ `choice`,
+(`DECISION_MODELS`; a provider with a `DecisionsDriver` serves them).
+Questions come from `Decision.boolean` (yes/no → `probability` = P(yes)), `Decision.choice` (→ `choice`,
 `probabilities`, `confidence`) and `Decision.score` (levels lowest first → `score` = the level's index);
 the answers are typed by them. `state` is a text, a JSON object, or text and image parts
 (`Decision.image(dataUrl)` — png/jpeg/webp data URLs; Luna, pplx-decider and Clef read images). At
@@ -726,7 +791,7 @@ most 200 questions per call; an answer that does not fit its question fails with
 
 <!-- snippet-context
 import { InjectionToken } from "@agboss/core";
-import { ListOf, Text } from "@agboss/core/dto";
+import { List, Text } from "@agboss/core/dto";
 export class JobDto {
   @Text({ prompt: "the job's title" })
   title!: string;
@@ -735,7 +800,7 @@ export class JobDto {
   url!: string;
 }
 export class JobReportDto {
-  @ListOf(JobDto, { prompt: "the jobs found" })
+  @List(JobDto, { prompt: "the jobs found" })
   jobs!: JobDto[];
 }
 interface JobSearch {
@@ -758,7 +823,7 @@ import {
 @Judge({
   name: "answer-grounded-judge",
   model: "openai/gpt-6-luna-decisions",
-  reply: JobReportDto, // what it judges: the agent's output, as its DTO
+  output: JobReportDto, // what it judges: the agent's output, as its DTO
   deps: [JudgeModel, JOB_SEARCH],
 })
 export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
@@ -767,15 +832,15 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
     private readonly jobSearch: JobSearch,
   ) {}
 
-  async judge({ reply, task }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
-    const [first] = reply.jobs;
+  async judge({ output, task }: JudgeInput<JobReportDto>): Promise<JudgeVerdict> {
+    const [first] = output.jobs;
     if (first === undefined || !(await this.jobSearch.exists(first.url))) {
-      return JudgeVerdict.failed({ reason: "the first job does not exist" });
+      return JudgeVerdict.failed("the first job does not exist");
     }
     const a = await this.judgeModel.decide({
-      state: { task, jobs: reply.jobs.map((job) => job.title), results: this.jobSearch.lastResults() },
+      state: { task, jobs: output.jobs.map((job) => job.title), results: this.jobSearch.lastResults() },
       questions: {
-        grounded: Decision.noul("Every job of the report appears in the results"),
+        grounded: Decision.boolean("Every job of the report appears in the results"),
         tone: Decision.choice("Tone of the report", {
           neutral: "Plain, factual",
           pushy: "Sells or pressures",
@@ -783,10 +848,10 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
         quality: Decision.score("Overall usefulness", ["useless", "partial", "complete"]),
       },
     });
-    // a.grounded.noul: number; a.tone.choice: "neutral" | "pushy"; a.quality.score: number
-    return a.grounded.noul > 0.7 && a.tone.choice === "neutral"
+    // a.grounded.probability: number; a.tone.choice: "neutral" | "pushy"; a.quality.score: number
+    return a.grounded.probability > 0.7 && a.tone.choice === "neutral"
       ? JudgeVerdict.passed({ metrics: { quality: a.quality.score } })
-      : JudgeVerdict.failed({ reason: "Only report jobs from the search results, neutrally." });
+      : JudgeVerdict.failed("Only report jobs from the search results, neutrally.");
   }
 }
 ```
@@ -794,7 +859,7 @@ export class AnswerGroundedJudge implements JudgeHandler<JobReportDto> {
 In tests, script a chat judge like an agent — `mockLlm(Judge).thenReturn(replyWith("PASS"))` — and a
 decision judge with its answers by question id (an option, P(yes), a level's index or text):
 `mockLlm(AnswerGroundedJudge).thenReturn(decideWith({ grounded: 0.9, tone: "neutral", quality: 2 }, { cost: usd(0.0002) }))`;
-on its own, `testJudge(AnswerGroundedJudge, …)({ variant, reply, task, attempt })` takes `reply` as a
+on its own, `testUnit(AnswerGroundedJudge, …)({ variant, output, task, attempt })` takes `output` as a
 plain object of its DTO, typed by the judge — another shape, or a `variant` with another class's
 value, does not compile.
 
@@ -811,24 +876,24 @@ export class RefusalDto {
 -->
 
 ```ts
-import { Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
-import { isVariant, oneOf } from "@agboss/core/dto";
+import { Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
+import { oneOf } from "@agboss/core";
 
-@Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", reply: oneOf(OfferDto, RefusalDto) })
+@Judge({ name: "fair-decision-judge", model: "typesafe/jev-1.13", output: oneOf(OfferDto, RefusalDto), deps: [JudgeModel] })
 export class FairDecisionJudge implements JudgeHandler<OfferDto | RefusalDto> {
   judge(input: JudgeInput<OfferDto | RefusalDto>): Promise<JudgeVerdict> {
-    if (isVariant(input, OfferDto)) {
-      // input.variant is OfferDto, the class of the answer tool; input.reply is an OfferDto
+    if (input.output instanceof OfferDto) {
+      // input.variant is OfferDto, the class of the answer tool; input.output is an OfferDto
       return Promise.resolve(
-        input.reply.salary > 0
+        input.output.salary > 0
           ? JudgeVerdict.passed()
-          : JudgeVerdict.failed({ reason: "an offer pays something" }),
+          : JudgeVerdict.failed("an offer pays something"),
       );
     }
-    // input.reply is a RefusalDto
+    // input.output is a RefusalDto
     return Promise.resolve(
-      input.reply.why.trim() === ""
-        ? JudgeVerdict.failed({ reason: "a refusal says why" })
+      input.output.why.trim() === ""
+        ? JudgeVerdict.failed("a refusal says why")
         : JudgeVerdict.passed(),
     );
   }
@@ -844,11 +909,11 @@ one choice question over the routes, options sorted so declaration order never c
 container and infrastructure, models by script, MCP servers stubbed, the network blocked, a
 `VirtualClock`. Scripts are typed by the generated `.agboss/types.d.ts` (`agboss check`, #262):
 `replyWith(XDto, fields)` must be a class of the agent's output (a class outside its `oneOf` does
-not compile), `routeTo(…)` a target of the router's routes — exactly one after `.chooseOne(…)`, the
-`OnDemand` targets it launches before `.toParallelAgents(…)` (`routeTo()` only with an `Always`
+not compile), `routeTo(…)` a target of the router's routes — exactly one after `.onRoute(…)`, the
+`OnDemand` targets it launches before `.inParallel([…])` (`routeTo()` only with an `Always`
 route). `when(…)` binds turns to the node's input values, at any depth: a deep partial of each
 field's `value` (the producer is not compared), `undefined` for an absent field, a `listOf` field by
-length and position, a `oneOf` element as `variant(XDto, { … })`; a call no script matches fails the
+length and position, the class of a polymorphic element as `expect.any(XDto)`; a call no script matches fails the
 test, naming its input. A script is an expectation: a `thenReturn` turn no call took, or a `when(…)`
 nothing matched, fails a test whose body passed (`thenReturnAlways` never does).
 `waitFor(seconds(31))` before a turn makes the call take that long on the test's clock. A model
@@ -856,7 +921,7 @@ reply interpreter (#267) is scripted the same way, its input the pause's `{ ask,
 `mockLlm(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`,
 one on a decision model with `decideWith({ approved: 0.9 })` (#267 S124);
 a code one is created by the container and replaced with `mockOf(Interpreter).interpret`
-(`mockReturnValue(ReplyInterpretation.understood({ approved: true }))`).
+(`mockReturnValue(ChannelInterpretation.understood({ approved: true }))`).
 
 <!-- snippet-context
 import { ExecutionCancelledError } from "@agboss/core";
@@ -925,8 +990,8 @@ Parallel branches run one at a time in a test, in listed / item order (`TestConc
 the default); `TestConcurrency.Real` runs them as production does, and
 `TestConcurrency.inOrder([step(A), step(B)])` makes them complete in that order — a race, a
 `FailFast` or a quorum gives the same result on every run. One component is tested on its own with
-a unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`,
-`testGuardrail`, `testPii` — its own container (`overrides` replace classes by classes), the
+a unit runner: `testUnit`,
+`testUnit` — its own container (`overrides` replace classes by classes), the
 `environment`, the frame of its step (`executionContext.signal` with a `timeout`, `SpendRecorder`),
 its model by script; each call gives `{ output, spend }`.
 
@@ -946,7 +1011,7 @@ export class JobBoardService {
 @Injectable()
 export class FakeJobBoardService extends JobBoardService {}
 declare class SearchJobsTool {
-  run(input: { readonly query: string }): Promise<{ readonly jobs: string }>;
+  execute(input: { readonly query: string }): Promise<{ readonly jobs: string }>;
 }
 declare class GroundedJudge implements JudgeHandler<PlainTextDto> {
   judge(input: JudgeInput<PlainTextDto>): Promise<JudgeVerdict>;
@@ -957,15 +1022,7 @@ declare const candidate: never;
 
 ```ts
 import { expect, it } from "vitest";
-import {
-  decideWith,
-  override,
-  step,
-  TestConcurrency,
-  testJudge,
-  testTool,
-  testWith,
-} from "@agboss/core/testing";
+import { decideWith, step, TestConcurrency, testUnit, testWith } from "@agboss/core/testing";
 import { seconds } from "@agboss/core/units";
 
 // the risks agent answers first, then the skills agent: the quorum counts them in that order
@@ -979,8 +1036,8 @@ test("the first two answers are counted", async ({ app }) => {
 });
 
 it("searches the board it is given", async () => {
-  const runSearch = testTool(SearchJobsTool, {
-    overrides: [override(JobBoardService, FakeJobBoardService)],
+  const runSearch = testUnit(SearchJobsTool, {
+    services: [FakeJobBoardService],
   });
 
   const { output, spend } = await runSearch({ query: "TS" }, { timeout: seconds(1) });
@@ -990,10 +1047,10 @@ it("searches the board it is given", async () => {
 });
 
 it("a grounded reply passes", async () => {
-  const runJudge = testJudge(GroundedJudge, { model: decideWith({ grounded: 0.9 }) });
+  const runJudge = testUnit(GroundedJudge, { model: decideWith({ grounded: 0.9 }) });
 
   const reply = { text: "Acme hires TS engineers [acme.example]" }; // a PlainTextDto, as an object
-  const { output } = await runJudge({ variant: PlainTextDto, reply, task: "Find TS jobs", attempt: 0 });
+  const { output } = await runJudge({ variant: PlainTextDto, output: reply, task: "Find TS jobs", attempt: 0 });
 
   expect(output.passed).toBe(true);
 });
@@ -1013,7 +1070,7 @@ through `{{input.…}}` in its instructions (`[prompt.input-in-instructions]`); 
 input and no metadata.
 
 <!-- snippet-context
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class OrderQuery {
   @Text({ prompt: "the order id" })
@@ -1026,14 +1083,14 @@ export class OrderQuery {
   output: OrderQuery,
   deps: [ExecutionContext],
 })
-export class PayOrder implements ToolHandler<OrderQuery, OrderQuery> {
+export class PayOrder {
   constructor(private readonly executionContext: ExecutionContext) {}
 // @snippet
 }
 -->
 
 ```ts
-run(query: OrderQuery): Promise<OrderQuery> {
+execute(query: OrderQuery): Promise<OrderQuery> {
   const { executionContext } = this;
   executionContext.executionId; // unique per execution, the same after a resume (= ExecutionOutput.executionId)
   executionContext.threadId; // the conversation (ExecutionOutput.threadId)
@@ -1084,25 +1141,25 @@ all there is (`weight`, a positive integer, default 1, is the tenant's share for
 `@Application({ tenantContext: ShopTenantContext, executionContext: ShopExecutionContext })` — its
 own subclasses with DTO field decorators, identity only, never secrets — gets their values typed
 per start (`tenant: ContextValues<ShopTenantContext>`, `execution: …`), checked before the first
-step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pending[i].ask.arguments`) have the input DTO's
-`sensitive` fields through their action (`replacePart` as written, a token or a kind as `<field>`,
+step (invalid → `dto.invalid`, an `onExecutionRejected`, the field named, never the value) and frozen. Tool arguments a channel shows (and `ExecutionOutput.pending[i].input`) have the input DTO's
+`sensitive` fields through their action (`mask(part)` as written, a token or a kind as `<field>`,
 #120); the tool itself still gets them whole.
 
 **Pauses (#267).** An execution may wait for several answers at once — one per tool call whose
 channel replied `ChannelOutcome.awaitReply()`, in parallel branches too: a paused branch does not
 stop its siblings, the execution pauses only when nothing else can move, and `result.pending`
-lists every waiting pause (`PendingPause`: `kind`, `answerer`, `step`, `channel`, `itemIndex`,
-`childExecutionId`, the question `ask` — read after narrowing on `kind`). A pause is answered by its id, never by its thread —
+lists every waiting pause (`PendingPause`: `kind`, `respondent`, `target`, `step`, `channel?`, `itemIndex`,
+`childExecutionId`, the `input` asked with — and a `toolCall` — read after narrowing on `kind`). A pause is answered by its id, never by its thread —
 `app.resume({ pauseId, decision }, options)` — found by `(tenantId, pauseId)` anywhere in the tree
 (unknown, or another tenant's → `UnknownPauseError`, `pause.unknown`); with other pauses left the
 execution pauses again with the rest; the result carries `threadId` and `executionId`. Who may answer is
-the pause's channel role's `answerer`: a `PauseAnswerer.ThreadOwner` pause lists its `pauseId` in
+the pause target's `respondent`: a `PauseRespondent.Owner` pause lists its `pauseId` in
 `result.pending` and is resumed with the thread's `ownerId` (another → `ThreadOwnerError`); a
-`PauseAnswerer.Channel` pause's id is the right to answer it — only its channel got it
-(`ask.pauseId`), `result.pending` leaves it out — and it is resumed with `{ answeredBy:
+`PauseRespondent.Delegate` pause's id is the right to answer it — only its channel got it
+(`ask.pauseId`), `result.pending` leaves it out — and it is resumed with `{ actor:
 "manager-17" }`, recorded on the pause and in `onExecutionResume`; the other credential (or an empty
-`answeredBy`) is `PauseAnswererError` (`pause.wrong-answerer`). The decision is validated before
-it is recorded — a `ToolCallApprovalDecisionDto` (`approved`, `reason?`, `overrideArguments?`
+`actor`) is a `pause.wrong-respondent` error. The decision is validated before
+it is recorded — a `ToolCallApprovalDecisionDto` (`approved`, `reason?`, `overrideInput?`
 only with `approved: true`, checked by the tool's input), else `DtoValidationError` and the pause
 keeps waiting:
 
@@ -1116,27 +1173,27 @@ declare const replyKey: string;
 // a webhook: the finance manager pressed "Approve" on the message whose reply key is the pauseId
 const result = await app.resume(
   { pauseId: replyKey, decision: { approved: true } },
-  { tenantId: "acme", answeredBy: "manager-17" },
+  { tenantId: "acme", actor: { id: "manager-17" } },
 );
 ```
 
 **Free-text replies (#267 PR 3).** A webhook that only has the person's words passes them as
 they are — `app.resume({ pauseId, reply }, options)`, exactly one of `decision` or a non-empty
-`reply` — and the pause's role reads them with its `@ReplyInterpreter` (`replyInterpreter` on the
-`@ChannelRole`, one interpreter per role: `[channel.shared-interpreter]`). The interpreter gets the
+`reply` — and the pause's target reads them with its `@ChannelInterpreter` (`channelInterpreter` on the
+`@ToolApproval` / `@ExternalTask`, one interpreter per target: `[channel.shared-interpreter]`). The interpreter gets the
 pause's original question and the reply (`{ ask, reply }`); what it gives is validated like a
-decision. `DecidedBy.Model` — a chat model answers through one answer tool, its static `prompt` /
-`promptUrls` its instructions, the question and the reply in the input message. For an approval role
-(`approves`) the model may be a decision model (Jev, #267 S124): it reads approve / refuse only — one
-`Decision.noul("approved")`, approved when P(yes) > 0.5, the answer `{ approved }` with no `reason`
-and no `overrideArguments`; a question role (#659), whose answer needs more than a yes / no, cannot
+decision. An interpreter with a `prompt` (and a `model`) is a **model interpreter** — a chat model answers
+through one answer tool, its `prompt` its instructions, the question and the reply in the input
+message. For a tool approval the model may be a decision model (Jev, #267 S124): it reads approve / refuse only — one
+`Decision.boolean("approved")`, approved when P(yes) > 0.5, the answer `{ approved }` with no `reason`
+and no `overrideInput`; a question role (#659), whose answer needs more than a yes / no, cannot
 name one (`[reply-interpreter.decision-model]`). Either model's call goes through the provider
-resolved by `serves`, is checked against the tree's budgets first, counted in their ledger at once
+its `modelProvider` cascade names, is checked against the tree's budgets first, counted in their ledger at once
 and in the execution's spend when the step takes the answer, and traced (`reply-interpreter:<name>`).
-`DecidedBy.Code` — the class's `interpret(input: InputOf<Self>)` (`implements
-ReplyInterpreterHandler<Self>`, `deps` like any component), created by the container, returns its
-outcome (#267 S124): `ReplyInterpretation.understood(decision)` — validated like any decision — or
-`ReplyInterpretation.notUnderstood({ reason })` for a reply it cannot read (a plain object does not
+A **code interpreter** has no `prompt` and no `model` — the class's `interpret(input)` (`implements
+ChannelInterpreterHandler<Self>`, `deps` like any component), created by the container, returns its
+outcome (#267 S124): `ChannelInterpretation.understood(decision)` — validated like any decision — or
+`ChannelInterpretation.notUnderstood({ reason })` for a reply it cannot read (a plain object does not
 compile); a `throw` is for an unexpected crash only. Either kind reads in the pause's execution frame — its
 `ExecutionContext` has the tenant, the owner and the waiting step, and the rate limits see the
 tenant. A model interpreter reads the question and the reply through the application's and the
@@ -1146,10 +1203,10 @@ understood, a model that gives no answer, an answer the role rejects, a crash �
 `UninterpretableReplyError` (`pause.uninterpretable-reply`; `reason` says why, `cause` is the error
 behind it, if any) and the pause stays pending, so the webhook can ask again or answer with a `decision`; a
 `reply` for a role without an interpreter is `ReplyInterpreterMissingError`
-(`pause.no-reply-interpreter`), the pause untouched.
+(`pause.channel-interpreter-missing`), the pause untouched.
 
 <!-- snippet-context
-import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter, type App } from "@agboss/core";
+import { PauseRespondent, ChannelInterpreter, type App, ToolApproval } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 declare const app: App;
 declare const replyKey: string;
@@ -1159,65 +1216,76 @@ export class RefundCardInputDto {
 -->
 
 ```ts
-@ReplyInterpreter({
+import { inline } from "@agboss/core";
+import { hours } from "@agboss/core/units";
+@ChannelInterpreter({
   name: "refund-reply-interpreter",
   description: "Turns a manager's free-text reply into a refund decision",
-  decidedBy: DecidedBy.Model,
-  model: "moonshotai/kimi-k2.6",
-  prompt: "The manager answered a refund approval in free text. Decide approve / reject.",
+  model: "moonshotai/kimi-k2.6", // a prompt and a model: a chat model reads the reply
+  prompt: inline("The manager answered a refund approval in free text. Decide approve / reject."),
 })
 export class RefundReplyInterpreter {}
 
-@ChannelRole({
-  name: "refund-approval-channel",
+@ToolApproval({
+  name: "refund-tool-approval",
   description: "Approves card refunds",
-  approves: RefundCardInputDto,
-  answerer: PauseAnswerer.Channel,
-  replyInterpreter: RefundReplyInterpreter,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
+  channelInterpreter: RefundReplyInterpreter,
 })
-export abstract class RefundApprovalChannel extends ChannelOf<RefundApprovalChannel> {}
+export class RefundToolApproval {}
 
 // a webhook passes the text as it came
-await app.resume({ pauseId: replyKey, reply: "ok, refund it" }, { answeredBy: "manager-17" });
+await app.resume(
+  { pauseId: replyKey, reply: "ok, refund it" },
+  { tenantId: "acme", actor: { id: "manager-17" } },
+);
 ```
 
 <!-- snippet-context
-import { ChannelOf, ChannelRole, DecidedBy, PauseAnswerer, ReplyInterpreter } from "@agboss/core";
+import { PauseRespondent, ChannelInterpreter, ToolApproval } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
+import { DecisionsDriver, ModelProvider } from "@agboss/core/models";
+import { secret } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
+@ModelProvider({ driver: DecisionsDriver({ apiKey: secret("OPENROUTER_API_KEY"), baseUrl: "https://openrouter.ai/api/v1" }), timeout: seconds(30) })
+export class DecisionsModelProvider {}
 export class DepositReturnDto {
   @Text() leaseId!: string;
 }
 -->
 
 ```ts
-// approve / refuse on a decision model: one Decision.noul("approved") — no reason, no overrideArguments
-@ReplyInterpreter({
+import { inline } from "@agboss/core";
+import { hours } from "@agboss/core/units";
+// approve / refuse on a decision model: one Decision.boolean("approved") — no reason, no overrideInput
+@ChannelInterpreter({
   name: "deposit-reply-interpreter",
   description: "Reads whether a clerk's reply approves a deposit return",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "The clerk answered a deposit return.",
+  modelProvider: DecisionsModelProvider, // a decision model: its provider's driver is DecisionsDriver
+  prompt: inline("The clerk answered a deposit return."),
 })
 export class DepositReplyInterpreter {}
 
-@ChannelRole({
-  name: "deposit-approval-channel",
+@ToolApproval({
+  name: "deposit-tool-approval",
   description: "A clerk approves deposit returns",
-  approves: DepositReturnDto, // an approval role: a decision model may read its replies
-  answerer: PauseAnswerer.Channel,
-  replyInterpreter: DepositReplyInterpreter,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
+  channelInterpreter: DepositReplyInterpreter,
 })
-export abstract class DepositApprovalChannel extends ChannelOf<DepositApprovalChannel> {}
+export class DepositToolApproval {}
 ```
 
-A code interpreter returns its outcome: `ReplyInterpretation.understood({ approved: true })` for a
-button value it knows, `ReplyInterpretation.notUnderstood({ reason: "not a button value" })` for
+A code interpreter returns its outcome: `ChannelInterpretation.understood({ approved: true })` for a
+button value it knows, `ChannelInterpretation.notUnderstood({ reason: "not a button value" })` for
 anything else (Wiki → Pauses has the whole class).
 
 **Who answered each pause (#267 S107).** `app.resume(…, { record: true })` (or `execute`) returns
 `result.record.pauses`: every resolved pause of the tree in the order asked —
-`PauseAnswerRecord { pauseId (undefined for a PauseAnswerer.Channel pause), executionId (the
-execution it waited in: the root's or a child's), step, role, answerer, answeredBy (the person; `responder` is its deprecated alias), resolution,
+`PauseAnswerRecord { pauseId (undefined for a PauseRespondent.Delegate pause), executionId (the
+execution it waited in: the root's or a child's), step, target, respondent, channel?, actor (the person), resolution,
 askedAt, resolvedAt, decision }`, `PauseResolution.Decided`
 (`ChannelOutcome.decided`, no pause), `Replied` (`awaitReply()` + `app.resume`), `Withdrawn` (a
 `FailFast` sibling failed) or `Cancelled` (`app.cancel`, or the tree ended); the decision masked by
@@ -1243,8 +1311,8 @@ crash lost it.
 answered (by whom, with the masked answer), expired, cancelled, withdrawn, its tree ended — is told
 to that channel through `onPauseClosed(event: ChannelPauseClosedEvent<Role>)` (and an answer never
 applied through `onPauseAnswerNotTaken`): a channel that overrides either has a mailbox, the rest
-cost nothing. An application lists `@PauseListener({ name: "…-pause-listener" })` classes in
-`@Application({ providers })`; each `implements PauseListenerHandler` and hears every pause of the
+cost nothing. An application lists `@ChannelListener({ name: "…-pause-listener" })` classes in
+`@Application({ providers })`; each `implements ChannelListenerHandler` and hears every pause of the
 application open (`onPauseOpened`) and close (`onPauseClosed`). Both are written with the pause's
 change, in the transaction that makes it, and delivered at least once by any instance — after a crash
 too —, in order per pause and receiver, in the pause's execution frame under a timeout (the tool's, or
@@ -1252,15 +1320,13 @@ too —, in order per pause and receiver, in the pause's execution frame under a
 (`pause.notice-failed`), and after `retention.pauseRecords` set aside (`pause.notice-dead`, an
 error). Every event carries `deliveryId`: the same on every redelivery, different for every notice —
 the receiver deduplicates by it. A listener gets `pauseKey` (a correlation key), never the answering
-`pauseId` of a channel pause unless it is declared `allowAnswering: true` — a trusted component that
+`pauseId` of a channel pause unless it is declared `includePauseIds: true` — a trusted component that
 may answer every channel pause of the application. A receiver's failure never fails a run, a resume
 or a cancel; there is no redelivery API.
 
-**A deadline for the answer** (#941). `@ChannelRole({ expiresIn: hours(24) })` gives every pause of
-the role a deadline, fixed when the pause is made (a deploy that changes it never moves an open
-pause); `.toQuestion(Role, { expiresIn })` (also the side path `toQuestion(Role, { expiresIn })`)
-overrides it for a question step, `@Tool({ channel, expiresIn })` for a tool; at least `seconds(1)`
-(`[channel.expires-in-invalid]`, `[tool.expires-in-without-channel]`, `[question.expires-in-conflict]`).
+**A deadline for the answer** (#941). `@ToolApproval({ timeout: hours(24) })` (and `@ExternalTask({ timeout })`) gives every pause of
+the target a deadline, fixed when the pause is made (a deploy that changes it never moves an open
+pause); the timeout is required, at least `seconds(1)` (`[limits.timeout-invalid]`), and there are no per-step or per-tool overrides.
 A run's deadline bounds every pause too: the smaller wins, a tie goes to the run. The deadline is
 hard: an answer at or after it is refused with `PauseClosedError` (`reason: expired`, `closedAt` the
 deadline) — atomically in the store, whoever raced — and within seconds the pause timers' expiry look
@@ -1280,29 +1346,28 @@ and `agboss describe` show the deadlines. Over A2A the task goes `WORKING`, then
 (`step.pause-expired`) or `COMPLETED`.
 
 **Extend a pause, remind before its deadline** (#942). `await app.extendPause({ pauseId, expiresIn:
-hours(24) }, { answeredBy })` (the `ownerId` for a thread owner's pause: who may answer may extend)
+hours(24) }, { actor })` (the `ownerId` for a thread owner's pause: who may answer may extend)
 moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension` (`pauseKey`,
-`expiresAt`, `previousExpiresAt`); the channel's optional `onPauseExtended(event)` and a
-`@PauseListener`'s `onPauseExtended` hear "extended until …". Refused: a closed pause or one past its
+`expiresAt`, `previousExpiresAt`); the channel's optional `onPauseTimeoutChanged(event)` and a
+`@ChannelListener`'s `onPauseTimeoutChanged` hear "extended until …". Refused: a closed pause or one past its
 deadline (`PauseClosedError`, `reason: expired`), a pause with no deadline (none is ever added), a
 deadline not later than the current one, and one past the deadline of the run the pause was made
 under (`DtoValidationError`, `dto: "ExtendPauseRequest"`) — atomically in the store against the
-expiry look: one wins. `@ChannelRole({ expiresIn: hours(24), remindBefore: hours(2) })` makes the
+expiry look: one wins. `@ToolApproval({ timeout: hours(24), remindBefore: hours(2) })` makes the
 channel's optional `onPauseExpiring(event)` and a listener's `onPauseExpiring` hear "expiring at …"
 once per deadline, whatever the number of instances, and again before the new deadline after an
-extension; a step's or tool's `expiresIn` no longer than `remindBefore` gives that pause none
-(`[channel.remind-before-invalid]`, `[channel.remind-before-exceeds-expiry]`); a `remindBefore` shorter than the pause timers' 5 s tick can be skipped (`[channel.remind-before-below-tick]`, a warning). Two extensions at once: one wins in the store, the other re-reads — refused when it is not later than the new deadline, else applied over it — and the deadline never shortens.
+extension (`[pause.remind-before-invalid]` when `remindBefore` is not shorter than the `timeout`).
 
-**Reassign a pause** (#946). `await app.reassignPause({ pauseId, assignee: "deputy-3" }, { answeredBy })`
+**Reassign a pause** (#946). `await app.reassignPause({ pauseId, assignees: ["deputy-3"] }, { actor })`
 (the `ownerId` for a thread owner's pause: who may answer may reassign; `PauseCallerOptions`) moves an
 open pause to another addressee of the same channel without running the agent or the step again. The
-channel is asked again — `send` gets a new `pauseId`, `ChannelAsk.assignee` and `ChannelAsk.replaces`
+channel is asked again — `send` gets a new `pauseId`, `ChannelAsk.assignees` and `ChannelAsk.replaces`
 (`{ pauseId }` of the old message; both absent on a first send) — and its optional
 `onPauseClosed(event)` hears `reason: reassigned` for the old message, in no fixed order: the channel
 may edit the old message from `send` or from the notice. The old id answers nothing
 (`PauseClosedError`, `reason: reassigned`); the new pause keeps the deadline (extend it separately);
 the call returns `PauseReassignment` (`pauseKey` only: the new id is a capability, it goes to the
-channel and to a `@PauseListener({ allowAnswering })`, never to the caller or a log). One implementation
+channel and to a `@ChannelListener({ includePauseIds })`, never to the caller or a log). One implementation
 of the role routes on `assignee` (a Slack user, an address, a queue): no other role or implementation.
 Refused: a closed pause or one past its deadline (`PauseClosedError`), an `assignee` that is no key's text
 (`DtoValidationError`, `dto: "ReassignPauseRequest"`), another tenant's pause (`UnknownPauseError`); two
@@ -1310,14 +1375,14 @@ reassignments, or a reassignment and an answer, at the same moment: exactly one 
 pause is at-least-once: an instance that dies, or a channel that fails, between the write and the send is
 made up by the pause timers of another instance within a minute.
 
-**Deadlines in working time** (#944). "Approve within 2 hours" means 2 working hours: `expiresIn`,
+**Deadlines in working time** (#944). "Approve within 2 hours" means 2 working hours: `timeout`,
 `remindBefore` and `extendPause`'s `expiresIn` take `workingHours(n)` / `workingMinutes(n)`
 (`@agboss/core/units`) beside `hours(n)`. A calendar turns "now + N working time" into a date:
-`@Application({ workingCalendar: WorkingWeek.of({ timeZone, days, hours, breaks, holidays }) })` — a
+a target's `calendar` — a `@WorkingCalendar({ week: { timeZone, days, hours, breaks, holidays } })` class — a
 weekly grid, DST-safe (an instant is working time when its local time lies in `hours` and in no `break` on a
 working, non-holiday local date; working time is the real elapsed time of those instants) — or a
-`@WorkingCalendar` class (in `providers`) that sees the tenant and the role and may read the application's
-own data; a `@ChannelRole({ workingCalendar })` overrides the default. A request at 17:30 on a Thursday in
+`@WorkingCalendar` class (in `providers`) that sees the tenant and the target and may read the application's
+own data; each target names its own `calendar`. A request at 17:30 on a Thursday in
 Tel Aviv (Sunday to Thursday, 09:00–18:00, lunch 13:00–14:00) is due Sunday 10:30. The deadline is computed
 once, when the pause opens, before the channel is asked, into `expiresAt` / `remindAt` — a calendar changed
 later does not move open pauses (extend them); a calendar that fails, times out or answers a bad date
@@ -1336,11 +1401,12 @@ _What `onStream` carries_ below) and
 `executionContext` option (#261): what an execution carries is its typed context values — a
 channel, a guardrail or any component reads them through its injected `ExecutionContext`
 (`this.executionContext.tenant.tenantId`, the project's own fields), and an MCP session
-(`createMcpService(app, Mcp).connect(transport, { tenant, execution, ownerId })`) or an A2A call
-(`adapter.execute(Start, request, onEvent, { tenant, execution, ownerId })`) passes them from its
+(`connectMcp(app, { endpoint: Mcp, transport, session: { tenant, execution, ownerId } })`) or an A2A call
+(`a2aHttpListener(app, { endpoint, authenticator, publicUrl })`, whose authenticator returns them per
+request, #387, #808) passes them from its
 authenticated caller. `app.cancel(threadId)` aborts a running
-run — it stops before its next model or tool call and `execute` rejects with
-`ExecutionCancelledError` — or drops a paused one, whose pauses are withdrawn: their `resume` then
+run — it stops before its next model or tool call and `execute` resolves with
+`ExecutionStatus.Cancelled` — or drops a paused one, whose pauses are withdrawn: their `resume` then
 throws `PauseClosedError` (`reason: "cancelled"`);
 `cancelled` is `false` when the thread had neither (a thread the tenant does not have is
 `UnknownThreadError`). From `app.close()` on, `execute` and `resume`
@@ -1362,14 +1428,16 @@ Several-instances).
 #### What `onStream` carries
 
 `onStream` carries the **user-facing answer** as it is produced, and nothing else: the text of an
-`@Agent`'s own answering model call (`{ kind: "textDelta", delta }`) and its tool calls (`{ kind:
-"toolCall", tool }`, the tool's name only, never its arguments). It **never carries** a model the
+`@Agent`'s own answering model call (`{ kind: StreamEventKind.TextDelta, delta, step }`) and its tool
+calls (`{ kind: StreamEventKind.ToolCall, tool, step }`, the tool's name only, never its arguments;
+`step` is the model call that asked for it, so a spinner lands on the right branch, #1311). It **never carries** a model the
 framework calls for itself — routers, judges (`invoke` and `decide`), guardrails, arbiters, PII
 detection models, compaction and memory, rerankers, reply interpreters, launch deciders and eval
 judges are silent, and so is a model call any future component makes: the stream is no callback of
 the run, so a model does not hear it by inheriting one; only the agent's answering call is marked
 to stream (#1004). An agent with an `output` DTO answers with an answer tool, so it streams no
-text. Tracing (Langfuse) is separate and still sees every model call. A listener that throws never
+text. Tracing (OpenTelemetry) is separate and still sees every model call. A listener that throws — or
+an `async` one whose promise rejects; it is not awaited — never
 fails the run and the stream goes on: the first failure of a run is logged once through the
 `Logger` (`stream.listener-failed`, Warn, with the run's ids and the error's class, never the event;
 later ones of that run are not repeated).
@@ -1385,30 +1453,35 @@ A server that ignores `stream: true` and answers a plain JSON completion is read
 one delta, the plain call's output, usage, cost and finish reason (#1049); a body that is neither a
 stream nor a completion (empty, another content type) fails that call like any other failed call,
 never as a configuration error.
+The provider's `timeout` bounds a plain call's whole attempt — its body too, so a body that stalls after
+the headers times the attempt out and is retried as a timeout — and a streamed answer's silence: after the
+first content the clock restarts at every chunk, so a stream that is quiet for the `timeout` fails as
+`ModelFailure.Timeout` (the text so far is retracted, `StreamDiscardReason.StreamBroken`; no retry, as for a cut; one
+breaker failure; the rate-limit room is given back) while a long answer that keeps coming is never
+cut by it (#1125).
 A transport provider streams the text as it comes when its class has `stream(request)` (#1011): it
-returns `{ textStream: AsyncIterable<string>, usage: Promise<ModelProviderUsage> }`, the shape of the
-Vercel AI SDK's `streamText` — each chunk is a `textDelta`, and the call's usage, cost and budgets are
-a plain call's. It goes through the same attempt runner as `complete()`: a failure before the first
-chunk is retried, a failure after text (a thrown stream, a `usage` that rejects) fails the call, is
+returns `{ textStream: AsyncIterable<string>, result: Promise<ModelProviderStreamResult> }` — the
+shape of the Vercel AI SDK's `streamText`, its `result` (`{ usage: TokenUsage, cost?, finishReason?
+}`, #1311) what `complete()`'s response holds beside its text — each chunk is a
+`StreamEventKind.TextDelta`, and the call's usage, cost and budgets are a plain call's. It goes through the same attempt runner as `complete()`: a failure before the first
+chunk is retried, a failure after text (a thrown stream, a `result` that rejects) fails the call, is
 not retried and counts once in the breaker, a caller's abort is neither. Every wait — for a chunk,
-for the `usage` after the last one — is bound by the provider's `timeout`; a stall or a `usage` that
-never settles is a `ModelProviderFailureError` (`ModelFailure.Timeout`), and the request's `signal` is
-aborted so the SDK stops. `usage` must settle when the stream ends, fails or is aborted. A call with
+for the `result` after the last one — is bound by the provider's `timeout`; a stall or a `result` that never settles is a `ModelProviderFailureError` (`ModelFailure.Timeout`), and the request's `signal` is
+aborted so the SDK stops. `result` must settle when the stream ends, fails or is aborted — after a failure, with what the
+call used so far: the provider's rate-limit window counts those tokens. A call with
 tools bound (an agent with an `output` DTO, a tool loop) goes through `complete()`: a text stream
 carries no tool call; so does a run under `--chaos`. A transport provider without `stream` streams
 the whole answer as one delta at the end. A fallback
 model's answer streams like the primary's; when the primary dies mid-stream and its breaker opens,
-the text so far is retracted (`stream-broken`) and the fallback answers from the start. `agboss run`
+the text so far is retracted (`StreamDiscardReason.StreamBroken`) and the fallback answers from the start. `agboss run`
 prints the answer from the result when nothing streamed.
 
-Streamed text is **provisional** (#1006). Every `textDelta` carries `step: { agent, visit, branch,
-attempt }` — the visit's node id (a launch copy: `critic-agent#2`), its visit number, the execution
+Streamed text is **provisional** (#1006). Every event carries `step: { agent, visit, branch, attempt }` — the visit's node id (a launch copy: `critic-agent#2`), its visit number, the execution
 that makes it (a child workflow has its own) and the agent's model call in the visit — so parallel
 branches, child executions and agent chains never share a key. When a judge rejects an attempt, a
-retry's first model call starts, or the visit fails, a `{ kind: "discarded", step, reason }` event
-retracts everything streamed for that step (`reason`: `judge-rejected`, `tool-turn`,
-`invalid-answer`, `stream-broken`, `failed`); the next attempt is `attempt + 1`. The text before an
-ordinary tool call in a turn is retracted too (`tool-turn`): the turn's text is not the reply. The
+retry's first model call starts, or the visit fails, a `{ kind: StreamEventKind.Discarded, step, reason }` event retracts everything streamed for that
+step (`reason`, a `StreamDiscardReason`: `JudgeRejected`, `ToolTurn`, `InvalidAnswer`,
+`StreamBroken`, `Failed`); the next attempt is `attempt + 1`. The text before an ordinary tool call in a turn is retracted too (`ToolTurn`): the turn's text is not the reply. The
 deltas of the steps that were not discarded, joined, are the agent's reply. An agent with a
 **blocking output check** — an output guardrail, a PII policy with a block rule — has its text held
 until its checks passed: a refused answer never reaches the stream, and this cannot be switched off.
@@ -1425,17 +1498,107 @@ model writes it in pieces — a `<` is held back only while what follows can sti
 streamed and trailing whitespace is held until text follows it, so the deltas of the steps that
 were not discarded, joined, are exactly `output`.
 
+**Fencing an external write** (#471, #1317c). A step runs at least once: a holder frozen past its lease
+may wake and write after the new holder did. Domain code gets no raw fence and no raw transaction:
+the lease's `scopeKey` and fencing `token`, the step's `idempotencyKey` and the checks are made by
+`Idempotency` — `runOnce` for rows of the application's own database, `sendOnce` for a call that
+leaves the system (the key it sends is a 43-character HMAC of them). A write refused because the
+lease moved is `ExecutionError.Fenced` (`ExecutionFencedError`, `extends ExecutionLeaseLostError`),
+found in any cause chain: a hand-over — no `.onError`, no undo, the record stays `running` and the call
+rejects with it — and it is kept (#501): a `HandedOver` row of the audit log (`app.auditLogOf`) and
+an `onStepHandedOver` (`reason`, `site`, the step, `token`, `observedToken`); an idempotent write's call
+is an `IdempotencyRun` row and an `onIdempotencyRun` too (`Ran`, `Replayed`, `Joined`, `Refused`). The
+low-level `ExecutionFence` (`scopeKey`, `token`, `assertHeld()`, `renewNow()`, `fencedError()`) is a
+type of `@agboss/core/stores`, for a store author. A test freezes a writer with
+`testWith(App, { instances: 2 })` and `leases.freeze(apps[0])` on the `VirtualClock`; a unit runner's
+step has a held lease (`fence: { token, isLost, renewNowFails }`).
+
+**The idempotent write** (#500) does all of that in one call, for rows in the store's own database —
+no fencing or idempotency table of the application's: the application's `Idempotency` (#890, #1317, a
+core service a component injects, over the listed `FencedEffectRepository`) `runOnce({ name, ttl,
+execute })` checks, in one transaction, the step's lease (not its epoch,
+released or expired → `ExecutionFencedError`), the scope's high-water mark (a lower token refused
+before any key is read, so a zombie never gets the new holder's result), then the step's key —
+written before, the stored result comes back (`IdempotencyRunStatus.Replayed`) and `execute` does not run;
+else `execute` writes its rows and its result is stored with them (`Ran`). A concurrent call on one key
+of one instance gets the first's result (`Joined`); a throwing `execute` rolls everything back. The
+built-in store is in memory; the SQLite one of `SqliteDriver` (every store of a `@DatabaseStorage`
+shares one backend, #526, #1321) runs `execute` —
+asynchronous, as on PostgreSQL and MongoDB — in the file's one `BEGIN IMMEDIATE` transaction, held
+behind the connection's mutex (every other statement of the file waits for it, lease renewals
+excepted; the hold is capped at 15 s). `execute` is handed no transaction: a repository writes through
+`connection.requireTransaction()`, a guarded handle that dies with the attempt and poisons itself on
+the first failed statement (`IdempotencyError.TransactionPoisoned`; a `connection.transaction()` inside
+is `IdempotencyError.NestedTransaction`):
+
+<!-- snippet-context
+import { Action, Idempotency } from "@agboss/core";
+import { SqliteConnection } from "@agboss/core/stores";
+import { hours } from "@agboss/core/units";
+import { Text } from "@agboss/core/dto";
+export class OrderDto {
+  @Text() orderId!: string;
+}
+export class ChargeReceiptDto {
+  @Text() chargeId!: string;
+}
+-->
+
+```ts
+@Action({
+  name: "charge-order-action",
+  description: "Charges the order once per step",
+  input: { order: OrderDto },
+  output: ChargeReceiptDto,
+  deps: [Idempotency, SqliteConnection], // the store is the application's: SQLite's here
+})
+export class ChargeOrderAction {
+  constructor(
+    private readonly idempotency: Idempotency,
+    private readonly connection: SqliteConnection,
+  ) {}
+
+  async execute(input: { order: OrderDto }): Promise<ChargeReceiptDto> {
+    const { orderId } = input.order;
+    const { result } = await this.idempotency.runOnce({
+      name: "charge",
+      ttl: hours(24),
+      execute: () => {
+        // the row and the receipt commit together, with the fencing checks
+        const { lastInsertRowid } = this.connection
+          .requireTransaction()
+          .prepare("INSERT INTO charges (order_id) VALUES (?)")
+          .run(orderId);
+        return { chargeId: `charge-${String(lastInsertRowid)}` };
+      },
+    });
+    return result;
+  }
+}
+```
+
+The call's `maxResultSize` bounds a stored result (default
+`kilobytes(64)`, else `IdempotencyError.ResultTooLarge`) and its required `ttl` keeps the result and
+its mark (the recovery sweep removes them on the `Clock`; above the lease's 30 s, or `Ttl.Forever`). A store outside the core runs `fencedEffectContract` of
+`@agboss/core/testing/contracts`; flow-patterns' credit desk charges this way (its README).
+
 An execution's record is `ExecutionRecordStatus.Running` while its tree moves. **Recovery** (#265):
 every instance looks for `running` roots at its start and every 30 s, takes the lease of each whose
 holder died (its lease expired) or stopped (released it), and continues it from its last
 checkpoint — a decision recorded meanwhile first — so only the interrupted step runs again; a root
 started under another config is left to a compatible instance (logged once), unless
 `onIncompatibleResume` says `"resume"`. Observers get `onExecutionResume` with
-`reason: ResumeReason.Recovered` (`ResumeReason.Answered` for `app.resume`). With the in-memory
-defaults nothing survives a restart, so recovery needs persistent stores — the SQLite ones on one
+`reason: ResumeReason.Recovered` (`ResumeReason.Answered` for `app.resume`), and the takeover of
+the lease is told and kept (#501): `onExecutionLeaseTakeover` names the new holder and token, the
+expired holder when the lease store says (`ExecutionLease.takenOverFrom`) and why
+(`LeaseTakeoverReason`); the same facts are a row of the audit log, `ExecutionAuditLogRepository`
+(a store of the `@DatabaseStorage`), read through the public API
+with `app.auditLogOf({ tenantId, rootExecutionId })` while the tree runs and removed after
+the storage's required `auditLogTtl`. With the in-memory
+defaults nothing survives a restart, so recovery needs a persistent storage — the SQLite one on one
 machine. **`app.close()`** stops
 the sweep, runs `onStop`, waits for the running executions up to the shutdown timeout —
-`@Application({ shutdownTimeout })`, `app.close({ timeout })`, default `seconds(25)` — then
+`@Application({ executionLimits: { shutdownTimeout } })`, `app.close({ timeout })`, default `seconds(25)` — then
 interrupts them: each call rejects with `ApplicationStoppingError`, without `onExecutionError`, releases its
 lease at once and stays `running`, so another instance continues it without waiting for the lease
 to expire. `createApp` calls `app.close()` on SIGTERM / SIGINT (a second signal interrupts at once)
@@ -1452,16 +1615,60 @@ declare const app: App;
 await app.close({ timeout: seconds(10) });
 ```
 
+**Health checks** (#300): `app.checkLiveness()` and `app.checkReadiness()` are the instance's probes
+for an orchestrator (Kubernetes, Cloud Run) — the project's own server exposes them, the framework
+opens no endpoint. Liveness does no I/O: the instance (`Unhealthy`, `stopping`, from `app.close()`
+on) and its recovery loop (`Unhealthy` when its last sweep ended more than three sweep intervals ago
+on the `Clock`). Readiness adds one `ping()` per storage component (each #265 contract has one — a project's own
+implementation adds it; the SQLite ones run `SELECT 1`), every model provider's circuit breaker as
+`RateLimitRepository` keeps it (open → `Degraded`; never a model call) and the project's
+`@HealthCheck`s, listed in `@Application({ healthChecks })` — all at once, each under its timeout
+(stores and providers `seconds(2)`). A check that throws or passes its timeout is that component's
+`Unhealthy` with its `reason`; neither call ever rejects. The report's `status` is its worst
+component's (`HealthStatus.Healthy | Degraded | Unhealthy`), each component has its `name`, `kind`
+(`HealthComponentKind`), `status`, `reason` and `duration`
+([Wiki → Health-checks](https://github.com/agbossjs/agboss/wiki/Health-checks)).
+
+<!-- snippet-context
+import { HealthCheck, HealthCheckResult, Injectable, type App, type HealthReport } from "@agboss/core";
+import { seconds } from "@agboss/core/units";
+@Injectable()
+export class CrmClient {
+  ping(): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+}
+declare const app: App;
+-->
+
+```ts
+@HealthCheck({ name: "crm-health-check", timeout: seconds(2), deps: [CrmClient] })
+export class CrmHealthCheck {
+  constructor(private readonly crmClient: CrmClient) {}
+
+  async check(): Promise<HealthCheckResult> {
+    const isReachable: boolean = await this.crmClient.ping();
+    return isReachable
+      ? HealthCheckResult.healthy()
+      : HealthCheckResult.unhealthy("CRM is unreachable");
+  }
+}
+
+// listed in the application: healthChecks: [CrmHealthCheck]
+const liveness: HealthReport = await app.checkLiveness(); // GET /livez → 503 unless Healthy
+const readiness: HealthReport = await app.checkReadiness(); // GET /readyz → 503 when Unhealthy
+```
+
 In unit tests, `testExecutionContext({ … })` from
 `@agboss/core/testing` is a frozen `ExecutionContext`: `new PayOrder(testExecutionContext())`; its
 `tenant` and `tenant.application` are set with `{ tenantContext, tenant, application: {
 environment } }`.
 
-Observers are registered only in `@Application({ observers: [...] })` (#261) — one instance each,
-created by the container at start with their `deps`, called for every execution of the
-application (filter by `event.workflow.name === nameOf(SupportWorkflow)` — `nameOf(C)` gives the
-`name` of any AGBoss-decorated class); none listed → none is
-called. Each hook gets one event object, plain data, never the framework's internal state. Every
+Observers are `@Observer` classes registered only in `@Application({ observers: [...] })` (#261) —
+one instance each, created by the container at start with their `deps`, called for every execution
+of the application, within the `workflows` / `agents` their decorator names
+(`@Observer({ workflows: [SupportWorkflow] })`; `nameOf(C)` gives the `name` of any
+AGBoss-decorated class); none listed → none is called. Each hook gets one event object, plain data, never the framework's internal state. Every
 execution event (`ExecutionEvent`) carries `executionId`, `parentExecutionId`, `rootExecutionId`,
 `threadId`, `tenantId` and `workflow` — a `WorkflowRecord` `{ name, version, startedVersion }`, no
 class; a node event (agent, router, tool, model, knowledge base, guardrail, action,
@@ -1470,10 +1677,10 @@ channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`) adds `step`, a `St
 `callId`) — the serialized `executionContext.step`. `onExecutionStart` fires once per execution (at
 `execute`); one that pauses because nothing else can move emits `onExecutionPause` (`event.pending`:
 every pause it waits for — again after a partial resume), `app.resume` and recovery emit
-`onExecutionResume` (`event.reason`, `event.decision`, `event.answeredBy`), `onExecutionEnd` fires once
-when it ends at a finish (`event.finish`: a `ComponentRecord`, `event.spend`) and
-`onExecutionError` when it fails (`event.error`) — also after a resume; cancelling a paused
-execution is an `onExecutionError` with `ExecutionCancelledError`. A request refused before an
+`onExecutionResume` (`event.reason`, `event.decision`, `event.actor?.id`), `onExecutionEnd` fires once
+when it ends at a finish (`event.finish`: a `ComponentRecord`, `event.output`, `event.spend`) and
+`onExecutionError` when it fails (`event.error`) — also after a resume; a cancelled
+execution is `onExecutionCancel` (`event.compensations`, `event.spend`), never an error, and a stopped one `onExecutionStop`. A request refused before an
 execution starts or is located — another owner's thread, a `resume` of an unknown pause or one no
 longer waiting, an
 `execute` on an unknown thread or with an invalid input, an exhausted budget, a request after
@@ -1484,7 +1691,9 @@ values; never an `executionId`) and still throws. A resume refused as incompatib
 write that renews a value of the path scope outdates what was built from the older one:
 `onValuesOutdated` fires once per such cascade (the new value, each outdated value with its
 `OutdatedReason`; never DTO values), and `result.record.outdatedValues` keeps the values themselves.
-Assembly rejects an observer with no hook or with a misspelled one (`did you mean onToolEnd?`); an
+Assembly rejects a listed class without `@Observer`, an observer with no hook or with a misspelled
+one (`did you mean onToolEnd?`), and two with one name; `onAgentRetry` tells each time an agent
+corrects itself (an invalid answer or tool input, a judge's rejection); an
 observer that throws is a warning in the application's log (`observer.failed`) and never fails the
 execution.
 
@@ -1492,17 +1701,14 @@ execution.
 import {
   Application,
   EmptyEnvironment,
-  Injectable,
+  Observer,
   type AgentStartEvent,
   type ExecutionEndEvent,
   type ExecutionRejectedEvent,
-  type OnAgentStart,
-  type OnExecutionEnd,
-  type OnExecutionRejected,
 } from "@agboss/core";
 
-@Injectable()
-export class MetricsObserver implements OnExecutionEnd, OnAgentStart, OnExecutionRejected {
+@Observer()
+export class MetricsObserver {
   onExecutionEnd(event: ExecutionEndEvent): void {
     console.log(`${event.workflow.name} ${event.executionId} (tenant ${event.tenantId}) cost $${event.spend.totalUsd}`);
   }
@@ -1544,9 +1750,7 @@ details are its trace, a tenant's spend is the cost ledger, a rejected execution
 event. The startup warnings (`app.warnings`) include the **assembly warnings**: tenant or
 application budgets on the built-in in-memory cost ledger (`[application.in-memory-cost-ledger]`:
 each instance counts on its own, the counters reset on restart) and pauses possible with the
-built-in in-memory paused executions or checkpoints (`[application.in-memory-pauses]`), and PII
-tokens made with a key of each execution because `@Application({ piiKeyField })` is not set
-(`[application.pii-instance-key]`: one value gets another token in each execution) — errors
+built-in in-memory paused executions or checkpoints (`[application.in-memory-pauses]`) — errors
 under `agboss check --strict`, silent in tests (`testWith` logs no start and no warning; an unlisted
 logger is silent there).
 
@@ -1557,7 +1761,7 @@ Every model call is a usage record (caller, model, tokens, USD) in the run's `sp
 the execution (the application's `CostLedgerRepository`, in memory unless one is listed).
 
 **Money limits are `@Budget` components** (#261), all of them in `@Application({ budgets })`
-(written in `config/budget.config.ts`), one template — `@Budget({ name, scope, period?, workflow?,
+(written in `src/budgets/`), one template — `@Budget({ name, scope, period?, workflow?,
 deps? })` on a class that `implements BudgetHandler`, one method `maxSpend(): Usd | Promise<Usd>`:
 
 - `BudgetScope.Execution` — one full pass of `app.execute`: a workflow's own (`workflow: X`, at
@@ -1583,7 +1787,7 @@ was exhausted (a cost is known after its call), plus the spend of the steps it n
 undos, automatic or a side path's, and the actions of the side path that took a limit, step by step
 —, plus, across instances, what the steps spend — other trees' and the tree's own on another instance
 — that read the counters before that spend was in the ledger (one write after it was made, #727). A decision a
-tool's service makes through `ROUTER_FACTORY` is the tool's spend (`tool:<name>`). A paid service
+tool's service makes through `DecisionModel` is the tool's spend (`tool:<name>`). A paid service
 that is **not** a model is recorded with `SpendRecorder` (`deps: [SpendRecorder]`, in a `@Tool` or
 an `@Action`): the record joins the spend of the current tool call or step and counts in the same
 budgets. Called outside a step or a tool call, `record` throws `SpendOutsideStepError`
@@ -1591,15 +1795,15 @@ budgets. Called outside a step or a tool call, `record` throws `SpendOutsideStep
 
 <!-- snippet-context
 import { ExecutionContext, TenantContext } from "@agboss/core";
-import { Decimal } from "@agboss/core/dto";
+import { Float } from "@agboss/core/dto";
 export class ShopTenantContext extends TenantContext {
-  @Decimal()
+  @Float()
   dailyBudgetUsd!: number;
 }
 -->
 
 ```ts
-// config/budget.config.ts — the tenant's own amount, from its server-side data
+// budgets/tenant-own.budget.ts — the tenant's own amount, from its server-side data
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
 
@@ -1631,7 +1835,7 @@ A budget is unit-tested without the container —
 `new TenantDailyBudget(testExecutionContext({ tenantContext: ShopTenantContext, tenant: { dailyBudgetUsd: 40 } }).tenant).maxSpend()`
 is `usd(40)` — and an application test reaches an exhausted one the real way:
 `mockOf(TenantDailyBudget).maxSpend.mockReturnValue(usd(0.01))` plus a scripted cost
-(`replyWith(…, { cost: usd(0.02) })`). Steps are not money: `@Workflow({ maxSteps })` (default
+(`replyWith(…, { cost: usd(0.02) })`). Steps are not money: `@Workflow({ executionLimits: { maxSteps } })` (default
 (agents + routers) × 3; `StepsLimitExceededError`), checked at assembly too —
 `[limits.max-steps-too-low]` when no finish fits in a hand-set `maxSteps`, or when the default
 cannot hold the worst case of a per-item launch (`maxItems` runs: set `maxSteps`),
@@ -1650,7 +1854,7 @@ export class SearchResultsDto {
 -->
 
 ```ts
-import { SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
+import { SpendRecorder, Tool } from "@agboss/core";
 import { usd } from "@agboss/core/units";
 
 @Tool({
@@ -1660,10 +1864,10 @@ import { usd } from "@agboss/core/units";
   output: SearchResultsDto,
   deps: [SpendRecorder],
 })
-export class WebSearchTool implements ToolHandler<SearchQueryDto, SearchResultsDto> {
+export class WebSearchTool {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  run({ query }: SearchQueryDto): Promise<SearchResultsDto> {
+  execute({ query }: SearchQueryDto): Promise<SearchResultsDto> {
     this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) }); // → tool:web-search-tool
     return Promise.resolve({ text: `results for ${query}` });
   }
@@ -1678,9 +1882,9 @@ or a router removes an inherited one with `excludePiiPolicies` — for its own m
 logs, traces, observer events and `result.record` stay masked by the application's and the
 workflow's lists. Masking happens only at the model boundary: what a model reads is masked, what
 it gives back is revealed before any DTO is validated, so the scope, the checkpoint, every tool,
-action and finish see real values. `replaceWithToken()` is the reversible one — a tool gets the
-address the model only saw as `<email:7f3a91>` (an HMAC of the value with `pseudonymKey`; the
-token map is kept in the execution's checkpoint). A `blockWithRefusal` rule fails the execution
+action and finish see real values. `tokenize()` is the reversible one — a tool gets the
+address the model only saw as `<email:7f3a91>` (an HMAC of the value with the policy's `secret`, else the storage's `piiSecret`; the
+token map is kept in the execution's checkpoint). A `block` rule fails the execution
 with `PiiRefusedError` (`kind`, `refusal`) when the value comes in or is in an answer, and rejects
 only the call when it is in tool arguments or a tool result.
 
@@ -1691,7 +1895,6 @@ import {
   PiiGroup,
   PiiKind,
   PiiPolicy,
-  pii,
   secret,
   type PiiMatch,
   type PiiPolicyHandler,
@@ -1705,17 +1908,18 @@ import { Text } from "@agboss/core/dto";
   name: "customer-pii-policy",
   description: "Contact details hidden, cards refused, names found by a model",
   rules: [
-    pii(PiiGroup.Contact, PiiAction.replaceWithKind()), // phones, addresses, postal codes
-    pii(PiiKind.Email, PiiAction.replaceWithToken()), // a kind rule beats its group's
-    pii(PiiKind.PersonName, PiiAction.replaceWithKind()),
-    pii(PiiKind.CardNumber, PiiAction.blockWithRefusal()), // the text from refusal(kind)
+    PiiGroup.Contact.mask(), // phones, addresses, postal codes
+    PiiKind.Email.tokenize(), // a kind rule beats its group's
+    PiiKind.PersonName.mask(),
+    PiiKind.CardNumber.block(), // the text from refusal(kind)
   ],
-  detectWithModel: "moonshotai/kimi-k2.6",
-  pseudonymKey: secret("PII_PSEUDONYM_KEY"),
+  model: "moonshotai/kimi-k2.6",
+  secret: secret("PII_PSEUDONYM_KEY"),
+  previousSecret: secret.optional("PII_PSEUDONYM_KEY_PREVIOUS"),
 })
 export class CustomerPiiPolicy implements PiiRefusal {
   refusal(kind: PiiKind): string {
-    return `Please do not send a ${kind} here.`;
+    return `Please do not send a ${kind.id} here.`;
   }
 }
 
@@ -1727,7 +1931,7 @@ export class EmployeeDirectory {
 // a project's own detector: the framework applies `action` to every range it finds
 @PiiPolicy({
   name: "employee-id-pii-policy",
-  action: PiiAction.replaceWithToken(),
+  action: PiiAction.tokenize(),
   deps: [EmployeeDirectory],
 })
 export class EmployeeIdPiiPolicy implements PiiPolicyHandler {
@@ -1743,42 +1947,46 @@ export class EmployeeIdPiiPolicy implements PiiPolicyHandler {
 
 // a field without a format of its own: the same actions (masking ones only)
 export class TicketDto {
-  @Text({ prompt: "the customer's account", sensitive: PiiAction.replacePart({ keepLast: 4 }) })
+  @Text({ prompt: "the customer's account", sensitive: PiiAction.mask({ keepLast: 4 }) })
   account!: string;
 }
 ```
 
 Assembly checks the lists: `[pii.conflicting-rules]` (two policies with different actions for one
-kind, naming both), `[pii.exclude-not-inherited]`, `[pii.missing-refusal]`, `[pii.unused-refusal]`,
-`[pii.kind-needs-model]` (a name or an address without `detectWithModel`), `[pii.not-a-policy]`.
-Each `pseudonymKey` is read from its process variable when the app starts (a missing one fails the
-start). The application's own key, `@Application({ piiKeyField: "piiPseudonymKey" })`, names a
-`Secret` field of its environment (`piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`, like a model
-provider's `apiKey`): the key of sensitive fields, of project detectors and of every policy without
-its own — so one value is one token on every instance, and logs and traces from several machines
-agree; a policy's own key wins, and a policy that needs the application's when it is not set fails
-the start, naming the field. Not set and not needed, each instance makes a key of its own: the
-start goes on with the warning `[application.pii-instance-key]` (reveal still works — the token map
-is in the checkpoint — only logs and traces of two instances show one value as two tokens). Under
-`testWith` an unset key gets a fixed test key, and `mockLlm(CustomerPiiPolicy)`
-scripts its model detection (`pii:<policy>` in the spend). Wiki → Guards (PII).
+kind, naming both), `[pii.duplicate-target]` (one policy naming a kind or a group in two rules), `[pii.exclude-not-inherited]`, `[pii.missing-refusal]`, `[pii.unused-refusal]`,
+`[pii.kind-needs-model]` (a name or an address without the policy's `model`), `[pii.not-a-policy]`,
+`[pii.secret-required]` (something tokenizes and no key is named: the start fails). A policy's
+`secret` and `previousSecret` are read from their process variables when the app starts (a missing
+`secret`, or a `previousSecret` that is not `secret.optional(...)`, fails the start, naming the
+variable). The application's own key is `@DatabaseStorage({ piiSecret: secret("PII_PSEUDONYM_KEY"),
+previousPiiSecret })`: the key of `tokenize()` fields and of every policy without its own — so one
+value is one token on every instance, and logs and traces from several machines agree. A `tokenize()`
+rule or a `sensitive: PiiAction.tokenize()` field with no key to make its token fails the start with
+`[pii.secret-required]`; no storage, not even the built-in `InMemoryDatabaseStorage`, supplies one (`testWith` has a fixed test key, refused under `NODE_ENV=production`), and
+nothing tokenizes by a key of the instance (the built-in `WorkflowStartTextDto.author` is `mask()`).
+Rotating a key: name the old one as `previousSecret` / `previousPiiSecret`, and a value a thread has
+already tokenized under it keeps its token, so a resumed execution shows the model one token per
+value; the token map is in the checkpoint, so every old token still reveals. The `Logger` a
+component injects is masked as the framework's own log is. Under `testWith` an unset key gets a
+fixed test key, and `mockLlm(CustomerPiiPolicy)` scripts its model detection (`pii:<policy>` in
+the spend). Wiki → Guards (PII).
 
 ## Guardrails
 
 Guardrails block (safety); judges correct (quality). An `@InputGuardrail` checks what an agent's or
 a model router's model reads — its input message, masked by that element's PII policies, before the
 model is called; an `@OutputGuardrail` checks what an agent answers. Each asks its model one yes / no
-question — its `prompt` — a decision model through one `Decision.noul`, a chat model through one
+question — its `prompt` — a decision model through one `Decision.boolean`, a chat model through one
 answer tool; its `model` or `defaults.guardrail.model` (never `defaults.router`; none →
-`[guardrail.no-model]`). At P(yes) ≥ `threshold` the execution fails with `GuardrailBlockedError`
+`[model.missing-provider]`). At P(yes) ≥ `threshold` the execution fails with `GuardrailBlockedError`
 (`guardrail.blocked`): `refusal` is the text to send instead, `key` the setting that decided
 (`guardrails.<name>.threshold`). A model that does not answer fails closed (`GuardFailedError`).
 
 <!-- snippet-context
 import { ExecutionContext, InputGuardrail, Injectable, OutputGuardrail, type GuardrailRefusal } from "@agboss/core";
-import { OneOf } from "@agboss/core/dto";
+import { Enum } from "@agboss/core/dto";
 export class ClinicExecutionContext extends ExecutionContext {
-  @OneOf({ values: ["en", "he"] })
+  @Enum(["en", "he"])
   locale!: "en" | "he";
 }
 @Injectable()
@@ -1790,11 +1998,12 @@ export class RefusalTextService {
 -->
 
 ```ts
+import { inline } from "@agboss/core";
 // a computed refusal: the class implements GuardrailRefusal, the execution through deps
 @InputGuardrail({
   name: "legal-advice-guardrail",
   description: "Blocks requests for legal advice",
-  prompt: "Does the message ask for legal advice?",
+  prompt: inline("Does the message ask for legal advice?"),
   model: "typesafe/jev-1.13",
   threshold: 0.8,
   deps: [ClinicExecutionContext, RefusalTextService],
@@ -1814,7 +2023,7 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
 @OutputGuardrail({
   name: "no-legal-advice-guardrail",
   description: "Blocks answers that give legal advice",
-  prompt: "Does the answer give legal advice?",
+  prompt: inline("Does the answer give legal advice?"),
   threshold: 0.8,
   refusal: "I can't give legal advice. Please contact a lawyer.",
 })
@@ -1824,76 +2033,87 @@ export class NoLegalAdviceGuardrail {}
 They are listed in `guardrails` of `@Application`, `@Workflow`, `@Agent` and `@Router`: the lists
 add up, `excludeGuardrails` removes an inherited one for an agent or a router. A model router takes
 the input guardrails; a code router calls no model and takes none. Assembly checks them all at once:
-`-guardrail` names, one refusal (both → `[guardrail.refusal-twice]`; neither does not compile, and
+kebab-case names, one refusal (both → `[guardrail.refusal-twice]`; neither does not compile, and
 is `[guardrail.missing-refusal]` at assembly), a question (`[guardrail.no-prompt]`), a threshold in
 (0, 1] (`[guardrail.threshold-invalid]`), `[guardrail.exclude-not-inherited]`,
 `[guardrail.not-a-guardrail]`, `[guardrail.output-on-router]`, `[guardrail.no-model-call]`.
 `agboss describe` prints each one's side, threshold, model, refusal and the elements it guards. In
 tests, `mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` blocks (an
-unscripted guardrail passes), and `testGuardrail(LegalAdviceGuardrail, { model: decideWith({ blocks:
+unscripted guardrail passes), and `testUnit(LegalAdviceGuardrail, { model: decideWith({ blocks:
 0.9 }), executionContext: ClinicExecutionContext, execution: { locale: "he" } })("Can I sue?")`
 gives `{ isBlocked, probability, refusal }`.
 
 ## Memory and compaction
 
 A thread's turns are its finished executions (`start <name>: <input>` / `finish <name>: <output>`).
-Each agent and model router sees the last `uncompactedTurns` of them in full — set on
-`@Application`, `@Workflow`, `@Agent` or `@Router`, the lowest set value wins (default 5,
-`TurnLimit.ALL` = every turn). What is older is summarised by a `@Compaction`, named by
-`compaction` on the same levels (again the lowest wins; none anywhere → the window only):
+What a workflow, an agent or a model router remembers of its thread is a `@Memory` class, named by
+`memory` on `@Workflow`, `@Agent` or `@Router` (the lowest level that sets one wins; a workflow
+without `memory` is stateless). `ttl` says how long an idle thread is kept (a duration, or
+`Ttl.Forever`), `uncompactedTurns` how many recent turns a reader sees in full (default 5,
+`TurnLimit.All` = every turn), and what is older is summarised by its `compaction`, or by a
+`compact(input)` method of its class; neither → the window only. `NoMemory` on an agent or a router
+sees no earlier turn:
 
 <!-- snippet-context
-import { Compaction, CompactionStrategy, TokenLimit } from "@agboss/core";
+import { CompactionStrategy, Memory, NoMemory, Ttl, TokenLimit, TurnLimit, inline } from "@agboss/core";
+import { days } from "@agboss/core/units";
 -->
 
 ```ts
 // a queue: every 5 turns older than the window become one summary, the latest 10 are kept
-@Compaction({
-  name: "conversation-compaction",
-  description: "Summarises old turns of the conversation",
-  prompt: "Summarise the turns under `Turns to compact`: what was asked, decided and is still open.",
-  model: "moonshotai/kimi-k2.6",
-  strategy: CompactionStrategy.SummaryQueue,
+@Memory({
+  name: "conversation-memory",
+  description: "Remembers the conversation for 30 days, summarising old turns",
+  ttl: days(30),
+  uncompactedTurns: 6,
   turnsBetweenCompactions: 5,
-  summaryQueueLength: 10,
-  summaryMaxTokens: 400,
+  compaction: {
+    strategy: CompactionStrategy.SummaryQueue,
+    prompt: inline("Summarise the turns under `Turns to compact`: what was asked, decided and is still open."),
+    model: "moonshotai/kimi-k2.6",
+    summaryQueueLength: 10,
+    summaryMaxTokens: 400,
+  },
 })
-export class ConversationCompaction {}
+export class ConversationMemory {}
 
 // one running summary, rewritten from the previous one and the new turns (the built-in prompt)
-@Compaction({
-  name: "code-context-compaction",
+@Memory({
+  name: "code-context-memory",
   description: "Keeps one summary of the code touched so far",
-  model: "moonshotai/kimi-k2.6",
-  strategy: CompactionStrategy.SingleSummary,
+  ttl: Ttl.Forever,
   turnsBetweenCompactions: 3,
-  summaryMaxTokens: TokenLimit.MODEL_MAX,
+  compaction: {
+    strategy: CompactionStrategy.SingleSummary,
+    model: "moonshotai/kimi-k2.6",
+    summaryMaxTokens: TokenLimit.ModelMax,
+  },
 })
-export class CodeContextCompaction {}
+export class CodeContextMemory {}
 
-// no summaries at all: only the window (no model, no prompt, no parameters)
-@Compaction({
-  name: "no-summaries-compaction",
+// no summaries at all: only the window
+@Memory({
+  name: "recent-memory",
   description: "Only the window of recent turns",
-  strategy: CompactionStrategy.None,
+  ttl: days(1),
+  uncompactedTurns: TurnLimit.All,
 })
-export class NoSummariesCompaction {}
+export class RecentMemory {}
 ```
 
-A compaction summarises everything older than the **smallest** `uncompactedTurns` among the agents
-and routers that use it, so no one loses a turn: a router that sees 1 turn and an agent that sees 3
-share one compaction that summarises what is older than 1 — the agent sees its 3 turns in full and
-not the summary they already cover. `summaryMaxTokens` is the summary call's `max_tokens` (the
-model's server counts it; thinking is off on that call): a summary cut there is asked once more,
-shorter, and cut again fails the execution with `CompactionError` (`compaction`) — never a cut
-summary. A compaction runs lazily, before a new execution first reads its thread — never after a
-turn: a finished answer is always kept, a thread that ends pays for none, and a `CompactionError`
-fails the new execution before any of its work (no model call, no step, no turn kept). The compaction's model reads the turns
-through the application's and the workflow's PII policies, its summary is revealed before it is
-stored, and each reader's own policies mask it on the way into its model. Spend is
-`compaction:<name>`; `result.compacted` says what each compaction did before the execution. In tests,
-`mockLlm(ConversationCompaction).thenReturn(replyWith("…"))` scripts it (`replyWith("…", {
-truncated: true })` is a summary cut at the limit); unscripted, it writes a fixed summary.
+A memory summarises everything older than the **smallest** window among the agents and routers that
+use it, so no one loses a turn. `summaryMaxTokens` is the summary call's `max_tokens` (the model's
+server counts it; thinking is off on that call): a summary cut there is asked once more, shorter,
+and cut again fails the execution with `StepError.Memory` (`memory`) — never a cut summary. A
+compaction runs lazily, before a new execution first reads its thread — never after a turn: a
+finished answer is always kept, a thread that ends pays for none, and a `StepError.Memory` fails the
+new execution before any of its work (no model call, no step, no turn kept). The memory's model reads
+the turns through the application's and the workflow's PII policies, its summary is revealed before
+it is stored, and each reader's own policies mask it on the way into its model. Spend is
+`memory:<name>`; `result.compacted` says what each memory did before the execution, and
+`onCompactionStart` / `onCompactionEnd` of an observer show it as it happens. In tests,
+`mockLlm(ConversationMemory).thenReturn(replyWith("…"))` scripts it (`replyWith("…", { truncated:
+true })` is a summary cut at the limit); unscripted, it writes a fixed summary.
 
 ## Tracing (local, optional)
 
@@ -1901,7 +2121,7 @@ truncated: true })` is a summary cut at the limit); unscripted, it writes a fixe
 scripts/langfuse.sh up   # self-hosted Langfuse in Docker, keys written to .env
 ```
 
-Then every run is traced at http://localhost:3000. Details: [Observability & Tracing Guide](https://agboss.dev/guides/observability-and-tracing/) · [Wiki → Tracing](https://github.com/agbossjs/agboss/wiki/Tracing).
+Then give the application `createApp(App, { tracerProvider: LangfuseTracer.fromEnv() })` (`@agboss/langfuse`): every run is traced at http://localhost:3000. Details: [Observability & Tracing Guide](https://agboss.dev/guides/observability-and-tracing/) · [Wiki → Tracing](https://github.com/agbossjs/agboss/wiki/Tracing).
 
 ## The conveyor
 

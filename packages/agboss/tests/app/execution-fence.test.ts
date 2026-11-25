@@ -1,13 +1,14 @@
+import { fenceOf } from "../../src/flow/context/execution-fence.js";
 /**
- * #471 — `executionContext.fence`: the lease a step runs under, as an external system fences a
+ * #471 — `executionContext.fence` (internal now): the lease a step runs under, as an external system fences a
  * write with it. A write of an instance that lost the lease meets a newer token and is refused
- * (`ExecutionFencedError`), which is a hand-over — no `.onError`, no compensation, no failed record,
+ * (`ExecutionError.Fenced` from a store, `ExecutionError.Fenced` from `fence.fencedError()`), which is a hand-over — no `.onError`, no compensation, no failed record,
  * no `onExecutionError` — and the moving call rejects with the fenced error itself.
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import {
   ExecutionContextUnavailableError,
-  ExecutionFencedError,
+  ExecutionError,
   ExecutionLeaseLostError,
   ResumeReason,
 } from "../../src/index.js";
@@ -104,7 +105,7 @@ describe("#471 AC1: the fence of a step", () => {
 
 describe("#471 AC3: a stalled writer is refused after another instance took the lease over", () => {
   two(
-    "A passes assertHeld(), stalls in the window, B takes the lease (token 2) and writes; A's write is refused: its call rejects with the ExecutionFencedError",
+    "A passes assertHeld(), stalls in the window, B takes the lease (token 2) and writes; A's write is refused: its call rejects with the ExecutionError.Fenced",
     async ({ apps, clock, leases }) => {
       const { call } = await takenOver(apps, clock, leases);
       expect(seen.fences.map((each) => each.token)).toEqual([1, 2]);
@@ -117,7 +118,7 @@ describe("#471 AC3: a stalled writer is refused after another instance took the 
       await settle();
       const error = await rejectionOf(call);
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
+      expect(error).toBeInstanceOf(ExecutionError.Fenced);
       expect(error).toMatchObject({ token: 1, observedToken: 2 });
       expect(ledger.rows).toHaveLength(1);
       expect(ledger.rows[0]?.token).toBe(2);
@@ -148,7 +149,7 @@ describe("#471 AC3: a stalled writer is refused after another instance took the 
 
 describe("#471 AC6: a fenced error is a hand-over wherever it is found", () => {
   for (const wrap of ["bare", "cause", "aggregate", "cycle"] as const) {
-    test(`fenced (${wrap}): the call rejects with the ExecutionFencedError itself, no onExecutionError`, async ({
+    test(`fenced (${wrap}): the call rejects with the family's ExecutionError.Fenced itself, no onExecutionError`, async ({
       app,
     }) => {
       levers.wrap = wrap;
@@ -158,8 +159,7 @@ describe("#471 AC6: a fenced error is a hand-over wherever it is found", () => {
         (thrown: unknown) => thrown,
       );
 
-      expect(error).toBeInstanceOf(ExecutionFencedError);
-      expect(error).toBeInstanceOf(ExecutionLeaseLostError);
+      expect(error).toBeInstanceOf(ExecutionError.Fenced);
       expect(error).toMatchObject({ token: 1, observedToken: 2 });
       expect(recovery.errors).toEqual([]);
       expect(recovery.ends).toEqual([]);
@@ -177,7 +177,7 @@ describe("#471 AC6: a fenced error inside an agent's loop and in an undo", () =>
 
     const error = await rejectionOf(execute(app, AgentReleaseWorkflowStart, { text: "stage v1" }));
 
-    expect(error).toBeInstanceOf(ExecutionFencedError);
+    expect(error).toBeInstanceOf(ExecutionError.Fenced);
     expect(seen.toolEnds).toEqual([]);
     expect(mockLlm(ReleaseAgent)).toHaveBeenCalledTimes(1);
     expect(recovery.errors).toEqual([]);
@@ -192,7 +192,7 @@ describe("#471 AC6: a fenced error inside an agent's loop and in an undo", () =>
 
     const error = await rejectionOf(execute(app, AgentReleaseWorkflowStart, { text: "stage v1" }));
 
-    expect(error).toBeInstanceOf(ExecutionFencedError);
+    expect(error).toBeInstanceOf(ExecutionError.Fenced);
     expect(seen.fences).toEqual([]);
     expect(seen.toolEnds).toEqual([]);
     expect(recovery.errors).toEqual([]);
@@ -205,7 +205,7 @@ describe("#471 AC6: a fenced error inside an agent's loop and in an undo", () =>
 
     const error = await rejectionOf(execute(app, BookedReleaseWorkflowStart, { text: "v1" }));
 
-    expect(error).toBeInstanceOf(ExecutionFencedError);
+    expect(error).toBeInstanceOf(ExecutionError.Fenced);
     expect(seen.undone).toEqual([]);
     expect(recovery.errors).toEqual([]);
   });
@@ -297,7 +297,7 @@ describe("#471 AC1: a fence read where its step is gone", () => {
   });
 
   test("a tool called on its own (a test slice) has no fence", async ({ app }) => {
-    const output = await app.tool(StageTool).invoke({ artifact: "v1" });
+    const { output } = await app.runTool(StageTool, { artifact: "v1" });
 
     expect(output).toMatchObject({ kind: "error" });
     expect(JSON.stringify(output)).toMatch(/context|lease/);

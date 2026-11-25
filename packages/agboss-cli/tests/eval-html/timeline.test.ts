@@ -6,13 +6,14 @@
  */
 import { describe, expect, it } from "vitest";
 import { ComponentKind, ToolCallStatus } from "@agboss/core";
-import { CheckStatus } from "@agboss/core/eval";
+import { CheckStatus, EvalCheckKind } from "@agboss/core/eval";
 import type { EvalCaseReport, EvalRunResult } from "@agboss/core/eval";
 import { renderEvalReportPage, TimelineDetail } from "../../src/eval/html/report-page.js";
 import { MAX_VALUE_CHARACTERS } from "../../src/eval/html/value-view.js";
 import { MAX_HTML_REPORT_SIZE } from "../../src/eval/html/bounded-page.js";
 import { artifactOf, caseOf, REFUNDS_ARTIFACT } from "./artifacts.js";
 import { stepOf, traceOf, TRACED_ARTIFACT } from "./traced-artifacts.js";
+import { usd } from "@agboss/core/units";
 
 const PAGE = renderEvalReportPage(TRACED_ARTIFACT);
 
@@ -78,7 +79,7 @@ describe("#397 PR 2: a run's timeline", () => {
   it("side-path failures, pauses, undo actions, a child nested, and the output", () => {
     expect(run).toContain("<li>refund-agent → notify-action: step.agent the agent failed</li>");
     expect(run).toContain(
-      "<li>refund-agent asked refund-approval-channel: replied by owner-1 — {&quot;approved&quot;:true}</li>",
+      "<li>refund-agent asked refund-approval-tool-approval-3: replied by owner-1 — {&quot;approved&quot;:true}</li>",
     );
     expect(run).toContain(
       "<li>refund-charge-action undid charge-action (side-path): compensated</li>",
@@ -109,7 +110,9 @@ describe("#397 PR 2: a run's timeline", () => {
       threadId: "t",
       passed: true,
       checks: [],
-      spentUsd: 0,
+      executionUsd: usd(0),
+      judgeUsd: usd(0),
+      totalUsd: usd(0),
       trace,
     };
 
@@ -162,6 +165,8 @@ describe("#397 PR 2: the page of a large run stays under its bound", () => {
           output: value,
           isResultTruncated: false,
           validationAttempts: 0,
+          startedAt: new Date("2026-01-05T09:00:01.000Z"),
+          endedAt: new Date("2026-01-05T09:00:02.000Z"),
         },
       ],
     });
@@ -169,8 +174,10 @@ describe("#397 PR 2: the page of a large run stays under its bound", () => {
       run: number,
       threadId: `t${String(number)}`,
       passed: true,
-      checks: [{ check: "trajectory", status: CheckStatus.Passed }],
-      spentUsd: 0,
+      checks: [{ check: "trajectory", kind: EvalCheckKind.Tools, status: CheckStatus.Passed }],
+      executionUsd: usd(0),
+      judgeUsd: usd(0),
+      totalUsd: usd(0),
       trace: { ...traceOf(String(number)), steps: Array.from({ length: 10 }, () => step) },
     });
     const cases: EvalCaseReport[] = Array.from({ length: 40 }, (_, index) =>

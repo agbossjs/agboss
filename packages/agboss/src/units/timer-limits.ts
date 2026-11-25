@@ -1,5 +1,6 @@
 import { shownLimit } from "../graph/count-limit.js";
-import { UnitError, type Milliseconds } from "./index.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
+import type { Milliseconds } from "./index.js";
 
 /**
  * The longest delay a Node timer takes (#1141): above 2^31 − 1 ms (about 24.8 days) `setTimeout`
@@ -45,9 +46,9 @@ export function timerProblemOf(
   return `${field} is ${String(value)} ms, above its largest of ${shownCap(max)} (${String(max)} ms) — a longer timer would fire at once`;
 }
 
-/** `value` unchanged when `timerProblemOf` finds nothing; else a `UnitError` naming the field. */
+/** `value` unchanged when `timerProblemOf` finds nothing; else a `ConfigError.Unit` naming the field. */
 export function checkedTimer(field: string, value: number, max: Milliseconds): Milliseconds {
   const problem = timerProblemOf(field, value, max);
-  if (problem !== undefined) throw new UnitError({ message: problem });
+  if (problem !== undefined) throw new ConfigError.Unit({ message: problem });
   return value as Milliseconds;
 }

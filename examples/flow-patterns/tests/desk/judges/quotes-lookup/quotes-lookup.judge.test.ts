@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import { PlainTextDto } from "@agboss/core/dto";
-import { callTool, replyWith, testJudge, testWith } from "@agboss/core/testing";
+import { callTool, replyWith, testUnit, testWith } from "@agboss/core/testing";
 import { DeskAgent } from "../../../../src/desk/agents/desk/desk.agent.js";
 import { QuotesLookupJudge } from "../../../../src/desk/judges/quotes-lookup/quotes-lookup.judge.js";
 import { OrderStatusTool } from "../../../../src/desk/tools/order-status.tool.js";
@@ -9,7 +9,7 @@ import { FlowPatternsApplication } from "../../../../src/flow-patterns.applicati
 
 const test = testWith(FlowPatternsApplication);
 
-test("testJudge: a code judge on the tool calls of a real (scripted) visit", async ({
+test("testUnit: a code judge on the tool calls of a real (scripted) visit", async ({
   app,
   mockLlm,
 }) => {
@@ -21,18 +21,18 @@ test("testJudge: a code judge on the tool calls of a real (scripted) visit", asy
     customerId: "c-1",
     question: "Where is #7?",
   });
-  const runJudge = testJudge(QuotesLookupJudge);
+  const runJudge = testUnit(QuotesLookupJudge);
 
   const named = await runJudge({
     variant: PlainTextDto,
-    reply: { text: "Order 7 shipped." },
+    output: { text: "Order 7 shipped." },
     task: "Answer",
     attempt: 0,
     toolCalls,
   });
   const vague = await runJudge({
     variant: PlainTextDto,
-    reply: { text: "It shipped." },
+    output: { text: "It shipped." },
     task: "Answer",
     attempt: 0,
     toolCalls,

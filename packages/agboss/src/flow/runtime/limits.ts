@@ -1,5 +1,7 @@
+import type { HandledErrorRecord } from "./child-records.js";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import { totalCost, type UsageRecord } from "../../finops/usage.js";
+import { callerOfSpend } from "../../finops/explicit-caller.js";
 import type { ErrorRecord } from "../../core/error-record.js";
 import { countBoundOf } from "../../graph/count-limit.js";
 import { LimitExceededError, StepsLimitExceededError } from "../../graph/limits.js";
@@ -12,8 +14,9 @@ import { startedVersionOf, type WorkflowIdentity } from "./step-frame.js";
 import { plainRecordOf, type ComponentRecord } from "./records.js";
 
 /**
- * What is checked before a step runs (#272 AC14, #261, #634): an agent's or a router's own
- * `maxVisits` and the steps of the execution (`maxSteps`) — counts of model steps only —, and the
+ * What is checked before a step runs (#272 AC14, #261, #634): an agent's, a router's or an
+ * external task's own `maxVisits` and the steps of the execution (`maxSteps`) — an agent, a router,
+ * an action and an external task each count 1, a limit's own side-path actions none (#1278) —, and the
  * execution's budgets and deadline before every step that can spend or reach out: an agent, a
  * router, an action, a child workflow (a recursion, a per-item child, a remote one), in a path or
  * as a branch of a launch. The counters are read anew, so the spend of the tenant's other
@@ -31,7 +34,7 @@ import { plainRecordOf, type ComponentRecord } from "./records.js";
 
 /**
  * The side path an execution is on (#656), as the budgets' two exemptions read it: entered when an
- * `.onError` / `.onJoinError` takes a failure, it is the one visit it leads to — and, step by step,
+ * `.onError` takes a failure, it is the one visit it leads to — and, step by step,
  * the visit each of its visits leads to. Every visit of a node writes it anew — the next visit
  * when the visit was on it and goes on to one node, else none —, so it ends at a finish and at a
  * launch (its branches and whatever follows its join are off it), and a visit off it never takes
@@ -45,6 +48,8 @@ export interface SidePathRecord {
   readonly isAfterLimit: boolean;
   /** The keys of the entries open when it was entered: the undos it owes (#340). */
   readonly owed: readonly string[];
+  /** The failure it took in (#1316f): what `executionContext.handledError` reads on it, in its branches too. */
+  readonly handled?: HandledErrorRecord;
 }
 
 /** The side path `node`'s visit is on; `undefined` off any side path. */
@@ -58,7 +63,7 @@ export const sidePathOf = (
 const isLimit = (error: ErrorRecord): boolean => error.lineage.includes(LimitExceededError.code);
 
 /**
- * The side path an `.onError` / `.onJoinError` takes the failure into, to `to`: after a limit when
+ * The side path an `.onError` takes the failure into, to `to`: after a limit when
  * the failure is one or the failed visit was on such a side path (its reaction's own error); it owes
  * the undos of every entry open now.
  */
@@ -67,13 +72,16 @@ export function sidePathEntered(
   error: ErrorRecord,
   to: string,
   from?: RuntimeNode,
+  handled?: HandledErrorRecord,
 ): { readonly sidePath: SidePathRecord } {
   const on = from === undefined ? undefined : sidePathOf(state, from);
   const owed = state.compensations
     .filter((entry) => entry.status === CompensationEntryStatus.Open)
     .map((entry) => entry.key);
   const isAfterLimit = isLimit(error) || on?.isAfterLimit === true;
-  return { sidePath: { next: to, isAfterLimit, owed } };
+  return {
+    sidePath: { next: to, isAfterLimit, owed, ...(handled === undefined ? {} : { handled }) },
+  };
 }
 
 /** What a visit that succeeded leaves: its side path on to `next`, none past a launch or off it. */
@@ -98,7 +106,8 @@ export function isOwedUndo(state: ExecutionStateType, node: RuntimeNode): boolea
   const undone = state.compensations
     .filter((entry) => entry.status === CompensationEntryStatus.Open)
     .sort((first, second) => first.sequence - second.sequence)
-    .filter((entry) => entry.compensator === node.id)
+    // an undo of this workflow's own entries: a child's moved-up one is no node's here (#1281b)
+    .filter((entry) => entry.childPath === undefined && entry.compensator === node.id)
     .at(-1);
   return undone !== undefined && on.owed.includes(undone.key);
 }
@@ -109,9 +118,12 @@ export interface ExecutionLimits {
   readonly budgets: BudgetMeter;
 }
 
-/** Agents and routers are steps; starts, actions and finishes are not. */
-export const isWorkingNode = (node: RuntimeNode): boolean =>
-  node.kind === NodeKind.Agent || node.kind === NodeKind.Router;
+/** The kinds whose visit is a step: agents, routers, actions and external tasks (#1278, D8). */
+export const isStepKind = (node: RuntimeNode): boolean =>
+  node.kind === NodeKind.Agent ||
+  node.kind === NodeKind.Router ||
+  node.kind === NodeKind.Action ||
+  node.kind === NodeKind.Question;
 
 /**
  * Whether the budgets hold this visit back: all but a start, a finish, and an action on a side path
@@ -126,15 +138,21 @@ const isBudgeted = (state: ExecutionStateType, node: RuntimeNode): boolean => {
 };
 
 /**
- * Throws the limit a visit would cross: its visits, and — of an agent or a router (`isStep`) — the
- * steps.
+ * Whether this visit counts in `maxSteps` (#1278): an agent, a router, an action or an external
+ * task — but not the action of a side path that took a limit, nor an undo it owes (they run past
+ * the limits, as past the budgets), so a limit's own reaction is never held back by the limit.
+ */
+export const countsAsStep = (state: ExecutionStateType, node: RuntimeNode): boolean =>
+  isStepKind(node) && isBudgeted(state, node);
+
+/**
+ * Throws the limit a visit would cross: its visits and the steps.
  */
 function checkSteps(
   state: ExecutionStateType,
   node: RuntimeNode,
   limits: ExecutionLimits,
   site: { readonly workflow: WorkflowIdentity; readonly component: ComponentRecord },
-  isStep: boolean,
 ): void {
   const path = [...state.path, node.id];
   const spent = totalCost(state.usage);
@@ -150,7 +168,7 @@ function checkSteps(
   }
   // a `maxSteps` that is no count (`NaN`: every comparison with it is false) is a bound of 0 (#1373)
   const maxSteps = countBoundOf(limits.maxSteps);
-  if (isStep && state.steps + 1 > maxSteps) {
+  if (state.steps + 1 > maxSteps) {
     const record = { ...site.workflow, startedVersion: startedVersionOf(state, site.workflow) };
     throw new StepsLimitExceededError({
       workflow: record,
@@ -162,8 +180,8 @@ function checkSteps(
 }
 
 /**
- * Throws the limit a visit of this node would cross; resolves whether it runs as a step (an agent
- * or a router: it counts in `maxSteps`).
+ * Throws the limit a visit of this node would cross; resolves whether it runs as a step (an agent,
+ * a router, an action or an external task: it counts in `maxSteps`).
  */
 export async function checkVisit(
   state: ExecutionStateType,
@@ -172,10 +190,8 @@ export async function checkVisit(
   workflow: WorkflowIdentity,
   component: ComponentRecord,
 ): Promise<boolean> {
-  const isStep = isWorkingNode(node);
-  // a question role's step (#659) is no step, but its own `maxVisits` holds on a cycle
-  if (isStep || node.kind === NodeKind.Question)
-    checkSteps(state, node, limits, { workflow, component }, isStep);
+  const isStep = countsAsStep(state, node);
+  if (isStep) checkSteps(state, node, limits, { workflow, component });
   if (!isBudgeted(state, node)) return isStep;
   await limits.budgets.refresh();
   limits.budgets.check(state.usage, [...state.path, node.id]);
@@ -192,7 +208,7 @@ export function countedServiceSpend(
   path: readonly string[],
   record: UsageRecord,
 ): UsageRecord {
-  const named = { ...record, caller: `${node.kind}:${node.id}` };
+  const named = { ...record, caller: callerOfSpend(record, `${node.kind}:${node.id}`) };
   const [kept = named] = limits.budgets.tally([named], [...path, node.id]);
   return kept;
 }

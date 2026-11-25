@@ -29,6 +29,7 @@ import {
   UnwindSidePathWorkflowStart,
   UnwindWorkflowStart,
 } from "./fixtures/unwind.workflow.js";
+import { ExecutionStatus } from "../../../src/app/types.js";
 
 /**
  * #340 PR 3 — an execution that ends without a finish undoes its open undoable actions, newest
@@ -88,7 +89,7 @@ describe("a cancel of a running execution (AC1)", { timeout: 60_000 }, () => {
     await app.cancel("t-1");
     gate.open();
 
-    await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(releasedIds(desk)).toEqual(["room-1", "seat-1"]);
     expect(
       unwindSeen.undos.map((event) => [event.compensated.component.name, event.reason]),
@@ -113,7 +114,7 @@ describe("a cancel of a running execution (AC1)", { timeout: 60_000 }, () => {
 
     await app.cancel("t-1");
     gate.open();
-    await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
 
     expect(desk.seen.mock.calls.map(([seen]) => seen.isAborted)).toEqual([false, false]);
     expect(desk.seen.mock.calls[0]?.[0].key).toMatch(/:reserve-room-action:1:compensation$/);
@@ -130,7 +131,7 @@ describe("a cancel of a running execution (AC1)", { timeout: 60_000 }, () => {
 
     await app.cancel("t-1");
     gate.open();
-    await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
 
     const [failed] = unwindSeen.errors;
     expect(failed?.compensations.map((record) => [record.compensator.name, record.status])).toEqual(
@@ -157,7 +158,7 @@ describe("what is committed or already undone is left (AC2)", { timeout: 60_000 
     await app.cancel("t-1");
     gate.open();
 
-    await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(releasedIds(desk)).toEqual(["room-1"]);
   });
 
@@ -175,7 +176,7 @@ describe("what is committed or already undone is left (AC2)", { timeout: 60_000 
     await app.cancel("t-1");
     gate.open();
 
-    await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(releasedIds(desk)).toEqual(["room-1", "seat-1"]);
     expect(unwindSeen.undos.map((event) => event.reason)).toEqual([]);
   });
@@ -241,7 +242,7 @@ describe("a body still running when the execution ends (Q-A, Q-B)", { timeout: 6
     });
     roomReserved();
 
-    await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(releasedIds(desk)).toEqual(["room-1", "seat-1"]);
   });
 
@@ -268,7 +269,7 @@ describe("a body still running when the execution ends (Q-A, Q-B)", { timeout: 6
     });
     await app.cancel("t-1");
     await clock.advance(seconds(5));
-    await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(releasedIds(desk)).toEqual(["seat-1"]);
 
     roomReserved();

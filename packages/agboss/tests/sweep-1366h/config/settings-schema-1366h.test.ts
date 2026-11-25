@@ -1,7 +1,7 @@
 /**
  * #1366: the config schemas admit exactly the settings they document - price, token ceiling, reasoning,
  * prompt caching, temperature, turn window, compaction, agent (with knowledge bases), router model,
- * MCP server and workflow name/defaults - and a config with an unknown tool fails with
+ * workflow name/defaults - and a config with an unknown tool fails with
  * `UnknownAgentToolError` (an agent without tools never does).
  */
 import { describe, expect, it } from "vitest";
@@ -13,7 +13,6 @@ import {
   CompactionSettingsSchema,
   JevRouterModelSchema,
   MaxTokensSchema,
-  McpServerConfigSchema,
   ModelSettingsSchema,
   PriceSchema,
   PromptCachingValueSchema,
@@ -77,8 +76,8 @@ describe("config schemas", () => {
     refuses(ThinkingSchema, "bogus", { budgetTokens: 0 }, { budgetTokens: 1.5 }, 3);
   });
 
-  it("prompt caching value: where-supported with at least one cached part, or off", () => {
-    const base = { kind: "where-supported", retention: "5m", cachedParts: ["system-prompt"] };
+  it("prompt caching value: on with at least one cached part, or off", () => {
+    const base = { kind: "on", retention: "5m", cachedParts: ["system-prompt"] };
     admits(PromptCachingValueSchema, { kind: "off" }, base, { ...base, key: "abc" });
     admits(PromptCachingValueSchema, {
       ...base,
@@ -120,7 +119,7 @@ describe("config schemas", () => {
   });
 
   it("compaction settings: a known strategy, positive counts, a model", () => {
-    admits(CompactionSettingsSchema, { strategy: "none" });
+    admits(CompactionSettingsSchema, { strategy: "custom" });
     admits(CompactionSettingsSchema, {
       strategy: "summary-queue",
       model: { model: "m" },
@@ -128,9 +127,9 @@ describe("config schemas", () => {
       summaryQueueLength: 2,
     });
     refuses(CompactionSettingsSchema, {}, { strategy: "bogus" });
-    refuses(CompactionSettingsSchema, { strategy: "none", turnsBetweenCompactions: 0 });
-    refuses(CompactionSettingsSchema, { strategy: "none", summaryQueueLength: 0 });
-    refuses(CompactionSettingsSchema, { strategy: "none", model: { model: "" } });
+    refuses(CompactionSettingsSchema, { strategy: "custom", turnsBetweenCompactions: 0 });
+    refuses(CompactionSettingsSchema, { strategy: "custom", summaryQueueLength: 0 });
+    refuses(CompactionSettingsSchema, { strategy: "custom", model: { model: "" } });
   });
 
   it("agent settings: a description, limits, knowledge bases with their reranking", () => {
@@ -141,7 +140,7 @@ describe("config schemas", () => {
       { model: "m" },
       { ...agent, maxToolCalls: -1 },
     );
-    const kb = { name: "docs", mode: "tool", topK: 3, tenancy: "shared" };
+    const kb = { name: "docs", topK: 3, scope: "shared" };
     admits(AgentSettingsSchema, { ...agent, rag: [kb] });
     admits(AgentSettingsSchema, {
       ...agent,
@@ -150,13 +149,9 @@ describe("config schemas", () => {
     refuses(
       AgentSettingsSchema,
       { ...agent, rag: [{ ...kb, topK: 0 }] },
-      { ...agent, rag: [{ mode: "tool" }] },
+      { ...agent, rag: [{ name: "docs" }] },
     );
-    refuses(
-      AgentSettingsSchema,
-      { ...agent, rag: [{ ...kb, mode: "bogus" }] },
-      { ...agent, rag: [{ ...kb, tenancy: "x" }] },
-    );
+    refuses(AgentSettingsSchema, { ...agent, rag: [{ ...kb, scope: "bogus" }] });
     refuses(AgentSettingsSchema, {
       ...agent,
       rag: [{ ...kb, rerank: { reranker: "r", candidates: 0, onFailure: "fallback" } }],
@@ -178,43 +173,6 @@ describe("config schemas", () => {
       { kind: "llm", model: "" },
       { kind: "llm" },
     );
-  });
-
-  it("mcp servers: stdio with a command, http with a url, an optional target", () => {
-    const target = { application: "app", expose: "tool" };
-    admits(McpServerConfigSchema, { transport: "stdio", command: "run" });
-    admits(McpServerConfigSchema, {
-      transport: "stdio",
-      command: "run",
-      target,
-      args: ["a"],
-      env: ["K"],
-    });
-    admits(McpServerConfigSchema, { transport: "http", url: "https://example.com/mcp" });
-    admits(McpServerConfigSchema, {
-      transport: "http",
-      url: "https://example.com/mcp",
-      target,
-      headers: { a: "B" },
-    });
-    refuses(McpServerConfigSchema, { transport: "stdio", command: "" }, { transport: "stdio" });
-    refuses(McpServerConfigSchema, { transport: "ws", command: "run" });
-    refuses(McpServerConfigSchema, { transport: "http", url: "nope" });
-    refuses(McpServerConfigSchema, {
-      transport: "stdio",
-      command: "run",
-      target: { application: "", expose: "t" },
-    });
-    refuses(McpServerConfigSchema, {
-      transport: "stdio",
-      command: "run",
-      target: { application: "a", expose: "" },
-    });
-    refuses(McpServerConfigSchema, {
-      transport: "http",
-      url: "https://e.com",
-      target: { application: "a" },
-    });
   });
 
   it("workflow config: a name of lowercase letters, digits and dashes; a version; defaults", () => {

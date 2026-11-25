@@ -3,6 +3,7 @@ import type { CompensationRecord } from "../flow/compensation.js";
 import type { CompensationFailedError } from "../flow/compensation.js";
 import type { AppDeps } from "./app-deps.js";
 import type { TreeState } from "./tree-move-types.js";
+import { isStop } from "./interrupt-requests.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 
 /**
@@ -36,6 +37,11 @@ export async function undoneTreeEnd<TError>(
   },
   undo: EndedTreeUndo,
 ): Promise<TError | CompensationFailedError> {
+  // a stop undoes nothing (#1341b): what the tree had done stays, its undoable actions open
+  if (isStop(failure.error)) {
+    undo.compensations = [];
+    return failure.error;
+  }
   const { unwoundTree } = await lazyLoad(import("./compensation/root-unwind.js"));
   const call = { cause: failure.error, signal: failure.signal, lease: failure.lease };
   const done = await unwoundTree(deps, state, call);
@@ -54,11 +60,12 @@ export function unwindingDeps(
     readonly signal: AbortSignal;
     readonly lease: FrameLease;
     readonly undo: EndedTreeUndo;
+    readonly interrupted?: () => Promise<Error | undefined>;
   },
 ): AppDeps {
   const { compensation } = deps;
   if (compensation === undefined) return deps;
   const rootUnwind = (error: unknown): Promise<unknown> =>
     undoneTreeEnd(deps, state, { error, signal: at.signal, lease: at.lease }, at.undo);
-  return { ...deps, compensation: { ...compensation, rootUnwind } };
+  return { ...deps, compensation: { ...compensation, rootUnwind, interrupted: at.interrupted } };
 }

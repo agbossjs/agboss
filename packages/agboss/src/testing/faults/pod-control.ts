@@ -2,7 +2,7 @@ import {
   FaultChildPauseWorkflowStart,
   FaultTwicePauseWorkflowStart,
 } from "./fixture/window.workflow.js";
-import type { App, ExecutionOutput } from "../../app/types.js";
+import type { AnyTenantApp, ExecutionOutput } from "../../app/types.js";
 import type { Class } from "../../components/injection.js";
 import { ExecutionHistoryRepository } from "../../infrastructure/execution-history.repository.js";
 import { waitOf } from "../../infrastructure/clock.js";
@@ -26,23 +26,25 @@ import type { FaultFacts } from "./facts.js";
 
 /** What the commands work on: the pod's app, its holds, its held stores' state and business rows. */
 export interface PodParts {
-  readonly app: App;
+  readonly app: AnyTenantApp;
   readonly points: HoldPoints;
   readonly heldStores: HeldStoreState;
   readonly businessRows: FaultBusinessRows;
 }
 
 /** Every record of the history, oldest first, page by page. */
-async function historyOf(app: App): Promise<FaultFacts["records"]> {
+async function historyOf(app: AnyTenantApp): Promise<FaultFacts["records"]> {
   const history = app.resolve(ExecutionHistoryRepository);
   const from = new Date(0);
   const to = new Date("9999-12-31T23:59:59.999Z"); // an ISO text a store compares as text
   const records: FaultFacts["records"][number][] = [];
-  for (let offset = 0; ; offset += 100) {
-    const page = await history.findAllByStartedAtBetween(from, to, { offset, limit: 100 });
-    records.push(...page);
-    if (page.length < 100) return records;
-  }
+  let cursor: string | undefined;
+  do {
+    const page = await history.findAllByStartedAtBetween({ from, to, limit: 100, cursor });
+    records.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor !== undefined);
+  return records;
 }
 
 /** The facts of the run as this pod reads them, every root of `rootExecutionIds` and the history. */
@@ -85,7 +87,7 @@ const threadOf = (w: FaultWorkflow, orderId: string): { readonly threadId: strin
 
 /** Starts the tree in the background; its end or its failure is an event. */
 function started(
-  app: App,
+  app: AnyTenantApp,
   tag: string,
   workflow: FaultWorkflow,
   orders: readonly FaultOrder[],
@@ -137,7 +139,7 @@ function holdDone(
 }
 
 /** A read of the pod's stores, done (#939, #959); `undefined` for another command. */
-function readDone(app: App, command: PodCommand): Promise<unknown> | undefined {
+function readDone(app: AnyTenantApp, command: PodCommand): Promise<unknown> | undefined {
   switch (command.op) {
     case "pause-state":
       return pauseStateOf(app, command.rootExecutionId);

@@ -1,5 +1,4 @@
 import type { AssembledApplication } from "../application/assemble.js";
-import { componentOf } from "../components/metadata.js";
 import { A2AMesh } from "../a2a/client/a2a-guard-errors.js";
 import type { A2ATarget } from "../a2a/a2a-decorator.js";
 
@@ -30,13 +29,17 @@ function calleeOf(url: string, target: A2ATarget | undefined): string {
 export function a2aAgentLines(assembled: AssembledApplication): string[] {
   const providers = new Set(assembled.modules.flatMap((module) => module.providers));
   const lines = [...providers].flatMap((provider): string[] => {
-    const meta = typeof provider === "function" ? componentOf(provider) : undefined;
-    if (meta?.kind !== "a2a-agent") return [];
-    const { name, url, target } = meta.meta;
+    const meta =
+      typeof provider === "function"
+        ? assembled.componentOptions.a2aAgentMetaOf(provider)
+        : undefined;
+    if (meta === undefined) return [];
+    const { name, url, target } = meta;
     const mesh =
-      meta.meta.mesh ??
-      (target?.application === undefined ? A2AMesh.IfSupported : A2AMesh.Required);
-    return [`  ${name} → ${calleeOf(url, target)} · ${meshOf(mesh)}`];
+      meta.mesh ?? (target?.application === undefined ? A2AMesh.IfSupported : A2AMesh.Required);
+    return [
+      `  ${name} → ${calleeOf(typeof url === "string" ? url : "(from the environment)", target)} · ${meshOf(mesh)}`,
+    ];
   });
   return lines.length === 0 ? [] : ["a2a agents", ...lines];
 }

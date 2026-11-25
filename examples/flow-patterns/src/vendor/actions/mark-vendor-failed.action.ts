@@ -16,6 +16,6 @@ import { VendorDto } from "../dto/vendor.dto.js";
 })
 export class MarkVendorFailedAction implements ActionHandler<MarkVendorFailedAction> {
   execute(input: InputOf<MarkVendorFailedAction>): Promise<OutputOf<MarkVendorFailedAction>> {
-    return Promise.resolve({ name: input.vendor.value.name, reason: "the check failed" });
+    return Promise.resolve({ name: input.vendor.name, reason: "the check failed" });
   }
 }

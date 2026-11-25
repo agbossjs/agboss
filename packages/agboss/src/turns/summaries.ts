@@ -1,3 +1,4 @@
+import { usd } from "../units/index.js";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
@@ -24,13 +25,13 @@ const toSummary = (row: unknown): Summary => {
     id: r.id,
     tenantId: r.tenant_id,
     threadId: r.thread_id,
-    bundle: r.bundle,
-    compaction: r.compaction,
+    workflow: r.bundle,
+    memory: r.compaction,
     fromTurnId: r.from_tern,
     toTurnId: r.to_tern,
     turns: r.turns,
     text: textOf(r.text, "turn summary text", { summaryId: r.id, threadId: r.thread_id }),
-    costUsd: r.cost_usd,
+    costUsd: usd(r.cost_usd),
     createdAt: r.created_at,
   };
 };
@@ -51,12 +52,12 @@ const lastCovered = (
   db: DatabaseSync,
   tenantId: string,
   threadId: string,
-  compaction: string,
+  memory: string,
 ): number =>
   Count.parse(
     db
       .prepare(`SELECT COALESCE(MAX(to_seq), 0) AS n FROM summaries WHERE ${OF_COMPACTION}`)
-      .get(tenantId, threadId, compaction),
+      .get(tenantId, threadId, memory),
   ).n;
 
 function turnReads(db: DatabaseSync): Pick<MemoryStore, "uncovered" | "before" | "turnNumber"> {
@@ -66,13 +67,13 @@ function turnReads(db: DatabaseSync): Pick<MemoryStore, "uncovered" | "before" |
       .all(...params)
       .map(toTurn);
   return {
-    uncovered: (tenantId, threadId, compaction) =>
+    uncovered: (tenantId, threadId, memory) =>
       Promise.resolve(
         turns(
           `SELECT * FROM terns WHERE ${OF_THREAD} AND rowid > ? ORDER BY rowid`,
           tenantId,
           threadId,
-          lastCovered(db, tenantId, threadId, compaction),
+          lastCovered(db, tenantId, threadId, memory),
         ),
       ),
     before: (tenantId, threadId, turnId, limit) =>
@@ -108,7 +109,7 @@ function summaryMethods(
         stored.id,
         stored.tenantId,
         stored.threadId,
-        stored.bundle,
+        stored.workflow,
         stored.fromTurnId,
         stored.toTurnId,
         seqOf(db, stored.fromTurnId),
@@ -117,26 +118,26 @@ function summaryMethods(
         storedTextOf(stored.text),
         stored.costUsd,
         stored.createdAt,
-        stored.compaction,
+        stored.memory,
       );
       return Promise.resolve(stored);
     },
-    latestSummaries: (tenantId, threadId, compaction, limit) =>
+    latestSummaries: (tenantId, threadId, memory, limit) =>
       Promise.resolve(
         db
           .prepare(
             `SELECT * FROM (SELECT * FROM summaries WHERE ${OF_COMPACTION}
              ORDER BY to_seq DESC LIMIT ?) ORDER BY to_seq`,
           )
-          .all(tenantId, threadId, compaction, limit)
+          .all(tenantId, threadId, memory, limit)
           .map(toSummary),
       ),
-    summaryCount: (tenantId, threadId, compaction) =>
+    summaryCount: (tenantId, threadId, memory) =>
       Promise.resolve(
         Count.parse(
           db
             .prepare(`SELECT COUNT(*) AS n FROM summaries WHERE ${OF_COMPACTION}`)
-            .get(tenantId, threadId, compaction),
+            .get(tenantId, threadId, memory),
         ).n,
       ),
   };

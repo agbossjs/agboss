@@ -1,10 +1,9 @@
 import { interrupt } from "@langchain/langgraph";
 import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
-import type { PauseAnswerer } from "../../channels/channel-role.decorator.js";
-import type { ChannelSender, ChannelSenderSend } from "../../channels/channel-sender.js";
+import { keyTextRuleOf } from "../../core/key-text-rule.js";
+import type { ChannelSenderSend } from "../../channels/channel-sender.js";
+import type { PauseToolCallSummary } from "../../channels/pause-contexts.js";
 import { ChannelOutcomeKind, isChannelOutcome } from "../../channels/channel-outcome.js";
-import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
-import type { Clock } from "../../infrastructure/clock.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import {
   decidedPause,
@@ -12,20 +11,16 @@ import {
   PauseResolution,
   PauseStatus,
   type PauseKind,
-  type PauseAsk,
   type PauseRecord,
 } from "../../infrastructure/pause-record.js";
-import type { PauseAnswerLog } from "../../infrastructure/pause-answer-log.js";
-import { rootFactsOf, type FrameSpec } from "../context/frame.js";
-import { newRecordOf } from "./pause-record-made.js";
+import { DEFAULT_CHANNEL_TIMEOUT, type PauseChannel, type PauseTarget } from "./pause-channel.js";
+import { callInFrame, NoticeTimeoutError, type NoticeCall } from "../../app/pause-notice-call.js";
 import { PauseExpirySignal } from "./pause-expiry-failure.js";
 import { askOfPause, assertSameQuestion, livePauseAfter } from "./pause-chain.js";
-import { noticesWritten, recipientsIn, type PauseNotices } from "../../pause/index.js";
+import { noticesWritten, recipientsIn } from "../../pause/index.js";
+import { openedPause, type PauseStepSite } from "./pause-open.js";
 import { pauseTallyOf } from "../../pause/pause-tally.js";
 import type { ComponentRecord } from "./records.js";
-import { isWorkingDuration, type Milliseconds, type WorkingDuration } from "../../units/index.js";
-import { workingTimeAfter, type PauseCalendar } from "../../calendar/calendar-call.js";
-import type { FrameworkLog } from "../../infrastructure/logger.js";
 
 /**
  * The pause step (#267 S35): a waiting tool call is recorded by its step's idempotency key before
@@ -38,21 +33,8 @@ import type { FrameworkLog } from "../../infrastructure/logger.js";
  * pauses it answered (`resume-map.ts`).
  */
 
-/** A channel as a pause asks it: its sender and who may answer its pauses. */
-export interface PauseChannel {
-  readonly name: string;
-  readonly sender: ChannelSender;
-  readonly answerer: PauseAnswerer;
-  /** How long its pauses wait for an answer (#941): its role's `expiresIn`; none → no deadline of its own. */
-  readonly expiresIn?: Milliseconds | WorkingDuration | undefined;
-  /** How long before its deadline its pauses are reminded (#942): its role's `remindBefore`; none → no reminder. */
-  readonly remindBefore?: Milliseconds | WorkingDuration | undefined;
-  /** The calendar that counts its working time (#944): its role's, else the application's; none → no working time. */
-  readonly calendar?: PauseCalendar | undefined;
-}
-
 /**
- * What a step asks: whose tool call — or which question role's step (#659) — and the question
+ * What a step asks: whose tool call — or which external task's step (#659) — and the question
  * (`sensitive` fields masked).
  */
 export interface PauseQuestion {
@@ -60,14 +42,15 @@ export interface PauseQuestion {
   readonly kind: PauseKind;
   /** The step that asks: the agent of the tool call (or of a question tool, #712), or the question step. */
   readonly step: string;
-  readonly ask: PauseAsk;
+  /** What it asks, `sensitive` fields masked: the tool call's arguments, or the role's ask. */
+  readonly input: Readonly<Record<string, unknown>>;
+  /** The tool call an approval waits on; none for a question. */
+  readonly toolCall?: PauseToolCallSummary;
   /**
-   * What asks, when it is not the step's own component: the question role an agent asks through
+   * What asks, when it is not the step's own component: the external task an agent asks through
    * its tool loop (#712) — the record's `component`.
    */
   readonly component?: ComponentRecord;
-  /** The step's or the tool's own `expiresIn` (#941): over the channel role's. */
-  readonly expiresIn?: Milliseconds | WorkingDuration | undefined;
 }
 
 /** The answer a pause gives its step: the decision (validated by the caller) and who gave it. */
@@ -98,7 +81,7 @@ export class PauseWithdrawnError extends AGBossError {
 /**
  * A channel's `send` threw (not cancelled): the failure of the step that asked, never a tool error
  * the model reads. Internal — the agent loop rethrows it as its `AgentFailedError`, the channel's
- * error as `cause`, so `.onError` / `.onJoinError` match it by class and cause chain (#273 S21).
+ * error as `cause`, so `.onError` match it by class and cause chain (#273 S21).
  */
 export class ChannelSendError extends Error {
   override name = "ChannelSendError";
@@ -111,11 +94,12 @@ export class ChannelSendError extends Error {
 /** The channel asked once: its outcome, a failure (not a cancellation) as `ChannelSendError`. */
 export async function sentBy(
   channel: Pick<PauseChannel, "name" | "sender">,
-  ask: ChannelSenderSend & { readonly value: PauseAsk },
+  ask: ChannelSenderSend,
   signal: AbortSignal | undefined,
 ): Promise<unknown> {
+  const { sender } = channel;
   try {
-    return await channel.sender.send(ask);
+    return await sender.send(ask);
   } catch (error) {
     if (signal?.aborted === true) throw error;
     throw new ChannelSendError(channel.name, error);
@@ -125,21 +109,54 @@ export async function sentBy(
 /** Who answered a thread owner's pause on an unowned thread (or a loop run on its own). */
 export const THREAD_OWNER = "the thread's owner";
 
+export type { PauseChannel, PauseTarget } from "./pause-channel.js";
 export { branchKeyOf, type BranchKeySite } from "./pause-record-made.js";
 
-/** The channel's outcome: the decision it gave now, or `undefined` when the step waits for a reply. */
-async function sendOnce(
-  channel: PauseChannel,
+/** The channel a pause was sent through, by the name its record keeps; `undefined`: none (an owner's pause). */
+export const channelOfPause = (
+  target: Pick<PauseTarget, "channels">,
+  pause: Pick<PauseRecord, "channel">,
+): PauseChannel | undefined =>
+  pause.channel === undefined ? undefined : target.channels.get(pause.channel);
+
+/** What a channel's `send` said: the decision it gave now, or that the step waits (with the pause's reference in its system). */
+export type Sent = { readonly decision: unknown } | { readonly externalRef?: string | undefined };
+
+/** The reference a channel gave its pause: a key's text, else `send` is refused — never a stored value nobody can read back. */
+export function checkedExternalRef(channel: string, given: unknown): string | undefined {
+  if (given === undefined) return undefined;
+  if (typeof given !== "string" || keyTextRuleOf(given) !== undefined)
+    throw new TypeError(`channel ${channel}: externalRef of awaitReply() is a key's text`);
+  return given;
+}
+
+/** The channel's outcome: the decision it gave now, or what the step waits with (its `externalRef`). */
+export async function sendOnce(
+  channel: PauseChannel | undefined,
   pause: PauseRecord,
   signal: AbortSignal | undefined,
-): Promise<{ decision: unknown } | undefined> {
-  const outcome = await sentBy(channel, askOfPause(pause), signal);
+  within?: Omit<NoticeCall, "timeout">,
+): Promise<Sent> {
+  // an owner's pause with no channel asks nobody: it waits for the owner's resume (#1307c)
+  if (channel === undefined) return {};
+  const send = (): Promise<unknown> => sentBy(channel, askOfPause(pause), signal);
+  const timeout = channel.timeout ?? DEFAULT_CHANNEL_TIMEOUT;
+  const outcome = await (within === undefined
+    ? send()
+    : callInFrame({ ...within, timeout }, send).catch((error: unknown) => {
+        // a send that ran out its timeout is the channel's failure, like any other of its throws
+        throw error instanceof NoticeTimeoutError
+          ? new ChannelSendError(channel.name, error)
+          : error;
+      }));
   if (!isChannelOutcome(outcome)) {
     throw new TypeError(
       `channel ${channel.name}: send() must return ChannelOutcome.awaitReply() or ChannelOutcome.decided(…)`,
     );
   }
-  return outcome.kind === ChannelOutcomeKind.Decided ? { decision: outcome.decision } : undefined;
+  return outcome.kind === ChannelOutcomeKind.Decided
+    ? { decision: outcome.decision }
+    : { externalRef: checkedExternalRef(channel.name, outcome.externalRef) };
 }
 
 /** Whether its channel decided the pause's answer: at once, or when its deadline passed (#941). */
@@ -167,7 +184,6 @@ const withoutAnswer = (pause: PauseRecord): Error =>
 async function settledAnswer(
   site: Pick<PauseStepSite, "pauses" | "signal">,
   pause: PauseRecord,
-  channel: string,
 ): Promise<StepAnswer> {
   const { answer } = pause;
   if (pause.status === PauseStatus.Cancelled || answer === undefined) throw withoutAnswer(pause);
@@ -178,109 +194,83 @@ async function settledAnswer(
   }
   // a re-entry of a step its channel decided at once, or on the pause's expiry (#941): the
   // channel's decision, its spend counted already
-  if (isDecidedByChannel(pause)) return { decision: answer.decision, by: channel, usage: [] };
-  const by = answer.answeredBy ?? THREAD_OWNER;
+  if (isDecidedByChannel(pause))
+    return { decision: answer.decision, by: pause.channel ?? pause.target, usage: [] };
+  const by = answer.actor?.id ?? THREAD_OWNER;
   return { decision: answer.decision, by, usage: answer.usage ?? [] };
 }
 
-/** Where a pause step goes: the store, the channel, the step's frame and its signal. */
-export interface PauseStepSite {
-  readonly pauses: PausedExecutionRepository;
-  /** The execution records: a pause its channel decided at once is logged there (#267 S107). */
-  readonly answers: PauseAnswerLog;
-  readonly channel: PauseChannel;
-  readonly frame: FrameSpec;
-  readonly signal: AbortSignal | undefined;
-  /** The application's clock: when the pause was asked and decided. */
-  readonly clock: Clock;
-  /** Validates a decision the channel gave at once (as a reply would be), before it is recorded. */
-  readonly validate: (decision: unknown) => unknown;
-  /** Reported once, before the channel is asked (`onChannelStart`). */
-  readonly onSend: () => Promise<void>;
-  /** Who hears of the pause's change (#940): `markSent` writes its notices. */
-  readonly notices?: PauseNotices | undefined;
-  /** Where a calendar that fails is logged (#944). */
-  readonly log?: FrameworkLog | undefined;
+/** The decision the channel gave at once: validated, recorded as `Decided`, logged. */
+async function answeredAtOnce(
+  site: PauseStepSite,
+  pause: PauseRecord,
+  given: unknown,
+): Promise<StepAnswer> {
+  const { pauses, frame } = site;
+  const decision = site.validate(given);
+  const answer = { decision, actor: undefined };
+  const at = site.clock.now();
+  if (
+    await pauses.decideByTenantIdAndPauseId(
+      frame.execution.tenant.tenantId,
+      pause.pauseId,
+      answer,
+      at,
+    )
+  )
+    await logPauseAnswer(site.answers, decidedPause(pause, answer, at), PauseResolution.Decided);
+  return { decision, by: pause.channel ?? pause.target, usage: [] };
 }
 
 /**
- * The pause of the step's key: the record it made, or the one it already has. A deadline in working
- * time asks the calendar, so a re-entry looks for the record first and never asks it again; a race
- * between two instances is decided by `findOrCreateByStepKey`.
+ * Asks a pause's channel once and marks it sent: the answer a channel gave at once, the answer a
+ * reply gave meanwhile, or `undefined` while the pause waits (the step then stops at `interrupt()`).
  */
-async function openedPause(site: PauseStepSite, question: PauseQuestion): Promise<PauseRecord> {
-  const { pauses, channel, frame } = site;
-  const { execution, step } = frame;
-  const { tenantId } = execution.tenant;
-  const rootExecutionId = rootFactsOf(execution).executionId;
-  const isWorking = isWorkingDuration(question.expiresIn ?? channel.expiresIn);
-  if (isWorking) {
-    const found = await pauses.findByTenantIdAndRootExecutionIdAndStepKey(
-      tenantId,
-      rootExecutionId,
-      step.idempotencyKey,
-    );
-    if (found !== undefined) return found;
-  }
-  const add = (from: Date, amount: number): Promise<Date> =>
-    workingTimeAfter(
-      {
-        calendar: channel.calendar,
-        tenantId,
-        role: channel.name,
-        frame,
-        clock: site.clock,
-        interruption: site.signal,
-        log: site.log,
-      },
-      from,
-      amount,
-    );
-  return pauses.findOrCreateByStepKey(await newRecordOf(frame, channel, question, site.clock, add));
+async function sentOnce(site: PauseStepSite, pause: PauseRecord): Promise<StepAnswer | undefined> {
+  const { pauses, target } = site;
+  const { tenantId } = site.frame.execution.tenant;
+  // a pause an expiry or an operator moved to another target's channel is asked by the re-send look, which
+  // finds that channel; this step's own target does not have it — never mark it sent unasked
+  if (pause.channel !== undefined && channelOfPause(target, pause) === undefined) return undefined;
+  await site.onSend();
+  const sent = await sendOnce(channelOfPause(target, pause), pause, site.signal, {
+    frame: site.frame,
+    clock: site.clock,
+    interruption: site.signal,
+  });
+  if ("decision" in sent) return answeredAtOnce(site, pause, sent.decision);
+  const recipients = recipientsIn(site, pause);
+  const isPending = await pauses.markSentByTenantIdAndPauseId(
+    tenantId,
+    pause.pauseId,
+    recipients,
+    sent.externalRef,
+  );
+  // its notices are written: looked for at once — before `settledAnswer` and `interrupt()` throw
+  noticesWritten(site);
+  // asked: this pass saw `isSent` false and the store marked it (a re-entry never gets here)
+  pauseTallyOf(site)?.opened(pause);
+  if (isPending) return undefined;
+  // a reply resolved it while `send` was still returning: the step goes on with it
+  const settled = (await pauses.findByTenantIdAndPauseId(tenantId, pause.pauseId)) ?? pause;
+  return settledAnswer(site, settled);
 }
 
 /** Asks the step's question through its pause: the answer, or the step stops at `interrupt()`. */
 export async function pauseStep(site: PauseStepSite, question: PauseQuestion): Promise<StepAnswer> {
-  const { pauses, channel, frame } = site;
-  const { tenantId } = frame.execution.tenant;
   const found = await openedPause(site, question);
   assertSameQuestion(found, question);
-  let pause = await livePauseAfter(pauses, found);
-  if (pause.status !== PauseStatus.Pending) return settledAnswer(site, pause, channel.name);
+  const pause = await livePauseAfter(site.pauses, found);
+  if (pause.status !== PauseStatus.Pending) return settledAnswer(site, pause);
   site.signal?.throwIfAborted();
   if (!pause.isSent) {
-    await site.onSend();
-    const decided = await sendOnce(channel, pause, site.signal);
-    if (decided !== undefined) {
-      const decision = site.validate(decided.decision);
-      const answer = { decision, answeredBy: undefined };
-      const at = site.clock.now();
-      if (await pauses.decideByTenantIdAndPauseId(tenantId, pause.pauseId, answer, at))
-        await logPauseAnswer(
-          site.answers,
-          decidedPause(pause, answer, at),
-          PauseResolution.Decided,
-        );
-      return { decision, by: channel.name, usage: [] };
-    }
-    const recipients = recipientsIn(site, pause);
-    const isPending = await pauses.markSentByTenantIdAndPauseId(
-      tenantId,
-      pause.pauseId,
-      recipients,
-    );
-    // its notices are written: looked for at once — before `settledAnswer` and `interrupt()` throw
-    noticesWritten(site);
-    // asked: this pass saw `isSent` false and the store marked it (a re-entry never gets here)
-    pauseTallyOf(site)?.opened(pause);
-    if (!isPending) {
-      // a reply resolved it while `send` was still returning: the step goes on with it
-      pause = (await pauses.findByTenantIdAndPauseId(tenantId, pause.pauseId)) ?? pause;
-      return settledAnswer(site, pause, channel.name);
-    }
+    const answer = await sentOnce(site, pause);
+    if (answer !== undefined) return answer;
   }
   site.signal?.throwIfAborted();
   interrupt<PauseInterruptValue, unknown>({ pauseId: pause.pauseId });
   // a resume answers a pause through its record, never through the interrupt's value
   throw new TypeError(`pause ${pause.pauseId} was resumed without a recorded decision`);
 }
+
+export { ChannelSelectError, type PauseStepSite } from "./pause-open.js";

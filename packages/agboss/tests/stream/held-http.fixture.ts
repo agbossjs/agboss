@@ -2,12 +2,11 @@
  * #1122: held agents on an HTTP provider — an agent-level output guardrail alone, an agent-level PII
  * block rule, an application-level one — each on a model the 127.0.0.1 test server answers.
  */
-import { Agent, Workflow } from "../../src/index.js";
-import { WorkflowStartTextDto } from "../../src/dto/index.js";
+import { Agent, Workflow, inline, Ttl } from "../../src/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { TokenLimit } from "../../src/config/types.js";
 import { ChatStart, Reply } from "../channels/approval.workflow.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import {
   StreamBackupModelProvider,
   StreamModelProvider,
@@ -48,7 +47,7 @@ export function heldApplication(
   @Agent({
     name: `${prefix}-agent`,
     description: "Answers",
-    prompt: "Answer the message.",
+    prompt: inline("Answer the message."),
     model,
     ...kind.agent,
   })
@@ -57,8 +56,9 @@ export function heldApplication(
   @Workflow({
     name: `${prefix}-workflow`,
     version: "1.0.0",
-    flow: [start(ChatStart).returns(WorkflowStartTextDto).toAgent(HeldAgent).toFinish(Reply)],
-    defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+    historyTtl: Ttl.Forever,
+    flow: [onStart(ChatStart).toAgent(HeldAgent).toFinish(Reply)],
+    defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
   })
   class HeldWorkflow {}
 

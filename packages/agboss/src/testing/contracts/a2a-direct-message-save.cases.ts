@@ -12,6 +12,7 @@ import {
   NINE,
   at,
   keyOf,
+  ENDPOINT,
   newMessage,
   savedMessage,
   type A2ADirectMessageStores,
@@ -20,6 +21,7 @@ import {
 type Instances = ContractInstances<A2ADirectMessageStores>;
 
 const EXPECTED: A2ADirectMessageRecord = {
+  endpoint: ENDPOINT,
   tenantId: "default",
   ownerId: "alice",
   messageId: "m-1",
@@ -116,6 +118,7 @@ export const A2A_DIRECT_MESSAGE_CLAIM_CASES: readonly ContractCase<A2ADirectMess
 
       const task = await second.tasks.saveIfAbsent(newTask("t-1", { messageId: "m-1" }));
       const followUp = await second.tasks.saveMessageIfAbsent({
+        endpoint: ENDPOINT,
         tenantId: "default",
         ownerId: "alice",
         messageId: "m-1",

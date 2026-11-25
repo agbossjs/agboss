@@ -2,15 +2,15 @@ import { createHmac, randomBytes } from "node:crypto";
 import { PiiKeyPurpose, purposeDigestOf } from "./key-hierarchy.js";
 
 /**
- * The tokens of `replaceWithToken()` (#120 S38): `<email:7f3a91>` — the first hex digits of the
+ * The tokens of `tokenize()` (#120 S38): `<email:7f3a91>` — the first hex digits of the
  * HMAC-SHA256 of the normalised value under the pseudonym key derived from the policy's
- * `pseudonymKey` (#1269: `PiiKeyPurpose.Pseudonym`, never the key itself), so one value is one token
+ * `secret` (#1269: `PiiKeyPurpose.Pseudonym`, never the key itself), so one value is one token
  * everywhere. The token → value map is the execution's `piiTokens` channel (in its checkpoint);
- * only these tokens are revealed, `replaceWithKind()` / `replacePart()` are one-way.
+ * only these tokens are revealed, `mask()` / `mask()` are one-way.
  */
 
 /**
- * A new random key for field tokens: an instance's when the application sets no `piiKeyField`
+ * A new random key for field tokens: an instance's when the application sets no PII secret
  * (#120 S94), and each root execution's then (#334).
  */
 export const newPiiKey = (): string => randomBytes(32).toString("hex");
@@ -36,12 +36,44 @@ export const keyedDigestOf = (key: string, text: string): string =>
   createHmac("sha256", key).update(text).digest("hex");
 
 /**
+ * The token `known` already holds for the value under `key`: key rotation (`previousSecret`) looks
+ * under the key rotated out, so a thread that holds `<email:ab12cd>` keeps one token for that
+ * value and a model that sees it twice sees one token. None when `known` holds none.
+ */
+function heldToken(
+  label: string,
+  normalised: string,
+  key: string,
+  known: PiiTokenMap,
+): string | undefined {
+  const digest = purposeDigestOf(key, PiiKeyPurpose.Pseudonym, normalised);
+  for (let length = SHORT; length <= digest.length; length += 2) {
+    const token = `<${label}:${digest.slice(0, length)}>`;
+    const held = known[token];
+    if (held !== undefined && normalisedValue(label, held) === normalised) return token;
+  }
+  return undefined;
+}
+
+/**
  * The token of a value: the shortest prefix (6 hex digits and up, by two) that does not stand for another
  * value in `known` — one token per value within an execution; the whole digest (64 digits, reached from 6
  * by twos) when every shorter prefix is taken, even if it is too (an HMAC-SHA256 collision).
  */
-export function tokenOf(label: string, value: string, key: string, known: PiiTokenMap): string {
-  const digest = purposeDigestOf(key, PiiKeyPurpose.Pseudonym, normalisedValue(label, value));
+export function tokenOf(
+  label: string,
+  value: string,
+  key: string,
+  known: PiiTokenMap,
+  previousKey?: string,
+): string {
+  const normalised = normalisedValue(label, value);
+  // a thread's token for this value stays its token: under the key, else under the key rotated out
+  const held =
+    heldToken(label, normalised, key, known) ??
+    (previousKey === undefined ? undefined : heldToken(label, normalised, previousKey, known));
+  if (held !== undefined) return held;
+  const digest = purposeDigestOf(key, PiiKeyPurpose.Pseudonym, normalised);
   for (let length = SHORT; ; length += 2) {
     const token = `<${label}:${digest.slice(0, length)}>`;
     const taken = known[token];

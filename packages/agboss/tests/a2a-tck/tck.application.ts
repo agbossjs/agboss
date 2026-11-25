@@ -1,3 +1,4 @@
+import { hours, minutes, days, Ttl } from "../../src/units/index.js";
 // #811 — the conformance application the official A2A TCK (a2aproject/a2a-tck) runs against: a task
 // skill, the expose's `defaultSkill` (the TCK names none), whose paths end at a text finish, at a DTO
 // finish (a `data` artifact) or at a pause its caller answers (INPUT_REQUIRED); and (#860) a skill
@@ -7,38 +8,31 @@
 // which no workflow sees: `tck-serve.ts` puts it in a header and the caller resolver passes it to
 // the execution as a declared context field. Everything past that is AGBoss as an application
 // serves it.
-import { A2AExpose, A2AReply } from "../../src/a2a/a2a-expose.decorator.js";
-import { WorkflowFinishFileDto } from "../../src/a2a/files/a2a-file.dto.js";
-import { A2AFiles } from "../../src/a2a/files/a2a-files.service.js";
-import {
-  A2ACallerResolution,
-  type A2ACaller,
-  type A2ACallerRequest,
-  type A2ACallerResolver,
-} from "../../src/a2a/a2a-caller.js";
+import { A2AEndpoint, A2AReply } from "../../src/a2a/a2a-endpoint.decorator.js";
+import { WorkflowFinishFileDto } from "../../src/dto/standard/file.js";
+import { FilePolicy } from "../../src/files/file-policy.js";
+import { Files } from "../../src/a2a/files/files.service.js";
 import { Application } from "../../src/application/application.js";
-import { Channel, Injectable } from "../../src/components/decorators.js";
-import { ChannelOf, type ChannelAsk } from "../../src/channels/channel-handler.js";
+import { Channel } from "../../src/components/decorators.js";
+import { type ChannelAsk } from "../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import {
-  ChannelRole,
-  PauseAnswerer,
-  ReplyInterpretation,
-  ReplyInterpreter,
-} from "../../src/channels/channel-role.decorator.js";
-import type { Class } from "../../src/components/injection.js";
+  ChannelInterpretation,
+  ChannelInterpreter,
+} from "../../src/channels/channel-interpreter.js";
 import { AGBossError } from "../../src/core/errors.js";
 import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { ExecutionContext } from "../../src/flow/context/execution-context.js";
 import { Action } from "../../src/flow/decorators/action.js";
-import { DecidedBy } from "../../src/flow/decorators/router.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
-import { oneOf, variant, type Variant } from "../../src/flow/dto-wrappers.js";
-import { EmptyEnvironment, type Produced } from "../../src/index.js";
+import { oneOf } from "../../src/flow/dto-wrappers.js";
+import { EmptyEnvironment, type Tracked, ExternalTask } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { caseOf, start } from "../helpers/flow.js";
+import { onStart, toFinish, toExternalTask } from "../helpers/flow.js";
+import { HttpAuthResult, type HttpAuthRequest, HttpAuthenticator } from "../../src/index.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 /** The header the TCK adapter (`tck-serve.ts`) names a message's scenario in. */
 export const TCK_SCENARIO_HEADER = "x-agboss-tck-scenario";
@@ -94,9 +88,7 @@ const TEXTS: Readonly<Record<string, string>> = {
 const TCK_FILE = { filename: "output.txt", mediaType: "text/plain" } as const;
 
 /** What a scenario answers with. */
-type TckAnswer = Variant<
-  typeof WorkflowFinishTextDto | typeof TckDataDto | typeof TckAskDto | typeof WorkflowFinishFileDto
->;
+type TckAnswer = WorkflowFinishTextDto | TckDataDto | TckAskDto | WorkflowFinishFileDto;
 
 /** A scenario's answer: a text, a data value, a file, or a question for its caller. */
 @Action({
@@ -104,67 +96,68 @@ type TckAnswer = Variant<
   description: "Answers as the TCK scenario of the message says",
   input: { message: WorkflowStartTextDto },
   output: oneOf(WorkflowFinishTextDto, TckDataDto, TckAskDto, WorkflowFinishFileDto),
-  deps: [TckExecutionContext, A2AFiles],
+  deps: [TckExecutionContext, Files],
 })
 export class TckScenarioAction {
   constructor(
     private readonly tckExecutionContext: TckExecutionContext,
-    private readonly a2aFiles: A2AFiles,
+    private readonly a2aFiles: Files,
   ) {}
 
-  async execute(_input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): Promise<TckAnswer> {
+  async execute(_input: { readonly message: Tracked<WorkflowStartTextDto> }): Promise<TckAnswer> {
     const scenario = this.tckExecutionContext.scenario ?? "complete-task";
     if (scenario === "artifact-file") {
       const bytes = new TextEncoder().encode("Generated file content");
       const file = await this.a2aFiles.save({ ...TCK_FILE, bytes });
-      return variant(WorkflowFinishFileDto, { file });
+      return { file };
     }
     if (scenario === "artifact-file-url") {
       const file = this.a2aFiles.fromUrl("https://example.com/output.txt", TCK_FILE);
-      return variant(WorkflowFinishFileDto, { file });
+      return { file };
     }
     return this.#answerOf(scenario);
   }
 
   #answerOf(scenario: string): Promise<TckAnswer> {
     if (scenario === "reject-task") return Promise.reject(new TckRejectedError("rejected"));
-    if (scenario === "artifact-data")
-      return Promise.resolve(variant(TckDataDto, { key: "value", count: 42 }));
-    if (scenario === "input-required")
-      return Promise.resolve(variant(TckAskDto, { ask: "the TCK's next message" }));
+    if (scenario === "artifact-data") return Promise.resolve({ key: "value", count: 42 });
+    if (scenario === "input-required") return Promise.resolve({ ask: "the TCK's next message" });
     const text = TEXTS[scenario] ?? "Hello from TCK";
-    return Promise.resolve(variant(WorkflowFinishTextDto, { text }));
+    return Promise.resolve({ text });
   }
 }
 
 /** Any reply answers the question: its text. */
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "tck-reply-interpreter",
   description: "Takes the caller's reply as it is",
-  decidedBy: DecidedBy.Code,
 })
 export class TckReplyInterpreter {
-  interpret(input: { readonly reply: string }): ReplyInterpretation<TckReplyDto> {
-    return ReplyInterpretation.understood({ reply: input.reply });
+  interpret(input: { readonly reply: string }): ChannelInterpretation<TckReplyDto> {
+    return ChannelInterpretation.understood({ reply: input.reply });
   }
 }
 
-@ChannelRole({
-  name: "tck-input-question",
+@ExternalTask({
+  name: "tck-input-external-task",
   description: "Asks the task's caller for its next message",
-  ask: TckAskDto,
-  answer: TckReplyDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  replyInterpreter: TckReplyInterpreter,
+  input: TckAskDto,
+  output: TckReplyDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+  channelInterpreter: TckReplyInterpreter,
 })
-export abstract class TckInputQuestion extends ChannelOf<TckInputQuestion> {}
+export class TckInputExternalTask {}
 
 /** The caller answers over A2A: the question waits for its follow-up message. */
-@Channel({ name: "tck-caller-channel", description: "The task's caller" })
-export class TckCallerChannel extends TckInputQuestion {
-  send(_ask: ChannelAsk<TckInputQuestion>): Promise<ChannelOutcome<TckInputQuestion>> {
+@Channel({
+  name: "tck-caller-channel",
+  description: "The task's caller",
+  target: TckInputExternalTask,
+  ttl: days(1),
+})
+export class TckCallerChannel {
+  send(_ask: ChannelAsk<TckInputExternalTask>): Promise<ChannelOutcome<TckInputExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -177,9 +170,7 @@ export class TckCallerChannel extends TckInputQuestion {
   output: WorkflowFinishTextDto,
 })
 export class TckAnsweredAction {
-  execute(_input: {
-    readonly reply: Produced<TckReplyDto, unknown>;
-  }): Promise<WorkflowFinishTextDto> {
+  execute(_input: { readonly reply: Tracked<TckReplyDto> }): Promise<WorkflowFinishTextDto> {
     return Promise.resolve({ text: "Hello from TCK" });
   }
 }
@@ -212,33 +203,31 @@ export class TckFileFinish {}
 })
 export class TckDataFinish {}
 
+@FilePolicy({ ttl: hours(24), name: "tck-file-policy" })
+export class TckFilePolicy {}
+
 @Workflow({
   name: "tck-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  filePolicy: TckFilePolicy,
   flow: [
-    start(TckWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(TckWorkflowStart)
       .toAction(TckScenarioAction)
-      .returns(oneOf(WorkflowFinishTextDto, TckDataDto, TckAskDto, WorkflowFinishFileDto))
-      .switch(
-        caseOf(WorkflowFinishTextDto).toFinish(TckTextFinish),
-        caseOf(WorkflowFinishFileDto).toFinish(TckFileFinish),
-        caseOf(TckDataDto).toFinish(TckDataFinish),
-        caseOf(TckAskDto)
-          .toQuestion(TckInputQuestion)
-          .returns(TckReplyDto)
-          .toAction(TckAnsweredAction)
-          .returns(WorkflowFinishTextDto)
-          .toFinish(TckTextFinish),
-      ),
+      .toOneOf([
+        toFinish(TckTextFinish),
+        toFinish(TckFileFinish),
+        toFinish(TckDataFinish),
+        toExternalTask(TckInputExternalTask).toAction(TckAnsweredAction).toFinish(TckTextFinish),
+      ]),
   ],
 })
 export class TckWorkflow {}
 
 /** Every caller is the TCK; its scenario is the adapter's header. */
-@Injectable()
-export class TckCallerResolver implements A2ACallerResolver<Class> {
-  resolveCaller(request: A2ACallerRequest): A2ACallerResolution<Class> {
+@HttpAuthenticator()
+export class TckAuthenticator {
+  authenticate(request: HttpAuthRequest): HttpAuthResult {
     const scenario = request.http.headers[TCK_SCENARIO_HEADER];
     const caller: Record<string, unknown> =
       typeof scenario === "string"
@@ -246,7 +235,7 @@ export class TckCallerResolver implements A2ACallerResolver<Class> {
         : { ownerId: TCK_OWNER };
     // the generated types (check:types) cover the flow fixtures, not this application: its
     // declared context field is checked when the execution starts, like every caller's values
-    return A2ACallerResolution.resolved(caller);
+    return HttpAuthResult.authenticated(caller);
   }
 }
 
@@ -259,7 +248,7 @@ export class TckCallerResolver implements A2ACallerResolver<Class> {
 })
 export class TckMessageAction {
   execute(_input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<WorkflowFinishTextDto> {
     return Promise.resolve({ text: "Direct message response" });
   }
@@ -282,23 +271,19 @@ export class TckMessageFinish {}
 @Workflow({
   name: "tck-message-workflow",
   version: "1.0.0",
-  flow: [
-    start(TckMessageWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(TckMessageAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(TckMessageFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  filePolicy: TckFilePolicy,
+  flow: [onStart(TckMessageWorkflowStart).toAction(TckMessageAction).toFinish(TckMessageFinish)],
 })
 export class TckMessageWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "tck-a2a-expose",
   version: "1.0.0",
   description: "The AGBoss conformance agent of the A2A TCK",
-  exports: [TckWorkflowStart, TckMessageWorkflowStart],
-  skills: { "tck-message-workflow-start": { reply: A2AReply.Message } },
   defaultSkill: TckWorkflowStart,
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [TckWorkflowStart, { start: TckMessageWorkflowStart, reply: A2AReply.Message }],
 })
 export class TckA2AExpose {}
 
@@ -308,8 +293,8 @@ export class TckA2AExpose {}
   environment: EmptyEnvironment,
   executionContext: TckExecutionContext,
   workflows: [TckWorkflow, TckMessageWorkflow],
-  providers: [TckCallerChannel, TckCallerResolver],
-  exposes: [TckA2AExpose],
+  providers: [TckCallerChannel, TckAuthenticator],
+  endpoints: [TckA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class TckApplication {}

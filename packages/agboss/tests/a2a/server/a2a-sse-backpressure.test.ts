@@ -15,7 +15,7 @@ import { A2ATaskState } from "../../../src/infrastructure/a2a-task.repository.js
 import { LocalRuns } from "../../../src/a2a/server/a2a-local-runs.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
-import type { StreamStep } from "../../../src/run/types.js";
+import { StreamEventKind, type StreamStep } from "../../../src/run/types.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { NINE, savedTask, scriptOf, unitParts, WORKING } from "./support/unit-parts.js";
 import { sseClient, sseServer } from "./support/sse-socket.js";
@@ -51,7 +51,7 @@ describe("#1008 AC1: a slow reader", () => {
     await nextTurn();
     let heldMost = 0;
     for (let index = 0; index < CHUNKS; index += 1) {
-      emit({ kind: "textDelta", delta: CHUNK, step: STEP });
+      emit({ kind: StreamEventKind.TextDelta, delta: CHUNK, step: STEP });
       await nextTurn();
       heldMost = Math.max(heldMost, server.response()?.writableLength ?? 0);
     }
@@ -96,7 +96,7 @@ describe("#1008 AC1: a slow reader", () => {
     });
     await nextTurn();
 
-    emit({ kind: "textDelta", delta: "é".repeat(3 * 1024 * 1024), step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "é".repeat(3 * 1024 * 1024), step: STEP });
     await nextTurn();
     finish();
     await settled;

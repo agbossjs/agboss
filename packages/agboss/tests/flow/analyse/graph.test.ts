@@ -1,16 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { analyseWorkflow, checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import {
-  ChangesRequestedDto,
-  DraftApprovedDto,
-  OfferDraftDto,
-  OfferSentDto,
-  ShortlistDto,
-} from "../fixtures/dtos.js";
+import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto } from "../fixtures/dtos.js";
 import {
   DraftKitAgent,
   DraftKitWorkflowFinish,
@@ -21,9 +14,12 @@ import {
   ReviewKitAgent,
   SecondKitWorkflowStart,
   SendKitAction,
+  TakeApprovalKitAction,
+  TakeChangesKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { agent, caseOf, start } from "../fixtures/paths.js";
+import { onAgent, onStart, toAgent, toAction } from "../fixtures/paths.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** The graph rules that stay (#272 AC11, AC14): all at once, before any model call. */
 
@@ -31,48 +27,41 @@ const codesOf = (workflow: abstract new () => unknown): readonly string[] =>
   checkWorkflow(workflow).errors.map((found) => found.code);
 
 const reviewPaths = (editor: typeof EditKitAgent | typeof PolishKitAgent) => [
-  start(KitWorkflowStart)
-    .returns(ShortlistDto)
-    .toAgent(DraftKitAgent)
-    .returns(OfferDraftDto)
-    .toAgent(ReviewKitAgent),
-  agent(ReviewKitAgent)
-    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-    .switch(
-      caseOf(ChangesRequestedDto).toAgent(editor).returns(OfferDraftDto).toAgent(ReviewKitAgent),
-      caseOf(DraftApprovedDto)
-        .toAction(SendKitAction)
-        .returns(OfferSentDto)
-        .toFinish(SentKitWorkflowFinish),
-    ),
+  onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(ReviewKitAgent),
+  onAgent(ReviewKitAgent).toOneOf([
+    toAction(TakeChangesKitAction).toAgent(editor).toAgent(ReviewKitAgent),
+    toAction(TakeApprovalKitAction).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
+  ]),
 ];
 
-@Workflow({ name: "bounded-loop-workflow", version: "1.0.0", flow: reviewPaths(EditKitAgent) })
+@Workflow({
+  name: "bounded-loop-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: reviewPaths(EditKitAgent),
+})
 class BoundedLoopWorkflow {}
 
-@Workflow({ name: "unbounded-loop-workflow", version: "1.0.0", flow: reviewPaths(PolishKitAgent) })
+@Workflow({
+  name: "unbounded-loop-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: reviewPaths(PolishKitAgent),
+})
 class UnboundedLoopWorkflow {}
 
 @Workflow({
   name: "two-entry-cycle-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
-      .toAgent(ReviewKitAgent),
-    start(SecondKitWorkflowStart).returns(OfferDraftDto).toAgent(EditKitAgent),
-    agent(ReviewKitAgent)
-      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-      .switch(
-        caseOf(ChangesRequestedDto).toAgent(EditKitAgent),
-        caseOf(DraftApprovedDto)
-          .toAction(SendKitAction)
-          .returns(OfferSentDto)
-          .toFinish(SentKitWorkflowFinish),
-      ),
-    agent(EditKitAgent).returns(OfferDraftDto).toAgent(ReviewKitAgent),
+    onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(ReviewKitAgent),
+    onStart(SecondKitWorkflowStart).toAgent(EditKitAgent),
+    onAgent(ReviewKitAgent).toOneOf([
+      toAction(TakeChangesKitAction).toAgent(EditKitAgent),
+      toAction(TakeApprovalKitAction).toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
+    ]),
+    onAgent(EditKitAgent).toAgent(ReviewKitAgent),
   ],
 })
 class TwoEntryCycleWorkflow {}
@@ -80,25 +69,14 @@ class TwoEntryCycleWorkflow {}
 @Workflow({
   name: "broken-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
-      .toAgent(ReviewKitAgent),
-    agent(ReviewKitAgent)
-      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-      .switch(
-        caseOf(ChangesRequestedDto)
-          .toAgent(PolishKitAgent)
-          .returns(OfferDraftDto)
-          .toAgent(ReviewKitAgent),
-        caseOf(DraftApprovedDto).toAction(SendKitAction),
-      ),
-    agent(EditKitAgent)
-      .returns(OfferDraftDto)
-      .toFinish(DraftKitWorkflowFinish)
-      .toFinish(DraftKitWorkflowFinish),
+    onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(ReviewKitAgent),
+    onAgent(ReviewKitAgent).toOneOf([
+      toAction(TakeChangesKitAction).toAgent(PolishKitAgent).toAgent(ReviewKitAgent),
+      toAction(TakeApprovalKitAction).toAction(SendKitAction),
+    ]),
+    onAgent(EditKitAgent).toFinish(DraftKitWorkflowFinish).toFinish(DraftKitWorkflowFinish),
   ],
 })
 class BrokenWorkflow {}
@@ -106,7 +84,8 @@ class BrokenWorkflow {}
 @Workflow({
   name: "startless-workflow",
   version: "1.0.0",
-  flow: [agent(DraftKitAgent).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish)],
+  historyTtl: Ttl.Forever,
+  flow: [onAgent(DraftKitAgent).toFinish(DraftKitWorkflowFinish)],
 })
 class StartlessWorkflow {}
 
@@ -117,9 +96,10 @@ class UndecoratedAgent {
 @Workflow({
   name: "wrong-kinds-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KitWorkflowStart).returns(ShortlistDto).toAgent(KitRouter),
-    start(SecondKitWorkflowStart).returns(OfferDraftDto).toAgent(UndecoratedAgent),
+    onStart(KitWorkflowStart).toAgent(KitRouter),
+    onStart(SecondKitWorkflowStart).toAgent(UndecoratedAgent),
   ],
 })
 class WrongKindsWorkflow {}
@@ -127,7 +107,7 @@ class WrongKindsWorkflow {}
 @Agent({
   name: "draft-kit-agent",
   description: "A second class under a taken name",
-  prompt: "Draft it.",
+  prompt: inline("Draft it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,
@@ -139,13 +119,8 @@ class SameNameAgent {}
 @Workflow({
   name: "same-name-workflow",
   version: "1.0.0",
-  flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(DraftKitAgent)
-      .returns(OfferDraftDto)
-      .toAgent(SameNameAgent),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(SameNameAgent)],
 })
 class SameNameWorkflow {}
 
@@ -174,7 +149,7 @@ describe("AC11: assembly reports all errors at once, before any model call", () 
       expect.arrayContaining([
         "broken-workflow: edit-kit-agent is not reachable from any workflow start — lead a path to it, or remove it from the flow",
         "broken-workflow: the path stops at send-kit-action — continue it with .to…(…), or end it with .toFinish(…); every path ends in a finish or at a shared node",
-        "broken-workflow: draft-kit-workflow-finish is a finish — nothing follows .toFinish(…) or route(…) of a finish",
+        "broken-workflow: draft-kit-workflow-finish is a finish — nothing follows .toFinish(…) or .onRoute(toFinish(…)) of a finish",
       ]),
     );
   });
@@ -184,8 +159,8 @@ describe("AC11: assembly reports all errors at once, before any model call", () 
       expect.objectContaining({
         code: "graph.cycle-without-max-visits",
         message:
-          "unbounded-loop-workflow: the cycle through polish-kit-agent, review-kit-agent has no maxVisits — set maxVisits on one of its agents or routers",
-        nodes: ["polish-kit-agent", "review-kit-agent"],
+          "unbounded-loop-workflow: the cycle through polish-kit-agent, review-kit-agent, take-changes-kit-action has no maxVisits — set maxVisits on one of its agents or routers",
+        nodes: ["polish-kit-agent", "review-kit-agent", "take-changes-kit-action"],
       }),
     ]);
   });

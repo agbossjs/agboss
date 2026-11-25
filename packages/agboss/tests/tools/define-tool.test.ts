@@ -1,6 +1,8 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { ExecutionFencedError, ExecutionLeaseLostError } from "../../src/index.js";
+import { ExecutionLeaseLostError } from "../../src/index.js";
 import {
   defineTool,
   InvalidToolNameError,
@@ -130,8 +132,8 @@ describe("defineTool", () => {
 });
 
 describe("defineTool: what rises instead of an error result (#471)", () => {
-  it("a fenced write rises as the ExecutionFencedError, wrapped or not", async () => {
-    const fenced = ExecutionFencedError.of({
+  it("a fenced write rises as the ExecutionError.Fenced, wrapped or not", async () => {
+    const fenced = fencedRefusalOf({
       scopeKey: "acme:root-1",
       token: 1,
       observedToken: 2,

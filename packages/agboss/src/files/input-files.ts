@@ -1,6 +1,6 @@
-import { fileFieldsOf } from "../a2a/files/a2a-file.dto.js";
+import { fileFieldsOf } from "../dto/standard/file.js";
 import { isFileDescriptor } from "../a2a/files/a2a-file-scrub.js";
-import { A2AFileDto } from "../a2a/files/a2a-file.dto.js";
+import { FileDto } from "../dto/standard/file.js";
 import type { DtoClass } from "../dto/types.js";
 import type { ResolvedField } from "../flow/analyse/fields.js";
 import { elementProducerOf } from "../flow/runtime/scope.js";
@@ -10,16 +10,15 @@ import type { SourceFile } from "./visit-files.js";
 
 /**
  * The files an agent's input holds (#899 §3): a field whose shape is the file DTO itself, a list of
- * them, or a DTO with `A2AFileDto` fields — each a source file shown under the field it sits in.
+ * them, or a DTO with `FileDto` fields — each a source file shown under the field it sits in.
  */
 
-const isFileDto = (dto: DtoClass): boolean =>
-  dto === A2AFileDto || dto.prototype instanceof A2AFileDto;
+const isFileDto = (dto: DtoClass): boolean => dto === FileDto || dto.prototype instanceof FileDto;
 
 const asRecord = (value: unknown): Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null ? Object.fromEntries(Object.entries(value)) : {};
 
-/** An element of a `listOf(oneOf(…))` value; its `variant` is only compared with the DTO names. */
+/** An element of a `listOf(…)` value; its `variant` is only compared with the DTO names. */
 const isVariantElement = (
   element: unknown,
 ): element is { readonly variant: unknown; readonly value: unknown } =>
@@ -30,7 +29,7 @@ export function filesOfValue(
   dto: DtoClass,
   value: unknown,
   field: string,
-): readonly { readonly descriptor: A2AFileDto; readonly field: string }[] {
+): readonly { readonly descriptor: FileDto; readonly field: string }[] {
   if (isFileDto(dto)) return isFileDescriptor(value) ? [{ descriptor: value, field }] : [];
   const record = asRecord(value);
   return fileFieldsOf(dto).flatMap((fileField) => {

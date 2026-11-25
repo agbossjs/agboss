@@ -66,6 +66,8 @@ describe("a reviewer per section, then the critics side by side", () => {
       "style-critic-agent",
       "fact-checker-agent#1",
       "fact-checker-agent#2",
+      // the finish is a boundary port (#1271a): the report's values are made by an action before it
+      "review-report-action",
       "review-workflow-finish",
     ]);
     expect(result.launches).toMatchObject([
@@ -91,7 +93,7 @@ describe("a reviewer per section, then the critics side by side", () => {
     expect(mockLlm(SectionReviewerAgent).requests).toHaveLength(20);
   });
 
-  test("a critic that fails takes .onJoinError(StepFailedError, …): the plan, unreviewed", async ({
+  test("a critic that fails takes .onError(StepFailedError, …): the plan, unreviewed", async ({
     app,
     mockLlm,
   }) => {

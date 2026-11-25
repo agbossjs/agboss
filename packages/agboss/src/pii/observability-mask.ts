@@ -1,4 +1,5 @@
 import { redactedFilesIn } from "../a2a/files/a2a-file-scrub.js";
+import { isWalkable, likeOriginal } from "../dto/plain.js";
 import { displayMask, maskedDtoValue } from "../dto/redact.js";
 import type { DtoClass } from "../dto/types.js";
 import { kindPlaceholder } from "./replacement.js";
@@ -30,8 +31,7 @@ export interface ObservedContexts {
   readonly executionContext: abstract new () => unknown;
 }
 
-const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+const isPlain = (value: unknown): value is Readonly<Record<string, unknown>> => isWalkable(value);
 
 const hiddenTokens = (tokens: unknown): unknown =>
   isPlain(tokens)
@@ -72,14 +72,17 @@ const HIDDEN_KEY = "***";
 function withHiddenChannels(value: unknown, classes: ObservedContexts | undefined): unknown {
   if (Array.isArray(value)) return value.map((item: unknown) => withHiddenChannels(item, classes));
   if (!isPlain(value)) return value;
-  return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => {
-      if (key === "piiTokens") return [key, hiddenTokens(item)];
-      if (key === "piiValues") return [key, hiddenValues(item)];
-      if (key === "piiKey") return [key, typeof item === "string" ? HIDDEN_KEY : item];
-      if (key === "contexts") return [key, hiddenContexts(item, classes)];
-      return [key, withHiddenChannels(item, classes)];
-    }),
+  return likeOriginal(
+    value,
+    Object.fromEntries(
+      Object.entries(value).map(([key, item]) => {
+        if (key === "piiTokens") return [key, hiddenTokens(item)];
+        if (key === "piiValues") return [key, hiddenValues(item)];
+        if (key === "piiKey") return [key, typeof item === "string" ? HIDDEN_KEY : item];
+        if (key === "contexts") return [key, hiddenContexts(item, classes)];
+        return [key, withHiddenChannels(item, classes)];
+      }),
+    ),
   );
 }
 
@@ -101,7 +104,7 @@ async function withMaskedMessages(
   const entries: [string, unknown][] = [];
   for (const [key, item] of Object.entries(data))
     entries.push([key, await withMaskedMessages(item, mask)]);
-  return Object.fromEntries(entries);
+  return likeOriginal(data, Object.fromEntries(entries));
 }
 
 const parsedJson = (text: string): { readonly value: unknown } | undefined => {

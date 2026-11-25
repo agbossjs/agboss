@@ -2,28 +2,33 @@ import {
   Agent,
   EmptyEnvironment,
   Injectable,
-  listOf,
   SpendRecorder,
   Tool,
   Workflow,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toAgent } from "../../helpers/flow.js";
 import { RecordingCostLedger } from "../../helpers.js";
 import {
   BatchWorkflowFinish,
   BatchWorkflowStart,
   CustomerOrderConfirmationChannel,
   FinanceDeskRefundApprovalChannel,
+  FinanceDeskBackupChannel,
+  RefundDeskSelector,
+  AutoRefundChannel,
   PauseLog,
   RefundDoneDto,
   RefundRequestDto,
   RefundTool,
   SeenPausedExecutionRepository,
+  BatchAction,
 } from "./pauses.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #267 spend while several agent loops are paused: each branch pays for a lookup (a paid service,
@@ -42,10 +47,10 @@ export const LOOKUP_COST = 0.01;
   output: RefundRequestDto,
   deps: [SpendRecorder],
 })
-export class PriceOrderTool implements ToolHandler<RefundRequestDto, RefundRequestDto> {
+export class PriceOrderTool {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  run(input: RefundRequestDto): Promise<RefundRequestDto> {
+  execute(input: RefundRequestDto): Promise<RefundRequestDto> {
     this.spendRecorder.record({ service: "order-api", cost: usd(LOOKUP_COST) });
     return Promise.resolve(input);
   }
@@ -54,7 +59,7 @@ export class PriceOrderTool implements ToolHandler<RefundRequestDto, RefundReque
 @Agent({
   name: "priced-refund-agent",
   description: "Prices one order, then refunds it",
-  prompt: "Price the order, then refund it.",
+  prompt: inline("Price the order, then refund it."),
   model: "moonshotai/kimi-k2.6",
   tools: [PriceOrderTool, RefundTool],
   input: { request: RefundRequestDto },
@@ -83,13 +88,13 @@ export function costLedger(): SeenCostLedgerRepository {
 @Workflow({
   name: "priced-batch-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  historyTtl: Ttl.Forever,
+  executionLimits: { maxSteps: 20 },
   flow: [
-    start(BatchWorkflowStart)
-      .returns(listOf(RefundRequestDto))
-      .toParallelAgents(PricedRefundAgent, { maxConcurrency: 3, maxItems: 5 })
+    onStart(BatchWorkflowStart)
+      .forEachItem(toAgent(PricedRefundAgent), { takeFirst: 5, maxConcurrency: 3 })
       .join()
-      .returns(listOf(RefundDoneDto))
+      .toAction(BatchAction)
       .toFinish(BatchWorkflowFinish),
   ],
 })
@@ -97,11 +102,15 @@ export class PricedBatchWorkflow {}
 
 @Application({
   name: "priced-pauses-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PricedBatchWorkflow],
   providers: [
     FinanceDeskRefundApprovalChannel,
+    FinanceDeskBackupChannel,
+    RefundDeskSelector,
+    AutoRefundChannel,
     CustomerOrderConfirmationChannel,
     SeenPausedExecutionRepository,
     SeenCostLedgerRepository,

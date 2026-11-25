@@ -17,6 +17,46 @@ export interface DeclaredContexts {
   readonly executionContext?: ExecutionContextClass | undefined;
 }
 
+/**
+ * The names the framework's contexts own (#1316f): a project's subclass adds fields beside them and
+ * never declares one — a field named `tenantId` or `ownerId` would shadow what the framework sets
+ * (tenant isolation, ownership), so `[context.reserved-field]` refuses it at assembly.
+ */
+const RESERVED_FIELDS: ReadonlySet<string> = new Set([
+  "executionId",
+  "threadId",
+  "ownerId",
+  "tenant",
+  "tenantId",
+  "weight",
+  "application",
+  "signal",
+  "workflow",
+  "step",
+  "itemIndex",
+  "parent",
+  "root",
+  "depth",
+  "origin",
+  "executionOf",
+  "handledError",
+  "compensation",
+  "onInterrupted",
+]);
+
+/** `[context.reserved-field]`: a field of a context that shadows one the framework owns. */
+function reservedViolations(application: string, type: DtoClass): RuleViolation[] {
+  return fieldsOf(type)
+    .filter((field) => RESERVED_FIELDS.has(field.name))
+    .map((field) =>
+      violation(
+        "context.reserved-field",
+        `${type.name}.${field.name} shadows a field the framework sets on every context — rename it`,
+        [application],
+      ),
+    );
+}
+
 /** `[context.prompt-unused]`: a field of a context with a `prompt`. */
 function promptViolations(application: string, type: DtoClass): RuleViolation[] {
   return fieldsOf(type)
@@ -50,13 +90,18 @@ export function checkContextFields(declared: DeclaredContexts): void {
   if (executionContext !== undefined) checkFields(() => executionFieldsOf(executionContext, {}));
 }
 
-/** `[context.prompt-unused]` for every field of the declared context classes that has a prompt. */
+/** `[context.prompt-unused]` and `[context.reserved-field]` for the fields of the declared context classes. */
 export function contextRuleViolations(
   application: string,
   declared: DeclaredContexts,
 ): RuleViolation[] {
   const declaredClasses = [declared.tenantContext, declared.executionContext];
   return declaredClasses.flatMap((type) =>
-    type === undefined ? [] : promptViolations(application, type as DtoClass),
+    type === undefined
+      ? []
+      : [
+          ...promptViolations(application, type as DtoClass),
+          ...reservedViolations(application, type as DtoClass),
+        ],
   );
 }

@@ -1,0 +1,4 @@
+workflows:
+  batch-workflow:
+    executionLimits:
+      maxConcurrency: 0

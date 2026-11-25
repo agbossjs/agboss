@@ -9,7 +9,6 @@ import {
   StoreClock,
   ExecutionLeaseRepository,
   FencedEffectRepository,
-  FencedEffectSettings,
   InMemoryFencedEffectRepository,
   Injectable,
   LeaseCheck,
@@ -24,12 +23,7 @@ import {
 } from "../../src/infrastructure/store-descriptor.js";
 import { storesApplication } from "./fixtures/store-backends.fixture.js";
 
-const DEPS = [
-  StoreClock,
-  IN_MEMORY_DATABASE,
-  FencedEffectSettings,
-  ExecutionLeaseRepository,
-] as const;
+const DEPS = [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository] as const;
 
 /** What a JavaScript store, or a cast, declares as its descriptor. */
 const declared = (value: unknown): StoreDescriptor => value as StoreDescriptor;

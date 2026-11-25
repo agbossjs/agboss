@@ -1,7 +1,7 @@
 /**
  * The texts of a model arbiter (#279): one yes/no question per arriving answer — does it meet the
  * criterion of the agent that gave it? — under the arbiter's own `prompt`. A decision model gets one
- * `Decision.noul`; a chat model answers through one answer tool with one boolean. Part of the prompt
+ * `Decision.boolean`; a chat model answers through one answer tool with one boolean. Part of the prompt
  * version of a workflow that has a model arbiter.
  */
 

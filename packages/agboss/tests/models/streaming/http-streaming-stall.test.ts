@@ -4,7 +4,11 @@
  * far is retracted (`stream-broken`), and the call is not retried.
  */
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import type { ExecutionStreamEvent } from "../../../src/run/types.js";
+import {
+  StreamDiscardReason,
+  StreamEventKind,
+  type ExecutionStreamEvent,
+} from "../../../src/run/types.js";
 import { ModelFailure } from "../../../src/models/index.js";
 import { failureOfError } from "../../../src/models/model-failure.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
@@ -66,12 +70,13 @@ describe("#1125: a stream that stalls after its first tokens", { timeout: 30_000
 
     expect(failure).toBeInstanceOf(Error);
     expect(server.requests).toHaveLength(1); // text was out: no retry
-    expect(events.map((event) => (event.kind === "textDelta" ? event.delta : event.kind))).toEqual([
-      "One",
-      " two",
-      "discarded",
-    ]);
-    expect(events.at(-1)).toMatchObject({ kind: "discarded", reason: "stream-broken" });
+    expect(
+      events.map((event) => (event.kind === StreamEventKind.TextDelta ? event.delta : event.kind)),
+    ).toEqual(["One", " two", StreamEventKind.Discarded]);
+    expect(events.at(-1)).toMatchObject({
+      kind: StreamEventKind.Discarded,
+      reason: StreamDiscardReason.StreamBroken,
+    });
     await app.close();
   });
 
@@ -117,7 +122,10 @@ describe("#1125: a stream that stalls after its first tokens", { timeout: 30_000
     expect(clock.advances).toBeGreaterThanOrEqual(30);
     expect(clock.advances).toBeLessThanOrEqual(34);
     expect(server.requests).toHaveLength(1); // text was out: no retry
-    expect(events.at(-1)).toMatchObject({ kind: "discarded", reason: "stream-broken" });
+    expect(events.at(-1)).toMatchObject({
+      kind: StreamEventKind.Discarded,
+      reason: StreamDiscardReason.StreamBroken,
+    });
     await app.close();
   });
 });

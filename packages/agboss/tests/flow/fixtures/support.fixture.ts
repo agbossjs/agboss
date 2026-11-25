@@ -2,6 +2,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
+import { Action } from "../../../src/flow/decorators/action.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { optional } from "../../../src/flow/dto-wrappers.js";
 import {
@@ -12,7 +13,9 @@ import {
   OrderStatusDto,
 } from "./data-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { agent, route, start } from "./paths.js";
+import { onAction, onAgent, onStart, toAgent } from "./paths.js";
+import { inline, Ttl } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #270 — the support desk: a router, an optional loyalty offer, a finish reading `fast` or `expert`. */
 
@@ -26,7 +29,7 @@ export class SupportWorkflowStart {}
 @Agent({
   name: "order-agent",
   description: "Looks the customer's order up",
-  prompt: "Look the order up.",
+  prompt: inline("Look the order up."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -38,7 +41,7 @@ export class OrderAgent {}
 @Agent({
   name: "fast-answer-agent",
   description: "Writes a quick reply",
-  prompt: "Reply quickly.",
+  prompt: inline("Reply quickly."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -51,7 +54,7 @@ export class FastAnswerAgent {}
 @Agent({
   name: "loyalty-agent",
   description: "Finds an offer for a loyal customer",
-  prompt: "Find an offer.",
+  prompt: inline("Find an offer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     order: OrderStatusDto,
@@ -63,7 +66,7 @@ export class LoyaltyAgent {}
 @Agent({
   name: "expert-answer-agent",
   description: "Writes a careful reply",
-  prompt: "Reply carefully.",
+  prompt: inline("Reply carefully."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -74,8 +77,8 @@ export class LoyaltyAgent {}
 })
 export class ExpertAnswerAgent {}
 
-@WorkflowFinish({
-  name: "support-workflow-finish",
+@Action({
+  name: "support-action",
   description: "The reply to the customer",
   input: {
     fast: optional(FastDraftDto),
@@ -83,17 +86,25 @@ export class ExpertAnswerAgent {}
   },
   output: CustomerReplyDto,
 })
-export class SupportWorkflowFinish {
-  finish(): CustomerReplyDto {
+export class SupportAction {
+  async execute(): Promise<CustomerReplyDto> {
     return { text: "", holdForReview: false };
   }
 }
+
+@WorkflowFinish({
+  name: "support-workflow-finish",
+  description: "The reply to the customer",
+  output: CustomerReplyDto,
+})
+export class SupportWorkflowFinish {}
 
 @Router({
   name: "answer-router",
   description: "Picks how to answer",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: {
     order: OrderStatusDto,
   },
@@ -106,28 +117,28 @@ export class SupportWorkflowFinish {
 export class AnswerRouter {}
 
 export const supportPaths = [
-  start(SupportWorkflowStart)
-    .returns(WorkflowStartTextDto)
+  onStart(SupportWorkflowStart)
     .toAgent(OrderAgent)
-    .returns(OrderStatusDto)
     .toRouter(AnswerRouter)
-    .chooseOne(
-      route(FastAnswerAgent)
-        .returns(FastDraftDto)
-        .toFinish(SupportWorkflowFinish),
-      route(LoyaltyAgent)
-        .returns(LoyaltyOfferDto)
+    .onRoute(
+      toAgent(FastAnswerAgent)
+        .toAction(SupportAction),
+    )
+    .onRoute(
+      toAgent(LoyaltyAgent)
         .toAgent(ExpertAnswerAgent),
-      route(ExpertAnswerAgent),
-    ),
-  agent(ExpertAnswerAgent)
-    .returns(ExpertDraftDto)
+    )
+    .onRoute(toAgent(ExpertAnswerAgent)),
+  onAgent(ExpertAnswerAgent)
+    .toAction(SupportAction),
+  onAction(SupportAction)
     .toFinish(SupportWorkflowFinish),
 ];
 
 @Workflow({
   name: "support-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: supportPaths,
 })
 export class SupportWorkflow {}

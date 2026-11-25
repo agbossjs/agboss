@@ -1,7 +1,9 @@
+import { RagScope } from "../../src/rag/types.js";
+import { RagSource } from "../../src/rag/rag-source.js";
 import { describe, expect, it } from "vitest";
 import {
   Agent,
-  Injectable,
+  Observer,
   Tool,
   Workflow,
   type ExecutionStartEvent,
@@ -13,25 +15,14 @@ import {
   type AgentEndEvent,
   type RouterEndEvent,
   type RagEndEvent,
-  type OnAgentEnd,
-  type OnAgentStart,
-  type OnExecutionError,
-  type OnModelEnd,
-  type OnModelStart,
-  type OnRagStart,
-  type OnRagEnd,
-  type OnRouterEnd,
-  type OnRouterStart,
-  type OnToolEnd,
-  type OnToolStart,
-  type OnExecutionEnd,
-  type OnExecutionStart,
   type ToolEndEvent,
   type ToolStartEvent,
   Router,
   WorkflowStart,
+  inline,
+  Ttl,
 } from "../../src/index.js";
-import { DecidedBy, RagMode, WorkflowFinish } from "../../src/index.js";
+import { DecidedBy, WorkflowFinish } from "../../src/index.js";
 import { Rag } from "../../src/components/decorators.js";
 import { RagRetrieval } from "../../src/rag/types.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../src/dto/index.js";
@@ -39,13 +30,13 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { replyWith, callTool, routeTo } from "../../src/testing/index.js";
 import { testDefaults } from "../helpers.js";
-import { execute, route, start } from "../helpers/flow.js";
+import { execute, onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication } from "../../src/application/create-app.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
-import { RagTenancy } from "../../src/rag/types.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 class ToolInput {
   @Text() text!: string;
@@ -54,23 +45,8 @@ class ToolInput {
 const hookEvents: string[] = [];
 let capturedState: ExecutionStartEvent | null = null;
 
-@Injectable()
-class GlobalObserver
-  implements
-    OnExecutionStart,
-    OnExecutionEnd,
-    OnAgentStart,
-    OnAgentEnd,
-    OnRouterStart,
-    OnRouterEnd,
-    OnToolStart,
-    OnToolEnd,
-    OnModelStart,
-    OnModelEnd,
-    OnRagStart,
-    OnRagEnd,
-    OnExecutionError
-{
+@Observer()
+class GlobalObserver {
   async onExecutionStart(state: ExecutionStartEvent) {
     hookEvents.push("WorkflowStart");
     capturedState = state;
@@ -94,17 +70,17 @@ class GlobalObserver
   }
 
   async onToolStart(ctx: ToolStartEvent) {
-    hookEvents.push(`ToolStart:${ctx.toolName}`);
+    hookEvents.push(`ToolStart:${ctx.tool}`);
   }
   async onToolEnd(ctx: ToolEndEvent) {
-    hookEvents.push(`ToolEnd:${ctx.toolName}`);
+    hookEvents.push(`ToolEnd:${ctx.tool}`);
   }
 
   async onModelStart(req: ModelStartEvent) {
-    hookEvents.push(`ModelStart:${req.callerName}`);
+    hookEvents.push(`ModelStart:${req.caller}`);
   }
   async onModelEnd(res: ModelEndEvent) {
-    hookEvents.push(`ModelEnd:${res.callerName}`);
+    hookEvents.push(`ModelEnd:${res.caller}`);
   }
 
   async onRagStart(ctx: RagStartEvent) {
@@ -125,7 +101,7 @@ class GlobalObserver
   output: ToolInput,
 })
 class ObsTool {
-  async run(input: ToolInput) {
+  async execute(input: ToolInput) {
     return { text: "done" };
   }
 }
@@ -147,9 +123,9 @@ class ObsFinish {}
 })
 class ObsNoReply {}
 
-@Rag({ name: "ObsRag", description: "test rag", tenancy: RagTenancy.PerTenant, topK: 5 })
-class ObsRag {
-  async retrieve(): Promise<RagRetrieval> {
+@Rag({ name: "ObsRag", description: "test rag", scope: RagScope.Tenant, topK: 5 })
+class ObsRag extends RagSource {
+  protected override async retrieve(): Promise<RagRetrieval> {
     return { results: [] };
   }
 }
@@ -160,7 +136,7 @@ class ObsRag {
   model: "test",
 
   tools: [ObsTool],
-  rag: [{ use: ObsRag, mode: RagMode.Context }],
+  rag: [ObsRag],
 })
 class ObsAgent {}
 
@@ -170,7 +146,7 @@ class ObsAgent {}
   input: { message: WorkflowStartTextDto },
   model: "stub",
   name: "obs-router",
-  prompt: "Decide.",
+  prompt: inline("Decide."),
   maxVisits: 10,
   routes: [
     { prompt: "go", target: ObsAgent },
@@ -182,18 +158,20 @@ class ObsRouter {}
 @Workflow({
   name: "obs-test-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: [
-    start(ObsStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ObsStart)
       .toRouter(ObsRouter)
-      .chooseOne(route(ObsAgent).toFinish(ObsFinish), route(ObsNoReply)),
+      .onRoute(toAgent(ObsAgent).toFinish(ObsFinish))
+      .onRoute(toFinish(ObsNoReply)),
   ],
 })
 class ObsWorkflow {}
 
 @Application({
   name: "obs-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ObsWorkflow],

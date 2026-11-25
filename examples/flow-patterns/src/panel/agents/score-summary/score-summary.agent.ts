@@ -6,7 +6,7 @@ import { ScoreDto } from "../../dto/score.dto.js";
 @Agent({
   name: "score-summary-agent",
   description: "Sums up the counted scores",
-  promptUrls: ["./score-summary.prompt.md"],
+  prompt: "./score-summary.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: { scores: listOf(ScoreDto) },
   output: PanelReviewDto,

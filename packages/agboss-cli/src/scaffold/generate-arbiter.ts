@@ -16,22 +16,44 @@ import type { Changes, FileToWrite } from "./write.js";
 
 /**
  * `agboss g arbiter <name>-arbiter --workflow <name>-workflow [--agent <name>-agent]` (#279 S77 i): a code arbiter for the agents of a
- * launch — the flow's one `.toParallelAgents(…)`, or the one launching `--agent` — with one
+ * launch — the flow's one `.inParallel([…])` / `.forEachItem(…)`, or the one launching `--agent` — with one
  * `@OnAnswer(Agent) from<Agent>(answer)` method per distinct agent class, each accepting every
- * answer until it is written. It is not put into the flow: where it sits (`.acceptedBy(…)`) is a
+ * answer until it is written. It is not put into the flow: where it sits (`.arbitratedBy(…)`) is a
  * choice.
  */
 
 const isCallOf = (node: ts.CallExpression, name: string): boolean =>
-  ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === name;
+  (ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === name) ||
+  (ts.isIdentifier(node.expression) && node.expression.text === name);
 
-/** The agent classes of every `.toParallelAgents(…)` of the flow, repeats removed, as listed. */
+/** `A` of `toAgent(A)`; nothing for any other branch. */
+function agentOfBranch(branch: ts.Expression): readonly string[] {
+  let call: ts.Expression = branch;
+  // `toAgent(A).onError(E, skip())`: the branch is the call the chain starts with
+  while (
+    ts.isCallExpression(call) &&
+    ts.isPropertyAccessExpression(call.expression) &&
+    ts.isCallExpression(call.expression.expression)
+  )
+    call = call.expression.expression;
+  if (!ts.isCallExpression(call) || !isCallOf(call, "toAgent")) return [];
+  const [agent] = call.arguments;
+  return agent !== undefined && ts.isIdentifier(agent) ? [agent.text] : [];
+}
+
+/** The agent classes of every launch of the flow — `.inParallel([toAgent(A), …])`, `.forEachItem(toAgent(A), …)` — repeats removed, as listed. */
 function launchesOf(source: ts.SourceFile): readonly (readonly string[])[] {
   const launches: string[][] = [];
   const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && isCallOf(node, "toParallelAgents")) {
-      const agents = node.arguments.flatMap((arg) => (ts.isIdentifier(arg) ? [arg.text] : []));
-      launches.push([...new Set(agents)]);
+    if (ts.isCallExpression(node)) {
+      const [first] = node.arguments;
+      const agents =
+        isCallOf(node, "inParallel") && first !== undefined && ts.isArrayLiteralExpression(first)
+          ? first.elements.flatMap(agentOfBranch)
+          : isCallOf(node, "forEachItem") && first !== undefined
+            ? agentOfBranch(first)
+            : undefined;
+      if (agents !== undefined) launches.push([...new Set(agents)]);
     }
     ts.forEachChild(node, visit);
   };
@@ -52,18 +74,18 @@ function launchFor(graph: WorkflowGraph, agent: string | undefined): readonly st
   if (found !== undefined) return found;
   const why =
     launches.length === 0
-      ? "has no .toParallelAgents(…) launch to judge"
+      ? "has no agents' launch (.inParallel([…]) or .forEachItem(…)) to judge"
       : wanted === undefined
         ? `has ${String(launches.length)} agents' launches — name one of its agents with --agent <full name>`
         : `launches no ${wanted}`;
   throw new ScaffoldError(`${graph.module.path} ${why}`);
 }
 
-/** `fromScoreA` for `ScoreAAgent`, the name `agboss check` expects (`[arbiter.method-name]`). */
-const methodOf = (agent: string): string =>
+/** One `@Arbitrate(A, B, …)` method for every agent of the launch, its answer the union of theirs. */
+const methodOf = (agents: readonly string[]): string =>
   [
-    `  @OnAnswer(${agent})`,
-    `  from${agent.replace(/Agent$/, "")}(answer: ArbiterAnswerOf<typeof ${agent}>): boolean {`,
+    `  @Arbitrate(${agents.join(", ")})`,
+    `  isMeaningful(answer: ArbitratedAnswerOf<[${agents.map((agent) => `typeof ${agent}`).join(", ")}]>): boolean {`,
     "    return Object.keys(answer).length > 0; // TODO: whether this answer counts",
     "  }",
   ].join("\n");
@@ -93,7 +115,7 @@ export function planArbiter(root: string, name: string, o: GenerateOptions): Cha
   const imports = agents
     .map((agent) => `import { ${agent.className} } from "${importPath(path, agent.path)}";`)
     .join("\n");
-  const methods = agents.map((agent) => methodOf(agent.className)).join("\n\n");
+  const methods = methodOf(agents.map((agent) => agent.className));
   const file: FileToWrite = {
     path,
     content: render("arbiter/arbiter.ts.tmpl", { ...vars(n), imports, methods }),

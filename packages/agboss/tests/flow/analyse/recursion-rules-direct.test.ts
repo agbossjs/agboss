@@ -13,28 +13,23 @@ import {
 } from "../../../src/flow/analyse/rules/recursion.js";
 import { declarationOf } from "../../../src/flow/decorators/declaration.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { named } from "./graph-fixture.js";
 import {
   CountDoneWorkflowFinish,
-  CountDto,
   CountdownWorkflowStart,
-  CountDoneDto,
 } from "../runtime/fixtures/recursion.workflow.js";
+import { Ttl } from "../../../src/index.js";
 
 type Flow = WorkflowOptions["flow"];
 
 const shown = (found: readonly { code: string; message: string; nodes: readonly string[] }[]) =>
   found.map(({ code, message, nodes }) => ({ code, message, nodes }));
 
-const contextOf = (workflow: object): AnalysisContext => ({ workflow }) as never;
+const contextOf = (workflow: object): AnalysisContext => ({ workflow, options: {} }) as never;
 
 const launching = (other: abstract new () => unknown): Flow => [
-  start(CountdownWorkflowStart)
-    .returns(CountDto)
-    .toWorkflow(other)
-    .returns(CountDoneDto)
-    .toFinish(CountDoneWorkflowFinish),
+  onStart(CountdownWorkflowStart).toWorkflow(other).toFinish(CountDoneWorkflowFinish),
 ];
 
 const optionsOf = (target: abstract new () => unknown): WorkflowOptions => {
@@ -58,12 +53,12 @@ describe("#1366: the depth of a recursive workflow", () => {
 
   it("names a missing maxDepth and one that is no whole number of levels from 1", () => {
     const tail =
-      " — a recursive workflow bounds its levels: @Workflow({ maxDepth: 4 }) allows executions at depth 1 (the root) to 4";
+      " — a recursive workflow bounds its levels: @Workflow({ executionLimits: { maxDepth: 4 } }) allows executions at depth 1 (the root) to 4";
 
     expect(rules(undefined)).toEqual([
       {
         code: "graph.recursion-without-depth",
-        message: `it launches ThisWorkflow but sets no maxDepth${tail}`,
+        message: `it launches itself but sets no executionLimits.maxDepth${tail}`,
         nodes: ["deep-workflow"],
       },
     ]);
@@ -71,7 +66,7 @@ describe("#1366: the depth of a recursive workflow", () => {
       expect(rules(value)).toEqual([
         {
           code: "graph.recursion-without-depth",
-          message: `its maxDepth is ${String(value)}, not a whole number of levels from 1${tail}`,
+          message: `its executionLimits.maxDepth is ${String(value)}, not a whole number of levels from 1${tail}`,
           nodes: ["deep-workflow"],
         },
       ]);
@@ -105,13 +100,13 @@ describe("#1366: the exit of a recursive branch", () => {
       }),
     );
   const tail =
-    " — on the last level (depth === maxDepth) none is left; add a caseOf(…) or route(…) that does not recurse";
+    " — on the last level (depth === maxDepth) none is left; add a branch or a route that does not recurse";
 
   it("names a switch whose every case recurses, by its cases", () => {
     expect(rules(branch(RecursionDecider.Agent, ["AaDto", "BbDto"], ["AaDto", "BbDto"]))).toEqual([
       {
         code: "graph.recursion-without-exit",
-        message: `chooser: every way on (caseOf(AaDto), caseOf(BbDto)) launches ThisWorkflow${tail.replace(" — ", " — ")}`,
+        message: `chooser: every way on (.toOneOf([…]) branch AaDto, .toOneOf([…]) branch BbDto) launches the workflow itself${tail.replace(" — ", " — ")}`,
         nodes: ["chooser"],
       },
     ]);
@@ -120,7 +115,7 @@ describe("#1366: the exit of a recursive branch", () => {
   it("names a router whose every route recurses, by its routes, either kind of router", () => {
     for (const decider of [RecursionDecider.ModelRouter, RecursionDecider.CodeRouter]) {
       expect(rules(branch(decider, ["r1", "r2"], ["r1", "r2"])).map((one) => one.message)).toEqual([
-        `chooser: every way on (route(r1), route(r2)) launches ThisWorkflow${tail}`,
+        `chooser: every way on (.onRoute(r1), .onRoute(r2)) launches the workflow itself${tail}`,
       ]);
     }
   });
@@ -131,60 +126,83 @@ describe("#1366: the exit of a recursive branch", () => {
 });
 
 describe("#1366: a workflow that launches itself through another", () => {
-  it("names a workflow whose flow names its own class", () => {
-    @Workflow({ name: "own-workflow", version: "1.0.0", flow: [] })
+  it("finds nothing in a workflow whose flow names its own class: that is a recursion", () => {
+    @Workflow({ name: "own-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
     class OwnWorkflow {
       readonly fixture = true;
     }
-    Workflow({ name: "own-workflow", version: "1.0.0", flow: launching(OwnWorkflow) })(OwnWorkflow);
+    Workflow({
+      name: "own-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(OwnWorkflow),
+    })(OwnWorkflow);
 
     expect(
       shown(recursionRules(contextOf(optionsOf(OwnWorkflow)), OwnWorkflow, undefined)),
-    ).toEqual([
-      {
-        code: "graph.mutual-recursion",
-        message:
-          "its flow names its own class (OwnWorkflow) — a workflow launches itself with ThisWorkflow",
-        nodes: ["own-workflow", "own-workflow"],
-      },
-    ]);
+    ).toEqual([]);
   });
 
   it("names the chain of two, three, and a child that is no workflow", () => {
-    @Workflow({ name: "c-workflow", version: "1.0.0", flow: [] })
+    @Workflow({ name: "c-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
     class CWorkflow {
       readonly fixture = true;
     }
-    @Workflow({ name: "b-workflow", version: "1.0.0", flow: launching(CWorkflow) })
+    @Workflow({
+      name: "b-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(CWorkflow),
+    })
     class BWorkflow {
       readonly fixture = true;
     }
-    @Workflow({ name: "a-workflow", version: "1.0.0", flow: launching(BWorkflow) })
+    @Workflow({
+      name: "a-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(BWorkflow),
+    })
     class AWorkflow {
       readonly fixture = true;
     }
-    Workflow({ name: "c-workflow", version: "1.0.0", flow: launching(AWorkflow) })(CWorkflow);
+    Workflow({
+      name: "c-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(AWorkflow),
+    })(CWorkflow);
 
     expect(shown(recursionRules(contextOf(optionsOf(AWorkflow)), AWorkflow, undefined))).toEqual([
       {
         code: "graph.mutual-recursion",
         message:
-          "a-workflow → b-workflow → c-workflow → a-workflow: mutual recursion is not supported — a workflow launches only itself (ThisWorkflow); merge the two into one recursive workflow",
+          "a-workflow → b-workflow → c-workflow → a-workflow: mutual recursion is not supported — a workflow launches only itself (toWorkflow(() => ItsOwnClass)); merge the two into one recursive workflow",
         nodes: ["a-workflow", "b-workflow"],
       },
     ]);
   });
 
   it("finds nothing in a child that never comes back, even when two children share a grandchild", () => {
-    @Workflow({ name: "leaf-workflow", version: "1.0.0", flow: [] })
+    @Workflow({ name: "leaf-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
     class LeafWorkflow {
       readonly fixture = true;
     }
-    @Workflow({ name: "mid-workflow", version: "1.0.0", flow: launching(LeafWorkflow) })
+    @Workflow({
+      name: "mid-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(LeafWorkflow),
+    })
     class MidWorkflow {
       readonly fixture = true;
     }
-    @Workflow({ name: "top-workflow", version: "1.0.0", flow: launching(MidWorkflow) })
+    @Workflow({
+      name: "top-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(MidWorkflow),
+    })
     class TopWorkflow {
       readonly fixture = true;
     }
@@ -194,18 +212,31 @@ describe("#1366: a workflow that launches itself through another", () => {
   });
 
   it("ends on a cycle among the descendants that never comes back to the workflow", () => {
-    @Workflow({ name: "ping-workflow", version: "1.0.0", flow: [] })
+    @Workflow({ name: "ping-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
     class PingWorkflow {
       readonly fixture = true;
     }
-    @Workflow({ name: "pong-workflow", version: "1.0.0", flow: launching(PingWorkflow) })
+    @Workflow({
+      name: "pong-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(PingWorkflow),
+    })
     class PongWorkflow {
       readonly fixture = true;
     }
-    Workflow({ name: "ping-workflow", version: "1.0.0", flow: launching(PongWorkflow) })(
-      PingWorkflow,
-    );
-    @Workflow({ name: "root-workflow", version: "1.0.0", flow: launching(PingWorkflow) })
+    Workflow({
+      name: "ping-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(PongWorkflow),
+    })(PingWorkflow);
+    @Workflow({
+      name: "root-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: launching(PingWorkflow),
+    })
     class RootWorkflow {
       readonly fixture = true;
     }
@@ -219,18 +250,22 @@ describe("#1366: the tree's concurrency cap", () => {
     for (const value of [0, 2.5, -1]) {
       expect(
         shown(
-          concurrencyErrors(contextOf({ name: "cap-workflow", maxConcurrentExecutions: value })),
+          concurrencyErrors(
+            contextOf({ name: "cap-workflow", executionLimits: { maxConcurrency: value } }),
+          ),
         ),
       ).toEqual([
         {
           code: "limits.max-concurrent-executions-invalid",
-          message: `its maxConcurrentExecutions is ${String(value)}, not a whole number of executions from 1 — @Workflow({ maxConcurrentExecutions: 6 }) lets six executions of the tree work at once`,
+          message: `its executionLimits.maxConcurrency is ${String(value)}, not a whole number of executions from 1 — @Workflow({ executionLimits: { maxConcurrency: 6 } }) lets six executions of the tree work at once`,
           nodes: ["cap-workflow"],
         },
       ]);
     }
     expect(
-      concurrencyErrors(contextOf({ name: "cap-workflow", maxConcurrentExecutions: 1 })),
+      concurrencyErrors(
+        contextOf({ name: "cap-workflow", executionLimits: { maxConcurrency: 1 } }),
+      ),
     ).toEqual([]);
     expect(concurrencyErrors(contextOf({ name: "cap-workflow" }))).toEqual([]);
   });
@@ -239,8 +274,9 @@ describe("#1366: the tree's concurrency cap", () => {
     @Workflow({
       name: "capped-child-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [],
-      ...(childCap === undefined ? {} : { maxConcurrentExecutions: childCap }),
+      ...(childCap === undefined ? {} : { executionLimits: { maxConcurrency: childCap } }),
     })
     class ChildWorkflow {
       readonly fixture = true;
@@ -248,8 +284,9 @@ describe("#1366: the tree's concurrency cap", () => {
     @Workflow({
       name: "capped-parent-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: launching(ChildWorkflow),
-      ...(cap === undefined ? {} : { maxConcurrentExecutions: cap }),
+      ...(cap === undefined ? {} : { executionLimits: { maxConcurrency: cap } }),
     })
     class ParentWorkflow {
       readonly fixture = true;
@@ -262,7 +299,7 @@ describe("#1366: the tree's concurrency cap", () => {
       {
         code: "limits.child-concurrency-above-parent",
         message:
-          "capped-child-workflow sets maxConcurrentExecutions 8, above its parent's 4 — a child's cap limits its subtree inside its parent's tree, so it never goes above 4; lower it, or raise the parent's",
+          "capped-child-workflow sets executionLimits.maxConcurrency 8, above its parent's 4 — a child's cap limits its subtree inside its parent's tree, so it never goes above 4; lower it, or raise the parent's",
         nodes: ["capped-parent-workflow"],
       },
     ]);

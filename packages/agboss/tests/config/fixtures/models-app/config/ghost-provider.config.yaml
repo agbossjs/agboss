@@ -1,0 +1,3 @@
+ragRerankers:
+  docs-reranker:
+    modelProvider: no-such-provider

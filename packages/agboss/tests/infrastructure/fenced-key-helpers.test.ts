@@ -6,16 +6,13 @@
  * key's row is (`effectKeyIdentityOf`) and the record of an outbound call's intent
  * (`pendingOutboundCallOf`). The core's own stores use the same functions.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import * as root from "../../src/index.js";
 import * as stores from "../../src/stores/index.js";
-import {
-  BusinessKeyConflictError,
-  InvalidFencedEffectNameError,
-  OutboundCallStatus,
-  type EffectKey,
-} from "../../src/index.js";
+import { OutboundCallStatus } from "../../src/index.js";
+import { type EffectKey } from "../../src/stores/index.js";
 import {
   assertEffectName,
   effectKeyIdentityOf,
@@ -81,7 +78,7 @@ describe("#526 AC5: assertEffectName — the name rule", () => {
     ["charge\u0000", "a control character"],
     ["chärge", "a letter outside A–Z"],
     ["charge/1", "a '/'"],
-  ])("%j is refused (%s): InvalidFencedEffectNameError with its length, never the name", (name) => {
+  ])("%j is refused (%s): IdempotencyError.InvalidName with its length, never the name", (name) => {
     let thrown: unknown;
     try {
       assertEffectName(name);
@@ -89,8 +86,8 @@ describe("#526 AC5: assertEffectName — the name rule", () => {
       thrown = error;
     }
 
-    expect(thrown).toBeInstanceOf(InvalidFencedEffectNameError);
-    expect(thrown).toMatchObject({ code: "fenced-effect.invalid-name" });
+    expect(thrown).toBeInstanceOf(IdempotencyError.InvalidName);
+    expect(thrown).toMatchObject({ code: "idempotency.invalid-name" });
     expect((thrown as Error).message).toContain(`(${String(name.length)} characters)`);
     if (name.length > 0) expect((thrown as Error).message).not.toContain(name);
   });
@@ -121,7 +118,7 @@ describe("#526 AC5: replayedFromOf — the replay and conflict rule", () => {
     ["none stored, one given", {}],
     ["a null stored, one given", { fingerprint: null }],
   ] as const)(
-    "%s under one business key is BusinessKeyConflictError, with the handle and never the key",
+    "%s under one business key is IdempotencyError.KeyConflict, with the handle and never the key",
     (_case, stored: StoredKeyFacts) => {
       let thrown: unknown;
       try {
@@ -130,7 +127,7 @@ describe("#526 AC5: replayedFromOf — the replay and conflict rule", () => {
         thrown = error;
       }
 
-      expect(thrown).toBeInstanceOf(BusinessKeyConflictError);
+      expect(thrown).toBeInstanceOf(IdempotencyError.KeyConflict);
       expect(thrown).toMatchObject({ effect: "charge", businessKeyHash: "a1b2c3d4e5f6" });
       expect((thrown as Error).message).not.toContain("order:42");
     },
@@ -141,7 +138,9 @@ describe("#526 AC5: replayedFromOf — the replay and conflict rule", () => {
 
     expect(replayedFromOf(bare, { fingerprint: null, origin: OTHER_STEP })).toEqual(OTHER_STEP);
     expect(replayedFromOf(bare, {})).toBeUndefined();
-    expect(() => replayedFromOf(bare, { fingerprint: "f-10" })).toThrow(BusinessKeyConflictError);
+    expect(() => replayedFromOf(bare, { fingerprint: "f-10" })).toThrow(
+      IdempotencyError.KeyConflict,
+    );
   });
 
   it.each([

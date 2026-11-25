@@ -1,14 +1,15 @@
 // #824 — the server's parts for unit tests of its modules (mutation shard `a2a-server`): the
 // in-memory task store, a scripted execution control and app, this process's runs, a virtual clock
 // and counted ids — every call recorded.
+import { MESH_DEFAULTS } from "../../../helpers/mesh-settings.js";
 import { A2ACardFileFields } from "../../../../src/a2a/files/a2a-file-options.js";
 import { FileFetches } from "../../../../src/a2a/files/a2a-file-fetches.js";
 import { fileSlotsOf } from "../../../../src/a2a/files/a2a-file-slots.js";
 import { InMemoryA2ADirectMessageRepository } from "../../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
-import { A2AReply } from "../../../../src/a2a/a2a-expose.decorator.js";
-import { InlineA2AFileRepository } from "../../../../src/infrastructure/a2a-file.repository.js";
+import { A2AReply } from "../../../../src/a2a/a2a-endpoint.decorator.js";
+import { InlineFileRepository } from "../../../../src/infrastructure/file.repository.js";
 import { seconds } from "../../../../src/units/index.js";
-import { DEFAULT_A2A_FILE_LIMITS } from "../../../../src/a2a/files/a2a-file-options.js";
+import { DEFAULT_FILE_LIMITS } from "../../../../src/files/file-policy.js";
 import { Role, type Message } from "@a2a-js/sdk";
 import { dataPart, textPart } from "../../../../src/a2a/server/a2a-task-view.js";
 import { A2AOperation } from "../../../../src/a2a/a2a-caller.js";
@@ -52,14 +53,11 @@ export const UNIT_MESH: MeshSettings = {
   application: "unit-application",
   maxMeshHops: 8,
   keys: { peers: new Map() },
+  ...MESH_DEFAULTS,
   clock: new VirtualClock(NINE),
   idempotencyRetention: 0,
-  a2aTaskRetention: 0,
-  a2aFileRetention: 0,
-  a2aMessageRetention: 0,
-  a2aFiles: undefined,
   workflows: [],
-  exposes: [],
+  endpoints: [],
   contracts: () => Promise.reject(new Error("no contracts in a unit test")),
 };
 export const SUBMITTED: A2ATaskStatus = { state: A2ATaskState.Submitted, pendingPauses: [] };
@@ -85,11 +83,12 @@ export const TEXT_SKILL: ServedSkill = {
       schema: null,
       fileFields: [],
       hasData: true,
+      classes: [],
     },
   ],
   inputFiles: [],
-  fileLimits: DEFAULT_A2A_FILE_LIMITS,
-  outputFileMediaTypes: DEFAULT_A2A_FILE_LIMITS.allowedMediaTypes,
+  fileLimits: DEFAULT_FILE_LIMITS,
+  outputFileMediaTypes: DEFAULT_FILE_LIMITS.allowedMediaTypes,
   reply: A2AReply.Task,
   cardFileFields: A2ACardFileFields.Extension,
   callsModel: false,
@@ -129,6 +128,9 @@ export function scriptOf(overrides: Partial<Script> = {}): Script {
   };
 }
 
+/** The endpoint the unit parts serve. */
+export const UNIT_ENDPOINT = "unit-a2a-expose";
+
 let minted = 0;
 
 /** The parts over `tasks`, scripted by `script`. */
@@ -143,18 +145,17 @@ export function unitParts(
     return {};
   };
   const parts: Partial<A2AServerParts> = {
+    endpoint: UNIT_ENDPOINT,
     tasks,
     clock: new VirtualClock(NINE),
     runs: new LocalRuns(),
     skills: [TEXT_SKILL],
-    maxTaskDuration: undefined,
     mesh: UNIT_MESH,
     files: {
-      store: new InlineA2AFileRepository(),
+      store: new InlineFileRepository(),
       transport: undefined,
-      timeout: seconds(10),
       fetches: new FileFetches(),
-      slots: fileSlotsOf(undefined, undefined),
+      slotsOf: () => fileSlotsOf(undefined, undefined),
     },
     // #860: no direct-reply skill here, no default skill
     direct: {
@@ -232,6 +233,7 @@ export async function savedTask(
   status: A2ATaskStatus = SUBMITTED,
 ): Promise<A2ATaskRecord> {
   const save = await tasks.saveIfAbsent({
+    endpoint: UNIT_ENDPOINT,
     tenantId: "acme",
     taskId: "task-1",
     ownerId: "dana",

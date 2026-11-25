@@ -43,6 +43,6 @@ describe("#770: a ledger write whose answer was lost, beside a sibling that work
         maxSpend: 0,
       };
       const ledger = app.resolve(CostLedgerRepository);
-      expect(await ledger.findSpentByCounter(counterOf(execution, clock.now()))).toBe(86);
+      expect((await ledger.findUsageByCounter(counterOf(execution, clock.now()))).spent).toBe(86);
     });
 });

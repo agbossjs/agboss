@@ -8,11 +8,11 @@
  * that keeps a finish from committing a booking the held branch owed (#675 handles the main path).
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { BudgetExceededError, Workflow } from "../../src/index.js";
+import { BudgetExceededError, Workflow, Ttl } from "../../src/index.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
 import type { WorkflowOptions } from "../../src/flow/decorators/workflow.js";
 import { testWith } from "../../src/testing/index.js";
-import { execute, start, toAction } from "../helpers/flow.js";
+import { execute, onStart, toAction } from "../helpers/flow.js";
 import {
   HeldAnyWorkflowStart,
   HeldBranchApplication,
@@ -33,12 +33,7 @@ import {
   MemoOrderAction,
   RefundOrderAction,
 } from "./fixtures/paid-steps.actions.js";
-import {
-  OrderDeclinedError,
-  OrderDto,
-  paidSteps,
-  resetPaidSteps,
-} from "./fixtures/paid-steps.dto.js";
+import { OrderDeclinedError, paidSteps, resetPaidSteps } from "./fixtures/paid-steps.dto.js";
 
 const test = testWith(HeldBranchApplication);
 
@@ -107,27 +102,27 @@ let count = 0;
 /** The workflow's compensation and launch rules broken, by code. */
 function brokenRules(flow: WorkflowOptions["flow"]): readonly string[] {
   count += 1;
-  @Workflow({ name: `held-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `held-case-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class HeldCaseWorkflow {}
   return checkWorkflow(HeldCaseWorkflow).errors.map((error) => error.code);
 }
 
-const launched = start(HeldBranchWorkflowStart)
-  .returns(OrderDto)
+const launched = onStart(HeldBranchWorkflowStart)
   .toAction(BookOrderAction)
   .toAction(CheckOrderAction)
-  .returns(OrderDto)
-  .toParallelActions(RefundOrderAction, MemoOrderAction)
+  .inParallel([toAction(RefundOrderAction), toAction(MemoOrderAction)])
   .join();
 
 describe("#683: no side path takes the held branch's failure with the booking open", () => {
-  it("the join's .onJoinError owes the booking: the launched refund never undid it", () => {
+  it("the join's .onError owes the booking: the launched refund never undid it", () => {
     const flow = [
       launched
-        .onJoinError(
-          BudgetExceededError,
-          toAction(TellOrderAction).toFinish(HeldBranchWorkflowFinish),
-        )
+        .onError(BudgetExceededError, toAction(TellOrderAction).toFinish(HeldBranchWorkflowFinish))
         .toFinish(HeldBranchWorkflowFinish),
     ];
 
@@ -136,27 +131,23 @@ describe("#683: no side path takes the held branch's failure with the booking op
 
   it("nor can the side path refund with the same class: it is the launch's branch", () => {
     const side = toAction(RefundOrderAction).toFinish(HeldBranchWorkflowFinish);
-    const flow = [
-      launched.onJoinError(BudgetExceededError, side).toFinish(HeldBranchWorkflowFinish),
-    ];
+    const flow = [launched.onError(BudgetExceededError, side).toFinish(HeldBranchWorkflowFinish)];
 
     expect(brokenRules(flow)).toEqual(expect.arrayContaining(["launch.branch-continued"]));
   });
 
   it("a refund launched on a side path is no undo of it either", () => {
     const flow = [
-      start(HeldBranchWorkflowStart)
-        .returns(OrderDto)
+      onStart(HeldBranchWorkflowStart)
         .toAction(BookOrderAction)
         .toAction(DeclineOrderAction)
         .onError(
           OrderDeclinedError,
           toAction(TellOrderAction)
-            .toParallelActions(RefundOrderAction, MemoOrderAction)
+            .inParallel([toAction(RefundOrderAction), toAction(MemoOrderAction)])
             .join()
             .toFinish(HeldBranchWorkflowFinish),
         )
-        .returns(OrderDto)
         .toFinish(HeldBranchWorkflowFinish),
     ];
 

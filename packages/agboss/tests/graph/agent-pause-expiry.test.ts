@@ -31,7 +31,7 @@ import {
   resetAgentExpiry,
   UrgentRefundTool,
 } from "../flow/fixtures/agent-expiry.fixture.js";
-import { expiry, resetExpiry, ManagerQuestion } from "../flow/fixtures/expiry.fixture.js";
+import { expiry, resetExpiry, ManagerExternalTask } from "../flow/fixtures/expiry.fixture.js";
 
 const test = testWith(AgentExpiryApplication);
 const THREAD = { threadId: "agent-expiry-1" };
@@ -78,7 +78,8 @@ describe("#941 AC5: an approval inside an agent expires", () => {
     expect(error).toMatchObject({
       step: "expiry-refund-agent",
       stepKind: "agent",
-      channel: "expiring-refund-approval",
+      target: "expiring-refund-approval-tool-approval",
+      channel: "refund-approval-expiry-channel",
       kind: "approval",
     });
     expect((error as PauseExpiredError).usage.length).toBeGreaterThan(0);
@@ -100,7 +101,7 @@ describe("#941 AC5: an approval inside an agent expires", () => {
     // the first call's approval comes in time; the second is asked next, and nobody answers it
     await app.resume(
       { pauseId: agentExpiry.sent[0]?.pauseId ?? "", decision: { approved: true } },
-      { answeredBy: "manager-17" },
+      { actor: { id: "manager-17" } },
     );
     await until(() => agentExpiry.sent.length === 2);
 
@@ -162,7 +163,7 @@ describe("#941 AC5: an approval inside an agent expires", () => {
 
     expect(agentExpiry.refunds).toEqual([]);
     const second = JSON.stringify(seen[1]);
-    expect(second).toContain("rejected by expiring-refund-approval");
+    expect(second).toContain("rejected by refund-approval-expiry-channel");
     expect(second).toContain("nobody was there");
   });
 
@@ -171,13 +172,13 @@ describe("#941 AC5: an approval inside an agent expires", () => {
     clock,
     mockLlm,
   }) => {
-    mockLlm(ExpiryRefundAgent).thenReturn(callTool(ManagerQuestion, { orderId: "7" }));
+    mockLlm(ExpiryRefundAgent).thenReturn(callTool(ManagerExternalTask, { orderId: "7" }));
     await execute(app, AgentBareWorkflowStart, ORDER, THREAD);
 
     await clock.advance(hours(24));
     await until(() => expiry.errors.length === 1);
 
     expect(expiry.errors[0]).toBeInstanceOf(PauseExpiredError);
-    expect(expiry.errors[0]).toMatchObject({ step: "expiry-refund-agent", kind: "question" });
+    expect(expiry.errors[0]).toMatchObject({ step: "expiry-refund-agent", kind: "external-task" });
   });
 });

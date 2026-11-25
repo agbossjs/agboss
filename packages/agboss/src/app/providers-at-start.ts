@@ -1,3 +1,4 @@
+import { fallbackClassesOf } from "../models/fallback-chain.js";
 import { registeredIn } from "../llm/provider-chat-of.js";
 import {
   isModelProviderClass,
@@ -21,8 +22,8 @@ export function providersAtStart(
     const resolution = directory.resolve(use);
     if (resolution.kind !== "resolved") continue;
     needed.add(resolution.provider.type);
-    const fallback = resolution.provider.options.circuitBreakerPolicy.fallback;
-    if (isModelProviderClass(fallback)) fallbacks.push(fallback);
+    // the whole chain (`A → B → C`) connects at start: a hop that is called must not fail on its key then
+    fallbacks.push(...fallbackClassesOf([resolution.provider.type]).filter(isModelProviderClass));
   }
   const registeredFor = registeredIn(directory);
   const wanted = [...needed, ...fallbacks];

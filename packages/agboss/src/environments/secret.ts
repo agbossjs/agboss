@@ -1,4 +1,5 @@
 import { inspect } from "node:util";
+import type { OptionalSecretRef, SecretRef } from "./env-ref.js";
 import { EnvironmentError, EnvironmentErrorCode } from "./errors.js";
 
 /** What a `Secret` prints as, everywhere: logs, traces, JSON, `agboss describe`, error messages. */
@@ -74,8 +75,30 @@ export const isResolvedSecret = (value: Secret): boolean => secretAccess().isRes
 export const resolvedSecret = (variable: string, value: string): Secret =>
   secretAccess().create(variable, value);
 
+/** A secret that may be unset (`secret.optional("X")`, #1324): `Secret | undefined` once resolved. */
+export class OptionalSecretReference {
+  constructor(readonly variable: string) {}
+}
+
+/** `secret("X")` and `secret.optional("X")`: what `defineEnv` takes, and a `Secret` for an old environment file. */
+export interface SecretReader {
+  (variable: string): Secret & SecretRef;
+  optional(variable: string): OptionalSecretRef;
+}
+
 /**
  * `databaseUrl: secret("DATABASE_URL")` — a `Secret` from a process variable, read when the app
  * starts; no default (a secret is never written in code).
  */
-export const secret = (variable: string): Secret => secretAccess().create(variable, undefined);
+export const secret: SecretReader = Object.assign(
+  (variable: string): Secret & SecretRef =>
+    secretAccess().create(variable, undefined) as Secret & SecretRef,
+  {
+    optional: (variable: string): OptionalSecretRef =>
+      new OptionalSecretReference(variable) as OptionalSecretRef,
+  },
+);
+
+/** The process variable of a `secret(…)` or `secret.optional(…)` reference. */
+export const variableOfSecretRef = (ref: SecretRef | OptionalSecretRef): string =>
+  ref instanceof Secret ? variableOfSecret(ref) : ref.variable;

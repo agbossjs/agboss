@@ -1,20 +1,20 @@
 import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 
-/** One document the write puts in its tenant's index: its chunks are made when its turn comes. */
+/** One document the write puts in its scope's index: its chunks are made when its turn comes. */
 export interface DocumentPut {
   readonly source: string;
   readonly hash: string;
   readonly chunks: () => readonly string[];
 }
 
-/** What one write phase changes in one tenant's index (#891). */
-export interface TenantChange {
-  readonly tenantId: string;
+/** What one write phase changes in one scope's index (#891). */
+export interface ScopeChange {
+  readonly scopeId: string;
   readonly put: readonly DocumentPut[];
   /** Documents that are gone from the folder. */
   readonly remove: readonly string[];
-  /** The write is skipped when the tenant already has documents indexed (a first build, #818). */
+  /** The write is skipped when the scope already has documents indexed (a first build, #818). */
   readonly onlyIfEmpty?: boolean;
 }
 
@@ -29,8 +29,8 @@ const Bounds = z.object({ low: z.number().nullable(), high: z.number().nullable(
 const Count = z.object({ n: z.number() });
 
 /** The steps of a change, each short: the deletes by rowid window, then every document's insert. */
-function* stepsOf(db: DatabaseSync, change: TenantChange): Generator<() => number> {
-  const { tenantId } = change;
+function* stepsOf(db: DatabaseSync, change: ScopeChange): Generator<() => number> {
+  const { scopeId } = change;
   const stale = [...change.put.map(({ source }) => source), ...change.remove];
   db.exec("CREATE TEMP TABLE stale (source TEXT PRIMARY KEY) WITHOUT ROWID");
   const mark = db.prepare("INSERT OR IGNORE INTO stale VALUES (?)");
@@ -43,28 +43,28 @@ function* stepsOf(db: DatabaseSync, change: TenantChange): Generator<() => numbe
   const { low, high } = Bounds.parse(
     db.prepare("SELECT MIN(rowid) AS low, MAX(rowid) AS high FROM chunks").get(),
   );
-  // one scan of the table in all, in windows: a delete by (tenant, source) per file scans it whole
+  // one scan of the table in all, in windows: a delete by (scope, source) per file scans it whole
   for (let at = low ?? 0; low !== null && at <= (high ?? 0); at += WINDOW)
     yield () => {
       db.prepare(
         `DELETE FROM chunks WHERE rowid IN (SELECT rowid FROM chunks WHERE rowid BETWEEN ? AND ?
-          AND tenant_id = ? AND source IN (SELECT source FROM stale))`,
-      ).run(at, at + WINDOW - 1, tenantId);
+          AND scope_id = ? AND source IN (SELECT source FROM stale))`,
+      ).run(at, at + WINDOW - 1, scopeId);
       return WINDOW;
     };
   yield () => {
-    db.prepare(
-      "DELETE FROM files WHERE tenant_id = ? AND source IN (SELECT source FROM stale)",
-    ).run(tenantId);
+    db.prepare("DELETE FROM files WHERE scope_id = ? AND source IN (SELECT source FROM stale)").run(
+      scopeId,
+    );
     return stale.length;
   };
-  const insert = db.prepare("INSERT INTO chunks (tenant_id, source, text) VALUES (?, ?, ?)");
+  const insert = db.prepare("INSERT INTO chunks (scope_id, source, text) VALUES (?, ?, ?)");
   const mark2 = db.prepare("INSERT INTO files VALUES (?, ?, ?)");
   for (const { source, hash, chunks } of change.put)
     yield () => {
       const made = chunks();
-      for (const chunk of made) insert.run(tenantId, source, chunk);
-      mark2.run(tenantId, source, hash);
+      for (const chunk of made) insert.run(scopeId, source, chunk);
+      mark2.run(scopeId, source, hash);
       return made.length + 1;
     };
 }
@@ -73,16 +73,16 @@ function* stepsOf(db: DatabaseSync, change: TenantChange): Generator<() => numbe
 const queues = new Map<string, Promise<void>>();
 
 /**
- * Writes a tenant's change on a connection of its own, in one `BEGIN IMMEDIATE` transaction — all
+ * Writes a scope's change on a connection of its own, in one `BEGIN IMMEDIATE` transaction — all
  * of it or none (#891). Readers on the connector's own connection keep the committed index (WAL)
  * until the commit. The event loop is given back every couple of thousand rows and `signal` is checked
  * there and right before the commit: Ctrl+C rolls the transaction back and throws the signal's
  * reason, so a long write stops within a slice and the index stays as it was.
  */
-export function writeTenant(
+export function writeScope(
   sqlitePath: string,
   signal: AbortSignal,
-  change: TenantChange,
+  change: ScopeChange,
 ): Promise<void> {
   const run = (queues.get(sqlitePath) ?? Promise.resolve()).then(() =>
     writeNow(sqlitePath, signal, change),
@@ -97,7 +97,7 @@ export function writeTenant(
 async function writeNow(
   sqlitePath: string,
   signal: AbortSignal,
-  change: TenantChange,
+  change: ScopeChange,
 ): Promise<void> {
   signal.throwIfAborted();
   const db = new DatabaseSync(sqlitePath);
@@ -112,8 +112,8 @@ async function writeNow(
     }
     db.exec("BEGIN IMMEDIATE");
     try {
-      const held = db.prepare("SELECT COUNT(*) AS n FROM files WHERE tenant_id = ?");
-      if (change.onlyIfEmpty === true && Count.parse(held.get(change.tenantId)).n > 0) {
+      const held = db.prepare("SELECT COUNT(*) AS n FROM files WHERE scope_id = ?");
+      if (change.onlyIfEmpty === true && Count.parse(held.get(change.scopeId)).n > 0) {
         db.exec("ROLLBACK");
         return;
       }

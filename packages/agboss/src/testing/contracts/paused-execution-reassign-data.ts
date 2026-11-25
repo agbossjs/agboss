@@ -31,12 +31,12 @@ export const reassign = (
   pauseId: string,
   replacementId: string,
   at: Date = BEFORE_DEADLINE,
-  assignee = "deputy-3",
+  assignees: readonly string[] = ["deputy-3"],
 ): Promise<PauseRecord | undefined> =>
   store.reassignByTenantIdAndPauseId(
     "default",
     pauseId,
-    { pauseId: replacementId, assignee },
+    { pauseId: replacementId, assignees },
     at,
     RECIPIENTS,
   );

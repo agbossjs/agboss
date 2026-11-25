@@ -1,5 +1,5 @@
 import type { Environment } from "@agboss/core";
-import { withProfile, type AssembledWorkflow } from "@agboss/core/internal";
+import type { AssembledWorkflow } from "@agboss/core/internal";
 import { createAppDeps, type AppDeps } from "@agboss/core/internal";
 import {
   applicationEnvironment,
@@ -18,14 +18,13 @@ export interface StartWorkflow {
 /** The workflow of the chosen start with a profile (eval, replay, golden and compare work on it). */
 export async function startWorkflowOf(
   context: CommandContext,
-  profile: string | undefined,
+  profile: string | readonly string[] | undefined,
 ): Promise<StartWorkflow> {
   const chosen = await loadChosenStart(context);
-  // the profile is the start's workflow's own: profiles/<workflow>/<profile>.yaml
-  const assembled = await assembleApplication(context, chosen);
-  const bundle = workflowOfStart(assembled, chosen.start);
+  // the profiles are the application's: src/config/<name>.config.ts|yaml, applied as the app assembles
+  const assembled = await assembleApplication(context, chosen, profile);
   return {
-    bundle: await withProfile(bundle, profile, context.io.cwd),
+    bundle: workflowOfStart(assembled, chosen.start),
     environment: await applicationEnvironment(context, assembled),
   };
 }
@@ -33,7 +32,7 @@ export async function startWorkflowOf(
 /** The app parts of the chosen start's workflow with a profile. */
 export async function depsFor(
   context: CommandContext,
-  profile: string | undefined,
+  profile: string | readonly string[] | undefined,
 ): Promise<AppDeps> {
   const { bundle, environment } = await startWorkflowOf(context, profile);
   const deps = await createAppDeps(bundle, {

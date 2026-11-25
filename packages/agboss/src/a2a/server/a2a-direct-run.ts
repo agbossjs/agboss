@@ -1,10 +1,13 @@
 import { executeWithoutInputCheck } from "../../app/execute-without-input-check.js";
 import { withoutRecovery, withReservedExecutionId } from "../../app/tree-control.js";
-import type { ExecutionOptions, ExecutionOutput } from "../../app/types.js";
+import { ExecutionStatus, type ExecutionOptions, type ExecutionOutput } from "../../app/types.js";
+import { ExecutionCancelledError } from "../../core/errors.js";
 import type {
   A2ADirectMessageRecord,
   A2ADirectMessageReply,
 } from "../../infrastructure/a2a-direct-message.repository.js";
+import { displayMask } from "../../dto/redact.js";
+import { maskedOutputOf } from "../../pii/final-output-mask.js";
 import { definedOf } from "../../infrastructure/clock.js";
 import { withInboundMesh } from "../../mesh/inbound-mesh.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
@@ -28,9 +31,8 @@ export const IN_FLIGHT: Milliseconds = seconds(30);
 /** How long an attempt's run may take: strictly within `IN_FLIGHT`. */
 export const RUN_BOUND: Milliseconds = seconds(25);
 
-/** The run's execution deadline: the listener's `maxTaskDuration`, within `RUN_BOUND`. */
-const deadlineOf = (parts: A2AServerParts): Milliseconds =>
-  Math.min(parts.maxTaskDuration ?? RUN_BOUND, RUN_BOUND) as Milliseconds;
+/** The run's execution deadline: `RUN_BOUND`. */
+const deadlineOf = (): Milliseconds => RUN_BOUND;
 
 /** The caller's signal, aborted too once `RUN_BOUND` passes; `done()` ends the bound. */
 function boundedSignal(parts: A2AServerParts, caller: A2ARequestCaller) {
@@ -61,7 +63,7 @@ function optionsOf(
       ...(tenant === undefined ? {} : { tenant }),
       ...(ownerId === undefined ? {} : { ownerId }),
       ...(execution === undefined ? {} : { execution }),
-      deadline: deadlineOf(parts),
+      deadline: deadlineOf(),
       signal,
     },
     inboundMeshOfA2A(caller.mesh),
@@ -72,10 +74,24 @@ function optionsOf(
 }
 
 /** The reply of a run that reached a finish; a run that rests paused is no reply (a bug: refused). */
-function replyOf(result: ExecutionOutput): A2ADirectMessageReply {
+function replyOf(result: ExecutionOutput, skill: ServedSkill): A2ADirectMessageReply {
+  // a cancel is no reply (#1341): the attempt fails as a cancel did when it rejected — its row
+  // removed, the client told it was cancelled
+  if (result.status === ExecutionStatus.Cancelled || result.status === ExecutionStatus.Stopped)
+    throw new ExecutionCancelledError({ message: "the execution was cancelled externally" });
   // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
   const finish = definedOf(result.finish, "a direct skill cannot pause (assembly)");
-  return { finish: finish.name, output: result.output, spentUsd: result.spend.totalUsd };
+  return {
+    finish: finish.name,
+    // stored and sent as one: the finish DTO's sensitive fields one-way masked (#1301)
+    output: maskedOutputOf(
+      skill.outputs.find((served) => served.finish === finish.name)?.classes ?? [],
+      result.output,
+      displayMask,
+    ),
+    spentUsd: result.spend.totalUsd,
+    spentTokens: result.spend.totalTokens,
+  };
 }
 
 /** The attempt's run, to its reply; its row removed and `-32603` when it fails. */
@@ -90,6 +106,7 @@ export async function ranAttempt(
     const options = optionsOf(parts, caller, attempt, signal);
     return replyOf(
       await executeWithoutInputCheck(parts.app, sent.skill.start, sent.input, options),
+      sent.skill,
     );
   } catch (error) {
     await failedAttempt(parts, attempt);

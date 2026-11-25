@@ -2,12 +2,11 @@
  * #942 AC1, AC2: an operator extends an open pause's deadline (`app.extendPause`) — the new
  * deadline holds on every instance and the channel and the listener hear "extended"; an extension
  * after the deadline is refused "expired", one past the run's deadline is refused with that
- * deadline; the answerer is checked as for an answer; extend and the expiry look at one tick: one wins.
+ * deadline; the respondent is checked as for an answer; extend and the expiry look at one tick: one wins.
  */
 import { beforeEach, describe, expect, vi } from "vitest";
 import {
   DtoValidationError,
-  PauseAnswererError,
   PauseClosedError,
   PauseExtensionContendedError,
   ThreadOwnerError,
@@ -15,7 +14,8 @@ import {
 } from "../../src/errors.js";
 import { MAX_EXTEND_ATTEMPTS } from "../../src/app/pause-extension.js";
 import { DeadlineExceededError } from "../../src/budgets/execution-deadline.js";
-import { PauseClosedReason, PauseStatus, pauseKeyOf } from "../../src/index.js";
+import { PauseError, PauseClosedReason, PauseStatus } from "../../src/index.js";
+import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -35,7 +35,7 @@ import {
 const test = testWith(ExtensionApplication, { instances: 3 });
 const ORDER = { orderId: "o-1" };
 const THREAD = { threadId: "extend-1" };
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 beforeEach(resetTold);
 
@@ -122,7 +122,9 @@ describe("#942 AC1: an operator extends an open approval", () => {
     expect(await failureOf(app.extendPause(request, { ownerId: "bob" }))).toBeInstanceOf(
       ThreadOwnerError,
     );
-    expect(await failureOf(app.extendPause(request, manager))).toBeInstanceOf(PauseAnswererError);
+    expect(await failureOf(app.extendPause(request, manager))).toBeInstanceOf(
+      PauseError.PermissionDenied,
+    );
     const extension = await app.extendPause(request, { ownerId: "alice" });
 
     expect(extension.expiresAt).toBe(new Date(clock.now().getTime() + hours(24)).toISOString());
@@ -134,9 +136,9 @@ describe("#942 AC1: an operator extends an open approval", () => {
     await execute(app, managerFlow.start, ORDER, THREAD);
     const request = { pauseId: pauseIdOf(), expiresIn: hours(30) };
 
-    for (const options of [{}, { answeredBy: " " }, { ownerId: "alice" }])
+    for (const options of [{}, { actor: { id: " " } }, { ownerId: "alice" }])
       expect(await failureOf(app.extendPause(request, options as never))).toBeInstanceOf(
-        PauseAnswererError,
+        PauseError.PermissionDenied,
       );
     expect((await pauseOf(app, pauseIdOf())).status).toBe(PauseStatus.Pending);
   });
@@ -265,7 +267,7 @@ describe("#942: the caller's options", () => {
     await execute(app, managerFlow.start, ORDER, THREAD);
     const request = { pauseId: pauseIdOf(), expiresIn: hours(30) };
 
-    const refused = await failureOf(app.extendPause(request, { answeredBy: "bob\uD800" }));
+    const refused = await failureOf(app.extendPause(request, { actor: { id: "bob\uD800" } }));
 
     expect(refused).toBeInstanceOf(DtoValidationError);
     expect(refused).toMatchObject({ dto: "PauseCallerOptions" });
@@ -278,7 +280,7 @@ describe("#942: the caller's options", () => {
     const streamed: unknown[] = [];
 
     const extension = await app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(30) }, {
-      answeredBy: "manager-17",
+      actor: { id: "manager-17" },
       onStream: (event: unknown) => streamed.push(event),
     } as never);
 
@@ -404,7 +406,7 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
     expect(told_.at(-1)).toBe(stored);
   });
 
-  test("AC2: a store whose extension always loses the compare-and-set: PauseExtensionContendedError (pause.extension-contended) after 8 attempts, nothing told or written", async ({
+  test("AC2: a store whose extension always loses the compare-and-set: PauseExtensionContendedError (pause.update-contended) after 8 attempts, nothing told or written", async ({
     app,
     clock,
   }) => {
@@ -421,7 +423,7 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
     expect(MAX_EXTEND_ATTEMPTS).toBe(8);
     expect(refused).toBeInstanceOf(PauseExtensionContendedError);
     expect(refused).toMatchObject({
-      code: "pause.extension-contended",
+      code: "pause.update-contended",
       attempts: 8,
       details: { attempts: 8 },
     });

@@ -8,7 +8,6 @@ import {
   type FlowPath,
   type JoinStep,
 } from "../../src/flow/ast.js";
-import { anyOf } from "../../src/flow/builder.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { flowLines } from "../../src/flow/print.js";
 import { FlowSyntaxError } from "../../src/flow/launch-step.js";
@@ -23,7 +22,6 @@ import {
   ScoreAAgent,
   ScoreBAgent,
 } from "./fixtures/quorum-agents.js";
-import { CandidateDto, FastScreenDto } from "./fixtures/quorum-dtos.js";
 import {
   CandidateReviewWorkflow,
   DueDiligenceWorkflow,
@@ -31,7 +29,7 @@ import {
   QuickScoreArbiter,
   ValidScoreArbiter,
 } from "./fixtures/quorum.fixture.js";
-import { group, start } from "./fixtures/paths.js";
+import { onStart, toAction, toAgent, toFinish } from "./fixtures/paths.js";
 
 /** #279 PR 1 — quorums in the path builder, the printout, `describe` and assembly. */
 
@@ -42,22 +40,33 @@ const flowOf = (workflow: abstract new () => unknown): readonly FlowPath[] => {
 };
 
 const launched = () =>
-  start(FitReviewWorkflowStart).returns(CandidateDto).toParallelAgents(ScoreAAgent, ScoreBAgent);
+  onStart(FitReviewWorkflowStart).inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent)]);
 
 const lastJoin = (steps: FlowPath["steps"]): JoinStep | undefined =>
   steps.flatMap((step) => (step.kind === StepKind.Join ? [step] : [])).pop();
 
 describe("#279: the AST of quorums", () => {
-  it("acceptedBy on the launch, in path order; anyOf keeps its order", () => {
+  it("arbitratedBy sits on the launch, one arbiter, whichever launch it is", () => {
     const path = launched()
-      .acceptedBy(GoodScoreArbiter)
-      .acceptedBy(anyOf(QuickScoreArbiter, ValidScoreArbiter))
+      .arbitratedBy(GoodScoreArbiter)
       .joinQuorum({ min: 1, max: 2, deadline: seconds(30) });
-    const launch = path.steps.find((step) => step.kind === StepKind.Launch);
-    expect(launch?.kind === StepKind.Launch ? launch.acceptedBy : undefined).toEqual([
-      { arbiters: [GoodScoreArbiter] },
-      { arbiters: [QuickScoreArbiter, ValidScoreArbiter] },
-    ]);
+    expect(path.steps.find((step) => step.kind === StepKind.InParallel)).toMatchObject({
+      arbitratedBy: GoodScoreArbiter,
+    });
+    const parallel = onStart(FitReviewWorkflowStart)
+      .inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent)])
+      .arbitratedBy(ValidScoreArbiter)
+      .joinQuorum({ min: 1 });
+    const each = onStart(FitReviewWorkflowStart)
+      .forEachItem(toAgent(ScoreAAgent), { takeFirst: 3 })
+      .arbitratedBy(QuickScoreArbiter)
+      .joinQuorum({ min: 1 });
+    expect(parallel.steps.find((step) => step.kind === StepKind.InParallel)).toMatchObject({
+      arbitratedBy: ValidScoreArbiter,
+    });
+    expect(each.steps.find((step) => step.kind === StepKind.ForEachItem)).toMatchObject({
+      arbitratedBy: QuickScoreArbiter,
+    });
     expect(lastJoin(path.steps)?.quorum).toEqual({
       kind: QuorumKind.Count,
       min: 1,
@@ -66,16 +75,14 @@ describe("#279: the AST of quorums", () => {
     });
   });
 
-  it("groups keep their agents, priority, values and own path", () => {
+  it("groups keep their targets, priority and own path", () => {
     const join = lastJoin(flowOf(DueDiligenceWorkflow)[0]?.steps ?? []);
     const groups = join?.quorum?.kind === QuorumKind.Groups ? join.quorum.groups : [];
-    expect(
-      groups.map((found) => [found.agents.length, found.priority, found.returns.length]),
-    ).toEqual([
-      [2, 1, 2],
-      [1, 1, 1],
-      [2, 2, 1],
-      [1, 3, 1],
+    expect(groups.map((found) => [found.targets.length, found.priority])).toEqual([
+      [2, 1],
+      [1, 1],
+      [2, 2],
+      [1, 3],
     ]);
     expect(join?.quorum?.deadline).toBe(minutes(1));
     expect(groups[1]?.path.steps[0]).toMatchObject({
@@ -92,68 +99,70 @@ describe("#279 AC11 / AC12: the untyped builder refuses the wrong forms", () => 
     ["max below min", () => launched().joinQuorum({ min: 2, max: 1 }), "at least min"],
     ["a bare deadline", () => launched().joinQuorum({ min: 1, deadline: -1 }), "positive duration"],
     [
-      "acceptedBy then .join()",
-      () => launched().acceptedBy(GoodScoreArbiter).join(),
+      "arbitratedBy then .join()",
+      () => launched().arbitratedBy(GoodScoreArbiter).join(),
       "not .join()",
     ],
     [
-      "acceptedBy without a launch",
-      () => start(FitReviewWorkflowStart).acceptedBy(GoodScoreArbiter),
+      "arbitratedBy without a launch",
+      () => onStart(FitReviewWorkflowStart).arbitratedBy(GoodScoreArbiter),
       "right after",
     ],
     [
-      "acceptedBy after actions",
+      "arbitratedBy twice: one arbiter decides a launch",
+      () => launched().arbitratedBy(GoodScoreArbiter).arbitratedBy(ValidScoreArbiter),
+      "once per launch",
+    ],
+    [
+      "a quorum of groups after forEachItem",
       () =>
-        start(FitReviewWorkflowStart)
-          .toParallelActions(OpenDealRoomAction)
-          .acceptedBy(GoodScoreArbiter),
-      "judges agents",
+        onStart(FitReviewWorkflowStart)
+          .forEachItem(toAgent(ScoreAAgent), { takeFirst: 2 })
+          .joinQuorumGroups(),
+      "one target per item",
+    ],
+    ["arbitratedBy of a non-class", () => launched().arbitratedBy("x"), "one @Arbiter class"],
+    ["groups with min", () => launched().joinQuorumGroups({ min: 1 }), "do not apply"],
+    ["a join of groups takes an object", () => launched().joinQuorumGroups(5), "an object"],
+    [
+      "onGroup without groups' join",
+      () => launched().join().onGroup([ScoreAAgent], toFinish(NotifyReviewerAction)),
+      "right after .joinQuorumGroups",
     ],
     [
-      "a quorum of actions",
-      () =>
-        start(FitReviewWorkflowStart).toParallelActions(OpenDealRoomAction).joinQuorum({ min: 1 }),
-      "agents' answers",
-    ],
-    ["acceptedBy of a non-class", () => launched().acceptedBy("x"), "an @Arbiter class"],
-    [
-      "anyOf of one arbiter",
-      () => {
-        Reflect.apply(anyOf, undefined, [GoodScoreArbiter]);
-      },
-      "two or more",
-    ],
-    [
-      "groups with min",
-      () =>
-        launched().joinQuorumGroups(group(ScoreAAgent).toFinish(NotifyReviewerAction), { min: 1 }),
-      "do not apply",
-    ],
-    [
-      "groups without a group",
-      () => launched().joinQuorumGroups({ deadline: hours(1) }),
-      "group(…) paths",
-    ],
-    ["priority 0", () => group(DealCriticAgent).priority(0), "positive integer"],
-    [
-      "priority after returns",
-      () => group(DealCriticAgent).returns(FastScreenDto).priority(1),
-      "right after group",
-    ],
-    ["an empty group", () => group(), "one or more agent classes"],
-    [
-      "returns after the groups",
+      "priority 0",
       () =>
         launched()
-          .joinQuorumGroups(group(ScoreAAgent).toFinish(NotifyReviewerAction))
-          .returns(FastScreenDto),
-      "each group names its values",
+          .joinQuorumGroups()
+          .onGroup([ScoreAAgent], { priority: 0 }, toFinish(NotifyReviewerAction)),
+      "positive integer",
+    ],
+    [
+      "an empty group",
+      () => launched().joinQuorumGroups().onGroup([], toFinish(NotifyReviewerAction)),
+      "one or more classes",
+    ],
+    [
+      "a group that is no path",
+      () => launched().joinQuorumGroups().onGroup([ScoreAAgent], "x"),
+      "side paths",
+    ],
+    ["onGroup with no path", () => launched().joinQuorumGroups().onGroup([ScoreAAgent]), "subPath"],
+    [
+      "onError after onGroup (#1284: before the first group only)",
+      () =>
+        launched()
+          .joinQuorumGroups()
+          .onGroup([ScoreAAgent], toFinish(NotifyReviewerAction))
+          .onError(Error, toFinish(NotifyReviewerAction)),
+      "before its first .onGroup",
     ],
     [
       "a step after the groups",
       () =>
         launched()
-          .joinQuorumGroups(group(ScoreAAgent).toFinish(NotifyReviewerAction))
+          .joinQuorumGroups()
+          .onGroup([ScoreAAgent], toFinish(NotifyReviewerAction))
           .toAgent(CompanyVetAgent),
       "nothing follows",
     ],
@@ -164,11 +173,34 @@ describe("#279 AC11 / AC12: the untyped builder refuses the wrong forms", () => 
 });
 
 describe("#279 AC9: the printout and describe", () => {
-  it("prints acceptedBy, anyOf and the quorum's options as written", () => {
+  it("prints arbitratedBy and the quorum's options as written", () => {
     expect(flowLines(flowOf(CandidateReviewWorkflow))).toEqual(
       expect.arrayContaining([
-        "  .acceptedBy(anyOf(QuickScoreArbiter, ValidScoreArbiter))",
+        "  .arbitratedBy(ValidScoreArbiter)",
         "  .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })",
+      ]),
+    );
+  });
+
+  it("onGroup keeps targets as listed, an optional priority and its own path, in the order written", () => {
+    const path = launched()
+      .joinQuorumGroups({ deadline: hours(1) })
+      .onError(Error, toFinish(NotifyReviewerAction))
+      .onGroup([ScoreAAgent, ScoreAAgent], { priority: 2 }, toAction(OpenDealRoomAction))
+      .onGroup([ScoreBAgent], toFinish(NotifyReviewerAction));
+    const quorum = lastJoin(path.steps)?.quorum;
+    expect(quorum).toMatchObject({ kind: QuorumKind.Groups, deadline: hours(1) });
+    const groups = quorum?.kind === QuorumKind.Groups ? quorum.groups : [];
+    expect(groups.map((found) => [found.targets, found.priority])).toEqual([
+      [[ScoreAAgent, ScoreAAgent], 2],
+      [[ScoreBAgent], undefined],
+    ]);
+    expect(groups[1]).not.toHaveProperty("priority");
+    expect(lastJoin(path.steps)?.onError).toHaveLength(1);
+    expect(flowLines([path])).toEqual(
+      expect.arrayContaining([
+        "  .joinQuorumGroups({ deadline: hours(1) })",
+        "  .onGroup([ScoreAAgent, ScoreAAgent], { priority: 2 }, toAction(OpenDealRoomAction))",
       ]),
     );
   });
@@ -194,7 +226,12 @@ describe("#279 PR 2: a workflow with a quorum assembles", () => {
     const assembled = await workflowOf(CandidateReviewWorkflow);
 
     expect(assembled.arbiters).toEqual([
-      { name: "valid-score-arbiter", model: "typesafe/jev-1.13" },
+      {
+        name: "valid-score-arbiter",
+        model: "typesafe/jev-1.13",
+        modelProvider: "test-decisions-model-provider",
+        prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+      },
     ]);
   });
 });

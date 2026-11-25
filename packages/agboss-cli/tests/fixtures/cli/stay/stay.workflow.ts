@@ -6,11 +6,13 @@ import {
   EmptyEnvironment,
   Workflow,
   WorkflowFinish,
+  Ttl,
 } from "../../../../../agboss/src/index.js";
 import { Text } from "../../../../../agboss/src/dto/index.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
-import { start } from "../../../../../agboss/tests/flow/fixtures/paths.js";
+import { onStart } from "../../../../../agboss/tests/flow/fixtures/paths.js";
 import { BookingDto as HotelBookingDto, HotelWorkflowStart } from "./hotel.workflow.js";
+import { TestModelProvider } from "../../../../../agboss/src/testing/test-model-provider.js";
 
 export class BookingDto {
   @Text({ prompt: "the stay confirmed" })
@@ -24,8 +26,8 @@ export class BookingDto {
   output: BookingDto,
 })
 export class ConfirmAction {
-  execute(input: { readonly booking: { readonly value: HotelBookingDto } }): Promise<BookingDto> {
-    return Promise.resolve({ confirmation: input.booking.value.room });
+  execute(input: { readonly booking: HotelBookingDto }): Promise<BookingDto> {
+    return Promise.resolve({ confirmation: input.booking.room });
   }
 }
 
@@ -35,17 +37,17 @@ export class StayWorkflowFinish {}
 @Workflow({
   name: "stay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HotelWorkflowStart)
-      .returns(HotelBookingDto)
+    onStart(HotelWorkflowStart)
       .toAction(ConfirmAction)
-      .returns(BookingDto)
       .toFinish(StayWorkflowFinish),
   ],
 })
 export class StayWorkflow {}
 
 @Application({
+  modelProvider: TestModelProvider,
   name: "stay-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

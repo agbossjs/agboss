@@ -4,20 +4,14 @@ import {
   InputGuardrail,
   Injectable,
   Judge,
+  JudgeModel,
   JudgeVerdict,
   Tool,
-  type ToolHandler,
+  inline,
 } from "../../src/index.js";
 import type { JudgeInput } from "../../src/index.js";
-import {
-  Integer,
-  PlainTextDto,
-  Text,
-  isVariant,
-  listOf,
-  oneOf,
-  type VariantOf,
-} from "../../src/dto/index.js";
+import { Integer, PlainTextDto, Text } from "../../src/dto/index.js";
+import { listOf, oneOf } from "../../src/index.js";
 
 /**
  * #200 D4: compile-time checks of an agent's slots. Each `@ts-expect-error` below is a negative type
@@ -37,13 +31,13 @@ class Query {
 }
 
 @Tool({ name: "search-tool", description: "Searches", input: Query, output: Query })
-class Search implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+class Search {
+  execute(input: Query): Promise<Query> {
     return Promise.resolve(input);
   }
 }
 
-@Judge({ name: "fair", model: "test/judge", reply: PlainTextDto })
+@Judge({ name: "fair", model: "test/judge", output: PlainTextDto, deps: [JudgeModel] })
 class Fair {
   judge(_input: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
     return Promise.resolve(JudgeVerdict.passed());
@@ -53,7 +47,7 @@ class Fair {
 @InputGuardrail({
   name: "polite-guardrail",
   description: "Blocks rude messages",
-  prompt: "Is the message rude?",
+  prompt: inline("Is the message rude?"),
   threshold: 0.8,
   refusal: "Please be polite.",
 })
@@ -65,7 +59,7 @@ describe("#200 AC2: slots are typed by component kind", () => {
       name: "typed-agent",
       description: "Typed slots",
       model: "test/alpha",
-      prompt: "p",
+      prompt: inline("p"),
       tools: [Search],
       judges: [Fair],
       guardrails: [Polite],
@@ -76,11 +70,8 @@ describe("#200 AC2: slots are typed by component kind", () => {
       name: "wrong-agent",
       description: "A service in every slot",
       model: "test/alpha",
-      prompt: "p",
-      // @ts-expect-error -- JobFitJudge is not a @Tool (no `run`)
+      prompt: inline("p"),
       tools: [JobFitJudge],
-      // @ts-expect-error -- JobFitJudge is not a @Judge (no `judge`)
-      judges: [JobFitJudge],
     })
     class Wrong {}
 
@@ -91,18 +82,21 @@ describe("#200 AC2: slots are typed by component kind", () => {
 describe("#262 S115: a judge judges the reply it declares, with a built verdict", () => {
   it("its handler's reply is its @Judge reply; a plain-object verdict does not compile", () => {
     // @ts-expect-error -- it declares reply: Query but judges a PlainTextDto
-    @Judge({ name: "mismatched-judge", model: "test/judge", reply: Query })
+    @Judge({ name: "mismatched-judge", model: "test/judge", output: Query, deps: [JudgeModel] })
     class Mismatched {
       judge(input: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
         return Promise.resolve(
-          input.reply.text === ""
-            ? JudgeVerdict.failed({ reason: "empty" })
-            : JudgeVerdict.passed(),
+          input.output.text === "" ? JudgeVerdict.failed("empty") : JudgeVerdict.passed(),
         );
       }
     }
 
-    @Judge({ name: "plain-verdict-judge", model: "test/judge", reply: PlainTextDto })
+    @Judge({
+      name: "plain-verdict-judge",
+      model: "test/judge",
+      output: PlainTextDto,
+      deps: [JudgeModel],
+    })
     class PlainVerdict {
       judge(): Promise<JudgeVerdict> {
         // @ts-expect-error -- a verdict is built with JudgeVerdict.passed / JudgeVerdict.failed only
@@ -123,31 +117,20 @@ class ReasonDto {
 }
 
 describe("#262 S125: a oneOf judge reads its variant", () => {
-  it("a listOf(oneOf(…)) judge reads VariantOf items, never bare values", () => {
-    @Judge({ name: "items-judge", model: "test/judge", reply: listOf(oneOf(SalaryDto, ReasonDto)) })
-    class Items {
-      judge({
-        reply,
-      }: JudgeInput<readonly VariantOf<SalaryDto | ReasonDto>[]>): Promise<JudgeVerdict> {
-        const paid = reply.some((item) => isVariant(item, SalaryDto) && item.value.salary > 0);
-        return Promise.resolve(
-          paid ? JudgeVerdict.passed() : JudgeVerdict.failed({ reason: "unpaid" }),
-        );
-      }
-    }
-
-    // @ts-expect-error -- the items of a listOf(oneOf(…)) reply are { variant, value }
+  it("a listOf(A, B) judge reads each item as an instance of its class", () => {
     @Judge({
-      name: "bare-items-judge",
+      name: "items-judge",
       model: "test/judge",
-      reply: listOf(oneOf(SalaryDto, ReasonDto)),
+      output: listOf(SalaryDto, ReasonDto),
+      deps: [JudgeModel],
     })
-    class BareItems {
-      judge(_input: JudgeInput<readonly (SalaryDto | ReasonDto)[]>): Promise<JudgeVerdict> {
-        return Promise.resolve(JudgeVerdict.passed());
+    class Items {
+      judge({ output }: JudgeInput<readonly (SalaryDto | ReasonDto)[]>): Promise<JudgeVerdict> {
+        const paid = output.some((item) => item instanceof SalaryDto && item.salary > 0);
+        return Promise.resolve(paid ? JudgeVerdict.passed() : JudgeVerdict.failed("unpaid"));
       }
     }
 
-    expect([Items.name, BareItems.name]).toEqual(["Items", "BareItems"]);
+    expect(Items.name).toBe("Items");
   });
 });

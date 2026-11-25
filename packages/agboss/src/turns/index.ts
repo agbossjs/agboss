@@ -6,6 +6,16 @@ export { createSqliteTurnStore, sharedTurnStore, type ThreadIds } from "./sqlite
 /** The Turn database itself (opened and migrated), for stores that share it (paused runs, #201). */
 export { openTurnDatabase } from "./schema.js";
 export { pauseAnswerEntryOf } from "./writes.js";
+// the status history of a thread (#1341d)
+export {
+  StatusTrigger,
+  ThreadStatus,
+  type NewStatusTransition,
+  type StatusContext,
+  type ThreadStatusTransition,
+} from "./status-transition.js";
+export { memoryStatusLog, sqliteStatusLog, type StatusLog } from "./status-log.js";
+export { STATUS_TRANSITIONS_SCHEMA } from "./status-transition-schema.js";
 export {
   TURN_STATUSES,
   type NewTurn,
@@ -14,6 +24,7 @@ export {
   type TurnStep,
   type ConfigSnapshot,
   type ConfigStore,
+  type EndedRun,
   type MemoryStore,
   type NewSummary,
   type NewThread,
@@ -22,6 +33,7 @@ export {
   type TurnStore,
   type PauseAnswerEntry,
   type TurnRecords,
+  type TurnTree,
   type VersionScore,
 } from "./types.js";
 export {

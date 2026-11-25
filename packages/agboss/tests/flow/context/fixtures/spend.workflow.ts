@@ -8,10 +8,11 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { seconds, usd, type Usd } from "../../../../src/units/index.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import {
   TEST_BUDGETS,
@@ -20,6 +21,7 @@ import {
 } from "../../fixtures/budgets.js";
 import { Budget, BudgetScope, type BudgetHandler } from "../../../../src/budgets/budget.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** What the components saw (reset by `resetSpendSeen`). */
 export const spendSeen = {
@@ -56,10 +58,10 @@ export class ResultDto {
   output: SearchDto,
   deps: [SpendRecorder],
 })
-export class SerpSearchTool implements ToolHandler<SearchDto, SearchDto> {
+export class SerpSearchTool {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  run(input: SearchDto): Promise<SearchDto> {
+  execute(input: SearchDto): Promise<SearchDto> {
     this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) });
     return Promise.resolve(input);
   }
@@ -74,10 +76,10 @@ export class SerpSearchTool implements ToolHandler<SearchDto, SearchDto> {
   timeout: seconds(0.05),
   deps: [ExecutionContext],
 })
-export class SlowFetchTool implements ToolHandler<SearchDto, SearchDto> {
+export class SlowFetchTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: SearchDto): Promise<SearchDto> {
+  execute(input: SearchDto): Promise<SearchDto> {
     const { signal } = this.executionContext;
     return new Promise((resolve, reject) => {
       signal.addEventListener("abort", () => {
@@ -105,17 +107,17 @@ export class ShipAction {
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  execute(input: { readonly result: { readonly value: ResultDto } }): Promise<ResultDto> {
+  execute(input: { readonly result: ResultDto }): Promise<ResultDto> {
     spendSeen.actionSignalAborted.push(this.executionContext.signal.aborted);
     this.spendRecorder.record({ service: "courier-api", cost: usd(0.003) });
-    return Promise.resolve(input.result.value);
+    return Promise.resolve(input.result);
   }
 }
 
 @Agent({
   name: "searcher-agent",
   description: "Searches",
-  prompt: "Search.",
+  prompt: inline("Search."),
   model: "test/searcher",
   price: { inputPerMTok: 1, outputPerMTok: 2 },
   tools: [SerpSearchTool, SlowFetchTool],
@@ -135,21 +137,25 @@ export class SpendStart {}
 export class ShippedFinish {}
 
 const paths = [
-  start(SpendStart)
-    .returns(WorkflowStartTextDto)
+  onStart(SpendStart)
     .toAgent(SearcherAgent)
-    .returns(ResultDto)
     .toAction(ShipAction)
-    .returns(ResultDto)
     .toFinish(ShippedFinish),
 ];
 
 /** start → searcher (paid search) → ship (paid courier) → shipped; the test budgets ($100 an execution). */
-@Workflow({ name: "spend-workflow", version: "1.0.0", providers: [ShipAction], flow: paths })
+@Workflow({
+  name: "spend-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  providers: [ShipAction],
+  flow: paths,
+})
 export class SpendWorkflow {}
 
 @Application({
   name: "spend-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SpendWorkflow],
@@ -158,7 +164,13 @@ export class SpendWorkflow {}
 export class SpendApplication {}
 
 /** The same with its own execution budget of $0.001: one paid search spends it. */
-@Workflow({ name: "tight-spend-workflow", version: "1.0.0", providers: [ShipAction], flow: paths })
+@Workflow({
+  name: "tight-spend-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  providers: [ShipAction],
+  flow: paths,
+})
 export class TightSpendWorkflow {}
 
 @Budget({
@@ -174,6 +186,7 @@ export class TightSpendExecutionBudget implements BudgetHandler {
 
 @Application({
   name: "tight-spend-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TightSpendWorkflow],

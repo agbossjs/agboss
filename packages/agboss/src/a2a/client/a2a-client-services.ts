@@ -1,10 +1,11 @@
-import type { App } from "../../app/types.js";
-import { OutboundCalls } from "../../app/outbound-calls.js";
+import type { AnyTenantApp } from "../../app/types.js";
+import { Idempotency } from "../../app/idempotency.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import { Clock } from "../../infrastructure/clock.js";
-import { A2AFiles } from "../files/a2a-files.service.js";
-import type { A2AFileDto } from "../files/a2a-file.dto.js";
-import { A2AFileUnavailableError, A2AFileUnavailableReason } from "../files/a2a-file-errors.js";
+import { ComponentOptions } from "../../components/component-options.js";
+import { Files } from "../files/files.service.js";
+import type { FileDto } from "../../dto/standard/file.js";
+import { fileUnavailable, FileUnavailableReason } from "../../files/file-errors.js";
 import type { A2AMeshSeam } from "./a2a-mesh-seam.js";
 
 /**
@@ -14,11 +15,15 @@ import type { A2AMeshSeam } from "./a2a-mesh-seam.js";
  * frame — remembered here per `ApplicationContext`, as the mesh settings are.
  */
 export interface A2AClientServices {
-  /** The application's `OutboundCalls`, resolved on the first call that needs it. */
-  readonly outboundCalls: () => OutboundCalls;
+  /** The application's `Idempotency`, resolved on the first call that needs it. */
+  readonly outboundCalls: () => Idempotency;
   readonly clock: Clock;
-  /** The application's `A2AFiles` (#859): a stored file an input forwards is read through it. */
-  readonly files?: () => A2AFiles;
+  /** The application's `Files` (#859): a stored file an input forwards is read through it. */
+  readonly files?: () => Files;
+  /** The application's environment: what an agent's `defineEnv` references are read from. */
+  readonly env?: NodeJS.ProcessEnv;
+  /** The options of the components under the selected profiles (#1318c): an agent's address, call bound and price. */
+  readonly options?: ComponentOptions;
   /** What rides a call beyond the core protocol; none → the AGBoss mesh (`AGBOSS_MESH`). */
   readonly mesh?: A2AMeshSeam;
 }
@@ -37,26 +42,29 @@ export function rememberA2AClientServices(
 export const a2aClientServicesOf = (context: ApplicationContext): A2AClientServices | undefined =>
   byContext.get(context);
 
-/** Remembers what an application instance's A2A calls use: its `OutboundCalls` (on first use), its `Clock`. */
-export function rememberA2AClientServicesOf(app: Pick<App, "resolve">): void {
+/** Remembers what an application instance's A2A calls use: its `Idempotency` (on first use), its `Clock`. */
+export function rememberA2AClientServicesOf(
+  app: Pick<AnyTenantApp, "resolve">,
+  env?: NodeJS.ProcessEnv,
+): void {
   rememberA2AClientServices(app.resolve(ApplicationContext), {
-    outboundCalls: () => app.resolve(OutboundCalls),
+    outboundCalls: () => app.resolve(Idempotency),
     clock: app.resolve(Clock),
-    files: () => app.resolve(A2AFiles),
+    files: () => app.resolve(Files),
+    options: app.resolve(ComponentOptions),
+    ...(env === undefined ? {} : { env }),
   });
 }
 
 /**
  * How a typed input's stored file (#859, `fileId`: a file of the calling execution's task) is read
- * before it is sent: the application's `A2AFiles`; outside an execution there is none to read.
+ * before it is sent: the application's `Files`; outside an execution there is none to read.
  */
 export const storedFileReaderOf =
   (services: A2AClientServices | undefined) =>
-  (file: A2AFileDto): Promise<Uint8Array> => {
+  (file: FileDto): Promise<Uint8Array> => {
     const files = services?.files?.();
     return files === undefined
-      ? Promise.reject(
-          new A2AFileUnavailableError({ reason: A2AFileUnavailableReason.OutsideExecution }),
-        )
+      ? Promise.reject(fileUnavailable({ reason: FileUnavailableReason.OutsideExecution }))
       : files.read(file);
   };

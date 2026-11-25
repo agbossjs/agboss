@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Action } from "../../../src/flow/decorators/action.js";
-import { Workflow, type WorkflowDefaults } from "../../../src/flow/decorators/workflow.js";
+import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import type { PathBuilder } from "../../../src/flow/path-builder.js";
-import { OfferDraftDto } from "../fixtures/dtos.js";
 import {
   DraftKitWorkflowFinish,
   EditKitAgent,
   SecondKitWorkflowStart,
 } from "../fixtures/kit.fixture.js";
-import { start, toAction } from "../fixtures/paths.js";
+import { onStart, toAction } from "../fixtures/paths.js";
+import { Ttl } from "../../../src/index.js";
 
 /** `[flow.path-too-deep]` (#272 AC10): a warning past 4 levels, an error under strict. */
 
@@ -61,20 +61,21 @@ function nested(actions: readonly (typeof Deep1Action)[]): PathBuilder {
 
 const workflowNesting = (
   levels: readonly (typeof Deep1Action)[],
-  defaults?: WorkflowDefaults,
+  maxPathDepth?: number,
 ): abstract new () => unknown => {
   @Workflow({
     name: "nesting-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
+
+    // every action counts as a step (#1278): the default would warn of its worst case
+    executionLimits: { maxSteps: 30, ...(maxPathDepth === undefined ? {} : { maxPathDepth }) },
     flow: [
-      start(SecondKitWorkflowStart)
-        .returns(OfferDraftDto)
+      onStart(SecondKitWorkflowStart)
         .toAgent(EditKitAgent)
         .onError(DeliveryError, nested(levels))
-        .returns(OfferDraftDto)
         .toFinish(DraftKitWorkflowFinish),
     ],
-    ...(defaults === undefined ? {} : { defaults }),
   })
   class NestingWorkflow {}
   return NestingWorkflow;
@@ -86,7 +87,7 @@ const fiveLevels = [...fourLevels, Deep5Action];
 const tooDeep = {
   code: "flow.path-too-deep",
   message:
-    "nesting-workflow: the path start(SecondKitWorkflowStart) nests 5 levels at deep-5-action (limit 4) — move the branch into a child workflow (agboss generate workflow …)",
+    "nesting-workflow: the path onStart(SecondKitWorkflowStart) nests 5 levels at deep-5-action (limit 4) — move the branch into a child workflow (agboss generate workflow …)",
   nodes: ["deep-5-action"],
 };
 
@@ -109,8 +110,8 @@ describe("AC10: path too deep — warning, strict error", () => {
     });
   });
 
-  it("the limit is set in defaults.flow.maxPathDepth", () => {
-    const workflow = workflowNesting(fiveLevels, { flow: { maxPathDepth: 5 } });
+  it("the limit is set in executionLimits.maxPathDepth", () => {
+    const workflow = workflowNesting(fiveLevels, 5);
 
     expect(checkWorkflow(workflow)).toMatchObject({ errors: [], warnings: [] });
   });

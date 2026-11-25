@@ -8,6 +8,9 @@
  * that createApp did not build (no mesh settings or no execution control) is refused with
  * `[a2a.app-required]`.
  */
+import { ComponentOptions } from "../../../src/components/component-options.js";
+import { hours, minutes } from "../../../src/units/index.js";
+import { MESH_DEFAULTS } from "../../helpers/mesh-settings.js";
 import { describe, expect, it } from "vitest";
 import { a2aHttpListener } from "../../../src/a2a/a2a-http.js";
 import { Clock } from "../../../src/infrastructure/clock.js";
@@ -20,13 +23,19 @@ import { rememberMeshSettings, type MeshSettings } from "../../../src/mesh/mesh-
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { testWith } from "../../../src/testing/index.js";
 import { until } from "../../helpers/until.js";
-import { BearerCallerResolver } from "../../a2a/fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../../a2a/fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "../../a2a/fixtures/task.application.js";
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { recordComponent } from "../../../src/components/metadata.js";
 import { OrderWorkflowStart } from "../../infrastructure/fixtures/recovery.workflow.js";
 
-@A2AExpose({ name: "flipped", version: "1.0.0", description: "d", exports: [OrderWorkflowStart] })
+@A2AEndpoint({
+  name: "flipped",
+  version: "1.0.0",
+  description: "d",
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [OrderWorkflowStart],
+})
 class FlippedExpose {}
 
 class MemoryLogger extends Logger {
@@ -51,7 +60,7 @@ interface Host {
 function hostOf(given: { mesh: boolean; control: boolean }): Host {
   const logger = new MemoryLogger();
   const clock = new VirtualClock();
-  const resolver = new BearerCallerResolver();
+  const resolver = new BearerAuthenticator();
   let built = 0;
   const app: Host["app"] = {
     execute: () => Promise.reject(new Boom("not used")),
@@ -60,7 +69,8 @@ function hostOf(given: { mesh: boolean; control: boolean }): Host {
     resolve: ((cls: unknown) => {
       if (cls === Logger) return logger;
       if (cls === Clock) return clock;
-      if (cls === BearerCallerResolver) return resolver;
+      if (cls === BearerAuthenticator) return resolver;
+      if (cls === ComponentOptions) return ComponentOptions.none;
       throw new Boom("resolved");
     }) as never,
   };
@@ -69,14 +79,11 @@ function hostOf(given: { mesh: boolean; control: boolean }): Host {
       application: "host",
       maxMeshHops: 4,
       keys: { peers: new Map() },
+      ...MESH_DEFAULTS,
       clock,
       idempotencyRetention: 1,
-      a2aTaskRetention: 1,
-      a2aFileRetention: 1,
-      a2aMessageRetention: 1,
-      a2aFiles: undefined,
       workflows: [],
-      exposes: [OrdersA2AExpose, FlippedExpose],
+      endpoints: [OrdersA2AExpose, FlippedExpose],
       contracts: () => {
         built += 1;
         return Promise.reject(new Boom("contracts"));
@@ -97,8 +104,8 @@ function hostOf(given: { mesh: boolean; control: boolean }): Host {
 
 const listenerOn = (host: Host, more: { publicUrl?: string; base?: string } = {}) =>
   a2aHttpListener(host.app, {
-    expose: OrdersA2AExpose,
-    callerResolver: BearerCallerResolver,
+    endpoint: OrdersA2AExpose,
+    authenticator: BearerAuthenticator,
     publicUrl: "https://desk.example",
     ...more,
   });
@@ -143,19 +150,6 @@ describe("#1366: the listener's URL checks", () => {
     expect(refusal("https://desk.example", "/a2a")).not.toThrow();
     expect(refusal("https://desk.example", "")).not.toThrow();
   });
-
-  it("both timer problems of one listener are refused together as timeout-invalid", () => {
-    const host = hostOf({ mesh: true, control: true });
-    const make = () =>
-      a2aHttpListener(host.app, {
-        expose: OrdersA2AExpose,
-        callerResolver: BearerCallerResolver,
-        publicUrl: "https://desk.example",
-        fileFetchTimeout: 86_400_001 as never,
-        maxTaskDuration: 2_073_600_001 as never,
-      });
-    expect(make).toThrow(/\[a2a\.timeout-invalid\].*fileFetchTimeout.*maxTaskDuration/su);
-  });
 });
 
 describe("#1366: the card's URL", () => {
@@ -163,8 +157,8 @@ describe("#1366: the card's URL", () => {
 
   orders("is the publicUrl without trailing slashes plus the base", async ({ a2aServer }) => {
     const { url } = await a2aServer({
-      expose: OrdersA2AExpose,
-      callerResolver: BearerCallerResolver,
+      endpoint: OrdersA2AExpose,
+      authenticator: BearerAuthenticator,
       publicUrl: "https://desk.example///",
       base: "/a2a",
     });
@@ -217,21 +211,18 @@ describe("#1366: a request the listener cannot serve", () => {
     expect(sent.seen.status).toBe(0);
   });
 
-  it("an expose whose metadata is no longer an @A2AExpose's at the first request is refused as not-an-expose", async () => {
+  it("an expose whose metadata is not an @A2AEndpoint's is refused when the listener is made", () => {
     const host = hostOf({ mesh: true, control: true });
-    const listener = a2aHttpListener(host.app, {
-      expose: FlippedExpose,
-      callerResolver: BearerCallerResolver,
-      publicUrl: "https://desk.example",
-    });
-    // the listener checked the class when it was made; its metadata is replaced before the first request
+    // the endpoint is read once, at the listener's creation (with its profile's shelf): nothing is built later
     recordComponent(FlippedExpose, { kind: "a2a-agent", meta: {} } as never);
-    const out = responseOf(false);
-    listener({} as never, out.res as never);
-    await until(() => out.seen.written, "the answer");
 
-    expect(out.seen.status).toBe(503);
-    expect(host.logger.entries[0]?.message).toContain("[a2a.not-an-expose]");
+    expect(() =>
+      a2aHttpListener(host.app, {
+        endpoint: FlippedExpose,
+        authenticator: BearerAuthenticator,
+        publicUrl: "https://desk.example",
+      }),
+    ).toThrow();
     expect(host.builds()).toBe(0);
   });
 

@@ -2,17 +2,15 @@
 import { describe, expect, it } from "vitest";
 import {
   AddressDto,
-  AttachmentDto,
   ContactInfoDto,
   DateRangeDto,
   DateTimeRangeDto,
+  FileDto,
   type DtoClass,
   MoneyDto,
   NoInputDto,
   PersonNameDto,
   PlainTextDto,
-  RagSearchResultDto,
-  RagSourceReferenceDto,
   ToolCallApprovalAskDto,
   ToolCallApprovalDecisionDto,
   WorkflowFinishTextDto,
@@ -21,6 +19,7 @@ import {
   WorkflowStartTextDto,
 } from "../../src/dto/index.js";
 import { jsonSchemaOf, validate } from "../../src/dto/schema.js";
+import { RagSearchResultDto, RagSourceReferenceDto } from "../../src/rag/dto.js";
 
 const examples: readonly (readonly [DtoClass, object])[] = [
   [WorkflowStartTextDto, { text: "find TypeScript jobs", author: "pavel" }],
@@ -36,13 +35,13 @@ const examples: readonly (readonly [DtoClass, object])[] = [
       summary: "Adds one job to the shortlist",
     },
   ],
-  [ToolCallApprovalDecisionDto, { approved: true, overrideArguments: { userId: "456" } }],
+  [ToolCallApprovalDecisionDto, { approved: true, overrideInput: { userId: "456" } }],
   [NoInputDto, {}],
   [RagSearchResultDto, { text: "Remote friendly", source: "notes/acme.md", score: 0.82 }],
   [MoneyDto, { amount: "19.99", currency: "USD" }],
   [DateRangeDto, { from: "2026-09-01", to: "2026-09-30", timeZone: "Asia/Jerusalem" }],
   [DateTimeRangeDto, { from: "2026-09-01T09:00:00+03:00", to: "2026-09-01T18:00:00+03:00" }],
-  [AttachmentDto, { name: "invoice.pdf", mediaType: "application/pdf", url: "https://x.io/i.pdf" }],
+  [FileDto, { mediaType: "application/pdf", filename: "invoice.pdf", url: "https://x.io/i.pdf" }],
   [AddressDto, { street: "Herzl 1", city: "Haifa", country: "IL" }],
   [PersonNameDto, { given: "Pavel" }],
   [ContactInfoDto, { phone: "+972521234567" }],
@@ -94,11 +93,11 @@ describe("standard DTOs (#118)", () => {
     );
   });
 
-  it("AC5: AttachmentDto needs exactly one of url and content", () => {
-    const file = { name: "a.txt", mediaType: "text/plain" };
-    expect(rejects(AttachmentDto, { ...file, content: "aGk=" })).toBe(false);
-    expect(rejects(AttachmentDto, { ...file, url: "https://x.io/a", content: "aGk=" })).toBe(true);
-    expect(rejects(AttachmentDto, file)).toBe(true);
+  it("AC5: FileDto is exactly one of fileId, inline or url", () => {
+    const file = { mediaType: "text/plain", filename: "a.txt" };
+    expect(rejects(FileDto, { ...file, url: "https://x.io/a" })).toBe(false);
+    expect(rejects(FileDto, { ...file, url: "https://x.io/a", fileId: "f-1" })).toBe(true);
+    expect(rejects(FileDto, file)).toBe(true);
   });
 
   it("AC5: ContactInfoDto needs an email, a phone or both", () => {
@@ -106,8 +105,7 @@ describe("standard DTOs (#118)", () => {
     expect(() => validate(ContactInfoDto, {})).toThrow(/email: give an email, a phone or both/);
   });
 
-  it("AC5: RagSearchResultDto.score is from 0 to 1; WorkflowPauseQuestionDto has at most 6 options; RagSourceReferenceDto.quote ≤ 300", () => {
-    expect(rejects(RagSearchResultDto, { text: "t", source: "s", score: 1.2 })).toBe(true);
+  it("AC5: WorkflowPauseQuestionDto has at most 6 options; RagSourceReferenceDto.quote ≤ 300", () => {
     expect(
       rejects(WorkflowPauseQuestionDto, {
         question: "q",
@@ -151,11 +149,11 @@ describe("#141 AC3: standard DTOs named by the hierarchy rule", () => {
     );
   });
 
-  it("#267: ToolCallApprovalDecisionDto takes a reason; overrideArguments only with approved: true", () => {
+  it("#267: ToolCallApprovalDecisionDto takes a reason; overrideInput only with approved: true", () => {
     const refusal = { approved: false, reason: "outside the change window" };
     expect(validate(ToolCallApprovalDecisionDto, refusal)).toEqual(refusal);
     expect(rejects(ToolCallApprovalDecisionDto, { approved: true })).toBe(false);
-    const overriding = { approved: false, overrideArguments: { userId: "456" } };
+    const overriding = { approved: false, overrideInput: { userId: "456" } };
     expect(rejects(ToolCallApprovalDecisionDto, overriding)).toBe(true);
   });
 

@@ -38,13 +38,40 @@ const many = (count: number, of: (at: number) => FileCaller): FileCaller[] =>
   Array.from({ length: count }, (_, at) => of(at));
 
 describe("the application's fetch slots", () => {
+  it("a policy's own pool: slots of their own, the same for the same pool object, shaped by its fields", async () => {
+    const store = {};
+    const pool = { maxConcurrent: 3, maxConcurrentPerTenant: 2, maxConcurrentPerOwner: 1 };
+
+    expect(appFileSlotsOf(store, pool)).toBe(appFileSlotsOf(store, pool));
+    expect(appFileSlotsOf(store, pool)).not.toBe(appFileSlotsOf(store));
+    expect(appFileSlotsOf({}, pool)).not.toBe(appFileSlotsOf(store, pool));
+    expect(
+      await runningOf(
+        appFileSlotsOf({}, pool),
+        many(10, (at) => ({ tenant: `t${String(at)}`, owner: `t${String(at)}/o` })),
+      ),
+    ).toBe(3);
+    expect(
+      await runningOf(
+        appFileSlotsOf({}, pool),
+        many(10, (at) => ({ tenant: "t", owner: `o${String(at)}` })),
+      ),
+    ).toBe(2);
+    expect(
+      await runningOf(
+        appFileSlotsOf({}, pool),
+        many(10, () => ({ tenant: "t", owner: "o" })),
+      ),
+    ).toBe(1);
+  });
+
   it("the same store has the same slots, another store its own", () => {
     const store = {};
     expect(appFileSlotsOf(store)).toBe(appFileSlotsOf(store));
     expect(appFileSlotsOf({})).not.toBe(appFileSlotsOf(store));
   });
 
-  it("they are the default slots: 16 in all, a tenant's quarter of them, an owner's quarter of that", async () => {
+  it("they are the default slots: 16 in all, a tenant's quarter of them, an owner 2 of its tenant's (#1339)", async () => {
     const slots = (): FileFetchSlots => appFileSlotsOf({});
     expect(
       await runningOf(
@@ -63,6 +90,19 @@ describe("the application's fetch slots", () => {
         slots(),
         many(20, () => ({ tenant: "t", owner: "o" })),
       ),
-    ).toBe(1);
+    ).toBe(2);
+    // an ownerless caller has no owner's share: the tenant's four are its own, never one shared bucket
+    expect(
+      await runningOf(
+        slots(),
+        many(20, () => ({ tenant: "t" })),
+      ),
+    ).toBe(4);
+    expect(
+      await runningOf(
+        slots(),
+        many(20, () => ({ tenant: "t", owner: undefined })),
+      ),
+    ).toBe(4);
   });
 });

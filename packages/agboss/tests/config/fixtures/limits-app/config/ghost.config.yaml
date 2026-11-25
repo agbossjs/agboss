@@ -1,0 +1,4 @@
+workflows:
+  ghost-workflow:
+    executionLimits:
+      maxSteps: 3

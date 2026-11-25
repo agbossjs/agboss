@@ -61,7 +61,7 @@ describe("replay", () => {
       scope: BudgetScope.Application,
       key: "test-application",
     };
-    await ledger.saveMaxSpend(application, usd(0));
+    await ledger.saveLimit(application, { maxSpend: usd(0) });
     const evaluation: EvalDeps = { turns: deps.turns, budgets: deps.budgets, judge: judgeWith() };
 
     const report = await replay(deps, evaluation, {

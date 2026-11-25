@@ -36,6 +36,6 @@ export function runFilesOf(folder: string): readonly RunFile[] {
   const files = names.map((name) => readRunFile(folder, name));
   const runs = files
     .filter((found) => found.kind === "run")
-    .sort((left, right) => right.report.startedAt.localeCompare(left.report.startedAt));
+    .sort((left, right) => right.report.startedAt.getTime() - left.report.startedAt.getTime());
   return [...runs, ...files.filter((found) => found.kind === "invalid")];
 }

@@ -9,19 +9,17 @@ import {
   FileView,
   Injectable,
   ModelFiles,
-  PiiAction,
   PiiFileAction,
   PiiKind,
   PiiPolicy,
   PiiRefusedError,
-  pii,
   type FileContent,
   type RedactionResult,
   type RedactOptions,
 } from "../../src/index.js";
 import { sha256Of } from "../../src/files/file-bytes.js";
 import { FileRedactor } from "../../src/files/file-redactor.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -30,7 +28,7 @@ import { FETCHABLE, FetchTool, inline, PNG_BYTES, readerApplication } from "./re
 @PiiPolicy({
   name: "redact-cards-pii-policy",
   description: "Hides cards; the files are masked",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
   files: PiiFileAction.Mask,
 })
 class CardsPolicy {}
@@ -38,7 +36,7 @@ class CardsPolicy {}
 @PiiPolicy({
   name: "redact-ssn-pii-policy",
   description: "Refuses a social security number",
-  rules: [pii(PiiKind.UsSsn, PiiAction.blockWithRefusal({ refusal: "No SSN please." }))],
+  rules: [PiiKind.UsSsn.block("No SSN please.")],
   // a block rule refuses an image whole by default (tests/files/redaction-safety.test.ts); here a model judges
   files: PiiFileAction.RedactWithModel,
 })
@@ -96,7 +94,7 @@ const REDACTED = ModelFiles.of({
 });
 const stored = readerApplication({
   files: REDACTED,
-  providers: [OwnRedactor, InMemoryA2AFileRepository],
+  providers: [OwnRedactor, InMemoryFileRepository],
   piiPolicies: [CardsPolicy],
 });
 const toolFiles = readerApplication({
@@ -105,12 +103,12 @@ const toolFiles = readerApplication({
     views: [FileView.Redacted],
     allowedMediaTypes: ["image/png"],
   }),
-  providers: [OwnRedactor, InMemoryA2AFileRepository],
+  providers: [OwnRedactor, InMemoryFileRepository],
   piiPolicies: [CardsPolicy],
 });
 const blocking = readerApplication({
   files: REDACTED,
-  providers: [OwnRedactor, InMemoryA2AFileRepository],
+  providers: [OwnRedactor, InMemoryFileRepository],
   piiPolicies: [SsnPolicy],
 });
 const inlineMode = readerApplication({
@@ -120,7 +118,7 @@ const inlineMode = readerApplication({
 });
 const noPolicy = readerApplication({
   files: REDACTED,
-  providers: [OwnRedactor, InMemoryA2AFileRepository],
+  providers: [OwnRedactor, InMemoryFileRepository],
 });
 
 const COPY = Buffer.concat([PNG_BYTES, COPY_TAIL]);

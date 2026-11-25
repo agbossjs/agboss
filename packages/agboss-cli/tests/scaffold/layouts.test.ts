@@ -61,9 +61,9 @@ describe("#489 AC2: agboss generate on flow-patterns' layout", () => {
 
     // targets resolved from the workflow module: its agents folder, its router, its finish
     expect(existsSync(join(project, "src/agents/billing/billing.agent.ts"))).toBe(true);
-    // #272: the router's choice in the flow gets the agent's path, its routes the agent
+    // #272: each route of the router in the flow gets the agent's path
     expect(text(module)).toMatch(
-      /route\(OnboardingAssistantAgent\)\n {10}\.toFinish\(TextWorkflowFinish\),\n {8}route\(BillingAgent\)\n {10}\.toFinish\(TextWorkflowFinish\),\n/,
+      /\.onRoute\(\n {8}toAgent\(OnboardingAssistantAgent\)\n {10}\.toFinish\(TextWorkflowFinish\),\n {6}\)\n {6}\.onRoute\(\n {8}toAgent\(BillingAgent\)\n {10}\.toFinish\(TextWorkflowFinish\),\n {6}\),\n/,
     );
     // the new route goes after the last one, one per line
     expect(text(router)).toMatch(
@@ -93,10 +93,10 @@ describe("#489 AC2: agboss generate on flow-patterns' layout", () => {
     const described = agbossIn(project, ["describe"]);
     expect(described.ok, described.out).toBe(true);
     expect(described.out).toContain(
-      "      route(OnboardingAssistantAgent)\n        .toFinish(TextWorkflowFinish),\n      route(BillingAgent)\n        .toFinish(TextWorkflowFinish)\n    )",
+      "    .onRoute(toAgent(OnboardingAssistantAgent)\n      .toFinish(TextWorkflowFinish))\n    .onRoute(toAgent(BillingAgent)\n      .toFinish(TextWorkflowFinish))",
     );
-    expect(described.out).toContain("· read-tickets-tool (MCP tickets)");
-    expect(described.out).toContain("rag: policies-rag (tool, k 3, per-tenant)");
+    expect(described.out).toContain("· read-tickets-tool (local) ← TicketsServer");
+    expect(described.out).toContain("rag: policies-rag (k 3, shared)");
     expect(described.out).toContain("· get-pet-tool (local) ← PetsApiService");
     // #268 AC8: the new workflow is one more of the application, listed in @Application({ workflows })
     expect(described.out).toContain("onboarding-workflow 0.1.0");
@@ -115,7 +115,7 @@ describe("#489 AC2: agboss generate on flow-patterns' layout", () => {
     );
 
     await expect(applyChanges(project, again)).rejects.toThrow(
-      `Already exists: src/agents/billing/billing.agent.ts, src/agents/billing/billing.prompt.md. Already wired: ${module}: BillingAgent already in OnboardingMainRouter's chooseOne(…); ${router}: BillingAgent already in routes. Nothing was written — rerun with --force to regenerate the files and keep the existing wiring`,
+      `Already exists: src/agents/billing/billing.agent.ts, src/agents/billing/billing.prompt.md. Already wired: ${module}: BillingAgent already in OnboardingMainRouter's .onRoute(…)s; ${router}: BillingAgent already in routes. Nothing was written — rerun with --force to regenerate the files and keep the existing wiring`,
     );
 
     const forced = agbossIn(project, [
@@ -132,7 +132,7 @@ describe("#489 AC2: agboss generate on flow-patterns' layout", () => {
     expect(forced.ok, forced.out).toBe(true);
     const envelope = JSON.parse(forced.stdout) as { warnings: string[]; modified: string[] };
     expect(envelope.warnings.slice(0, 2)).toEqual([
-      `skipped: ${module}: BillingAgent already in OnboardingMainRouter's chooseOne(…)`,
+      `skipped: ${module}: BillingAgent already in OnboardingMainRouter's .onRoute(…)s`,
       `skipped: ${router}: BillingAgent already in routes`,
     ]);
     // #237: the agent's own wiring (tools, MCP tool, knowledge base) is kept, not wiped
@@ -152,7 +152,9 @@ describe("#489 AC2: agboss generate on flow-patterns' layout", () => {
       await applyChanges(project, plan, { force: true });
     }
     expect(text("src/agents/billing/billing.agent.ts").match(/RefundTool/g)).toHaveLength(2);
-    expect(text(module).match(/TicketsServer/g)).toHaveLength(2);
+    // #1319a: the server is found through its tool's deps, the workflow lists none; the tool is wired once
+    expect(text(module)).not.toContain("TicketsServer");
+    expect(text("src/agents/billing/billing.agent.ts").match(/ReadTicketsTool/g)).toHaveLength(2);
     const tsc = agbossIn(project, ["describe"]);
     expect(tsc.ok, tsc.out).toBe(true);
   }, 120_000);

@@ -1,30 +1,32 @@
 import { describe, expectTypeOf, it } from "vitest";
-import { toQuestion } from "../../../src/flow/builder.js";
+import { toExternalTask } from "../../../src/flow/builder.js";
 import type { AfterStep, SideHead } from "../../../src/flow/builder-types.js";
+import type { SideClaimsOf } from "../../../src/flow/one-of-types.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import {
-  PurchaseQuestionDto,
-  SpendingLimitAnswerDto,
-  SpendingLimitQuestion,
-} from "../fixtures/questions.fixture.js";
+import { SpendingLimitQuestionExternalTask } from "../fixtures/questions.fixture.js";
+import { inline } from "../../../src/index.js";
 
-/** #933 AC1: the side-path starter takes a question role only, and `.returns(AnswerDto)` follows it. */
+/** #933 AC1: the side-path starter takes a question role only, and `` follows it. */
 
-@Agent({ name: "not-a-question-agent", description: "d", prompt: "p", model: "m" })
+@Agent({ name: "not-a-question-agent", description: "d", prompt: inline("p"), model: "m" })
 class NotAQuestionAgent {}
 
 describe("#933 AC1: toQuestion types", () => {
-  it("toQuestion(Role) is an AfterStep of the role on a side path", () => {
-    expectTypeOf(toQuestion(SpendingLimitQuestion)).toEqualTypeOf<
-      AfterStep<SpendingLimitQuestion, SideHead>
+  it("toExternalTask(Role) is an AfterStep of the role on a side path", () => {
+    expectTypeOf(toExternalTask(SpendingLimitQuestionExternalTask)).toEqualTypeOf<
+      AfterStep<
+        SpendingLimitQuestionExternalTask,
+        SideHead<
+          SideClaimsOf<SpendingLimitQuestionExternalTask>,
+          typeof SpendingLimitQuestionExternalTask
+        >
+      >
     >();
   });
 
-  it(".returns(AnswerDto) follows it; another class does not", () => {
-    toQuestion(SpendingLimitQuestion).returns(SpendingLimitAnswerDto);
-    // @ts-expect-error — the role gives SpendingLimitAnswerDto, not its ask
-    toQuestion(SpendingLimitQuestion).returns(PurchaseQuestionDto);
+  it(" follows it; another class does not", () => {
+    toExternalTask(SpendingLimitQuestionExternalTask);
     // @ts-expect-error — an agent is not a question role
-    toQuestion(NotAQuestionAgent);
+    toExternalTask(NotAQuestionAgent);
   });
 });

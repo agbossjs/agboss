@@ -4,108 +4,106 @@ import {
   QuorumKind,
   StepKind,
   type FlowPath,
-  type LaunchStep,
+  type ForEachItemStep,
+  type InParallelStep,
   type Step,
   type SubPath,
   type ToStep,
 } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
-import { isThisWorkflow } from "../this-workflow.js";
-import { ChildPlacement } from "../child-placement.js";
+import { ChildPlacement, isQueued } from "../child-placement.js";
 
 /**
- * Where each child workflow of a flow runs (#333 PR 2): every `.toWorkflow(W, { placement })`,
- * `.toParallelWorkflows(W, { placement })` and `route(W, { placement })` of every path and sub-path
- * — absent is `ChildPlacement.ParentInstance`. One class is one node, so one child has one
- * placement (`[flow.conflicting-placement]` otherwise).
+ * Where each child workflow of a flow runs (#333 PR 2, #1286): the child's own `@Workflow({ placement
+ * })`, else the application's `defaults.workflows.placement`, else `ChildPlacement.CurrentProcess`.
+ * Never the parent's: a child inherits nothing from the workflow that launches it.
  */
 
-/** Each child workflow class with the placements its mentions name, in path order. */
-export type ChildPlacements = ReadonlyMap<Class, readonly ChildPlacement[]>;
-
-class PlacementWalk {
-  readonly found = new Map<Class, ChildPlacement[]>();
-
-  add(child: Class, placement: ChildPlacement | undefined): void {
-    const list = this.found.get(child) ?? [];
-    list.push(placement ?? ChildPlacement.ParentInstance);
-    this.found.set(child, list);
-  }
+/** The child workflow classes a flow names: `.toWorkflow(W)`, a `.forEachItem(toWorkflow(W), …)` branch, a route. */
+class ChildWalk {
+  readonly found = new Set<Class>();
 
   steps(steps: readonly Step[]): void {
     for (const step of steps) this.step(step);
   }
 
   private step(step: Step): void {
-    if (step.kind === StepKind.To || step.kind === StepKind.Launch) this.mention(step);
+    if (step.kind === StepKind.To) this.mention(step);
+    else if (step.kind === StepKind.InParallel || step.kind === StepKind.ForEachItem)
+      this.mentionBranches(step);
     else this.branches(step);
   }
 
-  /** A child named by `.toWorkflow(W, …)` or `.toParallelWorkflows(W, …)`. */
-  private mention(step: ToStep | LaunchStep): void {
-    if (step.targetKind !== NodeKind.Workflow) return;
-    const targets = step.kind === StepKind.To ? [step.target] : step.targets;
-    for (const target of targets) this.add(target, step.placement);
+  private mentionBranches(step: InParallelStep | ForEachItemStep): void {
+    const given = step.kind === StepKind.InParallel ? step.branches : [step.branch];
+    for (const branch of given)
+      if (branch.targetKind === NodeKind.Workflow) this.found.add(branch.target);
   }
 
-  /** The sub-paths of a step: its routes (a child route a mention), cases, side paths, groups. */
-  private branches(step: Exclude<Step, ToStep | LaunchStep>): void {
+  private mention(step: ToStep): void {
+    if (step.targetKind === NodeKind.Workflow) this.found.add(step.target);
+  }
+
+  /** The sub-paths of a step; a route to a child workflow names it too. */
+  private branches(step: Exclude<Step, ToStep | InParallelStep | ForEachItemStep>): void {
     for (const path of subPathsOf(step)) this.steps(path.steps);
     if (step.kind !== StepKind.ChooseOne) return;
     for (const route of step.routes)
-      if (isThisWorkflow(route.target) || declarationOf(route.target)?.kind === NodeKind.Workflow)
-        this.add(route.target, route.placement);
+      if (declarationOf(route.target)?.kind === NodeKind.Workflow) this.found.add(route.target);
   }
 }
 
 /** The sub-paths a step holds. */
-export function subPathsOf(step: Exclude<Step, ToStep | LaunchStep>): readonly SubPath[] {
+export function subPathsOf(
+  step: Exclude<Step, ToStep | InParallelStep | ForEachItemStep>,
+): readonly SubPath[] {
   switch (step.kind) {
     case StepKind.ChooseOne:
       return step.routes.map((route) => route.path);
-    case StepKind.Switch:
-      return step.cases.map((branch) => branch.path);
+    case StepKind.OneOf:
+      return step.branches;
+    case StepKind.OnFinish:
     case StepKind.OnError:
       return [step.path];
     case StepKind.Join:
       return [
-        ...step.onJoinError.map((handler) => handler.path),
+        ...step.onError.map((handler) => handler.path),
         ...(step.quorum?.kind === QuorumKind.Groups
           ? step.quorum.groups.map((group) => group.path)
           : []),
       ];
-    case StepKind.Returns:
-      return [];
   }
 }
 
-/**
- * The placements of the flow's child workflows; the path a child is continued in (`workflow(W)…`)
- * is its source, not a mention.
- */
-export function childPlacementsOf(flow: readonly FlowPath[]): ChildPlacements {
-  const walk = new PlacementWalk();
+/** The child workflow classes the flow's paths name; the path a child is continued in is its source, not a mention. */
+export function childWorkflowsOf(flow: readonly FlowPath[]): ReadonlySet<Class> {
+  const walk = new ChildWalk();
   for (const path of flow) walk.steps(path.steps);
   return walk.found;
 }
 
-/** The one placement of a child: `AnyInstance` when a mention names it (the rule refuses mixes). */
-export const placementOfChild = (
-  placements: ChildPlacements,
-  child: Class,
-): ChildPlacement | undefined =>
-  placements.get(child)?.includes(ChildPlacement.AnyInstance) === true
-    ? ChildPlacement.AnyInstance
-    : undefined;
+/** The placement of a child workflow: its own, else its application's default, else the current process. */
+export function placementOfWorkflow(
+  workflow: Class,
+  applicationDefault: ChildPlacement | undefined,
+  overrides: Placements | undefined,
+): ChildPlacement {
+  const declaration = declarationOf(workflow);
+  const own = declaration?.kind === NodeKind.Workflow ? declaration.options.placement : undefined;
+  return overrides?.get(workflow) ?? own ?? applicationDefault ?? ChildPlacement.CurrentProcess;
+}
+
+/** What the selected profiles give child workflows (#1318c): their placement, by workflow class, over the declared one. */
+export type Placements = ReadonlyMap<Class, ChildPlacement>;
 
 /** A runtime node as far as its placement goes. */
 interface PlacedNode {
   readonly placement?: ChildPlacement;
 }
 
-/** Whether one of a graph's nodes launches its children on any instance. */
-export const launchesOnAnyInstance = (nodes: Iterable<PlacedNode>): boolean =>
-  [...nodes].some((node) => node.placement === ChildPlacement.AnyInstance);
+/** Whether one of a graph's nodes launches its children through the child queue. */
+export const launchesQueued = (nodes: Iterable<PlacedNode>): boolean =>
+  [...nodes].some((node) => isQueued(node.placement));
 
 /** The flow a `@Workflow` class declares; none for anything else. */
 const flowOf = (workflow: Class): readonly FlowPath[] => {
@@ -113,27 +111,47 @@ const flowOf = (workflow: Class): readonly FlowPath[] => {
   return declaration?.kind === NodeKind.Workflow ? declaration.options.flow : [];
 };
 
-const treesOnAnyInstance = new WeakMap<Class, boolean>();
+const treesQueued = new WeakMap<Class, Map<ChildPlacement | undefined, boolean>>();
 
 /**
- * Whether a tree rooted at `workflow` can launch a child on any instance (#333 PR 3): a launch with
- * `ChildPlacement.AnyInstance` in its flow or in the flow of any child workflow below it — such a
- * tree keeps its slots where every instance counts them. Known from the declarations alone.
+ * Whether a tree rooted at `workflow` can launch a child through the queue (#333 PR 3): a child
+ * workflow in its flow, or in the flow of any child below it, whose placement is not
+ * `CurrentProcess` — such a tree keeps its slots where every instance counts them. Known from the
+ * declarations and the application's default alone.
  */
-export function treeLaunchesOnAnyInstance(workflow: Class): boolean {
-  const known = treesOnAnyInstance.get(workflow);
+export function treeLaunchesQueued(
+  workflow: Class,
+  applicationDefault: ChildPlacement | undefined,
+  overrides: Placements | undefined,
+): boolean {
+  // the memo knows the declarations and the default alone: a profile's placements are asked afresh
+  if (overrides !== undefined && overrides.size > 0)
+    return launchesQueuedUnder(workflow, applicationDefault, overrides);
+  const byDefault = treesQueued.get(workflow) ?? new Map<ChildPlacement | undefined, boolean>();
+  treesQueued.set(workflow, byDefault);
+  const known = byDefault.get(applicationDefault);
   if (known !== undefined) return known;
+  const launches = launchesQueuedUnder(workflow, applicationDefault, undefined);
+  byDefault.set(applicationDefault, launches);
+  return launches;
+}
+
+/** Whether a tree rooted at `workflow` can launch a child through the queue, under these placements. */
+function launchesQueuedUnder(
+  workflow: Class,
+  applicationDefault: ChildPlacement | undefined,
+  overrides: Placements | undefined,
+): boolean {
   const seen = new Set<Class>([workflow]);
   const pending: Class[] = [workflow];
   let launches = false;
   for (let next = pending.pop(); next !== undefined && !launches; next = pending.pop()) {
-    for (const [child, placements] of childPlacementsOf(flowOf(next))) {
-      if (placements.includes(ChildPlacement.AnyInstance)) launches = true;
-      if (isThisWorkflow(child) || seen.has(child)) continue;
+    for (const child of childWorkflowsOf(flowOf(next))) {
+      if (isQueued(placementOfWorkflow(child, applicationDefault, overrides))) launches = true;
+      if (seen.has(child)) continue;
       seen.add(child);
       pending.push(child);
     }
   }
-  treesOnAnyInstance.set(workflow, launches);
   return launches;
 }

@@ -1,23 +1,26 @@
+import { hours, minutes, Ttl } from "../../../src/units/index.js";
 // #860 — an application with a direct-reply skill: a quote agent (one read-only tool) that answers
 // with a direct A2A `Message`, beside an ordinary task skill (an action). The quote skill is the
 // expose's `defaultSkill`. Stores: the in-memory defaults (DirectApplication), the SQLite files of
 // the instances' environment (SqliteDirectApplication, two instances).
-import { A2AExpose, A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
-import { WorkflowFinishFileDto } from "../../../src/a2a/files/a2a-file.dto.js";
-import { A2AFiles } from "../../../src/a2a/files/a2a-files.service.js";
+import { A2AEndpoint, A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
+import { WorkflowFinishFileDto } from "../../../src/dto/standard/file.js";
+import { FilePolicy } from "../../../src/files/file-policy.js";
+import { Files } from "../../../src/a2a/files/files.service.js";
 import { Application } from "../../../src/application/application.js";
-import { Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { Tool } from "../../../src/components/decorators.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { EmptyEnvironment, type Produced } from "../../../src/index.js";
-import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { EmptyEnvironment, type Tracked, inline } from "../../../src/index.js";
+import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
-import { BearerCallerResolver } from "./bearer-caller-resolver.js";
+import { onStart } from "../../helpers/flow.js";
+import { BearerAuthenticator } from "./bearer-authenticator.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 export class SkuDto {
   @Text({ prompt: "the product" })
@@ -37,8 +40,8 @@ export class PriceDto {
   output: PriceDto,
   readOnly: true,
 })
-export class PriceLookupTool implements ToolHandler<SkuDto, PriceDto> {
-  run(input: SkuDto): Promise<PriceDto> {
+export class PriceLookupTool {
+  execute(input: SkuDto): Promise<PriceDto> {
     return Promise.resolve({ price: `${input.sku}: 12.50 EUR` });
   }
 }
@@ -46,7 +49,7 @@ export class PriceLookupTool implements ToolHandler<SkuDto, PriceDto> {
 @Agent({
   name: "quote-agent",
   description: "Answers a price question",
-  prompt: "Answer the price question; look prices up.",
+  prompt: inline("Answer the price question; look prices up."),
   model: "moonshotai/kimi-k2.6",
   tools: [PriceLookupTool],
 })
@@ -69,12 +72,8 @@ export class QuoteWorkflowFinish {}
 @Workflow({
   name: "quote-workflow",
   version: "1.0.0",
-  flow: [
-    start(QuoteWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(QuoteAgent)
-      .toFinish(QuoteWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(QuoteWorkflowStart).toAgent(QuoteAgent).toFinish(QuoteWorkflowFinish)],
 })
 export class QuoteWorkflow {}
 
@@ -84,15 +83,15 @@ export class QuoteWorkflow {}
   description: "Writes the quote as a file",
   input: { message: WorkflowStartTextDto },
   output: WorkflowFinishFileDto,
-  deps: [A2AFiles],
+  deps: [Files],
 })
 export class QuoteFileAction {
-  constructor(private readonly a2aFiles: A2AFiles) {}
+  constructor(private readonly a2aFiles: Files) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<WorkflowFinishFileDto> {
-    const bytes = new TextEncoder().encode(`quote for ${input.message.value.text}`);
+    const bytes = new TextEncoder().encode(`quote for ${input.message.text}`);
     return {
       file: await this.a2aFiles.save({ bytes, mediaType: "text/plain", filename: "quote.txt" }),
     };
@@ -113,15 +112,16 @@ export class QuoteFileWorkflowStart {}
 })
 export class QuoteFileWorkflowFinish {}
 
+@FilePolicy({ ttl: hours(24), name: "quote-file-policy", allowedMediaTypes: ["text/plain"] })
+export class QuoteFilePolicy {}
+
 @Workflow({
   name: "quote-file-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  filePolicy: QuoteFilePolicy,
   flow: [
-    start(QuoteFileWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(QuoteFileAction)
-      .returns(WorkflowFinishFileDto)
-      .toFinish(QuoteFileWorkflowFinish),
+    onStart(QuoteFileWorkflowStart).toAction(QuoteFileAction).toFinish(QuoteFileWorkflowFinish),
   ],
 })
 export class QuoteFileWorkflow {}
@@ -135,7 +135,7 @@ export class QuoteFileWorkflow {}
 })
 export class AckAction {
   execute(_input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<WorkflowFinishTextDto> {
     return Promise.resolve({ text: "acknowledged" });
   }
@@ -158,36 +158,33 @@ export class AckWorkflowFinish {}
 @Workflow({
   name: "ack-workflow",
   version: "1.0.0",
-  flow: [
-    start(AckWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(AckAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(AckWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(AckWorkflowStart).toAction(AckAction).toFinish(AckWorkflowFinish)],
 })
 export class AckWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "quotes-a2a-expose",
   version: "1.0.0",
   description: "Answers price questions at once; acknowledges messages as tasks",
-  exports: [QuoteWorkflowStart, QuoteFileWorkflowStart, AckWorkflowStart],
-  skills: {
-    "quote-workflow-start": { reply: A2AReply.Message },
-    "quote-file-workflow-start": { reply: A2AReply.Message },
-  },
   defaultSkill: QuoteWorkflowStart,
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [
+    { start: QuoteWorkflowStart, reply: A2AReply.Message },
+    { start: QuoteFileWorkflowStart, reply: A2AReply.Message },
+    AckWorkflowStart,
+  ],
 })
 export class QuotesA2AExpose {}
 
 @Application({
   name: "quotes-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, QuoteFileWorkflow, AckWorkflow],
-  providers: [BearerCallerResolver, InMemoryA2AFileRepository],
-  exposes: [QuotesA2AExpose],
+  providers: [BearerAuthenticator, InMemoryFileRepository],
+  endpoints: [QuotesA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class DirectApplication {}

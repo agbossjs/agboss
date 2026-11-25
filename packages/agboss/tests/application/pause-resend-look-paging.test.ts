@@ -29,7 +29,7 @@ describe("#946: the re-send look reaches every stuck replacement", () => {
       await pauses.reassignByTenantIdAndPauseId(
         "default",
         old,
-        { pauseId: `new-${String(index).padStart(3, "0")}`, assignee: "deputy" },
+        { pauseId: `new-${String(index).padStart(3, "0")}`, assignees: ["deputy"] },
         new Date(start + index * 1000),
         NO_RECIPIENTS,
       );
@@ -41,7 +41,7 @@ describe("#946: the re-send look reaches every stuck replacement", () => {
       records: {
         findByTenantIdAndRunId: (_tenant, runId) =>
           Promise.resolve({
-            bundle: Number(runId.slice(4)) < NOT_OURS ? "another-app" : "ours",
+            workflow: Number(runId.slice(4)) < NOT_OURS ? "another-app" : "ours",
           } as never),
       },
       resends: new Map([

@@ -1,3 +1,4 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 /**
  * #633 (takeover shard) — the holder's side of a takeover on its own: a step whose take back fails
  * leaves no step counted, a release waits for the latest bound of its attempts and leaves no timer
@@ -15,11 +16,7 @@ import {
   recordedHandOver,
 } from "../../src/app/handed-over.js";
 import { LeaseAttempts, LeaseYields } from "../../src/app/lease-yields.js";
-import {
-  ExecutionFencedError,
-  ExecutionLeaseLostError,
-  scopeKeyOf,
-} from "../../src/app/lease-lost.js";
+import { ExecutionLeaseLostError, scopeKeyOf } from "../../src/app/lease-lost.js";
 import { HandOverSite } from "../../src/infrastructure/execution-audit-log.repository.js";
 import { leaseReleases } from "../../src/app/lease-releases.js";
 import type { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
@@ -206,7 +203,7 @@ describe("#633: a call waiting for a tree's lease", () => {
 
 describe("#633: hand-overs", () => {
   const fenced = (token: number) =>
-    ExecutionFencedError.of({
+    fencedRefusalOf({
       scopeKey: scopeKeyOf("acme", "root-1"),
       token,
       observedToken: token + 1,

@@ -1,6 +1,6 @@
 /**
  * #267 AC7: a decision is validated on the way in — on `app.resume` (a `ToolCallApprovalDecisionDto`,
- * `overrideArguments` only with `approved: true` and a valid input of the tool), the pause staying
+ * `overrideInput` only with `approved: true` and a valid input of the tool), the pause staying
  * pending when it is refused. On `ChannelOutcome.decided(…)`: `tests/channels/channel-outcome.test.ts`.
  */
 import { beforeEach, describe, expect } from "vitest";
@@ -28,14 +28,8 @@ const pauseOf7 = () => pauseStore().findByTenantIdAndPauseId("default", askFor("
 
 describe("#267 AC7: app.resume validates the decision before it records it", () => {
   test.for([
-    [
-      "overrideArguments with approved: false",
-      { approved: false, overrideArguments: { orderId: "8" } },
-    ],
-    [
-      "overrideArguments the tool does not take",
-      { approved: true, overrideArguments: { orderId: 8 } },
-    ],
+    ["overrideInput with approved: false", { approved: false, overrideInput: { orderId: "8" } }],
+    ["overrideInput the tool does not take", { approved: true, overrideInput: { orderId: 8 } }],
     ["no approved at all", { approve: true }],
   ] as const)("%s is refused: the pause stays pending", async ([, decision], { app, mockLlm }) => {
     mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }), replyWith("Done."));
@@ -49,14 +43,11 @@ describe("#267 AC7: app.resume validates the decision before it records it", () 
     expect(seen.refunds).toEqual(["7"]);
   });
 
-  test("approved with overrideArguments: the tool runs with them", async ({ app, mockLlm }) => {
+  test("approved with overrideInput: the tool runs with them", async ({ app, mockLlm }) => {
     mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }), replyWith("Done."));
     await execute(app, DeskWorkflowStart, { text: "refund 7" });
 
-    await app.resume(
-      answerFor("7", { approved: true, overrideArguments: { orderId: "8" } }),
-      manager,
-    );
+    await app.resume(answerFor("7", { approved: true, overrideInput: { orderId: "8" } }), manager);
 
     expect(seen.refunds).toEqual(["8"]);
   });

@@ -16,6 +16,7 @@ import { rootFactsOf } from "../../context/frame.js";
 import type { ActionDeclaration } from "../../decorators/declaration.js";
 import { stepRecordOf } from "../../observers/execution-event.js";
 import { valueIdOf, type ScopeRecords } from "../records.js";
+import { holderOf, isOwnEntry, movedToParent } from "./held-entries.js";
 
 /**
  * What one visit does to the execution's undoable actions (#340): an action with `compensateWith`
@@ -23,8 +24,9 @@ import { valueIdOf, type ScopeRecords } from "../records.js";
  * from the scope right after it (a branch's: the scope at the launch and its own value); the
  * committing action commits the open entries it commits; an undo action on a side path closes the
  * newest open entry it undoes (`CompensationReason.SidePath`: `Compensated`, or `Failed` with its
- * error when its own `.onError` took the failure); a finish commits the open entries without
- * `committedBy`. Each entry written is mirrored in the instance's registry at once.
+ * error when its own `.onError` took the failure); a root's finish commits the open entries without
+ * `committedBy`, a child's moves every open one it holds up to its parent (#1281b). Each entry
+ * written is mirrored in the instance's registry at once.
  */
 
 /** A visit as its entries name it: its step, execution and tree. */
@@ -79,7 +81,8 @@ function opened(site: VisitCompensationSite, facts: VisitFacts): CompensationEnt
   if (undoable === undefined) return undefined;
   const { action: declaration, compensator } = undoable;
   const floor = Math.max(0, ...site.entries.map((entry) => entry.sequence));
-  const sequence = site.parts?.registry.nextSequence(facts.tree, floor) ?? floor + 1;
+  const sequence =
+    site.sequence ?? site.parts?.registry.nextSequence(facts.tree, floor) ?? floor + 1;
   const committer = actionDeclarationOf(declaration.options.committedBy)?.options.name;
   return {
     key: facts.step.idempotencyKey,
@@ -90,6 +93,7 @@ function opened(site: VisitCompensationSite, facts: VisitFacts): CompensationEnt
     compensator: compensator.options.name,
     ...(committer === undefined ? {} : { committer }),
     ...(site.branch === undefined ? {} : { launchId: site.branch.launchId }),
+    ...(site.branch?.branchIndex === undefined ? {} : { branchIndex: site.branch.branchIndex }),
     input: snapshotFor(compensator, scopeAfter(site, declaration)),
     status: CompensationEntryStatus.Open,
   };
@@ -128,7 +132,9 @@ function closedByAction(
   open: readonly CompensationEntry[],
 ): CompensationEntry[] {
   const { id } = site.node;
-  const undone = open.filter((entry) => entry.compensator === id).at(-1);
+  // a committer or an undo of this workflow's own: a child's moved entry is no node's here (#1281b)
+  const own = open.filter(isOwnEntry);
+  const undone = own.filter((entry) => entry.compensator === id).at(-1);
   const closed: CompensationEntry[] =
     undone === undefined
       ? []
@@ -139,7 +145,7 @@ function closedByAction(
           },
         ];
   if (site.failure !== undefined) return closed;
-  const committed = open
+  const committed = own
     .filter((entry) => entry.committer === id && entry !== undone)
     .map((entry) => withStatus(entry, CompensationEntryStatus.Committed));
   return [...closed, ...committed];
@@ -152,7 +158,13 @@ export function entriesOfVisit(site: VisitCompensationSite): readonly Compensati
     .filter((entry) => entry.status === CompensationEntryStatus.Open)
     .sort((first, second) => first.sequence - second.sequence);
   const written: CompensationEntry[] = [];
-  if (site.node.kind === NodeKind.Finish) {
+  const { parent } = site.frame.execution;
+  if (site.node.kind === NodeKind.Finish && parent !== undefined) {
+    // a child's finish commits nothing (#1281b): its open entries move up to its parent, in the
+    // finish's own write — the parent commits or undoes them
+    const held = open.filter((entry) => holderOf(entry) === facts.executionId);
+    written.push(...movedToParent(held, parent.execution.executionId));
+  } else if (site.node.kind === NodeKind.Finish) {
     const commits = open.filter((entry) => entry.committer === undefined);
     written.push(...commits.map((entry) => withStatus(entry, CompensationEntryStatus.Committed)));
   } else {

@@ -2,12 +2,13 @@
  * #824 AC3 (mutation shard `a2a-server`): the rule's own texts and edges, from the declarations —
  * each refusal's full message (a listed store, a single-host one, an undeclared lease backend, one
  * no store of the core's names, a second database of one kind), the violation's node, every
- * `@A2AExpose` named; never a refusal for an application serving MCP only, with no exposes, or
+ * `@A2AEndpoint` named; never a refusal for an application serving MCP only, with no endpoints, or
  * with two lease stores (their ambiguity is reported, nothing thrown).
  */
+import { hours, minutes } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { a2aTaskStoreViolations } from "../../src/a2a/a2a-task-store-rule.js";
-import { A2AExpose } from "../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../src/a2a/a2a-endpoint.decorator.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { ApplicationOptions } from "../../src/application/application.js";
 import type { Provider } from "../../src/components/injection.js";
@@ -17,7 +18,7 @@ import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.
 import { InMemoryA2ATaskRepository } from "../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { SqliteA2ATaskRepository } from "../../src/infrastructure/sqlite/sqlite-a2a-task.repository.js";
-import { McpExpose } from "../../src/mcp/mcp-expose.decorator.js";
+import { McpEndpoint } from "../../src/mcp/mcp-endpoint.decorator.js";
 import { ReleaseWorkflowStart } from "../app/fixtures/fence.workflow.js";
 import {
   BillingLeases,
@@ -41,26 +42,27 @@ class OtherFileA2ATasks extends InMemoryA2ATaskRepository {
   static override readonly store: StoreDescriptor = { backend: "sqlite:other" };
 }
 
-@A2AExpose({
+@A2AEndpoint({
   name: "audit-a2a-expose",
   version: "1.0.0",
   description: "Audits",
-  exports: [ReleaseWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [ReleaseWorkflowStart],
 })
 class AuditA2AExpose {}
 
-@McpExpose({ name: "release-mcp-expose", version: "1.0.0", exports: [ReleaseWorkflowStart] })
-class ReleaseMcpExpose {}
+@McpEndpoint({ name: "release-mcp-expose", version: "1.0.0", tools: [ReleaseWorkflowStart] })
+class ReleaseMcpEndpoint {}
 
 class NotAnExpose {
   readonly role = "no expose";
 }
 
 /** The rule on declarations alone: an application's name, exposes and providers. */
-const ruleOf = (exposes: ApplicationOptions["exposes"], providers?: readonly Provider[]) =>
+const ruleOf = (endpoints: ApplicationOptions["endpoints"], providers?: readonly Provider[]) =>
   a2aTaskStoreViolations({
     name: "rule-application",
-    exposes,
+    endpoints,
     ...(providers === undefined ? {} : { providers }),
   } as ApplicationOptions);
 
@@ -71,7 +73,7 @@ const SERVES = "rule-application serves A2A (release-a2a-expose) on";
 const RESENT = "a message resent to another instance would start a second execution";
 
 describe("#824 AC3: the rule's refusals, word for word", () => {
-  it("one violation, on the application, naming every @A2AExpose it serves", () => {
+  it("one violation, on the application, naming every @A2AEndpoint it serves", () => {
     const [found, ...rest] = ruleOf([ReleaseA2AExpose, AuditA2AExpose], [PostgresLeases]);
 
     expect(rest).toEqual([]);
@@ -107,7 +109,7 @@ describe("#824 AC3: the rule's refusals, word for word", () => {
 
 describe("#824 AC3: no refusal where no A2A task is served", () => {
   it("MCP only, or no exposes at all, or no providers: nothing", () => {
-    expect(ruleOf([ReleaseMcpExpose], [PostgresLeases])).toEqual([]);
+    expect(ruleOf([ReleaseMcpEndpoint], [PostgresLeases])).toEqual([]);
     expect(ruleOf(undefined, [PostgresLeases])).toEqual([]);
     expect(ruleOf([ReleaseA2AExpose])).toEqual([]);
   });

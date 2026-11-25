@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect } from "vitest";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../src/run/types.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   Charge,
@@ -98,7 +98,7 @@ describe("#181: execute and resume forward onStream", () => {
       await execute(app, MailStart, { text: "hi" }, { onStream: (event) => events.push(event) });
 
       expect(events).toContainEqual(
-        expect.objectContaining({ kind: "textDelta", delta: "Hello there." }),
+        expect.objectContaining({ kind: StreamEventKind.TextDelta, delta: "Hello there." }),
       );
     },
   );
@@ -116,6 +116,8 @@ describe("#181: execute and resume forward onStream", () => {
     );
     await app.resume(answerOf(paused, approve), { onStream: (event) => events.push(event) });
 
-    expect(events).toContainEqual(expect.objectContaining({ kind: "textDelta", delta: "Sent." }));
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: StreamEventKind.TextDelta, delta: "Sent." }),
+    );
   });
 });

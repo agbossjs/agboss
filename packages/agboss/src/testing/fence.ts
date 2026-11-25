@@ -4,8 +4,8 @@ import type { Clock } from "../infrastructure/clock.js";
 import { EXECUTION_LEASE } from "../app/lease-fence.js";
 
 /**
- * The fence of a unit test's step (#471): `executionContext.fence` in a unit runner (`testAction`,
- * `testTool`, …) and in `testExecutionContext()`. By default the lease is held — token 1, the
+ * The fence of a unit test's step (#471): `executionContext.fence` in a unit runner (`testUnit`,
+ * `testUnit`, …) and in `testExecutionContext()`. By default the lease is held — token 1, the
  * execution's own lease scope, confirmed until the runner's clock plus the lease's 30 s; each field
  * may be set, and `isLost` / `renewNowFails` make its checks refuse as a lost lease does.
  */

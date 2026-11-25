@@ -1,10 +1,14 @@
 /**
  * #508 — the concurrency review of the outbound-call protocol, one scenario per finding: a lease
- * stays open while an attempt under it is in flight; a lost completion is `OutboundCallSupersededError`, never a
+ * stays open while an attempt under it is in flight; a lost completion is `OutboundCallError.Superseded`, never a
  * silent `Sent`; a live owner is never reconciled, whatever the key; a joined call never takes on
  * the first call's own hand-over or cancel; an answered call always ends `Completed`; what a
  * business key derives is keyed; the key sent out is unambiguous.
  */
+import {
+  IdempotencyError,
+  OutboundCallError,
+} from "../../src/core/error-families/effect-errors.js";
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -12,28 +16,24 @@ import {
   Action,
   ExecutionContext,
   ExecutionLeaseRepository,
-  effectKeyOf,
-  InvalidFencedEffectNameError,
   Injectable,
   InMemoryOutboundCallRepository,
-  OutboundCallInFlightError,
   OutboundCallSendStatus,
   OutboundCallRepository,
   OutboundCallStatus,
-  OutboundCallSupersededError,
-  type EffectKey,
   type OutboundCallRecord,
 } from "../../src/index.js";
+import { effectKeyOf, type EffectKey } from "../../src/stores/index.js";
 import { stateOf } from "../../src/app/outbound-call-business.js";
 import { maskedTextOf } from "../../src/app/outbound-call-parts.js";
-import { REDACTED } from "../../src/app/outbound-calls.js";
+import { REDACTED } from "../../src/app/outbound-call-errors.js";
 import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { FINGERPRINT_LABEL } from "../../src/infrastructure/fenced-effect-key.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
 import { keyedDigestOf } from "../../src/pii/tokens.js";
 import { stableJson } from "../../src/turns/index.js";
-import { override, testAction, testWith } from "../../src/testing/index.js";
+import { testUnit, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { recordingLog } from "../helpers/log.js";
@@ -52,7 +52,7 @@ import { TEST_IDEMPOTENCY_KEY } from "../../src/application/idempotency-key.js";
 
 const test = testWith(BusinessKeyApplication);
 const two = testWith(BusinessKeyApplication, { instances: 2 });
-const order = { message: { value: { text: "order-1" } } } as never;
+const order = { message: { text: "order-1" } } as never;
 const charge = { orderId: "42", amountUsd: 10 };
 
 /** Until `count` outbound charges of the business-key fixture are frozen. */
@@ -85,7 +85,7 @@ describe("#508 review 1a: a lease stays open while an attempt under it is in fli
       await settle();
 
       await expect(execute(b, SendChargeStart, charge)).rejects.toFailWith(
-        OutboundCallInFlightError,
+        OutboundCallError.InFlight,
         { call: "charge" },
       );
       letLedgerGo();
@@ -106,7 +106,7 @@ class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
   override async markCompleted(key: EffectKey, owner: string, result: string) {
     const found = await this.findByKey(key);
     if (found !== undefined) await this.#takenOver(key, found);
-    return super.markCompleted(key, owner, result);
+    return super.markCompleted(key, owner, result, null);
   }
 
   async #takenOver(key: EffectKey, found: OutboundCallRecord): Promise<void> {
@@ -114,15 +114,15 @@ class SupersedingOutboundCallRepository extends InMemoryOutboundCallRepository {
   }
 }
 
-describe("#508 review 2, #795: a lost completion is OutboundCallSupersededError, never a silent Sent", () => {
+describe("#508 review 2, #795: a lost completion is OutboundCallError.Superseded, never a silent Sent", () => {
   it("a newer attempt took the intent over while this one was in flight: the step fails naming both attempts, the newer attempt's intent kept", async () => {
-    const run = testAction(ChargeOrderAction, {
-      overrides: [override(OutboundCallRepository, SupersedingOutboundCallRepository)],
+    const run = testUnit(ChargeOrderAction, {
+      services: [SupersedingOutboundCallRepository],
     });
 
     const failed = await run(order).catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(OutboundCallSupersededError);
+    expect(failed).toBeInstanceOf(OutboundCallError.Superseded);
     expect(failed).toMatchObject({
       code: "outbound-call.superseded",
       call: "charge",
@@ -130,7 +130,7 @@ describe("#508 review 2, #795: a lost completion is OutboundCallSupersededError,
       operation: "charge",
       attempt: 1,
       supersededBy: 2,
-      idempotencyKey: expect.stringMatching(/charge/u) as unknown,
+      idempotencyKey: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/u) as unknown,
     });
     expect(runs.outcomes).toEqual([]);
     expect(gateway.calls).toHaveLength(1);
@@ -139,7 +139,7 @@ describe("#508 review 2, #795: a lost completion is OutboundCallSupersededError,
 
 describe("#508 review 3: a live owner is never reconciled, whatever the key", () => {
   it("a step-keyed attempt still sending (its step aborted, its client ignoring it): the step run again is in flight, nothing sent", async () => {
-    const run = testAction(ChargeOrderAction);
+    const run = testUnit(ChargeOrderAction);
     Object.assign(gateway.gates, { before: 1, ignoresAbort: true });
     const first = run(order, { timeout: seconds(1) });
     first.catch(() => undefined);
@@ -147,7 +147,7 @@ describe("#508 review 3: a live owner is never reconciled, whatever the key", ()
     await run.clock.advance(seconds(1));
     await expect(first).rejects.toThrow();
 
-    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallInFlightError);
+    await expect(run(order)).rejects.toBeInstanceOf(OutboundCallError.InFlight);
     expect(gateway.calls).toHaveLength(1);
     expect(gateway.lookups).toEqual([]);
   });
@@ -165,13 +165,15 @@ describe("#508 review 4: a joined call never takes on the first call's own error
     await settle(); // the second joins the first
     await app.cancel("thread-first", { tenantId: "default" });
 
-    await expect(second).rejects.toFailWith(OutboundCallInFlightError, { call: "charge" });
+    await expect(second).rejects.toFailWith(OutboundCallError.InFlight, { call: "charge" });
     await settle();
     const third = await execute(app, SendChargeStart, charge);
 
     expect(third.output).toEqual({ chargeId: "ch-42-1" });
     expect(gateway.lookups).toHaveLength(1);
-    expect(gateway.calls).toEqual([{ idempotencyKey: "default:order%3A42:charge", attempt: 2 }]);
+    expect(gateway.calls).toEqual([
+      { idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw", attempt: 2 },
+    ]);
   });
 });
 
@@ -237,17 +239,22 @@ class BadlyNamedAction {
 }
 
 describe("#508 review 7: the key sent out is unambiguous", () => {
-  test("a business key is encoded in the key the call goes with; a name with a ':' is refused", async ({
+  test("a business key goes out as a 43-character digest, never as itself, and another key is another digest; a name with a ':' is refused", async ({
     app,
   }) => {
     await execute(app, SendChargeStart, { orderId: "4:2", amountUsd: 10 });
+    await execute(app, SendChargeStart, { orderId: "4:3", amountUsd: 10 });
 
-    expect(gateway.calls[0]?.idempotencyKey).toBe("default:order%3A4%3A2:charge");
+    const keys = gateway.calls.map((call) => call.idempotencyKey);
+    expect(keys).toHaveLength(2);
+    expect(keys.every((key) => /^[A-Za-z0-9_-]{43}$/u.test(key))).toBe(true);
+    expect(new Set(keys).size).toBe(2);
+    expect(JSON.stringify(keys)).not.toContain("order");
   });
 
-  it("a name with a ':' — which would make two keys one string — is InvalidFencedEffectNameError", async () => {
-    const run = testAction(BadlyNamedAction);
+  it("a name with a ':' — which would make two keys one string — is IdempotencyError.InvalidName", async () => {
+    const run = testUnit(BadlyNamedAction);
 
-    await expect(run(order)).rejects.toFailWith(InvalidFencedEffectNameError, {});
+    await expect(run(order)).rejects.toFailWith(IdempotencyError.InvalidName, {});
   });
 });

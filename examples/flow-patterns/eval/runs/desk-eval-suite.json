@@ -1,6 +1,6 @@
 {
   "kind": "agboss.eval-run",
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "suite": "desk-eval-suite",
   "application": {
     "name": "desk-application",
@@ -10,17 +10,17 @@
     "name": "desk-workflow",
     "version": "1.0.0"
   },
-  "configHash": "c58824db4d584ce41c44b1dd381cfb74d9910d4c971a9760f1f6ea6778281057",
+  "configHash": "dea526f94f7eb61f31b18a7f4642c15ef88bbe047b7cadf13896468aac41a454",
   "start": "desk-workflow-start",
   "environment": "offline",
   "runs": 2,
   "cascade": "stop-at-first-failure",
-  "startedAt": "2026-10-24T00:45:31.040Z",
-  "endedAt": "2026-10-24T00:45:31.572Z",
+  "startedAt": "2026-11-24T13:57:52.927Z",
+  "endedAt": "2026-11-24T13:57:53.108Z",
   "cases": [
     {
       "name": "order-looked-up",
-      "caseHash": "2f4f8fcb3bfe89af",
+      "caseHash": "f9dae293d9778abe",
       "passed": 2,
       "runs": 2,
       "passAtK": true,
@@ -29,18 +29,20 @@
       "runResults": [
         {
           "run": 1,
-          "threadId": "5ea9b34f-ac41-4c68-a7cf-3e756f57255b",
+          "threadId": "036c5f26-4ca6-46c8-ba0f-0ba4f41e8d7e",
           "tenantId": "eval-desk",
-          "executionId": "5a725320-55e3-47d3-8a97-2cb58cde6c0f",
+          "executionId": "3de3f31f-f74c-4313-8bd0-5c996606c999",
           "finish": "desk-answer-workflow-finish",
           "passed": true,
           "checks": [
             {
               "check": "trajectory",
+              "kind": "tools",
               "status": "passed"
             },
             {
               "check": "desk-answer-judge",
+              "kind": "judge",
               "status": "passed",
               "metrics": {
                 "length": 47,
@@ -48,9 +50,11 @@
               }
             }
           ],
-          "spentUsd": 0.0022,
+          "executionUsd": 0.0022,
+          "judgeUsd": 0,
+          "totalUsd": 0.0022,
           "trace": {
-            "executionId": "5a725320-55e3-47d3-8a97-2cb58cde6c0f",
+            "executionId": "3de3f31f-f74c-4313-8bd0-5c996606c999",
             "path": [
               "desk-workflow-start",
               "desk-agent",
@@ -70,8 +74,8 @@
                 "guardrailDecisions": [],
                 "judgeVerdicts": [],
                 "spentUsd": 0,
-                "startedAt": "2026-10-24T00:45:31.156Z",
-                "endedAt": "2026-10-24T00:45:31.156Z"
+                "startedAt": "2026-11-24T13:57:52.955Z",
+                "endedAt": "2026-11-24T13:57:52.956Z"
               },
               {
                 "component": "desk-agent",
@@ -85,6 +89,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "(none)",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -93,6 +98,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "(none)",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -111,7 +117,9 @@
                       "status": "order 7 shipped on Monday"
                     },
                     "isResultTruncated": false,
-                    "validationAttempts": 0
+                    "validationAttempts": 0,
+                    "startedAt": "2026-11-24T13:57:52.980Z",
+                    "endedAt": "2026-11-24T13:57:52.981Z"
                   }
                 ],
                 "guardrailDecisions": [
@@ -139,8 +147,8 @@
                   }
                 ],
                 "spentUsd": 0.0022,
-                "startedAt": "2026-10-24T00:45:31.165Z",
-                "endedAt": "2026-10-24T00:45:31.260Z"
+                "startedAt": "2026-11-24T13:57:52.959Z",
+                "endedAt": "2026-11-24T13:57:52.997Z"
               },
               {
                 "component": "desk-answer-workflow-finish",
@@ -155,12 +163,13 @@
                 "guardrailDecisions": [],
                 "judgeVerdicts": [],
                 "spentUsd": 0,
-                "startedAt": "2026-10-24T00:45:31.266Z",
-                "endedAt": "2026-10-24T00:45:31.266Z"
+                "startedAt": "2026-11-24T13:57:52.999Z",
+                "endedAt": "2026-11-24T13:57:53.000Z"
               }
             ],
             "pauses": [],
             "children": [],
+            "status": "finished",
             "handledErrors": [],
             "compensations": [],
             "finish": "desk-answer-workflow-finish",
@@ -171,18 +180,20 @@
         },
         {
           "run": 2,
-          "threadId": "3267c55f-d62b-4ce2-88ac-a96eb6b9b48e",
+          "threadId": "15c590bd-7f12-4a07-b568-b173b8a4d0b3",
           "tenantId": "eval-desk",
-          "executionId": "76105079-e707-4556-b452-5e6479f9a4be",
+          "executionId": "33e4e6b3-d23a-4cc3-a9a0-ac781ebc84f4",
           "finish": "desk-answer-workflow-finish",
           "passed": true,
           "checks": [
             {
               "check": "trajectory",
+              "kind": "tools",
               "status": "passed"
             },
             {
               "check": "desk-answer-judge",
+              "kind": "judge",
               "status": "passed",
               "metrics": {
                 "length": 47,
@@ -190,9 +201,11 @@
               }
             }
           ],
-          "spentUsd": 0.0022,
+          "executionUsd": 0.0022,
+          "judgeUsd": 0,
+          "totalUsd": 0.0022,
           "trace": {
-            "executionId": "76105079-e707-4556-b452-5e6479f9a4be",
+            "executionId": "33e4e6b3-d23a-4cc3-a9a0-ac781ebc84f4",
             "path": [
               "desk-workflow-start",
               "desk-agent",
@@ -212,8 +225,8 @@
                 "guardrailDecisions": [],
                 "judgeVerdicts": [],
                 "spentUsd": 0,
-                "startedAt": "2026-10-24T00:45:31.306Z",
-                "endedAt": "2026-10-24T00:45:31.306Z"
+                "startedAt": "2026-11-24T13:57:53.014Z",
+                "endedAt": "2026-11-24T13:57:53.014Z"
               },
               {
                 "component": "desk-agent",
@@ -227,6 +240,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "(none)",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -235,6 +249,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "(none)",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -253,7 +268,9 @@
                       "status": "order 7 shipped on Monday"
                     },
                     "isResultTruncated": false,
-                    "validationAttempts": 0
+                    "validationAttempts": 0,
+                    "startedAt": "2026-11-24T13:57:53.027Z",
+                    "endedAt": "2026-11-24T13:57:53.027Z"
                   }
                 ],
                 "guardrailDecisions": [
@@ -281,8 +298,8 @@
                   }
                 ],
                 "spentUsd": 0.0022,
-                "startedAt": "2026-10-24T00:45:31.311Z",
-                "endedAt": "2026-10-24T00:45:31.359Z"
+                "startedAt": "2026-11-24T13:57:53.016Z",
+                "endedAt": "2026-11-24T13:57:53.036Z"
               },
               {
                 "component": "desk-answer-workflow-finish",
@@ -297,12 +314,13 @@
                 "guardrailDecisions": [],
                 "judgeVerdicts": [],
                 "spentUsd": 0,
-                "startedAt": "2026-10-24T00:45:31.364Z",
-                "endedAt": "2026-10-24T00:45:31.364Z"
+                "startedAt": "2026-11-24T13:57:53.038Z",
+                "endedAt": "2026-11-24T13:57:53.038Z"
               }
             ],
             "pauses": [],
             "children": [],
+            "status": "finished",
             "handledErrors": [],
             "compensations": [],
             "finish": "desk-answer-workflow-finish",
@@ -316,7 +334,7 @@
         "requiredTools": [
           {
             "tool": "order-status-tool",
-            "arguments": {
+            "input": {
               "orderId": "7"
             }
           }
@@ -333,7 +351,7 @@
     },
     {
       "name": "archived-order",
-      "caseHash": "1f3e71ff763968ab",
+      "caseHash": "5f580dde27579e78",
       "passed": 2,
       "runs": 2,
       "passAtK": true,
@@ -342,18 +360,20 @@
       "runResults": [
         {
           "run": 1,
-          "threadId": "000677e6-f571-4431-8f7c-93e26f02e519",
+          "threadId": "bd7a525f-c982-4b89-9450-4dc65d8a71be",
           "tenantId": "eval-desk",
-          "executionId": "d7f42b57-5064-4441-801a-5da77f9468fe",
+          "executionId": "f949bcf7-f4a2-4a12-9c56-f8314f298381",
           "finish": "desk-answer-workflow-finish",
           "passed": true,
           "checks": [
             {
               "check": "trajectory",
+              "kind": "tools",
               "status": "passed"
             },
             {
               "check": "desk-answer-judge",
+              "kind": "judge",
               "status": "passed",
               "metrics": {
                 "length": 67,
@@ -361,9 +381,11 @@
               }
             }
           ],
-          "spentUsd": 0.0022,
+          "executionUsd": 0.0022,
+          "judgeUsd": 0,
+          "totalUsd": 0.0022,
           "trace": {
-            "executionId": "d7f42b57-5064-4441-801a-5da77f9468fe",
+            "executionId": "f949bcf7-f4a2-4a12-9c56-f8314f298381",
             "path": [
               "desk-workflow-start",
               "desk-agent",
@@ -383,8 +405,8 @@
                 "guardrailDecisions": [],
                 "judgeVerdicts": [],
                 "spentUsd": 0,
-                "startedAt": "2026-10-24T00:45:31.395Z",
-                "endedAt": "2026-10-24T00:45:31.395Z"
+                "startedAt": "2026-11-24T13:57:53.047Z",
+                "endedAt": "2026-11-24T13:57:53.047Z"
               },
               {
                 "component": "desk-agent",
@@ -398,6 +420,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "(none)",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -406,6 +429,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "(none)",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -422,7 +446,9 @@
                     },
                     "output": "Order A-12 is archived: ask the customer for a recent one.",
                     "isResultTruncated": false,
-                    "validationAttempts": 0
+                    "validationAttempts": 0,
+                    "startedAt": "2026-11-24T13:57:53.062Z",
+                    "endedAt": "2026-11-24T13:57:53.062Z"
                   }
                 ],
                 "guardrailDecisions": [
@@ -450,8 +476,8 @@
                   }
                 ],
                 "spentUsd": 0.0022,
-                "startedAt": "2026-10-24T00:45:31.400Z",
-                "endedAt": "2026-10-24T00:45:31.448Z"
+                "startedAt": "2026-11-24T13:57:53.049Z",
+                "endedAt": "2026-11-24T13:57:53.070Z"
               },
               {
                 "component": "desk-answer-workflow-finish",
@@ -466,12 +492,13 @@
                 "guardrailDecisions": [],
                 "judgeVerdicts": [],
                 "spentUsd": 0,
-                "startedAt": "2026-10-24T00:45:31.453Z",
-                "endedAt": "2026-10-24T00:45:31.453Z"
+                "startedAt": "2026-11-24T13:57:53.072Z",
+                "endedAt": "2026-11-24T13:57:53.072Z"
               }
             ],
             "pauses": [],
             "children": [],
+            "status": "finished",
             "handledErrors": [],
             "compensations": [],
             "finish": "desk-answer-workflow-finish",
@@ -482,18 +509,20 @@
         },
         {
           "run": 2,
-          "threadId": "ce7b1d75-2473-4a33-916e-efe9a5813ebd",
+          "threadId": "cf28cc56-c909-44a1-8502-b8053282fe2f",
           "tenantId": "eval-desk",
-          "executionId": "0fa815a4-b9f6-4140-890f-719a9550beff",
+          "executionId": "c89c0ea6-b8a4-475e-9fc7-be9d24f501d4",
           "finish": "desk-answer-workflow-finish",
           "passed": true,
           "checks": [
             {
               "check": "trajectory",
+              "kind": "tools",
               "status": "passed"
             },
             {
               "check": "desk-answer-judge",
+              "kind": "judge",
               "status": "passed",
               "metrics": {
                 "length": 67,
@@ -501,9 +530,11 @@
               }
             }
           ],
-          "spentUsd": 0.0022,
+          "executionUsd": 0.0022,
+          "judgeUsd": 0,
+          "totalUsd": 0.0022,
           "trace": {
-            "executionId": "0fa815a4-b9f6-4140-890f-719a9550beff",
+            "executionId": "c89c0ea6-b8a4-475e-9fc7-be9d24f501d4",
             "path": [
               "desk-workflow-start",
               "desk-agent",
@@ -523,8 +554,8 @@
                 "guardrailDecisions": [],
                 "judgeVerdicts": [],
                 "spentUsd": 0,
-                "startedAt": "2026-10-24T00:45:31.483Z",
-                "endedAt": "2026-10-24T00:45:31.484Z"
+                "startedAt": "2026-11-24T13:57:53.081Z",
+                "endedAt": "2026-11-24T13:57:53.081Z"
               },
               {
                 "component": "desk-agent",
@@ -538,6 +569,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "(none)",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -546,6 +578,7 @@
                   {
                     "caller": "desk-agent",
                     "model": "harness/desk",
+                    "provider": "(none)",
                     "inputTokens": 1000,
                     "outputTokens": 100,
                     "cacheReadTokens": 0,
@@ -562,7 +595,9 @@
                     },
                     "output": "Order A-12 is archived: ask the customer for a recent one.",
                     "isResultTruncated": false,
-                    "validationAttempts": 0
+                    "validationAttempts": 0,
+                    "startedAt": "2026-11-24T13:57:53.093Z",
+                    "endedAt": "2026-11-24T13:57:53.093Z"
                   }
                 ],
                 "guardrailDecisions": [
@@ -590,8 +625,8 @@
                   }
                 ],
                 "spentUsd": 0.0022,
-                "startedAt": "2026-10-24T00:45:31.488Z",
-                "endedAt": "2026-10-24T00:45:31.538Z"
+                "startedAt": "2026-11-24T13:57:53.082Z",
+                "endedAt": "2026-11-24T13:57:53.103Z"
               },
               {
                 "component": "desk-answer-workflow-finish",
@@ -606,12 +641,13 @@
                 "guardrailDecisions": [],
                 "judgeVerdicts": [],
                 "spentUsd": 0,
-                "startedAt": "2026-10-24T00:45:31.544Z",
-                "endedAt": "2026-10-24T00:45:31.544Z"
+                "startedAt": "2026-11-24T13:57:53.104Z",
+                "endedAt": "2026-11-24T13:57:53.104Z"
               }
             ],
             "pauses": [],
             "children": [],
+            "status": "finished",
             "handledErrors": [],
             "compensations": [],
             "finish": "desk-answer-workflow-finish",
@@ -645,9 +681,11 @@
     "skippedByCascade": 0
   },
   "spend": {
+    "executionUsd": 0.0088,
+    "judgeUsd": 0,
     "totalUsd": 0.0088
   },
-  "agbossVersion": "0.1.0",
+  "agbossVersion": "0.1.1",
   "models": [
     {
       "component": "desk-agent",
@@ -658,5 +696,6 @@
   ],
   "piiPolicies": [
     "customer-id-pii-policy"
-  ]
+  ],
+  "judges": []
 }

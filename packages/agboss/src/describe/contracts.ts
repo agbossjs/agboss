@@ -1,12 +1,20 @@
+import type { ComponentOptions } from "../components/component-options.js";
 import { cardFileFieldsOf } from "../a2a/files/a2a-file-options.js";
-import { A2AReply } from "../a2a/a2a-expose.decorator.js";
+import { A2AReply } from "../a2a/a2a-message-skill-rule.js";
+import {
+  cardFileFieldsSourceOf,
+  skillOptionsOf,
+  startsOfEndpoint,
+} from "../a2a/a2a-endpoint.decorator.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import type { A2AAgentMeta } from "../a2a/a2a-decorator.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import type { DtoClass } from "../dto/types.js";
 import { NodeKind } from "../flow/ast.js";
-import { mcpUsesOf, usesOf, workflowPartsOf, type WorkflowParts } from "./contracts-parts.js";
+import { mcpServerClassesOf } from "../components/assemble-tools.js";
+import type { ProviderModule } from "../components/container/registrations.js";
+import { usesOf, workflowPartsOf, type WorkflowParts } from "./contracts-parts.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { dtoJsonSchemaOf, dtoSchemaHashOf } from "../flow/runtime/join-keys.js";
 import type {
@@ -15,7 +23,7 @@ import type {
   A2AImportBase,
   A2AImportContract,
   ContractDto,
-  ContractsSnapshot,
+  ApplicationContracts,
   McpExportContract,
   McpImportContract,
 } from "./contracts-types.js";
@@ -24,8 +32,8 @@ export type * from "./contracts-types.js";
 
 /**
  * The application's declared contracts (#398 PR 3), as `agboss describe --json` lists them under
- * `application.contracts`: what it **exports** — each `@A2AExpose` start (its input and its
- * finishes' outputs) and each `@McpExpose` tool listed in `@Application({ exposes })` — and what
+ * `application.contracts`: what it **exports** — each `@A2AEndpoint` start (its input and its
+ * finishes' outputs) and each `@McpEndpoint` tool listed in `@Application({ endpoints })` — and what
  * it **consumes** — each `@A2AAgent` (its target, input, output, price and the tools that use it)
  * and each `@McpServer` tool (its target, or `null` for a third-party server). Every DTO is named
  * with its `schemaHash`; `schemas` holds the JSON Schema of each, what `check --federation`
@@ -46,7 +54,7 @@ class Dtos {
     return typeof shape === "function" ? this.of(shape as DtoClass) : null;
   }
 
-  schemas(): ContractsSnapshot["schemas"] {
+  schemas(): ApplicationContracts["schemas"] {
     const sorted = [...this.#byName.entries()].sort(([left], [right]) => left.localeCompare(right));
     return Object.fromEntries(
       sorted.map(([name, dto]) => [
@@ -65,8 +73,8 @@ function a2aExportsOf(
   dtos: Dtos,
 ): readonly A2AExportContract[] {
   const meta = componentOf(expose);
-  if (meta?.kind !== "a2a-expose") return [];
-  return meta.meta.exports.flatMap((start): A2AExportContract[] => {
+  if (meta?.kind !== "a2a-endpoint") return [];
+  return startsOfEndpoint(meta.meta).flatMap((start): A2AExportContract[] => {
     const workflow = parts.find((part) => part.nodes.includes(start));
     const declaration = declarationOf(start);
     if (workflow === undefined || declaration?.kind !== NodeKind.Start) return [];
@@ -87,8 +95,11 @@ function a2aExportsOf(
         workflow: workflow.name,
         input: dtos.ofShape(declaration.options.input),
         outputs,
-        reply: meta.meta.skills?.[declaration.options.name]?.reply ?? A2AReply.Task,
-        cardFileFields: cardFileFieldsOf(meta.meta, declaration.options.name),
+        reply: skillOptionsOf(meta.meta, declaration.options.name)?.reply ?? A2AReply.Task,
+        cardFileFields: cardFileFieldsOf(
+          cardFileFieldsSourceOf(meta.meta),
+          declaration.options.name,
+        ),
       },
     ];
   });
@@ -96,14 +107,14 @@ function a2aExportsOf(
 
 function mcpExportsOf(expose: Class, dtos: Dtos): readonly McpExportContract[] {
   const meta = componentOf(expose);
-  if (meta?.kind !== "mcp-expose") return [];
-  return meta.meta.exports.flatMap((exported): McpExportContract[] => {
+  if (meta?.kind !== "mcp-endpoint") return [];
+  return meta.meta.tools.flatMap((exported): McpExportContract[] => {
     const start = declarationOf(exported);
     const tool = componentOf(exported);
     const base = { kind: "mcp" as const, expose: meta.meta.name, version: meta.meta.version };
     if (start?.kind === NodeKind.Start)
       return [{ ...base, tool: start.options.name, input: dtos.ofShape(start.options.input) }];
-    if (tool?.kind === "tool" || tool?.kind === "mcp-tool")
+    if (tool?.kind === "tool")
       return [{ ...base, tool: tool.meta.name, input: dtos.of(tool.meta.input) }];
     return [];
   });
@@ -124,16 +135,21 @@ function foreignImportOf(base: A2AImportBase, meta: A2AAgentMeta, dtos: Dtos): A
 }
 
 /** The import of one `@A2AAgent`; none for an untyped agent of an AGBoss application (#809). */
-function a2aImportOf(client: Class, parts: readonly WorkflowParts[], dtos: Dtos): A2AImport[] {
-  const component = componentOf(client);
-  if (component?.kind !== "a2a-agent") return [];
-  const meta = component.meta;
-  const { name, target, input, output, price } = meta;
+function a2aImportOf(
+  client: Class,
+  parts: readonly WorkflowParts[],
+  dtos: Dtos,
+  options: ComponentOptions,
+): A2AImport[] {
+  // the agent as the profiles leave it: its price is what the snapshot says
+  const meta = options.a2aAgentMetaOf(client);
+  if (meta === undefined) return [];
+  const { name, target, input, output, costPerCall } = meta;
   const base = {
     kind: "a2a" as const,
     client: name,
     usedBy: usesOf(client, parts),
-    price: price ?? null,
+    price: costPerCall ?? null,
   };
   if (target?.application === undefined) return [foreignImportOf(base, meta, dtos)];
   if (input === undefined || output === undefined) return [];
@@ -163,39 +179,47 @@ function a2aImportsOf(
     (provider): provider is Class =>
       typeof provider === "function" && componentOf(provider)?.kind === "a2a-agent",
   );
-  return clients.flatMap((client) => a2aImportOf(client, parts, dtos));
+  return clients.flatMap((client) => a2aImportOf(client, parts, dtos, assembled.componentOptions));
 }
 
-function mcpImportsOf(parts: readonly WorkflowParts[], dtos: Dtos): readonly McpImportContract[] {
-  const servers = new Set<Class>();
-  for (const tool of parts.flatMap((part) => part.tools)) {
-    const meta = componentOf(tool);
-    if (meta?.kind === "mcp-tool") servers.add(meta.meta.server);
-  }
-  return [...servers].flatMap((server): McpImportContract[] => {
+function mcpImportsOf(
+  parts: readonly WorkflowParts[],
+  modules: readonly ProviderModule[],
+  dtos: Dtos,
+): readonly McpImportContract[] {
+  const tools = parts.flatMap((part) => part.tools);
+  const servers = mcpServerClassesOf(tools, modules);
+  return servers.flatMap((server): McpImportContract[] => {
     const meta = componentOf(server);
     if (meta?.kind !== "mcp-server") return [];
-    const target = meta.meta.config.target ?? null;
+    const declared = meta.meta.config.target;
+    const target =
+      declared === undefined
+        ? null
+        : { application: declared.application, expose: declared.endpoint };
     return Object.entries(meta.meta.tools).map(([tool, io]) => ({
       kind: "mcp",
       server: meta.meta.name,
       tool,
       target,
-      usedBy: mcpUsesOf(server, parts),
-      input: dtos.of(io.input),
+      usedBy: usesOf(server, parts),
+      input: io.input === undefined ? null : dtos.of(io.input),
       output: dtos.of(io.output),
     }));
   });
 }
 
 /** The declared contracts of an assembled application. */
-export function contractsOf(assembled: AssembledApplication): ContractsSnapshot {
+export function contractsOf(assembled: AssembledApplication): ApplicationContracts {
   const dtos = new Dtos();
   const parts = workflowPartsOf(assembled.workflows.map((bundle) => bundle.graph.type));
-  const exports = assembled.exposes.flatMap((expose) => [
+  const exports = assembled.endpoints.flatMap((expose) => [
     ...a2aExportsOf(expose, parts, dtos),
     ...mcpExportsOf(expose, dtos),
   ]);
-  const imports = [...a2aImportsOf(assembled, parts, dtos), ...mcpImportsOf(parts, dtos)];
+  const imports = [
+    ...a2aImportsOf(assembled, parts, dtos),
+    ...mcpImportsOf(parts, assembled.modules, dtos),
+  ];
   return { exports, imports, schemas: dtos.schemas() };
 }

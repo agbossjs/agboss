@@ -1,14 +1,12 @@
 import {
   Action,
   ExecutionContext,
-  Injectable,
+  Observer,
   listOf,
   oneOf,
   SpendRecorder,
-  variant,
   type ExecutionStartEvent,
-  type OnExecutionStart,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { usd } from "../../../src/units/index.js";
 import { OrderDeclinedError, OrderDto, OrderNoteDto, paidSteps } from "./paid-steps.dto.js";
@@ -24,8 +22,8 @@ import { OrderDeclinedError, OrderDto, OrderNoteDto, paidSteps } from "./paid-st
   input: { order: OrderDto },
 })
 export class RefundOrderAction {
-  execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<void> {
-    paidSteps.ran.push(`refund ${input.order.value.orderId}`);
+  execute(input: { readonly order: Tracked<OrderDto> }): Promise<void> {
+    paidSteps.ran.push(`refund ${input.order.orderId}`);
     if (paidSteps.refundFails) return Promise.reject(new Error("the gateway refused the refund"));
     return Promise.resolve();
   }
@@ -60,9 +58,9 @@ const overspend = (spendRecorder: SpendRecorder, what: string): void => {
 export class OverspendOrderAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<OrderDto> {
+  execute(input: { readonly order: Tracked<OrderDto> }): Promise<OrderDto> {
     overspend(this.spendRecorder, "charge");
-    return Promise.resolve(input.order.value);
+    return Promise.resolve(input.order);
   }
 }
 
@@ -76,11 +74,9 @@ export class OverspendOrderAction {
 export class OverspendOrdersAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  execute(input: {
-    readonly orders: readonly Produced<OrderDto, unknown>[];
-  }): Promise<readonly OrderDto[]> {
+  execute(input: { readonly orders: readonly Tracked<OrderDto>[] }): Promise<readonly OrderDto[]> {
     overspend(this.spendRecorder, "charge all");
-    return Promise.resolve(input.orders.map((order) => order.value));
+    return Promise.resolve(input.orders.map((order) => order));
   }
 }
 
@@ -114,14 +110,14 @@ export class LevelOrderAction {
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<unknown> {
+  execute(input: { readonly order: Tracked<OrderDto> }): Promise<unknown> {
     const { depth } = this.executionContext;
     if (depth > 1) {
       paidSteps.ran.push(`level ${String(depth)}`);
-      return Promise.resolve(variant(OrderNoteDto, { note: "deeper" }));
+      return Promise.resolve({ note: "deeper" });
     }
     overspend(this.spendRecorder, "level 1");
-    return Promise.resolve(variant(OrderDto, input.order.value));
+    return Promise.resolve(input.order);
   }
 }
 
@@ -190,16 +186,16 @@ export class NotifyOrderAction {
   output: OrderDto,
 })
 export class HoldOrderAction {
-  async execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<OrderDto> {
+  async execute(input: { readonly order: Tracked<OrderDto> }): Promise<OrderDto> {
     paidSteps.ran.push("hold");
     await paidSteps.held;
-    return input.order.value;
+    return input.order;
   }
 }
 
 /** Every execution started: a child or a level refused before it starts is never here. */
-@Injectable()
-export class PaidStepsLog implements OnExecutionStart {
+@Observer()
+export class PaidStepsLog {
   onExecutionStart(event: ExecutionStartEvent): void {
     paidSteps.started.push(event.workflow.name);
   }

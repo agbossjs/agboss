@@ -16,12 +16,12 @@ export function toolInterceptorSnapshot(assembled: AssembledToolInterceptors | u
   return { toolInterceptors: { interceptors, chains } };
 }
 
-/** One guardrail as hashed: a model one's question, threshold and model; a code one's `decidedBy`. */
+/** One guardrail as hashed: a model one's question, threshold and model; a code one's `kind`. */
 const guardrailEntryOf = (guardrail: LoadedGuardrail): object => {
   const { name, side, refusal } = guardrail;
   // a model guardrail keeps its shape before #383, so its workflow keeps its hash
   if (!isModelGuardrail(guardrail))
-    return { name, side, decidedBy: guardrail.decidedBy, refusal: refusal ?? null };
+    return { name, side, kind: guardrail.kind, refusal: refusal ?? null };
   const { prompt, threshold, model } = guardrail;
   return { name, side, prompt, threshold, model, refusal: refusal ?? null };
 };

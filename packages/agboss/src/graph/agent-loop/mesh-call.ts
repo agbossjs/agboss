@@ -27,6 +27,10 @@ export function toolMeshCallOf(
       // `Number.isFinite(undefined)` is false: no count (`undefined`) is none, as is one that is no finite number
       return Number.isFinite(left) ? left : undefined;
     },
+    remainingTokens: () => {
+      const left = budgets.remainingTokens?.();
+      return Number.isFinite(left) ? left : undefined;
+    },
     deadlineAt: new Date(Math.min(timeoutAt, deadline)),
     recordRemote: (reported) => {
       remote ??= reported;

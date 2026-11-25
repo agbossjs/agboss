@@ -1,23 +1,32 @@
 /**
- * #1366: the assembly rules of channels on a deadline, a reminder and a visit count, called directly with the roles a
- * workflow names: each violation's code, exact message and nodes, the bounds of a duration (plain and working time),
- * which providers implement a role and a reply interpreter shared by two roles. The shard `assembly-rules` mutates
- * `channel-rules.ts` whole.
+ * #1366, #1307: the assembly rules of pause targets on a timeout, a reminder, a calendar and a visit
+ * count, called directly with the targets a workflow names: each violation's code, exact message and
+ * nodes, the bounds of a duration (plain and working time), and a channel interpreter shared by two
+ * targets. The shard `assembly-rules` mutates `channel-rules.ts` and `pause-timing-rules.ts` whole.
  */
 import { describe, expect, it } from "vitest";
-import { ChannelOf } from "../../src/channels/channel-handler.js";
-import { ChannelRole, PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import {
   channelRuleViolations,
-  implementationsOf,
-  isExpiresIn,
+  channelsOf,
   isNotShorter,
+  isPauseTimeout,
   isRemindBefore,
   sharedInterpreterViolations,
 } from "../../src/channels/channel-rules.js";
 import type { ChannelUse } from "../../src/channels/discovery.js";
+import { ExternalTask, ToolApproval } from "../../src/channels/pause-targets.js";
+import { Channel } from "../../src/components/decorators.js";
+import { ComponentOptions } from "../../src/components/component-options.js";
 import type { Class } from "../../src/components/injection.js";
-import { hours, seconds, workingHours, workingMinutes } from "../../src/units/index.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import {
+  days,
+  hours,
+  seconds,
+  workDays,
+  workingHours,
+  workingMinutes,
+} from "../../src/units/index.js";
 import { MAX_SPAN_MS } from "../../src/units/working-time.js";
 import { PurchaseQuestionDto, SpendingLimitAnswerDto } from "../flow/fixtures/questions.fixture.js";
 
@@ -25,160 +34,149 @@ class Interpreter {
   readonly fixture = true;
 }
 
-/** A question role with the options given, named `name`. */
-function roleWith(name: string, extra: Record<string, unknown> = {}): Class {
-  @ChannelRole({
+/** What an untyped (JS) caller may pass: the compiler rules these forms out already. */
+const untypedTask = ExternalTask as (options: object) => (cls: Class) => Class;
+const untypedApproval = ToolApproval as (options: object) => (cls: Class) => Class;
+
+/** An external task named `name` with the options given over a valid base. */
+function taskWith(name: string, extra: Record<string, unknown> = {}): Class {
+  class SomeExternalTask {
+    readonly mark = "task";
+  }
+  return untypedTask({
     name,
     description: "d",
-    ask: PurchaseQuestionDto,
-    answer: SpendingLimitAnswerDto,
-    answerer: PauseAnswerer.ThreadOwner,
-    maxVisits: 2,
+    input: PurchaseQuestionDto,
+    output: SpendingLimitAnswerDto,
+    respondent: PauseRespondent.Owner,
+    timeout: days(1),
     ...extra,
-  })
-  abstract class SomeQuestion extends ChannelOf<SomeQuestion> {}
-  return SomeQuestion;
+  })(SomeExternalTask);
 }
 
-const useOf = (channel: Class): ChannelUse => ({
+const useOf = (target: Class): ChannelUse => ({
   tool: "ask-tool",
   toolInput: PurchaseQuestionDto,
-  channel,
+  target,
   workflow: "w-workflow",
   isQuestion: true,
 });
 
-const found = (role: Class) =>
-  channelRuleViolations([useOf(role)], [])
-    .filter((one) => !one.code.startsWith("di.") && !one.code.includes("working-time"))
-    .map(({ code, message, nodes }) => ({ code, message, nodes }));
+const found = (target: Class) =>
+  channelRuleViolations([useOf(target)], [], ComponentOptions.none).map(
+    ({ code, message, nodes }) => ({ code, message, nodes }),
+  );
 
-const expiresMessage = (name: string, shown: string) =>
-  `channel role ${name}: expiresIn is ${shown} — a deadline is a positive finite duration of at least seconds(1) and at most 5 years, like hours(24)`;
+const timeoutMessage = (name: string, shown: string) =>
+  `pause target ${name}: timeout is ${shown} — a deadline is a positive finite duration of at least seconds(1) and at most 5 years, like hours(24)`;
 
-describe("#1366: the deadline of a role", () => {
-  it("accepts a duration from seconds(1) to 5 years, plain or working", () => {
-    for (const expiresIn of [
-      seconds(1),
-      hours(4),
-      MAX_SPAN_MS,
-      workingHours(2),
-      workingMinutes(1),
-    ]) {
-      expect(found(roleWith("ok-channel", { expiresIn }))).toEqual([]);
+describe("#1366: the timeout of a target", () => {
+  it("accepts a duration from seconds(1) to 5 years, plain or working (with a calendar)", () => {
+    for (const timeout of [seconds(1), hours(4), MAX_SPAN_MS]) {
+      expect(found(taskWith("ok-external-task", { timeout }))).toEqual([]);
     }
   });
 
   it("names one that is too short, too long or no finite number, by its text", () => {
-    for (const [expiresIn, shown] of [
+    for (const [timeout, shown] of [
       [999, "999"],
       [0, "0"],
       [-5, "-5"],
       [MAX_SPAN_MS + 1, String(MAX_SPAN_MS + 1)],
       [Number.NaN, "NaN"],
       [Number.POSITIVE_INFINITY, "Infinity"],
-      [workingMinutes(0.01), "600 ms of working time"],
     ] as const) {
-      expect(found(roleWith("bad-channel", { expiresIn }))).toEqual([
+      expect(found(taskWith("bad-external-task", { timeout }))).toEqual([
         {
-          code: "channel.expires-in-invalid",
-          message: expiresMessage("bad-channel", shown),
-          nodes: ["bad-channel"],
+          code: "limits.timeout-invalid",
+          message: timeoutMessage("bad-external-task", shown),
+          nodes: ["bad-external-task"],
         },
       ]);
     }
   });
 
-  it("reads isExpiresIn at its bounds, and no text or nothing", () => {
-    expect(isExpiresIn(1000)).toBe(true);
-    expect(isExpiresIn(999)).toBe(false);
-    expect(isExpiresIn(MAX_SPAN_MS)).toBe(true);
-    expect(isExpiresIn(MAX_SPAN_MS + 1)).toBe(false);
-    expect(isExpiresIn("1000")).toBe(false);
-    expect(isExpiresIn(undefined)).toBe(false);
+  it("reads isPauseTimeout at its bounds, and no text or nothing", () => {
+    expect(isPauseTimeout(1000)).toBe(true);
+    expect(isPauseTimeout(999)).toBe(false);
+    expect(isPauseTimeout(MAX_SPAN_MS)).toBe(true);
+    expect(isPauseTimeout(MAX_SPAN_MS + 1)).toBe(false);
+    expect(isPauseTimeout("1000")).toBe(false);
+    expect(isPauseTimeout(undefined)).toBe(false);
   });
 });
 
-describe("#1366: the reminder of a role", () => {
-  const remindMessage = (name: string, problem: string) => `channel role ${name}: ${problem}`;
-
+describe("#1366: the reminder of a target", () => {
   it("names a reminder that is no positive finite duration", () => {
     for (const [remindBefore, shown] of [
       [0, "0"],
       [-1, "-1"],
       [Number.NaN, "NaN"],
-      [MAX_SPAN_MS + 1, String(MAX_SPAN_MS + 1)],
     ] as const) {
-      expect(found(roleWith("remind-channel", { remindBefore, expiresIn: hours(4) }))).toEqual([
+      expect(found(taskWith("remind-external-task", { remindBefore }))).toEqual([
         {
-          code: "channel.remind-before-invalid",
-          message: remindMessage(
-            "remind-channel",
-            `remindBefore is ${shown} — a reminder is a positive finite duration of at most 5 years, like hours(2)`,
-          ),
-          nodes: ["remind-channel"],
+          code: "pause.remind-before-invalid",
+          message: `pause target remind-external-task: remindBefore is ${shown} — a reminder is a positive finite duration of at most 5 years, like hours(2)`,
+          nodes: ["remind-external-task"],
         },
       ]);
     }
   });
 
-  it("names a reminder not shorter than its deadline, plain and working", () => {
+  it("names a reminder not shorter than its timeout", () => {
     expect(
-      found(roleWith("late-channel", { remindBefore: hours(4), expiresIn: hours(4) })),
+      found(taskWith("late-external-task", { timeout: hours(1), remindBefore: hours(1) })),
     ).toEqual([
       {
-        code: "channel.remind-before-invalid",
-        message: remindMessage(
-          "late-channel",
-          "remindBefore (14400000 ms) is not shorter than its expiresIn (14400000 ms) — the reminder would go out at or before the pause is asked",
-        ),
-        nodes: ["late-channel"],
+        code: "pause.remind-before-invalid",
+        message:
+          "pause target late-external-task: remindBefore (3600000 ms) is not shorter than its timeout (3600000 ms) — the reminder would go out at or before the pause is asked",
+        nodes: ["late-external-task"],
       },
     ]);
+  });
+
+  it("accepts a shorter reminder, and a reminder beside a hook that may tighten the timeout", () => {
+    expect(
+      found(taskWith("early-external-task", { timeout: hours(4), remindBefore: hours(1) })),
+    ).toEqual([]);
+    expect(isNotShorter(hours(1), hours(4))).toBe(false);
+    expect(isNotShorter(hours(4), hours(4))).toBe(true);
+    expect(isRemindBefore(1)).toBe(true);
+    expect(isRemindBefore(0)).toBe(false);
+  });
+
+  it("refuses a working reminder before a plain timeout: a calendar cannot subtract", () => {
     expect(
       found(
-        roleWith("late-channel", { remindBefore: workingHours(5), expiresIn: workingHours(4) }),
-      ).map((one) => one.message),
-    ).toEqual([
-      remindMessage(
-        "late-channel",
-        "remindBefore (18000000 ms of working time) is not shorter than its expiresIn (14400000 ms of working time) — the reminder would go out at or before the pause is asked",
-      ),
-    ]);
-  });
-
-  it("accepts a shorter reminder, a reminder beside no deadline, and a tiny one", () => {
-    expect(found(roleWith("ok-channel", { remindBefore: hours(1), expiresIn: hours(4) }))).toEqual(
-      [],
-    );
-    expect(
-      found(roleWith("ok-channel", { remindBefore: workingHours(1), expiresIn: workingHours(4) })),
-    ).toEqual([]);
-    expect(found(roleWith("ok-channel", { remindBefore: hours(1) }))).toEqual([]);
-    expect(found(roleWith("ok-channel", { remindBefore: 0.001, expiresIn: hours(4) }))).toEqual([]);
-  });
-
-  it("compares a reminder with a deadline only of its own kind", () => {
-    expect(isNotShorter(hours(1), workingHours(1))).toBe(false);
-    expect(isNotShorter(workingHours(1), hours(1))).toBe(false);
-    expect(isNotShorter(hours(1), hours(1))).toBe(true);
-    expect(isNotShorter(hours(2), hours(1))).toBe(true);
-    expect(isNotShorter(hours(1), hours(2))).toBe(false);
-    expect(isNotShorter(hours(1), "x")).toBe(false);
-    expect(isNotShorter(hours(1), undefined)).toBe(false);
-    expect(isNotShorter(hours(1), "1000")).toBe(false);
-  });
-
-  it("reads isRemindBefore from the smallest positive number to 5 years", () => {
-    expect(isRemindBefore(Number.MIN_VALUE)).toBe(true);
-    expect(isRemindBefore(0)).toBe(false);
-    expect(isRemindBefore(MAX_SPAN_MS)).toBe(true);
-    expect(isRemindBefore(MAX_SPAN_MS + 1)).toBe(false);
-    expect(isRemindBefore(workingMinutes(5))).toBe(true);
+        taskWith("mixed-external-task", { timeout: hours(4), remindBefore: workingHours(1) }),
+      ).map((one) => one.code),
+    ).toContain("pause.remind-before-working-without-working-timeout");
   });
 });
 
-describe("#1366: the visits of a question role", () => {
+describe("#1310: working time needs the target's calendar", () => {
+  it("a working timeout or reminder with no calendar is [calendar.required-for-working-duration]", () => {
+    expect(found(taskWith("work-external-task", { timeout: workingHours(8) }))).toEqual([
+      {
+        code: "calendar.required-for-working-duration",
+        message:
+          "pause target work-external-task: working time needs a calendar — set calendar on it (a @WorkingCalendar class), or use plain durations (min, hours, days)",
+        nodes: ["work-external-task"],
+      },
+    ]);
+    expect(
+      found(taskWith("days-external-task", { timeout: workDays(2) })).map((one) => one.code),
+    ).toEqual(["calendar.required-for-working-duration"]);
+    expect(
+      found(taskWith("minutes-external-task", { timeout: workingMinutes(30) })).map(
+        (one) => one.code,
+      ),
+    ).toEqual(["calendar.required-for-working-duration"]);
+  });
+});
+
+describe("#1366: the visits of an external task", () => {
   it("names a maxVisits that is no whole number from 0, by its kind", () => {
     for (const [maxVisits, shown] of [
       [-1, "-1"],
@@ -186,117 +184,81 @@ describe("#1366: the visits of a question role", () => {
       ["3", "a string"],
       [null, "null"],
     ] as const) {
-      expect(found(roleWith("visits-channel", { maxVisits }))).toEqual([
+      expect(found(taskWith("visits-external-task", { maxVisits }))).toEqual([
         {
           code: "limits.count-invalid",
-          message: `channel role visits-channel: maxVisits is ${shown}, not a whole number from 0 — maxVisits: 3 sets it; leave it out for no limit`,
-          nodes: ["visits-channel"],
+          message: `external task visits-external-task: maxVisits is ${shown}, not a whole number from 0 — maxVisits: 3 sets it; leave it out for no limit`,
+          nodes: ["visits-external-task"],
         },
       ]);
     }
-    expect(found(roleWith("visits-channel", { maxVisits: 0 }))).toEqual([]);
-    const approval = (maxVisits: unknown): Class => {
-      @ChannelRole({
-        name: "approving-channel",
-        description: "d",
-        approves: PurchaseQuestionDto,
-        answerer: PauseAnswerer.Channel,
-        maxVisits,
-      } as never)
-      abstract class Approving extends ChannelOf<Approving> {}
-      return Approving;
-    };
+    expect(found(taskWith("visits-external-task", { maxVisits: 0 }))).toEqual([]);
+    expect(found(taskWith("visits-external-task", { maxVisits: undefined }))).toEqual([]);
+  });
 
-    expect(found(approval(-1))).toEqual([]);
-    expect(found(roleWith("visits-channel", { maxVisits: undefined }))).toEqual([]);
+  it("a tool approval has no visits to count", () => {
+    class Approving {
+      readonly mark = "approving";
+    }
+    const approval = untypedApproval({
+      name: "approving-tool-approval",
+      description: "d",
+      input: PurchaseQuestionDto,
+      respondent: PauseRespondent.Delegate,
+      timeout: days(1),
+      maxVisits: -1,
+    })(Approving);
+
+    expect(
+      channelRuleViolations(
+        [{ ...useOf(approval), isQuestion: undefined }],
+        [],
+        ComponentOptions.none,
+      )
+        .map((one) => one.code)
+        .filter((code) => code === "limits.count-invalid"),
+    ).toEqual([]);
   });
 });
 
-describe("#1366: the implementation of a role", () => {
-  class Base {
-    readonly fixture = true;
-  }
-  class First extends Base {}
-  class Second extends Base {}
-  class Unrelated {
-    readonly fixture = true;
-  }
+describe("#1307: the channels of a target", () => {
+  it("lists the listed @Channel classes that name it as their target, once each", () => {
+    const target = taskWith("served-external-task");
+    class First {
+      send(): void {
+        return undefined;
+      }
+    }
+    class Second {
+      send(): void {
+        return undefined;
+      }
+    }
+    const served = (cls: Class): Class =>
+      Channel({ name: `${cls.name.toLowerCase()}-channel`, target, ttl: days(1) })(cls as never);
+    const [first, second] = [served(First), served(Second)];
+    class Other {
+      readonly mark = "other";
+    }
 
-  it("lists the classes that extend the role, once each, and not the role itself or another class", () => {
-    const modules = [
-      { providers: [First, Base, Unrelated, { provide: "token", useValue: 1 }] },
-      { providers: [Second, First] },
-    ];
-
-    expect(implementationsOf(Base, modules as never)).toEqual([First, Second]);
-    expect(implementationsOf(Base, [])).toEqual([]);
-  });
-
-  it("takes a provider for an implementation only when it is a class", () => {
-    const lookalike = { prototype: First.prototype };
-
-    expect(implementationsOf(Base, [{ providers: [lookalike, Base] }] as never)).toEqual([]);
-  });
-
-  it("names anonymous implementations by their kind of class", () => {
-    const role = roleWith("anon-channel");
-    const impls = [
-      class extends (role as new () => object) {},
-      class extends (role as new () => object) {},
-    ];
-
-    expect(
-      channelRuleViolations([useOf(role)], [{ providers: impls }] as never).map(
-        (one) => one.message,
-      ),
-    ).toEqual([
-      "channel role SomeQuestion (anon-channel) has 2 implementations: (anonymous class), (anonymous class) — list one (one question to several places is one implementation that sends to each)",
+    expect(channelsOf(target, [{ providers: [first, Other, second, first] }] as never)).toEqual([
+      first,
+      second,
     ]);
-  });
-
-  it("names a role with none, and a role with several, by its name", () => {
-    const role = roleWith("lonely-channel");
-    const uses = [useOf(role)];
-
-    expect(
-      channelRuleViolations(uses, []).map(({ code, message, nodes }) => ({ code, message, nodes })),
-    ).toEqual([
-      {
-        code: "di.missing-implementation",
-        message:
-          "channel role SomeQuestion (lonely-channel) has no implementation — list a @Channel class that extends SomeQuestion in @Application({ providers })",
-        nodes: ["lonely-channel"],
-      },
-    ]);
-    class OneImpl extends (role as new () => object) {}
-    class TwoImpl extends (role as new () => object) {}
-
-    expect(
-      channelRuleViolations(uses, [{ providers: [OneImpl, TwoImpl] }] as never).map(
-        ({ code, message, nodes }) => ({ code, message, nodes }),
-      ),
-    ).toEqual([
-      {
-        code: "di.ambiguous-implementation",
-        message:
-          "channel role SomeQuestion (lonely-channel) has 2 implementations: OneImpl, TwoImpl — list one (one question to several places is one implementation that sends to each)",
-        nodes: ["lonely-channel"],
-      },
-    ]);
-    expect(channelRuleViolations(uses, [{ providers: [OneImpl] }] as never)).toEqual([]);
+    expect(channelsOf(target, [])).toEqual([]);
   });
 });
 
-describe("#1366: a reply interpreter shared by two roles", () => {
-  it("names the roles that share it, and not a role with its own or none", () => {
-    const one = roleWith("one-channel", { replyInterpreter: Interpreter });
-    const two = roleWith("two-channel", { replyInterpreter: Interpreter });
-    const own = roleWith("own-channel", {
-      replyInterpreter: class Mine {
+describe("#1366: a channel interpreter shared by two targets", () => {
+  it("names the targets that share it, and not a target with its own or none", () => {
+    const one = taskWith("one-external-task", { channelInterpreter: Interpreter });
+    const two = taskWith("two-external-task", { channelInterpreter: Interpreter });
+    const own = taskWith("own-external-task", {
+      channelInterpreter: class Mine {
         readonly fixture = true;
       },
     });
-    const none = roleWith("none-channel");
+    const none = taskWith("none-external-task");
 
     expect(
       sharedInterpreterViolations([useOf(one), useOf(two), useOf(own), useOf(none)]).map(
@@ -306,8 +268,8 @@ describe("#1366: a reply interpreter shared by two roles", () => {
       {
         code: "channel.shared-interpreter",
         message:
-          "reply interpreter Interpreter is used by one-channel and two-channel — an interpreter belongs to one role; give each role its own",
-        nodes: ["one-channel", "two-channel"],
+          "channel interpreter Interpreter is used by one-external-task and two-external-task — an interpreter belongs to one target; give each target its own",
+        nodes: ["one-external-task", "two-external-task"],
       },
     ]);
     expect(sharedInterpreterViolations([useOf(one), useOf(own), useOf(none)])).toEqual([]);

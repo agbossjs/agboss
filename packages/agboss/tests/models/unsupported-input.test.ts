@@ -25,6 +25,7 @@ import {
 } from "./transport/bedrock-apps.fixture.js";
 import { answer, ScriptedBedrockClient } from "./transport/bedrock-provider.fixture.js";
 import { transportApp } from "./transport/transport-app.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 /** The ModelCallError the error or one of its causes is, if any. */
 function callErrorOf(error: unknown): ModelCallError | undefined {
@@ -74,7 +75,11 @@ describe("AC1: an HTTP provider's 4xx that names an unsupported input", () => {
     const stub = providerStub(replies);
     const breaker = instanceCalls(clock, new InMemoryDatabase(), "instance-1").breakerOf(
       "openrouter",
-      { failureThreshold: 2, window: minutes(1), openFor: seconds(30) },
+      CircuitBreakerPolicy.fixed({
+        failureThreshold: 2,
+        failureWindow: minutes(1),
+        openDuration: seconds(30),
+      }),
     );
     const send = resilientFetch(
       {
@@ -150,13 +155,16 @@ describe("AC1: an unsupported input never falls back silently", () => {
   it("AC1: the breaker's fallback is for model.circuit-open only: the backup gets no call", async () => {
     const refusal = new ModelProviderInputError({ kind: "file", mediaType: "application/pdf" });
     const client = new ScriptedBedrockClient([refusal]);
-    const backup = providerStub([completion("from backup")]);
+    const backup = providerStub([completion("from backup")], [{ id: "backup/claude" }]);
     const app = await transportApp(TransportToHttpApplication, { client, send: backup.fetch });
 
     const failure = await execute(app, ChatStart, { text: "hi" }).catch((error: unknown) => error);
 
     expect(callErrorOf(failure)?.code).toBe("model.unsupported-input");
-    expect(backup.requests).toHaveLength(0);
+    // the start read its model list; no call was sent
+    expect(backup.requests.filter((request) => request.url.endsWith("/chat/completions"))).toEqual(
+      [],
+    );
     await app.close();
   });
 });

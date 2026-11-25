@@ -1,4 +1,5 @@
-import { Text, WorkflowStartTextDto, optional } from "../../../../src/dto/index.js";
+import { Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
+import { optional, Ttl } from "../../../../src/index.js";
 import {
   Action,
   Agent,
@@ -16,13 +17,15 @@ import {
   type JudgeHandler,
   type JudgeInput,
   type StepDescriptor,
-  type ToolHandler,
   type WorkflowDescriptor,
+  inline,
 } from "../../../../src/index.js";
-import { agent, route, start } from "../../../helpers/flow.js";
+import { onAgent, onStart, toAgent, toAction } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** What the components read of their execution, in order (reset by `resetSeen`). */
 export const seen = {
@@ -70,10 +73,10 @@ export class DraftDto {
   output: NoteDto,
   deps: [ExecutionContext],
 })
-export class NoteTool implements ToolHandler<NoteDto, NoteDto> {
+export class NoteTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: NoteDto): Promise<NoteDto> {
+  execute(input: NoteDto): Promise<NoteDto> {
     seen.toolSteps.push(this.executionContext.step);
     // a forgotten promise: it reads the context once the call has ended
     seen.strays.push(
@@ -95,7 +98,7 @@ export class NoteTool implements ToolHandler<NoteDto, NoteDto> {
 @Judge({
   name: "picky",
   model: "test/picky",
-  reply: DraftDto,
+  output: DraftDto,
   deps: [JudgeModel, ExecutionContext],
 })
 export class PickyJudge implements JudgeHandler<DraftDto> {
@@ -108,18 +111,16 @@ export class PickyJudge implements JudgeHandler<DraftDto> {
     seen.judged.push(
       `${this.judgeModel.model}:${this.executionContext.step.nodeId}:${String(attempt)}`,
     );
-    return Promise.resolve(
-      attempt === 0 ? JudgeVerdict.failed({ reason: "again" }) : JudgeVerdict.passed(),
-    );
+    return Promise.resolve(attempt === 0 ? JudgeVerdict.failed("again") : JudgeVerdict.passed());
   }
 }
 
 const writer = {
   description: "Writes the draft with notes",
-  prompt: "Write the draft.",
+  prompt: inline("Write the draft."),
   model: "test/writer",
   price: { inputPerMTok: 1, outputPerMTok: 2 },
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   tools: [NoteTool],
   input: { message: WorkflowStartTextDto, draft: optional(DraftDto) },
   output: DraftDto,
@@ -133,12 +134,12 @@ export class WriterAgent {}
   ...writer,
   input: { message: WorkflowStartTextDto },
   judges: [PickyJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
 })
 export class JudgedWriterAgent {}
 
 /** Another workflow: `executionOf(Other)` inside `context-workflow` is `undefined`. */
-@Workflow({ name: "other-workflow", version: "1.0.0", flow: [] })
+@Workflow({ name: "other-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
 export class OtherWorkflow {}
 
 /** Reads its step and the execution tree; the workflow it runs in is found with `executionOf`. */
@@ -152,7 +153,7 @@ export class OtherWorkflow {}
 export class PublishAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly draft: { readonly value: DraftDto } }): Promise<DraftDto> {
+  execute(input: { readonly draft: DraftDto }): Promise<DraftDto> {
     const context = this.executionContext;
     seen.actionSteps.push(context.step);
     seen.workflows.push(context.workflow);
@@ -165,7 +166,7 @@ export class PublishAction {
       rootIsSelf: context.root === context,
       depth: context.depth,
     });
-    return Promise.resolve(input.draft.value);
+    return Promise.resolve(input.draft);
   }
 }
 
@@ -183,8 +184,9 @@ export class PublishedFinish {}
   name: "review-router",
   description: "Sends the draft back or publishes it",
   decidedBy: DecidedBy.Model,
-  prompt: "Is the draft good?",
+  prompt: inline("Is the draft good?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { draft: DraftDto },
   maxVisits: 4,
   routes: [
@@ -198,18 +200,16 @@ export class ReviewRouter {}
 @Workflow({
   name: "context-workflow",
   version: "2.1.0",
+  historyTtl: Ttl.Forever,
   providers: [PublishAction],
   flow: [
-    start(ContextStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ContextStart)
       .toAgent(WriterAgent),
-    agent(WriterAgent)
-      .returns(DraftDto)
+    onAgent(WriterAgent)
       .toRouter(ReviewRouter)
-      .chooseOne(
-        route(WriterAgent),
-        route(PublishAction)
-          .returns(DraftDto)
+      .onRoute(toAgent(WriterAgent))
+      .onRoute(
+        toAction(PublishAction)
           .toFinish(PublishedFinish),
       ),
   ],
@@ -218,6 +218,7 @@ export class ContextWorkflow {}
 
 @Application({
   name: "context-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ContextWorkflow],
@@ -229,12 +230,11 @@ export class ContextApplication {}
 @Workflow({
   name: "judged-context-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { router: { model: "typesafe/jev-1.13" } },
   flow: [
-    start(ContextStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ContextStart)
       .toAgent(JudgedWriterAgent)
-      .returns(DraftDto)
       .toFinish(PublishedFinish),
   ],
 })
@@ -242,6 +242,7 @@ export class JudgedContextWorkflow {}
 
 @Application({
   name: "judged-context-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JudgedContextWorkflow],
@@ -268,7 +269,7 @@ export class LazyAuditService {
 @Agent({
   name: "quick-writer-agent",
   description: "Writes a draft",
-  prompt: "Write the draft.",
+  prompt: inline("Write the draft."),
   model: "test/writer",
   price: { inputPerMTok: 1, outputPerMTok: 2 },
   input: { message: WorkflowStartTextDto },
@@ -280,12 +281,11 @@ export class QuickWriterAgent {}
 @Workflow({
   name: "audit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   providers: [LazyAuditService],
   flow: [
-    start(ContextStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ContextStart)
       .toAgent(QuickWriterAgent)
-      .returns(DraftDto)
       .toFinish(PublishedFinish),
   ],
 })
@@ -293,6 +293,7 @@ export class AuditWorkflow {}
 
 @Application({
   name: "audit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AuditWorkflow],
@@ -304,12 +305,11 @@ export class AuditApplication {}
 @Workflow({
   name: "eager-audit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   providers: [EagerAuditService],
   flow: [
-    start(ContextStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ContextStart)
       .toAgent(QuickWriterAgent)
-      .returns(DraftDto)
       .toFinish(PublishedFinish),
   ],
 })
@@ -317,6 +317,7 @@ export class EagerAuditWorkflow {}
 
 @Application({
   name: "eager-audit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EagerAuditWorkflow],

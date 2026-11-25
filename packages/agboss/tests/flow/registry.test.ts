@@ -10,6 +10,7 @@ import {
 } from "../../src/flow/registry.js";
 import { DraftAgent, EditorAgent } from "./fixtures/offer.fixture.js";
 import { OfferDraftDto, ShortlistDto } from "./fixtures/dtos.js";
+import { inline } from "../../src/index.js";
 
 /** The registries of an application (S5): components by `name`, DTOs by class name. */
 
@@ -33,7 +34,7 @@ describe("S5: components by name", () => {
     @Agent({
       name: "draft-agent",
       description: "A second draft agent",
-      prompt: "Draft.",
+      prompt: inline("Draft."),
       model: "moonshotai/kimi-k2.6",
     })
     class SecondDraftAgent {}

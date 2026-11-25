@@ -18,15 +18,17 @@ import {
   GraphRuleError,
   Injectable,
   Secret,
-  SqliteConnection,
+  Ttl,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { depsOf } from "../../src/components/container/container.js";
 import { readingClassesOf } from "../../src/environments/contract.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { RecoveryWorkflow } from "../infrastructure/fixtures/recovery.workflow.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** A store's connection: what it reads from the environment. */
 @Injectable({
@@ -68,7 +70,8 @@ class ConnectedFinish {}
 @Workflow({
   name: "connected-workflow",
   version: "1.0.0",
-  flow: [start(ConnectedStart).returns(WorkflowStartTextDto).toFinish(ConnectedFinish)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ConnectedStart).toFinish(ConnectedFinish)],
   providers: [PostgresLikeLeaseStore],
 })
 class ConnectedWorkflow {}
@@ -89,7 +92,15 @@ const applicationListing = (
   providers: readonly Class[],
   workflows: readonly Class[] = [RecoveryWorkflow],
 ): Class => {
-  @Application({ name, version: "1.0.0", environment, workflows, providers, budgets: TEST_BUDGETS })
+  @Application({
+    name,
+    modelProvider: TestModelProvider,
+    version: "1.0.0",
+    environment,
+    workflows,
+    providers,
+    budgets: TEST_BUDGETS,
+  })
   class ListingApplication {}
   return ListingApplication;
 };

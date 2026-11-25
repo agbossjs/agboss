@@ -1,7 +1,8 @@
+import { usd } from "../units/index.js";
 import { systemClock, unkeptExecutionIds } from "../infrastructure/clock.js";
 import type { UsageRecord } from "../finops/usage.js";
 import { executionGraphOf } from "../flow/runtime/build.js";
-import { startLine } from "../flow/runtime/history.js";
+import { storedStartLine } from "../pii/final-output-mask.js";
 import { startNamed, validStartInput } from "../flow/runtime/start-input.js";
 import { RunInputSchema } from "../input.js";
 import {
@@ -17,7 +18,7 @@ import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
 import { streamConfig } from "./stream-config.js";
 import { finishRun } from "./finish.js";
 import { openThread } from "./thread.js";
-import { memoryBeforeRun } from "./memory.js";
+import { memoryBeforeRun } from "./compact-before-run.js";
 import type { AgentExecutionOutput, AgentExecutionDeps, AgentExecutionOptions } from "./types.js";
 import { executionVersions } from "./versions.js";
 import { newPiiKey } from "../pii/tokens.js";
@@ -53,7 +54,7 @@ const turnBaseOf = <TName extends string>(
   options: AgentExecutionOptions,
 ): TurnBase => ({
   ...run,
-  bundle: deps.config.name,
+  workflow: deps.config.name,
   replayOf: options.replayOf ?? null,
   ...executionVersions(deps),
 });
@@ -61,6 +62,43 @@ const turnBaseOf = <TName extends string>(
 /** When a root execution starts (#401: its history's start), on the application's clock. */
 const startedAtOf = <TName extends string>(deps: AgentExecutionDeps<TName>): string =>
   (deps.clock ?? systemClock).now().toISOString();
+
+/** A thread with turns reused by a workflow without memory: its agents read none of them (#1303b, D8). */
+async function warnIfStateless<TName extends string>(
+  deps: AgentExecutionDeps<TName>,
+  subject: { readonly executionId: string; readonly tenantId: string; readonly threadId: string },
+): Promise<void> {
+  if (deps.memories === undefined || deps.memories.memories.length > 0) return;
+  const { threadId, ...logged } = subject;
+  if ((await deps.turns.lastTurns(subject.tenantId, threadId, 1)).length === 0) return;
+  deps.log?.warn(
+    "memory.thread-reuse-without-memory",
+    `${deps.config.name} has no memory: this execution reuses a thread with turns, but no agent reads its earlier turns — set memory on the workflow or an agent`,
+    logged,
+  );
+}
+
+/** The thread a request names, which must exist; a workflow without memory is warned about reusing it. */
+async function knownThreadOf<TName extends string>(
+  deps: AgentExecutionDeps<TName>,
+  request: {
+    readonly tenantId: string;
+    readonly runId: string;
+    readonly requested: string | undefined;
+  },
+): Promise<{ readonly threadId: string } | undefined> {
+  const { tenantId, runId, requested } = request;
+  if (requested === undefined) return undefined;
+  const known = await openThread(deps, tenantId, requested);
+  await warnIfStateless(deps, { executionId: runId, tenantId, threadId: known.threadId });
+  return known;
+}
+
+/** What the execution may still spend: its total in USD and the tokens its token budgets leave (`Infinity`: none). */
+const budgetLeftOf = (meter: { budgetUsd(): number; remainingTokens(): number }) => ({
+  budgetUsd: meter.budgetUsd(),
+  budgetTokensLeft: meter.remainingTokens(),
+});
 
 async function runOnce<TName extends string>(
   given: unknown,
@@ -77,7 +115,7 @@ async function runOnce<TName extends string>(
     options.executionId ??
     (await (deps.executionIds ?? unkeptExecutionIds).newExecutionId(tenantId));
   // a thread it continues must exist; a new one is created only once the budgets pass
-  const known = requested === undefined ? undefined : await openThread(deps, tenantId, requested);
+  const known = await knownThreadOf(deps, { tenantId, runId, requested });
   // before the first step: an exhausted budget rejects the execution — no thread, record or call
   const site = { executionId: runId, threadId: requested, start, contexts };
   const budgets = opened ?? (await openExecutionBudgets(deps, { ...options, ...site }));
@@ -85,21 +123,21 @@ async function runOnce<TName extends string>(
   const spent: UsageRecord[] = [];
   const base = turnBaseOf(
     deps,
-    { runId, threadId, tenantId, task: startLine(start, input) },
+    { runId, threadId, tenantId, task: await storedStartLine(deps, start, input) },
     options,
   );
   let turnId: string | undefined;
   try {
     const config = streamConfig(deps, { threadId, tenantId, runId, input }, options);
     const record = recorder(budgets.meter, spent);
-    const budgetUsd = budgets.meter.budgetUsd();
+    const { budgetUsd, budgetTokensLeft } = budgetLeftOf(budgets.meter);
     const thread = { tenantId, threadId, isNewThread: known === undefined, record };
     const inFrame = inStartFrame(deps, { ...options, ...site, threadId });
-    const before = { ...thread, budgetLeftUsd: budgetUsd, callbacks: config.callbacks, inFrame };
+    const before = { ...thread, budgetUsd, budgetTokensLeft, callbacks: config.callbacks, inFrame };
     // the compactions due run before the thread is read: a CompactionError fails it here (S132)
     const read = await memoryBeforeRun(deps, before);
     // the record is `running` while the tree moves: what recovery continues (#265 S30)
-    turnId = (await deps.turns.append({ ...base, ...runningOutcome([], 0) })).id;
+    turnId = (await deps.turns.append({ ...base, ...runningOutcome([], usd(0)) })).id;
     const graph = executionGraphOf(deps, { budgets: budgets.meter });
     const memory = { history: read.history, memory: read.memory, usage: [...read.usage] };
     const kept = { budgetUsd, budgets: budgets.records, ...memory, runId };

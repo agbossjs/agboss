@@ -23,7 +23,11 @@ const ReportSchema = z.object({
   schema: z.literal(1),
   issuer: z.string().min(1).max(500),
   executionId: z.string().min(1).max(500),
-  spend: z.object({ total: z.string().max(40), currency: z.literal("USD") }),
+  spend: z.object({
+    total: z.string().max(40),
+    currency: z.literal("USD"),
+    totalTokens: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
+  }),
   bodyHash: z.string().min(1).max(200),
   issuedAt: z.iso.datetime(),
 });
@@ -32,7 +36,9 @@ const ReportSchema = z.object({
 export interface RunReportFacts {
   readonly issuer: string;
   readonly executionId: string;
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
+  /** The tokens the run used (#1318); omitted when none. */
+  readonly spentTokens?: number;
   readonly bodyHash: string;
   readonly issuedAt: Date;
 }
@@ -43,25 +49,32 @@ export function encodeRunReport(facts: RunReportFacts, signingKey: KeyObject): s
     schema: 1,
     issuer: facts.issuer,
     executionId: facts.executionId,
-    spend: { total: amountOf(facts.spentUsd), currency: "USD" },
+    spend: {
+      total: amountOf(facts.spentUsd),
+      currency: "USD",
+      ...(facts.spentTokens === undefined || facts.spentTokens <= 0
+        ? {}
+        : { totalTokens: facts.spentTokens }),
+    },
     bodyHash: facts.bodyHash,
     issuedAt: facts.issuedAt.toISOString(),
   };
   return encodeJws(TYP, report, signingKey);
 }
 
-/** A report signed by one of `peers` for the request of `bodyHash`; `undefined` otherwise. */
+/** A report signed by any key of one of `peers` for the request of `bodyHash`; `undefined` otherwise. */
 export function verifiedRunReportOf(
   value: unknown,
-  peers: ReadonlyMap<string, KeyObject>,
+  peers: ReadonlyMap<string, readonly KeyObject[]>,
   bodyHash: string,
 ): MeshRunReport | undefined {
   const jws = readJws(value);
   if (jws?.signed === undefined) return undefined;
   const parsed = ReportSchema.safeParse(jws.payload);
   if (!parsed.success || parsed.data.bodyHash !== bodyHash) return undefined;
-  const key = peers.get(parsed.data.issuer);
-  return key !== undefined && isSignedBy(jws.signed, key) ? parsed.data : undefined;
+  const { signed } = jws;
+  const keys = peers.get(parsed.data.issuer) ?? [];
+  return keys.some((key) => isSignedBy(signed, key)) ? parsed.data : undefined;
 }
 
 /** A contract's price of one call (#398 PR 3, Q6 c), and the application it is paid to. */
@@ -92,7 +105,12 @@ export function takeRunReport(
   const charge = chargeOf(report, contract, alreadyCharged);
   if (charge !== undefined) {
     const service = `${transport}:${charge.application}`;
-    const spent = serviceUsageOf({ service, cost: usd(charge.cost) });
+    const spent = serviceUsageOf({
+      service,
+      cost: usd(charge.cost),
+      // the remote run's tokens, as input tokens: a token budget counts input plus output
+      ...(charge.tokens > 0 ? { tokens: { inputTokens: charge.tokens } } : {}),
+    });
     frame.services.reportUsage?.(withLedgerKey(spent, identity, report));
   }
   if (report === undefined) return false;
@@ -170,6 +188,11 @@ export const withLedgerKey = (
         },
       };
 
+/** The charge when there is one: dollars owed, or tokens used (a `$0` remote run with tokens is a charge, #1318). */
+function chargeIf(application: string, cost: number, tokens: number) {
+  return cost <= 0 && tokens <= 0 ? undefined : { application, cost: Math.max(0, cost), tokens };
+}
+
 /**
  * What the calling step is charged (Q6 c): the larger of the verified spend and the price, less
  * what the call was charged already (#809: an A2A call charges its price when it is accepted).
@@ -178,11 +201,13 @@ export function chargeOf(
   report: MeshRunReport | undefined,
   contract: ContractPrice | undefined,
   alreadyCharged: number,
-): { readonly application: string; readonly cost: number } | undefined {
-  const reported = report === undefined ? 0 : (dollarsOf(report.spend.total) ?? 0);
+): { readonly application: string; readonly cost: number; readonly tokens: number } | undefined {
+  const reported = dollarsOf(report?.spend.total) ?? 0;
+  // a remote run that cost nothing but used tokens (a CLI or local model) still counts them (#1318)
+  const tokens = report?.spend.totalTokens ?? 0;
   // a price or a charge that is no amount (a negative or NaN one) would raise or hide the charge: it throws, never counts (#1382)
   const priced = contract === undefined ? 0 : usd(contract.price);
   const cost = Math.max(reported, priced) - usd(alreadyCharged);
   const application = report?.issuer ?? contract?.application;
-  return application === undefined || cost <= 0 ? undefined : { application, cost };
+  return application === undefined ? undefined : chargeIf(application, cost, tokens);
 }

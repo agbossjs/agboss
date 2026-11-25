@@ -12,6 +12,10 @@ export function fencingShard() {
       "src/infrastructure/{execution-lease.repository,live-lease,clock}.ts",
       // #1117: the cancel mark on the in-memory lease row, kept by every write of it
       "src/infrastructure/in-memory-cancel-mark.ts",
+      // #1341b: the stop mark and its fence on the SQLite lease row
+      "src/infrastructure/sqlite/{sqlite-stop,sqlite-pause}.ts",
+      // #1341c: the pause mark and its fence on the in-memory lease row
+      "src/infrastructure/in-memory-pause-mark.ts",
       "src/app/{held-lease,lease-fence}.ts",
     ],
   };
@@ -25,13 +29,18 @@ export function fencingEffectsShard() {
   return {
     configFile: "vitest.mutation.config.ts",
     mutate: [
-      "src/infrastructure/{fenced-effect,in-memory-fenced-effect,outbound-call}.repository.ts",
-      // the call's changes; #825: the paged listing's keyset, the in-memory record order
-      "src/infrastructure/outbound-call-{changes,pages}.ts",
+      "src/infrastructure/{fenced-effect,in-memory-fenced-effect,outbound-call,in-memory-outbound-call}.repository.ts",
+      // the call's changes; #825: the paged listing's keyset, the in-memory record order; #1317: an intent's status
+      "src/infrastructure/outbound-call-{changes,pages,status}.ts",
+      // #1317: whether a call's request is stored only masked; the keys of a call (the digest of a business key, the wire key, its prefix)
+      "src/app/{outbound-masking,idempotency-keys,outbound-call-keys,idempotency-scope}.ts",
+      "src/infrastructure/business-key-digest.ts",
+      // #1317c: the buffer a test's in-memory rows write into
+      "src/infrastructure/in-memory-effect-writes.ts",
       // #825: a store's static store, read as declared
       "src/infrastructure/store-descriptor.ts",
       // #657, #658 (ambiguity): an error of unknown outcome, the key's age and its retention
-      "src/app/outbound-call-{protocol,ambiguity}.ts",
+      "src/app/outbound-call-{protocol,ambiguity,attempt}.ts",
     ],
   };
 }
@@ -46,10 +55,25 @@ export function sqliteStoresShard() {
     mutate: [
       "src/infrastructure/sqlite/sqlite-execution-lease.repository.ts",
       "src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts",
+      // #1317c: the file's mutex, the hold of a runOnce, its ambient transaction handle and the gate of every repository
+      "src/infrastructure/sqlite/sqlite-{mutex,hold,transaction,gate,guard,attempt,cancel,open,lock-wait}.ts",
       "src/infrastructure/sqlite/sqlite-outbound-call.repository.ts",
       "src/infrastructure/sqlite/sqlite-outbound-call-pages.ts",
       // #825: the table's declared seq, and its upgrade
       "src/infrastructure/sqlite/sqlite-outbound-call-schema.ts",
+      // #1321c: the baseline DDL — the keys, primary keys and unique indexes that fence and deduplicate
+      "src/infrastructure/sqlite/sqlite-tables.ts",
+      "src/infrastructure/sqlite/sqlite-baseline-schema.ts",
+      // #1286: the claim of a queued child — a row an instance excludes or an isolated worker owns is never its claim
+      "src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts",
+      "src/infrastructure/sqlite/sqlite-child-queue-rows.ts",
+      // #1286b: the targeted claim of an isolated worker's child, once, by its id
+      "src/infrastructure/sqlite/sqlite-isolated-claim.ts",
+      // #1321e (D6): the cluster's lease mirrored into the database row first — the token, the hold, the retire-before-expire, the fail-closed order of the two writes
+      "src/infrastructure/sqlite/sqlite-cluster-mirror.ts",
+      "src/infrastructure/in-memory-cluster-mirror.ts",
+      "src/infrastructure/cluster-lease{,-types}.ts",
+      "src/application/id-store-class.ts",
     ],
   };
 }
@@ -66,19 +90,24 @@ export function keysAndCallsShard() {
       // #825: the fingerprint decision and its idempotency keys, the keys the framework made, the
       // key's errors moved out of fenced-effect-key.ts
       "src/infrastructure/fenced-effect-fingerprint.ts",
-      "src/infrastructure/fenced-effect-errors.ts",
+      "src/infrastructure/idempotency-errors.ts",
       "src/infrastructure/issued-keys.ts",
       // the key text rules every id passes, and the error classes around them
       "src/core/errors.ts",
-      "src/app/outbound-calls.ts",
-      // #795: how far a notSent() is trusted, and the superseded attempt's error
+      "src/core/key-text-rule.ts",
+      "src/app/idempotency.ts",
+      "src/app/idempotency-work.ts",
+      // #795: how far a resend is trusted, and the call's errors
       "src/app/outbound-call-contract.ts",
-      // #825: the reconciliation's verdicts, moved out of outbound-calls.ts
-      "src/app/outbound-call-reconciliation.ts",
+      "src/app/outbound-call-errors.ts",
+      // #1317: the recovery and the lookup's verdicts
+      "src/app/outbound-recovery.ts",
       "src/app/outbound-call-join.ts",
       "src/app/outbound-call-business.ts",
       "src/app/outbound-call-endings.ts",
       "src/infrastructure/outbound-call-record.ts",
+      // #1295c: a tool call's id is its idempotency key: unique within the run
+      "src/graph/agent-loop/call-ids.ts",
     ],
   };
 }
@@ -97,7 +126,7 @@ export function recoveryShard() {
       "src/app/answered-wake.ts",
       "src/app/ended-tree.ts",
       "src/app/tree-ends.ts",
-      "src/app/{tree-moves,lost-attempt,unstarted-run}.ts",
+      "src/app/{tree-moves,tree-drain,lost-attempt,unstarted-run}.ts",
     ],
   };
 }
@@ -110,7 +139,7 @@ export function undoShard() {
   return {
     configFile: "vitest.mutation-undo.config.ts",
     mutate: [
-      "src/flow/runtime/compensation/{undo,held-undo,registry,unwinding-marks,visit-entries,checkpoint-entries}.ts",
+      "src/flow/runtime/compensation/{undo,held-undo,registry,durable-order,unwinding-marks,visit-entries,checkpoint-entries}.ts",
     ],
   };
 }
@@ -126,6 +155,13 @@ export function unwindShard() {
       "src/flow/runtime/compensation/unwind.ts",
       "src/flow/runtime/compensation/child-unwind.ts",
       "src/flow/runtime/compensation/join-unwind.ts",
+      // #1281b: a child's undo moved up to its parent, and where it undoes
+      "src/flow/runtime/compensation/held-entries.ts",
+      // #1281 (10): a failed step an `.onError` takes undoes what its children held, before the side path
+      "src/flow/runtime/compensation/step-error-undo.ts",
+      "src/flow/runtime/visit-handled.ts",
+      "src/flow/runtime/launch/branch-skip.ts",
+      "src/flow/runtime/launch/items-limit.ts",
       "src/app/compensation/root-unwind.ts",
       "src/app/compensation/tree-undo-sites.ts",
       "src/app/tree-unwind.ts",

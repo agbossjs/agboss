@@ -47,13 +47,13 @@ const SCENARIOS: readonly Scenario[] = [
   ...[0.5, 1, 10].flatMap((times): Scenario[] => [
     {
       name: `the taker ${String(times)} × lease ahead`,
-      holder: ClockSkew.none,
+      holder: ClockSkew.None,
       taker: ClockSkew.ahead(by(times)),
       breaks: TWO_HOLDERS,
     },
     {
       name: `the taker ${String(times)} × lease behind`,
-      holder: ClockSkew.none,
+      holder: ClockSkew.None,
       taker: ClockSkew.behind(by(times)),
       breaks: LATE,
     },
@@ -61,24 +61,24 @@ const SCENARIOS: readonly Scenario[] = [
   {
     name: "the holder 1 % slow",
     holder: ClockSkew.drifting(-0.01),
-    taker: ClockSkew.none,
+    taker: ClockSkew.None,
     breaks: TWO_HOLDERS,
   },
   {
     name: "the holder 1 % fast",
     holder: ClockSkew.drifting(0.01),
-    taker: ClockSkew.none,
+    taker: ClockSkew.None,
     breaks: LATE,
   },
   {
     name: "the taker 1 % fast",
-    holder: ClockSkew.none,
+    holder: ClockSkew.None,
     taker: ClockSkew.drifting(0.01),
     breaks: TWO_HOLDERS,
   },
   {
     name: "the taker 1 % slow",
-    holder: ClockSkew.none,
+    holder: ClockSkew.None,
     taker: ClockSkew.drifting(-0.01),
     breaks: LATE,
   },
@@ -109,7 +109,7 @@ describe.each(kinds)(
       const holder = ClockSkew.drifting(-0.01);
       const run = await runSkew(target, {
         holder,
-        taker: ClockSkew.none,
+        taker: ClockSkew.None,
         time: ExpiryTime.Store,
         margin: 0 as Milliseconds,
       });
@@ -125,8 +125,8 @@ describe.each(kinds)(
         },
       };
       const run = await runSkew(target, {
-        holder: ClockSkew.none,
-        taker: ClockSkew.none,
+        holder: ClockSkew.None,
+        taker: ClockSkew.None,
         time: ExpiryTime.Store,
         host,
       });
@@ -142,8 +142,8 @@ describe.each(kinds)(
         },
       };
       const run = await runSkew(target, {
-        holder: ClockSkew.none,
-        taker: ClockSkew.none,
+        holder: ClockSkew.None,
+        taker: ClockSkew.None,
         time: ExpiryTime.Store,
         host,
       });
@@ -164,8 +164,8 @@ describe.each(kinds)(
           },
         };
         const run = await runSkew(target, {
-          holder: ClockSkew.none,
-          taker: ClockSkew.none,
+          holder: ClockSkew.None,
+          taker: ClockSkew.None,
           time: ExpiryTime.Store,
           host,
         });
@@ -177,7 +177,7 @@ describe.each(kinds)(
     it("each answer of the holder's store 5 s on its way back: the fence counts from the request, one live holder", async () => {
       const run = await runSkew(target, {
         holder: ClockSkew.drifting(-0.01),
-        taker: ClockSkew.none,
+        taker: ClockSkew.None,
         time: ExpiryTime.Store,
         answerDelay: seconds(5),
       });

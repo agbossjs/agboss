@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — what a branch of a launch watches of the budgets, each rule on its own over fakes:
  * the pass's `exhausted` signal stops the branch's step and its calls — unless a budget was exhausted before the
@@ -23,10 +24,11 @@ vi.mock("../../../src/flow/runtime/scope.js", () => ({
 }));
 
 const record = (costUsd: number, caller = "service"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

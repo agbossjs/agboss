@@ -1,3 +1,4 @@
+import { hostMonotonicNanoseconds } from "../../infrastructure/clock.js";
 import type { StoreHoldPoint } from "./store-points.js";
 
 /**
@@ -87,4 +88,4 @@ export const compareAt = (left: string, right: string): number => {
 };
 
 /** The process's monotonic time now, as an event carries it. */
-export const monotonicNow = (): string => process.hrtime.bigint().toString();
+export const monotonicNow = (): string => hostMonotonicNanoseconds().toString();

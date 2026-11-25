@@ -1,3 +1,4 @@
+import { StoredNamesUnreadableError } from "../../src/core/stored-json.js";
 /**
  * #598 — a failure's durable record and the failure rebuilt from it: the record of the rebuilt one
  * is the original's (its class line by code, its causes; no details), at the same depth wherever it
@@ -31,10 +32,7 @@ import {
   causeOfMark,
   unwindingMarkOf,
 } from "../../src/flow/runtime/compensation/unwinding-marks.js";
-import {
-  remoteFailureOf,
-  RemoteChildFailure,
-} from "../../src/flow/runtime/remote/remote-failure.js";
+import { remoteFailureOf } from "../../src/flow/runtime/remote/remote-failure.js";
 import { usd } from "../../src/units/index.js";
 import { childFailureOf, type EndedChild } from "../../src/flow/runtime/child-exit.js";
 
@@ -80,9 +78,9 @@ describe("#598: a failure rebuilt from its durable record routes as the original
     expect(errorRecordOf(rebuilt)).toEqual(withoutDetails(errorRecordOf(original)));
     expect(rebuilt?.name).toBe("CardExpiredError");
     expect(rebuilt?.message).toBe("expired");
-    // a framework error's own `code` is kept; a project's plain Error has none
+    // a framework error's own `code` is kept; a project's plain Error's is `internal` (#1325)
     expect(rebuilt?.code).toBe("card.expired");
-    expect(stored(new PaymentDeclinedError("x"))?.code).toBeUndefined();
+    expect(stored(new PaymentDeclinedError("x"))?.code).toBe("internal");
   });
 
   it("wrapped again on another instance, every side path's class matches it as the original", () => {
@@ -170,13 +168,13 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
     expect(errorRecordOf(rebuilt).lineage).toEqual(["agboss"]);
   });
 
-  it("a remote child's row keeps the record; a row written before #598 is RemoteChildFailure", () => {
+  it("a remote child's row keeps the record; a row written before #598 is refused (#1307d)", () => {
     const row = JSON.stringify(durableErrorOf(declined));
     const legacy = JSON.stringify({ name: "PaymentDeclinedError", message: "declined" });
 
     expect(errorRecordOf(remoteFailureOf(row))).toEqual(withoutDetails(errorRecordOf(declined)));
-    expect(remoteFailureOf(legacy)).toBeInstanceOf(RemoteChildFailure);
-    expect(errorRecordOf(remoteFailureOf(legacy)).lineage).toEqual(["RemoteChildFailure"]);
+    expect(() => remoteFailureOf(legacy)).toThrow(StoredNamesUnreadableError);
+    expect(() => remoteFailureOf(undefined)).toThrow(StoredNamesUnreadableError);
   });
 
   it("a rebuilt budget's or failed undo's error keeps its class line: it passes a child's boundary as it is", () => {
@@ -187,7 +185,7 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
       maxSpend: usd(1),
       spent: usd(2),
       path: [],
-      spentUsd: 2,
+      spentUsd: usd(2),
     });
     const undo = new CompensationFailedError({ failures: [], cause: declined });
 
@@ -220,7 +218,7 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
         maxSpend: usd(1),
         spent: usd(2),
         path: [],
-        spentUsd: 2,
+        spentUsd: usd(2),
       }),
     );
     const undo = stored(new CompensationFailedError({ failures: [], cause: declined }));

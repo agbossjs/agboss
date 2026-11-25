@@ -1,3 +1,5 @@
+import { LiveDecisionModel } from "../../src/components/decision-model.js";
+import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { file } from "../../src/components/file.js";
 
 import { describe, expect, it } from "vitest";
@@ -5,10 +7,12 @@ import {
   Agent,
   Workflow,
   Injectable,
-  ROUTER_FACTORY,
+  DecisionModel,
   provide,
   ComponentError,
   Tool,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { toolOf } from "../../src/components/runtime.js";
@@ -57,7 +61,9 @@ describe("components — assembly", () => {
   });
 
   it("AC1: a tool is testable with plain `new` and fakes — no container", async () => {
-    const tool = toolOf(new GreetTool(new Greeter("Hi", services.router)));
+    const tool = toolOf(
+      new GreetTool(new Greeter("Hi", new LiveDecisionModel("test", services.decide))),
+    );
 
     expect(await tool.invoke({ name: "you" })).toEqual({
       kind: "ok",
@@ -72,7 +78,6 @@ describe("components — assembly", () => {
     expect(bundle.config).toMatchObject({
       name: "greetings-workflow",
       version: "1.0.0",
-      mcpServers: { files: { transport: "stdio", command: "files-server" } },
     });
     expect(bundle.config.agents["greeter-agent"]).toMatchObject({
       model: "test/alpha",
@@ -81,11 +86,16 @@ describe("components — assembly", () => {
     });
     const text = bundle.prompts["greeter-agent"];
     expect(text?.trim()).toBe("You greet people in Hebrew.");
+    // found through the `deps` of the tool that calls it: no list in the workflow
     expect(bundle.mcpServers.map((server) => server.name)).toEqual(["files"]);
+    expect(bundle.mcpServerConfigs).toEqual({
+      files: { transport: McpTransport.Stdio, command: "files-server" },
+    });
   });
 });
 
 import { Reasoning, ReasoningEffort } from "../../src/models/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 describe("components — errors at assembly", () => {
   it("AC3: unknown prompt variables fail at assembly", async () => {
@@ -95,7 +105,7 @@ describe("components — errors at assembly", () => {
       model: "test/alpha",
       price: testConfig.agents.alpha.price,
       tools: [],
-      prompt: "Hello {{unknown_var}}",
+      prompt: inline("Hello {{unknown_var}}"),
       promptVariables: {},
     })
     class Tester {}
@@ -103,6 +113,8 @@ describe("components — errors at assembly", () => {
     @Workflow({
       ...baseBundle,
       name: "tester-workflow",
+      modelProvider: TestModelProvider,
+      historyTtl: Ttl.Forever,
       flow: starOf(Tester),
     })
     class TesterFlow {}
@@ -116,13 +128,14 @@ describe("components — errors at assembly", () => {
     @Workflow({
       ...baseBundle,
       name: "no-providers-workflow",
+      historyTtl: Ttl.Forever,
       flow: starOf(GreeterAgent),
-      mcp: [FilesServer],
     })
     class NoProviders {}
 
     await expect(workflowOf(NoProviders)).rejects.toThrow(
-      'GreetTool: "Greeter" is not registered in @Workflow({ providers })',
+      // the decorated `Greeter` is found through `deps` (#1324): what it needs is what is missing
+      'Greeter: "GREETING" is not registered in @Workflow({ providers })',
     );
   });
 
@@ -144,7 +157,7 @@ describe("components — errors at assembly", () => {
   it("AC3: a non-component in tools fails", async () => {
     /** Shaped like a tool (the compiler accepts it), but not decorated: the assembly rejects it. */
     class Plain {
-      run(): Promise<object> {
+      execute(): Promise<object> {
         return Promise.resolve({});
       }
     }
@@ -163,7 +176,12 @@ describe("components — errors at assembly", () => {
       return A;
     };
     const bundleWith = (agentClass: Class) => {
-      @Workflow({ ...baseBundle, name: "x-workflow", flow: starOf(agentClass) })
+      @Workflow({
+        ...baseBundle,
+        name: "x-workflow",
+        historyTtl: Ttl.Forever,
+        flow: starOf(agentClass),
+      })
       class B {}
       return B;
     };
@@ -177,7 +195,7 @@ describe("components — errors at assembly", () => {
   it("AC3: instances are created once, dependencies before dependants", () => {
     const container = createContainer({
       modules: [{ owner: "x-workflow", providers: [Greeter, provide(GREETING, "Hey")] }],
-      core: new Map([[ROUTER_FACTORY, services.router]]),
+      core: new Map([[DecisionModel, new LiveDecisionModel("test", services.decide)]]),
     });
     const first = container.get(GreetTool);
 

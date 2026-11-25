@@ -1,3 +1,5 @@
+import type { EnvContract, InferEnv } from "../environments/env-ref.js";
+
 /** A named value to inject (config objects, functions); classes are their own tokens. */
 export class InjectionToken<T> {
   declare readonly __type: T;
@@ -7,7 +9,8 @@ export class InjectionToken<T> {
 /** Any class. `never[]` parameters: we only need the instance type. */
 export type Class<T = unknown> = abstract new (...args: never[]) => T;
 
-export type Token = Class | InjectionToken<unknown>;
+/** What `deps` takes: a class, a named value, or a `defineEnv` dictionary (its resolved values, #1324). */
+export type Token = Class | InjectionToken<unknown> | EnvContract;
 
 /** What a token gives the constructor: a token's value type, or a class's instance type. */
 export type Resolved<T> =
@@ -15,13 +18,18 @@ export type Resolved<T> =
     ? V
     : T extends abstract new (...args: never[]) => infer I
       ? I
-      : never;
+      : T extends EnvContract
+        ? InferEnv<T>
+        : never;
 
 /** Constructor parameters for a `deps` list — the compiler checks count, order and types. */
 export type ResolvedAll<D extends readonly Token[]> = { -readonly [K in keyof D]: Resolved<D[K]> };
 
-export const tokenName = (token: Token): string =>
-  token instanceof InjectionToken ? token.description : token.name || "(anonymous class)";
+export const tokenName = (token: Token): string => {
+  if (token instanceof InjectionToken) return token.description;
+  if (typeof token === "function") return token.name || "(anonymous class)";
+  return `defineEnv({ ${Object.keys(token).join(", ")} })`;
+};
 
 /** Module-private: only `provide()` can build a `ValueProvider` or a `ClassProvider`, so a raw literal is a type error. */
 const valueProviderBrand: unique symbol = Symbol("ValueProvider");
@@ -75,6 +83,13 @@ export function provide<T>(
   return { provide: token, useValue: value as T, [valueProviderBrand]: true };
 }
 
+/**
+ * What `services` takes (#1324): a class the container creates (an `@Injectable`, `@McpServer` or
+ * `@A2AAgent`, bound to the ports its `injectAs` names), or a value bound with `provide(TOKEN, value)`.
+ * A class for a token (`provide(TOKEN, Class)`) is no service: it is `injectAs`.
+ */
+export type ServiceEntry = Class | ValueProvider;
+
 /** Whether a provider is a class for a token (`provide(TOKEN, Class)`). */
 export const isClassProvider = (provider: Provider): provider is ClassProvider =>
   typeof provider === "object" && "useClass" in provider;
@@ -85,3 +100,39 @@ export const createdClassesOf = (providers: readonly Provider[]): readonly Class
     if (typeof provider === "function") return [provider];
     return isClassProvider(provider) ? [provider.useClass] : [];
   });
+
+/**
+ * The abstract ports a class is the implementation of (#1324): `@Injectable({ injectAs: Port })`,
+ * `@McpServer({ injectAs })`, `@A2AAgent({ injectAs })`. A dependency on a port gets the one listed
+ * class that extends it or names it here; a workflow's own `services` shadow the application's.
+ */
+const injected = new WeakMap<Class, readonly Class[]>();
+
+/** What `injectAs` takes: one port, or several. */
+export type InjectAs = Class | readonly Class[];
+
+/** The ports as a list. */
+export const portsOf = (injectAs: InjectAs | undefined): readonly Class[] =>
+  injectAs === undefined
+    ? []
+    : Array.isArray(injectAs)
+      ? [...(injectAs as readonly Class[])]
+      : [injectAs as Class];
+
+/** Remembers the ports a class is the implementation of. */
+export function recordInjectAs(cls: Class, injectAs: InjectAs | undefined): void {
+  const ports = portsOf(injectAs);
+  if (ports.length > 0) injected.set(cls, ports);
+}
+
+/** The ports `cls` names with `injectAs`; none for a class that names none. */
+export const injectAsOf = (cls: Class): readonly Class[] => injected.get(cls) ?? [];
+
+/** The instance type a class bound with `injectAs` must have: every port's, together. */
+export type PortInstances<TPorts> = TPorts extends abstract new (
+  ...args: never[]
+) => infer TInstance
+  ? TInstance
+  : TPorts extends readonly [infer THead, ...infer TRest]
+    ? PortInstances<THead> & PortInstances<TRest>
+    : unknown;

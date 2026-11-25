@@ -23,7 +23,7 @@ import { TEL_AVIV, WEEKDAYS } from "../calendar/helpers.js";
 import { milliseconds } from "../calendar/units.js";
 
 const ORDER = { orderId: "o-1" };
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 /** The clock moved to an explicit instant (it only moves forward). */
 async function moveTo(clock: VirtualClock, instant: string): Promise<void> {
@@ -181,7 +181,8 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
       issues: [
         {
           path: ".expiresIn",
-          reason: "this role reminds in working time: extend it with workingHours / workingMinutes",
+          reason:
+            "this target reminds in working time: extend it with workingHours / workingMinutes",
         },
       ],
     });

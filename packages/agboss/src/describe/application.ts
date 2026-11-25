@@ -1,5 +1,8 @@
-import { calendarNameOf } from "../calendar/calendar-source.js";
-import { requireApplication } from "../application/application.js";
+import {
+  attachedBudgetsOf,
+  budgetsOfApplication,
+  executionBudgetFor,
+} from "../budgets/budget-rules.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import {
   implementationLine,
@@ -7,17 +10,17 @@ import {
   ImplementationReason,
   type ImplementationChoice,
 } from "../application/implementations.js";
+import {
+  storageLinesOf,
+  storageProvidersOf,
+  type DescribedStorage,
+} from "../storage/storage-assembly.js";
 import { assemblyWarningsOf, warningText, type AssemblyWarning } from "../application/start-log.js";
 import { budgetOf, BudgetScope, type BudgetMeta } from "../budgets/budget.js";
 import type { Class } from "../components/injection.js";
 import { tokenName } from "../components/injection.js";
-import {
-  isModelProviderClass,
-  isTransportClass,
-  modelProviderOf,
-} from "../models/model-provider.decorator.js";
-import { modelProvidersOf } from "../models/resolution.js";
-import { listenersOf, pauseListenerOf } from "../pause/pause-listener.js";
+import { modelProvidersOfApplication, type DescribedModelProvider } from "./model-providers.js";
+import { listenersOf, channelListenerOf } from "../pause/channel-listener.js";
 
 /**
  * What `agboss describe` says about an application as a whole (#261, #268 AC4): its infrastructure —
@@ -34,6 +37,8 @@ export interface DescribedBudget {
   readonly period?: string;
   /** The workflow's name, for its own execution budget; absent for the default one. */
   readonly workflow?: string;
+  /** What the budget is for (`@Budget({ description })`). */
+  readonly description?: string;
 }
 
 /** The execution budget that caps one workflow, and whether it is the workflow's own. */
@@ -45,39 +50,28 @@ export interface DescribedExecutionBudget {
   readonly isOwn: boolean;
 }
 
-/** One model provider of the application and why it is used. */
-export interface DescribedModelProvider {
-  readonly name: string;
-  readonly className: string;
-  readonly reason: ImplementationReason;
-  /** `serves`, each pattern as written. */
-  readonly serves: readonly string[];
-  /** It makes its own calls through `complete(request)` (#385), not over HTTP. */
-  readonly isTransport: boolean;
-}
-
-/** One listed `@PauseListener`: its name, and whether it is trusted with the ids of channel pauses. */
+/** One listed `@ChannelListener`: its name, and whether it is trusted with the ids of channel pauses. */
 export interface DescribedPauseListener {
   readonly name: string;
-  readonly allowAnswering: boolean;
+  readonly includePauseIds: boolean;
 }
 
 /** An application, as `describe` shows it. */
-export interface DescribedApplication {
+export interface ApplicationFacts {
   readonly name: string;
   readonly version: string;
   /** Every workflow it runs: the listed ones, then the children they launch. */
   readonly workflows: readonly string[];
   readonly implementations: readonly ImplementationChoice[];
+  /** `@Application({ storage })` (#1321): each storage component with its driver; absent = none declared. */
+  readonly storage?: readonly DescribedStorage[];
   readonly modelProviders: readonly DescribedModelProvider[];
   readonly budgets: readonly DescribedBudget[];
   readonly executionBudgets: readonly DescribedExecutionBudget[];
   readonly observers: readonly string[];
-  /** Its `@PauseListener`s (#940): each pause of the application is told to every one. */
+  /** Its `@ChannelListener`s (#940): each pause of the application is told to every one. */
   readonly pauseListeners: readonly DescribedPauseListener[];
   readonly warnings: readonly string[];
-  /** The name of its default calendar for working time (#944): `working-week` or its `@WorkingCalendar`'s; absent = none. */
-  readonly workingCalendar?: string;
   /** `@Application({ maxConcurrentSteps })` (#332): the instance's cap on steps; absent = none. */
   readonly maxConcurrentSteps?: number;
 }
@@ -90,74 +84,71 @@ const describedBudget = (
   scope: meta.scope,
   ...(meta.period === undefined ? {} : { period: meta.period }),
   ...(meta.workflow === undefined ? {} : { workflow: nameOf(meta.workflow) }),
+  ...(meta.description === undefined ? {} : { description: meta.description }),
 });
 
-/** The workflow's own execution budget, else the default (no `workflow`). */
+/** The workflow's own execution budget (attached or `workflow: X`), else the default (no `workflow`). */
 function executionBudgetOf(
   budgets: readonly BudgetMeta[],
   workflow: Class,
   name: string,
+  attachedByAny: readonly Class[],
+  budgetOverlays: AssembledApplication["budgetOverlays"],
 ): DescribedExecutionBudget {
-  const execution = budgets.filter((budget) => budget.scope === BudgetScope.Execution);
-  const own = execution.find((budget) => budget.workflow === workflow);
-  if (own !== undefined) return { workflow: name, name: own.name, isOwn: true };
-  const fallback = execution.find((budget) => budget.workflow === undefined);
-  return fallback === undefined
+  const found = executionBudgetFor(budgets, workflow, attachedByAny, budgetOverlays);
+  return found === undefined
     ? { workflow: name, isOwn: false }
-    : { workflow: name, name: fallback.name, isOwn: false };
-}
-
-/** The application's model providers: the listed ones, else the built-ins (#266). */
-function modelProvidersOfApplication(
-  assembled: AssembledApplication,
-): readonly DescribedModelProvider[] {
-  const isListed = assembled.providers.some(isModelProviderClass);
-  return modelProvidersOf(assembled.providers).map((provider) => {
-    const options = modelProviderOf(provider);
-    return {
-      name: options.name,
-      className: provider.name,
-      reason: isListed ? ImplementationReason.Listed : ImplementationReason.Default,
-      serves: options.serves.map(String),
-      isTransport: isTransportClass(provider),
-    };
-  });
+    : { workflow: name, name: found.meta.name, isOwn: found.isOwn };
 }
 
 /**
  * The assembly warnings of an application (`agboss check`, errors under `--strict`): its budgets on
- * an in-memory ledger, its pauses in memory, PII tokens on a key of the instance (no
- * `piiKeyField`, #120 S94).
+ * an in-memory ledger, its pauses in memory.
  */
 export const applicationWarningsOf = (
   assembled: AssembledApplication,
-): readonly AssemblyWarning[] =>
-  assemblyWarningsOf({ ...assembled, isPiiKeyOfInstance: assembled.piiKeyField === undefined });
+): readonly AssemblyWarning[] => assemblyWarningsOf(assembled);
 
 /** The application, described from its assembly. */
-export function describedApplicationOf(assembled: AssembledApplication): DescribedApplication {
+export function describedApplicationOf(assembled: AssembledApplication): ApplicationFacts {
   const names = new Map<Class, string>(
     assembled.workflows.map((workflow) => [workflow.graph.type, workflow.config.name]),
   );
   const nameOf = (workflow: Class): string => names.get(workflow) ?? workflow.name;
-  const budgets = assembled.budgets.flatMap((budget) => budgetOf(budget) ?? []);
+  const budgets = budgetsOfApplication({
+    budgets: assembled.budgets,
+    workflows: assembled.workflows.map((workflow) => workflow.graph.type),
+    budgetOverlays: assembled.budgetOverlays,
+  }).flatMap((budget) => budgetOf(budget) ?? []);
   return {
     name: assembled.name,
     version: assembled.version,
     workflows: assembled.workflows.map((workflow) => workflow.config.name),
-    implementations: implementationsOf(assembled.providers),
+    implementations: implementationsOf(
+      assembled.providers,
+      assembled.storage === undefined ? undefined : storageProvidersOf(assembled.storage).owned,
+    ),
+    ...(assembled.storage === undefined ? {} : { storage: storageLinesOf(assembled.storage) }),
     modelProviders: modelProvidersOfApplication(assembled),
     budgets: budgets.map((meta) => describedBudget(meta, nameOf)),
     executionBudgets: assembled.workflows.map((workflow) =>
-      executionBudgetOf(budgets, workflow.graph.type, workflow.config.name),
+      executionBudgetOf(
+        budgets,
+        workflow.graph.type,
+        workflow.config.name,
+        attachedBudgetsOf({
+          workflows: assembled.workflows.map((one) => one.graph.type),
+          budgetOverlays: assembled.budgetOverlays,
+        }),
+        assembled.budgetOverlays,
+      ),
     ),
     observers: assembled.observers.map(tokenName),
     pauseListeners: listenersOf(assembled.providers).flatMap((cls) => {
-      const meta = pauseListenerOf(cls);
-      return meta === undefined ? [] : [{ name: meta.name, allowAnswering: meta.allowAnswering }];
+      const meta = channelListenerOf(cls);
+      return meta === undefined ? [] : [{ name: meta.name, includePauseIds: meta.includePauseIds }];
     }),
     warnings: applicationWarningsOf(assembled).map(warningText),
-    ...calendarFieldOf(assembled.application),
     ...(assembled.maxConcurrentSteps === undefined
       ? {}
       : { maxConcurrentSteps: assembled.maxConcurrentSteps }),
@@ -165,7 +156,7 @@ export function describedApplicationOf(assembled: AssembledApplication): Describ
 }
 
 /** `maxConcurrentSteps 32 (set) · …`, or that the instance has no cap (#332). */
-const stepCapLine = (described: DescribedApplication): string =>
+const stepCapLine = (described: ApplicationFacts): string =>
   described.maxConcurrentSteps === undefined
     ? "maxConcurrentSteps none (not set) · no cap on this instance's steps"
     : `maxConcurrentSteps ${String(described.maxConcurrentSteps)} (set) · agent, router and action steps of this instance at work at once`;
@@ -188,7 +179,7 @@ function executionBudgetLine(budget: DescribedExecutionBudget): string {
 }
 
 /** The budgets by scope, then the one that caps each workflow. */
-function budgetLines(described: DescribedApplication): string[] {
+function budgetLines(described: ApplicationFacts): string[] {
   const byScope = SCOPES.flatMap((scope) => {
     const listed = described.budgets.filter((budget) => budget.scope === scope);
     return listed.length === 0 ? [] : [`  ${scope}: ${listed.map(budgetLabel).join(", ")}`];
@@ -196,32 +187,37 @@ function budgetLines(described: DescribedApplication): string[] {
   return ["budgets", ...byScope, ...described.executionBudgets.map(executionBudgetLine)];
 }
 
-/** `openrouter-model-provider → OpenRouterModelProvider (listed in @Application providers) · serves …`. */
+/** `openrouter → OpenRouterProvider (listed in @Application providers)`. */
 const modelProviderLine = (provider: DescribedModelProvider): string =>
   `  ${provider.name} → ${provider.className} (${
     provider.reason === ImplementationReason.Listed
       ? "listed in @Application providers"
-      : "built-in default: none listed"
-  }) · serves ${provider.serves.join(", ")}${
-    provider.isTransport ? ` · transport: ${provider.className}.complete()` : ""
-  }`;
+      : "named by modelProvider"
+  })${provider.isTransport ? ` · transport: ${provider.className}.complete()` : ""}`;
 
-/** `pause listeners ledger-pause-listener (allowAnswering: sees the ids of channel pauses), …`. */
-const pauseListenerLines = (described: DescribedApplication): string[] =>
+/** `pause listeners ledger-pause-listener (includePauseIds: sees the ids of channel pauses), …`. */
+const pauseListenerLines = (described: ApplicationFacts): string[] =>
   described.pauseListeners.length === 0
     ? []
     : [
         `pause listeners ${described.pauseListeners
           .map(
-            ({ name, allowAnswering }) =>
-              `${name}${allowAnswering ? " (allowAnswering: sees the ids of channel pauses)" : ""}`,
+            ({ name, includePauseIds }) =>
+              `${name}${includePauseIds ? " (includePauseIds: sees the ids of channel pauses)" : ""}`,
           )
           .join(", ")}`,
       ];
 
 /** The application's implementations, model providers, budgets, observers and warnings. */
-export function applicationLines(described: DescribedApplication): string[] {
+export function applicationLines(described: ApplicationFacts): string[] {
   return [
+    ...(described.storage === undefined
+      ? []
+      : [
+          "storage",
+          // `describes` already names the backend (`sqlite (AGBOSS_SQLITE_PATH)`)
+          ...described.storage.map((line) => `  ${line.role}: ${line.name} → ${line.describes}`),
+        ]),
     "implementations",
     ...described.implementations.map((choice) => `  ${implementationLine(choice)}`),
     "model providers",
@@ -232,10 +228,4 @@ export function applicationLines(described: DescribedApplication): string[] {
     stepCapLine(described),
     ...described.warnings.map((warning) => `warning ${warning}`),
   ];
-}
-
-/** `{ workingCalendar: name }` of the application's default calendar; nothing without one (#944). */
-function calendarFieldOf(application: Class): { readonly workingCalendar?: string } {
-  const source = requireApplication(application, "describe").options.workingCalendar;
-  return source === undefined ? {} : { workingCalendar: calendarNameOf(source) };
 }

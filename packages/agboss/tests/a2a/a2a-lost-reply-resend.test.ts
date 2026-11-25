@@ -4,20 +4,20 @@
  * terminal or not — never `a2a.task-over`, never a second charge. `task-over` stays the answer to a
  * NEW message to a finished task.
  */
+import { hours, minutes } from "../../src/units/index.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { A2AExpose } from "../../src/a2a/a2a-expose.decorator.js";
-import { A2ASecurity } from "../../src/a2a/a2a-security.js";
-import { SqliteA2ATaskRepository } from "../../src/a2a/index.js";
+import { A2AEndpoint } from "../../src/a2a/a2a-endpoint.decorator.js";
+import { SqliteA2ATaskRepository } from "../../src/stores/index.js";
 import { Application } from "../../src/application/application.js";
 import { A2ATaskRepository } from "../../src/infrastructure/a2a-task.repository.js";
 import {
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
   SqlitePausedExecutionRepository,
   SqliteRateLimitRepository,
 } from "../../src/index.js";
+import { SqliteCheckpointSaver } from "../../src/internal.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
@@ -30,7 +30,7 @@ import {
   resetRecovery,
   seen,
 } from "../infrastructure/fixtures/recovery.workflow.js";
-import { BearerCallerResolver } from "./fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "./fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "./fixtures/task.application.js";
 import {
   MortalSqliteExecutionLeaseRepository,
@@ -46,18 +46,20 @@ import {
   userMessage,
   type RpcAnswer,
 } from "./server/rpc.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
-@A2AExpose({
+@A2AEndpoint({
   name: "ac4-orders-a2a-expose",
   version: "1.0.0",
   description: "Takes orders",
-  exports: [OrderWorkflowStart],
-  security: [A2ASecurity.bearer()],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [OrderWorkflowStart],
 })
 class SqliteOrdersA2AExpose {}
 
 @Application({
   name: "ac4-sqlite-orders-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: SqliteTestEnvironment,
   workflows: [RecoveryWorkflow],
@@ -71,9 +73,9 @@ class SqliteOrdersA2AExpose {}
     SqliteExecutionTreeRepository,
     SqliteRateLimitRepository,
     SqliteA2ATaskRepository,
-    BearerCallerResolver,
+    BearerAuthenticator,
   ],
-  exposes: [SqliteOrdersA2AExpose],
+  endpoints: [SqliteOrdersA2AExpose],
   budgets: TEST_BUDGETS,
 })
 class SqliteOrdersApplication {}
@@ -112,7 +114,7 @@ for (const [name, test, expose] of CASES) {
         callTool(Charge, { text: "10 USD" }),
         replyWith(ReceiptDto, { text: "Done." }),
       );
-      const { url } = await a2aServer({ expose, callerResolver: BearerCallerResolver });
+      const { url } = await a2aServer({ endpoint: expose, authenticator: BearerAuthenticator });
       const task = taskOf(
         await rpc(url, "SendMessage", { message: userMessage("m-1", [text("go")]) }),
       );
@@ -138,7 +140,7 @@ for (const [name, test, expose] of CASES) {
       mockLlm,
     }) => {
       mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
-      const { url } = await a2aServer({ expose, callerResolver: BearerCallerResolver });
+      const { url } = await a2aServer({ endpoint: expose, authenticator: BearerAuthenticator });
       const task = taskOf(
         await rpc(url, "SendMessage", { message: userMessage("m-1", [text("go")]) }),
       );

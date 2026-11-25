@@ -1,6 +1,5 @@
 import {
   Agent,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   TenantContext,
@@ -9,8 +8,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
@@ -19,17 +18,17 @@ import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import {
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { ChatStart, Reply } from "../../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { BedrockModelProvider, BedrockSdkClient } from "./bedrock-provider.fixture.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /** #385: workflows and applications on a transport provider — alone, with PII, in a fallback. */
 
@@ -82,13 +81,18 @@ export interface BedrockDesk {
  * agent with a tool, #1231) on a model.
  */
 export function workflowsOn(model: string, prefix: string): BedrockDesk {
-  @Agent({ name: `${prefix}-agent`, description: "Answers", prompt: "Answer the message.", model })
+  @Agent({
+    name: `${prefix}-agent`,
+    description: "Answers",
+    prompt: inline("Answer the message."),
+    model,
+  })
   class TextAgent {}
 
   @Agent({
     name: `${prefix}-verdict-agent`,
     description: "Gives a verdict",
-    prompt: "Give a verdict on the message.",
+    prompt: inline("Give a verdict on the message."),
     model,
     output: VerdictDto,
   })
@@ -100,8 +104,8 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
     input: LookupRequest,
     output: LookupFound,
   })
-  class LookupTool implements ToolHandler<LookupRequest, LookupFound> {
-    run({ query }: LookupRequest): Promise<LookupFound> {
+  class LookupTool {
+    execute({ query }: LookupRequest): Promise<LookupFound> {
       return Promise.resolve({ found: `found ${query}` });
     }
   }
@@ -109,7 +113,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
   @Agent({
     name: `${prefix}-lookup-agent`,
     description: "Answers, looking things up",
-    prompt: "Answer the message; look things up when you need to.",
+    prompt: inline("Answer the message; look things up when you need to."),
     model,
     tools: [LookupTool],
   })
@@ -118,30 +122,27 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
   @Workflow({
     name: `${prefix}-workflow`,
     version: "1.0.0",
-    flow: [start(ChatStart).returns(WorkflowStartTextDto).toAgent(TextAgent).toFinish(Reply)],
-    defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+    historyTtl: Ttl.Forever,
+    flow: [onStart(ChatStart).toAgent(TextAgent).toFinish(Reply)],
+    defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
   })
   class TextWorkflow {}
 
   @Workflow({
     name: `${prefix}-verdict-workflow`,
     version: "1.0.0",
-    flow: [
-      start(VerdictStart)
-        .returns(WorkflowStartTextDto)
-        .toAgent(VerdictAgent)
-        .returns(VerdictDto)
-        .toFinish(VerdictFinish),
-    ],
-    defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+    historyTtl: Ttl.Forever,
+    flow: [onStart(VerdictStart).toAgent(VerdictAgent).toFinish(VerdictFinish)],
+    defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
   })
   class VerdictWorkflow {}
 
   @Workflow({
     name: `${prefix}-lookup-workflow`,
     version: "1.0.0",
-    flow: [start(LookupStart).returns(WorkflowStartTextDto).toAgent(LookupAgent).toFinish(Reply)],
-    defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+    historyTtl: Ttl.Forever,
+    flow: [onStart(LookupStart).toAgent(LookupAgent).toFinish(Reply)],
+    defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
   })
   class LookupWorkflow {}
 
@@ -151,7 +152,7 @@ export function workflowsOn(model: string, prefix: string): BedrockDesk {
 @PiiPolicy({
   name: "bedrock-contact-pii-policy",
   description: "Hides email addresses from models",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 export class BedrockContactPiiPolicy {}
 
@@ -170,6 +171,7 @@ export function bedrockApplicationOn(parts: {
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [...(parts.desk ?? workflowsOn(parts.model ?? "bedrock/claude", prefix)).workflows],
+    modelProvider: (parts.providers ?? [BedrockModelProvider])[0] as Class,
     providers: [...(parts.providers ?? [BedrockModelProvider]), BedrockSdkClient],
     budgets: parts.budgets ?? TEST_BUDGETS,
     ...(parts.piiPolicies === undefined ? {} : { piiPolicies: parts.piiPolicies }),
@@ -189,7 +191,6 @@ const http = {
   timeout: seconds(5),
   reasoning: Reasoning.modelDecides(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
 };
 
 /** An HTTP backup (no key) with its own prices. */
@@ -197,38 +198,35 @@ const http = {
   ...http,
   name: "backup-385-model-provider",
   description: "An HTTP backup",
-  serves: [/^backup\//],
-  baseUrl: "http://backup-385.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://backup-385.test/v1" }),
   cost: ModelCost.fromPrices({
     "backup/claude": { inputPerMillion: usd(10), outputPerMillion: usd(20) },
   }),
-  circuitBreakerPolicy: { failureThreshold: 1, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 1,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 })
-export class Backup385ModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class Backup385ModelProvider {}
 
 /** An HTTP primary whose breaker falls back to the transport (HTTP → transport). */
 @ModelProvider({
   ...http,
   name: "primary-385-model-provider",
   description: "An HTTP primary",
-  serves: [/^primary\//],
-  baseUrl: "http://primary-385.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://primary-385.test/v1" }),
   cost: ModelCost.fromPrices({
     "primary/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },
   }),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 1,
-    window: minutes(1),
-    openFor: minutes(1),
-    fallback: BedrockModelProvider,
-    fallbackModels: { "primary/model": "bedrock/claude" },
-  },
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
+  fallback: { provider: BedrockModelProvider, models: { "primary/model": "bedrock/claude" } },
 })
-export class Primary385ModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class Primary385ModelProvider {}
 
 export const HttpToTransportApplication = bedrockApplicationOn({
   name: "http-to-transport-application",
@@ -240,19 +238,16 @@ export const HttpToTransportApplication = bedrockApplicationOn({
 @ModelProvider({
   name: "falling-bedrock-model-provider",
   description: "Bedrock with an HTTP backup",
-  serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "bedrock/claude": { inputPerMillion: usd(3), outputPerMillion: usd(15) },
   }),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 1,
-    window: minutes(1),
-    openFor: minutes(1),
-    fallback: Backup385ModelProvider,
-    fallbackModels: { "bedrock/claude": "backup/claude" },
-  },
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
+  fallback: { provider: Backup385ModelProvider, models: { "bedrock/claude": "backup/claude" } },
   deps: [BedrockSdkClient, TenantContext],
 })
 export class FallingBedrockModelProvider extends BedrockModelProvider {}

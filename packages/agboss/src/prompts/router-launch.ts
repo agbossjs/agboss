@@ -1,5 +1,5 @@
 /**
- * The texts of a router deciding a parallel launch (#273 S23): its `OnDemand` routes are one yes/no
+ * The texts of a router deciding a parallel launch (#273 S23): its routes of a `chooseMany([…])` are one yes/no
  * question each — the route's prompt — and a chat model answers them through one answer tool with
  * a boolean field per route. Part of the prompt version of a workflow that has such a router.
  */

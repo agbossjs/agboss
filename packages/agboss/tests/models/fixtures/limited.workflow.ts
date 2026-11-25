@@ -1,22 +1,22 @@
-import { Agent, EmptyEnvironment, TokenLimit, Workflow } from "../../../src/index.js";
+import { Window1Memory } from "../../helpers/window-memory.js";
+import { Agent, EmptyEnvironment, TokenLimit, Workflow, Ttl } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   ModelCost,
   ModelFailure,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   QueueBalancingStrategy,
   RateLimitPolicy,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { ChatStart, Reply } from "../../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /**
  * #266 AC3/AC4: a provider whose plan allows two calls in flight — one limit for the whole
@@ -25,8 +25,7 @@ import { start } from "../../helpers/flow.js";
 @ModelProvider({
   name: "limited-model-provider",
   description: "A provider with a plan of two concurrent calls",
-  serves: [/^limited\//],
-  baseUrl: "http://limited.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://limited.test/v1" }),
   timeout: seconds(30),
   cost: ModelCost.fromPrices({
     "limited/model": { inputPerMillion: usd(1), outputPerMillion: usd(2) },
@@ -44,15 +43,17 @@ import { start } from "../../helpers/flow.js";
     maxConcurrentCalls: 2,
     balancing: QueueBalancingStrategy.TenantRoundRobin,
   }),
-  circuitBreakerPolicy: { failureThreshold: 100, window: minutes(1), openFor: seconds(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 100,
+    failureWindow: minutes(1),
+    openDuration: seconds(1),
+  }),
 })
-export class LimitedModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class LimitedModelProvider {}
 
 @Agent({
   name: "limited-agent",
-  promptUrls: ["./limited.prompt.md"],
+  prompt: "./limited.prompt.md",
   description: "Answers on the limited provider",
   model: "limited/model",
 })
@@ -61,17 +62,17 @@ export class LimitedAgent {}
 @Workflow({
   name: "limited-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChatStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChatStart)
       .toAgent(LimitedAgent)
       .toFinish(Reply),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     tools: { maxToolCalls: 1 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class LimitedWorkflow {}
 
@@ -81,6 +82,7 @@ export class LimitedWorkflow {}
   environment: EmptyEnvironment,
   workflows: [LimitedWorkflow],
   providers: [LimitedModelProvider],
+  modelProvider: LimitedModelProvider,
   budgets: TEST_BUDGETS,
 })
 export class LimitedApplication {}

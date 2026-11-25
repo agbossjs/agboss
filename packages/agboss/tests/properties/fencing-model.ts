@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #533 item 2: the property tests' world — two instances' lease and outbound-call stores on one
  * backing store and a `VirtualClock`, the commands fast-check generates for them, and each command
@@ -186,7 +187,7 @@ export async function answerOf(call: Promise<unknown>): Promise<unknown> {
     }
     return answer ?? null;
   } catch (error) {
-    if (error instanceof Error && error.name === "ExecutionFencedError") return "fenced";
+    if (error instanceof Error && error.name === "ExecutionError.Fenced") return "fenced";
     throw error;
   }
 }
@@ -268,12 +269,17 @@ async function callCommand(
       return run(
         callEnded(world.state, facts, command.owner, command.status, now),
         command.status === "completed"
-          ? calls.markCompleted(key, command.owner, '"paid"')
-          : calls.markFailed(key, command.owner, {
-              name: "DeclinedError",
-              code: "DeclinedError",
-              message: "declined",
-            }),
+          ? calls.markCompleted(key, command.owner, '"paid"', null)
+          : calls.markFailed(
+              key,
+              command.owner,
+              {
+                name: "DeclinedError",
+                code: "DeclinedError",
+                message: "declined",
+              },
+              null,
+            ),
       );
     case "state": {
       const lease = { tenantId: TENANT, leaseExecutionId: command.tree, token: command.token };

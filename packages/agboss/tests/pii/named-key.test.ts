@@ -6,20 +6,20 @@ import { describe, expect, it } from "vitest";
 import { EnvironmentErrorCode } from "../../src/environments/errors.js";
 import { unitEnvironmentOf } from "../../src/environments/resolve.js";
 import { secret } from "../../src/index.js";
-import { applicationPseudonymKeyOf } from "../../src/pii/application-key.js";
+import { applicationPseudonymKeysOf } from "../../src/pii/application-key.js";
 
 const sourceOf = (values: object, more: { fallback?: string; field?: string } = {}) => ({
   application: "pii-application",
   field: "piiKey",
   environment: unitEnvironmentOf(values),
   env: { PII_KEY: "the key" },
-  policies: [],
+  tokenizing: [],
   ...more,
 });
 
 const refusalOf = (source: ReturnType<typeof sourceOf>): unknown => {
   try {
-    applicationPseudonymKeyOf(source);
+    applicationPseudonymKeysOf(source);
   } catch (error) {
     return error;
   }
@@ -28,7 +28,9 @@ const refusalOf = (source: ReturnType<typeof sourceOf>): unknown => {
 
 describe("#825 AC6: a named PII key", () => {
   it("its variable set: the key", () => {
-    expect(applicationPseudonymKeyOf(sourceOf({ piiKey: secret("PII_KEY") }))).toBe("the key");
+    expect(applicationPseudonymKeysOf(sourceOf({ piiKey: secret("PII_KEY") }))).toEqual({
+      key: "the key",
+    });
   });
 
   it("its variable unset: the start fails naming the field, no key of the instance", () => {
@@ -48,7 +50,9 @@ describe("#825 AC6: a named PII key", () => {
   });
 
   it("under testWith: the test's key stands in; none named and none needed: none", () => {
-    expect(applicationPseudonymKeyOf(sourceOf({}, { fallback: "test key" }))).toBe("test key");
-    expect(applicationPseudonymKeyOf(sourceOf({}, { field: undefined }))).toBeUndefined();
+    expect(applicationPseudonymKeysOf(sourceOf({}, { fallback: "test key" }))).toEqual({
+      key: "test key",
+    });
+    expect(applicationPseudonymKeysOf(sourceOf({}, { field: undefined }))).toBeUndefined();
   });
 });

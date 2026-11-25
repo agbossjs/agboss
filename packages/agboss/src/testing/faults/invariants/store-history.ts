@@ -1,5 +1,5 @@
 import type { HistoryOperation, OperationHistory } from "../operation-history.js";
-import { FencedEffectStatus } from "../../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../../infrastructure/fenced-effect.repository.js";
 import { StoreHoldPoint } from "../store-points.js";
 
 /**
@@ -22,7 +22,7 @@ export interface Grant {
  * A fenced write the store was asked (#876: answered or not). One the store's lease check let
  * through (#840) is an `AcceptedWrite`: any answer but an error — a write that ran, and one that
  * found its key already there (`replayed`, `false`), since every fenced write checks the lease
- * first and a refused one throws `ExecutionFencedError`.
+ * first and a refused one throws `ExecutionError.Fenced`.
  */
 export interface FencedWrite {
   readonly operation: string;
@@ -141,7 +141,7 @@ export function acceptedWritesOf(history: OperationHistory): readonly AcceptedWr
       completedAt: complete.at,
       isReplay:
         invoke.operation === StoreHoldPoint.FencedEffectWrite &&
-        (complete.output as { status?: unknown } | null)?.status === FencedEffectStatus.Replayed,
+        (complete.output as { status?: unknown } | null)?.status === IdempotencyRunStatus.Replayed,
     }));
 }
 

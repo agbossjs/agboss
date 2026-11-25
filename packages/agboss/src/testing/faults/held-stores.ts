@@ -195,7 +195,7 @@ async function heldCall(
   const state = heldStoreState;
   const key = method.keyOf(args);
   await state.outage.passed(method.point);
-  await state.points.reach(method.point, HoldPhase.Before, key);
+  await state.points.reach({ point: method.point, phase: HoldPhase.Before, key });
   operations += 1;
   const id = `${state.process}#${String(operations)}`;
   const base = { id, operation: method.point, key };
@@ -210,7 +210,8 @@ async function heldCall(
   recorded(state, { ...base, phase: OperationPhase.Complete, output: method.outputOf(result) });
   // a poll that found nothing is no arrival at an After hold (#1126)
   if (method.isHoldable?.(result) === false) return result;
-  await state.points.reach(method.point, HoldPhase.After, method.resultKeyOf?.(result) ?? key);
+  const resultKey = method.resultKeyOf?.(result) ?? key;
+  await state.points.reach({ point: method.point, phase: HoldPhase.After, key: resultKey });
   return result;
 }
 

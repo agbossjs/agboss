@@ -53,7 +53,7 @@ describe("#1366: a call's timeout and key are checked before it is sent", () => 
         checkedCall("agent", { timeout: (MAX_TIMEOUT + 1) as Milliseconds }, undefined),
       ),
     ).toMatch(/a2a\.timeout-invalid/u);
-    expect(refusal(() => checkedCall("agent", {}, -1))).toMatch(/a2a\.price-invalid/u);
+    expect(refusal(() => checkedCall("agent", {}, -1))).toMatch(/a2a\.cost-per-call-invalid/u);
   });
 
   it("a key is 1 to 40 of letters, digits, dot, underscore and dash, a letter or digit first", () => {

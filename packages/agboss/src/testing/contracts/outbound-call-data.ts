@@ -70,14 +70,19 @@ export async function listedOf(
   const cursors = new Set<string>(from === undefined ? [] : [from]);
   let after = from;
   for (let page = 0; page < MAX_PAGES; page += 1) {
-    const read = await stores.calls.findAllByTenantIdAndStatus({ tenantId, status, limit, after });
-    calls.push(...read.calls);
-    if (read.next === undefined) return calls;
+    const read = await stores.calls.findAllByTenantIdAndStatus({
+      tenantId,
+      status,
+      limit,
+      ...(after === undefined ? {} : { cursor: after }),
+    });
+    calls.push(...read.items);
+    if (read.nextCursor === undefined) return calls;
     // a cursor handed out twice is a listing that never ends: a failure, never a hang
-    if (cursors.has(read.next))
-      throw new Error(`findAllByTenantIdAndStatus handed out the cursor ${read.next} twice`);
-    cursors.add(read.next);
-    after = read.next;
+    if (cursors.has(read.nextCursor))
+      throw new Error(`findAllByTenantIdAndStatus handed out the cursor ${read.nextCursor} twice`);
+    cursors.add(read.nextCursor);
+    after = read.nextCursor;
   }
   throw new Error(`findAllByTenantIdAndStatus did not end its pages within ${String(MAX_PAGES)}`);
 }

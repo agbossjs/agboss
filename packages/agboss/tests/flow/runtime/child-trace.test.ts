@@ -48,8 +48,8 @@ class ChainRecorder extends BaseCallbackHandler {
 
 const recording: ExecutionTracing = {
   callbacks: () => [new ChainRecorder()],
-  sessionUrl: () => undefined,
-  shutdown: () => Promise.resolve(),
+  traceUrl: () => undefined,
+  close: () => Promise.resolve(),
 };
 
 vi.mock("../../../src/tracing/index.js", async (original) => ({

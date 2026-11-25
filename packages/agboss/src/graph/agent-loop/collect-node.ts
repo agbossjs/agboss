@@ -29,24 +29,36 @@ function contentOf(state: AgentLoopStateType, call: ToolCallRequest): string {
   return rejectionMessage(decision?.by ?? "the loop", decision?.reason);
 }
 
-/** The decided calls of this move, as the flow keeps them (#100: the turn ends after a decision). */
+/**
+ * The decided calls of this move, as the flow keeps them (#100: the turn ends after a decision).
+ * The flow's state is checkpointed and its records are read by whoever audits: a record holds the
+ * arguments as the approver saw them and the result as the model read it — masked by the PII
+ * policies (#1295c) — never the real values; a result with no masked form kept is left out.
+ */
 function decidedCalls(
   state: AgentLoopStateType,
   calls: readonly ToolCallRequest[],
-  agent: string,
+  deps: AgentLoopDeps,
 ): ApprovalRecord[] {
+  const set = loopPoliciesOf(state, deps);
   return calls.flatMap((call) => {
     const decision = state.decisions[call.callId];
     if (decision === undefined) return [];
-    const result = contentOf(state, call);
+    const prepared = state.prepared[call.callId];
+    const args = prepared?.kind === "ready" ? prepared.shown : {};
+    const content = contentOf(state, call);
+    const result =
+      set === undefined || set.isEmpty
+        ? content
+        : state.piiMasked[set.maskCacheKeyOf(content, true)];
     return [
       {
-        agent,
+        agent: deps.agent.name,
         tool: call.tool,
-        args: call.args,
+        args,
         approved: decision.approved,
         by: decision.by,
-        result,
+        ...(result === undefined ? {} : { result }),
       },
     ];
   });
@@ -191,7 +203,7 @@ export function makeCollectNode(
     return {
       messages,
       move: null,
-      approvals: decidedCalls(state, calls, deps.agent.name),
+      approvals: decidedCalls(state, calls, deps),
       trajectory,
       ...(files.messages.length === 0
         ? {}

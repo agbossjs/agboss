@@ -3,15 +3,14 @@ import { NodeKind, StepKind, type Step } from "../../src/flow/ast.js";
 import * as builder from "../../src/flow/builder.js";
 import {
   FlowSyntaxError,
-  caseOf,
-  route,
-  start,
+  onStart,
   toAction,
   toAgent,
   toFinish,
   toRouter,
+  toWorkflow,
 } from "../../src/flow/builder.js";
-import type { DtoClass } from "../../src/dto/types.js";
+import type { PathBuilder } from "../../src/flow/path-builder.js";
 import { listOf, oneOf, optional, type ReturnedShape } from "../../src/flow/dto-wrappers.js";
 import {
   articlePaths,
@@ -25,6 +24,7 @@ import {
 import {
   AskResumeWorkflowFinish,
   chatPaths,
+  ChatWorkflow,
   ChatWorkflowFinish,
   IntakeWorkflowStart,
   MainRouter,
@@ -66,6 +66,7 @@ import {
   NotifyFinanceTeamAction,
   orderPaths,
   OrderFailedWorkflowFinish,
+  OrderAction,
   OrderWorkflowFinish,
   OrderWorkflowStart,
   PaymentProviderError,
@@ -85,11 +86,6 @@ function callUntyped(target: object, method: string, args: readonly unknown[]): 
   return result;
 }
 
-const returns = (shape: ReturnedShape, about?: readonly DtoClass[]): Step =>
-  about === undefined
-    ? { kind: StepKind.Returns, value: { shape } }
-    : { kind: StepKind.Returns, value: { shape, about } };
-
 const to = (target: abstract new () => unknown, targetKind: NodeKind): Step => ({
   kind: StepKind.To,
   target,
@@ -98,19 +94,19 @@ const to = (target: abstract new () => unknown, targetKind: NodeKind): Step => (
 
 describe("AC1: a path starts with its source's kind", () => {
   it("records start, agent, router and action sources", () => {
-    expect(start(OfferWorkflowStart).source).toEqual({
+    expect(onStart(OfferWorkflowStart).source).toEqual({
       kind: NodeKind.Start,
       node: OfferWorkflowStart,
     });
-    expect(builder.agent(ReviewerAgent).source).toEqual({
+    expect(builder.onAgent(ReviewerAgent).source).toEqual({
       kind: NodeKind.Agent,
       node: ReviewerAgent,
     });
-    expect(builder.router(MainRouter).source).toEqual({
+    expect(builder.onRouter(MainRouter).source).toEqual({
       kind: NodeKind.Router,
       node: MainRouter,
     });
-    expect(builder.action(SendOfferAction).source).toEqual({
+    expect(builder.onAction(SendOfferAction).source).toEqual({
       kind: NodeKind.Action,
       node: SendOfferAction,
     });
@@ -123,27 +119,22 @@ describe("AC2: transitions name the target's kind", () => {
 
     expect(path.source).toEqual({ kind: NodeKind.Start, node: ArticleWorkflowStart });
     expect(path.steps).toEqual([
-      returns(ArticleRequestDto),
       to(ArticleDraftAgent, NodeKind.Agent),
-      returns(ArticleDto),
       to(DraftReviewerAgent, NodeKind.Agent),
-      returns(ReviewDto),
       to(WriterAgent, NodeKind.Agent),
-      returns(ArticleDto),
       to(FinalReviewerAgent, NodeKind.Agent),
-      returns(ReviewDto),
       to(ArticleWorkflowFinish, NodeKind.Finish),
     ]);
   });
 
   it("records toRouter and toAction with their kinds", () => {
     expect(chatPaths[0].steps.at(-1)).toEqual(to(MainRouter, NodeKind.Router));
-    expect(orderPaths[0].steps[1]).toEqual(to(ReserveStockAction, NodeKind.Action));
+    expect(orderPaths[0].steps[0]).toEqual(to(ReserveStockAction, NodeKind.Action));
   });
 });
 
-describe("AC3 / AC5 / AC6: router own path, chooseOne and switch (#272 example 1)", () => {
-  it("builds chooseOne routes with their sub-paths and a switch inside a route", () => {
+describe("AC3 / AC5 / AC6: router own path, onRoute and toOneOf (#272 example 1)", () => {
+  it("builds onRoute routes with their sub-paths and a toOneOf inside a route", () => {
     const [, mainRouterPath] = chatPaths;
 
     expect(mainRouterPath.source).toEqual({ kind: NodeKind.Router, node: MainRouter });
@@ -155,15 +146,11 @@ describe("AC3 / AC5 / AC6: router own path, chooseOne and switch (#272 example 1
             target: ProfilerAgent,
             path: {
               steps: [
-                returns(oneOf(ProfileDto, ResumeMissingDto)),
                 {
-                  kind: StepKind.Switch,
-                  cases: [
-                    { dto: ProfileDto, path: { steps: [to(MainRouter, NodeKind.Router)] } },
-                    {
-                      dto: ResumeMissingDto,
-                      path: { steps: [to(AskResumeWorkflowFinish, NodeKind.Finish)] },
-                    },
+                  kind: StepKind.OneOf,
+                  branches: [
+                    { steps: [to(MainRouter, NodeKind.Router)] },
+                    { steps: [to(AskResumeWorkflowFinish, NodeKind.Finish)] },
                   ],
                 },
               ],
@@ -171,72 +158,94 @@ describe("AC3 / AC5 / AC6: router own path, chooseOne and switch (#272 example 1
           },
           {
             target: ScoutAgent,
-            path: { steps: [returns(OpeningsDto), to(ChatWorkflowFinish, NodeKind.Finish)] },
+            path: { steps: [to(ChatWorkflowFinish, NodeKind.Finish)] },
           },
           { target: NoReplyWorkflowFinish, path: { steps: [] } },
         ],
       },
     ]);
-    expect(chatPaths[0].steps[0]).toEqual(returns(WorkflowStartTextDto));
     expect(chatPaths[0].source.node).toBe(IntakeWorkflowStart);
   });
 });
 
-describe("AC7: onError side paths (#272 examples 2a and 3)", () => {
-  it("puts the side path right after the step, before its returns", () => {
-    const [, reviewerPath] = offerPaths;
-    const [returned, switchStep] = reviewerPath.steps;
+describe("1278a: .onRoute(subPath) builds the routes of a router", () => {
+  const [, mainRouterPath] = chatPaths;
+  const entry = (): PathBuilder => builder.onRouter(MainRouter) as never;
 
-    expect(returned).toEqual(returns(oneOf(ChangesRequestedDto, DraftApprovedDto)));
-    expect(switchStep).toEqual({
-      kind: StepKind.Switch,
-      cases: [
+  it("one .onRoute per route is one choice", () => {
+    const built = builder
+      .onRouter(MainRouter)
+      .onRoute(
+        toAgent(ProfilerAgent).toOneOf([toRouter(MainRouter), toFinish(AskResumeWorkflowFinish)]),
+      )
+      .onRoute(toAgent(ScoutAgent).toFinish(ChatWorkflowFinish))
+      .onRoute(toFinish(NoReplyWorkflowFinish));
+    expect(built).toMatchObject({ source: mainRouterPath.source });
+    expect(built.steps).toEqual(mainRouterPath.steps);
+  });
+
+  it("a thunk target is read when the route's target is, never while the path is built", () => {
+    let reads = 0;
+    const side = toWorkflow(() => {
+      reads += 1;
+      return ChatWorkflow;
+    });
+    const built = entry().onRoute(side);
+    const [step] = built.steps;
+    expect(reads).toBe(0);
+    expect(step?.kind === StepKind.ChooseOne && step.routes[0]?.target).toBe(ChatWorkflow);
+    expect(reads).toBe(1);
+  });
+
+  it.each<[string, () => unknown]>([
+    ["a path that is no side path", () => entry().onRoute(builder.onAgent(ProfilerAgent))],
+    ["a value that is no path", () => entry().onRoute({})],
+  ])("%s is a syntax error", (_label, call) => {
+    expect(call).toThrow(FlowSyntaxError);
+  });
+});
+
+describe("AC7: onError side paths (#272 examples 2a and 3)", () => {
+  it("puts the side path right after the step", () => {
+    const [, reviewerPath] = offerPaths;
+    const [oneOfStep] = reviewerPath.steps;
+
+    expect(oneOfStep).toEqual({
+      kind: StepKind.OneOf,
+      branches: [
         {
-          dto: ChangesRequestedDto,
-          about: [OfferDraftDto],
-          path: {
-            steps: [
-              to(EditorAgent, NodeKind.Agent),
-              {
-                kind: StepKind.OnError,
-                error: VisitsLimitExceededError,
-                path: {
-                  steps: [
-                    to(NotifyRecruiterAction, NodeKind.Action),
-                    to(OfferFailedWorkflowFinish, NodeKind.Finish),
-                  ],
-                },
+          steps: [
+            to(EditorAgent, NodeKind.Agent),
+            {
+              kind: StepKind.OnError,
+              error: VisitsLimitExceededError,
+              path: {
+                steps: [
+                  to(NotifyRecruiterAction, NodeKind.Action),
+                  to(OfferFailedWorkflowFinish, NodeKind.Finish),
+                ],
               },
-              returns(OfferDraftDto),
-              to(ReviewerAgent, NodeKind.Agent),
-            ],
-          },
+            },
+            to(ReviewerAgent, NodeKind.Agent),
+          ],
         },
         {
-          dto: DraftApprovedDto,
-          path: {
-            steps: [
-              to(SendOfferAction, NodeKind.Action),
-              returns(OfferSentDto),
-              to(OfferSentWorkflowFinish, NodeKind.Finish),
-            ],
-          },
+          steps: [
+            to(SendOfferAction, NodeKind.Action),
+            to(OfferSentWorkflowFinish, NodeKind.Finish),
+          ],
         },
       ],
     });
     expect(offerPaths[0].steps).toEqual([
-      returns(ShortlistDto),
       to(DraftAgent, NodeKind.Agent),
-      returns(OfferDraftDto),
       to(ReviewerAgent, NodeKind.Agent),
     ]);
   });
 
   it("nests an onError inside a side path for a failed rollback", () => {
     expect(orderPaths[0].steps).toEqual([
-      returns(OrderRequestDto),
       to(ReserveStockAction, NodeKind.Action),
-      returns(StockReservationDto),
       to(ShipOrderAction, NodeKind.Action),
       {
         kind: StepKind.OnError,
@@ -259,7 +268,7 @@ describe("AC7: onError side paths (#272 examples 2a and 3)", () => {
           ],
         },
       },
-      returns(OrderShippedDto),
+      to(OrderAction, NodeKind.Action),
       to(OrderWorkflowFinish, NodeKind.Finish),
     ]);
     expect(orderPaths[0].source.node).toBe(OrderWorkflowStart);
@@ -269,7 +278,7 @@ describe("AC7: onError side paths (#272 examples 2a and 3)", () => {
 describe("AC7: a side path may start with any transition", () => {
   it("toFinish ends the side path at a finish", () => {
     const shipped = builder
-      .action(ShipOrderAction)
+      .onAction(ShipOrderAction)
       .onError(CarrierError, toFinish(OrderFailedWorkflowFinish));
 
     expect(shipped.steps).toEqual([
@@ -283,34 +292,28 @@ describe("AC7: a side path may start with any transition", () => {
 
   it("toAgent continues the side path through an agent", () => {
     const edited = builder
-      .agent(EditorAgent)
-      .onError(
-        VisitsLimitExceededError,
-        toAgent(DraftAgent).returns(OfferDraftDto).toAgent(ReviewerAgent),
-      );
+      .onAgent(EditorAgent)
+      .onError(VisitsLimitExceededError, toAgent(DraftAgent).toAgent(ReviewerAgent));
 
     expect(edited.steps[0]).toEqual({
       kind: StepKind.OnError,
       error: VisitsLimitExceededError,
       path: {
-        steps: [
-          to(DraftAgent, NodeKind.Agent),
-          returns(OfferDraftDto),
-          to(ReviewerAgent, NodeKind.Agent),
-        ],
+        steps: [to(DraftAgent, NodeKind.Agent), to(ReviewerAgent, NodeKind.Agent)],
       },
     });
   });
 
-  it("toRouter continues the side path with the router's chooseOne", () => {
-    const escalated = builder
-      .agent(EditorAgent)
-      .onError(
-        VisitsLimitExceededError,
-        toRouter(MainRouter).chooseOne(
-          route(ScoutAgent).returns(OpeningsDto).toFinish(ChatWorkflowFinish),
-        ),
-      );
+  it("toRouter continues the side path with the router's onRoute", () => {
+    const escalated = builder.onAgent(EditorAgent).onError(
+      VisitsLimitExceededError,
+      toRouter(MainRouter)
+        .onRoute(toAgent(ScoutAgent).toFinish(ChatWorkflowFinish))
+        .onRoute(
+          toAgent(ProfilerAgent).toOneOf([toRouter(MainRouter), toFinish(AskResumeWorkflowFinish)]),
+        )
+        .onRoute(toFinish(NoReplyWorkflowFinish)),
+    );
 
     expect(escalated.steps[0]).toEqual({
       kind: StepKind.OnError,
@@ -323,8 +326,23 @@ describe("AC7: a side path may start with any transition", () => {
             routes: [
               {
                 target: ScoutAgent,
-                path: { steps: [returns(OpeningsDto), to(ChatWorkflowFinish, NodeKind.Finish)] },
+                path: { steps: [to(ChatWorkflowFinish, NodeKind.Finish)] },
               },
+              {
+                target: ProfilerAgent,
+                path: {
+                  steps: [
+                    {
+                      kind: StepKind.OneOf,
+                      branches: [
+                        { steps: [to(MainRouter, NodeKind.Router)] },
+                        { steps: [to(AskResumeWorkflowFinish, NodeKind.Finish)] },
+                      ],
+                    },
+                  ],
+                },
+              },
+              { target: NoReplyWorkflowFinish, path: { steps: [] } },
             ],
           },
         ],
@@ -333,36 +351,19 @@ describe("AC7: a side path may start with any transition", () => {
   });
 });
 
-describe("#299 S54: one value per .returns, { about } in the flow", () => {
-  it("records { about } on returns — one class or a list of them — and on caseOf", () => {
-    const critiqued = start(OfferWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(DraftAgent)
-      .returns(OfferDraftDto, { about: ShortlistDto });
-    const both = callUntyped(builder.agent(DraftAgent), "returns", [
-      OfferDraftDto,
-      { about: [ShortlistDto, ReviewDto] },
-    ]);
-    const aboutCase = caseOf(ChangesRequestedDto, { about: OfferDraftDto }).toAgent(EditorAgent);
+describe("#299 S54: a branch holds its path only", () => {
+  it("records a .toOneOf([…]) as its side paths, no DTO in it (#1275a)", () => {
+    const edits = builder.toAgent(EditorAgent);
+    const sends = builder.toFinish(OfferFailedWorkflowFinish);
 
-    expect(critiqued.steps.at(-1)).toEqual(returns(OfferDraftDto, [ShortlistDto]));
-    expect(Reflect.get(both as object, "steps")).toEqual([
-      returns(OfferDraftDto, [ShortlistDto, ReviewDto]),
-    ]);
-    expect(
-      callUntyped(builder.agent(ReviewerAgent), "switch", [aboutCase, caseOf(DraftApprovedDto)]),
-    ).toEqual(
+    expect(builder.onAgent(ReviewerAgent).toOneOf([edits, sends])).toEqual(
       expect.objectContaining({
         steps: [
           {
-            kind: StepKind.Switch,
-            cases: [
-              {
-                dto: ChangesRequestedDto,
-                about: [OfferDraftDto],
-                path: { steps: [to(EditorAgent, NodeKind.Agent)] },
-              },
-              { dto: DraftApprovedDto, path: { steps: [] } },
+            kind: StepKind.OneOf,
+            branches: [
+              { steps: [to(EditorAgent, NodeKind.Agent)] },
+              { steps: [to(OfferFailedWorkflowFinish, NodeKind.Finish)] },
             ],
           },
         ],
@@ -370,75 +371,70 @@ describe("#299 S54: one value per .returns, { about } in the flow", () => {
     );
   });
 
-  it("several values are a chain of .returns, each one value with its wrappers", () => {
-    const listed = start(OfferWorkflowStart);
-    const values = [listOf(ShortlistDto), optional(OfferDraftDto)] as const;
-
-    const path = callUntyped(callUntyped(listed, "returns", [values[0]]) as object, "returns", [
-      values[1],
-    ]);
-
-    expect(Reflect.get(path as object, "steps")).toEqual([returns(values[0]), returns(values[1])]);
+  it("records an .onFinish as the finish class and its side path (#1275b)", () => {
+    expect(
+      callUntyped(builder.onAgent(ReviewerAgent), "onFinish", [
+        OfferFailedWorkflowFinish,
+        builder.toAgent(EditorAgent),
+      ]),
+    ).toEqual(
+      expect.objectContaining({
+        steps: [
+          {
+            kind: StepKind.OnFinish,
+            finish: OfferFailedWorkflowFinish,
+            path: { steps: [to(EditorAgent, NodeKind.Agent)] },
+          },
+        ],
+      }),
+    );
   });
 
-  it.each([
-    [
-      "two values in one .returns",
-      () => callUntyped(builder.agent(DraftAgent), "returns", [OfferDraftDto, ShortlistDto]),
-    ],
-    [
-      "three arguments",
-      () => callUntyped(builder.agent(DraftAgent), "returns", [OfferDraftDto, {}, ShortlistDto]),
-    ],
-    [
-      "{ about } on a oneOf",
-      () =>
-        callUntyped(builder.agent(ReviewerAgent), "returns", [
-          oneOf(ChangesRequestedDto, DraftApprovedDto),
-          { about: OfferDraftDto },
-        ]),
-    ],
-    [
-      "an empty { about }",
-      () => callUntyped(builder.agent(DraftAgent), "returns", [OfferDraftDto, { about: [] }]),
-    ],
-    [
-      "{ about } that is not a class",
-      () => callUntyped(builder.agent(DraftAgent), "returns", [OfferDraftDto, { about: "X" }]),
-    ],
-  ])("refuses %s from untyped code", (_name, misuse) => {
-    expect(misuse).toThrow(FlowSyntaxError);
+  it("`.returns` is gone: values are derived from the steps' declarations (#1270)", () => {
+    expect(() => callUntyped(builder.onAgent(DraftAgent), "returns", [OfferDraftDto])).toThrow(
+      TypeError,
+    );
+    expect(Object.keys(StepKind)).not.toContain("Returns");
   });
 });
 
 describe("paths are immutable", () => {
   it("a builder continued twice gives two independent paths, frozen", () => {
-    const shortlisted = start(OfferWorkflowStart).returns(ShortlistDto);
+    const shortlisted = onStart(OfferWorkflowStart);
 
     const drafted = shortlisted.toAgent(DraftAgent);
     const failed = shortlisted.toFinish(OfferFailedWorkflowFinish);
 
-    expect(shortlisted.steps).toHaveLength(1);
+    expect(shortlisted.steps).toHaveLength(0);
     expect(drafted.steps.at(-1)).toEqual(to(DraftAgent, NodeKind.Agent));
     expect(failed.steps.at(-1)).toEqual(to(OfferFailedWorkflowFinish, NodeKind.Finish));
     expect(Object.isFrozen(drafted.steps)).toBe(true);
-    expect(Reflect.get(route(EditorAgent), "source")).toBeUndefined();
+    expect(Reflect.get(toAgent(EditorAgent), "source")).toBeUndefined();
   });
 });
 
 describe("misuse from untyped code fails with FlowSyntaxError", () => {
-  const reviewer = builder.agent(ReviewerAgent);
-  const router = builder.router(MainRouter);
-  const edited = builder.agent(EditorAgent);
+  const reviewer = builder.onAgent(ReviewerAgent);
+  const router = builder.onRouter(MainRouter);
+  const edited = builder.onAgent(EditorAgent);
 
   it.each([
-    ["switch takes caseOf paths", () => callUntyped(reviewer, "switch", [route(DraftAgent)])],
-    ["chooseOne takes route paths", () => callUntyped(router, "chooseOne", [caseOf(ProfileDto)])],
     [
-      "onError takes a toAction side path",
-      () => callUntyped(edited, "onError", [CarrierError, route(DraftAgent)]),
+      "toOneOf takes an array of two or more side paths",
+      () => callUntyped(reviewer, "toOneOf", [[builder.toAgent(EditorAgent)]]),
     ],
-    ["returns takes DTO shapes", () => callUntyped(edited, "returns", ["OfferDraftDto"])],
+    [
+      "toOneOf takes side paths, not a flow path",
+      () =>
+        callUntyped(reviewer, "toOneOf", [
+          [builder.onAgent(ProfilerAgent), builder.toAgent(EditorAgent)],
+        ]),
+    ],
+    ["onRoute takes a side path", () => callUntyped(router, "onRoute", [{}])],
+    [
+      "onError takes a side path",
+      () => callUntyped(edited, "onError", [CarrierError, builder.onAgent(DraftAgent)]),
+    ],
   ])("%s", (_name, misuse) => {
     expect(misuse).toThrow(FlowSyntaxError);
   });
@@ -452,22 +448,21 @@ describe("AC4 / AC8: removed forms do not exist", () => {
   it("removed forms do not exist", () => {
     expect(Object.keys(builder).sort()).toEqual([
       "FlowSyntaxError",
-      "action",
-      "agent",
-      "anyOf",
-      "caseOf",
-      "group",
-      "question",
-      "route",
-      "router",
-      "start",
+      "forEachItem",
+      "inParallel",
+      "onAction",
+      "onAgent",
+      "onExternalTask",
+      "onRouter",
+      "onStart",
+      "onWorkflow",
+      "skip",
       "toAction",
       "toAgent",
+      "toExternalTask",
       "toFinish",
-      "toQuestion",
       "toRouter",
       "toWorkflow",
-      "workflow",
     ]);
   });
 

@@ -5,7 +5,7 @@ import { OfferLetterDto, OfferRequestDto } from "../../dto/offer.dto.js";
 @Agent({
   name: "offer-letter-agent",
   description: "Writes the offer letter",
-  promptUrls: ["./offer-letter.prompt.md"],
+  prompt: "./offer-letter.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: { request: OfferRequestDto },
   output: OfferLetterDto,

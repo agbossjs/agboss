@@ -1,5 +1,5 @@
 import type { Class } from "../components/injection.js";
-import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
+import { FileRepository } from "../infrastructure/file.repository.js";
 import { waitOf } from "../infrastructure/clock.js";
 import { ExecutionLeaseRepository } from "../infrastructure/execution-lease.repository.js";
 import type { FrameLease } from "../flow/context/frame.js";
@@ -22,11 +22,11 @@ export enum StoreCallKind {
   Long = "long",
 }
 
-/** The contract methods that prune a backlog: `delete…Before`. */
-export const MAINTENANCE_METHODS = /^delete\w*Before$/u;
+/** The contract methods that prune a backlog: `deleteExpired`, `deleteIdleThreads` and the older `delete…Before`. */
+export const MAINTENANCE_METHODS = /^(?:delete\w*Before|deleteExpired|deleteIdleThreads)$/u;
 
 /** The contracts whose every call is long: a file body is not a fencing event. */
-export const LONG_CONTRACTS: ReadonlySet<Class> = new Set<Class>([A2AFileRepository]);
+export const LONG_CONTRACTS: ReadonlySet<Class> = new Set<Class>([FileRepository]);
 
 /** What a call is bounded by, and the lease it hands over when it is leased. */
 export interface StoreCallLimit {

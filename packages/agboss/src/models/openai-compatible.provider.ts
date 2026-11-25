@@ -4,7 +4,7 @@ import type { ChatOpenAI } from "@langchain/openai";
 import { loadChatOpenAI, loadedChatOpenAI } from "./chat-openai.js";
 import { LateModel, LazyChatModel } from "./lazy-chat-model.js";
 import type { ModelCapabilities } from "./capabilities.js";
-import type { ChatRequest, ModelProviderHandler, ProviderConnection } from "./handler.js";
+import type { ChatRequest, ProviderConnection, ProviderHandler } from "./handler.js";
 import { ModelListCache, type ModelEntry } from "./model-list.js";
 import { CacheRetention, type PromptCaching } from "./prompt-caching.js";
 import type { Reasoning } from "./reasoning.js";
@@ -23,14 +23,15 @@ export interface CachingRequest {
 export const EPHEMERAL: CacheControl = { type: "ephemeral" };
 
 /**
- * Any OpenAI-compatible server. `TFields` types the provider's own request fields: a subclass sets
+ * What a driver's handler speaks to an OpenAI-compatible server (internal; the public form is
+ * `OpenAiCompatibleDriver`). `TFields` types its own request fields: a subclass sets
  * `override readonly requestFields: TFields = { … }` and a typo there is a compile error. Reasoning
  * and caching are sent in OpenAI's form (`reasoning_effort`, `prompt_cache_key`,
  * `prompt_cache_retention`); a subclass with another dialect overrides `reasoningFields` / `cachingPlan`.
  */
 export abstract class OpenAiCompatibleProvider<
   TFields extends object = NoRequestFields,
-> implements ModelProviderHandler {
+> implements ProviderHandler {
   abstract readonly requestFields: TFields;
   private readonly models = new ModelListCache();
 
@@ -45,7 +46,7 @@ export abstract class OpenAiCompatibleProvider<
         apiKey: connection.apiKey ?? "none",
         model: settings.model,
         temperature: settings.temperature,
-        ...(settings.maxTokens === TokenLimit.MODEL_MAX ? {} : { maxTokens: settings.maxTokens }),
+        ...(settings.maxTokens === TokenLimit.ModelMax ? {} : { maxTokens: settings.maxTokens }),
         // the provider's client owns timeouts and retries (its retry policy and circuit breaker)
         maxRetries: 0,
         // a streamed call (the run has `onStream`, #1005) reports its real usage, so budgets stay exact
@@ -59,7 +60,7 @@ export abstract class OpenAiCompatibleProvider<
               wireFetch(this.wirePlanOf(request), connection.fetch, connection.provider),
             ),
           ),
-          defaultHeaders: { "X-Title": "AGBoss" },
+          defaultHeaders: this.headersOf(connection),
         },
       });
     const loaded = loadedChatOpenAI();
@@ -69,7 +70,7 @@ export abstract class OpenAiCompatibleProvider<
       ls_model_type: "chat",
       ls_model_name: settings.model,
       ls_temperature: settings.temperature,
-      ...(settings.maxTokens === TokenLimit.MODEL_MAX ? {} : { ls_max_tokens: settings.maxTokens }),
+      ...(settings.maxTokens === TokenLimit.ModelMax ? {} : { ls_max_tokens: settings.maxTokens }),
     });
   }
 
@@ -87,6 +88,11 @@ export abstract class OpenAiCompatibleProvider<
         ...caching.fields,
       },
     };
+  }
+
+  /** Headers every request carries; a driver's own come from its connection. */
+  protected headersOf(connection: ProviderConnection): Readonly<Record<string, string>> {
+    return { "X-Title": "AGBoss", ...connection.headers };
   }
 
   /** The client's fetch as answers come back; a subclass may read more of them (OpenRouter's host). */

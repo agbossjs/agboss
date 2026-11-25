@@ -6,12 +6,13 @@
  * after the charge, the key forgotten, the order paid again — one payment (AC1); today's rule (every
  * error a failure, resent) charges twice (AC2).
  */
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   OutboundCallEventOutcome,
-  OutboundCallInFlightError,
   OutboundCallSendStatus,
   OutboundCallStatus,
+  OutboundRecovery,
 } from "../../src/index.js";
 import {
   FakeGatewayError,
@@ -44,7 +45,7 @@ const intentOf = async (frame: OutboundFrame) => {
       status: OutboundCallStatus.Pending,
       limit: 1000,
     })
-  ).calls;
+  ).items;
   return found;
 };
 
@@ -202,10 +203,10 @@ describe("#657: what counts as definite — only a true from isDefiniteFailure",
         seen.push(error);
         return isUnavailable(error);
       },
-      reconcile: () => {
+      recovery: OutboundRecovery.permanentLookup(() => {
         lookups += 1;
         throw new Error("never asked");
-      },
+      }),
     });
     const { key } = await frame.keyIn("execution-1");
     gateway.injectFault(FakeGatewayFault.FailBeforeProcessing);
@@ -236,7 +237,7 @@ describe("#657: an intent left pending by an error, under a business key", () =>
     await frame.leases.release(first.lease);
     const after = await frame.send(second.key, gatewayCharge(gateway));
 
-    expect(refused).toBeInstanceOf(OutboundCallInFlightError);
+    expect(refused).toBeInstanceOf(OutboundCallError.InFlight);
     expect(after.status).toBe(OutboundCallSendStatus.Reconciled);
     expect(gateway.payments).toHaveLength(1);
   });

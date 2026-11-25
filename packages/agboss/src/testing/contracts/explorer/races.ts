@@ -55,7 +55,7 @@ export const raceWorldOf = (race: ForcedRace): ExplorerWorld => ({
   kind: race.kind,
   instances: 2,
   treeOf: (instance) => (race.isTwoTrees === true && instance === 2 ? "tree-2" : "tree-1"),
-  skewOf: () => ClockSkew.none,
+  skewOf: () => ClockSkew.None,
 });
 
 /** An answer, or the fence's refusal as `"fenced"`; any other error is rethrown. */

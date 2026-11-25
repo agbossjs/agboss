@@ -7,21 +7,25 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import { ItemDto, ItemResultDto, SummaryDto } from "./fan-out.workflow.js";
 import {
   RemoteChecksWorkflowFinish,
   RemoteItemWorkflow,
   remoteLog,
+  RemoteChecksAction,
 } from "./remote-children.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #333 PR 3 — the limits of a tree whose children run on any instance: `remote-capped-workflow`
- * launches six children on any instance under `maxConcurrentExecutions: 2` (its tree's slots shared
+ * launches six children on any instance under `executionLimits: { maxConcurrency: 2 }` (its tree's slots shared
  * by the instances); `remote-spend-workflow` launches one child on any instance whose agent spends
  * (its spend written to the tree's counters where it runs, counted once).
  */
@@ -37,26 +41,22 @@ export class RemoteCappedWorkflowStart {}
 @Workflow({
   name: "remote-capped-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RemoteCappedWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(RemoteItemWorkflow, {
-        maxConcurrency: 6,
-        maxItems: 10,
-        placement: ChildPlacement.AnyInstance,
-      })
+    onStart(RemoteCappedWorkflowStart)
+      .forEachItem(toWorkflow(RemoteItemWorkflow), { takeFirst: 10, maxConcurrency: 6 })
       .join()
-      .returns(listOf(ItemResultDto))
+      .toAction(RemoteChecksAction)
       .toFinish(RemoteChecksWorkflowFinish),
   ],
-  maxConcurrentExecutions: 2,
+  executionLimits: { maxConcurrency: 2 },
 })
 export class RemoteCappedWorkflow {}
 
 @Agent({
   name: "remote-spender-agent",
   description: "Checks one item, at a cost",
-  prompt: "Check the item.",
+  prompt: inline("Check the item."),
   model: "moonshotai/kimi-k2.6",
   input: { item: ItemDto },
   output: ItemResultDto,
@@ -71,13 +71,13 @@ export class RemoteSpenderAgent {}
   output: SummaryDto,
 })
 export class RemoteHoldAction {
-  async execute(input: { readonly result: Produced<ItemResultDto, unknown> }): Promise<SummaryDto> {
+  async execute(input: { readonly result: Tracked<ItemResultDto> }): Promise<SummaryDto> {
     const { gate } = remoteLog;
     if (gate !== undefined) {
       remoteLog.waiting += 1;
       await gate;
     }
-    return { text: input.result.value.name };
+    return { text: input.result.name };
   }
 }
 
@@ -97,15 +97,14 @@ export class RemoteSpentWorkflowFinish {}
 
 /** The child: an agent that spends, then a step that may wait. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "remote-spender-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RemoteSpenderWorkflowStart)
-      .returns(ItemDto)
+    onStart(RemoteSpenderWorkflowStart)
       .toAgent(RemoteSpenderAgent)
-      .returns(ItemResultDto)
       .toAction(RemoteHoldAction)
-      .returns(SummaryDto)
       .toFinish(RemoteSpentWorkflowFinish),
   ],
 })
@@ -129,11 +128,10 @@ export class RemoteSpendCheckedWorkflowFinish {}
 @Workflow({
   name: "remote-spend-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RemoteSpendWorkflowStart)
-      .returns(ItemDto)
-      .toWorkflow(RemoteSpenderWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(SummaryDto)
+    onStart(RemoteSpendWorkflowStart)
+      .toWorkflow(RemoteSpenderWorkflow)
       .toFinish(RemoteSpendCheckedWorkflowFinish),
   ],
 })
@@ -142,6 +140,7 @@ export class RemoteSpendWorkflow {}
 /** On the built-in in-memory stores: the test's instances share the queue and the slots. */
 @Application({
   name: "remote-limits-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RemoteCappedWorkflow, RemoteSpendWorkflow],

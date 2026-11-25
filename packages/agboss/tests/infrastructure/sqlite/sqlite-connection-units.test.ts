@@ -274,7 +274,7 @@ describe("#1366: the connection of an instance", () => {
     "an environment that does not name the file (%j) is refused, saying what is missing",
     (environment, why) => {
       expect(() => connect(environment)).toThrow(
-        `the SQLite implementations need sqlitePath: string in the environment — ${why}; set it in the environment's file, or in a unit test pass it: testAction(X, { environment: { sqlitePath: ":memory:" } })`,
+        `the SQLite implementations need sqlitePath: string in the environment — ${why}; set it in the environment's file, or in a unit test pass it: testUnit(X, { environment: { sqlitePath: ":memory:" } })`,
       );
     },
   );
@@ -299,46 +299,17 @@ describe("#1366: the connection of an instance", () => {
     }).not.toThrow();
   });
 
-  it("creates a store's tables once per name: the same name again runs nothing", () => {
+  it("names the columns of a table, and none for a table the file lacks", () => {
     const connection = connect({ sqlitePath: ":memory:" });
-    const ddl = "CREATE TABLE notes (text TEXT NOT NULL);";
-
-    connection.ensureSchema("notes", ddl);
-    connection.ensureSchema("notes", ddl);
-    connection.ensureSchema("more", "CREATE TABLE more (n INTEGER);");
+    connection.database.exec("CREATE TABLE notes (text TEXT NOT NULL);");
 
     expect(connection.columnsOf("notes")).toEqual(["text"]);
-    expect(connection.columnsOf("more")).toEqual(["n"]);
     expect(connection.columnsOf("absent")).toEqual([]);
-  });
-
-  it("adds a column an older file lacks, once, and leaves one it has", () => {
-    const connection = connect({ sqlitePath: ":memory:" });
-    connection.ensureSchema("notes", "CREATE TABLE notes (text TEXT NOT NULL);");
-
-    connection.addColumn("notes", "pinned", "INTEGER NOT NULL DEFAULT 0");
-    connection.addColumn("notes", "pinned", "INTEGER NOT NULL DEFAULT 0");
-
-    expect(connection.columnsOf("notes")).toEqual(["text", "pinned"]);
-  });
-
-  it("names the unique indexes of a table by their columns, and no other", () => {
-    const connection = connect({ sqlitePath: ":memory:" });
-    connection.ensureSchema(
-      "places",
-      `CREATE TABLE places (a TEXT, b TEXT, c TEXT);
-       CREATE UNIQUE INDEX places_ab ON places (a, b);
-       CREATE UNIQUE INDEX places_c ON places (c);
-       CREATE INDEX places_b ON places (b);`,
-    );
-
-    expect([...connection.uniqueIndexesOf("places")].sort()).toEqual(["a,b", "c"]);
-    expect(connection.uniqueIndexesOf("absent")).toEqual([]);
   });
 
   it("runs work in a transaction of its own", () => {
     const connection = connect({ sqlitePath: ":memory:" });
-    connection.ensureSchema("notes", "CREATE TABLE notes (text TEXT NOT NULL);");
+    connection.database.exec("CREATE TABLE notes (text TEXT NOT NULL);");
 
     connection.transaction(() => {
       connection.database.prepare("INSERT INTO notes VALUES (?)").run("kept");
@@ -349,34 +320,11 @@ describe("#1366: the connection of an instance", () => {
 
   it("a row of a table the file has with a name that is no text is refused, not passed on", () => {
     const connection = connect({ sqlitePath: ":memory:" });
-    vi.spyOn(connection.database, "prepare").mockImplementation(((sql: string) => ({
-      all: () =>
-        sql.startsWith("PRAGMA index_list") ? [{ name: "index_a", unique: 1 }] : [{ name: 5 }],
+    vi.spyOn(connection.database, "prepare").mockImplementation((() => ({
+      all: () => [{ name: 5 }],
     })) as never);
 
     expect(() => connection.columnsOf("notes")).toThrow();
-    expect(() => connection.uniqueIndexesOf("notes")).toThrow();
-  });
-
-  it("a row of the index list whose flag is no number is refused, not read as no unique index", () => {
-    const connection = connect({ sqlitePath: ":memory:" });
-    vi.spyOn(connection.database, "prepare").mockImplementation((() => ({
-      all: () => [{ name: "index_a", unique: "1" }],
-    })) as never);
-
-    expect(() => connection.uniqueIndexesOf("notes")).toThrow();
-  });
-
-  it("an index that is unique but names a column that is none (an expression) is read as an empty name", () => {
-    const connection = connect({ sqlitePath: ":memory:" });
-    vi.spyOn(connection.database, "prepare").mockImplementation(((sql: string) => ({
-      all: () =>
-        sql.startsWith("PRAGMA index_list")
-          ? [{ name: "index_a", unique: 1, origin: "c" }]
-          : [{ name: null }, { name: "b" }],
-    })) as never);
-
-    expect(connection.uniqueIndexesOf("notes")).toEqual([",b"]);
   });
 });
 

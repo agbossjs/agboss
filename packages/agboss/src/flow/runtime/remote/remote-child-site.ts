@@ -1,7 +1,7 @@
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { RunContext } from "../../../core/run-context.js";
 import type { GraphDeps } from "../../../graph/deps.js";
-import { ChildPlacement } from "../../child-placement.js";
+import { isQueued } from "../../child-placement.js";
 import { rootFactsOf, type Frame } from "../../context/frame.js";
 import type { EndedChild } from "../child-exit.js";
 import type { ChildEntered } from "../child-identity.js";
@@ -21,7 +21,7 @@ export interface RemoteEntry {
 }
 
 /**
- * The queue site of a child launched with `placement: ChildPlacement.AnyInstance`, when it can run
+ * The queue site of a child launched with a queued `placement`, when it can run
  * elsewhere: its own thread (ADR-0022), a shared checkpointer and the instance's queue.
  */
 export function remoteSiteOf(
@@ -32,7 +32,8 @@ export function remoteSiteOf(
   const { frame, entered, run, initial, ended, isRecursive, checkpointer } = entry;
   const { thread } = entered;
   const children = deps.remoteChildren;
-  if (node.placement !== ChildPlacement.AnyInstance) return undefined;
+  const { placement } = node;
+  if (placement === undefined || !isQueued(placement)) return undefined;
   if (children === undefined || checkpointer === undefined || thread === undefined)
     return undefined;
   const { identity } = entered;
@@ -48,6 +49,7 @@ export function remoteSiteOf(
     depth: ended.depth,
     node: node.id,
     isRecursive,
+    placement,
     run: {
       thread,
       threadId: run.threadId,

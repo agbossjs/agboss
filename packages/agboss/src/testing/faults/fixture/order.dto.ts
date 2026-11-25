@@ -1,4 +1,4 @@
-import { Flag, ListOf, OneOf, Text } from "../../../dto/index.js";
+import { Bool, List, Enum, Text } from "../../../dto/index.js";
 
 /**
  * An order the fault fixture moves: its id, whether its charge declines for real, and how its
@@ -8,19 +8,19 @@ export class FaultOrderDto {
   @Text({ prompt: "the order's id" })
   orderId!: string;
 
-  @Flag({ prompt: "whether its charge declines" })
+  @Bool({ prompt: "whether its charge declines" })
   decline!: boolean;
 
-  @OneOf({
-    prompt: "how its payment talks to the gateway",
-    values: [
+  @Enum(
+    [
       "lookup",
       "replay-only",
       "replay-only-trusted-as-lookup",
       "every-error-definite",
       "unknown-as-not-sent",
     ],
-  })
+    { prompt: "how its payment talks to the gateway" },
+  )
   payment!:
     | "lookup"
     | "replay-only"
@@ -34,7 +34,7 @@ export class FaultReservationDto {
   @Text({ prompt: "the order's id" })
   orderId!: string;
 
-  @Flag({ prompt: "whether its charge declines" })
+  @Bool({ prompt: "whether its charge declines" })
   decline!: boolean;
 
   @Text({ prompt: "the reservation's id" })
@@ -64,6 +64,6 @@ export class FaultPaymentDto {
 
 /** A batch's outcome: the orders paid, in order. */
 export class FaultBatchDto {
-  @ListOf(Text, { prompt: "the orders paid" })
+  @List(Text, { prompt: "the orders paid" })
   orderIds!: string[];
 }

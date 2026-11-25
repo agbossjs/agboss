@@ -24,7 +24,7 @@ describe("#340: off-path undo actions in the generated tables", () => {
   it("an undo only the framework runs gets its declared fields", () => {
     const tables = tablesOf([analysed(UndoWorkflow)], names());
 
-    expect(tables.inputs.get("release-room-action")).toBe("{ room: Produced<RoomDto, unknown> }");
+    expect(tables.inputs.get("release-room-action")).toBe("{ room: Tracked<RoomDto> }");
     expect(tables.outputs.get("release-room-action")).toBe("NoOutput");
   });
 
@@ -32,7 +32,7 @@ describe("#340: off-path undo actions in the generated tables", () => {
     const tables = tablesOf([analysed(UndoWorkflow), analysed(UndoPathWorkflow)], names());
 
     expect(tables.inputs.get("release-room-action")).toBe(
-      "{ room: Produced<RoomDto, typeof ReserveRoomAction> }",
+      "{ room: Tracked<RoomDto, typeof ReserveRoomAction> }",
     );
   });
 });

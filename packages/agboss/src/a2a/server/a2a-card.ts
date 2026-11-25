@@ -2,18 +2,18 @@ import { createHash } from "node:crypto";
 import { AgentCard, type AgentExtension, type SecurityScheme } from "@a2a-js/sdk";
 import { isoDurationOf } from "../../mesh/mesh-durations.js";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../a2a-extension-uris.js";
-import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
-import { A2ASecuritySchemeKind, type A2ASecurityScheme } from "../a2a-security.js";
+import { skillOptionsOf, type A2AEndpointMeta } from "../a2a-endpoint.decorator.js";
+import { HttpSecuritySchemeKind, type HttpSecurityScheme } from "../../http/http-security.js";
 import { cardSkillInputOf, cardSkillOutputsOf } from "./a2a-card-files.js";
 import { A2AMediaType, type ServedSkill } from "./a2a-skills.js";
 
 /**
  * The Agent Card of a listener (#808, spec §4.4 and §8): served at
- * `<base>/.well-known/agent-card.json`, built once from the `@A2AExpose`, its skills and the
+ * `<base>/.well-known/agent-card.json`, built once from the `@A2AEndpoint`, its skills and the
  * listener's public URL — the JSON-RPC 1.0 binding only, streaming, no push notifications, the
  * skills extension with each skill's schemas, the mesh extension (#810: how long a `messageId` is
  * deduplicated, what makes the listener an AGBoss peer to a client), and the declared security
- * schemes.
+ * schemes of the listener's `@HttpAuthenticator`.
  */
 
 /** The A2A version this listener serves. */
@@ -24,23 +24,27 @@ export const AGENT_CARD_PATH = "/.well-known/agent-card.json";
 
 /** What a card is built from. */
 export interface AgentCardSource {
-  readonly expose: A2AExposeOptions;
+  readonly expose: A2AEndpointMeta;
   readonly skills: readonly ServedSkill[];
   readonly application: string;
   /** Where the JSON-RPC endpoint is: `publicUrl` + `base`. */
   readonly url: string;
   /**
    * How long a `messageId` is deduplicated (#810): a finished task, with its messages, is kept this
-   * long (`@Application({ retention: { a2aTasks } })`); an unfinished one never goes.
+   * long (the endpoint's `ttl.tasks`); an unfinished one never goes.
    */
   readonly idempotencyRetention: number;
   /**
    * How long a direct-reply skill's `messageId` is deduplicated (#860): its reply is kept this long
-   * (`@Application({ retention: { a2aMessages } })`) — what a client's resend of one relies on.
+   * (the endpoint's `ttl.messages`) — what a client's resend of one relies on.
    */
   readonly messageIdempotencyRetention: number;
   /** When the card was made (the listener's first request): its `Last-Modified` (#811). */
   readonly madeAt: Date;
+  /** Who runs the agent (`a2aHttpListener({ provider })`). */
+  readonly provider?: { readonly organization: string; readonly url: string };
+  /** How callers authenticate (`@HttpAuthenticator({ schemes })`): the card's `securitySchemes`. */
+  readonly schemes: readonly HttpSecurityScheme[];
 }
 
 /** The card as served: its JSON text, its entity tag and when it was made (an HTTP date). */
@@ -51,23 +55,23 @@ export interface ServedAgentCard {
   readonly lastModified: string;
 }
 
-function schemeOf(scheme: A2ASecurityScheme): SecurityScheme {
+function schemeOf(scheme: HttpSecurityScheme): SecurityScheme {
   switch (scheme.kind) {
-    case A2ASecuritySchemeKind.Bearer:
+    case HttpSecuritySchemeKind.Bearer:
       return {
         scheme: {
           $case: "httpAuthSecurityScheme",
           value: { description: "", scheme: "Bearer", bearerFormat: scheme.bearerFormat ?? "" },
         },
       };
-    case A2ASecuritySchemeKind.ApiKey:
+    case HttpSecuritySchemeKind.ApiKey:
       return {
         scheme: {
           $case: "apiKeySecurityScheme",
           value: { description: "", location: "header", name: scheme.header },
         },
       };
-    case A2ASecuritySchemeKind.OAuth2ClientCredentials:
+    case HttpSecuritySchemeKind.OAuth2ClientCredentials:
       return {
         scheme: {
           $case: "oauth2SecurityScheme",
@@ -83,7 +87,7 @@ function schemeOf(scheme: A2ASecurityScheme): SecurityScheme {
           },
         },
       };
-    case A2ASecuritySchemeKind.MutualTls:
+    case HttpSecuritySchemeKind.MutualTls:
       return { scheme: { $case: "mtlsSecurityScheme", value: { description: "" } } };
   }
 }
@@ -99,7 +103,7 @@ const inputModesOf = (skill: ServedSkill): string[] =>
 
 /**
  * What a skill's finishes give: a file finish the media types its files may be (#859; #904: what
- * `A2AFiles.save` takes, the application's), its data JSON.
+ * `Files.save` takes, the application's), its data JSON.
  */
 const outputModesOf = (skill: ServedSkill): string[] =>
   unique(
@@ -149,7 +153,7 @@ const extensionsOf = (source: AgentCardSource): AgentExtension[] => [
 /** The card of a listener. */
 export function agentCardOf(source: AgentCardSource): ServedAgentCard {
   const { expose, skills, application } = source;
-  const security = expose.security ?? [];
+  const security = source.schemes;
   const card: AgentCard = {
     name: expose.name,
     description: expose.description,
@@ -161,7 +165,7 @@ export function agentCardOf(source: AgentCardSource): ServedAgentCard {
         protocolVersion: A2A_VERSION,
       },
     ],
-    provider: expose.provider === undefined ? undefined : { ...expose.provider },
+    provider: source.provider === undefined ? undefined : { ...source.provider },
     version: expose.version,
     capabilities: {
       streaming: true,
@@ -178,8 +182,8 @@ export function agentCardOf(source: AgentCardSource): ServedAgentCard {
       id: skill.id,
       name: skill.id,
       description: skill.description,
-      tags: [...(expose.skills?.[skill.id]?.tags ?? [application])],
-      examples: [...(expose.skills?.[skill.id]?.examples ?? [])],
+      tags: [...(skillOptionsOf(expose, skill.id)?.tags ?? [application])],
+      examples: [...(skillOptionsOf(expose, skill.id)?.examples ?? [])],
       inputModes: inputModesOf(skill),
       outputModes: outputModesOf(skill),
       securityRequirements: [],

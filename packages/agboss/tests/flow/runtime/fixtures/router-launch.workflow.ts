@@ -2,14 +2,14 @@ import {
   Agent,
   DecidedBy,
   EmptyEnvironment,
-  FailurePolicy,
   optional,
   Router,
-  SpawnPolicy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
 import { Application } from "../../../../src/application/application.js";
@@ -29,7 +29,9 @@ import {
   RefundPolicyAgent,
 } from "../../fixtures/launch.fixture.js";
 import { RefundPolicyDto } from "../../fixtures/launch-dtos.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart, skip, toAgent, toRouter } from "../../../helpers/flow.js";
+import { StepError } from "../../../../src/core/error-families/step-errors.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #273 PR 2 — routers before a launch, beside the issue's help desk: a chat-model router whose
@@ -50,15 +52,11 @@ export class PickyWorkflowStart {}
   description: "Picks who answers, on a chat model",
   decidedBy: DecidedBy.Model,
   model: "moonshotai/kimi-k2.6",
-  prompt: "Pick everyone needed for the customer's message.",
+  prompt: inline("Pick everyone needed for the customer's message."),
   input: { message: WorkflowStartTextDto },
   routes: [
-    {
-      target: RefundPolicyAgent,
-      spawn: SpawnPolicy.OnDemand,
-      prompt: "The message is about returns",
-    },
-    { target: LoyaltyOfferAgent, spawn: SpawnPolicy.OnDemand, prompt: "The customer is loyal" },
+    { target: RefundPolicyAgent, prompt: "The message is about returns" },
+    { target: LoyaltyOfferAgent, prompt: "The customer is loyal" },
   ],
 })
 export class PickyRouter {}
@@ -66,7 +64,7 @@ export class PickyRouter {}
 @Agent({
   name: "picky-answer-agent",
   description: "Answers from what was launched",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -87,16 +85,15 @@ export class PickyWorkflowFinish {}
 @Workflow({
   name: "picky-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PickyWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toRouter(PickyRouter)
-      .toParallelAgents(RefundPolicyAgent, LoyaltyOfferAgent)
+    onStart(PickyWorkflowStart)
+      .inParallel([
+        toRouter(PickyRouter)
+          .chooseMany([toAgent(RefundPolicyAgent), toAgent(LoyaltyOfferAgent)]),
+      ])
       .join()
-      .returns(optional(RefundPolicyDto))
-      .returns(optional(LoyaltyOfferDto))
       .toAgent(PickyAnswerAgent)
-      .returns(CustomerReplyDto)
       .toFinish(PickyWorkflowFinish),
   ],
 })
@@ -104,6 +101,7 @@ export class PickyWorkflow {}
 
 @Application({
   name: "picky-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PickyWorkflow],
@@ -124,14 +122,11 @@ export class StrictWorkflowStart {}
   description: "Answers as told",
   decidedBy: DecidedBy.Code,
   input: { message: WorkflowStartTextDto },
-  routes: [
-    { target: RefundPolicyAgent },
-    { target: LoyaltyOfferAgent, failure: FailurePolicy.Skip },
-  ],
+  routes: [RefundPolicyAgent, LoyaltyOfferAgent],
 })
 export class StrictRouter {
-  route(input: { readonly message: Produced<WorkflowStartTextDto, unknown> }): unknown {
-    switch (input.message.value.text) {
+  route(input: { readonly message: Tracked<WorkflowStartTextDto> }): unknown {
+    switch (input.message.text) {
       case "both":
         return [LoyaltyOfferAgent, RefundPolicyAgent];
       case "one":
@@ -147,16 +142,19 @@ export class StrictRouter {
 @Workflow({
   name: "strict-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StrictWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toRouter(StrictRouter)
-      .toParallelAgents(RefundPolicyAgent, LoyaltyOfferAgent)
+    onStart(StrictWorkflowStart)
+      .inParallel([
+        toRouter(StrictRouter)
+          .chooseMany([
+            toAgent(RefundPolicyAgent),
+            toAgent(LoyaltyOfferAgent)
+              .onError(StepError, skip()),
+          ]),
+      ])
       .join()
-      .returns(optional(RefundPolicyDto))
-      .returns(optional(LoyaltyOfferDto))
       .toAgent(PickyAnswerAgent)
-      .returns(CustomerReplyDto)
       .toFinish(PickyWorkflowFinish),
   ],
 })
@@ -164,6 +162,7 @@ export class StrictWorkflow {}
 
 @Application({
   name: "strict-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [StrictWorkflow],
@@ -181,7 +180,7 @@ export class BudgetDeskWorkflowStart {}
 @Agent({
   name: "budget-answer-agent",
   description: "Writes the reply from the branches' results",
-  prompt: "Write the reply.",
+  prompt: inline("Write the reply."),
   model: "moonshotai/kimi-k2.6",
   input: {
     order: OrderStatusDto,
@@ -196,19 +195,21 @@ export class BudgetAnswerAgent {}
 @Workflow({
   name: "budget-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(BudgetDeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toRouter(HelpDeskRouter)
-      .toParallelAgents(OrderLookupAgent, RefundPolicyAgent, LoyaltyOfferAgent, {
-        maxConcurrency: 1,
-      })
+    onStart(BudgetDeskWorkflowStart)
+      .inParallel(
+        [
+          toAgent(OrderLookupAgent),
+          toAgent(LoyaltyOfferAgent)
+            .onError(StepError, skip()),
+          toRouter(HelpDeskRouter)
+            .chooseMany([toAgent(RefundPolicyAgent)]),
+        ],
+        { maxConcurrency: 1 },
+      )
       .join()
-      .returns(OrderStatusDto)
-      .returns(optional(RefundPolicyDto))
-      .returns(optional(LoyaltyOfferDto))
       .toAgent(BudgetAnswerAgent)
-      .returns(CustomerReplyDto)
       .toFinish(HelpDeskWorkflowFinish),
   ],
 })
@@ -224,6 +225,7 @@ export class BudgetDeskExecutionBudget implements BudgetHandler {
 
 @Application({
   name: "budget-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BudgetDeskWorkflow],

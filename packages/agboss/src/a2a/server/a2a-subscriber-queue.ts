@@ -1,5 +1,5 @@
 import type { A2ATaskRecord } from "../../infrastructure/a2a-task.repository.js";
-import type { ExecutionStreamEvent, StreamStep } from "../../run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent, type StreamStep } from "../../run/types.js";
 import type { A2AServerParts } from "./a2a-server-parts.js";
 import { kilobytes, type Bytes } from "../../units/index.js";
 
@@ -40,7 +40,7 @@ function piecesOf(text: string): string[] {
 }
 
 const textBytesOf = (event: ExecutionStreamEvent): number =>
-  event.kind === "textDelta" ? Buffer.byteLength(event.delta) : 0;
+  event.kind === StreamEventKind.TextDelta ? Buffer.byteLength(event.delta) : 0;
 
 const sameStep = (left: StreamStep, right: StreamStep): boolean =>
   left.agent === right.agent &&
@@ -68,7 +68,7 @@ export class SubscriberQueue {
   push(event: ExecutionStreamEvent): boolean {
     if (this.#dropped) return false;
     const waiting = this.#events.length;
-    if (event.kind === "textDelta") {
+    if (event.kind === StreamEventKind.TextDelta) {
       for (const delta of piecesOf(event.delta)) this.#addText({ ...event, delta });
     } else {
       this.#events.push(event);
@@ -88,10 +88,10 @@ export class SubscriberQueue {
   }
 
   /** One chunk of text: joined to the chunk before when that is of its step and both fit one chunk. */
-  #addText(event: ExecutionStreamEvent & { readonly kind: "textDelta" }): void {
+  #addText(event: ExecutionStreamEvent & { readonly kind: StreamEventKind.TextDelta }): void {
     const last = this.#events.at(-1);
     if (
-      last?.kind === "textDelta" &&
+      last?.kind === StreamEventKind.TextDelta &&
       sameStep(last.step, event.step) &&
       last.delta.length + event.delta.length <= SUBSCRIBER_CHUNK_CHARS
     ) {

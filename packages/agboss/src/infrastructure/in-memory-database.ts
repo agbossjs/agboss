@@ -1,15 +1,18 @@
 import { ExecutionCancelFencedError } from "../app/lease-lost.js";
 import { InjectionToken } from "../components/injection.js";
+import { InterruptMode } from "../app/interrupt-types.js";
+import { ExecutionPauseFencedError, ExecutionStopFencedError } from "../app/lease-stopped.js";
 import type { EffectKey } from "./effect-key.js";
 import { cancelTreeOf } from "./issued-keys.js";
-import { FencedEffectSettings, OutboundCallSettings } from "./fenced-effect-settings.js";
+import { OutboundMasking } from "../app/outbound-masking.js";
 import type { StoredKeyFacts } from "./fenced-effect-key.js";
+import type { ThreadStatusTransition } from "../turns/index.js";
 import type { ExecutionLease } from "./execution-lease.repository.js";
 import type { ExecutionTreeValue } from "./execution-tree.repository.js";
 import type { RateLimitLease } from "./rate-limit.repository.js";
 import type { MeshRequestRecord } from "./mesh-request.repository.js";
 import type { A2AMessageRecord, A2ATaskRecord } from "./a2a-task.repository.js";
-import type { NewA2AFile } from "./a2a-file.repository.js";
+import type { FileOwnerCompletion, NewFile } from "./file.repository.js";
 import type { A2ADirectMessageRecord } from "./a2a-direct-message.repository.js";
 import type { ExecutionHistoryRecord } from "./execution-history.repository.js";
 import type { QueuedChildExecution } from "./child-execution-queue.repository.js";
@@ -30,6 +33,8 @@ export class InMemoryDatabase {
   readonly executionLeases = new Map<string, ExecutionLeaseRow>();
   /** Every execution id handed out (#591), by the id alone: never removed, never given twice. */
   readonly executionIds = new Set<string>();
+  /** The status history of each thread (#1341d), by `tenantId` + `threadId`, oldest first. */
+  readonly statusTransitions = new Map<string, ThreadStatusTransition[]>();
   /** The keys of each tree, by `tenantId` + `rootExecutionId`. */
   readonly executionTrees = new Map<string, Map<string, ExecutionTreeValue>>();
   /** The slots taken under each key. */
@@ -47,7 +52,9 @@ export class InMemoryDatabase {
   /** The direct A2A messages by `tenantId` + `ownerId` + `messageId` (#860). */
   readonly a2aDirectMessages = new Map<string, A2ADirectMessageRecord>();
   /** The A2A files by `tenantId` + `fileId` (#859), each kept as saved. */
-  readonly a2aFiles = new Map<string, NewA2AFile>();
+  readonly a2aFiles = new Map<string, NewFile>();
+  /** The owners of files whose execution has ended, by `tenantId` + `ownerId` (#1316). */
+  readonly fileCompletions = new Map<string, FileOwnerCompletion>();
   /** The kept root executions by `tenantId` + `executionId` (#401 PR 1). */
   readonly executionHistory = new Map<string, ExecutionHistoryRecord>();
   /** The queued children by `tenantId` + `executionId` (#333 PR 2), in the order queued. */
@@ -69,6 +76,12 @@ export class InMemoryDatabase {
   readonly outboundCallOrder = new Map<string, number>();
   /** The highest place given in that order (#825): counted up here, never given again. */
   readonly outboundCallPlaces = { highest: 0 };
+  /**
+   * When each ended intent may be removed (ms; `null` = never), by its row key: set when it ended
+   * (`markCompleted` / `markFailed`), cleared when a new attempt claims it. A pending intent has no
+   * entry — it is never removed.
+   */
+  readonly outboundCallExpiries = new Map<string, number | null>();
 }
 
 /**
@@ -78,43 +91,95 @@ export class InMemoryDatabase {
  * an effect, after the key's lookup (a stored result replays).
  */
 export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey): void {
-  if (key.isCompensation === true) return;
   const tree = cancelTreeOf(key);
   const row = database.executionLeases.get(treeKeyOf(tree.tenantId, tree.rootExecutionId));
+  checkFence(row, key, tree.rootExecutionId);
+  // a cancelled tree's undo runs; a stopped one (`Immediate`) has none, and nothing of it is written
+  if (row?.cancelRequestedAt === undefined && row?.stopMode === InterruptMode.Immediate)
+    throw ExecutionStopFencedError.of(key);
+  if (key.isCompensation === true) return;
   if (row?.cancelRequestedAt !== undefined) throw ExecutionCancelFencedError.of(key);
 }
 
 /**
- * The fenced effects' retention: their results and marks stored before `before` (ms). A tree's
- * cancel mark is never pruned (#1117): it is on the lease row, kept as the lease rows are.
+ * A pause fenced the root lease through a token (#1341c): its holder at or below it is stale, and so
+ * is every child of the tree while the root's current token is the fenced one — a child's own token
+ * says nothing of the pause, the root row (`key.rootExecutionId`) is where every write of the tree
+ * looks. A lease taken at a higher token (an unpause, a cancel's unwind) is not fenced.
  */
-export function prunedFencedBefore(database: InMemoryDatabase, before: number): void {
-  const { fencedEffectMarks: marks, fencedEffectResults: results } = database;
-  for (const [row, stored] of results) if (stored.storedAt < before) results.delete(row);
-  for (const [scope, mark] of marks) if (mark.storedAt < before) marks.delete(scope);
+function checkFence(row: ExecutionLeaseRow | undefined, key: EffectKey, root: string): void {
+  const fenced = row?.fencedThroughToken;
+  if (row === undefined || fenced === undefined) return;
+  const isStale = key.leaseExecutionId === root ? key.token <= fenced : fenced >= row.lease.token;
+  if (isStale) throw ExecutionPauseFencedError.of(key);
 }
 
-/** The outbound calls' retention: the intents ended before `before` (ms); no cancel mark (#1117). */
-export function prunedCallsBefore(database: InMemoryDatabase, before: number): void {
-  for (const [row, found] of database.outboundCalls)
-    // a pending row has no `endedAt`: an invalid date, whose NaN is never `< before`
-    if (new Date(found.endedAt ?? Number.NaN).getTime() < before) {
+/** Whether an expiry (ms; `null` = never) has come at `now`: `null` never has. */
+const isDue = (expiresAt: number | null | undefined, now: number): boolean =>
+  expiresAt !== undefined && expiresAt !== null && expiresAt <= now;
+
+/**
+ * The later of two expiries (ms; `null` = never, which is later than any date): what a scope's
+ * mark keeps when another key is written under it.
+ */
+export const laterExpiry = (
+  known: number | null | undefined,
+  given: number | null,
+): number | null =>
+  known === undefined ? given : known === null || given === null ? null : Math.max(known, given);
+
+/**
+ * The fenced effects' expiry: their results and marks whose `expiresAt` has come at `now` (ms); the
+ * rows removed. A tree's cancel mark is never pruned (#1117): it is on the lease row, kept as the
+ * lease rows are.
+ */
+export function prunedFencedAt(database: InMemoryDatabase, now: number): number {
+  const { fencedEffectMarks: marks, fencedEffectResults: results } = database;
+  let removed = 0;
+  for (const [row, stored] of results)
+    if (isDue(stored.expiresAt, now)) {
+      results.delete(row);
+      removed += 1;
+    }
+  for (const [scope, mark] of marks)
+    if (isDue(mark.expiresAt, now)) {
+      marks.delete(scope);
+      removed += 1;
+    }
+  return removed;
+}
+
+/**
+ * The outbound calls' expiry: the intents that ended and whose `expiresAt` has come at `now` (ms);
+ * never a pending one (it has none), no cancel mark (#1117). The intents removed.
+ */
+export function prunedCallsAt(database: InMemoryDatabase, now: number): number {
+  let removed = 0;
+  for (const [row, expiresAt] of database.outboundCallExpiries)
+    if (isDue(expiresAt, now)) {
       database.outboundCalls.delete(row);
       database.outboundCallOrder.delete(row);
+      database.outboundCallExpiries.delete(row);
+      removed += 1;
     }
+  return removed;
 }
 
-/** A scope's high-water mark: the highest token written under it, when (the `Clock`'s ms). */
+/** A scope's high-water mark: the highest token written under it, when (the `Clock`'s ms), and until when. */
 export interface FencedEffectMarkRow {
   readonly highestToken: number;
   readonly storedAt: number;
+  /** The latest expiry of every key written under the scope (ms), `null` = never. */
+  readonly expiresAt: number | null;
 }
 
-/** A stored fenced-effect result: its JSON, the token it was written under, when. */
+/** A stored fenced-effect result: its JSON, the token it was written under, when, and until when. */
 export interface FencedEffectResultRow extends StoredKeyFacts {
   readonly scopeKey: string;
   readonly token: number;
   readonly storedAt: number;
+  /** When it may be removed (ms), `null` = never. */
+  readonly expiresAt: number | null;
   readonly result: string;
 }
 
@@ -143,6 +208,19 @@ export interface ExecutionLeaseRow {
    * cancel before the tree's first acquire writes a seed row: token 0, released, never held.
    */
   readonly cancelRequestedAt?: number;
+  /**
+   * How the tree's stop was requested (#1341b, `app.stop`): kept by every later write of the row like
+   * the cancel mark, escalated from `AfterStep` to `Immediate`, never lowered; `Immediate` fences the
+   * tree's new writes (`checkInMemoryCancel`).
+   */
+  readonly stopMode?: InterruptMode;
+  /** Paused from outside (#1341c, `app.pause`), with its reason: set by `requestPause`, lifted by `unpause`. */
+  readonly externalPause?: { readonly reason?: string; readonly mode: InterruptMode };
+  /**
+   * The highest token of the root lease an `Immediate` pause fenced (#1341c): only ever raised
+   * (`GREATEST`), never cleared; a write at that token or below is refused (`checkInMemoryCancel`).
+   */
+  readonly fencedThroughToken?: number;
 }
 
 /** The row key of a tree: its tenant and its root execution (`\u0000` never occurs in an id). */
@@ -174,11 +252,6 @@ export const IN_MEMORY_DATABASE = new InjectionToken<InMemoryDatabase>("IN_MEMOR
 
 /**
  * All of them, as the core values every container of an application has — with the application's
- * `FencedEffectSettings` (#500) and `OutboundCallSettings` (#505), public tokens a store of a
- * project injects.
+ * `OutboundMasking` (#505): whether a call's request is stored only masked.
  */
-export const INFRASTRUCTURE_TOKENS = [
-  IN_MEMORY_DATABASE,
-  FencedEffectSettings,
-  OutboundCallSettings,
-];
+export const INFRASTRUCTURE_TOKENS = [IN_MEMORY_DATABASE, OutboundMasking];

@@ -3,9 +3,11 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Action,
+  Ttl,
 } from "../../../../src/index.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../../helpers/flow.js";
 import { GroupDoneDto, TaskDoneDto, TaskDto, TaskWorkflow } from "./tree-task.workflow.js";
 
 /** #264 PR 2 — trees of tasks under a cap of 2, a cap of 1, and a launch stricter than the cap. */
@@ -17,32 +19,39 @@ import { GroupDoneDto, TaskDoneDto, TaskDto, TaskWorkflow } from "./tree-task.wo
 })
 export class BatchWorkflowStart {}
 
-@WorkflowFinish({
-  name: "batch-done-workflow-finish",
+@Action({
+  name: "batch-done-action",
   description: "Every task done",
   input: { done: listOf(TaskDoneDto) },
   output: GroupDoneDto,
 })
-export class BatchDoneWorkflowFinish {
-  finish(input: { readonly done: readonly Produced<TaskDoneDto, unknown>[] }): GroupDoneDto {
-    const names = input.done.map((task) => task.value.name);
+export class BatchDoneAction {
+  async execute(input: { readonly done: readonly Tracked<TaskDoneDto>[] }): Promise<GroupDoneDto> {
+    const names = input.done.map((task) => task.name);
     return { name: names.join(", ") };
   }
 }
+
+@WorkflowFinish({
+  name: "batch-done-workflow-finish",
+  description: "Every task done",
+  output: GroupDoneDto,
+})
+export class BatchDoneWorkflowFinish {}
 
 /** Five tasks may start at once; two of the tree work at once. */
 @Workflow({
   name: "batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(BatchWorkflowStart)
-      .returns(listOf(TaskDto))
-      .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 5, maxItems: 10 })
+    onStart(BatchWorkflowStart)
+      .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 10, maxConcurrency: 5 })
       .join()
-      .returns(listOf(TaskDoneDto))
+      .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 2,
+  executionLimits: { maxConcurrency: 2 },
 })
 export class BatchWorkflow {}
 
@@ -57,12 +66,12 @@ export class SerialBatchWorkflowStart {}
 @Workflow({
   name: "serial-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SerialBatchWorkflowStart)
-      .returns(listOf(TaskDto))
-      .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 1, maxItems: 10 })
+    onStart(SerialBatchWorkflowStart)
+      .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 10, maxConcurrency: 1 })
       .join()
-      .returns(listOf(TaskDoneDto))
+      .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
 })
@@ -79,14 +88,14 @@ export class SingleFileWorkflowStart {}
 @Workflow({
   name: "single-file-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SingleFileWorkflowStart)
-      .returns(listOf(TaskDto))
-      .toParallelWorkflows(TaskWorkflow, { maxConcurrency: 5, maxItems: 10 })
+    onStart(SingleFileWorkflowStart)
+      .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 10, maxConcurrency: 5 })
       .join()
-      .returns(listOf(TaskDoneDto))
+      .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 1,
+  executionLimits: { maxConcurrency: 1 },
 })
 export class SingleFileWorkflow {}

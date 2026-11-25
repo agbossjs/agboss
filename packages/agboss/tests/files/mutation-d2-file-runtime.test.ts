@@ -1,10 +1,16 @@
+import { hours } from "../../src/units/index.js";
 /** #1269: what an agent's loop reads its files with: the execution's read context, its thread owners, its transcriber and redactor. */
 import { AIMessage, type BaseMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { appFileSlotsOf } from "../../src/a2a/files/a2a-file-pool.js";
 import { callerKeyOf, tenantKeyOf } from "../../src/a2a/files/a2a-file-slots.js";
-import { A2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
-import { DEFAULT_FILE_FETCH_TIMEOUT } from "../../src/a2a/files/a2a-file-options.js";
+import { FileRepository } from "../../src/infrastructure/file.repository.js";
+import {
+  DEFAULT_FILE_FETCH_TIMEOUT,
+  FilePolicy,
+  DEFAULT_FILE_LIMITS,
+  fileLimitsOf,
+} from "../../src/files/file-policy.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
 import { fileRuntimeOf } from "../../src/files/file-runtime.js";
 import {
@@ -17,17 +23,15 @@ import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { ModelFiles } from "../../src/files/model-files.js";
 import { ExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { systemClock } from "../../src/infrastructure/clock.js";
-import { rememberContextMeshSettings, type MeshSettings } from "../../src/mesh/mesh-settings.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { hours, usd } from "../../src/units/index.js";
+import { seconds, usd } from "../../src/units/index.js";
 import { testFrame } from "../helpers/frame.js";
 import { sha256Of } from "./reader.factory.js";
 
 const settings = resolvedFilesOf({
   agent: ModelFiles.of({ maxFileSize: 4096 as never }).options,
   defaults: undefined,
-  skills: [],
-  a2aFiles: undefined,
+  limits: DEFAULT_FILE_LIMITS,
   hasPiiPolicy: false,
 });
 const file = {
@@ -51,7 +55,7 @@ function depsOf(
   const store = {};
   return {
     container: {
-      get: (token: Token) => (token === A2AFileRepository ? store : instances.get(token)),
+      get: (token: Token) => (token === FileRepository ? store : instances.get(token)),
     },
     registry: {
       fileTranscribers: extra.transcribers ?? new Map(),
@@ -139,7 +143,7 @@ describe("#1269: the read context", () => {
   it("a download takes the application's fetch slots, under its tenant's and its thread owner's keys (#1312)", async () => {
     const deps = depsOf(new Map());
     const store = (deps as { container: { get: (token: Token) => object } }).container.get(
-      A2AFileRepository,
+      FileRepository,
     );
     const context = await inFrame(() => Promise.resolve(runtimeOf(deps).context()));
     const { execution } = testFrame();
@@ -151,29 +155,36 @@ describe("#1269: the read context", () => {
     });
   });
 
-  it("the deps' clock and the application's file origins are the context's", async () => {
+  it("the deps' clock is the context's, and the workflow policy's origins, timeout and pool ride the settings", async () => {
+    @FilePolicy({
+      ttl: hours(24),
+      allowedOrigins: ["https://files.example"],
+      fetchTimeout: seconds(3),
+      fetchPool: { maxConcurrent: 2 },
+    })
+    class OriginsPolicy {}
+    const own = resolvedFilesOf({
+      agent: {},
+      defaults: undefined,
+      limits: fileLimitsOf(OriginsPolicy),
+      hasPiiPolicy: false,
+    });
+    const deps = depsOf(new Map(), { clock: new VirtualClock() });
+    const store = (deps as { container: { get: (token: Token) => object } }).container.get(
+      FileRepository,
+    );
     const frame = testFrame();
-    const meshSettings: MeshSettings = {
-      application: "app",
-      maxMeshHops: 8,
-      keys: { peers: new Map() },
-      clock: new VirtualClock(),
-      idempotencyRetention: hours(1),
-      a2aTaskRetention: hours(1),
-      a2aFileRetention: hours(1),
-      a2aMessageRetention: hours(1),
-      a2aFiles: { allowedFileOrigins: ["https://files.example"] },
-      workflows: [],
-      exposes: [],
-      contracts: () => Promise.reject(new Error("none")),
-    };
-    rememberContextMeshSettings(frame.execution.tenant.application, meshSettings);
-    const clock = new VirtualClock();
-    const runtime = runtimeOf(depsOf(new Map(), { clock }));
-    const context = await runInFrame(frame, () => Promise.resolve(runtime.context()));
+    const context = await runInFrame(frame, () =>
+      Promise.resolve(
+        fileRuntimeOf(deps, { name: "reader-agent", files: own } as never)?.context(),
+      ),
+    );
 
-    expect(context.clock).toBe(clock);
-    expect(context.allowedOrigins).toEqual(["https://files.example"]);
+    expect(context?.allowedOrigins).toEqual(["https://files.example"]);
+    expect(context?.fetchTimeout).toBe(seconds(3));
+    // its own pool, not the application's shared one
+    expect(context?.slots).toBe(appFileSlotsOf(store, own.fetchPool));
+    expect(context?.slots).not.toBe(appFileSlotsOf(store));
   });
 
   it("the https transport is loaded at the first download: an address never fetched from is refused", async () => {
@@ -219,7 +230,7 @@ describe("#1269: a project's own transcriber", () => {
     expect(result.usage).toMatchObject({
       caller: "files:transcriber",
       model: "transcriber",
-      costUsd: 0.01,
+      costUsd: usd(0.01),
       costSource: "tool",
     });
   });
@@ -234,7 +245,7 @@ describe("#1269: a project's own transcriber", () => {
   });
 
   it("a usage it reports itself is kept, not replaced by its price", async () => {
-    const usage = { caller: "mine", model: "m", costUsd: 5 } as never;
+    const usage = { caller: "mine", model: "m", costUsd: usd(5) } as never;
     const answer = { text: "T", cost: usd(0.01), usage };
     const runtime = runtimeOf(
       depsOf(new Map<Token, unknown>([[FileTranscriber, new OwnTranscriber(answer)]])),
@@ -292,7 +303,7 @@ describe("#1269: the redactor", () => {
     expect(result.usage).toMatchObject({
       caller: "files:redactor",
       model: "redactor",
-      costUsd: 0.02,
+      costUsd: usd(0.02),
       costSource: "tool",
     });
     expect(own.seen).toHaveLength(1);

@@ -15,8 +15,6 @@ import {
   listensTo,
   recipientsOf,
 } from "../../src/app/pause-notices.js";
-import { ChannelOf } from "../../src/channels/channel-handler.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import {
   PauseClosedReason,
@@ -27,13 +25,14 @@ import {
 } from "../../src/infrastructure/pause-record.js";
 import { PauseNoticeKind, type PauseNotice } from "../../src/infrastructure/pause-notices.js";
 import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const answered: PauseRecord = {
   ...pauseOf("p-1"),
   status: PauseStatus.Resolved,
   isSent: true,
   resolution: PauseResolution.Replied,
-  answer: { decision: { approved: true, mail: "alice@example.com" }, answeredBy: "manager-17" },
+  answer: { decision: { approved: true, mail: "alice@example.com" }, actor: { id: "manager-17" } },
 };
 
 const closed: PauseNotice = {
@@ -61,10 +60,11 @@ describe("#940: the events a receiver is told", () => {
 
     expect(event).toMatchObject({
       pauseId: "p-1",
-      value: answered.ask,
+      input: answered.input,
+      toolCall: answered.toolCall,
       reason: PauseClosedReason.Answered,
       closedAt: "2026-01-05T10:00:00.000Z",
-      answeredBy: "manager-17",
+      actor: { id: "manager-17" },
       answer: { approved: true, mail: "<email>" },
     });
   });
@@ -88,7 +88,7 @@ describe("#940: the events a receiver is told", () => {
     expect(await channelNotTakenOf(sources(answered, untaken))).toMatchObject({
       reason: PauseClosedReason.TreeEnded,
       at: "2026-01-05T10:00:00.000Z",
-      answeredBy: "manager-17",
+      actor: { id: "manager-17" },
       answer: { mail: "<email>" },
     });
     expect(await listenerNotTakenOf(sources(answered, untaken), false)).toMatchObject({
@@ -102,7 +102,8 @@ describe("#940: the events a receiver is told", () => {
       sources(
         {
           ...answered,
-          ask: { callId: "c", tool: "t", arguments: { to: "alice@example.com" }, summary: "s" },
+          input: { to: "alice@example.com" },
+          toolCall: { callId: "c", tool: "t", summary: "s" },
         },
         closed,
       ),
@@ -110,18 +111,18 @@ describe("#940: the events a receiver is told", () => {
     );
     const event = await listenerClosedOf(sources(answered, closed), false);
 
-    expect(JSON.stringify(opened.ask)).not.toContain("alice@example.com");
+    expect(JSON.stringify(opened.input)).not.toContain("alice@example.com");
     expect(event).not.toHaveProperty("pauseId");
     expect(event).toMatchObject({
       pauseKey: pauseKeyOf("default", "p-1"),
-      answeredBy: "manager-17",
+      actor: { id: "manager-17" },
       answer: { mail: "<email>" },
     });
   });
 
-  it("AC5: allowAnswering, or a thread owner's pause: the raw id", async () => {
+  it("AC5: includePauseIds, or a thread owner's pause: the raw id", async () => {
     const trusted = await listenerClosedOf(sources(answered, closed), true);
-    const owned = { ...answered, answerer: PauseAnswerer.ThreadOwner };
+    const owned = { ...answered, respondent: PauseRespondent.Owner };
     const byOwner = await listenerClosedOf(sources(owned, closed), false);
 
     expect(trusted).toMatchObject({ pauseId: "p-1" });
@@ -146,16 +147,16 @@ describe("#940: the events a receiver is told", () => {
 });
 
 describe("#940: who hears of a pause", () => {
-  class Silent extends ChannelOf<Silent> {
-    send = (): Promise<ChannelOutcome<Silent>> => Promise.resolve(ChannelOutcome.awaitReply());
+  class Silent {
+    send = (): Promise<ChannelOutcome<never>> => Promise.resolve(ChannelOutcome.awaitReply());
   }
   class Closing extends Silent {
-    override onPauseClosed(): Promise<void> {
+    onPauseClosed(): Promise<void> {
       return Promise.resolve();
     }
   }
   class NotTaking extends Silent {
-    override onPauseAnswerNotTaken(): Promise<void> {
+    onPauseAnswerNotTaken(): Promise<void> {
       return Promise.resolve();
     }
   }
@@ -165,7 +166,7 @@ describe("#940: who hears of a pause", () => {
     expect(listensTo(new Closing())).toBe(true);
     expect(listensTo(new NotTaking())).toBe(true);
     expect(listensTo(undefined)).toBe(false);
-    // a concrete channel that is no `ChannelOf`: the hook is a function
+    // a plain object: the hook is a function
     expect(
       listensTo({ send: () => Promise.resolve(undefined), onPauseClosed: () => Promise.resolve() }),
     ).toBe(true);
@@ -173,7 +174,7 @@ describe("#940: who hears of a pause", () => {
 
   it("every listener, and the channel only when it listens", () => {
     const pause = pauseOf("p-1");
-    const of = (sender: ChannelOf<unknown> | undefined) =>
+    const of = (sender: Silent | undefined) =>
       recipientsOf({ senderOf: () => sender, listeners: ["a-pause-listener"] })(pause);
 
     expect(of(new Silent())).toEqual({ listeners: ["a-pause-listener"] });

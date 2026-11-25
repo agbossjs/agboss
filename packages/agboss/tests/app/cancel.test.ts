@@ -94,7 +94,7 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
     const cancelled = await app.cancel(thread);
 
     expect(cancelled).toEqual({ cancelled: true });
-    await expect(run.done).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(run.done).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.blocked).toHaveLength(1);
     expect(seen.blocked[0]?.aborted).toBe(true);
     expect(mockLlm(Clerk).requests).toHaveLength(1);
@@ -112,7 +112,7 @@ describe("#187 AC2: cancelling a running run stops it before the next model/tool
     await run.thread;
 
     expect(await app.cancel(paused.threadId)).toEqual({ cancelled: true });
-    await expect(run.done).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(run.done).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.charges).toHaveLength(1);
     expect(mockLlm(Clerk).requests).toHaveLength(2);
     await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseClosedError);

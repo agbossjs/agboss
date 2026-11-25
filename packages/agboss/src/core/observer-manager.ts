@@ -1,17 +1,14 @@
-import { redactedFilesIn } from "../a2a/files/a2a-file-scrub.js";
+import { ObserverHookCalls } from "./observer-manager-calls.js";
 import type { ValuesOutdatedEvent } from "../flow/observers/values-outdated.js";
 import type { LaunchItemsTruncatedEvent } from "../flow/observers/launch-items-truncated.js";
+import type { CompactionEndEvent, CompactionStartEvent } from "../flow/observers/compaction.js";
 import type { QuorumDecidedEvent } from "../flow/observers/quorum-decided.js";
+import type { CircuitStateChangeEvent } from "../flow/observers/circuit-state.js";
 import type {
   CompensationEndEvent,
   CompensationStartEvent,
 } from "../flow/observers/compensation-events.js";
-import type {
-  ExecutionLeaseTakeoverEvent,
-  FencedEffectEvent,
-  OutboundCallEvent,
-  StepHandedOverEvent,
-} from "../flow/observers/audit-log.js";
+import type {} from "../flow/observers/audit-log.js";
 import type {
   ActionEndEvent,
   ActionStartEvent,
@@ -30,36 +27,24 @@ import type {
   RouterEndEvent,
   RouterStartEvent,
   ExecutionEndEvent,
+  ExecutionCancelEvent,
   ExecutionErrorEvent,
+  ExecutionStopEvent,
   ExecutionPauseEvent,
   ExecutionRejectedEvent,
   ExecutionResumeEvent,
   ExecutionStartEvent,
   ToolEndEvent,
   ToolStartEvent,
+  AgentRetryEvent,
 } from "./observability.js";
-import type { ObserverHook, ExecutionObserver } from "./observer-hooks.js";
+import { isWanted, type ObserverHook, type ExecutionObserver } from "./observer-hooks.js";
+import { callAll, type ObserverFailure } from "./observer-call.js";
 
-/**
- * The instance's tally of a lost pass's Unknown-cost entries (#875): its metrics' counters, given
- * to the observer manager when the app has a meter provider — read by the runtime, never by a
- * project's observer.
- */
-export interface UnknownCostTally {
-  /** A pass recorded `count` Unknown-cost entries for a step of `workflow`, before running it again. */
-  recorded(workflow: string, count: number): void;
-  /** A pass of `workflow` could not read its tree's lost passes: their entries are not recorded. */
-  unrecorded(workflow: string): void;
-}
+export { unmasked, type EventMask, type UnknownCostTally } from "./observer-mask.js";
+import { unmasked, type EventMask, type UnknownCostTally } from "./observer-mask.js";
 
-/** What an event goes through before any observer sees it (the PII observability mask, #120). */
-export type EventMask = (event: unknown) => Promise<unknown>;
-
-/** Without policies an event is still shown without a file's bytes (#899 §0). */
-export const unmasked: EventMask = (event) => Promise.resolve(redactedFilesIn(event));
-
-/** Told when an observer's hook throws; the execution goes on. */
-export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
+export type { ObserverFailure } from "./observer-call.js";
 
 /** Without a listener a failing hook is only skipped (the application logs it, `observer.failed`). */
 const ignore: ObserverFailure = () => undefined;
@@ -69,7 +54,10 @@ const ignore: ObserverFailure = () => undefined;
  * An observer that throws is reported to `onFailure` (the application's log: a warning) and
  * skipped: it never fails the execution.
  */
-export class ExecutionObserverManager implements Required<ExecutionObserver> {
+export class ExecutionObserverManager
+  extends ObserverHookCalls
+  implements Required<ExecutionObserver>
+{
   /**
    * `builtIn`: the framework's own observers (#485: the instance's metrics) — called first, on the
    * event as it is: they read enums and names only, so no mask runs for them. `unknownCosts`: the
@@ -81,7 +69,9 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     private readonly mask: EventMask = unmasked,
     private readonly builtIn: readonly ExecutionObserver[] = [],
     readonly unknownCosts?: UnknownCostTally,
-  ) {}
+  ) {
+    super();
+  }
 
   /** The same observers, every event masked first (a workflow's PII policies, #120 AC7). */
   masked(mask: EventMask): ExecutionObserverManager {
@@ -89,31 +79,18 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     return new ExecutionObserverManager(observers, onFailure, mask, builtIn, unknownCosts);
   }
 
-  private async each<TEvent>(
+  protected async each<TEvent>(
     hook: ObserverHook,
     event: TEvent,
     call: (observer: ExecutionObserver, event: TEvent) => Promise<void> | void,
   ): Promise<void> {
-    await this.callAll(this.builtIn, hook, event, call);
-    if (this.observers.length === 0) return;
+    await callAll(this.builtIn, hook, event, call, this.onFailure);
+    // an observer's `workflows` / `agents` read the event as it is, before the mask
+    const wanting = this.observers.filter((observer) => isWanted(observer, event as object));
+    if (wanting.length === 0) return;
     // the mask keeps an event's shape: every string masked, class instances (errors) as they are
     const shown = (await this.mask(event)) as TEvent;
-    await this.callAll(this.observers, hook, shown, call);
-  }
-
-  private async callAll<TEvent>(
-    observers: readonly ExecutionObserver[],
-    hook: ObserverHook,
-    event: TEvent,
-    call: (observer: ExecutionObserver, event: TEvent) => Promise<void> | void,
-  ): Promise<void> {
-    for (const observer of observers) {
-      try {
-        await call(observer, event);
-      } catch (error) {
-        this.onFailure(observer.constructor.name, hook, error);
-      }
-    }
+    await callAll(wanting, hook, shown, call, this.onFailure);
   }
 
   onExecutionStart(event: ExecutionStartEvent): Promise<void> {
@@ -128,6 +105,12 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   onExecutionEnd(event: ExecutionEndEvent): Promise<void> {
     return this.each("onExecutionEnd", event, (o, e) => o.onExecutionEnd?.(e));
   }
+  onExecutionStop(event: ExecutionStopEvent): Promise<void> {
+    return this.each("onExecutionStop", event, (o, e) => o.onExecutionStop?.(e));
+  }
+  onExecutionCancel(event: ExecutionCancelEvent): Promise<void> {
+    return this.each("onExecutionCancel", event, (o, e) => o.onExecutionCancel?.(e));
+  }
   onExecutionError(event: ExecutionErrorEvent): Promise<void> {
     return this.each("onExecutionError", event, (o, e) => o.onExecutionError?.(e));
   }
@@ -139,6 +122,9 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   }
   onAgentEnd(event: AgentEndEvent): Promise<void> {
     return this.each("onAgentEnd", event, (o, e) => o.onAgentEnd?.(e));
+  }
+  onAgentRetry(event: AgentRetryEvent): Promise<void> {
+    return this.each("onAgentRetry", event, (o, e) => o.onAgentRetry?.(e));
   }
   onRouterStart(event: RouterStartEvent): Promise<void> {
     return this.each("onRouterStart", event, (o, e) => o.onRouterStart?.(e));
@@ -197,22 +183,19 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
   onQuorumDecided(event: QuorumDecidedEvent): Promise<void> {
     return this.each("onQuorumDecided", event, (o, e) => o.onQuorumDecided?.(e));
   }
+  onCircuitStateChange(event: CircuitStateChangeEvent): Promise<void> {
+    return this.each("onCircuitStateChange", event, (o, e) => o.onCircuitStateChange?.(e));
+  }
+  onCompactionStart(event: CompactionStartEvent): Promise<void> {
+    return this.each("onCompactionStart", event, (o, e) => o.onCompactionStart?.(e));
+  }
+  onCompactionEnd(event: CompactionEndEvent): Promise<void> {
+    return this.each("onCompactionEnd", event, (o, e) => o.onCompactionEnd?.(e));
+  }
   onCompensationStart(event: CompensationStartEvent): Promise<void> {
     return this.each("onCompensationStart", event, (o, e) => o.onCompensationStart?.(e));
   }
   onCompensationEnd(event: CompensationEndEvent): Promise<void> {
     return this.each("onCompensationEnd", event, (o, e) => o.onCompensationEnd?.(e));
-  }
-  onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void> {
-    return this.each("onExecutionLeaseTakeover", event, (o, e) => o.onExecutionLeaseTakeover?.(e));
-  }
-  onStepHandedOver(event: StepHandedOverEvent): Promise<void> {
-    return this.each("onStepHandedOver", event, (o, e) => o.onStepHandedOver?.(e));
-  }
-  onFencedEffect(event: FencedEffectEvent): Promise<void> {
-    return this.each("onFencedEffect", event, (o, e) => o.onFencedEffect?.(e));
-  }
-  onOutboundCall(event: OutboundCallEvent): Promise<void> {
-    return this.each("onOutboundCall", event, (o, e) => o.onOutboundCall?.(e));
   }
 }

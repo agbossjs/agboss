@@ -1,11 +1,12 @@
 /** #118 AC5: tools and MCP servers on DTOs — validation at the edge, DTO-shaped data inside. */
+import { McpTransport } from "../../src/config/mcp-server-config.js";
 import { describe, expect, it } from "vitest";
-import { Agent, Workflow, Tool, type ToolHandler } from "../../src/index.js";
+import { Agent, Workflow, Tool, Ttl } from "../../src/index.js";
 import { McpServer, McpServerClient } from "../../src/mcp/index.js";
 import { mcpServerStub } from "../../src/testing/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { toolOf } from "../../src/components/runtime.js";
-import { DtoError, Integer, ListOf, Nested, Text, Url } from "../../src/dto/index.js";
+import { DtoError, Integer, List, Nested, Text, Url } from "../../src/dto/index.js";
 import { toolDefinitionOf, type ToolInvocationContext } from "../../src/tools/index.js";
 import { testConfig, testDefaults } from "../helpers.js";
 import { starOf } from "../fixtures/test-flow/star.js";
@@ -21,7 +22,7 @@ class Link {
 }
 
 class JobPick {
-  @ListOf(Link, { prompt: "the jobs to keep", minItems: 1 })
+  @List(Link, { prompt: "the jobs to keep", minItems: 1 })
   jobs!: Link[];
 
   @Integer({ prompt: "how many at most", min: 1, default: 2 })
@@ -29,14 +30,14 @@ class JobPick {
 }
 
 class JobKept {
-  @ListOf(Text)
+  @List(Text)
   kept!: string[];
 }
 
 @Tool({ name: "keep-jobs-tool", description: "Keeps the jobs.", input: JobPick, output: JobKept })
-class KeepJobs implements ToolHandler<JobPick, JobKept> {
+class KeepJobs {
   readonly seen: JobPick[] = [];
-  run(pick: JobPick): Promise<JobKept> {
+  execute(pick: JobPick): Promise<JobKept> {
     this.seen.push(pick);
     return Promise.resolve({ kept: pick.jobs.slice(0, pick.count).map((job) => job.url) });
   }
@@ -82,8 +83,8 @@ describe("tools on DTOs (#118)", () => {
       extra!: string;
     }
     @Tool({ name: "loose-tool", description: "d", input: Loose, output: JobKept })
-    class LooseTool implements ToolHandler<Loose, JobKept> {
-      run(): Promise<JobKept> {
+    class LooseTool {
+      execute(): Promise<JobKept> {
         return Promise.resolve({ kept: [] });
       }
     }
@@ -93,12 +94,13 @@ describe("tools on DTOs (#118)", () => {
       model: "test/alpha",
       price: testConfig.agents.alpha.price,
       tools: [LooseTool],
-      promptUrls: ["./fixture/greeter.prompt.md"],
+      prompt: "./fixture/greeter.prompt.md",
     })
     class LooseAgent {}
     @Workflow({
       name: "loose-workflow",
       version: "1",
+      historyTtl: Ttl.Forever,
       defaults: testDefaults,
       flow: starOf(LooseAgent),
     })
@@ -120,7 +122,7 @@ class TicketState {
 }
 const deskTools = { status: { input: Ticket, output: TicketState } };
 
-@McpServer({ name: "desk", transport: "stdio", command: "desk", tools: deskTools })
+@McpServer({ name: "desk", transport: McpTransport.Stdio, command: "desk", tools: deskTools })
 class DeskServer extends McpServerClient<typeof deskTools> {}
 
 describe("MCP servers on DTOs (#118)", () => {

@@ -7,10 +7,11 @@
 import { describe, expect, it } from "vitest";
 import { A2AAgent } from "../../../src/a2a/a2a-decorator.js";
 import { a2aCardWarningsOf } from "../../../src/a2a/a2a-card-warnings.js";
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { A2AClient } from "../../../src/a2a/client/a2a-client.js";
+import { ComponentOptions } from "../../../src/components/component-options.js";
 import { recordComponent } from "../../../src/components/metadata.js";
-import { usd } from "../../../src/units/index.js";
+import { hours, minutes, usd } from "../../../src/units/index.js";
 import { RefundWorkflowStart } from "../../a2a/fixtures/contracts.workflow.js";
 
 type Sources = Parameters<typeof a2aCardWarningsOf>[0];
@@ -19,6 +20,7 @@ const sourcesOf = (over: Partial<Sources>): Sources => ({
   providers: [],
   budgets: [],
   workflows: [],
+  componentOptions: ComponentOptions.none,
   ...over,
 });
 
@@ -32,7 +34,7 @@ class NotAnExpose {
 @A2AAgent({ name: "foreign-a2a-agent", url: "http://f.invalid" })
 class ForeignAgent extends A2AClient {}
 
-@A2AAgent({ name: "priced-a2a-agent", url: "http://p.invalid", price: usd(0.01) })
+@A2AAgent({ name: "priced-a2a-agent", url: "http://p.invalid", costPerCall: usd(0.01) })
 class PricedAgent extends A2AClient {}
 
 @A2AAgent({
@@ -45,20 +47,21 @@ class PeerAgent extends A2AClient {}
 @A2AAgent({ name: "second-a2a-agent", url: "http://s.invalid" })
 class SecondForeignAgent extends A2AClient {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "tags-a2a-expose",
   version: "1.0.0",
   description: "d",
-  exports: [RefundWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [RefundWorkflowStart],
 })
 class UntaggedExpose {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "tagged-a2a-expose",
   version: "1.0.0",
   description: "d",
-  exports: [RefundWorkflowStart],
-  skills: { "refund-workflow-start": { tags: ["refunds"] } },
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [{ start: RefundWorkflowStart, tags: ["refunds"] }],
 })
 class TaggedExpose {}
 
@@ -66,8 +69,14 @@ class ExposeOfNonStart {
   readonly kind = "expose-of-non-start";
 }
 recordComponent(ExposeOfNonStart, {
-  kind: "a2a-expose",
-  meta: { name: "odd-a2a-expose", version: "1.0.0", description: "d", exports: [NotAStart] },
+  kind: "a2a-endpoint",
+  meta: {
+    name: "odd-a2a-expose",
+    version: "1.0.0",
+    description: "d",
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [NotAStart],
+  },
 });
 
 describe("#1366 [a2a.skill-tags]", () => {
@@ -75,7 +84,7 @@ describe("#1366 [a2a.skill-tags]", () => {
     const warnings = a2aCardWarningsOf(
       sourcesOf({
         name: "app",
-        exposes: [UntaggedExpose, TaggedExpose, ExposeOfNonStart, NotAnExpose, ForeignAgent],
+        endpoints: [UntaggedExpose, TaggedExpose, ExposeOfNonStart, NotAnExpose, ForeignAgent],
       }),
     );
     expect(warnings.map((warning) => warning.code)).toEqual(["a2a.skill-tags"]);
@@ -84,7 +93,7 @@ describe("#1366 [a2a.skill-tags]", () => {
 
   it("no exposes at all: nothing is named", () => {
     expect(a2aCardWarningsOf(sourcesOf({}))).toEqual([]);
-    expect(a2aCardWarningsOf(sourcesOf({ exposes: [] }))).toEqual([]);
+    expect(a2aCardWarningsOf(sourcesOf({ endpoints: [] }))).toEqual([]);
   });
 });
 

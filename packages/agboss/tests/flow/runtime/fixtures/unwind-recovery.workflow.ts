@@ -22,7 +22,7 @@ import { UnwindLog, UnwindParentWorkflow, UnwindWorkflow } from "./unwind.workfl
   observers: [UnwindLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
-  compensationTimeout: seconds(60),
+  executionLimits: { compensationTimeout: seconds(60) },
 })
 export class UnwindRecoveryApplication {}
 
@@ -35,7 +35,7 @@ export class UnwindRecoveryApplication {}
   observers: [UnwindLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
-  compensationTimeout: seconds(60),
+  executionLimits: { compensationTimeout: seconds(60) },
   retention: { executionRecords: hours(24) },
 })
 export class KeptUnwindRecoveryApplication {}

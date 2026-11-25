@@ -1,23 +1,22 @@
+import { Window1Memory } from "../helpers/window-memory.js";
 import { describe, expect } from "vitest";
 import {
   Workflow,
   Agent,
-  OnExecutionStart,
   type ExecutionStartEvent,
-  OnAgentStart,
   type AgentStartEvent,
-  Injectable,
-  OnAgentEnd,
+  Observer,
   type AgentEndEvent,
   WorkflowStart,
   WorkflowFinish,
+  Ttl,
 } from "../../src/index.js";
 import { testWith, replyWith } from "../../src/testing/index.js";
 
 const logs: string[] = [];
 
-@Injectable()
-class MyMetricsObserver implements OnExecutionStart, OnAgentStart, OnAgentEnd {
+@Observer()
+class MyMetricsObserver {
   onExecutionStart(_event: ExecutionStartEvent) {
     logs.push(`start-wf`);
   }
@@ -44,26 +43,29 @@ class Start {}
 })
 class Finish {}
 
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @Workflow({
   name: "obs-wf-workflow",
   version: "1",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { temperature: 0, cache: true },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 1 },
   },
-  uncompactedTurns: 1,
-  flow: [start(Start).returns(WorkflowStartTextDto).toAgent(WorkerAgent).toFinish(Finish)],
+  memory: Window1Memory,
+  flow: [onStart(Start).toAgent(WorkerAgent).toFinish(Finish)],
 })
 class ObsWf {}
 
 @Application({
   name: "obs-wf-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ObsWf],

@@ -1,10 +1,11 @@
+import { bytes as byteSize } from "../units/index.js";
 import { createHash } from "node:crypto";
 import { isOfMediaType } from "../a2a/files/a2a-media-check.js";
 import type { UsageRecord } from "../finops/usage.js";
-import { InlineA2AFileRepository } from "../infrastructure/a2a-file.repository.js";
-import { PiiKind } from "../pii/kinds.js";
+import { InlineFileRepository } from "../infrastructure/file.repository.js";
+import { kindsOf } from "../pii/kinds.js";
 import { fileContentOf, sha256Of, type FileContent } from "./file-bytes.js";
-import { FileRedactionFailedError } from "./file-errors.js";
+import { FileRedactionFailedError, fileUnavailable, FileUnavailableReason } from "./file-errors.js";
 import { originalPieces, type MadeEntry } from "./file-pieces.js";
 import type { FileMask } from "./file-mask.js";
 import { valuesForRedactor } from "./redaction-values.js";
@@ -48,11 +49,15 @@ const parsed = (kept: string): KeptRedacted => JSON.parse(kept) as KeptRedacted;
 async function keptContentOf(batch: FileBatch, kept: KeptRedacted): Promise<FileContent> {
   if (kept.inline !== undefined) {
     const bytes = new Uint8Array(Buffer.from(kept.inline, "base64"));
+    const sha256 = sha256Of(bytes);
+    // the kept copy is checked against the digest it was kept under, as a stored one is
+    if (sha256 !== kept.sha256)
+      throw fileUnavailable({ reason: FileUnavailableReason.DigestMismatch });
     return {
       mediaType: kept.mediaType,
       ...(kept.filename === undefined ? {} : { filename: kept.filename }),
       bytes,
-      sha256: sha256Of(bytes),
+      sha256,
     };
   }
   return fileContentOf(
@@ -71,7 +76,7 @@ async function keptOf(batch: FileBatch, copy: FileContent): Promise<KeptRedacted
   const context = batch.runtime.context();
   // only ever serialized, where an absent name is left out: no need to leave the key out here
   const base = { mediaType: copy.mediaType, sha256: copy.sha256, filename: copy.filename };
-  if (context.store instanceof InlineA2AFileRepository) {
+  if (context.store instanceof InlineFileRepository) {
     if (copy.bytes.byteLength > MAX_INLINE_REDACTED)
       throw new FileRedactionFailedError({
         agent: batch.runtime.agent,
@@ -86,7 +91,7 @@ async function keptOf(batch: FileBatch, copy: FileContent): Promise<KeptRedacted
     ownerId: context.ownerId,
     mediaType: copy.mediaType,
     sha256: copy.sha256,
-    sizeBytes: copy.bytes.byteLength,
+    sizeBytes: byteSize(copy.bytes.byteLength),
     createdAt: context.clock.now(),
     ...(copy.filename === undefined ? {} : { filename: copy.filename }),
     bytes: copy.bytes,
@@ -170,8 +175,8 @@ export async function redactedViewOf(
   batch.beforeModelCall();
   const result = await runtime.redact(content, asked);
   const spent = result.usage === undefined ? [] : [result.usage];
-  for (const target of result.found) {
-    const refusal = await mask.refusalForKind(target as PiiKind);
+  for (const kind of result.found.flatMap(kindsOf)) {
+    const refusal = await mask.refusalForKind(kind);
     if (refusal !== undefined) throw refusal;
   }
   const copy = checkedCopy(batch, result.file);

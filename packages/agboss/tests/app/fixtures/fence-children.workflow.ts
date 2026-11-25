@@ -1,3 +1,4 @@
+import { fenceOf } from "../../../src/flow/context/execution-fence.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
@@ -10,19 +11,20 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type BudgetHandler,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { fenceSeenOf, ReceiptDto, type FenceSeen } from "./fence.workflow.js";
+import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 
 /**
- * #471 AC1 — which lease a step fences with: a root and its `ParentInstance` children share the
- * root's (`(tenantId, rootExecutionId)`), a `ChildPlacement.AnyInstance` child holds its own
- * (`(tenantId, childExecutionId)`); an ancestor's fence (`parent.fence`, `root.fence`) is never
+ * #471 AC1 — which lease a step fences with: a root and its `CurrentProcess` children share the
+ * root's (`(tenantId, rootExecutionId)`), a `ChildPlacement.AnyWorker` child holds its own
+ * (`(tenantId, childExecutionId)`); an ancestor's fence (`fenceOf(parent)`, `fenceOf(root)`) is never
  * read, and a budget's `maxSpend()` — read before the first pass — has none.
  */
 
@@ -49,16 +51,17 @@ function refusalOf(read: () => unknown): unknown {
 
 /** Records the step's fence under `at`, and what its ancestors' fences threw. */
 function recordScope(executionContext: ExecutionContext, at: string): ReceiptDto {
-  const { fence, step, parent } = executionContext;
+  const { step, parent } = executionContext;
+  const fence = fenceOf(executionContext);
   scopes.fences.set(at, fenceSeenOf(fence, step.idempotencyKey));
   if (parent !== undefined) {
     scopes.refusals.set(
       `${at}.parent`,
-      refusalOf(() => parent.fence.token),
+      refusalOf(() => fenceOf(parent).token),
     );
     scopes.refusals.set(
       `${at}.root`,
-      refusalOf(() => executionContext.root.fence.token),
+      refusalOf(() => fenceOf(executionContext.root).token),
     );
   }
   return { text: at };
@@ -75,16 +78,16 @@ export class ScopeRootAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<WorkflowStartTextDto> {
-    recordScope(this.executionContext, `root ${input.message.value.text}`);
-    return Promise.resolve({ text: input.message.value.text });
+    recordScope(this.executionContext, `root ${input.message.text}`);
+    return Promise.resolve({ text: input.message.text });
   }
 }
 
 @Action({
   name: "scope-near-child-action",
-  description: "Records a ParentInstance child's fence",
+  description: "Records a CurrentProcess child's fence",
   input: { message: WorkflowStartTextDto },
   output: ReceiptDto,
   deps: [ExecutionContext],
@@ -99,7 +102,7 @@ export class ScopeNearChildAction {
 
 @Action({
   name: "scope-far-child-action",
-  description: "Records an AnyInstance child's fence",
+  description: "Records an AnyWorker child's fence",
   input: { message: WorkflowStartTextDto },
   output: ReceiptDto,
   deps: [ExecutionContext],
@@ -135,24 +138,23 @@ export class FarChildWorkflowFinish {}
 @Workflow({
   name: "near-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(NearChildWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(NearChildWorkflowStart)
       .toAction(ScopeNearChildAction)
-      .returns(ReceiptDto)
       .toFinish(NearChildWorkflowFinish),
   ],
 })
 export class NearChildWorkflow {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "far-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FarChildWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(FarChildWorkflowStart)
       .toAction(ScopeFarChildAction)
-      .returns(ReceiptDto)
       .toFinish(FarChildWorkflowFinish),
   ],
 })
@@ -181,13 +183,11 @@ export class FarParentWorkflowFinish {}
 @Workflow({
   name: "near-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(NearParentWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(NearParentWorkflowStart)
       .toAction(ScopeRootAction)
-      .returns(WorkflowStartTextDto)
       .toWorkflow(NearChildWorkflow)
-      .returns(ReceiptDto)
       .toFinish(NearParentWorkflowFinish),
   ],
 })
@@ -196,11 +196,10 @@ export class NearParentWorkflow {}
 @Workflow({
   name: "far-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FarParentWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(FarChildWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ReceiptDto)
+    onStart(FarParentWorkflowStart)
+      .toWorkflow(FarChildWorkflow)
       .toFinish(FarParentWorkflowFinish),
   ],
 })
@@ -219,7 +218,7 @@ export class FenceProbeBudget implements BudgetHandler {
   maxSpend(): Usd {
     scopes.refusals.set(
       "maxSpend",
-      refusalOf(() => this.executionContext.fence.token),
+      refusalOf(() => fenceOf(this.executionContext).token),
     );
     return usd(1);
   }

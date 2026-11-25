@@ -2,7 +2,7 @@ import {
   builtApplicationOf,
   compareEvalRuns,
   loadEvalSuites,
-  runEvalSuite,
+  runSuiteOn,
   type ChaosOptions,
   type FoundEvalSuite,
 } from "@agboss/core/internal";
@@ -20,7 +20,13 @@ import {
 import { envOption } from "../cli/environment.js";
 import { CliError, usageError } from "../cli/errors.js";
 import { writeOutputFile } from "./output-file.js";
-import { baselineOf, compactBaselineOf, comparisonLines, regressionFailure } from "./baseline.js";
+import {
+  baselineOf,
+  comparisonLines,
+  environmentWarningsOf,
+  regressionFailure,
+} from "./baseline.js";
+import { compactBaselineOf } from "./baseline-compact.js";
 import { chaosLine, chaosOf } from "./chaos-options.js";
 import { printRunTable } from "./run-report.js";
 
@@ -73,7 +79,6 @@ function buildOf(context: CommandContext, application: Class, chaos: ChaosOption
     env: envOption(context),
     profile: textOption(context.values, "profile"),
     processEnv: context.io.env,
-    profileRoot: context.io.cwd,
   });
 }
 
@@ -119,7 +124,7 @@ export async function evalRunCommand(context: CommandContext): Promise<CommandOu
   const chaos = chaosOf(context);
   const built = await buildOf(context, loaded.application, chaos);
   try {
-    const ran = await runEvalSuite(built, found.suite, runOptionsOf(context, runs, chaos));
+    const ran = await runSuiteOn(built, found.suite, runOptionsOf(context, runs, chaos));
     printRunTable(context, ran);
     if (ran.chaos !== undefined) context.say(chaosLine(ran.chaos));
     const comparison =
@@ -131,7 +136,10 @@ export async function evalRunCommand(context: CommandContext): Promise<CommandOu
     return {
       result: report,
       ...(created.length === 0 ? {} : { created }),
-      warnings: built.app.warnings,
+      warnings: [
+        ...built.app.warnings,
+        ...(baseline === undefined ? [] : environmentWarningsOf(baseline.report, ran)),
+      ],
       ...(failure === undefined ? {} : { failure }),
     };
   } finally {

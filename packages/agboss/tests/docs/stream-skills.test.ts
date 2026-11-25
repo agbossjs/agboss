@@ -1,4 +1,7 @@
-/** #1050 AC4: no skill or README example writes `event.delta` without handling `discarded`. */
+/**
+ * #1050 AC4: no skill or README example writes `event.delta` without handling
+ * `StreamEventKind.Discarded`.
+ */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -35,8 +38,8 @@ describe("#1050: examples that read the stream's text handle its retraction", ()
     expect(streamingBlocks.length).toBeGreaterThanOrEqual(2);
   });
 
-  it.each(streamingBlocks)("an example in $file handles `discarded`", ({ block }) => {
-    expect(block).toMatch(/discarded/);
+  it.each(streamingBlocks)("an example in $file handles `Discarded`", ({ block }) => {
+    expect(block).toMatch(/Discarded/);
     expect(block).not.toMatch(/process\.stdout\.write\(event\.delta\)/);
   });
 });
@@ -49,10 +52,11 @@ describe("#1050: the skills' streaming reference", () => {
 
   it("states the event kinds, the provisional text, the hold-back, the PII reveal and the listener code", () => {
     for (const part of [
-      "textDelta",
-      "discarded",
-      "toolCall",
-      "judge-rejected",
+      "StreamEventKind.TextDelta",
+      "StreamEventKind.Discarded",
+      "StreamEventKind.ToolCall",
+      "StreamDiscardReason",
+      "JudgeRejected",
       "provisional",
       "blocking output check",
       "revealed",

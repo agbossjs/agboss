@@ -1,25 +1,27 @@
 /**
  * #859 AC3: a file is never smuggled inside a data part — an A2A file is a part of its own, filled
- * into a top-level field, so a DTO an application exchanges over A2A holds `A2AFileDto` at the top
+ * into a top-level field, so a DTO an application exchanges over A2A holds `FileDto` at the top
  * level only: one in a nested DTO or a list item is `[a2a.nested-file-field]` at assembly (an
  * exported start's input, its finishes' outputs, an `@A2AAgent`'s input and output), and a client
  * built with such a contract refuses to call.
  */
+import { hours, minutes, Ttl } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { A2AAgent } from "../../../src/a2a/a2a-decorator.js";
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { A2AClient } from "../../../src/a2a/client/a2a-client.js";
-import { A2AFileDto, nestedFileFieldsOf } from "../../../src/a2a/files/a2a-file.dto.js";
+import { FileDto, nestedFileFieldsOf } from "../../../src/dto/standard/file.js";
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
-import { ListOf, Nested, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { List, Nested, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { listOf, oneOf, type ListWrapper } from "../../../src/flow/dto-wrappers.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { ReviewRequestDto } from "../fixtures/files.application.js";
 
 /** A list item that carries a file of its own. */
@@ -27,13 +29,13 @@ export class AttachmentItemDto {
   @Text({ prompt: "what it is" })
   label!: string;
 
-  @Nested(A2AFileDto, { prompt: "its file" })
-  file!: A2AFileDto;
+  @Nested(FileDto, { prompt: "its file" })
+  file!: FileDto;
 }
 
 /** A request whose files sit in list items. */
 export class ItemsRequestDto {
-  @ListOf(AttachmentItemDto, { prompt: "the attachments" })
+  @List(AttachmentItemDto, { prompt: "the attachments" })
   items!: AttachmentItemDto[];
 }
 
@@ -66,15 +68,17 @@ function servedWith(
   @Workflow({
     name: "nested-workflow",
     version: "1.0.0",
-    flow: [start(NestedStart).returns(input).toFinish(NestedFinish)],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(NestedStart).toFinish(NestedFinish)],
   })
   class NestedWorkflow {}
 
-  @A2AExpose({
+  @A2AEndpoint({
     name: "nested-a2a-expose",
     version: "1.0.0",
     description: "n",
-    exports: [NestedStart],
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [NestedStart],
   })
   class NestedExpose {}
 
@@ -84,14 +88,79 @@ function servedWith(
     environment: EmptyEnvironment,
     workflows: [NestedWorkflow],
     providers: [...providers],
-    exposes: [NestedExpose],
+    endpoints: [NestedExpose],
     budgets: TEST_BUDGETS,
   })
   class NestedApplication {}
   return NestedApplication;
 }
 
-describe("#859 AC3: A2AFileDto only at the top level of an A2A DTO", () => {
+/** An exported start whose one finish gives a list (#1271): the list's items are below the top level. */
+function servedWithListOutput(item: ListWrapper) {
+  @WorkflowStart({
+    name: "listed-workflow-start",
+    description: "listed",
+    input: listOf(WorkflowStartTextDto),
+  })
+  class ListedStart {}
+
+  @WorkflowFinish({ name: "listed-workflow-finish", description: "done", output: item })
+  class ListedFinish {}
+
+  @Workflow({
+    name: "listed-workflow",
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow: [onStart(ListedStart).toFinish(ListedFinish)],
+  })
+  class ListedWorkflow {}
+
+  @A2AEndpoint({
+    name: "listed-a2a-expose",
+    version: "1.0.0",
+    description: "l",
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [ListedStart],
+  })
+  class ListedExpose {}
+
+  @Application({
+    name: "listed-application",
+    version: "1.0.0",
+    environment: EmptyEnvironment,
+    workflows: [ListedWorkflow],
+    endpoints: [ListedExpose],
+    budgets: TEST_BUDGETS,
+  })
+  class ListedApplication {}
+  return ListedApplication;
+}
+
+describe("#1271: a list output of an exported finish never skips the file checks", () => {
+  it("items that hold a file at the top level: [a2a.nested-file-field]", async () => {
+    expect(await codesOf(servedWithListOutput(listOf(ReviewRequestDto)))).toEqual([
+      "a2a.nested-file-field",
+    ]);
+  });
+
+  it("items that hold a file in a nested DTO: [a2a.nested-file-field]", async () => {
+    expect(await codesOf(servedWithListOutput(listOf(WrappedRequestDto)))).toEqual([
+      "a2a.nested-file-field",
+    ]);
+  });
+
+  it("a oneOf variant of the items that holds a file: [a2a.nested-file-field], naming it", async () => {
+    expect(
+      await codesOf(servedWithListOutput(listOf(WorkflowStartTextDto, ReviewRequestDto))),
+    ).toEqual(["a2a.nested-file-field"]);
+  });
+
+  it("items without files pass", async () => {
+    expect(await codesOf(servedWithListOutput(listOf(WorkflowStartTextDto)))).toEqual([]);
+  });
+});
+
+describe("#859 AC3: FileDto only at the top level of an A2A DTO", () => {
   it("the paths where a file sits below the top level, a list item's and a nested DTO's", () => {
     expect(nestedFileFieldsOf(ItemsRequestDto)).toEqual(["items[].file"]);
     expect(nestedFileFieldsOf(WrappedRequestDto)).toEqual(["request.document", "request.pages[]"]);

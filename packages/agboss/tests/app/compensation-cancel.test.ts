@@ -19,6 +19,7 @@ import {
   unwindSeen,
   UnwindWorkflowStart,
 } from "../flow/runtime/fixtures/unwind.workflow.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 /**
  * #340 PR 3 — `app.cancel` and the automatic undo: a tree resting paused is withdrawn, undone and
@@ -143,7 +144,7 @@ describe("a cancel from another instance (#360)", () => {
       await clock.advance(seconds(10));
       open();
 
-      await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+      await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
       expect(releasedIds(desk)).toEqual(["room-1", "seat-1"]);
     },
   );

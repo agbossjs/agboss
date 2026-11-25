@@ -41,7 +41,10 @@ export interface ExpirySite {
 const causeOf = (pause: PauseRecord): ExpiryHandlerError | undefined =>
   pause.expiryProblem === undefined
     ? undefined
-    : new ExpiryHandlerError({ channel: pause.channel, problem: pause.expiryProblem });
+    : new ExpiryHandlerError({
+        channel: pause.channel ?? pause.target,
+        problem: pause.expiryProblem,
+      });
 
 /** How long the run's deadline was given: its frame's, else what the pause waited (asked → deadline). */
 function givenDeadline(pause: PauseRecord, expiresAt: string): Milliseconds {
@@ -83,6 +86,7 @@ export function expiryFailureOf(pause: PauseRecord, site: ExpirySite): Error {
   return new PauseExpiredError({
     step: site.step,
     stepKind: site.stepKind,
+    target: pause.target,
     channel: pause.channel,
     kind: pause.kind,
     expiresAt,

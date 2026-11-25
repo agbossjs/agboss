@@ -2,23 +2,13 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver, CheckpointTuple } from "@langchain/langgraph";
 import type { SQLInputValue } from "node:sqlite";
 import { z } from "zod";
+import { ROOT_EXECUTION_ID_KEY, rootExecutionIdOf } from "../checkpoint-threads.js";
 
 /**
  * The rows of `SqliteCheckpointSaver` (#265 S32): tables `checkpoints` (one per checkpoint of a
  * thread and namespace, the parent's id kept) and `checkpoint_writes` (a task's pending writes of
  * one checkpoint), the values as `this.serde` dumps them with their type.
  */
-
-export const CHECKPOINT_SCHEMA = `CREATE TABLE IF NOT EXISTS checkpoints (
-  thread_id TEXT NOT NULL, checkpoint_ns TEXT NOT NULL, checkpoint_id TEXT NOT NULL,
-  parent_checkpoint_id TEXT, checkpoint_type TEXT NOT NULL, checkpoint BLOB NOT NULL,
-  metadata_type TEXT NOT NULL, metadata BLOB NOT NULL, tenant_id TEXT NOT NULL DEFAULT 'default',
-  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id));
-CREATE TABLE IF NOT EXISTS checkpoint_writes (
-  thread_id TEXT NOT NULL, checkpoint_ns TEXT NOT NULL, checkpoint_id TEXT NOT NULL,
-  task_id TEXT NOT NULL, idx INTEGER NOT NULL, channel TEXT NOT NULL, value_type TEXT NOT NULL,
-  value BLOB NOT NULL, tenant_id TEXT NOT NULL DEFAULT 'default',
-  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx));`;
 
 /**
  * The newest checkpoint of a thread's namespace by `(step, id)` is one index read (#962). `step` is
@@ -33,6 +23,27 @@ export const STEP_COLUMN = `REAL GENERATED ALWAYS AS (COALESCE(
     AND json_valid(CAST(metadata AS TEXT))
     AND json_type(CAST(metadata AS TEXT), '$.step') IN ('integer', 'real')
     THEN json_extract(CAST(metadata AS TEXT), '$.step') END, -2)) VIRTUAL`;
+
+export const CHECKPOINT_TABLES = `CREATE TABLE IF NOT EXISTS checkpoints (
+  thread_id TEXT NOT NULL, checkpoint_ns TEXT NOT NULL, checkpoint_id TEXT NOT NULL,
+  parent_checkpoint_id TEXT, checkpoint_type TEXT NOT NULL, checkpoint BLOB NOT NULL,
+  metadata_type TEXT NOT NULL, metadata BLOB NOT NULL, tenant_id TEXT NOT NULL DEFAULT 'default',
+  root_id TEXT NOT NULL,
+  step ${STEP_COLUMN},
+  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id));
+CREATE TABLE IF NOT EXISTS checkpoint_writes (
+  thread_id TEXT NOT NULL, checkpoint_ns TEXT NOT NULL, checkpoint_id TEXT NOT NULL,
+  task_id TEXT NOT NULL, idx INTEGER NOT NULL, channel TEXT NOT NULL, value_type TEXT NOT NULL,
+  value BLOB NOT NULL, tenant_id TEXT NOT NULL DEFAULT 'default',
+  root_id TEXT NOT NULL,
+  PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id, task_id, idx));`;
+
+/**
+ * A tree's threads by the root execution id each row stores (#1321d): \`deleteThread(root)\` deletes
+ * by \`root_id = ?\`, never by a range of thread ids, so no id can reach another tree's rows.
+ */
+export const ROOT_INDEXES = `CREATE INDEX IF NOT EXISTS checkpoints_root ON checkpoints (root_id);
+CREATE INDEX IF NOT EXISTS checkpoint_writes_root ON checkpoint_writes (root_id);`;
 
 export const STEP_INDEX = `CREATE INDEX IF NOT EXISTS checkpoints_latest_by_step
   ON checkpoints (thread_id, checkpoint_ns, step DESC, checkpoint_id DESC)`;
@@ -83,9 +94,6 @@ export const UNREADABLE_STEP_ROWS_SQL = `SELECT checkpoint_id, metadata_type, me
 export const CHECKPOINT_ROW_SQL = `SELECT ${CHECKPOINT_COLUMNS} FROM checkpoints
   WHERE thread_id = ? AND checkpoint_ns = ? AND checkpoint_id = ?`;
 
-/** The tables `tenant_id` is added to in a file written before tenants (#261, #265 S69 e). */
-export const TENANT_TAGGED_TABLES: readonly string[] = ["checkpoints", "checkpoint_writes"];
-
 /** What the saver's methods take (LangGraph's types are not all re-exported). */
 export type PutWritesArguments = Parameters<BaseCheckpointSaver["putWrites"]>;
 export type Checkpoint = Parameters<BaseCheckpointSaver["put"]>[1];
@@ -120,6 +128,8 @@ export const WriteRow = z.object({
  */
 export interface CheckpointKey {
   readonly tenantId: string;
+  /** The root execution id of the thread's tree (#1321d): named by the config, else its thread's first segment. */
+  readonly rootId: string;
   readonly threadId: string;
   readonly namespace: string;
   readonly checkpointId: string | undefined;
@@ -127,6 +137,7 @@ export interface CheckpointKey {
 
 const Configurable = z.object({
   tenant_id: z.string().min(1).optional(),
+  root_execution_id: z.string().min(1).optional(),
   thread_id: z.string().min(1).optional(),
   checkpoint_ns: z.string().optional(),
   checkpoint_id: z.string().min(1).optional(),
@@ -142,11 +153,16 @@ export function keyOf(config: RunnableConfig, operation: string): CheckpointKey 
   }
   return {
     tenantId: configurable.tenant_id ?? "default",
+    rootId: rootExecutionIdOf(configurable) ?? configurable.thread_id,
     threadId: configurable.thread_id,
     namespace: configurable.checkpoint_ns ?? "",
     checkpointId: configurable.checkpoint_id,
   };
 }
+
+/** Whether a config names its tree's root itself (`configurable.root_execution_id`). */
+export const hasRoot = (config: RunnableConfig): boolean =>
+  typeof config.configurable?.[ROOT_EXECUTION_ID_KEY] === "string";
 
 /** The filter of `list(config)`: a thread (or every thread), a namespace, a checkpoint id. */
 export const listFilterOf = (config: RunnableConfig): z.infer<typeof Configurable> =>

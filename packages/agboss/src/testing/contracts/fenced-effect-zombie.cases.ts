@@ -1,8 +1,9 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
+import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
-import { InvalidFencedEffectNameError } from "../../infrastructure/fenced-effect-key.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import {} from "../../app/lease-lost.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
   keyOf,
@@ -24,13 +25,13 @@ import { ROUNDS } from "./outbound-call-race.cases.js";
  */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
 /** Names a store must refuse: a ':', empty, above 100, a '.' first. */
 const BAD_NAMES = ["charge:twice", "", "x".repeat(101), ".charge"];
 
-const badNameRefused = <TTransaction>(): Case<TTransaction> => ({
-  name: "#508, #526 AC7: a key built by hand with an invalid name (a ':', empty, above 100, a '.' first) is refused — InvalidFencedEffectNameError, the write not run, nothing written, before the fence",
+const badNameRefused = (): Case => ({
+  name: "#508, #526 AC7: a key built by hand with an invalid name (a ':', empty, above 100, a '.' first) is refused — IdempotencyError.InvalidName, the write not run, nothing written, before the fence",
   run: async ({ first, second }) => {
     const lease = await leaseOf(first);
     const count: WriteCount = { runs: 0 };
@@ -40,13 +41,13 @@ const badNameRefused = <TTransaction>(): Case<TTransaction> => ({
       for (const key of [valid, stale])
         expect(
           await rejectionOf(first.effects.runOnce(key, writing(first.rows, name, count))),
-        ).toBeInstanceOf(InvalidFencedEffectNameError);
+        ).toBeInstanceOf(IdempotencyError.InvalidName);
     }
 
     expect(count.runs).toBe(0);
     expect(await second.rows.committed()).toEqual([]);
     const ran = await second.effects.runOnce(keyOf(lease), writing(second.rows, "r1", count));
-    expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, token: lease.token });
+    expect(ran).toMatchObject({ status: IdempotencyRunStatus.Ran, token: lease.token });
   },
 });
 
@@ -57,7 +58,7 @@ const settled = <T>(call: Promise<T>): Promise<T | { readonly rejected: unknown 
     (rejected: unknown) => ({ rejected }),
   );
 
-const zombieRacingNewHolder = <TTransaction>(): Case<TTransaction> => ({
+const zombieRacingNewHolder = (): Case => ({
   name: "#526 AC3: a write racing its lease's release, the next take and the new holder's write of the same key, round after round: one business row — the old holder's before the take, or it is refused",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -83,16 +84,16 @@ const zombieRacingNewHolder = <TTransaction>(): Case<TTransaction> => ({
       );
       expect(rows).toHaveLength(1);
       if ("rejected" in old) {
-        expect(old.rejected).toBeInstanceOf(ExecutionFencedError);
+        expect(old.rejected).toBeInstanceOf(ExecutionError.Fenced);
         expect(rows).toEqual([`holder-${String(round)}`]);
         expect(holder).toMatchObject({
-          status: FencedEffectStatus.Ran,
+          status: IdempotencyRunStatus.Ran,
           token: lease.token + 1,
         });
       } else {
         expect(rows).toEqual([`zombie-${String(round)}`]);
         expect(holder).toMatchObject({
-          status: FencedEffectStatus.Replayed,
+          status: IdempotencyRunStatus.Replayed,
           token: lease.token,
         });
       }
@@ -101,12 +102,7 @@ const zombieRacingNewHolder = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** The key built by hand and the zombie. */
-export const zombieCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
+export const zombieCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "a key built by hand, a zombie",
-  cases: [
-    badNameRefused<TTransaction>(),
-    zombieRacingNewHolder<TTransaction>(),
-    handOverDuringWrite<TTransaction>(),
-    expiryDuringWrite<TTransaction>(),
-  ],
+  cases: [badNameRefused(), zombieRacingNewHolder(), handOverDuringWrite(), expiryDuringWrite()],
 });

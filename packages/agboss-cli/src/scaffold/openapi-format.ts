@@ -58,12 +58,9 @@ export function importLine(names: readonly string[], from: string, typeOnly = fa
     : `${keyword} {\n${names.map((name) => `  ${name},`).join("\n")}\n} from "${from}";`;
 }
 
-/** `export class Name implements ToolHandler<In, Out> {` as prettier breaks it when too long. */
-export function classHeader(name: string, input: string, output: string): string {
-  const one = `export class ${name} implements ToolHandler<${input}, ${output}> {`;
-  return one.length <= WIDTH
-    ? one
-    : `export class ${name} implements ToolHandler<\n  ${input},\n  ${output}\n> {`;
+/** `export class Name {`: a tool needs no `implements`, `@Tool` checks `execute` against its DTOs. */
+export function classHeader(name: string): string {
+  return `export class ${name} {`;
 }
 
 /** A sample as a literal: objects expanded (prettier keeps them so), lists empty. */

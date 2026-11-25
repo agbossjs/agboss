@@ -11,11 +11,11 @@ Four mistakes a direct port makes, each prevented by one step:
 1. **One "God DTO" for the whole state**, every field optional — the paths then say nothing and every
    node reads everything. Step 1 slices the state into one narrow DTO per thing a node produces.
 2. **One `@Router` per `addConditionalEdges`**, even where the edge only reads what an agent just
-   decided. An agent's own decision is its output: `output: oneOf(A, B)` + `.switch(caseOf(A)…, caseOf(B)…)`.
+   decided. An agent's own decision is its output: `output: oneOf(A, B)` + `.toOneOf([…])`.
    A `@Router` is for a decision of its own — by code (`DecidedBy.Code`) or a classifier model
    (`DecidedBy.Model`).
-3. **A review loop without `about` and `historyOf`** — `[input.outdated-on-path]` on the reviewer, or
-   `[io.ambiguous-cycle]`. Step 2 says where each one goes.
+3. **A review loop without `historyOf`** — `[input.outdated-on-path]` on the reviewer. Step 2 says
+   where each one goes.
 4. **State interpolated into the prompt** (`` `Review: ${state.draft}` ``). A prompt is static
    instructions; what a node reads is its `input`, which comes in its own input message. A
    `{{input.…}}` in a prompt is `[prompt.input-in-instructions]`, and a prompt that changes per
@@ -83,25 +83,25 @@ The result — one row per DTO, its producer and its readers — is the plan for
 
 | LangGraph (TypeScript / Python)                                | AGBoss                                                                                                                                                                                                  |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Annotation.Root({…})` / `TypedDict` state                     | narrow DTO classes (`@agboss/core/dto`: `@Text`, `@Integer`, `@ListOf`, `@Nested`, …), one per producer — Step 1                                                                                        |
+| `Annotation.Root({…})` / `TypedDict` state                     | narrow DTO classes (`@agboss/core/dto`: `@Text`, `@Integer`, `@List`, `@Nested`, …), one per producer — Step 1                                                                                          |
 | `new StateGraph(State)…compile()` / `builder.compile()`        | `@Workflow({ name, version, flow: [paths] })`, listed in `@Application({ workflows })`; `createApp(App)` in production, `testWith(App)` in tests                                                        |
 | `START`, entry input                                           | `@WorkflowStart({ input: XDto })`; `app.execute(Start, input)`                                                                                                                                          |
 | `END`                                                          | a `@WorkflowFinish({ output: XDto })` — one per way the graph ends; every path ends in one                                                                                                              |
 | an LLM node, `createReactAgent`, `model.bindTools`, `ToolNode` | `@Agent({ prompt, model, input, output, tools })` + `@Tool` classes; `output` replaces `withStructuredOutput` and its parsing                                                                           |
 | a node of plain code (DB, HTTP, a transform)                   | `@Action({ input, output, deps })` + `ActionHandler`; a side effect to undo on failure: `compensateWith` / `committedBy`                                                                                |
-| `addConditionalEdges` reading what an LLM node just decided    | that agent's `output: oneOf(A, B)` + `.returns(oneOf(A, B)).switch(caseOf(A)…, caseOf(B)…)`                                                                                                             |
-| `addConditionalEdges` / `Command({ goto })` decided by code    | `@Router({ decidedBy: DecidedBy.Code, routes })` + `RouterHandler`: `route(input)` returns a target; `.toRouter(R).chooseOne(route(X)…, …)`                                                             |
+| `addConditionalEdges` reading what an LLM node just decided    | that agent's `output: oneOf(A, B)` + `.toOneOf([…])`                                                                                                                                                    |
+| `addConditionalEdges` / `Command({ goto })` decided by code    | `@Router({ decidedBy: DecidedBy.Code, routes })` + `RouterHandler`: `route(input)` returns a target; `.toRouter(R).onRoute(toAgent(X)…).onRoute(…)`                                                     |
 | `addConditionalEdges` with an LLM classifier                   | `@Router({ decidedBy: DecidedBy.Model, prompt, model, routes: [{ prompt, target }] })` — a decision model or a chat model                                                                               |
-| a cycle `critic → editor → critic`                             | the reviewer in its own path `agent(Reviewer)…`; `caseOf(ChangesDto, { about: DraftDto })` (or `.returns(CritiqueDto, { about: DraftDto })`); `historyOf(DraftDto, { limit })` to read earlier versions |
-| a loop counter, `recursionLimit`                               | `maxVisits` on a node, `@Workflow({ maxSteps })`; `.onError(VisitsLimitExceededError, …)` for the way out                                                                                               |
-| `new Send(node, item)` per list item                           | `.returns(listOf(ItemDto)).toParallelAgents(Agent, { maxConcurrency, maxItems })` (or `.toParallelWorkflows(Child, …)`) then `.join().returns(listOf(OutDto))`                                          |
-| `Send` to several different nodes, "first N answers win"       | `.toParallelAgents(A, B, C)` + `.join()`, or `.acceptedBy(Arbiter).joinQuorum({ min, max, deadline })`                                                                                                  |
+| a cycle `critic → editor → critic`                             | the reviewer in its own path `onAgent(Reviewer)…`; a `.toOneOf([…])` branch reading `ChangesDto`; `historyOf(DraftDto, { maxPrevious })` to read earlier versions                                       |
+| a loop counter, `recursionLimit`                               | `maxVisits` on a node, `@Workflow({ executionLimits: { maxSteps } })`; `.onError(VisitsLimitExceededError, …)` for the way out                                                                          |
+| `new Send(node, item)` per list item                           | `.forEachItem(toAgent(Agent), { takeFirst, maxConcurrency })` after a step whose output is `listOf(ItemDto)` (or `.forEachItem(toWorkflow(Child), …)`) then `.join()` (the join gives `listOf(OutDto)`) |
+| `Send` to several different nodes, "first N answers win"       | `.inParallel([toAgent(A), toAgent(B), toAgent(C)])` + `.join()`, or `.arbitratedBy(Arbiter).joinQuorum({ min, max, deadline })`                                                                         |
 | a reducer (`(a, b) => a.concat(b)`, `operator.add`)            | the join's `listOf(…)` — values are never merged by hand                                                                                                                                                |
 | a subgraph                                                     | a child `@Workflow`: `.toWorkflow(Child)`, its own scope (only its start's input), its finishes' outputs as the step's result                                                                           |
-| `interrupt(payload)` + `Command({ resume })`                   | a `@Tool({ channel: Role })` whose call needs an answer: a `@ChannelRole` (`extends ChannelOf<Self>`) and its `@Channel` returning `ChannelOutcome.awaitReply()`; `app.resume({ pauseId, decision })`   |
+| `interrupt(payload)` + `Command({ resume })`                   | a `@Tool({ approval: Target })` whose call needs an answer: a `@ToolApproval` target and its `@Channel({ target })` returning `ChannelOutcome.awaitReply()`; `app.resume({ pauseId, decision })`        |
 | `thread_id` in `configurable`                                  | `app.execute(Start, input, { threadId, ownerId })`                                                                                                                                                      |
-| `MessagesAnnotation`, a messages reducer                       | across executions, the thread's turns: each agent sees its last `uncompactedTurns`, older ones through a `@Compaction`; within one, an agent's tool loop keeps its own messages                         |
-| `MemorySaver`, `PostgresSaver`                                 | infrastructure in `@Application({ providers })`: `SqliteCheckpointSaver`, `SqlitePausedExecutionRepository`, … (in-memory by default)                                                                   |
+| `MessagesAnnotation`, a messages reducer                       | across executions, the thread's turns: each agent sees its `@Memory`'s last `uncompactedTurns`, older ones through its compaction; within one, an agent's tool loop keeps its own messages              |
+| `MemorySaver`, `PostgresSaver`                                 | the application's `@DatabaseStorage({ driver })` in `@Application({ storage })` (the checkpointer comes with the driver; in-memory by default)                                                          |
 | `streamMode: "updates"`                                        | `app.execute(…, { onStream })`; observers in `@Application({ observers })` for events                                                                                                                   |
 
 There is no pause step in an AGBoss flow: a pause is always a tool call through a channel. An
@@ -110,7 +110,7 @@ agent), with the approval asked before the tool runs; the decision is validated 
 
 **Where a node goes in `flow`.** A node reached from one place is continued inline, right where it
 is reached; a node reached from two or more places (the reviewer: from the writer and from the
-editor) is continued once, in its own path that starts with `agent(X)` / `router(R)` / `action(A)`,
+editor) is continued once, in its own path that starts with `onAgent(X)` / `onRouter(R)` / `onAction(A)`,
 and every path into it ends with the step of its kind (`.toAgent(X)`, `.toRouter(R)`, …). The other way round is `[flow.shared-node-inline]`
 or `[flow.single-entry-own-path]`.
 
@@ -358,7 +358,7 @@ export class OrderFactsDto {
 }
 ```
 
-The services the old nodes called are injected, the `interrupt()` becomes a channel role on the tool
+The services the old nodes called are injected, the `interrupt()` becomes an approval target on the tool
 that issues a large refund:
 
 ```ts file=src/support/services/order-book.service.ts
@@ -396,34 +396,41 @@ export class SupervisorQueueService {
 }
 ```
 
-```ts file=src/support/channels/refund-sign-off.channel-role.ts
-// interrupt({ draft, refundCents }) → the role: what is approved and who answers
-import { ChannelOf, ChannelRole, PauseAnswerer } from "@agboss/core";
+```ts file=src/support/tool-approvals/refund-sign-off.tool-approval.ts
+// interrupt({ draft, refundCents }) → the target: what is approved and who answers
+import { PauseRespondent, ToolApproval } from "@agboss/core";
+import { days } from "@agboss/core/units";
 import { RefundOrderDto } from "../dto/refund-order.dto.js";
 
-@ChannelRole({
-  name: "refund-sign-off-channel",
+@ToolApproval({
+  name: "refund-sign-off-tool-approval",
   description: "A supervisor signs off a large refund before it is issued",
-  approves: RefundOrderDto, // the input of the tool that names the role
-  answerer: PauseAnswerer.ThreadOwner,
+  input: RefundOrderDto, // the input of the tool that names the target
+  respondent: PauseRespondent.Owner,
+  timeout: days(2),
 })
-export abstract class RefundSignOffChannel extends ChannelOf<RefundSignOffChannel> {}
+export class RefundSignOffToolApproval {}
 ```
 
 ```ts file=src/support/channels/supervisor-queue-refund-sign-off.channel.ts
 import { Channel, ChannelOutcome } from "@agboss/core";
 import type { ChannelAsk } from "@agboss/core";
+import { days } from "@agboss/core/units";
 import { SupervisorQueueService } from "../services/supervisor-queue.service.js";
-import { RefundSignOffChannel } from "./refund-sign-off.channel-role.js";
+import { RefundSignOffToolApproval } from "../tool-approvals/refund-sign-off.tool-approval.js";
 
-@Channel({ name: "supervisor-queue-refund-sign-off-channel", description: "Puts the refund in the supervisors' queue", deps: [SupervisorQueueService] })
-export class SupervisorQueueRefundSignOffChannel extends RefundSignOffChannel {
-  constructor(private readonly supervisorQueueService: SupervisorQueueService) {
-    super();
-  }
+@Channel({
+  name: "supervisor-queue-refund-sign-off-channel",
+  description: "Puts the refund in the supervisors' queue",
+  target: RefundSignOffToolApproval,
+  ttl: days(7),
+  deps: [SupervisorQueueService],
+})
+export class SupervisorQueueRefundSignOffChannel {
+  constructor(private readonly supervisorQueueService: SupervisorQueueService) {}
 
-  async send(ask: ChannelAsk<RefundSignOffChannel>): Promise<ChannelOutcome<RefundSignOffChannel>> {
-    const { orderId, amountCents } = ask.value.arguments;
+  async send(ask: ChannelAsk<RefundSignOffToolApproval>): Promise<ChannelOutcome<RefundSignOffToolApproval>> {
+    const { orderId, amountCents } = ask.input;
     await this.supervisorQueueService.notify(ask.pauseId, `Refund ${String(amountCents)} cents on order ${orderId}?`);
     return ChannelOutcome.awaitReply(); // Command({ resume }) becomes app.resume({ pauseId, decision })
   }
@@ -431,24 +438,27 @@ export class SupervisorQueueRefundSignOffChannel extends RefundSignOffChannel {
 ```
 
 ```ts file=src/support/tools/order-lookup.tool.ts
-import { Tool, type ToolHandler } from "@agboss/core";
+import { Tool } from "@agboss/core";
 import { OrderFactsDto } from "../dto/order-facts.dto.js";
 import { OrderLookupDto } from "../dto/order-lookup.dto.js";
 import { OrderBookService } from "../services/order-book.service.js";
 
 @Tool({ name: "order-lookup-tool", description: "What is known about an order", input: OrderLookupDto, output: OrderFactsDto, deps: [OrderBookService] })
-export class OrderLookupTool implements ToolHandler<OrderLookupDto, OrderFactsDto> {
+export class OrderLookupTool {
   constructor(private readonly orderBookService: OrderBookService) {}
 
-  async run({ orderId }: OrderLookupDto): Promise<OrderFactsDto> {
+  async execute({ orderId }: OrderLookupDto): Promise<OrderFactsDto> {
     return { facts: await this.orderBookService.factsOf(orderId) };
   }
 }
 ```
 
+A tool is a class with `execute(input)` — the `ToolHandler<In, Out>` shape, returning its output DTO or a
+promise of it; it needs no `implements`, the decorator checks the method against its DTOs.
+
 ```ts file=src/support/tools/issue-signed-off-refund.tool.ts
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
-import { RefundSignOffChannel } from "../channels/refund-sign-off.channel-role.js";
+import { ExecutionContext, Tool } from "@agboss/core";
+import { RefundSignOffToolApproval } from "../tool-approvals/refund-sign-off.tool-approval.js";
 import { RefundIssuedDto } from "../dto/refund-issued.dto.js";
 import { RefundOrderDto } from "../dto/refund-order.dto.js";
 import { RefundApiService } from "../services/refund-api.service.js";
@@ -458,16 +468,16 @@ import { RefundApiService } from "../services/refund-api.service.js";
   description: "Issues a large refund — a supervisor signs it off first",
   input: RefundOrderDto,
   output: RefundIssuedDto,
-  channel: RefundSignOffChannel, // the role, never its implementation
+  approval: RefundSignOffToolApproval, // the target, never its channel
   deps: [RefundApiService, ExecutionContext],
 })
-export class IssueSignedOffRefundTool implements ToolHandler<RefundOrderDto, RefundIssuedDto> {
+export class IssueSignedOffRefundTool {
   constructor(
     private readonly refundApiService: RefundApiService,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  async run({ orderId, amountCents }: RefundOrderDto): Promise<RefundIssuedDto> {
+  async execute({ orderId, amountCents }: RefundOrderDto): Promise<RefundIssuedDto> {
     const key: string = this.executionContext.step.idempotencyKey;
     return { refundId: await this.refundApiService.issue(orderId, amountCents, key) };
   }
@@ -478,14 +488,14 @@ Each LLM node is an agent with a static prompt and typed `input` / `output` — 
 no string building. The writer and the editor are two agents: the first never reads a draft.
 
 ```ts file=src/support/agents/research-planner/research-planner.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { ResearchQuestionDto } from "../../dto/research-question.dto.js";
 import { SupportRequestDto } from "../../dto/support-request.dto.js";
 
 @Agent({
   name: "research-planner-agent",
   description: "Lists what to check before answering",
-  prompt: "List the questions to check before answering the customer about their order.",
+  prompt: inline("List the questions to check before answering the customer about their order."),
   model: "moonshotai/kimi-k2.6",
   input: { request: SupportRequestDto },
   output: listOf(ResearchQuestionDto),
@@ -494,7 +504,7 @@ export class ResearchPlannerAgent {}
 ```
 
 ```ts file=src/support/agents/order-researcher/order-researcher.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { ResearchFindingDto } from "../../dto/research-finding.dto.js";
 import { ResearchQuestionDto } from "../../dto/research-question.dto.js";
 import { SupportRequestDto } from "../../dto/support-request.dto.js";
@@ -503,18 +513,18 @@ import { OrderLookupTool } from "../../tools/order-lookup.tool.js";
 @Agent({
   name: "order-researcher-agent",
   description: "Answers one question from the order's facts",
-  prompt: "Answer the question from the order's facts. Look the order up with order-lookup-tool.",
+  prompt: inline("Answer the question from the order's facts. Look the order up with order-lookup-tool."),
   model: "moonshotai/kimi-k2.6",
   input: { question: ResearchQuestionDto, request: SupportRequestDto },
   output: ResearchFindingDto,
   tools: [OrderLookupTool],
-  maxToolCalls: 2,
+  executionLimits: { maxToolCalls: 2 },
 })
 export class OrderResearcherAgent {}
 ```
 
 ```ts file=src/support/agents/reply-writer/reply-writer.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
 import { ResearchFindingDto } from "../../dto/research-finding.dto.js";
 import { SupportRequestDto } from "../../dto/support-request.dto.js";
@@ -522,7 +532,7 @@ import { SupportRequestDto } from "../../dto/support-request.dto.js";
 @Agent({
   name: "reply-writer-agent",
   description: "Writes the first reply from the findings",
-  prompt: "Write a short, honest reply. Promise a refund only when the findings support one.",
+  prompt: inline("Write a short, honest reply. Promise a refund only when the findings support one."),
   model: "moonshotai/kimi-k2.6",
   input: { request: SupportRequestDto, findings: listOf(ResearchFindingDto) },
   output: ReplyDraftDto,
@@ -531,7 +541,7 @@ export class ReplyWriterAgent {}
 ```
 
 ```ts file=src/support/agents/reply-reviewer/reply-reviewer.agent.ts
-import { Agent, historyOf, listOf, oneOf } from "@agboss/core";
+import { Agent, historyOf, listOf, oneOf, inline } from "@agboss/core";
 import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
 import { ReplyApprovedDto } from "../../dto/reply-approved.dto.js";
 import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
@@ -540,34 +550,34 @@ import { ResearchFindingDto } from "../../dto/research-finding.dto.js";
 @Agent({
   name: "reply-reviewer-agent",
   description: "Approves the reply or asks for changes",
-  prompt: "Approve the reply if the findings support every claim in it; otherwise say what to change. Do not ask again for what an earlier version fixed.",
+  prompt: inline("Approve the reply if the findings support every claim in it; otherwise say what to change. Do not ask again for what an earlier version fixed."),
   model: "moonshotai/kimi-k2.6",
-  input: { draft: historyOf(ReplyDraftDto, { limit: 2 }), findings: listOf(ResearchFindingDto) },
+  input: { draft: historyOf(ReplyDraftDto, { maxPrevious: 2 }), findings: listOf(ResearchFindingDto) },
   output: oneOf(ChangesRequestedDto, ReplyApprovedDto), // the old `approved` flag and `critique`
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
 })
 export class ReplyReviewerAgent {}
 ```
 
 ```ts file=src/support/agents/reply-editor/reply-editor.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
 import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
 
 @Agent({
   name: "reply-editor-agent",
   description: "Rewrites the reply as asked",
-  prompt: "Rewrite the reply so it meets every requested change.",
+  prompt: inline("Rewrite the reply so it meets every requested change."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: ReplyDraftDto, changes: ChangesRequestedDto },
   output: ReplyDraftDto,
-  maxVisits: 2, // the old `revisions` counter
+  executionLimits: { maxVisits: 2 }, // the old `revisions` counter
 })
 export class ReplyEditorAgent {}
 ```
 
 ```ts file=src/support/agents/refund-sign-off/refund-sign-off.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { RefundIssuedDto } from "../../dto/refund-issued.dto.js";
 import { ReplyDraftDto } from "../../dto/reply-draft.dto.js";
 import { SupportRequestDto } from "../../dto/support-request.dto.js";
@@ -576,12 +586,12 @@ import { IssueSignedOffRefundTool } from "../../tools/issue-signed-off-refund.to
 @Agent({
   name: "refund-sign-off-agent",
   description: "Issues a large refund once it is signed off",
-  prompt: "Issue the refund the reply promises with issue-signed-off-refund-tool, then report its id.",
+  prompt: inline("Issue the refund the reply promises with issue-signed-off-refund-tool, then report its id."),
   model: "moonshotai/kimi-k2.6",
   input: { request: SupportRequestDto, draft: ReplyDraftDto },
   output: RefundIssuedDto,
   tools: [IssueSignedOffRefundTool],
-  maxToolCalls: 1,
+  executionLimits: { maxToolCalls: 1 },
 })
 export class RefundSignOffAgent {}
 ```
@@ -622,8 +632,26 @@ import { SupportRequestDto } from "../../dto/support-request.dto.js";
 export class ReplyStuckWorkflowFinish {}
 ```
 
+A decision model (Jev) is served by a decisions provider — a component naming one says so with `modelProvider`:
+
+```ts file=src/model-providers/decisions.model-provider.ts
+import { secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Jev and the other decision models, on OpenRouter's Decisions API",
+  driver: DecisionsDriver({ baseUrl: "https://openrouter.ai/api/v1", apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
+```
+
 ```ts file=src/support/routers/support-triage/support-triage.router.ts
-import { DecidedBy, Router } from "@agboss/core";
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
+import { DecidedBy, Router, inline } from "@agboss/core";
 import { ResearchPlannerAgent } from "../../agents/research-planner/research-planner.agent.js";
 import { SupportRequestDto } from "../../dto/support-request.dto.js";
 import { HandOverWorkflowFinish } from "../../workflows/support/hand-over.workflow-finish.js";
@@ -632,8 +660,9 @@ import { HandOverWorkflowFinish } from "../../workflows/support/hand-over.workfl
   name: "support-triage-router",
   description: "Sends a refund request on, hands anything else over",
   decidedBy: DecidedBy.Model,
-  prompt: "Decide whether the customer asks for a refund.",
+  prompt: inline("Decide whether the customer asks for a refund."),
   model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
   input: { request: SupportRequestDto },
   routes: [
     { prompt: "The customer asks for a refund", target: ResearchPlannerAgent },
@@ -666,7 +695,7 @@ export class IssueRefundAction implements ActionHandler<IssueRefundAction> {
 
   async execute(input: InputOf<IssueRefundAction>): Promise<OutputOf<IssueRefundAction>> {
     const key: string = this.executionContext.step.idempotencyKey; // a retry after a crash is one refund
-    return { refundId: await this.refundApiService.issue(input.request.value.orderId, input.draft.value.refundCents, key) };
+    return { refundId: await this.refundApiService.issue(input.request.orderId, input.draft.refundCents, key) };
   }
 }
 ```
@@ -685,11 +714,11 @@ const REFUND_SIGN_OFF_CENTS = 10_000;
   description: "Issues a small refund at once, sends a large one for sign-off",
   decidedBy: DecidedBy.Code,
   input: { draft: ReplyDraftDto },
-  routes: [{ target: IssueRefundAction }, { target: RefundSignOffAgent }],
+  routes: [IssueRefundAction, RefundSignOffAgent],
 })
 export class RefundSizeRouter implements RouterHandler<RefundSizeRouter> {
   route(input: InputOf<RefundSizeRouter>): Route<RefundSizeRouter> {
-    return input.draft.value.refundCents > REFUND_SIGN_OFF_CENTS ? RefundSignOffAgent : IssueRefundAction;
+    return input.draft.refundCents > REFUND_SIGN_OFF_CENTS ? RefundSignOffAgent : IssueRefundAction;
   }
 }
 ```
@@ -699,7 +728,19 @@ writer and from the editor). The `Send` fan-out is a per-item launch, the reduce
 review edge is the reviewer's `oneOf` output; `revisions >= 3 → END` is the editor's `maxVisits`:
 
 ```ts file=src/support/workflows/support/support.workflow.ts
-import { VisitsLimitExceededError, Workflow, agent, caseOf, listOf, oneOf, route, start, toFinish } from "@agboss/core";
+import {
+  VisitsLimitExceededError,
+  Workflow,
+  onAgent,
+  listOf,
+  oneOf,
+  onStart,
+  toFinish,
+  toAgent,
+  toRouter,
+  toAction,
+  Ttl,
+} from "@agboss/core";
 import { IssueRefundAction } from "../../actions/issue-refund.action.js";
 import { OrderResearcherAgent } from "../../agents/order-researcher/order-researcher.agent.js";
 import { RefundSignOffAgent } from "../../agents/refund-sign-off/refund-sign-off.agent.js";
@@ -726,51 +767,45 @@ import { SupportWorkflowStart } from "./support.workflow-start.js";
 @Workflow({
   name: "support-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SupportWorkflowStart)
-      .returns(SupportRequestDto)
+    onStart(SupportWorkflowStart)
       .toRouter(SupportTriageRouter)
-      .chooseOne(
-        route(ResearchPlannerAgent)
-          .returns(listOf(ResearchQuestionDto))
-          .toParallelAgents(OrderResearcherAgent, { maxConcurrency: 3, maxItems: 5 }) // new Send(…) per question
-          .join()
-          .returns(listOf(ResearchFindingDto)) // the reducer's concatenated findings
+      .onRoute(
+        toAgent(ResearchPlannerAgent)
+          .forEachItem(toAgent(OrderResearcherAgent), { takeFirst: 5, maxConcurrency: 3 }) // new Send(…) per question
+          .join() // the reducer's concatenated findings
           .toAgent(ReplyWriterAgent)
-          .returns(ReplyDraftDto)
           .toAgent(ReplyReviewerAgent),
-        route(HandOverWorkflowFinish),
-      ),
+      )
+      .onRoute(toFinish(HandOverWorkflowFinish)),
 
-    agent(ReplyReviewerAgent)
-      .returns(oneOf(ChangesRequestedDto, ReplyApprovedDto))
-      .switch(
-        caseOf(ChangesRequestedDto, { about: ReplyDraftDto }) // the changes are about this draft
-          .toAgent(ReplyEditorAgent)
+    onAgent(ReplyReviewerAgent)
+      .toOneOf([
+        // the editor reads the requested changes: that tells this branch apart
+        toAgent(ReplyEditorAgent)
           .onError(VisitsLimitExceededError, toFinish(ReplyStuckWorkflowFinish))
-          .returns(ReplyDraftDto)
           .toAgent(ReplyReviewerAgent),
-        caseOf(ReplyApprovedDto)
-          .toRouter(RefundSizeRouter)
-          .chooseOne(
-            route(IssueRefundAction)
-              .returns(RefundIssuedDto)
+        toRouter(RefundSizeRouter)
+          .onRoute(
+            toAction(IssueRefundAction)
               .toFinish(RefundIssuedWorkflowFinish),
-            route(RefundSignOffAgent)
-              .returns(RefundIssuedDto)
+          )
+          .onRoute(
+            toAgent(RefundSignOffAgent)
               .toFinish(RefundIssuedWorkflowFinish),
           ),
-      ),
+      ]),
   ],
-  maxSteps: 16,
+  executionLimits: { maxSteps: 16 },
   providers: [OrderBookService, RefundApiService],
 })
 export class SupportWorkflow {}
 ```
 
 The `compile({ checkpointer })` call becomes the application: its workflows, budgets and
-infrastructure — here the channel's implementation; in production also `SqliteCheckpointSaver` and
-`SqlitePausedExecutionRepository`, so a pause survives a restart (`09-persistence-k8s-and-deploy.md`).
+infrastructure — here the approval's channel; in production also a `@DatabaseStorage`
+with a driver in `storage`, so a pause survives a restart (`09-persistence-k8s-and-deploy.md`).
 Its budgets, one per file in `budgets/`:
 
 ```ts file=src/support/budgets/support-application.budget.ts
@@ -809,7 +844,25 @@ export class SupportExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/support.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { SupportApplicationBudget } from "./support/budgets/support-application.budget.js";
 import { SupportExecutionBudget } from "./support/budgets/support-execution.budget.js";
@@ -819,12 +872,14 @@ import { SupervisorQueueService } from "./support/services/supervisor-queue.serv
 import { SupportWorkflow } from "./support/workflows/support/support.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
   name: "support-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SupportWorkflow],
   budgets: [SupportApplicationBudget, SupportTenantBudget, SupportExecutionBudget],
-  providers: [SupervisorQueueRefundSignOffChannel, SupervisorQueueService],
+  providers: [OpenRouterModelProvider, SupervisorQueueService],
+  channels: [SupervisorQueueRefundSignOffChannel],
 })
 export class SupportApplication {}
 ```
@@ -835,18 +890,17 @@ Run `npx agboss check` after the first files exist and after every change. A Lan
 compiles whatever its nodes read; an AGBoss flow is checked path by path, so a port surfaces latent
 bugs as rule codes — fix each in the design, never by widening a DTO:
 
-| Code                             | What it found in the old graph                                                                | The fix                                                                                   |
-| -------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `[input.missing-on-path]`        | a node read a key no node before it wrote on every path (`write`'s first `draft`, `critique`) | split the node (writer / editor), or read the field only where a path brings it           |
-| `[input.outdated-on-path]`       | a node read a value built from an older version of what was rewritten since (stale critique)  | `about` on the value it is about, `historyOf(Dto, { limit })` for the earlier versions    |
-| `[io.ambiguous-cycle]`           | in a loop of values built from each other, nothing said which draft a critique is about       | `caseOf(ChangesDto, { about: DraftDto })` or `.returns(CritiqueDto, { about: DraftDto })` |
-| `[flow.unused-output]`           | a key written and read by nobody                                                              | drop it from the DTO, or read it below                                                    |
-| `[launch.max-items-required]`    | a `Send` per item with no bound — a long list fanned out without limit                        | `maxItems` (and `maxConcurrency`) on the launch                                           |
-| `[launch.item-not-read]`         | the parallel node does not read the item it is launched for                                   | an `input` field of the item's DTO                                                        |
-| `[flow.shared-node-inline]`      | a node reached from two places was continued inline                                           | its own path `agent(X)…`, every path into it ending `.toAgent(X)`                         |
-| `[router.routes-mismatch]`       | a conditional edge's targets and the router's `chooseOne` differ                              | one `route(…)` per `@Router` route                                                        |
-| `[prompt.input-in-instructions]` | state interpolated into the prompt                                                            | an `input` field; the prompt stays static                                                 |
-| `[limits.max-steps-too-low]`     | `recursionLimit` was the only bound                                                           | a `maxSteps` the longest path fits, `maxVisits` on each node of a loop                    |
+| Code                                  | What it found in the old graph                                                                | The fix                                                                              |
+| ------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `[input.missing-on-path]`             | a node read a key no node before it wrote on every path (`write`'s first `draft`, `critique`) | split the node (writer / editor), or read the field only where a path brings it      |
+| `[input.outdated-on-path]`            | a node read a value built from an older version of what was rewritten since (stale critique)  | renew it on that path, `historyOf(Dto, { maxPrevious })` for the earlier versions    |
+| `[flow.unused-output]`                | a key written and read by nobody                                                              | drop it from the DTO, or read it below                                               |
+| `[launch.max-items-handler-required]` | a `Send` per item with a `maxItems` bound and nobody catching `LimitError.Items`              | `.onError(LimitError.Items, …)`; or `takeFirst` (and `maxConcurrency`) on the launch |
+| `[launch.item-not-read]`              | the parallel node does not read the item it is launched for                                   | an `input` field of the item's DTO                                                   |
+| `[flow.shared-node-inline]`           | a node reached from two places was continued inline                                           | its own path `onAgent(X)…`, every path into it ending `.toAgent(X)`                  |
+| `[router.routes-mismatch]`            | a conditional edge's targets and the router's `.onRoute(…)`s differ                           | one `.onRoute(…)` per `@Router` route                                                |
+| `[prompt.input-in-instructions]`      | state interpolated into the prompt                                                            | an `input` field; the prompt stays static                                            |
+| `[limits.max-steps-too-low]`          | `recursionLimit` was the only bound                                                           | a `maxSteps` the longest path fits, `maxVisits` on each node of a loop               |
 
 Then `npx agboss describe`: the flow as assembled, each node's inputs with their producers — check it
 reads like the old graph's intent, not like its edges.
@@ -858,7 +912,7 @@ class, and a code component is tested alone with its unit runner:
 ```ts file=tests/support/workflows/support/support.workflow.test.ts
 import { expect, it } from "vitest";
 import { ExecutionStatus } from "@agboss/core";
-import { callTool, replyWith, routeTo, testRouter, testWith } from "@agboss/core/testing";
+import { callTool, replyWith, routeTo, testUnit, testWith } from "@agboss/core/testing";
 import { SupportApplication } from "../../../../src/support.application.js";
 import { IssueRefundAction } from "../../../../src/support/actions/issue-refund.action.js";
 import { OrderResearcherAgent } from "../../../../src/support/agents/order-researcher/order-researcher.agent.js";
@@ -940,10 +994,10 @@ test("a large refund pauses for sign-off and is issued after app.resume", async 
 });
 
 it("the size router decides by code, at no cost", async () => {
-  const runRouter = testRouter(RefundSizeRouter);
+  const runRouter = testUnit(RefundSizeRouter);
 
   const { output } = await runRouter({
-    draft: { producer: ReplyWriterAgent, value: { text: "Full refund.", refundCents: 25_000 } },
+    draft: { text: "Full refund.", refundCents: 25_000 },
   });
 
   expect(output).toBe(RefundSignOffAgent);
@@ -960,9 +1014,9 @@ behaviour a live model must keep goes in an `@EvalSuite` — both in `10-testing
 2. One DTO per producer, ending with `Dto`; no field optional only because "some node may not have
    set it".
 3. Each node a component of its kind: agent (a model), action (code), router (a decision of its own),
-   child workflow (a subgraph); every `interrupt()` a tool with a channel role.
+   child workflow (a subgraph); every `interrupt()` a tool with an approval target (`@ToolApproval`).
 4. Prompts static; what changes per execution in `input`.
-5. The flow: one path per node reached from two places; `about` and `historyOf` on every loop;
+5. The flow: one path per node reached from two places; `historyOf` on every loop;
    `maxItems` on every launch; `maxVisits` on every node of a loop; each way out a finish.
 6. `npx agboss check` prints `ok:`, `npx agboss describe` reads like the old graph's intent, and
    `npm test` passes on scripts only.

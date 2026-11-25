@@ -13,12 +13,50 @@ import {
   type CheckpointTuple,
 } from "@langchain/langgraph";
 import { describe } from "vitest";
+import { rootExecutionIdOf } from "../../src/infrastructure/checkpoint-threads.js";
 import { newestFirstOrder, stepOf } from "../../src/infrastructure/latest-by-step.js";
 import { checkpointSaverContract, StoreCapability } from "../../src/testing/contracts/index.js";
 import { inMemoryTarget, sharedInMemory } from "./contracts/store-kinds.js";
 
 /** The versions `put` is given (LangGraph's `ChannelVersions`, not re-exported by `@langchain/langgraph`). */
 type ChannelVersions = Parameters<BaseCheckpointSaver["put"]>[3];
+
+/**
+ * LangGraph's `MemorySaver` with the one thing the contract asks beyond it (#1321d): it keeps the
+ * root execution id each thread's config names, and `deleteThread` of a root also removes the
+ * threads of its tree, as every saver of a store does — by that root, never by the shape of an id.
+ */
+class ChildThreadsMemorySaver extends MemorySaver {
+  readonly #roots = new Map<string, string>();
+
+  #noteRoot(config: RunnableConfig): void {
+    const thread = String(config.configurable?.thread_id);
+    if (!this.#roots.has(thread))
+      this.#roots.set(thread, rootExecutionIdOf(config.configurable) ?? thread);
+  }
+
+  override async put(
+    ...[config, ...rest]: Parameters<MemorySaver["put"]>
+  ): Promise<RunnableConfig> {
+    this.#noteRoot(config);
+    return super.put(config, ...rest);
+  }
+
+  override async putWrites(
+    ...[config, ...rest]: Parameters<MemorySaver["putWrites"]>
+  ): Promise<void> {
+    this.#noteRoot(config);
+    await super.putWrites(config, ...rest);
+  }
+
+  override async deleteThread(threadId: string): Promise<void> {
+    const tree = [...this.#roots].filter(([, root]) => root === threadId).map(([each]) => each);
+    for (const each of new Set([threadId, ...tree])) {
+      await super.deleteThread(each);
+      this.#roots.delete(each);
+    }
+  }
+}
 
 /** Where a blob lives: thread, namespace, channel and the version it was written at. */
 const blobKey = (config: RunnableConfig, channel: string, version: string | number): string =>
@@ -35,7 +73,7 @@ const blobKey = (config: RunnableConfig, channel: string, version: string | numb
  * read joins the checkpoint's `channel_versions` to the blobs. A channel `put` is not given a
  * version for has no value read back.
  */
-class VersionedBlobSaver extends MemorySaver {
+class VersionedBlobSaver extends ChildThreadsMemorySaver {
   readonly #blobs = new Map<string, unknown>();
 
   override async put(
@@ -79,7 +117,9 @@ class VersionedBlobLatestSaver extends VersionedBlobSaver {
 
 describe("#511 AC2: LangGraph's MemorySaver passes checkpointSaverContract", () => {
   checkpointSaverContract({
-    ...inMemoryTarget((seam) => sharedInMemory(seam, "memory-saver", () => new MemorySaver())),
+    ...inMemoryTarget((seam) =>
+      sharedInMemory(seam, "memory-saver", () => new ChildThreadsMemorySaver()),
+    ),
     name: "LangGraph MemorySaver",
   });
 });

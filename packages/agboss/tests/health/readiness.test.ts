@@ -43,51 +43,53 @@ describe("#300 AC2: readiness", () => {
       { name: "pause-timers", kind: HealthComponentKind.PauseTimers, status: "healthy" },
       {
         name: "StallingExecutionRecordRepository",
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
-      { name: "FlakyCostLedgerRepository", kind: HealthComponentKind.Store, status: "healthy" },
+      { name: "FlakyCostLedgerRepository", kind: HealthComponentKind.Storage, status: "healthy" },
       {
         name: "InMemoryPausedExecutionRepository",
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
       {
         name: "InMemoryExecutionLeaseRepository",
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
       {
         name: "InMemoryExecutionTreeRepository",
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
-      { name: "ReachableRateLimitRepository", kind: HealthComponentKind.Store, status: "healthy" },
-      { name: "InMemoryMeshRequestRepository", kind: HealthComponentKind.Store, status: "healthy" },
-      { name: "InMemoryA2ATaskRepository", kind: HealthComponentKind.Store, status: "healthy" },
+      {
+        name: "ReachableRateLimitRepository",
+        kind: HealthComponentKind.Storage,
+        status: "healthy",
+      },
+      {
+        name: "InMemoryMeshRequestRepository",
+        kind: HealthComponentKind.Storage,
+        status: "healthy",
+      },
+      { name: "InMemoryA2ATaskRepository", kind: HealthComponentKind.Storage, status: "healthy" },
       {
         name: "InMemoryA2ADirectMessageRepository",
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
       {
         name: "InMemoryExecutionHistoryRepository",
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
       {
         name: "InMemoryExecutionAuditLogRepository", // #501
-        kind: HealthComponentKind.Store,
-        status: "healthy",
-      },
-      { name: "SharedCheckpointSaver", kind: HealthComponentKind.Store, status: "healthy" },
-      {
-        name: "openrouter-model-provider",
-        kind: HealthComponentKind.ModelProvider,
+        kind: HealthComponentKind.Storage,
         status: "healthy",
       },
       {
-        name: "decisions-model-provider",
+        name: "test-model-provider",
         kind: HealthComponentKind.ModelProvider,
         status: "healthy",
       },
@@ -103,7 +105,7 @@ describe("#300 AC2: readiness", () => {
 
       expect(report.status).toBe(HealthStatus.Unhealthy);
       expect(componentOf(report, "FlakyCostLedgerRepository")).toMatchObject({
-        kind: HealthComponentKind.Store,
+        kind: HealthComponentKind.Storage,
         status: HealthStatus.Unhealthy,
         reason: "connection refused",
       });
@@ -115,17 +117,16 @@ describe("#300 AC2: readiness", () => {
     async ({ app, clock }) => {
       await app.ready();
       const until = new Date(clock.now().getTime() + minutes(1));
-      await stores.rateLimits?.pauseUntil(circuitOpenKeyOf("openrouter-model-provider"), until);
+      await stores.rateLimits?.pauseUntil(circuitOpenKeyOf("test-model-provider"), until);
 
       const report = await app.checkReadiness();
 
       expect(report.status).toBe(HealthStatus.Degraded);
-      expect(componentOf(report, "openrouter-model-provider")).toMatchObject({
+      expect(componentOf(report, "test-model-provider")).toMatchObject({
         kind: HealthComponentKind.ModelProvider,
         status: HealthStatus.Degraded,
         reason: `circuit breaker open until ${until.toISOString()}`,
       });
-      expect(componentOf(report, "decisions-model-provider").status).toBe(HealthStatus.Healthy);
     },
   );
 
@@ -136,11 +137,11 @@ describe("#300 AC2: readiness", () => {
 
     expect(report.status).toBe(HealthStatus.Degraded);
     expect(componentOf(report, "crm-health-check")).toMatchObject({
-      kind: HealthComponentKind.Project,
+      kind: HealthComponentKind.HealthCheck,
       status: HealthStatus.Healthy,
     });
     expect(componentOf(report, "search-health-check")).toMatchObject({
-      kind: HealthComponentKind.Project,
+      kind: HealthComponentKind.HealthCheck,
       status: HealthStatus.Degraded,
       reason: "a replica is down",
     });

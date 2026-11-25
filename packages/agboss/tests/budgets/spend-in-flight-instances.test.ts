@@ -90,7 +90,7 @@ async function countersOf(
   ];
   const values: number[] = [];
   for (const record of records)
-    values.push(Math.round((await ledger.findSpentByCounter(counterOf(record, now))) * 100));
+    values.push(Math.round((await ledger.findUsageByCounter(counterOf(record, now))).spent * 100));
   return values;
 }
 

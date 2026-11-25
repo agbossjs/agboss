@@ -3,6 +3,7 @@ import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages
 import type { ChatDefaults, ModelSettings, ResolvedModelSettings } from "../config/types.js";
 import type { Class } from "../components/injection.js";
 import { recordUsage, type UsageRecord } from "../finops/usage.js";
+import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { FrameSpec } from "../flow/context/frame.js";
 import type { PauseRecord } from "../infrastructure/pause-record.js";
 import type { ModelGateway } from "../llm/gateway.js";
@@ -18,19 +19,20 @@ import { UninterpretableReplyError } from "./decision.js";
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { replyToolsOf, withCorrectedCall } from "./reply-tools.js";
 import type { ToolBinding } from "../flow/runtime/answer-tools.js";
+import { chargedCall, reportToFrame } from "../finops/charged-call.js";
 
 /**
  * Reading a free-text reply to a pause (#267 PR 3): the pause's role's interpreter gets the pause's
  * original question and the reply, and what it gives is validated like a decision. A reply nobody
- * can read — a code interpreter's `ReplyInterpretation.notUnderstood({ reason })` (S124 b) or its
+ * can read — a code interpreter's `ChannelInterpretation.notUnderstood({ reason })` (S124 b) or its
  * crash (a throw), a model that gives no answer, an answer that is not valid — is `unreadable`: the
  * caller throws `UninterpretableReplyError` and the pause stays pending. What a model interpreter
- * spent is reported either way. A decision-model interpreter makes one `Decision.noul` (S124 a,
+ * spent is reported either way. A decision-model interpreter makes one `Decision.boolean` (S124 a,
  * `reply-decision.ts`); a chat-model interpreter makes one chat call under the cost caller
  * `reply-interpreter:<name>` — its instructions after the framework's system text, the question and
  * the reply in the input message, one answer tool of the role's answer DTO; no answer is a decline.
  * Its model reads them through the application's PII policies and its answer is revealed before
- * validation, like an agent's (#120): a token no map knows is a decline, a `blockWithRefusal` value
+ * validation, like an agent's (#120): a token no map knows is a decline, a `block` value
  * in them throws `PiiRefusedError`. Either kind reads in the pause's execution frame — its step's
  * `ExecutionContext`, its tenant for the rate limits.
  */
@@ -67,9 +69,7 @@ async function maskedRequestOf(
   pii: ReplyPii,
 ): Promise<Awaited<ReturnType<typeof maskForModel>>> {
   const head =
-    interpreter.approves === undefined
-      ? QUESTION_REPLY_INTERPRETER_SYSTEM
-      : REPLY_INTERPRETER_SYSTEM;
+    interpreter.input === undefined ? QUESTION_REPLY_INTERPRETER_SYSTEM : REPLY_INTERPRETER_SYSTEM;
   const system = `${head}\n\n${interpreter.instructions}`.trim();
   const messages = [
     new SystemMessage(system),
@@ -98,11 +98,15 @@ export async function readByModel(
   const chat = site.gateway.chatModel({ user, settings: site.settings });
   if (chat.bindTools === undefined)
     throw new TypeError(`${caller}: ${site.settings.model} cannot call tools`);
-  const tools = replyToolsOf(interpreter.answer, interpreter.approves);
+  const tools = replyToolsOf(interpreter.answer, interpreter.input);
   const request = await maskedRequestOf(interpreter, input, site.pii);
-  const reply = await chat
-    .bindTools([...tools.definitions], ONE_CALL)
-    .invoke([...request.messages], { callbacks: [...site.callbacks] });
+  const spec = { caller, settings: site.settings, sent: request.messages, sink: reportToFrame };
+  const bound = chat.bindTools([...tools.definitions], ONE_CALL);
+  const reply = await chargedCall(
+    spec,
+    (callbacks) => bound.invoke([...request.messages], { callbacks }),
+    [...site.callbacks],
+  );
   const message = reply instanceof AIMessage ? reply : new AIMessage({ content: reply.content });
   const usage = [...request.usage, recordUsage(caller, site.settings, message)];
   const revealed = revealFromModel(message, { ...site.pii.known, ...request.tokens });
@@ -111,7 +115,7 @@ export async function readByModel(
     return { kind: "declined", reason, usage };
   }
   // a question role's answer (#659) is the role's own DTO: nothing laid over a call
-  const ask = interpreter.approves === undefined ? undefined : input.ask;
+  const ask = interpreter.input === undefined ? undefined : input.ask;
   return readingOf(revealed.move.tool_calls ?? [], tools, ask, usage);
 }
 
@@ -152,7 +156,7 @@ function readingOf(
 export interface ReplyCall {
   readonly pause: PauseRecord;
   readonly reply: string;
-  /** The decision as the role validates it (the tool's input checks `overrideArguments`). */
+  /** The decision as the role validates it (the tool's input checks `overrideInput`). */
   readonly validate: (decision: unknown) => unknown;
   /** Before a model interpreter's call: the tree's budgets checked (an exhausted one throws). */
   readonly beforeModelCall: () => Promise<void>;
@@ -161,6 +165,8 @@ export interface ReplyCall {
   /** The pause's execution and step: what the interpreter's `ExecutionContext` reads. */
   readonly frame: FrameSpec;
   readonly pii: ReplyPii;
+  /** The paused execution's observers (`onChannelInterpreterStart` / `End`); none for a reading on its own. */
+  readonly observer?: ExecutionObserverManager | undefined;
 }
 
 /** What reading gave: the validated decision, or why there is none — and what it cost. */

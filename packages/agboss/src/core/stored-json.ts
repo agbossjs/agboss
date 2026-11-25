@@ -11,12 +11,11 @@ export interface StoredNamesUnreadableErrorOptions {
 }
 
 /**
- * One meaning per name (#934): a store reads what 0.1.0 wrote — a pause's `answeredBy` was who may
- * answer it, an answer's `answerer` and a log entry's `responder` were the person — and returns the
- * **normalised** value, never the input it parsed. The schemas of the stored shapes do it
- * (`PauseAnswerRecordSchema`, `StoredPause`, the history record's): parsing a value reads it, and a
- * value that is neither shape is refused with `StoredNamesUnreadableError`, naming the record's id
- * and the field — never a value. Nothing is migrated: writers write the new shape, readers take either.
+ * One meaning per name (#934): a store reads only the 0.1.1 shape and returns the value the schema
+ * parsed, never the input. The schemas of the stored shapes do it (`PauseAnswerRecordSchema`,
+ * `StoredPause`, the history record's): a value of any other shape — a 0.1.0 name, a missing field —
+ * is refused with `StoredNamesUnreadableError`, naming the record's id and the field, never a value.
+ * Nothing is migrated and no old name is read.
  */
 export class StoredNamesUnreadableError extends AGBossError {
   static override readonly code = "stored.unreadable" as const;
@@ -26,7 +25,7 @@ export class StoredNamesUnreadableError extends AGBossError {
   declare readonly record: string;
   /** The ids that name it (`pauseId p1, executionId run-1`); empty when none is readable. */
   declare readonly ids: string;
-  /** The field paths that failed (`pauses.0.answerer`) — never a value. */
+  /** The field paths that failed (`pauses.0.respondent`) — never a value. */
   declare readonly fields: string;
 
   constructor(options: StoredNamesUnreadableErrorOptions) {
@@ -60,12 +59,15 @@ function noJsonCause(parseError: unknown): SyntaxError {
  * the row, `undefined` ones left out) named, never the text. The `cause` is a `SyntaxError` of the
  * parse without the text the parser quotes.
  */
-export function parsedStoredJson(
-  what: string,
-  text: string,
-  ids: Readonly<Record<string, string | undefined>>,
-  reviver?: (key: string, value: unknown) => unknown,
-): unknown {
+export function parsedStoredJson(options: {
+  /** What the text is (`"outbound call record"`), as an error names it. */
+  readonly what: string;
+  readonly text: string;
+  /** The store's own keys of the row, `undefined` ones left out of the error; none → no ids. */
+  readonly ids?: Readonly<Record<string, string | undefined>>;
+  readonly reviver?: (key: string, value: unknown) => unknown;
+}): unknown {
+  const { what, text, ids = {}, reviver } = options;
   try {
     return JSON.parse(text, reviver) as unknown;
   } catch (error) {

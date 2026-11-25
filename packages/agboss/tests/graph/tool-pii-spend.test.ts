@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: the spend of the tool task's PII reading — what a detection cost is on the closed result when a block
  * rule refuses it, whether the refusal came from a model the call made or from the result's own check.
@@ -5,14 +6,16 @@
 import { describe, expect, it } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { closedResult } from "../../src/graph/agent-loop/tool-pii.js";
+import { errorRecordOf } from "../../src/core/error-record.js";
 import { PiiRefusedError } from "../../src/pii/errors.js";
 import { kilobytes } from "../../src/units/index.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -28,7 +31,11 @@ describe("#1366: a refused tool result keeps what the detection cost", () => {
       kilobytes(1),
     );
 
-    expect(closed).toMatchObject({ refusal: cause, usage: spent, isTruncated: false });
+    expect(closed).toMatchObject({
+      refusal: errorRecordOf(cause),
+      usage: spent,
+      isTruncated: false,
+    });
     expect(closed.content).toContain("no cards");
   });
 
@@ -36,6 +43,7 @@ describe("#1366: a refused tool result keeps what the detection cost", () => {
   const costing = (spent: UsageRecord[], refuses: boolean) => ({
     isEmpty: false,
     fieldKey: "field-key",
+    previous: {},
     maskCacheKeyOf: (text: string) => text,
     mask: (text: string) =>
       Promise.resolve({ masked: { text, blocked: [], tokens: {} }, usage: spent }),
@@ -72,6 +80,6 @@ describe("#1366: a refused tool result keeps what the detection cost", () => {
     );
 
     expect(closed.usage).toEqual(spent);
-    expect(closed.refusal).toBeInstanceOf(PiiRefusedError);
+    expect(closed.refusal).toMatchObject({ name: "PiiRefusedError" });
   });
 });

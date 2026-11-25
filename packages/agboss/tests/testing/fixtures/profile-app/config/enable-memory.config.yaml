@@ -1,0 +1,3 @@
+workflows:
+  profile-kid-workflow:
+    memory: SomeMemory

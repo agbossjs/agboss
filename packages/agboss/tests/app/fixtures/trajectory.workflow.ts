@@ -4,6 +4,7 @@ import {
   EmptyEnvironment,
   Injectable,
   Judge,
+  JudgeModel,
   JudgeVerdict,
   QualityGateError,
   Tool,
@@ -15,7 +16,8 @@ import {
   type JudgeHandler,
   type JudgeInput,
   type ToolCallRecord,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import {
   PlainTextDto,
@@ -25,11 +27,12 @@ import {
 } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
 import { PiiPolicy } from "../../../src/pii/pii-policy.decorator.js";
-import { PiiAction, PiiKind, pii } from "../../../src/pii/index.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { PiiKind } from "../../../src/pii/index.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { PromptInjectionGuardrail } from "../../fixtures/guardrails.js";
+import { LocalModelProvider } from "../../models/providers.fixture.js";
 
 /**
  * #395 — tool-call trajectories: a clerk that looks orders up (a tool that fails for "lost"), a
@@ -54,8 +57,8 @@ export class OrderFound {
   input: OrderLookup,
   output: OrderFound,
 })
-export class LookupOrderTool implements ToolHandler<OrderLookup, OrderFound> {
-  run({ orderId }: OrderLookup): Promise<OrderFound> {
+export class LookupOrderTool {
+  execute({ orderId }: OrderLookup): Promise<OrderFound> {
     if (orderId === "lost") return Promise.reject(new Error("no such order"));
     return Promise.resolve({ status: `order ${orderId} shipped` });
   }
@@ -73,8 +76,8 @@ export class TrajectoryLog {
 @Judge({
   name: "looked-up-judge",
   model: "local/judge",
-  reply: PlainTextDto,
-  deps: [TrajectoryLog],
+  output: PlainTextDto,
+  deps: [TrajectoryLog, JudgeModel],
 })
 export class LookedUpJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly trajectoryLog: TrajectoryLog) {}
@@ -86,19 +89,19 @@ export class LookedUpJudge implements JudgeHandler<PlainTextDto> {
     return Promise.resolve(
       lookups.length > 0
         ? JudgeVerdict.passed({ metrics: { lookups: lookups.length } })
-        : JudgeVerdict.failed({ reason: "Look the order up first." }),
+        : JudgeVerdict.failed("Look the order up first."),
     );
   }
 }
 
 @Agent({
   name: "clerk-agent",
-  prompt: "Answer questions about orders.",
+  prompt: inline("Answer questions about orders."),
   description: "Looks orders up",
   model: "local/llama",
   tools: [LookupOrderTool],
   judges: [LookedUpJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
   guardrails: [PromptInjectionGuardrail],
 })
 export class ClerkAgent {}
@@ -126,9 +129,9 @@ const DEFAULTS = {
 @Workflow({
   name: "clerk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ClerkStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ClerkStart)
       .toAgent(ClerkAgent)
       .toFinish(ClerkFinish),
   ],
@@ -162,12 +165,11 @@ export class HandOverFinish {}
 @Workflow({
   name: "front-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FrontDeskStart)
-      .returns(WorkflowStartTextDto)
+    onStart(FrontDeskStart)
       .toWorkflow(ClerkWorkflow)
       .onError(ChildExecutionFailedError, toFinish(HandOverFinish))
-      .returns(WorkflowFinishTextDto)
       .toFinish(FrontDeskFinish),
   ],
   defaults: DEFAULTS,
@@ -177,7 +179,7 @@ export class FrontDeskWorkflow {}
 /** A clerk without retries: an answer its judge fails is a QualityGateError at once. */
 @Agent({
   name: "strict-clerk-agent",
-  prompt: "Answer questions about orders.",
+  prompt: inline("Answer questions about orders."),
   description: "Looks orders up, judged once",
   model: "local/llama",
   tools: [LookupOrderTool],
@@ -196,9 +198,9 @@ export class StrictClerkStart {}
 @Workflow({
   name: "strict-clerk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StrictClerkStart)
-      .returns(WorkflowStartTextDto)
+    onStart(StrictClerkStart)
       .toAgent(StrictClerkAgent)
       .onError(QualityGateError, toFinish(HandOverFinish))
       .toFinish(ClerkFinish),
@@ -211,12 +213,13 @@ export class StrictClerkWorkflow {}
 @PiiPolicy({
   name: "order-pii-policy",
   description: "Hides e-mail addresses",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 export class OrderPiiPolicy {}
 
 @Application({
   name: "trajectory-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClerkWorkflow, FrontDeskWorkflow, StrictClerkWorkflow],

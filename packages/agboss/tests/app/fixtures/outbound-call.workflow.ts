@@ -1,37 +1,34 @@
+import { OutboundCallError } from "../../../src/core/error-families/effect-errors.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
-  ExecutionContext,
+  Idempotency,
   Injectable,
-  NotSentTrust,
-  OutboundCallReconciliation,
-  OutboundCallUnreconciledError,
-  OutboundCalls,
-  PiiAction,
+  OutboundRecovery,
   PiiKind,
   PiiPolicy,
+  Reconciliation,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  effectKeyOf,
-  pii,
-  type OnOutboundCall,
   type OutboundCallEvent,
   type OutboundCallSendStatus,
-  type Produced,
+  type Tracked,
+  Observer,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { hours } from "../../../src/units/index.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { hours, minutes, type Bytes, type Milliseconds } from "../../../src/units/index.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { isDeclined, PaymentGateway, type ChargeRequest } from "./payment-gateway.js";
 import { untilReached } from "../../helpers/reached.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
- * #505 — an order charged through `OutboundCalls`: the action has no table or retry logic of its
- * own, only `send` (the provider's charge with the call's idempotency key) and `reconcile` (the
+ * #505 — an order charged through `Idempotency.sendOnce`: the action has no table or retry logic of its
+ * own, only `send` (the provider's charge with the call's idempotency key) and `recovery` (the
  * provider asked by that key). A lever freezes a run before its call (a zombie in its window).
  */
 
@@ -42,6 +39,8 @@ export const runs = {
   freezeBefore: 0,
   freezeAfter: 0,
   frozen: [] as (() => void)[],
+  /** What the charge is sent with besides its defaults: a `timeout` or a `maxPayloadSize` a test sets. */
+  callOptions: {} as { timeout?: Milliseconds; maxPayloadSize?: Bytes },
 };
 
 export function resetRuns(): void {
@@ -49,6 +48,7 @@ export function resetRuns(): void {
   runs.freezeBefore = 0;
   runs.freezeAfter = 0;
   runs.frozen.length = 0;
+  runs.callOptions = {};
   heard.events.length = 0;
   heard.throws = false;
 }
@@ -57,8 +57,8 @@ export function resetRuns(): void {
 export const heard = { events: [] as OutboundCallEvent[], throws: false };
 
 /** Hears every move of every call that left the system. */
-@Injectable()
-export class OutboundCallLog implements OnOutboundCall {
+@Observer()
+export class OutboundCallLog {
   onOutboundCall(event: OutboundCallEvent): void {
     heard.events.push(event);
     if (heard.throws) throw new Error("the observer is broken");
@@ -90,7 +90,7 @@ export class ChargeReceiptDto {
 @PiiPolicy({
   name: "email-pii-policy",
   description: "Hides e-mail addresses in what is stored",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 export class EmailPiiPolicy {}
 
@@ -99,30 +99,31 @@ export class EmailPiiPolicy {}
   description: "Charges the order through the payment provider, as a call that leaves the system",
   input: { message: WorkflowStartTextDto },
   output: ChargeReceiptDto,
-  deps: [ExecutionContext, OutboundCalls, PaymentGateway],
+  deps: [Idempotency, PaymentGateway],
 })
 export class ChargeOrderAction {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
+    private readonly idempotency: Idempotency,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<ChargeReceiptDto> {
     await frozenWhen("freezeBefore");
-    const [orderId = "", email] = input.message.value.text.split(" ");
+    const [orderId = "", email] = input.message.text.split(" ");
     const contact = email === undefined ? {} : { email };
     const request: ChargeRequest = { orderId, amountUsd: 10, ...contact };
-    const key = effectKeyOf(this.executionContext, "charge");
-    const outcome = await this.outboundCalls.send(key, {
+    const outcome = await this.idempotency.sendOnce({
+      name: "charge",
       target: "payments",
       operation: "charge",
       request,
       send: (call) => this.paymentGateway.charge(call),
-      notSent: { trust: NotSentTrust.Lookup },
-      reconcile: (call) => this.paymentGateway.reconcile(call),
+      timeout: minutes(2),
+      ttl: hours(48),
+      ...runs.callOptions,
+      recovery: OutboundRecovery.permanentLookup((call) => this.paymentGateway.reconcile(call)),
       // #657: a decline is the provider's definite answer — anything else is of unknown outcome
       isDefiniteFailure: isDeclined,
     });
@@ -137,39 +138,41 @@ export class ChargeOrderAction {
   description: "Charges the order, then mails its receipt: two calls of one step",
   input: { message: WorkflowStartTextDto },
   output: ChargeReceiptDto,
-  deps: [ExecutionContext, OutboundCalls, PaymentGateway],
+  deps: [Idempotency, PaymentGateway],
 })
 export class ChargeAndNotifyAction {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
+    private readonly idempotency: Idempotency,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<ChargeReceiptDto> {
-    const request: ChargeRequest = { orderId: input.message.value.text, amountUsd: 10 };
-    const chargeKey = effectKeyOf(this.executionContext, "charge");
-    const charged = await this.outboundCalls.send(chargeKey, {
+    const request: ChargeRequest = { orderId: input.message.text, amountUsd: 10 };
+    const charged = await this.idempotency.sendOnce({
+      name: "charge",
       target: "payments",
       operation: "charge",
       request,
       send: (call) => this.paymentGateway.charge(call),
-      notSent: { trust: NotSentTrust.Lookup },
-      reconcile: (call) => this.paymentGateway.reconcile(call),
+      timeout: minutes(2),
+      ttl: hours(48),
+      recovery: OutboundRecovery.permanentLookup((call) => this.paymentGateway.reconcile(call)),
       // #657: a decline is the provider's definite answer — anything else is of unknown outcome
       isDefiniteFailure: isDeclined,
     });
-    const mailKey = effectKeyOf(this.executionContext, "receipt-mail");
-    await this.outboundCalls.send(mailKey, {
+    await this.idempotency.sendOnce({
+      name: "receipt-mail",
       target: "mail",
       operation: "send-receipt",
       request: { chargeId: charged.result.chargeId },
       send: () => ({ messageId: "m-1" }),
-      notSent: { trust: NotSentTrust.Lookup },
-      reconcile: () =>
-        OutboundCallReconciliation.unknown({ reason: "a receipt mail is never left pending here" }),
+      timeout: minutes(2),
+      ttl: hours(48),
+      recovery: OutboundRecovery.permanentLookup<{ messageId: "m-1" }>(() =>
+        Reconciliation.unknown("a receipt mail is never left pending here"),
+      ),
     });
     return { chargeId: charged.result.chargeId };
   }
@@ -213,13 +216,12 @@ export class NotifiedWorkflowFinish {}
 @Workflow({
   name: "charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChargeWorkflowStart)
       .toAction(ChargeOrderAction)
       // nobody can say what happened to the charge: the order is set aside for an operator
-      .onError(OutboundCallUnreconciledError, toFinish(UnreconciledWorkflowFinish))
-      .returns(ChargeReceiptDto)
+      .onError(OutboundCallError.Unreconciled, toFinish(UnreconciledWorkflowFinish))
       .toFinish(ChargedWorkflowFinish),
   ],
   providers: [PaymentGateway],
@@ -229,11 +231,10 @@ export class ChargeWorkflow {}
 @Workflow({
   name: "charge-and-notify-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChargeAndNotifyWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChargeAndNotifyWorkflowStart)
       .toAction(ChargeAndNotifyAction)
-      .returns(ChargeReceiptDto)
       .toFinish(NotifiedWorkflowFinish),
   ],
   providers: [PaymentGateway],
@@ -245,7 +246,6 @@ export class ChargeAndNotifyWorkflow {}
   name: "outbound-call-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow, ChargeAndNotifyWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,
@@ -257,12 +257,11 @@ export class OutboundCallApplication {}
 @Workflow({
   name: "kept-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChargeWorkflowStart)
       .toAction(ChargeOrderAction)
-      .onError(OutboundCallUnreconciledError, toFinish(UnreconciledWorkflowFinish))
-      .returns(ChargeReceiptDto)
+      .onError(OutboundCallError.Unreconciled, toFinish(UnreconciledWorkflowFinish))
       .toFinish(ChargedWorkflowFinish),
   ],
   providers: [PaymentGateway],
@@ -278,7 +277,6 @@ export class KeptChargeWorkflow {}
   name: "kept-outbound-call-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [KeptChargeWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,

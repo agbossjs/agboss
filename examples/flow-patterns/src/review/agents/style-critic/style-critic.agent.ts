@@ -6,7 +6,7 @@ import { StyleNotesDto } from "../../dto/style-notes.dto.js";
 @Agent({
   name: "style-critic-agent",
   description: "Notes on tone and style",
-  promptUrls: ["./style-critic.prompt.md"],
+  prompt: "./style-critic.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     plan: EditorialPlanDto,

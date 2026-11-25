@@ -6,14 +6,17 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../../fixtures/dtos.js";
-import { agent, route, start } from "../../../helpers/flow.js";
+import { onAgent, onStart, toAgent, toFinish } from "../../../helpers/flow.js";
 import { ItemDto, ItemResultDto } from "./fan-out.workflow.js";
 import { ItemCheckWorkflow, ShopExecutionContext, ShopTenantContext } from "./children.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #263 / #271 AC12 — a child in a loop: the picker gives an item, the child checks it, a code router
@@ -31,9 +34,9 @@ export class PickLoopWorkflowStart {}
 @Agent({
   name: "item-picker-agent",
   description: "Picks an item",
-  prompt: "Pick an item.",
+  prompt: inline("Pick an item."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
   input: { message: WorkflowStartTextDto },
   output: ItemDto,
 })
@@ -52,33 +55,33 @@ export class PickedWorkflowFinish {}
   decidedBy: DecidedBy.Code,
   maxVisits: 2,
   input: { result: ItemResultDto },
-  routes: [{ target: ItemPickerAgent }, { target: PickedWorkflowFinish }],
+  routes: [ItemPickerAgent, PickedWorkflowFinish],
 })
 export class PickAgainRouter {
-  route(input: { readonly result: Produced<ItemResultDto, unknown> }): unknown {
-    return input.result.value.name === "retry" ? ItemPickerAgent : PickedWorkflowFinish;
+  route(input: { readonly result: Tracked<ItemResultDto> }): unknown {
+    return input.result.name === "retry" ? ItemPickerAgent : PickedWorkflowFinish;
   }
 }
 
 @Workflow({
   name: "pick-loop-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PickLoopWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(PickLoopWorkflowStart)
       .toAgent(ItemPickerAgent),
-    agent(ItemPickerAgent)
-      .returns(ItemDto)
+    onAgent(ItemPickerAgent)
       .toWorkflow(ItemCheckWorkflow)
-      .returns(ItemResultDto)
       .toRouter(PickAgainRouter)
-      .chooseOne(route(ItemPickerAgent), route(PickedWorkflowFinish)),
+      .onRoute(toAgent(ItemPickerAgent))
+      .onRoute(toFinish(PickedWorkflowFinish)),
   ],
 })
 export class PickLoopWorkflow {}
 
 @Application({
   name: "pick-loop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   tenantContext: ShopTenantContext,

@@ -7,7 +7,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { duePausesOf, expirePauses } from "../../src/app/pause-expiry.js";
 import { NoticeTimeoutError } from "../../src/app/pause-notice-call.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { PauseExpiration } from "../../src/channels/pause-expiration.js";
 import {
   ExpiryProblem,
@@ -20,6 +19,7 @@ import {
 import { RECIPIENTS } from "../../src/testing/contracts/paused-execution-data.js";
 import { DEFAULT_TOOL_TIMEOUT } from "../../src/tools/index.js";
 import { seconds } from "../../src/units/index.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const mocks = vi.hoisted(() => ({
   isCancelRequested: vi.fn(),
@@ -55,11 +55,14 @@ const pause = (overrides: Record<string, unknown> = {}) => ({
   rootExecutionId: "root-1",
   workflow: "desk-workflow",
   channel: "refund-channel",
+  target: "refund-tool-approval",
   status: PauseStatus.Pending,
   kind: PauseKind.Approval,
-  answerer: PauseAnswerer.Channel,
+  respondent: PauseRespondent.Delegate,
   step: "desk-clerk-agent",
-  ask: { callId: "c-1", tool: "refund", arguments: {}, summary: "refund" },
+  input: {},
+  toolCall: { callId: "c-1", tool: "refund", summary: "refund" },
+  trail: [],
   askedAt: "2026-01-01T00:00:00.000Z",
   expiresAt: "2026-01-01T11:00:00.000Z",
   expiryBound: PauseExpiryBound.Pause,
@@ -92,6 +95,10 @@ function partsOf(
     graph: { nodes: new Map(), type: Error },
     channelOf:
       "channelOf" in options ? options.channelOf : () => ({ sender: options.sender ?? {} }),
+    // the expiry is the target's call (`onExpired`), kept here under the old option's name
+    targetOf: () => ({
+      onExpired: (options.sender as { onPauseExpired?: unknown } | undefined)?.onPauseExpired,
+    }),
     tools,
     log: { warn },
     pause:
@@ -182,7 +189,13 @@ describe("#1366: the channel's decision on an expiry", () => {
       { frame: "the frame", timeout: 7000, clock, interruption: signal },
       expect.any(Function),
     );
-    expect(onPauseExpired).toHaveBeenCalledWith({ pauseId: "p-1", value: pause().ask });
+    expect(onPauseExpired).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pauseKey: pauseKeyOf("acme", "p-1"),
+        input: pause().input,
+        trail: [],
+      }),
+    );
     expect(expire).toHaveBeenCalledWith("acme", "p-1", {}, NOW, RECIPIENTS);
   });
 
@@ -190,7 +203,7 @@ describe("#1366: the channel's decision on an expiry", () => {
     const { parts, tools } = partsOf({ sender: { onPauseExpired: () => PauseExpiration.fail() } });
 
     await expirePauses(parts, [
-      pause({ kind: PauseKind.Question, ask: { question: "?" } }) as never,
+      pause({ kind: PauseKind.ExternalTask, ask: { question: "?" } }) as never,
     ]);
 
     expect(tools).not.toHaveBeenCalled();
@@ -212,7 +225,7 @@ describe("#1366: the channel's decision on an expiry", () => {
     expect(expire).toHaveBeenCalledWith(
       "acme",
       "p-1",
-      { answer: { decision: { validated: { approved: true } }, answeredBy: undefined } },
+      { answer: { decision: { validated: { approved: true } }, actor: undefined } },
       NOW,
       RECIPIENTS,
     );
@@ -237,7 +250,7 @@ describe("#1366: the channel's decision on an expiry", () => {
     );
     expect(warn).toHaveBeenCalledWith(
       "pause.expiry-handler-failed",
-      `pause expiry decision of channel refund-channel fell back to fail(): ${ExpiryProblem.AnswerInvalid} (pauseKey ${pauseKeyOf("acme", "p-1")})`,
+      `pause expiry decision of target refund-tool-approval fell back to fail(): ${ExpiryProblem.AnswerInvalid} (pauseKey ${pauseKeyOf("acme", "p-1")})`,
       { tenantId: "acme", executionId: "root-1" },
     );
   });

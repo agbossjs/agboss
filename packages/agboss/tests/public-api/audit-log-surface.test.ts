@@ -11,15 +11,10 @@ import {
   ExecutionAuditLogRepository,
   LeaseTakeoverReason,
   type App,
-  type AuditLogHooks,
   type ExecutionAuditEventRecord,
   type ExecutionObserver,
   type ExecutionTreeQuery,
-  type HookResult,
-  type OnExecutionLeaseTakeover,
-  type OnFencedEffect,
-  type OnOutboundCall,
-  type OnStepHandedOver,
+  type OutboundCallEvent,
   type RetentionOptions,
 } from "../../src/index.js";
 
@@ -51,8 +46,6 @@ describe("#889 AC2: the audit log in the public surface", () => {
       'Reclaimed = "reclaimed"',
       "readonly auditLog?: Milliseconds",
       "readonly auditLog?: readonly ExecutionAuditEventRecord[]",
-      "type AuditLogHooks",
-      "type HookResult",
     ])
       expect(root, name).toContain(name);
     expect(reportOf("agboss-testing-contracts.api.md")).toContain("executionAuditLogContract");
@@ -94,6 +87,12 @@ describe("#889 AC3: the observer's hooks are exported", () => {
       );
   });
 
+  it("#1343: the single-hook On* interfaces are not exported by any entry", () => {
+    expect(allReports).not.toMatch(
+      /\binterface On(?:Agent|Action|Router|Tool|Guardrail|Judge|Model|Rag|Channel|Execution|Compensation|FencedEffect|OutboundCall|Quorum|StepHandedOver|ValuesOutdated|LaunchItemsTruncated)\w* \{/u,
+    );
+  });
+
   it("AC3: everything ExecutionObserver is made of is exported by every entry that exports it", () => {
     for (const name of reportNames)
       expect(
@@ -104,29 +103,25 @@ describe("#889 AC3: the observer's hooks are exported", () => {
       ).toEqual([]);
   });
 
-  it("AC3: AuditLogHooks is the four hooks, each returning HookResult", () => {
-    expectTypeOf<AuditLogHooks>().toEqualTypeOf<
-      OnExecutionLeaseTakeover & OnStepHandedOver & OnFencedEffect & OnOutboundCall
+  it("AC3: ExecutionObserver has the audit log's four hooks, each optional", () => {
+    expectTypeOf<ExecutionObserver["onOutboundCall"]>().toEqualTypeOf<
+      ((event: OutboundCallEvent) => void | Promise<void>) | undefined
     >();
-    expectTypeOf<ReturnType<AuditLogHooks["onOutboundCall"]>>().toEqualTypeOf<HookResult>();
-    expectTypeOf<
-      ReturnType<AuditLogHooks["onExecutionLeaseTakeover"]>
-    >().toEqualTypeOf<HookResult>();
-    expectTypeOf<Required<ExecutionObserver>>().toExtend<AuditLogHooks>();
+    expectTypeOf<Required<ExecutionObserver>>().toHaveProperty("onExecutionLeaseTakeover");
+    expectTypeOf<Required<ExecutionObserver>>().toHaveProperty("onStepHandedOver");
+    expectTypeOf<Required<ExecutionObserver>>().toHaveProperty("onIdempotencyRun");
 
-    // an observer of the four hooks, typed by the exported names alone, is an ExecutionObserver
-    const done = (): HookResult => undefined;
-    const hooks: AuditLogHooks = {
+    const done = (): void => undefined;
+    const observer: ExecutionObserver = {
       onExecutionLeaseTakeover: done,
       onStepHandedOver: done,
-      onFencedEffect: done,
+      onIdempotencyRun: done,
       onOutboundCall: done,
     };
-    const observer: ExecutionObserver = hooks;
     expect(Object.keys(observer)).toEqual([
       "onExecutionLeaseTakeover",
       "onStepHandedOver",
-      "onFencedEffect",
+      "onIdempotencyRun",
       "onOutboundCall",
     ]);
   });

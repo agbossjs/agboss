@@ -3,6 +3,7 @@ import type { DtoClass } from "../../dto/types.js";
 import type { MeshLimitError } from "../../mesh/mesh-errors.js";
 import { meshLimitErrorOf } from "../../mesh/mesh-wire.js";
 import { A2A_MESH_EXTENSION } from "../a2a-extension-uris.js";
+import { a2aMessageOf, a2aTaskOf } from "./a2a-public-map.js";
 import { answerPartsOf, dataOf, rawOutputOf, textOf } from "./a2a-parts.js";
 import { receivedFileOf } from "./a2a-client-files.js";
 import { assertTakenFinish } from "./a2a-finish.js";
@@ -10,7 +11,7 @@ import type { A2ARemotePeer } from "./a2a-card.js";
 import type { A2ATaskResult } from "./a2a-client-options.js";
 import { A2ARemoteCallError, A2ARemoteCallReason, remoteCodeOf } from "./a2a-client-errors.js";
 import {
-  A2ATaskCanceledError,
+  A2ATaskCancelledError,
   A2ATaskEnd,
   A2ATaskFailedError,
   A2ATaskInterruptedError,
@@ -21,7 +22,7 @@ import {
 /**
  * How a remote task's state maps to the call's outcome (#809, design §4.2 "Outcomes"): COMPLETED is
  * the output, FAILED with an AGBoss mesh limit the same limit error, any other FAILED or REJECTED
- * `A2ATaskFailedError`, CANCELED `A2ATaskCanceledError`, INPUT_REQUIRED / AUTH_REQUIRED
+ * `A2ATaskFailedError`, CANCELED `A2ATaskCancelledError`, INPUT_REQUIRED / AUTH_REQUIRED
  * `A2ATaskInterruptedError`.
  */
 
@@ -91,7 +92,7 @@ export function failureOf(task: Task, agent: string): Error | undefined {
     case TaskState.TASK_STATE_REJECTED:
       return failedAs(A2ATaskEnd.Rejected);
     case TaskState.TASK_STATE_CANCELED:
-      return new A2ATaskCanceledError(ids);
+      return new A2ATaskCancelledError(ids);
     case TaskState.TASK_STATE_INPUT_REQUIRED:
       return new A2ATaskInterruptedError({
         ...ids,
@@ -149,5 +150,12 @@ export function untypedResultOf(
   // Stryker disable next-line ArrayDeclaration: any array of no part reads as no text and no data
   const parts = answer === undefined ? [] : answerPartsOf(answer);
   const files = parts.flatMap((part) => receivedFileOf(part) ?? []);
-  return { task, message, text: textOf(parts), data: dataOf(parts)?.value, files, peer };
+  return {
+    task: task === undefined ? undefined : a2aTaskOf(task),
+    message: message === undefined ? undefined : a2aMessageOf(message),
+    text: textOf(parts),
+    data: dataOf(parts)?.value,
+    files,
+    peer,
+  };
 }

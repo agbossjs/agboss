@@ -168,8 +168,14 @@ export async function followedUpTask(
     ownerId: caller.ownerId,
     messageId: checkedCallerKey("messageId", message.messageId),
   };
-  const requestHash = requestHashOf(task.skill, message);
-  const record = { ...key, requestHash, taskId: task.taskId, savedAt: parts.clock.now() };
+  const requestHash = requestHashOf(parts.endpoint, task.skill, message);
+  const record = {
+    ...key,
+    endpoint: parts.endpoint,
+    requestHash,
+    taskId: task.taskId,
+    savedAt: parts.clock.now(),
+  };
   const kept = await parts.tasks.saveMessageIfAbsent(record);
   const replay = kept === undefined ? undefined : await replayed(parts, task, kept, requestHash);
   if (replay !== undefined) return replay;

@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #226 on the wire: the production gateway sends decisions to OpenRouter's Decisions API
  * (`POST {base}/alpha/decisions`, `{ model, state, questions }`) and validates every answer —
@@ -5,18 +6,20 @@
  */
 import { describe, expect, it } from "vitest";
 import type { AppDepsOptions } from "../../src/app/app-deps.js";
-import { appWithKeys } from "../models/gateway.js";
+import { appWithKeys, ENV } from "../models/gateway.js";
 import { Decision } from "../../src/index.js";
-import { DecisionRequestError, DecisionResponseError } from "../../src/errors.js";
+import { DecisionError } from "../../src/index.js";
 import { createModelGateway } from "../../src/llm/gateway.js";
 import { resolutionProblems } from "../../src/models/check.js";
+import { providerKindsOf } from "../../src/models/resolution.js";
 import { modelUsesOf } from "../../src/models/uses.js";
-import { DEFAULT_MODEL_PROVIDERS, directoryOf } from "../../src/models/workflow-models.js";
+import { directoryOf } from "../../src/models/workflow-models.js";
 import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { completion, providerStub, toolCallCompletion, type StubReply } from "../models/stub.js";
 import { answerToolName } from "../../src/flow/analyse/rules/models.js";
 import { LUNA, PNG, ImageDeskApplication } from "./fixtures/decision-judged.workflow.js";
 import { TaskStart } from "./fixtures/judged.workflow.js";
+import { TestDecisionsProvider, TestOpenRouterProvider } from "../models/providers.fixture.js";
 import { AskDto, LunaRoutedApplication } from "./fixtures/wrong-kind.workflow.js";
 import { execute } from "../helpers/flow.js";
 
@@ -34,7 +37,7 @@ const decided = (answers: Record<string, unknown>, cost: number): StubReply => (
 });
 
 const wired = (stub: ReturnType<typeof providerStub>): AppDepsOptions => ({
-  processEnv: {},
+  processEnv: ENV,
   providerFetch: stub.fetch,
 });
 
@@ -68,7 +71,7 @@ describe("AC4: an image part in state is sent as a top-level image_url item", ()
     });
     const judged = result.spend.trace.filter((line) => line.caller === "judge:looks-right");
     expect(judged).toMatchObject([
-      { model: LUNA, costUsd: 0.0004, costSource: "api", inputTokens: 120, outputTokens: 3 },
+      { model: LUNA, costUsd: usd(0.0004), costSource: "api", inputTokens: 120, outputTokens: 3 },
     ]);
   });
 
@@ -129,7 +132,11 @@ describe("AC3: a router on openai/gpt-6-luna-decisions decides through the Decis
     );
     expect(criteria).toEqual([...criteria].sort());
     expect(result.spend.trace).toContainEqual(
-      expect.objectContaining({ caller: "router:triage-router", model: LUNA, costUsd: 0.0002 }),
+      expect.objectContaining({
+        caller: "router:triage-router",
+        model: LUNA,
+        costUsd: usd(0.0002),
+      }),
     );
   });
 });
@@ -166,12 +173,12 @@ describe("the default gateway's decide", () => {
 
   it("refuses more than 200 questions before any call", async () => {
     const questions = Object.fromEntries(
-      Array.from({ length: 201 }, (_, i) => [`q${String(i)}`, Decision.noul("Is it?")]),
+      Array.from({ length: 201 }, (_, i) => [`q${String(i)}`, Decision.boolean("Is it?")]),
     );
 
     await expect(
       gateway.decide({ caller: "judge:x", model: LUNA, request: { state: "s", questions } }),
-    ).rejects.toBeInstanceOf(DecisionRequestError);
+    ).rejects.toBeInstanceOf(DecisionError.InvalidRequest);
     expect(asked).toEqual([]);
   });
 
@@ -188,29 +195,38 @@ describe("the default gateway's decide", () => {
       },
     });
 
-    await expect(decision).rejects.toBeInstanceOf(DecisionResponseError);
+    await expect(decision).rejects.toBeInstanceOf(DecisionError.InvalidResponse);
     await expect(decision).rejects.toThrow(/"quality": score 3 is past its 3 levels/u);
   });
 });
 
-describe("the eval judge (compareProfiles) is defaults.router: any decision model, or a clear startup error", () => {
-  const config = (router: { kind: "jev" } | { kind: "llm" }) => ({
+describe("the eval judge (compareProfiles) is defaults.router: a decisions provider, or a clear startup error", () => {
+  const config = (router: { kind: "jev" } | { kind: "llm" }, modelProvider?: string) => ({
     name: "c",
     version: "1",
     defaults: {
       models: { temperature: 0, maxTokens: 100 },
-      router: { ...router, model: LUNA },
+      router: { ...router, model: LUNA, ...(modelProvider === undefined ? {} : { modelProvider }) },
       uncompactedTurns: 1,
     },
-    agents: { a: { model: "x/y", description: "a" } },
+    agents: {
+      a: { model: "x/y", modelProvider: "openrouter-model-provider", description: "a" },
+    },
   });
+  const classes = [TestDecisionsProvider, TestOpenRouterProvider];
+  const problemsOf = (modelProvider?: string) =>
+    resolutionProblems(
+      modelUsesOf(config({ kind: "jev" }, modelProvider), [], {}, providerKindsOf(classes)),
+      directoryOf(classes),
+    );
 
-  it("a decision model decides through the Decisions API; as a chat model it is model.unserved", () => {
-    const directory = directoryOf(DEFAULT_MODEL_PROVIDERS);
-
-    expect(resolutionProblems(modelUsesOf(config({ kind: "jev" }), []), directory)).toEqual([]);
-    expect(resolutionProblems(modelUsesOf(config({ kind: "llm" }), []), directory)).toMatchObject([
-      { code: "model.unserved", key: "defaults.router", model: LUNA },
+  it("a decision model decides through its decisions provider; no model name says it is one", () => {
+    expect(problemsOf("decisions-model-provider")).toEqual([]);
+    expect(problemsOf()).toMatchObject([
+      { code: "model.missing-provider", key: "defaults.router", model: LUNA },
+    ]);
+    expect(problemsOf("openrouter-model-provider")).toMatchObject([
+      { code: "model.incompatible-provider", key: "defaults.router", model: LUNA },
     ]);
   });
 });

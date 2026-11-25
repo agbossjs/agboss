@@ -5,6 +5,7 @@
  * cap a second lease (both or none). Run against the in-memory store and SQLite (two instances on
  * one file), one clock.
  */
+import { declaredExecutionLimitsOf } from "../../../src/flow/decorators/workflow.js";
 import { describe, expect, it } from "vitest";
 import { SharedTreeSlots } from "../../../src/flow/runtime/launch/shared-tree-slots.js";
 import {
@@ -13,11 +14,11 @@ import {
   type SlotClaim,
   type SubtreeCap,
 } from "../../../src/flow/runtime/launch/launch-registry.js";
-import { treeLaunchesOnAnyInstance } from "../../../src/flow/analyse/child-placements.js";
+import { treeLaunchesQueued } from "../../../src/flow/analyse/child-placements.js";
 import type { Class } from "../../../src/components/injection.js";
-import { Workflow, WorkflowStart } from "../../../src/index.js";
-import { start } from "../../helpers/flow.js";
-import { ItemDto, SummaryDto } from "./fixtures/fan-out.workflow.js";
+import { Workflow, WorkflowStart, Ttl } from "../../../src/index.js";
+import { onStart } from "../../helpers/flow.js";
+import { ItemDto } from "./fixtures/fan-out.workflow.js";
 import { RemoteItemWorkflow } from "./fixtures/remote-children.workflow.js";
 import {
   RemoteCappedWorkflow,
@@ -182,11 +183,10 @@ class OuterWorkflowStart {}
 @Workflow({
   name: "outer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OuterWorkflowStart)
-      .returns(ItemDto)
+    onStart(OuterWorkflowStart)
       .toWorkflow(RemoteSpendWorkflow)
-      .returns(SummaryDto)
       .toFinish(RemoteSpendCheckedWorkflowFinish),
   ],
 })
@@ -194,10 +194,10 @@ class OuterWorkflow {}
 
 describe("#333 PR 3: which trees share their slots", () => {
   it("a tree with a launch on any instance, at any depth or by recursion — known from its declarations", () => {
-    expect(treeLaunchesOnAnyInstance(RemoteCappedWorkflow)).toBe(true);
-    expect(treeLaunchesOnAnyInstance(OuterWorkflow)).toBe(true);
-    expect(treeLaunchesOnAnyInstance(RemoteCountdownWorkflow)).toBe(true);
-    expect(treeLaunchesOnAnyInstance(RemoteItemWorkflow)).toBe(false);
+    expect(treeLaunchesQueued(RemoteCappedWorkflow, undefined, undefined)).toBe(true);
+    expect(treeLaunchesQueued(OuterWorkflow, undefined, undefined)).toBe(true);
+    expect(treeLaunchesQueued(RemoteCountdownWorkflow, undefined, undefined)).toBe(true);
+    expect(treeLaunchesQueued(RemoteItemWorkflow, undefined, undefined)).toBe(false);
   });
 
   const [inMemory] = kinds;
@@ -206,7 +206,10 @@ describe("#333 PR 3: which trees share their slots", () => {
   it(
     "the registry gives such a tree shared slots, any other in-process ones",
     withTarget(inMemory, async ({ clock, first }) => {
-      const registry = new TreeSlotRegistry(undefined, undefined, { rateLimits: first, clock });
+      const registry = new TreeSlotRegistry(declaredExecutionLimitsOf, undefined, undefined, {
+        rateLimits: first,
+        clock,
+      });
       const rootOf = (type: Class) => ({
         executionId: type.name,
         workflow: { type },

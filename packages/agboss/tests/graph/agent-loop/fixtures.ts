@@ -36,6 +36,8 @@ export * from "./scripted.js";
 import type { ToolCallApprovalDecisionDto } from "../../../src/dto/standard/framework.js";
 
 import type { RuntimeGuardrail } from "../../../src/guardrails/runtime.js";
+import type { PiiPolicySet } from "../../../src/pii/policy-set.js";
+import type { ToolInterceptorChains } from "../../../src/tool-interceptors/runtime.js";
 
 export interface HarnessOptions {
   readonly moves: readonly ScriptedMove[];
@@ -49,6 +51,10 @@ export interface HarnessOptions {
   readonly executionBudget?: number;
   readonly log?: (effect: string) => void;
   readonly onModelCall?: (move: number) => void;
+  /** The PII policies at the agent's model and tools (#120). */
+  readonly pii?: PiiPolicySet;
+  /** The tool interceptors of the agent's calls (#384, #1295). */
+  readonly interceptors?: ToolInterceptorChains;
 }
 
 /** A loop graph and what it did: the tools' effects, the model's calls (by move), the model. */
@@ -107,6 +113,8 @@ export function harness(
       approval: options.approval === false ? undefined : pauseSeamApproval(),
       judges: noJudges,
       ...(options.guardrails === undefined ? {} : { guardrails: options.guardrails }),
+      ...(options.pii === undefined ? {} : { pii: options.pii }),
+      ...(options.interceptors === undefined ? {} : { interceptors: options.interceptors }),
     },
     checkpointer,
   );

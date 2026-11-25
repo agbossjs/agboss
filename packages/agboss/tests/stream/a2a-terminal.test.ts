@@ -7,14 +7,19 @@ import { TaskState, type StreamResponse } from "@a2a-js/sdk";
 import { describe, expect, it } from "vitest";
 import { A2ATaskState, type A2ATaskRecord } from "../../src/infrastructure/a2a-task.repository.js";
 import { ArtifactView } from "../../src/a2a/server/a2a-artifact-view.js";
-import type { ExecutionStreamEvent, StreamStep } from "../../src/run/types.js";
+import {
+  StreamDiscardReason,
+  StreamEventKind,
+  type ExecutionStreamEvent,
+  type StreamStep,
+} from "../../src/run/types.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   AskStart,
   Desk,
   RemoteDeskApplication,
   RemoteDeskA2AExpose,
-  SingleTenantCallerResolver,
+  SingleTenantAuthenticator,
   SlowLookup,
   slowLookups,
 } from "../a2a/fixtures/remote.workflow.js";
@@ -88,7 +93,7 @@ function taskIdOf(events: readonly StreamResponse[]): string {
 
 describe("#1006 AC4: a CANCELED task", () => {
   useCanary();
-  const listener = { expose: RemoteDeskA2AExpose, callerResolver: SingleTenantCallerResolver };
+  const listener = { endpoint: RemoteDeskA2AExpose, authenticator: SingleTenantAuthenticator };
 
   remote(
     "its stream's view is emptied before the CANCELED status",
@@ -131,6 +136,7 @@ describe("#1006 AC4: a CANCELED task", () => {
 
 const STEP: StreamStep = { agent: "a", visit: 1, branch: "e", attempt: 1 };
 const taskIn = (state: A2ATaskState): A2ATaskRecord => ({
+  endpoint: "orders-a2a-expose",
   tenantId: "acme",
   taskId: "t",
   ownerId: "dana",
@@ -141,10 +147,10 @@ const taskIn = (state: A2ATaskState): A2ATaskRecord => ({
   acceptedAt: new Date(0),
   statusAt: new Date(0),
 });
-const text: ExecutionStreamEvent = { kind: "textDelta", delta: "x", step: STEP };
+const text: ExecutionStreamEvent = { kind: StreamEventKind.TextDelta, delta: "x", step: STEP };
 
 describe("#1006 AC4: the view of a task that ends without an output", () => {
-  for (const state of [A2ATaskState.Failed, A2ATaskState.Canceled, A2ATaskState.Rejected]) {
+  for (const state of [A2ATaskState.Failed, A2ATaskState.Cancelled, A2ATaskState.Rejected]) {
     it(`${state} after streamed text: one empty last chunk, once`, () => {
       const view = new ArtifactView();
       view.textOf(taskIn(A2ATaskState.Working), text);
@@ -175,14 +181,14 @@ describe("#1006 AC4: the view of a task that ends without an output", () => {
     view.textOf(task, text);
 
     const other = view.retractionOf(task, {
-      kind: "discarded",
+      kind: StreamEventKind.Discarded,
       step: { ...STEP, branch: "other" },
-      reason: "judge-rejected",
+      reason: StreamDiscardReason.JudgeRejected,
     });
     const shown = view.retractionOf(task, {
-      kind: "discarded",
+      kind: StreamEventKind.Discarded,
       step: STEP,
-      reason: "judge-rejected",
+      reason: StreamDiscardReason.JudgeRejected,
     });
 
     expect(other).toBeUndefined();

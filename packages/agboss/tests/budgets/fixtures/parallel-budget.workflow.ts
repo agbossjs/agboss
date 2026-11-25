@@ -14,8 +14,9 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type BudgetHandler,
-  type Produced,
-  type ToolHandler,
+  type Tracked,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -27,14 +28,16 @@ import {
   TestExecutionBudget,
   TestTenantDailyBudget,
 } from "../../flow/fixtures/budgets.js";
-import { start, toAction, toFinish } from "../../helpers/flow.js";
+import { onStart, toAction, toWorkflow, toAgent } from "../../helpers/flow.js";
+import { toFinish } from "../../helpers/flow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #338 — a budget crossed inside a parallel launch. Two branches: the spender waits until the
  * waiter's tool runs (`hold-for-waiter-tool`), then answers with a costly call; the waiter's tool pays a
  * service and waits on its call's `executionContext.signal` until it is aborted. The same pair as
- * agents (`toParallelAgents`, with and without `.onJoinError`, and under a quorum) and as per-item
- * child workflows (`toParallelWorkflows`); one application per budget that is tight.
+ * agents (`inParallel`, with and without `.onError`, and under a quorum) and as per-item
+ * child workflows (`forEachItem`); one application per budget that is tight.
  */
 
 /** What ran: the tools' events in order, why the waiter's signal aborted. */
@@ -90,8 +93,8 @@ export class TaskDto {
   input: HoldDto,
   output: HoldDto,
 })
-export class HoldForWaiterTool implements ToolHandler<HoldDto, HoldDto> {
-  async run(input: HoldDto): Promise<HoldDto> {
+export class HoldForWaiterTool {
+  async execute(input: HoldDto): Promise<HoldDto> {
     await isWaiterRunning;
     parallelBudgetLog.events.push("spender goes on");
     return input;
@@ -106,13 +109,13 @@ export class HoldForWaiterTool implements ToolHandler<HoldDto, HoldDto> {
   output: HoldDto,
   deps: [ExecutionContext, SpendRecorder],
 })
-export class WaitForAbortTool implements ToolHandler<HoldDto, HoldDto> {
+export class WaitForAbortTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  run(): Promise<HoldDto> {
+  execute(): Promise<HoldDto> {
     const { signal } = this.executionContext;
     this.spendRecorder.record({ service: "slow-api", cost: usd(0.03) });
     parallelBudgetLog.events.push("waiter waits");
@@ -133,7 +136,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 2 };
 @Agent({
   name: "spender-agent",
   description: "Answers with a costly call once the waiter waits",
-  prompt: "Hold for the waiter, then answer.",
+  prompt: inline("Hold for the waiter, then answer."),
   model: "test/spender",
   price,
   tools: [HoldForWaiterTool],
@@ -145,7 +148,7 @@ export class SpenderAgent {}
 @Agent({
   name: "waiter-agent",
   description: "Waits on a slow service",
-  prompt: "Wait.",
+  prompt: inline("Wait."),
   model: "test/waiter",
   price,
   tools: [WaitForAbortTool],
@@ -161,21 +164,28 @@ export class WaiterAgent {}
 })
 export class ParallelBudgetWorkflowStart {}
 
-@WorkflowFinish({
-  name: "notes-workflow-finish",
+@Action({
+  name: "notes-action",
   description: "Every branch's note",
   input: { notes: listOf(NoteDto) },
   output: NoteDto,
 })
-export class NotesWorkflowFinish {
-  finish(input: { readonly notes: readonly Produced<NoteDto, unknown>[] }): NoteDto {
+export class NotesAction {
+  async execute(input: { readonly notes: readonly Tracked<NoteDto>[] }): Promise<NoteDto> {
     return {
       text: input.notes
-        .map((note) => note.value.text)
+        .map((note) => note.text)
         .join("; "),
     };
   }
 }
+
+@WorkflowFinish({
+  name: "notes-workflow-finish",
+  description: "Every branch's note",
+  output: NoteDto,
+})
+export class NotesWorkflowFinish {}
 
 /** The side path of an exhausted budget: code only, no model. */
 @Action({
@@ -198,20 +208,19 @@ export class NoteBudgetStopAction {
 export class BudgetStoppedWorkflowFinish {}
 
 const onBudget = toAction(NoteBudgetStopAction)
-  .returns(NoteDto)
   .toFinish(BudgetStoppedWorkflowFinish);
 
-/** Both branches at once; an exhausted budget takes `.onJoinError(…)`. */
+/** Both branches at once; an exhausted budget takes `.onError(…)`. */
 @Workflow({
   name: "parallel-budget-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ParallelBudgetWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toParallelAgents(SpenderAgent, WaiterAgent)
+    onStart(ParallelBudgetWorkflowStart)
+      .inParallel([toAgent(SpenderAgent), toAgent(WaiterAgent)])
       .join()
-      .onJoinError(BudgetExceededError, onBudget)
-      .returns(listOf(NoteDto))
+      .onError(BudgetExceededError, onBudget)
+      .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -221,12 +230,12 @@ export class ParallelBudgetWorkflow {}
 @Workflow({
   name: "unhandled-budget-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ParallelBudgetWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toParallelAgents(SpenderAgent, WaiterAgent)
+    onStart(ParallelBudgetWorkflowStart)
+      .inParallel([toAgent(SpenderAgent), toAgent(WaiterAgent)])
       .join()
-      .returns(listOf(NoteDto))
+      .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -236,13 +245,13 @@ export class UnhandledBudgetWorkflow {}
 @Workflow({
   name: "quorum-budget-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ParallelBudgetWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toParallelAgents(SpenderAgent, WaiterAgent)
+    onStart(ParallelBudgetWorkflowStart)
+      .inParallel([toAgent(SpenderAgent), toAgent(WaiterAgent)])
       .joinQuorum({ min: 2 })
-      .onJoinError(BudgetExceededError, onBudget)
-      .returns(listOf(NoteDto))
+      .onError(BudgetExceededError, onBudget)
+      .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -252,7 +261,7 @@ export class QuorumBudgetWorkflow {}
 @Agent({
   name: "task-agent",
   description: "Does one task",
-  prompt: "Do the task.",
+  prompt: inline("Do the task."),
   model: "test/task",
   price,
   tools: [HoldForWaiterTool, WaitForAbortTool],
@@ -271,11 +280,10 @@ export class TaskDoneWorkflowFinish {}
 @Workflow({
   name: "task-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TaskWorkflowStart)
-      .returns(TaskDto)
+    onStart(TaskWorkflowStart)
       .toAgent(TaskAgent)
-      .returns(NoteDto)
       .toFinish(TaskDoneWorkflowFinish),
   ],
 })
@@ -288,17 +296,17 @@ export class TaskWorkflow {}
 })
 export class TasksWorkflowStart {}
 
-/** One child per task, all at once; an exhausted budget takes `.onJoinError(…)`. */
+/** One child per task, all at once; an exhausted budget takes `.onError(…)`. */
 @Workflow({
   name: "tasks-budget-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TasksWorkflowStart)
-      .returns(listOf(TaskDto))
-      .toParallelWorkflows(TaskWorkflow, { maxItems: 4 })
+    onStart(TasksWorkflowStart)
+      .forEachItem(toWorkflow(TaskWorkflow), { takeFirst: 4 })
       .join()
-      .onJoinError(BudgetExceededError, onBudget)
-      .returns(listOf(NoteDto))
+      .onError(BudgetExceededError, onBudget)
+      .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -321,9 +329,9 @@ export class TaskAction {
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  async execute(input: { readonly task: Produced<TaskDto, unknown> }): Promise<NoteDto> {
+  async execute(input: { readonly task: Tracked<TaskDto> }): Promise<NoteDto> {
     const { signal } = this.executionContext;
-    if (input.task.value.name === "spend") {
+    if (input.task.name === "spend") {
       await isWaiterRunning;
       this.spendRecorder.record({ service: "slow-api", cost: usd(0.03) });
       return { text: "spent" };
@@ -340,17 +348,17 @@ export class TaskAction {
   }
 }
 
-/** One action per task, all at once; an exhausted budget takes `.onJoinError(…)`. */
+/** One action per task, all at once; an exhausted budget takes `.onError(…)`. */
 @Workflow({
   name: "task-actions-budget-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TasksWorkflowStart)
-      .returns(listOf(TaskDto))
-      .toParallelActions(TaskAction, { maxItems: 4 })
+    onStart(TasksWorkflowStart)
+      .forEachItem(toAction(TaskAction), { takeFirst: 4 })
       .join()
-      .onJoinError(BudgetExceededError, onBudget)
-      .returns(listOf(NoteDto))
+      .onError(BudgetExceededError, onBudget)
+      .toAction(NotesAction)
       .toFinish(NotesWorkflowFinish),
   ],
 })
@@ -383,6 +391,7 @@ const application = {
 @Application({
   ...application,
   name: "parallel-budget-application",
+  modelProvider: TestModelProvider,
   workflows: [ParallelBudgetWorkflow],
   budgets: TIGHT_EXECUTION,
 })
@@ -391,6 +400,7 @@ export class ParallelBudgetApplication {}
 @Application({
   ...application,
   name: "unhandled-budget-application",
+  modelProvider: TestModelProvider,
   workflows: [UnhandledBudgetWorkflow],
   budgets: TIGHT_EXECUTION,
 })
@@ -399,6 +409,7 @@ export class UnhandledBudgetApplication {}
 @Application({
   ...application,
   name: "quorum-budget-application",
+  modelProvider: TestModelProvider,
   workflows: [QuorumBudgetWorkflow],
   budgets: TIGHT_EXECUTION,
 })
@@ -407,6 +418,7 @@ export class QuorumBudgetApplication {}
 @Application({
   ...application,
   name: "tasks-budget-application",
+  modelProvider: TestModelProvider,
   workflows: [TasksBudgetWorkflow],
   budgets: TIGHT_EXECUTION,
 })
@@ -423,6 +435,7 @@ export class TaskActionsBudgetApplication {}
 @Application({
   ...application,
   name: "tenant-budget-application",
+  modelProvider: TestModelProvider,
   workflows: [ParallelBudgetWorkflow],
   budgets: [TestApplicationDailyBudget, TightTenantDailyBudget, TestExecutionBudget],
 })

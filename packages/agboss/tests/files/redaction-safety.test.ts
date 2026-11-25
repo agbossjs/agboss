@@ -22,7 +22,6 @@ import {
   PiiKind,
   PiiPolicy,
   PiiRefusedError,
-  pii,
   type FileContent,
   type RedactionResult,
   type RedactOptions,
@@ -30,7 +29,7 @@ import {
 import { Text } from "../../src/dto/index.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { redactedViewOf } from "../../src/files/redacted-view.js";
@@ -41,7 +40,7 @@ import { inline, readerApplication } from "./reader.factory.js";
 @PiiPolicy({
   name: "safety-block-cards-pii-policy",
   description: "Refuses a card number in a file",
-  rules: [pii(PiiKind.CardNumber, PiiAction.blockWithRefusal({ refusal: "No cards, please." }))],
+  rules: [PiiKind.CardNumber.block("No cards, please.")],
   files: PiiFileAction.Mask,
 })
 class BlockCardsPolicy {}
@@ -49,7 +48,7 @@ class BlockCardsPolicy {}
 @PiiPolicy({
   name: "safety-model-cards-pii-policy",
   description: "Refuses a card number; a model may judge an image",
-  rules: [pii(PiiKind.CardNumber, PiiAction.blockWithRefusal({ refusal: "No cards, please." }))],
+  rules: [PiiKind.CardNumber.block("No cards, please.")],
   files: PiiFileAction.RedactWithModel,
 })
 class ModelCardsPolicy {}
@@ -57,7 +56,7 @@ class ModelCardsPolicy {}
 @PiiPolicy({
   name: "safety-hide-cards-pii-policy",
   description: "Hides a card number",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
 })
 class HideCardsPolicy {}
 
@@ -181,7 +180,7 @@ const SECRET = "Dana Cohen";
 
 /** Who the execution is about: a value PII policies hide wherever it appears. */
 class PersonContext extends ExecutionContext {
-  @Text({ optional: true, sensitive: PiiAction.replaceWithKind() })
+  @Text({ optional: true, sensitive: PiiAction.mask() })
   person?: string;
 }
 
@@ -196,7 +195,7 @@ const redactingWith = (values?: RedactionValues) =>
   });
 /** Starting the application: the rules of the execution's contexts are checked here. */
 const startFailure = async (application: ReturnType<typeof readerApplication>): Promise<string> => {
-  const failure = await createAppWith(application.Application, {
+  const failure = await createTestAppWith(application.Application, {
     processEnv: {},
     gateway: createScriptedGateway(new ScriptBook()),
   }).then(

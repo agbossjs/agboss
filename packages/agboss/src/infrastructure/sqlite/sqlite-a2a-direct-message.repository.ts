@@ -19,9 +19,8 @@ import {
   savedA2ADirectMessageOf,
 } from "../in-memory-a2a-direct-message.repository.js";
 import type { StoreDescriptor } from "../execution-lease.repository.js";
-import { answerOf, MESSAGE_KEY, messageKeyOf, messageOf, SCHEMA } from "./sqlite-a2a-task-rows.js";
+import { answerOf, MESSAGE_KEY, messageKeyOf, messageOf } from "./sqlite-a2a-task-rows.js";
 import {
-  DIRECT_SCHEMA,
   directColumnsOf,
   directMessageOf,
   INSERT_DIRECT,
@@ -42,10 +41,6 @@ export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository
 
   constructor(private readonly connection: SqliteConnection) {
     super();
-    // Stryker disable next-line StringLiteral: the names only keep each schema run once per connection
-    connection.ensureSchema("a2a_tasks", SCHEMA);
-    // Stryker disable next-line StringLiteral: as above
-    connection.ensureSchema("a2a_direct_messages", DIRECT_SCHEMA);
   }
 
   ping(): Promise<void> {
@@ -156,40 +151,41 @@ export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository
     );
   }
 
-  deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]> {
+  deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number> {
     return answerOf(() =>
       this.connection.transaction(() => {
         const { database } = this.connection;
-        const gone = database
-          .prepare(
-            `SELECT * FROM a2a_direct_messages WHERE state = ? AND created_at < ?
-             ORDER BY created_at LIMIT ?`,
-          )
-          .all(
-            A2ADirectMessageState.Completed,
-            cutoff.toISOString(),
-            checkedDirectMessageLimit(limit),
-          )
-          .map(directMessageOf);
+        const most = checkedDirectMessageLimit(limit);
         const remove = database.prepare(`DELETE FROM a2a_direct_messages WHERE ${MESSAGE_KEY}`);
         const unclaim = database.prepare(
           `DELETE FROM a2a_messages WHERE ${MESSAGE_KEY} AND task_id = ?`,
         );
-        for (const message of gone) {
-          remove.run(...messageKeyOf(message));
-          unclaim.run(...messageKeyOf(message), DIRECT_MESSAGE_CLAIM);
+        let removed = 0;
+        for (const [endpoint, cutoff] of cutoffsByEndpoint) {
+          const gone = database
+            .prepare(
+              `SELECT * FROM a2a_direct_messages WHERE endpoint = ? AND state = ? AND completed_at < ?
+               ORDER BY completed_at LIMIT ?`,
+            )
+            .all(endpoint, A2ADirectMessageState.Completed, cutoff.toISOString(), most)
+            .map(directMessageOf);
+          for (const message of gone) {
+            remove.run(...messageKeyOf(message));
+            unclaim.run(...messageKeyOf(message), DIRECT_MESSAGE_CLAIM);
+          }
+          removed += gone.length;
+          // at most `limit` claims more, of messages of the endpoint that went before (a failed attempt's)
+          database
+            .prepare(
+              `DELETE FROM a2a_messages WHERE rowid IN (SELECT m.rowid FROM a2a_messages m
+                 WHERE m.endpoint = ? AND m.task_id = ? AND m.saved_at < ? AND NOT EXISTS (
+                   SELECT 1 FROM a2a_direct_messages d WHERE d.tenant_id = m.tenant_id
+                     AND d.owner_id = m.owner_id AND d.message_id = m.message_id)
+                 ORDER BY m.saved_at LIMIT ?)`,
+            )
+            .run(endpoint, DIRECT_MESSAGE_CLAIM, cutoff.toISOString(), most);
         }
-        // at most `limit` claims more, of messages that went before (a failed attempt's)
-        database
-          .prepare(
-            `DELETE FROM a2a_messages WHERE rowid IN (SELECT m.rowid FROM a2a_messages m
-               WHERE m.task_id = ? AND m.saved_at < ? AND NOT EXISTS (
-                 SELECT 1 FROM a2a_direct_messages d WHERE d.tenant_id = m.tenant_id
-                   AND d.owner_id = m.owner_id AND d.message_id = m.message_id)
-               ORDER BY m.saved_at LIMIT ?)`,
-          )
-          .run(DIRECT_MESSAGE_CLAIM, cutoff.toISOString(), limit);
-        return gone;
+        return removed;
       }),
     );
   }
@@ -205,10 +201,16 @@ export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository
     const claim = directMessageClaimOf(message);
     this.connection.database
       .prepare(
-        `INSERT INTO a2a_messages (tenant_id, owner_id, message_id, request_hash, task_id, saved_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO a2a_messages (endpoint, tenant_id, owner_id, message_id, request_hash, task_id, saved_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(...messageKeyOf(claim), claim.requestHash, claim.taskId, claim.savedAt.toISOString());
+      .run(
+        claim.endpoint,
+        ...messageKeyOf(claim),
+        claim.requestHash,
+        claim.taskId,
+        claim.savedAt.toISOString(),
+      );
   }
 }
 

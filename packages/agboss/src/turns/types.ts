@@ -1,20 +1,31 @@
-import type { MessageContent } from "@langchain/core/messages";
+import { type Usd } from "../units/index.js";
+import type { StatusContext, ThreadStatusTransition } from "./status-transition.js";
 /** Terminology: a Turn is one question → replyWith round (one run). A thread is a client's sequence of Turns. */
 
 /**
  * Where a Turn is: `running` while its execution moves (#265 S30: what recovery looks for), then
- * how it ended — `answered`, `guarded`, `failed` — or `paused`; `written` — a past turn an eval case
+ * how it ended — `answered`, `guarded`, `failed`, `stopped`, `cancelled` — or `paused`; `written` — a past turn an eval case
  * wrote into its thread, never run (#396 S6): a turn of the thread, never a run to score or replay;
  * `queued` — a child waiting for an instance to claim it (#333 PR 2: its queue row; no Turn is).
  */
 export type TurnStatus =
-  "running" | "answered" | "guarded" | "failed" | "paused" | "queued" | "written";
+  | "running"
+  | "answered"
+  | "guarded"
+  | "failed"
+  | "stopped"
+  | "cancelled"
+  | "paused"
+  | "queued"
+  | "written";
 /** Every {@link TurnStatus}, in that order (the SQLite store's check of a status it reads). */
 export const TURN_STATUSES = [
   "running",
   "answered",
   "guarded",
   "failed",
+  "stopped",
+  "cancelled",
   "paused",
   "queued",
   "written",
@@ -23,7 +34,7 @@ export const TURN_STATUSES = [
 /** One step inside a Turn: what one agent answered. */
 export interface TurnStep {
   readonly agent: string;
-  readonly content: MessageContent;
+  readonly content: string;
 }
 
 export interface Turn {
@@ -33,7 +44,8 @@ export interface Turn {
   readonly threadId: string;
   /** The tenant of its thread (#261): `"default"` for a thread that names none. */
   readonly tenantId: string;
-  readonly bundle: string;
+  /** The workflow's name. */
+  readonly workflow: string;
   readonly createdAt: string;
   readonly task: string;
   readonly replyWith: string;
@@ -41,7 +53,7 @@ export interface Turn {
   readonly stopReason: string;
   readonly route: readonly string[];
   readonly steps: readonly TurnStep[];
-  readonly costUsd: number;
+  readonly costUsd: Usd;
   readonly promptVersion: string;
   readonly modelVersion: string;
   /** Id of the Turn this one replays, if any. */
@@ -59,14 +71,14 @@ export interface Summary {
   /** The thread it summarises: its tenant and its id (#261 S72: the thread's key). */
   readonly tenantId: string;
   readonly threadId: string;
-  readonly bundle: string;
-  /** The `@Compaction` that wrote it (#120 PR 3): each keeps its own summaries of the thread. */
-  readonly compaction: string;
+  readonly workflow: string;
+  /** The `@Memory` that wrote it (#1303): each keeps its own summaries of the thread. */
+  readonly memory: string;
   readonly fromTurnId: string;
   readonly toTurnId: string;
   readonly turns: number;
   readonly text: string;
-  readonly costUsd: number;
+  readonly costUsd: Usd;
   readonly createdAt: string;
 }
 
@@ -100,7 +112,7 @@ export interface ConfigStore {
  */
 export interface MemoryStore {
   /** Turns of the thread after the compaction's last summary, oldest first. */
-  readonly uncovered: (tenantId: string, threadId: string, compaction: string) => Promise<Turn[]>;
+  readonly uncovered: (tenantId: string, threadId: string, memory: string) => Promise<Turn[]>;
   /** Up to `limit` turns right before `turnId`, oldest first. */
   readonly before: (
     tenantId: string,
@@ -115,14 +127,10 @@ export interface MemoryStore {
   readonly latestSummaries: (
     tenantId: string,
     threadId: string,
-    compaction: string,
+    memory: string,
     limit: number,
   ) => Promise<Summary[]>;
-  readonly summaryCount: (
-    tenantId: string,
-    threadId: string,
-    compaction: string,
-  ) => Promise<number>;
+  readonly summaryCount: (tenantId: string, threadId: string, memory: string) => Promise<number>;
 }
 
 /**
@@ -153,7 +161,7 @@ export interface VersionScore {
   readonly turns: number;
   readonly scored: number;
   readonly meanScore: number | null;
-  readonly costUsd: number;
+  readonly costUsd: Usd;
 }
 
 /**
@@ -170,6 +178,18 @@ export interface PauseAnswerEntry {
   readonly record: string;
 }
 
+/** Whether the execution tree of a run has ended (`true`), or is live, paused or unknown (`false`). */
+export type EndedRun = (tree: {
+  readonly tenantId: string;
+  readonly rootExecutionId: string;
+}) => Promise<boolean>;
+
+/** The execution tree a root's Turn is the record of: its tenant and its run (the root's id). */
+export interface TurnTree {
+  readonly tenantId: string;
+  readonly rootExecutionId: string;
+}
+
 /** Durable memory of runs: threads, Turns, their quality scores and conversation summaries. */
 export interface TurnStore extends MemoryStore, ConfigStore {
   /** A new thread (`NewThread`); its id. */
@@ -181,15 +201,36 @@ export interface TurnStore extends MemoryStore, ConfigStore {
     bundle: string,
     tenantId: string,
     threadId: string,
-  ) => Promise<{ readonly owner: string | undefined } | undefined>;
-  readonly append: (turn: NewTurn) => Promise<Turn>;
+  ) => Promise<{ readonly owner: string | undefined; readonly isSwept?: true } | undefined>;
+  readonly append: (turn: NewTurn, context?: StatusContext) => Promise<Turn>;
   /** Completes a paused Turn (same id) with its final outcome. */
-  readonly complete: (turnId: string, outcome: TurnOutcome) => Promise<void>;
+  readonly complete: (
+    turnId: string,
+    outcome: TurnOutcome,
+    context?: StatusContext,
+  ) => Promise<void>;
   /**
    * Compare-and-set (#265 S66 h): writes the outcome only while the Turn's status is `expected`;
    * `true` when it did. Atomic, so a late write never replaces what another holder wrote since.
    */
-  completeIfStatus(turnId: string, expected: TurnStatus, outcome: TurnOutcome): Promise<boolean>;
+  completeIfStatus(
+    turnId: string,
+    expected: TurnStatus,
+    outcome: TurnOutcome,
+    context?: StatusContext,
+  ): Promise<boolean>;
+  /**
+   * Completes a Turn with its final outcome only while `isInterrupted` says its tree (the Turn's
+   * tenant and run) carries no stop or cancel mark — asked inside the write's own transaction, so a
+   * mark the same backend writes in a transaction of its own serializes with it (#1341b); none given:
+   * a Turn store with no lease row beside it, no mark is seen. `false` when it refused: nothing written.
+   */
+  completeUnlessInterrupted(
+    turnId: string,
+    outcome: TurnOutcome,
+    context?: StatusContext,
+    isInterrupted?: (tree: TurnTree) => boolean,
+  ): Promise<boolean>;
   /** The last `limit` Turns of a thread (its tenant and id), oldest first. */
   readonly lastTurns: (tenantId: string, threadId: string, limit: number) => Promise<Turn[]>;
   readonly byIds: (ids: readonly string[]) => Promise<Turn[]>;
@@ -217,6 +258,23 @@ export interface TurnStore extends MemoryStore, ConfigStore {
   readonly markNotTaken: (entry: PauseAnswerEntry) => Promise<void>;
   /** The `record`s of a tree's entries, in the order asked (ties in the order kept). */
   readonly pauseAnswersOf: (tenantId: string, rootExecutionId: string) => Promise<string[]>;
+  /**
+   * Removes the idle threads of each workflow — last active before its cutoff — with their Turns,
+   * summaries, owners and pause answers (#1303): the sweep of `@Memory({ ttl })`. A thread with a
+   * Turn that is `running`, `paused` or `queued`, or of a run `isEnded` does not answer `true` for, is
+   * never removed (checked again inside the removal). The number of threads removed.
+   */
+  readonly deleteIdleThreads: (
+    cutoffs: ReadonlyMap<string, Date>,
+    isEnded: EndedRun,
+  ) => Promise<number>;
+  /** The thread's status history (#1341d), oldest first: written in the transaction of each status change. */
+  readonly statusHistory: (thread: {
+    readonly tenantId: string;
+    readonly threadId: string;
+  }) => Promise<readonly ThreadStatusTransition[]>;
+  /** Removes the thread's status history (#1341d): its tree was forgotten and no history is kept. */
+  readonly forgetStatusHistory: (tenantId: string, threadId: string) => Promise<void>;
   readonly close: () => void;
 }
 
@@ -226,5 +284,11 @@ export interface TurnStore extends MemoryStore, ConfigStore {
  */
 export type TurnRecords = Omit<
   TurnStore,
-  "close" | "byStatus" | "appendPauseAnswer" | "markNotTaken" | "pauseAnswersOf"
+  | "close"
+  | "byStatus"
+  | "deleteIdleThreads"
+  | "appendPauseAnswer"
+  | "markNotTaken"
+  | "pauseAnswersOf"
+  | "statusHistory"
 >;

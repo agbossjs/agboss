@@ -5,19 +5,19 @@ import {
   BudgetPeriod,
   BudgetScope,
   Injectable,
+  Observer,
   listOf,
   oneOf,
   SpendRecorder,
-  variant,
   type BudgetHandler,
   type ExecutionEndEvent,
-  type OnExecutionEnd,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
 import type {
   CostCounter,
   LedgerEntry,
+  BudgetUsage,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
@@ -123,8 +123,8 @@ const pay = (spendRecorder: SpendRecorder, cents: number): void => {
 export class PayLevelAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  execute(input: { readonly node: Produced<SpendNodeDto, unknown> }): Promise<SpendItemDto[]> {
-    const { path } = input.node.value;
+  execute(input: { readonly node: Tracked<SpendNodeDto> }): Promise<SpendItemDto[]> {
+    const { path } = input.node;
     const level = levelOf(path);
     pay(this.spendRecorder, level.cents);
     return Promise.resolve(
@@ -140,10 +140,8 @@ export class PayLevelAction {
   output: listOf(SpendRemoteItemDto),
 })
 export class RemoteItemsAction {
-  execute(input: {
-    readonly node: Produced<SpendNodeDto, unknown>;
-  }): Promise<SpendRemoteItemDto[]> {
-    const { path } = input.node.value;
+  execute(input: { readonly node: Tracked<SpendNodeDto> }): Promise<SpendRemoteItemDto[]> {
+    const { path } = input.node;
     const level = levelOf(path);
     return Promise.resolve(
       level.remote.map((_, index) => ({ path: `${path}/remote${String(index)}` })),
@@ -161,13 +159,13 @@ export class RemoteItemsAction {
 export class PayAfterAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  execute(input: { readonly node: Produced<SpendNodeDto, unknown> }): Promise<unknown> {
-    const { path } = input.node.value;
+  execute(input: { readonly node: Tracked<SpendNodeDto> }): Promise<unknown> {
+    const { path } = input.node;
     const level = levelOf(path);
     pay(this.spendRecorder, level.afterCents);
     const depth = Number(path.slice(1));
-    if (level.next === undefined) return Promise.resolve(variant(SpendNoteDto, { note: path }));
-    return Promise.resolve(variant(SpendNodeDto, { path: `L${String(depth + 1)}` }));
+    if (level.next === undefined) return Promise.resolve({ note: path });
+    return Promise.resolve({ path: `L${String(depth + 1)}` });
   }
 }
 
@@ -181,9 +179,9 @@ export class PayAfterAction {
 export class PayCloseAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  execute(input: { readonly node: Produced<SpendNodeDto, unknown> }): Promise<SpendNoteDto> {
+  execute(input: { readonly node: Tracked<SpendNodeDto> }): Promise<SpendNoteDto> {
     // the node on the path is the next level's: this level is the one above it
-    const path = `L${String(Number(input.node.value.path.slice(1)) - 1)}`;
+    const path = `L${String(Number(input.node.path.slice(1)) - 1)}`;
     pay(this.spendRecorder, levelOf(path).closeCents);
     return Promise.resolve({ note: path });
   }
@@ -199,8 +197,8 @@ export class PayCloseAction {
 export class PayItemAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  execute(input: { readonly item: Produced<SpendItemDto, unknown> }): Promise<SpendNoteDto> {
-    const { path } = input.item.value;
+  execute(input: { readonly item: Tracked<SpendItemDto> }): Promise<SpendNoteDto> {
+    const { path } = input.item;
     pay(this.spendRecorder, spendTree.plan.get(path) ?? 0);
     return Promise.resolve({ note: path });
   }
@@ -216,8 +214,8 @@ export class PayItemAction {
 export class PayRemoteItemAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  execute(input: { readonly item: Produced<SpendRemoteItemDto, unknown> }): Promise<SpendItemDto> {
-    const { path } = input.item.value;
+  execute(input: { readonly item: Tracked<SpendRemoteItemDto> }): Promise<SpendItemDto> {
+    const { path } = input.item;
     const cents = spendTree.plan.get(path) ?? 0;
     pay(this.spendRecorder, cents - Math.floor(cents / 2));
     spendTree.plan.set(`${path}/half`, Math.floor(cents / 2));
@@ -242,8 +240,8 @@ export class HoldItemAction {
 }
 
 /** Every root's end, on whichever instance ended it. */
-@Injectable()
-export class SpendTreeLog implements OnExecutionEnd {
+@Observer()
+export class SpendTreeLog {
   onExecutionEnd(event: ExecutionEndEvent): void {
     if (event.parentExecutionId !== undefined) return;
     const cents = Math.round(event.spend.totalUsd * 100);
@@ -254,10 +252,10 @@ export class SpendTreeLog implements OnExecutionEnd {
 /** The ledger, delayed by `spendTree.ledgerLag` turns of the event loop on every read: a networked one. */
 @Injectable()
 export class SpendTreeLedger extends InMemoryCostLedgerRepository {
-  override async findSpentByCounter(counter: CostCounter): Promise<Usd> {
+  override async findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
     for (let turn = 0; turn < spendTree.ledgerLag; turn += 1)
       await new Promise((resolve) => setImmediate(resolve));
-    return super.findSpentByCounter(counter);
+    return super.findUsageByCounter(counter);
   }
 
   override async saveAll(

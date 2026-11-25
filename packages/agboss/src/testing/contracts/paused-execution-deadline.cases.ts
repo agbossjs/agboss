@@ -187,7 +187,7 @@ export const DEADLINE_CASES: readonly Case[] = [
       expect(decided).toMatchObject({
         status: PauseStatus.Resolved,
         resolution: PauseResolution.DecidedOnExpiry,
-        answer: { decision: DECIDED_ANSWER.decision, answeredBy: undefined },
+        answer: { decision: DECIDED_ANSWER.decision, actor: undefined },
         resolvedAt: DEADLINE.toISOString(),
       });
       expect(failed).toMatchObject({

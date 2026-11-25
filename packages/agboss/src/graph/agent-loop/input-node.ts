@@ -1,4 +1,5 @@
 import { lazyLoad } from "../../infrastructure/clock.js";
+import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import { HumanMessage } from "@langchain/core/messages";
 import { formatMemory } from "../../flow/runtime/history.js";
 import { gatherKnowledge } from "../nodes/knowledge.js";
@@ -18,7 +19,6 @@ import { NO_FILES, filePiecesOf, type FilePieces } from "../../files/visit-files
 import { PiiRefusedError } from "../../pii/errors.js";
 import { AgentFailedError, StepFailedError } from "../errors.js";
 import { LimitExceededError } from "../limits.js";
-import { memoryViewOf } from "./memory-view.js";
 import { loopPoliciesOf } from "./model-pii.js";
 import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./state.js";
 
@@ -94,7 +94,7 @@ async function guardedInput(
   );
   const checked = {
     text: masked.text,
-    element: deps.agent.name,
+    component: bareRecordOf(deps.agent.name, ComponentKind.Agent),
     side: GuardrailSide.Input,
     files: seen.files,
   };
@@ -179,11 +179,10 @@ export function makeInputNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
         agent.maxResultSize,
       ),
     );
-    const view = await memoryViewOf(agent, state);
-    const memory = formatMemory(view, {
-      summaries: view.summaries.length,
-      turns: view.history.length,
-    });
+    const memory = formatMemory(
+      { summaries: state.summaries, history: state.history },
+      { summaries: state.summaries.length, turns: state.history.length },
+    );
     const input = joined([
       state.inputMessage,
       knowledge.block.trim(),

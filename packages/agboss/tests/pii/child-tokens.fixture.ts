@@ -14,14 +14,16 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start, toAgent } from "../helpers/flow.js";
+import { onStart, toAgent, toWorkflow } from "../helpers/flow.js";
 import { ContactPiiPolicy, Outbox, SendEmail } from "./pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const price = { inputPerMTok: 1, outputPerMTok: 10 };
 const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 2 } } as const;
@@ -55,10 +57,10 @@ export class NotifyDone {
   output: NotifyDone,
   deps: [ExecutionContext],
 })
-export class NotifyTool implements ToolHandler<NotifyRequest, NotifyDone> {
+export class NotifyTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run({ to }: NotifyRequest): Promise<NotifyDone> {
+  execute({ to }: NotifyRequest): Promise<NotifyDone> {
     this.executionContext.signal.throwIfAborted();
     return Promise.resolve({ status: `notified ${to}` });
   }
@@ -68,7 +70,7 @@ export class NotifyTool implements ToolHandler<NotifyRequest, NotifyDone> {
 @Agent({
   name: "intake-agent",
   description: "Takes the request",
-  prompt: "Take the request.",
+  prompt: inline("Take the request."),
   model: "test/intake",
   price,
   tools: [SendEmail],
@@ -80,7 +82,7 @@ export class IntakeAgent {}
 @Agent({
   name: "notifier-agent",
   description: "Notifies",
-  prompt: "Notify.",
+  prompt: inline("Notify."),
   model: "test/notifier",
   price,
   tools: [NotifyTool],
@@ -92,7 +94,7 @@ export class NotifierAgent {}
 @Agent({
   name: "closing-agent",
   description: "Closes the request",
-  prompt: "Close the request.",
+  prompt: inline("Close the request."),
   model: "test/closing",
   price,
   input: { intake: IntakeDto, answer: NoteDto },
@@ -103,7 +105,7 @@ export class ClosingAgent {}
 @Agent({
   name: "recovery-agent",
   description: "Says what failed",
-  prompt: "Say what failed.",
+  prompt: inline("Say what failed."),
   model: "test/recovery",
   price,
 })
@@ -113,7 +115,7 @@ export class RecoveryAgent {}
 @Agent({
   name: "list-recovery-agent",
   description: "Says what failed",
-  prompt: "Say what failed.",
+  prompt: inline("Say what failed."),
   model: "test/recovery",
   price,
   input: { messages: listOf(WorkflowStartTextDto) },
@@ -124,7 +126,7 @@ export class ListRecoveryAgent {}
 @Agent({
   name: "list-summary-agent",
   description: "Sums the answers up",
-  prompt: "Sum up.",
+  prompt: inline("Sum up."),
   model: "test/summary",
   price,
   input: { answers: listOf(NoteDto) },
@@ -160,13 +162,8 @@ export class NotifyFinish {}
 @Workflow({
   name: "notify-workflow",
   version: "1.0.0",
-  flow: [
-    start(NotifyStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(NotifierAgent)
-      .returns(NoteDto)
-      .toFinish(NotifyFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(NotifyStart).toAgent(NotifierAgent).toFinish(NotifyFinish)],
   defaults,
 })
 export class NotifyWorkflow {}
@@ -188,11 +185,10 @@ export class FailingNotifyFinish {}
 @Workflow({
   name: "failing-notify-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FailingNotifyStart)
-      .returns(WorkflowStartTextDto)
+    onStart(FailingNotifyStart)
       .toAgent(NotifierAgent)
-      .returns(NoteDto)
       .toAction(RefuseAction)
       .toFinish(FailingNotifyFinish),
   ],
@@ -218,13 +214,11 @@ export class HandoverFinish {}
 @Workflow({
   name: "handover-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HandoverStart)
-      .returns(WorkflowStartTextDto)
+    onStart(HandoverStart)
       .toAgent(IntakeAgent)
-      .returns(IntakeDto)
       .toWorkflow(NotifyWorkflow)
-      .returns(NoteDto)
       .toAgent(ClosingAgent)
       .toFinish(HandoverFinish),
   ],
@@ -258,15 +252,14 @@ export class FailedHandoverRecoveredFinish {}
 @Workflow({
   name: "failed-handover-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FailedHandoverStart)
-      .returns(WorkflowStartTextDto)
+    onStart(FailedHandoverStart)
       .toWorkflow(FailingNotifyWorkflow)
       .onError(
         ChildExecutionFailedError,
         toAgent(RecoveryAgent).toFinish(FailedHandoverRecoveredFinish),
       )
-      .returns(NoteDto)
       .toFinish(FailedHandoverFinish),
   ],
   defaults,
@@ -298,26 +291,26 @@ export class FailedListRecoveredFinish {}
 @Workflow({
   name: "failed-list-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FailedListStart)
-      .returns(listOf(WorkflowStartTextDto))
-      .toParallelWorkflows(FailingNotifyWorkflow, { maxConcurrency: 1, maxItems: 1 })
+    onStart(FailedListStart)
+      .forEachItem(toWorkflow(FailingNotifyWorkflow), { takeFirst: 1, maxConcurrency: 1 })
       .join()
-      .onJoinError(
+      .onError(
         ChildExecutionFailedError,
         toAgent(ListRecoveryAgent).toFinish(FailedListRecoveredFinish),
       )
-      .returns(listOf(NoteDto))
       .toAgent(ListSummaryAgent)
       .toFinish(FailedListFinish),
   ],
   defaults,
-  maxSteps: 4,
+  executionLimits: { maxSteps: 4 },
 })
 export class FailedListWorkflow {}
 
 @Application({
   name: "handover-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [HandoverWorkflow, FailedHandoverWorkflow, FailedListWorkflow],

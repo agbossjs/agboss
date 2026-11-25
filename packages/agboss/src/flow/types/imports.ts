@@ -14,10 +14,12 @@ import type { ClassLocator } from "./locate.js";
 /** What the generated file imports from the tables module. */
 export enum TablesImport {
   ComponentBrand = "agbossComponent",
+  NodeKind = "NodeKind",
   DtoBrand = "agbossDto",
+  TenantContextBrand = "agbossTenantContext",
   NoInput = "NoInput",
   NoOutput = "NoOutput",
-  Produced = "Produced",
+  Tracked = "Tracked",
   HistoryOf = "HistoryOf",
 }
 
@@ -52,11 +54,17 @@ export class ImportTable {
   private readonly missing = new Set<Class>();
   private readonly dtoClasses = new Set<DtoClass>();
   private readonly plain = new Set<Class>();
+  private readonly tenantContexts = new Map<Class, boolean>();
 
   constructor(
     private readonly locator: ClassLocator,
     readonly outFile: string,
   ) {}
+
+  /** An empty table over the same modules: a dry run of what a class needs (`unexported`). */
+  fork(): ImportTable {
+    return new ImportTable(this.locator, this.outFile);
+  }
 
   /** The identifier of a class in the generated file. */
   ref(component: Class): string {
@@ -88,9 +96,28 @@ export class ImportTable {
     return this.ref(component);
   }
 
+  /**
+   * An `@Application` class, branded with whether it declares a `tenantContext` (#1324e): `false` lets
+   * `app.resume` / `app.execute` leave the tenant out. Nothing for an application no module exports.
+   */
+  refApplication(application: Class, hasTenantContext: boolean): void {
+    if (this.refIfExported(application) === undefined) return;
+    this.tenantContexts.set(application, hasTenantContext);
+  }
+
+  /** Whether the application declares a `tenantContext`; `undefined` for a class that is no application. */
+  tenantContextOf(component: Class): boolean | undefined {
+    return this.tenantContexts.get(component);
+  }
+
   /** Whether the file brands the class (every class it mentions but the plain ones). */
   isBranded(component: Class): boolean {
     return !this.plain.has(component);
+  }
+
+  /** Whether the file treats the class as a DTO (it names it in a type). */
+  isDto(component: Class): boolean {
+    return this.dtoClasses.has(component as DtoClass);
   }
 
   /** The identifier of a DTO class (branded by its class name, S39). */

@@ -37,15 +37,21 @@ export interface StepCapacity {
   /** The slots no step holds now. */
   freeSlots(): number;
   /**
-   * Whether a step under the lease `holder` (its `scopeKey`: a root's, or an AnyInstance child's
+   * Whether a step under the lease `holder` (its `scopeKey`: a root's, or an AnyWorker child's
    * own, #471) holds a slot now (#767): what the child workers read so a claimed child at work is
    * counted once — by its slot, not again as a claim.
    */
   holdsSlot(holder: string): boolean;
 }
 
+/** What a holder of a step slot outside a step reads and takes: an isolated worker's fork (#1286b). */
+export interface StepHolds extends StepCapacity {
+  /** A slot for one holder, at once when one is free; `undefined` when `signal` aborts first. */
+  take(claim: QueueClaim, signal: AbortSignal): Promise<SlotHold | undefined>;
+}
+
 /** The instance's step slots: a priority semaphore of `maxConcurrentSteps` steps. */
-export class StepSlots implements StepCapacity {
+export class StepSlots implements StepHolds {
   #busy = 0;
   /** The slots held now per lease (`scopeKey`), for `holdsSlot`; a lease with none is absent. */
   readonly #heldBy = new Map<string, number>();

@@ -63,7 +63,7 @@ describe("#337 AC1: a decided quorum withdraws its waiting branches' pauses", ()
     mockLlm(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }));
     mockLlm(FraudAgent).thenReturn(score(9));
 
-    const result = await execute(app, RefundPanelWorkflowStart, ORDER, { record: true });
+    const result = await execute(app, RefundPanelWorkflowStart, ORDER, { includeRecord: true });
 
     expect(result).toFinishWith(RefundDecidedWorkflowFinish, { text: "7, 9" });
     expect(result.pending).toEqual([]);
@@ -102,7 +102,7 @@ describe("#337 AC1: a decided quorum withdraws its waiting branches' pauses", ()
     async ({ app, clock, mockLlm }) => {
       mockLlm(PolicyAgent).thenReturn(waitFor(seconds(5)), score(7));
       mockLlm(RiskAgent).thenReturn(callTool(RefundTool, { orderId: "R" }));
-      const run = execute(app, RefundGroupsWorkflowStart, ORDER, { record: true });
+      const run = execute(app, RefundGroupsWorkflowStart, ORDER, { includeRecord: true });
       await until(() => seen.asks.length === 1);
 
       await clock.advance(seconds(5));

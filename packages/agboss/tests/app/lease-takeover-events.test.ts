@@ -144,7 +144,7 @@ describe("#501 AC1: a takeover is told and kept", () => {
     },
   );
 
-  test("a reclaim after a yield (an AnyInstance child) is a Reclaimed takeover at a new token, with no previous holder", async ({
+  test("a reclaim after a yield (an AnyWorker child) is a Reclaimed takeover at a new token, with no previous holder", async ({
     app,
   }) => {
     const result = await execute(app, FarParentWorkflowStart, { text: "go" });

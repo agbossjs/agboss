@@ -65,7 +65,7 @@ function baselineOf(report: EvalRunReport, comparison: EvalRunComparison): HtmlE
     factsOf([
       ["Baseline", comparison.file],
       ["Its config", comparison.configHash],
-      ["Its start", comparison.startedAt],
+      ["Its start", comparison.startedAt.toISOString()],
       ["Its runs per case", k],
       ["Regressed", comparison.regressed.join(", ") || "none"],
     ]),

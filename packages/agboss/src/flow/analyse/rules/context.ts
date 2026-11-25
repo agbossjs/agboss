@@ -1,5 +1,9 @@
 import type { RuleViolation } from "../../../graph/rule-error.js";
-import type { WorkflowDefaults, WorkflowOptions } from "../../decorators/workflow.js";
+import type {
+  ApplicationDefaults,
+  ExecutionLimitsOf,
+  WorkflowOptions,
+} from "../../decorators/workflow.js";
 import type { ComponentName } from "../../registry.js";
 import type { ChildChoice } from "../children.js";
 import type { Dataflow } from "../dataflow.js";
@@ -26,11 +30,16 @@ export interface AnalyseOptions {
   /** The models' tool calling; without it `[model.no-tool-calling]` is not checked. */
   readonly canCallTools?: ToolCallingCheck;
   /** The defaults of the workflow's `@Application` (#261): the rules read the merged defaults. */
-  readonly applicationDefaults?: WorkflowDefaults;
+  readonly applicationDefaults?: ApplicationDefaults;
+  /**
+   * The workflows' `executionLimits` as the selected profiles leave them (#1318c): the assembly's
+   * `ComponentOptions.executionLimitsOf`. Without it, the limits as the decorators declare them.
+   */
+  readonly limits?: ExecutionLimitsOf;
 }
 
 export interface AnalysisContext {
-  /** The workflow's options, its `defaults` merged over its application's. */
+  /** The workflow's options, its `defaults` merged over its application's and its `executionLimits` as the profiles leave them. */
   readonly workflow: WorkflowOptions;
   readonly walked: WalkedFlow;
   readonly graph: FlowGraph;

@@ -10,10 +10,12 @@ import {
   ShopTenantContext,
 } from "./children.workflow.js";
 import { RecoveryLog } from "../../../infrastructure/fixtures/recovery.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** #1090 — the single model child (an own-thread child that pauses) on the checkpoint saver whose `put` can be cut off. */
 @Application({
   name: "children-window-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   tenantContext: ShopTenantContext,

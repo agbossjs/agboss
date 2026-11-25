@@ -1,8 +1,4 @@
-import { secret } from "../../../../../src/index.js";
 import type { RotationEnvironment } from "./app.environment.js";
 
-export const environment: RotationEnvironment = {
-  sqlitePath: ":memory:",
-  // unset in a test: testWith gives it the test key (#825)
-  idempotencyKeyV1: secret("ROTATION_IDEMPOTENCY_KEY_V1"),
-};
+// no storage keys here: testWith gives an application with no storage the test's idempotency keys (#825)
+export const environment: RotationEnvironment = {};

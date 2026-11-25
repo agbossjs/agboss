@@ -4,16 +4,16 @@ Read this before writing any test. Tests never call a real model or the network:
 application runs under `testWith(App)` with scripted models, and one component runs alone under its
 unit runner. Real-model checks are recorded cassettes (VCR) and evals.
 
-| You test…                                                                                                     | Use                                                                                                                                                                 |
-| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| a path through the application                                                                                | `testWith(App)` → `app.execute(Start, input)`, `mockLlm(X).thenReturn(…)`, matchers                                                                                 |
-| a race between parallel branches                                                                              | `testWith(App, { concurrency: TestConcurrency.inOrder([step(A), step(B)]) })`                                                                                       |
-| time: timeouts, retries, retention, leases                                                                    | the `clock` fixture: `await clock.advance(seconds(31))`                                                                                                             |
-| a restart, a second instance                                                                                  | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                                                          |
-| one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy, tool interceptor, compaction | its unit runner: `testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction` |
-| real model answers, replayed in CI                                                                            | `testWith(App, { vcr: { cassetteName } })`                                                                                                                          |
-| what a live-model run must do, case by case                                                                   | `@EvalSuite` (`@agboss/core/eval`): cases, `checkTrajectory()`, `judgedBy(Judge)`, `EvalCascade`; `npx agboss eval run --suite <name> --runs <k>`                   |
-| quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                                                              |
+| You test…                                                                                                     | Use                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| a path through the application                                                                                | `testWith(App)` → `app.execute(Start, input)`, `mockLlm(X).thenReturn(…)`, matchers                                               |
+| a race between parallel branches                                                                              | `testWith(App, { concurrency: TestConcurrency.inOrder([step(A), step(B)]) })`                                                     |
+| time: timeouts, retries, retention, leases                                                                    | the `clock` fixture: `await clock.advance(seconds(31))`                                                                           |
+| a restart, a second instance                                                                                  | `recoverApp()`, `testWith(App, { instances: 2 })` → `apps`                                                                        |
+| one tool, action, router, arbiter, knowledge base, judge, guardrail, PII policy, tool interceptor, compaction | its unit runner: `testUnit`                                                                                                       |
+| real model answers, replayed in CI                                                                            | `testWith(App, { vcr: { cassetteName } })`                                                                                        |
+| what a live-model run must do, case by case                                                                   | `@EvalSuite` (`@agboss/core/eval`): cases, case `tools`, `judges`, `EvalCascade`; `npx agboss eval run --suite <name> --runs <k>` |
+| quality over real traffic                                                                                     | `npx agboss golden add`, `npx agboss eval score`, `npx agboss compare`                                                            |
 
 `vitest.config.ts` wraps its `test` options in `agbossVitest()` from `@agboss/core/testing/vitest`: AGBoss loaded
 through vite, in the test's module graph (so `testWith(App)` loads the application next to its workflows, with
@@ -66,10 +66,10 @@ export class CultureReportDto {
 ```
 
 ```ts file=src/screening/dto/verdict.dto.ts
-import { OneOf, Text } from "@agboss/core/dto";
+import { Enum, Text } from "@agboss/core/dto";
 
 export class VerdictDto {
-  @OneOf({ values: ["hire", "reject"], prompt: "the decision" })
+  @Enum(["hire", "reject"], { prompt: "the decision" })
   decision!: "hire" | "reject";
 
   @Text({ prompt: "why, in one sentence" })
@@ -129,7 +129,7 @@ export class HiringStoreService {
 ```
 
 ```ts file=src/screening/tools/candidate-archive.tool.ts
-import { Tool, type ToolHandler } from "@agboss/core";
+import { Tool } from "@agboss/core";
 import { ArchiveEntryDto } from "../dto/archive-entry.dto.js";
 import { ArchiveQueryDto } from "../dto/archive-query.dto.js";
 import { CandidateArchiveService } from "../services/candidate-archive.service.js";
@@ -141,51 +141,75 @@ import { CandidateArchiveService } from "../services/candidate-archive.service.j
   output: ArchiveEntryDto,
   deps: [CandidateArchiveService],
 })
-export class CandidateArchiveTool implements ToolHandler<ArchiveQueryDto, ArchiveEntryDto> {
+export class CandidateArchiveTool {
   constructor(private readonly candidateArchiveService: CandidateArchiveService) {}
 
-  async run({ name }: ArchiveQueryDto): Promise<ArchiveEntryDto> {
+  async execute({ name }: ArchiveQueryDto): Promise<ArchiveEntryDto> {
     return { applications: await this.candidateArchiveService.applicationsOf(name) };
   }
 }
 ```
 
 ```ts file=src/screening/rag/hiring-policy.rag.ts
-import { Rag, RagTenancy, type RagConnector, type RagRetrieval } from "@agboss/core/rag";
+import { Rag, RagScope, RagSource, type RagRetrieval } from "@agboss/core/rag";
 
-// one policy every tenant reads: declared Shared (#796), so the connector may ignore the tenant
+// one policy every tenant reads: declared Shared, so the source is told no scope
 @Rag({
   name: "hiring-policy-rag",
   description: "The hiring policy",
-  tenancy: RagTenancy.Shared,
+  scope: RagScope.Shared,
   topK: 2,
 })
-export class HiringPolicyRag implements RagConnector {
-  retrieve(query: string, options: { readonly topK: number }): Promise<RagRetrieval> {
+export class HiringPolicyRag extends RagSource {
+  protected override retrieve(query: string, options: { readonly topK: number }): RagRetrieval {
     const results = [{ text: `Hire at 7 or more (${query.slice(0, 20)}).`, source: "policy.md#bar" }];
-    return Promise.resolve({ results: results.slice(0, options.topK) });
+    return { results: results.slice(0, options.topK) };
   }
 }
 ```
 
 The judges, the guardrail and the PII policy:
 
+A decision model (Jev) is served by a decisions provider — a component naming one says so with `modelProvider`:
+
+```ts file=src/model-providers/decisions.model-provider.ts
+import { secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Jev and the other decision models, on OpenRouter's Decisions API",
+  driver: DecisionsDriver({ baseUrl: "https://openrouter.ai/api/v1", apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
+```
+
 ```ts file=src/screening/judges/reasoned-verdict/reasoned-verdict.judge.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
 import { Decision, Judge, JudgeModel, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { VerdictDto } from "../../dto/verdict.dto.js";
 
-@Judge({ name: "reasoned-verdict-judge", model: "typesafe/jev-1.13", reply: VerdictDto, deps: [JudgeModel] })
+@Judge({
+  name: "reasoned-verdict-judge",
+  model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
+  output: VerdictDto,
+  deps: [JudgeModel],
+})
 export class ReasonedVerdictJudge implements JudgeHandler<VerdictDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<VerdictDto>): Promise<JudgeVerdict> {
+  async judge({ output }: JudgeInput<VerdictDto>): Promise<JudgeVerdict> {
     const answers = await this.judgeModel.decide({
-      state: { decision: reply.decision, reason: reply.reason },
-      questions: { reasoned: Decision.noul("Does the reason support the decision?") },
+      state: { decision: output.decision, reason: output.reason },
+      questions: { reasoned: Decision.boolean("Does the reason support the decision?") },
     });
-    return answers.reasoned.noul >= 0.5
+    return answers.reasoned.probability >= 0.5
       ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: "give a reason that supports the decision" });
+      : JudgeVerdict.failed("give a reason that supports the decision");
   }
 }
 ```
@@ -195,14 +219,14 @@ export class ReasonedVerdictJudge implements JudgeHandler<VerdictDto> {
 import { DecidedBy, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { VerdictDto } from "../../dto/verdict.dto.js";
 
-@Judge({ name: "short-reason-judge", decidedBy: DecidedBy.Code, reply: VerdictDto })
+@Judge({ name: "short-reason-judge", output: VerdictDto })
 export class ShortReasonJudge implements JudgeHandler<VerdictDto> {
-  judge({ reply }: JudgeInput<VerdictDto>): Promise<JudgeVerdict> {
-    const words: number = reply.reason.split(" ").length;
+  judge({ output }: JudgeInput<VerdictDto>): Promise<JudgeVerdict> {
+    const words: number = output.reason.split(" ").length;
     return Promise.resolve(
-      reply.reason.trim() !== "" && words <= 30
+      output.reason.trim() !== "" && words <= 30
         ? JudgeVerdict.passed({ metrics: { words } })
-        : JudgeVerdict.failed({ reason: "give the reason in one sentence, at most 30 words" }),
+        : JudgeVerdict.failed("give the reason in one sentence, at most 30 words"),
     );
   }
 }
@@ -213,26 +237,28 @@ export class ShortReasonJudge implements JudgeHandler<VerdictDto> {
 import { DecidedBy, Judge, JudgeVerdict, type JudgeHandler, type JudgeInput } from "@agboss/core";
 import { HireSavedDto } from "../../dto/hire-saved.dto.js";
 
-@Judge({ name: "hire-saved-judge", decidedBy: DecidedBy.Code, reply: HireSavedDto })
+@Judge({ name: "hire-saved-judge", output: HireSavedDto })
 export class HireSavedJudge implements JudgeHandler<HireSavedDto> {
-  judge({ reply }: JudgeInput<HireSavedDto>): Promise<JudgeVerdict> {
+  judge({ output }: JudgeInput<HireSavedDto>): Promise<JudgeVerdict> {
     return Promise.resolve(
-      reply.hireId.startsWith("hire-")
+      output.hireId.startsWith("hire-")
         ? JudgeVerdict.passed()
-        : JudgeVerdict.failed({ reason: `not a hire id: ${reply.hireId}` }),
+        : JudgeVerdict.failed(`not a hire id: ${output.hireId}`),
     );
   }
 }
 ```
 
 ```ts file=src/screening/guardrails/bias/bias.guardrail.ts
-import { OutputGuardrail } from "@agboss/core";
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
+import { OutputGuardrail, inline } from "@agboss/core";
 
 @OutputGuardrail({
   name: "bias-guardrail",
   description: "Blocks verdicts that rest on protected traits",
-  prompt: "Does the verdict rest on age, gender, origin or religion?",
+  prompt: inline("Does the verdict rest on age, gender, origin or religion?"),
   model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
   threshold: 0.7,
   refusal: "The verdict was withheld for review.",
 })
@@ -240,12 +266,12 @@ export class BiasGuardrail {}
 ```
 
 ```ts file=src/screening/pii-policies/contact.pii-policy.ts
-import { PiiAction, PiiKind, PiiPolicy, pii } from "@agboss/core";
+import { PiiKind, PiiPolicy } from "@agboss/core";
 
 @PiiPolicy({
   name: "contact-pii-policy",
   description: "Hides candidates' emails",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
+  rules: [PiiKind.Email.tokenize()],
 })
 export class ContactPiiPolicy {}
 ```
@@ -273,7 +299,7 @@ export class SaveHireAction implements ActionHandler<SaveHireAction> {
 
   async execute(input: InputOf<SaveHireAction>): Promise<OutputOf<SaveHireAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return { hireId: await this.hiringStoreService.save(input.verdict.value.reason, key) };
+    return { hireId: await this.hiringStoreService.save(input.verdict.reason, key) };
   }
 }
 ```
@@ -289,11 +315,11 @@ import { RejectedWorkflowFinish } from "../../workflows/screening/rejected.workf
   description: "Saves a hire, ends on a rejection",
   decidedBy: DecidedBy.Code,
   input: { verdict: VerdictDto },
-  routes: [{ target: SaveHireAction }, { target: RejectedWorkflowFinish }],
+  routes: [SaveHireAction, RejectedWorkflowFinish],
 })
 export class HireRouter implements RouterHandler<HireRouter> {
   route(input: InputOf<HireRouter>): Route<HireRouter> {
-    return input.verdict.value.decision === "hire" ? SaveHireAction : RejectedWorkflowFinish;
+    return input.verdict.decision === "hire" ? SaveHireAction : RejectedWorkflowFinish;
   }
 }
 ```
@@ -301,7 +327,7 @@ export class HireRouter implements RouterHandler<HireRouter> {
 The agents:
 
 ```ts file=src/screening/agents/skills/skills.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { CandidateDto } from "../../dto/candidate.dto.js";
 import { SkillsReportDto } from "../../dto/skills-report.dto.js";
 import { CandidateArchiveTool } from "../../tools/candidate-archive.tool.js";
@@ -309,7 +335,7 @@ import { CandidateArchiveTool } from "../../tools/candidate-archive.tool.js";
 @Agent({
   name: "skills-agent",
   description: "Scores technical skills",
-  prompt: "Score the candidate's technical skills.",
+  prompt: inline("Score the candidate's technical skills."),
   model: "moonshotai/kimi-k2.6",
   input: { candidate: CandidateDto },
   output: SkillsReportDto,
@@ -319,14 +345,14 @@ export class SkillsAgent {}
 ```
 
 ```ts file=src/screening/agents/culture/culture.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { CandidateDto } from "../../dto/candidate.dto.js";
 import { CultureReportDto } from "../../dto/culture-report.dto.js";
 
 @Agent({
   name: "culture-agent",
   description: "Scores team fit",
-  prompt: "Score the candidate's team fit.",
+  prompt: inline("Score the candidate's team fit."),
   model: "moonshotai/kimi-k2.6",
   input: { candidate: CandidateDto },
   output: CultureReportDto,
@@ -335,7 +361,7 @@ export class CultureAgent {}
 ```
 
 ```ts file=src/screening/agents/verdict/verdict.agent.ts
-import { Agent, RagMode } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { CultureReportDto } from "../../dto/culture-report.dto.js";
 import { SkillsReportDto } from "../../dto/skills-report.dto.js";
 import { VerdictDto } from "../../dto/verdict.dto.js";
@@ -347,34 +373,34 @@ import { HiringPolicyRag } from "../../rag/hiring-policy.rag.js";
 @Agent({
   name: "verdict-agent",
   description: "Decides from both reports and the policy",
-  prompt: "Decide hire or reject from the reports, following the policy.",
+  prompt: inline("Decide hire or reject from the reports, following the policy."),
   model: "moonshotai/kimi-k2.6",
   input: { skills: SkillsReportDto, culture: CultureReportDto },
   output: VerdictDto,
-  rag: [{ use: HiringPolicyRag, mode: RagMode.Context }],
+  rag: [HiringPolicyRag],
   judges: [ShortReasonJudge, ReasonedVerdictJudge], // every judge runs; the code one costs nothing
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
   guardrails: [BiasGuardrail],
 })
 export class VerdictAgent {}
 ```
 
 ```ts file=src/screening/arbiters/has-notes/has-notes.arbiter.ts
-// a code arbiter: one @OnAnswer method per agent of the launch, typed by that agent's output
-import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
+// a code arbiter: @Arbitrate(…targets) methods, typed by those targets' output
+import { Arbiter, Arbitrate } from "@agboss/core";
 import { CultureAgent } from "../../agents/culture/culture.agent.js";
 import { SkillsAgent } from "../../agents/skills/skills.agent.js";
 import { CultureReportDto } from "../../dto/culture-report.dto.js";
 import { SkillsReportDto } from "../../dto/skills-report.dto.js";
 
-@Arbiter({ name: "has-notes-arbiter", decidedBy: DecidedBy.Code })
+@Arbiter({ name: "has-notes-arbiter" })
 export class HasNotesArbiter {
-  @OnAnswer(SkillsAgent)
+  @Arbitrate(SkillsAgent)
   fromSkills(answer: SkillsReportDto): boolean {
     return answer.notes.trim() !== "";
   }
 
-  @OnAnswer(CultureAgent)
+  @Arbitrate(CultureAgent)
   fromCulture(answer: CultureReportDto): boolean {
     return answer.notes.trim() !== "";
   }
@@ -408,7 +434,7 @@ export class RejectedWorkflowFinish {}
 ```
 
 ```ts file=src/screening/workflows/screening/screening.workflow.ts
-import { Workflow, route, start } from "@agboss/core";
+import { Workflow, onStart, toAgent, toAction, toRouter, toFinish, Ttl } from "@agboss/core";
 import { HireRouter } from "../../routers/hire/hire.router.js";
 import { SaveHireAction } from "../../actions/save-hire.action.js";
 import { CultureAgent } from "../../agents/culture/culture.agent.js";
@@ -429,25 +455,21 @@ import { ScreeningWorkflowStart } from "./screening.workflow-start.js";
 @Workflow({
   name: "screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ScreeningWorkflowStart)
-      .returns(CandidateDto)
-      .toParallelAgents(SkillsAgent, CultureAgent)
-      .acceptedBy(HasNotesArbiter)
+    onStart(ScreeningWorkflowStart)
+      .inParallel([toAgent(SkillsAgent), toAgent(CultureAgent)])
+      .arbitratedBy(HasNotesArbiter)
       .joinQuorum({ min: 2 })
-      .returns(SkillsReportDto)
-      .returns(CultureReportDto)
       .toAgent(VerdictAgent)
-      .returns(VerdictDto)
       .toRouter(HireRouter)
-      .chooseOne(
-        route(SaveHireAction)
-          .returns(HireSavedDto)
+      .onRoute(
+        toAction(SaveHireAction)
           .toFinish(HiredWorkflowFinish),
-        route(RejectedWorkflowFinish),
-      ),
+      )
+      .onRoute(toFinish(RejectedWorkflowFinish)),
   ],
-  maxSteps: 4,
+  executionLimits: { maxSteps: 8 },
   providers: [CandidateArchiveService, HiringStoreService],
 })
 export class ScreeningWorkflow {}
@@ -491,7 +513,25 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/screening.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { ApplicationDailyBudget } from "./screening/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./screening/budgets/execution.budget.js";
@@ -500,6 +540,8 @@ import { ContactPiiPolicy } from "./screening/pii-policies/contact.pii-policy.js
 import { ScreeningWorkflow } from "./screening/workflows/screening/screening.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "screening-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
@@ -592,7 +634,7 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   (`test.no-matching-script`). Turns: `replyWith(text)`, `replyWith(Dto, value, { cost: usd(…) })`,
   `callTool(Tool, args)`, `routeTo(Target)` (a model router), `decideWith({ question: p })` (decision
   models: judges, guardrails `{ blocks }`, model arbiters `{ counts }`), `failWith(ModelFailure.Timeout)`,
-  `waitFor(seconds(31))` (the next turn after that long on the clock), and the model's invalid turns
+  `waitFor(seconds(31))` (the next turn after that long on the clock), `streamWith(["a", "b"])` (a streamed text, chunk by chunk) and `failStreamAfter(["a"], ModelFailure.Timeout)` (a stream that breaks after its chunks), and the model's invalid turns
   for a validation retry, no cast needed: `callToolWithInvalidArguments(Tool, { orderId: 7 })` (its
   input check refuses them) and `callToolWithTruncatedArguments(Tool, { orderId: "7" })` (cut JSON,
   `finish_reason: "length"`) — the tool never runs, the call is `ToolCallStatus.InvalidArguments`,
@@ -601,35 +643,34 @@ raceTest("an answer without notes leaves the quorum short", async ({ app, mockLl
   `AgentAnswerInvalidError`).
 - **`when(partial)`** binds turns to the input: `mockLlm(SkillsAgent).when({ candidate: { name: "Dana" } }).thenReturn(…)`.
 - **Unscripted**: a guardrail passes, a compaction writes a fixed summary; an agent, a router or a
-  judge without a script is a blocked live call (`test.live-call-blocked`). A custom compaction
-  (`CompactionStrategy.Custom`) calls no model: `mockLlm(GraphMemoryCompaction)` is a setup error —
+  judge without a script is a blocked live call (`test.live-call-blocked`). A memory that compacts in code
+  (a `compact(input)` method) calls no model: `mockLlm(GraphMemory)` is a setup error —
   `mockOf(KnowledgeGraphService).saveFactsAndSummarize.mockResolvedValue([…])` the services its
   `compact()` uses.
 - **Replacing a class**: `mockOf(Service).method.mockResolvedValue(…)` (any component or service, a
-  budget's `maxSpend` too); `testWith(App, { overrides: [override(Base, Replacement)] })` creates a
+  budget's `maxSpend` too); `testWith(App, { services: [Replacement] })` creates a
   class instead of another — no instances, no `new`.
-- **A profile**: `testWith(App, { profile: "low-thinking", profileRoot })` runs every workflow of the
-  application, the child workflows too, on `profiles/<workflow>/<profile>.yaml` under `profileRoot`,
-  as `createApp(App, { profile, profileRoot })` does, with the models still scripted. The test reads
-  what the profile applied from the read-only `app.settings` (by workflow name):
+- **A profile**: `testWith(App, { profile: "low-thinking" })` runs every workflow of the application,
+  the child workflows too, on `src/config/low-thinking.config.ts|yaml` next to the application file
+  (over `base.config.*`; several: `"a,b"`, `"a+b"` or `["a", "b"]`, layered left to right), as
+  `createApp(App, { profile })` does, with the models still scripted. Without a `profile` a test
+  runs on `test`, never dev's values (no `test.config.*` is no layer). The test reads what the
+  profiles applied from the read-only `app.settings` (by workflow name):
   `expect(app.settings["scout-workflow"]?.agents["scout-agent"]?.thinking).toBe("low")`, and
-  `.version` is the profile's. `profileRoot` defaults to `process.cwd()`; in a monorepo, or when the
-  tests run from the repository root, give the package directory:
-  `profileRoot: fileURLToPath(new URL("..", import.meta.url))` from a test in `tests/` — never
-  `.pathname`, which is no path on Windows. An unknown profile is a `ProfileError` listing the
-  profiles that exist (`base` is none), a model the profile switches to one no listed provider serves
-  fails the assembly with `[model.unserved]`, not the first call. Each workflow needs a file of that
-  profile (a child's too).
+  `.version` is the profile's. An unknown profile is a `ProfileError` listing the profiles that
+  exist, a model a profile switches to one its provider does not serve fails the assembly with
+  `[model.missing-provider]` / `[model.incompatible-provider]`, not the first call.
 - **MCP**: `mcpOf(Server).thenReturn({ server_tool: (args) => result })`, `.calls`; **network** is
   blocked except `allowNetwork: ["localhost"]`.
-- **A2A**: `const { url } = await a2aServer({ expose, callerResolver })` serves the test's `app` through
-  `a2aHttpListener` on `127.0.0.1:0` (the resolver from its container, the loopback open, closed at
+- **A2A**: `const { url } = await a2aServer({ endpoint, authenticator })` serves the test's `app` through
+  `a2aHttpListener` on `127.0.0.1:0` (the authenticator from its container, the loopback open, closed at
   the test's end); call it with `new A2AClient({ url, headers })` (#387, reference 04).
 - **Matchers**: `toFollowPath([Start, …, Finish])`, `toFinishWith(Finish, output?)` (the whole output),
   `rejects.toFailWith(ErrorClass, { …fields, cause })` (through the cause chain),
   `toHaveChildExecutions(W, [{ item, finish | failedWith | cancelled }])`,
   `toHaveHandledError(E, { at, by })`, `toHaveCalledTools([A, B])` and `toHaveToolCallMatching(Tool,
-partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`; on
+partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`, `toStopWith(reason?)` /
+  `toCancelWith(reason?)` (the run ended `Stopped` / `Cancelled`); on
   `mockLlm(X)` / `mockAction(A)`: `toHaveBeenCalledWith(partial)`, `toHaveBeenCalledTimes(n)`,
   `toHaveReturned(Dto, fields?)`, `toHaveScriptedToolCalls([Tool])` (its model's calls, exactly, in
   order), `.inputs`, `.lastRequest`.
@@ -654,29 +695,29 @@ partialOrCheck)` (the trajectory, below), `toHavePausedAt(Agent)`; on
 ### Serving the application over A2A: `a2aServer`
 
 The `a2aServer` fixture (#387, an `A2AServerFixture`) serves the test's `app` through
-`a2aHttpListener` (its `@A2AExpose`, listed in `@Application({ exposes })`, #398 PR 3) on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new A2AClient({
-url, headers })`. The app is built first and the caller resolver taken from its container (so
-`override(…)` and `mockOf` reach its services); the loopback is open for the test without
+`a2aHttpListener` (its `@A2AEndpoint`, listed in `@Application({ endpoints })`, #398 PR 3) on `127.0.0.1:0` and returns an `A2ATestServer` — `{ url }` for `new A2AClient({
+url, headers })`. The app is built first and the authenticator taken from its container (so
+`services` and `mockOf` reach its services); the loopback is open for the test without
 `allowNetwork`, its `publicUrl` is its own address, and the server closes when the test ends. It
 serves A2A v1.0 (#808): the Agent Card at `<url>/.well-known/agent-card.json` and JSON-RPC 2.0 at
 `POST <url>` — any A2A client calls it, here a plain `fetch` of `SendMessage`. A refused caller is
-`401 a2a.caller-unauthenticated`, `A2ACallerRejectedError` on an AGBoss client (reference 04):
+`401 a2a.caller-unauthenticated`, `A2AError.CallerRejected` on an AGBoss client (reference 04):
 
 <!-- snippet-context
-import { type A2ACallerResolver } from "@agboss/core/a2a";
+import { type HttpAuthenticatorHandler } from "@agboss/core";
 import { replyWith, testWith } from "@agboss/core/testing";
 import { expect } from "vitest";
 import { SkillsAgent } from "./src/screening/agents/skills/skills.agent.js";
 import { ScreeningWorkflowStart } from "./src/screening/workflows/screening/screening.workflow-start.js";
 import { ScreeningApplication } from "./src/screening.application.js";
-declare const ScreeningA2aCallerResolver: new () => A2ACallerResolver<typeof ScreeningWorkflowStart>;
-declare const ScreeningA2AExpose: new () => object;
+declare const ScreeningHttpAuthenticator: new () => HttpAuthenticatorHandler;
+declare const ScreeningA2AEndpoint: new () => object;
 const test = testWith(ScreeningApplication);
 const candidate = { name: "Dana", cv: "TypeScript, 6 years" };
 -->
 
 ```ts
-const screening = { expose: ScreeningA2AExpose, callerResolver: ScreeningA2aCallerResolver };
+const screening = { endpoint: ScreeningA2AEndpoint, authenticator: ScreeningHttpAuthenticator };
 
 /** A JSON-RPC `SendMessage` of one data part: what any A2A v1.0 client sends. */
 const sendMessage = (url: string, data: object, headers: Record<string, string> = {}) =>
@@ -730,12 +771,12 @@ tool, with its `promptHash` / `schemaHash`; `nodeId` / `visitNumber` the agent's
 its output failed its check, or a PII rule refused it — `error.code` `pii.refused`),
 `InvalidArguments` (the input check failed, or the arguments were no JSON at all — a truncated
 call; the tool never ran), `Declined` (its approval said no), `TimedOut` (past the tool's
-`timeout`), `Replied` (a tool interceptor's `replyToModel` answered instead — `output` is its
+`timeout`), `Replied` (a tool interceptor's `reply` answered instead — `output` is its
 message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBlockedError`) and
 `UnknownTool` (the model called a tool its agent does not have).
 
 - `result.toolCalls` — the root execution's own calls, in call order, **real values**;
-  `result.children[i].toolCalls` and `.steps` — each child's own. `result.record.toolCalls` (`{ record: true }`)
+  `result.children[i].toolCalls` and `.steps` — each child's own. `result.record.toolCalls` (`{ includeRecord: true }`)
   holds the same **masked** by the application's and the workflow's PII policies.
 - `result.record.steps` — one `ExecutionStepRecord` per visit of a node, in the order the visits
   ended: its `step`, `inputHash` (a stable hash of what it read — the same input, the same hash on
@@ -758,7 +799,7 @@ message), `Blocked` (a tool interceptor's `block`: the step fails with `ToolBloc
   `toHaveScriptedToolCalls([…])`: the model's calls exactly, in order.
 - A judge reads the visit's calls — every attempt's, real values — as `input.toolCalls`;
   `toolCallsOf(Tool, toolCalls)` gives one tool's calls typed by its input and output
-  (`TypedToolCall`: narrowed by `status`). `testJudge` takes `toolCalls` optionally — `[]` when not
+  (`TypedToolCall`: narrowed by `status`). `testUnit` takes `toolCalls` optionally — `[]` when not
   given.
 - A model call whose arguments are no JSON (truncated — the provider's `invalid_tool_calls`) is an
   `InvalidArguments` call: the model reads why and tries again, the step's `validationAttempts`
@@ -793,7 +834,7 @@ test("the skills agent looks the candidate up, whatever else runs", async ({ app
   mockLlm(VerdictAgent).thenReturn(replyWith(VerdictDto, { decision: "hire", reason: "both reports at 7+" }));
   mockLlm(ReasonedVerdictJudge).thenReturn(decideWith({ reasoned: 0.9 }));
 
-  const result = await app.execute(ScreeningWorkflowStart, { name: "Dana", cv: "TypeScript" }, { record: true });
+  const result = await app.execute(ScreeningWorkflowStart, { name: "Dana", cv: "TypeScript" }, { includeRecord: true });
 
   // invariants, not positions: the archive was asked, once at least for Dana, and every lookup succeeded
   expect(result).toHaveCalledTools([CandidateArchiveTool]);
@@ -885,7 +926,7 @@ export class CancelCarAction implements ActionHandler<CancelCarAction> {
   ) {}
 
   async execute(input: InputOf<CancelCarAction>): Promise<void> {
-    await this.fleetService.cancel(input.reservation.value.reservationId, this.executionContext.step.idempotencyKey);
+    await this.fleetService.cancel(input.reservation.reservationId, this.executionContext.step.idempotencyKey);
   }
 }
 ```
@@ -913,7 +954,7 @@ export class ReserveCarAction implements ActionHandler<ReserveCarAction> {
 
   async execute(input: InputOf<ReserveCarAction>): Promise<OutputOf<ReserveCarAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return { reservationId: await this.fleetService.reserve(input.request.value.customer, key) };
+    return { reservationId: await this.fleetService.reserve(input.request.customer, key) };
   }
 }
 ```
@@ -929,7 +970,7 @@ export class ChargeDepositAction implements ActionHandler<ChargeDepositAction> {
   constructor(private readonly fleetService: FleetService) {}
 
   async execute(input: InputOf<ChargeDepositAction>): Promise<OutputOf<ChargeDepositAction>> {
-    return { depositId: await this.fleetService.chargeDeposit(input.request.value.customer) };
+    return { depositId: await this.fleetService.chargeDeposit(input.request.customer) };
   }
 }
 ```
@@ -961,7 +1002,7 @@ export class RentalDeclinedWorkflowFinish {}
 ```
 
 ```ts file=src/rental/workflows/rental/rental.workflow.ts
-import { Workflow, start, toAction } from "@agboss/core";
+import { Workflow, onStart, toAction, toFinish, Ttl } from "@agboss/core";
 import { CancelCarAction } from "../../actions/cancel-car.action.js";
 import { ChargeDepositAction } from "../../actions/charge-deposit.action.js";
 import { ReserveCarAction } from "../../actions/reserve-car.action.js";
@@ -977,18 +1018,16 @@ import { RentalWorkflowStart } from "./rental.workflow-start.js";
 @Workflow({
   name: "rental-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RentalWorkflowStart)
-      .returns(RentalRequestDto)
+    onStart(RentalWorkflowStart)
       .toAction(ReserveCarAction)
-      .returns(CarReservationDto)
       .toAction(ChargeDepositAction)
       .onError(
         DepositDeclinedError, // a declined deposit: cancel the car on the side path (SidePath)
         toAction(CancelCarAction)
           .toFinish(RentalDeclinedWorkflowFinish),
       )
-      .returns(DepositDto)
       .toFinish(RentalBookedWorkflowFinish),
   ],
   providers: [FleetService],
@@ -1035,6 +1074,7 @@ export class RentalExecutionBudget implements BudgetHandler {
 ```
 
 ```ts file=src/rental.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { RentalApplicationBudget } from "./rental/budgets/rental-application.budget.js";
 import { RentalExecutionBudget } from "./rental/budgets/rental-execution.budget.js";
@@ -1042,6 +1082,8 @@ import { RentalTenantBudget } from "./rental/budgets/rental-tenant.budget.js";
 import { RentalWorkflow } from "./rental/workflows/rental/rental.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "rental-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
@@ -1131,7 +1173,7 @@ import type { ModelProviderResponse } from "@agboss/core/models";
 @Injectable()
 export class SdkClientService {
   invoke(model: string, tenantId: string): Promise<ModelProviderResponse> {
-    return Promise.resolve({ text: `${model} for ${tenantId}`, usage: { inputTokens: 1, outputTokens: 1 } });
+    return Promise.resolve({ text: `${model} for ${tenantId}`, usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 } });
   }
 }
 ```
@@ -1139,6 +1181,7 @@ export class SdkClientService {
 ```ts file=src/model-providers/sdk.model-provider.ts
 import { TenantContext } from "@agboss/core";
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
   RetryPolicy,
@@ -1152,11 +1195,10 @@ import { SdkClientService } from "../services/sdk-client.service.js";
 @ModelProvider({
   name: "sdk-model-provider",
   description: "A model behind an SDK",
-  serves: [/^sdk\//],
+  model: "sdk/claude", // the default of a component that names no model
   timeout: seconds(30),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
   deps: [SdkClientService, TenantContext],
 })
 export class SdkModelProvider implements ModelProviderHandler {
@@ -1179,7 +1221,7 @@ import { SdkModelProvider } from "../../src/model-providers/sdk.model-provider.j
 
 class FakeSdk {
   invoke(model: string, tenantId: string): Promise<ModelProviderResponse> {
-    return Promise.resolve({ text: `${model} for ${tenantId}`, usage: { inputTokens: 1, outputTokens: 1 } });
+    return Promise.resolve({ text: `${model} for ${tenantId}`, usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 } });
   }
 }
 
@@ -1202,12 +1244,15 @@ it("complete() maps the request to the SDK, with the execution's tenant", async 
 
 ## One component: the unit runners
 
-Each runner builds the component's own container (its `deps`, `overrides`, an `environment`) and
+One runner, `testUnit(Class)`, for every kind below (a list of `@PiiPolicy` classes is the policies one
+element lists); it builds the component's own container (its `deps`, `services` — fake classes that
+`extends` the real ones or name a port with `injectAs`, and `provide(TOKEN, value)` —, an `environment`) and
 runs every call in the frame of its step, so `ExecutionContext`, `SpendRecorder` and `JudgeModel`
 work as in a run. Every call returns `{ output, spend }`; `run.clock` is its `VirtualClock`.
 
-A service has no runner: its test creates it by hand (as `agboss create`'s
-`tests/services/api.service.test.ts` does) and mirrors its module like any other:
+`testDto(Dto)` is `{ validate, mask, jsonSchema }` of a DTO; `testService(Class)` runs a multi-method
+service — `.service`, `.run(work)` in a step's frame, `.get(token)`, `.mockService(Dependency)`, `.start()` / `.stop()` for its hooks.
+A service test mirrors its module like any other:
 
 ```ts file=tests/rental/services/fleet.service.test.ts
 import { expect, it } from "vitest";
@@ -1227,7 +1272,7 @@ A component's test mirrors its module — the tool's in `tests/screening/tools/`
 
 ```ts file=tests/screening/tools/candidate-archive.tool.test.ts
 import { Injectable } from "@agboss/core";
-import { override, testTool } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { seconds } from "@agboss/core/units";
 import { expect, it } from "vitest";
 import { CandidateArchiveService } from "../../../src/screening/services/candidate-archive.service.js";
@@ -1240,9 +1285,9 @@ export class FirstTimeArchiveService extends CandidateArchiveService {
   }
 }
 
-it("testTool: input and output validated, a service replaced by a class", async () => {
-  const runTool = testTool(CandidateArchiveTool, {
-    overrides: [override(CandidateArchiveService, FirstTimeArchiveService)],
+it("testUnit: input and output validated, a service replaced by a class", async () => {
+  const runTool = testUnit(CandidateArchiveTool, {
+    services: [FirstTimeArchiveService],
   });
 
   const { output, spend } = await runTool({ name: "Dana" }, { timeout: seconds(1) });
@@ -1255,7 +1300,7 @@ it("testTool: input and output validated, a service replaced by a class", async 
 The other runners, the same way:
 
 <!-- snippet-context
-import { decideWith, testAction, testArbiter, testGuardrail, testJudge, testPii, testRag, testRouter } from "@agboss/core/testing";
+import { decideWith, testUnit } from "@agboss/core/testing";
 import { expect, it } from "vitest";
 import { SaveHireAction } from "./src/screening/actions/save-hire.action.js";
 import { CultureAgent } from "./src/screening/agents/culture/culture.agent.js";
@@ -1273,47 +1318,47 @@ import { RejectedWorkflowFinish } from "./src/screening/workflows/screening/reje
 -->
 
 ```ts
-it("testAction: input fields are { producer, value } records", async () => {
-  const runAction = testAction(SaveHireAction);
+it("testUnit: input fields are plain DTOs", async () => {
+  const runAction = testUnit(SaveHireAction);
 
   const { output } = await runAction({
-    verdict: { producer: VerdictAgent, value: { decision: "hire", reason: "strong" } },
+    verdict: { decision: "hire", reason: "strong" },
   });
 
   expect(output.hireId).toMatch(/^hire-strong-/u);
 });
 
-it("testRouter: a code router at no cost", async () => {
-  const runRouter = testRouter(HireRouter);
+it("testUnit: a code router at no cost", async () => {
+  const runRouter = testUnit(HireRouter);
 
   const { output } = await runRouter({
-    verdict: { producer: VerdictAgent, value: { decision: "reject", reason: "junior" } },
+    verdict: { decision: "reject", reason: "junior" },
   });
 
   expect(output).toBe(RejectedWorkflowFinish);
 });
 
-it("testArbiter: the agent and its answer", async () => {
-  const runArbiter = testArbiter(HasNotesArbiter);
+it("testUnit: the agent and its answer", async () => {
+  const runArbiter = testUnit(HasNotesArbiter);
 
   expect((await runArbiter(SkillsAgent, { score: 8, notes: "senior" })).output).toBe(true);
   expect((await runArbiter(CultureAgent, { score: 6, notes: "" })).output).toBe(false);
 });
 
-it("testRag: retrieve with topK", async () => {
-  const runRag = testRag(HiringPolicyRag);
+it("testUnit: retrieve with topK", async () => {
+  const runRag = testUnit(HiringPolicyRag);
 
   const { output } = await runRag("the bar", { topK: 1 });
 
   expect(output[0]?.source).toBe("policy.md#bar");
 });
 
-it("testJudge: the reply as a plain object of its DTO", async () => {
-  const runJudge = testJudge(ReasonedVerdictJudge, { model: decideWith({ reasoned: 0.2 }) });
+it("testUnit: the output as a plain object of its DTO", async () => {
+  const runJudge = testUnit(ReasonedVerdictJudge, { model: decideWith({ reasoned: 0.2 }) });
 
   const { output } = await runJudge({
     variant: VerdictDto,
-    reply: { decision: "hire", reason: "n/a" },
+    output: { decision: "hire", reason: "n/a" },
     task: "Decide",
     attempt: 0,
   });
@@ -1322,12 +1367,12 @@ it("testJudge: the reply as a plain object of its DTO", async () => {
   // `toolCalls` — the visit's tool calls the judge reads — is optional here: `[]` when not given
 });
 
-it("testJudge of a code judge: no model script, no spend", async () => {
-  const runJudge = testJudge(ShortReasonJudge); // a `model` here is a TestSetupError
+it("testUnit of a code judge: no model script, no spend", async () => {
+  const runJudge = testUnit(ShortReasonJudge); // a `model` here is a TestSetupError
 
   const { output, spend } = await runJudge({
     variant: VerdictDto,
-    reply: { decision: "reject", reason: "" },
+    output: { decision: "reject", reason: "" },
     task: "Decide",
     attempt: 0,
   });
@@ -1336,16 +1381,16 @@ it("testJudge of a code judge: no model script, no spend", async () => {
   expect(spend.totalUsd).toBe(0);
 });
 
-it("testGuardrail: a block is an output, not a throw", async () => {
-  const check = testGuardrail(BiasGuardrail, { model: decideWith({ blocks: 0.9 }) });
+it("testUnit: a block is an output, not a throw", async () => {
+  const check = testUnit(BiasGuardrail, { model: decideWith({ blocks: 0.9 }) });
 
   const { output } = await check("Reject: too old for the team", { element: "verdict-agent" });
 
   expect(output).toEqual({ isBlocked: true, probability: 0.9, refusal: "The verdict was withheld for review." });
 });
 
-it("testPii: what a model reads, and what its answer becomes", async () => {
-  const contacts = testPii([ContactPiiPolicy]);
+it("testUnit: what a model reads, and what its answer becomes", async () => {
+  const contacts = testUnit([ContactPiiPolicy]);
 
   const { output: masked } = await contacts.mask("Mail dana@example.com");
 
@@ -1353,18 +1398,18 @@ it("testPii: what a model reads, and what its answer becomes", async () => {
 });
 ```
 
-`testToolInterceptor(Interceptor, options)` (#384) — a `ToolInterceptorRunner` — runs a `@ToolInterceptor` in the frame of a call
+`testUnit(Interceptor, options)` (#384) — a `ToolInterceptorRunner` — runs a `@ToolInterceptor` in the frame of a call
 to a tool: `beforeToolCall(Tool, input)` gives the decision (compare it with `toEqual`),
 `afterToolCall(Tool, input, output)` the output the model would read, validated against the tool's
 output DTO. A method the class does not have is a `TestSetupError`.
 
 <!-- snippet-context
-import { TenantContext, Tool, ToolCallDecision, ToolInterceptor, type BeforeToolCall, type ToolCallContext, type ToolHandler } from "@agboss/core";
-import { ListOf, Text } from "@agboss/core/dto";
-import { testToolInterceptor } from "@agboss/core/testing";
+import { TenantContext, Tool, ToolCallDecision, ToolInterceptor, type ToolCallContext } from "@agboss/core";
+import { List, Text } from "@agboss/core/dto";
+import { testUnit } from "@agboss/core/testing";
 import { expect, it } from "vitest";
 export class CityTenantContext extends TenantContext {
-  @ListOf(Text)
+  @List(Text)
   allowedCities!: string[];
 }
 export class CityQuery {
@@ -1376,69 +1421,72 @@ export class CityJobs {
   listing!: string;
 }
 @Tool({ name: "city-jobs-tool", description: "Jobs in a city", input: CityQuery, output: CityJobs })
-export class CityJobsTool implements ToolHandler<CityQuery, CityJobs> {
-  run({ city }: CityQuery): Promise<CityJobs> {
+export class CityJobsTool {
+  execute({ city }: CityQuery): Promise<CityJobs> {
     return Promise.resolve({ listing: `Engineer in ${city}` });
   }
 }
 @ToolInterceptor({ name: "city-scope-tool-interceptor", description: "Allowed cities only", deps: [CityTenantContext] })
-export class CityScopeToolInterceptor implements BeforeToolCall {
+export class CityScopeToolInterceptor {
   constructor(private readonly cityTenantContext: CityTenantContext) {}
-  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+  beforeAnyTool(call: ToolCallContext): ToolCallDecision {
     const city = typeof call.input === "object" && call.input !== null && "city" in call.input ? call.input.city : undefined;
     return typeof city === "string" && !this.cityTenantContext.allowedCities.includes(city)
-      ? ToolCallDecision.replyToModel({ message: `City "${city}" is not allowed.` })
+      ? ToolCallDecision.reply(`City "${city}" is not allowed.`)
       : ToolCallDecision.allow();
   }
 }
 -->
 
 ```ts
-it("testToolInterceptor: the decision for the tenant given", async () => {
-  const scope = testToolInterceptor(CityScopeToolInterceptor, {
+it("testUnit: the decision for the tenant given", async () => {
+  const scope = testUnit(CityScopeToolInterceptor, {
     tenantContext: CityTenantContext,
     tenant: { tenantId: "acme", allowedCities: ["Haifa"] },
   });
 
   const { output } = await scope.beforeToolCall(CityJobsTool, { city: "Eilat" });
 
-  expect(output).toEqual(ToolCallDecision.replyToModel({ message: 'City "Eilat" is not allowed.' }));
+  expect(output).toEqual(ToolCallDecision.reply('City "Eilat" is not allowed.'));
 });
 ```
 
-`testCompaction(Compaction, options)` (#395) — a `CompactionRunner` — runs one `@Compaction` on a
+`testUnit(Memory, options)` (#395) — a `CompactionRunner` — runs one `@Memory`'s compaction on a
 `CompactionInput` (`previousSummaries`, `turnsToCompact`) and gives a `CompactionResult`:
 `summaries` (what readers see next — a `SummaryQueue` the latest `summaryQueueLength`, a
 `SingleSummary` the new one) and `requests` (each model call's `instructions` and `input`, two when
-a summary cut at `summaryMaxTokens` was asked again; none for `CompactionStrategy.Custom`, whose
+a summary cut at `summaryMaxTokens` was asked again; none for a code compaction, whose
 `compact()` runs on the runner's container). It checks the request and the plumbing; whether a fact
 survives compaction is an eval case.
 
 <!-- snippet-context
-import { Compaction, CompactionStrategy } from "@agboss/core";
-import { replyWith, testCompaction } from "@agboss/core/testing";
+import { CompactionStrategy, Memory, Ttl, inline } from "@agboss/core";
+import { replyWith, testUnit } from "@agboss/core/testing";
 import { expect, it } from "vitest";
-@Compaction({
-  name: "conversation-compaction",
+@Memory({
+  name: "conversation-memory",
   description: "Summarises old turns",
-  prompt: "Summarise the turns under `Turns to compact`.",
-  model: "moonshotai/kimi-k2.6",
-  strategy: CompactionStrategy.SummaryQueue,
+  ttl: Ttl.Forever,
   turnsBetweenCompactions: 5,
-  summaryQueueLength: 10,
-  summaryMaxTokens: 400,
+  compaction: {
+    strategy: CompactionStrategy.SummaryQueue,
+    prompt: inline("Summarise the turns under `Turns to compact`."),
+    model: "moonshotai/kimi-k2.6",
+    summaryQueueLength: 10,
+    summaryMaxTokens: 400,
+  },
 })
-export class ConversationCompaction {}
+export class ConversationMemory {}
 -->
 
 ```ts
-it("testCompaction: the turns reach the model, the summary joins the queue", async () => {
-  const compact = testCompaction(ConversationCompaction, { model: replyWith("Dana: no calls before 9.") });
+it("testUnit: the turns reach the model, the summary joins the queue", async () => {
+  const compact = testUnit(ConversationMemory, { model: replyWith("Dana: no calls before 9.") });
 
   const { output } = await compact({
     previousSummaries: ["Dana asked about order 7."],
     turnsToCompact: [
-      { startName: "chat-workflow-start", input: { text: "Never call me before 9." }, finishName: "chat-workflow-finish", output: { text: "Noted." } },
+      { start: "chat-workflow-start", input: { text: "Never call me before 9." }, finish: "chat-workflow-finish", output: { text: "Noted." } },
     ],
   });
 
@@ -1447,8 +1495,8 @@ it("testCompaction: the turns reach the model, the summary joins the queue", asy
 });
 ```
 
-- `testRouter` of a model router answers from `model: routeTo(Target)` (or `decideWith(…)` before a
-  launch); `testArbiter` of a model arbiter from `model: decideWith({ counts: 0.9 })`.
+- `testUnit` of a model router answers from `model: routeTo(Target)` (or `decideWith(…)` before a
+  launch); `testUnit` of a model arbiter from `model: decideWith({ counts: 0.9 })`.
 - The context levels: `{ tenantContext, tenant, executionContext, execution }` on any runner (checked
   by the classes' decorators); a class created by hand (a budget's `maxSpend()`) takes
   `testExecutionContext({ … })`.
@@ -1469,7 +1517,7 @@ import { expect } from "vitest";
 import { VcrMode, testWith } from "@agboss/core/testing";
 
 const test = testWith(ScreeningApplication, {
-  vcr: { cassetteName: "screening-hire", mode: process.env.CI ? VcrMode.REPLAY : VcrMode.AUTO },
+  vcr: { cassetteName: "screening-hire", mode: process.env.CI ? VcrMode.Replay : VcrMode.Auto },
 });
 
 test("a strong candidate is hired", async ({ app }) => {
@@ -1478,32 +1526,32 @@ test("a strong candidate is hired", async ({ app }) => {
 });
 ```
 
-`AUTO` records a missing cassette (`__snapshots__/screening-hire.cassette.json`, committed) and
-replays an existing one; `REPLAY` (the default under `CI`) fails a call the cassette does not hold
-with `CassetteMissingError` (`test.cassette-missing`); `RECORD` always calls the models.
+`Auto` records a missing cassette (`__snapshots__/screening-hire.cassette.json`, committed) and
+replays an existing one; `Replay` (the default under `CI`) fails a call the cassette does not hold
+with `CassetteMissingError` (`test.cassette-missing`); `Record` always calls the models.
 `AGBOSS_VCR_MODE` (a `VcrMode` member's value) overrides every test's own mode for one run.
-Under `CI` no test records against real models (#839): a mode that would — `RECORD`,
-`RECORD_STALE`, or `AUTO` with no cassette, set by `vcr.mode` or `AGBOSS_VCR_MODE` — fails the test
+Under `CI` no test records against real models (#839): a mode that would — `Record`,
+`RecordStale`, or `Auto` with no cassette, set by `vcr.mode` or `AGBOSS_VCR_MODE` — fails the test
 app's start with `[vcr.record-in-ci]` (a `TestSetupError` naming where the mode came from, `CI` and
 the remedy), before any model is asked; a CI job that records on purpose sets
 `AGBOSS_VCR_RECORD_IN_CI=1` (or `true`; any other value is no opt-in).
 Recording goes through the application's model providers as `createApp` builds them — a transport
 provider (`complete`, #385) too, created by the test app's container with its hooks (#439) — so an
-offline transport records a cassette with no key: `AGBOSS_VCR_MODE=RECORD npx vitest run
+offline transport records a cassette with no key: `AGBOSS_VCR_MODE=record npx vitest run
 tests/desk-cassette.test.ts` in `examples/flow-patterns`. A replay never creates a provider.
 
 **Stale cassettes.** A cassette (version 2) keeps, with every call, its component and that
 component's `promptHash` / `schemaHash` (the join keys of `npx agboss describe --json`). A replay
 of a component whose prompt or schema changed since — an agent, a model router, and every other
-component that calls a model (a model judge by the `reply` it judges, a guardrail, an arbiter, a
+component that calls a model (a model judge by the `output` it judges, a guardrail, an arbiter, a
 compaction, a reply interpreter, a PII policy that detects with a model) — or that the application
 no longer has, fails with `StaleCassetteError` (`vcr.stale-cassette`: `file`, `component`, `changes`
 — `CassetteChange.Prompt`, `Schema`, `Removed`), naming the command that fixes it.
-`VcrMode.RECORD_STALE` replays the rest and records only the stale components' calls anew (a model
-key needed for those only): `AGBOSS_VCR_MODE=RECORD_STALE npm test`. `npx agboss check --cassettes`
+`VcrMode.RecordStale` replays the rest and records only the stale components' calls anew (a model
+key needed for those only): `AGBOSS_VCR_MODE=record-stale npm test`. `npx agboss check --cassettes`
 finds the same without running a test (`[vcr.stale-cassette]`, exit 3). A version 1 cassette (no
 hashes) still replays, without stale detection, and prints a hint to re-record it once with
-`AGBOSS_VCR_MODE=RECORD npm test`.
+`AGBOSS_VCR_MODE=record npm test`.
 
 ## The testing loops: the order to work in
 
@@ -1526,9 +1574,9 @@ snapshot among them checks that a changed export got a new version
 
 **Loop 1 — the harness, $0, every commit (`npm test`).**
 
-1. The unit runners first, one component on its own: `testTool`, `testAction`, `testRouter`,
-   `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testPii`, `testToolInterceptor`,
-   `testCompaction` (below).
+1. The unit runners first, one component on its own: `testUnit`,
+   `testUnit`,
+   `testUnit` (below).
 2. Then the whole application: `testWith(App)` with `mockLlm(X).thenReturn(…)` scripts, or a
    recorded cassette (VCR) for real answers replayed with no key or network.
 3. Assert the path and the finish (`toFollowPath`, `toFinishWith`) and **trajectory invariants**
@@ -1545,7 +1593,7 @@ snapshot among them checks that a changed export got a new version
    third invalid answer.
 5. **A stale cassette** (`StaleCassetteError`, `[vcr.stale-cassette]`: a component's prompt or
    schema hash changed since it was recorded): never edit a cassette by hand — re-record its stale
-   interactions with `AGBOSS_VCR_MODE=RECORD_STALE npm test`, review the new answers in the diff,
+   interactions with `AGBOSS_VCR_MODE=record-stale npm test`, review the new answers in the diff,
    then run the evals (the section below): the re-recorded answers are new model behaviour.
 6. The loops on a live model come next: an eval suite (the section below) runs the same trajectory
    invariants first, then code judges, then model judges — its cascade and the pass@k rule are
@@ -1600,9 +1648,7 @@ by the tool's input DTO, a past turn by its start's input and its finish's outpu
 import {
   EvalCascade,
   EvalSuite,
-  checkTrajectory,
   evalCase,
-  judgedBy,
   pastTurn,
   toolCall,
   toolInvariant,
@@ -1618,12 +1664,12 @@ import { ScreeningWorkflowStart } from "../workflows/screening/screening.workflo
   name: "screening-eval-suite",
   description: "Strong candidates are hired, the archive is looked up once",
   start: ScreeningWorkflowStart,
-  checks: [
-    checkTrajectory(), // 1. each case's `tools`: deterministic, $0
-    judgedBy(HireSavedJudge), // 2. a code judge: deterministic, $0
-    judgedBy(ReasonedVerdictJudge), // 3. a model judge: paid, runs only if the two above passed
+  // the cases' `tools` run first: deterministic, $0; then the judges in order
+  judges: [
+    HireSavedJudge, // a code judge: deterministic, $0
+    ReasonedVerdictJudge, // a model judge: paid, runs only if the checks above passed
   ],
-  cascade: EvalCascade.StopAtFirstFailure, // required: no implicit order
+  cascade: EvalCascade.StopAtFirstFailure, // optional: this is the default
   cases: [
     evalCase({
       name: "strong-candidate-hired",
@@ -1637,8 +1683,11 @@ import { ScreeningWorkflowStart } from "../workflows/screening/screening.workflo
     evalCase({
       name: "second-application",
       history: [
-        pastTurn(ScreeningWorkflowStart, { name: "Ben", cv: "Go, 2 years" }, HiredWorkflowFinish, {
-          hireId: "hire-ben-1",
+        pastTurn({
+          start: ScreeningWorkflowStart,
+          input: { name: "Ben", cv: "Go, 2 years" },
+          finish: HiredWorkflowFinish,
+          output: { hireId: "hire-ben-1" },
         }),
       ],
       turns: [turn({ name: "Ben", cv: "Go, 4 years" })],
@@ -1650,20 +1699,20 @@ export class ScreeningEvalSuite {}
 ```
 
 - **The cascade order is a declaration, not a convention:** free trajectory invariants first
-  (`checkTrajectory()`), then code judges (`@Judge({ decidedBy: DecidedBy.Code })`), then model
+  (a case's `tools`), then code judges (`@Judge({ })`), then model
   judges (`@Judge({ model })`) — with `EvalCascade.StopAtFirstFailure` a paid judge runs only on a
   run the free checks passed; the rest are `CheckStatus.Skipped`, and a skipped check fails the run.
   `EvalCascade.RunAll` runs every check whatever came before.
 - **pass@k high, pass^k low** (a case solved at least once in k runs, but not every time): do not
   grow the prompt. Propose moving the check into deterministic code — a `@ToolInterceptor`, a code
-  `@InputGuardrail` / `@OutputGuardrail` (`decidedBy: DecidedBy.Code`), `DecidedBy.Code` on a
+  `@InputGuardrail` / `@OutputGuardrail` with no `prompt`, `threshold` or `model` (a code guardrail), `DecidedBy.Code` on a
   `@Router` or an `@Arbiter`, or an `@Action`.
-- An eval judge judges the output of the finish the run ended at: its `reply` is a finish's
-  `output` the start reaches (one value, never a list) — else `[eval.judge-wrong-reply]`. A case's
-  own `judges: [judgedBy(X)]` run after the suite's checks.
+- An eval judge judges the output of the finish the run ended at: its `output` is a finish's
+  `output` the start reaches (one value, never a list) — else `[eval.judge-wrong-output]`. A case's
+  own `judges: [X]` run after the suite's.
 - Assembled on its application before anything runs, every violation at once:
   `[name.kind-suffix]`, `[eval.unknown-start]` (the start is not one of the application's),
-  `[eval.duplicate-case]` (case names key reports and baselines), `[eval.judge-wrong-reply]`, the
+  `[eval.duplicate-case]` (case names key reports and baselines), `[eval.judge-wrong-output]`, the
   judges' own `[judge.*]` rules; then the cases' values — `EvalCaseInvalidError`
   (`eval.case-invalid`, each issue as `case "x": tenant.plan — reason`, never a value).
 
@@ -1680,7 +1729,7 @@ npx agboss eval run --suite screening-eval-suite --runs 3 --env eval --report .a
   (several and none named, or an unknown name → `eval.unknown-suite`, exit 2, the suites listed).
 - A run: the case's `history` written into its thread (no model call), its `turns` through
   `app.execute` with the case's `tenant` / `execution` (validated as there), then the checks on the
-  last turn, in order. `checkTrajectory()` reads `result.toolCalls`: a `required` tool needs a call
+  last turn, in order. the `tools` check reads `result.toolCalls`: a `required` tool needs a call
   the tool ran (succeeded, failed or timed out) with the partial's arguments; a `forbidden` one any
   call at all; an invariant holds on every call with checked arguments.
 - A judge runs in the frame of the case's last execution, created by the application's container:
@@ -1740,7 +1789,7 @@ cascade) · spent $0.3120`). `--report <run.json>` writes the run artifact — `
   commit it.
   `npx agboss eval show <run.json> [--html <report.html>]` reads a saved artifact back: the table,
   and the same page; it runs nothing.
-- `--profile <name>` runs the suite on `profiles/<workflow>/<name>.yaml`; the case's `history` turns
+- `--profile <name>` runs the suite on the application's profiles (`src/config/<name>.config.*`; `a,b` layers them); the case's `history` turns
   are kept `ExecutionRecordStatus.Written` — turns of their thread, never runs `npx agboss eval
 score` scores or `npx agboss golden add` saves.
 
@@ -1843,9 +1892,9 @@ npx agboss generate eval-case refund-from-prod --suite refunds-eval-suite --from
   reference 09) — runs nothing, calls no model — and adds one `evalCase({ … })` to the suite's
   `cases`: its start's input as the case's one `turn(…)`, its tenant and execution values (none for
   the default tenant without fields), the thread's earlier **finished** turns as `history:
-[pastTurn(Start, input, Finish, output)]` (oldest first), and the tool calls it ran (succeeded,
+[pastTurn({ start, input, finish, output })]` (oldest first), and the tool calls it ran (succeeded,
   failed or timed out — not declined or blocked), each tool with the same arguments once, as
-  `tools: { required: [toolCall(Tool, arguments)] }`. The classes it names are imported into the
+  `tools: { required: [toolCall(Tool, input)] }`. The classes it names are imported into the
   suite's file (merged into an import of the same module), with `pastTurn` / `toolCall` / `turn`.
 - Values are the history's: **masked** as it keeps them (`<email>`, tokens), so read the case and
   replace what a turn needs real before you run it; then tighten `required` to the partials that
@@ -1867,8 +1916,8 @@ npx agboss eval score --start screening-workflow-start --limit 50               
 npx agboss replay --start screening-workflow-start --version <prompt version>        # re-run a version
 ```
 
-- A golden set is `golden/<workflow>/<name>.yaml`; a profile (`profiles/<workflow>/<name>.yaml`)
-  overrides models and settings for a comparison; the agent's judges score each answer.
+- A golden set is `golden/<workflow>/<name>.yaml`; a profile (`src/config/<name>.config.*`; `a+b` layers
+  profiles in one `--profiles` entry) overrides models and settings for a comparison; the agent's judges score each answer.
 - `compare` judges each task's pair of answers in both orders — the baseline's first, then the
   other's: agreeing verdicts are a win or a loss, anything else a tie; a judge that picks the same
   position both times is following the position, not the answer — counted as a tie and in `flips`

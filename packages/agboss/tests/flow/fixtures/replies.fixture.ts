@@ -1,23 +1,24 @@
-import { Channel, Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
+import { Window2Memory } from "../../helpers/window-memory.js";
+import { Channel, Injectable, Tool } from "../../../src/components/decorators.js";
 import {
   ToolCallDecision,
   ToolInterceptor,
-  type BeforeToolCall,
   type ToolCallContext,
+  inline,
+  ToolApproval,
+  PauseRespondent,
+  Ttl,
 } from "../../../src/index.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
 import {
-  ReplyInterpretation,
-  ReplyInterpreter,
-  type ReplyInterpreterHandler,
-} from "../../../src/channels/channel-role.decorator.js";
+  ChannelInterpretation,
+  ChannelInterpreter,
+} from "../../../src/channels/channel-interpreter.js";
 import { Integer, Text, WorkflowFinishTextDto } from "../../../src/dto/index.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
@@ -27,13 +28,15 @@ import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { PiiPolicy } from "../../../src/pii/pii-policy.decorator.js";
-import { PiiAction, PiiKind, pii } from "../../../src/pii/index.js";
-import { minutes } from "../../../src/units/index.js";
+import { PiiKind } from "../../../src/pii/index.js";
+import { minutes, days } from "../../../src/units/index.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { start } from "./paths.js";
+import { onStart, toWorkflow } from "./paths.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #267 PR 3 — free-text replies: a payout approved by a finance desk that passes the manager's
@@ -74,10 +77,10 @@ export class ReplyDeskDoneDto {
 
 /** What the channels were sent and what the tools did, across the instances of a test. */
 export const replyDesk = {
-  asks: [] as ChannelAsk<PayoutApprovalChannel>[],
-  confirmations: [] as ChannelAsk<ExpenseApprovalChannel>[],
-  transfers: [] as ChannelAsk<TransferApprovalChannel>[],
-  depositAsks: [] as ChannelAsk<DepositApprovalChannel>[],
+  asks: [] as ChannelAsk<PayoutToolApproval>[],
+  confirmations: [] as ChannelAsk<ExpenseToolApproval>[],
+  transfers: [] as ChannelAsk<TransferToolApproval>[],
+  depositAsks: [] as ChannelAsk<DepositToolApproval>[],
   deposits: [] as string[],
   payouts: [] as PayoutRequestDto[],
   expenses: [] as string[],
@@ -135,24 +138,24 @@ export function treasuryLedger(): InMemoryCostLedgerRepository {
 }
 
 /** Reads a manager's words on a payout: approve, refuse, or approve a changed amount. */
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "payout-reply-interpreter",
   description: "Turns a finance manager's free-text reply into a payout decision",
-  decidedBy: DecidedBy.Model,
   model: "test/payout-reader",
-  prompt:
+  prompt: inline(
     "The manager answered a payout approval in free text. " +
-    "Decide approve / refuse and any changed amount.",
+      "Decide approve / refuse and any changed amount.",
+  ),
 })
 export class PayoutReplyInterpreter {}
 
 /** Reads a clerk's words on a deposit return on a decision model: approve or refuse, nothing more (S124 a). */
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "deposit-reply-interpreter",
   description: "Reads whether a clerk's free-text reply approves a deposit return",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "The clerk answered a deposit return.",
+  modelProvider: TestDecisionsModelProvider,
+  prompt: inline("The clerk answered a deposit return."),
 })
 export class DepositReplyInterpreter {}
 
@@ -160,22 +163,21 @@ export class DepositReplyInterpreter {}
 @Injectable()
 export class ExpenseButtonCodes {
   /** A button's value read; another JSON value is not understood; a text that is no JSON crashes. */
-  interpretationOf(value: string): ReplyInterpretation<OutputOf<ExpenseReplyInterpreter>> {
+  interpretationOf(value: string): ChannelInterpretation<OutputOf<ExpenseReplyInterpreter>> {
     const parsed: unknown = JSON.parse(value);
     if (typeof parsed !== "object" || parsed === null || !("approved" in parsed))
-      return ReplyInterpretation.notUnderstood({ reason: `not an expense button: ${value}` });
-    return ReplyInterpretation.understood({ approved: parsed.approved === true });
+      return ChannelInterpretation.notUnderstood(`not an expense button: ${value}`);
+    return ChannelInterpretation.understood({ approved: parsed.approved === true });
   }
 }
 
 /** Reads the owner's button value with the expense codes (S124 b: an outcome, never a throw). */
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "expense-reply-interpreter",
   description: "Turns an expense button's value into a decision",
-  decidedBy: DecidedBy.Code,
   deps: [ExecutionContext, ExpenseButtonCodes],
 })
-export class ExpenseReplyInterpreter implements ReplyInterpreterHandler<ExpenseReplyInterpreter> {
+export class ExpenseReplyInterpreter {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly expenseButtonCodes: ExpenseButtonCodes,
@@ -183,7 +185,7 @@ export class ExpenseReplyInterpreter implements ReplyInterpreterHandler<ExpenseR
 
   interpret(
     input: InputOf<ExpenseReplyInterpreter>,
-  ): ReplyInterpretation<OutputOf<ExpenseReplyInterpreter>> {
+  ): ChannelInterpretation<OutputOf<ExpenseReplyInterpreter>> {
     const { tenant, ownerId, step } = this.executionContext;
     const { nodeId, callId } = step;
     replyDesk.readings.push({ tenantId: tenant.tenantId, ownerId, nodeId, callId });
@@ -191,68 +193,92 @@ export class ExpenseReplyInterpreter implements ReplyInterpreterHandler<ExpenseR
   }
 }
 
-@ChannelRole({
-  name: "payout-approval-channel",
+@ToolApproval({
+  name: "payout-tool-approval",
   description: "Approves payouts",
-  approves: PayoutRequestDto,
-  answerer: PauseAnswerer.Channel,
-  replyInterpreter: PayoutReplyInterpreter,
+  input: PayoutRequestDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
+  channelInterpreter: PayoutReplyInterpreter,
 })
-export abstract class PayoutApprovalChannel extends ChannelOf<PayoutApprovalChannel> {}
+export class PayoutToolApproval {}
 
-@ChannelRole({
-  name: "expense-approval-channel",
+@ToolApproval({
+  name: "expense-tool-approval",
   description: "The thread's owner confirms an expense",
-  approves: ExpenseRequestDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  replyInterpreter: ExpenseReplyInterpreter,
+  input: ExpenseRequestDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+  channelInterpreter: ExpenseReplyInterpreter,
 })
-export abstract class ExpenseApprovalChannel extends ChannelOf<ExpenseApprovalChannel> {}
+export class ExpenseToolApproval {}
 
-@ChannelRole({
-  name: "deposit-approval-channel",
+@ToolApproval({
+  name: "deposit-tool-approval",
   description: "A clerk approves deposit returns",
-  approves: DepositReturnDto,
-  answerer: PauseAnswerer.Channel,
-  replyInterpreter: DepositReplyInterpreter,
+  input: DepositReturnDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
+  channelInterpreter: DepositReplyInterpreter,
 })
-export abstract class DepositApprovalChannel extends ChannelOf<DepositApprovalChannel> {}
+export class DepositToolApproval {}
 
-@ChannelRole({
-  name: "transfer-approval-channel",
+@ToolApproval({
+  name: "transfer-tool-approval",
   description: "Approves transfers (typed decisions only)",
-  approves: TransferRequestDto,
-  answerer: PauseAnswerer.Channel,
+  input: TransferRequestDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
 })
-export abstract class TransferApprovalChannel extends ChannelOf<TransferApprovalChannel> {}
+export class TransferToolApproval {}
 
-@Channel({ name: "desk-payout-approval-channel", description: "Asks the finance desk" })
-export class DeskPayoutApprovalChannel extends PayoutApprovalChannel {
-  send(ask: ChannelAsk<PayoutApprovalChannel>): Promise<ChannelOutcome<PayoutApprovalChannel>> {
+@Channel({
+  name: "desk-payout-approval-channel",
+  description: "Asks the finance desk",
+  target: PayoutToolApproval,
+  ttl: days(1),
+})
+export class DeskPayoutApprovalChannel {
+  send(ask: ChannelAsk<PayoutToolApproval>): Promise<ChannelOutcome<PayoutToolApproval>> {
     replyDesk.asks.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
-@Channel({ name: "button-expense-approval-channel", description: "Shows the owner two buttons" })
-export class ButtonExpenseApprovalChannel extends ExpenseApprovalChannel {
-  send(ask: ChannelAsk<ExpenseApprovalChannel>): Promise<ChannelOutcome<ExpenseApprovalChannel>> {
+@Channel({
+  name: "button-expense-approval-channel",
+  description: "Shows the owner two buttons",
+  target: ExpenseToolApproval,
+  ttl: days(1),
+})
+export class ButtonExpenseApprovalChannel {
+  send(ask: ChannelAsk<ExpenseToolApproval>): Promise<ChannelOutcome<ExpenseToolApproval>> {
     replyDesk.confirmations.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
-@Channel({ name: "desk-deposit-approval-channel", description: "Asks the clerk on duty" })
-export class DeskDepositApprovalChannel extends DepositApprovalChannel {
-  send(ask: ChannelAsk<DepositApprovalChannel>): Promise<ChannelOutcome<DepositApprovalChannel>> {
+@Channel({
+  name: "desk-deposit-approval-channel",
+  description: "Asks the clerk on duty",
+  target: DepositToolApproval,
+  ttl: days(1),
+})
+export class DeskDepositApprovalChannel {
+  send(ask: ChannelAsk<DepositToolApproval>): Promise<ChannelOutcome<DepositToolApproval>> {
     replyDesk.depositAsks.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
-@Channel({ name: "desk-transfer-approval-channel", description: "Asks the treasury desk" })
-export class DeskTransferApprovalChannel extends TransferApprovalChannel {
-  send(ask: ChannelAsk<TransferApprovalChannel>): Promise<ChannelOutcome<TransferApprovalChannel>> {
+@Channel({
+  name: "desk-transfer-approval-channel",
+  description: "Asks the treasury desk",
+  target: TransferToolApproval,
+  ttl: days(1),
+})
+export class DeskTransferApprovalChannel {
+  send(ask: ChannelAsk<TransferToolApproval>): Promise<ChannelOutcome<TransferToolApproval>> {
     replyDesk.transfers.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
@@ -269,13 +295,13 @@ export const PAYOUT_LIMIT_CENTS = 150_000;
   name: "payout-limit-tool-interceptor",
   description: "Blocks a payout above the treasury's limit, whoever approved it",
 })
-export class PayoutLimitToolInterceptor implements BeforeToolCall {
-  beforeToolCall(call: ToolCallContext): ToolCallDecision {
+export class PayoutLimitToolInterceptor {
+  beforeAnyTool(call: ToolCallContext): ToolCallDecision {
     const { input } = call;
     const amount =
       typeof input === "object" && input !== null && "amountCents" in input ? input.amountCents : 0;
     return typeof amount === "number" && amount > PAYOUT_LIMIT_CENTS
-      ? ToolCallDecision.block({ reason: `a payout above ${String(PAYOUT_LIMIT_CENTS)} cents` })
+      ? ToolCallDecision.block(`a payout above ${String(PAYOUT_LIMIT_CENTS)} cents`)
       : ToolCallDecision.allow();
   }
 }
@@ -285,11 +311,11 @@ export class PayoutLimitToolInterceptor implements BeforeToolCall {
   description: "Pays a payee",
   input: PayoutRequestDto,
   output: ReplyDeskDoneDto,
-  channel: PayoutApprovalChannel,
+  approval: PayoutToolApproval,
   toolInterceptors: [PayoutLimitToolInterceptor],
 })
-export class PayOutTool implements ToolHandler<PayoutRequestDto, ReplyDeskDoneDto> {
-  run(input: PayoutRequestDto): Promise<ReplyDeskDoneDto> {
+export class PayOutTool {
+  execute(input: PayoutRequestDto): Promise<ReplyDeskDoneDto> {
     replyDesk.payouts.push(input);
     return Promise.resolve({ status: `paid ${input.payee} ${String(input.amountCents)}` });
   }
@@ -300,10 +326,10 @@ export class PayOutTool implements ToolHandler<PayoutRequestDto, ReplyDeskDoneDt
   description: "Books an expense",
   input: ExpenseRequestDto,
   output: ReplyDeskDoneDto,
-  channel: ExpenseApprovalChannel,
+  approval: ExpenseToolApproval,
 })
-export class BookExpenseTool implements ToolHandler<ExpenseRequestDto, ReplyDeskDoneDto> {
-  run({ purpose }: ExpenseRequestDto): Promise<ReplyDeskDoneDto> {
+export class BookExpenseTool {
+  execute({ purpose }: ExpenseRequestDto): Promise<ReplyDeskDoneDto> {
     replyDesk.expenses.push(purpose);
     return Promise.resolve({ status: `booked ${purpose}` });
   }
@@ -314,10 +340,10 @@ export class BookExpenseTool implements ToolHandler<ExpenseRequestDto, ReplyDesk
   description: "Returns a deposit",
   input: DepositReturnDto,
   output: ReplyDeskDoneDto,
-  channel: DepositApprovalChannel,
+  approval: DepositToolApproval,
 })
-export class ReturnDepositTool implements ToolHandler<DepositReturnDto, ReplyDeskDoneDto> {
-  run({ leaseId }: DepositReturnDto): Promise<ReplyDeskDoneDto> {
+export class ReturnDepositTool {
+  execute({ leaseId }: DepositReturnDto): Promise<ReplyDeskDoneDto> {
     replyDesk.deposits.push(leaseId);
     return Promise.resolve({ status: `returned the deposit of ${leaseId}` });
   }
@@ -328,10 +354,10 @@ export class ReturnDepositTool implements ToolHandler<DepositReturnDto, ReplyDes
   description: "Transfers money",
   input: TransferRequestDto,
   output: ReplyDeskDoneDto,
-  channel: TransferApprovalChannel,
+  approval: TransferToolApproval,
 })
-export class TransferTool implements ToolHandler<TransferRequestDto, ReplyDeskDoneDto> {
-  run({ account }: TransferRequestDto): Promise<ReplyDeskDoneDto> {
+export class TransferTool {
+  execute({ account }: TransferRequestDto): Promise<ReplyDeskDoneDto> {
     return Promise.resolve({ status: `transferred to ${account}` });
   }
 }
@@ -339,7 +365,7 @@ export class TransferTool implements ToolHandler<TransferRequestDto, ReplyDeskDo
 @Agent({
   name: "treasurer-agent",
   description: "Pays, books and transfers",
-  prompt: "Do what is asked.",
+  prompt: inline("Do what is asked."),
   model: "test/treasurer",
   input: { message: WorkflowStartTextDto },
   tools: [PayOutTool, BookExpenseTool, TransferTool, ReturnDepositTool],
@@ -363,14 +389,14 @@ export class TreasuryWorkflowFinish {}
 @Workflow({
   name: "treasury-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TreasuryWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(TreasuryWorkflowStart)
       .toAgent(TreasurerAgent)
       .toFinish(TreasuryWorkflowFinish),
   ],
   defaults: { tools: { maxToolCalls: 3 } },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
   providers: [ExpenseButtonCodes],
 })
 export class TreasuryWorkflow {}
@@ -393,11 +419,10 @@ export class TreasuryDeskWorkflowFinish {}
 @Workflow({
   name: "treasury-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TreasuryDeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(TreasuryDeskWorkflowStart)
       .toWorkflow(TreasuryWorkflow)
-      .returns(WorkflowFinishTextDto)
       .toFinish(TreasuryDeskWorkflowFinish),
   ],
 })
@@ -419,7 +444,7 @@ export class TreasuryBatchWorkflowStart {}
 export class SplitRequestsAction implements ActionHandler<SplitRequestsAction> {
   execute(input: InputOf<SplitRequestsAction>): Promise<OutputOf<SplitRequestsAction>> {
     return Promise.resolve(
-      input.message.value.text
+      input.message.text
         .split("\n")
         .map((text) => ({ text })),
     );
@@ -429,7 +454,7 @@ export class SplitRequestsAction implements ActionHandler<SplitRequestsAction> {
 @Agent({
   name: "batch-summary-agent",
   description: "Sums the treasury's answers up",
-  prompt: "Sum the answers up.",
+  prompt: inline("Sum the answers up."),
   model: "test/batch-summary",
   input: { answers: listOf(WorkflowFinishTextDto) },
 })
@@ -446,14 +471,12 @@ export class TreasuryBatchWorkflowFinish {}
 @Workflow({
   name: "treasury-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TreasuryBatchWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(TreasuryBatchWorkflowStart)
       .toAction(SplitRequestsAction)
-      .returns(listOf(WorkflowStartTextDto))
-      .toParallelWorkflows(TreasuryWorkflow, { maxConcurrency: 2, maxItems: 3 })
+      .forEachItem(toWorkflow(TreasuryWorkflow), { takeFirst: 3, maxConcurrency: 2 })
       .join()
-      .returns(listOf(WorkflowFinishTextDto))
       .toAgent(BatchSummaryAgent)
       .toFinish(TreasuryBatchWorkflowFinish),
   ],
@@ -464,10 +487,7 @@ export class TreasuryBatchWorkflow {}
 @PiiPolicy({
   name: "treasury-pii-policy",
   description: "Hides e-mail addresses, and phone numbers behind tokens",
-  rules: [
-    pii(PiiKind.Email, PiiAction.replaceWithKind()),
-    pii(PiiKind.Phone, PiiAction.replaceWithToken()),
-  ],
+  rules: [PiiKind.Email.mask(), PiiKind.Phone.tokenize()],
 })
 export class TreasuryPiiPolicy {}
 
@@ -482,6 +502,7 @@ export const treasuryChannels = [
 
 @Application({
   name: "treasury-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TreasuryWorkflow, TreasuryDeskWorkflow, TreasuryBatchWorkflow],
@@ -494,6 +515,7 @@ export class TreasuryApplication {}
 /** The same, its resolved pause records kept five minutes only (#267 S107). */
 @Application({
   name: "brief-treasury-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TreasuryWorkflow],

@@ -3,7 +3,7 @@
  * a turn; with or without a PII runtime. Each place is checked for the base64 of a document's bytes.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { redactedFileOf } from "../../src/a2a/files/a2a-file.dto.js";
+import { redactedFileOf } from "../../src/dto/standard/file.js";
 import { redactedFilesIn, withoutInlineBytes } from "../../src/a2a/files/a2a-file-scrub.js";
 import { unmasked } from "../../src/core/observer-manager.js";
 import { closedResult } from "../../src/graph/agent-loop/tool-pii.js";
@@ -70,7 +70,7 @@ for (const [label, application] of applications) {
       mockLlm(ReaderAgent).thenReturn(callTool(ScanTool, { name: "a" }), replyWith("done"));
       const document = await inlineFile(DOCUMENT_BYTES, "invoice.pdf");
 
-      const result = await execute(app, ReaderStart, { document }, { record: true });
+      const result = await execute(app, ReaderStart, { document }, { includeRecord: true });
 
       const seen = JSON.stringify([result.record, result.toolCalls, toldEvents]);
       expect(seen).not.toContain(DOCUMENT_B64);

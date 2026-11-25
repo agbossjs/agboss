@@ -4,76 +4,39 @@
 
 ```ts
 
+import { inspect } from 'node:util';
+
 // @public
-export interface CodeRerankerMeta<D extends readonly Token[] = readonly Token[]> {
-    // (undocumented)
-    readonly decidedBy: DecidedBy.Code;
-    // (undocumented)
+export interface CodeRagRerankerOptions<D extends readonly Token[] = readonly Token[]> extends RagRerankerBase {
     readonly deps?: D;
-    // (undocumented)
-    readonly description: string;
     // (undocumented)
     readonly model?: never;
-    readonly name: string;
-}
-
-// @public
-export enum DecidedBy {
-    Code = "code",
-    Model = "model"
-}
-
-// @public
-export const DEFAULT_RERANKER_MODEL = "openai/gpt-4.1-nano";
-
-// @public
-export abstract class ModelReranker {
-}
-
-// @public
-export interface ModelRerankerMeta {
     // (undocumented)
-    readonly decidedBy?: DecidedBy.Model;
+    readonly modelProvider?: never;
+    // (undocumented)
+    readonly prompt?: never;
+}
+
+// @public
+export interface ModelRagRerankerOptions extends RagRerankerBase {
     // (undocumented)
     readonly deps?: never;
-    // (undocumented)
-    readonly description: string;
     readonly model?: string;
-    readonly name: string;
+    readonly modelProvider?: Class;
+    readonly prompt?: PromptSource;
 }
 
 // @public
-export function Rag<const D extends readonly Token[] = []>(options: {
-    readonly name: string;
-    readonly description: string;
-    readonly tenancy: RagTenancy;
-    readonly prompt?: string;
-    readonly promptUrls?: readonly string[];
-    readonly deps?: D;
-} & RagResultCount): <C extends new (...args: ResolvedAll<D>) => RagConnector>(value: C) => C;
-
-// @public
-export interface RagConnector {
-    readonly index?: (options: RagIndexOptions) => Promise<RagIndexReport>;
-    readonly retrieve: (query: string, options: RagRetrieveOptions) => Promise<RagRetrieval>;
-}
-
-// @public
-export class RagFts5UnavailableError extends AGBossError {
-    constructor(options: MessageErrorOptions);
-    // (undocumented)
-    static readonly code: "rag.fts5-unavailable";
-    // (undocumented)
-    readonly code: typeof RagFts5UnavailableError.code;
-    // (undocumented)
-    name: string;
-}
+export function Rag<const D extends readonly Token[] = []>(options: RagOptions<D>): <C extends new (...args: ResolvedAll<D>) => RagSource>(value: C) => C;
 
 // @public
 export interface RagIndexOptions {
+    readonly scope?: RagScope;
+    // (undocumented)
+    readonly scopeId?: string;
     // (undocumented)
     readonly signal: AbortSignal;
-    readonly tenantId: string;
+    readonly tenantId?: string;
 }
 
 // @public
@@ -81,115 +44,115 @@ export interface RagIndexReport {
     // (undocumented)
     readonly chunks: number;
     // (undocumented)
-    readonly costUsd?: number;
+    readonly costUsd?: Usd;
     // (undocumented)
     readonly documents: number;
     readonly skipped: number;
+    readonly tokens?: number;
 }
 
 // @public
-export class RagIndexVersionError extends AGBossError {
-    constructor(options: MessageErrorOptions);
+export interface RagOptions<D extends readonly Token[] = readonly Token[]> {
     // (undocumented)
-    static readonly code: "rag.index-version";
+    readonly deps?: D;
     // (undocumented)
-    readonly code: typeof RagIndexVersionError.code;
+    readonly description: string;
     // (undocumented)
-    name: string;
-}
-
-// @public
-export enum RagMode {
-    Context = "context",
-    Tool = "tool"
-}
-
-// @public
-export interface RagRerank {
-    readonly by: RerankerClass;
-    readonly candidates: number;
-    readonly onFailure?: RerankFailurePolicy;
+    readonly name: string;
+    readonly reranker?: Class;
+    readonly scope: RagScope;
     readonly topK: number;
 }
 
 // @public
-export type RagResultCount = {
-    readonly topK: number;
-    readonly rerank?: never;
-} | {
-    readonly topK?: never;
-    readonly rerank: RagRerank;
-};
+export class RagQueryDto {
+    // (undocumented)
+    query: string;
+}
+
+// @public
+export function RagReranker(options: ModelRagRerankerOptions): <C extends new () => object>(value: C) => C;
+
+// @public
+export function RagReranker<const D extends readonly Token[] = []>(options: CodeRagRerankerOptions<D>): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C;
+
+// @public
+export type RagRerankerOptions<D extends readonly Token[] = readonly Token[]> = ModelRagRerankerOptions | CodeRagRerankerOptions<D>;
 
 // @public
 export interface RagRetrieval {
-    readonly costUsd?: number;
+    readonly costUsd?: Usd;
     // (undocumented)
     readonly results: readonly RagSearchResultDto[];
+    readonly tokens?: number;
 }
 
 // @public
-export interface RagRetrieveOptions {
+export interface RagRetrieveOptions<TFilter = never> {
+    readonly filter?: TFilter;
+    readonly scope?: RagScope;
+    // (undocumented)
+    readonly scopeId?: string;
     // (undocumented)
     readonly signal: AbortSignal;
-    readonly tenantId: string;
-    // (undocumented)
+    readonly tenantId?: string;
     readonly topK: number;
+}
+
+// @public
+export enum RagScope {
+    Custom = "custom",
+    Owner = "owner",
+    Shared = "shared",
+    Tenant = "tenant"
+}
+
+// @public
+export interface RagSearchOptions<TFilter = never> {
+    readonly filter?: TFilter;
+    readonly topK?: number;
 }
 
 // @public
 export class RagSearchResultDto {
+    // (undocumented)
+    id?: string;
+    // (undocumented)
+    metadata?: Readonly<Record<string, JsonPrimitive>>;
     // (undocumented)
     score?: number;
     // (undocumented)
     source: string;
     // (undocumented)
     text: string;
+    // (undocumented)
+    title?: string;
+    // (undocumented)
+    url?: string;
 }
 
 // @public
-export enum RagTenancy {
-    PerTenant = "per-tenant",
-    Shared = "shared"
+export class RagSearchResultsDto {
+    // (undocumented)
+    results: readonly RagSearchResultDto[];
 }
 
 // @public
-export function Reranker(options: ModelRerankerMeta): <C extends abstract new () => ModelReranker>(value: C) => C;
-
-// @public
-export function Reranker<const D extends readonly Token[] = []>(options: CodeRerankerMeta<D>): <C extends new (...args: ResolvedAll<D>) => RerankerHandler>(value: C) => C;
-
-// @public
-export type RerankerClass = abstract new (...args: never[]) => RerankerHandler | ModelReranker;
-
-// @public
-export interface RerankerHandler {
-    // (undocumented)
-    readonly rerank: (query: string, candidates: readonly RagSearchResultDto[], options: RerankOptions) => Promise<RerankResult>;
+export abstract class RagSource<TFilter = never> {
+    protected index?(options: RagIndexOptions): RagIndexReport | Promise<RagIndexReport>;
+    resolveScope?(context: ExecutionContext): string;
+    protected abstract retrieve(query: string, options: RagRetrieveOptions<TFilter>): RagRetrieval | Promise<RagRetrieval>;
+    search(query: string, options?: RagSearchOptions<TFilter>): Promise<RagSearchResultsDto>;
 }
 
 // @public
-export type RerankerMeta = ModelRerankerMeta | CodeRerankerMeta;
-
-// @public
-export class RerankFailedError extends StepFailedError {
-    constructor(input: RerankFailedErrorOptions);
+export class RagSourceReferenceDto {
     // (undocumented)
-    static readonly code = "step.rerank-failed";
+    quote?: string;
     // (undocumented)
-    readonly code: "step.rerank-failed";
+    title: string;
     // (undocumented)
-    name: string;
-    readonly rag: string;
-    readonly reranker: string;
-}
-
-// @public
-export interface RerankFailedErrorOptions {
-    readonly cause?: unknown;
-    readonly rag: string;
-    readonly reranker: string;
-    readonly usage: readonly UsageRecord[];
+    url?: string;
 }
 
 // @public
@@ -201,63 +164,84 @@ export enum RerankFailurePolicy {
 // @public
 export interface RerankOptions {
     // (undocumented)
+    readonly scopeId?: string;
+    // (undocumented)
     readonly signal: AbortSignal;
-    readonly tenantId: string;
+    readonly tenantId?: string;
     readonly topK: number;
 }
 
 // @public
 export interface RerankResult {
-    readonly costUsd?: number;
+    readonly costUsd?: Usd;
     readonly results: readonly RagSearchResultDto[];
+    readonly tokens?: number;
 }
 
 // @public
-export class SqliteFtsConnector implements RagConnector {
-    constructor(options: SqliteFtsOptions);
-    index(input: RagIndexOptions): Promise<RagIndexReport>;
+export type SqliteFtsDirectory = string | ((key: SqliteFtsDirectoryKey) => string | undefined);
+
+// @public
+export interface SqliteFtsDirectoryKey {
     // (undocumented)
-    retrieve(query: string, options: RagRetrieveOptions): Promise<RagRetrieval>;
+    readonly scope: RagScope;
+    // (undocumented)
+    readonly scopeId: string | undefined;
+    // (undocumented)
+    readonly tenantId: string | undefined;
 }
 
 // @public
 export interface SqliteFtsOptions {
-    readonly folder: string | ((tenantId: string) => string | undefined);
+    readonly directory: SqliteFtsDirectory;
     readonly maxChunkLength?: number;
-    readonly sqlitePath: string;
+    readonly path: string;
+}
+
+// @public
+export class SqliteFtsRagSource extends RagSource {
+    constructor(options: SqliteFtsOptions);
+    protected index(input: RagIndexOptions): Promise<RagIndexReport>;
+    onDestroy(): void;
+    // (undocumented)
+    protected retrieve(query: string, options: RagRetrieveOptions): Promise<RagRetrieval>;
 }
 
 // Warnings were encountered during analysis:
 //
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "text".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "source".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "score".
-// src/rag/rerank.ts - (ae-undocumented) Missing documentation for "code".
-// src/rag/rerank.ts - (ae-undocumented) Missing documentation for "code".
-// src/rag/rerank.ts - (ae-undocumented) Missing documentation for "name".
-// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "decidedBy".
-// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "deps".
-// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "description".
-// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "decidedBy".
+// src/components/decorators.ts - (ae-undocumented) Missing documentation for "name".
+// src/components/decorators.ts - (ae-undocumented) Missing documentation for "description".
+// src/components/decorators.ts - (ae-undocumented) Missing documentation for "deps".
+// src/rag/dto.ts - (ae-undocumented) Missing documentation for "text".
+// src/rag/dto.ts - (ae-undocumented) Missing documentation for "source".
+// src/rag/dto.ts - (ae-undocumented) Missing documentation for "score".
+// src/rag/dto.ts - (ae-undocumented) Missing documentation for "id".
+// src/rag/dto.ts - (ae-undocumented) Missing documentation for "title".
+// src/rag/dto.ts - (ae-undocumented) Missing documentation for "url".
+// src/rag/dto.ts - (ae-undocumented) Missing documentation for "metadata".
+// src/rag/dto.ts - (ae-undocumented) Missing documentation for "query".
+// src/rag/dto.ts - (ae-undocumented) Missing documentation for "results".
+// src/rag/dto.ts - (ae-undocumented) Missing documentation for "title".
+// src/rag/dto.ts - (ae-undocumented) Missing documentation for "url".
+// src/rag/dto.ts - (ae-undocumented) Missing documentation for "quote".
 // src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "model".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "modelProvider".
+// src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "prompt".
 // src/rag/reranker.decorator.ts - (ae-undocumented) Missing documentation for "deps".
-// src/rag/sqlite-fts-schema.ts - (ae-undocumented) Missing documentation for "code".
-// src/rag/sqlite-fts-schema.ts - (ae-undocumented) Missing documentation for "code".
-// src/rag/sqlite-fts-schema.ts - (ae-undocumented) Missing documentation for "name".
-// src/rag/sqlite-fts-schema.ts - (ae-undocumented) Missing documentation for "code".
-// src/rag/sqlite-fts-schema.ts - (ae-undocumented) Missing documentation for "code".
-// src/rag/sqlite-fts-schema.ts - (ae-undocumented) Missing documentation for "name".
+// src/rag/sqlite-fts-directory.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/rag/sqlite-fts-directory.ts - (ae-undocumented) Missing documentation for "scopeId".
+// src/rag/sqlite-fts-directory.ts - (ae-undocumented) Missing documentation for "scope".
 // src/rag/sqlite-fts.ts - (ae-undocumented) Missing documentation for "retrieve".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "results".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "documents".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "chunks".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "costUsd".
-// src/rag/types.ts - (ae-undocumented) Missing documentation for "topK".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "signal".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "scopeId".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "scopeId".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "signal".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "signal".
-// src/rag/types.ts - (ae-undocumented) Missing documentation for "signal".
-// src/rag/types.ts - (ae-undocumented) Missing documentation for "rerank".
+// src/rag/types.ts - (ae-undocumented) Missing documentation for "scopeId".
 
 // (No @packageDocumentation comment for this package)
 

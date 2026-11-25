@@ -15,10 +15,10 @@ import {
   placeOfCursor,
 } from "../../src/infrastructure/outbound-call-pages.js";
 import {
-  InMemoryOutboundCallRepository,
   OutboundCallStatus,
   type OutboundCallRecord,
 } from "../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../src/infrastructure/in-memory-outbound-call.repository.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
@@ -33,15 +33,15 @@ const rowsOf = (...places: number[]) =>
 describe("#825: a page of the rows read one past its limit", () => {
   it("no row past the limit: the calls, no next", () => {
     expect(outboundCallPageOf(rowsOf(3, 7), 2)).toStrictEqual({
-      calls: [record("call-3"), record("call-7")],
+      items: [record("call-3"), record("call-7")],
     });
-    expect(outboundCallPageOf([], 1)).toStrictEqual({ calls: [] });
+    expect(outboundCallPageOf([], 1)).toStrictEqual({ items: [] });
   });
 
   it("a row past it: the first limit's calls, next the last one's place", () => {
     expect(outboundCallPageOf(rowsOf(3, 7, 12), 2)).toStrictEqual({
-      calls: [record("call-3"), record("call-7")],
-      next: "7",
+      items: [record("call-3"), record("call-7")],
+      nextCursor: "7",
     });
   });
 });
@@ -102,9 +102,10 @@ describe("#825: an in-memory row's place in the record order", () => {
         status: OutboundCallStatus.Completed,
         endedAt: new Date(0).toISOString(),
       });
+    for (const row of database.outboundCalls.keys()) database.outboundCallExpiries.set(row, 0);
     expect(database.outboundCallOrder.size).toBe(1);
 
-    await calls.deleteByEndedAtBefore(new Date(1));
+    await calls.deleteExpired(new Date(1));
 
     expect(database.outboundCalls.size).toBe(0);
     expect(database.outboundCallOrder.size).toBe(0);

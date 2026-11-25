@@ -1,5 +1,6 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionCancelFencedError, ExecutionFencedError } from "../../app/lease-lost.js";
+import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import {
   OutboundCallStatus,
   type OutboundCallState,
@@ -50,7 +51,7 @@ const saveRefused: OutboundCallCase = {
     const refused = await rejectionOf(first.calls.saveIfAbsent(key, intentOf(key)));
 
     expect(refused).toBeInstanceOf(ExecutionCancelFencedError);
-    expect(refused).not.toBeInstanceOf(ExecutionFencedError);
+    expect(refused).not.toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({ code: "execution.cancelled.fenced", effect: "charge" });
     expect(await first.calls.findByKey(key)).toBeUndefined();
     expect(await listedOf(first)).toEqual([]);
@@ -64,7 +65,7 @@ const markPendingRefused: OutboundCallCase = {
     const lease = await leaseOf(first);
     const key = keyOf(lease);
     await recorded(first, key);
-    await first.calls.markFailed(key, "owner-1", FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE, null);
     await second.leases.requestCancel(treeOf(lease));
 
     const refused = await rejectionOf(
@@ -91,8 +92,8 @@ const attemptEndsAfterCancel: OutboundCallCase = {
     await recorded(first, declined);
     await second.leases.requestCancel(treeOf(lease));
 
-    const isCompleted = await first.calls.markCompleted(sent, "owner-1", '{"receipt":"r1"}');
-    const isFailed = await first.calls.markFailed(declined, "owner-1", FAILURE);
+    const isCompleted = await first.calls.markCompleted(sent, "owner-1", '{"receipt":"r1"}', null);
+    const isFailed = await first.calls.markFailed(declined, "owner-1", FAILURE, null);
 
     expect([isCompleted, isFailed]).toEqual([true, true]);
     expect(await second.calls.findByKey(sent)).toMatchObject({
@@ -116,7 +117,7 @@ const undoPasses: OutboundCallCase = {
     });
 
     expect(await first.calls.saveIfAbsent(undo, intentOf(undo))).toBe(true);
-    await first.calls.markFailed(undo, "owner-1", FAILURE);
+    await first.calls.markFailed(undo, "owner-1", FAILURE, null);
     expect(await first.calls.markPending(undo, FAILED, { attempt: 2, attemptOwner: "o2" })).toBe(
       true,
     );
@@ -143,7 +144,7 @@ const otherTreesUntouched: OutboundCallCase = {
 };
 
 const staleTokenIsHandOver: OutboundCallCase = {
-  name: "#909: a stale token after a cancel is ExecutionFencedError, not the cancel",
+  name: "#909: a stale token after a cancel is ExecutionError.Fenced, not the cancel",
   isFencing: true,
   run: async ({ first, second }) => {
     const old = await leaseOf(first);
@@ -155,7 +156,7 @@ const staleTokenIsHandOver: OutboundCallCase = {
     const zombie = await rejectionOf(first.calls.saveIfAbsent(key, intentOf(key)));
     const holder = await rejectionOf(second.calls.saveIfAbsent(keyOf(taken), intentOf(key)));
 
-    expect(zombie).toBeInstanceOf(ExecutionFencedError);
+    expect(zombie).toBeInstanceOf(ExecutionError.Fenced);
     expect(holder).toBeInstanceOf(ExecutionCancelFencedError);
   },
 };

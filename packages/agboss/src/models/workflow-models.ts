@@ -1,18 +1,11 @@
 import type { AgentsConfigOf, ModelSettings } from "../config/types.js";
 import { costLabel, priceOf } from "./cost.js";
-import { DecisionsModelProvider } from "./jev.provider.js";
-import { OpenRouterModelProvider } from "./openrouter-model.provider.js";
 import { promptCachingLabel } from "./prompt-caching.js";
 import { reasoningLabel } from "./reasoning.js";
 import type { ModelProviderType } from "./model-provider.decorator.js";
-import { ModelProviderDirectory, ModelPurpose } from "./resolve.js";
+import { ModelKind } from "./model-kind.js";
+import { ModelProviderDirectory } from "./resolve.js";
 import type { ModelUse } from "./uses.js";
-
-/**
- * An application that lists no `@ModelProvider` gets these: OpenRouter for chat, the Decisions API
- * for decision models. One listed makes the list complete — these are not added next to it (#266).
- */
-export const DEFAULT_MODEL_PROVIDERS = [OpenRouterModelProvider, DecisionsModelProvider] as const;
 
 /** The directory of an application's model providers (`AssembledWorkflow.modelProviders`). */
 export const directoryOf = (providers: readonly ModelProviderType[]): ModelProviderDirectory =>
@@ -24,10 +17,13 @@ function priced<T extends ModelSettings>(settings: T, directory: ModelProviderDi
   const resolution = directory.resolve({
     key: settings.model,
     model: settings.model,
-    purpose: ModelPurpose.Chat,
+    purpose: ModelKind.Chat,
+    // the provider its cascade resolved, not the one `serves` finds (#1313)
+    ...(settings.modelProvider === undefined ? {} : { modelProvider: settings.modelProvider }),
   });
   if (resolution.kind === "problem") return settings;
-  const price = priceOf(resolution.provider.options.cost, settings.model);
+  const { cost } = resolution.provider.options;
+  const price = cost === undefined ? undefined : priceOf(cost, settings.model);
   return price === undefined ? settings : { ...settings, price };
 }
 
@@ -41,11 +37,11 @@ export function withProviderPrices(
     agents: Object.fromEntries(
       Object.entries(config.agents).map(([name, agent]) => [name, priced(agent, directory)]),
     ),
-    ...(config.compactions === undefined
+    ...(config.memories === undefined
       ? {}
       : {
-          compactions: Object.fromEntries(
-            Object.entries(config.compactions).map(([name, compaction]) => [
+          memories: Object.fromEntries(
+            Object.entries(config.memories).map(([name, compaction]) => [
               name,
               compaction.model === undefined
                 ? compaction
@@ -75,7 +71,7 @@ export function modelSummaryOf(
     const inherited = ` (inherited from ${provider.name})`;
     const settings = use.settings;
     const chat =
-      use.purpose === ModelPurpose.Decision || settings === undefined
+      use.purpose === ModelKind.Decisions || settings === undefined
         ? []
         : [
             `reasoning ${reasoningLabel(settings.reasoning ?? provider.reasoning)}${settings.reasoning === undefined ? inherited : ""}`,
@@ -86,7 +82,7 @@ export function modelSummaryOf(
         `${use.key}  ${use.model}`,
         `provider ${provider.name}`,
         ...chat,
-        costLabel(provider.cost),
+        provider.cost === undefined ? "unpriced" : costLabel(provider.cost),
       ].join(" · "),
     ];
   });

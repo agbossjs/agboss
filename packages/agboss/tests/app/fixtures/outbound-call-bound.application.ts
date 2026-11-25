@@ -3,7 +3,7 @@ import { Application } from "../../../src/application/application.js";
 import { StoreClock } from "../../../src/infrastructure/clock.js";
 import { ExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
-import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import { withHoldPoints } from "../../../src/testing/faults/held-stores.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
@@ -22,6 +22,7 @@ import {
   EmailPiiPolicy,
   OutboundCallLog,
 } from "./outbound-call.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #928 AC2 — the outbound-call store whose `markCompleted` can answer with an error, once
@@ -56,7 +57,6 @@ export const HeldOutbound = withHoldPoints(DownableOutbound);
   name: "outbound-call-bound-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow, ChargeAndNotifyWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,
@@ -68,9 +68,9 @@ export class OutboundCallBoundApplication {}
 /** The business-key workflows of #508 (`send-charge-workflow`: `order:<id>`) on the held outbound store. */
 @Application({
   name: "outbound-call-bound-keyed-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [CashierWorkflow, ChargeOrderWorkflow, SendChargeWorkflow, SendChargesWorkflow],
   providers: [...MODEL_PROVIDERS, InMemoryFencedEffectRepository, HeldOutbound, RecordingLogger],
   budgets: TEST_BUDGETS,

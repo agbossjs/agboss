@@ -26,7 +26,7 @@ import { gateway, letChargesGo, resetGateway } from "./fixtures/payment-gateway.
 
 const two = testWith(OutboundCallBoundApplication, { instances: 2 });
 
-const KEY = "execution-1:charge-order-action:1:charge";
+const KEY = "ck1UbYR5__kMqLRyhGpWwpKf5iAQLJJ-r52_O7pIlEo";
 const TREE = { tenantId: "default", rootExecutionId: "execution-1" };
 
 beforeEach(() => {

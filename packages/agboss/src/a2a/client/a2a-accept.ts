@@ -3,24 +3,17 @@ import {
   OutboundCallSendStatus,
   type OutboundCall,
   type OutboundCallOutcome,
-  type OutboundCallSendOptions,
-} from "../../app/outbound-calls.js";
+  type IdempotencySendOptions,
+} from "../../app/outbound-call-types.js";
 import { ComponentError } from "../../components/metadata.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import { liveExecutionContextOf } from "../../flow/context/live-context.js";
-import { effectKeyOf } from "../../infrastructure/fenced-effect-key.js";
-import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { stableJson } from "../../turns/index.js";
-import { seconds, type Milliseconds } from "../../units/index.js";
+import { hours, minutes, seconds, type Milliseconds } from "../../units/index.js";
 import { A2APeerKind, type A2ARemotePeer } from "./a2a-card.js";
 import { A2AContractError, A2AContractRule, A2AProtocolError } from "./a2a-client-errors.js";
 import { a2aClientServicesOf } from "./a2a-client-services.js";
-import {
-  acceptRequestOf,
-  notSentOf,
-  reconciliationOf,
-  type AcceptRequest,
-} from "./a2a-reconcile.js";
+import { acceptRequestOf, recoveryOf, type AcceptRequest } from "./a2a-reconcile.js";
 import {
   acceptedOf,
   messageIdOf,
@@ -34,7 +27,7 @@ import { isDefiniteSendFailure } from "./a2a-wire-errors.js";
 
 /**
  * The accept round trip (#809, design §4.3.1): one `SendMessage` with `returnImmediately`, made
- * through `OutboundCalls` inside an execution — its intent recorded before it is sent, its answer
+ * through `Idempotency.sendOnce` inside an execution — its intent recorded before it is sent, its answer
  * (the task's ids, or a stateless message) stored after, so a step that runs again replays it and
  * only waits; a send of unknown outcome left pending is reconciled (`a2a-reconcile.ts`), never
  * resent blindly. Outside an execution there is nothing to record into: the message is sent once
@@ -77,7 +70,7 @@ export function claimCallName(
   made.set(name, hash);
 }
 
-/** The call's name in `OutboundCalls`: one per client, kind and `call.key` in a step. */
+/** The call's name in `Idempotency.sendOnce`: one per client, kind and `call.key` in a step. */
 export const callNameOf = (call: AcceptCall): string =>
   [
     "a2a",
@@ -107,22 +100,34 @@ async function withRetries<T>(
   }
 }
 
-/** The one call of `OutboundCalls` an accept makes, for its own request and result. */
+/** The one call of `Idempotency` an accept makes, for its own request and result. */
 export interface AcceptOutboundCalls {
-  send(
-    key: EffectKey,
-    options: OutboundCallSendOptions<AcceptRequest, AcceptResult>,
+  sendOnce(
+    options: IdempotencySendOptions<AcceptRequest, AcceptResult>,
   ): Promise<OutboundCallOutcome<AcceptResult>>;
 }
 
 /** What an accept inside an execution uses: the application's calls, the step's key and tenant. */
 export interface AcceptRuntime {
   readonly outboundCalls: AcceptOutboundCalls;
-  /** The effect key of the call `name` in the current step (`effectKeyOf`). */
-  readonly keyOf: (name: string) => EffectKey;
   readonly tenantId: string;
   /** The step's frame: one name per call in it. */
   readonly frame: object;
+}
+
+/**
+ * An accept's attempt bound and how long its intent is kept: two minutes at most, and well inside
+ * an AGBoss peer's declared dedupe window (a resend must fit it); a week, or twice the window.
+ */
+function boundsOf(peer: A2ARemotePeer): {
+  readonly timeout: Milliseconds;
+  readonly ttl: Milliseconds;
+} {
+  const window = peer.kind === A2APeerKind.AGBoss ? peer.idempotencyRetention : undefined;
+  return {
+    timeout: Math.min(minutes(2), (window ?? minutes(2)) / 2) as Milliseconds,
+    ttl: Math.max(hours(168), (window ?? 0) * 2) as Milliseconds,
+  };
 }
 
 /** How many sends one call makes before it fails: an AGBoss peer's resends, a foreign one's reconcile. */
@@ -130,7 +135,7 @@ const attemptsOf = (peer: A2ARemotePeer): number =>
   peer.kind === A2APeerKind.AGBoss ? MAX_ACCEPT_ATTEMPTS : 2;
 
 /**
- * Sends through `OutboundCalls`: a send of unknown outcome left pending is asked again at once —
+ * Sends through `Idempotency.sendOnce`: a send of unknown outcome left pending is asked again at once —
  * reconciled (an AGBoss peer: sent again with the same messageId; a foreign one: unreconciled).
  */
 export async function acceptedThrough(call: AcceptCall, runtime: AcceptRuntime): Promise<Accepted> {
@@ -146,14 +151,17 @@ export async function acceptedThrough(call: AcceptCall, runtime: AcceptRuntime):
   };
   return withRetries(call, attemptsOf(call.peer), async () => {
     // a key per attempt: the fence's token as it is now
-    const outcome = await runtime.outboundCalls.send(runtime.keyOf(name), {
+    const { timeout, ttl } = boundsOf(call.peer);
+    const outcome = await runtime.outboundCalls.sendOnce({
+      name,
       target: call.agent,
       operation: call.taskId === undefined ? "SendMessage" : "SendMessage (reply)",
       request,
+      timeout,
+      ttl,
       send,
-      reconcile: (lookup) => reconciliationOf(call, lookup, messageIdFor(lookup.idempotencyKey)),
+      recovery: recoveryOf(call, messageIdFor),
       isDefiniteFailure: isDefiniteSendFailure,
-      notSent: notSentOf(call.peer),
     });
     const isNew =
       outcome.status === OutboundCallSendStatus.Sent ||
@@ -173,7 +181,7 @@ export function acceptedDirectly(call: AcceptCall): Promise<Accepted> {
 }
 
 /**
- * Accepts one message: through `OutboundCalls` inside an execution, directly outside one (a
+ * Accepts one message: through `Idempotency.sendOnce` inside an execution, directly outside one (a
  * script's call). A frame of no composed application (a unit runner's) has nothing to record
  * into: the call is refused (`[a2a.outside-application]`) — never sent unrecorded from a step.
  */
@@ -189,7 +197,6 @@ export async function accept(call: AcceptCall): Promise<Accepted> {
   const executionContext = liveExecutionContextOf(undefined, call.agent);
   return acceptedThrough(call, {
     outboundCalls: services.outboundCalls(),
-    keyOf: (name) => effectKeyOf(executionContext, name),
     tenantId: executionContext.tenant.tenantId,
     frame,
   });

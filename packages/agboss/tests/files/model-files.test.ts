@@ -3,12 +3,9 @@
  * call — the image and the PDF as parts, the CSV as text — pinned for every call of its visit, over the
  * limits it is held to before any call.
  */
+import { FileError } from "../../src/core/error-families/remote-errors.js";
 import { describe, expect } from "vitest";
-import {
-  ModelFileLimitError,
-  ModelFileRefusal,
-  ModelFileRefusedError,
-} from "../../src/files/file-errors.js";
+import { ModelFileLimitError, FileRefusal } from "../../src/files/file-errors.js";
 import { kilobytes } from "../../src/units/index.js";
 import { FileSource, FileView, ModelFileLimit, ModelFiles } from "../../src/files/model-files.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
@@ -168,8 +165,8 @@ describe("AC6: limits fail closed before any model call", () => {
         document: inline(PDF_BYTES, "image/png", "lie.png"),
       }).catch((error: unknown) => error);
 
-      expect(inChain(failure, ModelFileRefusedError)).toMatchObject({
-        refusal: ModelFileRefusal.MediaTypeMismatch,
+      expect(inChain(failure, FileError.Refused)).toMatchObject({
+        refusal: FileRefusal.MediaTypeMismatch,
       });
       expect(agent.requests).toHaveLength(0);
     },

@@ -16,6 +16,7 @@ import {
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { bedrockApplicationOn } from "./bedrock-apps.fixture.js";
 import { answer } from "./bedrock-provider.fixture.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /** #385 S4: what a transport provider's hooks and calls did, in order; `onStart` fails while `failures.starts` > 0. */
 @Injectable()
@@ -27,11 +28,13 @@ export class LifecycleLog {
 @ModelProvider({
   name: "lifecycle-model-provider",
   description: "A transport with lifecycle hooks",
-  serves: [/^bedrock\//],
   timeout: seconds(30),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 100, window: minutes(1), openFor: seconds(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 100,
+    failureWindow: minutes(1),
+    openDuration: seconds(1),
+  }),
   deps: [LifecycleLog],
 })
 export class LifecycleModelProvider

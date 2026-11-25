@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SqliteA2ATaskRepository } from "../../../src/a2a/index.js";
+import { SqliteA2ATaskRepository } from "../../../src/stores/index.js";
 import type { ExecutionHistoryRecord } from "../../../src/infrastructure/execution-history.repository.js";
 import {
   SqliteExecutionLeaseRepository,

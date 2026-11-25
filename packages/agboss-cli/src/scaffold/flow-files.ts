@@ -22,7 +22,7 @@ export const finishRoute = (target: string, from: string): RouteSpec => ({
 
 const quoted = (text: string): string => text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 
-/** `route(BillingAgent, "Handles invoices")` — how `agboss` writes a route. */
+/** `{ prompt: "Handles invoices", target: BillingAgent }` — how `agboss` writes a route. */
 export const routeLine = (target: string, text: string): string =>
   `{ prompt: "${quoted(text)}", target: ${target} }`;
 
@@ -70,8 +70,14 @@ export function routerFile(
   spec: RouterFileSpec,
   routes: readonly RouteSpec[],
   id: string = router.kebab,
+  decisionsFrom?: string,
 ): FileToWrite {
-  const imports = routes.map((r) => `import { ${r.target} } from "${r.from}";`).join("\n");
+  const imports = [
+    ...(decisionsFrom === undefined
+      ? []
+      : [`import { DecisionsModelProvider } from "${decisionsFrom}";`]),
+    ...routes.map((r) => `import { ${r.target} } from "${r.from}";`),
+  ].join("\n");
   return {
     path: `${folder}/${router.kebab}/${router.kebab}.router.ts`,
     content: render("router/router.ts.tmpl", {
@@ -81,6 +87,8 @@ export function routerFile(
       prompt: quoted(spec.prompt),
       maxVisits: String(spec.maxVisits),
       imports,
+      modelProvider:
+        decisionsFrom === undefined ? "" : "  modelProvider: DecisionsModelProvider,\n",
       routes: routes.map((r) => `    ${routeLine(r.target, r.text)},`).join("\n"),
     }),
   };

@@ -53,8 +53,13 @@ describe("#194 AC2: the errors a user can catch come from the public entry", () 
   });
 
   it("the classes without a failure site are gone", () => {
-    for (const removed of ["ExecutionError", "InsufficientFundsError", "QuorumFailedError"]) {
+    for (const removed of ["InsufficientFundsError", "QuorumFailedError"]) {
       expect(Object.keys(agboss)).not.toContain(removed);
     }
+  });
+
+  it("`ExecutionError` is the family of the execution's errors (#1325), not the old class", () => {
+    expect(Object.keys(agboss.ExecutionError)).toContain("LeaseLost");
+    expect(agboss.ExecutionError.code).toBe("execution");
   });
 });

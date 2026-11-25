@@ -1,10 +1,11 @@
 # Tracing
 
-Every run can be traced into a **self-hosted Langfuse** — the graph steps, every model call with
-its prompt, answer and tokens, every tool call. Nothing leaves the machine. Decision:
-[ADR-0005](ADR-0005-Tracing-with-self-hosted-Langfuse).
+Every run can be traced as OpenTelemetry spans — the graph steps, every model call with its prompt,
+answer and tokens, every tool call — into the provider you give `createApp({ tracerProvider })`.
+The Langfuse end is the package `@agboss/langfuse` (`LangfuseTracer`), a **self-hosted Langfuse**
+keeps everything on your machine. Decision: [ADR-0005](ADR-0005-Tracing-with-self-hosted-Langfuse).
 
-## Start it
+## Start a local Langfuse
 
 ```bash
 scripts/langfuse.sh up       # Docker; first run downloads images (~2 GB)
@@ -19,7 +20,7 @@ scripts/langfuse.sh down     # data stays in Docker volumes
 - generates every secret (upstream defaults are `CHANGEME`) into `~/langfuse/.env` (mode 600);
 - turns **telemetry off** (upstream sends anonymous usage stats by default);
 - creates the organisation, a project named after the repo, API keys and a user;
-- writes `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` into the project `.env`.
+- writes `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` into the project `.env` (`LangfuseTracer.fromEnv()` reads them).
 
 Open <http://localhost:3000>; login and password are in `~/langfuse/.env`
 (`LANGFUSE_INIT_USER_EMAIL`, `LANGFUSE_INIT_USER_PASSWORD`).
@@ -34,7 +35,7 @@ Open <http://localhost:3000>; login and password are in `~/langfuse/.env`
 Inside a trace: one span per flow node, named `<kind>.<name>` — `workflow-start.chat` (input guards),
 `router.main`, `agent.scout` (its loop: model requests, tool calls, the approval),
 `workflow-finish.chat` (the answer and output guards). Jev decisions (routing, guards, quality scores, job ratings) use Jev's own HTTP client,
-not LangChain, so they are **not** in Langfuse — their cost is in the turn financials under every
+not LangChain, so they are **not** in the trace — their cost is in the turn financials under every
 answer ([FinOps](FinOps)).
 
 ## Find the trace of an answer
@@ -46,26 +47,50 @@ thread d26cee38-538e-4a3b-b6ea-0a5bdc464f82 · http://localhost:3000/project/agb
 researcher · stop: jev confidence 0.99
 ```
 
-`threadId` is always in the result; `traceUrl` is there when tracing is on and
-`LANGFUSE_PROJECT_ID` is set (`scripts/langfuse.sh` writes it). The link opens the session — every
+`threadId` is always in the result; `traceUrl` is there when the adapter builds a link (`LangfuseTracer`
+with a `projectId`, `LANGFUSE_PROJECT_ID` for `fromEnv`; `scripts/langfuse.sh` writes it). The link opens the session — every
 turn of the conversation.
 
-## Off by default
+## Turn it on: `tracerProvider`
 
-Without the three `LANGFUSE_*` variables there is no tracing and nothing changes. Spend, Turns and
-answers never depend on it. Tracing uses an isolated OpenTelemetry provider — the core does not
-register global OpenTelemetry — and is flushed when the app closes. Langfuse's LangChain handler
-exports through one provider per process, so every workflow of every application in the process
-shares it (#1130). Each span is bound, when it starts, to the application whose run started it (a
-step's span to its run's, a child step's to its parent's), and goes only to that application's
-Langfuse project, masked by the PII policies of the workflow its step belongs to (its
-`workflowName` metadata; a span naming none of the application's workflows by all of them) —
-every string attribute, the flattened metadata included. A workflow that closes keeps masking the
-spans it started; a span still open when its application's last tracing closed is dropped. A
-Langfuse span the framework did not start (a project's own) goes to the process's Langfuse,
-masked by every application's policies, when the process traces to one project only — with two,
-it has no known project and is dropped. The provider stays until the last application in the
-process closes.
+The core knows no tracing vendor and reads no environment variable for it. It emits vendor-neutral
+OpenTelemetry spans on the provider you give `createApp` (#1324f):
+
+```ts no-check: needs your own tracer provider and @agboss/langfuse, which are not installed here
+// your own OpenTelemetry provider (Datadog, Tempo, Honeycomb, ...): you own it, app.close() only flushes it
+await createApp(SupportApplication, { tracerProvider: myTracerProvider });
+
+// a TracingAdapter: the application owns it, app.close() flushes it and shuts it down
+import { LangfuseTracer } from "@agboss/langfuse";
+await createApp(SupportApplication, {
+  tracerProvider: new LangfuseTracer({ publicKey, secretKey, baseUrl, projectId }),
+});
+```
+
+`TracingAdapter` is `{ tracerProvider, traceUrl?(ctx: TraceLinkContext), forceFlush?(), shutdown?() }`;
+`ctx` has the workflow, the thread, the run and the tenant. `ExecutionOutput.traceUrl` is the adapter's
+link, on every status (finished, paused, stopped, cancelled); a plain `TracerProvider` has none.
+`LangfuseTracer.fromEnv()` (in `@agboss/langfuse`) reads the `LANGFUSE_*` variables for you, if you
+keep them.
+
+Without a `tracerProvider` there is no tracing and nothing changes. Spend, Turns and answers never
+depend on it. The framework does not register global OpenTelemetry.
+
+### PII never reaches the provider
+
+The framework's own emitter masks **before** it sets: every input, output, metadata value, session id,
+tag and error text goes through the PII policies of the workflow it belongs to — a child workflow's
+spans by the policies of every workflow of its chain, its ancestors' included (#1150) — and only
+then through `setAttribute`, `addEvent` or `setStatus`. A processor or an exporter of your provider
+sees no unmasked value, at a span's start or at its end; nothing relies on a processor that rewrites
+finished spans. A span whose workflow is unknown is masked by all the application's policies. A mask
+that throws leaves `<masked: the PII mask failed>` in place of the value.
+
+Span names are the code's (`router.main`, `agent.scout`); the operation is `agboss.operation`
+(`chain`, `llm`, `tool`, `retriever`), the workflow `agboss.workflow.name` and its chain
+`agboss.workflow.chain`. The first span of a run carries `session.id` (the thread), `agboss.tenant.id`
+and `agboss.run.id`; a model call carries `gen_ai.request.model` and the token counts
+(`gen_ai.usage.*`).
 
 ## Why not LangSmith
 

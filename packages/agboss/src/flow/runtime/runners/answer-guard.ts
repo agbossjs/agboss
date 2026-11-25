@@ -1,4 +1,5 @@
 import { GuardrailSide } from "../../../components/policy-decorators.js";
+import { bareRecordOf, ComponentKind } from "../records.js";
 import type { AnswerFileReading } from "../../../files/file-runtime.js";
 import { fileMaskOf, type FileMask } from "../../../files/file-mask.js";
 import { guardedFilesOf } from "../../../files/guarded-files.js";
@@ -61,6 +62,33 @@ export async function answerFilesViewed(
   return { files: guarded.files, usage: [...built.usage, ...guarded.usage] };
 }
 
+/** What the output checks of an answer found: their usage and decisions, and the text they read. */
+export interface GuardedAnswer extends GuardrailsPassed {
+  /**
+   * The answer as the guardrails read it, when the agent's PII policies changed it: a held stream
+   * goes out as this text, never as the model's own tokens (#1311b). None: nothing was changed.
+   */
+  readonly text?: string;
+}
+
+/**
+ * An agent with no output guardrail but a PII block rule holds its stream back: its answer is read
+ * through its policies for the stream alone, which goes out masked (#1311b). No policy, no read.
+ */
+async function maskedForStream(
+  set: Parameters<typeof maskedModelText>[0] | undefined,
+  reply: string,
+  tokens: PiiTokenMap,
+): Promise<GuardedAnswer> {
+  if (set === undefined) return { usage: [], decisions: [] };
+  const masked = await maskedModelText(set, reply, tokens);
+  return {
+    usage: masked.usage,
+    decisions: [],
+    ...(masked.text === reply ? {} : { text: masked.text }),
+  };
+}
+
 /**
  * The agent's output guardrails (#120) on its answer — its text, or its answer's JSON with its files shown as
  * metadata — masked by its PII policies as its model would read it, and the files of the answer in the views
@@ -72,10 +100,15 @@ export async function guardedAnswer(
   pii: { readonly loop: LoopPii; readonly tokens: PiiTokenMap },
   deps: GraphDeps<string>,
   files: AnswerGuardContext,
-): Promise<GuardrailsPassed> {
+): Promise<GuardedAnswer> {
   const guardrails = deps.guardrails?.outputOf(name) ?? [];
-  if (guardrails.length === 0) return { usage: [], decisions: [] };
   const set = deps.pii?.policiesOf(name).withValues(pii.loop.values).withFieldKey(pii.loop.key);
+  if (guardrails.length === 0) {
+    const isHeld = deps.pii?.policiesOf(name).blocks === true;
+    return isHeld
+      ? await maskedForStream(set, result.reply, pii.tokens)
+      : { usage: [], decisions: [] };
+  }
   const masked =
     set === undefined
       ? { text: result.reply, usage: [] }
@@ -86,7 +119,7 @@ export async function guardedAnswer(
   });
   const checked = {
     text: masked.text,
-    element: name,
+    component: bareRecordOf(name, ComponentKind.Agent),
     side: GuardrailSide.Output,
     files: viewed.files,
   };
@@ -99,5 +132,6 @@ export async function guardedAnswer(
   return {
     usage: [...masked.usage, ...viewed.usage, ...passed.usage],
     decisions: passed.decisions,
+    ...(masked.text === result.reply ? {} : { text: masked.text }),
   };
 }

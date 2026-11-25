@@ -1,3 +1,4 @@
+import { providerCallsOf } from "../models/calls/provider-calls.js";
 import type { ApplicationContainer, ContainerOptions } from "../components/container/container.js";
 import type { ExecutionObserver } from "../core/observer-hooks.js";
 import {
@@ -79,6 +80,10 @@ export async function observersOf(
   };
   const observer = observerManagerOf(assembled, shared, options, log, seams, builtIn);
   const heldLeases = metrics?.heldLeases;
+  // a provider's breaker changing state is the application's event (#1313)
+  providerCallsOf(infrastructure.rateLimits, infrastructure.clock).observe((provider, change) => {
+    void observer.onCircuitStateChange({ provider, ...change, at: infrastructure.clock.now() });
+  });
   return {
     observer,
     auditLog: auditLogWriterOf(infrastructure, { observer, mask, log, heldLeases }),
@@ -107,13 +112,13 @@ export async function instanceMetricsOf(
 }
 
 /**
- * The A2A task projection (#807), when the application exposes an `@A2AExpose` — loaded only then:
+ * The A2A task projection (#807), when the application exposes an `@A2AEndpoint` — loaded only then:
  * the framework's own observer, called first and unmasked (it keeps the pauses' masked asks as the
  * execution lists them, and a finish's output as the caller gets it).
  */
 async function a2aTaskProjectionOf(parts: ObservedParts): Promise<readonly ExecutionObserver[]> {
-  const exposes = parts.assembled.exposes.some((cls) => componentOf(cls)?.kind === "a2a-expose");
-  if (!exposes) return [];
+  const serves = parts.assembled.endpoints.some((cls) => componentOf(cls)?.kind === "a2a-endpoint");
+  if (!serves) return [];
   const { A2ATaskProjection } = await lazyLoad(import("../a2a/tasks/a2a-task-projection.js"));
   const { a2aTasks: tasks, clock } = parts.infrastructure;
   // the instance's trees by id, remembered by its infrastructure once its app is composed

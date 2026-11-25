@@ -1,3 +1,4 @@
+import { usd } from "../../units/index.js";
 import { expect } from "vitest";
 import {
   ExecutionRecordStatus,
@@ -6,6 +7,8 @@ import {
 import type { NewTurn, TurnOutcome } from "../../turns/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
+import { executionRecordIdleSweepCases } from "./execution-record-idle-sweep.cases.js";
+import { executionRecordStatusHistoryCases } from "./execution-record-status-history.cases.js";
 import { pauseAnswerCases } from "./pause-answer-log.cases.js";
 import type { ContractTarget } from "./instance-context.js";
 
@@ -16,7 +19,7 @@ const outcome = (status: ExecutionRecordStatus): TurnOutcome => ({
   stopReason: "",
   route: ["start", "clerk"],
   steps: [],
-  costUsd: 0.01,
+  costUsd: usd(0.01),
 });
 
 /** A new record of `threadId` with `status`. */
@@ -25,7 +28,7 @@ const record = (threadId: string, runId: string, status: ExecutionRecordStatus):
   runId,
   threadId,
   tenantId: "default",
-  bundle: "desk-workflow",
+  workflow: "desk-workflow",
   task: "where is order 7?",
   promptVersion: "p1",
   modelVersion: "m1",
@@ -70,11 +73,17 @@ const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
       }
       await first.append(record(thread, "run-4", ExecutionRecordStatus.Answered));
 
-      const page = await second.findByStatus(ExecutionRecordStatus.Running, 2);
-      const next = await second.findByStatus(ExecutionRecordStatus.Running, 2, page.at(-1)?.id);
+      const page = await second.findByStatus({ status: ExecutionRecordStatus.Running, limit: 2 });
+      const next = await second.findByStatus({
+        status: ExecutionRecordStatus.Running,
+        limit: 2,
+        cursor: page.nextCursor,
+      });
 
-      expect(page.map((item) => item.runId)).toEqual(["run-1", "run-2"]);
-      expect(next.map((item) => item.runId)).toEqual(["run-3"]);
+      expect(page.items.map((item) => item.runId)).toEqual(["run-1", "run-2"]);
+      expect(page.nextCursor).toBeDefined();
+      expect(next.items.map((item) => item.runId)).toEqual(["run-3"]);
+      expect(next.nextCursor).toBeUndefined();
       expect((await second.byIds(ids)).map((item) => item.status)).toEqual([
         "running",
         "running",
@@ -147,13 +156,13 @@ const RECORD_CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
       await first.addSummary({
         tenantId: "default",
         threadId: thread,
-        bundle: "desk-workflow",
-        compaction: "conversation-compaction",
+        workflow: "desk-workflow",
+        memory: "conversation-compaction",
         fromTurnId: turn.id,
         toTurnId: turn.id,
         turns: 1,
         text: NUL_TEXT,
-        costUsd: 0,
+        costUsd: usd(0),
       });
 
       const [summary] = await second.latestSummaries(
@@ -197,7 +206,12 @@ export function executionRecordContract(target: ContractTarget<ExecutionRecordRe
   registerContract(
     "execution record contract",
     target,
-    [{ cases: RECORD_CASES }, { cases: pauseAnswerCases() }],
+    [
+      { cases: RECORD_CASES },
+      { cases: pauseAnswerCases() },
+      executionRecordIdleSweepCases(),
+      executionRecordStatusHistoryCases(),
+    ],
     pingOf,
   );
 }

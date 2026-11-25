@@ -9,13 +9,15 @@ import {
   type OnInit,
   type OnStart,
   type OnStop,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What the hooks and the tool did, in order (`Pool.onInit`, `search started`, …). */
 export const events: string[] = [];
@@ -90,10 +92,10 @@ export class JobQueryDto {
   output: JobQueryDto,
   deps: [JobIndexService],
 })
-export class SearchJobsTool implements ToolHandler<JobQueryDto, JobQueryDto> {
+export class SearchJobsTool {
   constructor(readonly jobIndexService: JobIndexService) {}
 
-  async run(input: JobQueryDto): Promise<JobQueryDto> {
+  async execute(input: JobQueryDto): Promise<JobQueryDto> {
     events.push("search started");
     await gate.arrive();
     events.push("search finished");
@@ -104,7 +106,7 @@ export class SearchJobsTool implements ToolHandler<JobQueryDto, JobQueryDto> {
 @Agent({
   name: "scout-agent",
   description: "Searches jobs",
-  prompt: "Search jobs.",
+  prompt: inline("Search jobs."),
   model: "stub/scout",
   tools: [SearchJobsTool],
 })
@@ -127,9 +129,9 @@ export class SearchWorkflowFinish {}
 @Workflow({
   name: "lifecycle-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SearchWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(SearchWorkflowStart)
       .toAgent(ScoutAgent)
       .toFinish(SearchWorkflowFinish),
   ],
@@ -139,6 +141,7 @@ export class LifecycleWorkflow {}
 
 @Application({
   name: "lifecycle-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LifecycleWorkflow],
@@ -161,10 +164,10 @@ export class BrokenPoolProvider implements OnInit {
   output: JobQueryDto,
   deps: [BrokenPoolProvider],
 })
-export class BrokenSearchJobsTool implements ToolHandler<JobQueryDto, JobQueryDto> {
+export class BrokenSearchJobsTool {
   constructor(readonly brokenPoolProvider: BrokenPoolProvider) {}
 
-  run(input: JobQueryDto): Promise<JobQueryDto> {
+  execute(input: JobQueryDto): Promise<JobQueryDto> {
     return Promise.resolve(input);
   }
 }
@@ -172,7 +175,7 @@ export class BrokenSearchJobsTool implements ToolHandler<JobQueryDto, JobQueryDt
 @Agent({
   name: "broken-scout-agent",
   description: "Searches jobs",
-  prompt: "Search jobs.",
+  prompt: inline("Search jobs."),
   model: "stub/scout",
   tools: [BrokenSearchJobsTool],
 })
@@ -181,9 +184,9 @@ export class BrokenScoutAgent {}
 @Workflow({
   name: "broken-lifecycle-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SearchWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(SearchWorkflowStart)
       .toAgent(BrokenScoutAgent)
       .toFinish(SearchWorkflowFinish),
   ],
@@ -193,6 +196,7 @@ export class BrokenLifecycleWorkflow {}
 
 @Application({
   name: "broken-lifecycle-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BrokenLifecycleWorkflow],

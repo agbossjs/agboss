@@ -4,7 +4,7 @@ import { amountOf, isoDurationOf } from "./mesh-durations.js";
 import { ENVELOPE_LIFETIME } from "./mesh-defaults.js";
 import type { MeshEnvelope } from "./mesh-envelope.js";
 import { encodeMeshEnvelope } from "./mesh-envelope-codec.js";
-import { contextMeshSettingsOf, signingKeyOf } from "./mesh-settings.js";
+import { contextMeshSettingsOf, signingKeyOf, type MeshSettings } from "./mesh-settings.js";
 
 /**
  * What an AGBoss client sends with a call made inside an execution (#398): the envelope, a W3C
@@ -34,23 +34,63 @@ export const bodyHashOf = (body: string): string =>
 const TRACE_ID_LENGTH = 32;
 const SPAN_ID_LENGTH = 16;
 
-/** The envelope's claims of what the calling execution has left: budget and time. */
-function claimsOf(frame: Frame, now: Date): Pick<MeshEnvelope, "budget" | "deadline"> {
+/** The budget the calling execution has left: its dollars and its tokens, each only when it has that cap (#1318). */
+function budgetClaimOf(frame: Frame): Pick<MeshEnvelope, "budget"> {
   const call = frame.services.meshCall;
   // a tool call's, else the step's own (#810: an action's remote call passes its budget down too)
   const left = call === undefined ? frame.services.remainingBudget?.() : call.remainingBudget();
+  const leftTokens =
+    call === undefined ? frame.services.remainingTokens?.() : call.remainingTokens?.();
+  if (left === undefined && leftTokens === undefined) return {};
+  const dollars = left === undefined ? {} : { remaining: amountOf(left), currency: "USD" as const };
+  const tokens =
+    leftTokens === undefined ? {} : { remainingTokens: Math.max(0, Math.floor(leftTokens)) };
+  return { budget: { ...dollars, ...tokens } };
+}
+
+/** The envelope's claims of what the calling execution has left: budget and time. */
+function claimsOf(frame: Frame, now: Date): Pick<MeshEnvelope, "budget" | "deadline"> {
+  const call = frame.services.meshCall;
   // Stryker disable next-line StringLiteral: equivalent: `Date.parse` of any text that is no date is NaN, as of the empty one
   const deadlineAt = call?.deadlineAt.getTime() ?? Date.parse(frame.execution.deadline?.at ?? "");
   return {
-    ...(left === undefined ? {} : { budget: { remaining: amountOf(left), currency: "USD" } }),
+    ...budgetClaimOf(frame),
     ...(Number.isNaN(deadlineAt)
       ? {}
       : { deadline: { remaining: isoDurationOf(deadlineAt - now.getTime()) } }),
   };
 }
 
+/** How long what the application signs is valid: its `@Mesh({ envelopeTtl })`, else 60 s. */
+const envelopeTtlOf = (settings: { readonly envelopeTtl: number } | undefined): number =>
+  settings?.envelopeTtl ?? ENVELOPE_LIFETIME;
+
+/**
+ * The envelope addressed to `audience` — and, for a peer with `propagateTenant`, carrying the
+ * execution's tenant (the receiver checks it against the tenant its HTTP header signed).
+ */
+function addressedOf(
+  built: MeshEnvelope,
+  audience: string | undefined,
+  settings: { readonly peers: MeshSettings["peers"] } | undefined,
+  frame: Frame,
+): MeshEnvelope {
+  if (audience === undefined) return built;
+  const propagate = settings?.peers.get(audience)?.propagateTenant === true;
+  return {
+    ...built,
+    audience,
+    ...(propagate ? { tenantId: frame.execution.tenant.tenantId } : {}),
+  };
+}
+
 /** The envelope of a call made in `frame`; `undefined` when its tree has no call chain. */
-function envelopeOf(frame: Frame, bodyHash: string, now: Date): MeshEnvelope | undefined {
+function envelopeOf(
+  frame: Frame,
+  bodyHash: string,
+  now: Date,
+  ttl: number,
+): MeshEnvelope | undefined {
   const { execution, step } = frame;
   const root = rootFactsOf(execution);
   if (root.mesh === undefined) return undefined;
@@ -72,7 +112,7 @@ function envelopeOf(frame: Frame, bodyHash: string, now: Date): MeshEnvelope | u
     },
     callChain: root.mesh.chain,
     issuedAt: now.toISOString(),
-    expiresIn: isoDurationOf(ENVELOPE_LIFETIME),
+    expiresIn: isoDurationOf(ttl),
     bodyHash,
     ...claimsOf(frame, now),
   };
@@ -96,9 +136,9 @@ export function outboundMeshOfHash(bodyHash: string, audience?: string): Outboun
   if (frame === undefined || frame.isClosed()) return undefined;
   const settings = contextMeshSettingsOf(frame.execution.tenant.application);
   const now = settings?.clock.now() ?? new Date(0);
-  const built = envelopeOf(frame, bodyHash, now);
+  const built = envelopeOf(frame, bodyHash, now, envelopeTtlOf(settings));
   if (built === undefined) return undefined;
-  const envelope = audience === undefined ? built : { ...built, audience };
+  const envelope = addressedOf(built, audience, settings, frame);
   const root = rootFactsOf(frame.execution);
   // Stryker disable next-line OptionalChaining: equivalent: `envelopeOf` answered `undefined` above for a root without `mesh`, so it is there
   const traceId = root.mesh?.traceId ?? hexOf(root.executionId, TRACE_ID_LENGTH);

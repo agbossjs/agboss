@@ -89,10 +89,10 @@ function verifiedOf(
   bodyHash: string,
 ): MeshRefusalCode | Admitted["verified"] {
   const { issuer } = read.envelope;
-  const key = read.signed === undefined ? undefined : settings.keys.peers.get(issuer);
-  if (key === undefined) return undefined;
+  const keys = read.signed === undefined ? undefined : settings.keys.peers.get(issuer);
+  if (keys === undefined) return undefined;
   const refusal =
-    signatureRefusalOf(read, key, settings.clock.now()) ??
+    signatureRefusalOf(read, keys, settings.clock.now(), settings) ??
     (read.envelope.bodyHash === bodyHash ? undefined : MeshRefusalCode.BodyMismatch);
   return refusal ?? { issuer, bodyHash };
 }
@@ -155,3 +155,49 @@ export function requestMeshOf(
 /** What the request's execution runs with: its chain, its trace, a trusted caller's claims. */
 export const inboundMeshOfA2A = (mesh: A2ARequestMesh): InboundMesh | undefined =>
   inboundMeshOfRequest(mesh.envelope, mesh.traceparent, mesh.trusted?.peer);
+
+/** The A2A operations that name a task: with a trusted tenant, they need the peer's signed one. */
+const TASK_OPERATIONS: ReadonlySet<A2AOperation> = new Set([
+  A2AOperation.GetTask,
+  A2AOperation.ListTasks,
+  A2AOperation.CancelTask,
+  A2AOperation.SubscribeToTask,
+]);
+
+/** A refusal of a verified peer's request, with the status it is answered with. */
+export interface PeerRefusal {
+  readonly kind: "refused";
+  readonly status: 403;
+  readonly code: MeshRefusalCode;
+}
+
+const tenantMismatch: PeerRefusal = {
+  kind: "refused",
+  status: 403,
+  code: MeshRefusalCode.TenantMismatch,
+};
+
+/**
+ * A verified peer whose tenant is trusted (`propagateTenant`, the base tenant context) reaches the
+ * task operations only with the tenant it signed: without one it could read the default tenant's tasks.
+ */
+export function peerRefusalOf(
+  settings: MeshSettings,
+  peer: { readonly peer: string; readonly tenantId: string | undefined },
+  operation: A2AOperation,
+): PeerRefusal | undefined {
+  const rules = settings.peers.get(peer.peer);
+  const needsTenant = rules?.propagateTenant === true && settings.isBaseTenantContext;
+  return needsTenant && peer.tenantId === undefined && TASK_OPERATIONS.has(operation)
+    ? tenantMismatch
+    : undefined;
+}
+
+/** The envelope names a tenant other than the one the peer's header signed. */
+export function tenantRefusalOf(
+  peer: { readonly tenantId: string | undefined },
+  envelope: MeshEnvelope | undefined,
+): PeerRefusal | undefined {
+  const claimed = envelope?.tenantId;
+  return claimed !== undefined && claimed !== peer.tenantId ? tenantMismatch : undefined;
+}

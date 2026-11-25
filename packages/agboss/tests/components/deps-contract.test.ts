@@ -2,7 +2,7 @@
  * #183 AC1: one `deps` contract for every component kind — each kind that takes `deps` gets its
  * dependency injected by the app's container (through `createApp`), not `undefined`.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { JudgeVerdict } from "../../src/components/judge-decorators.js";
@@ -27,7 +27,7 @@ const runVault = async () => {
   book
     .scriptOf("agent:keeper-agent")
     .thenReturn(callTool(RevealTool, { what: "it" }), replyWith(KeptDto, { text: "ok" }));
-  const app = await createAppWith(VaultApplication, offline(book));
+  const app = await createTestAppWith(VaultApplication, offline(book));
   const result = await execute(app, Chat, { text: "open" });
   return { app, book, result };
 };
@@ -69,9 +69,9 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
 
   it("@Channel: created with deps", async () => {
     const { app } = await runVault();
-    await expect(app.resolve(VaultChannel).send({ pauseId: "p1", value: {} })).resolves.toEqual(
-      ChannelOutcome.awaitReply(),
-    );
+    await expect(
+      app.resolve(VaultChannel).send({ pauseId: "p1", input: {}, trail: [] } as never),
+    ).resolves.toEqual(ChannelOutcome.awaitReply());
     expect(seen).toContain("channel:p1:s3cret");
     await app.close();
   });
@@ -82,13 +82,13 @@ describe("#183 AC1: every decorator kind with deps gets them injected at run tim
     await expect(
       judge.judge({
         variant: KeptDto,
-        reply: { text: "leaks s3cret" },
+        output: { text: "leaks s3cret" },
         task: "",
         attempt: 0,
         toolCalls: [],
         files: [],
       }),
-    ).resolves.toEqual(JudgeVerdict.failed({ reason: "leaks the secret" }));
+    ).resolves.toEqual(JudgeVerdict.failed("leaks the secret"));
     expect(app.resolve(RemoteA2AAgent).vault).toBe(app.resolve(Vault));
     expect(app.resolve(Vault).secret).toBe("s3cret");
     await app.close();

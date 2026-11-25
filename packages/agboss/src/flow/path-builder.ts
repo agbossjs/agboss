@@ -1,33 +1,30 @@
 import type { Class } from "../components/injection.js";
 import {
   NodeKind,
-  QuorumKind,
   StepKind,
-  type ChooseOneRoute,
-  type ComponentSource,
   type ErrorClass,
-  type JoinStep,
-  type LaunchTargetKind,
+  QuorumKind,
   type PathSource,
-  type QuorumGroup,
+  type Quorum,
   type Step,
   type SubPath,
-  type SwitchCase,
   type ToStep,
 } from "./ast.js";
-import { FlowSyntaxError, launchOrderProblem, launchStepOf } from "./launch-step.js";
+import { oneOfStepOf, onFinishStepOf, routeOf } from "./branch-step.js";
+import * as parallel from "./parallel-step.js";
+import { FlowSyntaxError, launchOrderProblem } from "./launch-step.js";
 import {
-  acceptedByOf,
-  acceptingLaunch,
+  arbitratedByOf,
+  arbitratingLaunch,
   countQuorumOf,
+  groupsJoinOf,
   groupsQuorumOf,
-  priorityOf,
   quorumGroupOf,
+  withGroup,
 } from "./quorum-step.js";
-import { returnedValue } from "./returns-step.js";
-import { placementOptionOf } from "./child-placement.js";
-import { expiresInOptionOf } from "./question-options.js";
 import type { PathStart } from "./path-start.js";
+import { withTarget, type TargetRef } from "./target-ref.js";
+import { carryStepSpan, recordStepSpan } from "./step-spans.js";
 
 /**
  * The runtime of the path builder (#272): one immutable class behind every typed builder state;
@@ -35,11 +32,13 @@ import type { PathStart } from "./path-start.js";
  */
 
 export { FlowSyntaxError } from "./launch-step.js";
+export { fromComponent } from "./path-sources.js";
 
 const syntaxError = (message: string): FlowSyntaxError => new FlowSyntaxError({ message });
-export { aboutTargets } from "./returns-step.js";
 
 export type { PathStart } from "./path-start.js";
+
+const SIDE_PATH_HINT = "toAction(…), toAgent(…), toFinish(…), …";
 
 /** A flow path's builder holds its source; a sub-path's holds `undefined`. */
 type SourceOf = PathSource | undefined;
@@ -60,38 +59,24 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
   private then(step: Step): PathBuilder<TSource> {
     const problem = launchOrderProblem(this.last, step);
     if (problem !== undefined) throw syntaxError(problem);
-    return new PathBuilder(this.start, this.source, [...this.steps, step]);
+    return new PathBuilder(this.start, this.source, [...this.steps, recordStepSpan(step)]);
   }
 
-  /** The join with a new handler or value: `.onJoinError(…)` and `.returns(…)` extend it. */
-  private withJoin(join: JoinStep): PathBuilder<TSource> {
-    return this.withLast(Object.freeze(join));
-  }
-
-  /** The last step replaced: a join extended, a launch given one more arbiter. */
+  /** The last step replaced: a join extended, a launch given its arbiter. */
   private withLast(step: Step): PathBuilder<TSource> {
-    return new PathBuilder(this.start, this.source, [...this.steps.slice(0, -1), step]);
+    const replaced = this.last;
+    const kept = replaced === undefined ? step : carryStepSpan(replaced, step);
+    return new PathBuilder(this.start, this.source, [...this.steps.slice(0, -1), kept]);
   }
 
-  private to(
-    target: Class,
-    kind: NodeKind,
-    extra: Pick<ToStep, "placement" | "expiresIn"> = {},
-  ): PathBuilder<TSource> {
-    const step: ToStep = { kind: StepKind.To, target, targetKind: kind };
-    return this.then({ ...step, ...extra });
-  }
-
-  returns(shape: unknown, options?: unknown, ...rest: readonly unknown[]): PathBuilder<TSource> {
-    const value = returnedValue(shape, options, rest.length);
-    const { last } = this;
-    if (last?.kind === StepKind.Join && last.quorum?.kind === QuorumKind.Groups)
-      throw syntaxError(
-        "each group names its values: group(…).returns(…) — not after .joinQuorumGroups(…)",
-      );
-    if (last?.kind === StepKind.Join)
-      return this.withJoin({ ...last, returns: Object.freeze([...last.returns, value]) });
-    return this.then({ kind: StepKind.Returns, value });
+  private to(target: TargetRef, kind: NodeKind): PathBuilder<TSource> {
+    const rest = { kind: StepKind.To as const, targetKind: kind };
+    // only a child workflow may be named by a thunk (#1287): any other target is read as written
+    const step: ToStep =
+      kind === NodeKind.Workflow
+        ? withTarget("target", target, rest)
+        : { ...rest, target: target as Class };
+    return this.then(step);
   }
 
   toAgent(target: Class): PathBuilder<TSource> {
@@ -110,129 +95,137 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return this.to(target, NodeKind.Finish);
   }
 
-  /** `.toQuestion(Role)` (#659): the question role's step — it pauses, its answer goes on the path. */
-  toQuestion(target: Class, options?: unknown): PathBuilder<TSource> {
-    return this.to(target, NodeKind.Question, expiresInOptionOf(options, "toQuestion(Q, {…})"));
+  /** `.toExternalTask(Task)` (#659): the external task's step — it pauses, its output goes on the path. */
+  toExternalTask(target: Class): PathBuilder<TSource> {
+    return this.to(target, NodeKind.Question);
   }
 
-  /** `.toWorkflow(W)` (#263): one child of `W`; `.toWorkflow(W, { placement })` (#333 PR 2). */
-  toWorkflow(target: Class, options?: unknown): PathBuilder<TSource> {
-    const placement = placementOptionOf(options, "toWorkflow(W, {…})");
-    return this.to(target, NodeKind.Workflow, placement === undefined ? {} : { placement });
+  /** `.toWorkflow(W)` (#263): one child of `W`; where it runs is `W`'s `placement` (#1286). */
+  toWorkflow(target: TargetRef): PathBuilder<TSource> {
+    return this.to(target, NodeKind.Workflow);
   }
 
-  switch(...cases: readonly PathBuilder[]): PathBuilder<TSource> {
-    return this.then({ kind: StepKind.Switch, cases: cases.map((path) => path.asCase()) });
+  /** `.toOneOf([toAction(A)…, toFinish(F)])` (#1275): the branches of a `oneOf(…)` output. */
+  toOneOf(branches: unknown): PathBuilder<TSource> {
+    return this.then(oneOfStepOf(branches, (path, call) => PathBuilder.sideOf(path, call)));
   }
 
-  chooseOne(...routes: readonly PathBuilder[]): PathBuilder<TSource> {
-    return this.then({ kind: StepKind.ChooseOne, routes: routes.map((path) => path.asRoute()) });
+  /** `.onFinish(KycFraudFinish, toAction(X)…)` (#1275b): the side path one finish of a child takes. */
+  onFinish(finish: unknown, path: unknown): PathBuilder<TSource> {
+    return this.then(onFinishStepOf(finish, path, (side, call) => PathBuilder.sideOf(side, call)));
   }
 
-  onError(error: ErrorClass, path: PathBuilder): PathBuilder<TSource> {
-    return this.then({ kind: StepKind.OnError, error, path: path.asSidePath() });
+  /**
+   * `.onRoute(toAgent(A)…)` (#1278): one route of the router before it — the starter names the
+   * target, the rest of the chain is what follows it. Consecutive calls are one choice.
+   */
+  onRoute(path: unknown): PathBuilder<TSource> {
+    const route = routeOf(path, (side, call) => PathBuilder.sideOf(side, call));
+    const { last } = this;
+    if (last?.kind !== StepKind.ChooseOne)
+      return this.then({ kind: StepKind.ChooseOne, routes: Object.freeze([route]) });
+    return this.withLast(
+      Object.freeze({ ...last, routes: Object.freeze([...last.routes, route]) }),
+    );
   }
 
-  toParallelAgents(...args: readonly unknown[]): PathBuilder<TSource> {
-    return this.launch(NodeKind.Agent, args);
+  /**
+   * `.onError(E, side path)`: after a step it handles that step's failure; right after a join
+   * (`.join()`, `.joinQuorum(…)`, `.joinQuorumGroups(…)`) it handles the join's failure (#1281) — after
+   * `.joinQuorumGroups(…)` only before its first `.onGroup(…)` (#1284).
+   */
+  onError(error: ErrorClass, path: PathBuilder | parallel.Skip): PathBuilder<TSource> {
+    if (parallel.isSkip(path)) return this.withLast(parallel.skippedStepOf(this.at, error));
+    const { last } = this;
+    if (last?.kind !== StepKind.Join)
+      return this.then({ kind: StepKind.OnError, error, path: path.asSidePath() });
+    if (last.quorum?.kind === QuorumKind.Groups && last.quorum.groups.length > 0)
+      throw syntaxError(
+        ".onError(E, …) stands right after .joinQuorumGroups(…), before its first .onGroup(…) — not after one",
+      );
+    const handler = Object.freeze({ error, path: path.asSidePath() });
+    return this.withLast(
+      Object.freeze({ ...last, onError: Object.freeze([...last.onError, handler]) }),
+    );
   }
 
-  toParallelActions(...args: readonly unknown[]): PathBuilder<TSource> {
-    return this.launch(NodeKind.Action, args);
+  /** Where this builder stands for `skip()` and `chooseMany`: its last step, and whether it is a side path. */
+  private get at(): parallel.BranchSite {
+    return { last: this.last, isSubPath: parallel.isSidePath(this.source, this.start) };
   }
 
-  /** `.toParallelWorkflows(W, { maxConcurrency, maxItems })` (#263): one child per item of the list. */
-  toParallelWorkflows(...args: readonly unknown[]): PathBuilder<TSource> {
-    return this.launch(NodeKind.Workflow, args);
+  /** `toRouter(R).chooseMany([toAgent(A), …])` (#1279b): a router branch of `.inParallel([…])`. */
+  chooseMany(branches: unknown): PathBuilder<TSource> {
+    return this.withLast(parallel.chosenStepOf(this.at, branches, PathBuilder.branchOf));
   }
 
-  join(): PathBuilder<TSource> {
+  /** `.inParallel([toAgent(A), toAction(X).onError(E, skip()), …], { maxConcurrency })` (#1279). */
+  inParallel(branches: unknown, options?: unknown): PathBuilder<TSource> {
+    return this.then(parallel.inParallelStepOf(branches, options, PathBuilder.branchOf));
+  }
+
+  /** `.forEachItem(toAgent(A), { maxItems | takeFirst, maxConcurrency })` (#1280). */
+  forEachItem(step: unknown, options?: unknown): PathBuilder<TSource> {
+    return this.then(parallel.forEachItemStepOf(step, options, PathBuilder.branchOf));
+  }
+
+  /** A join step, with the quorum of `.joinQuorum(…)` / `.joinQuorumGroups(…)` when it has one. */
+  private joined(quorum?: Quorum): PathBuilder<TSource> {
     return this.then({
       kind: StepKind.Join,
-      returns: Object.freeze([]),
-      onJoinError: Object.freeze([]),
+      onError: Object.freeze([]),
+      ...(quorum && { quorum }),
     });
   }
 
-  /** `.acceptedBy(A)` / `.acceptedBy(anyOf(A, B))` (#279): one more arbiter of the launch, AND. */
-  acceptedBy(choice: unknown): PathBuilder<TSource> {
-    const launch = acceptingLaunch(this.last);
-    const acceptedBy = Object.freeze([...(launch.acceptedBy ?? []), acceptedByOf(choice)]);
-    return this.withLast(Object.freeze({ ...launch, acceptedBy }));
+  join(): PathBuilder<TSource> {
+    return this.joined();
+  }
+
+  /** `.arbitratedBy(A)` (#1282): the one arbiter every answer of the launch passes before a quorum counts it. */
+  arbitratedBy(arbiter: unknown): PathBuilder<TSource> {
+    const launch = arbitratingLaunch(this.last);
+    return this.withLast(Object.freeze({ ...launch, arbitratedBy: arbitratedByOf(arbiter) }));
   }
 
   /** `.joinQuorum({ min, max, deadline })` (#279): goes on with the counted answers. */
   joinQuorum(options: unknown): PathBuilder<TSource> {
-    return this.then({
-      kind: StepKind.Join,
-      returns: Object.freeze([]),
-      onJoinError: Object.freeze([]),
-      quorum: countQuorumOf(options),
-    });
+    return this.joined(countQuorumOf(options));
   }
 
-  /** `.joinQuorumGroups(group(…)…, { deadline })` (#279): each group continues its own path. */
-  joinQuorumGroups(...args: readonly unknown[]): PathBuilder<TSource> {
-    const asGroup = (path: unknown): QuorumGroup | undefined =>
-      path instanceof PathBuilder ? path.asGroup() : undefined;
-    return this.then({
-      kind: StepKind.Join,
-      returns: Object.freeze([]),
-      onJoinError: Object.freeze([]),
-      quorum: groupsQuorumOf(args, asGroup),
-    });
+  /** `.joinQuorumGroups({ deadline })` (#1284): its groups follow as `.onGroup([…], options?, subPath)`. */
+  joinQuorumGroups(options?: unknown): PathBuilder<TSource> {
+    return this.joined(groupsQuorumOf(options));
   }
 
-  /** `group(…).priority(n)`: 1 is the highest; written right after `group(…)`. */
-  priority(priority: unknown): PathBuilder<TSource> {
-    if (this.start.kind !== "group" || this.steps.length > 0)
-      throw syntaxError(".priority(n) stands right after group(…)");
-    const start = { ...this.start, priority: priorityOf(priority) };
-    return new PathBuilder(start, this.source, this.steps);
-  }
-
-  onJoinError(error: ErrorClass, path: PathBuilder): PathBuilder<TSource> {
-    const { last } = this;
-    if (last?.kind !== StepKind.Join || last.returns.length > 0)
-      throw syntaxError(".onJoinError(E, …) stands right after .join(), before its .returns(…)");
-    const handler = Object.freeze({ error, path: path.asSidePath() });
-    return this.withJoin({ ...last, onJoinError: Object.freeze([...last.onJoinError, handler]) });
-  }
-
-  private launch(targetKind: LaunchTargetKind, args: readonly unknown[]): PathBuilder<TSource> {
-    const { last } = this;
-    const followsRouter =
-      last === undefined
-        ? this.source?.kind === NodeKind.Router
-        : last.kind === StepKind.To && last.targetKind === NodeKind.Router;
-    return this.then(launchStepOf(targetKind, args, { previous: last, followsRouter }));
+  /**
+   * `.onGroup([A, B], { priority }, subPath)` (#1284): the group of the launch's targets whose counted
+   * answers complete it, and the path it continues with; `{ priority }` is optional (1 is the highest).
+   */
+  onGroup(targets: unknown, ...rest: readonly unknown[]): PathBuilder<TSource> {
+    const join = groupsJoinOf(this.last, rest.length);
+    const path = PathBuilder.sideOf(rest[rest.length - 1], ".onGroup(…)");
+    const group = quorumGroupOf(targets, rest.length === 2 ? rest[0] : undefined, path);
+    return this.withLast(withGroup(join, group));
   }
 
   private subPath(): SubPath {
     return Object.freeze({ steps: this.steps });
   }
 
-  private asCase(): SwitchCase {
-    if (this.start.kind !== "case") throw syntaxError(".switch(…) takes caseOf(…) paths");
-    const { dto, about } = this.start;
-    const path = this.subPath();
-    return Object.freeze(about === undefined ? { dto, path } : { dto, about, path });
+  /** A side path of `call` (`.toOneOf([…])`, `.onFinish(F, …)`), or a syntax error. */
+  static sideOf(path: unknown, call: string, isBranch = false): SubPath {
+    if (path instanceof PathBuilder) return path.asSidePath(`${call} takes side paths`, isBranch);
+    throw syntaxError(`${call} takes side paths: ${SIDE_PATH_HINT}`);
   }
 
-  private asRoute(): ChooseOneRoute {
-    if (this.start.kind !== "route") throw syntaxError(".chooseOne(…) takes route(…) paths");
-    const { target, placement } = this.start;
-    return Object.freeze({ target, path: this.subPath(), ...(placement && { placement }) });
-  }
+  /** A branch of `.inParallel([…])` / `.forEachItem(…)`: a side path that may carry a `skip()`. */
+  private static readonly branchOf = (path: unknown, call: string): SubPath =>
+    PathBuilder.sideOf(path, call, true);
 
-  /** A group: its leading `.returns(…)` chain are its values, the rest its own path. */
-  private asGroup(): QuorumGroup | undefined {
-    return this.start.kind === "group" ? quorumGroupOf(this.start, this.steps) : undefined;
-  }
-
-  private asSidePath(): SubPath {
-    if (this.start.kind !== "side")
-      throw syntaxError(".onError(E, …) takes a side path: toAction(…), toFinish(…), …");
+  private asSidePath(call = ".onError(E, …) takes a side path", isBranch = false): SubPath {
+    if (this.start.kind !== "side" || (!isBranch && this.steps.some(parallel.isBranchOnly)))
+      throw syntaxError(`${call}: ${SIDE_PATH_HINT}`);
     return this.subPath();
   }
 }
@@ -240,18 +233,6 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
 export const fromSource = (source: PathSource): PathBuilder<PathSource> =>
   new PathBuilder({ kind: "source" }, Object.freeze(source), []);
 
-export const fromComponent = (
-  kind: ComponentSource["kind"],
-  node: Class,
-): PathBuilder<PathSource> => fromSource({ kind, node });
-
 /** A sub-path's builder. */
 export const subPathFrom = (start: PathStart): PathBuilder<undefined> =>
   new PathBuilder(start, undefined, []);
-
-/** `group(A, B, …)` of `.joinQuorumGroups(…)` (#279): one or more agent classes, repeats counted. */
-export function groupFrom(agents: readonly unknown[]): PathBuilder<undefined> {
-  if (agents.length === 0 || agents.some((agent) => typeof agent !== "function"))
-    throw syntaxError("group(…) takes one or more agent classes of the launch");
-  return subPathFrom({ kind: "group", agents: Object.freeze([...(agents as readonly Class[])]) });
-}

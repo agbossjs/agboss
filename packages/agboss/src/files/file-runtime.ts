@@ -1,16 +1,14 @@
-import { DEFAULT_FILE_FETCH_TIMEOUT } from "../a2a/files/a2a-file-options.js";
 import { appFileSlotsOf } from "../a2a/files/a2a-file-pool.js";
 import { callerKeyOf, tenantKeyOf } from "../a2a/files/a2a-file-slots.js";
 import type { FileTransport } from "../a2a/files/a2a-file-transport.js";
 import { currentFrame, rootFactsOf } from "../flow/context/frame.js";
-import { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
+import { FileRepository } from "../infrastructure/file.repository.js";
 import { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
 import { lazyLoad, systemClock } from "../infrastructure/clock.js";
 import type { BudgetMeter } from "../budgets/execution-budgets.js";
 import { recordReportedCost } from "../finops/usage.js";
 import type { AgentDefinition } from "../graph/agent-loop/deps.js";
 import type { GraphDeps } from "../graph/deps.js";
-import { contextMeshSettingsOf } from "../mesh/mesh-settings.js";
 import { kilobytes } from "../units/index.js";
 import { valuesForRedactor } from "./redaction-values.js";
 import type { FileContent, FileReadContext } from "./file-bytes.js";
@@ -55,8 +53,7 @@ function executionOf() {
 /** The read context of the execution the agent runs in: its store, its task, its signal and limits. */
 function readContextOf(deps: GraphDeps<string>, settings: ResolvedModelFiles): FileReadContext {
   const execution = executionOf();
-  const limits = contextMeshSettingsOf(execution.tenant.application)?.a2aFiles;
-  const store = deps.container.get(A2AFileRepository);
+  const store = deps.container.get(FileRepository);
   return {
     store,
     tenantId: execution.tenant.tenantId,
@@ -64,12 +61,13 @@ function readContextOf(deps: GraphDeps<string>, settings: ResolvedModelFiles): F
     signal: execution.signal,
     clock: deps.clock ?? systemClock,
     transport: lazyHttpsTransport,
-    allowedOrigins: limits?.allowedFileOrigins ?? [],
-    fetchTimeout: DEFAULT_FILE_FETCH_TIMEOUT,
+    // the agent's workflow `@FilePolicy` (#1316)
+    allowedOrigins: settings.allowedOrigins,
+    fetchTimeout: settings.fetchTimeout,
     // the settings hold a plain number of bytes: dividing by 1,024 is exact, `kilobytes` multiplies back
     maxFileSize: kilobytes(settings.maxFileSize / 1024),
     // the fetch's slots are the application's, shared with its A2A listeners, with the listener's keys (#1297)
-    slots: appFileSlotsOf(store),
+    slots: appFileSlotsOf(store, settings.fetchPool),
     caller: {
       tenant: tenantKeyOf(execution.tenant.tenantId),
       owner: callerKeyOf(execution.tenant.tenantId, execution.ownerId),
@@ -133,7 +131,7 @@ async function redactFile(
   if (instance instanceof ModelImageRedactor) {
     const binding = deps.registry.fileRedactors.get(agent);
     if (binding === undefined) throw new TypeError(`${agent}: no redaction model is bound`);
-    return instance.redactWith(binding, agent, file, options);
+    return instance.redactWith(binding, agent, file, options, deps.log);
   }
   return withReportedCost(await instance.redact(file, options), "files:redactor", "redactor");
 }

@@ -7,4 +7,9 @@ export type FileRuleCode =
   | "files.redactor-values-withheld"
   | "files.answer-file-unseen"
   | "pii.original-file"
-  | "pii.redacted-needs-kinds";
+  | "pii.redacted-needs-kinds"
+  | "file-policy.invalid"
+  | "file-policy.not-a-file-policy"
+  | "file-policy.ttl-required-on-workflow"
+  | "workflow.file-policy-required"
+  | "a2a.skill-file-policy-exceeds-workflow";

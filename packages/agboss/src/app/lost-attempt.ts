@@ -1,4 +1,5 @@
-import { CostSource, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
+import { CostSource, NO_PROVIDER, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
+import { usd } from "../units/index.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { ExecutionTreeRepository } from "../infrastructure/execution-tree.repository.js";
 import type { AppDeps } from "./app-deps.js";
@@ -10,7 +11,7 @@ import type { TreeState } from "./tree-move-types.js";
  * The lost pass of a run no recovery continues (#860 D1, as #853 records a lost pass): an instance
  * that takes its lease over ends it without a pass, so its holder's pass was lost mid-run — for a
  * run that can call a model, one call of unknown cost, no amount (`CostSource.Unknown`), in the
- * spend of its kept record (`spend.unknownCalls`, what `agboss records export` writes) and counted
+ * spend of its kept record (`spend.unknownCalls`, what `agboss executions export` writes) and counted
  * by the instance's tally, under the run's own ledger key: one per run, whoever ends it. No budget
  * counter is written: the amount is none, and a budget's `maxSpend()` is read inside an execution
  * only.
@@ -44,7 +45,8 @@ export async function lostRunUsageOf(
     ...ZERO_USAGE,
     caller: `lost-pass:${workflow}`,
     model: "unknown",
-    costUsd: 0,
+    provider: NO_PROVIDER,
+    costUsd: usd(0),
     costSource: CostSource.Unknown,
     ledgerKey: { id: lostRunLedgerIdOf(state), madeAt: clock.now() },
   };

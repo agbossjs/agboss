@@ -13,7 +13,7 @@ import { TablesImport, type ImportTable } from "./imports.js";
 /**
  * How shapes are written as types in the generated file (#270): `XDto`, `listOf(XDto)` →
  * `readonly XDto[]`, `oneOf(A, B)` → `A | B`, `optional(X)` → `X | undefined`; a value read from
- * the path scope is `Produced<T, P>`, a list field an array of `Produced` elements.
+ * the path scope is `Tracked<T, P>`, a list field an array of `Tracked` elements.
  */
 
 /** A property name as TypeScript accepts it. */
@@ -69,21 +69,20 @@ export function startOutputText(input: WorkflowStartInput, names: ImportTable): 
 }
 
 /**
- * An input field read from the path scope: `Produced<T, P>`, a list of them for a list field,
- * `HistoryOf<Produced<T, P>>` for a `historyOf(T)` field (#299 S56).
+ * An input field read from the path scope: `Tracked<T, P>` (the DTO itself, its producers in the type),
+ * a list of them for a list field, `HistoryOf<Tracked<T, P>>` for a `historyOf(T)` field (#299 S56).
  */
-export function producedText(
-  shape: InputFieldShape,
-  producers: string,
-  names: ImportTable,
-): string {
+export function trackedText(shape: InputFieldShape, producers: string, names: ImportTable): string {
   const inner =
     typeof shape !== "function" && shape.kind === Wrapper.Optional ? shape.inner : shape;
-  const produced = names.use(TablesImport.Produced);
-  if (typeof inner === "function") return `${produced}<${names.dto(inner)}, ${producers}>`;
+  const tracked = names.use(TablesImport.Tracked);
+  // no producers named (an off-path undo action's field): the default `Class`
+  const track = (value: string): string =>
+    producers === "" ? `${tracked}<${value}>` : `${tracked}<${value}, ${producers}>`;
+  if (typeof inner === "function") return track(names.dto(inner));
   if (inner.kind === Wrapper.History) {
     const history = names.use(TablesImport.HistoryOf);
-    return `${history}<${produced}<${names.dto(inner.dto)}, ${producers}>>`;
+    return `${history}<${track(names.dto(inner.dto))}>`;
   }
-  return `readonly ${produced}<${elementText(inner.element, names)}, ${producers}>[]`;
+  return `readonly ${track(elementText(inner.element, names))}[]`;
 }

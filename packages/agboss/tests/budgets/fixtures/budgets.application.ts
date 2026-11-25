@@ -1,3 +1,4 @@
+import { Window2Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   Budget,
@@ -11,18 +12,21 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type BudgetHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import {
-  Decimal,
+  Float,
   Text,
   WorkflowFinishTextDto,
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #261 PR 5: an application whose budgets read the execution — the tenant's own daily amount from
@@ -47,7 +51,7 @@ export class ShopCostLedgerRepository extends InMemoryCostLedgerRepository {
 
 /** The tenant's own fields: its daily amount, from the caller's server-side tenant data. */
 export class ShopTenantContext extends TenantContext {
-  @Decimal()
+  @Float()
   dailyBudgetUsd!: number;
 }
 
@@ -71,7 +75,7 @@ export class DraftDto {
 }
 
 const defaults = {
-  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
+  models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
   tools: { maxToolCalls: 2 },
 } as const;
 const price = { inputPerMTok: 1, outputPerMTok: 10 };
@@ -79,7 +83,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 10 };
 @Agent({
   name: "drafter-agent",
   description: "Drafts",
-  prompt: "Draft it.",
+  prompt: inline("Draft it."),
   model: "test/drafter",
   price,
   output: DraftDto,
@@ -89,7 +93,7 @@ export class DrafterAgent {}
 @Agent({
   name: "reviewer-agent",
   description: "Reviews",
-  prompt: "Review it.",
+  prompt: inline("Review it."),
   model: "test/reviewer",
   price,
   input: { draft: DraftDto },
@@ -99,16 +103,10 @@ export class ReviewerAgent {}
 @Workflow({
   name: "brief-workflow",
   version: "1.0.0",
-  flow: [
-    start(BriefStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(DrafterAgent)
-      .returns(DraftDto)
-      .toAgent(ReviewerAgent)
-      .toFinish(BriefFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(BriefStart).toAgent(DrafterAgent).toAgent(ReviewerAgent).toFinish(BriefFinish)],
   defaults,
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 })
 export class BriefWorkflow {}
 
@@ -167,6 +165,7 @@ export class BriefExecutionBudget implements BudgetHandler {
 
 @Application({
   name: "shop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [BriefWorkflow],

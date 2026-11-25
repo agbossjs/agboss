@@ -1,4 +1,4 @@
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { DeskA2AAgent } from "../a2a/desk.a2a-agent.js";
 import { DeskCallDto, DeskReplyDto } from "../dto/desk-call.dto.js";
@@ -12,13 +12,13 @@ import { DeskCallDto, DeskReplyDto } from "../dto/desk-call.dto.js";
   timeout: seconds(30),
   deps: [DeskA2AAgent, ExecutionContext],
 })
-export class AskDeskTool implements ToolHandler<DeskCallDto, DeskReplyDto> {
+export class AskDeskTool {
   constructor(
     private readonly deskA2AAgent: DeskA2AAgent,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  run(call: DeskCallDto): Promise<DeskReplyDto> {
+  execute(call: DeskCallDto): Promise<DeskReplyDto> {
     // the call's signal: a cancel or the tool's timeout aborts the HTTP request
     return this.deskA2AAgent.execute(call, { signal: this.executionContext.signal });
   }

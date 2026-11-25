@@ -5,7 +5,6 @@
  * reserved id, and where a tree is as its durable records say.
  */
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { DuplicateExecutionIdError } from "../../src/errors.js";
 import { PauseClosedError } from "../../src/app/pause-closed-error.js";
 import { CANCEL_REQUEST_KEY } from "../../src/app/cancel-requests.js";
@@ -134,6 +133,13 @@ describe("#807 AC1: a reserved execution id starts one execution, ever", () => {
     expect(seen.steps).toEqual(["once"]);
   });
 
+  test("an id that holds the child separator is refused as well, the id not echoed (#1321d)", () => {
+    expect(() => withReservedExecutionId({}, "root/child/x-evil")).toThrow(
+      /^a reserved execution id breaks the rule "reserved-separator"$/u,
+    );
+    expect(() => withReservedExecutionId({}, "root/child/x-evil")).toThrow(RangeError);
+  });
+
   test("an id that is no key's text is refused before any call, the id not echoed", () => {
     expect(() => withReservedExecutionId({}, "x\uD800")).toThrow(RangeError);
     expect(() => withReservedExecutionId({}, "x\uD800")).toThrow(
@@ -173,8 +179,9 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     const { call } = await holding(first);
     const outcome = await controlOf(first).cancelExecution(tree());
     expect(outcome).toBe(ExecutionCancelOutcome.Aborted);
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
-    expect(seen.errors.map((error) => error.constructor)).toEqual([ExecutionCancelledError]);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
   });
 
   test("running on the other instance: requested, its holder stops within one renewal", async ({
@@ -190,7 +197,7 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     await clock.advance(seconds(10));
 
     expect(outcome).toBe(ExecutionCancelOutcome.Requested);
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.steps).toEqual(["one"]);
   });
 
@@ -218,9 +225,10 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     const call = reserved(first);
 
     expect(outcome).toBe(ExecutionCancelOutcome.AwaitingStart);
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.steps).toEqual([]);
-    expect(seen.errors.map((error) => error.constructor)).toEqual([ExecutionCancelledError]);
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
   });
 
   test("paused: ended here as cancelled, its pause withdrawn — a later answer is refused", async ({
@@ -301,9 +309,9 @@ describe("#807 AC2: a cancel of one execution tree", () => {
         status: DurableExecutionStatus.Paused,
         pending: [{ pauseId: paused.pending[0]?.pauseId }],
       });
-      await expect(first.resume(answerOf(paused, { approved: true }))).rejects.toBeInstanceOf(
-        ExecutionCancelledError,
-      );
+      await expect(first.resume(answerOf(paused, { approved: true }))).resolves.toMatchObject({
+        status: ExecutionStatus.Cancelled,
+      });
     },
   );
 
@@ -406,7 +414,7 @@ describe("#807 AC2: a cancel racing a resume — never both", () => {
     levers.letGo?.();
 
     expect(outcome).toBe(ExecutionCancelOutcome.Requested);
-    await expect(resumed).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(resumed).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.charges).toEqual(["10 USD"]);
     expect(seen.steps).toEqual([]);
     expect(await controlOf(first).executionStateOf(tree())).toEqual({
@@ -437,13 +445,14 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
     expect(running).toEqual({ status: DurableExecutionStatus.Running });
     expect(waiting).toMatchObject({
       status: DurableExecutionStatus.Paused,
-      pending: [{ pauseId: paused.pending[0]?.pauseId, channel: expect.any(String) as string }],
+      pending: [{ pauseId: paused.pending[0]?.pauseId, target: expect.any(String) as string }],
     });
+    // #1321d: the tree's checkpoints went with its end, so the record answers: the finish is the last
+    // node of its route, the output its masked finish line, the spend its cost — no tokens
     expect(finished).toEqual({
       status: DurableExecutionStatus.Finished,
       finish: "receipt-workflow-finish",
       output: { text: "Done." },
-      // #844: what the tree spent, as its end said it — read from its records
       spentUsd: resumed.spend.totalUsd,
     });
   });
@@ -468,7 +477,7 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
     expect(state).toEqual({ status: DurableExecutionStatus.Running });
   });
 
-  test("a finished record whose checkpoint is gone reads running, never not started", async ({
+  test("a finished record whose checkpoint is gone reads finished from the record (#1321d)", async ({
     apps,
     mockLlm,
   }) => {
@@ -479,7 +488,12 @@ describe("#807 AC3: where a tree is, from its durable records", () => {
 
     const state = await controlOf(second).executionStateOf(tree());
 
-    expect(state).toEqual({ status: DurableExecutionStatus.Running });
+    expect(state).toMatchObject({
+      status: DurableExecutionStatus.Finished,
+      finish: "receipt-workflow-finish",
+      output: { text: "Done." },
+    });
+    expect((state as { output: unknown }).output).toBeInstanceOf(ReceiptDto);
   });
 
   test("a record a guard stopped is a failure with its reason", async ({ apps }) => {

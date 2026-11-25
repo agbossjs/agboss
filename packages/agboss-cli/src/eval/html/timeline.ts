@@ -1,4 +1,4 @@
-import type { EvalChildTrace, EvalExecutionTrace } from "@agboss/core/eval";
+import type { EvalChildTrace, EvalExecutionTrace, EvalTrajectory } from "@agboss/core/eval";
 import { element, type HtmlElement } from "./html.js";
 import { errorLine, listOf, stepView } from "./step-view.js";
 import { valueView } from "./value-view.js";
@@ -12,7 +12,7 @@ import { valueView } from "./value-view.js";
 /** The most steps of one execution the page lists (`maxSteps` bounds them in practice). */
 export const MAX_STEPS_SHOWN = 200;
 
-function partsOf(trace: EvalExecutionTrace): (HtmlElement | undefined)[] {
+function partsOf(trace: EvalTrajectory): (HtmlElement | undefined)[] {
   return [
     listOf(
       "Failures a side path took",
@@ -25,7 +25,7 @@ function partsOf(trace: EvalExecutionTrace): (HtmlElement | undefined)[] {
       "Pauses",
       trace.pauses.map(
         (pause) =>
-          `${pause.nodeId} asked ${pause.role}: ${pause.resolution}${pause.answeredBy === undefined ? "" : ` by ${pause.answeredBy}`}${pause.decision === undefined ? "" : ` — ${JSON.stringify(pause.decision)}`}`,
+          `${pause.nodeId} asked ${pause.target}: ${pause.resolution}${pause.actor === undefined ? "" : ` by ${pause.actor.id}`}${pause.output === undefined ? "" : ` — ${JSON.stringify(pause.output)}`}`,
       ),
     ),
     listOf(
@@ -52,7 +52,7 @@ function childView(child: EvalChildTrace): HtmlElement {
 
 /** An execution's steps and parts; `anchorOf(index)` anchors the root's steps. */
 function executionViewOf(
-  trace: EvalExecutionTrace,
+  trace: EvalTrajectory,
   anchorOf?: (index: number) => string,
 ): (HtmlElement | undefined)[] {
   const shown = trace.steps.slice(0, MAX_STEPS_SHOWN);

@@ -15,15 +15,16 @@ import {
 } from "./launch-decider.js";
 
 /**
- * A model arbiter's call (#279): one yes/no decision per arriving answer, on the arbiter's own model
- * — a decision model (`Decision.noul` with the agent's criterion) or a chat model (one answer tool) —
- * under the cost caller `arbiter:<name>`, the arbiter's `prompt` as its instructions. The answer
- * counts when P(yes) > 0.5. A failed call or an unreadable answer is a failure, never a rejection.
+ * A declarative model arbiter's call (#279): one yes/no decision per arriving answer, on the
+ * arbiter's own model — a decision model (`Decision.boolean` with the target's criterion) or a chat
+ * model (one answer tool) — under the cost caller `arbiter:<name>`, the arbiter's `prompt` as its
+ * instructions. The answer counts when P(yes) > 0.5. A failed call or an unreadable answer is a
+ * failure, never a rejection. (The injectable `ArbiterModel` of a code arbiter is `arbiter-call.ts`.)
  */
 
-/** One answer to judge: the criterion of its agent and the answer as JSON. */
+/** One answer to judge: the criterion of its target and the answer as JSON. */
 export interface ArbiterQuestion {
-  readonly agent: string;
+  readonly target: string;
   readonly criterion: string;
   readonly instructions: string;
   readonly answer: unknown;
@@ -44,8 +45,8 @@ export type ArbiterVerdict =
       readonly usage: readonly UsageRecord[];
     };
 
-/** A model arbiter on its model. */
-export interface ArbiterModel {
+/** A declarative model arbiter on its model (not the injectable `ArbiterModel` of #1283). */
+export interface DeclarativeArbiterModel {
   /** `reading`: the answering agent's PII policies (#708) — the model reads the answer masked. */
   readonly judge: (
     question: ArbiterQuestion,
@@ -64,7 +65,7 @@ const voiceOf = (name: string): DecisionVoice => ({
 });
 
 const inputOf = (question: ArbiterQuestion): string =>
-  `${arbiterAnswerHeading(question.agent)}\n${JSON.stringify(question.answer, null, 2)}`;
+  `${arbiterAnswerHeading(question.target)}\n${JSON.stringify(question.answer, null, 2)}`;
 
 /** What a model arbiter's model reads of a question (#708): masked by the reading, if any. */
 interface ReadQuestion {
@@ -91,12 +92,12 @@ async function readQuestion(
   return { input, instructions, criterion, usage: read.usage };
 }
 
-/** The model arbiter `name` on its model. */
+/** The declarative model arbiter `name` on its model. */
 export function createArbiterModel(
   name: string,
   model: RouterModel,
   deps: LaunchDeciderDeps,
-): ArbiterModel {
+): DeclarativeArbiterModel {
   const decider = createYesNoDecider(voiceOf(name), model, deps);
   return {
     judge: async (question, reading) => {

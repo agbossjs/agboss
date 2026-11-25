@@ -1,4 +1,11 @@
+import {
+  invalidEffectName,
+  invalidBusinessKey,
+  businessKeyConflict,
+} from "./idempotency-errors.js";
+import { IdempotencyError } from "../core/error-families/effect-errors.js";
 import type { ExecutionContext } from "../flow/context/execution-context.js";
+import { fenceOf } from "../flow/context/execution-fence.js";
 import { currentFrame } from "../flow/context/frame.js";
 import { keyedDigestOf } from "../pii/tokens.js";
 import { issuedKey } from "./issued-keys.js";
@@ -13,11 +20,6 @@ import {
 import type { OutboundCallIntent, OutboundCallRecord } from "./outbound-call-record.js";
 import type { OutboundCallStatus } from "./outbound-call.repository.js";
 import { keyTextRuleOf } from "../core/errors.js";
-import {
-  BusinessKeyConflictError,
-  InvalidBusinessKeyError,
-  InvalidFencedEffectNameError,
-} from "./fenced-effect-errors.js";
 import type {
   EffectKey,
   EffectKeyFields,
@@ -33,17 +35,17 @@ import type {
  */
 
 /**
- * Checks an effect's name (#508): 1–100 of `[A-Za-z0-9._-]`, else `InvalidFencedEffectNameError` —
+ * Checks an effect's name (#508): 1–100 of `[A-Za-z0-9._-]`, else `IdempotencyError.InvalidName` —
  * by `effectKeyOf` and again at every store's entry, for a key built by hand (exported for
  * stores outside the core, #526: before any statement, as the core's stores check it).
  */
 export function assertEffectName(name: string): void {
-  if (!isEffectName(name)) throw new InvalidFencedEffectNameError({ length: name.length });
+  if (!isEffectName(name)) throw invalidEffectName(name.length);
 }
 
 /**
  * Checks a key's business key (#538): a key's text (`keyTextRuleOf`), else
- * `InvalidBusinessKeyError` naming the rule, never the key — by `effectKeyOf`,
+ * `IdempotencyError.InvalidKey` naming the rule, never the key — by `effectKeyOf`,
  * `OutboundCalls.send` and again at every store's entry, for a key built by hand (exported for
  * stores outside the core: before any statement, beside `assertEffectName`).
  */
@@ -52,12 +54,12 @@ export function assertBusinessKey(key: Pick<EffectKeyFields, "name" | "businessK
   if (invalid !== undefined) throw invalid;
 }
 
-/** The `InvalidBusinessKeyError` of `key`'s business key (#538), `undefined` when it has a valid one or none. */
+/** The `IdempotencyError.InvalidKey` of `key`'s business key (#538), `undefined` when it has a valid one or none. */
 export function businessKeyErrorOf(
   key: Pick<EffectKeyFields, "name" | "businessKey">,
-): InvalidBusinessKeyError | undefined {
+): IdempotencyError.InvalidKey | undefined {
   const rule = key.businessKey === undefined ? undefined : keyTextRuleOf(key.businessKey);
-  return rule === undefined ? undefined : new InvalidBusinessKeyError({ effect: key.name, rule });
+  return rule === undefined ? undefined : invalidBusinessKey({ effect: key.name, rule });
 }
 
 /** Whether `name` is an effect's name (#508): 1–100 of `[A-Za-z0-9._-]`, a letter or digit first. */
@@ -68,7 +70,7 @@ export const isEffectName = (name: string): boolean => EFFECT_NAME.test(name);
  * (`executionContext.fence`) and its idempotency key (`executionContext.step`) — the same when the
  * step runs again after a crash, a newer token once another instance took the lease over. With a
  * business key (#508) the identity is the tenant, the name and the business key — an invalid one
- * throws `InvalidBusinessKeyError` — and what it does is said (#825): `fingerprint` (digested under
+ * throws `IdempotencyError.InvalidKey` — and what it does is said (#825): `fingerprint` (digested under
  * the application's idempotency key), `fingerprintPolicy: FingerprintPolicy.None` on purpose, or
  * neither for a call that leaves the system (an `OutboundCallKey`: its request is its fingerprint).
  * Where no lease is held (a reply interpreter, `maxSpend()`, a yielded lease, an ancestor's context)
@@ -96,7 +98,8 @@ export function effectKeyOf<TFingerprint>(
   options?: EffectKeyOptions<TFingerprint>,
 ): EffectKey | OutboundCallKey {
   assertEffectName(name);
-  const { fence, step } = executionContext;
+  const { step } = executionContext;
+  const fence = fenceOf(executionContext);
   const origin = {
     executionId: executionContext.executionId,
     nodeId: step.nodeId,
@@ -109,6 +112,7 @@ export function effectKeyOf<TFingerprint>(
     token: fence.token,
     idempotencyKey: step.idempotencyKey,
     name,
+    expiresAt: null,
     origin: Object.freeze(origin),
     // #909: the tree whose cancel fences it; an undo's keys are never refused by it
     rootExecutionId: executionContext.root.executionId,
@@ -161,6 +165,19 @@ export const effectKeyIdentityOf = (key: EffectKey): string =>
     : ["business", key.tenantId, key.name, key.businessKey].join("\u0000");
 
 /**
+ * `key` as a row a rotation left is found by (#1317d): its business key the digest under the
+ * previous secret; `undefined` where the key names none or no previous secret. A store looks a row
+ * up by the key, then by this one — and keeps writing under the key.
+ */
+export const previousIdentityOf = (key: EffectKey): EffectKey | undefined =>
+  key.businessKey === undefined || key.previousBusinessKey === undefined
+    ? undefined
+    : (issuedKey({
+        ...(key as EffectKeyFields),
+        businessKey: key.previousBusinessKey,
+      }) as EffectKey);
+
+/**
  * What a stored row keeps of the key that wrote it (#508): its fingerprint and its step. A store
  * hands back what it read — `null` for a column with nothing in it, the step as parsed JSON:
  * `replayedFromOf` checks it, a row is never trusted.
@@ -205,7 +222,7 @@ function storedOriginOf(value: unknown): FencedEffectOrigin | undefined {
  * The replay rule of a row found for `key` (#508, exported for stores outside the core, #526):
  * under a business key, another fingerprint — a `null` and a missing one are the same, none; `""`
  * is a fingerprint, not none (#574); during a rotation the previous key's is the same one (#825) — is
- * `BusinessKeyConflictError` (never a replay, the key not named); a row another step or
+ * `IdempotencyError.KeyConflict` (never a replay, the key not named); a row another step or
  * execution wrote is named as `replayedFrom`. `undefined` for a step's own key, a row of the key's
  * own step, or one without its step.
  */
@@ -216,7 +233,7 @@ export function replayedFromOf(
   if (key.businessKey === undefined) return undefined;
   // #825: under the current idempotency key, or the previous one during a rotation
   if (!isKeyFingerprint(key, stored.fingerprint))
-    throw new BusinessKeyConflictError({ effect: key.name, businessKeyHash: key.businessKeyHash });
+    throw businessKeyConflict({ effect: key.name, businessKeyHash: key.businessKeyHash });
   const origin = storedOriginOf(stored.origin);
   return origin === undefined || sameOrigin(origin, key.origin) ? undefined : origin;
 }
@@ -258,45 +275,30 @@ export const pendingOutboundCallOf = (
 
 /**
  * A call as an operator's read, a kept record and an export show it (#508): a business key only by
- * its handle — never the key, in itself or inside the key the call went with — and never its
- * fingerprint (a digest of the request, kept in the store's row only, to tell a conflict).
+ * its handle — the key's digest is no part of it, and the key the call went with is an HMAC of it
+ * (#1317d) — and never its fingerprint (a digest of the request, kept in the store's row only, to
+ * tell a conflict).
  */
 export function shownCallOf(record: OutboundCallRecord): OutboundCallRecord {
   const shown = { ...record };
   delete shown.fingerprint;
   if (record.businessKey === undefined) return shown;
   delete shown.businessKey;
-  const handle = record.businessKeyHash === undefined ? "" : `${record.businessKeyHash}:`;
-  return { ...shown, idempotencyKey: `business-key:${handle}${record.name}` };
+  return shown;
 }
 
 export {
   FINGERPRINT_LABEL,
   fingerprintErrorOf,
-  FingerprintPolicy,
-  FingerprintProblem,
-  FingerprintRequiredError,
   fingerprintsOf,
   fingerprintsUnder,
-  IdempotencyKeyMissingError,
-  type IdempotencyKeyMissingErrorOptions,
   isKeyFingerprint,
   type BusinessKeyOptions,
   type EffectKeyOptions,
   type FingerprintedKeyOptions,
   type FingerprintKeys,
-  type FingerprintRequiredErrorOptions,
   type KeyFingerprints,
   type OutboundCallKeyOptions,
   type UnfingerprintedKeyOptions,
 } from "./fenced-effect-fingerprint.js";
-export {
-  FingerprintNotJsonError,
-  BusinessKeyConflictError,
-  InvalidBusinessKeyError,
-  InvalidFencedEffectNameError,
-  type InvalidFencedEffectNameErrorOptions,
-  type BusinessKeyConflictErrorOptions,
-  type FingerprintNotJsonErrorOptions,
-  type InvalidBusinessKeyErrorOptions,
-} from "./fenced-effect-errors.js";
+export { FingerprintProblem } from "./idempotency-errors.js";

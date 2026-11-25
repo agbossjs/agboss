@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #939 (#910 I13): the orphan look on its own — one page of open pauses per look, every open pause
  * visited within `ceil(open / 50)` looks, the cursor wrapping after the last page; a root that has
@@ -19,7 +20,7 @@ const turnOf = (runId: string, status: Turn["status"], bundle = "orders-workflow
   runId,
   threadId: `thread-${runId}`,
   tenantId: "default",
-  bundle,
+  workflow: bundle,
   createdAt: "2026-01-05T09:00:00.000Z",
   task: "",
   replyWith: "",
@@ -27,7 +28,7 @@ const turnOf = (runId: string, status: Turn["status"], bundle = "orders-workflow
   stopReason: "",
   route: [],
   steps: [],
-  costUsd: 0,
+  costUsd: usd(0),
   promptVersion: "",
   modelVersion: "",
   replayOf: null,

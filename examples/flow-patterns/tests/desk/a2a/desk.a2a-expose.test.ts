@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import { callTool, replyWith, testWith } from "@agboss/core/testing";
-import { DeskA2aCallerResolver } from "../../../src/desk/a2a/desk.a2a-caller-resolver.js";
+import { DeskHttpAuthenticator } from "../../../src/desk/a2a/desk.http-authenticator.js";
 import { DeskA2AExpose } from "../../../src/desk/a2a/desk.a2a-expose.js";
 import { DeskAgent } from "../../../src/desk/agents/desk/desk.agent.js";
 import { OrderStatusTool } from "../../../src/desk/tools/order-status.tool.js";
@@ -15,7 +15,7 @@ import { DeskApplication } from "../../../src/desk.application.js";
  */
 
 const deskTest = testWith(DeskApplication);
-const desk = { expose: DeskA2AExpose, callerResolver: DeskA2aCallerResolver };
+const desk = { endpoint: DeskA2AExpose, authenticator: DeskHttpAuthenticator };
 
 /** A JSON-RPC `SendMessage` of one data part, as the helpline's tenant (none: no header). */
 async function sendMessage(url: string, tenantId?: string): Promise<Response> {

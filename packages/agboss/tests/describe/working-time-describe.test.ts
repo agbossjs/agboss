@@ -5,8 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { describedChannelsOf } from "../../src/describe/channels.js";
-import { describedApplicationOf } from "../../src/describe/application.js";
-import { describeApplication } from "../../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { WorkingWeek } from "../../src/index.js";
 import { hours, workingHours, workingMinutes } from "../../src/units/index.js";
 import { workingApp } from "../flow/fixtures/working-time-app.js";
@@ -21,7 +20,7 @@ describe("#944: describe shows working time", () => {
     const assembled = await applicationOf(application);
 
     const channel = describedChannelsOf(assembled).find(
-      (one) => one.name === "desc-working-question",
+      (one) => one.name === "desc-working-question-external-task",
     );
 
     expect(channel).toMatchObject({
@@ -30,7 +29,7 @@ describe("#944: describe shows working time", () => {
       remindBefore: 30 * 60_000,
       isRemindBeforeWorking: true,
     });
-    expect(describeApplication(assembled).join("\n")).toContain(
+    expect(describeAssembledApplication(assembled).join("\n")).toContain(
       "· expires in 8 h of working time · reminds 30 min of working time before",
     );
   });
@@ -42,7 +41,7 @@ describe("#944: describe shows working time", () => {
     const assembled = await applicationOf(application);
 
     const channel = describedChannelsOf(assembled).find(
-      (one) => one.name === "desc-plain-question",
+      (one) => one.name === "desc-plain-question-external-task",
     );
 
     expect(channel).toMatchObject({ expiresIn: 24 * 3_600_000, remindBefore: 2 * 3_600_000 });
@@ -50,14 +49,15 @@ describe("#944: describe shows working time", () => {
     expect(channel).not.toHaveProperty("isRemindBeforeWorking");
   });
 
-  it("the calendar behind the application and behind a role is named", async () => {
+  it("the calendar behind a target is named", async () => {
     const { application } = workingApp("desc-cal", {
       role: { expiresIn: workingHours(8), workingCalendar: WorkingWeek.of(TEL_AVIV) },
       calendar: WorkingWeek.of(TEL_AVIV),
     });
     const assembled = await applicationOf(application);
 
-    expect(describedApplicationOf(assembled)).toMatchObject({ workingCalendar: "working-week" });
-    expect(describedChannelsOf(assembled)[0]).toMatchObject({ workingCalendar: "working-week" });
+    expect(describedChannelsOf(assembled)[0]).toMatchObject({
+      workingCalendar: "desc-cal-grid-calendar",
+    });
   });
 });

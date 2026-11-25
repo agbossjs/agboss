@@ -35,6 +35,8 @@ export abstract class ApplicationContext {
   abstract readonly environmentName: string;
   /** The chosen environment's values, typed by the contract (`@Application({ environment })`). */
   abstract readonly environment: Environment;
+  /** The profiles the instance runs with, in the order they were layered (#1324; `[environmentName]` for now). */
+  abstract readonly profiles: readonly string[];
   abstract readonly host: HostContext;
 }
 
@@ -46,6 +48,7 @@ export interface ApplicationContextValues {
   readonly startedAt: Date;
   readonly environmentName: string;
   readonly environment: Environment;
+  readonly profiles?: readonly string[];
 }
 
 /** The framework's application context: frozen data, the same object for the whole instance. */
@@ -56,6 +59,7 @@ class FrozenApplicationContext extends ApplicationContext {
   readonly startedAt: Date;
   readonly environmentName: string;
   readonly environment: Environment;
+  readonly profiles: readonly string[];
   readonly host: HostContext;
 
   constructor(values: ApplicationContextValues, host: HostContext) {
@@ -66,6 +70,7 @@ class FrozenApplicationContext extends ApplicationContext {
     this.startedAt = new Date(values.startedAt.getTime());
     this.environmentName = values.environmentName;
     this.environment = Object.freeze({ ...values.environment });
+    this.profiles = Object.freeze([...(values.profiles ?? [values.environmentName])]);
     this.host = Object.freeze({ ...host });
     Object.freeze(this);
   }

@@ -1,3 +1,5 @@
+import { type Usd } from "../../units/index.js";
+import { RecordedError } from "../../core/error-record.js";
 import { AGBossError, ExecutionCancelledError } from "../../core/errors.js";
 import { DurableExecutionStatus, type DurableExecutionState } from "../../app/execution-control.js";
 import { A2ATaskState, type A2ATaskStatus } from "../../infrastructure/a2a-task.repository.js";
@@ -36,8 +38,17 @@ const failedOf = (code: string): A2ATaskStatus => ({
  * caller can answer invites no input). Pending pauses only channels answer are named in the message.
  */
 export function pausedStatusOf(pending: readonly PendingPause[]): A2ATaskStatus {
-  const answerable = pending.flatMap(({ pauseId, kind, ask }) =>
-    pauseId === undefined ? [] : [{ pauseId, kind, ask }],
+  const answerable = pending.flatMap((pause) =>
+    pause.pauseId === undefined
+      ? []
+      : [
+          {
+            pauseId: pause.pauseId,
+            kind: pause.kind,
+            input: pause.input,
+            ...("toolCall" in pause ? { toolCall: pause.toolCall } : {}),
+          },
+        ],
   );
   const channels = [
     ...new Set(
@@ -59,13 +70,15 @@ export function pausedStatusOf(pending: readonly PendingPause[]): A2ATaskStatus 
 export const completedStatusOf = (
   finish: string,
   output: unknown,
-  spentUsd: number,
+  spentUsd: Usd,
+  spentTokens?: number,
 ): A2ATaskStatus => ({
   state: A2ATaskState.Completed,
   pendingPauses: [],
   finish,
   output,
   spentUsd,
+  ...(spentTokens === undefined ? {} : { spentTokens }),
 });
 
 /**
@@ -81,7 +94,8 @@ export const rejectedStatusOf = (limit: MeshLimitError): A2ATaskStatus => ({
   errorDetails: limit.details ?? {},
 });
 
-const CANCELED: A2ATaskStatus = { state: A2ATaskState.Canceled, pendingPauses: [] };
+/** A cancel and a stop (#1341) both end a task as `canceled`: A2A has no other state for an operator's halt. */
+export const CANCELED: A2ATaskStatus = { state: A2ATaskState.Cancelled, pendingPauses: [] };
 
 /**
  * An execution's error as its task's end: a cancel is `CANCELED`; anything else `FAILED` with the
@@ -95,7 +109,10 @@ export function failedStatusOf(error: Error): A2ATaskStatus {
   if (error instanceof ExecutionCancelledError) return CANCELED;
   if (isMeshLimitError(error))
     return { ...failedOf(error.code), errorDetails: error.details ?? {} };
-  return failedOf(error instanceof AGBossError ? error.code : INTERNAL_FAILURE);
+  // a recorded error whose original was no framework error (a third-party SDK's, a project's) is `internal`
+  const isTrusted =
+    error instanceof AGBossError && (!(error instanceof RecordedError) || error.isFramework);
+  return failedOf(isTrusted ? error.code : INTERNAL_FAILURE);
 }
 
 /**
@@ -112,8 +129,9 @@ export function durableStatusOf(state: DurableExecutionState): A2ATaskStatus | u
     case DurableExecutionStatus.Paused:
       return pausedStatusOf(state.pending);
     case DurableExecutionStatus.Finished:
-      return completedStatusOf(state.finish, state.output, state.spentUsd);
+      return completedStatusOf(state.finish, state.output, state.spentUsd, state.spentTokens);
     case DurableExecutionStatus.Cancelled:
+    case DurableExecutionStatus.Stopped:
       return CANCELED;
     case DurableExecutionStatus.Failed:
       return failedOf(INTERNAL_FAILURE);

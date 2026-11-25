@@ -28,7 +28,7 @@ import {
 /**
  * #340 PR 2 — a failed join undoes its finished undoable branches (Q3, `JoinFailed`): newest first,
  * each in its own frame on a clean-up signal bounded by `compensationTimeout`, before the
- * `.onJoinError` side path runs or the branch's error fails the execution; an undo that fails does
+ * `.onError` side path runs or the branch's error fails the execution; an undo that fails does
  * not stop the others, then `CompensationFailedError` (Q4), which no side path takes.
  */
 

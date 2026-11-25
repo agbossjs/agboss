@@ -97,7 +97,10 @@ describe("#940 AC4: backoff, set aside after the retention, others flow", () => 
       expect(await pauseStore().countNotices()).toMatchObject({ live: 0 });
       expect(setAside).toHaveBeenCalledTimes(1);
       expect(logs("pause.notice-dead")).toMatchObject([
-        { level: "error", message: expect.stringContaining("channel:refund-approval-channel") },
+        {
+          level: "error",
+          message: expect.stringContaining("channel:finance-desk-refund-approval-channel"),
+        },
       ]);
       // the listener of the same pause heard opened and closed meanwhile
       expect(seen.heard.filter((one) => one.listener === "audit").map((one) => one.type)).toEqual([

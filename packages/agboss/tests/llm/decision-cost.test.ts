@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: the cost a Decisions API answer states — the reported `usage.cost` is the call's, none reported is no cost,
  * and a cost below zero (which would take spend off the budgets' counters) makes the answer invalid.
@@ -6,8 +7,8 @@ import { describe, expect, it } from "vitest";
 import { Decision } from "../../src/llm/decisions.js";
 import { readDecision } from "../../src/llm/decision-response.js";
 
-const asked = { caller: "router:desk", model: "m", questions: { q: Decision.noul("is it?") } };
-const answers = { q: { type: "noul", noul: 0.5 } };
+const asked = { caller: "router:desk", model: "m", questions: { q: Decision.boolean("is it?") } };
+const answers = { q: { type: "boolean", probability: 0.5 } };
 
 describe("#1366: the cost of a decision", () => {
   it("is the reported cost, with the tokens, under the caller", () => {
@@ -18,7 +19,7 @@ describe("#1366: the cost of a decision", () => {
 
     expect(read.usage).toMatchObject({
       caller: "router:desk",
-      costUsd: 0.25,
+      costUsd: usd(0.25),
       inputTokens: 10,
       outputTokens: 2,
     });

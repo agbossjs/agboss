@@ -8,6 +8,7 @@ import {
   NINE,
   REPLY,
   at,
+  cutoffsOf,
   keyOf,
   newMessage,
   savedMessage,
@@ -56,27 +57,27 @@ export const A2A_DIRECT_MESSAGE_SWEEP_CASES: readonly ContractCase<A2ADirectMess
     },
   },
   {
-    name: "the sweep removes completed messages accepted before its cutoff, oldest first and at most the limit, with their ids' claims",
+    name: "the sweep removes completed messages whose reply was kept before its cutoff, oldest first and at most the limit, with their ids' claims",
     run: async ({ first, second }: Instances): Promise<void> => {
       await three(first);
       await first.messages.completeIfInFlight(keyOf(newMessage("m-2")), "run-m-2", REPLY, at(12));
 
-      const page = await second.messages.deleteByCreatedAtBefore(at(15), 1);
-      const rest = await second.messages.deleteByCreatedAtBefore(at(15), 10);
-      // a message accepted at the cutoff itself is kept
-      await second.messages.deleteByCreatedAtBefore(at(20), 10);
-
-      expect(ids(page)).toEqual(["m-1"]);
-      expect(page[0]?.reply).toEqual(REPLY);
-      expect(ids(rest)).toEqual(["m-2"]);
+      const page = await second.messages.deleteExpired(cutoffsOf(at(15)), 1);
       expect(await first.messages.findByKey(keyOf(newMessage("m-1")))).toBeUndefined();
+      expect(await first.messages.findByKey(keyOf(newMessage("m-2")))).toBeDefined();
+      const rest = await second.messages.deleteExpired(cutoffsOf(at(15)), 10);
+      // a message completed at the cutoff itself is kept; one in flight never goes
+      const none = await second.messages.deleteExpired(cutoffsOf(at(20)), 10);
+
+      expect([page, rest, none]).toEqual([1, 1, 0]);
+      expect(await first.messages.findByKey(keyOf(newMessage("m-2")))).toBeUndefined();
       expect(await first.messages.findByKey(keyOf(newMessage("m-3")))).toBeDefined();
       // past its retention an id is free: a task message takes it; m-3's is still claimed
       const task = await first.tasks.saveIfAbsent(newTask("t-1", { messageId: "m-1" }));
       expect(task.status).toBe(A2ATaskSaveStatus.Saved);
       const held = await first.tasks.saveIfAbsent(newTask("t-3", { messageId: "m-3" }));
       expect(held.status).toBe(A2ATaskSaveStatus.MessageTaken);
-      await expect(second.messages.deleteByCreatedAtBefore(at(99), 0)).rejects.toThrow(RangeError);
+      await expect(second.messages.deleteExpired(cutoffsOf(at(99)), 0)).rejects.toThrow(RangeError);
     },
   },
   {
@@ -86,7 +87,7 @@ export const A2A_DIRECT_MESSAGE_SWEEP_CASES: readonly ContractCase<A2ADirectMess
       await first.messages.deleteIfInFlight(keyOf(newMessage("m-1")), "run-m-1");
       await first.tasks.saveIfAbsent(newTask("t-2", { messageId: "m-2" }));
 
-      await second.messages.deleteByCreatedAtBefore(at(60), 10);
+      await second.messages.deleteExpired(cutoffsOf(at(60)), 10);
 
       const other = await first.messages.saveIfAbsent(newMessage("m-1", { requestHash: "h-2" }));
       expect(other.status).toBe(A2ADirectMessageSaveStatus.Saved);
@@ -106,7 +107,7 @@ export const A2A_DIRECT_MESSAGE_SWEEP_CASES: readonly ContractCase<A2ADirectMess
 
       const [save] = await Promise.all([
         first.messages.saveIfAbsent({ ...resent, expiresAt: at(120) }),
-        second.messages.deleteByCreatedAtBefore(at(60), 10),
+        second.messages.deleteExpired(cutoffsOf(at(60)), 10),
       ]);
 
       const kept = await first.messages.findByKey(keyOf(resent));
@@ -117,7 +118,7 @@ export const A2A_DIRECT_MESSAGE_SWEEP_CASES: readonly ContractCase<A2ADirectMess
     },
   },
   {
-    name: "the sweep's pages are oldest first whatever order the messages were accepted in",
+    name: "the sweep's pages are oldest first by when the reply was kept, whatever order the messages were accepted in",
     run: async ({ first, second }: Instances): Promise<void> => {
       await savedMessage(
         first.messages,
@@ -125,17 +126,25 @@ export const A2A_DIRECT_MESSAGE_SWEEP_CASES: readonly ContractCase<A2ADirectMess
       );
       await savedMessage(first.messages, newMessage("m-early", { expiresAt: at(40) }));
       const lost = await second.messages.findAllInFlightByExpiresAtBefore(at(99), 10);
-      for (const message of ["m-late", "m-early"])
-        await first.messages.completeIfInFlight(
-          keyOf(newMessage(message)),
-          `run-${message}`,
-          REPLY,
-          at(55),
-        );
+      // completed in the opposite order: the sweep goes by when the reply was kept
+      await first.messages.completeIfInFlight(
+        keyOf(newMessage("m-late")),
+        "run-m-late",
+        REPLY,
+        at(54),
+      );
+      await first.messages.completeIfInFlight(
+        keyOf(newMessage("m-early")),
+        "run-m-early",
+        REPLY,
+        at(55),
+      );
 
-      const gone = await second.messages.deleteByCreatedAtBefore(at(60), 1);
+      const gone = await second.messages.deleteExpired(cutoffsOf(at(60)), 1);
 
-      expect([ids(lost), ids(gone)]).toEqual([["m-early", "m-late"], ["m-early"]]);
+      expect([ids(lost), gone]).toEqual([["m-early", "m-late"], 1]);
+      expect(await first.messages.findByKey(keyOf(newMessage("m-late")))).toBeUndefined();
+      expect(await first.messages.findByKey(keyOf(newMessage("m-early")))).toBeDefined();
     },
   },
   {
@@ -148,7 +157,7 @@ export const A2A_DIRECT_MESSAGE_SWEEP_CASES: readonly ContractCase<A2ADirectMess
       await savedMessage(first.messages, newMessage("m-3", { createdAt: at(5) }));
       await first.messages.completeIfInFlight(keyOf(newMessage("m-3")), "run-m-3", REPLY, at(9));
 
-      await second.messages.deleteByCreatedAtBefore(at(60), 1);
+      await second.messages.deleteExpired(cutoffsOf(at(60)), 1);
 
       const taskOf = (messageId: string) =>
         first.tasks.saveIfAbsent(newTask(`t-${messageId}`, { messageId }));
@@ -174,13 +183,35 @@ export const A2A_DIRECT_MESSAGE_SWEEP_CASES: readonly ContractCase<A2ADirectMess
       await failedAt("m-2", NINE);
       await failedAt("m-2", at(90));
 
-      await second.messages.deleteByCreatedAtBefore(at(60), 10);
+      await second.messages.deleteExpired(cutoffsOf(at(60)), 10);
 
       const taskOf = (messageId: string) =>
         first.tasks.saveIfAbsent(newTask(`t-${messageId}`, { messageId }));
       expect([(await taskOf("m-1")).status, (await taskOf("m-2")).status]).toEqual([
         A2ATaskSaveStatus.MessageTaken,
         A2ATaskSaveStatus.Saved,
+      ]);
+    },
+  },
+  {
+    name: "each endpoint's replies are swept at its own cutoff: another endpoint's, or one of none listed, stays",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await savedMessage(first.messages, newMessage("m-1"));
+      await savedMessage(first.messages, newMessage("m-2", { endpoint: "support" }));
+      for (const id of ["m-1", "m-2"])
+        await first.messages.completeIfInFlight(keyOf(newMessage(id)), `run-${id}`, REPLY, at(5));
+
+      expect(await second.messages.deleteExpired(new Map(), 10)).toBe(0);
+      expect(await second.messages.deleteExpired(cutoffsOf(at(10)), 10)).toBe(1);
+
+      expect(await first.messages.findByKey(keyOf(newMessage("m-1")))).toBeUndefined();
+      expect(await first.messages.findByKey(keyOf(newMessage("m-2")))).toBeDefined();
+      // m-2's claim is its endpoint's too: a task takes m-1's id, never m-2's
+      const free = await first.tasks.saveIfAbsent(newTask("t-1", { messageId: "m-1" }));
+      const held = await first.tasks.saveIfAbsent(newTask("t-2", { messageId: "m-2" }));
+      expect([free.status, held.status]).toEqual([
+        A2ATaskSaveStatus.Saved,
+        A2ATaskSaveStatus.MessageTaken,
       ]);
     },
   },

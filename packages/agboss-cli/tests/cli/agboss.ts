@@ -62,10 +62,6 @@ export const envelope = (call: AgbossCall): Record<string, unknown> =>
 /** The checks `agboss check` runs on every workflow (#261: the application's warnings too). */
 export const CHECKS_RUN = "assembly, environment, application, prompts, types";
 
-/** The assembly warning of an application without `piiKeyField` (#120 S94), as printed. */
-export const piiKeyWarning = (file: string): string =>
-  `warning: ${file} application.pii-instance-key no @Application({ piiKeyField }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with piiKeyField\n`;
-
 /** The assembly warning of an application on the built-in in-memory cost ledger (#261), as printed. */
 export const ledgerWarning = (file: string): string =>
   `warning: ${file} application.in-memory-cost-ledger in-memory cost ledger: each application instance counts budgets on its own and the counters reset on restart\n`;
@@ -73,10 +69,10 @@ export const ledgerWarning = (file: string): string =>
 /** One start's worst case in `agboss check`'s report (#268 AC5): one workflow, no children. */
 const singleWorstCase = (start: string, workflow: string, steps: number): string[] => [
   `Worst case of one ${start} call`,
-  `  workflow executions     1  1 ${workflow}`,
-  `  at the same time        1  1 ${workflow}`,
-  `  agent and router steps  ${String(steps)}  ${String(steps)} in ${workflow} (longest path)`,
-  `  nesting depth           1  ${workflow}`,
+  `  workflow executions  1  1 ${workflow}`,
+  `  at the same time     1  1 ${workflow}`,
+  `  steps                ${String(steps)}  ${String(steps)} in ${workflow} (longest path)`,
+  `  nesting depth        1  ${workflow}`,
 ];
 
 /** `agboss check`'s report of the framework's test-workflow fixture (`test-application`), as printed. */

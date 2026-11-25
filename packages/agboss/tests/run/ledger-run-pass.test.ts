@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (ledger-run shard) — how a run's spend reaches the ledger and its turn in the run's own passes, each rule
  * on its own over fakes: the new run records what its graph spends as it is made, keeps it on its running record
@@ -10,7 +11,7 @@ import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage
 import { executionGraphOf } from "../../src/flow/runtime/build.js";
 import { continueRun } from "../../src/run/continue-run.js";
 import { finishRun } from "../../src/run/finish.js";
-import { memoryBeforeRun } from "../../src/run/memory.js";
+import { memoryBeforeRun } from "../../src/run/compact-before-run.js";
 import { executeAgent, runOpenedAgent } from "../../src/run/run-agent.js";
 import {
   continuedExecutionBudgets,
@@ -22,7 +23,7 @@ import { streamConfig } from "../../src/run/stream-config.js";
 
 vi.mock("../../src/flow/runtime/build.js", () => ({ executionGraphOf: vi.fn() }));
 vi.mock("../../src/run/finish.js", () => ({ finishRun: vi.fn() }));
-vi.mock("../../src/run/memory.js", () => ({ memoryBeforeRun: vi.fn() }));
+vi.mock("../../src/run/compact-before-run.js", () => ({ memoryBeforeRun: vi.fn() }));
 vi.mock("../../src/run/stream-config.js", () => ({ streamConfig: vi.fn() }));
 vi.mock("../../src/run/versions.js", () => ({
   executionVersions: () => ({ promptVersion: "p1", modelVersion: "m1", configVersion: "c1" }),
@@ -40,10 +41,11 @@ vi.mock("../../src/run/run-budgets.js", async (original) => ({
 }));
 
 const record = (costUsd: number, caller = "agent:a"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -54,14 +56,18 @@ async function* statesOf(...states: readonly unknown[]): AsyncGenerator {
 
 /** What the fakes hold for one pass. */
 const setup = () => {
-  const meter = { record: vi.fn(() => Promise.resolve()), budgetUsd: () => 2 };
+  const meter = {
+    record: vi.fn(() => Promise.resolve()),
+    budgetUsd: () => 2,
+    remainingTokens: () => Number.POSITIVE_INFINITY,
+  };
   const append = vi.fn((turn: Record<string, unknown>) =>
     Promise.resolve({ id: `turn-${String(append.mock.calls.length)}`, ...turn }),
   );
   const complete = vi.fn(() => Promise.resolve());
   const deps = {
     config: { name: "bundle", version: "1.0.0" },
-    graph: {},
+    graph: { nodes: new Map() },
     turns: { append, complete },
     executionIds: { newExecutionId: vi.fn(() => Promise.resolve("run-1")) },
     clock: { now: () => new Date("2026-11-21T10:00:00.000Z") },
@@ -87,6 +93,9 @@ const startedWith = { start: "chat", input: { text: "hi" } };
 beforeEach(() => {
   vi.resetAllMocks();
 });
+
+/** The PII runtime's observability mask, as an identity: the start line is written through it. */
+const noMask = { observability: { value: (value: unknown) => Promise.resolve(value) } };
 
 describe("#1366: a new run records what it spends", () => {
   const compaction = record(0.125, "compaction:c");
@@ -114,7 +123,7 @@ describe("#1366: a new run records what it spends", () => {
         runId: "run-1",
         threadId: "thread-1",
         tenantId: "default",
-        bundle: "bundle",
+        workflow: "bundle",
         task: 'start chat: {"text":"hi"}',
         replayOf: null,
         promptVersion: "p1",
@@ -159,7 +168,7 @@ describe("#1366: a new run records what it spends", () => {
       runId: "run-1",
       threadId: "thread-1",
       tenantId: "default",
-      bundle: "bundle",
+      workflow: "bundle",
       task: 'start chat: {"text":"hi"}',
       replayOf: null,
       promptVersion: "p1",
@@ -170,7 +179,7 @@ describe("#1366: a new run records what it spends", () => {
       stopReason: "",
       route: [],
       steps: [],
-      costUsd: 0,
+      costUsd: usd(0),
     });
   });
 
@@ -185,7 +194,7 @@ describe("#1366: a new run records what it spends", () => {
     expect(openThread).toHaveBeenCalledWith(deps, "default", "t-9");
     expect(memoryBeforeRun).toHaveBeenCalledWith(
       deps,
-      expect.objectContaining({ isNewThread: false, threadId: "t-9", budgetLeftUsd: 2 }),
+      expect.objectContaining({ isNewThread: false, threadId: "t-9", budgetUsd: 2 }),
     );
 
     vi.mocked(openThread).mockClear();
@@ -276,8 +285,8 @@ describe("#1366: a new run records what it spends", () => {
     const { raw, graph } = setup();
     graph.stream.mockImplementation(() => Promise.resolve(statesOf({ usage: [] })));
 
-    await executeAgent(startedWith, { ...raw, pii: { isInstanceKey: true } } as never);
-    await executeAgent(startedWith, { ...raw, pii: { isInstanceKey: false } } as never);
+    await executeAgent(startedWith, { ...raw, pii: { isInstanceKey: true, ...noMask } } as never);
+    await executeAgent(startedWith, { ...raw, pii: { isInstanceKey: false, ...noMask } } as never);
 
     expect(typeof graph.stream.mock.calls[0]?.[0].piiKey).toBe("string");
     expect(graph.stream.mock.calls[1]?.[0].piiKey).toBeNull();
@@ -319,7 +328,7 @@ describe("#1366: a new run records what it spends", () => {
       stopReason: "boom",
       route: [],
       steps: [],
-      costUsd: 0.5,
+      costUsd: usd(0.5),
     });
   });
 
@@ -341,7 +350,7 @@ describe("#1366: a new run records what it spends", () => {
       status: "failed",
       stopReason: "compaction",
       runId: "run-1",
-      costUsd: 0,
+      costUsd: usd(0),
     });
   });
 
@@ -425,7 +434,7 @@ describe("#1366: a continued pass does not record the spend before it", () => {
         runId: "run-1",
         threadId: "thread-1",
         tenantId: "tenant-1",
-        bundle: "bundle",
+        workflow: "bundle",
         task: 'start chat: {"text":"hi"}',
         replayOf: null,
         promptVersion: "p1",
@@ -455,7 +464,7 @@ describe("#1366: a continued pass does not record the spend before it", () => {
       stopReason: "boom",
       route: [],
       steps: [],
-      costUsd: 1.5,
+      costUsd: usd(1.5),
     });
   });
 

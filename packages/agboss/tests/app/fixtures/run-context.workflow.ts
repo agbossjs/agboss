@@ -1,4 +1,6 @@
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { hours, Ttl } from "../../../src/units/index.js";
+import { Window1Memory } from "../../helpers/window-memory.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
@@ -8,12 +10,14 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
 } from "../../../src/index.js";
-import type { StepDescriptor, ToolHandler } from "../../../src/index.js";
-import { start } from "../../helpers/flow.js";
+import type { StepDescriptor } from "../../../src/index.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What a component read of its execution (`deps: [ExecutionContext]`, #280). */
 export interface ExecutionSnapshot {
@@ -68,10 +72,10 @@ export class Query {
   output: Query,
   deps: [ExecutionContext],
 })
-export class Probe implements ToolHandler<Query, Query> {
+export class Probe {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     seen.probes.push(snapshotOf(this.executionContext));
     return Promise.resolve(input);
   }
@@ -81,15 +85,15 @@ export class Probe implements ToolHandler<Query, Query> {
 @Tool({
   name: "charge-tool",
   description: "Charges the card",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: Query,
   output: Query,
   deps: [ExecutionContext],
 })
-export class Charge implements ToolHandler<Query, Query> {
+export class Charge {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     seen.charges.push(snapshotOf(this.executionContext));
     return Promise.resolve(input);
   }
@@ -103,10 +107,10 @@ export class Charge implements ToolHandler<Query, Query> {
   output: Query,
   deps: [ExecutionContext],
 })
-export class Wait implements ToolHandler<Query, Query> {
+export class Wait {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     const { signal, threadId } = this.executionContext;
     seen.blocked.push(signal);
     blocking.started?.(threadId);
@@ -120,8 +124,8 @@ export class Wait implements ToolHandler<Query, Query> {
 
 /** A slow read: the other branch answers meanwhile. */
 @Tool({ name: "slow-tool", description: "Looks something up slowly", input: Query, output: Query })
-export class Slow implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+export class Slow {
+  execute(input: Query): Promise<Query> {
     return new Promise((resolve) =>
       setTimeout(() => {
         resolve(input);
@@ -133,7 +137,7 @@ export class Slow implements ToolHandler<Query, Query> {
 @Agent({
   name: "clerk-agent",
   description: "Looks things up, charges cards and waits",
-  prompt: "Do what you are asked.",
+  prompt: inline("Do what you are asked."),
   tools: [Probe, Charge, Wait, Slow],
   model: "test/clerk",
   input: { message: WorkflowStartTextDto },
@@ -171,14 +175,13 @@ const defaults = {
 @Workflow({
   name: "checkout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults,
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   providers: [Pay],
   flow: [
-    start(Start)
-      .returns(WorkflowStartTextDto)
+    onStart(Start)
       .toAgent(Clerk)
-      .returns(ReceiptDto)
       .toAction(Pay)
       .toFinish(Finish),
   ],
@@ -187,9 +190,22 @@ export class Checkout {}
 
 @Application({
   name: "checkout-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Checkout],
   budgets: TEST_BUDGETS,
 })
 export class CheckoutApplication {}
+
+/** The same application keeping its execution history (`retention.executionRecords`, #1341d). */
+@Application({
+  name: "kept-checkout-application",
+  modelProvider: TestModelProvider,
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [Checkout],
+  budgets: TEST_BUDGETS,
+  retention: { executionRecords: hours(24) },
+})
+export class KeptCheckoutApplication {}

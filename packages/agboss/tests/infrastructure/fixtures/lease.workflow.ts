@@ -1,4 +1,5 @@
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { Window1Memory } from "../../helpers/window-memory.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
@@ -6,17 +7,18 @@ import {
   ExecutionRecordStatus,
   ExecutionTreeRepository,
   Injectable,
+  Observer,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
   type ExecutionTreeValue,
-  type OnExecutionError,
-  type OnExecutionResume,
   type PausedExecution,
-  type ToolHandler,
   type ExecutionResumeEvent,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
@@ -28,8 +30,9 @@ import {
   type TurnOutcome,
 } from "../../../src/turns/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #265 PR 1 — a clerk that charges (each charge waits for an approval), holds (the first hold
@@ -46,6 +49,8 @@ export const seen = {
   recalls: [] as (ExecutionTreeValue | undefined)[],
   trees: [] as ExecutionTreeRepository[],
   errors: [] as Error[],
+  /** The cancels (#1341): an execution cancelled is an outcome, never an error. */
+  cancels: [] as ExecutionCancelEvent[],
   resumes: [] as unknown[],
   answerers: [] as (string | undefined)[],
   appended: [] as string[],
@@ -90,12 +95,12 @@ export class Query {
 @Tool({
   name: "charge-tool",
   description: "Charges the card",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: Query,
   output: Query,
 })
-export class Charge implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+export class Charge {
+  execute(input: Query): Promise<Query> {
     seen.charges.push(input.text);
     return Promise.resolve(input);
   }
@@ -109,10 +114,10 @@ export class Charge implements ToolHandler<Query, Query> {
   output: Query,
   deps: [ExecutionContext],
 })
-export class Hold implements ToolHandler<Query, Query> {
+export class Hold {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     const { signal } = this.executionContext;
     seen.holds.push(signal);
     if (seen.holds.length > 1) return Promise.resolve(input);
@@ -125,20 +130,35 @@ export class Hold implements ToolHandler<Query, Query> {
   }
 }
 
+/** The tree of the execution a tool runs in: its tenant and its root execution. */
+const treeOf = (context: ExecutionContext) => ({
+  tenantId: context.tenant.tenantId,
+  rootExecutionId: context.root.executionId,
+});
+
 /** Claims `claim:<text>` once per request (`saveIfAbsent`). */
 @Tool({
   name: "claim-tool",
   description: "Claims a key",
   input: Query,
   output: Query,
-  deps: [ExecutionTreeRepository],
+  deps: [ExecutionTreeRepository, ExecutionContext],
 })
-export class Claim implements ToolHandler<Query, Query> {
-  constructor(private readonly executionTreeRepository: ExecutionTreeRepository) {}
+export class Claim {
+  constructor(
+    private readonly executionTreeRepository: ExecutionTreeRepository,
+    private readonly executionContext: ExecutionContext,
+  ) {}
 
-  async run(input: Query): Promise<Query> {
+  async execute(input: Query): Promise<Query> {
     seen.trees.push(this.executionTreeRepository);
-    seen.claims.push(await this.executionTreeRepository.saveIfAbsent(`claim:${input.text}`, true));
+    seen.claims.push(
+      await this.executionTreeRepository.saveIfAbsentInTree(
+        treeOf(this.executionContext),
+        `claim:${input.text}`,
+        true,
+      ),
+    );
     return input;
   }
 }
@@ -149,13 +169,21 @@ export class Claim implements ToolHandler<Query, Query> {
   description: "Reads a key",
   input: Query,
   output: Query,
-  deps: [ExecutionTreeRepository],
+  deps: [ExecutionTreeRepository, ExecutionContext],
 })
-export class Recall implements ToolHandler<Query, Query> {
-  constructor(private readonly executionTreeRepository: ExecutionTreeRepository) {}
+export class Recall {
+  constructor(
+    private readonly executionTreeRepository: ExecutionTreeRepository,
+    private readonly executionContext: ExecutionContext,
+  ) {}
 
-  async run(input: Query): Promise<Query> {
-    seen.recalls.push(await this.executionTreeRepository.findById(`claim:${input.text}`));
+  async execute(input: Query): Promise<Query> {
+    seen.recalls.push(
+      await this.executionTreeRepository.findByIdInTree(
+        treeOf(this.executionContext),
+        `claim:${input.text}`,
+      ),
+    );
     return input;
   }
 }
@@ -163,7 +191,7 @@ export class Recall implements ToolHandler<Query, Query> {
 @Agent({
   name: "clerk-agent",
   description: "Charges, holds and claims",
-  prompt: "Do what you are asked.",
+  prompt: inline("Do what you are asked."),
   tools: [Charge, Hold, Claim, Recall],
   model: "test/clerk",
   input: { message: WorkflowStartTextDto },
@@ -172,14 +200,17 @@ export class Recall implements ToolHandler<Query, Query> {
 export class Clerk {}
 
 /** The errors and resumes the observers saw. */
-@Injectable()
-export class LeaseLog implements OnExecutionError, OnExecutionResume {
+@Observer()
+export class LeaseLog {
   onExecutionError(event: ExecutionErrorEvent): void {
     seen.errors.push(event.error);
   }
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    seen.cancels.push(event);
+  }
   async onExecutionResume(event: ExecutionResumeEvent): Promise<void> {
     seen.resumes.push(event.decision);
-    seen.answerers.push(event.answeredBy);
+    seen.answerers.push(event.actor?.id);
     await hooks.onResume?.();
   }
 }
@@ -236,16 +267,15 @@ export class ReceiptWorkflowFinish {}
 @Workflow({
   name: "lease-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 8 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [
-    start(OrderWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(OrderWorkflowStart)
       .toAgent(Clerk)
-      .returns(ReceiptDto)
       .toFinish(ReceiptWorkflowFinish),
   ],
 })
@@ -253,6 +283,7 @@ export class LeaseWorkflow {}
 
 @Application({
   name: "lease-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LeaseWorkflow],

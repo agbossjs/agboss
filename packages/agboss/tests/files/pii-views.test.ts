@@ -7,12 +7,10 @@
 import { MemorySaver } from "@langchain/langgraph";
 import { afterEach, describe, expect, vi } from "vitest";
 import {
-  PiiAction,
   PiiFileAction,
   PiiKind,
   PiiPolicy,
   PiiRefusedError,
-  pii,
   secret,
   type PiiRefusal,
 } from "../../src/index.js";
@@ -40,31 +38,28 @@ const SSN = "078-05-1120";
 @PiiPolicy({
   name: "contact-files-pii-policy",
   description: "Token for emails, kind for cards",
-  rules: [
-    pii(PiiKind.Email, PiiAction.replaceWithToken()),
-    pii(PiiKind.CardNumber, PiiAction.replaceWithKind()),
-  ],
-  pseudonymKey: secret(KEY),
+  rules: [PiiKind.Email.tokenize(), PiiKind.CardNumber.mask()],
+  secret: secret(KEY),
 })
 class ContactFilesPolicy {}
 
 @PiiPolicy({
   name: "ssn-files-pii-policy",
   description: "Refuses social security numbers",
-  rules: [pii(PiiKind.UsSsn, PiiAction.blockWithRefusal())],
-  pseudonymKey: secret(KEY),
+  rules: [PiiKind.UsSsn.block()],
+  secret: secret(KEY),
 })
 class SsnFilesPolicy implements PiiRefusal {
   refusal(kind: PiiKind): string {
-    return `Please do not send a ${kind}.`;
+    return `Please do not send a ${kind.id}.`;
   }
 }
 
 @PiiPolicy({
   name: "open-contact-files-pii-policy",
   description: "Token for emails; the original file may go through",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithToken())],
-  pseudonymKey: secret(KEY),
+  rules: [PiiKind.Email.tokenize()],
+  secret: secret(KEY),
   files: PiiFileAction.AllowOriginal,
 })
 class OpenContactFilesPolicy {}
@@ -259,9 +254,9 @@ describe("AC5: the cache never crosses executions or tenants", () => {
 @PiiPolicy({
   name: "names-files-pii-policy",
   description: "Finds names with a model; the original file may go through",
-  rules: [pii(PiiKind.PersonName, PiiAction.replaceWithKind())],
-  detectWithModel: "local/reader",
-  pseudonymKey: secret(KEY),
+  rules: [PiiKind.PersonName.mask()],
+  model: "local/reader",
+  secret: secret(KEY),
   files: PiiFileAction.AllowOriginal,
 })
 class NamesFilesPolicy {}

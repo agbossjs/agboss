@@ -1,11 +1,10 @@
 /**
- * #262 PR 3 (S62): `testAction` — the shape of `testTool`: the action's own container
+ * #262 PR 3 (S62): `testUnit` — the shape of `testUnit`: the action's own container
  * (`overrides`), its step's frame (`SpendRecorder`, the step's node id, a timeout), its result
  * checked against its `output`.
  */
 import { describe, expect, it } from "vitest";
-import { override, testAction } from "../../../src/testing/index.js";
-import { variant } from "../../../src/flow/dto-wrappers.js";
+import { testUnit } from "../../../src/testing/index.js";
 import { seconds } from "../../../src/units/index.js";
 import type { Environment } from "../../../src/flow/generated-types.js";
 
@@ -32,30 +31,30 @@ const request = (product: string, quantity: number) => ({
   request: produced(QuoteWorkflowStart, { product, quantity }),
 });
 
-describe("testAction", () => {
+describe("testUnit", () => {
   it("runs execute(input) on its replaced service: the variant it returned and its spend", async () => {
-    const runQuote = testAction(PriceQuoteAction, {
-      overrides: [override(PriceListService, FakePriceListService)],
+    const runQuote = testUnit(PriceQuoteAction, {
+      services: [FakePriceListService],
     });
 
     const { output, spend } = await runQuote(request("pen", 3));
 
-    expect(output).toEqual(variant(QuoteDto, { cents: 750, pricedBy: "price-quote-action" }));
+    expect(output).toEqual({ cents: 750, pricedBy: "price-quote-action" });
     expect(spend.byCaller).toEqual({ "action:price-quote-action": 0.001 });
   });
 
   it("the other variant of its oneOf output", async () => {
-    const runQuote = testAction(PriceQuoteAction, {
-      overrides: [override(PriceListService, FakePriceListService)],
+    const runQuote = testUnit(PriceQuoteAction, {
+      services: [FakePriceListService],
     });
 
     const { output } = await runQuote(request("desk", 1));
 
-    expect(output).toEqual(variant(QuoteRefusedDto, { reason: "no price for desk" }));
+    expect(output).toEqual({ reason: "no price for desk" });
   });
 
   it("what the action throws rejects as it was thrown: the real service ran", async () => {
-    const runQuote = testAction(PriceQuoteAction);
+    const runQuote = testUnit(PriceQuoteAction);
 
     await expect(runQuote(request("pen", 1))).rejects.toThrow(
       "the real price list was asked for pen",
@@ -63,8 +62,8 @@ describe("testAction", () => {
   });
 
   it("a timeout aborts the step's signal on the runner's clock", async () => {
-    const runQuote = testAction(PriceQuoteAction, {
-      overrides: [override(PriceListService, HangingPriceListService)],
+    const runQuote = testUnit(PriceQuoteAction, {
+      services: [HangingPriceListService],
     });
 
     const failed = expect(runQuote(request("pen", 1), { timeout: seconds(2) })).rejects.toThrow(
@@ -76,28 +75,27 @@ describe("testAction", () => {
   });
 
   it("a class that is no @Action is a setup error", () => {
-    // @ts-expect-error — a class without execute(input) is no action
-    expect(() => testAction(PriceListService)).toThrow("not an @Action");
+    expect(() => testUnit(PriceListService)).toThrow("not a component it runs");
   });
 
   it("#644 (4): a service on SQLite takes only the field it reads: environment { sqlitePath }", async () => {
-    const runQuote = testAction(PriceQuoteAction, {
-      overrides: [override(PriceListService, SqlitePriceListService)],
+    const runQuote = testUnit(PriceQuoteAction, {
+      services: [SqlitePriceListService],
       environment: SQLITE_ONLY,
     });
 
     const { output } = await runQuote(request("pen", 2));
 
-    expect(output).toEqual(variant(QuoteDto, { cents: 500, pricedBy: "price-quote-action" }));
+    expect(output).toEqual({ cents: 500, pricedBy: "price-quote-action" });
   });
 
   it("#644 (4): without it, the error says how to pass it to the runner", async () => {
-    const runQuote = testAction(PriceQuoteAction, {
-      overrides: [override(PriceListService, SqlitePriceListService)],
+    const runQuote = testUnit(PriceQuoteAction, {
+      services: [SqlitePriceListService],
     });
 
     await expect(runQuote(request("pen", 2))).rejects.toThrow(
-      /testAction\(X, \{ environment: \{ sqlitePath: ":memory:" \} \}\)/,
+      /testUnit\(X, \{ environment: \{ sqlitePath: ":memory:" \} \}\)/,
     );
   });
 });

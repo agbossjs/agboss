@@ -1,7 +1,14 @@
+import type { HandledErrorRecord } from "../runtime/child-records.js";
 import type { ExecutionCancelFencedError } from "../../app/lease-lost.js";
+import type { InterruptReason } from "../../app/interrupt-types.js";
+import { interruptCleanups, type InterruptCleanups } from "./interrupt-cleanup.js";
+import { interruptedOf, withReport } from "./frame-interrupt.js";
+import type { InterruptFenced } from "../../app/lease-stopped.js";
 import type { StoreOutcomeUnknownError } from "../../infrastructure/store-call-timeout.js";
 import type { FingerprintKeys } from "../../infrastructure/fenced-effect-key.js";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { registerSpanTraceSource } from "../../core/diagnostics/span-trace.js";
+import { spanFramesOf } from "./frame-span-trace.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { Milliseconds } from "../../units/index.js";
 import { idempotencyKeyOf } from "./idempotency.js";
@@ -16,11 +23,12 @@ import type { MeshCallServices } from "../../mesh/mesh-call.js";
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
 import type { ExecutionDeadline } from "../../budgets/execution-deadline.js";
 import type {
-  FencedEffectReport,
+  IdempotencyRunReport,
   HandOverReport,
   OutboundCallReport,
 } from "../../app/audit-log.js";
 import type { ObservabilityMask } from "../../pii/observability-mask.js";
+import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 
 /**
  * The frame of a step (#280 S18): what the injected `ExecutionContext` reads. The node runner
@@ -57,7 +65,7 @@ export interface ExecutionFacts {
   readonly quorumDeadlineAt?: string | undefined;
   /**
    * The lease the execution's steps run under here (#471): the root's for the root and its
-   * `ParentInstance` children, a `ChildPlacement.AnyInstance` child's own; `undefined` where none is
+   * `CurrentProcess` children, a `ChildPlacement.AnyWorker` child's own; `undefined` where none is
    * held (a reply interpreter, a budget's `maxSpend()`, an ancestor rebuilt on another instance).
    */
   readonly lease?: FrameLease | undefined;
@@ -66,6 +74,11 @@ export interface ExecutionFacts {
    * request is stored (#505); `undefined` where the frame has no workflow (a unit runner).
    */
   readonly observability?: ObservabilityMask | undefined;
+  /**
+   * The execution's observers, masked by its workflow's policies (#1343): what a component inside a
+   * step tells its hooks through (`reportFrameEvent`); `undefined` where none observes (a unit runner).
+   */
+  readonly observer?: ExecutionObserverManager | undefined;
   /**
    * The key a business key's handle is made with (#508): the execution's PII key — its own (#334),
    * else the application's. None where no key is available: an error then shows no handle.
@@ -104,8 +117,8 @@ export interface FrameLease {
    * recorded before the lease is released; absent where no audit log is kept (a unit runner).
    */
   recordHandOver?(report: HandOverReport): void;
-  /** A step under it called a fenced effect (#501): its row and `onFencedEffect`, in order. */
-  recordFencedEffect?(report: FencedEffectReport): void;
+  /** A step under it called a fenced effect (#501): its row and `onIdempotencyRun`, in order. */
+  recordIdempotencyRun?(report: IdempotencyRunReport): void;
   /** A step under it moved a call that leaves the system (#505): its row and `onOutboundCall`. */
   recordOutboundCall?(report: OutboundCallReport): void;
   /**
@@ -113,7 +126,7 @@ export interface FrameLease {
    * (#909, `ExecutionCancelFencedError`): the holder stops the tree as cancelled — its signal
    * aborts, the open undos run under this very lease — at once, not at its next renewal.
    */
-  cancelFound?(cause: ExecutionCancelFencedError): void;
+  cancelFound?(cause: ExecutionCancelFencedError | InterruptFenced): void;
   /**
    * The lease is not released before `attempt` settles (#508): an outbound call's attempt in flight
    * keeps it open — renewed on — so no other instance takes its pending intent for gone.
@@ -185,6 +198,20 @@ export interface FrameServices {
    * later pass never undoes them again.
    */
   readonly keepCompensations?: (entries: readonly CompensationEntry[]) => void;
+  /**
+   * An `onInterrupted` cleanup of the step threw (#1341b): `onInterruptCleanupError` and a log entry;
+   * the remaining cleanups still run. Absent where no observer is (a unit runner): nothing is reported.
+   */
+  readonly interruptCleanupFailed?: (reason: InterruptReason, error: unknown) => Promise<void>;
+  /**
+   * The bound of a step's `onInterrupted` cleanups, all together (#1341b: `executionLimits.shutdownTimeout`):
+   * past it the step goes on — the lease is released, the undo starts — and the cleanup left is
+   * reported as failed (`onInterruptCleanupError`) and not run. `sleep` is the clock's.
+   */
+  readonly interruptBound?: {
+    readonly timeout: number;
+    readonly sleep: (delay: number, signal?: AbortSignal) => Promise<void>;
+  };
   /** A tool call's mesh services (#398 PR 2): what its remote calls claim and report. */
   readonly meshCall?: MeshCallServices;
   /**
@@ -192,6 +219,8 @@ export interface FrameServices {
    * code (an action's) claims in its envelope; `undefined` without budgets.
    */
   readonly remainingBudget?: () => number | undefined;
+  /** The tokens the execution may still use (#1318): claimed beside the dollars; `undefined` without a token budget. */
+  readonly remainingTokens?: () => number | undefined;
 }
 
 /** What a frame is opened with. */
@@ -199,15 +228,25 @@ export interface FrameSpec {
   readonly execution: ExecutionFacts;
   readonly step: StepDescriptor;
   readonly services?: FrameServices;
+  /** The failure the `.onError` side path this step runs on took in (#1316f); `undefined` off a side path. */
+  readonly handledError?: HandledErrorRecord;
 }
 
 /** An open (or closed) frame. */
 export interface Frame extends FrameSpec {
   readonly services: FrameServices;
   readonly isClosed: () => boolean;
+  /** `executionContext.onInterrupted` (#1341b): cleanups run only if this frame's step is interrupted. */
+  readonly interrupts: InterruptCleanups;
 }
 
 const storage = new AsyncLocalStorage<Frame>();
+
+// an error made inside a step carries its `Span trace` (#1325c)
+registerSpanTraceSource(() => {
+  const frame = storage.getStore();
+  return frame === undefined ? [] : spanFramesOf(frame.step, frame.execution);
+});
 
 /** The frame the current async context runs in; `undefined` outside any execution. */
 export const currentFrame = (): Frame | undefined => storage.getStore();
@@ -218,10 +257,19 @@ export async function runInFrame<TResult>(
   work: () => Promise<TResult>,
 ): Promise<TResult> {
   let closed = false;
-  const frame: Frame = { ...spec, services: spec.services ?? {}, isClosed: () => closed };
+  const interrupts = interruptCleanups();
+  const services = spec.services ?? {};
+  const frame: Frame = { ...spec, services, isClosed: () => closed, interrupts };
+  const { signal } = spec.execution;
+  const interrupted = interruptedOf(interrupts, services, signal);
   return storage.run(frame, async () => {
     try {
-      return await work();
+      const result = await work();
+      if (signal.aborted) await interrupted();
+      return result;
+    } catch (error) {
+      await interrupted(error);
+      throw error;
     } finally {
       closed = true;
     }
@@ -268,7 +316,7 @@ export function inToolCallFrame<TResult>(
   const step = currentFrame();
   return step === undefined
     ? work()
-    : runInFrame(toolCallFrameOf(step, callId, services, signal), work);
+    : runInFrame(toolCallFrameOf(step, callId, withReport(step.services, services), signal), work);
 }
 
 /** Where an agent's loop is (#268 S93): its model call in the visit, the failed validations so far. */

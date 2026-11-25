@@ -1,5 +1,5 @@
-import { Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
-import { start, toAction } from "../../helpers/flow.js";
+import { Workflow, WorkflowFinish, WorkflowStart, Ttl } from "../../../src/index.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import {
   BookOrderAction,
   DeclineOrderAction,
@@ -24,11 +24,10 @@ export class PaidNestedWorkflowFinish {}
 @Workflow({
   name: "paid-nested-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PaidNestedWorkflowStart)
-      .returns(OrderDto)
+    onStart(PaidNestedWorkflowStart)
       .toWorkflow(PaidActionWorkflow)
-      .returns(OrderNoteDto)
       .toFinish(PaidNestedWorkflowFinish),
   ],
 })
@@ -47,16 +46,17 @@ export class PaidRefundWorkflowFinish {}
 @Workflow({
   name: "paid-refund-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PaidRefundWorkflowStart)
-      .returns(OrderDto)
+    onStart(PaidRefundWorkflowStart)
       .toAction(BookOrderAction)
       .toAction(DeclineOrderAction)
-      .onError(OrderDeclinedError, toAction(RefundOrderAction)
-        .toFinish(RefundedWorkflowFinish))
-      .returns(OrderDto)
+      .onError(
+        OrderDeclinedError,
+        toAction(RefundOrderAction)
+          .toFinish(RefundedWorkflowFinish),
+      )
       .toAction(NoteOrderAction)
-      .returns(OrderNoteDto)
       .toFinish(PaidRefundWorkflowFinish),
   ],
 })

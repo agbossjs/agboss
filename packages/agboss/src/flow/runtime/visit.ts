@@ -1,25 +1,20 @@
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { InterruptReason } from "../../app/interrupt-types.js";
+import { nodeEventOf } from "../observers/execution-event.js";
 import { extractRunContext } from "../../core/run-context.js";
-import { runInFrame } from "../context/frame.js";
+import { runInFrame, type FrameServices } from "../context/frame.js";
+import { withTaken } from "./compensation/held-entries.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
-import { checkVisit, isWorkingNode, sidePathAfter, type ExecutionLimits } from "./limits.js";
-import {
-  recordsOf,
-  reportingOf,
-  type GraphNode,
-  type NodeOutcome,
-  type NodeRunner,
-} from "./node-runner.js";
-import {
-  compensationsOfHeldVisit,
-  compensationsOfVisit,
-  type CompensationEntry,
-  type HeldUndo,
-} from "../compensation.js";
+import { handledErrorFrame } from "./handled-error-frame.js";
+import { checkVisit, countsAsStep, sidePathAfter, type ExecutionLimits } from "./limits.js";
+import { recordsOf, reportingOf, type GraphNode, type NodeRunner } from "./node-runner.js";
+import { compensationsOfVisit } from "../compensation.js";
 import type { CompensationParts } from "./compensation/registry.js";
 import type { Class } from "../../components/injection.js";
+import type { GraphDeps } from "../../graph/deps.js";
 import type { StepEntries } from "./step-entries.js";
 import { LimitExceededError } from "../../graph/limits.js";
-import type { Clock } from "../../infrastructure/clock.js";
+import type { Milliseconds } from "../../units/index.js";
 import { reportOutdating } from "./outdating-report.js";
 import type { RuntimeProvenance } from "./provenance.js";
 import { startedVersionOf, stepFrameOf, type StepFrameDeps, inTreeSlot } from "./step-frame.js";
@@ -27,11 +22,11 @@ import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import { exitOf, visitWrite, type SpentOutcome, type VisitWrite } from "./visit-write.js";
 import { succeededStepsOf, type VisitAt } from "./visit-step.js";
 import { caught, visited } from "./visit-failure.js";
-import type { ExecutionObserverManager } from "../../core/observer-manager.js";
-import { launchEdgeOf, launchFor, launchTicketOf, nextOfLaunch } from "./launch/launch-exit.js";
+import { handledFailure } from "./visit-handled.js";
+import { itemBoundOf, type FlowEdge } from "../analyse/flow-graph.js";
+import { launchEdgeOf, launchFor, nextOfLaunch, type DeadlineSite } from "./launch/launch-exit.js";
+import { launchAttemptOf, type Launched } from "./launch/launch-attempt.js";
 import { reportTruncation } from "./launch/launch-report.js";
-import type { LaunchTicket } from "./launch/records.js";
-import type { RuntimeLaunch } from "./launch/runtime-launch.js";
 import { readInput } from "./scope.js";
 import type { TreeSlotRegistry } from "./launch/launch-registry.js";
 import { recordLostPasses } from "./lost-pass-records.js";
@@ -51,7 +46,6 @@ export interface VisitDeps extends StepFrameDeps {
   readonly provenance: RuntimeProvenance;
   /** The graph: what a launch dispatches (#273). */
   readonly graph: RuntimeGraph;
-  readonly observer?: ExecutionObserverManager;
   /** The trees' concurrency caps of this pass (#264): every step takes a slot of its tree. */
   readonly slots?: TreeSlotRegistry;
   /** The instance's undo bound and registry (#340); absent = the default bound, no registry. */
@@ -59,38 +53,8 @@ export interface VisitDeps extends StepFrameDeps {
   /** Where an undo action comes from (#675: the owed undo of a held-back visit), and the running steps. */
   readonly container: { readonly get: <T>(token: Class<T>) => T };
   readonly stepEntries?: StepEntries | undefined;
-}
-
-/** A failed visit's own entries: a held-back undo action's owed undo run (#675), else its close. */
-function failedCompensations(
-  site: Parameters<typeof compensationsOfVisit>[0],
-  deps: VisitDeps,
-  { isHeldBack, clock }: { readonly isHeldBack: boolean; readonly clock: Clock },
-): ReturnType<typeof compensationsOfHeldVisit> {
-  return isHeldBack
-    ? compensationsOfHeldVisit({ ...site, clock, deps })
-    : compensationsOfVisit(site);
-}
-
-/**
- * A handled failure's update with its entries — a failed child's undone ones first (#340), the
- * visit's own after them — and the owed undo's spend after the visit's own (#675).
- */
-function withOwnCompensations(
-  handled: ExecutionStateUpdate,
-  childEntries: readonly CompensationEntry[],
-  own: HeldUndo,
-): ExecutionStateUpdate {
-  const compensations = [...childEntries, ...(own.compensations ?? [])];
-  const visitUsage = Array.isArray(handled.usage) ? handled.usage : [];
-  const usage = [...visitUsage, ...(own.usage ?? [])];
-  return { ...handled, usage, ...(compensations.length === 0 ? {} : { compensations }) };
-}
-
-/** A launch a visit took: its graph launch and the ticket of its branches (#273). */
-interface Launched {
-  readonly launch: RuntimeLaunch;
-  readonly ticket: LaunchTicket;
+  /** The deps of the child workflows a node runs (#1281): where a child's held entry is undone. */
+  readonly childDepsOf?: ((workflow: Class) => GraphDeps<string> | undefined) | undefined;
 }
 
 /** A visit that succeeded: its bookkeeping, its way out and what its write did to the scope. */
@@ -100,51 +64,83 @@ interface Succeeded {
   readonly launched: Launched | undefined;
 }
 
-/** The launch a visit takes, with the ticket of its branches; none for a visit that launches nothing. */
-function launchedBy(
-  launch: RuntimeLaunch | undefined,
-  node: RuntimeNode,
-  outcome: NodeOutcome,
-  site: {
-    readonly state: ExecutionStateType;
-    readonly deps: VisitDeps;
-    readonly executionId: string;
-    readonly now: Date;
-  },
-  write: VisitWrite,
-): Launched | undefined {
-  if (launch === undefined) return undefined;
-  const { state, deps, executionId, now } = site;
-  const scope = write.scope ?? state.scope;
-  const visit = { graph: deps.graph, node, state, outcome, executionId, scope, now };
-  return { launch, ticket: launchTicketOf(visit, launch) };
-}
+/** Where a visit goes on: its launch's branches (or join), else its exit. */
+const nextOf = (launched: Launched | undefined, exit: FlowEdge | undefined): string =>
+  launched === undefined ? (exit?.to ?? "") : nextOfLaunch(launched.launch, launched.ticket);
 
-function succeeded(
+async function succeeded(
   node: RuntimeNode,
   state: ExecutionStateType,
   outcome: SpentOutcome,
   deps: VisitDeps,
   at: VisitAt,
-): Succeeded {
+  calendar: Pick<DeadlineSite, "clock" | "interruption">,
+): Promise<Succeeded> {
   const launch = launchFor(node, outcome);
   const exit = launch === undefined ? exitOf(node, state, outcome, deps) : launchEdgeOf(launch);
   const write = visitWrite(node, state, exit, outcome, deps.provenance);
-  const launched = launchedBy(launch, node, outcome, { state, deps, ...at }, write);
-  const next =
-    launched === undefined ? (exit?.to ?? "") : nextOfLaunch(launched.launch, launched.ticket);
+  const site = {
+    state,
+    deps,
+    ...at,
+    calendar: { ...calendar, frame: at.frame, container: deps.container },
+  };
+  const dispatch = await launchAttemptOf(launch, node, outcome, site, write);
+  const launched = dispatch?.launched;
+  const next = nextOf(launched, exit);
   const update = {
-    ...visited(node, isWorkingNode(node)),
+    ...visited(node, countsAsStep(state, node)),
     ...write.update,
     next,
     ...sidePathAfter(state, node, launched === undefined ? next : undefined),
     ...(launched === undefined ? {} : { launch: launched.ticket }),
+    ...dispatch?.stoppedBy,
     ...recordsOf(outcome),
     ...(outcome.fileTranscripts === undefined ? {} : { fileTranscripts: outcome.fileTranscripts }),
     ...(outcome.finish === undefined ? {} : { finish: node.id, output: outcome.finish.output }),
     stepRecords: succeededStepsOf({ ...at, node, state, endedAt: at.now }, outcome),
   };
   return { update, write, launched };
+}
+
+/** The step's frame with the services its code reports through (#280 S43) and its interruption's (#1341b). */
+function visitFrameOf(
+  site: {
+    node: RuntimeNode;
+    state: ExecutionStateType;
+    config: RunnableConfig | undefined;
+    deps: VisitDeps;
+  },
+  services: FrameServices,
+) {
+  const { node, state, config, deps } = site;
+  const base = stepFrameOf(node, state, config, deps);
+  return {
+    ...base,
+    ...handledErrorFrame(state, node),
+    services: {
+      ...services,
+      input: () => readInput(deps.graph, node, state).fields,
+      // the cleanups of an interrupted step are bounded by `shutdownTimeout` (#1341b)
+      ...(deps.compensation?.interruptTimeout === undefined
+        ? {}
+        : {
+            interruptBound: {
+              timeout: deps.compensation.interruptTimeout,
+              sleep: (delay: number, signal?: AbortSignal) =>
+                extractRunContext(config, state.runId).clock.sleep(delay as Milliseconds, signal),
+            },
+          }),
+      // an `onInterrupted` cleanup that threw: told to the observers, the rest still run
+      interruptCleanupFailed: (reason: InterruptReason, error: unknown) =>
+        deps.observer?.onInterruptCleanupError({
+          ...nodeEventOf(base),
+          component: base.step.component,
+          reason,
+          error,
+        }) ?? Promise.resolve(),
+    },
+  };
 }
 
 /**
@@ -160,10 +156,7 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
     const kept = { startedVersion: startedVersionOf(state, deps.workflow) };
     // what the step's code paid services through `SpendRecorder` (#280 S43), its children (#263)
     const { reported, services } = reportingOf(deps.limits, node, state.path);
-    const frame = {
-      ...stepFrameOf(node, state, config, deps),
-      services: { ...services, input: () => readInput(deps.graph, node, state).fields },
-    };
+    const frame = visitFrameOf({ node, state, config, deps }, services);
     const { clock } = extractRunContext(config, state.runId);
     // an undoable action, its committer, its undo or a finish (#340): what it writes of them
     const startedAt = clock.now();
@@ -180,26 +173,28 @@ export function visitNode(node: RuntimeNode, runner: NodeRunner, deps: VisitDeps
       });
       const spent = { ...outcome, usage: [...(outcome.usage ?? []), ...reported.usage] };
       const at = { executionId: frame.execution.executionId, now: clock.now(), frame, startedAt };
-      const { update, write, launched } = succeeded(node, state, spent, deps, at);
+      const calendar = { clock, interruption: config?.signal };
+      const { update, write, launched } = await succeeded(node, state, spent, deps, at, calendar);
       const outdatedSoFar = [...state.outdatedValues, ...write.outdated];
       const site = { observer: deps.observer, config, ...frame, outdatedSoFar };
       await reportOutdating(write.cascades, site);
       if (launched !== undefined) {
         const reportSite = { observer: deps.observer, config, frame };
-        await reportTruncation(reportSite, launched.ticket, launched.launch.launch.maxItems);
+        await reportTruncation(reportSite, launched.ticket, itemBoundOf(launched.launch.launch));
       }
       const after = { ...undoables, ...parts, scope: write.scope ?? state.scope, endedAt: at.now };
-      const compensations = await compensationsOfVisit(after);
+      const own = await compensationsOfVisit(after);
+      const taken = { taken: outcome.compensations, parts: deps.compensation, frame };
+      const compensations = withTaken(taken, own);
       return { ...update, children: [...reported.children], ...compensations, ...kept };
     } catch (error) {
       const visit = { frame, node, state, startedAt, endedAt: clock.now() };
       const handled = caught(deps, visit, error, { ranAsStep, reported }, config?.signal);
-      const failed = { ...undoables, ...parts, scope: state.scope, endedAt: clock.now() };
       // #675: a limit thrown before the node ran held the visit back — it ran nothing
       const isHeldBack = !limitsChecked.isDone && error instanceof LimitExceededError;
-      const site = { ...failed, failure: error };
-      const own = await failedCompensations(site, deps, { isHeldBack, clock });
-      return { ...withOwnCompensations(handled, reported.compensations, own), ...kept };
+      const failed = { ...undoables, ...parts, scope: state.scope, endedAt: clock.now() };
+      const site = { ...failed, state, failure: error, isHeldBack, clock, deps, reported };
+      return { ...(await handledFailure(handled, site)), ...kept };
     }
   };
 }

@@ -42,43 +42,43 @@
         },
         {
           "contract": "PausedExecutionRepository",
-          "implementation": "InMemoryPausedExecutionRepository",
-          "reason": "default"
+          "implementation": "SqlitePausedExecutionRepository",
+          "reason": "listed"
         },
         {
           "contract": "ExecutionLeaseRepository",
-          "implementation": "InMemoryExecutionLeaseRepository",
-          "reason": "default"
+          "implementation": "SqliteExecutionLeaseRepository",
+          "reason": "listed"
         },
         {
           "contract": "ExecutionTreeRepository",
-          "implementation": "InMemoryExecutionTreeRepository",
-          "reason": "default"
+          "implementation": "SqliteExecutionTreeRepository",
+          "reason": "listed"
         },
         {
           "contract": "RateLimitRepository",
-          "implementation": "InMemoryRateLimitRepository",
-          "reason": "default"
+          "implementation": "SqliteRateLimitRepository",
+          "reason": "listed"
         },
         {
           "contract": "MeshRequestRepository",
-          "implementation": "InMemoryMeshRequestRepository",
-          "reason": "default"
+          "implementation": "SqliteMeshRequestRepository",
+          "reason": "listed"
         },
         {
           "contract": "A2ATaskRepository",
-          "implementation": "InMemoryA2ATaskRepository",
-          "reason": "default"
+          "implementation": "SqliteA2ATaskRepository",
+          "reason": "listed"
         },
         {
-          "contract": "A2AFileRepository",
-          "implementation": "InlineA2AFileRepository",
+          "contract": "FileRepository",
+          "implementation": "InlineFileRepository",
           "reason": "default"
         },
         {
           "contract": "A2ADirectMessageRepository",
-          "implementation": "InMemoryA2ADirectMessageRepository",
-          "reason": "default"
+          "implementation": "SqliteA2ADirectMessageRepository",
+          "reason": "listed"
         },
         {
           "contract": "ExecutionHistoryRepository",
@@ -87,23 +87,41 @@
         },
         {
           "contract": "ChildExecutionQueueRepository",
-          "implementation": "InMemoryChildExecutionQueueRepository",
-          "reason": "default"
+          "implementation": "SqliteChildExecutionQueueRepository",
+          "reason": "listed"
         },
         {
           "contract": "FencedEffectRepository",
-          "implementation": "InMemoryFencedEffectRepository",
-          "reason": "default"
+          "implementation": "SqliteFencedEffectRepository",
+          "reason": "listed"
         },
         {
           "contract": "ExecutionAuditLogRepository",
-          "implementation": "InMemoryExecutionAuditLogRepository",
-          "reason": "default"
+          "implementation": "SqliteExecutionAuditLogRepository",
+          "reason": "listed"
         },
         {
           "contract": "OutboundCallRepository",
-          "implementation": "InMemoryOutboundCallRepository",
+          "implementation": "SqliteOutboundCallRepository",
+          "reason": "listed"
+        },
+        {
+          "contract": "FileTranscriber",
+          "implementation": "ModelFileTranscriber",
           "reason": "default"
+        },
+        {
+          "contract": "FileRedactor",
+          "implementation": "ModelImageRedactor",
+          "reason": "default"
+        }
+      ],
+      "storage": [
+        {
+          "role": "database",
+          "name": "desk-database-storage",
+          "backend": "sqlite",
+          "describes": "sqlite (AGBOSS_SQLITE_PATH)"
         }
       ],
       "modelProviders": [
@@ -111,10 +129,8 @@
           "name": "harness-model-provider",
           "className": "HarnessModelProvider",
           "reason": "listed",
-          "serves": [
-            "/^harness\\//"
-          ],
-          "isTransport": true
+          "isTransport": true,
+          "isNamed": false
         }
       ],
       "budgets": [
@@ -143,6 +159,7 @@
       "observers": [
         "DeskMetricsObserver"
       ],
+      "pauseListeners": [],
       "warnings": [],
       "maxConcurrentSteps": 16,
       "tree": [
@@ -222,10 +239,7 @@
         "name": "dev",
         "fields": {
           "openRouterApiKey": "<missing OPENROUTER_API_KEY>",
-          "openRouterBaseUrl": "<unset OPENROUTER_BASE_URL, optional>",
-          "sqlitePath": "\".agboss/flow-patterns.sqlite\"",
-          "piiPseudonymKey": "<missing PII_PSEUDONYM_KEY>",
-          "idempotencyKey": "<missing IDEMPOTENCY_KEY>"
+          "openRouterBaseUrl": "<unset OPENROUTER_BASE_URL, optional>"
         }
       }
     },
@@ -234,7 +248,7 @@
         "name": "desk-workflow",
         "version": "1.0.0",
         "profile": "base",
-        "config": "05162c07",
+        "config": "3ccacb54",
         "piiPolicies": [
           {
             "name": "customer-id-pii-policy",
@@ -242,7 +256,7 @@
             "rules": [
               {
                 "target": "findMatches()",
-                "action": "replaceWithToken()"
+                "action": "tokenize()"
               }
             ],
             "elements": [
@@ -252,8 +266,7 @@
           }
         ],
         "flow": [
-          "start(DeskWorkflowStart)",
-          "  .returns(DeskQuestionDto)",
+          "onStart(DeskWorkflowStart)",
           "  .toAgent(DeskAgent)",
           "  .toFinish(DeskAnswerWorkflowFinish)"
         ],
@@ -270,11 +283,9 @@
             "tools": [
               "order-status-tool",
               "close-account-tool",
-              "search-shipping-policy-rag-tool"
+              "search-shipping-policy-tool"
             ],
-            "rag": [
-              "shipping-policy-rag"
-            ]
+            "rag": []
           }
         ],
         "models": [
@@ -296,8 +307,8 @@
             "kind": "local"
           },
           {
-            "name": "search-shipping-policy-rag-tool",
-            "description": "Shipping and refund articles. Returns the most relevant search results with their source; cite them as [source].",
+            "name": "search-shipping-policy-tool",
+            "description": "Searches the shipping and refund articles",
             "kind": "local"
           }
         ],
@@ -324,14 +335,14 @@
               "children": []
             }
           ],
-          "maxConcurrentExecutions": 10,
-          "isMaxConcurrentExecutionsSet": false
+          "maxConcurrency": 10,
+          "isMaxConcurrencySet": false
         },
         "steps": {
           "least": 1,
           "most": 1
         },
-        "configHash": "05162c07c0b7413794fecc3fc1788e95a23a5c750ff1484bd1f24a14e51bf1c6",
+        "configHash": "3ccacb54e627615247c41a2c1ef9a643fb9c55a5a4fd4ee1caec2a4abc3f1a75",
         "starts": [
           "desk-workflow-start"
         ],
@@ -362,20 +373,13 @@
               "maxToolCalls": 3,
               "maxResultSize": 131072,
               "uncompactedTurns": 2,
-              "compaction": "case-notes-compaction",
+              "memory": "case-notes-memory",
               "tools": [
                 "order-status-tool",
                 "close-account-tool",
-                "search-shipping-policy-rag-tool"
+                "search-shipping-policy-tool"
               ],
-              "rag": [
-                {
-                  "name": "shipping-policy-rag",
-                  "mode": "tool",
-                  "topK": 2,
-                  "tenancy": "shared"
-                }
-              ],
+              "rag": [],
               "guardrails": {
                 "input": [
                   "no-credentials-guardrail"
@@ -389,6 +393,9 @@
                   "desk-audit-tool-interceptor"
                 ],
                 "close-account-tool": [
+                  "desk-audit-tool-interceptor"
+                ],
+                "search-shipping-policy-tool": [
                   "desk-audit-tool-interceptor"
                 ]
               },
@@ -545,16 +552,17 @@
                 ]
               }
             },
-            "search-shipping-policy-rag-tool": {
-              "promptHash": "8315656b158d466b55385064db7aa9f46da92381537d3a66a93abe6db4ec3027",
-              "schemaHash": "6a7e59a784b42d2f036b7814e422ec9bd00ea5569ff0f819d3e32ee6a3870774",
+            "search-shipping-policy-tool": {
+              "promptHash": "476a9a76899b407424caf4b5e9ab00c708db9c547915ece5f884c13b84f1a778",
+              "schemaHash": "1442b26ff377f814d4c7b7422a681533a3042890d0fb8dd46d4a76e658ed2efe",
               "maxResultSize": 131072,
               "input": {
                 "type": "object",
                 "properties": {
                   "query": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "description": "what to search for"
                   }
                 },
                 "required": [
@@ -569,21 +577,46 @@
                     "items": {
                       "type": "object",
                       "properties": {
-                        "source": {
-                          "type": "string"
-                        },
                         "text": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "the found text"
+                        },
+                        "source": {
+                          "type": "string",
+                          "description": "where it comes from: a document, a page, a file"
                         },
                         "score": {
+                          "description": "how well it matches the query: higher is better",
                           "type": "number"
+                        },
+                        "id": {
+                          "description": "the passage's id in its knowledge base, when it has one",
+                          "type": "string"
+                        },
+                        "title": {
+                          "description": "the title of the document the passage is from",
+                          "type": "string"
+                        },
+                        "url": {
+                          "description": "a link to the document",
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "metadata": {
+                          "description": "what else the knowledge base knows about it",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
                         }
                       },
                       "required": [
-                        "source",
-                        "text"
+                        "text",
+                        "source"
                       ]
-                    }
+                    },
+                    "description": "the most relevant passages, best first"
                   }
                 },
                 "required": [

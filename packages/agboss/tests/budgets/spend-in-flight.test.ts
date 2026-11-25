@@ -46,8 +46,8 @@ const outcomeOf = (run: Promise<unknown>): Promise<Outcome> =>
 
 describe("#727: a sibling child's spend while it works on", () => {
   for (const [placement, Start] of [
-    ["ParentInstance", LocalPayItemsWorkflowStart],
-    ["AnyInstance", AnyPayItemsWorkflowStart],
+    ["CurrentProcess", LocalPayItemsWorkflowStart],
+    ["AnyWorker", AnyPayItemsWorkflowStart],
   ] as const) {
     test(`${placement}: b's pay-three is held back at $120 while a works on`, async ({
       app,
@@ -106,6 +106,6 @@ describe("#732: a child on any instance right after its parent paid", () => {
       key: executionIdOf(outcome),
       maxSpend: 0,
     };
-    expect(await ledger.findSpentByCounter(counterOf(execution, now))).toBe(120);
+    expect((await ledger.findUsageByCounter(counterOf(execution, now))).spent).toBe(120);
   });
 });

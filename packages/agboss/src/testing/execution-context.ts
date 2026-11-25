@@ -27,7 +27,7 @@ import { declarationOf } from "../flow/decorators/declaration.js";
 import { arbiterOf } from "../flow/decorators/arbiter.js";
 import { componentKindOf } from "../flow/runtime/join-keys.js";
 import { bareRecordOf, ComponentKind } from "../flow/runtime/records.js";
-import { fenceOver } from "../flow/context/execution-fence.js";
+import { FENCE, fenceOver } from "../flow/context/execution-fence.js";
 import type { Clock } from "../infrastructure/clock.js";
 import { VirtualClock } from "./clock.js";
 import { testFenceLeaseOf, type TestFenceOptions } from "./fence.js";
@@ -77,7 +77,6 @@ function nameOf(cls: Class, fallback: string): string {
 /** The kinds of the classes a unit runner runs, by their decorator's kind. */
 const KIND_OF_COMPONENT: Readonly<Partial<Record<string, ComponentKind>>> = {
   tool: ComponentKind.Tool,
-  "mcp-tool": ComponentKind.Tool,
   guardrail: ComponentKind.Guardrail,
   judge: ComponentKind.Judge,
   rag: ComponentKind.Rag,
@@ -209,16 +208,21 @@ export function testExecutionContext<
   const context = Object.create(executionType.prototype) as TExecution & {
     readonly tenant: TTenant;
   };
-  Object.assign(context, executionDataOf(options), values, { tenant });
+  Object.assign(context, executionDataOf(options), values, {
+    tenant,
+    application: tenant.application,
+  });
   const lease = testFenceLeaseOf(options.fence ?? {}, {
     tenantId: tenant.tenantId,
     executionId: options.executionId ?? "test-execution",
     clock: options.clock ?? new VirtualClock(),
   });
-  Object.defineProperty(context, "fence", { enumerable: true, value: fenceOver(() => lease) });
+  Object.defineProperty(context, FENCE, { enumerable: false, value: fenceOver(() => lease) });
   Object.defineProperty(context, "root", { enumerable: true, value: context });
   Object.defineProperty(context, "executionOf", {
     value: (workflow: WorkflowClass) => (workflow === context.workflow.type ? context : undefined),
   });
+  // a unit test runs no interruption: a cleanup registered here is accepted and never run (#1341b)
+  Object.defineProperty(context, "onInterrupted", { value: (): void => undefined });
   return Object.freeze(context);
 }

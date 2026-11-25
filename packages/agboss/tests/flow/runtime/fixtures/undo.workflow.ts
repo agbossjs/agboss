@@ -1,5 +1,6 @@
 import { Text } from "../../../../src/dto/index.js";
 import {
+  Observer,
   Action,
   EmptyEnvironment,
   ExecutionContext,
@@ -9,15 +10,14 @@ import {
   WorkflowStart,
   type CompensationEndEvent,
   type CompensationStartEvent,
-  type OnCompensationEnd,
-  type OnCompensationStart,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
 import { seconds, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { start, toAction, toFinish } from "../../../helpers/flow.js";
+import { onStart, toAction, toFinish } from "../../../helpers/flow.js";
 
 /**
  * #340 PR 2 — undoable reservations: a seat (undone by its release, committed by its
@@ -111,9 +111,9 @@ export class ReleaseSeatAction {
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  async execute(input: { readonly seat: Produced<SeatDto, unknown> }): Promise<void> {
+  async execute(input: { readonly seat: Tracked<SeatDto> }): Promise<void> {
     this.spendRecorder.record({ service: "seat-desk", cost: usd(0.001) });
-    await released(this.undoDesk, this.executionContext, input.seat.value.seatId);
+    await released(this.undoDesk, this.executionContext, input.seat.seatId);
   }
 }
 
@@ -129,8 +129,8 @@ export class ReleaseRoomAction {
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  async execute(input: { readonly room: Produced<RoomDto, unknown> }): Promise<void> {
-    await released(this.undoDesk, this.executionContext, input.room.value.roomId);
+  async execute(input: { readonly room: Tracked<RoomDto> }): Promise<void> {
+    await released(this.undoDesk, this.executionContext, input.room.roomId);
   }
 }
 
@@ -141,8 +141,8 @@ export class ReleaseRoomAction {
   output: SeatConfirmedDto,
 })
 export class ConfirmSeatAction {
-  execute(input: { readonly seat: Produced<SeatDto, unknown> }): Promise<SeatConfirmedDto> {
-    return Promise.resolve({ seatId: input.seat.value.seatId });
+  execute(input: { readonly seat: Tracked<SeatDto> }): Promise<SeatConfirmedDto> {
+    return Promise.resolve({ seatId: input.seat.seatId });
   }
 }
 
@@ -237,20 +237,27 @@ export class UndoUnhandledWorkflowStart {}
 })
 export class UndoPathWorkflowStart {}
 
-@WorkflowFinish({
-  name: "reserved-workflow-finish",
+@Action({
+  name: "reserved-action",
   description: "Reserved",
   input: { seat: SeatDto, room: RoomDto },
   output: ReservedDto,
 })
-export class ReservedWorkflowFinish {
-  finish(input: {
-    readonly seat: Produced<SeatDto, unknown>;
-    readonly room: Produced<RoomDto, unknown>;
-  }): ReservedDto {
-    return { summary: `${input.seat.value.seatId} + ${input.room.value.roomId}` };
+export class ReservedAction {
+  async execute(input: {
+    readonly seat: Tracked<SeatDto>;
+    readonly room: Tracked<RoomDto>;
+  }): Promise<ReservedDto> {
+    return { summary: `${input.seat.seatId} + ${input.room.roomId}` };
   }
 }
+
+@WorkflowFinish({
+  name: "reserved-workflow-finish",
+  description: "Reserved",
+  output: ReservedDto,
+})
+export class ReservedWorkflowFinish {}
 
 @WorkflowFinish({
   name: "not-reserved-workflow-finish",
@@ -270,14 +277,17 @@ export class SeatConfirmedWorkflowFinish {}
 @Workflow({
   name: "undo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(UndoWorkflowStart)
-      .returns(UndoRequestDto)
-      .toParallelActions(ReserveSeatAction, ReserveRoomAction, ChargeCardAction)
+    onStart(UndoWorkflowStart)
+      .inParallel([
+        toAction(ReserveSeatAction),
+        toAction(ReserveRoomAction),
+        toAction(ChargeCardAction),
+      ])
       .join()
-      .onJoinError(UndoDeskError, toFinish(NotReservedWorkflowFinish))
-      .returns(SeatDto)
-      .returns(RoomDto)
+      .onError(UndoDeskError, toFinish(NotReservedWorkflowFinish))
+      .toAction(ReservedAction)
       .toFinish(ReservedWorkflowFinish),
   ],
   providers: [UndoDesk],
@@ -288,13 +298,16 @@ export class UndoWorkflow {}
 @Workflow({
   name: "undo-unhandled-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(UndoUnhandledWorkflowStart)
-      .returns(UndoRequestDto)
-      .toParallelActions(ReserveSeatAction, ReserveRoomAction, ChargeCardAction)
+    onStart(UndoUnhandledWorkflowStart)
+      .inParallel([
+        toAction(ReserveSeatAction),
+        toAction(ReserveRoomAction),
+        toAction(ChargeCardAction),
+      ])
       .join()
-      .returns(SeatDto)
-      .returns(RoomDto)
+      .toAction(ReservedAction)
       .toFinish(ReservedWorkflowFinish),
   ],
   providers: [UndoDesk],
@@ -308,13 +321,11 @@ export class UndoUnhandledWorkflow {}
 @Workflow({
   name: "undo-path-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(UndoPathWorkflowStart)
-      .returns(UndoRequestDto)
+    onStart(UndoPathWorkflowStart)
       .toAction(HoldSeatAction)
-      .returns(SeatDto)
       .toAction(ReserveRoomAction)
-      .returns(RoomDto)
       .toAction(ChargeCardAction)
       .onError(
         UndoDeskError,
@@ -328,7 +339,6 @@ export class UndoUnhandledWorkflow {}
           .toFinish(NotReservedWorkflowFinish),
       )
       .toAction(ConfirmSeatAction)
-      .returns(SeatConfirmedDto)
       .toFinish(SeatConfirmedWorkflowFinish),
   ],
   providers: [UndoDesk],
@@ -338,8 +348,8 @@ export class UndoPathWorkflow {}
 /** Every compensation event, in order. */
 export const undoEvents: (CompensationStartEvent | CompensationEndEvent)[] = [];
 
-@Injectable()
-export class UndoLog implements OnCompensationStart, OnCompensationEnd {
+@Observer()
+export class UndoLog {
   onCompensationStart(event: CompensationStartEvent): void {
     undoEvents.push(event);
   }
@@ -366,6 +376,6 @@ export class UndoApplication {}
   environment: EmptyEnvironment,
   workflows: [UndoWorkflow],
   budgets: TEST_BUDGETS,
-  compensationTimeout: seconds(2),
+  executionLimits: { compensationTimeout: seconds(2) },
 })
 export class UndoQuickApplication {}

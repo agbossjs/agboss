@@ -2,22 +2,44 @@ import { z } from "zod";
 import { dtoCycleOf, cycleText } from "./cycles.js";
 import { DtoError, DtoValidationError, pathOf } from "./errors.js";
 import { scalarSchemas } from "./formats.js";
-import { isOpen, registerDto } from "./metadata.js";
+import { checksOf, isOpen, registerDto } from "./metadata.js";
+import { hydrateInPlace } from "./hydrate.js";
 import { rememberDtoOf } from "./redact.js";
-import type { DtoClass, ElementSpec, FieldSpec } from "./types.js";
+import type { DtoCheck, DtoClass, ElementSpec, FieldSpec } from "./types.js";
 
-/** A rule across fields that one decorator cannot say (`from` ≤ `to`); `undefined` = fine. */
-export type CrossFieldRule<T> = (
-  value: T,
-) => { readonly field: string; readonly reason: string } | undefined;
+const FAILED = "validation failed";
 
-const rules = new WeakMap<DtoClass, readonly CrossFieldRule<Record<string, unknown>>[]>();
+interface Issue {
+  readonly field?: string;
+  readonly reason: string;
+}
 
-/** Adds a cross-field rule to a DTO's validation (standard DTOs; checked after the fields). */
-export function crossFieldRule<T extends object>(dto: DtoClass<T>, rule: CrossFieldRule<T>): void {
-  // the rule reads the DTO's own fields, which validation has already checked
-  const loose = rule as unknown as CrossFieldRule<Record<string, unknown>>;
-  rules.set(dto, [...(rules.get(dto) ?? []), loose]);
+/** One reported issue: a message, or a message at a field; anything else is a failure. */
+function issueOf(one: unknown): Issue {
+  if (typeof one === "string") return { reason: one === "" ? FAILED : one };
+  if (typeof one === "object" && one !== null && "reason" in one) {
+    const { field, reason } = one as { field?: unknown; reason: unknown };
+    return {
+      ...(typeof field === "string" ? { field } : {}),
+      reason: typeof reason === "string" && reason !== "" ? reason : FAILED,
+    };
+  }
+  return { reason: FAILED };
+}
+
+/** What a check returned, as issues: `undefined`, `true` and `[]` are valid; `false` and the unexpected fail. */
+function issuesOf(result: unknown): readonly Issue[] {
+  if (result === undefined || result === true) return [];
+  return Array.isArray(result) ? result.map(issueOf) : [issueOf(result)];
+}
+
+/** Runs one check; a check that throws, or returns something it should not (a Promise), fails. */
+function runCheck(check: DtoCheck<never>, value: Record<string, unknown>): readonly Issue[] {
+  try {
+    return issuesOf((check as (v: unknown) => unknown)(value));
+  } catch {
+    return [{ reason: FAILED }];
+  }
 }
 
 type ObjectSchema = z.ZodType<Record<string, unknown>>;
@@ -25,6 +47,7 @@ const schemas = new WeakMap<DtoClass, ObjectSchema>();
 
 const elementSchema = (element: ElementSpec | undefined): z.ZodType => {
   if (element === undefined) return z.unknown();
+  if (element.kind === "enum") return z.enum(element.values);
   return element.kind === "dto" ? objectSchemaOf(element.dto) : scalarSchemas[element.scalar]({});
 };
 
@@ -79,15 +102,26 @@ export function objectSchemaOf(dto: DtoClass): ObjectSchema {
   const cycle = dtoCycleOf(dto);
   if (cycle !== undefined)
     throw new DtoError({ code: "dto.cyclic", message: cyclicMessage(cycle) });
-  const own = rules.get(dto) ?? [];
-  const schema = fieldsSchemaOf(fields).superRefine((value, ctx) => {
-    for (const rule of own) {
-      const broken = rule(value);
-      if (broken !== undefined) {
-        ctx.addIssue({ code: "custom", path: [broken.field], message: broken.reason });
+  const checks = checksOf(dto);
+  const schema = fieldsSchemaOf(fields)
+    .superRefine((value, ctx) => {
+      for (const check of checks) {
+        for (const issue of runCheck(check, value)) {
+          ctx.addIssue({
+            code: "custom",
+            path: issue.field === undefined ? [] : [issue.field],
+            message: issue.reason,
+          });
+        }
       }
-    }
-  });
+    })
+    // the value of a DTO carries the DTO's prototype (#1288); zod built it, nothing else holds it yet
+    .check(
+      z.overwrite((value: Record<string, unknown>) => {
+        hydrateInPlace(dto, value);
+        return value;
+      }),
+    );
   schemas.set(dto, schema);
   rememberDtoOf(schema, dto);
   return schema;
@@ -109,7 +143,8 @@ export function inputJsonSchema(schema: z.ZodType): JsonSchema {
 }
 
 /** The JSON Schema the model sees for a DTO: fields in declaration order, `description` = `prompt`. */
-export const jsonSchemaOf = (dto: DtoClass): JsonSchema => inputJsonSchema(schemaOf(dto));
+export const jsonSchemaOf = (dto: DtoClass): Readonly<Record<string, unknown>> =>
+  inputJsonSchema(schemaOf(dto));
 
 /** Checks raw data against a DTO: the parsed value, or every issue with its path and reason. */
 export function validate<T extends object>(dto: DtoClass<T>, raw: unknown): T {
@@ -122,4 +157,24 @@ export function validate<T extends object>(dto: DtoClass<T>, raw: unknown): T {
       reason: issue.message,
     })),
   });
+}
+
+const strictSchemas = new WeakMap<DtoClass, z.ZodType>();
+
+function strictSchemaOf(dto: DtoClass): z.ZodType {
+  const cached = strictSchemas.get(dto);
+  if (cached !== undefined) return cached;
+  const base = objectSchemaOf(dto);
+  const strict = base instanceof z.ZodObject ? base.strict() : base;
+  strictSchemas.set(dto, strict);
+  return strict;
+}
+
+/**
+ * The class a plain value is, by strict validation: the first of `dtos` whose strict schema (no
+ * field it does not declare) accepts it. Assembly refuses polymorphic outputs where two classes
+ * could accept one value (`[dto.ambiguous-one-of]`), so the first match is the only one.
+ */
+export function strictMatchOf(dtos: readonly DtoClass[], value: unknown): DtoClass | undefined {
+  return dtos.find((dto) => strictSchemaOf(dto).safeParse(value).success);
 }

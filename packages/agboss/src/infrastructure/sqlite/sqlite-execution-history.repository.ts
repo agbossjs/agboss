@@ -2,20 +2,15 @@ import { z } from "zod";
 import { Injectable } from "../../components/decorators.js";
 import {
   ExecutionHistoryRepository,
-  type ExecutionHistoryPage,
+  type ExecutionHistoryQuery,
+  type TenantExecutionHistoryQuery,
   type ExecutionHistoryRecord,
 } from "../execution-history.repository.js";
+import type { Page } from "../../app/page.js";
+import { listingWindowOf, pageOfWindow } from "../listing-window.js";
 import { executionHistoryRecordOfJson } from "../stored-history.js";
 import { parsedStoredJson } from "../stored-step.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
-
-const SCHEMA = `CREATE TABLE IF NOT EXISTS execution_history (
-  tenant_id TEXT NOT NULL, execution_id TEXT NOT NULL, thread_id TEXT NOT NULL,
-  started_at TEXT NOT NULL, ended_at TEXT, record TEXT NOT NULL,
-  PRIMARY KEY (tenant_id, execution_id));
-CREATE INDEX IF NOT EXISTS execution_history_started ON execution_history (started_at, execution_id);
-CREATE INDEX IF NOT EXISTS execution_history_thread ON execution_history (tenant_id, thread_id);
-CREATE INDEX IF NOT EXISTS execution_history_ended ON execution_history (ended_at);`;
 
 const Row = z.object({ execution_id: z.string().optional(), record: z.string() });
 
@@ -25,7 +20,7 @@ const ORDER = "ORDER BY started_at, execution_id";
 const recordOf = (row: unknown): ExecutionHistoryRecord => {
   const { execution_id: executionId, record } = Row.parse(row);
   return executionHistoryRecordOfJson(
-    parsedStoredJson("execution history record", record, { executionId }),
+    parsedStoredJson({ what: "execution history record", text: record, ids: { executionId } }),
   );
 };
 
@@ -38,7 +33,6 @@ const recordOf = (row: unknown): ExecutionHistoryRecord => {
 export class SqliteExecutionHistoryRepository extends ExecutionHistoryRepository {
   constructor(private readonly connection: SqliteConnection) {
     super();
-    connection.ensureSchema("execution_history", SCHEMA);
   }
 
   ping(): Promise<void> {
@@ -91,37 +85,38 @@ export class SqliteExecutionHistoryRepository extends ExecutionHistoryRepository
   }
 
   findAllByTenantIdAndStartedAtBetween(
-    tenantId: string,
-    from: Date,
-    to: Date,
-    page: ExecutionHistoryPage,
-  ): Promise<ExecutionHistoryRecord[]> {
+    query: TenantExecutionHistoryQuery,
+  ): Promise<Page<ExecutionHistoryRecord>> {
+    const window = listingWindowOf(query);
     const rows = this.connection.database
       .prepare(
         `SELECT execution_id, record FROM execution_history WHERE tenant_id = ? AND started_at >= ? AND started_at < ? ${ORDER} LIMIT ? OFFSET ?`,
       )
-      .all(tenantId, from.toISOString(), to.toISOString(), page.limit, page.offset);
-    return Promise.resolve(rows.map(recordOf));
+      .all(
+        query.tenantId,
+        query.from.toISOString(),
+        query.to.toISOString(),
+        window.limit + 1,
+        window.offset,
+      );
+    return Promise.resolve(pageOfWindow(rows.map(recordOf), window));
   }
 
-  findAllByStartedAtBetween(
-    from: Date,
-    to: Date,
-    page: ExecutionHistoryPage,
-  ): Promise<ExecutionHistoryRecord[]> {
+  findAllByStartedAtBetween(query: ExecutionHistoryQuery): Promise<Page<ExecutionHistoryRecord>> {
+    const window = listingWindowOf(query);
     const rows = this.connection.database
       .prepare(
         `SELECT execution_id, record FROM execution_history WHERE started_at >= ? AND started_at < ? ${ORDER} LIMIT ? OFFSET ?`,
       )
-      .all(from.toISOString(), to.toISOString(), page.limit, page.offset);
-    return Promise.resolve(rows.map(recordOf));
+      .all(query.from.toISOString(), query.to.toISOString(), window.limit + 1, window.offset);
+    return Promise.resolve(pageOfWindow(rows.map(recordOf), window));
   }
 
-  deleteByEndedAtBefore(cutoff: Date): Promise<void> {
-    this.connection.database
+  deleteExpired(cutoff: Date): Promise<number> {
+    const { changes } = this.connection.database
       .prepare("DELETE FROM execution_history WHERE ended_at IS NOT NULL AND ended_at < ?")
       .run(cutoff.toISOString());
-    return Promise.resolve();
+    return Promise.resolve(Number(changes));
   }
 }
 

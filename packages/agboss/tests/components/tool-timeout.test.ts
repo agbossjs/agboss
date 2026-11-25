@@ -3,10 +3,9 @@
  * does not exist and a bare number is not a duration (compile-time, checked by `tsc`).
  */
 import { describe, expect, it } from "vitest";
-import { Tool, type ToolHandler } from "../../src/index.js";
-import { McpTool } from "../../src/components/decorators.js";
+import { Tool } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
-import { testTool } from "../../src/testing/index.js";
+import { testUnit } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 
 class Query {
@@ -15,8 +14,8 @@ class Query {
 }
 
 @Tool({ name: "quick-tool", description: "d", input: Query, output: Query, timeout: seconds(5) })
-class QuickTool implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+class QuickTool {
+  execute(input: Query): Promise<Query> {
     return Promise.resolve(input);
   }
 }
@@ -28,10 +27,8 @@ describe("#268 AC11: a tool's timeout has units", () => {
     Tool({ ...options, timeoutMs: 5000 });
     // @ts-expect-error — a bare number is not a duration
     Tool({ ...options, timeout: 5000 });
-    // @ts-expect-error — the same for an MCP tool
-    McpTool({ ...options, server: QuickTool, timeoutMs: 5000 });
 
-    const { output } = await testTool(QuickTool)({ query: "x" });
+    const { output } = await testUnit(QuickTool)({ query: "x" });
 
     expect(output).toEqual({ query: "x" });
   });

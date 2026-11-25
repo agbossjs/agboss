@@ -6,6 +6,7 @@ import type {
 } from "../../infrastructure/cost-ledger.repository.js";
 import { usd } from "../../units/index.js";
 import { applicationMonth, call, entry, tenantDay } from "./cost-ledger-data.js";
+import { tokenCases } from "./cost-ledger-tokens.cases.js";
 import { pruningCases } from "./cost-ledger-pruning.cases.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import type { ContractTarget } from "./instance-context.js";
@@ -17,9 +18,9 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       await first.saveAll([tenantDay, applicationMonth], [call(0.25), call(0.5)]);
       await second.saveAll([tenantDay], [call(0.25)]);
 
-      expect(await first.findSpentByCounter(tenantDay)).toBe(1);
-      expect(await second.findSpentByCounter(applicationMonth)).toBe(0.75);
-      expect(await second.findSpentByCounter({ ...tenantDay, key: "globex" })).toBe(0);
+      expect((await first.findUsageByCounter(tenantDay)).spent).toBe(1);
+      expect((await second.findUsageByCounter(applicationMonth)).spent).toBe(0.75);
+      expect((await second.findUsageByCounter({ ...tenantDay, key: "globex" })).spent).toBe(0);
     },
   },
   {
@@ -28,8 +29,10 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       const execution = { budget: "execution-budget", scope: BudgetScope.Execution, key: "run-1" };
       await first.saveAll([tenantDay, { ...execution, period: "" }], [call(0.75)]);
 
-      expect(await second.findSpentByCounter({ ...tenantDay, period: "2026-10-19" })).toBe(0);
-      expect(await second.findSpentByCounter({ ...execution, period: "" })).toBe(0.75);
+      expect((await second.findUsageByCounter({ ...tenantDay, period: "2026-10-19" })).spent).toBe(
+        0,
+      );
+      expect((await second.findUsageByCounter({ ...execution, period: "" })).spent).toBe(0.75);
     },
   },
   {
@@ -41,7 +44,7 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
         ),
       );
 
-      expect(await first.findSpentByCounter(tenantDay)).toBe(1.25);
+      expect((await first.findUsageByCounter(tenantDay)).spent).toBe(1.25);
     },
   },
   {
@@ -56,7 +59,8 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
         ),
       );
 
-      for (const counter of counters) expect(await second.findSpentByCounter(counter)).toBe(2.5);
+      for (const counter of counters)
+        expect((await second.findUsageByCounter(counter)).spent).toBe(2.5);
     },
   },
   {
@@ -68,8 +72,8 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       await second.saveAll([tenantDay, applicationMonth], [once, call(0.5)]);
       await first.saveAll([tenantDay], [once, once]);
 
-      expect(await first.findSpentByCounter(tenantDay)).toBe(1.25);
-      expect(await second.findSpentByCounter(applicationMonth)).toBe(1.25);
+      expect((await first.findUsageByCounter(tenantDay)).spent).toBe(1.25);
+      expect((await second.findUsageByCounter(applicationMonth)).spent).toBe(1.25);
     },
   },
   {
@@ -79,7 +83,7 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       await first.saveAll([], [unsaved, call(0.5)]);
       await second.saveAll([tenantDay], [unsaved]);
 
-      expect(await first.findSpentByCounter(tenantDay)).toBe(0.25);
+      expect((await first.findUsageByCounter(tenantDay)).spent).toBe(0.25);
     },
   },
   {
@@ -96,7 +100,8 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
       );
 
       // five entries, each saved four times by the two instances at once
-      for (const counter of counters) expect(await first.findSpentByCounter(counter)).toBe(0.625);
+      for (const counter of counters)
+        expect((await first.findUsageByCounter(counter)).spent).toBe(0.625);
     },
   },
   {
@@ -128,10 +133,10 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
         });
       }
 
-      expect(await second.findSpentByCounter(tenantDay)).toBe(0);
+      expect((await second.findUsageByCounter(tenantDay)).spent).toBe(0);
       // the refused saves kept nothing: the valid entry saved alone counts, once
       await second.saveAll([tenantDay], [fine]);
-      expect(await first.findSpentByCounter(tenantDay)).toBe(0.25);
+      expect((await first.findUsageByCounter(tenantDay)).spent).toBe(0.25);
     },
   },
   {
@@ -139,12 +144,12 @@ const LEDGER_CASES: readonly ContractCase<CostLedgerRepository>[] = [
     run: async ({ first, second }) => {
       const account = { budget: tenantDay.budget, scope: tenantDay.scope, key: tenantDay.key };
 
-      expect(await first.findMaxSpendByAccount(account)).toBeUndefined();
-      await first.saveMaxSpend(account, usd(40));
-      await second.saveMaxSpend(account, usd(30));
+      expect(await first.findLimitByAccount(account)).toBeUndefined();
+      await first.saveLimit(account, { maxSpend: usd(40) });
+      await second.saveLimit(account, { maxSpend: usd(30) });
 
-      expect(await first.findMaxSpendByAccount(account)).toBe(30);
-      expect(await first.findMaxSpendByAccount({ ...account, key: "globex" })).toBeUndefined();
+      expect(await first.findLimitByAccount(account)).toEqual({ maxSpend: 30 });
+      expect(await first.findLimitByAccount({ ...account, key: "globex" })).toBeUndefined();
     },
   },
 ];
@@ -160,7 +165,7 @@ export function costLedgerContract(target: ContractTarget<CostLedgerRepository>)
   registerContract(
     "cost ledger contract",
     target,
-    [{ cases: LEDGER_CASES }, { cases: pruningCases() }],
+    [{ cases: LEDGER_CASES }, { cases: pruningCases() }, { cases: tokenCases() }],
     pingOf,
   );
 }

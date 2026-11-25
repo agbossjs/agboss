@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { BaseMessageLike } from "@langchain/core/messages";
+import type { ModelMessage } from "../models/messages.js";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../llm/decisions.js";
 import { JudgeModel } from "./judge-decorators.js";
 import { ComponentError } from "./metadata.js";
@@ -11,11 +11,14 @@ import { ComponentError } from "./metadata.js";
  */
 const judging = new AsyncLocalStorage<JudgeModel>();
 
-/** Runs one judge's `judge()` with its model as the current `JudgeModel`. */
+/**
+ * Runs one judge's `judge()` — sync or async — with its model as the current `JudgeModel`. A sync
+ * throw is a rejection, so the loop handles both alike.
+ */
 export const runJudgeCall = <TResult>(
   model: JudgeModel,
-  work: () => Promise<TResult>,
-): Promise<TResult> => judging.run(model, work);
+  work: () => TResult | Promise<TResult>,
+): Promise<TResult> => judging.run(model, async () => work());
 
 /** The injected `JudgeModel`: the model of the judge whose `judge()` runs now. */
 export class LiveJudgeModel extends JudgeModel {
@@ -28,7 +31,7 @@ export class LiveJudgeModel extends JudgeModel {
     return this.current("model").model;
   }
 
-  invoke(input: string | readonly BaseMessageLike[]): Promise<string> {
+  invoke(input: string | readonly ModelMessage[]): Promise<string> {
     return this.current("invoke").invoke(input);
   }
 

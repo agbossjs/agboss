@@ -15,7 +15,6 @@ import { treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
 import type { EffectKey } from "../../src/infrastructure/fenced-effect.repository.js";
 import { endedOf, isInState, withoutEnd } from "../../src/infrastructure/outbound-call-changes.js";
 import {
-  InMemoryOutboundCallRepository,
   OutboundCallStatus,
   type OutboundCallClaim,
   type OutboundCallLease,
@@ -23,6 +22,7 @@ import {
   type OutboundCallRecord,
   type OutboundCallState,
 } from "../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../src/infrastructure/in-memory-outbound-call.repository.js";
 import { outboundLeaseRaceCases } from "../../src/testing/contracts/outbound-call-lease.cases.js";
 import { outboundRaceCases } from "../../src/testing/contracts/outbound-call-race.cases.js";
 import type { OutboundCallTarget } from "../../src/testing/contracts/index.js";

@@ -14,7 +14,7 @@ const resumeOf = (decisions: readonly unknown[]): TreeResume => ({
   pauseIds: ["p-1"],
   taken: [],
   decisions,
-  answeredBy: decisions.map(() => "manager-17"),
+  actors: decisions.map(() => ({ id: "manager-17" })),
   reasons: decisions.map(() => ResumeReason.Answered),
   hasUnansweredExpiry: false,
 });
@@ -100,7 +100,7 @@ describe("#941: announceResume and an expiry (V1)", () => {
       ResumeReason.Expired,
       withReasons({
         decisions: [{ ok: 1 }],
-        answeredBy: [undefined],
+        actors: [undefined],
         reasons: [ResumeReason.Expired],
       }),
     );
@@ -119,7 +119,7 @@ describe("#941: announceResume and an expiry (V1)", () => {
       ResumeReason.Expired,
       withReasons({
         decisions: ["a"],
-        answeredBy: ["manager-17"],
+        actors: [{ id: "manager-17" }],
         reasons: [ResumeReason.Answered],
         hasUnansweredExpiry: true,
       }),
@@ -145,7 +145,7 @@ describe("#941: announceResume and an expiry (V1)", () => {
       ResumeReason.Answered,
       withReasons({
         decisions: ["a"],
-        answeredBy: ["m"],
+        actors: [{ id: "m" }],
         reasons: [ResumeReason.Answered],
         hasUnansweredExpiry: true,
       }),
@@ -161,7 +161,7 @@ describe("#941: announceResume and an expiry (V1)", () => {
       observer as never,
       {} as never,
       ResumeReason.Recovered,
-      withReasons({ decisions: ["a"], answeredBy: ["m"], reasons: [ResumeReason.Expired] }),
+      withReasons({ decisions: ["a"], actors: [{ id: "m" }], reasons: [ResumeReason.Expired] }),
     );
 
     expect(calls).toEqual([[expect.objectContaining({ reason: ResumeReason.Recovered })]]);

@@ -8,10 +8,6 @@ import {
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 import { parsedStoredJson } from "../stored-step.js";
 
-const SCHEMA = `CREATE TABLE IF NOT EXISTS execution_tree_keys (
-  tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, tree_key TEXT NOT NULL,
-  value TEXT NOT NULL, PRIMARY KEY (tenant_id, root_execution_id, tree_key));`;
-
 /** A stored value as JSON gives it back: what `saveIfAbsentInTree` wrote. */
 const TreeValue: z.ZodType<ExecutionTreeValue> = z.lazy(() =>
   z.union([
@@ -36,7 +32,6 @@ const ValueRow = z.object({ value: z.string() });
 export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
   constructor(private readonly connection: SqliteConnection) {
     super();
-    connection.ensureSchema("execution_tree_keys", SCHEMA);
   }
 
   ping(): Promise<void> {
@@ -67,7 +62,13 @@ export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {
       .get(tree.tenantId, tree.rootExecutionId, key);
     if (row === undefined) return Promise.resolve(undefined);
     return Promise.resolve(
-      TreeValue.parse(parsedStoredJson("execution tree value", ValueRow.parse(row).value, { key })),
+      TreeValue.parse(
+        parsedStoredJson({
+          what: "execution tree value",
+          text: ValueRow.parse(row).value,
+          ids: { key },
+        }),
+      ),
     );
   }
 

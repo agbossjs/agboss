@@ -1,15 +1,13 @@
 import {
   ChildPlacement,
   EmptyEnvironment,
-  listOf,
-  oneOf,
-  ThisWorkflow,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { caseOf, start } from "../../helpers/flow.js";
+import { onStart, toWorkflow, toFinish } from "../../helpers/flow.js";
 import {
   HoldItemAction,
   PayAfterAction,
@@ -47,11 +45,10 @@ export class SpendItemWorkflowFinish {}
 @Workflow({
   name: "spend-item-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SpendItemWorkflowStart)
-      .returns(SpendItemDto)
+    onStart(SpendItemWorkflowStart)
       .toAction(PayItemAction)
-      .returns(SpendNoteDto)
       .toFinish(SpendItemWorkflowFinish),
   ],
 })
@@ -75,16 +72,15 @@ export class SpendRemoteItemWorkflowFinish {}
  * other half in a child of its own, here.
  */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "spend-remote-item-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SpendRemoteItemWorkflowStart)
-      .returns(SpendRemoteItemDto)
+    onStart(SpendRemoteItemWorkflowStart)
       .toAction(PayRemoteItemAction)
-      .returns(SpendItemDto)
       .toAction(HoldItemAction)
       .toWorkflow(SpendItemWorkflow)
-      .returns(SpendNoteDto)
       .toFinish(SpendRemoteItemWorkflowFinish),
   ],
 })
@@ -99,36 +95,24 @@ export class SpendTreeWorkflowFinish {}
 @Workflow({
   name: "spend-tree-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SpendTreeWorkflowStart)
-      .returns(SpendNodeDto)
+    onStart(SpendTreeWorkflowStart)
       .toAction(PayLevelAction)
-      .returns(listOf(SpendItemDto))
-      .toParallelWorkflows(SpendItemWorkflow, { maxItems: 4 })
+      .forEachItem(toWorkflow(SpendItemWorkflow), { takeFirst: 4 })
       .join()
-      .returns(listOf(SpendNoteDto))
       .toAction(RemoteItemsAction)
-      .returns(listOf(SpendRemoteItemDto))
-      .toParallelWorkflows(SpendRemoteItemWorkflow, {
-        maxItems: 4,
-        placement: ChildPlacement.AnyInstance,
-      })
+      .forEachItem(toWorkflow(SpendRemoteItemWorkflow), { takeFirst: 4 })
       .join()
-      .returns(listOf(SpendNoteDto))
       .toAction(PayAfterAction)
-      .returns(oneOf(SpendNodeDto, SpendNoteDto))
-      .switch(
-        caseOf(SpendNodeDto)
-          .toWorkflow(ThisWorkflow)
-          .returns(SpendNoteDto)
+      .toOneOf([
+        toWorkflow(() => SpendTreeWorkflow)
           .toAction(PayCloseAction)
-          .returns(SpendNoteDto)
           .toFinish(SpendTreeWorkflowFinish),
-        caseOf(SpendNoteDto)
-          .toFinish(SpendTreeWorkflowFinish),
-      ),
+        toFinish(SpendTreeWorkflowFinish),
+      ]),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class SpendTreeWorkflow {}
 
@@ -147,38 +131,27 @@ export class RemoteSpendTreeWorkflowFinish {}
 
 /** The same level, the next one on any instance. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "remote-spend-tree-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RemoteSpendTreeWorkflowStart)
-      .returns(SpendNodeDto)
+    onStart(RemoteSpendTreeWorkflowStart)
       .toAction(PayLevelAction)
-      .returns(listOf(SpendItemDto))
-      .toParallelWorkflows(SpendItemWorkflow, { maxItems: 4 })
+      .forEachItem(toWorkflow(SpendItemWorkflow), { takeFirst: 4 })
       .join()
-      .returns(listOf(SpendNoteDto))
       .toAction(RemoteItemsAction)
-      .returns(listOf(SpendRemoteItemDto))
-      .toParallelWorkflows(SpendRemoteItemWorkflow, {
-        maxItems: 4,
-        placement: ChildPlacement.AnyInstance,
-      })
+      .forEachItem(toWorkflow(SpendRemoteItemWorkflow), { takeFirst: 4 })
       .join()
-      .returns(listOf(SpendNoteDto))
       .toAction(PayAfterAction)
-      .returns(oneOf(SpendNodeDto, SpendNoteDto))
-      .switch(
-        caseOf(SpendNodeDto)
-          .toWorkflow(ThisWorkflow, { placement: ChildPlacement.AnyInstance })
-          .returns(SpendNoteDto)
+      .toOneOf([
+        toWorkflow(() => RemoteSpendTreeWorkflow)
           .toAction(PayCloseAction)
-          .returns(SpendNoteDto)
           .toFinish(RemoteSpendTreeWorkflowFinish),
-        caseOf(SpendNoteDto)
-          .toFinish(RemoteSpendTreeWorkflowFinish),
-      ),
+        toFinish(RemoteSpendTreeWorkflowFinish),
+      ]),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class RemoteSpendTreeWorkflow {}
 

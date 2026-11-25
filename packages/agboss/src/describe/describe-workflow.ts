@@ -1,19 +1,19 @@
 import { resolveTools, type AssembledWorkflow, type WorkflowServices } from "../workflow.js";
 import { DEFAULT_MAX_TOKENS, type Thinking } from "../config/types.js";
-import { memoryPlanOf, readerOf } from "../compaction/plan.js";
+import { memoryPlanOf, readerOf } from "../memory/plan.js";
 import { resolveAgentLimits, type AgentLimit } from "../graph/agent-loop/index.js";
 import { reasoningLabel, reasoningOfThinking } from "../models/reasoning.js";
 import { flowLines } from "../flow/print.js";
-import { isDecisionModel } from "../graph/router-model.js";
+import { ModelKind } from "../models/model-kind.js";
+import { providerKindsOf } from "../models/resolution.js";
 import { NodeKind } from "../flow/ast.js";
 import { isCodeRouterNode } from "../flow/runtime/graph-model.js";
-import { aboutLines, childLines, inputLines } from "./inputs.js";
+import { childLines, inputLines } from "./inputs.js";
 import { recursionLines } from "./recursion.js";
 import { compensationLines } from "./compensation.js";
 import {
   agentDefaultsLine,
   compactionSourceOf,
-  expiryLabel,
   maxResultSizeLabel,
   routerModelSource,
 } from "./defaults.js";
@@ -71,15 +71,10 @@ const thinkingLabel = (thinking: Thinking | undefined): string =>
 
 function toolLine(tool: AnyTool, bundle: AssembledWorkflow): string {
   const kind = isMcpFacade(tool) ? `MCP ${tool.mcp.server}` : "local";
-  const waits = tool.channel ? ", uses channel" : "";
+  const approval = tool.approval;
+  const waits = approval ? ", waits for approval" : "";
   const deps = bundle.toolDependencies?.[tool.name];
-  return `${tool.name} (${tool.channel ? `channel:${tool.channel}, ` : ""}${kind}${waits})${deps === undefined ? "" : ` ← ${deps}`} — ${tool.description} · ${maxResultSizeLabel(bundle, tool)}${expiryLabel(tool)}`;
-}
-
-/** Each value written with `{ about }` (#271, #299), when the workflow has one. */
-function aboutSection(bundle: AssembledWorkflow): string[] {
-  const lines = aboutLines(bundle.graph.analysis);
-  return lines.length === 0 ? [] : ["about", ...lines.map((line) => `  ${line}`)];
+  return `${tool.name} (${approval ? `approval:${approval}, ` : ""}${kind}${waits})${deps === undefined ? "" : ` ← ${deps}`} — ${tool.description} · ${maxResultSizeLabel(bundle, tool)}`;
 }
 
 /** The start each edge into a child workflow enters through (#263), when the workflow has one. */
@@ -88,7 +83,7 @@ function childSection(bundle: AssembledWorkflow): string[] {
   return lines.length === 0 ? [] : ["children", ...lines.map((line) => `  ${line}`)];
 }
 
-/** The paths as written, each node's inputs with their producers, each `about`, each router's model. */
+/** The paths as written, each node's inputs with their producers, each router's model. */
 function flowSection(bundle: AssembledWorkflow): string[] {
   return [
     "flow",
@@ -97,7 +92,6 @@ function flowSection(bundle: AssembledWorkflow): string[] {
     ...inputLines(bundle.graph.analysis).map((line) => `  ${line}`),
     ...childSection(bundle),
     ...recursionLines(bundle.graph.analysis),
-    ...aboutSection(bundle),
     "routers",
     ...routerLines(bundle),
     ...compensationLines(bundle),
@@ -109,9 +103,10 @@ const visitsLabel = (maxVisits: number | undefined): string =>
 
 /** Each router: its model (decision or chat), or `code` for one decided by its `route()` (#280). */
 function routerLines(bundle: AssembledWorkflow): string[] {
+  const kinds = providerKindsOf(bundle.modelProviders);
   const models = bundle.routers.map(
     (router) =>
-      `  ${router.name}  ${isDecisionModel(router.model) ? "decisions" : "llm"} ${router.model} ${routerModelSource(bundle, router)}${visitsLabel(router.maxVisits)} — ${router.description}`,
+      `  ${router.name}  ${router.modelProvider !== undefined && kinds.get(router.modelProvider) === ModelKind.Decisions ? "decisions" : "llm"} ${router.model} ${routerModelSource(bundle, router)}${visitsLabel(router.maxVisits)} — ${router.description}`,
   );
   const code = [...bundle.graph.nodes.values()].flatMap((node) =>
     node.declaration.kind === NodeKind.Router && isCodeRouterNode(node)
@@ -133,10 +128,7 @@ function limitsLine(
   agent: AssembledWorkflow["config"]["agents"][string],
   config: AssembledWorkflow["config"],
 ): string {
-  const { limits, defaulted } = resolveAgentLimits(
-    agent.maxToolCalls,
-    config.defaults.tools?.maxToolCalls,
-  );
+  const { limits, defaulted } = resolveAgentLimits(agent, config.defaults.tools?.maxToolCalls);
   const label = (limit: AgentLimit): string =>
     `${limit} ${String(limits[limit])}${defaulted.includes(limit) ? " (default)" : ""}`;
   return `    limits: ${label("modelCalls")} · ${label("toolCalls")}`;
@@ -150,15 +142,14 @@ function settingsLines(
   return [
     limitsLine(agent, config),
     ...(agent.rag ?? []).map(
-      (kb) =>
-        `    rag: ${kb.name} (${kb.mode}, k ${String(kb.topK)}, ${kb.tenancy}${rerankText(kb.rerank)})`,
+      (kb) => `    rag: ${kb.name} (k ${String(kb.topK)}, ${kb.scope}${rerankText(kb.rerank)})`,
     ),
   ];
 }
 
 function agentLines(bundle: AssembledWorkflow, tools: ReadonlyMap<string, AnyTool>): string[] {
   const c = bundle.config;
-  const plan = memoryPlanOf(c, bundle.compactions);
+  const plan = memoryPlanOf(c, bundle.memories);
   return Object.entries(c.agents).flatMap(([name, agent]) => {
     const reader = readerOf(plan, name);
     const compaction =

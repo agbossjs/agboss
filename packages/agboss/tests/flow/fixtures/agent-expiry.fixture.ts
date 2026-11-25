@@ -2,20 +2,18 @@ import { Application } from "../../../src/application/application.js";
 import {
   Agent,
   Channel,
-  ChannelOf,
   ChannelOutcome,
-  ChannelRole,
-  PauseAnswerer,
+  PauseRespondent,
   Tool,
   type ChannelAsk,
   listOf,
-  type Produced,
-  type ToolHandler,
+  type Tracked,
+  inline,
+  ToolApproval,
+  Ttl,
 } from "../../../src/index.js";
-import {
-  PauseExpiration,
-  type PauseExpiryHandler,
-} from "../../../src/channels/pause-expiration.js";
+import { PauseExpiration } from "../../../src/channels/pause-expiration.js";
+import type { ExpiredContext } from "../../../src/channels/pause-contexts.js";
 import { Text } from "../../../src/dto/index.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -25,7 +23,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
-import { hours, seconds } from "../../../src/units/index.js";
+import { hours, seconds, days } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import {
   DirectorChannel,
@@ -34,9 +32,10 @@ import {
   ExpiryLog,
   ExpiryOrderDto,
   ManagerChannel,
-  ManagerQuestion,
+  ManagerExternalTask,
 } from "./expiry.fixture.js";
-import { start, toAction } from "./paths.js";
+import { onStart, toAction, toAgent } from "./paths.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #941 AC5 — an agent whose tool calls wait for an approval with a deadline: a refund approved by a
@@ -54,18 +53,21 @@ export class AgentRefundDoneDto {
   text!: string;
 }
 
+/** What the approval channel's expiry handler does with an expired ask. */
+type ExpiryBehavior = ((ask: ExpiredContext<RefundApprovalToolApproval>) => Expiry) | undefined;
+type Expiry = PauseExpiration<RefundApprovalToolApproval>;
+
 export const agentExpiry = {
   /** The refunds the tools ran. */
   refunds: [] as string[],
   /** What the approval channel's expiry handler does; none: `fail()`. */
-  behavior: undefined as
-    undefined | ((ask: ChannelAsk<RefundApprovalRole>) => PauseExpiration<RefundApprovalRole>),
-  /** The asks the approval channel's handler was called with. */
-  asked: [] as ChannelAsk<RefundApprovalRole>[],
+  behavior: undefined as ExpiryBehavior,
+  /** The contexts the approval targets' handler was called with. */
+  asked: [] as ExpiredContext<RefundApprovalToolApproval>[],
   /** What the gate tool waits for: replaced by each test. */
   gate: Promise.resolve(),
   /** The approval channel's sends. */
-  sent: [] as ChannelAsk<RefundApprovalRole>[],
+  sent: [] as ChannelAsk<RefundApprovalToolApproval>[],
 };
 
 export function resetAgentExpiry(): void {
@@ -76,55 +78,102 @@ export function resetAgentExpiry(): void {
   agentExpiry.behavior = undefined;
 }
 
-@ChannelRole({
-  name: "expiring-refund-approval",
-  description: "A manager approves a refund within 24 hours",
-  approves: AgentRefundDto,
-  answerer: PauseAnswerer.Channel,
-  expiresIn: hours(24),
-})
-export abstract class RefundApprovalRole extends ChannelOf<RefundApprovalRole> {}
+/** What every refund target does when its pause runs out: the test decides (none: `fail()`). */
+abstract class RefundTargetBase {
+  onExpired(
+    ctx: ExpiredContext<RefundApprovalToolApproval>,
+  ): PauseExpiration<RefundApprovalToolApproval> {
+    agentExpiry.asked.push(ctx);
+    return agentExpiry.behavior?.(ctx) ?? PauseExpiration.fail();
+  }
+}
 
-@Channel({ name: "refund-approval-expiry-channel", description: "Asks the manager" })
-export class RefundApprovalChannel
-  extends RefundApprovalRole
-  implements PauseExpiryHandler<RefundApprovalRole>
-{
-  send(ask: ChannelAsk<RefundApprovalRole>): Promise<ChannelOutcome<RefundApprovalRole>> {
+@ToolApproval({
+  name: "expiring-refund-approval-tool-approval",
+  description: "A manager approves a refund within 24 hours",
+  input: AgentRefundDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
+})
+export class RefundApprovalToolApproval extends RefundTargetBase {}
+
+/** What every refund channel of this fixture does: asked, it waits. */
+export abstract class RefundChannelBase {
+  send(
+    ask: ChannelAsk<RefundApprovalToolApproval>,
+  ): Promise<ChannelOutcome<RefundApprovalToolApproval>> {
     agentExpiry.sent.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
-
-  onPauseExpired(ask: ChannelAsk<RefundApprovalRole>): PauseExpiration<RefundApprovalRole> {
-    agentExpiry.asked.push(ask);
-    return agentExpiry.behavior?.(ask) ?? PauseExpiration.fail();
-  }
 }
+
+@Channel({
+  name: "refund-approval-expiry-channel",
+  description: "Asks the manager",
+  target: RefundApprovalToolApproval,
+  ttl: days(1),
+})
+export class RefundDeskChannel extends RefundChannelBase {}
 
 @Tool({
   name: "expiring-refund-tool",
   description: "Refunds an order once a manager approved it",
-  channel: RefundApprovalRole,
+  approval: RefundApprovalToolApproval,
   input: AgentRefundDto,
   output: AgentRefundDoneDto,
 })
-export class ExpiringRefundTool implements ToolHandler<AgentRefundDto, AgentRefundDoneDto> {
-  run({ orderId }: AgentRefundDto): Promise<AgentRefundDoneDto> {
+export class ExpiringRefundTool {
+  execute({ orderId }: AgentRefundDto): Promise<AgentRefundDoneDto> {
     agentExpiry.refunds.push(orderId);
     return Promise.resolve({ text: `refunded ${orderId}` });
   }
 }
 
+/** The same manager with 4 hours: the channel is the same, asked under its own target. */
+@ToolApproval({
+  name: "urgent-refund-tool-approval",
+  description: "A manager approves a refund within 4 hours",
+  input: AgentRefundDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(4),
+})
+export class UrgentRefundToolApproval extends RefundTargetBase {}
+
+@Channel({
+  name: "urgent-refund-expiry-channel",
+  description: "Asks the manager, urgently",
+  target: UrgentRefundToolApproval,
+  ttl: days(1),
+})
+export class UrgentRefundChannel extends RefundChannelBase {}
+
+/** The same manager with 5 seconds. */
+@ToolApproval({
+  name: "quick-refund-tool-approval",
+  description: "A manager approves a refund within 5 seconds",
+  input: AgentRefundDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: seconds(5),
+})
+export class QuickRefundToolApproval extends RefundTargetBase {}
+
+@Channel({
+  name: "quick-refund-expiry-channel",
+  description: "Asks the manager, quickly",
+  target: QuickRefundToolApproval,
+  ttl: days(1),
+})
+export class QuickRefundChannel extends RefundChannelBase {}
+
 @Tool({
   name: "urgent-refund-tool",
   description: "Refunds an order, the manager has 4 hours",
-  channel: RefundApprovalRole,
-  expiresIn: hours(4),
+  approval: UrgentRefundToolApproval,
   input: AgentRefundDto,
   output: AgentRefundDoneDto,
 })
-export class UrgentRefundTool implements ToolHandler<AgentRefundDto, AgentRefundDoneDto> {
-  run({ orderId }: AgentRefundDto): Promise<AgentRefundDoneDto> {
+export class UrgentRefundTool {
+  execute({ orderId }: AgentRefundDto): Promise<AgentRefundDoneDto> {
     agentExpiry.refunds.push(orderId);
     return Promise.resolve({ text: `refunded ${orderId}` });
   }
@@ -133,13 +182,12 @@ export class UrgentRefundTool implements ToolHandler<AgentRefundDto, AgentRefund
 @Tool({
   name: "quick-refund-tool",
   description: "Refunds an order, the manager has 5 seconds",
-  channel: RefundApprovalRole,
-  expiresIn: seconds(5),
+  approval: QuickRefundToolApproval,
   input: AgentRefundDto,
   output: AgentRefundDoneDto,
 })
-export class QuickRefundTool implements ToolHandler<AgentRefundDto, AgentRefundDoneDto> {
-  run({ orderId }: AgentRefundDto): Promise<AgentRefundDoneDto> {
+export class QuickRefundTool {
+  execute({ orderId }: AgentRefundDto): Promise<AgentRefundDoneDto> {
     agentExpiry.refunds.push(orderId);
     return Promise.resolve({ text: `refunded ${orderId}` });
   }
@@ -162,9 +210,9 @@ export class AgentExpiryWorkflowFinish {}
 @Agent({
   name: "expiry-refund-agent",
   description: "Refunds an order, asks a manager",
-  prompt: "Refund the order.",
+  prompt: inline("Refund the order."),
   model: "moonshotai/kimi-k2.6",
-  tools: [ExpiringRefundTool, UrgentRefundTool, QuickRefundTool, ManagerQuestion],
+  tools: [ExpiringRefundTool, UrgentRefundTool, QuickRefundTool, ManagerExternalTask],
   input: { request: AgentRefundDto },
   output: AgentRefundDoneDto,
 })
@@ -179,25 +227,23 @@ export class ExpiryRefundAgent {}
 })
 export class EscalateRefundAction implements ActionHandler<EscalateRefundAction> {
   execute({ request }: InputOf<EscalateRefundAction>): Promise<OutputOf<EscalateRefundAction>> {
-    expiry.recorded.push(`escalated ${request.value.orderId}`);
-    return Promise.resolve({ text: `escalated ${request.value.orderId}` });
+    expiry.recorded.push(`escalated ${request.orderId}`);
+    return Promise.resolve({ text: `escalated ${request.orderId}` });
   }
 }
 
 @Workflow({
   name: "agent-expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(AgentExpiryWorkflowStart)
-      .returns(AgentRefundDto)
+    onStart(AgentExpiryWorkflowStart)
       .toAgent(ExpiryRefundAgent)
       .onError(
         PauseExpiredError,
         toAction(EscalateRefundAction)
-          .returns(AgentRefundDoneDto)
           .toFinish(AgentExpiryWorkflowFinish),
       )
-      .returns(AgentRefundDoneDto)
       .toFinish(AgentExpiryWorkflowFinish),
   ],
 })
@@ -214,11 +260,10 @@ export class AgentBareWorkflowStart {}
 @Workflow({
   name: "agent-bare-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(AgentBareWorkflowStart)
-      .returns(AgentRefundDto)
+    onStart(AgentBareWorkflowStart)
       .toAgent(ExpiryRefundAgent)
-      .returns(AgentRefundDoneDto)
       .toFinish(AgentExpiryWorkflowFinish),
   ],
 })
@@ -236,7 +281,7 @@ export class AgentBatchWorkflowStart {}
 @Agent({
   name: "expiry-batch-refund-agent",
   description: "Refunds one order",
-  prompt: "Refund the order.",
+  prompt: inline("Refund the order."),
   model: "moonshotai/kimi-k2.6",
   tools: [ExpiringRefundTool],
   input: { request: AgentRefundDto },
@@ -249,31 +294,38 @@ export class AgentBatchSummaryDto {
   text!: string;
 }
 
-@WorkflowFinish({
-  name: "agent-batch-workflow-finish",
+@Action({
+  name: "agent-batch-action",
   description: "What was refunded",
   input: { refunds: listOf(AgentRefundDoneDto) },
   output: AgentBatchSummaryDto,
 })
-export class AgentBatchWorkflowFinish {
-  finish(input: {
-    readonly refunds: readonly Produced<AgentRefundDoneDto, unknown>[];
-  }): AgentBatchSummaryDto {
-    const texts = input.refunds.map((refund) => refund.value.text);
+export class AgentBatchAction {
+  async execute(input: {
+    readonly refunds: readonly Tracked<AgentRefundDoneDto>[];
+  }): Promise<AgentBatchSummaryDto> {
+    const texts = input.refunds.map((refund) => refund.text);
     return { text: texts.join(", ") };
   }
 }
 
+@WorkflowFinish({
+  name: "agent-batch-workflow-finish",
+  description: "What was refunded",
+  output: AgentBatchSummaryDto,
+})
+export class AgentBatchWorkflowFinish {}
+
 @Workflow({
   name: "agent-batch-workflow",
   version: "1.0.0",
-  maxSteps: 20,
+  historyTtl: Ttl.Forever,
+  executionLimits: { maxSteps: 20 },
   flow: [
-    start(AgentBatchWorkflowStart)
-      .returns(listOf(AgentRefundDto))
-      .toParallelAgents(ExpiryBatchRefundAgent, { maxConcurrency: 3, maxItems: 5 })
+    onStart(AgentBatchWorkflowStart)
+      .forEachItem(toAgent(ExpiryBatchRefundAgent), { takeFirst: 5, maxConcurrency: 3 })
       .join()
-      .returns(listOf(AgentRefundDoneDto))
+      .toAction(AgentBatchAction)
       .toFinish(AgentBatchWorkflowFinish),
   ],
 })
@@ -293,8 +345,8 @@ export class GateDto {
   input: GateDto,
   output: GateDto,
 })
-export class GateTool implements ToolHandler<GateDto, GateDto> {
-  async run(input: GateDto): Promise<GateDto> {
+export class GateTool {
+  async execute(input: GateDto): Promise<GateDto> {
     await agentExpiry.gate;
     return input;
   }
@@ -303,7 +355,7 @@ export class GateTool implements ToolHandler<GateDto, GateDto> {
 @Agent({
   name: "expiry-hold-agent",
   description: "Holds at the gate",
-  prompt: "Hold.",
+  prompt: inline("Hold."),
   model: "moonshotai/kimi-k2.6",
   tools: [GateTool],
   input: { request: AgentRefundDto },
@@ -318,28 +370,36 @@ export class ExpiryHoldAgent {}
 })
 export class AgentGatedWorkflowStart {}
 
-@WorkflowFinish({
-  name: "agent-gated-workflow-finish",
+@Action({
+  name: "agent-gated-action",
   description: "Both done",
   input: { refund: AgentRefundDoneDto, hold: GateDto },
   output: AgentRefundDoneDto,
 })
-export class AgentGatedWorkflowFinish {
-  finish(input: { readonly refund: Produced<AgentRefundDoneDto, unknown> }): AgentRefundDoneDto {
-    return { text: input.refund.value.text };
+export class AgentGatedAction {
+  async execute(input: {
+    readonly refund: Tracked<AgentRefundDoneDto>;
+  }): Promise<AgentRefundDoneDto> {
+    return { text: input.refund.text };
   }
 }
+
+@WorkflowFinish({
+  name: "agent-gated-workflow-finish",
+  description: "Both done",
+  output: AgentRefundDoneDto,
+})
+export class AgentGatedWorkflowFinish {}
 
 @Workflow({
   name: "agent-gated-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(AgentGatedWorkflowStart)
-      .returns(AgentRefundDto)
-      .toParallelAgents(ExpiryRefundAgent, ExpiryHoldAgent)
+    onStart(AgentGatedWorkflowStart)
+      .inParallel([toAgent(ExpiryRefundAgent), toAgent(ExpiryHoldAgent)])
       .join()
-      .returns(AgentRefundDoneDto)
-      .returns(GateDto)
+      .toAction(AgentGatedAction)
       .toFinish(AgentGatedWorkflowFinish),
   ],
 })
@@ -347,11 +407,18 @@ export class AgentGatedWorkflow {}
 
 @Application({
   name: "agent-expiry-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AgentExpiryWorkflow, AgentBareWorkflow, AgentBatchWorkflow, AgentGatedWorkflow],
   budgets: TEST_BUDGETS,
-  providers: [RefundApprovalChannel, ManagerChannel, DirectorChannel],
+  providers: [
+    RefundDeskChannel,
+    UrgentRefundChannel,
+    QuickRefundChannel,
+    ManagerChannel,
+    DirectorChannel,
+  ],
   observers: [ExpiryLog],
 })
 export class AgentExpiryApplication {}

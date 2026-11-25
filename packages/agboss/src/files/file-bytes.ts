@@ -1,24 +1,19 @@
 import { createHash } from "node:crypto";
-import type { A2AFileDto } from "../a2a/files/a2a-file.dto.js";
+import { FilePayloadSource, fileSourceOf, type FileDto } from "../dto/standard/file.js";
 import { mediaTypeEssenceOf } from "../a2a/files/a2a-file-options.js";
 import type { FileCaller, FileFetchSlots } from "../a2a/files/a2a-file-slots.js";
 import type { FileTransport } from "../a2a/files/a2a-file-transport.js";
 import { isOfMediaType } from "../a2a/files/a2a-media-check.js";
-import type { A2AFileRepository } from "../infrastructure/a2a-file.repository.js";
+import type { FileRepository } from "../infrastructure/file.repository.js";
 import { lazyLoad, type Clock } from "../infrastructure/clock.js";
 import type { Bytes, Milliseconds } from "../units/index.js";
-import {
-  ModelFileRefusal,
-  ModelFileRefusedError,
-  ModelFileUnavailableError,
-  ModelFileUnavailableReason,
-} from "./file-errors.js";
+import { FileRefusal, fileRefused, fileUnavailable, FileUnavailableReason } from "./file-errors.js";
 
 /**
  * Reading the bytes of a file for a model (#899 §3): one guarded path out of `a2a/server` — it works
  * under `app.execute`, the CLI and a recovery, with no listener. A stored file is read through the
  * repository for its execution's task, an inline one decoded, one by url fetched through the #859 /
- * #904 guarded fetch (`allowedFileOrigins` of `@Application({ a2aFiles })`, no private address, no
+ * #904 guarded fetch (`allowedOrigins` of the workflow's `@FilePolicy`, no private address, no
  * userinfo, redirects checked, bounded size and time). Whatever its source, the bytes are checked
  * against the descriptor's digest and the media type they declare, and their `sha256` is computed:
  * the digest every later use of the file (a transcription's cache key, a cassette) names.
@@ -34,7 +29,7 @@ export interface FileContent {
 
 /** What a read is bound by. */
 export interface FileReadContext {
-  readonly store: A2AFileRepository;
+  readonly store: FileRepository;
   readonly tenantId: string;
   /** The root execution: a stored file is its task's. */
   readonly ownerId: string;
@@ -56,13 +51,16 @@ export const sha256Of = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");
 
 /** The fetch's refusals by code — a `Map`: an inherited key (`toString`) of an object is no refusal. */
-const REFUSALS: ReadonlyMap<unknown, ModelFileRefusal> = new Map([
-  ["a2a.file-origin-denied", ModelFileRefusal.OriginDenied],
-  ["a2a.file-url-not-allowed", ModelFileRefusal.OriginDenied],
-  ["a2a.file-address-denied", ModelFileRefusal.AddressDenied],
-  ["a2a.file-url-invalid", ModelFileRefusal.UrlInvalid],
-  ["a2a.file-too-large", ModelFileRefusal.TooLarge],
+const REFUSALS: ReadonlyMap<unknown, FileRefusal> = new Map([
+  ["a2a.file-origin-denied", FileRefusal.OriginDenied],
+  ["a2a.file-url-not-allowed", FileRefusal.OriginDenied],
+  ["a2a.file-address-denied", FileRefusal.AddressDenied],
+  ["a2a.file-url-invalid", FileRefusal.UrlInvalid],
+  ["a2a.file-too-large", FileRefusal.TooLarge],
 ]);
+
+/** The code of the fetch pool's refusal (an `A2AError`'s metadata). */
+const FETCH_BUSY = "a2a.file-fetch-busy";
 
 /** The stable code of the fetch's refusal (an `A2AError`'s metadata). */
 function codeOf(error: unknown): unknown {
@@ -91,9 +89,12 @@ async function downloaded(url: string, context: FileReadContext): Promise<Uint8A
     });
   } catch (error) {
     const refusal = REFUSALS.get(codeOf(error));
-    if (refusal !== undefined) throw new ModelFileRefusedError({ refusal, cause: error });
-    throw new ModelFileUnavailableError({
-      reason: ModelFileUnavailableReason.DownloadFailed,
+    if (refusal !== undefined) throw fileRefused({ refusal, cause: error });
+    // the pool's refusal, whichever path asked: one error for all of them (#1316)
+    if (codeOf(error) === FETCH_BUSY)
+      throw fileUnavailable({ reason: FileUnavailableReason.FetchBusy, cause: error });
+    throw fileUnavailable({
+      reason: FileUnavailableReason.DownloadFailed,
       cause: error,
     });
   }
@@ -104,13 +105,12 @@ async function stored(fileId: string, context: FileReadContext): Promise<Uint8Ar
   const key = { tenantId: context.tenantId, fileId };
   const meta = await context.store.findMetadata(key);
   const bytes = meta?.ownerId === context.ownerId ? await context.store.findBytes(key) : undefined;
-  if (bytes === undefined)
-    throw new ModelFileUnavailableError({ reason: ModelFileUnavailableReason.NotFound });
+  if (bytes === undefined) throw fileUnavailable({ reason: FileUnavailableReason.NotFound });
   return bytes;
 }
 
 /** The bytes by the descriptor's one source (`fileSourceOf`'s order: a stored id, inline bytes, a url). */
-const sourced = (file: A2AFileDto, context: FileReadContext): Promise<Uint8Array> => {
+const sourced = (file: FileDto, context: FileReadContext): Promise<Uint8Array> => {
   if (file.fileId !== undefined) return stored(file.fileId, context);
   if (file.inline !== undefined)
     return Promise.resolve(new Uint8Array(Buffer.from(file.inline, "base64")));
@@ -122,19 +122,19 @@ const sourced = (file: A2AFileDto, context: FileReadContext): Promise<Uint8Array
  * A file's content: read once, whatever its source, and checked — its size against `maxFileSize`,
  * its digest against its descriptor's, its bytes against its media type.
  */
-export async function fileContentOf(
-  file: A2AFileDto,
-  context: FileReadContext,
-): Promise<FileContent> {
+export async function fileContentOf(file: FileDto, context: FileReadContext): Promise<FileContent> {
+  // a stored or inline file is checked against its digest, so one with none is refused before any
+  // read (as `Files.read` does); only a file by url, whose bytes the origin owns, may come without
+  if (file.sha256 === undefined && fileSourceOf(file) !== FilePayloadSource.Url)
+    throw fileUnavailable({ reason: FileUnavailableReason.DigestMissing });
   const bytes = await sourced(file, context);
-  if (bytes.byteLength > context.maxFileSize)
-    throw new ModelFileRefusedError({ refusal: ModelFileRefusal.TooLarge });
+  if (bytes.byteLength > context.maxFileSize) throw fileRefused({ refusal: FileRefusal.TooLarge });
   const sha256 = sha256Of(bytes);
   if (file.sha256 !== undefined && file.sha256 !== sha256)
-    throw new ModelFileUnavailableError({ reason: ModelFileUnavailableReason.DigestMismatch });
+    throw fileUnavailable({ reason: FileUnavailableReason.DigestMismatch });
   const mediaType = mediaTypeEssenceOf(file.mediaType);
   if (!isOfMediaType(mediaType, bytes))
-    throw new ModelFileRefusedError({ refusal: ModelFileRefusal.MediaTypeMismatch });
+    throw fileRefused({ refusal: FileRefusal.MediaTypeMismatch });
   return {
     mediaType,
     ...(file.filename === undefined ? {} : { filename: file.filename }),

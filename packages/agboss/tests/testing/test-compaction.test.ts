@@ -1,30 +1,23 @@
 /**
- * #395 PR 5 (S2 Q4): `testCompaction(Compaction, options?)` — one compaction on its own, from a
+ * #395 PR 5 (S2 Q4): `testUnit(Compaction, options?)` — one compaction on its own, from a
  * `CompactionInput`: a model strategy's request and summaries on a scripted model, a custom one's
  * `compact()` on its own container. Whether a fact survives is an eval case (#396), not this.
  */
 import { describe, expect, it } from "vitest";
-import { CompactionError } from "../../src/index.js";
-import { override, replyWith, TestSetupError, testCompaction } from "../../src/testing/index.js";
+import { StepError } from "../../src/index.js";
+import { replyWith, TestSetupError, testUnit } from "../../src/testing/index.js";
 import { SINGLE_SUMMARY_PROMPT } from "../../src/prompts/compaction.js";
 import { usd } from "../../src/units/index.js";
-import {
-  NoSummariesCompaction,
-  NoteCompaction,
-  QueueCompaction,
-} from "../compaction/compaction.fixture.js";
-import {
-  GraphMemoryCompaction,
-  KnowledgeGraphService,
-} from "../compaction/custom-compaction.fixture.js";
+import { WindowOnlyMemory, NoteMemory, QueueMemory } from "../memory/compaction.fixture.js";
+import { GraphMemory, KnowledgeGraphService } from "../memory/custom-compaction.fixture.js";
 
 const TURNS = {
   previousSummaries: ["Dana asked about order 7."],
   turnsToCompact: [
     {
-      startName: "desk-workflow-start",
+      start: "desk-workflow-start",
       input: { text: "Never call me before 9." },
-      finishName: "desk-workflow-finish",
+      finish: "desk-workflow-finish",
       output: { text: "Noted." },
     },
   ],
@@ -32,7 +25,7 @@ const TURNS = {
 
 describe("a model strategy", () => {
   it("SummaryQueue: the turns in its request, the new summary at the end of the queue", async () => {
-    const compact = testCompaction(QueueCompaction, {
+    const compact = testUnit(QueueMemory, {
       model: replyWith("Dana: no calls before 9.", { cost: usd(0.001) }),
     });
 
@@ -46,12 +39,12 @@ describe("a model strategy", () => {
           'Turns to compact:\nstart desk-workflow-start: {"text":"Never call me before 9."}\nfinish desk-workflow-finish: {"text":"Noted."}',
       },
     ]);
-    expect(spend.trace).toMatchObject([{ caller: "compaction:queue-compaction" }]);
+    expect(spend.trace).toMatchObject([{ caller: "memory:queue-memory" }]);
     expect(spend.totalUsd).toBeCloseTo(0.001);
   });
 
   it("SummaryQueue keeps the latest summaryQueueLength summaries", async () => {
-    const compact = testCompaction(QueueCompaction, { model: replyWith("third") });
+    const compact = testUnit(QueueMemory, { model: replyWith("third") });
 
     const { output } = await compact({ ...TURNS, previousSummaries: ["first", "second"] });
 
@@ -59,7 +52,7 @@ describe("a model strategy", () => {
   });
 
   it("SingleSummary: its current summary and the built-in prompt; the summary replaced", async () => {
-    const compact = testCompaction(NoteCompaction, {
+    const compact = testUnit(NoteMemory, {
       model: replyWith("Dana: order 7, no calls before 9."),
     });
 
@@ -73,7 +66,7 @@ describe("a model strategy", () => {
   });
 
   it("SingleSummary without a summary yet reads (none yet)", async () => {
-    const compact = testCompaction(NoteCompaction, { model: replyWith("first note") });
+    const compact = testUnit(NoteMemory, { model: replyWith("first note") });
 
     const { output } = await compact({ ...TURNS, previousSummaries: [] });
 
@@ -81,7 +74,7 @@ describe("a model strategy", () => {
   });
 
   it("a summary cut at summaryMaxTokens is asked once more, shorter: two requests", async () => {
-    const compact = testCompaction(QueueCompaction, {
+    const compact = testUnit(QueueMemory, {
       model: [replyWith("a long…", { truncated: true }), replyWith("short")],
     });
 
@@ -92,19 +85,19 @@ describe("a model strategy", () => {
     expect(output.requests[1]?.input.startsWith(output.requests[0]?.input ?? "?")).toBe(true);
   });
 
-  it("cut twice, or empty: CompactionError", async () => {
+  it("cut twice, or empty: StepError.Memory", async () => {
     const cut = replyWith("cut", { truncated: true });
-    const twice = testCompaction(QueueCompaction, { model: [cut, cut] });
-    const empty = testCompaction(QueueCompaction, { model: replyWith("  ") });
+    const twice = testUnit(QueueMemory, { model: [cut, cut] });
+    const empty = testUnit(QueueMemory, { model: replyWith("  ") });
 
-    await expect(twice(TURNS)).rejects.toBeInstanceOf(CompactionError);
+    await expect(twice(TURNS)).rejects.toBeInstanceOf(StepError.Memory);
     await expect(empty(TURNS)).rejects.toThrow("the model wrote an empty summary");
   });
 });
 
-describe("CompactionStrategy.Custom", () => {
+describe("a code compaction", () => {
   it("compact() on its own container, its services replaced, in a step's frame", async () => {
-    const compact = testCompaction(GraphMemoryCompaction);
+    const compact = testUnit(GraphMemory);
 
     const { output, spend } = await compact(TURNS);
 
@@ -115,31 +108,31 @@ describe("CompactionStrategy.Custom", () => {
     expect(spend.totalUsd).toBe(0);
   });
 
-  it("an override replaces a service; no summary is CompactionError", async () => {
+  it("an override replaces a service; no summary is StepError.Memory", async () => {
     class EmptyGraph extends KnowledgeGraphService {
       override saveFactsAndSummarize(): Promise<readonly string[]> {
         return Promise.resolve([]);
       }
     }
-    const compact = testCompaction(GraphMemoryCompaction, {
-      overrides: [override(KnowledgeGraphService, EmptyGraph)],
+    const compact = testUnit(GraphMemory, {
+      services: [EmptyGraph],
     });
 
-    await expect(compact(TURNS)).rejects.toThrow(CompactionError);
+    await expect(compact(TURNS)).rejects.toBeInstanceOf(StepError.Memory);
     await expect(compact(TURNS)).rejects.toThrow("compact() gave no summaries");
   });
 });
 
 describe("what the runner refuses", () => {
-  it("None writes nothing; a model for a custom one; not a compaction", () => {
-    expect(() => testCompaction(NoSummariesCompaction)).toThrow(TestSetupError);
-    expect(() => testCompaction(NoSummariesCompaction)).toThrow("writes no summaries");
-    expect(() => testCompaction(GraphMemoryCompaction, { model: replyWith("x") })).toThrow(
+  it("a window-only memory writes nothing; a model for a custom one; not a compaction", () => {
+    expect(() => testUnit(WindowOnlyMemory)).toThrow(TestSetupError);
+    expect(() => testUnit(WindowOnlyMemory)).toThrow("writes no summaries");
+    expect(() => testUnit(GraphMemory, { model: replyWith("x") })).toThrow(
       "its compact() calls no model; leave out model",
     );
     class Plain {
       readonly isPlain = true;
     }
-    expect(() => testCompaction(Plain)).toThrow("testCompaction(Plain): not a @Compaction");
+    expect(() => testUnit(Plain)).toThrow("testUnit(Plain): not a component it runs");
   });
 });

@@ -50,9 +50,9 @@ const order = replyWith(OrderStatusDto, { status: "shipped" });
 const refund = replyWith(RefundPolicyDto, { policy: "30 days" });
 const loyalty = replyWith(LoyaltyOfferDto, { offer: "10% off" });
 
-describe("S23: a model router decides its OnDemand routes", () => {
+describe("S23: a model router decides its routes of a chooseMany launch", () => {
   desk(
-    "OnDemand by yes/no: one decide, a noul per OnDemand route, yes launches",
+    "yes/no: one decide, a boolean question per route, yes launches",
     async ({ app, mockLlm }) => {
       mockLlm(HelpDeskRouter).thenReturn(decideWith({ "refund-policy-agent": 0.9 }));
       mockLlm(OrderLookupAgent).thenReturn(order);
@@ -66,8 +66,8 @@ describe("S23: a model router decides its OnDemand routes", () => {
         HelpDeskWorkflowStart,
         HelpDeskRouter,
         OrderLookupAgent,
-        RefundPolicyAgent,
         LoyaltyOfferAgent,
+        RefundPolicyAgent,
         AnswerAgent,
         HelpDeskWorkflowFinish,
       ]);
@@ -75,7 +75,7 @@ describe("S23: a model router decides its OnDemand routes", () => {
       expect(asked).toMatchObject({
         kind: "decide",
         questions: {
-          "refund-policy-agent": { type: "noul", instructions: "The message is about returns" },
+          "refund-policy-agent": { type: "boolean", instructions: "The message is about returns" },
         },
       });
       expect(JSON.stringify(mockLlm(AnswerAgent).requests[0]?.input)).toContain("30 days");
@@ -95,22 +95,22 @@ describe("S23: a model router decides its OnDemand routes", () => {
     expect(JSON.stringify(mockLlm(AnswerAgent).requests[0]?.input)).toContain("### refund\\nnone");
   });
 
-  picky(
-    "all no without Always: RouterDecisionError, nothing launched",
-    async ({ app, mockLlm }) => {
-      mockLlm(PickyRouter).thenReturn(
-        decideWith({ "refund-policy-agent": 0.1, "loyalty-offer-agent": 0.2 }),
-      );
+  picky("all no: nothing is launched, and an empty answer is valid", async ({ app, mockLlm }) => {
+    mockLlm(PickyRouter).thenReturn(
+      decideWith({ "refund-policy-agent": 0.1, "loyalty-offer-agent": 0.2 }),
+    );
+    mockLlm(PickyAnswerAgent).thenReturn(reply);
 
-      const run = execute(app, PickyWorkflowStart, { text: "hello" });
+    const result = await execute(app, PickyWorkflowStart, { text: "hello" });
 
-      await expect(run).rejects.toBeInstanceOf(RouterDecisionError);
-      await expect(run).rejects.toMatchObject({
-        code: "step.router.invalid-decision",
-        nodeId: "picky-router",
-      });
-    },
-  );
+    expect(result).toFinishWith(PickyWorkflowFinish);
+    expect(result.path).toEqual([
+      "picky-workflow-start",
+      "picky-router",
+      "picky-answer-agent",
+      "picky-workflow-finish",
+    ]);
+  });
 
   picky(
     "a chat-model router answers through one answer tool, a boolean per route",
@@ -207,16 +207,16 @@ describe("#280 S47 (f): a code router launches its Always targets and what route
   );
 
   strict(
-    "a list of OnDemand targets runs; one class, a stranger or nothing is a decision error",
+    "a list of its routes runs, none included; one class or a stranger is a decision error",
     async ({ app, mockLlm }) => {
       mockLlm(RefundPolicyAgent).thenReturn(refund);
       mockLlm(LoyaltyOfferAgent).thenReturn(loyalty);
-      mockLlm(PickyAnswerAgent).thenReturn(reply);
+      mockLlm(PickyAnswerAgent).thenReturnAlways(reply);
 
       const both = await execute(app, StrictWorkflowStart, { text: "both" });
       const one = execute(app, StrictWorkflowStart, { text: "one" });
       const ghost = execute(app, StrictWorkflowStart, { text: "ghost" });
-      const none = execute(app, StrictWorkflowStart, { text: "none" });
+      const none = await execute(app, StrictWorkflowStart, { text: "none" });
 
       expect(both.path).toEqual([
         "strict-workflow-start",
@@ -226,10 +226,15 @@ describe("#280 S47 (f): a code router launches its Always targets and what route
         "picky-answer-agent",
         "picky-workflow-finish",
       ]);
-      await expect(one).rejects.toThrow("returns a list of its OnDemand targets");
-      await expect(ghost).rejects.toThrow("order-lookup-agent: not one of its OnDemand routes");
-      await expect(none).rejects.toThrow("nothing would run");
-      await expect(none).rejects.toBeInstanceOf(RouterDecisionError);
+      await expect(one).rejects.toThrow("returns a list of its routes' targets");
+      await expect(ghost).rejects.toThrow("order-lookup-agent: not one of its routes");
+      await expect(ghost).rejects.toBeInstanceOf(RouterDecisionError);
+      expect(none.path).toEqual([
+        "strict-workflow-start",
+        "strict-router",
+        "picky-answer-agent",
+        "picky-workflow-finish",
+      ]);
     },
   );
 

@@ -1,3 +1,4 @@
+import { FENCE } from "../../src/flow/context/execution-fence.js";
 /**
  * #626 — the business-key identity's own rules, each found by a mutant that lived: the
  * fingerprint and the handle are derived under their labels (known-answer values), outside a step
@@ -5,11 +6,14 @@
  * when it is another step; an operator's read shows a business key by its handle, or by its name
  * alone; the conflict and the key errors say what they say.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
+import {
+  businessKeyConflict,
+  invalidEffectName,
+} from "../../src/infrastructure/idempotency-errors.js";
 import { describe, expect, it } from "vitest";
-import { FingerprintNotJsonError } from "../../src/index.js";
-import { InvalidFencedEffectKeyError, keyProblemOf } from "../../src/infrastructure/issued-keys.js";
-import { SyncWorkRequiredError } from "../../src/infrastructure/fenced-effect-errors.js";
+import { keyProblemOf } from "../../src/infrastructure/issued-keys.js";
 import { runInFrame, type FrameSpec } from "../../src/flow/context/frame.js";
 import {
   BUSINESS_KEY_HANDLE_LABEL,
@@ -17,10 +21,6 @@ import {
   FINGERPRINT_LABEL,
   effectKeyOf,
   fingerprintsOf,
-  BusinessKeyConflictError,
-  IdempotencyKeyMissingError,
-  InvalidBusinessKeyError,
-  InvalidFencedEffectNameError,
   replayedFromOf,
   shownCallOf,
 } from "../../src/infrastructure/fenced-effect-key.js";
@@ -65,14 +65,14 @@ describe("#626: the fingerprint and the handle, under their labels", () => {
     expect(BUSINESS_KEY_HANDLE_LABEL).toBe("agboss/business-key-handle/v1");
   });
 
-  it("#825: outside a step, or in one without an idempotency key, a fingerprint is IdempotencyKeyMissingError — never an unkeyed digest", async () => {
-    expect(() => fingerprintsOf(REQUEST, "charge")).toThrow(IdempotencyKeyMissingError);
+  it("#825: outside a step, or in one without an idempotency key, a fingerprint is IdempotencyError.SecretKeyMissing — never an unkeyed digest", async () => {
+    expect(() => fingerprintsOf(REQUEST, "charge")).toThrow(IdempotencyError.SecretKeyMissing);
     await expect(inFrame(frameWith({}), () => fingerprintsOf(REQUEST, "charge"))).rejects.toThrow(
-      IdempotencyKeyMissingError,
+      IdempotencyError.SecretKeyMissing,
     );
     await expect(
       inFrame(frameWith({ correlationKey: "pii-key" }), () => fingerprintsOf(REQUEST, "charge")),
-    ).rejects.toMatchObject({ code: "fenced-effect.idempotency-key-missing", effect: "charge" });
+    ).rejects.toMatchObject({ code: "idempotency.secret-key-missing", effect: "charge" });
   });
 
   it("in a step with the application's idempotency key it is an HMAC under the label's subkey — never the PII key's", async () => {
@@ -98,7 +98,7 @@ describe("#626: the fingerprint and the handle, under their labels", () => {
     });
   });
 
-  it("#825: a fingerprint that is not plain JSON — a DTO instance, a Date — is FingerprintNotJsonError naming the effect, never the value", async () => {
+  it("#825: a fingerprint that is not plain JSON — a DTO instance, a Date — is IdempotencyError.FingerprintNotJson naming the effect, never the value", async () => {
     class ChargeDto {
       amount = 10;
     }
@@ -112,9 +112,9 @@ describe("#626: the fingerprint and the handle, under their labels", () => {
           return error;
         }
       });
-      expect(refused).toBeInstanceOf(FingerprintNotJsonError);
+      expect(refused).toBeInstanceOf(IdempotencyError.FingerprintNotJson);
       expect(refused).toMatchObject({
-        code: "fenced-effect.fingerprint-not-json",
+        code: "idempotency.fingerprint-not-json",
         effect: "charge",
       });
       expect((refused as Error).message).toMatch(
@@ -143,7 +143,7 @@ describe("#626: the fingerprint and the handle, under their labels", () => {
         visitNumber: 1,
         idempotencyKey: "execution-1:charge-action:1",
       },
-      fence: {
+      [FENCE]: {
         scopeKey: "default:execution-1",
         tenantId: "default",
         leaseExecutionId: "execution-1",
@@ -183,39 +183,39 @@ describe("#626: what an operator's read shows of a business key", () => {
     name: "charge",
     businessKey: "order:42",
     fingerprint: "f",
-    idempotencyKey: "default:order%3A42:charge",
+    idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw",
   } as OutboundCallRecord;
 
   it("the handle and the name with a handle, the name alone without one; never the key or the fingerprint", () => {
+    // the key the call went with is an HMAC (#1317d): shown as it is
     expect(shownCallOf({ ...record, businessKeyHash: "a1b2c3d4e5f6" }).idempotencyKey).toBe(
-      "business-key:a1b2c3d4e5f6:charge",
+      record.idempotencyKey,
     );
-    expect(shownCallOf(record).idempotencyKey).toBe("business-key:charge");
     expect(shownCallOf(record)).not.toHaveProperty("businessKey");
     expect(shownCallOf(record)).not.toHaveProperty("fingerprint");
   });
 });
 
 describe("#626: the key errors", () => {
-  it("BusinessKeyConflictError: its name, code and message, with and without a handle", () => {
-    const withHandle = new BusinessKeyConflictError({ effect: "charge", businessKeyHash: "a1b2" });
-    const without = new BusinessKeyConflictError({ effect: "charge" });
+  it("IdempotencyError.KeyConflict: its name, code and message, with and without a handle", () => {
+    const withHandle = businessKeyConflict({ effect: "charge", businessKeyHash: "a1b2" });
+    const without = businessKeyConflict({ effect: "charge" });
 
     expect(withHandle).toMatchObject({
-      name: "BusinessKeyConflictError",
-      code: "fenced-effect.business-key-conflict",
+      name: "IdempotencyError.KeyConflict",
+      code: "idempotency.key-conflict",
       message:
-        '"charge" was already made under the same business key (handle a1b2) with other parameters: refused, nothing ran',
+        '"charge" was already made under the same key (handle a1b2) with other parameters: refused, nothing ran',
     });
     expect(without.message).toBe(
-      '"charge" was already made under the same business key with other parameters: refused, nothing ran',
+      '"charge" was already made under the same key with other parameters: refused, nothing ran',
     );
     expect(Object.keys(without)).not.toContain("businessKeyHash");
   });
 
-  it("InvalidFencedEffectNameError and InvalidBusinessKeyError are named and coded", () => {
-    expect(new InvalidFencedEffectNameError({ length: 0 })).toMatchObject({
-      name: "InvalidFencedEffectNameError",
+  it("IdempotencyError.InvalidName and IdempotencyError.InvalidKey are named and coded", () => {
+    expect(invalidEffectName(0)).toMatchObject({
+      name: "IdempotencyError.InvalidName",
     });
     const refused = (() => {
       try {
@@ -223,7 +223,7 @@ describe("#626: the key errors", () => {
           {
             root: { executionId: "execution-1" },
             step: { nodeId: "n", visitNumber: 1, idempotencyKey: "k" },
-            fence: {},
+            [FENCE]: {},
           } as never,
           "charge",
           { businessKey: "" },
@@ -233,10 +233,10 @@ describe("#626: the key errors", () => {
       }
       return undefined;
     })();
-    expect(refused).toBeInstanceOf(InvalidBusinessKeyError);
+    expect(refused).toBeInstanceOf(IdempotencyError.InvalidKey);
     expect(refused).toMatchObject({
-      name: "InvalidBusinessKeyError",
-      code: "fenced-effect.invalid-business-key",
+      name: "IdempotencyError.InvalidKey",
+      code: "idempotency.invalid-key",
     });
   });
 });
@@ -252,7 +252,7 @@ describe("#909: the tree a key's cancel fences, and an undo's key", () => {
         idempotencyKey: "child-7:charge-action:1",
         ...extra,
       },
-      fence: {
+      [FENCE]: {
         scopeKey: "default:child-7",
         tenantId: "default",
         leaseExecutionId: "child-7",
@@ -300,14 +300,8 @@ describe("#825/#909: why a key made by hand is refused", () => {
   it("the errors are named and keep their text and cause", () => {
     const cause = new Error("driver");
 
-    expect(new InvalidFencedEffectKeyError("not a key").name).toBe("InvalidFencedEffectKeyError");
-    expect(new SyncWorkRequiredError({ effect: "charge", cause })).toMatchObject({
-      name: "SyncWorkRequiredError",
-      code: "fenced-effect.sync-work-required",
-      effect: "charge",
-      cause,
-      message:
-        'fenced effect "charge" returned a promise: a SQLite fenced effect runs its work synchronously in one transaction — nothing was written; do the I/O before or after the call',
-    });
+    expect(new IdempotencyError.InvalidKey({ message: "not a key" }).name).toBe(
+      "IdempotencyError.InvalidKey",
+    );
   });
 });

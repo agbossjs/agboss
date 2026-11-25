@@ -86,7 +86,7 @@ export class ResendLook {
     const { pauses, records, resends, signal, log } = this.sources;
     try {
       const record = await records.findByTenantIdAndRunId(pause.tenantId, pause.rootExecutionId);
-      const resend = record === undefined ? undefined : resends.get(record.bundle);
+      const resend = record === undefined ? undefined : resends.get(record.workflow);
       if (resend === undefined) return;
       const now = await pauses.findByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
       if (now?.status !== PauseStatus.Pending || now.isSent) return;

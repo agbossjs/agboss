@@ -1,18 +1,20 @@
 import { Application } from "@agboss/core";
-import { DecisionsModelProvider } from "@agboss/core/models";
 import { ApplicationDailyBudget } from "./budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./budgets/execution.budget.js";
 import { TenantDailyBudget } from "./budgets/tenant-daily.budget.js";
 import { AppEnvironment } from "./environments/app.environment.js";
 import { PromptInjectionGuardrail } from "./guardrails/prompt-injection/prompt-injection.guardrail.js";
-import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
+import {
+  DecisionsModelProvider,
+  OpenRouterModelProvider,
+} from "./model-providers/openrouter.model-provider.js";
 import { {{pascal}}Workflow } from "./workflows/{{kebab}}/{{kebab}}.workflow.js";
 
 /**
  * The application — what `createApp`, `testWith` and every `agboss` command take (its path is
  * `"agboss": { "application" }` in package.json): its workflows (`agboss generate workflow
  * <name>-workflow` adds one here), its infrastructure (`providers`: its model providers — every
- * model of every workflow resolves to one of them by `serves`; no repository listed → the built-in
+ * model of a workflow reaches one of them through `modelProvider`; no repository listed → the built-in
  * in-memory defaults), every budget and its environment contract (`environments/` next to this file).
  */
 @Application({
@@ -20,6 +22,7 @@ import { {{pascal}}Workflow } from "./workflows/{{kebab}}/{{kebab}}.workflow.js"
   version: "0.1.0",
   environment: AppEnvironment,
   workflows: [{{pascal}}Workflow],
+  modelProvider: OpenRouterModelProvider,
   providers: [OpenRouterModelProvider, DecisionsModelProvider],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   // checked before every model of every workflow reads its input (a workflow's own add up with it)

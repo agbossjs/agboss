@@ -26,7 +26,7 @@ import {
  * Bounded (#1059): the same scenarios with pod a keeping the store-call bound, as production runs.
  * A thawed pod meets its overdue bound before its held call is answered, so the held call is
  * released only after a's hand-over — a's give-up always comes first, whatever the load. Then a's
- * late write still reaches the store and is refused (`ExecutionFencedError`); nothing is undone.
+ * late write still reaches the store and is refused (`ExecutionError.Fenced`); nothing is undone.
  */
 
 /** A fenced write a zombie is frozen at: the charge's (5, 5b) or the payment's intent (5c). */
@@ -106,8 +106,8 @@ async function zombie(
   const outcome = writeOutcome(cluster, a, key, point);
   expectThat(
     cluster,
-    outcome === "ExecutionFencedError",
-    `the zombie's write was to be refused (ExecutionFencedError); it was ${outcome}`,
+    outcome === "ExecutionError.Fenced",
+    `the zombie's write was to be refused (ExecutionError.Fenced); it was ${outcome}`,
   );
   await handedOver(cluster);
   expectThat(

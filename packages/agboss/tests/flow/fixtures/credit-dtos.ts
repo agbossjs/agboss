@@ -1,4 +1,4 @@
-import { Flag, Integer, Text } from "../../../src/dto/index.js";
+import { Bool, Integer, Text } from "../../../src/dto/index.js";
 
 /** DTOs of the #280 examples: the credit-limit flow and the support topics. */
 
@@ -11,7 +11,7 @@ export class CreditOrderDto {
 }
 
 export class CreditApprovalDto {
-  @Flag({ prompt: "whether the order is approved" })
+  @Bool({ prompt: "whether the order is approved" })
   approved!: boolean;
 }
 
@@ -22,10 +22,10 @@ export class ChargeResultDto {
 
 /** What a customer's message is about, as types a code router decides on (never its text). */
 export class SupportIntentDto {
-  @Flag({ prompt: "whether the customer asks for a refund" })
+  @Bool({ prompt: "whether the customer asks for a refund" })
   isRefund!: boolean;
 
-  @Flag({ prompt: "whether the customer asks about the delivery" })
+  @Bool({ prompt: "whether the customer asks about the delivery" })
   isDelivery!: boolean;
 }
 

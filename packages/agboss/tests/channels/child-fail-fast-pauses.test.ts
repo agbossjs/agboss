@@ -1,5 +1,5 @@
 /**
- * #337 (Bug B) with #267 AC10: under `.toParallelWorkflows(…)` a child that fails aborts the launch
+ * #337 (Bug B) with #267 AC10: under `.forEachItem(…)` a child that fails aborts the launch
  * (`FailFast`), and a sibling child waiting on a channel has its pause withdrawn — the pause waits
  * inside the child, under the launch's branch (its `branchKeys`) — so the execution fails with the
  * child's error in the same call instead of resting paused.

@@ -1,3 +1,4 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 /**
  * #1017 AC1 — a store error of unknown outcome that the store itself found (a transport error after
  * the request was sent) hands the tree over under a lease, as a timeout does: no `.onError`, no undo,
@@ -9,9 +10,8 @@ import { leaseScope } from "../../src/app/lease-scope.js";
 import { boundedStoreOf } from "../../src/app/store-call-bound.js";
 import {
   ExecutionAuditEventKind,
-  ExecutionFencedError,
   ExecutionLeaseLostError,
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   StoreCallTimeoutError,
   StoreOutcomeSource,
   StoreOutcomeUnknownError,
@@ -99,7 +99,7 @@ describe("#1017 AC1: what the bound makes of a store's own unknown outcome", () 
   });
 
   it("an error of known outcome is no hand-over, a wrapped unknown one is not read through its cause", async () => {
-    const refusal = ExecutionFencedError.of({ scopeKey: "acme:root-1", token: 1 });
+    const refusal = fencedRefusalOf({ scopeKey: "acme:root-1", token: 1 });
     const ordinary = new Error("connect ECONNREFUSED", { cause: reset });
 
     for (const failure of [refusal, ordinary]) {
@@ -173,7 +173,7 @@ describe("#1017 AC1: a charge committed and its answer reset (in memory)", () =>
       const [end] = await ends(1);
       expect(end?.output).toEqual({ chargeId: "charge-order-17-1" });
       expect(book.charges).toHaveLength(1);
-      expect(book.runs.map((run) => run.status)).toContain(FencedEffectStatus.Replayed);
+      expect(book.runs.map((run) => run.status)).toContain(IdempotencyRunStatus.Replayed);
     },
   );
 });

@@ -15,8 +15,9 @@ import {
 import { given, GivenApplication } from "./fixtures/max-spend-invalid.application.js";
 import { BudgetExceededError } from "../../src/graph/limits.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
-import { UnitError, usd } from "../../src/units/index.js";
+import { usd } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 const test = testWith(GivenApplication);
 
@@ -39,7 +40,7 @@ describe("#1373: a maxSpend() that is no amount of dollars refuses the execution
   ];
 
   for (const [kind, value, shown] of bad)
-    test(`${kind}: a UnitError that names the budget, before any model is called`, async ({
+    test(`${kind}: a ConfigError.Unit that names the budget, before any model is called`, async ({
       app,
     }) => {
       given.amount = value;
@@ -49,12 +50,12 @@ describe("#1373: a maxSpend() that is no amount of dollars refuses the execution
         (thrown: unknown) => thrown,
       );
 
-      expect(error).toBeInstanceOf(UnitError);
-      expect((error as UnitError).message).toBe(
+      expect(error).toBeInstanceOf(ConfigError.Unit);
+      expect((error as ConfigError.Unit).message).toBe(
         `given-budget: maxSpend() must return a finite number of dollars from 0 (usd(...)), it gave ${shown}`,
       );
-      expect((error as UnitError).message).not.toContain("five");
-      expect((error as UnitError).message).not.toContain("ignore previous");
+      expect((error as ConfigError.Unit).message).not.toContain("five");
+      expect((error as ConfigError.Unit).message).not.toContain("ignore previous");
     });
 
   test("0 is an amount: it is spent already, and the execution is refused as over budget", async ({

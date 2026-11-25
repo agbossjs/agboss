@@ -1,23 +1,22 @@
 import type { Class } from "../components/injection.js";
-import { aboutLabel, shapeLabel } from "./analyse/labels.js";
-import { spanText } from "../units/working-time.js";
+import { sourceCallOf, toCallOf } from "./analyse/labels.js";
 import {
   NodeKind,
   StepKind,
+  type ChooseOneRoute,
   type FlowPath,
+  type ForEachItemStep,
   type GroupsQuorum,
+  type InParallelStep,
   type JoinStep,
-  type LaunchStep,
-  type PathSource,
-  type ReturnedValue,
+  type OneOfStep,
+  type ParallelBranchStep,
   type Step,
-  type ToStep,
 } from "./ast.js";
 import { declarationOf } from "./decorators/declaration.js";
-import { LAUNCH_CALLS } from "./launch-step.js";
-import { ChildPlacement } from "./child-placement.js";
+import { isLaunching } from "./launch-step.js";
 import {
-  acceptedByLine,
+  arbitratedByLine,
   countQuorumOptions,
   groupsQuorumOptions,
   isGroupsQuorum,
@@ -39,61 +38,6 @@ export const byClassName: ComponentLabel = (component) => component.name || "(an
 export const byComponentName: ComponentLabel = (component) =>
   declarationOf(component)?.options.name ?? byClassName(component);
 
-const TO_CALL: Readonly<Record<NodeKind, string>> = {
-  [NodeKind.Agent]: "toAgent",
-  [NodeKind.Router]: "toRouter",
-  [NodeKind.Action]: "toAction",
-  [NodeKind.Finish]: "toFinish",
-  [NodeKind.Workflow]: "toWorkflow",
-  [NodeKind.Question]: "toQuestion",
-  [NodeKind.Start]: "start",
-};
-
-const sourceCall = (source: PathSource): string =>
-  source.kind === NodeKind.Start ? "start" : source.kind;
-
-/** `XDto`, `XDto, { about: PlanDto }` — a `.returns(…)` or a `caseOf(…)`'s arguments. */
-const valueText = (value: Pick<ReturnedValue, "about"> & { readonly label: string }): string =>
-  value.about === undefined ? value.label : `${value.label}, ${aboutLabel(value.about)}`;
-
-const returnsLine = (value: ReturnedValue): string =>
-  `.returns(${valueText({ ...value, label: shapeLabel(value.shape) })})`;
-
-/** The enum member's name of a placement: `AnyInstance`. */
-const placementName = (placement: ChildPlacement): string =>
-  placement === ChildPlacement.AnyInstance ? "AnyInstance" : "ParentInstance";
-
-/** `placement: ChildPlacement.AnyInstance` (#333 PR 2), as written; none without one. */
-const placementOption = (placement: ChildPlacement | undefined): readonly string[] =>
-  placement === undefined ? [] : [`placement: ChildPlacement.${placementName(placement)}`];
-
-/** `, { placement: ChildPlacement.AnyInstance }` of a child step; empty without one. */
-const childOptions = (placement: ChildPlacement | undefined): string => {
-  const options = placementOption(placement);
-  return options.length === 0 ? "" : `, { ${options.join(", ")} }`;
-};
-
-/** `, { placement: …, expiresIn: 14400000 }` of a `to` step (#941: a question's deadline, in ms); empty without options. */
-const toOptions = (step: Pick<ToStep, "placement" | "expiresIn">): string => {
-  const options = [
-    ...placementOption(step.placement),
-    ...(step.expiresIn === undefined ? [] : [`expiresIn: ${spanText(step.expiresIn)}`]),
-  ];
-  return options.length === 0 ? "" : `, { ${options.join(", ")} }`;
-};
-
-/** `{ maxConcurrency: 3, maxItems: 50 }`, as written; empty without options. */
-function launchOptions(step: LaunchStep): string {
-  const options = [
-    ...(step.maxConcurrency === undefined
-      ? []
-      : [`maxConcurrency: ${String(step.maxConcurrency)}`]),
-    ...(step.maxItems === undefined ? [] : [`maxItems: ${String(step.maxItems)}`]),
-    ...placementOption(step.placement),
-  ];
-  return options.length === 0 ? "" : `, { ${options.join(", ")} }`;
-}
-
 class Printer {
   readonly lines: string[] = [];
 
@@ -114,11 +58,19 @@ class Printer {
     this.lines.push(`${"  ".repeat(depth)}${text}`);
   }
 
-  /** A branch (`route(…)`, `caseOf(…)`, a side path) as its first call and its steps. */
+  /** A branch (a `.toOneOf([…])` branch) as its first call and its steps. */
   private branch(head: string, steps: readonly Step[], depth: number, last: boolean): void {
     this.line(depth, head);
     this.steps(steps, depth + 1);
     if (!last) this.closeLast(",");
+  }
+
+  /** `.onRoute(toAgent(A)` and the route's other steps, closed on its last line (#1278). */
+  private route(route: ChooseOneRoute, depth: number): void {
+    const kind = declarationOf(route.target)?.kind ?? NodeKind.Agent;
+    this.line(depth, `.onRoute(${toCallOf(kind)}(${this.label(route.target)})`);
+    this.steps(route.path.steps, depth + 1);
+    this.closeLast(")");
   }
 
   /** `.onError(E, toAction(X)` and the side path's other steps, closed on its last line. */
@@ -126,84 +78,123 @@ class Printer {
     const [first, ...rest] = steps;
     const head =
       first?.kind === StepKind.To
-        ? `${TO_CALL[first.targetKind]}(${this.label(first.target)}${toOptions(first)})`
+        ? `${toCallOf(first.targetKind)}(${this.label(first.target)})`
         : "";
     this.line(depth, `.${call}(${error}, ${head}`);
     this.steps(first?.kind === StepKind.To ? rest : steps, depth + 1);
     this.closeLast(")");
   }
 
-  /** `.toParallelAgents(A, B, { maxConcurrency: 3 })` (#273). */
-  private launch(step: LaunchStep, depth: number): void {
-    const targets = step.targets.map((target) => this.label(target)).join(", ");
-    this.line(depth, `.${LAUNCH_CALLS[step.targetKind]}(${targets}${launchOptions(step)})`);
-    for (const accepted of step.acceptedBy ?? [])
-      this.line(depth, acceptedByLine(accepted, this.label));
+  /** `.arbitratedBy(A)` of a launch (#1282). */
+  private arbiter(step: InParallelStep | ForEachItemStep, depth: number): void {
+    if (step.arbitratedBy !== undefined)
+      this.line(depth, arbitratedByLine(step.arbitratedBy, this.label));
   }
 
-  /** `.joinQuorumGroups(` each `group(…)` with its priority, values and path, its options `)` (#279). */
+  /** One branch of `.inParallel([…])`: `toAgent(A).onError(StepError, skip())`. */
+  private parallelBranch(branch: ParallelBranchStep): string {
+    const skips = branch.skip.map((error) => `.onError(${error.name}, skip())`).join("");
+    const chosen = branch.chooses?.map((one) => this.parallelBranch(one)).join(", ");
+    const picks = chosen === undefined ? "" : `.chooseMany([${chosen}])`;
+    return `${toCallOf(branch.targetKind)}(${this.label(branch.target)})${skips}${picks}`;
+  }
+
+  /** `.inParallel([toAgent(A), …], { maxConcurrency })` (#1279). */
+  private inParallel(step: InParallelStep, depth: number): void {
+    const branches = step.branches.map((branch) => this.parallelBranch(branch)).join(", ");
+    const options =
+      step.maxConcurrency === undefined
+        ? ""
+        : `, { maxConcurrency: ${String(step.maxConcurrency)} }`;
+    this.line(depth, `.inParallel([${branches}]${options})`);
+  }
+
+  /** `.forEachItem(toAgent(A), { takeFirst: 4 })` (#1280). */
+  private forEachItem(step: ForEachItemStep, depth: number): void {
+    const options = [
+      ...(step.maxItems === undefined ? [] : [`maxItems: ${String(step.maxItems)}`]),
+      ...(step.takeFirst === undefined ? [] : [`takeFirst: ${String(step.takeFirst)}`]),
+      ...(step.maxConcurrency === undefined
+        ? []
+        : [`maxConcurrency: ${String(step.maxConcurrency)}`]),
+    ];
+    this.line(
+      depth,
+      `.forEachItem(${this.parallelBranch(step.branch)}, { ${options.join(", ")} })`,
+    );
+  }
+
+  private launching(step: InParallelStep | ForEachItemStep, depth: number): void {
+    if (step.kind === StepKind.InParallel) this.inParallel(step, depth);
+    else this.forEachItem(step, depth);
+    this.arbiter(step, depth);
+  }
+
+  /** `.joinQuorumGroups({ deadline })`; its groups follow its `.onError(…)` as `.onGroup(…)` (#1284). */
+  private groupsJoin(quorum: GroupsQuorum, depth: number): void {
+    this.line(depth, `.joinQuorumGroups(${groupsQuorumOptions(quorum, this.label) ?? ""})`);
+  }
+
+  /** `.onGroup([A, B], { priority: 1 }, toAgent(X)…)` of each group, in the order written. */
   private groups(quorum: GroupsQuorum, depth: number): void {
-    this.line(depth, ".joinQuorumGroups(");
-    const options = groupsQuorumOptions(quorum);
-    quorum.groups.forEach((group, index) => {
-      this.line(depth + 1, `group(${group.agents.map((agent) => this.label(agent)).join(", ")})`);
-      if (group.priority !== undefined)
-        this.line(depth + 2, `.priority(${String(group.priority)})`);
-      for (const value of group.returns) this.line(depth + 2, returnsLine(value));
-      this.steps(group.path.steps, depth + 2);
-      if (index < quorum.groups.length - 1 || options !== undefined) this.closeLast(",");
-    });
-    if (options !== undefined) this.line(depth + 1, options);
-    this.line(depth, ")");
+    for (const group of quorum.groups) {
+      const targets = group.targets.map((target) => this.label(target)).join(", ");
+      const priority =
+        group.priority === undefined ? "" : `, { priority: ${String(group.priority)} }`;
+      this.sidePath(`[${targets}]${priority}`, group.path.steps, depth, "onGroup");
+    }
   }
 
-  /** `.join()` / `.joinQuorum(…)` / `.joinQuorumGroups(…)`, its `.onJoinError(…)`, its `.returns(…)`. */
+  /** `.join()` / `.joinQuorum(…)` / `.joinQuorumGroups(…)`, its `.onError(…)` and, for groups, its `.onGroup(…)`s. */
   private join(step: JoinStep, depth: number): void {
     const { quorum } = step;
-    if (isGroupsQuorum(quorum)) this.groups(quorum, depth);
+    if (isGroupsQuorum(quorum)) this.groupsJoin(quorum, depth);
     else
       this.line(
         depth,
-        quorum === undefined ? ".join()" : `.joinQuorum(${countQuorumOptions(quorum)})`,
+        quorum === undefined ? ".join()" : `.joinQuorum(${countQuorumOptions(quorum, this.label)})`,
       );
-    for (const handler of step.onJoinError)
-      this.sidePath(handler.error.name, handler.path.steps, depth, "onJoinError");
-    for (const value of step.returns) this.line(depth, returnsLine(value));
+    for (const handler of step.onError)
+      this.sidePath(handler.error.name, handler.path.steps, depth, "onError");
+    if (isGroupsQuorum(quorum)) this.groups(quorum, depth);
+  }
+
+  /** `.toOneOf([` each branch as a side path `])` (#1275). */
+  private oneOf(step: OneOfStep, depth: number): void {
+    this.line(depth, ".toOneOf([");
+    for (const branch of step.branches) {
+      const [first, ...rest] = branch.steps;
+      const head =
+        first?.kind === StepKind.To
+          ? `${toCallOf(first.targetKind)}(${this.label(first.target)})`
+          : "";
+      this.branch(head, first?.kind === StepKind.To ? rest : branch.steps, depth + 1, false);
+    }
+    this.line(depth, "])");
   }
 
   private step(step: Step, depth: number): void {
+    if (isLaunching(step)) {
+      this.launching(step, depth);
+      return;
+    }
     switch (step.kind) {
-      case StepKind.Returns:
-        this.line(depth, returnsLine(step.value));
-        return;
       case StepKind.To:
-        this.line(
-          depth,
-          `.${TO_CALL[step.targetKind]}(${this.label(step.target)}${toOptions(step)})`,
-        );
+        this.line(depth, `.${toCallOf(step.targetKind)}(${this.label(step.target)})`);
         return;
-      case StepKind.Switch:
-        this.line(depth, ".switch(");
-        step.cases.forEach((branch, index) => {
-          const head = `caseOf(${valueText({ ...branch, label: branch.dto.name })})`;
-          this.branch(head, branch.path.steps, depth + 1, index === step.cases.length - 1);
-        });
-        this.line(depth, ")");
+      case StepKind.OneOf:
+        this.oneOf(step, depth);
         return;
       case StepKind.ChooseOne:
-        this.line(depth, ".chooseOne(");
-        step.routes.forEach((route, index) => {
-          const head = `route(${this.label(route.target)}${childOptions(route.placement)})`;
-          this.branch(head, route.path.steps, depth + 1, index === step.routes.length - 1);
-        });
-        this.line(depth, ")");
+        for (const route of step.routes) this.route(route, depth);
+        return;
+      case StepKind.OnFinish:
+        this.sidePath(this.label(step.finish), step.path.steps, depth, "onFinish");
         return;
       case StepKind.OnError:
         this.sidePath(step.error.name, step.path.steps, depth, "onError");
         return;
-      case StepKind.Launch:
-        this.launch(step, depth);
-        return;
+
       case StepKind.Join:
         this.join(step, depth);
         return;
@@ -214,7 +205,7 @@ class Printer {
 /** One path as lines: its source, then its steps indented. */
 export function pathLines(path: FlowPath, label: ComponentLabel = byClassName): readonly string[] {
   const printer = new Printer(label);
-  printer.lines.push(`${sourceCall(path.source)}(${label(path.source.node)})`);
+  printer.lines.push(`${sourceCallOf(path.source.kind)}(${label(path.source.node)})`);
   printer.steps(path.steps, 1);
   return printer.lines;
 }

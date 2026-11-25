@@ -1,3 +1,5 @@
+import { argsDigestOf } from "../../../src/graph/agent-loop/move-entries.js";
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-loop shard): a tool task of the loop carries the budget the tool's own paid file reading is
  * checked against — the whole usage so far, the flow's path and the loop's own spend — so that a tool result's
@@ -10,10 +12,11 @@ import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/us
 import { routeToActions } from "../../../src/graph/agent-loop/boundary.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -32,6 +35,24 @@ describe("#1366: the budget a tool task is handed", () => {
       results: {},
       decisions: {},
       questionAnswers: {},
+      prepared: {
+        c1: {
+          kind: "ready",
+          args: {},
+          shown: {},
+          from: "model",
+          tool: "a",
+          argsDigest: argsDigestOf({}),
+        },
+        c2: {
+          kind: "ready",
+          args: {},
+          shown: {},
+          from: "model",
+          tool: "b",
+          argsDigest: argsDigestOf({}),
+        },
+      },
       usage: [before, inLoop],
       from: { usage: 1 },
       flowPath: ["flow", "alpha"],

@@ -3,7 +3,7 @@ import {
   StoreOutcomeSource,
   StoreOutcomeUnknownError,
 } from "../../infrastructure/store-call-timeout.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import {
   failing,
@@ -23,7 +23,7 @@ import {
  */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
 /** What a store package's classifier throws for a connection reset after the COMMIT was sent. */
 const resetAfterSend = (): StoreOutcomeUnknownError =>
@@ -32,7 +32,7 @@ const resetAfterSend = (): StoreOutcomeUnknownError =>
     cause: new Error("read ECONNRESET"),
   });
 
-const unknownErrorPassesThrough = <TTransaction>(): Case<TTransaction> => ({
+const unknownErrorPassesThrough = (): Case => ({
   name: "an ambiguous error thrown inside the effect is rethrown as it is, its row rolled back; the next call runs it",
   run: async ({ first, second }) => {
     const count: WriteCount = { runs: 0 };
@@ -47,13 +47,11 @@ const unknownErrorPassesThrough = <TTransaction>(): Case<TTransaction> => ({
 
     expect(failed).toBe(ambiguous);
     expect(after).toEqual([]);
-    expect(retried).toMatchObject({ status: FencedEffectStatus.Ran, result: { receipt: "r2" } });
+    expect(retried).toMatchObject({ status: IdempotencyRunStatus.Ran, result: { receipt: "r2" } });
   },
 });
 
-export const unknownOutcomeCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
+export const unknownOutcomeCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "unknown outcome",
-  cases: [unknownErrorPassesThrough<TTransaction>()],
+  cases: [unknownErrorPassesThrough()],
 });

@@ -1,3 +1,5 @@
+import { assertNotExternallyPaused } from "./external-pause.js";
+import type { ExecutionLeases } from "./execution-leases.js";
 import { answerValidatorOf, type AnswerChecks } from "../channels/decision.js";
 import { checkedCallers } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
@@ -10,7 +12,7 @@ import {
 import type { ThreadAccess } from "../run/thread.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import type { AnyTool } from "../tools/index.js";
-import type { App, ResumeOptions, ResumeRequest } from "./types.js";
+import type { AnyTenantApp, ResumeOptions, ResumeRequest } from "./types.js";
 import { lazyLoad, type Clock } from "../infrastructure/clock.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
 import {
@@ -28,12 +30,16 @@ import { markAnswered, refusedAfterMark } from "./paused-runs.js";
 import { noticesWritten, recipientsIn, type PauseNotices } from "../pause/index.js";
 import { pauseTallyOf } from "../pause/pause-tally.js";
 import { pauseClosed } from "./pause-closed.js";
-import { answeredByOf, pauseOf } from "./pause-answerer.js";
+import { actorOf, pauseOf } from "./pause-respondent.js";
+import type { PauseActor } from "../channels/pause-contexts.js";
+import { assertAnswerPermitted } from "./answer-permit.js";
+import type { InlineFiles } from "../files/inline-offload.js";
+import type { PermitAnswer } from "../channels/pause-contexts.js";
 import type { AnsweredRootParts } from "./paused-runs.js";
 
 /**
  * The first phase of `app.resume` (#267, Q58): the pause found by `(tenantId, pauseId)` anywhere in
- * its tree, who answers checked against its role's `answerer`, the decision validated (or a
+ * its tree, who answers checked against its role's `respondent`, the decision validated (or a
  * free-text reply read by its role's interpreter, #267 PR 3), the versions checked — then
  * the resting root's record `running` again (#850), and `Pending → Resolved` with its decision,
  * atomically. Nothing moves the tree here; a refused resume leaves the pause as it was.
@@ -79,7 +85,7 @@ export function lazyReplyAnswering(deps: AppDeps): ReplyAnswering {
 export interface AnswerParts extends AnsweredRootParts {
   /** Checks the caller is the thread's owner (`ThreadOwnerError` otherwise). */
   readonly owned: (access: ThreadAccess) => Promise<void>;
-  /** The tool a pause approves (its input checks `overrideArguments`). */
+  /** The tool a pause approves (its input checks `overrideInput`). */
   readonly tools: (name: string) => AnyTool;
   /**
    * The answer DTO of a question role's step (#659), by the workflow it waits in and its node: what
@@ -96,6 +102,10 @@ export interface AnswerParts extends AnsweredRootParts {
   readonly answers: PauseAnswerLog;
   /** Who hears of the answer (#940): its notices are written with it. */
   readonly notices?: PauseNotices | undefined;
+  /** The pause's target's `permitAnswer` (#1307c); `undefined`: it has none. */
+  readonly permits?: ((pause: PauseRecord) => PermitAnswer | undefined) | undefined;
+  /** The inline cap (#1316): the answer's inline files over it are offloaded, or refused with no store. */
+  readonly inline?: InlineFiles | undefined;
 }
 
 /** A recorded answer: the pause now `Resolved`, and its tree's run as it rests (if it rests). */
@@ -105,7 +115,7 @@ export interface RecordedAnswer {
   readonly run: AgentExecutionOutput | undefined;
 }
 
-export { answeredByOf, pauseOf } from "./pause-answerer.js";
+export { actorOf, pauseOf } from "./pause-respondent.js";
 
 /** The tree's run as it rests, its versions checked against the app's; `undefined` while it moves. */
 async function restingRunOf(
@@ -154,27 +164,34 @@ export async function recordAnswer(
   request: ResumeRequest,
   call: ResumeOptions,
 ): Promise<RecordedAnswer> {
-  return recordedAnswer(parts, pause, request, await answeredByOf(parts, pause, call));
+  return recordedAnswer(parts, pause, request, await actorOf(parts, pause, call));
 }
 
-/** The answer a pause keeps: the decision, who gave it, a channel's own mark (#1197), what it cost. */
+/** The answer a pause keeps: the decision, who gave it, a delegate channel's own mark (#1197), what it cost. */
 const answerOf = (
   read: ReadReply,
-  answeredBy: string | undefined,
+  actor: PauseActor | undefined,
   source: AnswerSource,
 ): PauseAnswer => ({
   decision: read.decision,
-  answeredBy,
+  actor,
   // kept in the stored answer: a crash before the log write is repaired as `decided` too
-  ...(source === PauseResolution.Decided ? { byChannel: true as const } : {}),
+  ...(source === PauseResolution.Decided ? { byDelegate: true as const } : {}),
   ...(read.usage.length === 0 ? {} : { usage: read.usage }),
 });
 
 /** Whose answer is recorded: a person's reply, or the decision a channel gave at once (#1193). */
 export type AnswerSource = PauseResolution.Replied | PauseResolution.Decided;
 
+/** The answer's inline files over the cap leave for the file store, owned by the pause's root run (#1316). */
+const offloadedAnswer = (parts: AnswerParts, pause: PauseRecord, decision: unknown) =>
+  parts.inline?.offload(decision, {
+    tenantId: pause.tenantId,
+    ownerId: pause.rootExecutionId,
+  });
+
 /**
- * The answer recorded on its pause by `answeredBy` (already checked, or a channel's own name — #946):
+ * The answer recorded on its pause by `actor` (already checked, or a channel's own name — #946):
  * what `recordAnswer` does once it knows who answers. A channel's decision (`source` `Decided`) is
  * logged `decided`, like the first send's decided-at-once outcome, and is not counted: the pause was
  * never asked of anyone — not opened, so not closed, and no wait for a human to time (#1193).
@@ -183,7 +200,7 @@ export async function recordedAnswer(
   parts: AnswerParts,
   pause: PauseRecord,
   request: ResumeRequest,
-  answeredBy: string | undefined,
+  actor: PauseActor | undefined,
   source: AnswerSource = PauseResolution.Replied,
 ): Promise<RecordedAnswer> {
   const { tenantId } = pause;
@@ -193,7 +210,12 @@ export async function recordedAnswer(
   if (pause.status !== PauseStatus.Pending || isDue)
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
   const { read, run } = await decisionOf(parts, pause, answerGivenBy(request));
-  const answer = answerOf(read, answeredBy, source);
+  // a person's answer is permitted by its target before anything is marked or recorded (#1307c); a
+  // channel's own decision is the application's and is not asked of the hook
+  if (source === PauseResolution.Replied)
+    await assertAnswerPermitted(parts, pause, actor, read.decision);
+  await offloadedAnswer(parts, pause, read.decision);
+  const answer = answerOf(read, actor, source);
   // the tree has work again before its answer is recorded (#850, paused-runs.ts)
   const isMarked = await markAnswered(parts, pause, run);
   const at = parts.clock.now();
@@ -216,6 +238,12 @@ export async function recordedAnswer(
   return { pause: resolved, run };
 }
 
+/** The tree a pause belongs to: its tenant and its root execution. */
+const treeOfPause = (pause: PauseRecord) => ({
+  tenantId: pause.tenantId,
+  rootExecutionId: pause.rootExecutionId,
+});
+
 /** What `app.resume` of one workflow's app is built from. */
 export interface ResumeParts extends AnswerParts {
   /** Observes a refused request (`onExecutionRejected`) and rethrows. */
@@ -225,6 +253,8 @@ export interface ResumeParts extends AnswerParts {
   /** The thread's owner: the resumed pass runs as it, whoever answered. */
   readonly ownerOf: (tenantId: string, threadId: string) => Promise<string | undefined>;
   readonly moves: Pick<TreeMoves, "resumed">;
+  /** The tree's lease marks (#1341c): an answer on a tree frozen by `app.pause` is refused. */
+  readonly leases?: Pick<ExecutionLeases, "pauseOf"> | undefined;
 }
 
 /**
@@ -233,7 +263,7 @@ export interface ResumeParts extends AnswerParts {
  * lease, as the thread's owner (`executionContext.ownerId`).
  */
 export const resumeOf =
-  (parts: ResumeParts): App["resume"] =>
+  (parts: ResumeParts): AnyTenantApp["resume"] =>
   async (request, call = {}) => {
     const tenantId = call.tenantId ?? DEFAULT_TENANT_ID;
     const requested = { operation: ExecutionOperation.Resume, tenantId };
@@ -243,9 +273,10 @@ export const resumeOf =
       answerGivenBy(request);
       return pauseOf(parts.pauses, request, tenantId);
     });
-    const answer = await parts.admit({ ...requested, threadId: pause.threadId }, () =>
-      recordAnswer(parts, pause, request, call),
-    );
+    const answer = await parts.admit({ ...requested, threadId: pause.threadId }, async () => {
+      await assertNotExternallyPaused(parts.leases, treeOfPause(pause));
+      return recordAnswer(parts, pause, request, call);
+    });
     const ownerId = await parts.ownerOf(tenantId, pause.threadId);
     return parts.moves.resumed(answer, { ...call, ownerId });
   };

@@ -1,14 +1,10 @@
 import {
-  Injectable,
+  Observer,
   type CompensationEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionLeaseTakeoverEvent,
-  type OnCompensationEnd,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type OnExecutionLeaseTakeover,
-  type OnStepHandedOver,
   type StepHandedOverEvent,
 } from "../../../index.js";
 import { FaultPodLink } from "./pod-link.js";
@@ -18,15 +14,8 @@ import { FaultPodLink } from "./pod-link.js";
  * failure, every takeover of a lease, every step handed over and every undo that ran — the
  * moments a scenario waits for. The invariants themselves are read from the stores afterwards.
  */
-@Injectable({ deps: [FaultPodLink] })
-export class FaultObserver
-  implements
-    OnExecutionEnd,
-    OnExecutionError,
-    OnExecutionLeaseTakeover,
-    OnStepHandedOver,
-    OnCompensationEnd
-{
+@Observer({ deps: [FaultPodLink] })
+export class FaultObserver {
   constructor(private readonly faultPodLink: FaultPodLink) {}
 
   onExecutionEnd(event: ExecutionEndEvent): void {
@@ -48,6 +37,21 @@ export class FaultObserver
       rootExecutionId,
       tenantId,
       error: error.name,
+      compensations: compensations.length,
+    });
+  }
+
+  /**
+   * A cancelled execution (#1341) ends as a failure did: the scenarios wait for its end and count
+   * what it undid — its error is the cancel's class name.
+   */
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    const { executionId, rootExecutionId, tenantId, compensations } = event;
+    this.faultPodLink.emit("failed", {
+      executionId,
+      rootExecutionId,
+      tenantId,
+      error: "ExecutionCancelledError",
       compensations: compensations.length,
     });
   }

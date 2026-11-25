@@ -41,10 +41,10 @@ beforeEach(() => {
 });
 
 const ROOTS = [
-  { child: "ParentInstance", start: EndOnceLocalWorkflowStart, hasUndo: false },
-  { child: "AnyInstance", start: YieldOneWorkflowStart, hasUndo: false },
-  { child: "ParentInstance with an undo", start: UndoLocalWorkflowStart, hasUndo: true },
-  { child: "AnyInstance with an undo", start: UndoOneWorkflowStart, hasUndo: true },
+  { child: "CurrentProcess", start: EndOnceLocalWorkflowStart, hasUndo: false },
+  { child: "AnyWorker", start: YieldOneWorkflowStart, hasUndo: false },
+  { child: "CurrentProcess with an undo", start: UndoLocalWorkflowStart, hasUndo: true },
+  { child: "AnyWorker with an undo", start: UndoOneWorkflowStart, hasUndo: true },
 ] as const;
 
 const OUTCOMES = [

@@ -3,7 +3,7 @@
  * continues in the same process — on a real app (`testWith`), its models scripted.
  */
 import { executeWithoutInputCheck } from "@agboss/core/internal";
-import { ExecutionStatus } from "@agboss/core";
+import { ExecutionStatus, StreamEventKind } from "@agboss/core";
 import { callTool, replyWith, routeTo, testWith } from "@agboss/core/testing";
 import { describe, expect, vi } from "vitest";
 import {
@@ -80,7 +80,7 @@ describe("terminal approval (agboss run and agboss chat)", () => {
       () => Promise.resolve("y"),
       undefined,
       (event) => {
-        if (event.kind === "textDelta") heard.push(event.delta);
+        if (event.kind === StreamEventKind.TextDelta) heard.push(event.delta);
       },
     );
 
@@ -120,7 +120,7 @@ describe("#659: a question pause in the terminal", () => {
     const done = await untilDone(paused, app, ask);
 
     expect(ask.mock.calls[0]?.[0]).toBe(
-      'limit-question asks {"item":"laptop"} — your answer (a line starting with { is the typed answer as JSON, anything else a reply): ',
+      'limit-external-task asks {"item":"laptop"} — your answer (a line starting with { is the typed answer as JSON, anything else a reply): ',
     );
     expect(ask.mock.calls[1]?.[0]).toMatch(/limitUsd[\s\S]*your answer \(.*\): $/);
     expect(done).toFinishWith(LimitWorkflowFinish, { approved: true, limitUsd: 900 });

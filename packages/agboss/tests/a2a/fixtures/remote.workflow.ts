@@ -1,5 +1,7 @@
+import { hours, minutes, Ttl } from "../../../src/units/index.js";
+import { Window2Memory } from "../../helpers/window-memory.js";
 import { type BuildApplicationOptions } from "../../../src/application/create-app.js";
-import { A2AExpose, A2ACallerResolution, type A2ACallerResolver } from "../../../src/a2a/index.js";
+import { A2AEndpoint } from "../../../src/a2a/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import {
   Agent,
@@ -10,16 +12,16 @@ import {
   WorkflowStart,
   type WorkflowDefinition,
   Tool,
-  type ToolHandler,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { createSqliteTurnStore } from "../../../src/turns/index.js";
 import type { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { HttpAuthResult, HttpAuthenticator } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 export class LookupQuery {
   @Text({ prompt: "the order id" })
@@ -42,10 +44,10 @@ export const slowLookups = { started: (): void => undefined };
   output: LookupResult,
   deps: [ExecutionContext],
 })
-export class SlowLookup implements ToolHandler<LookupQuery, LookupResult> {
+export class SlowLookup {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(_input: LookupQuery): Promise<LookupResult> {
+  execute(_input: LookupQuery): Promise<LookupResult> {
     slowLookups.started();
     const { signal } = this.executionContext;
     return new Promise((_resolve, reject) => {
@@ -63,8 +65,8 @@ export class SlowLookup implements ToolHandler<LookupQuery, LookupResult> {
   input: LookupQuery,
   output: LookupResult,
 })
-export class QuickLookup implements ToolHandler<LookupQuery, LookupResult> {
-  run({ orderId }: LookupQuery): Promise<LookupResult> {
+export class QuickLookup {
+  execute({ orderId }: LookupQuery): Promise<LookupResult> {
     return Promise.resolve({ status: `order ${orderId} shipped` });
   }
 }
@@ -93,10 +95,10 @@ export class AskStart {}
 export class DeskAnswer {}
 
 /** One tenant: every caller runs in the default tenant (#387: said by the host, never implied). */
-@Injectable()
-export class SingleTenantCallerResolver implements A2ACallerResolver<typeof AskStart> {
-  resolveCaller(): A2ACallerResolution<typeof AskStart> {
-    return A2ACallerResolution.resolved({});
+@HttpAuthenticator()
+export class SingleTenantAuthenticator {
+  authenticate(): HttpAuthResult {
+    return HttpAuthResult.authenticated({ ownerId: "single-tenant-caller" });
   }
 }
 
@@ -110,15 +112,15 @@ const defaults = {
 @Workflow({
   name: "remote-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(AskStart)
-      .returns(WorkflowStartTextDto)
+    onStart(AskStart)
       .toAgent(Desk)
       .toFinish(DeskAnswer),
   ],
   defaults,
-  uncompactedTurns: 2,
-  providers: [SingleTenantCallerResolver],
+  memory: Window2Memory,
+  providers: [SingleTenantAuthenticator],
 })
 export class RemoteDesk implements WorkflowDefinition {
   settings(): WorkflowSettings {
@@ -128,21 +130,23 @@ export class RemoteDesk implements WorkflowDefinition {
 }
 
 /** What the application serves over A2A (#398 PR 3): its one start. */
-@A2AExpose({
+@A2AEndpoint({
   name: "remote-desk-a2a-expose",
   description: "Served over A2A",
   version: "1.0.0",
-  exports: [AskStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [AskStart],
 })
 export class RemoteDeskA2AExpose {}
 
 @Application({
   name: "remote-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RemoteDesk],
   budgets: TEST_BUDGETS,
-  exposes: [RemoteDeskA2AExpose],
+  endpoints: [RemoteDeskA2AExpose],
 })
 export class RemoteDeskApplication {}
 

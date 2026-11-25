@@ -1,6 +1,3 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { compareProfiles } from "../../src/index.js";
 import { compareProfilesWith } from "../../src/eval/compare-profiles.js";
@@ -19,13 +16,7 @@ import {
   TaskStart,
 } from "../testing/fixtures/code-review.workflow.js";
 
-/** `profiles/code-review-workflow/terse.yaml`: the coder's prompt replaced. */
-const root = mkdtempSync(join(tmpdir(), "profiles-"));
-mkdirSync(join(root, "profiles", "code-review-workflow"), { recursive: true });
-writeFileSync(
-  join(root, "profiles", "code-review-workflow", "terse.yaml"),
-  "profile: terse\nversion: 1.0.0-terse\nprompts:\n  coder-agent: Code tersely.\n",
-);
+// the `terse` profile is tests/testing/fixtures/config/terse.config.yaml: the coder's prompt replaced
 
 const decided = (next: string, confidence: number): RouteOutcome => ({
   kind: "decided",
@@ -66,7 +57,6 @@ const compare = (judging: boolean) =>
     start: TaskStart,
     profiles: ["base", "terse"],
     tasks: ["fix the bug", "add a test"],
-    profileRoot: root,
     gateway: scriptedGateway(judging),
     processEnv: {},
   });

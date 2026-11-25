@@ -1,13 +1,18 @@
-import { closedAtOf, closedReasonOf } from "./pause-closing.js";
 import { decidedOnExpiryPause, expiredPause, untakenPause } from "./pause-closers.js";
 import type { PlannedNotice } from "./pause-mailboxes.js";
 import {
   PauseNoticeKind,
-  recipientKeysOf,
   type PauseDeadlineChange,
   type PauseNoticeFacts,
   type PauseRecipients,
 } from "./pause-notices.js";
+import {
+  closedNotices,
+  instantOf,
+  noticesOf,
+  openingNotices,
+  untakenNotices,
+} from "./pause-notice-plans.js";
 import {
   cancelledPause,
   PauseResolution,
@@ -17,8 +22,8 @@ import {
   type PauseCancellation,
   type PauseExpiry,
   type PauseRecord,
+  type PauseTrailRecord,
   type PauseUntakenResolution,
-  PauseClosedReason,
   PauseExpiryBound,
 } from "./pause-record.js";
 import { NEVER } from "./pause-scans.js";
@@ -39,28 +44,6 @@ export interface PauseChange {
   readonly inserted?: PauseRecord;
 }
 
-/** The notice of `kind` to each receiver of it, due at `at`. */
-function noticesOf(
-  recipients: PauseRecipients,
-  kind: PauseNoticeKind,
-  at: Date,
-  facts: PauseNoticeFacts,
-): readonly PlannedNotice[] {
-  const notice = { kind, writtenAt: at.toISOString(), ...facts };
-  return recipientKeysOf(recipients, kind).map((recipient) => ({ recipient, at, notice }));
-}
-
-/** The `closed` notice of a record that closed. */
-const closedNotices = (
-  closed: PauseRecord,
-  at: Date,
-  recipients: PauseRecipients,
-): readonly PlannedNotice[] =>
-  noticesOf(recipients, PauseNoticeKind.Closed, at, {
-    reason: closedReasonOf(closed),
-    ...(closedAtOf(closed) === undefined ? {} : { closedAt: closedAtOf(closed) }),
-  });
-
 /** What closing a pending pause does: its notice is written only when the pause is `isSent`. */
 export const closing = (
   before: PauseRecord,
@@ -77,7 +60,7 @@ export const isOpenAt = (pause: PauseRecord, at: Date): boolean =>
   pause.status === PauseStatus.Pending && (pause.expiresAt ?? NEVER) > at.toISOString();
 
 /** Whether a pending pause's deadline is at or before `at`. */
-const isDueAt = (pause: PauseRecord, at: Date): boolean =>
+export const isDueAt = (pause: PauseRecord, at: Date): boolean =>
   pause.status === PauseStatus.Pending && (pause.expiresAt ?? NEVER) <= at.toISOString();
 
 /** `Pending → Resolved` with the answer, only while `expiresAt` is after `at` (I1, I2). */
@@ -136,20 +119,6 @@ export function closeUntakenChange(
   };
 }
 
-/** The `answerNotTaken` notice: why it closed and when. */
-const untakenNotices = (
-  resolution: PauseUntakenResolution,
-  at: Date,
-  recipients: PauseRecipients,
-): readonly PlannedNotice[] =>
-  noticesOf(recipients, PauseNoticeKind.AnswerNotTaken, at, {
-    reason:
-      resolution === PauseResolution.Cancelled
-        ? PauseClosedReason.Cancelled
-        : PauseClosedReason.TreeEnded,
-    closedAt: at.toISOString(),
-  });
-
 /**
  * A pending pause's deadline moved, never to a past time (I3), never earlier or equal (#1099), and
  * only from the deadline the caller read: whoever read an older one lost to a writer that moved it.
@@ -175,17 +144,38 @@ export function extendChange(
     !floors.every((floor) => extension.expiresAt > floor)
   )
     return undefined;
+  const changes = pause.trail.filter((entry) => entry.action === "timeout-changed").length;
+  if (extension.maxExtensions !== undefined && changes >= extension.maxExtensions) return undefined;
   return {
     pause: {
       ...pause,
       expiresAt: extension.expiresAt,
       expiryBound: PauseExpiryBound.Pause,
       remindAt: extension.remindAt,
+      trail: [...pause.trail, timeoutChangedEntryOf(pause, extension, at)],
     },
     notices: noticesOf(recipients, PauseNoticeKind.Extended, at, {
       expiresAt: extension.expiresAt,
       previousExpiresAt: pause.expiresAt,
     }),
+  };
+}
+
+/** The entry a deadline change adds to the chain of custody: who moved it, when, to what. */
+function timeoutChangedEntryOf(
+  pause: PauseRecord,
+  extension: PauseDeadlineChange,
+  at: Date,
+): PauseTrailRecord {
+  return {
+    action: "timeout-changed",
+    at: at.toISOString(),
+    ...(extension.actor === undefined ? {} : { actor: extension.actor }),
+    target: pause.target,
+    ...(pause.channel === undefined ? {} : { channel: pause.channel }),
+    ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
+    expiresAt: extension.expiresAt,
+    ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
   };
 }
 
@@ -203,10 +193,17 @@ export function remindChange(
   };
 }
 
-/** The instant of a record's time text; a record stored before `askedAt` (empty) is the epoch. */
-function instantOf(text: string | undefined): Date {
-  const instant = new Date(text ?? 0);
-  return Number.isNaN(instant.getTime()) ? new Date(0) : instant;
+/** The reference the channel's system gave the pause: on the record and on its newest entry of the chain of custody. */
+function withExternalRef(
+  pause: PauseRecord,
+  externalRef: string | undefined,
+): Partial<Pick<PauseRecord, "externalRef" | "trail">> {
+  if (externalRef === undefined) return {};
+  const last = pause.trail.at(-1);
+  return {
+    externalRef,
+    trail: [...pause.trail.slice(0, -1), ...(last === undefined ? [] : [{ ...last, externalRef }])],
+  };
 }
 
 /**
@@ -216,15 +213,14 @@ function instantOf(text: string | undefined): Date {
  * carry the times the record knows (`askedAt`, `resolvedAt` / `expiresAt`), so `markSent`, which
  * has no `at`, reads no clock of its own.
  */
-export function markSentChange(pause: PauseRecord, recipients: PauseRecipients): PauseChange {
+export function markSentChange(
+  pause: PauseRecord,
+  recipients: PauseRecipients,
+  externalRef?: string,
+): PauseChange {
   if (pause.isSent) return { pause, notices: [] };
-  const sent = { ...pause, isSent: true };
-  const opened = noticesOf(
-    recipients,
-    PauseNoticeKind.Opened,
-    instantOf(pause.askedAt),
-    pause.expiresAt === undefined ? {} : { expiresAt: pause.expiresAt },
-  );
+  const sent = { ...pause, isSent: true, ...withExternalRef(pause, externalRef) };
+  const opened = openingNotices(pause, sent, recipients);
   if (pause.status === PauseStatus.Pending) return { pause: sent, notices: opened };
   const first = pause.closedFirst ?? pause;
   const closedAt = instantOf(first.resolvedAt ?? pause.askedAt);

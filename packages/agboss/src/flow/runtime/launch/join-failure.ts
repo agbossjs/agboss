@@ -1,8 +1,8 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import type { ErrorRecord } from "../../../core/error-record.js";
+import { errorRecordOf, RecordedError, type ErrorRecord } from "../../../core/error-record.js";
 import { valueWrite, type FlowEdge } from "../../analyse/flow-graph.js";
-import { compensationsOfFailedJoin } from "../../compensation.js";
-import { FailurePolicy } from "../../decorators/router.js";
+import { compensationsOfFailedJoin, type CompensationEntry } from "../../compensation.js";
+import { isSkippedBranch } from "./branch-skip.js";
 import { errorHandlerOf } from "../graph-model.js";
 import { sidePathEntered } from "../limits.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "../state.js";
@@ -16,29 +16,21 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
 import { launchPausesOf } from "./withdrawn-pauses.js";
 
 /** A branch's error read back from its record (another process ran it, before a crash). */
-class RecordedBranchError extends Error {
-  readonly record: ErrorRecord;
-
-  constructor(record: ErrorRecord) {
-    super(record.message);
-    this.name = record.name;
-    this.record = record;
-  }
-}
+class RecordedBranchError extends RecordedError {}
 
 /** A failed branch's error record (a generic one when it has none). */
 export const failureRecordOf = (record: BranchOutcomeRecord): ErrorRecord =>
   record.error ?? { name: "Error", code: "Error", lineage: [], message: "failed" };
 
 /**
- * A failed launch: its `.onJoinError(…)` side path, else the branch's error. The side path starts
+ * A failed launch: its `.onError(…)` side path, else the branch's error. The side path starts
  * with the answers already settled (#945): the branches that finished, read from the checkpointed
  * records, each as the value of its class — a branch whose undo ran in this failed join is left out.
  */
 async function failedJoin(
   launch: RuntimeLaunch,
   failed: {
-    readonly record: BranchOutcomeRecord;
+    readonly record: ErrorRecord;
     readonly node: string;
     readonly state: ExecutionStateType;
     readonly config: RunnableConfig | undefined;
@@ -49,11 +41,11 @@ async function failedJoin(
   },
   cause: Error,
 ): Promise<ExecutionStateUpdate> {
-  const record = failureRecordOf(failed.record);
+  const { record } = failed;
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler === undefined) throw cause;
   const handled = handledErrorOf(failed.deps, record, failed.node, handler.to);
-  const entered = sidePathEntered(failed.state, record, handler.to);
+  const entered = sidePathEntered(failed.state, record, handler.to, undefined, handled);
   const settled = await settledValues(launch, handler, failed);
   return { ...settled, lastError: record, next: handler.to, handledErrors: [handled], ...entered };
 }
@@ -73,7 +65,7 @@ async function settledValues(
 ): Promise<ExecutionStateUpdate> {
   const groups = handler.settled ?? [];
   const values = groups.flatMap((group) =>
-    group.shape === undefined ? [] : [valueWrite(group.shape, undefined, false)],
+    group.shape === undefined ? [] : [valueWrite(group.shape, false)],
   );
   const gone = new Set(failed.undone);
   const finished = finishedOf(failed.records).filter((record) => {
@@ -82,7 +74,7 @@ async function settledValues(
   });
   const edge: FlowEdge = {
     ...handler,
-    join: { launch: launch.launch, values, written: [], groups },
+    join: { launch: launch.launch, values, groups },
   };
   const context: JoinContext = { state: failed.state, deps: failed.deps };
   const config = failed.config;
@@ -97,7 +89,7 @@ async function settledValues(
 
 /**
  * A launch with a failed branch: its finished undoable branches undone first (#340), newest first,
- * then its `.onJoinError(…)` side path, else the branch's error.
+ * then its `.onError(…)` side path, else the branch's error.
  */
 export async function failedJoined(
   launch: RuntimeLaunch,
@@ -122,10 +114,13 @@ export async function failedJoined(
   const cause = thrown instanceof Error ? thrown : new RecordedBranchError(failureRecordOf(record));
   const undone = await compensationsOfFailedJoin({ ...site, cause });
   try {
-    const undoneNodes = (undone.compensations ?? []).flatMap((entry) =>
-      entry.launchId === site.ticket.launchId ? [entry.compensated.nodeId] : [],
+    const undoneNodes = undoneBranchesOf(undone.compensations, site.ticket);
+    const failure = failureRecordOf(record);
+    const entered = await failedJoin(
+      launch,
+      { ...site, record: failure, node, undone: undoneNodes },
+      cause,
     );
-    const entered = await failedJoin(launch, { ...site, record, node, undone: undoneNodes }, cause);
     return { ...undone, ...entered };
   } catch (error) {
     // no side path: the undo's spend reaches no state — the ledger at once (#340 S4)
@@ -135,9 +130,59 @@ export async function failedJoined(
 }
 
 /**
+ * The branches of the launch whose entries the join undid, by their node ids: an action's own
+ * step, a child workflow's branch by its index (#1281b: its entries are its child's actions').
+ */
+function undoneBranchesOf(
+  entries: readonly CompensationEntry[] | undefined,
+  ticket: LaunchTicket,
+): readonly string[] {
+  return (entries ?? []).flatMap((entry) => {
+    if (entry.launchId !== ticket.launchId) return [];
+    if (entry.childPath === undefined) return [entry.compensated.nodeId];
+    const branch = entry.branchIndex === undefined ? undefined : ticket.branches[entry.branchIndex];
+    return branch === undefined ? [] : [branch.nodeId];
+  });
+}
+
+/**
+ * A quorum that cannot be reached fails its launch like a failed branch does (#1281): the join's
+ * finished undoable branches are undone first, then `.onError(StepError.QuorumNotReached, …)` starts
+ * with the answers settled, else the error is thrown (the undo's spend to the ledger first).
+ */
+export async function failedQuorum(
+  launch: RuntimeLaunch,
+  error: Error,
+  site: {
+    readonly state: ExecutionStateType;
+    readonly config: RunnableConfig | undefined;
+    readonly ticket: LaunchTicket;
+    readonly deps: JoinDeps;
+    readonly records: readonly BranchOutcomeRecord[];
+  },
+): Promise<ExecutionStateUpdate> {
+  const record = errorRecordOf(error);
+  await noticeJoinFailed(launchPausesOf(site.deps.pauses, site.state, site.config), {
+    ticket: site.ticket,
+    records: site.records,
+    errorCode: record.code,
+  });
+  const undone = await compensationsOfFailedJoin({ ...site, cause: error });
+  try {
+    const undoneNodes = undoneBranchesOf(undone.compensations, site.ticket);
+    const node = site.ticket.launcher;
+    const entered = await failedJoin(launch, { ...site, record, node, undone: undoneNodes }, error);
+    return { ...undone, ...entered };
+  } catch (thrown) {
+    await site.deps.limits.budgets.record(undone.usage ?? []);
+    throw thrown;
+  }
+}
+
+/**
  * The record the launch fails with: the first `Failed` branch — or, in a plain `.join()` whose
- * branch follows `FailFast`, an `Expired` one (#945); under a quorum or `Skip` an expired branch is
- * no failure.
+ * branch no `skip()` names, an `Expired` one (#945); under a quorum or a `skip()` an expired branch
+ * is no failure.
  */
 export function failingRecordOf(
   launch: RuntimeLaunch,
@@ -149,6 +194,9 @@ export function failingRecordOf(
   return records.find(
     (record) =>
       record.status === BranchStatus.Expired &&
-      ticket.branches[record.index]?.failure !== FailurePolicy.Skip,
+      !isSkippedBranch(
+        ticket.branches[record.index] ?? {},
+        record.error ?? failureRecordOf(record),
+      ),
   );
 }

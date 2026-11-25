@@ -75,11 +75,11 @@ describe("#272 AC14: a visit past maxVisits fails before the node runs", () => {
       mockLlm(PatientGateRouter).thenReturnAlways(routeTo(PatientEditorAgent));
       mockLlm(PatientEditorAgent).thenReturn(...drafts("v1", "v2"));
 
-      const result = await execute(app, EditStart, { text: "a poem" }, { record: true });
+      const result = await execute(app, EditStart, { text: "a poem" }, { includeRecord: true });
 
       expect(result.status).toBe(ExecutionStatus.Finished);
       expect(result).toFinishWith(GaveUpFinish, { text: "v2" });
-      expect(result.path.slice(-2)).toEqual(["patient-editor-agent", "gave-up-workflow-finish"]);
+      expect(result.path.slice(-2)).toEqual(["gave-up-action", "gave-up-workflow-finish"]);
       expect(result.record?.lastError).toMatchObject({ code: "limit.visits" });
     },
   );

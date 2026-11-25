@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { analyseWorkflow, checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { statesOf } from "../../../src/flow/analyse/dataflow.js";
 import { slotOf, SlotStatus, type SlotKey } from "../../../src/flow/analyse/scope.js";
+import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -12,7 +13,7 @@ import type { ComponentName } from "../../../src/flow/registry.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { DraftChangesDto } from "../fixtures/data-dtos.js";
 import { ArticleDto, ArticleRequestDto, WorkflowStartTextDto } from "../fixtures/dtos.js";
-import { agent, caseOf, route, router, start } from "../fixtures/paths.js";
+import { onAgent, onRouter, onStart, toAction, toAgent, toRouter } from "../fixtures/paths.js";
 import {
   ApprovalDto,
   CandidateProfileDto,
@@ -32,6 +33,8 @@ import {
   StoryWorkflowStart,
   StoryWriterAgent,
 } from "../fixtures/review.fixture.js";
+import { inline, Ttl } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #271 PR 1: outdating in the analyser (S10) and `[input.outdated-on-path]` (rule 6). */
 
@@ -60,6 +63,7 @@ const messagesOf = (workflow: object, code: string): readonly string[] =>
   description: "Sends the article to whoever works on it next",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   maxVisits: 8,
   input: {
     request: ArticleRequestDto,
@@ -73,22 +77,46 @@ const messagesOf = (workflow: object, code: string): readonly string[] =>
 })
 class EditorRouter {}
 
+/** The reviewer's approving branch: it reads the approval, so the branch is told apart by it. */
+@Action({
+  name: "approve-story-action",
+  description: "Takes the approval",
+  input: { approval: ApprovalDto },
+})
+class ApproveStoryAction {
+  execute(): void {
+    // takes the value its branch is told apart by
+  }
+}
+
+/** The reviewer's revising branch: it reads the requested changes. */
+@Action({
+  name: "revise-story-action",
+  description: "Takes the requested changes",
+  input: { changes: DraftChangesDto },
+})
+class ReviseStoryAction {
+  execute(): void {
+    // takes the value its branch is told apart by
+  }
+}
+
 @Workflow({
   name: "hub-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StoryWorkflowStart).returns(ArticleRequestDto).toRouter(EditorRouter),
-    router(EditorRouter).chooseOne(
-      route(ResearcherAgent).returns(ResearchDto).toRouter(EditorRouter),
-      route(StoryWriterAgent).returns(DraftDto).toRouter(EditorRouter),
-      route(StoryReviewerAgent)
-        .returns(oneOf(ApprovalDto, DraftChangesDto))
-        .switch(
-          caseOf(ApprovalDto, { about: DraftDto }).toRouter(EditorRouter),
-          caseOf(DraftChangesDto, { about: DraftDto }).toRouter(EditorRouter),
-        ),
-      route(PublisherAgent).returns(ArticleDto).toFinish(StoryWorkflowFinish),
-    ),
+    onStart(StoryWorkflowStart).toRouter(EditorRouter),
+    onRouter(EditorRouter)
+      .onRoute(toAgent(ResearcherAgent).toRouter(EditorRouter))
+      .onRoute(toAgent(StoryWriterAgent).toRouter(EditorRouter))
+      .onRoute(
+        toAgent(StoryReviewerAgent).toOneOf([
+          toAction(ApproveStoryAction).toRouter(EditorRouter),
+          toAction(ReviseStoryAction).toRouter(EditorRouter),
+        ]),
+      )
+      .onRoute(toAgent(PublisherAgent).toFinish(StoryWorkflowFinish)),
   ],
 })
 class HubWorkflow {}
@@ -105,7 +133,7 @@ class JobsWorkflowStart {}
 @Agent({
   name: "job-search-agent",
   description: "Finds jobs for the profile",
-  prompt: "Find jobs.",
+  prompt: inline("Find jobs."),
   model: "moonshotai/kimi-k2.6",
   input: { profile: CandidateProfileDto },
   output: JobListDto,
@@ -115,7 +143,7 @@ class JobSearchAgent {}
 @Agent({
   name: "job-scoring-agent",
   description: "Scores the jobs",
-  prompt: "Score them.",
+  prompt: inline("Score them."),
   model: "moonshotai/kimi-k2.6",
   input: { jobs: JobListDto },
   output: JobScoresDto,
@@ -125,7 +153,7 @@ class JobScoringAgent {}
 @Agent({
   name: "profile-editor-agent",
   description: "Corrects the profile",
-  prompt: "Correct it.",
+  prompt: inline("Correct it."),
   model: "moonshotai/kimi-k2.6",
   input: { profile: CandidateProfileDto },
   output: CandidateProfileDto,
@@ -135,7 +163,7 @@ class ProfileEditorAgent {}
 @Agent({
   name: "job-picker-agent",
   description: "Picks the job to apply for",
-  prompt: "Pick one.",
+  prompt: inline("Pick one."),
   model: "moonshotai/kimi-k2.6",
   input: { scores: JobScoresDto, profile: CandidateProfileDto },
   output: JobPickDto,
@@ -148,17 +176,13 @@ class PickWorkflowFinish {}
 @Workflow({
   name: "stale-scores-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(JobsWorkflowStart)
-      .returns(CandidateProfileDto)
+    onStart(JobsWorkflowStart)
       .toAgent(JobSearchAgent)
-      .returns(JobListDto)
       .toAgent(JobScoringAgent)
-      .returns(JobScoresDto)
       .toAgent(ProfileEditorAgent)
-      .returns(CandidateProfileDto)
       .toAgent(JobPickerAgent)
-      .returns(JobPickDto)
       .toFinish(PickWorkflowFinish),
   ],
 })
@@ -167,17 +191,13 @@ class StaleScoresWorkflow {}
 @Workflow({
   name: "fresh-scores-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(JobsWorkflowStart)
-      .returns(CandidateProfileDto)
+    onStart(JobsWorkflowStart)
       .toAgent(ProfileEditorAgent)
-      .returns(CandidateProfileDto)
       .toAgent(JobSearchAgent)
-      .returns(JobListDto)
       .toAgent(JobScoringAgent)
-      .returns(JobScoresDto)
       .toAgent(JobPickerAgent)
-      .returns(JobPickDto)
       .toFinish(PickWorkflowFinish),
   ],
 })
@@ -188,6 +208,7 @@ class FreshScoresWorkflow {}
   description: "Decides on the scored jobs",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { jobs: JobListDto },
   routes: [{ target: JobPickerAgent, prompt: "Pick a job" }],
 })
@@ -196,17 +217,14 @@ class JobsRouter {}
 @Workflow({
   name: "stale-router-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(JobsWorkflowStart)
-      .returns(CandidateProfileDto)
+    onStart(JobsWorkflowStart)
       .toAgent(JobSearchAgent)
-      .returns(JobListDto)
       .toAgent(JobScoringAgent)
-      .returns(JobScoresDto)
       .toAgent(ProfileEditorAgent)
-      .returns(CandidateProfileDto)
       .toRouter(JobsRouter)
-      .chooseOne(route(JobPickerAgent).returns(JobPickDto).toFinish(PickWorkflowFinish)),
+      .onRoute(toAgent(JobPickerAgent).toFinish(PickWorkflowFinish)),
   ],
 })
 class StaleRouterWorkflow {}
@@ -247,7 +265,7 @@ describe("#271 AC5: [input.missing-on-path] counts current values; the hub graph
         "story-workflow-start → editor-router → story-reviewer-agent",
     );
     expect(outdated.find((text) => text.includes("publisher-agent.approval"))).toMatch(
-      /publisher-agent\.approval \(ApprovalDto\) is outdated on the path .*story-reviewer-agent → editor-router → story-writer-agent → editor-router → publisher-agent \(about DraftDto, replaced by story-writer-agent\)/,
+      /publisher-agent\.approval \(ApprovalDto\) is outdated on the path .*story-reviewer-agent → .*editor-router → story-writer-agent → editor-router → publisher-agent \(built from DraftDto, replaced by story-writer-agent\)/,
     );
     expect(checkWorkflow(StoryWorkflow)).toMatchObject({ errors: [] });
   });
@@ -310,9 +328,9 @@ describe("#271 rule 5: in the review loop a new draft outdates the notes, never 
 @Agent({
   name: "gate-writer-agent",
   description: "Writes the draft, or rewrites it from the notes",
-  prompt: "Write it.",
+  prompt: inline("Write it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { request: ArticleRequestDto, changes: optional(DraftChangesDto) },
   output: DraftDto,
 })
@@ -321,7 +339,7 @@ class GateWriterAgent {}
 @Agent({
   name: "loose-publisher-agent",
   description: "Publishes, approved or not",
-  prompt: "Publish.",
+  prompt: inline("Publish."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: DraftDto, approval: optional(ApprovalDto) },
   output: ArticleDto,
@@ -331,7 +349,7 @@ class LoosePublisherAgent {}
 @Agent({
   name: "strict-publisher-agent",
   description: "Publishes an approved draft",
-  prompt: "Publish.",
+  prompt: inline("Publish."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: DraftDto, approval: ApprovalDto },
   output: ArticleDto,
@@ -344,6 +362,7 @@ const gateRouter = (name: string, publisher: object): object => {
     description: "Reviews again or publishes",
     decidedBy: DecidedBy.Model,
     model: "typesafe/jev-1.13",
+    modelProvider: TestDecisionsModelProvider,
     maxVisits: 6,
     input: { draft: DraftDto },
     routes: [
@@ -360,22 +379,15 @@ const gateWorkflow = (name: string, publisher: object): object => {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(GateWriterAgent),
-      agent(GateWriterAgent)
-        .returns(DraftDto)
-        .toRouter(gate as never),
-      router(gate as never).chooseOne(
-        route(StoryReviewerAgent)
-          .returns(oneOf(ApprovalDto, DraftChangesDto))
-          .switch(
-            caseOf(DraftChangesDto, { about: DraftDto }).toAgent(GateWriterAgent),
-            caseOf(ApprovalDto, { about: DraftDto }).toRouter(gate as never),
-          ),
-        route(publisher as never)
-          .returns(ArticleDto)
-          .toFinish(StoryWorkflowFinish),
-      ),
+      onStart(StoryWorkflowStart).toAgent(GateWriterAgent),
+      onAgent(GateWriterAgent).toRouter(gate as never),
+      onRouter(gate as never)
+        .onRoute(
+          toAgent(StoryReviewerAgent).toOneOf([toAgent(GateWriterAgent), toRouter(gate as never)]),
+        )
+        .onRoute(toAgent(publisher as never).toFinish(StoryWorkflowFinish)),
     ],
   })
   class GateWorkflow {}
@@ -384,7 +396,7 @@ const gateWorkflow = (name: string, publisher: object): object => {
 
 describe("#271 AC2: a field outdated on one path only fails, required or optional", () => {
   const stale =
-    /approval \(.*ApprovalDto\)+ is outdated on the path story-workflow-start → gate-writer-agent → \S+ → story-reviewer-agent → \S+ → story-reviewer-agent → gate-writer-agent → \S+ → \S+-publisher-agent \(about DraftDto, replaced by gate-writer-agent\)/;
+    /approval \(.*ApprovalDto\)+ is outdated on the path story-workflow-start → gate-writer-agent → \S+ → story-reviewer-agent → \S+ → story-reviewer-agent → gate-writer-agent → \S+ → \S+-publisher-agent \(built from DraftDto, replaced by gate-writer-agent\)/;
 
   it("outdated on one path only: an optional field is not a way for a stale value to slip in", () => {
     const workflow = gateWorkflow("loose-gate", LoosePublisherAgent);
@@ -413,9 +425,9 @@ class ThreadWorkflowStart {}
 @Agent({
   name: "thread-picker-agent",
   description: "Picks a job from the whole thread",
-  prompt: "Pick one.",
+  prompt: inline("Pick one."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   output: JobPickDto,
 })
 class ThreadPickerAgent {}
@@ -423,9 +435,9 @@ class ThreadPickerAgent {}
 @Agent({
   name: "message-picker-agent",
   description: "Picks a job from the message only",
-  prompt: "Pick one.",
+  prompt: inline("Pick one."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { message: WorkflowStartTextDto },
   output: JobPickDto,
 })
@@ -437,6 +449,7 @@ const pickLoop = (name: string, picker: object): object => {
     description: "Picks again, corrects the profile, or stops",
     decidedBy: DecidedBy.Model,
     model: "typesafe/jev-1.13",
+    modelProvider: TestDecisionsModelProvider,
     maxVisits: 4,
     input: { pick: JobPickDto },
     routes: [
@@ -448,18 +461,13 @@ const pickLoop = (name: string, picker: object): object => {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(ThreadWorkflowStart)
-        .returns(WorkflowStartTextDto)
-        .returns(CandidateProfileDto)
-        .toAgent(picker as never),
-      agent(picker as never)
-        .returns(JobPickDto)
-        .toRouter(PickRouter),
-      router(PickRouter).chooseOne(
-        route(picker as never),
-        route(ProfileEditorAgent).returns(CandidateProfileDto).toFinish(PickWorkflowFinish),
-      ),
+      onStart(ThreadWorkflowStart).toAgent(picker as never),
+      onAgent(picker as never).toRouter(PickRouter),
+      onRouter(PickRouter)
+        .onRoute(toAgent(picker as never))
+        .onRoute(toAgent(ProfileEditorAgent).toFinish(PickWorkflowFinish)),
     ],
   })
   class PickLoopWorkflow {}
@@ -491,9 +499,9 @@ describe("#271 AC7: the value of an agent without input is outdated on any renew
 @Agent({
   name: "loop-reviewer-agent",
   description: "Reviews the draft, without saying what about",
-  prompt: "Review it.",
+  prompt: inline("Review it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { draft: DraftDto },
   output: oneOf(ApprovalDto, DraftChangesDto),
 })
@@ -502,19 +510,15 @@ class LoopReviewerAgent {}
 @Workflow({
   name: "broken-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(GateWriterAgent),
-    agent(GateWriterAgent)
-      .returns(DraftDto)
+    onStart(StoryWorkflowStart).toAgent(GateWriterAgent),
+    onAgent(GateWriterAgent)
       .toAgent(LoopReviewerAgent)
-      .returns(oneOf(ApprovalDto, DraftChangesDto))
-      .switch(
-        caseOf(DraftChangesDto).toAgent(GateWriterAgent),
-        caseOf(ApprovalDto)
-          .toAgent(ProfileEditorAgent)
-          .returns(ArticleDto)
-          .toFinish(StoryWorkflowFinish),
-      ),
+      .toOneOf([
+        toAgent(GateWriterAgent),
+        toAgent(ProfileEditorAgent).toFinish(StoryWorkflowFinish),
+      ]),
   ],
 })
 class BrokenReviewWorkflow {}
@@ -526,9 +530,7 @@ describe("#271 AC13: every assembly error at once, with those of #270 and #272",
     expect(thrown).toThrow(GraphRuleError);
     expect(codesOf(BrokenReviewWorkflow)).toEqual(
       expect.arrayContaining([
-        "flow.returns-mismatch", // #272: the profile editor gives CandidateProfileDto
         "input.missing-on-path", // #270: no profile on the path
-        "io.ambiguous-cycle", // #271: the reviewer does not say what its answers are about
       ]),
     );
   });
@@ -539,9 +541,9 @@ describe("#271 AC13: every assembly error at once, with those of #270 and #272",
 @Agent({
   name: "outer-planner-agent",
   description: "Plans the article, again after an approval",
-  prompt: "Plan it.",
+  prompt: inline("Plan it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { request: ArticleRequestDto, approval: optional(ApprovalDto) },
   output: PlanDto,
 })
@@ -550,9 +552,9 @@ class OuterPlannerAgent {}
 @Agent({
   name: "plan-draft-agent",
   description: "Writes the first draft of a plan",
-  prompt: "Write it.",
+  prompt: inline("Write it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
   input: { plan: PlanDto },
   output: DraftDto,
 })
@@ -561,9 +563,9 @@ class PlanDraftAgent {}
 @Agent({
   name: "notes-draft-agent",
   description: "Writes the draft, or rewrites it from the notes",
-  prompt: "Write it.",
+  prompt: inline("Write it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 6,
+  executionLimits: { maxVisits: 6 },
   input: { plan: PlanDto, changes: optional(DraftChangesDto) },
   output: DraftDto,
 })
@@ -572,9 +574,9 @@ class NotesDraftAgent {}
 @Agent({
   name: "rewrite-agent",
   description: "Rewrites the draft from the notes",
-  prompt: "Rewrite it.",
+  prompt: inline("Rewrite it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 6,
+  executionLimits: { maxVisits: 6 },
   input: { plan: PlanDto, draft: DraftDto, changes: DraftChangesDto },
   output: DraftDto,
 })
@@ -583,9 +585,9 @@ class RewriteAgent {}
 @Agent({
   name: "inner-reviewer-agent",
   description: "Approves the draft or asks for changes",
-  prompt: "Review it.",
+  prompt: inline("Review it."),
   model: "moonshotai/kimi-k2.6",
-  maxVisits: 6,
+  executionLimits: { maxVisits: 6 },
   input: { draft: DraftDto },
   output: oneOf(ApprovalDto, DraftChangesDto),
 })
@@ -596,6 +598,7 @@ class InnerReviewerAgent {}
   description: "Plans again or publishes",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   maxVisits: 3,
   input: { approval: ApprovalDto },
   routes: [
@@ -608,22 +611,18 @@ class ReplanRouter {}
 @Workflow({
   name: "one-writer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(OuterPlannerAgent),
-    agent(OuterPlannerAgent).returns(PlanDto).toAgent(NotesDraftAgent),
-    agent(NotesDraftAgent)
-      .returns(DraftDto)
+    onStart(StoryWorkflowStart).toAgent(OuterPlannerAgent),
+    onAgent(OuterPlannerAgent).toAgent(NotesDraftAgent),
+    onAgent(NotesDraftAgent)
       .toAgent(InnerReviewerAgent)
-      .returns(oneOf(ApprovalDto, DraftChangesDto))
-      .switch(
-        caseOf(DraftChangesDto, { about: DraftDto }).toAgent(NotesDraftAgent),
-        caseOf(ApprovalDto, { about: DraftDto })
-          .toRouter(ReplanRouter)
-          .chooseOne(
-            route(OuterPlannerAgent),
-            route(PublisherAgent).returns(ArticleDto).toFinish(StoryWorkflowFinish),
-          ),
-      ),
+      .toOneOf([
+        toAgent(NotesDraftAgent),
+        toRouter(ReplanRouter)
+          .onRoute(toAgent(OuterPlannerAgent))
+          .onRoute(toAgent(PublisherAgent).toFinish(StoryWorkflowFinish)),
+      ]),
   ],
 })
 class OneWriterWorkflow {}
@@ -631,27 +630,16 @@ class OneWriterWorkflow {}
 @Workflow({
   name: "two-writers-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StoryWorkflowStart).returns(ArticleRequestDto).toAgent(OuterPlannerAgent),
-    agent(OuterPlannerAgent)
-      .returns(PlanDto)
-      .toAgent(PlanDraftAgent)
-      .returns(DraftDto)
-      .toAgent(InnerReviewerAgent),
-    agent(InnerReviewerAgent)
-      .returns(oneOf(ApprovalDto, DraftChangesDto))
-      .switch(
-        caseOf(DraftChangesDto, { about: DraftDto })
-          .toAgent(RewriteAgent)
-          .returns(DraftDto)
-          .toAgent(InnerReviewerAgent),
-        caseOf(ApprovalDto, { about: DraftDto })
-          .toRouter(ReplanRouter)
-          .chooseOne(
-            route(OuterPlannerAgent),
-            route(PublisherAgent).returns(ArticleDto).toFinish(StoryWorkflowFinish),
-          ),
-      ),
+    onStart(StoryWorkflowStart).toAgent(OuterPlannerAgent),
+    onAgent(OuterPlannerAgent).toAgent(PlanDraftAgent).toAgent(InnerReviewerAgent),
+    onAgent(InnerReviewerAgent).toOneOf([
+      toAgent(RewriteAgent).toAgent(InnerReviewerAgent),
+      toRouter(ReplanRouter)
+        .onRoute(toAgent(OuterPlannerAgent))
+        .onRoute(toAgent(PublisherAgent).toFinish(StoryWorkflowFinish)),
+    ]),
   ],
 })
 class TwoWritersWorkflow {}
@@ -660,7 +648,7 @@ describe("#271 edge: nested cycles need more than two passes", () => {
   it("nested cycles: after the inner loop the notes are outdated, so one writer cannot read them on a re-plan", () => {
     expect(messagesOf(OneWriterWorkflow, "input.outdated-on-path")).toEqual([
       expect.stringMatching(
-        /notes-draft-agent\.changes \(optional\(DraftChangesDto\)\) is outdated on the path .* → replan-router → outer-planner-agent → notes-draft-agent \(about DraftDto, replaced by notes-draft-agent\)/,
+        /notes-draft-agent\.changes \(optional\(DraftChangesDto\)\) is outdated on the path .* → replan-router → outer-planner-agent → notes-draft-agent \(built from DraftDto, replaced by notes-draft-agent\)/,
       ),
     ]);
   });

@@ -8,7 +8,7 @@ import {
 
 /**
  * How a recursive workflow stops (#264 AC11), as `agboss describe` prints it:
- * `recursive: ThisWorkflow, maxDepth 4, on the last level: researcher-agent → TopicReportDto only` —
+ * `recursive: maxDepth 4, on the last level: researcher-agent → TopicReportDto only` —
  * what each branch keeps on the last level (`depth === maxDepth`): an agent's variants and a router's
  * routes that do not recurse; a choice made by code or data stops with `DepthLimitExceededError`.
  */
@@ -31,5 +31,5 @@ export function recursionLines(analysis: FlowAnalysis): readonly string[] {
   const depth =
     recursion.maxDepth === undefined ? "no maxDepth" : `maxDepth ${String(recursion.maxDepth)}`;
   const last = recursion.branches.map(branchText).join("; ");
-  return [`recursive: ThisWorkflow, ${depth}${last === "" ? "" : `, on the last level: ${last}`}`];
+  return [`recursive: ${depth}${last === "" ? "" : `, on the last level: ${last}`}`];
 }

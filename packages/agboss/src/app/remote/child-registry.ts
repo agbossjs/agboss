@@ -1,8 +1,10 @@
-import { isCancelRequested } from "../cancel-requests.js";
+import { InterruptKind, interruptOf, type InterruptRequest } from "../interrupt-requests.js";
+import { InterruptMode } from "../interrupt-types.js";
+import type { ExecutionLeases, HeldExecutionLease } from "../execution-leases.js";
 import type { Class } from "../../components/injection.js";
 import { ExecutionCancelledError } from "../../core/errors.js";
+import { ExecutionPausedError, ExecutionStoppedError } from "../../app/lease-stopped.js";
 import { NodeKind } from "../../flow/ast.js";
-import { isThisWorkflow } from "../../flow/this-workflow.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import type {
   ChildExecutionQueueRepository,
@@ -49,15 +51,51 @@ export const childTakeOf = (
     ),
 });
 
-/** Every 10 s while the child runs: its tree cancelled or ended stops it. */
+/** Why a child stops: its tree's stop (nothing undone), else its tree's cancel or end. */
+const interruptedChildOf = (request: InterruptRequest | undefined): ExecutionCancelledError =>
+  request?.kind === InterruptKind.Stop
+    ? new ExecutionStoppedError({ message: "the child's tree was stopped" })
+    : new ExecutionCancelledError({ message: "the child's tree was cancelled or ended" });
+
+/**
+ * The child's tree is paused from outside (#1341c), read from the root's lease row — the database is
+ * the authority (D6): `Immediate` aborts the child at once (`true`: the watch is over), `AfterStep`
+ * lets its step in flight finish and starts none. `false` when the tree is not paused or the store
+ * does not answer (asked again at the next look: a read that fails never parks a child).
+ */
+async function parkedByTree(
+  leases: Pick<ExecutionLeases, "pauseOf"> | undefined,
+  tree: { readonly tenantId: string; readonly rootExecutionId: string },
+  stop: AbortController,
+  lease: Pick<HeldExecutionLease, "stopAfterStep"> | undefined,
+): Promise<boolean> {
+  const marks = await leases?.pauseOf(tree).catch(() => undefined);
+  if (marks?.pause === undefined) return false;
+  const parked = new ExecutionPausedError({ message: "the child's tree was paused" });
+  if (marks.pause.mode === InterruptMode.Immediate || lease === undefined) {
+    stop.abort(parked);
+    return true;
+  }
+  lease.stopAfterStep(parked);
+  return false;
+}
+
+/**
+ * Every 10 s while the child runs: its tree cancelled or ended stops it, its tree paused from
+ * outside (#1341c) parks it — `Immediate` aborts its step at once, `AfterStep` lets the step in
+ * flight finish and starts none. A parked child leaves its row `Running` and its lease released:
+ * the parent, once unpaused, waits for it again and a live worker takes it from its last checkpoint.
+ */
 export async function watchRunningChild(
   parts: {
     readonly clock: Clock;
     readonly queue: ChildExecutionQueueRepository;
     readonly trees: ExecutionTreeRepository;
+    readonly leases?: Pick<ExecutionLeases, "pauseOf"> | undefined;
   },
   row: QueuedChildExecution,
   stop: AbortController,
+  lease?: Pick<HeldExecutionLease, "stopAfterStep">,
 ): Promise<void> {
   const { tenantId, executionId, rootExecutionId } = row;
   const tree = { tenantId, rootExecutionId };
@@ -67,10 +105,17 @@ export async function watchRunningChild(
     const still = await parts.queue
       .findByTenantIdAndExecutionId(tenantId, executionId)
       .catch(() => row);
-    if (still === undefined || (await isCancelRequested(parts.trees, tree))) {
-      stop.abort(
-        new ExecutionCancelledError({ message: "the child's tree was cancelled or ended" }),
-      );
+    const request = await interruptOf(parts.trees, tree);
+    if (still !== undefined && request === undefined) {
+      if (await parkedByTree(parts.leases, tree, stop, lease)) return;
+      continue;
+    }
+    const error = interruptedChildOf(request);
+    // an `AfterStep` stop (#1341b): the step in flight finishes, none starts; an escalation aborts
+    if (request?.mode === InterruptMode.AfterStep && lease !== undefined)
+      lease.stopAfterStep(error);
+    else {
+      stop.abort(error);
       return;
     }
   }
@@ -119,7 +164,7 @@ export function childRegistryOf(workflows: readonly BuiltApp[]): ChildRegistry {
     if (byName.has(deps.config.name)) return;
     byName.set(deps.config.name, deps);
     for (const node of deps.graph.nodes.values()) {
-      if (node.kind !== NodeKind.Workflow || isThisWorkflow(node.component)) continue;
+      if (node.kind !== NodeKind.Workflow || node.component === deps.graph.type) continue;
       const child = deps.childDepsOf?.(node.component);
       if (child !== undefined) visit(child);
     }
@@ -128,7 +173,7 @@ export function childRegistryOf(workflows: readonly BuiltApp[]): ChildRegistry {
   for (const workflow of workflows) byName.set(workflow.deps.config.name, workflow.deps);
   for (const workflow of workflows) {
     for (const node of workflow.deps.graph.nodes.values()) {
-      if (node.kind !== NodeKind.Workflow || isThisWorkflow(node.component)) continue;
+      if (node.kind !== NodeKind.Workflow || node.component === workflow.deps.graph.type) continue;
       const child = workflow.deps.childDepsOf?.(node.component);
       if (child !== undefined) visit(child);
     }

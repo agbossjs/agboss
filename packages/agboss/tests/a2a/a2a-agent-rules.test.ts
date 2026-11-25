@@ -4,6 +4,7 @@
  * lacks the `A2AAgent` suffix is told so.
  */
 import { describe, expect, it, vi } from "vitest";
+import { ComponentOptions } from "../../src/components/component-options.js";
 import { contractRuleViolations } from "../../src/a2a/a2a-rules.js";
 import { componentOf } from "../../src/components/metadata.js";
 
@@ -26,17 +27,17 @@ describe("#1366: the providers the A2A agent rules read", () => {
     vi.mocked(componentOf).mockImplementation(((cls: object) =>
       cls === Plain ? undefined : { kind: "agent", meta: { name: "x" } }) as never);
 
-    expect(contractRuleViolations(options(Plain, Peer))).toEqual([]);
+    expect(contractRuleViolations(options(Plain, Peer), ComponentOptions.none)).toEqual([]);
   });
 
-  it("an @A2AAgent whose class name has no A2AAgent suffix is told its name", () => {
+  it("an @A2AAgent needs no class-name suffix (#1343a)", () => {
     vi.mocked(componentOf).mockReturnValue({
       kind: "a2a-agent",
       meta: { name: "peer", target: {} },
     } as never);
 
-    const found = contractRuleViolations(options(Peer));
+    const found = contractRuleViolations(options(Peer), ComponentOptions.none);
 
-    expect(found.map((item) => item.message)).toContain("class Peer — name it PeerA2AAgent");
+    expect(found).toEqual([]);
   });
 });

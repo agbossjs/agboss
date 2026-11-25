@@ -1,16 +1,14 @@
-import { start, Workflow } from "@agboss/core";
-import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { onStart, Workflow, toAgent, Ttl } from "@agboss/core";
+import { OffsiteBookingAction } from "../../actions/offsite-booking.action.js";
 import { FlightBuyerAgent } from "../../agents/flight-buyer/flight-buyer.agent.js";
 import { VenueBuyerAgent } from "../../agents/venue-buyer/venue-buyer.agent.js";
-import { FlightBookingDto } from "../../dto/flight-booking.dto.js";
-import { VenueBookingDto } from "../../dto/venue-booking.dto.js";
 import { ApprovalTerminal } from "../../services/approval-terminal.service.js";
 import { OffsiteBookingWorkflowFinish } from "./offsite-booking.workflow-finish.js";
 import { OffsiteBookingWorkflowStart } from "./offsite-booking.workflow-start.js";
 
 /**
  * Two approvals at once (#267): the venue buyer and the flight buyer run side by side, and each
- * calls place-purchase-tool, which waits for the thread's owner through `PurchaseApprovalChannel`. So the
+ * calls place-purchase-tool, which waits for the thread's owner through `PurchaseToolApproval`. So the
  * execution rests with two pauses (`result.pending`); each answer continues its own branch, and the
  * join waits for both. The pauses are records in SQLite (`SqlitePausedExecutionRepository`, the
  * checkpoints in `SqliteCheckpointSaver`): they wait across a restart of the process.
@@ -18,13 +16,12 @@ import { OffsiteBookingWorkflowStart } from "./offsite-booking.workflow-start.js
 @Workflow({
   name: "offsite-booking-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OffsiteBookingWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toParallelAgents(VenueBuyerAgent, FlightBuyerAgent)
+    onStart(OffsiteBookingWorkflowStart)
+      .inParallel([toAgent(VenueBuyerAgent), toAgent(FlightBuyerAgent)])
       .join()
-      .returns(VenueBookingDto)
-      .returns(FlightBookingDto)
+      .toAction(OffsiteBookingAction)
       .toFinish(OffsiteBookingWorkflowFinish),
   ],
   providers: [ApprovalTerminal], // what the terminal channel prints on

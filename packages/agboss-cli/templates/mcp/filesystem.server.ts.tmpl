@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { McpServer, McpServerClient } from "@agboss/core/mcp";
+import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
 import { FileContentDto } from "../dto/file-content.dto.js";
 import { FileReadDto } from "../dto/file-read.dto.js";
 
@@ -19,7 +19,7 @@ const tools = {
 /** Files in {{dir}}, through the filesystem MCP server. */
 @McpServer({
   name: "{{kebab}}",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: process.execPath,
   args: [FILESYSTEM_SERVER, "{{dir}}"],
   tools,

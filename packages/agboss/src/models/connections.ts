@@ -1,9 +1,9 @@
 import type { Environment } from "../flow/generated-types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { ProviderCalls } from "./calls/provider-calls.js";
-import { providerBaseUrlOf, providerKeyOf } from "./provider-environment.js";
+import { providerBaseUrlOf, providerHeadersOf, providerKeyOf } from "./provider-environment.js";
 import type { ProviderConnection } from "./handler.js";
-import type { ModelProviderOptions } from "./model-provider.decorator.js";
+import type { KeptModelProviderOptions } from "./model-provider.decorator.js";
 import { resilientFetch, type ProviderFetch, type ResilienceOptions } from "./resilient-fetch.js";
 
 /** How connections are made: the environments, whether keys must be set, the shared calls, the raw client. */
@@ -30,18 +30,21 @@ export interface ConnectionOptions {
  * policy, rate limit and breaker (the last two only with the instance's shared calls).
  */
 export function resilienceOf(
-  options: ModelProviderOptions,
+  options: KeptModelProviderOptions,
   connection: Pick<ConnectionOptions, "calls" | "clock">,
 ): ResilienceOptions {
   const { calls } = connection;
   const gate = calls?.gateOf(options.name, options.rateLimitPolicy);
+  // a JS project may hand `null` for none
+  const breakerPolicy = options.circuitBreakerPolicy ?? undefined;
   return {
     provider: options.name,
     timeout: options.timeout,
+    // no retryPolicy: no retry (#1313)
     retryPolicy: options.retryPolicy,
-    ...(calls === undefined
+    ...(calls === undefined || breakerPolicy === undefined
       ? {}
-      : { breaker: calls.breakerOf(options.name, options.circuitBreakerPolicy) }),
+      : { breaker: calls.breakerOf(options.name, breakerPolicy) }),
     ...(gate === undefined ? {} : { gate }),
     ...(connection.clock === undefined ? {} : { clock: connection.clock }),
   };
@@ -53,13 +56,15 @@ export function resilienceOf(
  * (`""`) and no key. While the breaker is open the chat model calls its fallback (`FallbackChatModel`).
  */
 export function connectionOf(
-  options: ModelProviderOptions,
+  options: KeptModelProviderOptions,
   connection: ConnectionOptions,
 ): ProviderConnection {
+  const headers = providerHeadersOf(options, connection);
   return {
     provider: options.name,
     baseUrl: providerBaseUrlOf(options, connection),
     apiKey: providerKeyOf(options, connection, connection.requireKeys),
+    ...(headers === undefined ? {} : { headers }),
     fetch: resilientFetch(
       resilienceOf(options, connection),
       connection.send ?? ((input, init) => fetch(input, init)),

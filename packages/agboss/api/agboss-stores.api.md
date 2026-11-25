@@ -4,10 +4,7 @@
 
 ```ts
 
-import type { BaseCheckpointSaver } from '@langchain/langgraph';
-import type { CheckpointTuple } from '@langchain/langgraph';
-import type { MessageContent } from '@langchain/core/messages';
-import type { RunnableConfig } from '@langchain/core/runnables';
+import type { DatabaseSync } from 'node:sqlite';
 
 // @public
 export interface A2ADirectMessageAttempt {
@@ -27,7 +24,7 @@ export interface A2ADirectMessageKey {
 }
 
 // @public
-export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt {
+export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt, A2AEndpointOwned {
     readonly callerPeer?: string;
     readonly callsModel: boolean;
     readonly completedAt?: Date;
@@ -47,13 +44,14 @@ export interface A2ADirectMessageReply {
     readonly finish: string;
     // (undocumented)
     readonly output: unknown;
-    readonly spentUsd: number;
+    readonly spentTokens?: number;
+    readonly spentUsd: Usd;
 }
 
 // @public
 export abstract class A2ADirectMessageRepository {
     abstract completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
-    abstract deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    abstract deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
     abstract deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
     abstract findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
     // (undocumented)
@@ -86,6 +84,12 @@ export enum A2ADirectMessageState {
 }
 
 // @public
+export interface A2AEndpointOwned {
+    // (undocumented)
+    readonly endpoint: string;
+}
+
+// @public
 export interface A2AMessageKey {
     // (undocumented)
     readonly messageId: string;
@@ -95,7 +99,7 @@ export interface A2AMessageKey {
 }
 
 // @public
-export interface A2AMessageRecord extends A2AMessageKey {
+export interface A2AMessageRecord extends A2AMessageKey, A2AEndpointOwned {
     readonly reply?: unknown;
     readonly requestHash: string;
     // (undocumented)
@@ -123,14 +127,15 @@ export interface A2ATaskPage {
 
 // @public
 export interface A2ATaskPause {
-    readonly ask: unknown;
+    readonly input: unknown;
     // (undocumented)
     readonly kind: PauseKind;
     readonly pauseId?: string;
+    readonly toolCall?: unknown;
 }
 
 // @public
-export interface A2ATaskQuery {
+export interface A2ATaskQuery extends A2AEndpointOwned {
     // (undocumented)
     readonly contextId?: string;
     // (undocumented)
@@ -145,7 +150,7 @@ export interface A2ATaskQuery {
 }
 
 // @public
-export interface A2ATaskRecord extends A2ATaskKey {
+export interface A2ATaskRecord extends A2ATaskKey, A2AEndpointOwned {
     readonly acceptedAt: Date;
     readonly callerPeer?: string;
     readonly contextId: string;
@@ -162,7 +167,7 @@ export interface A2ATaskRecord extends A2ATaskKey {
 // @public (undocumented)
 export abstract class A2ATaskRepository {
     abstract compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
-    abstract deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number>;
     // (undocumented)
     abstract findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
     // (undocumented)
@@ -196,8 +201,9 @@ export enum A2ATaskSaveStatus {
 
 // @public
 export enum A2ATaskState {
+    AuthRequired = "TASK_STATE_AUTH_REQUIRED",
     // (undocumented)
-    Canceled = "TASK_STATE_CANCELED",
+    Cancelled = "TASK_STATE_CANCELED",
     // (undocumented)
     Completed = "TASK_STATE_COMPLETED",
     // (undocumented)
@@ -208,37 +214,50 @@ export enum A2ATaskState {
     Rejected = "TASK_STATE_REJECTED",
     // (undocumented)
     Submitted = "TASK_STATE_SUBMITTED",
+    Unspecified = "TASK_STATE_UNSPECIFIED",
     // (undocumented)
     Working = "TASK_STATE_WORKING"
 }
 
 // @public
 export interface A2ATaskStatus {
-    readonly cancelRequestedAt?: string;
+    readonly cancelRequestedAt?: Date;
     readonly errorCode?: string;
     readonly errorDetails?: unknown;
     readonly finish?: string;
     readonly message?: string;
     readonly output?: unknown;
     readonly pendingPauses: readonly A2ATaskPause[];
-    readonly spentUsd?: number;
+    readonly spentTokens?: number;
+    readonly spentUsd?: Usd;
     // (undocumented)
     readonly state: A2ATaskState;
 }
 
 // @public
+export type A2ATerminalTaskState = A2ATaskState.Completed | A2ATaskState.Failed | A2ATaskState.Cancelled | A2ATaskState.Rejected;
+
+// @public
 export class AGBossError extends Error {
     constructor(message: string, options?: AGBossErrorOptions);
+    readonly chain: () => readonly Error[];
     // (undocumented)
     static readonly code: string;
     // (undocumented)
     readonly code: string;
     // (undocumented)
     readonly details?: ErrorDetails;
+    readonly format: (options?: ErrorFormatOptions) => string;
+    readonly help: string | undefined;
+    readonly location: SourceSpan | undefined;
+    readonly notes: readonly string[];
+    readonly secondarySpans: readonly LabeledSpan[];
+    readonly spanTrace: readonly ExecutionSpanFrame[];
+    readonly suggestionPatch: string | undefined;
 }
 
 // @public
-export interface AGBossErrorOptions {
+export interface AGBossErrorOptions extends ErrorDiagnostics {
     // (undocumented)
     readonly cause?: unknown;
     // (undocumented)
@@ -264,8 +283,7 @@ export interface AgentExecutionOutput {
     readonly startedVersion?: string;
     // (undocumented)
     readonly startInput: unknown;
-    // (undocumented)
-    readonly status: ExecutionStatus;
+    readonly status: ExecutionStatus.Finished | ExecutionStatus.Paused;
     readonly tenantId: string;
     // (undocumented)
     readonly threadId: string;
@@ -349,7 +367,12 @@ export enum BudgetScope {
 }
 
 // @public
-export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | undefined;
+export interface BusinessKeyOptions {
+    readonly businessKey: string;
+}
+
+// @public
+export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | InterruptFenced | undefined;
 
 // @public
 export const cancelTreeOf: (key: Pick<EffectKeyFields, "tenantId" | "leaseExecutionId" | "rootExecutionId">) => {
@@ -373,13 +396,16 @@ export interface ChildExecutionQueueCounts {
 // @public
 export abstract class ChildExecutionQueueRepository {
     abstract claimFirstByStatusQueuedOrderByDepthDesc(): Promise<QueuedChildExecution | undefined>;
+    abstract claimIsolatedWorkerByTenantIdAndExecutionId(tenantId: string, executionId: string): Promise<QueuedChildExecution | undefined>;
     abstract completeByTenantIdAndExecutionId(tenantId: string, executionId: string, end: ChildExecutionEnd): Promise<boolean>;
     abstract countByStatus(): Promise<ChildExecutionQueueCounts>;
     abstract deleteAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<void>;
     abstract findByTenantIdAndExecutionId(tenantId: string, executionId: string): Promise<QueuedChildExecution | undefined>;
+    abstract findQueuedIsolatedWorkerChildren(limit: number): Promise<readonly QueuedChildExecution[]>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(child: QueuedChildExecution): Promise<boolean>;
     watchQueued?(onQueued: () => void): Promise<ChildExecutionQueueWatch>;
+    abstract withdrawByTenantIdAndExecutionIdIfQueued(tenantId: string, executionId: string): Promise<boolean>;
 }
 
 // @public
@@ -397,7 +423,8 @@ export interface ChildExecutionRecord extends Omit<EndedChildRecord, "children">
 export enum ChildExecutionStatus {
     Cancelled = "cancelled",
     Failed = "failed",
-    Finished = "finished"
+    Finished = "finished",
+    Stopped = "stopped"
 }
 
 // @public
@@ -407,28 +434,134 @@ export interface ChildLaunchRecord {
 }
 
 // @public
+export const childThreadOf: (parentThreadId: string, executionId: string) => string;
+
+// @public
 export const closedAtOf: (pause: PauseRecord) => string | undefined;
 
 // @public
-export interface Compacted {
-    readonly compaction: string;
-    readonly fromTurn: number;
-    readonly summaries: number;
+export const CLUSTER_LEASE_EXPIRY: Date;
+
+// @public
+export const CLUSTER_SETTINGS: InjectionToken<ResolvedSettings | undefined>;
+
+// @public
+export type ClusterDriver = StorageDriver<StorageRole.Cluster>;
+
+// @public
+export class ClusterExecutionLeaseRepository extends ExecutionLeaseRepository {
+    constructor(cluster: ClusterLeaseCoordinator, database: ExecutionIdStore);
     // (undocumented)
-    readonly summaryQueueLength: number;
+    acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;
+    // (undocumented)
+    claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
+    // (undocumented)
+    isCancelRequested(tree: ExecutionTree): Promise<boolean>;
+    // (undocumented)
+    markedOf(tree: ExecutionTree): Promise<TreeMarks>;
+    // (undocumented)
+    pauseOf(tree: ExecutionTree): Promise<PauseMarks>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    reclaim(lease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
+    // (undocumented)
+    release(lease: ExecutionLease): Promise<void>;
+    // (undocumented)
+    renew(lease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
+    // (undocumented)
+    requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
+    // (undocumented)
+    requestPause(tree: ExecutionTree, request: PauseRequest, transition?: NewStatusTransition): Promise<void>;
+    // (undocumented)
+    requestStop(tree: ExecutionTree, mode: InterruptMode, transition?: NewStatusTransition): Promise<void>;
+    // (undocumented)
+    retire(lease: ExecutionLease): Promise<void>;
+    // (undocumented)
+    stopOf(tree: ExecutionTree): Promise<StopMark | undefined>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+    // (undocumented)
+    unpause(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
+    // (undocumented)
+    yield(lease: ExecutionLease): Promise<Milliseconds | undefined>;
+}
+
+// @public
+export interface ClusterLeaseCoordinator {
+    acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;
+    ping(): Promise<void>;
+    publishMarks(tree: ExecutionTree, marks: TreeMarks): Promise<void>;
+    raiseEpoch(tree: ExecutionTree, atLeast: number): Promise<void>;
+    reclaim(lease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
+    release(lease: ExecutionLease): Promise<void>;
+    renew(lease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
+    retire(lease: ExecutionLease): Promise<void>;
+    yield(lease: ExecutionLease): Promise<Milliseconds | undefined>;
+}
+
+// @public
+export interface ClusterLeaseMirror {
+    endClusterLease(lease: ExecutionLease, end: {
+        readonly isRetired: boolean;
+    }): Promise<void>;
+    mirroredLeaseOf(tree: ExecutionTree): Promise<MirroredLease | undefined>;
+    syncClusterLease(lease: ExecutionLease, take?: ClusterLeaseTake): Promise<ClusterLeaseSync>;
+}
+
+// @public
+export type ClusterLeaseSync = {
+    readonly outcome: ClusterLeaseSyncOutcome.Synced;
+} | {
+    readonly outcome: ClusterLeaseSyncOutcome.Behind;
+    readonly rowToken: number;
+} | {
+    readonly outcome: ClusterLeaseSyncOutcome.Retired;
+};
+
+// @public
+export enum ClusterLeaseSyncOutcome {
+    Behind = "behind",
+    Retired = "retired",
+    Synced = "synced"
+}
+
+// @public
+export interface ClusterLeaseTake {
+    readonly isReclaim?: boolean;
+}
+
+// @public
+export interface ClusterOutage {
+    forgetCounters(): void;
+    isDown: boolean;
+}
+
+// @public
+export interface Compacted {
+    readonly fromTurn: number;
+    readonly memory: string;
+    readonly summaries: number;
+    readonly summaryQueueLength?: number;
     // (undocumented)
     readonly toTurn: number;
 }
 
 // @public
+export function compareCodePoints(first: string, second: string): number;
+
+// @public
 export interface CompensationEntry {
     readonly action: string;
+    readonly branchIndex?: number;
+    readonly childPath?: readonly string[];
     readonly committer?: string;
     // (undocumented)
     readonly compensated: StepRecord;
     readonly compensator: string;
     // (undocumented)
     readonly executionId: string;
+    readonly heldBy?: string;
     readonly input: ScopeRecords;
     readonly key: string;
     readonly launchId?: string;
@@ -450,7 +583,9 @@ export enum CompensationReason {
     ExecutionCancelled = "execution-cancelled",
     ExecutionFailed = "execution-failed",
     JoinFailed = "join-failed",
-    SidePath = "side-path"
+    QuorumExcluded = "quorum-excluded",
+    SidePath = "side-path",
+    StepFailed = "step-failed"
 }
 
 // @public
@@ -476,13 +611,13 @@ export enum ComponentKind {
     Agent = "agent",
     Arbiter = "arbiter",
     Budget = "budget",
-    Compaction = "compaction",
+    ChannelInterpreter = "reply-interpreter",
     Guardrail = "guardrail",
     Judge = "judge",
+    Memory = "memory",
     PiiPolicy = "pii-policy",
     Question = "question",
     Rag = "rag",
-    ReplyInterpreter = "reply-interpreter",
     Router = "router",
     Tool = "tool",
     Workflow = "workflow",
@@ -515,13 +650,19 @@ export enum CostCategory {
     // (undocumented)
     Agents = "agents",
     // (undocumented)
-    Compaction = "compaction",
+    Arbiters = "arbiters",
     // (undocumented)
     Files = "files",
     // (undocumented)
-    Guards = "guards",
+    Guardrails = "guardrails",
     // (undocumented)
-    Retrieval = "retrieval",
+    Memory = "memory",
+    // (undocumented)
+    Pauses = "pauses",
+    // (undocumented)
+    Pii = "pii",
+    // (undocumented)
+    Rag = "rag",
     // (undocumented)
     Review = "review",
     // (undocumented)
@@ -538,11 +679,11 @@ export interface CostCounter extends BudgetAccount {
 // @public (undocumented)
 export abstract class CostLedgerRepository {
     abstract deleteByMadeAtBefore(cutoff: Date): Promise<void>;
-    abstract findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
-    abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
+    abstract findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined>;
+    abstract findUsageByCounter(counter: CostCounter): Promise<BudgetUsage>;
     abstract ping(): Promise<void>;
     abstract saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void>;
-    abstract saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void>;
+    abstract saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void>;
 }
 
 // @public
@@ -554,34 +695,59 @@ export interface CostLine extends TokenUsage {
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
+    readonly provider: string;
     readonly servedBy?: string;
 }
 
 // @public
 export interface CostReport {
     // (undocumented)
-    readonly byCaller: Readonly<Record<string, number>>;
-    readonly byCategory: Readonly<Record<CostCategory, number>>;
+    readonly byCaller: Readonly<Record<string, Usd>>;
+    readonly byCategory: Readonly<Record<CostCategory, Usd>>;
     // (undocumented)
-    readonly byModel: Readonly<Record<string, number>>;
-    // (undocumented)
+    readonly byModel: Readonly<Record<string, Usd>>;
+    readonly byProvider: Readonly<Record<string, Usd>>;
     readonly cacheReadTokens: number;
+    readonly cacheWriteTokens: number;
     readonly calls: number;
-    readonly totalUsd: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly totalTokens: number;
+    readonly totalUsd: Usd;
     readonly trace: readonly CostLine[];
     readonly unknownCalls: number;
 }
+
+// @public
+export const CostReport: {
+    readonly fromUsage: (records: readonly UsageRecord[]) => CostReport;
+    readonly empty: () => CostReport;
+    readonly sum: (reports: readonly CostReport[]) => CostReport;
+};
 
 // @public
 export enum CostSource {
     Api = "api",
     PriceTable = "price-table",
     Tool = "tool",
-    Unknown = "unknown"
+    Unknown = "unknown",
+    Unpriced = "unpriced"
 }
+
+// @public
+export const DATABASE_SETTINGS: InjectionToken<ResolvedSettings | undefined>;
+
+// @public
+export type DatabaseDriver = StorageDriver<StorageRole.Database>;
+
+// @public
+export const DEFAULT_WATCH_LIVENESS: Milliseconds;
+
+// @public
+export function defineStorageDriver<TRole extends StorageRole>(spec: StorageDriverSpec<TRole>): StorageDriver<TRole>;
 
 // @public
 export const DIRECT_MESSAGE_CLAIM = "";
@@ -590,25 +756,43 @@ export const DIRECT_MESSAGE_CLAIM = "";
 export const directMessageClaimOf: (message: NewA2ADirectMessage) => A2AMessageRecord;
 
 // @public
+export interface DriverSettings {
+    // (undocumented)
+    readonly [option: string]: unknown;
+    // (undocumented)
+    readonly kind: string;
+}
+
+// @public
+export interface DriverTimeouts {
+    readonly commandTimeout?: Milliseconds;
+    readonly idleInTransactionTimeout?: Milliseconds;
+    readonly watchLiveness?: Milliseconds;
+}
+
+// @public
 export type EffectKey = EffectKeyFields & EffectKeyMark;
 
 // @public
 export interface EffectKeyFields {
     readonly businessKey?: string;
     readonly businessKeyHash?: string;
+    readonly expiresAt: Date | null;
     readonly fingerprint?: string;
-    readonly fingerprintPolicy?: FingerprintPolicy;
     readonly idempotencyKey: string;
     readonly isCompensation?: true;
     readonly leaseExecutionId: string;
+    readonly maxResultSize?: Bytes;
     readonly name: string;
     readonly origin?: FencedEffectOrigin;
+    readonly previousBusinessKey?: string;
     readonly previousFingerprint?: string;
     readonly rootExecutionId?: string;
     readonly scopeKey: string;
     // (undocumented)
     readonly tenantId: string;
     readonly token: number;
+    readonly withoutFingerprint?: true;
 }
 
 // @public
@@ -617,6 +801,21 @@ export const effectKeyIdentityOf: (key: EffectKey) => string;
 // @public
 export class EffectKeyMark {
 }
+
+// @public
+export function effectKeyOf(executionContext: ExecutionContext, name: string): EffectKey;
+
+// @public (undocumented)
+export function effectKeyOf<TFingerprint>(executionContext: ExecutionContext, name: string, options: FingerprintedKeyOptions<TFingerprint> | UnfingerprintedKeyOptions): EffectKey;
+
+// @public (undocumented)
+export function effectKeyOf(executionContext: ExecutionContext, name: string, options: OutboundCallKeyOptions): OutboundCallKey;
+
+// @public (undocumented)
+export function effectKeyOf<TFingerprint>(executionContext: ExecutionContext, name: string, options?: EffectKeyOptions<TFingerprint>): EffectKey | OutboundCallKey;
+
+// @public
+export type EffectKeyOptions<TFingerprint = unknown> = FingerprintedKeyOptions<TFingerprint> | UnfingerprintedKeyOptions | OutboundCallKeyOptions;
 
 // @public
 export interface EndedChildRecord {
@@ -639,6 +838,9 @@ export interface EndedChildRecord {
     readonly toolCalls: readonly ToolCallRecord[];
     readonly workflow: WorkflowRecord;
 }
+
+// @public
+export type EndedTree = (tree: ExecutionTree) => Promise<boolean>;
 
 // @public
 export type ErrorDetails = Readonly<Record<string, unknown>>;
@@ -674,18 +876,18 @@ export interface ExecutionAuditEventBase {
 
 // @public
 export enum ExecutionAuditEventKind {
-    FencedEffect = "fenced-effect",
     HandedOver = "handed-over",
+    IdempotencyRun = "idempotency-run",
     OutboundCall = "outbound-call",
     Takeover = "takeover"
 }
 
 // @public
-export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord | OutboundCallEventRecord;
+export type ExecutionAuditEventRecord = LeaseTakeoverRecord | StepHandedOverRecord | IdempotencyRunRecord | OutboundCallEventRecord;
 
 // @public (undocumented)
 export abstract class ExecutionAuditLogRepository {
-    abstract deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoff: Date, isEnded: EndedTree): Promise<number>;
     abstract findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
     abstract ping(): Promise<void>;
     abstract save(record: ExecutionAuditEventRecord): Promise<void>;
@@ -741,11 +943,24 @@ export interface ExecutionData {
 }
 
 // @public
-export interface ExecutionHistoryPage {
+export interface ExecutionFence {
+    assertHeld(): void;
+    fencedError(observedToken?: number): ExecutionError.Fenced;
+    readonly leaseExecutionId: string;
+    renewNow(): Promise<void>;
+    readonly scopeKey: string;
     // (undocumented)
-    readonly limit: number;
+    readonly tenantId: string;
+    readonly token: number;
+    readonly trustedUntil: Date;
+}
+
+// @public
+export interface ExecutionHistoryQuery extends PageQuery {
     // (undocumented)
-    readonly offset: number;
+    readonly from: Date;
+    // (undocumented)
+    readonly to: Date;
 }
 
 // @public
@@ -784,10 +999,10 @@ export const executionHistoryRecordOfJson: (value: unknown) => ExecutionHistoryR
 
 // @public (undocumented)
 export abstract class ExecutionHistoryRepository {
-    abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(cutoff: Date): Promise<number>;
     abstract findAllByExecutionId(executionId: string): Promise<ExecutionHistoryRecord[]>;
-    abstract findAllByStartedAtBetween(from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
-    abstract findAllByTenantIdAndStartedAtBetween(tenantId: string, from: Date, to: Date, page: ExecutionHistoryPage): Promise<ExecutionHistoryRecord[]>;
+    abstract findAllByStartedAtBetween(query: ExecutionHistoryQuery): Promise<Page<ExecutionHistoryRecord>>;
+    abstract findAllByTenantIdAndStartedAtBetween(query: TenantExecutionHistoryQuery): Promise<Page<ExecutionHistoryRecord>>;
     abstract findAllByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<ExecutionHistoryRecord[]>;
     abstract findByTenantIdAndExecutionId(tenantId: string, executionId: string): Promise<ExecutionHistoryRecord | undefined>;
     abstract ping(): Promise<void>;
@@ -803,7 +1018,9 @@ export enum ExecutionHistoryStatus {
     // (undocumented)
     Finished = "finished",
     // (undocumented)
-    Paused = "paused"
+    Paused = "paused",
+    // (undocumented)
+    Stopped = "stopped"
 }
 
 // @public
@@ -828,13 +1045,19 @@ export abstract class ExecutionLeaseRepository {
     abstract acquire(tenantId: string, rootExecutionId: string, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract claimExecutionId(identity: ExecutionIdentity): Promise<boolean>;
     abstract isCancelRequested(tree: ExecutionTree): Promise<boolean>;
+    markedOf(tree: ExecutionTree): Promise<TreeMarks>;
+    abstract pauseOf(tree: ExecutionTree): Promise<PauseMarks>;
     abstract ping(): Promise<void>;
     abstract reclaim(executionLease: ExecutionLease, duration: Milliseconds): Promise<ExecutionLease | undefined>;
     abstract release(executionLease: ExecutionLease): Promise<void>;
     abstract renew(executionLease: ExecutionLease, duration: Milliseconds): Promise<Milliseconds | undefined>;
-    abstract requestCancel(tree: ExecutionTree): Promise<void>;
+    abstract requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
+    abstract requestPause(tree: ExecutionTree, request: PauseRequest, transition?: NewStatusTransition): Promise<void>;
+    abstract requestStop(tree: ExecutionTree, mode: InterruptMode, transition?: NewStatusTransition): Promise<void>;
     abstract retire(executionLease: ExecutionLease): Promise<void>;
+    abstract stopOf(tree: ExecutionTree): Promise<StopMark | undefined>;
     static readonly store: StoreDescriptor;
+    abstract unpause(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
     abstract yield(executionLease: ExecutionLease): Promise<Milliseconds | undefined>;
 }
 
@@ -867,23 +1090,25 @@ export interface ExecutionRecord {
 // @public
 export abstract class ExecutionRecordRepository {
     abstract addSummary(summary: NewSummary): Promise<Summary>;
-    // (undocumented)
-    abstract append(turn: NewTurn): Promise<Turn>;
+    abstract append(turn: NewTurn, context?: StatusContext): Promise<Turn>;
     abstract before(tenantId: string, threadId: string, turnId: string, limit: number): Promise<Turn[]>;
     // (undocumented)
     abstract byIds(ids: readonly string[]): Promise<Turn[]>;
     abstract byVersion(workflow: string, promptVersion: string, limit: number): Promise<Turn[]>;
-    abstract complete(turnId: string, outcome: TurnOutcome): Promise<void>;
-    abstract completeIfStatus(turnId: string, expected: ExecutionRecordStatus, outcome: TurnOutcome): Promise<boolean>;
+    abstract complete(turnId: string, outcome: TurnOutcome, context?: StatusContext): Promise<void>;
+    abstract completeIfStatus(turnId: string, expected: ExecutionRecordStatus, outcome: TurnOutcome, context?: StatusContext): Promise<boolean>;
+    abstract completeUnlessInterrupted(turnId: string, outcome: TurnOutcome, context?: StatusContext): Promise<boolean>;
     // (undocumented)
     abstract configSnapshots(workflow: string, version: string): Promise<ConfigSnapshot[]>;
     abstract createThread(thread: NewThread): Promise<string>;
-    abstract findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Turn[]>;
+    abstract deleteIdleThreads(cutoffs: ReadonlyMap<string, Date>, isEnded: EndedTree): Promise<number>;
+    abstract findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>>;
     abstract findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined>;
     abstract findPauseAnswersByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<PauseAnswerRecord[]>;
+    abstract forgetStatusHistory(tenantId: string, threadId: string): Promise<void>;
     abstract hasThread(workflow: string, tenantId: string, threadId: string): Promise<boolean>;
     abstract lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]>;
-    abstract latestSummaries(tenantId: string, threadId: string, compaction: string, limit: number): Promise<Summary[]>;
+    abstract latestSummaries(tenantId: string, threadId: string, memory: string, limit: number): Promise<Summary[]>;
     abstract markPauseAnswerNotTaken(tenantId: string, rootExecutionId: string, answer: PauseAnswerRecord): Promise<void>;
     // (undocumented)
     abstract meanScore(turnIds: readonly string[]): Promise<number | null>;
@@ -895,34 +1120,48 @@ export abstract class ExecutionRecordRepository {
     abstract savePauseAnswer(tenantId: string, rootExecutionId: string, answer: PauseAnswerRecord): Promise<void>;
     // (undocumented)
     abstract saveScore(turnId: string, judge: string, score: number): Promise<void>;
+    abstract statusHistory(tenantId: string, threadId: string): Promise<readonly ThreadStatusTransition[]>;
     abstract summary(workflow: string): Promise<VersionScore[]>;
     // (undocumented)
-    abstract summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number>;
+    abstract summaryCount(tenantId: string, threadId: string, memory: string): Promise<number>;
     abstract threadOwner(workflow: string, tenantId: string, threadId: string): Promise<{
         readonly owner: string | undefined;
+        readonly isSwept?: true;
     } | undefined>;
     abstract turnNumber(tenantId: string, threadId: string, turnId: string): Promise<number>;
-    abstract uncovered(tenantId: string, threadId: string, compaction: string): Promise<Turn[]>;
+    abstract uncovered(tenantId: string, threadId: string, memory: string): Promise<Turn[]>;
     abstract unscored(workflow: string, promptVersion: string | undefined, limit: number): Promise<Turn[]>;
 }
 
 // @public
 export enum ExecutionRecordStatus {
     Answered = "answered",
+    Cancelled = "cancelled",
     Failed = "failed",
     Guarded = "guarded",
     Paused = "paused",
     Queued = "queued",
     Running = "running",
+    Stopped = "stopped",
     Written = "written"
+}
+
+// @public
+export interface ExecutionRecordStatusQuery extends PageQuery {
+    // (undocumented)
+    readonly status: ExecutionRecordStatus;
 }
 
 // @public
 export enum ExecutionStatus {
     // (undocumented)
+    Cancelled = "cancelled",
+    // (undocumented)
     Finished = "finished",
     // (undocumented)
-    Paused = "paused"
+    Paused = "paused",
+    // (undocumented)
+    Stopped = "stopped"
 }
 
 // @public
@@ -948,10 +1187,8 @@ export interface ExecutionTree {
 // @public
 export abstract class ExecutionTreeRepository {
     abstract deleteAllInTree(tree: ExecutionTree): Promise<void>;
-    findById(key: string): Promise<ExecutionTreeValue | undefined>;
     abstract findByIdInTree(tree: ExecutionTree, key: string): Promise<ExecutionTreeValue | undefined>;
     abstract ping(): Promise<void>;
-    saveIfAbsent(key: string, value: ExecutionTreeValue): Promise<boolean>;
     abstract saveIfAbsentInTree(tree: ExecutionTree, key: string, value: ExecutionTreeValue): Promise<boolean>;
 }
 
@@ -974,20 +1211,6 @@ export enum ExpiryProblem {
 }
 
 // @public
-export enum FencedEffectEventOutcome {
-    Cancelled = "cancelled",
-    Joined = "joined",
-    Ran = "ran",
-    Refused = "refused",
-    Replayed = "replayed"
-}
-
-// @public
-export interface FencedEffectOptions {
-    readonly maxResultSize?: Bytes;
-}
-
-// @public
 export interface FencedEffectOrigin {
     // (undocumented)
     readonly executionId: string;
@@ -998,100 +1221,39 @@ export interface FencedEffectOrigin {
 }
 
 // @public
-export interface FencedEffectOutcome<TResult> {
-    readonly replayedFrom?: FencedEffectOrigin;
-    // (undocumented)
-    readonly result: TResult;
-    // (undocumented)
-    readonly status: FencedEffectStatus;
-    readonly token: number;
-}
-
-// @public
-export interface FencedEffectRecord extends ExecutionAuditEventBase {
-    // (undocumented)
-    readonly kind: ExecutionAuditEventKind.FencedEffect;
-    readonly name: string;
-    readonly observedToken?: number;
-    // (undocumented)
-    readonly outcome: FencedEffectEventOutcome;
-    readonly replayedFrom?: FencedEffectOrigin;
-    // (undocumented)
-    readonly step: AuditEventStep;
-    readonly writtenToken?: number;
-}
-
-// @public
-export abstract class FencedEffectRepository<TTransaction> {
-    constructor(
-    settings: FencedEffectSettings);
-    abstract deleteByStoredAtBefore(cutoff: Date): Promise<void>;
+export abstract class FencedEffectRepository {
+    abstract deleteExpired(now: Date): Promise<number>;
     abstract ping(): Promise<void>;
-    protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
-    runOnce<TResult>(key: EffectKey, work: FencedEffectWork<TTransaction, TResult>): Promise<FencedEffectOutcome<TResult>>;
-    protected readonly settings: FencedEffectSettings;
+    protected abstract runInTransaction<TResult>(key: EffectKey, work: FencedEffectWork<TResult>): Promise<IdempotencyRunOutcome<TResult>>;
+    runOnce<TResult>(key: EffectKey, work: FencedEffectWork<TResult>): Promise<IdempotencyRunOutcome<TResult>>;
     static readonly store: StoreDescriptor;
     protected storedResultOf(key: EffectKey, result: unknown): string;
 }
 
 // @public
-export class FencedEffectSettings {
-    constructor(options?: FencedEffectSettingsOptions);
-    readonly maxResultSize: Bytes;
-    readonly retention: Milliseconds;
+export type FencedEffectWork<TResult> = () => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
+
+// @public
+export interface FingerprintedKeyOptions<TFingerprint> extends BusinessKeyOptions {
+    // (undocumented)
+    readonly fingerprint: JsonValue<TFingerprint>;
+    // (undocumented)
+    readonly withoutFingerprint?: never;
 }
 
 // @public
-export interface FencedEffectSettingsOptions extends FencedEffectOptions {
-    readonly retention?: Milliseconds;
-}
+export function fingerprintErrorOf(key: Pick<EffectKeyFields, "name" | "businessKey" | "fingerprint" | "withoutFingerprint">): IdempotencyError.FingerprintRequired | undefined;
 
 // @public
-export enum FencedEffectStatus {
-    Joined = "joined",
-    Ran = "ran",
-    Replayed = "replayed"
-}
-
-// @public
-export type FencedEffectWork<TTransaction, TResult> = (transaction: TTransaction) => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
-
-// @public
-export function fingerprintErrorOf(key: Pick<EffectKeyFields, "name" | "businessKey" | "fingerprint" | "fingerprintPolicy">): FingerprintRequiredError | undefined;
-
-// @public
-export enum FingerprintPolicy {
-    None = "none"
+export interface FingerprintKeys {
+    readonly current: string;
+    readonly previous?: string | undefined;
 }
 
 // @public
 export enum FingerprintProblem {
     Contradictory = "contradictory",
     Missing = "missing"
-}
-
-// @public
-export class FingerprintRequiredError extends AGBossError {
-    constructor(options: FingerprintRequiredErrorOptions);
-    // (undocumented)
-    static readonly code: "fenced-effect.fingerprint-required";
-    // (undocumented)
-    readonly code: typeof FingerprintRequiredError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    name: string;
-    // (undocumented)
-    readonly reason: FingerprintProblem;
-}
-
-// @public
-export interface FingerprintRequiredErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    readonly effect: string;
-    // (undocumented)
-    readonly reason: FingerprintProblem;
 }
 
 // @public
@@ -1138,18 +1300,125 @@ export enum HandOverSite {
 }
 
 // @public
-export const hasLatestByStep: (saver: BaseCheckpointSaver) => saver is LatestByStepCheckpointSaver;
+export enum IdempotencyRunEventOutcome {
+    Cancelled = "cancelled",
+    Joined = "joined",
+    Ran = "ran",
+    Refused = "refused",
+    Replayed = "replayed"
+}
+
+// @public
+export interface IdempotencyRunOutcome<TResult> {
+    readonly replayedFrom?: FencedEffectOrigin;
+    // (undocumented)
+    readonly result: TResult;
+    // (undocumented)
+    readonly status: IdempotencyRunStatus;
+    readonly token: number;
+}
+
+// @public
+export interface IdempotencyRunRecord extends ExecutionAuditEventBase {
+    // (undocumented)
+    readonly kind: ExecutionAuditEventKind.IdempotencyRun;
+    readonly name: string;
+    readonly observedToken?: number;
+    // (undocumented)
+    readonly outcome: IdempotencyRunEventOutcome;
+    readonly replayedFrom?: FencedEffectOrigin;
+    // (undocumented)
+    readonly step: AuditEventStep;
+    readonly writtenToken?: number;
+}
+
+// @public
+export enum IdempotencyRunStatus {
+    Joined = "joined",
+    Ran = "ran",
+    Replayed = "replayed"
+}
 
 // @public
 export const idGeneratorNameOf: (idGenerator: object) => string;
 
 // @public
-export class InMemoryFencedEffectTransaction {
-    onCommit(write: () => void): void;
+export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageRepository {
+    // (undocumented)
+    completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
+    // (undocumented)
+    deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
+    // (undocumented)
+    findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    // (undocumented)
+    findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
+// @public
+export class InMemoryA2ATaskRepository extends A2ATaskRepository {
+    // (undocumented)
+    compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number>;
+    // (undocumented)
+    findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    findByMessage(key: A2AMessageKey): Promise<A2AMessageRecord | undefined>;
+    // (undocumented)
+    list(query: A2ATaskQuery): Promise<A2ATaskPage>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
+    // (undocumented)
+    saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
+    // (undocumented)
+    saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
+// @public
+export class InMemoryCluster implements ClusterOutage {
+    constructor(now: () => Date);
+    coordinatorOf(instanceId: string): ClusterLeaseCoordinator;
+    // (undocumented)
+    forgetCounters(): void;
+    // (undocumented)
+    isDown: boolean;
+    pushedMarksOf(tree: ExecutionTree): TreeMarks | undefined;
+}
+
+// @public
+export class InvalidA2APageTokenError extends AGBossError {
+    constructor(options?: InvalidA2APageTokenErrorOptions);
+    // (undocumented)
+    static readonly code: "a2a.invalid-page-token";
+    // (undocumented)
+    readonly code: typeof InvalidA2APageTokenError.code;
+}
+
+// @public
+export interface InvalidA2APageTokenErrorOptions {
+    // (undocumented)
+    readonly cause?: unknown;
 }
 
 // @public
 export function isKeyFingerprint(key: Pick<EffectKeyFields, "fingerprint" | "previousFingerprint">, stored: string | null | undefined): boolean;
+
+// @public
+export const isTerminalA2ATaskState: (state: A2ATaskState) => state is A2ATerminalTaskState;
 
 // @public
 export type JsonPrimitive = string | number | boolean | null;
@@ -1172,11 +1441,6 @@ export interface JudgeVerdictRecord {
     // (undocumented)
     readonly passed: boolean;
     readonly reason?: string;
-}
-
-// @public
-export interface LatestByStepCheckpointSaver extends BaseCheckpointSaver {
-    latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
 }
 
 // @public
@@ -1268,18 +1532,41 @@ export interface MeshRequestKey {
 
 // @public
 export interface MeshRequestRecord extends MeshRequestKey {
+    readonly attemptId: string;
     readonly createdAt: string;
+    readonly expiresAt: string;
+    readonly lockedUntil: string;
+    readonly requestHash: string;
     readonly response?: unknown;
+    readonly tool: string;
 }
 
 // @public (undocumented)
 export abstract class MeshRequestRepository {
-    abstract deleteByCreatedAtBefore(cutoff: Date): Promise<void>;
-    abstract deleteByKey(key: MeshRequestKey): Promise<void>;
+    abstract deleteByKey(key: MeshRequestKey, attemptId: string): Promise<boolean>;
+    abstract deleteExpired(now: Date): Promise<number>;
     abstract findByKey(key: MeshRequestKey): Promise<MeshRequestRecord | undefined>;
     abstract ping(): Promise<void>;
+    abstract renewLease(key: MeshRequestKey, attemptId: string, lockedUntil: string): Promise<boolean>;
     abstract saveIfAbsent(record: MeshRequestRecord): Promise<boolean>;
-    abstract saveResponse(key: MeshRequestKey, response: unknown): Promise<void>;
+    abstract saveResponse(key: MeshRequestKey, attemptId: string, response: unknown): Promise<boolean>;
+}
+
+// @public
+export interface MirroredLease {
+    // (undocumented)
+    readonly holderInstanceId: string;
+    // (undocumented)
+    readonly state: MirroredLeaseState;
+    // (undocumented)
+    readonly token: number;
+}
+
+// @public
+export enum MirroredLeaseState {
+    Held = "held",
+    Released = "released",
+    Retired = "retired"
 }
 
 // @public
@@ -1291,6 +1578,33 @@ export interface NewA2ATask extends Omit<A2ATaskRecord, "version" | "statusAt"> 
     readonly messageId: string;
     // (undocumented)
     readonly requestHash: string;
+}
+
+// @public
+export const newestFirstOrder: (first: {
+    readonly step: number;
+    readonly id: string;
+}, second: {
+    readonly step: number;
+    readonly id: string;
+}) => number;
+
+// @public
+export interface NewStatusTransition {
+    // (undocumented)
+    readonly actor?: string | undefined;
+    // (undocumented)
+    readonly leaseToken?: number | undefined;
+    // (undocumented)
+    readonly reason?: string | undefined;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly threadId: string;
+    // (undocumented)
+    readonly toStatus: ThreadStatus;
+    // (undocumented)
+    readonly trigger: StatusTrigger;
 }
 
 // @public (undocumented)
@@ -1312,6 +1626,12 @@ export const NO_RECIPIENTS: PauseRecipients;
 
 // @public
 export const NO_STEP = -2;
+
+// @public
+export const OBJECT_SETTINGS: InjectionToken<ResolvedSettings | undefined>;
+
+// @public
+export type ObjectDriver = StorageDriver<StorageRole.Objects>;
 
 // @public
 export const originalStepKeyOf: (pause: ReplacementKeyed) => string;
@@ -1396,6 +1716,21 @@ export interface OutboundCallIntent {
 }
 
 // @public
+export type OutboundCallKey = EffectKeyFields & OutboundCallKeyMark;
+
+// @public
+export class OutboundCallKeyMark {
+}
+
+// @public
+export interface OutboundCallKeyOptions extends BusinessKeyOptions {
+    // (undocumented)
+    readonly fingerprint?: never;
+    // (undocumented)
+    readonly withoutFingerprint?: never;
+}
+
+// @public
 export interface OutboundCallLease {
     // (undocumented)
     readonly leaseExecutionId: string;
@@ -1410,13 +1745,6 @@ export enum OutboundCallLeaseState {
     Ended = "ended",
     LeaseClosed = "lease-closed",
     Live = "live"
-}
-
-// @public
-export interface OutboundCallPage {
-    // (undocumented)
-    readonly calls: readonly OutboundCallRecord[];
-    readonly next?: string;
 }
 
 // @public
@@ -1442,13 +1770,13 @@ export interface OutboundCallRecord extends OutboundCallIntent {
 
 // @public
 export abstract class OutboundCallRepository {
-    abstract deleteByEndedAtBefore(cutoff: Date): Promise<void>;
+    abstract deleteExpired(now: Date): Promise<number>;
     abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly OutboundCallRecord[]>;
-    abstract findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<OutboundCallPage>;
+    abstract findAllByTenantIdAndStatus(query: OutboundCallStatusQuery): Promise<Page<OutboundCallRecord>>;
     abstract findByKey(key: EffectKey): Promise<OutboundCallRecord | undefined>;
     abstract leaseStateOf(lease: OutboundCallLease): Promise<OutboundCallLeaseState>;
-    abstract markCompleted(key: EffectKey, attemptOwner: string, result: string): Promise<boolean>;
-    abstract markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure): Promise<boolean>;
+    abstract markCompleted(key: EffectKey, attemptOwner: string, result: string, expiresAt: Date | null): Promise<boolean>;
+    abstract markFailed(key: EffectKey, attemptOwner: string, failure: OutboundCallFailure, expiresAt: Date | null): Promise<boolean>;
     abstract markPending(key: EffectKey, expected: OutboundCallState, claim: OutboundCallClaim): Promise<boolean>;
     abstract ping(): Promise<void>;
     abstract saveIfAbsent(key: EffectKey, intent: OutboundCallIntent): Promise<boolean>;
@@ -1473,9 +1801,7 @@ export enum OutboundCallStatus {
 }
 
 // @public
-export interface OutboundCallStatusQuery {
-    readonly after?: string | undefined;
-    readonly limit: number;
+export interface OutboundCallStatusQuery extends PageQuery {
     // (undocumented)
     readonly status: OutboundCallStatus;
     // (undocumented)
@@ -1499,7 +1825,6 @@ export interface OutdatedMark {
 
 // @public
 export enum OutdatedReason {
-    AboutReplaced = "about-replaced",
     BuiltFromReplaced = "built-from-replaced",
     Replaced = "replaced"
 }
@@ -1511,48 +1836,59 @@ export interface OutdatedValueRecord extends ScopeValueRecord {
 }
 
 // @public
-export function parsedStoredJson(what: string, text: string, ids: Readonly<Record<string, string | undefined>>, reviver?: (key: string, value: unknown) => unknown): unknown;
+export interface Page<TItem> {
+    readonly items: readonly TItem[];
+    readonly nextCursor?: string;
+}
+
+// @public
+export interface PageQuery {
+    readonly cursor?: string;
+    readonly limit?: number;
+}
+
+// @public
+export function parsedStoredJson(options: {
+    readonly what: string;
+    readonly text: string;
+    readonly ids?: Readonly<Record<string, string | undefined>>;
+    readonly reviver?: (key: string, value: unknown) => unknown;
+}): unknown;
 
 // @public
 export interface PauseAnswer {
-    readonly answeredBy: string | undefined;
-    readonly byChannel?: true;
+    readonly actor: PauseActor | undefined;
+    readonly byDelegate?: true;
     // (undocumented)
     readonly decision: unknown;
     readonly usage?: readonly UsageRecord[];
 }
 
 // @public
-export enum PauseAnswerer {
-    Channel = "channel",
-    ThreadOwner = "thread-owner"
-}
-
-// @public
 export interface PauseAnswerRecord {
-    readonly answeredBy: string | undefined;
-    readonly answerer: PauseAnswerer;
-    readonly asked?: unknown;
+    readonly actor: PauseActor | undefined;
     readonly askedAt: string;
+    readonly assignees?: readonly string[];
+    readonly channel?: string;
     readonly decision: unknown;
     readonly executionId: string;
+    readonly externalRef?: string;
+    readonly input: unknown;
     readonly isTaken?: false;
     readonly pauseId: string | undefined;
     // (undocumented)
     readonly resolution: PauseResolution;
     // (undocumented)
     readonly resolvedAt: string | undefined;
-    // @deprecated (undocumented)
-    readonly responder: string | undefined;
-    readonly role: string;
+    readonly respondent: PauseRespondent;
     readonly step: StepRecord;
+    readonly target: string;
+    readonly toolCall?: unknown;
+    readonly trail: readonly PauseTrailRecord[];
 }
 
 // @public
 export const pauseAnswerRecordOfValue: (value: unknown) => PauseAnswerRecord;
-
-// @public
-export type PauseAsk = ToolCallApprovalAskDto | QuestionAsk;
 
 // @public
 export type PauseCancellation = PauseResolution.Withdrawn | PauseResolution.Cancelled | PauseResolution.TreeEnded;
@@ -1578,8 +1914,18 @@ export function pauseClosedReasonOf(pause: PauseRecord, now: Date): PauseClosedR
 
 // @public
 export interface PauseDeadlineChange {
+    readonly actor?: PauseActor;
     readonly expiresAt: string;
+    readonly maxExtensions?: number;
     readonly previousExpiresAt: string;
+    readonly remindAt?: string;
+}
+
+// @public
+export interface PauseDeadlineSet {
+    readonly expiresAt?: string;
+    // (undocumented)
+    readonly expiryBound?: PauseExpiryBound;
     readonly remindAt?: string;
 }
 
@@ -1613,11 +1959,11 @@ export abstract class PausedExecutionRepository {
     abstract findPendingByExpiresAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingByRemindAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingUnsentReassignedBefore(cutoff: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
-    abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients): Promise<boolean>;
+    abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients, externalRef?: string): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
     abstract noticeOnceByTenantIdAndPauseId(tenantId: string, pauseId: string, kind: PauseNoticeKind, facts: PauseNoticeFacts, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract ping(): Promise<void>;
-    abstract reassignByTenantIdAndPauseId(tenantId: string, pauseId: string, replacement: PauseReplacement, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract reassignByTenantIdAndPauseId(tenantId: string, pauseId: string, replacement: PauseReassignmentChange, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract remindByTenantIdAndPauseId(tenantId: string, pauseId: string, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract renewNotice(claim: PauseNoticeClaim, at: Date, claimFor: Milliseconds): Promise<PauseNoticeClaim | undefined>;
     abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
@@ -1650,10 +1996,9 @@ export enum PauseExpiryBound {
 
 // @public
 export interface PauseFilter {
-    // (undocumented)
-    readonly channel?: string;
     readonly expiresBefore?: Date;
     readonly statuses: readonly PauseStatus[];
+    readonly target?: string;
 }
 
 // @public
@@ -1663,12 +2008,27 @@ export interface PauseFirstClose {
 }
 
 // @public
+export interface PauseInPlaceReassignment {
+    // (undocumented)
+    readonly actor?: PauseActor;
+    readonly assignees?: readonly string[];
+    readonly countsAsExtension?: true;
+    readonly due?: PauseDeadlineSet;
+    readonly maxExtensions?: number;
+    readonly maxReassignments?: number;
+    readonly pauseId?: never;
+    readonly reason?: string;
+    readonly seen?: PauseSeen;
+    readonly timeout?: PauseDeadlineSet;
+}
+
+// @public
 export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
 
 // @public
 export enum PauseKind {
     Approval = "approval",
-    Question = "question"
+    ExternalTask = "external-task"
 }
 
 // @public
@@ -1690,13 +2050,18 @@ export interface PauseMailbox {
 
 // @public
 export interface PauseNotice {
+    readonly assignees?: readonly string[];
     readonly closedAt?: string;
     readonly errorCode?: string;
     readonly expiresAt?: string;
     // (undocumented)
     readonly kind: PauseNoticeKind;
     readonly launch?: string;
+    readonly previousAssignees?: readonly string[];
+    readonly previousChannel?: string;
     readonly previousExpiresAt?: string;
+    readonly previousExternalRef?: string;
+    readonly previousTarget?: string;
     readonly reason?: PauseClosedReason;
     readonly seq: number;
     readonly writtenAt: string;
@@ -1729,7 +2094,8 @@ export enum PauseNoticeKind {
     Expiring = "expiring",
     Extended = "extended",
     JoinFailed = "join-failed",
-    Opened = "opened"
+    Opened = "opened",
+    Reassigned = "reassigned"
 }
 
 // @public
@@ -1741,6 +2107,9 @@ export interface PausePage {
 }
 
 // @public
+export type PauseReassignmentChange = PauseReplacement | PauseInPlaceReassignment;
+
+// @public
 export interface PauseRecipients {
     readonly channel?: string;
     readonly listeners: readonly string[];
@@ -1749,18 +2118,16 @@ export interface PauseRecipients {
 // @public
 export interface PauseRecord extends PauseSite {
     readonly answer?: PauseAnswer;
-    // @deprecated (undocumented)
-    readonly answeredBy?: PauseAnswerer;
-    readonly answerer: PauseAnswerer;
-    readonly ask: PauseAsk;
     readonly askedAt: string;
-    readonly assignee?: string;
+    readonly assignees?: readonly string[];
     readonly boundAt?: string;
-    readonly channel: string;
+    readonly channel?: string;
     readonly closedFirst?: PauseFirstClose;
     readonly expiresAt?: string;
     readonly expiryBound?: PauseExpiryBound;
     readonly expiryProblem?: ExpiryProblem;
+    readonly externalRef?: string;
+    readonly input: Readonly<Record<string, unknown>>;
     readonly isSent: boolean;
     readonly kind: PauseKind;
     readonly pauseId: string;
@@ -1769,9 +2136,13 @@ export interface PauseRecord extends PauseSite {
     readonly remindAt?: string;
     readonly resolution?: PauseResolution;
     readonly resolvedAt?: string;
+    readonly respondent: PauseRespondent;
     // (undocumented)
     readonly status: PauseStatus;
     readonly step: string;
+    readonly target: string;
+    readonly toolCall?: PauseToolCallSummary;
+    readonly trail: readonly PauseTrailRecord[];
 }
 
 // @public
@@ -1779,8 +2150,21 @@ export const pauseRecordOfJson: (value: unknown) => PauseRecord;
 
 // @public
 export interface PauseReplacement {
-    readonly assignee: string;
+    readonly actor?: PauseActor;
+    readonly assignees?: readonly string[];
+    readonly countsAsExtension?: true;
+    readonly due?: PauseDeadlineSet;
+    readonly maxExtensions?: number;
+    readonly maxReassignments?: number;
     readonly pauseId: string;
+    readonly reason?: string;
+    readonly seen?: PauseSeen;
+    readonly timeout?: PauseDeadlineSet;
+    readonly to?: {
+        readonly target: string;
+        readonly respondent: PauseRespondent;
+        readonly channel?: string;
+    };
 }
 
 // @public
@@ -1796,12 +2180,25 @@ export enum PauseResolution {
 }
 
 // @public
+export enum PauseRespondent {
+    Delegate = "delegate",
+    Owner = "owner"
+}
+
+// @public
 export interface PauseScanAfter {
     readonly at: string;
     // (undocumented)
     readonly pauseId: string;
     // (undocumented)
     readonly tenantId: string;
+}
+
+// @public
+export interface PauseSeen {
+    readonly assignees?: readonly string[];
+    readonly expiresAt?: string;
+    readonly trailLength: number;
 }
 
 // @public
@@ -1835,13 +2232,32 @@ export enum PauseStatus {
 }
 
 // @public
+export interface PauseTrailRecord {
+    // (undocumented)
+    readonly action: "opened" | "reassigned" | "timeout-changed" | "escalated";
+    readonly actor?: PauseActor;
+    // (undocumented)
+    readonly assignees?: readonly string[];
+    readonly at: string;
+    // (undocumented)
+    readonly channel?: string;
+    // (undocumented)
+    readonly expiresAt?: string;
+    // (undocumented)
+    readonly externalRef?: string;
+    // (undocumented)
+    readonly reason?: string;
+    readonly target: string;
+}
+
+// @public
 export type PauseUntakenResolution = PauseResolution.Cancelled | PauseResolution.TreeEnded;
 
 // @public
 export interface PendingApproval extends PendingPauseBase {
-    readonly ask: ToolCallApprovalAskDto;
     // (undocumented)
     readonly kind: PauseKind.Approval;
+    readonly toolCall: PauseToolCallSummary;
 }
 
 // @public
@@ -1852,22 +2268,24 @@ export type PendingPause = PendingApproval | PendingQuestion;
 
 // @public
 export interface PendingPauseBase {
-    // @deprecated (undocumented)
-    readonly answeredBy: PauseAnswerer;
-    readonly answerer: PauseAnswerer;
-    readonly channel: string;
+    readonly assignees?: readonly string[];
+    readonly channel?: string;
     readonly childExecutionId: string | undefined;
     readonly expiresAt?: string;
+    readonly externalRef?: string;
+    readonly input: Readonly<Record<string, unknown>>;
     readonly itemIndex: number | undefined;
     readonly pauseId?: string;
+    readonly respondent: PauseRespondent;
     readonly step: string;
+    readonly target: string;
+    readonly trail: readonly PauseTrailRecord[];
 }
 
 // @public
 export interface PendingQuestion extends PendingPauseBase {
-    readonly ask: QuestionAsk;
     // (undocumented)
-    readonly kind: PauseKind.Question;
+    readonly kind: PauseKind.ExternalTask;
 }
 
 // @public
@@ -1879,19 +2297,16 @@ export interface PreviousLeaseHolder {
 }
 
 // @public
-export type QuestionAsk = Readonly<{
-    [questionAsk]: true;
-}>;
-
-// @public
 export interface QueuedChildExecution {
     readonly claimedAt?: Date | undefined;
     readonly depth: number;
     readonly endedAt?: Date | undefined;
+    readonly excludeInstanceId?: string | undefined;
     readonly executionId: string;
     readonly failure?: string | undefined;
     readonly instanceId?: string | undefined;
     readonly parentExecutionId: string;
+    readonly placement?: ChildPlacement | undefined;
     readonly queuedAt: Date;
     readonly rootExecutionId: string;
     readonly rootWorkflow: string;
@@ -1903,8 +2318,8 @@ export interface QueuedChildExecution {
 
 // @public
 export interface QuorumGroupRecord {
-    readonly agents: readonly string[];
     readonly priority?: number;
+    readonly targets: readonly string[];
 }
 
 // @public
@@ -1954,6 +2369,13 @@ export function replacementStepKeyOf(pause: ReplacementKeyed, taken: ReadonlySet
 export function replayedFromOf(key: EffectKey, stored: StoredKeyFacts): FencedEffectOrigin | undefined;
 
 // @public
+export interface ResolvedSettings {
+    // (undocumented)
+    readonly [option: string]: unknown;
+    readonly kind: string;
+}
+
+// @public
 export interface ResumeVersions {
     // (undocumented)
     readonly configHash: string;
@@ -1972,7 +2394,6 @@ export type ScopeRecords = Readonly<Record<string, ScopeValueRecord>>;
 
 // @public
 export interface ScopeValueRecord {
-    readonly about?: readonly string[];
     readonly builtFrom: readonly string[];
     readonly elementProducers?: readonly string[];
     readonly producer: string;
@@ -1992,6 +2413,127 @@ export interface SetAsideMailbox {
     // (undocumented)
     readonly tenantId: string;
 }
+
+// @public
+export const SQLITE_HOLD_CAP: Milliseconds;
+
+// @public
+export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository {
+    constructor(connection: SqliteConnection);
+    // (undocumented)
+    completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>, limit: number): Promise<number>;
+    // (undocumented)
+    deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
+    // (undocumented)
+    findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
+    // (undocumented)
+    findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
+    // (undocumented)
+    saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
+// @public
+export class SqliteA2ATaskRepository extends A2ATaskRepository {
+    constructor(connection: SqliteConnection);
+    // (undocumented)
+    compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    deleteExpired(cutoffsByEndpoint: ReadonlyMap<string, Date>): Promise<number>;
+    // (undocumented)
+    findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
+    // (undocumented)
+    findByMessage(key: A2AMessageKey): Promise<A2AMessageRecord | undefined>;
+    // (undocumented)
+    list(query: A2ATaskQuery): Promise<A2ATaskPage>;
+    // (undocumented)
+    ping(): Promise<void>;
+    // (undocumented)
+    saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
+    // (undocumented)
+    saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
+    // (undocumented)
+    saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
+    // (undocumented)
+    static readonly store: StoreDescriptor;
+}
+
+// @public
+export abstract class SqliteClusterMirror extends ExecutionLeaseRepository implements ClusterLeaseMirror {
+    constructor(connection: SqliteConnection);
+    // (undocumented)
+    protected readonly connection: SqliteConnection;
+    // (undocumented)
+    endClusterLease(lease: ExecutionLease, end: {
+        readonly isRetired: boolean;
+    }): Promise<void>;
+    // (undocumented)
+    mirroredLeaseOf(tree: ExecutionTree): Promise<MirroredLease | undefined>;
+    // (undocumented)
+    syncClusterLease(lease: ExecutionLease, take?: ClusterLeaseTake): Promise<ClusterLeaseSync>;
+}
+
+// @public
+export class SqliteConnection implements OnDestroy {
+    constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings);
+    columnsOf(table: string): readonly string[];
+    get database(): DatabaseSync;
+    ensureSchema(name: string, ddl: string): void;
+    gate<TValue>(work: () => TValue, options?: {
+        readonly isPriority?: boolean;
+        readonly isRenewal?: boolean;
+    }): TValue | Promise<Awaited<TValue>>;
+    held<TValue>(work: (handle: SqliteTransactionHandle) => TValue | Promise<TValue>, cap?: Milliseconds): Promise<TValue>;
+    get isInTransaction(): boolean;
+    onDestroy(): void;
+    readonly path: string;
+    ping(): Promise<void>;
+    requireTransaction(): SqliteTransactionHandle;
+    serve<TValue>(work: () => TValue, options?: {
+        readonly isPriority?: boolean;
+        readonly isRenewal?: boolean;
+    }): Promise<Awaited<TValue>>;
+    transaction<TResult>(work: () => TResult): TResult;
+}
+
+// @public
+export interface SqliteTransactionHandle {
+    // (undocumented)
+    exec(sql: string): void;
+    // (undocumented)
+    prepare(sql: string): SqliteTransactionStatement;
+}
+
+// @public
+export type SqliteTransactionParameters = readonly (string | number | bigint | Uint8Array | null)[];
+
+// @public
+export interface SqliteTransactionRun {
+    // (undocumented)
+    readonly changes: number | bigint;
+    // (undocumented)
+    readonly lastInsertRowid: number | bigint;
+}
+
+// @public
+export interface SqliteTransactionStatement {
+    // (undocumented)
+    all(...parameters: SqliteTransactionParameters): unknown[];
+    // (undocumented)
+    get(...parameters: SqliteTransactionParameters): unknown;
+    // (undocumented)
+    run(...parameters: SqliteTransactionParameters): SqliteTransactionRun;
+}
+
+// @public
+export type StatusContext = Partial<Pick<NewStatusTransition, "toStatus" | "trigger" | "reason" | "actor" | "leaseToken">>;
 
 // @public
 export interface StepHandedOverRecord extends ExecutionAuditEventBase {
@@ -2024,6 +2566,45 @@ export interface StepRecord {
     readonly toolLoopIteration: number | undefined;
     readonly validationAttempts: number;
     readonly visitNumber: number;
+}
+
+// @public
+export interface StorageDriver<TRole extends StorageRole = StorageRole> {
+    // (undocumented)
+    readonly [driverBrand]: true;
+    readonly backend: string;
+    readonly coordinationStores?: readonly Class[] | undefined;
+    readonly describes: string;
+    readonly leaseStore?: Class | undefined;
+    readonly migrate?: StorageMigrate | undefined;
+    readonly providers: readonly Provider[];
+    // (undocumented)
+    readonly role: TRole;
+    readonly settings: DriverSettings;
+}
+
+// @public
+export type StorageDriverSpec<TRole extends StorageRole> = Omit<StorageDriver<TRole>, typeof driverBrand>;
+
+// @public
+export type StorageMigrate = (settings: ResolvedSettings, options: StorageMigrationOptions) => Promise<StorageMigration>;
+
+// @public
+export interface StorageMigration {
+    // (undocumented)
+    readonly applied: readonly string[];
+}
+
+// @public
+export interface StorageMigrationOptions {
+    readonly allowLiveLeases: boolean;
+}
+
+// @public
+export enum StorageRole {
+    Cluster = "cluster",
+    Database = "database",
+    Objects = "objects"
 }
 
 // @public
@@ -2093,6 +2674,111 @@ export interface StoredNamesUnreadableErrorOptions {
 }
 
 // @public
+export type StoreError = StoreError.OutcomeUnknown | StoreError.CallTimeout | StoreError.UnreadableRecord | StoreError.Mismatch | StoreError.LiveLeases | StoreError.SchemaMissing | StoreError.SchemaTooNew | StoreError.MigrationChanged | StoreError.SettingsInvalid | StoreError.DeploymentUnsupported | StoreError.DurabilityInsufficient | StoreError.CollationInvalid | StoreError.LedgerMarkMissing | StoreError.LeaseKeyConflict | StoreError.ObjectStorage | StoreError.LedgerCutoffInvalid | StoreError.LedgerEntryExpired | StoreError.LedgerEntryInvalid | StoreError.ClusterLeaseBehind | StoreError.LockTimeout;
+
+// @public
+export namespace StoreError {
+    export type CallTimeout = ErrorVariant<StoreErrorKind.CallTimeout, "store.call-timeout">;
+    export type ClusterLeaseBehind = ErrorVariant<StoreErrorKind.ClusterLeaseBehind, "store.cluster-lease-behind">;
+    export type CollationInvalid = ErrorVariant<StoreErrorKind.CollationInvalid, "store.collation-invalid">;
+    export type DeploymentUnsupported = ErrorVariant<StoreErrorKind.DeploymentUnsupported, "store.deployment-unsupported">;
+    export type DurabilityInsufficient = ErrorVariant<StoreErrorKind.DurabilityInsufficient, "store.durability-insufficient">;
+    export type LeaseKeyConflict = ErrorVariant<StoreErrorKind.LeaseKeyConflict, "store.lease-key-conflict">;
+    export type LedgerCutoffInvalid = ErrorVariant<StoreErrorKind.LedgerCutoffInvalid, "store.ledger-cutoff-invalid">;
+    export type LedgerEntryExpired = ErrorVariant<StoreErrorKind.LedgerEntryExpired, "store.ledger-entry-expired">;
+    export type LedgerEntryInvalid = ErrorVariant<StoreErrorKind.LedgerEntryInvalid, "store.ledger-entry-invalid">;
+    export type LedgerMarkMissing = ErrorVariant<StoreErrorKind.LedgerMarkMissing, "store.ledger-mark-missing">;
+    export type LiveLeases = ErrorVariant<StoreErrorKind.LiveLeases, "store.live-leases">;
+    export type LockTimeout = ErrorVariant<StoreErrorKind.LockTimeout, "store.lock-timeout">;
+    export type MigrationChanged = ErrorVariant<StoreErrorKind.MigrationChanged, "store.migration-changed">;
+    export type Mismatch = ErrorVariant<StoreErrorKind.Mismatch, "store.mismatch">;
+    export type ObjectStorage = ErrorVariant<StoreErrorKind.ObjectStorage, "store.object-storage">;
+    export type OutcomeUnknown = ErrorVariant<StoreErrorKind.OutcomeUnknown, "store.outcome-unknown">;
+    export type SchemaMissing = ErrorVariant<StoreErrorKind.SchemaMissing, "store.schema-missing">;
+    export type SchemaTooNew = ErrorVariant<StoreErrorKind.SchemaTooNew, "store.schema-too-new">;
+    export type SettingsInvalid = ErrorVariant<StoreErrorKind.SettingsInvalid, "store.settings-invalid">;
+    export type UnreadableRecord = ErrorVariant<StoreErrorKind.UnreadableRecord, "store.unreadable-record">;
+}
+
+// @public
+export const StoreError: FamilyConstructor<StoreError, {
+    OutcomeUnknown: StoreError.OutcomeUnknown;
+    CallTimeout: StoreError.CallTimeout;
+    UnreadableRecord: StoreError.UnreadableRecord;
+    Mismatch: StoreError.Mismatch;
+    LiveLeases: StoreError.LiveLeases;
+    SchemaMissing: StoreError.SchemaMissing;
+    SchemaTooNew: StoreError.SchemaTooNew;
+    MigrationChanged: StoreError.MigrationChanged;
+    SettingsInvalid: StoreError.SettingsInvalid;
+    DeploymentUnsupported: StoreError.DeploymentUnsupported;
+    DurabilityInsufficient: StoreError.DurabilityInsufficient;
+    CollationInvalid: StoreError.CollationInvalid;
+    LedgerMarkMissing: StoreError.LedgerMarkMissing;
+    LeaseKeyConflict: StoreError.LeaseKeyConflict;
+    ObjectStorage: StoreError.ObjectStorage;
+    LedgerCutoffInvalid: StoreError.LedgerCutoffInvalid;
+    LedgerEntryExpired: StoreError.LedgerEntryExpired;
+    LedgerEntryInvalid: StoreError.LedgerEntryInvalid;
+    ClusterLeaseBehind: StoreError.ClusterLeaseBehind;
+    LockTimeout: StoreError.LockTimeout;
+}> & StoreErrorStatics;
+
+// @public
+export enum StoreErrorKind {
+    // (undocumented)
+    CallTimeout = "call-timeout",
+    // (undocumented)
+    ClusterLeaseBehind = "cluster-lease-behind",
+    // (undocumented)
+    CollationInvalid = "collation-invalid",
+    // (undocumented)
+    DeploymentUnsupported = "deployment-unsupported",
+    // (undocumented)
+    DurabilityInsufficient = "durability-insufficient",
+    // (undocumented)
+    LeaseKeyConflict = "lease-key-conflict",
+    // (undocumented)
+    LedgerCutoffInvalid = "ledger-cutoff-invalid",
+    // (undocumented)
+    LedgerEntryExpired = "ledger-entry-expired",
+    // (undocumented)
+    LedgerEntryInvalid = "ledger-entry-invalid",
+    // (undocumented)
+    LedgerMarkMissing = "ledger-mark-missing",
+    // (undocumented)
+    LiveLeases = "live-leases",
+    // (undocumented)
+    LockTimeout = "lock-timeout",
+    // (undocumented)
+    MigrationChanged = "migration-changed",
+    // (undocumented)
+    Mismatch = "mismatch",
+    // (undocumented)
+    ObjectStorage = "object-storage",
+    // (undocumented)
+    OutcomeUnknown = "outcome-unknown",
+    // (undocumented)
+    SchemaMissing = "schema-missing",
+    // (undocumented)
+    SchemaTooNew = "schema-too-new",
+    // (undocumented)
+    SettingsInvalid = "settings-invalid",
+    // (undocumented)
+    UnreadableRecord = "unreadable-record"
+}
+
+// @public
+export type StoreErrorOfKind<TKind extends StoreErrorKind> = Extract<StoreError, {
+    readonly kind: TKind;
+}>;
+
+// @public
+export interface StoreErrorStatics {
+    of<TKind extends StoreErrorKind>(kind: TKind, options: VariantOptions<StoreErrorOfKind<TKind>>): StoreErrorOfKind<TKind>;
+}
+
+// @public
 export enum StoreOutcomeSource {
     Command = "command",
     Framework = "framework",
@@ -2128,16 +2814,14 @@ export interface StoreOutcomeUnknownErrorOptions extends AGBossErrorOptions {
 // @public
 export interface Summary {
     // (undocumented)
-    readonly bundle: string;
-    readonly compaction: string;
-    // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly createdAt: string;
     // (undocumented)
     readonly fromTurnId: string;
     // (undocumented)
     readonly id: string;
+    readonly memory: string;
     readonly tenantId: string;
     // (undocumented)
     readonly text: string;
@@ -2147,30 +2831,41 @@ export interface Summary {
     readonly toTurnId: string;
     // (undocumented)
     readonly turns: number;
+    // (undocumented)
+    readonly workflow: string;
+}
+
+// @public
+export interface TenantExecutionHistoryQuery extends ExecutionHistoryQuery {
+    // (undocumented)
+    readonly tenantId: string;
+}
+
+// @public
+export interface ThreadStatusTransition {
+    readonly actor?: string | undefined;
+    // (undocumented)
+    readonly at: Date;
+    readonly fromStatus: ThreadStatus | null;
+    readonly leaseToken?: number | undefined;
+    readonly reason?: string | undefined;
+    readonly seq: number;
+    // (undocumented)
+    readonly tenantId: string;
+    // (undocumented)
+    readonly threadId: string;
+    // (undocumented)
+    readonly toStatus: ThreadStatus;
+    // (undocumented)
+    readonly trigger: StatusTrigger;
 }
 
 // @public
 export interface TokenUsage {
-    // (undocumented)
     readonly cacheReadTokens: number;
-    // (undocumented)
     readonly cacheWriteTokens: number;
-    // (undocumented)
     readonly inputTokens: number;
-    // (undocumented)
     readonly outputTokens: number;
-}
-
-// @public
-export class ToolCallApprovalAskDto {
-    // (undocumented)
-    arguments: ToolArguments;
-    // (undocumented)
-    callId: string;
-    // (undocumented)
-    summary: string;
-    // (undocumented)
-    tool: string;
 }
 
 // @public
@@ -2214,12 +2909,10 @@ export enum ToolCallStatus {
 // @public (undocumented)
 export interface Turn {
     // (undocumented)
-    readonly bundle: string;
-    // (undocumented)
     readonly configHash: string | null;
     readonly configVersion: string | null;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly createdAt: string;
     // (undocumented)
@@ -2245,20 +2938,29 @@ export interface Turn {
     readonly tenantId: string;
     // (undocumented)
     readonly threadId: string;
+    readonly workflow: string;
 }
 
 // @public
 export type TurnOutcome = Pick<Turn, "replyWith" | "status" | "stopReason" | "route" | "steps" | "costUsd">;
 
 // @public
-export type TurnStatus = "running" | "answered" | "guarded" | "failed" | "paused" | "queued" | "written";
+export type TurnStatus = "running" | "answered" | "guarded" | "failed" | "stopped" | "cancelled" | "paused" | "queued" | "written";
 
 // @public
 export interface TurnStep {
     // (undocumented)
     readonly agent: string;
     // (undocumented)
-    readonly content: MessageContent;
+    readonly content: string;
+}
+
+// @public
+export interface UnfingerprintedKeyOptions extends BusinessKeyOptions {
+    // (undocumented)
+    readonly fingerprint?: never;
+    // (undocumented)
+    readonly withoutFingerprint: true;
 }
 
 // @public
@@ -2271,18 +2973,19 @@ export interface UsageRecord extends TokenUsage {
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     readonly ledger?: LedgerMark;
     readonly ledgerKey?: LedgerKey;
     // (undocumented)
     readonly model: string;
+    readonly provider: string;
     readonly servedBy?: string;
 }
 
 // @public
 export interface VersionScore {
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly meanScore: number | null;
     // (undocumented)
@@ -2330,15 +3033,37 @@ export interface WrittenLedgerMark {
 // src/app/paused-runs.ts - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Paused".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "Stopped".
+// src/app/types.ts - (ae-undocumented) Missing documentation for "Cancelled".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Input".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Output".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "OutcomeUnknown".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "CallTimeout".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "UnreadableRecord".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "Mismatch".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LiveLeases".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "SchemaMissing".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "SchemaTooNew".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "MigrationChanged".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "SettingsInvalid".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "DeploymentUnsupported".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "DurabilityInsufficient".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "CollationInvalid".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerMarkMissing".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LeaseKeyConflict".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "ObjectStorage".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerCutoffInvalid".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerEntryExpired".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerEntryInvalid".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "ClusterLeaseBehind".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LockTimeout".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "name".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
@@ -2349,24 +3074,21 @@ export interface WrittenLedgerMark {
 // src/core/stored-json.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/stored-json.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/stored-json.ts - (ae-undocumented) Missing documentation for "name".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "callId".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "tool".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "arguments".
-// src/dto/standard/framework.ts - (ae-undocumented) Missing documentation for "summary".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Agents".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Routing".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guards".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guardrails".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Review".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Tools".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Compaction".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Retrieval".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Memory".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Rag".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Files".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pii".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Arbiters".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pauses".
+// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byModel".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "state".
 // src/finops/ledger-mark.ts - (ae-undocumented) Missing documentation for "state".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "inputTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "outputTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheWriteTokens".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "caller".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costUsd".
@@ -2376,21 +3098,18 @@ export interface WrittenLedgerMark {
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/compensation.ts - (ae-undocumented) Missing documentation for "executionId".
 // src/flow/compensation.ts - (ae-undocumented) Missing documentation for "compensated".
 // src/flow/compensation.ts - (ae-undocumented) Missing documentation for "status".
 // src/flow/context/execution-context.ts - (ae-undocumented) Missing documentation for "name".
 // src/flow/context/execution-context.ts - (ae-undocumented) Missing documentation for "version".
 // src/flow/context/execution-context.ts - (ae-undocumented) Missing documentation for "component".
+// src/flow/context/execution-fence.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "path".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "scope".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "outdatedValues".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "lastError".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "spend".
-// src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "responder".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolution".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "slot".
@@ -2418,12 +3137,13 @@ export interface WrittenLedgerMark {
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "InputRequired".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Completed".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Failed".
-// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Canceled".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Cancelled".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Rejected".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "taskId".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "messageId".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "endpoint".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "kind".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "state".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
@@ -2439,9 +3159,32 @@ export interface WrittenLedgerMark {
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "state".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "tasks".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "nextPageToken".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "cause".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "code".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "A2ATaskRepository".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findById".
 // src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/cluster-lease-types.ts - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/cluster-lease-types.ts - (ae-undocumented) Missing documentation for "holderInstanceId".
+// src/infrastructure/cluster-lease-types.ts - (ae-undocumented) Missing documentation for "state".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "claimExecutionId".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "acquire".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "renew".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "release".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "retire".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "yield".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "reclaim".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "requestCancel".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "isCancelRequested".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "requestStop".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "stopOf".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "requestPause".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "unpause".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "pauseOf".
+// src/infrastructure/cluster-lease.ts - (ae-undocumented) Missing documentation for "markedOf".
 // src/infrastructure/cost-ledger.repository.ts - (ae-undocumented) Missing documentation for "CostLedgerRepository".
 // src/infrastructure/effect-key.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/effect-key.ts - (ae-undocumented) Missing documentation for "executionId".
@@ -2475,6 +3218,7 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Paused".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Finished".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Failed".
+// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Stopped".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "Cancelled".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "version".
@@ -2490,35 +3234,58 @@ export interface WrittenLedgerMark {
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "endedAt".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "input".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "output".
-// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "offset".
-// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "limit".
+// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "from".
+// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "to".
+// src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/execution-history.repository.ts - (ae-undocumented) Missing documentation for "ExecutionHistoryRepository".
-// src/infrastructure/execution-lease.repository.ts - (ae-undocumented) Missing documentation for "holderInstanceId".
-// src/infrastructure/execution-lease.repository.ts - (ae-undocumented) Missing documentation for "token".
-// src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "append".
-// src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "byIds".
-// src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "saveScore".
-// src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "meanScore".
-// src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "configSnapshots".
-// src/infrastructure/execution-record.repository.ts - (ae-undocumented) Missing documentation for "summaryCount".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "reason".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "name".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "effect".
-// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "reason".
+// src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "holderInstanceId".
+// src/infrastructure/execution-lease-contract.ts - (ae-undocumented) Missing documentation for "token".
+// src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "byIds".
+// src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "saveScore".
+// src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "meanScore".
+// src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "configSnapshots".
+// src/infrastructure/execution-record-contract.ts - (ae-undocumented) Missing documentation for "summaryCount".
+// src/infrastructure/execution-record-status-page.ts - (ae-undocumented) Missing documentation for "status".
+// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprint".
+// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "withoutFingerprint".
+// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "withoutFingerprint".
+// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprint".
+// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "fingerprint".
+// src/infrastructure/fenced-effect-fingerprint.ts - (ae-undocumented) Missing documentation for "withoutFingerprint".
+// src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "effectKeyOf".
+// src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "effectKeyOf".
+// src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "effectKeyOf".
 // src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "fingerprint".
 // src/infrastructure/fenced-effect-key.ts - (ae-undocumented) Missing documentation for "origin".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/fenced-effect.repository.ts - (ae-undocumented) Missing documentation for "result".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "completeIfInFlight".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "retakeIfExpired".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteIfInFlight".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
+// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "compareAndSetStatus".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/in-memory-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
+// src/infrastructure/in-memory-cluster-lease.ts - (ae-undocumented) Missing documentation for "isDown".
+// src/infrastructure/in-memory-cluster-lease.ts - (ae-undocumented) Missing documentation for "forgetCounters".
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "peer".
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "idempotencyKey".
 // src/infrastructure/mesh-request.repository.ts - (ae-undocumented) Missing documentation for "MeshRequestRepository".
 // src/infrastructure/outbound-call-pages.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/outbound-call-pages.ts - (ae-undocumented) Missing documentation for "status".
-// src/infrastructure/outbound-call-pages.ts - (ae-undocumented) Missing documentation for "calls".
 // src/infrastructure/outbound-call-record.ts - (ae-undocumented) Missing documentation for "name".
 // src/infrastructure/outbound-call-record.ts - (ae-undocumented) Missing documentation for "message".
 // src/infrastructure/outbound-call-record.ts - (ae-undocumented) Missing documentation for "nodeId".
@@ -2546,11 +3313,12 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "pauseId".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "pauses".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "next".
-// src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "channel".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "dead".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "pauseId".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "recipient".
+// src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "expiryBound".
+// src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "actor".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "Pause".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "RunDeadline".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "Quorum".
@@ -2570,10 +3338,45 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "threadId".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "answeredBy".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "action".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "channel".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "assignees".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "expiresAt".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "externalRef".
+// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "stepKey".
 // src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "reassignedFrom".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "completeIfInFlight".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "retakeIfExpired".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteIfInFlight".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
+// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "store".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ping".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findById".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "compareAndSetStatus".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "deleteExpired".
+// src/infrastructure/sqlite/sqlite-cluster-mirror.ts - (ae-undocumented) Missing documentation for "connection".
+// src/infrastructure/sqlite/sqlite-cluster-mirror.ts - (ae-undocumented) Missing documentation for "syncClusterLease".
+// src/infrastructure/sqlite/sqlite-cluster-mirror.ts - (ae-undocumented) Missing documentation for "endClusterLease".
+// src/infrastructure/sqlite/sqlite-cluster-mirror.ts - (ae-undocumented) Missing documentation for "mirroredLeaseOf".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "changes".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "lastInsertRowid".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "run".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "get".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "all".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "prepare".
+// src/infrastructure/sqlite/sqlite-transaction.ts - (ae-undocumented) Missing documentation for "exec".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "source".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "code".
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "name".
@@ -2587,17 +3390,14 @@ export interface WrittenLedgerMark {
 // src/infrastructure/store-call-timeout.ts - (ae-undocumented) Missing documentation for "timeout".
 // src/mesh/mesh-call.ts - (ae-undocumented) Missing documentation for "application".
 // src/mesh/mesh-call.ts - (ae-undocumented) Missing documentation for "executionId".
-// src/pause/types.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/pause/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/run/compaction.ts - (ae-undocumented) Missing documentation for "toTurn".
-// src/run/compaction.ts - (ae-undocumented) Missing documentation for "summaryQueueLength".
 // src/run/resume-guard.ts - (ae-undocumented) Missing documentation for "workflowVersion".
 // src/run/resume-guard.ts - (ae-undocumented) Missing documentation for "configHash".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "scope".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "outdatedValues".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "lastError".
-// src/run/types.ts - (ae-undocumented) Missing documentation for "status".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "startInput".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "output".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "budgetUsd".
@@ -2605,12 +3405,29 @@ export interface WrittenLedgerMark {
 // src/run/types.ts - (ae-undocumented) Missing documentation for "threadId".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "turnId".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "data".
+// src/storage/settings.ts - (ae-undocumented) Missing documentation for "__index".
+// src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "kind".
+// src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "__index".
+// src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "[driverBrand]".
+// src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "role".
+// src/storage/storage-driver.ts - (ae-undocumented) Missing documentation for "applied".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "threadId".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "toStatus".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "trigger".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "at".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "threadId".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "toStatus".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "trigger".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "reason".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "actor".
+// src/turns/status-transition.ts - (ae-undocumented) Missing documentation for "leaseToken".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "agent".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "content".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "Turn".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "id".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "threadId".
-// src/turns/types.ts - (ae-undocumented) Missing documentation for "bundle".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "createdAt".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "task".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "replyWith".
@@ -2625,7 +3442,7 @@ export interface WrittenLedgerMark {
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "NewTurn".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "id".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "threadId".
-// src/turns/types.ts - (ae-undocumented) Missing documentation for "bundle".
+// src/turns/types.ts - (ae-undocumented) Missing documentation for "workflow".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "fromTurnId".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "toTurnId".
 // src/turns/types.ts - (ae-undocumented) Missing documentation for "turns".

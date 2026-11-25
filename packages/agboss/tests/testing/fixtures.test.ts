@@ -49,7 +49,7 @@ describe("AC12: mockOf — a typed mock injected instead of the class", () => {
   });
 
   test("mockOf after the app started fails clearly", async ({ app, mockOf }) => {
-    await app.tool(OrderStatus).invoke({ orderId: "1" });
+    await app.runTool(OrderStatus, { orderId: "1" });
 
     expect(() => mockOf(OrderBook)).toThrow(/mockOf\(OrderBook\) after the app started/);
   });
@@ -98,21 +98,24 @@ describe("AC12: mockLlm — what a component sent its model", () => {
 });
 
 describe("AC12: slices — one component of the real app on its own", () => {
-  test("app.tool(X) runs the tool with its real dependencies", async ({ app }) => {
-    expect(await app.tool(OrderStatus).invoke({ orderId: "9" })).toEqual({
+  test("app.runTool(X, …) runs the tool with its real dependencies", async ({ app }) => {
+    expect((await app.runTool(OrderStatus, { orderId: "9" })).output).toEqual({
       kind: "ok",
       value: { status: "order 9 shipped" },
     });
   });
 
-  test("app.router(X) decides on a text and returns the chosen node", async ({ app, mockLlm }) => {
+  test("app.runRouter(X, …) decides on a text and returns the chosen node", async ({
+    app,
+    mockLlm,
+  }) => {
     mockLlm(MainRouter).thenReturn(routeTo(Writer));
 
-    expect(await app.router(MainRouter).routeTo("write a reply")).toBe(Writer);
+    expect((await app.runRouter(MainRouter, "write a reply")).output).toBe(Writer);
     expect(mockLlm(MainRouter).onlyRequest).toMatchObject({ input: "write a reply" });
   });
 
-  test("app.agent(X) answers a task with its own model, prompt and tools", async ({
+  test("app.runAgent(X, …) answers a task with its own model, prompt and tools", async ({
     app,
     mockLlm,
   }) => {
@@ -121,23 +124,23 @@ describe("AC12: slices — one component of the real app on its own", () => {
       replyWith("Order 3 shipped."),
     );
 
-    expect(await app.agent(Support).replyWith("where is 3?")).toBe("Order 3 shipped.");
+    expect((await app.runAgent(Support, "where is 3?")).output).toBe("Order 3 shipped.");
     expect(mockLlm(Support)).toHaveScriptedToolCalls([OrderStatus]);
   });
 
   test("a slice of something the workflow does not have fails clearly", async ({ app }) => {
-    await expect(app.router(Writer).routeTo("x")).rejects.toThrow(
-      "app.router(Writer): not a router of this application",
+    await expect(app.runRouter(Writer, "x")).rejects.toThrow(
+      "app.runRouter(Writer): not a router of this application",
     );
-    await expect(app.agent(MainRouter).replyWith("x")).rejects.toThrow(
-      "app.agent(MainRouter): not an agent of this application",
+    await expect(app.runAgent(MainRouter, "x")).rejects.toThrow(
+      "app.runAgent(MainRouter): not an agent of this application",
     );
   });
 
-  test("app.router(X) fails like the flow when its model fails", async ({ app, mockLlm }) => {
+  test("app.runRouter(X, …) fails like the flow when its model fails", async ({ app, mockLlm }) => {
     mockLlm(MainRouter).thenReturn(failWith(ModelFailure.ServerError));
 
-    await expect(app.router(MainRouter).routeTo("x")).rejects.toFailWith(RouterFailedError, {
+    await expect(app.runRouter(MainRouter, "x")).rejects.toFailWith(RouterFailedError, {
       nodeId: nameOf(MainRouter),
       cause: ModelCallFailedError,
     });

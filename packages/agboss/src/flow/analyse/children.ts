@@ -19,10 +19,10 @@ import {
 
 /**
  * Where a parent enters its child workflows (#263): every edge into a child picks the child's start
- * on its own, so two paths into `workflow(W)` may enter through two starts. A child with one start
+ * on its own, so two paths into `onWorkflow(W)` may enter through two starts. A child with one start
  * is entered through it; otherwise by the value the edge brings — the item of a per-item launch
- * (`.toParallelWorkflows(W, …)` after `.returns(listOf(ItemDto))`), else the chain's current value
- * (the `.returns` or `caseOf` right before `.toWorkflow(W)`) — the start with a required field of
+ * (`.forEachItem(W, …)` after a step whose output is `listOf(ItemDto)`), else the chain's current value
+ * (the step's output right before `.toWorkflow(W)`) — the start with a required field of
  * that type; of several, the one whose other required fields are all on the parent's path. The
  * child's scope starts with that start's input only: nothing else of the parent's scope enters it.
  */

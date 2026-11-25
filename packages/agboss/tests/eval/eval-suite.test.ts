@@ -1,7 +1,7 @@
 /**
  * #396 PR 1 — `@agboss/core/eval`: `@EvalSuite` and the builders of its cases and checks, typed by the
  * suite's start and each tool's input, and its assembly on the application it runs on —
- * `[name.kind-suffix]`, `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-reply]`,
+ * `[name.kind-suffix]`, `[eval.unknown-start]`, `[eval.duplicate-case]`, `[eval.judge-wrong-output]`,
  * then the cases' values (`eval.case-invalid`). Nothing runs: no runner yet.
  */
 import { describe, expect, it } from "vitest";
@@ -9,6 +9,7 @@ import {
   DecidedBy,
   GraphRuleError,
   Judge,
+  JudgeModel,
   JudgeVerdict,
   type JudgeHandler,
 } from "../../src/index.js";
@@ -18,9 +19,7 @@ import {
   CheckStatus,
   EvalCascade,
   EvalSuite,
-  checkTrajectory,
   evalCase,
-  judgedBy,
   pastTurn,
   toolCall,
   toolInvariant,
@@ -34,7 +33,9 @@ import {
   RefundWorkflowFinish,
   RefundWorkflowStart,
   SlackRefundsApplication,
+  UnservedRefundsApplication,
 } from "../flow/fixtures/refunds.fixture.js";
+import { EvalDeskModelProvider } from "../flow/fixtures/eval-desk.fixture.js";
 import {
   BedRequestWorkflowStart,
   BedsDto,
@@ -44,19 +45,19 @@ import {
 } from "../flow/fixtures/clinic.fixture.js";
 
 /** A code judge of the refunds' finish: the refund is reported. */
-@Judge({ name: "refunded-judge", decidedBy: DecidedBy.Code, reply: RefundCardOutputDto })
+@Judge({ name: "refunded-judge", output: RefundCardOutputDto })
 class RefundedJudge implements JudgeHandler<RefundCardOutputDto> {
-  judge({ reply }: { readonly reply: RefundCardOutputDto }): Promise<JudgeVerdict> {
+  judge({ output }: { readonly output: RefundCardOutputDto }): Promise<JudgeVerdict> {
     return Promise.resolve(
-      reply.status.startsWith("refunded")
+      output.status.startsWith("refunded")
         ? JudgeVerdict.passed()
-        : JudgeVerdict.failed({ reason: "no refund reported" }),
+        : JudgeVerdict.failed("no refund reported"),
     );
   }
 }
 
 /** A model judge of the clinic's finish: no reply of the refunds desk. */
-@Judge({ name: "beds-judge", model: "local/judge", reply: BedsDto })
+@Judge({ name: "beds-judge", model: "local/judge", output: BedsDto, deps: [JudgeModel] })
 class BedsJudge implements JudgeHandler<BedsDto> {
   judge(): Promise<JudgeVerdict> {
     return Promise.resolve(JudgeVerdict.passed());
@@ -64,7 +65,7 @@ class BedsJudge implements JudgeHandler<BedsDto> {
 }
 
 /** A judge of a list: never a finish's output. */
-@Judge({ name: "refund-list-judge", decidedBy: DecidedBy.Code, reply: listOf(RefundCardOutputDto) })
+@Judge({ name: "refund-list-judge", output: listOf(RefundCardOutputDto) })
 class RefundListJudge implements JudgeHandler<readonly RefundCardOutputDto[]> {
   judge(): Promise<JudgeVerdict> {
     return Promise.resolve(JudgeVerdict.passed());
@@ -75,7 +76,7 @@ class RefundListJudge implements JudgeHandler<readonly RefundCardOutputDto[]> {
   name: "refunds-eval-suite",
   description: "Refunds: the card refunded once, never over $100",
   start: RefundWorkflowStart,
-  checks: [checkTrajectory(), judgedBy(RefundedJudge)],
+  judges: [RefundedJudge],
   cascade: EvalCascade.StopAtFirstFailure,
   cases: [
     evalCase({
@@ -90,13 +91,16 @@ class RefundListJudge implements JudgeHandler<readonly RefundCardOutputDto[]> {
     evalCase({
       name: "refund-after-history",
       history: [
-        pastTurn(RefundWorkflowStart, { text: "Refund order 6" }, RefundWorkflowFinish, {
-          status: "refunded 6",
+        pastTurn({
+          start: RefundWorkflowStart,
+          input: { text: "Refund order 6" },
+          finish: RefundWorkflowFinish,
+          output: { status: "refunded 6" },
         }),
       ],
       turns: [turn({ text: "And order 7?" })],
       tools: { required: [toolCall(RefundCardTool)] },
-      judges: [judgedBy(RefundedJudge)],
+      judges: [RefundedJudge],
       variants: [turn({ text: "Order 7 too, please" })],
     }),
   ],
@@ -109,7 +113,7 @@ describe("#396: @EvalSuite records the suite as written", () => {
 
     expect(meta).toBe(evalSuiteOf(RefundsEvalSuite));
     expect(meta.start).toBe(RefundWorkflowStart);
-    expect(meta.checks).toEqual([{ trajectory: true }, { judge: RefundedJudge }]);
+    expect(meta.judges).toEqual([RefundedJudge]);
     expect(meta.cascade).toBe(EvalCascade.StopAtFirstFailure);
     expect(meta.cases.map((written) => written.name)).toEqual([
       "refund-within-policy",
@@ -122,7 +126,7 @@ describe("#396: @EvalSuite records the suite as written", () => {
     const [first, second] = checkEvalSuite(SlackRefundsApplication, RefundsEvalSuite).cases;
     if (first === undefined || second === undefined) throw new Error("two cases expected");
 
-    expect(first.tools?.required).toEqual([{ tool: RefundCardTool, arguments: { orderId: "7" } }]);
+    expect(first.tools?.required).toEqual([{ tool: RefundCardTool, input: { orderId: "7" } }]);
     const [invariant] = first.tools?.invariants ?? [];
     expect(invariant?.holds({ orderId: "7", amountCents: 20_000 })).toBe(false);
     expect(second.history).toEqual([
@@ -134,7 +138,7 @@ describe("#396: @EvalSuite records the suite as written", () => {
       },
     ]);
     expect(second.tools?.required).toEqual([{ tool: RefundCardTool }]);
-    expect(Object.isFrozen(first.turns[0])).toBe(true);
+    expect(Object.isFrozen(first.turns?.[0])).toBe(true);
   });
 
   it("the closed sets are enums", () => {
@@ -161,35 +165,40 @@ describe("#396: cases are typed by the suite's start, each tool's input and the 
     toolCall(RefundCardTool, { order: "7" });
     // @ts-expect-error -- amountCents is a number
     toolInvariant(RefundCardTool, (input) => input.amountCents === "1");
-    // @ts-expect-error -- refund-workflow-finish answers { status }
-    pastTurn(RefundWorkflowStart, { text: "a" }, RefundWorkflowFinish, { text: "b" });
+    pastTurn({
+      start: RefundWorkflowStart,
+      input: { text: "a" },
+      finish: RefundWorkflowFinish,
+      // @ts-expect-error -- refund-workflow-finish answers { status }
+      output: { text: "b" },
+    });
 
     expect(toolCall(FreeBedsTool, { ward: "3" })).toEqual({
       tool: FreeBedsTool,
-      arguments: { ward: "3" },
+      input: { ward: "3" },
     });
   });
 
-  it("the suite checks every case's turns against its start; cascade is required", () => {
-    // @ts-expect-error -- no cascade: the order of checks is stated explicitly
+  it("the suite checks every case's turns against its start; cascade is optional", () => {
     EvalSuite({
       name: "a-eval-suite",
       description: "a",
       start: RefundWorkflowStart,
-      checks: [],
       cases: [],
     });
     EvalSuite({
       name: "b-eval-suite",
       description: "b",
       start: RefundWorkflowStart,
-      checks: [],
       cascade: EvalCascade.RunAll,
       // @ts-expect-error -- the start takes { text }, not { message }
       cases: [evalCase({ name: "b", turns: [turn({ message: "hi" })] })],
     });
 
-    expect(checkTrajectory()).toEqual({ trajectory: true });
+    @EvalSuite({ name: "c-eval-suite", start: RefundWorkflowStart, cases: [] })
+    class DefaultCascade {}
+    expect(evalSuiteOf(DefaultCascade)?.cascade).toBe(EvalCascade.StopAtFirstFailure);
+    expect(evalSuiteOf(DefaultCascade)?.description).toBeUndefined();
   });
 
   it("a suite of an application with its own contexts requires them, as app.execute does", () => {
@@ -197,7 +206,6 @@ describe("#396: cases are typed by the suite's start, each tool's input and the 
       name: "c-eval-suite",
       description: "c",
       start: BedRequestWorkflowStart,
-      checks: [],
       cascade: EvalCascade.RunAll,
       // @ts-expect-error -- the clinic declares its tenant and execution contexts
       cases: [evalCase({ name: "c", turns: [turn({ text: "a bed" })] })],
@@ -224,7 +232,6 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
       name: "refunds-suite",
       description: "misnamed",
       start: RefundWorkflowStart,
-      checks: [checkTrajectory()],
       cascade: EvalCascade.RunAll,
       cases: [
         evalCase({ name: "twice", turns: [turn({ text: "a" })] }),
@@ -248,7 +255,6 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
       name: "beds-eval-suite",
       description: "the clinic's start on the refunds desk",
       start: BedRequestWorkflowStart,
-      checks: [],
       cascade: EvalCascade.RunAll,
       cases: [],
     })
@@ -259,30 +265,72 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
     );
   });
 
-  it("[eval.judge-wrong-reply]: a judge of no finish the start reaches, or of a list", () => {
+  it("[eval.judge-wrong-output]: a judge of no finish the start reaches, or of a list", () => {
     @EvalSuite({
       name: "judged-eval-suite",
       description: "judges of the wrong replies",
       start: RefundWorkflowStart,
-      checks: [judgedBy(BedsJudge), judgedBy(RefundedJudge)],
+      judges: [BedsJudge, RefundedJudge],
       cascade: EvalCascade.RunAll,
       cases: [
         evalCase({
           name: "listed",
           turns: [turn({ text: "a" })],
-          judges: [judgedBy(RefundListJudge), judgedBy(BedsJudge)],
+          judges: [RefundListJudge, BedsJudge],
         }),
       ],
     })
     class JudgedEvalSuite {}
 
-    expect(codesOf(SlackRefundsApplication, JudgedEvalSuite)).toEqual([
-      "eval.judge-wrong-reply",
-      "eval.judge-wrong-reply",
+    expect(codesOf(UnservedRefundsApplication, JudgedEvalSuite)).toEqual([
+      "eval.judge-wrong-output",
+      "eval.judge-wrong-output",
+      "eval.judge-missing-provider",
     ]);
-    expect(() => checkEvalSuite(SlackRefundsApplication, JudgedEvalSuite)).toThrow(
+    expect(() => checkEvalSuite(UnservedRefundsApplication, JudgedEvalSuite)).toThrow(
       /judged-eval-suite: beds-judge judges BedsDto, but the runs of refund-workflow-start end at finishes with RefundCardOutputDto — it judges none of them/u,
     );
+  });
+
+  it("[eval.judge-missing-provider]: a model judge needs a provider of its own, the suite's or the application's", () => {
+    @Judge({
+      name: "unpinned-judge",
+      model: "test/judge",
+      output: RefundCardOutputDto,
+      deps: [JudgeModel],
+    })
+    class UnpinnedJudge implements JudgeHandler<RefundCardOutputDto> {
+      constructor(private readonly judgeModel: JudgeModel) {}
+      async judge(): Promise<JudgeVerdict> {
+        await this.judgeModel.invoke("?");
+        return JudgeVerdict.passed();
+      }
+    }
+    @EvalSuite({
+      name: "unpinned-eval-suite",
+      description: "a model judge with no provider pinned anywhere",
+      start: RefundWorkflowStart,
+      judges: [UnpinnedJudge],
+      cases: [],
+    })
+    class UnpinnedEvalSuite {}
+    @EvalSuite({
+      name: "pinned-eval-suite",
+      description: "the same judge, pinned by its suite",
+      start: RefundWorkflowStart,
+      judges: [UnpinnedJudge],
+      modelProvider: EvalDeskModelProvider,
+      cases: [],
+    })
+    class PinnedEvalSuite {}
+
+    expect(codesOf(UnservedRefundsApplication, UnpinnedEvalSuite)).toEqual([
+      "eval.judge-missing-provider",
+    ]);
+    expect(() => checkEvalSuite(UnservedRefundsApplication, UnpinnedEvalSuite)).toThrow(
+      /unpinned-judge calls a model, and no model provider is pinned for it/u,
+    );
+    expect(codesOf(UnservedRefundsApplication, PinnedEvalSuite)).toEqual([]);
   });
 
   it("a judge's own rules: not a @Judge, a code judge with a model", () => {
@@ -290,7 +338,11 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
       readonly isJudge = false;
     }
     // @ts-expect-error -- a code judge takes no model
-    @Judge({ name: "x-judge", decidedBy: DecidedBy.Code, model: "m", reply: RefundCardOutputDto })
+    @Judge({
+      name: "x-judge",
+      model: "m",
+      output: RefundCardOutputDto,
+    })
     class ModelledJudge implements JudgeHandler<RefundCardOutputDto> {
       judge(): Promise<JudgeVerdict> {
         return Promise.resolve(JudgeVerdict.passed());
@@ -301,8 +353,8 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
         name: "plain-eval-suite",
         description: "p",
         start: RefundWorkflowStart,
-        // @ts-expect-error -- judgedBy takes @Judge classes
-        checks: [judgedBy(judge)],
+        // @ts-expect-error -- a judge is a class that is a @Judge
+        judges: [judge],
         cascade: EvalCascade.RunAll,
         cases: [],
       })
@@ -325,7 +377,6 @@ describe("#396: eval.case-invalid — the cases' values, every issue at once, no
       name: "clinic-eval-suite",
       description: "a bed for the clinician",
       start: BedRequestWorkflowStart,
-      checks: [checkTrajectory()],
       cascade: EvalCascade.RunAll,
       cases: [
         evalCase({
@@ -341,10 +392,21 @@ describe("#396: eval.case-invalid — the cases' values, every issue at once, no
           tenant: { tenantId: "eval-clinic", units: "u1" },
           execution: { unitId: "u1" },
           history: [
-            // @ts-expect-error -- the finish answers BedsDto
-            pastTurn(BedRequestWorkflowStart, { text: "before" }, BedsWorkflowFinish, { beds: 2 }),
-            // @ts-expect-error -- a past turn starts at a start
-            pastTurn(BedsWorkflowFinish, { text: "x" }, BedRequestWorkflowStart, { text: "y" }),
+            pastTurn({
+              start: BedRequestWorkflowStart,
+              input: { text: "before" },
+              finish: BedsWorkflowFinish,
+              // @ts-expect-error -- the finish answers BedsDto
+              output: { beds: 2 },
+            }),
+            pastTurn({
+              start: BedsWorkflowFinish,
+              // @ts-expect-error -- a past turn starts at a start
+              input: { text: "x" },
+              finish: BedRequestWorkflowStart,
+              // @ts-expect-error -- and ends at a finish
+              output: { text: "y" },
+            }),
           ],
           turns: [turn({ text: 3 })],
         }),

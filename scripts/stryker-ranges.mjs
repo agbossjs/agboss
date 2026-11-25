@@ -9,6 +9,9 @@ export function filesPiiShard() {
       "src/pii/{key-hierarchy,tokens}.ts",
       // the hashing, the masking and the spend of the policies' model detectors, taken up by a search and carried by a refusal
       "src/pii/policy-set.ts",
+      // #1301: what a sensitive field of a stored output or start line shows — a token or a mask, never the value
+      "src/pii/final-output-mask.ts",
+      "src/app/history-finish.ts",
     ],
   };
 }
@@ -23,13 +26,14 @@ export function spendShard() {
   return {
     configFile: "vitest.mutation-spend.config.ts",
     mutate: [
-      "src/finops/{record-stream,usage,cost-source,cost-category,fallback-mark,served-by}.ts",
+      "src/finops/{record-stream,usage,cost-report,cost-source,cost-category,fallback-mark,served-by}.ts",
       "src/app/restored-usage.ts",
       "src/app/remote/queued-child-spend.ts",
       "src/models/calls/response-usage.ts",
       "src/models/cost.ts",
-      "src/components/spend-recorder.ts",
-      "src/budgets/{budget,budget-period,budget-rules,execution-deadline}.ts",
+      "src/components/{spend-recorder,decision-model}.ts",
+      "src/application/budget-profile.ts",
+      "src/budgets/{budget,budget-overlay,budget-period,budget-rules,budget-spend,execution-deadline}.ts",
       "src/run/run-budgets.ts",
     ],
   };
@@ -44,8 +48,12 @@ export function cancelShard() {
   return {
     configFile: "vitest.mutation-takeover.config.ts",
     mutate: [
-      "src/app/cancel-{marks,paused,requests,resting,thread}.ts",
-      "src/app/{lease-lost,lease-releases,lease-reporting}.ts",
+      "src/app/cancel-{marks,paused,remote,requests,resting,thread,watch}.ts",
+      // #1341b: a stop is a cancel that undoes nothing — its requests, thread call and lease marks
+      "src/app/{interrupt-controls,interrupt-requests,stop-requests,stop-thread,lease-marks,request-checks,external-pause,take-end}.ts",
+      "src/app/{lease-lost,lease-stopped,lease-releases,lease-reporting}.ts",
+      // #1341c: an operator's pause and its lift — the command, the park, the unpause, the pause mark's reads
+      "src/app/{pause-thread,unpause-thread,unpause-move,parked-output,paused-tree}.ts",
     ],
   };
 }
@@ -58,9 +66,11 @@ export function fencedReachShard() {
   return {
     configFile: "vitest.mutation-fenced-reach.config.ts",
     mutate: [
-      "src/app/fenced-effects.ts",
+      "src/app/idempotency.ts",
       "src/flow/context/execution-fence.ts",
       "src/components/container/fenced-reach.ts",
+      // the effect an A2A skill's nodes reach through their deps: a direct-reply skill must reach none (#1319)
+      "src/a2a/a2a-effect-reach.ts",
     ],
   };
 }
@@ -76,6 +86,10 @@ export function pausesShard() {
     mutate: [
       "src/infrastructure/{pause-answer-log,pause-bound,pause-closers,pause-closing,pause-log-repair,pause-mailboxes,pause-notices,pause-reassign-transition,pause-record,pause-replacement,pause-scans,pause-transitions}.ts",
       "src/infrastructure/in-memory-pause-{book,queries,store}.ts",
+      // #1307c: an answer is recorded only once its target's permitAnswer said true; fails closed
+      "src/app/{answer-permit,answer-parts,pause-expiry-reassign}.ts",
+      // #1307, #1310: the limits and the permission of a reassignment and an extension — the chain's counts and total wait, the destination, the deadline a change sets, the request's checks
+      "src/app/{extend-request,pause-limits,pause-reassign-deadline,pause-reassign-plan,pause-reassign-support}.ts",
     ],
   };
 }
@@ -122,7 +136,14 @@ export function a2aFilesShard() {
   return {
     configFile: "vitest.mutation-a2a-files.config.ts",
     // the slots (#1256) are the a2a-server shard's
-    mutate: ["src/a2a/files/**/*.ts", "!src/a2a/files/a2a-file-slots.ts"],
+    mutate: [
+      "src/a2a/files/**/*.ts",
+      "!src/a2a/files/a2a-file-slots.ts",
+      // the files' sweep: whose ttl is up, never a live execution's (#1316)
+      "src/application/file-expiry.ts",
+      // #1316: what bounds a client's downloadFile: its pool and the policy's size limit and timeout
+      "src/a2a/client/a2a-download-bounds.ts",
+    ],
   };
 }
 

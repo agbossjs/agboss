@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import { DecisionError } from "../llm/decision-errors.js";
+import { DecisionError } from "../core/error-families/config-errors.js";
 import type { DecisionOutcome } from "../llm/decision-response.js";
 import type { GatewayOverProviders } from "../app/models.js";
+import { providerKindsOf } from "../models/resolution.js";
+import type { ProviderKinds } from "../models/use-purpose.js";
 import { type DecideSpec, type DecisionSpec, type ModelGateway } from "../llm/gateway.js";
 import type { RouteOutcome } from "../routers/index.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -14,31 +16,31 @@ import { VcrChatModel } from "./vcr-chat-model.js";
 
 // VCR (#204): a test answers from a cassette instead of scripts — every model call recorded once,
 // then replayed with no key and no network. Version 2 cassettes keep each call's component hashes
-// (#395 PR 4: stale cassettes, `RECORD_STALE`). While recording, the real providers' gateway is the
+// (#395 PR 4: stale cassettes, `RecordStale`). While recording, the real providers' gateway is the
 // one `createApp` builds — its transport providers created by the test app's container (#439) — so
 // an offline project records through its transport; a replay never builds a provider. The mode
-// comes from the test's `vcr.mode`, else `AUTO` (`REPLAY` under `CI`); `AGBOSS_VCR_MODE` overrides
+// comes from the test's `vcr.mode`, else `Auto` (`Replay` under `CI`); `AGBOSS_VCR_MODE` overrides
 // every test's own for one run. Under `CI` no mode records against real models (#839): one that
-// would — `RECORD`, `RECORD_STALE`, `AUTO` with no cassette — is refused before the app is built,
+// would — `Record`, `RecordStale`, `Auto` with no cassette — is refused before the app is built,
 // `[vcr.record-in-ci]`, unless `AGBOSS_VCR_RECORD_IN_CI=1` says the run records on purpose.
 
 /** How a VCR test answers its model calls: from the cassette, from the models, or both. */
 export enum VcrMode {
   /** Call the real models and write every call to the cassette (from scratch). */
-  RECORD = "RECORD",
+  Record = "record",
   /** Answer only from the cassette; a missing cassette or call fails with `CassetteMissingError`. */
-  REPLAY = "REPLAY",
-  /** REPLAY when the cassette exists, else RECORD. */
-  AUTO = "AUTO",
+  Replay = "replay",
+  /** `Replay` when the cassette exists, else `Record`. */
+  Auto = "auto",
   /**
    * Replay the cassette, but record anew the calls of every component whose prompt or schema hash
    * changed since it was recorded (#395 PR 4) — the others are kept as they are; a version 1
    * cassette (no hashes) is recorded again whole.
    */
-  RECORD_STALE = "RECORD_STALE",
+  RecordStale = "record-stale",
 }
 
-/** The process variable that picks the mode of every VCR test: a member's value (`RECORD_STALE`). */
+/** The process variable that picks the mode of every VCR test: a member's value (`record-stale`). */
 export const VCR_MODE_VARIABLE = "AGBOSS_VCR_MODE";
 
 /**
@@ -66,8 +68,8 @@ export interface VcrConfig {
   /** The cassette's name: its file is `<cassetteName>.cassette.json` in `dir`. */
   readonly cassetteName: string;
   /**
-   * Default: REPLAY when `CI` is set (CI never calls a model), else AUTO. Under `CI` a mode that
-   * would call real models (RECORD, RECORD_STALE, AUTO with no cassette) is refused at startup,
+   * Default: `Replay` when `CI` is set (CI never calls a model), else `Auto`. Under `CI` a mode that
+   * would call real models (`Record`, `RecordStale`, `Auto` with no cassette) is refused at startup,
    * `[vcr.record-in-ci]`, unless `AGBOSS_VCR_RECORD_IN_CI=1` (#839).
    */
   readonly mode?: VcrMode;
@@ -84,21 +86,21 @@ const recordsInCi = (env: NodeJS.ProcessEnv): boolean =>
 
 /** Why `mode` would call real models for `file`'s calls — `undefined` when it only replays. */
 function recordingOf(mode: VcrMode, file: string): string | undefined {
-  if (mode === VcrMode.RECORD || mode === VcrMode.RECORD_STALE) return mode;
-  if (mode === VcrMode.AUTO && !fs.existsSync(file)) return `AUTO with no cassette at ${file}`;
+  if (mode === VcrMode.Record || mode === VcrMode.RecordStale) return mode;
+  if (mode === VcrMode.Auto && !fs.existsSync(file)) return `auto with no cassette at ${file}`;
   return undefined;
 }
 
 /**
  * The mode a VCR test runs in: `AGBOSS_VCR_MODE` when set (it re-records tests that name their own
- * mode too), else the given one; REPLAY under `CI`; else AUTO. Under `CI` a mode that would call
+ * mode too), else the given one; `Replay` under `CI`; else `Auto`. Under `CI` a mode that would call
  * real models is refused (#839, fail closed): `[vcr.record-in-ci]`, naming where the mode came from,
  * the variable and the remedy — unless `AGBOSS_VCR_RECORD_IN_CI=1`.
  */
 export function vcrModeOf(config: VcrConfig, env: NodeJS.ProcessEnv): VcrMode {
   const configured = configuredModeOf(config);
   const fromEnv = modeFromEnv(env);
-  const mode = fromEnv ?? configured ?? (isCi(env) ? VcrMode.REPLAY : VcrMode.AUTO);
+  const mode = fromEnv ?? configured ?? (isCi(env) ? VcrMode.Replay : VcrMode.Auto);
   if (!isCi(env) || recordsInCi(env)) return mode;
   const recording = recordingOf(mode, cassetteFileOf(config));
   if (recording === undefined) return mode;
@@ -149,8 +151,8 @@ function cassetteOf(
   hashes: CassetteHashes,
   report: (failure: Error) => Error,
 ): Cassette {
-  if (mode === VcrMode.RECORD_STALE) return Cassette.recordingStale(file, hashes, report);
-  const replay = mode === VcrMode.REPLAY || (mode === VcrMode.AUTO && fs.existsSync(file));
+  if (mode === VcrMode.RecordStale) return Cassette.recordingStale(file, hashes, report);
+  const replay = mode === VcrMode.Replay || (mode === VcrMode.Auto && fs.existsSync(file));
   return replay ? Cassette.replaying(file, hashes, report) : Cassette.recording(file, hashes);
 }
 
@@ -173,7 +175,9 @@ async function decideOf(
   if (!cassette.records(spec.caller)) return cassette.decide(spec.caller, hash);
   const decide = real().decide;
   if (decide === undefined)
-    throw new DecisionError({ message: `the recording gateway cannot decide (${model})` });
+    throw new DecisionError.InvalidRequest({
+      message: `the recording gateway cannot decide (${model})`,
+    });
   const outcome = await decide(spec);
   cassette.record({ kind: "decide", key: spec.caller, request: hash, outcome });
   return outcome;
@@ -184,8 +188,13 @@ async function decideOf(
  * (routers, guards — Jev and LLM alike) and every judge's `decide` answers from it, or, while recording, from `real`
  * — created on the first recorded call, so a replay never builds a provider client or needs a key.
  */
-export function vcrGateway(cassette: Cassette, real: () => ModelGateway): ModelGateway {
+export function vcrGateway(
+  cassette: Cassette,
+  real: () => ModelGateway,
+  kinds: ProviderKinds = new Map(),
+): ModelGateway {
   return {
+    kindOf: (modelProvider) => (modelProvider === undefined ? undefined : kinds.get(modelProvider)),
     chatModel: (spec) =>
       new VcrChatModel(cassette, chatKeyOf(spec.user), spec.settings.model, () =>
         real().chatModel(spec),
@@ -230,5 +239,6 @@ export function vcrGatewayOverProviders(
     cassetteHashesOf(workflows),
     report,
   );
-  return (real) => vcrGateway(cassette, real);
+  const kinds = providerKindsOf(workflows.flatMap((workflow) => workflow.modelProviders));
+  return (real) => vcrGateway(cassette, real, kinds);
 }

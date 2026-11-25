@@ -1,16 +1,17 @@
-import { Workflow, start } from "@agboss/core";
+import { Workflow, onStart, Ttl } from "@agboss/core";
 import { InvoiceReaderAgent } from "../../agents/invoice-reader/invoice-reader.agent.js";
-import { InvoiceRequestDto } from "../../dto/invoice-request.dto.js";
 import { InvoiceResultWorkflowFinish } from "./invoice-result.workflow-finish.js";
+import { InvoiceFilePolicy } from "../../file-policies/invoice.file-policy.js";
 import { InvoiceWorkflowStart } from "./invoice.workflow-start.js";
 
 /** The files of a invoice request, read by one agent. */
 @Workflow({
   name: "invoice-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  filePolicy: InvoiceFilePolicy,
   flow: [
-    start(InvoiceWorkflowStart)
-      .returns(InvoiceRequestDto)
+    onStart(InvoiceWorkflowStart)
       .toAgent(InvoiceReaderAgent)
       .toFinish(InvoiceResultWorkflowFinish),
   ],

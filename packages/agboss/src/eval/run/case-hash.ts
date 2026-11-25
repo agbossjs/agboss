@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
+import { ExecutionStatus } from "../../app/types.js";
 import { nameOf } from "../../components/name-of.js";
 import { sortedJson } from "../../flow/runtime/json.js";
-import type { EvalCase } from "../suite/cases.js";
-import type { EvalCascade, EvalCheck } from "../suite/checks.js";
+import { turnsOfCase, type EvalCase } from "../suite/cases.js";
+import { checksOf, toolsOf, type EvalCascade } from "../suite/checks.js";
+import type { EvalSuiteMeta } from "../suite/eval-suite.decorator.js";
 import { checkNameOf } from "./case-run.js";
 
 /**
@@ -21,11 +23,11 @@ function metamorphicDataOf(written: EvalCase, isMetamorphic: boolean) {
 /** The case as plain data, every class by its `name`. */
 function caseDataOf(
   written: EvalCase,
-  checks: readonly EvalCheck[],
+  suite: Pick<EvalSuiteMeta, "judges" | "tools">,
   cascade: EvalCascade,
   isMetamorphic: boolean,
 ) {
-  const { tools } = written;
+  const tools = toolsOf(suite.tools, written.tools);
   return {
     ...metamorphicDataOf(written, isMetamorphic),
     name: written.name,
@@ -37,11 +39,11 @@ function caseDataOf(
       finish: nameOf(past.finish),
       output: past.output,
     })),
-    turns: written.turns.map((turn) => turn.input),
+    turns: turnsOfCase(written).map((turn) => turn.input),
     tools: {
       required: (tools?.required ?? []).map((call) => ({
         tool: nameOf(call.tool),
-        arguments: call.arguments,
+        input: call.input,
       })),
       forbidden: (tools?.forbidden ?? []).map((tool) => nameOf(tool)),
       invariants: (tools?.invariants ?? []).map((invariant) => ({
@@ -49,7 +51,8 @@ function caseDataOf(
         holds: invariant.holds.toString(),
       })),
     },
-    checks: [...checks, ...(written.judges ?? [])].map(checkNameOf),
+    checks: checksOf(suite, written).map(checkNameOf),
+    expectedStatus: written.expectedStatus ?? ExecutionStatus.Finished,
     cascade,
   };
 }
@@ -57,11 +60,11 @@ function caseDataOf(
 /** The first 16 hex characters of the SHA-256 of the case's data. */
 export const caseHashOf = (
   written: EvalCase,
-  checks: readonly EvalCheck[],
+  suite: Pick<EvalSuiteMeta, "judges" | "tools">,
   cascade: EvalCascade,
   isMetamorphic = false,
 ): string =>
   createHash("sha256")
-    .update(sortedJson(caseDataOf(written, checks, cascade, isMetamorphic)))
+    .update(sortedJson(caseDataOf(written, suite, cascade, isMetamorphic)))
     .digest("hex")
     .slice(0, 16);

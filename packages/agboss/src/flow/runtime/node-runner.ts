@@ -26,7 +26,7 @@ export interface NodeOutcome {
   readonly value?: NodeValue;
   /** The node id a router chose. */
   readonly route?: string;
-  /** The `OnDemand` targets (node ids) a router before a launch chose to launch (#273). */
+  /** The routes (node ids) a router of `chooseMany([…])` chose to launch (#273). */
   readonly launch?: readonly string[];
   /** A finish: the execution's output DTO. */
   readonly finish?: { readonly output: unknown };
@@ -43,6 +43,8 @@ export interface NodeOutcome {
   /** An agent's judges' verdicts; an agent's or a model router's guardrails' decisions (#395 C3). */
   readonly judgeVerdicts?: readonly JudgeVerdictRecord[];
   readonly guardrailDecisions?: readonly GuardrailDecisionRecord[];
+  /** A child workflow's open undoable entries its finish moved up to this step (#1281b). */
+  readonly compensations?: readonly CompensationEntry[];
 }
 
 /** Runs one node: an agent's loop, a router's decision, an action's or a finish's handler, … */
@@ -108,6 +110,10 @@ export function reportingOf(
     },
     remainingBudget: () => {
       const left = limits.budgets.remaining();
+      return Number.isFinite(left) ? left : undefined;
+    },
+    remainingTokens: () => {
+      const left = limits.budgets.remainingTokens();
       return Number.isFinite(left) ? left : undefined;
     },
   };

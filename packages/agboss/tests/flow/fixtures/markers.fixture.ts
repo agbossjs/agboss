@@ -1,4 +1,4 @@
-import { caseOf, start } from "../../../src/flow/builder.js";
+import { onStart, toFinish } from "../../../src/flow/builder.js";
 import { Text } from "../../../src/dto/index.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -6,6 +6,7 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { ShortlistDto } from "./dtos.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #272 S39 — two DTOs of the same shape: one type to TypeScript without their brands, so a
@@ -32,7 +33,7 @@ export class VerdictWorkflowStart {}
 @Agent({
   name: "verdict-agent",
   description: "Approves or rejects the shortlist",
-  prompt: "Judge the shortlist.",
+  prompt: inline("Judge the shortlist."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -56,21 +57,15 @@ export class ApprovedWorkflowFinish {}
 export class RejectedWorkflowFinish {}
 
 export const verdictPaths = [
-  start(VerdictWorkflowStart)
-    .returns(ShortlistDto)
+  onStart(VerdictWorkflowStart)
     .toAgent(VerdictAgent)
-    .returns(oneOf(ApprovedVerdictDto, RejectedVerdictDto))
-    .switch(
-      caseOf(ApprovedVerdictDto)
-        .toFinish(ApprovedWorkflowFinish),
-      caseOf(RejectedVerdictDto)
-        .toFinish(RejectedWorkflowFinish),
-    ),
+    .toOneOf([toFinish(ApprovedWorkflowFinish), toFinish(RejectedWorkflowFinish)]),
 ] as const;
 
 @Workflow({
   name: "verdict-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: verdictPaths,
 })
 export class VerdictWorkflow {}

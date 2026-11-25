@@ -4,19 +4,18 @@ import {
   DecidedBy,
   Router,
   StepFailedError,
-  ThisWorkflow,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  oneOf,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { caseOf, route, start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish, toAction, toWorkflow } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { hours } from "../../../src/units/index.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
-import { BookingDto, ConfirmBookingAction } from "./finished-undo.workflow.js";
+import { ConfirmBookingAction } from "./finished-undo.workflow.js";
 import { GatedItemAction } from "./remote-child-yield.workflow.js";
 import {
   HookedExecutionTreeRepository,
@@ -32,7 +31,7 @@ import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environ
 /**
  * #607 — one tree per automatic undo: a failed join's, a root's own (failed, cancelled at its gate,
  * out of budget, its refund's branch held back by the budget — #683), a held-back refund's (#675),
- * a `ParentInstance` child's, an `AnyInstance` child's, and a recursion level's followed by its
+ * a `CurrentProcess` child's, an `AnyWorker` child's, and a recursion level's followed by its
  * root's. Each books a paid item and fails after it.
  */
 
@@ -50,13 +49,11 @@ export class OnceRootWorkflowFinish {}
 @Workflow({
   name: "once-root-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OnceRootWorkflowStart)
-      .returns(ItemDto)
+    onStart(OnceRootWorkflowStart)
       .toAction(PaidBookingAction)
-      .returns(BookingDto)
       .toAction(GatedItemAction)
-      .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)
       .toFinish(OnceRootWorkflowFinish),
   ],
@@ -69,15 +66,14 @@ export class OnceRemoteChildWorkflowStart {}
 export class OnceRemoteChildWorkflowFinish {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "once-remote-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OnceRemoteChildWorkflowStart)
-      .returns(ItemDto)
+    onStart(OnceRemoteChildWorkflowStart)
       .toAction(PaidBookingAction)
-      .returns(BookingDto)
       .toAction(GatedItemAction)
-      .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)
       .toFinish(OnceRemoteChildWorkflowFinish),
   ],
@@ -92,13 +88,11 @@ export class OnceJoinWorkflowFinish {}
 @Workflow({
   name: "once-join-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OnceJoinWorkflowStart)
-      .returns(ItemDto)
-      .toParallelActions(PaidBookingAction, GatedItemAction)
+    onStart(OnceJoinWorkflowStart)
+      .inParallel([toAction(PaidBookingAction), toAction(GatedItemAction)])
       .join()
-      .returns(BookingDto)
-      .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)
       .toFinish(OnceJoinWorkflowFinish),
   ],
@@ -121,14 +115,12 @@ export class OnceJoinSideFailedWorkflowFinish {}
 @Workflow({
   name: "once-join-side-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OnceJoinSideWorkflowStart)
-      .returns(ItemDto)
-      .toParallelActions(PaidBookingAction, GatedItemAction)
+    onStart(OnceJoinSideWorkflowStart)
+      .inParallel([toAction(PaidBookingAction), toAction(GatedItemAction)])
       .join()
-      .onJoinError(StepFailedError, toFinish(OnceJoinSideFailedWorkflowFinish))
-      .returns(BookingDto)
-      .returns(ItemResultDto)
+      .onError(StepFailedError, toFinish(OnceJoinSideFailedWorkflowFinish))
       .toAction(ConfirmBookingAction)
       .toFinish(OnceJoinSideWorkflowFinish),
   ],
@@ -143,11 +135,10 @@ export class OnceLocalWorkflowFinish {}
 @Workflow({
   name: "once-local-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OnceLocalWorkflowStart)
-      .returns(ItemDto)
+    onStart(OnceLocalWorkflowStart)
       .toWorkflow(OnceRootWorkflow)
-      .returns(ItemResultDto)
       .toFinish(OnceLocalWorkflowFinish),
   ],
 })
@@ -161,11 +152,10 @@ export class OnceAnyWorkflowFinish {}
 @Workflow({
   name: "once-any-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OnceAnyWorkflowStart)
-      .returns(ItemDto)
-      .toWorkflow(OnceRemoteChildWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
+    onStart(OnceAnyWorkflowStart)
+      .toWorkflow(OnceRemoteChildWorkflow)
       .toFinish(OnceAnyWorkflowFinish),
   ],
 })
@@ -182,7 +172,7 @@ export class OnceBudgetWorkflowFinish {}
   description: "Sends the checked item on",
   decidedBy: DecidedBy.Code,
   input: { result: ItemResultDto },
-  routes: [{ target: ConfirmBookingAction }],
+  routes: [ConfirmBookingAction],
 })
 export class OnceBudgetRouter {
   route(): unknown {
@@ -194,16 +184,14 @@ export class OnceBudgetRouter {
 @Workflow({
   name: "once-budget-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OnceBudgetWorkflowStart)
-      .returns(ItemDto)
+    onStart(OnceBudgetWorkflowStart)
       .toAction(PaidBookingAction)
-      .returns(BookingDto)
       .toAction(OverspendAction)
-      .returns(ItemResultDto)
       .toRouter(OnceBudgetRouter)
-      .chooseOne(
-        route(ConfirmBookingAction)
+      .onRoute(
+        toAction(ConfirmBookingAction)
           .toFinish(OnceBudgetWorkflowFinish),
       ),
   ],
@@ -222,13 +210,11 @@ export class OnceHeldWorkflowFinish {}
 @Workflow({
   name: "once-held-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OnceHeldWorkflowStart)
-      .returns(ItemDto)
+    onStart(OnceHeldWorkflowStart)
       .toAction(PaidBookingAction)
-      .returns(BookingDto)
       .toAction(OverspendAction)
-      .returns(ItemResultDto)
       .toAction(RefundBookingAction)
       .onError(BudgetExceededError, toFinish(OnceHeldWorkflowFinish))
       .toFinish(OnceHeldWorkflowFinish),
@@ -248,14 +234,12 @@ export class OnceBranchWorkflowFinish {}
 @Workflow({
   name: "once-branch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OnceBranchWorkflowStart)
-      .returns(ItemDto)
+    onStart(OnceBranchWorkflowStart)
       .toAction(PaidBookingAction)
-      .returns(BookingDto)
       .toAction(OverspendAction)
-      .returns(ItemResultDto)
-      .toParallelActions(RefundBookingAction, ConfirmBookingAction)
+      .inParallel([toAction(RefundBookingAction), toAction(ConfirmBookingAction)])
       .join()
       .toFinish(OnceBranchWorkflowFinish),
   ],
@@ -271,23 +255,18 @@ export class OnceLevelWorkflowFinish {}
 @Workflow({
   name: "once-level-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OnceLevelWorkflowStart)
-      .returns(ItemDto)
+    onStart(OnceLevelWorkflowStart)
       .toAction(PaidBookingAction)
-      .returns(BookingDto)
       .toAction(LevelItemAction)
-      .returns(oneOf(ItemDto, ItemResultDto))
-      .switch(
-        caseOf(ItemDto)
-          .toWorkflow(ThisWorkflow)
-          .returns(ItemResultDto)
+      .toOneOf([
+        toWorkflow(() => OnceLevelWorkflow)
           .toFinish(OnceLevelWorkflowFinish),
-        caseOf(ItemResultDto)
-          .toFinish(OnceLevelWorkflowFinish),
-      ),
+        toFinish(OnceLevelWorkflowFinish),
+      ]),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class OnceLevelWorkflow {}
 
@@ -295,7 +274,6 @@ export class OnceLevelWorkflow {}
   name: "undo-once-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [
     OnceRootWorkflow,
     OnceJoinWorkflow,

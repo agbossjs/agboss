@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Every command reads the project's .env (model keys, env() / secret() values) — once, here.
-import "dotenv/config";
+// The project's .env (model keys, env() / secret() values) is read where the application is loaded:
+// from the folder of the package.json that holds it (cli-application.ts), never the working directory.
 import { runCli } from "./run-cli.js";
 import { runWithStar, type StarContext } from "./star.js";
 

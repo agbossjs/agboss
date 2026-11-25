@@ -3,8 +3,8 @@
  * every call, and none of it reaches the user's stream.
  */
 import { describe, expect, it } from "vitest";
-import { createAppWith } from "../../src/application/create-app.js";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../src/run/types.js";
 import { decideWith, replyWith, testWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -59,7 +59,9 @@ describe("#1004: the model reranker is silent", () => {
     const book = new ScriptBook();
     book.scriptOf("reranker:docs-reranker").thenReturn(replyWith(RANKING));
     book.scriptOf("agent:model-context-agent").thenReturn(replyWith("done"));
-    const app = await createAppWith(rerankApplication(), { gateway: createScriptedGateway(book) });
+    const app = await createTestAppWith(rerankApplication(), {
+      gateway: createScriptedGateway(book),
+    });
     const events: ExecutionStreamEvent[] = [];
 
     await execute(
@@ -71,10 +73,9 @@ describe("#1004: the model reranker is silent", () => {
 
     expect(book.scriptOf("reranker:docs-reranker").requests).toHaveLength(1);
     expect(canaries(events)).toBe(1); // the agent's own call
-    expect(events.map((event) => (event.kind === "textDelta" ? event.delta : event.kind))).toEqual([
-      "CANARY",
-      "done",
-    ]);
+    expect(
+      events.map((event) => (event.kind === StreamEventKind.TextDelta ? event.delta : event.kind)),
+    ).toEqual(["CANARY", "done"]);
     await app.close();
   });
 });

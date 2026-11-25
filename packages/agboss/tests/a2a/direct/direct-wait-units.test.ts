@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #860 (mutation shard `a2a-direct`): a resend while its message's attempt is in flight waits for it
  * — the store read every 250 ms on the `Clock` — and gets its reply; it stops at the caller's
@@ -8,7 +9,14 @@ import { describe, expect, it, vi } from "vitest";
 import { directReply } from "../../../src/a2a/server/a2a-direct-reply.js";
 import { requestHashOf } from "../../../src/a2a/server/a2a-message-input.js";
 import { seconds } from "../../../src/units/index.js";
-import { callerOf, messageOf, NINE, refusalOf, settle } from "../server/support/unit-parts.js";
+import {
+  callerOf,
+  messageOf,
+  NINE,
+  refusalOf,
+  settle,
+  UNIT_ENDPOINT,
+} from "../server/support/unit-parts.js";
 import {
   acceptedMessage,
   DIRECT_SKILL,
@@ -21,8 +29,8 @@ import {
 } from "./support/direct-parts.js";
 
 const hello = () => messageOf("m-1", ["hello"]);
-const helloHash = requestHashOf(DIRECT_SKILL.id, hello());
-const REPLY = { finish: "unit-workflow-finish", output: { total: 9 }, spentUsd: 0 };
+const helloHash = requestHashOf(UNIT_ENDPOINT, DIRECT_SKILL.id, hello());
+const REPLY = { finish: "unit-workflow-finish", output: { total: 9 }, spentUsd: usd(0) };
 
 /** The rig with its first run held at a gate. */
 function heldRig(): DirectRig & { readonly release: () => void } {

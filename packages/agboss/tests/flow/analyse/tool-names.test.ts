@@ -1,18 +1,19 @@
 /**
  * #268 AC9: a project's tool is named like every component — kebab-case ending with `-tool`
- * (`[name.kind-suffix]`), `@McpTool` too; every name a model sees fits the providers' limit,
+ * (no suffix, #1343a),; every name a model sees fits the providers' limit,
  * `[a-zA-Z0-9_-]` up to 64 characters (`[tool.name-too-long]`, `[tool.name-invalid]`); a knowledge
  * base's tool is `search-<rag name>-tool`. All found at assembly, at once, before any model call.
  */
+import { RagScope } from "../../../src/rag/types.js";
+import { RagSource } from "../../../src/rag/rag-source.js";
 import { describe, expect, it } from "vitest";
 import { Rag } from "../../../src/components/decorators.js";
-import { Agent, RagMode, Tool, type ToolHandler } from "../../../src/index.js";
+import { Agent, Tool } from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import type { RagRetrieval } from "../../../src/rag/types.js";
 import { workflowOf } from "../../../src/testing/workflow-of.js";
 import { workflowWith } from "../../components/fixture/deps-contract.workflow.js";
-import { RagTenancy } from "../../../src/rag/types.js";
 
 class Topic {
   @Text({ prompt: "the topic" })
@@ -20,8 +21,8 @@ class Topic {
 }
 
 @Tool({ name: "order_status", description: "The status", input: Topic, output: Topic })
-class OrderStatus implements ToolHandler<Topic, Topic> {
-  run(input: Topic): Promise<Topic> {
+class OrderStatus {
+  execute(input: Topic): Promise<Topic> {
     return Promise.resolve(input);
   }
 }
@@ -30,23 +31,9 @@ class OrderStatus implements ToolHandler<Topic, Topic> {
 const LONG = `${"a".repeat(55)}-long-tool`;
 
 @Tool({ name: LONG, description: "Too long", input: Topic, output: Topic })
-class LongTool implements ToolHandler<Topic, Topic> {
-  run(input: Topic): Promise<Topic> {
+class LongTool {
+  execute(input: Topic): Promise<Topic> {
     return Promise.resolve(input);
-  }
-}
-
-@Rag({ name: "jobs-rag", description: "Jobs", tenancy: RagTenancy.PerTenant, topK: 1 })
-class JobsRag {
-  retrieve(): Promise<RagRetrieval> {
-    return Promise.resolve({ results: [] });
-  }
-}
-
-@Rag({ name: "notes.v2", description: "Notes", tenancy: RagTenancy.PerTenant, topK: 1 })
-class DottedRag {
-  retrieve(): Promise<RagRetrieval> {
-    return Promise.resolve({ results: [] });
   }
 }
 
@@ -70,34 +57,16 @@ const violationsOf = async (
 };
 
 describe("#268 AC9: tool names", () => {
-  it("a tool not in kebab-case ending with -tool, and a name a model refuses — all at once", async () => {
+  it("a tool needs no -tool suffix; a name a model refuses is reported", async () => {
     const reader = agentWith({
       tools: [OrderStatus, LongTool],
-      rag: [{ use: DottedRag, mode: RagMode.Tool }],
     });
 
     expect(await violationsOf(workflowWith("names-workflow", {}, reader))).toEqual([
       {
-        code: "name.kind-suffix",
-        message: 'OrderStatus: "order_status" on @Tool — name it "order-status-tool"',
-      },
-      {
         code: "tool.name-too-long",
         message: `LongTool: the tool name ${LONG} has 65 characters (at most 64) — give it a shorter name`,
       },
-      {
-        code: "tool.name-invalid",
-        message:
-          'DottedRag: the tool name "search-notes.v2-tool" has characters a model API refuses — letters, digits, "_" and "-" only',
-      },
     ]);
-  });
-
-  it("a knowledge base's tool is search-<rag name>-tool", async () => {
-    const reader = agentWith({ rag: [{ use: JobsRag, mode: RagMode.Tool }] });
-
-    const bundle = await workflowOf(workflowWith("jobs-workflow", {}, reader));
-
-    expect(bundle.config.agents["reader-agent"]?.tools).toEqual(["search-jobs-rag-tool"]);
   });
 });

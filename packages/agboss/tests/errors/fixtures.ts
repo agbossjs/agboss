@@ -1,9 +1,9 @@
+import { Window4Memory } from "../helpers/window-memory.js";
 import {
   Agent,
   Workflow,
   TokenLimit,
   Tool,
-  type ToolHandler,
   WorkflowFinish,
   WorkflowStart,
   Budget,
@@ -11,14 +11,17 @@ import {
   type BudgetHandler,
   BudgetExceededError,
   LimitExceededError,
+  inline,
+  Ttl,
 } from "../../src/index.js";
-import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { usd, type Usd } from "../../src/units/index.js";
-import { start, toFinish } from "../helpers/flow.js";
+import { onStart, toFinish } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 export class Payment {
   @Text() item!: string;
@@ -40,24 +43,24 @@ export class PurchaseDto {
   description: "Pays for an item",
   input: Payment,
   output: Receipt,
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
 })
-export class Pay implements ToolHandler<Payment, Receipt> {
-  run({ item }: Payment): Promise<Receipt> {
+export class Pay {
+  execute({ item }: Payment): Promise<Receipt> {
     return Promise.resolve({ id: `receipt-${item}` });
   }
 }
 
 const price = { inputPerMTok: 1, outputPerMTok: 10 };
 const defaults = {
-  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
+  models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 4 },
 } as const;
 
 @Agent({
   name: "buyer-agent",
-  prompt: "Buy what is asked.",
+  prompt: inline("Buy what is asked."),
   description: "Buys things",
   model: "test/buyer",
   price,
@@ -69,7 +72,7 @@ export class Buyer {}
 
 @Agent({
   name: "checker-agent",
-  prompt: "Check the purchase.",
+  prompt: inline("Check the purchase."),
   description: "Checks purchases",
   model: "test/checker",
   price,
@@ -111,22 +114,22 @@ const SHOP_BUDGETS = [TestApplicationDailyBudget, TestTenantDailyBudget, ShopExe
 @Workflow({
   name: "shop-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(Order)
-      .returns(WorkflowStartTextDto)
+    onStart(Order)
       .toAgent(Buyer)
-      .returns(PurchaseDto)
       .toAgent(Checker)
       .onError(BudgetExceededError, toFinish(OverBudget))
       .toFinish(Done),
   ],
   defaults,
-  uncompactedTurns: 4,
+  memory: Window4Memory,
 })
 export class Shop {}
 
 @Application({
   name: "shop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Shop],
@@ -138,22 +141,22 @@ export class ShopApplication {}
 @Workflow({
   name: "shop-limits-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(Order)
-      .returns(WorkflowStartTextDto)
+    onStart(Order)
       .toAgent(Buyer)
-      .returns(PurchaseDto)
       .toAgent(Checker)
       .onError(LimitExceededError, toFinish(OverBudget))
       .toFinish(Done),
   ],
   defaults,
-  uncompactedTurns: 4,
+  memory: Window4Memory,
 })
 export class ShopCatchingLimits {}
 
 @Application({
   name: "shop-limits-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ShopCatchingLimits],
@@ -165,21 +168,21 @@ export class ShopCatchingLimitsApplication {}
 @Workflow({
   name: "shop-uncaught-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(Order)
-      .returns(WorkflowStartTextDto)
+    onStart(Order)
       .toAgent(Buyer)
-      .returns(PurchaseDto)
       .toAgent(Checker)
       .toFinish(Done),
   ],
   defaults,
-  uncompactedTurns: 4,
+  memory: Window4Memory,
 })
 export class ShopUncaught {}
 
 @Application({
   name: "shop-uncaught-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ShopUncaught],

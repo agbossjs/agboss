@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #824 (mutation shard `a2a-server`): a task's stream on its own — the task first, each status
  * change (a completed one's output artifact before it, its parts by the task's own skill), the
@@ -22,7 +23,12 @@ import {
 } from "../../../src/infrastructure/a2a-task.repository.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
-import type { ExecutionStreamEvent, StreamStep } from "../../../src/run/types.js";
+import {
+  StreamDiscardReason,
+  StreamEventKind,
+  type ExecutionStreamEvent,
+  type StreamStep,
+} from "../../../src/run/types.js";
 
 /** The step every streamed delta of these units belongs to. */
 const STEP: StreamStep = { agent: "desk-agent", visit: 1, branch: "execution-1", attempt: 1 };
@@ -43,14 +49,28 @@ const SKILLS: readonly ServedSkill[] = [
     ...TEXT_SKILL,
     id: "json-out",
     outputs: [
-      { finish: FINISH, mediaType: A2AMediaType.Json, schema: null, fileFields: [], hasData: true },
+      {
+        finish: FINISH,
+        mediaType: A2AMediaType.Json,
+        schema: null,
+        fileFields: [],
+        hasData: true,
+        classes: [],
+      },
     ],
   },
   {
     ...TEXT_SKILL,
     id: "text-out",
     outputs: [
-      { finish: FINISH, mediaType: A2AMediaType.Text, schema: null, fileFields: [], hasData: true },
+      {
+        finish: FINISH,
+        mediaType: A2AMediaType.Text,
+        schema: null,
+        fileFields: [],
+        hasData: true,
+        classes: [],
+      },
     ],
   },
 ];
@@ -213,11 +233,11 @@ describe("#824: a task's stream", () => {
     });
     await nextOf(stream);
 
-    emit({ kind: "textDelta", delta: "he", step: STEP });
-    emit({ kind: "toolCall", tool: "lookup-tool" });
+    emit({ kind: StreamEventKind.TextDelta, delta: "he", step: STEP });
+    emit({ kind: StreamEventKind.ToolCall, tool: "lookup-tool", step: STEP });
     const first = await nextOf(stream);
     const tool = await nextOf(stream);
-    emit({ kind: "textDelta", delta: "llo", step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "llo", step: STEP });
     const away = await nextOf(stream);
     const after = await nextOf(stream);
 
@@ -249,7 +269,7 @@ describe("#824: a task's stream", () => {
       status: DurableExecutionStatus.Finished,
       finish: FINISH,
       output: { text: "done" },
-      spentUsd: 0,
+      spentUsd: usd(0),
     };
     finish();
     expect(await nextOf(stream)).toMatchObject({ payload: { $case: "artifactUpdate" } });
@@ -274,7 +294,7 @@ describe("#824: a task's stream", () => {
     });
     await nextOf(stream);
 
-    emit({ kind: "toolCall", tool: "lookup-tool" });
+    emit({ kind: StreamEventKind.ToolCall, tool: "lookup-tool", step: STEP });
     const shown = await nextOf(stream);
 
     const status = wireStatusOf(task);
@@ -307,11 +327,19 @@ describe("#824: a task's stream", () => {
     await nextOf(stream);
     const other = { ...STEP, branch: "another-execution" };
 
-    emit({ kind: "textDelta", delta: "he", step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "he", step: STEP });
     expect(await nextOf(stream)).toStrictEqual(delta(task, "he", false));
-    emit({ kind: "discarded", step: other, reason: "judge-rejected" });
+    emit({
+      kind: StreamEventKind.Discarded,
+      step: other,
+      reason: StreamDiscardReason.JudgeRejected,
+    });
     expect(await nextOf(stream)).toBe("stuck");
-    emit({ kind: "discarded", step: STEP, reason: "judge-rejected" });
+    emit({
+      kind: StreamEventKind.Discarded,
+      step: STEP,
+      reason: StreamDiscardReason.JudgeRejected,
+    });
 
     expect(await nextOf(stream)).toStrictEqual(delta(task, "", false));
   });
@@ -333,7 +361,7 @@ describe("#824: a task's stream", () => {
     await written(tasks, task, { ...WORKING, message: "resumed" });
     expect(await nextOf(stream)).toMatchObject({ payload: { $case: "statusUpdate" } });
     expect(await nextOf(stream)).toBe("stuck");
-    emit({ kind: "textDelta", delta: "hi", step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "hi", step: STEP });
 
     expect(await nextOf(stream)).toStrictEqual(delta(task, "hi", false));
   });
@@ -414,16 +442,16 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
     });
     const events: (StreamResponse | string)[] = [await nextOf(stream)];
 
-    emit({ kind: "textDelta", delta: "do", step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "do", step: STEP });
     events.push(await nextOf(stream));
-    emit({ kind: "textDelta", delta: "ne", step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "ne", step: STEP });
     events.push(await nextOf(stream));
     const chunked = await appliedArtifacts(events);
     script.state = {
       status: DurableExecutionStatus.Finished,
       finish: FINISH,
       output: { text: "done" },
-      spentUsd: 0,
+      spentUsd: usd(0),
     };
     finish();
     events.push(...(await restOf(stream)));
@@ -462,9 +490,9 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
     });
     await nextOf(stream);
 
-    emit({ kind: "toolCall", tool: "lookup-tool" });
+    emit({ kind: StreamEventKind.ToolCall, tool: "lookup-tool", step: STEP });
     await nextOf(stream);
-    emit({ kind: "textDelta", delta: "hi", step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "hi", step: STEP });
 
     expect(await nextOf(stream)).toStrictEqual(delta(task, "hi", false));
   });
@@ -479,12 +507,12 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
     const signal = new AbortController().signal;
     const first = taskStream(parts, task, { end: StreamEnd.Terminal, signal });
     await nextOf(first);
-    emit({ kind: "textDelta", delta: "a", step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "a", step: STEP });
     await nextOf(first);
     const second = taskStream(parts, task, { end: StreamEnd.Terminal, signal });
     await nextOf(second);
 
-    emit({ kind: "textDelta", delta: "b", step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "b", step: STEP });
 
     expect(await nextOf(first)).toStrictEqual(delta(task, "b", true));
     expect(await nextOf(second)).toStrictEqual(delta(task, "b", false));
@@ -503,7 +531,7 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
       signal: new AbortController().signal,
     });
     const events = [await nextOf(stream)];
-    emit({ kind: "textDelta", delta: "Which order?", step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "Which order?", step: STEP });
     events.push(await nextOf(stream));
     await written(tasks, task, INPUT_REQUIRED);
     finish();
@@ -518,7 +546,7 @@ describe("#833: the streamed text is the chunks of the task's one artifact, its 
     });
     await written(tasks, paused, WORKING);
     events.push(...(await restOf(stream)));
-    emit({ kind: "textDelta", delta: "Order 7 shipped.", step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "Order 7 shipped.", step: STEP });
     const resumed = await nextOf(stream);
 
     expect(events[1]).toStrictEqual(delta(task, "Which order?", false));

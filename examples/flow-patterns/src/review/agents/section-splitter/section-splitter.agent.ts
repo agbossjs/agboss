@@ -6,7 +6,7 @@ import { SectionDto } from "../../dto/section.dto.js";
 @Agent({
   name: "section-splitter-agent",
   description: "Splits the manuscript into sections",
-  promptUrls: ["./section-splitter.prompt.md"],
+  prompt: "./section-splitter.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     manuscript: WorkflowStartTextDto,

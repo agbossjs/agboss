@@ -1,4 +1,4 @@
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { CandidateDto } from "../../../panel/dto/candidate.dto.js";
 import { FastScreenDto } from "../../dto/intake.dto.js";
 
@@ -6,7 +6,7 @@ import { FastScreenDto } from "../../dto/intake.dto.js";
 @Agent({
   name: "fast-screen-agent",
   description: "Screens the candidate in one line",
-  prompt: "Say in one line whether the candidate fits the role.",
+  prompt: inline("Say in one line whether the candidate fits the role."),
   model: "moonshotai/kimi-k2.6",
   input: { candidate: CandidateDto },
   output: FastScreenDto,

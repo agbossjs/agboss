@@ -1,15 +1,12 @@
+import { Window1Memory } from "../../../helpers/window-memory.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach } from "vitest";
-import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
-import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
   ApplicationContext,
   Clock,
   Injectable,
-  SqliteCheckpointSaver,
-  SqliteConnection,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -18,17 +15,19 @@ import {
   SqliteRateLimitRepository,
   Workflow,
   type ExecutionLease,
+  Ttl,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { seconds, type Milliseconds } from "../../../../src/units/index.js";
 import { UnwindLog, UnwindWorkflow } from "../../../flow/runtime/fixtures/unwind.workflow.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import {
   Clerk,
   levers,
   OrderWorkflowStart,
-  ReceiptDto,
   ReceiptWorkflowFinish,
   RecoveryLog,
   RecoveryWorkflow,
@@ -36,6 +35,7 @@ import {
 } from "../../fixtures/recovery.workflow.js";
 import { SqliteTestEnvironment } from "./environments/app.environment.js";
 import { storeClockOf } from "../../../helpers/store-clock.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #265 PR 3 — the recovery fixture's workflow in applications that list every SQLite
@@ -118,6 +118,7 @@ const SQLITE_STORES = [
 
 @Application({
   name: "sqlite-recovery-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: SqliteTestEnvironment,
   workflows: [RecoveryWorkflow],
@@ -131,16 +132,15 @@ export class SqliteRecoveryApplication {}
 @Workflow({
   name: "note-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 8 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [
-    start(OrderWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(OrderWorkflowStart)
       .toAgent(Clerk)
-      .returns(ReceiptDto)
       .toFinish(ReceiptWorkflowFinish),
   ],
 })
@@ -148,6 +148,7 @@ export class NoteWorkflow {}
 
 @Application({
   name: "sqlite-note-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: SqliteTestEnvironment,
   workflows: [NoteWorkflow],
@@ -166,6 +167,6 @@ export class SqliteNoteApplication {}
   observers: [UnwindLog],
   providers: [MortalSqliteExecutionLeaseRepository, ...SQLITE_STORES],
   budgets: TEST_BUDGETS,
-  compensationTimeout: seconds(60),
+  executionLimits: { compensationTimeout: seconds(60) },
 })
 export class SqliteUnwindApplication {}

@@ -1,18 +1,18 @@
+import { Window2Memory } from "../../helpers/window-memory.js";
 import { type BuildApplicationOptions } from "../../../src/application/create-app.js";
 import {
   Agent,
   provide,
-  RagMode,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type WorkflowOptions,
+  Ttl,
 } from "../../../src/index.js";
 import type { Class } from "../../../src/components/injection.js";
-import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Reasoning } from "../../../src/models/index.js";
-import { start } from "../../helpers/flow.js";
-import { createSqliteTurnStore } from "../../../src/turns/index.js";
+import { onStart } from "../../helpers/flow.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
 import {
@@ -30,6 +30,7 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** Scripted models and in-memory stores: nothing external. */
 export const offline = (book = new ScriptBook()): BuildApplicationOptions => ({
@@ -67,7 +68,7 @@ const price = { inputPerMTok: 1, outputPerMTok: 10 };
   tools: [RevealTool],
   guardrails: [AuditGuardrail],
   judges: [StrictJudge],
-  rag: [{ use: VaultDocs, mode: RagMode.Context }],
+  rag: [VaultDocs],
   input: { message: WorkflowStartTextDto },
   output: KeptDto,
 })
@@ -83,7 +84,7 @@ const base = {
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 2 },
   },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 } satisfies Partial<WorkflowOptions>;
 
 /** A workflow `Chat → text agent → Done` with extra settings, for the assembly checks. */
@@ -94,9 +95,10 @@ export function workflowWith(
 ): Class {
   @Workflow({
     name,
+    modelProvider: TestModelProvider,
+    historyTtl: Ttl.Forever,
     flow: [
-      start(Chat)
-        .returns(WorkflowStartTextDto)
+      onStart(Chat)
         .toAgent(agent)
         .toFinish(Done),
     ],
@@ -112,6 +114,7 @@ export function applicationWith(
   name: string,
   extra: Partial<WorkflowOptions>,
   agent: Class = Plain,
+  channels: readonly Class[] = [],
 ): Class {
   const workflow = workflowWith(name, extra, agent);
   @Application({
@@ -119,6 +122,7 @@ export function applicationWith(
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [workflow],
+    channels,
     budgets: TEST_BUDGETS,
   })
   class BuiltApplication {}
@@ -128,11 +132,10 @@ export function applicationWith(
 /** Every kind that takes `deps`, all wired: tool, guardrail, judge, RAG, action, PII, channel, A2A. */
 @Workflow({
   name: "vault-workflow",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(Chat)
-      .returns(WorkflowStartTextDto)
+    onStart(Chat)
       .toAgent(Keeper)
-      .returns(KeptDto)
       .toAction(StampAction)
       .toFinish(Kept),
   ],
@@ -144,6 +147,7 @@ export class VaultWorkflow {}
 
 @Application({
   name: "vault-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [VaultWorkflow],

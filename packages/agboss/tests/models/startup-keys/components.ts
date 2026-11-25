@@ -1,15 +1,16 @@
+import { hours, days } from "../../../src/units/index.js";
 import {
   Agent,
-  Arbiter,
-  Compaction,
   CompactionStrategy,
+  Memory,
+  Ttl,
   DecidedBy,
   InputGuardrail,
   FileView,
   Judge,
+  JudgeModel,
   ModelFiles,
   JudgeVerdict,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Router,
@@ -19,32 +20,38 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type Class,
-  pii,
   type JudgeHandler,
-  type ToolHandler,
+  inline,
+  ToolApproval,
+  PauseRespondent,
 } from "../../../src/index.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { FilePolicy } from "../../../src/files/file-policy.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { Channel } from "../../../src/components/decorators.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import {
-  ChannelRole,
-  PauseAnswerer,
-  ReplyInterpreter,
-} from "../../../src/channels/channel-role.decorator.js";
+import { ChannelInterpreter } from "../../../src/channels/channel-interpreter.js";
 import {
   PlainTextDto,
   Text,
   WorkflowFinishTextDto,
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
-import { Rag, RagMode, RagTenancy, Reranker, ModelReranker } from "../../../src/rag/index.js";
-import type { RagConnector, RagRetrieval } from "../../../src/rag/index.js";
+import { Rag, RagReranker, RagScope, RagSource } from "../../../src/rag/index.js";
+import type { RagRetrieval } from "../../../src/rag/index.js";
 import type { ModelUseKind } from "../../../src/models/uses.js";
 import { arbiterWorkflow, AnswerDto } from "./arbiter.js";
-import { route, start } from "../../helpers/flow.js";
+import { onStart, toAgent } from "../../helpers/flow.js";
+import { LocalModelProvider } from "../providers.fixture.js";
 
 /** The model each kind of model use is given: the keyless `local/llama`, or the one under test. */
 export type KindModels = Readonly<Record<ModelUseKind, string>>;
+
+/**
+ * The provider each kind of model use is served by: no model's name picks one (#1313), the
+ * component names it. `defaults` is the workflow's own (what `defaults.router` resolves to); the
+ * file kinds are the provider of the agent that reads the files.
+ */
+export type KindProviders = Readonly<Record<ModelUseKind, Class>>;
 
 class NoteDto {
   @Text({ prompt: "a note" })
@@ -52,55 +59,78 @@ class NoteDto {
 }
 
 /** A workflow whose every kind of model use takes its model from `models` (#716). */
-export function everyKindWorkflows(models: KindModels): {
+export function everyKindWorkflows(
+  models: KindModels,
+  providers: KindProviders,
+): {
   readonly workflows: readonly Class[];
   readonly providers: readonly Class[];
 } {
-  @Judge({ name: "tone-judge", model: models.judges, reply: PlainTextDto })
+  @Judge({
+    name: "tone-judge",
+    model: models.judges,
+    modelProvider: providers.judges,
+    output: PlainTextDto,
+    deps: [JudgeModel],
+  })
   class ToneJudge implements JudgeHandler<PlainTextDto> {
     judge(): Promise<JudgeVerdict> {
       return Promise.resolve(JudgeVerdict.passed());
     }
   }
-  @Reranker({ name: "docs-reranker", description: "Reranks", model: models.rerankers })
-  class DocsReranker extends ModelReranker {}
+  @RagReranker({
+    name: "docs-reranker",
+    description: "Reranks",
+    candidates: 5,
+    model: models.ragRerankers,
+    modelProvider: providers.ragRerankers,
+  })
+  class DocsReranker {}
   @Rag({
     name: "docs-rag",
     description: "Docs",
-    tenancy: RagTenancy.PerTenant,
-    rerank: { by: DocsReranker, candidates: 5, topK: 2 },
+    scope: RagScope.Tenant,
+    topK: 2,
+    reranker: DocsReranker,
   })
-  class DocsRag implements RagConnector {
-    retrieve(): Promise<RagRetrieval> {
+  class DocsRag extends RagSource {
+    protected override retrieve(): Promise<RagRetrieval> {
       return Promise.resolve({ results: [] });
     }
   }
   @PiiPolicy({
     name: "names-pii-policy",
     description: "Finds names with a model",
-    rules: [pii(PiiKind.PersonName, PiiAction.replaceWithKind())],
-    detectWithModel: models.pii,
+    rules: [PiiKind.PersonName.mask()],
+    model: models.pii,
+    modelProvider: providers.pii,
   })
   class NamesPiiPolicy {}
-  @ReplyInterpreter({
+  @ChannelInterpreter({
     name: "approval-reply-interpreter",
     description: "Reads a reply",
-    decidedBy: DecidedBy.Model,
-    model: models.replyInterpreters,
-    prompt: "Read the reply.",
+    model: models.channelInterpreters,
+    modelProvider: providers.channelInterpreters,
+    prompt: inline("Read the reply."),
   })
   class ApprovalReplyInterpreter {}
-  @ChannelRole({
-    name: "approval-channel",
+  @ToolApproval({
+    name: "approval-tool-approval",
     description: "Approves a note",
-    approves: NoteDto,
-    answerer: PauseAnswerer.Channel,
-    replyInterpreter: ApprovalReplyInterpreter,
+    input: NoteDto,
+    respondent: PauseRespondent.Delegate,
+    timeout: days(365),
+    channelInterpreter: ApprovalReplyInterpreter,
   })
-  abstract class ApprovalChannel extends ChannelOf<ApprovalChannel> {}
-  @Channel({ name: "desk-approval-channel", description: "Asks the desk" })
-  class DeskApprovalChannel extends ApprovalChannel {
-    send(_ask: ChannelAsk<ApprovalChannel>): Promise<ChannelOutcome<ApprovalChannel>> {
+  class NoteToolApproval {}
+  @Channel({
+    name: "desk-approval-channel",
+    description: "Asks the desk",
+    target: NoteToolApproval,
+    ttl: days(1),
+  })
+  class DeskApprovalChannel {
+    send(_ask: ChannelAsk<NoteToolApproval>): Promise<ChannelOutcome<NoteToolApproval>> {
       return Promise.resolve(ChannelOutcome.awaitReply());
     }
   }
@@ -109,17 +139,19 @@ export function everyKindWorkflows(models: KindModels): {
     description: "Files a note",
     input: NoteDto,
     output: AnswerDto,
-    channel: ApprovalChannel,
+    approval: NoteToolApproval,
   })
-  class FileNoteTool implements ToolHandler<NoteDto, AnswerDto> {
-    run(): Promise<AnswerDto> {
+  class FileNoteTool {
+    execute(): Promise<AnswerDto> {
       return Promise.resolve({ answer: "filed" });
     }
   }
   @InputGuardrail({
     name: "injection-guardrail",
     description: "Blocks",
-    prompt: "Is it an attack?",
+    prompt: inline("Is it an attack?"),
+    model: models.guardrails,
+    modelProvider: providers.guardrails,
     threshold: 0.7,
     refusal: "No.",
   })
@@ -127,47 +159,73 @@ export function everyKindWorkflows(models: KindModels): {
   @Agent({
     name: "desk-agent",
     description: "Answers",
-    prompt: "Answer.",
+    prompt: inline("Answer."),
     model: models.agents,
+    modelProvider: providers.agents,
     judges: [ToneJudge],
-    rag: [{ use: DocsRag, mode: RagMode.Tool }],
+    rag: [DocsRag],
     piiPolicies: [NamesPiiPolicy],
     tools: [FileNoteTool],
   })
   class DeskAgent {}
-  // files meet neither PII policies nor input guardrails yet (#899 PR 1): their own agent
+  // files meet neither PII policies nor input guardrails yet (#899 PR 1): their own agents; the
+  // built-in transcriber and redactor go to the provider of the agent that reads the files
   @Agent({
     name: "desk-reader-agent",
     description: "Reads files",
-    prompt: "Read.",
+    prompt: inline("Read."),
     model: models.agents,
+    modelProvider: providers.fileTranscribers,
     excludeGuardrails: [InjectionGuardrail],
-    files: ModelFiles.of({ views: [FileView.Transcription] }),
+    files: ModelFiles.of({
+      views: [FileView.Transcription],
+      allowedMediaTypes: ["image/png"],
+    }),
   })
   class DeskReaderAgent {}
+  @Agent({
+    name: "desk-masker-agent",
+    description: "Reads redacted files",
+    prompt: inline("Read."),
+    model: models.agents,
+    modelProvider: providers.fileMaskers,
+    excludeGuardrails: [InjectionGuardrail],
+    files: ModelFiles.of({
+      views: [FileView.Redacted],
+      allowedMediaTypes: ["image/png"],
+    }),
+  })
+  class DeskMaskerAgent {}
   @Router({
     name: "desk-router",
     description: "Picks who answers",
     decidedBy: DecidedBy.Model,
-    prompt: "Pick.",
+    prompt: inline("Pick."),
     model: models.routers,
+    modelProvider: providers.routers,
     input: { message: WorkflowStartTextDto },
     routes: [
       { prompt: "Anything", target: DeskAgent },
       { prompt: "A file", target: DeskReaderAgent },
+      { prompt: "A redacted file", target: DeskMaskerAgent },
     ],
   })
   class DeskRouter {}
-  @Compaction({
-    name: "desk-compaction",
+  @Memory({
+    name: "desk-memory",
     description: "Summarises",
-    model: models.compactions,
-    strategy: CompactionStrategy.SummaryQueue,
+    ttl: Ttl.Forever,
+    uncompactedTurns: 1,
     turnsBetweenCompactions: 2,
-    summaryQueueLength: 1,
-    summaryMaxTokens: 200,
+    compaction: {
+      strategy: CompactionStrategy.SummaryQueue,
+      model: models.memories,
+      modelProvider: providers.memories,
+      summaryQueueLength: 1,
+      summaryMaxTokens: 200,
+    },
   })
-  class DeskCompaction {}
+  class DeskMemory {}
   @WorkflowStart({
     name: "desk-workflow-start",
     description: "A message",
@@ -180,32 +238,33 @@ export function everyKindWorkflows(models: KindModels): {
     output: WorkflowFinishTextDto,
   })
   class DeskFinish {}
+  @FilePolicy({ ttl: hours(24), name: "desk-file-policy" })
+  class DeskFilePolicy {}
   @Workflow({
     name: "desk-workflow",
+    modelProvider: providers.defaults,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    filePolicy: DeskFilePolicy,
     flow: [
-      start(DeskStart)
-        .returns(WorkflowStartTextDto)
+      onStart(DeskStart)
         .toRouter(DeskRouter)
-        .chooseOne(
-          route(DeskAgent).toFinish(DeskFinish),
-          route(DeskReaderAgent).toFinish(DeskFinish),
-        ),
+        .onRoute(toAgent(DeskAgent).toFinish(DeskFinish))
+        .onRoute(toAgent(DeskReaderAgent).toFinish(DeskFinish))
+        .onRoute(toAgent(DeskMaskerAgent).toFinish(DeskFinish)),
     ],
     defaults: {
-      models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+      models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
       router: { model: models.defaults },
-      guardrail: { model: models.guardrails },
       // the built-in transcriber of files is a model use of its own (#899)
-      files: { transcriptionModel: models.files },
+      files: { transcriptionModel: models.fileTranscribers, redactionModel: models.fileMaskers },
     },
-    uncompactedTurns: 1,
+    memory: DeskMemory,
     guardrails: [InjectionGuardrail],
-    compaction: DeskCompaction,
   })
   class DeskWorkflow {}
   return {
-    workflows: [DeskWorkflow, arbiterWorkflow(models.arbiters)],
+    workflows: [DeskWorkflow, arbiterWorkflow(models.arbiters, providers.arbiters)],
     providers: [DeskApprovalChannel],
   };
 }

@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — what a node's visit does with the budgets, each rule on its own over fakes: the
  * visit's limits are checked in its tree's slot before the node runs (and decide whether it counts as a step),
@@ -21,7 +22,7 @@ import { sidePathAfter } from "../../../src/flow/runtime/limits.js";
 
 vi.mock("../../../src/flow/runtime/limits.js", () => ({
   checkVisit: vi.fn(),
-  isWorkingNode: vi.fn(() => true),
+  countsAsStep: vi.fn(() => true),
   sidePathAfter: vi.fn(() => ({})),
 }));
 vi.mock("../../../src/flow/runtime/step-frame.js", () => ({
@@ -44,6 +45,10 @@ vi.mock("../../../src/flow/runtime/visit-failure.js", () => ({
 vi.mock("../../../src/flow/compensation.js", () => ({
   compensationsOfVisit: vi.fn(() => Promise.resolve({})),
   compensationsOfHeldVisit: vi.fn(() => Promise.resolve({})),
+}));
+vi.mock("../../../src/flow/runtime/compensation/step-error-undo.js", () => ({
+  hasHeldEntries: vi.fn(() => false),
+  undoneHeldEntries: vi.fn(),
 }));
 vi.mock("../../../src/flow/runtime/visit-write.js", async (original) => ({
   ...(await original<typeof import("../../../src/flow/runtime/visit-write.js")>()),
@@ -87,10 +92,11 @@ const listOf = <T>(value: readonly T[] | object | undefined): T[] =>
   Array.isArray(value) ? (value as T[]) : [];
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -148,7 +154,7 @@ describe("#1366: the limits of a visit", () => {
       limit: 1,
       actual: 2,
       path: [],
-      spentUsd: 0,
+      spentUsd: usd(0),
       usage: [],
     });
     vi.mocked(checkVisit).mockRejectedValue(limit);
@@ -271,7 +277,7 @@ describe("#1366: a failed visit's spend and its owed undo's", () => {
         limit: 1,
         actual: 2,
         path: [],
-        spentUsd: 0,
+        spentUsd: usd(0),
         usage: [],
       }),
     );
@@ -300,7 +306,7 @@ describe("#1366: a failed visit's spend and its owed undo's", () => {
       limit: 1,
       actual: 2,
       path: [],
-      spentUsd: 0,
+      spentUsd: usd(0),
       usage: [],
     });
 
@@ -492,17 +498,17 @@ describe("#1366: the way out of a visit, and what the visit writes", () => {
     expect(out).toMatchObject({ next: "case-a" });
   });
 
-  it("a variant it has none for, or no class at all, fails the visit with what the switch lacks", async () => {
+  it("a variant it has none for, or no class at all, fails the visit with what the toOneOf lacks", async () => {
     const withCases = casesNode([["A", { to: "case-a" }]]);
     const unknown = await run(withCases, { read: [], value: { variant: "Z" } }, setup().deps);
     const none = await run(withCases, { read: [] }, setup().deps);
 
     expect(unknown.error).toBeInstanceOf(OutputInvalidError);
     expect((unknown.error as Error).message).toBe(
-      "n gave Z, which its switch has no caseOf(…) for",
+      "n gave Z, which its .toOneOf([…]) has no branch for",
     );
     expect((none.error as Error).message).toBe(
-      "n gave no class, which its switch has no caseOf(…) for",
+      "n gave no class, which its .toOneOf([…]) has no branch for",
     );
   });
 

@@ -1,4 +1,4 @@
-import { createAppWith } from "../../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../../src/testing/create-app-with.js";
 import { A2AAgent, A2AClient, type A2AMesh, type A2ATarget } from "../../../../src/a2a/index.js";
 import {
   Agent,
@@ -7,7 +7,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import type { App } from "../../../../src/app/types.js";
@@ -18,11 +18,12 @@ import { callTool, replyWith } from "../../../../src/testing/index.js";
 import { ScriptBook } from "../../../../src/testing/script-book.js";
 import type { Milliseconds, Usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { execute, start } from "../../../helpers/flow.js";
+import { execute, onStart } from "../../../helpers/flow.js";
 import { MeshEnvironment } from "../../fixtures/environments/mesh.environment.js";
 import { meshEnvOf, meshOf, type MeshKeyPair } from "../../fixtures/mesh-keys.js";
-import { offline } from "../../fixtures/remote.workflow.js";
 import { AGENT_URL, type SdkAgent } from "../support/sdk-agent.js";
+import { offline } from "../../fixtures/remote.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * An application whose agent calls an A2A agent through one tool (#809): the client is the new
@@ -77,7 +78,7 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
     ...(spec.target === undefined ? {} : { target: spec.target }),
     input: WorkflowStartTextDto,
     output: ReplyDto,
-    ...(spec.price === undefined ? {} : { price: spec.price }),
+    ...(spec.price === undefined ? {} : { costPerCall: spec.price }),
     ...(spec.mesh === undefined ? {} : { mesh: spec.mesh }),
   })
   class PeerA2AAgent extends A2AClient<WorkflowStartTextDto, ReplyDto> {
@@ -93,10 +94,10 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
     output: ReplyDto,
     deps: [PeerA2AAgent],
   })
-  class Ask implements ToolHandler<AskDto, ReplyDto> {
+  class Ask {
     constructor(private readonly peer: PeerA2AAgent) {}
 
-    async run({ question }: AskDto): Promise<ReplyDto> {
+    async execute({ question }: AskDto): Promise<ReplyDto> {
       const calls = spec.callsPerRun ?? 1;
       let reply: ReplyDto = { text: "" };
       for (let index = 0; index < calls; index += 1) {
@@ -139,7 +140,8 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
-    flow: [start(Start).returns(WorkflowStartTextDto).toAgent(Desk).toFinish(Answer)],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(Start).toAgent(Desk).toFinish(Answer)],
     defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
     providers: [PeerA2AAgent],
   })
@@ -148,6 +150,7 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
   const environment: Class = spec.signing === undefined ? EmptyEnvironment : MeshEnvironment;
   @Application({
     name: `${name}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment,
     workflows: [CallerWorkflow],
@@ -161,7 +164,7 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
     spec.signing === undefined
       ? {}
       : { env: "signing", processEnv: meshEnvOf(spec.signing.own, spec.signing.peer) };
-  const app = await createAppWith(CallerApplication, { ...offline(book), ...signing });
+  const app = await createTestAppWith(CallerApplication, { ...offline(book), ...signing });
   const ask = (question: string) => {
     book
       .scriptOf(`agent:${name}-desk-agent`)

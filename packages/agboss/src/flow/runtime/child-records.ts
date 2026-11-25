@@ -23,6 +23,8 @@ export enum ChildExecutionStatus {
   Failed = "failed",
   /** A sibling failed first (FailFast) or the execution was cancelled: it stopped midway. */
   Cancelled = "cancelled",
+  /** The execution was stopped (#1341): the child halted where it stood, nothing undone. */
+  Stopped = "stopped",
 }
 
 /** A child's identity as its state and its marker keep it: the same after a pause or a crash. */
@@ -57,7 +59,7 @@ export interface EndedChildRecord {
   readonly rootExecutionId: string;
   /** The child workflow, by `name` and versions. */
   readonly workflow: WorkflowRecord;
-  /** Its item's index in a per-item launch (`.toParallelWorkflows`), from 0. */
+  /** Its item's index in a per-item launch (`.forEachItem`), from 0. */
   readonly itemIndex?: number;
   /** Its level in the tree (`executionContext.depth`): the root is 1, its children 2 (#264). */
   readonly depth: number;
@@ -110,7 +112,7 @@ export function withChildPauses(
   }));
 }
 
-/** A failure an `.onError` / `.onJoinError` side path took (#263 `toHaveHandledError`). */
+/** A failure an `.onError` side path took (#263 `toHaveHandledError`). */
 export interface HandledErrorRecord {
   /** The failure, as a plain record (its class line and its causes). */
   readonly error: ErrorRecord;

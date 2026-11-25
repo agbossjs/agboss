@@ -1,11 +1,10 @@
+import { fenceOf } from "../../../../src/flow/context/execution-fence.js";
 import type { DatabaseSync } from "node:sqlite";
 import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
   Action,
   ExecutionContext,
-  FencedEffects,
-  SqliteCheckpointSaver,
-  SqliteConnection,
+  Idempotency,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -15,12 +14,16 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  effectKeyOf,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
+import { hours } from "../../../../src/units/index.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
+import type { SqliteTransactionHandle } from "../../../../src/infrastructure/sqlite/sqlite-transaction.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";
 import {
   book,
@@ -42,7 +45,11 @@ const ORDER_CHARGES = `CREATE TABLE IF NOT EXISTS order_charges (
   order_id TEXT NOT NULL, token INTEGER NOT NULL, charge_id TEXT NOT NULL)`;
 
 /** One charge row in the effect's transaction; the receipt it gives. */
-function insertCharge(database: DatabaseSync, order: string, token: number): { chargeId: string } {
+function insertCharge(
+  database: SqliteTransactionHandle,
+  order: string,
+  token: number,
+): { chargeId: string } {
   database.exec(ORDER_CHARGES);
   const chargeId = `charge-${order}-${String(token)}`;
   database
@@ -66,27 +73,32 @@ export function chargesIn(database: DatabaseSync): readonly string[] {
   input: { message: WorkflowStartTextDto },
   output: ChargeReceiptDto,
   // #890 AC2: the service, never the store — its transaction is the listed SQLite store's
-  deps: [ExecutionContext, FencedEffects],
+  deps: [ExecutionContext, Idempotency, SqliteConnection],
 })
 export class SqliteChargeOrderAction {
   constructor(
     private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: FencedEffects,
+    private readonly idempotency: Idempotency,
+    private readonly connection: SqliteConnection,
   ) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<ChargeReceiptDto> {
-    const key = effectKeyOf(this.executionContext, "charge");
+    const { token } = fenceOf(this.executionContext);
     await gate("before");
-    const order = input.message.value.text;
-    const outcome = await this.fencedEffects
-      .runOnce(key, (database: DatabaseSync) => insertCharge(database, order, key.token))
+    const order = input.message.text;
+    const outcome = await this.idempotency
+      .runOnce({
+        name: "charge",
+        ttl: hours(24),
+        execute: () => insertCharge(this.connection.requireTransaction(), order, token),
+      })
       .catch((error: unknown) => {
-        book.runs.push({ token: key.token, status: "refused" });
+        book.runs.push({ token, status: "refused" });
         throw error;
       });
-    book.runs.push({ token: key.token, status: outcome.status });
+    book.runs.push({ token, status: outcome.status });
     await gate("after");
     return outcome.result;
   }
@@ -109,11 +121,10 @@ export class SqliteChargedWorkflowFinish {}
 @Workflow({
   name: "sqlite-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SqliteChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(SqliteChargeWorkflowStart)
       .toAction(SqliteChargeOrderAction)
-      .returns(ChargeReceiptDto)
       .toFinish(SqliteChargedWorkflowFinish),
   ],
 })
@@ -123,7 +134,6 @@ export class SqliteChargeWorkflow {}
   name: "sqlite-fenced-effect-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [SqliteChargeWorkflow],
   observers: [RecoveryLog],
   providers: [
@@ -145,7 +155,6 @@ export class SqliteFencedEffectApplication {}
   name: "unlisted-fenced-effect-store-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [DoubleChargeWorkflow],
   budgets: TEST_BUDGETS,
   providers: [SqliteExecutionLeaseRepository, SqliteConnection],

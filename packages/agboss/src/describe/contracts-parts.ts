@@ -32,22 +32,8 @@ export function usesOf(client: Class, parts: readonly WorkflowParts[]): readonly
   return parts.flatMap((part) =>
     part.tools.flatMap((tool) => {
       const meta = componentOf(tool);
-      if (meta?.kind !== "tool" && meta?.kind !== "mcp-tool") return [];
+      if (meta?.kind !== "tool") return [];
       return meta.meta.deps.includes(client) ? [{ workflow: part.name, tool: meta.meta.name }] : [];
-    }),
-  );
-}
-
-/**
- * Where the application's agents reach the MCP `server` (#398 PR 4: the blast radius of each of its
- * tools) — by server, since an `@McpTool` names its server and calls the server's tools in code.
- */
-export function mcpUsesOf(server: Class, parts: readonly WorkflowParts[]): readonly ContractUse[] {
-  return parts.flatMap((part) =>
-    part.tools.flatMap((used) => {
-      const meta = componentOf(used);
-      if (meta?.kind !== "mcp-tool" || meta.meta.server !== server) return [];
-      return [{ workflow: part.name, tool: meta.meta.name }];
     }),
   );
 }

@@ -12,6 +12,7 @@ import {
 import { applicationPathOf, type ApplicationPath } from "./application-path.js";
 import { loadOptions, type CommandContext } from "./context.js";
 import { envOption } from "./environment.js";
+import { loadProjectEnv } from "./project-env.js";
 import { startOf } from "./start-choice.js";
 
 /**
@@ -28,6 +29,7 @@ export interface CliApplication {
 /** The `@Application` of `--application` / `package.json`, and its starts. */
 export async function loadCliApplication(context: CommandContext): Promise<CliApplication> {
   const path = applicationPathOf(context);
+  loadProjectEnv(context.io.env, path.file);
   const application = await loadApplicationClass(path.file, loadOptions(context));
   return {
     path,
@@ -50,11 +52,11 @@ export async function loadChosenStart(context: CommandContext): Promise<ChosenSt
 export const assembleApplication = (
   context: CommandContext,
   loaded: CliApplication,
-  profile?: string,
+  profile?: string | readonly string[],
 ): Promise<AssembledApplication> =>
   applicationOf(
     loaded.application,
-    { profile, profileRoot: context.io.cwd },
+    { profile, processEnv: context.io.env },
     `agboss ${context.command}`,
   );
 

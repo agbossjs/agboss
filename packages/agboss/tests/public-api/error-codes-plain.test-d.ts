@@ -19,7 +19,6 @@ import type {
 } from "../../src/testing/index.js";
 import type { StoreConformanceError } from "../../src/testing/contracts/index.js";
 import type { EnvironmentError, EnvironmentErrorCode } from "../../src/index.js";
-import type { UnitError } from "../../src/units/index.js";
 
 type ErrorClassesOf<M> = {
   [K in keyof M as M[K] extends abstract new (...args: never) => Error ? K : never]: M[K];
@@ -48,7 +47,6 @@ describe("#906 D1: every error class has a literal code on its instance", () => 
   });
 
   it("the leaves' codes are their classes' literals", () => {
-    expectTypeOf<UnitError["code"]>().toEqualTypeOf<"config.unit">();
     expectTypeOf<LiveCallBlockedError["code"]>().toEqualTypeOf<"test.live-call-blocked">();
     expectTypeOf<CassetteMissingError["code"]>().toEqualTypeOf<"test.cassette-missing">();
     expectTypeOf<AppCloseTimeoutError["code"]>().toEqualTypeOf<"test.close-timeout">();

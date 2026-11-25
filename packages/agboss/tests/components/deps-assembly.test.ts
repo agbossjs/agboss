@@ -3,31 +3,30 @@
  * undecorated provider class, a tool shadowing a RAG search tool; a raw `useValue` literal is a
  * compile error.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import {
-  Channel,
-  InputGuardrail,
-  Rag,
-  type GuardrailRefusal,
-} from "../../src/components/decorators.js";
+import { Channel, InputGuardrail, type GuardrailRefusal } from "../../src/components/decorators.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { PiiAction, PiiPolicy, type PiiMatch, type PiiPolicyHandler } from "../../src/pii/index.js";
-import { Judge, JudgeVerdict, type JudgeHandler } from "../../src/components/judge-decorators.js";
+import {
+  Judge,
+  JudgeModel,
+  JudgeVerdict,
+  type JudgeHandler,
+} from "../../src/components/judge-decorators.js";
 import { type Provider } from "../../src/components/injection.js";
 import {
   Action,
   Agent,
   InjectionToken,
   provide,
-  RagMode,
   Tool,
-  type ToolHandler,
+  inline,
+  ToolApproval,
 } from "../../src/index.js";
-import { PlainTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
-import { start } from "../helpers/flow.js";
+import { PlainTextDto } from "../../src/dto/index.js";
+import { onStart } from "../helpers/flow.js";
 import { Text } from "../../src/dto/index.js";
-import type { RagRetrieval } from "../../src/rag/types.js";
 import {
   Chat,
   Done,
@@ -35,7 +34,9 @@ import {
   Plain as PlainAgent,
   applicationWith,
 } from "./fixture/deps-contract.workflow.js";
-import { RagTenancy } from "../../src/rag/types.js";
+import { days } from "../../src/units/index.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
 
 const MISSING = new InjectionToken<string>("MISSING");
 const notRegistered = (consumer: string): string =>
@@ -44,8 +45,9 @@ const notRegistered = (consumer: string): string =>
 @InputGuardrail({
   name: "needs-guardrail",
   description: "Needs a missing value",
-  prompt: "Is it bad?",
+  prompt: inline("Is it bad?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   threshold: 0.9,
   deps: [MISSING],
 })
@@ -56,7 +58,7 @@ class NeedsGuardrail implements GuardrailRefusal {
   }
 }
 
-@PiiPolicy({ name: "needs-pii-policy", action: PiiAction.replaceWithKind(), deps: [MISSING] })
+@PiiPolicy({ name: "needs-pii-policy", action: PiiAction.mask(), deps: [MISSING] })
 class NeedsPolicy implements PiiPolicyHandler {
   constructor(readonly value: string) {}
   findMatches(): readonly PiiMatch[] {
@@ -72,10 +74,19 @@ class NeedsAction {
   }
 }
 
-@Channel({ name: "needs-channel", deps: [MISSING] })
+/** What NeedsChannel asks for: the approval of the tools that name it. */
+@ToolApproval({
+  name: "needs-tool-approval",
+  description: "Approval of the tools asked through NeedsChannel",
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+})
+export class NeedsToolApproval {}
+
+@Channel({ name: "needs-channel", deps: [MISSING], target: NeedsToolApproval, ttl: days(1) })
 class NeedsChannel {
   constructor(readonly value: string) {}
-  send(): Promise<ChannelOutcome<NeedsChannel>> {
+  send(): Promise<ChannelOutcome<NeedsToolApproval>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -90,10 +101,10 @@ class Approved {
   description: "d",
   input: Approved,
   output: Approved,
-  channel: NeedsChannel,
+  approval: NeedsToolApproval,
 })
-class ApprovedTool implements ToolHandler<Approved, Approved> {
-  run(input: Approved): Promise<Approved> {
+class ApprovedTool {
+  execute(input: Approved): Promise<Approved> {
     return Promise.resolve(input);
   }
 }
@@ -101,7 +112,7 @@ class ApprovedTool implements ToolHandler<Approved, Approved> {
 @Agent({ name: "approving-agent", description: "d", model: "test/a", tools: [ApprovedTool] })
 class ApprovingAgent {}
 
-@Judge({ name: "needs-judge", model: "test/j", reply: PlainTextDto, deps: [MISSING] })
+@Judge({ name: "needs-judge", model: "test/j", output: PlainTextDto, deps: [MISSING, JudgeModel] })
 class NeedsJudge implements JudgeHandler<PlainTextDto> {
   constructor(readonly value: string) {}
   judge(): Promise<JudgeVerdict> {
@@ -115,8 +126,8 @@ class PolicedAgent {}
 @Agent({ name: "judged-agent", description: "d", model: "test/j", judges: [NeedsJudge] })
 class JudgedAgent {}
 
-const assemble = (application: Parameters<typeof createAppWith>[0]) =>
-  createAppWith(application, offline());
+const assemble = (application: Parameters<typeof createTestAppWith>[0]) =>
+  createTestAppWith(application, offline());
 
 describe("#183 AC2: a missing provider fails at assembly, naming the consumer and the token", () => {
   it.each([
@@ -126,18 +137,16 @@ describe("#183 AC2: a missing provider fails at assembly, naming the consumer an
       "NeedsGuardrail",
     ],
     ["an agent's PII policy", applicationWith("p-workflow", {}, PolicedAgent), "NeedsPolicy"],
-    ["a tool's channel", applicationWith("c-workflow", {}, ApprovingAgent), "NeedsChannel"],
+    [
+      "a tool's channel",
+      applicationWith("c-workflow", {}, ApprovingAgent, [NeedsChannel]),
+      "NeedsChannel",
+    ],
     ["an agent's judge", applicationWith("j-workflow", {}, JudgedAgent), "NeedsJudge"],
     [
       "a workflow action",
       applicationWith("a-workflow", {
-        flow: [
-          start(Chat)
-            .returns(WorkflowStartTextDto)
-            .toAction(NeedsAction)
-            .toAgent(PlainAgent)
-            .toFinish(Done),
-        ],
+        flow: [onStart(Chat).toAction(NeedsAction).toAgent(PlainAgent).toFinish(Done)],
       }),
       "NeedsAction",
     ],
@@ -150,37 +159,6 @@ class Topic {
   @Text({ prompt: "the topic" })
   topic!: string;
 }
-
-@Rag({ name: "manuals", description: "Manuals", tenancy: RagTenancy.PerTenant, topK: 1 })
-class Manuals {
-  retrieve(): Promise<RagRetrieval> {
-    return Promise.resolve({ results: [] });
-  }
-}
-
-@Tool({ name: "search-manuals-tool", description: "Shadows", input: Topic, output: Topic })
-class ShadowSearch implements ToolHandler<Topic, Topic> {
-  run(input: Topic): Promise<Topic> {
-    return Promise.resolve(input);
-  }
-}
-
-@Agent({
-  name: "reader-agent",
-  description: "d",
-  model: "test/r",
-  tools: [ShadowSearch],
-  rag: [{ use: Manuals, mode: RagMode.Tool }],
-})
-class Reader {}
-
-describe("#183 AC3: tool names are unique over the exposed names", () => {
-  it("a tool named like a RAG search tool (search-<rag>-tool) fails at assembly", async () => {
-    await expect(assemble(applicationWith("shadow-workflow", {}, Reader))).rejects.toThrow(
-      '[tool.duplicate-name] Duplicate tool name "search-manuals-tool" found in classes ShadowSearch and Manuals',
-    );
-  });
-});
 
 class Plain {
   readonly label = "plain";

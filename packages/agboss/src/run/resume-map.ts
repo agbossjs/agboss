@@ -4,6 +4,7 @@ import {
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
 import { ResumeReason } from "../core/observability.js";
+import type { PauseActor } from "../channels/pause-contexts.js";
 import { livePauseOf, type WaitingInterrupt } from "./waiting-pauses.js";
 
 /**
@@ -21,8 +22,8 @@ export interface TreeResume {
   readonly taken: readonly PauseRecord[];
   /** The decisions it takes, for `onExecutionResume`. */
   readonly decisions: readonly unknown[];
-  /** Who answered them (`answeredBy` / the owner), in the same order. */
-  readonly answeredBy: readonly (string | undefined)[];
+  /** Who answered them (`actor` / the owner), in the same order. */
+  readonly actors: readonly (PauseActor | undefined)[];
   /** Why each decision is taken, in the same order (#941): `Answered` for a reply, `Expired` for an expiry's. */
   readonly reasons: readonly ResumeReason[];
   /** Whether a pause it takes was closed by its expiry without an answer (the step fails, #941). */
@@ -67,7 +68,7 @@ export function treeResumeOf(
     pauseIds: answered.map(({ pause }) => pause.pauseId),
     taken,
     decisions: taken.map((pause) => pause.answer?.decision),
-    answeredBy: taken.map((pause) => pause.answer?.answeredBy),
+    actors: taken.map((pause) => pause.answer?.actor),
     reasons: taken.map((pause) =>
       pause.resolution === PauseResolution.DecidedOnExpiry
         ? ResumeReason.Expired

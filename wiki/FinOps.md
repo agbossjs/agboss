@@ -20,7 +20,7 @@ keeps its `…Usd: number` fields.
 - **Tool costs**: what a tool spends on models through the framework is recorded as the tool's —
   `tool:<name>` — in the same loop as the agent's model calls, so it counts in the budget check
   before the next model call, in the budgets' counters and in a failed agent's spend. A decision a
-  tool's service makes through `ROUTER_FACTORY` during the call (job-scout's fit judge) is accounted
+  tool's service makes through `DecisionModel` during the call (job-scout's fit judge) is accounted
   this way, with the decision's model and exact cost; a knowledge-base search reports its retrieval
   cost under `rag:<name>` (`costSource: CostSource.Tool`).
 - **Services that are not models** (#280 S43): a `@Tool` or an `@Action` takes `SpendRecorder` in
@@ -44,7 +44,7 @@ export class WebResultsDto {
 -->
 
 ```ts
-import { SpendRecorder, Tool, type ToolHandler } from "@agboss/core";
+import { SpendRecorder, Tool } from "@agboss/core";
 import { usd } from "@agboss/core/units";
 
 @Tool({
@@ -54,17 +54,17 @@ import { usd } from "@agboss/core/units";
   output: WebResultsDto,
   deps: [SpendRecorder],
 })
-export class WebSearchTool implements ToolHandler<WebQueryDto, WebResultsDto> {
+export class WebSearchTool {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  run({ query }: WebQueryDto): Promise<WebResultsDto> {
+  execute({ query }: WebQueryDto): Promise<WebResultsDto> {
     this.spendRecorder.record({ service: "serp-api", cost: usd(0.002) }); // tool:web-search-tool
     return Promise.resolve({ text: `results for ${query}` });
   }
 }
 ```
 
-A decision made through `ROUTER_FACTORY` needs no recording — the framework accounts it:
+A decision made through `DecisionModel` needs no recording — the framework accounts it:
 
 <!-- snippet-context
 import { Text } from "@agboss/core/dto";
@@ -77,30 +77,28 @@ export class Rate {
 -->
 
 ```ts
-import { ROUTER_FACTORY, Tool, type RouterEngine, type ToolHandler } from "@agboss/core";
+import { Decision, DecisionModel, Tool } from "@agboss/core";
 
 @Tool({
   name: "exchange-rate-tool",
   description: "Today's rate, checked by a cheap decision model",
   input: RateQuery,
   output: Rate,
-  deps: [ROUTER_FACTORY],
+  deps: [DecisionModel],
 })
-export class ExchangeRate implements ToolHandler<RateQuery, Rate> {
-  private readonly checker: RouterEngine;
+export class ExchangeRate {
+  constructor(private readonly decisions: DecisionModel) {}
 
-  constructor(routers: (name: string) => RouterEngine) {
-    this.checker = routers("rate-check");
-  }
-
-  async run({ pair }: RateQuery): Promise<Rate> {
-    // the decision's spend is recorded as tool:exchange-rate-tool
-    await this.checker.route({
-      input: `${pair} 3.71`,
-      options: [
-        { name: "plausible", description: "the rate is within a day's range" },
-        { name: "suspicious", description: "it is not" },
-      ],
+  async execute({ pair }: RateQuery): Promise<Rate> {
+    // the decision's spend is recorded as tool:exchange-rate-tool, behind the budget check
+    await this.decisions.decide({
+      state: { text: `${pair} 3.71` },
+      questions: {
+        verdict: Decision.choice("is the rate plausible?", {
+          plausible: "the rate is within a day's range",
+          suspicious: "it is not",
+        }),
+      },
     });
     return { rate: `${pair} 3.71` };
   }
@@ -115,10 +113,23 @@ export class ExchangeRate implements ToolHandler<RateQuery, Rate> {
 Money limits are `@Budget` components (#261): one template for every budget — the decorator says
 what it limits, `maxSpend()` how much, its data through the constructor like any component's. Every
 budget of the application is listed in `@Application({ budgets })`, written in
-`config/budget.config.ts`; `name` ends with `-budget`, the class with `Budget`.
+`src/budgets/` (`application.budgets.ts`); `name` ends with `-budget`, the class with `Budget`.
+
+**Tokens and shared budgets (#1318).** A budget limits dollars, tokens or both: `maxSpend` and `maxTokens` in
+`@Budget({ … })` (constants, or `env.usd(…)` / `env.integer(…)` read when the application starts, no class body needed), or a
+`limit()` returning `{ maxSpend?, maxTokens? }` for an amount read from a service, in the start step's frame. Say it in one place:
+`[budget.missing-limit]` is a budget that limits nothing, `[budget.conflicting-limit]` one that declares and also has `limit()`.
+Both caps are enforced and each fails closed — an amount or a count that is no number refuses the execution before its first
+step. A call that cost `$0` but used tokens (an unpriced CLI or local model, `CostSource.Unpriced`) is spend: it is written to the
+ledger, waited for before a checkpoint and counted by `maxTokens`; `BudgetExceededError.unit` says which cap was hit
+(`BudgetUnit.Usd` or `Tokens`) beside `maxSpend?`, `spent`, `maxTokens?`, `usedTokens`. `@Workflow({ budget: ThatBudget })`
+attaches one, found without listing it in `@Application({ budgets })`; a budget's counter is keyed by its name, the scope key and
+the period — never by a workflow — so five workflows that attach one budget share one cap. Pruning ledger entries
+(`deleteByMadeAtBefore`) never lowers a counter, dollars or tokens. A trusted mesh caller's claim carries `remainingTokens`, and a
+signed run report `spend.totalTokens`, charged even when the remote run cost nothing.
 
 ```ts
-// config/budget.config.ts
+// budgets/application.budgets.ts
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
 
@@ -160,11 +171,11 @@ export class ExecutionBudget implements BudgetHandler {
   such as `BillingService` — a trusted source, never the request body.
 
 <!-- snippet-context
-import { Budget, BudgetPeriod, BudgetScope, TenantContext, Workflow, WorkflowFinish, WorkflowStart, start, type BudgetHandler } from "@agboss/core";
-import { Decimal, WorkflowStartTextDto } from "@agboss/core/dto";
+import { Budget, BudgetPeriod, BudgetScope, TenantContext, Workflow, WorkflowFinish, WorkflowStart, onStart, type BudgetHandler, Ttl } from "@agboss/core";
+import { Float, WorkflowStartTextDto } from "@agboss/core/dto";
 import { usd, type Usd } from "@agboss/core/units";
 export class ShopTenantContext extends TenantContext {
-  @Decimal()
+  @Float()
   dailyBudgetUsd!: number;
 }
 @WorkflowStart({ name: "screening-workflow-start", description: "A role", input: WorkflowStartTextDto })
@@ -174,9 +185,9 @@ export class ScreeningWorkflowFinish {}
 @Workflow({
   name: "screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ScreeningWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ScreeningWorkflowStart)
       .toFinish(ScreeningWorkflowFinish),
   ],
 })
@@ -184,7 +195,7 @@ export class ScreeningWorkflow {}
 -->
 
 ```ts
-// config/budget.config.ts — the tenant's own daily amount, from its context (its fields: Context-And-Authorization)
+// budgets/tenant-own.budget.ts — the tenant's own daily amount, from its context (its fields: Context-And-Authorization)
 @Budget({
   name: "tenant-daily-budget",
   scope: BudgetScope.Tenant,
@@ -222,7 +233,8 @@ on its cost, its tenant's and the application's. All violations at once, before 
 | `[budget.execution-budget-required]` | a workflow with no own execution budget and no default — `screening-workflow has no execution budget and there is no default — add one with workflow: ScreeningWorkflow or one without workflow` |
 | `[budget.duplicate-execution-budget]` | two own execution budgets for one workflow |
 | `[budget.duplicate-default-execution-budget]` | two execution budgets without `workflow` |
-| `[budget.tenant-budget-required]` | no `BudgetScope.Tenant` budget (a single-tenant application has its one tenant, `"default"`) |
+| `[budget.tenant-budget-required]` | an application with a `tenantContext` has no `BudgetScope.Tenant` budget (one without it has its one tenant, `"default"`, and needs none) |
+| `[budget.missing-limit]` / `[budget.conflicting-limit]` | a budget limits nothing, or declares `maxSpend` / `maxTokens` and also has `limit()` |
 | `[budget.application-budget-required]` | no `BudgetScope.Application` budget |
 | `[budget.not-a-budget]` | a class in `budgets` without `@Budget` |
 
@@ -276,7 +288,7 @@ on its cost, its tenant's and the application's. All violations at once, before 
   takeover makes its spend again — its model calls are billed again, its services paid again — and
   that counts again, under the later pass's ids: the budget errs high, never low. What the lost
   pass sent is not known — see [A lost pass: Unknown cost](#a-lost-pass-unknown-cost-853). A service you pay
-  through a deduplicated call (`OutboundCalls` replaying an earlier answer) should record its cost
+  through a deduplicated call (`Idempotency.sendOnce` replaying an earlier answer) should record its cost
   with `SpendRecorder` only when the call was sent. Before every step that can spend or reach out
   the counters are read again — the tenant's other executions count, on any instance, through the
   ledger — and every budget (and the execution's deadline) is checked; before every model call of
@@ -285,8 +297,8 @@ on its cost, its tenant's and the application's. All violations at once, before 
   execution fails and its open undos run; the spend so far is in the ledger and the failed record).
 - **Which steps are held back** (#634): every one that can spend or have an effect — an agent, a
   router (a code one too), an action, a child workflow (`.toWorkflow`, one per item, an
-  `AnyInstance` one), a level of a recursion, each branch of a launch (`.toParallelAgents`,
-  `.toParallelActions`, `.toParallelWorkflows`, a quorum's), the action of a side path an error of
+  `AnyWorker` one), a level of a recursion, each branch of a launch (`.inParallel([…])`,
+  `.inParallel([…])`, `.forEachItem(toWorkflow(…))`, a quorum's), the action of a side path an error of
   the step took. An action that pays past the budget is followed by nothing paid: a chain of paid
   actions stops at the first one after the budget ran out. Never held back:
 
@@ -294,10 +306,9 @@ on its cost, its tenant's and the application's. All violations at once, before 
   | --- | --- |
   | a start, a finish | it spends nothing: an execution whose last action overspends ends at its finish, its spend counted |
   | an undo (`compensateWith`) | it gives money back: a failure for the budget runs the open undos ([Rollback](Rollback)), with no budget check — and so does the undo action a side path runs to close an entry that was open when the side path was entered (`.onError(DeclinedError, toAction(RefundAction)…)`) |
-  | an action of the side path that took a limit (`.onError(BudgetExceededError, toAction(NotifyAction)…)`, `.onJoinError(…)`), and the actions it leads to step by step | it is the application's reaction to the limit — that path reaches only actions and finishes (`[graph.limit-handler-uses-model]`); what it spends still counts |
+  | an action of the side path that took a limit (`.onError(BudgetExceededError, toAction(NotifyAction)…)`, `.onError(…)`), and the actions it leads to step by step | it is the application's reaction to the limit — that path reaches only actions and finishes (`[graph.limit-handler-uses-model]`); what it spends still counts |
 
-  Both exemptions hold **only on that side path** (#656): it is the visit the `.onError` /
-  `.onJoinError` leads to and, one visit after another, the visit each leads to — a record in the
+  Both exemptions hold **only on that side path** (#656): it is the visit the `.onError` leads to and, one visit after another, the visit each leads to — a record in the
   execution's checkpointed state, so the visit run again after a resume or a takeover reads it as
   the first run did. A finish or a launch ends it: the branches a side path launches, and whatever
   follows their join, are held back. An undo action reached any other way — a step of the main path
@@ -321,27 +332,24 @@ on its cost, its tenant's and the application's. All violations at once, before 
   model call is cancelled (its partial cost is unknown and not recorded), a tool waiting on the
   signal stops, and the sibling's loop fails at its next check with `BudgetExceededError` and its
   spend so far. The branches fail with that error and the launch with it — the same for
-  `.toParallelAgents`, `.toParallelActions` (the action's `executionContext.signal`),
-  `.toParallelWorkflows` (the children's model and tool calls) and quorums — into
-  `.onJoinError(BudgetExceededError, toAction(…)… | toFinish(…))`, a side path without a model
+  `.inParallel([…])`, `.inParallel([…])` (the action's `executionContext.signal`),
+  `.forEachItem(toWorkflow(…))` (the children's model and tool calls) and quorums — into
+  `.onError(BudgetExceededError, toAction(…)… | toFinish(…))`, a side path without a model
   (`[graph.limit-handler-uses-model]`), else the execution fails. A branch that started after the
   budget was exhausted is not aborted: it stops at its own check before it runs — an action's branch
   too (#634), so a branch listed after the one that spent the last of the budget never runs.
 
 ```ts no-check: a fragment of a flow
-start(ReviewWorkflowStart)
-  .returns(DraftDto)
-  .toParallelAgents(StyleAgent, FactsAgent, LegalAgent)
+onStart(ReviewWorkflowStart)
+  .inParallel([toAgent(StyleAgent), toAgent(FactsAgent), toAgent(LegalAgent)])
   .join()
-  .onJoinError(
+  .onError(
     BudgetExceededError, // a branch's call exhausted a budget: the others were stopped at once
     toAction(NotifyEditorAction)
       .toFinish(ReviewStoppedWorkflowFinish),
   )
-  .returns(listOf(ReviewNoteDto))
   .toAgent(SummaryAgent)
-  .returns(ReviewDto)
-  .toFinish(ReviewWorkflowFinish)
+  .toFinish(ReviewWorkflowFinish);
 ```
 
 - **Nothing is reserved**: a budget protects from draining money, it is not exact accounting —
@@ -356,7 +364,7 @@ start(ReviewWorkflowStart)
   | across instances, per step and instance: the steps that read the counters before that spend was in the ledger | what those steps spend | a spend is in the ledger one write after it was made (#727, #732) — for another trees' steps and for the tree's own steps on another instance alike; a step on another instance that read the counters before that write landed, or checks only before its next step, runs as a call in flight does. An action that records a large spend and then works on no longer leaves the other steps passing their checks while it works: the one in flight at that moment is the bound, never the steps started after it |
 
   Nothing is reserved because a step's cost is known
-  only after it (a call is not pre-checked by its `maxTokens`; `TokenLimit.MODEL_MAX` makes one call
+  only after it (a call is not pre-checked by its `maxTokens`; `TokenLimit.ModelMax` makes one call
   bounded only by the model; an action's service reports what it charged) — reserving money for
   parallel executions was rejected (#261, S76 f).
 
@@ -377,7 +385,7 @@ BudgetExceededError {
   an execution that ends without a finish — an exhausted budget among the reasons
   ([Rollback](Rollback#an-execution-that-ends-without-a-finish)) — take no budget check, so an
   exhausted budget never leaves a booking in place. What their services cost (`SpendRecorder`) is
-  spend under `action:<undo name>`: in the join's update when its `.onJoinError` takes the failure;
+  spend under `action:<undo name>`: in the join's update when its `.onError` takes the failure;
   otherwise — the join fails the execution, a child or a root ends without a finish, a late undo
   — written to the ledger's counters at once, since no state of the execution will hold it (#340
   PR 3). A child's undo spend is then in the ledger only, not in its parent's `result.spend`.
@@ -395,9 +403,9 @@ compile, and a JS caller's is refused, `CostLedgerEntryInvalidError`, nothing ad
 budget and key (`findMaxSpendByAccount`, `saveMaxSpend`: "the last known limit" for a report
 outside an execution). A period is named by its first UTC day: `2026-10-18` for that day,
 `2026-10-12` for the week starting Monday the 12th, `2026-10-01` for the month; an execution budget's
-counter has no period. Listed in `@Application({ providers })` (a class that
-`extends CostLedgerRepository`), else the built-in in-memory one — each instance counts on its own
-and the counters reset on restart; `SqliteCostLedgerRepository` (#265) shares them between the
+counter has no period. A store of the application's `@DatabaseStorage` (a class that
+`extends CostLedgerRepository` is a driver's store), else the in-memory storage — each instance counts on its own
+and the counters reset on restart; a durable driver (`SqliteDriver`, #265, #1321) shares them between the
 instances on one file and survives a restart (a file written before budgets has its old per-workflow
 day counters dropped).
 
@@ -494,16 +502,21 @@ Counts protect the graph, not money ([Workflow](Workflow)):
 
 | Limit | Error | Meaning |
 | --- | --- | --- |
-| `@Workflow({ maxSteps })` | `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`: `support-workflow took 41 steps; its maxSteps is 40`) | agent and router visits per execution (default (agents + routers) × 3) |
+| `@Workflow({ executionLimits: { maxSteps } })` | `StepsLimitExceededError` (`workflow`, `maxSteps`, `steps`: `support-workflow took 41 steps; its maxSteps is 40`) | agent, router, action and external-task visits per execution (default (agents + routers + actions + external tasks) × 3) |
 | `maxVisits` on `@Router` / `@Agent` | `VisitsLimitExceededError` (`component`, `nodeId`, `maxVisits`, `visits`) | visits of one node per execution |
-| `@Workflow({ maxDepth })` (#264) | `DepthLimitExceededError` (`workflow`, `maxDepth`, `depth`: `topic-research-workflow went 5 levels deep; its maxDepth is 4`), in the `cause` of `ChildExecutionFailedError` | the levels a recursive workflow's executions run at, the root at 1 — a launch by code past it does not start ([Workflow as a step → Recursion](Workflow-as-a-step#recursion-264)) |
+| `@Workflow({ executionLimits: { maxDepth } })` (#264) | `DepthLimitExceededError` (`workflow`, `maxDepth`, `depth`: `topic-research-workflow went 5 levels deep; its maxDepth is 4`), in the `cause` of `ChildExecutionFailedError` | the levels a recursive workflow's executions run at, the root at 1 — a launch by code past it does not start ([Workflow as a step → Recursion](Workflow-as-a-step#recursion-264)) |
 
 One class per limit, all subclasses of `LimitExceededError` (`.onError(LimitExceededError, …)` takes
 any; codes `limit.steps`, `limit.visits`, `limit.budget`, `limit.depth`). A recursive tree's
 executions each count their own `maxSteps`; its money is the root's budgets, every level included. `maxSteps` is checked at assembly:
 `[limits.max-steps-too-low]` — no finish fits in a hand-set `maxSteps`, or the default cannot hold the
-worst case of a per-item launch (`maxItems` runs: set `@Workflow({ maxSteps })`, the default never
+worst case of a per-item launch (`maxItems` runs: set `@Workflow({ executionLimits: { maxSteps } })`, the default never
 grows silently) —, `[limits.branch-exceeds-max-steps]`, `[limits.max-steps-unused]`, and the warning
+`[limits.max-steps-above-0.1.0-default]` (#1278; an error under `--strict`): a flow with no `maxSteps` whose worst case takes
+more steps than 0.1.0's default — (agents + routers) × 3 — allowed: actions and external tasks count
+as steps now (an action that undoes an entry or reacts to a limit on a side path does not), the
+default grew with them, and a loop through actions is bounded by `maxSteps`, not only by
+`maxVisits`; set `@Workflow({ executionLimits: { maxSteps } })` to choose the bound. The warning
 `[limits.max-steps-below-worst-case]` (#643; an error under `--strict`): a hand-set `maxSteps` below
 the worst case of a flow whose every loop `maxVisits` bounds — each loop counted at its nodes'
 `maxVisits`, its other nodes between two of their visits — would end a run with
@@ -517,7 +530,7 @@ the app: a spending limit on the OpenRouter key itself.
 ## Concurrency of a tree (#264)
 
 A tree of executions — a root and the child workflows it launches, a recursion of unknown depth
-([Workflow as a step](Workflow-as-a-step)) — shares one cap: `@Workflow({ maxConcurrentExecutions: 6 })`
+([Workflow as a step](Workflow-as-a-step)) — shares one cap: `@Workflow({ executionLimits: { maxConcurrency: 6 } })`
 of the root, default 10, a whole number from 1 (`[limits.max-concurrent-executions-invalid]`). It is
 how many executions of the tree work on a step at once — a throttle, never an error:
 
@@ -528,16 +541,16 @@ how many executions of the tree work on a step at once — a throttle, never an 
 | a step without a free slot | waits in the tree's queue |
 | the queue's order | a parent whose children have all finished (its step right after its child, or its children's join: it closes a branch), then the deepest execution; every `seconds(10)` of waiting counts as one level deeper, read from the application's `Clock` |
 | a launch's `maxConcurrency` | holds too: the stricter of the launch's width and the tree's cap wins |
-| a child's own `maxConcurrentExecutions` | a smaller one limits its subtree inside the tree's; a larger one is never reached — `[limits.child-concurrency-above-parent]`, a warning (an error under `--strict`) |
+| a child's own `maxConcurrency` | a smaller one limits its subtree inside the tree's; a larger one is never reached — `[limits.child-concurrency-above-parent]`, a warning (an error under `--strict`) |
 | a quorum's `deadline` | the time its branches wait for a slot does not count ([Parallel → The deadline](Parallel#the-deadline)) |
 | a `FailFast` failure, a cancel | the waiting steps of the aborted launch leave the queue unstarted |
-| a pause, a crash | for a local tree, the slots live in the process that holds the tree's lease ([Several instances](Several-instances)), never in a store; when the tree can launch a child on any instance (`ChildPlacement.AnyInstance`, #333 PR 3), its slots are leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and `:subtree:<executionId>`, renewed while held, so a crashed instance's slot expires by itself); the next pass rebuilds the queue from the unfinished tasks |
+| a pause, a crash | for a local tree, the slots live in the process that holds the tree's lease ([Several instances](Several-instances)), never in a store; when the tree can launch a child on any instance (`ChildPlacement.AnyWorker`, #333 PR 3), its slots are leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and `:subtree:<executionId>`, renewed while held, so a crashed instance's slot expires by itself); the next pass rebuilds the queue from the unfinished tasks |
 
 What it is not: a slot is an execution, not model load — one execution may fan out into several
 model calls (provider throughput is `rateLimitPolicy`, below); the cap is per tree, not per
 application; the queue order is per instance (across instances, whoever acquires the lease first
 gets the slot). `agboss describe` prints it for a workflow that
-launches children: `maxConcurrentExecutions 6 (set) · executions of the tree at work at once`
+launches children: `maxConcurrency 6 (set) · executions of the tree at work at once`
 (`10 (default)` when unset).
 
 ## Capacity is not money: rate limits
@@ -556,14 +569,16 @@ decides what to show:
 
 | Field                                  | Meaning                                                                                         |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `totalUsd`, `calls`, `cacheReadTokens` | the turn in total                                                                               |
+| `totalUsd`, `calls`                    | the turn in total (`totalUsd` is `Usd`)                                                         |
+| `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheWriteTokens`, `totalTokens` | the turn's tokens; `totalTokens` is input plus output, what a token budget counts |
 | `unknownCalls`                         | the [lost passes of unknown cost](#a-lost-pass-unknown-cost-853) (#853), outside every sum      |
-| `byCategory`                           | `agents`, `routing`, `guards`, `review`, `tools`, `compaction`, `retrieval` — every key present |
+| `byCategory`                           | `agents`, `routing`, `guardrails`, `review`, `tools`, `memory`, `rag`, `files`, `pii`, `arbiters`, `pauses` — every key present |
 | `byModel`, `byCaller`                  | the same money by model and by caller                                                           |
 | `trace`                                | every call in order: caller, category, model, cost, how it was priced, tokens                   |
 
-Categories come from the caller: `tool:*` → tools, `compaction:*` → compaction, `rag:*` → retrieval, `guardrail:*` → guards, `router:quality:*` →
-review, other `router:*` → routing, an agent name → agents. A resumed (paused) run reports the whole
+Categories come from the caller: `tool:*` and `action:*` → tools, `memory:*` → memory, `rag:*` and `reranker:*` → rag, `pii:*` → pii,
+`files:*`, `file-masker:*` and `file-transcriber:*` → files, `arbiter:*` → arbiters, `channel-interpreter:*` → pauses, `guardrail:*` → guardrails,
+`router:quality:*` and `judge:*` → review, other `router:*` → routing, an agent name → agents. A resumed (paused) run reports the whole
 run.
 
 The CLI and the chat print it every turn:
@@ -571,7 +586,7 @@ The CLI and the chat print it every turn:
 ```
 thread 6cc2173e-… · http://localhost:3000/project/…/sessions/6cc2173e-…
 researcher · stop: jev confidence 0.96
-agents $0.002332 · routing $0.000038 · guards $0.000033 · tools $0.001000
+agents $0.002332 · routing $0.000038 · guardrails $0.000033 · tools $0.001000
    1. guardrail:prompt-injection-guardrail  typesafe/jev-1.13  $0.000014  api-priced
    2. router:main                    typesafe/jev-1.13  $0.000016  api-priced
    3. researcher                     kimi-k2.6          $0.000426  306 in / 116 out
@@ -598,7 +613,6 @@ Unit tests use fakes and cost $0; real calls only in `make smoke`.
 ## Spend on files (#899)
 
 The built-in transcriber and redactor are model calls billed under `files:transcriber` and `files:redactor`,
-category `CostCategory.Files` — `CostReport.byCategory` has a `files` key (a record stored before it reads
-it as 0). A project's own transcriber or redactor reports its `cost`, billed as `CostSource.Tool` under the
+category `CostCategory.Files` — `CostReport.byCategory` has a `files` key. A project's own transcriber or redactor reports its `cost`, billed as `CostSource.Tool` under the
 same caller. The budget is checked before each call; a transcription or a redacted copy is made once per
 execution. See [Files for models](Files-for-models).

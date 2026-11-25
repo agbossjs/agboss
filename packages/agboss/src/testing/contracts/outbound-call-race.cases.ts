@@ -1,6 +1,7 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
+import {} from "../../app/lease-lost.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import type { ContractGroup } from "./define.js";
@@ -86,8 +87,8 @@ const endingRaced = (ending: "markCompleted" | "markFailed"): OutboundCallCase =
       await recorded(first, key);
       const end = () =>
         ending === "markCompleted"
-          ? first.calls.markCompleted(key, "owner-1", '"r"')
-          : first.calls.markFailed(key, "owner-1", FAILURE);
+          ? first.calls.markCompleted(key, "owner-1", '"r"', null)
+          : first.calls.markFailed(key, "owner-1", FAILURE, null);
 
       const [isEnded, isMoved] = await inTurn(round, end, () =>
         second.calls.markPending(key, PENDING, { attempt: 2, attemptOwner: "owner-2" }),
@@ -127,7 +128,7 @@ const writeRacingTakeover: OutboundCallCase = {
       // landed only before the take — never after the new holder read the intent
       expect(found).toEqual(read);
       if (refused === "landed") expect(found).toMatchObject({ attemptOwner: "late", token: 1 });
-      else expect(refused).toBeInstanceOf(ExecutionFencedError);
+      else expect(refused).toBeInstanceOf(ExecutionError.Fenced);
       if (refused !== "landed") expect(found).toMatchObject({ attemptOwner: "owner-1" });
     }
   },

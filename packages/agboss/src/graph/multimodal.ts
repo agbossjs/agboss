@@ -1,3 +1,4 @@
+import type { ShownContent } from "../models/messages.js";
 import type { ContentBlock, MessageContent } from "@langchain/core/messages";
 
 /** Converts a string or array of blocks into an array of blocks. */
@@ -31,7 +32,9 @@ export function mergeContent(...parts: (MessageContent | undefined)[]): MessageC
 }
 
 /** Extracts all text from a multimodal content, ignoring images. */
-export function extractText(content: MessageContent): string {
+export function extractText(content: MessageContent | ShownContent): string {
   if (typeof content === "string") return content;
-  return content.map((b) => (b.type === "text" ? b.text : "")).join("");
+  return (content as readonly { readonly type: string; readonly text?: unknown }[])
+    .map((b) => (b.type === "text" && typeof b.text === "string" ? b.text : ""))
+    .join("");
 }

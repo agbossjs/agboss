@@ -5,7 +5,7 @@ import { CultureScoreAgent } from "../../../../src/panel/agents/culture-score/cu
 import { HireScoreAgent } from "../../../../src/panel/agents/hire-score/hire-score.agent.js";
 import { ScoreSummaryAgent } from "../../../../src/panel/agents/score-summary/score-summary.agent.js";
 import { SkillsScoreAgent } from "../../../../src/panel/agents/skills-score/skills-score.agent.js";
-import { ReasonedScoreArbiter } from "../../../../src/panel/arbiters/reasoned-score/reasoned-score.arbiter.js";
+import { PanelScoreArbiter } from "../../../../src/panel/arbiters/panel-score/panel-score.arbiter.js";
 import { PanelReviewDto } from "../../../../src/panel/dto/panel-review.dto.js";
 import { ScoreDto } from "../../../../src/panel/dto/score.dto.js";
 import { FlowPatternsApplication } from "../../../../src/flow-patterns.application.js";
@@ -33,7 +33,7 @@ describe("a panel's quorum", () => {
     mockLlm(SkillsScoreAgent).thenReturn(score(8, "strong in Go"));
     mockLlm(CultureScoreAgent).thenReturn(score(7, "pairs well with the team"));
     mockLlm(HireScoreAgent).thenReturn(score(8, "hire"));
-    mockLlm(ReasonedScoreArbiter).thenAnswer(reasoned);
+    mockLlm(PanelScoreArbiter).thenAnswer(reasoned);
     mockLlm(ScoreSummaryAgent).thenReturn(review);
 
     const result = await app.execute(PanelWorkflowStart, ANNA);
@@ -46,23 +46,23 @@ describe("a panel's quorum", () => {
     ]);
   });
 
-  test("a score out of range is rejected by code — the model is never asked about it", async ({
+  test("a score out of range is rejected by code — the arbiter's model is never asked about it", async ({
     app,
     mockLlm,
   }) => {
     mockLlm(SkillsScoreAgent).thenReturn(score(11, "off the scale"));
     mockLlm(CultureScoreAgent).thenReturn(score(7, "pairs well with the team"));
     mockLlm(HireScoreAgent).thenReturn(score(6, "no reason"));
-    mockLlm(ReasonedScoreArbiter).thenAnswer(reasoned);
+    mockLlm(PanelScoreArbiter).thenAnswer(reasoned);
 
     const result = await app.execute(PanelWorkflowStart, ANNA);
 
     expect(result).toFinishWith(PanelUndecidedWorkflowFinish, ANNA);
     expect(result.launches[0]?.branches).toMatchObject([
-      { verdict: BranchVerdict.Rejected, rejectedBy: ["in-range-arbiter"] },
+      { verdict: BranchVerdict.Rejected, rejectedBy: ["panel-score-arbiter"] },
       { verdict: BranchVerdict.Counted },
-      { verdict: BranchVerdict.Rejected, rejectedBy: ["reasoned-score-arbiter"] },
+      { verdict: BranchVerdict.Rejected, rejectedBy: ["panel-score-arbiter"] },
     ]);
-    expect(mockLlm(ReasonedScoreArbiter).requests).toHaveLength(2);
+    expect(mockLlm(PanelScoreArbiter).requests).toHaveLength(2);
   });
 });

@@ -1,6 +1,6 @@
 /**
  * #1150 AC6–AC8 — assembly checks a child's PII policies on every static way into it (`.toWorkflow`,
- * `.toParallelWorkflows`, `route`): an exclusion names an inherited policy — the application's, its
+ * `.forEachItem`, `route`): an exclusion names an inherited policy — the application's, its
  * workflow's or an ancestor's —, a conflict between an ancestor's and the child's lists is
  * `[pii.conflicting-rules]` naming the way; `agboss describe` and the start log show each way's
  * effective sets and every exclusion.
@@ -8,14 +8,14 @@
 import { describe, expect, it } from "vitest";
 import {
   Agent,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   secret,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -30,15 +30,16 @@ import type { FrameworkLog } from "../../src/infrastructure/logger.js";
 import { listOf } from "../../src/flow/dto-wrappers.js";
 import { effectivePiiPolicies } from "../../src/pii/effective-policies.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart, toWorkflow } from "../helpers/flow.js";
 import { ChainApplication, ChildSecretPiiPolicy, RootSecretPiiPolicy } from "./chain.fixture.js";
 import { ContactPiiPolicy, GovernmentPiiPolicy } from "./pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @PiiPolicy({
   name: "email-kind-chain-pii-policy",
   description: "Emails by kind",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
-  pseudonymKey: secret("PII_UNIT_KEY"),
+  rules: [PiiKind.Email.mask()],
+  secret: secret("PII_UNIT_KEY"),
 })
 class EmailKindPiiPolicy {}
 
@@ -124,19 +125,15 @@ class ConflictChildStart {}
 })
 class ConflictChildFinish {}
 
-@Agent({ name: "cc-agent", description: "d", prompt: "p", model: "test/cc" })
+@Agent({ name: "cc-agent", description: "d", prompt: inline("p"), model: "test/cc" })
 class ConflictAgent {}
 
 /** Lists e-mails by kind; its parents list them as tokens. */
 @Workflow({
   name: "cc-child-workflow",
   version: "1.0.0",
-  flow: [
-    start(ConflictChildStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ConflictAgent)
-      .toFinish(ConflictChildFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ConflictChildStart).toAgent(ConflictAgent).toFinish(ConflictChildFinish)],
   piiPolicies: [EmailKindPiiPolicy],
 })
 class ConflictChildWorkflow {}
@@ -155,19 +152,18 @@ class ConflictRootStart {}
 })
 class ConflictRootFinish {}
 
-@Agent({ name: "cc-summary-agent", description: "d", prompt: "p", model: "test/cc" })
+@Agent({ name: "cc-summary-agent", description: "d", prompt: inline("p"), model: "test/cc" })
 class ConflictSummaryAgent {}
 
-/** Its child per item: the edge `.toParallelWorkflows` is a way in too. */
+/** Its child per item: the edge `.forEachItem` is a way in too. */
 @Workflow({
   name: "cc-root-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ConflictRootStart)
-      .returns(listOf(WorkflowStartTextDto))
-      .toParallelWorkflows(ConflictChildWorkflow, { maxItems: 2 })
+    onStart(ConflictRootStart)
+      .forEachItem(toWorkflow(ConflictChildWorkflow), { takeFirst: 2 })
       .join()
-      .returns(listOf(WorkflowFinishTextDto))
       .toAgent(ConflictSummaryAgent)
       .toFinish(ConflictRootFinish),
   ],
@@ -177,6 +173,7 @@ class ConflictRootWorkflow {}
 
 @Application({
   name: "cc-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ConflictRootWorkflow],
@@ -194,7 +191,7 @@ describe("#1150 AC7: assembly checks every way into a child", () => {
       .map((item) => item.message);
     expect(messages).toEqual(
       expect.arrayContaining([
-        "cc-child-workflow (under cc-root-workflow): email is replaceWithToken() in contact-pii-policy but replaceWithKind() in email-kind-chain-pii-policy",
+        "cc-child-workflow (under cc-root-workflow): email is tokenize() in contact-pii-policy but mask() in email-kind-chain-pii-policy",
       ]),
     );
   });

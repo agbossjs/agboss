@@ -11,52 +11,52 @@ import { workflowDeclaration, writeApplication } from "./application-fixture.js"
 const workflow = (flow: string) => ({ path: "src/desk/desk.workflow.ts", content: flow });
 
 describe("#116: agboss g agent joins the router's choice; agboss g router", () => {
-  const TRIAGE = "      route(TriageAgent)\n        .toFinish(TextWorkflowFinish)";
-  const BILLING = "      route(BillingAgent)\n        .toFinish(TextWorkflowFinish)";
+  const TRIAGE = "    .onRoute(toAgent(TriageAgent)\n      .toFinish(TextWorkflowFinish))";
+  const BILLING = "    .onRoute(toAgent(BillingAgent)\n      .toFinish(TextWorkflowFinish))";
   const STAR = (routes: string) =>
-    `flow: [\n  start(TextWorkflowStart)\n    .returns(WorkflowStartTextDto)\n    .toRouter(MainRouter)\n    .chooseOne(\n${routes},\n    ),\n]`;
+    `flow: [\n  onStart(TextWorkflowStart)\n\n    .toRouter(MainRouter)\n${routes},\n]`;
 
-  it("#272: adds route(Agent).toFinish(Finish) after the router's last route, one call per line (#289)", () => {
+  it("#272: adds .onRoute(toAgent(Agent).toFinish(Finish)) after the router's last route, one call per line (#289)", () => {
     const file = workflow(STAR(TRIAGE));
 
     expect(addAgentToFlow(file, "BillingAgent", "MainRouter", "TextWorkflowFinish").content).toBe(
-      STAR(`${TRIAGE},\n${BILLING}`),
+      STAR(`${TRIAGE}\n${BILLING}`),
     );
   });
 
-  it("#289: a route written on the chooseOne line gets the new one on its own lines, a step in", () => {
+  it("#289: a route written on the onRoute line gets the new one on its own lines, a step in", () => {
     const file = workflow(
-      "[\n  router(MainRouter).chooseOne(route(TriageAgent).toFinish(Done)),\n]",
+      "[\n  onRouter(MainRouter).onRoute(toAgent(TriageAgent).toFinish(Done)),\n]",
     );
 
     expect(addAgentToFlow(file, "BillingAgent", "MainRouter", "Done").content).toBe(
-      "[\n  router(MainRouter).chooseOne(route(TriageAgent).toFinish(Done),\n    route(BillingAgent)\n      .toFinish(Done)),\n]",
+      "[\n  onRouter(MainRouter).onRoute(toAgent(TriageAgent).toFinish(Done))\n  .onRoute(toAgent(BillingAgent)\n    .toFinish(Done)),\n]",
     );
   });
 
   it("an unexpected flow is not guessed: an error naming the file", () => {
     const file = workflow(
-      "[start(TextWorkflowStart).returns(WorkflowStartTextDto).toAgent(TriageAgent).toFinish(TextWorkflowFinish)]",
+      "[onStart(TextWorkflowStart).toAgent(TriageAgent).toFinish(TextWorkflowFinish)]",
     );
 
     expect(() => addAgentToFlow(file, "BillingAgent", "MainRouter", "TextWorkflowFinish")).toThrow(
       ScaffoldError,
     );
     expect(() => addAgentToFlow(file, "BillingAgent", "MainRouter", "TextWorkflowFinish")).toThrow(
-      "src/desk/desk.workflow.ts: no .toRouter(MainRouter).chooseOne(route(…)…) in the flow — add BillingAgent by hand",
+      "src/desk/desk.workflow.ts: no .toRouter(MainRouter).onRoute(…) in the flow — add BillingAgent by hand",
     );
   });
 
   it("adding an agent that is already in the choice doubles nothing: it is reported as skipped", () => {
     const file = workflow(
-      "[router(MainRouter).chooseOne(route(TriageAgent).toFinish(Done), route(BillingAgent).toFinish(Done))]",
+      "[onRouter(MainRouter).onRoute(toAgent(TriageAgent).toFinish(Done)).onRoute(toAgent(BillingAgent).toFinish(Done))]",
     );
 
     const again = addAgentToFlow(file, "BillingAgent", "MainRouter", "Done");
 
     expect(again.content).toBe(file.content);
     expect(again.skipped).toEqual([
-      "src/desk/desk.workflow.ts: BillingAgent already in MainRouter's chooseOne(…)",
+      "src/desk/desk.workflow.ts: BillingAgent already in MainRouter's .onRoute(…)s",
     ]);
   });
 

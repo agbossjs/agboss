@@ -7,14 +7,19 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Action,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { optional } from "../../../../src/flow/dto-wrappers.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../../../src/index.js";
 import { usd, type Usd } from "../../../../src/units/index.js";
-import { agent, route, start, toFinish } from "../../../helpers/flow.js";
+import { onAgent, onStart, toFinish, toAction, toAgent } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS, TestApplicationDailyBudget } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** The editor's draft: each visit replaces the one before in the path scope. */
 export class DraftDto {
@@ -31,10 +36,10 @@ export class EditStart {}
 
 const editor = {
   description: "Writes the draft, again after the gate's review",
-  prompt: "Write the draft.",
+  prompt: inline("Write the draft."),
   model: "test/editor",
   price: { inputPerMTok: 1, outputPerMTok: 2 },
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
   input: { message: WorkflowStartTextDto, draft: optional(DraftDto) },
   output: DraftDto,
 } as const;
@@ -47,24 +52,32 @@ export class EditorAgent {}
 export class DoneFinish {}
 
 /** The last draft, if any: on the side path of a first visit there is none yet. */
-@WorkflowFinish({
-  name: "gave-up-workflow-finish",
+@Action({
+  name: "gave-up-action",
   description: "The last draft, the editor's visits spent",
   input: { draft: optional(DraftDto) },
   output: DraftDto,
 })
-export class GaveUpFinish {
-  finish(input: { readonly draft?: { readonly value: DraftDto } }): DraftDto {
-    return input.draft?.value ?? { text: "" };
+export class GaveUpAction {
+  async execute(input: { readonly draft?: DraftDto }): Promise<DraftDto> {
+    return input.draft ?? { text: "" };
   }
 }
+
+@WorkflowFinish({
+  name: "gave-up-workflow-finish",
+  description: "The last draft, the editor's visits spent",
+  output: DraftDto,
+})
+export class GaveUpFinish {}
 
 @Router({
   name: "gate-router",
   description: "Sends the draft back or accepts it",
   decidedBy: DecidedBy.Model,
-  prompt: "Is the draft good?",
+  prompt: inline("Is the draft good?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { draft: DraftDto },
   maxVisits: 5,
   routes: [
@@ -78,20 +91,21 @@ export class GateRouter {}
 @Workflow({
   name: "edit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(EditStart)
-      .returns(WorkflowStartTextDto)
+    onStart(EditStart)
       .toAgent(EditorAgent),
-    agent(EditorAgent)
-      .returns(DraftDto)
+    onAgent(EditorAgent)
       .toRouter(GateRouter)
-      .chooseOne(route(EditorAgent), route(DoneFinish)),
+      .onRoute(toAgent(EditorAgent))
+      .onRoute(toFinish(DoneFinish)),
   ],
 })
 export class EditWorkflow {}
 
 @Application({
   name: "edit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EditWorkflow],
@@ -106,8 +120,9 @@ export class PatientEditorAgent {}
   name: "patient-gate-router",
   description: "Sends the draft back or accepts it",
   decidedBy: DecidedBy.Model,
-  prompt: "Is the draft good?",
+  prompt: inline("Is the draft good?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { draft: DraftDto },
   maxVisits: 5,
   routes: [
@@ -121,21 +136,26 @@ export class PatientGateRouter {}
 @Workflow({
   name: "patient-edit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(EditStart)
-      .returns(WorkflowStartTextDto)
+    onStart(EditStart)
       .toAgent(PatientEditorAgent),
-    agent(PatientEditorAgent)
-      .onError(VisitsLimitExceededError, toFinish(GaveUpFinish))
-      .returns(DraftDto)
+    onAgent(PatientEditorAgent)
+      .onError(
+        VisitsLimitExceededError,
+        toAction(GaveUpAction)
+          .toFinish(GaveUpFinish),
+      )
       .toRouter(PatientGateRouter)
-      .chooseOne(route(PatientEditorAgent), route(DoneFinish)),
+      .onRoute(toAgent(PatientEditorAgent))
+      .onRoute(toFinish(DoneFinish)),
   ],
 })
 export class PatientEditWorkflow {}
 
 @Application({
   name: "patient-edit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PatientEditWorkflow],
@@ -144,21 +164,27 @@ export class PatientEditWorkflow {}
 export class PatientEditApplication {}
 
 const editPaths = [
-  start(EditStart)
-    .returns(WorkflowStartTextDto)
+  onStart(EditStart)
     .toAgent(EditorAgent),
-  agent(EditorAgent)
-    .returns(DraftDto)
+  onAgent(EditorAgent)
     .toRouter(GateRouter)
-    .chooseOne(route(EditorAgent), route(DoneFinish)),
+    .onRoute(toAgent(EditorAgent))
+    .onRoute(toFinish(DoneFinish)),
 ];
 
-/** The loop with 3 steps per execution (`@Workflow({ maxSteps })`). */
-@Workflow({ name: "short-edit-workflow", version: "1.0.0", maxSteps: 3, flow: editPaths })
+/** The loop with 3 steps per execution (`@Workflow({ executionLimits: { maxSteps } })`). */
+@Workflow({
+  name: "short-edit-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  executionLimits: { maxSteps: 3 },
+  flow: editPaths,
+})
 export class ShortEditWorkflow {}
 
 @Application({
   name: "short-edit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ShortEditWorkflow],
@@ -167,7 +193,12 @@ export class ShortEditWorkflow {}
 export class ShortEditApplication {}
 
 /** The loop with its own execution budget of $0.015 and a tenant budget of $0.02 a day. */
-@Workflow({ name: "cheap-edit-workflow", version: "1.0.0", flow: editPaths })
+@Workflow({
+  name: "cheap-edit-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: editPaths,
+})
 export class CheapEditWorkflow {}
 
 @Budget({
@@ -190,6 +221,7 @@ export class CheapTenantDailyBudget implements BudgetHandler {
 
 @Application({
   name: "cheap-edit-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CheapEditWorkflow],

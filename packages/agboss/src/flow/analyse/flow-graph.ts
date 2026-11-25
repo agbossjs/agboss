@@ -1,19 +1,17 @@
 import type { Class } from "../../components/injection.js";
-import { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
 import {
   NodeKind,
-  type AcceptedBy,
+  type ArbiterClass,
   type ErrorClass,
-  type LaunchTargetKind,
+  type ParallelTargetKind,
   type Quorum,
 } from "../ast.js";
 import type { ComponentDeclaration } from "../decorators/declaration.js";
-import type { DtoClass } from "../../dto/types.js";
-import type { ListWrapper, OutputShape, ReturnedShape, ValueShape } from "../dto-wrappers.js";
+import type { ListWrapper, OutputShape, ValueShape } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import type { JoinGroup } from "./join-groups.js";
 import { childWorkflowOf } from "./child-workflow.js";
-import { dtoLabel, shapeLabel } from "./labels.js";
+import { shapeLabel } from "./labels.js";
 
 /**
  * The graph of a v2 workflow as the analyser sees it (#272 PR 2): one node per component `name`
@@ -25,55 +23,60 @@ import { dtoLabel, shapeLabel } from "./labels.js";
 
 /** How an edge was written in the flow. */
 export enum EdgeKind {
-  /** `.to…(X)` after a step (and its `.returns(…)`). */
+  /** `.to…(X)` after a step. */
   Next = "next",
-  /** `caseOf(XDto)…` of a `.switch(…)`: the variant enters the scope on this edge. */
+  /** a `.toOneOf([…])` branch: the variant enters the scope on this edge. */
   Case = "case",
-  /** `route(X)` of a `.chooseOne(…)`. */
+  /** `route(X)` of a `.onRoute(…)`. */
   Route = "route",
   /** `.onError(E, toAction(X)…)`: the step failed, so it wrote nothing. */
   Error = "error",
   /**
-   * `.toParallelAgents(X)`, `.toParallelWorkflows(W, …)`: to one branch of a launch, with the scope
+   * `.inParallel(X)`, `.forEachItem(W, …)`: to one branch of a launch, with the scope
    * at the launch (#273, #263).
    */
   Launch = "launch",
   /** `.join()….to…(Y)`: from the launching step past its branches, with their values (#273). */
   Join = "join",
   /**
-   * `.join().onJoinError(E, toAction(X)…)`: the launch failed; the launching step's values, and
+   * `.join().onError(E, toAction(X)…)`: the launch failed; the launching step's values, and
    * each branch output the launch gives as an optional value (a list stays a list, #945).
    */
   JoinError = "join-error",
 }
 
 /**
- * One value an edge puts into the path scope: a `.returns(…)` value or a `caseOf(…)` variant (a
- * `.returns(oneOf(…))` writes nothing itself: each case writes its class).
+ * One value an edge puts into the path scope: a step's own value or a a `.toOneOf([…])` branch variant (a
+ * `oneOf(…)` output writes nothing itself: each case writes its class).
  */
 export interface ValueWrite {
   readonly shape: ValueShape;
-  /** `{ about }` of its `.returns` or `caseOf` (#299 S54): what the value is about. */
-  readonly about?: readonly DtoClass[];
-  /** Written by `caseOf(XDto)`: the switch read it to choose the branch (#270 AC19). */
+  /** Written by a `.toOneOf([…])` branch: the switch read it to choose the branch (#270 AC19). */
   readonly isCase: boolean;
+  /**
+   * A typed slice (#1288b): `listOf(V)` cut from the polymorphic `listOf(A, B, …)` the same step
+   * wrote — the list it is a slice of. A slice and its list are one value to `[flow.unused-output]`.
+   */
+  readonly sliceOf?: ListWrapper;
 }
 
-/** A write of `shape`, with its `{ about }` when it has one. */
-export const valueWrite = (
-  shape: ValueShape,
-  about: readonly DtoClass[] | undefined,
-  isCase: boolean,
-): ValueWrite => (about === undefined ? { shape, isCase } : { shape, about, isCase });
+/** A write of `shape`. */
+export const valueWrite = (shape: ValueShape, isCase: boolean): ValueWrite => ({ shape, isCase });
 
 /** One target of a launch (#273): its node, how many copies, and whether it may be missing. */
 export interface LaunchBranch {
   readonly node: ComponentName;
-  /** How many times the launch lists it (`toParallelAgents(CriticAgent, CriticAgent)`: 2). */
+  /** How many times the launch lists it (`.inParallel([toAgent(A), toAgent(A)])`: 2). */
   readonly copies: number;
-  /** Its router route is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip`: the join may lack it. */
+  /** What it is: a launch may mix kinds (#1279). */
+  readonly kind: ParallelTargetKind;
+  /** `.onError(E, skip())` (#1279): the error classes that drop it out of the join. */
+  readonly skip: readonly ErrorClass[];
+  /** Listed with different `skip()`s: `[launch.skip-differs]`. */
+  readonly skipDiffers?: true;
+  /** A branch a router chooses, or one that is `skip()`ped: the join may lack it. */
   readonly isOptional: boolean;
-  /** Its router route is `SpawnPolicy.Always` + `FailurePolicy.FailFast` (or no router): it runs. */
+  /** Neither chosen by a router nor `skip()`ped: it runs. */
   readonly alwaysRuns: boolean;
 }
 
@@ -81,35 +84,41 @@ export interface LaunchBranch {
 export interface FlowLaunch {
   /** The launching step: an agent, an action, a start or a router. */
   readonly launcher: ComponentName;
-  readonly targetKind: LaunchTargetKind;
+  /** How a message names the launch's call: `inParallel`, `forEachItem`. */
+  readonly call: string;
+  /** `.inParallel([…])` / `.forEachItem(…)`. */
+  readonly form: "in-parallel" | "for-each-item";
   /** Distinct targets, in the order first listed. */
   readonly branches: readonly LaunchBranch[];
-  /** The targets as listed, repeats included (the key of its `JoinOutputs` entry). */
+  /** The targets as listed, repeats included. */
   readonly listed: readonly ComponentName[];
-  /** The list a per-item launch runs over: the `.returns(listOf(XDto))` right before it. */
+  /** The list a per-item launch runs over: the list the step before it gives. */
   readonly items?: ListWrapper;
   readonly maxConcurrency?: number;
+  /** A strict bound: more items throw `LimitError.Items` (#1280). */
   readonly maxItems?: number;
-  /** Launched right after a router: its routes' policies apply. */
+  /** An intended slice: the first `takeFirst` items run (#1280). */
+  readonly takeFirst?: number;
+  /** `toRouter(R).chooseMany([…])` (#1279b): the router `launcher` is, and the targets it picks among. */
+  readonly chooser?: { readonly routes: readonly ComponentName[] };
+  /** A `toRouter(R).chooseMany([…])` launch: the router decides which branches run. */
   readonly isRouterLaunch: boolean;
-  /** `.acceptedBy(…)` (#279): the arbiters each answer passes, in path order. */
-  readonly acceptedBy?: readonly AcceptedBy[];
+  /** `.arbitratedBy(A)` (#279, #1282): the one arbiter each answer passes. */
+  readonly arbitratedBy?: ArbiterClass;
 }
 
-/** The `group(…)` of `.joinQuorumGroups(…)` a join edge continues (#279). */
+/** The `.onGroup(…)` of `.joinQuorumGroups(…)` a join edge continues (#279, #1284). */
 export interface JoinGroupOrigin {
-  /** The group's agents as listed, repeats included. */
-  readonly agents: readonly ComponentName[];
+  /** The group's targets as listed, repeats included. */
+  readonly targets: readonly ComponentName[];
   readonly priority?: number;
 }
 
 /** What a join edge carries besides the launching step's own values (#273). */
 export interface JoinEdge {
   readonly launch: FlowLaunch;
-  /** `.join().returns(…)`: the branches' values, as written (a `oneOf(…)` is left to the rule). */
+  /** What the join writes: one value per class the branches give. */
   readonly values: readonly ValueWrite[];
-  /** The shapes written after `.join()`, for `[flow.returns-mismatch]` (a `oneOf(…)` included). */
-  readonly written: readonly ReturnedShape[];
   /** What the branches give, by class: the values the join must name. */
   readonly groups: readonly JoinGroup[];
   /** `.joinQuorum(…)` / `.joinQuorumGroups(…)` (#279); absent for `.join()`. */
@@ -122,8 +131,16 @@ export interface FlowEdge {
   readonly from: ComponentName;
   readonly to: ComponentName;
   readonly kind: EdgeKind;
-  /** The values of the step `from` (a launch edge adds a per-item branch's item last). */
+  /**
+   * The values of the step `from`, derived from its declaration (#1270; a launch edge adds a
+   * per-item branch's item last).
+   */
   readonly writes: readonly ValueWrite[];
+  /**
+   * `EdgeKind.Case`: what the runtime picks the branch by — the class name of the DTO a
+   * `.toOneOf` branch takes, the component name of the child finish an `.onFinish(F, …)` takes (#1275).
+   */
+  readonly caseKey?: string;
   /** The class an `EdgeKind.Error` / `EdgeKind.JoinError` edge catches. */
   readonly error?: ErrorClass;
   /** `EdgeKind.Launch` and `EdgeKind.Join` / `EdgeKind.JoinError`: the launch (#273). */
@@ -143,11 +160,11 @@ export interface FlowNode {
   readonly kind: NodeKind;
   readonly component: Class;
   readonly declaration: ComponentDeclaration;
-  /** `ThisWorkflow` (#264): the enclosing workflow it launches (its declaration is this node's). */
+  /** A recursion (#264, #1287): this node is the enclosing workflow itself, launched again. */
   readonly recursionOf?: Class;
 }
 
-/** The workflow a child node launches: its class, or for `ThisWorkflow` the enclosing one (#264). */
+/** The workflow a child node launches: its class (for a recursion, the enclosing workflow itself). */
 export const childClassOf = (node: Pick<FlowNode, "component" | "recursionOf">): Class =>
   node.recursionOf ?? node.component;
 
@@ -180,26 +197,17 @@ export function outputOf(node: FlowNode): OutputShape | undefined {
 export const isTextAgent = (node: FlowNode): boolean =>
   node.declaration.kind === NodeKind.Agent && node.declaration.options.output === undefined;
 
-/** What a text agent gives on its way out: its reply as `WorkflowFinishTextDto`. */
-const TEXT_ANSWER: readonly ValueWrite[] = [{ shape: WorkflowFinishTextDto, isCase: false }];
-
-/** What an edge of `kind` leaving `node` writes: the flow's values, or a text agent's reply. */
-export const writesLeaving = (
-  node: FlowNode,
-  kind: EdgeKind,
-  written: readonly ValueWrite[],
-): readonly ValueWrite[] => (isTextAgent(node) && kind === EdgeKind.Next ? TEXT_ANSWER : written);
-
 /** A canonical, comparable key of an edge. */
 export function edgeKey(edge: FlowEdge): string {
-  const writes = edge.writes.map(
-    (write) =>
-      `${shapeLabel(write.shape)}@${(write.about ?? []).map(dtoLabel).join("+")}:${String(write.isCase)}`,
-  );
-  const joined = (edge.join?.written ?? []).map(shapeLabel).join(",");
-  return [edge.from, edge.to, edge.kind, edge.error?.name ?? "", writes.join(","), joined].join(
-    "|",
-  );
+  const writes = edge.writes.map((write) => `${shapeLabel(write.shape)}:${String(write.isCase)}`);
+  return [
+    edge.from,
+    edge.to,
+    edge.kind,
+    edge.error?.name ?? "",
+    writes.join(","),
+    edge.caseKey ?? "",
+  ].join("|");
 }
 
 /** Edges leaving each node, in canonical order. */
@@ -225,3 +233,12 @@ export function reachableFrom(
   }
   return seen;
 }
+
+/** Whether more items than the bound are an error: `.forEachItem(step, { maxItems })` (#1280); every other bound slices. */
+export const isStrictItems = (launch: Pick<FlowLaunch, "form" | "maxItems">): boolean =>
+  launch.form === "for-each-item" && launch.maxItems !== undefined;
+
+/** The most items a per-item launch runs: `maxItems` or `takeFirst` (#1280); undefined when unbounded. */
+export const itemBoundOf = (
+  launch: Pick<FlowLaunch, "maxItems" | "takeFirst">,
+): number | undefined => launch.maxItems ?? launch.takeFirst;

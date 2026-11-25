@@ -1,7 +1,7 @@
 import { contextFieldNamesOf, type ExecutionContextClass } from "./context-values.js";
 import type { ExecutionContext, StepDescriptor, WorkflowClass } from "./execution-context.js";
 import { depthOf, type ExecutionFacts } from "./frame.js";
-import { ancestorFenceRead } from "./execution-fence.js";
+import { ancestorFenceRead, FENCE } from "./execution-fence.js";
 
 /**
  * The ancestors of an execution as its `ExecutionContext` shows them (#263): `parent`, `root` and
@@ -17,6 +17,7 @@ function ownValues(facts: ExecutionFacts, step: StepDescriptor): Readonly<Record
     threadId: facts.threadId,
     ownerId: facts.ownerId,
     tenant: facts.tenant,
+    application: facts.tenant.application,
     signal: facts.signal,
     workflow: facts.workflow,
     step,
@@ -48,7 +49,7 @@ export function ancestorContextOf(
   const parent = parentContextOf(type, facts);
   Object.defineProperty(context, "parent", { enumerable: true, value: parent });
   // an ancestor's lease is never fenced with (#471): it may be yielded or held on another instance
-  Object.defineProperty(context, "fence", {
+  Object.defineProperty(context, FENCE, {
     enumerable: false,
     get: () => ancestorFenceRead(type.name),
   });
@@ -56,6 +57,8 @@ export function ancestorContextOf(
     enumerable: true,
     get: () => parent?.root ?? context,
   });
+  // an ancestor's step is not the current one: its cleanups are its own frame's (#1341b)
+  Object.defineProperty(context, "onInterrupted", { value: (): void => undefined });
   Object.defineProperty(context, "executionOf", {
     value: (workflow: WorkflowClass) =>
       facts.workflow.type === workflow ? context : parent?.executionOf(workflow),

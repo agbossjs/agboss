@@ -38,40 +38,26 @@ describe("#825 AC6: each key on a variable of its own", () => {
     });
   });
 
-  it("the idempotency key on the PII key's variable, or the previous one on the current one's: refused", () => {
+  it("the PII key on the variable of the mesh's signing key: refused at start", () => {
     const keys = {
       piiKeyField: "piiKey",
-      idempotencyKeyField: "idempotencyKey",
-      previousIdempotencyKeyField: "previousKey",
+      otherKeys: new Map([["meshSigningKey", "the mesh's signingKey"]]),
     };
 
-    expect(
-      refusalOf(keys, {
-        piiKey: secret("PII"),
-        idempotencyKey: secret("PII"),
-        previousKey: secret("OLD"),
-      }),
-    ).toMatchObject({ code: EnvironmentErrorCode.InvalidValue });
-    expect(
-      refusalOf(keys, {
-        piiKey: secret("PII"),
-        idempotencyKey: secret("CURRENT"),
-        previousKey: secret("CURRENT"),
-      }),
-    ).toMatchObject({ code: EnvironmentErrorCode.InvalidValue });
+    expect(refusalOf(keys, { piiKey: secret("PII"), meshSigningKey: secret("PII") })).toMatchObject(
+      { code: EnvironmentErrorCode.InvalidValue },
+    );
   });
 
   it("variables of their own, or a field with no Secret (a test environment's): no problem", () => {
     const keys = {
       piiKeyField: "piiKey",
-      idempotencyKeyField: "idempotencyKey",
       otherKeys: OTHER_KEYS,
     };
 
     expect(
       refusalOf(keys, {
         piiKey: secret("PII"),
-        idempotencyKey: secret("IDEMPOTENCY"),
         openRouterApiKey: secret("OPENROUTER"),
       }),
     ).toBeUndefined();
@@ -81,14 +67,15 @@ describe("#825 AC6: each key on a variable of its own", () => {
   it("checked where the start reads the keys: applicationIdempotencyKeysOf refuses before any key is made", () => {
     const assembled = {
       name: "keys-application",
+      workflows: [],
       piiKeyField: "piiKey",
-      idempotencyKeyField: "idempotencyKey",
+      otherKeys: OTHER_KEYS,
     };
-    const values: object = { piiKey: secret("ONE_KEY"), idempotencyKey: secret("ONE_KEY") };
+    const values: object = { piiKey: secret("ONE_KEY"), openRouterApiKey: secret("ONE_KEY") };
     const environment = unitEnvironmentOf(values);
 
     expect(() => applicationIdempotencyKeysOf(assembled, environment, { ONE_KEY: "k" })).toThrow(
-      'keys-application: @Application({ piiKeyField: "piiKey" }) reads ONE_KEY, as idempotencyKey (idempotencyKeyField) does',
+      'keys-application: @Application({ piiKeyField: "piiKey" }) reads ONE_KEY, as openRouterApiKey (the built-in OpenRouter providers\' apiKey) does',
     );
   });
 });

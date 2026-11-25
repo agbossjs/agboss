@@ -18,7 +18,7 @@ import {
   BuyerDesk,
   BuyerWorkflowFinish,
   BuyerWorkflowStart,
-  ApproverQuestion,
+  ApproverExternalTask,
   OrderTool,
   QuestionToolsApplication,
   RuleQuestionToolsApplication,
@@ -45,28 +45,33 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
     app,
     mockLlm,
   }) => {
-    mockLlm(BuyerAgent).thenReturn(callTool(ApproverQuestion, laptop));
+    mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop));
 
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy a laptop" }, asking);
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
     expect(paused.pending).toEqual([
       {
-        kind: PauseKind.Question,
+        kind: PauseKind.ExternalTask,
         pauseId: expect.any(String),
-        answerer: "thread-owner",
-        answeredBy: "thread-owner",
+        respondent: "owner",
         step: "buyer-agent",
-        channel: "approver-question",
+        target: "approver-external-task",
+        channel: "desk-approver-channel",
+        expiresAt: expect.any(String),
         childExecutionId: undefined,
         itemIndex: undefined,
         // the requester is `sensitive`: masked in the record, the channel's ask and the result
-        ask: { item: "laptop", priceUsd: 900, requester: expect.not.stringContaining("alice") },
+        input: { item: "laptop", priceUsd: 900, requester: expect.not.stringContaining("alice") },
+        trail: [expect.objectContaining({ action: "opened" })],
       },
     ]);
     const desk = app.resolve(BuyerDesk);
     expect(desk.asked).toEqual([
-      { pauseId: paused.pending[0]?.pauseId, value: paused.pending[0]?.ask },
+      expect.objectContaining({
+        pauseId: paused.pending[0]?.pauseId,
+        input: paused.pending[0]?.input,
+      }),
     ]);
     const pause = await app
       .resolve(PausedExecutionRepository)
@@ -74,9 +79,9 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
     expect(pause).toMatchObject({
       status: PauseStatus.Pending,
       isSent: true,
-      kind: PauseKind.Question,
+      kind: PauseKind.ExternalTask,
       step: "buyer-agent",
-      component: { name: "approver-question", kind: "question" },
+      component: { name: "approver-external-task", kind: "question" },
     });
   });
 
@@ -85,7 +90,7 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
     mockLlm,
   }) => {
     mockLlm(BuyerAgent).thenReturn(
-      callTool(ApproverQuestion, laptop),
+      callTool(ApproverExternalTask, laptop),
       callTool(OrderTool, { item: "laptop", limitUsd: 950 }),
       replyWith("ordered within 950"),
     );
@@ -105,7 +110,7 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
     expect(app.resolve(BuyerDesk).ordered).toEqual([{ item: "laptop", limitUsd: 950 }]);
     // the question call is recorded as the role (kind question), its output the answer
     expect(done.toolCalls.map((call) => call.step.component)).toMatchObject([
-      { name: "approver-question", kind: "question" },
+      { name: "approver-external-task", kind: "question" },
       { name: "order-tool", kind: "tool" },
     ]);
     expect(done.toolCalls[0]?.output).toMatchObject({ approved: true, limitUsd: 950 });
@@ -115,7 +120,7 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
     "AC2: a channel's decided(answer) goes on at once, nothing pending",
     async ({ app, mockLlm }) => {
       mockLlm(BuyerAgent).thenReturn(
-        callTool(ApproverQuestion, { item: "mouse", priceUsd: 40 }),
+        callTool(ApproverExternalTask, { item: "mouse", priceUsd: 40 }),
         replyWith("approved up to 100"),
       );
 
@@ -136,7 +141,7 @@ describe("#712 AC3: the answer is validated as the role's answer DTO", () => {
     app,
     mockLlm,
   }) => {
-    mockLlm(BuyerAgent).thenReturn(callTool(ApproverQuestion, laptop), replyWith("ordered"));
+    mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop), replyWith("ordered"));
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy a laptop" }, asking);
     const pauseId = paused.pending[0]?.pauseId ?? "";
 
@@ -159,7 +164,7 @@ describe("#712 AC3: the answer is validated as the role's answer DTO", () => {
     app,
     mockLlm,
   }) => {
-    mockLlm(BuyerAgent).thenReturn(callTool(ApproverQuestion, laptop), replyWith("declined"));
+    mockLlm(BuyerAgent).thenReturn(callTool(ApproverExternalTask, laptop), replyWith("declined"));
     const paused = await execute(app, BuyerWorkflowStart, { text: "buy a laptop" }, asking);
     const pauseId = paused.pending[0]?.pauseId ?? "";
 

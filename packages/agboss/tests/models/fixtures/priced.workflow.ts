@@ -1,10 +1,20 @@
-import { file } from "../../../src/components/file.js";
-
-import { Agent, Workflow, TokenLimit, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
+import { Window2Memory } from "../../helpers/window-memory.js";
+import {
+  Agent,
+  Workflow,
+  TokenLimit,
+  WorkflowFinish,
+  WorkflowStart,
+  Ttl,
+} from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { DecisionsModelProvider, Reasoning } from "../../../src/models/index.js";
-import { start } from "../../helpers/flow.js";
-import { LocalModelProvider, TestOpenRouterProvider } from "../providers.fixture.js";
+import { Reasoning } from "../../../src/models/index.js";
+import { onStart } from "../../helpers/flow.js";
+import {
+  LocalModelProvider,
+  TestOpenRouterProvider,
+  TestDecisionsProvider,
+} from "../providers.fixture.js";
 import { Application } from "../../../src/application/application.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
 import { Budget, BudgetScope, type BudgetHandler } from "../../../src/budgets/budget.js";
@@ -20,9 +30,10 @@ export class SummaryDto {
 /** Priced by its provider's table (local/llama), no price of its own. */
 @Agent({
   name: "summariser-agent",
-  promptUrls: ["./summariser.prompt.md"],
+  prompt: "./summariser.prompt.md",
   description: "Summarises the task",
   model: "local/llama",
+  modelProvider: LocalModelProvider,
   input: { task: WorkflowStartTextDto },
   output: SummaryDto,
 })
@@ -31,9 +42,10 @@ export class Summariser {}
 /** Priced by its provider's replyWith (OpenRouter's usage.cost). */
 @Agent({
   name: "writer-agent",
-  promptUrls: ["./writer.prompt.md"],
+  prompt: "./writer.prompt.md",
   description: "Writes the replyWith",
   model: "moonshotai/kimi-k2.6",
+  modelProvider: TestOpenRouterProvider,
   reasoning: Reasoning.off(),
   input: { summary: SummaryDto },
 })
@@ -53,20 +65,18 @@ export class Answer {}
 @Workflow({
   name: "priced-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TaskStart)
-      .returns(WorkflowStartTextDto)
+    onStart(TaskStart)
       .toAgent(Summariser)
-      .returns(SummaryDto)
       .toAgent(Writer)
       .toFinish(Answer),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
-    router: { model: "typesafe/jev-1.13" },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     tools: { maxToolCalls: 2 },
   },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 })
 export class Priced {}
 
@@ -83,7 +93,7 @@ export class PricedExecutionBudget implements BudgetHandler {
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Priced],
-  providers: [TestOpenRouterProvider, DecisionsModelProvider, LocalModelProvider],
+  providers: [TestOpenRouterProvider, TestDecisionsProvider, LocalModelProvider],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, PricedExecutionBudget],
 })
 export class PricedApplication {}

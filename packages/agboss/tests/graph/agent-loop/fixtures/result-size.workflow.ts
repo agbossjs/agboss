@@ -1,15 +1,17 @@
+import { RagScope } from "../../../../src/rag/types.js";
+import { RagSource } from "../../../../src/rag/rag-source.js";
 import {
   Agent,
   Injectable,
-  RagMode,
+  Observer,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Rag } from "../../../../src/components/decorators.js";
-import type { OnToolEnd } from "../../../../src/core/observer-hooks.js";
 import type { ToolEndEvent } from "../../../../src/core/observability.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
@@ -23,8 +25,8 @@ import {
 import type { RagRetrieval } from "../../../../src/rag/types.js";
 import { kilobytes } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
-import { RagTenancy } from "../../../../src/rag/types.js";
+import { onStart } from "../../../helpers/flow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** What the observer saw of each tool call, and every text the PII detector read (tests reset both). */
 export const toolEnds: ToolEndEvent[] = [];
@@ -57,10 +59,10 @@ export class PageContent {
   maxResultSize: kilobytes(256),
   deps: [PageReader],
 })
-export class FetchPageTool implements ToolHandler<PageQuery, PageContent> {
+export class FetchPageTool {
   constructor(private readonly pageReader: PageReader) {}
 
-  async run({ url }: PageQuery): Promise<PageContent> {
+  async execute({ url }: PageQuery): Promise<PageContent> {
     return { text: await this.pageReader.textOf(url) };
   }
 }
@@ -73,10 +75,10 @@ export class FetchPageTool implements ToolHandler<PageQuery, PageContent> {
   output: PageContent,
   deps: [PageReader],
 })
-export class ReadNotesTool implements ToolHandler<PageQuery, PageContent> {
+export class ReadNotesTool {
   constructor(private readonly pageReader: PageReader) {}
 
-  async run({ url }: PageQuery): Promise<PageContent> {
+  async execute({ url }: PageQuery): Promise<PageContent> {
     return { text: await this.pageReader.textOf(url) };
   }
 }
@@ -89,26 +91,34 @@ export class ReadNotesTool implements ToolHandler<PageQuery, PageContent> {
   output: PageContent,
   deps: [PageReader],
 })
-export class BrokenPageTool implements ToolHandler<PageQuery, PageContent> {
+export class BrokenPageTool {
   constructor(private readonly pageReader: PageReader) {}
 
-  async run({ url }: PageQuery): Promise<PageContent> {
+  async execute({ url }: PageQuery): Promise<PageContent> {
     throw new Error(await this.pageReader.textOf(url));
   }
 }
 
 /** A knowledge base in context mode: its block is bounded by the agent's `maxResultSize`. */
-@Rag({ name: "pages-rag", description: "Pages", tenancy: RagTenancy.PerTenant, topK: 1, deps: [PageReader] })
-export class PagesRag {
-  constructor(private readonly pageReader: PageReader) {}
+@Rag({
+  name: "pages-rag",
+  description: "Pages",
+  scope: RagScope.Tenant,
+  topK: 1,
+  deps: [PageReader],
+})
+export class PagesRag extends RagSource {
+  constructor(private readonly pageReader: PageReader) {
+    super();
+  }
 
-  async retrieve(query: string): Promise<RagRetrieval> {
+  protected override async retrieve(query: string): Promise<RagRetrieval> {
     return { results: [{ text: await this.pageReader.textOf(query), source: "pages.md" }] };
   }
 }
 
 /** A project detector that records what it reads: masking must read only the kept part. */
-@PiiPolicy({ name: "recording-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "recording-pii-policy", action: PiiAction.mask() })
 export class RecordingPiiPolicy implements PiiPolicyHandler {
   findMatches(text: string): readonly PiiMatch[] {
     piiReads.push(text);
@@ -116,8 +126,8 @@ export class RecordingPiiPolicy implements PiiPolicyHandler {
   }
 }
 
-@Injectable()
-export class ToolEndLog implements OnToolEnd {
+@Observer()
+export class ToolEndLog {
   onToolEnd(event: ToolEndEvent): void {
     toolEnds.push(event);
   }
@@ -126,7 +136,7 @@ export class ToolEndLog implements OnToolEnd {
 @Agent({
   name: "research-agent",
   description: "Reads pages",
-  prompt: "Read the pages you are asked about.",
+  prompt: inline("Read the pages you are asked about."),
   model: "test/research",
   tools: [FetchPageTool, ReadNotesTool, BrokenPageTool],
 })
@@ -135,9 +145,9 @@ export class ResearchAgent {}
 @Agent({
   name: "context-agent",
   description: "Answers from the pages",
-  prompt: "Answer from the pages.",
+  prompt: inline("Answer from the pages."),
   model: "test/research",
-  rag: [{ use: PagesRag, mode: RagMode.Context }],
+  rag: [PagesRag],
 })
 export class ContextAgent {}
 
@@ -165,13 +175,12 @@ export class PageFinish {}
 @Workflow({
   name: "page-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PageStart)
-      .returns(WorkflowStartTextDto)
+    onStart(PageStart)
       .toAgent(ResearchAgent)
       .toFinish(PageFinish),
-    start(ContextStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ContextStart)
       .toAgent(ContextAgent)
       .toFinish(PageFinish),
   ],
@@ -182,6 +191,7 @@ export class PageWorkflow {}
 /** No bound set anywhere: every tool without its own reads the built-in 128 KB. */
 @Application({
   name: "page-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PageWorkflow],
@@ -194,6 +204,7 @@ export class PageApplication {}
 /** One bound for every tool result a model reads, from the application. */
 @Application({
   name: "bounded-page-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PageWorkflow],
@@ -210,8 +221,8 @@ export class BoundedPageApplication {}
   output: PageContent,
   maxResultSize: kilobytes(0),
 })
-export class ZeroBoundTool implements ToolHandler<PageQuery, PageContent> {
-  run({ url }: PageQuery): Promise<PageContent> {
+export class ZeroBoundTool {
+  execute({ url }: PageQuery): Promise<PageContent> {
     return Promise.resolve({ text: url });
   }
 }
@@ -219,7 +230,7 @@ export class ZeroBoundTool implements ToolHandler<PageQuery, PageContent> {
 @Agent({
   name: "zero-bound-agent",
   description: "Uses the zero-bound tool",
-  prompt: "Use the tool.",
+  prompt: inline("Use the tool."),
   model: "test/research",
   tools: [ZeroBoundTool],
 })
@@ -235,9 +246,9 @@ export class ZeroBoundStart {}
 @Workflow({
   name: "zero-bound-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ZeroBoundStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ZeroBoundStart)
       .toAgent(ZeroBoundAgent)
       .toFinish(PageFinish),
   ],

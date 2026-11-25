@@ -13,7 +13,6 @@ import {
 import type { ResolvedField } from "../fields.js";
 import { shapeLabel } from "../labels.js";
 import { slotOf, slotOfValue, SlotStatus, type SlotState } from "../scope.js";
-import { aboutTargetsOf } from "./about.js";
 import type { AnalysisContext } from "./context.js";
 import { leftOutHint } from "./quorum-inputs.js";
 
@@ -24,8 +23,8 @@ import { leftOutHint } from "./quorum-inputs.js";
  * S56); an `optional` field absent in every scope → `[input.never-produced]`; a single field where
  * one step brought several values → `[input.several-on-path]`; two fields of one node that read
  * one slot → `[flow.ambiguous-field]` (they would read the same value; the earlier versions are
- * `historyOf(XDto)`), unless the node's values are `{ about }` that class (`[io.ambiguous-about]`);
- * a `historyOf` limit that is not a positive integer → `[input.history-limit]`; too many scopes →
+ * `historyOf(XDto)`);
+ * a `historyOf` maxPrevious that is not a positive integer → `[input.history-max-previous]`; too many scopes →
  * `[flow.analysis-too-large]`.
  */
 
@@ -88,7 +87,7 @@ function missingViolation(
     missing.slot.status === SlotStatus.Outdated
       ? `${field.label} has no current ${inner} on the path ${path} — the latest one is outdated; renew it on that path before ${node}`
       : missing.slot.status === SlotStatus.Maybe
-        ? `${field.label} reads ${inner}, which its branch may not have answered on the path ${path} — a side path of .onJoinError(…) reads the settled answers as optional(${inner})`
+        ? `${field.label} reads ${inner}, which its branch may not have answered on the path ${path} — a side path of .onError(…) reads the settled answers as optional(${inner})`
         : `${field.label} is not produced on the path ${path}${quorumHint(context, node, field, missing.state)}`;
   return violation("input.missing-on-path", message, [node]);
 }
@@ -127,14 +126,13 @@ function fieldViolations(
 function ambiguousFields(
   node: ComponentName,
   fields: readonly ResolvedField[],
-  about: ReadonlySet<string>,
 ): readonly RuleViolation[] {
   const bySlot = new Map<string, ResolvedField[]>();
   for (const field of fields.filter((candidate) => !candidate.isPassThrough)) {
     bySlot.set(field.slot, [...(bySlot.get(field.slot) ?? []), field]);
   }
   return [...bySlot]
-    .filter(([slot, group]) => group.length > 1 && !about.has(slot))
+    .filter(([, group]) => group.length > 1)
     .map(([, group]) => {
       const [first] = group;
       const shape = first === undefined ? "" : shapeLabel(innerShape(first.shape));
@@ -147,16 +145,16 @@ function ambiguousFields(
     });
 }
 
-/** A `historyOf(XDto, { limit })` whose limit is not a positive integer. */
-function historyLimits(
+/** A `historyOf(XDto, { maxPrevious })` whose maxPrevious is not a positive integer. */
+function historyMaxPrevious(
   node: ComponentName,
   fields: readonly ResolvedField[],
 ): readonly RuleViolation[] {
   return fields.flatMap((field) => {
-    const limit = field.history?.limit;
-    if (limit === undefined || (Number.isInteger(limit) && limit > 0)) return [];
-    const message = `${field.label}: limit ${String(limit)} — historyOf(…, { limit }) takes a positive integer, or no limit for every earlier version`;
-    return [violation("input.history-limit", message, [node])];
+    const maxPrevious = field.history?.maxPrevious;
+    if (maxPrevious === undefined || (Number.isInteger(maxPrevious) && maxPrevious > 0)) return [];
+    const message = `${field.label}: maxPrevious ${String(maxPrevious)} — historyOf(…, { maxPrevious }) takes a positive integer, or no maxPrevious for every earlier version`;
+    return [violation("input.history-max-previous", message, [node])];
   });
 }
 
@@ -172,13 +170,9 @@ function multiplyingSlots(scopes: NodeScopes): readonly string[] {
     .sort();
 }
 
-function nodeViolations(
-  context: AnalysisContext,
-  node: ComponentName,
-  about: ReadonlySet<string>,
-): readonly RuleViolation[] {
+function nodeViolations(context: AnalysisContext, node: ComponentName): readonly RuleViolation[] {
   const fields = context.fields.get(node) ?? [];
-  const declared = [...ambiguousFields(node, fields, about), ...historyLimits(node, fields)];
+  const declared = [...ambiguousFields(node, fields), ...historyMaxPrevious(node, fields)];
   const scopes = context.dataflow.scopes.get(node);
   if (scopes === undefined) return declared;
   if (scopes.isTooLarge) {
@@ -194,8 +188,7 @@ function nodeViolations(
 
 /** A child workflow's input is checked per edge, by the start chosen there (`children.ts`). */
 export function dataInputRules(context: AnalysisContext): readonly RuleViolation[] {
-  const about = aboutTargetsOf(context.graph);
   return [...context.graph.nodes.values()]
     .filter((node) => node.kind !== NodeKind.Workflow)
-    .flatMap((node) => nodeViolations(context, node.name, about.get(node.name) ?? new Set()));
+    .flatMap((node) => nodeViolations(context, node.name));
 }

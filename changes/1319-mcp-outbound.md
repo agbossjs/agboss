@@ -1,0 +1,6 @@
+---
+section: Breaking
+issue: 1319
+---
+
+`@McpTool`, `WorkflowOptions.mcp` and the `"mcp-tool"` component kind are removed (#1319, part a, the outbound client): a `@Tool` lists its `@McpServer` class in `deps` and calls it, and the application connects every server its components reach. `@McpServer` takes `transport: McpTransport.Stdio | McpTransport.Http` (not the strings), `defineEnv` references in `url`, `command`, `args`, `env` and `headers` (`bearer(secretRef)` included; the lists of variable names are gone), `inheritSystemEnv`, `timeout`, `costPerCall` and `maxConcurrentCalls`, and its `target` is `{ application, endpoint }`; a class's `protected getHeaders()` adds headers per HTTP request. `McpServerClient.call(name, args?, { key, signal, timeout })` picks up the running step's signal, gives each call its own `callId`, and fails with `McpError` (`Unavailable`, `Contract`, the new `MethodNotFound`) — `McpUnavailableError` and `McpContractError` are removed, and no server text is in an error. A server tool may declare no `input`. The handshake names the application, not `langgraph-ts-template`. `AgentsConfig.mcpServers` is removed. `describe --json` lists an MCP import with `input: null` for a tool without arguments.

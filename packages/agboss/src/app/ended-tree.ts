@@ -4,7 +4,8 @@ import { ExecutionRecordStatus } from "../infrastructure/execution-record.reposi
 import { runningOutcome } from "../run/execute.js";
 import type { Turn, TurnOutcome } from "../turns/index.js";
 import type { AppDeps } from "./app-deps.js";
-import { cancelledRecordOutcome } from "./live-runs.js";
+import { cancelledRecordOutcome } from "./cancelled-run.js";
+import { isStop, reasonOfError, STOPPED_STOP_REASON } from "./interrupt-requests.js";
 import { executionEventAt } from "./run-events.js";
 import { forgetTree } from "./tree-ends.js";
 import { historyEndOf, keepExecutionRecord } from "./execution-history.js";
@@ -13,14 +14,18 @@ import { undoneTreeEnd, type EndedTreeUndo } from "./tree-unwind.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 import { leaseScope } from "./lease-scope.js";
 import { lostRunUsageOf, tallyLostRun } from "./lost-attempt.js";
+import { cancelledOutputOf } from "./cancelled-output.js";
+import { ExecutionStatus } from "./types.js";
+import type { CancelledExecutionOutput, StoppedExecutionOutput } from "./types.js";
 
 /**
  * Ending a tree without a pass, under its lease (#360's cancel request, `app.cancel` of a paused
  * tree, #340 PR 4's interrupted undo): its undo is marked under way and its record is `running`
  * while it runs (#340 S7 3: a crash mid-undo is found by the recovery sweep), its paused run dropped
- * (its pauses withdrawn, #337), its open undoable actions undone, then its record failed with the
- * final error — `CompensationFailedError` when an undo failed —, its keys and pauses forgotten and
- * `onExecutionError` observed once, only when this call failed the record.
+ * (its pauses withdrawn, #337), its open undoable actions undone, then its record ended — cancelled,
+ * or failed with `CompensationFailedError` when an undo failed —, its keys and pauses forgotten and
+ * `onExecutionCancel` (`onExecutionError` for a failure) observed once, only when this call ended
+ * the record. A cancel is an outcome, not an error: it is reported as a cancelled output (#1341).
  */
 
 /** What ending a tree without a pass needs from its workflow's app. */
@@ -38,17 +43,25 @@ export async function rootRecordOf(deps: AppDeps, state: TreeState): Promise<Tur
 /** The record's outcome for the tree's final error: a cancel, or what ended it. */
 function endedOutcomeOf(record: Turn, error: Error): TurnOutcome {
   const outcome = cancelledRecordOutcome(record.route, record.costUsd);
+  if (isStop(error)) return { ...outcome, status: "stopped", stopReason: STOPPED_STOP_REASON };
   return error instanceof ExecutionCancelledError
     ? outcome
-    : { ...outcome, stopReason: error.message };
+    : { ...outcome, status: "failed", stopReason: error.message };
 }
 
 /** Fails a `running` or `paused` record; `true` when this call did (it is the one). */
 async function failedRecord(deps: AppDeps, record: Turn, error: Error): Promise<boolean> {
   const outcome = endedOutcomeOf(record, error);
+  // the operator's reason goes to the thread's status history with the record's end (#1341d)
+  const context = { reason: reasonOfError(error) };
   return (
-    (await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Running, outcome)) ||
-    (await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, outcome))
+    (await deps.turns.completeIfStatus(
+      record.id,
+      ExecutionRecordStatus.Running,
+      outcome,
+      context,
+    )) ||
+    (await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, outcome, context))
   );
 }
 
@@ -56,6 +69,8 @@ async function failedRecord(deps: AppDeps, record: Turn, error: Error): Promise<
 export interface EndedTree {
   readonly error: Error;
   readonly isEnded: boolean;
+  /** The cancelled or stopped output, when the tree's final error is that (not an undo that failed). */
+  readonly output?: CancelledExecutionOutput | StoppedExecutionOutput;
 }
 
 /** Why and under what the tree ends: its cause, and the signal its undo stops on. */
@@ -87,12 +102,27 @@ export async function endedWithoutPass(
   const { compensations } = undo;
   if (isEnded) await keepExecutionRecord(deps, state, historyEndOf(error, compensations, lost));
   if (isEnded) tallyLostRun(deps, state, lost);
+  // read before the tree's keys go: what it spent and undid, as the caller and the event report it
+  const output =
+    error instanceof ExecutionCancelledError
+      ? await cancelledOutputOf(deps, state, { cause: error, compensations, lostUsage: lost })
+      : undefined;
   await forgetTree(parts, state, error);
   if (isEnded) {
     const event = executionEventAt(state, deps);
-    await deps.observer.onExecutionError({ ...event, error, compensations: compensations ?? [] });
+    if (output === undefined)
+      await deps.observer.onExecutionError({ ...event, error, compensations: compensations ?? [] });
+    else if (output.status === ExecutionStatus.Stopped)
+      await deps.observer.onExecutionStop({ ...event, reason: output.reason, spend: output.spend });
+    else
+      await deps.observer.onExecutionCancel({
+        ...event,
+        compensations: output.compensations,
+        spend: output.spend,
+        reason: output.reason,
+      });
   }
-  return { error, isEnded };
+  return output === undefined ? { error, isEnded } : { error, isEnded, output };
 }
 
 /** The part of the end that runs under the lease: the undo and the record's failure. */

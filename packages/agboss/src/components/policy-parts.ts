@@ -9,14 +9,15 @@ import { inheritedPiiOf } from "../pii/inheritance.js";
 import {
   toolInterceptorPartsOf,
   type AssembledToolInterceptors,
+  type ToolInterceptorOwners,
 } from "../tool-interceptors/assembly.js";
 import type { Class } from "./injection.js";
+import type { ModelResolver } from "../models/model-resolver.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
 import type { PolicyModels } from "./model-parts.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { workflowDeclarationOf } from "./module.js";
-import type { AssembledCompactions, CompactionOwners } from "../compaction/assembly.js";
-import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
+import type { AssembledMemories } from "../memory/assembly.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 
@@ -53,6 +54,7 @@ export function piiPartsOf(
   owner: PolicyOwner | undefined,
   agents: readonly AgentMeta[],
   graph: RuntimeGraph,
+  resolver?: ModelResolver,
 ): AssembledPii {
   const routers = [...graph.nodes.values()].flatMap((node) =>
     node.declaration.kind === NodeKind.Router ? [node.declaration.options] : [],
@@ -65,6 +67,7 @@ export function piiPartsOf(
     elements: [...agents, ...routers],
     // what a child inherits on each static way into it (#1150)
     inherited: inheritedPiiOf(owner?.workflows, graph.type),
+    resolver,
   });
   throwIfViolated(violations);
   return pii;
@@ -79,12 +82,25 @@ export interface PolicySources {
   readonly agents: readonly AgentMeta[];
   readonly graph: RuntimeGraph;
   readonly loader: PromptLoader;
+  /** Resolves the models of the workflow's policies through its model cascade (#1313). */
+  readonly resolver?: ModelResolver;
 }
+
+/** The levels above the agents that list tool interceptors: the application's and the workflow's. */
+const interceptorOwnersOf = (
+  bundle: PolicySources["bundle"],
+  owner: PolicyOwner | undefined,
+): ToolInterceptorOwners => ({
+  application: owner?.toolInterceptors ?? [],
+  workflow: bundle.toolInterceptors ?? [],
+  workflowExcludes: bundle.excludeToolInterceptors ?? [],
+  workflowName: bundle.name,
+});
 
 /** The workflow's PII policies and guardrails (`defaults.guardrail.model` of its cascade). */
 export async function policyPartsOf(sources: PolicySources): Promise<PolicyParts> {
   const { bundle, owner, agents, graph } = sources;
-  const pii = piiPartsOf(bundle, owner, agents, graph);
+  const pii = piiPartsOf(bundle, owner, agents, graph, sources.resolver);
   const { options } = workflowDeclarationOf(sources.workflow);
   const defaults = cascadeDefaults(owner?.defaults, options.defaults);
   const owners = {
@@ -92,17 +108,11 @@ export async function policyPartsOf(sources: PolicySources): Promise<PolicyParts
     workflow: bundle.guardrails ?? [],
     workflowName: bundle.name,
     defaultModel: defaults?.guardrail?.model,
+    resolver: sources.resolver,
   };
   const guardrails = await guardrailPartsOf(owners, agents, graph, sources.loader);
   const guardrailClasses = guardrails.guardrails.map((guardrail) => guardrail.type);
-  const toolInterceptors = toolInterceptorPartsOf(
-    {
-      application: owner?.toolInterceptors ?? [],
-      workflow: bundle.toolInterceptors ?? [],
-      workflowName: bundle.name,
-    },
-    agents,
-  );
+  const toolInterceptors = toolInterceptorPartsOf(interceptorOwnersOf(bundle, owner), agents);
   const interceptorClasses = toolInterceptors.interceptors.map((interceptor) => interceptor.type);
   return {
     assembled: { pii, guardrails, toolInterceptors },
@@ -112,51 +122,37 @@ export async function policyPartsOf(sources: PolicySources): Promise<PolicyParts
 }
 
 /**
- * A workflow's compactions over its application's (#120 PR 3), for `workflowOf`: their assembly
- * loads on first use (QUALITY.md — it is not needed at import time) and gives the config's
- * `compactions`, the settings a profile may change.
+ * A workflow's memories (#1303), for `workflowOf`: their assembly loads on first use (QUALITY.md — it
+ * is not needed at import time) and gives the config's `memories`, the settings a profile may change.
  */
 
-/** The config's `compactions` of the workflow's compactions in use. */
+/** The config's `memories` of the workflow's memories in use. */
 export interface CompactionConfigPart {
-  readonly settings: NonNullable<AgentsConfigOf<string>["compactions"]>;
+  readonly settings: NonNullable<AgentsConfigOf<string>["memories"]>;
 }
 
-/** What the application gives its workflows' memory: its compaction and its window. */
-interface CompactionOwner {
-  readonly compaction?: Class;
-  readonly uncompactedTurns?: UncompactedTurns;
-}
-
-/** What one workflow's compactions are assembled from. */
-export interface CompactionSources {
+/** What one workflow's memories are assembled from. */
+export interface MemorySources {
   readonly bundle: WorkflowMeta;
-  readonly owner: CompactionOwner | undefined;
   readonly agents: readonly AgentMeta[];
   readonly graph: RuntimeGraph;
   readonly loader: PromptLoader;
 }
 
-/** The compaction settings of the workflow and of its application. */
-const ownersOf = (bundle: WorkflowMeta, owner: CompactionOwner | undefined): CompactionOwners => ({
-  ...(owner === undefined
-    ? {}
-    : { application: { compaction: owner.compaction, uncompactedTurns: owner.uncompactedTurns } }),
-  workflow: {
-    name: bundle.name,
-    compaction: bundle.compaction,
-    uncompactedTurns: bundle.uncompactedTurns,
-  },
-});
-
-/** The workflow's compactions and their config settings; a broken rule fails the assembly. */
-export async function compactionsFor(
-  sources: CompactionSources,
-): Promise<AssembledCompactions & CompactionConfigPart> {
-  const { compactionPartsOf, compactionSettingsOf } = await lazyLoad(
-    import("../compaction/assembly.js"),
+/** The workflow's memories and their config settings; a broken rule fails the assembly. */
+export async function memoriesFor(
+  sources: MemorySources,
+): Promise<AssembledMemories & CompactionConfigPart> {
+  const { memoryPartsOf, compactionSettingsOf } = await lazyLoad(import("../memory/assembly.js"));
+  const { bundle, agents, graph, loader } = sources;
+  const memories = await memoryPartsOf(
+    {
+      workflow: { name: bundle.name, memory: bundle.memory },
+      overrides: bundle.memoryOverrides,
+    },
+    agents,
+    graph,
+    loader,
   );
-  const { bundle, owner, agents, graph, loader } = sources;
-  const compactions = await compactionPartsOf(ownersOf(bundle, owner), agents, graph, loader);
-  return { ...compactions, settings: compactionSettingsOf(compactions) };
+  return { ...memories, settings: compactionSettingsOf(memories, bundle.memoryOverrides) };
 }

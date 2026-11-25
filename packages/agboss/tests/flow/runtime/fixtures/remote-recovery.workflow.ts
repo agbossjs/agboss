@@ -7,7 +7,8 @@ import {
   listOf,
   Workflow,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -17,8 +18,8 @@ import {
   StampedExecutionRecordRepository,
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
 import { RecordingLogger } from "../../../helpers/log.js";
-import { start, toFinish } from "../../../helpers/flow.js";
-import { ItemDto, ItemResultDto, SummaryWorkflowFinish } from "./fan-out.workflow.js";
+import { onStart, toFinish, toAction, toWorkflow } from "../../../helpers/flow.js";
+import { ItemDto, SummaryWorkflowFinish, SummaryAction } from "./fan-out.workflow.js";
 import {
   ChecksFailedWorkflowFinish,
   ChildEventLog,
@@ -27,12 +28,15 @@ import {
   ReviewsSummaryWorkflowFinish,
   ShopExecutionContext,
   ShopTenantContext,
+  ChecksFailedAction,
+  ReviewsSummaryAction,
 } from "./children.workflow.js";
 import { HoldCheckedWorkflowFinish, HoldCheckWorkflowStart } from "./child-recovery.workflow.js";
 import { RecoverableItemAction, recoveryRuns } from "./launch-recovery.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
- * #333 PR 4 — remote children (`ChildPlacement.AnyInstance`) that pause, yield the parent's root
+ * #333 PR 4 — remote children (`ChildPlacement.AnyWorker`) that pause, yield the parent's root
  * lease while running, and recover per child from `<parentThreadId>/child/<id>` on a worker crash
  * or a graceful stop past `shutdownTimeout` (S7) without re-running finished siblings or finished
  * steps of the child.
@@ -59,26 +63,25 @@ export function resetRemoteRecoverySeen(): void {
 export class RemotePrepItemAction {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemDto> {
-    const { name, outcome } = input.item.value;
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemDto> {
+    const { name, outcome } = input.item;
     if (outcome === "fail") return Promise.reject(new Error(`failed: ${name}`));
     remoteRecoverySeen.prepRuns.push(name);
     if (name === "hold" && remoteRecoverySeen.holdInstanceId === undefined)
       remoteRecoverySeen.holdInstanceId = this.applicationContext.instanceId;
-    return Promise.resolve(input.item.value);
+    return Promise.resolve(input.item);
   }
 }
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "remote-hold-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HoldCheckWorkflowStart)
-      .returns(ItemDto)
+    onStart(HoldCheckWorkflowStart)
       .toAction(RemotePrepItemAction)
-      .returns(ItemDto)
       .toAction(RecoverableItemAction)
-      .returns(ItemResultDto)
       .toFinish(HoldCheckedWorkflowFinish),
   ],
 })
@@ -94,16 +97,17 @@ export class RemoteHoldItemsWorkflowStart {}
 @Workflow({
   name: "remote-hold-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RemoteHoldItemsWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(RemoteHoldCheckWorkflow, {
-        maxItems: 10,
-        placement: ChildPlacement.AnyInstance,
-      })
+    onStart(RemoteHoldItemsWorkflowStart)
+      .forEachItem(toWorkflow(RemoteHoldCheckWorkflow), { takeFirst: 10 })
       .join()
-      .onJoinError(ChildExecutionFailedError, toFinish(ChecksFailedWorkflowFinish))
-      .returns(listOf(ItemResultDto))
+      .onError(
+        ChildExecutionFailedError,
+        toAction(ChecksFailedAction)
+          .toFinish(ChecksFailedWorkflowFinish),
+      )
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -119,11 +123,10 @@ export class RemoteReviewOneWorkflowStart {}
 @Workflow({
   name: "remote-review-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RemoteReviewOneWorkflowStart)
-      .returns(ItemDto)
-      .toWorkflow(ItemReviewWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
+    onStart(RemoteReviewOneWorkflowStart)
+      .toWorkflow(ItemReviewWorkflow)
       .toFinish(ItemReviewedWorkflowFinish),
   ],
 })
@@ -139,16 +142,12 @@ export class RemoteReviewItemsWorkflowStart {}
 @Workflow({
   name: "remote-review-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RemoteReviewItemsWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(ItemReviewWorkflow, {
-        maxConcurrency: 2,
-        maxItems: 10,
-        placement: ChildPlacement.AnyInstance,
-      })
+    onStart(RemoteReviewItemsWorkflowStart)
+      .forEachItem(toWorkflow(ItemReviewWorkflow), { takeFirst: 10, maxConcurrency: 2 })
       .join()
-      .returns(listOf(ItemResultDto))
+      .toAction(ReviewsSummaryAction)
       .toFinish(ReviewsSummaryWorkflowFinish),
   ],
 })
@@ -156,6 +155,7 @@ export class RemoteReviewItemsWorkflow {}
 
 @Application({
   name: "remote-recovery-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   tenantContext: ShopTenantContext,
@@ -169,6 +169,7 @@ export class RemoteReviewItemsWorkflow {}
   observers: [RecoveryLog, ChildEventLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository, RecordingLogger],
   budgets: TEST_BUDGETS,
+  defaults: { workflows: { placement: ChildPlacement.AnyWorker } },
 })
 export class RemoteRecoveryApplication {}
 

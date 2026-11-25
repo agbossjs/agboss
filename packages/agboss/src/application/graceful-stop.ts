@@ -1,17 +1,17 @@
 import { checkedTimer, MAX_TIMEOUT } from "../units/timer-limits.js";
 import { ApplicationStoppingError } from "../core/errors.js";
 import type { BuiltApp } from "../app/create-app.js";
-import { executionLeasesOf, type ExecutionLeases } from "../app/execution-leases.js";
 import type { CloseOptions } from "../app/types.js";
 import { stopComponents } from "../components/container/lifecycle.js";
+import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import { startRecoverySweep, type RecoverySweep } from "../infrastructure/recovery.js";
-import { leasingOf, type Infrastructure } from "../infrastructure/contracts.js";
+import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { AssembledApplication } from "./assemble.js";
 import type { Clock } from "../infrastructure/clock.js";
-import { waitOf, lazyLoad } from "../infrastructure/clock.js";
+import { waitOf } from "../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../units/index.js";
-import type { StepCapacity } from "../app/step-slots.js";
+import type { StepHolds } from "../app/step-slots.js";
 import type { StepsAtStop } from "./instance-steps.js";
 import type { AuditLogWriter } from "../app/execution-leases.js";
 
@@ -19,7 +19,12 @@ import { retentionSourcesOf } from "./retention-sources.js";
 import type { PauseNoticeHub } from "./pause-notice-hub.js";
 import type { PauseTimers } from "./pause-timers.js";
 import { instanceTimersOf } from "./instance-timers.js";
-import { launchesOnAnyInstance } from "../flow/analyse/child-placements.js";
+import {
+  childWorkersOf,
+  idleLooks,
+  isolatedSupervisorOf,
+  type IsolatedParts,
+} from "./instance-workers.js";
 /**
  * The graceful stop of an application instance (#261, #265 S30 / S51): no new executions anywhere,
  * its own recovery sweep stopped, `onStop` once, the running executions awaited up to the shutdown
@@ -160,47 +165,17 @@ export interface InstanceParts {
   readonly infrastructure: Infrastructure;
   readonly log: FrameworkLog;
   /** The instance's step slots (#332): its sweep recovers only into free ones. */
-  readonly stepSlots?: StepCapacity | undefined;
+  readonly stepSlots?: StepHolds | undefined;
+  /** What an isolated worker's fork and its supervisor need (#1286b). */
+  readonly isolated?: IsolatedParts | undefined;
   /** The instance's running step bodies at its stop (#367). */
   readonly stepsAtStop: StepsAtStop;
   /** The instance's audit log (#501): its remote children's takeovers and hand-overs. */
   readonly auditLog?: AuditLogWriter;
   /** The instance's pause notices (#940): the pause timers' look, and the fast path's looks. */
   readonly notices: PauseNoticeHub;
-}
-
-/** Whether a workflow of the instance launches a child on any instance (#333 PR 2). */
-const launchesAnywhere = (workflows: readonly BuiltApp[]): boolean =>
-  workflows.some((workflow) => launchesOnAnyInstance(workflow.deps.graph.nodes.values()));
-
-/**
- * The instance's claims of queued children (#333 PR 2), loaded and started only when one of its
- * workflows launches a child on any instance; `stop()` resolves once they ended.
- */
-function childWorkersOf(
-  workflows: readonly BuiltApp[],
-  parts: InstanceParts,
-  interruption: AbortSignal,
-): { readonly stop: () => Promise<void> } {
-  if (!launchesAnywhere(workflows)) return { stop: () => Promise.resolve() };
-  const { infrastructure, log } = parts;
-  const started = Promise.all([
-    lazyLoad(import("../app/remote/child-workers.js")),
-    lazyLoad(import("../app/remote/child-registry.js")),
-  ]).then(([workers, registry]) =>
-    workers.startChildWorkers({
-      queue: infrastructure.childQueue,
-      leases: leasesOf(infrastructure, parts.auditLog),
-      trees: infrastructure.executionTrees,
-      clock: infrastructure.clock,
-      log,
-      capacity: parts.stepSlots,
-      interruption,
-      registry: registry.childRegistryOf(workflows),
-      serde: infrastructure.checkpointer.serde,
-    }),
-  );
-  return { stop: async () => (await started).stop() };
+  /** The application's observers: told of the retention sweep's looks (`onTtlSweep`). */
+  readonly observer?: ExecutionObserverManager | undefined;
 }
 
 /** The instance's recovery sweep and graceful stop. */
@@ -210,6 +185,12 @@ export interface InstanceStop {
   readonly timers: PauseTimers;
 }
 
+/** What the sweep's orphan look wakes, by workflow: a root beside an untaken answer (#1187), a parked root an unpause died on (#1341c). */
+const wakesOf = (workflows: readonly BuiltApp[]) => ({
+  wakes: new Map(workflows.map((one) => [one.deps.config.name, one.wakeAnswered])),
+  parked: new Map(workflows.map((one) => [one.deps.config.name, one.wakeParked])),
+});
+
 /** The instance's recovery sweep, started now (`onStart` is done, #265 S30), and its graceful stop. */
 export function stopOf(
   assembled: AssembledApplication,
@@ -218,26 +199,35 @@ export function stopOf(
 ): InstanceStop {
   const { clock } = parts.infrastructure;
   const interruption = new AbortController();
-  const sweep = startRecoverySweep({
-    records: parts.infrastructure.records,
-    workflows: new Map(workflows.map((workflow) => [workflow.deps.config.name, workflow.recover])),
-    log: parts.log,
-    signal: interruption.signal,
-    orphans: new Map(workflows.map((one) => [one.deps.config.name, one.closeOrphan])),
-    wakes: new Map(workflows.map((one) => [one.deps.config.name, one.wakeAnswered])),
-    ...retentionSourcesOf(parts.infrastructure, assembled),
-    capacity: parts.stepSlots,
-  });
+  const idle = parts.isolated?.child === undefined ? undefined : idleLooks(clock);
+  const sweep =
+    idle?.sweep ??
+    startRecoverySweep({
+      records: parts.infrastructure.records,
+      workflows: new Map(
+        workflows.map((workflow) => [workflow.deps.config.name, workflow.recover]),
+      ),
+      log: parts.log,
+      signal: interruption.signal,
+      orphans: new Map(workflows.map((one) => [one.deps.config.name, one.closeOrphan])),
+      ...wakesOf(workflows),
+      ...retentionSourcesOf(parts.infrastructure, assembled),
+      ...{ capacity: parts.stepSlots, observer: parts.observer },
+    });
   const { shutdownTimeout } = assembled;
   const workers = childWorkersOf(workflows, parts, interruption.signal);
+  const supervisor = isolatedSupervisorOf(assembled, parts);
   parts.notices.interruptedBy(interruption.signal);
-  const timers = instanceTimersOf(parts, workflows, interruption.signal);
+  const timers = idle?.timers ?? instanceTimersOf(parts, workflows, interruption.signal);
   const stopTimers = async (): Promise<void> => {
     await timers.stop();
     await parts.notices.settled();
   };
   const stopping: RecoverySweep = {
-    stop: () => parts.stepsAtStop.within(Promise.all([sweep.stop(), workers.stop(), stopTimers()])),
+    stop: () =>
+      parts.stepsAtStop.within(
+        Promise.all([sweep.stop(), workers.stop(), supervisor.stop(), stopTimers()]),
+      ),
     lastSweptAt: () => sweep.lastSweptAt(),
     isStopped: () => sweep.isStopped(),
   };
@@ -251,10 +241,4 @@ export function stopOf(
     steps: parts.stepsAtStop,
   });
   return { stop, sweep, timers };
-}
-
-/** The leases of the instance's lease holders (its child workers), on its leasing (#471). */
-function leasesOf(infrastructure: Infrastructure, events?: AuditLogWriter): ExecutionLeases {
-  const { repository, clock } = leasingOf(infrastructure);
-  return executionLeasesOf(repository, clock, { events });
 }

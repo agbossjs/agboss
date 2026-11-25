@@ -1,5 +1,5 @@
 /**
- * #267 AC8 / AC11 (PR 3): a free-text reply resumes a pause through its role's `@ReplyInterpreter`
+ * #267 AC8 / AC11 (PR 3): a free-text reply resumes a pause through its role's `@ChannelInterpreter`
  * — a model one (scripted with `mockLlm(Interpreter).when({ reply })`) or a code one (created by
  * the container, `mockOf` replaces it) — given the pause's original question; what it gives is
  * validated like a decision. A reply nobody can read throws `UninterpretableReplyError` and the
@@ -16,7 +16,7 @@ import {
   ReplyInterpreterMissingError,
   UninterpretableReplyError,
 } from "../../src/index.js";
-import { ReplyInterpretation } from "../../src/channels/channel-role.decorator.js";
+import { ChannelInterpretation } from "../../src/channels/channel-interpreter.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { TestSetupError } from "../../src/testing/errors.js";
 import { usd } from "../../src/units/index.js";
@@ -45,7 +45,7 @@ const test = testWith(TreasuryApplication);
 
 beforeEach(resetReplyDesk);
 
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 const payout = { payee: "ann", amountCents: 1000 };
 
 /** The finance desk's only ask: its pause's id is the reply key. */
@@ -66,7 +66,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
       .thenReturn(
         replyWith(ToolCallApprovalDecisionDto, {
           approved: true,
-          overrideArguments: { payee: "ann", amountCents: 500 },
+          overrideInput: { payee: "ann", amountCents: 500 },
         }),
       );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
@@ -103,7 +103,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
       const [token = ""] = /<phone:[0-9a-f]+>/.exec(requestText(request)) ?? [];
       return replyWith(ToolCallApprovalDecisionDto, {
         approved: true,
-        overrideArguments: { payee: token, amountCents: 1000 },
+        overrideInput: { payee: token, amountCents: 1000 },
       });
     });
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
@@ -127,7 +127,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
     mockLlm(PayoutReplyInterpreter).thenReturn(
       replyWith(ToolCallApprovalDecisionDto, {
         approved: true,
-        overrideArguments: { payee: "<phone:0123456789ab>", amountCents: 1000 },
+        overrideInput: { payee: "<phone:0123456789ab>", amountCents: 1000 },
       }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
@@ -160,7 +160,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
       key: "default",
       period: "2026-01-05",
     };
-    const spent = await treasuryLedger().findSpentByCounter(tenantToday);
+    const spent = (await treasuryLedger().findUsageByCounter(tenantToday)).spent;
     expect(spent).toBeCloseTo(done.spend.totalUsd, 9);
     expect(done.spend.totalUsd).toBeCloseTo(0.02, 9);
   });
@@ -228,7 +228,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
     expect(done).toFinishWith(TreasuryWorkflowFinish, { text: "Paid." });
   });
 
-  test("an answer the role rejects is uninterpretable: overrideArguments with approved: false", async ({
+  test("an answer the role rejects is uninterpretable: overrideInput with approved: false", async ({
     app,
     mockLlm,
   }) => {
@@ -236,7 +236,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
     mockLlm(PayoutReplyInterpreter).thenReturn(
       replyWith(ToolCallApprovalDecisionDto, {
         approved: false,
-        overrideArguments: { payee: "bob", amountCents: 1 },
+        overrideInput: { payee: "bob", amountCents: 1 },
       }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });
@@ -356,7 +356,7 @@ describe("#267 AC11: tests replace a code interpreter with mockOf", () => {
     mockOf,
   }) => {
     mockOf(ExpenseReplyInterpreter).interpret.mockReturnValue(
-      ReplyInterpretation.understood({ approved: false, reason: "not this month" }),
+      ChannelInterpretation.understood({ approved: false, reason: "not this month" }),
     );
     mockLlm(TreasurerAgent).thenReturn(
       callTool(BookExpenseTool, { purpose: "lunch" }),

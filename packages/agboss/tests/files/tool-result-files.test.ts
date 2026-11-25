@@ -84,7 +84,7 @@ describe("a tool result's files in the stored call and the trace", () => {
         app,
         reader.Start,
         { document: inline(PNG_BYTES, "image/png", "a.png") },
-        { record: true },
+        { includeRecord: true },
       );
 
       const b64 = bytes.toString("base64");

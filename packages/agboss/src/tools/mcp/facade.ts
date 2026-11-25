@@ -2,7 +2,7 @@ import { z } from "zod";
 import { defineTool } from "../define-tool.js";
 import type { Tool } from "../types.js";
 import type { Milliseconds } from "../../units/index.js";
-import { McpUnavailableError } from "./errors.js";
+import { McpError } from "../../core/error-families/remote-errors.js";
 import { MESH_ERROR_META_KEY } from "../../mesh/mesh-envelope.js";
 import { meshLimitErrorOf } from "../../mesh/mesh-wire.js";
 
@@ -42,9 +42,19 @@ export interface McpFacadeDefinition<
   readonly timeout?: Milliseconds;
 }
 
+/** What a handle knows of its server beyond the name. */
+export interface McpServerHandleOptions {
+  /** The headers the server's class adds per HTTP request (`getHeaders`). */
+  readonly headers?: () => Promise<Record<string, string>>;
+  /** How long one call of its tools may run. */
+  readonly timeout?: Milliseconds;
+}
+
 /** A declared MCP server: produces facades, gets its caller bound at startup. */
 export interface McpServerHandle<TServer extends string> {
   readonly name: TServer;
+  /** The headers its class adds per HTTP request. */
+  readonly headers: () => Promise<Record<string, string>>;
   readonly tool: <TTool extends string, TInput extends Record<string, unknown>, TOutput>(
     definition: McpFacadeDefinition<TTool, TInput, TOutput>,
   ) => McpFacade<`${TServer}__${TTool}`, TInput, TOutput>;
@@ -70,27 +80,35 @@ const isTextOutput = (output: z.ZodType): boolean =>
  * content wins; text goes as is to a string or a `{ text }` output, otherwise it is parsed as JSON.
  */
 export function mcpResultValue(raw: unknown, output: z.ZodType): unknown {
-  const result = CallResultSchema.parse(raw);
+  const parsed = CallResultSchema.safeParse(raw);
+  if (!parsed.success) throw new McpError.Contract();
+  const result = parsed.data;
   const text = textOf(result.content);
   if (result.isError === true) {
-    // a mesh limit an AGBoss server met (#398): the calling step fails with the same limit
-    throw (
-      meshLimitErrorOf(result._meta?.[MESH_ERROR_META_KEY]) ??
-      new Error(text || "MCP tool reported an error")
-    );
+    // a mesh limit an AGBoss server met (#398): the calling step fails with the same limit; any other
+    // failure of the server's tool is `McpError.Unavailable` — never the server's own text
+    throw meshLimitErrorOf(result._meta?.[MESH_ERROR_META_KEY]) ?? new McpError.Unavailable();
   }
   if (result.structuredContent !== undefined) return result.structuredContent;
   if (output instanceof z.ZodString) return text;
   if (isTextOutput(output)) return { text };
-  const value: unknown = JSON.parse(text);
-  return value;
+  try {
+    const value: unknown = JSON.parse(text);
+    return value;
+  } catch {
+    throw new McpError.Contract();
+  }
 }
 
-/** Declares an MCP server by name. Its config lives in `mcpServers` of the agents config. */
-export function mcpServer<TServer extends string>(name: TServer): McpServerHandle<TServer> {
+/** Declares an MCP server by name. Its connection is the `@McpServer`'s. */
+export function mcpServer<TServer extends string>(
+  name: TServer,
+  options: McpServerHandleOptions = {},
+): McpServerHandle<TServer> {
   let caller: McpCaller | undefined;
   return {
     name,
+    headers: options.headers ?? (() => Promise.resolve({})),
     bind: (next) => {
       caller = next;
     },
@@ -100,12 +118,13 @@ export function mcpServer<TServer extends string>(name: TServer): McpServerHandl
         description: definition.description,
         input: definition.input,
         output: definition.output,
-        timeout: definition.timeout,
+        timeout: definition.timeout ?? options.timeout,
         run: async (input, ctx) => {
-          if (caller === undefined)
-            throw new McpUnavailableError(`MCP server "${name}" is not connected`);
+          if (caller === undefined) throw new McpError.Unavailable();
           const raw = await caller(definition.tool, input, ctx.signal);
-          return definition.output.parse(mcpResultValue(raw, definition.output));
+          const parsed = definition.output.safeParse(mcpResultValue(raw, definition.output));
+          if (!parsed.success) throw new McpError.Contract();
+          return parsed.data;
         },
       });
       return { ...facade, mcp: { server: name, tool: definition.tool } };

@@ -9,8 +9,9 @@ import type { ApplicationOptions } from "./application.js";
  */
 function timerSettingViolations(options: ApplicationOptions): RuleViolation[] {
   const fields = [
-    ["shutdownTimeout", options.shutdownTimeout],
-    ["compensationTimeout", options.compensationTimeout],
+    ["executionLimits.shutdownTimeout", options.executionLimits?.shutdownTimeout],
+    ["executionLimits.compensationTimeout", options.executionLimits?.compensationTimeout],
+    ["executionLimits.childClaimTimeout", options.executionLimits?.childClaimTimeout],
   ] as const;
   return fields.flatMap(([field, value]) => {
     const problem = value === undefined ? undefined : timerProblemOf(field, value, MAX_TIMEOUT);
@@ -22,28 +23,20 @@ function timerSettingViolations(options: ApplicationOptions): RuleViolation[] {
 
 /** `maxConcurrentSteps` is a whole number of steps from 1 (#332): 0 would stop the instance. */
 function stepCapViolations(options: ApplicationOptions): RuleViolation[] {
-  const value = options.maxConcurrentSteps;
+  const value = options.executionLimits?.maxConcurrentSteps;
   if (value === undefined || (Number.isInteger(value) && value >= 1)) return [];
   const message =
-    `its maxConcurrentSteps is ${String(value)}, not a whole number of steps from 1 — ` +
-    "@Application({ maxConcurrentSteps: 32 }) lets 32 steps of this instance work at once";
+    `its executionLimits.maxConcurrentSteps is ${String(value)}, not a whole number of steps from 1 — ` +
+    "@Application({ executionLimits: { maxConcurrentSteps: 32 } }) lets 32 steps of this instance work at once";
   return [violation("limits.max-concurrent-steps-invalid", message, [options.name])];
-}
-
-/** `maxMeshHops` is a whole number of applications from 1 (#398): 0 would refuse every call. */
-function meshHopsViolations(options: ApplicationOptions): RuleViolation[] {
-  const value = options.maxMeshHops;
-  if (value === undefined || (Number.isInteger(value) && value >= 1)) return [];
-  const message =
-    `its maxMeshHops is ${String(value)}, not a whole number of applications from 1 — ` +
-    "@Application({ maxMeshHops: 6 }) refuses a call chain that already passed through 6 applications";
-  return [violation("limits.max-mesh-hops-invalid", message, [options.name])];
 }
 
 /** The application's limits: its caps, its timers (#1141) and its providers' timeouts. */
 export const limitViolations = (options: ApplicationOptions): RuleViolation[] => [
   ...stepCapViolations(options),
-  ...meshHopsViolations(options),
   ...timerSettingViolations(options),
-  ...providerTimeoutViolations(options.name, options.providers),
+  ...providerTimeoutViolations(options.name, [
+    ...(options.providers ?? []),
+    ...(options.modelProvider === undefined ? [] : [options.modelProvider]),
+  ]),
 ];

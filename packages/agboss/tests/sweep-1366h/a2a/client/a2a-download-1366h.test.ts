@@ -52,6 +52,8 @@ describe("#1366: what the fetch is handed", () => {
   });
 });
 
+const EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
 describe("#1366: a descriptor with no address and no bytes", () => {
   it("one with no url is fetched from an empty address, one with no inline bytes is an empty file", async () => {
     const urls: string[] = [];
@@ -63,7 +65,7 @@ describe("#1366: a descriptor with no address and no bytes", () => {
     await downloadedFile({ mediaType: "text/plain" }, { fetcher });
     // an inline descriptor (inline set, bytes empty) is the empty file; one with neither is read as a url
     const empty = await downloadedFile(
-      { mediaType: "text/plain", inline: "" },
+      { mediaType: "text/plain", inline: "", sha256: EMPTY_SHA256 },
       {
         fetcher,
       },

@@ -4,13 +4,15 @@
  * `KEY_TEXT_PRECEDENCE`. Every set of two or more breaches, each written after the one it outranks,
  * and a property over random sets, orders and fillers against an oracle of its own.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { DtoValidationError } from "../../src/dto/errors.js";
 import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
-import { Action, ExecutionContext, effectKeyOf, InvalidBusinessKeyError } from "../../src/index.js";
-import { testAction, testWith } from "../../src/testing/index.js";
+import { Action, ExecutionContext, type Tracked } from "../../src/index.js";
+import { effectKeyOf } from "../../src/stores/index.js";
+import { testUnit, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { seededProperties } from "../helpers/property-seed.js";
 import { ChatStart, DeskApplication } from "../testing/fixtures/desk.workflow.js";
@@ -30,6 +32,7 @@ const KEY_TEXT_PRECEDENCE: readonly KeyTextRule[] = [
   KeyTextRule.Unassigned,
   KeyTextRule.Blank,
   KeyTextRule.NotNfc,
+  KeyTextRule.ReservedSeparator,
 ];
 
 /** One breach of each rule but the length, each breaking that rule alone between two letters. */
@@ -44,6 +47,7 @@ const BREACHES: readonly (readonly [KeyTextRule, string])[] = [
   [KeyTextRule.Unassigned, "\u0378"],
   [KeyTextRule.Blank, "\u2800"],
   [KeyTextRule.NotNfc, "e\u0301"],
+  [KeyTextRule.ReservedSeparator, "/child/"],
 ];
 
 const rank = (rule: KeyTextRule): number => KEY_TEXT_PRECEDENCE.indexOf(rule);
@@ -125,6 +129,7 @@ const BREAKS: Readonly<Record<KeyTextRule, (text: string) => boolean>> = {
     ),
   [KeyTextRule.Blank]: (text) => text.includes("\u2800"),
   [KeyTextRule.NotNfc]: (text) => !hasLoneSurrogate(text) && text.normalize("NFC") !== text,
+  [KeyTextRule.ReservedSeparator]: (text) => text.includes("/child/"),
 };
 
 /** Letters a breach can stand beside without making another one. */
@@ -138,11 +143,11 @@ describe("#547 acceptance: the rule named is the precedence's first one the text
     fc.assert(
       fc.property(
         fc.subarray([...BREACHES], { minLength: 1 }),
-        fc.array(FILLER, { minLength: 11, maxLength: 11 }),
+        fc.array(FILLER, { minLength: 12, maxLength: 12 }),
         fc.boolean(),
         (set, fillers, isLong) => {
           const body = set.map(([, breach], at) => `${fillers[at] ?? ""}${breach}`).join("");
-          const text = `a${body}${fillers[10] ?? ""}b${isLong ? "k".repeat(201) : ""}`;
+          const text = `a${body}${fillers[11] ?? ""}b${isLong ? "k".repeat(201) : ""}`;
           const expected = KEY_TEXT_PRECEDENCE.find((rule) => BREAKS[rule](text));
           expect(keyTextRuleOf(text)).toBe(expected);
         },
@@ -162,9 +167,9 @@ describe("#547 acceptance: the rule named is the precedence's first one the text
 class PrecedenceChargeAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly message: { readonly value: WorkflowStartTextDto } }) {
+  execute(input: { readonly message: Tracked<WorkflowStartTextDto> }) {
     const key = effectKeyOf(this.executionContext, "charge", {
-      businessKey: input.message.value.text,
+      businessKey: input.message.text,
     });
     return Promise.resolve({ text: key.businessKey ?? "" });
   }
@@ -183,7 +188,7 @@ describe("#547 acceptance: every entry point names the same rule for a text brea
     "%s → %s",
     async ([, expected, text], { app }) => {
       const businessKey = await rejectionOf(
-        testAction(PrecedenceChargeAction)({ message: { value: { text } } }),
+        testUnit(PrecedenceChargeAction)({ message: { text } }),
       );
       const executed = await rejectionOf(
         execute(app, ChatStart, { text: "hi" }, { threadId: text }),
@@ -193,7 +198,7 @@ describe("#547 acceptance: every entry point names the same rule for a text brea
         execute(app, ChatStart, { text: "hi" }, { tenant: { tenantId: text } }),
       );
 
-      expect(businessKey).toBeInstanceOf(InvalidBusinessKeyError);
+      expect(businessKey).toBeInstanceOf(IdempotencyError.InvalidKey);
       expect(businessKey).toMatchObject({ rule: expected });
       for (const thread of [executed, cancelled]) {
         expect(thread).toBeInstanceOf(InvalidThreadIdError);

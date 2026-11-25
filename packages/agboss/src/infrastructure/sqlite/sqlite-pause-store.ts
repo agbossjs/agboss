@@ -3,7 +3,7 @@ import type {
   PauseNoticeFacts,
   PauseNoticeKind,
   PauseRecipients,
-  PauseReplacement,
+  PauseReassignmentChange,
 } from "../pause-notices.js";
 import {
   decidedPause,
@@ -75,8 +75,9 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     tenantId: string,
     pauseId: string,
     recipients: PauseRecipients,
+    ref?: string,
   ): Promise<boolean> {
-    const sent = this.#change(tenantId, pauseId, (pause) => markSentChange(pause, recipients));
+    const sent = this.#change(tenantId, pauseId, (pause) => markSentChange(pause, recipients, ref));
     return Promise.resolve(sent?.status === PauseStatus.Pending);
   }
 
@@ -159,7 +160,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
   async reassignByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    replacement: PauseReplacement,
+    replacement: PauseReassignmentChange,
     at: Date,
     recipients: PauseRecipients,
   ): Promise<PauseRecord | undefined> {

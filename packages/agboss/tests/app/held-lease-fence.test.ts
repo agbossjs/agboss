@@ -1,5 +1,7 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
+import { fenceOf } from "../../src/flow/context/execution-fence.js";
 /**
- * #471 — the held lease as `executionContext.fence` reads it: its token and scope, `assertHeld()`
+ * #471 — the held lease as `executionContext.fence` (internal now) reads it: its token and scope, `assertHeld()`
  * (local, no I/O; past `trustedUntil` it expires the lease first), `renewNow()` (a strict
  * renewal: confirmed → the after-renewal checks, anything else → lost), a fenced write stopping the
  * holder of its token, and the `yieldWhile` rule — the lease is yielded only while no other step of
@@ -10,7 +12,6 @@ import { describe, expect, it } from "vitest";
 import { executionLeasesOf, type HeldExecutionLease } from "../../src/app/execution-leases.js";
 import { handedOverOf } from "../../src/app/handed-over.js";
 import {
-  ExecutionFencedError,
   ExecutionLeaseLostError,
   type ExecutionLease,
   type ExecutionLeaseRepository,
@@ -19,10 +20,8 @@ import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execu
 import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { LeaseGate } from "../../src/testing/leases.js";
 import { OutboundCallLeaseState } from "../../src/infrastructure/execution-audit-log.repository.js";
-import {
-  InMemoryOutboundCallRepository,
-  type OutboundCallRepository,
-} from "../../src/infrastructure/outbound-call.repository.js";
+import { type OutboundCallRepository } from "../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../src/infrastructure/in-memory-outbound-call.repository.js";
 import { SqliteOutboundCallRepository } from "../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import type { VirtualClock } from "../../src/testing/clock.js";
 import { seconds, type Milliseconds } from "../../src/units/index.js";
@@ -218,7 +217,7 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
       await clock.advance(seconds(31));
       const other = await executionLeasesOf(second, clock).hold(TREE);
 
-      const refusedNew = ExecutionFencedError.of({
+      const refusedNew = fencedRefusalOf({
         scopeKey: other.scopeKey,
         token: 3,
         observedToken: 4,
@@ -227,7 +226,7 @@ describe.each(kinds)("#471: the held lease's fence ($name)", (target) => {
       expect(lease.signal.aborted).toBe(false);
       expect(other.signal.aborted).toBe(false);
 
-      const refused = ExecutionFencedError.of({
+      const refused = fencedRefusalOf({
         scopeKey: lease.scopeKey,
         token: 1,
         observedToken: 2,

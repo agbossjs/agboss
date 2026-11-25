@@ -1,18 +1,18 @@
 /**
  * #812 AC5: what an application's A2A side says on its card, checked at assembly from the
- * declarations — `[a2a.expose-description-required]` (an error: a blank description),
+ * declarations — `[a2a.endpoint-description-required]` (an error: a blank description),
  * `[a2a.skill-tags]` and `[a2a.unpriced-foreign-peer]` (warnings).
  */
 import { describe, expect, it } from "vitest";
 import { A2AAgent } from "../../src/a2a/a2a-decorator.js";
-import { A2AExpose, type A2AExposeOptions } from "../../src/a2a/a2a-expose.decorator.js";
+import { A2AEndpoint, type A2AEndpointOptions } from "../../src/a2a/a2a-endpoint.decorator.js";
 import { A2AClient } from "../../src/a2a/client/a2a-client.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { EmptyEnvironment } from "../../src/index.js";
-import { usd } from "../../src/units/index.js";
+import { usd, hours, minutes } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
   BillingDeskA2AAgent,
@@ -23,18 +23,19 @@ import {
 @A2AAgent({ name: "weather-a2a-agent", url: "http://weather.invalid" })
 class WeatherA2AAgent extends A2AClient {}
 
-@A2AAgent({ name: "paid-a2a-agent", url: "http://paid.invalid", price: usd(0.01) })
+@A2AAgent({ name: "paid-a2a-agent", url: "http://paid.invalid", costPerCall: usd(0.01) })
 class PaidA2AAgent extends A2AClient {}
 
 function applicationWith(
-  expose: Partial<A2AExposeOptions>,
+  expose: Partial<A2AEndpointOptions>,
   providers: readonly (typeof WeatherA2AAgent)[] = [],
 ) {
-  @A2AExpose({
+  @A2AEndpoint({
     name: "card-a2a-expose",
     version: "1.0.0",
     description: "A card",
-    exports: [RefundWorkflowStart],
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [RefundWorkflowStart],
     ...expose,
   })
   class CardA2AExpose {}
@@ -46,31 +47,33 @@ function applicationWith(
     workflows: [RefundWorkflow],
     providers,
     budgets: TEST_BUDGETS,
-    exposes: [CardA2AExpose],
+    endpoints: [CardA2AExpose],
   })
   class CardApplication {}
   return CardApplication;
 }
 
 const warningsOf = async (application: ReturnType<typeof applicationWith>): Promise<string[]> => {
-  const assembled = await applicationOf(application);
+  const assembled = await applicationOf(application, { withoutIdempotencyKeys: true });
   return assemblyWarningsOf({ ...assembled }).map(
     (warning) => `[${warning.code}] ${warning.message}`,
   );
 };
 
-describe("#812 AC5: [a2a.expose-description-required]", () => {
+describe("#812 AC5: [a2a.endpoint-description-required]", () => {
   it.each(["", "   "])("a blank description (%j) is refused at assembly", async (description) => {
-    const built = applicationOf(applicationWith({ description }));
+    const built = applicationOf(applicationWith({ description }), { withoutIdempotencyKeys: true });
 
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     await expect(built).rejects.toThrow(
-      /\[a2a\.expose-description-required\] card-a2a-expose has no description/,
+      /\[a2a\.endpoint-description-required\] card-a2a-expose has no description/,
     );
   });
 
   it("a description assembles", async () => {
-    await expect(applicationOf(applicationWith({}))).resolves.toBeDefined();
+    await expect(
+      applicationOf(applicationWith({}), { withoutIdempotencyKeys: true }),
+    ).resolves.toBeDefined();
   });
 });
 
@@ -90,10 +93,10 @@ describe("#812 AC5: [a2a.skill-tags] (a warning)", () => {
 
   it("an empty list counts as no tags; a tag gives no warning", async () => {
     const empty = await warningsOf(
-      applicationWith({ skills: { "refund-workflow-start": { tags: [] } } }),
+      applicationWith({ skills: [{ start: RefundWorkflowStart, tags: [] }] }),
     );
     const tagged = await warningsOf(
-      applicationWith({ skills: { "refund-workflow-start": { tags: ["refunds"] } } }),
+      applicationWith({ skills: [{ start: RefundWorkflowStart, tags: ["refunds"] }] }),
     );
 
     expect(tagWarnings(empty)).toHaveLength(1);

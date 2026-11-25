@@ -4,23 +4,25 @@ A step of a path may be a whole workflow (#263): an ordinary `@Workflow` of the 
 runnable and testable on its own (`app.execute(VendorCheckWorkflowStart, …)`), used by its parent
 as a component "start input → one of its finishes' outputs". It is the answer to a **chain of
 steps per item** — check → deep dive → score, with its own branches, repeats and failures per item —
-where a per-item launch of one agent (`.toParallelAgents(A)`) runs exactly one step per item
+where a per-item launch of one agent (`.forEachItem(toAgent(A), …)`) runs exactly one step per item
 ([Workflow → Parallel launches](Workflow#parallel-launches)).
 
 > **Status.** #263 PR 1 — the grammar, the analyser and the generated types; PR 2 — children at run
 > time: a subgraph node of the parent, their own executions, `ChildExecutionFailedError`, nested
 > records (`result.children`), `toHaveChildExecutions` / `toHaveHandledError`, and a child as an
-> error handler (`toWorkflow(W)` side paths). Recursion — `ThisWorkflow`, `maxDepth`, the soft stop
-> — is #264 PR 1 ([below](#recursion-264)); the tree's `maxConcurrentExecutions` is #264 PR 2
+> error handler (`toWorkflow(W)` side paths). Recursion — `() => Self`, `maxDepth`, the soft stop
+> — is #264 PR 1 ([below](#recursion-264)); the tree's `maxConcurrency` is #264 PR 2
 > ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)). A child on any instance —
-> `placement: ChildPlacement.AnyInstance` — is #333 PR 2 ([below](#on-any-instance-333-pr-2)).
+> `placement: ChildPlacement.AnyWorker` — is #333 PR 2 ([below](#on-any-instance-333-pr-2)).
 > Runnable examples: `examples/flow-patterns/src/vendor/`, `examples/flow-patterns/src/topic/`.
 
 ## Writing it
 
 <!-- snippet-context
-import { Action, Agent, LimitExceededError, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, agent, caseOf, start, toAction, toFinish, workflow } from "@agboss/core";
-import { Flag, Text, WorkflowStartTextDto, listOf, oneOf, optional } from "@agboss/core/dto";
+import { toAgent, toWorkflow } from "@agboss/core";
+import { inline, Action, Agent, LimitExceededError, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAgent, onStart, toAction, toFinish, onWorkflow, Ttl } from "@agboss/core";
+import { Bool, Text, WorkflowStartTextDto } from "@agboss/core/dto";
+import { listOf, oneOf, optional } from "@agboss/core";
 
 export class VendorDto {
   @Text({ prompt: "the vendor's name" })
@@ -39,7 +41,7 @@ export class VendorRejectedDto {
   reason!: string;
 }
 export class VendorCheckFailedDto {
-  @Flag({ prompt: "the check could not be done" })
+  @Bool({ prompt: "the check could not be done" })
   failed!: boolean;
 }
 export class VendorRankingDto {
@@ -54,7 +56,7 @@ export class ContractDto {
 export class VendorCheckWorkflowStart {}
 @WorkflowStart({ name: "vendor-link-check-workflow-start", description: "A vendor by a link", input: VendorLinkDto })
 export class VendorLinkCheckWorkflowStart {}
-@Agent({ name: "vendor-checker-agent", description: "Checks a vendor", prompt: "Check it.", model: "moonshotai/kimi-k2.6", input: { vendor: optional(VendorDto), link: optional(VendorLinkDto) }, output: oneOf(VendorScoreDto, VendorRejectedDto) })
+@Agent({ name: "vendor-checker-agent", description: "Checks a vendor", prompt: inline("Check it."), model: "moonshotai/kimi-k2.6", input: { vendor: optional(VendorDto), link: optional(VendorLinkDto) }, output: oneOf(VendorScoreDto, VendorRejectedDto) })
 export class VendorCheckerAgent {}
 @Action({ name: "mark-vendor-failed-action", description: "Records a failed check", output: VendorCheckFailedDto })
 export class MarkVendorFailedAction {
@@ -76,13 +78,13 @@ export class ContractWorkflowStart {}
 export class PickedContractWorkflowStart {}
 @WorkflowStart({ name: "link-contract-workflow-start", description: "Contract the vendor behind a link", input: { message: WorkflowStartTextDto, link: VendorLinkDto } })
 export class LinkContractWorkflowStart {}
-@Agent({ name: "vendor-finder-agent", description: "Finds vendors", prompt: "Find them.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(VendorDto) })
+@Agent({ name: "vendor-finder-agent", description: "Finds vendors", prompt: inline("Find them."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(VendorDto) })
 export class VendorFinderAgent {}
-@Agent({ name: "vendor-picker-agent", description: "Picks the vendor", prompt: "Pick one.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: VendorDto })
+@Agent({ name: "vendor-picker-agent", description: "Picks the vendor", prompt: inline("Pick one."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: VendorDto })
 export class VendorPickerAgent {}
-@Agent({ name: "vendor-ranker-agent", description: "Ranks", prompt: "Rank.", model: "moonshotai/kimi-k2.6", input: { checks: listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)) }, output: VendorRankingDto })
+@Agent({ name: "vendor-ranker-agent", description: "Ranks", prompt: inline("Rank."), model: "moonshotai/kimi-k2.6", input: { checks: listOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto) }, output: VendorRankingDto })
 export class VendorRankerAgent {}
-@Agent({ name: "contract-agent", description: "Writes the contract", prompt: "Write it.", model: "moonshotai/kimi-k2.6", input: { score: VendorScoreDto }, output: ContractDto })
+@Agent({ name: "contract-agent", description: "Writes the contract", prompt: inline("Write it."), model: "moonshotai/kimi-k2.6", input: { score: VendorScoreDto }, output: ContractDto })
 export class ContractAgent {}
 @Action({ name: "notify-operator-action", description: "Tells the operator", input: { vendors: listOf(VendorDto) } })
 export class NotifyOperatorAction {
@@ -101,11 +103,11 @@ export class NoContractFailedWorkflowFinish {}
 @WorkflowFinish({ name: "check-error-workflow-finish", description: "The check failed", output: WorkflowStartTextDto })
 export class CheckErrorWorkflowFinish {}
 // @snippet
-@Workflow({ name: "vendor-screening-workflow", version: "1.0.0", flow: perItemPaths })
+@Workflow({ name: "vendor-screening-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: perItemPaths })
 export class VendorScreeningWorkflow {}
-@Workflow({ name: "contract-workflow", version: "1.0.0", flow: inlinePaths })
+@Workflow({ name: "contract-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: inlinePaths })
 export class ContractWorkflow {}
-@Workflow({ name: "link-contract-workflow", version: "1.0.0", flow: ownPaths })
+@Workflow({ name: "link-contract-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: ownPaths })
 export class LinkContractWorkflow {}
 -->
 
@@ -114,105 +116,77 @@ export class LinkContractWorkflow {}
 @Workflow({
   name: "vendor-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(VendorCheckWorkflowStart)
-      .returns(VendorDto)
+    onStart(VendorCheckWorkflowStart)
       .toAgent(VendorCheckerAgent),
-    start(VendorLinkCheckWorkflowStart)
-      .returns(VendorLinkDto)
+    onStart(VendorLinkCheckWorkflowStart)
       .toAgent(VendorCheckerAgent),
-    agent(VendorCheckerAgent) // two ways in (two starts) → its own path
+    onAgent(VendorCheckerAgent) // two ways in (two starts) → its own path
       .onError(
         StepFailedError, // caught inside the child: one more result class for the parent
         toAction(MarkVendorFailedAction)
-          .returns(VendorCheckFailedDto)
           .toFinish(VendorCheckFailedWorkflowFinish),
       )
-      .returns(oneOf(VendorScoreDto, VendorRejectedDto))
-      .switch(
-        caseOf(VendorScoreDto)
-          .toFinish(VendorScoredWorkflowFinish),
-        caseOf(VendorRejectedDto)
-          .toFinish(VendorRejectedWorkflowFinish),
-      ),
+      .toOneOf([toFinish(VendorScoredWorkflowFinish), toFinish(VendorRejectedWorkflowFinish)]),
   ],
-  maxSteps: 10,
+  executionLimits: { maxSteps: 10 },
 })
 export class VendorCheckWorkflow {}
 
 // a parent, per item: one child per VendorDto (through vendor-check-workflow-start), 3 at once
 export const perItemPaths = [
-  start(VendorScreeningWorkflowStart)
-    .returns(WorkflowStartTextDto)
+  onStart(VendorScreeningWorkflowStart)
     .toAgent(VendorFinderAgent)
-    .returns(listOf(VendorDto))
-    .toParallelWorkflows(VendorCheckWorkflow, { maxConcurrency: 3, maxItems: 50 })
+    .forEachItem(toWorkflow(VendorCheckWorkflow), { takeFirst: 50, maxConcurrency: 3 })
     .join()
-    .onJoinError(
+    .onError(
       LimitExceededError, // a limit: only actions and finishes after it
       toAction(NotifyOperatorAction)
         .toFinish(ScreeningStoppedWorkflowFinish),
     )
-    .returns(listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)))
     .toAgent(VendorRankerAgent)
-    .returns(VendorRankingDto)
     .toFinish(VendorRankingWorkflowFinish),
 ] as const;
 
 // a parent, one child, one way in: .onError right after it, one case per finish output class
 export const inlinePaths = [
-  start(ContractWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .toAgent(VendorPickerAgent)
-    .returns(VendorDto) // enters vendor-check-workflow-start
+  onStart(ContractWorkflowStart)
+    .toAgent(VendorPickerAgent) // enters vendor-check-workflow-start
     .toWorkflow(VendorCheckWorkflow)
     .onError(StepFailedError, toFinish(CheckErrorWorkflowFinish))
-    .returns(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto))
-    .switch(
-      caseOf(VendorScoreDto)
-        .toAgent(ContractAgent)
-        .returns(ContractDto)
+    .toOneOf([
+      toAgent(ContractAgent)
         .toFinish(ContractWorkflowFinish),
-      caseOf(VendorRejectedDto)
-        .toFinish(NoContractRejectedWorkflowFinish),
-      caseOf(VendorCheckFailedDto)
-        .toFinish(NoContractFailedWorkflowFinish),
-    ),
+      toFinish(NoContractRejectedWorkflowFinish),
+      toFinish(NoContractFailedWorkflowFinish),
+    ]),
 ] as const;
 
 // a parent, one child reached from two places: its own path, each edge with its own start
 export const ownPaths = [
-  start(PickedContractWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .toAgent(VendorPickerAgent)
-    .returns(VendorDto) // enters vendor-check-workflow-start
+  onStart(PickedContractWorkflowStart)
+    .toAgent(VendorPickerAgent) // enters vendor-check-workflow-start
     .toWorkflow(VendorCheckWorkflow),
-  start(LinkContractWorkflowStart)
-    .returns(WorkflowStartTextDto)
-    .returns(VendorLinkDto) // enters vendor-link-check-workflow-start
+  onStart(LinkContractWorkflowStart) // enters vendor-link-check-workflow-start
     .toWorkflow(VendorCheckWorkflow),
-  workflow(VendorCheckWorkflow)
+  onWorkflow(VendorCheckWorkflow)
     .onError(StepFailedError, toFinish(CheckErrorWorkflowFinish))
-    .returns(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto))
-    .switch(
-      caseOf(VendorScoreDto)
-        .toAgent(ContractAgent)
-        .returns(ContractDto)
+    .toOneOf([
+      toAgent(ContractAgent)
         .toFinish(ContractWorkflowFinish),
-      caseOf(VendorRejectedDto)
-        .toFinish(NoContractRejectedWorkflowFinish),
-      caseOf(VendorCheckFailedDto)
-        .toFinish(NoContractFailedWorkflowFinish),
-    ),
+      toFinish(NoContractRejectedWorkflowFinish),
+      toFinish(NoContractFailedWorkflowFinish),
+    ]),
 ] as const;
 ```
 
 | Form | |
 | --- | --- |
 | `.toWorkflow(W)` | one child execution of `W`; also `route(W)` among a router's routes |
-| `.toParallelWorkflows(W, { maxConcurrency, maxItems })` | one child per item, right after `.returns(listOf(ItemDto))` (else it does not compile); one workflow class; `maxItems` required; followed by `.join()` like any launch ([Workflow → Parallel launches](Workflow#parallel-launches)); a router launches agents only |
-| One way in → inline | a child reached from one place is continued right after `.toWorkflow(W)` (`.onError(…)`, `.returns(…)`, `.switch(…)`); an own path for it → `[flow.single-entry-own-path]` |
-| Two or more ways in → own path | `workflow(W).onError(…).returns(oneOf(…)).switch(…)`; every path into it ends with `.toWorkflow(W)`; inline → `[flow.shared-node-inline]` |
+| `.forEachItem(toWorkflow(W), { takeFirst, maxConcurrency })` | one child per item, right after a step whose output is `listOf(ItemDto)`; one workflow class; `takeFirst` (or `maxItems`) required; followed by `.join()` like any launch ([Workflow → Parallel launches](Workflow#parallel-launches)); a router launches agents only |
+| One way in → inline | a child reached from one place is continued right after `.toWorkflow(W)` (`.onError(…)`, `.toOneOf([…])`); an own path for it → `[flow.single-entry-own-path]` |
+| Two or more ways in → own path | `onWorkflow(W).onError(…).toOneOf([…])`; every path into it ends with `.toWorkflow(W)`; inline → `[flow.shared-node-inline]` |
 | One class = one node | `W` mentioned again in the graph is the same node; two stages running the same child are two workflow classes (`[flow.continuation-twice]`) |
 | The kind is checked | `toAgent(VendorCheckWorkflow)` does not compile, and is `[graph.wrong-kind]` in untyped code |
 | Not listed | a child need not be in `@Application({ workflows })`: it belongs to its parent's application, which assembles it and runs it alone through its own starts (`app.execute(VendorCheckWorkflowStart, …)`) |
@@ -220,21 +194,21 @@ export const ownPaths = [
 ## Which start
 
 The start is chosen **per edge into the child**, by class — it is never named, so two paths into
-`workflow(W)` may enter through two starts (above: `vendor-check-workflow-start` from the picker,
+`onWorkflow(W)` may enter through two starts (above: `vendor-check-workflow-start` from the picker,
 `vendor-link-check-workflow-start` from the link):
 
 | Edge | Start |
 | --- | --- |
 | The child has one start | it — also after an action without `output` or from `route(W)`, where the chain carries no value |
-| Per item (`.toParallelWorkflows`) | the start with a required field of the item's type; the item fills it |
-| Single launch (`.toWorkflow`, a join's `.to…`) | the start with a required field of the chain's current value — the `.returns` / `caseOf` right before |
+| Per item (`.forEachItem(toWorkflow(…))`) | the start with a required field of the item's type; the item fills it |
+| Single launch (`.toWorkflow`, a join's `.to…`) | the start with a required field of the chain's current value — the step's output or right before |
 | Several such starts | the one whose other required fields are all on the parent's path |
 
 None → `[graph.no-matching-start]`, naming the starts and their inputs; still two →
 `[graph.ambiguous-start]`, fixed by a subclass as one start's input
 (`class QuickCheckRequestDto extends VendorDto {}`). Both are compile errors too: the child's
 generated `Inputs` entry carries the message, so `.toWorkflow(W)` does not compile. A start's input
-may be a list (`input: listOf(VendorDto)` takes a whole list, `.returns(listOf(VendorDto)).toWorkflow(W)`)
+may be a list (`input: listOf(VendorDto)` takes a whole list, from a step whose output is `listOf(VendorDto)`)
 or a map of fields (`{ vendor: VendorDto, request: optional(SearchRequestDto) }`): the item or the
 current value fills its field, the other fields come from the parent's path, and an optional one
 may be missing — the same child is entered from parents that have it and parents that do not.
@@ -254,26 +228,26 @@ children
   parent's side the chosen start's required fields must be on every path into the edge
   (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[input.several-on-path]`).
 - **It gives back one value**: the output of the finish it ended at. Its result is the set of its
-  finishes' output classes — `.returns(XDto)` for one class, `.returns(oneOf(…)).switch(caseOf(…)…)`
-  with exactly one case per class otherwise (a missing or extra class →
-  `[flow.switch-not-exhaustive]` / `[flow.switch-unknown-case]`, and a compile error through
-  `ProducerOutputs`). Two finishes with one output class are one case. A `caseOf(XDto)` counts as
+  finishes' output classes — one class continues the path, several are a `oneOf(…)` and `.toOneOf([…])`
+  with exactly one case per class (a missing or extra class →
+  `[flow.one-of-not-exhaustive]` / `[flow.one-of-ambiguous]`, and a compile error through
+  `AGBossTypes.ProducerOutputs`). Two finishes with one output class are one branch. A `.toOneOf([…])` branch counts as
   reading `XDto` (`[flow.unused-output]` never fires on a branch that ends in a finish).
 - After a per-item launch the join gives **one polymorphic list**:
-  `.join().returns(listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)))`,
-  checked against the generated `JoinOutputs` entry `toParallelWorkflows(vendor-check-workflow) per item`;
-  a node reads it as that `listOf(oneOf(…))` field (#299 S53: no filtered `listOf(VendorScoreDto)` slot).
+  `listOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)`,
+  derived from the child's finishes;
+  a node reads it as that `listOf(…)` field (#299 S53: no filtered `listOf(VendorScoreDto)` slot).
 
 ## Errors
 
 | Where | |
 | --- | --- |
 | One child, one way in | `.onError(E, path)` right after `.toWorkflow(W)` |
-| One child, own path | `.onError(E, path)` right after `workflow(W)` |
-| Per item | `.onJoinError(E, path)` right after the join — `.onError` there does not compile, nor `.onJoinError` after `.toWorkflow(W)` |
+| One child, own path | `.onError(E, path)` right after `onWorkflow(W)` |
+| Per item | `.onError(E, path)` right after the join; not between the launch and its join |
 | Soft failure | an error the child catches itself, ending at a failure finish (`VendorCheckFailedDto` above), is one more ordinary result class for the parent — the way to skip a failed item and go on |
 | No soft failure | a per-item child with no finish reachable from one of its `.onError` side paths warns `[graph.child-without-failure-finish]` — one failed item would cancel the others (FailFast); an error under `agboss check --strict`; no flag silences it |
-| After a limit | a side path that can catch a `LimitExceededError` — the class, a subclass (`BudgetExceededError`, `VisitsLimitExceededError`, …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, no model call past the limit — its actions run whatever the budgets, as the reaction to the limit, their spend counted ([FinOps](FinOps#at-run-time), #634): `[graph.limit-handler-uses-model]` when it reaches an agent, a router or a child workflow. This holds for every `.onError` / `.onJoinError`, not only a child's |
+| After a limit | a side path that can catch a `LimitExceededError` — the class, a subclass (`BudgetExceededError`, `VisitsLimitExceededError`, …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, no model call past the limit — its actions run whatever the budgets, as the reaction to the limit, their spend counted ([FinOps](FinOps#at-run-time), #634): `[graph.limit-handler-uses-model]` when it reaches an agent, a router or a child workflow. This holds for every `.onError`, not only a child's |
 
 ### At run time: whose limit it is (S25)
 
@@ -283,7 +257,7 @@ An uncaught error of the child fails it, and the parent's step fails with
 (`component`, `nodeId`, `visitNumber`). The child's **own limits** are failures of the child and
 wrapped the same way: its `maxSteps` (`StepsLimitExceededError` in `cause`), the `maxVisits` of its
 nodes. So `.onError(StepFailedError, …)`, `.onError(ChildExecutionFailedError, …)` and
-`.onJoinError(…)` at the parent take them, and their side path may lead to an agent — the parent's
+`.onError(…)` at the parent take them, and their side path may lead to an agent — the parent's
 steps and the tree's money are not spent. A handler naming the cause (`.onError(ItemFailedError,
 …)`, `.onError(StepsLimitExceededError, …)`) catches it through the cause chain; naming a limit, it
 leads only to actions and finishes.
@@ -293,24 +267,24 @@ cancellation (`ExecutionCancelledError`) stop the whole execution as they are �
 never takes them. Every call of the tree is counted the moment it is made (#338): when one child's
 call exhausts a budget, the model and tool calls in flight of its sibling children (and of every
 other branch of the tree) are aborted at once, those children fail with that `BudgetExceededError`
-and their spend so far, and the join takes `.onJoinError(BudgetExceededError, …)`
+and their spend so far, and the join takes `.onError(BudgetExceededError, …)`
 ([FinOps → At run time](FinOps#at-run-time)). Per item, FailFast holds: the running children are cancelled (their spend stays
 counted, their observers get `onExecutionError` with `ExecutionCancelledError`), no new one starts,
-and the join takes `.onJoinError(…)` against the parent's scope **as it was before the launch** —
+and the join takes `.onError(…)` against the parent's scope **as it was before the launch** —
 the children that finished first are in `result.children` / `result.record.children` and the
-traces, never in the side path's scope. There is no `FailurePolicy.Skip` for children: skipping a
+traces, never in the side path's scope. There is no `skip()` for children: skipping a
 failed item is the child catching its error and ending at a failure finish.
 
 ## A child as an error handler (S85)
 
 `toWorkflow(W)` is a side-path starter beside `toAction` / `toAgent` / `toRouter` / `toFinish`, in
-`.onError` and `.onJoinError`: a failure is handled by a whole workflow, entered through its one
+`.onError`: a failure is handled by a whole workflow, entered through its one
 start (or the start the path's value fits), its result continued like after `.toWorkflow(W)`. A
 side path that can catch a limit stays actions and finishes only
 (`[graph.limit-handler-uses-model]`).
 
 <!-- snippet-context
-import { Action, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toWorkflow } from "@agboss/core";
+import { Action, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toWorkflow, Ttl } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class PaymentDto {
   @Text({ prompt: "the payment" })
@@ -341,11 +315,10 @@ export class InvoicedWorkflowFinish {}
 @Workflow({
   name: "payment-recovery-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PaymentRecoveryWorkflowStart)
-      .returns(PaymentDto)
+    onStart(PaymentRecoveryWorkflowStart)
       .toAction(InvoiceAction)
-      .returns(PaymentDoneDto)
       .toFinish(InvoicedWorkflowFinish),
   ],
 })
@@ -355,22 +328,19 @@ export class PaidWorkflowFinish {}
 @WorkflowFinish({ name: "recovered-workflow-finish", description: "Paid another way", output: PaymentDoneDto })
 export class RecoveredWorkflowFinish {}
 // @snippet
-@Workflow({ name: "pay-workflow", version: "1.0.0", flow: recoveryPaths })
+@Workflow({ name: "pay-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: recoveryPaths })
 export class PayWorkflow {}
 -->
 
 ```ts
 export const recoveryPaths = [
-  start(PayWorkflowStart)
-    .returns(PaymentDto)
+  onStart(PayWorkflowStart)
     .toAction(ChargeCardAction)
     .onError(
       StepFailedError, // the charge failed: the recovery workflow takes it from here
       toWorkflow(PaymentRecoveryWorkflow)
-        .returns(PaymentDoneDto)
         .toFinish(RecoveredWorkflowFinish),
     )
-    .returns(PaymentDoneDto)
     .toFinish(PaidWorkflowFinish),
 ] as const;
 ```
@@ -388,7 +358,7 @@ thread. A child that rests at a pause makes its parent's node interrupt with a *
 pause: it never reaches a channel or `result.pending`); the tree rests as for any pause, its pending
 pauses are read through the markers, and a resume — one command for the tree — is forwarded by the
 parent's node to the child's thread. A child that started before ADR-0022 (its whole state under its
-task) is continued that way. One class is one node; only `ThisWorkflow` (#264) is run from the
+task) is continued that way. One class is one node; only a workflow launching itself (#264) is run from the
 registry — the workflow's own compiled graph, never its own subgraph ([Recursion](#recursion-264)).
 
 | | |
@@ -413,9 +383,15 @@ registry — the workflow's own compiled graph, never its own subgraph ([Recursi
 `children`. `result.spend` holds the whole tree's. `result.handledErrors` lists the failures a side
 path took (`error`, `at`, `by`).
 
-**A child is the unit of work for its undo (#340 Q2).** A child's undoable actions
-(`@Action({ compensateWith })`) are its own records: its finish commits them — a parent's later
-failure, or its join's, never undoes a finished child. A child that ends without a finish — it
+**A child's undo bubbles up to its parent (#340 Q2, #1281b).** A child's undoable actions
+(`@Action({ compensateWith })`) that are still open when it finishes — no committing action of its
+own ran — are not committed by its finish: the finish moves them up to its parent, in the same
+write, and the parent's step that ran the child takes them (a child on any instance: from its
+finished state), once by their compensation keys — a step run again after a crash takes the same
+ones. From then on they are the parent's: its finish commits them, and its unwind undoes them with
+its own, newest first, each in the child's workflow — a join that fails, a quorum that goes on
+without the child's branch (`QuorumExcluded`), the parent's own failure or cancel; a grandchild's go
+up both levels. What the child committed or undid never moves. A child that ends without a finish — it
 failed, it was cancelled, or its launch's `FailFast` aborted it — undoes its own open actions,
 newest first, in its parent's step before its error reaches the parent (#340 PR 3,
 `ExecutionFailed` / `ExecutionCancelled`): its records come from its checkpoint and the instance's
@@ -423,7 +399,7 @@ registry, never from the last state the parent saw; the undone records go into t
 with the error, so a later pass never undoes them again; its `onExecutionError` lists them
 (`compensations`). If one of its undo actions fails, its error is `CompensationFailedError`, which
 passes the boundary as it is — never `ChildExecutionFailedError`, like a cancel or an exhausted
-budget — so no `.onError` / `.onJoinError` of the parent takes it; the parent, getting it uncaught,
+budget — so no `.onError` of the parent takes it; the parent, getting it uncaught,
 undoes its own open actions in turn. [Rollback](Rollback#an-execution-that-ends-without-a-finish).
 
 **The application's rules.** A child need not be listed in `@Application({ workflows })`: the
@@ -435,7 +411,7 @@ application lists), channel roles. Budgets aside: a child spends from its root's
 execution budget of its own.
 
 **Worst case.** The start log and `describe` count the children: one call of a start is the
-execution itself plus each child edge's worst case, `maxItems` times per item (at most
+execution itself plus each child edge's worst case, `takeFirst` / `maxItems` times per item (at most
 `maxConcurrency` at once) — `Worst case of one vendor-screening-workflow-start call: 51 workflow
 executions, 4 at the same time, …`.
 
@@ -446,8 +422,9 @@ instance** of the application run it instead — a fan-out of heavy children the
 instances that share the stores ([Several instances](Several-instances#children-on-any-instance-333)):
 
 <!-- snippet-context
-import { Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, start, toFinish } from "@agboss/core";
-import { Text, WorkflowStartTextDto, listOf } from "@agboss/core/dto";
+import { inline, Agent, ChildExecutionFailedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, toWorkflow, Ttl } from "@agboss/core";
+import { Text, WorkflowStartTextDto } from "@agboss/core/dto";
+import { listOf } from "@agboss/core";
 export class SupplierDto {
   @Text({ prompt: "the supplier's name" })
   name!: string;
@@ -462,34 +439,33 @@ export class SupplierRankingDto {
 }
 @WorkflowStart({ name: "supplier-check-workflow-start", description: "One supplier", input: SupplierDto })
 export class SupplierCheckWorkflowStart {}
-@Agent({ name: "supplier-checker-agent", description: "Checks a supplier", prompt: "Check it.", model: "moonshotai/kimi-k2.6", input: { supplier: SupplierDto }, output: SupplierScoreDto })
+@Agent({ name: "supplier-checker-agent", description: "Checks a supplier", prompt: inline("Check it."), model: "moonshotai/kimi-k2.6", input: { supplier: SupplierDto }, output: SupplierScoreDto })
 export class SupplierCheckerAgent {}
 @WorkflowFinish({ name: "supplier-scored-workflow-finish", description: "Scored", output: SupplierScoreDto })
 export class SupplierScoredWorkflowFinish {}
 @Workflow({
   name: "supplier-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SupplierCheckWorkflowStart)
-      .returns(SupplierDto)
+    onStart(SupplierCheckWorkflowStart)
       .toAgent(SupplierCheckerAgent)
-      .returns(SupplierScoreDto)
       .toFinish(SupplierScoredWorkflowFinish),
   ],
 })
 export class SupplierCheckWorkflow {}
 @WorkflowStart({ name: "supplier-screening-workflow-start", description: "What to look for", input: WorkflowStartTextDto })
 export class SupplierScreeningWorkflowStart {}
-@Agent({ name: "supplier-finder-agent", description: "Finds suppliers", prompt: "Find them.", model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(SupplierDto) })
+@Agent({ name: "supplier-finder-agent", description: "Finds suppliers", prompt: inline("Find them."), model: "moonshotai/kimi-k2.6", input: { message: WorkflowStartTextDto }, output: listOf(SupplierDto) })
 export class SupplierFinderAgent {}
-@Agent({ name: "supplier-ranker-agent", description: "Ranks", prompt: "Rank.", model: "moonshotai/kimi-k2.6", input: { scores: listOf(SupplierScoreDto) }, output: SupplierRankingDto })
+@Agent({ name: "supplier-ranker-agent", description: "Ranks", prompt: inline("Rank."), model: "moonshotai/kimi-k2.6", input: { scores: listOf(SupplierScoreDto) }, output: SupplierRankingDto })
 export class SupplierRankerAgent {}
 @WorkflowFinish({ name: "supplier-ranking-workflow-finish", description: "The ranking", output: SupplierRankingDto })
 export class SupplierRankingWorkflowFinish {}
 @WorkflowFinish({ name: "screening-failed-workflow-finish", description: "A check failed", output: WorkflowStartTextDto })
 export class ScreeningFailedWorkflowFinish {}
 // @snippet
-@Workflow({ name: "supplier-screening-workflow", version: "1.0.0", flow: anyInstancePaths })
+@Workflow({ name: "supplier-screening-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: anyInstancePaths })
 export class SupplierScreeningWorkflow {}
 -->
 
@@ -497,28 +473,33 @@ export class SupplierScreeningWorkflow {}
 import { ChildPlacement } from "@agboss/core";
 
 export const anyInstancePaths = [
-  start(SupplierScreeningWorkflowStart)
-    .returns(WorkflowStartTextDto)
+  onStart(SupplierScreeningWorkflowStart)
     .toAgent(SupplierFinderAgent)
-    .returns(listOf(SupplierDto))
-    .toParallelWorkflows(SupplierCheckWorkflow, {
-      maxConcurrency: 6,
-      maxItems: 50,
-      placement: ChildPlacement.AnyInstance, // default ChildPlacement.ParentInstance
-    })
+    .forEachItem(toWorkflow(SupplierCheckWorkflow), { takeFirst: 50, maxConcurrency: 6 })
     .join()
-    .onJoinError(ChildExecutionFailedError, toFinish(ScreeningFailedWorkflowFinish))
-    .returns(listOf(SupplierScoreDto))
+    .onError(ChildExecutionFailedError, toFinish(ScreeningFailedWorkflowFinish))
     .toAgent(SupplierRankerAgent)
-    .returns(SupplierRankingDto)
     .toFinish(SupplierRankingWorkflowFinish),
 ] as const;
 ```
 
-- **Where it is written**: `{ placement }` on `.toWorkflow(W, { placement })`,
-  `.toParallelWorkflows(W, { …, placement })` and `route(W, { placement })`; absent is
-  `ChildPlacement.ParentInstance`. One class is one node, so all its mentions name one placement
-  (`[flow.conflicting-placement]`). `describe` and the config fingerprint print it as written.
+- **Where it is written** (#1286): never in the flow. The child's own
+  `@Workflow({ placement: ChildPlacement.AnyWorker })` says where it runs, else
+  `@Application({ defaults: { workflows: { placement } } })`, else `ChildPlacement.CurrentProcess`; a
+  child never inherits its parent's. The members: `CurrentProcess` (inside the parent's step),
+  `AnyWorker` (any live worker claims it), `OtherWorker` (a worker other than the launching instance;
+  with none, the parent's step fails with `StepError.ChildWorkerUnavailable` (`step.child-worker-unavailable`) after
+  `@Application({ executionLimits: { childClaimTimeout } })`, default one minute) and `IsolatedWorker` (a process of its
+  own: `@Application({ isolatedWorker: { entry: import.meta.url } })` is required, the module a forked
+  process loads — its default export is the `@Application` class —, and the child queue must be a
+  shared store, `[application.isolated-worker-invalid]`; the instance forks one process per child, a
+  worker of its own with its own `instanceId` that claims that child by its id, and each fork holds
+  one of the instance's step slots; a cancel, the budgets and the ledger work across the process
+  boundary through the shared stores, a pause or the child's end ends the fork and a resume forks
+  another, a fork that dies is a lost lease the child is taken over from, and the application's close
+  ends its forks). An `OtherWorker` child no worker claimed in time is withdrawn from the queue
+  atomically before its parent's step fails, so it never runs later; a claim that wins that race
+  keeps the parent waiting.
 - **How the parent waits — inside its step (#333 S6, S9)**: the parent's node saves the child to the
   application's `ChildExecutionQueueRepository` (once: a re-entry after a crash finds its row and
   waits again, no second row) and waits on that row — woken at once when the child ends in the same
@@ -551,7 +532,7 @@ export const anyInstancePaths = [
 - **A cancel or the tree's end** stops a child running on another instance at its next look (every
   10 s); the tree's queue rows are removed when its root ends.
 - **Tree-wide limits hold where it runs (#333 PR 3)**: its depth (`maxDepth`), the root's budgets
-  and the tree's `maxConcurrentExecutions` ([FinOps](FinOps#concurrency-of-a-tree-264)) are checked
+  and the tree's `maxConcurrency` ([FinOps](FinOps#concurrency-of-a-tree-264)) are checked
   on the worker — the tree's slots are held as leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>`
   and `:subtree:<executionId>`), and each spend is written to the root's counters in
   `CostLedgerRepository` the moment it is made (#727: its siblings and its parent see it at their
@@ -561,17 +542,20 @@ export const anyInstancePaths = [
 
 ## Recursion (#264)
 
-A workflow launches **itself** with the marker `ThisWorkflow` — a decorator's arguments are
-evaluated before its class exists, so the class cannot name itself: `.toWorkflow(ThisWorkflow)`,
-`route(ThisWorkflow)`, `.toParallelWorkflows(ThisWorkflow, { maxConcurrency, maxItems })`.
-Everything else is a child's: its start chosen by class, its scope its start input only, its result
-one of its finishes' outputs, its errors and limits. `ThisWorkflow` is one node, `this-workflow`
-(from two places: its own path `workflow(ThisWorkflow)…`). A topic too broad for one report is split
+A workflow launches **itself** with a thunk of its own class — a decorator's arguments are
+evaluated before its class exists, so the class cannot name itself, but `() => Self` is read later,
+at assembly: `.toWorkflow(() => Self)`, `route(() => Self)`,
+`.forEachItem(toWorkflow(() => Self), { takeFirst, maxConcurrency })`. Everything else is a child's: its
+start chosen by class, its scope its start input only, its result one of its finishes' outputs, its
+errors and limits. It is one node, named by the workflow itself (from two places: its own path
+`onWorkflow(() => Self)…`). A topic too broad for one report is split
 and each subtopic researched the same way:
 
 <!-- snippet-context
-import { Action, Agent, StepFailedError, ThisWorkflow, Workflow, WorkflowFinish, WorkflowStart, action, caseOf, start, toAction, type ActionHandler, type InputOf, type OutputOf } from "@agboss/core";
-import { Integer, ListOf, Text, listOf, oneOf } from "@agboss/core/dto";
+import { toFinish, toWorkflow } from "@agboss/core";
+import { inline, Action, Agent, StepFailedError, Workflow, WorkflowFinish, WorkflowStart, onAction, onStart, toAction, type ActionHandler, type InputOf, type OutputOf, Ttl } from "@agboss/core";
+import { Integer, List, Text } from "@agboss/core/dto";
+import { listOf, oneOf } from "@agboss/core";
 
 export class TopicDto {
   @Text({ prompt: "the topic" })
@@ -584,7 +568,7 @@ export class TopicReportDto {
   text!: string;
 }
 export class TopicTooBroadDto {
-  @ListOf(Text, { prompt: "the subtopics" })
+  @List(Text, { prompt: "the subtopics" })
   subtopics!: string[];
 }
 export class TopicFailedDto {
@@ -596,7 +580,7 @@ export class TopicResearchWorkflowStart {}
 @Agent({
   name: "researcher-agent",
   description: "Researches a topic, or lists its subtopics",
-  prompt: "Research the topic, or say it is too broad and list its subtopics.",
+  prompt: inline("Research the topic, or say it is too broad and list its subtopics."),
   model: "moonshotai/kimi-k2.6",
   input: { topic: TopicDto },
   output: oneOf(TopicReportDto, TopicTooBroadDto),
@@ -605,9 +589,9 @@ export class ResearcherAgent {}
 @Agent({
   name: "merge-agent",
   description: "Merges the subtopics' results",
-  prompt: "Merge the reports into one report on the topic.",
+  prompt: inline("Merge the reports into one report on the topic."),
   model: "moonshotai/kimi-k2.6",
-  input: { topic: TopicDto, results: listOf(oneOf(TopicReportDto, TopicFailedDto)) },
+  input: { topic: TopicDto, results: listOf(TopicReportDto, TopicFailedDto) },
   output: TopicReportDto,
 })
 export class MergeAgent {}
@@ -619,8 +603,8 @@ export class MergeAgent {}
 })
 export class SubtopicsAction implements ActionHandler<SubtopicsAction> {
   execute(input: InputOf<SubtopicsAction>): Promise<OutputOf<SubtopicsAction>> {
-    const { level } = input.topic.value;
-    return Promise.resolve(input.tooBroad.value.subtopics.map((title) => ({ title, level: level + 1 })));
+    const { level } = input.topic;
+    return Promise.resolve(input.tooBroad.subtopics.map((title) => ({ title, level: level + 1 })));
   }
 }
 @Action({
@@ -631,7 +615,7 @@ export class SubtopicsAction implements ActionHandler<SubtopicsAction> {
 })
 export class MarkTopicFailedAction implements ActionHandler<MarkTopicFailedAction> {
   execute(input: InputOf<MarkTopicFailedAction>): Promise<OutputOf<MarkTopicFailedAction>> {
-    return Promise.resolve({ title: input.topic.value.title });
+    return Promise.resolve({ title: input.topic.title });
   }
 }
 @WorkflowFinish({ name: "topic-report-workflow-finish", description: "The report", output: TopicReportDto })
@@ -644,37 +628,34 @@ export class TopicFailedWorkflowFinish {}
 @Workflow({
   name: "topic-research-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TopicResearchWorkflowStart)
-      .returns(TopicDto)
+    onStart(TopicResearchWorkflowStart)
       .toAgent(ResearcherAgent)
       .onError(StepFailedError, toAction(MarkTopicFailedAction)) // a failed topic is skipped softly
-      .returns(oneOf(TopicReportDto, TopicTooBroadDto))
-      .switch(
-        caseOf(TopicReportDto)
-          .toFinish(TopicReportWorkflowFinish),
-        caseOf(TopicTooBroadDto) // left out of the researcher's schema on the last level
-          .toAction(SubtopicsAction)
-          .returns(listOf(TopicDto))
-          .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 5 })
+      .toOneOf([
+        toFinish(TopicReportWorkflowFinish),
+        // the action reads the too-broad topic: left out of the researcher's schema on the last level
+        toAction(SubtopicsAction)
+          .forEachItem(
+            toWorkflow(() => TopicResearchWorkflow),
+            { takeFirst: 5, maxConcurrency: 3 },
+          )
           .join()
-          .returns(listOf(oneOf(TopicReportDto, TopicFailedDto)))
           .toAgent(MergeAgent)
           .onError(StepFailedError, toAction(MarkTopicFailedAction))
-          .returns(TopicReportDto)
           .toFinish(TopicReportWorkflowFinish),
-      ),
+      ]),
 
-    action(MarkTopicFailedAction) // two ways in: its own path
-      .returns(TopicFailedDto)
+    onAction(MarkTopicFailedAction) // two ways in: its own path
       .toFinish(TopicFailedWorkflowFinish),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class TopicResearchWorkflow {}
 ```
 
-**The depth.** `@Workflow({ maxDepth })` is required on a workflow that can reach `ThisWorkflow`
+**The depth.** `@Workflow({ executionLimits: { maxDepth } })` is required on a workflow that can launch itself
 (`[graph.recursion-without-depth]`, a whole number from 1). `executionContext.depth` is 1 at the
 root, 2 for its children and so on — the same in every child record (`result.children[…].depth`) and
 in each child's trace metadata — so `maxDepth: 3` allows levels 1–3 and the last level is
@@ -684,8 +665,8 @@ action that splits a topic. The two differ anyway: a recursive workflow started 
 starts deeper than 1 while its first topic's `level` is 0.
 
 **The soft stop.** On the last level the framework, not the prompt, stops the recursion. Of every
-branch — a `.switch(caseOf(…))`, a `.chooseOne(route(…))` — the options whose path launches
-`ThisWorkflow` before the next branch are not offered:
+branch — a `.toOneOf([…])`, an `.onRoute(…)` — the options whose path launches
+the workflow itself before the next branch are not offered:
 
 | Who decides | On the last level |
 | --- | --- |
@@ -701,53 +682,39 @@ path with no branch at all — an action whose list of subtopics comes back empt
 `onExecutionStart` — and fails the launching step with `ChildExecutionFailedError` caused by
 `DepthLimitExceededError` (`limit.depth`; `workflow`, `maxDepth`, `depth`: `topic-research-workflow
 went 5 levels deep; its maxDepth is 4`). It is a child's own limit (S25): `.onError(LimitExceededError,
-…)` right after `.toWorkflow(ThisWorkflow)`, or `.onJoinError(LimitExceededError, …)` after a per-item
+…)` right after `.toWorkflow(() => Self)`, or `.onError(LimitExceededError, …)` after a per-item
 launch's join, takes it — leading only to actions and finishes (`[graph.limit-handler-uses-model]`).
 The refused launch is a failed child record with an empty path.
 
 **The tree.** Each execution has its own `maxSteps`; the root's execution budget is the whole pass,
 every level included, and the tenant and application budgets count it too. Only direct recursion:
-a workflow launching one that launches it again — or naming its own class — is
+a workflow launching one that launches it again is
 `[graph.mutual-recursion]` (as is a class `undefined` while the flow is built, the trace of a
-circular import). At run time `ThisWorkflow` is the workflow's own compiled graph, taken from the
+circular import). At run time a launch of itself is the workflow's own compiled graph, taken from the
 registry when its step runs (a graph cannot contain itself): each level on its own child thread,
 pauses inside any level resumed like any child's, through every waiting marker above it; Studio draws it
-as the node `this-workflow`, which `getGraphAsync({ xray: true })` marks `recursive: maxDepth 3` in its
+as the node of its own name, which `getGraphAsync({ xray: true })` marks `recursive: maxDepth 3` in its
 metadata ([CLI → Watch mode and Studio](CLI#watch-mode-and-studio-268)).
 
 **The tree's cap.** `maxDepth` bounds how deep the tree goes, the launches' `maxConcurrency` how
-wide one launch goes, and the root's `@Workflow({ maxConcurrentExecutions: 6 })` (default 10) how many
+wide one launch goes, and the root's `@Workflow({ executionLimits: { maxConcurrency: 6 } })` (default 10) how many
 of the tree's executions work at once — the stricter wins. A level whose children run holds no slot,
 so a cap of 1 still finishes; the queue serves a level closing its branch first, then the deepest
 ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)).
 
-**Seen in.** `agboss describe`: `recursive: ThisWorkflow, maxDepth 3, on the last level:
+**Seen in.** `agboss describe`: `recursive: maxDepth 3, on the last level:
 researcher-agent → TopicReportDto only`, and each input with its producers — `merge-agent ← topic:
-topic-research-workflow-start, results: this-workflow ×0–5`: the execution's own topic from its start,
+topic-research-workflow-start, results: topic-research-workflow ×0–5`: the execution's own topic from its start,
 never a subtopic (a `listOf(TopicDto)` never fills one `TopicDto` field). The worst case counts the
 levels down to `maxDepth`.
 
-**Typed per path (S112).** `ThisWorkflow` is one class for every recursive workflow, so what it
-gives is not one project-wide entry: `agboss check` writes one `ThisWorkflowOutputs` entry per
-recursive workflow, keyed by its `name` — `input` (the problems of launching it, or `NoInput`),
-`output` (what one child gives: its finishes' outputs) and, with a per-item launch, `join`:
-
-```ts no-check: an excerpt of a generated .agboss/types.d.ts
-interface ThisWorkflowOutputs {
-  "topic-research-workflow": { readonly input: NoInput; readonly output: TopicFailedDto | TopicReportDto; readonly join: readonly (TopicFailedDto | TopicReportDto)[] };
-  "org-chart-workflow": { readonly input: NoInput; readonly output: OrgChartFailedDto | TeamChartDto; readonly join: readonly (OrgChartFailedDto | TeamChartDto)[] };
-}
-```
-
-A `.returns(…)` right after a `ThisWorkflow` launch — `.toWorkflow(ThisWorkflow)`, `route(ThisWorkflow)`,
-`workflow(ThisWorkflow)`, the side-path starter `toWorkflow(ThisWorkflow)`, or the `.join()` of
-`.toParallelWorkflows(ThisWorkflow, …)` — is not checked where it is written: the path's type
-carries it as a claim through every sub-path (`caseOf`, `route`, `.switch`, `.chooseOne`,
-`.onError`, `.onJoinError`) up to `@Workflow({ name, flow })`, which checks every claim of its flow
-against its own entry. A wrong class is a compile error on `flow` (`a .returns(…) after
-ThisWorkflow is not what org-chart-workflow gives — see ThisWorkflowOutputs["org-chart-workflow"]["output"]`);
-the project code is the same as for any child. Several recursive workflows with different finishes
-live in one project.
+**Typed like any child (#1287).** `() => Self` carries the real `typeof Self`: the class is branded by
+the generated `.agboss/types.d.ts` and `@Workflow` returns nothing, so a flow naming its own class
+compiles without a circular reference (TS2506, TS7022), and Go to Definition and Rename Symbol follow
+it. The launch is checked as any child's is: `Inputs[name]` is the union of the workflow's starts'
+inputs, or the problem of the paths into it (`[input.missing-on-path]`). What a child gives is
+derived by the analyser from the workflow's finishes; the project code is the same as for any
+child, and several recursive workflows with different finishes live in one project.
 
 ## Testing
 
@@ -771,8 +738,8 @@ took it. [Testing](Testing) has the rest.
 
 ## Patterns
 
-- *Waves*: `.toParallelAgents(A)` → `.join()` → an action mapping to the next list →
-  `.toParallelAgents(B)` — everyone together, step by step, the same short chain for all.
+- *Waves*: `.inParallel([toAgent(A)])` → `.join()` → an action mapping to the next list →
+  `.inParallel([toAgent(B)])` — everyone together, step by step, the same short chain for all.
 - *A child workflow per item*: each item its own way — no barrier between its steps, its own
   branches, repeats and failure isolation.
 - *A child workflow to keep a path shallow*: a branch deeper than 4 levels (`[flow.path-too-deep]`)

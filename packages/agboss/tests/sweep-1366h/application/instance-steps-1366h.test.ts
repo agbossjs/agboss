@@ -7,6 +7,7 @@ import { getEventListeners } from "node:events";
 import { describe, expect, it } from "vitest";
 import { instancePartsOf } from "../../../src/application/instance-steps.js";
 import type { FrameSpec } from "../../../src/flow/context/frame.js";
+import { ComponentOptions } from "../../../src/components/component-options.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { seconds } from "../../../src/units/index.js";
 
@@ -18,14 +19,26 @@ interface Warning {
 
 async function stopOf(clock: VirtualClock) {
   const warnings: Warning[] = [];
-  const assembled = { maxConcurrentSteps: undefined, compensationTimeout: 1, providers: [] };
+  const assembled = {
+    maxConcurrentSteps: undefined,
+    compensationTimeout: 1,
+    providers: [],
+    componentOptions: ComponentOptions.none,
+  };
   const log = {
     warn: (code: string, message: string, fields?: unknown) => {
       warnings.push({ code, message, fields });
     },
   };
-  const stores = { executionTrees: {}, childQueue: {}, rateLimits: {}, pausedExecutions: {} };
-  const parts = await instancePartsOf(assembled as never, clock, log as never, stores as never);
+  const stores = {
+    executionTrees: {},
+    childQueue: {},
+    rateLimits: {},
+    pausedExecutions: {},
+  };
+  const parts = await instancePartsOf(assembled as never, clock, log as never, stores as never, {
+    application: { instanceId: "instance" },
+  });
   return { parts, warnings };
 }
 

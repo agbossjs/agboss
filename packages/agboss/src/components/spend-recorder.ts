@@ -1,6 +1,13 @@
+import { assertOutsideRunOnce } from "../app/idempotency-scope.js";
 import { AGBossError, type MessageErrorOptions } from "../core/errors.js";
 import { currentFrame } from "../flow/context/frame.js";
-import { CostSource, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
+import {
+  CostSource,
+  NO_PROVIDER,
+  ZERO_USAGE,
+  type TokenUsage,
+  type UsageRecord,
+} from "../finops/usage.js";
 import type { Usd } from "../units/index.js";
 
 /** What a paid service that is not a model cost one call: `{ service: "serp-api", cost: usd(0.002) }`. */
@@ -8,6 +15,8 @@ export interface ServiceSpend {
   /** The service paid for — the record's `model` in the cost report. */
   readonly service: string;
   readonly cost: Usd;
+  /** The tokens the service used (#1318): counted by token budgets even when `cost` is 0. */
+  readonly tokens?: Partial<TokenUsage>;
 }
 
 /**
@@ -35,10 +44,12 @@ export class SpendOutsideStepError extends AGBossError {
 const serviceCaller = (service: string): string => `service:${service}`;
 
 /** The record of one service call (a cost the service charged, no tokens). */
-export const serviceUsageOf = ({ service, cost }: ServiceSpend): UsageRecord => ({
+export const serviceUsageOf = ({ service, cost, tokens }: ServiceSpend): UsageRecord => ({
   caller: serviceCaller(service),
   model: service,
+  provider: NO_PROVIDER,
   ...ZERO_USAGE,
+  ...tokens,
   costUsd: cost,
   costSource: CostSource.Tool,
 });
@@ -51,6 +62,8 @@ export class LiveSpendRecorder extends SpendRecorder {
   }
 
   record(spend: ServiceSpend): void {
+    // a store may run a `runOnce`'s `execute` again: a spend counted in it would be counted twice
+    assertOutsideRunOnce(`SpendRecorder.record of "${spend.service}"`);
     const frame = currentFrame();
     const report = frame?.isClosed() === false ? frame.services.reportUsage : undefined;
     if (report === undefined) {

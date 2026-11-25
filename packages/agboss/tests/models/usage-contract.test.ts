@@ -134,7 +134,7 @@ class VerdictStreamClient extends ScriptedStreamClient {
     return Promise.resolve({
       text: "",
       toolCalls: [{ id: "c1", name: ANSWER_TOOL, arguments: VERDICT }],
-      usage: { inputTokens: 10, outputTokens: 5 },
+      usage: { inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 },
     });
   }
 }
@@ -146,6 +146,7 @@ const API = {
   costSource: "api",
 } as const;
 const MILLION = { inputTokens: 1_000_000, outputTokens: 500_000 };
+const MILLION_USAGE = { ...MILLION, cacheReadTokens: 0, cacheWriteTokens: 0 };
 const always = (wire: Wire) => (): Wire => wire;
 
 const PATHS: readonly ProviderPath[] = [
@@ -167,23 +168,23 @@ const PATHS: readonly ProviderPath[] = [
     name: `HTTP stream() — no usage.cost, tokens × prices, ${shape}`,
     application: StreamApplication,
     // 0.12M × $1 + 0.03M × $2 per million
-    wire: always({ inputTokens, outputTokens, costUsd: 0.18, costSource: "price-table" }),
+    wire: always({ inputTokens, outputTokens, costUsd: usd(0.18), costSource: "price-table" }),
     streamed: true,
     parts: http(shape, WITHOUT_COST),
   })),
   {
     name: "transport complete() — the provider's exact cost",
     application: BedrockApplication,
-    wire: always({ ...MILLION, costUsd: 0.25, costSource: "api" }),
+    wire: always({ ...MILLION, costUsd: usd(0.25), costSource: "api" }),
     streamed: true,
-    parts: completing({ text: "Hello there", usage: MILLION, cost: usd(0.25) }),
+    parts: completing({ text: "Hello there", usage: MILLION_USAGE, cost: usd(0.25) }),
   },
   {
     name: "transport complete() — usage only, tokens × prices (the CLI providers' answer)",
     application: BedrockApplication,
-    wire: always({ ...MILLION, costUsd: 10.5, costSource: "price-table" }), // 1M × $3 + 0.5M × $15
+    wire: always({ ...MILLION, costUsd: usd(10.5), costSource: "price-table" }), // 1M × $3 + 0.5M × $15
     streamed: false,
-    parts: completing({ text: "Hello there", usage: MILLION }),
+    parts: completing({ text: "Hello there", usage: MILLION_USAGE }),
   },
   {
     name: "transport stream() — its usage promise, tokens × prices (with tools bound: complete())",
@@ -191,8 +192,8 @@ const PATHS: readonly ProviderPath[] = [
     // 1M × $1 + 0.5M × $2; a call with tools bound goes through complete(): 10 × $1 + 5 × $2 per million
     wire: (kind) =>
       kind === AgentKind.Text
-        ? { ...MILLION, costUsd: 2, costSource: "price-table" }
-        : { inputTokens: 10, outputTokens: 5, costUsd: 0.00002, costSource: "price-table" },
+        ? { ...MILLION, costUsd: usd(2), costSource: "price-table" }
+        : { inputTokens: 10, outputTokens: 5, costUsd: usd(0.00002), costSource: "price-table" },
     streamed: true,
     parts: (kind) => {
       const Client = kind === AgentKind.Structured ? VerdictStreamClient : ScriptedStreamClient;

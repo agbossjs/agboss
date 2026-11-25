@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import {
   ActionFailedError,
@@ -46,7 +47,12 @@ describe("S22: ActionFailedError", () => {
   pay(
     "the record names the step, so .onError matches either the wrapper or the cause",
     async ({ app }) => {
-      const result = await execute(app, PayStart, { id: "8", outcome: "fail" }, { record: true });
+      const result = await execute(
+        app,
+        PayStart,
+        { id: "8", outcome: "fail" },
+        { includeRecord: true },
+      );
 
       expect(result.record?.lastError).toMatchObject({
         code: "step.action",
@@ -88,7 +94,7 @@ describe("S22: the StepFailedError family", () => {
       limit: 1,
       actual: 2,
       path: [],
-      spentUsd: 0,
+      spentUsd: usd(0),
     });
     expect(limit).not.toBeInstanceOf(StepFailedError);
   });
@@ -108,7 +114,7 @@ describe("S22: the StepFailedError family", () => {
     expect(inside).toMatchObject({ nodeId: "critic-agent#2", visitNumber: 3, itemIndex: 4 });
   });
 
-  it("StepFailedError has its own code: .onJoinError(StepFailedError, …) takes exactly what Skip drops", () => {
+  it("StepFailedError has its own code: .onError(StepFailedError, …) takes exactly what Skip drops", () => {
     const step = { nodeId: "main-router", visitNumber: 1 };
     const errors: readonly Error[] = [
       new AgentFailedError({ agent: "writer-agent", usage: [], cause: "boom" }),
@@ -129,7 +135,7 @@ describe("S22: the StepFailedError family", () => {
         limit: 1,
         actual: 2,
         path: [],
-        spentUsd: 0,
+        spentUsd: usd(0),
       }),
       new ExecutionCancelledError(),
       new Error("plain"),

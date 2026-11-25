@@ -3,7 +3,11 @@
  * output of each PII action, a sensitive field's token; the deltas, joined, are the reply.
  */
 import { describe, expect } from "vitest";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import {
+  StreamDiscardReason,
+  StreamEventKind,
+  type ExecutionStreamEvent,
+} from "../../src/run/types.js";
 import { replyWith, routeTo, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { requestText, tokensIn } from "../pii/boundary.helpers.js";
@@ -82,8 +86,8 @@ describe("#1007 AC2: a made-up token is never shown as written", () => {
       );
 
       expect(JSON.stringify(events)).not.toContain("abcdef12");
-      expect(events.find((event) => event.kind === "discarded")).toMatchObject({
-        reason: "invalid-answer",
+      expect(events.find((event) => event.kind === StreamEventKind.Discarded)).toMatchObject({
+        reason: StreamDiscardReason.InvalidAnswer,
       });
       expect(keptText(events)).toBe("Fine.");
       expect(done.output).toEqual({ text: "Fine." });
@@ -92,7 +96,7 @@ describe("#1007 AC2: a made-up token is never shown as written", () => {
 });
 
 describe("#1007 AC3: stream and output agree for every PII action", () => {
-  writer("replaceWithToken: the revealed address", async ({ app, mockLlm }) => {
+  writer("tokenize: the revealed address", async ({ app, mockLlm }) => {
     mockLlm(AuditWriter).thenReturn(replyWith("probe"));
     mockLlm(AuditJudge).thenReturnAlways(replyWith("PASS"));
     await execute(app, AuditStart, { text: `Mail ${EMAIL}, bo@acme.com` });
@@ -113,7 +117,7 @@ describe("#1007 AC3: stream and output agree for every PII action", () => {
   });
 
   writer(
-    "replacePart: what the model writes of the masked number is the output",
+    "mask(part): what the model writes of the masked number is the output",
     async ({ app, mockLlm }) => {
       chunks.size = 2;
       mockLlm(AuditWriter).thenReturn(replyWith("Call me: ********67 <ok>"));
@@ -132,7 +136,7 @@ describe("#1007 AC3: stream and output agree for every PII action", () => {
     },
   );
 
-  desk("replaceWithKind: the kind the model wrote is the output", async ({ app, mockLlm }) => {
+  desk("mask: the kind the model wrote is the output", async ({ app, mockLlm }) => {
     chunks.size = 3;
     mockLlm(NamesPiiPolicy).thenReturnAlways(replyWith('{"found":[]}'));
     mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
@@ -167,7 +171,7 @@ describe("#1007 AC4: a sensitive field's token is revealed like any other", () =
     mockLlm(NamesPiiPolicy).thenReturnAlways(replyWith('{"found":[]}'));
     mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
     mockLlm(DeskAgent).thenAnswer((request) => {
-      const [token] = tokensIn(requestText(request), "author");
+      const [token] = tokensIn(requestText(request), "reporter");
       return replyWith(`Hello ${token ?? "nobody"}`);
     });
     const events: ExecutionStreamEvent[] = [];
@@ -175,7 +179,7 @@ describe("#1007 AC4: a sensitive field's token is revealed like any other", () =
     const done = await execute(
       app,
       DeskStart,
-      { text: "hi", author: "zoe-7" },
+      { text: "hi", author: "ann-1", reporter: "zoe-7" },
       { onStream: (event) => events.push(event) },
     );
 

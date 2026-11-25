@@ -3,8 +3,10 @@ import {
   dtoNameProblem,
   hasKindSuffix,
   isKebabCase,
+  kebabNameProblem,
   kindSuffixProblem,
   NameKind,
+  resolvedName,
   suggestedName,
   toKebabCase,
 } from "../../src/flow/names.js";
@@ -20,7 +22,6 @@ describe("AC13: every name ends with its kind, kebab-case", () => {
     ["chat-workflow-start", NameKind.WorkflowStart],
     ["chat-workflow-finish", NameKind.WorkflowFinish],
     ["offer-workflow", NameKind.Workflow],
-    ["order-status-tool", NameKind.Tool],
   ])("accepts %s", (name, kind) => {
     expect(kindSuffixProblem(name, kind)).toBeUndefined();
   });
@@ -40,7 +41,6 @@ describe("AC13: every name ends with its kind, kebab-case", () => {
     ["Send Offer", NameKind.Action, "send-offer-action", "@Action"],
     ["chat", NameKind.WorkflowStart, "chat-workflow-start", "@WorkflowStart"],
     ["chat", NameKind.WorkflowFinish, "chat-workflow-finish", "@WorkflowFinish"],
-    ["order_status", NameKind.Tool, "order-status-tool", "@Tool"],
   ])("suggests a name for %s on %s", (name, kind, suggestion, decorator) => {
     expect(kindSuffixProblem(name, kind)?.message).toBe(
       `"${name}" on ${decorator} — name it "${suggestion}"`,
@@ -54,6 +54,37 @@ describe("AC13: every name ends with its kind, kebab-case", () => {
     expect(toKebabCase("HTMLParserAgent")).toBe("html-parser-agent");
     expect(hasKindSuffix("draft-agent", NameKind.Router)).toBe(false);
     expect(suggestedName("draft-agent", NameKind.Agent)).toBe("draft-agent");
+  });
+});
+
+describe("#1343a: an optional name is the class name in kebab-case", () => {
+  it("takes the given name, else the class name", () => {
+    const CrmHealthCheck = { name: "CrmHealthCheck" };
+    expect(resolvedName("crm", CrmHealthCheck)).toBe("crm");
+    expect(resolvedName(undefined, CrmHealthCheck)).toBe("crm-health-check");
+    expect(resolvedName(undefined, { name: "HTMLParser" })).toBe("html-parser");
+  });
+
+  it("asks for kebab-case only, never for a kind suffix", () => {
+    expect(kebabNameProblem("crm-check", "@HealthCheck")).toBeUndefined();
+    expect(kebabNameProblem("crm", "@HealthCheck")).toBeUndefined();
+    expect(kebabNameProblem("Crm_Check", "@HealthCheck")).toEqual({
+      code: "name.not-kebab-case",
+      message: '"Crm_Check" on @HealthCheck — a name is kebab-case: "crm-check"',
+    });
+  });
+
+  it("an anonymous class has no name to derive: it is asked for one", () => {
+    const problem = kebabNameProblem(resolvedName(undefined, { name: "" }), "@Judge");
+    expect(problem?.code).toBe("name.not-kebab-case");
+    expect(problem?.message).toBe(
+      '@Judge has no name — a class name gives none, so pass name: "kebab-case"',
+    );
+  });
+
+  it("a NameKind of a dropped suffix is gone", () => {
+    expect(Object.values(NameKind)).not.toContain("tool");
+    expect(Object.values(NameKind)).not.toContain("health-check");
   });
 });
 

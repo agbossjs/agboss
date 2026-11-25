@@ -14,7 +14,7 @@ export interface ToolBlockedErrorOptions {
 }
 
 /**
- * A tool interceptor's `beforeToolCall` returned `ToolCallDecision.block({ reason })` (#384): the
+ * A tool interceptor's a `before` hook returned `ToolCallDecision.block(reason)` (#384): the
  * tool was not called and the agent's step fails at once — a `StepFailedError`, so
  * `.onError(ToolBlockedError, …)` (or `StepFailedError`) after the agent takes it.
  */

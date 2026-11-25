@@ -3,19 +3,17 @@
  * at `runOnce`'s entry: a subclass whose entry skips it, and the outbound-call store,
  * refuse a business key without a fingerprint or `FingerprintPolicy.None` before anything is written.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { describe, expect, it } from "vitest";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import {
-  FingerprintRequiredError,
   InMemoryFencedEffectRepository,
   InMemoryOutboundCallRepository,
-  type EffectKey,
   type FencedEffectWork,
 } from "../../src/index.js";
+import { type EffectKey } from "../../src/stores/index.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
-import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
-import type { InMemoryFencedEffectTransaction } from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { SqliteFencedEffectRepository } from "../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
@@ -37,14 +35,14 @@ const application = applicationContextOf({
 
 /** A store whose entry skips every check of `runOnce`: straight to its transaction. */
 class EntrylessEffects extends InMemoryFencedEffectRepository {
-  write<TResult>(key: EffectKey, work: FencedEffectWork<InMemoryFencedEffectTransaction, TResult>) {
+  write<TResult>(key: EffectKey, work: FencedEffectWork<TResult>) {
     return this.runInTransaction(key, work);
   }
 }
 
 /** The same on SQLite. */
 class EntrylessSqliteEffects extends SqliteFencedEffectRepository {
-  write<TResult>(key: EffectKey, work: FencedEffectWork<DatabaseSync, TResult>) {
+  write<TResult>(key: EffectKey, work: FencedEffectWork<TResult>) {
     return this.runInTransaction(key, work);
   }
 }
@@ -56,12 +54,7 @@ describe("#825 AC1: the fingerprint decision in the stores' own transaction", ()
   it("in memory: an entry that skips it still refuses, nothing written", async () => {
     const database = new InMemoryDatabase();
     const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
-    const effects = new EntrylessEffects(
-      storeClockOf(clock),
-      database,
-      new FencedEffectSettings(),
-      leases,
-    );
+    const effects = new EntrylessEffects(storeClockOf(clock), database, leases);
     const calls = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);
     const lease = await leases.acquire("default", "execution-1", hours(1));
     if (lease === undefined) throw new Error("the lease is held");
@@ -69,10 +62,10 @@ describe("#825 AC1: the fingerprint decision in the stores' own transaction", ()
     let ran = 0;
 
     await expect(effects.write(key, () => (ran += 1))).rejects.toBeInstanceOf(
-      FingerprintRequiredError,
+      IdempotencyError.FingerprintRequired,
     );
     await expect(calls.saveIfAbsent(key, intentOf(key))).rejects.toBeInstanceOf(
-      FingerprintRequiredError,
+      IdempotencyError.FingerprintRequired,
     );
     expect(ran).toBe(0);
     expect(await calls.findByKey(effectKeyForTesting(key, { fingerprint: "f" }))).toBeUndefined();
@@ -81,11 +74,7 @@ describe("#825 AC1: the fingerprint decision in the stores' own transaction", ()
   it("on SQLite: the same, nothing written", async () => {
     const connection = connectionTo(temporarySqlitePath());
     const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);
-    const effects = new EntrylessSqliteEffects(
-      connection,
-      storeClockOf(clock),
-      new FencedEffectSettings(),
-    );
+    const effects = new EntrylessSqliteEffects(connection, storeClockOf(clock));
     const calls = new SqliteOutboundCallRepository(connection, storeClockOf(clock));
     const lease = await leases.acquire("default", "execution-1", hours(1));
     if (lease === undefined) throw new Error("the lease is held");
@@ -93,10 +82,10 @@ describe("#825 AC1: the fingerprint decision in the stores' own transaction", ()
     let ran = 0;
 
     await expect(effects.write(key, () => (ran += 1))).rejects.toBeInstanceOf(
-      FingerprintRequiredError,
+      IdempotencyError.FingerprintRequired,
     );
     await expect(calls.saveIfAbsent(key, intentOf(key))).rejects.toBeInstanceOf(
-      FingerprintRequiredError,
+      IdempotencyError.FingerprintRequired,
     );
     expect(ran).toBe(0);
     expect(await calls.findByKey(effectKeyForTesting(key, { fingerprint: "f" }))).toBeUndefined();

@@ -16,6 +16,7 @@ import type { ExecutionTracing } from "../tracing/index.js";
 import type { ExecutionContextValues } from "../flow/context/context-values.js";
 import type { ModelProviderType } from "../models/model-provider.decorator.js";
 import type { Class } from "../components/injection.js";
+import type { AssembledReplyInterpreter } from "../channels/discovery.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { ExecutionOrigin } from "../mesh/mesh-envelope.js";
 
@@ -37,6 +38,10 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
   readonly ownFileRedactor?: Class | undefined;
   /** Its application's own `FileTranscriber` (#899): part of its `configHash` (#1269). */
   readonly ownFileTranscriber?: Class | undefined;
+  /** Its reply interpreters (#267): a model one's rendered instructions are part of its prompt version (#1347c). */
+  readonly replyInterpreters?: readonly AssembledReplyInterpreter[] | undefined;
+  /** Its model rerankers' prompts, as assembly read them: part of its prompt version (#1347). */
+  readonly rerankers?: readonly { readonly name: string; readonly prompt?: string }[] | undefined;
 }
 
 /**
@@ -58,27 +63,53 @@ export interface StreamStep {
   readonly attempt: number;
 }
 
-/**
- * Why the text streamed for a step is retracted (#1006): `judge-rejected` (a judge failed the reply:
- * a retry follows, or the agent fails with `QualityGateError`), `tool-turn` (the turn ended with tool
- * calls: its text is not the reply), `invalid-answer` (the move was refused — a PII token nobody gave,
- * a malformed answer — and the model tries again), `stream-broken` (the model call failed after
- * partial chunks), `failed` (the visit failed otherwise: a budget, a cancel, a refusal, a guardrail).
- */
-export type DiscardReason =
-  "judge-rejected" | "tool-turn" | "invalid-answer" | "stream-broken" | "failed";
+/** What an `onStream` event tells (#1311): its `kind`. */
+export enum StreamEventKind {
+  /** A chunk of an agent's answering text for `step`. */
+  TextDelta = "text-delta",
+  /** The text streamed for `step` is retracted (#1006): show it no more. */
+  Discarded = "discarded",
+  /** An agent's tool call as it starts (#848): the tool's name only — never its arguments. */
+  ToolCall = "tool-call",
+}
+
+/** Why the text streamed for a step is retracted (#1006, #1311). */
+export enum StreamDiscardReason {
+  /** A judge failed the reply: a retry follows, or the agent fails with `QualityGateError`. */
+  JudgeRejected = "judge-rejected",
+  /** The turn ended with tool calls: its text is not the reply. */
+  ToolTurn = "tool-turn",
+  /** The move was refused — a PII token nobody gave, a malformed answer — and the model tries again. */
+  InvalidAnswer = "invalid-answer",
+  /** The model call failed after partial chunks. */
+  StreamBroken = "stream-broken",
+  /** The visit failed otherwise: a budget, a cancel, a refusal, a guardrail. */
+  Failed = "failed",
+}
 
 /**
  * A stream event for real-time UI/CLI updates. The text of a step is provisional until the run ends:
- * a `discarded` event retracts everything streamed for its `step`; the deltas of the steps that were
- * not discarded, joined, are the agent's reply.
+ * a `StreamEventKind.Discarded` event retracts everything streamed for its `step`; the deltas of the
+ * steps that were not discarded, joined, are the agent's reply. Every event carries its `step`, so
+ * parallel branches never mix (#1311).
  */
 export type ExecutionStreamEvent =
-  | { readonly kind: "textDelta"; readonly delta: string; readonly step: StreamStep }
+  | {
+      readonly kind: StreamEventKind.TextDelta;
+      readonly delta: string;
+      readonly step: StreamStep;
+    }
   /** The text streamed for `step` is retracted (#1006): show it no more. */
-  | { readonly kind: "discarded"; readonly step: StreamStep; readonly reason: DiscardReason }
-  /** An agent's tool call as it starts (#848): the tool's name only — never its arguments. */
-  | { readonly kind: "toolCall"; readonly tool: string };
+  | {
+      readonly kind: StreamEventKind.Discarded;
+      readonly step: StreamStep;
+      readonly reason: StreamDiscardReason;
+    }
+  /**
+   * An agent's tool call as it starts (#848): the tool's name only — never its arguments; `step`
+   * is the model call of the visit that asked for it (#1311).
+   */
+  | { readonly kind: StreamEventKind.ToolCall; readonly tool: string; readonly step: StreamStep };
 
 export interface AgentExecutionOptions {
   /** The execution's id, made once by the app (its observer events use it too); default: a new one. */
@@ -124,7 +155,8 @@ export interface ExecutionData {
 
 /** How one execution (or its resume) ended for the app. Failures are thrown, not returned. */
 export interface AgentExecutionOutput {
-  readonly status: ExecutionStatus;
+  /** A pass of the core finishes or pauses; a stop and a cancel are the app's (`ExecutionOutput`). */
+  readonly status: ExecutionStatus.Finished | ExecutionStatus.Paused;
   /** The start it began at and its validated input (the thread's history line, S8). */
   readonly start: string;
   readonly startInput: unknown;

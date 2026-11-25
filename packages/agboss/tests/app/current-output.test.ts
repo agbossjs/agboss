@@ -25,9 +25,8 @@ const listedBefore = (pauseId: string, agent: string): WaitingPause =>
     JSON.stringify({
       pauseId,
       agent,
-      answeredBy: "channel",
       channel: "refund-approval-channel",
-      ask: {},
+      input: {},
     }),
   ) as WaitingPause;
 
@@ -40,7 +39,7 @@ describe("#801: the pauses still pending, as their records say", () => {
     await pauses.resolveByTenantIdAndPauseId(
       "default",
       "p-answered",
-      { decision: { approved: true }, answeredBy: "manager-17" },
+      { decision: { approved: true }, actor: { id: "manager-17" } },
       new Date(0),
       NO_RECIPIENTS,
     );
@@ -48,7 +47,7 @@ describe("#801: the pauses still pending, as their records say", () => {
       ...pausedRunOf("thread-1").run,
       pending: [
         listedBefore("p-approval", "clerk-agent"),
-        listedBefore("p-question", "spending-limit-question"),
+        listedBefore("p-question", "spending-limit-question-external-task"),
         listedBefore("p-answered", "clerk-agent"),
       ],
     };
@@ -68,9 +67,9 @@ describe("#801: the pauses still pending, as their records say", () => {
       }),
       expect.objectContaining({
         pauseId: "p-question",
-        kind: PauseKind.Question,
-        step: "spending-limit-question",
-        ask: { item: "laptop", priceUsd: 1200, nested: { tags: ["it", "q4"] } },
+        kind: PauseKind.ExternalTask,
+        step: "spending-limit-question-external-task",
+        input: { item: "laptop", priceUsd: 1200, nested: { tags: ["it", "q4"] } },
       }),
     ]);
   });

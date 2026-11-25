@@ -1,4 +1,6 @@
-import { createAppWith } from "../src/application/create-app.js";
+import { ModelKind } from "../src/models/model-kind.js";
+import { usd } from "../src/units/index.js";
+import { createTestAppWith } from "../src/testing/create-app-with.js";
 import { TestWorkflow, TestApplication } from "./fixtures/test-workflow/test.workflow.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
 import { KEYS } from "./models/gateway.js";
@@ -45,16 +47,19 @@ function scriptedDecisions(): ModelGateway["routeTo"] {
 const guardrailsPass: NonNullable<ModelGateway["decide"]> = (spec) =>
   Promise.resolve({
     answers: Object.fromEntries(
-      Object.keys(spec.request.questions).map((id) => [id, { type: "noul", noul: 0 }] as const),
+      Object.keys(spec.request.questions).map(
+        (id) => [id, { type: "boolean", probability: 0 }] as const,
+      ),
     ),
     usage: {
       caller: spec.caller,
       model: spec.model,
+      provider: "test-provider",
       inputTokens: 0,
       outputTokens: 0,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
-      costUsd: 0,
+      costUsd: usd(0),
       costSource: CostSource.Api,
     },
   });
@@ -70,9 +75,10 @@ describe("AC12: createAppDeps on an injected model gateway", () => {
       TERN_DB: ":memory:",
       SPEND_LEDGER_DIR: mkdtempSync(join(tmpdir(), "agboss-135-")),
     };
-    const app = await createAppWith(TestApplication, {
+    const app = await createTestAppWith(TestApplication, {
       processEnv: env,
-      gateway: { chatModel, routeTo, decide },
+      // the routers and guardrails of the application decide (their provider's driver says so)
+      gateway: { chatModel, routeTo, decide, kindOf: () => ModelKind.Decisions },
     });
 
     const result = await execute(app, TestChat, { text: "What time is it?" });

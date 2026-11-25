@@ -94,7 +94,7 @@ async function keyExpired(cluster: FaultCluster, payment: FaultPayment): Promise
   );
   expectThat(
     cluster,
-    failed.join() === "b:OutboundCallUnreconciledError",
+    failed.join() === "b:OutboundCallError.Unreconciled",
     `the payment failed: ${failed.join(", ")}`,
   );
   return b;

@@ -1,11 +1,12 @@
 import {
-  action,
-  agent,
-  caseOf,
-  start,
+  onAction,
+  onAgent,
+  onStart,
   toAction,
   toFinish,
-  workflow,
+  onWorkflow,
+  toWorkflow,
+  toAgent,
 } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
@@ -18,7 +19,7 @@ import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
 import { LimitExceededError } from "../../../src/graph/limits.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import {
   CompanyGradeDto,
@@ -32,6 +33,7 @@ import {
 } from "./child-dtos.js";
 import { CompanyDto } from "./data-dtos.js";
 import { WorkflowStartTextDto } from "./dtos.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #263 — the issue's child workflow and its three parents: one child per item of a list, one child
@@ -58,7 +60,7 @@ export class CompanyLinkReviewWorkflowStart {}
 @Agent({
   name: "company-reviewer-agent",
   description: "Decides whether the company is worth a deep dive",
-  prompt: "Review the company.",
+  prompt: inline("Review the company."),
   model: "moonshotai/kimi-k2.6",
   input: { company: optional(CompanyDto), link: optional(CompanyLinkDto) },
   output: oneOf(PromisingCompanyDto, CompanyRejectedDto),
@@ -68,7 +70,7 @@ export class CompanyReviewerAgent {}
 @Agent({
   name: "deep-dive-agent",
   description: "Looks deeper into a promising company",
-  prompt: "Dive into the company.",
+  prompt: inline("Dive into the company."),
   model: "moonshotai/kimi-k2.6",
   input: { promising: PromisingCompanyDto },
   output: DeepDiveDto,
@@ -78,7 +80,7 @@ export class DeepDiveAgent {}
 @Agent({
   name: "grader-agent",
   description: "Grades the company",
-  prompt: "Grade the company.",
+  prompt: inline("Grade the company."),
   model: "moonshotai/kimi-k2.6",
   input: { deepDive: DeepDiveDto },
   output: CompanyGradeDto,
@@ -93,7 +95,7 @@ export class GraderAgent {}
 })
 export class MarkReviewFailedAction implements ActionHandler<MarkReviewFailedAction> {
   execute(input: InputOf<MarkReviewFailedAction>): Promise<OutputOf<MarkReviewFailedAction>> {
-    return Promise.resolve({ reason: `the review failed after: ${input.promising.value.reason}` });
+    return Promise.resolve({ reason: `the review failed after: ${input.promising.reason}` });
   }
 }
 
@@ -120,38 +122,32 @@ export class CompanyReviewFailedWorkflowFinish {}
 
 @Workflow({
   name: "company-review-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(CompanyReviewWorkflowStart)
-      .returns(CompanyDto)
+    onStart(CompanyReviewWorkflowStart)
       .toAgent(CompanyReviewerAgent),
 
-    start(CompanyLinkReviewWorkflowStart)
-      .returns(CompanyLinkDto)
+    onStart(CompanyLinkReviewWorkflowStart)
       .toAgent(CompanyReviewerAgent),
 
     // two ways in (two starts) → its own path
-    agent(CompanyReviewerAgent)
-      .returns(oneOf(PromisingCompanyDto, CompanyRejectedDto))
-      .switch(
-        caseOf(PromisingCompanyDto)
-          .toAgent(DeepDiveAgent)
+    onAgent(CompanyReviewerAgent)
+      .toOneOf([
+        toAgent(DeepDiveAgent)
           .onError(StepFailedError, toAction(MarkReviewFailedAction))
-          .returns(DeepDiveDto)
           .toAgent(GraderAgent)
           .onError(StepFailedError, toAction(MarkReviewFailedAction))
-          .returns(CompanyGradeDto)
           .toFinish(CompanyGradedWorkflowFinish),
-        caseOf(CompanyRejectedDto)
-          .toFinish(CompanyRejectedWorkflowFinish),
-      ),
+        toFinish(CompanyRejectedWorkflowFinish),
+      ]),
 
     // two ways in (two onError side paths) → its own path: the soft failure of a per-item child
-    action(MarkReviewFailedAction)
-      .returns(CompanyReviewFailedDto)
+    onAction(MarkReviewFailedAction)
       .toFinish(CompanyReviewFailedWorkflowFinish),
   ],
-  maxSteps: 10,
+  executionLimits: { maxSteps: 10 },
 })
 export class CompanyReviewWorkflow {}
 
@@ -167,7 +163,7 @@ export class CompanyScreeningWorkflowStart {}
 @Agent({
   name: "company-finder-agent",
   description: "Finds the companies to review",
-  prompt: "Find companies.",
+  prompt: inline("Find companies."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: listOf(CompanyDto),
@@ -188,9 +184,9 @@ export class NotifyReviewStoppedAction implements ActionHandler<NotifyReviewStop
 @Agent({
   name: "review-ranker-agent",
   description: "Ranks the reviewed companies",
-  prompt: "Rank the companies.",
+  prompt: inline("Rank the companies."),
   model: "moonshotai/kimi-k2.6",
-  input: { reviews: listOf(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto)) },
+  input: { reviews: listOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto) },
   output: GradedShortlistDto,
 })
 export class ReviewRankerAgent {}
@@ -212,21 +208,18 @@ export class ScreeningStoppedWorkflowFinish {}
 @Workflow({
   name: "company-screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(CompanyScreeningWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(CompanyFinderAgent)
-      .returns(listOf(CompanyDto)) // each element enters company-review-workflow-start
-      .toParallelWorkflows(CompanyReviewWorkflow, { maxConcurrency: 3, maxItems: 50 })
+    onStart(CompanyScreeningWorkflowStart)
+      .toAgent(CompanyFinderAgent) // each element enters company-review-workflow-start
+      .forEachItem(toWorkflow(CompanyReviewWorkflow), { takeFirst: 50, maxConcurrency: 3 })
       .join()
-      .onJoinError(
+      .onError(
         LimitExceededError,
         toAction(NotifyReviewStoppedAction)
           .toFinish(ScreeningStoppedWorkflowFinish),
       )
-      .returns(listOf(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto)))
       .toAgent(ReviewRankerAgent)
-      .returns(GradedShortlistDto)
       .toFinish(GradedShortlistWorkflowFinish),
   ],
 })
@@ -244,7 +237,7 @@ export class JobOfferWorkflowStart {}
 @Agent({
   name: "company-picker-agent",
   description: "Picks the company of the request",
-  prompt: "Pick the company.",
+  prompt: inline("Pick the company."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: CompanyDto,
@@ -254,7 +247,7 @@ export class CompanyPickerAgent {}
 @Agent({
   name: "job-offer-agent",
   description: "Writes the offer for a graded company",
-  prompt: "Write the offer.",
+  prompt: inline("Write the offer."),
   model: "moonshotai/kimi-k2.6",
   input: { grade: CompanyGradeDto },
   output: JobOfferDto,
@@ -291,25 +284,20 @@ export class ReviewErrorWorkflowFinish {}
 
 @Workflow({
   name: "job-offer-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(JobOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(CompanyPickerAgent)
-      .returns(CompanyDto) // enters company-review-workflow-start
+    onStart(JobOfferWorkflowStart)
+      .toAgent(CompanyPickerAgent) // enters company-review-workflow-start
       .toWorkflow(CompanyReviewWorkflow)
       .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
-      .returns(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto))
-      .switch(
-        caseOf(CompanyGradeDto)
-          .toAgent(JobOfferAgent)
-          .returns(JobOfferDto)
+      .toOneOf([
+        toAgent(JobOfferAgent)
           .toFinish(JobOfferWorkflowFinish),
-        caseOf(CompanyRejectedDto)
-          .toFinish(NoOfferRejectedWorkflowFinish),
-        caseOf(CompanyReviewFailedDto)
-          .toFinish(NoOfferFailedWorkflowFinish),
-      ),
+        toFinish(NoOfferRejectedWorkflowFinish),
+        toFinish(NoOfferFailedWorkflowFinish),
+      ]),
   ],
 })
 export class JobOfferWorkflow {}
@@ -333,38 +321,31 @@ export class LinkOfferWorkflowStart {}
 @Workflow({
   name: "link-offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PickedOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(CompanyPickerAgent)
-      .returns(CompanyDto) // enters company-review-workflow-start
+    onStart(PickedOfferWorkflowStart)
+      .toAgent(CompanyPickerAgent) // enters company-review-workflow-start
       .toWorkflow(CompanyReviewWorkflow),
 
-    start(LinkOfferWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .returns(CompanyLinkDto) // enters company-link-review-workflow-start
+    onStart(LinkOfferWorkflowStart) // enters company-link-review-workflow-start
       .toWorkflow(CompanyReviewWorkflow),
 
     // two ways in → its own path
-    workflow(CompanyReviewWorkflow)
+    onWorkflow(CompanyReviewWorkflow)
       .onError(StepFailedError, toFinish(ReviewErrorWorkflowFinish))
-      .returns(oneOf(CompanyGradeDto, CompanyRejectedDto, CompanyReviewFailedDto))
-      .switch(
-        caseOf(CompanyGradeDto)
-          .toAgent(JobOfferAgent)
-          .returns(JobOfferDto)
+      .toOneOf([
+        toAgent(JobOfferAgent)
           .toFinish(JobOfferWorkflowFinish),
-        caseOf(CompanyRejectedDto)
-          .toFinish(NoOfferRejectedWorkflowFinish),
-        caseOf(CompanyReviewFailedDto)
-          .toFinish(NoOfferFailedWorkflowFinish),
-      ),
+        toFinish(NoOfferRejectedWorkflowFinish),
+        toFinish(NoOfferFailedWorkflowFinish),
+      ]),
   ],
 })
 export class LinkOfferWorkflow {}
 
 @Application({
   name: "company-review-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CompanyReviewWorkflow, CompanyScreeningWorkflow, JobOfferWorkflow, LinkOfferWorkflow],

@@ -52,7 +52,7 @@ export const componentReportOf = (
 async function outcomeOf(
   timeout: Milliseconds,
   clock: Clock,
-  check: () => Promise<ProbeOutcome>,
+  check: (signal: AbortSignal) => Promise<ProbeOutcome>,
 ): Promise<ProbeOutcome> {
   const reason = timedOutReason(timeout);
   const timer = timeoutOn(clock, timeout, () => new Error(reason));
@@ -67,7 +67,7 @@ async function outcomeOf(
   });
   // a check that throws synchronously is a rejected one
   const checked = Promise.resolve()
-    .then(check)
+    .then(() => check(timer.signal))
     .catch((error: unknown) => unhealthy(messageOf(error)));
   try {
     return await Promise.race([checked, timedOut]);
@@ -80,7 +80,7 @@ async function outcomeOf(
 export async function probe(
   component: ProbedComponent,
   clock: Clock,
-  check: () => Promise<ProbeOutcome>,
+  check: (signal: AbortSignal) => Promise<ProbeOutcome>,
 ): Promise<HealthComponentReport> {
   const startedAt = clock.now().getTime();
   const outcome = await outcomeOf(component.timeout, clock, check);

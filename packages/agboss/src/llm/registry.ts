@@ -4,8 +4,7 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
 import { promptCachingOfSetting } from "../models/prompt-caching.js";
 import { reasoningOfThinking } from "../models/reasoning.js";
-import { isDecisionModel } from "../models/decision-models.js";
-import { DecisionError } from "./decision-errors.js";
+import { DecisionError } from "../core/error-families/config-errors.js";
 import type { DecisionOutcome } from "./decision-response.js";
 import type { DecisionRequest } from "./decisions.js";
 import type { ChatModelUser, ModelGateway } from "./gateway.js";
@@ -34,7 +33,7 @@ export type JudgeBinding =
     };
 
 /** What the registry needs of the gateway; `decide` only when a judge is on a decision model. */
-export type RegistryGateway = Pick<ModelGateway, "chatModel" | "decide">;
+export type RegistryGateway = Pick<ModelGateway, "chatModel" | "decide" | "kindOf">;
 
 /** Chat models of the agents. The router is built separately (see src/routing). */
 export interface ModelRegistry {
@@ -52,6 +51,15 @@ export interface ModelRegistry {
   readonly fileRedactors: ReadonlyMap<string, ModelBinding>;
 }
 
+/** What a model's settings say of its price and its provider, as they are. */
+const ownAccountOf = (
+  settings: ModelSettings,
+): Pick<ResolvedModelSettings, "price" | "modelProvider" | "unpriced"> => ({
+  ...(settings.price === undefined ? {} : { price: settings.price }),
+  ...(settings.modelProvider === undefined ? {} : { modelProvider: settings.modelProvider }),
+  ...(settings.unpriced === undefined ? {} : { unpriced: settings.unpriced }),
+});
+
 /**
  * An agent's (or LLM router's) model settings over the chat defaults. Reasoning and caching set
  * nowhere stay unset: the model provider's own apply.
@@ -68,24 +76,35 @@ export function resolveSettings(
     maxTokens: settings.maxTokens ?? defaults.maxTokens ?? DEFAULT_MAX_TOKENS,
     ...(thinking === undefined ? {} : { reasoning: reasoningOfThinking(thinking) }),
     ...(promptCaching === undefined ? {} : { promptCaching }),
-    ...(settings.price === undefined ? {} : { price: settings.price }),
+    ...ownAccountOf(settings),
   };
 }
 
 /** A judge on a decision model decides through the gateway, its cost under `judge:<name>`. */
-function decisionJudge(judge: string, model: string, gateway: RegistryGateway): JudgeBinding {
+function decisionJudge(
+  judge: string,
+  model: string,
+  gateway: RegistryGateway,
+  modelProvider: string | undefined,
+): JudgeBinding {
   const decide = gateway.decide;
   if (decide === undefined) {
-    throw new DecisionError({
+    throw new DecisionError.InvalidRequest({
       message: `judge "${judge}" is on decision model ${model}, but the app's model gateway has no decide`,
     });
   }
   return {
     kind: ModelKind.Decisions,
     model,
-    decide: (request) => decide({ caller: `judge:${judge}`, model, request }),
+    decide: (request) => decide({ caller: `judge:${judge}`, model, modelProvider, request }),
   };
 }
+
+/** The agent's provider reads its files too (#899, #1313): its built-in transcriber's and redactor's models go to it. */
+const providerOfAgent = (settings: ModelSettings): Partial<ModelSettings> => ({
+  ...(settings.modelProvider === undefined ? {} : { modelProvider: settings.modelProvider }),
+  ...(settings.unpriced === undefined ? {} : { unpriced: settings.unpriced }),
+});
 
 /** Builds one binding per agent and judge; each model comes from the gateway (which shares identical ones). */
 export function createModelRegistry(
@@ -104,7 +123,7 @@ export function createModelRegistry(
     ),
   );
   const compactions = new Map(
-    Object.entries(config.compactions ?? {}).flatMap(([compaction, settings]) =>
+    Object.entries(config.memories ?? {}).flatMap(([compaction, settings]) =>
       settings.model === undefined
         ? []
         : [[compaction, bindFor({ kind: "compaction", compaction })(settings.model)] as const],
@@ -116,22 +135,21 @@ export function createModelRegistry(
       judgeBindingOf(judge, settings, config, gateway),
     ]),
   );
-  const fileTranscribers = new Map(
-    Object.entries(config.agents).flatMap(([name, settings]) => {
-      const files = settings.files;
-      if (files?.views.includes(FileView.Transcription) !== true) return [];
-      const model = { model: files.transcriptionModel, maxTokens: files.transcriptionMaxTokens };
-      return [[name, bindFor({ kind: "file-transcriber" })(model)] as const];
-    }),
-  );
-  const fileRedactors = new Map(
-    Object.entries(config.agents).flatMap(([name, settings]) => {
-      const files = settings.files;
-      if (files?.views.includes(FileView.Redacted) !== true) return [];
-      const model = { model: files.redactionModel, maxTokens: files.transcriptionMaxTokens };
-      return [[name, bindFor({ kind: "file-redactor" })(model)] as const];
-    }),
-  );
+  const fileBindings = (view: FileView, kind: "file-transcriber" | "file-redactor") =>
+    new Map(
+      Object.entries(config.agents).flatMap(([name, settings]) => {
+        const files = settings.files;
+        if (files?.views.includes(view) !== true) return [];
+        const model = {
+          model: view === FileView.Redacted ? files.redactionModel : files.transcriptionModel,
+          maxTokens: files.transcriptionMaxTokens,
+          ...providerOfAgent(settings),
+        };
+        return [[name, bindFor({ kind })(model)] as const];
+      }),
+    );
+  const fileTranscribers = fileBindings(FileView.Transcription, "file-transcriber");
+  const fileRedactors = fileBindings(FileView.Redacted, "file-redactor");
   return { agents, compactions, judges, fileTranscribers, fileRedactors };
 }
 
@@ -145,7 +163,9 @@ export function judgeBindingOf(
   config: Pick<AgentsConfigOf<string>, "defaults">,
   gateway: RegistryGateway,
 ): JudgeBinding {
-  if (isDecisionModel(settings.model)) return decisionJudge(judge, settings.model, gateway);
+  const kind = gateway.kindOf?.(settings.modelProvider) ?? ModelKind.Chat;
+  if (kind === ModelKind.Decisions)
+    return decisionJudge(judge, settings.model, gateway, settings.modelProvider);
   const resolved = resolveSettings(settings, config.defaults.models);
   const user: ChatModelUser = { kind: "judge", judge };
   return {
@@ -156,13 +176,16 @@ export function judgeBindingOf(
 }
 
 /**
- * A model `@Reranker`'s chat model (#703) through the gateway, with the chat defaults: its script key
+ * A model `@RagReranker`'s chat model through the gateway, with the chat defaults: its script key
  * `reranker:<name>`, its spend billed by the core to the knowledge base (`rag:<name>`).
  */
 export const rerankerBindingOf =
   (config: Pick<AgentsConfigOf<string>, "defaults">, gateway: RegistryGateway) =>
-  (reranker: string, model: string): ModelBinding => {
-    const settings = resolveSettings({ model }, config.defaults.models);
+  (reranker: string, model: string, modelProvider?: string): ModelBinding => {
+    const settings = resolveSettings(
+      { model, ...(modelProvider === undefined ? {} : { modelProvider }) },
+      config.defaults.models,
+    );
     const user: ChatModelUser = { kind: "reranker", reranker };
     return { model: gateway.chatModel({ user, settings }), settings };
   };

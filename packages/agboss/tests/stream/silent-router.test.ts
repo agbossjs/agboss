@@ -1,13 +1,22 @@
 /** #1004 AC1: a chat-model router's raw JSON decision never reaches the user's stream. */
 import { describe, expect, it } from "vitest";
-import { Agent, DecidedBy, Router, TokenLimit, Workflow, WorkflowFinish } from "../../src/index.js";
+import {
+  Agent,
+  DecidedBy,
+  Router,
+  TokenLimit,
+  Workflow,
+  WorkflowFinish,
+  inline,
+  Ttl,
+} from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import type { ExecutionStreamEvent } from "../../src/run/types.js";
 import { ChatStart, Reply } from "../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { execute, route, start } from "../helpers/flow.js";
+import { execute, onStart, toAgent, toFinish } from "../helpers/flow.js";
 import {
   answer,
   BedrockModelProvider,
@@ -20,7 +29,7 @@ import { deltas } from "./writer.fixture.js";
 @Agent({
   name: "routed-audit-agent",
   description: "Answers",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "bedrock/claude",
 })
 class RoutedAgent {}
@@ -36,7 +45,7 @@ class HandOver {}
   name: "audit-chat-router",
   description: "Picks the agent",
   decidedBy: DecidedBy.Model,
-  prompt: "INTERNAL ROUTING PROMPT",
+  prompt: inline("INTERNAL ROUTING PROMPT"),
   model: "bedrock/claude",
   input: { message: WorkflowStartTextDto },
   routes: [
@@ -49,18 +58,20 @@ class AuditChatRouter {}
 @Workflow({
   name: "routed-audit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChatStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChatStart)
       .toRouter(AuditChatRouter)
-      .chooseOne(route(RoutedAgent).toFinish(Reply), route(HandOver)),
+      .onRoute(toAgent(RoutedAgent).toFinish(Reply))
+      .onRoute(toFinish(HandOver)),
   ],
-  defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+  defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
 })
 class RoutedWorkflow {}
 
 @Application({
   name: "routed-audit-application",
+  modelProvider: BedrockModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RoutedWorkflow],

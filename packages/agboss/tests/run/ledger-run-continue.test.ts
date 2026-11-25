@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (ledger-run shard) — the spend a recovered and a resumed pass starts from, each rule on its own: what
  * recovery reads of the checkpoint (the state, or the first task's input), what it refuses to continue, the
@@ -31,10 +32,11 @@ vi.mock("../../src/run/waiting-pauses.js", async (original) => ({
 }));
 
 const record = (costUsd: number, caller = "agent:a"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -238,7 +240,7 @@ describe("#1366: recovery continues an execution from its last checkpoint", () =
         stopReason: "execution run-1 stopped before its first checkpoint: nothing to continue",
         route: [],
         steps: [],
-        costUsd: 0,
+        costUsd: usd(0),
       });
       expect(continueRun).not.toHaveBeenCalled();
     },

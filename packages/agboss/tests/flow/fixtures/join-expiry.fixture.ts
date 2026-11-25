@@ -1,15 +1,13 @@
-import { Flag, Text } from "../../../src/dto/index.js";
+import { Bool, Text } from "../../../src/dto/index.js";
 import {
   Agent,
   Channel,
-  ChannelOf,
   ChannelOutcome,
-  ChannelRole,
   EmptyEnvironment,
-  Injectable,
+  Observer,
   optional,
-  PauseAnswerer,
-  PauseListener,
+  PauseRespondent,
+  ChannelListener,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -19,27 +17,27 @@ import {
   type ChannelPauseJoinFailedEvent,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type PauseListenerClosedEvent,
-  type PauseListenerHandler,
-  type PauseListenerJoinFailedEvent,
-  type PauseListenerOpenedEvent,
-  type ToolHandler,
+  type ChannelListenerClosedEvent,
+  type ChannelListenerJoinFailedEvent,
+  type ChannelListenerOpenedEvent,
+  inline,
+  ToolApproval,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
-import { minutes } from "../../../src/units/index.js";
+import { minutes, days } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { start, toAction } from "./paths.js";
+import { onStart, toAction, toAgent } from "./paths.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #945 AC4 — legal, finance, the CFO and the COO approve in a plain four-way `.join()` (FailFast);
- * the CFO's approval expires. `.onJoinError(PauseExpiredError, …)` escalates to the CEO from the
+ * the CFO's approval expires. `.onError(PauseExpiredError, …)` escalates to the CEO from the
  * answers already settled; the approvers who answered are told the launch failed, the one still
  * waiting is withdrawn. What happened is in `je`, reset per test.
  */
@@ -50,22 +48,22 @@ export class ApprovalRequestDto {
 }
 
 export class LegalDecisionDto {
-  @Flag({ prompt: "legal approves" })
+  @Bool({ prompt: "legal approves" })
   approved!: boolean;
 }
 
 export class FinanceDecisionDto {
-  @Flag({ prompt: "finance approves" })
+  @Bool({ prompt: "finance approves" })
   approved!: boolean;
 }
 
 export class CfoDecisionDto {
-  @Flag({ prompt: "the CFO approves" })
+  @Bool({ prompt: "the CFO approves" })
   approved!: boolean;
 }
 
 export class CooDecisionDto {
-  @Flag({ prompt: "the COO approves" })
+  @Bool({ prompt: "the COO approves" })
   approved!: boolean;
 }
 
@@ -76,11 +74,11 @@ export class EscalationDto {
 
 export const je = {
   /** The asks the approvers' desk was sent. */
-  sent: [] as ChannelAsk<JoinApproverQuestion>[],
-  closed: [] as ChannelPauseClosedEvent<JoinApproverQuestion>[],
+  sent: [] as ChannelAsk<JoinApproverQuestionToolApproval>[],
+  closed: [] as ChannelPauseClosedEvent<JoinApproverQuestionToolApproval>[],
   /** `joinFailed` told to the desk, and to the listener. */
-  joinFailed: [] as ChannelPauseJoinFailedEvent<JoinApproverQuestion>[],
-  heard: [] as PauseListenerJoinFailedEvent[],
+  joinFailed: [] as ChannelPauseJoinFailedEvent<JoinApproverQuestionToolApproval>[],
+  heard: [] as ChannelListenerJoinFailedEvent[],
   /** What the escalation read, by approver. */
   escalation: [] as Record<string, boolean | undefined>[],
   ended: [] as ExecutionEndEvent[],
@@ -91,45 +89,56 @@ export function resetJoinExpiry(): void {
   for (const list of Object.values(je)) list.length = 0;
 }
 
-@ChannelRole({
-  name: "join-approver-question-channel",
+@ToolApproval({
+  name: "join-approver-question-tool-approval",
   description: "Asks an approver",
-  approves: ApprovalRequestDto,
-  answerer: PauseAnswerer.Channel,
+  input: ApprovalRequestDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
 })
-export abstract class JoinApproverQuestion extends ChannelOf<JoinApproverQuestion> {}
+export class JoinApproverQuestionToolApproval {}
 
-@Channel({ name: "join-approver-desk-channel", description: "Asks the approvers" })
-export class JoinApproverDeskChannel extends JoinApproverQuestion {
-  send(ask: ChannelAsk<JoinApproverQuestion>): Promise<ChannelOutcome<JoinApproverQuestion>> {
+/** What every approvers' channel does: asked, it waits and tells the test what it hears. */
+export abstract class JoinApproverChannelBase {
+  send(
+    ask: ChannelAsk<JoinApproverQuestionToolApproval>,
+  ): Promise<ChannelOutcome<JoinApproverQuestionToolApproval>> {
     je.sent.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 
-  override onPauseClosed(event: ChannelPauseClosedEvent<JoinApproverQuestion>): Promise<void> {
+  onPauseClosed(event: ChannelPauseClosedEvent<JoinApproverQuestionToolApproval>): Promise<void> {
     je.closed.push(event);
     return Promise.resolve();
   }
 
-  override onPauseJoinFailed(
-    event: ChannelPauseJoinFailedEvent<JoinApproverQuestion>,
+  onPauseJoinFailed(
+    event: ChannelPauseJoinFailedEvent<JoinApproverQuestionToolApproval>,
   ): Promise<void> {
     je.joinFailed.push(event);
     return Promise.resolve();
   }
 }
 
-@PauseListener({ name: "join-failed-pause-listener", allowAnswering: true })
-export class JoinFailedPauseListener implements PauseListenerHandler {
-  onPauseOpened(event: PauseListenerOpenedEvent): Promise<void> {
+@Channel({
+  name: "join-approver-desk-channel",
+  description: "Asks the approvers",
+  target: JoinApproverQuestionToolApproval,
+  ttl: days(1),
+})
+export class JoinApproverDeskChannel extends JoinApproverChannelBase {}
+
+@ChannelListener({ name: "join-failed-pause-listener", includePauseIds: true })
+export class JoinFailedPauseListener {
+  onPauseOpened(event: ChannelListenerOpenedEvent): Promise<void> {
     return Promise.resolve();
   }
 
-  onPauseClosed(event: PauseListenerClosedEvent): Promise<void> {
+  onPauseClosed(event: ChannelListenerClosedEvent): Promise<void> {
     return Promise.resolve();
   }
 
-  onPauseJoinFailed(event: PauseListenerJoinFailedEvent): Promise<void> {
+  onPauseJoinFailed(event: ChannelListenerJoinFailedEvent): Promise<void> {
     je.heard.push(event);
     return Promise.resolve();
   }
@@ -138,28 +147,43 @@ export class JoinFailedPauseListener implements PauseListenerHandler {
 @Tool({
   name: "approve-tool",
   description: "An approver approves",
-  channel: JoinApproverQuestion,
+  approval: JoinApproverQuestionToolApproval,
   input: ApprovalRequestDto,
   output: ApprovalRequestDto,
 })
-export class ApproveTool implements ToolHandler<ApprovalRequestDto, ApprovalRequestDto> {
-  run(input: ApprovalRequestDto): Promise<ApprovalRequestDto> {
+export class ApproveTool {
+  execute(input: ApprovalRequestDto): Promise<ApprovalRequestDto> {
     return Promise.resolve(input);
   }
 }
 
+/** The same approvers with 30 minutes: the channel is the same, asked under its own target. */
+@ToolApproval({
+  name: "join-approver-thirty-tool-approval",
+  description: "Asks an approver within 30 minutes",
+  input: ApprovalRequestDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: minutes(30),
+})
+export class JoinApproverThirtyToolApproval {}
+
+@Channel({
+  name: "join-approver-thirty-desk-channel",
+  description: "Asks the approvers, within 30 minutes",
+  target: JoinApproverThirtyToolApproval,
+  ttl: days(1),
+})
+export class JoinApproverThirtyDeskChannel extends JoinApproverChannelBase {}
+
 @Tool({
   name: "approve-in-30-tool",
   description: "An approver approves within 30 minutes",
-  channel: JoinApproverQuestion,
-  expiresIn: minutes(30),
+  approval: JoinApproverThirtyToolApproval,
   input: ApprovalRequestDto,
   output: ApprovalRequestDto,
 })
-export class ApproveInThirtyTool
-  implements ToolHandler<ApprovalRequestDto, ApprovalRequestDto>
-{
-  run(input: ApprovalRequestDto): Promise<ApprovalRequestDto> {
+export class ApproveInThirtyTool {
+  execute(input: ApprovalRequestDto): Promise<ApprovalRequestDto> {
     return Promise.resolve(input);
   }
 }
@@ -169,7 +193,7 @@ const MODEL = "moonshotai/kimi-k2.6";
 @Agent({
   name: "legal-approver-agent",
   description: "Legal approves",
-  prompt: "Approve.",
+  prompt: inline("Approve."),
   model: MODEL,
   tools: [ApproveTool],
   input: { request: ApprovalRequestDto },
@@ -180,7 +204,7 @@ export class LegalApproverAgent {}
 @Agent({
   name: "finance-approver-agent",
   description: "Finance approves",
-  prompt: "Approve.",
+  prompt: inline("Approve."),
   model: MODEL,
   tools: [ApproveTool],
   input: { request: ApprovalRequestDto },
@@ -191,7 +215,7 @@ export class FinanceApproverAgent {}
 @Agent({
   name: "cfo-approver-agent",
   description: "The CFO approves within 30 minutes",
-  prompt: "Approve.",
+  prompt: inline("Approve."),
   model: MODEL,
   tools: [ApproveInThirtyTool],
   input: { request: ApprovalRequestDto },
@@ -202,7 +226,7 @@ export class CfoApproverAgent {}
 @Agent({
   name: "coo-approver-agent",
   description: "The COO approves",
-  prompt: "Approve.",
+  prompt: inline("Approve."),
   model: MODEL,
   tools: [ApproveTool],
   input: { request: ApprovalRequestDto },
@@ -232,8 +256,7 @@ export class JoinExpiryApprovedWorkflowFinish {}
 export class JoinExpiryEscalatedWorkflowFinish {}
 
 /** The approval an optional input holds, when its branch answered. */
-const approvedOf = (decision: { readonly value: { readonly approved: boolean } } | undefined) =>
-  decision?.value.approved;
+const approvedOf = (decision: { readonly approved: boolean } | undefined) => decision?.approved;
 
 /** The CEO is told what the approvers already said. */
 @Action({
@@ -262,33 +285,28 @@ export class EscalateToCeoAction implements ActionHandler<EscalateToCeoAction> {
 @Workflow({
   name: "join-expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(JoinExpiryWorkflowStart)
-      .returns(ApprovalRequestDto)
-      .toParallelAgents(
-        LegalApproverAgent,
-        FinanceApproverAgent,
-        CfoApproverAgent,
-        CooApproverAgent,
-      )
+    onStart(JoinExpiryWorkflowStart)
+      .inParallel([
+        toAgent(LegalApproverAgent),
+        toAgent(FinanceApproverAgent),
+        toAgent(CfoApproverAgent),
+        toAgent(CooApproverAgent),
+      ])
       .join()
-      .onJoinError(
+      .onError(
         PauseExpiredError,
         toAction(EscalateToCeoAction)
-          .returns(EscalationDto)
           .toFinish(JoinExpiryEscalatedWorkflowFinish),
       )
-      .returns(LegalDecisionDto)
-      .returns(FinanceDecisionDto)
-      .returns(CfoDecisionDto)
-      .returns(CooDecisionDto)
       .toFinish(JoinExpiryApprovedWorkflowFinish),
   ],
 })
 export class JoinExpiryWorkflow {}
 
-@Injectable()
-export class JoinExpiryLog implements OnExecutionEnd, OnExecutionError {
+@Observer()
+export class JoinExpiryLog {
   onExecutionEnd(event: ExecutionEndEvent): void {
     je.ended.push(event);
   }
@@ -300,11 +318,13 @@ export class JoinExpiryLog implements OnExecutionEnd, OnExecutionError {
 
 @Application({
   name: "join-expiry-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [JoinExpiryWorkflow],
   providers: [
     JoinApproverDeskChannel,
+    JoinApproverThirtyDeskChannel,
     JoinFailedPauseListener,
     RecordingLogger,
   ],

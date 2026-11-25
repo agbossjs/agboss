@@ -2,24 +2,24 @@ import {
   ApplicationContext,
   EmptyEnvironment,
   Injectable,
+  Observer,
   LeaseTakeoverReason,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ExecutionEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
   type ExecutionLeaseTakeoverEvent,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type OnExecutionLeaseTakeover,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { MemorySaver } from "@langchain/langgraph";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
-import { YieldCheckWorkflow, YieldOneWorkflow } from "./remote-child-yield.workflow.js";
+import { GatedItemAction, YieldOneWorkflow } from "./remote-child-yield.workflow.js";
 
 /**
  * #562 — a child's end is announced once, by the pass that ended it. The children are
@@ -57,7 +57,12 @@ export function resetEndOnce(): void {
 }
 
 /** The child workflows: the gated check, and the booking with an undo (#596). */
-const CHILDREN: ReadonlySet<string> = new Set(["yield-check-workflow", "undo-child-workflow"]);
+const CHILDREN: ReadonlySet<string> = new Set([
+  "yield-check-workflow",
+  "yield-check-local-workflow",
+  "undo-child-workflow",
+  "undo-child-local-workflow",
+]);
 
 /** The announcements of the child workflows' executions. */
 export const childrenIn = (seen: readonly Announced[]): readonly Announced[] =>
@@ -81,22 +86,51 @@ export class EndOnceLocalWorkflowStart {}
 })
 export class EndOnceLocalWorkflowFinish {}
 
+@WorkflowStart({
+  name: "yield-check-local-workflow-start",
+  description: "One item",
+  input: ItemDto,
+})
+export class YieldCheckLocalWorkflowStart {}
+
+@WorkflowFinish({
+  name: "yield-checked-local-workflow-finish",
+  description: "The item, checked",
+  output: ItemResultDto,
+})
+export class YieldCheckedLocalWorkflowFinish {}
+
+/** The gated check on the parent's instance: `yield-check-workflow`'s twin, which runs on any worker. */
+@Workflow({
+  name: "yield-check-local-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: [
+    onStart(YieldCheckLocalWorkflowStart)
+      .toAction(GatedItemAction)
+      .toFinish(YieldCheckedLocalWorkflowFinish),
+  ],
+})
+export class YieldCheckLocalWorkflow {}
+
 @Workflow({
   name: "end-once-local-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(EndOnceLocalWorkflowStart)
-      .returns(ItemDto)
-      .toWorkflow(YieldCheckWorkflow)
-      .returns(ItemResultDto)
+    onStart(EndOnceLocalWorkflowStart)
+      .toWorkflow(YieldCheckLocalWorkflow)
       .toFinish(EndOnceLocalWorkflowFinish),
   ],
 })
 export class EndOnceLocalWorkflow {}
 
 /** Every end, failure and recovery, with the instance it was heard on. */
-@Injectable({ deps: [ApplicationContext] })
-export class EndOnceLog implements OnExecutionEnd, OnExecutionError, OnExecutionLeaseTakeover {
+/** An event a root or a child ended with. */
+type Ended = ExecutionEndEvent | ExecutionErrorEvent | ExecutionCancelEvent;
+
+@Observer({ deps: [ApplicationContext] })
+export class EndOnceLog {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   onExecutionEnd(event: ExecutionEndEvent): void {
@@ -107,12 +141,17 @@ export class EndOnceLog implements OnExecutionEnd, OnExecutionError, OnExecution
     this.#heard(endOnceSeen.errors, event, event.error.name);
   }
 
+  /** A root's cancel (#1341) is its end as an error was: heard with the cancel's class name. */
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    this.#heard(endOnceSeen.errors, event, "ExecutionCancelledError");
+  }
+
   onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): void {
     if (event.reason === LeaseTakeoverReason.Recovered)
       endOnceSeen.onRecovered?.(this.applicationContext.instanceId);
   }
 
-  #heard(seen: Announced[], event: ExecutionEndEvent | ExecutionErrorEvent, error?: string): void {
+  #heard(seen: Announced[], event: Ended, error?: string): void {
     const { instanceId } = this.applicationContext;
     const { executionId } = event;
     const failed = error === undefined ? {} : { error };

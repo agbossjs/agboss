@@ -10,7 +10,13 @@ export type {
   MeshRunReport,
   MeshSpendReport,
 } from "../mesh/mesh-envelope.js";
-export type { MeshOptions, MeshPeer } from "../mesh/mesh-options.js";
+export {
+  Mesh,
+  MeshInboundMode,
+  type MeshOptions,
+  type MeshPeer,
+  type MeshVerifyKey,
+} from "../mesh/mesh.decorator.js";
 export type { ToolCallRemote } from "../mesh/mesh-call.js";
 export {
   MeshRequestRepository,

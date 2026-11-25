@@ -1,4 +1,5 @@
-import { Integer, ListOf, Text } from "../../../../src/dto/index.js";
+import type { Class } from "../../../../src/components/injection.js";
+import { Integer, List, Text } from "../../../../src/dto/index.js";
 import {
   Action,
   Agent,
@@ -10,24 +11,33 @@ import {
   oneOf,
   Router,
   StepFailedError,
-  ThisWorkflow,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
-  variant,
+  type Tracked,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { action, caseOf, route, start, toAction } from "../../../helpers/flow.js";
+import {
+  onAction,
+  onStart,
+  toAction,
+  toWorkflow,
+  toAgent,
+  toFinish,
+} from "../../../helpers/flow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #264 — recursion at run time. `topic-research-workflow` (the issue's example, `maxDepth: 3`): a
  * researcher reports on a topic or finds it too broad, its subtopics researched each by the
  * workflow itself, per item, and merged. `countdown-workflow` (`maxDepth: 3`): code decides to go
- * one level deeper (`.toWorkflow(ThisWorkflow)`) until its count is spent — past `maxDepth` the
+ * one level deeper (`.toWorkflow(() => CountdownWorkflow)`) until its count is spent — past `maxDepth` the
  * launch is refused and the side path finishes. `chain-workflow` / `code-chain-workflow`: a model
- * router and a code router whose route launches `ThisWorkflow` (`maxDepth: 2`).
+ * router and a code router whose route launches itself (`maxDepth: 2`).
  */
 
 export class TopicDto {
@@ -47,7 +57,7 @@ export class TopicReportDto {
 }
 
 export class TopicTooBroadDto {
-  @ListOf(Text, { prompt: "the subtopics" })
+  @List(Text, { prompt: "the subtopics" })
   subtopics!: string[];
 }
 
@@ -80,7 +90,9 @@ export class TopicResearchWorkflowStart {}
 @Agent({
   name: "researcher-agent",
   description: "Researches one topic, or says it is too broad and lists its subtopics",
-  prompt: "Research the topic: report on it, or say it is too broad and list its subtopics.",
+  prompt: inline(
+    "Research the topic: report on it, or say it is too broad and list its subtopics.",
+  ),
   model: "moonshotai/kimi-k2.6",
   input: { topic: TopicDto },
   output: oneOf(TopicReportDto, TopicTooBroadDto),
@@ -98,14 +110,14 @@ export class SubtopicsAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(input: {
-    readonly topic: Produced<TopicDto, unknown>;
-    readonly tooBroad: Produced<TopicTooBroadDto, unknown>;
+    readonly topic: Tracked<TopicDto>;
+    readonly tooBroad: Tracked<TopicTooBroadDto>;
   }): Promise<TopicDto[]> {
-    const { title, level } = input.topic.value;
+    const { title, level } = input.topic;
     const depth = this.executionContext.depth;
     recursionLog.readings.push({ at: "subtopics-action", title, depth, level });
     return Promise.resolve(
-      input.tooBroad.value.subtopics.map((subtopic) => ({ title: subtopic, level: level + 1 })),
+      input.tooBroad.subtopics.map((subtopic) => ({ title: subtopic, level: level + 1 })),
     );
   }
 }
@@ -113,11 +125,11 @@ export class SubtopicsAction {
 @Agent({
   name: "merge-agent",
   description: "Merges the subtopics' reports into one report on the topic",
-  prompt: "Merge the reports into one report on the topic.",
+  prompt: inline("Merge the reports into one report on the topic."),
   model: "moonshotai/kimi-k2.6",
   input: {
     topic: TopicDto,
-    results: listOf(oneOf(TopicReportDto, TopicFailedDto)),
+    results: listOf(TopicReportDto, TopicFailedDto),
   },
   output: TopicReportDto,
 })
@@ -133,8 +145,8 @@ export class MergeAgent {}
 export class MarkTopicFailedAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly topic: Produced<TopicDto, unknown> }): Promise<TopicFailedDto> {
-    const { title, level } = input.topic.value;
+  execute(input: { readonly topic: Tracked<TopicDto> }): Promise<TopicFailedDto> {
+    const { title, level } = input.topic;
     const depth = this.executionContext.depth;
     recursionLog.readings.push({ at: "mark-topic-failed-action", title, depth, level });
     return Promise.resolve({ title });
@@ -158,32 +170,27 @@ export class TopicFailedWorkflowFinish {}
 @Workflow({
   name: "topic-research-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TopicResearchWorkflowStart)
-      .returns(TopicDto)
+    onStart(TopicResearchWorkflowStart)
       .toAgent(ResearcherAgent)
       .onError(StepFailedError, toAction(MarkTopicFailedAction))
-      .returns(oneOf(TopicReportDto, TopicTooBroadDto))
-      .switch(
-        caseOf(TopicReportDto)
-          .toFinish(TopicReportWorkflowFinish),
-        caseOf(TopicTooBroadDto)
-          .toAction(SubtopicsAction)
-          .returns(listOf(TopicDto))
-          .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 5 })
+      .toOneOf([
+        toFinish(TopicReportWorkflowFinish),
+        toAction(SubtopicsAction)
+          .forEachItem(
+            toWorkflow(() => TopicResearchWorkflow),
+            { takeFirst: 5, maxConcurrency: 3 },
+          )
           .join()
-          .returns(listOf(oneOf(TopicReportDto, TopicFailedDto)))
           .toAgent(MergeAgent)
           .onError(StepFailedError, toAction(MarkTopicFailedAction))
-          .returns(TopicReportDto)
           .toFinish(TopicReportWorkflowFinish),
-      ),
-    action(MarkTopicFailedAction)
-      .returns(TopicFailedDto)
+      ]),
+    onAction(MarkTopicFailedAction)
       .toFinish(TopicFailedWorkflowFinish),
   ],
-  maxDepth: 3,
-  maxSteps: 4,
+  executionLimits: { maxSteps: 4, maxDepth: 3 },
 })
 export class TopicResearchWorkflow {}
 
@@ -215,13 +222,11 @@ export class CountdownWorkflowStart {}
 export class CountdownAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly count: Produced<CountDto, unknown> }): Promise<unknown> {
-    const { left } = input.count.value;
+  execute(input: { readonly count: Tracked<CountDto> }): Promise<unknown> {
+    const { left } = input.count;
     const depth = this.executionContext.depth;
     recursionLog.readings.push({ at: "countdown-action", title: String(left), depth, level: left });
-    return Promise.resolve(
-      left > 0 ? variant(CountDto, { left: left - 1 }) : variant(CountDoneDto, { depth }),
-    );
+    return Promise.resolve(left > 0 ? { left: left - 1 } : { depth });
   }
 }
 
@@ -251,36 +256,26 @@ export class CountDoneWorkflowFinish {}
 export class CountStoppedWorkflowFinish {}
 
 /** One level deeper while the count lasts; past `maxDepth` the side path finishes. */
-const countdownPath = (from: typeof CountdownWorkflowStart) =>
-  start(from)
-    .returns(CountDto)
+const countdownPath = (from: typeof CountdownWorkflowStart, self: () => Class) =>
+  onStart(from)
     .toAction(CountdownAction)
-    .returns(oneOf(CountDto, CountDoneDto))
-    .switch(
-      caseOf(CountDto)
-        .toWorkflow(ThisWorkflow)
+    .toOneOf([
+      toWorkflow(self)
         .onError(
           LimitExceededError,
           toAction(DepthStoppedAction)
-            .returns(CountStoppedDto)
             .toFinish(CountStoppedWorkflowFinish),
         )
-        .returns(oneOf(CountDoneDto, CountStoppedDto))
-        .switch(
-          caseOf(CountDoneDto)
-            .toFinish(CountDoneWorkflowFinish),
-          caseOf(CountStoppedDto)
-            .toFinish(CountStoppedWorkflowFinish),
-        ),
-      caseOf(CountDoneDto)
-        .toFinish(CountDoneWorkflowFinish),
-    );
+        .toOneOf([toFinish(CountDoneWorkflowFinish), toFinish(CountStoppedWorkflowFinish)]),
+      toFinish(CountDoneWorkflowFinish),
+    ]);
 
 @Workflow({
   name: "countdown-workflow",
   version: "1.0.0",
-  flow: [countdownPath(CountdownWorkflowStart)],
-  maxDepth: 3,
+  historyTtl: Ttl.Forever,
+  flow: [countdownPath(CountdownWorkflowStart, () => CountdownWorkflow)],
+  executionLimits: { maxDepth: 3 },
 })
 export class CountdownWorkflow {}
 
@@ -291,8 +286,9 @@ export class ShallowWorkflowStart {}
 @Workflow({
   name: "shallow-workflow",
   version: "1.0.0",
-  flow: [countdownPath(ShallowWorkflowStart)],
-  maxDepth: 1,
+  historyTtl: Ttl.Forever,
+  flow: [countdownPath(ShallowWorkflowStart, () => ShallowWorkflow)],
+  executionLimits: { maxDepth: 1 },
 })
 export class ShallowWorkflow {}
 
@@ -306,8 +302,8 @@ export class SplitWorkflowStart {}
   output: listOf(CountDto),
 })
 export class SplitAction {
-  execute(input: { readonly count: Produced<CountDto, unknown> }): Promise<CountDto[]> {
-    const { left } = input.count.value;
+  execute(input: { readonly count: Tracked<CountDto> }): Promise<CountDto[]> {
+    const { left } = input.count;
     return Promise.resolve(left > 0 ? [{ left: left - 1 }, { left: left - 1 }] : []);
   }
 }
@@ -330,7 +326,7 @@ export class SplitStoppedAction {
 @Action({
   name: "sum-action",
   description: "Sums up the halves",
-  input: { halves: listOf(oneOf(CountDoneDto, CountStoppedDto)) },
+  input: { halves: listOf(CountDoneDto, CountStoppedDto) },
   output: CountDoneDto,
   deps: [ExecutionContext],
 })
@@ -345,25 +341,24 @@ export class SumAction {
 @Workflow({
   name: "split-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SplitWorkflowStart)
-      .returns(CountDto)
+    onStart(SplitWorkflowStart)
       .toAction(SplitAction)
-      .returns(listOf(CountDto))
-      .toParallelWorkflows(ThisWorkflow, { maxItems: 2 })
+      .forEachItem(
+        toWorkflow(() => SplitWorkflow),
+        { takeFirst: 2 },
+      )
       .join()
-      .onJoinError(
+      .onError(
         LimitExceededError,
         toAction(SplitStoppedAction)
-          .returns(CountStoppedDto)
           .toFinish(CountStoppedWorkflowFinish),
       )
-      .returns(listOf(oneOf(CountDoneDto, CountStoppedDto)))
       .toAction(SumAction)
-      .returns(CountDoneDto)
       .toFinish(CountDoneWorkflowFinish),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class SplitWorkflow {}
 
@@ -383,7 +378,7 @@ export class ChainWorkflowStart {}
 @Agent({
   name: "link-agent",
   description: "Ends the chain",
-  prompt: "End the chain.",
+  prompt: inline("End the chain."),
   model: "moonshotai/kimi-k2.6",
   input: { link: LinkDto },
   output: LinkDoneDto,
@@ -394,12 +389,13 @@ export class LinkAgent {}
   name: "link-router",
   description: "Goes one link further, or ends the chain",
   decidedBy: DecidedBy.Model,
-  prompt: "Go one link further, or end the chain.",
+  prompt: inline("Go one link further, or end the chain."),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { link: LinkDto },
   maxVisits: 1,
   routes: [
-    { prompt: "Go one link further", target: ThisWorkflow },
+    { prompt: "Go one link further", target: () => ChainWorkflow },
     { prompt: "End the chain", target: LinkAgent },
   ],
 })
@@ -411,20 +407,20 @@ export class ChainDoneWorkflowFinish {}
 @Workflow({
   name: "chain-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChainWorkflowStart)
-      .returns(LinkDto)
+    onStart(ChainWorkflowStart)
       .toRouter(LinkRouter)
-      .chooseOne(
-        route(ThisWorkflow)
-          .returns(LinkDoneDto)
+      .onRoute(
+        toWorkflow(() => ChainWorkflow)
           .toFinish(ChainDoneWorkflowFinish),
-        route(LinkAgent)
-          .returns(LinkDoneDto)
+      )
+      .onRoute(
+        toAgent(LinkAgent)
           .toFinish(ChainDoneWorkflowFinish),
       ),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class ChainWorkflow {}
 
@@ -438,36 +434,37 @@ export class CodeChainWorkflowStart {}
   decidedBy: DecidedBy.Code,
   input: { link: LinkDto },
   maxVisits: 1,
-  routes: [{ target: ThisWorkflow }, { target: LinkAgent }],
+  routes: [() => CodeChainWorkflow, LinkAgent],
 })
 export class DeeperRouter {
   route(): unknown {
-    return ThisWorkflow;
+    return CodeChainWorkflow;
   }
 }
 
 @Workflow({
   name: "code-chain-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(CodeChainWorkflowStart)
-      .returns(LinkDto)
+    onStart(CodeChainWorkflowStart)
       .toRouter(DeeperRouter)
-      .chooseOne(
-        route(ThisWorkflow)
-          .returns(LinkDoneDto)
+      .onRoute(
+        toWorkflow(() => CodeChainWorkflow)
           .toFinish(ChainDoneWorkflowFinish),
-        route(LinkAgent)
-          .returns(LinkDoneDto)
+      )
+      .onRoute(
+        toAgent(LinkAgent)
           .toFinish(ChainDoneWorkflowFinish),
       ),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class CodeChainWorkflow {}
 
 @Application({
   name: "recursion-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [

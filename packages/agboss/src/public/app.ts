@@ -3,7 +3,9 @@
  * budgets, the health checks (#300), the infrastructure contracts, the workflow's dependencies,
  * resuming, profiles, comparisons and the public configuration and run types.
  */
-export type { AppOptions } from "../app/create-app.js";
+export type { CreateAppOptions } from "../app/create-app-options.js";
+export type { TraceLinkContext, TracingAdapter } from "../tracing/types.js";
+export { StreamDiscardReason, StreamEventKind } from "../run/types.js";
 export { Application, type ApplicationOptions } from "../application/application.js";
 export { createApp } from "../application/create-app.js";
 export type { ApplicationClass, WorkflowIsNotAnApplication } from "../application/types.js";
@@ -24,7 +26,7 @@ export {
   type FailedHealthCheckResult,
   type HealthCheckHandler,
   type HealthCheckOptions,
-  type HealthCheckResultOptions,
+  type HealthCheckContext,
   type HealthComponentReport,
   type HealthReport,
   type HealthyCheckResult,
@@ -60,13 +62,12 @@ export {
   PausedExecutionRepository,
   PauseResolution,
   PauseStatus,
-  type PauseAnswer,
   type PauseCancellation,
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
-export type { PauseAsk, PauseSite, QuestionAsk } from "../infrastructure/pause-record.js";
-// why a pause closed, and the one-way key that stands for it where its id may not appear (#935, I14)
-export { ExpiryProblem, PauseClosedReason, pauseKeyOf } from "../infrastructure/pause-record.js";
+export type { PauseTrailRecord } from "../infrastructure/pause-record.js";
+// why a pause closed (the one-way key `pauseKeyOf`, `PauseAnswer` and `PauseSite` are store-implementer names: @agboss/core/stores)
+export { ExpiryProblem, PauseClosedReason } from "../infrastructure/pause-record.js";
 export type { PendingApproval, PendingPause, PendingQuestion } from "../pause/index.js";
 // a coordination lease store's durable ids and cancel mark (#891, #1198): provide(EXECUTION_ID_STORE, <a durable lease store>)
 export { EXECUTION_ID_STORE, type ExecutionIdStore } from "../infrastructure/execution-id-store.js";
@@ -91,17 +92,27 @@ export {
   ExecutionHistoryStatus,
   type ApplicationRecord,
   type ExecutionContextRecord,
-  type ExecutionHistoryPage,
   type ExecutionHistoryRecord,
 } from "../infrastructure/execution-history.repository.js";
 export {
   IncompatibleResumeError,
+  ResumeDecision,
   type IncompatibleResumeErrorOptions,
   type IncompatibleResume,
   type IncompatibleResumePolicy,
-  type ResumeDecision,
   type ResumeVersions,
 } from "../run/resume-guard.js";
+export { agbossTenantContext } from "../app/tenant-args.js";
+export type {
+  HasTenantContext,
+  TenantContextBranded,
+  TenantIdOption,
+  TenantListArgs,
+  TenantListScope,
+  TenantPointArgs,
+} from "../app/tenant-args.js";
+export type { Page, PageQuery } from "../app/page.js";
+export type * from "../app/execution-output.js";
 export {
   ExecutionStatus,
   type App,
@@ -110,7 +121,6 @@ export {
   type CancelOutput,
   type CloseOptions,
   type ExecutionOptions,
-  type ExecutionOutput,
   type ExecutionTreeQuery,
   type ExtendPauseRequest,
   type ListedPause,
@@ -118,17 +128,19 @@ export {
   type PauseExtension,
   type PausesPage,
   type PausesQuery,
+  type ExecutionsQuery,
+  type AnyTenantApp,
   type PauseReassignment,
   type ReassignPauseRequest,
   type PendingOutboundCallsQuery,
-  type ChannelPauseOptions,
-  type ChannelResumeOptions,
+  type DelegatePauseOptions,
+  type DelegateResumeOptions,
   type DecisionResumeRequest,
   type ReplyResumeRequest,
   type ResumeOptions,
   type ResumeRequest,
-  type ThreadOwnerPauseOptions,
-  type ThreadOwnerResumeOptions,
+  type OwnerPauseOptions,
+  type OwnerResumeOptions,
 } from "../app/types.js";
 export type { ExecutionId } from "../core/run-context.js";
 export {
@@ -140,7 +152,6 @@ export {
   type WorkflowDescriptor,
   type WorkflowRecord,
 } from "../flow/context/execution-context.js";
-export type { ExecutionFence } from "../flow/context/execution-fence.js";
 export { ApplicationContext, type HostContext } from "../flow/context/application-context.js";
 export { TenantContext } from "../flow/context/tenant-context.js";
 export type {

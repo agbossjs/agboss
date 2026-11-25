@@ -1,58 +1,70 @@
-import { RagMode } from "../rag/types.js";
+import { ComponentOptions } from "./component-options.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
-import type { RagConnector } from "../rag/types.js";
+import {
+  bindRagRuntime,
+  indexOf,
+  RagScopeError,
+  RagSource,
+  ragRuntimeOf as boundRagRuntimeOf,
+  type RagRuntime,
+} from "../rag/rag-source.js";
 import type { RouterEngine } from "../routers/index.js";
 import { z } from "zod";
 import { schemaOf } from "../dto/schema.js";
 import { defineTool, type AnyTool, type Tool } from "../tools/index.js";
+import { DecisionModel } from "./decision-model.js";
+import { liveCoreValuesOf } from "./live-core-values.js";
 import { accountedRouters } from "./accounted-router.js";
-import { LiveJudgeModel } from "./judge-call.js";
-import { LiveSpendRecorder, SpendRecorder } from "./spend-recorder.js";
+import { ArbiterModel } from "../flow/decorators/arbiter.js";
+import { SpendRecorder } from "./spend-recorder.js";
 import { JudgeModel } from "./judge-decorators.js";
 import { contextsOutsideExecution } from "../flow/context/runtime-contexts.js";
 import { CONTEXT_TOKENS, contextValuesOf } from "./context-tokens.js";
-import { createContainer, DependantValue, type Container } from "./container/container.js";
+import { createContainer, type Container } from "./container/container.js";
 import type { ProviderModule } from "./container/registrations.js";
 import type { ToolHandler } from "./decorators.js";
 import { InjectionToken, type Class, type Token } from "./injection.js";
 import { componentOf, requireComponent, type ToolMeta } from "./metadata.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
-import { boundRerankerOf, contextSources, ragMeta, searchTool } from "./rag.js";
-import { channelNameOf, questionRoleOf } from "../channels/discovery.js";
-import type { ChannelQuestionRoleOptions } from "../channels/channel-role.decorator.js";
+import { contextSources, ragMeta } from "./rag.js";
+import { buildRagRuntime } from "./rag-retrieval.js";
+import { externalTaskOf } from "../channels/discovery.js";
+import { targetNameOf, type ExternalTaskOptions } from "../channels/pause-targets.js";
 import type { ToolClasses } from "./assemble-checks.js";
-import { FENCED_EFFECTS_OUTSIDE_APPLICATION, FencedEffects } from "../app/fenced-effects.js";
+import { IDEMPOTENCY_OUTSIDE_APPLICATION, Idempotency } from "../app/idempotency.js";
+import { standaloneStorageEntriesOf } from "../storage/standalone-storage.js";
 
 /** What a workflow creates per run of the app: the container, tool instances, knowledge sources. */
 
 /** Core services a component can depend on. */
 export const ROUTER_FACTORY = new InjectionToken<(name: string) => RouterEngine>("ROUTER_FACTORY");
-/** `deps: [JudgeModel]` in a `@Judge`: the model of the judge that is judging (#280). */
-const liveJudgeModel = new DependantValue((dependant) => new LiveJudgeModel(dependant));
-/** `deps: [SpendRecorder]`: what a tool or an action paid a service, into its step's spend (S43). */
-const liveSpendRecorder = new DependantValue((dependant) => new LiveSpendRecorder(dependant));
-export const CORE_TOKENS = [ROUTER_FACTORY, ...CONTEXT_TOKENS, JudgeModel, SpendRecorder];
+export const CORE_TOKENS = [
+  ROUTER_FACTORY,
+  ...CONTEXT_TOKENS,
+  JudgeModel,
+  ArbiterModel,
+  SpendRecorder,
+  DecisionModel,
+  ComponentOptions,
+];
 
 /**
  * A tool component instance as the core's tool (validation, timeout, errors to the model), typed
- * from its `run` — e.g. in tests: `toolOf(new GreenhouseJobs(fakeJudge, search, fakeFetch))`, then
+ * from its `execute` — e.g. in tests: `toolOf(new GreenhouseJobs(fakeJudge, search, fakeFetch))`, then
  * `.invoke(input)`.
  */
 export function toolOf<TInput, TOutput>(instance: {
-  run: (input: TInput) => Promise<TOutput>;
+  execute: (input: TInput) => TOutput | Promise<TOutput>;
 }): Tool<string, TInput, TOutput> {
   const cls = instance.constructor as Class;
-  const { meta } =
-    componentOf(cls)?.kind === "mcp-tool"
-      ? requireComponent(cls, "mcp-tool", "toolOf")
-      : requireComponent(cls, "tool", "toolOf");
-  // The decorator's DTOs are erased in metadata; `run` is what they validate for.
+  const { meta } = requireComponent(cls, "tool", "toolOf");
+  // The decorator's DTOs are erased in metadata; `execute` is what they validate for.
   return adapt(instance, meta) as unknown as Tool<string, TInput, TOutput>;
 }
 
 /** The startup check of a tool's DTOs (undecorated fields, behaviour) — before any run. */
-export const checkToolData = (cls: Class, kind: "tool" | "mcp-tool"): void => {
-  const { meta } = requireComponent(cls, kind, "workflowOf");
+export const checkToolData = (cls: Class): void => {
+  const { meta } = requireComponent(cls, "tool", "workflowOf");
   schemaOf(meta.input);
   schemaOf(meta.output);
 };
@@ -64,11 +76,13 @@ export const adapt = (handler: ToolHandler<any, any>, meta: ToolMeta): AnyTool =
     description: meta.description,
     input: schemaOf(meta.input),
     output: schemaOf(meta.output),
-    ...(meta.channel === undefined ? {} : { channel: channelNameOf(meta.channel) }),
+    ...(meta.approval === undefined ? {} : { approval: targetNameOf(meta.approval) }),
     ...(meta.timeout === undefined ? {} : { timeout: meta.timeout }),
-    ...(meta.expiresIn === undefined ? {} : { expiresIn: meta.expiresIn }),
     ...(meta.maxResultSize === undefined ? {} : { maxResultSize: meta.maxResultSize }),
-    run: (input) => handler.run(input),
+    run: async (input): Promise<unknown> => {
+      const output: unknown = await handler.execute(input);
+      return output;
+    },
   });
 
 /** Each workflow's MCP server instances (with their connected tools): injected like any dependency. */
@@ -82,7 +96,13 @@ export const rememberServers = (
 
 /** The workflow's providers as modules of the app's container (#261: one container per app). */
 export const providerModulesOf = (bundle: WorkflowMeta): readonly ProviderModule[] => [
-  { owner: bundle.name, providers: bundle.providers ?? [] },
+  bundle.services === undefined
+    ? { owner: bundle.name, providers: bundle.providers ?? [] }
+    : {
+        owner: bundle.name,
+        providers: [...(bundle.providers ?? []), ...bundle.services],
+        services: bundle.services,
+      },
 ];
 
 /** One container per app instance (its services): its tools, knowledge and index share instances. */
@@ -97,25 +117,35 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
   const core = new Map<Token, unknown>([
     [ROUTER_FACTORY, accountedRouters(services.router)],
     ...contextValuesOf(contexts),
-    [JudgeModel, liveJudgeModel],
-    [SpendRecorder, liveSpendRecorder],
+    ...liveCoreValuesOf(services),
   ]);
   for (const [token, instance] of serverInstances.get(bundle) ?? []) core.set(token, instance);
   // #890: no application's container (`agboss check`, a workflow on its own) has no fenced-effect store
-  if (services.container === undefined) core.set(FencedEffects, FENCED_EFFECTS_OUTSIDE_APPLICATION);
-  const container = createContainer(
+  if (services.container === undefined) {
+    core.set(Idempotency, IDEMPOTENCY_OUTSIDE_APPLICATION);
+    for (const [token, settings] of standaloneStorageEntriesOf(bundle)) core.set(token, settings);
+  }
+  const container: Container = createContainer(
     { modules: providerModulesOf(bundle), core },
-    services.container,
+    {
+      ...services.container,
+      // a `@Rag` source gets its pipeline (scope, reranker, spend) when the container creates it
+      onCreate: (instance) => {
+        services.container?.onCreate?.(instance);
+        if (instance instanceof RagSource)
+          bindRag(instance, bundle, services, (cls) => container.get(cls));
+      },
+    },
   );
   perBundle.set(services, container);
   return container;
 };
 
 /**
- * A question role as an agent's tool (#712): `@Agent({ tools: [SpendingLimitQuestion] })`. Its
- * model sees a tool named the role's name, described by the role's description, whose input is the
- * role's `ask`; the loop asks the role's channel at the call (the approval step, through the pause
- * seam) and the role's `answer` is the call's result. The tool itself runs nothing: called without
+ * An external task as an agent's tool (#712): `@Agent({ tools: [SpendingLimitExternalTask] })`. Its
+ * model sees a tool named the task's name, described by the task's description, whose input is the
+ * task's `input`; the loop asks the task's channel at the call (the approval step, through the pause
+ * seam) and the task's `output` is the call's result. The tool itself runs nothing: called without
  * a pause seam — an agent loop on its own — it is a tool error its model reads.
  */
 
@@ -124,17 +154,17 @@ const UNASKED =
   "a question is asked only inside its application: its answer comes through the application's pauses";
 
 /** The tool a question role is to the agents that list it. */
-export function questionToolOf(role: ChannelQuestionRoleOptions): AnyTool {
+export function questionToolOf(task: ExternalTaskOptions): AnyTool {
   const tool = defineTool({
-    name: role.name,
-    description: role.description,
+    name: task.name,
+    description: task.description,
     // strict: arguments with a field the ask does not declare are no valid ask (never passed on)
-    input: strictObjectOf(schemaOf(role.ask)),
-    output: schemaOf(role.answer),
-    channel: role.name,
+    input: strictObjectOf(schemaOf(task.input)),
+    output: schemaOf(task.output),
+    approval: task.name,
     run: () => Promise.reject(new Error(UNASKED)),
   });
-  const { ask, answer, maxVisits } = role;
+  const { input: ask, output: answer, maxVisits } = task;
   const question = { ask, answer, ...(maxVisits === undefined ? {} : { maxVisits }) };
   return { ...tool, question };
 }
@@ -143,16 +173,11 @@ export function questionToolOf(role: ChannelQuestionRoleOptions): AnyTool {
 const strictObjectOf = (schema: z.ZodType): z.ZodType =>
   schema instanceof z.ZodObject ? schema.strict() : schema;
 
-/** Tools per run of the app: tools and MCP tools (created by the container), knowledge-base search tools. */
+/** Tools per run of the app: tools (created by the container). */
 export const toolBuilder =
-  (
-    bundle: WorkflowMeta,
-    agents: readonly AgentMeta[],
-    tools: ToolClasses,
-    serverNames: ReadonlyMap<Class, string>,
-  ) =>
+  (bundle: WorkflowMeta, tools: ToolClasses) =>
   (services: WorkflowServices): readonly AnyTool[] => {
-    const { local, mcp: mcpTools } = tools;
+    const { local } = tools;
     const container = containerFor(bundle, services);
     const instances = local.map((cls) =>
       adapt(
@@ -161,29 +186,39 @@ export const toolBuilder =
         requireComponent(cls, "tool", "workflowOf").meta,
       ),
     );
-    const mcp = mcpTools.map((cls) => {
-      const { meta } = requireComponent(cls, "mcp-tool", "workflowOf");
-      const tool = adapt(container.get(cls) as ToolHandler<unknown, unknown>, meta);
-      return { ...tool, mcp: { server: serverNames.get(meta.server) ?? "", tool: meta.name } };
-    });
-    const searched = [
-      ...new Set(
-        agents.flatMap((a) =>
-          (a.rag ?? []).filter((b) => b.mode === RagMode.Tool).map((b) => b.use),
-        ),
-      ),
-    ];
-    const search = searched.map((cls) => {
-      const meta = ragMeta(cls);
-      const reranker = boundRerankerOf(meta, (c) => container.get(c), services);
-      return searchTool(meta, container.get(cls) as RagConnector, reranker);
-    });
     const asked = (tools.asked ?? []).flatMap((cls) => {
-      const role = questionRoleOf(cls);
-      return role === undefined ? [] : [questionToolOf(role)];
+      const task = externalTaskOf(cls);
+      return task === undefined ? [] : [questionToolOf(task)];
     });
-    return [...instances, ...mcp, ...search, ...asked];
+    return [...instances, ...asked];
   };
+
+/** Binds a created `@Rag` source to its pipeline: its scope, reranker and spend (internal). */
+function bindRag(
+  source: object,
+  bundle: WorkflowMeta,
+  services: WorkflowServices,
+  instance: (cls: Class) => unknown,
+): void {
+  const cls = source.constructor as Class;
+  if (componentOf(cls)?.kind !== "rag") return;
+  bindRagRuntime(
+    source,
+    buildRagRuntime(ragMeta(cls), source, instance, services, bundle.modelCascade ?? {}),
+  );
+}
+
+/** A created `@Rag` source's pipeline; one the container did not create has none. */
+function runtimeOf(source: unknown): RagRuntime {
+  const runtime =
+    typeof source === "object" && source !== null ? boundRagRuntimeOf(source) : undefined;
+  if (runtime === undefined)
+    throw new RagScopeError({
+      message:
+        "[rag.unbound] a @Rag listed in an agent's rag is no RagSource the application created — extend RagSource",
+    });
+  return runtime;
+}
 
 export const ragParts = (
   bundle: WorkflowMeta,
@@ -191,10 +226,15 @@ export const ragParts = (
   rags: readonly Class[],
 ): Required<Pick<AssembledWorkflow, "knowledge" | "knowledgeBases">> => ({
   knowledge: (services: WorkflowServices) =>
-    contextSources(agents, (cls) => containerFor(bundle, services).get(cls), services),
+    contextSources(agents, (cls) => runtimeOf(containerFor(bundle, services).get(cls))),
   knowledgeBases: (services: WorkflowServices) =>
-    rags.map((cls) => ({
-      name: ragMeta(cls).name,
-      connector: containerFor(bundle, services).get(cls) as RagConnector,
-    })),
+    rags.map((cls) => {
+      const meta = ragMeta(cls);
+      const source = containerFor(bundle, services).get(cls) as object;
+      return {
+        name: meta.name,
+        scope: meta.scope,
+        index: (options) => indexOf(source, options),
+      };
+    }),
 });

@@ -11,6 +11,9 @@ import {
   type ExecutionIdentity,
   type ExecutionLease,
   type ExecutionTree,
+  InterruptMode,
+  type PauseMarks,
+  type StopMark,
 } from "../../../src/index.js";
 import type { Milliseconds } from "../../../src/units/index.js";
 
@@ -27,6 +30,11 @@ export class LeaseTable {
   readonly executionIds = new Set<string>();
   /** The trees whose cancel was requested (#909). */
   readonly cancelRequested = new Set<string>();
+  /** The trees' stop marks (#1341b): the mode only escalates. */
+  readonly stops = new Map<string, InterruptMode>();
+  /** The trees' external pauses (#1341c) and the fences that outlive them. */
+  readonly pauses = new Map<string, { readonly reason?: string; readonly mode: InterruptMode }>();
+  readonly fences = new Map<string, number>();
 }
 
 const keyOf = (tenantId: string, rootExecutionId: string): string =>
@@ -62,6 +70,49 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
   requestCancel(tree: ExecutionTree): Promise<void> {
     this.table.cancelRequested.add(keyOf(tree.tenantId, tree.rootExecutionId));
     return Promise.resolve();
+  }
+
+  requestStop(tree: ExecutionTree, mode: InterruptMode): Promise<void> {
+    const key = keyOf(tree.tenantId, tree.rootExecutionId);
+    if (this.table.stops.get(key) !== InterruptMode.Immediate) this.table.stops.set(key, mode);
+    return Promise.resolve();
+  }
+
+  stopOf(tree: ExecutionTree): Promise<StopMark | undefined> {
+    const mode = this.table.stops.get(keyOf(tree.tenantId, tree.rootExecutionId));
+    return Promise.resolve(mode === undefined ? undefined : { mode });
+  }
+
+  requestPause(
+    tree: ExecutionTree,
+    request: { readonly mode: InterruptMode; readonly reason?: string | undefined },
+  ): Promise<void> {
+    const key = keyOf(tree.tenantId, tree.rootExecutionId);
+    const known = this.table.pauses.get(key)?.mode;
+    this.table.pauses.set(key, {
+      ...(request.reason === undefined ? {} : { reason: request.reason }),
+      mode: known === InterruptMode.Immediate ? InterruptMode.Immediate : request.mode,
+    });
+    if (request.mode === InterruptMode.Immediate) {
+      const token = this.table.rows.get(key)?.token ?? 0;
+      this.table.fences.set(key, Math.max(this.table.fences.get(key) ?? 0, token));
+    }
+    return Promise.resolve();
+  }
+
+  unpause(tree: ExecutionTree): Promise<void> {
+    this.table.pauses.delete(keyOf(tree.tenantId, tree.rootExecutionId));
+    return Promise.resolve();
+  }
+
+  pauseOf(tree: ExecutionTree): Promise<PauseMarks> {
+    const key = keyOf(tree.tenantId, tree.rootExecutionId);
+    const pause = this.table.pauses.get(key);
+    const fence = this.table.fences.get(key);
+    return Promise.resolve({
+      ...(pause === undefined ? {} : { pause }),
+      ...(fence === undefined ? {} : { fencedThroughToken: fence }),
+    });
   }
 
   isCancelRequested(tree: ExecutionTree): Promise<boolean> {
@@ -167,6 +218,9 @@ export class MapExecutionLeaseRepository extends ExecutionLeaseRepository {
     };
     this.table.rows.set(key, reclaimed);
     this.table.yielded.delete(key);
+    // under an `Immediate` pause the reclaimed token inherits the fence, in this same step (#1341c)
+    if (this.table.pauses.get(key)?.mode === InterruptMode.Immediate)
+      this.table.fences.set(key, Math.max(this.table.fences.get(key) ?? 0, token));
     return Promise.resolve(reclaimed);
   }
 

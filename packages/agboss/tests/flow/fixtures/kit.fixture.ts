@@ -11,6 +11,8 @@ import {
   OfferSentDto,
   ShortlistDto,
 } from "./dtos.js";
+import { inline } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * Components the analyser's tests wire into small flows, right and wrong (the offer review of #272
@@ -34,7 +36,7 @@ export class SecondKitWorkflowStart {}
 @Agent({
   name: "draft-kit-agent",
   description: "Drafts the offer",
-  prompt: "Draft it.",
+  prompt: inline("Draft it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -46,7 +48,7 @@ export class DraftKitAgent {}
 @Agent({
   name: "review-kit-agent",
   description: "Reviews the draft",
-  prompt: "Review it.",
+  prompt: inline("Review it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,
@@ -58,20 +60,20 @@ export class ReviewKitAgent {}
 @Agent({
   name: "edit-kit-agent",
   description: "Edits the draft",
-  prompt: "Edit it.",
+  prompt: inline("Edit it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,
   },
   output: OfferDraftDto,
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
 })
 export class EditKitAgent {}
 
 @Agent({
   name: "polish-kit-agent",
   description: "Polishes the draft, with no limit of its own",
-  prompt: "Polish it.",
+  prompt: inline("Polish it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,
@@ -79,6 +81,34 @@ export class EditKitAgent {}
   output: OfferDraftDto,
 })
 export class PolishKitAgent {}
+
+/** A branch of the review's `.toOneOf([…])` that takes the requested changes: it tells the branch apart. */
+@Action({
+  name: "take-changes-kit-action",
+  description: "Takes the changes the review asked for",
+  input: {
+    changes: ChangesRequestedDto,
+  },
+})
+export class TakeChangesKitAction {
+  execute(): void {
+    // takes the value its branch is told apart by
+  }
+}
+
+/** The other branch: it takes the approval. */
+@Action({
+  name: "take-approval-kit-action",
+  description: "Takes the approval",
+  input: {
+    approved: DraftApprovedDto,
+  },
+})
+export class TakeApprovalKitAction {
+  execute(): void {
+    // takes the value its branch is told apart by
+  }
+}
 
 @Action({
   name: "send-kit-action",
@@ -126,6 +156,7 @@ export class DraftKitWorkflowFinish {}
   description: "Edits the draft again or sends it",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: {
     draft: OfferDraftDto,
   },

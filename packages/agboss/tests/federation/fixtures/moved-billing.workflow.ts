@@ -1,4 +1,5 @@
-import { A2AExpose } from "../../../src/a2a/index.js";
+import { hours, minutes, Ttl } from "../../../src/units/index.js";
+import { A2AEndpoint } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
   Agent,
@@ -8,8 +9,9 @@ import {
   WorkflowStart,
 } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { BillingAnswerDto, BillingQuestionDto } from "./billing.dto.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 export { BillingAnswerDto, BillingQuestionDto } from "./billing.dto.js";
 
@@ -40,31 +42,33 @@ export class MovedBillingWorkflowFinish {}
 
 @Workflow({
   name: "billing-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(MovedBillingWorkflowStart)
-      .returns(BillingQuestionDto)
+    onStart(MovedBillingWorkflowStart)
       .toAgent(MovedBillingDeskAgent)
-      .returns(BillingAnswerDto)
       .toFinish(MovedBillingWorkflowFinish),
   ],
 })
 export class MovedBillingWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "billing-a2a-expose",
   description: "Served over A2A",
   version: "1.0.0",
-  exports: [MovedBillingWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [MovedBillingWorkflowStart],
 })
 export class MovedBillingA2AExpose {}
 
 @Application({
   name: "billing-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [MovedBillingWorkflow],
   budgets: TEST_BUDGETS,
-  exposes: [MovedBillingA2AExpose],
+  endpoints: [MovedBillingA2AExpose],
 })
 export class MovedBillingApplication {}

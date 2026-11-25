@@ -6,22 +6,25 @@ import {
   Workflow,
   WorkflowStart,
   type BudgetHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { route, start } from "../../flow/fixtures/paths.js";
+import { onStart, toAction, toFinish } from "../../flow/fixtures/paths.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
 import {
   ChargeOrderAction,
-  ChargeReceiptDto,
   ChargedWorkflowFinish,
   NotChargedWorkflowFinish,
 } from "./fenced-effect.workflow.js";
 import { WindowMemoryCheckpoints } from "./writes-window.application.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #1090 — a model router before a charge: start, router (its decision costs money), charge,
@@ -47,7 +50,8 @@ export class RoutedChargeWorkflowStart {}
   description: "Sends the order to its charge, or stops",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Charge the order, or stop.",
+  modelProvider: TestDecisionsModelProvider,
+  prompt: inline("Charge the order, or stop."),
   input: { message: WorkflowStartTextDto },
   maxVisits: 1,
   routes: [
@@ -60,25 +64,24 @@ export class OrderRouter {}
 @Workflow({
   name: "routed-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RoutedChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(RoutedChargeWorkflowStart)
       .toRouter(OrderRouter)
-      .chooseOne(
-        route(ChargeOrderAction)
-          .returns(ChargeReceiptDto)
+      .onRoute(
+        toAction(ChargeOrderAction)
           .toFinish(ChargedWorkflowFinish),
-        route(NotChargedWorkflowFinish),
-      ),
+      )
+      .onRoute(toFinish(NotChargedWorkflowFinish)),
   ],
 })
 export class RoutedChargeWorkflow {}
 
 @Application({
   name: "router-spend-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [RoutedChargeWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, RouterExecutionBudget],

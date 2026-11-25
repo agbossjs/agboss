@@ -6,7 +6,7 @@ import { toolInterceptorMetaOf } from "./decorator.js";
 
 /**
  * The tool interceptors in effect per agent and tool (#384): lists add up `@Application` →
- * `@Workflow` → `@Agent` → `@Tool` / `@McpTool`, outer first, each class once (where it is first
+ * `@Workflow` → `@Agent` → `@Tool`, outer first, each class once (where it is first
  * listed); `excludeToolInterceptors` on an agent removes one its application or workflow lists, on a
  * tool one listed above it — by its application, its workflow or an agent that calls it. Excluding
  * one that is not inherited is `[tool-interceptor.exclude-not-inherited]`.
@@ -16,6 +16,8 @@ import { toolInterceptorMetaOf } from "./decorator.js";
 export interface ToolInterceptorLevels {
   readonly application: readonly Class[];
   readonly workflow: readonly Class[];
+  /** `@Workflow({ excludeToolInterceptors })`: the application's classes removed for its agents. */
+  readonly workflowExcludes?: readonly Class[];
   readonly workflowName: string;
   readonly agents: readonly AgentMeta[];
 }
@@ -30,6 +32,8 @@ interface ToolLists {
 /** What the levels give: the classes per agent and tool name, every class listed, the rules broken. */
 export interface EffectiveToolInterceptors {
   readonly byAgent: ReadonlyMap<string, ReadonlyMap<string, readonly Class[]>>;
+  /** The interceptors of each agent's own and upper levels, which every call of it meets. */
+  readonly ofAgent: ReadonlyMap<string, readonly Class[]>;
   readonly classes: readonly Class[];
   readonly violations: readonly RuleViolation[];
 }
@@ -40,10 +44,10 @@ const nameOf = (cls: Class): string => cls.name || "(anonymous class)";
 
 const isInterceptor = (cls: Class): boolean => toolInterceptorMetaOf(cls) !== undefined;
 
-/** A `@Tool` / `@McpTool` class's name and lists; none for a class of another kind. */
+/** A `@Tool` class's name and lists; none for a class of another kind. */
 function toolListsOf(cls: Class): ToolLists | undefined {
   const component = componentOf(cls);
-  if (component?.kind !== "tool" && component?.kind !== "mcp-tool") return undefined;
+  if (component?.kind !== "tool") return undefined;
   const { name, toolInterceptors = [], excludeToolInterceptors = [] } = component.meta;
   return { name, toolInterceptors, excludeToolInterceptors };
 }
@@ -103,8 +107,13 @@ function toolsOf(agents: readonly AgentMeta[]): Map<string, { lists: ToolLists; 
 export function effectiveToolInterceptors(
   levels: ToolInterceptorLevels,
 ): EffectiveToolInterceptors {
-  const inherited = unique([...levels.application, ...levels.workflow]);
-  const violations = notInterceptors(inherited, levels.workflowName, "toolInterceptors");
+  const workflowExcludes = levels.workflowExcludes ?? [];
+  const listed = unique([...levels.application, ...levels.workflow]);
+  const inherited = kept(listed, workflowExcludes);
+  const violations = [
+    ...notInterceptors(listed, levels.workflowName, "toolInterceptors"),
+    ...notInherited(levels.workflowName, workflowExcludes, levels.application, "its application"),
+  ];
   const tools = toolsOf(levels.agents);
   for (const { lists, above } of tools.values()) {
     violations.push(...notInterceptors(lists.toolInterceptors, lists.name, "toolInterceptors"));
@@ -113,6 +122,7 @@ export function effectiveToolInterceptors(
     violations.push(...notInherited(lists.name, lists.excludeToolInterceptors, from, where));
   }
   const byAgent = new Map<string, ReadonlyMap<string, readonly Class[]>>();
+  const agentLevel = new Map<string, readonly Class[]>();
   for (const agent of levels.agents) {
     const own = agent.toolInterceptors ?? [];
     const excluded = agent.excludeToolInterceptors ?? [];
@@ -121,6 +131,7 @@ export function effectiveToolInterceptors(
       ...notInherited(agent.name, excluded, inherited, "neither its application nor its workflow"),
     );
     const ofAgent = kept([...inherited, ...own], excluded);
+    agentLevel.set(agent.name, ofAgent.filter(isInterceptor));
     const perTool = new Map<string, readonly Class[]>();
     for (const cls of agent.tools ?? []) {
       const lists = toolListsOf(cls);
@@ -130,10 +141,15 @@ export function effectiveToolInterceptors(
     }
     byAgent.set(agent.name, perTool);
   }
-  const listed = [
-    ...inherited,
+  const everyListed = [
+    ...listed,
     ...levels.agents.flatMap((agent) => agent.toolInterceptors ?? []),
     ...[...tools.values()].flatMap(({ lists }) => lists.toolInterceptors),
   ];
-  return { byAgent, classes: unique(listed).filter(isInterceptor), violations };
+  return {
+    byAgent,
+    ofAgent: agentLevel,
+    classes: unique(everyListed).filter(isInterceptor),
+    violations,
+  };
 }

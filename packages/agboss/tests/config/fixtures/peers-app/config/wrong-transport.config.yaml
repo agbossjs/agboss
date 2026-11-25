@@ -1,0 +1,3 @@
+mcpServers:
+  peer-runner:
+    url: https://notes.example/mcp

@@ -1,3 +1,4 @@
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import type { StoreDescriptor } from "../../src/infrastructure/execution-lease.repository.js";
 /**
  * #500, #526 — the fenced-effect store and the lease store are on one backend: a listed store's
@@ -5,7 +6,7 @@ import type { StoreDescriptor } from "../../src/infrastructure/execution-lease.r
  * else `[application.store-backend-mismatch]` names both (every pairing: store-backends.test.ts);
  * a store of a project that declares none fails `[application.store-backend-undeclared]` (it used
  * to be skipped, #526); an unlisted default beside SQLite leases fails at its first call
- * (`FencedEffectStoreMismatchError`).
+ * (`IdempotencyError.StoreMismatch`).
  */
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
@@ -13,19 +14,16 @@ import { applicationOf } from "../../src/application/assemble.js";
 import type { Provider } from "../../src/components/injection.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
 import {
-  ActionFailedError,
   Clock,
   StoreClock,
   ExecutionLeaseRepository,
-  FencedEffectSettings,
   FencedEffectRepository,
-  FencedEffectStoreMismatchError,
   InMemoryFencedEffectRepository,
   Injectable,
-  SqliteConnection,
   SqliteExecutionLeaseRepository,
   SqliteFencedEffectRepository,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -38,12 +36,13 @@ import {
   resetFencedEffect,
 } from "../app/fixtures/fenced-effect.workflow.js";
 import { ReleaseWorkflow } from "../app/fixtures/fence.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 sqliteFilePerTest();
 
 /** A project's own store that declares no backend (#526: it fails assembly). */
 @Injectable({
-  deps: [StoreClock, IN_MEMORY_DATABASE, FencedEffectSettings, ExecutionLeaseRepository],
+  deps: [StoreClock, IN_MEMORY_DATABASE, ExecutionLeaseRepository],
 })
 class OwnFencedEffectRepository extends InMemoryFencedEffectRepository {
   static override readonly store: StoreDescriptor = { backend: undefined };
@@ -52,9 +51,9 @@ class OwnFencedEffectRepository extends InMemoryFencedEffectRepository {
 const assembledWith = (providers: readonly Provider[]) => {
   @Application({
     name: "stores-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: SqliteTestEnvironment,
-    idempotencyKeyField: "idempotencyKey",
     workflows: [ReleaseWorkflow],
     budgets: TEST_BUDGETS,
     providers: [SqliteConnection, ...providers],
@@ -98,7 +97,6 @@ describe("#500, #526: the fenced-effect store beside its lease store", () => {
       name: "own-store-application",
       version: "1.0.0",
       environment: SqliteTestEnvironment,
-      idempotencyKeyField: "idempotencyKey",
       workflows: [ReleaseWorkflow],
       budgets: TEST_BUDGETS,
       providers: [OwnFencedEffectRepository, SqliteExecutionLeaseRepository, SqliteConnection],
@@ -114,7 +112,7 @@ describe("#500, #526: the fenced-effect store beside its lease store", () => {
 
 describe("#500: the unlisted default beside SQLite leases", () => {
   testWith(UnlistedFencedEffectStoreApplication)(
-    "is not an assembly error; the first call fails with FencedEffectStoreMismatchError",
+    "is not an assembly error; the first call fails with IdempotencyError.StoreMismatch",
     async ({ app }) => {
       resetFencedEffect();
 
@@ -122,14 +120,12 @@ describe("#500: the unlisted default beside SQLite leases", () => {
         (thrown: unknown) => thrown,
       );
 
-      expect(error).toBeInstanceOf(ActionFailedError);
-      expect(error).toMatchObject({ cause: expect.any(FencedEffectStoreMismatchError) });
+      // a family's error is not wrapped by the action's step (decision 8)
+      expect(error).toBeInstanceOf(IdempotencyError.StoreMismatch);
       expect(error).toMatchObject({
-        cause: {
-          code: "fenced-effect.store-mismatch",
-          fencedEffectRepository: "InMemoryFencedEffectRepository",
-          leaseRepository: "SqliteExecutionLeaseRepository",
-        },
+        code: "idempotency.store-mismatch",
+        fencedEffectRepository: "InMemoryFencedEffectRepository",
+        leaseRepository: "SqliteExecutionLeaseRepository",
       });
     },
   );

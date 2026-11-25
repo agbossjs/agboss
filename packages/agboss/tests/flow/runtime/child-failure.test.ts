@@ -24,6 +24,7 @@ import {
   RecheckedWorkflowFinish,
   resetChildLog,
 } from "./fixtures/children.workflow.js";
+import { ExecutionStatus } from "../../../src/app/types.js";
 
 /** #263 PR 2 — a child's failure: AC8, AC9, AC13, S25, S85 (a child as an error handler). */
 
@@ -64,7 +65,7 @@ describe("AC8: an uncaught child error fails the parent's step (FailFast)", () =
       [item("ok"), item("bad", 0, "fail")],
       {
         ...who,
-        record: true,
+        includeRecord: true,
       },
     );
 
@@ -77,7 +78,7 @@ describe("AC8: an uncaught child error fails the parent's step (FailFast)", () =
         cause: { code: "step.action", cause: { code: "test.item-failed" } },
       },
       at: { name: "item-check-workflow" },
-      by: { name: "checks-failed-workflow-finish" },
+      by: { name: "checks-failed-action" },
     });
     const failed = result.children.find((child) => child.status === ChildExecutionStatus.Failed);
     expect(failed?.itemIndex).toBe(1);
@@ -118,17 +119,20 @@ describe("AC8: an uncaught child error fails the parent's step (FailFast)", () =
 });
 
 describe("AC9: the side path sees the scope before the launch, and the settled answers (#945)", () => {
-  test("onJoinError sees the scope before the launch and the finished items; finished children in the record", async ({
+  test("onError sees the scope before the launch and the finished items; finished children in the record", async ({
     app,
   }) => {
     const items = [item("quick"), item("bad", 30, "fail")];
 
-    const result = await execute(app, CheckItemsWorkflowStart, items, { ...who, record: true });
+    const result = await execute(app, CheckItemsWorkflowStart, items, {
+      ...who,
+      includeRecord: true,
+    });
 
     expect(result).toFinishWith(ChecksFailedWorkflowFinish, { text: "failed on one of 2" });
     const slots = result.record?.scope.map((value) => value.slot) ?? [];
     // the finished child's output joins the scope as a list of the finished items (#945)
-    expect(slots).toEqual(["list:ItemDto", "list:ItemResultDto"]);
+    expect(slots).toEqual(["list:ItemDto", "list:ItemResultDto", "SummaryDto"]);
     expect(result.record?.children.map((child) => [child.itemIndex, child.status])).toEqual(
       expect.arrayContaining([
         [0, ChildExecutionStatus.Finished],
@@ -149,7 +153,7 @@ describe("AC13: StepFailedError never catches a cancellation", () => {
       controller.abort();
     }, 20);
 
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
   });
 });
 
@@ -187,7 +191,7 @@ describe("the per-item children end at the summary when none fails", () => {
 
     expect(result).toFinishWith(ChecksSummaryWorkflowFinish, { text: "a, b, c" });
     expect(childLog.mostInFlight).toBe(2);
-    // AC6: each value arrives as Produced<ItemResultDto, typeof ItemCheckWorkflow>
+    // AC6: each value arrives as Tracked<ItemResultDto, typeof ItemCheckWorkflow>
     expect(childLog.producers).toEqual([ItemCheckWorkflow, ItemCheckWorkflow, ItemCheckWorkflow]);
   });
 });

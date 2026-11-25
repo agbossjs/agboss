@@ -1,12 +1,11 @@
 import { errorRecordOf } from "../core/error-record.js";
-import { reportedKeyOf } from "./outbound-call-business.js";
+import { shortKeyOrThrow } from "./outbound-call-keys.js";
 import type { FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type {
   OutboundCallEventOutcome,
   OutboundCallClosedLease,
 } from "../infrastructure/execution-audit-log.repository.js";
-import type { OutboundCallSettings } from "../infrastructure/fenced-effect-settings.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { FrameworkLog, LogSubject } from "../infrastructure/logger.js";
 import type { EffectKey, FencedEffectOrigin } from "../infrastructure/fenced-effect.repository.js";
@@ -17,17 +16,20 @@ import type {
   OutboundCallStatus,
 } from "../infrastructure/outbound-call.repository.js";
 import {
-  OutboundCallPayloadTooLargeError,
-  OutboundCallUnmaskedError,
+  payloadTooLargeError,
   REDACTED,
-  type OutboundCall,
-  type OutboundCallLookup,
-  type OutboundCallSendOptions,
-  type OutboundCallOutcome,
-  type OutboundCallSendStatus,
-  type OutboundCallResultNotStoredReason,
-  OutboundCallPart,
-} from "./outbound-calls.js";
+  unmaskedError,
+  type OutboundCallPart,
+} from "./outbound-call-errors.js";
+import type {
+  OutboundCall,
+  OutboundCallLookup,
+  OutboundCallOutcome,
+  OutboundCallRun,
+  OutboundCallSendStatus,
+  OutboundCallResultNotStoredReason,
+} from "./outbound-call-types.js";
+import { Ttl, type Bytes, type Milliseconds } from "../units/index.js";
 
 /**
  * The parts of the outbound-call protocol (#505), loaded with it: one call in flight and what it
@@ -40,20 +42,28 @@ import {
 /** What the protocol runs on: the store and the application's settings. */
 export interface OutboundCallParts {
   readonly repository: OutboundCallRepository;
-  readonly settings: OutboundCallSettings;
-  /** The calls the instance is making now, by key (`OutboundCalls`' own): what a second one joins. */
+  /** Whether a request is stored only masked: the application lists PII policies (set by the assembly). */
+  readonly requiresMask: boolean;
+  /** The calls the instance is making now, by key (`Idempotency`'s own): what a second one joins. */
   readonly live: Map<string, LiveCall>;
   /** The attempt owners this instance is sending under now (#508): their attempts are in flight. */
   readonly owners: Set<string>;
   /** The instance's log (#508): two attempts that reached the other system, a late answer. */
   readonly log: FrameworkLog;
   /** The application's clock (#658): its monotonic time ages a key between the read and the resend. */
-  readonly clock: Pick<Clock, "monotonicNow">;
+  readonly clock: Pick<Clock, "monotonicNow" | "now" | "sleep">;
 }
 
 /** How a call this instance makes ended (#508): `isAnswered` once the other system answered it. */
 export interface CallAnswer {
   isAnswered: boolean;
+  /**
+   * The attempt passed its `timeout` and its `send` is still out (#1317): its owner stays live — no
+   * call of this instance reconciles or resends it — until the late answer settles it.
+   */
+  isLate?: boolean;
+  /** Settled when the late answer of a timed-out attempt did: its lease is kept open until then. */
+  lateTail?: Promise<void>;
 }
 
 /**
@@ -70,7 +80,7 @@ export interface LiveCall {
 export interface CallRun<TRequest, TResult> {
   readonly parts: OutboundCallParts;
   readonly key: EffectKey;
-  readonly options: OutboundCallSendOptions<TRequest, TResult>;
+  readonly options: OutboundCallRun<TRequest, TResult>;
   readonly frame: FrameSpec;
   readonly idempotencyKey: string;
   /** Whether the other system answered its attempt with an error: what a joined call shares. */
@@ -78,9 +88,24 @@ export interface CallRun<TRequest, TResult> {
 }
 
 /**
+ * When a row that is written at `now` may be removed (#1317): `ttl` later on the application's
+ * clock, `null` for `Ttl.Forever` (never).
+ */
+export const expiryOf = (
+  clock: Pick<Clock, "now">,
+  ttl: Milliseconds | Ttl.Forever,
+): Date | null => (ttl === Ttl.Forever ? null : new Date(clock.now().getTime() + ttl));
+
+/** When the intent of `run` that ends now may be removed: its call's `ttl` from now. */
+export const endExpiryOf = (run: {
+  readonly parts: { readonly clock: Pick<Clock, "now"> };
+  readonly options: { readonly ttl: Milliseconds | Ttl.Forever };
+}): Date | null => expiryOf(run.parts.clock, run.options.ttl);
+
+/**
  * `value` as the store keeps it: masked by the frame's mask, as JSON, within the limit — else
- * `OutboundCallPayloadTooLargeError`; no mask while the application lists policies →
- * `OutboundCallUnmaskedError` (never stored raw).
+ * `OutboundCallError.PayloadTooLarge`; no mask while the application lists policies →
+ * `OutboundCallError.Unmasked` (never stored raw).
  */
 export async function storedJson<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
@@ -88,13 +113,12 @@ export async function storedJson<TRequest, TResult>(
   value: unknown,
 ): Promise<string> {
   const mask = run.frame.execution.observability;
-  if (mask === undefined && run.parts.settings.requiresMask)
-    throw new OutboundCallUnmaskedError({ call: run.key.name });
+  if (mask === undefined && run.parts.requiresMask) throw unmaskedError(run.key.name);
   const text = JSON.stringify(mask === undefined ? value : await mask.value(value));
-  const size = Buffer.byteLength(text, "utf8");
-  const { maxPayloadSize } = run.parts.settings;
+  const size = Buffer.byteLength(text, "utf8") as Bytes;
+  const { maxPayloadSize } = run.options;
   if (size > maxPayloadSize)
-    throw new OutboundCallPayloadTooLargeError({ call: run.key.name, part, size, maxPayloadSize });
+    throw payloadTooLargeError({ call: run.key.name, part, size, maxPayloadSize });
   return text;
 }
 
@@ -125,7 +149,7 @@ export async function maskedTextOf<TRequest, TResult>(
     run.parts.log.warn("outbound-call.text-redacted", why, subjectOf(run));
     return REDACTED;
   };
-  if (mask === undefined) return run.parts.settings.requiresMask ? redacted() : text;
+  if (mask === undefined) return run.parts.requiresMask ? redacted() : text;
   return mask.traceData(text).then(String, redacted);
 }
 
@@ -167,10 +191,10 @@ export async function storedResultOf<TRequest, TResult>(
   result: unknown,
 ): Promise<string> {
   try {
-    return await storedJson(run, OutboundCallPart.Result, result);
+    return await storedJson(run, "result", result);
   } catch (error) {
     const { code } = errorRecordOf(error);
-    const why = `the result of outbound call "${run.key.name}" (${run.options.operation} on ${run.options.target}) was not stored (${code}): its intent is completed without it — a replay fails with OutboundCallResultNotStoredError`;
+    const why = `the result of outbound call "${run.key.name}" (${run.options.operation} on ${run.options.target}) was not stored (${code}): its intent is completed without it — a replay fails with OutboundCallError.ResultNotStored`;
     run.parts.log.warn("outbound-call.result-not-stored", why, subjectOf(run));
     return JSON.stringify({ [RESULT_NOT_STORED]: notStoredReasonOf(code) });
   }
@@ -180,17 +204,19 @@ export async function storedResultOf<TRequest, TResult>(
 export const callOf = <TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   attempt: number,
+  signal: AbortSignal,
 ): OutboundCall<TRequest> => ({
   idempotencyKey: run.idempotencyKey,
+  shortKey: (length) => shortKeyOrThrow(run.idempotencyKey, length),
   request: run.options.request,
   attempt,
   target: run.options.target,
   operation: run.options.operation,
-  signal: run.frame.execution.signal,
+  signal,
 });
 
 /**
- * What `reconcile` gets: the request as stored (masked), the key to look the call up by, when its
+ * What the lookup gets: the request as stored (masked), the key to look the call up by, when its
  * pending attempt started and how old its key is (#658).
  */
 export const lookupOf = <TRequest, TResult>(
@@ -199,6 +225,7 @@ export const lookupOf = <TRequest, TResult>(
   ages: Pick<OutboundCallLookup, "attemptStartedAt" | "keyAge">,
 ): OutboundCallLookup => ({
   idempotencyKey: run.idempotencyKey,
+  shortKey: (length) => shortKeyOrThrow(run.idempotencyKey, length),
   storedRequest: found.request,
   attempt: found.attempt,
   ...ages,
@@ -218,8 +245,8 @@ export const outcomeOf = <TRequest, TResult>(
   // the JSON of a result of this call: what `send` or `reconcile` answered, or what was stored
   result: JSON.parse(JSON.stringify(result)) as TResult,
   attempt,
-  // a business key never in what the step may hand a model (#508): its handle only
-  idempotencyKey: reportedKeyOf(run.key, run.idempotencyKey),
+  // the call's wire key: an HMAC, never a business key (#1317d)
+  idempotencyKey: run.idempotencyKey,
 });
 
 /** What a move tells besides its state (#508): who made a replay, the newer attempt, a closed lease. */

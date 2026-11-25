@@ -1,25 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { describeApplication } from "../../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { describeServices } from "../../src/describe/describe-workflow.js";
 import { workflowSnapshotOf } from "../../src/describe/snapshot.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { StepFailedError } from "../../src/graph/errors.js";
-import { EmptyEnvironment } from "../../src/index.js";
+import { EmptyEnvironment, Ttl } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
   BookTripAction,
-  BookingDto,
   CancelBookingAction,
   ConfirmTripAction,
   TripBookedWorkflowFinish,
-  TripConfirmedDto,
   TripNotBookedWorkflowFinish,
-  TripRequestDto,
   TripWorkflowStart,
 } from "../flow/fixtures/compensation-parts.js";
-import { start, toAction } from "../flow/fixtures/paths.js";
+import { onStart, toAction } from "../flow/fixtures/paths.js";
 
 /**
  * #339 AC4 — `agboss describe` prints each action's `compensateWith` / `committedBy`, and
@@ -30,14 +27,12 @@ import { start, toAction } from "../flow/fixtures/paths.js";
 @Workflow({
   name: "booking-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TripWorkflowStart)
-      .returns(TripRequestDto)
+    onStart(TripWorkflowStart)
       .toAction(BookTripAction)
-      .returns(BookingDto)
       .toAction(ConfirmTripAction)
       .onError(StepFailedError, toAction(CancelBookingAction).toFinish(TripNotBookedWorkflowFinish))
-      .returns(TripConfirmedDto)
       .toFinish(TripBookedWorkflowFinish),
   ],
 })
@@ -58,7 +53,7 @@ if (booking === undefined) throw new TypeError("the application lists one workfl
 
 describe("#339 AC4: describe shows declared compensation", () => {
   it("the text: one line per action that declares it", () => {
-    const lines = describeApplication(assembled);
+    const lines = describeAssembledApplication(assembled);
 
     expect(lines).toContain(
       "  book-trip-action  compensateWith cancel-booking-action · committedBy confirm-trip-action",
@@ -80,7 +75,7 @@ describe("#339 AC4: describe shows declared compensation", () => {
 describe("#340: a launched action's undo is automatic on a failed join", () => {
   it("the text says so after its compensateWith", async () => {
     const { UndoApplication } = await import("../flow/runtime/fixtures/undo.workflow.js");
-    const lines = describeApplication(await applicationOf(UndoApplication));
+    const lines = describeAssembledApplication(await applicationOf(UndoApplication));
 
     expect(lines).toContain(
       "  reserve-room-action  compensateWith release-room-action  (on a failed join: automatic)",

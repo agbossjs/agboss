@@ -64,15 +64,15 @@ describe("#909: CancelFoundHooks", () => {
     hooks.whenCancelFound(() => ran.push("b"));
 
     expect(ran).toEqual([]);
-    hooks.cancelFound();
+    hooks.cancelFound(REFUSAL);
     expect(ran).toEqual(["a", "b"]);
-    hooks.cancelFound();
+    hooks.cancelFound(REFUSAL);
     expect(ran).toEqual(["a", "b", "a", "b"]);
   });
 
   it("with no listener, telling does nothing", () => {
     expect(() => {
-      new CancelFoundHooks().cancelFound();
+      new CancelFoundHooks().cancelFound(REFUSAL);
     }).not.toThrow();
   });
 });

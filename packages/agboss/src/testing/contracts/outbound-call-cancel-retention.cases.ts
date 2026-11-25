@@ -31,8 +31,8 @@ export const outboundCancelRetentionCases = (): ContractGroup<OutboundCallTarget
         await clock.advance(hours(48));
         await first.leases.retire(root);
         const cutoff = new Date(clock.now().getTime() + hours(24));
-        await first.calls.deleteByEndedAtBefore(cutoff);
-        await second.calls.deleteByEndedAtBefore(cutoff);
+        await first.calls.deleteExpired(cutoff);
+        await second.calls.deleteExpired(cutoff);
         const later = await leaseOf(first, "child-2", hours(1000));
 
         const ofChild = await rejectionOf(
@@ -54,7 +54,7 @@ export const outboundCancelRetentionCases = (): ContractGroup<OutboundCallTarget
       run: async ({ clock, first, second }) => {
         await second.leases.requestCancel({ tenantId: "default", rootExecutionId: "execution-1" });
         await clock.advance(hours(48));
-        await second.calls.deleteByEndedAtBefore(new Date(clock.now().getTime() + hours(24)));
+        await second.calls.deleteExpired(new Date(clock.now().getTime() + hours(24)));
         const lease = await leaseOf(first);
         const key = keyOf(lease, "pay");
 

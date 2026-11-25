@@ -84,7 +84,7 @@ describe("#685: counted once after a takeover", () => {
           scope === BudgetScope.Execution
             ? { budget: { name }, scope, key: done.executionId, maxSpend: 0 }
             : { budget: { name }, scope, key: each.key, period: BudgetPeriod.Day, maxSpend: 0 };
-        return Math.round((await ledger.findSpentByCounter(counterOf(record, now))) * 100);
+        return Math.round((await ledger.findUsageByCounter(counterOf(record, now))).spent * 100);
       }),
     );
     expect(counted).toEqual([paid, paid, paid]);

@@ -7,11 +7,12 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import {
   ItemDto,
   ItemResultDto,
@@ -72,8 +73,8 @@ function atItemGate(item: string, signal: AbortSignal): Promise<void> {
 export class ClaimRoomHoldAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name } = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name } = input.item;
     roomLog.atWork.add(name);
     roomLog.most = Math.max(roomLog.most, roomLog.atWork.size);
     try {
@@ -101,13 +102,13 @@ export class ClaimRoomItemWorkflowFinish {}
 
 /** The child: one item, one held action. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "claim-room-item-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ClaimRoomItemWorkflowStart)
-      .returns(ItemDto)
+    onStart(ClaimRoomItemWorkflowStart)
       .toAction(ClaimRoomHoldAction)
-      .returns(ItemResultDto)
       .toFinish(ClaimRoomItemWorkflowFinish),
   ],
 })
@@ -120,37 +121,42 @@ export class ClaimRoomItemWorkflow {}
 })
 export class ClaimRoomBatchWorkflowStart {}
 
-@WorkflowFinish({
-  name: "claim-room-batch-workflow-finish",
+@Action({
+  name: "claim-room-batch-action",
   description: "What was checked",
   input: { results: listOf(ItemResultDto) },
   output: SummaryDto,
 })
-export class ClaimRoomBatchWorkflowFinish {
-  finish(input: { readonly results: readonly Produced<ItemResultDto, unknown>[] }): SummaryDto {
+export class ClaimRoomBatchAction {
+  async execute(input: {
+    readonly results: readonly Tracked<ItemResultDto>[];
+  }): Promise<SummaryDto> {
     return {
       text: input.results
-        .map((result) => result.value.name)
+        .map((result) => result.name)
         .join(", "),
     };
   }
 }
 
+@WorkflowFinish({
+  name: "claim-room-batch-workflow-finish",
+  description: "What was checked",
+  output: SummaryDto,
+})
+export class ClaimRoomBatchWorkflowFinish {}
+
 /** Every item a child on any instance, all launched at once. */
 @Workflow({
   name: "claim-room-batch-workflow",
   version: "1.0.0",
-  maxConcurrentExecutions: 30,
+  historyTtl: Ttl.Forever,
+  executionLimits: { maxConcurrency: 30 },
   flow: [
-    start(ClaimRoomBatchWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(ClaimRoomItemWorkflow, {
-        maxConcurrency: 12,
-        maxItems: 12,
-        placement: ChildPlacement.AnyInstance,
-      })
+    onStart(ClaimRoomBatchWorkflowStart)
+      .forEachItem(toWorkflow(ClaimRoomItemWorkflow), { takeFirst: 12, maxConcurrency: 12 })
       .join()
-      .returns(listOf(ItemResultDto))
+      .toAction(ClaimRoomBatchAction)
       .toFinish(ClaimRoomBatchWorkflowFinish),
   ],
 })
@@ -163,7 +169,7 @@ export class ClaimRoomBatchWorkflow {}
   environment: EmptyEnvironment,
   workflows: [ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 3,
+  executionLimits: { maxConcurrentSteps: 3 },
 })
 export class ClaimRoomApplication {}
 

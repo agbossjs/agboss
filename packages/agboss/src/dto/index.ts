@@ -5,25 +5,27 @@
 import "../polyfills/symbol-metadata.js";
 
 export {
+  Bool,
   CountryCode,
   CurrencyCode,
-  Date,
-  DateTime,
-  Decimal,
   DecimalString,
-  Duration,
   Email,
-  Flag,
+  Enum,
+  Float,
   Integer,
-  ListOf,
+  IsoDate,
+  IsoDateTime,
+  IsoDuration,
+  KeyText,
+  List,
   MediaType,
   Nested,
-  OneOf,
   PhoneNumber,
   Text,
   TimeZone,
   Url,
   Uuid,
+  Validate,
   type ListItem,
 } from "./decorators.js";
 export {
@@ -34,7 +36,10 @@ export {
   type DtoErrorOptions,
   type DtoIssue,
 } from "./errors.js";
+export { maskDto } from "./redact.js";
+export { jsonSchemaOf, validate } from "./schema.js";
 export type {
+  DtoCheck,
   DtoClass,
   FieldDecorator,
   FieldFactory,
@@ -42,11 +47,11 @@ export type {
   OptionalField,
   RequiredField,
   Sensitivity,
+  ValidationIssue,
 } from "./types.js";
 export {
   NoInputDto,
   PlainTextDto,
-  RagSearchResultDto,
   ReplyInterpreterNotUnderstoodDto,
   ToolCallApprovalAskDto,
   ToolCallApprovalDecisionDto,
@@ -56,39 +61,30 @@ export {
   WorkflowStartTextDto,
 } from "./standard/framework.js";
 export {
+  File,
+  FileDto,
+  FilePayloadSource,
+  WorkflowFinishFileDto,
+  WorkflowFinishFilesDto,
+  type FileDtoOptions,
+  type FileFieldOptions,
+} from "./standard/file.js";
+export {
   AddressDto,
-  AttachmentDto,
   ContactInfoDto,
   DateRangeDto,
   DateTimeRangeDto,
   MoneyDto,
   PersonNameDto,
-  RagSourceReferenceDto,
 } from "./standard/domain.js";
-/** The DTO wrappers of the flow (#272): the same values as the root entry's. */
-export {
-  historyOf,
-  isVariant,
-  listOf,
-  oneOf,
-  optional,
-  variant,
-  type HistoryOf,
-  type HistoryOptions,
-  type HistoryWrapper,
-  type ListWrapper,
-  type OneOfWrapper,
-  type OptionalWrapper,
-  type OutputShape,
-  type Produced,
-  type ProducedValue,
-  type ValueOf,
-  type ValueShape,
-  type Variant,
-  type VariantOf,
-} from "../flow/dto-wrappers.js";
-export { type ListOptions, type OneOfOptions } from "./decorators.js";
+export { type EnumOptions, type ListOptions } from "./decorators.js";
 export { type ToolArguments } from "./standard/framework.js";
-export { type DecimalStringLimits, type NumberLimits, type TextLimits } from "./types.js";
+export {
+  type DecimalStringLimits,
+  type KeyTextOptions,
+  type NumberLimits,
+  type TextLimits,
+} from "./types.js";
 /** @beta Type machinery of the DTO decorators and wrappers: not a contract, names may change. */
 export type * as DtoTypes from "./dto-types.js";
+export { ValidationError, ValidationErrorKind } from "../core/error-families/effect-errors.js";

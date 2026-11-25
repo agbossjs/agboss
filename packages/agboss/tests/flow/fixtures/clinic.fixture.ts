@@ -1,6 +1,6 @@
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
-import { Injectable, Tool, type ToolHandler } from "../../../src/components/decorators.js";
-import { ListOf, Nested, Text } from "../../../src/dto/index.js";
+import { OwnerToolApproval } from "./owner-approval.fixture.js";
+import { Injectable, Tool } from "../../../src/components/decorators.js";
+import { List, Nested, Text } from "../../../src/dto/index.js";
 import { PiiAction } from "../../../src/pii/actions.js";
 import { ApplicationContext } from "../../../src/flow/context/application-context.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
@@ -13,10 +13,11 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import type { OnExecutionRejected } from "../../../src/core/observer-hooks.js";
 import type { ExecutionRejectedEvent } from "../../../src/core/observability.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { start } from "./paths.js";
+import { onStart } from "./paths.js";
+import { Observer, inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #261 PR 3 — a clinic: the project's tenant level (its units) and execution level (the clinician
@@ -33,12 +34,12 @@ export class UnitDto {
 }
 
 export class ClinicianDto {
-  @Text({ sensitive: PiiAction.replaceWithKind() })
+  @Text({ sensitive: PiiAction.mask() })
   clinicianId!: string;
 }
 
 export class ClinicTenantContext extends TenantContext {
-  @ListOf(UnitDto)
+  @List(UnitDto)
   units!: UnitDto[];
 }
 
@@ -75,8 +76,8 @@ export function resetClinicSeen(): void {
 }
 
 /** Records every refused request (an invalid context value is one). */
-@Injectable()
-export class ClinicRejectionsObserver implements OnExecutionRejected {
+@Observer()
+export class ClinicRejectionsObserver {
   onExecutionRejected(event: ExecutionRejectedEvent): void {
     clinicSeen.rejections.push(event);
   }
@@ -111,13 +112,13 @@ export class BedsDto {
   output: BedsDto,
   deps: [ClinicExecutionContext, UnitDirectoryService],
 })
-export class FreeBedsTool implements ToolHandler<BedQueryDto, BedsDto> {
+export class FreeBedsTool {
   constructor(
     private readonly clinicExecutionContext: ClinicExecutionContext,
     private readonly unitDirectoryService: UnitDirectoryService,
   ) {}
 
-  run(input: BedQueryDto): Promise<BedsDto> {
+  execute(input: BedQueryDto): Promise<BedsDto> {
     const { tenant, clinician, unitId } = this.clinicExecutionContext;
     clinicSeen.readings.push({
       tenantId: tenant.tenantId,
@@ -135,15 +136,15 @@ export class FreeBedsTool implements ToolHandler<BedQueryDto, BedsDto> {
 @Tool({
   name: "book-bed-tool",
   description: "Books a bed",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: BedQueryDto,
   output: BedsDto,
   deps: [ClinicExecutionContext],
 })
-export class BookBedTool implements ToolHandler<BedQueryDto, BedsDto> {
+export class BookBedTool {
   constructor(private readonly clinicExecutionContext: ClinicExecutionContext) {}
 
-  run(input: BedQueryDto): Promise<BedsDto> {
+  execute(input: BedQueryDto): Promise<BedsDto> {
     const { tenant, clinician } = this.clinicExecutionContext;
     clinicSeen.readings.push({
       tenantId: tenant.tenantId,
@@ -160,7 +161,7 @@ export class BookBedTool implements ToolHandler<BedQueryDto, BedsDto> {
 @Agent({
   name: "bed-agent",
   description: "Finds and books beds",
-  prompt: "Find a bed.",
+  prompt: inline("Find a bed."),
   tools: [FreeBedsTool, BookBedTool],
   model: "test/bed",
   input: { message: WorkflowStartTextDto },
@@ -208,13 +209,12 @@ export class BedsWorkflowFinish {}
 @Workflow({
   name: "bed-request-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 3 } },
   providers: [UnitDirectoryService],
   flow: [
-    start(BedRequestWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(BedRequestWorkflowStart)
       .toAgent(BedAgent)
-      .returns(BedsDto)
       .toAction(AuditBedAction)
       .toFinish(BedsWorkflowFinish),
   ],
@@ -223,6 +223,7 @@ export class BedRequestWorkflow {}
 
 @Application({
   name: "clinic-application",
+  modelProvider: TestModelProvider,
   version: "2.1.0",
   environment: EmptyEnvironment,
   workflows: [BedRequestWorkflow],

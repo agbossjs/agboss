@@ -20,6 +20,9 @@ export default defineConfig({
       "tests/a2a/client/a2a-client-{units,accept.units,mesh.units,hardening,wire,in-execution,files,direct,finishes-app}.test.ts",
       "tests/mesh/mesh-audience.test.ts",
       "tests/mesh/mesh-verification-units.test.ts",
+      // #1320: what a client signs, and never across an origin
+      "tests/a2a/client/a2a-mesh-http-sign.test.ts",
+      "tests/mcp/mcp-signed-fetch.test.ts",
       "tests/mcp/mcp-mesh-trust.test.ts",
       // #810: the mesh end to end, the takeover's charges
       "tests/a2a/mesh/*.test.ts",

@@ -58,7 +58,7 @@ describe("#825 AC3: the pending calls, a page at a time", () => {
     expect(all.next).toBeUndefined();
     // a business key by its handle only, as every read shows it (#508)
     expect(all.calls.every((call) => call.businessKey === undefined)).toBe(true);
-    expect(all.calls[0]?.idempotencyKey).toMatch(/^business-key:[0-9a-f]{12}:charge$/u);
+    expect(all.calls[0]?.idempotencyKey).toMatch(/^[A-Za-z0-9_-]{43}$/u);
   });
 
   test("another tenant's pending calls are never on the page", async ({ app }) => {

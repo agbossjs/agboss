@@ -15,7 +15,7 @@ import { FlowPatternsApplication } from "../../../../src/flow-patterns.applicati
 
 /**
  * A failed join undoes its finished branches automatically (#340): the flight booked, the hotel
- * refused — the flight is cancelled (`CompensationReason.JoinFailed`) before the `.onJoinError`
+ * refused — the flight is cancelled (`CompensationReason.JoinFailed`) before the `.onError`
  * side path finishes; both booked — the finish commits them, nothing is undone.
  */
 

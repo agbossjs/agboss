@@ -26,7 +26,7 @@ describe("the code judge reads the visit's tool calls", () => {
     const result = await app.execute(
       DeskWorkflowStart,
       { customerId: "c-1", question: "Where is #7?" },
-      { record: true },
+      { includeRecord: true },
     );
 
     const steps = result.record?.steps.filter((entry) => entry.step.nodeId === "desk-agent") ?? [];

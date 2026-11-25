@@ -1,10 +1,11 @@
+import type { Page } from "../app/page.js";
 import type {
   ExecutionHistoryRecord,
   ExecutionHistoryRepository,
 } from "./execution-history.repository.js";
 
 /**
- * The export of kept executions (#401 PR 1, `agboss records export`): JSON Lines, one record per
+ * The export of kept executions (#401 PR 1, `agboss executions export`): JSON Lines, one record per
  * line, each self-describing — `{ "kind": "agboss.execution-record", "schema": 1, …record }` — so
  * a reader recognises the file by its lines, not by its name or folder. The records are masked as
  * they were kept.
@@ -36,18 +37,20 @@ export async function* historyRecordsOf(
   history: ExecutionHistoryRepository,
   query: HistoryExportQuery,
 ): AsyncGenerator<ExecutionHistoryRecord> {
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const page = { offset, limit: PAGE_SIZE };
-    const found =
+  let cursor: string | undefined;
+  do {
+    const { from, to } = query;
+    const page: Page<ExecutionHistoryRecord> =
       query.tenantId === undefined
-        ? await history.findAllByStartedAtBetween(query.from, query.to, page)
-        : await history.findAllByTenantIdAndStartedAtBetween(
-            query.tenantId,
-            query.from,
-            query.to,
-            page,
-          );
-    yield* found;
-    if (found.length < PAGE_SIZE) return;
-  }
+        ? await history.findAllByStartedAtBetween({ from, to, limit: PAGE_SIZE, cursor })
+        : await history.findAllByTenantIdAndStartedAtBetween({
+            tenantId: query.tenantId,
+            from,
+            to,
+            limit: PAGE_SIZE,
+            cursor,
+          });
+    yield* page.items;
+    cursor = page.nextCursor;
+  } while (cursor !== undefined);
 }

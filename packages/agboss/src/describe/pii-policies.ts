@@ -15,7 +15,7 @@ import type { AssembledWorkflow } from "../workflow.js";
 export interface DescribedPiiRule {
   /** The kind or group (`email`, `contact`), or `findMatches()` for a project's own detector. */
   readonly target: string;
-  /** `replaceWithToken()`, `replacePart({"keepLast":4})`, `blockWithRefusal()`. */
+  /** `tokenize()`, `mask({"keepLast":4})`, `block()`. */
   readonly action: string;
   /** A block rule's refusal: its text, or `ClassName.refusal()`; absent for a masking rule. */
   readonly refusal?: string;
@@ -27,8 +27,8 @@ export interface DescribedPiiPolicy {
   /** The class's name (a refusal computed by it is `ClassName.refusal()`). */
   readonly className: string;
   readonly rules: readonly DescribedPiiRule[];
-  /** `detectWithModel` of a declarative policy. */
-  readonly detectWithModel?: string;
+  /** `model` of a declarative policy. */
+  readonly model?: string;
   /** The agents and routers whose models it covers, by name. */
   readonly elements: readonly string[];
   /** Whether it masks the workflow's logs, traces, events and records (an application or workflow policy). */
@@ -37,13 +37,13 @@ export interface DescribedPiiPolicy {
 
 /** A block rule's refusal: the rule's own text, else the class's `refusal(kind)`. */
 function refusalOf(cls: Class, action: AnyPiiAction): string | undefined {
-  if (action.kind !== PiiActionKind.BlockWithRefusal) return undefined;
+  if (action.kind !== PiiActionKind.Block) return undefined;
   return action.refusal === undefined ? `${cls.name}.refusal()` : JSON.stringify(action.refusal);
 }
 
 /** A block rule is shown by its kind; the refusal is its own field. */
 const ruleActionText = (action: AnyPiiAction): string =>
-  action.kind === PiiActionKind.BlockWithRefusal ? "blockWithRefusal()" : actionText(action);
+  action.kind === PiiActionKind.Block ? "block()" : actionText(action);
 
 function rulesOf(cls: Class): readonly DescribedPiiRule[] {
   const meta = piiPolicyMetaOf(cls);
@@ -52,7 +52,7 @@ function rulesOf(cls: Class): readonly DescribedPiiRule[] {
   return meta.rules.map((rule) => {
     const refusal = refusalOf(cls, rule.action);
     return {
-      target: rule.target,
+      target: rule.target.id,
       action: ruleActionText(rule.action),
       ...(refusal === undefined ? {} : { refusal }),
     };
@@ -69,13 +69,13 @@ export function describedPiiPoliciesOf(bundle: AssembledWorkflow): readonly Desc
     const elements = [...pii.byElement]
       .filter(([, classes]) => classes.includes(cls))
       .map(([element]) => element);
-    const detectWithModel = isCustomPolicy(meta) ? undefined : meta.detectWithModel;
+    const model = isCustomPolicy(meta) ? undefined : meta.model;
     return [
       {
         name: meta.name,
         className: cls.name,
         rules: rulesOf(cls),
-        ...(detectWithModel === undefined ? {} : { detectWithModel }),
+        ...(model === undefined ? {} : { model }),
         elements,
         masksObservability: pii.observability.includes(cls),
       },
@@ -144,8 +144,7 @@ export function piiPolicyLines(bundle: AssembledWorkflow): string[] {
   return [
     "pii policies",
     ...policies.map((policy) => {
-      const model =
-        policy.detectWithModel === undefined ? "" : ` · detectWithModel ${policy.detectWithModel}`;
+      const model = policy.model === undefined ? "" : ` · model ${policy.model}`;
       const logs = policy.masksObservability ? " · masks logs and traces" : "";
       const on = policy.elements.join(", ") || "none";
       return `  ${policy.name} — ${policy.rules.map(ruleText).join(", ")}${model} · on ${on}${logs}`;

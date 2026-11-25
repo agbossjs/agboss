@@ -1,4 +1,4 @@
-import type { FileRuleCode } from "../files/file-rule-codes.js";
+import type { ExtraRuleCode } from "./extra-rule-codes.js";
 /** Codes of the assembly rules — stable, for people and for tests. */
 export type RuleCode =
   | "graph.not-a-node"
@@ -16,10 +16,9 @@ export type RuleCode =
   | "flow.shared-node-inline"
   | "flow.single-entry-own-path"
   | "flow.continuation-twice"
-  | "flow.switch-not-exhaustive"
-  | "flow.switch-unknown-case"
+  | "flow.one-of-not-exhaustive"
+  | "flow.one-of-ambiguous"
   | "flow.duplicate-error-handler"
-  | "flow.returns-mismatch"
   | "flow.path-too-deep"
   | "flow.analysis-too-large"
   | "flow.unused-output"
@@ -28,35 +27,26 @@ export type RuleCode =
   | "input.missing-on-path"
   | "input.never-produced"
   | "input.several-on-path"
-  | "input.history-limit"
+  | "input.history-max-previous"
   // outdating (#271 PR 1), reported by `src/flow/analyse`
   | "input.outdated-on-path"
-  | "io.ambiguous-cycle"
-  | "io.ambiguous-about"
-  | "io.about-on-start"
   | "router.duplicate-route"
   | "router.empty-input"
-  | "router.no-model"
-  | "router.policy-with-choose-one"
-  | "router.all-routes-always"
   // parallel launches (#273 PR 1), reported by `src/flow/analyse`
-  | "router.spawn-required"
-  | "router.prompt-on-always"
   | "launch.join-required"
-  | "launch.max-items-required"
-  | "launch.max-items-without-list"
   | "launch.item-not-read"
+  | "launch.unjoinable-output"
   | "launch.branch-continued"
   | "launch.branch-outdates-sibling"
   // quorums (#279 PR 1), reported by `src/flow/analyse`
   | "flow.quorum-impossible"
-  | "flow.quorum-return-not-optional"
   | "arbiter.not-an-arbiter"
-  | "arbiter.unhandled-agent"
-  | "arbiter.unknown-agent"
-  | "arbiter.duplicate-agent"
-  | "arbiter.answer-method-on-model"
-  | "arbiter.method-name"
+  | "arbiter.unhandled-target"
+  | "arbiter.unknown-target"
+  | "arbiter.duplicate-target"
+  | "arbiter.branch-has-no-output"
+  // a code arbiter that names a model or a provider without `ArbiterModel` in `deps` (#1283b)
+  | "arbiter.model-without-arbiter-model"
   // child workflows (#263 PR 1), reported by `src/flow/analyse`
   | "graph.no-matching-start"
   | "graph.ambiguous-start"
@@ -86,16 +76,14 @@ export type RuleCode =
   // a timer-backed duration above its documented maximum (#1141): it would fire at once
   | "limits.timeout-invalid"
   // the fenced effects' settings (#500), and their store beside its lease store
-  | "application.fenced-effects-invalid"
   | "application.store-backend-mismatch"
   | "application.store-backend-undeclared"
   // a listed store's static store that is no StoreDescriptor (#825)
   | "application.store-descriptor-invalid"
   | "application.idempotency-key-required"
-  | "application.idempotency-key-shared"
   | "application.pii-key-shared"
   // an application serving A2A keeps its tasks where its instances share them (#824)
-  | "a2a.expose-description-required"
+  | "a2a.endpoint-description-required"
   | "a2a.task-store-not-shared"
   | "a2a.message-store-not-shared"
   | "a2a.message-skill-pause"
@@ -109,33 +97,40 @@ export type RuleCode =
   | "a2a.file-store-not-shared"
   | "a2a.nested-file-field"
   | "a2a.unknown-finish"
-  // an @A2AAgent price that is no finite number of dollars from 0 (#1382)
-  | "a2a.price-invalid"
-  | "application.outbound-calls-invalid"
+  // an @A2AAgent costPerCall that is no finite number of dollars from 0 (#1382)
+  | "a2a.cost-per-call-invalid"
   // every retention of @Application({ retention }) (#834)
   | "application.retention-invalid"
-  | "mesh.signing-key-missing"
-  | "mesh.unknown-peer-key"
+  | "mesh.not-a-mesh"
+  | "mesh.limit-invalid"
+  | "mesh.peer-without-keys"
+  | "mesh.unknown-endpoint"
   | "mesh.duplicate-peer"
-  | "application.not-an-expose"
-  | "application.duplicate-expose"
-  | "application.expose-unknown-start"
+  | "application.not-an-endpoint"
+  | "application.duplicate-endpoint"
+  | "application.endpoint-unknown-start"
   | "name.kind-suffix"
+  | "name.not-kebab-case"
   | "dto.name"
   | "dto.duplicate-name"
-  // a DTO that holds itself through @Nested / @ListOf (#1080)
+  // a DTO that holds itself through @Nested / @List (#1080)
   | "dto.cyclic"
+  // an action's oneOf / polymorphic listOf whose classes one plain value could all satisfy (#1288)
+  | "dto.ambiguous-one-of"
   | "tool.name-too-long"
   | "tool.name-invalid"
   // a bound on tool results (#336), reported at assembly by `src/components/assemble-tools.ts`
   | "tools.max-result-size-invalid"
   | "limits.max-steps-too-low"
   | "limits.max-steps-below-worst-case"
+  // a default maxSteps whose worst case is above 0.1.0's default (#1278, D8)
+  | "limits.max-steps-above-0.1.0-default"
   | "limits.branch-exceeds-max-steps"
   | "limits.max-steps-unused"
   // a maxSteps, maxVisits, maxToolCalls or maxRetries that is no whole number from 0 (#1373)
   | "limits.count-invalid"
   | "agent.dynamic-options"
+  | "agent.duplicate-rag"
   | "model.no-tool-calling"
   // type generation (#272 PR 3), reported by `src/flow/types`
   | "types.unexported-class"
@@ -148,14 +143,15 @@ export type RuleCode =
   // health checks (#300): every listed class a @HealthCheck, one name each
   | "health.not-a-health-check"
   | "health.duplicate-name"
-  // pause listeners (#940): decorated, implementing the handler, one name each
-  | "pause-listener.not-a-handler"
-  | "pause-listener.duplicate-name"
+  // channel listeners (#940, #1310c): decorated, one name each
+  | "channel-listener.duplicate-name"
   // budgets at run time (#261 PR 5): every workflow, every tenant and the application capped
   | "budget.execution-budget-required"
   | "budget.duplicate-execution-budget"
   | "budget.duplicate-default-execution-budget"
   | "budget.tenant-budget-required"
+  | "budget.missing-limit"
+  | "budget.conflicting-limit"
   | "budget.application-budget-required"
   | "di.infrastructure-in-workflow"
   // environments and defaults (#261 PR 4), reported at the application's assembly
@@ -163,7 +159,6 @@ export type RuleCode =
   | "environment.missing-field"
   | "environment.conflicting-field"
   // guardrails (#120 PR 2), reported at each workflow's assembly
-  | "guardrail.no-model"
   | "guardrail.not-a-guardrail"
   | "guardrail.exclude-not-inherited"
   | "guardrail.missing-refusal"
@@ -175,68 +170,57 @@ export type RuleCode =
   // knowledge bases' reranking (#703)
   | "rag.rerank-invalid"
   // a knowledge base's declared tenancy (#796)
-  | "rag.tenancy-required"
+  | "rag.scope-required"
+  | "rag.custom-scope-missing-resolver"
   | "rag.not-a-reranker"
-  | "reranker.missing-handler"
-  | "reranker.decision-model"
   // code guardrails (#383): a DecidedBy.Code guardrail's class has its check(text)
   | "guardrail.missing-handler"
   // tool interceptors (#384), reported at each workflow's assembly
   | "tool-interceptor.not-an-interceptor"
   | "tool-interceptor.exclude-not-inherited"
   | "tool-interceptor.missing-handler"
-  // compaction (#120 PR 3), reported at each workflow's assembly
-  | "compaction.not-a-compaction"
-  | "compaction.invalid-setting"
-  | "compaction.decision-model"
-  | "compaction.uncompacted-turns-invalid"
-  // a custom compaction (#382) without its compact(input) method
-  | "compaction.missing-handler"
-  // model providers (#266 PR 1): every model of the application resolves to one provider
-  | "model.unserved"
-  | "model.ambiguous-provider"
+  | "tool-interceptor.target-not-a-tool"
+  | "tool-interceptor.duplicate-hook"
+  | "tool-interceptor.override-drops-target"
+  | "tool-interceptor.unresolved-tool"
+  | "tool-interceptor.duplicate-tool-name"
+  | "tool-interceptor.unknown-hook"
+  // memory (#1303), reported at each workflow's assembly
+  | "memory.not-a-memory"
+  | "memory.invalid-setting"
+  | "memory.uncompacted-turns-invalid"
+  | "memory.conflicting-compaction"
+  // model providers (#266 PR 1): every model of the application resolves to one provider through its cascade
+  | "model.missing-provider"
+  | "model.incompatible-provider"
+  | "model.missing"
   | "model.price-invalid"
   | "model-provider.both-modes"
-  | "model-provider.circuit-breaker-required"
-  | "model-provider.request-fields-missing"
   // contexts (#261 PR 3), reported at the application's assembly
   | "context.prompt-unused"
-  // channels (#267 PR 1): roles found from the graph, implementations in the application's providers
+  // pause targets (#267 PR 1, #1307): tools name their approval, a target's times and calendar
   | "channel.wrong-tool"
   | "channel.shared-interpreter"
-  | "channel.expires-in-invalid"
-  | "channel.remind-before-invalid"
-  | "channel.remind-before-exceeds-expiry"
-  | "channel.remind-before-below-tick"
+  | "pause.remind-before-invalid"
+  | "pause.remind-before-below-tick"
   // working time (#944): a calendar for every working duration, a grid that has working time
-  | "channel.remind-before-working-without-working-expiry"
-  | "channel.working-time-without-calendar"
+  | "pause.remind-before-working-without-working-timeout"
   | "working-calendar.invalid"
   | "working-calendar.duplicate-name"
-  | "tool.expires-in-without-channel"
-  | "question.expires-in-conflict"
-  // reply interpreters (#267 PR 3), reported at each workflow's assembly
-  | "reply-interpreter.not-an-interpreter"
+  // channel interpreters (#267 PR 3), reported at each workflow's assembly
   | "reply-interpreter.decision-model"
-  | "reply-interpreter.no-interpret-method"
-  | "di.missing-implementation"
   | "di.ambiguous-implementation"
-  // PII policies (#120 PR 1), reported at each workflow's assembly
-  | "pii.not-a-policy"
-  | "pii.exclude-not-inherited"
-  | "pii.conflicting-rules"
-  | "pii.missing-refusal"
-  | "pii.unused-refusal"
-  | "pii.kind-needs-model"
   // typed judges (#262 PR 4, S115): every class an agent answers with is one its judges judge
-  | "judge.wrong-reply"
+  | "judge.wrong-output"
   // a judge of its own model family (#396 PR 5): a warning, an error under --strict
   | "judge.same-model-family"
+  // an agent with judges and no retries (#1290): a warning, an error under --strict
+  | "judge.zero-retries"
   // eval suites (#396 PR 1), reported when a suite is assembled on its application
   | "eval.unknown-start"
   | "eval.duplicate-case"
-  | "eval.judge-wrong-reply"
-  // child placement (#333 PR 2): one placement per child in a flow
-  | "flow.conflicting-placement"
+  | "eval.judge-wrong-output"
+  // child placement (#1286b): IsolatedWorker needs the application's fork entry and a shared child queue
+  | "application.isolated-worker-invalid"
   // an agent's files for its model (#899)
-  | FileRuleCode;
+  | ExtraRuleCode;

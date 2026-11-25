@@ -5,16 +5,17 @@ import type {
   OnErrorStep,
   PathSource,
   Step,
-  SwitchStep,
+  OneOfStep,
+  OnFinishStep,
 } from "../ast.js";
 import type { RuleViolation } from "../../graph/rule-error.js";
-import type { OneOfWrapper } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import type { FlowGraph, FlowLaunch } from "./flow-graph.js";
+import type { OneOfResolution } from "./one-of.js";
 
 /** What one walk over a flow's paths gives the rules (`walk.ts`). */
 
-/** How a node is mentioned: entered (`.to…(X)`, `route(X)`), or as the source of its own path. */
+/** How a node is mentioned: entered (`.to…(X)`), or as the source of its own path. */
 export enum MentionKind {
   Entry = "entry",
   OwnPath = "own-path",
@@ -34,18 +35,18 @@ export interface Placement {
   readonly path: PathSource;
 }
 
-/** A `switch`, `chooseOne` or `onError` step and the node it follows. */
+/** An `onRoute`, `onError` or `toOneOf` step and the node it follows. */
 export interface BranchSite<TStep extends Step> {
   readonly node: ComponentName;
   readonly step: TStep;
 }
 
-/** A `.switch(…)` and the `.returns(oneOf(…))` written before it (#299 S54 c). */
-export interface SwitchSite extends BranchSite<SwitchStep> {
-  readonly returned?: OneOfWrapper;
+/** A `.toOneOf([…])`, the step it follows and the variant each branch took (#1275). */
+export interface OneOfSite extends BranchSite<OneOfStep> {
+  readonly resolution: OneOfResolution;
 }
 
-/** One `.onJoinError(E, …)` and the launch whose join it follows (#273). */
+/** One `.onError(E, …)` and the launch whose join it follows (#273). */
 export interface JoinErrorSite {
   readonly node: ComponentName;
   readonly launch: FlowLaunch;
@@ -63,7 +64,8 @@ export interface WalkedFlow {
   readonly graph: FlowGraph;
   readonly mentions: readonly Mention[];
   readonly placements: readonly Placement[];
-  readonly switches: readonly SwitchSite[];
+  readonly oneOfs: readonly OneOfSite[];
+  readonly onFinishes: readonly BranchSite<OnFinishStep>[];
   readonly choices: readonly BranchSite<ChooseOneStep>[];
   readonly errorHandlers: readonly BranchSite<OnErrorStep>[];
   /** Every parallel launch, in the order written (#273). */

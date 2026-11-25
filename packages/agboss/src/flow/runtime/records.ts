@@ -1,7 +1,7 @@
 /**
  * What an execution keeps of its data, as plain JSON (#270 S5, #271 S11): one record per slot of
  * the path scope, keyed by the slot (`OfferDraftDto`, `list:CompanyScoreDto`).
- * A record is rebuilt into `Produced<T, P>` on read from the registries (producer by `name`, variant
+ * A record is rebuilt into a tracked DTO on read from the registries (producer by `name`, variant
  * by DTO class name), so it survives a serialising checkpointer.
  */
 
@@ -25,7 +25,7 @@ export enum ComponentKind {
   Arbiter = "arbiter",
   /** `@InputGuardrail` / `@OutputGuardrail` (#120). */
   Guardrail = "guardrail",
-  /** `@Tool` / `@McpTool`. */
+  /** `@Tool`. */
   Tool = "tool",
   /** `@Judge`. */
   Judge = "judge",
@@ -33,10 +33,10 @@ export enum ComponentKind {
   Rag = "rag",
   /** `@Budget` (#261). */
   Budget = "budget",
-  /** `@Compaction` that writes summaries with a model (#120 PR 3). */
-  Compaction = "compaction",
-  /** `@ReplyInterpreter` (#267 PR 3). */
-  ReplyInterpreter = "reply-interpreter",
+  /** `@Memory` that writes summaries with a model (#1303). */
+  Memory = "memory",
+  /** `@ChannelInterpreter` (#267 PR 3). */
+  ChannelInterpreter = "reply-interpreter",
   /** `@PiiPolicy` that detects with a model (#120). */
   PiiPolicy = "pii-policy",
 }
@@ -75,7 +75,7 @@ export const plainRecordOf = ({
   schemaHash,
 }: ComponentRecord): ComponentRecord => ({ name, kind, promptHash, schemaHash });
 
-/** One element of a `listOf(oneOf(…))` value: its class and the value (#271 S11, 2026-10-17). */
+/** One element of a `listOf(…)` value: its class and the value (#271 S11, 2026-10-17). */
 export interface VariantElement {
   readonly variant: string;
   readonly value: unknown;
@@ -95,20 +95,13 @@ export interface ScopeValueRecord {
   readonly elementProducers?: readonly string[];
   /** The DTO class name of a `oneOf` value. */
   readonly variant?: string;
-  /** The value; a list slot holds an array (of `VariantElement`s for `listOf(oneOf(…))`). */
+  /** The value; a list slot holds an array (of `VariantElement`s for `listOf(…)`). */
   readonly value: unknown;
   /**
    * The `valueId`s the producer read when it built the value (#271 rule 3): its `input` fields, or
-   * every current value for an agent without `input`, and its `{ about }` targets — never an
-   * answer about the value it writes. A renewal of one of them outdates the value.
+   * every current value for an agent without `input`. A renewal of one of them outdates the value.
    */
   readonly builtFrom: readonly string[];
-  /**
-   * The slots the value is about (`{ about }` of its `.returns` or `caseOf` in the flow, #299 S54):
-   * a new value of one of them outdates it, and it never outdates them. Absent when it is about
-   * nothing.
-   */
-  readonly about?: readonly string[];
 }
 
 /** Why a value left the scope (#271 S11). */
@@ -117,8 +110,6 @@ export enum OutdatedReason {
   Replaced = "replaced",
   /** It was built from a value that was outdated. */
   BuiltFromReplaced = "built-from-replaced",
-  /** It is an answer about a value (`{ about: Target }`) that was outdated. */
-  AboutReplaced = "about-replaced",
 }
 
 /** How a value was outdated: the root trigger of the cascade (the new value) and why. */

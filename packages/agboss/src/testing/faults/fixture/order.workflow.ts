@@ -4,33 +4,33 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type Produced,
+  type Tracked,
+  Action,
 } from "../../../index.js";
 import type { Class } from "../../../components/injection.js";
 import { NodeKind, type PathSource } from "../../../flow/ast.js";
-import { fromSource, type PathBuilder } from "../../../flow/path-builder.js";
+import { fromSource, subPathFrom, type PathBuilder } from "../../../flow/path-builder.js";
 import { FaultChargeAction, FaultReserveAction } from "./order.actions.js";
-import {
-  FaultBatchDto,
-  FaultChargeDto,
-  FaultOrderDto,
-  FaultPaymentDto,
-  FaultReservationDto,
-} from "./order.dto.js";
+import { FaultBatchDto, FaultOrderDto, FaultPaymentDto } from "./order.dto.js";
 import { FaultPayAction } from "./pay.action.js";
+import { Ttl } from "../../../index.js";
 
 /**
  * The fault fixture's workflows (#484): one order — reserve (undoable), charge (a fenced business
  * row), pay (a call to the gateway under the order's business key), finish — and a batch of
- * orders, each a child queued for any instance (`ChildPlacement.AnyInstance`).
+ * orders, each a child queued for any instance (`ChildPlacement.AnyWorker`).
  */
 
 /**
  * The path builder without its generated types: the fixture ships inside the package, where no
  * `.agboss/types.d.ts` types its workflows (the same AST as the typed `start`).
  */
-const start = (source: Class): PathBuilder<PathSource> =>
+const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
+
+const toWorkflow = (target: Class): PathBuilder<undefined> =>
+  subPathFrom({ kind: "side" })
+    .toWorkflow(target);
 
 @WorkflowStart({
   name: "fault-order-workflow-start",
@@ -49,15 +49,13 @@ export class FaultOrderWorkflowFinish {}
 @Workflow({
   name: "fault-order-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  placement: ChildPlacement.AnyWorker,
   flow: [
-    start(FaultOrderWorkflowStart)
-      .returns(FaultOrderDto)
+    onStart(FaultOrderWorkflowStart)
       .toAction(FaultReserveAction)
-      .returns(FaultReservationDto)
       .toAction(FaultChargeAction)
-      .returns(FaultChargeDto)
       .toAction(FaultPayAction)
-      .returns(FaultPaymentDto)
       .toFinish(FaultOrderWorkflowFinish),
   ],
 })
@@ -70,33 +68,36 @@ export class FaultOrderWorkflow {}
 })
 export class FaultBatchWorkflowStart {}
 
-@WorkflowFinish({
-  name: "fault-batch-workflow-finish",
+@Action({
+  name: "fault-batch-action",
   description: "Every order, paid",
   input: { payments: listOf(FaultPaymentDto) },
   output: FaultBatchDto,
 })
-export class FaultBatchWorkflowFinish {
-  finish(input: {
-    readonly payments: readonly Produced<FaultPaymentDto, unknown>[];
-  }): FaultBatchDto {
-    return { orderIds: input.payments.map((payment) => payment.value.orderId) };
+export class FaultBatchAction {
+  async execute(input: {
+    readonly payments: readonly Tracked<FaultPaymentDto>[];
+  }): Promise<FaultBatchDto> {
+    return { orderIds: input.payments.map((payment) => payment.orderId) };
   }
 }
+
+@WorkflowFinish({
+  name: "fault-batch-workflow-finish",
+  description: "Every order, paid",
+  output: FaultBatchDto,
+})
+export class FaultBatchWorkflowFinish {}
 
 @Workflow({
   name: "fault-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FaultBatchWorkflowStart)
-      .returns(listOf(FaultOrderDto))
-      .toParallelWorkflows(FaultOrderWorkflow, {
-        maxConcurrency: 4,
-        maxItems: 8,
-        placement: ChildPlacement.AnyInstance,
-      })
+    onStart(FaultBatchWorkflowStart)
+      .forEachItem(toWorkflow(FaultOrderWorkflow), { takeFirst: 8, maxConcurrency: 4 })
       .join()
-      .returns(listOf(FaultPaymentDto))
+      .toAction(FaultBatchAction)
       .toFinish(FaultBatchWorkflowFinish),
   ],
 })

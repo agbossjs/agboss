@@ -6,8 +6,8 @@ import type { MeshHop } from "./mesh-hop.js";
  * input — A2A in `message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope`, MCP in `_meta["agboss.dev/mesh"]`, both as a
  * compact JWS: signed (`EdDSA`) when the caller's `@Application({ mesh: { signingKey } })` is set,
  * else unsecured (`alg: "none"`). On the receiver it is a **claim** — parsed into
- * `A2ACallerRequest.envelope` — trusted (its `budget`, `deadline`, `origin` and idempotency key)
- * only when the caller resolver names an authenticated `peer` and the signature is that peer's
+ * the request's envelope — trusted (its `budget`, `deadline`, `origin` and idempotency key)
+ * only when the authenticator names an authenticated `peer` and the signature is that peer's
  * (PR 2). Its `callChain` is applied anyway — a loop or the hops limit refuses the request; a caller
  * can only make its own request fail with it. Ids only: no `ownerId`, no `tenantId`, no input values.
  */
@@ -21,6 +21,11 @@ export interface MeshEnvelope {
    * receiver of another name refuses it (`401 mesh.audience-mismatch`) — no forwarding.
    */
   readonly audience?: string;
+  /**
+   * The caller's tenant, signed when the receiver is a peer with `propagateTenant` (#1320): it must be
+   * the tenant its `X-AGBoss-Mesh` header signed, or the request is refused (`mesh.tenant-mismatch`).
+   */
+  readonly tenantId?: string;
   /** Where in the caller the call was made — as claimed. */
   readonly origin: MeshOrigin;
   /** The applications the request passed through, the first caller first, the caller last. */
@@ -39,8 +44,11 @@ export interface MeshEnvelope {
 
 /** The calling execution's budget left, in its values' units: `{ remaining: "0.42", currency: "USD" }`. */
 export interface MeshBudgetClaim {
-  readonly remaining: string;
-  readonly currency: "USD";
+  /** The dollars left; absent for a caller whose budgets are token-only (never `"Infinity"`). */
+  readonly remaining?: string;
+  readonly currency?: "USD";
+  /** The tokens left (#1318); absent without a token budget. */
+  readonly remainingTokens?: number;
 }
 
 /** The time the caller still waits, as an ISO 8601 duration: `{ remaining: "PT58.2S" }`. */
@@ -114,6 +122,8 @@ export interface MeshRunReport {
 export interface MeshSpendReport {
   readonly total: string;
   readonly currency: "USD";
+  /** The tokens the execution used (#1318): charged to the caller's token budgets even when `total` is `"0"`. */
+  readonly totalTokens?: number;
 }
 
 /** The MCP `_meta` key of a receiver's signed `MeshRunReport`. */

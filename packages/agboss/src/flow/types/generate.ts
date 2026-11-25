@@ -1,5 +1,6 @@
 import { dirname, relative } from "node:path";
 import type { Class } from "../../components/injection.js";
+import { brandApplications } from "./application-brands.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import { checkWorkflow, type FlowCheck } from "../analyse/analyse.js";
 import { withChildWorkflows } from "../analyse/child-workflow.js";
@@ -14,10 +15,12 @@ import { ComponentRegistry, DtoRegistry, dtoClashMessage } from "../registry.js"
 import { ImportTable } from "./imports.js";
 import { ClassLocator } from "./locate.js";
 import { printTypes } from "./print.js";
-import { tablesOf, type AnalysedWorkflow } from "./tables.js";
-import { agentToolsTableOf } from "./agent-tools.js";
+import { tablesOf, type AnalysedWorkflow, type TypeTable, type TypeTables } from "./tables.js";
+import { agentToolsTableOf, standaloneAgentToolsOf } from "./agent-tools.js";
 import { contextTypesOf } from "./contexts.js";
-import { channelTablesOf } from "./channel-roles.js";
+import { channelTablesOf } from "./pause-target-tables.js";
+import { judgeOutputsTableOf } from "./judge-outputs.js";
+import { standaloneTablesOf, type StandaloneTables } from "./standalone.js";
 
 /**
  * Type generation (#272 PR 3, S2): a pure function of the loaded application — its v2 workflows and
@@ -39,6 +42,11 @@ export interface FlowTypesRequest {
    * type `app.execute(…, { tenant, execution })` of its starts.
    */
   readonly applications?: readonly Class[];
+  /**
+   * The project's decorated classes (#1324g): every one is branded and typed, a workflow reaching it
+   * or not (a component under test, a tool-only application's router).
+   */
+  readonly components?: readonly Class[];
   readonly modules: readonly LoadedModule[];
   /** The absolute path of the file, `<project>/.agboss/types.d.ts`. */
   readonly outFile: string;
@@ -120,11 +128,11 @@ function checkedWorkflows(
     return listing.length === 1 ? listing[0] : undefined;
   });
   const checks = all.map((workflow, index) => {
-    const defaults = owners[index]?.defaults;
-    return checkWorkflow(
-      workflow,
-      defaults === undefined ? options : { ...options, applicationDefaults: defaults },
-    );
+    const owner = owners[index];
+    return checkWorkflow(workflow, {
+      ...options,
+      ...(owner?.defaults === undefined ? {} : { applicationDefaults: owner.defaults }),
+    });
   });
   return { all, owners, checks };
 }
@@ -135,6 +143,60 @@ const applicationOptionsOf = (request: FlowTypesRequest): readonly ApplicationOp
     const declaration = applicationDeclarationOf(application);
     return declaration === undefined ? [] : [declaration.options];
   });
+
+/** The tables with the standalone classes' entries added (a class a workflow reaches has its own). */
+const withStandalone = (tables: TypeTables, standalone: StandaloneTables): TypeTables => ({
+  ...tables,
+  producerOutputs: new Map([...tables.producerOutputs, ...standalone.producerOutputs]),
+  inputs: new Map([...tables.inputs, ...standalone.inputs]),
+  outputs: new Map([...tables.outputs, ...standalone.outputs]),
+  routes: new Map([...tables.routes, ...standalone.routes]),
+  routerAnswers: new Map([...tables.routerAnswers, ...standalone.routerAnswers]),
+});
+
+/** The classes the analysed workflows reach: themselves, their children and every node. */
+const reachedBy = (all: readonly Class[], workflows: readonly AnalysedWorkflow[]): Set<Class> =>
+  new Set([
+    ...all,
+    ...workflows.flatMap(({ analysis }) =>
+      [...analysis.graph.nodes.values()].map((node) => node.component),
+    ),
+  ]);
+
+/**
+ * The tables of the analysed workflows with the entries of the decorated classes they do not reach
+ * (#1324g), and each agent's tools (#679): what its scripted tool calls may name.
+ */
+function typedClasses(
+  request: FlowTypesRequest,
+  all: readonly Class[],
+  workflows: readonly AnalysedWorkflow[],
+  names: ImportTable,
+): { readonly tables: TypeTables; readonly agentTools: TypeTable } {
+  const components = request.components ?? [];
+  const reached = reachedBy(all, workflows);
+  return {
+    tables: withStandalone(
+      tablesOf(workflows, names),
+      standaloneTablesOf(components, reached, names),
+    ),
+    agentTools: new Map([
+      ...standaloneAgentToolsOf(components, reached, names),
+      ...agentToolsTableOf(workflows, names),
+    ]),
+  };
+}
+
+/** Each exported workflow class is branded too, so `createApp(W)` / `testWith(W)` do not compile. */
+function brandWorkflows(
+  all: readonly Class[],
+  checks: readonly FlowCheck[],
+  names: ImportTable,
+): void {
+  all.forEach((workflow, index) => {
+    if (checks[index]?.analysis !== undefined) names.refIfExported(workflow);
+  });
+}
 
 export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   // `agboss check --strict` reads the warnings as errors itself (#769): generation never does
@@ -147,15 +209,11 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
     check.analysis === undefined ? [] : [{ analysis: check.analysis, errors: check.errors }],
   );
   const names = new ImportTable(new ClassLocator(request.modules), request.outFile);
-  const tables = tablesOf(workflows, names);
+  const { tables, agentTools } = typedClasses(request, all, workflows, names);
   // a reply interpreter (#267 PR 3) is typed like a handler: `InputOf` / `OutputOf` by its name
   const channels = channelTablesOf(all, names, tables);
-  // each agent's tools (#679): what its scripted tool calls may name
-  const agentTools = agentToolsTableOf(workflows, names);
-  // each exported workflow class is branded too, so `createApp(W)` / `testWith(W)` do not compile
-  all.forEach((workflow, index) => {
-    if (checks[index]?.analysis !== undefined) names.refIfExported(workflow);
-  });
+  brandWorkflows(all, checks, names);
+  brandApplications(request.applications ?? [], all, names);
   const contracts = [...new Set(applications.flatMap(contractOf))]
     // an empty contract (an application with no settings) adds nothing to `Environment`
     .filter((contract) => declaredFieldsOf(contract).length > 0)
@@ -174,6 +232,7 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
       ...tables,
       ...channels,
       agentTools,
+      judgeOutputs: judgeOutputsTableOf(request.components ?? [], names),
       workflowStarts: contexts.workflowStarts,
       environments: contracts,
     },

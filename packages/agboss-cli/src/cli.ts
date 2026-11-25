@@ -1,11 +1,10 @@
-import type { App, ExecutionOutput } from "@agboss/core";
+import { StreamEventKind, type App, type ExecutionOutput } from "@agboss/core";
 import {
   createAppWith,
   executeWithoutInputCheck,
   type ApplicationStart,
   type ExecutionStreamEvent,
 } from "@agboss/core/internal";
-import "dotenv/config";
 import { createInterface } from "node:readline";
 import { styleText } from "node:util";
 import { askWith } from "./cli/ask.js";
@@ -30,14 +29,14 @@ function streamTo(context: CommandContext, kept: KeptText): (event: ExecutionStr
   return (event) => {
     kept.hear(event);
     switch (event.kind) {
-      case "textDelta":
+      case StreamEventKind.TextDelta:
         reply.write(event.delta);
         break;
-      case "discarded":
+      case StreamEventKind.Discarded:
         // a terminal cannot unwrite: say what is no longer the answer, then go on from a new line
         context.warn(styleText("dim", `\n[Retracted: ${event.reason}]`));
         break;
-      case "toolCall":
+      case StreamEventKind.ToolCall:
         context.warn(styleText("dim", `\n[Agent is using tool: ${event.tool}]`));
         break;
     }
@@ -96,7 +95,6 @@ export const handle: CommandHandler = async (context) => {
   const input = runInputOf(context, start);
   const app = await createAppWith(application, {
     profile: textOption(context.values, "profile"),
-    profileRoot: context.io.cwd,
     env: envOption(context),
     processEnv: context.io.env,
   });

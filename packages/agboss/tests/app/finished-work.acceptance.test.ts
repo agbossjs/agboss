@@ -27,7 +27,7 @@ import {
   type ExecutionLeaseRow,
 } from "../../src/infrastructure/in-memory-database.js";
 import type { ExecutionLease } from "../../src/infrastructure/execution-lease.repository.js";
-import { override, testWith } from "../../src/testing/index.js";
+import { testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { passLive } from "../helpers/live-time.js";
@@ -69,7 +69,7 @@ class UnfinishedLeases extends InMemoryExecutionLeaseRepository {
 
 const unfinished = testWith(RemoteChildYieldApplication, {
   instances: 2,
-  overrides: [override(ExecutionLeaseRepository, UnfinishedLeases)],
+  services: [UnfinishedLeases],
 });
 const sweep = testWith(RemoteChildYieldApplication, { instances: 2 });
 const compensated = testWith(FinishedUndoApplication, { instances: 2 });

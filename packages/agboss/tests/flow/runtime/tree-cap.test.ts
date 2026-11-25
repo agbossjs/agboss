@@ -34,7 +34,7 @@ import {
 } from "./fixtures/tree-task.workflow.js";
 
 /**
- * #264 PR 2 — the tree's concurrency cap at run time (AC8): `@Workflow({ maxConcurrentExecutions })`
+ * #264 PR 2 — the tree's concurrency cap at run time (AC8): `@Workflow({ executionLimits: { maxConcurrency } })`
  * of the root holds how many executions of its tree work at once; the rest wait (no error); a
  * parent at its join and a paused child hold no slot; the stricter of a launch's `maxConcurrency`
  * and the cap wins; a child's own cap holds its subtree. Tasks work on the test's virtual clock.

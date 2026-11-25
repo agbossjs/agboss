@@ -2,13 +2,11 @@
 // skill answers a question in an action that pays a service, served over A2A v1.0 by the real
 // listener (P2a), its mesh signed and verifying the caller.
 import "../keys.js";
-import { A2AExpose } from "../../../../../src/a2a/a2a-expose.decorator.js";
-import { A2ASecurity } from "../../../../../src/a2a/a2a-security.js";
-import {
-  A2ACallerResolution,
-  type A2ACallerRequest,
-  type A2ACallerResolver,
-} from "../../../../../src/a2a/a2a-caller.js";
+import { Mesh, MeshInboundMode } from "../../../../../src/mesh/mesh.decorator.js";
+import { defineEnv } from "../../../../../src/environments/define-env.js";
+import { secret } from "../../../../../src/environments/secret.js";
+import { minutes, hours, Ttl } from "../../../../../src/units/index.js";
+import { A2AEndpoint } from "../../../../../src/a2a/a2a-endpoint.decorator.js";
 import { Application } from "../../../../../src/application/application.js";
 import type { Class } from "../../../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../../src/dto/index.js";
@@ -16,18 +14,18 @@ import {
   Action,
   Clock,
   Injectable,
+  Observer,
   SpendRecorder,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type OnExecutionStart,
   type ExecutionStartEvent,
-  type Produced,
+  type Tracked,
 } from "../../../../../src/index.js";
 import type { Milliseconds } from "../../../../../src/units/index.js";
 import { usd } from "../../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../../flow/fixtures/budgets.js";
-import { start } from "../../../../helpers/flow.js";
+import { onStart } from "../../../../helpers/flow.js";
 import { MeshEnvironment } from "../../../fixtures/environments/mesh.environment.js";
 import {
   A2ATaskState,
@@ -36,6 +34,12 @@ import {
 import { MeshLoopDetectedError } from "../../../../../src/mesh/mesh-errors.js";
 import { IN_MEMORY_DATABASE } from "../../../../../src/infrastructure/in-memory-database.js";
 import { InMemoryA2ATaskRepository } from "../../../../../src/infrastructure/in-memory-a2a-task.repository.js";
+import {
+  HttpAuthResult,
+  type HttpAuthRequest,
+  HttpSecurity,
+  HttpAuthenticator,
+} from "../../../../../src/index.js";
 
 /** The peer's name: the audience a caller's envelope must be addressed to. */
 export const PEER_APPLICATION = "peer-application";
@@ -107,29 +111,28 @@ export class SharedTestClock extends Clock {
 }
 
 /** `Bearer caller` is the mesh peer `caller-application`; `Bearer stranger` an owner only. */
-@Injectable()
-export class PeerCallerResolver implements A2ACallerResolver<Class> {
-  resolveCaller(request: A2ACallerRequest): A2ACallerResolution<Class> {
+@HttpAuthenticator({ schemes: [HttpSecurity.bearer()] })
+export class PeerAuthenticator {
+  authenticate(request: HttpAuthRequest): HttpAuthResult {
     const token = /^Bearer (.+)$/.exec(request.http.headers.authorization ?? "")?.[1];
     if (token === CALLER_TOKEN)
-      return A2ACallerResolution.resolved<Class>({
+      return HttpAuthResult.authenticated({
         ownerId: "caller-application",
         peer: "caller-application",
       });
-    if (token === STRANGER_TOKEN)
-      return A2ACallerResolution.resolved<Class>({ ownerId: "stranger" });
+    if (token === STRANGER_TOKEN) return HttpAuthResult.authenticated({ ownerId: "stranger" });
     if (token === OTHER_PEER_TOKEN)
-      return A2ACallerResolution.resolved<Class>({
+      return HttpAuthResult.authenticated({
         ownerId: "other-application",
         peer: "other-application",
       });
-    return A2ACallerResolution.unauthenticated({ reason: "no token" });
+    return HttpAuthResult.unauthenticated("no token");
   }
 }
 
 /** Sees each execution's start: what the mesh put in its contexts (budget, deadline, origin). */
-@Injectable()
-export class PeerStarts implements OnExecutionStart {
+@Observer()
+export class PeerStarts {
   onExecutionStart(event: ExecutionStartEvent): void {
     peer.starts.push(event);
   }
@@ -146,13 +149,13 @@ export class PeerAnswerAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<WorkflowFinishTextDto> {
-    const { text } = input.message.value;
+    const { text } = input.message;
     peer.runs.push(text);
     // a call of the peer's own that a further hop refused as a loop: its run fails with that limit
     if (text === DOWNSTREAM_LOOP)
-      throw new MeshLoopDetectedError({ entry: DOWNSTREAM_ENTRY, chain: DOWNSTREAM_CHAIN });
+      throw new MeshLoopDetectedError({ entry: DOWNSTREAM_ENTRY, callChain: DOWNSTREAM_CHAIN });
     await peer.gate;
     this.spendRecorder.record({ service: "peer-service", cost: usd(peer.spend) });
     return { text: `answered ${text}` };
@@ -168,9 +171,9 @@ export class PeerAnswerAction {
 })
 export class PeerSignOffAction {
   execute(input: {
-    readonly answer: Produced<WorkflowFinishTextDto, unknown>;
+    readonly answer: Tracked<WorkflowFinishTextDto>;
   }): Promise<WorkflowFinishTextDto> {
-    return Promise.resolve(input.answer.value);
+    return Promise.resolve(input.answer);
   }
 }
 
@@ -191,40 +194,58 @@ export class PeerAnswerWorkflowFinish {}
 @Workflow({
   name: "peer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PeerAskWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(PeerAskWorkflowStart)
       .toAction(PeerAnswerAction)
-      .returns(WorkflowFinishTextDto)
       .toAction(PeerSignOffAction)
-      .returns(WorkflowFinishTextDto)
       .toFinish(PeerAnswerWorkflowFinish),
   ],
 })
 export class PeerWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "peer-a2a-expose",
   version: "1.0.0",
   description: "Answers questions",
-  exports: [PeerAskWorkflowStart],
-  security: [A2ASecurity.bearer()],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [PeerAskWorkflowStart],
 })
 export class PeerA2AExpose {}
+
+const peerEnv = defineEnv({
+  signingKey: secret("E2E_PEER_SIGNING_KEY"),
+  callerKey: secret("E2E_CALLER_VERIFY_KEY"),
+});
+
+/** The peer's mesh: signs with its own key, verifies `caller-application`'s. */
+function peerMesh(maxHops: number): Class {
+  @Mesh({
+    name: "peer-mesh",
+    signingKey: peerEnv.signingKey,
+    inboundMode: MeshInboundMode.AllowExternal,
+    deduplicationTtl: minutes(30),
+    maxHops,
+    // the caller's clock is moved by takeover tests; the peer's own never is
+    maxClockSkew: minutes(5),
+    peers: [{ application: "caller-application", verifyKeys: [peerEnv.callerKey] }],
+  })
+  class PeerMeshClass {}
+  return PeerMeshClass;
+}
+
+const PeerMesh = peerMesh(8);
 
 const PEER_OPTIONS = {
   name: PEER_APPLICATION,
   version: "1.0.0",
   environment: MeshEnvironment,
   workflows: [PeerWorkflow],
-  providers: [SharedTestClock, PeerCallerResolver],
+  providers: [SharedTestClock, PeerAuthenticator],
   observers: [PeerStarts],
-  exposes: [PeerA2AExpose],
+  endpoints: [PeerA2AExpose],
   budgets: TEST_BUDGETS,
-  mesh: {
-    signingKey: "meshSigningKey",
-    peers: [{ application: "caller-application", verifyKey: "meshPeerKey" }],
-  },
+  mesh: PeerMesh,
 } as const;
 
 /** The peer: signs its run reports, verifies `caller-application`'s envelopes. */
@@ -237,15 +258,15 @@ export class PeerApplication {}
   version: "1.0.0",
   environment: MeshEnvironment,
   workflows: [PeerWorkflow],
-  providers: [SharedTestClock, PeerCallerResolver],
+  providers: [SharedTestClock, PeerAuthenticator],
   observers: [PeerStarts],
-  exposes: [PeerA2AExpose],
+  endpoints: [PeerA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class KeylessPeerApplication {}
 
 /** The same peer refusing any chain of one hop or more (`maxMeshHops: 1`). */
-@Application({ ...PEER_OPTIONS, maxMeshHops: 1 })
+@Application({ ...PEER_OPTIONS, mesh: peerMesh(1) })
 export class StrictPeerApplication {}
 
 /** The in-memory task store, losing what `lossy` says. */

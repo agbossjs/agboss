@@ -9,7 +9,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as internal from "../../src/internal.js";
 import * as root from "../../src/index.js";
-import { ChannelOf } from "../../src/channels/channel-handler.js";
 
 const API = join(import.meta.dirname, "../../api");
 const SRC = join(import.meta.dirname, "../../src");
@@ -39,12 +38,6 @@ describe("#940 AC6: no withdraw / ChannelWithdrawal in any entry", () => {
       expect(root).not.toHaveProperty(name);
       expect(internal).not.toHaveProperty(name);
     }
-  });
-
-  it("a channel role's base class has onPauseClosed and no withdraw", () => {
-    expect(ChannelOf.prototype).toHaveProperty("onPauseClosed");
-    expect(ChannelOf.prototype).toHaveProperty("onPauseAnswerNotTaken");
-    expect(ChannelOf.prototype).not.toHaveProperty("withdraw");
   });
 
   it("channel.withdraw-failed is logged nowhere", () => {

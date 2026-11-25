@@ -36,7 +36,7 @@ function answerLabel(answer: unknown): string {
 }
 
 /**
- * The node id of the one target `route()` chose after `.chooseOne(…)`; anything else — a list, a
+ * The node id of the one target `route()` chose after `.onRoute(…)`; anything else — a list, a
  * class outside its routes (a cast) — is `RouterDecisionError`.
  */
 function chosenRoute(
@@ -50,11 +50,11 @@ function chosenRoute(
   if (name !== undefined && unready.includes(name))
     throw new RouterDecisionError({
       ...step,
-      reason: `route() returned ${name}: on the last level (depth = maxDepth) a route that launches ThisWorkflow is not ready`,
+      reason: `route() returned ${name}: on the last level (depth = maxDepth) a route that launches the workflow itself is not ready`,
     });
   if (name !== undefined && node.exits.routes.has(name)) return name;
   const why = Array.isArray(answer)
-    ? "after .chooseOne(…) it returns one target, not a list"
+    ? "after .onRoute(…) it returns one target, not a list"
     : `not one of its routes (${routes.join(", ")})`;
   throw new RouterDecisionError({
     ...step,
@@ -96,7 +96,9 @@ export function codeRouterRunner(node: RuntimeNode, deps: GraphDeps<string>): No
     if (node.exits.launches.size > 0) {
       const launch = codeRouterLaunch(node, step, answer);
       const update = { route: launch.join(", "), reason: "decided by code" };
-      await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
+      await reportNodeEvent((base) =>
+        deps.observer?.onRouterEnd({ ...base, name, output: update }),
+      );
       return { launch, read: input.read };
     }
     const route = chosenRoute(
@@ -106,7 +108,7 @@ export function codeRouterRunner(node: RuntimeNode, deps: GraphDeps<string>): No
       unreadyRoutesOf(deps.graph, node.id, RecursionDecider.CodeRouter),
     );
     const update = { route, reason: "decided by code" };
-    await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, update }));
+    await reportNodeEvent((base) => deps.observer?.onRouterEnd({ ...base, name, output: update }));
     return { route, read: input.read };
   };
 }

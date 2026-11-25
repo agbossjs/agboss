@@ -1,6 +1,6 @@
 /**
  * #943 AC2 with #945: a pause that expires inside a quorum or a plain join closes `expired` — the
- * metric counts it by workflow and role, once, next to the answered and the withdrawn ones.
+ * metric counts it by workflow, target and channel, once, next to the answered and the withdrawn ones.
  */
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
@@ -46,12 +46,13 @@ beforeEach(() => {
   resetJoinExpiry();
 });
 
-/** The closes counted, as `workflow/reason → count` (the role is a channel's name). */
+/** The closes counted, as `workflow/reason → count` (target and channel are the pause's names). */
 async function closesOf(meter: InstanceMeter): Promise<Record<string, number>> {
   const points = (await collect(meter)).get(CLOSED)?.points ?? [];
   const counted: Record<string, number> = {};
   for (const { attributes, value } of points) {
-    expect(typeof attributes.role).toBe("string");
+    expect(typeof attributes.target).toBe("string");
+    expect(typeof attributes.channel).toBe("string");
     const key = `${String(attributes.workflow)}/${String(attributes.reason)}`;
     counted[key] = (counted[key] ?? 0) + value;
   }
@@ -106,12 +107,12 @@ describe("#943 AC2 with #945: expiry inside a launch is counted", () => {
       mockLlm(CooApproverAgent).thenReturn(callTool(ApproveTool, { what: "coo" }));
       await execute(app, JoinExpiryWorkflowStart, { what: "the merger" });
       const idOf = (who: string) =>
-        je.sent.find((ask) => JSON.stringify(ask.value).includes(`"what":"${who}"`))?.pauseId ?? "";
+        je.sent.find((ask) => JSON.stringify(ask.input).includes(`"what":"${who}"`))?.pauseId ?? "";
       const approve = { approved: true };
-      await app.resume({ pauseId: idOf("legal"), decision: approve }, { answeredBy: "legal-1" });
+      await app.resume({ pauseId: idOf("legal"), decision: approve }, { actor: { id: "legal-1" } });
       await app.resume(
         { pauseId: idOf("finance"), decision: approve },
-        { answeredBy: "finance-1" },
+        { actor: { id: "finance-1" } },
       );
 
       await clock.advance(minutes(30));

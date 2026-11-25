@@ -1,3 +1,4 @@
+import type { Page } from "../../../src/app/page.js";
 import { Application } from "../../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
@@ -12,7 +13,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type HealthCheckHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { InMemoryCostLedgerRepository } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
@@ -22,8 +24,9 @@ import { InMemoryRateLimitRepository } from "../../../src/infrastructure/rate-li
 import type { Turn } from "../../../src/turns/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { SharedCheckpointSaver } from "../../helpers/shared-infrastructure.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #300 — an application with one project health check (a CRM client the tests mock), a cost
@@ -61,21 +64,21 @@ export class CrmClient {
 }
 
 @HealthCheck({ name: "crm-health-check", timeout: seconds(2), deps: [CrmClient] })
-export class CrmHealthCheck implements HealthCheckHandler {
+export class CrmHealthCheck {
   constructor(private readonly crmClient: CrmClient) {}
 
   async check(): Promise<HealthCheckResult> {
     const isReachable: boolean = await this.crmClient.ping();
     return isReachable
       ? HealthCheckResult.healthy()
-      : HealthCheckResult.unhealthy({ reason: "CRM is unreachable" });
+      : HealthCheckResult.unhealthy("CRM is unreachable");
   }
 }
 
 @HealthCheck({ name: "search-health-check", timeout: seconds(1) })
-export class SearchHealthCheck implements HealthCheckHandler {
+export class SearchHealthCheck {
   check(): Promise<HealthCheckResult> {
-    return Promise.resolve(HealthCheckResult.degraded({ reason: "a replica is down" }));
+    return Promise.resolve(HealthCheckResult.degraded("a replica is down"));
   }
 }
 
@@ -88,15 +91,15 @@ export class FlakyCostLedgerRepository extends InMemoryCostLedgerRepository {
   }
 }
 
-@Injectable({ deps: [Clock, IdGenerator] })
+@Injectable({ deps: [Clock, IdGenerator, IN_MEMORY_DATABASE] })
 export class StallingExecutionRecordRepository extends InMemoryExecutionRecordRepository {
   override findByStatus(
     ...query: Parameters<InMemoryExecutionRecordRepository["findByStatus"]>
-  ): Promise<Turn[]> {
+  ): Promise<Page<Turn>> {
     if (!levers.isSweepStuck) return super.findByStatus(...query);
-    return new Promise<Turn[]>((resolve) => {
+    return new Promise<Page<Turn>>((resolve) => {
       levers.releaseSweep = () => {
-        resolve([]);
+        resolve({ items: [] });
       };
     });
   }
@@ -120,7 +123,7 @@ export class ProbeWorkflowStart {}
 @Agent({
   name: "probe-agent",
   description: "Answers",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
 })
 export class ProbeAgent {}
@@ -134,19 +137,17 @@ export class ProbeWorkflowFinish {}
 
 @Workflow({
   name: "probe-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
-  flow: [
-    start(ProbeWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ProbeAgent)
-      .toFinish(ProbeWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ProbeWorkflowStart).toAgent(ProbeAgent).toFinish(ProbeWorkflowFinish)],
   providers: [CrmClient],
 })
 export class ProbeWorkflow {}
 
 @Application({
   name: "probe-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ProbeWorkflow],
@@ -155,6 +156,7 @@ export class ProbeWorkflow {}
     FlakyCostLedgerRepository,
     StallingExecutionRecordRepository,
     ReachableRateLimitRepository,
+    TestModelProvider,
   ],
   healthChecks: [CrmHealthCheck, SearchHealthCheck],
 })
@@ -166,6 +168,7 @@ export class ProbeApplication {}
  */
 @Application({
   name: "plain-probe-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ProbeWorkflow],
@@ -175,6 +178,7 @@ export class ProbeApplication {}
     FlakyCostLedgerRepository,
     StallingExecutionRecordRepository,
     ReachableRateLimitRepository,
+    TestModelProvider,
     SharedCheckpointSaver,
   ],
 })

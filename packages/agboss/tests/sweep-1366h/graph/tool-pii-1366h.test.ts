@@ -41,7 +41,7 @@ describe("#1366: tool-pii", () => {
 
   it("an empty policy set keeps the rendered result and its field tokens without searching it", async () => {
     const closed = await closedResult(
-      { isEmpty: true, fieldKey: "k" } as never,
+      { isEmpty: true, fieldKey: "k", previous: {} } as never,
       undefined,
       { kind: "ok", value: "fine" },
       kilobytes(1),
@@ -58,6 +58,7 @@ describe("#1366: tool-pii", () => {
     const set = {
       isEmpty: false,
       fieldKey: "k",
+      previous: {},
       maskCacheKeyOf: (text: string, flag?: boolean) => {
         seen.push([text, flag]);
         return `key:${text}:${String(flag)}`;

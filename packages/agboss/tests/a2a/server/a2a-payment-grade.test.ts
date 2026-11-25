@@ -35,7 +35,7 @@ import {
   seen,
   Step,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "../fixtures/task.application.js";
 import { textMessage } from "./sdk-client.js";
 import {
@@ -51,7 +51,7 @@ import {
 
 const one = testWith(OrdersApplication);
 const two = testWith(OrdersApplication, { instances: 2 });
-const listener = { expose: OrdersA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { endpoint: OrdersA2AExpose, authenticator: BearerAuthenticator };
 const done = replyWith(ReceiptDto, { text: "Done." });
 const go = (messageId: string, value = "go") => ({
   message: userMessage(messageId, [text(value)]),
@@ -111,6 +111,7 @@ async function acceptedOnly(app: TestApp, messageId: string, taskId: string) {
   await app.ready();
   const message = textMessage(messageId, "go");
   const save = await app.resolve(A2ATaskRepository).saveIfAbsent({
+    endpoint: "orders-a2a-expose",
     tenantId: "default",
     taskId,
     ownerId: "dana",
@@ -119,7 +120,7 @@ async function acceptedOnly(app: TestApp, messageId: string, taskId: string) {
     status: { state: A2ATaskState.Submitted, pendingPauses: [] },
     acceptedAt: app.clock.now(),
     messageId,
-    requestHash: requestHashOf("order-workflow-start", message),
+    requestHash: requestHashOf("orders-a2a-expose", "order-workflow-start", message),
   });
   if (save.status !== A2ATaskSaveStatus.Saved) throw new Error(save.status);
 }

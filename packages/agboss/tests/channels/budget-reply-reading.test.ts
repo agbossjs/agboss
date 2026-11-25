@@ -1,3 +1,5 @@
+import { ModelKind } from "../../src/models/model-kind.js";
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-reply shard) — the budget rules of reading one free-text reply by its interpreter, each on its own
  * over fakes: a model interpreter's call is checked against the tree's budgets before it is made (a code one makes
@@ -15,7 +17,6 @@ import { readByDecision } from "../../src/channels/reply-decision.js";
 import { readByModel } from "../../src/channels/reply-reader.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
-import { isDecisionModel } from "../../src/models/decision-models.js";
 
 vi.mock("../../src/flow/context/frame.js", () => ({
   runInFrame: vi.fn((_frame: unknown, work: () => unknown) => work()),
@@ -29,7 +30,6 @@ vi.mock("../../src/channels/reply-reader.js", async (original) => ({
   ...(await original<typeof import("../../src/channels/reply-reader.js")>()),
   readByModel: vi.fn(),
 }));
-vi.mock("../../src/models/decision-models.js", () => ({ isDecisionModel: vi.fn() }));
 vi.mock("../../src/llm/registry.js", () => ({
   resolveSettings: vi.fn((settings: object, defaults: object) => ({
     ...defaults,
@@ -39,15 +39,16 @@ vi.mock("../../src/llm/registry.js", () => ({
 }));
 
 const record = (costUsd: number, caller = "reply"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
 const parts = {
-  gateway: { name: "gateway" },
+  gateway: { name: "gateway", kindOf: vi.fn((): ModelKind | undefined => undefined) },
   chatModelSettings: vi.fn((model: string) => ({ temperature: 0, from: model })),
   chatDefaults: { defaults: true },
   instanceOf: vi.fn(() => ({ name: "instance" })),
@@ -56,7 +57,7 @@ const parts = {
 
 const interpreterOf = (model: string | undefined) => ({
   name: "boss-reply-interpreter",
-  channel: "ch",
+  target: "tg",
   interpreter: Object,
   ...(model === undefined ? {} : { model }),
 });
@@ -88,7 +89,7 @@ function callOf(changes: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(isDecisionModel).mockReturnValue(false);
+  vi.mocked(parts.gateway.kindOf).mockReturnValue(ModelKind.Chat);
 });
 
 describe("#1366: a model interpreter's call is checked first", () => {
@@ -123,7 +124,7 @@ describe("#1366: a model interpreter's call is checked first", () => {
 
   it("a decision model is read as one: its caller named for the interpreter, its gateway and model, and its PII", async () => {
     const { call, order } = callOf();
-    vi.mocked(isDecisionModel).mockReturnValue(true);
+    vi.mocked(parts.gateway.kindOf).mockReturnValue(ModelKind.Decisions);
     vi.mocked(readByDecision).mockImplementation(() => {
       order.push("decision");
       return Promise.resolve({ kind: "answered", answer: true, usage: [] });
@@ -237,12 +238,12 @@ describe("#1366: the reader of a tree's pauses", () => {
     vi.mocked(readByCode).mockResolvedValue({ kind: "answered", answer: 1, usage: [] });
     const reader = replyReaderOf({
       ...parts,
-      interpreters: [{ ...interpreterOf(undefined), channel: "other" }, interpreterOf(undefined)],
+      interpreters: [{ ...interpreterOf(undefined), target: "other" }, interpreterOf(undefined)],
     } as never);
 
     const out = await reader({
       ...(call as object),
-      pause: { pauseId: "p9", channel: "ch", ask: { asked: true } },
+      pause: { pauseId: "p9", target: "tg", channel: "ch", input: { asked: true } },
     } as never);
 
     expect(out.kind).toBe("read");
@@ -259,7 +260,7 @@ describe("#1366: the reader of a tree's pauses", () => {
 
     const out = await reader({
       ...(call as object),
-      pause: { pauseId: "p9", channel: "ch", ask: {} },
+      pause: { pauseId: "p9", target: "tg", channel: "ch", ask: {} },
     } as never);
 
     expect((out as { error: Error }).error.message).toBe(
@@ -273,10 +274,12 @@ describe("#1366: the reader of a tree's pauses", () => {
 
     const failure = await reader({
       ...(call as object),
-      pause: { pauseId: "p9", channel: "ch", ask: {} },
+      pause: { pauseId: "p9", target: "tg", channel: "ch", ask: {} },
     } as never).catch((e: unknown) => e);
 
     expect(failure).toBeInstanceOf(ReplyInterpreterMissingError);
-    expect((failure as Error).message).toContain("pause p9: channel ch has no replyInterpreter");
+    expect((failure as Error).message).toContain(
+      "pause p9: pause target tg has no channelInterpreter",
+    );
   });
 });

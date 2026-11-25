@@ -1,4 +1,5 @@
 import type { StepDescriptor, StepRecord, WorkflowRecord } from "../context/execution-context.js";
+import type { ExecutionObserverManager } from "../../core/observer-manager.js";
 import { plainRecordOf } from "../runtime/records.js";
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
 import {
@@ -92,4 +93,18 @@ export function currentNodeEvent(): NodeEvent | undefined {
 export async function reportNodeEvent(report: (base: NodeEvent) => unknown): Promise<void> {
   const base = currentNodeEvent();
   if (base !== undefined) await report(base);
+}
+
+/**
+ * Tells the observers of the current step's execution of an event of a component inside it (a
+ * reranker, a model's fallback, an arbiter): `report` gets the observers (masked by the workflow's
+ * policies) and the step's node event. Outside any step, or where nothing observes, it does nothing.
+ */
+export async function reportFrameEvent(
+  report: (observer: ExecutionObserverManager, base: NodeEvent) => unknown,
+): Promise<void> {
+  const frame = currentFrame();
+  const observer = frame?.execution.observer;
+  if (frame === undefined || observer === undefined) return;
+  await report(observer, nodeEventOf(frame));
 }

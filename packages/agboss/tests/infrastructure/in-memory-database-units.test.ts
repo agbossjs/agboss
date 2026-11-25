@@ -4,16 +4,13 @@
  * outbound calls' record order counted from 0), and the tokens every container of an application has.
  */
 import { describe, expect, it } from "vitest";
+import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import {
   INFRASTRUCTURE_TOKENS,
   IN_MEMORY_DATABASE,
   InMemoryDatabase,
   threadMapKeyOf,
 } from "../../src/infrastructure/in-memory-database.js";
-import {
-  FencedEffectSettings,
-  OutboundCallSettings,
-} from "../../src/infrastructure/fenced-effect-settings.js";
 
 describe("#1366: a thread's key in the in-memory stores' maps", () => {
   it("names the tenant and the thread, in that order", () => {
@@ -54,10 +51,6 @@ describe("#1366: the memory the in-memory stores keep their rows in", () => {
 
   it("is given by its token, the first of the core values every container has", () => {
     expect(IN_MEMORY_DATABASE.description).toBe("IN_MEMORY_DATABASE");
-    expect(INFRASTRUCTURE_TOKENS).toEqual([
-      IN_MEMORY_DATABASE,
-      FencedEffectSettings,
-      OutboundCallSettings,
-    ]);
+    expect(INFRASTRUCTURE_TOKENS).toEqual([IN_MEMORY_DATABASE, OutboundMasking]);
   });
 });

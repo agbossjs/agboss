@@ -1,7 +1,8 @@
-import { AIMessage, type AIMessageChunk, type BaseMessage } from "@langchain/core/messages";
+import type { AIMessageChunk, BaseMessage } from "@langchain/core/messages";
+import { shownMessagesOf } from "../../models/messages.js";
 import type { ToolDefinition } from "@langchain/core/language_models/base";
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { recordUsage, type UsageRecord } from "../../finops/usage.js";
+import { NO_PROVIDER, recordUsage, type UsageRecord } from "../../finops/usage.js";
 import { withSortedKeys } from "../../flow/runtime/json.js";
 import { toolDefinitionOf } from "../../tools/index.js";
 import { AgentFailedError } from "../errors.js";
@@ -18,10 +19,13 @@ import { loopUsage, type AgentLoopStateType, type AgentLoopUpdate } from "./stat
 import { extractRunContext, throwIfCancelled } from "../../core/run-context.js";
 import { reportNodeEvent } from "../../flow/observers/execution-event.js";
 import type { MaskedRequest } from "../../pii/model-boundary.js";
+import { withCallIds } from "./call-ids.js";
 import { loopPoliciesOf, maskedRequest, outgoingMove } from "./model-pii.js";
 import { toolBindingOf } from "../../flow/runtime/answer-tools.js";
 import type { AttemptStream } from "../../run/stream/agent-stream.js";
+import { StreamDiscardReason } from "../../run/types.js";
 import { answering, attemptOf } from "./answer-stream.js";
+import { ChunkCounter, earlierSpendOf, partialSpendOf, withChunkCounter } from "./chunk-counter.js";
 
 export class ToolCallingUnsupportedError extends Error {
   override name = "ToolCallingUnsupportedError";
@@ -50,10 +54,16 @@ async function callModel(
   deps: AgentLoopDeps,
   config: RunnableConfig | undefined,
   attempt: AttemptStream | undefined,
+  counter: ChunkCounter,
 ): Promise<AIMessageChunk> {
   const { binding, name } = deps.agent;
-  // an exhausted budget (#338) aborts the call in flight: its partial cost is unknown, unrecorded
-  const call = { ...answering(config, attempt), signal: withExhausted(config?.signal, deps) };
+  // an exhausted budget (#338) aborts the call in flight: what it received is still spent (#1399)
+  const answered = answering(config, attempt);
+  const call = {
+    ...answered,
+    callbacks: withChunkCounter(answered?.callbacks, counter),
+    signal: withExhausted(config?.signal, deps),
+  };
   // cache markers, where the model needs them, are placed by its provider on the wire (#151)
   const tools = toolDefinitionsOf(deps.agent);
   if (tools.length === 0) return binding.model.invoke([...messages], call);
@@ -61,44 +71,6 @@ async function callModel(
     throw new ToolCallingUnsupportedError(`The model of agent "${name}" cannot call tools`);
   }
   return binding.model.bindTools([...tools], toolBindingOf(deps.agent)).invoke([...messages], call);
-}
-
-/** What `withCallIds` reads of the loop's state: the run, the visit and the turn. */
-export type CallIdSource = Pick<AgentLoopStateType, "runId" | "flowPath" | "modelCalls">;
-
-/**
- * The move with a unique id on every tool call: results are stored by it and it is the tool's
- * idempotency key, so a call the model gave no id gets one unique within the run (run, visit, turn,
- * position), and an id the provider repeats within the move gets its position (`${id}:${index}`,
- * #335) — the same ids when a recovered step replays the move.
- */
-export function withCallIds(response: AIMessageChunk, state: CallIdSource): AIMessage {
-  const turn = state.modelCalls + 1;
-  const calls = response.tool_calls ?? [];
-  const given = calls.map((call) => call.id ?? "");
-  const isRepeated = (id: string): boolean => given.indexOf(id) !== given.lastIndexOf(id);
-  const toolCalls = calls.map((call, index) => {
-    // Stryker disable next-line StringLiteral: equivalent: `given` holds an entry for every call, so the empty text is never read
-    const id = given[index] ?? "";
-    if (id === "") {
-      const position = `${String(state.flowPath.length)}:${String(turn)}:${String(index)}`;
-      return { ...call, id: `${state.runId}:${position}` };
-    }
-    return { ...call, id: isRepeated(id) ? `${id}:${String(index)}` : id };
-  });
-  // unparsable calls keep their place (#395): each gets an id, the model reads why it did not run
-  const invalid = (response.invalid_tool_calls ?? []).map((call, index) => {
-    const position = `${String(state.flowPath.length)}:${String(turn)}:invalid:${String(index)}`;
-    return {
-      ...call,
-      id: call.id === undefined || call.id === "" ? `${state.runId}:${position}` : call.id,
-    };
-  });
-  return new AIMessage({
-    content: response.content,
-    tool_calls: toolCalls,
-    invalid_tool_calls: invalid,
-  });
 }
 
 /**
@@ -126,21 +98,30 @@ async function observedCall(
   request: MaskedRequest,
   config: RunnableConfig | undefined,
   attempt: AttemptStream | undefined,
-): Promise<{ readonly response: AIMessageChunk; readonly usageRecord: UsageRecord }> {
+): Promise<{ readonly response: AIMessageChunk; readonly records: readonly UsageRecord[] }> {
   const { name, binding } = deps.agent;
   const modelName = binding.settings.model;
   // what the model was sent, masked: the conversation without the instructions
-  const rawPayload = request.messages.slice(1);
+  const shown = shownMessagesOf(request.messages.slice(1));
   await reportNodeEvent((base) =>
-    deps.observer?.onModelStart({ ...base, modelName, callerName: name, rawPayload }),
+    deps.observer?.onModelStart({
+      ...base,
+      model: modelName,
+      provider: binding.settings.modelProvider ?? NO_PROVIDER,
+      caller: name,
+      messages: shown,
+    }),
   );
-  const response = await callModel(request.messages, deps, config, attempt).catch(
+  const counter = new ChunkCounter();
+  const response = await callModel(request.messages, deps, config, attempt, counter).catch(
     (error: unknown) => {
       // the text of a call that broke is retracted before the failure goes on (#1006)
-      attempt?.discard("stream-broken");
+      attempt?.discard(StreamDiscardReason.StreamBroken);
+      // what it had used is spent all the same (#1399): counted in the budgets, carried to the ledger
+      const spent = partialSpendOf(deps, state.flowPath, request.messages, error, counter);
       throw new AgentFailedError({
         agent: name,
-        usage: [...loopUsage(state), ...request.usage],
+        usage: [...loopUsage(state), ...request.usage, ...spent],
         cause: error,
       });
     },
@@ -149,17 +130,21 @@ async function observedCall(
   const usageRecord = recordUsage(name, binding.settings, response);
   const ended = {
     model: modelName,
-    callerName: name,
-    rawContent: response.content,
+    provider: usageRecord.provider,
+    caller: name,
+    content: response.text,
     usage: {
-      promptTokens: usageRecord.inputTokens,
-      completionTokens: usageRecord.outputTokens,
-      totalTokens: usageRecord.inputTokens + usageRecord.outputTokens,
+      inputTokens: usageRecord.inputTokens,
+      outputTokens: usageRecord.outputTokens,
+      cacheReadTokens: usageRecord.cacheReadTokens,
+      cacheWriteTokens: usageRecord.cacheWriteTokens,
     },
-    calculatedCost: usageRecord.costUsd,
+    costUsd: usageRecord.costUsd,
   };
   await reportNodeEvent((base) => deps.observer?.onModelEnd({ ...base, ...ended }));
-  return { response, usageRecord };
+  // what providers that failed before a fallback answered billed is recorded under them (#1399)
+  const earlier = earlierSpendOf(deps, request.messages, response);
+  return { response, records: [...earlier, usageRecord] };
 }
 
 /** The agent's `maxModelCalls` per visit: the call about to start is over it. */
@@ -196,14 +181,14 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
         ? undefined
         : { ...state.piiTokens, ...request.tokens };
     const attempt = attemptOf(config, deps, turn, tokens);
-    const { response, usageRecord } = await observedCall(state, deps, request, config, attempt);
+    const { response, records } = await observedCall(state, deps, request, config, attempt);
     // counted at once (#338) and in the ledger (#727): the branches running beside this one, and
     // the tree's steps on other instances, see it at their next check
-    const spent = deps.budgets.tally([...request.usage, usageRecord], state.flowPath);
+    const spent = deps.budgets.tally([...request.usage, ...records], state.flowPath);
     const outgoing = await outgoingMove(withCallIds(response, state), request, state, deps, spent);
     const pii = { piiTokens: request.tokens, piiMasked: request.cache };
     if (outgoing.kind === "invalid") {
-      attempt?.discard("invalid-answer");
+      attempt?.discard(StreamDiscardReason.InvalidAnswer);
       return { ...outgoing.update, modelCalls: 1, ...pii };
     }
     const checked = deps.budgets.tally(outgoing.usage, state.flowPath);
@@ -213,7 +198,7 @@ export function makeModelNode(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType
       callsOf(move).filter((call) => !isAnswerCall(deps.agent, call)).length +
       invalidCallsOf(move).filter((call) => !isAnswerCall(deps.agent, call)).length;
     // a turn that goes to tools is no reply: its text is retracted (#1006)
-    if (calls > 0) attempt?.discard("tool-turn");
+    if (calls > 0) attempt?.discard(StreamDiscardReason.ToolTurn);
     const toolCalls = state.toolCalls + calls;
     if (toolCalls > limits.toolCalls) {
       const breach = {

@@ -4,15 +4,16 @@ import {
   Clock,
   IdGenerator,
   Injectable,
-  SqliteCheckpointSaver,
-  SqliteConnection,
   SqliteExecutionRecordRepository,
   Workflow,
   type NewThread,
+  Ttl,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import {
   Clerk,
   OrderWorkflowStart,
@@ -20,6 +21,7 @@ import {
   ReceiptWorkflowFinish,
 } from "../../fixtures/recovery.workflow.js";
 import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** What the project's records repository saw: the threads it created, on which instance. */
 export const audited: { threads: string[]; instances: string[] } = { threads: [], instances: [] };
@@ -60,15 +62,14 @@ export class AuditedSqliteExecutionRecordRepository extends SqliteExecutionRecor
 @Workflow({
   name: "audited-note-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 8 },
   },
   flow: [
-    start(OrderWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(OrderWorkflowStart)
       .toAgent(Clerk)
-      .returns(ReceiptDto)
       .toFinish(ReceiptWorkflowFinish),
   ],
 })
@@ -76,6 +77,7 @@ export class AuditedNoteWorkflow {}
 
 @Application({
   name: "audited-records-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: SqliteTestEnvironment,
   workflows: [AuditedNoteWorkflow],

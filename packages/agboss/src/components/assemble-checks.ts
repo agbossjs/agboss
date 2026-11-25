@@ -1,14 +1,13 @@
-import type { WorkingCalendarSource } from "../calendar/working-calendar.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { ComponentError, componentOf, requireComponent } from "./metadata.js";
 import { tokenName, type Class, type Provider } from "./injection.js";
 import { isModelProviderClass } from "../models/model-provider.decorator.js";
 import { transportProviderClassesOf } from "../models/resolution.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
-import { ragMeta, rerankerClassesOf, searchToolName } from "./rag.js";
+import { rerankerClassesOf } from "./rag.js";
 import type { PromptLoader } from "./prompt-render.js";
 import { channelComponentClassesOf } from "./channel-parts.js";
-import { channelNameOf } from "../channels/discovery.js";
+import { targetNameOf } from "../channels/pause-targets.js";
 import type { ProviderModule } from "./container/registrations.js";
 import { INFRASTRUCTURE_TOKENS } from "../infrastructure/in-memory-database.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
@@ -23,14 +22,12 @@ import {
 import type { Token } from "./injection.js";
 import { CORE_TOKENS, rememberServers } from "./runtime.js";
 import { throwIfViolated, violation, type RuleViolation } from "../graph/rule-error.js";
-import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { MAX_TOOL_NAME_LENGTH } from "../flow/analyse/rules/models.js";
-import { toolExpiryViolations } from "./tool-expiry-rules.js";
+import { toolTimeoutViolations } from "./tool-timeout-rules.js";
 
-/** A workflow's tool classes: local `@Tool`s and `@McpTool`s. */
+/** A workflow's tool classes: local `@Tool`s. */
 export interface ToolClasses {
   readonly local: readonly Class[];
-  readonly mcp: readonly Class[];
   /** The question roles the flow asks (#659), and its agents (#712): channels, not tools. */
   readonly questions?: readonly Class[];
   /** The question roles the agents ask through their tool loop (#712): tools to their models. */
@@ -38,16 +35,15 @@ export interface ToolClasses {
 }
 
 /**
- * Tool classes → the tool names they expose to a model (a `@Rag` → `search-<name>-tool`); a name
- * that breaks the name rules (`toolNameViolations`) or is exposed twice (local, MCP or
- * knowledge-base search) fails assembly — with the `others` found in the tools (their bounds, #336).
+ * Tool classes → the tool names they expose to a model; a name
+ * that breaks the name rules (`toolNameViolations`) or is exposed twice (local, MCP
+ * or question role) fails assembly — with the `others` found in the tools (their bounds, #336).
  */
 export const toolNames = (
   tools: ToolClasses,
-  rags: readonly Class[],
   others: readonly RuleViolation[] = [],
 ): Map<Class, string> => {
-  throwIfViolated([...toolNameViolations(tools, rags), ...others]);
+  throwIfViolated([...toolNameViolations(tools), ...others]);
   const map = new Map<Class, string>();
   const byName = new Map<string, Class>();
 
@@ -65,14 +61,8 @@ export const toolNames = (
   tools.local.forEach((cls) => {
     add(cls, requireComponent(cls, "tool", "workflowOf").meta.name);
   });
-  tools.mcp.forEach((cls) => {
-    add(cls, requireComponent(cls, "mcp-tool", "workflowOf").meta.name);
-  });
-  rags.forEach((cls) => {
-    add(cls, searchToolName(ragMeta(cls)));
-  });
   (tools.asked ?? []).forEach((cls) => {
-    add(cls, channelNameOf(cls));
+    add(cls, targetNameOf(cls));
   });
 
   return map;
@@ -97,41 +87,29 @@ function modelNameViolations(name: string, owner: string): RuleViolation[] {
 }
 
 /**
- * The names of a workflow's tools (#268 AC9): a project's `@Tool` / `@McpTool` is kebab-case and ends
- * with `-tool` (`[name.kind-suffix]`); every name a model sees — a knowledge base's
- * `search-<name>-tool` too — fits the providers' `[a-zA-Z0-9_-]`, at most 64 characters. All at once.
+ * The names of a workflow's tools (#268 AC9, #1343a): every name a model sees — a project's `@Tool`s
+ * (no `-tool` suffix needed for an MCP one) — fits the providers' `[a-zA-Z0-9_-]`, at most 64 characters. All at once.
  */
-export function toolNameViolations(tools: ToolClasses, rags: readonly Class[]): RuleViolation[] {
+export function toolNameViolations(tools: ToolClasses): RuleViolation[] {
   const named = [
     ...tools.local.map((cls) => ({
       cls,
       name: requireComponent(cls, "tool", "workflowOf").meta.name,
     })),
-    ...tools.mcp.map((cls) => ({
-      cls,
-      name: requireComponent(cls, "mcp-tool", "workflowOf").meta.name,
-    })),
   ];
-  const own = named.flatMap(({ cls, name }) => {
-    const problem = kindSuffixProblem(name, NameKind.Tool);
-    const owner = tokenName(cls);
-    return problem === undefined
-      ? modelNameViolations(name, owner)
-      : [violation(problem.code, `${owner}: ${problem.message}`, [owner])];
-  });
-  const searches = rags.flatMap((cls) =>
-    modelNameViolations(searchToolName(ragMeta(cls)), tokenName(cls)),
-  );
+  const own = named.flatMap(({ cls, name }) => modelNameViolations(name, tokenName(cls)));
   // a question role's name is the tool name its agents' models see (#712)
   const questions = (tools.asked ?? []).flatMap((cls) =>
-    modelNameViolations(channelNameOf(cls), tokenName(cls)),
+    modelNameViolations(targetNameOf(cls), tokenName(cls)),
   );
-  return [...own, ...searches, ...questions, ...toolExpiryViolations(tools)];
+  return [...own, ...questions, ...toolTimeoutViolations(tools)];
 }
 
 /** The classes among a workflow's `providers` (values excluded). */
 const providerClassesOf = (bundle: WorkflowMeta): readonly Class[] =>
-  (bundle.providers ?? []).flatMap((p) => ("provide" in p ? [] : [p]));
+  [...(bundle.providers ?? []), ...(bundle.services ?? [])].flatMap((p) =>
+    "provide" in p ? [] : [p],
+  );
 
 /**
  * Every class the container creates for the workflow, for the dependency graph check; `created` =
@@ -146,22 +124,17 @@ export const componentClassesOf = (
   modules: readonly ProviderModule[],
   owner?: {
     readonly providers?: readonly Provider[];
-    readonly workingCalendar?: WorkingCalendarSource;
   },
 ): Class[] => [
   ...tools.local,
-  ...tools.mcp,
   ...rags,
   ...rerankerClassesOf(rags),
   ...created,
   ...channelComponentClassesOf(tools, modules),
   ...agents.flatMap((a) => a.judges ?? []),
   ...providerClassesOf(bundle),
-  ...agents.flatMap((a) => a.memoryStrategy ?? []),
   // the application's transport providers (#385): its container creates them on their first call
   ...transportProviderClassesOf(owner?.providers),
-  // the application's default calendar class (#944), created by its container
-  ...(typeof owner?.workingCalendar === "function" ? [owner.workingCalendar] : []),
 ];
 
 /**

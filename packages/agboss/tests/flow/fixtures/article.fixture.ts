@@ -1,10 +1,11 @@
-import { start } from "../../../src/flow/builder.js";
+import { onStart } from "../../../src/flow/builder.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { ArticleDto, ArticleRequestDto, ReviewDto } from "./dtos.js";
 import { reviewerAgentOptions } from "./reviewer-agent.options.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** #272 example 2b — the same work at two stages = two classes sharing one options const. */
 
@@ -18,7 +19,7 @@ export class ArticleWorkflowStart {}
 @Agent({
   name: "article-draft-agent",
   description: "Writes the first draft",
-  prompt: "Write the draft.",
+  prompt: inline("Write the draft."),
   model: "moonshotai/kimi-k2.6",
   input: {
     request: ArticleRequestDto,
@@ -37,7 +38,7 @@ export class DraftReviewerAgent {}
 @Agent({
   name: "writer-agent",
   description: "Rewrites the article by the review",
-  prompt: "Rewrite the article.",
+  prompt: inline("Rewrite the article."),
   model: "moonshotai/kimi-k2.6",
   input: {
     article: ArticleDto,
@@ -62,22 +63,18 @@ export class FinalReviewerAgent {}
 export class ArticleWorkflowFinish {}
 
 export const articlePaths = [
-  start(ArticleWorkflowStart)
-    .returns(ArticleRequestDto)
+  onStart(ArticleWorkflowStart)
     .toAgent(ArticleDraftAgent)
-    .returns(ArticleDto)
     .toAgent(DraftReviewerAgent)
-    .returns(ReviewDto)
     .toAgent(WriterAgent)
-    .returns(ArticleDto)
     .toAgent(FinalReviewerAgent)
-    .returns(ReviewDto)
     .toFinish(ArticleWorkflowFinish),
 ] as const;
 
 @Workflow({
   name: "article-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: articlePaths,
 })
 export class ArticleWorkflow {}

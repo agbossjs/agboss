@@ -8,17 +8,20 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { SingleChildWorkflow } from "../../channels/fixtures/child-pauses.workflow.js";
 import {
   CustomerOrderConfirmationChannel,
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   PauseLog,
   SeenPausedExecutionRepository,
 } from "../../channels/fixtures/pauses.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #313 — a project's own ids: `IdGenerator` replaced by listing a subclass in
@@ -66,6 +69,7 @@ export class InstanceIdGenerator extends IdGenerator {
 /** The channels the single-child workflow's agent pauses on. */
 const CHANNELS = [
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   CustomerOrderConfirmationChannel,
   SeenPausedExecutionRepository,
 ];
@@ -73,6 +77,7 @@ const CHANNELS = [
 /** The child-pauses workflow (a root, a child and a pause) on the project's ids. */
 @Application({
   name: "prefixed-ids-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
@@ -85,6 +90,7 @@ export class PrefixedIdsApplication {}
 /** The same workflow on the built-in ids. */
 @Application({
   name: "built-in-ids-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
@@ -97,6 +103,7 @@ export class BuiltInIdsApplication {}
 /** Two generators listed: `[di.ambiguous-implementation]`. */
 @Application({
   name: "two-generators-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
@@ -108,6 +115,7 @@ export class TwoGeneratorsApplication {}
 /** A generator that injects `ApplicationContext`: the start fails, naming why. */
 @Application({
   name: "context-generator-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
@@ -134,9 +142,9 @@ export class EchoWorkflowFinish {}
 @Workflow({
   name: "echo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(EchoWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(EchoWorkflowStart)
       .toFinish(EchoWorkflowFinish),
   ],
   providers: [PrefixedIdGenerator],

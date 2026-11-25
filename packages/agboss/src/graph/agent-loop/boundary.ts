@@ -1,6 +1,8 @@
+import { argsDigestOf, freshEntriesOf } from "./move-entries.js";
 import { Send } from "@langchain/langgraph";
 import { loopUsage } from "./state.js";
-import { unknownToolMessage } from "../../prompts/agents.js";
+import { invalidArgumentsMessage, unknownToolMessage } from "../../prompts/agents.js";
+import { AgentRetryReason, reportAgentRetry } from "./retry-event.js";
 import type { AsyncNode } from "../types.js";
 import {
   callsOf,
@@ -15,11 +17,34 @@ import { extractRunContext } from "../../core/run-context.js";
 import {
   LOOP_NODE,
   loopProgressOf,
+  PreparedFrom,
   type AgentLoopStateType,
   type AgentLoopUpdate,
+  type PreparedCall,
   type StoredToolCall,
   type ToolTask,
 } from "./state.js";
+
+/** Whether a prepared call is the call as the model made it: its tool and its arguments. */
+export const isPreparedFor = (prepared: PreparedCall, call: ToolCallRequest): boolean =>
+  prepared.tool === call.tool && prepared.argsDigest === argsDigestOf(call.args);
+
+/**
+ * Calls of the move not prepared yet (#1295c): no input check, PII search and `before` hooks has
+ * made them ready, refused or ended — or an approver's override came after the ones that did.
+ */
+export const unpreparedCalls = (state: AgentLoopStateType): ToolCallRequest[] =>
+  callsOf(state.move).filter((call) => {
+    if (state.results[call.callId] !== undefined) return false;
+    const prepared = state.prepared[call.callId];
+    const overridden = state.decisions[call.callId]?.overrideInput !== undefined;
+    // prepared for another tool or other arguments (a call id the model reused): prepared anew
+    return (
+      prepared === undefined ||
+      !isPreparedFor(prepared, call) ||
+      (overridden && prepared.from !== PreparedFrom.Approver)
+    );
+  });
 
 /**
  * Calls of the move that wait for a decision — their tool needs one and nobody decided yet — or for
@@ -33,7 +58,13 @@ export function awaitingApproval(
   if (approval === undefined) return [];
   return callsOf(state.move).filter((call) => {
     const tool = toolNamed(deps.agent, call.tool);
-    if (tool?.channel === undefined || state.results[call.callId] !== undefined) return false;
+    if (
+      tool?.approval === undefined ||
+      state.results[call.callId] !== undefined ||
+      // a call that did not pass its checks is never asked about (#1295c)
+      state.prepared[call.callId]?.kind !== "ready"
+    )
+      return false;
     // a question call (#712) waits for its answer, an approval's for its decision
     return tool.question === undefined
       ? state.decisions[call.callId] === undefined
@@ -47,6 +78,15 @@ export const runnableCalls = (state: AgentLoopStateType): ToolCallRequest[] =>
     (call) =>
       state.results[call.callId] === undefined && state.decisions[call.callId]?.approved !== false,
   );
+
+/** How a call was prepared; every call routed to run was (the prepare node comes first). */
+function preparedOf(state: AgentLoopStateType, call: ToolCallRequest): PreparedCall {
+  const prepared = state.prepared[call.callId];
+  // never run a call nobody checked
+  if (prepared === undefined || !isPreparedFor(prepared, call))
+    throw new TypeError(`tool call ${call.callId} was not prepared`);
+  return prepared;
+}
 
 /** A question call's answer for its task (#712); nothing for any other call. */
 const answerOf = (
@@ -68,6 +108,7 @@ export function routeToActions(
   deps: AgentLoopDeps,
 ): (state: AgentLoopStateType) => string | Send[] {
   return (state) => {
+    if (unpreparedCalls(state).length > 0) return LOOP_NODE.prepare;
     if (awaitingApproval(state, deps).length > 0) return LOOP_NODE.approval;
     const calls = runnableCalls(state);
     if (calls.length === 0) return LOOP_NODE.collect;
@@ -76,10 +117,12 @@ export function routeToActions(
         new Send(LOOP_NODE.tool, {
           callId: call.callId,
           tool: call.tool,
-          args: state.decisions[call.callId]?.overrideArguments ?? call.args,
+          args: preparedOf(state, call).args,
+          prepared: preparedOf(state, call),
           runId: state.runId,
           piiKey: state.piiKey,
           piiValues: state.piiValues,
+          turn: state.modelCalls,
           progress: loopProgressOf(state),
           fileTally: state.fileTally,
           transcripts: state.fileTranscripts,
@@ -97,7 +140,7 @@ export function routeToActions(
 export function makeBoundaryNode(
   deps: AgentLoopDeps,
 ): AsyncNode<AgentLoopStateType, AgentLoopUpdate> {
-  return (state, config) => {
+  return async (state, config) => {
     const at = extractRunContext(config, state.runId).clock.now();
     const results: Record<string, StoredToolCall> = {};
     const unknown: Record<string, ToolCallRecord> = {};
@@ -113,7 +156,24 @@ export function makeBoundaryNode(
     const messages = state.move === null ? [] : [state.move];
     const unread = unreadCallsOf(state, deps, at);
     const callRecords = { ...unknown, ...unread.callRecords };
-    return Promise.resolve({ messages, results, ...unread, callRecords });
+    const attempted = loopProgressOf(state).validationAttempts;
+    for (const [index, call] of invalidCallsOf(state.move).entries()) {
+      await reportAgentRetry(deps, {
+        reason: AgentRetryReason.InvalidToolInput,
+        attempt: attempted + index + 1,
+        maxAttempts: deps.agent.limits.modelCalls,
+        feedback: invalidArgumentsMessage([call]),
+      });
+    }
+    // a call id the model reuses is a new call: an older one's entries are dropped first (#1295c)
+    const fresh = freshEntriesOf(state.move);
+    return {
+      ...fresh,
+      messages,
+      results: { ...fresh.results, ...results },
+      ...unread,
+      callRecords: { ...fresh.callRecords, ...callRecords },
+    };
   };
 }
 

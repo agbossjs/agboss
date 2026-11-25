@@ -1,0 +1,12 @@
+workflows:
+  limits-spin-workflow:
+    executionLimits:
+      maxSteps: 5
+  countdown-workflow:
+    executionLimits:
+      maxDepth: 2
+  batch-workflow:
+    executionLimits:
+      maxConcurrency: 4
+  limits-kept-workflow:
+    historyTtl: none

@@ -1,3 +1,6 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
+import { fenceOf } from "../../src/flow/context/execution-fence.js";
 /**
  * #1356 (cancel shard) — the errors of a lease that is over and of a write that was refused (#265, #471,
  * #567, #890, #909, #1090), each on its own: its name and fields, its message by what the refusal knows,
@@ -6,7 +9,6 @@
 import { describe, expect, it } from "vitest";
 import {
   ExecutionCancelFencedError,
-  ExecutionFencedError,
   ExecutionLeaseLostError,
   heldAtRelease,
   heldWhileYieldsRun,
@@ -25,7 +27,6 @@ describe("#1356: a lease that is over", () => {
 
     expect(error.name).toBe("ExecutionLeaseLostError");
     expect(error.code).toBe("execution.lease-lost");
-    expect(error.rootExecutionId).toBe("root-1");
     expect(error.cause).toBe(cause);
     expect(error.message).toBe(
       "the lease of execution root-1 is over — it expired, or another instance took it: this instance stops, the next take of the lease continues the execution",
@@ -36,7 +37,6 @@ describe("#1356: a lease that is over", () => {
     const error = leaseExpiredError("root-1");
 
     expect(error).toBeInstanceOf(ExecutionLeaseLostError);
-    expect(error.rootExecutionId).toBe("root-1");
     expect(error.code).toBe("execution.lease-lost");
     expect(error.message).toBe(
       "the lease of execution root-1 expired before its store confirmed a renewal — the holder was frozen, or its store did not answer, for longer than the lease: this instance stops, the next take of the lease continues the execution",
@@ -46,7 +46,6 @@ describe("#1356: a lease that is over", () => {
   it("taken while its holder waited for remote children: its own message", () => {
     const error = leaseTakenWhileYieldedError("root-1");
 
-    expect(error.rootExecutionId).toBe("root-1");
     expect(error.message).toBe(
       "the lease of execution root-1 is over — it expired while it waited for remote children, or another instance took it: this instance stops, the next take of the lease continues the execution",
     );
@@ -60,7 +59,6 @@ describe("#1356: a lease that is over", () => {
 
     expect(error).toBeInstanceOf(ExecutionLeaseLostError);
     expect(error).not.toBe(lost);
-    expect(error.rootExecutionId).toBe("root-1");
     expect(error.cause).toBe(cause);
     expect(error.code).toBe("execution.lease-lost.not-started");
     expect(error.message).toBe(
@@ -100,7 +98,7 @@ describe("#1356: a write an external system refused", () => {
 
   it("has the scope's parts, the tokens and the cause", () => {
     const cause = new Error("driver");
-    const error = new ExecutionFencedError({
+    const error = new ExecutionError.Fenced({
       scopeKey: "acme:root-1",
       tenantId: "acme",
       leaseExecutionId: "root-1",
@@ -109,10 +107,9 @@ describe("#1356: a write an external system refused", () => {
       cause,
     });
 
-    expect(error).toBeInstanceOf(ExecutionLeaseLostError);
-    expect(error.name).toBe("ExecutionFencedError");
+    expect(error).toBeInstanceOf(ExecutionError.Fenced);
+    expect(error.name).toBe("ExecutionError.Fenced");
     expect(error.code).toBe("execution.lease-lost.fenced");
-    expect(error.rootExecutionId).toBe("root-1");
     expect(error.leaseExecutionId).toBe("root-1");
     expect(error.tenantId).toBe("acme");
     expect(error.scopeKey).toBe("acme:root-1");
@@ -122,7 +119,7 @@ describe("#1356: a write an external system refused", () => {
   });
 
   it("a newer token seen is a newer take of the lease", () => {
-    expect(ExecutionFencedError.of({ ...refusal, observedToken: 5 }).message).toBe(
+    expect(fencedRefusalOf({ ...refusal, observedToken: 5 }).message).toBe(
       "a write of lease scope acme:root-1 with token 3 was refused: the external system saw token 5 — a newer take of the lease: this instance stops, the holder of token 5 continues the execution",
     );
   });
@@ -131,33 +128,32 @@ describe("#1356: a write an external system refused", () => {
     const over =
       "the lease is over: it expired, was released, or another instance took it; this instance stops, the next take of the lease continues the execution";
 
-    expect(ExecutionFencedError.of({ ...refusal, observedToken: 3 }).message).toBe(
+    expect(fencedRefusalOf({ ...refusal, observedToken: 3 }).message).toBe(
       `a write of lease scope acme:root-1 with token 3 was refused: the external system saw token 3, no newer take — ${over}`,
     );
-    expect(ExecutionFencedError.of({ ...refusal, observedToken: 2 }).message).toContain(
+    expect(fencedRefusalOf({ ...refusal, observedToken: 2 }).message).toContain(
       "the external system saw token 2, no newer take — the lease is over",
     );
   });
 
   it("no token seen is only a lease that is over, too", () => {
-    expect(ExecutionFencedError.of(refusal).message).toBe(
+    expect(fencedRefusalOf(refusal).message).toBe(
       "a write of lease scope acme:root-1 with token 3 was refused: the external system named no newer token — the lease is over: it expired, was released, or another instance took it; this instance stops, the next take of the lease continues the execution",
     );
-    expect(ExecutionFencedError.of(refusal).observedToken).toBeUndefined();
+    expect(fencedRefusalOf(refusal).observedToken).toBeUndefined();
   });
 
   it("built from a scope key alone, the key is read into its parts", () => {
-    const error = ExecutionFencedError.of({ scopeKey: "a%3Ab:c%20d", token: 1 });
+    const error = fencedRefusalOf({ scopeKey: "a%3Ab:c%20d", token: 1 });
 
     expect(error.tenantId).toBe("a:b");
     expect(error.leaseExecutionId).toBe("c d");
-    expect(error.rootExecutionId).toBe("c d");
   });
 
   it("a key that is no scope key is a TypeError, named, saying what it is not", () => {
     let caught: unknown;
     try {
-      ExecutionFencedError.of({ scopeKey: "nonsense", token: 1 });
+      fencedRefusalOf({ scopeKey: "nonsense", token: 1 });
     } catch (error) {
       caught = error;
     }
@@ -190,7 +186,6 @@ describe("#1356: a write the tree's cancel refused", () => {
     expect(error.scopeKey).toBe("acme:lease-1");
     expect(error.tenantId).toBe("acme");
     expect(error.leaseExecutionId).toBe("lease-1");
-    expect(error.rootExecutionId).toBe("root-1");
     expect(error.token).toBe(4);
     expect(error.effect).toBe("charge");
     expect(error.message).toBe(

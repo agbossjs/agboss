@@ -273,19 +273,18 @@ describe("what fails closed, and why", () => {
     );
   });
 
-  it("the target 'value' is no target when no value was given, and nothing else is one", async () => {
+  it("#1301: the target 'value' is no target when no value was given, and nothing else is one: painted, reported as nothing found", async () => {
     const answer = (target: string) =>
       `{"regions":[{"target":"${target}","x":0.1,"y":0.1,"w":0.2,"h":0.2}]}`;
     for (const target of ["value", "Stryker was here"]) {
-      const error = await reasonOf(
-        redacted(
-          { model: new RecordingModel(answer(target)), settings },
-          "a",
-          await imageOf("png"),
-          optionsOf({ values: [] }),
-        ),
+      const result = await redacted(
+        { model: new RecordingModel(answer(target)), settings },
+        "a",
+        await imageOf("png"),
+        optionsOf({ values: [] }),
       );
-      expect(error.reason).toContain("names an unknown target");
+      expect(result.found).toEqual([]);
+      expect(result.file.sha256).not.toBe((await imageOf("png")).sha256);
     }
   });
 });

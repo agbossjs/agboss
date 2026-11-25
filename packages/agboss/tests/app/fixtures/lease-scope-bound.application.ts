@@ -31,6 +31,7 @@ import {
 } from "../../flow/runtime/fixtures/unwind-pause.workflow.js";
 import { UnwindLog, UnwindWorkflow } from "../../flow/runtime/fixtures/unwind.workflow.js";
 import { YieldLog, YieldOneWorkflow } from "./remote-child-yield.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #928 lease scopes — stores whose next call of a named operation never answers, as a silent
@@ -72,7 +73,7 @@ function isHung(operation: string): boolean {
 
 const never = <T>(): Promise<T> => new Promise<T>(() => undefined);
 
-@Injectable({ deps: [Clock, IdGenerator] })
+@Injectable({ deps: [Clock, IdGenerator, IN_MEMORY_DATABASE] })
 export class ScopedRecords extends InMemoryExecutionRecordRepository {
   override complete(turnId: string, outcome: TurnOutcome): Promise<void> {
     return isHung("records.complete") ? never() : super.complete(turnId, outcome);
@@ -122,6 +123,7 @@ export const HeldHistory = withHoldPoints(InMemoryExecutionHistoryRepository);
 
 @Application({
   name: "lease-scope-bound-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [UnwindWorkflow, UnwindGuestWorkflow, YieldOneWorkflow],
@@ -138,7 +140,7 @@ export const HeldHistory = withHoldPoints(InMemoryExecutionHistoryRepository);
     RecordingLogger,
   ],
   budgets: TEST_BUDGETS,
-  compensationTimeout: seconds(60),
+  executionLimits: { compensationTimeout: seconds(60) },
   retention: { executionRecords: hours(24) },
 })
 export class LeaseScopeBoundApplication {}

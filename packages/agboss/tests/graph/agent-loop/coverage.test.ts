@@ -56,7 +56,7 @@ describe("agent-loop coverage", () => {
     const tool = {
       name: "t1",
       description: "a tool",
-      channel: "c1",
+      approval: "c1",
       timeout: seconds(1),
       input: z.unknown(),
       output: z.unknown(),
@@ -71,7 +71,16 @@ describe("agent-loop coverage", () => {
       budgets: NO_BUDGET_CHECK,
     };
     const node = makeToolNode(deps);
-    const result = await node({ callId: "c1", tool: "t1", arguments: "{}" }, {});
+    const result = await node(
+      {
+        callId: "c1",
+        tool: "t1",
+        arguments: "{}",
+        args: {},
+        prepared: { kind: "ready", args: {}, shown: {}, from: "model" },
+      },
+      {},
+    );
     expect(result.results.c1.content).toContain("some error");
   });
 
@@ -79,7 +88,7 @@ describe("agent-loop coverage", () => {
     const tool = {
       name: "t1",
       description: "a tool",
-      channel: "c1",
+      approval: "c1",
       timeout: seconds(1),
       input: z.unknown(),
       output: z.unknown(),
@@ -95,7 +104,16 @@ describe("agent-loop coverage", () => {
       budgets: NO_BUDGET_CHECK,
     };
     const node = makeToolNode(deps);
-    const result = await node({ callId: "c1", tool: "t1", arguments: "{}" }, {});
+    const result = await node(
+      {
+        callId: "c1",
+        tool: "t1",
+        arguments: "{}",
+        args: {},
+        prepared: { kind: "ready", args: {}, shown: {}, from: "model" },
+      },
+      {},
+    );
     expect(result.results.c1.content).toContain("some string error");
   });
 
@@ -242,10 +260,11 @@ describe("app-deps branches coverage", () => {
 
   it("app-deps channelOf gives the channel of that name", async () => {
     // We need a channel to be returned by bundle.channels
-    const mockChannel = { send: vi.fn().mockResolvedValue(undefined) };
+    const mockChannel = { name: "my-channel", cls: Object, sender: { send: vi.fn() } };
     const bundle = await workflowOf(CodeReview);
-    const originalChannels = bundle.channels;
-    bundle.channels = () => new Map([["my-channel", mockChannel]]);
+    const originalTargets = bundle.pauseTargets;
+    bundle.pauseTargets = () =>
+      new Map([["my-target", { channels: new Map([["my-channel", mockChannel]]) } as never]]);
 
     const built = await createAppDeps(bundle, {
       gateway: { chatModel: () => ({}), embeddings: () => ({}) } as any,
@@ -254,7 +273,7 @@ describe("app-deps branches coverage", () => {
 
     expect(built.channelOf("my-channel")).toBe(mockChannel);
 
-    bundle.channels = originalChannels;
+    bundle.pauseTargets = originalTargets;
     await built.close();
   });
 });

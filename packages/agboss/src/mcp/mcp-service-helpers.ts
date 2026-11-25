@@ -1,31 +1,38 @@
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { ExecutionOptions } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { jsonSchemaOf } from "../dto/schema.js";
 import type { DtoClass } from "../dto/types.js";
-import type { McpExposeOptions } from "./mcp-expose.decorator.js";
+import type { McpEndpointOptions } from "./mcp-endpoint.decorator.js";
 import type { InboundMesh } from "../mesh/inbound-mesh.js";
 import { MESH_ERROR_META_KEY } from "../mesh/mesh-envelope.js";
+import { RecordedError } from "../core/error-record.js";
 import { meshLimitBodyOf } from "../mesh/mesh-wire.js";
 
-/** Helpers for `McpService`: reading `@McpExpose` options, tool schemas, results and the resume tool. */
+/** Helpers for the MCP server: reading `@McpEndpoint` options, tool schemas, results and the resume tool. */
 
-/** The part of the SDK's SSE server transport that `McpService` uses. */
-export interface SseTransport extends Transport {
-  readonly sessionId: string;
-  handlePostMessage(req: IncomingMessage, res: ServerResponse, parsedBody?: unknown): Promise<void>;
-}
+/**
+ * What every call of one MCP session runs with (#261): the thread's owner and the execution's typed
+ * context values — `tenant` (a resume uses its `tenantId`) and the declared `execution` fields —
+ * taken by the transport from its authenticated caller, never from the call's arguments.
+ */
+export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution">;
 
-export const createSseTransport = (endpoint: string, res: ServerResponse): SseTransport =>
-  // eslint-disable-next-line @typescript-eslint/no-deprecated -- SSE kept as the HTTP transport; migrating to StreamableHTTPServerTransport changes the wire protocol (out of scope for #180)
-  new SSEServerTransport(endpoint, res);
+/**
+ * The caller of one MCP message as the server runs it: a session's values and, for a signed mesh
+ * peer, the peer itself (#398 PR 2), by its `@Application({ name })` — when a call's envelope carries
+ * its valid signature, its budget, deadline and origin are honoured and the run's report is signed
+ * back (`_meta["agboss.dev/report"]`). Only the HTTP listener, after it verified the signature,
+ * makes one with a `peer`: a host's `session` never names a peer.
+ */
+export type McpCaller = McpSessionOptions & { readonly peer?: string };
 
 /** One `tools/call` as the service sees it: the raw arguments, the client's cancel signal. */
 export interface McpCall {
   readonly args: unknown;
+  /** The identity THIS call runs with (#1319b): its own message's verified caller, never a stored one. */
+  readonly session: McpCaller;
   /** The client's idempotency key (`_meta.callId`), if it sent one. */
   readonly callId?: string;
   readonly signal: AbortSignal;
@@ -45,10 +52,10 @@ export interface ToolRegistry {
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-/** The `@McpExpose` options recorded on `config`. */
-export function mcpServerOptionsOf(config: Class): McpExposeOptions | undefined {
+/** The `@McpEndpoint` options recorded on `config`. */
+export function mcpServerOptionsOf(config: Class): McpEndpointOptions | undefined {
   const component = componentOf(config);
-  return component?.kind === "mcp-expose" ? component.meta : undefined;
+  return component?.kind === "mcp-endpoint" ? component.meta : undefined;
 }
 
 /** A DTO as an MCP object schema (`inputSchema` / `outputSchema`). */
@@ -62,7 +69,8 @@ export const callIdOf = (meta: unknown): string | undefined =>
 
 export const RESUME_TOOL: Tool = {
   name: "resume_workflow",
-  description: "Answer one pause of a paused workflow by its pause ID with the decision data.",
+  description:
+    "Answer one pause of a paused workflow by its pause ID, with the decision data or a free-text reply (exactly one).",
   inputSchema: {
     type: "object",
     properties: {
@@ -71,8 +79,13 @@ export const RESUME_TOOL: Tool = {
         type: "string",
         description: "The decision/data as a JSON string to pass back to the workflow.",
       },
+      reply: {
+        type: "string",
+        description:
+          "A free-text reply, read by the pause's channel interpreter instead of a decision.",
+      },
     },
-    required: ["pauseId", "decision"],
+    required: ["pauseId"],
   },
 };
 
@@ -85,8 +98,11 @@ export function parseDecision(decision: unknown): unknown {
   }
 }
 
-export const errorMessage = (err: unknown): string =>
-  err instanceof Error ? err.message : String(err);
+export const errorMessage = (err: unknown): string => {
+  // a recorded error whose original was no framework error says nothing of the original (#1325)
+  if (err instanceof RecordedError && !err.isFramework) return "the call failed";
+  return err instanceof Error ? err.message : String(err);
+};
 
 export const textOf = (value: unknown): string =>
   typeof value === "string" ? value : JSON.stringify(value);

@@ -6,7 +6,7 @@ import { SectionReviewDto } from "../../dto/section-review.dto.js";
 @Agent({
   name: "section-reviewer-agent",
   description: "Reviews one section",
-  promptUrls: ["./section-reviewer.prompt.md"],
+  prompt: "./section-reviewer.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     section: SectionDto, // the item of this run

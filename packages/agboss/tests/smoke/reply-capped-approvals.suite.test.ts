@@ -6,6 +6,7 @@
  * only `make smoke`, skipped without a key, never in CI. `AGBOSS_SMOKE_REPLY_MODELS` lists the
  * models (comma-separated), by default `openai/gpt-4.1-nano` and `openai/gpt-4o-mini`.
  */
+import { TestOpenRouterProvider } from "../models/providers.fixture.js";
 import { describe, expect, it } from "vitest";
 import type { AssembledReplyInterpreter } from "../../src/channels/discovery.js";
 import { readByModel, type ModelReading } from "../../src/channels/reply-reader.js";
@@ -14,7 +15,7 @@ import { ToolCallApprovalDecisionDto } from "../../src/dto/standard/framework.js
 import { resolveEnvironment } from "../../src/environments/resolve.js";
 import { secret } from "../../src/environments/secret.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
-import { OpenRouterModelProvider } from "../../src/models/index.js";
+import {} from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { instanceCalls } from "../models/gateway.js";
@@ -36,11 +37,11 @@ class PlacePurchaseOrderDto {
 }
 
 const interpreterOn = (model: string): AssembledReplyInterpreter => ({
-  channel: "purchase-approval-channel",
+  target: "purchase-tool-approval",
   interpreter: PlacePurchaseOrderDto, // its class is not read on this path
   name: "purchase-reply-interpreter",
   answer: ToolCallApprovalDecisionDto,
-  approves: PlacePurchaseOrderDto,
+  input: PlacePurchaseOrderDto,
   model,
   instructions: "Read the approver's reply to the purchase order.",
 });
@@ -89,7 +90,7 @@ function siteOf(model: string) {
     },
     process.env,
   );
-  const gateway = createProviderGateway(ModelProviderDirectory.of([OpenRouterModelProvider]), {
+  const gateway = createProviderGateway(ModelProviderDirectory.of([TestOpenRouterProvider]), {
     env: process.env,
     environment,
     calls: instanceCalls(),
@@ -120,7 +121,7 @@ describe.skipIf(!process.env.OPENROUTER_API_KEY)("smoke #688: capped approvals",
             kind: "answered",
             answer: {
               approved: true,
-              overrideArguments: { ...ask.arguments, amountUsd: cap },
+              overrideInput: { ...ask.arguments, amountUsd: cap },
             },
           });
         });
@@ -136,9 +137,8 @@ describe.skipIf(!process.env.OPENROUTER_API_KEY)("smoke #688: capped approvals",
             return;
           }
           expect(reading).toMatchObject({ kind: "answered", answer: { approved: true } });
-          const answer = (reading as { answer: { overrideArguments?: { amountUsd?: number } } })
-            .answer;
-          const amount = answer.overrideArguments?.amountUsd ?? 1200;
+          const answer = (reading as { answer: { overrideInput?: { amountUsd?: number } } }).answer;
+          const amount = answer.overrideInput?.amountUsd ?? 1200;
           if (amount !== 1200)
             process.stderr.write(
               `[#688 smoke] ${model} read ${JSON.stringify(reply)} as ${String(amount)}\n`,

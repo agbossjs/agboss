@@ -1,34 +1,37 @@
+import { fencedRefusalOf } from "../../../src/app/lease-lost.js";
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
   Agent,
   EmptyEnvironment,
   ExecutionContext,
-  ExecutionFencedError,
   Injectable,
   Tool,
   ToolCallDecision,
   ToolInterceptor,
   Workflow,
-  type BeforeToolCall,
-  type OnToolEnd,
   type ToolEndEvent,
   WorkflowFinish,
   WorkflowStart,
-  type ExecutionFence,
-  type Produced,
-  type ToolHandler,
+  type Tracked,
+  Observer,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
+import { type ExecutionFence } from "../../../src/stores/index.js";
+import { fenceOf } from "../../../src/flow/context/execution-fence.js";
 import { Application } from "../../../src/application/application.js";
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #471 — a release that stages an artifact in an external ledger, fenced by the step's lease: the
  * ledger keeps the highest token of each lease scope (`fence.scopeKey`) and the idempotency keys it
- * wrote, refuses a token below the highest (`ExecutionFencedError`) and writes a key once. The
+ * wrote, refuses a token below the highest (`ExecutionError.Fenced`) and writes a key once. The
  * test's levers freeze the first release inside the TOCTOU window — after `fence.assertHeld()`,
  * before the ledger's write — and make a step throw a fenced error wrapped in other errors.
  */
@@ -149,7 +152,7 @@ export class ArtifactLedger {
     const highest = ledger.highest.get(row.scopeKey) ?? 0;
     if (row.token < highest) {
       ledger.refused.push({ scopeKey: row.scopeKey, token: row.token });
-      throw ExecutionFencedError.of({
+      throw fencedRefusalOf({
         scopeKey: row.scopeKey,
         token: row.token,
         observedToken: highest,
@@ -174,7 +177,7 @@ export class ReceiptDto {
 }
 
 /** A fenced error as the lever wraps it. */
-function wrapped(error: ExecutionFencedError): Error {
+function wrapped(error: Error): Error {
   switch (levers.wrap) {
     case "cause":
       return new Error("the driver failed", {
@@ -199,7 +202,8 @@ export async function release(
   artifactLedger: ArtifactLedger,
   artifact: string,
 ): Promise<Staged> {
-  const { fence, step } = executionContext;
+  const { step } = executionContext;
+  const fence = fenceOf(executionContext);
   seen.releases += 1;
   const isFirst = seen.releases === 1;
   seen.fences.push(fenceSeenOf(fence, step.idempotencyKey));
@@ -241,14 +245,8 @@ export class ReleaseAction {
     private readonly artifactLedger: ArtifactLedger,
   ) {}
 
-  async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): Promise<ReceiptDto> {
-    const staged = await release(
-      this.executionContext,
-      this.artifactLedger,
-      input.message.value.text,
-    );
+  async execute(input: { readonly message: Tracked<WorkflowStartTextDto> }): Promise<ReceiptDto> {
+    const staged = await release(this.executionContext, this.artifactLedger, input.message.text);
     return { text: staged };
   }
 }
@@ -265,13 +263,13 @@ export class StageQuery {
   output: StageQuery,
   deps: [ExecutionContext, ArtifactLedger],
 })
-export class StageTool implements ToolHandler<StageQuery, StageQuery> {
+export class StageTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly artifactLedger: ArtifactLedger,
   ) {}
 
-  async run(input: StageQuery): Promise<StageQuery> {
+  async execute(input: StageQuery): Promise<StageQuery> {
     return { artifact: await release(this.executionContext, this.artifactLedger, input.artifact) };
   }
 }
@@ -280,18 +278,18 @@ export class StageTool implements ToolHandler<StageQuery, StageQuery> {
 @Tool({
   name: "approved-stage-tool",
   description: "Stages an artifact once approved",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: StageQuery,
   output: StageQuery,
   deps: [ExecutionContext, ArtifactLedger],
 })
-export class ApprovedStageTool implements ToolHandler<StageQuery, StageQuery> {
+export class ApprovedStageTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly artifactLedger: ArtifactLedger,
   ) {}
 
-  async run(input: StageQuery): Promise<StageQuery> {
+  async execute(input: StageQuery): Promise<StageQuery> {
     return { artifact: await release(this.executionContext, this.artifactLedger, input.artifact) };
   }
 }
@@ -302,28 +300,28 @@ export class ApprovedStageTool implements ToolHandler<StageQuery, StageQuery> {
   description: "Audits each call under its fence",
   deps: [ExecutionContext],
 })
-export class FenceToolInterceptor implements BeforeToolCall {
+export class FenceToolInterceptor {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  beforeToolCall(): ToolCallDecision {
-    const { fence } = this.executionContext;
+  beforeAnyTool(): ToolCallDecision {
+    const fence = fenceOf(this.executionContext);
     if (levers.isInterceptorFenced) throw fence.fencedError(fence.token + 1);
     return ToolCallDecision.allow();
   }
 }
 
 /** The tools whose calls ended (what the model would read). */
-@Injectable()
-export class ToolEndLog implements OnToolEnd {
+@Observer()
+export class ToolEndLog {
   onToolEnd(event: ToolEndEvent): void {
-    seen.toolEnds.push(event.toolName);
+    seen.toolEnds.push(event.tool);
   }
 }
 
 @Agent({
   name: "release-agent",
   description: "Stages artifacts",
-  prompt: "Stage what you are asked.",
+  prompt: inline("Stage what you are asked."),
   tools: [StageTool, ApprovedStageTool],
   toolInterceptors: [FenceToolInterceptor],
   model: "test/release",
@@ -347,7 +345,8 @@ export class UnbookAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(): Promise<void> {
-    const { fence, step } = this.executionContext;
+    const { step } = this.executionContext;
+    const fence = fenceOf(this.executionContext);
     if (levers.isUndoFenced) throw fence.fencedError(fence.token + 1);
     seen.undone.push(fenceSeenOf(fence, step.idempotencyKey));
     return Promise.resolve();
@@ -403,13 +402,11 @@ export class NotReleasedWorkflowFinish {}
 @Workflow({
   name: "booked-release-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(BookedReleaseWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(BookedReleaseWorkflowStart)
       .toAction(BookAction)
-      .returns(BookingDto)
       .toAction(FailingReleaseAction)
-      .returns(ReceiptDto)
       .toFinish(BookedReleaseWorkflowFinish),
   ],
 })
@@ -442,13 +439,12 @@ export class AgentReleaseWorkflowFinish {}
 @Workflow({
   name: "release-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ReleaseWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ReleaseWorkflowStart)
       .toAction(ReleaseAction)
       // a catch-all side path: a business error takes it, a fenced write never does
       .onError(Error, toFinish(NotReleasedWorkflowFinish))
-      .returns(ReceiptDto)
       .toFinish(ReleaseWorkflowFinish),
   ],
   providers: [ArtifactLedger],
@@ -458,12 +454,11 @@ export class ReleaseWorkflow {}
 @Workflow({
   name: "agent-release-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
-    start(AgentReleaseWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(AgentReleaseWorkflowStart)
       .toAgent(ReleaseAgent)
-      .returns(ReceiptDto)
       .toFinish(AgentReleaseWorkflowFinish),
   ],
   providers: [ArtifactLedger],
@@ -472,6 +467,7 @@ export class AgentReleaseWorkflow {}
 
 @Application({
   name: "fence-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ReleaseWorkflow, AgentReleaseWorkflow, BookedReleaseWorkflow],

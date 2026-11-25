@@ -7,10 +7,10 @@ import { describe, expect, it } from "vitest";
 import { replyAnsweringOf, type ReplyAnsweringParts } from "../../src/app/reply-answer.js";
 import type { ReplyCall, ReplyReading } from "../../src/channels/reply-reader.js";
 import { UninterpretableReplyError } from "../../src/channels/decision.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { PauseKind, PauseStatus, type PauseRecord } from "../../src/infrastructure/pause-record.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { testFrame } from "../helpers/frame.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 class TraceHandler extends BaseCallbackHandler {
   name = "trace-handler";
@@ -30,11 +30,14 @@ const pause: PauseRecord = {
   copyNumber: 1,
   kind: PauseKind.Approval,
   step: "clerk-agent",
+  target: "refund-tool-approval",
   channel: "refund-approval-channel",
-  answerer: PauseAnswerer.Channel,
-  ask: { callId: "call-1", tool: "refund", arguments: {}, summary: "refund" },
+  respondent: PauseRespondent.Delegate,
+  input: {},
+  toolCall: { callId: "call-1", tool: "refund", summary: "refund" },
   status: PauseStatus.Pending,
   isSent: true,
+  trail: [],
   askedAt: "2026-01-05T09:00:00.000Z",
 };
 
@@ -51,8 +54,8 @@ const parts: ReplyAnsweringParts = {
       traced.push(context);
       return [handler];
     },
-    sessionUrl: () => undefined,
-    shutdown: () => Promise.resolve(),
+    traceUrl: () => undefined,
+    close: () => Promise.resolve(),
   },
 };
 

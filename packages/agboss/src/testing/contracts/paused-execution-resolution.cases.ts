@@ -25,7 +25,7 @@ export const PAUSE_TRANSITION_CASES: readonly ContractCase<PausedExecutionReposi
     name: "of two concurrent transitions of one pause on two instances exactly one succeeds, with its decision",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(pauseOf("pause-a"));
-      const no = { decision: { approved: false }, answeredBy: "manager-18" };
+      const no = { decision: { approved: false }, actor: { id: "manager-18" } };
 
       const [one, other] = await Promise.all([
         first.resolveByTenantIdAndPauseId(
@@ -85,14 +85,14 @@ export const PAUSE_TRANSITION_CASES: readonly ContractCase<PausedExecutionReposi
   },
   {
     // #1197: a channel's decision stays distinguishable from a person's reply after a crash
-    name: "an answer's byChannel marker is kept as written, read by another instance, and absent when never set",
+    name: "an answer's byDelegate marker is kept as written, read by another instance, and absent when never set",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(pauseOf("pause-a"));
       await first.findOrCreateByStepKey(pauseOf("pause-b", "run-1:clerk-agent:1:call-2"));
       const decided: PauseAnswer = {
         decision: { approved: true },
-        answeredBy: "refund-channel",
-        byChannel: true,
+        actor: { id: "refund-channel" },
+        byDelegate: true,
       };
 
       await first.resolveByTenantIdAndPauseId("default", "pause-a", decided, NINE, NO_RECIPIENTS);
@@ -108,7 +108,7 @@ export const PAUSE_TRANSITION_CASES: readonly ContractCase<PausedExecutionReposi
       expect(marked?.answer).toEqual(decided);
       const unmarked = await second.findByTenantIdAndPauseId("default", "pause-b");
       expect(unmarked?.answer).toEqual(APPROVED_BY_MANAGER);
-      expect(unmarked?.answer).not.toHaveProperty("byChannel");
+      expect(unmarked?.answer).not.toHaveProperty("byDelegate");
     },
   },
   {

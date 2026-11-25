@@ -5,23 +5,22 @@
  * (`[application.store-backend-mismatch]` otherwise, #526); the unlisted in-memory default beside them
  * fails at its first call.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Provider } from "../../src/components/injection.js";
 import {
-  ActionFailedError,
   ExecutionAuditEventKind,
   ExecutionLeaseLostError,
-  FencedEffectStoreMismatchError,
   InMemoryOutboundCallRepository,
   OutboundCallEventOutcome,
   OutboundCallSendStatus,
   OutboundCallStatus,
-  SqliteConnection,
   SqliteExecutionLeaseRepository,
   SqliteOutboundCallRepository,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -101,13 +100,12 @@ const assembledWith = (providers: readonly Provider[]) => {
     name: "outbound-stores-application",
     version: "1.0.0",
     environment: SqliteTestEnvironment,
-    idempotencyKeyField: "idempotencyKey",
     workflows: [ChargeWorkflow],
     budgets: TEST_BUDGETS,
     providers: [SqliteConnection, ...providers],
   })
   class OutboundStoresApplication {}
-  return applicationOf(OutboundStoresApplication);
+  return applicationOf(OutboundStoresApplication, { withoutIdempotencyKeys: true });
 };
 
 describe("#505, #526: [application.store-backend-mismatch] for the outbound-call store", () => {
@@ -137,21 +135,19 @@ describe("#505, #526: [application.store-backend-mismatch] for the outbound-call
 
 describe("#505: the unlisted default beside SQLite leases", () => {
   testWith(UnlistedOutboundCallStoreApplication)(
-    "is not an assembly error; the first call fails with FencedEffectStoreMismatchError, nothing sent",
+    "is not an assembly error; the first call fails with IdempotencyError.StoreMismatch, nothing sent",
     async ({ app }) => {
       const error = await execute(app, ChargeWorkflowStart, { text: "order-1" }).catch(
         (thrown: unknown) => thrown,
       );
 
-      expect(error).toBeInstanceOf(ActionFailedError);
+      // a family's error is not wrapped by the action's step (decision 8)
+      expect(error).toBeInstanceOf(IdempotencyError.StoreMismatch);
       expect(error).toMatchObject({
-        cause: {
-          code: "fenced-effect.store-mismatch",
-          fencedEffectRepository: "InMemoryOutboundCallRepository",
-          leaseRepository: "SqliteExecutionLeaseRepository",
-        },
+        code: "idempotency.store-mismatch",
+        fencedEffectRepository: "InMemoryOutboundCallRepository",
+        leaseRepository: "SqliteExecutionLeaseRepository",
       });
-      expect((error as ActionFailedError).cause).toBeInstanceOf(FencedEffectStoreMismatchError);
       expect(gateway.calls).toEqual([]);
     },
   );

@@ -1,13 +1,13 @@
 import { actionDeclarationOf } from "../analyse/compensation.js";
 import { NodeKind } from "../ast.js";
 import { TablesImport, type ImportTable } from "./imports.js";
-import { outputText, producedText, propertyName } from "./shapes.js";
+import { outputText, trackedText, propertyName } from "./shapes.js";
 import type { AnalysedWorkflow } from "./tables.js";
 
 /**
  * The undo actions no path of any workflow reaches (#340): the framework runs them itself — a
  * failed join's finished branches — so they are no node, yet `InputOf<X>` / `OutputOf<X>` must type
- * them. Their input is their declared fields, each `Produced<XDto, unknown>`: what the snapshot of
+ * them. Their input is their declared fields, each `Tracked<XDto>`: what the snapshot of
  * the undone step's scope held (`[action.invalid-compensator-input]` proved it there).
  */
 
@@ -35,7 +35,7 @@ export function offPathUndoActions(
       if (isNode(name) || found.has(name)) continue;
       names.ref(undo);
       const fields = Object.entries(input).map(
-        ([field, shape]) => `${propertyName(field)}: ${producedText(shape, "unknown", names)}`,
+        ([field, shape]) => `${propertyName(field)}: ${trackedText(shape, "", names)}`,
       );
       const inputType =
         fields.length === 0 ? names.use(TablesImport.NoInput) : `{ ${fields.join("; ")} }`;

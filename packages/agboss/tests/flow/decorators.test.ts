@@ -1,9 +1,10 @@
+import { Window5Memory } from "../helpers/window-memory.js";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { NodeKind } from "../../src/flow/ast.js";
-import { start } from "../../src/flow/builder.js";
+import { onStart } from "../../src/flow/builder.js";
 import { Action } from "../../src/flow/decorators/action.js";
-import { Agent, RagMode } from "../../src/flow/decorators/agent.js";
+import { Agent } from "../../src/flow/decorators/agent.js";
 import { declarationOf, declared } from "../../src/flow/decorators/declaration.js";
 import { agbossComponent, agbossDto } from "../../src/flow/generated-types.js";
 import { DecidedBy, Router } from "../../src/flow/decorators/router.js";
@@ -26,6 +27,7 @@ import {
 import { EditorAgent, NotifyRecruiterAction, OfferWorkflow } from "./fixtures/offer.fixture.js";
 import { OrderWorkflowFinish, OrderWorkflowStart } from "./fixtures/order.fixture.js";
 import { reviewerAgentOptions } from "./fixtures/reviewer-agent.options.js";
+import { inline, Ttl } from "../../src/index.js";
 
 /** What the v2 decorators record (#272 → Decorators v2, #270 → typed input / output). */
 
@@ -38,13 +40,19 @@ describe("v2 decorators record kind, options and the declaring file", () => {
       options: {
         name: "editor-agent",
         description: "Rewrites the draft by the review notes",
-        prompt: "Rewrite the draft.",
+        prompt: inline("Rewrite the draft."),
         model: "moonshotai/kimi-k2.6",
         input: { draft: OfferDraftDto, changes: ChangesRequestedDto },
         output: OfferDraftDto,
-        maxVisits: 2,
+        executionLimits: { maxVisits: 2 },
       },
       source: expect.stringMatching(/offer\.fixture\.ts$/),
+      // where the decorator is called (#1325c): what a rendered diagnostic underlines
+      span: {
+        file: expect.stringMatching(/offer\.fixture\.ts$/),
+        line: expect.any(Number),
+        column: expect.any(Number),
+      },
     });
   });
 
@@ -52,8 +60,8 @@ describe("v2 decorators record kind, options and the declaring file", () => {
     expect(declarationOf(OrderWorkflowStart)?.kind).toBe(NodeKind.Start);
     expect(declarationOf(OrderWorkflowFinish)?.options).toMatchObject({
       name: "order-workflow-finish",
-      input: { shipped: expect.any(Function) },
     });
+    expect(declarationOf(OrderWorkflowFinish)?.options).not.toHaveProperty("input");
     expect(declarationOf(NotifyRecruiterAction)?.kind).toBe(NodeKind.Action);
     expect(declarationOf(MainRouter)).toMatchObject({
       kind: NodeKind.Router,
@@ -107,24 +115,20 @@ describe("@Workflow records the flow as plain paths", () => {
     @Workflow({
       name: "limited-workflow",
       version: "2.0.0",
-      flow: [start(OrderWorkflowStart)],
-      maxSteps: 12,
-      maxDepth: 2,
-      maxConcurrentExecutions: 4,
+      historyTtl: Ttl.Forever,
+      flow: [onStart(OrderWorkflowStart)],
+      executionLimits: { maxSteps: 12, maxDepth: 2, maxConcurrency: 4 },
       defaults: {
         models: { temperature: 0, reasoning: Reasoning.off() },
         router: { model: "typesafe/jev-1.13" },
-        flow: { maxPathDepth: 4 },
       },
-      uncompactedTurns: 5,
+      memory: Window5Memory,
     })
     class LimitedWorkflow {}
 
     expect(declarationOf(LimitedWorkflow)?.options).toMatchObject({
-      maxSteps: 12,
-      maxDepth: 2,
-      maxConcurrentExecutions: 4,
-      defaults: { router: { model: "typesafe/jev-1.13" }, flow: { maxPathDepth: 4 } },
+      executionLimits: { maxSteps: 12, maxDepth: 2, maxConcurrency: 4 },
+      defaults: { router: { model: "typesafe/jev-1.13" } },
     });
   });
 });
@@ -139,7 +143,8 @@ describe("#261: @Workflow keeps its own services", () => {
     @Workflow({
       name: "serviced-workflow",
       version: "1.0.0",
-      flow: [start(OrderWorkflowStart)],
+      historyTtl: Ttl.Forever,
+      flow: [onStart(OrderWorkflowStart)],
       providers: [OfferBook, limit],
     })
     class ServicedWorkflow {}
@@ -208,7 +213,7 @@ describe("AC13: the name is explicit, never derived from the class", () => {
     @Agent({
       name: "score-summary-agent",
       description: "Sums the scores up",
-      prompt: "Sum up.",
+      prompt: inline("Sum up."),
       model: "moonshotai/kimi-k2.6",
     })
     class RenamedLaterAgent {}
@@ -219,20 +224,20 @@ describe("AC13: the name is explicit, never derived from the class", () => {
 });
 
 describe("#269 AC1 / AC2: enums and the one reasoning form", () => {
-  it("records reasoning as a Reasoning value and rag modes as RagMode", () => {
+  it("records reasoning as a Reasoning value and rag as a list of classes", () => {
     @Agent({
       name: "researcher-agent",
       description: "Researches",
-      prompt: "Research.",
+      prompt: inline("Research."),
       model: "moonshotai/kimi-k2.6",
       reasoning: Reasoning.on({ effort: ReasoningEffort.Low }),
-      rag: [{ use: EditorAgent, mode: RagMode.Context }],
+      rag: [EditorAgent],
     })
     class ResearcherAgent {}
 
     expect(declarationOf(ResearcherAgent)?.options).toMatchObject({
       reasoning: { kind: "on", effort: ReasoningEffort.Low },
-      rag: [{ use: EditorAgent, mode: "context" }],
+      rag: [EditorAgent],
     });
   });
 
@@ -254,7 +259,7 @@ describe("#269 AC1 / AC2: enums and the one reasoning form", () => {
       name: "file-prompt-router",
       description: "Routes by a prompt file",
       decidedBy: DecidedBy.Model,
-      promptUrls: ["./file-prompt.prompt.md"],
+      prompt: "./file-prompt.prompt.md",
       promptVariables: { team: "recruiting" },
       input: { draft: OfferDraftDto },
       routes: [{ target: EditorAgent, prompt: "The draft needs edits" }],
@@ -263,7 +268,7 @@ describe("#269 AC1 / AC2: enums and the one reasoning form", () => {
 
     expect(declarationOf(FilePromptRouter)).toMatchObject({
       options: {
-        promptUrls: ["./file-prompt.prompt.md"],
+        prompt: "./file-prompt.prompt.md",
         promptVariables: { team: "recruiting" },
       },
       source: thisFile,
@@ -271,26 +276,51 @@ describe("#269 AC1 / AC2: enums and the one reasoning form", () => {
   });
 });
 
-describe("@WorkflowFinish with input has a handler", () => {
-  it("records input, output and deps", () => {
+describe("@WorkflowFinish is a pure boundary port (#1271)", () => {
+  it("records name, description and output; the handler work is an @Action before it", () => {
     @Injectable()
     class Formatter {}
 
-    @WorkflowFinish({
-      name: "formatted-workflow-finish",
+    @Action({
+      name: "formatted-action",
       description: "Formats the draft",
       input: { draft: OfferDraftDto },
       output: OfferDraftDto,
       deps: [Formatter],
     })
-    class FormattedWorkflowFinish {
+    class FormattedAction {
       constructor(readonly formatter: Formatter) {}
-      finish(): OfferDraftDto {
+      async execute(): Promise<OfferDraftDto> {
         return { text: "formatted" };
       }
     }
 
-    expect(declarationOf(FormattedWorkflowFinish)?.options).toMatchObject({ deps: [Formatter] });
-    expect(new FormattedWorkflowFinish(new Formatter()).finish()).toEqual({ text: "formatted" });
+    @WorkflowFinish({
+      name: "formatted-workflow-finish",
+      description: "Formats the draft",
+      output: OfferDraftDto,
+    })
+    class FormattedWorkflowFinish {}
+
+    expect(declarationOf(FormattedAction)?.options).toMatchObject({ deps: [Formatter] });
+    expect(declarationOf(FormattedWorkflowFinish)?.options).toEqual({
+      name: "formatted-workflow-finish",
+      description: "Formats the draft",
+      output: OfferDraftDto,
+    });
+    expect(new FormattedAction(new Formatter())).toBeInstanceOf(FormattedAction);
+  });
+
+  it("a list output is recorded as given", () => {
+    const output = listOf(OfferDraftDto);
+
+    @WorkflowFinish({ name: "drafts-workflow-finish", description: "The drafts", output })
+    class DraftsWorkflowFinish {}
+
+    expect(declarationOf(DraftsWorkflowFinish)?.options).toEqual({
+      name: "drafts-workflow-finish",
+      description: "The drafts",
+      output,
+    });
   });
 });

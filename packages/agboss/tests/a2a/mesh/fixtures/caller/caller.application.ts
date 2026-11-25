@@ -2,20 +2,22 @@
 // the peer through the real A2A v1.0 client (P2b) under `A2AMesh.Required`, at a contract price of
 // 1, signing its envelopes — the peer reached at `http://peer.test` through the test's routing.
 import "../keys.js";
+import { Mesh, MeshInboundMode } from "../../../../../src/mesh/mesh.decorator.js";
+import { defineEnv } from "../../../../../src/environments/define-env.js";
+import { secret } from "../../../../../src/environments/secret.js";
+import { minutes, Ttl } from "../../../../../src/units/index.js";
 import { A2AAgent, A2AClient } from "../../../../../src/a2a/index.js";
 import { Application } from "../../../../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../../src/dto/index.js";
 import {
   Action,
-  Injectable,
+  Observer,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type Produced,
+  type Tracked,
 } from "../../../../../src/index.js";
 import { usd } from "../../../../../src/units/index.js";
 import { Budget, BudgetScope, type BudgetHandler } from "../../../../../src/budgets/budget.js";
@@ -24,9 +26,10 @@ import {
   TestApplicationDailyBudget,
   TestTenantDailyBudget,
 } from "../../../../flow/fixtures/budgets.js";
-import { start } from "../../../../helpers/flow.js";
+import { onStart } from "../../../../helpers/flow.js";
 import { MeshEnvironment } from "../../../fixtures/environments/mesh.environment.js";
 import { CALLER_TOKEN, PEER_APPLICATION } from "../peer/peer.application.js";
+import { TestModelProvider } from "../../../../../src/testing/test-model-provider.js";
 
 /** Where the client thinks the peer is: its card's interface is there too (the listener's publicUrl). */
 export const PEER_URL = "http://peer.test/a2a";
@@ -148,7 +151,7 @@ const routed: typeof fetch = async (input, init) => {
   target: { application: PEER_APPLICATION, skill: "ask-workflow-start" },
   input: WorkflowStartTextDto,
   output: WorkflowFinishTextDto,
-  price: usd(PRICE),
+  costPerCall: usd(PRICE),
 })
 export class PeerA2AAgent extends A2AClient<WorkflowStartTextDto, WorkflowFinishTextDto> {
   constructor() {
@@ -193,10 +196,10 @@ export class AskPeerAction {
   constructor(private readonly peerA2AAgent: PeerA2AAgent) {}
 
   async execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
+    readonly message: Tracked<WorkflowStartTextDto>;
   }): Promise<WorkflowFinishTextDto> {
     try {
-      const answer = await this.peerA2AAgent.execute({ text: input.message.value.text });
+      const answer = await this.peerA2AAgent.execute({ text: input.message.text });
       caller.answers.push(answer.text);
       await frozenAfterCall();
       return answer;
@@ -209,8 +212,8 @@ export class AskPeerAction {
 }
 
 /** Every end and error of the caller's executions, on whichever instance. */
-@Injectable()
-export class CallerLog implements OnExecutionEnd, OnExecutionError {
+@Observer()
+export class CallerLog {
   onExecutionEnd(event: ExecutionEndEvent): void {
     caller.ends.push(event);
   }
@@ -236,27 +239,36 @@ export class CallerAnswerWorkflowFinish {}
 @Workflow({
   name: "caller-workflow",
   version: "1.0.0",
-  flow: [
-    start(CallerWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(AskPeerAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(CallerAnswerWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(CallerWorkflowStart).toAction(AskPeerAction).toFinish(CallerAnswerWorkflowFinish)],
   providers: [PeerA2AAgent, AnyA2AAgent],
 })
 export class CallerWorkflow {}
 
+const callerEnv = defineEnv({
+  signingKey: secret("E2E_CALLER_SIGNING_KEY"),
+  peerKey: secret("E2E_PEER_VERIFY_KEY"),
+});
+
+/** The caller's mesh: signs with its own key, verifies the peer's. */
+@Mesh({
+  name: "caller-mesh",
+  signingKey: callerEnv.signingKey,
+  inboundMode: MeshInboundMode.AllowExternal,
+  deduplicationTtl: minutes(30),
+  maxHops: 8,
+  peers: [{ application: PEER_APPLICATION, verifyKeys: [callerEnv.peerKey] }],
+})
+class CallerMesh {}
+
 @Application({
   name: "caller-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: MeshEnvironment,
   workflows: [CallerWorkflow],
   observers: [CallerLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, CallerExecutionBudget],
-  mesh: {
-    signingKey: "meshSigningKey",
-    peers: [{ application: PEER_APPLICATION, verifyKey: "meshPeerKey" }],
-  },
+  mesh: CallerMesh,
 })
 export class CallerApplication {}

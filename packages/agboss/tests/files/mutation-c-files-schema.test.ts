@@ -5,12 +5,12 @@
 import { describe, expect, it } from "vitest";
 import { AgentFilesSchema } from "../../src/files/files-schema.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 const resolved = resolvedFilesOf({
   agent: {},
   defaults: undefined,
-  skills: [],
-  a2aFiles: undefined,
+  limits: DEFAULT_FILE_LIMITS,
   hasPiiPolicy: false,
 });
 

@@ -50,7 +50,7 @@ async function answered(
   await store.resolveByTenantIdAndPauseId(
     tenantId,
     id,
-    { decision: { approved: true }, answeredBy: undefined },
+    { decision: { approved: true }, actor: undefined },
     at(answeredAt),
     recipients,
   );

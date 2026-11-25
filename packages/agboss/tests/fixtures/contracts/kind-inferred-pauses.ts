@@ -11,7 +11,8 @@ import type { PauseRecord } from "../../../src/infrastructure/paused-execution.r
 /** The stored pause with its kind told by its component, as before 0.1.1. */
 const inferred = (pause: PauseRecord): PauseRecord => ({
   ...pause,
-  kind: pause.component?.kind === ComponentKind.Question ? PauseKind.Question : PauseKind.Approval,
+  kind:
+    pause.component?.kind === ComponentKind.Question ? PauseKind.ExternalTask : PauseKind.Approval,
 });
 
 export class KindInferredPausedExecutionRepository extends InMemoryPausedExecutionRepository {

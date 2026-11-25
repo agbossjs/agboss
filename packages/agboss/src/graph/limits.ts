@@ -1,4 +1,4 @@
-import { BudgetScope, type BudgetPeriod } from "../budgets/budget.js";
+import { BudgetScope, BudgetUnit, type BudgetPeriod } from "../budgets/budget.js";
 import { periodWords } from "../budgets/budget-period.js";
 import { AGBossError } from "../core/errors.js";
 import type { UsageRecord } from "../finops/usage.js";
@@ -20,7 +20,7 @@ export interface LimitExceededErrorOptions {
   /** The value that crossed it. */
   readonly actual: number;
   readonly path: readonly string[];
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
   /** Spend the execution's state does not hold yet; none by default. */
   readonly usage?: readonly UsageRecord[];
   /** A subclass's own sentence; a general one by default. */
@@ -51,7 +51,7 @@ export class LimitExceededError extends AGBossError {
   readonly limit: number;
   readonly actual: number;
   readonly path: readonly string[];
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
   readonly usage: readonly UsageRecord[];
 
   constructor(options: LimitExceededErrorOptions) {
@@ -84,23 +84,44 @@ export interface BudgetBreach {
   readonly period?: BudgetPeriod | undefined;
   /** The application's name, the `tenantId`, or the root execution's id. */
   readonly key: string;
-  /** What `maxSpend()` gave at the start of the execution. */
-  readonly maxSpend: Usd;
-  /** What the budget's counter reached. */
+  /** What was reached: the dollar cap or the token cap (#1318); dollars when a budget has both and both are reached. */
+  readonly unit?: BudgetUnit;
+  /** The dollar cap read at the start of the execution; absent for a token-only budget. */
+  readonly maxSpend?: Usd;
+  /** What the budget's counter reached, in dollars. */
   readonly spent: Usd;
+  /** The token cap read at the start of the execution; absent for a USD-only budget. */
+  readonly maxTokens?: number;
+  /** The tokens the budget's counter reached. */
+  readonly usedTokens?: number;
 }
 
 /** What a budget error takes (#906): the breach, where the execution was, its spend. */
 export interface BudgetExceededErrorOptions extends BudgetBreach {
   readonly path: readonly string[];
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
   readonly usage?: readonly UsageRecord[];
   readonly cause?: unknown;
 }
 
+/** `tenant acme used 120,000 tokens today; tenant-daily-budget allows 100,000`. */
+function tokenSentence(breach: BudgetBreach): string {
+  const used = String(breach.usedTokens ?? 0);
+  const allows = `${breach.budget.name} allows ${String(breach.maxTokens ?? 0)} tokens`;
+  const when = breach.period === undefined ? "" : ` ${periodWords(breach.period)}`;
+  const who =
+    breach.scope === BudgetScope.Tenant
+      ? `tenant ${breach.key}`
+      : breach.scope === BudgetScope.Execution
+        ? `execution ${breach.key}`
+        : breach.key;
+  return `${who} used ${used} tokens${when}; ${allows}`;
+}
+
 /** `tenant acme spent $40.05 today; tenant-daily-budget allows $40`. */
 function budgetSentence(breach: BudgetBreach): string {
-  const allows = `${breach.budget.name} allows ${dollars(breach.maxSpend)}`;
+  if (breach.unit === BudgetUnit.Tokens) return tokenSentence(breach);
+  const allows = `${breach.budget.name} allows ${dollars(breach.maxSpend ?? 0)}`;
   const spent = dollars(breach.spent);
   const when = breach.period === undefined ? "" : ` ${periodWords(breach.period)}`;
   switch (breach.scope) {
@@ -130,18 +151,26 @@ export class BudgetExceededError extends LimitExceededError {
   readonly period: BudgetPeriod | undefined;
   /** The application's name, the `tenantId`, or the root execution's id. */
   override readonly key: string;
-  /** What `maxSpend()` gave at the start of the execution. */
-  readonly maxSpend: Usd;
-  /** What the budget's counter reached. */
+  /** What was reached, dollars or tokens (#1318). */
+  readonly unit: BudgetUnit;
+  /** The dollar cap read at the start of the execution; `undefined` for a token-only budget. */
+  readonly maxSpend: Usd | undefined;
+  /** What the budget's counter reached, in dollars. */
   readonly spent: Usd;
+  /** The token cap read at the start of the execution; `undefined` for a USD-only budget. */
+  readonly maxTokens: number | undefined;
+  /** The tokens the budget's counter reached. */
+  readonly usedTokens: number;
 
   constructor(options: BudgetExceededErrorOptions) {
     const { path, spentUsd, usage, cause, ...breach } = options;
-    const { budget, scope, period, key, maxSpend, spent } = breach;
+    const { budget, scope, period, key, maxSpend, spent, maxTokens } = breach;
+    const unit = breach.unit ?? BudgetUnit.Usd;
+    const usedTokens = breach.usedTokens ?? 0;
     super({
       key,
-      limit: maxSpend,
-      actual: spent,
+      limit: unit === BudgetUnit.Tokens ? (maxTokens ?? 0) : (maxSpend ?? 0),
+      actual: unit === BudgetUnit.Tokens ? usedTokens : spent,
       path,
       spentUsd,
       ...(usage === undefined ? {} : { usage }),
@@ -151,16 +180,22 @@ export class BudgetExceededError extends LimitExceededError {
         budget: bareRecordOf(budget.name, ComponentKind.Budget),
         scope,
         key,
+        unit,
         maxSpend,
         spent,
+        maxTokens,
+        usedTokens,
       },
     });
     this.budget = bareRecordOf(budget.name, ComponentKind.Budget);
     this.scope = scope;
     this.period = period;
     this.key = key;
+    this.unit = unit;
     this.maxSpend = maxSpend;
     this.spent = spent;
+    this.maxTokens = maxTokens;
+    this.usedTokens = usedTokens;
   }
 }
 
@@ -169,11 +204,11 @@ export interface StepsLimitExceededErrorOptions {
   readonly workflow: WorkflowRecord;
   readonly maxSteps: number;
   readonly path: readonly string[];
-  readonly spentUsd: number;
+  readonly spentUsd: Usd;
   readonly cause?: unknown;
 }
 
-/** An execution took more agent and router steps than its workflow's `maxSteps` (#261). */
+/** An execution took more steps (agents, routers, actions, external tasks) than its workflow's `maxSteps` (#261). */
 export class StepsLimitExceededError extends LimitExceededError {
   static override readonly code = "limit.steps" as const;
   declare readonly code: typeof StepsLimitExceededError.code;
@@ -211,5 +246,5 @@ export class StepsLimitExceededError extends LimitExceededError {
 export const isPeriodBudgetExhausted = (error: unknown): boolean =>
   error instanceof BudgetExceededError && error.scope !== BudgetScope.Execution;
 
-/** Steps per execution by default: (agents + routers) × 3 (#261). */
+/** Steps per execution by default: (agents + routers + actions + external tasks) × 3 (#261, #1278). */
 export const STEPS_PER_WORKING_NODE = 3;

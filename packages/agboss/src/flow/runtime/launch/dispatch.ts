@@ -1,25 +1,18 @@
+import { isStrictItems, itemBoundOf } from "../../analyse/flow-graph.js";
 import { slotOfValue } from "../../analyse/scope.js";
-import { NodeKind } from "../../ast.js";
+import { isStepKind } from "../limits.js";
 import { idempotencyKeyOf } from "../../context/idempotency.js";
-import { declarationOf } from "../../decorators/declaration.js";
-import {
-  failurePolicyOf,
-  FailurePolicy,
-  routesOf,
-  spawnPolicyOf,
-  SpawnPolicy,
-  type AnyRouterRoute,
-} from "../../decorators/router.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import type { ScopeRecords } from "../records.js";
+import { skipCodesOf } from "./branch-skip.js";
 import type { BranchTicket, LaunchTicket } from "./records.js";
 import type { RuntimeLaunch } from "./runtime-launch.js";
 
 /**
- * Which branches a launch dispatches (#273 S20, S23): each listed target once, in listed order —
+ * Which branches a launch dispatches (#273 S20, S23, #1279, #1280): each listed target once, in listed order —
  * copies of a repeated agent numbered from 1 (`critic-agent#1`, `critic-agent#2`) — or, per item,
  * the first `maxItems` items of the list the launching step wrote, in list order (the rest dropped
- * without an error, recorded); after a router, its `Always` targets and the `OnDemand` ones it
+ * without an error, recorded); under `chooseMany([…])`, the siblings of the router and the routes it
  * chose. Every branch of a launch is the same visit of its node (copies and items are told apart
  * by `copyNumber` and `itemIndex`); steps are counted here, in dispatch order, so they are the same
  * however the branches finish — and again after a resume.
@@ -37,33 +30,26 @@ export interface DispatchSite {
   /** Visits per node and the steps, the launching step's own visit included. */
   readonly visits: Readonly<Record<string, number>>;
   readonly steps: number;
-  /** A router's `OnDemand` targets to launch (node ids); undefined for any other launcher. */
+  /** A router's chosen routes to launch (node ids); undefined for any other launcher. */
   readonly chosen?: readonly string[];
 }
 
-/** One branch before its counters: which node, which copy or item, its policy. */
+/** One branch before its counters: which node, which copy or item, what it skips. */
 interface Planned {
   readonly node: string;
   readonly nodeId: string;
   readonly copyNumber: number;
   readonly itemIndex?: number;
-  readonly failure: FailurePolicy;
+  readonly skip: readonly string[];
 }
 
-const routeOf = (launcher: RuntimeNode, node: string): AnyRouterRoute | undefined => {
-  const { declaration } = launcher;
-  if (declaration.kind !== NodeKind.Router) return undefined;
-  return routesOf(declaration.options).find(
-    (route) => declarationOf(route.target)?.options.name === node,
+/** Whether a listed target runs: always, unless it is a route of `chooseMany([…])` its router left out. */
+function isLaunched(site: DispatchSite, node: string): boolean {
+  const { chooser } = site.launch.launch;
+  if (chooser === undefined) return true;
+  return (
+    !(chooser.routes as readonly string[]).includes(node) || site.chosen?.includes(node) === true
   );
-};
-
-/** Whether a listed target runs: always, unless a router left its `OnDemand` route out. */
-function isLaunched(site: DispatchSite, node: string, route: AnyRouterRoute | undefined): boolean {
-  const { declaration } = site.launcher;
-  if (route === undefined || declaration.kind !== NodeKind.Router) return true;
-  if (spawnPolicyOf(declaration.options, route) === SpawnPolicy.Always) return true;
-  return site.chosen?.includes(node) === true;
 }
 
 function listedBranches(site: DispatchSite): readonly Planned[] {
@@ -72,12 +58,13 @@ function listedBranches(site: DispatchSite): readonly Planned[] {
   return listed.flatMap((node): readonly Planned[] => {
     const copyNumber = (seen.get(node) ?? 0) + 1;
     seen.set(node, copyNumber);
-    const route = routeOf(site.launcher, node);
-    if (!isLaunched(site, node, route)) return [];
+    if (!isLaunched(site, node)) return [];
     const isRepeated = listed.filter((name) => name === node).length > 1;
-    const failure = route === undefined ? FailurePolicy.FailFast : failurePolicyOf(route);
     const nodeId = isRepeated ? `${node}#${String(copyNumber)}` : node;
-    return [{ node, nodeId, copyNumber, failure }];
+    const skip = skipCodesOf(
+      site.launch.launch.branches.find((branch) => branch.node === node)?.skip ?? [],
+    );
+    return [{ node, nodeId, copyNumber, skip }];
   });
 }
 
@@ -97,7 +84,7 @@ function itemBranches(site: DispatchSite, taken: number): readonly Planned[] {
     nodeId: branch.node,
     copyNumber: 1,
     itemIndex,
-    failure: FailurePolicy.FailFast,
+    skip: skipCodesOf(branch.skip),
   }));
 }
 
@@ -108,19 +95,23 @@ function counted(site: DispatchSite, planned: readonly Planned[]): readonly Bran
     // every run of one launch is the same visit of its node: copies and items differ by number
     const visitNumber = (site.visits[branch.node] ?? 0) + 1;
     const stepsBefore = steps;
-    if (site.graph.nodes.get(branch.node)?.kind === NodeKind.Agent) steps += 1;
-    return { ...branch, index, visitNumber, stepsBefore };
+    const target = site.graph.nodes.get(branch.node);
+    if (target !== undefined && isStepKind(target)) steps += 1;
+    const { skip, ...rest } = branch;
+    return { ...rest, ...(skip.length === 0 ? {} : { skip }), index, visitNumber, stepsBefore };
   });
 }
 
 /** The launch's ticket: its id, its branches, how many items there were and were taken. */
 export function dispatchOf(site: DispatchSite): LaunchTicket {
-  const { items: list, listed, maxItems, maxConcurrency } = site.launch.launch;
+  const { launch } = site.launch;
+  const { items: list, listed, maxConcurrency } = launch;
   const isPerItem = list !== undefined;
   const items = isPerItem ? itemsOf(site).length : listed.length;
-  const planned = isPerItem
-    ? itemBranches(site, Math.min(items, maxItems ?? items))
-    : listedBranches(site);
+  const bound = itemBoundOf(launch) ?? items;
+  // a strict `maxItems` that the list passes launches nothing: the visit raises `LimitError.Items` (#1280)
+  const taken = isStrictItems(launch) && items > bound ? 0 : Math.min(items, bound);
+  const planned = isPerItem ? itemBranches(site, taken) : listedBranches(site);
   const branches = counted(site, planned);
   const { executionId, visitNumber } = site;
   return {

@@ -1,0 +1,3 @@
+toolApprovals:
+  spending-limit-external-task:
+    timeout: 5000

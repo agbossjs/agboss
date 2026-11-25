@@ -4,7 +4,7 @@
  * type error; no test of yours writes them, so their names may change in any release. Types only:
  * re-exported as the namespace `TestingTypes`.
  */
-export { type CalledToolArguments, type SearchToolNameOf } from "./script.js";
+export { type CalledToolArguments } from "./script.js";
 export {
   type AgentTurnFor,
   type AnswerFor,

@@ -64,11 +64,11 @@ describe("#941 AC1: a pause nobody answers expires and the step fails", () => {
     const director = expiry.directorAsked[0];
     const done = await app.resume(
       { pauseId: director?.pauseId ?? "", decision: { approved: true } },
-      { answeredBy: "director-1", record: true },
+      { actor: { id: "director-1" }, includeRecord: true },
     );
     expect(done.record?.pauses).toMatchObject([
-      { resolution: PauseResolution.Expired, answeredBy: undefined },
-      { resolution: PauseResolution.Replied, answeredBy: "director-1" },
+      { resolution: PauseResolution.Expired, actor: undefined },
+      { resolution: PauseResolution.Replied, actor: { id: "director-1" } },
     ]);
     expect(expiry.recorded).toEqual(["o-1: escalated, approved"]);
     // the channel heard it: closed, expired, at the deadline
@@ -105,10 +105,11 @@ describe("#941 AC1: a pause nobody answers expires and the step fails", () => {
     expect(error).toBeInstanceOf(PauseExpiredError);
     expect(error).toMatchObject({
       code: "step.pause-expired",
-      step: "expiring-manager-question",
+      step: "expiring-short-manager-external-task",
       stepKind: "question",
-      channel: "expiring-manager-question",
-      kind: "question",
+      target: "expiring-short-manager-external-task",
+      channel: "short-manager-expiry-channel",
+      kind: "external-task",
       expiresAt: paused.pending[0]?.expiresAt,
     });
     expect(error?.message).not.toContain(paused.executionId);
@@ -128,11 +129,14 @@ describe("#941 AC1: a pause nobody answers expires and the step fails", () => {
     expect((expiry.errors[0] as PauseExpiredError).cause).toBeUndefined();
   });
 
-  test("AC1: no expiresIn and no run deadline: it never expires", async ({ app, clock }) => {
+  test("AC1: a deadline a year off and no run deadline: it does not expire in a year", async ({
+    app,
+    clock,
+  }) => {
     const paused = await execute(app, PlainWorkflowStart, ORDER, THREAD);
-    expect(paused.pending[0]?.expiresAt).toBeUndefined();
+    expect(paused.pending[0]?.expiresAt).toBeDefined();
 
-    await clock.advance(hours(24 * 400));
+    await clock.advance(hours(24 * 300));
 
     expect(expiry.errors).toHaveLength(0);
     const [pause] = await expiryStore().findAllByTenantIdAndRootExecutionId(
@@ -161,7 +165,7 @@ describe("#941 AC2: the channel decides on expiry", () => {
       {
         reason: ResumeReason.Expired,
         decision: { approved: true, comment: "auto-approved: small amount" },
-        answeredBy: undefined,
+        actor: undefined,
       },
     ]);
     const [pause] = await expiryStore().findAllByTenantIdAndRootExecutionId(
@@ -177,7 +181,7 @@ describe("#941 AC2: the channel decides on expiry", () => {
       reason: "expired",
       answer: { approved: true, comment: "auto-approved: small amount" },
     });
-    expect(expiry.closed[0]?.answeredBy).toBeUndefined();
+    expect(expiry.closed[0]?.actor).toBeUndefined();
   });
 
   const fallbacks: readonly (readonly [string, () => unknown, ExpiryProblem])[] = [
@@ -208,7 +212,7 @@ describe("#941 AC2: the channel decides on expiry", () => {
       expect(error).toBeInstanceOf(PauseExpiredError);
       const cause = (error as PauseExpiredError).cause;
       expect(cause).toBeInstanceOf(ExpiryHandlerError);
-      expect(cause).toMatchObject({ code: "pause.expiry-handler", problem });
+      expect(cause).toMatchObject({ code: "pause.expiry-handler-failed", problem });
       const warnings = logged.filter((entry) => entry.code === "pause.expiry-handler-failed");
       expect(warnings).toHaveLength(1);
       expect(warnings[0]?.message).toContain(problem);
@@ -239,7 +243,7 @@ describe("#941 (#933's scope note): the shipped toQuestion starters take expires
   const edge = testWith(PublicExpiryApplication);
 
   edge(
-    ".toQuestion(Manager, { expiresIn }).onError(PauseExpiredError, toQuestion(Director, { expiresIn })…): the manager's pause expires, the director is asked with his own deadline, the answer goes on the path",
+    ".toExternalTask(Manager, { expiresIn }).onError(PauseExpiredError, toExternalTask(Director, { expiresIn })…): the manager's pause expires, the director is asked with his own deadline, the answer goes on the path",
     async ({ app, clock }) => {
       const paused = await execute(app, PublicExpiryWorkflowStart, ORDER, THREAD);
       expect(paused.pending[0]?.expiresAt).toBe(AT(clock, hours(4)));
@@ -257,7 +261,7 @@ describe("#941 (#933's scope note): the shipped toQuestion starters take expires
       expect(open?.expiresAt).toBe(AT(clock, hours(1)));
       const done = await app.resume(
         { pauseId: expiry.directorAsked[0]?.pauseId ?? "", decision: { approved: true } },
-        { answeredBy: "director-1" },
+        { actor: { id: "director-1" } },
       );
 
       expect(done.status).toBe(ExecutionStatus.Finished);
@@ -277,7 +281,7 @@ describe("#941 (#933's scope note): the shipped toQuestion starters take expires
 
       expect(expiry.errors[0]).toMatchObject({
         code: "step.pause-expired",
-        step: "expiring-director-question",
+        step: "expiring-hour-director-external-task",
       });
     },
   );

@@ -1,11 +1,9 @@
 /**
- * #521 AC1, acceptance corner cases: a breaker that a JS project leaves out in other spellings —
- * `null`, `undefined` written out — fails assembly by name, never a crash (before the fix, `null`
- * assembled and createApp threw a TypeError destructuring it).
+ * #1313 (was #521 AC1): a breaker a JS project leaves out in other spellings — `null`, `undefined`
+ * written out — is no breaker: the application assembles, never a crash.
  */
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
-import { GraphRuleError } from "../../src/graph/rule-error.js";
 import {
   ModelCost,
   ModelProvider,
@@ -20,10 +18,8 @@ import { answer } from "./transport/bedrock-provider.fixture.js";
 
 const base: Omit<TransportModelProviderOptions, "name" | "circuitBreakerPolicy"> = {
   description: "A transport whose options lost their breaker",
-  serves: [/^bedrock\//],
   timeout: seconds(5),
   cost: ModelCost.fromResponse(),
-  retryPolicy: RetryPolicy.none(),
 };
 
 function providerWith(name: string, breaker: null | undefined): new () => ModelProviderHandler {
@@ -43,17 +39,15 @@ function providerWith(name: string, breaker: null | undefined): new () => ModelP
 const assembled = (provider: new () => ModelProviderHandler, name: string) =>
   applicationOf(bedrockApplicationOn({ name, providers: [provider] }), {});
 
-describe("#521 AC1 acceptance: the breaker left out in other spellings", () => {
+describe("#1313: the breaker left out in other spellings", () => {
   it.each([
     ["undefined written out", undefined],
     ["null", null],
-  ])("AC1: circuitBreakerPolicy %s → the named rule, never a TypeError", async (label, breaker) => {
+  ])("circuitBreakerPolicy %s → no breaker, the application assembles", async (label, breaker) => {
     const name = `cast-${label.replace(/\W+/g, "-")}-model-provider`;
-    const running = assembled(providerWith(name, breaker), `${name}-application`);
 
-    await expect(running).rejects.toBeInstanceOf(GraphRuleError);
-    await expect(running).rejects.toThrow(
-      `[model-provider.circuit-breaker-required] ${name} (CastModelProvider) has no circuitBreakerPolicy`,
-    );
+    await expect(
+      assembled(providerWith(name, breaker), `${name}-application`),
+    ).resolves.toBeDefined();
   });
 });

@@ -1,7 +1,8 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
+import { IdempotencyError } from "../../core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
-import { InvalidFencedEffectNameError } from "../../infrastructure/fenced-effect-key.js";
+import {} from "../../app/lease-lost.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import { hours, seconds } from "../../units/index.js";
@@ -17,7 +18,7 @@ import {
 
 /**
  * The outbound-call contract's refusals (#505 AC5): every fenced method of a stale token, a
- * released or an expired lease is refused with `ExecutionFencedError` and changes nothing; the
+ * released or an expired lease is refused with `ExecutionError.Fenced` and changes nothing; the
  * listings by tree and by status; the retention cutoff, which never removes a pending intent.
  */
 
@@ -41,11 +42,16 @@ const FENCED_CALLS: readonly (readonly [
         { attempt: 2, attemptOwner: "owner-2" },
       ),
   ],
-  ["markCompleted", (stores, key) => stores.calls.markCompleted(key, "owner-1", '"zombie"')],
+  ["markCompleted", (stores, key) => stores.calls.markCompleted(key, "owner-1", '"zombie"', null)],
   [
     "markFailed",
     (stores, key) =>
-      stores.calls.markFailed(key, "owner-1", { name: "Error", code: "Error", message: "zombie" }),
+      stores.calls.markFailed(
+        key,
+        "owner-1",
+        { name: "Error", code: "Error", message: "zombie" },
+        null,
+      ),
   ],
 ];
 
@@ -61,7 +67,7 @@ const staleTokenRefused = ([method, call]: (typeof FENCED_CALLS)[number]): Outbo
 
     const refused = await rejectionOf(call(first, keyOf(old)));
 
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({ token: 1, observedToken: 2 });
     expect(await second.calls.findByKey(keyOf(taken))).toMatchObject({
       status: OutboundCallStatus.Pending,
@@ -83,7 +89,7 @@ const releasedRefused: OutboundCallCase = {
       first.calls.saveIfAbsent(keyOf(lease), intentOf(keyOf(lease))),
     );
 
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
     expect(await listedOf(first)).toEqual([]);
   },
 };
@@ -97,7 +103,7 @@ const expiredRefused: OutboundCallCase = {
 
     const refused = await rejectionOf(first.calls.findByKey(keyOf(lease)));
 
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
   },
 };
 
@@ -124,12 +130,17 @@ const listedByStatus: OutboundCallCase = {
     const lease = await leaseOf(first);
     for (const name of ["pending", "completed", "failed"])
       await recorded(first, keyOf(lease, name));
-    await first.calls.markCompleted(keyOf(lease, "completed"), "owner-1", "{}");
-    await first.calls.markFailed(keyOf(lease, "failed"), "owner-1", {
-      name: "Error",
-      code: "Error",
-      message: "no",
-    });
+    await first.calls.markCompleted(keyOf(lease, "completed"), "owner-1", "{}", null);
+    await first.calls.markFailed(
+      keyOf(lease, "failed"),
+      "owner-1",
+      {
+        name: "Error",
+        code: "Error",
+        message: "no",
+      },
+      null,
+    );
 
     const pending = await listedOf(first);
     const failed = await listedOf(first, OutboundCallStatus.Failed);
@@ -141,19 +152,21 @@ const listedByStatus: OutboundCallCase = {
 };
 
 const retentionKeepsPending: OutboundCallCase = {
-  name: "the retention cutoff on the Clock removes ended intents before it and never a pending one",
+  name: "the expiry on the Clock removes ended intents whose expiry has come and never a pending one",
   run: async ({ clock, first, second }) => {
     const lease = await leaseOf(first, "execution-1", hours(100));
     for (const name of ["pending", "early", "late"]) await recorded(first, keyOf(lease, name));
-    await first.calls.markCompleted(keyOf(lease, "early"), "owner-1", "{}");
+    const inAnHour = () => new Date(clock.now().getTime() + hours(1));
+    await first.calls.markCompleted(keyOf(lease, "early"), "owner-1", "{}", inAnHour());
     await clock.advance(hours(2));
-    await first.calls.markFailed(keyOf(lease, "late"), "owner-1", {
-      name: "Error",
-      code: "Error",
-      message: "no",
-    });
+    await first.calls.markFailed(
+      keyOf(lease, "late"),
+      "owner-1",
+      { name: "Error", code: "Error", message: "no" },
+      inAnHour(),
+    );
 
-    await second.calls.deleteByEndedAtBefore(new Date(clock.now().getTime() - hours(1)));
+    await second.calls.deleteExpired(clock.now());
 
     const left = await first.calls.findAllByTenantIdAndRootExecutionId("default", "execution-1");
     expect(left.map((call) => call.name)).toEqual(["pending", "late"]);
@@ -161,7 +174,7 @@ const retentionKeepsPending: OutboundCallCase = {
 };
 
 const badNameRefused: OutboundCallCase = {
-  name: "#508: a key built by hand with an invalid name (a ':', empty, above 100) is refused at every method — InvalidFencedEffectNameError, nothing written",
+  name: "#508: a key built by hand with an invalid name (a ':', empty, above 100) is refused at every method — IdempotencyError.InvalidName, nothing written",
   run: async ({ first }) => {
     const lease = await leaseOf(first);
     for (const name of ["charge:twice", "", "x".repeat(101)]) {
@@ -172,7 +185,7 @@ const badNameRefused: OutboundCallCase = {
         ...FENCED_CALLS.slice(2).map(([, call]) => call(first, key)),
       ];
       for (const call of calls)
-        expect(await rejectionOf(call)).toBeInstanceOf(InvalidFencedEffectNameError);
+        expect(await rejectionOf(call)).toBeInstanceOf(IdempotencyError.InvalidName);
     }
     expect(await first.calls.findAllByTenantIdAndRootExecutionId("default", "execution-1")).toEqual(
       [],

@@ -1,3 +1,4 @@
+import type { ComponentOptions } from "../components/component-options.js";
 import type { ApplicationOptions } from "../application/application.js";
 import type { Class, Provider } from "../components/injection.js";
 import { ComponentError, componentOf } from "../components/metadata.js";
@@ -5,36 +6,24 @@ import { moduleOf } from "../components/module.js";
 import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { hasKindSuffix, kindSuffixProblem, NameKind } from "../flow/names.js";
+import { hasKindSuffix, kebabNameProblem, NameKind } from "../flow/names.js";
 import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { A2AAgentMeta } from "./a2a-decorator.js";
+import { startsOfEndpoint, type A2AEndpointMeta } from "./a2a-endpoint.decorator.js";
+import { ttlViolations } from "./a2a-endpoint-ttl.js";
 
 /**
- * The declared contracts of an application at assembly (#398 PR 3). Its `exposes` are `@A2AExpose`
- * or `@McpExpose` classes (`[application.not-an-expose]`), each name once
- * (`[application.duplicate-expose]`); an `@A2AExpose` exports `@WorkflowStart`s of the application's
- * workflows (`[application.expose-unknown-start]`). Names: `-a2a-agent` on a `…A2AAgent` class, `-a2a-expose` on a
- * `…A2AExpose` class (`[name.kind-suffix]`).
+ * The declared contracts of an application at assembly (#398 PR 3). Its `endpoints` are `@A2AEndpoint`
+ * or `@McpEndpoint` classes (`[application.not-an-endpoint]`), each name once
+ * (`[application.duplicate-endpoint]`); an `@A2AEndpoint` exports `@WorkflowStart`s of the application's
+ * workflows (`[application.endpoint-unknown-start]`). Names: kebab-case (`[name.not-kebab-case]`).
  */
 
-/** `[name.kind-suffix]` for a contract's `name` and its class name. */
-function contractNameViolations(
-  name: string,
-  cls: Class,
-  kind: NameKind,
-  classSuffix: string,
-  where: string,
-): RuleViolation[] {
-  const found: RuleViolation[] = [];
-  const problem = kindSuffixProblem(name, kind);
-  if (problem !== undefined) found.push(violation(problem.code, problem.message, [where]));
-  const className = cls.name;
-  if (className.length <= classSuffix.length || !className.endsWith(classSuffix)) {
-    const message = `class ${className} — name it ${className}${classSuffix}`;
-    found.push(violation("name.kind-suffix", message, [where]));
-  }
-  return found;
+/** `[name.not-kebab-case]` for a contract's `name`. */
+function contractNameViolations(name: string, decorator: string, where: string): RuleViolation[] {
+  const problem = kebabNameProblem(name, decorator);
+  return problem === undefined ? [] : [violation(problem.code, problem.message, [where])];
 }
 
 /** The starts of the application's workflows and their children, by class. */
@@ -49,36 +38,56 @@ function startsOf(workflows: readonly Class[]): ReadonlySet<Class> {
   return new Set(starts);
 }
 
-function exposeViolations(options: ApplicationOptions): RuleViolation[] {
+/** What one `@A2AEndpoint` gets wrong: its description, ttl and skills. */
+function a2aEndpointProblems(
+  meta: A2AEndpointMeta,
+  starts: ReadonlySet<Class>,
+  where: string,
+): RuleViolation[] {
+  const found = contractNameViolations(meta.name, "@A2AEndpoint", where);
+  if (meta.description.trim() === "") {
+    const message = `${meta.name} has no description — the Agent Card's description says what the agent does for a caller that finds it`;
+    found.push(violation("a2a.endpoint-description-required", message, [where]));
+  }
+  found.push(...ttlViolations(meta, where));
+  const listed = startsOfEndpoint(meta);
+  for (const [index, served] of listed.entries()) {
+    if (!starts.has(served)) {
+      const message = `${meta.name} serves ${served.name}, which is no @WorkflowStart of ${where}'s workflows — list a start of a listed workflow`;
+      found.push(violation("application.endpoint-unknown-start", message, [where]));
+    } else if (listed.indexOf(served) !== index) {
+      const message = `${meta.name} lists the skill ${served.name} twice — one entry per start`;
+      found.push(violation("a2a.duplicate-skill", message, [where]));
+    }
+  }
+  return found;
+}
+
+function endpointViolations(
+  options: ApplicationOptions,
+  carrier: ComponentOptions,
+): RuleViolation[] {
   const where = options.name;
   const starts = startsOf(options.workflows);
   const seen = new Set<string>();
-  return (options.exposes ?? []).flatMap((expose): RuleViolation[] => {
-    const meta = componentOf(expose);
-    if (meta?.kind !== "a2a-expose" && meta?.kind !== "mcp-expose") {
-      const message = `${expose.name} in ${where}'s exposes is neither an @A2AExpose nor an @McpExpose`;
-      return [violation("application.not-an-expose", message, [where])];
+  return (options.endpoints ?? []).flatMap((endpoint): RuleViolation[] => {
+    const meta = componentOf(endpoint);
+    if (meta?.kind !== "a2a-endpoint" && meta?.kind !== "mcp-endpoint") {
+      const message = `${endpoint.name} in ${where}'s endpoints is neither an @A2AEndpoint nor an @McpEndpoint`;
+      return [violation("application.not-an-endpoint", message, [where])];
     }
     const found: RuleViolation[] = [];
     if (seen.has(meta.meta.name)) {
-      const message = `${where} exposes two contracts named ${meta.meta.name} — one name per contract`;
-      found.push(violation("application.duplicate-expose", message, [where]));
+      const message = `${where} serves two contracts named ${meta.meta.name} — one name per contract`;
+      found.push(violation("application.duplicate-endpoint", message, [where]));
     }
     seen.add(meta.meta.name);
-    if (meta.kind === "mcp-expose") return found;
-    found.push(
-      ...contractNameViolations(meta.meta.name, expose, NameKind.A2AExpose, "A2AExpose", where),
-    );
-    if (meta.meta.description.trim() === "") {
-      const message = `${meta.meta.name} has no description — the Agent Card's description says what the agent does for a caller that finds it`;
-      found.push(violation("a2a.expose-description-required", message, [where]));
-    }
-    for (const exported of meta.meta.exports) {
-      if (starts.has(exported)) continue;
-      const message = `${meta.meta.name} exports ${exported.name}, which is no @WorkflowStart of ${where}'s workflows — export a start of a listed workflow`;
-      found.push(violation("application.expose-unknown-start", message, [where]));
-    }
-    return found;
+    return meta.kind === "mcp-endpoint"
+      ? found
+      : [
+          ...found,
+          ...a2aEndpointProblems(carrier.a2aEndpointMetaOf(endpoint) ?? meta.meta, starts, where),
+        ];
   });
 }
 
@@ -90,7 +99,7 @@ function createdClassOf(provider: Provider): Class | undefined {
 
 /**
  * The classes the application and its workflows (and the child workflows they launch) provide — listed, or given
- * for a token with `provide(TOKEN, Class)`. `[a2a.price-invalid]` and the contract names are checked on these.
+ * for a token with `provide(TOKEN, Class)`. `[a2a.cost-per-call-invalid]` and the contract names are checked on these.
  */
 function providersOf(options: ApplicationOptions): ReadonlySet<Class> {
   const ofWorkflows = withChildWorkflows(options.workflows)
@@ -139,48 +148,54 @@ function targetFinishesViolations(meta: A2AAgentMeta, where: string): RuleViolat
  * An A2A contract's price (#1382) is a finite number of dollars from 0 (`usd(...)`), or none. Anything else
  * — `NaN`, `Infinity`, a negative number, a word, `null`, an object — reaches a contract from untyped code,
  * a config file or parsed JSON; a negative one is not charged at the accept and is added to the settle's
- * charge, a `NaN` one throws after the peer accepted the task. `[a2a.price-invalid]` refuses it at assembly
+ * charge, a `NaN` one throws after the peer accepted the task. `[a2a.cost-per-call-invalid]` refuses it at assembly
  * (`@A2AAgent`) and, before anything is sent, at the call (a client built with a `contract`). The message names
  * the value by its kind, never by its text. Why `price` is no price a contract can hold: none when it is one
  * (or none is set).
  */
-export const priceProblemOf = (price: unknown): string | undefined =>
+export const costPerCallProblemOf = (price: unknown): string | undefined =>
   price === undefined || (isFiniteNumber(price) && price >= 0)
     ? undefined
-    : `price is ${shownLimit(price)}, not a finite number of dollars from 0 — usd(...) sets it; leave it out for no price`;
+    : `costPerCall is ${shownLimit(price)}, not a finite number of dollars from 0 — usd(...) sets it; leave it out for no cost`;
 
 /** Refuses a contract's `price` that is no finite number from 0, before the call sends or charges anything. */
-export function checkedPrice(agent: string, price: unknown): void {
-  const problem = priceProblemOf(price);
+export function checkedCostPerCall(agent: string, price: unknown): void {
+  const problem = costPerCallProblemOf(price);
   if (problem !== undefined)
-    throw new ComponentError({ message: `[a2a.price-invalid] ${agent}: ${problem}` });
+    throw new ComponentError({ message: `[a2a.cost-per-call-invalid] ${agent}: ${problem}` });
 }
 
-/** `[a2a.price-invalid]` at assembly (#1382): the agent's `price` is a finite number of dollars from 0, or none. */
-function priceViolations(meta: A2AAgentMeta, where: string): RuleViolation[] {
-  const problem = priceProblemOf(meta.price);
+/** `[a2a.cost-per-call-invalid]` at assembly (#1382): the agent's `price` is a finite number of dollars from 0, or none. */
+function costPerCallViolations(meta: A2AAgentMeta, where: string): RuleViolation[] {
+  const problem = costPerCallProblemOf(meta.costPerCall);
   return problem === undefined
     ? []
-    : [violation("a2a.price-invalid", `${meta.name}'s ${problem}`, [where])];
+    : [violation("a2a.cost-per-call-invalid", `${meta.name}'s ${problem}`, [where])];
 }
 
-function a2aAgentViolations(options: ApplicationOptions): RuleViolation[] {
+function a2aAgentViolations(
+  options: ApplicationOptions,
+  carrier: ComponentOptions,
+): RuleViolation[] {
   const where = options.name;
   return [...providersOf(options)].flatMap((cls): RuleViolation[] => {
-    const meta = componentOf(cls);
-    if (meta?.kind !== "a2a-agent") return [];
-    const { name } = meta.meta;
+    const meta = carrier.a2aAgentMetaOf(cls);
+    if (meta === undefined) return [];
+    const { name } = meta;
     // #809: the target is optional — a foreign agent has no application, one skill needs no name
     return [
-      ...contractNameViolations(name, cls, NameKind.A2AAgent, "A2AAgent", where),
-      ...targetFinishesViolations(meta.meta, where),
-      ...priceViolations(meta.meta, where),
+      ...contractNameViolations(name, "@A2AAgent", where),
+      ...targetFinishesViolations(meta, where),
+      ...costPerCallViolations(meta, where),
     ];
   });
 }
 
 /** The declared contracts' violations of an application. */
-export const contractRuleViolations = (options: ApplicationOptions): RuleViolation[] => [
-  ...exposeViolations(options),
-  ...a2aAgentViolations(options),
+export const contractRuleViolations = (
+  options: ApplicationOptions,
+  carrier: ComponentOptions,
+): RuleViolation[] => [
+  ...endpointViolations(options, carrier),
+  ...a2aAgentViolations(options, carrier),
 ];

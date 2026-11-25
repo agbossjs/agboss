@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (ledger-run shard) — what finishing a run writes, each rule on its own over fakes: the turn's cost and its
  * status, the spend of the loops a pause leaves going to the ledger at once and once, the strategies' spend of a
@@ -6,19 +7,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AGBossError } from "../../src/core/errors.js";
 import { ExecutionStatus } from "../../src/app/types.js";
-import {
-  buildCostReport,
-  CostSource,
-  ZERO_USAGE,
-  type UsageRecord,
-} from "../../src/finops/usage.js";
+import { CostReport, CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { finishLine } from "../../src/flow/runtime/history.js";
 import { endOf, finishRun, outcomeOf } from "../../src/run/finish.js";
-import { updateMemoryAfter } from "../../src/run/memory.js";
 import { isWaiting, pausedLoopsOf } from "../../src/run/paused.js";
 import { openPausesOf, waitingPausesOf } from "../../src/run/waiting-pauses.js";
 
-vi.mock("../../src/run/memory.js", () => ({ updateMemoryAfter: vi.fn() }));
 vi.mock("../../src/run/paused.js", async (original) => ({
   ...(await original<typeof import("../../src/run/paused.js")>()),
   isWaiting: vi.fn(),
@@ -31,10 +25,11 @@ vi.mock("../../src/run/waiting-pauses.js", async (original) => ({
 }));
 
 const record = (costUsd: number, caller = "agent:a"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -63,6 +58,7 @@ const stateOf = (changes: Record<string, unknown> = {}) =>
 const setup = (options: { paused?: boolean; compacted?: unknown; pause?: boolean } = {}) => {
   const append = vi.fn(() => Promise.resolve({ id: "turn-new" }));
   const complete = vi.fn(() => Promise.resolve());
+  const completeUnlessInterrupted = vi.fn(() => Promise.resolve(true));
   const recorded = vi.fn(() => Promise.resolve());
   const pauses = { name: "pauses" };
   const checkpointer = { name: "saver" };
@@ -70,7 +66,8 @@ const setup = (options: { paused?: boolean; compacted?: unknown; pause?: boolean
   const ctx = {
     deps: {
       config: { version: "9.9.9" },
-      turns: { append, complete },
+      graph: { nodes: new Map() }, // no finish node declared: the stored output stays as it is (#1301)
+      turns: { append, complete, completeUnlessInterrupted },
       ...(options.pause === false ? {} : { pause: { pauses, checkpointer } }),
     },
     graph,
@@ -84,8 +81,17 @@ const setup = (options: { paused?: boolean; compacted?: unknown; pause?: boolean
     compacted: options.compacted,
   };
   vi.mocked(isWaiting).mockResolvedValue(options.paused === true);
-  vi.mocked(updateMemoryAfter).mockResolvedValue({ usage: [] });
-  return { ctx: ctx as never, raw: ctx, append, complete, recorded, pauses, checkpointer, graph };
+  return {
+    ctx: ctx as never,
+    raw: ctx,
+    append,
+    complete,
+    completeUnlessInterrupted,
+    recorded,
+    pauses,
+    checkpointer,
+    graph,
+  };
 };
 
 beforeEach(() => {
@@ -108,7 +114,7 @@ describe("#1366: a finished run's turn", () => {
       stopReason: "",
       route: ["chat", "alpha"],
       steps: [],
-      costUsd: 0.5,
+      costUsd: usd(0.5),
     });
     expect(out).toEqual({
       status: ExecutionStatus.Finished,
@@ -116,7 +122,7 @@ describe("#1366: a finished run's turn", () => {
       startInput: { text: "hi" },
       path: ["chat", "alpha"],
       budgetUsd: 2,
-      cost: buildCostReport([record(0.5)]),
+      cost: CostReport.fromUsage([record(0.5)]),
       threadId: "thread-1",
       tenantId: "tenant-1",
       turnId: "turn-new",
@@ -142,16 +148,24 @@ describe("#1366: a finished run's turn", () => {
   });
 
   it("is completed, not appended, when it had a record while it ran", async () => {
-    const { ctx, append, complete } = setup();
+    const { ctx, append, complete, completeUnlessInterrupted } = setup();
 
     const out = await finishRun(ctx, stateOf(), "turn-running");
 
     expect(append).not.toHaveBeenCalled();
-    expect(complete).toHaveBeenCalledWith(
+    expect(complete).not.toHaveBeenCalled(); // a finish is written only while no stop or cancel is marked (#1341b)
+    expect(completeUnlessInterrupted).toHaveBeenCalledWith(
       "turn-running",
-      expect.objectContaining({ status: "answered", costUsd: 0.5 }),
+      expect.objectContaining({ status: "answered", costUsd: usd(0.5) }),
     );
     expect(out.turnId).toBe("turn-running");
+  });
+
+  it("a finish a stop or cancel mark refuses is not recorded: the run ends as the mark", async () => {
+    const { ctx, completeUnlessInterrupted } = setup();
+    completeUnlessInterrupted.mockResolvedValueOnce(false);
+
+    await expect(finishRun(ctx, stateOf(), "turn-running")).rejects.toBeInstanceOf(AGBossError);
   });
 
   it("keeps the version it started on, else the application's", async () => {
@@ -162,23 +176,9 @@ describe("#1366: a finished run's turn", () => {
     expect(kept.startedVersion).toBe("1.2.3");
   });
 
-  it("adds the memory strategies' spend to the turn's cost and the report, after the finish line is known", async () => {
-    const { ctx, append, raw } = setup();
-    vi.mocked(updateMemoryAfter).mockResolvedValue({ usage: [record(0.25, "memory")] });
-
-    const out = await finishRun(ctx, stateOf());
-
-    expect(updateMemoryAfter).toHaveBeenCalledWith(raw, [record(0.5)], {
-      start: "the task",
-      finish: finishLine("done", { text: "ok" }),
-    });
-    expect(append).toHaveBeenCalledWith(expect.objectContaining({ costUsd: 0.75 }));
-    expect(out.cost).toEqual(buildCostReport([record(0.5), record(0.25, "memory")]));
-  });
-
   it("says what the compactions did, only when they did", async () => {
     const compacted = [
-      { compaction: "c", fromTurn: 1, toTurn: 2, summaries: 1, summaryQueueLength: 3 },
+      { memory: "c", fromTurn: 1, toTurn: 2, summaries: 1, summaryQueueLength: 3 },
     ];
 
     const did = await finishRun(setup({ compacted }).ctx, stateOf());
@@ -188,9 +188,11 @@ describe("#1366: a finished run's turn", () => {
     expect(Object.keys(none)).not.toContain("compacted");
   });
 
-  it("carries where its request came from and where its trace is", async () => {
+  it("carries where its request came from and where its trace is (#1324f)", async () => {
     const { ctx, raw } = setup();
-    Object.assign(raw.deps, { tracing: { sessionUrl: (id: string) => `https://trace/${id}` } });
+    Object.assign(raw.deps, {
+      tracing: { traceUrl: (ctx: { threadId: string }) => `https://trace/${ctx.threadId}` },
+    });
     const state = stateOf({ contexts: { mesh: { trusted: { origin: { application: "peer" } } } } });
 
     const out = await finishRun(ctx, state);
@@ -275,13 +277,12 @@ describe("#1366: a paused run", () => {
       stopReason: "waiting for approval",
       route: ["chat", "alpha"],
       steps: [],
-      costUsd: 0.75,
+      costUsd: usd(0.75),
     });
-    expect(updateMemoryAfter).not.toHaveBeenCalled();
     expect(out.status).toBe(ExecutionStatus.Paused);
     expect(out.path).toEqual(["chat", "alpha", "alpha-agent"]);
     expect(out.pending).toEqual(made.pending);
-    expect(out.cost).toEqual(buildCostReport([record(0.5), record(0.25, "loop")]));
+    expect(out.cost).toEqual(CostReport.fromUsage([record(0.5), record(0.25, "loop")]));
     expect(Object.keys(out)).not.toContain("finish");
     expect(Object.keys(out)).not.toContain("output");
   });
@@ -318,30 +319,30 @@ describe("#1366: a paused run", () => {
 });
 
 describe("#1366: the turn's outcome and the end a result reports", () => {
-  it("a run that ended is answered with its finish line and the cost of its spend", () => {
-    expect(outcomeOf(stateOf(), [record(0.5), record(0.25)], false)).toEqual({
+  it("a run that ended is answered with its finish line and the cost of its spend", async () => {
+    expect(await outcomeOf(stateOf(), [record(0.5), record(0.25)], false)).toEqual({
       replyWith: finishLine("done", { text: "ok" }),
       status: "answered",
       stopReason: "",
       route: ["chat", "alpha"],
       steps: [],
-      costUsd: 0.75,
+      costUsd: usd(0.75),
     });
   });
 
-  it("a paused run has no reply and says what it waits for", () => {
-    expect(outcomeOf(stateOf(), [record(0.5)], true)).toEqual({
+  it("a paused run has no reply and says what it waits for", async () => {
+    expect(await outcomeOf(stateOf(), [record(0.5)], true)).toEqual({
       replyWith: "",
       status: "paused",
       stopReason: "waiting for approval",
       route: ["chat", "alpha"],
       steps: [],
-      costUsd: 0.5,
+      costUsd: usd(0.5),
     });
   });
 
-  it("a run with no finish has no reply, whatever its output", () => {
-    const out = outcomeOf(stateOf({ finish: "" }), [], false);
+  it("a run with no finish has no reply, whatever its output", async () => {
+    const out = await outcomeOf(stateOf({ finish: "" }), [], false);
 
     expect(out.replyWith).toBe("");
     expect(out.status).toBe("answered");

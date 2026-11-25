@@ -13,10 +13,38 @@ export interface ThreadIds {
 type Now = () => Date;
 
 /** Threads, their owners and their tenants (#202, #261 S72: a thread's key is tenant + thread). */
-const OwnerRow = z.object({ owner: z.string().nullable() });
+const OwnerRow = z.object({ owner: z.string().nullable(), is_swept: z.number() });
 
 /** How many minted ids a new thread tries before it gives up (#550). */
 const MINTED_THREAD_TRIES = 100;
+
+/**
+ * A caller's own id the tenant already has: kept as it is (the first creator owns it, the caller's
+ * owner check settles the rest, #262 Q4) — except a swept thread (#1303c), fail closed: a different
+ * caller, or one naming no owner, is refused; its owner restarts it (the one place the tombstone is
+ * cleared).
+ */
+function claimExisting(
+  db: DatabaseSync,
+  claim: { tenantId: string; threadId: string; ownerId: string | undefined; at: string },
+): void {
+  const { tenantId, threadId, ownerId, at } = claim;
+  const row = db
+    .prepare(
+      `SELECT o.owner, t.is_swept FROM threads t
+       LEFT JOIN thread_owners o ON o.tenant_id = t.tenant_id AND o.thread_id = t.id
+       WHERE t.tenant_id = ? AND t.id = ?`,
+    )
+    .get(tenantId, threadId);
+  if (row === undefined) return;
+  const { owner, is_swept: isSwept } = OwnerRow.parse(row);
+  if (isSwept !== 1) return;
+  if (owner !== ownerId)
+    throw new Error("the thread belongs to another owner: it is not created again");
+  db.prepare(
+    "UPDATE threads SET is_swept = 0, last_active_at = ? WHERE tenant_id = ? AND id = ?",
+  ).run(at, tenantId, threadId);
+}
 
 /** A minted id the tenant has no thread of, inserted by `insert` (`false`: taken, mint again). */
 function mintedThreadId(threadIds: ThreadIds, insert: (id: string) => boolean): string {
@@ -32,6 +60,24 @@ function mintedThreadId(threadIds: ThreadIds, insert: (id: string) => boolean): 
   );
 }
 
+/** A thread's owner and whether it is a swept tombstone (#1303c); `undefined`: no such thread. */
+function threadOwnerOf(
+  db: DatabaseSync,
+  { bundle, tenantId, threadId }: { bundle: string; tenantId: string; threadId: string },
+): Awaited<ReturnType<TurnStore["threadOwner"]>> {
+  const row = db
+    .prepare(
+      `SELECT o.owner, t.is_swept FROM threads t
+       LEFT JOIN thread_owners o ON o.tenant_id = t.tenant_id AND o.thread_id = t.id
+       WHERE t.tenant_id = ? AND t.id = ? AND t.bundle = ?`,
+    )
+    .get(tenantId, threadId, bundle);
+  if (row === undefined) return undefined;
+  const { owner, is_swept: isSwept } = OwnerRow.parse(row);
+  // a swept thread is the owner's emptied tombstone: only its owner may restart it
+  return { owner: owner ?? undefined, ...(isSwept === 1 ? { isSwept: true as const } : {}) };
+}
+
 export function threadMethods(
   db: DatabaseSync,
   now: Now,
@@ -44,17 +90,19 @@ export function threadMethods(
     // in a promise's executor: a refused mint (#578, #613) rejects, never throws at the call
     createThread: ({ workflow, tenantId, ownerId, threadId }) =>
       new Promise<string>((resolve) => {
+        const createdAt = now().toISOString();
         const insert = (id: string): boolean => {
           const { changes } = db
             .prepare(
-              `INSERT INTO threads (id, bundle, created_at, tenant_id) VALUES (?, ?, ?, ?)
+              `INSERT INTO threads (id, bundle, created_at, tenant_id, last_active_at) VALUES (?, ?, ?, ?, ?)
              ON CONFLICT(tenant_id, id) DO NOTHING`,
             )
-            .run(id, workflow, now().toISOString(), tenantId);
+            .run(id, workflow, createdAt, tenantId, createdAt);
           return Number(changes) === 1;
         };
         const id = threadId ?? mintedThreadId(threadIds, insert);
         const isCreated = threadId === undefined || insert(id);
+        if (!isCreated) claimExisting(db, { tenantId, threadId: id, ownerId, at: createdAt });
         if (isCreated && ownerId !== undefined) {
           db.prepare(
             "INSERT INTO thread_owners (tenant_id, thread_id, owner) VALUES (?, ?, ?)",
@@ -62,18 +110,8 @@ export function threadMethods(
         }
         resolve(id);
       }),
-    threadOwner: (bundle, tenantId, threadId) => {
-      const row = db
-        .prepare(
-          `SELECT o.owner FROM threads t
-           LEFT JOIN thread_owners o ON o.tenant_id = t.tenant_id AND o.thread_id = t.id
-           WHERE t.tenant_id = ? AND t.id = ? AND t.bundle = ?`,
-        )
-        .get(tenantId, threadId, bundle);
-      if (row === undefined) return Promise.resolve(undefined);
-      const { owner } = OwnerRow.parse(row);
-      return Promise.resolve({ owner: owner ?? undefined });
-    },
+    threadOwner: (bundle, tenantId, threadId) =>
+      Promise.resolve(threadOwnerOf(db, { bundle, tenantId, threadId })),
     hasThread: (bundle, tenantId, threadId) => {
       const row = db
         .prepare("SELECT 1 FROM threads WHERE tenant_id = ? AND id = ? AND bundle = ?")

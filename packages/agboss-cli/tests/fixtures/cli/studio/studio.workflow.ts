@@ -6,13 +6,15 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../../../../agboss/src/index.js";
 import { Text } from "../../../../../agboss/src/dto/index.js";
 import { listOf } from "../../../../../agboss/src/flow/dto-wrappers.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
 import { SplitWorkflow } from "../../../../../agboss/tests/flow/runtime/fixtures/recursion.workflow.js";
-import { start } from "../../../../../agboss/tests/helpers/flow.js";
+import { onStart, toWorkflow } from "../../../../../agboss/tests/helpers/flow.js";
 import { StudioEnvironment } from "./environments/app.environment.js";
+import { TestModelProvider } from "../../../../../agboss/src/testing/test-model-provider.js";
 
 export class StudioItemDto {
   @Text({ prompt: "the item" })
@@ -43,8 +45,8 @@ export class StudioItemWorkflowStart {}
   output: StudioResultDto,
 })
 export class CheckItemAction {
-  execute(input: { readonly item: { readonly value: StudioItemDto } }): Promise<StudioResultDto> {
-    return Promise.resolve({ name: input.item.value.name });
+  execute(input: { readonly item: StudioItemDto }): Promise<StudioResultDto> {
+    return Promise.resolve({ name: input.item.name });
   }
 }
 
@@ -59,11 +61,10 @@ export class ItemCheckedWorkflowFinish {}
 @Workflow({
   name: "studio-item-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StudioItemWorkflowStart)
-      .returns(StudioItemDto)
+    onStart(StudioItemWorkflowStart)
       .toAction(CheckItemAction)
-      .returns(StudioResultDto)
       .toFinish(ItemCheckedWorkflowFinish),
   ],
 })
@@ -83,12 +84,10 @@ export class StudioItemsWorkflowStart {}
   output: StudioSummaryDto,
 })
 export class SummaryAction {
-  execute(input: {
-    readonly results: readonly { readonly value: StudioResultDto }[];
-  }): Promise<StudioSummaryDto> {
+  execute(input: { readonly results: readonly StudioResultDto[] }): Promise<StudioSummaryDto> {
     return Promise.resolve({
       text: input.results
-        .map((result) => result.value.name)
+        .map((result) => result.name)
         .join(", "),
     });
   }
@@ -105,14 +104,12 @@ export class SummaryWorkflowFinish {}
 @Workflow({
   name: "studio-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StudioItemsWorkflowStart)
-      .returns(listOf(StudioItemDto))
-      .toParallelWorkflows(StudioItemWorkflow, { maxConcurrency: 2, maxItems: 10 })
+    onStart(StudioItemsWorkflowStart)
+      .forEachItem(toWorkflow(StudioItemWorkflow), { takeFirst: 10, maxConcurrency: 2 })
       .join()
-      .returns(listOf(StudioResultDto))
       .toAction(SummaryAction)
-      .returns(StudioSummaryDto)
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -132,11 +129,10 @@ export class OneCheckedWorkflowFinish {}
 @Workflow({
   name: "studio-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StudioOneWorkflowStart)
-      .returns(StudioItemDto)
+    onStart(StudioOneWorkflowStart)
       .toWorkflow(StudioItemWorkflow)
-      .returns(StudioResultDto)
       .toFinish(OneCheckedWorkflowFinish),
   ],
 })
@@ -144,6 +140,7 @@ export class StudioOneWorkflow {}
 
 /** The child is not listed: it belongs to its parents. */
 @Application({
+  modelProvider: TestModelProvider,
   name: "studio-application",
   version: "1.0.0",
   environment: StudioEnvironment,

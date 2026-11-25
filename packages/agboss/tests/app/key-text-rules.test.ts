@@ -6,11 +6,13 @@
  * `effectKeyOf`, a key built by hand at `OutboundCalls.send` and at a store's entry, and a
  * thread id at `app.execute`.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
-import { Action, ExecutionContext, effectKeyOf, InvalidBusinessKeyError } from "../../src/index.js";
-import { testAction, testWith } from "../../src/testing/index.js";
+import { Action, ExecutionContext, type Tracked } from "../../src/index.js";
+import { effectKeyOf } from "../../src/stores/index.js";
+import { testUnit, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { ChatStart, DeskApplication } from "../testing/fixtures/desk.workflow.js";
 import { ACCEPTED_KEYS, NFC_PAIRS, REFUSED_KEYS } from "./fixtures/key-texts.js";
@@ -25,16 +27,16 @@ import { ACCEPTED_KEYS, NFC_PAIRS, REFUSED_KEYS } from "./fixtures/key-texts.js"
 class KeyedChargeAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly message: { readonly value: WorkflowStartTextDto } }) {
+  execute(input: { readonly message: Tracked<WorkflowStartTextDto> }) {
     const key = effectKeyOf(this.executionContext, "charge", {
-      businessKey: input.message.value.text,
+      businessKey: input.message.text,
     });
     return Promise.resolve({ text: key.businessKey ?? "" });
   }
 }
 
 const keyed = (businessKey: string) =>
-  testAction(KeyedChargeAction)({ message: { value: { text: businessKey } } }).then(
+  testUnit(KeyedChargeAction)({ message: { text: businessKey } }).then(
     (result) => result.output.text,
     (thrown: unknown) => thrown,
   );
@@ -62,10 +64,10 @@ describe("#538 AC1: the rules of a key's text", () => {
 });
 
 describe("#538 AC1: effectKeyOf refuses each class, naming the rule, never the key", () => {
-  it.each(REFUSED_KEYS)("%s → InvalidBusinessKeyError(%s)", async (_label, rule, text) => {
+  it.each(REFUSED_KEYS)("%s → IdempotencyError.InvalidKey(%s)", async (_label, rule, text) => {
     const error = await keyed(text);
 
-    expect(error).toBeInstanceOf(InvalidBusinessKeyError);
+    expect(error).toBeInstanceOf(IdempotencyError.InvalidKey);
     expect(error).toMatchObject({ rule, effect: "charge", details: { rule, effect: "charge" } });
     const { message } = error as Error;
     expect(message).toContain(`(${rule})`);

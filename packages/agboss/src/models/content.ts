@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { bytes as bytesOf, type Bytes } from "../units/index.js";
 import type { ContentBlock, MessageContent } from "@langchain/core/messages";
 
 /**
@@ -93,20 +94,20 @@ export interface PartMeta {
   readonly kind: "image" | "file" | "audio" | "video";
   readonly mediaType: string;
   readonly filename?: string;
-  readonly sizeBytes: number;
+  readonly sizeBytes: Bytes;
   readonly sha256: string;
 }
 
 /** The part as it is shown: `{ kind, mediaType, filename?, sizeBytes, sha256 }` of its bytes. */
 export function partMetaOf(part: ModelBlobPart): PartMeta {
-  const bytes = Buffer.from(part.data, "base64");
+  const raw = Buffer.from(part.data, "base64");
   return {
     type: PART_BLOCK_TYPE,
     kind: part.kind,
     mediaType: part.mediaType,
     ...(part.kind === "file" && part.filename !== undefined ? { filename: part.filename } : {}),
-    sizeBytes: bytes.byteLength,
-    sha256: createHash("sha256").update(bytes).digest("hex"),
+    sizeBytes: bytesOf(raw.byteLength),
+    sha256: createHash("sha256").update(raw).digest("hex"),
   };
 }
 

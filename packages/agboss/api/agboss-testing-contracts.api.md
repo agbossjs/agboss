@@ -5,7 +5,6 @@
 ```ts
 
 import { BaseCheckpointSaver } from '@langchain/langgraph';
-import type { MessageContent } from '@langchain/core/messages';
 
 // @public
 export function a2aDirectMessageContract(target: ContractTarget<A2ADirectMessageStores>): void;
@@ -19,9 +18,6 @@ export interface A2ADirectMessageStores {
 }
 
 // @public
-export function a2aFileContract(target: ContractTarget<A2AFileRepository>): void;
-
-// @public
 export function a2aTaskContract(target: ContractTarget<A2ATaskRepository>): void;
 
 // @public
@@ -29,6 +25,16 @@ export function checkpointSaverContract(target: ContractTarget<BaseCheckpointSav
 
 // @public
 export function childExecutionQueueContract(target: ContractTarget<ChildExecutionQueueRepository>): void;
+
+// @public
+export interface ClusterLeaseSet {
+    readonly cluster: ExecutionLeaseRepository;
+    readonly database: ExecutionIdStore;
+    readonly outage: {
+        cluster(isDown: boolean): void;
+        database(isDown: boolean): void;
+    };
+}
 
 // @public
 export interface ConformanceSabotageOptions {
@@ -50,6 +56,12 @@ export interface ContractInstances<TStore> {
 }
 
 // @public
+export interface ContractReranker {
+    // (undocumented)
+    readonly rerank: (query: string, candidates: readonly RagSearchResultDto[], options: RerankOptions) => RerankResult | Promise<RerankResult>;
+}
+
+// @public
 export interface ContractTarget<TStore> {
     readonly capabilities?: readonly StoreCapability[];
     close?(store: TStore): void | Promise<void>;
@@ -62,13 +74,18 @@ export interface ContractTarget<TStore> {
 export function costLedgerContract(target: ContractTarget<CostLedgerRepository>): void;
 
 // @public
-export const effectKeyForTesting: (fields: EffectKeyFields, changes?: Partial<EffectKeyFields>) => EffectKey;
+export const effectKeyForTesting: (fields: Omit<EffectKeyFields, "expiresAt"> & {
+    readonly expiresAt?: Date | null;
+}, changes?: Partial<EffectKeyFields>) => EffectKey;
 
 // @public
 export function executionAuditLogContract(target: ContractTarget<ExecutionAuditLogRepository>): void;
 
 // @public
 export function executionHistoryContract(target: ContractTarget<ExecutionHistoryRepository>): void;
+
+// @public
+export function executionLeaseClusterContract(target: ContractTarget<ClusterLeaseSet>): void;
 
 // @public
 export function executionLeaseContract(target: ContractTarget<ExecutionLeaseRepository>): void;
@@ -80,25 +97,28 @@ export function executionRecordContract(target: ContractTarget<ExecutionRecordRe
 export function executionTreeContract(target: ContractTarget<ExecutionTreeRepository>): void;
 
 // @public
-export interface FencedEffectBusinessRows<TTransaction> {
+export interface FencedEffectBusinessRows {
     committed(): Promise<readonly string[]>;
-    insert(transaction: TTransaction, row: string): void | Promise<void>;
+    insert(row: string): void | Promise<void>;
 }
 
 // @public
-export function fencedEffectContract<TTransaction>(target: ContractTarget<FencedEffectTarget<TTransaction>>, options?: FencingContractOptions): void;
+export function fencedEffectContract(target: ContractTarget<FencedEffectTarget>, options?: FencingContractOptions): void;
 
 // @public
-export interface FencedEffectTarget<TTransaction> {
-    readonly effects: FencedEffectRepository<TTransaction>;
+export interface FencedEffectTarget {
+    readonly effects: FencedEffectRepository;
     readonly leases: ExecutionLeaseRepository;
-    readonly rows: FencedEffectBusinessRows<TTransaction>;
+    readonly rows: FencedEffectBusinessRows;
 }
 
 // @public
 export interface FencingContractOptions {
     readonly acceptWithoutDoubleChargeProtection?: boolean;
 }
+
+// @public
+export function fileContract(target: ContractTarget<FileRepository>): void;
 
 // @public
 export interface InterleavingOptions {
@@ -128,26 +148,26 @@ export interface OutboundCallTarget {
 export function pausedExecutionContract(target: ContractTarget<PausedExecutionRepository>): void;
 
 // @public
-export function ragConnectorContract<TConnector extends RagConnector>(target: RagConnectorContractTarget<TConnector>): void;
-
-// @public
-export interface RagConnectorContractTarget<TConnector extends RagConnector = RagConnector> {
-    readonly connector: () => TConnector | Promise<TConnector>;
-    readonly documents: (connector: TConnector, tenantId: string, documents: readonly RagContractDocument[]) => Promise<void>;
-    readonly name: string;
-    readonly rerank?: {
-        readonly by: RerankerHandler;
-        readonly candidates: number;
-    };
-    readonly reset?: () => Promise<void>;
-    readonly tenancy?: RagTenancy;
-}
-
-// @public
 export interface RagContractDocument {
     readonly source: string;
     // (undocumented)
     readonly text: string;
+}
+
+// @public
+export function ragSourceContract<TSource extends object>(target: RagSourceContractTarget<TSource>): void;
+
+// @public
+export interface RagSourceContractTarget<TSource extends object = object> {
+    readonly documents: (source: TSource, scopeId: string, documents: readonly RagContractDocument[], tenantId: string) => Promise<void>;
+    readonly name: string;
+    readonly rerank?: {
+        readonly by: ContractReranker;
+        readonly candidates: number;
+    };
+    readonly reset?: () => Promise<void>;
+    readonly scope?: RagScope;
+    readonly source: () => TSource | Promise<TSource>;
 }
 
 // @public
@@ -183,7 +203,7 @@ export enum StoreCapability {
 }
 
 // @public
-export function storeConformance<TTransaction>(options: StoreConformanceOptions<TTransaction>): void;
+export function storeConformance(options: StoreConformanceOptions): void;
 
 // @public
 export type StoreConformanceCode = "store-conformance" | `store-conformance.${StoreConformanceRule}`;
@@ -210,13 +230,13 @@ export interface StoreConformanceErrorOptions {
 }
 
 // @public
-export interface StoreConformanceOptions<TTransaction = unknown> {
+export interface StoreConformanceOptions {
     readonly acceptWithoutDoubleChargeProtection?: boolean;
     readonly interleavings?: InterleavingOptions | false;
     readonly name: string;
     reset?(): void | Promise<void>;
     // (undocumented)
-    readonly stores: StoreSet<TTransaction>;
+    readonly stores: StoreSet;
     readonly without?: readonly LeftOutContract[];
 }
 
@@ -235,9 +255,9 @@ export interface StoreInstanceContext {
 }
 
 // @public
-export interface StoreSet<TTransaction = unknown> {
+export interface StoreSet {
     readonly a2aDirectMessage?: StoreEntry<A2ADirectMessageStores>;
-    readonly a2aFile?: StoreEntry<A2AFileRepository>;
+    readonly a2aFile?: StoreEntry<FileRepository>;
     readonly a2aTask?: StoreEntry<A2ATaskRepository>;
     // (undocumented)
     readonly checkpointSaver?: StoreEntry<BaseCheckpointSaver>;
@@ -256,7 +276,7 @@ export interface StoreSet<TTransaction = unknown> {
     // (undocumented)
     readonly executionTree?: StoreEntry<ExecutionTreeRepository>;
     // (undocumented)
-    readonly fencedEffect?: StoreEntry<FencedEffectTarget<TTransaction>>;
+    readonly fencedEffect?: StoreEntry<FencedEffectTarget>;
     // (undocumented)
     readonly meshRequest?: StoreEntry<MeshRequestRepository>;
     // (undocumented)
@@ -286,7 +306,8 @@ export interface VirtualClockOptions {
 //
 // src/testing/contracts/a2a-direct-message-data.ts - (ae-undocumented) Missing documentation for "messages".
 // src/testing/contracts/a2a-direct-message-data.ts - (ae-undocumented) Missing documentation for "tasks".
-// src/testing/contracts/rag-connector-data.ts - (ae-undocumented) Missing documentation for "text".
+// src/testing/contracts/rag-source-data.ts - (ae-undocumented) Missing documentation for "text".
+// src/testing/contracts/rag-source-data.ts - (ae-undocumented) Missing documentation for "rerank".
 // src/testing/contracts/sabotage-run.ts - (ae-undocumented) Missing documentation for "name".
 // src/testing/contracts/sabotage-run.ts - (ae-undocumented) Missing documentation for "state".
 // src/testing/contracts/sabotage-run.ts - (ae-undocumented) Missing documentation for "cases".

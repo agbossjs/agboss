@@ -4,8 +4,8 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  Agent,
   DecidedBy,
+  Agent,
   InputGuardrail,
   Injectable,
   OutputGuardrail,
@@ -14,6 +14,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type GuardrailRefusal,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -24,7 +26,7 @@ import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { guardrailViolations } from "../../src/guardrails/checks.js";
 import { effectiveGuardrails, GuardedElementKind } from "../../src/guardrails/levels.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, start } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
 import {
   LegalAdviceGuardrail,
   NoLegalAdviceGuardrail,
@@ -34,9 +36,9 @@ import {
 const JEV = "typesafe/jev-1.13";
 
 @InputGuardrail({
-  name: "rude",
+  name: "Rude_One",
   description: "Misnamed",
-  prompt: "Is it rude?",
+  prompt: inline("Is it rude?"),
   model: JEV,
   threshold: 0.5,
   refusal: "Be polite.",
@@ -46,7 +48,7 @@ class MisnamedGuardrail {}
 @InputGuardrail({
   name: "twice-guardrail",
   description: "A text and a method",
-  prompt: "Is it rude?",
+  prompt: inline("Is it rude?"),
   model: JEV,
   threshold: 0.5,
   refusal: "Be polite.",
@@ -61,7 +63,7 @@ class TwiceGuardrail implements GuardrailRefusal {
 @InputGuardrail({
   name: "silent-guardrail",
   description: "Neither",
-  prompt: "Is it rude?",
+  prompt: inline("Is it rude?"),
   model: JEV,
   threshold: 0.5,
 })
@@ -83,8 +85,8 @@ const codesOf = (classes: readonly Class[], defaultModel?: string): string[] =>
   guardrailViolations(classes, defaultModel).map((item) => item.code);
 
 describe("#120 AC1, AC2: a guardrail's own rules", () => {
-  it("[name.kind-suffix]: the name ends with -guardrail", () => {
-    expect(codesOf([MisnamedGuardrail])).toEqual(["name.kind-suffix"]);
+  it("[name.not-kebab-case]: the name is kebab-case", () => {
+    expect(codesOf([MisnamedGuardrail])).toEqual(["name.not-kebab-case"]);
   });
 
   it("[guardrail.refusal-twice] and [guardrail.missing-refusal]: one refusal, never both, never neither", () => {
@@ -100,8 +102,8 @@ describe("#120 AC1, AC2: a guardrail's own rules", () => {
     ]);
   });
 
-  it("[guardrail.no-model]: its own model or defaults.guardrail.model — no built-in", () => {
-    expect(codesOf([PromptInjectionGuardrail])).toEqual(["guardrail.no-model"]);
+  it("[model.missing-provider]: its own model or defaults.guardrail.model — no built-in", () => {
+    expect(codesOf([PromptInjectionGuardrail])).toEqual(["model.missing-provider"]);
     expect(codesOf([PromptInjectionGuardrail], JEV)).toEqual([]);
   });
 });
@@ -230,7 +232,7 @@ class GuardedFinish {}
 @Agent({
   name: "gr-agent",
   description: "d",
-  prompt: "p",
+  prompt: inline("p"),
   model: "test/gr",
   guardrails: [MisnamedGuardrail],
   excludeGuardrails: [LegalAdviceGuardrail],
@@ -241,7 +243,7 @@ class GuardedAgent {}
   name: "gr-router",
   description: "r",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick.",
+  prompt: inline("Pick."),
   model: JEV,
   input: { message: WorkflowStartTextDto },
   guardrails: [NoLegalAdviceGuardrail],
@@ -252,11 +254,11 @@ class GuardedRouter {}
 @Workflow({
   name: "gr-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(GuardedStart)
-      .returns(WorkflowStartTextDto)
+    onStart(GuardedStart)
       .toRouter(GuardedRouter)
-      .chooseOne(route(GuardedAgent).toFinish(GuardedFinish)),
+      .onRoute(toAgent(GuardedAgent).toFinish(GuardedFinish)),
   ],
   guardrails: [PromptInjectionGuardrail],
 })
@@ -282,8 +284,8 @@ describe("#120: the application's assembly reports every guardrail rule at once"
     expect(error.violations.map((item) => item.code)).toEqual([
       "guardrail.exclude-not-inherited",
       "guardrail.output-on-router",
-      "guardrail.no-model",
-      "name.kind-suffix",
+      "model.missing-provider",
+      "name.not-kebab-case",
     ]);
   });
 });

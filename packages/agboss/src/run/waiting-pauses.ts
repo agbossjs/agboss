@@ -6,11 +6,7 @@ import {
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
 import { PauseKind, type WaitingPause } from "../pause/index.js";
-import {
-  isApprovalPause,
-  pauseAnswererOf,
-  type QuestionAsk,
-} from "../infrastructure/pause-record.js";
+import { isApprovalPause, pauseRespondentOf } from "../infrastructure/pause-record.js";
 import { finishedTaskIdsOf, runConfig } from "./paused.js";
 import { childGraphOf, waitingForOf } from "../flow/runtime/child-thread.js";
 
@@ -98,17 +94,21 @@ export async function waitingInterruptsOf(
 export function waitingPauseOf(pause: PauseRecord): WaitingPause {
   const site = {
     pauseId: pause.pauseId,
-    answerer: pauseAnswererOf(pause),
-    answeredBy: pauseAnswererOf(pause),
+    respondent: pauseRespondentOf(pause),
     step: pause.step,
-    channel: pause.channel,
+    target: pause.target,
+    ...(pause.channel === undefined ? {} : { channel: pause.channel }),
     childExecutionId: pause.executionId === pause.rootExecutionId ? undefined : pause.executionId,
     itemIndex: pause.itemIndex,
+    input: pause.input,
+    ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
+    ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
+    trail: pause.trail,
     ...(pause.expiresAt === undefined ? {} : { expiresAt: pause.expiresAt }),
   };
   return isApprovalPause(pause)
-    ? { ...site, kind: PauseKind.Approval, ask: pause.ask }
-    : { ...site, kind: PauseKind.Question, ask: pause.ask as QuestionAsk };
+    ? { ...site, kind: PauseKind.Approval, toolCall: pause.toolCall }
+    : { ...site, kind: PauseKind.ExternalTask };
 }
 
 /** What the execution's tree waits for: the pending pauses its interrupts carry, in their order. */

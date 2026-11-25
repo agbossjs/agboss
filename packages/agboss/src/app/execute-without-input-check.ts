@@ -1,5 +1,5 @@
 import type { Class } from "../components/injection.js";
-import type { App, ExecutionOptions, ExecutionOutput } from "./types.js";
+import type { AnyTenantApp, ExecutionOptions, ExecutionOutput } from "./types.js";
 
 /**
  * `app.execute` from code that cannot know a workflow's generated types — the CLI, A2A, eval —
@@ -7,7 +7,7 @@ import type { App, ExecutionOptions, ExecutionOutput } from "./types.js";
  * start's `input` (an invalid one is `dto.invalid`), as every input is.
  */
 export const executeWithoutInputCheck = (
-  app: Pick<App, "execute">,
+  app: Pick<AnyTenantApp, "execute">,
   start: Class,
   input: unknown,
   options?: ExecutionOptions,

@@ -17,7 +17,7 @@ import {
   TCK_SCENARIO_HEADER,
   TckA2AExpose,
   TckApplication,
-  TckCallerResolver,
+  TckAuthenticator,
 } from "./tck.application.js";
 
 /**
@@ -140,8 +140,8 @@ export async function serveTckSut(port = 0): Promise<TckSut> {
   const front = createServer();
   const url = `http://127.0.0.1:${String(await listening(front, port))}`;
   const listener = a2aHttpListener(app, {
-    expose: TckA2AExpose,
-    callerResolver: TckCallerResolver,
+    endpoint: TckA2AExpose,
+    authenticator: TckAuthenticator,
     publicUrl: url,
   });
   const inner = createServer(listener);

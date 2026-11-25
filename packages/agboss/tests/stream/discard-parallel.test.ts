@@ -3,7 +3,7 @@
  * attempts count from 1, and a `discarded` retracts the right step only.
  */
 import { describe, expect } from "vitest";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../src/run/types.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -27,11 +27,15 @@ const flow = testWith(StreamFlowApplication);
 function lines(events: readonly ExecutionStreamEvent[]): string[] {
   const branches = new Map<string, number>();
   return events.flatMap((event) => {
-    if (event.kind === "toolCall") return [];
+    if (event.kind === StreamEventKind.ToolCall) return [];
     const branch = branches.get(event.step.branch) ?? branches.size;
     branches.set(event.step.branch, branch);
     const at = `${String(branch)}|${String(event.step.attempt)}`;
-    return [event.kind === "textDelta" ? `${at}: ${event.delta}` : `${at}: ✗ ${event.reason}`];
+    return [
+      event.kind === StreamEventKind.TextDelta
+        ? `${at}: ${event.delta}`
+        : `${at}: ✗ ${event.reason}`,
+    ];
   });
 }
 
@@ -58,7 +62,9 @@ describe("#1006: parallel children", () => {
         "1|1: One.",
       ]);
       const branches = new Set(
-        events.flatMap((event) => (event.kind === "toolCall" ? [] : [event.step.branch])),
+        events.flatMap((event) =>
+          event.kind === StreamEventKind.ToolCall ? [] : [event.step.branch],
+        ),
       );
       expect(branches.size).toBe(2);
       expect(keptText(events)).toBe("Good zero.One.");
@@ -86,7 +92,7 @@ describe("#1006: a parallel launch and the agent after it", () => {
 
       expect(events).toEqual([
         {
-          kind: "textDelta",
+          kind: StreamEventKind.TextDelta,
           delta: "Done.",
           step: { agent: "closer-agent", visit: 1, branch: done.executionId, attempt: 1 },
         },

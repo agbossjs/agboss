@@ -1,14 +1,11 @@
 import {
   Action,
-  Injectable,
+  Observer,
   SpendRecorder,
   type CompensationStartEvent,
   type ExecutionEndEvent,
-  type OnCompensationStart,
   type ExecutionErrorEvent,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
 import { usd } from "../../../src/units/index.js";
 import { OrderDeclinedError, OrderDto, OrderNoteDto, paidSteps } from "./paid-steps.dto.js";
@@ -45,11 +42,11 @@ export function resetExemptions(): void {
 export class CheckOrderAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<OrderDto> {
+  execute(input: { readonly order: Tracked<OrderDto> }): Promise<OrderDto> {
     paidSteps.ran.push("check");
     this.spendRecorder.record({ service: "order-api", cost: usd(paidSteps.charge) });
     if (exemptions.declines) return Promise.reject(new OrderDeclinedError("declined"));
-    return Promise.resolve(input.order.value);
+    return Promise.resolve(input.order);
   }
 }
 
@@ -92,8 +89,8 @@ export class RejectOrderAction {
 }
 
 /** How every root execution ended, on whichever instance ended it; every undo that started. */
-@Injectable()
-export class ExemptionsLog implements OnExecutionEnd, OnExecutionError, OnCompensationStart {
+@Observer()
+export class ExemptionsLog {
   onCompensationStart(event: CompensationStartEvent): void {
     exemptions.undone.push(event.step.idempotencyKey);
   }

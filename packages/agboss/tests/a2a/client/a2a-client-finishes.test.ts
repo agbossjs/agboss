@@ -8,16 +8,14 @@
 import { describe, expect, it } from "vitest";
 import {
   A2AClient,
-  A2AClientFile,
   A2AContractError,
   A2AContractRule,
-  A2AFileDto,
   A2AUnexpectedFinishError,
 } from "../../../src/a2a/index.js";
 import type { DtoClass } from "../../../src/dto/types.js";
-import { Nested, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
+import { FileDto, Nested, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { testWith } from "../../../src/testing/index.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import {
   FilesA2AExpose,
   FilesApplication,
@@ -35,14 +33,14 @@ const RETURNED = "file-returned-workflow-finish";
 
 /** A DTO that takes both finishes of the review: every field optional. */
 class AnyReviewDto {
-  @Nested(A2AFileDto, { prompt: "the report", optional: true })
-  report?: A2AFileDto;
+  @Nested(FileDto, { prompt: "the report", optional: true })
+  report?: FileDto;
 
   @Text({ prompt: "the verdict", optional: true })
   verdict?: string;
 
-  @Nested(A2AFileDto, { prompt: "the document", optional: true })
-  file?: A2AFileDto;
+  @Nested(FileDto, { prompt: "the document", optional: true })
+  file?: FileDto;
 }
 
 const test = testWith(FilesApplication);
@@ -64,7 +62,7 @@ async function cardCheckOf(
   );
 }
 
-const serve = { expose: FilesA2AExpose, callerResolver: BearerCallerResolver };
+const serve = { endpoint: FilesA2AExpose, authenticator: BearerAuthenticator };
 
 describe("#916 item 3: the card check of a client's output against its skill's finishes", () => {
   test("AC3.1 by default every finish: a DTO of one finish is [a2a.schema-mismatch] naming the other", async ({
@@ -115,7 +113,7 @@ describe("#916 item 3: the card check of a client's output against its skill's f
         finishes: [REVIEWED],
       },
     });
-    const document = A2AClientFile.fromBytes(PDF, { mediaType: "application/pdf" });
+    const document = FileDto.fromBytes(PDF, { mediaType: "application/pdf" });
 
     expect(await client.execute({ document, note: "please" })).toMatchObject({ verdict: "ok" });
   });

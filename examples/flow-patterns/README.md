@@ -6,20 +6,21 @@ the help desk also as an offline application of its own (`src/desk.application.t
 model provider is a transport that answers by the request, so it runs with no key and no network,
 and which serves the desk over A2A to the helpline of the first:
 
-| Folder           | Pattern                                                                                                                                                                                                            | Start                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
-| `src/offer/`     | a review loop                                                                                                                                                                                                      | `offer-workflow-start`            |
-| `src/credit/`    | a code router beside a model router; a charge made once per credit application under its business key (#472, #508)                                                                                                 | `credit-workflow-start`           |
-| `src/review/`    | parallel launches in waves (#273)                                                                                                                                                                                  | `review-workflow-start`           |
-| `src/panel/`     | a quorum with a code and a model arbiter (#279)                                                                                                                                                                    | `panel-workflow-start`            |
-| `src/vendor/`    | a child workflow per vendor (#263)                                                                                                                                                                                 | `vendor-screening-workflow-start` |
-| `src/topic/`     | a workflow launching itself, `maxDepth: 3` (#264)                                                                                                                                                                  | `topic-research-workflow-start`   |
-| `src/approvals/` | two approvals at once, in the terminal (#267)                                                                                                                                                                      | `offsite-booking-workflow-start`  |
-| `src/hiring/`    | undoable steps: `compensateWith` / `committedBy` (#339)                                                                                                                                                            | `send-offer-workflow-start`       |
-| `src/travel/`    | a failed join undoes its finished bookings (#340)                                                                                                                                                                  | `trip-workflow-start`             |
-| `src/desk/`      | the extension points: a custom compaction, code guardrails, a tool interceptor, a transport model provider (#382–#385); a code judge, a knowledge base, a PII detector, an observer, a health check and a step cap | `desk-workflow-start`             |
-| `src/helpline/`  | a consumer of the desk over A2A (`@A2AAgent`, `check --federation`, #398); policies through an MCP server                                                                                                          | `helpline-workflow-start`         |
-| `src/intake/`    | a quorum by groups: the first complete group by priority goes on (#279)                                                                                                                                            | `intake-workflow-start`           |
+| Folder           | Pattern                                                                                                                                                                                                                         | Start                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `src/offer/`     | a review loop                                                                                                                                                                                                                   | `offer-workflow-start`              |
+| `src/credit/`    | a code router beside a model router; a charge made once per credit application under its business key (#472, #508)                                                                                                              | `credit-workflow-start`             |
+| `src/review/`    | parallel launches in waves (#273)                                                                                                                                                                                               | `review-workflow-start`             |
+| `src/panel/`     | a quorum with a code and a model arbiter (#279)                                                                                                                                                                                 | `panel-workflow-start`              |
+| `src/vendor/`    | a child workflow per vendor (#263)                                                                                                                                                                                              | `vendor-screening-workflow-start`   |
+| `src/topic/`     | a workflow launching itself, `maxDepth: 3` (#264)                                                                                                                                                                               | `topic-research-workflow-start`     |
+| `src/approvals/` | two approvals at once, in the terminal (#267)                                                                                                                                                                                   | `offsite-booking-workflow-start`    |
+| `src/hiring/`    | undoable steps: `compensateWith` / `committedBy` (#339)                                                                                                                                                                         | `send-offer-workflow-start`         |
+| `src/travel/`    | a failed join undoes its finished bookings (#340)                                                                                                                                                                               | `trip-workflow-start`               |
+| `src/desk/`      | the extension points: a memory with its own compaction, code guardrails, a tool interceptor, a transport model provider (#382–#385); a code judge, a knowledge base, a PII detector, an observer, a health check and a step cap | `desk-workflow-start`               |
+| `src/helpline/`  | a consumer of the desk over A2A (`@A2AAgent`, `check --federation`, #398); policies through an MCP server                                                                                                                       | `helpline-workflow-start`           |
+| `src/intake/`    | a quorum by groups: the first complete group by priority goes on (#279)                                                                                                                                                         | `intake-workflow-start`             |
+| `src/committee/` | a committee of external tasks in `.inParallel([…])`, an arbiter counting only approvals, a quorum of 2 of 3 (#1306)                                                                                                             | `contract-committee-workflow-start` |
 
 ```bash
 npm install && npm run build          # repo root
@@ -35,29 +36,29 @@ npm run eval:check                    # the desk's eval suite offline against it
                                       # (eval/runs/, --fail-on-regression), eval show --html, and
                                       # eval calibrate on the checked-in labels (eval/labels/)
 npm run eval                          # rewrites the baseline (then relabel eval/labels/)
-npm run records:check                 # one kept run, records export, an eval case drafted from it
+npm run records:check                 # one kept run, executions export, an eval case drafted from it
 npm run snapshot                      # the desk's describe --json, after raising its expose's version
 npm test                              # scripted models only: no key, no network
 ```
 
 The tests never call a model. The desk runs for real offline — its model provider
 (`src/model-providers/harness.model-provider.ts`) looks the `#<id>` order up, then quotes the tool.
-The `offline` environment keeps the stores in memory and reads only the PII key, which the desk's PII
-policy needs outside tests (any value: it only makes tokens):
+The desk's `DeskDatabaseStorage` (`src/storages/`) keeps its stores in SQLite and reads the PII key, which the
+desk's PII policy needs outside tests (any value: it only makes tokens):
 
 ```bash
 PII_PSEUDONYM_KEY=offline-only npx agboss run --application src/desk.application.ts --env offline \
   --start desk-workflow-start --input '{"customerId":"c-1","question":"Where is order #7?"}'
 ```
 
-Its eval suite (`src/desk/eval-suites/desk.eval-suite.ts`: `checkTrajectory()`, then the code
+Its eval suite (`src/desk/eval-suites/desk.eval-suite.ts`: the cases' `tools`, then the code
 `desk-answer-judge`) runs the same way — `npm run eval:check` — and `npx agboss eval ui --dir
 .agboss/eval` serves its runs for labelling (`eval/failure-taxonomy.yaml` holds the tags). `agboss
 eval score` is not here: it scores with Jev, a decision model, which needs OpenRouter.
 
 The desk keeps each execution for 30 days (`@Application({ retention: { executionRecords } })`, #401) in
 `.agboss/desk-offline.sqlite` on `--env offline`. `npm run records:check` (the last step of `npm run
-check`) runs the desk once, exports the kept records (`agboss records export --tenant default --out
+check`) runs the desk once, exports the kept records (`agboss executions export --tenant default --out
 .agboss/records/desk.jsonl`) and drafts an eval case from the newest (`agboss generate eval-case
 lookup-from-history --suite desk-eval-suite --from-execution <id> --dry-run`, #396) — the draft
 `agboss eval ui`'s "Save as golden case" (#397) writes into the suite.
@@ -65,9 +66,9 @@ lookup-from-history --suite desk-eval-suite --from-execution <id> --dry-run`, #3
 `tests/desk/workflows/desk/desk-cassette.test.ts` replays a run of the desk from a VCR cassette
 (`tests/desk/workflows/desk/__snapshots__/desk-lookup.cassette.json`) — no script, no key. It was
 recorded offline, through the same transport
-(`AGBOSS_VCR_MODE=RECORD npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts`); after a
+(`AGBOSS_VCR_MODE=record npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts`); after a
 change to the desk's prompt or schemas `npm run check` reports `[vcr.stale-cassette]`, and
-`AGBOSS_VCR_MODE=RECORD_STALE npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts` records
+`AGBOSS_VCR_MODE=record-stale npx vitest run tests/desk/workflows/desk/desk-cassette.test.ts` records
 only what changed.
 
 ## A side effect made once: the credit desk's charge (#472, #500, #508)
@@ -75,21 +76,21 @@ only what changed.
 AGBoss runs a step **at least once**: when an instance dies after a step did its work but before the
 step's checkpoint is saved, another instance continues the execution from the last checkpoint and
 runs that step again — with the same `executionContext.step.idempotencyKey`
-(`<executionId>:charge-card-action:1`) under the next lease token. The charge is a **fenced effect**
-(#500): `ChargeCardAction` calls the application's `FencedEffects.runOnce(effectKeyOf(
-executionContext, "charge", { businessKey, fingerprint: { customerId, total } }), (database) => …)` with
-the business key `credit:<applicationId>` — keyed by the credit application (#508), not the step, so a second execution for the
+(`<executionId>:charge-card-action:1`) under the next lease token. The charge is an **idempotent write**
+(#500): `ChargeCardAction` calls the application's `Idempotency.runOnce({ name: "charge", key,
+fingerprint: { customerId, total }, ttl, execute: () => … })` with
+the key `credit:<applicationId>` — keyed by the credit application (#508), not the step, so a second execution for the
 same application, on another thread, gets the first receipt too, and the same application with another
-total is `BusinessKeyConflictError`, nothing charged —, and the write — `PaymentLedgerRepository.recordCharge`,
-one synchronous `INSERT` into `payment_charges` on the `DatabaseSync` it is given — runs in one
+total is `IdempotencyError.KeyConflict`, nothing charged —, and the write — `PaymentLedgerRepository.recordCharge`,
+one `INSERT` into `payment_charges` through its connection's `requireTransaction()` (#1317c) — runs in one
 `BEGIN IMMEDIATE` transaction of the application's SQLite file with the checks:
 
-| In the transaction, in order | What happens                                                                                      |
-| ---------------------------- | ------------------------------------------------------------------------------------------------- |
-| the step's lease             | not the current holder's (its epoch, released, expired) → `ExecutionFencedError`, nothing written |
-| the scope's high-water mark  | a token below it → `ExecutionFencedError`, before any key is read                                 |
-| the application's key        | written before → the stored receipt (another total: the conflict), the charge not made again      |
-| the write                    | the charge row and its receipt, committed together                                                |
+| In the transaction, in order | What happens                                                                                       |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
+| the step's lease             | not the current holder's (its epoch, released, expired) → `ExecutionError.Fenced`, nothing written |
+| the scope's high-water mark  | a token below it → `ExecutionError.Fenced`, before any key is read                                 |
+| the application's key        | written before → the stored receipt (another total: the conflict), the charge not made again       |
+| the write                    | the charge row and its receipt, committed together                                                 |
 
 The ledger has no idempotency key and no fencing table of its own (`src/credit/sql/payment-charges.sql`).
 `tests/credit/workflows/credit/credit.workflow.test.ts` kills the instance after the charge and before
@@ -105,7 +106,8 @@ shows multi-worker lease takeover, zombie-worker fencing and saga compensation.
 
 A real run uses the `dev` environment (`src/environments/`): models
 through OpenRouter, and every store — budgets, records, pauses, checkpoints, leases — in SQLite at
-`.agboss/flow-patterns.sqlite` (git-ignored), so a paused run waits across processes.
+`.agboss/flow-patterns.sqlite` (git-ignored; `FlowPatternsDatabaseStorage` in `src/storages/`, its path
+`AGBOSS_SQLITE_PATH`), so a paused run waits across processes.
 
 ## Real runs
 
@@ -115,12 +117,13 @@ Once, in the repo root:
 scripts/langfuse.sh up                # local Langfuse at http://localhost:3000; writes its keys to .env
 ```
 
-Add the model key and the PII key to the same `.env` (repo root):
+Add the model key and the application's keys to the same `.env` (repo root; `examples/flow-patterns/.env.example`
+lists them, and `agboss check` reads none):
 
 ```bash
 OPENROUTER_API_KEY=sk-or-...
+AGBOSS_IDEMPOTENCY_SECRET=any-long-random-text # the business-key fingerprints of the credit desk's charge: required by `dev`
 PII_PSEUDONYM_KEY=any-long-random-text # the application's PII key: required by `dev`
-IDEMPOTENCY_KEY=another-long-random-text # its idempotency key (#825): business-key fingerprints, required by `dev`
 # OPENROUTER_BASE_URL=...             # optional: a proxy or a local OpenAI-compatible server
 ```
 
@@ -128,10 +131,11 @@ Then, in every terminal you run from:
 
 ```bash
 cd examples/flow-patterns
-set -a && . ../../.env && set +a      # OPENROUTER_API_KEY, PII_PSEUDONYM_KEY, LANGFUSE_*
+set -a && . ../../.env && set +a      # OPENROUTER_API_KEY, AGBOSS_IDEMPOTENCY_SECRET, PII_PSEUDONYM_KEY
 ```
 
-Langfuse traces a run only when its `LANGFUSE_*` keys are set; without them a run is not traced.
+A run is traced only when its application is given a `tracerProvider` (`LangfuseTracer` from
+`@agboss/langfuse`, Wiki → Tracing); without one a run is not traced.
 Log in to http://localhost:3000 with the user `scripts/langfuse.sh up` printed and open
 **Tracing → Traces**: one trace per execution, the newest first. A run prints its thread and cost
 on standard error; `--json` prints its output on standard output.
@@ -157,7 +161,7 @@ Not OK: a child's steps flat in the parent's trace. Run a second turn with
 ### #264 M1 — topic research in Langfuse (recursion)
 
 ```bash
-npm run describe                      # topic-research-workflow: recursive: ThisWorkflow, maxDepth 3,
+npm run describe                      # topic-research-workflow: recursive: maxDepth 3,
                                       # and what is left on the last level
 npx agboss run --start topic-research-workflow-start \
   --input '{"title":"the history of computing","level":0}'
@@ -165,7 +169,7 @@ npx agboss run --start topic-research-workflow-start \
 
 Look at the trace of `topic-research-workflow`: children nested at most three levels deep
 (`depth` 1–3); on level 3 `researcher-agent` only reports (never a `TopicTooBroadDto`); at no moment
-more than 4 executions of the tree working at once (`maxConcurrentExecutions: 4` — compare the
+more than 4 executions of the tree working at once (`maxConcurrency: 4` — compare the
 start and end times of the working steps). Not OK: a fourth level, or a fifth execution working
 beside four others.
 

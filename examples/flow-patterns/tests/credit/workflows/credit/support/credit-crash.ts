@@ -2,15 +2,15 @@ import {
   ApplicationContext,
   ExecutionContext,
   Injectable,
-  SqliteConnection,
   SqliteExecutionLeaseRepository,
-  FencedEffects,
+  Idempotency,
   StoreClock,
   type ExecutionEndEvent,
   type ExecutionLease,
   type InputOf,
   type OutputOf,
 } from "@agboss/core";
+import { SqliteConnection } from "@agboss/core/stores";
 import type { Milliseconds } from "@agboss/core/units";
 import {
   PaymentLedgerRepository,
@@ -111,16 +111,16 @@ const abortOf = (signal: AbortSignal): Promise<void> =>
 
 /** The real charge; its first one holds its step after the charge until the instance lost the lease. */
 @Injectable({
-  deps: [ExecutionContext, FencedEffects, PaymentLedgerRepository, ApplicationContext],
+  deps: [Idempotency, ExecutionContext, PaymentLedgerRepository, ApplicationContext],
 })
 export class CrashAfterChargeAction extends ChargeCardAction {
   constructor(
+    idempotency: Idempotency,
     private readonly context: ExecutionContext,
-    fencedEffects: FencedEffects,
     private readonly ledger: PaymentLedgerRepository,
     private readonly applicationContext: ApplicationContext,
   ) {
-    super(context, fencedEffects, ledger);
+    super(idempotency, ledger);
   }
 
   override async execute(input: InputOf<ChargeCardAction>): Promise<OutputOf<ChargeCardAction>> {
@@ -129,7 +129,7 @@ export class CrashAfterChargeAction extends ChargeCardAction {
       instanceId: this.applicationContext.instanceId,
       idempotencyKey: this.context.step.idempotencyKey,
       chargeId: charge.chargeId,
-      ledger: this.ledger.chargesOf(input.order.value.customerId),
+      ledger: this.ledger.chargesOf(input.order.customerId),
     });
     if (crash.charges.length === 1) {
       const released = new Promise<void>((resolve) => {

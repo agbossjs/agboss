@@ -11,6 +11,12 @@ import {
 
 /** The data of the A2A task contract's cases (#807). */
 
+/** The endpoint the contract's tasks and messages belong to (#1320). */
+export const ENDPOINT = "billing";
+
+/** The cutoffs of a sweep of `ENDPOINT` alone. */
+export const cutoffsOf = (cutoff: Date): ReadonlyMap<string, Date> => new Map([[ENDPOINT, cutoff]]);
+
 export const NINE = new Date("2026-01-05T09:00:00.000Z");
 export const at = (minutes: number): Date => new Date(NINE.getTime() + minutes * 60_000);
 
@@ -25,6 +31,7 @@ export const COMPLETED: A2ATaskStatus = {
 
 /** A task of `ownerId` accepted with `messageId` at `acceptedAt`. */
 export const newTask = (taskId: string, overrides: Partial<NewA2ATask> = {}): NewA2ATask => ({
+  endpoint: ENDPOINT,
   tenantId: "default",
   taskId,
   ownerId: "alice",

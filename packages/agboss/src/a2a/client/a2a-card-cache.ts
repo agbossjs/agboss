@@ -56,7 +56,13 @@ export class CardCache {
         this.#echoes.set(messageId, isEchoed);
       },
     };
-    this.#fetch = wireFetchOf(options.fetcher, options.headersOf, options.policy, echo);
+    this.#fetch = wireFetchOf(
+      options.fetcher,
+      options.headersOf,
+      options.policy,
+      echo,
+      options.contract?.application,
+    );
     this.#ttl = options.ttl ?? DEFAULT_CARD_TTL;
   }
 

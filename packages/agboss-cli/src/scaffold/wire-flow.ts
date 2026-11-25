@@ -4,12 +4,14 @@ import { addImport } from "./wire.js";
 import type { FileToWrite } from "./write.js";
 
 /**
- * A router's choice in the flow (#272): `….toRouter(R).chooseOne(route(A)…, …)` or
- * `router(R).chooseOne(…)` — the router and the `route(…)` paths it lists.
+ * A router's choice in the flow (#272, #1278): `….toRouter(R).onRoute(toAgent(A)…).onRoute(…)` or
+ * `onRouter(R).onRoute(…)…` — the router and the side paths its `.onRoute(…)`s list.
  */
 export interface FlowCall {
   readonly router: string;
-  readonly routes: ts.NodeArray<ts.Expression>;
+  readonly routes: readonly ts.Expression[];
+  /** The last `.onRoute(…)` of the chain: where a new route goes after. */
+  readonly last: ts.CallExpression;
 }
 
 const isCallOf = (node: ts.CallExpression, name: string): boolean =>
@@ -21,24 +23,46 @@ const firstIdentifier = (call: ts.CallExpression): string | undefined => {
   return first !== undefined && ts.isIdentifier(first) ? first.text : undefined;
 };
 
-/** The router a `.chooseOne(…)` belongs to: the `toRouter(R)` / `router(R)` it is called on. */
+/** The router the `.onRoute(…)` chain belongs to: the `toRouter(R)` / `onRouter(R)` it starts from. */
 function routerOf(receiver: ts.Expression): string | undefined {
   if (!ts.isCallExpression(receiver)) return undefined;
-  return isCallOf(receiver, "toRouter") || isCallOf(receiver, "router")
+  return isCallOf(receiver, "toRouter") || isCallOf(receiver, "onRouter")
     ? firstIdentifier(receiver)
     : undefined;
+}
+
+const isOnRoute = (node: ts.Node): node is ts.CallExpression =>
+  ts.isCallExpression(node) &&
+  ts.isPropertyAccessExpression(node.expression) &&
+  node.expression.name.text === "onRoute";
+
+/** The chain of `.onRoute(…)` calls ending at `last`, oldest first, and what it is called on. */
+function chainOf(last: ts.CallExpression): {
+  readonly routes: readonly ts.Expression[];
+  readonly receiver: ts.Expression;
+} {
+  const routes: ts.Expression[] = [];
+  let node: ts.Expression = last;
+  while (isOnRoute(node) && ts.isPropertyAccessExpression(node.expression)) {
+    routes.unshift(...node.arguments);
+    node = node.expression.expression;
+  }
+  return { routes, receiver: node };
 }
 
 export function flowCalls(source: ts.SourceFile): FlowCall[] {
   const calls: FlowCall[] = [];
   const visit = (node: ts.Node): void => {
-    if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      node.expression.name.text === "chooseOne"
-    ) {
-      const router = routerOf(node.expression.expression);
-      if (router !== undefined) calls.push({ router, routes: node.arguments });
+    // the outermost `.onRoute(…)` of a chain is its last one: the chain's parent is no `.onRoute(…)`
+    const isChained =
+      !ts.isSourceFile(node) &&
+      ts.isPropertyAccessExpression(node.parent) &&
+      node.parent.name.text === "onRoute" &&
+      node.parent.expression === node;
+    if (isOnRoute(node) && !isChained) {
+      const { routes, receiver } = chainOf(node);
+      const router = routerOf(receiver);
+      if (router !== undefined) calls.push({ router, routes, last: node });
     }
     ts.forEachChild(node, visit);
   };
@@ -46,18 +70,31 @@ export function flowCalls(source: ts.SourceFile): FlowCall[] {
   return calls;
 }
 
-/** The target of a `route(X)…` path, `X`. */
+const TARGET_CALLS = [
+  "toAgent",
+  "toAction",
+  "toRouter",
+  "toFinish",
+  "toWorkflow",
+  "toExternalTask",
+];
+
+/** The target of an `.onRoute(toAgent(X)…)` side path, `X`: the call its chain starts with. */
 const routeTargetOf = (path: ts.Expression): string | undefined => {
   let node: ts.Expression = path;
-  while (ts.isCallExpression(node)) {
-    if (isCallOf(node, "route")) return firstIdentifier(node);
-    if (!ts.isPropertyAccessExpression(node.expression)) return undefined;
-    node = node.expression.expression;
+  for (;;) {
+    if (!ts.isCallExpression(node)) return undefined;
+    if (ts.isPropertyAccessExpression(node.expression)) {
+      node = node.expression.expression;
+      continue;
+    }
+    return TARGET_CALLS.some((name) => isCallOf(node as ts.CallExpression, name))
+      ? firstIdentifier(node)
+      : undefined;
   }
-  return undefined;
 };
 
-/** The targets a router's `chooseOne` lists. */
+/** The targets a router's `.onRoute(…)`s list. */
 export const routeTargets = (call: FlowCall): string[] =>
   call.routes.flatMap((path) => routeTargetOf(path) ?? []);
 
@@ -65,16 +102,17 @@ export const routeTargets = (call: FlowCall): string[] =>
 export const starCalls = (calls: readonly FlowCall[], router: string): FlowCall | undefined =>
   calls.find((call) => call.router === router);
 
-/** Where a new route starts (#289, one call per line): under the last one, or a step further in. */
-function routeIndent(content: string, start: number): string {
+/** Where a new `.onRoute(…)` starts (#289, one call per line): the indentation of the last one. */
+function routeIndent(content: string, last: ts.CallExpression): string {
+  const access = last.expression;
+  const start = ts.isPropertyAccessExpression(access) ? access.name.getStart() : last.getStart();
   const line = content.slice(content.lastIndexOf("\n", start - 1) + 1, start);
-  const indent = /^[ \t]*/.exec(line)?.[0] ?? "";
-  return line.trim() === "" ? indent : `${indent}  `;
+  return /^[ \t]*/.exec(line)?.[0] ?? "";
 }
 
 /**
- * Puts a new agent into the router's choice: `route(Agent).toFinish(Finish)` after its last route.
- * The router's `@Router({ routes })` gets the same target, wired in the router file. An agent
+ * Puts a new agent into the router's choice: `.onRoute(toAgent(Agent).toFinish(Finish))` after its last
+ * route. The router's `@Router({ routes })` gets the same target, wired in the router file. An agent
  * already there is skipped (reported, never doubled); an unexpected shape → an error naming the
  * file — never a guess.
  */
@@ -86,19 +124,18 @@ export function addAgentToFlow(
 ): FileToWrite {
   const source = ts.createSourceFile(file.path, file.content, ts.ScriptTarget.Latest, true);
   const choice = starCalls(flowCalls(source), router);
-  const last = choice?.routes.at(-1);
-  if (choice === undefined || last === undefined) {
+  if (choice === undefined) {
     throw new ScaffoldError(
-      `${file.path}: no .toRouter(${router}).chooseOne(route(…)…) in the flow — add ${agent} by hand`,
+      `${file.path}: no .toRouter(${router}).onRoute(…) in the flow — add ${agent} by hand`,
     );
   }
   if (routeTargets(choice).includes(agent)) {
-    const skipped = `${file.path}: ${agent} already in ${router}'s chooseOne(…)`;
+    const skipped = `${file.path}: ${agent} already in ${router}'s .onRoute(…)s`;
     return { ...file, skipped: [...(file.skipped ?? []), skipped] };
   }
-  const at = last.getEnd();
-  const indent = routeIndent(file.content, last.getStart());
-  const route = `,\n${indent}route(${agent})\n${indent}  .toFinish(${finish})`;
+  const at = choice.last.getEnd();
+  const indent = routeIndent(file.content, choice.last);
+  const route = `\n${indent}.onRoute(toAgent(${agent})\n${indent}  .toFinish(${finish}))`;
   return {
     path: file.path,
     content: `${file.content.slice(0, at)}${route}${file.content.slice(at)}`,
@@ -106,7 +143,7 @@ export function addAgentToFlow(
   };
 }
 
-/** Wires an agent into the workflow's flow and imports it. */
+/** Wires an agent into the workflow's flow and imports it (with the `toAgent` it writes; `.toFinish(…)` is a method). */
 export const wireAgentIntoFlow = (
   file: FileToWrite,
   agent: { readonly className: string; readonly from: string },
@@ -114,8 +151,6 @@ export const wireAgentIntoFlow = (
   finish: string,
 ): FileToWrite => {
   const flowed = addAgentToFlow(file, agent.className, router, finish);
-  return {
-    ...flowed,
-    content: addImport(flowed.content, file.path, agent.className, agent.from),
-  };
+  const imported = addImport(flowed.content, file.path, agent.className, agent.from);
+  return { ...flowed, content: addImport(imported, file.path, "toAgent", "@agboss/core") };
 };

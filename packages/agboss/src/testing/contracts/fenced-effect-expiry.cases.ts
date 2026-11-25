@@ -1,6 +1,7 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionFencedError } from "../../app/lease-lost.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import {} from "../../app/lease-lost.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import { EXPIRY_EDGE_OFFSET, EXPIRY_EDGES, ExpiryEdge } from "./execution-lease-expiry.cases.js";
@@ -16,12 +17,10 @@ import {
 /**
  * A fenced write by the lease's own holder at `edge`, nobody having taken the lease: 1 ms before
  * the expiry it runs; at the expiry and after it the lease is over for its holder too (#534) — the
- * write is refused (`ExecutionFencedError`, nothing run, nothing stored) and the key stays unseen
+ * write is refused (`ExecutionError.Fenced`, nothing run, nothing stored) and the key stays unseen
  * for the next holder.
  */
-const writeAt = <TTransaction>(
-  edge: ExpiryEdge,
-): ContractCase<FencedEffectTarget<TTransaction>> => {
+const writeAt = (edge: ExpiryEdge): ContractCase<FencedEffectTarget> => {
   const isRun = edge === ExpiryEdge.Before;
   return {
     name: `#534: a fenced write ${edge}, the lease not taken meanwhile, ${isRun ? "runs" : "is refused: nothing run, the key left for the next holder"}`,
@@ -33,18 +32,18 @@ const writeAt = <TTransaction>(
       const outcome = first.effects.runOnce(keyOf(lease), writing(first.rows, "r1", count));
 
       if (isRun) {
-        expect(await outcome).toMatchObject({ status: FencedEffectStatus.Ran, token: 1 });
+        expect(await outcome).toMatchObject({ status: IdempotencyRunStatus.Ran, token: 1 });
         expect(await second.rows.committed()).toEqual(["r1"]);
         return;
       }
       const refused = await rejectionOf(outcome);
-      expect(refused).toBeInstanceOf(ExecutionFencedError);
+      expect(refused).toBeInstanceOf(ExecutionError.Fenced);
       expect(refused).toMatchObject({ token: 1 });
       expect(count.runs).toBe(0);
       expect(await second.rows.committed()).toEqual([]);
       const next = await leaseOf(second, "execution-1", seconds(30));
       const ran = await second.effects.runOnce(keyOf(next), writing(second.rows, "r2", count));
-      expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, token: 2 });
+      expect(ran).toMatchObject({ status: IdempotencyRunStatus.Ran, token: 2 });
     },
   };
 };
@@ -58,9 +57,7 @@ const FIRST_WRITE_AT = seconds(29.998);
  * is over (#534) and the fence is checked before the key is read — refused, never replayed to a
  * holder that no longer holds the lease.
  */
-const replayAt = <TTransaction>(
-  edge: ExpiryEdge,
-): ContractCase<FencedEffectTarget<TTransaction>> => {
+const replayAt = (edge: ExpiryEdge): ContractCase<FencedEffectTarget> => {
   const isReplayed = edge === ExpiryEdge.Before;
   return {
     name: `#534: a written key asked again by its holder ${edge} is ${isReplayed ? "Replayed" : "refused before the key is read: no replay past the lease"}`,
@@ -75,21 +72,21 @@ const replayAt = <TTransaction>(
 
       if (isReplayed)
         expect(await again).toMatchObject({
-          status: FencedEffectStatus.Replayed,
+          status: IdempotencyRunStatus.Replayed,
           result: { receipt: "r1" },
         });
-      else expect(await rejectionOf(again)).toBeInstanceOf(ExecutionFencedError);
+      else expect(await rejectionOf(again)).toBeInstanceOf(ExecutionError.Fenced);
       expect(count.runs).toBe(1);
     },
   };
 };
 
 /** A fenced write against the lease's boundary (#534): 1 ms before, exactly at, 1 ms after. */
-export const expiryCases = <TTransaction>(): ContractGroup<FencedEffectTarget<TTransaction>> => ({
+export const expiryCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "the lease's expiry",
   isFencing: true,
   cases: [
-    ...EXPIRY_EDGES.map((edge) => writeAt<TTransaction>(edge)),
-    ...EXPIRY_EDGES.map((edge) => replayAt<TTransaction>(edge)),
+    ...EXPIRY_EDGES.map((edge) => writeAt(edge)),
+    ...EXPIRY_EDGES.map((edge) => replayAt(edge)),
   ],
 });

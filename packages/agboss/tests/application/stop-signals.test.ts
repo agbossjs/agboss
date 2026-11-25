@@ -4,9 +4,10 @@
  * then raised again when nothing else listens (the process ends as without the app); `testWith`
  * never listens.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { EventEmitter } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { productionOptionsOf } from "../../src/application/app-options.js";
 import { closeOnStopSignals, type StopSignalSource } from "../../src/application/stop-signals.js";
 import type { CloseOptions } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
@@ -144,7 +145,7 @@ describe("#265 S51: the stop signals", () => {
 describe("#265 S51: who listens", () => {
   it("createApp listens on the process until close() finishes", async () => {
     const before = process.listenerCount("SIGTERM");
-    const app = await createAppWith(DesksApplication, {
+    const app = await createTestAppWith(DesksApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     });
@@ -154,6 +155,27 @@ describe("#265 S51: who listens", () => {
 
     expect(listening[0]).toBe(before + 1);
     expect(process.listenerCount("SIGTERM")).toBe(before);
+  });
+
+  it("#1324e: handleSignals false listens for nothing; createApp's own default is false", async () => {
+    const before = process.listenerCount("SIGTERM");
+    const app = await createTestAppWith(DesksApplication, {
+      processEnv: {},
+      handleSignals: false,
+      gateway: createScriptedGateway(new ScriptBook()),
+    });
+
+    expect(process.listenerCount("SIGTERM")).toBe(before);
+    await app.close();
+    expect(productionOptionsOf({}).handleSignals).toBe(false);
+    expect(productionOptionsOf({ handleSignals: true }).handleSignals).toBe(true);
+  });
+
+  it("#1324e: createApp refuses a handleSignals that is no boolean and a processEnv that is no object", () => {
+    expect(() => productionOptionsOf({ handleSignals: "yes" })).toThrow(/handleSignals/u);
+    expect(() => productionOptionsOf({ processEnv: "PATH=/bin" })).toThrow(/processEnv/u);
+    const env = { A: "1" };
+    expect(productionOptionsOf({ processEnv: env }).processEnv).toBe(env);
   });
 
   testWith(DesksApplication)("testWith never listens", async ({ app }) => {

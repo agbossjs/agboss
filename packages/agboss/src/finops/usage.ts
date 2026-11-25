@@ -1,12 +1,13 @@
+import { NO_PROVIDER } from "./no-provider.js";
 import { isFiniteNumber } from "../graph/count-limit.js";
 import { checkedPrice } from "../models/cost.js";
 import type { Price, ResolvedModelSettings } from "../config/types.js";
-import type { Usd } from "../units/index.js";
+import { usd, type Usd } from "../units/index.js";
 import { fallbackMarkOf } from "./fallback-mark.js";
-import { CostCategory, costCategoryOf, NO_COST_BY_CATEGORY } from "./cost-category.js";
+import type { CostCategory } from "./cost-category.js";
 import { CostSource } from "./cost-source.js";
 import { servedByOf } from "./served-by.js";
-import { withoutLedgerMarks, type LedgerKey, type LedgerMark } from "./ledger-mark.js";
+import type { LedgerKey, LedgerMark } from "./ledger-mark.js";
 
 /** Anything a chat model returns that may carry token usage (AIMessage, AIMessageChunk). */
 export interface UsageCarrier {
@@ -24,9 +25,13 @@ export interface UsageCarrier {
 
 /** inputTokens includes cached tokens (OpenAI-compatible accounting). */
 export interface TokenUsage {
+  /** The prompt's tokens, the cached ones included. */
   readonly inputTokens: number;
+  /** The answer's tokens. */
   readonly outputTokens: number;
+  /** The prompt's tokens read from the provider's cache (0 when none). */
   readonly cacheReadTokens: number;
+  /** The prompt's tokens written to the provider's cache (0 when none). */
   readonly cacheWriteTokens: number;
 }
 
@@ -34,7 +39,7 @@ export interface TokenUsage {
 export interface UsageRecord extends TokenUsage {
   readonly caller: string;
   readonly model: string;
-  readonly costUsd: number;
+  readonly costUsd: Usd;
   readonly costSource: CostSource;
   /**
    * The host that served the call, as its provider names it (#395 PR 6: OpenRouter's upstream —
@@ -42,11 +47,16 @@ export interface UsageRecord extends TokenUsage {
    */
   readonly servedBy?: string;
   /**
+   * The `@ModelProvider` that served the call, by its `name` (#1313); `NO_PROVIDER` for a charge no
+   * model provider made (a tool's, a mesh peer's) and for a model no provider names.
+   */
+  readonly provider: string;
+  /**
    * Where the ledger holds its cost (#333 PR 3, #727, #771): absent while it is not in the ledger
    * yet — its pass writes it —; `LedgerState.Written` once a pass wrote it as it was made, under its
    * `ledgerId` and dated `madeAt`; `LedgerState.RecordedElsewhere` for a call of a child that ran on
    * another instance, recorded there. A record in the ledger is never written again, and counted
-   * once. Read it with `ledgerMarkOf(record)`, which also reads a record kept before 0.1.1.
+   * once. Read it with `ledgerMarkOf(record)`.
    */
   readonly ledger?: LedgerMark;
   /**
@@ -59,39 +69,20 @@ export interface UsageRecord extends TokenUsage {
 
 export { CostCategory, costCategoryOf } from "./cost-category.js";
 export { CostSource } from "./cost-source.js";
+export { NO_PROVIDER } from "./no-provider.js";
+export { CostReport, tokensOf, totalCost, totalTokens } from "./cost-report.js";
 
 /** One call of the turn, in order. */
 export interface CostLine extends TokenUsage {
   readonly caller: string;
   readonly category: CostCategory;
   readonly model: string;
-  readonly costUsd: number;
+  readonly costUsd: Usd;
   readonly costSource: CostSource;
   /** The host that served the call (`UsageRecord.servedBy`, #395 PR 6). */
   readonly servedBy?: string;
-}
-
-/**
- * Financial result of a turn — part of every run result. Clients routeTo what to show; the core
- * always reports all of it.
- */
-export interface CostReport {
-  /** The known total: what every call of known cost cost. */
-  readonly totalUsd: number;
-  /** The calls of known cost. */
-  readonly calls: number;
-  /**
-   * The lost passes of a step whose cost is not known (#853, `CostSource.Unknown`): each a pass that
-   * lost its lease mid step, run again by a recovery — none in `totalUsd`, `calls` or the sums.
-   */
-  readonly unknownCalls: number;
-  readonly cacheReadTokens: number;
-  readonly byCaller: Readonly<Record<string, number>>;
-  /** Every category is present (0 when unused). */
-  readonly byCategory: Readonly<Record<CostCategory, number>>;
-  readonly byModel: Readonly<Record<string, number>>;
-  /** Every call in the order it happened. */
-  readonly trace: readonly CostLine[];
+  /** The provider that served the call (`UsageRecord.provider`, #1313). */
+  readonly provider: string;
 }
 
 export const ZERO_USAGE: TokenUsage = {
@@ -134,20 +125,43 @@ export class ModelCostError extends Error {
 }
 
 /** The cost the provider reported in its replyWith (`usage.cost`), when it did. */
-export function reportedCostOf(message: UsageCarrier): number | undefined {
+export function reportedCostOf(message: UsageCarrier): Usd | undefined {
   const usage = message.response_metadata?.usage;
   const cost =
     typeof usage === "object" && usage !== null && "cost" in usage ? usage.cost : undefined;
-  return isFiniteNumber(cost) && cost >= 0 ? cost : undefined;
+  return isFiniteNumber(cost) && cost >= 0 ? usd(cost) : undefined;
+}
+
+/** The record of a call a fallback answered: its model, its reported cost, else unpriced (#202, #1313). */
+function fallbackRecordOf(
+  caller: string,
+  fallback: NonNullable<ReturnType<typeof fallbackMarkOf>>,
+  reported: Usd | undefined,
+  made: Pick<UsageRecord, "servedBy" | keyof TokenUsage>,
+): UsageRecord {
+  const base = {
+    caller,
+    model: fallback.model,
+    ...made,
+    provider: fallback.provider ?? NO_PROVIDER,
+  };
+  if (reported !== undefined) {
+    const costSource = fallback.priced ? CostSource.PriceTable : CostSource.Api;
+    return { ...base, costUsd: reported, costSource };
+  }
+  if (fallback.unpriced) return { ...base, costUsd: usd(0), costSource: CostSource.Unpriced };
+  throw new ModelCostError(`${caller}: fallback model ${fallback.model} — no cost and no price`);
 }
 
 /**
  * One model call's record: the provider's reported cost first (`api`), else tokens × the model's
- * price (`price-table`). A call that has neither cannot be accounted and fails.
+ * price (`price-table`). A call that has neither cannot be accounted and fails — unless its provider
+ * has no `cost` at all (#1313): that call is `unpriced`, 0 USD with its tokens, which a token budget
+ * still counts.
  */
 export function recordUsage(
   caller: string,
-  settings: Pick<ResolvedModelSettings, "model" | "price">,
+  settings: Pick<ResolvedModelSettings, "model" | "price" | "modelProvider" | "unpriced">,
   message: UsageCarrier,
 ): UsageRecord {
   const usage = extractTokenUsage(message);
@@ -155,43 +169,33 @@ export function recordUsage(
   const served = servedBy === undefined ? {} : { servedBy };
   const reported = reportedCostOf(message);
   const fallback = fallbackMarkOf(message.response_metadata);
-  if (fallback !== undefined) {
-    if (reported === undefined)
-      throw new ModelCostError(
-        `${caller}: fallback model ${fallback.model} — no cost and no price`,
-      );
-    const costSource = fallback.priced ? CostSource.PriceTable : CostSource.Api;
-    return { caller, model: fallback.model, ...usage, costUsd: reported, costSource, ...served };
-  }
-  if (reported !== undefined) {
-    return {
-      caller,
-      model: settings.model,
-      ...usage,
-      costUsd: reported,
-      costSource: CostSource.Api,
-      ...served,
-    };
-  }
-  if (settings.price === undefined) {
+  if (fallback !== undefined)
+    return fallbackRecordOf(caller, fallback, reported, { ...usage, ...served });
+  const provider = settings.modelProvider ?? NO_PROVIDER;
+  const made = { caller, model: settings.model, ...usage, ...served, provider };
+  if (reported !== undefined) return { ...made, costUsd: reported, costSource: CostSource.Api };
+  if (settings.price !== undefined)
+    return { ...made, ...pricedOf(caller, settings.model, settings.price, usage) };
+  if (settings.unpriced === true)
+    return { ...made, costUsd: usd(0), costSource: CostSource.Unpriced };
+  throw new ModelCostError(
+    `${caller}: model ${settings.model} — its provider reported no cost and it has no price`,
+  );
+}
+
+/** The cost of a call's tokens at the model's price: no amount (NaN) is never accounted (#817). */
+function pricedOf(
+  caller: string,
+  model: string,
+  price: Price,
+  usage: TokenUsage,
+): Pick<UsageRecord, "costUsd" | "costSource"> {
+  const priced = costOf(usage, price);
+  if (!Number.isFinite(priced) || priced < 0)
     throw new ModelCostError(
-      `${caller}: model ${settings.model} — its provider reported no cost and it has no price`,
+      `${caller}: model ${model} — its tokens price at no amount: ${String(priced)}`,
     );
-  }
-  const costUsd = costOf(usage, settings.price);
-  // tokens a provider left out price as NaN: never accounted as an amount (#817)
-  if (!Number.isFinite(costUsd) || costUsd < 0)
-    throw new ModelCostError(
-      `${caller}: model ${settings.model} — its tokens price at no amount: ${String(costUsd)}`,
-    );
-  return {
-    caller,
-    model: settings.model,
-    ...usage,
-    costUsd,
-    costSource: CostSource.PriceTable,
-    ...served,
-  };
+  return { costUsd: usd(priced), costSource: CostSource.PriceTable };
 }
 
 export class InvalidToolCostError extends Error {
@@ -215,49 +219,9 @@ export function recordToolCost(tool: string, costUsd: number): UsageRecord {
   return {
     caller: `tool:${tool}`,
     model: tool,
+    provider: NO_PROVIDER,
     ...ZERO_USAGE,
-    costUsd,
+    costUsd: usd(costUsd),
     costSource: CostSource.Tool,
-  };
-}
-
-/**
- * What calls cost together, in USD: the sum of their records' `costUsd` — what
- * `CostLedgerRepository.saveAll` adds to each counter (a store of your own sums its entries with
- * it, #521: their total is `Usd`).
- */
-export function totalCost(entries: readonly (UsageRecord & { readonly costUsd: Usd })[]): Usd;
-export function totalCost(records: readonly UsageRecord[]): number;
-export function totalCost(records: readonly UsageRecord[]): number {
-  return records.reduce((sum, record) => sum + record.costUsd, 0);
-}
-
-function sumBy(
-  lines: readonly CostLine[],
-  key: (line: CostLine) => string,
-): Record<string, number> {
-  const sums: Record<string, number> = {};
-  for (const line of lines) sums[key(line)] = (sums[key(line)] ?? 0) + line.costUsd;
-  return sums;
-}
-
-export function buildCostReport(records: readonly UsageRecord[]): CostReport {
-  const trace = records.map((record): CostLine => ({
-    ...withoutLedgerMarks(record),
-    category: costCategoryOf(record.caller),
-  }));
-  const byCategory = { ...NO_COST_BY_CATEGORY };
-  for (const line of trace) byCategory[line.category] += line.costUsd;
-  // a lost pass's record (#853): in the trace, of no amount, counted apart from the calls
-  const known = trace.filter((line) => line.costSource !== CostSource.Unknown);
-  return {
-    totalUsd: totalCost(records),
-    calls: known.length,
-    unknownCalls: trace.length - known.length,
-    cacheReadTokens: records.reduce((sum, record) => sum + record.cacheReadTokens, 0),
-    byCaller: sumBy(known, (line) => line.caller),
-    byCategory,
-    byModel: sumBy(known, (line) => line.model),
-    trace,
   };
 }

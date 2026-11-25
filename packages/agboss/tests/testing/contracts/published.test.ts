@@ -19,7 +19,7 @@ const SOURCE = join(PACKAGE_ROOT, "src");
 /** The published functions, by the suite title each registers. */
 const SUITES: Readonly<Record<string, string>> = {
   a2aDirectMessageContract: "A2A direct message contract",
-  a2aFileContract: "A2A file contract",
+  fileContract: "A2A file contract",
   a2aTaskContract: "A2A task contract",
   checkpointSaverContract: "checkpoint saver contract",
   childExecutionQueueContract: "child execution queue contract",
@@ -97,9 +97,15 @@ describe("#481 AC1: the published entry", () => {
 
   it("exports one function per contract, storeConformance and its error (#526), the RAG connector's (#700), effectKeyForTesting (#825), the capabilities and the virtual clock (#831), nothing else at run time", () => {
     const named = [...Object.keys(SUITES), "storeConformance", "StoreConformanceError"];
-    const kit = ["StoreCapability", "VirtualClock", "runConformanceSabotage"];
+    // the cluster lease contract needs a cluster beside the database: the fixture store has none (#1321e)
+    const kit = [
+      "StoreCapability",
+      "VirtualClock",
+      "runConformanceSabotage",
+      "executionLeaseClusterContract",
+    ];
     expect(Object.keys(contracts).sort()).toEqual(
-      [...named, ...kit, "ragConnectorContract", "effectKeyForTesting"].sort(),
+      [...named, ...kit, "ragSourceContract", "effectKeyForTesting"].sort(),
     );
     for (const [name, value] of Object.entries(contracts))
       if (name !== "StoreCapability") expect(value).toBeTypeOf("function");
@@ -248,6 +254,7 @@ describe("#481 AC1: each contract registers its cases under the target's name", 
       "an execution's identity > #591: ids are compared exactly — a case, a prefix or a suffix is another id",
       "an execution's identity > #591: a kept id's tree takes its lease as before, and the id stays kept once the lease is released or finished",
       "a tree's cancel mark > #909 AC1: requestCancel changes no lease — the holder renews and releases it, the next take is token + 1, another instance is still refused while it is held",
+      "a tree's cancel mark > #1341d: requestCancel with a status transition resolves, changes no lease, and is idempotent — a repeat with another transition changes nothing (the history row is the record contract's to read, written in the mark's transaction)",
       "a tree's cancel mark > #909 AC1: requestCancel of a tree with no lease yet resolves, and its first acquire is token 1 — the mark is no lease",
       "a tree's cancel mark > #909 AC1: requestCancel twice, from both instances, resolves each time — idempotent — and a yielded lease stays yielded and reclaimable",
       "a tree's cancel mark > #909: a free lease of a cancelled tree is acquired as before, and expires and is taken over as before",
@@ -255,6 +262,21 @@ describe("#481 AC1: each contract registers its cases under the target's name", 
       "a tree's cancel mark > #909: a cancel of another tree or another tenant's tree takes nothing from this one",
       "a tree's cancel mark > #1152: isCancelRequested is false for a tree never cancelled, another tree or another tenant's, and true from either instance once requestCancel resolved — with a lease row or a seed row",
       "a tree's cancel mark > #1152: the mark read stays true through every release, retire, take and takeover of the tree's lease — it is permanent",
+      "a tree's stop mark > #1341b: stopOf is undefined for a tree never stopped, another tree or another tenant's, and the mode from either instance once requestStop resolved",
+      "a tree's stop mark > #1341b: the mode only escalates — AfterStep becomes Immediate, Immediate stays when asked AfterStep again — and a repeat is idempotent",
+      "a tree's stop mark > #1341b: requestStop changes no lease — the holder renews and releases it, the next take is token + 1, another instance is refused while it is held",
+      "a tree's stop mark > #1341b: a stop before the tree's first acquire is a seed row — the first take is token 1, no takeover, and the mark is there",
+      "a tree's stop mark > #1341b: the mark is permanent — it stays through every release, retire, take and takeover of the lease",
+      "a tree's stop mark > #1341b: a stop and a cancel are two marks on one row — each is read as it was set, whichever came first, and neither lifts the other",
+      "a tree's stop mark > #1341b: markedOf answers both marks of the tree's row in one read — neither, the cancel's, the stop's with its mode, or both — the same as isCancelRequested and stopOf",
+      "a tree's external pause and fence > #1341c: pauseOf is empty for a tree never paused; once requestPause resolved, both instances read the pause with its reason — an AfterStep pause raises no fence",
+      "a tree's external pause and fence > #1341c: an Immediate pause fences the row's current token — and the pause is no lease operation: the holder renews and releases, the next take is token + 1, above the fence",
+      "a tree's external pause and fence > #1341c: the fence only rises (GREATEST) — a later AfterStep pause, a repeat and an unpause never lower or clear it, and a higher token's Immediate pause raises it",
+      "a tree's external pause and fence > #1341c: a reclaim while an Immediate pause is set inherits the fence — fencedThroughToken is the reclaimed token, read from both instances; under an AfterStep pause or after unpause a reclaim leaves the fence where it was",
+      "a tree's external pause and fence > #1341c: a repeated requestPause only updates the reason, unpause clears the pause and its reason, and an unpause of a tree not paused is a no-op",
+      "a tree's external pause and fence > #1341c: a pause before the tree's first acquire is a seed row — the first take is token 1, no takeover, and an Immediate pause fences nothing of it",
+      "a tree's external pause and fence > #1341c: markedOf carries the pause and the fence with the cancel and stop marks, in one read",
+      "a tree's external pause and fence > #1341c: a pause's mode only escalates while it lasts — a repeat asking AfterStep of an Immediate pause keeps Immediate and the reason moves — and a pause after unpause starts again at its own mode",
       "the framework's holder of a tree's lease > a holder frozen past the lease loses it to the waiting instance: its signal aborts",
       "the framework's holder of a tree's lease > a live holder renews every third of the lease: the waiting call waits",
       "the framework's holder of a tree's lease > a holder waiting for remote children keeps its tree: renewed, the waiting call waits, the holder goes on at token + 1",

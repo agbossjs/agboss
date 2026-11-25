@@ -1,22 +1,36 @@
-import type { CompensationRecord } from "../flow/compensation.js";
-import type { LaunchRecord } from "../flow/runtime/launch/records.js";
-import type { ChildExecutionRecord, HandledErrorRecord } from "../flow/runtime/child-records.js";
+import type {
+  PauseExecutionOptions,
+  PauseOutput,
+  StopOptions,
+  StopOutput,
+  UnpauseExecutionOptions,
+} from "./interrupt-types.js";
+import type { ThreadStatusTransition } from "../turns/index.js";
 import type { Class } from "../components/injection.js";
-import type { CostReport } from "../finops/usage.js";
 import type {
   ExecutionInputOf,
   ExecutionOptionsArgs,
   ExecutionOutputOf,
 } from "../flow/generated-types.js";
 import type { TenantValues } from "../flow/context/context-values.js";
-import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
-import type { ToolCallRecord } from "../flow/runtime/tool-calls.js";
-import type { ComponentRecord } from "../flow/runtime/records.js";
-import type { PendingPause, PendingPauseBase } from "../pause/index.js";
+import type { PauseActor, PauseToolCallSummary } from "../channels/pause-contexts.js";
+import type { PendingPauseBase } from "../pause/index.js";
 import type { PauseClosedReason, PauseKind, PauseStatus } from "../infrastructure/pause-record.js";
-import type { Compacted } from "../run/compaction.js";
 import type { ExecutionStreamEvent } from "../run/types.js";
-import type { Milliseconds, WorkingDuration } from "../units/index.js";
+import type { Milliseconds } from "../units/index.js";
+import type { ExecutionOutput } from "./execution-output.js";
+import type { ExtendPauseRequest, PauseExtension } from "./extend-types.js";
+import type { PauseReassignment, ReassignPauseRequest } from "./reassign-types.js";
+import type { Page, PageQuery } from "./page.js";
+import type { TenantContextBranded, TenantListArgs, TenantPointArgs } from "./tenant-args.js";
+import type {
+  ExecutionHistoryRecord,
+  ExecutionHistoryStatus,
+} from "../infrastructure/execution-history.repository.js";
+
+export type * from "./execution-output.js";
+export type * from "./reassign-types.js";
+export type * from "./extend-types.js";
 import type { HealthReport } from "../health/health-check.js";
 import type { ExecutionAuditEventRecord } from "../infrastructure/execution-audit-log.repository.js";
 import type {
@@ -25,12 +39,15 @@ import type {
 } from "../infrastructure/outbound-call.repository.js";
 
 /**
- * How an execution ended for its caller (#269, Q56): at a finish (`result.output`, `result.finish`)
- * or paused (`result.pending`). A failure is never a status — the call rejects.
+ * How an execution ended for its caller (#269, Q56, #1341): at a finish (`result.output`,
+ * `result.finish`), paused (`result.pending`), stopped (kept as it stood, nothing undone) or
+ * cancelled (what it had left undoable was undone). A failure is never a status — the call rejects.
  */
 export enum ExecutionStatus {
   Finished = "finished",
   Paused = "paused",
+  Stopped = "stopped",
+  Cancelled = "cancelled",
 }
 
 /** What every leg of an execution takes, `execute` and `resume` alike. */
@@ -45,7 +62,7 @@ export interface CallOptions {
   /** Extra LangGraph `configurable` keys for the run's nodes (the framework's own keys win). */
   readonly configurable?: Readonly<Record<string, unknown>>;
   /** Also return the full execution record (`result.record`, #270 AC16). */
-  readonly record?: boolean;
+  readonly includeRecord?: boolean;
 }
 
 /**
@@ -93,7 +110,7 @@ export interface ExecutionOptions extends CallOptions {
  */
 /**
  * What `app.resume` answers a pause with (#267): its id and exactly one of a typed `decision` or a
- * free-text `reply` — read by the pause's role's `@ReplyInterpreter`, the pause staying pending when
+ * free-text `reply` — read by the pause's role's `@ChannelInterpreter`, the pause staying pending when
  * it cannot be read (`UninterpretableReplyError`).
  */
 export type ResumeRequest = DecisionResumeRequest | ReplyResumeRequest;
@@ -119,99 +136,66 @@ export interface ReplyResumeRequest {
 /**
  * `app.resume(request, options)`: a resume finds what exists, so it takes keys and credentials only
  * — the tenant by its id (omitted → `"default"`) and who answers, as the pause's role says
- * (its `answerer` on `@ChannelRole`: the `ownerId` of a thread owner's, the `answeredBy` credential
- * of a channel's — the person who answered). It runs on the context values the execution started with.
+ * (its `respondent` on `@ChannelRole`: the `ownerId` of a thread owner's, the `actor` of a
+ * channel's — the person or system that answered). It runs on the context values the execution started with.
  */
-export type ResumeOptions = ThreadOwnerResumeOptions | ChannelResumeOptions;
+export type ResumeOptions = OwnerResumeOptions | DelegateResumeOptions;
 
 /**
  * Who calls and for which tenant, for what acts on a pause without running anything — `app.extendPause`
  * (#942): the caller fields of `ResumeOptions` and none of `CallOptions` (`signal`, `onStream`, …:
  * nothing executes, so they would be ignored; an object literal with one does not compile). Who may:
- * as an answer — the `ownerId` of a thread owner's pause, the `answeredBy` credential of a channel's.
+ * as an answer — the `ownerId` of a thread owner's pause, the `actor` of a channel's.
  */
-export type PauseCallerOptions = ThreadOwnerPauseOptions | ChannelPauseOptions;
+export type PauseCallerOptions = OwnerPauseOptions | DelegatePauseOptions;
 
-/** The caller of a `PauseAnswerer.ThreadOwner` pause: checked against the thread's `ownerId`. */
-export interface ThreadOwnerPauseOptions {
+/** The caller of a `PauseRespondent.Owner` pause: checked against the thread's `ownerId`. */
+export interface OwnerPauseOptions {
   readonly tenantId?: string | undefined;
   /** The thread's owner (omitted for a thread without one; another → `ThreadOwnerError`); a key's text (#589). */
   readonly ownerId?: string | undefined;
-  readonly answeredBy?: never;
+  readonly actor?: never;
 }
 
 /**
- * The caller of a `PauseAnswerer.Channel` pause: the channel's side authenticated who calls; the
+ * The caller of a `PauseRespondent.Delegate` pause: the channel's side authenticated who calls; the
  * framework checks only that it is given and is a key's text (#589).
  */
-export interface ChannelPauseOptions {
+export interface DelegatePauseOptions {
   readonly tenantId?: string | undefined;
-  /** Who calls, as the channel's side knows them (`"manager-17"`): non-empty, a key's text (#589). */
-  readonly answeredBy: string;
+  /**
+   * Who calls, as the channel's side knows them (`{ id: "manager-17", orgId: "holding-hq" }`): the
+   * `id` and the `orgId` (when given) are non-empty key's texts (#589).
+   */
+  readonly actor: PauseActor;
   readonly ownerId?: never;
 }
 
-/** The answer of a `PauseAnswerer.ThreadOwner` pause: checked against the thread's `ownerId`. */
-export interface ThreadOwnerResumeOptions extends ThreadOwnerPauseOptions, CallOptions {}
+/** The answer of a `PauseRespondent.Owner` pause: checked against the thread's `ownerId`. */
+export interface OwnerResumeOptions extends OwnerPauseOptions, CallOptions {}
 
 /**
- * The answer of a `PauseAnswerer.Channel` pause: the channel's side authenticated who answers; the
+ * The answer of a `PauseRespondent.Delegate` pause: the channel's side authenticated who answers; the
  * framework records it (the pause's record, `onExecutionResume`) and checks only that it is given
  * and is a key's text (#589).
  */
-export interface ChannelResumeOptions extends ChannelPauseOptions, CallOptions {}
-
-/** What an extension asks. */
-export interface ExtendPauseRequest {
-  /** The pause's id: `result.pending[i].pauseId`, or the `ask.pauseId` its channel was sent. */
-  readonly pauseId: string;
-  /**
-   * How long from now the pause waits: its new deadline is `now + expiresIn` (at least `seconds(1)`);
-   * `workingHours(8)` counts the pause's calendar (#944): `calendar.add(now, expiresIn)`.
-   */
-  readonly expiresIn: Milliseconds | WorkingDuration;
-}
-
-/** What an extension did: the pause by its key (never its id) and the deadline before and after. */
-export interface PauseExtension {
-  /** Correlation, answers nothing: `pauseKeyOf(tenantId, pauseId)`. */
-  readonly pauseKey: string;
-  /** The new deadline (ISO 8601). */
-  readonly expiresAt: string;
-  /** The deadline it had (ISO 8601). */
-  readonly previousExpiresAt: string;
-}
-
-/** What a reassignment asks (#946). */
-export interface ReassignPauseRequest {
-  /** The open pause's id: `result.pending[i].pauseId`, or the `ask.pauseId` its channel was sent. */
-  readonly pauseId: string;
-  /**
-   * Who the same channel asks now, as the channel reads it (a Slack user, an address, a queue): a key's
-   * text (#589), non-empty. The channel's one implementation routes on it.
-   */
-  readonly assignee: string;
-}
-
-/**
- * What a reassignment did: the new pause by its key, never its id — the new id is a capability, it goes
- * to the channel only (`ChannelAsk.pauseId` of the new send) and answers the new pause.
- */
-export interface PauseReassignment {
-  /** Correlation, answers nothing: `pauseKeyOf(tenantId, newPauseId)`. */
-  readonly pauseKey: string;
-}
+export interface DelegateResumeOptions extends DelegatePauseOptions, CallOptions {}
 
 /** `app.cancel(threadId, { tenantId, ownerId })`: the thread's tenant and the caller's owner. */
 export interface CancelOptions {
   readonly tenantId?: string | undefined;
   /** The caller's owner: a key's text (#589). */
   readonly ownerId?: string | undefined;
+  /**
+   * Why the thread was cancelled (#1341): kept in its status history (`getStatusHistory`) and
+   * reported by the cancelled output and `onExecutionCancel`'s event. Free text, never a key.
+   */
+  readonly reason?: string | undefined;
 }
 
 /**
  * `app.close({ timeout })`: how long the stop takes at most (#265 S51, #367 S3: interrupted a grace
- * before) — default `@Application({ shutdownTimeout })`, else `seconds(25)`.
+ * before) — default `@Application({ executionLimits: { shutdownTimeout } })`, else `seconds(25)`.
  */
 export interface CloseOptions {
   /** How long the stop takes at most (`seconds(0)`: interrupts and stops waiting at once); at most 24 hours — a longer one rejects (#1141). */
@@ -224,73 +208,11 @@ export interface CancelOutput {
 }
 
 /**
- * What one execution (or resume) of the app ended with: `output` and `finish` when it reached a
- * workflow finish, `pending` when it waits for answers; `path` = the node ids it visited, `spend`
- * = its cost; `record` only with `{ record: true }`.
- */
-export interface ExecutionOutput<TOutput = unknown> {
-  readonly status: ExecutionStatus;
-  /** The execution's thread: `options.threadId` to continue it. */
-  readonly threadId: string;
-  /** The tenant of the thread (#261): `"default"` when the execution named none. */
-  readonly tenantId: string;
-  /**
-   * The execution's id: the same in its observer events, `executionContext.executionId`, its
-   * record and its trace, and kept by its resumes.
-   */
-  readonly executionId: string;
-  /** The workflow finish the execution reached. */
-  readonly finish?: ComponentRecord;
-  /** The finish's output DTO — the business result only. */
-  readonly output?: TOutput;
-  /**
-   * Every pause the execution waits for (#267 AC1) — several when parallel branches each wait;
-   * empty unless `status` is `Paused`. A `PauseAnswerer.Channel` pause comes without its `pauseId`.
-   */
-  readonly pending: readonly PendingPause[];
-  /** Node ids (component names) in the order the execution visited them. */
-  readonly path: readonly string[];
-  readonly spend: CostReport;
-  /**
-   * Its parallel launches (#273), in the order they joined: each one's id, how many items (or
-   * listed targets) there were and were launched — `{ items: 200, taken: 50 }` after `maxItems` —
-   * and how each branch ended.
-   */
-  readonly launches: readonly LaunchRecord[];
-  /**
-   * Its child executions that ended (#263), in the order they ended: each one's id, workflow, item,
-   * start, how it ended (`ChildExecutionStatus`), its finish or error, its own spend and its own
-   * children — nested records, never in the thread's conversation history.
-   */
-  readonly children: readonly ChildExecutionRecord[];
-  /** The failures an `.onError` / `.onJoinError` side path took, in order (`toHaveHandledError`). */
-  readonly handledErrors: readonly HandledErrorRecord[];
-  /**
-   * The undo actions that ran (#340), in the order they ended: on a side path
-   * (`CompensationReason.SidePath`) or automatically — a failed join's finished branches
-   * (`JoinFailed`) — each with the step it undid, how it ended and when (`toHaveCompensated`).
-   */
-  readonly compensations: readonly CompensationRecord[];
-  /**
-   * Its own agents' tool calls (#395), in call order — each with its step (the tool and the agent's
-   * visit), input, output, `ToolCallStatus`, error and times; a child's are in `result.children`.
-   * Real values, like `output`; `result.record.toolCalls` holds them masked.
-   */
-  readonly toolCalls: readonly ToolCallRecord[];
-  /** What the compactions did before this execution read its thread (#120 S132), when one did. */
-  readonly compacted?: readonly Compacted[];
-  /** The conversation in the tracing UI (session = thread), when tracing is on. */
-  readonly traceUrl?: string;
-  /** The full execution record, with `app.execute(…, { record: true })`. */
-  readonly record?: ExecutionRecord;
-}
-
-/**
  * A workflow, built and started: its container, graph (all assembly errors at once) and
  * `onStart` hooks. `execute` starts at a workflow start, `resume` continues a paused thread,
  * `close` runs `onStop` hooks and closes MCP connections.
  */
-export interface App {
+export interface App<TApp = unknown> {
   readonly name: string;
   readonly version: string;
   /** Startup warnings, e.g. a config changed without a version bump. */
@@ -315,7 +237,10 @@ export interface App {
    * answer → `NotPausedError`) and the tree moved under its lease. With other pauses left the
    * execution pauses again with the rest. The result carries `threadId` and `executionId`.
    */
-  resume(request: ResumeRequest, options?: ResumeOptions): Promise<ExecutionOutput>;
+  resume(
+    request: ResumeRequest,
+    ...options: TenantPointArgs<TApp, ResumeOptions>
+  ): Promise<ExecutionOutput>;
   /**
    * Moves an open pause's deadline later (#942): `expiresAt = now + expiresIn`, by whoever may
    * answer it (`answeredBy` for a channel's pause, `ownerId` for its thread owner's, as `resume`).
@@ -325,31 +250,81 @@ export interface App {
    * quorum) it was made under (`DtoValidationError`, `dto: "ExtendPauseRequest"`); another tenant's
    * or an unknown pause is `UnknownPauseError`. Atomic at the store against the expiry look; a call
    * that loses the store's compare-and-set to other writers 8 times in a row is
-   * `PauseExtensionContendedError` (`pause.extension-contended`; nothing changed, retry is safe).
+   * `PauseExtensionContendedError` (`pause.update-contended`; nothing changed, retry is safe).
    */
-  extendPause(request: ExtendPauseRequest, options?: PauseCallerOptions): Promise<PauseExtension>;
+  extendPause(
+    request: ExtendPauseRequest,
+    ...options: TenantPointArgs<TApp, PauseCallerOptions>
+  ): Promise<PauseExtension>;
   /**
-   * Moves an open pause to another addressee (#946): the same channel is asked again (`send`) with a
-   * new pause id, `ChannelAsk.assignee` and `ChannelAsk.replaces` (the old id), and told
-   * `onPauseClosed(Reassigned)` for the old message — in no fixed order. The old id answers nothing any
-   * more (`PauseClosedError`, reason `reassigned`); the deadline is kept; the agent and the step do not
-   * run again. By whoever may answer the pause (as `extendPause`). Refused: a pause that is closed or past
-   * its deadline (`PauseClosedError`, of two reassignments, or a reassignment and an answer, at the same
-   * moment exactly one wins), an `assignee` that is no key's text (`DtoValidationError`, `dto:
-   * "ReassignPauseRequest"`); another tenant's or an unknown pause is `UnknownPauseError`. The new id
-   * is returned to no caller: only its key. The new send is made by this call; when the instance dies
-   * first, another instance's timers send it.
+   * Moves an open pause to other assignees, another channel or another target (#946, #1307d): by
+   * whoever may answer it (as `extendPause`) and only when its target's `permitReassign` says `true`
+   * (`PauseError.PermissionDenied` otherwise). A pause that stays with its target and channel is
+   * changed in place — the same id, its `externalRef` kept, its deadline kept unless `timeout` says
+   * otherwise — and its channel is told `onPauseReassigned`. One moved to another channel or target is
+   * made again: a new pause with a new id (the old id answers nothing any more, `PauseClosedError`,
+   * reason `reassigned`) that the new channel is sent (`ChannelAsk.replaces` names the old id), while
+   * the old channel is told `onPauseClosed(Reassigned)`; its chain of custody goes with it. The
+   * agent and the step do not run again. The listeners and the observers hear one `onPauseReassigned`.
+   * Refused: a pause that is closed or past its deadline (`PauseClosedError`; of two reassignments, or
+   * a reassignment and an answer, at the same moment exactly one wins), one reassigned as often as
+   * its `escalationLimits.maxReassignments` allow (`PauseError.EscalationLimitExceeded`), a target
+   * of another kind or other DTOs (`PauseError.IncompatibleTarget`), a bad assignee list
+   * (`DtoValidationError`, `dto: "ReassignPauseRequest"`); another tenant's or an unknown pause is
+   * `UnknownPauseError`. The new id of a moved pause is returned to no caller: only its key. The new
+   * send is made by this call; when the instance dies first, another instance's timers send it.
    */
   reassignPause(
     request: ReassignPauseRequest,
-    options?: PauseCallerOptions,
+    ...options: TenantPointArgs<TApp, PauseCallerOptions>
   ): Promise<PauseReassignment>;
   /**
-   * Cancels the thread's run: a running one is aborted (`executionContext.signal`; its `execute` rejects
-   * with `ExecutionCancelledError`), a paused one is dropped (its `resume` throws `NotPausedError`).
+   * Cancels the thread's run: a running one is aborted (`executionContext.signal`; its `execute`
+   * resolves with `ExecutionStatus.Cancelled` once what it had undoable is undone — an undo that
+   * failed rejects with `ExecutionError.CompensationFailed`), a paused one is dropped (its `resume`
+   * throws `NotPausedError`).
    * A thread the tenant does not have → `UnknownThreadError`.
    */
-  cancel(threadId: string, options?: CancelOptions): Promise<CancelOutput>;
+  cancel(threadId: string, ...options: TenantPointArgs<TApp, CancelOptions>): Promise<CancelOutput>;
+  /**
+   * Stops the thread's execution where it stands (#1341b): what it did is kept and nothing is undone
+   * (no `compensateWith` runs — that is `cancel`), and its `execute` / `resume` resolves with
+   * `ExecutionStatus.Stopped` (`reason`, the spend, no `finish`). `mode` is `InterruptMode.AfterStep`
+   * by default — the step in flight finishes and commits, none starts after it — or `Immediate`:
+   * the step in flight is aborted (`executionContext.signal`, `onInterrupted` callbacks awaited) and
+   * every new write of the tree is refused. A paused execution is ended at once (its open pauses
+   * close as `TreeEnded`). The call returns `{ state }`: `Stopped` (halted before it returned),
+   * `Stopping` (durable; its holder winds down) or `NotRunning` (nothing to stop, or already over).
+   * Idempotent, and `Cancel > Stop`. A thread the tenant does not have → `UnknownThreadError`.
+   */
+  stop(threadId: string, ...options: TenantPointArgs<TApp, StopOptions>): Promise<StopOutput>;
+  /**
+   * Pauses the thread's execution from outside (#1341c): nothing is undone, its checkpoint is kept, and
+   * its `execute` / `resume` resolves `ExecutionStatus.Paused` with `isExternallyPaused: true` —
+   * until `app.unpause`. `mode` is `InterruptMode.AfterStep` by default (the step in flight finishes
+   * and commits, none starts) or `Immediate` (the step in flight is aborted and the tree's token is
+   * fenced: its late writes are refused). One that rests at a business pause (`@ExternalTask`,
+   * `@ToolApproval`) is `dual_paused`: no answer, deadline or channel decision moves it before
+   * `app.unpause` (`app.resume` of an answer → `ExecutionError.ExternallyPaused`). The call returns
+   * `{ state }`: `Paused` (frozen before it returned), `Pausing` (durable; its holder parks) or
+   * `NotRunning`. Idempotent; `Cancel > Stop > Pause` (a thread being cancelled or stopped →
+   * `ExecutionError.AlreadyTerminal`). A thread the tenant does not have → `UnknownThreadError`.
+   */
+  pause(
+    threadId: string,
+    ...options: TenantPointArgs<TApp, PauseExecutionOptions>
+  ): Promise<PauseOutput>;
+  /**
+   * Lifts `app.pause` (#1341c): a tree parked at a step boundary continues from its last checkpoint
+   * (`onExecutionResume`, `ResumeReason.Unpaused`), one at a business pause waits for its answer
+   * again — taking at once what was decided or expired while frozen. Waits for a pause that is still
+   * parking. A thread not frozen from outside → `PauseError.NotPaused`; one that ended →
+   * `ExecutionError.AlreadyTerminal`.
+   */
+  unpause(
+    threadId: string,
+    ...options: TenantPointArgs<TApp, UnpauseExecutionOptions>
+  ): Promise<ExecutionOutput>;
   /**
    * Stops the app within the shutdown timeout (#261, #265, #367): no new executions, `onStop`, the
    * running ones awaited — interrupted a grace before its end, staying `running` for another instance —
@@ -398,10 +373,57 @@ export interface App {
    * tenant's pauses are never listed; an invalid query is a `DtoValidationError` (`PausesQuery`).
    */
   listPauses(query: PausesQuery): Promise<PausesPage>;
+  /**
+   * One kept root execution of a tenant (#1324e), or `undefined` when none is kept under that id
+   * (the application keeps its history only with `historyTtl`; another tenant's execution is none).
+   * An application that declares a `tenantContext` needs `{ tenantId }`, else it rejects with
+   * `ValidationError.TenantRequired` before any store is read.
+   */
+  getExecution(
+    executionId: string,
+    ...options: TenantPointArgs<TApp>
+  ): Promise<ExecutionHistoryRecord | undefined>;
+  /**
+   * The status history of a thread (#1341d), oldest change first: one `ThreadStatusTransition` per
+   * change of its status — `running`, `paused`, `stopping`, `stopped`, `cancelling`, `cancelled`,
+   * `finished`, … — with the `trigger` (`start`, `pause`, `stop`, `cancel`, …), the operator's
+   * `reason` and `actor` when a command gave them, and the lease's `leaseToken`. Each row is
+   * written in the very transaction of its change (a lease mark, a record's status write), so none
+   * is missing or orphaned after a crash. Empty for an unknown thread, another tenant's thread, and
+   * a thread whose workflow keeps no history (`historyTtl: Ttl.None`) once its tree has ended.
+   * An application that declares a `tenantContext` needs `{ tenantId }`, else it rejects with
+   * `ValidationError.TenantRequired`.
+   */
+  getStatusHistory(
+    threadId: string,
+    ...options: TenantPointArgs<TApp>
+  ): Promise<readonly ThreadStatusTransition[]>;
+  /**
+   * A page of the kept root executions, oldest start first (#1324e): by `startedAfter` (inclusive) /
+   * `startedBefore` (exclusive), `workflow` and `status`, from the cursor of the page before. A
+   * page holds at most `limit` records and may hold fewer while a filter drops some: go on while
+   * `nextCursor` is there. An application that declares a `tenantContext` needs `{ tenantId }` or
+   * `{ allTenants: true }`, else it rejects with `ValidationError.TenantRequired`.
+   */
+  listExecutions(
+    ...query: TenantListArgs<TApp, ExecutionsQuery>
+  ): Promise<Page<ExecutionHistoryRecord>>;
   /** Resolves a service or component from the app's internal container. */
   resolve<T>(token: Class<T>): T;
   /** Whether the workflow uses a tool of this name (local, MCP or knowledge-base search). */
   hasTool(name: string): boolean;
+}
+
+/** Which executions `app.listExecutions` reads (#1324e); the tenant is its scope, named per its application. */
+export interface ExecutionsQuery extends PageQuery {
+  /** Only those started at or after it (`Date`, or an ISO 8601 text). */
+  readonly startedAfter?: Date | string;
+  /** Only those started before it (`Date`, or an ISO 8601 text). */
+  readonly startedBefore?: Date | string;
+  /** Only the executions of the workflow of this name. */
+  readonly workflow?: string;
+  /** Only those with this status (several: any of them). */
+  readonly status?: ExecutionHistoryStatus | readonly ExecutionHistoryStatus[];
 }
 
 /** Which pending calls `app.pendingOutboundCallsOf` reads (#825): a tenant's, a page of them. */
@@ -418,8 +440,8 @@ export interface PausesQuery {
   readonly tenantId: string;
   /** Default `Pending`; several: any of them. */
   readonly status?: PauseStatus | readonly PauseStatus[];
-  /** The channel's name (a role's, or a concrete channel's). */
-  readonly role?: string;
+  /** The pause target's name (a `@ToolApproval`'s or `@ExternalTask`'s). */
+  readonly target?: string;
   /** Only pauses whose deadline is before it; one with no deadline is never listed. */
   readonly expiringBefore?: Date;
   /** How many at most: a whole number from 1 to 1000; default 100. */
@@ -429,12 +451,12 @@ export interface PausesQuery {
 }
 
 /** One pause as `app.listPauses` shows it: `pauseId` per the rule of `result.pending`, `pauseKey` always. */
-export interface ListedPause extends Omit<PendingPauseBase, "answeredBy"> {
+export interface ListedPause extends PendingPauseBase {
   readonly kind: PauseKind;
-  /** The question, masked by the pause's workflow's observability policies. */
-  readonly ask: unknown;
+  /** The tool call an approval waits on, masked by the pause's workflow's observability policies. */
+  readonly toolCall?: PauseToolCallSummary;
   /** Who answered a closed pause (`undefined` while open, or when its channel decided). */
-  readonly answeredBy?: string;
+  readonly actor?: PauseActor;
   /** The pause's one-way key: what a metric, a log or an error calls it in place of its id. */
   readonly pauseKey: string;
   readonly status: PauseStatus;
@@ -460,11 +482,22 @@ export interface ExecutionTreeQuery {
 }
 
 /**
+ * An app whose types ask for no tenant, as the testing toolkit and the transports hold it: a call that
+ * needs a tenant may omit it for the compiler — an application that declares a `tenantContext` still
+ * refuses it at run time (`ValidationError.TenantRequired`). `createApp` returns the stricter
+ * `App<InstanceType<TApplication>>`.
+ */
+export type AnyTenantApp = App<TenantContextBranded<false>>;
+
+/**
  * One workflow of an application at run time (internal): the app without the instance's probes and
  * audit log.
  */
 export type WorkflowApp = Omit<
-  App,
+  AnyTenantApp,
+  | "getExecution"
+  | "getStatusHistory"
+  | "listExecutions"
   | "checkLiveness"
   | "checkReadiness"
   | "auditLogOf"

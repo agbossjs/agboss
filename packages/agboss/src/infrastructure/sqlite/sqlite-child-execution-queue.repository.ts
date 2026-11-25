@@ -1,4 +1,5 @@
-import { z } from "zod";
+import { childOf, dateOf, DepthRow } from "./sqlite-child-queue-rows.js";
+import { isolatedClaimOf, queuedIsolatedOf } from "./sqlite-isolated-claim.js";
 import { Injectable } from "../../components/decorators.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import { Clock } from "../clock.js";
@@ -8,63 +9,9 @@ import {
   type ChildExecutionQueueCounts,
   type QueuedChildExecution,
 } from "../child-execution-queue.repository.js";
+import { ChildPlacement } from "../../flow/child-placement.js";
 import { ExecutionRecordStatus } from "../execution-record.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
-
-const SCHEMA = `CREATE TABLE IF NOT EXISTS child_execution_queue (
-  tenant_id TEXT NOT NULL, execution_id TEXT NOT NULL, root_execution_id TEXT NOT NULL,
-  parent_execution_id TEXT NOT NULL, root_workflow TEXT NOT NULL, workflow TEXT NOT NULL,
-  depth INTEGER NOT NULL, status TEXT NOT NULL, run TEXT NOT NULL, queued_at INTEGER NOT NULL,
-  instance_id TEXT, claimed_at INTEGER, ended_at INTEGER, failure TEXT,
-  PRIMARY KEY (tenant_id, execution_id));
-CREATE INDEX IF NOT EXISTS child_execution_queue_claims
-  ON child_execution_queue (status, depth DESC, queued_at);`;
-
-const STATUSES = Object.values(ExecutionRecordStatus) as [
-  ExecutionRecordStatus,
-  ...ExecutionRecordStatus[],
-];
-
-const QueueRow = z.object({
-  tenant_id: z.string(),
-  execution_id: z.string(),
-  root_execution_id: z.string(),
-  parent_execution_id: z.string(),
-  root_workflow: z.string(),
-  workflow: z.string(),
-  depth: z.number(),
-  status: z.enum(STATUSES),
-  run: z.string(),
-  queued_at: z.number(),
-  instance_id: z.string().nullable(),
-  claimed_at: z.number().nullable(),
-  ended_at: z.number().nullable(),
-  failure: z.string().nullable(),
-});
-
-const dateOf = (millis: number | null): Date | undefined =>
-  millis === null ? undefined : new Date(millis);
-
-/** A row as the contract gives it back. */
-function childOf(row: unknown): QueuedChildExecution {
-  const parsed = QueueRow.parse(row);
-  return {
-    tenantId: parsed.tenant_id,
-    executionId: parsed.execution_id,
-    rootExecutionId: parsed.root_execution_id,
-    parentExecutionId: parsed.parent_execution_id,
-    rootWorkflow: parsed.root_workflow,
-    workflow: parsed.workflow,
-    depth: parsed.depth,
-    status: parsed.status,
-    run: parsed.run,
-    queuedAt: new Date(parsed.queued_at),
-    instanceId: parsed.instance_id ?? undefined,
-    claimedAt: dateOf(parsed.claimed_at),
-    endedAt: dateOf(parsed.ended_at),
-    failure: parsed.failure ?? undefined,
-  };
-}
 
 /**
  * `ChildExecutionQueueRepository` on the application's SQLite file (#333 PR 2): one row per queued
@@ -82,7 +29,6 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
     private readonly applicationContext: ApplicationContext,
   ) {
     super();
-    connection.ensureSchema("child_execution_queue", SCHEMA);
   }
 
   ping(): Promise<void> {
@@ -94,8 +40,10 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
     const saved = this.connection.transaction((): boolean => {
       const inserted = database
         .prepare(
-          `INSERT OR IGNORE INTO child_execution_queue VALUES
-           (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)`,
+          `INSERT OR IGNORE INTO child_execution_queue
+           (tenant_id, execution_id, root_execution_id, parent_execution_id, root_workflow, workflow,
+            depth, status, run, queued_at, placement, exclude_instance_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           child.tenantId,
@@ -108,13 +56,15 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
           ExecutionRecordStatus.Queued,
           child.run,
           child.queuedAt.getTime(),
+          child.placement ?? null,
+          child.excludeInstanceId ?? null,
         );
       if (Number(inserted.changes) === 1) return true;
       const updated = database
         .prepare(
           `UPDATE child_execution_queue
            SET status = ?, run = ?, queued_at = ?, instance_id = NULL, claimed_at = NULL,
-               ended_at = NULL, failure = NULL
+               ended_at = NULL, failure = NULL, placement = ?, exclude_instance_id = ?
            WHERE tenant_id = ? AND execution_id = ?
              AND (status = ? OR (status = ? AND claimed_at = ?))`,
         )
@@ -122,6 +72,8 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
           ExecutionRecordStatus.Queued,
           child.run,
           child.queuedAt.getTime(),
+          child.placement ?? null,
+          child.excludeInstanceId ?? null,
           child.tenantId,
           child.executionId,
           ExecutionRecordStatus.Paused,
@@ -151,9 +103,11 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
       const row = database
         .prepare(
           `SELECT * FROM child_execution_queue WHERE status = ?
+             AND (placement IS NULL OR placement <> ?)
+             AND (exclude_instance_id IS NULL OR exclude_instance_id <> ?)
            ORDER BY depth DESC, queued_at LIMIT 1`,
         )
-        .get(ExecutionRecordStatus.Queued);
+        .get(ExecutionRecordStatus.Queued, ChildPlacement.IsolatedWorker, instanceId);
       if (row === undefined) return undefined;
       const child = childOf(row);
       database
@@ -170,6 +124,21 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
       };
     });
     return Promise.resolve(claimed);
+  }
+
+  findQueuedIsolatedWorkerChildren(limit: number): Promise<readonly QueuedChildExecution[]> {
+    return Promise.resolve(queuedIsolatedOf(this.connection.database, limit));
+  }
+
+  claimIsolatedWorkerByTenantIdAndExecutionId(
+    tenantId: string,
+    executionId: string,
+  ): Promise<QueuedChildExecution | undefined> {
+    const at = this.clock.now().getTime();
+    const claim = { tenantId, executionId, instanceId: this.applicationContext.instanceId, at };
+    return Promise.resolve(
+      this.connection.transaction(() => isolatedClaimOf(this.connection, claim)),
+    );
   }
 
   completeByTenantIdAndExecutionId(
@@ -194,6 +163,18 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
     return Promise.resolve(Number(changes) === 1);
   }
 
+  withdrawByTenantIdAndExecutionIdIfQueued(
+    tenantId: string,
+    executionId: string,
+  ): Promise<boolean> {
+    const { changes } = this.connection.database
+      .prepare(
+        "DELETE FROM child_execution_queue WHERE tenant_id = ? AND execution_id = ? AND status = ?",
+      )
+      .run(tenantId, executionId, ExecutionRecordStatus.Queued);
+    return Promise.resolve(Number(changes) === 1);
+  }
+
   deleteAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<void> {
     this.connection.database
       .prepare("DELETE FROM child_execution_queue WHERE tenant_id = ? AND root_execution_id = ?")
@@ -215,11 +196,5 @@ export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepo
     return Promise.resolve({ queued, running, oldestQueuedAt: dateOf(oldest) });
   }
 }
-
-const DepthRow = z.object({
-  queued: z.number(),
-  running: z.number(),
-  oldest: z.number().nullable(),
-});
 
 sqliteImplementation(SqliteChildExecutionQueueRepository);

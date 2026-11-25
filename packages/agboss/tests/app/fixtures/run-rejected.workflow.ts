@@ -1,6 +1,5 @@
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
-import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { crossFieldRule } from "../../../src/dto/schema.js";
+import { Window1Memory } from "../../helpers/window-memory.js";
+import { Text, Validate, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
   Budget,
@@ -9,25 +8,27 @@ import {
   Workflow,
   WorkflowStart,
   type BudgetHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { AnswerDto, Apply, Done, Lookup, RunLog } from "./run-events.workflow.js";
 import { Application } from "../../../src/application/application.js";
 import { TestApplicationDailyBudget, TestExecutionBudget } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** A start input with a code a rule checks; the rule's reason echoes the value it rejects. */
+@Validate<VoucherDto>((voucher) =>
+  voucher.code.startsWith("V-")
+    ? undefined
+    : { field: "code", reason: `"${voucher.code}" is not a voucher code` },
+)
 export class VoucherDto extends WorkflowStartTextDto {
   @Text({ prompt: "the voucher code" })
   code!: string;
 }
-
-crossFieldRule(VoucherDto, (voucher) =>
-  voucher.code.startsWith("V-")
-    ? undefined
-    : { field: "code", reason: `"${voucher.code}" is not a voucher code` },
-);
 
 @WorkflowStart({
   name: "redeem-workflow-start",
@@ -39,7 +40,7 @@ export class Redeem {}
 @Agent({
   name: "voucher-clerk-agent",
   description: "Redeems vouchers",
-  prompt: "Redeem the voucher.",
+  prompt: inline("Redeem the voucher."),
   tools: [Lookup, Apply],
   model: "test/clerk",
   input: { voucher: VoucherDto },
@@ -51,17 +52,16 @@ export class VoucherClerk {}
 @Workflow({
   name: "vouchers-workflow",
   version: "1.0.0",
-  maxSteps: 12,
+  historyTtl: Ttl.Forever,
+  executionLimits: { maxSteps: 12 },
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 3 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [
-    start(Redeem)
-      .returns(VoucherDto)
+    onStart(Redeem)
       .toAgent(VoucherClerk)
-      .returns(AnswerDto)
       .toFinish(Done),
   ],
 })
@@ -81,6 +81,7 @@ export class VouchersTenantDailyBudget implements BudgetHandler {
 
 @Application({
   name: "vouchers-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Vouchers],

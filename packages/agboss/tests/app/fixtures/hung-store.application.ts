@@ -1,3 +1,4 @@
+import type { Page } from "../../../src/app/page.js";
 import {
   ApplicationContext,
   Clock,
@@ -10,6 +11,7 @@ import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructu
 import {
   InMemoryExecutionRecordRepository,
   type ExecutionRecordStatus,
+  type ExecutionRecordStatusQuery,
 } from "../../../src/infrastructure/execution-record.repository.js";
 import type { Turn } from "../../../src/turns/index.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
@@ -21,6 +23,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { Checkout } from "./run-context.workflow.js";
 import { ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow } from "./claim-room.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #923 AC3 — a store whose call is never answered: from the moment the test sets a flag, the
@@ -64,14 +67,10 @@ export class HungQueueRepository extends InMemoryChildExecutionQueueRepository {
   }
 }
 
-@Injectable({ deps: [Clock, IdGenerator] })
+@Injectable({ deps: [Clock, IdGenerator, IN_MEMORY_DATABASE] })
 export class HungRecordRepository extends InMemoryExecutionRecordRepository {
-  override findByStatus(
-    status: ExecutionRecordStatus,
-    limit: number,
-    after?: string,
-  ): Promise<Turn[]> {
-    return hung.records ? never() : super.findByStatus(status, limit, after);
+  override findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>> {
+    return hung.records ? never() : super.findByStatus(query);
   }
 }
 
@@ -100,9 +99,11 @@ export class HungConnection {
   environment: EmptyEnvironment,
   workflows: [ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 3,
-  // below the store calls' bound (#928, 15 s): the stop gives up on a hung call first
-  shutdownTimeout: seconds(5),
+  executionLimits: {
+    maxConcurrentSteps: 3,
+    // below the store calls' bound (#928, 15 s): the stop gives up on a hung call first
+    shutdownTimeout: seconds(5),
+  },
   providers: [
     HungConnection,
     HungLeaseRepository,
@@ -116,11 +117,12 @@ export class HungStoreApplication {}
 /** The checkout workflow (it pauses for an approval) on a lease store that can go quiet: for a `resume()`. */
 @Application({
   name: "hung-checkout-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Checkout],
   budgets: TEST_BUDGETS,
-  shutdownTimeout: seconds(5),
+  executionLimits: { shutdownTimeout: seconds(5) },
   providers: [HungConnection, HungLeaseRepository, RecordingLogger],
 })
 export class HungCheckoutApplication {}

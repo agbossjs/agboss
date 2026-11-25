@@ -16,7 +16,7 @@ import {
 } from "./fixtures/billing-applications.js";
 
 async function memberOf(application: Class, file: string): Promise<FederationMember> {
-  const assembled = await applicationOf(application);
+  const assembled = await applicationOf(application, { withoutIdempotencyKeys: true });
   return {
     name: assembled.name,
     version: assembled.version,

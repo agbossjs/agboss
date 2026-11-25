@@ -1,3 +1,5 @@
+import { Mesh, MeshInboundMode } from "../../src/mesh/mesh.decorator.js";
+import { minutes } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf, type AssembledApplication } from "../../src/application/assemble.js";
 import { Application } from "../../src/application/application.js";
@@ -14,6 +16,7 @@ import { encodeMeshEnvelope, meshEnvelopeOf } from "../../src/mesh/mesh-envelope
 import type { MeshEnvelope } from "../../src/mesh/mesh-envelope.js";
 import { meshLimitBodyOf, meshLimitErrorOf } from "../../src/mesh/mesh-wire.js";
 import { traceIdOf } from "../../src/mesh/outbound-mesh.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const envelope: MeshEnvelope = {
   schema: 1,
@@ -110,12 +113,16 @@ describe("#398 PR 1: the receiver's check of the call chain", () => {
 describe("#398 PR 1: a mesh limit on the wire", () => {
   it("round-trips both limits with their facts; other errors carry none", () => {
     const entry = { application: "billing-application", start: "billing-workflow-start" };
-    const loop = new MeshLoopDetectedError({ entry, chain: envelope.callChain });
-    const hops = new HopsLimitExceededError({ entry, chain: envelope.callChain, maxMeshHops: 1 });
+    const loop = new MeshLoopDetectedError({ entry, callChain: envelope.callChain });
+    const hops = new HopsLimitExceededError({
+      entry,
+      callChain: envelope.callChain,
+      maxMeshHops: 1,
+    });
 
     expect(meshLimitErrorOf(meshLimitBodyOf(loop))).toMatchObject({
       entry,
-      chain: envelope.callChain,
+      callChain: envelope.callChain,
     });
     expect(meshLimitErrorOf(meshLimitBodyOf(hops))).toMatchObject({ maxMeshHops: 1, hops: 2 });
     expect(meshLimitBodyOf(new Error("other"))).toBeUndefined();
@@ -123,30 +130,40 @@ describe("#398 PR 1: a mesh limit on the wire", () => {
   });
 });
 
-describe("#398 PR 1: @Application({ maxMeshHops })", () => {
+describe("#398 PR 1: @Mesh({ maxHops })", () => {
   const parts = meshAppOf({ name: "hops", peerUrl: "http://unused" });
 
-  const withHops = (maxMeshHops: number): Promise<AssembledApplication> => {
+  const withHops = (maxHops: number): Promise<AssembledApplication> => {
+    @Mesh({
+      name: "hops-mesh",
+      inboundMode: MeshInboundMode.AllowExternal,
+      deduplicationTtl: minutes(30),
+      maxHops,
+    })
+    class HopsMesh {}
     @Application({
       name: "hops-invalid-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [parts.MeshWorkflow],
       budgets: TEST_BUDGETS,
-      maxMeshHops,
+      mesh: HopsMesh,
     })
     class HopsApplication {}
-    return applicationOf(HopsApplication);
+    return applicationOf(HopsApplication, { withoutIdempotencyKeys: true });
   };
 
-  it.each([0, -1, 2.5])("maxMeshHops %s fails assembly", async (value) => {
+  it.each([0, -1, 2.5])("maxHops %s fails assembly", async (value) => {
     await expect(withHops(value)).rejects.toThrow(
-      `[limits.max-mesh-hops-invalid] its maxMeshHops is ${String(value)}, not a whole number of applications from 1`,
+      `[limits.max-mesh-hops-invalid] hops-mesh's maxHops is ${String(value)}, not a whole number of applications from 1`,
     );
   });
 
   it("is kept as set, else 8", async () => {
     expect((await withHops(3)).maxMeshHops).toBe(3);
-    expect((await applicationOf(parts.MeshApplication)).maxMeshHops).toBe(8);
+    expect(
+      (await applicationOf(parts.MeshApplication, { withoutIdempotencyKeys: true })).maxMeshHops,
+    ).toBe(8);
   });
 });

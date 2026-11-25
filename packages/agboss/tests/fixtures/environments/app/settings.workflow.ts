@@ -1,3 +1,4 @@
+import { Window4Memory } from "../../../helpers/window-memory.js";
 import {
   Agent,
   Injectable,
@@ -5,15 +6,16 @@ import {
   ApplicationContext,
   TokenLimit,
   Tool,
-  type ToolHandler,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { SettingsEnvironment } from "./environments/app.environment.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** A service that reads the application's environment (#182, #261: through `ApplicationContext`). */
 @Injectable({ deps: [ApplicationContext] })
@@ -42,10 +44,10 @@ export class SettingsInfo {
   output: SettingsInfo,
   deps: [ApiClient],
 })
-export class ApiSettings implements ToolHandler<SettingsQuery, SettingsInfo> {
+export class ApiSettings {
   constructor(private readonly client: ApiClient) {}
 
-  run(): Promise<SettingsInfo> {
+  execute(): Promise<SettingsInfo> {
     const { apiUrl, currency } = this.client.environment;
     return Promise.resolve({ apiUrl, currency });
   }
@@ -57,7 +59,7 @@ export class ApiSettings implements ToolHandler<SettingsQuery, SettingsInfo> {
   model: "test/clerk",
   price: { inputPerMTok: 1, outputPerMTok: 10 },
   tools: [ApiSettings],
-  promptUrls: ["./clerk.prompt.md"],
+  prompt: "./clerk.prompt.md",
 })
 export class Clerk {}
 
@@ -76,7 +78,7 @@ export class ChatStart {}
 export class Reply {}
 
 export const settingsDefaults = {
-  models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
+  models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
   router: { model: "typesafe/jev-1.13" },
   tools: { maxToolCalls: 4 },
 } as const;
@@ -85,20 +87,21 @@ export const settingsDefaults = {
 @Workflow({
   name: "settings-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChatStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChatStart)
       .toAgent(Clerk)
       .toFinish(Reply),
   ],
   defaults: settingsDefaults,
-  uncompactedTurns: 4,
+  memory: Window4Memory,
   providers: [ApiClient],
 })
 export class SettingsApp {}
 
 @Application({
   name: "settings-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: SettingsEnvironment,
   workflows: [SettingsApp],

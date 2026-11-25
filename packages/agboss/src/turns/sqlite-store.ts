@@ -1,9 +1,12 @@
+import { usd } from "../units/index.js";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { z } from "zod";
 import { migrateTurnDatabase, openTurnDatabase, placeholders, toTurn } from "./schema.js";
 import { configMethods } from "./configs.js";
-import { pauseAnswerWrites, turnWrites } from "./writes.js";
+import { interruptibleWrites, pauseAnswerWrites, turnWrites } from "./writes.js";
+import { sqliteStatusLog, type StatusLog } from "./status-log.js";
+import { idleThreadMethods } from "./idle-threads.js";
 import { memoryMethods } from "./summaries.js";
 import { threadMethods, type ThreadIds } from "./threads.js";
 import type { Turn, TurnStore, VersionScore } from "./types.js";
@@ -23,7 +26,7 @@ function toVersionScore(row: unknown): VersionScore {
     turns: r.turns,
     scored: r.scored,
     meanScore: r.mean_score,
-    costUsd: r.cost_usd,
+    costUsd: usd(r.cost_usd),
   };
 }
 
@@ -142,8 +145,9 @@ export function createSqliteTurnStore(
   path: string,
   now: Now,
   threadIds: ThreadIds = RANDOM_THREAD_IDS,
+  log?: StatusLog,
 ): TurnStore {
-  return turnStoreOn(openTurnDatabase(path), now, threadIds);
+  return turnStoreOn(openTurnDatabase(path), now, threadIds, log);
 }
 
 /**
@@ -154,12 +158,18 @@ export function sharedTurnStore(
   db: DatabaseSync,
   now: Now,
   threadIds: ThreadIds = RANDOM_THREAD_IDS,
+  log?: StatusLog,
 ): TurnStore {
   migrateTurnDatabase(db);
-  return turnStoreOn(db, now, threadIds);
+  return turnStoreOn(db, now, threadIds, log);
 }
 
-function turnStoreOn(db: DatabaseSync, now: Now, threadIds: ThreadIds): TurnStore {
+function turnStoreOn(
+  db: DatabaseSync,
+  now: Now,
+  threadIds: ThreadIds,
+  log: StatusLog = sqliteStatusLog(db),
+): TurnStore {
   const rows: Rows = (sql, ...params) =>
     db
       .prepare(sql)
@@ -167,13 +177,20 @@ function turnStoreOn(db: DatabaseSync, now: Now, threadIds: ThreadIds): TurnStor
       .map(toTurn);
   return {
     ...threadMethods(db, now, threadIds),
-    ...turnWrites(db, now),
+    ...turnWrites(db, now, log),
+    ...interruptibleWrites(db, now, log),
     ...pauseAnswerWrites(db),
     ...turnReads(rows),
     ...statusReads(rows),
     ...scoreMethods(db, now),
     ...memoryMethods(db, now),
     ...configMethods(db, now),
+    ...idleThreadMethods(db, log),
+    statusHistory: (thread) => Promise.resolve(log.historyOf(thread)),
+    forgetStatusHistory: (tenantId, threadId) => {
+      log.forgotten({ tenantId, threadId });
+      return Promise.resolve();
+    },
     close: () => {
       db.close();
     },

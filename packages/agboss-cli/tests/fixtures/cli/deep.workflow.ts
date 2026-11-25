@@ -1,9 +1,9 @@
 // `agboss check --strict` fixture (#263): a path nested past four levels — a warning, an error
 // under --strict ([flow.path-too-deep])
 // the untyped builder: this package has no generated types for the framework's fixtures
-import { Application, EmptyEnvironment } from "../../../../agboss/src/index.js";
+import { Application, EmptyEnvironment, Ttl } from "../../../../agboss/src/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
-import { start, toAction } from "../../../../agboss/tests/flow/fixtures/paths.js";
+import { onStart, toAction } from "../../../../agboss/tests/flow/fixtures/paths.js";
 import { Action } from "../../../../agboss/src/flow/decorators/action.js";
 import { Workflow } from "../../../../agboss/src/flow/decorators/workflow.js";
 import { OfferDraftDto } from "../../../../agboss/tests/flow/fixtures/dtos.js";
@@ -12,6 +12,7 @@ import {
   EditKitAgent,
   SecondKitWorkflowStart,
 } from "../../../../agboss/tests/flow/fixtures/kit.fixture.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 // the types import the DTO from a module the check loads
 export { OfferDraftDto };
@@ -56,9 +57,9 @@ export class DeepFifthAction {
 @Workflow({
   name: "deep-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SecondKitWorkflowStart)
-      .returns(OfferDraftDto)
+    onStart(SecondKitWorkflowStart)
       .toAgent(EditKitAgent)
       .onError(
         DeliveryError,
@@ -85,7 +86,6 @@ export class DeepFifthAction {
           )
           .toFinish(DraftKitWorkflowFinish),
       )
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ],
 })
@@ -93,6 +93,7 @@ export class DeepWorkflow {}
 
 /** The application `agboss --application` loads (#268): this workflow alone. */
 @Application({
+  modelProvider: TestModelProvider,
   name: "deep-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

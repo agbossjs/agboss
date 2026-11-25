@@ -1,39 +1,43 @@
 import { isChannelOutcome, ChannelOutcomeKind } from "../channels/channel-outcome.js";
-import { KEY_TEXT_RULE_TEXT, keyTextRuleOf } from "../core/errors.js";
-import { DtoValidationError, type DtoIssue } from "../dto/errors.js";
+import { definedFields } from "../core/defined-fields.js";
+import { checked } from "./reassign-request.js";
+import { maskedReason, ownTargetOf, refusedReassignment } from "./pause-reassign-support.js";
+import type { PauseActor } from "../channels/pause-contexts.js";
+import type { ReassignPauseRequest } from "./reassign-types.js";
 import { checkedCallers } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
-import { sentBy, type PauseChannel } from "../flow/runtime/pause.js";
+import { checkedExternalRef, sentBy, type PauseChannel } from "../flow/runtime/pause.js";
 import { askOfPause } from "../flow/runtime/pause-chain.js";
 import type { ResendReassigned } from "../application/pause-resend-look.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
-import {
-  isApprovalPause,
-  newPauseId,
-  pauseKeyOf,
-  PauseStatus,
-  type PauseRecord,
-} from "../infrastructure/pause-record.js";
+import { pauseKeyOf, PauseStatus, type PauseRecord } from "../infrastructure/pause-record.js";
 import { noticesWritten, recipientsIn } from "../pause/index.js";
 import { pauseTallyOf } from "../pause/pause-tally.js";
 import { reassignedPause } from "../infrastructure/pause-replacement.js";
-import { DEFAULT_TOOL_TIMEOUT } from "../tools/index.js";
+import { DEFAULT_CHANNEL_TIMEOUT } from "../flow/runtime/pause-channel.js";
 import type { AppDeps } from "./app-deps.js";
 import type { ChannelDecision } from "./channel-decision.js";
 import { errorNamesOf } from "./error-names.js";
 import { ownDepsOf } from "./own-deps.js";
+import { toldReassigned } from "./pause-change-events.js";
 import { callInFrame } from "./pause-notice-call.js";
 import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
 import { pauseClosed } from "./pause-closed.js";
 import type { AnswerParts } from "./resume.js";
-import { answeredByOf, pauseOf } from "./resume.js";
-import type { App, PauseCallerOptions, ReassignPauseRequest } from "./types.js";
+import { actorOf, pauseOf } from "./resume.js";
+import { assertReassignPermitted } from "./answer-permit.js";
+import type { PauseTarget } from "../flow/runtime/pause-channel.js";
+import { planOf, type ReassignPlan } from "./pause-reassign-plan.js";
+import type { AnyTenantApp, PauseCallerOptions } from "./types.js";
 
 /**
- * `app.reassignPause` (#946, Q5): an operator moves an open pause to another addressee — the same
- * channel, asked again with a new pause id, `ChannelAsk.assignee` and `ChannelAsk.replaces`. Who may:
- * as an answer (`answeredBy` for a channel's pause, the thread's `ownerId` for its owner's). A closed
+ * `app.reassignPause` (#946, Q5): an operator moves an open pause to other addressees — the same
+ * channel, asked again with a new pause id, `ChannelAsk.assignees` and `ChannelAsk.replaces`. Who may:
+ * as an answer (`actor` for a delegate's pause, the thread's `ownerId` for its owner's), and the
+ * target's `permitReassign` when it has one (fail closed: only `true` permits). The new pause's
+ * chain of custody is the old one's and a `reassigned` entry: who, when, to whom, why (the reason
+ * masked by the pause's own workflow's PII policy before it is kept). A closed
  * pause, or one past its deadline, is `PauseClosedError` — judged at the instant of the write, in the
  * store's one transaction, which makes the old pause `Cancelled / Reassigned`, the replacement
  * `Pending` with the old deadline, and writes the old pause's `closed (Reassigned)` notices: of two
@@ -42,7 +46,7 @@ import type { App, PauseCallerOptions, ReassignPauseRequest } from "./types.js";
  * channel fails, between the two leaves it unsent for the re-send look (`pause-resend-look.ts`):
  * `send` is at-least-once, as a step's re-entry after a crash already is. No order is imposed on the
  * channel's two notices (Q12). The new id goes to the channel only: never to the caller, a log or a
- * listener without `allowAnswering`. No lease is taken, no tree moves, the agent does not run again.
+ * listener without `includePauseIds`. No lease is taken, no tree moves, the agent does not run again.
  */
 
 /** What a reassignment needs from the workflow's app. */
@@ -67,34 +71,9 @@ export interface ResendParts {
   readonly decide: ChannelDecision;
 }
 
-function reject(issues: readonly DtoIssue[]): never {
-  throw new DtoValidationError({ dto: "ReassignPauseRequest", issues });
-}
-
-/** The request as an untyped (JS) caller may pass it, checked: a pause id and an assignee (a key's text). */
-function checked(request: unknown): ReassignPauseRequest {
-  const read = (field: string): unknown =>
-    typeof request === "object" && request !== null ? Reflect.get(request, field) : undefined;
-  const pauseId = read("pauseId");
-  const assignee = read("assignee");
-  if (typeof pauseId !== "string" || pauseId === "")
-    reject([{ path: ".pauseId", reason: "a pause's id is a non-empty text" }]);
-  const rule = typeof assignee === "string" ? keyTextRuleOf(assignee) : undefined;
-  if (typeof assignee !== "string" || rule !== undefined)
-    reject([
-      {
-        path: ".assignee",
-        reason:
-          rule === undefined
-            ? "an assignee is a key's text: a non-empty text"
-            : `an assignee is a key's text (${rule}): ${KEY_TEXT_RULE_TEXT[rule]}`,
-      },
-    ]);
-  return { pauseId, assignee };
-}
-
-/** The pause's channel as its workflow has it now; `undefined`: it is gone. */
+/** The pause's channel as its workflow has it now; `undefined`: it is gone, or none was asked (an owner's pause). */
 function channelOf(deps: AppDeps, pause: PauseRecord): PauseChannel | undefined {
+  if (pause.channel === undefined) return undefined;
   try {
     return ownDepsOf(deps, pause.workflow).channelOf?.(pause.channel);
   } catch {
@@ -107,12 +86,13 @@ function channelOf(deps: AppDeps, pause: PauseRecord): PauseChannel | undefined 
  * timeout) with `assignee` and `replaces`, then marks it sent; a channel that decides at once answers it.
  */
 export async function sendReplacement(parts: ResendParts, pause: PauseRecord): Promise<void> {
-  const { deps, pauses, clock } = parts;
+  const { deps, clock } = parts;
+  // an owner's pause with no channel: nobody is asked, the replacement just waits (#1307c)
+  if (pause.channel === undefined) return markedSent(parts, pause);
   const channel = channelOf(deps, pause);
   if (channel === undefined)
     throw new TypeError(`no channel ${pause.channel}: a reassigned pause cannot be asked`);
-  const own = ownDepsOf(deps, pause.workflow);
-  const timeout = isApprovalPause(pause) ? own.tools(pause.ask.tool).timeout : DEFAULT_TOOL_TIMEOUT;
+  const timeout = channel.timeout ?? DEFAULT_CHANNEL_TIMEOUT;
   const tree = await pauseTreeOf(deps, pause, await treeStateOf(deps, pause.rootExecutionId));
   const frame = pauseFrameOf(deps, pause, tree);
   const outcome = await callInFrame(
@@ -125,10 +105,22 @@ export async function sendReplacement(parts: ResendParts, pause: PauseRecord): P
     );
   if (outcome.kind === ChannelOutcomeKind.Decided)
     return answeredAtOnce(parts, pause, channel.name, outcome.decision);
+  // a bad reference is the channel's send failure, as in a step's own send: never stored
+  await markedSent(parts, pause, checkedExternalRef(channel.name, outcome.externalRef));
+}
+
+/** The replacement recorded as sent: asked of its channel, or of nobody (an owner's pause with no channel). */
+async function markedSent(
+  parts: ResendParts,
+  pause: PauseRecord,
+  externalRef?: string,
+): Promise<void> {
+  const { deps, pauses } = parts;
   await pauses.markSentByTenantIdAndPauseId(
     pause.tenantId,
     pause.pauseId,
     recipientsIn(deps.pause, pause),
+    externalRef,
   );
   noticesWritten(deps.pause);
   // asked: the replacement was unsent when this send began and the store marked it
@@ -168,40 +160,93 @@ async function assertOpen(parts: ReassignParts, pause: PauseRecord): Promise<voi
 
 /**
  * `app.reassignPause` of one workflow's app. The store's one transaction decides: it applies only
- * while the pause is `Pending` and its deadline is after the instant of the write. A call that lost
- * it reads why (`PauseClosedError` with the reason of the close that won). The send after it is
+ * while the pause is `Pending`, its deadline is after the instant of the write and its chain holds
+ * fewer reassignments than the limit allows. A call that lost it reads why (`PauseClosedError` with
+ * the reason of the close that won, `PauseError.EscalationLimitExceeded`). The send after a move is
  * told, never thrown: the reassignment is done, and the re-send look asks again.
  */
 export const reassignPauseOf =
-  (parts: ReassignParts): App["reassignPause"] =>
+  (parts: ReassignParts): AnyTenantApp["reassignPause"] =>
   async (given, call: PauseCallerOptions = {}) => {
     parts.accepting();
     const tenantId = call.tenantId ?? DEFAULT_TENANT_ID;
     checkedCallers("PauseCallerOptions", { ...call, tenantId });
     const request = checked(given);
     const pause = await pauseOf(parts.pauses, request, tenantId);
-    await answeredByOf(parts, pause, call);
+    const actor = await actorOf(parts, pause, call);
     await assertOpen(parts, pause);
-    if (channelOf(parts.deps, pause) === undefined)
-      reject([
-        { path: ".pauseId", reason: "the pause's channel is no longer in this application" },
-      ]);
+    const from = ownTargetOf(parts.deps, pause);
+    const plan = await permittedPlan(parts, { pause, request, actor }, from);
     // the write is judged at this instant, after every read above (#1148)
     const at = parts.clock.now();
-    const replacement = await parts.pauses.reassignByTenantIdAndPauseId(
+    const changed = await parts.pauses.reassignByTenantIdAndPauseId(
       tenantId,
       pause.pauseId,
-      { pauseId: newPauseId(), assignee: request.assignee },
+      plan.change,
       at,
       recipientsIn(parts.deps.pause, pause),
     );
-    if (replacement === undefined) throw await pauseClosed(parts.pauses, pause, parts.clock.now());
+    if (changed === undefined)
+      throw await refusedReassignment(parts, pause, plan.change.maxReassignments);
     noticesWritten(parts.deps.pause);
-    // counted once, by the call whose transaction won: the old pause closed `reassigned`
-    pauseTallyOf(parts.deps.pause)?.closed(reassignedPause(pause, replacement.pauseId, at));
-    await sentAfter(parts, replacement);
-    return { pauseKey: pauseKeyOf(tenantId, replacement.pauseId) };
+    // counted once, by the call whose transaction won
+    if (!plan.isInPlace)
+      pauseTallyOf(parts.deps.pause)?.closed(reassignedPause(pause, changed.pauseId, at));
+    pauseTallyOf(parts.deps.pause)?.reassigned(changed);
+    await toldReassigned(parts.deps, pause, changed);
+    if (!plan.isInPlace) await sentAfter(parts, changed);
+    return reassignedAnswer(tenantId, changed);
   };
+
+/** What a reassignment tells its caller: where the pause waits now. */
+function reassignedAnswer(tenantId: string, changed: PauseRecord) {
+  return {
+    pauseKey: pauseKeyOf(tenantId, changed.pauseId),
+    target: changed.target,
+    ...definedFields({
+      channel: changed.channel,
+      assignees: changed.assignees,
+      expiresAt: changed.expiresAt === undefined ? undefined : new Date(changed.expiresAt),
+    }),
+  };
+}
+
+/** The plan of the call, once the pause's own target and, for a move to another target, the destination permit it. */
+async function permittedPlan(
+  parts: ReassignParts,
+  call: {
+    readonly pause: PauseRecord;
+    readonly request: ReassignPauseRequest;
+    readonly actor: PauseActor | undefined;
+  },
+  from: PauseTarget,
+): Promise<ReassignPlan> {
+  const { pause, request, actor } = call;
+  // the reason is kept in the pause's chain of custody: masked by the pause's own workflow's policy
+  const reason = await maskedReason(parts.deps, pause, request.reason);
+  const asked = {
+    actor,
+    assignees: request.assignees,
+    reason,
+    toTarget: request.target,
+    toChannel: request.channel,
+    timeout: request.timeout,
+  };
+  // before any hook of the destination runs: who may move the pause is the pause's own target's call
+  await assertReassignPermitted(parts.deps, pause, asked);
+  const plan = await planOf(parts, pause, from, {
+    target: request.target,
+    channel: request.channel,
+    assignees: request.assignees,
+    timeout: request.timeout,
+    reason,
+    actor,
+    isExpiry: false,
+  });
+  // a pause moved to another target is also the destination's to permit
+  if (plan.target !== from) await assertReassignPermitted(parts.deps, pause, asked, plan.target);
+  return plan;
+}
 
 /** Asks the channel of the replacement; a failure is logged (never the id) and left to the re-send look. */
 async function sentAfter(parts: ReassignParts, replacement: PauseRecord): Promise<void> {

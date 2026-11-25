@@ -1,13 +1,13 @@
 /**
  * #860 AC3 — fail closed at assembly: a direct-reply skill (`A2AReply.Message`) is stateless — a
  * pause, a fenced effect or an outbound call (through any service a node or a tool injects), a tool
- * that is not `readOnly`, an `@McpTool`, an undo or a child workflow is `[a2a.message-skill-*]`, all
+ * that is not `readOnly`, an MCP server, an undo or a child workflow is `[a2a.message-skill-*]`, all
  * at once; a reply for no export and a `defaultSkill` of none are refused; and its replies are kept
  * on its task store's backend — `[a2a.message-store-not-shared]` otherwise, a multi-instance set
  * on shared leases included.
  */
 import { describe, expect, it } from "vitest";
-import { A2AReply } from "../../../src/a2a/a2a-expose.decorator.js";
+import { A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
@@ -41,7 +41,7 @@ describe("#860 AC3: a direct-reply skill is stateless", () => {
 
     expect(violations).toEqual([
       expect.stringMatching(
-        /^\[a2a\.message-skill-pause\] tck-workflow-start answers with a direct message \(A2AReply\.Message\) and must be stateless, but tck-input-question asks its caller — answer with a task/,
+        /^\[a2a\.message-skill-pause\] tck-workflow-start answers with a direct message \(A2AReply\.Message\) and must be stateless, but tck-input-external-task asks its caller — answer with a task/,
       ),
     ]);
   });
@@ -55,16 +55,18 @@ describe("#860 AC3: a direct-reply skill is stateless", () => {
       "a2a.message-skill-effect",
       "a2a.message-skill-effect",
       "a2a.message-skill-effect",
+      "a2a.message-skill-effect",
       "a2a.message-skill-tool",
       "a2a.message-skill-tool",
     ]);
     const text = violations.join("\n");
-    expect(text).toContain("ChargeAction injects OutboundCalls");
-    expect(text).toContain("PayAction injects FencedEffects");
+    expect(text).toContain("ChargeAction injects Idempotency");
+    expect(text).toContain("PayAction injects Idempotency");
     // two hops down a tool's services: the readOnly flag does not hide it
     expect(text).toContain("LedgerReadTool injects FencedEffectRepository");
     expect(text).toContain("busy-agent calls PingTool, which is not @Tool({ readOnly: true })");
-    expect(text).toContain("busy-agent calls BoardLookupTool, an @McpTool");
+    // an MCP server reached through a tool's deps is an effect, whatever the tool says
+    expect(text).toContain("BoardLookupTool injects JobBoardServer");
     expect(text).toContain("reserve-action declares its undo");
     expect(text).toContain("it launches quote-workflow");
     // the read-only tool is allowed
@@ -77,15 +79,13 @@ describe("#860 AC3: a direct-reply skill is stateless", () => {
     expect(await violationsOf(directRulesApplication(BusyWorkflowStart, [], skills))).toEqual([]);
   });
 
-  it("AC3: a reply set for no export, and a defaultSkill that is no export, are refused", async () => {
-    const skills = { "quote-workflow-startt": { reply: A2AReply.Message } };
-    const application = directRulesApplication(BusyWorkflowStart, [], skills, QuoteWorkflowStart);
+  it("AC3: a defaultSkill that is no export is refused", async () => {
+    const application = directRulesApplication(BusyWorkflowStart, [], {}, QuoteWorkflowStart);
 
     const violations = await violationsOf(application);
 
     expect(violations).toEqual(
       expect.arrayContaining([
-        "[a2a.unknown-skill-option] rules-a2a-expose sets the reply of quote-workflow-startt, which it does not export — name an exported start",
         "[a2a.unknown-skill-option] rules-a2a-expose's defaultSkill QuoteWorkflowStart is not one of its exports",
       ]),
     );

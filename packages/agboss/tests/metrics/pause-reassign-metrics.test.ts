@@ -3,6 +3,7 @@
  * transaction won) and the replacement opened (once it was asked) — by workflow and role; the id
  * of neither pause is a label. A refused reassignment counts nothing.
  */
+import { FinanceDeskBackupChannel } from "../channels/fixtures/pauses.workflow.js";
 import { beforeEach, describe, expect } from "vitest";
 import { callTool, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -19,7 +20,8 @@ import { collect, instanceMeter, type InstanceMeter } from "./support/metric-rea
 
 const OPENED = "agboss.instance.pauses.opened";
 const CLOSED = "agboss.instance.pauses.closed";
-const manager = { answeredBy: "manager-17" };
+const REASSIGNED = "agboss.instance.pauses.reassigned";
+const manager = { actor: { id: "manager-17" } };
 
 beforeEach(resetPauses);
 
@@ -27,7 +29,7 @@ beforeEach(resetPauses);
 async function countedOf(meter: InstanceMeter, name: string): Promise<Record<string, number>> {
   const counted: Record<string, number> = {};
   for (const { attributes, value } of (await collect(meter)).get(name)?.points ?? []) {
-    const key = [attributes.workflow, attributes.role, attributes.reason]
+    const key = [attributes.workflow, attributes.target, attributes.channel, attributes.reason]
       .filter((part) => part !== undefined)
       .map(String)
       .join("/");
@@ -46,24 +48,38 @@ describe("#946 with #943: a reassignment is counted", () => {
       mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       await execute(app, DeskWorkflowStart, { text: "refund order 7" });
       const oldId = seen.asks[0]?.pauseId ?? "";
-      const role = "refund-approval-channel";
+      const role = "refund-gate-tool-approval/finance-desk-refund-approval-channel";
       expect(await countedOf(meter, OPENED)).toEqual({ [`desk-workflow/${role}`]: 1 });
 
-      await app.reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+      await app.reassignPause(
+        { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
       await until(() => seen.asks.length === 2);
       // refused twice (the old pause is closed): counted nowhere
       await app
-        .reassignPause({ pauseId: oldId, assignee: "deputy-4" }, manager)
+        .reassignPause(
+          { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-4"] },
+          manager,
+        )
         .catch(() => undefined);
 
-      expect(await countedOf(meter, OPENED)).toEqual({ [`desk-workflow/${role}`]: 2 });
+      // the first pause opened on the desk, its replacement on the backup channel
+      expect(await countedOf(meter, OPENED)).toEqual({
+        [`desk-workflow/${role}`]: 1,
+        "desk-workflow/refund-gate-tool-approval/finance-desk-backup-channel": 1,
+      });
+      // counted once, by the call whose transaction won: the refused one counts nothing
+      expect(await countedOf(meter, REASSIGNED)).toEqual({
+        "desk-workflow/refund-gate-tool-approval/finance-desk-backup-channel": 1,
+      });
       expect(await countedOf(meter, CLOSED)).toEqual({
         [`desk-workflow/${role}/reassigned`]: 1,
       });
       const labels = (await collect(meter))
         .get(CLOSED)
         ?.points.flatMap((p) => Object.keys(p.attributes));
-      expect(labels?.sort()).toEqual(["reason", "role", "workflow"]);
+      expect(labels?.sort()).toEqual(["channel", "reason", "target", "workflow"]);
     },
   );
 });

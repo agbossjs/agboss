@@ -8,7 +8,7 @@ import { Budget, BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
 import { budgetRuleViolations } from "../../src/budgets/budget-rules.js";
 import { periodStartOf, periodWords } from "../../src/budgets/budget-period.js";
 import type { Class } from "../../src/components/injection.js";
-import { usd } from "../../src/units/index.js";
+import { usd, type Usd } from "../../src/units/index.js";
 import { BriefWorkflow } from "./fixtures/budgets.application.js";
 
 class First {
@@ -21,41 +21,56 @@ class NotABudget {
   readonly id = 3;
 }
 
-const handler = { maxSpend: () => usd(1) };
+const handler = { maxSpend: (): Usd => usd(1) };
 
 @Budget({ name: "tenant-budget", scope: BudgetScope.Tenant, period: BudgetPeriod.Day })
 class TenantBudget {
-  maxSpend = handler.maxSpend;
+  maxSpend(): Usd {
+    return handler.maxSpend();
+  }
 }
 @Budget({ name: "application-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 class ApplicationBudget {
-  maxSpend = handler.maxSpend;
+  maxSpend(): Usd {
+    return handler.maxSpend();
+  }
 }
 @Budget({ name: "default-budget", scope: BudgetScope.Execution })
 class DefaultBudget {
-  maxSpend = handler.maxSpend;
+  maxSpend(): Usd {
+    return handler.maxSpend();
+  }
 }
 @Budget({ name: "other-default-budget", scope: BudgetScope.Execution })
 class OtherDefaultBudget {
-  maxSpend = handler.maxSpend;
+  maxSpend(): Usd {
+    return handler.maxSpend();
+  }
 }
 @Budget({ name: "first-budget", scope: BudgetScope.Execution, workflow: First })
 class FirstBudget {
-  maxSpend = handler.maxSpend;
+  maxSpend(): Usd {
+    return handler.maxSpend();
+  }
 }
 @Budget({ name: "other-first-budget", scope: BudgetScope.Execution, workflow: First })
 class OtherFirstBudget {
-  maxSpend = handler.maxSpend;
+  maxSpend(): Usd {
+    return handler.maxSpend();
+  }
 }
 @Budget({ name: "brief-budget", scope: BudgetScope.Execution, workflow: BriefWorkflow })
 class BriefBudget {
-  maxSpend = handler.maxSpend;
+  maxSpend(): Usd {
+    return handler.maxSpend();
+  }
 }
 
 const violationsOf = (workflows: readonly Class[], budgets?: readonly Class[]) =>
   budgetRuleViolations({
     name: "shop",
     workflows,
+    tenantContext: Object,
     ...(budgets === undefined ? {} : { budgets }),
   }).map(({ code, message, nodes }) => ({ code, message, nodes }));
 
@@ -90,13 +105,13 @@ describe("#1356: the rules of an application's budgets", () => {
       {
         code: "budget.execution-budget-required",
         message:
-          "brief-workflow has no execution budget and there is no default — add one with workflow: BriefWorkflow or one without workflow",
+          "brief-workflow has no execution budget and there is no default — set budget: on its @Workflow, add one with workflow: BriefWorkflow or one without workflow",
         nodes: ["shop"],
       },
       {
         code: "budget.execution-budget-required",
         message:
-          "First has no execution budget and there is no default — add one with workflow: First or one without workflow",
+          "First has no execution budget and there is no default — set budget: on its @Workflow, add one with workflow: First or one without workflow",
         nodes: ["shop"],
       },
     ]);

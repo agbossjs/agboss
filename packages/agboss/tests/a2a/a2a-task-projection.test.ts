@@ -1,5 +1,5 @@
 /**
- * #807 (A2A P1, design §4.1.3 step 7): an application that exposes an `@A2AExpose` moves each A2A
+ * #807 (A2A P1, design §4.1.3 step 7): an application that exposes an `@A2AEndpoint` moves each A2A
  * task with its execution's events — start → WORKING, a rest at a pause → INPUT_REQUIRED with the
  * pause, resume → WORKING, a finish → COMPLETED with its output, a failure → FAILED with its code (and
  * that code's fixed text, never the error's own), a
@@ -44,6 +44,7 @@ beforeEach(resetRecovery);
 async function accepted(app: TestApp): Promise<A2ATaskRecord> {
   await app.ready();
   const save = await app.resolve(A2ATaskRepository).saveIfAbsent({
+    endpoint: "orders-a2a-expose",
     tenantId: "default",
     taskId: TASK,
     ownerId: undefined,
@@ -114,7 +115,11 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
           {
             pauseId: paused.pending[0]?.pauseId,
             kind: PauseKind.Approval,
-            ask: paused.pending[0]?.ask,
+            input: paused.pending[0]?.input,
+            toolCall:
+              paused.pending[0]?.kind === PauseKind.Approval
+                ? paused.pending[0].toolCall
+                : undefined,
           },
         ],
       });
@@ -141,9 +146,12 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
         message: "the task failed: step.agent",
       });
       // what GetTask and ListTasks will serve carries no text of the error itself
-      const listed = await app
-        .resolve(A2ATaskRepository)
-        .list({ tenantId: "default", ownerId: undefined, pageSize: 10 });
+      const listed = await app.resolve(A2ATaskRepository).list({
+        endpoint: "orders-a2a-expose",
+        tenantId: "default",
+        ownerId: undefined,
+        pageSize: 10,
+      });
       expect(JSON.stringify(listed)).not.toMatch(/clerk-agent|script exhausted/u);
     },
   );
@@ -160,7 +168,7 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
     });
 
     expect((await taskOn(app))?.status).toEqual({
-      state: A2ATaskState.Canceled,
+      state: A2ATaskState.Cancelled,
       pendingPauses: [],
     });
   });
@@ -171,9 +179,12 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
 
     await execute(app, OrderWorkflowStart, { text: "go" }, { threadId: "ctx-1" });
 
-    const page = await app
-      .resolve(A2ATaskRepository)
-      .list({ tenantId: "default", ownerId: undefined, pageSize: 10 });
+    const page = await app.resolve(A2ATaskRepository).list({
+      endpoint: "orders-a2a-expose",
+      tenantId: "default",
+      ownerId: undefined,
+      pageSize: 10,
+    });
     expect(page.tasks).toEqual([]);
   });
 
@@ -192,7 +203,7 @@ describe("#807 AC3: the projection moves the task with its execution", () => {
 
 describe("#807 AC3: a status the events missed is repaired on read", () => {
   internal(
-    "a missed finish → COMPLETED with its output, once a lease period passed",
+    "a missed finish → COMPLETED from the records (an ended tree keeps no output, #1321d), once a lease period passed",
     async ({ app, clock, mockLlm }) => {
       mockLlm(Clerk).thenReturn(done);
       await accepted(app);
@@ -211,7 +222,7 @@ describe("#807 AC3: a status the events missed is repaired on read", () => {
 
       expect(fresh.status.state).toBe(A2ATaskState.Submitted);
       expect(repaired).toMatchObject({
-        status: { state: A2ATaskState.Completed, output: { text: "Done." } },
+        status: { state: A2ATaskState.Completed, finish: expect.any(String) as unknown },
         version: 2,
       });
       expect(await taskOn(app)).toEqual(repaired);

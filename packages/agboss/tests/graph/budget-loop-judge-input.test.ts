@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — what a judge of the quality gate reads and what the gate records, each rule on its own
  * over fakes: the shape of the input by the shape of the answer — a text, one value with its answer tool's class, a list
@@ -12,6 +13,7 @@ import { judgedFilesOf } from "../../src/graph/agent-loop/judge-files.js";
 import { meteredModel } from "../../src/graph/agent-loop/judge-model.js";
 import { loopPoliciesOf } from "../../src/graph/agent-loop/model-pii.js";
 import { modelReadingMaskOf } from "../../src/pii/model-boundary.js";
+import { BudgetExceededError } from "../../src/graph/limits.js";
 import { makeJudgeNode, retryPrompt } from "../../src/graph/agent-loop/judge-node.js";
 import { reportNodeEvent } from "../../src/flow/observers/execution-event.js";
 
@@ -30,10 +32,11 @@ class BDto {
 }
 
 const record = (costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "judge",
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -68,7 +71,7 @@ const judgeOf = (name: string, reply: unknown, verdict: Verdict = { passed: true
     asked,
     judge: {
       name,
-      reply,
+      output: reply,
       handler: {
         judge: vi.fn((input: unknown) => {
           asked.push(input);
@@ -79,13 +82,15 @@ const judgeOf = (name: string, reply: unknown, verdict: Verdict = { passed: true
   };
 };
 
+const check = vi.fn();
+
 function nodeOf(
   judges: object[],
   answerTools: { tools: { dto: unknown }[]; isList: boolean; hasVariants: boolean },
 ) {
   const deps = {
     agent: { name: "alpha", judges, maxRetries: 3, answerTools },
-    budgets: { tally: (records: readonly UsageRecord[]) => records },
+    budgets: { tally: (records: readonly UsageRecord[]) => records, check },
   };
   return makeJudgeNode(deps as never);
 }
@@ -105,6 +110,48 @@ beforeEach(() => {
   vi.mocked(modelReadingMaskOf).mockReturnValue(undefined);
 });
 
+describe("#1290: the budgets are checked before each model call of a judge", () => {
+  it("the check a judge's model runs before a call has the loop's spend and the judges' so far, on the flow path", async () => {
+    const { judge } = judgeOf("j", PlainTextDto);
+    const earlier = record(0.5);
+
+    await nodeOf([judge], single)(
+      stateOf({ usage: [earlier], from: { usage: 0 }, flowPath: ["a", "b"] }),
+      undefined,
+    );
+    const beforeCall = vi.mocked(meteredModel).mock.calls[0]?.[4];
+    expect(beforeCall).toBeTypeOf("function");
+    expect(check).not.toHaveBeenCalled();
+    await beforeCall?.();
+
+    // the judge's own spend so far (the mock pushed 0.25) joins the state's records
+    expect(check).toHaveBeenCalledTimes(1);
+    const [state, path, usage] = check.mock.calls[0] ?? [];
+    expect(state).toEqual([earlier, expect.objectContaining({ costUsd: 0.25 })]);
+    expect(path).toEqual(["a", "b"]);
+    expect(usage).toEqual(expect.arrayContaining([expect.objectContaining({ costUsd: 0.25 })]));
+  });
+
+  it("a spent budget the check throws is the run's error as it is; any other throw fails the agent", async () => {
+    const spent = Object.create(BudgetExceededError.prototype) as BudgetExceededError;
+    const other = new Error("a judge's own throw");
+    const { judge } = judgeOf("j", PlainTextDto);
+
+    judge.handler.judge.mockImplementationOnce(() => {
+      throw spent;
+    });
+    await expect(nodeOf([judge], single)(stateOf(), undefined)).rejects.toBe(spent);
+
+    judge.handler.judge.mockImplementationOnce(() => {
+      throw other;
+    });
+    await expect(nodeOf([judge], single)(stateOf(), undefined)).rejects.toMatchObject({
+      name: "AgentFailedError",
+      cause: other,
+    });
+  });
+});
+
 describe("#1366: what a judge reads of the answer", () => {
   it("a reply that is no answer of a tool is a text, with the task, the attempt, the visit's tool calls and the files", async () => {
     const { judge, asked } = judgeOf("j", PlainTextDto);
@@ -118,7 +165,7 @@ describe("#1366: what a judge reads of the answer", () => {
         toolCalls: [{ call: 1 }],
         files: FILES,
         variant: PlainTextDto,
-        reply: { text: "the reply" },
+        output: { text: "the reply" },
       },
     ]);
   });
@@ -133,12 +180,12 @@ describe("#1366: what a judge reads of the answer", () => {
       undefined,
     );
 
-    const [one] = first.asked as { variant: unknown; reply: unknown }[];
-    const [two] = second.asked as { reply: unknown }[];
+    const [one] = first.asked as { variant: unknown; output: unknown }[];
+    const [two] = second.asked as { output: unknown }[];
     expect(one?.variant).toBe(ADto);
-    expect(one?.reply).toEqual(value);
-    expect(one?.reply).not.toBe(value);
-    expect(two?.reply).not.toBe(one?.reply);
+    expect(one?.output).toEqual(value);
+    expect(one?.output).not.toBe(value);
+    expect(two?.output).not.toBe(one?.output);
   });
 
   it("an answer by a tool that is not among the agent's is refused, naming the position", async () => {
@@ -166,7 +213,7 @@ describe("#1366: what a judge reads of the answer", () => {
       undefined,
     );
 
-    expect(asked[0]).toMatchObject({ variant: ADto, reply: [{ n: 1 }, { n: 2 }] });
+    expect(asked[0]).toMatchObject({ variant: ADto, output: [{ n: 1 }, { n: 2 }] });
   });
 
   it("an answer that is no list has no items", async () => {
@@ -178,7 +225,7 @@ describe("#1366: what a judge reads of the answer", () => {
       undefined,
     );
 
-    expect(asked[0]).toMatchObject({ variant: ADto, reply: [] });
+    expect(asked[0]).toMatchObject({ variant: ADto, output: [] });
   });
 
   it("a list of several classes, judged as one class: the judge's own class, whether it names the list or the class", async () => {
@@ -190,12 +237,12 @@ describe("#1366: what a judge reads of the answer", () => {
       undefined,
     );
 
-    expect(byList.asked[0]).toMatchObject({ variant: ADto, reply: [{ n: 1 }] });
-    expect(byClass.asked[0]).toMatchObject({ variant: ADto, reply: [{ n: 1 }] });
+    expect(byList.asked[0]).toMatchObject({ variant: ADto, output: [{ n: 1 }] });
+    expect(byClass.asked[0]).toMatchObject({ variant: ADto, output: [{ n: 1 }] });
   });
 
   it("a list of several classes whose judge names no one class is refused", async () => {
-    const { judge } = judgeOf("j", listOf(oneOf(ADto, BDto)));
+    const { judge } = judgeOf("j", listOf(ADto, BDto));
     const tools = { ...many, hasVariants: false };
     const asked = judgeOf("k", oneOf(ADto, BDto));
 
@@ -217,11 +264,11 @@ describe("#1366: what a judge reads of the answer", () => {
       undefined,
     );
 
-    expect(asked[0]).toMatchObject({ variant: ADto, reply: [{ n: 1 }, 7, null] });
+    expect(asked[0]).toMatchObject({ variant: ADto, output: [{ n: 1 }, 7, null] });
   });
 
   it("a judge of a list of several classes reads each item with its own class", async () => {
-    const { judge, asked } = judgeOf("j", listOf(oneOf(ADto, BDto)));
+    const { judge, asked } = judgeOf("j", listOf(ADto, BDto));
     const tools = { ...many, hasVariants: true };
 
     await nodeOf([judge], tools)(
@@ -237,16 +284,13 @@ describe("#1366: what a judge reads of the answer", () => {
       undefined,
     );
 
-    const [input] = asked as { reply: unknown }[];
-    expect(input?.reply).toEqual([
-      { variant: ADto, value: { n: 1 } },
-      { variant: BDto, value: { n: 2 } },
-    ]);
+    const [input] = asked as { output: unknown }[];
+    expect(input?.output).toEqual([{ n: 1 }, { n: 2 }]);
     expect(Object.keys(input ?? {})).not.toContain("variant");
   });
 
   it("an item with no answer tool of its class is refused, naming its index", async () => {
-    const { judge } = judgeOf("j", listOf(oneOf(ADto, BDto)));
+    const { judge } = judgeOf("j", listOf(ADto, BDto));
     const tools = { ...many, hasVariants: true };
 
     await expect(
@@ -270,7 +314,13 @@ describe("#1366: a judge's model reads as the agent's model does", () => {
     await nodeOf([judge], single)(stateOf({ piiTokens: { t: "1" } }), undefined);
 
     expect(modelReadingMaskOf).toHaveBeenCalledWith(policies, { t: "1" });
-    expect(meteredModel).toHaveBeenCalledWith(judge, expect.any(Array), mask, ["p"]);
+    expect(meteredModel).toHaveBeenCalledWith(
+      judge,
+      expect.any(Array),
+      mask,
+      ["p"],
+      expect.any(Function),
+    );
   });
 });
 

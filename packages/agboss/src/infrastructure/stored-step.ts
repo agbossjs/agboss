@@ -4,17 +4,50 @@ import {
   type StoredNamesUnreadableErrorOptions,
   parsedStoredJson,
 } from "../core/stored-json.js";
-import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import { ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
 import type { StepRecord } from "../flow/context/execution-context.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
-import { PauseResolution } from "./pause-record.js";
-
-/** Whether a value is a `PauseAnswerer`. */
-const isAnswerer = (value: unknown): value is PauseAnswerer =>
-  Object.values(PauseAnswerer).some((one) => one === value);
+import type { PauseActor } from "../channels/pause-contexts.js";
+import { PauseResolution, type PauseTrailRecord } from "./pause-record.js";
+import { PauseRespondent } from "../pause/respondent.js";
 
 const optionalText = z.string().optional();
+
+/** Who acted on a pause: an id, and the organisation it acts for. */
+export const StoredActor = z.object({ id: z.string(), orgId: z.string().optional() });
+
+/** The actor without the fields it does not have (`exactOptionalPropertyTypes`). */
+export const actorOf = (stored: {
+  readonly id: string;
+  readonly orgId?: string | undefined;
+}): PauseActor =>
+  stored.orgId === undefined ? { id: stored.id } : { id: stored.id, orgId: stored.orgId };
+
+/** One entry of a pause's chain of custody. */
+export const StoredTrailEntry = z
+  .object({
+    action: z.enum(["opened", "reassigned", "timeout-changed", "escalated"]),
+    at: z.string(),
+    actor: StoredActor.optional(),
+    target: z.string(),
+    channel: z.string().optional(),
+    assignees: z.array(z.string()).optional(),
+    expiresAt: z.string().optional(),
+    externalRef: z.string().optional(),
+    reason: z.string().optional(),
+  })
+  .transform((stored): PauseTrailRecord => {
+    const { actor, channel, assignees, expiresAt, externalRef, reason, ...rest } = stored;
+    return {
+      ...rest,
+      ...(actor === undefined ? {} : { actor: actorOf(actor) }),
+      ...(channel === undefined ? {} : { channel }),
+      ...(assignees === undefined ? {} : { assignees }),
+      ...(expiresAt === undefined ? {} : { expiresAt }),
+      ...(externalRef === undefined ? {} : { externalRef }),
+      ...(reason === undefined ? {} : { reason }),
+    };
+  });
 
 /**
  * The join keys a stored pause keeps of its waiting step (#268 S93), read back with defaults: a
@@ -98,51 +131,49 @@ export function readStored<S extends z.ZodType>(
 }
 
 /**
- * A log entry as JSON stored it, in either shape (#934): 0.1.0's has no `answerer` — its `answeredBy`
- * is the kind, `responder` the person —, the new one has all three. Parsing it IS reading it: the
- * result is the new shape (`answerer` the kind, `answeredBy` the person, `responder` its deprecated
- * alias), and an entry that is neither — a kind that is none, a person that is no text — is
- * refused at its field, wherever it is nested (the history record's pauses and children's too).
+ * A log entry as JSON stored it (#934): `respondent` the kind, `answeredBy` the person. Parsing it IS
+ * reading it (0.1.0's `responder`, the person's alias, is refused: never read, never filled), and an entry
+ * of any other shape — a kind that is none, a person that is no text — is refused at its field,
+ * wherever it is nested (the history record's pauses and children's too).
  */
 export const PauseAnswerRecordSchema = z
   .object({
     pauseId: optionalText,
     executionId: z.string(),
     step: StoredStep,
-    role: z.string(),
-    answerer: z.enum(PauseAnswerer).optional(),
-    answeredBy: optionalText,
-    responder: optionalText,
+    target: z.string(),
+    channel: z.string().optional(),
+    role: z.never().optional(),
+    respondent: z.enum(PauseRespondent),
+    actor: StoredActor.optional(),
+    // 0.1.0's names of `actor` and `input`: refused, never read
+    answeredBy: z.never().optional(),
+    responder: z.never().optional(),
+    asked: z.never().optional(),
     resolution: z.enum(PauseResolution),
     askedAt: z.string(),
     resolvedAt: optionalText,
     decision: z.unknown().optional(),
-    asked: z.unknown().optional(),
+    input: z.unknown().optional(),
+    toolCall: z.unknown().optional(),
+    assignees: z.array(z.string()).optional(),
+    externalRef: z.string().optional(),
+    trail: z.array(StoredTrailEntry),
     isTaken: z.literal(false).optional(),
   })
-  .transform((stored, context): PauseAnswerRecord => {
-    const { answerer, answeredBy, responder } = stored;
-    const kind = answerer ?? answeredBy;
-    if (!isAnswerer(kind)) {
-      context.addIssue({ code: "custom", path: ["answeredBy"], message: "no PauseAnswerer" });
-      return z.NEVER;
-    }
-    const person = answerer === undefined ? responder : answeredBy;
-    return {
-      ...stored,
-      pauseId: stored.pauseId,
-      resolvedAt: stored.resolvedAt,
-      decision: stored.decision,
-      answerer: kind,
-      answeredBy: person,
-      responder: person,
-    };
-  });
+  .transform((stored): PauseAnswerRecord => ({
+    ...stored,
+    pauseId: stored.pauseId,
+    resolvedAt: stored.resolvedAt,
+    decision: stored.decision,
+    input: stored.input,
+    actor: stored.actor,
+  }));
 
-/** A log entry from the parsed JSON a store kept: read in either shape, or unreadable (id, field). */
+/** A log entry from the parsed JSON a store kept: read in the 0.1.1 shape, or unreadable (id, field). */
 export const pauseAnswerRecordOfValue = (value: unknown): PauseAnswerRecord =>
   readStored(PauseAnswerRecordSchema, value, "pause answer", ["pauseId", "executionId"]);
 
 /** A pause answer record as JSON stored it (`undefined` fields are left out by JSON: restored). */
 export const pauseAnswerRecordOfJson = (text: string): PauseAnswerRecord =>
-  pauseAnswerRecordOfValue(parsedStoredJson("pause answer", text, {}));
+  pauseAnswerRecordOfValue(parsedStoredJson({ what: "pause answer", text }));

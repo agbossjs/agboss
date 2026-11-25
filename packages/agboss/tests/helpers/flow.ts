@@ -1,16 +1,13 @@
 import type { App, ExecutionOptions, ExecutionOutput, ResumeRequest } from "../../src/app/types.js";
 import type { Class } from "../../src/components/injection.js";
-import type { DtoClass } from "../../src/dto/types.js";
 import { NodeKind, type PathSource } from "../../src/flow/ast.js";
-import { placementOptionOf } from "../../src/flow/child-placement.js";
-import type { ReturnsOptions } from "../../src/flow/builder-types.js";
 import {
-  aboutTargets,
   fromComponent,
   fromSource,
   subPathFrom,
   type PathBuilder,
 } from "../../src/flow/path-builder.js";
+import type { TargetRef } from "../../src/flow/target-ref.js";
 
 /**
  * The path builder without its compile-time checks, for the framework's own feature tests: the
@@ -19,30 +16,22 @@ import {
  * under tests/flow/fixtures and the compile-time tests.
  */
 
-export const start = (source: Class): PathBuilder<PathSource> =>
+export const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
-export const agent = (source: Class): PathBuilder<PathSource> =>
+export const onAgent = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Agent, source);
 
-export const router = (source: Class): PathBuilder<PathSource> =>
+export const onRouter = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Router, source);
 
-export const action = (source: Class): PathBuilder<PathSource> =>
+export const onAction = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Action, source);
 
-export const workflow = (source: Class): PathBuilder<PathSource> =>
+export const onWorkflow = (source: TargetRef): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Workflow, source);
 
-export const route = (target: Class, options?: unknown): PathBuilder<undefined> => {
-  const placement = placementOptionOf(options, "route(W, { placement })");
-  return subPathFrom({ kind: "route", target, ...(placement && { placement }) });
-};
-
-export const caseOf = (dto: DtoClass, options?: ReturnsOptions): PathBuilder<undefined> => {
-  const about = aboutTargets(options);
-  return subPathFrom(about === undefined ? { kind: "case", dto } : { kind: "case", dto, about });
-};
+export { skip } from "../../src/flow/parallel-step.js";
 
 const side = (): PathBuilder<undefined> => subPathFrom({ kind: "side" });
 
@@ -55,10 +44,13 @@ export const toAgent = (target: Class): PathBuilder<undefined> =>
 export const toRouter = (target: Class): PathBuilder<undefined> =>
   side()
     .toRouter(target);
+export const toExternalTask = (target: Class): PathBuilder<undefined> =>
+  side()
+    .toExternalTask(target);
 export const toFinish = (target: Class): PathBuilder<undefined> =>
   side()
     .toFinish(target);
-export const toWorkflow = (target: Class): PathBuilder<undefined> =>
+export const toWorkflow = (target: TargetRef): PathBuilder<undefined> =>
   side()
     .toWorkflow(target);
 
@@ -72,7 +64,7 @@ export const execute = (
 
 /**
  * The answer to a paused run's pause (#267): `app.resume(answerOf(paused, decision))` — its
- * `index`-th pending pause, by its id (a `PauseAnswerer.ThreadOwner` pause: the id is listed).
+ * `index`-th pending pause, by its id (a `PauseRespondent.Owner` pause: the id is listed).
  */
 export function answerOf(paused: ExecutionOutput, decision: unknown, index = 0): ResumeRequest {
   const pauseId = paused.pending[index]?.pauseId;

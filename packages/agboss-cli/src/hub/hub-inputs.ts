@@ -23,6 +23,8 @@ export interface DescribedTool {
   readonly server?: string;
   /** The channel it pauses on. */
   readonly channel?: string;
+  /** The `@ToolApproval` it waits for, when it names one as `approval` (#1307). */
+  readonly approval?: string;
 }
 
 /** A node of a described workflow: its name and kind (`agent`, `router`, `action`, `workflow`, …). */

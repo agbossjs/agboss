@@ -1,8 +1,13 @@
+import { createHash, randomUUID } from "node:crypto";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { App } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
+import { stableJson } from "../turns/index.js";
+import type { Clock } from "../infrastructure/clock.js";
+import type { Milliseconds } from "../units/index.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import {
+  MESH_REQUEST_LEASE_MS,
   MeshRequestRepository,
   type MeshRequestKey,
 } from "../infrastructure/mesh-request.repository.js";
@@ -23,16 +28,23 @@ import { errorResult } from "./mcp-service-helpers.js";
 
 /** What a trusted call is deduplicated by: its peer, the session's tenant and the call id. */
 export interface McpDedupeCall {
+  readonly tool: string;
+  readonly args: unknown;
   readonly peer: string | undefined;
   readonly callId: string | undefined;
   readonly tenantId: string | undefined;
 }
 
-const inProgress = (): CallToolResult => {
-  const code = MeshRefusalCode.RequestInProgress;
+const refusal = (code: MeshRefusalCode): CallToolResult => {
   const error = MESH_REFUSAL_TEXT[code];
   return { ...errorResult(error), _meta: { [MESH_ERROR_META_KEY]: { code, error } } };
 };
+
+/** `sha256:<hex>` of the call's tool and arguments: what a repeat of its key must ask again. */
+const requestHashOf = (call: McpDedupeCall): string =>
+  `sha256:${createHash("sha256")
+    .update(stableJson({ tool: call.tool, args: call.args ?? null }))
+    .digest("hex")}`;
 
 const keyOf = (call: McpDedupeCall): MeshRequestKey | undefined => {
   const tenantId = call.tenantId ?? DEFAULT_TENANT_ID;
@@ -45,7 +57,7 @@ const keyOf = (call: McpDedupeCall): MeshRequestKey | undefined => {
 
 /** Runs `run` once per trusted call key: a repeat answered from the store. */
 export async function dedupedMcpCall(
-  app: App,
+  app: AnyTenantApp,
   call: McpDedupeCall,
   run: () => Promise<CallToolResult>,
 ): Promise<CallToolResult> {
@@ -53,17 +65,71 @@ export async function dedupedMcpCall(
   const settings = meshSettingsOf(app);
   if (key === undefined || settings === undefined) return run();
   const requests = app.resolve(MeshRequestRepository);
-  const createdAt = settings.clock.now().toISOString();
-  if (!(await requests.saveIfAbsent({ ...key, createdAt }))) {
+  const now = settings.clock.now();
+  const attemptId = randomUUID();
+  const leaseFrom = (at: Date): string =>
+    new Date(at.getTime() + MESH_REQUEST_LEASE_MS).toISOString();
+  const record = {
+    ...key,
+    tool: call.tool,
+    requestHash: requestHashOf(call),
+    attemptId,
+    createdAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + settings.idempotencyRetention).toISOString(),
+    lockedUntil: leaseFrom(now),
+  };
+  if (!(await requests.saveIfAbsent(record))) {
     const kept = await requests.findByKey(key);
-    return kept?.response === undefined ? inProgress() : (kept.response as CallToolResult);
+    // a key that is another call's is never answered with that call's result
+    if (
+      kept !== undefined &&
+      (kept.tool !== record.tool || kept.requestHash !== record.requestHash)
+    )
+      return refusal(MeshRefusalCode.IdempotencyKeyReused);
+    return kept?.response === undefined
+      ? refusal(MeshRefusalCode.RequestInProgress)
+      : (kept.response as CallToolResult);
   }
+  // the handler holds the request while it runs: it renews its lease until it ends, and one that
+  // dies stops renewing, so the request can be taken over after the lease lapses, never before
+  const ended = new AbortController();
+  const renewing = renewalOf(requests, key, attemptId, settings.clock, ended.signal, leaseFrom);
   try {
     const result = await run();
-    await requests.saveResponse(key, result);
+    ended.abort();
+    await renewing;
+    // fenced (false): a newer attempt owns the request now, and this late answer writes nothing
+    await requests.saveResponse(key, attemptId, result);
     return result;
   } catch (error) {
-    await requests.deleteByKey(key);
+    ended.abort();
+    await renewing;
+    await requests.deleteByKey(key, attemptId);
     throw error;
+  }
+}
+
+/** Renews the lease of `attemptId` every third of it until `ended`, or until it is fenced. */
+async function renewalOf(
+  requests: MeshRequestRepository,
+  key: MeshRequestKey,
+  attemptId: string,
+  clock: Clock,
+  ended: AbortSignal,
+  leaseFrom: (at: Date) => string,
+): Promise<void> {
+  const isOver = (): boolean => ended.aborted;
+  while (!isOver()) {
+    try {
+      await clock.sleep((MESH_REQUEST_LEASE_MS / 3) as Milliseconds, ended);
+    } catch {
+      return;
+    }
+    if (isOver()) return;
+    try {
+      if (!(await requests.renewLease(key, attemptId, leaseFrom(clock.now())))) return;
+    } catch {
+      // the store did not answer: the next look renews again, the lease only lapses if none does
+    }
   }
 }

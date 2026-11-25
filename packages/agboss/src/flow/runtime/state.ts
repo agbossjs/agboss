@@ -110,7 +110,7 @@ export const ExecutionState = Annotation.Root({
   /** One record per visit of a node (#395 C3), in the order the visits ended (`record.steps`). */
   stepRecords: Annotation<ExecutionStepRecord[]>({ reducer: append, default: () => [] }),
   /**
-   * The PII token map (#120 S38): token → value of every `replaceWithToken()` the model boundary
+   * The PII token map (#120 S38): token → value of every `tokenize()` the model boundary
    * made — tokens are deterministic, so branches merge by key; kept by a pause, a resume and recovery.
    */
   piiTokens: Annotation<PiiTokenMap>({ reducer: mergeTokens, default: () => ({}) }),
@@ -136,7 +136,7 @@ export const ExecutionState = Annotation.Root({
   child: Annotation<ChildIdentityRecord | null>({ reducer: replace, default: () => null }),
   /** Every child execution that ended, as a nested record (`result.children`). */
   children: Annotation<EndedChildRecord[]>({ reducer: append, default: () => [] }),
-  /** Every failure an `.onError` / `.onJoinError` side path took (`toHaveHandledError`). */
+  /** Every failure an `.onError` side path took (`toHaveHandledError`). */
   handledErrors: Annotation<HandledErrorRecord[]>({ reducer: append, default: () => [] }),
   /** The side path the next visit is on (#656): what the budgets' exemptions read; `null` off one. */
   sidePath: Annotation<SidePathRecord | null>({ reducer: replace, default: () => null }),

@@ -1,22 +1,29 @@
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import type { ResolvedModelSettings } from "../../src/config/types.js";
 import { resolveSettings } from "../../src/llm/registry.js";
-import { Reasoning, ReasoningEffort, ReasoningError } from "../../src/models/index.js";
+import { Reasoning, ReasoningEffort } from "../../src/models/index.js";
 import { reasoningLabel, reasoningOfThinking } from "../../src/models/reasoning.js";
 import { wireBodies } from "./gateway.js";
 import { LocalModelProvider, TestOpenRouterProvider } from "./providers.fixture.js";
 
 const kimi: ResolvedModelSettings = {
   model: "moonshotai/kimi-k2.6",
+  modelProvider: "openrouter-model-provider",
   temperature: 0,
   maxTokens: 100,
 };
-const llama: ResolvedModelSettings = { model: "local/llama", temperature: 0, maxTokens: 100 };
+const llama: ResolvedModelSettings = {
+  model: "local/llama",
+  modelProvider: "local-model-provider",
+  temperature: 0,
+  maxTokens: 100,
+};
 
 describe("AC6: reasoning — Reasoning.modelDecides() | on({ effort?, budget? }) | off()", () => {
   it("AC6: on needs an effort or a budget (both allowed); a budget is a positive whole number", () => {
-    expect(() => Reasoning.on({})).toThrow(ReasoningError);
-    expect(() => Reasoning.on({ budget: { tokens: 0 } })).toThrow(ReasoningError);
+    expect(() => Reasoning.on({})).toThrow(ConfigError.Reasoning);
+    expect(() => Reasoning.on({ budget: { tokens: 0 } })).toThrow(ConfigError.Reasoning);
     expect(Reasoning.on({ effort: ReasoningEffort.High, budget: { tokens: 4000 } })).toEqual({
       kind: "on",
       effort: "high",

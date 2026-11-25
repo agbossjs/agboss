@@ -96,8 +96,11 @@ export async function entriesInCheckpoint(
     }
     const executionId = executionOf(namespace, values, rootExecutionId);
     if (executionId === undefined) continue;
-    // an execution's own entries only: a child's state may start from its parent's values
-    const entries = entriesOf(tuple).filter((entry) => entry.executionId === executionId);
+    // an execution's own entries only (its own and the ones its children's finishes moved up to
+    // it, #1281b): a child's state may start from its parent's values
+    const entries = entriesOf(tuple).filter(
+      (entry) => entry.executionId === executionId || entry.heldBy === executionId,
+    );
     found.push({ namespace, executionId, entries });
   }
   return found;

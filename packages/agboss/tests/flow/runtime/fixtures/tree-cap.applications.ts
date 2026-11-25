@@ -11,11 +11,13 @@ import { ChecksWorkflow } from "./tree-checks.workflow.js";
 import { GroupsWorkflow, NarrowGroupsWorkflow } from "./tree-groups.workflow.js";
 import { VotingWorkflow } from "./tree-vote.workflow.js";
 import { StrictVotingWorkflow } from "./tree-strict-vote.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** #264 PR 2 — the applications of the tree's concurrency cap. */
 
 @Application({
   name: "tree-cap-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [

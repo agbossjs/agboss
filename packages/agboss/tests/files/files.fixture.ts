@@ -1,3 +1,4 @@
+import { hours, Ttl } from "../../src/units/index.js";
 /**
  * #899: an agent that reads a document its start gives it and a tool that returns another file —
  * the same application with and without a PII policy; a code router in front of the agent; an
@@ -7,25 +8,28 @@ import {
   Agent,
   DecidedBy,
   Injectable,
+  Observer,
   Router,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  inline,
 } from "../../src/index.js";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import { FilePolicy } from "../../src/files/file-policy.js";
+import { FileDto } from "../../src/dto/standard/file.js";
 import { Application } from "../../src/application/application.js";
 import { Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
-import { route, start } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What a caller sends: a document and a note. */
 export class ReadRequestDto {
-  @Nested(A2AFileDto, { prompt: "the document to read" })
-  document!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the document to read" })
+  document!: FileDto;
 
   @Text({ prompt: "a note", optional: true })
   note?: string;
@@ -37,8 +41,8 @@ export class ScanQueryDto {
 }
 
 export class ScanResultDto {
-  @Nested(A2AFileDto, { prompt: "the scan" })
-  file!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the scan" })
+  file!: FileDto;
 }
 
 /** A tool that gives a file back, its bytes inline. */
@@ -48,8 +52,8 @@ export class ScanResultDto {
   input: ScanQueryDto,
   output: ScanResultDto,
 })
-export class ScanTool implements ToolHandler<ScanQueryDto, ScanResultDto> {
-  run(): Promise<ScanResultDto> {
+export class ScanTool {
+  execute(): Promise<ScanResultDto> {
     return Promise.resolve({ file: SCAN });
   }
 }
@@ -64,7 +68,7 @@ const sha256Of = async (bytes: Buffer): Promise<string> => {
 };
 
 /** An inline descriptor of some bytes. */
-export const inlineFile = async (bytes: Buffer, filename: string): Promise<A2AFileDto> => ({
+export const inlineFile = async (bytes: Buffer, filename: string): Promise<FileDto> => ({
   mediaType: "application/pdf",
   filename,
   inline: bytes.toString("base64"),
@@ -72,7 +76,7 @@ export const inlineFile = async (bytes: Buffer, filename: string): Promise<A2AFi
   sizeBytes: bytes.byteLength,
 });
 
-const SCAN: A2AFileDto = {
+const SCAN: FileDto = {
   mediaType: "application/pdf",
   filename: "scan.pdf",
   inline: SCAN_BYTES.toString("base64"),
@@ -83,7 +87,7 @@ const SCAN: A2AFileDto = {
 @Agent({
   name: "reader-agent",
   description: "Reads a document",
-  prompt: "Read the document.",
+  prompt: inline("Read the document."),
   model: "local/reader",
   input: { request: ReadRequestDto },
   tools: [ScanTool],
@@ -95,7 +99,7 @@ export class ReaderAgent {}
   description: "Sends the document on",
   decidedBy: DecidedBy.Code,
   input: { request: ReadRequestDto },
-  routes: [{ target: ReaderAgent }],
+  routes: [ReaderAgent],
 })
 export class ReaderRouter {
   route(): unknown {
@@ -117,14 +121,19 @@ export class ReaderStart {}
 })
 export class ReaderFinish {}
 
+@FilePolicy({ ttl: hours(24), name: "reader-file-policy" })
+export class ReaderFilePolicy {}
+
 @Workflow({
   name: "reader-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  filePolicy: ReaderFilePolicy,
   flow: [
-    start(ReaderStart)
-      .returns(ReadRequestDto)
+    onStart(ReaderStart)
       .toRouter(ReaderRouter)
-      .chooseOne(route(ReaderAgent).toFinish(ReaderFinish)),
+      .onRoute(toAgent(ReaderAgent).toFinish(ReaderFinish)),
   ],
   defaults: { models: { temperature: 0 } },
 })
@@ -134,7 +143,7 @@ export class ReaderWorkflow {}
 export const toldEvents: { hook: string; event: unknown }[] = [];
 
 /** Keeps every event of the hooks the files pass through. */
-@Injectable()
+@Observer()
 export class EveryEvent {
   onExecutionStart(event: unknown): void {
     toldEvents.push({ hook: "start", event });
@@ -167,6 +176,7 @@ export class EveryEvent {
 
 @Application({
   name: "reader-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ReaderWorkflow],
@@ -177,6 +187,7 @@ export class ReaderApplication {}
 
 @Application({
   name: "private-reader-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ReaderWorkflow],

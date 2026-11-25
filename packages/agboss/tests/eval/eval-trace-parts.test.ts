@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #397 PR 2 — the parts of a run's trace that a scripted desk does not reach, built from records as
  * an execution writes them: judge verdicts with retries, guardrail decisions, a handled error,
@@ -11,7 +12,7 @@ import {
   CompensationStatus,
   ComponentKind,
   GuardrailSide,
-  PauseAnswerer,
+  PauseRespondent,
   PauseResolution,
   ToolCallStatus,
   type ChildExecutionRecord,
@@ -20,13 +21,14 @@ import {
   type ExecutionStepRecord,
   type StepRecord,
 } from "../../src/index.js";
-import { buildCostReport } from "../../src/finops/usage.js";
+import { CostReport } from "../../src/finops/usage.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 import { executionTraceOf } from "../../src/eval/run/trace-of.js";
 import { attemptDivergenceOf, AttemptDivergenceReason } from "../../src/eval/run/divergence.js";
 import { evalRunReportOf } from "../../src/eval/run/read-report.js";
 import { caseReportOf, type EvalRunResult } from "../../src/eval/run/report.js";
 import type { EvalExecutionTrace, EvalStepTrace } from "../../src/eval/run/trace.js";
-import { CheckStatus, EvalCascade } from "../../src/eval/index.js";
+import { CheckStatus, EvalCascade, EvalCheckKind } from "../../src/eval/index.js";
 
 const component = (name: string, kind: ComponentKind): ComponentRecord => ({
   name,
@@ -60,7 +62,7 @@ const visitOf = (
   inputHash: "hash-1",
   judgeVerdicts: [],
   guardrailDecisions: [],
-  spend: buildCostReport([]),
+  spend: CostReport.fromUsage([]),
   startedAt: "2026-01-05T09:00:00.000Z",
   endedAt: "2026-01-05T09:00:01.000Z",
   ...parts,
@@ -83,7 +85,7 @@ const CHILD: ChildExecutionRecord = {
   status: ChildExecutionStatus.Failed,
   error,
   path: ["check-workflow-start"],
-  spend: buildCostReport([]),
+  spend: CostReport.fromUsage([]),
   toolCalls: [],
   steps: [visitOf(stepOf("check-workflow-start", ComponentKind.WorkflowStart))],
   pauses: [],
@@ -94,21 +96,23 @@ const RECORD: ExecutionRecord = {
   path: ["refund-workflow-start", "refund-agent"],
   scope: [],
   outdatedValues: [],
-  spend: buildCostReport([]),
+  spend: CostReport.fromUsage([]),
   children: [CHILD],
   pauses: [
     {
       pauseId: "p1",
       executionId: "e1",
       step: AGENT,
-      role: "refund-approval-channel",
-      answerer: PauseAnswerer.ThreadOwner,
-      answeredBy: "owner-1",
-      responder: "owner-1",
+      target: "refund-tool-approval",
+      channel: "refund-approval-channel",
+      respondent: PauseRespondent.Owner,
+      actor: { id: "owner-1" },
       resolution: PauseResolution.Replied,
       askedAt: "2026-01-05T09:00:00.000Z",
       resolvedAt: "2026-01-05T09:00:02.000Z",
       decision: { approved: true },
+      input: {},
+      trail: [],
     },
   ],
   compensations: [
@@ -171,6 +175,7 @@ const RECORD: ExecutionRecord = {
 describe("#397 PR 2: a trace from an execution record", () => {
   const trace = executionTraceOf({
     executionId: "e1",
+    status: ExecutionStatus.Finished,
     record: RECORD,
     handledErrors: [
       {
@@ -213,11 +218,10 @@ describe("#397 PR 2: a trace from an execution record", () => {
     expect(trace.pauses).toEqual([
       {
         nodeId: "refund-agent",
-        role: "refund-approval-channel",
+        target: "refund-tool-approval",
         resolution: PauseResolution.Replied,
-        answeredBy: "owner-1",
-        responder: "owner-1",
-        decision: { approved: true },
+        actor: { id: "owner-1" },
+        output: { approved: true },
       },
     ]);
     expect(trace.compensations).toEqual([
@@ -256,14 +260,15 @@ const step = (nodeId: string, parts: Partial<EvalStepTrace> = {}): EvalStepTrace
   toolCalls: [],
   guardrailDecisions: [],
   judgeVerdicts: [],
-  spentUsd: 0,
-  startedAt: "2026-01-05T09:00:00.000Z",
-  endedAt: "2026-01-05T09:00:00.000Z",
+  spentUsd: usd(0),
+  startedAt: new Date("2026-01-05T09:00:00.000Z"),
+  endedAt: new Date("2026-01-05T09:00:00.000Z"),
   ...parts,
 });
 
 const traceWith = (steps: readonly EvalStepTrace[], output?: unknown): EvalExecutionTrace => ({
   executionId: "e",
+  status: ExecutionStatus.Finished,
   path: steps.map((each) => each.nodeId),
   steps,
   handledErrors: [],
@@ -278,7 +283,9 @@ const runWith = (run: number, trace?: EvalExecutionTrace): EvalRunResult => ({
   threadId: `t${String(run)}`,
   passed: run === 1,
   checks: [],
-  spentUsd: 0,
+  executionUsd: usd(0),
+  judgeUsd: usd(0),
+  totalUsd: usd(0),
   ...(trace === undefined ? {} : { trace }),
 });
 
@@ -346,7 +353,7 @@ describe("#397 PR 2: where unstable attempts part ways", () => {
 describe("#397 PR 2: the one reader on both versions", () => {
   const v1 = {
     kind: "agboss.eval-run",
-    schemaVersion: 1,
+    schemaVersion: 5,
     suite: "s-eval-suite",
     application: { name: "a", version: "1" },
     workflow: { name: "w", version: "1" },
@@ -355,8 +362,8 @@ describe("#397 PR 2: the one reader on both versions", () => {
     environment: "dev",
     runs: 1,
     cascade: EvalCascade.RunAll,
-    startedAt: "2026-01-05T09:00:00.000Z",
-    endedAt: "2026-01-05T09:00:00.000Z",
+    startedAt: new Date("2026-01-05T09:00:00.000Z"),
+    endedAt: new Date("2026-01-05T09:00:00.000Z"),
     cases: [
       {
         name: "c",
@@ -371,33 +378,30 @@ describe("#397 PR 2: the one reader on both versions", () => {
             run: 1,
             threadId: "t",
             passed: true,
-            checks: [{ check: "trajectory", status: CheckStatus.Passed }],
-            spentUsd: 0,
+            checks: [
+              { check: "trajectory", kind: EvalCheckKind.Tools, status: CheckStatus.Passed },
+            ],
+            executionUsd: usd(0),
+            judgeUsd: usd(0),
+            totalUsd: usd(0),
           },
         ],
       },
     ],
     summary: { cases: 1, passAtK: 1, passHatK: 1, unstable: 0, judgeCalls: 0, skippedByCascade: 0 },
-    spend: { totalUsd: 0 },
+    spend: { executionUsd: usd(0), judgeUsd: usd(0), totalUsd: usd(0) },
   };
 
-  it("a version 1 artifact still reads: no traces, no expectations", () => {
+  it("a version 5 artifact reads back as written: Dates, spend split, kinds", () => {
     expect(evalRunReportOf(v1)).toEqual({ kind: "read", report: v1 });
   });
 
-  it("#397 PR 5b: a version 3 run without its tenant still reads; 4 keeps it; 5 is refused", () => {
-    const [found] = v1.cases;
-    const v4 = {
-      ...v1,
-      schemaVersion: 4,
-      cases: [{ ...found, runResults: [{ ...found?.runResults[0], tenantId: "acme" }] }],
-    };
-
-    expect(evalRunReportOf({ ...v1, schemaVersion: 3 })).toMatchObject({ kind: "read" });
-    expect(evalRunReportOf(v4)).toEqual({ kind: "read", report: v4 });
-    expect(evalRunReportOf({ ...v1, schemaVersion: 5 })).toEqual({
+  it("#1328: the file's ISO 8601 text reads as a Date; any other version is refused", () => {
+    const written = JSON.parse(JSON.stringify(v1)) as unknown;
+    expect(evalRunReportOf(written)).toEqual({ kind: "read", report: v1 });
+    expect(evalRunReportOf({ ...v1, schemaVersion: 4 })).toEqual({
       kind: "invalid",
-      reason: "schemaVersion 5 — this agboss reads 1 to 4",
+      reason: "schemaVersion 4 — this agboss reads 5 only",
     });
   });
 
@@ -405,7 +409,7 @@ describe("#397 PR 2: the one reader on both versions", () => {
     const [found] = v1.cases;
     const broken = {
       ...v1,
-      schemaVersion: 2,
+      schemaVersion: 5,
       cases: [{ ...found, runResults: [{ ...found?.runResults[0], trace: { executionId: "e" } }] }],
     };
 

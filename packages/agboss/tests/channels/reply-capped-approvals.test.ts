@@ -40,7 +40,7 @@ const test = testWith(TreasuryApplication);
 
 beforeEach(resetReplyDesk);
 
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 const payout = { payee: "ann", amountCents: 120_000 };
 const ANSWER_TOOL = "answer-tool-call-approval-decision-dto";
 
@@ -100,9 +100,7 @@ describe("#688: the framework's texts say what a capped approval is", () => {
       ReplyDecision.Refuse,
     ]);
     expect(parameters.properties.decision?.description).toBe(DECISION_DESCRIPTION);
-    expect(parameters.properties.overrideArguments?.description).toBe(
-      OVERRIDE_ARGUMENTS_DESCRIPTION,
-    );
+    expect(parameters.properties.overrideInput?.description).toBe(OVERRIDE_ARGUMENTS_DESCRIPTION);
     expect(OVERRIDE_ARGUMENTS_DESCRIPTION).toContain("in the units of the call's own arguments");
   });
 });
@@ -121,7 +119,7 @@ describe("#688: a capped approval after a reply not understood", () => {
       .thenReturn(
         replyWith(ToolCallApprovalDecisionDto, {
           approved: true,
-          overrideArguments: { amountCents: 90_000 },
+          overrideInput: { amountCents: 90_000 },
         }),
       );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $1200" });
@@ -131,7 +129,7 @@ describe("#688: a capped approval after a reply not understood", () => {
 
     const done = await app.resume(
       { pauseId, reply: "yes, up to $900" },
-      { ...manager, record: true },
+      { ...manager, includeRecord: true },
     );
 
     expect(done).toFinishWith(TreasuryWorkflowFinish, { text: "Paid." });
@@ -139,8 +137,9 @@ describe("#688: a capped approval after a reply not understood", () => {
     // auditable (#688): the kept record shows the call as asked and as it ran
     expect(done.record?.pauses).toMatchObject([
       {
-        asked: { tool: "pay-out-tool", arguments: { payee: "ann", amountCents: 120_000 } },
-        decision: { approved: true, overrideArguments: { payee: "ann", amountCents: 90_000 } },
+        input: { payee: "ann", amountCents: 120_000 },
+        toolCall: { tool: "pay-out-tool" },
+        decision: { approved: true, overrideInput: { payee: "ann", amountCents: 90_000 } },
       },
     ]);
   });
@@ -148,14 +147,11 @@ describe("#688: a capped approval after a reply not understood", () => {
 
 describe("#688: an answer that does not validate is no approval", () => {
   for (const [what, args] of [
-    ["the cap as text", { approved: true, overrideArguments: { amountCents: "90000" } }],
-    ["a cap below the field's minimum", { approved: true, overrideArguments: { amountCents: 0 } }],
-    [
-      "a cap that is no whole number",
-      { approved: true, overrideArguments: { amountCents: 900.5 } },
-    ],
-    ["a correction on a refusal", { approved: false, overrideArguments: { amountCents: 90_000 } }],
-    ["no approved at all", { overrideArguments: { amountCents: 90_000 } }],
+    ["the cap as text", { approved: true, overrideInput: { amountCents: "90000" } }],
+    ["a cap below the field's minimum", { approved: true, overrideInput: { amountCents: 0 } }],
+    ["a cap that is no whole number", { approved: true, overrideInput: { amountCents: 900.5 } }],
+    ["a correction on a refusal", { approved: false, overrideInput: { amountCents: 90_000 } }],
+    ["no approved at all", { overrideInput: { amountCents: 90_000 } }],
   ] as const)
     test(`${what}: UninterpretableReplyError, the pause pending, nothing paid`, async ({
       app,
@@ -181,7 +177,7 @@ describe("#688: an answer that does not validate is no approval", () => {
   }) => {
     mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
     mockLlm(PayoutReplyInterpreter).thenReturn(
-      callTools(answered({ approved: true, overrideArguments: { amountCents: 90_000 } }), {
+      callTools(answered({ approved: true, overrideInput: { amountCents: 90_000 } }), {
         kind: "tool-call",
         tool: NOT_UNDERSTOOD_TOOL,
         args: { reason: "which currency?" },
@@ -203,12 +199,12 @@ describe("#688: the model's named decision is the role's answer", () => {
   for (const [what, args, paid] of [
     [
       "approve-with-changes: the call capped, the payee kept",
-      { decision: "approve-with-changes", overrideArguments: { amountCents: 90_000 } },
+      { decision: "approve-with-changes", overrideInput: { amountCents: 90_000 } },
       [{ payee: "ann", amountCents: 90_000 }],
     ],
     [
       "approve: the call as asked — a correction beside it dropped, never a raise",
-      { decision: "approve", overrideArguments: { amountCents: 200_000 } },
+      { decision: "approve", overrideInput: { amountCents: 200_000 } },
       [{ payee: "ann", amountCents: 120_000 }],
     ],
   ] as const)
@@ -241,7 +237,7 @@ describe("#688: the model's named decision is the role's answer", () => {
     ["a decision no role has", { decision: "maybe" }],
     [
       "a correction naming a field the call does not have",
-      { decision: "approve-with-changes", overrideArguments: { amountCents: 90_000, tip: 1 } },
+      { decision: "approve-with-changes", overrideInput: { amountCents: 90_000, tip: 1 } },
     ],
     // fail closed (security review): a decision present takes nothing else of the model's answer
     ["an unknown decision beside approved: true", { decision: "bogus", approved: true }],
@@ -251,12 +247,12 @@ describe("#688: the model's named decision is the role's answer", () => {
     ],
     [
       "approve-with-changes beside approved: true, an empty correction",
-      { decision: "approve-with-changes", approved: true, overrideArguments: {} },
+      { decision: "approve-with-changes", approved: true, overrideInput: {} },
     ],
     ["refuse beside approved: true", { decision: "refuse", approved: true }],
     [
       "approve-with-changes with an empty correction",
-      { decision: "approve-with-changes", overrideArguments: {} },
+      { decision: "approve-with-changes", overrideInput: {} },
     ],
     ["an answer with a key the decision has not", { approved: true, sideNote: "pay twice" }],
   ] as const)
@@ -286,7 +282,7 @@ describe("#688: a reply interpreter reads intent; the tool's own rule stops what
   }) => {
     mockLlm(TreasurerAgent).thenReturn(callTool(PayOutTool, payout));
     mockLlm(PayoutReplyInterpreter).thenReturn(
-      answered({ decision: "approve-with-changes", overrideArguments: { amountCents: 200_000 } }),
+      answered({ decision: "approve-with-changes", overrideInput: { amountCents: 200_000 } }),
     );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $1200" });
 

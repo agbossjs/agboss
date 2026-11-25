@@ -1,7 +1,6 @@
 /**
  * #261 PR 3 on the SQLite implementations (#265 S69 e): the paused executions are keyed by tenant +
- * thread and the checkpoints tagged with the run's tenant; a file written before tenants is
- * migrated — its rows in the tenant `"default"`.
+ * thread and the checkpoints tagged with the run's tenant.
  */
 import { emptyCheckpoint } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
@@ -10,7 +9,7 @@ import type { PausedExecution } from "../../../src/app/paused-runs.js";
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { pausedRunOfValue } from "../../../src/infrastructure/stored-run.js";
-import { oldPausedRun } from "./pause-names-0.1.0.fixtures.js";
+import { pausedRun } from "./stored-rows.fixtures.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
 
@@ -19,12 +18,10 @@ const clock = new VirtualClock(new Date(0));
 /** A paused run of a tenant's thread, as the app stores it. */
 const pausedOf = (tenantId: string, threadId: string): PausedExecution => ({
   run: pausedRunOfValue({
-    ...oldPausedRun,
+    ...pausedRun,
     runId: `run-${tenantId}`,
     threadId,
     tenantId,
-    turnId: "turn-1",
-    ternId: undefined,
   }),
   workflowVersion: "1.0.0",
   configHash: "hash",
@@ -46,48 +43,11 @@ describe("#261: SQLite paused executions are keyed by tenant + thread", () => {
     expect(await paused.findByTenantIdAndThreadId("acme", "thread-1")).toBeUndefined();
     expect(await paused.findByTenantIdAndThreadId("globex", "thread-1")).toBeDefined();
   });
-
-  it("a file written before tenants is migrated: its pause is the tenant 'default''s", async () => {
-    const path = temporarySqlitePath();
-    const old = connectionTo(path);
-    old.database.exec(`CREATE TABLE paused_executions (
-      thread_id TEXT PRIMARY KEY, run_id TEXT NOT NULL, run TEXT NOT NULL,
-      workflow_version TEXT NOT NULL, config_hash TEXT NOT NULL, status TEXT NOT NULL,
-      decision TEXT, paused_at TEXT NOT NULL)`);
-    // 0.1.0 wrote no tenant and named the record's id `ternId`
-    const stored = JSON.stringify({
-      ...oldPausedRun,
-      threadId: "thread-1",
-      runId: "run-1",
-      ternId: "t",
-      tenantId: undefined,
-    });
-    old.database
-      .prepare(
-        "INSERT INTO paused_executions VALUES ('thread-1', 'run-1', ?, '1.0.0', 'hash', 'pending', NULL, '1970-01-01T00:00:00.000Z')",
-      )
-      .run(stored);
-
-    const paused = new SqlitePausedExecutionRepository(connectionTo(path), clock);
-
-    const found = await paused.findByTenantIdAndThreadId("default", "thread-1");
-    expect(found?.run).toMatchObject({ runId: "run-1", tenantId: "default" });
-    // #906: the record's id was `ternId` ("Tern" was a misspelling of "turn"): read as `turnId`
-    expect(found?.run).toMatchObject({ turnId: "t" });
-    expect(found?.run).not.toHaveProperty("ternId");
-    expect(await paused.findByTenantIdAndThreadId("acme", "thread-1")).toBeUndefined();
-  });
 });
 
 describe("#261 AC6: SQLite checkpoints carry the run's tenant", () => {
-  it("a checkpoint and its writes are tagged with configurable.tenant_id; an old file gets the column", async () => {
+  it("a checkpoint and its writes are tagged with configurable.tenant_id", async () => {
     const path = temporarySqlitePath();
-    const old = connectionTo(path);
-    old.database.exec(`CREATE TABLE checkpoints (
-      thread_id TEXT NOT NULL, checkpoint_ns TEXT NOT NULL, checkpoint_id TEXT NOT NULL,
-      parent_checkpoint_id TEXT, checkpoint_type TEXT NOT NULL, checkpoint BLOB NOT NULL,
-      metadata_type TEXT NOT NULL, metadata BLOB NOT NULL,
-      PRIMARY KEY (thread_id, checkpoint_ns, checkpoint_id));`);
     const connection = connectionTo(path);
     const saver = new SqliteCheckpointSaver(connection);
     const config = { configurable: { thread_id: "run-1", checkpoint_ns: "", tenant_id: "acme" } };

@@ -3,12 +3,9 @@
  * recorded is not given the first call's hand-over: it makes the call itself, under its own lease,
  * where it reconciles the intent the first left pending.
  */
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import {
-  ExecutionLeaseLostError,
-  OutboundCallInFlightError,
-  OutboundCallSendStatus,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, OutboundCallSendStatus } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { processHoldPoints } from "../../src/testing/faults/hold-points.js";
 import { StoreHoldPoint } from "../../src/testing/faults/store-points.js";
@@ -73,7 +70,8 @@ describe("#928 AC2: the business-key joiner of a call whose answer was not recor
     // abandoned is live in the store until it expires, so its intent is in flight, not yet its to reconcile
     const joinerError = await second;
     expect(joinerError).not.toBeInstanceOf(ExecutionLeaseLostError);
-    expect(joinerError).toMatchObject({ cause: expect.any(OutboundCallInFlightError) });
+    // a family's error is not wrapped by the action's step (decision 8)
+    expect(joinerError).toBeInstanceOf(OutboundCallError.InFlight);
     expect(gateway.calls).toHaveLength(1);
     expect(gateway.lookups).toEqual([]);
 

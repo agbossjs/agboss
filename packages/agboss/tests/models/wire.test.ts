@@ -1,3 +1,4 @@
+import { Window1Memory } from "../helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
 import { file } from "../../src/components/file.js";
 
@@ -9,12 +10,7 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { ResolvedModelSettings } from "../../src/config/types.js";
 import { connectionOf } from "../../src/models/connections.js";
 import { ENV, KEYS } from "./gateway.js";
-import {
-  DecisionsModelProvider,
-  PromptCaching,
-  Reasoning,
-  toWireRequest,
-} from "../../src/models/index.js";
+import { PromptCaching, Reasoning, toWireRequest } from "../../src/models/index.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,13 +22,20 @@ import {
   WorkflowSettings,
   WorkflowStart,
   type WorkflowDefinition,
+  Ttl,
 } from "../../src/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { parseWireRequest, wireFetch } from "../../src/models/wire.js";
-import { TestOpenRouterProvider } from "./providers.fixture.js";
+import {
+  TestOpenRouterProvider,
+  TestDecisionsProvider,
+  LocalModelProvider,
+} from "./providers.fixture.js";
+import { handlerOf } from "./driver-handler.js";
 import { completion, providerStub } from "./stub.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @WorkflowStart({ name: "task-workflow-start", description: "A task", input: WorkflowStartTextDto })
 class Start {}
@@ -54,7 +57,7 @@ const env = ENV;
 /** What OpenRouter receives for one call of the provider's chat model. */
 async function bodyOf(bind?: (model: BaseChatModel) => Runnable<BaseLanguageModelInput, unknown>) {
   const stub = providerStub([completion()]);
-  const provider = new TestOpenRouterProvider();
+  const provider = handlerOf(TestOpenRouterProvider);
   const connection = connectionOf(modelProviderOf(TestOpenRouterProvider), {
     env,
     environment: KEYS,
@@ -118,20 +121,18 @@ describe("AC6: the wire form, made in one place (toWireRequest)", () => {
 
   it("AC6: Jev routes are sent sorted by name", async () => {
     const stub = providerStub([{ body: { answers: { route: { choice: "b" } } } }]);
-    const connection = connectionOf(modelProviderOf(DecisionsModelProvider), {
+    const connection = connectionOf(modelProviderOf(TestDecisionsProvider), {
       env,
       environment: KEYS,
       requireKeys: true,
       send: stub.fetch,
     });
 
-    await new DecisionsModelProvider().routeTo({
-      decision: {
-        model: "typesafe/jev-1.13",
-        state: "x",
-        questions: {
-          route: { type: "choice", instructions: "pick", criteria: { zeta: "z", alpha: "a" } },
-        },
+    await handlerOf(TestDecisionsProvider).decide?.({
+      model: "typesafe/jev-1.13",
+      state: "x",
+      questions: {
+        route: { type: "choice", instructions: "pick", criteria: { zeta: "z", alpha: "a" } },
       },
       connection,
     });
@@ -167,18 +168,21 @@ describe("AC6: prompts are normalised at load and sent normalised", () => {
       name: "writer-agent",
       description: "Writes",
       model: "local/llama",
-      promptUrls: [join(dir, "writer.prompt.md")],
+      modelProvider: LocalModelProvider,
+      prompt: join(dir, "writer.prompt.md") as `/${string}`,
     })
     class Writer {}
     @Workflow({
       name: "normalised-workflow",
+      modelProvider: TestModelProvider,
       version: "1",
-      flow: [start(Start).returns(WorkflowStartTextDto).toAgent(Writer).toFinish(Finish)],
+      historyTtl: Ttl.Forever,
+      flow: [onStart(Start).toAgent(Writer).toFinish(Finish)],
       defaults: {
         models: { temperature: 0 },
         router: { model: "typesafe/jev-1.13" },
       },
-      uncompactedTurns: 1,
+      memory: Window1Memory,
     })
     class Normalised implements WorkflowDefinition {
       settings(): WorkflowSettings {

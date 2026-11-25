@@ -24,14 +24,15 @@ import {
   Injectable,
   OutboundCallSendStatus,
   OutboundCallStatus,
-  SqliteConnection,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import { SqliteTestEnvironment } from "../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import { sqliteFilePerTest } from "../infrastructure/sqlite/fixtures/sqlite.workflow.js";
 import {
@@ -59,7 +60,9 @@ beforeEach(() => {
 
 describe("#526 AC8: OutboundCalls on SQLite without SqliteConnection listed", () => {
   it("assembles", async () => {
-    const assembled = await applicationOf(ConnectionlessOutboundApplication);
+    const assembled = await applicationOf(ConnectionlessOutboundApplication, {
+      withoutIdempotencyKeys: true,
+    });
 
     expect(assembled.providers).not.toContain(SqliteConnection);
   });
@@ -87,7 +90,9 @@ describe("#526 AC8: OutboundCalls on SQLite without SqliteConnection listed", ()
 
 describe("#526 AC8: a component that injects a store's own class", () => {
   it("assembles without the connection listed", async () => {
-    await expect(applicationOf(ConnectionlessEffectApplication)).resolves.toBeDefined();
+    await expect(
+      applicationOf(ConnectionlessEffectApplication, { withoutIdempotencyKeys: true }),
+    ).resolves.toBeDefined();
   });
 
   testWith(ConnectionlessEffectApplication)(
@@ -182,11 +187,9 @@ function workflowReading(dependency: object): object {
   @Workflow({
     name: "reading-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(LeaseReadingWorkflowStart)
-        .returns(WorkflowStartTextDto)
-        .toAction(ReadingAction)
-        .toFinish(LeaseReadWorkflowFinish),
+      onStart(LeaseReadingWorkflowStart).toAction(ReadingAction).toFinish(LeaseReadWorkflowFinish),
     ],
   })
   class ReadingWorkflow {}
@@ -198,7 +201,6 @@ const applicationReading = (dependency: object, providers: readonly object[]) =>
     name: "reading-application",
     version: "1.0.0",
     environment: SqliteTestEnvironment,
-    idempotencyKeyField: "idempotencyKey",
     workflows: [workflowReading(dependency) as typeof ConnectionlessEffectApplication],
     budgets: TEST_BUDGETS,
     providers: providers as readonly (typeof OrderLedger)[],
@@ -214,10 +216,17 @@ describe("#526 AC8: what the graph check still refuses, and what it now takes", 
     ).resolves.toBeDefined();
   });
 
-  it("regression: a workflow's own service that nobody lists is still not registered", async () => {
-    await expect(applicationOf(applicationReading(OrderLedger, []))).rejects.toThrow(
-      'ReadingAction: "OrderLedger" is not registered in @Workflow({ providers })',
-    );
+  it("a decorated workflow service that nobody lists is found through deps (#1324)", async () => {
+    await expect(applicationOf(applicationReading(OrderLedger, []))).resolves.toBeDefined();
+  });
+
+  it("an undecorated class that nobody lists is not registered", async () => {
+    class BareLedger {
+      readonly kind = "bare";
+    }
+    await expect(
+      applicationOf(applicationReading(BareLedger as typeof OrderLedger, [])),
+    ).rejects.toThrow('ReadingAction: "BareLedger" is not registered in @Workflow({ providers })');
   });
 
   it("an InjectionToken under a store is never its own registration: the store names it", async () => {

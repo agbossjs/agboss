@@ -88,7 +88,7 @@ function restHeldWhileBAnswers(a: TestApp, b: TestApp, executionId: () => string
   void rest.then(async () => {
     const pauseId = pausesWindow.asked[1] ?? "";
     const caller = new AbortController();
-    const options = { answeredBy: "approver-2", signal: caller.signal };
+    const options = { actor: { id: "approver-2" }, signal: caller.signal };
     const resumed = b.resume({ pauseId, decision: { approved: true } }, options);
     resumed.catch(() => undefined);
     state.resumed = resumed;
@@ -116,7 +116,7 @@ async function firstAnswered(a: TestApp) {
   const paused = await execute(a, WindowTwiceWorkflowStart, { orderId: "o-1187" });
   expect(paused.status).toBe("paused");
   const first = { pauseId: pausesWindow.asked[0] ?? "", decision: { approved: true } };
-  return { paused, moved: rejectionOf(a.resume(first, { answeredBy: "approver-1" })) };
+  return { paused, moved: rejectionOf(a.resume(first, { actor: { id: "approver-1" } })) };
 }
 
 /** The tree ended at its finish, approved and charged once, its record answered, no error. */

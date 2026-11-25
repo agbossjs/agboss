@@ -1,75 +1,100 @@
-import { AGBossError } from "../core/errors.js";
+import { FileError } from "../core/error-families/remote-errors.js";
+import { bytes } from "../units/index.js";
 import { StepFailedError, stepCoordinatesOf } from "../graph/errors.js";
 import { ComponentKind } from "../flow/runtime/records.js";
 import { ModelFileLimit } from "./model-files.js";
 
 /**
- * What stops a file on its way to a model (#899): its bytes cannot be read (`ModelFileUnavailableError`),
- * the guarded path refuses them (`ModelFileRefusedError`), or they are over a limit of the agent
+ * What stops a file on its way to a model (#899): its bytes cannot be read (`FileError.Unavailable`),
+ * the guarded path refuses them (`FileError.Refused`), or they are over a limit of the agent
  * (`ModelFileLimitError`, before any model call, never a silent truncation).
  */
 
-/** Why a file's bytes cannot be read. */
-export enum ModelFileUnavailableReason {
-  /** The file is no longer kept (another task's, swept, removed). */
+/** Why a file's bytes cannot be read: `FileError.Unavailable`'s `reason`. */
+export enum FileUnavailableReason {
+  /** No such file in the store for this execution's task (another task's, swept, removed). */
   NotFound = "not-found",
   /** Its bytes do not match the `sha256` its descriptor names. */
   DigestMismatch = "digest-mismatch",
-  /** The url did not answer the file: a failure, a timeout, a status. */
-  DownloadFailed = "download-failed",
+  /** A stored or inline file's descriptor names no `sha256`: only a file by url may go unchecked. */
+  DigestMissing = "digest-missing",
   /** A read outside an execution: a file belongs to its execution's task. */
   OutsideExecution = "outside-execution",
+  /** A download larger than its `maxSize`: stopped there. */
+  TooLarge = "too-large",
+  /** The url did not answer the file: a failure, a timeout, a status. */
+  DownloadFailed = "download-failed",
+  /**
+   * The fetch pool is saturated (#1316): too many files by url are being fetched now — the
+   * policy's `fetchPool`, or the application's shared one. Nothing was asked of the url: retry later.
+   */
+  FetchBusy = "fetch-busy",
 }
 
-export interface ModelFileUnavailableErrorOptions {
-  readonly reason: ModelFileUnavailableReason;
-  readonly cause?: unknown;
-}
-
-/** The bytes of a file cannot be read (`model.file-unavailable`). */
-export class ModelFileUnavailableError extends AGBossError {
-  static override readonly code = "model.file-unavailable" as const;
-  declare readonly code: typeof ModelFileUnavailableError.code;
-  readonly reason: ModelFileUnavailableReason;
-
-  constructor(options: ModelFileUnavailableErrorOptions) {
-    const { reason, cause } = options;
-    super(`the file's bytes are unavailable: ${reason}`, { cause, details: { reason } });
-    this.reason = reason;
-  }
-}
-
-/** Why the guarded path refuses a file. */
-export enum ModelFileRefusal {
-  /** A file by url with no `allowedFileOrigins`, or from an origin not in them, or a redirect to one. */
+/** Why a file is refused: `FileError.Refused`'s `refusal`. */
+export enum FileRefusal {
+  /** A save outside an execution: a file belongs to its execution's task. */
+  OutsideExecution = "outside-execution",
+  /** Its media type is not in the policy's `allowedMediaTypes`. */
+  MediaType = "media-type",
+  /** Its bytes are not of the media type it declares. */
+  MediaTypeMismatch = "media-type-mismatch",
+  /** It is larger than the policy's `maxFileSize`. */
+  TooLarge = "too-large",
+  /** A file by reference is on no `https:` URL, or the url is no url, or carries a user or a password. */
+  UrlInvalid = "url-invalid",
+  /** A file by url with no allowed origins, or from an origin not in them, or a redirect to one. */
   OriginDenied = "origin-denied",
   /** The url's host is an address a file is never fetched from (private, link-local, …). */
   AddressDenied = "address-denied",
-  /** The url is no url, or carries a user or a password. */
-  UrlInvalid = "url-invalid",
-  /** The file is larger than the agent's `maxFileSize`. */
-  TooLarge = "too-large",
-  /** The bytes are not what the declared media type says. */
-  MediaTypeMismatch = "media-type-mismatch",
+  /** A `Files.save({ ttl })` longer than its workflow's `@FilePolicy.ttl`. */
+  TtlAbovePolicy = "ttl-above-policy",
+  /** Bytes held inline over the cap (64 KB a file, 256 KB a payload) and no file store to offload them to. */
+  InlineTooLarge = "inline-too-large",
 }
 
-export interface ModelFileRefusedErrorOptions {
-  readonly refusal: ModelFileRefusal;
+/** What a refused file is known by. */
+export interface FileRefusedOptions {
+  readonly refusal: FileRefusal;
+  readonly mediaType?: string;
+  readonly sizeBytes?: number;
   readonly cause?: unknown;
 }
 
-/** The guarded path refused a file (`model.file-refused`): nothing of its bytes was read or kept. */
-export class ModelFileRefusedError extends AGBossError {
-  static override readonly code = "model.file-refused" as const;
-  declare readonly code: typeof ModelFileRefusedError.code;
-  readonly refusal: ModelFileRefusal;
-
-  constructor(options: ModelFileRefusedErrorOptions) {
-    const { refusal, cause } = options;
-    super(`the file was refused: ${refusal}`, { cause, details: { refusal } });
-    this.refusal = refusal;
-  }
+/** A file refused (`files.refused`): nothing of its bytes was read or kept. */
+export function fileRefused(options: FileRefusedOptions): FileError.Refused {
+  const { refusal, mediaType, sizeBytes, cause } = options;
+  return new FileError.Refused({
+    message: `the file was refused: ${refusal}`,
+    refusal,
+    ...(mediaType === undefined ? {} : { mediaType }),
+    ...(sizeBytes === undefined ? {} : { sizeBytes: bytes(sizeBytes) }),
+    cause,
+  });
 }
+
+/** A file whose bytes cannot be read (`files.unavailable`). */
+export function fileUnavailable(options: {
+  readonly reason: FileUnavailableReason;
+  readonly cause?: unknown;
+}): FileError.Unavailable {
+  const { reason, cause } = options;
+  return new FileError.Unavailable({
+    message: `the file's bytes are unavailable: ${reason}`,
+    reason,
+    cause,
+  });
+}
+
+/** A save of a key already kept with other bytes: a file never changes (`files.conflict`). */
+export const fileConflict = (options: {
+  readonly fileId: string;
+  readonly cause?: unknown;
+}): FileError.Conflict =>
+  new FileError.Conflict({
+    message: "a file is saved once: another file is kept under this id",
+    ...options,
+  });
 
 /** What a file over a limit takes (#906). */
 export interface ModelFileLimitErrorOptions {
@@ -118,13 +143,13 @@ export interface FileRedactionFailedErrorOptions {
 }
 
 /**
- * A redacted copy of a file could not be made (`step.file-redaction-failed`): the redactor failed, its
+ * A redacted copy of a file could not be made (`step.file-masking-failed`): the redactor failed, its
  * answer was not what it must be, the image could not be read, or the copy could not be kept. Fail
  * closed — the unredacted file never goes to the model in its place, and this is no `PiiRefusedError`
  * (that one is for a block rule whose kind was found).
  */
 export class FileRedactionFailedError extends StepFailedError {
-  static override readonly code = "step.file-redaction-failed" as const;
+  static override readonly code = "step.file-masking-failed" as const;
   declare readonly code: typeof FileRedactionFailedError.code;
   override name = "FileRedactionFailedError";
   readonly agent: string;

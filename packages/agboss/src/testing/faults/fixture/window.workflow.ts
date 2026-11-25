@@ -1,8 +1,13 @@
-import { Action, Workflow, WorkflowFinish, WorkflowStart, type Produced } from "../../../index.js";
+import {
+  Action,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  type Tracked,
+  ExternalTask,
+} from "../../../index.js";
 import { Channel } from "../../../components/decorators.js";
-import { ChannelOf } from "../../../channels/channel-handler.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../channels/channel-role.decorator.js";
 import type { Class } from "../../../components/injection.js";
 import { NodeKind, type PathSource } from "../../../flow/ast.js";
 import { fromSource, type PathBuilder } from "../../../flow/path-builder.js";
@@ -17,14 +22,12 @@ import {
   FaultChargeDeclinedError,
   FaultReserveAction,
 } from "./order.actions.js";
-import {
-  FaultChargeDto,
-  FaultOrderDto,
-  FaultPaymentDto,
-  FaultReservationDto,
-} from "./order.dto.js";
+import { FaultOrderDto, FaultPaymentDto, FaultReservationDto } from "./order.dto.js";
 import { FaultPayAction } from "./pay.action.js";
-import { FaultPauseQuestion, FaultPauseWorkflow } from "./pause.workflow.js";
+import { FaultPauseExternalTask, FaultPauseWorkflow } from "./pause.workflow.js";
+import { PauseRespondent } from "../../../pause/respondent.js";
+import { days } from "../../../units/index.js";
+import { Ttl } from "../../../index.js";
 
 /**
  * The fault fixture's trees for the writes window at an answer (#1098), run on every store set:
@@ -35,7 +38,7 @@ import { FaultPauseQuestion, FaultPauseWorkflow } from "./pause.workflow.js";
  *   takes its answer too.
  */
 
-const start = (source: Class): PathBuilder<PathSource> =>
+const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
 @WorkflowStart({
@@ -55,29 +58,34 @@ export class FaultChildPauseWorkflowFinish {}
 @Workflow({
   name: "fault-child-pause-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FaultChildPauseWorkflowStart)
-      .returns(FaultOrderDto)
+    onStart(FaultChildPauseWorkflowStart)
       .toWorkflow(FaultPauseWorkflow)
-      .returns(FaultPaymentDto)
       .toFinish(FaultChildPauseWorkflowFinish),
   ],
 })
 export class FaultChildPauseWorkflow {}
 
-@ChannelRole({
-  name: "fault-second-pause-question",
+@ExternalTask({
+  name: "fault-second-pause-external-task",
   description: "Asks the order's thread owner to approve it once more",
-  ask: FaultApprovalAskDto,
-  answer: FaultApprovalDto,
-  answerer: PauseAnswerer.ThreadOwner,
+  input: FaultApprovalAskDto,
+  output: FaultApprovalDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
 })
-export abstract class FaultSecondPauseQuestion extends ChannelOf<FaultSecondPauseQuestion> {}
+export class FaultSecondPauseExternalTask {}
 
 /** Nobody is sent anything: the second question waits for its `app.resume`. */
-@Channel({ name: "fault-second-pause-channel", description: "Waits for the order's second answer" })
-export class FaultSecondPauseChannel extends FaultSecondPauseQuestion {
-  send(): Promise<ChannelOutcome<FaultSecondPauseQuestion>> {
+@Channel({
+  name: "fault-second-pause-channel",
+  description: "Waits for the order's second answer",
+  target: FaultSecondPauseExternalTask,
+  ttl: days(1),
+})
+export class FaultSecondPauseChannel {
+  send(): Promise<ChannelOutcome<FaultSecondPauseExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -90,9 +98,9 @@ export class FaultSecondPauseChannel extends FaultSecondPauseQuestion {
 })
 export class FaultAskAgainAction {
   execute(input: {
-    readonly reservation: Produced<FaultReservationDto, unknown>;
+    readonly reservation: Tracked<FaultReservationDto>;
   }): Promise<FaultApprovalAskDto> {
-    return Promise.resolve({ orderId: input.reservation.value.orderId });
+    return Promise.resolve({ orderId: input.reservation.orderId });
   }
 }
 
@@ -102,8 +110,8 @@ export class FaultAskAgainAction {
   input: { approval: FaultApprovalDto },
 })
 export class FaultApprovedAgainAction {
-  execute(input: { readonly approval: Produced<FaultApprovalDto, unknown> }): Promise<void> {
-    if (input.approval.value.approved) return Promise.resolve();
+  execute(input: { readonly approval: Tracked<FaultApprovalDto> }): Promise<void> {
+    if (input.approval.approved) return Promise.resolve();
     return Promise.reject(new FaultChargeDeclinedError("the order was not approved again"));
   }
 }
@@ -125,25 +133,18 @@ export class FaultTwicePauseWorkflowFinish {}
 @Workflow({
   name: "fault-twice-pause-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FaultTwicePauseWorkflowStart)
-      .returns(FaultOrderDto)
+    onStart(FaultTwicePauseWorkflowStart)
       .toAction(FaultReserveAction)
-      .returns(FaultReservationDto)
       .toAction(FaultAskAction)
-      .returns(FaultApprovalAskDto)
-      .toQuestion(FaultPauseQuestion)
-      .returns(FaultApprovalDto)
+      .toExternalTask(FaultPauseExternalTask)
       .toAction(FaultApprovedAction)
       .toAction(FaultAskAgainAction)
-      .returns(FaultApprovalAskDto)
-      .toQuestion(FaultSecondPauseQuestion)
-      .returns(FaultApprovalDto)
+      .toExternalTask(FaultSecondPauseExternalTask)
       .toAction(FaultApprovedAgainAction)
       .toAction(FaultChargeAction)
-      .returns(FaultChargeDto)
       .toAction(FaultPayAction)
-      .returns(FaultPaymentDto)
       .toFinish(FaultTwicePauseWorkflowFinish),
   ],
 })

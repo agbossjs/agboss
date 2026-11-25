@@ -20,23 +20,14 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-class-instance-assignment": "off",
     },
   },
+  // a component keeps no state (one instance serves every execution, on any instance), reads the time
+  // through the injected Clock (tests run on a virtual one) and its configuration through defineEnv —
+  // never process.env; and every file imports the public entries only: @agboss/core/internal is the
+  // agboss CLI's, with no semver promise (studioOf, for a test that renders the graphs, is in
+  // @agboss/core/testing)
+  ...agbossPlugin.configs.recommended,
   {
-    // a component keeps no state (one instance serves every execution, on any instance), and reads
-    // the time through the injected Clock, so tests run on a virtual one
-    files: ["src/**/*.ts"],
-    ignores: ["src/**/*.test.ts"],
-    plugins: { agboss: agbossPlugin },
-    rules: { "agboss/no-component-state": "error", "agboss/no-direct-time": "error" },
-  },
-  {
-    // @agboss/core/internal is the agboss CLI's, with no semver promise: every file imports the
-    // public entries only (studioOf, for a test that renders the graphs, is in @agboss/core/testing)
-    files: ["**/*.{ts,mts,cts,js,mjs,cjs}"],
-    plugins: { agboss: agbossPlugin },
-    rules: { "agboss/no-internal-import": "error" },
-  },
-  {
-    // one call per line in every chain of a workflow module: start(A) / .returns(B) / .toFinish(C)
+    // one call per line in every chain of a workflow module: onStart(A) / .toAgent(B) / .toFinish(C)
     files: ["**/*.workflow.ts"],
     plugins: { "@stylistic": stylistic },
     rules: FLOW_CHAIN_RULE,

@@ -124,7 +124,7 @@ interface WrittenRow {
 function writtenRowsOf(run: FaultRun): readonly WrittenRow[] {
   return run.trees.flatMap((tree) => [
     ...tree.auditLog.flatMap((row): WrittenRow[] =>
-      row.kind === ExecutionAuditEventKind.FencedEffect &&
+      row.kind === ExecutionAuditEventKind.IdempotencyRun &&
       row.writtenToken !== undefined &&
       row.replayedFrom === undefined
         ? [

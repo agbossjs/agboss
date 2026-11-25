@@ -1,3 +1,4 @@
+import { type Usd, usd } from "../units/index.js";
 import { isPeriodBudgetExhausted } from "../graph/limits.js";
 import { executeAgent } from "../run/run-agent.js";
 import type { AgentExecutionDeps } from "../run/types.js";
@@ -10,7 +11,7 @@ export interface ReplayReport {
   readonly replayed: number;
   readonly before: number | null;
   readonly after: number | null;
-  readonly costUsd: number;
+  readonly costUsd: Usd;
   readonly stoppedBy?: string;
 }
 
@@ -37,7 +38,7 @@ export async function replay<TName extends string>(
     try {
       const result = await executeAgent(request, run, { replayOf: original.id });
       replayedIds.push(result.turnId);
-      costUsd += result.cost.totalUsd;
+      costUsd = usd(costUsd + result.cost.totalUsd);
     } catch (error) {
       if (isPeriodBudgetExhausted(error)) stoppedBy = BUDGET_EXHAUSTED;
     }
@@ -49,7 +50,7 @@ export async function replay<TName extends string>(
     replayed: replayedIds.length,
     before: await run.turns.meanScore(originals.map((turn) => turn.id)),
     after: await run.turns.meanScore(replayedIds),
-    costUsd: costUsd + scoring.costUsd,
+    costUsd: usd(costUsd + scoring.costUsd),
     ...(stoppedBy === undefined ? {} : { stoppedBy: stoppedBy }),
   };
 }

@@ -1,30 +1,30 @@
+import { onEffectCommit } from "../../../src/infrastructure/in-memory-effect-writes.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
   ChildPlacement,
-  ExecutionContext,
+  Idempotency,
   InMemoryFencedEffectRepository,
   Injectable,
-  NotSentTrust,
-  OutboundCallReconciliation,
-  OutboundCalls,
+  OutboundRecovery,
+  Reconciliation,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  effectKeyOf,
-  type OnFencedEffect,
-  type OnOutboundCall,
-  type Produced,
+  type Tracked,
+  Observer,
+  Ttl,
 } from "../../../src/index.js";
+import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { gate } from "./fenced-effect.workflow.js";
 
 /**
  * #909 — an order reserved (undone by a release, itself a fenced effect), then charged: through a
- * fenced effect, through an outbound call, and in a `ChildPlacement.AnyInstance` child. The charge
+ * fenced effect, through an outbound call, and in a `ChildPlacement.AnyWorker` child. The charge
  * waits at the gate of `fenced-effect.workflow.ts` before its write — a live holder between its
  * tree's cancel request and its next renewal. Every write, request and undo is kept.
  */
@@ -63,9 +63,9 @@ export class ReceiptDto {
 }
 
 /** Keeps the audit events of the fenced writes and the calls. */
-@Injectable()
-export class CancelFenceObserver implements OnFencedEffect, OnOutboundCall {
-  onFencedEffect(event: { readonly name: string; readonly outcome: string }): void {
+@Observer()
+export class CancelFenceObserver {
+  onIdempotencyRun(event: { readonly name: string; readonly outcome: string }): void {
     seen.fenced.push({ name: event.name, outcome: event.outcome });
   }
   onOutboundCall(event: {
@@ -88,20 +88,20 @@ export class CancelFenceObserver implements OnFencedEffect, OnOutboundCall {
   name: "release-reservation-action",
   description: "Releases the reservation, through a fenced effect",
   input: { reservation: ReservationDto },
-  deps: [ExecutionContext, InMemoryFencedEffectRepository],
+  deps: [Idempotency],
 })
 export class ReleaseReservationAction {
-  constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: InMemoryFencedEffectRepository,
-  ) {}
+  constructor(private readonly idempotency: Idempotency) {}
 
-  async execute(input: { readonly reservation: Produced<ReservationDto, unknown> }): Promise<void> {
-    const { reservationId } = input.reservation.value;
-    const key = effectKeyOf(this.executionContext, "release");
-    await this.fencedEffects.runOnce(key, (transaction) => {
-      transaction.onCommit(() => seen.released.push(reservationId));
-      return { reservationId };
+  async execute(input: { readonly reservation: Tracked<ReservationDto> }): Promise<void> {
+    const { reservationId } = input.reservation;
+    await this.idempotency.runOnce({
+      name: "release",
+      ttl: hours(24),
+      execute: () => {
+        onEffectCommit(() => seen.released.push(reservationId));
+        return { reservationId };
+      },
     });
   }
 }
@@ -114,11 +114,9 @@ export class ReleaseReservationAction {
   compensateWith: ReleaseReservationAction,
 })
 export class ReserveOrderAction {
-  execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): Promise<ReservationDto> {
-    seen.reserved.push(input.message.value.text);
-    return Promise.resolve({ reservationId: `reservation-${input.message.value.text}` });
+  execute(input: { readonly message: Tracked<WorkflowStartTextDto> }): Promise<ReservationDto> {
+    seen.reserved.push(input.message.text);
+    return Promise.resolve({ reservationId: `reservation-${input.message.text}` });
   }
 }
 
@@ -139,21 +137,21 @@ async function charged(write: () => Promise<ReceiptDto>): Promise<ReceiptDto> {
   description: "Charges the reservation through a fenced effect",
   input: { reservation: ReservationDto },
   output: ReceiptDto,
-  deps: [ExecutionContext, InMemoryFencedEffectRepository],
+  deps: [Idempotency],
 })
 export class ChargeReservationAction {
-  constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: InMemoryFencedEffectRepository,
-  ) {}
+  constructor(private readonly idempotency: Idempotency) {}
 
-  execute(input: { readonly reservation: Produced<ReservationDto, unknown> }): Promise<ReceiptDto> {
-    const { reservationId } = input.reservation.value;
-    const key = effectKeyOf(this.executionContext, "charge");
+  execute(input: { readonly reservation: Tracked<ReservationDto> }): Promise<ReceiptDto> {
+    const { reservationId } = input.reservation;
     return charged(async () => {
-      const outcome = await this.fencedEffects.runOnce(key, (transaction) => {
-        transaction.onCommit(() => seen.charged.push(reservationId));
-        return { receipt: `charged ${reservationId}` };
+      const outcome = await this.idempotency.runOnce({
+        name: "charge",
+        ttl: hours(24),
+        execute: () => {
+          onEffectCommit(() => seen.charged.push(reservationId));
+          return { receipt: `charged ${reservationId}` };
+        },
       });
       return outcome.result;
     });
@@ -165,28 +163,26 @@ export class ChargeReservationAction {
   description: "Pays the reservation through a call that leaves the system",
   input: { reservation: ReservationDto },
   output: ReceiptDto,
-  deps: [ExecutionContext, OutboundCalls],
+  deps: [Idempotency],
 })
 export class PayReservationAction {
-  constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
-  ) {}
+  constructor(private readonly idempotency: Idempotency) {}
 
-  execute(input: { readonly reservation: Produced<ReservationDto, unknown> }): Promise<ReceiptDto> {
-    const { reservationId } = input.reservation.value;
-    const key = effectKeyOf(this.executionContext, "pay");
+  execute(input: { readonly reservation: Tracked<ReservationDto> }): Promise<ReceiptDto> {
+    const { reservationId } = input.reservation;
     return charged(async () => {
-      const outcome = await this.outboundCalls.send(key, {
+      const outcome = await this.idempotency.sendOnce({
+        name: "pay",
         target: "payments",
         operation: "charge",
         request: { reservationId },
+        timeout: seconds(15),
+        ttl: hours(48),
         send: () => {
           seen.requests.push(reservationId);
           return { receipt: `paid ${reservationId}` };
         },
-        notSent: { trust: NotSentTrust.Lookup },
-        reconcile: () => OutboundCallReconciliation.notSent(),
+        recovery: OutboundRecovery.permanentLookup<never>(() => Reconciliation.notExecuted()),
       });
       return outcome.result;
     });
@@ -198,23 +194,21 @@ export class PayReservationAction {
   description: "Charges the order of a child through a fenced effect",
   input: { message: WorkflowStartTextDto },
   output: ReceiptDto,
-  deps: [ExecutionContext, InMemoryFencedEffectRepository],
+  deps: [Idempotency],
 })
 export class ChargeTextAction {
-  constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: InMemoryFencedEffectRepository,
-  ) {}
+  constructor(private readonly idempotency: Idempotency) {}
 
-  execute(input: {
-    readonly message: Produced<WorkflowStartTextDto, unknown>;
-  }): Promise<ReceiptDto> {
-    const { text } = input.message.value;
-    const key = effectKeyOf(this.executionContext, "charge");
+  execute(input: { readonly message: Tracked<WorkflowStartTextDto> }): Promise<ReceiptDto> {
+    const { text } = input.message;
     return charged(async () => {
-      const outcome = await this.fencedEffects.runOnce(key, (transaction) => {
-        transaction.onCommit(() => seen.charged.push(text));
-        return { receipt: `charged ${text}` };
+      const outcome = await this.idempotency.runOnce({
+        name: "charge",
+        ttl: hours(24),
+        execute: () => {
+          onEffectCommit(() => seen.charged.push(text));
+          return { receipt: `charged ${text}` };
+        },
       });
       return outcome.result;
     });
@@ -273,13 +267,11 @@ export class FenceFarFinish {}
 @Workflow({
   name: "fence-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FenceChargeStart)
-      .returns(WorkflowStartTextDto)
+    onStart(FenceChargeStart)
       .toAction(ReserveOrderAction)
-      .returns(ReservationDto)
       .toAction(ChargeReservationAction)
-      .returns(ReceiptDto)
       .toFinish(FenceChargeFinish),
   ],
 })
@@ -288,26 +280,24 @@ export class FenceChargeWorkflow {}
 @Workflow({
   name: "fence-pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FencePayStart)
-      .returns(WorkflowStartTextDto)
+    onStart(FencePayStart)
       .toAction(ReserveOrderAction)
-      .returns(ReservationDto)
       .toAction(PayReservationAction)
-      .returns(ReceiptDto)
       .toFinish(FencePayFinish),
   ],
 })
 export class FencePayWorkflow {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "fence-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FenceChildStart)
-      .returns(WorkflowStartTextDto)
+    onStart(FenceChildStart)
       .toAction(ChargeTextAction)
-      .returns(ReceiptDto)
       .toFinish(FenceChildFinish),
   ],
 })
@@ -316,11 +306,10 @@ export class FenceChildWorkflow {}
 @Workflow({
   name: "fence-far-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FenceFarStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(FenceChildWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ReceiptDto)
+    onStart(FenceFarStart)
+      .toWorkflow(FenceChildWorkflow)
       .toFinish(FenceFarFinish),
   ],
 })
@@ -330,7 +319,6 @@ export class FenceFarWorkflow {}
   name: "cancel-fence-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [FenceChargeWorkflow, FencePayWorkflow, FenceFarWorkflow],
   observers: [CancelFenceObserver],
   budgets: TEST_BUDGETS,

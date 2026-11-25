@@ -1,7 +1,7 @@
 /** #1004: a listener that throws never fails the run nor silences the other events (text, tool call). */
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../src/run/types.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   Mailer,
@@ -33,8 +33,14 @@ describe("#1004: a throwing onStream listener", () => {
 
     expect(done.status).toBe(ExecutionStatus.Finished);
     expect(sent).toHaveLength(1);
-    expect(heard).toContainEqual({ kind: "toolCall", tool: "send-email-tool" });
-    expect(heard).toContainEqual(expect.objectContaining({ kind: "textDelta", delta: "Sent." }));
+    expect(heard).toContainEqual({
+      kind: StreamEventKind.ToolCall,
+      tool: "send-email-tool",
+      step: expect.objectContaining({ agent: "mailer-agent", visit: 1, attempt: 1 }),
+    });
+    expect(heard).toContainEqual(
+      expect.objectContaining({ kind: StreamEventKind.TextDelta, delta: "Sent." }),
+    );
   });
 });
 
@@ -56,8 +62,14 @@ describe("#1124: an async onStream listener that rejects", () => {
       await new Promise((resolve) => setImmediate(resolve));
 
       expect(done.status).toBe(ExecutionStatus.Finished);
-      expect(heard).toContainEqual({ kind: "toolCall", tool: "send-email-tool" });
-      expect(heard).toContainEqual(expect.objectContaining({ kind: "textDelta", delta: "Sent." }));
+      expect(heard).toContainEqual({
+        kind: StreamEventKind.ToolCall,
+        tool: "send-email-tool",
+        step: expect.objectContaining({ agent: "mailer-agent", visit: 1, attempt: 1 }),
+      });
+      expect(heard).toContainEqual(
+        expect.objectContaining({ kind: StreamEventKind.TextDelta, delta: "Sent." }),
+      );
       expect(rejections).toEqual([]);
     } finally {
       process.off("unhandledRejection", onRejection);

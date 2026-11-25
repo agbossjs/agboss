@@ -58,10 +58,11 @@ const APPLICATION = `import {
   BudgetPeriod,
   BudgetScope,
   EmptyEnvironment,
+  Ttl,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  start,
+  onStart,
 } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { usd } from "@agboss/core/units";
@@ -77,7 +78,7 @@ export class EchoWorkflowStart {}
 })
 export class EchoAction {
   execute(input) {
-    return Promise.resolve({ text: input.message.value.text });
+    return Promise.resolve({ text: input.message.text });
   }
 }
 
@@ -87,11 +88,10 @@ export class EchoWorkflowFinish {}
 @Workflow({
   name: "echo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(EchoWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(EchoWorkflowStart)
       .toAction(EchoAction)
-      .returns(WorkflowFinishTextDto)
       .toFinish(EchoWorkflowFinish),
   ],
 })

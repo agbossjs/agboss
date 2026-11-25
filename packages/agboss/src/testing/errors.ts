@@ -8,6 +8,7 @@ export type TestFailureCode =
   | "test.wrong-script"
   | "test.app-closed"
   | "test.app-not-ready"
+  | "test.no-open-pause"
   | "test.cassette-missing"
   | "vcr.stale-cassette"
   | "test.no-matching-script"
@@ -71,7 +72,7 @@ export enum CassetteChange {
 
 /** How a stale cassette is brought up to date: its stale interactions re-recorded, then the evals. */
 export const RE_RECORD_STALE =
-  "re-record its stale interactions with AGBOSS_VCR_MODE=RECORD_STALE npm test (never edit a cassette by hand), then run the evals";
+  "re-record its stale interactions with AGBOSS_VCR_MODE=record-stale npm test (never edit a cassette by hand), then run the evals";
 
 /** What a stale cassette takes (#906): the file, the component and what changed in it. */
 export interface StaleCassetteErrorOptions {

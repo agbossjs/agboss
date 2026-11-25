@@ -1,22 +1,19 @@
 import {
-  action,
-  agent,
-  anyOf,
-  group,
-  route,
-  start,
+  onAction,
+  onAgent,
+  onStart,
   toAction,
+  toAgent,
   toFinish,
+  toRouter,
 } from "../../../src/flow/builder.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
-import { Arbiter, OnAnswer } from "../../../src/flow/decorators/arbiter.js";
-import { DecidedBy } from "../../../src/flow/decorators/router.js";
+import { Arbiter, Arbitrate } from "../../../src/flow/decorators/arbiter.js";
+import { inline } from "../../../src/components/prompt-source.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
+import { optional } from "../../../src/flow/dto-wrappers.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
-import { minutes, seconds } from "../../../src/units/index.js";
-import { CompanyDto } from "./data-dtos.js";
-import { WorkflowStartTextDto } from "./dtos.js";
+import { minutes, seconds, Ttl } from "../../../src/units/index.js";
 import { CompanyCheckDto } from "./launch-dtos.js";
 import {
   AuditorAgent,
@@ -51,25 +48,12 @@ import {
   SecondOpinionRouter,
   SkillsScoreAgent,
 } from "./quorum-agents.js";
-import {
-  AuditDto,
-  CandidateDto,
-  CompanyShortlistDto,
-  CultureScoreDto,
-  DealCritiqueDto,
-  DealDto,
-  DueDiligenceReportDto,
-  FastScreenDto,
-  FitSummaryDto,
-  LegalReviewDto,
-  SalaryFitDto,
-  ScoreDto,
-  ScoreReviewDto,
-  SkillsScoreDto,
-} from "./quorum-dtos.js";
+import { ScoreDto } from "./quorum-dtos.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
- * #279 — the issue's quorums, each a workflow: any two of three with a deadline and `anyOf(…)`
+ * #279 — the issue's quorums, each a workflow: any two of three with a deadline and an arbiter
  * arbiters, different DTOs left out of a quorum (`optional`), a per-item launch with a chain of a
  * code and a model arbiter, and groups with priority continuing their own paths. They pass the
  * analyser; their runtime is #279 PR 2.
@@ -77,23 +61,22 @@ import {
 
 @Arbiter({
   name: "quick-score-arbiter",
-  decidedBy: DecidedBy.Code,
   deps: [ExecutionContext],
 })
 export class QuickScoreArbiter {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  @OnAnswer(ScoreAAgent)
+  @Arbitrate(ScoreAAgent)
   fromScoreA(answer: ScoreDto): boolean {
     return this.isScore(answer);
   }
 
-  @OnAnswer(ScoreBAgent)
+  @Arbitrate(ScoreBAgent)
   fromScoreB(answer: ScoreDto): boolean {
     return this.isScore(answer);
   }
 
-  @OnAnswer(ScoreCAgent)
+  @Arbitrate(ScoreCAgent)
   fromScoreC(answer: ScoreDto): boolean {
     return this.isScore(answer) && this.executionContext.step.copyNumber !== 0;
   }
@@ -105,30 +88,29 @@ export class QuickScoreArbiter {
 
 @Arbiter({
   name: "valid-score-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  modelProvider: TestDecisionsModelProvider,
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
-    { agent: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
-    { agent: ScoreBAgent, prompt: "Names at least two concrete risks" },
-    { agent: ScoreCAgent, prompt: "Ends with a clear hire / no hire" },
+    { target: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
+    { target: ScoreBAgent, prompt: "Names at least two concrete risks" },
+    { target: ScoreCAgent, prompt: "Ends with a clear hire / no hire" },
   ],
 })
 export class ValidScoreArbiter {}
 
 @Workflow({
   name: "candidate-review-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(CandidateReviewWorkflowStart)
-      .returns(CandidateDto)
-      .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
-      .acceptedBy(anyOf(QuickScoreArbiter, ValidScoreArbiter))
+    onStart(CandidateReviewWorkflowStart)
+      .inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent), toAgent(ScoreCAgent)])
+      .arbitratedBy(ValidScoreArbiter)
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
-      .onJoinError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
-      .returns(listOf(ScoreDto))
+      .onError(StepFailedError, toFinish(ScoreReviewFailedWorkflowFinish))
       .toAgent(ScoreSummaryAgent)
-      .returns(ScoreReviewDto)
       .toFinish(ScoreReviewWorkflowFinish),
   ],
 })
@@ -137,16 +119,12 @@ export class CandidateReviewWorkflow {}
 @Workflow({
   name: "fit-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FitReviewWorkflowStart)
-      .returns(CandidateDto)
-      .toParallelAgents(SkillsScoreAgent, CultureScoreAgent, SalaryFitAgent)
+    onStart(FitReviewWorkflowStart)
+      .inParallel([toAgent(SkillsScoreAgent), toAgent(CultureScoreAgent), toAgent(SalaryFitAgent)])
       .joinQuorum({ min: 2 })
-      .returns(optional(SkillsScoreDto))
-      .returns(optional(CultureScoreDto))
-      .returns(optional(SalaryFitDto))
       .toAgent(FitSummaryAgent)
-      .returns(FitSummaryDto)
       .toFinish(FitSummaryWorkflowFinish),
   ],
 })
@@ -154,10 +132,9 @@ export class FitReviewWorkflow {}
 
 @Arbiter({
   name: "good-score-arbiter",
-  decidedBy: DecidedBy.Code,
 })
 export class GoodScoreArbiter {
-  @OnAnswer(CompanyVetAgent)
+  @Arbitrate(CompanyVetAgent)
   fromCompanyVet(answer: CompanyCheckDto): boolean {
     return answer.passed;
   }
@@ -165,11 +142,11 @@ export class GoodScoreArbiter {
 
 @Arbiter({
   name: "convincing-reason-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  modelProvider: TestDecisionsModelProvider,
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
-    { agent: CompanyVetAgent, prompt: "The check names concrete facts about the company" },
+    { target: CompanyVetAgent, prompt: "The check names concrete facts about the company" },
   ],
 })
 export class ConvincingReasonArbiter {}
@@ -177,19 +154,15 @@ export class ConvincingReasonArbiter {}
 @Workflow({
   name: "company-search-workflow",
   version: "1.0.0",
-  maxSteps: 60, // a launch of up to 50 items
+  historyTtl: Ttl.Forever,
+  executionLimits: { maxSteps: 60 }, // a launch of up to 50 items
   flow: [
-    start(CompanySearchWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(CompanySearchWorkflowStart)
       .toAgent(BoardSearchAgent)
-      .returns(listOf(CompanyDto))
-      .toParallelAgents(CompanyVetAgent, { maxItems: 50 })
-      .acceptedBy(GoodScoreArbiter)
-      .acceptedBy(ConvincingReasonArbiter)
+      .forEachItem(toAgent(CompanyVetAgent), { takeFirst: 50 })
+      .arbitratedBy(ConvincingReasonArbiter)
       .joinQuorum({ min: 5, deadline: minutes(2) })
-      .returns(listOf(CompanyCheckDto))
       .toAgent(CompanyShortlistAgent)
-      .returns(CompanyShortlistDto)
       .toFinish(CompanyShortlistWorkflowFinish),
   ],
 })
@@ -197,14 +170,14 @@ export class CompanySearchWorkflow {}
 
 @Arbiter({
   name: "due-diligence-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  modelProvider: TestDecisionsModelProvider,
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
-    { agent: LegalAgent, prompt: "Names the legal risks found, or states that none were found" },
-    { agent: DealCriticAgent, prompt: "Gives at least one concrete objection" },
-    { agent: AuditorAgent, prompt: "Ends with a clear pass / fail of the audit" },
-    { agent: FastScreenAgent, prompt: "Any non-empty answer" },
+    { target: LegalAgent, prompt: "Names the legal risks found, or states that none were found" },
+    { target: DealCriticAgent, prompt: "Gives at least one concrete objection" },
+    { target: AuditorAgent, prompt: "Ends with a clear pass / fail of the audit" },
+    { target: FastScreenAgent, prompt: "Any non-empty answer" },
   ],
 })
 export class DueDiligenceArbiter {}
@@ -212,47 +185,42 @@ export class DueDiligenceArbiter {}
 @Workflow({
   name: "due-diligence-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(DealWorkflowStart)
-      .returns(DealDto)
-      .toParallelAgents(
-        LegalAgent,
-        DealCriticAgent,
-        DealCriticAgent,
-        AuditorAgent,
-        FastScreenAgent,
+    onStart(DealWorkflowStart)
+      .inParallel(
+        [
+          toAgent(LegalAgent),
+          toAgent(DealCriticAgent),
+          toAgent(DealCriticAgent),
+          toAgent(AuditorAgent),
+          toAgent(FastScreenAgent),
+        ],
         { maxConcurrency: 4 },
       )
-      .acceptedBy(DueDiligenceArbiter)
-      .joinQuorumGroups(
-        group(LegalAgent, DealCriticAgent)
-          .priority(1)
-          .returns(LegalReviewDto)
-          .returns(listOf(DealCritiqueDto))
-          .toAgent(FullReviewAgent),
-        group(AuditorAgent)
-          .priority(1)
-          .returns(AuditDto)
-          .toAction(OpenDealRoomAction)
+      .arbitratedBy(DueDiligenceArbiter)
+      .joinQuorumGroups({ deadline: minutes(1) })
+      .onError(StepFailedError, toAction(NotifyReviewerAction))
+      .onGroup([LegalAgent, DealCriticAgent], { priority: 1 }, toAgent(FullReviewAgent))
+      .onGroup(
+        [AuditorAgent],
+        { priority: 1 },
+        toAction(OpenDealRoomAction)
           .toFinish(DealRoomOpenedWorkflowFinish),
-        group(DealCriticAgent, DealCriticAgent)
-          .priority(2)
-          .returns(listOf(DealCritiqueDto))
-          .toRouter(SecondOpinionRouter)
-          .chooseOne(route(FullReviewAgent), route(NotifyReviewerAction)),
-        group(FastScreenAgent)
-          .priority(3)
-          .returns(FastScreenDto)
-          .toFinish(QuickRejectWorkflowFinish),
-        { deadline: minutes(1) },
       )
-      .onJoinError(StepFailedError, toAction(NotifyReviewerAction)),
+      .onGroup(
+        [DealCriticAgent, DealCriticAgent],
+        { priority: 2 },
+        toRouter(SecondOpinionRouter)
+          .onRoute(toAgent(FullReviewAgent))
+          .onRoute(toAction(NotifyReviewerAction)),
+      )
+      .onGroup([FastScreenAgent], { priority: 3 }, toFinish(QuickRejectWorkflowFinish)),
 
-    agent(FullReviewAgent)
-      .returns(DueDiligenceReportDto)
+    onAgent(FullReviewAgent)
       .toFinish(DueDiligenceReportWorkflowFinish),
 
-    action(NotifyReviewerAction)
+    onAction(NotifyReviewerAction)
       .toFinish(ReviewerNotifiedWorkflowFinish),
   ],
 })

@@ -11,7 +11,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type BudgetHandler,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -24,9 +25,9 @@ import {
   TestApplicationDailyBudget,
   TestTenantDailyBudget,
 } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
-import { LocalMirrorModelProvider, LocalModelProvider } from "../models/providers.fixture.js";
-import { DecisionsModelProvider } from "../../src/models/index.js";
+import { onStart } from "../helpers/flow.js";
+import { LocalModelProvider, TestDecisionsProvider } from "../models/providers.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /**
  * #263: a child workflow that its application does not list is a workflow of that application all
@@ -73,9 +74,9 @@ function childAndParent(
   @Workflow({
     name: `rules-child-${n}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(ChildStart)
-        .returns(WorkflowStartTextDto)
+      onStart(ChildStart)
         .toAgent(agent)
         .toFinish(options.finish ?? ChildFinish),
     ],
@@ -97,13 +98,8 @@ function childAndParent(
   @Workflow({
     name: `rules-parent-${n}-workflow`,
     version: "1.0.0",
-    flow: [
-      start(ParentStart)
-        .returns(WorkflowStartTextDto)
-        .toWorkflow(ChildWorkflow)
-        .returns(WorkflowFinishTextDto)
-        .toFinish(ParentFinish),
-    ],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(ParentStart).toWorkflow(ChildWorkflow).toFinish(ParentFinish)],
   })
   class ParentWorkflow {}
   return { ChildWorkflow, ParentWorkflow, ParentFinish };
@@ -113,8 +109,16 @@ const textAgent = (
   name: string,
   model = "moonshotai/kimi-k2.6",
   tools: readonly ToolHandlerClass[] = [],
+  modelProvider?: Class,
 ): Class => {
-  @Agent({ name, description: "Answers", prompt: "Answer.", model, tools: [...tools] })
+  @Agent({
+    name,
+    description: "Answers",
+    prompt: inline("Answer."),
+    model,
+    tools: [...tools],
+    ...(modelProvider === undefined ? {} : { modelProvider }),
+  })
   class TextAgent {}
   return TextAgent;
 };
@@ -126,6 +130,7 @@ const applicationOfParent = (
   count += 1;
   @Application({
     name: `rules-${String(count)}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [parent],
@@ -168,32 +173,14 @@ describe("#263: an unlisted child goes through the application's rules", () => {
     @Workflow({
       name: "rules-other-workflow",
       version: "1.0.0",
-      flow: [
-        start(OtherStart)
-          .returns(WorkflowStartTextDto)
-          .toWorkflow(ParentWorkflow)
-          .returns(WorkflowFinishTextDto)
-          .toFinish(OtherSharedFinish),
-      ],
+      historyTtl: Ttl.Forever,
+      flow: [onStart(OtherStart).toWorkflow(ParentWorkflow).toFinish(OtherSharedFinish)],
     })
     class OtherWorkflow {}
 
     expect(await codesOf(applicationOfParent(OtherWorkflow))).toContain(
       "graph.duplicate-node-name",
     );
-  });
-
-  it("[model.unserved]: a child's model no listed provider serves", async () => {
-    const { ParentWorkflow } = childAndParent(textAgent("rules-nowhere-agent", "nowhere/agent"));
-
-    const failure = await failureOf(
-      applicationOfParent(ParentWorkflow, { providers: [LocalModelProvider] }),
-    );
-
-    expect(failure).toContainEqual([
-      "model.unserved",
-      expect.stringContaining("agents.rules-nowhere-agent = nowhere/agent"),
-    ]);
   });
 
   it("[di.infrastructure-in-workflow]: infrastructure in an unlisted child's providers", async () => {
@@ -207,24 +194,44 @@ describe("#263: an unlisted child goes through the application's rules", () => {
     ]);
   });
 
-  it("[model.ambiguous-provider]: a child's model two listed providers serve", async () => {
-    const { ParentWorkflow } = childAndParent(textAgent("rules-twice-agent", "local/llama"));
+  it("[model.incompatible-provider]: a child's chat agent names a decisions provider", async () => {
+    const { ParentWorkflow } = childAndParent(
+      textAgent("rules-twice-agent", "local/llama", [], TestDecisionsProvider),
+    );
 
     const failure = await failureOf(
-      applicationOfParent(ParentWorkflow, {
-        providers: [LocalModelProvider, LocalMirrorModelProvider, DecisionsModelProvider],
-      }),
+      applicationOfParent(ParentWorkflow, { providers: [TestDecisionsProvider] }),
     );
 
     expect(failure).toContainEqual([
-      "model.ambiguous-provider",
-      expect.stringContaining("local/llama"),
+      "model.incompatible-provider",
+      expect.stringMatching(/local\/llama.*decisions-model-provider does not serve chat models/),
+    ]);
+  });
+
+  it("[model.missing-provider]: a child's agent with no provider in its cascade, when the application names none", async () => {
+    const { ParentWorkflow } = childAndParent(textAgent("rules-bare-agent", "local/llama"));
+    count += 1;
+    @Application({
+      name: `rules-${String(count)}-application`,
+      version: "1.0.0",
+      environment: EmptyEnvironment,
+      workflows: [ParentWorkflow],
+      budgets: TEST_BUDGETS,
+    })
+    class BareApplication {}
+
+    expect(await failureOf(BareApplication)).toContainEqual([
+      "model.missing-provider",
+      expect.stringContaining("agents.rules-bare-agent = local/llama"),
     ]);
   });
 
   it("a child's dependency nobody provides fails the assembly, naming it", async () => {
-    @Injectable()
-    class UnprovidedLookupService {}
+    // undecorated: a decorated class is found through `deps` (#1324), a bare one cannot be created
+    class UnprovidedLookupService {
+      readonly kind = "unprovided";
+    }
     class LookupDto {
       @Text({ prompt: "what to look up" })
       text!: string;
@@ -236,9 +243,9 @@ describe("#263: an unlisted child goes through the application's rules", () => {
       output: LookupDto,
       deps: [UnprovidedLookupService],
     })
-    class LookupTool implements ToolHandler<LookupDto, LookupDto> {
+    class LookupTool {
       constructor(readonly service: UnprovidedLookupService) {}
-      run(input: LookupDto): Promise<LookupDto> {
+      execute(input: LookupDto): Promise<LookupDto> {
         return Promise.resolve(input);
       }
     }
@@ -265,6 +272,7 @@ describe("#263: an unlisted child goes through the application's rules", () => {
     }
     @Application({
       name: "rules-budgeted-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [ParentWorkflow],

@@ -76,7 +76,7 @@ describe("#831 AC3: instances: [{ clockSkew, meterProvider }] — one entry per 
     const refused = [
       [[], /non-empty list/u],
       [[null], /instances\[0\]: not an object/u],
-      [[{}, { clockSkews: ClockSkew.none }], /instances\[1\]: clockSkews — an instance takes/u],
+      [[{}, { clockSkews: ClockSkew.None }], /instances\[1\]: clockSkews — an instance takes/u],
       [[{ clockSkew: { offset: 1, drift: 0 } }], /instances\[0\]\.clockSkew: not a ClockSkew/u],
       [0, /a whole number ≥ 1/u],
       [1.5, /a whole number ≥ 1/u],

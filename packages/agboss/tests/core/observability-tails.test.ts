@@ -2,23 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   Agent,
   InputGuardrail,
-  Injectable,
+  Observer,
   OutputGuardrail,
   Tool,
   Workflow,
   Action,
-  type OnActionEnd,
-  type OnActionStart,
-  type OnAgentEnd,
-  type OnAgentStart,
-  type OnChannelEnd,
-  type OnChannelStart,
-  type OnGuardrailEnd,
-  type OnGuardrailStart,
-  type OnToolEnd,
-  type OnToolStart,
-  type OnExecutionEnd,
-  type OnExecutionStart,
   type ActionEndEvent,
   type ActionStartEvent,
   type AgentEndEvent,
@@ -31,18 +19,22 @@ import {
   type ToolStartEvent,
   WorkflowStart,
   WorkflowFinish,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../src/dto/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { replyWith, callTool } from "../../src/testing/index.js";
 import { testDefaults } from "../helpers.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication } from "../../src/application/create-app.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
 
 class ToolInput {
   @Text() text!: string;
@@ -50,22 +42,8 @@ class ToolInput {
 
 const hookEvents: string[] = [];
 
-@Injectable()
-class TailsObserver
-  implements
-    OnExecutionStart,
-    OnExecutionEnd,
-    OnAgentStart,
-    OnAgentEnd,
-    OnActionStart,
-    OnActionEnd,
-    OnToolStart,
-    OnToolEnd,
-    OnGuardrailStart,
-    OnGuardrailEnd,
-    OnChannelStart,
-    OnChannelEnd
-{
+@Observer()
+class TailsObserver {
   async onExecutionStart() {
     hookEvents.push("WorkflowStart");
   }
@@ -81,10 +59,10 @@ class TailsObserver
   }
 
   async onToolStart(ctx: ToolStartEvent) {
-    hookEvents.push(`ToolStart:${ctx.toolName}`);
+    hookEvents.push(`ToolStart:${ctx.tool}`);
   }
   async onToolEnd(ctx: ToolEndEvent) {
-    hookEvents.push(`ToolEnd:${ctx.toolName}`);
+    hookEvents.push(`ToolEnd:${ctx.tool}`);
   }
 
   async onActionStart(ctx: ActionStartEvent) {
@@ -112,8 +90,9 @@ class TailsObserver
 @InputGuardrail({
   name: "safe-input-guardrail",
   description: "Checks what the agent reads",
-  prompt: "Is the message unsafe?",
+  prompt: inline("Is the message unsafe?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   threshold: 0.9,
   refusal: "No.",
 })
@@ -122,8 +101,9 @@ class SafeInputGuardrail {}
 @OutputGuardrail({
   name: "safe-output-guardrail",
   description: "Checks what the agent answers",
-  prompt: "Is the answer unsafe?",
+  prompt: inline("Is the answer unsafe?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   threshold: 0.9,
   refusal: "No.",
 })
@@ -136,7 +116,7 @@ class SafeOutputGuardrail {}
   output: ToolInput,
 })
 class SafeTool {
-  async run() {
+  async execute() {
     return { text: "done" };
   }
 }
@@ -166,19 +146,15 @@ class FinishNode {}
 @Workflow({
   name: "tails-test-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
-  flow: [
-    start(StartNode)
-      .returns(WorkflowStartTextDto)
-      .toAction(FormatAction)
-      .toAgent(SafeAgent)
-      .toFinish(FinishNode),
-  ],
+  flow: [onStart(StartNode).toAction(FormatAction).toAgent(SafeAgent).toFinish(FinishNode)],
 })
 class TailsWorkflow {}
 
 @Application({
   name: "tails-test-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [TailsWorkflow],

@@ -7,10 +7,8 @@ export type {
   A2AClientCall,
   A2AClientContract,
   A2AClientOptions,
-  A2AStreamEvent,
   A2ATaskResult,
 } from "./client/a2a-client-options.js";
-export type { A2AMessageInput } from "./client/a2a-parts.js";
 export { A2APeerKind, type A2ARemotePeer } from "./client/a2a-card.js";
 export {
   A2AClientOperation,
@@ -26,7 +24,7 @@ export {
 export {
   A2ACallDeadlineError,
   A2ACancelOutcome,
-  A2ATaskCanceledError,
+  A2ATaskCancelledError,
   A2ATaskEnd,
   A2ATaskFailedError,
   A2ATaskInterruptedError,
@@ -48,81 +46,47 @@ export {
   type A2AMeshUnsupportedErrorOptions,
   type A2AOriginErrorOptions,
 } from "./client/a2a-guard-errors.js";
-// the spec's types, as the official SDK defines them (A2A v1.0)
+// the spec's types as AGBoss's own, discriminated by `kind`, with `Date` times (#1320): the official
+// SDK's generated types are not part of this entry
 export {
-  TaskState,
-  type AgentCard,
-  type AgentSkill,
-  type Artifact,
-  type Message,
-  type Part,
-  type Task,
-} from "@a2a-js/sdk";
-export {
-  A2ACallerRejectedError,
-  type A2ACallerRejectedErrorOptions,
-  A2ACallerResolution,
-  A2ACallerResolutionKind,
-  A2AOperation,
-  type A2AApp,
-  type A2ACaller,
-  type A2ACallerForbiddenOptions,
-  type A2ACallerRequest,
-  type A2ACallerResolver,
-  type A2ACallerUnauthenticatedOptions,
-  type A2APeer,
-  type RejectedA2ACallerResolution,
-  type ResolvedA2ACallerResolution,
-} from "./a2a-caller.js";
+  A2APart,
+  A2ARole,
+  type A2AAgentCapabilities,
+  type A2AAgentCard,
+  type A2AAgentExtension,
+  type A2AAgentInterface,
+  type A2AAgentSkill,
+  type A2AArtifact,
+  type A2AArtifactUpdateEvent,
+  type A2ADataPart,
+  type A2AMessage,
+  type A2AMessageInput,
+  type A2AMetadata,
+  type A2APartBase,
+  type A2ARawPart,
+  type A2AStatusUpdateEvent,
+  type A2AStreamEvent,
+  type A2ATask,
+  type A2ATaskProgress,
+  type A2ATextPart,
+  type A2AUrlPart,
+} from "./a2a-types.js";
+export { A2AOperation, type A2AApp } from "./a2a-caller.js";
 export { a2aHttpListener, type A2AHttpListenerOptions } from "./a2a-http.js";
 export {
-  A2AExpose,
+  A2AEndpoint,
   A2ACardFileFields,
   A2AReply,
-  type A2AExposeOptions,
-  type A2AExposedSkillOptions,
-} from "./a2a-expose.decorator.js";
-export { A2ASecurity, A2ASecuritySchemeKind, type A2ASecurityScheme } from "./a2a-security.js";
+  type A2AEndpointOptions,
+  type A2AEndpointSkill,
+  type A2AEndpointSkillOptions,
+  type A2AEndpointTtl,
+  type A2ASkillEntry,
+} from "./a2a-endpoint.decorator.js";
 export { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "./a2a-extension-uris.js";
-// #807: the A2A task store on the application's SQLite file (`@Application({ providers })`)
-export { SqliteA2ATaskRepository } from "../infrastructure/sqlite/sqlite-a2a-task.repository.js";
-// #860: the direct messages' replies (`A2AReply.Message` skills), in memory and on the SQLite file
-export * from "../infrastructure/a2a-direct-message.repository.js";
-export { InMemoryA2ADirectMessageRepository } from "../infrastructure/in-memory-a2a-direct-message.repository.js";
-export { SqliteA2ADirectMessageRepository } from "../infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
-// #859: file parts in messages and artifacts
-export {
-  A2AFileDto,
-  A2AFileSource,
-  WorkflowFinishFileDto,
-  WorkflowFinishFilesDto,
-  type A2AFileField,
-} from "./files/a2a-file.dto.js";
-export { A2AFiles, type A2AFileContent, type A2AFileReference } from "./files/a2a-files.service.js";
-export {
-  A2AFileRefusal,
-  A2AFileRefusedError,
-  A2AFileUnavailableError,
-  type A2AFileUnavailableErrorOptions,
-  A2AFileUnavailableReason,
-  type A2AFileRefusedErrorOptions,
-} from "./files/a2a-file-errors.js";
-export { DEFAULT_A2A_FILE_MEDIA_TYPES, type A2AFileOptions } from "./files/a2a-file-options.js";
-export {
-  A2AClientFile,
-  type A2AClientFileOptions,
-  type A2AReceivedFile,
-} from "./client/a2a-client-files.js";
+// the task and direct-message stores (`A2ATaskRepository`, `A2ADirectMessageRepository` and their
+// in-memory and SQLite classes) are in `@agboss/core/stores` (#1320)
+export { A2ATaskState } from "../infrastructure/a2a-task.repository.js";
+export { DEFAULT_A2A_FILE_MEDIA_TYPES } from "./files/a2a-file-options.js";
 export type { A2ADownloadOptions } from "./client/a2a-download.js";
-export {
-  A2AFileConflictError,
-  type A2AFileConflictErrorOptions,
-  A2AFileRepository,
-  type A2AFileKey,
-  type A2AFileMetadata,
-  type A2AFileOwner,
-  type NewA2AFile,
-} from "../infrastructure/a2a-file.repository.js";
-export { InMemoryA2AFileRepository } from "../infrastructure/in-memory-a2a-file.repository.js";
-export { LocalDiskA2AFileRepository } from "../infrastructure/local-disk-a2a-file.repository.js";
-export { S3A2AFileRepository } from "../infrastructure/s3/s3-a2a-file.repository.js";
+export { A2AError, A2AErrorKind } from "../core/error-families/remote-errors.js";

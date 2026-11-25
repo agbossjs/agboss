@@ -1,7 +1,7 @@
-import type { App } from "../../app/types.js";
+import type { AnyTenantApp } from "../../app/types.js";
 import { lazyLoad } from "../../infrastructure/clock.js";
 import type { FaultStoreSet } from "./fault-stores.js";
-import { FaultA2AExpose, FaultCallerResolver, keepsA2ATasks } from "./fixture/fault.a2a.js";
+import { FaultA2AEndpoint, FaultAuthenticator, keepsA2ATasks } from "./fixture/fault.a2a.js";
 
 /**
  * A fault pod's A2A listener (#811 AC4): on a store set that keeps A2A tasks, the pod serves the
@@ -18,7 +18,7 @@ export interface PodA2AListener {
 
 /** Serves `app` over A2A when `stores` keep A2A tasks; the listener's URL, else `undefined`. */
 export async function podA2AListenerOf(
-  app: App,
+  app: AnyTenantApp,
   stores: FaultStoreSet,
 ): Promise<PodA2AListener | undefined> {
   if (!keepsA2ATasks(stores.providers)) return undefined;
@@ -48,8 +48,8 @@ export async function podA2AListenerOf(
     throw new Error(`the pod's A2A listener has no TCP address: ${String(address)}`);
   const url = `http://${LOOPBACK}:${String(address.port)}`;
   listening.handle = a2aHttpListener(app, {
-    expose: FaultA2AExpose,
-    callerResolver: FaultCallerResolver,
+    endpoint: FaultA2AEndpoint,
+    authenticator: FaultAuthenticator,
     publicUrl: url,
   });
   // the pod's process ends with its pods: the server never keeps it alive

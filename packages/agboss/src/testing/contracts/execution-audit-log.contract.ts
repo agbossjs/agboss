@@ -15,6 +15,7 @@ import { OutboundCallStatus } from "../../infrastructure/outbound-call.repositor
 import { seconds } from "../../units/index.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { auditEventKindCases } from "./execution-audit-log-kinds.cases.js";
+import { auditLogSweepCases } from "./execution-audit-log-sweep.cases.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
 import type { ContractTarget } from "./instance-context.js";
 
@@ -164,20 +165,21 @@ const AUDIT_EVENT_CASES: readonly ContractCase<ExecutionAuditLogRepository>[] = 
     },
   },
   {
-    name: "the sweep removes the rows before its cutoff on the Clock, a row at the cutoff is kept",
+    name: "the sweep removes the rows of an ended tree before its cutoff, a row at the cutoff is kept",
     run: async ({ clock, first, second }) => {
       await first.save(takeover(clock.now().toISOString()));
       await clock.advance(seconds(60));
       const cutoff = clock.now();
       await first.save(takeover(cutoff.toISOString(), { token: 3 }));
 
-      await second.deleteByOccurredAtBefore(cutoff);
+      const removed = await second.deleteExpired(cutoff, () => Promise.resolve(true));
 
       const found = await first.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(
         "default",
         "root-1",
       );
       expect(found.map((row) => row.token)).toEqual([3]);
+      expect(removed).toBe(1);
     },
   },
 ];
@@ -185,8 +187,8 @@ const AUDIT_EVENT_CASES: readonly ContractCase<ExecutionAuditLogRepository>[] = 
 /**
  * `ExecutionAuditLogRepository` (#501): the append-only audit log — a saved row is read back as
  * it was on any instance, a tree's rows oldest first (one moment's in the order saved), scoped by
- * tenant and root; the sweep removes what happened before its cutoff on the `Clock`; every row
- * kind, reason, site, outcome and optional field the core writes comes back as it was (#526).
+ * tenant and root; the sweep removes what happened before its cutoff on the `Clock` of the trees
+ * that have ended, never a live or paused tree's; every row kind, reason, site, outcome and optional field the core writes comes back as it was (#526).
  */
 export function executionAuditLogContract(
   target: ContractTarget<ExecutionAuditLogRepository>,
@@ -194,7 +196,7 @@ export function executionAuditLogContract(
   registerContract(
     "audit log contract",
     target,
-    [{ cases: AUDIT_EVENT_CASES }, auditEventKindCases()],
+    [{ cases: AUDIT_EVENT_CASES }, auditEventKindCases(), auditLogSweepCases()],
     pingOf,
   );
 }

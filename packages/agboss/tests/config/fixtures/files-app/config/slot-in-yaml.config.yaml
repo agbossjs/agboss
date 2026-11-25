@@ -1,0 +1,3 @@
+workflows:
+  file-summary-workflow:
+    filePolicy: files-slot-policy

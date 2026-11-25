@@ -6,17 +6,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CANCEL_REQUEST_KEY,
-  cancelWatchOf,
   endCancelled,
   endedAtTake,
   endIfCancelled,
   endIfCancelledAtRest,
   isCancelRequested,
   isEndedAtTakeover,
-  remoteCancel,
-  watchedBy,
   writeCancelRequest,
 } from "../../src/app/cancel-requests.js";
+import { cancelWatchOf, watchedBy } from "../../src/app/cancel-watch.js";
+import { remoteCancel } from "../../src/app/cancel-remote.js";
 import { WITHOUT_RECOVERY_KEY } from "../../src/app/tree-ends.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
@@ -82,6 +81,8 @@ function partsOf(
   const leases = {
     requestCancel: vi.fn(() => Promise.resolve()),
     isCancelRequested: vi.fn(() => Promise.resolve(options.marked ?? false)),
+    // both marks of the lease row in one read (#1341b): the cancel mark, no stop
+    markedOf: vi.fn(() => Promise.resolve({ isCancelRequested: options.marked ?? false })),
     hold: vi.fn((_tree: unknown, _held: unknown, _take: TakeSeen) => Promise.resolve(lease)),
     tryHold: vi.fn((_tree: unknown, _take: TakeSeen) =>
       Promise.resolve(options.holds === false ? undefined : lease),
@@ -149,7 +150,7 @@ describe("#1356: writing a request", () => {
     await writeCancelRequest(parts, TREE, request);
 
     expect(order).toEqual(["mark", "key"]);
-    expect(leases.requestCancel).toHaveBeenCalledWith(TREE);
+    expect(leases.requestCancel).toHaveBeenCalledWith(TREE, undefined);
     expect(trees.saveIfAbsentInTree).toHaveBeenCalledWith(TREE, CANCEL_REQUEST_KEY, request);
   });
 });
@@ -198,7 +199,11 @@ describe("#1356: the holder's watch", () => {
     watchedBy(lease as never, watch);
 
     expect(lease.afterEachRenewal).toHaveBeenCalledWith(watch.check);
-    expect(lease.whenCancelFound).toHaveBeenCalledWith(watch.abortNow);
+    expect(lease.whenCancelFound).toHaveBeenCalledWith(expect.any(Function));
+    // a refusal told to the lease aborts the watch's signal (#909)
+    const [listener] = lease.whenCancelFound.mock.calls[0] ?? [];
+    (listener as (cause: Error) => void)(new Error("refused"));
+    expect(watch.signal.aborted).toBe(true);
   });
 });
 
@@ -356,7 +361,7 @@ describe("#1356: a cancel of a thread that runs on another instance", () => {
     runId: "root-1",
     threadId: "thread-1",
     tenantId: "acme",
-    bundle: "bundle-a",
+    workflow: "bundle-a",
     status: "running",
     configVersion: "3",
     ...fields,
@@ -368,7 +373,7 @@ describe("#1356: a cancel of a thread that runs on another instance", () => {
     turns.lastTurns.mockResolvedValue([
       turn({ id: "t1", runId: "root-1" }),
       turn({ id: "t2", runId: "root-2", status: "failed" }),
-      turn({ id: "t3", runId: "root-3", bundle: "bundle-b" }),
+      turn({ id: "t3", runId: "root-3", workflow: "bundle-b" }),
       turn({ id: "t4", runId: null }),
     ]);
     turns.byIds.mockResolvedValue([turn({ id: "t1" })]);
@@ -377,7 +382,10 @@ describe("#1356: a cancel of a thread that runs on another instance", () => {
 
     expect(turns.lastTurns).toHaveBeenCalledWith("acme", "thread-1", 20);
     expect(leases.requestCancel.mock.calls).toEqual([
-      [{ tenantId: "acme", rootExecutionId: "root-1" }],
+      [
+        { tenantId: "acme", rootExecutionId: "root-1" },
+        expect.objectContaining({ toStatus: "cancelling", trigger: "cancel" }),
+      ],
     ]);
     expect(trees.saveIfAbsentInTree).toHaveBeenCalledWith(
       { tenantId: "acme", rootExecutionId: "root-1" },

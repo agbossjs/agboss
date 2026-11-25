@@ -3,7 +3,7 @@
  * live tally (`BudgetMeter.tally`) counts every call as it is made, so a branch sees its siblings'
  * spend while they run; a tally that exhausts a budget aborts the in-flight calls of every branch
  * through their `executionContext.signal`; the launch fails with `BudgetExceededError` — into a
- * code-only `.onJoinError(…)`, else the execution fails —, its spend counted once.
+ * code-only `.onError(…)`, else the execution fails —, its spend counted once.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { BranchStatus, BudgetExceededError } from "../../src/index.js";
@@ -62,14 +62,14 @@ async function executionCounter(result: ExecutionOutput): Promise<number> {
     key: result.executionId,
     maxSpend: 0.05,
   };
-  return ledger.findSpentByCounter(counterOf(record, new Date(0)));
+  return ledger.findUsageByCounter(counterOf(record, new Date(0))).then((usage) => usage.spent);
 }
 
 beforeEach(resetParallelBudget);
 
 describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () => {
   testWith(ParallelBudgetApplication, SPENDER_FIRST)(
-    "toParallelAgents: the spender's call crosses the execution budget, the waiter's tool is aborted",
+    "inParallel: the spender's call crosses the execution budget, the waiter's tool is aborted",
     async ({ app, mockLlm }) => {
       mockLlm(SpenderAgent).thenReturn(hold, spend(0.06));
       mockLlm(WaiterAgent).thenReturn(wait); // no further turn: its loop never calls again
@@ -111,7 +111,7 @@ describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () =
       step(TaskWorkflow, { "task-workflow-start": { name: "wait" } }),
     ]),
   })(
-    "toParallelWorkflows: one child's call crosses the root's budget, its sibling child is aborted",
+    "forEachItem: one child's call crosses the root's budget, its sibling child is aborted",
     async ({ app, mockLlm }) => {
       mockLlm(TaskAgent)
         .when({ task: { name: "spend" } })
@@ -133,7 +133,7 @@ describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () =
       step(TaskAction, { task: { name: "wait" } }),
     ]),
   })(
-    "toParallelActions: one action's service spend crosses the budget, its sibling's signal aborts",
+    "inParallel: one action's service spend crosses the budget, its sibling's signal aborts",
     async ({ app }) => {
       const result = await execute(app, TasksWorkflowStart, [{ name: "wait" }, { name: "spend" }]);
 
@@ -163,7 +163,7 @@ describe("AC1: a budget crossed in a launch aborts the in-flight siblings", () =
 
 describe("AC2: the launch fails with BudgetExceededError", () => {
   testWith(ParallelBudgetApplication, SPENDER_FIRST)(
-    "into .onJoinError(BudgetExceededError, toAction(…).toFinish(…)): code only, no model after it",
+    "into .onError(BudgetExceededError, toAction(…).toFinish(…)): code only, no model after it",
     async ({ app, mockLlm, mockAction }) => {
       mockLlm(SpenderAgent).thenReturn(hold, spend(0.06));
       mockLlm(WaiterAgent).thenReturn(wait);
@@ -272,9 +272,13 @@ describe("the live tally (BudgetMeter)", () => {
       ledgerId: expect.any(String),
     });
     await budgets.settled();
-    expect(await ledger.findSpentByCounter(counterOf(record, systemClock.now()))).toBeCloseTo(0.03);
+    expect(
+      (await ledger.findUsageByCounter(counterOf(record, systemClock.now()))).spent,
+    ).toBeCloseTo(0.03);
     await budgets.record(kept === undefined ? [] : [kept]);
-    expect(await ledger.findSpentByCounter(counterOf(record, systemClock.now()))).toBeCloseTo(0.03);
+    expect(
+      (await ledger.findUsageByCounter(counterOf(record, systemClock.now()))).spent,
+    ).toBeCloseTo(0.03);
     budgets.check(0.03, []);
     budgets.tally([call(0.01)]);
 

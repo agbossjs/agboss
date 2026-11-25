@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { workflowOf } from "../../../src/components/assemble.js";
-import { WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { Agent, GraphRuleError, Workflow, WorkflowFinish } from "../../../src/index.js";
+import {
+  Agent,
+  GraphRuleError,
+  Workflow,
+  WorkflowFinish,
+  inline,
+  Ttl,
+} from "../../../src/index.js";
 import { Text } from "../../../src/dto/index.js";
 import { replyWith, routeTo, testWith } from "../../../src/testing/index.js";
 import { Alpha, TestAnswer, TestChat, TestMain } from "../../fixtures/test-flow/test.flow.js";
 import { StarApplication } from "../../fixtures/test-flow/star.workflow.js";
-import { execute, start } from "../../helpers/flow.js";
+import { execute, onStart } from "../../helpers/flow.js";
 
 const star = testWith(StarApplication);
 
@@ -18,16 +24,20 @@ class SummaryDto {
 @WorkflowFinish({ name: "summary-workflow-finish", description: "A summary", output: SummaryDto })
 class SummaryFinish {}
 
-@Agent({ name: "chatty-agent", description: "Answers with text", prompt: "Chat.", model: "test/c" })
+@Agent({
+  name: "chatty-agent",
+  description: "Answers with text",
+  prompt: inline("Chat."),
+  model: "test/c",
+})
 class ChattyAgent {}
 
 /** A text agent may lead only to a finish of `WorkflowFinishTextDto`. */
 @Workflow({
   name: "wrong-text-workflow",
   version: "1.0.0",
-  flow: [
-    start(TestChat).returns(WorkflowStartTextDto).toAgent(ChattyAgent).toFinish(SummaryFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(TestChat).toAgent(ChattyAgent).toFinish(SummaryFinish)],
 })
 class WrongTextWorkflow {}
 

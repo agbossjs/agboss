@@ -1,3 +1,5 @@
+import { secret } from "../../../src/environments/secret.js";
+import { Window5Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   Application,
@@ -8,7 +10,6 @@ import {
   Judge,
   JudgeModel,
   JudgeVerdict,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   TenantContext,
@@ -16,17 +17,26 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   toolCallsOf,
   type JudgeHandler,
   type JudgeInput,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
-import { Integer, OneOf, Text } from "../../../src/dto/index.js";
+import { Integer, Enum, Text } from "../../../src/dto/index.js";
 import { WorkflowStartTextDto } from "./dtos.js";
+import {
+  ModelCost,
+  ModelProvider,
+  OpenAiCompatibleDriver,
+  PromptCaching,
+  Reasoning,
+} from "../../../src/models/index.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
+import { minutes, seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
-import { caseOf, start } from "./paths.js";
+import { onStart, toFinish } from "./paths.js";
 
 /**
  * #396 PR 2 — a refunds desk to run eval suites on: one text agent with three tools, the project's
@@ -35,7 +45,7 @@ import { caseOf, start } from "./paths.js";
  */
 
 export class DeskTenantContext extends TenantContext {
-  @OneOf({ values: ["free", "pro"] })
+  @Enum(["free", "pro"])
   plan!: "free" | "pro";
 }
 
@@ -112,8 +122,8 @@ export class RefundLedger {
   input: OrderQueryDto,
   output: OrderInfoDto,
 })
-export class GetOrderTool implements ToolHandler<OrderQueryDto, OrderInfoDto> {
-  run({ orderId }: OrderQueryDto): Promise<OrderInfoDto> {
+export class GetOrderTool {
+  execute({ orderId }: OrderQueryDto): Promise<OrderInfoDto> {
     return Promise.resolve({ status: `order ${orderId} arrived broken` });
   }
 }
@@ -125,10 +135,10 @@ export class GetOrderTool implements ToolHandler<OrderQueryDto, OrderInfoDto> {
   output: RefundDoneDto,
   deps: [RefundLedger],
 })
-export class RefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> {
+export class RefundTool {
   constructor(private readonly refundLedger: RefundLedger) {}
 
-  run({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
+  execute({ orderId }: RefundRequestDto): Promise<RefundDoneDto> {
     this.refundLedger.record(orderId);
     return Promise.resolve({ status: `refunded ${orderId}` });
   }
@@ -140,8 +150,8 @@ export class RefundTool implements ToolHandler<RefundRequestDto, RefundDoneDto> 
   input: OrderQueryDto,
   output: OrderInfoDto,
 })
-export class DeleteOrderTool implements ToolHandler<OrderQueryDto, OrderInfoDto> {
-  run({ orderId }: OrderQueryDto): Promise<OrderInfoDto> {
+export class DeleteOrderTool {
+  execute({ orderId }: OrderQueryDto): Promise<OrderInfoDto> {
     return Promise.resolve({ status: `deleted ${orderId}` });
   }
 }
@@ -149,7 +159,7 @@ export class DeleteOrderTool implements ToolHandler<OrderQueryDto, OrderInfoDto>
 @Agent({
   name: "desk-agent",
   description: "Handles refunds",
-  prompt: "Refund broken orders.",
+  prompt: inline("Refund broken orders."),
   model: "test/desk",
   price: { inputPerMTok: 1, outputPerMTok: 10 },
   input: { message: WorkflowStartTextDto },
@@ -178,19 +188,13 @@ export class HandOverWorkflowFinish {}
 @Workflow({
   name: "eval-desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(DeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(DeskWorkflowStart)
       .toAgent(DeskAgent)
-      .returns(oneOf(DeskAnswerDto, HandOverDto))
-      .switch(
-        caseOf(DeskAnswerDto)
-          .toFinish(DeskWorkflowFinish),
-        caseOf(HandOverDto)
-          .toFinish(HandOverWorkflowFinish),
-      ),
+      .toOneOf([toFinish(DeskWorkflowFinish), toFinish(HandOverWorkflowFinish)]),
   ],
-  uncompactedTurns: 5,
+  memory: Window5Memory,
   providers: [RefundLedger],
 })
 export class EvalDeskWorkflow {}
@@ -207,30 +211,25 @@ export const judgeReadings: {
 @Judge({
   name: "refund-recorded-judge",
   description: "The refund is in the ledger once",
-  decidedBy: DecidedBy.Code,
-  reply: DeskAnswerDto,
+  output: DeskAnswerDto,
   deps: [RefundLedger, DeskTenantContext, DeskExecutionContext],
 })
-export class RefundRecordedJudge implements JudgeHandler<DeskAnswerDto> {
+export class RefundRecordedJudge {
   constructor(
     private readonly refundLedger: RefundLedger,
     private readonly deskTenantContext: DeskTenantContext,
     private readonly deskExecutionContext: DeskExecutionContext,
   ) {}
 
-  judge({ toolCalls }: JudgeInput<DeskAnswerDto>): Promise<JudgeVerdict> {
+  judge({ toolCalls }: JudgeInput<RefundRecordedJudge>): JudgeVerdict {
     const { tenantId, plan } = this.deskTenantContext;
     const { executionId, userId } = this.deskExecutionContext;
     judgeReadings.push({ tenantId, plan, executionId, userId });
     const refunds = toolCallsOf(RefundTool, toolCalls).length;
     const entries = this.refundLedger.findByTenantIdAndExecutionId(tenantId, executionId).length;
-    return Promise.resolve(
-      refunds === 1 && entries === 1
-        ? JudgeVerdict.passed({ metrics: { entries, plan } })
-        : JudgeVerdict.failed({
-            reason: `${String(refunds)} refund call(s), ${String(entries)} entries`,
-          }),
-    );
+    return refunds === 1 && entries === 1
+      ? JudgeVerdict.passed({ metrics: { entries, plan } })
+      : JudgeVerdict.failed(`${String(refunds)} refund call(s), ${String(entries)} entries`);
   }
 }
 
@@ -239,17 +238,15 @@ export class RefundRecordedJudge implements JudgeHandler<DeskAnswerDto> {
   name: "answer-grounded-judge",
   description: "The answer says what the tools found",
   model: "test/judge",
-  reply: DeskAnswerDto,
+  output: DeskAnswerDto,
   deps: [JudgeModel],
 })
 export class AnswerGroundedJudge implements JudgeHandler<DeskAnswerDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<DeskAnswerDto>): Promise<JudgeVerdict> {
-    const answer = await this.judgeModel.invoke(`Is this grounded? ${reply.text}`);
-    return answer.trim() === "yes"
-      ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: "not grounded" });
+  async judge({ output }: JudgeInput<DeskAnswerDto>): Promise<JudgeVerdict> {
+    const answer = await this.judgeModel.invoke(`Is this grounded? ${output.text}`);
+    return answer.trim() === "yes" ? JudgeVerdict.passed() : JudgeVerdict.failed("not grounded");
   }
 }
 
@@ -257,12 +254,34 @@ export class AnswerGroundedJudge implements JudgeHandler<DeskAnswerDto> {
 @PiiPolicy({
   name: "eval-email-pii-policy",
   description: "Hides email addresses",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 export class EvalEmailPiiPolicy {}
 
+/** The provider the application and its eval judges are pinned to (a scripted gateway serves it). */
+@ModelProvider({
+  name: "eval-desk-model-provider",
+  description: "The desk's models",
+  driver: OpenAiCompatibleDriver({
+    baseUrl: "http://eval-desk.test/v1",
+    apiKey: secret("EVAL_DESK_API_KEY"),
+  }),
+  timeout: seconds(5),
+  cost: ModelCost.fromResponse(),
+  reasoning: Reasoning.modelDecides(),
+  promptCaching: PromptCaching.off(),
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 3,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
+})
+export class EvalDeskModelProvider {}
+
 @Application({
   name: "eval-desk-application",
+  modelProvider: EvalDeskModelProvider,
+  providers: [EvalDeskModelProvider],
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EvalDeskWorkflow],

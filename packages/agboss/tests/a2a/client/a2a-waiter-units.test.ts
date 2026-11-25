@@ -174,8 +174,8 @@ describe("#1366: the deadline", () => {
       agent: "peer-agent",
       taskId: "t-1",
       contextId: "c-9",
-      deadlineAt: "2026-01-01T00:00:12.000Z",
-      cancel: A2ACancelOutcome.Canceled,
+      deadlineAt: new Date("2026-01-01T00:00:12.000Z"),
+      cancel: A2ACancelOutcome.Cancelled,
     });
     expect(cancelTask).toHaveBeenCalledOnce();
     expect(cancelTask.mock.calls[0]?.[0]).toEqual({ tenant: "", id: "t-1", metadata: undefined });
@@ -205,11 +205,11 @@ describe("#1366: the deadline", () => {
     };
 
     expect(await run(() => Promise.resolve(taskOf(TaskState.TASK_STATE_WORKING)))).toMatchObject({
-      cancel: A2ACancelOutcome.NotCanceled,
+      cancel: A2ACancelOutcome.NotCancelled,
     });
     expect(
       await run(() => Promise.resolve(taskOf(TaskState.TASK_STATE_CANCELED, { id: "other" }))),
-    ).toMatchObject({ cancel: A2ACancelOutcome.NotCanceled });
+    ).toMatchObject({ cancel: A2ACancelOutcome.NotCancelled });
     expect(await run(() => Promise.reject(new Error("not cancelable")))).toMatchObject({
       cancel: A2ACancelOutcome.Refused,
     });

@@ -8,13 +8,15 @@
  * refused, the execution refused — and the reranker's model reads nothing. The trace of the
  * reranking (its span and its model call) holds the masked text only.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { BaseMessage } from "@langchain/core/messages";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
-import { boundRerankerOf, knowledgeRetrieveOf, ragMeta } from "../../src/components/rag.js";
+import { ragMeta } from "../../src/components/rag.js";
+import { boundRerankerOf } from "../../src/components/rag-reranker.js";
+import { knowledgeRetrieveOf } from "../../src/components/rag-retrieval.js";
 import { gatherKnowledge } from "../../src/graph/nodes/knowledge.js";
 import { PiiRefusedError } from "../../src/pii/errors.js";
 import { modelReadingMaskOf, withModelReading } from "../../src/pii/model-boundary.js";
@@ -23,7 +25,6 @@ import { runtimePolicyOf } from "../../src/pii/runtime-policy.js";
 import type { PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
 import { componentOf } from "../../src/components/metadata.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
-import type { RagConnector } from "../../src/rag/index.js";
 import { replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -61,7 +62,7 @@ afterEach(async () => {
 });
 
 async function appWith(book: ScriptBook): Promise<App> {
-  app = await createAppWith(RerankPiiApplication, {
+  app = await createTestAppWith(RerankPiiApplication, {
     processEnv: { [PII_KEY_VARIABLE]: "test-key" },
     gateway: createScriptedGateway(book),
   });
@@ -197,11 +198,11 @@ describe("#708: the reranking's trace holds the masked text only", () => {
       }),
     };
     const reranker = boundRerankerOf(meta, (cls) => new (cls as new () => unknown)(), services);
-    const connector = new (PeopleRag as new () => RagConnector)();
+    const rag = new (PeopleRag as new () => object)();
     const source = {
       name: meta.name,
       topK: 3,
-      retrieve: knowledgeRetrieveOf(meta, connector, reranker),
+      retrieve: knowledgeRetrieveOf(meta, rag, reranker, services),
     };
     const set = contactPolicies();
     const query = `Ask ${EMAIL} or someone else?`;

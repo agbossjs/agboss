@@ -6,12 +6,10 @@
 export {
   Injectable,
   Tool,
-  BindTool,
   Channel,
   GuardrailSide,
   InputGuardrail,
   OutputGuardrail,
-  type CodeGuardrailComputedOptions,
   type CodeGuardrailTextOptions,
   type GuardrailComputedOptions,
   type GuardrailRefusal,
@@ -25,28 +23,28 @@ export {
   type GuardrailContent,
   type GuardrailHandler,
 } from "../components/guardrail-handler.js";
-export { ToolInterceptor } from "../tool-interceptors/decorator.js";
-export {
-  ToolCallDecision,
-  type AfterToolCall,
-  type BeforeToolCall,
-  type ToolCallContext,
-  type ToolCallResultContext,
-} from "../tool-interceptors/decision.js";
+export { ToolInterceptor, type ToolInterceptorOptions } from "../tool-interceptors/decorator.js";
+export { AfterTool, BeforeTool } from "../tool-interceptors/hooks.js";
+export { ToolCall, ToolCallDecision } from "../tool-interceptors/decision.js";
 export { TokenLimit, TurnLimit } from "../config/types.js";
 export {
-  Compaction,
+  Memory,
+  NoMemory,
   CompactionStrategy,
-  type CompactionHandler,
+  type CodeMemoryOptions,
   type CompactionInput,
-  type CompactionOptions,
+  type CompactMethod,
   type CompactionTurn,
-  type NoSummaryCompactionOptions,
-  type SingleSummaryCompactionOptions,
+  type DeclarativeMemoryOptions,
+  type MemoryBaseOptions,
+  type MemoryCompaction,
+  type MemoryOptions,
+  type SingleSummaryCompaction,
+  type SummariserOptions,
   type SummaryMaxTokens,
-  type SummaryQueueCompactionOptions,
+  type SummaryQueueCompaction,
   type UncompactedTurns,
-} from "../compaction/compaction.decorator.js";
+} from "../memory/memory.decorator.js";
 export {
   PiiAction,
   PiiActionKind,
@@ -54,44 +52,43 @@ export {
   PiiGroup,
   PiiKind,
   PiiPolicy,
-  pii,
   type AnyPiiAction,
-  type BlockWithRefusalAction,
+  type BlockAction,
   type CustomPiiPolicyOptions,
   type DeclarativePiiPolicyOptions,
+  type MaskAction,
   type MaskingPiiAction,
+  type MaskPartAction,
+  type PiiGroupDescriptor,
   type PiiKeptPart,
+  type PiiKindDescriptor,
   type PiiMatch,
   type PiiPartOptions,
   type PiiPolicyHandler,
   type PiiRefusal,
-  type PiiRefusalOptions,
   type PiiReplacedPart,
   type PiiRule,
   type PiiTarget,
-  type ReplacePartAction,
-  type ReplaceWithKindAction,
-  type ReplaceWithTokenAction,
+  type PiiTargetDescriptor,
+  type TokenizeAction,
 } from "../pii/index.js";
+export { type ModelJudgeOptions } from "../components/judge-declaration.js";
 export {
-  type CodeJudgeMeta,
+  type CodeJudgeOptions,
   type FailedJudgeVerdict,
   type FailedJudgeVerdictOptions,
   Judge,
   type JudgeHandler,
-  type JudgeHandlerClass,
   type JudgeInput,
-  type JudgedReply,
-  type JudgeInputOf,
-  type JudgeMeta,
+  type JudgedOutput,
+  type JudgedValueOf,
   type JudgeMetrics,
   JudgeModel,
   type JudgeOptions,
-  type JudgeReplyOf,
-  type JudgeReplyShape,
-  type JudgedValueOf,
+  type JudgeOutputOf,
+  type JudgeOutputShape,
+  type JudgeOutputValueOf,
   JudgeVerdict,
-  type ModelJudgeMeta,
   type PassedJudgeVerdict,
   type PassedJudgeVerdictOptions,
 } from "../components/judge-decorators.js";
@@ -100,6 +97,8 @@ export {
   MAX_DECISION_QUESTIONS,
   type AnswerOf,
   type AnswersOf,
+  type BooleanAnswer,
+  type BooleanQuestion,
   type ChoiceAnswer,
   type ChoiceQuestion,
   type DecisionAnswer,
@@ -109,15 +108,12 @@ export {
   type DecisionRequest,
   type DecisionState,
   ImageDetail,
-  type NoulAnswer,
-  type NoulQuestion,
   type ScoreAnswer,
   type ScoreQuestion,
 } from "../llm/decisions.js";
-export { ROUTER_FACTORY } from "../components/runtime.js";
+export type { ModelMessage, ShownContent, ShownModelMessage } from "../models/messages.js";
+export { DecisionModel, type DecisionModelOptions } from "../components/decision-model.js";
 export { SpendRecorder, type ServiceSpend } from "../components/spend-recorder.js";
-/** What `ROUTER_FACTORY` makes: a model-backed router a service asks to route (not `@Router`). */
-export type { RouterEngine } from "../routers/index.js";
 export { ComponentError } from "../components/metadata.js";
 export { nameOf, type ComponentName } from "../components/name-of.js";
 export {
@@ -139,21 +135,21 @@ export {
 export type { PromptInput } from "../components/prompt-input.js";
 export { file } from "../components/file.js";
 export {
-  ChannelRole,
-  PauseAnswerer,
-  type ChannelApprovalRoleOptions,
-  type ChannelQuestionRoleOptions,
-  type ChannelRoleBaseOptions,
-  type ChannelRoleOptions,
-} from "../channels/channel-role.decorator.js";
-export { PauseKind, questionAskOf, type PendingPauseBase } from "../pause/index.js";
-export { ChannelOf, type ChannelAsk, type ChannelHandler } from "../channels/channel-handler.js";
-export type { QuestionStepOptions } from "../flow/child-placement.js";
+  inline,
+  type InlinePrompt,
+  type PromptFilePath,
+  type PromptPart,
+  type PromptSource,
+} from "../components/prompt-source.js";
+export type { PromptVariables } from "../components/prompt-variables.js";
+export { PauseKind, pauseInputOf, type PendingPauseBase } from "../pause/index.js";
+export { type ChannelAsk, type ChannelHandler } from "../channels/channel-handler.js";
 export {
   PauseExpiration,
   PauseExpirationKind,
   type DecideExpiration,
   type FailExpiration,
+  type ReassignExpiration,
   type PauseExpiryHandler,
 } from "../channels/pause-expiration.js";
 export {
@@ -162,36 +158,13 @@ export {
   type AwaitReplyOutcome,
   type DecidedOutcome,
 } from "../channels/channel-outcome.js";
-export {
-  ReplyInterpretation,
-  ReplyInterpretationKind,
-  ReplyInterpreter,
-  type NotUnderstoodReply,
-  type NotUnderstoodReplyOptions,
-  type UnderstoodReply,
-  type CodeReplyInterpreterOptions,
-  type ModelReplyInterpreterOptions,
-  type ReplyInterpreterDecorator,
-  type ReplyInterpreterHandler,
-  type ReplyInterpreterOptions,
-} from "../channels/channel-role.decorator.js";
-export { TerminalUserChannel } from "../channels/terminal-channel.js";
-export { AutoApproveChannel, AutoRejectChannel } from "../channels/test-channels.js";
-export {
-  EmptyEnvironment,
-  env,
-  secret,
-  Secret,
-  EnvironmentError,
-  EnvironmentErrorCode,
-  type EnvironmentErrorOptions,
-  EnvironmentField,
-  type EnvironmentFieldOptions,
-  type Environment,
-  type EnvironmentFields,
-  type EnvironmentValueOptions,
-  type EnvironmentValueReader,
-  type EnvironmentVariableReader,
-} from "../environments/index.js";
+export { ChannelInterpretationKind } from "../channels/channel-interpreter.js";
+export type { ModelProviderRuleCode } from "../models/model-rule-codes.js";
+export type {
+  A2AEndpointRuleCode,
+  ContextRuleCode,
+  DecoratorRuleCode,
+  HistoryTtlRuleCode,
+} from "../graph/extra-rule-codes.js";
 // the tools an agent's scripted calls may name (#679), filled by `.agboss/types.d.ts`
-export type { AgentToolNamesOf, AgentTools, ToolNameOf } from "../flow/generated-types.js";
+export type { AgentToolNamesOf, ToolNameOf } from "../flow/generated-types.js";

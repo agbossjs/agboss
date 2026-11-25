@@ -1,22 +1,18 @@
 /**
  * #505 — an outbound call's request is stored masked wherever its step runs: a child workflow in
- * its parent's step (`ParentInstance`) and a child queued for any instance (`AnyInstance`, whose
+ * its parent's step (`CurrentProcess`) and a child queued for any instance (`AnyWorker`, whose
  * run context is rebuilt by the worker — it used to carry no mask, so its intent was stored raw).
  * A frame without a mask while the application lists PII policies fails closed: nothing recorded,
  * nothing sent. An operator reads a stored result masked too (the store keeps it as given, for the
  * replay).
  */
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  OutboundCallRepository,
-  OutboundCallUnmaskedError,
-  Workflow,
-  WorkflowStart,
-} from "../../src/index.js";
+import { OutboundCallRepository, Workflow, WorkflowStart, Ttl } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { testAction, testWith } from "../../src/testing/index.js";
+import { testUnit, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -30,7 +26,6 @@ import {
 import {
   ChargedWorkflowFinish,
   ChargeOrderAction,
-  ChargeReceiptDto,
   ChargeWorkflow,
   ChargeWorkflowStart,
   EmailPiiPolicy,
@@ -38,7 +33,6 @@ import {
 } from "./fixtures/outbound-call.workflow.js";
 import { gateway, PaymentGateway, resetGateway } from "./fixtures/payment-gateway.js";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 
@@ -63,7 +57,7 @@ const MASKED_REQUEST = '{"orderId":"order-7","amountUsd":10,"email":"<email>"}';
 const TREE = { tenantId: "default", rootExecutionId: "execution-1" };
 
 describe("#505 AC4: a child workflow's outbound call is stored masked", () => {
-  test("AC4: an AnyInstance child with a PII policy sends a call: its stored request is masked", async ({
+  test("AC4: an AnyWorker child with a PII policy sends a call: its stored request is masked", async ({
     app,
   }) => {
     const result = await execute(app, FarChargeWorkflowStart, {
@@ -78,7 +72,7 @@ describe("#505 AC4: a child workflow's outbound call is stored masked", () => {
     expect(gateway.calls).toHaveLength(1);
   });
 
-  test("AC4: a ParentInstance child's stored request is masked the same way", async ({ app }) => {
+  test("AC4: a CurrentProcess child's stored request is masked the same way", async ({ app }) => {
     await execute(app, NearChargeWorkflowStart, { text: "order-7 alice@example.com" });
 
     const [call] = await app.outboundCallsOf(TREE);
@@ -89,11 +83,11 @@ describe("#505 AC4: a child workflow's outbound call is stored masked", () => {
 
 describe("#505: no mask where policies exist — fail closed", () => {
   it("AC4: a frame without a mask while the application lists policies: refused, nothing recorded or sent", async () => {
-    const run = testAction(UnmaskedChargeAction);
+    const run = testUnit(UnmaskedChargeAction);
 
-    const refused = run({ message: { value: { text: "order-1" } } });
+    const refused = run({ message: { text: "order-1" } });
 
-    await expect(refused).rejects.toBeInstanceOf(OutboundCallUnmaskedError);
+    await expect(refused).rejects.toBeInstanceOf(OutboundCallError.Unmasked);
     await expect(refused).rejects.toMatchObject({ code: "outbound-call.unmasked", call: "charge" });
     expect(unmasked.pendingAfter).toEqual([0]);
     expect(gateway.calls).toEqual([]);
@@ -104,17 +98,18 @@ describe("#505: no mask where policies exist — fail closed", () => {
       name: "no-pii-application",
       version: "1.0.0",
       environment: IdempotencyKeyEnvironment,
-      idempotencyKeyField: "idempotencyKey",
       workflows: [ChargeWorkflow],
       budgets: TEST_BUDGETS,
     })
     class NoPiiApplication {}
 
-    const withPolicies = await applicationOf(OutboundCallApplication);
-    const without = await applicationOf(NoPiiApplication);
+    const withPolicies = await applicationOf(OutboundCallApplication, {
+      withoutIdempotencyKeys: true,
+    });
+    const without = await applicationOf(NoPiiApplication, { withoutIdempotencyKeys: true });
 
-    expect(withPolicies.outboundCalls.requiresMask).toBe(true);
-    expect(without.outboundCalls.requiresMask).toBe(false);
+    expect(withPolicies.outboundMasking.requiresMask).toBe(true);
+    expect(without.outboundMasking.requiresMask).toBe(false);
   });
 });
 
@@ -138,12 +133,9 @@ describe("#505 AC4: an operator reads a stored result masked", () => {
 @Workflow({
   name: "masked-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(MaskedChargeWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(ChargeOrderAction)
-      .returns(ChargeReceiptDto)
-      .toFinish(ChargedWorkflowFinish),
+    onStart(MaskedChargeWorkflowStart).toAction(ChargeOrderAction).toFinish(ChargedWorkflowFinish),
   ],
   providers: [PaymentGateway],
   piiPolicies: [EmailPiiPolicy],
@@ -155,7 +147,6 @@ class MaskedChargeWorkflow {}
   name: "workflow-policy-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [MaskedChargeWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -222,22 +213,27 @@ describe("#505 AC4: masked when written — the store holds no raw personal data
 
 describe("#505: what reconcile and a replay get", () => {
   it("reconcile gets the stored, masked request and the key; send got the real request", async () => {
-    const run = testAction(ChargeOrderAction);
+    const run = testUnit(ChargeOrderAction);
     gateway.gates.after = 1;
-    const first = run({ message: { value: { text: "order-7 alice@example.com" } } } as never, {
-      timeout: seconds(1),
-    });
+    const first = run(
+      { message: { text: "order-7 alice@example.com" } },
+      {
+        timeout: seconds(1),
+      },
+    );
     first.catch(() => undefined);
     await run.clock.advance(seconds(1));
     await expect(first).rejects.toThrow();
 
-    await run({ message: { value: { text: "order-7 alice@example.com" } } } as never);
+    await run({
+      message: { text: "order-7 alice@example.com" },
+    });
 
     expect(gateway.storedRequests).toEqual([
       '{"orderId":"order-7","amountUsd":10,"email":"alice@example.com"}',
     ]);
     expect(gateway.lookups).toEqual([
-      { idempotencyKey: "test-execution:charge-order-action:1:charge", attempt: 1 },
+      { idempotencyKey: "Tz-xwZPgI5lI-vQYcp_J-q74VIDlA6P2PbD1NRV-wYY", attempt: 1 },
     ]);
   });
 });

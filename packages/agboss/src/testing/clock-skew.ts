@@ -11,7 +11,7 @@ import { TestSetupError } from "./errors.js";
  */
 export class ClockSkew {
   /** No skew: the test's clock as it is. */
-  static readonly none: ClockSkew = new ClockSkew(0, 0);
+  static readonly None: ClockSkew = new ClockSkew(0, 0);
 
   private constructor(
     /** How far (ms) the instance's wall clock is ahead of the test's; negative: behind. */

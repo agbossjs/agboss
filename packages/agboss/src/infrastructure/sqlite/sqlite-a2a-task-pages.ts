@@ -12,8 +12,12 @@ import { ownerColumnOf, taskOf, totalOf } from "./sqlite-a2a-task-rows.js";
 export function sqliteA2ATaskPageOf(database: DatabaseSync, query: A2ATaskQuery): A2ATaskPage {
   const token = query.pageToken ?? "";
   const position = token === "" ? undefined : a2aPagePositionOf(token);
-  const where = ["tenant_id = ?", "owner_id = ?"];
-  const values: (string | number)[] = [query.tenantId, ownerColumnOf(query.ownerId)];
+  const where = ["endpoint = ?", "tenant_id = ?", "owner_id = ?"];
+  const values: (string | number)[] = [
+    query.endpoint,
+    query.tenantId,
+    ownerColumnOf(query.ownerId),
+  ];
   if (query.contextId !== undefined) {
     where.push("context_id = ?");
     values.push(query.contextId);

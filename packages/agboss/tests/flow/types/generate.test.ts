@@ -12,10 +12,13 @@ import {
   generateFlowTypes,
   type FlowTypesRequest,
 } from "../../../src/flow/types/generate.js";
+import { loadFlowProject } from "../../../src/loader/load-flow.js";
 import { MAX_EXACT_INPUT_SHAPES } from "../../../src/flow/types/inputs.js";
 import { RouteForm, routerAnswerText, routeTargetsOf } from "../../../src/flow/types/tables.js";
-import { DecidedBy, SpawnPolicy, type RouterOptions } from "../../../src/flow/decorators/router.js";
-import { SupportIntentDto } from "../fixtures/credit-dtos.js";
+import { type RouterOptions } from "../../../src/flow/decorators/router.js";
+import { ChargeResultDto, SupportIntentDto } from "../fixtures/credit-dtos.js";
+import { Action } from "../../../src/flow/decorators/action.js";
+import { Text } from "../../../src/dto/index.js";
 import {
   DeliveryTopicAgent,
   OrderTopicAgent,
@@ -31,16 +34,6 @@ const routerOptionsOf = (router: Class): RouterOptions => {
 
 const TopicsRouterOptions = routerOptionsOf(TopicsRouter);
 
-const LaunchingModelRouterOptions: RouterOptions = {
-  name: "launching-router",
-  description: "A model router before a launch",
-  decidedBy: DecidedBy.Model,
-  input: { intent: SupportIntentDto },
-  routes: [
-    { target: OrderTopicAgent, prompt: "The order" }, // no spawn: Always (the model router's default)
-    { target: RefundTopicAgent, spawn: SpawnPolicy.OnDemand, prompt: "Refunds" },
-  ],
-};
 import { FIXTURE_WORKFLOWS } from "./fixture-workflows.js";
 import { applicationDeclarationOf } from "../../../src/application/application.js";
 
@@ -61,7 +54,7 @@ async function fixtureModules(): Promise<readonly LoadedModule[]> {
       .filter((file) => file.endsWith(".ts") && !file.endsWith(".d.ts"))
       .map((file) => join(fixtures, file)),
     join(framework, "src/dto/index.ts"),
-    // the flow's public entry: `ThisWorkflow` (#264) is imported from it
+    // the flow's public entry
     join(framework, "src/public/flow.ts"),
   ];
   return Promise.all(
@@ -83,29 +76,28 @@ async function workflowsOf(files: readonly string[]): Promise<readonly Class[]> 
 }
 
 /** The fixtures' `@Application` classes (#261: their contexts type the starts' options). */
-async function applicationsOf(files: readonly string[]): Promise<readonly Class[]> {
-  const modules = await Promise.all(
-    files.map(async (file) => (await import(file)) as Record<string, unknown>),
-  );
-  return modules.flatMap((module) =>
-    Object.values(module).filter(
-      (value): value is Class =>
-        typeof value === "function" && applicationDeclarationOf(value as Class) !== undefined,
-    ),
-  );
-}
-
 async function requestFor(files: readonly string[]): Promise<FlowTypesRequest> {
+  // the applications the loader finds, as `agboss check` and check:types see them: each is branded
+  // with its tenantContext (#1324e)
+  const project = await loadFlowProject(files, { typescript: false });
   return {
     workflows: await workflowsOf(files),
-    applications: await applicationsOf(files),
+    applications: project.applications,
+    components: project.components,
     modules: await fixtureModules(),
     outFile,
     tablesModule,
   };
 }
 
+class HiddenDto {
+  @Text({ prompt: "a note" })
+  note!: string;
+}
+
 const run = promisify(execFile);
+
+const credit = join(fixtures, "credit.fixture.ts");
 
 describe("#270 AC13: agboss check generates .agboss/types.d.ts for the fixtures", () => {
   it("the generated file matches its snapshot", async () => {
@@ -116,8 +108,7 @@ describe("#270 AC13: agboss check generates .agboss/types.d.ts for the fixtures"
       "launch.item-not-read",
       "flow.unused-output",
       "input.missing-on-path",
-      "router.policy-with-choose-one",
-    ]); // the broken workflows are broken on purpose; topics-workflow keeps policies on .chooseOne(…)
+    ]); // the broken workflows are broken on purpose
     await expect(generated.text).toMatchFileSnapshot("./__snapshots__/fixtures.types.d.ts.snap");
   }, 240_000); // loads every fixture module, as the check:types step below does (#1228: see below)
 
@@ -147,14 +138,14 @@ describe("S4: InputOf is an exact union up to 32 input shapes, flat above", () =
     const generated = generateFlowTypes(await requestFor([join(fixtures, "wide.fixture.ts")]));
     const text = generated.text ?? "";
     const five = text.slice(
-      text.indexOf('    "five-parts-agent":\n'),
+      text.indexOf('      "five-parts-agent":\n'),
       text.indexOf('"five-parts-workflow-start": {'),
     );
 
     expect(MAX_EXACT_INPUT_SHAPES).toBe(32);
-    expect(five.split("\n      | ").length - 1).toBe(32);
+    expect(five.split("\n        | ").length - 1).toBe(32);
     expect(text).toContain(
-      '    "six-parts-agent": { first?: Produced<FirstPartDto, typeof SixPartsWorkflowStart>; second?: ',
+      '      "six-parts-agent": { first?: Tracked<FirstPartDto, typeof SixPartsWorkflowStart>; second?: ',
     );
     expect(generated.notes).toEqual([
       "six-parts-agent: 64 input shapes — InputOf is flat (no narrowing between fields)",
@@ -180,12 +171,12 @@ describe("S39: DTO classes are branded too", () => {
   it("each DTO by its class name, in DtoBrands and by module augmentation", async () => {
     const { text } = generateFlowTypes(await requestFor([join(fixtures, "markers.fixture.ts")]));
 
-    expect(text).toContain('    "ApprovedVerdictDto": ApprovedVerdictDto;\n');
+    expect(text).toContain('      "ApprovedVerdictDto": ApprovedVerdictDto;\n');
     expect(text).toContain(
       'declare module "../tests/flow/fixtures/markers.fixture.js" {\n  interface ApprovedVerdictDto {\n    readonly [agbossDto]?: "ApprovedVerdictDto";\n  }',
     );
     expect(text).toContain(
-      '  interface VerdictAgent {\n    readonly [agbossComponent]?: "verdict-agent";\n  }',
+      '  interface VerdictAgent {\n    readonly [agbossComponent]?: { readonly name: "verdict-agent"; readonly kind: NodeKind.Agent };\n  }',
     );
   });
 });
@@ -197,31 +188,111 @@ describe("#280: Route<R> and what route() returns", () => {
     );
 
     expect(text).toContain(
-      '  interface Routes {\n    "credit-limit-by-model-router": typeof ApprovalAgent | typeof ChargeCardAction;\n    "credit-limit-router": typeof ApprovalAgent | typeof ChargeCardAction;\n    "desk-router": typeof NoOrderWorkflowFinish | typeof OrderIntakeAgent;\n    "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;\n  }',
+      '    interface Routes {\n      "credit-limit-by-model-router": typeof ApprovalAgent | typeof ChargeCardAction;\n      "credit-limit-router": typeof ApprovalAgent | typeof ChargeCardAction;\n      "desk-router": typeof NoOrderWorkflowFinish | typeof OrderIntakeAgent;\n      "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;\n    }',
     );
     expect(text).toContain(
-      '  interface RouterAnswers {\n    "credit-limit-by-model-router": typeof ApprovalAgent | typeof ChargeCardAction;\n    "credit-limit-router": typeof ApprovalAgent | typeof ChargeCardAction;\n    "desk-router": typeof NoOrderWorkflowFinish | typeof OrderIntakeAgent;\n    "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;\n  }',
+      '    interface RouterAnswers {\n      "credit-limit-by-model-router": typeof ApprovalAgent | typeof ChargeCardAction;\n      "credit-limit-router": typeof ApprovalAgent | typeof ChargeCardAction;\n      "desk-router": typeof NoOrderWorkflowFinish | typeof OrderIntakeAgent;\n      "topics-router": typeof DeliveryTopicAgent | typeof OrderTopicAgent | typeof RefundTopicAgent;\n    }',
     );
   });
 
-  it("before a launch Route<R> leaves Always out, by each kind's default", () => {
-    expect(routeTargetsOf(TopicsRouterOptions, RouteForm.List)).toEqual([
+  it("Route<R> is every target of the router, in either form", () => {
+    expect(routeTargetsOf(TopicsRouterOptions)).toEqual([
+      OrderTopicAgent,
       RefundTopicAgent,
       DeliveryTopicAgent,
     ]);
-    expect(routeTargetsOf(TopicsRouterOptions, RouteForm.One)).toHaveLength(3);
-    // a model router's route without spawn is Always: only the explicit OnDemand one is chosen
-    expect(routeTargetsOf(LaunchingModelRouterOptions, RouteForm.List)).toEqual([RefundTopicAgent]);
   });
 
-  it("one target after .chooseOne(…); a list before a launch, non-empty without Always", () => {
+  it("one target after .onRoute(…); a list in toRouter(R).chooseMany([…]), which may be empty (#1279)", () => {
     const route = "typeof A | typeof B";
 
-    expect(routerAnswerText(route, RouteForm.One, false)).toBe(route);
-    expect(routerAnswerText(route, RouteForm.List, false)).toBe(
-      "readonly [(typeof A | typeof B), ...(typeof A | typeof B)[]]",
+    expect(routerAnswerText(route, RouteForm.One)).toBe(route);
+    expect(routerAnswerText(route, RouteForm.List)).toBe("readonly (typeof A | typeof B)[]");
+    expect(routerAnswerText("typeof A", RouteForm.List)).toBe("readonly typeof A[]");
+  });
+});
+
+describe("#1324g: every decorated class is typed, a workflow reaches it or not", () => {
+  const classesOf = async (names: readonly string[]): Promise<readonly Class[]> => {
+    const exports = (await import(credit)) as Record<string, Class>;
+    return names.flatMap((name) => exports[name] ?? []);
+  };
+
+  it("an action, an agent and a router under test get their entries and brands with no workflow", async () => {
+    const request = await requestFor([credit]);
+    const components = await classesOf([
+      "ChargeCardAction",
+      "ApprovalAgent",
+      "DeskRouter",
+      "CreditWorkflowFinish",
+    ]);
+    const { text, errors } = generateFlowTypes({ ...request, workflows: [], components });
+
+    expect(errors).toEqual([]);
+    expect(text).toContain('"charge-card-action": { order: Tracked<CreditOrderDto, never>;');
+    expect(text).toContain("approval?: Tracked<CreditApprovalDto, never> | undefined }");
+    expect(text).toContain('"charge-card-action": ChargeResultDto;');
+    expect(text).toContain('"credit-workflow-finish": ChargeResultDto;');
+    expect(text).toContain(
+      '"desk-router": typeof NoOrderWorkflowFinish | typeof OrderIntakeAgent | readonly (typeof NoOrderWorkflowFinish | typeof OrderIntakeAgent)[];',
     );
-    expect(routerAnswerText(route, RouteForm.List, true)).toBe("readonly (typeof A | typeof B)[]");
-    expect(routerAnswerText("typeof A", RouteForm.List, true)).toBe("readonly typeof A[]");
+    expect(text).toContain('"approval-agent": never;');
+    expect(text).toContain(
+      'readonly [agbossComponent]?: { readonly name: "charge-card-action"; readonly kind: NodeKind.Action };',
+    );
+  });
+
+  it("a class a workflow reaches keeps its path-sensitive entry", async () => {
+    const request = await requestFor([credit]);
+    const components = await classesOf(["ChargeCardAction", "ApprovalAgent", "DeskRouter"]);
+    const withComponents = generateFlowTypes({ ...request, components }).text;
+
+    expect(withComponents).toBe(generateFlowTypes(request).text);
+    expect(withComponents).not.toContain("Tracked<CreditOrderDto, never>");
+  });
+
+  it("a class under a name a workflow's component has is left out, never overwriting it", async () => {
+    const request = await requestFor([credit]);
+    @Action({
+      name: "charge-card-action",
+      description: "A look-alike under the same name",
+      output: SupportIntentDto,
+    })
+    class LookAlikeAction {
+      execute(): Promise<undefined> {
+        return Promise.resolve(undefined);
+      }
+    }
+    const generated = generateFlowTypes({
+      ...request,
+      workflows: [],
+      components: [...(await classesOf(["ChargeCardAction"])), LookAlikeAction],
+    });
+
+    expect(generated.text).toContain('"charge-card-action": ChargeResultDto;');
+    expect(generated.text).not.toContain('"charge-card-action": SupportIntentDto;');
+    expect(generated.text).not.toContain("LookAlikeAction");
+  });
+
+  it("a class that needs a type no module exports is left out, not a failure", async () => {
+    const request = await requestFor([credit]);
+    @Action({
+      name: "hidden-input-action",
+      description: "Reads a DTO no module exports",
+      input: { order: HiddenDto },
+    })
+    class HiddenInputAction {
+      execute(): Promise<undefined> {
+        return Promise.resolve(undefined);
+      }
+    }
+    const generated = generateFlowTypes({
+      ...request,
+      workflows: [],
+      components: [HiddenInputAction],
+    });
+
+    expect(generated.errors).toEqual([]);
+    expect(generated.text).not.toContain("hidden-input-action");
   });
 });

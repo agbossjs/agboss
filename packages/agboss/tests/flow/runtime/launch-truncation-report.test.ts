@@ -1,6 +1,6 @@
 /**
  * #1366: when a per-item launch reports that it took fewer items than its list had — only when the list is longer
- * than `maxItems`, never when it has exactly that many or fewer.
+ * than `takeFirst`, never when it has exactly that many or fewer.
  */
 import { describe, expect, it } from "vitest";
 import { testFrame } from "../../helpers/frame.js";
@@ -29,7 +29,7 @@ describe("#1366: the report of a truncated launch", () => {
 
     await reportTruncation(site, ticket(5), 3);
 
-    expect(events).toMatchObject([{ launch: "l-1", items: 5, maxItems: 3 }]);
+    expect(events).toMatchObject([{ launch: "l-1", items: 5, takeFirst: 3 }]);
   });
 
   it("is not made for a list of exactly maxItems, a shorter one, or a launch without maxItems", async () => {

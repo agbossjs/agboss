@@ -1,27 +1,25 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
+import { onEffectCommit } from "../../src/infrastructure/in-memory-effect-writes.js";
 /**
  * #500 — what the in-memory fenced-effect store and the contract's base class do beyond the
  * published contract: the high-water mark refuses a lower token even when the lease's epoch matches
  * it (a wiped lease store), a lease taken over while an asynchronous write ran refuses its commit,
  * the sweep removes the marks too, a key made by hand is checked, and the store refuses to run
- * beside another lease store (`FencedEffectStoreMismatchError`).
+ * beside another lease store (`IdempotencyError.StoreMismatch`).
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
-import { ExecutionFencedError } from "../../src/app/lease-lost.js";
+import {} from "../../src/app/lease-lost.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import {
   ExecutionLeaseRepository,
   InMemoryExecutionLeaseRepository,
 } from "../../src/infrastructure/execution-lease.repository.js";
-import { FencedEffectSettings } from "../../src/infrastructure/fenced-effect-settings.js";
-import { FencedEffectStatus } from "../../src/infrastructure/fenced-effect.repository.js";
-import { InvalidFencedEffectNameError } from "../../src/infrastructure/fenced-effect-key.js";
+import { IdempotencyRunStatus } from "../../src/infrastructure/fenced-effect.repository.js";
 import { InMemoryDatabase, treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
-import {
-  FencedEffectStoreMismatchError,
-  InMemoryFencedEffectRepository,
-} from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
+import { InMemoryFencedEffectRepository } from "../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours, seconds, type Milliseconds } from "../../src/units/index.js";
@@ -38,13 +36,7 @@ function storesOn(database = new InMemoryDatabase(), clock = new VirtualClock())
     environment: NO_ENVIRONMENT_VALUES,
   });
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
-  const settings = new FencedEffectSettings();
-  const effects = new InMemoryFencedEffectRepository(
-    storeClockOf(clock),
-    database,
-    settings,
-    leases,
-  );
+  const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);
   return { clock, database, leases, effects };
 }
 
@@ -58,6 +50,21 @@ const receipt = (text: string) => () => ({ receipt: text });
 
 /** A lease store of another database (what a listed SQLite one is to the in-memory store). */
 class ElsewhereExecutionLeaseRepository extends ExecutionLeaseRepository {
+  requestStop(): Promise<void> {
+    return Promise.resolve();
+  }
+  stopOf(): Promise<undefined> {
+    return Promise.resolve(undefined);
+  }
+  requestPause(): Promise<void> {
+    return Promise.resolve();
+  }
+  unpause(): Promise<void> {
+    return Promise.resolve();
+  }
+  pauseOf(): Promise<Record<string, never>> {
+    return Promise.resolve({});
+  }
   ping(): Promise<void> {
     return Promise.resolve();
   }
@@ -96,14 +103,18 @@ describe("#500: the in-memory fenced-effect store", () => {
     await held(leases);
     // the lease store wiped (its epochs count from 1 again), the scope's mark kept at 2
     database.executionLeases.delete(treeKeyOf("default", "execution-1"));
-    database.fencedEffectMarks.set("default:execution-1", { highestToken: 2, storedAt: 0 });
+    database.fencedEffectMarks.set("default:execution-1", {
+      highestToken: 2,
+      storedAt: 0,
+      expiresAt: null,
+    });
     const again = await held(leases);
 
     const refused = await effects
       .runOnce(keyOf(again), receipt("r1"))
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(ExecutionFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({ token: 1, observedToken: 2 });
     expect(database.fencedEffectResults.size).toBe(0);
   });
@@ -115,8 +126,8 @@ describe("#500: the in-memory fenced-effect store", () => {
     const other = storesOn(database, clock);
     let isApplied = false;
 
-    const call = effects.runOnce(keyOf(lease), async (transaction) => {
-      transaction.onCommit(() => {
+    const call = effects.runOnce(keyOf(lease), async () => {
+      onEffectCommit(() => {
         isApplied = true;
       });
       await clock.advance(seconds(31));
@@ -130,13 +141,21 @@ describe("#500: the in-memory fenced-effect store", () => {
     expect(database.fencedEffectMarks.size).toBe(0);
   });
 
-  it("the sweep's deletion removes a scope's mark stored before the cutoff, and keeps a later one", async () => {
+  it("the sweep's deletion removes a scope's mark whose expiry has come, and keeps a later one", async () => {
     const { clock, database, leases, effects } = storesOn();
-    await effects.runOnce(keyOf(await held(leases)), receipt("a"));
+    const soon = new Date(clock.now().getTime() + seconds(30));
+    const later = new Date(clock.now().getTime() + seconds(300));
+    await effects.runOnce(
+      effectKeyForTesting(keyOf(await held(leases)), { expiresAt: soon }),
+      receipt("a"),
+    );
+    await effects.runOnce(
+      effectKeyForTesting(keyOf(await held(leases, "execution-2")), { expiresAt: later }),
+      receipt("b"),
+    );
     await clock.advance(seconds(60));
-    await effects.runOnce(keyOf(await held(leases, "execution-2")), receipt("b"));
 
-    await effects.deleteByStoredAtBefore(new Date(clock.now().getTime() - seconds(30)));
+    await effects.deleteExpired(clock.now());
 
     expect([...database.fencedEffectMarks.keys()]).toEqual(["default:execution-2"]);
   });
@@ -151,23 +170,22 @@ describe("#500: the in-memory fenced-effect store", () => {
     ]);
 
     expect(outcomes.map((outcome) => outcome.status)).toEqual([
-      FencedEffectStatus.Ran,
-      FencedEffectStatus.Ran,
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Ran,
     ]);
   });
 
-  it("refuses to run beside another lease store: FencedEffectStoreMismatchError names both", async () => {
+  it("refuses to run beside another lease store: IdempotencyError.StoreMismatch names both", async () => {
     const { clock, database, leases } = storesOn();
     const effects = new InMemoryFencedEffectRepository(
       storeClockOf(clock),
       database,
-      new FencedEffectSettings(),
       new ElsewhereExecutionLeaseRepository(),
     );
 
     const refused = effects.runOnce(keyOf(await held(leases)), receipt("a"));
 
-    await expect(refused).rejects.toBeInstanceOf(FencedEffectStoreMismatchError);
+    await expect(refused).rejects.toBeInstanceOf(IdempotencyError.StoreMismatch);
     await expect(refused).rejects.toMatchObject({
       fencedEffectRepository: "InMemoryFencedEffectRepository",
       leaseRepository: "ElsewhereExecutionLeaseRepository",
@@ -177,7 +195,7 @@ describe("#500: the in-memory fenced-effect store", () => {
 });
 
 describe("#500: a fenced-effect key made by hand is checked", () => {
-  it("#526 AC7: an empty name is InvalidFencedEffectNameError, as every invalid name, before anything runs", async () => {
+  it("#526 AC7: an empty name is IdempotencyError.InvalidName, as every invalid name, before anything runs", async () => {
     const { leases, effects } = storesOn();
     let runs = 0;
 
@@ -189,7 +207,7 @@ describe("#500: a fenced-effect key made by hand is checked", () => {
       },
     );
 
-    await expect(call).rejects.toBeInstanceOf(InvalidFencedEffectNameError);
+    await expect(call).rejects.toBeInstanceOf(IdempotencyError.InvalidName);
     expect(runs).toBe(0);
   });
 
@@ -212,7 +230,7 @@ describe("#500: a fenced-effect key made by hand is checked", () => {
       );
 
       await expect(call).rejects.toThrow(message);
-      await expect(call).rejects.toBeInstanceOf(TypeError);
+      await expect(call).rejects.toBeInstanceOf(IdempotencyError.InvalidKey);
       expect(runs).toBe(0);
     });
   }

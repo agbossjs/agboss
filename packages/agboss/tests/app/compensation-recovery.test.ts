@@ -124,7 +124,7 @@ describe("#340 AC4: an undo interrupted on one instance is finished by the other
         "release-seat-action",
       ]);
       const record = await recordOf();
-      expect(record?.status).toBe("failed");
+      expect(record?.status).toBe("cancelled");
       expect(record?.stopReason).toBe("the run was cancelled");
     },
   );

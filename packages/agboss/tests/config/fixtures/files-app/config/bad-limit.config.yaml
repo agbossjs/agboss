@@ -1,0 +1,3 @@
+filePolicies:
+  file-review-policy:
+    maxFiles: 0

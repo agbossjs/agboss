@@ -7,6 +7,7 @@ import type { ContractInstances } from "./instance-context.js";
 import {
   REPLY,
   at,
+  cutoffsOf,
   keyOf,
   newMessage,
   savedMessage,
@@ -18,9 +19,8 @@ type Instances = ContractInstances<A2ADirectMessageStores>;
 /**
  * #860 D2: a live attempt outlives the retention. The sweep removes completed messages only: an
  * attempt in flight — however old its message — keeps its row, its id's claim and its reply to
- * come (a lost one leaves by `deleteIfInFlight`, settled once). A message taken over is accepted
- * anew, its retention counted from the takeover, so a reply a takeover keeps is kept the whole
- * retention after it.
+ * come (a lost one leaves by `deleteIfInFlight`, settled once). The ttl counts from the reply's
+ * completion, so a reply a takeover keeps is kept the whole ttl after it was made.
  */
 export const A2A_DIRECT_MESSAGE_LIVE_CASES: readonly ContractCase<A2ADirectMessageStores>[] = [
   {
@@ -29,9 +29,9 @@ export const A2A_DIRECT_MESSAGE_LIVE_CASES: readonly ContractCase<A2ADirectMessa
       const message = newMessage("m-1");
       await savedMessage(first.messages, message);
 
-      const gone = await second.messages.deleteByCreatedAtBefore(at(3600), 10);
+      const gone = await second.messages.deleteExpired(cutoffsOf(at(3600)), 10);
 
-      expect(gone).toEqual([]);
+      expect(gone).toBe(0);
       const task = await second.tasks.saveIfAbsent(newTask("t-1", { messageId: "m-1" }));
       expect(task.status).toBe(A2ATaskSaveStatus.MessageTaken);
       const kept = await first.messages.completeIfInFlight(keyOf(message), "run-m-1", REPLY, at(9));
@@ -39,7 +39,7 @@ export const A2A_DIRECT_MESSAGE_LIVE_CASES: readonly ContractCase<A2ADirectMessa
     },
   },
   {
-    name: "a message taken over is accepted anew: its retention counts from the takeover",
+    name: "a message taken over is accepted anew: the reply a takeover keeps is kept the whole ttl after it was made",
     run: async ({ first, second }: Instances): Promise<void> => {
       const message = newMessage("m-1");
       await savedMessage(first.messages, message);
@@ -47,12 +47,13 @@ export const A2A_DIRECT_MESSAGE_LIVE_CASES: readonly ContractCase<A2ADirectMessa
 
       const taken = await second.messages.retakeIfExpired(keyOf(message), "run-m-1", next, at(31));
       await second.messages.completeIfInFlight(keyOf(message), "run-2", REPLY, at(50));
-      const early = await first.messages.deleteByCreatedAtBefore(at(31), 10);
-      const later = await first.messages.deleteByCreatedAtBefore(at(32), 10);
+      const early = await first.messages.deleteExpired(cutoffsOf(at(50)), 10);
+      const later = await first.messages.deleteExpired(cutoffsOf(at(51)), 10);
 
       expect(taken?.createdAt).toEqual(at(31));
-      expect(early).toEqual([]);
-      expect(later.map((gone) => [gone.messageId, gone.attemptId])).toEqual([["m-1", "run-2"]]);
+      expect(early).toBe(0);
+      expect(later).toBe(1);
+      expect(await first.messages.findByKey(keyOf(message))).toBeUndefined();
     },
   },
 ];

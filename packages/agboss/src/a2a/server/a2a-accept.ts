@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Message } from "@a2a-js/sdk";
 import { executeWithoutInputCheck } from "../../app/execute-without-input-check.js";
 import { DurableExecutionStatus } from "../../app/execution-control.js";
@@ -17,6 +18,7 @@ import { checkedCallerKey, requestHashOf, skillOfMessage } from "./a2a-message-i
 import {
   callerOptionsOf,
   endedUnstarted,
+  isTaskOwner,
   logSubjectOf,
   taskKeyOf,
   type A2ARequestCaller,
@@ -74,7 +76,6 @@ function started(
         ...(tenant === undefined ? {} : { tenant }),
         ...(ownerId === undefined ? {} : { ownerId }),
         ...(execution === undefined ? {} : { execution }),
-        ...(parts.maxTaskDuration === undefined ? {} : { deadline: parts.maxTaskDuration }),
       },
       inboundMeshOfA2A(caller.mesh),
     ),
@@ -168,13 +169,15 @@ interface Unaccepted {
 /** The new task of one minted id, saved with its input files kept first; the save's outcome. */
 async function savedUnder(parts: A2AServerParts, caller: A2ARequestCaller, unaccepted: Unaccepted) {
   const { sent, key, contextId, limit } = unaccepted;
-  // minted through the application's checked generator: a key's text
-  const taskId = parts.ids.newExecutionId();
+  // a task of an `a2a-task:` owner is reached by its id alone: a random UUID (122 bits) whatever the
+  // application's generator does; any other is minted through its checked generator (a key's text)
+  const taskId = isTaskOwner(key.ownerId) ? randomUUID() : parts.ids.newExecutionId();
   // a rejected task runs nothing: its files are neither fetched nor kept
   const start = limit === undefined ? await sent.inputFor(taskId) : undefined;
   await keptFiles(parts, start?.toSave ?? []);
   const task: NewA2ATask = {
     ...key,
+    endpoint: parts.endpoint,
     taskId,
     contextId,
     skill: sent.skill.id,
@@ -186,7 +189,11 @@ async function savedUnder(parts: A2AServerParts, caller: A2ARequestCaller, unacc
     requestHash: sent.requestHash,
     ...meshFieldsOf(caller),
   };
-  return { save: await parts.tasks.saveIfAbsent(task), start };
+  const save = await parts.tasks.saveIfAbsent(task);
+  // a task that was not saved (its message or id taken) never runs: its kept files are no one's (#1316)
+  if (save.status !== A2ATaskSaveStatus.Saved && (start?.toSave.length ?? 0) > 0)
+    await parts.files.store.deleteByOwner({ tenantId: caller.tenantId, ownerId: taskId });
+  return { save, start };
 }
 
 /** The task of a message no task was found for: minted, saved and started — or found after all. */
@@ -236,7 +243,7 @@ export async function acceptedTask(
   const sent: NewMessage = {
     message,
     skill,
-    requestHash: requestHashOf(skill.id, message),
+    requestHash: requestHashOf(parts.endpoint, skill.id, message),
     inputFor,
   };
   const key = { tenantId: caller.tenantId, ownerId: caller.ownerId, messageId };

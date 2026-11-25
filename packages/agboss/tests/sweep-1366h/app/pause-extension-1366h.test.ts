@@ -16,14 +16,13 @@ import { execute } from "../../helpers/flow.js";
 import {
   ExtensionApplication,
   managerFlow,
-  openFlow,
   resetTold,
   told,
 } from "../../flow/fixtures/pause-extension.fixture.js";
 import { workingApp } from "../../flow/fixtures/working-time-app.js";
 
 const ORDER = { orderId: "o-1" };
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 const plain = workingApp("ext-1366h-plain", {
   role: { expiresIn: hours(24), remindBefore: hours(2) },
@@ -127,7 +126,11 @@ describe("#1366: a pause without a reminder", () => {
 
     expect(spy).toHaveBeenCalledTimes(1);
     const change: unknown = spy.mock.calls[0]?.[2];
-    expect(Object.keys(change as object).sort()).toEqual(["expiresAt", "previousExpiresAt"]);
+    expect(Object.keys(change as object).sort()).toEqual([
+      "actor",
+      "expiresAt",
+      "previousExpiresAt",
+    ]);
   });
 });
 
@@ -135,20 +138,6 @@ const fixtureTest = testWith(ExtensionApplication);
 
 describe("#1366: the other refusals name their field", () => {
   beforeEach(resetTold);
-
-  fixtureTest("a pause without a deadline: refused on .pauseId", async ({ app }) => {
-    await execute(app, openFlow.start, ORDER, { threadId: "open-1" });
-    const page = await app
-      .resolve(PausedExecutionRepository)
-      .findPageByTenantId("default", { statuses: [PauseStatus.Pending] }, 10);
-
-    const refused = await failureOf(
-      app.extendPause({ pauseId: page.pauses[0]?.pauseId ?? "", expiresIn: hours(1) }, manager),
-    );
-
-    expect(refused).toBeInstanceOf(DtoValidationError);
-    expect(refused).toMatchObject({ dto: "ExtendPauseRequest", issues: [{ path: ".pauseId" }] });
-  });
 
   fixtureTest("past the deadline the pause is bound by: refused on .expiresIn", async ({ app }) => {
     await execute(app, managerFlow.start, ORDER, { threadId: "bound-1", deadline: hours(30) });

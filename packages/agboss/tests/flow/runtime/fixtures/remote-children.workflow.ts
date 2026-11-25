@@ -9,15 +9,16 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { start, toFinish } from "../../../helpers/flow.js";
+import { onStart, toFinish, toAction, toWorkflow } from "../../../helpers/flow.js";
 import { ItemDto, ItemFailedError, ItemResultDto, SummaryDto } from "./fan-out.workflow.js";
 
 /**
- * #333 PR 2 — children on any instance (`placement: ChildPlacement.AnyInstance`): a code child
+ * #333 PR 2 — children on any instance (`placement: ChildPlacement.AnyWorker`): a code child
  * (`remote-item-workflow`: one action that logs which instance ran it and what its
  * `ExecutionContext` says, and fails on `outcome: "fail"`), launched per item and once.
  */
@@ -91,8 +92,8 @@ export class RemoteCheckAction {
     private readonly applicationContext: ApplicationContext,
   ) {}
 
-  async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-    const { name, outcome } = input.item.value;
+  async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+    const { name, outcome } = input.item;
     const context = this.executionContext;
     remoteLog.readings.push({
       item: name,
@@ -138,13 +139,13 @@ export class RemoteItemCheckedWorkflowFinish {}
 
 /** The child: one item, one action. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "remote-item-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RemoteItemWorkflowStart)
-      .returns(ItemDto)
+    onStart(RemoteItemWorkflowStart)
       .toAction(RemoteCheckAction)
-      .returns(ItemResultDto)
       .toFinish(RemoteItemCheckedWorkflowFinish),
   ],
 })
@@ -157,49 +158,65 @@ export class RemoteItemWorkflow {}
 })
 export class RemoteItemsWorkflowStart {}
 
-@WorkflowFinish({
-  name: "remote-checks-workflow-finish",
+@Action({
+  name: "remote-checks-action",
   description: "What was checked",
   input: { results: listOf(ItemResultDto) },
   output: SummaryDto,
 })
-export class RemoteChecksWorkflowFinish {
-  finish(input: { readonly results: readonly Produced<ItemResultDto, unknown>[] }): SummaryDto {
+export class RemoteChecksAction {
+  async execute(input: {
+    readonly results: readonly Tracked<ItemResultDto>[];
+  }): Promise<SummaryDto> {
     return {
       text: input.results
-        .map((result) => result.value.name)
+        .map((result) => result.name)
         .join(", "),
     };
   }
 }
 
 @WorkflowFinish({
-  name: "remote-checks-failed-workflow-finish",
+  name: "remote-checks-workflow-finish",
+  description: "What was checked",
+  output: SummaryDto,
+})
+export class RemoteChecksWorkflowFinish {}
+
+@Action({
+  name: "remote-checks-failed-action",
   description: "The items were not all checked",
   input: { items: listOf(ItemDto) },
   output: SummaryDto,
 })
-export class RemoteChecksFailedWorkflowFinish {
-  finish(input: { readonly items: readonly Produced<ItemDto, unknown>[] }): SummaryDto {
+export class RemoteChecksFailedAction {
+  async execute(input: { readonly items: readonly Tracked<ItemDto>[] }): Promise<SummaryDto> {
     return { text: `failed on one of ${String(input.items.length)}` };
   }
 }
+
+@WorkflowFinish({
+  name: "remote-checks-failed-workflow-finish",
+  description: "The items were not all checked",
+  output: SummaryDto,
+})
+export class RemoteChecksFailedWorkflowFinish {}
 
 /** One child per item on any instance; a failed child is caught by the join. */
 @Workflow({
   name: "remote-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RemoteItemsWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(RemoteItemWorkflow, {
-        maxConcurrency: 6,
-        maxItems: 10,
-        placement: ChildPlacement.AnyInstance,
-      })
+    onStart(RemoteItemsWorkflowStart)
+      .forEachItem(toWorkflow(RemoteItemWorkflow), { takeFirst: 10, maxConcurrency: 6 })
       .join()
-      .onJoinError(ChildExecutionFailedError, toFinish(RemoteChecksFailedWorkflowFinish))
-      .returns(listOf(ItemResultDto))
+      .onError(
+        ChildExecutionFailedError,
+        toAction(RemoteChecksFailedAction)
+          .toFinish(RemoteChecksFailedWorkflowFinish),
+      )
+      .toAction(RemoteChecksAction)
       .toFinish(RemoteChecksWorkflowFinish),
   ],
 })
@@ -223,11 +240,10 @@ export class RemoteOneCheckedWorkflowFinish {}
 @Workflow({
   name: "remote-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RemoteOneWorkflowStart)
-      .returns(ItemDto)
-      .toWorkflow(RemoteItemWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
+    onStart(RemoteOneWorkflowStart)
+      .toWorkflow(RemoteItemWorkflow)
       .toFinish(RemoteOneCheckedWorkflowFinish),
   ],
 })

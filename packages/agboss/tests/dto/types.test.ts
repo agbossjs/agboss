@@ -5,14 +5,14 @@
 import { describe, expect, it } from "vitest";
 import {
   CurrencyCode,
-  Date,
-  Decimal,
+  IsoDate,
+  Float,
   Email,
-  Flag,
+  Bool,
   Integer,
-  ListOf,
+  List,
   Nested,
-  OneOf,
+  Enum,
   Text,
 } from "../../src/dto/index.js";
 import { fieldsOf } from "../../src/dto/metadata.js";
@@ -29,25 +29,25 @@ class Review {
   @Integer({ optional: true, min: 0 })
   score?: number;
 
-  @Decimal({ default: 0.5 })
+  @Float({ default: 0.5 })
   weight!: number;
 
-  @Flag()
+  @Bool()
   approved!: boolean;
 
-  @OneOf({ values: ["file", "folder"] })
+  @Enum(["file", "folder"])
   kind!: "file" | "folder";
 
-  @ListOf(Issue, { minItems: 1 })
+  @List(Issue, { minItems: 1 })
   issues!: Issue[];
 
-  @ListOf(Text, { optional: true })
+  @List(Text, { optional: true })
   tags?: string[];
 
   @Nested(Issue, { optional: true })
   main?: Issue;
 
-  @Date()
+  @IsoDate()
   day!: string;
 }
 
@@ -70,23 +70,23 @@ class Mistakes {
   name!: string;
 
   // @ts-expect-error — `values` misses "folder"
-  @OneOf({ values: ["file"] })
+  @Enum(["file"])
   narrow!: "file" | "folder";
 
   // @ts-expect-error — `values` has "link", the field does not
-  @OneOf({ values: ["file", "folder", "link"] })
+  @Enum(["file", "folder", "link"])
   wide!: "file" | "folder";
 
-  // @ts-expect-error — @OneOf on a plain string
-  @OneOf({ values: ["file", "folder"] })
+  // @ts-expect-error — @Enum on a plain string
+  @Enum(["file", "folder"])
   loose!: string;
 
   // @ts-expect-error — list of Issue on a single Issue
-  @ListOf(Issue)
+  @List(Issue)
   single!: Issue;
 
   // @ts-expect-error — list of text on a list of numbers
-  @ListOf(Text)
+  @List(Text)
   numbers!: number[];
 
   // @ts-expect-error — nested DTO of another shape

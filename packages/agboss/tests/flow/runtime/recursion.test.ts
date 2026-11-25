@@ -18,7 +18,7 @@ import {
 import type { ChildExecutionRecord } from "../../../src/flow/runtime/child-records.js";
 
 /**
- * #264 AC1, AC3, AC7 — a workflow that launches itself (`ThisWorkflow`): topic research three levels
+ * #264 AC1, AC3, AC7 — a workflow that launches itself (`toWorkflow(() => Self)`): topic research three levels
  * deep, each subtopic a child execution of the same workflow, per item; the children's results come
  * back into the parent's path scope and the merge takes them by type after the join.
  */

@@ -1,6 +1,8 @@
+import { usd, type Usd } from "../../units/index.js";
 import type { BuiltApplication } from "../../application/create-app.js";
 import type { ChaosOptions } from "../chaos/chaos-failure.js";
 import { modelChaosOf } from "../chaos/model-chaos.js";
+import { requireApplication } from "../../application/application.js";
 import { startsOfApplication } from "../../application/application-starts.js";
 import type { Class } from "../../components/injection.js";
 import { workflowIdentityOf } from "../../flow/runtime/workflow-keys.js";
@@ -8,7 +10,8 @@ import { checkEvalSuite } from "../suite/check-suite.js";
 import type { EvalCase } from "../suite/cases.js";
 import { caseHashOf } from "./case-hash.js";
 import { caseExpectationOf } from "./expectation.js";
-import { ranOnOf } from "./ran-on.js";
+import { ranOnOf, type EvalModelUse } from "./ran-on.js";
+import { judgeUseOf } from "./judge-check.js";
 import { runCaseOnce, type SuiteRunParts } from "./case-run.js";
 import {
   caseReportOf,
@@ -49,7 +52,11 @@ export interface EvalRunOptions {
 /** The parts every run of the suite shares. */
 function partsOf(built: BuiltApplication, suite: Class, isMetamorphic: boolean): SuiteRunParts {
   const { application } = built.assembled;
-  const meta = checkEvalSuite(application, suite);
+  const checked = checkEvalSuite(application, suite);
+  // a judge's model provider: its own, else the suite's, else the application's — never the candidate's
+  const { modelProvider } = requireApplication(application, "runEvalSuite").options;
+  const pinned = checked.modelProvider ?? modelProvider;
+  const meta = pinned === undefined ? checked : { ...checked, modelProvider: pinned };
   const start = startsOfApplication(application).find((found) => found.component === meta.start);
   const workflow = built.workflows.find((found) => found.deps.config.name === start?.workflow);
   // checkEvalSuite refuses a start the application does not have ([eval.unknown-start])
@@ -80,14 +87,26 @@ async function caseReport(
     results.push(result);
   }
   const isMetamorphic = parts.isMetamorphic === true;
-  const hash = caseHashOf(written, parts.suite.checks, parts.suite.cascade, isMetamorphic);
+  const hash = caseHashOf(written, parts.suite, parts.suite.cascade, isMetamorphic);
   const mask = parts.deps.pii?.observability;
-  const expectation = await caseExpectationOf(written, parts.suite.checks, mask, isMetamorphic);
+  const expectation = await caseExpectationOf(written, parts.suite, mask, isMetamorphic);
   return { ...caseReportOf(written.name, hash, results), expectation };
 }
 
-/** Runs a suite on an application instance: its artifact. */
-export async function runEvalSuite(
+/** Every model judge the suite runs, once, with the provider it is pinned to. */
+function judgesOf(parts: SuiteRunParts): readonly EvalModelUse[] {
+  const judges = new Set([
+    ...parts.suite.judges,
+    ...parts.suite.cases.flatMap((written) => written.judges ?? []),
+  ]);
+  return [...judges].flatMap((judge) => {
+    const used = judgeUseOf(parts.deps, judge, parts.suite.modelProvider);
+    return used === undefined ? [] : [used];
+  });
+}
+
+/** Runs a suite on an application instance already built: its artifact (the public `runEvalSuite` builds one). */
+export async function runSuiteOn(
   built: BuiltApplication,
   suite: Class,
   options: EvalRunOptions,
@@ -96,11 +115,18 @@ export async function runEvalSuite(
     throw new RangeError(`runs: a whole number from 1, got ${String(options.runs)}`);
   const parts = partsOf(built, suite, options.metamorphic === true);
   const { clock } = built.infrastructure;
-  const startedAt = clock.now().toISOString();
+  const startedAt = clock.now();
   const cases: EvalCaseReport[] = [];
   for (const written of parts.suite.cases) cases.push(await caseReport(parts, written, options));
   const { config } = parts.deps;
-  const spent = cases.flatMap((found) => found.runResults).reduce((sum, r) => sum + r.spentUsd, 0);
+  const results = cases.flatMap((found) => found.runResults);
+  const sumOf = (pick: (result: EvalRunResult) => number): Usd =>
+    usd(results.reduce((sum, result) => sum + pick(result), 0));
+  const spend = {
+    executionUsd: sumOf((result) => result.executionUsd),
+    judgeUsd: sumOf((result) => result.judgeUsd),
+    totalUsd: sumOf((result) => result.totalUsd),
+  };
   return {
     kind: EVAL_RUN_KIND,
     schemaVersion: EVAL_RUN_SCHEMA_VERSION,
@@ -113,11 +139,12 @@ export async function runEvalSuite(
     runs: options.runs,
     cascade: parts.suite.cascade,
     startedAt,
-    endedAt: clock.now().toISOString(),
+    endedAt: clock.now(),
     cases,
     summary: summaryOf(cases),
-    spend: { totalUsd: spent },
+    spend,
     ...ranOnOf(parts.bundle, options.profile),
+    judges: judgesOf(parts),
     ...(options.chaos === undefined ? {} : { chaos: modelChaosOf(options.chaos).summary() }),
     ...(options.metamorphic === true ? { metamorphic: true } : {}),
   };

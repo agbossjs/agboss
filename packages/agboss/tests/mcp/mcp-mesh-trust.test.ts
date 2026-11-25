@@ -1,10 +1,12 @@
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { createHash } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
-import { createMcpService, McpExpose } from "../../src/mcp/index.js";
+import { McpEndpoint } from "../../src/mcp/index.js";
+import { mcpServerOf, servedEndpointOf } from "../../src/mcp/mcp-server-instance.js";
+import { plainApp } from "../helpers/mcp-plain-app.js";
 import { encodeMeshEnvelope } from "../../src/mesh/mesh-envelope-codec.js";
 import { readJws } from "../../src/mesh/mesh-jws.js";
 import { replyWith } from "../../src/testing/index.js";
@@ -51,16 +53,20 @@ async function billing(book: ScriptBook, orders: MeshKeyPair, own: MeshKeyPair) 
     peerUrl: "http://unused",
     mesh: meshOf("orders-application"),
   });
-  @McpExpose({ name: "billing-mcp", version: "1.0.0", exports: [parts.MeshStart] })
+  @McpEndpoint({ name: "billing-mcp", version: "1.0.0", tools: [parts.MeshStart] })
   class BillingMcp {}
-  const app = await createAppWith(parts.MeshApplication, {
+  const app = await createTestAppWith(parts.MeshApplication, {
     ...offline(book),
     env: "signing",
     processEnv: meshEnvOf(own, orders),
   });
   apps.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
-  await createMcpService(app, BillingMcp).connect(serverSide, { peer: "orders-application" });
+  // the signature of a peer is proved by the HTTP listener; here the transport vouches for it
+  const served = servedEndpointOf(plainApp(app), BillingMcp);
+  await mcpServerOf(plainApp(app), served, () => ({ peer: "orders-application" })).connect(
+    serverSide,
+  );
   const client = new Client({ name: "orders", version: "1.0.0" });
   await client.connect(clientSide);
   return { client, parts };

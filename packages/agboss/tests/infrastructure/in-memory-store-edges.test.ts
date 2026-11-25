@@ -13,10 +13,8 @@ import {
   takenOverFromOf,
 } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase, treeKeyOf } from "../../src/infrastructure/in-memory-database.js";
-import {
-  InMemoryOutboundCallRepository,
-  OutboundCallStatus,
-} from "../../src/infrastructure/outbound-call.repository.js";
+import { OutboundCallStatus } from "../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../src/infrastructure/in-memory-outbound-call.repository.js";
 import { keyOf } from "../../src/testing/contracts/fenced-effect-data.js";
 import { intentOf } from "../../src/testing/contracts/outbound-call-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
@@ -91,13 +89,18 @@ describe("#533: the in-memory outbound-call store", () => {
     const stores = storesOn();
     const key = keyOf(await heldIn(stores));
     await stores.calls.saveIfAbsent(key, intentOf(key));
-    await stores.calls.markCompleted(key, "owner-1", '{"chargeId":"ch-1"}');
+    await stores.calls.markCompleted(key, "owner-1", '{"chargeId":"ch-1"}', null);
 
-    const again = await stores.calls.markFailed(key, "owner-1", {
-      name: "Error",
-      code: "Error",
-      message: "late",
-    });
+    const again = await stores.calls.markFailed(
+      key,
+      "owner-1",
+      {
+        name: "Error",
+        code: "Error",
+        message: "late",
+      },
+      null,
+    );
 
     expect(again).toBe(false);
     expect(await stores.calls.findByKey(key)).toMatchObject({
@@ -106,16 +109,21 @@ describe("#533: the in-memory outbound-call store", () => {
     });
   });
 
-  it("an intent that ended exactly at the sweep's cutoff is kept; one before it goes", async () => {
+  it("an intent whose expiry is exactly now goes, one expiring later or never stays", async () => {
     const stores = storesOn();
     const [early, late] = [keyOf(await heldIn(stores)), keyOf(await heldIn(stores, "execution-2"))];
     await stores.calls.saveIfAbsent(early, intentOf(early));
-    await stores.calls.markCompleted(early, "owner-1", "{}");
+    await stores.calls.markCompleted(early, "owner-1", "{}", stores.clock.now());
     await stores.clock.advance(seconds(1));
     await stores.calls.saveIfAbsent(late, intentOf(late));
-    await stores.calls.markCompleted(late, "owner-1", "{}");
+    await stores.calls.markCompleted(
+      late,
+      "owner-1",
+      "{}",
+      new Date(stores.clock.now().getTime() + seconds(1)),
+    );
 
-    await stores.calls.deleteByEndedAtBefore(stores.clock.now());
+    await expect(stores.calls.deleteExpired(stores.clock.now())).resolves.toBe(1);
 
     expect(await stores.calls.findByKey(early)).toBeUndefined();
     expect(await stores.calls.findByKey(late)).toMatchObject({

@@ -1,33 +1,29 @@
-import {
-  A2AAgent,
-  A2AClient,
-  A2AExpose,
-  A2ACallerResolution,
-  type A2ACallerRequest,
-  type A2ACallerResolver,
-} from "../../../src/a2a/index.js";
+import { A2AAgent, A2AClient, A2AEndpoint } from "../../../src/a2a/index.js";
 import {
   Agent,
   EmptyEnvironment,
   Injectable,
+  Observer,
   MeshLoopDetectedError,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Mesh,
+  MeshInboundMode,
   type ExecutionEvent,
-  type MeshOptions,
-  type OnExecutionStart,
-  type ToolHandler,
+  Ttl,
 } from "../../../src/index.js";
 import { MeshEnvironment } from "./environments/mesh.environment.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { Class } from "../../../src/components/injection.js";
-import type { Usd } from "../../../src/units/index.js";
+import { minutes, type Usd, hours } from "../../../src/units/index.js";
 import type { ToolClass } from "../../../src/testing/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start, toFinish } from "../../helpers/flow.js";
+import { onStart, toFinish } from "../../helpers/flow.js";
+import { HttpAuthenticator, HttpAuthResult, type HttpAuthRequest } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * One application of a mesh (#398): its agent asks a peer application over A2A through one tool,
@@ -58,7 +54,7 @@ export interface MeshAppSpec {
   /** The agent's path takes a `MeshLoopDetectedError` to `<name>-loop-workflow-finish`. */
   readonly handlesLoop?: boolean;
   /** `@Application({ mesh })` (#398 PR 2): its keys come from `MeshEnvironment`. */
-  readonly mesh?: MeshOptions;
+  readonly mesh?: Class;
   /** The peer the listener's resolver names for every request (as if its transport proved it). */
   readonly peer?: string;
   /** More providers of its workflow (a listener's `meshVerifier`). */
@@ -74,16 +70,28 @@ export interface MeshAppParts {
   readonly MeshDesk: Class;
   readonly CallPeer: ToolClass<PeerQuestion>;
   readonly LoopFinish: Class;
-  readonly Resolver: Class<A2ACallerResolver<Class>>;
-  /** Every request the listener's resolver read, in order. */
-  readonly seen: A2ACallerRequest[];
+  readonly Authenticator: Class;
+  /** Every request the listener's authenticator read, in order. */
+  readonly seen: HttpAuthRequest[];
   /** Every execution the application started, as `onExecutionStart` saw it. */
   readonly started: ExecutionEvent[];
 }
 
+/** A `@Mesh` that only limits the call chain: nothing signed, nobody a peer. */
+function hopsMesh(maxHops: number): Class {
+  @Mesh({
+    name: "hops-mesh",
+    inboundMode: MeshInboundMode.AllowExternal,
+    deduplicationTtl: minutes(30),
+    maxHops,
+  })
+  class HopsMesh {}
+  return HopsMesh;
+}
+
 export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   const { name } = spec;
-  const seen: A2ACallerRequest[] = [];
+  const seen: HttpAuthRequest[] = [];
   const started: ExecutionEvent[] = [];
 
   const peerName = spec.peerName ?? "peer";
@@ -93,7 +101,7 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     target: { application: `${peerName}-application`, skill: `${peerName}-workflow-start` },
     input: WorkflowStartTextDto,
     output: PeerReply,
-    ...(spec.price === undefined ? {} : { price: spec.price }),
+    ...(spec.price === undefined ? {} : { costPerCall: spec.price }),
   })
   class PeerA2AAgent extends A2AClient<WorkflowStartTextDto, PeerReply> {}
 
@@ -104,10 +112,10 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     output: PeerReply,
     deps: [PeerA2AAgent],
   })
-  class CallPeer implements ToolHandler<PeerQuestion, PeerReply> {
+  class CallPeer {
     constructor(private readonly peerA2AAgent: PeerA2AAgent) {}
 
-    run({ question }: PeerQuestion): Promise<PeerReply> {
+    execute({ question }: PeerQuestion): Promise<PeerReply> {
       return this.peerA2AAgent.execute({ text: question });
     }
   }
@@ -142,62 +150,64 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
   })
   class LoopFinish {}
 
-  @Injectable()
-  class Resolver implements A2ACallerResolver<typeof MeshStart> {
-    resolveCaller(request: A2ACallerRequest): A2ACallerResolution<typeof MeshStart> {
+  @HttpAuthenticator()
+  class Authenticator {
+    authenticate(request: HttpAuthRequest): HttpAuthResult {
       seen.push(request);
-      return A2ACallerResolution.resolved(spec.peer === undefined ? {} : { peer: spec.peer });
+      return HttpAuthResult.authenticated(spec.peer === undefined ? {} : { peer: spec.peer });
     }
   }
 
   const flow =
     spec.handlesLoop === true
-      ? start(MeshStart)
-          .returns(WorkflowStartTextDto)
+      ? onStart(MeshStart)
           .toAgent(MeshDesk)
           .onError(MeshLoopDetectedError, toFinish(LoopFinish))
           .toFinish(MeshAnswer)
-      : start(MeshStart)
-          .returns(WorkflowStartTextDto)
+      : onStart(MeshStart)
           .toAgent(MeshDesk)
           .toFinish(MeshAnswer);
 
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [flow],
     defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
-    providers: [PeerA2AAgent, Resolver, ...(spec.providers ?? [])],
+    providers: [PeerA2AAgent, Authenticator, ...(spec.providers ?? [])],
   })
   class MeshWorkflow {}
 
-  @Injectable()
-  class StartObserver implements OnExecutionStart {
+  @Observer()
+  class StartObserver {
     onExecutionStart(event: ExecutionEvent): void {
       started.push(event);
     }
   }
 
-  @A2AExpose({
+  @A2AEndpoint({
     name: `${name}-a2a-expose`,
     version: "1.0.0",
     description: "Served over A2A",
-    exports: [MeshStart],
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [MeshStart],
   })
   class MeshA2AExpose {}
 
+  const mesh =
+    spec.mesh ?? (spec.maxMeshHops === undefined ? undefined : hopsMesh(spec.maxMeshHops));
   // one of two contracts, as the spec says: the decorator's field types are the union's
   const environment: Class = spec.mesh === undefined ? EmptyEnvironment : MeshEnvironment;
   @Application({
     name: `${name}-application`,
-    exposes: [MeshA2AExpose],
+    modelProvider: TestModelProvider,
+    endpoints: [MeshA2AExpose],
     version: "1.0.0",
     environment,
     workflows: [MeshWorkflow],
     budgets: TEST_BUDGETS,
     observers: [StartObserver],
-    ...(spec.maxMeshHops === undefined ? {} : { maxMeshHops: spec.maxMeshHops }),
-    ...(spec.mesh === undefined ? {} : { mesh: spec.mesh }),
+    ...(mesh === undefined ? {} : { mesh }),
   })
   class MeshApplication {}
 
@@ -209,5 +219,5 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
     MeshDesk,
     LoopFinish,
   };
-  return { ...workflow, CallPeer, Resolver, seen, started };
+  return { ...workflow, CallPeer, Authenticator, seen, started };
 }

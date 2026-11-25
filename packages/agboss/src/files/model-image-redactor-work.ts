@@ -1,19 +1,16 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { lazyLoad } from "../infrastructure/clock.js";
-import { recordUsage, type UsageRecord } from "../finops/usage.js";
+import { SILENT_LOG, type FrameworkLog } from "../infrastructure/logger.js";
+import { type UsageRecord } from "../finops/usage.js";
 import type { ModelBinding } from "../llm/registry.js";
 import { contentOf } from "../models/content.js";
 import { PiiKind, type PiiTarget } from "../pii/kinds.js";
 import { sha256Of, type FileContent } from "./file-bytes.js";
 import { FileRedactionFailedError } from "./file-errors.js";
 import type { RedactionResult, RedactOptions } from "./file-redactor.js";
-import {
-  boxOf,
-  MAX_REGIONS,
-  regionsOf,
-  RegionsAnswerError,
-  type Region,
-} from "./redaction-regions.js";
+import { boxOf, MAX_REGIONS, type Region } from "./redaction-regions.js";
+import { answeredRegions, UNKNOWN_TARGET_CODE } from "./model-image-redactor-answer.js";
+import { chargedCall, reportToFrame } from "../finops/charged-call.js";
 
 /**
  * What the built-in image redactor does (#899 §6), loaded with its first redaction: the image is turned
@@ -21,6 +18,8 @@ import {
  * where the targets are, and a copy without metadata has those regions — padded — painted black.
  * Anything that goes wrong is `FileRedactionFailedError`: never the unredacted file.
  */
+
+export { UNKNOWN_TARGET_CODE };
 
 /** The pixels of the largest image read (a decompression bomb is refused). */
 export const MAX_INPUT_PIXELS = 40e6;
@@ -109,40 +108,35 @@ async function regionsAsked(
   image: Upright,
   options: RedactOptions,
   maxRegions: number,
+  log: FrameworkLog,
 ): Promise<{ readonly regions: readonly Region[]; readonly usage: UsageRecord }> {
-  const kinds = options.targets.map(String);
+  const kinds = options.targets.map((target) => target.id);
   const known = new Set<string>([...kinds, ...(options.values.length > 0 ? ["value"] : [])]);
   const mediaType = MEDIA_TYPES[image.format];
   let response;
   try {
-    response = await binding.model.invoke(
-      [
-        new SystemMessage(REDACTOR_SYSTEM),
-        new HumanMessage({
-          content: contentOf(
-            `Kinds to find: ${kinds.join(", ") || "none"}.\nExact values to find: ${JSON.stringify(options.values)}.`,
-            [{ kind: "image", mediaType, data: image.data.toString("base64") }],
-          ),
-        }),
-      ],
-      { signal: options.signal },
+    const messages = [
+      new SystemMessage(REDACTOR_SYSTEM),
+      new HumanMessage({
+        content: contentOf(
+          `Kinds to find: ${kinds.join(", ") || "none"}.\nExact values to find: ${JSON.stringify(options.values)}.`,
+          [{ kind: "image", mediaType, data: image.data.toString("base64") }],
+        ),
+      }),
+    ];
+    const spec = {
+      caller: "files:redactor",
+      settings: binding.settings,
+      sent: messages,
+      sink: reportToFrame,
+    };
+    response = await chargedCall(spec, (callbacks) =>
+      binding.model.invoke(messages, { signal: options.signal, callbacks }),
     );
   } catch (cause) {
     throw new FileRedactionFailedError({ agent, reason: "the redaction model call failed", cause });
   }
-  try {
-    return {
-      regions: regionsOf(response.text, known, maxRegions),
-      usage: recordUsage("files:redactor", binding.settings, response),
-    };
-  } catch (error) {
-    // the reason is structural; the answer itself is neither in the message nor in the cause
-    const said = error instanceof RegionsAnswerError ? error.message : "unreadable";
-    throw new FileRedactionFailedError({
-      agent,
-      reason: `the redaction model's answer is not usable: ${said}`,
-    });
-  }
+  return answeredRegions(response, { agent, known, maxRegions, log }, binding);
 }
 
 /**
@@ -183,10 +177,18 @@ export async function redacted(
   file: FileContent,
   options: RedactOptions,
   limits: RedactorLimits = DEFAULT_LIMITS,
+  log: FrameworkLog = SILENT_LOG,
 ): Promise<RedactionResult> {
   const sharp = await sharpOf(agent);
   const image = await uprightOf(sharp, file, agent, limits.maxPixels);
-  const { regions, usage } = await regionsAsked(binding, agent, image, options, limits.maxRegions);
+  const { regions, usage } = await regionsAsked(
+    binding,
+    agent,
+    image,
+    options,
+    limits.maxRegions,
+    log,
+  );
   let bytes: Buffer;
   try {
     bytes = await paintedOf(sharp, image, regions, limits.maxPixels);
@@ -197,9 +199,9 @@ export async function redacted(
       cause,
     });
   }
-  const kinds = new Set<string>(Object.values(PiiKind));
-  const found = [...new Set(regions.map((region) => region.target))].filter(
-    (target): target is PiiKind => kinds.has(target),
+  // a region's target is one asked for, or `UNKNOWN_TARGET` (painted, not reported): a kind's id or "value"
+  const found = [...new Set(regions.map((region) => region.target))].flatMap(
+    (target) => PiiKind.fromId(target) ?? [],
   );
   const copy: FileContent = {
     mediaType: MEDIA_TYPES[image.format],

@@ -1,4 +1,5 @@
-import type { EvalCaseDraft } from "@agboss/core/internal";
+import { ExecutionStatus } from "@agboss/core";
+import type { DraftTurn, EvalCaseDraft } from "@agboss/core/internal";
 import ts from "typescript";
 import { declarationNamed } from "./declarations.js";
 import { ScaffoldConflictError, ScaffoldError } from "./errors.js";
@@ -28,20 +29,27 @@ export interface WrittenCase {
 
 const START = ["WorkflowStart"];
 const FINISH = ["WorkflowFinish"];
-const TOOL = ["Tool", "McpTool"];
+const TOOL = ["Tool"];
+const PAUSE_TARGET = ["ToolApproval", "ExternalTask"];
 
 /** A value as TypeScript source: JSON is an object literal. */
 const literal = (value: unknown): string => JSON.stringify(value ?? {});
+
+/** The key of an expected status in the `ExecutionStatus` enum. */
+const statusKeyOf = (status: NonNullable<EvalCaseDraft["expectedStatus"]>): string =>
+  status === ExecutionStatus.Stopped ? "Stopped" : "Cancelled";
 
 /** The source of the case, and the classes and builders it uses. */
 export interface CaseSource {
   readonly text: string;
   readonly classes: readonly Component[];
   readonly builders: readonly string[];
+  /** Names of `@agboss/core` the case uses (`ExecutionStatus`). */
+  readonly core: readonly string[];
   readonly skipped: readonly string[];
 }
 
-/** `pastTurn(Start, input, Finish, output)` per turn whose classes are found. */
+/** `pastTurn({ start, input, finish, output })` per turn whose classes are found. */
 function historyOf(draft: EvalCaseDraft, classes: CaseClasses) {
   const used: Component[] = [];
   const skipped: string[] = [];
@@ -53,13 +61,18 @@ function historyOf(draft: EvalCaseDraft, classes: CaseClasses) {
       return [];
     }
     used.push(start, finish);
-    const args = [start.className, literal(turn.input), finish.className, literal(turn.output)];
-    return [`pastTurn(${args.join(", ")})`];
+    const fields = [
+      `start: ${start.className}`,
+      `input: ${literal(turn.input)}`,
+      `finish: ${finish.className}`,
+      `output: ${literal(turn.output)}`,
+    ];
+    return [`pastTurn({ ${fields.join(", ")} })`];
   });
   return { turns, used, skipped };
 }
 
-/** `toolCall(Tool, arguments)` per required call whose tool class is found. */
+/** `toolCall(Tool, input)` per required call whose tool class is found. */
 function requiredOf(draft: EvalCaseDraft, classes: CaseClasses) {
   const used: Component[] = [];
   const skipped: string[] = [];
@@ -70,21 +83,49 @@ function requiredOf(draft: EvalCaseDraft, classes: CaseClasses) {
       return [];
     }
     used.push(tool);
-    return [`toolCall(${tool.className}, ${literal(call.arguments)})`];
+    return [`toolCall(${tool.className}, ${literal(call.input)})`];
   });
   return { calls, used, skipped };
+}
+
+/** `answerPause(Target, decision, { actor })` per answered pause whose target class is found. */
+function pausesOf(turn: DraftTurn, classes: CaseClasses) {
+  const used: Component[] = [];
+  const skipped: string[] = [];
+  const answers = (turn.pauses ?? []).flatMap((pause) => {
+    const target = declarationNamed(classes.declarations, pause.target, PAUSE_TARGET);
+    if (target === undefined) {
+      skipped.push(`an answer of ${pause.target}: no @ToolApproval or @ExternalTask class found`);
+      return [];
+    }
+    used.push(target);
+    const actor = pause.actor === undefined ? "" : `, { actor: ${literal(pause.actor)} }`;
+    return [`answerPause(${target.className}, ${literal(pause.decision)}${actor})`];
+  });
+  return { answers, used, skipped };
+}
+
+/** `turn(input, { pauses: [...] })` of one drafted turn. */
+function turnOf(turn: DraftTurn, pauses: readonly string[]): string {
+  const options = pauses.length === 0 ? "" : `, { pauses: [${pauses.join(", ")}] }`;
+  return `turn(${literal(turn.input)}${options})`;
 }
 
 /** The `evalCase({ … })` of the draft. */
 export function evalCaseSourceOf(draft: EvalCaseDraft, classes: CaseClasses): CaseSource {
   const history = historyOf(draft, classes);
   const required = requiredOf(draft, classes);
+  const answered = draft.turns.map((each) => pausesOf(each, classes));
+  const hasAnswers = answered.some((each) => each.answers.length > 0);
   const fields = [
     `name: ${JSON.stringify(draft.name)}`,
     ...(draft.tenant === undefined ? [] : [`tenant: ${literal(draft.tenant)}`]),
     ...(draft.execution === undefined ? [] : [`execution: ${literal(draft.execution)}`]),
     ...(history.turns.length === 0 ? [] : [`history: [${history.turns.join(", ")}]`]),
-    `turns: [${draft.turns.map((turn) => `turn(${literal(turn.input)})`).join(", ")}]`,
+    `turns: [${draft.turns.map((each, index) => turnOf(each, answered[index]?.answers ?? [])).join(", ")}]`,
+    ...(draft.expectedStatus === undefined
+      ? []
+      : [`expectedStatus: ExecutionStatus.${statusKeyOf(draft.expectedStatus)}`]),
     ...(required.calls.length === 0 ? [] : [`tools: { required: [${required.calls.join(", ")}] }`]),
   ];
   const builders = [
@@ -92,12 +133,14 @@ export function evalCaseSourceOf(draft: EvalCaseDraft, classes: CaseClasses): Ca
     "turn",
     ...(history.turns.length === 0 ? [] : ["pastTurn"]),
     ...(required.calls.length === 0 ? [] : ["toolCall"]),
+    ...(hasAnswers ? ["answerPause"] : []),
   ];
   return {
     text: `evalCase({ ${fields.join(", ")} })`,
-    classes: [...history.used, ...required.used],
+    classes: [...history.used, ...required.used, ...answered.flatMap((each) => each.used)],
     builders,
-    skipped: [...history.skipped, ...required.skipped],
+    core: draft.expectedStatus === undefined ? [] : ["ExecutionStatus"],
+    skipped: [...history.skipped, ...required.skipped, ...answered.flatMap((each) => each.skipped)],
   };
 }
 

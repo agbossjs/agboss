@@ -6,7 +6,7 @@ import { ScoreDto } from "../../dto/score.dto.js";
 @Agent({
   name: "hire-score-agent",
   description: "Scores the hire decision",
-  promptUrls: ["./hire-score.prompt.md"],
+  prompt: "./hire-score.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: { candidate: CandidateDto },
   output: ScoreDto,

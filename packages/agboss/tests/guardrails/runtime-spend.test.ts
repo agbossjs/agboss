@@ -4,7 +4,6 @@
  */
 import { AIMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
-import { DecidedBy } from "../../src/flow/decorators/router.js";
 import { GuardFailedError } from "../../src/errors.js";
 import { runtimeGuardrailOf } from "../../src/guardrails/runtime.js";
 import { GUARDRAIL_ANSWER_TOOL, GUARDRAIL_QUESTION } from "../../src/prompts/guardrail.js";
@@ -30,14 +29,14 @@ function partsAnswering(args: Record<string, unknown>) {
 const guardrail = {
   type: Object,
   name: "legal",
-  decidedBy: DecidedBy.Model,
+  kind: "model",
   model: "m",
   prompt: "is it legal advice?",
   threshold: 0.8,
   refusal: "no",
 };
 
-const checked = { side: "output", element: "agent", text: "hello" } as never;
+const checked = { side: "output", component: { name: "agent" }, text: "hello" } as never;
 
 describe("#1366: the spend of a model guardrail", () => {
   it("a decision adds its call to the spend and says whether it blocks", async () => {

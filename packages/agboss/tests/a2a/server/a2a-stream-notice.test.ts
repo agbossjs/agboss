@@ -21,6 +21,9 @@ import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { taskChanged, waitedTaskCount } from "../../../src/a2a/tasks/task-changes.js";
 import { NINE, savedTask, scriptOf, unitParts, WORKING } from "./support/unit-parts.js";
+import { StreamEventKind } from "../../../src/run/types.js";
+
+const TOOL_STEP = { agent: "desk-agent", visit: 1, branch: "execution-1", attempt: 1 };
 
 const DONE = {
   state: A2ATaskState.Completed,
@@ -96,9 +99,9 @@ async function framesWithNoticeAt(at: number): Promise<readonly unknown[] | type
     frames.push(next.value);
     if (frames.length === 1 && at !== -1) {
       // the stream is suspended at its first frame (the task): three events for its next batch
-      emit({ kind: "toolCall", tool: "a" });
-      emit({ kind: "toolCall", tool: "b" });
-      emit({ kind: "toolCall", tool: "c" });
+      emit({ kind: StreamEventKind.ToolCall, tool: "a", step: TOOL_STEP });
+      emit({ kind: StreamEventKind.ToolCall, tool: "b", step: TOOL_STEP });
+      emit({ kind: StreamEventKind.ToolCall, tool: "c", step: TOOL_STEP });
     }
     if (frames.length === at + 1) await notice();
   }

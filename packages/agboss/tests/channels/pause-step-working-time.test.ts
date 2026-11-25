@@ -6,28 +6,30 @@
  * nobody. Every time is explicit on the virtual clock; the calendar here is a scripted fake.
  */
 import { describe, expect, it, vi } from "vitest";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import {
   WorkingCalendarError,
   WorkingCalendarProblem,
   type WorkingCalendarHandler,
-  type WorkingTimeRequest,
+  type WorkingCalendarContext,
 } from "../../src/index.js";
 import { currentFrame } from "../../src/flow/context/frame.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { PauseExpiryBound, PauseKind } from "../../src/infrastructure/pause-record.js";
-import { pauseStep, type PauseChannel, type PauseStepSite } from "../../src/flow/runtime/pause.js";
+import { pauseStep, type PauseStepSite } from "../../src/flow/runtime/pause.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours, minutes, seconds, workingHours, workingMinutes } from "../../src/units/index.js";
 import { testFrame } from "../helpers/frame.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import { targetOfChannel, type FlatChannel } from "../helpers/pause-target.js";
 
 const ASKED = new Date("2026-01-08T15:30:00.000Z");
 const at = (delay: number): string => new Date(ASKED.getTime() + delay).toISOString();
 const question = {
   kind: PauseKind.Approval,
   step: "desk-clerk-agent",
-  ask: { callId: "call-1", tool: "refund", arguments: { orderId: "7" }, summary: "refund 7" },
+  input: { orderId: "7" },
+  toolCall: { callId: "call-1", tool: "refund", summary: "refund 7" },
 };
 const answers = {
   savePauseAnswer: (): Promise<void> => Promise.resolve(),
@@ -36,8 +38,8 @@ const answers = {
 };
 
 /** A calendar scripted by what it answers to each request: its requests are kept. */
-function calendarOf(answer: (request: WorkingTimeRequest) => unknown) {
-  const requests: WorkingTimeRequest[] = [];
+function calendarOf(answer: (request: WorkingCalendarContext) => unknown) {
+  const requests: WorkingCalendarContext[] = [];
   const frames: unknown[] = [];
   const handler: WorkingCalendarHandler = {
     addWorkingTime: (request) => {
@@ -51,8 +53,8 @@ function calendarOf(answer: (request: WorkingTimeRequest) => unknown) {
 
 /** The ask of a working deadline: the site, the channel's sends and the log. */
 function setup(options: {
-  readonly channel: Partial<PauseChannel>;
-  readonly calendar: PauseChannel["calendar"];
+  readonly channel: Partial<FlatChannel>;
+  readonly calendar: FlatChannel["calendar"];
   readonly deadlineAt?: string;
 }) {
   const clock = new VirtualClock(ASKED);
@@ -70,9 +72,9 @@ function setup(options: {
             deadline: { at: options.deadlineAt, deadline: 0 as never },
           },
         };
-  const channel: PauseChannel = {
+  const channel: FlatChannel = {
     name: "refund-approval-channel",
-    answerer: PauseAnswerer.Channel,
+    respondent: PauseRespondent.Delegate,
     sender: {
       send: () => {
         sends.push(1);
@@ -85,7 +87,7 @@ function setup(options: {
   const site: PauseStepSite = {
     pauses,
     answers,
-    channel,
+    target: targetOfChannel(channel),
     frame,
     signal: undefined,
     clock,
@@ -112,7 +114,12 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     await enter();
 
     expect(calendar.requests).toEqual([
-      { from: ASKED, amount: hours(2), tenantId: "default", channel: "refund-approval-channel" },
+      {
+        from: ASKED,
+        amount: workingHours(2),
+        tenantId: "default",
+        target: "refund-approval-tool-approval",
+      },
     ]);
     const [pause] = await records();
     expect(pause).toMatchObject({
@@ -137,16 +144,18 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     ).toBe(site.frame.execution.executionId);
   });
 
-  it("AC1: a step's own expiresIn works over the role's; a calendar that answers synchronously works", async () => {
-    const calendar = calendarOf((request) => new Date(request.from.getTime() + request.amount * 3));
+  it("AC1: a calendar that answers synchronously works", async () => {
+    const calendar = calendarOf(
+      (request) => new Date(request.from.getTime() + request.amount.amount * 3),
+    );
     const { enter, records } = setup({
-      channel: { expiresIn: hours(24) },
+      channel: { expiresIn: workingMinutes(30) },
       calendar: calendar.calendar,
     });
 
-    await enter({ expiresIn: workingMinutes(30) as never });
+    await enter();
 
-    expect(calendar.requests.map((request) => request.amount)).toEqual([minutes(30)]);
+    expect(calendar.requests.map((request) => request.amount.amount)).toEqual([minutes(30)]);
     expect((await records())[0]?.expiresAt).toBe(at(minutes(90)));
   });
 
@@ -154,7 +163,9 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     const calendar = calendarOf(
       (request) =>
         // the deadline (3 h of working time) in 30 h, the reminder (the 2 h lead) in 26 h: the calendar's own arithmetic
-        new Date(request.from.getTime() + (request.amount === hours(3) ? hours(30) : hours(26))),
+        new Date(
+          request.from.getTime() + (request.amount.amount === hours(3) ? hours(30) : hours(26)),
+        ),
     );
     const { enter, records } = setup({
       channel: { expiresIn: workingHours(3), remindBefore: workingHours(1) },
@@ -163,7 +174,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
 
     await enter();
 
-    expect(calendar.requests.map((request) => request.amount)).toEqual([hours(3), hours(2)]);
+    expect(calendar.requests.map((request) => request.amount.amount)).toEqual([hours(3), hours(2)]);
     const [pause] = await records();
     expect(pause?.expiresAt).toBe(at(hours(30)));
     expect(pause?.remindAt).toBe(at(hours(26)));
@@ -180,19 +191,6 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
 
     expect(calendar.requests).toHaveLength(1);
     expect((await records())[0]?.remindAt).toBe(at(hours(28)));
-  });
-
-  it("AC4: a step override no longer than the role's reminder: no reminder, no second calendar call", async () => {
-    const calendar = calendarOf(() => new Date(at(hours(5))));
-    const { enter, records } = setup({
-      channel: { expiresIn: workingHours(3), remindBefore: workingHours(1) },
-      calendar: calendar.calendar,
-    });
-
-    await enter({ expiresIn: workingMinutes(60) as never });
-
-    expect(calendar.requests).toHaveLength(1);
-    expect((await records())[0]?.remindAt).toBeUndefined();
   });
 
   it("AC4: a working remindBefore with a plain expiresIn gets no reminder (the assembly refuses it before)", async () => {
@@ -225,7 +223,9 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     // the calendar says 30 h (deadline) and 26 h (reminder); the run's deadline is 20 h away
     const calendar = calendarOf(
       (request) =>
-        new Date(request.from.getTime() + (request.amount === hours(3) ? hours(30) : hours(26))),
+        new Date(
+          request.from.getTime() + (request.amount.amount === hours(3) ? hours(30) : hours(26)),
+        ),
     );
     const { enter, records } = setup({
       channel: { expiresIn: workingHours(3), remindBefore: workingHours(1) },
@@ -245,7 +245,9 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
   it("AC4: remindAt kept when it is still before the clamped deadline", async () => {
     const calendar = calendarOf(
       (request) =>
-        new Date(request.from.getTime() + (request.amount === hours(3) ? hours(30) : hours(26))),
+        new Date(
+          request.from.getTime() + (request.amount.amount === hours(3) ? hours(30) : hours(26)),
+        ),
     );
     const { enter, records } = setup({
       channel: { expiresIn: workingHours(3), remindBefore: workingHours(1) },
@@ -263,7 +265,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
 
   it("AC4: a lead the calendar answers at or before the ask is the calendar's failure (not-after-start), nobody is asked", async () => {
     const calendar = calendarOf((request) =>
-      request.amount === hours(2) ? new Date(at(0)) : new Date(at(hours(30))),
+      request.amount.amount === hours(2) ? new Date(at(0)) : new Date(at(hours(30))),
     );
     const { enter } = setup({
       channel: { expiresIn: workingHours(3), remindBefore: workingHours(1) },
@@ -336,7 +338,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
 
     // the same step again, its calendar now answering something else
     const changed = calendarOf(() => new Date(at(hours(99))));
-    Object.assign(site, { channel: { ...site.channel, calendar: changed.calendar } });
+    Object.assign(site, { target: { ...site.target, calendar: changed.calendar } });
     await enter();
 
     expect(calendar.requests).toHaveLength(asked);
@@ -346,7 +348,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
 });
 
 describe("#944 AC5: a calendar that cannot answer asks nobody", () => {
-  const failing = async (answer: (request: WorkingTimeRequest) => unknown) => {
+  const failing = async (answer: (request: WorkingCalendarContext) => unknown) => {
     const calendar = calendarOf(answer);
     const world = setup({ channel: { expiresIn: workingHours(2) }, calendar: calendar.calendar });
     const failed = await world.enter();

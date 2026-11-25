@@ -1,3 +1,4 @@
+import type { ProfileSelection } from "./config/profile-names.js";
 import { createAppDeps, type AppDeps, type AppDepsOptions } from "./app/app-deps.js";
 import type { ModelGateway } from "./llm/gateway.js";
 import { applicationOf } from "./application/assemble.js";
@@ -11,12 +12,14 @@ import { studioGraph } from "./graph/studio-graph.js";
 /**
  * The graphs `agboss studio` serves (#268 AC7): every workflow of an `@Application` — the listed ones
  * and the children they launch — built on the application's environment. A child is a subgraph node
- * of its parent (#263 S37), so Studio draws it inside; `ThisWorkflow` is a node marked
+ * of its parent (#263 S37), so Studio draws it inside; a workflow launching itself is a node marked
  * `recursive: maxDepth N` (#264). The module `agboss studio` writes into `.agboss/` reads them by name.
  */
 
-/** How `agboss studio` builds the graphs: the environment (`--env`, default `dev`). */
+/** How `agboss studio` builds the graphs: the profiles (`--profile`) and the environment (`--env`, default `dev`). */
 export interface StudioOptions {
+  /** The profiles layered on the application, as `createApp`'s `profile`; default `dev`. */
+  readonly profile?: ProfileSelection | undefined;
   /** `environments/<env>.environment.ts` next to the application file; default `dev`. */
   readonly env?: string | undefined;
   /** The process environment the environment reads; default `process.env`. */
@@ -62,7 +65,11 @@ export async function studioOfWith(
   options: StudioOptions & { readonly gateway?: ModelGateway } = {},
 ): Promise<StudioGraphs> {
   const processEnv = options.processEnv ?? process.env;
-  const assembled = await applicationOf(application, {}, "agboss studio");
+  const assembled = await applicationOf(
+    application,
+    { profile: options.profile, processEnv, withoutIdempotencyKeys: true },
+    "agboss studio",
+  );
   const environment = await namedEnvironmentFor(
     environmentOwnerOf(assembled),
     { env: options.env },

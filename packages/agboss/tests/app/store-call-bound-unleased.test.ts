@@ -5,8 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  A2AFileRepository,
-  A2ATaskRepository,
+  FileRepository,
   ChildExecutionQueueRepository,
   ExecutionLeaseLostError,
   ExecutionLeaseRepository,
@@ -15,6 +14,7 @@ import {
   StoreCallTimeoutError,
   StoreOutcomeSource,
 } from "../../src/index.js";
+import { A2ATaskRepository } from "../../src/stores/index.js";
 import { ExecutionHistoryRepository } from "../../src/infrastructure/execution-history.repository.js";
 import { FencedEffectRepository } from "../../src/infrastructure/fenced-effect.repository.js";
 import { LONG_CALL_BOUND, STORE_CALL_BOUND } from "../../src/app/lease-fence.js";
@@ -36,8 +36,7 @@ class SilentStore {
   requestCancel = silent;
   resolveByTenantIdAndPauseId = silent;
   saveIfAbsent = silent;
-  deleteByStoredAtBefore = silent;
-  deleteByEndedAtBefore = silent;
+  deleteExpired = silent;
   save = silent;
 }
 
@@ -148,13 +147,9 @@ describe("#928 AC1: the sweep runs again next period", () => {
 
 describe("#928 AC1: a long call is bounded by 5 min and never hands over", () => {
   const long = [
-    ["a retention delete", FencedEffectRepository, "deleteByStoredAtBefore"],
-    [
-      "the cancel-mark pruning of a retention delete",
-      ExecutionHistoryRepository,
-      "deleteByEndedAtBefore",
-    ],
-    ["an A2A file save", A2AFileRepository, "save"],
+    ["a retention delete", FencedEffectRepository, "deleteExpired"],
+    ["the cancel-mark pruning of a retention delete", ExecutionHistoryRepository, "deleteExpired"],
+    ["an A2A file save", FileRepository, "save"],
   ] as const;
 
   it.each(long)(

@@ -1,5 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { App, ExecutionOptions, ExecutionOutput } from "../app/types.js";
+import type { AnyTenantApp, ExecutionOptions, ExecutionOutput } from "../app/types.js";
 import type { ToolHandler } from "../components/decorators.js";
 import type { Class } from "../components/injection.js";
 import { componentOf, type ToolMeta } from "../components/metadata.js";
@@ -24,30 +24,14 @@ import {
   type ToolRegistry,
 } from "./mcp-service-helpers.js";
 
-/**
- * What every call of one MCP session runs with (#261): the thread's owner and the execution's typed
- * context values — `tenant` (a resume uses its `tenantId`) and the declared `execution` fields —
- * taken by the transport from its authenticated caller, never from the call's arguments.
- */
-export type McpSessionOptions = Pick<ExecutionOptions, "ownerId" | "tenant" | "execution"> & {
-  /**
-   * The mesh peer the transport authenticated (#398 PR 2), by its `@Application({ name })`: when a
-   * call's envelope carries this peer's valid signature, its budget, deadline and origin are
-   * honoured and the run's report is signed back (`_meta["agboss.dev/report"]`).
-   */
-  readonly peer?: string;
-};
+export type { McpSessionOptions } from "./mcp-service-helpers.js";
 
 /**
- * What an `@McpExpose` exposes: its `@Tool` / `@McpTool` exports (run through the same adapter as
+ * What an `@McpEndpoint` endpoints: its `@Tool` exports (run through the same adapter as
  * agent tool calls — DTO validation of input and output, timeout, `callId`), its workflow starts
  * (`app.execute`), and `resume_workflow` (`app.resume`) when there is a start.
  */
-export function collectTools(
-  app: App,
-  exports: readonly Class[],
-  session: McpSessionOptions,
-): ToolRegistry {
+export function collectTools(app: AnyTenantApp, exports: readonly Class[]): ToolRegistry {
   const registry: ToolRegistry = { tools: [], handlers: new Map() };
   let hasWorkflows = false;
   for (const exp of exports) {
@@ -56,23 +40,23 @@ export function collectTools(
       addTool(registry, { app, exp, meta });
     } else if (isStart(exp)) {
       hasWorkflows = true;
-      addWorkflowStart(registry, app, exp, session);
+      addWorkflowStart(registry, app, exp);
     }
   }
-  if (hasWorkflows) addResumeTool(registry, app, session);
+  if (hasWorkflows) addResumeTool(registry, app);
   return registry;
 }
 
 function toolMetaOf(exp: Class): ToolMeta | undefined {
   const component = componentOf(exp);
-  return component?.kind === "tool" || component?.kind === "mcp-tool" ? component.meta : undefined;
+  return component?.kind === "tool" ? component.meta : undefined;
 }
 
 const isToolHandler = (value: unknown): value is ToolHandler<unknown, unknown> =>
-  isRecord(value) && typeof value.run === "function";
+  isRecord(value) && typeof value.execute === "function";
 
 interface ExportedTool {
-  readonly app: App;
+  readonly app: AnyTenantApp;
   readonly exp: Class;
   readonly meta: ToolMeta;
 }
@@ -82,13 +66,13 @@ function addTool(registry: ToolRegistry, exported: ExportedTool): void {
   const instance: unknown = app.hasTool(meta.name) ? app.resolve(exp) : undefined;
   if (!isToolHandler(instance)) {
     throw new Error(
-      `@McpExpose exports ${exp.name}, which is not a tool of application "${app.name}"`,
+      `@McpEndpoint exports ${exp.name}, which is not a tool of application "${app.name}"`,
     );
   }
   const tool = adapt(instance, meta);
   registry.tools.push({
     name: meta.name,
-    description: meta.description || (meta.prompt ?? ""),
+    description: meta.description,
     inputSchema: objectSchema(meta.input),
     outputSchema: objectSchema(meta.output),
   });
@@ -114,7 +98,8 @@ const toolResult = (output: ToolOutput<unknown>): CallToolResult =>
     : output.kind === "ok" && isRecord(output.value)
       ? {
           content: [{ type: "text", text: renderToolResult(output) }],
-          structuredContent: output.value,
+          // the wire takes plain JSON: a validated output is a DTO class instance, which the SDK's record check refuses
+          structuredContent: JSON.parse(JSON.stringify(output.value)) as Record<string, unknown>,
         }
       : {
           content: [{ type: "text", text: renderToolResult(output) }],
@@ -135,12 +120,7 @@ function startInputSchema(declaration: WorkflowStartDeclaration): ReturnType<typ
   return typeof input === "function" ? objectSchema(input) : { type: "object" as const };
 }
 
-function addWorkflowStart(
-  registry: ToolRegistry,
-  app: App,
-  exp: Class,
-  session: McpSessionOptions,
-): void {
+function addWorkflowStart(registry: ToolRegistry, app: AnyTenantApp, exp: Class): void {
   const declaration = startOf(exp);
   if (declaration === undefined) return;
   const { name, description } = declaration.options;
@@ -149,9 +129,10 @@ function addWorkflowStart(
     description: description || `Run workflow starting at ${name}`,
     inputSchema: startInputSchema(declaration),
   });
-  // the session's caller as the execution takes it: its peer is the transport's, not an option
-  const caller = { ownerId: session.ownerId, tenant: session.tenant, execution: session.execution };
   registry.handlers.set(name, async (call) => {
+    // the call's own caller as the execution takes it: its peer is the transport's, not an option
+    const { ownerId, tenant, execution } = call.session;
+    const caller = { ownerId, tenant, execution };
     let reported: Record<string, string> | undefined;
     const answered = await guarded(async () => {
       // the call chain the envelope brought (#398): the execution's own calls carry it on
@@ -168,15 +149,30 @@ function addWorkflowStart(
   });
 }
 
-function addResumeTool(registry: ToolRegistry, app: App, session: McpSessionOptions): void {
+/** The answer a `resume_workflow` call gives: exactly one of a `decision` (JSON text) or a free-text `reply`. */
+function resumeRequestOf(
+  pauseId: string,
+  input: Readonly<Record<string, unknown>>,
+):
+  | { readonly pauseId: string; readonly decision: unknown }
+  | { readonly pauseId: string; readonly reply: string } {
+  const { reply, decision } = input;
+  if ((reply === undefined) === (decision === undefined))
+    throw new Error("give a decision or a reply, not both and not neither");
+  if (reply === undefined) return { pauseId, decision: parseDecision(decision) };
+  if (typeof reply !== "string") throw new Error("reply must be a string");
+  return { pauseId, reply };
+}
+
+function addResumeTool(registry: ToolRegistry, app: AnyTenantApp): void {
   registry.tools.push(RESUME_TOOL);
   registry.handlers.set(RESUME_TOOL.name, (call) =>
     guarded(async () => {
       const input = isRecord(call.args) ? call.args : {};
       if (typeof input.pauseId !== "string") throw new Error("pauseId must be a string");
-      const { ownerId, tenant } = session;
+      const { ownerId, tenant } = call.session;
       const options = { ownerId, tenantId: tenant?.tenantId, signal: call.signal };
-      const request = { pauseId: input.pauseId, decision: parseDecision(input.decision) };
+      const request = resumeRequestOf(input.pauseId, input);
       const result = await app.resume(request, options);
       return formatWorkflowOutput(result);
     }),
@@ -192,5 +188,11 @@ function formatWorkflowOutput(result: ExecutionOutput): unknown {
       pending: result.pending,
     };
   }
-  return result.output ?? result;
+  if (result.status === ExecutionStatus.Finished) return result.output;
+  // stopped or cancelled by an operator (#1341): not a result, and not an error of the call
+  return {
+    status: result.status,
+    threadId: result.threadId,
+    message: `Workflow ${result.status}.`,
+  };
 }

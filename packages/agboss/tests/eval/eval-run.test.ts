@@ -10,15 +10,15 @@ import {
   CheckStatus,
   EvalCascade,
   EvalSuite,
-  checkTrajectory,
   evalCase,
-  judgedBy,
   pastTurn,
   toolCall,
   toolInvariant,
   turn,
+  EvalCheckKind,
 } from "../../src/eval/index.js";
-import { runEvalSuite } from "../../src/eval/run/run-suite.js";
+import { evalRunReportOf } from "../../src/eval/run/read-report.js";
+import { runSuiteOn } from "../../src/eval/run/run-suite.js";
 import { evalSuiteWarningsOf } from "../../src/eval/suite/check-suite.js";
 import { EVAL_RUN_KIND, EVAL_RUN_SCHEMA_VERSION } from "../../src/eval/run/report.js";
 import { TestEnvironment } from "../../src/testing/environment.js";
@@ -49,7 +49,7 @@ const TENANT = { tenantId: "eval-acme", plan: "pro" } as const;
   name: "refunds-eval-suite",
   description: "Refunds: looked up, refunded once, never deleted",
   start: DeskWorkflowStart,
-  checks: [checkTrajectory(), judgedBy(RefundRecordedJudge), judgedBy(AnswerGroundedJudge)],
+  judges: [RefundRecordedJudge, AnswerGroundedJudge],
   cascade: EvalCascade.StopAtFirstFailure,
   cases: [
     evalCase({
@@ -57,8 +57,11 @@ const TENANT = { tenantId: "eval-acme", plan: "pro" } as const;
       tenant: TENANT,
       execution: { userId: "eval-user-1" },
       history: [
-        pastTurn(DeskWorkflowStart, { text: "Never delete my orders." }, DeskWorkflowFinish, {
-          text: "Understood.",
+        pastTurn({
+          start: DeskWorkflowStart,
+          input: { text: "Never delete my orders." },
+          finish: DeskWorkflowFinish,
+          output: { text: "Understood." },
         }),
       ],
       turns: [turn({ text: "Hi" }), turn({ text: "Refund order 7, it arrived broken" })],
@@ -76,7 +79,7 @@ class RefundsEvalSuite {}
   name: "run-all-eval-suite",
   description: "Every check runs",
   start: DeskWorkflowStart,
-  checks: [checkTrajectory(), judgedBy(RefundRecordedJudge), judgedBy(AnswerGroundedJudge)],
+  judges: [RefundRecordedJudge, AnswerGroundedJudge],
   cascade: EvalCascade.RunAll,
   cases: [
     evalCase({
@@ -84,6 +87,7 @@ class RefundsEvalSuite {}
       tenant: TENANT,
       execution: { userId: "eval-user-2" },
       turns: [turn({ text: "Where is order 8?" })],
+      tools: { forbidden: [RefundTool] },
     }),
   ],
 })
@@ -93,7 +97,6 @@ class RunAllEvalSuite {}
   name: "flaky-eval-suite",
   description: "One case, judged by code only",
   start: DeskWorkflowStart,
-  checks: [checkTrajectory()],
   cascade: EvalCascade.StopAtFirstFailure,
   cases: [
     evalCase({
@@ -102,7 +105,7 @@ class RunAllEvalSuite {}
       execution: { userId: "eval-user-3" },
       turns: [turn({ text: "Where is order 9?" })],
       tools: { required: [toolCall(GetOrderTool, { orderId: "9" })] },
-      judges: [judgedBy(AnswerGroundedJudge)],
+      judges: [AnswerGroundedJudge],
     }),
   ],
 })
@@ -112,7 +115,6 @@ class FlakyEvalSuite {}
   name: "invalid-eval-suite",
   description: "A tenant the application refuses",
   start: DeskWorkflowStart,
-  checks: [checkTrajectory()],
   cascade: EvalCascade.RunAll,
   cases: [
     // @ts-expect-error — "gold" is not a plan of DeskTenantContext
@@ -162,7 +164,7 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
       );
     scriptJudge(env, "yes");
 
-    const report = await runEvalSuite(built, RefundsEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RefundsEvalSuite, { runs: 1 });
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run?.passed).toBe(true);
@@ -195,7 +197,7 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
       );
     scriptJudge(env, "yes");
 
-    const report = await runEvalSuite(built, RefundsEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RefundsEvalSuite, { runs: 1 });
 
     const { records } = built.infrastructure;
     const threadId = report.cases[0]?.runResults[0]?.threadId ?? "";
@@ -218,17 +220,17 @@ describe("#396 PR 2: a case's history, turns and contexts", () => {
     const { env, built } = await evalApp();
     env.mockLlm(DeskAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
 
-    const report = await runEvalSuite(built, RefundsEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RefundsEvalSuite, { runs: 1 });
 
     const [run] = report.cases[0]?.runResults ?? [];
-    expect(run).toMatchObject({ passed: false, checks: [], error: { code: "step.agent" } });
+    expect(run).toMatchObject({ passed: false, error: { code: "step.agent" } });
     expect(run?.executionId).toBeUndefined();
   });
 
   it("validates the cases' values before anything runs", async () => {
     const { built } = await evalApp();
 
-    await expect(runEvalSuite(built, InvalidEvalSuite, { runs: 1 })).rejects.toBeInstanceOf(
+    await expect(runSuiteOn(built, InvalidEvalSuite, { runs: 1 })).rejects.toBeInstanceOf(
       EvalCaseInvalidError,
     );
   });
@@ -246,19 +248,30 @@ describe("#396 PR 2: the trajectory check and the cascade", () => {
         answer("Done."),
       );
 
-    const report = await runEvalSuite(built, RefundsEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RefundsEvalSuite, { runs: 1 });
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run?.passed).toBe(false);
     expect(run?.checks).toEqual([
       {
         check: "trajectory",
+        kind: EvalCheckKind.Tools,
         status: CheckStatus.Failed,
         reason:
           'get-order-tool not called with {"orderId":"7"} (required; 0 call(s)); delete-order-tool called (forbidden); refund-tool: 1 call(s) break an invariant',
       },
-      { check: "refund-recorded-judge", status: CheckStatus.Skipped, skippedBy: "trajectory" },
-      { check: "answer-grounded-judge", status: CheckStatus.Skipped, skippedBy: "trajectory" },
+      {
+        check: "refund-recorded-judge",
+        kind: EvalCheckKind.Judge,
+        status: CheckStatus.Skipped,
+        skippedBy: "trajectory",
+      },
+      {
+        check: "answer-grounded-judge",
+        kind: EvalCheckKind.Judge,
+        status: CheckStatus.Skipped,
+        skippedBy: "trajectory",
+      },
     ]);
     expect(report.summary).toMatchObject({ judgeCalls: 0, skippedByCascade: 2 });
   });
@@ -275,16 +288,18 @@ describe("#396 PR 2: the trajectory check and the cascade", () => {
         answer("Refunded twice."),
       );
 
-    const report = await runEvalSuite(built, RefundsEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RefundsEvalSuite, { runs: 1 });
 
     expect(report.cases[0]?.runResults[0]?.checks.slice(1)).toEqual([
       {
         check: "refund-recorded-judge",
+        kind: EvalCheckKind.Judge,
         status: CheckStatus.Failed,
         reason: "2 refund call(s), 2 entries",
       },
       {
         check: "answer-grounded-judge",
+        kind: EvalCheckKind.Judge,
         status: CheckStatus.Skipped,
         skippedBy: "refund-recorded-judge",
       },
@@ -296,7 +311,7 @@ describe("#396 PR 2: the trajectory check and the cascade", () => {
     env.mockLlm(DeskAgent).thenReturn(answer("Order 8 shipped."));
     scriptJudge(env, "yes");
 
-    const report = await runEvalSuite(built, RunAllEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RunAllEvalSuite, { runs: 1 });
 
     expect(report.cases[0]?.runResults[0]?.checks.map((check) => check.status)).toEqual([
       CheckStatus.Passed,
@@ -310,12 +325,13 @@ describe("#396 PR 2: the trajectory check and the cascade", () => {
     const { env, built } = await evalApp();
     env.mockLlm(DeskAgent).thenReturn(replyWith(HandOverDto, { reason: "not about an order" }));
 
-    const report = await runEvalSuite(built, RunAllEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, RunAllEvalSuite, { runs: 1 });
 
     const [run] = report.cases[0]?.runResults ?? [];
     expect(run?.finish).toBe("hand-over-workflow-finish");
     expect(run?.checks[2]).toEqual({
       check: "answer-grounded-judge",
+      kind: EvalCheckKind.Judge,
       status: CheckStatus.Failed,
       reason:
         "the run ended at hand-over-workflow-finish, whose output answer-grounded-judge does not judge",
@@ -337,7 +353,7 @@ describe("#396 PR 2: pass@k and pass^k over k runs", () => {
       );
     scriptJudge(env, "yes", "yes");
 
-    const report = await runEvalSuite(built, FlakyEvalSuite, { runs: 3 });
+    const report = await runSuiteOn(built, FlakyEvalSuite, { runs: 3 });
 
     expect(report.cases[0]).toMatchObject({
       name: "looks-the-order-up",
@@ -368,7 +384,7 @@ describe("#396 PR 2: pass@k and pass^k over k runs", () => {
       );
     scriptJudge(env, "yes");
 
-    const report = await runEvalSuite(built, FlakyEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, FlakyEvalSuite, { runs: 1 });
 
     expect(report).toMatchObject({
       kind: EVAL_RUN_KIND,
@@ -380,20 +396,20 @@ describe("#396 PR 2: pass@k and pass^k over k runs", () => {
       environment: "test",
       runs: 1,
       cascade: EvalCascade.StopAtFirstFailure,
-      startedAt: "2026-01-05T09:00:00.000Z",
+      startedAt: new Date("2026-01-05T09:00:00.000Z"),
     });
     expect(report.kind).toBe("agboss.eval-run");
     expect(report.configHash).toMatch(/^\w+/);
     expect(report.cases[0]?.caseHash).toMatch(/^[0-9a-f]{16}$/);
-    expect(JSON.parse(JSON.stringify(report))).toEqual(report);
+    expect(evalRunReportOf(JSON.parse(JSON.stringify(report)))).toEqual({ kind: "read", report });
     expect(report.spend.totalUsd).toBeCloseTo(0.25);
-    expect(report.cases[0]?.runResults[0]?.spentUsd).toBeCloseTo(0.25);
+    expect(report.cases[0]?.runResults[0]?.totalUsd).toBeCloseTo(0.25);
   });
 
   it("refuses k below 1", async () => {
     const { built } = await evalApp();
 
-    await expect(runEvalSuite(built, FlakyEvalSuite, { runs: 0 })).rejects.toThrow(
+    await expect(runSuiteOn(built, FlakyEvalSuite, { runs: 0 })).rejects.toThrow(
       "runs: a whole number from 1, got 0",
     );
   });

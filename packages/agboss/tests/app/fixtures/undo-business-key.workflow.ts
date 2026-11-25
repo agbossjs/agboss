@@ -1,19 +1,18 @@
 import {
   Action,
-  ExecutionContext,
-  FencedEffectRepository,
-  NotSentTrust,
-  OutboundCallReconciliation,
-  OutboundCalls,
+  Idempotency,
+  OutboundRecovery,
+  Reconciliation,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  effectKeyOf,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../src/index.js";
+import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import { BookingDto } from "./finished-undo.workflow.js";
@@ -32,36 +31,37 @@ export const keyedUndoSeen = { booked: [] as string[], sent: [] as string[] };
   name: "keyed-refund-action",
   description: "Refunds the booking under its business key: booked once, sent once",
   input: { booking: BookingDto },
-  deps: [ExecutionContext, FencedEffectRepository, OutboundCalls],
+  deps: [Idempotency],
 })
 export class KeyedRefundAction {
-  constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly fencedEffectRepository: FencedEffectRepository<unknown>,
-    private readonly outboundCalls: OutboundCalls,
-  ) {}
+  constructor(private readonly idempotency: Idempotency) {}
 
-  async execute(input: { readonly booking: Produced<BookingDto, unknown> }): Promise<void> {
-    const { bookingId } = input.booking.value;
+  async execute(input: { readonly booking: Tracked<BookingDto> }): Promise<void> {
+    const { bookingId } = input.booking;
     const businessKey = `refund:${bookingId}`;
-    const booked = effectKeyOf(this.executionContext, "book-refund", {
-      businessKey,
+    await this.idempotency.runOnce({
+      name: "book-refund",
+      key: businessKey,
       fingerprint: { bookingId },
+      ttl: hours(24),
+      execute: () => {
+        keyedUndoSeen.booked.push(bookingId);
+        return { bookingId };
+      },
     });
-    await this.fencedEffectRepository.runOnce(booked, () => {
-      keyedUndoSeen.booked.push(bookingId);
-      return { bookingId };
-    });
-    await this.outboundCalls.send(effectKeyOf(this.executionContext, "refund", { businessKey }), {
+    await this.idempotency.sendOnce({
+      name: "refund",
+      key: businessKey,
       target: "payments",
       operation: "refund",
       request: { bookingId },
+      timeout: seconds(15),
+      ttl: hours(48),
       send: () => {
         keyedUndoSeen.sent.push(bookingId);
         return { refundId: `refund-${bookingId}` };
       },
-      notSent: { trust: NotSentTrust.Lookup },
-      reconcile: () => OutboundCallReconciliation.notSent(),
+      recovery: OutboundRecovery.permanentLookup<never>(() => Reconciliation.notExecuted()),
     });
   }
 }
@@ -74,8 +74,8 @@ export class KeyedRefundAction {
   compensateWith: KeyedRefundAction,
 })
 export class KeyedBookingAction {
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<BookingDto> {
-    return Promise.resolve({ bookingId: `booking-${input.item.value.name}` });
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<BookingDto> {
+    return Promise.resolve({ bookingId: `booking-${input.item.name}` });
   }
 }
 
@@ -99,13 +99,11 @@ export class KeyedUndoWorkflowFinish {}
 @Workflow({
   name: "keyed-undo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KeyedUndoWorkflowStart)
-      .returns(ItemDto)
+    onStart(KeyedUndoWorkflowStart)
       .toAction(KeyedBookingAction)
-      .returns(BookingDto)
       .toAction(RefusingCarrierAction)
-      .returns(ItemResultDto)
       .toFinish(KeyedUndoWorkflowFinish),
   ],
 })
@@ -123,11 +121,10 @@ export class KeyedParentWorkflowFinish {}
 @Workflow({
   name: "keyed-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(KeyedParentWorkflowStart)
-      .returns(ItemDto)
+    onStart(KeyedParentWorkflowStart)
       .toWorkflow(KeyedUndoWorkflow)
-      .returns(ItemResultDto)
       .toFinish(KeyedParentWorkflowFinish),
   ],
 })
@@ -137,7 +134,6 @@ export class KeyedParentWorkflow {}
   name: "keyed-undo-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [KeyedUndoWorkflow, KeyedParentWorkflow],
   budgets: TEST_BUDGETS,
 })

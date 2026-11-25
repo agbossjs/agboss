@@ -1,12 +1,12 @@
 /**
  * #384 — tool interceptors at run time on the whole application: `allow()` runs the tool,
- * `replyToModel({ message })` answers the model instead (the step goes on), `block({ reason })`
- * fails the step with `ToolBlockedError`; `afterToolCall` replaces the result (inner first), which
- * is then bounded by `maxResultSize` and masked by the PII policies; `beforeToolCall` reads the
+ * `reply(message)` answers the model instead (the step goes on), `block(reason)`
+ * fails the step with `ToolBlockedError`; `` / `afterAnyTool` replaces the result (inner first), which
+ * is then bounded by `maxResultSize` and masked by the PII policies; `beforeAnyTool` reads the
  * arguments revealed; the four levels and their excludes; MCP tools; a misbehaving interceptor
  * fails the step with its error as the cause.
  */
-import type { MessageContent } from "@langchain/core/messages";
+import type { ShownContent } from "../../src/models/messages.js";
 import { beforeEach, describe, expect } from "vitest";
 import {
   AgentFailedError,
@@ -41,7 +41,7 @@ const test = testWith(ScoutApplication);
 
 const acme = { tenant: { tenantId: "acme", allowedCities: ["Haifa"] } } as const;
 
-const textOf = (content: MessageContent | undefined): string =>
+const textOf = (content: ShownContent | undefined): string =>
   typeof content === "string" ? content : JSON.stringify(content);
 
 /** What the agent's model read last on its second call: the tool call's result. */
@@ -58,7 +58,7 @@ beforeEach(() => {
   toolRuns.length = 0;
 });
 
-describe("#384: beforeToolCall decides", () => {
+describe("#384: the before hooks decide", () => {
   test("allow(): the tool runs; befores outer first, afters inner first, in the call's frame", async ({
     app,
     mockLlm,
@@ -82,7 +82,7 @@ describe("#384: beforeToolCall decides", () => {
     expect(interceptorLog[0]?.idempotencyKey).toMatch(/:scout-agent:1:.+$/);
   });
 
-  test("replyToModel(): the tool does not run, the model reads the message and goes on", async ({
+  test("reply(): the tool does not run, the model reads the message and goes on", async ({
     app,
     mockLlm,
   }) => {
@@ -130,7 +130,7 @@ describe("#384: beforeToolCall decides", () => {
     ]);
     expect(toolRuns).toEqual([]);
     // the tool excludes the application's audit: only the workflow's, the agent's and its own
-    expect(byOf()).toEqual(["scope:before company-tool", "block:before company-tool"]);
+    expect(byOf()).toEqual(["block:before company-tool"]);
     expect(mockLlm(ScoutAgent).requests).toHaveLength(1);
   });
 });
@@ -171,7 +171,7 @@ describe("#384: a misbehaving interceptor fails the step", () => {
 });
 
 describe("#384: the order around PII and maxResultSize", () => {
-  test("beforeToolCall reads the arguments revealed; the result is masked after the interceptors", async ({
+  test("beforeAnyTool reads the arguments revealed; the result is masked after the interceptors", async ({
     app,
     mockLlm,
   }) => {
@@ -185,7 +185,7 @@ describe("#384: the order around PII and maxResultSize", () => {
 
     await execute(app, ScoutStart, { text: "what does alice@example.com do?" }, acme);
 
-    expect(interceptorLog[1]?.input).toEqual({ company: "alice@example.com" });
+    expect(interceptorLog[0]?.input).toEqual({ company: "alice@example.com" });
     expect(toolRuns).toEqual(["company-tool:alice@example.com"]);
     const read = toolMessageOf(script);
     expect(read).not.toContain("alice@example.com");
@@ -222,7 +222,7 @@ describe("#384: levels, excludes and MCP tools", () => {
     expect(toolRuns).toEqual(["job-search-tool:Eilat"]);
   });
 
-  test("an @McpTool is intercepted like a @Tool: allowed, and blocked before its server", async ({
+  test("a @Tool that calls an MCP server is intercepted: allowed, and blocked before its server", async ({
     app,
     mockLlm,
     mcpOf,
@@ -239,9 +239,8 @@ describe("#384: levels, excludes and MCP tools", () => {
 
     await expect(run).rejects.toFailWith(ToolBlockedError, { tool: "board-lookup-tool" });
     expect(board.calls.map((call) => call.tool)).toEqual(["lookup"]);
-    expect(byOf().slice(0, 4)).toEqual([
+    expect(byOf().slice(0, 3)).toEqual([
       "audit:before board-lookup-tool",
-      "scope:before board-lookup-tool",
       "block:before board-lookup-tool",
       "audit:after board-lookup-tool",
     ]);

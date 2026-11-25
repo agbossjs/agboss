@@ -1,5 +1,5 @@
 import { orphanLookOf, type OrphanLook } from "./orphan-pauses.js";
-import type { WakeAnswered } from "../app/answered-wake.js";
+import type { WakeAnswered, WakeParked } from "../app/answered-wake.js";
 import type { CloseOrphanTree } from "../app/orphan-tree.js";
 import { isHandedOver } from "../app/handed-over.js";
 import { problemOf, type RecoverRoot, type RecoveryProblem } from "../app/recover-root.js";
@@ -10,6 +10,7 @@ import {
   type ExecutionRecordRepository,
 } from "./execution-record.repository.js";
 import type { FrameworkLog } from "./logger.js";
+import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { StepCapacity } from "../app/step-slots.js";
 import { removeExpired, type RetentionSources } from "./retention-sweep.js";
 
@@ -60,12 +61,16 @@ export interface RecoverySources extends RetentionSources {
   readonly orphans?: ReadonlyMap<string, CloseOrphanTree> | undefined;
   /** Each workflow's wake of a `paused` root beside an untaken answer (#1187), by bundle. */
   readonly wakes?: ReadonlyMap<string, WakeAnswered> | undefined;
+  /** Each workflow's wake of a `paused` root an `app.unpause` died on (#1341c), by bundle. */
+  readonly parked?: ReadonlyMap<string, WakeParked> | undefined;
   /** Where its problems go: the application's log. */
   readonly log: FrameworkLog;
   /** Stops the recoveries in flight like the app's other executions (the shutdown timeout). */
   readonly signal: AbortSignal;
   /** The instance's step slots (#332); absent = no cap, every recoverable root is taken. */
   readonly capacity?: StepCapacity | undefined;
+  /** The application's observers: told of each look that removed or failed to remove rows (`onTtlSweep`). */
+  readonly observer?: Pick<ExecutionObserverManager, "onTtlSweep"> | undefined;
 }
 
 /** One instance's sweep: its look-ups, the recoveries it started, the problems it logged. */
@@ -81,7 +86,12 @@ class Sweeper implements RecoverySweep {
 
   constructor(private readonly sources: RecoverySources) {
     this.#lastSweptAt = sources.clock.now();
-    this.#orphans = orphanLookOf(sources, (text) => {
+    const { parked } = sources;
+    const looked = {
+      ...sources,
+      parked: parked === undefined ? undefined : { wakes: parked, list: sources.records },
+    };
+    this.#orphans = orphanLookOf(looked, (text) => {
       this.#log({ code: "recovery.failed", text, isBroken: true });
     });
     this.#loop = this.#run();
@@ -105,22 +115,48 @@ class Sweeper implements RecoverySweep {
     while (!this.#stopped.signal.aborted) {
       // the open pauses first: a root it woke (#1187) is `running` for this look's recoveries
       await this.#orphans?.lookSafely(() => this.#stopped.signal.aborted);
-      try {
-        await this.#sweep();
-      } catch (error) {
-        // a store that failed is asked again at the next sweep
-        this.#log({
-          code: "recovery.failed",
-          text: `recovery could not list the running executions: ${String(error)}`,
-          isBroken: true,
-        });
-      }
-      await removeExpired(this.sources, (text) => {
-        this.#log({ code: "recovery.failed", text, isBroken: true });
-      });
+      // the parked roots an unpause died on are looked at only while the store answers: marked
+      // `running` now, recovered by the next sweep
+      if (await this.#sweepSafely())
+        await this.#orphans?.lookParkedSafely(() => this.#stopped.signal.aborted);
+      await this.#removeExpired();
       this.#lastSweptAt = this.sources.clock.now();
       await this.sources.clock.sleep(SWEEP_EVERY, this.#stopped.signal);
     }
+  }
+
+  /** `#sweep`; `false` when a store failed (logged, asked again at the next sweep). */
+  async #sweepSafely(): Promise<boolean> {
+    try {
+      await this.#sweep();
+      return true;
+    } catch (error) {
+      this.#log({
+        code: "recovery.failed",
+        text: `recovery could not list the running executions: ${String(error)}`,
+        isBroken: true,
+      });
+      return false;
+    }
+  }
+
+  /** The rows past their retention removed, and told to the observers (`onTtlSweep`). */
+  async #removeExpired(): Promise<void> {
+    const { clock, observer } = this.sources;
+    const at = clock.now();
+    const swept = await removeExpired(this.sources, (text) => {
+      this.#log({ code: "recovery.failed", text, isBroken: true });
+    });
+    if (observer === undefined || swept.length === 0) return;
+    await observer.onTtlSweep({
+      at,
+      durationMs: clock.now().getTime() - at.getTime(),
+      categories: swept.map(({ what, removed, failure }) => ({
+        category: what,
+        removed,
+        ...(failure === undefined ? {} : { error: failure }),
+      })),
+    });
   }
 
   /** How many recoveries this look may start: the free step slots (#332), else every one. */
@@ -139,12 +175,12 @@ class Sweeper implements RecoverySweep {
     let after = this.#resumeAfter;
     this.#resumeAfter = undefined;
     for (;;) {
-      const page = await this.sources.records.findByStatus(
-        ExecutionRecordStatus.Running,
-        PAGE,
-        after,
-      );
-      for (const record of page) {
+      const page = await this.sources.records.findByStatus({
+        status: ExecutionRecordStatus.Running,
+        limit: PAGE,
+        ...(after === undefined ? {} : { cursor: after }),
+      });
+      for (const record of page.items) {
         if (this.#stopped.signal.aborted) return;
         if (allowed <= 0) {
           this.#resumeAfter = after;
@@ -153,13 +189,13 @@ class Sweeper implements RecoverySweep {
         if (this.#recover(record)) allowed -= 1;
         after = record.id;
       }
-      if (page.length < PAGE || this.#stopped.signal.aborted) return;
+      if (page.nextCursor === undefined || this.#stopped.signal.aborted) return;
     }
   }
 
   /** Starts the record's recovery; `false` when it is not this instance's to start now. */
   #recover(record: Turn): boolean {
-    const recoverRoot = this.sources.workflows.get(record.bundle);
+    const recoverRoot = this.sources.workflows.get(record.workflow);
     // another application's record on a shared store, or one already being continued here
     if (recoverRoot === undefined || this.#inFlight.has(record.id)) return false;
     const recovery = recoverRoot(record, this.sources.signal)

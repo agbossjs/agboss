@@ -1,33 +1,29 @@
 /**
- * #859: `A2AFiles`, what a step reads and keeps its task's files with — a file saved for the
+ * #859: `Files`, what a step reads and keeps its task's files with — a file saved for the
  * execution's task is read back by it, inline with no store listed; never another task's or another
  * tenant's, never bytes that do not match their digest; a save is bounded and checked like an input.
  */
+import { FileError } from "../../../src/core/error-families/remote-errors.js";
 import { describe, expect, it } from "vitest";
-import {
-  A2AFileRefusal,
-  A2AFileRefusedError,
-  A2AFileUnavailableError,
-  A2AFileUnavailableReason,
-} from "../../../src/a2a/files/a2a-file-errors.js";
-import { A2AFiles } from "../../../src/a2a/files/a2a-files.service.js";
+import { FileRefusal, FileUnavailableReason } from "../../../src/files/file-errors.js";
+import { Files } from "../../../src/a2a/files/files.service.js";
 import { runInFrame } from "../../../src/flow/context/frame.js";
-import { InlineA2AFileRepository } from "../../../src/infrastructure/a2a-file.repository.js";
-import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InlineFileRepository } from "../../../src/infrastructure/file.repository.js";
+import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { inTenantFrame, inTestFrame, testFrame } from "../../helpers/frame.js";
 import { PDF, TEXT } from "./support.js";
+import { ComponentOptions } from "../../../src/components/component-options.js";
 
 const clock = new VirtualClock(new Date("2026-01-05T09:00:00.000Z"));
-const stored = () => new A2AFiles(new InMemoryA2AFileRepository(new InMemoryDatabase()), clock);
+const stored = () =>
+  new Files(new InMemoryFileRepository(new InMemoryDatabase()), clock, ComponentOptions.none);
 const reasonOf = async (work: Promise<unknown>) =>
   work.then(
     () => "read",
     (error: unknown) =>
-      error instanceof A2AFileUnavailableError
-        ? error.reason
-        : (error as A2AFileRefusedError).refusal,
+      error instanceof FileError.Unavailable ? error.reason : (error as FileError.Refused).refusal,
   );
 
 /** Runs `work` in a frame of another execution (another task) of the same tenant. */
@@ -39,7 +35,7 @@ const inOtherExecution = <T>(work: () => Promise<T>): Promise<T> => {
   );
 };
 
-describe("#859: A2AFiles", () => {
+describe("#859: Files", () => {
   it("a saved file is kept under the task, read back by it, checked against its digest", async () => {
     const files = stored();
 
@@ -58,7 +54,7 @@ describe("#859: A2AFiles", () => {
   });
 
   it("with no store listed the file rides inline in its descriptor", async () => {
-    const files = new A2AFiles(new InlineA2AFileRepository(), clock);
+    const files = new Files(new InlineFileRepository(), clock, ComponentOptions.none);
 
     const file = await inTestFrame(() => files.save({ bytes: TEXT, mediaType: "text/plain" }));
 
@@ -67,11 +63,11 @@ describe("#859: A2AFiles", () => {
     expect(Buffer.from(await inTestFrame(() => files.read(file)))).toEqual(Buffer.from(TEXT));
   });
 
-  it("another task's file, another tenant's, a url, a wrong digest, no execution: unavailable", async () => {
+  it("another task's file, another tenant's, a url off every allowed origin, a wrong digest, no execution: unavailable or refused", async () => {
     const files = stored();
     const file = await inTestFrame(() => files.save({ bytes: PDF, mediaType: "application/pdf" }));
     const inline = await inTestFrame(() =>
-      new A2AFiles(new InlineA2AFileRepository(), clock).save({
+      new Files(new InlineFileRepository(), clock, ComponentOptions.none).save({
         bytes: TEXT,
         mediaType: "text/plain",
       }),
@@ -94,11 +90,11 @@ describe("#859: A2AFiles", () => {
     ]);
 
     expect(reasons).toEqual([
-      A2AFileUnavailableReason.NotFound,
-      A2AFileUnavailableReason.NotFound,
-      A2AFileUnavailableReason.ByReference,
-      A2AFileUnavailableReason.DigestMismatch,
-      A2AFileUnavailableReason.OutsideExecution,
+      FileUnavailableReason.NotFound,
+      FileUnavailableReason.NotFound,
+      FileRefusal.OriginDenied,
+      FileUnavailableReason.DigestMismatch,
+      FileUnavailableReason.OutsideExecution,
     ]);
   });
 
@@ -114,13 +110,13 @@ describe("#859: A2AFiles", () => {
     ]);
 
     expect(refusals).toEqual([
-      A2AFileRefusal.OutsideExecution,
-      A2AFileRefusal.MediaType,
-      A2AFileRefusal.TooLarge,
-      A2AFileRefusal.MediaTypeMismatch,
+      FileRefusal.OutsideExecution,
+      FileRefusal.MediaType,
+      FileRefusal.TooLarge,
+      FileRefusal.MediaTypeMismatch,
     ]);
     expect(() => files.fromUrl("http://f.example/a", { mediaType: "text/plain" })).toThrow(
-      A2AFileRefusedError,
+      FileError.Refused,
     );
   });
 });

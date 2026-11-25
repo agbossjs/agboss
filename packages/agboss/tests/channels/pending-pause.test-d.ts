@@ -6,50 +6,46 @@ import {
   type PendingPause,
   type PendingPauseBase,
   type PendingQuestion,
-  type QuestionAsk,
-  type ToolCallApprovalAskDto,
+  type PauseToolCallSummary,
 } from "../../src/index.js";
+import type { PauseTrailRecord } from "../../src/infrastructure/pause-record.js";
 import { QuestionFailedError } from "../../src/errors.js";
 
 /**
- * The pause contract's types (0.1.1 API review, Part 5): a question's ask is opaque, so a field of
- * a `PendingPause`'s ask is read only after narrowing on `kind`; an approval's keeps its typing.
+ * The pause contract's types (#1307d): a pending pause says what it asks (`input`, an object, whatever
+ * its kind) and, for an approval, the call it waits on (`toolCall`, read after narrowing on `kind`).
  */
 
 declare const pending: readonly PendingPause[];
 
-describe("AC1: a PendingPause's ask is read only after narrowing on kind", () => {
-  it("a field of the ask without narrowing does not compile", () => {
+describe("AC1: a PendingPause is what it asks (`input`) and, for an approval, the call (`toolCall`)", () => {
+  it("`input` is an object on every pending pause, whatever its kind", () => {
     const first = pending[0];
     if (first === undefined) return;
-    // @ts-expect-error — a question's ask has no `arguments`: narrow on `kind` first
-    expectTypeOf(first.ask.arguments).toBeUnknown();
-    // @ts-expect-error — nor any other field
-    expectTypeOf(first.ask.tool).toBeString();
+    expectTypeOf(first.input).toEqualTypeOf<Readonly<Record<string, unknown>>>();
+    // 0.1.0's `ask` is gone: `input` and `toolCall`
+    expectTypeOf(first).not.toHaveProperty("ask");
   });
 
-  it("an approval keeps its full typing after narrowing", () => {
+  it("an approval keeps its call after narrowing on `kind`", () => {
     const first = pending[0];
     if (first?.kind !== PauseKind.Approval) return;
     expectTypeOf(first).toEqualTypeOf<PendingApproval>();
-    expectTypeOf(first.ask).toEqualTypeOf<ToolCallApprovalAskDto>();
-    expectTypeOf(first.ask.arguments).not.toBeUnknown();
-    expectTypeOf(first.ask.arguments).toEqualTypeOf<ToolCallApprovalAskDto["arguments"]>();
-    expectTypeOf(first.ask.tool).toEqualTypeOf<string>();
+    expectTypeOf(first.toolCall).toEqualTypeOf<PauseToolCallSummary>();
+    expectTypeOf(first.toolCall.tool).toEqualTypeOf<string>();
   });
 
-  it("a question's ask stays opaque after narrowing, readable as a record", () => {
+  it("a question has no tool call", () => {
     const first = pending[0];
-    if (first?.kind !== PauseKind.Question) return;
+    if (first?.kind !== PauseKind.ExternalTask) return;
     expectTypeOf(first).toEqualTypeOf<PendingQuestion>();
-    expectTypeOf(first.ask).toEqualTypeOf<QuestionAsk>();
-    // @ts-expect-error — opaque: the role's ask is not typed by the pause
-    expectTypeOf(first.ask.item).toBeUnknown();
-    expectTypeOf(first.ask).toExtend<Readonly<Record<string, unknown>>>();
+    expectTypeOf(first).not.toHaveProperty("toolCall");
   });
 
-  it("a plain record is not a question's ask", () => {
-    expectTypeOf<Readonly<Record<string, unknown>>>().not.toExtend<QuestionAsk>();
+  it("who it is for, its external reference and its chain of custody are on every pending pause", () => {
+    expectTypeOf<PendingPauseBase["assignees"]>().toEqualTypeOf<readonly string[] | undefined>();
+    expectTypeOf<PendingPauseBase["externalRef"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<PendingPauseBase["trail"]>().toEqualTypeOf<readonly PauseTrailRecord[]>();
   });
 });
 

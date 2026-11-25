@@ -111,7 +111,7 @@ export function workflowSnapshotOf(
     nodes: nodesOf(bundle),
     edges: edgesOf(bundle.graph),
     onError: errorHandlersOf(bundle.graph),
-    launches: launchesOfGraph(bundle.graph),
+    launches: launchesOfGraph(bundle.graph, bundle.arbiters),
     modelComponents: modelComponentRecordsOf(bundle),
     schemas: schemasOf(bundle, resolveTools(bundle, services)),
   };

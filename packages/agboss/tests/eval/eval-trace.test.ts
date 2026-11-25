@@ -8,13 +8,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   EvalCascade,
   EvalSuite,
-  checkTrajectory,
   evalCase,
   toolCall,
   toolInvariant,
   turn,
 } from "../../src/eval/index.js";
-import { runEvalSuite } from "../../src/eval/run/run-suite.js";
+import { runSuiteOn } from "../../src/eval/run/run-suite.js";
 import { attemptDivergenceOf, AttemptDivergenceReason } from "../../src/eval/run/divergence.js";
 import { evalRunReportOf } from "../../src/eval/run/read-report.js";
 import { ComponentKind, ToolCallStatus } from "../../src/index.js";
@@ -38,7 +37,6 @@ import {
   name: "traced-eval-suite",
   description: "One case, looked up by order",
   start: DeskWorkflowStart,
-  checks: [checkTrajectory()],
   cascade: EvalCascade.StopAtFirstFailure,
   cases: [
     evalCase({
@@ -86,7 +84,7 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
         answer("Order 9 shipped, mailed to alice@example.com", 0.02),
       );
 
-    const report = await runEvalSuite(built, TracedEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, TracedEvalSuite, { runs: 1 });
 
     const trace = report.cases[0]?.runResults[0]?.trace;
     const agent = trace?.steps.find((step) => step.component === "desk-agent");
@@ -115,6 +113,8 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
         output: { status: "order 9 arrived broken" },
         isResultTruncated: false,
         validationAttempts: 0,
+        startedAt: expect.any(Date) as unknown,
+        endedAt: expect.any(Date) as unknown,
       },
     ]);
     expect(trace).toMatchObject({ finish: "desk-workflow-finish", handledErrors: [], pauses: [] });
@@ -129,7 +129,7 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
         answer("Order 9 shipped, mailed to alice@example.com"),
       );
 
-    const report = await runEvalSuite(built, TracedEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, TracedEvalSuite, { runs: 1 });
 
     const written = JSON.stringify(report.cases[0]?.runResults[0]?.trace);
     expect(written).not.toContain("alice@example.com");
@@ -142,11 +142,11 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
     const { env, built } = await evalApp();
     env.mockLlm(DeskAgent).thenReturn(callTool(GetOrderTool, { orderId: "9" }), answer("Shipped."));
 
-    const report = await runEvalSuite(built, TracedEvalSuite, { runs: 1 });
+    const report = await runSuiteOn(built, TracedEvalSuite, { runs: 1 });
 
-    expect(report.schemaVersion).toBe(4);
+    expect(report.schemaVersion).toBe(5);
     expect(report.cases[0]?.expectation).toEqual({
-      requiredTools: [{ tool: "get-order-tool", arguments: { orderId: "9" } }],
+      requiredTools: [{ tool: "get-order-tool", input: { orderId: "9" } }],
       forbiddenTools: ["delete-order-tool"],
       invariantTools: ["refund-tool"],
       checks: ["trajectory"],
@@ -164,7 +164,7 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
         answer("Shipped."),
       );
 
-    const report = await runEvalSuite(built, TracedEvalSuite, { runs: 2 });
+    const report = await runSuiteOn(built, TracedEvalSuite, { runs: 2 });
 
     const found = report.cases[0];
     expect(found?.isUnstable).toBe(true);
@@ -182,9 +182,9 @@ describe("#397 PR 2: a run's trace in the artifact", () => {
     const { env, built } = await evalApp();
     env.mockLlm(DeskAgent).thenReturn(callTool(GetOrderTool, { orderId: "9" }), answer("Shipped."));
 
-    const report = await runEvalSuite(built, TracedEvalSuite, { runs: 1, profile: "cheaper" });
+    const report = await runSuiteOn(built, TracedEvalSuite, { runs: 1, profile: "cheaper" });
 
-    expect(report.schemaVersion).toBe(4);
+    expect(report.schemaVersion).toBe(5);
     expect(report.profile).toBe("cheaper");
     expect(report.agbossVersion).toBe(frameworkVersion());
     expect(report.models).toEqual([

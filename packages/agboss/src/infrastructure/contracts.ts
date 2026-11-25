@@ -22,7 +22,7 @@ import { InMemoryRateLimitRepository, RateLimitRepository } from "./rate-limit.r
 import { InMemoryMeshRequestRepository, MeshRequestRepository } from "./mesh-request.repository.js";
 import { A2ATaskRepository } from "./a2a-task.repository.js";
 import { InMemoryA2ATaskRepository } from "./in-memory-a2a-task.repository.js";
-import { A2AFileRepository, InlineA2AFileRepository } from "./a2a-file.repository.js";
+import { FileRepository, InlineFileRepository } from "./file.repository.js";
 import { A2ADirectMessageRepository } from "./a2a-direct-message.repository.js";
 import { InMemoryA2ADirectMessageRepository } from "./in-memory-a2a-direct-message.repository.js";
 import {
@@ -40,13 +40,12 @@ import {
   InMemoryExecutionAuditLogRepository,
 } from "./execution-audit-log.repository.js";
 import { OutboundCallRepository } from "./outbound-call.repository.js";
-import { InMemoryOutboundCallRepository } from "./outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "./in-memory-outbound-call.repository.js";
 import { isSqliteImplementation } from "./sqlite/sqlite-connection.js";
-import { FencedEffects } from "../app/fenced-effects.js";
-import { OutboundCalls } from "../app/outbound-calls.js";
+import { Idempotency } from "../app/idempotency.js";
 import { FileRedactor, ModelImageRedactor } from "../files/file-redactor.js";
 import { FileTranscriber, ModelFileTranscriber } from "../files/file-transcriber.js";
-import { A2AFiles } from "../a2a/files/a2a-files.service.js";
+import { Files } from "../a2a/files/files.service.js";
 import { OrderedCheckpointSaver } from "../app/leased-checkpointer.js";
 import { targetOf } from "../app/store-call-bound.js";
 
@@ -70,7 +69,7 @@ export const INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<Class,
   [RateLimitRepository, InMemoryRateLimitRepository],
   [MeshRequestRepository, InMemoryMeshRequestRepository],
   [A2ATaskRepository, InMemoryA2ATaskRepository],
-  [A2AFileRepository, InlineA2AFileRepository],
+  [FileRepository, InlineFileRepository],
   [A2ADirectMessageRepository, InMemoryA2ADirectMessageRepository],
   [ExecutionHistoryRepository, InMemoryExecutionHistoryRepository],
   [ChildExecutionQueueRepository, InMemoryChildExecutionQueueRepository],
@@ -93,15 +92,13 @@ export const TEST_INFRASTRUCTURE_DEFAULTS: ReadonlyMap<Class, Class> = new Map<C
 ]);
 
 /**
- * The framework's services a component injects without listing them (#505: `OutboundCalls`; #890:
- * `FencedEffects`), created by the application's container over its infrastructure — never
+ * The framework's services a component injects without listing them (#505, #890, #1317: `Idempotency`), created by the application's container over its infrastructure — never
  * infrastructure itself.
  */
 const CORE_SERVICES: readonly (readonly [Class, Class])[] = [
-  [OutboundCalls, OutboundCalls],
+  [Idempotency, Idempotency],
   // #859: what a step reads and keeps its A2A task's files with
-  [A2AFiles, A2AFiles],
-  [FencedEffects, FencedEffects],
+  [Files, Files],
 ];
 
 /** What an application's container creates when nothing listed provides it. */
@@ -160,15 +157,15 @@ export interface Infrastructure {
   /** The A2A tasks the application serves (#807): one per root execution, ever. */
   readonly a2aTasks: A2ATaskRepository;
   /** The A2A tasks' files (#859); the built-in default keeps none (they ride inline). */
-  readonly a2aFiles: A2AFileRepository;
+  readonly a2aFiles: FileRepository;
   /** The direct A2A messages' replies (#860): `A2AReply.Message` skills, by `messageId`. */
   readonly a2aDirectMessages: A2ADirectMessageRepository;
   /** The kept root executions (#401 PR 1): written only with `retention.executionRecords`. */
   readonly executionHistory: ExecutionHistoryRepository;
-  /** The children queued for any instance (#333 PR 2, `ChildPlacement.AnyInstance`). */
+  /** The children queued for any instance (#333 PR 2, `ChildPlacement.AnyWorker`). */
   readonly childQueue: ChildExecutionQueueRepository;
   /** The protected writes of steps (#500): their results and the scopes' marks. */
-  readonly fencedEffects: FencedEffectRepository<unknown>;
+  readonly fencedEffects: FencedEffectRepository;
   /** The audit log (#501): takeovers and hand-overs, always written. */
   readonly auditLog: ExecutionAuditLogRepository;
   /** The intents of calls that leave the system (#505): recorded before each is sent. */
@@ -210,11 +207,11 @@ export const infrastructureOf = (resolve: (contract: Class) => unknown): Infrast
   rateLimits: resolve(RateLimitRepository) as RateLimitRepository,
   meshRequests: resolve(MeshRequestRepository) as MeshRequestRepository,
   a2aTasks: resolve(A2ATaskRepository) as A2ATaskRepository,
-  a2aFiles: resolve(A2AFileRepository) as A2AFileRepository,
+  a2aFiles: resolve(FileRepository) as FileRepository,
   a2aDirectMessages: resolve(A2ADirectMessageRepository) as A2ADirectMessageRepository,
   executionHistory: resolve(ExecutionHistoryRepository) as ExecutionHistoryRepository,
   childQueue: resolve(ChildExecutionQueueRepository) as ChildExecutionQueueRepository,
-  fencedEffects: resolve(FencedEffectRepository) as FencedEffectRepository<unknown>,
+  fencedEffects: resolve(FencedEffectRepository) as FencedEffectRepository,
   auditLog: resolve(ExecutionAuditLogRepository) as ExecutionAuditLogRepository,
   outboundCalls: resolve(OutboundCallRepository) as OutboundCallRepository,
 });

@@ -1,6 +1,6 @@
-/** #262 PR 3 (S89, S95): `testRag` — a knowledge base on its own: results, cost, topK, signal. */
+/** #262 PR 3 (S89, S95): `testUnit` — a knowledge base on its own: results, cost, topK, signal. */
 import { describe, expect, it } from "vitest";
-import { override, testRag } from "../../../src/testing/index.js";
+import { testUnit } from "../../../src/testing/index.js";
 import { seconds } from "../../../src/units/index.js";
 import {
   FakeJobBoardService,
@@ -9,10 +9,10 @@ import {
   SlowJobBoardService,
 } from "../fixtures/units.js";
 
-describe("testRag", () => {
+describe("testUnit", () => {
   it("retrieves on its replaced service: the results, its cost as rag:<name>", async () => {
-    const search = testRag(HandbookRag, {
-      overrides: [override(JobBoardService, FakeJobBoardService)],
+    const search = testUnit(HandbookRag, {
+      services: [FakeJobBoardService],
     });
 
     const { output, spend } = await search("remote");
@@ -25,8 +25,8 @@ describe("testRag", () => {
   });
 
   it("topK asks for fewer results than its @Rag default", async () => {
-    const search = testRag(HandbookRag, {
-      overrides: [override(JobBoardService, FakeJobBoardService)],
+    const search = testUnit(HandbookRag, {
+      services: [FakeJobBoardService],
     });
 
     const { output } = await search("remote", { topK: 1 });
@@ -35,8 +35,8 @@ describe("testRag", () => {
   });
 
   it("a timeout aborts the retrieval's signal", async () => {
-    const search = testRag(HandbookRag, {
-      overrides: [override(JobBoardService, SlowJobBoardService)],
+    const search = testUnit(HandbookRag, {
+      services: [SlowJobBoardService],
     });
 
     const failed = expect(search("remote", { timeout: seconds(3) })).rejects.toThrow(
@@ -48,7 +48,6 @@ describe("testRag", () => {
   });
 
   it("a class that is no @Rag is a setup error", () => {
-    // @ts-expect-error — a class without retrieve(…) is no knowledge base
-    expect(() => testRag(JobBoardService)).toThrow("is not a @Rag component");
+    expect(() => testUnit(JobBoardService)).toThrow("not a component it runs");
   });
 });

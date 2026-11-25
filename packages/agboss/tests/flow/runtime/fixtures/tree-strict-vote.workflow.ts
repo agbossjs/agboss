@@ -6,10 +6,12 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Action,
+  Ttl,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
-import { route, start } from "../../../helpers/flow.js";
+import { onStart, toWorkflow, toAgent } from "../../../helpers/flow.js";
 import {
   GroupDoneDto,
   TaskDoneDto,
@@ -21,13 +23,13 @@ import {
   FirstVoterAgent,
   MixedVotedWorkflowFinish,
   SecondVoterAgent,
-  VoteDto,
   VotedDto,
   VotedWorkflowFinish,
+  VotedAction,
 } from "./tree-vote.workflow.js";
 
 /**
- * #264 PR 2 (AC9) — the vote of `tree-vote.workflow.ts` with no `.onJoinError(…)`: a quorum not
+ * #264 PR 2 (AC9) — the vote of `tree-vote.workflow.ts` with no `.onError(…)`: a quorum not
  * reached fails the tree, so the test reads `QuorumNotReachedError`'s reason — the effective
  * deadline, the ticket's plus the time in the tree's queue.
  */
@@ -38,12 +40,12 @@ export class StrictVoteWorkflowStart {}
 @Workflow({
   name: "strict-vote-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StrictVoteWorkflowStart)
-      .returns(TaskDto)
-      .toParallelAgents(FirstVoterAgent, SecondVoterAgent)
+    onStart(StrictVoteWorkflowStart)
+      .inParallel([toAgent(FirstVoterAgent), toAgent(SecondVoterAgent)])
       .joinQuorum({ min: 2, deadline: seconds(30) })
-      .returns(listOf(VoteDto))
+      .toAction(VotedAction)
       .toFinish(VotedWorkflowFinish),
   ],
 })
@@ -55,11 +57,11 @@ export class StrictVoteWorkflow {}
   description: "Works on a task, or has it voted on",
   decidedBy: DecidedBy.Code,
   input: { task: TaskDto },
-  routes: [{ target: TaskWorkflow }, { target: StrictVoteWorkflow }],
+  routes: [TaskWorkflow, StrictVoteWorkflow],
 })
 export class StrictTaskKindRouter {
-  route(input: { readonly task: Produced<TaskDto, unknown> }): unknown {
-    return input.task.value.seconds > 0 ? TaskWorkflow : StrictVoteWorkflow;
+  route(input: { readonly task: Tracked<TaskDto> }): unknown {
+    return input.task.seconds > 0 ? TaskWorkflow : StrictVoteWorkflow;
   }
 }
 
@@ -69,16 +71,16 @@ export class StrictMixedWorkflowStart {}
 @Workflow({
   name: "strict-mixed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StrictMixedWorkflowStart)
-      .returns(TaskDto)
+    onStart(StrictMixedWorkflowStart)
       .toRouter(StrictTaskKindRouter)
-      .chooseOne(
-        route(TaskWorkflow)
-          .returns(TaskDoneDto)
+      .onRoute(
+        toWorkflow(TaskWorkflow)
           .toFinish(TaskDoneWorkflowFinish),
-        route(StrictVoteWorkflow)
-          .returns(VotedDto)
+      )
+      .onRoute(
+        toWorkflow(StrictVoteWorkflow)
           .toFinish(MixedVotedWorkflowFinish),
       ),
   ],
@@ -92,30 +94,39 @@ export class StrictMixedWorkflow {}
 })
 export class StrictVotingWorkflowStart {}
 
-@WorkflowFinish({
-  name: "strict-voting-done-workflow-finish",
+@Action({
+  name: "strict-voting-done-action",
   description: "Every item done",
-  input: { results: listOf(oneOf(TaskDoneDto, VotedDto)) },
+  input: { results: listOf(TaskDoneDto, VotedDto) },
   output: GroupDoneDto,
 })
-export class StrictVotingDoneWorkflowFinish {
-  finish(input: { readonly results: readonly Produced<unknown, unknown>[] }): GroupDoneDto {
+export class StrictVotingDoneAction {
+  async execute(input: {
+    readonly results: readonly Tracked<TaskDoneDto | VotedDto>[];
+  }): Promise<GroupDoneDto> {
     return { name: `${String(input.results.length)} done` };
   }
 }
+
+@WorkflowFinish({
+  name: "strict-voting-done-workflow-finish",
+  description: "Every item done",
+  output: GroupDoneDto,
+})
+export class StrictVotingDoneWorkflowFinish {}
 
 /** One execution of the tree at work at a time; a vote not reached fails the tree. */
 @Workflow({
   name: "strict-voting-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(StrictVotingWorkflowStart)
-      .returns(listOf(TaskDto))
-      .toParallelWorkflows(StrictMixedWorkflow, { maxConcurrency: 5, maxItems: 5 })
+    onStart(StrictVotingWorkflowStart)
+      .forEachItem(toWorkflow(StrictMixedWorkflow), { takeFirst: 5, maxConcurrency: 5 })
       .join()
-      .returns(listOf(oneOf(TaskDoneDto, VotedDto)))
+      .toAction(StrictVotingDoneAction)
       .toFinish(StrictVotingDoneWorkflowFinish),
   ],
-  maxConcurrentExecutions: 1,
+  executionLimits: { maxConcurrency: 1 },
 })
 export class StrictVotingWorkflow {}

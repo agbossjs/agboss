@@ -1,0 +1,6 @@
+---
+section: Breaking
+issue: 1324
+---
+
+**`services` and `injectAs` wire the application's classes to its ports** (#1324a, additive; `providers` and `provide(TOKEN, Class)` go in the flip): `@Application({ services })` and `@Workflow({ services })` list `@Injectable`, `@McpServer` and `@A2AAgent` classes and `provide(TOKEN, value)` values; a class names the abstract ports it implements with `injectAs: Port | [PortA, PortB]` (checked by the compiler: the class must be assignable to every port). A workflow's own `services` resolve in a container of that workflow alone — no sibling sees them, what depends on them is created once per workflow — and bind a port over the application's. Everything else stays in the application's root container: the stores, the rate-limit gate, the lease table, the observers and every service that reaches no port a workflow binds itself (a per-workflow copy would multiply every cap by the number of workflows). A decorated class reached through `deps` needs no listing; an undecorated one is `[di.unregistered-token]` instead of being `new`-ed. A workflow's own `agboss check` and `describe` container resolves its application's modules and the framework's defaults. `OnReady` and `OnBeforeDestroy` join the lifecycle hooks next to `OnStart` and `OnStop`. Added: `ServiceEntry`, `InjectAs`, `OnReady`, `OnBeforeDestroy`.

@@ -7,13 +7,13 @@ import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/wor
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { listOf } from "../../../src/flow/dto-wrappers.js";
 import { CompanyDto } from "../fixtures/data-dtos.js";
-import { WorkflowStartTextDto } from "../fixtures/dtos.js";
 import { ArticleDraftDto } from "../fixtures/launch-dtos.js";
 import { PlannerAgent, ResearchWorkflowStart } from "../fixtures/launch.fixture.js";
-import { start } from "../fixtures/paths.js";
+import { onStart, toAgent, toAction } from "../fixtures/paths.js";
 import type { PathSource } from "../../../src/flow/ast.js";
 import type { PathBuilder } from "../../../src/flow/path-builder.js";
 import { CritiqueDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #271 AC9 (rule 10, S13), built by #273 PR 1: a parallel branch sees the scope at the launch, and a
@@ -34,7 +34,7 @@ class OutlineDto {
 @Agent({
   name: "replanner-agent",
   description: "Writes a new plan",
-  prompt: "Replan.",
+  prompt: inline("Replan."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: PlanDto,
@@ -44,7 +44,7 @@ class ReplannerAgent {}
 @Agent({
   name: "plan-reader-agent",
   description: "Researches the plan",
-  prompt: "Research.",
+  prompt: inline("Research."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: ResearchDto,
@@ -54,7 +54,7 @@ class PlanReaderAgent {}
 @Agent({
   name: "brief-agent",
   description: "Writes a brief from the plan",
-  prompt: "Brief.",
+  prompt: inline("Brief."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: BriefDto,
@@ -64,7 +64,7 @@ class BriefAgent {}
 @Agent({
   name: "brief-reader-agent",
   description: "Outlines the brief",
-  prompt: "Outline.",
+  prompt: inline("Outline."),
   model: "moonshotai/kimi-k2.6",
   input: { brief: BriefDto },
   output: OutlineDto,
@@ -74,7 +74,7 @@ class BriefReaderAgent {}
 @Agent({
   name: "critique-agent",
   description: "Criticises the plan",
-  prompt: "Criticise.",
+  prompt: inline("Criticise."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: CritiqueDto,
@@ -84,7 +84,7 @@ class CritiqueAgent {}
 @Agent({
   name: "company-planner-agent",
   description: "Plans per company",
-  prompt: "Plan the company.",
+  prompt: inline("Plan the company."),
   model: "moonshotai/kimi-k2.6",
   input: { company: CompanyDto, plan: PlanDto },
   output: PlanDto,
@@ -94,7 +94,7 @@ class CompanyPlannerAgent {}
 @Agent({
   name: "companies-agent",
   description: "Lists companies for the plan",
-  prompt: "List.",
+  prompt: inline("List."),
   model: "moonshotai/kimi-k2.6",
   input: { plan: PlanDto },
   output: listOf(CompanyDto),
@@ -128,7 +128,7 @@ class ResearchAction {
 @Agent({
   name: "summary-agent",
   description: "Sums everything up",
-  prompt: "Sum up.",
+  prompt: inline("Sum up."),
   model: "moonshotai/kimi-k2.6",
   output: ArticleDraftDto,
 })
@@ -144,7 +144,12 @@ class SummaryWorkflowFinish {}
 let count = 0;
 function errorsOf(flow: WorkflowOptions["flow"]): readonly { code: string; message: string }[] {
   count += 1;
-  @Workflow({ name: `outdating-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `outdating-case-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class OutdatingCaseWorkflow {}
   return checkWorkflow(OutdatingCaseWorkflow).errors.map(({ code, message }) => ({
     code,
@@ -152,27 +157,24 @@ function errorsOf(flow: WorkflowOptions["flow"]): readonly { code: string; messa
   }));
 }
 
-const planned = () =>
-  start(ResearchWorkflowStart).returns(WorkflowStartTextDto).toAgent(PlannerAgent).returns(PlanDto);
+const planned = () => onStart(ResearchWorkflowStart).toAgent(PlannerAgent);
 
 /** Every value of the join read by an agent without input (it reads the whole scope). */
 const summed = (path: PathBuilder<PathSource>): PathBuilder<PathSource> =>
-  path.toAgent(SummaryAgent).returns(ArticleDraftDto).toFinish(SummaryWorkflowFinish);
+  path.toAgent(SummaryAgent).toFinish(SummaryWorkflowFinish);
 
 describe("#271 AC9: branch outdates sibling — every join kind", () => {
   it("agents: a branch renewing what a sibling read, named with the launch", () => {
     const flow = [
       summed(
         planned()
-          .toParallelAgents(PlanReaderAgent, ReplannerAgent)
-          .join()
-          .returns(PlanDto)
-          .returns(ResearchDto),
+          .inParallel([toAgent(PlanReaderAgent), toAgent(ReplannerAgent)])
+          .join(),
       ),
     ];
     expect(errorsOf(flow)).toContainEqual({
       code: "launch.branch-outdates-sibling",
-      message: `outdating-case-${String(count)}-workflow: replanner-agent returns PlanDto, which plan-reader-agent of the same launch was built from: plan-reader-agent's ResearchDto is outdated at the join of planner-agent → toParallelAgents(plan-reader-agent, replanner-agent)`,
+      message: `outdating-case-${String(count)}-workflow: replanner-agent returns PlanDto, which plan-reader-agent of the same launch was built from: plan-reader-agent's ResearchDto is outdated at the join of planner-agent → inParallel(plan-reader-agent, replanner-agent)`,
     });
   });
 
@@ -180,10 +182,8 @@ describe("#271 AC9: branch outdates sibling — every join kind", () => {
     const flow = [
       summed(
         planned()
-          .toParallelActions(ResearchAction, ReplanAction)
-          .join()
-          .returns(PlanDto)
-          .returns(ResearchDto),
+          .inParallel([toAction(ResearchAction), toAction(ReplanAction)])
+          .join(),
       ),
     ];
     expect(errorsOf(flow).map((found) => found.code)).toContain("launch.branch-outdates-sibling");
@@ -194,11 +194,8 @@ describe("#271 AC9: branch outdates sibling — every join kind", () => {
       summed(
         planned()
           .toAgent(BriefAgent)
-          .returns(BriefDto)
-          .toParallelAgents(BriefReaderAgent, ReplannerAgent)
-          .join()
-          .returns(OutlineDto)
-          .returns(PlanDto),
+          .inParallel([toAgent(BriefReaderAgent), toAgent(ReplannerAgent)])
+          .join(),
       ),
     ];
     expect(errorsOf(flow)).toContainEqual(
@@ -215,10 +212,8 @@ describe("#271 AC9: branch outdates sibling — every join kind", () => {
     const flow = [
       summed(
         planned()
-          .toParallelAgents(PlanReaderAgent, CritiqueAgent)
-          .join()
-          .returns(CritiqueDto)
-          .returns(ResearchDto),
+          .inParallel([toAgent(PlanReaderAgent), toAgent(CritiqueAgent)])
+          .join(),
       ),
     ];
     expect(errorsOf(flow).map((found) => found.code)).not.toContain(
@@ -233,10 +228,8 @@ describe("#271 AC9: per-item never triggers", () => {
       summed(
         planned()
           .toAgent(CompaniesAgent)
-          .returns(listOf(CompanyDto))
-          .toParallelAgents(CompanyPlannerAgent, { maxItems: 5 })
-          .join()
-          .returns(listOf(PlanDto)),
+          .forEachItem(toAgent(CompanyPlannerAgent), { takeFirst: 5 })
+          .join(),
       ),
     ];
     expect(errorsOf(flow).map((found) => found.code)).not.toContain(
@@ -247,7 +240,9 @@ describe("#271 AC9: per-item never triggers", () => {
   it("copies of one agent never outdate each other", () => {
     const flow = [
       summed(
-        planned().toParallelAgents(ReplannerAgent, ReplannerAgent).join().returns(listOf(PlanDto)),
+        planned()
+          .inParallel([toAgent(ReplannerAgent), toAgent(ReplannerAgent)])
+          .join(),
       ),
     ];
     expect(errorsOf(flow).map((found) => found.code)).not.toContain(

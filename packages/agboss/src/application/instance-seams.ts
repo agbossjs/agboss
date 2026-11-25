@@ -4,6 +4,7 @@ import type { Clock, IdGenerator, StoreClock } from "../infrastructure/clock.js"
 import type { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import type { FingerprintKeys } from "../infrastructure/fenced-effect-key.js";
 import type { ExecutionLeaseGate } from "./lease-gate.js";
+import type { ForkLauncher } from "../app/remote/isolated-supervisor.js";
 
 /**
  * What a test gives an application instance beyond `createApp`'s options (never in production):
@@ -27,10 +28,24 @@ export interface InstanceSeams {
    * #334); absent = a key of the instance, one per root execution — what production does.
    */
   readonly piiTestKey?: string;
+  /** `testWith(…, withInstancePiiKeys)` (#334): tokens on a key of each instance, never a failed start. */
+  readonly piiInstanceKeys?: boolean;
   /** The idempotency keys of a key field with no value (#825, `testWith`); absent = the start fails. */
   readonly idempotencyTestKeys?: FingerprintKeys;
   /** Observers of the instance besides the application's (a test's call recorder, #262). */
   readonly observers?: readonly ExecutionObserver[];
+  /**
+   * An isolated worker's fork (#1286b, `isolated-fork-main.ts`): the instance claims the one child
+   * it was started for and runs only that — no recovery sweep, no pause timers, no general claim, no
+   * supervisor. `onEnded` is called once, when the child's pass ended or there was nothing to claim.
+   */
+  readonly isolatedChild?: {
+    readonly tenantId: string;
+    readonly executionId: string;
+    readonly onEnded: () => void;
+  };
+  /** Starts the process of an isolated child (#1286b): a test's recorder; absent = a child process. */
+  readonly isolatedLauncher?: ForkLauncher;
   /** A test's gate over the instance's lease (#471, `leases.freeze`): its store and its timers. */
   readonly leaseGate?: ExecutionLeaseGate;
 }

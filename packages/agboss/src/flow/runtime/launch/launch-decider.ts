@@ -2,7 +2,7 @@ import type { ToolDefinition } from "@langchain/core/language_models/base";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { ChatDefaults, ResolvedModelSettings, RouterModel } from "../../../config/types.js";
 import { recordUsage, type UsageRecord } from "../../../finops/usage.js";
-import { DecisionResponseError } from "../../../llm/decision-errors.js";
+import { DecisionError } from "../../../core/error-families/config-errors.js";
 import { Decision, type DecisionQuestions } from "../../../llm/decisions.js";
 import type { ChatModelUser, ModelGateway } from "../../../llm/gateway.js";
 import { resolveSettings } from "../../../llm/registry.js";
@@ -15,12 +15,14 @@ import { routerCaller, type RouteOutcome } from "../../../routers/index.js";
 import { contentWithPieces, type FilePiece } from "../../../files/file-pieces.js";
 import { decisionStateWith } from "../../../files/decision-parts.js";
 import { withSortedKeys } from "../json.js";
+import { decisionSpendOf } from "../../../finops/failed-decision.js";
+import { chargedCall, reportToFrame } from "../../../finops/charged-call.js";
 
 /**
- * How a model router decides the `OnDemand` routes of a parallel launch (#273 S23): one model
+ * How a model router decides the routes of a `chooseMany([…])` launch (#273 S23): one model
  * call, one independent yes/no question per route — its text the route's prompt — keyed by the
  * target's `name` in the order of `@Router({ routes })`. A decision model answers one `decide` with
- * a `Decision.noul` per route; a chat model one answer tool with a boolean field per route (its keys
+ * a `Decision.boolean` per route; a chat model one answer tool with a boolean field per route (its keys
  * sorted, like every tool schema). A route is launched when its answer is yes: P(yes) > 0.5 — no
  * threshold setting. Every probability is kept for the trace. The same yes/no machinery answers a
  * model arbiter (#279), under its own caller and texts (`DecisionVoice`).
@@ -37,7 +39,7 @@ export interface DecisionVoice {
   readonly tool: { readonly name: string; readonly description: string };
 }
 
-/** One `OnDemand` route as a question. */
+/** One route as a question. */
 export interface LaunchQuestion {
   /** The target's `name`: the question's key. */
   readonly target: string;
@@ -91,7 +93,7 @@ function decidedOf(
 
 const failedOf = (error: unknown, usage?: UsageRecord): LaunchDecisionOutcome => {
   const reason = error instanceof Error ? error.message : String(error);
-  const answered = error instanceof DecisionResponseError;
+  const answered = error instanceof DecisionError.InvalidResponse;
   return {
     kind: "failed",
     reason,
@@ -111,7 +113,7 @@ async function decideOnDecisionModel(
       new TypeError(`${voice.caller}: the model gateway has no decisions (${model})`),
     );
   const questions: DecisionQuestions = Object.fromEntries(
-    request.questions.map((question) => [question.target, Decision.noul(question.prompt)]),
+    request.questions.map((question) => [question.target, Decision.boolean(question.prompt)]),
   );
   try {
     const text = `${request.instructions}\n\n${request.input}`;
@@ -121,12 +123,13 @@ async function decideOnDecisionModel(
     const probabilities = Object.fromEntries(
       Object.entries(outcome.answers).map(([id, answer]) => [
         id,
-        answer.type === "noul" ? answer.noul : 0,
+        answer.type === "boolean" ? answer.probability : 0,
       ]),
     );
     return decidedOf(request, probabilities, outcome.usage);
   } catch (error) {
-    return failedOf(error);
+    // an answer the provider billed and the questions do not fit is spent all the same (#1399)
+    return failedOf(error, decisionSpendOf(error));
   }
 }
 
@@ -156,13 +159,15 @@ function answersOf(
 ): Record<string, number> {
   const call = reply.tool_calls?.find((candidate) => candidate.name === tool);
   if (call === undefined)
-    throw new DecisionResponseError({ message: `no ${tool} call in the reply` });
+    throw new DecisionError.InvalidResponse({ message: `no ${tool} call in the reply` });
   const args: Readonly<Record<string, unknown>> = call.args;
   return Object.fromEntries(
     request.questions.map(({ target }) => {
       const answer = args[target];
       if (typeof answer !== "boolean")
-        throw new DecisionResponseError({ message: `${tool}: "${target}" is not true or false` });
+        throw new DecisionError.InvalidResponse({
+          message: `${tool}: "${target}" is not true or false`,
+        });
       return [target, answer ? 1 : 0];
     }),
   );
@@ -184,7 +189,9 @@ async function decideOnChatModel(
       new SystemMessage(`${voice.system}\n\n${request.instructions}`),
       new HumanMessage({ content: contentWithPieces(request.input, request.pieces ?? []) }),
     ];
-    const reply = await chat.bindTools([answerToolOf(request, voice)]).invoke(messages);
+    const spec = { caller, settings, sent: messages, sink: reportToFrame };
+    const bound = chat.bindTools([answerToolOf(request, voice)]);
+    const reply = await chargedCall(spec, (callbacks) => bound.invoke(messages, { callbacks }));
     const message = reply instanceof AIMessage ? reply : new AIMessage({ content: reply.content });
     usage = recordUsage(caller, settings, message);
     return decidedOf(request, answersOf(message, request, voice.tool.name), usage);

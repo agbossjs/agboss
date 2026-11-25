@@ -1,8 +1,8 @@
 /** #202, #120 AC8: a tool's `sensitive` arguments go through their action wherever a channel shows them. */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { redactedArguments, redactedDto } from "../../src/dto/redact.js";
-import { ListOf, Nested, Text } from "../../src/dto/index.js";
+import { List, Nested, Text } from "../../src/dto/index.js";
 import { PiiAction } from "../../src/index.js";
 import { schemaOf } from "../../src/dto/schema.js";
 import { createSqliteTurnStore } from "../../src/turns/index.js";
@@ -20,7 +20,7 @@ describe("#202: sensitive tool arguments are redacted in channel output", () => 
   it("the channel, the pause and the ask summary get the card masked; the tool gets it whole", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:cashier-agent").thenReturn(callTool(Pay, card), replyWith("Paid."));
-    const app = await createAppWith(PaymentsApplication, {
+    const app = await createTestAppWith(PaymentsApplication, {
       processEnv: {},
       gateway: createScriptedGateway(book),
     });
@@ -30,12 +30,10 @@ describe("#202: sensitive tool arguments are redacted in channel output", () => 
     const desk = app.resolve(ApprovalDesk);
     expect(desk.posted).toEqual([
       expect.objectContaining({
-        value: expect.objectContaining({ arguments: { orderId: "A-1", cardNumber: "•••• 1111" } }),
+        input: { orderId: "A-1", cardNumber: "•••• 1111" },
       }),
     ]);
-    expect(paused.pending).toMatchObject([
-      { ask: { arguments: { orderId: "A-1", cardNumber: "•••• 1111" } } },
-    ]);
+    expect(paused.pending).toMatchObject([{ input: { orderId: "A-1", cardNumber: "•••• 1111" } }]);
     expect(JSON.stringify(paused)).not.toContain("4111 1111");
     await app.resume(answerOf(paused, approve));
     expect(app.resolve(PaymentLog).cards).toEqual(["4111 1111 1111 1111"]);
@@ -44,7 +42,7 @@ describe("#202: sensitive tool arguments are redacted in channel output", () => 
 
   it("nested and listed DTOs are masked too; arguments without a DTO stay as they are", () => {
     class Holder {
-      @Text({ sensitive: PiiAction.replaceWithKind() })
+      @Text({ sensitive: PiiAction.mask() })
       name!: string;
     }
     class Order {
@@ -54,7 +52,7 @@ describe("#202: sensitive tool arguments are redacted in channel output", () => 
       @Nested(Holder)
       holder!: Holder;
 
-      @ListOf(Holder)
+      @List(Holder)
       others!: Holder[];
     }
     const order = { id: "o", holder: { name: "Ann" }, others: [{ name: "Bo" }], extra: 1 };

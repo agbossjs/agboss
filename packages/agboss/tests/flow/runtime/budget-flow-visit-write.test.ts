@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — what a visit writes when it leaves by an edge, and which edge it leaves by, each rule
  * on its own over fakes: nothing at a finish or when the edge writes nothing, else the values the node gave —
@@ -27,10 +28,11 @@ vi.mock("../../../src/flow/runtime/workflow-keys.js", () => ({
 }));
 
 const record = (costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "router",
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -84,7 +86,7 @@ describe("#1366: the values a visit writes", () => {
     const out = writeBy({ writes }, { visits: { clerk: 2 }, scope });
 
     expect(builtFromOf).toHaveBeenCalledWith(
-      { producer: "clerk", read: ["v1"], writes },
+      { producer: "clerk", read: ["v1"] },
       scope,
       provenance,
     );
@@ -165,16 +167,16 @@ describe("#1366: the edge a visit leaves by", () => {
     expect(leave(exits({ cases }), { usage: [] })).toBe(none);
   });
 
-  it("a class the switch has no caseOf for fails the output, naming it, or 'no class'", () => {
+  it("a class the toOneOf has no branch for fails the output, naming it, or 'no class'", () => {
     const cases = new Map([["ADto", { to: "a" }]]);
 
     expect(() => leave(exits({ cases }), { value: { variant: "BDto" }, usage: [] })).toThrow(
       new OutputInvalidError({
-        message: "clerk gave BDto, which its switch has no caseOf(…) for",
+        message: "clerk gave BDto, which its .toOneOf([…]) has no branch for",
       }),
     );
     expect(() => leave(exits({ cases }), { usage: [] })).toThrow(
-      "clerk gave no class, which its switch has no caseOf(…) for",
+      "clerk gave no class, which its .toOneOf([…]) has no branch for",
     );
   });
 

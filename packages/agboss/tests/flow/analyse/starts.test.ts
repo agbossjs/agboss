@@ -11,7 +11,8 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { OfferDraftDto, ShortlistDto } from "../fixtures/dtos.js";
 import { DraftKitWorkflowFinish } from "../fixtures/kit.fixture.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** A start's input as a list or a map of fields (#270 AC20, AC21). */
 
@@ -25,7 +26,7 @@ class DraftsWorkflowStart {}
 @Agent({
   name: "rank-drafts-agent",
   description: "Ranks the drafts",
-  prompt: "Rank them.",
+  prompt: inline("Rank them."),
   model: "moonshotai/kimi-k2.6",
   input: {
     drafts: listOf(OfferDraftDto),
@@ -44,13 +45,8 @@ class RankedWorkflowFinish {}
 @Workflow({
   name: "list-start-workflow",
   version: "1.0.0",
-  flow: [
-    start(DraftsWorkflowStart)
-      .returns(listOf(OfferDraftDto))
-      .toAgent(RankDraftsAgent)
-      .returns(ShortlistDto)
-      .toFinish(RankedWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(DraftsWorkflowStart).toAgent(RankDraftsAgent).toFinish(RankedWorkflowFinish)],
 })
 class ListStartWorkflow {}
 
@@ -70,7 +66,7 @@ const readerOf = (
   @Agent({
     name: "redraft-agent",
     description: "Drafts again, from the earlier draft when there is one",
-    prompt: "Draft it.",
+    prompt: inline("Draft it."),
     model: "moonshotai/kimi-k2.6",
     input: {
       shortlist: ShortlistDto,
@@ -83,14 +79,8 @@ const readerOf = (
   @Workflow({
     name: "map-start-workflow",
     version: "1.0.0",
-    flow: [
-      start(RedraftWorkflowStart)
-        .returns(ShortlistDto)
-        .returns(optional(OfferDraftDto))
-        .toAgent(RedraftAgent)
-        .returns(OfferDraftDto)
-        .toFinish(DraftKitWorkflowFinish),
-    ],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(RedraftWorkflowStart).toAgent(RedraftAgent).toFinish(DraftKitWorkflowFinish)],
   })
   class MapStartWorkflow {}
   return MapStartWorkflow;

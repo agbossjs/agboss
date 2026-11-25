@@ -1,9 +1,11 @@
+import { isCodeJudge } from "../../components/judge-decorators.js";
 import { checkedJudgeOf } from "../../components/judge-parts.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import { requireApplication } from "../../application/application.js";
 import { startsOfApplication } from "../../application/application-starts.js";
 import { NodeKind } from "../../flow/ast.js";
+import { outputClassesOf } from "../../flow/finish-output.js";
 import { checkWorkflow } from "../../flow/analyse/analyse.js";
 import { childWorkflowOf, withChildWorkflows } from "../../flow/analyse/child-workflow.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
@@ -17,7 +19,7 @@ import {
 } from "../../flow/analyse/rules/judge-family.js";
 import { kindSuffixProblem, NameKind } from "../../flow/names.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { isJudgeCheck, type JudgeEvalCheck } from "./checks.js";
+import type { JudgeEvalCheck } from "./checks.js";
 import type { EvalSuiteMeta } from "./eval-suite.decorator.js";
 
 /**
@@ -25,8 +27,9 @@ import type { EvalSuiteMeta } from "./eval-suite.decorator.js";
  * ends with `-eval-suite` and its class with `EvalSuite` (`[name.kind-suffix]`), its start is a
  * start of the application (`[eval.unknown-start]`), every case name is unique
  * (`[eval.duplicate-case]`), every judge is a `@Judge` (`[judge.not-a-judge]`, its model rules) and
- * judges the output of a finish the start reaches (`[eval.judge-wrong-reply]`) — one value, never a
- * list; a run that ends at a finish its judge does not judge fails that check.
+ * judges the output of a finish the start reaches (`[eval.judge-wrong-output]`) — one value, never a
+ * list; a run that ends at a finish its judge does not judge fails that check. A model judge has a
+ * provider pinned for it (`[eval.judge-missing-provider]`).
  */
 
 const CLASS_SUFFIX = "EvalSuite";
@@ -86,7 +89,7 @@ function reachedOutputs(
   if (graph === undefined) return [];
   return [...reachableFrom([opened.entry], graph.edges)].flatMap((name) => {
     const declaration = graph.nodes.get(name)?.declaration;
-    return declaration?.kind === NodeKind.Finish ? [declaration.options.output] : [];
+    return declaration?.kind === NodeKind.Finish ? outputClassesOf(declaration.options.output) : [];
   });
 }
 
@@ -103,34 +106,50 @@ export function evalSuiteWarnings(application: Class, meta: EvalSuiteMeta): Rule
   );
 }
 
-function wrongReply(
+function wrongOutput(
   meta: EvalSuiteMeta,
   check: JudgeEvalCheck,
   outputs: readonly DtoClass[],
 ): RuleViolation[] {
   const judge = checkedJudgeOf(`@EvalSuite "${meta.name}"`, check.judge).meta;
-  const replies = judgedShapeOf(judge.reply);
-  const what = `${meta.name}: ${judge.name} judges ${shapeLabel(judge.reply)}, but the runs of ${startNameOf(meta.start)} end at finishes with ${outputs.map(dtoLabel).join(", ") || "no output"}`;
-  if (replies.isList)
+  const outputsJudged = judgedShapeOf(judge.output);
+  const what = `${meta.name}: ${judge.name} judges ${shapeLabel(judge.output)}, but the runs of ${startNameOf(meta.start)} end at finishes with ${outputs.map(dtoLabel).join(", ") || "no output"}`;
+  if (outputsJudged.isList)
     return [
       violation(
-        "eval.judge-wrong-reply",
-        `${what} — an eval judge judges the finish's output, one value: set @Judge({ reply }) to it`,
+        "eval.judge-wrong-output",
+        `${what} — an eval judge judges the finish's output, one value: set @Judge({ output }) to it`,
         [judge.name],
       ),
     ];
   const judged = outputs.some((output) =>
-    replies.classes.some((reply) => isJudgedBy(output, reply)),
+    outputsJudged.classes.some((judged) => isJudgedBy(output, judged)),
   );
   if (judged) return [];
-  const message = `${what} — it judges none of them: set @Judge({ reply }) to a finish's output (oneOf(…) for several)`;
-  return [violation("eval.judge-wrong-reply", message, [judge.name])];
+  const message = `${what} — it judges none of them: set @Judge({ output }) to a finish's output (oneOf(…) for several)`;
+  return [violation("eval.judge-wrong-output", message, [judge.name])];
 }
 
 /** Every judge of the suite: its checks', then each case's, each class once. */
 function judgesOf(meta: EvalSuiteMeta): readonly JudgeEvalCheck[] {
-  const all = [...meta.checks.filter(isJudgeCheck), ...meta.cases.flatMap((c) => c.judges ?? [])];
-  return [...new Map(all.map((check) => [check.judge, check])).values()];
+  const all = [...meta.judges, ...meta.cases.flatMap((c) => c.judges ?? [])];
+  return [...new Set(all)].map((judge) => ({ judge }));
+}
+
+/**
+ * A model judge runs on a provider pinned apart from the candidate's (#1328): its own
+ * `@Judge({ modelProvider })`, else the suite's, else the application's — none of the three is
+ * `[eval.judge-missing-provider]`. A code judge calls no model.
+ */
+function missingProviders(application: Class, meta: EvalSuiteMeta): RuleViolation[] {
+  const { options } = requireApplication(application, "checkEvalSuite");
+  if (meta.modelProvider !== undefined || options.modelProvider !== undefined) return [];
+  return judgesOf(meta).flatMap((check) => {
+    const judge = checkedJudgeOf(`@EvalSuite "${meta.name}"`, check.judge).meta;
+    if (isCodeJudge(judge) || judge.modelProvider !== undefined) return [];
+    const message = `${meta.name}: ${judge.name} calls a model, and no model provider is pinned for it — set @Judge({ modelProvider }), @EvalSuite({ modelProvider }) or @Application({ modelProvider })`;
+    return [violation("eval.judge-missing-provider", message, [judge.name])];
+  });
 }
 
 /** Every rule violation of a suite on its application. */
@@ -147,5 +166,9 @@ export function evalSuiteViolations(
     const message = `${meta.name}: ${startNameOf(meta.start)} is not a start of ${application.name} — its starts: ${starts.join(", ")}`;
     return [...found, violation("eval.unknown-start", message, [meta.name])];
   }
-  return [...found, ...judgesOf(meta).flatMap((check) => wrongReply(meta, check, outputs))];
+  return [
+    ...found,
+    ...judgesOf(meta).flatMap((check) => wrongOutput(meta, check, outputs)),
+    ...missingProviders(application, meta),
+  ];
 }

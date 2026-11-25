@@ -1,17 +1,17 @@
 import { DtoValidationError, type DtoIssue } from "../dto/errors.js";
 import { tenantIdReason } from "../flow/context/context-values.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
-import { PauseAnswerer } from "../channels/channel-role.decorator.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import { closedAtOf, closedReasonOf } from "../infrastructure/pause-closing.js";
 import {
-  pauseAnswererOf,
+  pauseRespondentOf,
   pauseKeyOf,
   PauseStatus,
   type PauseRecord,
 } from "../infrastructure/pause-record.js";
 import type { PauseFilter } from "../infrastructure/pause-notices.js";
 import type { ListedPause, PausesPage } from "./types.js";
+import { PauseRespondent } from "../pause/respondent.js";
 
 /**
  * `app.listPauses` (#943): a tenant's pauses a page at a time, through the store's keyset
@@ -67,10 +67,10 @@ const checkTenant: Check = (tenantId) => {
   const reason = tenantIdReason(tenantId);
   return reason === undefined ? [] : issue("tenantId", reason);
 };
-const checkRole: Check = (role) =>
-  role === undefined || isKey(role)
+const checkTarget: Check = (target) =>
+  target === undefined || isKey(target)
     ? []
-    : issue("role", "a role is the channel's name: a non-empty text");
+    : issue("target", "a target is the pause target's name: a non-empty text");
 const checkBefore: Check = (before) =>
   before === undefined || (before instanceof Date && !Number.isNaN(before.getTime()))
     ? []
@@ -97,14 +97,14 @@ function checked(query: unknown): CheckedQuery {
   const limit = field("limit") ?? DEFAULT_PAGE;
   issues.push(
     ...checkTenant(field("tenantId")),
-    ...checkRole(field("role")),
+    ...checkTarget(field("target")),
     ...checkBefore(field("expiringBefore")),
     ...checkLimit(limit),
     ...checkAfter(field("after")),
   );
   if (issues.length > 0) throw new DtoValidationError({ dto: DTO, issues });
-  const [role, before] = [
-    field("role") as string | undefined,
+  const [target, before] = [
+    field("target") as string | undefined,
     field("expiringBefore") as Date | undefined,
   ];
   return {
@@ -113,28 +113,29 @@ function checked(query: unknown): CheckedQuery {
     after: field("after") as string | undefined,
     filter: {
       statuses,
-      ...(role === undefined ? {} : { channel: role }),
+      ...(target === undefined ? {} : { target }),
       ...(before === undefined ? {} : { expiresBefore: before }),
     },
   };
 }
 
-/** One pause as the listing shows it, its `ask` through `mask`. */
+/** One pause as the listing shows it, what it asks and who has it through `mask`. */
 async function listedOf(
   pause: PauseRecord,
   mask: ObservabilityMask | undefined,
 ): Promise<ListedPause> {
-  const answerer = pauseAnswererOf(pause);
+  const respondent = pauseRespondentOf(pause);
   return {
     // the rule of `result.pending` (AC3): a Channel pause's id stays with its channel
-    ...(answerer === PauseAnswerer.ThreadOwner ? { pauseId: pause.pauseId } : {}),
-    answerer,
+    ...(respondent === PauseRespondent.Owner ? { pauseId: pause.pauseId } : {}),
+    respondent,
     step: pause.step,
-    channel: pause.channel,
+    target: pause.target,
+    ...(pause.channel === undefined ? {} : { channel: pause.channel }),
     childExecutionId: pause.executionId === pause.rootExecutionId ? undefined : pause.executionId,
     itemIndex: pause.itemIndex,
     kind: pause.kind,
-    ask: mask === undefined ? pause.ask : await mask.value(pause.ask),
+    ...(await shownOf(pause, mask)),
     pauseKey: pauseKeyOf(pause.tenantId, pause.pauseId),
     status: pause.status,
     rootExecutionId: pause.rootExecutionId,
@@ -145,15 +146,41 @@ async function listedOf(
   };
 }
 
+/**
+ * What a pause asks and who has it, as the listing shows it: the input, the tool call, the
+ * assignees, the external reference and the chain of custody (a reassignment's reason included)
+ * through the mask of the pause's own workflow.
+ */
+async function shownOf(
+  pause: PauseRecord,
+  mask: ObservabilityMask | undefined,
+): Promise<Pick<ListedPause, "input" | "toolCall" | "assignees" | "externalRef" | "trail">> {
+  const whole = {
+    input: pause.input,
+    toolCall: pause.toolCall,
+    assignees: pause.assignees,
+    externalRef: pause.externalRef,
+    trail: pause.trail,
+  };
+  const shown = (mask === undefined ? whole : await mask.value(whole)) as typeof whole;
+  return {
+    input: shown.input,
+    ...(shown.toolCall === undefined ? {} : { toolCall: shown.toolCall }),
+    ...(shown.assignees === undefined ? {} : { assignees: shown.assignees }),
+    ...(shown.externalRef === undefined ? {} : { externalRef: shown.externalRef }),
+    trail: shown.trail,
+  };
+}
+
 /** What only a closed pause has: why and when it closed, and who answered it. */
-function closedPartOf(pause: PauseRecord): Pick<ListedPause, "reason" | "closedAt" | "answeredBy"> {
+function closedPartOf(pause: PauseRecord): Pick<ListedPause, "reason" | "closedAt" | "actor"> {
   if (pause.status === PauseStatus.Pending) return {};
   const closedAt = closedAtOf(pause);
-  const answeredBy = pause.answer?.answeredBy;
+  const actor = pause.answer?.actor;
   return {
     reason: closedReasonOf(pause),
     ...(closedAt === undefined ? {} : { closedAt }),
-    ...(answeredBy === undefined ? {} : { answeredBy }),
+    ...(actor === undefined ? {} : { actor }),
   };
 }
 

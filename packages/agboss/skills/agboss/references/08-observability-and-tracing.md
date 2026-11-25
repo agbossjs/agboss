@@ -3,13 +3,13 @@
 Read this when you read what an execution did (`result`, `result.record`), write an observer (metrics,
 audit, your own tracer), replace the framework's log, or send traces to Langfuse or another backend.
 
-| You want                                          | Use                                                                                           |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| what one execution did, in code or a test         | the `ExecutionOutput` of `app.execute` / `app.resume`; `{ record: true }` for the full record |
-| metrics, audit, alerts, your own tracer           | an observer class in `@Application({ observers })`                                            |
-| a trace of every step, model call and tool call   | Langfuse: set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`               |
-| the framework's own problems (recovery, failures) | its log through the application's `Logger`                                                    |
-| the declarative spec the records join on          | `npx agboss describe --json` (`configHash`, each node's `promptHash` / `schemaHash`)          |
+| You want                                          | Use                                                                                                  |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| what one execution did, in code or a test         | the `ExecutionOutput` of `app.execute` / `app.resume`; `{ includeRecord: true }` for the full record |
+| metrics, audit, alerts, your own tracer           | an observer class in `@Application({ observers })`                                                   |
+| a trace of every step, model call and tool call   | `createApp(App, { tracerProvider })`: an OpenTelemetry provider or `LangfuseTracer`                  |
+| the framework's own problems (recovery, failures) | its log through the application's `Logger`                                                           |
+| the declarative spec the records join on          | `npx agboss describe --json` (`configHash`, each node's `promptHash` / `schemaHash`)                 |
 
 ## What an execution returns
 
@@ -17,10 +17,10 @@ audit, your own tracer), replace the framework's log, or send traces to Langfuse
 
 | Field                                 | What                                                                                                                                |
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `status`                              | `ExecutionStatus.Finished` or `Paused`                                                                                              |
+| `status`                              | `ExecutionStatus.Finished`, `Paused`, `Stopped` or `Cancelled`                                                                      |
 | `output`, `finish`                    | the finish's DTO and its `ComponentRecord` (`{ name, kind, promptHash, schemaHash }`)                                               |
 | `path`                                | the visited nodes in order (`critic-agent#2` for a copy)                                                                            |
-| `spend`                               | `CostReport`: `totalUsd`, `calls`, `byCategory`, `byModel`, `byCaller`, `trace` (every call in order)                               |
+| `spend`                               | `CostReport`: `totalUsd`, `calls`, tokens, `byCategory`, `byModel`, `byCaller`, `trace` (every call in order)                       |
 | `executionId`, `threadId`, `tenantId` | the keys                                                                                                                            |
 | `pending`                             | every waiting pause (`PendingPause`), when paused                                                                                   |
 | `launches`                            | one `LaunchRecord` per joined launch: `items`, `taken`, each branch's `BranchStatus` and, under a quorum, `BranchVerdict`           |
@@ -28,15 +28,15 @@ audit, your own tracer), replace the framework's log, or send traces to Langfuse
 | `handledErrors`                       | the failures a side path took — `{ at, by, error }`                                                                                 |
 | `compensations`                       | every undo that ran — `CompensationRecord` (reference 02, section 8)                                                                |
 | `compacted`                           | what each compaction did before the execution                                                                                       |
-| `traceUrl`                            | the Langfuse session, when tracing is on and `LANGFUSE_PROJECT_ID` is set                                                           |
-| `record`                              | with `{ record: true }`: the `ExecutionRecord` below                                                                                |
+| `traceUrl`                            | the tracing adapter's link, on every status, when its `traceUrl` builds one (`LangfuseTracer` with a `projectId`)                   |
+| `record`                              | with `{ includeRecord: true }`: the `ExecutionRecord` below                                                                         |
 
 `ExecutionRecord` — `path`, `scope` (every current value of the path scope: `ScopeValueRecord` with
-`valueId`, `slot`, `producer`, `builtFrom`, `about`, the value), `outdatedValues`
+`valueId`, `slot`, `producer`, `builtFrom`, the value), `outdatedValues`
 (`OutdatedValueRecord`, each with its `OutdatedReason`), `lastError` (an `ErrorRecord`: `name`,
 `code`, `message`, `lineage`, `cause`), `spend`, `children`, `compensations` and `pauses` — who
-answered each resolved pause of the tree (`PauseAnswerRecord`: `pauseId`, `role`, `answerer`,
-`answeredBy`, `responder` (deprecated alias of `answeredBy`), `resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled`, `askedAt`,
+answered each resolved pause of the tree (`PauseAnswerRecord`: `pauseId`, `target`, `channel`, `respondent`,
+`actor`, `resolution: PauseResolution.Decided | Replied | Withdrawn | Cancelled`, `askedAt`,
 `resolvedAt`, the masked `decision`). The record, events, logs and traces are masked by the
 application's and the workflow's PII policies.
 
@@ -71,14 +71,14 @@ export class DeskWorkflowStart {}
 ```
 
 ```ts file=src/desk/agents/desk/desk.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { DeskAnswerDto } from "../../dto/desk-answer.dto.js";
 
 @Agent({
   name: "desk-agent",
   description: "Answers the customer",
-  prompt: "Answer the customer in two sentences.",
+  prompt: inline("Answer the customer in two sentences."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: DeskAnswerDto,
@@ -104,7 +104,7 @@ export class OpenTicketAction implements ActionHandler<OpenTicketAction> {
 
   execute(input: InputOf<OpenTicketAction>): Promise<OutputOf<OpenTicketAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return Promise.resolve({ ticketId: `${String(input.answer.value.text.length)}:${key}` });
+    return Promise.resolve({ ticketId: `${String(input.answer.text.length)}:${key}` });
   }
 }
 ```
@@ -118,7 +118,7 @@ export class DeskWorkflowFinish {}
 ```
 
 ```ts file=src/desk/workflows/desk/desk.workflow.ts
-import { Workflow, start } from "@agboss/core";
+import { Workflow, onStart, toAgent, toAction, toFinish, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { OpenTicketAction } from "../../actions/open-ticket.action.js";
 import { DeskAgent } from "../../agents/desk/desk.agent.js";
@@ -130,16 +130,14 @@ import { DeskWorkflowStart } from "./desk.workflow-start.js";
 @Workflow({
   name: "desk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(DeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(DeskWorkflowStart)
       .toAgent(DeskAgent)
-      .returns(DeskAnswerDto)
       .toAction(OpenTicketAction)
-      .returns(DeskTicketDto)
       .toFinish(DeskWorkflowFinish),
   ],
-  maxSteps: 2,
+  executionLimits: { maxSteps: 2 },
 })
 export class DeskWorkflow {}
 ```
@@ -166,7 +164,7 @@ export class MetricsService {
 ```ts file=src/desk/observers/execution-metrics.observer.ts
 // one instance, every execution of the application
 import {
-  Injectable,
+  Observer,
   ResumeReason,
   nameOf,
   type ExecutionEndEvent,
@@ -174,19 +172,12 @@ import {
   type ExecutionRejectedEvent,
   type ExecutionResumeEvent,
   type ModelEndEvent,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type OnExecutionRejected,
-  type OnExecutionResume,
-  type OnModelEnd,
 } from "@agboss/core";
 import { DeskAgent } from "../agents/desk/desk.agent.js";
 import { MetricsService } from "../services/metrics.service.js";
 
-@Injectable({ deps: [MetricsService] })
-export class ExecutionMetricsObserver
-  implements OnExecutionEnd, OnExecutionError, OnExecutionRejected, OnExecutionResume, OnModelEnd
-{
+@Observer({ deps: [MetricsService] })
+export class ExecutionMetricsObserver {
   constructor(private readonly metricsService: MetricsService) {}
 
   onExecutionEnd(event: ExecutionEndEvent): void {
@@ -214,7 +205,7 @@ export class ExecutionMetricsObserver
 
   onModelEnd(event: ModelEndEvent): void {
     if (event.step.component.name !== nameOf(DeskAgent)) return; // filter by name, never by nodeId
-    this.metricsService.observe("model_tokens", event.usage.totalTokens, { model: event.model });
+    this.metricsService.observe("model_tokens", event.usage.inputTokens + event.usage.outputTokens, { model: event.model });
   }
 }
 ```
@@ -223,15 +214,13 @@ export class ExecutionMetricsObserver
 // the automatic undo, around the undo action's own events
 import {
   CompensationStatus,
-  Injectable,
+  Observer,
   type CompensationEndEvent,
   type CompensationStartEvent,
-  type OnCompensationEnd,
-  type OnCompensationStart,
 } from "@agboss/core";
 
-@Injectable()
-export class CompensationAuditObserver implements OnCompensationStart, OnCompensationEnd {
+@Observer()
+export class CompensationAuditObserver {
   onCompensationStart(event: CompensationStartEvent): void {
     // event.step is the undo action's step (its key: the undone step's key + ":compensation")
     console.info(`undoing ${event.compensated.component.name} (${event.reason})`, event.step.idempotencyKey);
@@ -301,7 +290,25 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/desk.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { ApplicationDailyBudget } from "./desk/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./desk/budgets/execution.budget.js";
@@ -313,13 +320,14 @@ import { MetricsService } from "./desk/services/metrics.service.js";
 import { DeskWorkflow } from "./desk/workflows/desk/desk.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
   name: "desk-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DeskWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   observers: [ExecutionMetricsObserver, CompensationAuditObserver], // the only place observers go
-  providers: [JsonLogger, MetricsService], // a Logger is infrastructure: listed in the application
+  providers: [OpenRouterModelProvider, JsonLogger, MetricsService], // a Logger is infrastructure: listed in the application
 })
 export class DeskApplication {}
 ```
@@ -327,35 +335,47 @@ export class DeskApplication {}
 ## Observers
 
 - **Registered, not discovered**: only classes in `@Application({ observers })` are called — never in
-  `@Workflow`. One instance each (created by the container, `@Injectable` with `deps`), called for
-  every execution of the application, child executions included.
-- **One interface per hook**, each with a typed, plain-data event (no class, no internal state):
+  `@Workflow`. Each is an `@Observer({ name?, workflows?, agents?, deps? })` class, one instance each (created by the
+  container), called for every execution of the application, child executions included — within its
+  `workflows` / `agents` filter, so a hook needs no `if (event.workflow.name !== …) return`.
+- **One method per hook** (no `implements`; `ExecutionObserver` is the type of all of them, each optional), each with a typed, plain-data event (no class, no internal state):
 
-| Hooks                                                                                                                              | Event                                                                                                    |
-| ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `OnExecutionStart`                                                                                                                 | once per execution — a resume does not start it again                                                    |
-| `OnExecutionPause` / `OnExecutionResume`                                                                                           | `pending` / `reason: ResumeReason.Answered \| Recovered \| Expired`, `decision`, `answeredBy`            |
-| `OnExecutionEnd`                                                                                                                   | once, at a finish: `finish`, `spend`                                                                     |
-| `OnExecutionError`                                                                                                                 | a failure (a cancelled paused one: `ExecutionCancelledError`): `error`, `compensations`                  |
-| `OnExecutionRejected`                                                                                                              | refused before an execution: `operation: ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` |
-| `OnAgentStart` / `OnAgentEnd`, `OnRouterStart` / `OnRouterEnd`, `OnActionStart` / `OnActionEnd`                                    | a node's visit                                                                                           |
-| `OnToolStart` / `OnToolEnd`                                                                                                        | `toolName`, `agentName`, `arguments` / `update`, `isResultTruncated`                                     |
-| `OnModelStart` / `OnModelEnd`                                                                                                      | an agent's model call: `model`, `callerName`, `usage`, `calculatedCost`                                  |
-| `OnRagStart` / `OnRagEnd`, `OnGuardrailStart` / `OnGuardrailEnd`, `OnChannelStart` / `OnChannelEnd`, `OnJudgeStart` / `OnJudgeEnd` | as named                                                                                                 |
-| `OnValuesOutdated`                                                                                                                 | one per outdating cascade: `trigger`, `outdated` (no DTO values)                                         |
-| `OnLaunchItemsTruncated`                                                                                                           | a per-item launch dropped items: `launch`, `items`, `maxItems`                                           |
-| `OnQuorumDecided`                                                                                                                  | once per quorum: `launch`, `isReached`, `branches`, `group`                                              |
-| `OnCompensationStart` / `OnCompensationEnd`                                                                                        | an automatic undo: `compensated`, `reason` / `status`, `error`                                           |
+| Hooks                                                                                                                              | Event                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `onExecutionStart`                                                                                                                 | once per execution — a resume does not start it again                                                                                                                                                                     |
+| `onExecutionPause` / `onExecutionResume`                                                                                           | `pending` / `reason: ResumeReason.Answered \| Recovered \| Expired`, `decision`, `actor`                                                                                                                                  |
+| `onExecutionEnd`                                                                                                                   | once, at a finish: `finish`, `output`, `spend`                                                                                                                                                                            |
+| `onExecutionError`                                                                                                                 | a failure: `error`, `compensations`                                                                                                                                                                                       |
+| `onExecutionCancel`                                                                                                                | a cancel (running or paused): `compensations`, `spend`                                                                                                                                                                    |
+| `onExecutionStop`                                                                                                                  | a stop: `reason`, `spend`                                                                                                                                                                                                 |
+| `onExecutionRejected`                                                                                                              | refused before an execution: `operation: ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message`                                                                                                                  |
+| `onAgentRetry`                                                                                                                     | an agent corrects itself (`AgentRetryEvent`): `agent`, `reason: AgentRetryReason.InvalidAnswer \| InvalidToolInput \| JudgeRejected`, `attempt`, `maxAttempts`, `feedback`                                                |
+| `onAgentStart` / `onAgentEnd`, `onRouterStart` / `onRouterEnd`, `onActionStart` / `onActionEnd`                                    | a node's visit                                                                                                                                                                                                            |
+| `onToolStart` / `onToolEnd`                                                                                                        | `tool`, `agent?`, `input` / `output`, `isResultTruncated`                                                                                                                                                                 |
+| `onModelStart` / `onModelEnd`                                                                                                      | an agent's model call: `model`, `caller`, `usage` (`TokenUsage`), `costUsd`                                                                                                                                               |
+| `onRagStart` / `onRagEnd`, `onGuardrailStart` / `onGuardrailEnd`, `onChannelStart` / `onChannelEnd`, `onJudgeStart` / `onJudgeEnd` | as named                                                                                                                                                                                                                  |
+| `onCircuitStateChange`                                                                                                             | a provider's breaker changed state: `provider`, `from`, `to`, `at` (the application's, no workflow filter)                                                                                                                |
+| `onArbiterStart / onArbiterEnd`                                                                                                    | a quorum arbiter judging one answer (in its branch's step): `arbiter`, `target`, `isCode`; the end: `outcome` (`ArbiterOutcome`), `costUsd`                                                                               |
+| `onRerankStart / onRerankEnd`                                                                                                      | a knowledge base's reranker: `rag`, `reranker`, `candidates`, `topK`; the end: `outcome` (`RerankOutcome`), `results`, `costUsd`                                                                                          |
+| `onModelFallback`                                                                                                                  | a model call moved to a fallback provider, once per hop: `primaryProvider`, `primaryModel`, `fallbackProvider`, `fallbackModel`, `reason`, `error` (class and code, never text), `caller`; in the step that made the call |
+| `onChannelInterpreterStart / onChannelInterpreterEnd`                                                                              | a `@ChannelInterpreter` reading a free-text reply in `app.resume`: `interpreter`, `channel`, `isCode`; the end: `outcome` (`ChannelInterpreterOutcome`), `costUsd`                                                        |
+| `onTtlSweep`                                                                                                                       | a look of the retention sweep: `at`, `durationMs`, `categories` (`category`, `removed`, `error`); the application's, no workflow filter                                                                                   |
+| `onPauseTimeoutChanged / onPauseReassigned`                                                                                        | `app.extendPause` / `app.reassignPause` that won: `tenantId`, `executionId`, `threadId`, `workflow`, `channel`; the deadlines / `previousChannel` — never the pause's id or the assignee                                  |
+| `onValuesOutdated`                                                                                                                 | one per outdating cascade: `trigger`, `outdated` (no DTO values)                                                                                                                                                          |
+| `onLaunchItemsTruncated`                                                                                                           | a per-item launch dropped items: `launch`, `items`, `maxItems`                                                                                                                                                            |
+| `onQuorumDecided`                                                                                                                  | once per quorum: `launch`, `isReached`, `branches`, `group`                                                                                                                                                               |
+| `onCompensationStart` / `onCompensationEnd`                                                                                        | an automatic undo: `compensated`, `reason` / `status`, `error`                                                                                                                                                            |
 
 - **Every event** (`ExecutionEvent`) has `executionId`, `parentExecutionId` (a child's parent),
   `rootExecutionId`, `threadId`, `tenantId` and `workflow` (`WorkflowRecord`: `name`, `version`,
   `startedVersion`, `configHash`). A **node event** (`NodeEvent`) adds `step` (`StepRecord`:
   `component`, `nodeId`, `visitNumber`, `copyNumber`, `itemIndex`, `idempotencyKey`, `callId`,
   `toolLoopIteration`, `validationAttempts`, `compensates`).
-- **Filter by name** with `nameOf(Class)`: `event.workflow.name === nameOf(DeskWorkflow)`,
-  `event.step.component.name === nameOf(DeskAgent)`.
-- An observer with no hook or a misspelled one fails assembly (`[observer.no-hooks]`,
-  `[observer.unknown-hook]` — the names are `OBSERVER_HOOKS`); one that throws is a warning in the log
+- **Filter** in the decorator: `@Observer({ workflows: [DeskWorkflow], agents: [DeskAgent] })`; app-level
+  events (no workflow or agent) reach only observers without that filter. By name: `nameOf(Class)`.
+- An observer without `@Observer`, with no hook or a misspelled one, or with a repeated name fails
+  assembly (`[observer.not-an-observer]`, `[observer.no-hooks]`, `[observer.unknown-hook]`,
+  `[observer.duplicate-name]`); one that throws is a warning in the log
   (`observer.failed`) and never fails the execution.
 - Not model calls of an agent (no `onModelStart` / `onModelEnd`): a model arbiter's, a reply
   interpreter's, a guardrail's, a compaction's — their cost is in `spend` under `arbiter:<name>`,
@@ -378,7 +398,7 @@ that `extends Logger` (`write(entry: LogEntry)`; `LogEntry`: `level: LogLevel`, 
 
 - **At start, once**: what started and the worst case of one call of each start — only what the
   decorators say (no `maxSpend()`), then the assembly warnings (`[application.in-memory-cost-ledger]`,
-  `[application.in-memory-pauses]`, `[application.pii-instance-key]`; also in `app.warnings`).
+  `[application.in-memory-pauses]`; also in `app.warnings`).
 - **While running, only problems**: `LogLevel.Warn` — `execution.recovered`, `recovery.incompatible`,
   `observer.failed`, `compensation.step-still-running`, `pause.notice-failed`,
   `pause.notice-recipient-unknown`, `pause.expiry-handler-failed`, `pause.expiry-failed`, `pause.working-calendar-failed`, `pause.reassign-send-failed`, `pause.resend-failed`; `LogLevel.Error` — `pause.notice-dead`, `pause-timers.failed`,
@@ -387,17 +407,22 @@ that `extends Logger` (`write(entry: LogEntry)`; `LogEntry`: `level: LogLevel`, 
 
 ## Tracing
 
-- **Langfuse** is built in: set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL`
-  in the process environment (optionally `LANGFUSE_PROJECT_ID` for `result.traceUrl` links). Without
-  all three nothing is traced and nothing changes. One trace per execution pass, named after the
-  workflow, its session the thread; one span per node, named by its kind and name, the agent's
-  model requests and tool calls inside; a child workflow is a nested run under its parent's step;
-  every trace is tagged `tenant:<id>` and masked by the PII policies. Decision-model calls (Jev) are
-  not LangChain calls: their cost is in `spend`, not in the trace.
-- **OpenTelemetry**: tracing uses its own isolated tracer provider — the framework never registers a
-  global one and is flushed when the app closes. To send spans to another backend, write an observer
-  over your own tracer (start a span in `onAgentStart`, end it in `onAgentEnd`, keyed by
-  `step.idempotencyKey`), registered like `ExecutionMetricsObserver` above.
+- **`createApp(App, { tracerProvider })`** turns tracing on; without it nothing is traced and
+  nothing changes. The framework emits vendor-neutral OpenTelemetry spans: one per node, named by
+  its kind and name, the agent's model requests and tool calls inside; a child workflow is a nested
+  run under its parent's step; the first span of a run carries `session.id` (the thread),
+  `agboss.tenant.id` and `agboss.run.id`. Every value is masked by the workflow's PII policies
+  (a child's: by its ancestors' too) **before** it is set on a span — an external provider never
+  sees an unmasked value. Decision-model calls (Jev) are not LangChain calls: their cost is in
+  `spend`, not in the trace.
+- **Your own provider** (`TracerProvider` of the OpenTelemetry SDK): yours — `app.close()` flushes it,
+  you shut it down. The framework never registers a global provider.
+- **A `TracingAdapter`** (`{ tracerProvider, traceUrl?(ctx), forceFlush?(), shutdown?() }`) is the
+  application's: `app.close()` flushes and shuts it down, and `ExecutionOutput.traceUrl` is its
+  `traceUrl(ctx)` (`ctx`: `TraceLinkContext` — workflow, thread, run, tenant).
+- **Langfuse**: `@agboss/langfuse` — `new LangfuseTracer({ publicKey, secretKey, baseUrl, projectId })`
+  as the `tracerProvider`; `LangfuseTracer.fromEnv()` reads the `LANGFUSE_*` variables. `@agboss/core`
+  itself reads none of them.
 
 ## Reading it in a test
 
@@ -417,7 +442,7 @@ const test = testWith(DeskApplication);
 test("the record shows the path, the scope and the spend", async ({ app, mockLlm }) => {
   mockLlm(DeskAgent).thenReturn(replyWith(DeskAnswerDto, { text: "We are on it." }));
 
-  const result = await app.execute(DeskWorkflowStart, { text: "my order is late" }, { record: true });
+  const result = await app.execute(DeskWorkflowStart, { text: "my order is late" }, { includeRecord: true });
 
   expect(result.status).toBe(ExecutionStatus.Finished);
   expect(result).toFollowPath([DeskWorkflowStart, DeskAgent, OpenTicketAction, DeskWorkflowFinish]);
@@ -435,4 +460,4 @@ test("the record shows the path, the scope and the spend", async ({ app, mockLlm
 - Doing slow I/O in a hook — it runs on the execution's path; buffer it in a service.
 - Logging DTO values from `scope`: they are the real values; events, logs and traces are masked, the
   scope is not.
-- Expecting traces from `testWith`: tests run offline, the `LANGFUSE_*` variables are ignored there.
+- Expecting traces from `testWith`: tests run offline and give no `tracerProvider`.

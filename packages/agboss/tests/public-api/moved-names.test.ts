@@ -34,7 +34,7 @@ function namesOf(report: string): { top: Set<string>; spaces: Map<string, string
 }
 
 describe("#895: the values that moved to /internal are not on the root", () => {
-  const moved = ["loadWorkflow", "executeAgent", "resumeAgent", "withProfile", "resolveTools"];
+  const moved = ["loadWorkflow", "executeAgent", "resumeAgent", "resolveTools"];
 
   it.each([...moved, "executionVersions", "workflowOf", "toolOf"])("%s", (name) => {
     expect(internal).toHaveProperty(name);
@@ -75,9 +75,9 @@ describe("#895: the leaked wiring and the inlined pieces are named by no public 
   const gone: Readonly<Record<string, string>> = {
     agboss: `SqlitePauseStore SqlitePauseQueryRepository SqlitePausedRunRepository SqlitePausedRunRows
       SqlitePauseRows SqlitePauseNoticeRows SqlitePauseScans StoredMailbox PlannedNotice ModelGateway
-      ChatModelSpec ChatModelUser DecideSpec DecisionSpec DecisionModel DecisionOutcome
+      ChatModelSpec ChatModelUser DecideSpec DecisionSpec RouterDecisionModel DecisionOutcome
       ReplyInterpreterInput TurnStore ConfigStore MemoryStore PauseAnswerEntry AnswerArgs TurnRecords
-      TurnStoreRecordRepository AgentMeta RagBinding AgentToolClass QuestionRoleClass GuardrailFields
+      TurnStoreRecordRepository AgentMeta RagBinding QuestionRoleClass GuardrailFields
       PiiPolicyFields CompactionFields ToolInterceptorFields ChannelMeta ChannelRoleForm AutoDecision
       ComponentClass StartClass ActionClass ContextFields`,
     "agboss-models": `ModelProviderDirectory KeptModelProviderOptions RegisteredModelProvider ProviderQuery
@@ -111,7 +111,7 @@ describe("#895: the type machinery is one @beta namespace per entry", () => {
     [
       "agboss",
       "FlowTypes",
-      "Same Member Members Without IsIn NotGiven Resolved LastValue KindOf NameOf",
+      "IsOneOf IsUnion IsSeveral Resolved LastValue KindOf NameOf",
       "index.ts",
     ],
     [
@@ -123,7 +123,7 @@ describe("#895: the type machinery is one @beta namespace per entry", () => {
     [
       "agboss-dto",
       "DtoTypes",
-      "ListOfFactory OneOfVariants OptionalInnerShape Wrapper",
+      "ListFactory EnumFactory ListField OptionalListField",
       "dto/index.ts",
     ],
     ["agboss-eval", "EvalTypes", "EvalContextsOf EvalTurnsOf", "eval/index.ts"],

@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import type { ExecutionStreamEvent } from "../../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../../src/run/types.js";
 import { ChatStart } from "../../channels/approval.workflow.js";
 import { execute } from "../../helpers/flow.js";
 import { ScriptedBedrockClient } from "../transport/bedrock-provider.fixture.js";
@@ -30,7 +30,7 @@ beforeAll(async () => {
 const USAGE = { prompt_tokens: 120_000, completion_tokens: 30_000, total_tokens: 150_000 };
 
 const deltas = (events: readonly ExecutionStreamEvent[]): string[] =>
-  events.flatMap((event) => (event.kind === "textDelta" ? [event.delta] : []));
+  events.flatMap((event) => (event.kind === StreamEventKind.TextDelta ? [event.delta] : []));
 
 async function appOn(
   server: SseServer,

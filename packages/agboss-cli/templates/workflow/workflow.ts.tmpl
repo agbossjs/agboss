@@ -1,5 +1,5 @@
-import { Workflow, route, start } from "@agboss/core";
-import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { Workflow, onStart, toAgent } from "@agboss/core";
+import { days } from "@agboss/core/units";
 import { TextWorkflowStart } from "./text.workflow-start.js";
 import { TextWorkflowFinish } from "./text.workflow-finish.js";
 import { {{routerClass}} } from "{{routerFrom}}";
@@ -9,14 +9,12 @@ import { {{routerClass}} } from "{{routerFrom}}";
 @Workflow({
   name: "{{kebab}}-workflow",
   version: "0.1.0",
+  historyTtl: days(90), // how long the history of finished executions is kept (Ttl.Forever, Ttl.None)
   // the graph, one path: the text goes to the main router, which picks the agent that answers
   flow: [
-    start(TextWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(TextWorkflowStart)
       .toRouter({{routerClass}})
-      .chooseOne(
-{{routes}}
-      ),
+{{routes}},
   ],
   defaults: {
     // reasoning and caching: the model provider's (model-providers/, listed in the application),
@@ -25,8 +23,5 @@ import { {{routerClass}} } from "{{routerFrom}}";
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 8 },
   },
-  // how many recent turns its agents and routers see in full (older ones: a @Compaction's summaries)
-  uncompactedTurns: 8,
-  mcp: [{{servers}}],
 {{providers}}})
 export class {{pascal}}Workflow {}

@@ -1,12 +1,17 @@
 import type { Price } from "../config/types.js";
 import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
-import { UnitError, type Usd } from "../units/index.js";
+import { ConfigError } from "../core/error-families/config-errors.js";
+import type { Usd } from "../units/index.js";
 
-/** USD per one million tokens of a model; cached input falls back to the input price. */
+/**
+ * USD per one million tokens of a model. A cache price left out is the input price: tokens a call read from the
+ * cache cost `cacheReadPerMillion`, tokens it wrote to the cache cost `cacheWritePerMillion`.
+ */
 export interface ModelPrice {
   readonly inputPerMillion: Usd;
   readonly outputPerMillion: Usd;
-  readonly cachedInputPerMillion?: Usd;
+  readonly cacheReadPerMillion?: Usd | undefined;
+  readonly cacheWritePerMillion?: Usd | undefined;
 }
 
 /** Prices by model name. */
@@ -18,6 +23,7 @@ export type ModelCost =
   | { readonly kind: "from-prices"; readonly prices: ModelPrices };
 
 const REQUIRED_FIELDS = ["inputPerMillion", "outputPerMillion"] as const;
+const CACHE_FIELDS = ["cacheReadPerMillion", "cacheWritePerMillion"] as const;
 const AMOUNT_RULE = "not a finite number of dollars from 0 (usd(...))";
 
 const isAmount = (value: unknown): boolean => isFiniteNumber(value) && value >= 0;
@@ -36,10 +42,12 @@ export function modelPriceProblemOf(price: unknown): string | undefined {
     const value: unknown = Reflect.get(price, field);
     if (!isAmount(value)) return `${field} is ${shownLimit(value)}, ${AMOUNT_RULE}`;
   }
-  const cached: unknown = Reflect.get(price, "cachedInputPerMillion");
-  return cached === undefined || isAmount(cached)
-    ? undefined
-    : `cachedInputPerMillion is ${shownLimit(cached)}, ${AMOUNT_RULE}`;
+  for (const field of CACHE_FIELDS) {
+    const value: unknown = Reflect.get(price, field);
+    if (value !== undefined && !isAmount(value))
+      return `${field} is ${shownLimit(value)}, ${AMOUNT_RULE}`;
+  }
+  return undefined;
 }
 
 /**
@@ -54,17 +62,20 @@ export function modelPricesProblemOf(prices: unknown): string | undefined {
     .find((problem) => problem !== undefined);
 }
 
-const priceError = (problem: string): UnitError =>
-  new UnitError({ message: `[model.price-invalid] ${problem}` });
+const priceError = (problem: string): ConfigError.Unit =>
+  new ConfigError.Unit({ message: `[model.price-invalid] ${problem}` });
 
 /** A price entry copied and frozen: the caller's own object is never kept, so it cannot change the table later. */
 const frozenPrice = (price: ModelPrice): ModelPrice =>
   Object.freeze({
     inputPerMillion: price.inputPerMillion,
     outputPerMillion: price.outputPerMillion,
-    ...(price.cachedInputPerMillion === undefined
+    ...(price.cacheReadPerMillion === undefined
       ? {}
-      : { cachedInputPerMillion: price.cachedInputPerMillion }),
+      : { cacheReadPerMillion: price.cacheReadPerMillion }),
+    ...(price.cacheWritePerMillion === undefined
+      ? {}
+      : { cacheWritePerMillion: price.cacheWritePerMillion }),
   });
 
 export const ModelCost = {
@@ -74,7 +85,7 @@ export const ModelCost = {
   },
   /**
    * Tokens × the price of the model (a local server, a provider that reports no cost). Every price is a finite
-   * number of dollars from 0 (#1382, #1385), refused here with a `UnitError` otherwise, and the table keeps its
+   * number of dollars from 0 (#1382, #1385), refused here with a `ConfigError.Unit` otherwise, and the table keeps its
    * own frozen copy of each entry.
    */
   fromPrices(prices: ModelPrices): ModelCost {
@@ -94,7 +105,7 @@ export const ModelCost = {
 /**
  * The price table entry of a model as the accounting reads it; none for `fromResponse` or a model the table does
  * not list. The entry is checked here, at its use (#1385): a literal `ModelCost` or a table changed after it was
- * made throws a `UnitError` `[model.price-invalid]` before any cost is computed.
+ * made throws a `ConfigError.Unit` `[model.price-invalid]` before any cost is computed.
  */
 export function priceOf(cost: ModelCost, model: string): Price | undefined {
   if (cost.kind === "from-response") return undefined;
@@ -107,9 +118,12 @@ export function priceOf(cost: ModelCost, model: string): Price | undefined {
   return {
     inputPerMTok: price.inputPerMillion,
     outputPerMTok: price.outputPerMillion,
-    ...(price.cachedInputPerMillion === undefined
+    ...(price.cacheReadPerMillion === undefined
       ? {}
-      : { cacheReadPerMTok: price.cachedInputPerMillion }),
+      : { cacheReadPerMTok: price.cacheReadPerMillion }),
+    ...(price.cacheWritePerMillion === undefined
+      ? {}
+      : { cacheWritePerMTok: price.cacheWritePerMillion }),
   };
 }
 
@@ -124,7 +138,7 @@ const PRICE_FIELDS = [
 /**
  * A price a call is costed by (#1385), whichever way it came — a config `price`, a provider's table, a
  * fallback's: every field is a finite number of dollars from 0, or (a cache price) unset. A negative price would
- * take from the cost of the tokens another price adds. A price that is none throws a `UnitError`
+ * take from the cost of the tokens another price adds. A price that is none throws a `ConfigError.Unit`
  * `[model.price-invalid]` before any cost is computed; the message names the field and the value's kind, never
  * the model.
  */

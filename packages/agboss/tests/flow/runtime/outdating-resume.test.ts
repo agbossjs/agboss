@@ -51,7 +51,7 @@ describe("#271 AC11: outdating across a pause", () => {
       const paused = await execute(app, LoopWorkflowStart, { topic: "t" });
       const eventsBeforePause = outdatingEvents.length;
       const restarted = await recoverApp();
-      const done = await restarted.resume(answerOf(paused, approve), { record: true });
+      const done = await restarted.resume(answerOf(paused, approve), { includeRecord: true });
 
       expect(paused.status).toBe(ExecutionStatus.Paused);
       expect(eventsBeforePause).toBe(1);
@@ -63,7 +63,7 @@ describe("#271 AC11: outdating across a pause", () => {
         ],
         [
           "loop-reviewer-agent:1/DraftChangesDto",
-          { byValueId: "loop-writer-agent:2/DraftDto", reason: OutdatedReason.AboutReplaced },
+          { byValueId: "loop-writer-agent:2/DraftDto", reason: OutdatedReason.BuiltFromReplaced },
         ],
         [
           "loop-writer-agent:2/DraftDto",
@@ -71,7 +71,7 @@ describe("#271 AC11: outdating across a pause", () => {
         ],
         [
           "loop-reviewer-agent:2/DraftChangesDto",
-          { byValueId: "loop-writer-agent:3/DraftDto", reason: OutdatedReason.AboutReplaced },
+          { byValueId: "loop-writer-agent:3/DraftDto", reason: OutdatedReason.BuiltFromReplaced },
         ],
       ]);
       const changes = done.record?.outdatedValues.find(

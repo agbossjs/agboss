@@ -1,7 +1,7 @@
 import type { Class } from "../../components/injection.js";
 import { ComponentError } from "../../components/metadata.js";
 import { fieldsOf } from "../../dto/metadata.js";
-import type { A2AExportContract, ContractsSnapshot } from "../../describe/contracts-types.js";
+import type { A2AExportContract, ApplicationContracts } from "../../describe/contracts-types.js";
 import type { JsonSchema } from "../../dto/schema.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../dto/standard/framework.js";
 import { NodeKind } from "../../flow/ast.js";
@@ -9,18 +9,16 @@ import { declarationOf } from "../../flow/decorators/declaration.js";
 import type { WorkflowStartInput } from "../../flow/decorators/workflow-start.js";
 import { dtoSchemaHashOf } from "../../flow/runtime/join-keys.js";
 import type { DtoClass } from "../../dto/types.js";
-import { finishDtosOf } from "../files/a2a-file-tier.js";
+import { finishDtosOf, listFinishItemsOf } from "../files/a2a-file-tier.js";
+import { workflowOfStart } from "../../files/workflow-file-policy.js";
+import type { ComponentOptions } from "../../components/component-options.js";
 import { workflowPartsOf } from "../../describe/contracts-parts.js";
 import { DecidedBy } from "../../flow/decorators/router.js";
-import type { A2AReply } from "../a2a-expose.decorator.js";
+import type { A2AReply } from "../a2a-message-skill-rule.js";
 import type { A2ACardFileFields } from "../files/a2a-file-options.js";
-import type { A2AExposeOptions } from "../a2a-expose.decorator.js";
-import { fileFieldsOf, type A2AFileField } from "../files/a2a-file.dto.js";
-import {
-  fileLimitsOf,
-  type A2AFileLimits,
-  type A2AFileOptions,
-} from "../files/a2a-file-options.js";
+import { skillOptionsOf, type A2AEndpointMeta } from "../a2a-endpoint.decorator.js";
+import { fileFieldsOf, type FileField } from "../../dto/standard/file.js";
+import type { FileLimits } from "../../files/file-policy.js";
 
 /**
  * The skills a listener serves (#808, design §3): one per exported start — its id the start's
@@ -40,9 +38,11 @@ export interface ServedOutput {
   readonly mediaType: A2AMediaType;
   readonly schema: JsonSchema | null;
   /** Its DTO's fields that hold files (#859): each one's parts are file parts. */
-  readonly fileFields: readonly A2AFileField[];
+  readonly fileFields: readonly FileField[];
   /** Whether its DTO has a field that holds no file: what its `data` part carries. */
   readonly hasData: boolean;
+  /** Its output's classes (the DTO, or a list's items): what a stored reply masks its sensitive fields by (#1301). */
+  readonly classes: readonly DtoClass[];
 }
 
 /** One exported start, as its skill. */
@@ -60,12 +60,12 @@ export interface ServedSkill {
   readonly inputSchemaHash: string | null;
   readonly outputs: readonly ServedOutput[];
   /** The input DTO's fields that hold files (#859): none — no file part is taken (`-32005`). */
-  readonly inputFiles: readonly A2AFileField[];
-  /** What its files are bounded by: the skill's own, else the application's, else the defaults. */
-  readonly fileLimits: A2AFileLimits;
+  readonly inputFiles: readonly FileField[];
+  /** What its files are bounded by: its `filePolicy` over its workflow's, over the built-ins (#1316). */
+  readonly fileLimits: FileLimits;
   /**
-   * The media types its finishes' files may be (#904): what `A2AFiles.save` takes — the
-   * application's `a2aFiles`, else the defaults; a skill's own `files` bound what it takes only.
+   * The media types its finishes' files may be (#904): what `Files.save` takes — its workflow's
+   * `filePolicy`, else the defaults; a skill's own `filePolicy` bounds what it takes only.
    */
   readonly outputFileMediaTypes: readonly string[];
   /** How it answers (#860): a task, or a direct message. */
@@ -83,7 +83,7 @@ function callsModel(node: Class): boolean {
   return declared?.kind === NodeKind.Router && declared.options.decidedBy !== DecidedBy.Code;
 }
 
-const schemaOf = (contracts: ContractsSnapshot, dto: string | undefined): JsonSchema | null =>
+const schemaOf = (contracts: ApplicationContracts, dto: string | undefined): JsonSchema | null =>
   dto === undefined ? null : (contracts.schemas[dto]?.jsonSchema ?? null);
 
 const TEXT_FINISH_HASH = (): string => dtoSchemaHashOf(WorkflowFinishTextDto);
@@ -93,9 +93,10 @@ const dataFieldCountOf = (dto: DtoClass | undefined): number =>
   dto === undefined ? 1 : fieldsOf(dto).length - fileFieldsOf(dto).length;
 
 function outputsOf(
-  contracts: ContractsSnapshot,
+  contracts: ApplicationContracts,
   found: A2AExportContract,
   finishes: ReadonlyMap<string, DtoClass>,
+  lists: ReadonlyMap<string, readonly DtoClass[]>,
 ): ServedOutput[] {
   const textHash = TEXT_FINISH_HASH();
   return found.outputs.map((output) => {
@@ -106,6 +107,7 @@ function outputsOf(
       schema: schemaOf(contracts, output.dto),
       fileFields: dto === undefined ? [] : fileFieldsOf(dto),
       hasData: dataFieldCountOf(dto) > 0,
+      classes: dto === undefined ? (lists.get(output.finish) ?? []) : [dto],
     };
   });
 }
@@ -118,12 +120,12 @@ const startCallsModel = (start: Class, workflows: readonly Class[]): boolean =>
 
 /** What a listener's skills are built from besides the exports. */
 export interface SkillSources {
-  readonly contracts: ContractsSnapshot;
+  readonly contracts: ApplicationContracts;
   /** The application's workflows: where each start's finishes are. */
   readonly workflows: readonly Class[];
-  readonly expose: A2AExposeOptions;
-  /** `@Application({ a2aFiles })`. */
-  readonly files: A2AFileOptions | undefined;
+  readonly expose: A2AEndpointMeta;
+  /** The options of the components under the selected profiles: the files' effective limits. */
+  readonly options: ComponentOptions;
 }
 
 /** The skill of one exported start, from its declaration and the application's contracts. */
@@ -140,7 +142,7 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
   );
   if (found?.kind !== "a2a")
     throw new ComponentError({
-      message: `[application.expose-unknown-start] ${name} is not a start of the application's workflows`,
+      message: `[application.endpoint-unknown-start] ${name} is not a start of the application's workflows`,
     });
   return {
     id: name,
@@ -150,8 +152,13 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
     inputMediaType: input === WorkflowStartTextDto ? A2AMediaType.Text : A2AMediaType.Json,
     inputSchema: schemaOf(contracts, found.input?.dto),
     inputSchemaHash: found.input?.schemaHash ?? null,
-    outputs: outputsOf(contracts, found, finishDtosOf(start, sources.workflows)),
-    ...skillFilesOf(input, name, sources),
+    outputs: outputsOf(
+      contracts,
+      found,
+      finishDtosOf(start, sources.workflows),
+      listFinishItemsOf(start, sources.workflows),
+    ),
+    ...skillFilesOf(input, name, start, sources),
     reply: found.reply,
     cardFileFields: found.cardFileFields,
     callsModel: startCallsModel(start, sources.workflows),
@@ -162,12 +169,17 @@ function skillOf(start: Class, sources: SkillSources): ServedSkill {
 function skillFilesOf(
   input: WorkflowStartInput,
   name: string,
+  start: Class,
   sources: SkillSources,
 ): Pick<ServedSkill, "inputFiles" | "fileLimits" | "outputFileMediaTypes"> {
+  const workflow = workflowOfStart(start, sources.workflows);
   return {
     inputFiles: typeof input === "function" ? fileFieldsOf(input) : [],
-    fileLimits: fileLimitsOf(sources.files, sources.expose.skills?.[name]?.files),
-    outputFileMediaTypes: fileLimitsOf(sources.files, undefined).allowedMediaTypes,
+    fileLimits: sources.options.workflowFileLimits(
+      workflow,
+      skillOptionsOf(sources.expose, name)?.filePolicy,
+    ),
+    outputFileMediaTypes: sources.options.workflowFileLimits(workflow).allowedMediaTypes,
   };
 }
 

@@ -1,8 +1,7 @@
-import { Nested } from "@agboss/core/dto";
-import { A2AFileDto } from "@agboss/core/a2a";
+import { File, FileDto } from "@agboss/core/dto";
 
 /** A photo of an ID card. */
 export class IdCheckRequestDto {
-  @Nested(A2AFileDto, { prompt: "A photo of the ID card" })
-  photo!: A2AFileDto;
+  @File({ prompt: "A photo of the ID card" })
+  photo!: FileDto;
 }

@@ -19,6 +19,7 @@ import {
 import { A2AOriginSite } from "./a2a-guard-errors.js";
 import { originRefusalOf, type OriginPolicy } from "./a2a-origins.js";
 import { wireErrorOf } from "./a2a-wire-errors.js";
+import { boundedJsonOf, cardWellFormed } from "./a2a-card-shape.js";
 
 /**
  * Discovery (#809, design §4.2): the agent's card fetched from `<url>/.well-known/agent-card.json`,
@@ -102,20 +103,6 @@ function usableInterfaceUrlsOf(raw: Readonly<Record<string, unknown>>): readonly
   );
 }
 
-/** Whether every interface entry of a raw card is a record with a string url and protocolVersion. */
-function interfacesWellFormed(raw: Readonly<Record<string, unknown>>): boolean {
-  const interfaces: unknown = raw.supportedInterfaces;
-  return (
-    Array.isArray(interfaces) &&
-    interfaces.every(
-      (entry: unknown) =>
-        isRecord(entry) &&
-        typeof entry.url === "string" &&
-        typeof entry.protocolVersion === "string",
-    )
-  );
-}
-
 /**
  * The extensions a card declares (#904): none when it leaves `capabilities` or its `extensions`
  * out, as a foreign agent's minimal card may.
@@ -167,7 +154,7 @@ export async function fetchCard(
     if (!response.ok) {
       throw new A2AProtocolError({ agent, operation, httpStatus: response.status });
     }
-    raw = await response.json();
+    raw = await boundedJsonOf(response);
   } catch (error) {
     throw wireErrorOf(error, agent, operation, signal);
   }
@@ -176,22 +163,39 @@ export async function fetchCard(
   if (usable.length === 0) {
     throw new A2AProtocolError({ agent, operation, protocolVersions: versionsOf(raw) });
   }
-  // #1394: a remote card is untrusted — one malformed interface entry refuses it (fail closed)
-  if (!interfacesWellFormed(raw)) throw new A2AProtocolError({ agent, operation });
+  // #1394, #1396: a remote card is untrusted — any malformed part refuses it (fail closed, none of its text said)
+  if (!cardWellFormed(raw)) throw new A2AProtocolError({ agent, operation });
   // #809 security: an interface elsewhere would get the client's headers — the card is refused
   for (const interfaceUrl of usable) {
     const refused = originRefusalOf(policy, interfaceUrl, A2AOriginSite.CardInterface);
     if (refused !== undefined) throw refused;
   }
-  const normalized = new DefaultAgentCardResolver().normalizeAgentCard(raw);
-  // the SDK picks among the usable interfaces only: never a v0.3 one, never one elsewhere
-  const card = {
+  const card = normalizedCardOf(raw, usable, { agent, operation });
+  return { card, peer: peerOf(card) };
+}
+
+/** The card as the SDK reads it, its interfaces the usable ones only (never a v0.3 one, never one elsewhere); a card the SDK cannot read is refused. */
+function normalizedCardOf(
+  raw: Readonly<Record<string, unknown>>,
+  usable: readonly string[],
+  who: { readonly agent: string; readonly operation: A2AClientOperation },
+): AgentCard {
+  let normalized: AgentCard;
+  try {
+    normalized = new DefaultAgentCardResolver().normalizeAgentCard(raw);
+  } catch {
+    throw new A2AProtocolError(who);
+  }
+  const urls = new Set(usable);
+  return {
     ...normalized,
     supportedInterfaces: normalized.supportedInterfaces.filter(
-      (each) => usable.includes(each.url) && /^1(\.\d+)?$/u.test(each.protocolVersion.trim()),
+      (each) =>
+        urls.has(each.url) &&
+        BINDINGS.has(each.protocolBinding.toUpperCase()) &&
+        /^1(\.\d+)?$/u.test(each.protocolVersion.trim()),
     ),
   };
-  return { card, peer: peerOf(card) };
 }
 
 /** The skill a call names: the declared one, else the card's only skill (none with several). */

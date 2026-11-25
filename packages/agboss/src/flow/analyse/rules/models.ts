@@ -43,7 +43,7 @@ function agentViolations(
         `${String(MAX_TOOL_NAME_LENGTH)}) — give its DTO class a shorter name`;
       return violation("tool.name-too-long", message, [name]);
     });
-  const canCallTools = context.options.canCallTools?.(model) ?? true;
+  const canCallTools = model === undefined || (context.options.canCallTools?.(model) ?? true);
   if (canCallTools) return tooLong;
   const message = `${name} has output: ${shapeLabel(output)}, but ${model} cannot call tools — pick a model that can`;
   return [...tooLong, violation("model.no-tool-calling", message, [name])];

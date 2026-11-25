@@ -7,11 +7,15 @@ export {
   type WorkingCalendarHandler,
   type WorkingCalendarOptions,
   type WorkingCalendarSource,
-  type WorkingTimeRequest,
+  type WorkingCalendarContext,
+  type WorkingScheduleResolver,
+  type WorkingCalendarCommon,
+  type DeclarativeWorkingCalendarOptions,
+  type DynamicWorkingCalendarOptions,
 } from "../calendar/working-calendar.js";
 export {
   Weekday,
   WorkingWeek,
-  type ClockInterval,
+  type TimeWindow,
   type WorkingWeekOptions,
 } from "../calendar/working-week.js";

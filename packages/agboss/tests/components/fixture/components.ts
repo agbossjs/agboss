@@ -1,3 +1,4 @@
+import { McpTransport } from "../../../src/config/mcp-server-config.js";
 import { file } from "../../../src/components/file.js";
 
 import {
@@ -6,24 +7,24 @@ import {
   Injectable,
   InjectionToken,
   provide,
-  ROUTER_FACTORY,
+  DecisionModel,
   Tool,
-  type ToolHandler,
+  Ttl,
 } from "../../../src/index.js";
-import { McpServer, McpServerClient, McpTool } from "../../../src/mcp/index.js";
+import { McpServer, McpServerClient } from "../../../src/mcp/index.js";
 import { Text } from "../../../src/dto/index.js";
-import type { RouterEngine } from "../../../src/routers/index.js";
 import { testConfig, testDefaults } from "../../helpers.js";
 import { starOf } from "../../fixtures/test-flow/star.js";
 import { Reasoning, ReasoningEffort } from "../../../src/models/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 export const GREETING = new InjectionToken<string>("GREETING");
 
-@Injectable({ deps: [GREETING, ROUTER_FACTORY] })
+@Injectable({ deps: [GREETING, DecisionModel] })
 export class Greeter {
   constructor(
     readonly greeting: string,
-    readonly router: (name: string) => RouterEngine,
+    readonly decisions: DecisionModel,
   ) {}
   greet(name: string): string {
     return `${this.greeting}, ${name}`;
@@ -47,9 +48,9 @@ export class Greeting {
   output: Greeting,
   deps: [Greeter],
 })
-export class GreetTool implements ToolHandler<Person, Greeting> {
+export class GreetTool {
   constructor(private readonly greeter: Greeter) {}
-  run(input: Person): Promise<Greeting> {
+  execute(input: Person): Promise<Greeting> {
     return Promise.resolve({ text: this.greeter.greet(input.name) });
   }
 }
@@ -68,24 +69,23 @@ const filesTools = { read: { input: FileRead, output: FileContent } };
 
 @McpServer({
   name: "files",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: "files-server",
   tools: filesTools,
 })
 export class FilesServer extends McpServerClient<typeof filesTools> {}
 
-@McpTool({
-  server: FilesServer,
+@Tool({
   name: "read-file-tool",
   description: "Read a file.",
   input: FileRead,
   output: FileContent,
   deps: [FilesServer],
 })
-export class ReadFile implements ToolHandler<FileRead, FileContent> {
+export class ReadFile {
   constructor(private readonly files: FilesServer) {}
 
-  run(file: FileRead): Promise<FileContent> {
+  execute(file: FileRead): Promise<FileContent> {
     return this.files.call("read", file);
   }
 }
@@ -97,17 +97,18 @@ export class ReadFile implements ToolHandler<FileRead, FileContent> {
   price: testConfig.agents.alpha.price,
   reasoning: Reasoning.on({ effort: ReasoningEffort.Low }),
   tools: [GreetTool, ReadFile],
-  promptUrls: ["./greeter.prompt.md"],
+  prompt: "./greeter.prompt.md",
   promptVariables: { language: "Hebrew" },
 })
 export class GreeterAgent {}
 
 @Workflow({
   name: "greetings-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
   flow: starOf(GreeterAgent),
-  mcp: [FilesServer],
   providers: [Greeter, provide(GREETING, "Shalom")],
 })
 export class Greetings {}

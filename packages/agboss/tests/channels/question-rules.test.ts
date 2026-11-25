@@ -2,28 +2,22 @@
  * #659 AC1 / AC4 / AC6: the assembly rules of a question role — its name ends with `-question`, a
  * tool never names it, its interpreter is no decision model, it has one implementation.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
-import { ChannelOf } from "../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
-import {
-  ChannelRole,
-  PauseAnswerer,
-  ReplyInterpreter,
-} from "../../src/channels/channel-role.decorator.js";
-import { Channel, Tool, type ToolHandler } from "../../src/components/decorators.js";
+import { ChannelInterpreter } from "../../src/channels/channel-interpreter.js";
+import { Channel, Tool } from "../../src/components/decorators.js";
 import type { Class } from "../../src/components/injection.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
-import { DecidedBy } from "../../src/flow/decorators/router.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
-import { EmptyEnvironment } from "../../src/index.js";
+import { EmptyEnvironment, inline, ExternalTask, Ttl } from "../../src/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../flow/fixtures/dtos.js";
-import { start } from "../flow/fixtures/paths.js";
+import { onStart } from "../flow/fixtures/paths.js";
 import {
   DraftQuestionAction,
   PlacePurchaseAction,
@@ -33,11 +27,18 @@ import {
   PurchaseWorkflowFinish,
   PurchaseWorkflowStart,
   SpendingLimitAnswerDto,
-  SpendingLimitQuestion,
+  SpendingLimitQuestionExternalTask,
 } from "../flow/fixtures/questions.fixture.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import { days } from "../../src/units/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
 
 const assemble = (application: Class) =>
-  createAppWith(application, { processEnv: {}, gateway: createScriptedGateway(new ScriptBook()) });
+  createTestAppWith(application, {
+    processEnv: {},
+    gateway: createScriptedGateway(new ScriptBook()),
+  });
 
 const violationsOf = async (application: Class): Promise<unknown> => {
   const error: unknown = await assemble(application).catch((thrown: unknown) => thrown);
@@ -50,15 +51,12 @@ function askingApplication(name: string, role: Class, providers: readonly Class[
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(PurchaseWorkflowStart)
-        .returns(WorkflowStartTextDto)
+      onStart(PurchaseWorkflowStart)
         .toAction(DraftQuestionAction)
-        .returns(PurchaseQuestionDto)
-        .toQuestion(role)
-        .returns(SpendingLimitAnswerDto)
+        .toExternalTask(role)
         .toAction(PlacePurchaseAction)
-        .returns(PurchasePlacedDto)
         .toFinish(PurchaseWorkflowFinish),
     ],
     providers: [QuestionInbox],
@@ -66,6 +64,7 @@ function askingApplication(name: string, role: Class, providers: readonly Class[
   class AskingWorkflow {}
   @Application({
     name: `${name}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [AskingWorkflow],
@@ -78,22 +77,28 @@ function askingApplication(name: string, role: Class, providers: readonly Class[
 
 /** A question role named `name` with `interpreter`, and its one channel. */
 function questionRole(name: string, interpreter?: Class): { role: Class; channel: Class } {
-  @ChannelRole({
+  @ExternalTask({
     name,
     description: "d",
-    ask: PurchaseQuestionDto,
-    answer: SpendingLimitAnswerDto,
-    answerer: PauseAnswerer.ThreadOwner,
-    ...(interpreter === undefined ? {} : { replyInterpreter: interpreter }),
+    input: PurchaseQuestionDto,
+    output: SpendingLimitAnswerDto,
+    respondent: PauseRespondent.Owner,
+    timeout: days(365),
+    ...(interpreter === undefined ? {} : { channelInterpreter: interpreter }),
   })
-  abstract class SomeQuestion extends ChannelOf<SomeQuestion> {}
-  @Channel({ name: `${name}-inbox-channel`, description: "d" })
-  class SomeInbox extends SomeQuestion {
-    send(): Promise<ChannelOutcome<SomeQuestion>> {
+  class SomeQuestionExternalTask {}
+  @Channel({
+    name: `${name}-inbox-channel`,
+    description: "d",
+    target: SomeQuestionExternalTask,
+    ttl: days(1),
+  })
+  class SomeInbox {
+    send(): Promise<ChannelOutcome<SomeQuestionExternalTask>> {
       return Promise.resolve(ChannelOutcome.awaitReply());
     }
   }
-  return { role: SomeQuestion, channel: SomeInbox };
+  return { role: SomeQuestionExternalTask, channel: SomeInbox };
 }
 
 describe("#659 AC1: a question role's name and implementation", () => {
@@ -105,19 +110,19 @@ describe("#659 AC1: a question role's name and implementation", () => {
         expect.objectContaining({
           code: "name.kind-suffix",
           message: expect.stringContaining(
-            '"limit-channel" on @ChannelRole — name it "limit-channel-question"',
+            '"limit-channel" on @ExternalTask — name it "limit-channel-external-task"',
           ),
         }),
       ]),
     );
   });
 
-  it("AC1: no implementation of the role is [di.missing-implementation]", async () => {
-    const { role } = questionRole("unprovided-question");
+  it("AC1: an owner target with no channel is channel-less: it assembles, the pause waits for app.resume", async () => {
+    const { role } = questionRole("unprovided-external-task");
 
-    expect(await violationsOf(askingApplication("unprovided", role, []))).toEqual([
-      expect.objectContaining({ code: "di.missing-implementation" }),
-    ]);
+    const app = await assemble(askingApplication("unprovided", role, []));
+    expect(app).toBeDefined();
+    await app.close();
   });
 
   it("AC1: a tool that names a question role is [channel.wrong-tool]", async () => {
@@ -126,17 +131,17 @@ describe("#659 AC1: a question role's name and implementation", () => {
       description: "d",
       input: PurchaseQuestionDto,
       output: PurchasePlacedDto,
-      channel: SpendingLimitQuestion,
+      approval: SpendingLimitQuestionExternalTask,
     })
-    class LimitTool implements ToolHandler<PurchaseQuestionDto, PurchasePlacedDto> {
-      run(): Promise<PurchasePlacedDto> {
+    class LimitTool {
+      execute(): Promise<PurchasePlacedDto> {
         return Promise.resolve({ status: "ok" });
       }
     }
     @Agent({
       name: "limit-agent",
       description: "d",
-      prompt: "p",
+      prompt: inline("p"),
       model: "test/m",
       input: { message: WorkflowStartTextDto },
       output: PurchasePlacedDto,
@@ -146,16 +151,11 @@ describe("#659 AC1: a question role's name and implementation", () => {
     @Workflow({
       name: "tool-question-workflow",
       version: "1.0.0",
-      flow: [
-        start(PurchaseWorkflowStart)
-          .returns(WorkflowStartTextDto)
-          .toAgent(LimitAgent)
-          .returns(PurchasePlacedDto)
-          .toFinish(PurchaseWorkflowFinish),
-      ],
+      historyTtl: Ttl.Forever,
+      flow: [onStart(PurchaseWorkflowStart).toAgent(LimitAgent).toFinish(PurchaseWorkflowFinish)],
     })
     class ToolQuestionWorkflow {}
-    const { channel } = questionRole("unused-question");
+    const { channel } = questionRole("unused-external-task");
     @Application({
       name: "tool-question-application",
       version: "1.0.0",
@@ -171,7 +171,7 @@ describe("#659 AC1: a question role's name and implementation", () => {
         expect.objectContaining({
           code: "channel.wrong-tool",
           message: expect.stringContaining(
-            "spending-limit-question asks a question (ask / answer), it approves no tool — ask it with .toQuestion(SpendingLimitQuestion)",
+            "spending-limit-question-external-task is an external task, it approves no tool — ask it with .toExternalTask(SpendingLimitQuestionExternalTask)",
           ),
         }),
       ]),
@@ -181,34 +181,33 @@ describe("#659 AC1: a question role's name and implementation", () => {
 
 describe("#659 AC4: a question role's interpreter", () => {
   it("AC4: a decision model cannot read a question's answer: [reply-interpreter.decision-model]", async () => {
-    @ReplyInterpreter({
+    @ChannelInterpreter({
       name: "jev-limit-reply-interpreter",
       description: "d",
-      decidedBy: DecidedBy.Model,
       model: "typesafe/jev-1.13",
+      modelProvider: TestDecisionsModelProvider,
     })
     class JevLimitReplyInterpreter {}
-    const { role, channel } = questionRole("jev-limit-question", JevLimitReplyInterpreter);
+    const { role, channel } = questionRole("jev-limit-external-task", JevLimitReplyInterpreter);
 
     expect(await violationsOf(askingApplication("jev", role, [channel]))).toEqual([
       expect.objectContaining({
         code: "reply-interpreter.decision-model",
         message: expect.stringContaining(
-          "typesafe/jev-1.13 is a decision model — it answers only yes / no (approved), but channel role jev-limit-question asks for SpendingLimitAnswerDto",
+          "TestDecisionsModelProvider is a decisions provider — it answers only yes / no (approved), but external task jev-limit-external-task asks for SpendingLimitAnswerDto",
         ),
       }),
     ]);
   });
 
   it("AC4: a chat model interpreter assembles", async () => {
-    @ReplyInterpreter({
+    @ChannelInterpreter({
       name: "chat-limit-reply-interpreter",
       description: "d",
-      decidedBy: DecidedBy.Model,
       model: "test/m",
     })
     class ChatLimitReplyInterpreter {}
-    const { role, channel } = questionRole("chat-limit-question", ChatLimitReplyInterpreter);
+    const { role, channel } = questionRole("chat-limit-external-task", ChatLimitReplyInterpreter);
 
     const app = await assemble(askingApplication("chat", role, [channel]));
     expect(app.warnings).toEqual(

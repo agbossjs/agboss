@@ -14,7 +14,7 @@ import {
   ModelFiles,
   type ModelFilesOptions,
 } from "../../src/files/model-files.js";
-import { PiiAction, PiiFileAction, PiiKind, PiiPolicy, pii } from "../../src/index.js";
+import { PiiAction, PiiFileAction, PiiKind, PiiPolicy } from "../../src/index.js";
 import type { PiiMatch, PiiPolicyHandler } from "../../src/index.js";
 import type { RuleViolation } from "../../src/graph/rule-error.js";
 import { kilobytes } from "../../src/units/index.js";
@@ -25,33 +25,33 @@ const bytesOf = (count: number) => kilobytes(count / 1024);
 @PiiPolicy({
   name: "rules-cards-pii-policy",
   description: "Hides cards",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
 })
 class CardsPolicy {}
 
 @PiiPolicy({
   name: "rules-emails-pii-policy",
   description: "Hides emails",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 class EmailsPolicy {}
 
 @PiiPolicy({
   name: "rules-open-pii-policy",
   description: "Hides cards, lets the original through",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
   files: PiiFileAction.AllowOriginal,
 })
 class OpenPolicy {}
 
-@PiiPolicy({ name: "rules-staff-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "rules-staff-pii-policy", action: PiiAction.mask() })
 class StaffPolicy implements PiiPolicyHandler {
   findMatches(): readonly PiiMatch[] {
     return [];
   }
 }
 
-@PiiPolicy({ name: "rules-badge-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "rules-badge-pii-policy", action: PiiAction.mask() })
 class BadgePolicy implements PiiPolicyHandler {
   findMatches(): readonly PiiMatch[] {
     return [];
@@ -182,7 +182,7 @@ describe("[files.invalid-setting]: media types", () => {
 
   it("no type at all, named or defaulted", async () => {
     const named = await thrownBy(withFiles({ allowedMediaTypes: [] }));
-    const defaulted = await thrownBy(withFiles({}, { a2aFiles: { allowedMediaTypes: [] } }));
+    const defaulted = await thrownBy(withFiles({}, { filePolicy: { allowedMediaTypes: [] } }));
 
     for (const { name, found } of [named, defaulted])
       expect(found).toEqual([
@@ -194,9 +194,9 @@ describe("[files.invalid-setting]: media types", () => {
       ]);
   });
 
-  it("types the application's a2aFiles gave are narrowed at start, not checked strictly", async () => {
+  it("types the workflow's filePolicy gave are narrowed at start, not checked strictly", async () => {
     const { found } = await thrownBy(
-      withFiles({}, { a2aFiles: { allowedMediaTypes: ["application/zip", "image/png"] } }),
+      withFiles({}, { filePolicy: { allowedMediaTypes: ["application/zip", "image/png"] } }),
     );
 
     expect(found).toEqual([]);
@@ -340,7 +340,7 @@ describe("[files.history-needs-store]", () => {
     expect(found).toEqual([
       {
         code: "files.history-needs-store",
-        message: `${name}: FileSource.History needs an A2AFileRepository in @Application({ providers }): a turn keeps its files' descriptors, not their bytes — the inline default has none to read again`,
+        message: `${name}: FileSource.History needs a FileRepository in @Application({ providers }): a turn keeps its files' descriptors, not their bytes — the inline default has none to read again`,
         nodes: [name],
       },
     ]);

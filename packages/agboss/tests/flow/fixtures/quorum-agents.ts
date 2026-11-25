@@ -25,6 +25,8 @@ import {
   ScoreReviewDto,
   SkillsScoreDto,
 } from "./quorum-dtos.js";
+import { inline } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #279 — the components of the issue's quorums (`quorum.fixture.ts` wires them). */
 
@@ -42,7 +44,7 @@ export class CandidateReviewWorkflowStart {}
 @Agent({
   name: "score-a-agent",
   description: "Scores the skills",
-  prompt: "Score the skills.",
+  prompt: inline("Score the skills."),
   model: MODEL,
   input: { candidate: CandidateDto },
   output: ScoreDto,
@@ -52,7 +54,7 @@ export class ScoreAAgent {}
 @Agent({
   name: "score-b-agent",
   description: "Scores the risks",
-  prompt: "Score the risks.",
+  prompt: inline("Score the risks."),
   model: MODEL,
   input: { candidate: CandidateDto },
   output: ScoreDto,
@@ -62,7 +64,7 @@ export class ScoreBAgent {}
 @Agent({
   name: "score-c-agent",
   description: "Scores the hire",
-  prompt: "Score the hire.",
+  prompt: inline("Score the hire."),
   model: MODEL,
   input: { candidate: CandidateDto },
   output: ScoreDto,
@@ -72,7 +74,7 @@ export class ScoreCAgent {}
 @Agent({
   name: "score-summary-agent",
   description: "Sums up the counted scores",
-  prompt: "Sum up the scores.",
+  prompt: inline("Sum up the scores."),
   model: MODEL,
   input: { candidate: CandidateDto, scores: listOf(ScoreDto) },
   output: ScoreReviewDto,
@@ -105,7 +107,7 @@ export class FitReviewWorkflowStart {}
 @Agent({
   name: "skills-score-agent",
   description: "Scores skills",
-  prompt: "Score.",
+  prompt: inline("Score."),
   model: MODEL,
   input: { candidate: CandidateDto },
   output: SkillsScoreDto,
@@ -115,7 +117,7 @@ export class SkillsScoreAgent {}
 @Agent({
   name: "culture-score-agent",
   description: "Scores culture",
-  prompt: "Score.",
+  prompt: inline("Score."),
   model: MODEL,
   input: { candidate: CandidateDto },
   output: CultureScoreDto,
@@ -125,7 +127,7 @@ export class CultureScoreAgent {}
 @Agent({
   name: "salary-fit-agent",
   description: "Checks the salary",
-  prompt: "Check.",
+  prompt: inline("Check."),
   model: MODEL,
   input: { candidate: CandidateDto },
   output: SalaryFitDto,
@@ -135,7 +137,7 @@ export class SalaryFitAgent {}
 @Agent({
   name: "fit-summary-agent",
   description: "Sums up the fit",
-  prompt: "Sum up the fit.",
+  prompt: inline("Sum up the fit."),
   model: MODEL,
   input: {
     skills: optional(SkillsScoreDto),
@@ -165,7 +167,7 @@ export class CompanySearchWorkflowStart {}
 @Agent({
   name: "board-search-agent",
   description: "Finds companies",
-  prompt: "Find.",
+  prompt: inline("Find."),
   model: MODEL,
   input: { message: WorkflowStartTextDto },
   output: listOf(CompanyDto),
@@ -175,7 +177,7 @@ export class BoardSearchAgent {}
 @Agent({
   name: "company-vet-agent",
   description: "Checks one company",
-  prompt: "Check.",
+  prompt: inline("Check."),
   model: MODEL,
   input: { company: CompanyDto },
   output: CompanyCheckDto,
@@ -185,7 +187,7 @@ export class CompanyVetAgent {}
 @Agent({
   name: "company-shortlist-agent",
   description: "Shortlists the counted companies",
-  prompt: "Shortlist.",
+  prompt: inline("Shortlist."),
   model: MODEL,
   input: { checks: listOf(CompanyCheckDto) },
   output: CompanyShortlistDto,
@@ -207,7 +209,7 @@ export class DealWorkflowStart {}
 @Agent({
   name: "legal-agent",
   description: "Legal review",
-  prompt: "Review.",
+  prompt: inline("Review."),
   model: MODEL,
   input: { deal: DealDto },
   output: LegalReviewDto,
@@ -217,7 +219,7 @@ export class LegalAgent {}
 @Agent({
   name: "deal-critic-agent",
   description: "Objects",
-  prompt: "Object.",
+  prompt: inline("Object."),
   model: MODEL,
   input: { deal: DealDto },
   output: DealCritiqueDto,
@@ -227,7 +229,7 @@ export class DealCriticAgent {}
 @Agent({
   name: "auditor-agent",
   description: "Audits",
-  prompt: "Audit.",
+  prompt: inline("Audit."),
   model: MODEL,
   input: { deal: DealDto },
   output: AuditDto,
@@ -237,7 +239,7 @@ export class AuditorAgent {}
 @Agent({
   name: "fast-screen-agent",
   description: "Screens",
-  prompt: "Screen.",
+  prompt: inline("Screen."),
   model: MODEL,
   input: { deal: DealDto },
   output: FastScreenDto,
@@ -247,7 +249,7 @@ export class FastScreenAgent {}
 @Agent({
   name: "full-review-agent",
   description: "Writes the due diligence report from the counted reviews",
-  prompt: "Write the report.",
+  prompt: inline("Write the report."),
   model: MODEL,
   input: { deal: DealDto, legal: optional(LegalReviewDto), critiques: listOf(DealCritiqueDto) },
   output: DueDiligenceReportDto,
@@ -261,7 +263,7 @@ export class FullReviewAgent {}
 })
 export class OpenDealRoomAction implements ActionHandler<OpenDealRoomAction> {
   async execute(input: InputOf<OpenDealRoomAction>): Promise<void> {
-    await Promise.resolve(input.audit.value.passed);
+    await Promise.resolve(input.audit.passed);
   }
 }
 
@@ -272,7 +274,7 @@ export class OpenDealRoomAction implements ActionHandler<OpenDealRoomAction> {
 })
 export class NotifyReviewerAction implements ActionHandler<NotifyReviewerAction> {
   async execute(input: InputOf<NotifyReviewerAction>): Promise<void> {
-    await Promise.resolve(input.deal.value.name);
+    await Promise.resolve(input.deal.name);
   }
 }
 
@@ -280,8 +282,9 @@ export class NotifyReviewerAction implements ActionHandler<NotifyReviewerAction>
   name: "second-opinion-router",
   description: "Decides what two critiques lead to",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick what the critiques lead to.",
+  prompt: inline("Pick what the critiques lead to."),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { critiques: listOf(DealCritiqueDto) },
   routes: [
     { prompt: "A full review is worth it", target: FullReviewAgent },

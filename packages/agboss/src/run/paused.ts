@@ -119,7 +119,7 @@ async function loopsIn(snapshot: Snapshot, search: PausedSearch): Promise<readon
       const namespace = parent === "" ? own : `${parent}|${own}`;
       const config = { configurable: { thread_id: runId, checkpoint_ns: namespace } };
       const tuple = await checkpointer.getTuple(config);
-      // `ThisWorkflow` (#264): the workflow's own graph, run from the registry — read it the same way
+      // A recursion (#264): the workflow's own graph, run from the registry — read it the same way
       if (isChildState(tuple?.checkpoint.channel_values))
         return loopsIn(await search.graph.getState(config, { subgraphs: true }), search);
       // no checkpoint under the task: the flow's node waits at its own interrupt (a question, #659)

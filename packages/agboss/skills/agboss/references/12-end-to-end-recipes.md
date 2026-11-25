@@ -8,9 +8,9 @@ read the reference each part points to.
 
 | Recipe                                                | Shows                                                                                                                                             |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. An offer review loop                               | `oneOf` + `switch`, `about`, `historyOf`, `maxVisits`, a code router, `.onError` side paths                                                       |
-| 2. Sourcing: children per item, a quorum, an approval | `.toParallelWorkflows`, a soft child failure, `.acceptedBy(anyOf(…))`, `.joinQuorum`, a channel role, `app.resume`                                |
-| 3. A help desk on MCP and A2A, streamed               | `@McpServer` / `@McpTool`, an `@A2AAgent` behind a tool, `onStream`, `mcpOf`, `mockOf`                                                            |
+| 1. An offer review loop                               | `oneOf` + `switch`, `historyOf`, `maxVisits`, a code router, `.onError` side paths                                                                |
+| 2. Sourcing: children per item, a quorum, an approval | `.forEachItem(toWorkflow(…))`, a soft child failure, `.arbitratedBy(…)`, `.joinQuorum`, a tool approval, `app.resume`                             |
+| 3. A help desk on MCP and A2A, streamed               | `@McpServer` behind a tool, an `@A2AAgent` behind a tool, `onStream`, `mcpOf`, `mockOf`                                                           |
 | 4. A production multi-tenant application              | tenant context, budgets, model providers with a fallback and `TenantWeighted`, PII, a guardrail, SQLite, health, undo, unit and integration tests |
 
 After writing any of them: `npx agboss check` (types, every rule), `npx agboss describe`, `npm test`.
@@ -98,14 +98,14 @@ export class OfferLetterWorkflowStart {}
 ```
 
 ```ts file=offers/src/agents/letter-writer/letter-writer.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { OfferLetterDto } from "../../dto/offer-letter.dto.js";
 import { OfferRequestDto } from "../../dto/offer-request.dto.js";
 
 @Agent({
   name: "letter-writer-agent",
   description: "Writes the first offer letter",
-  prompt: "Write a warm, short offer letter.",
+  prompt: inline("Write a warm, short offer letter."),
   model: "moonshotai/kimi-k2.6",
   input: { request: OfferRequestDto },
   output: OfferLetterDto,
@@ -114,7 +114,7 @@ export class LetterWriterAgent {}
 ```
 
 ```ts file=offers/src/agents/letter-reviewer/letter-reviewer.agent.ts
-import { Agent, historyOf, oneOf } from "@agboss/core";
+import { Agent, historyOf, oneOf, inline } from "@agboss/core";
 import { LetterApprovedDto } from "../../dto/letter-approved.dto.js";
 import { LetterChangesDto } from "../../dto/letter-changes.dto.js";
 import { OfferLetterDto } from "../../dto/offer-letter.dto.js";
@@ -122,28 +122,28 @@ import { OfferLetterDto } from "../../dto/offer-letter.dto.js";
 @Agent({
   name: "letter-reviewer-agent",
   description: "Approves the letter or asks for changes",
-  prompt: "Approve the letter, or say what to change. Do not ask again for what earlier versions fixed.",
+  prompt: inline("Approve the letter, or say what to change. Do not ask again for what earlier versions fixed."),
   model: "moonshotai/kimi-k2.6",
-  input: { letter: historyOf(OfferLetterDto, { limit: 2 }) },
+  input: { letter: historyOf(OfferLetterDto, { maxPrevious: 2 }) },
   output: oneOf(LetterChangesDto, LetterApprovedDto),
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
 })
 export class LetterReviewerAgent {}
 ```
 
 ```ts file=offers/src/agents/letter-editor/letter-editor.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { LetterChangesDto } from "../../dto/letter-changes.dto.js";
 import { OfferLetterDto } from "../../dto/offer-letter.dto.js";
 
 @Agent({
   name: "letter-editor-agent",
   description: "Rewrites the letter as asked",
-  prompt: "Rewrite the letter so it meets every requested change.",
+  prompt: inline("Rewrite the letter so it meets every requested change."),
   model: "moonshotai/kimi-k2.6",
   input: { letter: OfferLetterDto, changes: LetterChangesDto },
   output: OfferLetterDto,
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
 })
 export class LetterEditorAgent {}
 ```
@@ -171,7 +171,7 @@ export class MailOfferAction implements ActionHandler<MailOfferAction> {
 
   async execute(input: InputOf<MailOfferAction>): Promise<OutputOf<MailOfferAction>> {
     const key: string = this.executionContext.step.idempotencyKey; // a resend after a crash is one send
-    const messageId: string = await this.offerMailerService.send(input.request.value.candidate, input.letter.value.text, key);
+    const messageId: string = await this.offerMailerService.send(input.request.candidate, input.letter.text, key);
     return { messageId };
   }
 }
@@ -215,11 +215,11 @@ const SIGN_OFF_SALARY = 200_000;
   description: "Mails an ordinary offer, holds a large one for sign-off",
   decidedBy: DecidedBy.Code,
   input: { request: OfferRequestDto },
-  routes: [{ target: MailOfferAction }, { target: OfferForSignOffWorkflowFinish }],
+  routes: [MailOfferAction, OfferForSignOffWorkflowFinish],
 })
 export class OfferSizeRouter implements RouterHandler<OfferSizeRouter> {
   route(input: InputOf<OfferSizeRouter>): Route<OfferSizeRouter> {
-    return input.request.value.salary > SIGN_OFF_SALARY ? OfferForSignOffWorkflowFinish : MailOfferAction;
+    return input.request.salary > SIGN_OFF_SALARY ? OfferForSignOffWorkflowFinish : MailOfferAction;
   }
 }
 ```
@@ -227,7 +227,18 @@ export class OfferSizeRouter implements RouterHandler<OfferSizeRouter> {
 The workflow wires them:
 
 ```ts file=offers/src/workflows/offer-letter/offer-letter.workflow.ts
-import { VisitsLimitExceededError, Workflow, agent, caseOf, oneOf, route, start, toFinish } from "@agboss/core";
+import {
+  VisitsLimitExceededError,
+  Workflow,
+  onAgent,
+  oneOf,
+  onStart,
+  toFinish,
+  toAgent,
+  toRouter,
+  toAction,
+  Ttl,
+} from "@agboss/core";
 import { MailOfferAction } from "../../actions/mail-offer.action.js";
 import { LetterEditorAgent } from "../../agents/letter-editor/letter-editor.agent.js";
 import { LetterReviewerAgent } from "../../agents/letter-reviewer/letter-reviewer.agent.js";
@@ -248,33 +259,27 @@ import { OfferStuckWorkflowFinish } from "./offer-stuck.workflow-finish.js";
 @Workflow({
   name: "offer-letter-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OfferLetterWorkflowStart)
-      .returns(OfferRequestDto)
+    onStart(OfferLetterWorkflowStart)
       .toAgent(LetterWriterAgent)
-      .returns(OfferLetterDto)
       .toAgent(LetterReviewerAgent),
 
-    agent(LetterReviewerAgent)
-      .returns(oneOf(LetterChangesDto, LetterApprovedDto))
-      .switch(
-        caseOf(LetterChangesDto, { about: OfferLetterDto })
-          .toAgent(LetterEditorAgent)
+    onAgent(LetterReviewerAgent)
+      .toOneOf([
+        toAgent(LetterEditorAgent)
           .onError(VisitsLimitExceededError, toFinish(OfferStuckWorkflowFinish)) // no model past a limit
-          .returns(OfferLetterDto)
           .toAgent(LetterReviewerAgent),
-        caseOf(LetterApprovedDto)
-          .toRouter(OfferSizeRouter)
-          .chooseOne(
-            route(MailOfferAction)
+        toRouter(OfferSizeRouter)
+          .onRoute(
+            toAction(MailOfferAction)
               .onError(MailerUnavailableError, toFinish(OfferForSignOffWorkflowFinish)) // through ActionFailedError's cause
-              .returns(OfferMailedDto)
               .toFinish(OfferMailedWorkflowFinish),
-            route(OfferForSignOffWorkflowFinish),
-          ),
-      ),
+          )
+          .onRoute(toFinish(OfferForSignOffWorkflowFinish)),
+      ]),
   ],
-  maxSteps: 8,
+  executionLimits: { maxSteps: 8 },
   providers: [OfferMailerService],
 })
 export class OfferLetterWorkflow {}
@@ -318,7 +323,25 @@ export class OffersExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=offers/src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=offers/src/offers.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { OffersApplicationBudget } from "./budgets/offers-application.budget.js";
 import { OffersExecutionBudget } from "./budgets/offers-execution.budget.js";
@@ -326,6 +349,8 @@ import { OffersTenantBudget } from "./budgets/offers-tenant.budget.js";
 import { OfferLetterWorkflow } from "./workflows/offer-letter/offer-letter.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "offers-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
@@ -498,14 +523,14 @@ export class SupplierCheckWorkflowStart {}
 ```
 
 ```ts file=sourcing/src/agents/supplier-checker/supplier-checker.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { SupplierScoreDto } from "../../dto/supplier-score.dto.js";
 import { SupplierDto } from "../../dto/supplier.dto.js";
 
 @Agent({
   name: "supplier-checker-agent",
   description: "Scores one supplier",
-  prompt: "Score the supplier's fit from 1 to 10.",
+  prompt: inline("Score the supplier's fit from 1 to 10."),
   model: "moonshotai/kimi-k2.6",
   input: { supplier: SupplierDto },
   output: SupplierScoreDto,
@@ -522,7 +547,7 @@ import { SupplierDto } from "../dto/supplier.dto.js";
 @Action({ name: "mark-supplier-unchecked-action", description: "Records a failed check", input: { supplier: SupplierDto }, output: SupplierUncheckedDto })
 export class MarkSupplierUncheckedAction implements ActionHandler<MarkSupplierUncheckedAction> {
   execute(input: InputOf<MarkSupplierUncheckedAction>): Promise<OutputOf<MarkSupplierUncheckedAction>> {
-    return Promise.resolve({ name: input.supplier.value.name });
+    return Promise.resolve({ name: input.supplier.name });
   }
 }
 ```
@@ -545,7 +570,7 @@ export class SupplierUncheckedWorkflowFinish {}
 
 ```ts file=sourcing/src/workflows/supplier-check/supplier-check.workflow.ts
 // the child: one supplier; its own failure becomes a result class, so one bad item never cancels the rest
-import { StepFailedError, Workflow, start, toAction } from "@agboss/core";
+import { StepFailedError, Workflow, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
 import { MarkSupplierUncheckedAction } from "../../actions/mark-supplier-unchecked.action.js";
 import { SupplierCheckerAgent } from "../../agents/supplier-checker/supplier-checker.agent.js";
 import { SupplierScoreDto } from "../../dto/supplier-score.dto.js";
@@ -558,37 +583,37 @@ import { SupplierUncheckedWorkflowFinish } from "./supplier-unchecked.workflow-f
 @Workflow({
   name: "supplier-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SupplierCheckWorkflowStart)
-      .returns(SupplierDto)
+    onStart(SupplierCheckWorkflowStart)
       .toAgent(SupplierCheckerAgent)
       .onError(
         StepFailedError,
         toAction(MarkSupplierUncheckedAction)
-          .returns(SupplierUncheckedDto)
           .toFinish(SupplierUncheckedWorkflowFinish),
       )
-      .returns(SupplierScoreDto)
       .toFinish(SupplierScoredWorkflowFinish),
   ],
 })
 export class SupplierCheckWorkflow {}
 ```
 
-The approval: the role, and its implementation over the buyer's inbox:
+The approval: the target, and its channel over the buyer's inbox:
 
-```ts file=sourcing/src/channels/purchase-approval.channel-role.ts
-// the role: what it approves and who answers; its implementation is infrastructure
-import { ChannelOf, ChannelRole, PauseAnswerer } from "@agboss/core";
+```ts file=sourcing/src/tool-approvals/purchase.tool-approval.ts
+// the target: what it approves and who answers; its channel is infrastructure
+import { PauseRespondent, ToolApproval } from "@agboss/core";
+import { days } from "@agboss/core/units";
 import { PurchaseOrderDto } from "../dto/purchase-order.dto.js";
 
-@ChannelRole({
-  name: "purchase-approval-channel",
+@ToolApproval({
+  name: "purchase-tool-approval",
   description: "The buyer approves every purchase order",
-  approves: PurchaseOrderDto, // the input of the tool that names the role
-  answerer: PauseAnswerer.ThreadOwner, // app.resume(…, { ownerId }); the pauseId is in result.pending
+  input: PurchaseOrderDto, // the input of the tool that names the target
+  respondent: PauseRespondent.Owner, // app.resume(…, { ownerId }); the pauseId is in result.pending
+  timeout: days(3),
 })
-export abstract class PurchaseApprovalChannel extends ChannelOf<PurchaseApprovalChannel> {}
+export class PurchaseToolApproval {}
 ```
 
 ```ts file=sourcing/src/services/buyer-inbox.service.ts
@@ -604,20 +629,25 @@ export class BuyerInboxService {
 }
 ```
 
-```ts file=sourcing/src/channels/buyer-inbox-purchase-approval.channel.ts
+```ts file=sourcing/src/channels/buyer-inbox-purchase.channel.ts
 import { Channel, ChannelOutcome } from "@agboss/core";
 import type { ChannelAsk } from "@agboss/core";
+import { days } from "@agboss/core/units";
 import { BuyerInboxService } from "../services/buyer-inbox.service.js";
-import { PurchaseApprovalChannel } from "./purchase-approval.channel-role.js";
+import { PurchaseToolApproval } from "../tool-approvals/purchase.tool-approval.js";
 
-@Channel({ name: "buyer-inbox-purchase-approval-channel", description: "Tells the buyer in their inbox", deps: [BuyerInboxService] })
-export class BuyerInboxPurchaseApprovalChannel extends PurchaseApprovalChannel {
-  constructor(private readonly buyerInboxService: BuyerInboxService) {
-    super();
-  }
+@Channel({
+  name: "buyer-inbox-purchase-channel",
+  description: "Tells the buyer in their inbox",
+  target: PurchaseToolApproval,
+  ttl: days(7),
+  deps: [BuyerInboxService],
+})
+export class BuyerInboxPurchaseChannel {
+  constructor(private readonly buyerInboxService: BuyerInboxService) {}
 
-  async send(ask: ChannelAsk<PurchaseApprovalChannel>): Promise<ChannelOutcome<PurchaseApprovalChannel>> {
-    const { supplier, price } = ask.value.arguments;
+  async send(ask: ChannelAsk<PurchaseToolApproval>): Promise<ChannelOutcome<PurchaseToolApproval>> {
+    const { supplier, price } = ask.input;
     await this.buyerInboxService.notify(ask.pauseId, `Order from ${supplier} for $${String(price)}?`);
     return ChannelOutcome.awaitReply(); // the execution rests until app.resume
   }
@@ -636,14 +666,14 @@ export class SourcingWorkflowStart {}
 ```
 
 ```ts file=sourcing/src/agents/supplier-finder/supplier-finder.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SupplierDto } from "../../dto/supplier.dto.js";
 
 @Agent({
   name: "supplier-finder-agent",
   description: "Lists suppliers for the request",
-  prompt: "List the suppliers that can deliver the request.",
+  prompt: inline("List the suppliers that can deliver the request."),
   model: "moonshotai/kimi-k2.6",
   input: { request: WorkflowStartTextDto },
   output: listOf(SupplierDto),
@@ -652,7 +682,7 @@ export class SupplierFinderAgent {}
 ```
 
 ```ts file=sourcing/src/agents/supplier-shortlist/supplier-shortlist.agent.ts
-import { Agent, listOf, oneOf } from "@agboss/core";
+import { Agent, listOf, oneOf, inline } from "@agboss/core";
 import { SupplierScoreDto } from "../../dto/supplier-score.dto.js";
 import { SupplierShortlistDto } from "../../dto/supplier-shortlist.dto.js";
 import { SupplierUncheckedDto } from "../../dto/supplier-unchecked.dto.js";
@@ -660,61 +690,61 @@ import { SupplierUncheckedDto } from "../../dto/supplier-unchecked.dto.js";
 @Agent({
   name: "supplier-shortlist-agent",
   description: "Picks the best checked supplier",
-  prompt: "Pick the best scored supplier and its price; ignore the unchecked ones.",
+  prompt: inline("Pick the best scored supplier and its price; ignore the unchecked ones."),
   model: "moonshotai/kimi-k2.6",
-  input: { checks: listOf(oneOf(SupplierScoreDto, SupplierUncheckedDto)) },
+  input: { checks: listOf(SupplierScoreDto, SupplierUncheckedDto) },
   output: SupplierShortlistDto,
 })
 export class SupplierShortlistAgent {}
 ```
 
 ```ts file=sourcing/src/agents/price-review/price-review.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PurchaseReviewDto } from "../../dto/purchase-review.dto.js";
 import { SupplierShortlistDto } from "../../dto/supplier-shortlist.dto.js";
 
-@Agent({ name: "price-review-agent", description: "Reviews the price", prompt: "Score the price from 1 to 10.", model: "moonshotai/kimi-k2.6", input: { shortlist: SupplierShortlistDto }, output: PurchaseReviewDto })
+@Agent({ name: "price-review-agent", description: "Reviews the price", prompt: inline("Score the price from 1 to 10."), model: "moonshotai/kimi-k2.6", input: { shortlist: SupplierShortlistDto }, output: PurchaseReviewDto })
 export class PriceReviewAgent {}
 ```
 
 ```ts file=sourcing/src/agents/risk-review/risk-review.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PurchaseReviewDto } from "../../dto/purchase-review.dto.js";
 import { SupplierShortlistDto } from "../../dto/supplier-shortlist.dto.js";
 
-@Agent({ name: "risk-review-agent", description: "Reviews the supplier risk", prompt: "Score the supplier risk from 1 (high) to 10 (low).", model: "moonshotai/kimi-k2.6", input: { shortlist: SupplierShortlistDto }, output: PurchaseReviewDto })
+@Agent({ name: "risk-review-agent", description: "Reviews the supplier risk", prompt: inline("Score the supplier risk from 1 (high) to 10 (low)."), model: "moonshotai/kimi-k2.6", input: { shortlist: SupplierShortlistDto }, output: PurchaseReviewDto })
 export class RiskReviewAgent {}
 ```
 
 ```ts file=sourcing/src/agents/terms-review/terms-review.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PurchaseReviewDto } from "../../dto/purchase-review.dto.js";
 import { SupplierShortlistDto } from "../../dto/supplier-shortlist.dto.js";
 
-@Agent({ name: "terms-review-agent", description: "Reviews the terms", prompt: "Score the delivery terms from 1 to 10.", model: "moonshotai/kimi-k2.6", input: { shortlist: SupplierShortlistDto }, output: PurchaseReviewDto })
+@Agent({ name: "terms-review-agent", description: "Reviews the terms", prompt: inline("Score the delivery terms from 1 to 10."), model: "moonshotai/kimi-k2.6", input: { shortlist: SupplierShortlistDto }, output: PurchaseReviewDto })
 export class TermsReviewAgent {}
 ```
 
 ```ts file=sourcing/src/arbiters/review-range/review-range.arbiter.ts
-import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
+import { Arbiter, Arbitrate } from "@agboss/core";
 import type { ArbiterAnswerOf } from "@agboss/core";
 import { PriceReviewAgent } from "../../agents/price-review/price-review.agent.js";
 import { RiskReviewAgent } from "../../agents/risk-review/risk-review.agent.js";
 import { TermsReviewAgent } from "../../agents/terms-review/terms-review.agent.js";
 
-@Arbiter({ name: "review-range-arbiter", decidedBy: DecidedBy.Code })
+@Arbiter({ name: "review-range-arbiter" })
 export class ReviewRangeArbiter {
-  @OnAnswer(PriceReviewAgent)
+  @Arbitrate(PriceReviewAgent)
   fromPriceReview(answer: ArbiterAnswerOf<typeof PriceReviewAgent>): boolean {
     return this.isUsable(answer.score, answer.reason);
   }
 
-  @OnAnswer(RiskReviewAgent)
+  @Arbitrate(RiskReviewAgent)
   fromRiskReview(answer: ArbiterAnswerOf<typeof RiskReviewAgent>): boolean {
     return this.isUsable(answer.score, answer.reason);
   }
 
-  @OnAnswer(TermsReviewAgent)
+  @Arbitrate(TermsReviewAgent)
   fromTermsReview(answer: ArbiterAnswerOf<typeof TermsReviewAgent>): boolean {
     return this.isUsable(answer.score, answer.reason);
   }
@@ -725,30 +755,9 @@ export class ReviewRangeArbiter {
 }
 ```
 
-```ts file=sourcing/src/arbiters/review-grounded/review-grounded.arbiter.ts
-import { Arbiter, DecidedBy } from "@agboss/core";
-import { PriceReviewAgent } from "../../agents/price-review/price-review.agent.js";
-import { RiskReviewAgent } from "../../agents/risk-review/risk-review.agent.js";
-import { TermsReviewAgent } from "../../agents/terms-review/terms-review.agent.js";
-
-@Arbiter({
-  name: "review-grounded-arbiter",
-  decidedBy: DecidedBy.Model,
-  model: "typesafe/jev-1.13",
-  prompt: "Count a review only if it meets the criterion of the agent that gave it.",
-  criteria: [
-    { agent: PriceReviewAgent, prompt: "The reason compares the price with the market" },
-    { agent: RiskReviewAgent, prompt: "The reason names a concrete risk" },
-    { agent: TermsReviewAgent, prompt: "The reason names a delivery term" },
-  ],
-})
-export class ReviewGroundedArbiter {}
-```
-
 ```ts file=sourcing/src/tools/place-purchase.tool.ts
 import { ExecutionContext, Tool } from "@agboss/core";
-import type { ToolHandler } from "@agboss/core";
-import { PurchaseApprovalChannel } from "../channels/purchase-approval.channel-role.js";
+import { PurchaseToolApproval } from "../tool-approvals/purchase.tool-approval.js";
 import { PurchaseOrderDto } from "../dto/purchase-order.dto.js";
 import { PurchasePlacedDto } from "../dto/purchase-placed.dto.js";
 
@@ -757,20 +766,20 @@ import { PurchasePlacedDto } from "../dto/purchase-placed.dto.js";
   description: "Places the purchase order — the buyer approves it first",
   input: PurchaseOrderDto,
   output: PurchasePlacedDto,
-  channel: PurchaseApprovalChannel, // the role, never the implementation
+  approval: PurchaseToolApproval, // the target, never the channel
   deps: [ExecutionContext],
 })
-export class PlacePurchaseTool implements ToolHandler<PurchaseOrderDto, PurchasePlacedDto> {
+export class PlacePurchaseTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run({ supplier }: PurchaseOrderDto): Promise<PurchasePlacedDto> {
+  execute({ supplier }: PurchaseOrderDto): Promise<PurchasePlacedDto> {
     return Promise.resolve({ orderId: `${supplier}:${this.executionContext.step.idempotencyKey}` });
   }
 }
 ```
 
 ```ts file=sourcing/src/agents/purchase/purchase.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { PurchaseReviewDto } from "../../dto/purchase-review.dto.js";
 import { PurchaseSummaryDto } from "../../dto/purchase-summary.dto.js";
 import { SupplierShortlistDto } from "../../dto/supplier-shortlist.dto.js";
@@ -779,12 +788,12 @@ import { PlacePurchaseTool } from "../../tools/place-purchase.tool.js";
 @Agent({
   name: "purchase-agent",
   description: "Places the order and sums it up",
-  prompt: "Place the order for the shortlisted supplier with place-purchase-tool, then sum it up.",
+  prompt: inline("Place the order for the shortlisted supplier with place-purchase-tool, then sum it up."),
   model: "moonshotai/kimi-k2.6",
   input: { shortlist: SupplierShortlistDto, reviews: listOf(PurchaseReviewDto) },
   output: PurchaseSummaryDto,
   tools: [PlacePurchaseTool],
-  maxToolCalls: 2,
+  executionLimits: { maxToolCalls: 2 },
 })
 export class PurchaseAgent {}
 ```
@@ -808,7 +817,17 @@ export class PurchaseUnreviewedWorkflowFinish {}
 The parent workflow:
 
 ```ts file=sourcing/src/workflows/sourcing/sourcing.workflow.ts
-import { QuorumNotReachedError, Workflow, anyOf, listOf, oneOf, start, toFinish } from "@agboss/core";
+import {
+  QuorumNotReachedError,
+  Workflow,
+  listOf,
+  oneOf,
+  onStart,
+  toFinish,
+  toAgent,
+  toWorkflow,
+  Ttl,
+} from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { minutes } from "@agboss/core/units";
 import { PriceReviewAgent } from "../../agents/price-review/price-review.agent.js";
@@ -817,7 +836,6 @@ import { RiskReviewAgent } from "../../agents/risk-review/risk-review.agent.js";
 import { SupplierFinderAgent } from "../../agents/supplier-finder/supplier-finder.agent.js";
 import { SupplierShortlistAgent } from "../../agents/supplier-shortlist/supplier-shortlist.agent.js";
 import { TermsReviewAgent } from "../../agents/terms-review/terms-review.agent.js";
-import { ReviewGroundedArbiter } from "../../arbiters/review-grounded/review-grounded.arbiter.js";
 import { ReviewRangeArbiter } from "../../arbiters/review-range/review-range.arbiter.js";
 import { PurchaseReviewDto } from "../../dto/purchase-review.dto.js";
 import { PurchaseSummaryDto } from "../../dto/purchase-summary.dto.js";
@@ -833,26 +851,21 @@ import { SourcingWorkflowStart } from "./sourcing.workflow-start.js";
 @Workflow({
   name: "sourcing-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SourcingWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(SourcingWorkflowStart)
       .toAgent(SupplierFinderAgent)
-      .returns(listOf(SupplierDto))
-      .toParallelWorkflows(SupplierCheckWorkflow, { maxConcurrency: 3, maxItems: 10 })
+      .forEachItem(toWorkflow(SupplierCheckWorkflow), { takeFirst: 10, maxConcurrency: 3 })
       .join()
-      .returns(listOf(oneOf(SupplierScoreDto, SupplierUncheckedDto)))
       .toAgent(SupplierShortlistAgent)
-      .returns(SupplierShortlistDto)
-      .toParallelAgents(PriceReviewAgent, RiskReviewAgent, TermsReviewAgent)
-      .acceptedBy(anyOf(ReviewRangeArbiter, ReviewGroundedArbiter)) // the model only when the code rejects
+      .inParallel([toAgent(PriceReviewAgent), toAgent(RiskReviewAgent), toAgent(TermsReviewAgent)])
+      .arbitratedBy(ReviewRangeArbiter) // one arbiter judges every review
       .joinQuorum({ min: 2, max: 3, deadline: minutes(2) })
-      .onJoinError(QuorumNotReachedError, toFinish(PurchaseUnreviewedWorkflowFinish))
-      .returns(listOf(PurchaseReviewDto))
+      .onError(QuorumNotReachedError, toFinish(PurchaseUnreviewedWorkflowFinish))
       .toAgent(PurchaseAgent) // its tool pauses for the buyer
-      .returns(PurchaseSummaryDto)
       .toFinish(PurchasePlacedWorkflowFinish),
   ],
-  maxSteps: 20,
+  executionLimits: { maxSteps: 20 },
 })
 export class SourcingWorkflow {}
 ```
@@ -860,15 +873,31 @@ export class SourcingWorkflow {}
 The environments, the budgets and the application:
 
 ```ts file=sourcing/src/environments/app.environment.ts
-export class SourcingEnvironment {
-  sqlitePath!: string; // pauses must survive a restart
-}
+export class SourcingEnvironment {} // the storage's path is env(…) in its decorator
 ```
 
 ```ts file=sourcing/src/environments/test.environment.ts
 import type { SourcingEnvironment } from "./app.environment.js";
 
-export const environment: SourcingEnvironment = { sqlitePath: ":memory:" };
+export const environment: SourcingEnvironment = {};
+```
+
+```ts file=sourcing/src/storages/sourcing.database-storage.ts
+// pauses must survive a restart: SQLite in a file (":memory:" in the tests' env)
+import { DatabaseStorage, SqliteDriver, defineEnv, env } from "@agboss/core";
+import { hours } from "@agboss/core/units";
+
+const storageEnv = defineEnv({
+  path: env("AGBOSS_SQLITE_PATH", { default: "/data/sourcing.sqlite" }),
+});
+
+@DatabaseStorage({
+  name: "sourcing-database-storage",
+  driver: SqliteDriver({ path: storageEnv.path }),
+  auditLogTtl: hours(24 * 7),
+  ledgerEntriesTtl: hours(24),
+})
+export class SourcingDatabaseStorage {}
 ```
 
 ```ts file=sourcing/src/budgets/sourcing-application.budget.ts
@@ -907,23 +936,45 @@ export class SourcingExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=sourcing/src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=sourcing/src/sourcing.application.ts
-import { Application, SqliteCheckpointSaver, SqlitePausedExecutionRepository } from "@agboss/core";
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
+import { Application } from "@agboss/core";
 import { SourcingApplicationBudget } from "./budgets/sourcing-application.budget.js";
 import { SourcingExecutionBudget } from "./budgets/sourcing-execution.budget.js";
 import { SourcingTenantBudget } from "./budgets/sourcing-tenant.budget.js";
-import { BuyerInboxPurchaseApprovalChannel } from "./channels/buyer-inbox-purchase-approval.channel.js";
+import { BuyerInboxPurchaseChannel } from "./channels/buyer-inbox-purchase.channel.js";
 import { SourcingEnvironment } from "./environments/app.environment.js";
 import { BuyerInboxService } from "./services/buyer-inbox.service.js";
+import { SourcingDatabaseStorage } from "./storages/sourcing.database-storage.js";
 import { SourcingWorkflow } from "./workflows/sourcing/sourcing.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
   name: "sourcing-application",
   version: "1.0.0",
   environment: SourcingEnvironment,
   workflows: [SourcingWorkflow], // the child need not be listed: it belongs to its parent
   budgets: [SourcingApplicationBudget, SourcingTenantBudget, SourcingExecutionBudget],
-  providers: [BuyerInboxPurchaseApprovalChannel, BuyerInboxService, SqlitePausedExecutionRepository, SqliteCheckpointSaver],
+  storage: SourcingDatabaseStorage, // the pauses survive a restart
+  providers: [OpenRouterModelProvider, BuyerInboxService],
+  channels: [BuyerInboxPurchaseChannel], // the approval target's channel
 })
 export class SourcingApplication {}
 ```
@@ -1009,9 +1060,12 @@ export class KbArticleDto {
 ```
 
 ```ts file=helpdesk/src/mcp/kb.server.ts
-import { McpServer, McpServerClient } from "@agboss/core/mcp";
+import { defineEnv, secret } from "@agboss/core";
+import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
 import { KbArticleDto } from "../dto/kb-article.dto.js";
 import { KbSearchDto } from "../dto/kb-search.dto.js";
+
+const kbEnv = defineEnv({ kbToken: secret("KB_TOKEN") });
 
 const tools = {
   search_articles: { input: KbSearchDto, output: KbArticleDto }, // the server's own tool name
@@ -1019,41 +1073,36 @@ const tools = {
 
 @McpServer({
   name: "kb",
-  transport: "stdio",
+  transport: McpTransport.Stdio,
   command: "kb-mcp-server",
   args: ["--read-only"],
-  env: ["KB_TOKEN"], // names of variables passed to the process, never values
+  env: { KB_TOKEN: kbEnv.kbToken }, // secrets are references, read at start, never values
   tools,
 })
 export class KbServer extends McpServerClient<typeof tools> {}
 ```
 
 ```ts file=helpdesk/src/mcp/search-kb.mcp.ts
-import { ExecutionContext, type ToolHandler } from "@agboss/core";
-import { McpTool } from "@agboss/core/mcp";
+import { Tool } from "@agboss/core";
 import { kilobytes, seconds } from "@agboss/core/units";
 import { KbArticleDto } from "../dto/kb-article.dto.js";
 import { KbSearchDto } from "../dto/kb-search.dto.js";
 import { KbServer } from "./kb.server.js";
 
-@McpTool({
-  server: KbServer,
+@Tool({
   name: "search-kb-tool",
   description: "Searches the help center's articles",
   input: KbSearchDto,
   output: KbArticleDto,
   timeout: seconds(10),
   maxResultSize: kilobytes(16),
-  deps: [KbServer, ExecutionContext],
+  deps: [KbServer],
 })
-export class SearchKbTool implements ToolHandler<KbSearchDto, KbArticleDto> {
-  constructor(
-    private readonly kbServer: KbServer,
-    private readonly executionContext: ExecutionContext,
-  ) {}
+export class SearchKbTool {
+  constructor(private readonly kbServer: KbServer) {}
 
-  run({ query }: KbSearchDto): Promise<KbArticleDto> {
-    return this.kbServer.call("search_articles", { query }, this.executionContext.signal);
+  execute({ query }: KbSearchDto): Promise<KbArticleDto> {
+    return this.kbServer.call("search_articles", { query });
   }
 }
 ```
@@ -1092,7 +1141,7 @@ import { BillingQuestionDto } from "../dto/billing-question.dto.js";
   target: { application: "billing-application", skill: "billing-workflow-start" },
   input: BillingQuestionDto,
   output: BillingAnswerDto,
-  price: usd(0.002),
+  costPerCall: usd(0.002),
   deps: [ExecutionContext],
 })
 export class BillingDeskA2AAgent extends A2AClient<BillingQuestionDto, BillingAnswerDto> {
@@ -1107,7 +1156,7 @@ export class BillingDeskA2AAgent extends A2AClient<BillingQuestionDto, BillingAn
 ```
 
 ```ts file=helpdesk/src/tools/ask-billing.tool.ts
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { BillingDeskA2AAgent } from "../a2a/billing-desk.a2a-agent.js";
 import { BillingAnswerDto } from "../dto/billing-answer.dto.js";
@@ -1121,13 +1170,13 @@ import { BillingQuestionDto } from "../dto/billing-question.dto.js";
   timeout: seconds(60),
   deps: [BillingDeskA2AAgent, ExecutionContext],
 })
-export class AskBillingTool implements ToolHandler<BillingQuestionDto, BillingAnswerDto> {
+export class AskBillingTool {
   constructor(
     private readonly billingDeskA2AAgent: BillingDeskA2AAgent,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  run(question: BillingQuestionDto): Promise<BillingAnswerDto> {
+  execute(question: BillingQuestionDto): Promise<BillingAnswerDto> {
     // typed by the contract; its price recorded in this call's spend
     return this.billingDeskA2AAgent.execute(question, { signal: this.executionContext.signal });
   }
@@ -1145,17 +1194,17 @@ export class HelpdeskWorkflowStart {}
 ```
 
 ```ts file=helpdesk/src/agents/helpdesk/helpdesk.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { SearchKbTool } from "../../mcp/search-kb.mcp.js";
 import { AskBillingTool } from "../../tools/ask-billing.tool.js";
 
 @Agent({
   name: "helpdesk-agent",
   description: "Answers from the knowledge base and the billing desk",
-  prompt: "Answer the question. Search articles with search-kb-tool; ask billing with ask-billing-tool.",
+  prompt: inline("Answer the question. Search articles with search-kb-tool; ask billing with ask-billing-tool."),
   model: "moonshotai/kimi-k2.6",
   tools: [SearchKbTool, AskBillingTool],
-  maxToolCalls: 4,
+  executionLimits: { maxToolCalls: 4 },
 }) // a text agent: it streams its text
 export class HelpdeskAgent {}
 ```
@@ -1169,7 +1218,7 @@ export class HelpdeskWorkflowFinish {}
 ```
 
 ```ts file=helpdesk/src/workflows/helpdesk/helpdesk.workflow.ts
-import { Workflow, start } from "@agboss/core";
+import { Workflow, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { BillingDeskA2AAgent } from "../../a2a/billing-desk.a2a-agent.js";
 import { HelpdeskAgent } from "../../agents/helpdesk/helpdesk.agent.js";
@@ -1180,52 +1229,51 @@ import { HelpdeskWorkflowStart } from "./helpdesk.workflow-start.js";
 @Workflow({
   name: "helpdesk-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HelpdeskWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(HelpdeskWorkflowStart)
       .toAgent(HelpdeskAgent)
       .toFinish(HelpdeskWorkflowFinish),
   ],
-  mcp: [KbServer], // connected at start, closed by app.close()
   providers: [BillingDeskA2AAgent],
-  maxSteps: 1,
+  executionLimits: { maxSteps: 1 },
 })
 export class HelpdeskWorkflow {}
 ```
 
 What the help desk serves over A2A — who calls, and what they may run:
 
-```ts file=helpdesk/src/a2a/helpdesk.a2a-caller-resolver.ts
+```ts file=helpdesk/src/a2a/helpdesk.http-authenticator.ts
 // who calls over A2A: the API gateway in front authenticated the caller and named its tenant
-import { Injectable } from "@agboss/core";
-import { A2ACallerResolution, type A2ACallerRequest, type A2ACallerResolver } from "@agboss/core/a2a";
-import type { HelpdeskWorkflowStart } from "../workflows/helpdesk/helpdesk.workflow-start.js";
+import { HttpAuthenticator, HttpAuthResult, type HttpAuthRequest } from "@agboss/core";
 
-@Injectable()
-export class HelpdeskA2aCallerResolver implements A2ACallerResolver<typeof HelpdeskWorkflowStart> {
-  resolveCaller(request: A2ACallerRequest): A2ACallerResolution<typeof HelpdeskWorkflowStart> {
+@HttpAuthenticator()
+export class HelpdeskHttpAuthenticator {
+  authenticate(request: HttpAuthRequest): HttpAuthResult {
     const tenantId = request.http.headers["x-gateway-tenant"];
     const clientId = request.http.headers["x-gateway-client"];
     if (typeof tenantId !== "string" || typeof clientId !== "string") {
-      return A2ACallerResolution.unauthenticated({ reason: "not through the gateway" });
+      return HttpAuthResult.unauthenticated("not through the gateway");
     }
-    return A2ACallerResolution.resolved({ tenant: { tenantId }, ownerId: clientId });
+    return HttpAuthResult.authenticated({ tenant: { tenantId }, ownerId: clientId });
   }
 }
 ```
 
-```ts file=helpdesk/src/a2a/helpdesk.a2a-expose.ts
-import { A2AExpose } from "@agboss/core/a2a";
+```ts file=helpdesk/src/a2a/helpdesk.a2a-endpoint.ts
+import { A2AEndpoint } from "@agboss/core/a2a";
+import { hours, minutes } from "@agboss/core/units";
 import { HelpdeskWorkflowStart } from "../workflows/helpdesk/helpdesk.workflow-start.js";
 
 // what other applications may run here (#398 PR 3)
-@A2AExpose({
-  name: "helpdesk-a2a-expose",
+@A2AEndpoint({
+  name: "helpdesk",
   version: "1.0.0",
   description: "Answers billing tickets",
-  exports: [HelpdeskWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [HelpdeskWorkflowStart],
 })
-export class HelpdeskA2AExpose {}
+export class HelpdeskA2AEndpoint {}
 ```
 
 The budgets and the application:
@@ -1266,23 +1314,43 @@ export class HelpdeskExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=helpdesk/src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=helpdesk/src/helpdesk.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { Application, EmptyEnvironment } from "@agboss/core";
-import { HelpdeskA2aCallerResolver } from "./a2a/helpdesk.a2a-caller-resolver.js";
-import { HelpdeskA2AExpose } from "./a2a/helpdesk.a2a-expose.js";
+import { HelpdeskHttpAuthenticator } from "./a2a/helpdesk.http-authenticator.js";
+import { HelpdeskA2AEndpoint } from "./a2a/helpdesk.a2a-endpoint.js";
 import { HelpdeskApplicationBudget } from "./budgets/helpdesk-application.budget.js";
 import { HelpdeskExecutionBudget } from "./budgets/helpdesk-execution.budget.js";
 import { HelpdeskTenantBudget } from "./budgets/helpdesk-tenant.budget.js";
 import { HelpdeskWorkflow } from "./workflows/helpdesk/helpdesk.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "helpdesk-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [HelpdeskWorkflow],
-  providers: [HelpdeskA2aCallerResolver], // an ordinary service may be listed here too
+  services: [HelpdeskHttpAuthenticator], // an @HttpAuthenticator is a service: the listener resolves it
   budgets: [HelpdeskApplicationBudget, HelpdeskTenantBudget, HelpdeskExecutionBudget],
-  exposes: [HelpdeskA2AExpose],
+  endpoints: [HelpdeskA2AEndpoint],
 })
 export class HelpdeskApplication {}
 ```
@@ -1291,10 +1359,10 @@ The caller streams the text as it arrives and serves the same workflow to A2A ca
 
 ```ts file=helpdesk/src/http/server.ts
 import { createServer } from "node:http";
-import { createApp } from "@agboss/core";
+import { createApp, StreamEventKind } from "@agboss/core";
 import { a2aHttpListener } from "@agboss/core/a2a";
-import { HelpdeskA2aCallerResolver } from "../a2a/helpdesk.a2a-caller-resolver.js";
-import { HelpdeskA2AExpose } from "../a2a/helpdesk.a2a-expose.js";
+import { HelpdeskHttpAuthenticator } from "../a2a/helpdesk.http-authenticator.js";
+import { HelpdeskA2AEndpoint } from "../a2a/helpdesk.a2a-endpoint.js";
 import { HelpdeskApplication } from "../helpdesk.application.js";
 import { HelpdeskWorkflowStart } from "../workflows/helpdesk/helpdesk.workflow-start.js";
 
@@ -1308,22 +1376,23 @@ const result = await app.execute(
     tenant: { tenantId: "acme" },
     threadId: "ticket-88",
     onStream: (event) => {
-      if (event.kind === "toolCall") return; // the tool's name only
+      if (event.kind === StreamEventKind.ToolCall) return; // the tool's name only
       const { agent, visit, branch, attempt } = event.step;
       const key = `${branch}/${agent}#${visit}/${attempt}`; // streamed text is provisional, per step
-      if (event.kind === "textDelta") shown.set(key, (shown.get(key) ?? "") + event.delta);
-      else shown.delete(key); // "discarded": a judge rejected it, a tool turn, a retry, a failure
+      if (event.kind === StreamEventKind.TextDelta)
+        shown.set(key, (shown.get(key) ?? "") + event.delta);
+      else shown.delete(key); // Discarded: a judge rejected it, a tool turn, a retry, a failure
     },
   },
 );
 console.log("\n", result.output?.text, result.spend.totalUsd); // the kept steps' text is the output
 
 // other applications call this workflow as an A2A v1.0 agent: its card at
-// /a2a/.well-known/agent-card.json, JSON-RPC at POST /a2a — each request's tenant from the resolver
+// /a2a/.well-known/agent-card.json, JSON-RPC at POST /a2a — each request's tenant from the authenticator
 // the application lists (reference 04)
 const listener = a2aHttpListener(app, {
-  expose: HelpdeskA2AExpose,
-  callerResolver: HelpdeskA2aCallerResolver,
+  endpoint: HelpdeskA2AEndpoint,
+  authenticator: HelpdeskHttpAuthenticator,
   publicUrl: "https://helpdesk.example",
   base: "/a2a",
 });
@@ -1366,105 +1435,111 @@ test("the agent reads an article and asks billing", async ({ app, mcpOf, mockLlm
 
 Loan pre-approval for many lenders (tenants): each tenant's own daily budget and queue weight, PII
 masked before any model reads it, a guardrail that refuses out-of-scope requests, a reservation of
-funds that is undone when a later step fails, SQLite stores, readiness probes, unit and integration
+funds that is undone when a later step fails, a SQLite database storage, readiness probes, unit and integration
 tests. Production also needs `main.ts` with the probes and the Kubernetes manifest of reference 09.
 
 ```ts file=loans/src/contexts/lender.context.ts
 import { TenantContext } from "@agboss/core";
-import { Decimal, OneOf } from "@agboss/core/dto";
+import { Float, Enum } from "@agboss/core/dto";
 
 export class LenderTenantContext extends TenantContext {
-  @OneOf({ values: ["standard", "enterprise"] })
+  @Enum(["standard", "enterprise"])
   plan!: "standard" | "enterprise";
 
-  @Decimal({ min: 0 })
+  @Float({ min: 0 })
   dailyBudgetUsd!: number;
 }
 ```
 
 ```ts file=loans/src/environments/app.environment.ts
-import type { Secret } from "@agboss/core";
+export class LoansEnvironment {} // the keys and the file are env(…) / secret(…) in the providers and the storage
+```
 
-export class LoansEnvironment {
-  sqlitePath!: string;
-  openRouterApiKey?: Secret;
-  backupApiKey?: Secret;
-  piiPseudonymKey?: Secret; // one PII token per value on every instance
-}
+```ts file=loans/src/storages/loans.database-storage.ts
+import { DatabaseStorage, SqliteDriver, defineEnv, env, secret } from "@agboss/core";
+import { hours } from "@agboss/core/units";
+
+const storageEnv = defineEnv({
+  path: env("AGBOSS_SQLITE_PATH", { default: "/data/loans.sqlite" }), // a persistent volume; ":memory:" in tests
+  piiSecret: secret("PII_PSEUDONYM_KEY"), // one PII token per value on every instance
+});
+
+@DatabaseStorage({
+  name: "loans-database-storage",
+  driver: SqliteDriver({ path: storageEnv.path }),
+  auditLogTtl: hours(24 * 30),
+  ledgerEntriesTtl: hours(24),
+  piiSecret: storageEnv.piiSecret,
+})
+export class LoansDatabaseStorage {}
 ```
 
 ```ts file=loans/src/environments/prod.environment.ts
-import { env, secret } from "@agboss/core";
 import type { LoansEnvironment } from "./app.environment.js";
 
-export const environment: LoansEnvironment = {
-  sqlitePath: env("AGBOSS_SQLITE_PATH", { default: "/data/loans.sqlite" }),
-  openRouterApiKey: secret("OPENROUTER_API_KEY"),
-  backupApiKey: secret("BACKUP_API_KEY"),
-  piiPseudonymKey: secret("PII_PSEUDONYM_KEY"),
-};
+export const environment: LoansEnvironment = {};
 ```
 
 ```ts file=loans/src/environments/test.environment.ts
 import type { LoansEnvironment } from "./app.environment.js";
 
-export const environment: LoansEnvironment = { sqlitePath: ":memory:" }; // no keys: models are scripted
+export const environment: LoansEnvironment = {}; // no keys: models are scripted
 ```
 
-The model providers, one per file — the backup first, since OpenRouter's breaker falls back to it:
+The model providers, one per file — the backup first, since OpenRouter's breaker falls back to it, and
+the Decisions one for the guardrail's Jev model:
 
 ```ts file=loans/src/model-providers/loans-backup.model-provider.ts
+import { env, secret } from "@agboss/core";
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
-  RetryPolicy,
-  type NoRequestFields,
 } from "@agboss/core/models";
 import { minutes, seconds, usd } from "@agboss/core/units";
 
 @ModelProvider({
   name: "loans-backup-model-provider",
   description: "The in-house server, while OpenRouter is down",
-  serves: [/^inhouse\//],
-  baseUrl: "http://inference.internal:8000/v1",
-  apiKey: "backupApiKey",
+  driver: OpenAiCompatibleDriver({
+    baseUrl: env("BACKUP_BASE_URL", { default: "http://inference.internal:8000/v1" }),
+    apiKey: secret("BACKUP_API_KEY"),
+  }),
+  models: { default: "inhouse/kimi" },
   timeout: minutes(1),
   cost: ModelCost.fromPrices({ "inhouse/kimi": { inputPerMillion: usd(0.4), outputPerMillion: usd(1.6) } }),
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({ failureThreshold: 5, failureWindow: minutes(1), openDuration: seconds(30) }),
 })
-export class LoansBackupModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class LoansBackupModelProvider {}
 ```
 
 ```ts file=loans/src/model-providers/loans-openrouter.model-provider.ts
+import { secret } from "@agboss/core";
 import {
+  CircuitBreakerPolicy,
   ModelCost,
   ModelFailure,
   ModelProvider,
-  OpenRouterProvider,
+  OpenRouterDriver,
   PromptCaching,
   QueueBalancingStrategy,
   RateLimitPolicy,
   Reasoning,
   RetryPolicy,
-  type OpenRouterFields,
 } from "@agboss/core/models";
 import { minutes, seconds } from "@agboss/core/units";
+import type { LenderTenantContext } from "../contexts/lender.context.js";
 import { LoansBackupModelProvider } from "./loans-backup.model-provider.js";
 
 @ModelProvider({
   name: "loans-openrouter-model-provider",
   description: "OpenRouter: the chat models",
-  serves: [/^moonshotai\//],
-  baseUrl: "https://openrouter.ai/api/v1",
-  apiKey: "openRouterApiKey",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
   timeout: minutes(2),
   cost: ModelCost.fromResponse(),
   reasoning: Reasoning.modelDecides(),
@@ -1476,50 +1551,65 @@ import { LoansBackupModelProvider } from "./loans-backup.model-provider.js";
     jitter: true,
     retryOn: [ModelFailure.Timeout, ModelFailure.RateLimited, ModelFailure.ServerError],
   }),
-  rateLimitPolicy: RateLimitPolicy.of({
+  rateLimitPolicy: RateLimitPolicy.of<LenderTenantContext>({
     maxConcurrentCalls: 16,
     perMinute: { calls: 300 },
-    balancing: QueueBalancingStrategy.TenantWeighted, // enterprise lenders weigh more
+    balancing: QueueBalancingStrategy.TenantWeighted,
+    tenantWeight: (tenant) => (tenant.plan === "enterprise" ? 3 : 1), // enterprise lenders weigh more
   }),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 5,
-    window: minutes(1),
-    openFor: seconds(30),
-    fallback: LoansBackupModelProvider,
-    fallbackModels: { "moonshotai/kimi-k2.6": "inhouse/kimi" },
-  },
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
+  fallback: { provider: LoansBackupModelProvider, models: { "moonshotai/kimi-k2.6": "inhouse/kimi" } },
 })
-export class LoansOpenRouterModelProvider extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = {};
-}
+export class LoansOpenRouterModelProvider {}
+```
+
+```ts file=loans/src/model-providers/loans-decisions.model-provider.ts
+import { secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "loans-decisions-model-provider",
+  description: "Jev and the other decision models: the guardrail's",
+  driver: DecisionsDriver({ baseUrl: "https://openrouter.ai/api/v1", apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class LoansDecisionsModelProvider {}
 ```
 
 The safety — a PII policy and a guardrail:
 
 ```ts file=loans/src/pii-policies/applicant.pii-policy.ts
-import { PiiAction, PiiKind, PiiPolicy, pii } from "@agboss/core";
+import { PiiKind, PiiPolicy } from "@agboss/core";
 
 @PiiPolicy({
   name: "applicant-pii-policy",
   description: "Hides the applicant's identifiers and contacts from models",
   rules: [
-    pii(PiiKind.IsraeliId, PiiAction.replaceWithToken()), // the model reads <israeli-id:…>; tools get the real id
-    pii(PiiKind.Email, PiiAction.replaceWithToken()),
-    pii(PiiKind.Phone, PiiAction.replacePart({ keepLast: 2 })),
-    pii(PiiKind.CardNumber, PiiAction.blockWithRefusal({ refusal: "Please do not send card numbers here." })),
+    PiiKind.IsraeliId.tokenize(), // the model reads <israeli-id:…>; tools get the real id
+    PiiKind.Email.tokenize(),
+    PiiKind.Phone.mask({ keepLast: 2 }),
+    PiiKind.CardNumber.block("Please do not send card numbers here."),
   ],
 })
 export class ApplicantPiiPolicy {}
 ```
 
 ```ts file=loans/src/guardrails/out-of-scope/out-of-scope.guardrail.ts
-import { InputGuardrail } from "@agboss/core";
+import { InputGuardrail, inline } from "@agboss/core";
+import { LoansDecisionsModelProvider } from "../../model-providers/loans-decisions.model-provider.js";
 
 @InputGuardrail({
   name: "out-of-scope-guardrail",
   description: "Refuses requests that are not about a loan application",
-  prompt: "Is the message about something other than applying for a loan?",
+  prompt: inline("Is the message about something other than applying for a loan?"),
   model: "typesafe/jev-1.13",
+  modelProvider: LoansDecisionsModelProvider, // a decision model needs a decisions provider
   threshold: 0.8,
   refusal: "I can only help with loan applications.",
 })
@@ -1559,13 +1649,13 @@ export class CreditScore {
 ```
 
 ```ts file=loans/src/dto/loan-decision.dto.ts
-import { Decimal, Flag, Text } from "@agboss/core/dto";
+import { Float, Bool, Text } from "@agboss/core/dto";
 
 export class LoanDecisionDto {
-  @Flag({ prompt: "whether the loan is pre-approved" })
+  @Bool({ prompt: "whether the loan is pre-approved" })
   isApproved!: boolean;
 
-  @Decimal({ prompt: "the yearly rate, 0 to 1", min: 0, max: 1 })
+  @Float({ prompt: "the yearly rate, 0 to 1", min: 0, max: 1 })
   rate!: number;
 
   @Text({ prompt: "one sentence: why" })
@@ -1648,7 +1738,6 @@ export class LoanWorkflowStart {}
 
 ```ts file=loans/src/tools/credit-score.tool.ts
 import { ExecutionContext, SpendRecorder, Tool } from "@agboss/core";
-import type { ToolHandler } from "@agboss/core";
 import { seconds, usd } from "@agboss/core/units";
 import { CreditScoreQuery } from "../dto/credit-score-query.dto.js";
 import { CreditScore } from "../dto/credit-score.dto.js";
@@ -1662,14 +1751,14 @@ import { CreditBureauService } from "../services/credit-bureau.service.js";
   timeout: seconds(5),
   deps: [CreditBureauService, ExecutionContext, SpendRecorder],
 })
-export class CreditScoreTool implements ToolHandler<CreditScoreQuery, CreditScore> {
+export class CreditScoreTool {
   constructor(
     private readonly creditBureauService: CreditBureauService,
     private readonly executionContext: ExecutionContext,
     private readonly spendRecorder: SpendRecorder,
   ) {}
 
-  async run({ applicantId }: CreditScoreQuery): Promise<CreditScore> {
+  async execute({ applicantId }: CreditScoreQuery): Promise<CreditScore> {
     // the model passed <israeli-id:…>; the tool gets the real id, revealed before validation
     const score: number = await this.creditBureauService.scoreOf(applicantId, this.executionContext.signal);
     this.spendRecorder.record({ service: "credit-bureau", cost: usd(0.01) });
@@ -1679,7 +1768,7 @@ export class CreditScoreTool implements ToolHandler<CreditScoreQuery, CreditScor
 ```
 
 ```ts file=loans/src/agents/underwriter/underwriter.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { LoanApplicationDto } from "../../dto/loan-application.dto.js";
 import { LoanDecisionDto } from "../../dto/loan-decision.dto.js";
 import { CreditScoreTool } from "../../tools/credit-score.tool.js";
@@ -1687,12 +1776,12 @@ import { CreditScoreTool } from "../../tools/credit-score.tool.js";
 @Agent({
   name: "underwriter-agent",
   description: "Pre-approves or declines a loan",
-  prompt: "Look the credit score up with credit-score-tool, then pre-approve or decline with a rate.",
+  prompt: inline("Look the credit score up with credit-score-tool, then pre-approve or decline with a rate."),
   model: "moonshotai/kimi-k2.6",
   input: { application: LoanApplicationDto },
   output: LoanDecisionDto,
   tools: [CreditScoreTool],
-  maxToolCalls: 2,
+  executionLimits: { maxToolCalls: 2 },
 })
 export class UnderwriterAgent {}
 ```
@@ -1711,7 +1800,7 @@ export class ReleaseFundsAction implements ActionHandler<ReleaseFundsAction> {
   ) {}
 
   async execute(input: InputOf<ReleaseFundsAction>): Promise<void> {
-    await this.fundsLedgerService.release(input.reservation.value.reservationId, this.executionContext.step.idempotencyKey);
+    await this.fundsLedgerService.release(input.reservation.reservationId, this.executionContext.step.idempotencyKey);
   }
 }
 ```
@@ -1740,7 +1829,7 @@ export class ReserveFundsAction implements ActionHandler<ReserveFundsAction> {
 
   async execute(input: InputOf<ReserveFundsAction>): Promise<OutputOf<ReserveFundsAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return { reservationId: await this.fundsLedgerService.reserve(input.application.value.amount, key) };
+    return { reservationId: await this.fundsLedgerService.reserve(input.application.amount, key) };
   }
 }
 ```
@@ -1768,7 +1857,7 @@ export class SendLoanOfferAction implements ActionHandler<SendLoanOfferAction> {
 
   async execute(input: InputOf<SendLoanOfferAction>): Promise<OutputOf<SendLoanOfferAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return { offerId: await this.fundsLedgerService.sendOffer(input.reservation.value.reservationId, key) };
+    return { offerId: await this.fundsLedgerService.sendOffer(input.reservation.reservationId, key) };
   }
 }
 ```
@@ -1791,18 +1880,17 @@ export class LoanNotOfferedWorkflowFinish {}
 
 ```ts file=loans/src/health-checks/funds-ledger.health-check.ts
 import { HealthCheck, HealthCheckResult } from "@agboss/core";
-import type { HealthCheckHandler } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { FundsLedgerService } from "../services/funds-ledger.service.js";
 
 @HealthCheck({ name: "funds-ledger-health-check", timeout: seconds(2), deps: [FundsLedgerService] })
-export class FundsLedgerHealthCheck implements HealthCheckHandler {
+export class FundsLedgerHealthCheck {
   constructor(private readonly fundsLedgerService: FundsLedgerService) {}
 
   async check(): Promise<HealthCheckResult> {
     return (await this.fundsLedgerService.ping())
       ? HealthCheckResult.healthy()
-      : HealthCheckResult.unhealthy({ reason: "the funds ledger is unreachable" });
+      : HealthCheckResult.unhealthy("the funds ledger is unreachable");
   }
 }
 ```
@@ -1810,7 +1898,7 @@ export class FundsLedgerHealthCheck implements HealthCheckHandler {
 The workflow:
 
 ```ts file=loans/src/workflows/loan/loan.workflow.ts
-import { StepFailedError, Workflow, start, toAction } from "@agboss/core";
+import { StepFailedError, Workflow, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
 import { ReleaseFundsAction } from "../../actions/release-funds.action.js";
 import { ReserveFundsAction } from "../../actions/reserve-funds.action.js";
 import { SendLoanOfferAction } from "../../actions/send-loan-offer.action.js";
@@ -1828,23 +1916,20 @@ import { LoanWorkflowStart } from "./loan.workflow-start.js";
 @Workflow({
   name: "loan-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(LoanWorkflowStart)
-      .returns(LoanApplicationDto)
+    onStart(LoanWorkflowStart)
       .toAgent(UnderwriterAgent)
-      .returns(LoanDecisionDto)
       .toAction(ReserveFundsAction)
-      .returns(FundsReservationDto)
       .toAction(SendLoanOfferAction)
       .onError(
         StepFailedError, // the offer failed: release the funds — proved by npx agboss check
         toAction(ReleaseFundsAction)
           .toFinish(LoanNotOfferedWorkflowFinish),
       )
-      .returns(LoanOfferSentDto)
       .toFinish(LoanOfferedWorkflowFinish),
   ],
-  maxSteps: 2,
+  executionLimits: { maxSteps: 8 },
   providers: [CreditBureauService, FundsLedgerService],
 })
 export class LoanWorkflow {}
@@ -1892,17 +1977,7 @@ export class LoansExecutionBudget implements BudgetHandler {
 ```
 
 ```ts file=loans/src/loans.application.ts
-import {
-  Application,
-  SqliteCheckpointSaver,
-  SqliteCostLedgerRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-  SqliteRateLimitRepository,
-} from "@agboss/core";
-import { DecisionsModelProvider } from "@agboss/core/models";
+import { Application } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { LenderDailyBudget } from "./budgets/lender-daily.budget.js";
 import { LoansApplicationBudget } from "./budgets/loans-application.budget.js";
@@ -1912,8 +1987,10 @@ import { LoansEnvironment } from "./environments/app.environment.js";
 import { OutOfScopeGuardrail } from "./guardrails/out-of-scope/out-of-scope.guardrail.js";
 import { FundsLedgerHealthCheck } from "./health-checks/funds-ledger.health-check.js";
 import { LoansBackupModelProvider } from "./model-providers/loans-backup.model-provider.js";
+import { LoansDecisionsModelProvider } from "./model-providers/loans-decisions.model-provider.js";
 import { LoansOpenRouterModelProvider } from "./model-providers/loans-openrouter.model-provider.js";
 import { ApplicantPiiPolicy } from "./pii-policies/applicant.pii-policy.js";
+import { LoansDatabaseStorage } from "./storages/loans.database-storage.js";
 import { LoanWorkflow } from "./workflows/loan/loan.workflow.js";
 
 @Application({
@@ -1923,24 +2000,13 @@ import { LoanWorkflow } from "./workflows/loan/loan.workflow.js";
   tenantContext: LenderTenantContext,
   workflows: [LoanWorkflow],
   budgets: [LoansApplicationBudget, LenderDailyBudget, LoansExecutionBudget],
-  providers: [
-    LoansOpenRouterModelProvider,
-    LoansBackupModelProvider,
-    DecisionsModelProvider, // the guardrail's decision model: one listed → the list is complete
-    SqliteCheckpointSaver,
-    SqliteExecutionRecordRepository,
-    SqlitePausedExecutionRepository,
-    SqliteCostLedgerRepository,
-    SqliteExecutionLeaseRepository,
-    SqliteExecutionTreeRepository,
-    SqliteRateLimitRepository,
-  ],
+  storage: LoansDatabaseStorage, // every store durable and shared; the PII key is its piiSecret
+  modelProvider: LoansOpenRouterModelProvider, // the chat provider of every agent
+  providers: [LoansOpenRouterModelProvider, LoansBackupModelProvider, LoansDecisionsModelProvider],
   piiPolicies: [ApplicantPiiPolicy], // every agent and router of every workflow
-  piiKeyField: "piiPseudonymKey",
   guardrails: [OutOfScopeGuardrail],
   healthChecks: [FundsLedgerHealthCheck],
-  maxConcurrentSteps: 32,
-  shutdownTimeout: seconds(25),
+  executionLimits: { maxConcurrentSteps: 32, shutdownTimeout: seconds(25) },
 })
 export class LoansApplication {}
 ```
@@ -1950,7 +2016,7 @@ Unit tests — one component on its own container, each test beside the mirror o
 ```ts file=loans/tests/tools/credit-score.tool.test.ts
 import { expect, it } from "vitest";
 import { Injectable } from "@agboss/core";
-import { override, testTool } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { seconds } from "@agboss/core/units";
 import { CreditBureauService } from "../../src/services/credit-bureau.service.js";
 import { CreditScoreTool } from "../../src/tools/credit-score.tool.js";
@@ -1963,7 +2029,7 @@ export class FixedCreditBureauService extends CreditBureauService {
 }
 
 it("the credit score tool records the bureau's cost", async () => {
-  const runTool = testTool(CreditScoreTool, { overrides: [override(CreditBureauService, FixedCreditBureauService)] });
+  const runTool = testUnit(CreditScoreTool, { services: [FixedCreditBureauService] });
 
   const { output, spend } = await runTool({ applicantId: "000000018" }, { timeout: seconds(1) });
 
@@ -1974,11 +2040,11 @@ it("the credit score tool records the bureau's cost", async () => {
 
 ```ts file=loans/tests/pii-policies/applicant.pii-policy.test.ts
 import { expect, it } from "vitest";
-import { testPii } from "@agboss/core/testing";
+import { testUnit } from "@agboss/core/testing";
 import { ApplicantPiiPolicy } from "../../src/pii-policies/applicant.pii-policy.js";
 
 it("emails reach a model as tokens and come back revealed", async () => {
-  const applicant = testPii([ApplicantPiiPolicy]);
+  const applicant = testUnit([ApplicantPiiPolicy]);
 
   const { output: masked } = await applicant.mask("Write to dana@example.com");
 
@@ -1989,11 +2055,11 @@ it("emails reach a model as tokens and come back revealed", async () => {
 
 ```ts file=loans/tests/guardrails/out-of-scope/out-of-scope.guardrail.test.ts
 import { expect, it } from "vitest";
-import { decideWith, testGuardrail } from "@agboss/core/testing";
+import { decideWith, testUnit } from "@agboss/core/testing";
 import { OutOfScopeGuardrail } from "../../../src/guardrails/out-of-scope/out-of-scope.guardrail.js";
 
 it("an out-of-scope message is blocked with the refusal", async () => {
-  const check = testGuardrail(OutOfScopeGuardrail, { model: decideWith({ blocks: 0.95 }) });
+  const check = testUnit(OutOfScopeGuardrail, { model: decideWith({ blocks: 0.95 }) });
 
   const { output } = await check("Write me a poem", { element: "underwriter-agent" });
 
@@ -2021,7 +2087,7 @@ import { LoanWorkflowStart } from "../../../src/workflows/loan/loan.workflow-sta
 
 const test = testWith(LoansApplication);
 
-const LENDER = { tenant: { tenantId: "bank-a", weight: 3, plan: "enterprise", dailyBudgetUsd: 20 } } as const;
+const LENDER = { tenant: { tenantId: "bank-a", plan: "enterprise", dailyBudgetUsd: 20 } } as const;
 const APPLICATION = { text: "ID 000000018, income $90k, mail dana@example.com", amount: 15000 };
 const APPROVED = { isApproved: true, rate: 0.07, reason: "a good score" };
 

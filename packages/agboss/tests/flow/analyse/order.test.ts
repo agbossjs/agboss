@@ -1,25 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import {
   analyseWorkflow,
   inputShapesOf,
   type FlowAnalysis,
 } from "../../../src/flow/analyse/analyse.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import {
-  ChangesRequestedDto,
-  DraftApprovedDto,
-  OfferDraftDto,
-  OfferSentDto,
-  ShortlistDto,
-  WorkflowStartTextDto,
-} from "../fixtures/dtos.js";
-import {
-  ExpertDraftDto,
-  FastDraftDto,
-  LoyaltyOfferDto,
-  OrderStatusDto,
-} from "../fixtures/data-dtos.js";
+import { ChangesRequestedDto, DraftApprovedDto } from "../fixtures/dtos.js";
 import {
   DraftAgent,
   EditorAgent,
@@ -32,7 +18,7 @@ import {
   SendOfferAction,
   VisitsLimitExceededError,
 } from "../fixtures/offer.fixture.js";
-import { agent, caseOf, route, start, toAction } from "../fixtures/paths.js";
+import { onAction, onAgent, onStart, toAction, toAgent } from "../fixtures/paths.js";
 import {
   AnswerRouter,
   ExpertAnswerAgent,
@@ -42,25 +28,25 @@ import {
   SupportWorkflow,
   SupportWorkflowFinish,
   SupportWorkflowStart,
+  SupportAction,
 } from "../fixtures/support.fixture.js";
+import { Ttl } from "../../../src/index.js";
 
 /** Position never carries meaning (#272 AC9): only the order of steps inside a path does. */
 
 @Workflow({
   name: "support-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    agent(ExpertAnswerAgent).returns(ExpertDraftDto).toFinish(SupportWorkflowFinish),
-    start(SupportWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onAction(SupportAction).toFinish(SupportWorkflowFinish),
+    onAgent(ExpertAnswerAgent).toAction(SupportAction),
+    onStart(SupportWorkflowStart)
       .toAgent(OrderAgent)
-      .returns(OrderStatusDto)
       .toRouter(AnswerRouter)
-      .chooseOne(
-        route(ExpertAnswerAgent),
-        route(LoyaltyAgent).returns(LoyaltyOfferDto).toAgent(ExpertAnswerAgent),
-        route(FastAnswerAgent).returns(FastDraftDto).toFinish(SupportWorkflowFinish),
-      ),
+      .onRoute(toAgent(ExpertAnswerAgent))
+      .onRoute(toAgent(LoyaltyAgent).toAgent(ExpertAnswerAgent))
+      .onRoute(toAgent(FastAnswerAgent).toAction(SupportAction)),
   ],
 })
 class ReorderedSupportWorkflow {}
@@ -68,28 +54,18 @@ class ReorderedSupportWorkflow {}
 @Workflow({
   name: "offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    agent(ReviewerAgent)
-      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-      .switch(
-        caseOf(DraftApprovedDto)
-          .toAction(SendOfferAction)
-          .returns(OfferSentDto)
-          .toFinish(OfferSentWorkflowFinish),
-        caseOf(ChangesRequestedDto, { about: OfferDraftDto })
-          .toAgent(EditorAgent)
-          .onError(
-            VisitsLimitExceededError,
-            toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish),
-          )
-          .returns(OfferDraftDto)
-          .toAgent(ReviewerAgent),
-      ),
-    start(OfferWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(DraftAgent)
-      .returns(OfferDraftDto)
-      .toAgent(ReviewerAgent),
+    onAgent(ReviewerAgent).toOneOf([
+      toAction(SendOfferAction).toFinish(OfferSentWorkflowFinish),
+      toAgent(EditorAgent)
+        .onError(
+          VisitsLimitExceededError,
+          toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish),
+        )
+        .toAgent(ReviewerAgent),
+    ]),
+    onStart(OfferWorkflowStart).toAgent(DraftAgent).toAgent(ReviewerAgent),
   ],
 })
 class ReorderedOfferWorkflow {}

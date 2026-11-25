@@ -19,7 +19,7 @@ export interface ChildExecutionFailedErrorOptions {
  * of its own limits (its `maxSteps`, the `maxVisits` of its nodes) — fails the parent's step with
  * this `StepFailedError`, the child's error as its `cause`. Tree-wide limits (budgets) and a
  * cancellation are never wrapped: they stop the whole execution as they are. `.onError(…)` /
- * `.onJoinError(…)` catch it by this class or by the cause (codes match through the cause chain).
+ * `.onError(…)` catch it by this class or by the cause (codes match through the cause chain).
  */
 export class ChildExecutionFailedError extends StepFailedError {
   static override readonly code = "step.child" as const;

@@ -8,7 +8,7 @@
  * application's root are skipped.
  */
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { cancelledRecordOutcome, CANCELLED_STOP_REASON } from "../../src/app/live-runs.js";
+import { cancelledRecordOutcome, CANCELLED_STOP_REASON } from "../../src/app/cancelled-run.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
 import {
   ExecutionLeaseRepository,
@@ -71,7 +71,7 @@ async function restingTree(apps: readonly TestApp[], mockText: string) {
     ends: (isCancel: boolean) =>
       records.complete(turn.id, {
         ...cancelledRecordOutcome(turn.route, turn.costUsd),
-        status: "failed",
+        status: isCancel ? "cancelled" : "failed",
         stopReason: isCancel ? CANCELLED_STOP_REASON : "the tree failed",
       }),
     pause: () => pauses.findByTenantIdAndPauseId(DEFAULT_TENANT_ID, pauseId),
@@ -132,7 +132,7 @@ describe("#939 AC3: another instance finishes a tree's end", () => {
   }) => {
     mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
     const tree = await restingTree(apps, "charge");
-    const answer = { decision: { approved: true }, answeredBy: "manager-17" };
+    const answer = { decision: { approved: true }, actor: { id: "manager-17" } };
     await tree.pauses.resolveByTenantIdAndPauseId(
       DEFAULT_TENANT_ID,
       tree.pauseId,
@@ -156,7 +156,7 @@ describe("#939 AC3: another instance finishes a tree's end", () => {
       answer,
     });
     expect(await tree.log()).toMatchObject([
-      { isTaken: false, resolution: PauseResolution.Cancelled, answeredBy: "manager-17" },
+      { isTaken: false, resolution: PauseResolution.Cancelled, actor: { id: "manager-17" } },
     ]);
     expect(seen.charges).toEqual([]);
   });

@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { InMemoryExecutionLeaseRepository } from "../../../../src/infrastructure/execution-lease.repository.js";
-import { InMemoryOutboundCallRepository } from "../../../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import {
   exhaustive,
   randomWalks,
@@ -62,12 +62,12 @@ describe("#533: the interleaving explorer's search", () => {
   it("a walk that breaks an invariant reproduces from its seed, cut down to its minimal schedule", async () => {
     const options = { runs: 20, depth: 12, seed: 533 };
     const found = await randomWalks(
-      worldOf(ExplorerWorldKind.Lease, 3, EXPLORED_SKEWS[3] ?? ClockSkew.none),
+      worldOf(ExplorerWorldKind.Lease, 3, EXPLORED_SKEWS[3] ?? ClockSkew.None),
       onCallerClock,
       options,
     );
     const again = await randomWalks(
-      worldOf(ExplorerWorldKind.Lease, 3, EXPLORED_SKEWS[3] ?? ClockSkew.none),
+      worldOf(ExplorerWorldKind.Lease, 3, EXPLORED_SKEWS[3] ?? ClockSkew.None),
       onCallerClock,
       options,
     );
@@ -112,7 +112,7 @@ describe("#533: the interleaving explorer's search", () => {
 
   it("the core's in-memory stores: every schedule of 2 instances, 6 steps deep, in each world — nothing", async () => {
     for (const kind of [ExplorerWorldKind.Lease, ExplorerWorldKind.OutboundCall]) {
-      const report = await exhaustive(worldOf(kind, 2, ClockSkew.none), sound, 6);
+      const report = await exhaustive(worldOf(kind, 2, ClockSkew.None), sound, 6);
       expect(report.violation).toBeUndefined();
       expect(report.states).toBeGreaterThan(10);
     }

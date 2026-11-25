@@ -6,7 +6,7 @@
 import { PauseKind } from "../../src/pause/index.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { ChildExecutionStatus, PauseAnswerer } from "../../src/index.js";
+import { ChildExecutionStatus, PauseRespondent } from "../../src/index.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -46,14 +46,17 @@ describe("#267 × #263: a single child pauses", () => {
     expect(paused.pending).toEqual([
       {
         pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
-        answerer: PauseAnswerer.ThreadOwner,
-        answeredBy: PauseAnswerer.ThreadOwner,
+        respondent: PauseRespondent.Owner,
         kind: PauseKind.Approval,
         step: "child-refund-agent",
-        channel: "order-confirmation-channel",
+        target: "order-confirmation-tool-approval",
+        channel: "customer-order-confirmation-channel",
+        expiresAt: expect.any(String),
         childExecutionId: expect.any(String),
         itemIndex: undefined,
-        ask: expect.objectContaining({ tool: "confirm-order-tool", arguments: { orderId: "A" } }),
+        toolCall: expect.objectContaining({ tool: "confirm-order-tool" }),
+        input: { orderId: "A" },
+        trail: [expect.objectContaining({ action: "opened" })],
       },
     ]);
     expect(paused.pending[0]?.childExecutionId).not.toBe(paused.executionId);
@@ -84,14 +87,17 @@ describe("#267 × #263: per-item children pause at once", () => {
     const byItem = [...paused.pending].sort((a, b) => (a.itemIndex ?? 0) - (b.itemIndex ?? 0));
     expect(byItem).toEqual(
       ["B", "C"].map((orderId, index) => ({
-        answerer: PauseAnswerer.Channel,
-        answeredBy: PauseAnswerer.Channel,
+        respondent: PauseRespondent.Delegate,
         kind: PauseKind.Approval,
         step: "child-refund-agent",
-        channel: "refund-approval-channel",
+        target: "refund-gate-tool-approval",
+        channel: "finance-desk-refund-approval-channel",
+        expiresAt: expect.any(String),
         childExecutionId: expect.any(String),
         itemIndex: index + 1,
-        ask: expect.objectContaining({ tool: "refund-tool", arguments: { orderId } }),
+        toolCall: expect.objectContaining({ tool: "refund-tool" }),
+        input: { orderId },
+        trail: [expect.objectContaining({ action: "opened" })],
       })),
     );
     expect(new Set(byItem.map((pause) => pause.childExecutionId)).size).toBe(2);

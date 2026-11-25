@@ -12,7 +12,7 @@ import { InMemoryA2ADirectMessageRepository } from "../../src/infrastructure/in-
 import { InMemoryA2ATaskRepository } from "../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
-import { BearerCallerResolver } from "../a2a/fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../a2a/fixtures/bearer-authenticator.js";
 import {
   DirectApplication,
   QuoteAgent,
@@ -43,8 +43,8 @@ describe("#928 AC2: an A2A accept (saveIfAbsent) unanswered", () => {
     async ({ a2aServer, app, clock, mockLlm }) => {
       mockLlm(Clerk).thenReturn(callTool(Charge, { text: "10 USD" }));
       const { url } = await a2aServer({
-        expose: OrdersA2AExpose,
-        callerResolver: BearerCallerResolver,
+        endpoint: OrdersA2AExpose,
+        authenticator: BearerAuthenticator,
       });
       const accept = appliedThenSilent(
         vi.spyOn(InMemoryA2ATaskRepository.prototype, "saveIfAbsent"),
@@ -66,6 +66,7 @@ describe("#928 AC2: an A2A accept (saveIfAbsent) unanswered", () => {
       expect(resent.body.error).toBeUndefined();
       expect(JSON.stringify(resent.body.result)).toContain(kept?.taskId ?? "no task kept");
       const { tasks: all } = await tasks.list({
+        endpoint: "orders-a2a-expose",
         tenantId: "default",
         ownerId: "dana",
         pageSize: 10,
@@ -86,8 +87,8 @@ describe("#928 AC2: a direct message's completeIfInFlight unanswered", () => {
     async ({ a2aServer, app, clock, mockLlm }) => {
       mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."));
       const { url } = await a2aServer({
-        expose: QuotesA2AExpose,
-        callerResolver: BearerCallerResolver,
+        endpoint: QuotesA2AExpose,
+        authenticator: BearerAuthenticator,
       });
       const complete = appliedThenSilent(
         vi.spyOn(InMemoryA2ADirectMessageRepository.prototype, "completeIfInFlight"),
@@ -112,8 +113,8 @@ describe("#928 AC2: a direct message's completeIfInFlight unanswered", () => {
     async ({ a2aServer, app, clock, mockLlm }) => {
       mockLlm(QuoteAgent).thenReturn(replyWith("12.50 EUR."), replyWith("13.00 EUR."));
       const { url } = await a2aServer({
-        expose: QuotesA2AExpose,
-        callerResolver: BearerCallerResolver,
+        endpoint: QuotesA2AExpose,
+        authenticator: BearerAuthenticator,
       });
       const complete = vi
         .spyOn(InMemoryA2ADirectMessageRepository.prototype, "completeIfInFlight")

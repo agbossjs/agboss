@@ -1,5 +1,5 @@
-import type { App } from "../../app/types.js";
-import { systemClock } from "../../infrastructure/clock.js";
+import type { AnyTenantApp } from "../../app/types.js";
+import { hostMonotonicNanoseconds, systemClock } from "../../infrastructure/clock.js";
 import { ExecutionLeaseRepository } from "../../infrastructure/execution-lease.repository.js";
 import { waitOf } from "../../infrastructure/clock.js";
 import { FaultStoreTime, storeTimeScaleOf } from "./fault-stores.js";
@@ -51,10 +51,13 @@ export class FaultStoreTimeMismatchError extends Error {
 export const probeWaitOf = (timeScale: number): number =>
   timeScale <= 1 ? 0 : Math.ceil(Math.min(3000, Math.max(300, 200 / (timeScale - 1))));
 
-const realNow = (): number => Number(process.hrtime.bigint() / 1_000_000n);
+const realNow = (): number => Number(hostMonotonicNanoseconds() / 1_000_000n);
 
 /** Takes two probe leases `waitMs` of real time apart and reads how far the store's time moved. */
-export async function readStoreClock(app: App, waitMs: number): Promise<StoreClockReading> {
+export async function readStoreClock(
+  app: AnyTenantApp,
+  waitMs: number,
+): Promise<StoreClockReading> {
   const leases = app.resolve(ExecutionLeaseRepository);
   const duration = waitOf(60_000);
   const begun = realNow();

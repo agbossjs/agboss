@@ -1,9 +1,11 @@
+import type { InterruptCleanup } from "./interrupt-cleanup.js";
 import type { Class } from "../../components/injection.js";
+import type { HandledErrorRecord } from "../runtime/child-records.js";
 import type { ComponentRecord } from "../runtime/records.js";
+import type { ApplicationContext } from "./application-context.js";
 import type { TenantContext } from "./tenant-context.js";
 
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
-import type { ExecutionFence } from "./execution-fence.js";
 /**
  * The execution context (#280, #261): the one context of an execution, injected through the
  * constructor (`deps: [ExecutionContext]`, `constructor(private readonly executionContext:
@@ -93,6 +95,13 @@ export abstract class ExecutionContext {
    * project's subclass when the application declares one — and through it `tenant.application`.
    */
   declare readonly tenant: TenantContext;
+  /** The running instance (#1316f): the one `ApplicationContext`, the same as `tenant.application`. */
+  declare readonly application: ApplicationContext;
+  /**
+   * The failure the `.onError` side path this step runs on took in (#1316f): `error`, the node it
+   * failed at and the one that took it; the same in the branches of a launch on that path; `undefined` off a side path.
+   */
+  declare readonly handledError: HandledErrorRecord | undefined;
   /** Aborted by `app.cancel(threadId)` or by the caller's own `signal`. */
   declare readonly signal: AbortSignal;
   declare readonly workflow: WorkflowDescriptor;
@@ -111,13 +120,17 @@ export abstract class ExecutionContext {
    * signature was verified (a child has its root's); `undefined` otherwise.
    */
   declare readonly origin: ExecutionOrigin | undefined;
-  /**
-   * The lease the current step runs under (#471): `scopeKey`, `token` and the checks an external
-   * write fences with. Read where a lease is held — a step of the execution's pass; elsewhere (a
-   * reply interpreter, `maxSpend()`, an eval judge, a tool called on its own, `parent.fence` /
-   * `root.fence` of an ancestor) it throws `ExecutionContextUnavailableError`.
-   */
-  declare readonly fence: ExecutionFence;
   /** The nearest execution of `workflow` in the chain, this one included; `undefined` when none. */
   declare readonly executionOf: (workflow: WorkflowClass) => this | undefined;
+  /**
+   * Registers a cleanup of the current step or tool call (#1341b), run **only if it is interrupted** —
+   * `app.pause`, `app.stop`, `app.cancel`, its timeout, or another instance taking its lease — and
+   * never when it ends normally (use `try` / `finally` or `await using` for that). Cleanups run
+   * awaited and one after another, the last registered first, before the step's frame closes —
+   * so `executionContext` still reads inside them — and before the lease is released or an undo
+   * starts; each gets the `InterruptReason`. One that throws is reported to `onInterruptCleanupError`
+   * and logged; it neither stops the others nor fails the execution. A tool call's are dropped when
+   * it ends normally. Refused inside `Idempotency.runOnce`.
+   */
+  declare readonly onInterrupted: (cleanup: InterruptCleanup) => void;
 }

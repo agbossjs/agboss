@@ -1,7 +1,5 @@
-import type { A2AFileOptions } from "../a2a/files/a2a-file-options.js";
 import type { Class } from "../components/injection.js";
-import { componentOf } from "../components/metadata.js";
-import { nameOf } from "../components/name-of.js";
+import type { ComponentOptions } from "../components/component-options.js";
 import type { AgentMeta } from "../components/meta-types.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
@@ -10,12 +8,8 @@ import type { ModelUse } from "../models/uses.js";
 import { narrowedTypesOf } from "./file-needs.js";
 import { workflowDeclarationOf } from "../components/module.js";
 import type { Provider } from "../components/injection.js";
-import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { AssembledPii } from "../pii/assembly.js";
-import {
-  A2AFileRepository,
-  InlineA2AFileRepository,
-} from "../infrastructure/a2a-file.repository.js";
+import { FileRepository, InlineFileRepository } from "../infrastructure/file.repository.js";
 import { FileRedactor, ModelImageRedactor } from "./file-redactor.js";
 import { FileTranscriber, ModelFileTranscriber } from "./file-transcriber.js";
 import { mergedFileDefaults, resolvedFilesOf, type ResolvedModelFiles } from "./file-settings.js";
@@ -28,8 +22,6 @@ import { mergedFileDefaults, resolvedFilesOf, type ResolvedModelFiles } from "./
 /** What the application gives its workflows' files. */
 export interface FilesOwner {
   readonly defaults?: WorkflowDefaults;
-  readonly a2aFiles?: A2AFileOptions;
-  readonly exposes?: readonly Class[];
 }
 
 /** What one workflow's agents are resolved with. */
@@ -37,9 +29,10 @@ export interface FilesSources {
   readonly owner: FilesOwner | undefined;
   readonly workflow: Class;
   readonly agents: readonly AgentMeta[];
-  readonly graph: Pick<RuntimeGraph, "starts">;
   /** The PII policies in effect per agent. */
   readonly pii: Pick<AssembledPii, "byElement">;
+  /** The options of the components under the selected profiles: the workflow's effective file policy. */
+  readonly options: ComponentOptions;
 }
 
 /** The application's own `FileTranscriber` (#899), not the built-in: the listed class, when there is one. */
@@ -53,14 +46,14 @@ export const ownFileTranscriberOf = (
       provider !== ModelFileTranscriber,
   );
 
-/** Whether the application lists an `A2AFileRepository` that keeps the files' bytes, not the inline default (#899 §7). */
+/** Whether the application lists an `FileRepository` that keeps the files' bytes, not the inline default (#899 §7). */
 export const hasFileStore = (providers: readonly Provider[] | undefined): boolean =>
   providers?.some(
     (provider) =>
       typeof provider === "function" &&
-      provider.prototype instanceof A2AFileRepository &&
-      provider !== InlineA2AFileRepository &&
-      !(provider.prototype instanceof InlineA2AFileRepository),
+      provider.prototype instanceof FileRepository &&
+      provider !== InlineFileRepository &&
+      !(provider.prototype instanceof InlineFileRepository),
   ) === true;
 
 /** The application's own `FileRedactor` (#899), not the built-in: the listed class, when there is one. */
@@ -71,23 +64,6 @@ export const ownFileRedactorOf = (providers: readonly Provider[] | undefined): C
       provider.prototype instanceof FileRedactor &&
       provider !== ModelImageRedactor,
   );
-
-/** The `files` options of the skills of the application's exposes whose starts are the workflow's. */
-export function skillFilesOf(
-  owner: FilesOwner | undefined,
-  starts: readonly string[],
-): A2AFileOptions[] {
-  return (
-    owner?.exposes?.flatMap((expose) => {
-      const meta = componentOf(expose);
-      if (meta?.kind !== "a2a-expose") return [];
-      return meta.meta.exports.flatMap((start) => {
-        const name = nameOf(start);
-        return starts.includes(name) ? (meta.meta.skills?.[name]?.files ?? []) : [];
-      });
-    }) ?? []
-  );
-}
 
 /** An agent's files of its sources, or none when it did not opt in. */
 export function agentFilesOf(
@@ -100,8 +76,7 @@ export function agentFilesOf(
   return resolvedFilesOf({
     agent: agent.files.options,
     defaults: mergedFileDefaults(owner?.defaults?.files, declared),
-    skills: skillFilesOf(owner, [...sources.graph.starts]),
-    a2aFiles: owner?.a2aFiles,
+    limits: sources.options.workflowFileLimits(workflow),
     hasPiiPolicy: (sources.pii.byElement.get(agent.name) ?? []).length > 0,
   });
 }

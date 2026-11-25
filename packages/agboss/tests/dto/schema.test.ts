@@ -1,6 +1,6 @@
 /** #118 AC5: the JSON Schema the model sees for a DTO. */
 import { describe, expect, it } from "vitest";
-import { Integer, ListOf, NoInputDto, OneOf, Text } from "../../src/dto/index.js";
+import { Integer, List, NoInputDto, Enum, Text } from "../../src/dto/index.js";
 import { jsonSchemaOf } from "../../src/dto/schema.js";
 import { PiiAction } from "../../src/pii/actions.js";
 
@@ -8,16 +8,16 @@ class Task {
   @Text({ prompt: "what to do", example: "write tests" })
   title!: string;
 
-  @OneOf({ values: ["low", "high"], prompt: "how urgent" })
+  @Enum(["low", "high"], { prompt: "how urgent" })
   priority!: "low" | "high";
 
   @Integer({ prompt: "minutes it may take", min: 1, default: 30 })
   minutes!: number;
 
-  @ListOf(Text, { optional: true, maxItems: 3 })
+  @List(Text, { optional: true, maxItems: 3 })
   labels?: string[];
 
-  @Text({ sensitive: PiiAction.replaceWithKind() })
+  @Text({ sensitive: PiiAction.mask() })
   owner!: string;
 }
 

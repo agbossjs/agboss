@@ -1,4 +1,4 @@
-import { start } from "../../../src/flow/builder.js";
+import { onStart } from "../../../src/flow/builder.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
@@ -7,7 +7,8 @@ import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { CompanyDto, CompanyScoreDto, SearchRequestDto } from "./data-dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #270 AC20 / AC21 — a start's input as a map of fields and as a list. */
 
@@ -31,7 +32,7 @@ export class CompanyBatchWorkflowStart {}
 @Agent({
   name: "company-check-agent",
   description: "Scores one company",
-  prompt: "Score the company.",
+  prompt: inline("Score the company."),
   model: "moonshotai/kimi-k2.6",
   input: {
     company: CompanyDto,
@@ -44,7 +45,7 @@ export class CompanyCheckAgent {}
 @Agent({
   name: "batch-rank-agent",
   description: "Ranks a batch of companies",
-  prompt: "Rank the companies.",
+  prompt: inline("Rank the companies."),
   model: "moonshotai/kimi-k2.6",
   input: {
     companies: listOf(CompanyDto),
@@ -61,28 +62,25 @@ export class BatchRankAgent {}
 export class CompanyScoreWorkflowFinish {}
 
 export const startsPaths = [
-  start(CompanyCheckWorkflowStart)
-    .returns(CompanyDto)
-    .returns(optional(SearchRequestDto))
+  onStart(CompanyCheckWorkflowStart)
     .toAgent(CompanyCheckAgent)
-    .returns(CompanyScoreDto)
     .toFinish(CompanyScoreWorkflowFinish),
-  start(CompanyBatchWorkflowStart)
-    .returns(listOf(CompanyDto))
+  onStart(CompanyBatchWorkflowStart)
     .toAgent(BatchRankAgent)
-    .returns(CompanyScoreDto)
     .toFinish(CompanyScoreWorkflowFinish),
 ] as const;
 
 @Workflow({
   name: "company-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: startsPaths,
 })
 export class CompanyCheckWorkflow {}
 
 @Application({
   name: "company-check-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [CompanyCheckWorkflow],

@@ -5,7 +5,6 @@ import type {
   AgentsConfigSchema,
   CompactionSettingsSchema,
   MaxTokensSchema,
-  McpServerConfigSchema,
   PriceSchema,
 } from "../../src/config/types.js";
 import type {
@@ -13,7 +12,6 @@ import type {
   AgentsConfig,
   CompactionSettings,
   MaxTokens,
-  McpServerConfig,
   Price,
 } from "../../src/config/settings-types.js";
 
@@ -51,12 +49,6 @@ describe("#895: each settings type equals what its schema infers", () => {
   it("CompactionSettings", () => {
     expectTypeOf<Plain<z.infer<typeof CompactionSettingsSchema>>>().toEqualTypeOf<
       Plain<CompactionSettings>
-    >();
-  });
-
-  it("McpServerConfig", () => {
-    expectTypeOf<Plain<z.infer<typeof McpServerConfigSchema>>>().toEqualTypeOf<
-      Plain<McpServerConfig>
     >();
   });
 

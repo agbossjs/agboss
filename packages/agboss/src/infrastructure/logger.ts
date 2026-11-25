@@ -13,6 +13,8 @@ import type { Clock } from "./clock.js";
 
 /** How serious a log entry is. */
 export enum LogLevel {
+  /** Detail for a developer looking for a cause: off the usual path, never needed in operation. */
+  Debug = "debug",
   /** What started (the start log). */
   Info = "info",
   /** The system is at risk: a startup warning, a recovery left to another instance. */

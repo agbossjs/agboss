@@ -11,7 +11,6 @@ import {
   agboss,
   ledgerWarning,
   PARTS_APPLICATION_REPORT,
-  piiKeyWarning,
   TEST_APPLICATION_REPORT,
 } from "./agboss.js";
 
@@ -85,7 +84,7 @@ describe("#270 AC13: agboss check writes .agboss/types.d.ts", () => {
     const call = await agboss(["check", "--application", STAR], cwd);
 
     expect(call.stdout).toBe(
-      `types: .agboss/types.d.ts\n${TEST_APPLICATION_REPORT}${ledgerWarning(STAR)}${piiKeyWarning(STAR)}ok: ${STAR} — ${CHECKS_RUN}\n`,
+      `types: .agboss/types.d.ts\n${TEST_APPLICATION_REPORT}${ledgerWarning(STAR)}ok: ${STAR} — ${CHECKS_RUN}\n`,
     );
     expect(existsSync(typesOf(cwd))).toBe(true);
   });

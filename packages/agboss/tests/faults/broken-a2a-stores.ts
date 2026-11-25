@@ -5,7 +5,6 @@ import {
   IdGenerator,
   Injectable,
   SqliteExecutionRecordRepository,
-  SqliteConnection,
   SqliteExecutionLeaseRepository,
   SqliteExecutionTreeRepository,
   SqlitePausedExecutionRepository,
@@ -15,6 +14,7 @@ import {
   type ExecutionTreeValue,
   type Turn,
 } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { CANCEL_REQUEST_KEY } from "../../src/app/cancel-requests.js";
 import type { ExecutionIdentity } from "../../src/infrastructure/execution-lease.repository.js";
 import {
@@ -102,6 +102,14 @@ export class StalePausesSqlitePausedExecutionRepository extends KeptRunSqlitePau
   }
 }
 
+/** The statuses a root ends in without finishing: the blind read says `running` of each. */
+const ENDED: readonly ExecutionRecordStatus[] = [
+  ExecutionRecordStatus.Failed,
+  ExecutionRecordStatus.Guarded,
+  ExecutionRecordStatus.Cancelled,
+  ExecutionRecordStatus.Stopped,
+];
+
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, IdGenerator] })
 export class EndBlindSqliteExecutionRecordRepository extends SqliteExecutionRecordRepository {
   override async findByTenantIdAndRunId(
@@ -109,9 +117,10 @@ export class EndBlindSqliteExecutionRecordRepository extends SqliteExecutionReco
     runId: string,
   ): Promise<Turn | undefined> {
     const record = await super.findByTenantIdAndRunId(tenantId, runId);
-    const isEnded =
-      record?.status === ExecutionRecordStatus.Failed ||
-      record?.status === ExecutionRecordStatus.Guarded;
-    return isEnded ? { ...record, status: ExecutionRecordStatus.Running } : record;
+    // a cancel ends a root as `cancelled` (#1341), a stop as `stopped`: its late resume is the same one
+    const isEnded = ENDED.some((status) => status === record?.status);
+    return isEnded && record !== undefined
+      ? { ...record, status: ExecutionRecordStatus.Running }
+      : record;
   }
 }

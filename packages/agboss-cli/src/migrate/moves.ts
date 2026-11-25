@@ -27,6 +27,7 @@ const specifierOf = (name: string, subpath: string): string =>
 /**
  * #261 PR 6: the observers and the cancel error are named after executions. The observers' manager
  * (`ObserverManager`, then `ExecutionObserverManager`) is internal since #834: no public name to move to.
+ * The 0.1.0 `Router` type of `/core` (`RouterEngine`) is internal since #1313: it has no public home.
  */
 const EXECUTION_NAMES: Readonly<Record<string, Move>> = {
   WorkflowObserver: { entry: "@agboss/core", name: "ExecutionObserver" },
@@ -36,11 +37,12 @@ const EXECUTION_NAMES: Readonly<Record<string, Move>> = {
 /** One name per meaning (#195): the public names that were renamed or left the root entry. */
 const RENAMED: ImportMoves["names"] = {
   "@agboss/core/core": {
-    Router: { entry: "@agboss/core", name: "RouterEngine" },
     ...EXECUTION_NAMES,
   },
   "@agboss/core": {
     ...EXECUTION_NAMES,
+    AutoApproveChannel: { entry: "@agboss/core/testing" }, // #1324d: the test channels left the root
+    AutoRejectChannel: { entry: "@agboss/core/testing" },
     McpServer: { entry: "@agboss/core/mcp", name: "McpExpose" },
     McpServerOptions: { entry: "@agboss/core/mcp", name: "McpExposeOptions" },
     McpService: { entry: "@agboss/core/mcp" },
@@ -54,15 +56,29 @@ const RENAMED: ImportMoves["names"] = {
   },
 };
 
-/** The moves of the installed framework: its package.json's `deprecatedExports` + renames. */
+/** The five entries 0.1.0 kept as deprecated re-exports of the root, removed in 0.1.1 (#1324d). */
+const REMOVED_ENTRIES: readonly string[] = [
+  "./core",
+  "./graph",
+  "./router",
+  "./tool",
+  "./channels",
+];
+
+/** The moves of the installed framework: the removed entries, its package.json's `deprecatedExports` + renames. */
 export function frameworkMoves(): ImportMoves {
   const pkg = FrameworkPackage.parse(frameworkPackageJson());
-  const entries = Object.fromEntries(
-    Object.entries(pkg.deprecatedExports).map(([from, to]) => [
+  const pairs: readonly (readonly [string, string])[] = [
+    ...REMOVED_ENTRIES.map((from): readonly [string, string] => [
+      specifierOf(pkg.name, from),
+      specifierOf(pkg.name, "."),
+    ]),
+    ...Object.entries(pkg.deprecatedExports).map(([from, to]): readonly [string, string] => [
       specifierOf(pkg.name, from),
       specifierOf(pkg.name, to),
     ]),
-  );
+  ];
+  const entries: Readonly<Record<string, string>> = Object.fromEntries(pairs);
   return { entries, names: RENAMED };
 }
 

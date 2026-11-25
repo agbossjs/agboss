@@ -2,8 +2,9 @@
  * #1269 (files-pii mutation shard): a copy read again from the store is asked for by what is known of it —
  * its type, its id, its digest and its name only when it has one.
  */
+import { bytes as byteSize } from "../../src/units/index.js";
 import { describe, expect, it, vi } from "vitest";
-import type { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import type { FileDto } from "../../src/dto/standard/file.js";
 
 const asked = vi.hoisted(() => ({ descriptors: [] as unknown[] }));
 
@@ -11,7 +12,7 @@ vi.mock("../../src/files/file-bytes.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../src/files/file-bytes.js")>();
   return {
     ...actual,
-    fileContentOf: (file: A2AFileDto, context: Parameters<typeof actual.fileContentOf>[1]) => {
+    fileContentOf: (file: FileDto, context: Parameters<typeof actual.fileContentOf>[1]) => {
       asked.descriptors.push(file);
       return actual.fileContentOf(file, context);
     },
@@ -20,7 +21,7 @@ vi.mock("../../src/files/file-bytes.js", async (importOriginal) => {
 
 import { sha256Of } from "../../src/files/file-bytes.js";
 import { redactedKeyOf, redactedViewOf } from "../../src/files/redacted-view.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import {
   batchOf,
@@ -35,7 +36,7 @@ import { PNG_BYTES } from "./reader.factory.js";
 
 describe("a stored copy is read by its descriptor", () => {
   it("the descriptor has the name when the entry has one, and no name key when it has none", async () => {
-    const store = new InMemoryA2AFileRepository(new InMemoryDatabase());
+    const store = new InMemoryFileRepository(new InMemoryDatabase());
     const bytes = Buffer.concat([PNG_BYTES, Buffer.from("-copy")]);
     await store.save({
       tenantId: TENANT,
@@ -43,7 +44,7 @@ describe("a stored copy is read by its descriptor", () => {
       ownerId: OWNER,
       mediaType: "image/png",
       sha256: sha256Of(bytes),
-      sizeBytes: bytes.byteLength,
+      sizeBytes: byteSize(bytes.byteLength),
       createdAt: NOW,
       bytes,
     });

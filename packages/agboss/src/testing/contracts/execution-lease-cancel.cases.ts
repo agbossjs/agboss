@@ -3,6 +3,7 @@ import type {
   ExecutionLease,
   ExecutionLeaseRepository,
 } from "../../infrastructure/execution-lease.repository.js";
+import { StatusTrigger, ThreadStatus } from "../../turns/index.js";
 import { seconds } from "../../units/index.js";
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
@@ -44,6 +45,25 @@ export const LEASE_CANCEL_CASES: readonly ContractCase<ExecutionLeaseRepository>
       expect(await second.acquire("default", "root-1", LEASE)).toBeUndefined();
       await first.release(held);
       expect(await second.acquire("default", "root-1", LEASE)).toMatchObject({ token: 2 });
+    },
+  },
+  {
+    name: "#1341d: requestCancel with a status transition resolves, changes no lease, and is idempotent — a repeat with another transition changes nothing (the history row is the record contract's to read, written in the mark's transaction)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      const held = await takenBy(first);
+      const cancelling = {
+        tenantId: "default",
+        threadId: "thread-1",
+        toStatus: ThreadStatus.Cancelling,
+        trigger: StatusTrigger.Cancel,
+      };
+
+      await second.requestCancel(TREE, cancelling);
+      await first.requestCancel(TREE, { ...cancelling, reason: "again", actor: "ops-2" });
+
+      expect(await second.isCancelRequested(TREE)).toBe(true);
+      expect(await first.renew(held, LEASE)).toBe(LEASE);
+      expect(await second.acquire("default", "root-1", LEASE)).toBeUndefined();
     },
   },
   {

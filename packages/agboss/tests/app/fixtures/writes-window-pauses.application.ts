@@ -1,10 +1,9 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { Application } from "../../../src/application/application.js";
 import { Channel, Injectable } from "../../../src/components/decorators.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
-import { Flag, Text } from "../../../src/dto/index.js";
+import { Bool, Text } from "../../../src/dto/index.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import {
   Action,
@@ -12,7 +11,9 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  ExternalTask,
+  Ttl,
 } from "../../../src/index.js";
 import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.js";
 import { NodeKind, type PathSource } from "../../../src/flow/ast.js";
@@ -29,6 +30,8 @@ import {
 } from "../../../src/infrastructure/execution-record.repository.js";
 import type { TurnOutcome } from "../../../src/turns/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
+import { days } from "../../../src/units/index.js";
 
 /**
  * #1098 — trees cut off in the window between a task's writes (`putWrites`) and the checkpoint
@@ -39,7 +42,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
  * resume). What ran is counted per step.
  */
 
-const start = (source: Class): PathBuilder<PathSource> =>
+const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
 /** One checkpoint write as the saver was asked for it. */
@@ -237,7 +240,7 @@ export class WindowOrderDto {
 }
 
 export class WindowApprovalDto {
-  @Flag({ prompt: "whether the order goes on" })
+  @Bool({ prompt: "whether the order goes on" })
   approved!: boolean;
 }
 
@@ -246,37 +249,51 @@ export class WindowReceiptDto {
   text!: string;
 }
 
-@ChannelRole({
-  name: "window-approval-question",
+@ExternalTask({
+  name: "window-approval-external-task",
   description: "Asks for an order's approval",
-  ask: WindowOrderDto,
-  answer: WindowApprovalDto,
-  answerer: PauseAnswerer.Channel,
+  input: WindowOrderDto,
+  output: WindowApprovalDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
 })
-export abstract class WindowQuestion extends ChannelOf<WindowQuestion> {}
+export class WindowExternalTask {}
 
 /** Nobody is sent anything: the question waits for its `app.resume`. */
-@Channel({ name: "window-approval-channel", description: "Waits for the answer" })
-export class WindowChannel extends WindowQuestion {
-  async send(ask: ChannelAsk<WindowQuestion>): Promise<ChannelOutcome<WindowQuestion>> {
+@Channel({
+  name: "window-approval-channel",
+  description: "Waits for the answer",
+  target: WindowExternalTask,
+  ttl: days(1),
+})
+export class WindowChannel {
+  async send(ask: ChannelAsk<WindowExternalTask>): Promise<ChannelOutcome<WindowExternalTask>> {
     await asked(ask.pauseId);
     return ChannelOutcome.awaitReply();
   }
 }
 
-@ChannelRole({
-  name: "window-second-approval-question",
+@ExternalTask({
+  name: "window-second-approval-external-task",
   description: "Asks for an order's second approval",
-  ask: WindowOrderDto,
-  answer: WindowApprovalDto,
-  answerer: PauseAnswerer.Channel,
+  input: WindowOrderDto,
+  output: WindowApprovalDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
 })
-export abstract class WindowSecondQuestion extends ChannelOf<WindowSecondQuestion> {}
+export class WindowSecondExternalTask {}
 
 /** Nobody is sent anything: the second question waits for its `app.resume`. */
-@Channel({ name: "window-second-approval-channel", description: "Waits for the second answer" })
-export class WindowSecondChannel extends WindowSecondQuestion {
-  async send(ask: ChannelAsk<WindowSecondQuestion>): Promise<ChannelOutcome<WindowSecondQuestion>> {
+@Channel({
+  name: "window-second-approval-channel",
+  description: "Waits for the second answer",
+  target: WindowSecondExternalTask,
+  ttl: days(1),
+})
+export class WindowSecondChannel {
+  async send(
+    ask: ChannelAsk<WindowSecondExternalTask>,
+  ): Promise<ChannelOutcome<WindowSecondExternalTask>> {
     await asked(ask.pauseId);
     return ChannelOutcome.awaitReply();
   }
@@ -297,9 +314,9 @@ const ranOn = (name: string, applicationContext: ApplicationContext): void => {
 export class WindowAskAction {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
-  execute(input: { readonly order: Produced<WindowOrderDto, unknown> }): Promise<WindowOrderDto> {
+  execute(input: { readonly order: Tracked<WindowOrderDto> }): Promise<WindowOrderDto> {
     ranOn("ask", this.applicationContext);
-    return Promise.resolve({ orderId: input.order.value.orderId });
+    return Promise.resolve({ orderId: input.order.orderId });
   }
 }
 
@@ -314,11 +331,11 @@ export class WindowAskAgainAction {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   execute(input: {
-    readonly approval: Produced<WindowApprovalDto, unknown>;
-    readonly order: Produced<WindowOrderDto, unknown>;
+    readonly approval: Tracked<WindowApprovalDto>;
+    readonly order: Tracked<WindowOrderDto>;
   }): Promise<WindowOrderDto> {
     ranOn("ask-again", this.applicationContext);
-    return Promise.resolve({ orderId: input.order.value.orderId });
+    return Promise.resolve({ orderId: input.order.orderId });
   }
 }
 
@@ -333,13 +350,13 @@ export class WindowApprovedAction {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   execute(input: {
-    readonly approval: Produced<WindowApprovalDto, unknown>;
-    readonly order: Produced<WindowOrderDto, unknown>;
+    readonly approval: Tracked<WindowApprovalDto>;
+    readonly order: Tracked<WindowOrderDto>;
   }): Promise<WindowReceiptDto> {
     ranOn("approved", this.applicationContext);
     pausesWindow.onApproved?.(this.applicationContext.instanceId);
-    const verdict = input.approval.value.approved ? "approved" : "refused";
-    return Promise.resolve({ text: `${input.order.value.orderId} ${verdict}` });
+    const verdict = input.approval.approved ? "approved" : "refused";
+    return Promise.resolve({ text: `${input.order.orderId} ${verdict}` });
   }
 }
 
@@ -353,11 +370,9 @@ export class WindowApprovedAction {
 export class WindowChargeAction {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
-  execute(input: {
-    readonly receipt: Produced<WindowReceiptDto, unknown>;
-  }): Promise<WindowReceiptDto> {
+  execute(input: { readonly receipt: Tracked<WindowReceiptDto> }): Promise<WindowReceiptDto> {
     ranOn("charge", this.applicationContext);
-    return Promise.resolve({ text: `${input.receipt.value.text}, charged` });
+    return Promise.resolve({ text: `${input.receipt.text}, charged` });
   }
 }
 
@@ -380,15 +395,12 @@ export class WindowChildWorkflowFinish {}
 @Workflow({
   name: "window-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(WindowChildWorkflowStart)
-      .returns(WindowOrderDto)
+    onStart(WindowChildWorkflowStart)
       .toAction(WindowAskAction)
-      .returns(WindowOrderDto)
-      .toQuestion(WindowQuestion)
-      .returns(WindowApprovalDto)
+      .toExternalTask(WindowExternalTask)
       .toAction(WindowApprovedAction)
-      .returns(WindowReceiptDto)
       .toFinish(WindowChildWorkflowFinish),
   ],
 })
@@ -411,13 +423,11 @@ export class WindowParentWorkflowFinish {}
 @Workflow({
   name: "window-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(WindowParentWorkflowStart)
-      .returns(WindowOrderDto)
+    onStart(WindowParentWorkflowStart)
       .toWorkflow(WindowChildWorkflow)
-      .returns(WindowReceiptDto)
       .toAction(WindowChargeAction)
-      .returns(WindowReceiptDto)
       .toFinish(WindowParentWorkflowFinish),
   ],
 })
@@ -442,21 +452,15 @@ export class WindowTwiceWorkflowFinish {}
 @Workflow({
   name: "window-twice-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(WindowTwiceWorkflowStart)
-      .returns(WindowOrderDto)
+    onStart(WindowTwiceWorkflowStart)
       .toAction(WindowAskAction)
-      .returns(WindowOrderDto)
-      .toQuestion(WindowQuestion)
-      .returns(WindowApprovalDto)
+      .toExternalTask(WindowExternalTask)
       .toAction(WindowAskAgainAction)
-      .returns(WindowOrderDto)
-      .toQuestion(WindowSecondQuestion)
-      .returns(WindowApprovalDto)
+      .toExternalTask(WindowSecondExternalTask)
       .toAction(WindowApprovedAction)
-      .returns(WindowReceiptDto)
       .toAction(WindowChargeAction)
-      .returns(WindowReceiptDto)
       .toFinish(WindowTwiceWorkflowFinish),
   ],
 })

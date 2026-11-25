@@ -1,0 +1,4 @@
+fileTranscribers:
+  model-tool-agent:
+    model: local/other
+    modelProvider: local

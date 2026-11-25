@@ -1,15 +1,12 @@
 import { Application } from "../../../src/application/application.js";
 import { ApplicationContext } from "../../../src/flow/context/application-context.js";
 import { Channel, Injectable } from "../../../src/components/decorators.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import type { ExpiredContext } from "../../../src/channels/pause-contexts.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import { ChannelRole, PauseAnswerer } from "../../../src/channels/channel-role.decorator.js";
-import {
-  PauseExpiration,
-  type PauseExpiryHandler,
-} from "../../../src/channels/pause-expiration.js";
+import { PauseExpiration } from "../../../src/channels/pause-expiration.js";
 import type { ChannelPauseClosedEvent } from "../../../src/pause/notice-events.js";
-import { Flag, Text } from "../../../src/dto/index.js";
+import { Bool, Text } from "../../../src/dto/index.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -20,18 +17,18 @@ import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { PauseExpiredError } from "../../../src/flow/runtime/pause-expired-error.js";
 import type {
   ExecutionEndEvent,
+  ExecutionCancelEvent,
   ExecutionErrorEvent,
   ExecutionResumeEvent,
-  OnExecutionEnd,
-  OnExecutionError,
-  OnExecutionResume,
 } from "../../../src/index.js";
 import { InMemoryPausedExecutionRepository } from "../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { Clock } from "../../../src/infrastructure/clock.js";
-import { hours, minutes, seconds } from "../../../src/units/index.js";
+import { hours, minutes, seconds, days, Ttl } from "../../../src/units/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { start, toAction, toQuestion } from "./paths.js";
+import { onStart, toAction, toExternalTask } from "./paths.js";
+import { Observer, ExternalTask } from "../../../src/index.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
 
 /**
  * #941 — a pause with a deadline: an order the manager approves within 24 hours; when nobody
@@ -45,7 +42,7 @@ export class ExpiryOrderDto {
 }
 
 export class ExpiryDecisionDto {
-  @Flag({ prompt: "whether the order goes on" })
+  @Bool({ prompt: "whether the order goes on" })
   approved!: boolean;
 
   @Text({ prompt: "why", optional: true })
@@ -59,29 +56,31 @@ export class ExpiryDoneDto {
 
 /** What `onPauseExpired` is made to do. */
 export type ExpiryBehavior = (
-  ask: ChannelAsk<ManagerQuestion>,
-) => PauseExpiration<ManagerQuestion> | Promise<PauseExpiration<ManagerQuestion>>;
+  ask: ExpiredContext<ManagerExternalTask>,
+) => PauseExpiration<ManagerExternalTask> | Promise<PauseExpiration<ManagerExternalTask>>;
 
 export const expiry = {
   /** Every ask the manager's channel was sent, in order. */
-  sent: [] as ChannelAsk<ManagerQuestion>[],
+  sent: [] as ChannelAsk<ManagerExternalTask>[],
   /** The instance each handler call ran on. */
   holders: [] as string[],
   /** Every ask the handler was called with, in order. */
-  asked: [] as ChannelAsk<ManagerQuestion>[],
+  asked: [] as ExpiredContext<ManagerExternalTask>[],
   /** Every close the manager's channel was told. */
-  closed: [] as ChannelPauseClosedEvent<ManagerQuestion>[],
+  closed: [] as ChannelPauseClosedEvent<ManagerExternalTask>[],
   /** The asks the owner's channel handler was called with. */
-  ownerAsked: [] as ChannelAsk<OwnerQuestion>[],
+  ownerAsked: [] as ExpiredContext<OwnerExternalTask>[],
   /** What the owner's expiry handler does; none: `fail()`. */
   ownerBehavior: undefined as
-    undefined | ((ask: ChannelAsk<OwnerQuestion>) => PauseExpiration<OwnerQuestion>),
+    undefined | ((ask: ExpiredContext<OwnerExternalTask>) => PauseExpiration<OwnerExternalTask>),
   /** The director's asks. */
-  directorAsked: [] as ChannelAsk<DirectorQuestion>[],
+  directorAsked: [] as ChannelAsk<DirectorExternalTask>[],
   /** What the actions recorded. */
   recorded: [] as string[],
   /** The errors executions failed with, in order. */
   errors: [] as Error[],
+  /** The executions cancelled, in order (#1341: a cancel is an outcome, not an error). */
+  cancels: [] as ExecutionCancelEvent[],
   /** Every resume the observers heard of. */
   resumes: [] as ExecutionResumeEvent[],
   /** The executions that ended at a finish. */
@@ -113,6 +112,7 @@ export function resetExpiry(): void {
   expiry.directorAsked.length = 0;
   expiry.recorded.length = 0;
   expiry.errors.length = 0;
+  expiry.cancels.length = 0;
   expiry.resumes.length = 0;
   expiry.ended.length = 0;
   expiry.stores.length = 0;
@@ -122,76 +122,155 @@ export function resetExpiry(): void {
   expiry.onResume = undefined;
 }
 
-@ChannelRole({
-  name: "expiring-manager-question",
-  description: "Asks a manager to approve an order within 24 hours",
-  ask: ExpiryOrderDto,
-  answer: ExpiryDecisionDto,
-  answerer: PauseAnswerer.Channel,
-  expiresIn: hours(24),
-})
-export abstract class ManagerQuestion extends ChannelOf<ManagerQuestion> {}
+/** What every manager target does when its pause runs out: the test decides (none: `fail()`). */
+abstract class ManagerTargetBase {
+  constructor(private readonly context: ApplicationContext) {}
 
-@Channel({
-  name: "manager-expiry-channel",
-  description: "Asks the manager",
+  onExpired(
+    ctx: ExpiredContext<ManagerExternalTask>,
+  ): PauseExpiration<ManagerExternalTask> | Promise<PauseExpiration<ManagerExternalTask>> {
+    expiry.asked.push(ctx);
+    expiry.holders.push(this.context.instanceId);
+    return expiry.behavior?.(ctx) ?? PauseExpiration.fail();
+  }
+}
+
+@ExternalTask({
+  name: "expiring-manager-external-task",
+  description: "Asks a manager to approve an order within 24 hours",
+  input: ExpiryOrderDto,
+  output: ExpiryDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(24),
   deps: [ApplicationContext],
 })
-export class ManagerChannel extends ManagerQuestion implements PauseExpiryHandler<ManagerQuestion> {
-  constructor(private readonly context: ApplicationContext) {
-    super();
-  }
+export class ManagerExternalTask extends ManagerTargetBase {}
 
-  send(ask: ChannelAsk<ManagerQuestion>): Promise<ChannelOutcome<ManagerQuestion>> {
+/** What every manager channel does: asked, told of a close. */
+export abstract class ManagerChannelBase {
+  send(ask: ChannelAsk<ManagerExternalTask>): Promise<ChannelOutcome<ManagerExternalTask>> {
     expiry.sent.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 
-  override onPauseClosed(event: ChannelPauseClosedEvent<ManagerQuestion>): Promise<void> {
+  onPauseClosed(event: ChannelPauseClosedEvent<ManagerExternalTask>): Promise<void> {
     expiry.closed.push(event);
     return Promise.resolve();
   }
-
-  onPauseExpired(
-    ask: ChannelAsk<ManagerQuestion>,
-  ): PauseExpiration<ManagerQuestion> | Promise<PauseExpiration<ManagerQuestion>> {
-    expiry.asked.push(ask);
-    expiry.holders.push(this.context.instanceId);
-    return expiry.behavior?.(ask) ?? PauseExpiration.fail();
-  }
 }
 
-@ChannelRole({
-  name: "expiring-director-question",
-  description: "Asks a director when the manager did not answer",
-  ask: ExpiryOrderDto,
-  answer: ExpiryDecisionDto,
-  answerer: PauseAnswerer.Channel,
+@Channel({
+  name: "manager-expiry-channel",
+  description: "Asks the manager",
+  target: ManagerExternalTask,
+  ttl: days(1),
 })
-export abstract class DirectorQuestion extends ChannelOf<DirectorQuestion> {}
+export class ManagerChannel extends ManagerChannelBase {}
 
-@Channel({ name: "director-expiry-channel", description: "Asks the director" })
-export class DirectorChannel extends DirectorQuestion {
-  send(ask: ChannelAsk<DirectorQuestion>): Promise<ChannelOutcome<DirectorQuestion>> {
+/** The manager with 4 hours instead of 24: the same channel, asked under its own target. */
+@ExternalTask({
+  name: "expiring-short-manager-external-task",
+  description: "Asks a manager to approve an order within 4 hours",
+  input: ExpiryOrderDto,
+  output: ExpiryDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(4),
+  deps: [ApplicationContext],
+})
+export class ShortManagerExternalTask extends ManagerTargetBase {}
+
+@Channel({
+  name: "short-manager-expiry-channel",
+  description: "Asks the manager, short",
+  target: ShortManagerExternalTask,
+  ttl: days(1),
+})
+export class ShortManagerChannel extends ManagerChannelBase {}
+
+/** The manager with 3 seconds: the same channel, asked under its own target. */
+@ExternalTask({
+  name: "expiring-slow-manager-external-task",
+  description: "Asks a manager to approve an order within 3 seconds",
+  input: ExpiryOrderDto,
+  output: ExpiryDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: seconds(3),
+  deps: [ApplicationContext],
+})
+export class SlowManagerExternalTask extends ManagerTargetBase {}
+
+@Channel({
+  name: "slow-manager-expiry-channel",
+  description: "Asks the manager, quick",
+  target: SlowManagerExternalTask,
+  ttl: days(1),
+})
+export class SlowManagerChannel extends ManagerChannelBase {}
+
+@ExternalTask({
+  name: "expiring-director-external-task",
+  description: "Asks a director when the manager did not answer",
+  input: ExpiryOrderDto,
+  output: ExpiryDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
+})
+export class DirectorExternalTask {}
+
+/** What every director channel does: asked, it waits. */
+export abstract class DirectorChannelBase {
+  send(ask: ChannelAsk<DirectorExternalTask>): Promise<ChannelOutcome<DirectorExternalTask>> {
     expiry.directorAsked.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
-/** A reviewer with no expiry handler and a 30 minutes deadline: its expiry fails the step. */
-@ChannelRole({
-  name: "expiring-reviewer-question",
-  description: "Asks a reviewer within 30 minutes",
-  ask: ExpiryOrderDto,
-  answer: ExpiryDecisionDto,
-  answerer: PauseAnswerer.Channel,
-  expiresIn: minutes(30),
+@Channel({
+  name: "director-expiry-channel",
+  description: "Asks the director",
+  target: DirectorExternalTask,
+  ttl: days(1),
 })
-export abstract class ReviewerQuestion extends ChannelOf<ReviewerQuestion> {}
+export class DirectorChannel extends DirectorChannelBase {}
 
-@Channel({ name: "reviewer-expiry-channel", description: "Asks the reviewer" })
-export class ReviewerChannel extends ReviewerQuestion {
-  send(): Promise<ChannelOutcome<ReviewerQuestion>> {
+/** The director with 1 hour instead of waiting on: the same channel, asked under its own target. */
+@ExternalTask({
+  name: "expiring-hour-director-external-task",
+  description: "Asks a director within 1 hour",
+  input: ExpiryOrderDto,
+  output: ExpiryDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(1),
+})
+export class HourDirectorExternalTask {}
+
+@Channel({
+  name: "hour-director-expiry-channel",
+  description: "Asks the director, within the hour",
+  target: HourDirectorExternalTask,
+  ttl: days(1),
+})
+export class HourDirectorChannel extends DirectorChannelBase {}
+
+/** A reviewer with no expiry handler and a 30 minutes deadline: its expiry fails the step. */
+@ExternalTask({
+  name: "expiring-reviewer-external-task",
+  description: "Asks a reviewer within 30 minutes",
+  input: ExpiryOrderDto,
+  output: ExpiryDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: minutes(30),
+})
+export class ReviewerExternalTask {}
+
+@Channel({
+  name: "reviewer-expiry-channel",
+  description: "Asks the reviewer",
+  target: ReviewerExternalTask,
+  ttl: days(1),
+})
+export class ReviewerChannel {
+  send(): Promise<ChannelOutcome<ReviewerExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -211,7 +290,7 @@ export class ExpiryWorkflowFinish {}
 })
 export class RecordExpiryAction implements ActionHandler<RecordExpiryAction> {
   execute({ order, decision }: InputOf<RecordExpiryAction>): Promise<OutputOf<RecordExpiryAction>> {
-    const status = `${order.value.orderId}: ${decision.value.approved ? "approved" : "refused"}${decision.value.comment === undefined ? "" : ` (${decision.value.comment})`}`;
+    const status = `${order.orderId}: ${decision.approved ? "approved" : "refused"}${decision.comment === undefined ? "" : ` (${decision.comment})`}`;
     expiry.recorded.push(status);
     return Promise.resolve({ status });
   }
@@ -229,7 +308,7 @@ export class RecordEscalatedAction implements ActionHandler<RecordEscalatedActio
     order,
     decision,
   }: InputOf<RecordEscalatedAction>): Promise<OutputOf<RecordEscalatedAction>> {
-    const status = `${order.value.orderId}: escalated, ${decision.value.approved ? "approved" : "refused"}`;
+    const status = `${order.orderId}: escalated, ${decision.approved ? "approved" : "refused"}`;
     expiry.recorded.push(status);
     return Promise.resolve({ status });
   }
@@ -239,21 +318,17 @@ export class RecordEscalatedAction implements ActionHandler<RecordEscalatedActio
 @Workflow({
   name: "expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ExpiryWorkflowStart)
-      .returns(ExpiryOrderDto)
-      .toQuestion(ManagerQuestion)
+    onStart(ExpiryWorkflowStart)
+      .toExternalTask(ManagerExternalTask)
       .onError(
         PauseExpiredError,
-        toQuestion(DirectorQuestion)
-          .returns(ExpiryDecisionDto)
+        toExternalTask(DirectorExternalTask)
           .toAction(RecordEscalatedAction)
-          .returns(ExpiryDoneDto)
           .toFinish(ExpiryWorkflowFinish),
       )
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })
@@ -266,17 +341,15 @@ export class ExpiryWorkflow {}
 })
 export class ShortExpiryWorkflowStart {}
 
-/** The step gives the manager 4 hours, over the role's 24: nothing catches the failure. */
+/** The manager has 4 hours, not the 24 of the usual one: nothing catches the failure. */
 @Workflow({
   name: "short-expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ShortExpiryWorkflowStart)
-      .returns(ExpiryOrderDto)
-      .toQuestion(ManagerQuestion, { expiresIn: hours(4) })
-      .returns(ExpiryDecisionDto)
+    onStart(ShortExpiryWorkflowStart)
+      .toExternalTask(ShortManagerExternalTask)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })
@@ -294,10 +367,10 @@ export class SlowEscalationAction implements ActionHandler<SlowEscalationAction>
   constructor(private readonly clock: Clock) {}
 
   async execute({ order }: InputOf<SlowEscalationAction>): Promise<OutputOf<SlowEscalationAction>> {
-    expiry.slowStarted.push(order.value.orderId);
+    expiry.slowStarted.push(order.orderId);
     await this.clock.sleep(seconds(30));
-    expiry.slowEnded.push(order.value.orderId);
-    return { status: `${order.value.orderId}: escalated slowly` };
+    expiry.slowEnded.push(order.orderId);
+    return { status: `${order.orderId}: escalated slowly` };
   }
 }
 
@@ -312,19 +385,16 @@ export class SlowExpiryWorkflowStart {}
 @Workflow({
   name: "slow-expiry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SlowExpiryWorkflowStart)
-      .returns(ExpiryOrderDto)
-      .toQuestion(ManagerQuestion, { expiresIn: seconds(3) })
+    onStart(SlowExpiryWorkflowStart)
+      .toExternalTask(SlowManagerExternalTask)
       .onError(
         PauseExpiredError,
         toAction(SlowEscalationAction)
-          .returns(ExpiryDoneDto)
           .toFinish(ExpiryWorkflowFinish),
       )
-      .returns(ExpiryDecisionDto)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })
@@ -337,40 +407,43 @@ export class ReviewerWorkflowStart {}
 @Workflow({
   name: "reviewer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ReviewerWorkflowStart)
-      .returns(ExpiryOrderDto)
-      .toQuestion(ReviewerQuestion)
-      .returns(ExpiryDecisionDto)
+    onStart(ReviewerWorkflowStart)
+      .toExternalTask(ReviewerExternalTask)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })
 export class ReviewerWorkflow {}
 
 /** A question its thread's owner answers, within 10 minutes: what an A2A caller is asked. */
-@ChannelRole({
-  name: "expiring-owner-question",
+@ExternalTask({
+  name: "expiring-owner-external-task",
   description: "Asks the order's owner within 10 minutes",
-  ask: ExpiryOrderDto,
-  answer: ExpiryDecisionDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  expiresIn: minutes(10),
+  input: ExpiryOrderDto,
+  output: ExpiryDecisionDto,
+  respondent: PauseRespondent.Owner,
+  timeout: minutes(10),
 })
-export abstract class OwnerQuestion extends ChannelOf<OwnerQuestion> {}
-
-@Channel({ name: "owner-expiry-channel", description: "Waits for the owner" })
-export class OwnerChannel extends OwnerQuestion implements PauseExpiryHandler<OwnerQuestion> {
-  send(): Promise<ChannelOutcome<OwnerQuestion>> {
-    return Promise.resolve(ChannelOutcome.awaitReply());
+export class OwnerExternalTask {
+  onExpired(
+    ctx: ExpiredContext<OwnerExternalTask>,
+  ): PauseExpiration<OwnerExternalTask> | Promise<PauseExpiration<OwnerExternalTask>> {
+    expiry.ownerAsked.push(ctx);
+    return expiry.ownerBehavior?.(ctx) ?? PauseExpiration.fail();
   }
+}
 
-  onPauseExpired(
-    ask: ChannelAsk<OwnerQuestion>,
-  ): PauseExpiration<OwnerQuestion> | Promise<PauseExpiration<OwnerQuestion>> {
-    expiry.ownerAsked.push(ask);
-    return expiry.ownerBehavior?.(ask) ?? PauseExpiration.fail();
+@Channel({
+  name: "owner-expiry-channel",
+  description: "Waits for the owner",
+  target: OwnerExternalTask,
+  ttl: days(1),
+})
+export class OwnerChannel {
+  send(): Promise<ChannelOutcome<OwnerExternalTask>> {
+    return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
 
@@ -381,13 +454,11 @@ export class OwnerWorkflowStart {}
 @Workflow({
   name: "owner-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OwnerWorkflowStart)
-      .returns(ExpiryOrderDto)
-      .toQuestion(OwnerQuestion)
-      .returns(ExpiryDecisionDto)
+    onStart(OwnerWorkflowStart)
+      .toExternalTask(OwnerExternalTask)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })
@@ -408,27 +479,29 @@ export class PlainWorkflowStart {}
 @Workflow({
   name: "plain-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PlainWorkflowStart)
-      .returns(ExpiryOrderDto)
-      .toQuestion(DirectorQuestion)
-      .returns(ExpiryDecisionDto)
+    onStart(PlainWorkflowStart)
+      .toExternalTask(DirectorExternalTask)
       .toAction(RecordExpiryAction)
-      .returns(ExpiryDoneDto)
       .toFinish(ExpiryWorkflowFinish),
   ],
 })
 export class PlainWorkflow {}
 
 /** What the observers heard of each execution: how it ended and why it was resumed. */
-@Injectable()
-export class ExpiryLog implements OnExecutionError, OnExecutionResume, OnExecutionEnd {
+@Observer()
+export class ExpiryLog {
   onExecutionEnd(event: ExecutionEndEvent): void {
     expiry.ended.push(event);
   }
 
   onExecutionError(event: ExecutionErrorEvent): void {
     expiry.errors.push(event.error);
+  }
+
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    expiry.cancels.push(event);
   }
 
   async onExecutionResume(event: ExecutionResumeEvent): Promise<void> {
@@ -452,6 +525,8 @@ export class ExpiryLog implements OnExecutionError, OnExecutionResume, OnExecuti
   budgets: TEST_BUDGETS,
   providers: [
     ManagerChannel,
+    ShortManagerChannel,
+    SlowManagerChannel,
     DirectorChannel,
     ReviewerChannel,
     OwnerChannel,
@@ -469,9 +544,11 @@ export class ExpiryApplication {}
   environment: EmptyEnvironment,
   workflows: [ExpiryWorkflow, ShortExpiryWorkflow, SlowExpiryWorkflow, ReviewerWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 4,
+  executionLimits: { maxConcurrentSteps: 4 },
   providers: [
     ManagerChannel,
+    ShortManagerChannel,
+    SlowManagerChannel,
     DirectorChannel,
     ReviewerChannel,
     ExpiryPausedExecutionRepository,

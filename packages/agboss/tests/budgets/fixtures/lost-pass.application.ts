@@ -4,15 +4,16 @@ import {
   Agent,
   ExecutionContext,
   Injectable,
+  Observer,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
   type ExecutionEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type OnModelStart,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { EmptyEnvironment } from "../../../src/index.js";
@@ -22,11 +23,14 @@ import {
   type BudgetAccount,
   type CostCounter,
   type LedgerEntry,
+  type BudgetLimit,
+  type BudgetUsage,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { CostReport } from "../../../src/finops/usage.js";
 import type { Usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toAgent } from "../../helpers/flow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #853 — a step whose pass is lost mid model call: one agent (its model scripted, the first call
@@ -66,7 +70,7 @@ export function resetLostPass(): void {
 
 /** What the shared ledger holds for `counter`. */
 export const sharedSpentOf = (counter: CostCounter): Promise<Usd> =>
-  shared.findSpentByCounter(counter);
+  shared.findUsageByCounter(counter).then((usage) => usage.spent);
 
 /** One ledger for every instance of a test, keeping what it was handed. */
 @Injectable()
@@ -74,8 +78,8 @@ export class SharedCostLedgerRepository extends CostLedgerRepository {
   ping(): Promise<void> {
     return shared.ping();
   }
-  findSpentByCounter(counter: CostCounter): Promise<Usd> {
-    return shared.findSpentByCounter(counter);
+  findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
+    return shared.findUsageByCounter(counter);
   }
   saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void> {
     lostPassSeen.saved.push(...entries);
@@ -84,17 +88,17 @@ export class SharedCostLedgerRepository extends CostLedgerRepository {
   deleteByMadeAtBefore(cutoff: Date): Promise<void> {
     return shared.deleteByMadeAtBefore(cutoff);
   }
-  findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined> {
-    return shared.findMaxSpendByAccount(account);
+  findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined> {
+    return shared.findLimitByAccount(account);
   }
-  saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void> {
-    return shared.saveMaxSpend(account, maxSpend);
+  saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void> {
+    return shared.saveLimit(account, limit);
   }
 }
 
 /** Keeps each root's spend report at its end, counts its failures, and counts the model calls that started. */
-@Injectable()
-export class SpendLog implements OnExecutionEnd, OnExecutionError, OnModelStart {
+@Observer()
+export class SpendLog {
   onModelStart(): void {
     lostPassSeen.modelCalls += 1;
   }
@@ -102,6 +106,10 @@ export class SpendLog implements OnExecutionEnd, OnExecutionError, OnModelStart 
     if (event.parentExecutionId === undefined) lostPassSeen.ends.push(event.spend);
   }
   onExecutionError(event: ExecutionErrorEvent): void {
+    if (event.parentExecutionId === undefined) lostPassSeen.failures += 1;
+  }
+  /** A root's cancel (#1341) ends it as a failure did: it is counted with them. */
+  onExecutionCancel(event: ExecutionCancelEvent): void {
     if (event.parentExecutionId === undefined) lostPassSeen.failures += 1;
   }
 }
@@ -124,7 +132,7 @@ export class LostPassWorkflowFinish {}
 @Agent({
   name: "writer-agent",
   description: "Writes the report",
-  prompt: "Write the report.",
+  prompt: inline("Write the report."),
   model: "test/writer",
   input: { message: WorkflowStartTextDto },
   output: ReportDto,
@@ -135,7 +143,7 @@ export class WriterAgent {}
 @Agent({
   name: "reviewer-agent",
   description: "Reviews the report",
-  prompt: "Review the report.",
+  prompt: inline("Review the report."),
   model: "test/reviewer",
   input: { report: ReportDto },
   output: ReportDto,
@@ -153,7 +161,7 @@ export class ReviewerAgent {}
 export class HoldReportAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: { readonly report: Produced<ReportDto, unknown> }): Promise<ReportDto> {
+  async execute(input: { readonly report: Tracked<ReportDto> }): Promise<ReportDto> {
     lostPassSeen.holds += 1;
     if (lostPassLevers.isHolding) {
       lostPassLevers.isHolding = false;
@@ -165,23 +173,20 @@ export class HoldReportAction {
         });
       });
     }
-    return input.report.value;
+    return input.report;
   }
 }
 
 @Workflow({
   name: "lost-pass-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
-    start(LostPassWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(LostPassWorkflowStart)
       .toAgent(WriterAgent)
-      .returns(ReportDto)
       .toAgent(ReviewerAgent)
-      .returns(ReportDto)
       .toAction(HoldReportAction)
-      .returns(ReportDto)
       .toFinish(LostPassWorkflowFinish),
   ],
 })
@@ -209,7 +214,7 @@ export class LostBranchWorkflowFinish {}
 @Agent({
   name: "checker-agent",
   description: "Checks the task",
-  prompt: "Check the task.",
+  prompt: inline("Check the task."),
   model: "test/checker",
   input: { message: WorkflowStartTextDto },
   output: CheckDto,
@@ -219,7 +224,7 @@ export class CheckerAgent {}
 @Agent({
   name: "drafter-agent",
   description: "Drafts the report",
-  prompt: "Draft the report.",
+  prompt: inline("Draft the report."),
   model: "test/drafter",
   input: { message: WorkflowStartTextDto },
   output: ReportDto,
@@ -235,10 +240,10 @@ export class DrafterAgent {}
 })
 export class MergeReportAction {
   execute(input: {
-    readonly report: Produced<ReportDto, unknown>;
-    readonly check: Produced<CheckDto, unknown>;
+    readonly report: Tracked<ReportDto>;
+    readonly check: Tracked<CheckDto>;
   }): Promise<ReportDto> {
-    return Promise.resolve({ text: `${input.report.value.text}: ${input.check.value.verdict}` });
+    return Promise.resolve({ text: `${input.report.text}: ${input.check.verdict}` });
   }
 }
 
@@ -246,16 +251,13 @@ export class MergeReportAction {
 @Workflow({
   name: "lost-branch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 } },
   flow: [
-    start(LostBranchWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toParallelAgents(DrafterAgent, CheckerAgent)
+    onStart(LostBranchWorkflowStart)
+      .inParallel([toAgent(DrafterAgent), toAgent(CheckerAgent)])
       .join()
-      .returns(ReportDto)
-      .returns(CheckDto)
       .toAction(MergeReportAction)
-      .returns(ReportDto)
       .toFinish(LostBranchWorkflowFinish),
   ],
 })
@@ -263,6 +265,7 @@ export class LostBranchWorkflow {}
 
 @Application({
   name: "lost-pass-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LostPassWorkflow, LostBranchWorkflow],

@@ -5,19 +5,19 @@ Read this before you design a workflow, split one, or write its DTOs. The flow g
 
 ## Pick the primitive
 
-| The step must…                                                         | Use                                                                             | Not                                            |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------- |
-| understand or write language, decide on meaning, use tools in a loop   | `@Agent` — a model, a prompt, `tools`, an `output` DTO                          | an action that calls a model by hand           |
-| run deterministic code on the path: save, charge, compute, call an API | `@Action` — `execute(input)`, no model, cost 0 unless it records spend          | a tool nobody but the flow calls               |
-| be callable by an agent zero, one or many times inside its turn        | `@Tool` in the agent's `tools`                                                  | an action (the flow calls it exactly once)     |
-| choose the next step **by data** (a number, a flag, a lookup)          | `@Router({ decidedBy: DecidedBy.Code })` + `route(input)`                       | a model router asked "is total > 1000?"        |
-| choose the next step **by meaning** of text it has not produced        | `@Router({ decidedBy: DecidedBy.Model, model: "typesafe/jev-1.13" })`           | a chat agent whose only job is to pick         |
-| let the agent that did the work say which outcome it is                | `output: oneOf(ADto, BDto)` + `.returns(oneOf(…)).switch(caseOf(…)…)`           | a second model call through a router after it  |
-| repeat a sub-process per item, give it its own branches and failures   | a child `@Workflow` (`.toWorkflow(W)`, `.toParallelWorkflows(W, { maxItems })`) | one giant flow with copied paths               |
-| ask several agents and combine their answers                           | `.toParallelAgents(…)` + `.join()` / `.joinQuorum(…)` (reference 02)            | one agent prompted to "think as three experts" |
-| wait for a person or a system before a side effect                     | a `@Tool({ channel })` (reference 05)                                           | an action that polls                           |
-| stop unsafe input or output                                            | `@InputGuardrail` / `@OutputGuardrail` (reference 07)                           | an agent prompt that says "refuse if …"        |
-| check an answer's quality and retry it                                 | `@Judge` in the agent's `judges` (reference 03)                                 | a reviewer agent for a yes / no check          |
+| The step must…                                                         | Use                                                                                  | Not                                            |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| understand or write language, decide on meaning, use tools in a loop   | `@Agent` — a model, a prompt, `tools`, an `output` DTO                               | an action that calls a model by hand           |
+| run deterministic code on the path: save, charge, compute, call an API | `@Action` — `execute(input)`, no model, cost 0 unless it records spend               | a tool nobody but the flow calls               |
+| be callable by an agent zero, one or many times inside its turn        | `@Tool` in the agent's `tools`                                                       | an action (the flow calls it exactly once)     |
+| choose the next step **by data** (a number, a flag, a lookup)          | `@Router({ decidedBy: DecidedBy.Code })` + `route(input)`                            | a model router asked "is total > 1000?"        |
+| choose the next step **by meaning** of text it has not produced        | `@Router({ decidedBy: DecidedBy.Model, model: "typesafe/jev-1.13" })`                | a chat agent whose only job is to pick         |
+| let the agent that did the work say which outcome it is                | `output: oneOf(ADto, BDto)` + `.toOneOf([…])`                                        | a second model call through a router after it  |
+| repeat a sub-process per item, give it its own branches and failures   | a child `@Workflow` (`.toWorkflow(W)`, `.forEachItem(toWorkflow(W), { takeFirst })`) | one giant flow with copied paths               |
+| ask several agents and combine their answers                           | `.inParallel([…])` + `.join()` / `.joinQuorum(…)` (reference 02)                     | one agent prompted to "think as three experts" |
+| wait for a person or a system before a side effect                     | a `@Tool({ channel })` (reference 05)                                                | an action that polls                           |
+| stop unsafe input or output                                            | `@InputGuardrail` / `@OutputGuardrail` (reference 07)                                | an agent prompt that says "refuse if …"        |
+| check an answer's quality and retry it                                 | `@Judge` in the agent's `judges` (reference 03)                                      | a reviewer agent for a yes / no check          |
 
 Rules of thumb:
 
@@ -28,7 +28,7 @@ Rules of thumb:
   (`RouterFailedError`, `RouterDecisionError`). Decide by data whenever the data exist.
 - **Extract a child workflow** when the same sub-process is reached from two workflows, runs once
   per item of a list, needs its own failure finish (a per-item child that fails soft), or calls
-  itself (`ThisWorkflow`, `maxDepth`). A child gets only its start's input as its scope — pass it
+  itself (`() => Self`, `maxDepth`). A child gets only its start's input as its scope — pass it
   what it needs through that DTO.
 - **Every loop is bounded**: a node on a cycle has `maxVisits`, the workflow has `maxSteps`, money
   is the application's `@Budget`s.
@@ -57,11 +57,11 @@ export class JobDto {
 ```
 
 ```ts file=src/shortlist/dto/shortlist.dto.ts
-import { ListOf, Text } from "@agboss/core/dto";
+import { List, Text } from "@agboss/core/dto";
 import { JobDto } from "./job.dto.js";
 
 export class ShortlistDto {
-  @ListOf(JobDto, { prompt: "the jobs that match the request, best first", minItems: 1 })
+  @List(JobDto, { prompt: "the jobs that match the request, best first", minItems: 1 })
   jobs!: JobDto[];
 
   @Text({ prompt: "one sentence: why these jobs", optional: true })
@@ -92,7 +92,7 @@ export class ShortlistSavedDto {
 
 ```ts file=src/shortlist/agents/screening/screening.agent.ts
 // agents/screening/screening.agent.ts — the agent that does the work also says which outcome it is
-import { Agent, oneOf } from "@agboss/core";
+import { Agent, oneOf, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { NoMatchDto } from "../../dto/no-match.dto.js";
 import { ShortlistDto } from "../../dto/shortlist.dto.js";
@@ -100,7 +100,7 @@ import { ShortlistDto } from "../../dto/shortlist.dto.js";
 @Agent({
   name: "screening-agent",
   description: "Turns a job request into a shortlist, or says nothing matches",
-  prompt: "Pick the jobs that match the request. If none does, answer that nothing matches.",
+  prompt: inline("Pick the jobs that match the request. If none does, answer that nothing matches."),
   model: "moonshotai/kimi-k2.6",
   input: { request: WorkflowStartTextDto },
   output: oneOf(ShortlistDto, NoMatchDto), // two answer tools: answer-shortlist-dto, answer-no-match-dto
@@ -142,7 +142,7 @@ export class SaveShortlistAction implements ActionHandler<SaveShortlistAction> {
   ) {}
 
   async execute(input: InputOf<SaveShortlistAction>): Promise<OutputOf<SaveShortlistAction>> {
-    const { jobs } = input.shortlist.value; // a field of the scope: { producer, value }
+    const { jobs } = input.shortlist; // a field of the scope: the DTO itself, tracked
     const key: string = this.executionContext.step.idempotencyKey; // the same on a retried step
     const shortlistId: string = await this.shortlistStoreService.save(jobs, key);
     return { shortlistId, count: jobs.length, top: jobs[0] }; // a plain object, never `new`
@@ -201,11 +201,11 @@ const MAX_SAVED_JOBS = 10;
   description: "Saves a short list, hands a long one to a person",
   decidedBy: DecidedBy.Code,
   input: { shortlist: ShortlistDto },
-  routes: [{ target: SaveShortlistAction }, { target: TooManyJobsWorkflowFinish }],
+  routes: [SaveShortlistAction, TooManyJobsWorkflowFinish],
 })
 export class ShortlistSizeRouter implements RouterHandler<ShortlistSizeRouter> {
   route(input: InputOf<ShortlistSizeRouter>): Route<ShortlistSizeRouter> {
-    return input.shortlist.value.jobs.length > MAX_SAVED_JOBS
+    return input.shortlist.jobs.length > MAX_SAVED_JOBS
       ? TooManyJobsWorkflowFinish
       : SaveShortlistAction;
   }
@@ -225,8 +225,8 @@ export class JobSearchWorkflowStart {}
 ```
 
 ```ts file=src/shortlist/workflows/shortlist/shortlist.workflow.ts
-// workflows/shortlist/shortlist.workflow.ts — the paths: one call per line, a `.returns` after every producing step
-import { Workflow, caseOf, oneOf, route, start } from "@agboss/core";
+// workflows/shortlist/shortlist.workflow.ts — the paths: one call per line
+import { Workflow, oneOf, onStart, toAgent, toRouter, toFinish, toAction, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { SaveShortlistAction } from "../../actions/save-shortlist.action.js";
 import { ScreeningAgent } from "../../agents/screening/screening.agent.js";
@@ -243,25 +243,21 @@ import { TooManyJobsWorkflowFinish } from "./too-many-jobs.workflow-finish.js";
 @Workflow({
   name: "shortlist-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(JobSearchWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(JobSearchWorkflowStart)
       .toAgent(ScreeningAgent)
-      .returns(oneOf(ShortlistDto, NoMatchDto))
-      .switch(
-        caseOf(ShortlistDto)
-          .toRouter(ShortlistSizeRouter)
-          .chooseOne(
-            route(SaveShortlistAction)
-              .returns(ShortlistSavedDto)
+      .toOneOf([
+        toRouter(ShortlistSizeRouter)
+          .onRoute(
+            toAction(SaveShortlistAction)
               .toFinish(ShortlistSavedWorkflowFinish),
-            route(TooManyJobsWorkflowFinish),
-          ),
-        caseOf(NoMatchDto)
-          .toFinish(NoMatchWorkflowFinish),
-      ),
+          )
+          .onRoute(toFinish(TooManyJobsWorkflowFinish)),
+        toFinish(NoMatchWorkflowFinish),
+      ]),
   ],
-  maxSteps: 3,
+  executionLimits: { maxSteps: 3 },
   providers: [ShortlistStoreService],
 })
 export class ShortlistWorkflow {}
@@ -304,7 +300,25 @@ export class ExecutionBudget implements BudgetHandler {
 }
 ```
 
+The chat provider — every application names its `modelProvider` explicitly (a driver provider; no built-ins):
+
+```ts file=src/model-providers/openrouter.model-provider.ts
+import { secret } from "@agboss/core";
+import { ModelCost, ModelProvider, OpenRouterDriver } from "@agboss/core/models";
+import { minutes } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "openrouter-model-provider",
+  description: "OpenRouter — every chat model of the application",
+  driver: OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+})
+export class OpenRouterModelProvider {}
+```
+
 ```ts file=src/shortlist.application.ts
+import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 // shortlist.application.ts — what createApp, testWith and the CLI take
 import { Application, EmptyEnvironment } from "@agboss/core";
 import { ApplicationDailyBudget } from "./shortlist/budgets/application-daily.budget.js";
@@ -313,6 +327,8 @@ import { TenantDailyBudget } from "./shortlist/budgets/tenant-daily.budget.js";
 import { ShortlistWorkflow } from "./shortlist/workflows/shortlist/shortlist.workflow.js";
 
 @Application({
+  modelProvider: OpenRouterModelProvider,
+  providers: [OpenRouterModelProvider],
   name: "shortlist-application",
   version: "1.0.0",
   environment: EmptyEnvironment, // no settings; see reference 03 for an environment contract
@@ -325,16 +341,18 @@ export class ShortlistApplication {}
 What this shows:
 
 - **The scope, not arguments.** `SaveShortlistAction` and `ShortlistSizeRouter` read `shortlist`
-  because `.returns(oneOf(ShortlistDto, NoMatchDto))` and `caseOf(ShortlistDto)` put a `ShortlistDto`
+  because the step's `oneOf(ShortlistDto, NoMatchDto)` output and the `.toOneOf([…])` branch that reads it put a `ShortlistDto`
   on that path; a field no path brings is `[input.missing-on-path]`. Each input field arrives as
-  `{ producer, value }` — `input.shortlist.value.jobs`.
+  the DTO itself — `input.shortlist.jobs` — a `Tracked` value, an instance of its DTO class that remembers its producer: `Metadata.createdBy(input.shortlist)` is the class that gave it.
 - **A marker class for an outcome.** `NoMatchDto` has no fields: the class is the answer, and the
   `switch` routes on it. `oneOf` outputs become one answer tool per class for the model.
-- **Pass-through finishes.** A finish without a `finish()` method hands back the value of its
-  `output` class from the path (`TooManyJobsWorkflowFinish` returns the `ShortlistDto`).
-- **Names end with their kind — the class too.** Every `name` is kebab-case with its kind last
+- **Finishes are pure boundary ports.** A `@WorkflowFinish({ name, description, output })` is an empty class: it hands back
+  the value of its `output` (one DTO, or a `listOf(…)` after a join) from the path (`TooManyJobsWorkflowFinish` returns the
+  `ShortlistDto`). It has no `input`, no `deps` and no `finish()`; work before it is an `@Action`.
+- **Persisted names end with their kind — the class too.** A workflow, agent, router, action or budget `name` is kebab-case with its kind last
   (`shortlist-size-router`, `tenant-daily-budget`), the class the same name in PascalCase
-  (`ShortlistSizeRouter`, `TenantDailyBudget`). `[name.kind-suffix]` checks the `name` of every
+  (`ShortlistSizeRouter`, `TenantDailyBudget`); every other component's `name` is optional (kebab-case,
+  the class name by default). `[name.kind-suffix]` checks the `name` of every
   component and, for the `@Application` and each `@Budget`, the class name as well: an application
   class `ShortlistApp` or a budget class `DailyLimit` fails assembly
   (`class DailyLimit — name it DailyLimitBudget`).
@@ -342,18 +360,30 @@ What this shows:
 ## DTOs: what the model sees and what the code gets
 
 - One field decorator per field (`[dto.undecorated-field]` otherwise): `@Text`, `@Integer`,
-  `@Decimal`, `@Flag`, `@OneOf({ values: ["a", "b"] })`, `@ListOf(ItemDto | Text, { minItems })`,
-  `@Nested(OtherDto)`, formats `@Email`, `@Url`, `@Uuid`, `@Date`, `@DateTime`, `@PhoneNumber`, ….
+  `@Float`, `@Bool`, `@Enum(["a", "b"])`, `@List(ItemDto | Text, { minItems })`,
+  `@Nested(OtherDto)`, formats `@Email`, `@Url`, `@Uuid`, `@IsoDate`, `@IsoDateTime`, `@PhoneNumber`, `@KeyText` (an id that is usable as a key: 1 to 200
+  characters of `[a-zA-Z0-9._:-]`, nothing else), ….
   Options: `prompt` (the field's description in the JSON Schema the model reads), `optional: true`,
   `default`, limits (`minLength`, `maxLength`, `pattern`, `min`, `max`), `example`, `sensitive`
   (a PII action, reference 07).
+- A rule across fields is a class decorator: `@Validate<Dto>((dto) => dto.to >= dto.from || "to is before from")`
+  (a string, `{ field, reason }` or a list of them is a failure; `false` fails; a check that throws fails
+  closed; a subclass inherits the checks). `validate(Dto, raw)`, `jsonSchemaOf(Dto)` and `maskDto(Dto, value)`
+  (every `sensitive` field masked, for logs and `$0` tests) are exported from `@agboss/core/dto`.
 - **Plain data**: no methods, no getters, no constructor logic (`[dto.not-plain-data]`). Values are
   object literals; the framework validates every value that crosses a boundary — a start's input,
   a tool's arguments and result, an agent's answer, an action's output, a resume's decision — and
   throws `DtoValidationError` (`dto`, `issues: [{ path, reason }]`) naming the field, never the value.
-- **No cycles** (`[dto.cyclic]`): a DTO may not hold itself through `@Nested` or `@ListOf`, directly
+- **No cycles** (`[dto.cyclic]`): a DTO may not hold itself through `@Nested` or `@List`, directly
   or via other DTOs — its JSON Schema would never end. Start fails naming the component and the cycle
   (`PingDto → PongDto → PingDto`); use an id field or a flat list. A DTO used twice is fine.
+- **A validated DTO is an instance of its class** (#1288): `item instanceof ScoreDto` and
+  `item.constructor` hold on a validated answer, a scope read after a resume and a `testUnit` input
+  (the prototype is set; nothing is frozen, no constructor runs). `listOf(ScoreDto, RejectedDto, …)`
+  is a list of one or several classes; an action returns plain literals for a `oneOf` / `listOf(A, B)`
+  output, and the runtime tells the class by its strict schema (no undeclared field). Two classes one
+  plain value could both be fail at start (`[dto.ambiguous-one-of]`): give them a field the other lacks.
+  `listOf`, `oneOf`, `optional` and `historyOf` come from `@agboss/core` only, not from `@agboss/core/dto`.
 - **An agent's invalid answer is retried for you.** Its answer tool's arguments are validated against
   the DTO; the model reads what was wrong and answers again, up to 3 attempts, then
   `AgentAnswerInvalidError` (a `StepFailedError`, so an `.onError` can take it).
@@ -361,16 +391,16 @@ What this shows:
   it is, ending with `Dto`; DTO names are unique in the application (`[dto.duplicate-name]`).
 - **Standard DTOs** (`@agboss/core/dto`): `WorkflowStartTextDto` (`text`, `author?`),
   `WorkflowFinishTextDto` (`text`), `PlainTextDto` (`text` — a text agent's reply to a judge),
-  `AttachmentDto`, `MoneyDto`, `AddressDto`, `DateRangeDto`, `ToolCallApprovalDecisionDto`, ….
+  `FileDto`, `MoneyDto`, `AddressDto`, `DateRangeDto`, `ToolCallApprovalDecisionDto`, ….
 
 Anti-pattern — the "God DTO":
 
 ```ts file=src/shortlist/dto/screening-result.dto.ts
-import { Flag, Integer, Text } from "@agboss/core/dto";
+import { Bool, Integer, Text } from "@agboss/core/dto";
 
 // ✗ one class for every outcome: optional fields nobody can rely on, a flag the code must re-check
 export class ScreeningResultDto {
-  @Flag({ prompt: "whether anything matched" })
+  @Bool({ prompt: "whether anything matched" })
   found!: boolean;
 
   @Text({ prompt: "the shortlist id, when saved", optional: true })
@@ -385,13 +415,13 @@ export class ScreeningResultDto {
 // ✓ instead: ShortlistDto | NoMatchDto as `oneOf(…)`, ShortlistSavedDto after the save
 ```
 
-A God DTO hides the branches from the flow (no `switch`, no `[flow.switch-not-exhaustive]`),
-forces `if (x.found)` checks in every reader, and makes `about` / outdating (reference 02) useless.
+A God DTO hides the branches from the flow (no `switch`, no `[flow.one-of-not-exhaustive]`),
+forces `if (x.found)` checks in every reader, and makes outdating (reference 02) useless.
 
 ## Files, images and large blobs
 
 - **What a chat agent reads is text**: its input message renders each input field as JSON. Pass a
-  file as a reference — an `AttachmentDto` with `url` (or a storage key in your own DTO) — and let a
+  file as a reference — a `FileDto` with `url` (`FileDto.fromUrl`, or a storage key in your own DTO) — and let a
   tool or an action fetch, extract or summarise it. Never put base64 content of a large file into a
   DTO on the path: every value in the scope is kept in the checkpoint (`BaseCheckpointSaver`), on
   every step, for the whole thread.
@@ -402,7 +432,7 @@ forces `if (x.found)` checks in every reader, and makes `about` / outdating (ref
   webp data URLs only.
 
 <!-- snippet-context
-import { Injectable, Tool, type ToolHandler } from "@agboss/core";
+import { Injectable, Tool } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 @Injectable()
 class DocumentStoreService {
@@ -419,25 +449,25 @@ class DocumentTextDto {
 
 ```ts file=src/shortlist/tools/read-document.tool.ts
 import { ExecutionContext } from "@agboss/core";
-import { AttachmentDto } from "@agboss/core/dto";
+import { FileDto } from "@agboss/core/dto";
 import { kilobytes, seconds } from "@agboss/core/units";
 
 @Tool({
   name: "read-document-tool",
   description: "Reads the text of an attached document by its link",
-  input: AttachmentDto, // { name, mediaType, url } — the model passes the link, not the bytes
+  input: FileDto, // { mediaType, filename?, url } — the model passes the link, not the bytes
   output: DocumentTextDto,
   timeout: seconds(20),
   maxResultSize: kilobytes(64),
   deps: [ExecutionContext, DocumentStoreService],
 })
-export class ReadDocumentTool implements ToolHandler<AttachmentDto, DocumentTextDto> {
+export class ReadDocumentTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly documentStoreService: DocumentStoreService,
   ) {}
 
-  async run({ url }: AttachmentDto): Promise<DocumentTextDto> {
+  async execute({ url }: FileDto): Promise<DocumentTextDto> {
     const text: string = await this.documentStoreService.textOf(
       url ?? "",
       this.executionContext.signal, // the call's: aborted at the timeout or on cancel
@@ -450,7 +480,7 @@ export class ReadDocumentTool implements ToolHandler<AttachmentDto, DocumentText
 ## Pitfalls
 
 - `new ShortlistDto()` or `Object.assign(new X(), …)` in project code — values are object literals.
-- Reading an input by position or as the bare value: it is `input.<field>.value`.
+- Reading an input by position: it is `input.<field>`, the DTO itself (`Metadata.createdBy(input.<field>)` is who made it).
 - A model router directly after an agent that already knows the outcome: an extra call, an extra
   failure mode — return `oneOf(…)` and `switch`.
 - One workflow per "screen" of a UI: a workflow is a process; a conversation continues it with the
@@ -463,6 +493,6 @@ export class ReadDocumentTool implements ToolHandler<AttachmentDto, DocumentText
   `schemas/<name>.schema.ts`, and SQL DDL migrations in `sql/<name>.sql` (never inline SQL strings or
   string-interpolated queries in `.ts`).
 - Prompts and SQL missing from `dist/`: `tsc` copies only what it compiles, so a `*.prompt.md` named
-  in `promptUrls` or a `sql/*.sql` file is not there when a compiled `node dist/…` runs — the start
+  in a `prompt` path or a `sql/*.sql` file is not there when a compiled `node dist/…` runs — the start
   fails with `[prompt.missing-file]`. Make the project's build copy every non-`.ts` file of `src/`
   next to its compiled module (reference 09).

@@ -6,7 +6,7 @@ import { ComponentKind } from "../records.js";
  * The two failures of a quorum (#279): an arbiter could not judge an answer (`ArbiterError`) — not a
  * rejection, it fails the launch — and the quorum was not reached (`QuorumNotReachedError`): too few
  * answers counted, or no group complete, by the deadline or once it could no longer be. Both are
- * step failures (`StepFailedError`), taken by `.onJoinError(E, …)` right after the join; without
+ * step failures (`StepFailedError`), taken by `.onError(E, …)` right after the join; without
  * one the execution fails.
  */
 

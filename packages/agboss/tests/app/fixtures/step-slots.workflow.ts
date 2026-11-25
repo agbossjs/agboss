@@ -1,6 +1,6 @@
-import { EmptyEnvironment, listOf, Workflow, WorkflowStart } from "../../../src/index.js";
+import { EmptyEnvironment, listOf, Workflow, WorkflowStart, Ttl } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import {
   MortalExecutionLeaseRepository,
@@ -10,12 +10,9 @@ import {
 import {
   BatchDoneWorkflowFinish,
   BatchWorkflow,
+  BatchDoneAction,
 } from "../../flow/runtime/fixtures/tree-batch.workflow.js";
-import {
-  TaskDoneDto,
-  TaskDto,
-  WorkAction,
-} from "../../flow/runtime/fixtures/tree-task.workflow.js";
+import { TaskDto, WorkAction } from "../../flow/runtime/fixtures/tree-task.workflow.js";
 
 /**
  * #332 — the instance's cap on steps, `@Application({ maxConcurrentSteps })`. One execution
@@ -35,12 +32,14 @@ export class ItemsWorkflowStart {}
 @Workflow({
   name: "items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  // 20 branch actions are 20 steps (#1278): more than the default allows
+  executionLimits: { maxSteps: 30 },
   flow: [
-    start(ItemsWorkflowStart)
-      .returns(listOf(TaskDto))
-      .toParallelActions(WorkAction, { maxConcurrency: 20, maxItems: 20 })
+    onStart(ItemsWorkflowStart)
+      .forEachItem(toAction(WorkAction), { takeFirst: 20, maxConcurrency: 20 })
       .join()
-      .returns(listOf(TaskDoneDto))
+      .toAction(BatchDoneAction)
       .toFinish(BatchDoneWorkflowFinish),
   ],
 })
@@ -53,7 +52,7 @@ export class ItemsWorkflow {}
   environment: EmptyEnvironment,
   workflows: [ItemsWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 4,
+  executionLimits: { maxConcurrentSteps: 4 },
 })
 export class StepCapApplication {}
 
@@ -64,7 +63,7 @@ export class StepCapApplication {}
   environment: EmptyEnvironment,
   workflows: [BatchWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 1,
+  executionLimits: { maxConcurrentSteps: 1 },
 })
 export class SingleStepApplication {}
 
@@ -77,6 +76,6 @@ export class SingleStepApplication {}
   observers: [RecoveryLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 1,
+  executionLimits: { maxConcurrentSteps: 1 },
 })
 export class StepCapRecoveryApplication {}

@@ -1,27 +1,44 @@
 import type { ChannelSenderSend } from "../../channels/channel-sender.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
+import type { PauseToolCallSummary, PauseTrailEntry } from "../../channels/pause-contexts.js";
 import {
   pauseKeyOf,
-  type PauseAsk,
   type PauseKind,
   type PauseRecord,
+  type PauseTrailRecord,
 } from "../../infrastructure/pause-record.js";
 import { livePauseOf } from "../../run/waiting-pauses.js";
 
 /** A reassigned pause's chain (#946): what its channel is sent, and the pause a step goes on with. */
 
+/** A trail entry of a record as a channel and a hook read it: its times as `Date`s. */
+export const trailEntryOf = (entry: PauseTrailRecord): PauseTrailEntry => {
+  const { at, expiresAt, ...rest } = entry;
+  return {
+    ...rest,
+    at: new Date(at),
+    ...(expiresAt === undefined ? {} : { expiresAt: new Date(expiresAt) }),
+  };
+};
+
+/** A pause's chain of custody as a channel and a hook read it. */
+export const trailOf = (pause: Pick<PauseRecord, "trail">): readonly PauseTrailEntry[] =>
+  pause.trail.map(trailEntryOf);
+
 /**
- * What a channel is sent for `pause`: its id and question — and, for a replacement a reassignment
- * made (#946), who it is for (`assignee`) and the pause it replaces (`replaces`); a first send has
- * neither. The one place the ask is built, for the step's own send and the re-send of a reassigned pause.
+ * What a channel is sent for `pause`: its id, what it asks (`input`, with the tool call an approval
+ * waits on), its deadline, who it is for and its chain of custody — and, for a replacement a
+ * reassignment made (#946), the pause it replaces (`replaces`); a first send has none. The one
+ * place the ask is built, for the step's own send and the re-send of a reassigned pause.
  */
-export const askOfPause = (
-  pause: PauseRecord,
-): ChannelSenderSend & { readonly value: PauseAsk } => ({
+export const askOfPause = (pause: PauseRecord): ChannelSenderSend => ({
   pauseId: pause.pauseId,
-  value: pause.ask,
-  ...(pause.assignee === undefined ? {} : { assignee: pause.assignee }),
+  input: pause.input,
+  ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
+  ...(pause.expiresAt === undefined ? {} : { expiresAt: new Date(pause.expiresAt) }),
+  ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
+  trail: trailOf(pause),
   ...(pause.reassignedFrom === undefined ? {} : { replaces: { pauseId: pause.reassignedFrom } }),
 });
 
@@ -64,16 +81,27 @@ export class PauseStepKeyMismatchError extends AGBossError {
 function canonicalText(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalText).join(",")}]`;
   if (typeof value !== "object" || value === null) return JSON.stringify(value);
-  const entries = Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  if (value instanceof Date) return JSON.stringify(value.toISOString());
+  const entries = Object.entries(value)
+    .filter(([, item]) => item !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalText(item)}`).join(",")}}`;
 }
 
 /** Throws unless the pause found by the step's key asks the question the step asks (its kind and its ask). */
 export function assertSameQuestion(
   found: PauseRecord,
-  question: { readonly kind: PauseKind; readonly ask: PauseAsk },
+  question: {
+    readonly kind: PauseKind;
+    readonly input: Readonly<Record<string, unknown>>;
+    readonly toolCall?: PauseToolCallSummary | undefined;
+  },
 ): void {
-  if (found.kind === question.kind && canonicalText(found.ask) === canonicalText(question.ask))
+  if (
+    found.kind === question.kind &&
+    canonicalText(found.input) === canonicalText(question.input) &&
+    canonicalText(found.toolCall) === canonicalText(question.toolCall)
+  )
     return;
   throw new PauseStepKeyMismatchError({
     message: `pause ${pauseKeyOf(found.tenantId, found.pauseId)} was found by a step key but asks another question: it is not reused`,

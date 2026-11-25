@@ -1,3 +1,4 @@
+import type { Page } from "../../app/page.js";
 import { Injectable } from "../../components/decorators.js";
 import { ApplicationContext } from "../../flow/context/application-context.js";
 import type { PauseAnswerRecord } from "../../flow/runtime/execution-record.js";
@@ -16,9 +17,12 @@ import { Clock, IdGenerator, mintedThreadIdsOf } from "../clock.js";
 import {
   ExecutionRecordRepository,
   TurnStoreRecordRepository,
-  type ExecutionRecordStatus,
+  type ExecutionRecordStatusQuery,
 } from "../execution-record.repository.js";
+import type { EndedTree } from "../execution-audit-log.repository.js";
+import type { StatusContext, ThreadStatusTransition } from "../../turns/index.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
+import { sqliteInterruptedOf } from "./sqlite-stop.js";
 
 /**
  * `ExecutionRecordRepository` on the application's SQLite file (#265, S32): threads, records,
@@ -34,7 +38,7 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
  */
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext, IdGenerator] })
 export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
-  readonly #connection: SqliteConnection;
+  private readonly connection: SqliteConnection;
   readonly #records: TurnStoreRecordRepository;
 
   constructor(
@@ -44,14 +48,16 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
     idGenerator: IdGenerator,
   ) {
     super();
-    this.#connection = connection;
+    this.connection = connection;
     this.#records = new TurnStoreRecordRepository(
       sharedTurnStore(connection.database, () => clock.now(), mintedThreadIdsOf(idGenerator)),
+      // the lease rows of this file, read inside the finish's own `BEGIN IMMEDIATE` (#1341b)
+      sqliteInterruptedOf(connection.database),
     );
   }
 
   ping(): Promise<void> {
-    return this.#connection.ping();
+    return this.connection.ping();
   }
 
   createThread(thread: NewThread): Promise<string> {
@@ -64,22 +70,36 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
 
   threadOwner(
     ...args: Parameters<ExecutionRecordRepository["threadOwner"]>
-  ): Promise<{ readonly owner: string | undefined } | undefined> {
+  ): Promise<{ readonly owner: string | undefined; readonly isSwept?: true } | undefined> {
     return this.#records.threadOwner(...args);
   }
 
-  append(turn: NewTurn): Promise<Turn> {
-    return this.#records.append(turn);
+  append(turn: NewTurn, context?: StatusContext): Promise<Turn> {
+    return this.#records.append(turn, context);
   }
 
-  complete(turnId: string, outcome: TurnOutcome): Promise<void> {
-    return this.#records.complete(turnId, outcome);
+  complete(turnId: string, outcome: TurnOutcome, context?: StatusContext): Promise<void> {
+    return this.#records.complete(turnId, outcome, context);
+  }
+
+  statusHistory(tenantId: string, threadId: string): Promise<readonly ThreadStatusTransition[]> {
+    return this.#records.statusHistory(tenantId, threadId);
+  }
+
+  forgetStatusHistory(tenantId: string, threadId: string): Promise<void> {
+    return this.#records.forgetStatusHistory(tenantId, threadId);
   }
 
   completeIfStatus(
     ...args: Parameters<ExecutionRecordRepository["completeIfStatus"]>
   ): Promise<boolean> {
     return this.#records.completeIfStatus(...args);
+  }
+
+  completeUnlessInterrupted(
+    ...args: Parameters<ExecutionRecordRepository["completeUnlessInterrupted"]>
+  ): Promise<boolean> {
+    return this.#records.completeUnlessInterrupted(...args);
   }
 
   lastTurns(tenantId: string, threadId: string, limit: number): Promise<Turn[]> {
@@ -90,8 +110,8 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
     return this.#records.byIds(ids);
   }
 
-  findByStatus(status: ExecutionRecordStatus, limit: number, after?: string): Promise<Turn[]> {
-    return this.#records.findByStatus(status, limit, after);
+  findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>> {
+    return this.#records.findByStatus(query);
   }
 
   findByTenantIdAndRunId(tenantId: string, runId: string): Promise<Turn | undefined> {
@@ -152,6 +172,11 @@ export class SqliteExecutionRecordRepository extends ExecutionRecordRepository {
     ...args: Parameters<ExecutionRecordRepository["latestSummaries"]>
   ): Promise<Summary[]> {
     return this.#records.latestSummaries(...args);
+  }
+
+  /** The idle threads of each workflow removed (#1303); the Turn store decides, in one transaction each. */
+  deleteIdleThreads(cutoffs: ReadonlyMap<string, Date>, isEnded: EndedTree): Promise<number> {
+    return this.#records.deleteIdleThreads(cutoffs, isEnded);
   }
 
   summaryCount(tenantId: string, threadId: string, compaction: string): Promise<number> {

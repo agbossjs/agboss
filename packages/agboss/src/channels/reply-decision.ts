@@ -7,9 +7,9 @@ import type { ModelReading, ReplyInterpreterInput, ReplyPii } from "./reply-read
 
 /**
  * A reply read by a decision model (#267 S124 a): approve / refuse only — one
- * `Decision.noul("approved")` about the pause's question and the reply (the input message, masked by
+ * `Decision.boolean("approved")` about the pause's question and the reply (the input message, masked by
  * the PII policies like a chat interpreter's), the interpreter's `prompt` as its instructions. The
- * answer is `{ approved }`, approved when P(yes) > 0.5 — never a `reason` or `overrideArguments`
+ * answer is `{ approved }`, approved when P(yes) > 0.5 — never a `reason` or `overrideInput`
  * (every role is an approval role, #647, so any role may name one).
  * The call is counted under the interpreter's cost caller, `reply-interpreter:<name>`.
  */
@@ -24,6 +24,8 @@ const APPROVAL_THRESHOLD = 0.5;
 export interface ReplyDecisionSite {
   readonly gateway: ModelGateway;
   readonly model: string;
+  /** The `name` of the `@ModelProvider` the cascade resolved it to (#1313). */
+  readonly modelProvider?: string | undefined;
   readonly caller: string;
   readonly pii: ReplyPii;
 }
@@ -46,11 +48,15 @@ export async function readByDecision(
   const outcome = await decide({
     caller: site.caller,
     model: site.model,
-    request: { state: state.text, questions: { [APPROVED_QUESTION]: Decision.noul(instructions) } },
+    modelProvider: site.modelProvider,
+    request: {
+      state: state.text,
+      questions: { [APPROVED_QUESTION]: Decision.boolean(instructions) },
+    },
   });
   const usage = [...state.usage, outcome.usage];
   const answer = outcome.answers[APPROVED_QUESTION];
-  if (answer?.type !== "noul")
+  if (answer?.type !== "boolean")
     return { kind: "declined", reason: "the model gave no yes / no answer", usage };
-  return { kind: "answered", answer: { approved: answer.noul > APPROVAL_THRESHOLD }, usage };
+  return { kind: "answered", answer: { approved: answer.probability > APPROVAL_THRESHOLD }, usage };
 }

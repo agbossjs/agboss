@@ -14,35 +14,36 @@ import {
   WorkflowStart,
   type JudgeHandler,
   type JudgeInput,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../src/run/types.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "../judges/fixtures/judged.workflow.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
 /** What the judge's model is asked: it answers `PASS…` or `FAIL…`. */
-@Judge({ name: "audit-judge", model: "local/judge", reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "audit-judge", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
 export class AuditJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
-    const said = await this.judgeModel.invoke(`INTERNAL RUBRIC. Is this fine? ${reply.text}`);
-    return said.startsWith("PASS")
-      ? JudgeVerdict.passed()
-      : JudgeVerdict.failed({ reason: "not fine" });
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const said = await this.judgeModel.invoke(`INTERNAL RUBRIC. Is this fine? ${output.text}`);
+    return said.startsWith("PASS") ? JudgeVerdict.passed() : JudgeVerdict.failed("not fine");
   }
 }
 
 @Agent({
   name: "audit-writer-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes an answer",
   model: "local/llama",
   judges: [AuditJudge],
-  maxRetries: 1,
+  executionLimits: { maxRetries: 1 },
   piiPolicies: [ContactPiiPolicy],
 })
 export class AuditWriter {}
@@ -60,15 +61,15 @@ export class AuditFinish {}
 @Workflow({
   name: "audit-workflow",
   version: "1.0.0",
-  flow: [
-    start(AuditStart).returns(WorkflowStartTextDto).toAgent(AuditWriter).toFinish(AuditFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(AuditStart).toAgent(AuditWriter).toFinish(AuditFinish)],
   defaults: DEFAULTS,
 })
 export class AuditWorkflow {}
 
 @Application({
   name: "audit-judge-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AuditWorkflow],
@@ -79,4 +80,4 @@ export class AuditJudgeApplication {}
 
 /** The text of every `textDelta`, in order. */
 export const deltas = (events: readonly ExecutionStreamEvent[]): string[] =>
-  events.flatMap((event) => (event.kind === "textDelta" ? [event.delta] : []));
+  events.flatMap((event) => (event.kind === StreamEventKind.TextDelta ? [event.delta] : []));

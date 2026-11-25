@@ -9,12 +9,14 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #727 — a takeover in the middle of an agent's loop on a child on any instance: the loop's first
@@ -51,13 +53,13 @@ export class HoldNoteDto {
   output: HoldNoteDto,
   deps: [ApplicationContext, ExecutionContext],
 })
-export class LoopHoldTool implements ToolHandler<HoldNoteDto, HoldNoteDto> {
+export class LoopHoldTool {
   constructor(
     private readonly applicationContext: ApplicationContext,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  async run(input: HoldNoteDto): Promise<HoldNoteDto> {
+  async execute(input: HoldNoteDto): Promise<HoldNoteDto> {
     loopTakeover.holds.push(this.applicationContext.instanceId);
     if (loopTakeover.holds.length === 1) {
       const { signal } = this.executionContext;
@@ -75,12 +77,12 @@ export class LoopHoldTool implements ToolHandler<HoldNoteDto, HoldNoteDto> {
 @Agent({
   name: "loop-pay-agent",
   description: "Pays for its answer in several model calls",
-  prompt: "Answer the item.",
+  prompt: inline("Answer the item."),
   model: "moonshotai/kimi-k2.6",
   tools: [LoopHoldTool],
   input: { item: ItemDto },
   output: ItemResultDto,
-  maxRetries: 0,
+  executionLimits: { maxRetries: 0 },
 })
 export class LoopPayAgent {}
 
@@ -91,13 +93,13 @@ export class LoopPayWorkflowStart {}
 export class LoopPaidWorkflowFinish {}
 
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "loop-pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(LoopPayWorkflowStart)
-      .returns(ItemDto)
+    onStart(LoopPayWorkflowStart)
       .toAgent(LoopPayAgent)
-      .returns(ItemResultDto)
       .toFinish(LoopPaidWorkflowFinish),
   ],
 })
@@ -112,11 +114,10 @@ export class LoopParentWorkflowFinish {}
 @Workflow({
   name: "loop-parent-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(LoopParentWorkflowStart)
-      .returns(ItemDto)
-      .toWorkflow(LoopPayWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
+    onStart(LoopParentWorkflowStart)
+      .toWorkflow(LoopPayWorkflow)
       .toFinish(LoopParentWorkflowFinish),
   ],
 })
@@ -124,6 +125,7 @@ export class LoopParentWorkflow {}
 
 @Application({
   name: "loop-takeover-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LoopParentWorkflow],

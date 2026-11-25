@@ -16,7 +16,14 @@ export function budgetLoopShard() {
       "src/graph/agent-loop/tools-node.ts",
       "src/graph/agent-loop/input-node.ts",
       "src/graph/agent-loop/approval-node.ts",
+      // the calls prepared before any approval (#1295c): the spend of their PII search and of the hooks' services
+      "src/graph/agent-loop/prepare-node.ts",
+      "src/graph/agent-loop/question-ask.ts",
+      // what a move's call ids keep and the call that never reaches a tool (#1295c)
+      "src/graph/agent-loop/move-entries.ts",
+      "src/graph/agent-loop/call-output.ts",
       "src/graph/agent-loop/limits.ts",
+      "src/graph/agent-loop/judge-budget.ts",
       // what a judge reads of the answer is left out: it is not spend, and its checks are those of the answer's shape
       ...wholeFile("src/graph/agent-loop/judge-node.ts", {
         answeredClassesOf:
@@ -48,6 +55,8 @@ export function budgetFlowShard() {
       "src/flow/runtime/visit.ts",
       "src/flow/runtime/launch/branch-view.ts",
       "src/flow/runtime/launch/arbiters.ts",
+      "src/flow/runtime/launch/arbiter-call.ts",
+      "src/flow/runtime/launch/arbiter-live.ts",
       "src/flow/runtime/runners/answer-guard.ts",
     ],
   };
@@ -77,16 +86,36 @@ export function assemblyRulesShard() {
       "src/models/provider-mode-rules.ts",
       "src/application/application-rules.ts",
       "src/application/limit-rules.ts",
+      "src/application/limit-fields.ts",
       "src/channels/channel-rules.ts",
-      "src/components/tool-expiry-rules.ts",
+      "src/channels/pause-target-rules.ts",
+      "src/channels/pause-setting-rules.ts",
       "src/flow/analyse/rules/options.ts",
       "src/flow/analyse/rules/limit-handlers.ts",
-      "src/flow/analyse/question-expiry.ts",
-      "src/channels/working-time-rules.ts",
+      "src/channels/pause-timing-rules.ts",
+      "src/components/tool-timeout-rules.ts",
       "src/flow/analyse/rules/recursion.ts",
       "src/flow/analyse/steps.ts",
+      "src/flow/analyse/steps-default.ts",
+      "src/flow/analyse/rules/history-ttl.ts",
       "src/flow/analyse/strongly-connected.ts",
       "src/health/health-check.ts",
+      // #1321: which storage holds the leases, the idempotency keys and the retention
+      "src/storage/storage-assembly.ts",
+      "src/storage/storage-rules.ts",
+      "src/storage/storage-secret-rules.ts",
+      "src/storage/ttl-problem.ts",
+      // #1286b: which database the forks of an IsolatedWorker child share
+      "src/application/isolated-storage.ts",
+      // #1324e: the tenant gate of App — a call that names no tenant is refused before any store is read
+      "src/app/tenant-gate.ts",
+      "src/application/tenant-gated-app.ts",
+      "src/application/execution-listing.ts",
+      // #1313, #1318, #1324: an option a decorator does not take is refused (a `maxToolCalls` that never limits, a
+      // `guardrail` that never guards): each decorator's key list and the rule that reads them
+      "src/application/unknown-option-rules.ts",
+      "src/components/{decorator-options,option-keys}.ts",
+      "src/components/option-lists/*.ts",
     ],
   };
 }

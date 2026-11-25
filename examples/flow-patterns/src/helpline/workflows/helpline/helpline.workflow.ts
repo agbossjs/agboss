@@ -1,8 +1,6 @@
-import { Workflow, start } from "@agboss/core";
-import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { Workflow, onStart, Ttl } from "@agboss/core";
 import { DeskA2AAgent } from "../../a2a/desk.a2a-agent.js";
 import { HelplineAgent } from "../../agents/helpline/helpline.agent.js";
-import { PolicyFilesServer } from "../../mcp/policy-files.server.js";
 import { HelplineAnswerWorkflowFinish } from "./helpline-answer.workflow-finish.js";
 import { HelplineWorkflowStart } from "./helpline.workflow-start.js";
 
@@ -13,13 +11,12 @@ import { HelplineWorkflowStart } from "./helpline.workflow-start.js";
 @Workflow({
   name: "helpline-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HelplineWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(HelplineWorkflowStart)
       .toAgent(HelplineAgent)
       .toFinish(HelplineAnswerWorkflowFinish),
   ],
-  mcp: [PolicyFilesServer], // connected when the application starts
   providers: [DeskA2AAgent],
 })
 export class HelplineWorkflow {}

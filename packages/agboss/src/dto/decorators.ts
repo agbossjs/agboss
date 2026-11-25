@@ -1,6 +1,7 @@
-import { recordField } from "./metadata.js";
+import { recordCheck, recordField } from "./metadata.js";
 import type {
   DecimalStringLimits,
+  DtoCheck,
   DtoClass,
   ElementSpec,
   FieldDecorator,
@@ -8,6 +9,7 @@ import type {
   FieldKind,
   FieldOptions,
   FieldSettings,
+  KeyTextOptions,
   NumberLimits,
   OptionalField,
   RequiredField,
@@ -34,7 +36,7 @@ function field<T>(
   };
 }
 
-/** Factories of plain values, so `@ListOf(Text)` knows what its elements are. */
+/** Factories of plain values, so `@List(Text)` knows what its elements are. */
 const scalarFactories = new WeakMap<object, ScalarKind>();
 
 function scalar<T, TLimits extends object = object>(kind: ScalarKind): FieldFactory<T, TLimits> {
@@ -48,20 +50,25 @@ function scalar<T, TLimits extends object = object>(kind: ScalarKind): FieldFact
 export const Text = scalar<string, TextLimits>("text");
 /** A whole number. */
 export const Integer = scalar<number, NumberLimits>("integer");
-/** A finite number. */
-export const Decimal = scalar<number, NumberLimits>("decimal");
+/** A finite floating-point number (IEEE 754); `DecimalString` is the exact one. */
+export const Float = scalar<number, NumberLimits>("decimal");
 /** true / false. */
-export const Flag = scalar<boolean>("flag");
+export const Bool = scalar<boolean>("flag");
 export const Email = scalar<string>("email");
 export const Url = scalar<string>("url");
 export const Uuid = scalar<string>("uuid");
-/** An ISO 8601 calendar date: `2026-10-01`. */
-const DateField = scalar<string>("date");
-export { DateField as Date };
-/** An ISO 8601 date-time with an offset or `Z`: `2026-10-01T09:00:00+03:00`. */
-export const DateTime = scalar<string>("date-time");
-/** An ISO 8601 duration: `PT30M`. */
-export const Duration = scalar<string>("duration");
+/** An ISO 8601 calendar date as text: `2026-10-01`. */
+export const IsoDate = scalar<string>("date");
+/** An ISO 8601 date-time with an offset or `Z`, as text: `2026-10-01T09:00:00+03:00`. */
+export const IsoDateTime = scalar<string>("date-time");
+/** An ISO 8601 duration as text: `PT30M`. */
+export const IsoDuration = scalar<string>("duration");
+/**
+ * A key's text: an id the framework may use as a key (a thread id, a business key, a tenant id) — 1 to
+ * 200 characters, no control, invisible or look-alike characters, NFC (the rules of #538). The
+ * reason names the rule, never the text.
+ */
+export const KeyText = scalar<string, KeyTextOptions>("key-text");
 /** A decimal number as a string, exact: `"19.99"`; at most `scale` digits after the point. */
 export const DecimalString = scalar<string, DecimalStringLimits>("decimal-string");
 /** An ISO 4217 currency code: `"USD"`. */
@@ -75,26 +82,53 @@ export const MediaType = scalar<string>("media-type");
 /** An IANA time zone: `"Asia/Jerusalem"`. */
 export const TimeZone = scalar<string>("time-zone");
 
-export type OneOfOptions<V extends readonly string[]> = FieldOptions<V[number]> & {
-  readonly values: V;
-};
+/** `@Enum`'s options: the field's own (`optional`, `default`, `prompt`, …). */
+export type EnumOptions<T extends string> = FieldOptions<T>;
 
-/** One of `values`; the field's type must be exactly their union. */
-export function OneOf<const V extends readonly [string, ...string[]]>(
-  options: OneOfOptions<V> & OptionalField,
-): FieldDecorator<V[number] | undefined>;
-export function OneOf<const V extends readonly [string, ...string[]]>(
-  options: OneOfOptions<V> & RequiredField<V[number]>,
-): FieldDecorator<V[number]>;
-export function OneOf(options: FieldSettings): FieldDecorator<unknown> {
-  return field("one-of", options);
+/** The values of `@Enum`: a non-empty list of strings, or a string `enum` object. */
+type EnumValues = readonly [string, ...string[]] | Readonly<Record<string, string>>;
+
+const valuesOf = (source: EnumValues): readonly string[] =>
+  Array.isArray(source) ? (source as readonly string[]) : Object.values(source);
+
+/**
+ * `@Enum(["a", "b"])` or `@Enum(Status)` (a string `enum`): one of the values; the field's type must
+ * be exactly their union. `optional: true` ↔ `name?: T`.
+ */
+export interface EnumFactory {
+  <const V extends readonly [string, ...string[]]>(
+    values: V,
+    options: EnumOptions<V[number]> & OptionalField,
+  ): FieldDecorator<V[number] | undefined>;
+  <const V extends readonly [string, ...string[]]>(
+    values: V,
+    options?: EnumOptions<V[number]> & RequiredField<V[number]>,
+  ): FieldDecorator<V[number]>;
+  <const E extends Readonly<Record<string, string>>>(
+    values: E,
+    options: EnumOptions<E[keyof E]> & OptionalField,
+  ): FieldDecorator<E[keyof E] | undefined>;
+  <const E extends Readonly<Record<string, string>>>(
+    values: E,
+    options?: EnumOptions<E[keyof E]> & RequiredField<E[keyof E]>,
+  ): FieldDecorator<E[keyof E]>;
 }
 
-/** What a list holds: a DTO class or a plain-value decorator (`Text`, `Integer`, …). */
+const enumField = (values: EnumValues, options: FieldSettings = {}): FieldDecorator<unknown> =>
+  field("one-of", { ...options, values: valuesOf(values) });
+
+// one implementation behind all call signatures: `optional` only changes the field's type
+export const Enum = enumField as EnumFactory;
+
+/** What a list holds: a DTO class, a plain-value decorator (`Text`, `Integer`, …), or an `@Enum`'s values. */
 export type ListItem<T> = DtoClass<T> | ((options: never) => FieldDecorator<T>);
+
+/** An array of strings, or an object that is no class and no factory: the values of an `@Enum`. */
+const isEnumValues = (item: object): item is EnumValues => typeof item !== "function";
 
 /** A list item is a plain-value factory (registered by `scalar`) or else a DTO class. */
 const elementOf = (item: object): ElementSpec => {
+  if (isEnumValues(item)) return { kind: "enum", values: valuesOf(item) };
   const kind = scalarFactories.get(item);
   // the overloads admit only factories and DTO classes, so anything unregistered is a DTO class
   return kind === undefined
@@ -107,18 +141,39 @@ export type ListOptions<T> = FieldOptions<T[]> & {
   readonly maxItems?: number;
 };
 
-/** `@ListOf`: `optional: true` ↔ `name?: T[]`; the last signature is the required one. */
-export interface ListOfFactory {
-  <T>(item: ListItem<T>, options: ListOptions<T> & OptionalField): FieldDecorator<T[] | undefined>;
-  <T>(item: ListItem<T>, options?: ListOptions<T> & RequiredField<T[]>): FieldDecorator<T[]>;
+/** A list field's type: it compiles with a mutable `T[]` and with a `readonly T[]`. */
+export type ListField<T> = FieldDecorator<T[]> & FieldDecorator<readonly T[]>;
+export type OptionalListField<T> = FieldDecorator<T[] | undefined> &
+  FieldDecorator<readonly T[] | undefined>;
+
+/** `@List`: `optional: true` ↔ `name?: T[]`; the last signature is the required one. */
+export interface ListFactory {
+  <T>(item: ListItem<T>, options: ListOptions<T> & OptionalField): OptionalListField<T>;
+  <T>(item: ListItem<T>, options?: ListOptions<T> & RequiredField<T[]>): ListField<T>;
+  <const V extends readonly [string, ...string[]]>(
+    values: V,
+    options: ListOptions<V[number]> & OptionalField,
+  ): OptionalListField<V[number]>;
+  <const V extends readonly [string, ...string[]]>(
+    values: V,
+    options?: ListOptions<V[number]> & RequiredField<V[number][]>,
+  ): ListField<V[number]>;
+  <const E extends Readonly<Record<string, string>>>(
+    values: E,
+    options: ListOptions<E[keyof E]> & OptionalField,
+  ): OptionalListField<E[keyof E]>;
+  <const E extends Readonly<Record<string, string>>>(
+    values: E,
+    options?: ListOptions<E[keyof E]> & RequiredField<E[keyof E][]>,
+  ): ListField<E[keyof E]>;
 }
 
-const listOf = (item: object, options: FieldSettings = {}): FieldDecorator<unknown> =>
+const list = (item: object, options: FieldSettings = {}): FieldDecorator<unknown> =>
   field("list-of", options, elementOf(item));
 
-/** A list of DTOs (`@ListOf(Job)`) or of plain values (`@ListOf(Text)`). */
-// one implementation behind both call signatures: `optional` only changes the field's type
-export const ListOf = listOf as ListOfFactory;
+/** A list of DTOs (`@List(Job)`), of plain values (`@List(Text)`) or of an enum's values (`@List(Status)`). */
+// one implementation behind all call signatures: `optional` only changes the field's type
+export const List = list as ListFactory;
 
 /** A DTO inside a DTO. */
 export function Nested<T extends object>(
@@ -131,4 +186,18 @@ export function Nested<T extends object>(
 ): FieldDecorator<T>;
 export function Nested(dto: DtoClass, options: FieldSettings = {}): FieldDecorator<unknown> {
   return field("nested", options, { kind: "dto", dto });
+}
+
+/**
+ * `@Validate<Dto>((dto) => dto.to >= dto.from || "to is before from")`: a rule across fields that no
+ * field decorator can say. It runs after the fields are parsed, on the DTO and on a DTO nested in
+ * another; a subclass inherits its parents' rules. A failure is a validation issue (the model is
+ * told, and corrects itself); a check that throws is a failure too — nothing passes by accident.
+ */
+export function Validate<TDto extends object>(
+  check: DtoCheck<TDto>,
+): <C extends abstract new () => TDto>(value: C, context: ClassDecoratorContext<C>) => void {
+  return (_value, context) => {
+    recordCheck(context.metadata, check);
+  };
 }

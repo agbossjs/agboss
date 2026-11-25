@@ -3,9 +3,11 @@ import type { ValueWrite } from "../analyse/flow-graph.js";
 import { slotOfField, slotOfWrite } from "../analyse/scope.js";
 import { NodeKind } from "../ast.js";
 import { isFieldMap } from "../decorators/declaration.js";
-import { Wrapper, withVariant, type HistoryOf, type ProducedValue } from "../dto-wrappers.js";
+import { Wrapper, type HistoryOf } from "../dto-wrappers.js";
+import { trackValue } from "../metadata.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
-import { writtenProvenanceOf } from "./provenance.js";
+import { metadataOf } from "./scope-metadata.js";
+import { hydratedValue } from "./shape-hydration.js";
 import {
   valueIdOf,
   type OutdatedValueRecord,
@@ -17,7 +19,7 @@ import {
 /**
  * The path scope at run time (#270 → path scope, #271 S11): a node's outgoing edge writes each value
  * into its one slot (a write replaces the slot's value), and a node reads its `input` fields from
- * their slots, each rebuilt into `{ producer, value }` with the producer's class. A
+ * their slots, each value the DTO itself, tracked: its producer is read with `Metadata`. A
  * `historyOf(XDto)` field also reads the earlier versions of its slot from `outdatedValues` (#299
  * S56).
  */
@@ -32,6 +34,8 @@ export interface ScopeView {
 export interface NodeValue {
   readonly value: unknown;
   readonly variant?: string;
+  /** A child workflow's value: the finish it ended at, by node id (`.onFinish(F, …)` picks by it, #1275b). */
+  readonly finish?: string;
 }
 
 /** Where a visit writes: which node, which visit, what it read, and the scope it writes into. */
@@ -39,11 +43,11 @@ export interface WriteSite {
   readonly node: RuntimeNode;
   readonly visitNumber: number;
   readonly builtFrom: readonly string[];
-  /** The scope before the write: a write's `{ about }` targets are read from it (#271 S40 b). */
+  /** The scope before the write. */
   readonly scope: ScopeRecords;
 }
 
-/** A map start's field values by their slot, so `.returns(A, optional(B))` finds each. */
+/** A map start's field values by their slot, so each field is found. */
 function startFieldValue(node: RuntimeNode, write: ValueWrite, given: NodeValue): unknown {
   const { declaration } = node;
   if (declaration.kind !== NodeKind.Start) return given.value;
@@ -55,6 +59,16 @@ function startFieldValue(node: RuntimeNode, write: ValueWrite, given: NodeValue)
   return field === undefined ? undefined : values[field[0]];
 }
 
+/** A typed slice (#1288b): the items of one class of a polymorphic list, in their order; `[]` when none. */
+function sliceOf(items: unknown, shape: ValueWrite["shape"]): readonly unknown[] {
+  const dto =
+    typeof shape === "function" || shape.kind !== Wrapper.List ? undefined : shape.variants[0];
+  if (dto === undefined || !Array.isArray(items)) return [];
+  return (items as readonly VariantElement[])
+    .filter((item) => item.variant === dto.name)
+    .map((item) => item.value);
+}
+
 /** The record one write puts into the scope; none for an absent `optional` value. */
 function writeRecord(
   site: WriteSite,
@@ -62,11 +76,13 @@ function writeRecord(
   writes: readonly ValueWrite[],
   given: NodeValue,
 ): ScopeValueRecord | undefined {
-  const value = startFieldValue(site.node, write, given);
+  const value =
+    write.sliceOf === undefined
+      ? startFieldValue(site.node, write, given)
+      : sliceOf(given.value, write.shape);
   const isOptional = typeof write.shape !== "function" && write.shape.kind === Wrapper.Optional;
   if (isOptional && value === undefined) return undefined;
   const slot = slotOfWrite(write);
-  const { builtFrom, about } = writtenProvenanceOf(site.builtFrom, write, site.scope, writes);
   const variant = typeof write.shape === "function" ? given.variant : undefined;
   return {
     valueId: valueIdOf(site.node.id, site.visitNumber, slot),
@@ -74,8 +90,7 @@ function writeRecord(
     producer: site.node.id,
     ...(variant === undefined ? {} : { variant }),
     value,
-    builtFrom,
-    ...(about.length === 0 ? {} : { about }),
+    builtFrom: site.builtFrom,
   };
 }
 
@@ -89,62 +104,76 @@ export function recordsOfWrites(
   return Object.fromEntries(records.map((record) => [record.slot, record]));
 }
 
-/** A node's input as its handler or its model reads it: `Produced` fields, and what was read. */
+/** A node's input as its handler or its model reads it: its fields (tracked DTOs), and what was read. */
 export interface ReadInput {
   readonly fields: Readonly<Record<string, unknown>>;
   /** The `valueId`s read (the `builtFrom` of what the node writes). */
   readonly read: readonly string[];
 }
 
-/** Rebuilds one value of a slot into `{ producer, value }` (with its class for a `oneOf`). */
-function produced(graph: RuntimeGraph, producer: string, value: unknown, variant?: string) {
-  const item: ProducedValue<unknown, unknown> = {
-    producer: graph.nodes.get(producer)?.component,
-    value,
-  };
-  const dto = variant === undefined ? undefined : graph.dtos.get(variant);
-  return dto === undefined ? item : withVariant(item, dto);
+/** One value of a slot as the DTO itself, with where it came from recorded (`Metadata`, #1274). */
+function tracked(
+  graph: RuntimeGraph,
+  view: ScopeView,
+  record: ScopeValueRecord,
+  producer: string,
+  value: unknown,
+  index?: number,
+): unknown {
+  const meta = metadataOf(graph, view, record, producer, index);
+  return meta === undefined ? value : trackValue(value, meta);
 }
 
-/** The earlier versions of a `historyOf` field's slot, oldest first, at most its `limit`. */
+/** The earlier versions of a `historyOf` field's slot, oldest first, at most its `maxPrevious`. */
 export function previousOf(
   field: ResolvedField,
   outdatedValues: readonly OutdatedValueRecord[],
 ): readonly OutdatedValueRecord[] {
-  const limit = field.history?.limit;
+  const maxPrevious = field.history?.maxPrevious;
   const versions = outdatedValues.filter((record) => record.slot === field.slot);
-  return limit === undefined ? versions : versions.slice(-limit);
+  return maxPrevious === undefined ? versions : versions.slice(-maxPrevious);
 }
 
 function fieldValue(
   graph: RuntimeGraph,
   field: ResolvedField,
   record: ScopeValueRecord,
-  outdatedValues: readonly OutdatedValueRecord[],
+  view: ScopeView,
 ): unknown {
+  const { outdatedValues } = view;
+  // a value read back from the scope is an instance of its class (#1288)
+  const read = (
+    from: ScopeValueRecord,
+    producer: string,
+    value: unknown,
+    variant?: string,
+    index?: number,
+  ) =>
+    tracked(graph, view, from, producer, hydratedValue(graph, field.shape, value, variant), index);
   if (field.history !== undefined) {
     const history: HistoryOf<unknown> = {
-      current: produced(graph, record.producer, record.value, record.variant),
+      current: read(record, record.producer, record.value, record.variant),
       previous: previousOf(field, outdatedValues).map((version) =>
-        produced(graph, version.producer, version.value, version.variant),
+        read(version, version.producer, version.value, version.variant),
       ),
     };
     return history;
   }
   if (!field.isList || !Array.isArray(record.value)) {
-    return produced(graph, record.producer, record.value, record.variant);
+    return read(record, record.producer, record.value, record.variant);
   }
   const isOneOf = record.slot.startsWith("list:oneOf(");
   return (record.value as readonly unknown[]).map((element, index) => {
     const producer = elementProducerOf(record, index);
     return isOneOf
-      ? produced(
-          graph,
+      ? read(
+          record,
           producer,
           (element as VariantElement).value,
           (element as VariantElement).variant,
+          index,
         )
-      : produced(graph, producer, element);
+      : read(record, producer, element, undefined, index);
   });
 }
 
@@ -163,7 +192,7 @@ export function readInput(
   for (const field of node.fields) {
     const record = view.scope[field.slot];
     if (record === undefined) continue;
-    fields[field.name] = fieldValue(graph, field, record, view.outdatedValues);
+    fields[field.name] = fieldValue(graph, field, record, view);
     read.push(record.valueId);
   }
   return { fields, read: [...new Set(read)].sort() };

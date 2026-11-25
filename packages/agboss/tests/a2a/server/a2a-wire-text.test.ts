@@ -15,12 +15,12 @@ import {
   RefundTool,
   resetPauses,
 } from "../../channels/fixtures/pauses.workflow.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { DeskA2AExpose, ServedPausesApplication } from "../fixtures/served-pauses.application.js";
 import { errorInfoOf, errorOf, rpc, sseEvents, text, userMessage } from "./rpc.js";
 
 const test = testWith(ServedPausesApplication);
-const listener = { expose: DeskA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { endpoint: DeskA2AExpose, authenticator: BearerAuthenticator };
 const DESK = { [A2A_SKILLS_EXTENSION]: { skill: "desk-workflow-start" } };
 const SECRET = "alice@example.com card 4242 4242 4242 4242 sk_live_abc123";
 

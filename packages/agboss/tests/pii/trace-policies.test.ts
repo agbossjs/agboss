@@ -4,12 +4,17 @@
  * workflow's (whichever the application built last); what belongs to no one run (the application's
  * own log) by the union of every workflow's (fail closed).
  */
-import { InMemorySpanExporter, type ReadableSpan } from "@opentelemetry/sdk-trace-base";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { createAppWith } from "../../src/application/create-app.js";
+import {
+  BasicTracerProvider,
+  InMemorySpanExporter,
+  SimpleSpanProcessor,
+  type ReadableSpan,
+} from "@opentelemetry/sdk-trace-base";
+import { afterEach, describe, expect, it } from "vitest";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { Application } from "../../src/application/application.js";
 import type { AgentStartEvent } from "../../src/core/observability.js";
-import { Injectable, type OnAgentStart } from "../../src/index.js";
+import { Observer } from "../../src/index.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { replyWith, routeTo } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -22,11 +27,12 @@ import {
   OpenStart,
   OpenWorkflow,
   PII_KEY_VARIABLE,
+  PiiAppStorage,
   PiiStart,
   PiiWorkflow,
 } from "./pii.fixture.js";
 import { requestText } from "./boundary.helpers.js";
-import { WORKFLOW_ATTRIBUTE, WORKFLOW_CHAIN_ATTRIBUTE } from "../../src/tracing/trace-router.js";
+import { WORKFLOW_ATTRIBUTE, WORKFLOW_CHAIN_ATTRIBUTE } from "../../src/tracing/otel-handler.js";
 import {
   CHILD_SECRET,
   ChainApplication,
@@ -37,54 +43,27 @@ import {
   ROOT_SECRET,
   TEXT,
 } from "./chain.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
-/** What every Langfuse span processor of the process exported (kept past its shutdown). */
-const exported = vi.hoisted(() => ({
-  spans: [] as ReadableSpan[],
-  byKey: new Map<string, ReadableSpan[]>(),
-  processors: 0,
-}));
+/** What each test application's provider exported, by application. */
+const exporters = {
+  main: new InMemorySpanExporter(),
+  other: new InMemorySpanExporter(),
+};
 
-vi.mock("@langfuse/otel", async (original) => {
-  const real = await original<typeof import("@langfuse/otel")>();
-  const { InMemorySpanExporter: Memory } = await import("@opentelemetry/sdk-trace-base");
-  /** An in-memory exporter whose spans go to `exported.spans` as they are exported. */
-  class KeepingExporter extends Memory {
-    constructor(private readonly publicKey: string) {
-      super();
-    }
-    override export(...args: Parameters<InMemorySpanExporter["export"]>): void {
-      exported.spans.push(...args[0]);
-      const own = exported.byKey.get(this.publicKey) ?? [];
-      exported.byKey.set(this.publicKey, [...own, ...args[0]]);
-      super.export(...args);
-    }
-  }
-  class RecordedProcessor extends real.LangfuseSpanProcessor {
-    constructor(params: ConstructorParameters<typeof real.LangfuseSpanProcessor>[0]) {
-      exported.processors += 1;
-      const exporter = new KeepingExporter(params?.publicKey ?? "");
-      super({ ...params, exporter, exportMode: "immediate" });
-    }
-  }
-  return { ...real, LangfuseSpanProcessor: RecordedProcessor };
-});
+/** A tracer provider whose every finished span is exported to `exporter` at once. */
+const providerOf = (exporter: InMemorySpanExporter): BasicTracerProvider =>
+  new BasicTracerProvider({ spanProcessors: [new SimpleSpanProcessor(exporter)] });
 
 /** A value only pii-workflow's own policy (`employee-id-pii-policy`) masks. */
 const EMPLOYEE_ID = "EMP-0042";
-
-const LANGFUSE = {
-  LANGFUSE_PUBLIC_KEY: "pk-lf-1130",
-  LANGFUSE_SECRET_KEY: "sk-lf-1130",
-  LANGFUSE_BASE_URL: "http://127.0.0.1:9",
-};
 
 /** Every agent input an observer saw. */
 const seen: string[] = [];
 
 /** Sees each agent's input, then breaks with a value of its own: the application's log has it. */
-@Injectable()
-class BreakingObserver implements OnAgentStart {
+@Observer()
+class BreakingObserver {
   onAgentStart(event: AgentStartEvent): void {
     seen.push(event.input);
     throw new Error(`observer broke on ${EMPLOYEE_ID}`);
@@ -94,6 +73,7 @@ class BreakingObserver implements OnAgentStart {
 /** pii-workflow lists `EmployeeIdPiiPolicy`; open-workflow, built after it, lists none. */
 @Application({
   name: "trace-policies-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PiiWorkflow, OpenWorkflow],
@@ -101,37 +81,37 @@ class BreakingObserver implements OnAgentStart {
   observers: [BreakingObserver],
   providers: [RecordingLogger],
   budgets: TEST_BUDGETS,
+  storage: PiiAppStorage,
 })
 class TracePoliciesApplication {}
 
-/** A second application of the process: open-workflow alone, its own Langfuse project. */
+/** A second application of the process: open-workflow alone, its own tracer provider. */
 @Application({
   name: "other-tracing-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OpenWorkflow],
   piiPolicies: [ContactPiiPolicy],
   budgets: TEST_BUDGETS,
+  storage: PiiAppStorage,
 })
 class OtherTracingApplication {}
 
-const OTHER_LANGFUSE = {
-  ...LANGFUSE,
-  LANGFUSE_PUBLIC_KEY: "pk-lf-other",
-  [PII_KEY_VARIABLE]: "test-key",
-};
+const OTHER_ENV = { [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" };
 
 const appOf = (book: ScriptBook) =>
-  createAppWith(TracePoliciesApplication, {
-    processEnv: { ...LANGFUSE, [PII_KEY_VARIABLE]: "test-key" },
+  createTestAppWith(TracePoliciesApplication, {
+    processEnv: { [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" },
+    tracerProvider: providerOf(exporters.main),
     gateway: createScriptedGateway(book),
   });
 
-/** The workflow names on the spans one Langfuse project received. */
-const workflowsAt = (publicKey: string): string[] => [
+/** The workflow names on the spans one provider received. */
+const workflowsAt = (exporter: InMemorySpanExporter): string[] => [
   ...new Set(
-    (exported.byKey.get(publicKey) ?? []).flatMap((span) => {
-      const name = span.attributes["langfuse.observation.metadata.workflowName"];
+    exporter.getFinishedSpans().flatMap((span) => {
+      const name = span.attributes[WORKFLOW_ATTRIBUTE];
       return typeof name === "string" ? [name] : [];
     }),
   ),
@@ -144,20 +124,26 @@ const observerFailures = (): string =>
     .map((entry) => entry.message)
     .join("\n");
 
-const spans = (): readonly ReadableSpan[] => exported.spans;
+const spans = (): readonly ReadableSpan[] => exporters.main.getFinishedSpans();
 
-/** Every attribute value of every exported span, as text. */
-const exportedText = (): string =>
-  spans()
-    .map((span) => JSON.stringify(span.attributes))
-    .join("\n");
+/** Everything one exported span shows a backend: its name, attributes, events and status. */
+const shownBy = (span: ReadableSpan): string =>
+  JSON.stringify({
+    name: span.name,
+    attributes: span.attributes,
+    events: span.events,
+    status: span.status,
+    links: span.links,
+  });
+
+/** Everything every exported span shows, as text. */
+const exportedText = (): string => spans().map(shownBy).join("\n");
 
 afterEach(() => {
   seen.length = 0;
   resetLogged();
-  exported.spans.length = 0;
-  exported.byKey.clear();
-  exported.processors = 0;
+  exporters.main.reset();
+  exporters.other.reset();
 });
 
 describe("#1130: a run is observed through its own workflow's policies", () => {
@@ -166,7 +152,12 @@ describe("#1130: a run is observed through its own workflow's policies", () => {
     book.scriptOf("agent:support-agent").thenReturn(replyWith(`checked ${EMPLOYEE_ID}`));
     const app = await appOf(book);
 
-    const result = await execute(app, PiiStart, { text: `about ${EMPLOYEE_ID}` }, { record: true });
+    const result = await execute(
+      app,
+      PiiStart,
+      { text: `about ${EMPLOYEE_ID}` },
+      { includeRecord: true },
+    );
     await app.close();
 
     expect(result.output).toEqual({ text: `checked ${EMPLOYEE_ID}` });
@@ -180,7 +171,12 @@ describe("#1130: a run is observed through its own workflow's policies", () => {
     book.scriptOf("agent:support-agent").thenReturn(replyWith(`checked ${EMPLOYEE_ID}`));
     const app = await appOf(book);
 
-    const result = await execute(app, PiiStart, { text: `about ${EMPLOYEE_ID}` }, { record: true });
+    const result = await execute(
+      app,
+      PiiStart,
+      { text: `about ${EMPLOYEE_ID}` },
+      { includeRecord: true },
+    );
     await app.close();
 
     expect(seen.join("\n")).toContain("<employee-id>");
@@ -213,13 +209,14 @@ describe("#1130: a run is observed through its own workflow's policies", () => {
     expect(observerFailures()).not.toContain(EMPLOYEE_ID);
   });
 
-  it("AC4: two applications in one process — each run's spans reach only its own Langfuse, masked by its own policies", async () => {
+  it("AC4: two applications in one process — each run's spans reach only its own provider, masked by its own policies", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:support-agent").thenReturn(replyWith(`checked ${EMPLOYEE_ID}`));
     book.scriptOf("agent:open-agent").thenReturn(replyWith("ok"));
     const app = await appOf(book);
-    const other = await createAppWith(OtherTracingApplication, {
-      processEnv: OTHER_LANGFUSE,
+    const other = await createTestAppWith(OtherTracingApplication, {
+      processEnv: OTHER_ENV,
+      tracerProvider: providerOf(exporters.other),
       gateway: createScriptedGateway(book),
     });
 
@@ -228,8 +225,8 @@ describe("#1130: a run is observed through its own workflow's policies", () => {
     await other.close();
     await app.close();
 
-    expect(workflowsAt(LANGFUSE.LANGFUSE_PUBLIC_KEY)).toEqual(["pii-workflow"]);
-    expect(workflowsAt(OTHER_LANGFUSE.LANGFUSE_PUBLIC_KEY)).toEqual(["open-workflow"]);
+    expect(workflowsAt(exporters.main)).toEqual(["pii-workflow"]);
+    expect(workflowsAt(exporters.other)).toEqual(["open-workflow"]);
     expect(exportedText()).not.toContain(EMPLOYEE_ID);
   });
 });
@@ -237,13 +234,14 @@ describe("#1130: a run is observed through its own workflow's policies", () => {
 /** The spans of one workflow (by its `workflowName`), as text. */
 const spansOf = (workflow: string): string =>
   spans()
-    .filter((span) => span.attributes["langfuse.observation.metadata.workflowName"] === workflow)
-    .map((span) => JSON.stringify(span.attributes))
+    .filter((span) => span.attributes[WORKFLOW_ATTRIBUTE] === workflow)
+    .map(shownBy)
     .join("\n");
 
 const chainAppOf = (book: ScriptBook) =>
-  createAppWith(ChainApplication, {
-    processEnv: { ...LANGFUSE, [PII_KEY_VARIABLE]: "test-key" },
+  createTestAppWith(ChainApplication, {
+    processEnv: { [PII_KEY_VARIABLE]: "test-key", PII_APP_KEY: "app-key" },
+    tracerProvider: providerOf(exporters.main),
     gateway: createScriptedGateway(book),
   });
 
@@ -266,7 +264,7 @@ describe("#1150: a child's spans are masked by its chain", () => {
     expect(spansOf("chain-root-workflow")).toContain(CHILD_SECRET);
   });
 
-  it("AC4 spans: an AnyInstance child's spans name the child and its chain (bug 1) — never the root's mask alone", async () => {
+  it("AC4 spans: an AnyWorker child's spans name the child and its chain (bug 1) — never the root's mask alone", async () => {
     const book = new ScriptBook();
     book.scriptOf("agent:chain-far-agent").thenReturn(replyWith(`done ${CHILD_SECRET}`));
     const app = await chainAppOf(book);

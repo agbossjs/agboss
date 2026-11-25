@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #500 AC1, AC2 on SQLite — the order charged through `SqliteFencedEffectRepository` on one file
  * shared by two instances (each its own connection): a crash before the checkpoint charges once,
@@ -7,13 +8,12 @@
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  ExecutionFencedError,
   ExecutionLeaseLostError,
   FencedEffectRepository,
-  FencedEffectStatus,
+  IdempotencyRunStatus,
   SqliteFencedEffectRepository,
 } from "../../src/index.js";
-import { override, testAction, testWith } from "../../src/testing/index.js";
+import { testUnit, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -84,8 +84,8 @@ describe(
         expect(end?.output).toEqual({ chargeId: "charge-order-7-1" });
         expect(charges()).toEqual(["charge-order-7-1"]);
         expect(book.runs).toEqual([
-          { token: 1, status: FencedEffectStatus.Ran },
-          { token: 2, status: FencedEffectStatus.Replayed },
+          { token: 1, status: IdempotencyRunStatus.Ran },
+          { token: 2, status: IdempotencyRunStatus.Replayed },
         ]);
 
         letAllGo();
@@ -121,7 +121,7 @@ describe(
         holder?.();
         const [end] = await ends(1);
 
-        expect(error).toBeInstanceOf(ExecutionFencedError);
+        expect(error).toBeInstanceOf(ExecutionError.Fenced);
         expect(error).toMatchObject({ token: 1, observedToken: 2 });
         expect(afterZombie).toEqual([]);
         expect(charges()).toEqual(["charge-order-7-2"]);
@@ -133,16 +133,16 @@ describe(
 );
 
 describe("#500: a unit runner's SQLite fenced effect", () => {
-  const order = { message: { value: { text: "order-1" } } } as never;
+  const order = { message: { text: "order-1" } } as never;
   // the SQLite stores read sqlitePath only; the fixtures' generated Environment is another shape
   // #890: the action injects FencedEffects — the SQLite store is the one the test lists
   const onFile = {
     environment: { sqlitePath: ":memory:" } as never,
-    overrides: [override(FencedEffectRepository, SqliteFencedEffectRepository)],
+    services: [SqliteFencedEffectRepository],
   };
 
   it("runs on the runner's held lease, then replays the receipt on the same step", async () => {
-    const run = testAction(SqliteChargeOrderAction, onFile);
+    const run = testUnit(SqliteChargeOrderAction, onFile);
 
     const first = await run(order);
     const second = await run(order);
@@ -150,18 +150,18 @@ describe("#500: a unit runner's SQLite fenced effect", () => {
     expect(first.output).toEqual({ chargeId: "charge-order-1-1" });
     expect(second.output).toEqual(first.output);
     expect(book.runs.map((each) => each.status)).toEqual([
-      FencedEffectStatus.Ran,
-      FencedEffectStatus.Replayed,
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Replayed,
     ]);
   });
 
   it("runs under the fence option's token; a lost lease is refused", async () => {
-    const third = await testAction(SqliteChargeOrderAction, { ...onFile, fence: { token: 3 } })(
+    const third = await testUnit(SqliteChargeOrderAction, { ...onFile, fence: { token: 3 } })(
       order,
     );
-    const lost = testAction(SqliteChargeOrderAction, { ...onFile, fence: { isLost: true } })(order);
+    const lost = testUnit(SqliteChargeOrderAction, { ...onFile, fence: { isLost: true } })(order);
 
     expect(third.output).toEqual({ chargeId: "charge-order-1-3" });
-    await expect(lost).rejects.toBeInstanceOf(ExecutionFencedError);
+    await expect(lost).rejects.toBeInstanceOf(ExecutionError.Fenced);
   });
 });

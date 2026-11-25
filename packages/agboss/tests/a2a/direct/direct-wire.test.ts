@@ -7,13 +7,13 @@
 import { describe, expect } from "vitest";
 import { A2A_MESH_EXTENSION, A2A_SKILLS_EXTENSION } from "../../../src/a2a/index.js";
 import { replyWith, testWith } from "../../../src/testing/index.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { DirectApplication, QuoteAgent, QuotesA2AExpose } from "../fixtures/direct.application.js";
 import { rpc, sseEvents, text, userMessage } from "../server/rpc.js";
 import { sdkClientOf, textMessage } from "../server/sdk-client.js";
 
 const test = testWith(DirectApplication);
-const listener = { expose: QuotesA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { endpoint: QuotesA2AExpose, authenticator: BearerAuthenticator };
 const QUOTE = { [A2A_SKILLS_EXTENSION]: { skill: "quote-workflow-start" } };
 const FILE = { [A2A_SKILLS_EXTENSION]: { skill: "quote-file-workflow-start" } };
 

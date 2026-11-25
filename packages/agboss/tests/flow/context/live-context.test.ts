@@ -1,8 +1,9 @@
-import { createAppWith } from "../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import type { App } from "../../../src/app/types.js";
 import { ExecutionContext, ExecutionContextUnavailableError } from "../../../src/index.js";
+import { testExecutionContext } from "../../../src/testing/index.js";
 import { createSqliteTurnStore } from "../../../src/turns/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
@@ -34,7 +35,7 @@ const test = testWith(ContextApplication);
 
 /** The audit workflow's app, nothing running: its services are created at start, outside any execution. */
 const auditApp = (): Promise<App> =>
-  createAppWith(AuditApplication, {
+  createTestAppWith(AuditApplication, {
     processEnv: {},
     gateway: createScriptedGateway(new ScriptBook()),
   });
@@ -125,8 +126,8 @@ describe("#280 AC6, AC12: the injected ExecutionContext gives the current execut
 });
 
 describe("#280: a tool called on its own runs in an execution of its own", () => {
-  test("app.tool(T).invoke: one step, the tool's name as its node id", async ({ app }) => {
-    const result = await app.tool(NoteTool).invoke({ text: "alone" });
+  test("app.runTool(T, …): one step, the tool's name as its node id", async ({ app }) => {
+    const { output: result } = await app.runTool(NoteTool, { text: "alone" });
 
     expect(result).toEqual({ kind: "ok", value: { text: "alone" } });
     expect(seen.toolSteps).toEqual([
@@ -154,7 +155,7 @@ describe("#280: a tool called on its own runs in an execution of its own", () =>
 describe("#280 AC7, AC12: outside an execution a read throws, never undefined", () => {
   it("outside an execution throws: a constructor reading it at start names its class", async () => {
     // every listed provider is created at start (#261): the application does not start
-    const start = createAppWith(EagerAuditApplication, {
+    const start = createTestAppWith(EagerAuditApplication, {
       processEnv: {},
       gateway: createScriptedGateway(new ScriptBook()),
     });
@@ -226,5 +227,14 @@ describe("#280 AC8 (S18): data only, read-only, closed with its step", () => {
     expect(strays).toHaveLength(2);
     for (const stray of strays) expect(stray).toBeInstanceOf(ExecutionContextUnavailableError);
     expect(seen.toolSteps.map((step) => step.callId)).toHaveLength(2);
+  });
+});
+
+describe("#1316f: executionContext.application", () => {
+  it("is the application of the tenant, on a test context too", () => {
+    const context = testExecutionContext();
+
+    expect(context.application).toBe(context.tenant.application);
+    expect(context.application.name).toBe("test-application");
   });
 });

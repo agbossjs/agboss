@@ -1,60 +1,56 @@
 import { validate } from "../../../dto/schema.js";
-import type { GraphDeps } from "../../../graph/deps.js";
+import type { DtoClass } from "../../../dto/types.js";
 import { NodeKind } from "../../ast.js";
-import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
+import type { ListWrapper } from "../../dto-wrappers.js";
+import type { RuntimeNode } from "../graph-model.js";
 import type { NodeRunner } from "../node-runner.js";
 import { OutputInvalidError } from "../errors.js";
-import { readInput, type ScopeView } from "../scope.js";
 import type { ScopeRecords } from "../records.js";
 
-/** What a finish with `input` is: `finish(input)` builds the execution's output. */
-interface FinishHandlerInstance {
-  finish(input: Readonly<Record<string, unknown>>): unknown;
-}
-
-const isHandler = (value: unknown): value is FinishHandlerInstance =>
-  typeof value === "object" &&
-  value !== null &&
-  "finish" in value &&
-  typeof value.finish === "function";
-
-/** A pass-through finish (#270 Q50): the latest value of its `output` type on the path. */
+/** A finish (#270 Q50, #1271): the latest value of its `output` type on the path. */
 function passedThrough(node: RuntimeNode, scope: ScopeRecords) {
   const [field] = node.fields;
   const record = field === undefined ? undefined : scope[field.slot];
   return { value: record?.value, read: record === undefined ? [] : [record.valueId] };
 }
 
-async function handled(
-  graph: RuntimeGraph,
-  node: RuntimeNode,
-  deps: GraphDeps<string>,
-  view: ScopeView,
-) {
-  const instance: unknown = deps.container.get(node.component);
-  if (!isHandler(instance)) {
-    throw new OutputInvalidError({
-      message: `${node.id} has input but no finish(input) — implement FinishHandler`,
-    });
-  }
-  const input = readInput(graph, node, view);
-  return { value: await instance.finish(input.fields), read: input.read };
+/** One element of a list output: a plain value, or `{ value, variant }` of a `oneOf` list. */
+interface VariantElement {
+  readonly value: unknown;
+  readonly variant: string;
+}
+
+/** A list output checked element by element; each element of a `oneOf` list by its own class. */
+function validList(node: RuntimeNode, output: ListWrapper, value: unknown): unknown[] {
+  if (!Array.isArray(value))
+    throw new OutputInvalidError({ message: `${node.id} found no list for its output` });
+  const { element } = output;
+  return (value as readonly unknown[]).map((item) => {
+    if (typeof element === "function") return validate(element, item);
+    const { value: inner, variant } = item as VariantElement;
+    const dto: DtoClass | undefined = element.variants.find((each) => each.name === variant);
+    if (dto === undefined)
+      throw new OutputInvalidError({
+        message: `${node.id}: an element of its output is none of ${element.variants.map((each) => each.name).join(", ")}`,
+      });
+    return validate(dto, inner);
+  });
 }
 
 /**
- * A workflow finish: its handler (`finish(input)`) or the pass-through, the result checked against
- * its `output` DTO. The output is the execution's `result.output`.
+ * A workflow finish: the pass-through of its `output` — one DTO, or a list of them — checked
+ * against it. The output is the execution's `result.output`.
  */
-export function finishRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRunner {
+export function finishRunner(node: RuntimeNode): NodeRunner {
   const { declaration } = node;
   if (declaration.kind !== NodeKind.Finish) throw new TypeError(`${node.id} is not a finish`);
-  const { output, input } = declaration.options;
-  return async (state) => {
-    const built =
-      input === undefined
-        ? passedThrough(node, state.scope)
-        : await handled(deps.graph, node, deps, state);
-    const checked = validate(output, built.value);
-    return { finish: { output: checked }, read: built.read };
+  const { output } = declaration.options;
+  return (state) => {
+    const built = passedThrough(node, state.scope);
+    const checked =
+      typeof output === "function"
+        ? validate(output, built.value)
+        : validList(node, output, built.value);
+    return Promise.resolve({ finish: { output: checked }, read: built.read });
   };
 }

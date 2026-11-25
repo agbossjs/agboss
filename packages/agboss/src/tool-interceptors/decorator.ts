@@ -1,38 +1,45 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { TOOL_INTERCEPTOR_KEYS } from "../components/decorator-options.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import { componentOf, recordComponent } from "../components/metadata.js";
-import type { AfterToolCall, BeforeToolCall } from "./decision.js";
+import { resolvedName } from "../flow/names.js";
 
 /**
- * `@ToolInterceptor` (#384): a cross-cutting check or rewrite of an agent's calls to its `@Tool`s and
- * `@McpTool`s — `beforeToolCall` decides whether the tool runs, `afterToolCall` gives the result
- * the model reads. Listed in `toolInterceptors: [...]` of `@Application` → `@Workflow` → `@Agent`
- * → `@Tool` / `@McpTool` (lists add up, outer first); `excludeToolInterceptors` on an agent or a
+ * `@ToolInterceptor` (#384): a cross-cutting check or rewrite of an agent's calls to its `@Tool`s —
+ * `@BeforeTool(Tool)` methods (and `beforeAnyTool`) decide whether the tool runs,
+ * `@AfterTool(Tool)` methods (and `afterAnyTool`) give the result the model reads. Listed in `toolInterceptors: [...]` of `@Application` → `@Workflow` → `@Agent`
+ * → `@Tool` (lists add up, outer first); `excludeToolInterceptors` on an agent or a
  * tool removes an inherited one. Created by the container with its `deps`.
  */
 
 /** What `@ToolInterceptor` recorded: its options and the file it is declared in. */
 export interface ToolInterceptorMeta {
-  /** Ends with `-tool-interceptor` (`tenant-scope-tool-interceptor`). */
   readonly name: string;
-  readonly description: string;
+  readonly description?: string;
   readonly deps: readonly Token[];
   readonly source?: string;
 }
 
-/** A tool interceptor: its class implements `BeforeToolCall`, `AfterToolCall` or both. */
-export function ToolInterceptor<const D extends readonly Token[] = []>(options: {
-  /** Ends with `-tool-interceptor` (`tenant-scope-tool-interceptor`). */
-  readonly name: string;
-  readonly description: string;
+/** What `@ToolInterceptor` takes. */
+export interface ToolInterceptorOptions<D extends readonly Token[] = readonly Token[]> {
+  /** Kebab-case; the class name in kebab-case when left out (`TenantScope` → `tenant-scope`). */
+  readonly name?: string;
+  readonly description?: string;
   /** Constructor dependencies, in order; checked against the constructor by the compiler. */
   readonly deps?: D;
-}): <C extends new (...args: ResolvedAll<D>) => BeforeToolCall | AfterToolCall>(value: C) => C {
+}
+
+/** A tool interceptor: a class with `@BeforeTool` / `@AfterTool` methods, `beforeAnyTool` or `afterAnyTool`. */
+export function ToolInterceptor<const D extends readonly Token[] = []>(
+  options: ToolInterceptorOptions<D> = {},
+): <C extends new (...args: ResolvedAll<D>) => object>(value: C) => C {
   const source = callerFile();
   return (value) => {
+    recordOptionKeys(value, "ToolInterceptor", options, TOOL_INTERCEPTOR_KEYS);
     const meta: ToolInterceptorMeta = {
-      name: options.name,
-      description: options.description,
+      name: resolvedName(options.name, value),
+      ...(options.description === undefined ? {} : { description: options.description }),
       deps: options.deps ?? [],
       ...(source === undefined ? {} : { source }),
     };

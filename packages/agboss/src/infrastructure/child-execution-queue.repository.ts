@@ -1,7 +1,9 @@
+import { ChildPlacement } from "../flow/child-placement.js";
 import { Injectable } from "../components/decorators.js";
 import { ApplicationContext } from "../flow/context/application-context.js";
 import { Clock } from "./clock.js";
 import { ExecutionRecordStatus } from "./execution-record.repository.js";
+import { claimOrder, queueCountsOf } from "./child-queue-order.js";
 import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
 import { treeKeyOf, type InMemoryDatabase } from "./in-memory-database.js";
 
@@ -35,6 +37,13 @@ export interface QueuedChildExecution {
   readonly endedAt?: Date | undefined;
   /** A failed child's error (framework data, JSON: the names, codes and messages of its chain). */
   readonly failure?: string | undefined;
+  /** Where it runs (#1286); absent = any worker claims it. An `IsolatedWorker` row is never claimed by the general workers. */
+  readonly placement?: ChildPlacement | undefined;
+  /**
+   * The instance that must not claim it (#1286, `OtherWorker`): the one that queued it. A claim by this
+   * instance skips the row; kept across a requeue.
+   */
+  readonly excludeInstanceId?: string | undefined;
 }
 
 /** How a claimed child ended its pass: finished, paused, or failed with its error. */
@@ -67,7 +76,7 @@ export interface ChildExecutionQueueWatch {
 
 /**
  * Infrastructure (#333 PR 2, ADR-0022): the queue of child executions launched with
- * `placement: ChildPlacement.AnyInstance`. The parent's node saves its child here and waits; any
+ * a queued `placement`. The parent's node saves its child here and waits; any
  * instance of the application with a free step slot (#332) claims the first queued child —
  * atomically, so of two instances exactly one gets it — runs it on its own checkpoint thread and
  * completes the row; the parent's tree then goes on. Keyed by `(tenantId, executionId)`; a tree's
@@ -91,8 +100,28 @@ export abstract class ChildExecutionQueueRepository {
   /**
    * Claims the first `Queued` child — the deepest first, then the longest waiting — for this
    * instance: `Running`, with its `instanceId` and `claimedAt`. Atomic: a child is claimed once.
+   * Skips a row whose `excludeInstanceId` is this instance (`OtherWorker`, #1286) and a row whose
+   * `placement` is `IsolatedWorker` (its own process claims it, #1286b).
    */
   abstract claimFirstByStatusQueuedOrderByDepthDesc(): Promise<QueuedChildExecution | undefined>;
+  /**
+   * The `Queued` children with `placement` `IsolatedWorker`, the deepest first, then the longest
+   * waiting, at most `limit` (#1286b): what an instance's supervisor forks a process for. A read —
+   * nothing is claimed.
+   */
+  abstract findQueuedIsolatedWorkerChildren(
+    limit: number,
+  ): Promise<readonly QueuedChildExecution[]>;
+  /**
+   * The targeted claim of an `IsolatedWorker` child (#1286b): claims that one child for this instance
+   * — `Running`, with its `instanceId` and `claimedAt` — when it is `Queued` and its `placement` is
+   * `IsolatedWorker`; `undefined` otherwise. Atomic like the general claim: of two forks of one child
+   * exactly one gets it.
+   */
+  abstract claimIsolatedWorkerByTenantIdAndExecutionId(
+    tenantId: string,
+    executionId: string,
+  ): Promise<QueuedChildExecution | undefined>;
   /**
    * Ends a child this instance claimed (`Running`, its `instanceId`); `false` when it is not this
    * instance's running child (its tree ended and its rows were removed).
@@ -101,6 +130,17 @@ export abstract class ChildExecutionQueueRepository {
     tenantId: string,
     executionId: string,
     end: ChildExecutionEnd,
+  ): Promise<boolean>;
+  /**
+   * Withdraws a child that is still `Queued`: removes its row, atomically — a claim and a
+   * withdrawal of one row never both win (#1286a). `true` when this call removed it; `false` when it
+   * is not `Queued` (an instance claimed it, or it ended or was removed): its parent then waits for
+   * it as for any claimed child. Called when an `OtherWorker` child waited past `childClaimTimeout`,
+   * so a worker that comes later never runs a child its parent gave up on.
+   */
+  abstract withdrawByTenantIdAndExecutionIdIfQueued(
+    tenantId: string,
+    executionId: string,
   ): Promise<boolean>;
   /** Removes every queued child of a tree (its root ended). */
   abstract deleteAllByTenantIdAndRootExecutionId(
@@ -125,25 +165,6 @@ export abstract class ChildExecutionQueueRepository {
    */
   watchQueued?(onQueued: () => void): Promise<ChildExecutionQueueWatch>;
 }
-
-/** The depth of `children`: what `countByStatus()` answers for these rows. */
-export function queueCountsOf(children: Iterable<QueuedChildExecution>): ChildExecutionQueueCounts {
-  let queued = 0;
-  let running = 0;
-  let oldest: number | undefined;
-  for (const child of children) {
-    if (child.status === ExecutionRecordStatus.Running) running += 1;
-    if (child.status !== ExecutionRecordStatus.Queued) continue;
-    queued += 1;
-    const at = child.queuedAt.getTime();
-    oldest = oldest === undefined ? at : Math.min(oldest, at);
-  }
-  return { queued, running, oldestQueuedAt: oldest === undefined ? undefined : new Date(oldest) };
-}
-
-/** The order of the claims: the deepest first, then the longest waiting. */
-export const claimOrder = (left: QueuedChildExecution, right: QueuedChildExecution): number =>
-  right.depth - left.depth || left.queuedAt.getTime() - right.queuedAt.getTime();
 
 /** A `Paused` child (resumed) or a `Running` claim whose worker lost its lease may be queued again. */
 const canRequeue = (stored: QueuedChildExecution, next: QueuedChildExecution): boolean =>
@@ -194,7 +215,12 @@ export class InMemoryChildExecutionQueueRepository extends ChildExecutionQueueRe
 
   claimFirstByStatusQueuedOrderByDepthDesc(): Promise<QueuedChildExecution | undefined> {
     const [first] = [...this.database.childQueue.values()]
-      .filter((child) => child.status === ExecutionRecordStatus.Queued)
+      .filter(
+        (child) =>
+          child.status === ExecutionRecordStatus.Queued &&
+          child.placement !== ChildPlacement.IsolatedWorker &&
+          child.excludeInstanceId !== this.applicationContext.instanceId,
+      )
       .sort(claimOrder);
     if (first === undefined) return Promise.resolve(undefined);
     const claimed: QueuedChildExecution = {
@@ -204,6 +230,40 @@ export class InMemoryChildExecutionQueueRepository extends ChildExecutionQueueRe
       claimedAt: this.clock.now(),
     };
     this.database.childQueue.set(treeKeyOf(first.tenantId, first.executionId), claimed);
+    return Promise.resolve(claimed);
+  }
+
+  findQueuedIsolatedWorkerChildren(limit: number): Promise<readonly QueuedChildExecution[]> {
+    return Promise.resolve(
+      [...this.database.childQueue.values()]
+        .filter(
+          (child) =>
+            child.status === ExecutionRecordStatus.Queued &&
+            child.placement === ChildPlacement.IsolatedWorker,
+        )
+        .sort(claimOrder)
+        .slice(0, limit),
+    );
+  }
+
+  claimIsolatedWorkerByTenantIdAndExecutionId(
+    tenantId: string,
+    executionId: string,
+  ): Promise<QueuedChildExecution | undefined> {
+    const key = treeKeyOf(tenantId, executionId);
+    const stored = this.database.childQueue.get(key);
+    if (
+      stored?.status !== ExecutionRecordStatus.Queued ||
+      stored.placement !== ChildPlacement.IsolatedWorker
+    )
+      return Promise.resolve(undefined);
+    const claimed: QueuedChildExecution = {
+      ...stored,
+      status: ExecutionRecordStatus.Running,
+      instanceId: this.applicationContext.instanceId,
+      claimedAt: this.clock.now(),
+    };
+    this.database.childQueue.set(key, claimed);
     return Promise.resolve(claimed);
   }
 
@@ -224,6 +284,17 @@ export class InMemoryChildExecutionQueueRepository extends ChildExecutionQueueRe
       endedAt: this.clock.now(),
       failure: end.failure,
     });
+    return Promise.resolve(true);
+  }
+
+  withdrawByTenantIdAndExecutionIdIfQueued(
+    tenantId: string,
+    executionId: string,
+  ): Promise<boolean> {
+    const key = treeKeyOf(tenantId, executionId);
+    if (this.database.childQueue.get(key)?.status !== ExecutionRecordStatus.Queued)
+      return Promise.resolve(false);
+    this.database.childQueue.delete(key);
     return Promise.resolve(true);
   }
 

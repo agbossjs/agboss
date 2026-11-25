@@ -1,6 +1,6 @@
 import type { StreamResponse } from "@a2a-js/sdk";
 import { A2ATaskState, type A2ATaskRecord } from "../../infrastructure/a2a-task.repository.js";
-import type { ExecutionStreamEvent, StreamStep } from "../../run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent, type StreamStep } from "../../run/types.js";
 import { outputArtifactIdOf, textPart } from "./a2a-task-view.js";
 
 /**
@@ -20,7 +20,7 @@ const sameStep = (left: StreamStep, right: StreamStep): boolean =>
 /** The states that end a task without an output. */
 const WITHOUT_OUTPUT: ReadonlySet<A2ATaskState> = new Set<A2ATaskState>([
   A2ATaskState.Failed,
-  A2ATaskState.Canceled,
+  A2ATaskState.Cancelled,
   A2ATaskState.Rejected,
 ]);
 
@@ -63,7 +63,7 @@ export class ArtifactView {
 
   /** The chunk a text event is, `undefined` for an event that is no text. */
   textOf(task: A2ATaskRecord, event: ExecutionStreamEvent): StreamResponse | undefined {
-    if (event.kind !== "textDelta") return undefined;
+    if (event.kind !== StreamEventKind.TextDelta) return undefined;
     const append = this.#step !== undefined && sameStep(this.#step, event.step);
     this.#step = event.step;
     this.#touched = true;
@@ -72,7 +72,7 @@ export class ArtifactView {
 
   /** The replacement a retraction of the step shown is; nothing for a step that is not shown. */
   retractionOf(task: A2ATaskRecord, event: ExecutionStreamEvent): StreamResponse | undefined {
-    if (event.kind !== "discarded") return undefined;
+    if (event.kind !== StreamEventKind.Discarded) return undefined;
     if (this.#step === undefined || !sameStep(this.#step, event.step)) return undefined;
     this.#step = undefined;
     return chunkOf(task, "", { append: false, lastChunk: false });

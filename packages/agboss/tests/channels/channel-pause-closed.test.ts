@@ -3,18 +3,13 @@
  * whom, with the masked answer), withdrawn (a decided quorum, a `FailFast` sibling), cancelled
  * (`app.cancel`, the tree's end) — at least once, in the pause's execution frame, under its tool's
  * `timeout`; never for a pause it decided at once or never sent. A hook that throws or hangs is
- * retried and logged and changes nothing else: the join, `.onJoinError` and `app.cancel` go on.
+ * retried and logged and changes nothing else: the join, `.onError` and `app.cancel` go on.
  * Notices are delivered after the change that wrote them, never awaited by it.
  */
 import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import {
-  ExecutionCancelledError,
-  PauseClosedReason,
-  PauseResolution,
-  PauseStatus,
-} from "../../src/index.js";
+import { PauseClosedReason, PauseResolution, PauseStatus } from "../../src/index.js";
 import {
   callTool,
   failWith,
@@ -101,7 +96,7 @@ describe("#940 AC1: the channel that asked hears an answer given elsewhere", () 
           channel: "finance-desk",
           orderId: "7",
           reason: PauseClosedReason.Answered,
-          answeredBy: "manager-17",
+          actor: { id: "manager-17" },
           answer: { approved: true, reason: "ok" },
           executionId: paused.executionId,
           tenantId: "acme",
@@ -135,7 +130,7 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
         app,
         RefundPanelWorkflowStart,
         { orderId: "7" },
-        { record: true },
+        { includeRecord: true },
       );
 
       expect(result).toFinishWith(RefundDecidedWorkflowFinish);
@@ -230,7 +225,7 @@ describe("#940 AC2: cancel / FailFast / quorum / tree end: one notice each with 
 
       await app.cancel(ACME.threadId, { tenantId: "acme" });
 
-      await expect(run).rejects.toBeInstanceOf(ExecutionCancelledError);
+      await expect(run).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
       await until(() => seen.closed.length === 1);
       expect(seen.closed).toMatchObject([{ orderId: "7", reason: PauseClosedReason.Cancelled }]);
     },
@@ -304,10 +299,10 @@ describe("#940 Q2: an answer recorded and never applied", () => {
       await execute(app, DeskWorkflowStart, REFUND, ACME);
       const pauseId = askFor("7").pauseId;
       const recipients = {
-        channel: "refund-approval-channel",
+        channel: "finance-desk-refund-approval-channel",
         listeners: ["audit-pause-listener", "trusted-pause-listener"],
       };
-      const answer = { decision: { approved: true }, answeredBy: "manager-17" };
+      const answer = { decision: { approved: true }, actor: { id: "manager-17" } };
       // the answer is recorded; the cancel closes it before its step took it
       await pauseStore().resolveByTenantIdAndPauseId(
         "acme",
@@ -330,7 +325,7 @@ describe("#940 Q2: an answer recorded and never applied", () => {
       expect(seen.closed).toMatchObject([
         {
           reason: PauseClosedReason.Answered,
-          answeredBy: "manager-17",
+          actor: { id: "manager-17" },
           answer: { approved: true },
         },
       ]);
@@ -364,7 +359,7 @@ describe("#940 AC4: a failing receiver changes nothing else", () => {
   });
 
   testWith(PayoutsApplication)(
-    "AC4: .onJoinError goes on: the failed branch's handler finishes the execution",
+    "AC4: .onError goes on: the failed branch's handler finishes the execution",
     async ({ app, clock, mockLlm }) => {
       hooks.closeFailure = new Error("the customer's app is offline");
       hooks.refusals = new Map([["7", new PaymentDeclinedError("the card was declined")]]);

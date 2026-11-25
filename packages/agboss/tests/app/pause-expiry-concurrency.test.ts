@@ -83,7 +83,7 @@ describe("#1071: an expiry's pass does not run inside the pause timers' tick", (
       free = resolve;
     });
     expiry.behavior = async (ask) => {
-      if (ask.value.orderId === "o-0") await hanging;
+      if (ask.input.orderId === "o-0") await hanging;
       return PauseExpiration.fail();
     };
 

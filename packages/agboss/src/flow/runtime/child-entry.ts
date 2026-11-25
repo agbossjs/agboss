@@ -16,7 +16,7 @@ import type { ScopeRecords, ScopeValueRecord, VariantElement } from "./records.j
 export interface ChildEntrySite {
   readonly graph: RuntimeGraph;
   readonly node: RuntimeNode;
-  /** A per-item run of a launch (`.toParallelWorkflows`): the launching node. */
+  /** A per-item run of a launch (`.forEachItem`): the launching node. */
   readonly launcher?: string;
   /** The node visited before (a single child): the edge's other end. */
   readonly previous?: string;
@@ -34,7 +34,7 @@ export interface ChildEntry {
 /** `critic-agent#2` → `critic-agent`. */
 const nodeOfId = (nodeId: string): string => nodeId.replace(/#\d+$/, "");
 
-/** The value a start's field takes from one record (a `listOf(oneOf(…))` element's value). */
+/** The value a start's field takes from one record (a `listOf(…)` element's value). */
 function fieldValueOf(record: ScopeValueRecord): unknown {
   if (!Array.isArray(record.value) || !record.slot.startsWith("list:oneOf(")) return record.value;
   return (record.value as readonly VariantElement[]).map((element) => element.value);

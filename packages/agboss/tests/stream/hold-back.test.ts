@@ -5,7 +5,7 @@
  */
 import { describe, expect } from "vitest";
 import { GuardrailBlockedError, PiiRefusedError } from "../../src/index.js";
-import type { ExecutionStreamEvent } from "../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../src/run/types.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { FlowJudge } from "./agents.fixture.js";
@@ -59,7 +59,7 @@ describe("#1006: an agent whose only blocking check is an output guardrail", () 
       { onStream: (event) => events.push(event) },
     );
 
-    expect(events.map((event) => event.kind)).toEqual(["textDelta"]);
+    expect(events.map((event) => event.kind)).toEqual([StreamEventKind.TextDelta]);
     expect(done.output).toEqual({ text: keptText(events) });
   });
 });
@@ -95,7 +95,7 @@ describe("#1006: a blocking output guardrail holds the text back", () => {
 
     expect(events).toEqual([
       {
-        kind: "textDelta",
+        kind: StreamEventKind.TextDelta,
         delta: "A fine answer.",
         step: { agent: "guarded-agent", visit: 1, branch: done.executionId, attempt: 1 },
       },
@@ -118,7 +118,7 @@ describe("#1006: a blocking output guardrail holds the text back", () => {
       { onStream: (event) => events.push(event) },
     );
 
-    expect(events.map((event) => event.kind)).toEqual(["textDelta"]);
+    expect(events.map((event) => event.kind)).toEqual([StreamEventKind.TextDelta]);
     expect(events[0]).toMatchObject({ delta: "Good answer.", step: { attempt: 2 } });
     expect(done.output).toEqual({ text: keptText(events) });
     expect(JSON.stringify(events)).not.toContain("BAD DRAFT");
@@ -134,8 +134,8 @@ describe("#1006: a blocking output guardrail holds the text back", () => {
 
     await execute(app, GuardedStart, { text: "Q" }, { onStream: (event) => events.push(event) });
 
-    expect(events.filter((event) => event.kind === "discarded")).toEqual([]);
-    expect(events.filter((event) => event.kind === "textDelta")).toMatchObject([
+    expect(events.filter((event) => event.kind === StreamEventKind.Discarded)).toEqual([]);
+    expect(events.filter((event) => event.kind === StreamEventKind.TextDelta)).toMatchObject([
       { delta: "Done.", step: { attempt: 2 } },
     ]);
   });

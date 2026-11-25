@@ -5,7 +5,7 @@ import type { AnswerTools } from "./answer-tools.js";
 
 /**
  * The soft stop of a recursion (#264): on the last level an execution may run at
- * (`executionContext.depth === maxDepth`) a choice that launches `ThisWorkflow` is not offered — the
+ * (`executionContext.depth === maxDepth`) a choice that launches the workflow itself is not offered — the
  * framework's stop, never the prompt's. An agent answers through the answer tools of its other
  * variants only, its answer checked against that narrowed schema (a second static request prefix,
  * so a second cache prefix for that level); a model router's model does not see its recursive

@@ -3,13 +3,15 @@
  * model, in the call's frame, the answer validated by the call — the reader of a tree's pauses
  * (`replyReaderOf`) and `testReplyInterpreter`'s one reading (`readReplyBy`).
  */
+import { replyAskOf } from "../infrastructure/pause-record.js";
 import { runInFrame } from "../flow/context/frame.js";
 import { resolveSettings } from "../llm/registry.js";
-import { isDecisionModel } from "../models/decision-models.js";
+import { ModelKind } from "../models/model-kind.js";
 import { ReplyInterpreterMissingError, UninterpretableReplyError } from "./decision.js";
 import type { AssembledReplyInterpreter } from "./discovery.js";
 import { crashed, readByCode, type Declined, type Interpreted } from "./reply-code.js";
 import { readByDecision } from "./reply-decision.js";
+import { observedReading } from "./reply-events.js";
 import {
   readByModel,
   replyInterpreterCaller,
@@ -28,13 +30,21 @@ async function byModel(
   parts: ReplyReaderParts,
 ): Promise<Interpreted> {
   await call.beforeModelCall();
-  if (isDecisionModel(model)) {
+  // the driver of the provider the cascade resolved says what the model is (#1313); no name does
+  const { modelProvider, unpriced } = interpreter;
+  const kind = parts.gateway.kindOf?.(modelProvider) ?? ModelKind.Chat;
+  if (kind === ModelKind.Decisions) {
     const caller = replyInterpreterCaller(interpreter.name);
-    const site = { gateway: parts.gateway, model, caller, pii: call.pii };
+    const site = { gateway: parts.gateway, model, modelProvider, caller, pii: call.pii };
     return readByDecision(interpreter, input, site);
   }
   const settings = resolveSettings(
-    { ...parts.chatModelSettings(model), model },
+    {
+      ...parts.chatModelSettings(model),
+      model,
+      ...(modelProvider === undefined ? {} : { modelProvider }),
+      ...(unpriced === undefined ? {} : { unpriced }),
+    },
     parts.chatDefaults,
   );
   const site = { gateway: parts.gateway, settings, callbacks: call.callbacks, pii: call.pii };
@@ -53,7 +63,16 @@ export interface InterpreterCall extends Omit<ReplyCall, "pause"> {
  * One interpreter reads one reply: in the call's frame, by code or by its model, the answer
  * validated by the call — the reader of a tree's pauses, and `testReplyInterpreter` (#644).
  */
-export async function readReplyBy(
+export function readReplyBy(
+  interpreter: AssembledReplyInterpreter,
+  call: InterpreterCall,
+  parts: ReplyReaderParts,
+): Promise<ReplyReading> {
+  const site = { observer: call.observer, frame: call.frame, interpreter };
+  return observedReading(site, () => readOnce(interpreter, call, parts));
+}
+
+async function readOnce(
   interpreter: AssembledReplyInterpreter,
   call: InterpreterCall,
   parts: ReplyReaderParts,
@@ -83,15 +102,15 @@ export async function readReplyBy(
 export function replyReaderOf(parts: ReplyReaderParts): ReplyReader {
   return async (call) => {
     const { pause, ...rest } = call;
-    const interpreter = parts.interpreters.find((found) => found.channel === pause.channel);
+    const interpreter = parts.interpreters.find((found) => found.target === pause.target);
     if (interpreter === undefined) {
       throw new ReplyInterpreterMissingError({
-        message: `pause ${pause.pauseId}: channel ${pause.channel} has no replyInterpreter — answer it with a decision, or name one on its @ChannelRole`,
+        message: `pause ${pause.pauseId}: pause target ${pause.target} has no channelInterpreter — answer it with a decision, or name one on its @ToolApproval or @ExternalTask`,
       });
     }
     return readReplyBy(
       interpreter,
-      { ...rest, ask: pause.ask, label: `pause ${pause.pauseId}` },
+      { ...rest, ask: replyAskOf(pause), label: `pause ${pause.pauseId}` },
       parts,
     );
   };

@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — the budget rules of the output guardrails on an agent's answer, each on its own over
  * fakes: a file of the answer that is transcribed by a model is checked against the execution's budgets first, with
@@ -23,10 +24,11 @@ vi.mock("../../../src/guardrails/runtime.js", () => ({ runGuardrails: vi.fn() })
 vi.mock("../../../src/pii/model-boundary.js", () => ({ maskedModelText: vi.fn() }));
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -293,7 +295,11 @@ describe("#1366: the output guardrails' spend is the answer's", () => {
     expect(out.decisions).toEqual(["d"]);
     expect(runGuardrails).toHaveBeenCalledWith(
       ["g"],
-      expect.objectContaining({ text: "masked", element: "alpha", side: "output" }),
+      expect.objectContaining({
+        text: "masked",
+        component: expect.objectContaining({ name: "alpha" }),
+        side: "output",
+      }),
       "observer",
     );
   });

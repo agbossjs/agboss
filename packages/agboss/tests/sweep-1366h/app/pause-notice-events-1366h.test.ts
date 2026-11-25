@@ -35,11 +35,11 @@ const answered: PauseRecord = {
   status: PauseStatus.Resolved,
   isSent: true,
   resolution: PauseResolution.Replied,
-  answer: { decision: { approved: true }, answeredBy: "manager-17" },
+  answer: { decision: { approved: true }, actor: { id: "manager-17" } },
 };
 const noOne: PauseRecord = {
   ...answered,
-  answer: { decision: { approved: true }, answeredBy: undefined },
+  answer: { decision: { approved: true }, actor: undefined },
 };
 const unanswered: PauseRecord = { ...answered, answer: undefined };
 
@@ -102,7 +102,7 @@ describe("#1366: a close's time and answer", () => {
       expect(keysOf(expired)).not.toContain("answeredBy");
       // answered: the answer and the person
       const done = await make(answered, notice({ reason: PauseClosedReason.Answered }));
-      expect(done).toMatchObject({ answer: { approved: true }, answeredBy: "manager-17" });
+      expect(done).toMatchObject({ answer: { approved: true }, actor: { id: "manager-17" } });
       // answered by no one named: no empty answeredBy key
       const anonymous = await make(noOne, notice({ reason: PauseClosedReason.Answered }));
       expect(keysOf(anonymous)).toContain("answer");
@@ -120,7 +120,7 @@ describe("#1366: a close's time and answer", () => {
       (pause: PauseRecord) => listenerNotTakenOf(sources(pause, untaken), false),
     ]) {
       expect(await make(answered)).toMatchObject({
-        answeredBy: "manager-17",
+        actor: { id: "manager-17" },
         answer: { approved: true },
       });
       expect(keysOf(await make(noOne))).not.toContain("answeredBy");

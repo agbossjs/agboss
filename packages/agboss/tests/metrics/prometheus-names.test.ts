@@ -31,7 +31,8 @@ describe("#943 AC2: Prometheus names", () => {
       [
         METRICS.pausesOpened,
         METRICS.pausesClosed,
-        METRICS.pausesExtended,
+        METRICS.pausesTimeoutChanged,
+        METRICS.pausesReassigned,
         METRICS.pausesAnswersNotTaken,
         METRICS.noticesWaiting,
         METRICS.noticesDead,
@@ -39,7 +40,8 @@ describe("#943 AC2: Prometheus names", () => {
     ).toEqual([
       "agboss_instance_pauses_opened_total",
       "agboss_instance_pauses_closed_total",
-      "agboss_instance_pauses_extended_total",
+      "agboss_instance_pauses_timeout_changed_total",
+      "agboss_instance_pauses_reassigned_total",
       "agboss_instance_pauses_answers_not_taken_total",
       "agboss_cluster_pauses_notices_waiting",
       "agboss_cluster_pauses_notices_dead",

@@ -7,18 +7,14 @@
  * shares (#1297): a tenant's, and inside it each owner's.
  */
 
-import { ComponentError } from "../../components/metadata.js";
-
-/** The fetches a listener runs at once by default. */
+/** The fetches a pool runs at once by default (`FileFetchPool.maxConcurrent`). */
 export const DEFAULT_MAX_CONCURRENT_FILE_FETCHES = 16;
 
-/** `maxConcurrentFileFetches`, `...PerTenant` or `...PerOwner` as given: a whole number from 1, else `[a2a.file-fetch-limit-invalid]`. */
-export function checkedFetchLimit(name: string, limit: number | undefined): void {
-  if (limit !== undefined && !(Number.isInteger(limit) && limit >= 1))
-    throw new ComponentError({
-      message: `[a2a.file-fetch-limit-invalid] a2aHttpListener's ${name} is not a whole number from 1`,
-    });
-}
+/** The fetches of one owner a pool runs at once by default (`FileFetchPool.maxConcurrentPerOwner`). */
+export const DEFAULT_MAX_CONCURRENT_PER_OWNER = 2;
+
+/** The fetches of one owner a pool holds waiting by default (`FileFetchPool.maxQueuedPerOwner`). */
+export const DEFAULT_MAX_QUEUED_PER_OWNER = 8;
 
 /** The queue holds this many fetches per slot. */
 export const QUEUED_PER_SLOT = 4;
@@ -26,10 +22,14 @@ export const QUEUED_PER_SLOT = 4;
 /** A tenant holds at most this part of the slots by default, and an owner this part of its tenant's: a quarter. */
 export const TENANT_SHARE = 4;
 
-/** Whose fetch it is: the keys of its tenant's share and of its own (the owner's) inside it. */
+/**
+ * Whose fetch it is: the key of its tenant's share and, when the execution has an owner, of its
+ * own (the owner's) inside it. An ownerless fetch uses its tenant's share directly: it never
+ * shares an owner's bucket with the tenant's other ownerless fetches.
+ */
 export interface FileCaller {
   readonly tenant: string;
-  readonly owner: string;
+  readonly owner?: string | undefined;
 }
 
 /** A fetch that waits for a slot: it starts when handed one. */
@@ -60,20 +60,21 @@ class Level {
     this.#share = share;
   }
 
-  hasSlot(key: string): boolean {
-    return (this.#running.get(key) ?? 0) < this.#share.running;
+  // an ownerless caller (`key` undefined) holds no share of this level: its tenant's one bounds it
+  hasSlot(key: string | undefined): boolean {
+    return key === undefined || (this.#running.get(key) ?? 0) < this.#share.running;
   }
 
-  hasPlace(key: string): boolean {
-    return (this.#queued.get(key) ?? 0) < this.#share.queued;
+  hasPlace(key: string | undefined): boolean {
+    return key === undefined || (this.#queued.get(key) ?? 0) < this.#share.queued;
   }
 
-  run(key: string, by: number): void {
-    bump(this.#running, key, by);
+  run(key: string | undefined, by: number): void {
+    if (key !== undefined) bump(this.#running, key, by);
   }
 
-  wait(key: string, by: number): void {
-    bump(this.#queued, key, by);
+  wait(key: string | undefined, by: number): void {
+    if (key !== undefined) bump(this.#queued, key, by);
   }
 
   get keys(): ReadonlySet<string> {
@@ -201,19 +202,48 @@ export class FileFetchSlots {
 const shareOf = (running: number): KeyShare => ({ running, queued: running * QUEUED_PER_SLOT });
 
 /**
- * A listener's slots: `limit` fetches at once (checked by `checkedFetchLimit`), else the default; a
- * tenant's share `perTenant`, else a quarter of them (at least 1); an owner's share `perOwner`,
- * else a quarter of its tenant's (at least 1). A share never exceeds the one above it.
+ * A pool's slots (`FileFetchPool`, #1316): `maxConcurrent` fetches at once (16), a tenant's share
+ * `maxConcurrentPerTenant` (a quarter of them, at least 1), an owner's `maxConcurrentPerOwner` inside
+ * its tenant (2, at most half of the tenant's share and at least 1: two owners share a tenant of 2),
+ * and `maxQueuedPerOwner` (8) waiting. A share never exceeds the one above it. Whole numbers from 1
+ * are checked where a policy is checked (`[file-policy.invalid]`).
  */
 export function fileSlotsOf(
   limit: number | undefined,
   perTenant: number | undefined,
   perOwner?: number,
+  maxQueuedPerOwner?: number,
 ): FileFetchSlots {
-  const total = limit ?? DEFAULT_MAX_CONCURRENT_FILE_FETCHES;
-  const tenant = Math.min(perTenant ?? Math.max(1, Math.floor(total / TENANT_SHARE)), total);
-  const owner = Math.min(perOwner ?? Math.max(1, Math.floor(tenant / TENANT_SHARE)), tenant);
-  return new FileFetchSlots(total, total * QUEUED_PER_SLOT, shareOf(tenant), shareOf(owner));
+  const { total, tenant, owner, queued } = effectivePoolOf({
+    maxConcurrent: limit,
+    maxConcurrentPerTenant: perTenant,
+    maxConcurrentPerOwner: perOwner,
+    maxQueuedPerOwner,
+  });
+  return new FileFetchSlots(total, total * QUEUED_PER_SLOT, shareOf(tenant), {
+    running: owner,
+    queued,
+  });
+}
+
+/** A pool's numbers with every default filled in and every share held under the one above it. */
+export function effectivePoolOf(pool: {
+  readonly maxConcurrent?: number | undefined;
+  readonly maxConcurrentPerTenant?: number | undefined;
+  readonly maxConcurrentPerOwner?: number | undefined;
+  readonly maxQueuedPerOwner?: number | undefined;
+}): { total: number; tenant: number; owner: number; queued: number } {
+  const total = pool.maxConcurrent ?? DEFAULT_MAX_CONCURRENT_FILE_FETCHES;
+  const tenant = Math.min(
+    pool.maxConcurrentPerTenant ?? Math.max(1, Math.floor(total / TENANT_SHARE)),
+    total,
+  );
+  const owner = Math.min(
+    pool.maxConcurrentPerOwner ??
+      Math.min(DEFAULT_MAX_CONCURRENT_PER_OWNER, Math.max(1, Math.floor(tenant / 2))),
+    tenant,
+  );
+  return { total, tenant, owner, queued: pool.maxQueuedPerOwner ?? DEFAULT_MAX_QUEUED_PER_OWNER };
 }
 
 /** The key of a tenant's share: its id as a JSON array, never a bare text, so it cannot be an owner's key. */
@@ -221,9 +251,8 @@ export const tenantKeyOf = (tenantId: string): string => JSON.stringify([tenantI
 
 /**
  * The key of an owner's share inside its tenant: the two as a JSON array, never a joined text
- * (tenant `a/b` with owner `c` and tenant `a` with owner `b/c` are two owners); a caller with no
- * owner counts as an owner of its own inside its tenant (`null`, never an owner's id): the
- * tenant's anonymous callers share that one, and it takes from the tenant's share like any other.
+ * (tenant `a/b` with owner `c` and tenant `a` with owner `b/c` are two owners). No owner, no key:
+ * an ownerless caller uses its tenant's share directly (#1339).
  */
-export const callerKeyOf = (tenantId: string, ownerId: string | undefined): string =>
-  JSON.stringify([tenantId, ownerId ?? null]);
+export const callerKeyOf = (tenantId: string, ownerId: string | undefined): string | undefined =>
+  ownerId === undefined ? undefined : JSON.stringify([tenantId, ownerId]);

@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: what a judge's model calls cost — the usage of reading the call through the agent's policies, then the
  * call's own, are both added to the judge's spend, for a chat call and for a decision.
@@ -10,10 +11,11 @@ import { ModelKind } from "../../src/llm/decision-errors.js";
 import type { ModelReadingMask } from "../../src/pii/model-boundary.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 

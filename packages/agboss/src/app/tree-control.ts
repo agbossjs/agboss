@@ -13,7 +13,7 @@ import {
   type ExecutionControl,
   type WorkflowExecutionControl,
 } from "./execution-control.js";
-import type { App } from "./types.js";
+import type { AnyTenantApp } from "./types.js";
 import type { ExecutionTreeParts } from "./execution-trees.js";
 import type { AppDeps } from "./app-deps.js";
 
@@ -151,7 +151,7 @@ export function instanceExecutionControlOf(
  * and by its infrastructure for the framework's own observers (the A2A task projection).
  */
 export function withExecutionControl<
-  TInstance extends { readonly app: App; readonly infrastructure: object },
+  TInstance extends { readonly app: AnyTenantApp; readonly infrastructure: object },
 >(instance: TInstance, workflows: readonly ControlledWorkflow[]): TInstance {
   const control = instanceExecutionControlOf(workflows);
   rememberExecutionControl(instance.app, control);

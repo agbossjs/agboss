@@ -1,10 +1,12 @@
+import { randomUUID } from "node:crypto";
 import { BaseMessage, type ContentBlock } from "@langchain/core/messages";
 import { definedOf } from "../../infrastructure/clock.js";
 import { partMetaOf, partOfBlock } from "../../models/content.js";
 import { messageWithBlocks } from "../../pii/message-mask.js";
+import { isDtoOrPlainObject, likeOriginal } from "../../dto/plain.js";
 import { fieldsOf } from "../../dto/metadata.js";
 import type { DtoClass } from "../../dto/types.js";
-import { A2AFileDto, redactedFileOf } from "./a2a-file.dto.js";
+import { FileDto, redactedFileOf } from "../../dto/standard/file.js";
 
 /**
  * Where a file descriptor is shown (#899 §0), found by what the value is. A renderer that knows the
@@ -15,16 +17,12 @@ import { A2AFileDto, redactedFileOf } from "./a2a-file.dto.js";
 
 type Plain = Readonly<Record<string, unknown>>;
 
-const isPlain = (value: unknown): value is Plain => {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-};
+const isPlain = (value: unknown): value is Plain => isDtoOrPlainObject(value);
 
 const SOURCE_KEYS = ["fileId", "inline", "url"] as const;
 
-/** Whether a value is the descriptor of a file (`A2AFileDto`'s shape). */
-export function isFileDescriptor(value: unknown): value is A2AFileDto {
+/** Whether a value is the descriptor of a file (`FileDto`'s shape). */
+export function isFileDescriptor(value: unknown): value is FileDto {
   if (!isPlain(value) || typeof value.mediaType !== "string") return false;
   return SOURCE_KEYS.filter((key) => typeof value[key] === "string").length === 1;
 }
@@ -40,7 +38,7 @@ const blockShown = (block: ContentBlock): ContentBlock => {
 };
 
 /** A value with every descriptor in it through `onFile`; anything else as it is. */
-function mapped(value: unknown, onFile: (file: A2AFileDto) => unknown, depth = 0): unknown {
+function mapped(value: unknown, onFile: (file: FileDto) => unknown, depth = 0): unknown {
   if (depth > MAX_DEPTH) return TOO_DEEP;
   // a message to a model (an event's `rawPayload`): its file parts without their bytes (#899 §9)
   if (BaseMessage.isInstance(value)) return messageWithBlocks(value, blockShown);
@@ -54,8 +52,9 @@ function mapped(value: unknown, onFile: (file: A2AFileDto) => unknown, depth = 0
 
 /** The record with each value through `change`; its symbol keys (a variant's brand) kept as they are. */
 function rebuilt(value: Plain, change: (item: unknown, key: string) => unknown): Plain {
-  const copy = Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [key, change(item, key)]),
+  const copy = likeOriginal(
+    value,
+    Object.fromEntries(Object.entries(value).map(([key, item]) => [key, change(item, key)])),
   );
   for (const symbol of Object.getOwnPropertySymbols(value)) {
     const descriptor = definedOf(
@@ -80,8 +79,72 @@ export const withoutInlineBytes = (value: unknown): unknown =>
     Object.fromEntries(Object.entries(file).filter(([key]) => key !== "inline")),
   );
 
-const isFileDto = (dto: DtoClass): boolean =>
-  dto === A2AFileDto || dto.prototype instanceof A2AFileDto;
+/** What a turn line keeps of a file: where its bytes are and what they are; the name goes through the mask. */
+const KEPT_KEYS = ["mediaType", "fileId", "url", "sha256", "sizeBytes"] as const;
+
+/** Whether a url may stay in a turn line: an `https:` url without a user or a password. */
+function isKeptUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && parsed.username === "" && parsed.password === "";
+  } catch {
+    return false;
+  }
+}
+
+/** The descriptor's kept fields only (never its bytes, never a key the DTO does not have). */
+function keptDescriptorOf(file: FileDto): Plain | undefined {
+  if (file.url !== undefined && !isKeptUrl(file.url)) return undefined;
+  return Object.fromEntries(
+    KEPT_KEYS.flatMap((key) => (file[key] === undefined ? [] : [[key, file[key]]])),
+  );
+}
+
+/** The value with each slot (the key is this call's own nonce) back as its descriptor. */
+function withFilesBack(
+  value: unknown,
+  slotKey: string,
+  files: readonly Plain[],
+  depth = 0,
+): unknown {
+  if (depth > MAX_DEPTH) return TOO_DEEP;
+  if (Array.isArray(value))
+    return value.map((item: unknown) => withFilesBack(item, slotKey, files, depth + 1));
+  if (!isPlain(value)) return value;
+  const slot = value[slotKey];
+  if (typeof slot === "number") {
+    const { filename } = value;
+    return { ...files[slot], ...(typeof filename === "string" ? { filename } : {}) };
+  }
+  return rebuilt(value, (item) => withFilesBack(item, slotKey, files, depth + 1));
+}
+
+/**
+ * A value through `through` with its file descriptors held out of it and put back after: what a turn
+ * line keeps of a file is `mediaType`, `fileId`, `url` (an `https:` one), digest and size — so a later
+ * turn can read it again — and its name, masked with the rest. Any other key, and the bytes
+ * (`inline`), are left out; a file with a url that is no `https:` one shows as `redactedFileOf`
+ * shows it. The slot's key is made for this call: a value that came in cannot name it.
+ */
+export async function throughKeepingFiles(
+  value: unknown,
+  through: (rest: unknown) => Promise<unknown>,
+): Promise<unknown> {
+  const slotKey = `$kept-${randomUUID()}`;
+  const files: Plain[] = [];
+  const rest = mapped(value, (file) => {
+    const kept = keptDescriptorOf(file);
+    if (kept === undefined) return redactedFileOf(file);
+    files.push(kept);
+    return {
+      [slotKey]: files.length - 1,
+      ...(file.filename === undefined ? {} : { filename: file.filename }),
+    };
+  });
+  return withFilesBack(await through(rest), slotKey, files);
+}
+
+const isFileDto = (dto: DtoClass): boolean => dto === FileDto || dto.prototype instanceof FileDto;
 
 /** What is left of a value a file DTO's place holds that is no descriptor: nothing that carries bytes. */
 const withoutSources = (value: Plain): Plain =>

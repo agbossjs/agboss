@@ -17,8 +17,16 @@ export interface ErrorRecord {
   readonly cause?: ErrorRecord;
 }
 
-const staticCodeOf = (cls: unknown): string | undefined =>
-  typeof cls === "function" && "code" in cls && typeof cls.code === "string" ? cls.code : undefined;
+/**
+ * A class's own `static code` (#1325): never an inherited one — a user's `class CustomError extends
+ * AGBossError {}` has none, so it is caught by its name and not by every `AGBossError` through the
+ * `agboss` its parent's code would be.
+ */
+const staticCodeOf = (cls: unknown): string | undefined => {
+  if (typeof cls !== "function" || !Object.hasOwn(cls, "code")) return undefined;
+  const code: unknown = Reflect.get(cls, "code");
+  return typeof code === "string" ? code : undefined;
+};
 
 /**
  * The code a class is caught by: its `static code` (every framework error has one; a user error
@@ -59,23 +67,38 @@ const detailsOf = (error: Error): ErrorDetails | undefined =>
  */
 export const MAX_ERROR_CAUSES = 32;
 
+/** The code of a recorded error that was no framework error: nothing of the original's leaves with it. */
+export const INTERNAL_CODE = "internal";
+
 /**
  * A failure rebuilt from its durable record on another instance or after a takeover (#598): a
  * child's claimed failure, an undo's mark, a remote child's queue row. Its record is the original's
  * (its class line by code, its causes; no details), so `.onError` routes it as the original was
  * routed — the same side path on every holder. `instanceof` the original's class does not hold.
  */
-export class RecordedError extends Error {
+export class RecordedError extends AGBossError {
   readonly record: ErrorRecord;
-  /** The original's own `code` when it was a framework error (`AGBossError`'s line). */
-  readonly code?: string;
+  /**
+   * Whether the original was a framework error (`AGBossError`'s line). Only then is its code a framework
+   * code, safe to show at a boundary; any other original — a third-party SDK's error, a project's own —
+   * is `internal` here, whatever code its record holds.
+   */
+  readonly isFramework: boolean;
 
+  /**
+   * An `AGBossError` itself (#1325), so `Result.try`, the families' handlers and the reports treat a
+   * failure rebuilt from a record as they treat the original; its `code` is the original's own.
+   */
   constructor(record: ErrorRecord) {
     const cause = record.cause === undefined ? undefined : new RecordedError(record.cause);
-    super(record.message, cause === undefined ? undefined : { cause });
+    super(record.message, { cause });
     this.name = record.name;
     this.record = record;
-    if (record.lineage.includes(AGBossError.code)) this.code = record.code;
+    this.isFramework = record.lineage.includes(AGBossError.code);
+    Object.defineProperty(this, "code", {
+      value: this.isFramework ? record.code : INTERNAL_CODE,
+      enumerable: true,
+    });
   }
 }
 

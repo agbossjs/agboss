@@ -52,7 +52,7 @@ describe("agboss check --cassettes", () => {
         file: join("tests", "__snapshots__", "run.cassette.json"),
         code: "vcr.stale-cassette",
         message: expect.stringMatching(
-          /^coder-agent changed since it was recorded \(prompt\) — re-record its stale interactions with AGBOSS_VCR_MODE=RECORD_STALE npm test/,
+          /^coder-agent changed since it was recorded \(prompt\) — re-record its stale interactions with AGBOSS_VCR_MODE=record-stale npm test/,
         ),
       },
     ]);

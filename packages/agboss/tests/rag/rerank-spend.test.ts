@@ -1,7 +1,9 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: what a rerank costs, whether it works or fails — the spend of its masking, of a model's reply it could
  * not read and of a code reranker's reported cost is on the retrieval it falls back to and on the error of
- * `FailStep`, under `rag:<name>`, so no paid call is lost between the reranker and the ledger.
+ * `FailStep`, each under the caller that made it (`reranker:<name>`, `pii:<policy>`; both in the rag category),
+ * so no paid call is lost between the reranker and the ledger.
  */
 import { AIMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
@@ -12,10 +14,11 @@ import { rerankedRetrieval, type BoundReranker } from "../../src/rag/rerank.js";
 import { RerankFailurePolicy, type RerankerHandler } from "../../src/rag/types.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -24,12 +27,12 @@ const CANDIDATES = [
   { source: "b.md", text: "beta", score: 0.8 },
 ];
 
-const retrieve = () => Promise.resolve({ results: CANDIDATES, costUsd: 0.0625 });
-const call = { query: "q", topK: 1, tenantId: "t", signal: new AbortController().signal };
+const retrieve = () => Promise.resolve({ results: CANDIDATES, costUsd: usd(0.0625) });
+const call = { query: "q", topK: 1, scopeId: "t", signal: new AbortController().signal };
 
 const codeBound = (
   handler: RerankerHandler,
-  onFailure = RerankFailurePolicy.Fallback,
+  onFailure = RerankFailurePolicy.FailStep,
 ): BoundReranker => ({
   rag: "docs",
   reranker: "docs-reranker",
@@ -71,20 +74,20 @@ const callers = (records: readonly UsageRecord[] | undefined): string[] | undefi
   records?.map((each) => each.caller);
 
 describe("#1366: the spend of a rerank that works", () => {
-  it("a code reranker's reported cost is one record under rag:<name>", async () => {
+  it("a code reranker's reported cost is one record under reranker:<name>", async () => {
     const handler: RerankerHandler = {
-      rerank: () => Promise.resolve({ results: CANDIDATES.slice(1), costUsd: 0.125 }),
+      rerank: () => Promise.resolve({ results: CANDIDATES.slice(1), costUsd: usd(0.125) }),
     };
 
     const found = await rerankedRetrieval(retrieve, codeBound(handler), call);
 
-    expect(found.usage).toMatchObject([{ costUsd: 0.125, caller: "rag:docs" }]);
+    expect(found.usage).toMatchObject([{ costUsd: usd(0.125), caller: "reranker:docs-reranker" }]);
     expect(found.costUsd).toBe(0.0625);
   });
 });
 
 describe("#1366: the spend of a model reranker that works", () => {
-  it("its masking and its call are one record each, under rag:<name>, the masking first", async () => {
+  it("its masking and its call are one record each, each under its own caller, the masking first", async () => {
     const found = await withModelReading(costingReading, () =>
       rerankedRetrieval(
         retrieve,
@@ -95,8 +98,8 @@ describe("#1366: the spend of a model reranker that works", () => {
 
     expect(found.results.map((result) => result.source)).toEqual(["b.md"]);
     expect(found.usage?.map((each) => [each.caller, each.costUsd])).toEqual([
-      ["rag:docs", 0.5],
-      ["rag:docs", 0.75],
+      ["mask", 0.5],
+      ["reranker:docs-reranker", 0.75],
     ]);
   });
 });
@@ -110,11 +113,15 @@ describe("#1366: the spend of a rerank that fails", () => {
     };
   }
 
-  it("on the fallback the reply's spend is on the retrieval, under rag:<name>", async () => {
-    const found = await rerankedRetrieval(retrieve, codeBound(unreadable), call);
+  it("on the fallback the reply's spend is on the retrieval, under the caller that made it", async () => {
+    const found = await rerankedRetrieval(
+      retrieve,
+      codeBound(unreadable, RerankFailurePolicy.Fallback),
+      call,
+    );
 
     expect(found.results).toEqual([CANDIDATES[0]]);
-    expect(callers(found.usage)).toEqual(["rag:docs"]);
+    expect(callers(found.usage)).toEqual(["reranker"]);
     expect(found.usage?.[0]?.costUsd).toBe(0.25);
   });
 

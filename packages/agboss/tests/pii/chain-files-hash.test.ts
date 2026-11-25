@@ -14,6 +14,8 @@ import {
   WorkflowStart,
   type PiiMatch,
   type PiiPolicyHandler,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -26,14 +28,15 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const none = (): readonly PiiMatch[] => [];
 
 /** A parent's policy that lets the original files through to the models (#899). */
 @PiiPolicy({
   name: "fh-parent-files-pii-policy",
-  action: PiiAction.replaceWithKind(),
+  action: PiiAction.mask(),
   files: PiiFileAction.AllowOriginal,
 })
 class ParentFilesPiiPolicy implements PiiPolicyHandler {
@@ -43,7 +46,7 @@ class ParentFilesPiiPolicy implements PiiPolicyHandler {
 /** The child's own policy, masking files. */
 @PiiPolicy({
   name: "fh-own-pii-policy",
-  action: PiiAction.replaceWithKind(),
+  action: PiiAction.mask(),
   files: PiiFileAction.Mask,
 })
 class OwnMaskPiiPolicy implements PiiPolicyHandler {
@@ -53,14 +56,14 @@ class OwnMaskPiiPolicy implements PiiPolicyHandler {
 /** The same policy (by name) with another file action: what changing the declaration is. */
 @PiiPolicy({
   name: "fh-own-pii-policy",
-  action: PiiAction.replaceWithKind(),
+  action: PiiAction.mask(),
   files: PiiFileAction.AllowOriginal,
 })
 class OwnAllowPiiPolicy implements PiiPolicyHandler {
   findMatches = none;
 }
 
-@Agent({ name: "fh-child-agent", description: "d", prompt: "p", model: "test/fh" })
+@Agent({ name: "fh-child-agent", description: "d", prompt: inline("p"), model: "test/fh" })
 class FhChildAgent {}
 
 @WorkflowStart({ name: "fh-child-workflow-start", description: "s", input: WorkflowStartTextDto })
@@ -75,10 +78,10 @@ class FhChildFinish {}
 
 @Workflow({
   name: "fh-child-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
-  flow: [
-    start(FhChildStart).returns(WorkflowStartTextDto).toAgent(FhChildAgent).toFinish(FhChildFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(FhChildStart).toAgent(FhChildAgent).toFinish(FhChildFinish)],
   piiPolicies: [OwnMaskPiiPolicy],
 })
 class FhChildWorkflow {}
@@ -96,13 +99,8 @@ const rootOf = (name: string, piiPolicies: readonly (new () => object)[]) => {
   @Workflow({
     name,
     version: "1.0.0",
-    flow: [
-      start(RootStart)
-        .returns(WorkflowStartTextDto)
-        .toWorkflow(FhChildWorkflow)
-        .returns(WorkflowFinishTextDto)
-        .toFinish(FhRootFinish),
-    ],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(RootStart).toWorkflow(FhChildWorkflow).toFinish(FhRootFinish)],
     piiPolicies,
   })
   class Root {}

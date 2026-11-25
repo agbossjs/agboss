@@ -6,12 +6,14 @@ import {
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { TestWorkflow } from "../../../../agboss/tests/fixtures/test-workflow/test.workflow.js";
 import { SqliteTestEnvironment } from "../../../../agboss/tests/infrastructure/sqlite/fixtures/environments/app.environment.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 /**
  * `agboss check` fixture (#539 M2, acceptance): two fenced-effect stores listed together, beside
  * the in-memory default leases — the SQLite one also of another backend than the leases.
  */
 @Application({
+  modelProvider: TestModelProvider,
   name: "two-effect-stores-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,

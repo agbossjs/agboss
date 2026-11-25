@@ -1,68 +1,47 @@
-import { createHash } from "node:crypto";
+import { usd } from "../units/index.js";
 import { mkdirSync } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
-import { dirname, extname, join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { checkedTenantId } from "../flow/context/context-values.js";
-import { OncePerTenant } from "./once-per-tenant.js";
+import { documentsIn, hashOf, keyOf, scopeOf } from "./sqlite-fts-key.js";
+import { OncePerScope } from "./once-per-scope.js";
+import { RagSource } from "./rag-source.js";
+import { chunkMarkdown, ftsQuery } from "./sqlite-fts-chunks.js";
 import { openSchema, requireFts5 } from "./sqlite-fts-schema.js";
-import { writeTenant } from "./sqlite-fts-write.js";
-import type {
-  RagConnector,
-  RagIndexOptions,
-  RagIndexReport,
-  RagRetrieval,
-  RagRetrieveOptions,
+import { folderOf, type SqliteFtsDirectory } from "./sqlite-fts-directory.js";
+import { writeScope } from "./sqlite-fts-write.js";
+import {
+  type RagScope,
+  type RagIndexOptions,
+  type RagIndexReport,
+  type RagRetrieval,
+  type RagRetrieveOptions,
+  type RagScopeKey,
 } from "./types.js";
 
 /** Where the documents are and where the index lives. */
 export interface SqliteFtsOptions {
   /**
-   * The documents (#700): one folder every tenant gets (each tenant indexes its own copy), or a
-   * tenant's own folder by its id — `undefined` when the tenant has none. Look the folder up; never
-   * build a path from the id itself (a tenant id may hold `/` or `..`).
+   * The documents: one folder every scope shares (each scope indexes its own copy under its
+   * (tenant, scope id) key), or a scope's own folder looked up by its key — `undefined` when the
+   * scope has none. Look the folder up; never build a path from an id (an id may hold `/` or `..`).
+   * For any scope but `RagScope.Shared` the folder MUST depend on the tenant: the source refuses
+   * (fails closed, `rag.directory-not-tenant-keyed`) a callback that answers one folder for a
+   * scope id in two tenants — at index time and at a scope's first use — so a callback keyed on
+   * `scopeId` alone can never put two tenants' owner indexes in one directory.
    */
-  readonly folder: string | ((tenantId: string) => string | undefined);
+  readonly directory: SqliteFtsDirectory;
   /** The SQLite file of the index (created with its folder) — as the core's SQLite stores call it. */
-  readonly sqlitePath: string;
+  readonly path: string;
   /** Upper bound of a chunk, in characters (default 800). */
   readonly maxChunkLength?: number;
 }
 
 const DEFAULT_CHUNK_LENGTH = 800;
-const DOCUMENT_EXTENSIONS = new Set([".md", ".markdown", ".txt"]);
-const MAX_TERMS = 12;
 
-/** Splits Markdown at headings, then merges paragraphs into chunks of at most `max` characters. */
-export function chunkMarkdown(text: string, max: number): string[] {
-  const paragraphs = text
-    .split(/\n(?=#{1,6} )|\n\s*\n/)
-    .map((p) => p.trim())
-    .filter((p) => p !== "");
-  const chunks: string[] = [];
-  let current = "";
-  for (const paragraph of paragraphs.flatMap((p) =>
-    p.length <= max ? [p] : (p.match(new RegExp(`[\\s\\S]{1,${String(max)}}`, "g")) ?? []),
-  )) {
-    const startsSection = /^#{1,6} /.test(paragraph);
-    if (current !== "" && (startsSection || current.length + paragraph.length + 2 > max)) {
-      chunks.push(current);
-      current = "";
-    }
-    current = current === "" ? paragraph : `${current}\n\n${paragraph}`;
-  }
-  if (current !== "") chunks.push(current);
-  return chunks;
-}
-
-/** A user question as an FTS5 query: its distinct words (2+ letters), quoted, OR-ed. */
-export function ftsQuery(query: string): string | undefined {
-  const terms = [...new Set(query.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])]
-    .filter((term) => term.length >= 2)
-    .slice(0, MAX_TERMS);
-  return terms.length === 0 ? undefined : terms.map((term) => `"${term}"`).join(" OR ");
-}
+const scopeKind = (scope: RagScope | undefined): { readonly scope?: RagScope } =>
+  scope === undefined ? {} : { scope };
 
 /** One document as read from the folder: its text and the hash it is indexed at. */
 interface ReadDocument {
@@ -71,59 +50,67 @@ interface ReadDocument {
   readonly hash: string;
 }
 
-const hashOf = (text: string): string => createHash("sha256").update(text).digest("hex");
-
 const Hit = z.object({ source: z.string(), text: z.string(), rank: z.number() });
 const Count = z.object({ n: z.number() });
 const FileRow = z.object({ source: z.string(), hash: z.string() });
 
-/** The Markdown files of a folder, sorted; no folder → none. */
-async function documentsIn(folder: string | undefined): Promise<readonly string[]> {
-  if (folder === undefined) return [];
-  return (await readdir(folder, { recursive: true }))
-    .filter((file) => DOCUMENT_EXTENSIONS.has(extname(file).toLowerCase()))
-    .sort();
-}
-
 /**
  * Reference knowledge base: SQLite FTS5 full-text search ranked by BM25 over a folder of Markdown —
  * built into Node, no dependencies, no cost. Vector search would be another connector with the
- * same contract (e.g. sqlite-vec + an embeddings model). Every chunk is its tenant's (#700): a
- * retrieval reads, and an index writes, the tenant it is given only — compared as given.
+ * same contract (e.g. sqlite-vec + an embeddings model). Every chunk is its scope's: a
+ * retrieval reads, and an index writes, the scope it is given only — compared as given.
  *
- * A tenant never indexed is indexed by its first retrieval on this instance (#818), once and whole
+ * A scope never indexed is indexed by its first retrieval on this instance (#818), once and whole
  * (one transaction): later retrievals only read, even when its folder has no documents. `agboss rag
  * index` (or `index()`) updates the index after the documents change — whole, in one transaction
  * too (#891): an interrupted run leaves the index it found.
  */
-export class SqliteFtsConnector implements RagConnector {
+export class SqliteFtsRagSource extends RagSource {
   private db: DatabaseSync | undefined;
-  /** Per tenant, its first retrieval's look at the index on this instance — once (#818). */
-  private readonly firstLook = new OncePerTenant((tenantId, signal) =>
-    this.buildIfEmpty(tenantId, signal),
-  );
+  /** The declared scope of each key seen on a retrieval: a lazy first build asks its folder with it. */
+  private readonly declared = new Map<string, RagScope>();
+  /** Per scope, its first retrieval's look at the index on this instance — once (#818). */
+  private readonly firstLook = new OncePerScope((key, signal) => this.buildIfEmpty(key, signal));
 
-  constructor(private readonly options: SqliteFtsOptions) {}
+  constructor(private readonly options: SqliteFtsOptions) {
+    super();
+  }
+
+  /** Closes the index file's handle with the application. */
+  onDestroy(): void {
+    this.db?.close();
+    this.db = undefined;
+  }
 
   /**
-   * The tenant's index brought up to its folder whole or not at all (#891): every document is read
+   * The scope's index brought up to its folder whole or not at all (#891): every document is read
    * first, then every change — a changed document's chunks, a gone one's removal — is written in one
    * transaction on a connection of its own that gives the event loop back every few milliseconds
-   * (`writeTenant`): a Ctrl+C stops a long write at once, rolled back. An abort, an unreadable
+   * (`writeScope`): a Ctrl+C stops a long write at once, rolled back. An abort, an unreadable
    * document or a failure midway leaves the index as it was.
    */
-  async index({ tenantId, signal }: RagIndexOptions): Promise<RagIndexReport> {
-    checkedTenantId(tenantId);
+  protected override async index({
+    tenantId,
+    scopeId,
+    scope: declared,
+    signal,
+  }: RagIndexOptions): Promise<RagIndexReport> {
+    const scope = {
+      ...(tenantId === undefined ? {} : { tenantId }),
+      ...(scopeId === undefined ? {} : { scopeId }),
+      ...(declared === undefined ? {} : { scope: declared }),
+    };
+    const key = keyOf(scope);
     signal.throwIfAborted();
     const db = this.open();
-    const known = this.knownFilesOf(tenantId);
-    const documents = await this.documentsOf(tenantId, signal);
+    const known = this.knownFilesOf(key);
+    const documents = await this.documentsOf(scope, signal);
     const changed = documents.filter(({ hash, source }) => known.get(source) !== hash);
     const sources = new Set(documents.map(({ source }) => source));
     const gone = [...known.keys()].filter((source) => !sources.has(source));
     signal.throwIfAborted();
-    await writeTenant(this.options.sqlitePath, signal, {
-      tenantId,
+    await writeScope(this.options.path, signal, {
+      scopeId: key,
       put: changed.map(({ source, hash, text }) => ({
         source,
         hash,
@@ -132,48 +119,58 @@ export class SqliteFtsConnector implements RagConnector {
       remove: gone,
     });
     const chunks = Count.parse(
-      db.prepare("SELECT COUNT(*) AS n FROM chunks WHERE tenant_id = ?").get(tenantId),
+      db.prepare("SELECT COUNT(*) AS n FROM chunks WHERE scope_id = ?").get(key),
     ).n;
     return {
       documents: documents.length,
       chunks,
       skipped: documents.length - changed.length,
-      costUsd: 0,
+      costUsd: usd(0),
     };
   }
 
-  async retrieve(query: string, options: RagRetrieveOptions): Promise<RagRetrieval> {
-    const { tenantId, signal } = options;
-    checkedTenantId(tenantId);
+  protected override async retrieve(
+    query: string,
+    options: RagRetrieveOptions,
+  ): Promise<RagRetrieval> {
+    const { tenantId, scopeId, scope, signal } = options;
+    const key = keyOf({
+      ...(tenantId === undefined ? {} : { tenantId }),
+      ...(scopeId === undefined ? {} : { scopeId }),
+    });
     signal.throwIfAborted();
-    await this.firstLook.run(tenantId, signal);
+    if (scope !== undefined) this.declared.set(key, scope);
+    await this.firstLook.run(key, signal);
     signal.throwIfAborted();
     const db = this.open();
     const match = ftsQuery(query);
-    if (match === undefined) return { results: [], costUsd: 0 };
+    if (match === undefined) return { results: [], costUsd: usd(0) };
     const hits = db
       .prepare(
-        "SELECT source, text, bm25(chunks) AS rank FROM chunks WHERE chunks MATCH ? AND tenant_id = ? ORDER BY rank LIMIT ?",
+        "SELECT source, text, bm25(chunks) AS rank FROM chunks WHERE chunks MATCH ? AND scope_id = ? ORDER BY rank LIMIT ?",
       )
-      .all(match, tenantId, options.topK)
+      .all(match, key, options.topK)
       .map((row) => Hit.parse(row));
     return {
       results: hits.map((hit) => ({ source: hit.source, text: hit.text, score: -hit.rank })),
-      costUsd: 0,
+      costUsd: usd(0),
     };
   }
 
   /**
-   * A tenant's first retrieval on this instance, when its index has nothing yet: every document read
+   * A scope's first retrieval on this instance, when its index has nothing yet: every document read
    * first, then all written in one transaction — an abort, an unreadable file or a crash midway
    * leaves nothing, so the next look builds it whole (a partial index would read as built).
    */
-  private async buildIfEmpty(tenantId: string, signal: AbortSignal): Promise<void> {
-    if (this.fileCount(tenantId) > 0) return;
-    const documents = await this.documentsOf(tenantId, signal);
+  private async buildIfEmpty(key: string, signal: AbortSignal): Promise<void> {
+    if (this.fileCount(key) > 0) return;
+    const documents = await this.documentsOf(
+      { ...scopeOf(key), ...scopeKind(this.declared.get(key)) },
+      signal,
+    );
     this.open();
-    await writeTenant(this.options.sqlitePath, signal, {
-      tenantId,
+    await writeScope(this.options.path, signal, {
+      scopeId: key,
       // another connection (or run) may have built it meanwhile: its index stands
       onlyIfEmpty: true,
       put: documents.map(({ source, hash, text }) => ({
@@ -185,12 +182,12 @@ export class SqliteFtsConnector implements RagConnector {
     });
   }
 
-  /** Every document of the tenant's folder, read whole before anything is written. */
+  /** Every document of the scope's folder, read whole before anything is written. */
   private async documentsOf(
-    tenantId: string,
+    scope: RagScopeKey,
     signal: AbortSignal,
   ): Promise<readonly ReadDocument[]> {
-    const folder = this.folderOf(tenantId);
+    const folder = this.folderOf(scope);
     const documents: ReadDocument[] = [];
     for (const source of await documentsIn(folder)) {
       const text = await readFile(join(folder ?? "", source), "utf8");
@@ -200,12 +197,12 @@ export class SqliteFtsConnector implements RagConnector {
     return documents;
   }
 
-  /** The documents the tenant's index holds, by source, with the hash each was indexed at. */
-  private knownFilesOf(tenantId: string): ReadonlyMap<string, string> {
+  /** The documents the scope's index holds, by source, with the hash each was indexed at. */
+  private knownFilesOf(key: string): ReadonlyMap<string, string> {
     return new Map(
       this.open()
-        .prepare("SELECT source, hash FROM files WHERE tenant_id = ?")
-        .all(tenantId)
+        .prepare("SELECT source, hash FROM files WHERE scope_id = ?")
+        .all(key)
         .map((row) => {
           const r = FileRow.parse(row);
           return [r.source, r.hash] as const;
@@ -213,9 +210,9 @@ export class SqliteFtsConnector implements RagConnector {
     );
   }
 
-  private fileCount(tenantId: string): number {
+  private fileCount(key: string): number {
     return Count.parse(
-      this.open().prepare("SELECT COUNT(*) AS n FROM files WHERE tenant_id = ?").get(tenantId),
+      this.open().prepare("SELECT COUNT(*) AS n FROM files WHERE scope_id = ?").get(key),
     ).n;
   }
 
@@ -223,15 +220,14 @@ export class SqliteFtsConnector implements RagConnector {
     return chunkMarkdown(text, this.options.maxChunkLength ?? DEFAULT_CHUNK_LENGTH);
   }
 
-  private folderOf(tenantId: string): string | undefined {
-    const { folder } = this.options;
-    return typeof folder === "string" ? folder : folder(tenantId);
+  private folderOf(key: RagScopeKey): string | undefined {
+    return folderOf(this.options.directory, key);
   }
 
   private open(): DatabaseSync {
     if (this.db !== undefined) return this.db;
-    mkdirSync(dirname(this.options.sqlitePath), { recursive: true });
-    const db = new DatabaseSync(this.options.sqlitePath);
+    mkdirSync(dirname(this.options.path), { recursive: true });
+    const db = new DatabaseSync(this.options.path);
     try {
       requireFts5(db);
       openSchema(db);

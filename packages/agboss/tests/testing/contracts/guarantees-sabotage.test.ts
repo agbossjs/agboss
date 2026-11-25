@@ -91,6 +91,7 @@ describe("acceptance: a naive store fails the cases of the guarantee it breaks",
   it("#817: a ledger that takes what it is handed counts a record without an identity", () => {
     expect(failedOf("a ledger that takes what it is handed")).toEqual([
       "#817: what is no ledger entry is refused before anything is added — no id, an empty id, a madeAt that is no Date, a cost that is no amount",
+      "refuses an entry whose tokens are no count, adding nothing (#1318)",
     ]);
   });
 

@@ -64,7 +64,7 @@ function setup(
   const pass = vi.fn((_deps: unknown, _signal: AbortSignal) => Promise.resolve({ path: ["a"] }));
   const call = {
     ...(options.callSignal === undefined ? {} : { signal: options.callSignal }),
-    ...(options.record === undefined ? {} : { record: options.record }),
+    ...(options.record === undefined ? {} : { includeRecord: options.record }),
   };
   return {
     parts,
@@ -110,6 +110,7 @@ describe("#1366: one pass of a tree, observed and settled", () => {
       signal: expect.any(AbortSignal),
       lease: s.held.lease,
       undo: s.held.undo,
+      interrupted: expect.any(Function),
     });
     expect(s.tracked.state).toBe(STATE);
     expect(s.pass).toHaveBeenCalledOnce();
@@ -137,7 +138,7 @@ describe("#1366: one pass of a tree, observed and settled", () => {
     expect(order).toEqual(["settle", "result"]);
   });
 
-  it("a record is asked for only by a call that says so (`record: true`), and read per node of the deps", async () => {
+  it("a record is asked for only by a call that says so (`includeRecord: true`), and read per node of the deps", async () => {
     for (const [record, expected] of [
       [true, true],
       [false, false],

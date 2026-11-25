@@ -1,8 +1,8 @@
-/** #262 PR 3 (S55, S62, #120): `testPii` — what a model reads, and its answer revealed. */
+/** #262 PR 3 (S55, S62, #120): `testUnit` — what a model reads, and its answer revealed. */
 import { describe, expect, it } from "vitest";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
 import { PiiRefusedError } from "../../../src/pii/errors.js";
-import { replyWith, testPii } from "../../../src/testing/index.js";
+import { replyWith, testUnit } from "../../../src/testing/index.js";
 import { usd } from "../../../src/units/index.js";
 import {
   CardPiiPolicy,
@@ -12,9 +12,9 @@ import {
   StaffIdPiiPolicy,
 } from "../fixtures/units.js";
 
-describe("testPii", () => {
+describe("testUnit", () => {
   it("masks an email as a token and a phone by its part; reveal gives the email back", async () => {
-    const pii = testPii([ContactPiiPolicy]);
+    const pii = testUnit([ContactPiiPolicy]);
 
     const { output: masked } = await pii.mask("Write to alice@example.com or +1 555 123 4567");
 
@@ -24,7 +24,7 @@ describe("testPii", () => {
   });
 
   it("one value is one token across calls", async () => {
-    const pii = testPii([ContactPiiPolicy]);
+    const pii = testUnit([ContactPiiPolicy]);
 
     const first = await pii.mask("alice@example.com");
     const second = await pii.mask("ALICE@example.com");
@@ -33,13 +33,13 @@ describe("testPii", () => {
   });
 
   it("a block rule refuses the text", async () => {
-    const pii = testPii([ContactPiiPolicy, CardPiiPolicy]);
+    const pii = testUnit([ContactPiiPolicy, CardPiiPolicy]);
 
     await expect(pii.mask("card 4242 4242 4242 4242")).rejects.toBeInstanceOf(PiiRefusedError);
   });
 
   it("a project's detector finds what its injected service knows", async () => {
-    const pii = testPii([StaffIdPiiPolicy]);
+    const pii = testUnit([StaffIdPiiPolicy]);
 
     const { output } = await pii.mask("ask S-001");
 
@@ -47,7 +47,7 @@ describe("testPii", () => {
   });
 
   it("a model detection answers by script; its call is the spend", async () => {
-    const pii = testPii([NamePiiPolicy], {
+    const pii = testUnit([NamePiiPolicy], {
       model: replyWith('{"found":[{"kind":"person-name","text":"Anna Smith"}]}', {
         cost: usd(0.001),
       }),
@@ -59,11 +59,11 @@ describe("testPii", () => {
     expect(spend.byCaller).toEqual({ "pii:name-pii-policy": 0.001 });
   });
 
-  it("the policies' own rules are checked first: a name without -pii-policy", () => {
-    expect(() => testPii([MisnamedPolicy])).toThrow(GraphRuleError);
+  it("the policies' own rules are checked first: a name that is not kebab-case", () => {
+    expect(() => testUnit([MisnamedPolicy])).toThrow(GraphRuleError);
   });
 
   it("no policies is a setup error", () => {
-    expect(() => testPii([])).toThrow("name the policies to apply");
+    expect(() => testUnit([])).toThrow("name the policies to apply");
   });
 });

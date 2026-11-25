@@ -1,11 +1,14 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
-  Compaction,
   CompactionStrategy,
+  Memory,
+  Ttl,
   DecidedBy,
   EmptyEnvironment,
   Injectable,
   Judge,
+  JudgeModel,
   TokenLimit,
   Router,
   Workflow,
@@ -13,6 +16,7 @@ import {
   WorkflowStart,
   JudgeVerdict,
   type JudgeHandler,
+  inline,
 } from "../../../src/index.js";
 import { PromptInjectionGuardrail } from "../../fixtures/guardrails.js";
 import {
@@ -21,17 +25,21 @@ import {
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
-import { route, start } from "../../helpers/flow.js";
+import { onStart, toAgent } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { DecisionsModelProvider } from "../../../src/models/index.js";
-import { LocalMirrorModelProvider, LocalModelProvider } from "../providers.fixture.js";
+import {} from "../../../src/models/index.js";
+import {
+  LocalMirrorModelProvider,
+  LocalModelProvider,
+  TestDecisionsProvider,
+} from "../providers.fixture.js";
 
 /**
  * #266: every model of an application resolves to exactly one of its model providers by `serves` —
  * every kind of model use (agents, model routers, the default router, guards, compaction, judges).
  */
 
-@Judge({ name: "nowhere-judge", model: "nowhere/judge", reply: PlainTextDto })
+@Judge({ name: "nowhere-judge", model: "nowhere/judge", output: PlainTextDto, deps: [JudgeModel] })
 export class NowhereJudge implements JudgeHandler<PlainTextDto> {
   judge(): Promise<JudgeVerdict> {
     return Promise.resolve(JudgeVerdict.passed());
@@ -40,7 +48,7 @@ export class NowhereJudge implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "nowhere-agent",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   description: "Answers on a model no listed provider serves",
   model: "nowhere/agent",
   judges: [NowhereJudge],
@@ -49,9 +57,10 @@ export class NowhereAgent {}
 
 @Agent({
   name: "local-agent",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   description: "Answers on the local server",
   model: "local/llama",
+  modelProvider: LocalModelProvider,
 })
 export class LocalAgent {}
 
@@ -73,7 +82,7 @@ export class ResolutionFinish {}
   name: "nowhere-router",
   description: "Picks the agent, on a chat model no listed provider serves",
   decidedBy: DecidedBy.Model,
-  prompt: "Pick who answers.",
+  prompt: inline("Pick who answers."),
   model: "nowhere/router",
   input: { message: WorkflowStartTextDto },
   routes: [{ prompt: "Anything", target: NowhereAgent }],
@@ -81,42 +90,45 @@ export class ResolutionFinish {}
 export class NowhereRouter {}
 
 /** A compaction on a model no listed provider serves (#120 PR 3). */
-@Compaction({
-  name: "nowhere-compaction",
+@Memory({
+  name: "nowhere-memory",
   description: "Summarises on a model nobody serves",
-  model: "nowhere/compaction",
-  strategy: CompactionStrategy.SummaryQueue,
+  ttl: Ttl.Forever,
+  uncompactedTurns: 1,
   turnsBetweenCompactions: 2,
-  summaryQueueLength: 1,
-  summaryMaxTokens: 200,
+  compaction: {
+    strategy: CompactionStrategy.SummaryQueue,
+    model: "nowhere/compaction",
+    summaryQueueLength: 1,
+    summaryMaxTokens: 200,
+  },
 })
-export class NowhereCompaction {}
+export class NowhereMemory {}
 
 /** Every kind of model use, none served by the local providers. */
 @Workflow({
   name: "every-kind-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ResolutionStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ResolutionStart)
       .toRouter(NowhereRouter)
-      .chooseOne(
-        route(NowhereAgent)
+      .onRoute(
+        toAgent(NowhereAgent)
           .toFinish(ResolutionFinish),
       ),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     router: { model: "nowhere/default-router" },
     guardrail: { model: "nowhere/guardrail" },
   },
-  uncompactedTurns: 1,
+  memory: NowhereMemory,
   guardrails: [PromptInjectionGuardrail],
-  compaction: NowhereCompaction,
 })
 export class EveryKindWorkflow {}
 
-/** Only the local server is listed: the built-ins are not added next to it. */
+/** Only the local server is listed, and nothing names it: no model has a provider. */
 @Application({
   name: "every-kind-application",
   version: "1.0.0",
@@ -134,36 +146,35 @@ export class EveryKindApplication {}
 })
 export class LocalStart {}
 
-/** One agent on `local/llama` and a Jev router default: what a local application serves. */
+/** One agent on `local/llama`, named for the local provider: what a local application serves. */
 @Workflow({
   name: "local-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(LocalStart)
-      .returns(WorkflowStartTextDto)
+    onStart(LocalStart)
       .toAgent(LocalAgent)
       .toFinish(ResolutionFinish),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
-    router: { model: "typesafe/jev-1.13" },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
 })
 export class LocalWorkflow {}
 
-/** The local server and its mirror both serve `local/llama`: neither wins. */
+/** The local server and its mirror are both listed: the agent names the local one, so neither is ambiguous. */
 @Application({
   name: "mirrored-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LocalWorkflow],
-  providers: [LocalModelProvider, LocalMirrorModelProvider, DecisionsModelProvider],
+  providers: [LocalModelProvider, LocalMirrorModelProvider, TestDecisionsProvider],
   budgets: TEST_BUDGETS,
 })
 export class MirroredApplication {}
 
-/** Lists no model provider: the built-in OpenRouter (chat) and Decisions (Jev) serve it. */
+/** Lists no model provider: the local agent's provider is not listed. */
 @Application({
   name: "built-in-application",
   version: "1.0.0",
@@ -173,13 +184,14 @@ export class MirroredApplication {}
 })
 export class BuiltInApplication {}
 
-/** Lists only the local server: Jev's default router has no provider — the list is complete. */
+/** Lists only the local server, the one its agent names. */
 @Application({
   name: "local-only-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LocalWorkflow],
   providers: [LocalModelProvider],
+  modelProvider: LocalModelProvider,
   budgets: TEST_BUDGETS,
 })
 export class LocalOnlyApplication {}
@@ -191,17 +203,16 @@ export class NotInfrastructure {}
 @Workflow({
   name: "misplaced-provider-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(LocalStart)
-      .returns(WorkflowStartTextDto)
+    onStart(LocalStart)
       .toAgent(LocalAgent)
       .toFinish(ResolutionFinish),
   ],
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX },
-    router: { model: "typesafe/jev-1.13" },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   providers: [NotInfrastructure, LocalModelProvider],
 })
 export class MisplacedProviderWorkflow {}

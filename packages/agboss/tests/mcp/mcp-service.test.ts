@@ -1,22 +1,23 @@
-import { createAppWith, type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { Window2Memory } from "../helpers/window-memory.js";
+import { type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it } from "vitest";
+import type { AnyTenantApp as App } from "../../src/app/types.js";
 import {
-  type App,
   Agent,
   ExecutionContext,
   Workflow,
   WorkflowSettings,
   type WorkflowDefinition,
   Tool,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../src/index.js";
-import { createMcpService, McpExpose, type McpSessionOptions } from "../../src/mcp/index.js";
-import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
+import { connectMcp, McpEndpoint, type McpSessionOptions } from "../../src/mcp/index.js";
+import { plainApp } from "../helpers/mcp-plain-app.js";
 import { Text } from "../../src/dto/index.js";
-import { jsonSchemaOf } from "../../src/dto/schema.js";
-import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -32,8 +33,7 @@ import {
   SaveNote,
   DeskApplication,
 } from "../testing/fixtures/desk.workflow.js";
-import { start } from "../helpers/flow.js";
-import { WorkflowStartTextDto } from "../../src/dto/index.js";
+import { onStart } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 
 /** A paused workflow as the MCP tool reports it. */
@@ -45,6 +45,8 @@ interface PausedReply {
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { jsonSchemaOf } from "../../src/dto/schema.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 function offline(book: ScriptBook, stubs = new McpStubs(book)): BuildApplicationOptions {
   return {
@@ -66,10 +68,10 @@ class CallEcho {
   output: CallEcho,
   deps: [ExecutionContext],
 })
-class EchoCall implements ToolHandler<OrderQuery, CallEcho> {
+class EchoCall {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(): Promise<CallEcho> {
+  execute(): Promise<CallEcho> {
     return Promise.resolve({ callId: String(this.executionContext.step.callId) });
   }
 }
@@ -81,15 +83,15 @@ class Code {
 
 /** Breaks its own output DTO: the adapter must reject the result. */
 @Tool({ name: "broken-tool", description: "Wrong output", input: OrderQuery, output: Code })
-class Broken implements ToolHandler<OrderQuery, Code> {
-  run(): Promise<Code> {
+class Broken {
+  execute(): Promise<Code> {
     return Promise.resolve({ code: "x" });
   }
 }
 
 @Agent({
   name: "clerk-agent",
-  prompt: "Answer questions about orders and keep notes.",
+  prompt: inline("Answer questions about orders and keep notes."),
   description: "Orders and notes",
   model: "test/clerk",
   price: { inputPerMTok: 1, outputPerMTok: 2 },
@@ -101,14 +103,14 @@ class Clerk {}
 @Workflow({
   name: "clerk-desk-workflow",
   version: "1.0.0",
-  flow: [start(ChatStart).returns(WorkflowStartTextDto).toAgent(Clerk).toFinish(Reply)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ChatStart).toAgent(Clerk).toFinish(Reply)],
   defaults: {
     models: { temperature: 0, cache: true },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 2 },
   },
-  uncompactedTurns: 2,
-  mcp: [NotesServer],
+  memory: Window2Memory,
   providers: [OrderBook],
 })
 class ClerkDesk implements WorkflowDefinition {
@@ -119,6 +121,7 @@ class ClerkDesk implements WorkflowDefinition {
 
 @Application({
   name: "clerk-desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClerkDesk],
@@ -126,10 +129,10 @@ class ClerkDesk implements WorkflowDefinition {
 })
 export class ClerkDeskApplication {}
 
-@McpExpose({
+@McpEndpoint({
   name: "desk-mcp",
   version: "1.0.0",
-  exports: [OrderStatus, EchoCall, Broken, ChatStart, Clerk],
+  tools: [OrderStatus, EchoCall, Broken, ChatStart, Clerk],
 })
 class DeskMcp {}
 
@@ -141,10 +144,10 @@ async function connected(
   stubs = new McpStubs(book),
   session: McpSessionOptions = {},
 ): Promise<Client> {
-  const app = await createAppWith(ClerkDeskApplication, offline(book, stubs));
+  const app = await createTestAppWith(ClerkDeskApplication, offline(book, stubs));
   opened.push(app);
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
-  await createMcpService(app, DeskMcp).connect(serverSide, session);
+  await connectMcp(plainApp(app), { endpoint: DeskMcp, transport: serverSide, session: session });
   const client = new Client({ name: "test-client", version: "1.0.0" });
   await client.connect(clientSide);
   return client;
@@ -258,10 +261,43 @@ describe("McpService over an in-memory MCP transport", () => {
 
     expect(paused).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ step: "clerk-agent", ask: { tool: "save-note-tool" } }],
+      pending: [{ step: "clerk-agent", toolCall: { tool: "save-note-tool" } }],
     });
     expect(resumed.isError).toBeFalsy();
     expect(JSON.parse(textOf(resumed))).toEqual({ text: "Saved." });
+  });
+
+  it("#1320e: resume_workflow takes a free-text reply or a decision, exactly one", async () => {
+    const book = new ScriptBook();
+    const stubs = new McpStubs(book);
+    stubs.stubOf("notes").thenReturn({ write_file: () => Promise.resolve({ content: "ok" }) });
+    book
+      .scriptOf("agent:clerk-agent")
+      .thenReturn(callTool(SaveNote, { title: "a", text: "b" }), replyWith("Saved."));
+    const client = await connected(book, stubs);
+    const started = await client.callTool({
+      name: "chat-workflow-start",
+      arguments: { text: "save a note" },
+    });
+    const paused = JSON.parse(textOf(started)) as PausedReply;
+    const pauseId = paused.pending[0]?.pauseId;
+
+    const both = await client.callTool({
+      name: "resume_workflow",
+      arguments: { pauseId, decision: "{}", reply: "yes" },
+    });
+    const neither = await client.callTool({ name: "resume_workflow", arguments: { pauseId } });
+    // a channel with no reply interpreter refuses the reply: it reached `app.resume` as a reply
+    const reply = await client.callTool({
+      name: "resume_workflow",
+      arguments: { pauseId, reply: "yes, save it" },
+    });
+
+    expect(both.isError).toBe(true);
+    expect(neither.isError).toBe(true);
+    expect(textOf(both)).toMatch(/not both/);
+    expect(reply.isError).toBe(true);
+    expect(textOf(reply)).toMatch(/interpreter/i);
   });
 
   it("#261: a session runs in its caller's tenant and owner — the start and its resume alike", async () => {
@@ -312,12 +348,12 @@ describe("McpService over an in-memory MCP transport", () => {
   });
 
   it("exporting a tool the workflow does not use fails when the server starts", async () => {
-    const app = await createAppWith(DeskApplication, offline(new ScriptBook()));
+    const app = await createTestAppWith(DeskApplication, offline(new ScriptBook()));
     opened.push(app);
     const [, serverSide] = InMemoryTransport.createLinkedPair();
 
-    await expect(createMcpService(app, DeskMcp).connect(serverSide)).rejects.toThrow(
-      /exports EchoCall, which is not a tool of application "desk-application"/,
-    );
+    await expect(
+      connectMcp(plainApp(app), { endpoint: DeskMcp, transport: serverSide }),
+    ).rejects.toThrow(/exports EchoCall, which is not a tool of application "desk-application"/);
   });
 });

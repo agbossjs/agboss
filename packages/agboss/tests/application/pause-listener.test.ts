@@ -1,24 +1,23 @@
 /**
- * #940 AC5: an application-wide `@PauseListener` hears every pause opened and closed — with the
+ * #940 AC5: an application-wide `@ChannelListener` hears every pause opened and closed — with the
  * safe context, the question and the answer masked — at least once, each notice under its own
  * `deliveryId` (the same on a redelivery). It gets a correlation key (`pauseKey`), never the
- * answering id of a channel pause unless it is declared `allowAnswering`; a thread owner's pause
+ * answering id of a channel pause unless it is declared `includePauseIds`; a thread owner's pause
  * id it always sees. Its `onInit` runs before its first notice, one instance hears every workflow,
  * and the assembly rules say what is wrong with a listener, each with its code.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import {
-  PauseAnswerer,
+  PauseRespondent,
   PauseClosedReason,
   PauseKind,
-  PauseListener,
-  pauseKeyOf,
+  ChannelListener,
   type OnInit,
-  type PauseListenerClosedEvent,
-  type PauseListenerHandler,
-  type PauseListenerOpenedEvent,
+  type ChannelListenerClosedEvent,
+  type ChannelListenerOpenedEvent,
 } from "../../src/index.js";
+import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
@@ -45,6 +44,7 @@ import {
   resetPauses,
   seen,
 } from "../channels/fixtures/pauses.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const desk = testWith(PausesApplication);
 
@@ -54,14 +54,14 @@ beforeEach(resetPauses);
 interface Heard {
   readonly listener: string;
   readonly type: "opened" | "closed";
-  readonly event: PauseListenerOpenedEvent & Partial<PauseListenerClosedEvent>;
+  readonly event: ChannelListenerOpenedEvent & Partial<ChannelListenerClosedEvent>;
   readonly initialisedBefore: boolean;
 }
 
 const heard: Heard[] = [];
 
-@PauseListener({ name: "ledger-pause-listener" })
-class LedgerPauseListener implements PauseListenerHandler, OnInit {
+@ChannelListener({ name: "ledger-pause-listener" })
+class LedgerPauseListener implements OnInit {
   isReady = false;
 
   onInit(): Promise<void> {
@@ -69,12 +69,12 @@ class LedgerPauseListener implements PauseListenerHandler, OnInit {
     return Promise.resolve();
   }
 
-  onPauseOpened(event: PauseListenerOpenedEvent): Promise<void> {
+  onPauseOpened(event: ChannelListenerOpenedEvent): Promise<void> {
     heard.push({ listener: "ledger", type: "opened", event, initialisedBefore: this.isReady });
     return Promise.resolve();
   }
 
-  onPauseClosed(event: PauseListenerClosedEvent): Promise<void> {
+  onPauseClosed(event: ChannelListenerClosedEvent): Promise<void> {
     heard.push({ listener: "ledger", type: "closed", event, initialisedBefore: this.isReady });
     return Promise.resolve();
   }
@@ -82,6 +82,7 @@ class LedgerPauseListener implements PauseListenerHandler, OnInit {
 
 @Application({
   name: "listened-questions-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PurchaseWorkflow, OwnerPurchaseWorkflow],
@@ -118,10 +119,14 @@ describe("#940 AC5: what a listener hears", () => {
         workflow: "desk-workflow",
         step: "desk-clerk-agent",
         kind: PauseKind.Approval,
-        channel: "refund-approval-channel",
-        answerer: PauseAnswerer.Channel,
-        ask: expect.objectContaining({ tool: "refund-tool" }),
+        target: "refund-gate-tool-approval",
+        channel: "finance-desk-refund-approval-channel",
+        respondent: PauseRespondent.Delegate,
+        toolCall: expect.objectContaining({ tool: "refund-tool" }),
+        input: { orderId: "7" },
+        trail: [expect.objectContaining({ action: "opened" })],
         askedAt: expect.any(String),
+        expiresAt: expect.any(String),
       });
       // opened is told to listeners only: the channel sent the question itself
       expect(seen.closed).toEqual([]);
@@ -129,7 +134,7 @@ describe("#940 AC5: what a listener hears", () => {
   );
 
   desk(
-    "AC5: a Channel pause: pauseKey and no pauseId; a trusted listener (allowAnswering) gets the id",
+    "AC5: a Channel pause: pauseKey and no pauseId; a trusted listener (includePauseIds) gets the id",
     async ({ app, mockLlm }) => {
       mockLlm(DeskClerkAgent).thenReturn(callTool(RefundTool, { orderId: "7" }));
       await execute(app, DeskWorkflowStart, { text: "refund order 7" }, ACME);
@@ -143,7 +148,7 @@ describe("#940 AC5: what a listener hears", () => {
     },
   );
 
-  questions("AC5: a ThreadOwner pause: its id is seen without allowAnswering", async ({ app }) => {
+  questions("AC5: a ThreadOwner pause: its id is seen without includePauseIds", async ({ app }) => {
     const paused = await execute(
       app,
       PurchaseWorkflowStart,
@@ -156,10 +161,10 @@ describe("#940 AC5: what a listener hears", () => {
 
     expect(heard[0]?.event).toMatchObject({
       pauseId: paused.pending[0]?.pauseId,
-      answerer: PauseAnswerer.ThreadOwner,
-      kind: PauseKind.Question,
+      respondent: PauseRespondent.Owner,
+      kind: PauseKind.ExternalTask,
       // the requester is `sensitive`: masked for the listener too
-      ask: { item: "laptop", priceUsd: 900, requester: expect.not.stringContaining("alice") },
+      input: { item: "laptop", priceUsd: 900, requester: expect.not.stringContaining("alice") },
     });
   });
 
@@ -185,7 +190,7 @@ describe("#940 AC5: what a listener hears", () => {
       ]);
       expect(heard[2]?.event).toMatchObject({
         reason: PauseClosedReason.Answered,
-        answeredBy: "manager-17",
+        actor: { id: "manager-17" },
         answer: { approved: true, limitUsd: 800 },
       });
     },
@@ -248,33 +253,32 @@ describe("#940 AC5: the assembly rules", () => {
     return applicationOf(RuledApplication);
   };
 
-  it("AC5: [name.kind-suffix] a name that does not end with -pause-listener", async () => {
-    @PauseListener({ name: "ledger" })
-    class BadName implements PauseListenerHandler {
+  it("AC5: [name.not-kebab-case] a name that is not kebab-case", async () => {
+    @ChannelListener({ name: "Ledger_Listener" })
+    class BadName {
       onPauseOpened = (): Promise<void> => Promise.resolve();
       onPauseClosed = (): Promise<void> => Promise.resolve();
     }
-    await expect(apply(BadName)).rejects.toThrow(/\[name\.kind-suffix\]/);
+    await expect(apply(BadName)).rejects.toThrow(/\[name\.not-kebab-case\]/);
   });
 
   it("AC5: [pause-listener.duplicate-name] two classes with one name", async () => {
-    @PauseListener({ name: "twin-pause-listener" })
-    class One implements PauseListenerHandler {
+    @ChannelListener({ name: "twin-pause-listener" })
+    class One {
       onPauseOpened = (): Promise<void> => Promise.resolve();
       onPauseClosed = (): Promise<void> => Promise.resolve();
     }
-    @PauseListener({ name: "twin-pause-listener" })
-    class Two implements PauseListenerHandler {
+    @ChannelListener({ name: "twin-pause-listener" })
+    class Two {
       onPauseOpened = (): Promise<void> => Promise.resolve();
       onPauseClosed = (): Promise<void> => Promise.resolve();
     }
-    await expect(apply(One, Two)).rejects.toThrow(/\[pause-listener\.duplicate-name\]/);
+    await expect(apply(One, Two)).rejects.toThrow(/\[channel-listener\.duplicate-name\]/);
   });
 
-  it("AC5: [pause-listener.not-a-handler] a listener without onPauseOpened / onPauseClosed", async () => {
-    // @ts-expect-error the decorator refuses a class that is no handler; a JS project reaches the rule
-    @PauseListener({ name: "empty-pause-listener" })
+  it("AC5: [channel-listener.missing-handler] a listener with none of the hooks", async () => {
+    @ChannelListener({ name: "empty-pause-listener" })
     class Empty {}
-    await expect(apply(Empty)).rejects.toThrow(/\[pause-listener\.not-a-handler\]/);
+    await expect(apply(Empty)).rejects.toThrow(/\[channel-listener\.missing-handler\]/);
   });
 });

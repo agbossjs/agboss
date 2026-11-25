@@ -1,5 +1,5 @@
 /**
- * #562 — a child's end is announced once, by the pass that ended it: an `AnyInstance` child's finish
+ * #562 — a child's end is announced once, by the pass that ended it: an `AnyWorker` child's finish
  * by the worker whose completion of its queue row won, a child on its parent's instance by the
  * parent's pass that ran it, a failure by the parent's pass that saw it — never by a parent that
  * re-enters its step after a takeover and only reads the end, and never by a holder whose lease is
@@ -45,6 +45,7 @@ import {
   YieldOneWorkflowStart,
   yieldSeen,
 } from "./fixtures/remote-child-yield.workflow.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const test = testWith(ChildEndOnceApplication, { instances: 2 });
 const test3 = testWith(ChildEndOnceApplication, { instances: 3 });
@@ -52,8 +53,8 @@ const testWindow = testWith(ChildEndWindowApplication, { instances: 2 });
 
 /** Where the child runs: queued for any instance, or in its parent's step. */
 const PLACEMENTS = [
-  { placement: "AnyInstance", start: YieldOneWorkflowStart },
-  { placement: "ParentInstance", start: EndOnceLocalWorkflowStart },
+  { placement: "AnyWorker", start: YieldOneWorkflowStart },
+  { placement: "CurrentProcess", start: EndOnceLocalWorkflowStart },
 ] as const;
 
 beforeEach(() => {
@@ -145,7 +146,8 @@ describe("#562: a cancelled child", () => {
       await readyAll(apps);
       const thread = `thread-${placement}`;
       // its rejection is taken at once: the call ends while the test still advances the clock
-      const call = rejectionOf(execute(a, start, item("gate"), { threadId: thread }));
+      const call = execute(a, start, item("gate"), { threadId: thread });
+      call.catch(() => undefined);
       await until(() => yieldSeen.runs.length === 1, "the child at its gate");
       expect(await b.cancel(thread, { tenantId: "default" })).toEqual({ cancelled: true });
       // the holder looks for a cancel request at its renewals, a worker at its running child's (10 s)
@@ -157,7 +159,7 @@ describe("#562: a cancelled child", () => {
       await settle();
 
       const { childEnds, childErrors, rootEnds, rootErrors } = heard();
-      expect(error).toBeInstanceOf(ExecutionCancelledError);
+      expect(error).toMatchObject({ status: ExecutionStatus.Cancelled });
       expect(childEnds).toEqual([]);
       expect(childErrors).toMatchObject([{ error: "ExecutionCancelledError" }]);
       expect(rootEnds).toEqual([]);
@@ -167,7 +169,7 @@ describe("#562: a cancelled child", () => {
 });
 
 describe("#562: a cancel the worker finds first", () => {
-  test("the worker stops a cancelled AnyInstance child and completes its row: its parent, which reads it, announces it — once", async ({
+  test("the worker stops a cancelled AnyWorker child and completes its row: its parent, which reads it, announces it — once", async ({
     apps,
     clock,
     leases,

@@ -2,7 +2,7 @@
  * #1366: the input rules of a flow (#270), by code and by the node each refusal names: a required field no path brings
  * (and one the branch of a join may not have answered), an optional one no path produces, one field where one step
  * brought several values (from a start, from a join), a `historyOf` field that a join's list does not fill, two fields
- * reading one class, a `historyOf` limit that is no positive integer, and a node reached by too many scopes. Each is
+ * reading one class, a `historyOf maxPrevious that is no positive integer, and a node reached by too many scopes. Each is
  * refused with the code and the node, a clean flow passes.
  */
 import { describe, expect, it } from "vitest";
@@ -32,19 +32,24 @@ import {
   ResearchWorkflowStart,
   ScreeningFailedWorkflowFinish,
 } from "../../../flow/fixtures/launch.fixture.js";
-import { WorkflowStartTextDto } from "../../../flow/fixtures/dtos.js";
 import { ArticleDraftDto } from "../../../flow/fixtures/launch-dtos.js";
-import { CritiqueDto, PlanDto, ResearchDto } from "../../../flow/fixtures/review-dtos.js";
-import { start, toAction, toFinish } from "../../../flow/fixtures/paths.js";
+import { CritiqueDto, ResearchDto } from "../../../flow/fixtures/review-dtos.js";
+import { onStart, toAction, toAgent } from "../../../flow/fixtures/paths.js";
 import { MAX_SCOPES_PER_NODE } from "../../../../src/flow/analyse/dataflow.js";
-import { returnsEach } from "../../../flow/fixtures/paths.js";
+import { toFinish } from "../../../flow/fixtures/paths.js";
+import { inline, Ttl } from "../../../../src/index.js";
 
 type Flow = WorkflowOptions["flow"];
 
 let count = 0;
 const workflowWith = (flow: Flow): abstract new () => unknown => {
   count += 1;
-  @Workflow({ name: `inputs-case-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `inputs-case-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class InputsCaseWorkflow {}
   return InputsCaseWorkflow;
 };
@@ -63,7 +68,7 @@ const agentOf = (name: string, input: Record<string, unknown>) => {
   @Agent({
     name,
     description: "Reads its input",
-    prompt: "Read it.",
+    prompt: inline("Read it."),
     model: "moonshotai/kimi-k2.6",
     input: input as never,
     output: OfferDraftDto,
@@ -72,7 +77,7 @@ const agentOf = (name: string, input: Record<string, unknown>) => {
   return ReadsAgent;
 };
 
-const kit = () => start(KitWorkflowStart).returns(ShortlistDto);
+const kit = () => onStart(KitWorkflowStart);
 
 describe("#1366: a field no path brings", () => {
   it("a required field is [input.missing-on-path], an optional one [input.never-produced], both name the node", () => {
@@ -82,11 +87,7 @@ describe("#1366: a field no path brings", () => {
       maybe: optional(OfferSentDto),
     });
 
-    expect(
-      codesAndNodes([
-        kit().toAgent(reader).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
-      ]),
-    ).toEqual([
+    expect(codesAndNodes([kit().toAgent(reader).toFinish(DraftKitWorkflowFinish)])).toEqual([
       { code: "input.missing-on-path", nodes: ["needs-unrelated-1366h-agent"] },
       { code: "input.never-produced", nodes: ["needs-unrelated-1366h-agent"] },
     ]);
@@ -95,9 +96,7 @@ describe("#1366: a field no path brings", () => {
   it("a flow whose every field is brought passes", () => {
     const reader = agentOf("reads-shortlist-1366h-agent", { shortlist: ShortlistDto });
 
-    expect(
-      refusals([kit().toAgent(reader).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish)]),
-    ).toEqual([]);
+    expect(refusals([kit().toAgent(reader).toFinish(DraftKitWorkflowFinish)])).toEqual([]);
   });
 });
 
@@ -118,21 +117,14 @@ describe("#1366: several values where one field reads", () => {
     @Agent({
       name: "contract-summary-1366h-agent",
       description: "Sums the review up",
-      prompt: "Sum up.",
+      prompt: inline("Sum up."),
       model: "moonshotai/kimi-k2.6",
       input: { review: ReviewDto },
       output: ShortlistDto,
     })
     class SummaryAgent {}
 
-    const flow: Flow = [
-      start(ContractStart)
-        .returns(ReviewDto)
-        .returns(ReviewDto)
-        .toAgent(SummaryAgent)
-        .returns(ShortlistDto)
-        .toFinish(ContractFinish),
-    ];
+    const flow: Flow = [onStart(ContractStart).toAgent(SummaryAgent).toFinish(ContractFinish)];
 
     expect(refusals(flow)).toEqual([
       expect.objectContaining({
@@ -146,16 +138,11 @@ describe("#1366: several values where one field reads", () => {
 
 /** A planner's parallel agents joined: a research and two critiques (a list of one class), read by `reader`. */
 const joinedInto = (reader: abstract new () => unknown): Flow => [
-  start(ResearchWorkflowStart)
-    .returns(WorkflowStartTextDto)
+  onStart(ResearchWorkflowStart)
     .toAgent(PlannerAgent)
-    .returns(PlanDto)
-    .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent)
+    .inParallel([toAgent(PlanResearcherAgent), toAgent(CriticAgent), toAgent(CriticAgent)])
     .join()
-    .returns(ResearchDto)
-    .returns(listOf(CritiqueDto))
     .toAgent(reader)
-    .returns(ArticleDraftDto)
     .toFinish(ArticleDraftWorkflowFinish),
 ];
 
@@ -163,7 +150,7 @@ const readerOf = (name: string, input: Record<string, unknown>) => {
   @Agent({
     name,
     description: "Reads the critique",
-    prompt: "Read it.",
+    prompt: inline("Read it."),
     model: "moonshotai/kimi-k2.6",
     input: input as never,
     output: ArticleDraftDto,
@@ -219,22 +206,17 @@ class SettledRequiredAction {
 describe("#1366: a side path of a join error reads a settled answer", () => {
   it("as required it is [input.missing-on-path] for an answer its branch may not have given, naming the node", () => {
     const flow: Flow = [
-      start(ResearchWorkflowStart)
-        .returns(WorkflowStartTextDto)
+      onStart(ResearchWorkflowStart)
         .toAgent(PlannerAgent)
-        .returns(PlanDto)
-        .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
+        .inParallel([toAgent(PlanResearcherAgent), toAgent(CriticAgent), toAgent(CriticAgent)], {
+          maxConcurrency: 3,
+        })
         .join()
-        .onJoinError(
+        .onError(
           PauseExpiredError,
-          toAction(SettledRequiredAction)
-            .returns(ScreeningFailedDto)
-            .toFinish(ScreeningFailedWorkflowFinish),
+          toAction(SettledRequiredAction).toFinish(ScreeningFailedWorkflowFinish),
         )
-        .returns(ResearchDto)
-        .returns(listOf(CritiqueDto))
         .toAgent(ArticleWriterAgent)
-        .returns(ArticleDraftDto)
         .toFinish(ArticleDraftWorkflowFinish),
     ];
 
@@ -248,44 +230,36 @@ describe("#1366: a side path of a join error reads a settled answer", () => {
   });
 });
 
-describe("#1366: two fields reading one class, a bad historyOf limit", () => {
+describe("#1366: two fields reading one class, a bad historyOf maxPrevious", () => {
   it("two fields of one class are [flow.ambiguous-field] naming the node", () => {
     const reader = agentOf("twice-1366h-agent", { first: ShortlistDto, second: ShortlistDto });
 
-    expect(
-      codesAndNodes([
-        kit().toAgent(reader).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
-      ]),
-    ).toEqual([{ code: "flow.ambiguous-field", nodes: ["twice-1366h-agent"] }]);
+    expect(codesAndNodes([kit().toAgent(reader).toFinish(DraftKitWorkflowFinish)])).toEqual([
+      { code: "flow.ambiguous-field", nodes: ["twice-1366h-agent"] },
+    ]);
   });
 
   it.each([[0], [1.5], [-2]])(
-    "a historyOf limit of %s is [input.history-limit] naming the node",
-    (limit) => {
+    "a historyOf maxPrevious of %s is [input.history-max-previous] naming the node",
+    (maxPrevious) => {
       const reader = agentOf("limit-1366h-agent", {
-        shortlist: historyOf(ShortlistDto, { limit }),
+        shortlist: historyOf(ShortlistDto, { maxPrevious }),
       });
 
-      expect(
-        codesAndNodes([
-          kit().toAgent(reader).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish),
-        ]),
-      ).toEqual([{ code: "input.history-limit", nodes: ["limit-1366h-agent"] }]);
+      expect(codesAndNodes([kit().toAgent(reader).toFinish(DraftKitWorkflowFinish)])).toEqual([
+        { code: "input.history-max-previous", nodes: ["limit-1366h-agent"] },
+      ]);
     },
   );
 
-  it("a positive integer limit, or none, passes", () => {
+  it("a positive integer maxPrevious, or none, passes", () => {
     const limited = agentOf("limited-1366h-agent", {
-      shortlist: historyOf(ShortlistDto, { limit: 2 }),
+      shortlist: historyOf(ShortlistDto, { maxPrevious: 2 }),
     });
     const unlimited = agentOf("unlimited-1366h-agent", { shortlist: historyOf(ShortlistDto) });
 
-    expect(
-      refusals([kit().toAgent(limited).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish)]),
-    ).toEqual([]);
-    expect(
-      refusals([kit().toAgent(unlimited).returns(OfferDraftDto).toFinish(DraftKitWorkflowFinish)]),
-    ).toEqual([]);
+    expect(refusals([kit().toAgent(limited).toFinish(DraftKitWorkflowFinish)])).toEqual([]);
+    expect(refusals([kit().toAgent(unlimited).toFinish(DraftKitWorkflowFinish)])).toEqual([]);
   });
 });
 
@@ -309,24 +283,29 @@ describe("#1366: a node reached by too many scopes", () => {
     input: { base: ShortlistDto, ...fields },
   })
   class WideStart {}
-  @WorkflowFinish({
-    name: "wide-1366h-workflow-finish",
+  @Action({
+    name: "wide-1366h-action",
     description: "Reads them all",
     input: fields,
     output: ShortlistDto,
   })
-  class WideFinish {
-    finish(): ShortlistDto {
+  class WideAction {
+    async execute(): Promise<ShortlistDto> {
       return { candidates: "" };
     }
   }
-  const wide: Flow = [
-    returnsEach(start(WideStart), [ShortlistDto, ...manyDtos.map(optional)]).toFinish(WideFinish),
-  ];
+
+  @WorkflowFinish({
+    name: "wide-1366h-workflow-finish",
+    description: "Reads them all",
+    output: ShortlistDto,
+  })
+  class WideFinish {}
+  const wide: Flow = [onStart(WideStart).toAction(WideAction).toFinish(WideFinish)];
 
   it(`more than ${String(MAX_SCOPES_PER_NODE)} scopes at a node are [flow.analysis-too-large] naming the node`, () => {
     expect(codesAndNodes(wide)).toEqual([
-      { code: "flow.analysis-too-large", nodes: ["wide-1366h-workflow-finish"] },
+      { code: "flow.analysis-too-large", nodes: ["wide-1366h-action"] },
     ]);
   });
 
@@ -349,7 +328,7 @@ const researchAgent = (
   @Agent({
     name,
     description: "Works",
-    prompt: "Work.",
+    prompt: inline("Work."),
     model: "moonshotai/kimi-k2.6",
     input: input as never,
     output: output as never,
@@ -365,13 +344,9 @@ describe("#1366: a field whose latest value is outdated", () => {
       .toAgent(
         researchAgent("stale-research-1366h-agent", { shortlist: ShortlistDto }, ResearchDto),
       )
-      .returns(ResearchDto)
       .toAgent(researchAgent("stale-draft-1366h-agent", { research: ResearchDto }, OfferDraftDto))
-      .returns(OfferDraftDto)
       .toAgent(researchAgent("stale-again-1366h-agent", { shortlist: ShortlistDto }, ResearchDto))
-      .returns(ResearchDto)
       .toAgent(reader)
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ];
 
@@ -410,16 +385,11 @@ describe("#1366: a oneOf field beside two lists of its classes", () => {
     @WorkflowStart({
       name: "lists-1366h-workflow-start",
       description: "Two lists of one of two classes",
-      input: { first: listOf(either), second: listOf(either) },
+      input: { first: listOf(...either.variants), second: listOf(...either.variants) },
     })
     class ListsStart {}
     const reader = agentOf("either-lists-1366h-agent", { either });
-    const flow: Flow = [
-      returnsEach(start(ListsStart), [listOf(either), listOf(either)])
-        .toAgent(reader)
-        .returns(OfferDraftDto)
-        .toFinish(DraftKitWorkflowFinish),
-    ];
+    const flow: Flow = [onStart(ListsStart).toAgent(reader).toFinish(DraftKitWorkflowFinish)];
 
     expect(codesAndNodes(flow)).toEqual([
       { code: "input.never-produced", nodes: ["either-lists-1366h-agent"] },

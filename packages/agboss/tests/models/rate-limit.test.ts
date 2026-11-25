@@ -5,15 +5,11 @@
  * #509: the execution path is loaded first (`warmUp`) — on a cold worker the first execution's lazy
  * imports took real time while `advanceUntil` spent its steps.
  */
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import {
-  ModelFailure,
-  RateLimitPolicy,
-  RateLimitPolicyError,
-  RetryPolicy,
-} from "../../src/models/index.js";
+import { ModelFailure, RateLimitPolicy, RetryPolicy } from "../../src/models/index.js";
 import { resilientFetch, type ResilienceOptions } from "../../src/models/resilient-fetch.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { seconds } from "../../src/units/index.js";
@@ -25,6 +21,7 @@ import { createProviderGateway } from "../../src/llm/gateway.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { advanceUntil, instancesOf, slowProvider, warmUp } from "./slow-provider.js";
 import { completion } from "./stub.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 
 const URL = "http://limited.test/v1/chat/completions";
 const LIMITED = { models: ["limited/model"], replies: [completion("done")] };
@@ -45,7 +42,6 @@ function clientOf(
     {
       provider: "limited-model-provider",
       timeout: seconds(30),
-      retryPolicy: RetryPolicy.none(),
       ...(gate === undefined ? {} : { gate }),
       clock,
       ...extra,
@@ -132,11 +128,13 @@ describe("#266 AC3: one limit per provider for the whole application", () => {
   });
 
   it("a policy needs a limit, each a whole number ≥ 1", () => {
-    expect(() => RateLimitPolicy.of({})).toThrow(RateLimitPolicyError);
+    expect(() => RateLimitPolicy.of({})).toThrow(ConfigError.RateLimitPolicy);
     expect(() => RateLimitPolicy.of({ maxConcurrentCalls: 0 })).toThrow(
       "maxConcurrentCalls must be an integer ≥ 1, got 0",
     );
-    expect(() => RateLimitPolicy.of({ perMinute: { tokens: 1.5 } })).toThrow(RateLimitPolicyError);
+    expect(() => RateLimitPolicy.of({ perMinute: { tokens: 1.5 } })).toThrow(
+      ConfigError.RateLimitPolicy,
+    );
     expect(RateLimitPolicy.of({ perMinute: { calls: 500 } })).toMatchObject({
       maxConcurrentCalls: undefined,
       balancing: "tenant-round-robin",
@@ -166,8 +164,8 @@ describe("#266 AC4: a call without room waits", () => {
     await clock.advance(seconds(1));
     expect(await app.cancel("thread-4")).toEqual({ cancelled: true });
     aborted.abort(new Error("the caller left"));
-    await expect(cancelled).rejects.toBeInstanceOf(ExecutionCancelledError);
-    await expect(signalled).rejects.toThrow();
+    await expect(cancelled).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
+    await expect(signalled).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     // the waiting call got its slot after 20 s and took 20 s more: 40 s since it asked, no timeout
     const [held, waited] = await advanceUntil(clock, Promise.all([holders, waiting]));
 
@@ -251,7 +249,12 @@ describe("#266 × #279: every model call goes through the provider's gate — ar
       send: provider.fetch,
       clock,
     });
-    const settings = { model: "limited/model", temperature: 0, maxTokens: 10 };
+    const settings = {
+      model: "limited/model",
+      modelProvider: "limited-model-provider",
+      temperature: 0,
+      maxTokens: 10,
+    };
     const arbiter = () =>
       gateway
         .chatModel({ user: { kind: "arbiter", arbiter: "quality-arbiter" }, settings })

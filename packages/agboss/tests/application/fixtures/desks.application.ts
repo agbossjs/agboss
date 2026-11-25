@@ -1,18 +1,29 @@
 import { Application } from "../../../src/application/application.js";
-import { Agent, Injectable, Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
+import {
+  Agent,
+  Injectable,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  inline,
+  Ttl,
+} from "../../../src/index.js";
 import type { OnInit } from "../../../src/components/container/lifecycle.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   CostLedgerRepository,
   type CostCounter,
   type LedgerEntry,
+  type BudgetLimit,
+  type BudgetUsage,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { testDefaults } from "../../helpers.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #261 PR 2 — an application of two workflows: orders and refunds, each its own start; a service
@@ -47,8 +58,8 @@ export class RecordingCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  findSpentByCounter(): Promise<Usd> {
-    return Promise.resolve(usd(0));
+  findUsageByCounter(): Promise<BudgetUsage> {
+    return Promise.resolve({ spent: usd(0), tokens: 0 });
   }
 
   saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]): Promise<void> {
@@ -60,11 +71,11 @@ export class RecordingCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  findMaxSpendByAccount(): Promise<Usd | undefined> {
+  findLimitByAccount(): Promise<BudgetLimit | undefined> {
     return Promise.resolve(undefined);
   }
 
-  saveMaxSpend(): Promise<void> {
+  saveLimit(): Promise<void> {
     return Promise.resolve();
   }
 }
@@ -92,7 +103,7 @@ export class OrdersWorkflowFinish {}
 @Agent({
   name: "orders-agent",
   description: "Answers orders",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/alpha",
 })
 export class OrdersAgent {}
@@ -100,13 +111,9 @@ export class OrdersAgent {}
 @Workflow({
   name: "orders-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
-  flow: [
-    start(OrdersWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(OrdersAgent)
-      .toFinish(OrdersWorkflowFinish),
-  ],
+  flow: [onStart(OrdersWorkflowStart).toAgent(OrdersAgent).toFinish(OrdersWorkflowFinish)],
   providers: [DeskDirectoryService, SpendReportService],
 })
 export class OrdersWorkflow {}
@@ -128,7 +135,7 @@ export class RefundsWorkflowFinish {}
 @Agent({
   name: "refunds-agent",
   description: "Answers refunds",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/beta",
 })
 export class RefundsAgent {}
@@ -136,19 +143,16 @@ export class RefundsAgent {}
 @Workflow({
   name: "refunds-workflow",
   version: "2.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
-  flow: [
-    start(RefundsWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(RefundsAgent)
-      .toFinish(RefundsWorkflowFinish),
-  ],
+  flow: [onStart(RefundsWorkflowStart).toAgent(RefundsAgent).toFinish(RefundsWorkflowFinish)],
   providers: [DeskDirectoryService],
 })
 export class RefundsWorkflow {}
 
 @Application({
   name: "desks-application",
+  modelProvider: TestModelProvider,
   version: "3.1.0",
   environment: EmptyEnvironment,
   workflows: [OrdersWorkflow, RefundsWorkflow],
@@ -161,18 +165,15 @@ export class DesksApplication {}
 @Workflow({
   name: "orders-copy-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: testDefaults,
-  flow: [
-    start(OrdersWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(RefundsAgent)
-      .toFinish(RefundsWorkflowFinish),
-  ],
+  flow: [onStart(OrdersWorkflowStart).toAgent(RefundsAgent).toFinish(RefundsWorkflowFinish)],
 })
 export class OrdersCopyWorkflow {}
 
 @Application({
   name: "ambiguous-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [OrdersWorkflow, OrdersCopyWorkflow],

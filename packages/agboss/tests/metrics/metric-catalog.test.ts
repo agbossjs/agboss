@@ -14,9 +14,11 @@ import {
   HandOverReason,
   LeaseTakeoverReason,
   type CompensationEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionEndEvent,
   type ExecutionErrorEvent,
   type ExecutionLeaseTakeoverEvent,
+  type ExecutionStopEvent,
   type StepHandedOverEvent,
 } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
@@ -52,14 +54,35 @@ const DOCUMENTED = {
     ["contract", "operation", "source", "kind"],
   ],
   "agboss.instance.compensations": [MetricKind.Counter, "{action}", ["workflow", "outcome"]],
-  "agboss.instance.pauses.opened": [MetricKind.Counter, "{pause}", ["workflow", "role"]],
-  "agboss.instance.pauses.closed": [MetricKind.Counter, "{pause}", ["workflow", "role", "reason"]],
-  "agboss.instance.pauses.time_to_answer": [MetricKind.Histogram, "s", ["workflow", "role"]],
-  "agboss.instance.pauses.extended": [MetricKind.Counter, "{pause}", ["workflow", "role"]],
+  "agboss.instance.pauses.opened": [
+    MetricKind.Counter,
+    "{pause}",
+    ["workflow", "target", "channel"],
+  ],
+  "agboss.instance.pauses.closed": [
+    MetricKind.Counter,
+    "{pause}",
+    ["workflow", "target", "channel", "reason"],
+  ],
+  "agboss.instance.pauses.time_to_answer": [
+    MetricKind.Histogram,
+    "s",
+    ["workflow", "target", "channel"],
+  ],
+  "agboss.instance.pauses.timeout_changed": [
+    MetricKind.Counter,
+    "{pause}",
+    ["workflow", "target", "channel"],
+  ],
+  "agboss.instance.pauses.reassigned": [
+    MetricKind.Counter,
+    "{pause}",
+    ["workflow", "target", "channel"],
+  ],
   "agboss.instance.pauses.answers_not_taken": [
     MetricKind.Counter,
     "{pause}",
-    ["workflow", "role", "reason"],
+    ["workflow", "target", "channel", "reason"],
   ],
   "agboss.cluster.pauses.notices.waiting": [MetricKind.ObservableGauge, "{mailbox}", []],
   "agboss.cluster.pauses.notices.dead": [MetricKind.ObservableGauge, "{mailbox}", []],
@@ -151,6 +174,25 @@ describe("#485 AC4: the catalog", () => {
       { workflow: "remote-item-workflow", outcome: "cancelled" },
       { workflow: "remote-item-workflow", outcome: "failed" },
       { workflow: "remote-item-workflow", outcome: "failed" },
+    ]);
+  });
+});
+
+describe("#1341: a cancel and a stop are counted as their own outcomes, never as failures", () => {
+  const workflow = { name: "cw", version: "1", startedVersion: "1", configHash: "c" };
+
+  it("onExecutionCancel counts `cancelled`, onExecutionStop counts `stopped`, and neither counts `failed`", async () => {
+    const { provider, reader } = instanceMeter();
+    const observer = metricsObserverOf(provider.getMeter("test"));
+
+    await observer.onExecutionCancel?.(eventOf<ExecutionCancelEvent>({ workflow }));
+    await observer.onExecutionStop?.(eventOf<ExecutionStopEvent>({ workflow }));
+
+    const collected = await collect({ provider, reader });
+    const points = [...collected.values()].flatMap((metric) => metric.points);
+    expect(points.map((point) => point.attributes)).toEqual([
+      { workflow: "cw", outcome: "cancelled" },
+      { workflow: "cw", outcome: "stopped" },
     ]);
   });
 });

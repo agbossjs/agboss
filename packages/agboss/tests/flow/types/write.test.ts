@@ -7,6 +7,8 @@ import { FlowTypesStatus, writeFlowTypes } from "../../../src/flow/types/write.j
 /** `agboss check` writes `<project>/.agboss/types.d.ts` (#270 AC13, #272 S2, S7). */
 
 const fixture = (name: string): string => new URL(`../../${name}`, import.meta.url).pathname;
+const DTOS_ONLY = new URL("../fixtures/dtos.ts", import.meta.url).pathname;
+
 const projects: string[] = [];
 const project = (): string => {
   const directory = mkdtempSync(join(tmpdir(), "agboss-types-"));
@@ -36,7 +38,20 @@ describe("#270 AC13: the generated file", () => {
     expect(result.notes).toHaveLength(1);
   });
 
-  it("a module with no workflow is left alone: nothing is written", async () => {
+  it("a module with no workflow and no decorated class is left alone: nothing is written", async () => {
+    const directory = project();
+
+    const result = await writeFlowTypes({
+      files: [DTOS_ONLY],
+      project: directory,
+      typescript: false,
+    });
+
+    expect(result.status).toBe(FlowTypesStatus.NoFlow);
+    expect(existsSync(typesOf(directory))).toBe(false);
+  });
+
+  it("#1324g: a module of decorated components and no workflow is typed (a component under test)", async () => {
     const directory = project();
 
     const result = await writeFlowTypes({
@@ -45,8 +60,12 @@ describe("#270 AC13: the generated file", () => {
       typescript: false,
     });
 
-    expect(result.status).toBe(FlowTypesStatus.NoFlow);
-    expect(existsSync(typesOf(directory))).toBe(false);
+    expect(result.status).toBe(FlowTypesStatus.Written);
+    const text = readFileSync(typesOf(directory), "utf8");
+    expect(text).toContain('"alpha-agent":');
+    expect(text).toContain(
+      'readonly [agbossComponent]?: { readonly name: "alpha-agent"; readonly kind: NodeKind.Agent };',
+    );
   });
 
   it("standard DTOs are imported from the package entry a project imports them from", async () => {
@@ -109,7 +128,7 @@ describe("#468: outFile", () => {
     const directory = project();
 
     const result = await writeFlowTypes({
-      files: [fixture("fixtures/test-flow/test.flow.ts")],
+      files: [DTOS_ONLY],
       project: directory,
       typescript: false,
       outFile: ".agboss/types.other.d.ts",

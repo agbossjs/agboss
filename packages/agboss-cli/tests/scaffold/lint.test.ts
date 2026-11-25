@@ -84,8 +84,8 @@ describe("#388: agboss create ships a working ESLint config", () => {
     write(
       WORKFLOW,
       workflow.replace(
-        /route\(LintAppAssistantAgent\)\s+\.toFinish\(TextWorkflowFinish\)/,
-        "route(LintAppAssistantAgent).toFinish(TextWorkflowFinish)",
+        /toAgent\(LintAppAssistantAgent\)\s+\.toFinish\(TextWorkflowFinish\)/,
+        "toAgent(LintAppAssistantAgent).toFinish(TextWorkflowFinish)",
       ),
     );
 

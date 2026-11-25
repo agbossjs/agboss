@@ -9,11 +9,11 @@ import type { PauseRecord } from "../../../src/infrastructure/paused-execution.r
 const isToolCallAsk = (ask: unknown): boolean =>
   typeof ask === "object" &&
   ask !== null &&
-  ["callId", "tool", "summary"].every((field) => typeof Reflect.get(ask, field) === "string");
+  ["callId", "tool"].every((field) => typeof Reflect.get(ask, field) === "string");
 
 /** The stored pause, refused as unreadable unless its ask is a tool call. */
 function checked(pause: PauseRecord): PauseRecord {
-  if (!isToolCallAsk(pause.ask))
+  if (!isToolCallAsk(pause.toolCall))
     throw new Error(`a stored pause is not readable: ${pause.pauseId}`);
   return pause;
 }

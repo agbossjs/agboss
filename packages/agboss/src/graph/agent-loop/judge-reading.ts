@@ -1,4 +1,4 @@
-import { coerceMessageLikeToMessage, type BaseMessageLike } from "@langchain/core/messages";
+import { type BaseMessage } from "@langchain/core/messages";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { DecisionRequest, DecisionQuestions } from "../../llm/decisions.js";
 import { maskedMessageOf } from "../../pii/message-mask.js";
@@ -46,11 +46,10 @@ export class JudgeReading {
   };
 
   /** A chat call's input as the model reads it. */
-  async input(input: string | readonly BaseMessageLike[]): Promise<string | BaseMessageLike[]> {
+  async input(input: string | readonly BaseMessage[]): Promise<string | BaseMessage[]> {
     if (typeof input === "string") return this.text(input);
     const messages = [];
-    for (const like of input)
-      messages.push(await maskedMessageOf(coerceMessageLikeToMessage(like), this.text));
+    for (const message of input) messages.push(await maskedMessageOf(message, this.text));
     return messages;
   }
 

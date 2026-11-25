@@ -1,4 +1,5 @@
 import type { Class } from "../components/injection.js";
+import { componentModelOf, type ModelResolver } from "../models/model-resolver.js";
 import type { RuleViolation } from "../graph/rule-error.js";
 import {
   effectivePiiPolicies,
@@ -14,6 +15,10 @@ import { piiPolicyMetaOf } from "./policy-checks.js";
 export interface PiiDetectorUse {
   readonly name: string;
   readonly model: string;
+  /** The `name` of the `@ModelProvider` the cascade resolved it to (#1313). */
+  readonly modelProvider?: string;
+  /** The provider has no `cost`: its calls are `CostSource.Unpriced` (#1313). */
+  readonly unpriced?: true;
 }
 
 /** A workflow's PII policies as assembled (#120): classes only — the container creates them. */
@@ -30,7 +35,7 @@ export interface AssembledPii {
   readonly chains: readonly PiiChainSets[];
   /** Every policy class of the workflow. */
   readonly classes: readonly Class[];
-  /** The policies with `detectWithModel`. */
+  /** The policies with `model`. */
   readonly detectors: readonly PiiDetectorUse[];
 }
 
@@ -40,11 +45,13 @@ export interface PiiAssembly {
   readonly violations: readonly RuleViolation[];
 }
 
-const detectorsOf = (classes: readonly Class[]): PiiDetectorUse[] =>
+const detectorsOf = (classes: readonly Class[], resolver?: ModelResolver): PiiDetectorUse[] =>
   classes.flatMap((cls) => {
     const meta = piiPolicyMetaOf(cls);
-    if (meta === undefined || isCustomPolicy(meta) || meta.detectWithModel === undefined) return [];
-    return [{ name: meta.name, model: meta.detectWithModel }];
+    if (meta === undefined || isCustomPolicy(meta) || meta.model === undefined) return [];
+    // its model through the cascade: the policy's own provider, its workflow's, its application's (#1313)
+    const own = { model: meta.model, provider: meta.modelProvider };
+    return [{ name: meta.name, ...componentModelOf(resolver, `pii.${meta.name}`, own) }];
   });
 
 /** What one workflow's PII policies are assembled from (#120, #1150). */
@@ -55,6 +62,8 @@ export interface PiiSources {
   readonly workflowExcludes?: readonly Class[] | undefined;
   readonly elements: readonly PiiElement[];
   readonly inherited?: readonly InheritedPii[] | undefined;
+  /** Resolves each detection model through the model cascade (#1313); none: as written. */
+  readonly resolver?: ModelResolver | undefined;
 }
 
 /** The PII policies of one workflow from its levels (`@Application` → `@Workflow` → elements). */
@@ -75,7 +84,7 @@ export function piiAssemblyOf(sources: PiiSources): PiiAssembly {
       excludes: effective.excludes,
       chains: effective.chains,
       classes: effective.classes,
-      detectors: detectorsOf(effective.classes),
+      detectors: detectorsOf(effective.classes, sources.resolver),
     },
     violations: effective.violations,
   };

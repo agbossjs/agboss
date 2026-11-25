@@ -1,9 +1,9 @@
 /**
- * #334: an application without `pseudonymKey` — a desk agent whose tools echo the start's author
+ * #334: an application without `secret` — a desk agent whose tools echo the start's author
  * as a `sensitive` field (one approved, one that holds until its execution stops), a child
  * workflow that reads the author again, and a checkpointer that keeps every `piiKey` it saved.
  */
-import { TerminalUserChannel } from "../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import {
   Agent,
@@ -14,19 +14,27 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { InMemoryCheckpointSaver } from "../../src/infrastructure/contracts.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import {
   levers,
   MortalExecutionLeaseRepository,
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../infrastructure/fixtures/recovery.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+
+/** Who the desk talks to: a token field of the execution's context (the built-in author is masked one-way). */
+export class DeskExecutionContext extends ExecutionContext {
+  @Text({ optional: true, sensitive: PiiAction.tokenize() })
+  userId?: string;
+}
 
 /** Every `piiKey` a checkpoint of the test held (reset with `resetSavedKeys`). */
 export const savedKeys: (string | null)[] = [];
@@ -58,7 +66,7 @@ export class LookedUpDto {
   @Text({ prompt: "what was found" })
   status!: string;
 
-  @Text({ prompt: "who it is about", sensitive: PiiAction.replaceWithToken() })
+  @Text({ prompt: "who it is about", sensitive: PiiAction.tokenize() })
   author!: string;
 }
 
@@ -68,12 +76,12 @@ const lookedUp = (input: LookupDto): LookedUpDto => ({ status: "found", author: 
 @Tool({
   name: "lookup-tool",
   description: "Looks the author up",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: LookupDto,
   output: LookedUpDto,
 })
-export class LookupTool implements ToolHandler<LookupDto, LookedUpDto> {
-  run(input: LookupDto): Promise<LookedUpDto> {
+export class LookupTool {
+  execute(input: LookupDto): Promise<LookedUpDto> {
     return Promise.resolve(lookedUp(input));
   }
 }
@@ -86,10 +94,10 @@ export class LookupTool implements ToolHandler<LookupDto, LookedUpDto> {
   output: LookedUpDto,
   deps: [ExecutionContext],
 })
-export class SlowLookupTool implements ToolHandler<LookupDto, LookedUpDto> {
+export class SlowLookupTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: LookupDto): Promise<LookedUpDto> {
+  execute(input: LookupDto): Promise<LookedUpDto> {
     const { signal } = this.executionContext;
     if (levers.holdStarted === undefined) return Promise.resolve(lookedUp(input));
     const started = levers.holdStarted;
@@ -108,7 +116,7 @@ export class DeskNoteDto {
   @Text({ prompt: "the note" })
   text!: string;
 
-  @Text({ prompt: "who it is about", sensitive: PiiAction.replaceWithToken() })
+  @Text({ prompt: "who it is about", sensitive: PiiAction.tokenize() })
   author!: string;
 }
 
@@ -118,7 +126,7 @@ const defaults = { models: { temperature: 0 }, tools: { maxToolCalls: 4 } } as c
 @Agent({
   name: "desk-agent",
   description: "Looks the author up",
-  prompt: "Look the author up.",
+  prompt: inline("Look the author up."),
   model: "test/desk",
   price,
   tools: [LookupTool, SlowLookupTool],
@@ -130,7 +138,7 @@ export class DeskAgent {}
 @Agent({
   name: "follow-up-agent",
   description: "Follows up",
-  prompt: "Follow up.",
+  prompt: inline("Follow up."),
   model: "test/follow-up",
   price,
   input: { note: DeskNoteDto },
@@ -154,7 +162,8 @@ export class FollowUpFinish {}
 @Workflow({
   name: "follow-up-workflow",
   version: "1.0.0",
-  flow: [start(FollowUpStart).returns(DeskNoteDto).toAgent(FollowUpAgent).toFinish(FollowUpFinish)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(FollowUpStart).toAgent(FollowUpAgent).toFinish(FollowUpFinish)],
   defaults,
 })
 export class FollowUpWorkflow {}
@@ -177,25 +186,20 @@ export class DeskFinish {}
 @Workflow({
   name: "instance-key-workflow",
   version: "1.0.0",
-  flow: [
-    start(DeskStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(DeskAgent)
-      .returns(DeskNoteDto)
-      .toWorkflow(FollowUpWorkflow)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(DeskFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(DeskStart).toAgent(DeskAgent).toWorkflow(FollowUpWorkflow).toFinish(DeskFinish)],
   defaults,
 })
 export class InstanceKeyWorkflow {}
 
-/** No `pseudonymKey` and no policy that needs one: field tokens on a key of each execution. */
+/** No `secret` and no policy that needs one: field tokens on a key of each execution. */
 @Application({
   name: "instance-key-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [InstanceKeyWorkflow],
+  executionContext: DeskExecutionContext,
   observers: [RecoveryLog],
   providers: [
     MortalExecutionLeaseRepository,

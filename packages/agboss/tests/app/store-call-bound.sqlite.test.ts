@@ -77,7 +77,9 @@ describe("#928 AC1: the SQLite stores are bounded", () => {
   }) => {
     await app.ready();
     heldStoreState.outage.begin(StoreOutageMode.Hang);
-    const marking = rejectionOf(app.resolve(OutboundCallRepository).markCompleted(key, "a", "{}"));
+    const marking = rejectionOf(
+      app.resolve(OutboundCallRepository).markCompleted(key, "a", "{}", null),
+    );
     const claiming = rejectionOf(
       app.resolve(ChildExecutionQueueRepository).claimFirstByStatusQueuedOrderByDepthDesc(),
     );

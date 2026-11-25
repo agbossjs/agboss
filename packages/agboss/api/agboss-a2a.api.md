@@ -4,17 +4,9 @@
 
 ```ts
 
-import { AgentCard } from '@a2a-js/sdk';
-import { AgentSkill } from '@a2a-js/sdk';
-import { Artifact } from '@a2a-js/sdk';
-import type { DatabaseSync } from 'node:sqlite';
 import type { IncomingMessage } from 'node:http';
-import { Message } from '@a2a-js/sdk';
-import { Part } from '@a2a-js/sdk';
+import { inspect } from 'node:util';
 import type { ServerResponse } from 'node:http';
-import type { StreamResponse } from '@a2a-js/sdk';
-import { Task } from '@a2a-js/sdk';
-import { TaskState } from '@a2a-js/sdk';
 
 // @public
 export const A2A_MESH_EXTENSION = "https://agboss.dev/a2a/mesh/v1";
@@ -23,17 +15,64 @@ export const A2A_MESH_EXTENSION = "https://agboss.dev/a2a/mesh/v1";
 export const A2A_SKILLS_EXTENSION = "https://agboss.dev/a2a/skills/v1";
 
 // @public
-export function A2AAgent<TIn extends DtoClass, TOut extends DtoClass, const D extends readonly Token[] = []>(config: A2AAgentConfig<TIn, TOut, D>): <C extends new (...args: ResolvedAll<D>) => A2AClient<InstanceType<TIn>, InstanceType<TOut>>>(value: C) => C;
+export function A2AAgent<TIn extends DtoClass, TOut extends DtoClass, const D extends readonly Token[] = [], const TPorts extends InjectAs = readonly []>(config: A2AAgentConfig<TIn, TOut, D, TPorts>): <C extends new (...args: ResolvedAll<D>) => A2AClient<InstanceType<TIn>, InstanceType<TOut>> & PortInstances<TPorts>>(value: C) => C;
 
 // @public
-export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClass = DtoClass, D extends readonly Token[] = []> = {
+export interface A2AAgentCapabilities {
+    // (undocumented)
+    readonly extendedAgentCard?: boolean;
+    // (undocumented)
+    readonly extensions: readonly A2AAgentExtension[];
+    // (undocumented)
+    readonly pushNotifications?: boolean;
+    // (undocumented)
+    readonly streaming?: boolean;
+}
+
+// @public
+export interface A2AAgentCard {
+    // (undocumented)
+    readonly capabilities?: A2AAgentCapabilities;
+    // (undocumented)
+    readonly defaultInputModes: readonly string[];
+    // (undocumented)
+    readonly defaultOutputModes: readonly string[];
+    // (undocumented)
+    readonly description: string;
+    // (undocumented)
+    readonly documentationUrl?: string;
+    // (undocumented)
+    readonly iconUrl?: string;
+    // (undocumented)
     readonly name: string;
-    readonly url: string;
+    // (undocumented)
+    readonly provider?: {
+        readonly organization: string;
+        readonly url: string;
+    };
+    // (undocumented)
+    readonly securityRequirements: readonly unknown[];
+    readonly securitySchemes: Readonly<Record<string, unknown>>;
+    // (undocumented)
+    readonly skills: readonly A2AAgentSkill[];
+    // (undocumented)
+    readonly supportedInterfaces: readonly A2AAgentInterface[];
+    // (undocumented)
+    readonly version: string;
+}
+
+// @public
+export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClass = DtoClass, D extends readonly Token[] = [], TPorts extends InjectAs = readonly []> = {
+    readonly name: string;
+    readonly url: string | EnvRef<string>;
+    readonly headers?: Readonly<Record<string, string | EnvRef<string> | SecretRef | HeaderSecretTemplate>>;
+    readonly timeout?: Milliseconds;
     readonly target?: A2ATarget;
-    readonly price?: Usd;
+    readonly costPerCall?: Usd;
     readonly mesh?: A2AMesh;
-    readonly allowedOrigins?: readonly string[];
+    readonly allowedOrigins?: readonly (string | EnvRef<string>)[];
     readonly deps?: D;
+    readonly injectAs?: TPorts;
 } & ({
     readonly input: TIn;
     readonly output: TOut;
@@ -43,11 +82,38 @@ export type A2AAgentConfig<TIn extends DtoClass = DtoClass, TOut extends DtoClas
 });
 
 // @public
+export interface A2AAgentExtension {
+    // (undocumented)
+    readonly description?: string;
+    // (undocumented)
+    readonly params?: A2AMetadata;
+    // (undocumented)
+    readonly required: boolean;
+    // (undocumented)
+    readonly uri: string;
+}
+
+// @public
+export interface A2AAgentInterface {
+    readonly protocolBinding: string;
+    // (undocumented)
+    readonly protocolVersion: string;
+    // (undocumented)
+    readonly tenant?: string;
+    // (undocumented)
+    readonly url: string;
+}
+
+// @public
 export interface A2AAgentMeta {
     // (undocumented)
-    readonly allowedOrigins?: readonly string[];
+    readonly allowedOrigins?: readonly (string | EnvRef<string>)[];
+    // (undocumented)
+    readonly costPerCall?: Usd;
     // (undocumented)
     readonly deps: readonly Token[];
+    // (undocumented)
+    readonly headers?: A2AAgentConfig["headers"];
     // (undocumented)
     readonly input?: DtoClass;
     // (undocumented)
@@ -57,15 +123,67 @@ export interface A2AAgentMeta {
     // (undocumented)
     readonly output?: DtoClass;
     // (undocumented)
-    readonly price?: Usd;
-    // (undocumented)
     readonly target?: A2ATarget;
     // (undocumented)
-    readonly url: string;
+    readonly timeout?: Milliseconds;
+    // (undocumented)
+    readonly url: string | EnvRef<string>;
 }
 
 // @public
-export type A2AApp = Pick<App, "execute" | "resume" | "cancel" | "resolve">;
+export interface A2AAgentSkill {
+    // (undocumented)
+    readonly description: string;
+    // (undocumented)
+    readonly examples: readonly string[];
+    // (undocumented)
+    readonly id: string;
+    // (undocumented)
+    readonly inputModes: readonly string[];
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly outputModes: readonly string[];
+    // (undocumented)
+    readonly tags: readonly string[];
+}
+
+// @public
+export type A2AApp = Pick<AnyTenantApp, "execute" | "resume" | "cancel" | "resolve">;
+
+// @public
+export interface A2AArtifact {
+    // (undocumented)
+    readonly artifactId: string;
+    // (undocumented)
+    readonly description?: string;
+    // (undocumented)
+    readonly extensions: readonly string[];
+    // (undocumented)
+    readonly metadata?: A2AMetadata;
+    // (undocumented)
+    readonly name?: string;
+    // (undocumented)
+    readonly parts: readonly A2APart[];
+}
+
+// @public
+export interface A2AArtifactUpdateEvent {
+    // (undocumented)
+    readonly append: boolean;
+    // (undocumented)
+    readonly artifact?: A2AArtifact;
+    // (undocumented)
+    readonly contextId: string;
+    // (undocumented)
+    readonly kind: "artifact-update";
+    // (undocumented)
+    readonly lastChunk: boolean;
+    // (undocumented)
+    readonly metadata?: A2AMetadata;
+    // (undocumented)
+    readonly taskId: string;
+}
 
 // @public
 export class A2ACallDeadlineError extends AGBossError {
@@ -81,8 +199,8 @@ export class A2ACallDeadlineError extends AGBossError {
     // (undocumented)
     readonly contextId: string;
     // (undocumented)
-    readonly deadlineAt: string;
-    readonly isCanceled: boolean;
+    readonly deadlineAt: Date;
+    readonly isCancelled: boolean;
     // (undocumented)
     name: string;
     // (undocumented)
@@ -93,79 +211,14 @@ export class A2ACallDeadlineError extends AGBossError {
 export interface A2ACallDeadlineErrorOptions extends A2ATaskErrorOptions {
     // (undocumented)
     readonly cancel: A2ACancelOutcome;
-    readonly deadlineAt: string;
-}
-
-// @public
-export type A2ACaller<TStart extends Class> = Pick<ExecutionOptionsOf<InstanceType<TStart>>, "tenant" | "ownerId" | "execution"> & A2APeer;
-
-// @public
-export interface A2ACallerForbiddenOptions {
-    readonly reason: string;
-}
-
-// @public
-export class A2ACallerRejectedError extends AGBossError {
-    constructor(options: A2ACallerRejectedErrorOptions);
-    static readonly code: "a2a.caller-rejected";
-    // (undocumented)
-    readonly code: typeof A2ACallerRejectedError.code;
-    readonly httpStatus: number;
-    name: string;
-    readonly reason: string;
-    readonly wireCode: string;
-}
-
-// @public
-export interface A2ACallerRejectedErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    readonly httpStatus: number;
-    // (undocumented)
-    readonly reason: string;
-    readonly wireCode: string;
-}
-
-// @public
-export interface A2ACallerRequest {
-    readonly http: IncomingMessage;
-    readonly operation: A2AOperation;
-    readonly taskId?: string;
-}
-
-// @public
-export type A2ACallerResolution<TStart extends Class> = ResolvedA2ACallerResolution<TStart> | RejectedA2ACallerResolution;
-
-// @public
-export const A2ACallerResolution: {
-    readonly resolved: <TStart extends Class>(caller: A2ACaller<TStart>) => ResolvedA2ACallerResolution<TStart>;
-    readonly unauthenticated: (options: A2ACallerUnauthenticatedOptions) => RejectedA2ACallerResolution;
-    readonly forbidden: (options: A2ACallerForbiddenOptions) => RejectedA2ACallerResolution;
-};
-
-// @public
-export enum A2ACallerResolutionKind {
-    Forbidden = "forbidden",
-    Resolved = "resolved",
-    Unauthenticated = "unauthenticated"
-}
-
-// @public
-export interface A2ACallerResolver<TStart extends Class> {
-    readonly resolveCaller: (request: A2ACallerRequest) => A2ACallerResolution<TStart> | Promise<A2ACallerResolution<TStart>>;
-}
-
-// @public
-export interface A2ACallerUnauthenticatedOptions {
-    readonly challenge?: string;
-    readonly reason: string;
+    readonly deadlineAt: Date;
 }
 
 // @public
 export enum A2ACancelOutcome {
-    Canceled = "canceled",
+    Cancelled = "cancelled",
     NoAnswer = "no-answer",
-    NotCanceled = "not-canceled",
+    NotCancelled = "not-cancelled",
     Refused = "refused"
 }
 
@@ -178,17 +231,17 @@ export enum A2ACardFileFields {
 // @public
 export class A2AClient<TIn extends object = object, TOut extends object = object> {
     constructor(options?: A2AClientOptions);
-    agentCard(call?: Pick<A2AClientCall, "signal">): Promise<AgentCard>;
-    cancel(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<Task>;
-    readonly contract: A2AClientContract | undefined;
-    downloadFile(file: A2AReceivedFile, options?: A2ADownloadOptions): Promise<Uint8Array>;
-    execute(input: TIn, call?: A2AClientCall): Promise<TOut>;
-    protected getHeaders(): Promise<Record<string, string>>;
-    getTask(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<Task>;
+    agentCard(call?: Pick<A2AClientCall, "signal">): Promise<A2AAgentCard>;
+    cancel(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<A2ATask>;
+    get contract(): A2AClientContract | undefined;
+    // (undocumented)
+    downloadFile(file: FileDto, options?: A2ADownloadOptions): Promise<Uint8Array>;
+    execute(input: TIn, given?: A2AClientCall): Promise<TOut>;
+    protected getHeaders(): Record<string, string> | Promise<Record<string, string>>;
+    getTask(taskId: string, call?: Pick<A2AClientCall, "signal">): Promise<A2ATask>;
     reply(taskId: string, answer: A2AMessageInput, call?: A2AClientCall): Promise<A2ATaskResult>;
     send(message: A2AMessageInput, call?: A2AClientCall): Promise<A2ATaskResult>;
-    // (undocumented)
-    readonly url: string;
+    get url(): string;
 }
 
 // @public
@@ -203,29 +256,15 @@ export interface A2AClientCall {
 // @public
 export interface A2AClientContract {
     readonly application?: string;
+    readonly costPerCall?: Usd;
     readonly finishes?: readonly string[];
     // (undocumented)
     readonly input?: DtoClass;
     readonly mesh?: A2AMesh;
     // (undocumented)
     readonly output?: DtoClass;
-    readonly price?: Usd;
     readonly skill?: string;
-}
-
-// @public
-export const A2AClientFile: {
-    readonly fromBytes: (bytes: Uint8Array, options: A2AClientFileOptions) => A2AFileDto;
-    readonly fromUrl: (url: string, options: A2AClientFileOptions) => A2AFileDto;
-    readonly toPart: (file: A2AFileDto, field?: string) => Part;
-};
-
-// @public
-export interface A2AClientFileOptions {
-    // (undocumented)
-    readonly filename?: string;
-    // (undocumented)
-    readonly mediaType: string;
+    readonly timeout?: Milliseconds;
 }
 
 // @public
@@ -250,6 +289,7 @@ export interface A2AClientOptions {
     readonly cardTtl?: Milliseconds;
     readonly contract?: A2AClientContract;
     readonly fetcher?: typeof fetch;
+    readonly filePolicy?: Class;
     readonly headers?: Readonly<Record<string, string>>;
     readonly url?: string;
 }
@@ -295,79 +335,11 @@ export enum A2AContractRule {
 }
 
 // @public
-export interface A2ADirectMessageAttempt {
-    readonly attemptId: string;
-    readonly expiresAt: Date;
+export interface A2ADataPart extends A2APartBase {
     // (undocumented)
-    readonly startedAt: Date;
-}
-
-// @public
-export interface A2ADirectMessageKey {
+    readonly data: unknown;
     // (undocumented)
-    readonly messageId: string;
-    readonly ownerId: string | undefined;
-    // (undocumented)
-    readonly tenantId: string;
-}
-
-// @public
-export interface A2ADirectMessageRecord extends A2ADirectMessageKey, A2ADirectMessageAttempt {
-    readonly callerPeer?: string;
-    readonly callsModel: boolean;
-    readonly completedAt?: Date;
-    readonly contextId: string;
-    readonly createdAt: Date;
-    readonly meshBodyHash?: string;
-    readonly reply?: A2ADirectMessageReply;
-    readonly requestHash: string;
-    readonly skill: string;
-    // (undocumented)
-    readonly state: A2ADirectMessageState;
-}
-
-// @public
-export interface A2ADirectMessageReply {
-    // (undocumented)
-    readonly finish: string;
-    // (undocumented)
-    readonly output: unknown;
-    readonly spentUsd: number;
-}
-
-// @public
-export abstract class A2ADirectMessageRepository {
-    abstract completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
-    abstract deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
-    abstract deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
-    abstract findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
-    // (undocumented)
-    abstract findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
-    abstract ping(): Promise<void>;
-    abstract retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
-    abstract saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
-    static readonly store: StoreDescriptor;
-}
-
-// @public (undocumented)
-export type A2ADirectMessageSave = {
-    readonly status: A2ADirectMessageSaveStatus.Saved | A2ADirectMessageSaveStatus.Kept;
-    readonly message: A2ADirectMessageRecord;
-} | {
-    readonly status: A2ADirectMessageSaveStatus.Taken;
-};
-
-// @public
-export enum A2ADirectMessageSaveStatus {
-    Kept = "kept",
-    Saved = "saved",
-    Taken = "taken"
-}
-
-// @public
-export enum A2ADirectMessageState {
-    Completed = "completed",
-    InFlight = "in-flight"
+    readonly kind: "data";
 }
 
 // @public
@@ -378,241 +350,123 @@ export interface A2ADownloadOptions {
 }
 
 // @public
-export function A2AExpose(options: A2AExposeOptions): <C extends Class>(target: C) => C;
+export function A2AEndpoint(options: A2AEndpointOptions): <C extends Class>(target: C) => C;
 
 // @public
-export interface A2AExposedSkillOptions {
-    readonly cardFileFields?: A2ACardFileFields;
-    readonly examples?: readonly string[];
-    readonly files?: A2AFileOptions;
-    readonly reply?: A2AReply;
-    readonly tags?: readonly string[];
-}
-
-// @public
-export interface A2AExposeOptions {
+export interface A2AEndpointOptions {
     readonly cardFileFields?: A2ACardFileFields;
     readonly defaultSkill?: Class;
     readonly description: string;
-    readonly exports: readonly Class[];
     readonly name: string;
     readonly provider?: {
         readonly organization: string;
         readonly url: string;
     };
-    readonly security?: readonly A2ASecurityScheme[];
-    readonly skills?: Readonly<Record<string, A2AExposedSkillOptions>>;
+    readonly skills: readonly A2ASkillEntry[];
+    readonly ttl: A2AEndpointTtl;
     readonly version: string;
 }
 
 // @public
-export class A2AFileConflictError extends AGBossError {
-    constructor(options: A2AFileConflictErrorOptions);
-    // (undocumented)
-    static readonly code: "a2a.file-conflict";
-    // (undocumented)
-    readonly code: typeof A2AFileConflictError.code;
-    // (undocumented)
-    readonly fileId: string;
+export interface A2AEndpointSkill extends A2AEndpointSkillOptions {
+    readonly start: Class;
 }
 
 // @public
-export interface A2AFileConflictErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly fileId: string;
+export interface A2AEndpointSkillOptions {
+    readonly cardFileFields?: A2ACardFileFields;
+    readonly examples?: readonly string[];
+    readonly filePolicy?: Class;
+    readonly reply?: A2AReply;
+    readonly tags?: readonly string[];
 }
 
 // @public
-export interface A2AFileContent {
-    // (undocumented)
-    readonly bytes: Uint8Array;
-    // (undocumented)
-    readonly filename?: string;
-    // (undocumented)
-    readonly mediaType: string;
+export interface A2AEndpointTtl {
+    readonly messages: Milliseconds;
+    readonly tasks: Milliseconds | Ttl.Forever;
 }
 
 // @public
-export class A2AFileDto {
-    // (undocumented)
-    fileId?: string;
-    // (undocumented)
-    filename?: string;
-    // (undocumented)
-    inline?: string;
-    // (undocumented)
-    mediaType: string;
-    // (undocumented)
-    sha256?: string;
-    // (undocumented)
-    sizeBytes?: number;
-    // (undocumented)
-    url?: string;
+export type A2AError = A2AError.CallerRejected | A2AError.Contract | A2AError.Protocol | A2AError.Remote | A2AError.Unavailable | A2AError.Deadline | A2AError.TaskCancelled | A2AError.TaskFailed | A2AError.TaskInterrupted | A2AError.UnexpectedFinish | A2AError.MeshUnsupported | A2AError.OriginRefused;
+
+// @public
+export namespace A2AError {
+    export type CallerRejected = ErrorVariant<A2AErrorKind.CallerRejected, "a2a.caller-rejected"> & {
+        readonly httpStatus: number;
+        readonly wireCode: string;
+    };
+    export type Contract = ErrorVariant<A2AErrorKind.Contract, "a2a.contract">;
+    export type Deadline = ErrorVariant<A2AErrorKind.Deadline, "a2a.deadline"> & {
+        readonly deadlineAt: Date;
+    };
+    export type MeshUnsupported = ErrorVariant<A2AErrorKind.MeshUnsupported, "a2a.mesh-unsupported">;
+    export type OriginRefused = ErrorVariant<A2AErrorKind.OriginRefused, "a2a.origin-refused">;
+    export type Protocol = ErrorVariant<A2AErrorKind.Protocol, "a2a.protocol">;
+    export type Remote = ErrorVariant<A2AErrorKind.Remote, "a2a.remote">;
+    export type TaskCancelled = ErrorVariant<A2AErrorKind.TaskCancelled, "a2a.task-cancelled">;
+    export type TaskFailed = ErrorVariant<A2AErrorKind.TaskFailed, "a2a.task-failed">;
+    export type TaskInterrupted = ErrorVariant<A2AErrorKind.TaskInterrupted, "a2a.task-interrupted">;
+    export type Unavailable = ErrorVariant<A2AErrorKind.Unavailable, "a2a.unavailable">;
+    export type UnexpectedFinish = ErrorVariant<A2AErrorKind.UnexpectedFinish, "a2a.unexpected-finish">;
 }
 
 // @public
-export interface A2AFileField {
+export const A2AError: FamilyConstructor<A2AError, {
+    CallerRejected: A2AError.CallerRejected;
+    Contract: A2AError.Contract;
+    Protocol: A2AError.Protocol;
+    Remote: A2AError.Remote;
+    Unavailable: A2AError.Unavailable;
+    Deadline: A2AError.Deadline;
+    TaskCancelled: A2AError.TaskCancelled;
+    TaskFailed: A2AError.TaskFailed;
+    TaskInterrupted: A2AError.TaskInterrupted;
+    UnexpectedFinish: A2AError.UnexpectedFinish;
+    MeshUnsupported: A2AError.MeshUnsupported;
+    OriginRefused: A2AError.OriginRefused;
+}>;
+
+// @public
+export enum A2AErrorKind {
     // (undocumented)
-    readonly isList: boolean;
+    CallerRejected = "caller-rejected",
     // (undocumented)
-    readonly isOptional: boolean;
+    Contract = "contract",
     // (undocumented)
-    readonly name: string;
+    Deadline = "deadline",
+    // (undocumented)
+    MeshUnsupported = "mesh-unsupported",
+    // (undocumented)
+    OriginRefused = "origin-refused",
+    // (undocumented)
+    Protocol = "protocol",
+    // (undocumented)
+    Remote = "remote",
+    // (undocumented)
+    TaskCancelled = "task-cancelled",
+    // (undocumented)
+    TaskFailed = "task-failed",
+    // (undocumented)
+    TaskInterrupted = "task-interrupted",
+    // (undocumented)
+    Unavailable = "unavailable",
+    // (undocumented)
+    UnexpectedFinish = "unexpected-finish"
 }
 
 // @public
-export interface A2AFileKey {
-    // (undocumented)
-    readonly fileId: string;
-    // (undocumented)
-    readonly tenantId: string;
-}
+export function a2aHttpListener(app: A2AApp, options: A2AHttpListenerOptions): (req: IncomingMessage, res: ServerResponse) => void;
 
 // @public
-export interface A2AFileMetadata extends A2AFileKey {
-    readonly createdAt: Date;
-    // (undocumented)
-    readonly filename?: string;
-    // (undocumented)
-    readonly mediaType: string;
-    // (undocumented)
-    readonly ownerId: string;
-    readonly sha256: string;
-    // (undocumented)
-    readonly sizeBytes: number;
-}
-
-// @public
-export interface A2AFileOptions {
-    readonly allowedFileOrigins?: readonly string[];
-    readonly allowedMediaTypes?: readonly string[];
-    readonly maxFiles?: number;
-    readonly maxFileSize?: Bytes;
-    readonly maxTotalFileSize?: Bytes;
-}
-
-// @public
-export interface A2AFileOwner {
-    // (undocumented)
-    readonly ownerId: string;
-    // (undocumented)
-    readonly tenantId: string;
-}
-
-// @public
-export interface A2AFileReference {
-    // (undocumented)
-    readonly filename?: string;
-    // (undocumented)
-    readonly mediaType: string;
-}
-
-// @public
-export enum A2AFileRefusal {
-    MediaType = "media-type",
-    MediaTypeMismatch = "media-type-mismatch",
-    OutsideExecution = "outside-execution",
-    TooLarge = "too-large",
-    UrlInvalid = "url-invalid"
-}
-
-// @public
-export class A2AFileRefusedError extends AGBossError {
-    constructor(options: A2AFileRefusedErrorOptions);
-    // (undocumented)
-    static readonly code: "a2a.file-refused";
-    // (undocumented)
-    readonly code: typeof A2AFileRefusedError.code;
-    readonly mediaType: string | undefined;
-    // (undocumented)
-    readonly refusal: A2AFileRefusal;
-    readonly sizeBytes: number | undefined;
-}
-
-// @public
-export interface A2AFileRefusedErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly mediaType?: string;
-    // (undocumented)
-    readonly refusal: A2AFileRefusal;
-    // (undocumented)
-    readonly sizeBytes?: number;
-}
-
-// @public (undocumented)
-export abstract class A2AFileRepository {
-    abstract deleteByOwner(owner: A2AFileOwner): Promise<void>;
-    abstract findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
-    abstract findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
-    abstract findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
-    abstract ping(): Promise<void>;
-    abstract save(file: NewA2AFile): Promise<void>;
-    static readonly store: StoreDescriptor;
-}
-
-// @public
-export class A2AFiles {
-    constructor(store: A2AFileRepository, clock: Clock);
-    fromUrl(url: string, reference: A2AFileReference): A2AFileDto;
-    read(file: A2AFileDto): Promise<Uint8Array>;
-    save(content: A2AFileContent): Promise<A2AFileDto>;
-}
-
-// @public
-export enum A2AFileSource {
-    Inline = "inline",
-    Stored = "stored",
-    Url = "url"
-}
-
-// @public
-export class A2AFileUnavailableError extends AGBossError {
-    constructor(options: A2AFileUnavailableErrorOptions);
-    // (undocumented)
-    static readonly code: "a2a.file-unavailable";
-    // (undocumented)
-    readonly code: typeof A2AFileUnavailableError.code;
-    // (undocumented)
-    readonly reason: A2AFileUnavailableReason;
-}
-
-// @public
-export interface A2AFileUnavailableErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    // (undocumented)
-    readonly reason: A2AFileUnavailableReason;
-}
-
-// @public
-export enum A2AFileUnavailableReason {
-    ByReference = "by-reference",
-    DigestMismatch = "digest-mismatch",
-    DownloadFailed = "download-failed",
-    NotFound = "not-found",
-    OutsideExecution = "outside-execution",
-    TooLarge = "too-large"
-}
-
-// @public
-export function a2aHttpListener<TStart extends Class>(app: A2AApp, options: A2AHttpListenerOptions<TStart>): (req: IncomingMessage, res: ServerResponse) => void;
-
-// @public
-export interface A2AHttpListenerOptions<TStart extends Class> {
+export interface A2AHttpListenerOptions {
+    readonly allowAnonymous?: boolean;
+    readonly authenticator?: Class;
     readonly base?: string;
-    readonly callerResolver: Class<A2ACallerResolver<TStart>>;
-    readonly expose: Class;
-    readonly fileFetchTimeout?: Milliseconds;
+    readonly endpoint: Class;
     readonly maxBodySize?: Bytes;
-    readonly maxConcurrentFileFetches?: number;
-    readonly maxConcurrentFileFetchesPerOwner?: number;
-    readonly maxConcurrentFileFetchesPerTenant?: number;
-    readonly maxTaskDuration?: Milliseconds;
-    readonly publicUrl: string;
+    readonly onError?: (error: unknown, req: IncomingMessage) => void;
+    readonly publicUrl: string | (() => string);
 }
 
 // @public
@@ -647,9 +501,41 @@ export interface A2AMeshUnsupportedErrorOptions {
 }
 
 // @public
+export interface A2AMessage {
+    // (undocumented)
+    readonly contextId?: string;
+    // (undocumented)
+    readonly extensions: readonly string[];
+    // (undocumented)
+    readonly messageId: string;
+    // (undocumented)
+    readonly metadata?: A2AMetadata;
+    // (undocumented)
+    readonly parts: readonly A2APart[];
+    // (undocumented)
+    readonly referenceTaskIds: readonly string[];
+    readonly role?: A2ARole;
+    // (undocumented)
+    readonly taskId?: string;
+}
+
+// @public
 export type A2AMessageInput = string | {
+    readonly text: string;
+    readonly data?: unknown;
+    readonly files?: readonly FileDto[];
+} | {
     readonly data: unknown;
-} | readonly Part[];
+    readonly text?: string;
+    readonly files?: readonly FileDto[];
+} | {
+    readonly files: readonly [FileDto, ...FileDto[]];
+    readonly text?: string;
+    readonly data?: unknown;
+} | readonly [A2APart, ...A2APart[]];
+
+// @public
+export type A2AMetadata = Readonly<Record<string, unknown>>;
 
 // @public
 export enum A2AOperation {
@@ -702,9 +588,19 @@ export enum A2AOriginSite {
 }
 
 // @public
-export interface A2APeer {
+export type A2APart = A2ATextPart | A2ADataPart | A2ARawPart | A2AUrlPart;
+
+// @public
+export const A2APart: {
+    readonly fromFile: (file: FileDto, field?: string) => A2APart;
+};
+
+// @public
+export interface A2APartBase {
+    readonly filename?: string;
+    readonly mediaType?: string;
     // (undocumented)
-    readonly peer?: string;
+    readonly metadata?: A2AMetadata;
 }
 
 // @public
@@ -748,7 +644,12 @@ export interface A2AProtocolErrorOptions {
 }
 
 // @public
-export type A2AReceivedFile = A2AFileDto;
+export interface A2ARawPart extends A2APartBase {
+    // (undocumented)
+    readonly bytes: Uint8Array;
+    // (undocumented)
+    readonly kind: "raw";
+}
 
 // @public
 export class A2ARemoteCallError extends AGBossError {
@@ -802,54 +703,36 @@ export enum A2AReply {
 }
 
 // @public
-export const A2ASecurity: {
-    readonly bearer: (options?: {
-        readonly name?: string;
-        readonly bearerFormat?: string;
-    }) => A2ASecurityScheme;
-    readonly apiKey: (options: {
-        readonly header: string;
-        readonly name?: string;
-    }) => A2ASecurityScheme;
-    readonly oauth2ClientCredentials: (options: {
-        readonly tokenUrl: string;
-        readonly scopes?: Readonly<Record<string, string>>;
-        readonly name?: string;
-    }) => A2ASecurityScheme;
-    readonly mtls: (options?: {
-        readonly name?: string;
-    }) => A2ASecurityScheme;
-};
-
-// @public
-export type A2ASecurityScheme = {
-    readonly kind: A2ASecuritySchemeKind.Bearer;
-    readonly name: string;
-    readonly bearerFormat?: string;
-} | {
-    readonly kind: A2ASecuritySchemeKind.ApiKey;
-    readonly name: string;
-    readonly header: string;
-} | {
-    readonly kind: A2ASecuritySchemeKind.OAuth2ClientCredentials;
-    readonly name: string;
-    readonly tokenUrl: string;
-    readonly scopes: Readonly<Record<string, string>>;
-} | {
-    readonly kind: A2ASecuritySchemeKind.MutualTls;
-    readonly name: string;
-};
-
-// @public
-export enum A2ASecuritySchemeKind {
-    ApiKey = "api-key",
-    Bearer = "bearer",
-    MutualTls = "mtls",
-    OAuth2ClientCredentials = "oauth2-client-credentials"
+export enum A2ARole {
+    Agent = "agent",
+    User = "user"
 }
 
 // @public
-export type A2AStreamEvent = StreamResponse;
+export type A2ASkillEntry = Class | A2AEndpointSkill;
+
+// @public
+export interface A2AStatusUpdateEvent {
+    // (undocumented)
+    readonly contextId: string;
+    // (undocumented)
+    readonly kind: "status-update";
+    // (undocumented)
+    readonly metadata?: A2AMetadata;
+    // (undocumented)
+    readonly status?: A2ATaskProgress;
+    // (undocumented)
+    readonly taskId: string;
+}
+
+// @public
+export type A2AStreamEvent = {
+    readonly kind: "task";
+    readonly task: A2ATask;
+} | {
+    readonly kind: "message";
+    readonly message: A2AMessage;
+} | A2AStatusUpdateEvent | A2AArtifactUpdateEvent;
 
 // @public
 export interface A2ATarget {
@@ -859,14 +742,29 @@ export interface A2ATarget {
 }
 
 // @public
-export class A2ATaskCanceledError extends AGBossError {
+export interface A2ATask {
+    // (undocumented)
+    readonly artifacts: readonly A2AArtifact[];
+    // (undocumented)
+    readonly contextId: string;
+    // (undocumented)
+    readonly history: readonly A2AMessage[];
+    // (undocumented)
+    readonly id: string;
+    // (undocumented)
+    readonly metadata?: A2AMetadata;
+    readonly status?: A2ATaskProgress;
+}
+
+// @public
+export class A2ATaskCancelledError extends AGBossError {
     constructor(options: A2ATaskErrorOptions);
     // (undocumented)
     readonly agent: string;
     // (undocumented)
-    static readonly code: "a2a.task-canceled";
+    static readonly code: "a2a.task-cancelled";
     // (undocumented)
-    readonly code: typeof A2ATaskCanceledError.code;
+    readonly code: typeof A2ATaskCancelledError.code;
     // (undocumented)
     readonly contextId: string;
     // (undocumented)
@@ -965,18 +863,56 @@ export enum A2ATaskInterruption {
 }
 
 // @public
+export interface A2ATaskProgress {
+    // (undocumented)
+    readonly message?: A2AMessage;
+    // (undocumented)
+    readonly state: A2ATaskState;
+    // (undocumented)
+    readonly timestamp?: Date;
+}
+
+// @public
 export interface A2ATaskResult {
     // (undocumented)
     readonly data: unknown;
-    readonly files: readonly A2AReceivedFile[];
+    readonly files: readonly FileDto[];
     // (undocumented)
-    readonly message: Message | undefined;
+    readonly message: A2AMessage | undefined;
     // (undocumented)
     readonly peer: A2ARemotePeer;
     // (undocumented)
-    readonly task: Task | undefined;
+    readonly task: A2ATask | undefined;
     // (undocumented)
     readonly text: string | undefined;
+}
+
+// @public
+export enum A2ATaskState {
+    AuthRequired = "TASK_STATE_AUTH_REQUIRED",
+    // (undocumented)
+    Cancelled = "TASK_STATE_CANCELED",
+    // (undocumented)
+    Completed = "TASK_STATE_COMPLETED",
+    // (undocumented)
+    Failed = "TASK_STATE_FAILED",
+    // (undocumented)
+    InputRequired = "TASK_STATE_INPUT_REQUIRED",
+    // (undocumented)
+    Rejected = "TASK_STATE_REJECTED",
+    // (undocumented)
+    Submitted = "TASK_STATE_SUBMITTED",
+    Unspecified = "TASK_STATE_UNSPECIFIED",
+    // (undocumented)
+    Working = "TASK_STATE_WORKING"
+}
+
+// @public
+export interface A2ATextPart extends A2APartBase {
+    // (undocumented)
+    readonly kind: "text";
+    // (undocumented)
+    readonly text: string;
 }
 
 // @public
@@ -1010,204 +946,102 @@ export interface A2AUnexpectedFinishErrorOptions {
     readonly taskId: string | undefined;
 }
 
-export { AgentCard }
-
-export { AgentSkill }
-
-export { Artifact }
+// @public
+export interface A2AUrlPart extends A2APartBase {
+    // (undocumented)
+    readonly kind: "url";
+    // (undocumented)
+    readonly url: string;
+}
 
 // @public
 export const DEFAULT_A2A_FILE_MEDIA_TYPES: readonly string[];
 
-// @public
-export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageRepository {
-    // (undocumented)
-    completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
-    // (undocumented)
-    deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
-    // (undocumented)
-    deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
-    // (undocumented)
-    findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
-    // (undocumented)
-    findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
-    // (undocumented)
-    ping(): Promise<void>;
-    // (undocumented)
-    retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
-    // (undocumented)
-    saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
-    // (undocumented)
-    static readonly store: StoreDescriptor;
-}
-
-// @public
-export class InMemoryA2AFileRepository extends A2AFileRepository {
-    // (undocumented)
-    deleteByOwner(owner: A2AFileOwner): Promise<void>;
-    // (undocumented)
-    findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
-    // (undocumented)
-    findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
-    // (undocumented)
-    findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
-    // (undocumented)
-    ping(): Promise<void>;
-    // (undocumented)
-    save(file: NewA2AFile): Promise<void>;
-    // (undocumented)
-    static readonly store: StoreDescriptor;
-}
-
-// @public
-export class LocalDiskA2AFileRepository extends A2AFileRepository {
-    constructor(applicationContext: ApplicationContext);
-    // (undocumented)
-    deleteByOwner(owner: A2AFileOwner): Promise<void>;
-    // (undocumented)
-    findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
-    // (undocumented)
-    findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
-    // (undocumented)
-    findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
-    readonly folder: string;
-    // (undocumented)
-    ping(): Promise<void>;
-    // (undocumented)
-    save(file: NewA2AFile): Promise<void>;
-    // (undocumented)
-    static readonly store: StoreDescriptor;
-}
-
-export { Message }
-
-// @public
-export type NewA2ADirectMessage = Omit<A2ADirectMessageRecord, "state" | "reply" | "completedAt">;
-
-// @public
-export interface NewA2AFile extends A2AFileMetadata {
-    // (undocumented)
-    readonly bytes: Uint8Array;
-}
-
-export { Part }
-
-// @public
-export interface RejectedA2ACallerResolution {
-    readonly [a2aCallerResolution]: true;
-    readonly challenge?: string;
-    // (undocumented)
-    readonly kind: A2ACallerResolutionKind.Unauthenticated | A2ACallerResolutionKind.Forbidden;
-    readonly reason: string;
-}
-
-// @public
-export interface ResolvedA2ACallerResolution<TStart extends Class> {
-    readonly [a2aCallerResolution]: true;
-    readonly caller: A2ACaller<TStart>;
-    // (undocumented)
-    readonly kind: A2ACallerResolutionKind.Resolved;
-}
-
-// @public
-export class S3A2AFileRepository extends A2AFileRepository {
-    constructor(applicationContext: ApplicationContext, clock: Clock, fetcher?: typeof fetch);
-    // (undocumented)
-    deleteByOwner(owner: A2AFileOwner): Promise<void>;
-    // (undocumented)
-    findBytes(key: A2AFileKey): Promise<Uint8Array | undefined>;
-    // (undocumented)
-    findMetadata(key: A2AFileKey): Promise<A2AFileMetadata | undefined>;
-    findOwnersByCreatedAtBefore(cutoff: Date, limit: number, after?: A2AFileOwner): Promise<readonly A2AFileOwner[]>;
-    // (undocumented)
-    ping(): Promise<void>;
-    // (undocumented)
-    save(file: NewA2AFile): Promise<void>;
-    // (undocumented)
-    static readonly store: StoreDescriptor;
-}
-
-// @public
-export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository {
-    constructor(connection: SqliteConnection);
-    // (undocumented)
-    completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
-    // (undocumented)
-    deleteByCreatedAtBefore(cutoff: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
-    // (undocumented)
-    deleteIfInFlight(key: A2ADirectMessageKey, attemptId: string): Promise<boolean>;
-    // (undocumented)
-    findAllInFlightByExpiresAtBefore(now: Date, limit: number): Promise<readonly A2ADirectMessageRecord[]>;
-    // (undocumented)
-    findByKey(key: A2ADirectMessageKey): Promise<A2ADirectMessageRecord | undefined>;
-    // (undocumented)
-    ping(): Promise<void>;
-    // (undocumented)
-    retakeIfExpired(key: A2ADirectMessageKey, expiredAttemptId: string, next: A2ADirectMessageAttempt, now: Date): Promise<A2ADirectMessageRecord | undefined>;
-    // (undocumented)
-    saveIfAbsent(message: NewA2ADirectMessage): Promise<A2ADirectMessageSave>;
-    // (undocumented)
-    static readonly store: StoreDescriptor;
-}
-
-// @public
-export class SqliteA2ATaskRepository extends A2ATaskRepository {
-    constructor(connection: SqliteConnection);
-    // (undocumented)
-    compareAndSetStatus(key: A2ATaskKey, expectedVersion: number, status: A2ATaskStatus, statusAt: Date): Promise<A2ATaskRecord | undefined>;
-    // (undocumented)
-    deleteTerminalByStatusAtBefore(cutoff: Date): Promise<void>;
-    // (undocumented)
-    findById(key: A2ATaskKey): Promise<A2ATaskRecord | undefined>;
-    // (undocumented)
-    findByMessage(key: A2AMessageKey): Promise<A2AMessageRecord | undefined>;
-    // (undocumented)
-    list(query: A2ATaskQuery): Promise<A2ATaskPage>;
-    // (undocumented)
-    ping(): Promise<void>;
-    // (undocumented)
-    saveIfAbsent(task: NewA2ATask): Promise<A2ATaskSave>;
-    // (undocumented)
-    saveMessageIfAbsent(message: A2AMessageRecord): Promise<A2AMessageRecord | undefined>;
-    // (undocumented)
-    saveReplyIfAbsent(key: A2AMessageKey, reply: unknown): Promise<boolean>;
-    // (undocumented)
-    static readonly store: StoreDescriptor;
-}
-
-export { Task }
-
-export { TaskState }
-
-// @public
-export class WorkflowFinishFileDto {
-    // (undocumented)
-    file: A2AFileDto;
-}
-
-// @public
-export class WorkflowFinishFilesDto {
-    // (undocumented)
-    files: A2AFileDto[];
-}
-
 // Warnings were encountered during analysis:
 //
-// src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "peer".
-// src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "kind".
-// src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "kind".
-// src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "reason".
-// src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "cause".
-// src/a2a/a2a-caller.ts - (ae-undocumented) Missing documentation for "code".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "name".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "url".
+// src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "headers".
+// src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "timeout".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "target".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "input".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "output".
-// src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "price".
+// src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "costPerCall".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "mesh".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "allowedOrigins".
 // src/a2a/a2a-decorator.ts - (ae-undocumented) Missing documentation for "deps".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "metadata".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "text".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "data".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "bytes".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "url".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "messageId".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "contextId".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "taskId".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "parts".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "metadata".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "extensions".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "referenceTaskIds".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "artifactId".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "name".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "description".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "parts".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "metadata".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "extensions".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "state".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "message".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "timestamp".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "id".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "contextId".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "artifacts".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "history".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "metadata".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "id".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "name".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "description".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "tags".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "examples".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "inputModes".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "outputModes".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "url".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "tenant".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "protocolVersion".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "uri".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "description".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "required".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "params".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "streaming".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "pushNotifications".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "extendedAgentCard".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "extensions".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "name".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "description".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "version".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "supportedInterfaces".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "provider".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "documentationUrl".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "iconUrl".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "capabilities".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "securityRequirements".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "defaultInputModes".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "defaultOutputModes".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "skills".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "taskId".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "contextId".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "status".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "metadata".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "kind".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "taskId".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "contextId".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "artifact".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "append".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "lastChunk".
+// src/a2a/a2a-types.ts - (ae-undocumented) Missing documentation for "metadata".
 // src/a2a/client/a2a-client-errors.ts - (ae-undocumented) Missing documentation for "reason".
 // src/a2a/client/a2a-client-errors.ts - (ae-undocumented) Missing documentation for "cause".
 // src/a2a/client/a2a-client-errors.ts - (ae-undocumented) Missing documentation for "code".
@@ -1244,8 +1078,6 @@ export class WorkflowFinishFilesDto {
 // src/a2a/client/a2a-client-errors.ts - (ae-undocumented) Missing documentation for "rule".
 // src/a2a/client/a2a-client-errors.ts - (ae-undocumented) Missing documentation for "skill".
 // src/a2a/client/a2a-client-errors.ts - (ae-undocumented) Missing documentation for "differences".
-// src/a2a/client/a2a-client-files.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/a2a/client/a2a-client-files.ts - (ae-undocumented) Missing documentation for "filename".
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "input".
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "output".
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "A2AClientOptions".
@@ -1254,7 +1086,7 @@ export class WorkflowFinishFilesDto {
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "text".
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "data".
 // src/a2a/client/a2a-client-options.ts - (ae-undocumented) Missing documentation for "peer".
-// src/a2a/client/a2a-client.ts - (ae-undocumented) Missing documentation for "url".
+// src/a2a/client/a2a-client.ts - (ae-undocumented) Missing documentation for "downloadFile".
 // src/a2a/client/a2a-download.ts - (ae-undocumented) Missing documentation for "signal".
 // src/a2a/client/a2a-finish.ts - (ae-undocumented) Missing documentation for "agent".
 // src/a2a/client/a2a-finish.ts - (ae-undocumented) Missing documentation for "taskId".
@@ -1330,106 +1162,25 @@ export class WorkflowFinishFilesDto {
 // src/a2a/client/a2a-task-errors.ts - (ae-undocumented) Missing documentation for "contextId".
 // src/a2a/client/a2a-task-errors.ts - (ae-undocumented) Missing documentation for "deadlineAt".
 // src/a2a/client/a2a-task-errors.ts - (ae-undocumented) Missing documentation for "cancel".
-// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "refusal".
-// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "sizeBytes".
-// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "refusal".
-// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "reason".
-// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/a2a/files/a2a-file-errors.ts - (ae-undocumented) Missing documentation for "reason".
-// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "filename".
-// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "fileId".
-// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "sha256".
-// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "sizeBytes".
-// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "url".
-// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "inline".
-// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "file".
-// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "files".
-// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "name".
-// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "isList".
-// src/a2a/files/a2a-file.dto.ts - (ae-undocumented) Missing documentation for "isOptional".
-// src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "bytes".
-// src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "filename".
-// src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/a2a/files/a2a-files.service.ts - (ae-undocumented) Missing documentation for "filename".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "messageId".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "finish".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "output".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "startedAt".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "state".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "A2ADirectMessageSave".
-// src/infrastructure/a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ownerId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "mediaType".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "filename".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "sizeBytes".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "bytes".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "cause".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "code".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "fileId".
-// src/infrastructure/a2a-file.repository.ts - (ae-undocumented) Missing documentation for "A2AFileRepository".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "completeIfInFlight".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "retakeIfExpired".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteIfInFlight".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
-// src/infrastructure/in-memory-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
-// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findBytes".
-// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findMetadata".
-// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findOwnersByCreatedAtBefore".
-// src/infrastructure/in-memory-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "deleteByOwner".
-// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findBytes".
-// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findMetadata".
-// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findOwnersByCreatedAtBefore".
-// src/infrastructure/local-disk-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "deleteByOwner".
-// src/infrastructure/s3/s3-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/s3/s3-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/s3/s3-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "save".
-// src/infrastructure/s3/s3-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findBytes".
-// src/infrastructure/s3/s3-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "findMetadata".
-// src/infrastructure/s3/s3-a2a-file.repository.ts - (ae-undocumented) Missing documentation for "deleteByOwner".
-// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findByKey".
-// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "completeIfInFlight".
-// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "retakeIfExpired".
-// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteIfInFlight".
-// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "findAllInFlightByExpiresAtBefore".
-// src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "deleteByCreatedAtBefore".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "store".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "ping".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveMessageIfAbsent".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "saveReplyIfAbsent".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findById".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "findByMessage".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "compareAndSetStatus".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "list".
-// src/infrastructure/sqlite/sqlite-a2a-task.repository.ts - (ae-undocumented) Missing documentation for "deleteTerminalByStatusAtBefore".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "CallerRejected".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Contract".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Protocol".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Remote".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Unavailable".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Deadline".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "TaskCancelled".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "TaskFailed".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "TaskInterrupted".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "UnexpectedFinish".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "MeshUnsupported".
+// src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "OriginRefused".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Submitted".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Working".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "InputRequired".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Completed".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Failed".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Cancelled".
+// src/infrastructure/a2a-task.repository.ts - (ae-undocumented) Missing documentation for "Rejected".
 
 // (No @packageDocumentation comment for this package)
 

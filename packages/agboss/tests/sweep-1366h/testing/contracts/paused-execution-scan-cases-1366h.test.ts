@@ -245,7 +245,7 @@ class PagedStore extends TweakedStore {
         after,
       );
     }
-    if (tweaks.emptyChannelMatchesAny === true && filter.channel !== undefined) {
+    if (tweaks.emptyChannelMatchesAny === true && filter.target !== undefined) {
       return this.#pageOfAnyEmptyChannel(tenantId, filter, limit);
     }
     if (tweaks.emptyTenantMatchesAny === true) {
@@ -265,11 +265,11 @@ class PagedStore extends TweakedStore {
     filter: Filter,
     limit: number,
   ): Promise<PausePage> {
-    const { channel, ...rest } = filter;
+    const { target, ...rest } = filter;
     const all = await super.findPageByTenantId(tenantId, rest, 1000);
     return {
       pauses: all.pauses
-        .filter((pause) => !pause.channel || pause.channel === channel)
+        .filter((pause) => !pause.target || pause.target === target)
         .slice(0, limit),
     };
   }

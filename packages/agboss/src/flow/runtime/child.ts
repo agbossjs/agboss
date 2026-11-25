@@ -7,15 +7,14 @@ import { inStepEntry } from "./step-entries.js";
 import { assertAnnouncing, eventOf, failedChild, type ChildParent } from "./child-failure.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { unkeptExecutionIds } from "../../infrastructure/clock.js";
-import { childWorkflowOf } from "../analyse/child-workflow.js";
 import { currentFrame, depthOf, type Frame } from "../context/frame.js";
-import { NodeKind } from "../ast.js";
 import { childEntryOf, type ChildEntry } from "./child-entry.js";
+import { valueOf } from "./child-value.js";
 import { childRecordOf, ownUsageOf, type EndedChild } from "./child-exit.js";
 import { childEnteredAt, childRunOf, type ChildEntered } from "./child-identity.js";
 import { ChildExecutionStatus } from "./child-records.js";
 import type { RuntimeNode } from "./graph-model.js";
-import type { NodeOutcome, NodeRunner } from "./node-runner.js";
+import type { NodeRunner } from "./node-runner.js";
 import { validStartInput } from "./start-input.js";
 import type { ExecutionStateType, ExecutionStateUpdate } from "./state.js";
 import type { WorkflowIdentity } from "./step-frame.js";
@@ -27,6 +26,8 @@ import { workflowChainOf } from "../../tracing/workflow-chain.js";
 import { remoteChildEndOf, type RemoteChildSite } from "./remote/remote-child.js";
 import { remoteSiteOf } from "./remote/remote-child-site.js";
 import type { ChildInitialState } from "./remote/remote-child-run.js";
+import { storedInputOf, storedOutputOf } from "../../pii/final-output-mask.js";
+import { takenBy } from "./compensation/held-entries.js";
 
 /**
  * A child workflow as a step of its parent (#263, S37; ADR-0022): the parent's node of `W` runs the
@@ -38,7 +39,8 @@ import type { ChildInitialState } from "./remote/remote-child-run.js";
  * state starts with the spend so far, so every check counts the whole tree) and starts with its
  * parent's PII tokens, giving its own back on exit — with its value, or with its error to the side
  * path that takes it (#120; the tokens of its finished steps: never on the error itself). It ends at
- * a finish — its output, of the finish's class, is the parent's value — or fails (`child-exit.ts`).
+ * a finish — its output, of the finish's class, is the parent's value, and the undoable entries its
+ * finish moved up are the parent step's (#1281b, `held-entries.ts`) — or fails (`child-exit.ts`).
  */
 
 /** The child's graph for one pass of its parent: what a parent's node of the child runs. */
@@ -48,7 +50,7 @@ export interface ChildGraph {
   /** The child's compiled graph, streamed inside the parent's step. */
   readonly graph: ExecutionGraph;
   /**
-   * `ThisWorkflow` (#264): the workflow's own graph, taken from the registry when the step runs —
+   * A recursion (#264, #1287): the workflow's own graph, taken from the registry when the step runs —
    * never the node's subgraph (a graph cannot contain itself) — and held to `maxDepth`.
    */
   readonly isRecursive: boolean;
@@ -60,16 +62,6 @@ function parentFrame(node: RuntimeNode): Frame {
   if (frame === undefined || frame.isClosed())
     throw new TypeError(`${node.id}: a child workflow ran outside a step of its parent`);
   return frame;
-}
-
-/** The child's value: its finish's output, with the finish's class when it gives several. */
-function valueOf(child: ChildGraph, state: ExecutionStateType): NodeOutcome["value"] {
-  const finish = child.deps.graph.nodes.get(state.finish)?.declaration;
-  const output = finish?.kind === NodeKind.Finish ? finish.options.output : undefined;
-  // Stryker disable next-line ArrayDeclaration: equivalent: a list of one output is no choice of several (`outputs.length > 1`), as the empty one
-  const outputs = childWorkflowOf(child.workflow.type)?.outputs ?? [];
-  const isOneOf = outputs.length > 1 && output !== undefined;
-  return isOneOf ? { value: state.output, variant: output.name } : { value: state.output };
 }
 
 /** The child's first state: its start and input, the parent's contexts and spend, its identity. */
@@ -141,7 +133,9 @@ async function runChild(
     finish: recordOfNode(ended.records, last.finish),
   };
   // the child's event, masked by its own chain like its steps' (#1150)
-  await child.deps.observer?.onExecutionEnd({ ...event, spend: record.spend });
+  // its output as every stored copy of it holds it: the finish DTO's sensitive fields masked (#1301)
+  const output = storedOutputOf(child.deps, last.finish, last.output);
+  await child.deps.observer?.onExecutionEnd({ ...event, output, spend: record.spend });
   return { state: last, usage };
 }
 
@@ -163,7 +157,8 @@ const endedChildOf = (
   workflow: { ...child.workflow, startedVersion: child.workflow.version },
   launchedBy: { nodeId: frame.step.nodeId, visitNumber: frame.step.visitNumber },
   start: startName,
-  input,
+  input: storedInputOf(child.deps, startName, input),
+  stored: child.deps,
   records: { components: joinKeysOf(child.deps).components, graph: child.deps.graph },
 });
 
@@ -215,8 +210,8 @@ export function childRunner(
     const done = await inStepEntry(deps.stepEntries, frame, () =>
       runChild(child, { deps, frame, undo }, ended, call),
     );
-    const { piiTokens } = done.state;
-    return { value: valueOf(child, done.state), read: entry.read, usage: done.usage, piiTokens };
+    const exit = { read: entry.read, usage: done.usage, piiTokens: done.state.piiTokens };
+    return { value: valueOf(child, done.state), ...exit, ...takenBy(frame, node.id, done.state) };
   };
 }
 

@@ -1,5 +1,5 @@
 /**
- * #516 — a parent waiting for its `ChildPlacement.AnyInstance` children yields its lease in the
+ * #516 — a parent waiting for its `ChildPlacement.AnyWorker` children yields its lease in the
  * store, where every instance sees it: still held, still renewed. Another instance's recovery sweep
  * takes over nothing while the holder lives (AC1); a dead holder's tree is recovered there (AC2); a
  * pause answered on the other instance while the parent waits resumes (AC3); a cancel during the
@@ -95,7 +95,7 @@ beforeEach(() => {
   resetLogged();
 });
 
-describe("#516 AC1: a parent waiting for AnyInstance children is not taken over", () => {
+describe("#516 AC1: a parent waiting for AnyWorker children is not taken over", () => {
   test("AC1: two instances — the caller of execute gets the finished output, and no sweep of the other instance takes the tree over", async ({
     apps,
     clock,
@@ -203,7 +203,7 @@ describe("#516: a cancel while the parent waits", () => {
     await clock.advance(seconds(11));
 
     expect(cancelled).toEqual({ cancelled: true });
-    expect(await failure).toBeInstanceOf(ExecutionCancelledError);
+    expect(await failure).toMatchObject({ status: ExecutionStatus.Cancelled });
     openGate();
   });
 });

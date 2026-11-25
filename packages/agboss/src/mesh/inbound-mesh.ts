@@ -24,6 +24,8 @@ export interface TrustedMesh {
   readonly origin: ExecutionOrigin;
   /** What the caller may still spend, in USD: the `caller-budget` of the execution. */
   readonly budget?: number;
+  /** What the caller may still use, in tokens (#1318): the `caller-budget` of the execution's token cap. */
+  readonly budgetTokens?: number;
   /** How long the caller still waits, in ms: the execution's deadline (the smaller one). */
   readonly deadline?: number;
 }

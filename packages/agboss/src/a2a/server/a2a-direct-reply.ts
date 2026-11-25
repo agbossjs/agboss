@@ -82,6 +82,7 @@ async function saved(
   const { attempt, input } = await attemptOf(parts, sent);
   const message: NewA2ADirectMessage = {
     ...sent.key,
+    endpoint: parts.endpoint,
     ...attempt,
     requestHash: sent.requestHash,
     skill: sent.skill.id,
@@ -167,7 +168,7 @@ async function directMessageOf(
   return {
     key: { tenantId: caller.tenantId, ownerId: caller.ownerId, messageId },
     skill,
-    requestHash: requestHashOf(skill.id, message),
+    requestHash: requestHashOf(parts.endpoint, skill.id, message),
     contextId,
     inputFor,
   };

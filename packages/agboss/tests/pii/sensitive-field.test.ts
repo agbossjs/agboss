@@ -26,7 +26,7 @@ function scriptDetection(mockLlm: (target: Class) => ModelScript): void {
 }
 
 describe("#120 AC8: a sensitive DTO field goes through its action on the way into a model", () => {
-  test("WorkflowStartTextDto.author is a token for the model, the value for the answer", async ({
+  test("WorkflowStartTextDto.author is masked one-way: a placeholder for the model, never the value", async ({
     app,
     mockLlm,
   }) => {
@@ -34,14 +34,16 @@ describe("#120 AC8: a sensitive DTO field goes through its action on the way int
     mockLlm(DeskRouter).thenReturn(routeTo(DeskAgent));
     const agent = mockLlm(DeskAgent);
     agent.thenAnswer((request) => {
-      const [token] = tokensIn(requestText(request), "author");
-      return replyWith(`Hello ${token ?? "nobody"}`);
+      return replyWith(
+        `Hello ${requestText(request).includes("<author>") ? "<author>" : "nobody"}`,
+      );
     });
 
     const result = await execute(app, DeskStart, { text: "hi", author: "zoe-7" });
 
     expect(requestText(agent.onlyRequest)).not.toContain("zoe-7");
-    expect(result.output).toEqual({ text: "Hello zoe-7" });
+    expect(tokensIn(requestText(agent.onlyRequest), "author")).toEqual([]);
+    expect(result.output).toEqual({ text: "Hello <author>" });
   });
 });
 
@@ -78,7 +80,7 @@ describe("#120 S38: a router's model reads its input masked", () => {
   });
 });
 
-describe("#120 AC3: detectWithModel finds names in free text", () => {
+describe("#120 AC3: model finds names in free text", () => {
   test("the name the model found is replaced; the detection is paid under pii:<policy>", async ({
     app,
     mockLlm,

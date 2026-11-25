@@ -1,7 +1,6 @@
 import { NodeKind } from "../ast.js";
 import { isCodeRouter } from "../decorators/router.js";
 import type { ComponentName } from "../registry.js";
-import { THIS_WORKFLOW_NAME } from "../this-workflow.js";
 import {
   EdgeKind,
   outgoingEdges,
@@ -11,9 +10,9 @@ import {
 } from "./flow-graph.js";
 
 /**
- * Where a workflow recurses (#264): the branches of its graph — a `.switch(caseOf(…))` after a step,
- * a `.chooseOne(route(…))` after a router — and, of each, the options whose path launches
- * `ThisWorkflow` before any other branch decides. A path is followed through its next steps and its
+ * Where a workflow recurses (#264): the branches of its graph — a `.toOneOf([…])` after a step,
+ * an `.onRoute(…)` after a router — and, of each, the options whose path launches
+ * the workflow itself (`toWorkflow(() => Self)`, #1287) before any other branch decides. A path is followed through its next steps and its
  * launches and joins, never into `.onError` side paths, and it stops at the next branch: a choice
  * made further on is that branch's own. What the runtime does with them on the last level
  * (`depth === maxDepth`) depends on who decides: an agent's variants leave its response schema and a
@@ -39,11 +38,11 @@ export interface RecursiveBranch {
   readonly decider: RecursionDecider;
   /** Every option: a variant's DTO class name, or a route's target node. */
   readonly options: readonly string[];
-  /** The options whose path launches `ThisWorkflow`. */
+  /** The options whose path launches the workflow itself. */
   readonly recursive: readonly string[];
 }
 
-/** How a workflow recurses: absent when its flow never reaches `ThisWorkflow`. */
+/** How a workflow recurses: absent when its flow never launches itself. */
 export interface Recursion {
   readonly maxDepth?: number;
   readonly branches: readonly RecursiveBranch[];
@@ -68,19 +67,20 @@ const variantOf = (edge: FlowEdge): string | undefined => {
 const optionOf = (edge: FlowEdge): string | undefined =>
   edge.kind === EdgeKind.Route ? edge.to : variantOf(edge);
 
-/** Whether a node branches: some edge leaving it is a `caseOf(…)` or a `route(…)` option. */
+/** Whether a node branches: some edge leaving it is a `.toOneOf([…])` or an `.onRoute(…)` option. */
 const isBranch = (edges: readonly FlowEdge[]): boolean =>
   edges.some((edge) => FOLLOWED.has(edge.kind) && optionOf(edge) !== undefined);
 
-/** Whether a path entering `start` launches `ThisWorkflow` before the next branch. */
+/** Whether a path entering `start` launches the workflow itself before the next branch. */
 function recurses(
   start: ComponentName,
+  graph: FlowGraph,
   leaving: ReadonlyMap<ComponentName, readonly FlowEdge[]>,
 ): boolean {
   const seen = new Set<ComponentName>();
   const queue: ComponentName[] = [start];
   for (let node = queue.shift(); node !== undefined; node = queue.shift()) {
-    if (node === THIS_WORKFLOW_NAME) return true;
+    if (graph.nodes.get(node)?.recursionOf !== undefined) return true;
     if (seen.has(node)) continue;
     seen.add(node);
     const edges = leaving.get(node) ?? [];
@@ -102,6 +102,7 @@ function deciderOf(node: FlowNode): RecursionDecider {
 /** One branching node's options and those that recurse; undefined when none does. */
 function branchOf(
   node: FlowNode,
+  graph: FlowGraph,
   leaving: ReadonlyMap<ComponentName, readonly FlowEdge[]>,
 ): RecursiveBranch | undefined {
   const byOption = new Map<string, FlowEdge[]>();
@@ -110,7 +111,7 @@ function branchOf(
     if (option !== undefined) byOption.set(option, [...(byOption.get(option) ?? []), edge]);
   }
   const recursive = [...byOption]
-    .filter(([, edges]) => edges.some((edge) => recurses(edge.to, leaving)))
+    .filter(([, edges]) => edges.some((edge) => recurses(edge.to, graph, leaving)))
     .map(([option]) => option);
   if (recursive.length === 0) return undefined;
   return {
@@ -121,11 +122,13 @@ function branchOf(
   };
 }
 
-/** How the graph recurses; undefined when it has no `ThisWorkflow` node. */
+/** How the graph recurses; undefined when no node of it is the workflow itself. */
 export function recursionOf(graph: FlowGraph, maxDepth: number | undefined): Recursion | undefined {
-  if (!graph.nodes.has(THIS_WORKFLOW_NAME)) return undefined;
+  if (![...graph.nodes.values()].some((node) => node.recursionOf !== undefined)) return undefined;
   const leaving = outgoingEdges(graph);
-  const branches = [...graph.nodes.values()].flatMap((node) => branchOf(node, leaving) ?? []);
+  const branches = [...graph.nodes.values()].flatMap(
+    (node) => branchOf(node, graph, leaving) ?? [],
+  );
   return maxDepth === undefined ? { branches } : { maxDepth, branches };
 }
 
@@ -133,6 +136,6 @@ export function recursionOf(graph: FlowGraph, maxDepth: number | undefined): Rec
 export const lastLevelOptionsOf = (branch: RecursiveBranch): readonly string[] =>
   branch.options.filter((option) => !branch.recursive.includes(option));
 
-/** Whether a branch is a router's `.chooseOne(…)` (its options are routes), else a `.switch(…)`. */
+/** Whether a branch is a router's `.onRoute(…)`s (its options are routes), else a `.toOneOf([…])`. */
 export const isRouterBranch = (branch: RecursiveBranch): boolean =>
   branch.decider === RecursionDecider.ModelRouter || branch.decider === RecursionDecider.CodeRouter;

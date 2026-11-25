@@ -2,53 +2,49 @@ import { calendarNameOf } from "../calendar/calendar-source.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
-import { componentOf } from "../components/metadata.js";
 import { ToolCallApprovalDecisionDto } from "../dto/standard/framework.js";
+import { channelInterpreterOf } from "../channels/channel-interpreter.js";
 import {
-  channelRoleOf,
-  isQuestionRole,
-  PauseAnswerer,
-  replyInterpreterOf,
-  type StoredChannelRole,
-} from "../channels/channel-role.decorator.js";
-import { implementationsOf } from "../channels/channel-rules.js";
+  findPauseTarget,
+  isExternalTask,
+  type FoundPauseTarget,
+  type PauseTargetOverlay,
+} from "../channels/pause-targets.js";
+import { channelsOf } from "../channels/channel-rules.js";
 import { channelUsesOf, type ChannelUse } from "../channels/discovery.js";
 import { dtoLabel } from "../flow/analyse/labels.js";
 import { durationLabel } from "../units/duration-label.js";
 import { isWorkingDuration } from "../units/index.js";
 import { amountOf } from "../units/working-time.js";
+import { PauseRespondent } from "../pause/respondent.js";
 
 /**
- * The channels of an application as `agboss describe` shows them (#267, #268 AC4): for each role a
- * tool names, its question → answer (an approval role's question is the tool input it approves),
- * who may answer, its reply interpreter, and its one implementation with why; a concrete `@Channel`
- * named as is approves its tools' input and is answered by the thread's owner. Read from the
- * decorators only.
+ * The pause targets of an application as `agboss describe` shows them (#267, #268 AC4): for each
+ * `@ToolApproval` a tool names and each `@ExternalTask` a step or an agent asks, its input → output
+ * (a tool approval's input is the tool input it approves), who may answer, its channel
+ * interpreter, and the channels that serve it. Read from the decorators only.
  */
 
-/** Why a channel class is the one that sends. */
+/** Why a channel class is the one that sends a target's pauses. */
 export enum ChannelImplementationReason {
-  /** The one `@Channel` that extends the role, listed in `@Application({ providers })`. */
+  /** The `@Channel({ target })` classes listed in `@Application({ channels })`. */
   Listed = "listed",
-  /** A concrete `@Channel` named by the tool: used as is. */
-  NamedByTool = "named-by-tool",
 }
 
-/** One channel of the application. */
+/** One pause target of the application, with the channels that serve it. */
 export interface DescribedChannel {
-  /** The role's name, or the concrete channel's. */
+  /** The target's name. */
   readonly name: string;
-  /** The class the tools name: a role, or a concrete channel. */
+  /** The target's class. */
   readonly className: string;
+  /** Always `true`: a pause target is the domain side a channel serves (kept for the readers of `describe --json`). */
   readonly isRole: boolean;
-  /** What a pause asks: the role's `ask`, or the tool input it approves. */
+  /** What a pause asks: the target's `input`, or the tool input it approves. */
   readonly question: string;
-  /** What answers it: the role's `answer`, or `ToolCallApprovalDecisionDto` for an approval. */
+  /** What answers it: the target's `output`, or `ToolCallApprovalDecisionDto` for an approval. */
   readonly answer: string;
   /** Who may answer its pauses. */
-  readonly answerer: PauseAnswerer;
-  /** @deprecated 0.1.0's name of `answerer`, emitted until 0.2: use `answerer`. */
-  readonly answeredBy: PauseAnswerer;
+  readonly respondent: PauseRespondent;
   /** How long a pause of the role waits (#941), in ms; absent: no deadline of its own. */
   readonly expiresIn?: number;
   /** `true` when `expiresIn` is working time (#944): counted by the role's calendar, not the wall clock. */
@@ -59,7 +55,7 @@ export interface DescribedChannel {
   readonly isRemindBeforeWorking?: true;
   /** The name of the calendar the role itself names (#944): `working-week` or its `@WorkingCalendar`'s; absent = the application's. */
   readonly workingCalendar?: string;
-  /** The role's `@ReplyInterpreter`, by name. */
+  /** The role's `@ChannelInterpreter`, by name. */
   readonly replyInterpreter?: string;
   /** The class that sends; absent for a role with none listed (assembly rejects it). */
   readonly implementation?: string;
@@ -81,94 +77,99 @@ const toolLabel = (use: ChannelUse): string =>
 const inputsLabel = (uses: readonly ChannelUse[]): string =>
   [...new Set(uses.map((use) => dtoLabel(use.toolInput)))].join(" | ");
 
-/** The role's `expiresIn` / `remindBefore` in ms, each flagged when it is working time (#944). */
+/** The target's `timeout` / `remindBefore` in ms, each flagged when it is working time (#944). */
 function timesOf(
-  options: StoredChannelRole,
+  options: FoundPauseTarget["options"],
 ): Pick<
   DescribedChannel,
   "expiresIn" | "isExpiresInWorking" | "remindBefore" | "isRemindBeforeWorking"
 > {
-  const { expiresIn, remindBefore } = options;
+  const { timeout, remindBefore } = options;
   return {
-    ...(expiresIn === undefined ? {} : { expiresIn: amountOf(expiresIn) }),
-    ...(isWorkingDuration(expiresIn) ? { isExpiresInWorking: true as const } : {}),
+    expiresIn: amountOf(timeout),
+    ...(isWorkingDuration(timeout) ? { isExpiresInWorking: true as const } : {}),
     ...(remindBefore === undefined ? {} : { remindBefore: amountOf(remindBefore) }),
     ...(isWorkingDuration(remindBefore) ? { isRemindBeforeWorking: true as const } : {}),
   };
 }
 
-function roleChannel(
-  role: Class,
-  options: StoredChannelRole,
+/** The target's options with a profile's deadline and reminder over its own. */
+const withProfile = (
+  declared: FoundPauseTarget["options"],
+  changed: PauseTargetOverlay | undefined,
+): FoundPauseTarget["options"] => ({
+  ...declared,
+  ...(changed?.timeout === undefined ? {} : { timeout: changed.timeout }),
+  ...(changed?.remindBefore === undefined ? {} : { remindBefore: changed.remindBefore }),
+});
+
+function describedTarget(
+  found: FoundPauseTarget,
+  changed: PauseTargetOverlay | undefined,
   uses: readonly ChannelUse[],
   modules: readonly ProviderModule[],
 ): DescribedChannel {
-  const [implementation] = implementationsOf(role, modules);
+  const options = withProfile(found.options, changed);
+  const channels = channelsOf(found.target, modules);
   const interpreter =
-    options.replyInterpreter === undefined
+    options.channelInterpreter === undefined
       ? undefined
-      : replyInterpreterOf(options.replyInterpreter)?.options.name;
+      : channelInterpreterOf(options.channelInterpreter)?.options.name;
+  const external = isExternalTask(options);
   return {
     name: options.name,
-    className: role.name,
+    className: found.target.name,
     isRole: true,
-    question: dtoLabel(isQuestionRole(options) ? options.ask : options.approves),
-    answer: dtoLabel(isQuestionRole(options) ? options.answer : ToolCallApprovalDecisionDto),
-    answerer: options.answerer,
-    answeredBy: options.answerer,
+    question: external
+      ? dtoLabel(options.input)
+      : options.input === undefined
+        ? inputsLabel(uses)
+        : dtoLabel(options.input),
+    answer: dtoLabel(external ? options.output : ToolCallApprovalDecisionDto),
+    respondent: options.respondent,
     ...timesOf(options),
-    ...(options.workingCalendar === undefined
+    ...(options.calendar === undefined
       ? {}
-      : { workingCalendar: calendarNameOf(options.workingCalendar) }),
+      : { workingCalendar: calendarNameOf(options.calendar) }),
     ...(interpreter === undefined ? {} : { replyInterpreter: interpreter }),
-    ...(implementation === undefined
+    ...(channels.length === 0
       ? {}
-      : { implementation: implementation.name, reason: ChannelImplementationReason.Listed }),
+      : {
+          implementation: channels.map((channel) => channel.name).join(", "),
+          reason: ChannelImplementationReason.Listed,
+        }),
     tools: uses.filter((use) => use.isQuestion !== true).map(toolLabel),
-    ...(isQuestionRole(options)
-      ? { askedBy: uses.filter((use) => use.isQuestion === true).map(toolLabel) }
-      : {}),
+    ...(external ? { askedBy: uses.filter((use) => use.isQuestion === true).map(toolLabel) } : {}),
   };
 }
 
-function concreteChannel(channel: Class, uses: readonly ChannelUse[]): DescribedChannel {
-  const component = componentOf(channel);
-  const name = component?.kind === "channel" ? component.meta.name : channel.name;
-  return {
-    name,
-    className: channel.name,
-    isRole: false,
-    question: inputsLabel(uses),
-    answer: dtoLabel(ToolCallApprovalDecisionDto),
-    answerer: PauseAnswerer.ThreadOwner,
-    answeredBy: PauseAnswerer.ThreadOwner,
-    implementation: channel.name,
-    reason: ChannelImplementationReason.NamedByTool,
-    tools: uses.map(toolLabel),
-  };
-}
-
-/** Every channel the application's tools name, each once, in the order first named. */
+/** Every pause target the application's tools and steps name, each once, in the order first named. */
 export function describedChannelsOf(assembled: AssembledApplication): readonly DescribedChannel[] {
   const uses = channelUsesOf(assembled.workflows.map((workflow) => workflow.graph.type));
-  const byChannel = new Map<Class, ChannelUse[]>();
-  for (const use of uses) byChannel.set(use.channel, [...(byChannel.get(use.channel) ?? []), use]);
-  return [...byChannel].map(([channel, named]) => {
-    const role = channelRoleOf(channel);
-    return role?.role === channel
-      ? roleChannel(channel, role.options, named, assembled.modules)
-      : concreteChannel(channel, named);
+  const byTarget = new Map<Class, ChannelUse[]>();
+  for (const use of uses) byTarget.set(use.target, [...(byTarget.get(use.target) ?? []), use]);
+  return [...byTarget].flatMap(([target, named]) => {
+    const found = findPauseTarget(target);
+    return found === undefined
+      ? []
+      : [
+          describedTarget(
+            found,
+            assembled.pauseOverrides?.get(found.options.name),
+            named,
+            assembled.modules,
+          ),
+        ];
   });
 }
 
-const ANSWERED_BY: Readonly<Record<PauseAnswerer, string>> = {
-  [PauseAnswerer.ThreadOwner]: "the thread's owner",
-  [PauseAnswerer.Channel]: "the channel",
+const ANSWERED_BY: Readonly<Record<PauseRespondent, string>> = {
+  [PauseRespondent.Owner]: "the thread's owner",
+  [PauseRespondent.Delegate]: "the channel",
 };
 
 const REASONS: Readonly<Record<ChannelImplementationReason, string>> = {
-  [ChannelImplementationReason.Listed]: "listed in @Application providers",
-  [ChannelImplementationReason.NamedByTool]: "a @Channel named by the tool, used as is",
+  [ChannelImplementationReason.Listed]: "listed in @Application channels",
 };
 
 /** The label of a length that is working time or not (#944). */
@@ -184,21 +185,21 @@ const expiryOf = (channel: DescribedChannel): string =>
     ? ""
     : ` · reminds ${labelOf(channel.remindBefore, channel.isRemindBeforeWorking)} before`);
 
-/** `payout-approval-channel (PayoutApprovalChannel): PayoutRequestDto → … · implementation …`. */
+/** `payout-tool-approval (PayoutToolApproval): PayoutRequestDto → … · channel …`. */
 function channelLine(channel: DescribedChannel): string {
   const implementation =
     channel.implementation === undefined || channel.reason === undefined
-      ? "no implementation"
+      ? "no channel"
       : `${channel.implementation} (${REASONS[channel.reason]})`;
   const interpreter =
     channel.replyInterpreter === undefined
       ? channel.askedBy === undefined
         ? ""
-        : " · no reply interpreter (answered with a decision only)"
-      : ` · reply interpreter ${channel.replyInterpreter}`;
+        : " · no channel interpreter (answered with a decision only)"
+      : ` · channel interpreter ${channel.replyInterpreter}`;
   return (
     `  ${channel.name} (${channel.className}): ${channel.question} → ${channel.answer}` +
-    ` · answered by ${ANSWERED_BY[channel.answerer]}${expiryOf(channel)}${interpreter} · ${implementation}` +
+    ` · answered by ${ANSWERED_BY[channel.respondent]}${expiryOf(channel)}${interpreter} · ${implementation}` +
     usedByOf(channel)
   );
 }
@@ -209,7 +210,7 @@ const usedByOf = (channel: DescribedChannel): string =>
     ? ` · tools ${channel.tools.join(", ")}`
     : ` · asked at ${channel.askedBy.join(", ")}${channel.tools.length === 0 ? "" : ` · tools ${channel.tools.join(", ")}`}`;
 
-/** `channels` — one line per channel; `channels none` when no tool names one. */
+/** `channels` — one line per pause target; `channels none` when no tool or step names one. */
 export function channelLines(assembled: AssembledApplication): string[] {
   const channels = describedChannelsOf(assembled);
   return channels.length === 0 ? ["channels none"] : ["channels", ...channels.map(channelLine)];

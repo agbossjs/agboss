@@ -68,15 +68,14 @@ async function terminalAnswer(
   ask: Ask,
   retry: string,
 ): Promise<TerminalAnswer> {
-  if (pause.kind === PauseKind.Question) {
+  if (pause.kind === PauseKind.ExternalTask) {
     const reply = await ask(
-      `${retry}${pause.step} asks ${JSON.stringify(pause.ask)} — your answer (${ANSWER_MODES}): `,
+      `${retry}${pause.step} asks ${JSON.stringify(pause.input)} — your answer (${ANSWER_MODES}): `,
     );
     return questionAnswerOf((reply ?? "").trim());
   }
-  const question = pause.ask;
   const reply = await ask(
-    `${pause.step} wants to call ${question.tool} ${JSON.stringify(question.arguments)} — approve? [y/N] `,
+    `${pause.step} wants to call ${pause.toolCall.tool} ${JSON.stringify(pause.input)} — approve? [y/N] `,
   );
   return { kind: "decision", decision: terminalDecision(/^y(es)?$/i.test((reply ?? "").trim())) };
 }
@@ -118,11 +117,16 @@ export async function untilDone(
     const request = resumeRequestOf(waiting.pauseId, answer);
     try {
       result = await busy((signal) =>
-        app.resume(request, { signal, ...(onStream === undefined ? {} : { onStream }) }),
+        app.resume(request, {
+          signal,
+          // the run's own tenant: a multi-tenant application never reads "default" for it
+          tenantId: result.tenantId,
+          ...(onStream === undefined ? {} : { onStream }),
+        }),
       );
       retry = "";
     } catch (error) {
-      if (waiting.kind !== PauseKind.Question) throw error;
+      if (waiting.kind !== PauseKind.ExternalTask) throw error;
       retry = retryOf(error);
     }
   }
@@ -136,7 +140,7 @@ export function threadLine(result: Pick<ExecutionOutput, "threadId" | "traceUrl"
 }
 
 /**
- * `memory: conversation-compaction turns 1–5 → summary 1/10` when this turn compacted the
+ * `memory: conversation-memory turns 1–5 → summary 1/10` when this turn compacted the
  * conversation — one part per compaction that did (#120 PR 3).
  */
 export function memoryLine(result: Pick<ExecutionOutput, "compacted">): string | undefined {
@@ -144,7 +148,7 @@ export function memoryLine(result: Pick<ExecutionOutput, "compacted">): string |
   if (compacted.length === 0) return undefined;
   const parts = compacted.map(
     (c) =>
-      `${c.compaction} turns ${String(c.fromTurn)}–${String(c.toTurn)} → summary ${String(c.summaries)}/${String(c.summaryQueueLength)}`,
+      `${c.memory} turns ${String(c.fromTurn)}–${String(c.toTurn)} → summary ${String(c.summaries)}${c.summaryQueueLength === undefined ? "" : `/${String(c.summaryQueueLength)}`}`,
   );
   return `memory: ${parts.join(" · ")}`;
 }

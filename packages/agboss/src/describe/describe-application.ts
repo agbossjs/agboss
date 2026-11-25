@@ -35,7 +35,7 @@ const environmentLines = (environment: DescribedEnvironment | undefined): string
       ];
 
 /** The application's description, line by line. */
-export function describeApplication(
+export function describeAssembledApplication(
   assembled: AssembledApplication,
   description: ApplicationDescription = {},
 ): string[] {

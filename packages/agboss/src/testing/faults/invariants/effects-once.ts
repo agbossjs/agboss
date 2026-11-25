@@ -1,6 +1,6 @@
 import {
   ExecutionAuditEventKind,
-  FencedEffectEventOutcome,
+  IdempotencyRunEventOutcome,
   OutboundCallEventOutcome,
   type ExecutionAuditEventRecord,
 } from "../../../infrastructure/execution-audit-log.repository.js";
@@ -37,13 +37,13 @@ function chargeViolations(run: FaultRun, execution: OrderExecution): FaultViolat
       ),
     );
   const outcomes = rowsOf(run).flatMap((row) =>
-    row.kind === ExecutionAuditEventKind.FencedEffect &&
+    row.kind === ExecutionAuditEventKind.IdempotencyRun &&
     row.executionId === executionId &&
     row.name === "charge"
       ? [row.outcome]
       : [],
   );
-  const ran = outcomes.filter((outcome) => outcome === FencedEffectEventOutcome.Ran).length;
+  const ran = outcomes.filter((outcome) => outcome === IdempotencyRunEventOutcome.Ran).length;
   if (ran > 1)
     found.push(
       violation(

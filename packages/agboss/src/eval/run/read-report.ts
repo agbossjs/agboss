@@ -1,15 +1,21 @@
+import { storedUsd } from "../../finops/cost-report.js";
 import { z } from "zod";
 import { ComponentKind } from "../../flow/runtime/records.js";
 import { CheckStatus, EvalCascade } from "../suite/checks.js";
 import { ChaosFailure } from "../chaos/chaos-failure.js";
 import { CaseComparison } from "./comparison.js";
-import { EVAL_RUN_KIND, EVAL_RUN_SCHEMA_VERSION, type EvalRunReport } from "./report.js";
-import { CaseExpectationSchema, ExecutionTraceSchema } from "./trace-schema.js";
+import {
+  EVAL_RUN_KIND,
+  EVAL_RUN_SCHEMA_VERSION,
+  EvalCheckKind,
+  type EvalRunReport,
+} from "./report.js";
+import { CaseExpectationSchema, DateSchema, ExecutionTraceSchema } from "./trace-schema.js";
 
 /**
  * The one reader of run artifacts (#396 PR 3, #397 S4): a file `agboss eval run --baseline` compares
- * with and `agboss eval show` renders — its `kind`, its `schemaVersion` (1 to 4; a version this
- * reader does not know is refused) and every field of `EvalRunReport`, the optional `baseline`
+ * with and `agboss eval show` renders — its `kind`, its `schemaVersion` (5 only; any other
+ * version is refused) and every field of `EvalRunReport`, the optional `baseline`
  * comparison and the version 2 `trace` / `expectation` (#397 PR 2) included, validated with zod inside the framework. Fields it does not know are kept, so a newer
  * artifact's additions pass through untouched.
  */
@@ -23,11 +29,12 @@ const count = z.number().int().nonnegative();
 
 const CheckSchema = z.looseObject({
   check: z.string(),
+  kind: z.enum(EvalCheckKind),
   status: z.enum(CheckStatus),
   reason: z.string().optional(),
   skippedBy: z.string().optional(),
   metrics: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])).optional(),
-  spentUsd: z.number().optional(),
+  spentUsd: storedUsd.optional(),
 });
 
 const RunSchema = z.looseObject({
@@ -39,7 +46,9 @@ const RunSchema = z.looseObject({
   passed: z.boolean(),
   checks: z.array(CheckSchema),
   error: z.looseObject({ code: z.string(), message: z.string() }).optional(),
-  spentUsd: z.number(),
+  executionUsd: storedUsd,
+  judgeUsd: storedUsd,
+  totalUsd: storedUsd,
   trace: ExecutionTraceSchema.optional(),
 });
 
@@ -61,7 +70,7 @@ const PassesSchema = z.looseObject({ passed: count, runs: count });
 const ComparisonSchema = z.looseObject({
   file: z.string(),
   configHash: z.string(),
-  startedAt: z.string(),
+  startedAt: DateSchema,
   runs: z.number().int().positive(),
   cases: z.array(
     z.looseObject({
@@ -87,16 +96,18 @@ const ChaosSchema = z.looseObject({
   }),
 });
 
+const ModelUseSchema = z.looseObject({
+  component: z.string(),
+  kind: z.enum(ComponentKind),
+  model: z.string(),
+  provider: z.string(),
+});
+
 const ComponentSchema = z.looseObject({ name: z.string(), version: z.string() });
 
 const ReportSchema: z.ZodType<EvalRunReport> = z.looseObject({
   kind: z.literal(EVAL_RUN_KIND),
-  schemaVersion: z.union([
-    z.literal(1),
-    z.literal(2),
-    z.literal(3),
-    z.literal(EVAL_RUN_SCHEMA_VERSION),
-  ]),
+  schemaVersion: z.literal(EVAL_RUN_SCHEMA_VERSION),
   suite: z.string(),
   application: ComponentSchema,
   workflow: ComponentSchema,
@@ -105,8 +116,8 @@ const ReportSchema: z.ZodType<EvalRunReport> = z.looseObject({
   environment: z.string(),
   runs: z.number().int().positive(),
   cascade: z.enum(EvalCascade),
-  startedAt: z.string(),
-  endedAt: z.string(),
+  startedAt: DateSchema,
+  endedAt: DateSchema,
   cases: z.array(CaseSchema),
   summary: z.looseObject({
     cases: count,
@@ -116,27 +127,19 @@ const ReportSchema: z.ZodType<EvalRunReport> = z.looseObject({
     judgeCalls: count,
     skippedByCascade: count,
   }),
-  spend: z.looseObject({ totalUsd: z.number() }),
+  spend: z.looseObject({ executionUsd: storedUsd, judgeUsd: storedUsd, totalUsd: storedUsd }),
   chaos: ChaosSchema.optional(),
   metamorphic: z.boolean().optional(),
   baseline: ComparisonSchema.optional(),
   profile: z.string().optional(),
   agbossVersion: z.string().optional(),
-  models: z
-    .array(
-      z.looseObject({
-        component: z.string(),
-        kind: z.enum(ComponentKind),
-        model: z.string(),
-        provider: z.string(),
-      }),
-    )
-    .optional(),
+  models: z.array(ModelUseSchema).optional(),
+  judges: z.array(ModelUseSchema).optional(),
   piiPolicies: z.array(z.string()).optional(),
 });
 
-/** Every version this reader reads. */
-const READ_VERSIONS: readonly unknown[] = [1, 2, 3, EVAL_RUN_SCHEMA_VERSION];
+/** The version this reader reads. */
+const READ_VERSIONS: readonly unknown[] = [EVAL_RUN_SCHEMA_VERSION];
 
 /** What the value says it is, whatever else it holds. */
 const IdentitySchema = z.looseObject({
@@ -152,7 +155,7 @@ function reasonOf(value: unknown, issues: readonly z.core.$ZodIssue[]): string {
   const { kind, schemaVersion: version } = identity.success ? identity.data : {};
   if (kind !== EVAL_RUN_KIND) return `kind is ${shown(kind)}, not "${EVAL_RUN_KIND}"`;
   if (!READ_VERSIONS.includes(version))
-    return `schemaVersion ${shown(version)} — this agboss reads 1 to ${String(EVAL_RUN_SCHEMA_VERSION)}`;
+    return `schemaVersion ${shown(version)} — this agboss reads ${String(EVAL_RUN_SCHEMA_VERSION)} only`;
   const [issue] = issues;
   return issue === undefined ? "invalid" : `${issue.path.join(".")}: ${issue.message}`;
 }

@@ -8,34 +8,52 @@
 /** The names of the decorators that make a class a component the container creates once. */
 export const COMPONENT_DECORATORS = [
   // `@agboss/core`
+  "Application",
+  "Workflow",
+  "WorkflowStart",
+  "WorkflowFinish",
+  "Agent",
   "Injectable",
   "Tool",
   "Action",
   "Router",
-  "WorkflowFinish",
   "Channel",
-  "ReplyInterpreter",
+  "ToolApproval",
+  "ExternalTask",
+  "ChannelSelector",
+  "ChannelInterpreter",
+  "ChannelListener",
+  "HttpAuthenticator",
+  "Mesh",
+  "FilePolicy",
   "InputGuardrail",
   "OutputGuardrail",
   "ToolInterceptor",
   "PiiPolicy",
   "Judge",
   "Arbiter",
-  "Compaction",
+  "Memory",
   "Budget",
   "HealthCheck",
-  "PauseListener",
+  "Observer",
   "WorkingCalendar",
+  // `@agboss/core` storage components (#1321): one place of rows each, the container creates them
+  "DatabaseStorage",
+  "ClusterStorage",
+  "ObjectStorage",
   // `@agboss/core/models`
   "ModelProvider",
   // `@agboss/core/mcp`
   "McpServer",
-  "McpTool",
+  "McpEndpoint",
   // `@agboss/core/rag`
   "Rag",
-  "Reranker",
+  "RagReranker",
   // `@agboss/core/a2a`
   "A2AAgent",
+  "A2AEndpoint",
+  // `@agboss/core/eval`
+  "EvalSuite",
 ] as const;
 
 /** One of `COMPONENT_DECORATORS`. */

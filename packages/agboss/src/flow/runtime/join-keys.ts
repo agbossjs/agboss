@@ -56,7 +56,7 @@ export type DescribedShape =
   | { readonly listOf: DescribedShape }
   | { readonly oneOf: readonly DescribedShape[] }
   | { readonly optional: DescribedShape }
-  | { readonly historyOf: DescribedShape; readonly limit?: number }
+  | { readonly historyOf: DescribedShape; readonly maxPrevious?: number }
   | { readonly fields: Readonly<Record<string, DescribedShape>> };
 
 /** Anything a component reads or writes: a DTO, a wrapper of DTOs, or a map of fields. */
@@ -71,9 +71,9 @@ function wrapperShape(wrapper: AnyWrapper): DescribedShape {
     case Wrapper.Optional:
       return { optional: describedShapeOf(wrapper.inner) };
     case Wrapper.History:
-      return wrapper.limit === undefined
+      return wrapper.maxPrevious === undefined
         ? { historyOf: describedShapeOf(wrapper.dto) }
-        : { historyOf: describedShapeOf(wrapper.dto), limit: wrapper.limit };
+        : { historyOf: describedShapeOf(wrapper.dto), maxPrevious: wrapper.maxPrevious };
   }
 }
 
@@ -101,6 +101,7 @@ export function componentIoOf(declaration: ComponentDeclaration): ComponentIo {
     case NodeKind.Router:
       return { input: declaration.options.input };
     case NodeKind.Finish:
+      return { output: declaration.options.output };
     case NodeKind.Agent:
     case NodeKind.Action:
     case NodeKind.Question: {

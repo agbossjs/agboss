@@ -6,28 +6,29 @@
  */
 import {
   Agent,
-  Compaction,
   CompactionStrategy,
+  inline,
+  Memory,
+  Ttl,
   DecidedBy,
   Judge,
+  JudgeModel,
   JudgeVerdict,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Router,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   type JudgeHandler,
-  type JudgeHandlerClass,
 } from "../../src/index.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import type { Class } from "../../src/components/injection.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { route, start } from "../helpers/flow.js";
+import { onStart, toAgent } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What one variant changes; nothing set = the base desk. */
 export interface DeskVariant {
@@ -52,36 +53,54 @@ function policyOf(variant: DeskVariant): Class {
     name: "contact-pii-policy",
     description: "Hides email addresses from models",
     rules: [
-      pii(
-        PiiKind.Email,
-        variant.isPolicyPartial === true
-          ? PiiAction.replacePart({ pattern: /[a-z]+@/g })
-          : PiiAction.replaceWithToken(),
-      ),
+      variant.isPolicyPartial === true
+        ? PiiKind.Email.mask({ pattern: /[a-z]+@/g })
+        : PiiKind.Email.tokenize(),
     ],
   })
   class ContactPiiPolicy {}
   return ContactPiiPolicy;
 }
 
-function compactionOf(variant: DeskVariant): Class {
-  @Compaction({
-    name: "queue-compaction",
-    description: "Summarises the desk's old turns",
-    prompt: "Summarise the turns under `Turns to compact`.",
-    model: "test/compactor",
-    strategy: CompactionStrategy.SummaryQueue,
-    turnsBetweenCompactions: 2,
-    summaryQueueLength: variant.isLongerQueue === true ? 3 : 2,
-    summaryMaxTokens: 200,
+/** A router's own window: its own memory, no summaries. */
+function routerWindowOf(turns: number): Class {
+  @Memory({
+    name: "router-window-memory",
+    description: "The router's own window",
+    ttl: Ttl.Forever,
+    uncompactedTurns: turns,
   })
-  class QueueCompaction {}
-  return QueueCompaction;
+  class RouterWindowMemory {}
+  return RouterWindowMemory;
 }
 
-function judgesOf(variant: DeskVariant): readonly JudgeHandlerClass[] {
+function memoryOf(variant: DeskVariant): Class {
+  @Memory({
+    name: "queue-memory",
+    description: "Summarises the desk's old turns",
+    ttl: Ttl.Forever,
+    uncompactedTurns: 3,
+    turnsBetweenCompactions: 2,
+    compaction: {
+      strategy: CompactionStrategy.SummaryQueue,
+      prompt: inline("Summarise the turns under `Turns to compact`."),
+      model: "test/compactor",
+      summaryQueueLength: variant.isLongerQueue === true ? 3 : 2,
+      summaryMaxTokens: 200,
+    },
+  })
+  class QueueMemory {}
+  return QueueMemory;
+}
+
+function judgesOf(variant: DeskVariant): readonly Class<object>[] {
   if (variant.judgeModel === undefined) return [];
-  @Judge({ name: "polite-judge", model: variant.judgeModel, reply: PlainTextDto })
+  @Judge({
+    name: "polite-judge",
+    model: variant.judgeModel,
+    output: PlainTextDto,
+    deps: [JudgeModel],
+  })
   class PoliteJudge implements JudgeHandler<PlainTextDto> {
     judge(): Promise<JudgeVerdict> {
       return Promise.resolve(JudgeVerdict.passed());
@@ -111,7 +130,7 @@ export function deskApplicationOf(variant: DeskVariant = {}): Class {
   @Agent({
     name: "answer-agent",
     description: "Answers",
-    prompt: variant.agentPrompt ?? "Answer the message.",
+    prompt: inline(variant.agentPrompt ?? "Answer the message."),
     model: "test/answer",
     judges: judgesOf(variant),
     ...(variant.isAgentExcludingPii === true ? { excludePiiPolicies: [policy] } : {}),
@@ -122,34 +141,33 @@ export function deskApplicationOf(variant: DeskVariant = {}): Class {
     name: "help-router",
     description: "Sends the message on",
     decidedBy: DecidedBy.Model,
-    prompt: "Pick who answers.",
+    prompt: inline("Pick who answers."),
     model: JEV,
     input: { message: WorkflowStartTextDto },
-    ...(variant.routerTurns === undefined ? {} : { uncompactedTurns: variant.routerTurns }),
+    ...(variant.routerTurns === undefined ? {} : { memory: routerWindowOf(variant.routerTurns) }),
     routes: [{ prompt: "Questions", target: AnswerAgent }],
   })
   class HelpRouter {}
 
   @Workflow({
     name: "desk-workflow",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(DeskStart)
-        .returns(WorkflowStartTextDto)
-        .toRouter(HelpRouter)
-        .chooseOne(route(AnswerAgent).toFinish(DeskAnswer)),
+      onStart(DeskStart).toRouter(HelpRouter).onRoute(toAgent(AnswerAgent).toFinish(DeskAnswer)),
     ],
+    memory: memoryOf(variant),
   })
   class DeskWorkflow {}
 
   @Application({
     name: "desk-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [DeskWorkflow],
     piiPolicies: [policy],
-    compaction: compactionOf(variant),
-    uncompactedTurns: 3,
     budgets: TEST_BUDGETS,
   })
   class DeskApplication {}

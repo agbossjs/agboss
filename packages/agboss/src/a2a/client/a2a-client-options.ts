@@ -1,14 +1,18 @@
 import { MAX_TIMEOUT, timerProblemOf } from "../../units/timer-limits.js";
-import type { Message, StreamResponse, Task } from "@a2a-js/sdk";
-import { nestedFileFieldsOf } from "../files/a2a-file.dto.js";
-import type { A2AReceivedFile } from "./a2a-client-files.js";
-import { checkedPrice } from "../a2a-rules.js";
+import type { Class } from "../../components/injection.js";
+import { nestedFileFieldsOf } from "../../dto/standard/file.js";
+import type { FileDto } from "../../dto/standard/file.js";
+import { checkedCostPerCall } from "../a2a-rules.js";
 import { ComponentError, componentOf } from "../../components/metadata.js";
 import type { DtoClass } from "../../dto/types.js";
+import type { A2AAgentMeta } from "../a2a-decorator.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import type { Milliseconds, Usd } from "../../units/index.js";
+import type { A2AMessage, A2AStreamEvent, A2ATask } from "../a2a-types.js";
+import type { Task } from "@a2a-js/sdk";
 import type { A2ARemotePeer } from "./a2a-card.js";
+import type { Accepted } from "./a2a-message.js";
 import type { A2AMesh } from "./a2a-guard-errors.js";
 
 /**
@@ -30,8 +34,10 @@ export interface A2AClientContract {
   readonly finishes?: readonly string[];
   readonly input?: DtoClass;
   readonly output?: DtoClass;
-  /** What one call costs, charged to the calling step's budgets (the mesh's report may raise it). */
-  readonly price?: Usd;
+  /** What one call costs, charged once to the calling step's budgets (the mesh's report may raise it). */
+  readonly costPerCall?: Usd;
+  /** How long a call waits for the task at most, unless the call says; default none beyond the execution's deadline. */
+  readonly timeout?: Milliseconds;
   /** Whether the agent must declare the AGBoss mesh; default `Required` with an `application`. */
   readonly mesh?: A2AMesh;
 }
@@ -52,10 +58,13 @@ export interface A2AClientOptions {
    * default: `@A2AAgent({ allowedOrigins })`. Any other is refused, and no request goes there.
    */
   readonly allowedOrigins?: readonly string[];
+  /**
+   * A `@FilePolicy` (#1316) bounding `downloadFile`: its `maxFileSize` caps a download, its
+   * `fetchTimeout` ends a slow one, its `fetchPool` is the client's own pool of downloads. With none,
+   * a download is capped at `maxSize` (10 MB) and runs in the client's default pool (16 / 4 / 2 + 8).
+   */
+  readonly filePolicy?: Class;
 }
-
-/** One event of a remote task while the call waits: the SDK's `StreamResponse`. */
-export type A2AStreamEvent = StreamResponse;
 
 /** Per call. */
 export interface A2AClientCall {
@@ -84,17 +93,17 @@ export interface A2AClientCall {
  * is and is not guaranteed (`peer.kind`, `peer.mesh`).
  */
 export interface A2ATaskResult {
-  readonly task: Task | undefined;
-  readonly message: Message | undefined;
+  readonly task: A2ATask | undefined;
+  readonly message: A2AMessage | undefined;
   readonly text: string | undefined;
   readonly data: unknown;
   /** The answer's files (#859), in order: each one's bytes inline (`raw`) or by `url`. */
-  readonly files: readonly A2AReceivedFile[];
+  readonly files: readonly FileDto[];
   readonly peer: A2ARemotePeer;
 }
 
-/** The url `@A2AAgent` recorded on the class being constructed. */
-export function urlOf(target: object, name: string): string {
+/** The url `@A2AAgent` recorded on the class being constructed: a text or a reference. */
+export function urlOf(target: object, name: string): A2AAgentMeta["url"] {
   const meta = componentOf(target);
   if (meta?.kind !== "a2a-agent") {
     throw new ComponentError({
@@ -112,21 +121,32 @@ function definedOf<T extends object>(fields: { readonly [K in keyof T]: T[K] | u
 /** The contract `@A2AAgent` recorded on the class being constructed, if any. */
 export function contractOfClass(target: object): A2AClientContract | undefined {
   const meta = componentOf(target);
-  if (meta?.kind !== "a2a-agent") return undefined;
-  const { target: callee, input, output, price, mesh } = meta.meta;
+  return meta?.kind === "a2a-agent" ? contractOfMeta(meta.meta) : undefined;
+}
+
+/** The contract an `@A2AAgent`'s options make — declared, or with a profile's `a2aAgents` shelf over them. */
+export function contractOfMeta(meta: A2AAgentMeta): A2AClientContract {
+  const { target: callee, input, output, costPerCall, timeout, mesh } = meta;
   return definedOf<A2AClientContract>({
     application: callee?.application,
     skill: callee?.skill,
     finishes: callee?.finishes,
     input,
     output,
-    price,
+    costPerCall,
+    timeout,
     mesh,
   });
 }
 
+/** The headers `@A2AAgent({ headers })` recorded on the class, if any. */
+export function headersOfClass(target: object): NonNullable<A2AAgentMeta["headers"]> {
+  const meta = componentOf(target);
+  return meta?.kind === "a2a-agent" ? (meta.meta.headers ?? {}) : {};
+}
+
 /** The origins `@A2AAgent({ allowedOrigins })` recorded on the class, if any. */
-export function allowedOriginsOfClass(target: object): readonly string[] {
+export function allowedOriginsOfClass(target: object): NonNullable<A2AAgentMeta["allowedOrigins"]> {
   const meta = componentOf(target);
   return meta?.kind === "a2a-agent" ? (meta.meta.allowedOrigins ?? []) : [];
 }
@@ -145,14 +165,14 @@ export function checkedCallTimeout(agent: string, timeout: number | undefined): 
     throw new ComponentError({ message: `[a2a.timeout-invalid] ${agent}: a call's ${problem}` });
 }
 
-/** A call's `key` and `timeout` and its contract's `price`, checked before anything is sent or charged; the key. */
+/** A call's `key` and `timeout` and its contract's `costPerCall`, checked before anything is sent or charged; the key. */
 export function checkedCall(
   agent: string,
   call: A2AClientCall,
-  price: unknown,
+  costPerCall: unknown,
 ): string | undefined {
   checkedCallTimeout(agent, call.timeout);
-  checkedPrice(agent, price);
+  checkedCostPerCall(agent, costPerCall);
   return checkedCallKey(agent, call.key);
 }
 
@@ -193,11 +213,18 @@ export function typedContractOf(
     );
     if (nested.length > 0)
       throw new ComponentError({
-        message: `[a2a.nested-file-field] ${name}: ${nested.join(", ")} holds an A2AFileDto below the top level — an A2A file is a part of its own, in a top-level field`,
+        message: `[a2a.nested-file-field] ${name}: ${nested.join(", ")} holds a FileDto below the top level — an A2A file is a part of its own, in a top-level field`,
       });
     return { ...contract, input: contract.input, output: contract.output };
   }
   throw new ComponentError({
     message: `[a2a.no-contract] ${name} declares no typed contract — @A2AAgent({ input, output }) on its class, or the contract option; send(message) runs without one`,
   });
+}
+
+/** One call's settled answer. */
+export interface Settled {
+  readonly accepted: Accepted;
+  readonly task: Task | undefined;
+  readonly peer: A2ARemotePeer;
 }

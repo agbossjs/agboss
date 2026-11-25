@@ -5,13 +5,11 @@ import {
   type DefaultSource,
 } from "../config/defaults.js";
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
-import { CompactionStrategy } from "../compaction/compaction.decorator.js";
-import { memoryPlanOf, type CompactionInUse } from "../compaction/plan.js";
+import { CUSTOM_COMPACTION, CompactionStrategy } from "../memory/memory.decorator.js";
+import { memoryPlanOf, type CompactionInUse } from "../memory/plan.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
-import { workflowDeclarationOf } from "../components/module.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { defaultMaxResultSizeOf, type AnyTool } from "../tools/index.js";
-import { spanLabel } from "../units/duration-label.js";
 
 /**
  * Where `agboss describe`'s values came from (#261 AC12): a component's own field, the `defaults`
@@ -87,8 +85,8 @@ export function agentDefaultsLine(bundle: AssembledWorkflow, agent: AgentSetting
 /** The `compaction` an element's own decorator sets; undefined when it sets none. */
 function ownCompactionOf(bundle: AssembledWorkflow, element: string): unknown {
   const options: unknown = bundle.graph.nodes.get(element)?.declaration.options;
-  return typeof options === "object" && options !== null && "compaction" in options
-    ? options.compaction
+  return typeof options === "object" && options !== null && "memory" in options
+    ? options.memory
     : undefined;
 }
 
@@ -98,10 +96,7 @@ function ownCompactionOf(bundle: AssembledWorkflow, element: string): unknown {
  */
 export function compactionSourceOf(bundle: AssembledWorkflow, element: string): string {
   if (ownCompactionOf(bundle, element) !== undefined) return "(own)";
-  if (workflowDeclarationOf(bundle.graph.type).options.compaction !== undefined)
-    return `(${bundle.config.name})`;
-  const application = defaultsLevelsOf(bundle.graph)?.application?.name;
-  return application === undefined ? "(application)" : `(${application})`;
+  return `(${bundle.config.name})`;
 }
 
 /** `agboss describe`'s memory section (#120 PR 3): each compaction in use, or the window only. */
@@ -111,7 +106,7 @@ function compactionLine(compaction: CompactionInUse, model: string | undefined):
   const every = `every ${String(compaction.turnsBetweenCompactions)} turns`;
   const window = `older than ${String(compaction.window)} turns`;
   // a custom one (#382): its class compacts — no model, no limits of a summary
-  if (compaction.strategy === CompactionStrategy.Custom)
+  if (compaction.strategy === CUSTOM_COMPACTION)
     return `  ${compaction.name} — strategy: custom (${compaction.type.name}.compact()) ${every} · ${window}`;
   const queue =
     compaction.strategy === CompactionStrategy.SummaryQueue
@@ -122,16 +117,12 @@ function compactionLine(compaction: CompactionInUse, model: string | undefined):
 
 /** The compactions that write summaries, or "window only". */
 export function memoryLines(bundle: AssembledWorkflow): string[] {
-  const plan = memoryPlanOf(bundle.config, bundle.compactions);
+  const plan = memoryPlanOf(bundle.config, bundle.memories);
   if (plan.compactions.length === 0) return ["memory    window only (no summaries)"];
   return [
     "memory",
     ...plan.compactions.map((compaction) =>
-      compactionLine(compaction, bundle.config.compactions?.[compaction.name]?.model?.model),
+      compactionLine(compaction, bundle.config.memories?.[compaction.name]?.model?.model),
     ),
   ];
 }
-
-/** ` · expires in 4 h` (#941): how long a pause of the tool's approval waits; nothing without a deadline. */
-export const expiryLabel = (tool: AnyTool): string =>
-  tool.expiresIn === undefined ? "" : ` · expires in ${spanLabel(tool.expiresIn)}`;

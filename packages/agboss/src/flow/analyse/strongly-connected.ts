@@ -6,13 +6,12 @@ import { NodeKind } from "../ast.js";
 import type { ComponentName } from "../registry.js";
 import { EdgeKind, type FlowEdge, type FlowGraph, type FlowNode } from "./flow-graph.js";
 import type { AnalysisContext } from "./rules/context.js";
-import { mostRunning } from "./steps.js";
+import { mostRunning, weightOf } from "./steps.js";
 
 /**
  * Tarjan's strongly connected components of a directed graph, given by its vertices and each
- * vertex's successors. The flow's cycles (`[graph.cycle-without-max-visits]`) and the cycles of
- * classes built from each other (`[io.ambiguous-cycle]`, #271) are both read from it. Each component
- * is sorted; the components come in Tarjan's order. Below it, the longest walk over the flow's
+ * vertex's successors. The flow's cycles (`[graph.cycle-without-max-visits]`) are read from it.
+ * Each component is sorted; the components come in Tarjan's order. Below it, the longest walk over the flow's
  * components that `maxVisits` bounds (#643, `[limits.max-steps-below-worst-case]`).
  */
 export function stronglyConnected<TVertex extends string>(
@@ -65,19 +64,15 @@ export const isCycle = <TVertex extends string>(
  * the steps limit itself (`.onError(StepsLimitExceededError, …)`) is not checked.
  */
 
-const weightOf = (node: FlowNode | undefined): number =>
-  node?.kind === NodeKind.Agent || node?.kind === NodeKind.Router ? 1 : 0;
-
 /** A node's `maxVisits`; `undefined` for a node without one. */
 function maxVisitsOf(node: FlowNode | undefined): number | undefined {
   const declaration = node?.declaration;
-  if (
-    declaration?.kind !== NodeKind.Agent &&
-    declaration?.kind !== NodeKind.Router &&
-    declaration?.kind !== NodeKind.Question
-  )
-    return undefined;
-  const { maxVisits } = declaration.options;
+  let maxVisits: number | undefined;
+  if (declaration?.kind === NodeKind.Agent)
+    maxVisits = declaration.options.executionLimits?.maxVisits;
+  else if (declaration?.kind === NodeKind.Router || declaration?.kind === NodeKind.Question)
+    maxVisits = declaration.options.maxVisits;
+  else return undefined;
   // a value that is no count is a bound of 0, as at run time (#1373)
   return maxVisits === undefined ? undefined : countBoundOf(maxVisits);
 }
@@ -221,7 +216,7 @@ const takesStepsLimit = (graph: FlowGraph): boolean =>
 
 /** `[limits.max-steps-below-worst-case]` for each start whose bounded worst case `maxSteps` cuts. */
 export function worstCaseStepsWarnings(context: AnalysisContext): readonly RuleViolation[] {
-  const { maxSteps } = context.workflow;
+  const maxSteps = context.workflow.executionLimits?.maxSteps;
   const { graph } = context;
   // a `maxSteps` that is no count is refused by `stepsRules`
   if (!isCountLimit(maxSteps) || takesStepsLimit(graph)) return [];

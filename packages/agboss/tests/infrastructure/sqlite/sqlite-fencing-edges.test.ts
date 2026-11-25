@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 /**
  * #626 — what the SQLite fencing stores do beyond the published contracts, each found by a mutant
  * that lived: they are SQLite implementations (never reused by a later app of a test); each
@@ -10,9 +11,8 @@
 import { describe, expect, it } from "vitest";
 import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
-import { ExecutionFencedError } from "../../../src/app/lease-lost.js";
-import { FencedEffectStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
+import {} from "../../../src/app/lease-lost.js";
+import { IdempotencyRunStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
 import {
   isSqliteImplementation,
   oneRowChanged,
@@ -22,10 +22,7 @@ import {
   SqliteExecutionAuditLogRepository,
   SqliteExecutionLeaseRepository,
 } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
-import {
-  SyncWorkRequiredError,
-  SqliteFencedEffectRepository,
-} from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
+import { SqliteFencedEffectRepository } from "../../../src/infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import { keyOf } from "../../../src/testing/contracts/fenced-effect-data.js";
 import { intentOf } from "../../../src/testing/contracts/outbound-call-data.js";
@@ -42,11 +39,7 @@ function storesOn(path = temporarySqlitePath(), clock = new VirtualClock()) {
     connection,
     leases: new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application),
     events: new SqliteExecutionAuditLogRepository(connection),
-    effects: new SqliteFencedEffectRepository(
-      connection,
-      storeClockOf(clock),
-      new FencedEffectSettings(),
-    ),
+    effects: new SqliteFencedEffectRepository(connection, storeClockOf(clock)),
     calls: new SqliteOutboundCallRepository(connection, storeClockOf(clock)),
   };
 }
@@ -73,21 +66,11 @@ const TABLES: readonly (readonly [string, (connection: SqliteConnection) => unkn
   ["execution_lease_events", (connection) => new SqliteExecutionAuditLogRepository(connection)],
   [
     "execution_leases",
-    (connection) =>
-      new SqliteFencedEffectRepository(
-        connection,
-        storeClockOf(new VirtualClock()),
-        new FencedEffectSettings(),
-      ),
+    (connection) => new SqliteFencedEffectRepository(connection, storeClockOf(new VirtualClock())),
   ],
   [
     "fenced_effects",
-    (connection) =>
-      new SqliteFencedEffectRepository(
-        connection,
-        storeClockOf(new VirtualClock()),
-        new FencedEffectSettings(),
-      ),
+    (connection) => new SqliteFencedEffectRepository(connection, storeClockOf(new VirtualClock())),
   ],
   [
     "execution_leases",
@@ -132,30 +115,6 @@ describe("#626: the SQLite fencing stores beyond their contracts", () => {
       });
   });
 
-  it.each(TABLES)(
-    "a store registers %s under its name: another store of the file never runs that DDL again",
-    (table, make) => {
-      const connection = connectionTo(temporarySqlitePath());
-      make(connection);
-
-      expect(() => {
-        connection.ensureSchema(table, "NOT A STATEMENT");
-      }).not.toThrow();
-    },
-  );
-
-  it("a file an older version wrote, without the yielded column: the lease store adds it", async () => {
-    const path = temporarySqlitePath();
-    connectionTo(path).database.exec(`CREATE TABLE execution_leases (
-      tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, holder_instance_id TEXT NOT NULL,
-      lease_epoch INTEGER NOT NULL, expires_at INTEGER NOT NULL, released INTEGER NOT NULL,
-      PRIMARY KEY (tenant_id, root_execution_id))`);
-    const stores = storesOn(path);
-
-    expect(stores.connection.columnsOf("execution_leases")).toContain("yielded");
-    expect(await stores.leases.yield(await held(stores.leases))).toBeTypeOf("number");
-  });
-
   it.each(PINGED)(
     "ping() of the %s asks the file: answered while open, refused once closed",
     async (_, ping) => {
@@ -180,28 +139,28 @@ describe("#626: the SQLite fencing stores beyond their contracts", () => {
 
     const refused = stores.effects.runOnce(keyOf(again, "other"), () => "r1");
 
-    await expect(refused).rejects.toBeInstanceOf(ExecutionFencedError);
+    await expect(refused).rejects.toBeInstanceOf(ExecutionError.Fenced);
     await expect(refused).rejects.toMatchObject({ token: 1, observedToken: 2 });
   });
 });
 
 describe("#626: a pending intent, a thenable that is none, a replay, the async-work error", () => {
-  it("a pending intent has no ended_at, an ended one has its time: the sweep removes only the ended one", async () => {
+  it("a pending intent has no expires_at, an ended one has its expiry: the sweep removes only the ended one", async () => {
     const stores = storesOn();
     const lease = await held(stores.leases);
     const [pending, ended] = [keyOf(lease, "pending"), keyOf(lease, "ended")];
     await stores.calls.saveIfAbsent(pending, intentOf(pending));
     await stores.calls.saveIfAbsent(ended, intentOf(ended));
-    await stores.calls.markCompleted(ended, "owner-1", '{"receipt":"r1"}');
+    await stores.calls.markCompleted(ended, "owner-1", '{"receipt":"r1"}', new Date(1_000));
 
     const rows = stores.connection.database
-      .prepare("SELECT name, ended_at FROM outbound_calls ORDER BY name")
+      .prepare("SELECT name, expires_at FROM outbound_calls ORDER BY name")
       .all();
-    expect(rows.map((row) => [row.name, row.ended_at === null])).toEqual([
+    expect(rows.map((row) => [row.name, row.expires_at === null])).toEqual([
       ["ended", false],
       ["pending", true],
     ]);
-    await stores.calls.deleteByEndedAtBefore(new Date(8_640_000_000_000_000));
+    await stores.calls.deleteExpired(new Date(8_640_000_000_000_000));
     expect(await stores.calls.findByKey(pending)).toMatchObject({ name: "pending" });
     expect(await stores.calls.findByKey(ended)).toBeUndefined();
   });
@@ -213,9 +172,9 @@ describe("#626: a pending intent, a thenable that is none, a replay, the async-w
     const ran = await stores.effects.runOnce(key, () => ({ then: "later" }));
     const replayed = await stores.effects.runOnce(key, () => ({ then: "never" }));
 
-    expect(ran).toMatchObject({ status: FencedEffectStatus.Ran, result: { then: "later" } });
+    expect(ran).toMatchObject({ status: IdempotencyRunStatus.Ran, result: { then: "later" } });
     expect(replayed).toMatchObject({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { then: "later" },
     });
   });
@@ -227,18 +186,8 @@ describe("#626: a pending intent, a thenable that is none, a replay, the async-w
 
     const replayed = await stores.effects.runOnce(key, () => "r2");
 
-    expect(replayed.status).toBe(FencedEffectStatus.Replayed);
+    expect(replayed.status).toBe(IdempotencyRunStatus.Replayed);
     expect(Object.keys(replayed)).not.toContain("replayedFrom");
-  });
-
-  it("SyncWorkRequiredError is named so", async () => {
-    const stores = storesOn();
-    const key = keyOf(await held(stores.leases));
-
-    const call = stores.effects.runOnce(key, () => Promise.resolve("r1"));
-
-    await expect(call).rejects.toBeInstanceOf(SyncWorkRequiredError);
-    await expect(call).rejects.toMatchObject({ name: "SyncWorkRequiredError" });
   });
 
   it("oneRowChanged: true for one row, an Error for any other count", () => {

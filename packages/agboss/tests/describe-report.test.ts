@@ -4,27 +4,27 @@
  * implementation, each PII policy's refusal (the text, or `ClassName.refusal()`); and the worst
  * case of one call of each start with how each number is made up (AC5), from the decorators only.
  */
+import { TestDecisionsProvider, TestOpenRouterProvider } from "./models/providers.fixture.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../src/application/application.js";
 import { applicationOf } from "../src/application/assemble.js";
 import { describedChannelsOf, ChannelImplementationReason } from "../src/describe/channels.js";
-import { describeApplication } from "../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../src/describe/describe-application.js";
 import { describedLimitsOf, worstCaseLimitsOf } from "../src/describe/limits.js";
 import { describedPiiPoliciesOf } from "../src/describe/pii-policies.js";
 import { describedTreeOf } from "../src/describe/tree.js";
 import { worstCaseReportLines, worstCaseRowsOf } from "../src/describe/worst-case-report.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../src/dto/index.js";
 import { EmptyEnvironment } from "../src/environments/empty.js";
-import { PauseAnswerer } from "../src/channels/channel-role.decorator.js";
 import {
   Agent,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
+  inline,
+  Ttl,
 } from "../src/index.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
 import type { AssembledWorkflow } from "../src/workflow.js";
@@ -35,23 +35,27 @@ import { TreasuryApplication } from "./flow/fixtures/replies.fixture.js";
 import { CardPiiPolicy } from "./pii/pii.fixture.js";
 import {
   HelpDeskApplication,
-  NoteCompaction,
+  NoteMemory,
   NotesDeskApplication,
-} from "./compaction/compaction.fixture.js";
-import { start } from "./helpers/flow.js";
+} from "./memory/compaction.fixture.js";
+import { onStart } from "./helpers/flow.js";
+import { PauseRespondent } from "../src/pause/respondent.js";
+import { TestModelProvider } from "../src/testing/test-model-provider.js";
 
 /** A block rule with its own text, beside one whose class computes it. */
 @PiiPolicy({
   name: "iban-pii-policy",
   description: "Refuses bank account numbers",
-  rules: [
-    pii(PiiKind.Iban, PiiAction.blockWithRefusal({ refusal: "Please do not send an IBAN." })),
-    pii(PiiKind.Email, PiiAction.replaceWithKind()),
-  ],
+  rules: [PiiKind.Iban.block("Please do not send an IBAN."), PiiKind.Email.mask()],
 })
 class IbanPiiPolicy {}
 
-@Agent({ name: "clerk-agent", description: "Answers", prompt: "Answer.", model: "test/clerk" })
+@Agent({
+  name: "clerk-agent",
+  description: "Answers",
+  prompt: inline("Answer."),
+  model: "test/clerk",
+})
 class ClerkAgent {}
 
 @WorkflowStart({ name: "clerk-workflow-start", description: "Ask", input: WorkflowStartTextDto })
@@ -67,18 +71,15 @@ class ClerkWorkflowFinish {}
 @Workflow({
   name: "clerk-workflow",
   version: "1.0.0",
-  flow: [
-    start(ClerkWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ClerkAgent)
-      .toFinish(ClerkWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ClerkWorkflowStart).toAgent(ClerkAgent).toFinish(ClerkWorkflowFinish)],
   piiPolicies: [CardPiiPolicy],
 })
 class ClerkWorkflow {}
 
 @Application({
   name: "clerk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ClerkWorkflow],
@@ -127,7 +128,7 @@ describe("#268 AC4: the tree — workflows, their starts and children", () => {
         },
       ],
     });
-    const lines = describeApplication(treasury);
+    const lines = describeAssembledApplication(treasury);
     const at = lines.indexOf("workflows");
     expect(lines.slice(at, at + 11)).toEqual([
       "workflows",
@@ -144,27 +145,29 @@ describe("#268 AC4: the tree — workflows, their starts and children", () => {
     ]);
   });
 
-  it("ThisWorkflow is the workflow again, marked recursive with its maxDepth", async () => {
-    const lines = describeApplication(await applicationOf(applicationWith(DeepResearchWorkflow)));
+  it("a workflow launching itself is the workflow again, marked recursive with its maxDepth", async () => {
+    const lines = describeAssembledApplication(
+      await applicationOf(applicationWith(DeepResearchWorkflow)),
+    );
 
     expect(lines).toContain(
-      "    child deep-research-workflow (ThisWorkflow, recursive, maxDepth 4) per item from split-topic-action (maxItems 5, maxConcurrency 3)",
+      "    child deep-research-workflow (recursive, maxDepth 4) per item from split-topic-action (maxItems 5, maxConcurrency 3)",
     );
   });
 });
 
 describe("#268 AC4: model providers and channels with their implementations", () => {
-  it("the built-in model providers when none is listed, and why", () => {
-    const lines = describeApplication(treasury);
+  it("the model providers the application's cascade names, and how each is reached", () => {
+    const lines = describeAssembledApplication(treasury);
     const at = lines.indexOf("model providers");
 
     expect(lines.slice(at, at + 3)).toEqual([
       "model providers",
       expect.stringMatching(
-        /^ {2}openrouter-model-provider → OpenRouterModelProvider \(built-in default: none listed\) · serves /,
+        /^ {2}test-model-provider → TestModelProvider \(named by modelProvider\) · transport: /,
       ),
       expect.stringMatching(
-        /^ {2}decisions-model-provider → DecisionsModelProvider \(built-in default: none listed\) · serves /,
+        /^ {2}test-decisions-model-provider → TestDecisionsModelProvider \(named by modelProvider\)/,
       ),
     ]);
   });
@@ -172,26 +175,26 @@ describe("#268 AC4: model providers and channels with their implementations", ()
   it("each role: its question → answer, who answers, its interpreter, its implementation", () => {
     const channels = describedChannelsOf(treasury);
 
-    expect(channels.find((channel) => channel.name === "payout-approval-channel")).toEqual({
-      name: "payout-approval-channel",
-      className: "PayoutApprovalChannel",
+    expect(channels.find((channel) => channel.name === "payout-tool-approval")).toEqual({
+      name: "payout-tool-approval",
+      className: "PayoutToolApproval",
       isRole: true,
       question: "PayoutRequestDto",
       answer: "ToolCallApprovalDecisionDto",
-      answerer: PauseAnswerer.Channel,
-      answeredBy: PauseAnswerer.Channel,
+      respondent: PauseRespondent.Delegate,
+      expiresIn: 365 * 24 * 3_600_000,
       replyInterpreter: "payout-reply-interpreter",
       implementation: "DeskPayoutApprovalChannel",
       reason: ChannelImplementationReason.Listed,
       tools: ["pay-out-tool (treasury-workflow)"],
     });
-    expect(describeApplication(treasury)).toContain(
-      "  expense-approval-channel (ExpenseApprovalChannel): ExpenseRequestDto → ToolCallApprovalDecisionDto · answered by the thread's owner · reply interpreter expense-reply-interpreter · ButtonExpenseApprovalChannel (listed in @Application providers) · tools book-expense-tool (treasury-workflow)",
+    expect(describeAssembledApplication(treasury)).toContain(
+      "  expense-tool-approval (ExpenseToolApproval): ExpenseRequestDto → ToolCallApprovalDecisionDto · answered by the thread's owner · expires in 8760 h · channel interpreter expense-reply-interpreter · ButtonExpenseApprovalChannel (listed in @Application channels) · tools book-expense-tool (treasury-workflow)",
     );
   });
 
   it("an application whose tools name no channel says so", () => {
-    expect(describeApplication(clerk)).toContain("channels none");
+    expect(describeAssembledApplication(clerk)).toContain("channels none");
   });
 });
 
@@ -207,10 +210,10 @@ describe("#268 AC4: PII policies and their refusals", () => {
         [
           {
             target: "iban",
-            action: "blockWithRefusal()",
+            action: "block()",
             refusal: '"Please do not send an IBAN."',
           },
-          { target: "email", action: "replaceWithKind()" },
+          { target: "email", action: "mask()" },
         ],
       ],
       [
@@ -218,14 +221,14 @@ describe("#268 AC4: PII policies and their refusals", () => {
         [
           {
             target: "card-number",
-            action: "blockWithRefusal()",
+            action: "block()",
             refusal: "CardPiiPolicy.refusal()",
           },
         ],
       ],
     ]);
-    expect(describeApplication(clerk)).toContain(
-      '  iban-pii-policy — iban: blockWithRefusal() · refusal: "Please do not send an IBAN.", email: replaceWithKind() · on clerk-agent · masks logs and traces',
+    expect(describeAssembledApplication(clerk)).toContain(
+      '  iban-pii-policy — iban: block() · refusal: "Please do not send an IBAN.", email: mask() · on clerk-agent · masks logs and traces',
     );
   });
 });
@@ -234,9 +237,9 @@ describe("#268 AC4: PII policies and their refusals", () => {
 @Agent({
   name: "own-note-agent",
   description: "Answers from its own note",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "test/own-note",
-  compaction: NoteCompaction,
+  memory: NoteMemory,
 })
 class OwnNoteAgent {}
 
@@ -252,13 +255,10 @@ class OwnNoteWorkflowFinish {}
 
 @Workflow({
   name: "own-note-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
-  flow: [
-    start(OwnNoteWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(OwnNoteAgent)
-      .toFinish(OwnNoteWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(OwnNoteWorkflowStart).toAgent(OwnNoteAgent).toFinish(OwnNoteWorkflowFinish)],
 })
 class OwnNoteWorkflow {}
 
@@ -266,20 +266,20 @@ describe("#268 AC4, #120 PR 3: each agent's compaction and window with where the
   const agentLine = (lines: readonly string[], agent: string): string | undefined =>
     lines.find((line) => line.startsWith(`  ${agent}  `));
 
-  it("the agent's own, its workflow's, or its application's", async () => {
-    const own = describeApplication(await applicationOf(applicationWith(OwnNoteWorkflow)));
-    const workflow = describeApplication(await applicationOf(NotesDeskApplication));
-    const application = describeApplication(await applicationOf(HelpDeskApplication));
+  it("the agent's own or its workflow's", async () => {
+    const own = describeAssembledApplication(await applicationOf(applicationWith(OwnNoteWorkflow)));
+    const workflow = describeAssembledApplication(await applicationOf(NotesDeskApplication));
+    const application = describeAssembledApplication(await applicationOf(HelpDeskApplication));
 
-    expect(agentLine(own, "own-note-agent")).toMatch(/ · compaction note-compaction \(own\)$/);
+    expect(agentLine(own, "own-note-agent")).toMatch(/ · compaction note-memory \(own\)$/);
     expect(agentLine(workflow, "note-agent")).toMatch(
-      / · compaction note-compaction \(notes-desk-workflow\)$/,
+      / · compaction note-memory \(notes-desk-workflow\)$/,
     );
     expect(agentLine(application, "answer-agent")).toMatch(
-      / · compaction queue-compaction \(help-desk-application\)$/,
+      / · compaction queue-memory \(help-desk-workflow\)$/,
     );
     expect(application).toContainEqual(
-      expect.stringMatching(/^ {4}defaults: .* · uncompactedTurns 3 \(help-desk-application\)$/),
+      expect.stringMatching(/^ {4}defaults: .* · uncompactedTurns 1 \(help-desk-workflow\)$/),
     );
   });
 });
@@ -293,10 +293,10 @@ describe("#268 AC5: the worst case of one call of each start, each number with h
 
     expect(worstCaseReportLines(worst, worstCaseLimitsOf(limits))).toEqual([
       "Worst case of one treasury-batch-workflow-start call",
-      "  workflow executions     4  1 treasury-batch-workflow + 3 treasury-workflow (maxItems 3)",
-      "  at the same time        3  1 treasury-batch-workflow + 2 treasury-workflow (maxConcurrency 2)",
-      "  agent and router steps  4  1 in treasury-batch-workflow (longest path) + 3 × 1 in treasury-workflow (longest path)",
-      "  nesting depth           2  treasury-batch-workflow → treasury-workflow",
+      "  workflow executions  4  1 treasury-batch-workflow + 3 treasury-workflow (maxItems 3)",
+      "  at the same time     3  1 treasury-batch-workflow + 2 treasury-workflow (maxConcurrency 2)",
+      "  steps                5  2 in treasury-batch-workflow (longest path) + 3 × 1 in treasury-workflow (longest path)",
+      "  nesting depth        2  treasury-batch-workflow → treasury-workflow",
     ]);
   });
 
@@ -310,14 +310,14 @@ describe("#268 AC5: the worst case of one call of each start, each number with h
     expect(rows.map((row) => [row.measure, row.total])).toEqual([
       ["workflow executions", 156],
       ["at the same time", 40],
-      ["agent and router steps", 312],
+      ["steps", 624],
       ["nesting depth", 4],
     ]);
     expect(rows[0]?.madeUp).toBe(
       "1 deep-research-workflow + 5 deep-research-workflow (maxItems 5) + 25 deep-research-workflow (maxItems 5 × maxItems 5) + 125 deep-research-workflow (maxItems 5 × maxItems 5 × maxItems 5)",
     );
     expect(rows[1]?.madeUp).toBe(
-      "1 deep-research-workflow + 3 deep-research-workflow (maxConcurrency 3) + 9 deep-research-workflow (maxConcurrency 3 × maxConcurrency 3) + 27 deep-research-workflow (maxConcurrency 3 × maxConcurrency 3 × maxConcurrency 3) — at most 10 at work at once (maxConcurrentExecutions 10)",
+      "1 deep-research-workflow + 3 deep-research-workflow (maxConcurrency 3) + 9 deep-research-workflow (maxConcurrency 3 × maxConcurrency 3) + 27 deep-research-workflow (maxConcurrency 3 × maxConcurrency 3 × maxConcurrency 3) — at most 10 at work at once (maxConcurrency 10)",
     );
     expect(rows[3]?.madeUp).toBe(
       "deep-research-workflow → deep-research-workflow → deep-research-workflow → deep-research-workflow (maxDepth 4)",
@@ -329,6 +329,7 @@ describe("#268 AC5: the worst case of one call of each start, each number with h
 function applicationWith(workflow: Class): Class {
   @Application({
     name: "one-workflow-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [workflow],

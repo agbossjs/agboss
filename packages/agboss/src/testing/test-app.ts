@@ -1,30 +1,26 @@
-import {
-  executionControlOf,
-  rememberExecutionControl,
-  type ExecutionControl,
-} from "../app/execution-control.js";
+import { rememberExecutionControl } from "../app/execution-control.js";
 import { LeaseGate, rememberLeaseGate } from "./leases.js";
-import type { BuiltApp } from "../app/create-app.js";
 import type { BuiltApplication } from "../application/create-app.js";
-import type { App, ExecutionOutput } from "../app/types.js";
-import type { Class } from "../components/injection.js";
+import type { AnyTenantApp } from "../app/types.js";
+import type { Class, Resolved, Token } from "../components/injection.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { VirtualClock } from "./clock.js";
 import type { TestEnvironment } from "./environment.js";
-import { TestFailure, TestSetupError } from "./errors.js";
-import {
-  agentSlice,
-  routerSlice,
-  toolSlice,
-  type AgentSlice,
-  type RouterSlice,
-  type ToolClassOf,
-  type ToolSlice,
-} from "./slices.js";
-import { toolNameOf } from "./script.js";
+import { TestFailure } from "./errors.js";
+import type { TestRunOptions, ToolClassOf } from "./slices.js";
+import type { UnitRun } from "./units/unit-types.js";
+import type { ToolOutput } from "../tools/index.js";
 import { isListedProvider, rememberListedProviders } from "../application/listed-providers.js";
 import { meshSettingsOf, rememberMeshSettings } from "../mesh/mesh-settings.js";
-import { definedOf, lazyLoad } from "../infrastructure/clock.js";
+import { lazyLoad } from "../infrastructure/clock.js";
+import {
+  checked,
+  forwardedControlOf,
+  probesOf,
+  resolvingOf,
+  runsOf,
+  slicesOf,
+} from "./test-app-parts.js";
 
 /**
  * The app of a test: the same `run` / `resume` as in production, built on first use (so `mockOf`
@@ -33,13 +29,17 @@ import { definedOf, lazyLoad } from "../infrastructure/clock.js";
  * after `close()` (or `recoverApp()`) but the probes (#300) fails with `test.app-closed`.
  */
 export interface TestApp extends Pick<
-  App,
+  AnyTenantApp,
   | "execute"
   | "resume"
   | "extendPause"
   | "reassignPause"
   | "close"
   | "cancel"
+  | "stop"
+  | "pause"
+  | "unpause"
+  | "getStatusHistory"
   | "checkLiveness"
   | "checkReadiness"
   | "auditLogOf"
@@ -60,42 +60,24 @@ export interface TestApp extends Pick<
    * nothing; the first `execute` builds it otherwise. A second call does nothing.
    */
   ready(): Promise<void>;
-  agent(agent: Class): AgentSlice;
-  router(router: Class): RouterSlice;
-  tool<TInput, TOutput>(tool: ToolClassOf<TInput, TOutput>): ToolSlice<TInput, TOutput>;
-}
-
-/** Rethrows what the test must see: a reported failure wins over the run's own error. */
-async function checked<T>(environment: TestEnvironment, work: () => Promise<T>): Promise<T> {
-  let value: T;
-  try {
-    value = await work();
-  } catch (error) {
-    throw environment.book.takeFailure() ?? error;
-  }
-  const failure = environment.book.takeFailure();
-  if (failure !== undefined) throw failure;
-  return value;
-}
-
-/** The workflow of the application a component is in (its first, for a shared one); else the first. */
-function workflowWith(built: BuiltApplication, component: Class): BuiltApp {
-  const found =
-    built.workflows.find((workflow) =>
-      [...workflow.bundle.graph.nodes.values()].some((node) => node.component === component),
-    ) ?? built.workflows[0];
-  // the assembly rejects an application without workflows
-  if (found === undefined)
-    throw new TestSetupError({ message: "the application has no workflows" });
-  return found;
-}
-
-/** The workflow of the application whose agents use a tool of this class. */
-function workflowWithTool(built: BuiltApplication, tool: Class): BuiltApp {
-  const name = toolNameOf(tool);
-  return (
-    built.workflows.find((workflow) => workflow.app.hasTool(name)) ?? workflowWith(built, tool)
-  );
+  /**
+   * What the app's container gives for a token (#1328): a class's instance, the value of an
+   * `InjectionToken`, or the resolved values of a `defineEnv` dictionary — `app.get(appEnv).region`.
+   * The app must be built (`await app.ready()` or an execute).
+   */
+  get<TToken extends Token>(token: TToken): Resolved<TToken>;
+  /** One action of the app on its own, as its step runs it: its input in, its output out (#1328). */
+  runAction(action: Class, input: unknown, options?: TestRunOptions): Promise<UnitRun<unknown>>;
+  /** One agent of the app on its own: an input message in, its reply out — its text, or its answer's JSON. */
+  runAgent(agent: Class, input: string, options?: TestRunOptions): Promise<UnitRun<string>>;
+  /** One router of the app on its own: an input message in, the component it chooses out. */
+  runRouter(router: Class, input: string, options?: TestRunOptions): Promise<UnitRun<Class>>;
+  /** One tool of the app, as the agents get it (validation, timeout, errors as results). */
+  runTool<TInput, TOutput>(
+    tool: ToolClassOf<TInput, TOutput>,
+    input: TInput,
+    options?: TestRunOptions,
+  ): Promise<UnitRun<ToolOutput<TOutput>>>;
 }
 
 /**
@@ -111,69 +93,6 @@ async function withProbesLoaded(building: Promise<BuiltApplication>): Promise<Bu
   return built;
 }
 
-/** The slices of single components (`app.agent(X)`, `app.router(R)`, `app.tool(T)`). */
-const slicesOf = (
-  environment: TestEnvironment,
-  built: () => Promise<BuiltApplication>,
-): Pick<TestApp, "agent" | "router" | "tool"> => ({
-  agent: (agent) => ({
-    replyWith: (task) =>
-      checked(environment, async () =>
-        agentSlice(workflowWith(await built(), agent), agent).replyWith(task),
-      ),
-  }),
-  router: (router) => ({
-    routeTo: (input) =>
-      checked(environment, async () =>
-        routerSlice(workflowWith(await built(), router), router).routeTo(input),
-      ),
-  }),
-  tool: (tool) => ({
-    invoke: (input) =>
-      checked(environment, async () =>
-        toolSlice(workflowWithTool(await built(), tool), tool).invoke(input),
-      ),
-  }),
-});
-
-/**
- * What answers during and after `close()` too: the probes (an orchestrator asks while the app
- * stops), the audit log (#501: a test reads a stopped zombie's) and the outbound calls (#505: an
- * operator reads them after the instance stopped).
- */
-const probesOf = (
-  environment: TestEnvironment,
-  probed: () => Promise<BuiltApplication>,
-): Pick<
-  TestApp,
-  | "checkLiveness"
-  | "checkReadiness"
-  | "auditLogOf"
-  | "outboundCallsOf"
-  | "pendingOutboundCallsOf"
-  | "listPauses"
-> => ({
-  checkLiveness: () => checked(environment, async () => (await probed()).app.checkLiveness()),
-  checkReadiness: () => checked(environment, async () => (await probed()).app.checkReadiness()),
-  auditLogOf: (tree) => checked(environment, async () => (await probed()).app.auditLogOf(tree)),
-  outboundCallsOf: (tree) =>
-    checked(environment, async () => (await probed()).app.outboundCallsOf(tree)),
-  pendingOutboundCallsOf: (query) =>
-    checked(environment, async () => (await probed()).app.pendingOutboundCallsOf(query)),
-  listPauses: (query) => checked(environment, async () => (await probed()).app.listPauses(query)),
-});
-
-/** The built app's execution control (#807), reached once the app is built. */
-function forwardedControlOf(readyApp: () => App): ExecutionControl {
-  const control = (): ExecutionControl =>
-    definedOf(executionControlOf(readyApp()), "a built application has its execution control");
-  return {
-    cancelExecution: (request) => control().cancelExecution(request),
-    executionStateOf: (tree) => control().executionStateOf(tree),
-    claimExecutionId: (identity) => control().claimExecutionId(identity),
-  };
-}
-
 /** The config of each workflow of the application, as assembled (a profile applied), by name. */
 const settingsOf = (environment: TestEnvironment): TestApp["settings"] =>
   Object.fromEntries(
@@ -181,7 +100,7 @@ const settingsOf = (environment: TestEnvironment): TestApp["settings"] =>
   );
 
 /** What other parts of the framework learn of a test app: its providers, mesh, trees and gate. */
-function remembering(testApp: TestApp, readyApp: () => App, gate: LeaseGate): TestApp {
+function remembering(testApp: TestApp, readyApp: () => AnyTenantApp, gate: LeaseGate): TestApp {
   // a listener built from this app checks its providers like the built application's (#387)
   rememberListedProviders(testApp, (cls) => isListedProvider(readyApp(), cls) ?? false);
   rememberMeshSettings(testApp, () => meshSettingsOf(readyApp()));
@@ -190,6 +109,27 @@ function remembering(testApp: TestApp, readyApp: () => App, gate: LeaseGate): Te
   // `leases.freeze(app)` closes this instance's gate (#471)
   rememberLeaseGate(testApp, gate);
   return testApp;
+}
+
+/** The pause and stop controls of a test app: the built application's own, under the app's checks. */
+function controlsOf(
+  environment: TestEnvironment,
+  built: () => Promise<BuiltApplication>,
+): Pick<TestApp, "extendPause" | "reassignPause" | "cancel" | "stop" | "pause" | "unpause"> {
+  return {
+    extendPause: (request, options) =>
+      checked(environment, async () => (await built()).app.extendPause(request, options)),
+    reassignPause: (request, options) =>
+      checked(environment, async () => (await built()).app.reassignPause(request, options)),
+    cancel: (thread, options) =>
+      checked(environment, async () => (await built()).app.cancel(thread, options)),
+    stop: (thread, options) =>
+      checked(environment, async () => (await built()).app.stop(thread, options)),
+    pause: (thread, options) =>
+      checked(environment, async () => (await built()).app.pause(thread, options)),
+    unpause: (thread, options) =>
+      checked(environment, async () => (await built()).app.unpause(thread, options)),
+  };
 }
 
 export function createTestApp(environment: TestEnvironment): TestApp {
@@ -208,7 +148,7 @@ export function createTestApp(environment: TestEnvironment): TestApp {
     ));
   };
   const probed = (): Promise<BuiltApplication> => building ?? built();
-  const readyApp = (): App => {
+  const readyApp = (): AnyTenantApp => {
     if (ready === undefined) {
       const message = "the app is not built yet — await app.ready() (or an execute) before resolve";
       throw new TestFailure({ code: "test.app-not-ready", message });
@@ -218,22 +158,14 @@ export function createTestApp(environment: TestEnvironment): TestApp {
   const testApp: TestApp = {
     clock: environment.clock,
     settings: settingsOf(environment),
-    execute: (start, input, ...options) =>
-      checked(environment, async () => (await built()).app.execute(start, input, ...options)),
-    resume: (request, options): Promise<ExecutionOutput> =>
-      checked(environment, async () => (await built()).app.resume(request, options)),
-    extendPause: (request, options) =>
-      checked(environment, async () => (await built()).app.extendPause(request, options)),
-    reassignPause: (request, options) =>
-      checked(environment, async () => (await built()).app.reassignPause(request, options)),
-    cancel: (thread, options) =>
-      checked(environment, async () => (await built()).app.cancel(thread, options)),
+    ...runsOf(environment, built),
+    ...controlsOf(environment, built),
     ...probesOf(environment, probed),
     ready: () =>
       checked(environment, async () => {
         await built();
       }),
-    resolve: (token) => readyApp().resolve(token),
+    ...resolvingOf(readyApp),
     close: async (options) => {
       closed = true;
       if (building !== undefined) await (await building).app.close(options);

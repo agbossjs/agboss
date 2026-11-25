@@ -1,6 +1,7 @@
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
 import { fileRuntimeOf, type AnswerFileReading } from "../../files/file-runtime.js";
 import type { AgentDefinition, AgentLoopDeps } from "../../graph/agent-loop/deps.js";
+import { toolInlineFilesOf } from "../../files/inline-offload.js";
 import type { GraphDeps } from "../../graph/deps.js";
 
 /**
@@ -11,8 +12,9 @@ export const loopPoliciesOf = (
   deps: GraphDeps<string>,
   agent: string,
   definition: AgentDefinition,
-): Pick<AgentLoopDeps, "pii" | "guardrails" | "interceptors" | "fileRuntime"> => ({
+): Pick<AgentLoopDeps, "pii" | "guardrails" | "interceptors" | "fileRuntime" | "inlineFiles"> => ({
   fileRuntime: fileRuntimeOf(deps, definition),
+  inlineFiles: toolInlineFilesOf(deps),
   ...(deps.pii === undefined ? {} : { pii: deps.pii.policiesOf(agent) }),
   guardrails: deps.guardrails?.inputOf(agent) ?? [],
   ...(deps.toolInterceptors === undefined

@@ -10,20 +10,20 @@ same `app`.
 
 <!--
 ```ts file=job-scout.workflow.ts
-import { Agent, Workflow, WorkflowFinish, WorkflowStart, start } from "@agboss/core";
+import { inline, Agent, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @WorkflowStart({ name: "chat-workflow-start", description: "A message", input: WorkflowStartTextDto })
 export class ChatWorkflowStart {}
 @WorkflowFinish({ name: "chat-workflow-finish", description: "The answer", output: WorkflowFinishTextDto })
 export class ChatWorkflowFinish {}
-@Agent({ name: "shortlist-agent", description: "Keeps the shortlist", prompt: "Keep the shortlist.", model: "moonshotai/kimi-k2.6" })
+@Agent({ name: "shortlist-agent", description: "Keeps the shortlist", prompt: inline("Keep the shortlist."), model: "moonshotai/kimi-k2.6" })
 export class ShortlistAgent {}
 @Workflow({
   name: "job-scout-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChatWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChatWorkflowStart)
       .toAgent(ShortlistAgent)
       .toFinish(ChatWorkflowFinish),
   ],
@@ -38,7 +38,7 @@ import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope, Emp
 import { usd, type Usd } from "@agboss/core/units";
 import { JobScout } from "./job-scout.workflow.js";
 
-// config/budget.config.ts in a project: the whole application, a tenant per day, every execution
+// budgets/application.budgets.ts in a project: the whole application, a tenant per day, every execution
 @Budget({ name: "application-daily-budget", scope: BudgetScope.Application, period: BudgetPeriod.Day })
 export class ApplicationDailyBudget implements BudgetHandler {
   maxSpend(): Usd {
@@ -79,7 +79,7 @@ import { JobScoutApplication } from "./job-scout.application.js";
 ```ts
 import { ExecutionStatus, createApp } from "@agboss/core";
 
-// optional: { env: "staging", profile: "scout-low-thinking" }
+// optional: { env: "staging", profile: "scout-low-thinking" } or { profile: "prod,economy" }
 const app = await createApp(JobScoutApplication);
 
 const first = await app.execute(ChatWorkflowStart, { text: "save the first job" });
@@ -133,7 +133,7 @@ two → `[di.ambiguous-implementation]`. A service that needs one injects the co
 | `ExecutionTreeRepository`       | the shared state of one request (`saveIfAbsent`, `findById` inside an execution; removed when the tree ends)                                                                                                                                                                                                                                                                                                                                  | in memory        |
 | `RateLimitRepository`           | concurrency slots as leases (`acquire(key, maxSlots, lease)`, `renew`, `release`) — the model providers' limits (#266)                                                                                                                                                                                                                                                                                                                        | in memory        |
 | `ExecutionHistoryRepository`    | each root execution's history, masked, only with `@Application({ retention: { executionRecords } })` (#401, [Execution history](Execution-history))                                                                                                                                                                                                                                                                                           | in memory        |
-| `ChildExecutionQueueRepository` | the children launched with `ChildPlacement.AnyInstance`, claimed by any instance (#333, [Several instances](Several-instances#children-on-any-instance-333))                                                                                                                                                                                                                                                                                  | in memory        |
+| `ChildExecutionQueueRepository` | the children launched with `ChildPlacement.AnyWorker`, claimed by any instance (#333, [Several instances](Several-instances#children-on-any-instance-333))                                                                                                                                                                                                                                                                                    | in memory        |
 
 **Ids** (#313) are infrastructure too, like the `Clock`: the `IdGenerator` contract —
 `newThreadId()` and `newExecutionId()` — gives every thread id the framework mints (`app.execute`
@@ -169,17 +169,17 @@ failed or cancelled, of any tenant — fails the new one with `DuplicateExecutio
 (`run.duplicate-execution-id`; `generator`, never the id): a root before its budgets, its thread or
 its lease, a child or a level before it starts. Without it, a sequential generator restarted on a
 kept database gave a new tree an old tree's lease, fencing token, audit log and step keys
-(`<executionId>:<nodeId>:<visit>`), and a fenced effect or an outbound call replayed the other tree's
+(`<executionId>:<nodeId>:<visit>`), and an idempotent write or an outbound call replayed the other tree's
 result. Of two instances minting one id at once, one runs. A resume or a recovery keeps its id and is
 not a create; a create that fails after its id was kept leaves the id taken and nothing else.
 The ids of before an upgrade are kept too (#638): a SQLite file of an older version fills
-`execution_ids` from its leases (roots, `AnyInstance` children) and from its outbound calls — every
-execution that made one, a `ParentInstance` child's too, whose step-keyed key
+`execution_ids` from its leases (roots, `AnyWorker` children) and from its outbound calls — every
+execution that made one, a `CurrentProcess` child's too, whose step-keyed key
 (`<executionId>:<nodeId>:<visit>:<name>`) the other system has seen and would answer again with the
 old call's response — and (#663) from its pauses, every execution that paused and its tree: a
-pause is found by its step key, so a `ParentInstance` child of before that paused and sent nothing
+pause is found by its step key, so a `CurrentProcess` child of before that paused and sent nothing
 would otherwise be minted again and its step would find the old pause's decision; agbossjs/postgres
-does the same in migrations `0018`, `0019` and `0020`. A `ParentInstance` child of before that sent
+does the same in migrations `0018`, `0019` and `0020`. A `CurrentProcess` child of before that sent
 nothing and paused nothing shares no key with another system nor with this one's stores.
 A pause is found by its step key **in its tree** (#663: `PausedExecutionRepository.findOrCreateByStepKey`
 matches the tenant, `rootExecutionId` and step key): even an id minted again that the kept ids miss
@@ -212,21 +212,22 @@ export class PrefixedIdGenerator extends IdGenerator {
 }
 ```
 
-**Model providers** (#266) are infrastructure too: `@ModelProvider` classes in the same
-`providers` list — none listed → the built-in `OpenRouterModelProvider` + `DecisionsModelProvider`,
-one listed → the list is complete. They are not created by the container and not injected; the
-application's model gateway calls them ([Model providers](Model-providers#register-them-in-the-application)).
+**Model providers** (#266, #1313) are infrastructure too: `@ModelProvider` classes, driver-based and
+named through `@Application({ modelProvider })` or a component's own `modelProvider` — there is no
+built-in one. They are not created by the container and not injected; the application's model gateway
+calls them ([Model providers](Model-providers#register-them-in-the-application)).
 
-Nothing is written to the home folder: with the defaults, records, spend, pauses and leases live in
-the instance and are gone after a restart. Each contract has a ready SQLite implementation, enabled
-only by listing it (`SqliteExecutionRecordRepository`, `SqliteCostLedgerRepository`,
-`SqlitePausedExecutionRepository`, `SqliteCheckpointSaver`, `SqliteExecutionLeaseRepository`,
-`SqliteExecutionTreeRepository`, `SqliteRateLimitRepository`, `SqliteExecutionHistoryRepository`,
-`SqliteChildExecutionQueueRepository` — one file, the environment's
-`sqlitePath`, required only then: [Several instances → SQLite](Several-instances#sqlite--several-instances-on-one-machine));
-your own `extends` the contract and goes in `@Application({ providers })`. A workflow run on its
-own (`agboss eval` / `replay` / `golden`, `createAppDeps`) uses the infrastructure of the one
-application that lists it.
+Nothing is written to the home folder: with no `storage` (`InMemoryDatabaseStorage`), records, spend,
+pauses and leases live in the instance and are gone after a restart. Where the durable rows go is one
+**storage component** (#1321): `@Application({ storage: DeskDatabaseStorage })` names a
+`@DatabaseStorage({ driver, auditLogTtl, ledgerEntriesTtl, … })` — the core ships `SqliteDriver({ path })`,
+`@agboss/postgres` and `@agboss/mongodb` their own drivers — and every store of the database (records,
+ledger, pauses, leases, trees, rate limits, checkpoints, the child queue, history, …) is created by the
+driver over one connection; `{ database, cluster?, objects? }` adds a `@ClusterStorage` (Redis) and an
+`@ObjectStorage` (files) beside it ([Several instances → SQLite](Several-instances#sqlite--several-instances-on-one-machine)).
+A store of your own `extends` its contract and is a driver's store, written with `defineStorageDriver`
+([Your own store](Your-own-store)). A workflow run on its own (`agboss eval` / `replay` / `golden`,
+`createAppDeps`) uses the infrastructure of the one application that lists it.
 Running more than one instance: [Several instances](Several-instances). Every store contract has a
 fast `ping()` (#300) — `app.checkReadiness()` calls it; a project's own implementation adds it
 ([Health checks](Health-checks)).
@@ -244,13 +245,12 @@ logs none of it. Observers are listed in `@Application({ observers })` only
 
 `agboss describe` (the application of `package.json`, or `--application <path>`, #268) shows the
 application once: its tree of workflows, starts and children, each infrastructure contract with its
-implementation and why (`CostLedgerRepository → SqliteCostLedgerRepository (listed in @Application
-providers)` / `(built-in default: none listed)`, the `Logger`, the `Clock` and the
+implementation and why (`CostLedgerRepository → SqliteCostLedgerRepository (job-scout-database-storage, driver sqlite)` / `(in-memory default: no storage)`, the `Logger`, the `Clock` and the
 `IdGenerator` included), the model
 providers, the channels, the budgets by scope with their periods, the execution budget that caps
 each workflow (its own or the default — when it is the root of `app.execute`; nested, it spends from
 its root's), the observers and the assembly warnings; then each workflow with its count limits
-(`maxSteps` set or default, each node's `maxVisits`, `maxDepth`, `maxConcurrentExecutions`, the
+(`maxSteps` set or default, each node's `maxVisits`, `maxDepth`, `maxConcurrency`, the
 worst case of each start with how each number is made up — the [check report](CLI#the-check-report-268)).
 `--json` gives the same as `application` and each workflow's `limits`.
 
@@ -268,10 +268,10 @@ worst case of each start with how each number is made up — the [check report](
   characters, a control character) is `InvalidThreadIdError` (`run.invalid-thread-id`, an
   `onExecutionRejected`). `ownerId` (a thread created with an owner rejects another one — `ThreadOwnerError`),
   `tenant` / `execution` (the typed values of the context levels), `signal`, `onStream` (the answer's text and
-  tool-call events — `{ kind: "textDelta", delta }` of an `@Agent`'s own answering model call, and `{ kind: "toolCall", tool }` as an
-  agent's tool call starts, its name only, never its arguments, #848; **never** a router's, judge's, guardrail's, arbiter's, PII detector's, compaction's, reranker's, reply interpreter's or launch decider's model — the stream is no callback of the run, only the answering call is marked, and an agent with an `output` DTO streams no text, #1004; every `textDelta` carries `step: { agent, visit, branch, attempt }` and `{ kind: "discarded", step, reason }` retracts the text of a step — a judge's rejection, the text before a tool call, a refused move, a broken call, a failed visit —, the kept deltas joined are the reply; an agent with an output guardrail or a PII block rule has its text held until its checks passed, #1006; the stream is revealed and trimmed as the reply is — a PII token the model wrote is shown as its value, also when written in pieces, a made-up token as its kind (`<email>`), the kept deltas joined are exactly `output`, #1007; a listener that throws — or an `async` one whose promise rejects; it is never awaited — never fails the run: the first failure of a run is logged once through the `Logger` as `stream.listener-failed`, #1008, #1124; a held agent's call still goes out as a stream, its answer reaches the listener once the checks passed, #1122; a provider's `timeout` also bounds a streamed answer's silence after its first token, #1125), `configurable` (extra LangGraph keys), `record`. There is no untyped
+  tool-call events — `{ kind: StreamEventKind.TextDelta, delta, step }` of an `@Agent`'s own answering model call, and `{ kind: StreamEventKind.ToolCall, tool, step }` as an
+  agent's tool call starts, its name only, never its arguments, #848, under the step of the model call that asked for it, #1311; **never** a router's, judge's, guardrail's, arbiter's, PII detector's, compaction's, reranker's, reply interpreter's or launch decider's model — the stream is no callback of the run, only the answering call is marked, and an agent with an `output` DTO streams no text, #1004; every `textDelta` carries `step: { agent, visit, branch, attempt }` and `{ kind: "discarded", step, reason }` retracts the text of a step — a judge's rejection, the text before a tool call, a refused move, a broken call, a failed visit —, the kept deltas joined are the reply; an agent with an output guardrail or a PII block rule has its text held until its checks passed, #1006; the stream is revealed and trimmed as the reply is — a PII token the model wrote is shown as its value, also when written in pieces, a made-up token as its kind (`<email>`), the kept deltas joined are exactly `output`, #1007; a listener that throws — or an `async` one whose promise rejects; it is never awaited — never fails the run: the first failure of a run is logged once through the `Logger` as `stream.listener-failed`, #1008, #1124; a held agent's call still goes out as a stream, its answer reaches the listener once the checks passed, #1122; a provider's `timeout` also bounds a streamed answer's silence after its first token, #1125), `configurable` (extra LangGraph keys), `record`. There is no untyped
   `metadata` or `executionContext` option (#261 PR 6): channels, guardrails, MCP sessions and A2A
-  calls read the typed contexts (an A2A request's from its caller resolver, [A2A](A2A)). See
+  calls read the typed contexts (an A2A request's from its `@HttpAuthenticator`, [A2A](A2A)). See
   [Context and Authorization](Context-And-Authorization).
 - Before the first step (#261 PR 5) each budget of the execution is read once (`maxSpend()`, in the
   execution's context) and checked: one exhausted refuses it with `BudgetExceededError`
@@ -285,7 +285,7 @@ worst case of each start with how each number is made up — the [check report](
 | `status`                               | `ExecutionStatus.Finished` or `ExecutionStatus.Paused`                                                                                                                                                      |
 | `finish`                               | the `@WorkflowFinish` the run reached, as `{ name }` (absent when paused)                                                                                                                                   |
 | `output`                               | the finish's DTO — the business result only (`WorkflowFinishTextDto`: `{ text }`), typed by the finishes of the start's paths                                                                               |
-| `record`                               | with `execute(…, { record: true })`: the execution record (path scope, last error)                                                                                                                          |
+| `record`                               | with `execute(…, { includeRecord: true })`: the execution record (path scope, last error)                                                                                                                   |
 | `pending`                              | every pause the run waits for — `PendingPause[]` ([Pauses](Pauses)), empty unless paused                                                                                                                    |
 | `path`                                 | the flow nodes it visited, in order, by name                                                                                                                                                                |
 | `spend`                                | the `CostReport` of this run ([FinOps](FinOps))                                                                                                                                                             |
@@ -295,21 +295,21 @@ worst case of each start with how each number is made up — the [check report](
 A run that fails (a limit, a router, an agent) and that no `.onError` takes throws an `AGBossError`
 with a stable `code`; the Turn and the spend are recorded first.
 
-**`@Application({ compensationTimeout })`** (#340, default `seconds(15)`): how long each automatic
+**`@Application({ executionLimits: { compensationTimeout } })`** (#340, default `seconds(15)`): how long each automatic
 undo action may run — its clean-up `executionContext.signal` aborts after it (and when the instance
 loses the tree's lease or stops), not with the execution's; a failed join also waits this long for
 its launch's branches still running before it undoes ([Rollback](Rollback#a-failed-join-undoes-its-finished-branches)).
 
-## `app.resume({ pauseId, decision }, { tenantId, ownerId | answeredBy })`
+## `app.resume({ pauseId, decision }, { tenantId, ownerId | actor })`
 
 Answers **one pause, by its id** (#267) — never by thread: the pause is found by `(tenantId,
 pauseId)` anywhere in its execution tree (a parallel branch, later a child); an unknown id, or
-another tenant's, is the same `UnknownPauseError` (`pause.unknown`). A resume takes keys and
+another tenant's, is the same `UnknownPauseError` (`pause.unknown-pause`). A resume takes keys and
 credentials only — the tenant by its id (omitted → `"default"`) and who answers, as the pause's
-channel role says (`answerer` on `@ChannelRole`): `ownerId` for a `PauseAnswerer.ThreadOwner`
-pause (another → `ThreadOwnerError`), a non-empty `answeredBy` for a `PauseAnswerer.Channel` one;
-the other credential → `PauseAnswererError`. The decision is a `ToolCallApprovalDecisionDto`
-(`approved`, `reason?`, `overrideArguments?` only with `approved: true`), validated before it is
+target says (`respondent` on `@ToolApproval` / `@ExternalTask`): `ownerId` for a `PauseRespondent.Owner`
+pause (another → `ThreadOwnerError`), a non-empty `actor` for a `PauseRespondent.Delegate` one;
+the other credential → `PauseError.PermissionDenied`. The decision is a `ToolCallApprovalDecisionDto`
+(`approved`, `reason?`, `overrideInput?` only with `approved: true`), validated before it is
 recorded (`DtoValidationError`; the pause keeps waiting). The execution runs on the context values
 it started with ([Context and Authorization](Context-And-Authorization#the-values-per-execution)),
 as the thread's owner; the result has the same shape — `threadId` and `executionId` included — and, when
@@ -325,48 +325,48 @@ atomically, so a second resume of the same pause gets `PauseClosedError` (`reaso
 and continues with every answer recorded for the tree. While another call or instance moves the
 tree it waits, and returns the tree's current output once the holder took its decision
 ([Several instances](Several-instances#the-execution-lease)). Observers get `onExecutionResume` —
-one per decision taken, with `answeredBy` — and `reason: ResumeReason.Answered`
+one per decision taken, with `actor` — and `reason: ResumeReason.Answered`
 (`ResumeReason.Recovered` when [recovery](Several-instances#recovery) continues a tree).
 
-## `@PauseListener` (#940)
+## `@ChannelListener` (#940)
 
-A class listed in `@Application({ providers })` with `@PauseListener({ name: "…-pause-listener",
-deps?, allowAnswering? })` and `implements PauseListenerHandler` hears every pause of the
+A class listed in `@Application({ providers })` with `@ChannelListener({ name: "…-pause-listener",
+deps?, includePauseIds? })` and `implements ChannelListenerHandler` hears every pause of the
 application open and close, at least once ([Pauses → Telling the channel and the
 listeners](Pauses#telling-the-channel-and-the-listeners-940)). The container creates it at start —
 its `onInit` / `onStart` run with the application's — one instance for every workflow. `agboss
-describe` lists the listeners and marks `allowAnswering`.
+describe` lists the listeners and marks `includePauseIds`.
 
-## `app.extendPause({ pauseId, expiresIn }, { tenantId, ownerId | answeredBy })` (#942)
+## `app.extendPause({ pauseId, expiresIn }, { tenantId, ownerId | actor })` (#942)
 
 Moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension { pauseKey, expiresAt,
-previousExpiresAt }`. Who may: as an answer (the `ownerId` of a thread owner's pause, the `answeredBy` of
+previousExpiresAt }`. Who may: as an answer (the `ownerId` of a thread owner's pause, the `actor` of
 a channel's). The options are `PauseCallerOptions` — the caller fields only, no `signal` / `onStream` /
 `record`: nothing runs. Refused: a closed or expired pause (`PauseClosedError`), a pause with no deadline,
 a deadline not later than the current one or past the one the pause was made under (`DtoValidationError`,
 `dto: "ExtendPauseRequest"`), another tenant's pause (`UnknownPauseError`). Atomic in the store against
 the expiry look; no lease is taken. [Pauses → Extending a pause](Pauses#extending-a-pause-and-reminding-before-its-deadline-942).
 
-## `app.listPauses({ tenantId, status?, role?, expiringBefore?, limit?, after? })` (#943)
+## `app.listPauses({ tenantId, status?, target?, expiringBefore?, limit?, after? })` (#943)
 
 An operator's queue of one tenant's pauses, a page at a time: `PausesPage { pauses: ListedPause[]; next? }`.
-`status` is one `PauseStatus` or a list (default `Pending`); `role` the channel's name; `expiringBefore` a
+`status` is one `PauseStatus` or a list (default `Pending`); `target` the pause target's name; `expiringBefore` a
 `Date` (a pause with no deadline is never listed by it); `limit` 1 to 1000 (default 100); `after` the
 `next` of the page before. Pauses come in the order they were made and the cursor is a position in that
 order — never an offset — so a pause that opens or closes between two pages makes no other pause skipped
-or repeated. A `ListedPause` shows `pauseId` as `result.pending` does (only a `ThreadOwner` pause's; a
+or repeated. A `ListedPause` shows `pauseId` as `result.pending` does (only an `Owner` pause's; a
 channel pause's id stays with its channel), its `pauseKey` always, `kind`, `step`, `channel`,
 `answerer`, `status`, `rootExecutionId`, `threadId`, `askedAt`, `expiresAt`; a closed one also `reason`
-(`PauseClosedReason`), `closedAt` and `answeredBy` (who answered; absent when its channel decided). Its
+(`PauseClosedReason`), `closedAt` and `actor` (who answered; absent when its channel decided). Its
 `ask` is masked by the policies of the workflow it waits in. Another tenant's pauses are never listed; an
 invalid query is a `DtoValidationError` (`dto: "PausesQuery"`). On the application the method finds each
 pause's workflow by its root's; a pause of a workflow the application no longer lists is masked with the
 union of every workflow's policies (fail closed).
 
-## `app.reassignPause({ pauseId, assignee }, { tenantId, ownerId | answeredBy })` (#946)
+## `app.reassignPause({ pauseId, assignees }, { tenantId, ownerId | actor })` (#946)
 
 Moves an open pause to another addressee of the same channel — `send` again with a new `pauseId`,
-`ChannelAsk.assignee` and `ChannelAsk.replaces` (the old id), `onPauseClosed` told `reassigned` for the old
+`ChannelAsk.assignees` and `ChannelAsk.replaces` (the old id), `onPauseClosed` told `reassigned` for the old
 message, in no fixed order — and returns `PauseReassignment { pauseKey }`: the new id goes to the channel only.
 Who may: as an answer; the options are `PauseCallerOptions`, as `extendPause`. The old id is `PauseClosedError`
 (`reassigned`) from then on; the deadline is kept; the agent and the step do not run again. Refused: a closed
@@ -395,7 +395,7 @@ an execution starts, so observers get `onExecutionRejected` (`operation: Executi
    shutdown timeout and logged `app.stop-store-call-pending` (#923) — it never holds the stop;
 2. `onStop` of the components;
 3. it waits for the running executions of every workflow to finish or pause — the whole stop
-   ends within the **shutdown timeout**: `@Application({ shutdownTimeout })`, overridden by
+   ends within the **shutdown timeout**: `@Application({ executionLimits: { shutdownTimeout } })`, overridden by
    `app.close({ timeout })`, default `seconds(25)` (under the usual 30 s grace period of a
    platform and the 30 s lease). A **grace** before its end — `min(seconds(5), 20 %)` of it
    (#367 S3: `seconds(25)` → 5 s, `seconds(10)` → 2 s; not a setting) — what still runs is
@@ -438,16 +438,18 @@ import { seconds } from "@agboss/core/units";
 await app.close({ timeout: seconds(10) }); // interrupted at 8 s, its bodies awaited until 10 s
 ```
 
-**SIGTERM / SIGINT.** `createApp` listens for both and calls `app.close()` (a platform stopping the
-instance, Ctrl+C); a second signal while it stops interrupts at once. The listeners are removed when
+**SIGTERM / SIGINT.** `createApp(App, { handleSignals: true })` listens for both and calls `app.close()` (a
+platform stopping the instance, Ctrl+C); a second signal while it stops interrupts at once. The default is
+`false`: a library never takes the process's signals unasked (`@agboss/cli` passes `true`). The listeners are removed when
 `close()` finishes, however it was called; when nothing else listens for the signal received, it is
 then raised again, so the process ends as it would have without the app. `testWith` never listens.
 
 ## `app.checkLiveness()` / `app.checkReadiness()`
 
-The instance's probes (#300) → `HealthReport { status, components }`, never a rejection.
+The instance's probes (#300) → `HealthReport { status, components, isBusy, isAlive, isReady }`, never a rejection
+(`isBusy`: every step slot taken; `isAlive`: not `Unhealthy`; `isReady`: alive and not busy — 200, else 503).
 Liveness reads only the instance itself: `Unhealthy` (`stopping`) from `app.close()` on, and when
-its recovery loop is stuck. Readiness adds every store's `ping()`, the model providers' circuit
+its recovery loop is stuck. Readiness adds one `ping()` per storage component, the model providers' circuit
 breakers (open → `Degraded`) and the project's `@HealthCheck`s of `@Application({ healthChecks })`.
 The project's server exposes them ([Health checks](Health-checks)).
 
@@ -465,6 +467,7 @@ OnStop, OnDestroy`, each optional (#261):
 | `onDestroy` | the running executions on this instance have finished, paused or been interrupted | closing connections, releasing resources         |
 
 <!-- snippet-context
+import { onStart } from "@agboss/core";
 import { Injectable, type OnDestroy, type OnInit, type OnStart, type OnStop } from "@agboss/core";
 interface Pool {
   ping(): Promise<void>;
@@ -528,7 +531,7 @@ default. Infrastructure is not an option: it is listed in `@Application({ provid
 | `clock`                   | the system clock (the built-in ledger's UTC day, the records' times)                              |
 | `newThreadId`, `newRunId` | random UUIDs                                                                                      |
 | `container`               | `overrides` (values instead of classes — test mocks), `onCreate`                                  |
-| `profile`, `profileRoot`  | none ([Profiles and comparisons](Profiles-and-comparisons))                                       |
+| `profile`                 | none ([Configuration → Profiles](Configuration#profiles-srcconfig-1318))                          |
 
 `@agboss/core/testing` builds its apps with these: a scripted gateway, stubbed MCP servers, a test clock,
 deterministic ids — on the infrastructure the application lists.

@@ -1,3 +1,5 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #551 acceptance, #567 — what each way a lease ends tells the operator. The message says what is
  * known: the lease is over, this instance stops, the next take continues; another instance is named
@@ -13,7 +15,7 @@ import {
   leaseExpiredError,
   leaseTakenWhileYieldedError,
 } from "../../src/app/lease-lost.js";
-import { ExecutionFencedError } from "../../src/index.js";
+import {} from "../../src/index.js";
 import { seconds } from "../../src/units/index.js";
 import {
   keyOf,
@@ -37,26 +39,28 @@ describe("#551 / #567: the messages of the ways a lease ends, built", () => {
     ["a renewal refused", new ExecutionLeaseLostError({ rootExecutionId: "execution-1" })],
     ["the holder's own expiry (frozen or cut off)", leaseExpiredError("execution-1")],
     ["a reclaim after a remote-child wait", leaseTakenWhileYieldedError("execution-1")],
-    ["a fenced write, no token named", ExecutionFencedError.of({ scopeKey: "a:b", token: 2 })],
+    ["a fenced write, no token named", fencedRefusalOf({ scopeKey: "a:b", token: 2 })],
     [
       "a fenced write, the same token seen",
-      ExecutionFencedError.of({ scopeKey: "a:b", token: 2, observedToken: 2 }),
+      fencedRefusalOf({ scopeKey: "a:b", token: 2, observedToken: 2 }),
     ],
     [
       "a fenced write, an older token seen",
-      ExecutionFencedError.of({ scopeKey: "a:b", token: 2, observedToken: 1 }),
+      fencedRefusalOf({ scopeKey: "a:b", token: 2, observedToken: 1 }),
     ],
   ])(
     "%s: the lease is over and the next take continues — no other instance as a fact",
     (_way, error) => {
-      expect(error).toBeInstanceOf(ExecutionLeaseLostError);
+      expect(
+        error instanceof ExecutionLeaseLostError || error instanceof ExecutionError.Fenced,
+      ).toBe(true);
       expect(error.message).not.toMatch(ANOTHER_AS_FACT);
       expect(error.message).toMatch(STOPS);
     },
   );
 
   it("a fenced write after a newer take: the newer token, and its holder continuing", () => {
-    const { message } = ExecutionFencedError.of({ scopeKey: "a:b", token: 2, observedToken: 5 });
+    const { message } = fencedRefusalOf({ scopeKey: "a:b", token: 2, observedToken: 5 });
 
     expect(message).toMatch(/saw token 5 — a newer take of the lease/);
     expect(message).toMatch(/the holder of token 5 continues/);
@@ -64,7 +68,7 @@ describe("#551 / #567: the messages of the ways a lease ends, built", () => {
   });
 });
 
-type AnyStores = FencedEffectTarget<unknown>;
+type AnyStores = FencedEffectTarget;
 
 const TARGETS: readonly (readonly [string, () => ContractTarget<AnyStores>])[] = [
   ["in-memory", () => inMemoryTarget(inMemoryFencedEffects(false))],
@@ -90,7 +94,7 @@ describe.each(TARGETS)(
 
         const error = await refusalOf(first, key);
 
-        expect(error).toBeInstanceOf(ExecutionFencedError);
+        expect(error).toBeInstanceOf(ExecutionError.Fenced);
         expect((error as Error).message).toMatch(/saw token 1, no newer take — the lease is over/);
         expect((error as Error).message).not.toMatch(ANOTHER_AS_FACT);
       })();
@@ -103,7 +107,7 @@ describe.each(TARGETS)(
 
         const error = await refusalOf(first, keyOf(lease));
 
-        expect(error).toBeInstanceOf(ExecutionFencedError);
+        expect(error).toBeInstanceOf(ExecutionError.Fenced);
         expect((error as Error).message).toMatch(/the lease is over/);
         expect((error as Error).message).not.toMatch(ANOTHER_AS_FACT);
       })();
@@ -118,7 +122,7 @@ describe.each(TARGETS)(
 
         const error = await refusalOf(first, key);
 
-        expect(error).toBeInstanceOf(ExecutionFencedError);
+        expect(error).toBeInstanceOf(ExecutionError.Fenced);
         expect((error as Error).message).toMatch(/the lease is over/);
         expect((error as Error).message).not.toMatch(ANOTHER_AS_FACT);
       })();
@@ -132,7 +136,7 @@ describe.each(TARGETS)(
 
         const error = await refusalOf(first, key);
 
-        expect(error).toBeInstanceOf(ExecutionFencedError);
+        expect(error).toBeInstanceOf(ExecutionError.Fenced);
         expect((error as Error).message).toMatch(/saw token 2 — a newer take of the lease/);
       })();
     });

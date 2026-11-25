@@ -7,7 +7,7 @@ import {
 import type { HistoryTurn, ReaderMemory } from "../flow/runtime/history.js";
 import type { Summary, Turn, TurnRecords, TurnStore } from "../turns/index.js";
 import { isTurn, toTurns } from "./turns.js";
-import { CompactionStrategy, type UncompactedTurns } from "../compaction/compaction.decorator.js";
+import { CUSTOM_COMPACTION, type UncompactedTurns } from "../memory/memory.decorator.js";
 import { TurnLimit } from "../config/types.js";
 import {
   memoryPlanOf,
@@ -15,8 +15,8 @@ import {
   type CompactionInUse,
   type MemoryPlan,
   type MemoryReader,
-} from "../compaction/plan.js";
-import { summaryTextsOf } from "../compaction/stored-summaries.js";
+} from "../memory/plan.js";
+import { summaryTextsOf } from "../memory/stored-summaries.js";
 import { NodeKind } from "../flow/ast.js";
 import type { AgentExecutionDeps } from "./types.js";
 
@@ -79,7 +79,8 @@ export async function isNewThread(
   const thread = await turns.threadOwner(bundle, access.tenantId, access.threadId);
   if (thread === undefined) return true;
   if (thread.owner !== access.ownerId) throw notTheOwner(access.threadId);
-  return false;
+  // a swept thread (#1303c) is its owner's to restart: created again, once the budgets pass
+  return thread.isSwept === true;
 }
 
 /** No such thread in the tenant — with no hint whether another tenant has the id. */
@@ -100,9 +101,9 @@ export async function checkThreadAccess(
   if (thread.owner !== access.ownerId) throw notTheOwner(access.threadId);
 }
 
-/** A window as a count of turns: `TurnLimit.ALL` is every one. */
+/** A window as a count of turns: `TurnLimit.All` is every one. */
 const depthOf = (window: UncompactedTurns): number =>
-  window === TurnLimit.ALL ? Number.MAX_SAFE_INTEGER : window;
+  window === TurnLimit.All ? Number.MAX_SAFE_INTEGER : window;
 
 /** What one compaction holds of the thread: its turns not yet summarised, its latest summaries. */
 interface CompactionState {
@@ -112,7 +113,7 @@ interface CompactionState {
 
 /** A compaction's stored summaries as readers see them: a custom one's record is its whole list (#382). */
 const readableSummaries = (compaction: CompactionInUse, stored: readonly Summary[]): Summary[] =>
-  compaction.strategy === CompactionStrategy.Custom
+  compaction.strategy === CUSTOM_COMPACTION
     ? stored.flatMap((summary) =>
         summaryTextsOf(summary.text).map((text) => ({ ...summary, text })),
       )
@@ -204,7 +205,7 @@ export async function threadMemoryOf<TName extends string>(
   deps: AgentExecutionDeps<TName>,
   thread: Pick<ThreadAccess, "tenantId" | "threadId">,
 ): Promise<ThreadMemory> {
-  const plan = memoryPlanOf(deps.config, deps.compactions);
+  const plan = memoryPlanOf(deps.config, deps.memories);
   const states = await compactionStatesOf(deps.turns, thread, plan);
   const readers = readersOf(deps, plan);
   const depths = new Map(

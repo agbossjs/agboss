@@ -1,6 +1,13 @@
 import { ComponentError, GraphRuleError } from "@agboss/core";
 import { ConfigurationError, type ModelProblem } from "@agboss/core/models";
-import { ProfileError, type AssembledApplication } from "@agboss/core/internal";
+import {
+  diagnosticOfViolation,
+  ProfileError,
+  renderDiagnostic,
+  ruleExplanationOf,
+  type AssembledApplication,
+  type Diagnostic,
+} from "@agboss/core/internal";
 import { promptProblemsOf } from "./check-prompts.js";
 
 /** One problem `agboss check` found: `file:line code message`. */
@@ -9,6 +16,11 @@ export interface CheckProblem {
   readonly line?: number;
   readonly code: string;
   readonly message: string;
+  /**
+   * The rule's places in the user's source (#1325c): where it is broken, what explains it. Printed
+   * as a `rustc`-style snippet by `agboss check`; never part of the `--json` problem.
+   */
+  readonly diagnostic?: Diagnostic;
   /** `--federation` (#398 PR 4): the consumer's workflows a contract problem touches. */
   readonly blastRadius?: readonly {
     readonly application: string;
@@ -19,6 +31,23 @@ export interface CheckProblem {
 
 export const problemText = (problem: CheckProblem): string =>
   `${problem.file}${problem.line === undefined ? "" : `:${String(problem.line)}`} ${problem.code} ${problem.message}`;
+
+/**
+ * The problem as `agboss check` prints it: a `rustc`-style snippet when the rule's place in the
+ * source is known, else the one line `file code message`.
+ */
+export function problemBlock(problem: CheckProblem): string {
+  const { diagnostic } = problem;
+  if (diagnostic?.primary === undefined) return problemText(problem);
+  // a blank line after each snippet: the next problem starts apart
+  return `${renderDiagnostic(diagnostic, { explainHint: ruleExplanationOf(problem.code) !== undefined })}\n`;
+}
+
+/** The problem as `--json` carries it: its places in the source stay in the text. */
+export function jsonProblem(problem: CheckProblem): CheckProblem {
+  const { diagnostic, ...rest } = problem;
+  return diagnostic === undefined ? problem : rest;
+}
 
 export const modelProblem = (file: string, problem: ModelProblem): CheckProblem => ({
   file,
@@ -31,7 +60,12 @@ function problemsOfError(file: string, error: unknown): readonly CheckProblem[] 
   const prompts = promptProblemsOf(file, error);
   if (prompts !== undefined) return prompts;
   if (error instanceof GraphRuleError)
-    return error.violations.map((v) => ({ file, code: v.code, message: v.message }));
+    return error.violations.map((v) => ({
+      file,
+      code: v.code,
+      message: v.message,
+      diagnostic: diagnosticOfViolation(v),
+    }));
   if (error instanceof ConfigurationError)
     return error.problems.map((problem) => modelProblem(file, problem));
   const codes: readonly (readonly [new (...args: never[]) => Error, string])[] = [

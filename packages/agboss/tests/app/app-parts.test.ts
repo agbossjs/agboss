@@ -1,4 +1,5 @@
-import { createAppWith } from "../../src/application/create-app.js";
+import { Window1Memory } from "../helpers/window-memory.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it, vi } from "vitest";
 import { createAppDeps } from "../../src/app/app-deps.js";
 import { toolLookup, UnknownToolError } from "../../src/app/parts.js";
@@ -13,18 +14,21 @@ import {
   WorkflowSettings,
   WorkflowStart,
   type WorkflowDefinition,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { Text } from "../../src/dto/index.js";
-import { buildCostReport } from "../../src/finops/usage.js";
+import { CostReport } from "../../src/finops/usage.js";
 import { createSqliteTurnStore } from "../../src/turns/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { Desk, OrderBook, Reply } from "../testing/fixtures/desk.workflow.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const offline = () => ({
   gateway: createScriptedGateway(new ScriptBook()),
@@ -42,7 +46,7 @@ class TicketStart {}
 @Agent({
   name: "ticket-writer-agent",
   description: "Writes ticket replies",
-  prompt: "Reply to the ticket.",
+  prompt: inline("Reply to the ticket."),
   model: "test/writer",
   input: { ticket: TicketDto },
 })
@@ -51,13 +55,14 @@ class TicketWriter {}
 @Workflow({
   name: "tickets-workflow",
   version: "1.0.0",
-  flow: [start(TicketStart).returns(TicketDto).toAgent(TicketWriter).toFinish(Reply)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(TicketStart).toAgent(TicketWriter).toFinish(Reply)],
   defaults: {
     models: { temperature: 0, cache: true },
     router: { model: "typesafe/jev-1.13" },
     tools: { maxToolCalls: 1 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   providers: [OrderBook],
 })
 class Tickets implements WorkflowDefinition {
@@ -68,6 +73,7 @@ class Tickets implements WorkflowDefinition {
 
 @Application({
   name: "tickets-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [Tickets],
@@ -82,20 +88,22 @@ describe("AC12: the app's parts", () => {
 
   it("a run's result keeps memory and trace link; the record only when asked", () => {
     const run = {
-      status: ExecutionStatus.Finished,
+      status: ExecutionStatus.Finished as const,
       start: "task-workflow-start",
       startInput: { text: "hi" },
       path: ["task-workflow-start", "coder-agent"],
       budgetUsd: 1,
-      cost: buildCostReport([]),
+      cost: CostReport.fromUsage([]),
       threadId: "t",
       tenantId: "default",
       turnId: "tern",
       runId: "r",
+      finish: "task-finish",
+      output: { text: "done" },
       data: { scope: {}, outdatedValues: [], lastError: null },
       compacted: [
         {
-          compaction: "conversation-compaction",
+          memory: "conversation-memory",
           fromTurn: 1,
           toTurn: 5,
           summaries: 1,
@@ -127,7 +135,7 @@ describe("AC12: the app's parts", () => {
   });
 
   it("with no start of WorkflowStartTextDto, a plain text has no start", async () => {
-    const app = await createAppWith(TicketsApplication, offline());
+    const app = await createTestAppWith(TicketsApplication, offline());
 
     expect(app.textStart).toBeUndefined();
     await app.close();

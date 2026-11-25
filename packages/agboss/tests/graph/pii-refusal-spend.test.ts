@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366: the spend a PII refusal carries — a block rule that refuses a request, a final answer or a tool call's
  * arguments names every paid detection that led to it (the loop's own, the call's, each text searched), so the
@@ -7,13 +8,14 @@ import { AIMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { maskedRequest, outgoingMove } from "../../src/graph/agent-loop/model-pii.js";
-import { argumentsRefusal } from "../../src/graph/agent-loop/tool-pii.js";
+import { argumentsRefusalOf, screenedArguments } from "../../src/graph/agent-loop/tool-pii.js";
 
 const record = (costUsd: number, caller: string): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -82,9 +84,11 @@ describe("#1366: the usage of a refusal", () => {
   it("refused tool arguments name the detection of each string, and carry it on the result", async () => {
     const { set, refusals } = blocking();
 
-    const refusal = await argumentsRefusal(set, { to: "a", cc: ["b"] });
+    const screened = await screenedArguments(set, { to: "a", cc: ["b"] }, {});
+    const refusal = await argumentsRefusalOf(set, screened);
 
     expect(refusals.map(callers)).toEqual([["detect:a", "detect:b"]]);
-    expect(callers(refusal.usage)).toEqual(["detect:a", "detect:b"]);
+    expect(callers(screened.usage)).toEqual(["detect:a", "detect:b"]);
+    expect(refusal?.content).toContain("the call was refused");
   });
 });

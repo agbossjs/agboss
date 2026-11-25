@@ -16,47 +16,46 @@ result with `npx agboss describe`.
 
 A workflow's `flow` is a list of **paths**. A path starts at a **source**, goes through **steps**,
 and ends at a finish (or at a node that has its own path). Write **one call per line** — the gate's
-`@stylistic/newline-per-chained-call` fails `start(A).returns(B)` on one line.
+`@stylistic/newline-per-chained-call` fails `onStart(A).toAgent(B)` on one line.
 
-| Form                                                                                    | What it says                                                                                                                                               | Rules it can hit                                                                                             |
-| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `start(S)`                                                                              | where an execution begins (a `@WorkflowStart`)                                                                                                             | `[graph.no-workflow-start]`, `[graph.unreachable-node]`                                                      |
-| `agent(X)` / `router(R)` / `action(A)` / `workflow(W)`                                  | the own path of a node reached from two or more places, written once                                                                                       | `[flow.shared-node-inline]`, `[flow.single-entry-own-path]`                                                  |
-| `.returns(XDto)`                                                                        | what the step before put on the path (its scope); after `start(S)` its input                                                                               | `[flow.returns-mismatch]`, `[flow.unused-output]`                                                            |
-| `.returns(A).returns(optional(B))`                                                      | several values of one step (a start's map of fields, a join), any order                                                                                    | `[flow.returns-mismatch]`                                                                                    |
-| `.returns(XDto, { about: YDto })`                                                       | in a cycle: what the value is an answer about                                                                                                              | `[io.ambiguous-cycle]`, `[io.ambiguous-about]`, `[io.about-on-start]`                                        |
-| `.toAgent(X)` `.toAction(A)` `.toRouter(R)` `.toWorkflow(W)` `.toFinish(F)`             | the next step, by its kind (another kind does not compile)                                                                                                 | `[graph.wrong-kind]`, `[graph.dead-end]`, `[graph.next-after-workflow-finish]`                               |
-| `.toRouter(R).chooseOne(route(X)…, …)`                                                  | the router's choice: exactly one `route(…)` per `@Router` route, each continued to its end                                                                 | `[router.routes-mismatch]`, `[router.duplicate-route]`, `[graph.choose-from-non-router]`                     |
-| `.returns(oneOf(A, B)).switch(caseOf(A)…, caseOf(B)…)`                                  | a branch per variant of a `oneOf` output; `caseOf(A, { about: T })` in a cycle                                                                             | `[flow.switch-not-exhaustive]`, `[flow.switch-unknown-case]`                                                 |
-| `.onError(E, side path)`                                                                | right after the step that throws (before its `.returns`): what happens when it throws `E`                                                                  | `[flow.duplicate-error-handler]`, `[graph.limit-handler-uses-model]`, `[flow.uncompensated-action]`          |
-| side-path starters `toAction` `toAgent` `toRouter` `toQuestion` `toWorkflow` `toFinish` | the first step of a side path (functions, not methods)                                                                                                     | as for the steps                                                                                             |
-| `.toParallelAgents(A, B, B, { maxConcurrency })` / `.toParallelActions(…)`              | a launch: each listed target runs once, a repeat is a copy                                                                                                 | `[launch.join-required]`, `[launch.branch-continued]`                                                        |
-| `.returns(listOf(XDto)).toParallelAgents(X, { maxItems })`                              | one run per item of the list                                                                                                                               | `[launch.max-items-required]`, `[launch.item-not-read]`, `[launch.max-items-without-list]`                   |
-| `.join()` → `.onJoinError(E, …)` → `.returns(…)`                                        | where a launch's values meet; a failed branch's side path                                                                                                  | `[flow.returns-mismatch]`, `[launch.branch-outdates-sibling]`                                                |
-| `.acceptedBy(X)` / `.acceptedBy(anyOf(X, Y))` → `.joinQuorum({ min, max, deadline })`   | count the accepted answers instead of waiting for all                                                                                                      | `[flow.quorum-impossible]`, `[flow.quorum-return-not-optional]`, `[arbiter.*]`                               |
-| `.joinQuorumGroups(group(A, B).priority(1)…, …, { deadline })`                          | the first complete group (by priority) continues its own path                                                                                              | `[flow.quorum-impossible]`, `[flow.returns-mismatch]`                                                        |
-| `.toWorkflow(W)` / `route(W)` / `.toParallelWorkflows(W, { maxItems })`                 | a child workflow: one, chosen by a router, or one per item                                                                                                 | `[graph.no-matching-start]`, `[graph.ambiguous-start]`, `[graph.child-without-failure-finish]`               |
-| `.toQuestion(Q)` / `question(Q)`                                                        | a question role's step (#659): reads its `ask`, pauses on its channel, gives its `answer` (`.returns(AnswerDto)`) — `05-channels-and-human-in-the-loop.md` | `[name.kind-suffix]` (`-question`), `[channel.wrong-tool]`, `[graph.cycle-without-max-visits]`               |
-| `ThisWorkflow` + `@Workflow({ maxDepth })`                                              | the workflow launches itself                                                                                                                               | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
-| `@Action({ compensateWith, committedBy })`                                              | the action's undo and its commit point; side paths must run the undo                                                                                       | `[action.*]`, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`, `[flow.uncommitted-action]` |
+| Form                                                                                        | What it says                                                                                                                                                                                                                                      | Rules it can hit                                                                                             |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `onStart(S)`                                                                                | where an execution begins (a `@WorkflowStart`)                                                                                                                                                                                                    | `[graph.no-workflow-start]`, `[graph.unreachable-node]`                                                      |
+| `onAgent(X)` / `onRouter(R)` / `onAction(A)` / `onWorkflow(W)`                              | the own path of a node reached from two or more places, written once                                                                                                                                                                              | `[flow.shared-node-inline]`, `[flow.single-entry-own-path]`                                                  |
+| (no `.returns`)                                                                             | what a step gives is derived from its declaration: a start its `input` (one value per field of a map), a step its `output`, a text agent its reply, a join the branches' values                                                                   | `[flow.unused-output]`, `[input.missing-on-path]`                                                            |
+| `.toAgent(X)` `.toAction(A)` `.toRouter(R)` `.toWorkflow(W)` `.toFinish(F)`                 | the next step, by its kind (another kind does not compile)                                                                                                                                                                                        | `[graph.wrong-kind]`, `[graph.dead-end]`, `[graph.next-after-workflow-finish]`                               |
+| `.toRouter(R).onRoute(toAgent(X)…).onRoute(…)`                                              | the router's choice: exactly one `.onRoute(…)` per `@Router` route, each continued to its end                                                                                                                                                     |
+| `.toOneOf([toAction(A)…, toFinish(F)])`                                                     | a side path per variant of a `oneOf` output; each takes the variant its first step reads as input, no DTO in the flow                                                                                                                             | `[flow.one-of-not-exhaustive]`, `[flow.one-of-ambiguous]`                                                    |
+| `.toWorkflow(W).onFinish(WFinish, toAction(A)…)`                                            | one path per finish of a child workflow with two or more finishes, named by the `@WorkflowFinish` class (never a DTO), every finish once                                                                                                          | `[flow.one-of-not-exhaustive]`, `[flow.one-of-ambiguous]`                                                    |
+| `.onError(E, side path)`                                                                    | right after the step that throws: what happens when it throws `E`                                                                                                                                                                                 | `[flow.duplicate-error-handler]`, `[graph.limit-handler-uses-model]`, `[flow.uncompensated-action]`          |
+| side-path starters `toAction` `toAgent` `toRouter` `toExternalTask` `toWorkflow` `toFinish` | the first step of a side path (functions, not methods)                                                                                                                                                                                            | as for the steps                                                                                             |
+| `.inParallel([toAgent(A), toAction(X).onError(E, skip()), …], { maxConcurrency })`          | a launch of branches of any kind (`toAgent`, `toAction`, `toExternalTask`, `toWorkflow`); `.onError(E, skip())` on a branch drops its failure from the join (its value is `optional(…)`)                                                          | `[launch.skip-differs]`                                                                                      |
+| `toRouter(R).chooseMany([toAgent(A), toAgent(B)…])` inside `.inParallel([…])`               | a router picks which of its routes run (none, some or all; `[]` is an answer), siblings always run; a code router's `route()` returns the chosen classes, `routes: [A, () => B]` is a flat list                                                   | `[router.routes-mismatch]`                                                                                   |
+| `.forEachItem(toAgent(A), { takeFirst: 4, maxConcurrency })` / `{ maxItems: 20 }`           | one run per item of the list the step before gives; `takeFirst` runs the first N and reports the rest dropped (`onLaunchItemsTruncated`), `maxItems` throws `LimitError.Items` before any branch and needs `.join().onError(LimitError.Items, …)` | `[launch.max-items-handler-required]`, `[launch.for-each-item-no-list]`                                      |
+| `.join()` → `.onError(E, …)`                                                                | where a launch's values meet; a failed branch's side path                                                                                                                                                                                         | `[launch.unjoinable-output]`, `[launch.branch-outdates-sibling]`                                             |
+| `.arbitratedBy(X)` → `.joinQuorum({ min, max, deadline })`                                  | count the accepted answers instead of waiting for all                                                                                                                                                                                             | `[flow.quorum-impossible]`, `[arbiter.*]`                                                                    |
+| `.joinQuorumGroups({ deadline })` + `.onGroup([A, B], { priority: 1 }, subPath)`            | the first complete group (by priority) continues its own path                                                                                                                                                                                     | `[flow.quorum-impossible]`                                                                                   |
+| `.toWorkflow(W)` / `route(W)` / `.forEachItem(toWorkflow(W), { takeFirst })`                | a child workflow: one, chosen by a router, or one per item                                                                                                                                                                                        | `[graph.no-matching-start]`, `[graph.ambiguous-start]`, `[graph.child-without-failure-finish]`               |
+| `.toExternalTask(Q)` / `onExternalTask(Q)`                                                  | an external task's step (#659): reads its `input`, pauses on its channel, gives its `output` — `05-channels-and-human-in-the-loop.md`                                                                                                             | `[name.kind-suffix]` (`-external-task`), `[channel.wrong-tool]`, `[graph.cycle-without-max-visits]`          |
+| `() => Self` + `@Workflow({ executionLimits: { maxDepth } })`                               | the workflow launches itself                                                                                                                                                                                                                      | `[graph.recursion-without-depth]`, `[graph.recursion-without-exit]`, `[graph.mutual-recursion]`              |
+| `@Action({ compensateWith, committedBy })`                                                  | the action's undo and its commit point; side paths must run the undo                                                                                                                                                                              | `[action.*]`, `[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`, `[flow.uncommitted-action]` |
 
 The wrappers (`agboss`, also re-exported by `@agboss/core/dto`): `listOf(XDto)`, `oneOf(A, B)`,
-`optional(XDto)`, `historyOf(XDto, { limit })` (an input only), `variant(XDto, value)` (tests).
+`optional(XDto)`, `historyOf(XDto, { maxPrevious })` (an input only).
 
 Placement rules that hold everywhere:
 
 - **One class is one node.** A class mentioned again is the same node (a loop, a merge). Two stages
   that look alike are two classes (`[flow.continuation-twice]`).
 - **A node reached from one place is continued inline**; one reached from two or more places has its
-  own path — `agent(X)…`, `action(A)…` — and every path into it ends at it.
+  own path — `onAgent(X)…`, `onAction(A)…` — and every path into it ends at it.
 - **Finishes are terminal and always inline**: `.toFinish(F)` or `route(F)`, from any number of places.
 - **Position never carries meaning**: paths, routes and cases can be reordered.
 
 ## 1. A straight path, a start with several fields
 
-A start's input is a DTO, a `listOf(…)` or a map of fields; `start(S)` returns each field with one
-`.returns(…)`. A node reads its `input` fields from the scope by class — never by position. An action
-gets each field as `{ producer, value }`.
+A start's input is a DTO, a `listOf(…)` or a map of fields; `onStart(S)` gives each field. A node reads its `input` fields from the scope by class — never by position. An action
+gets each field as the DTO itself (tracked: `Metadata.createdBy(field)` is the class that gave it).
 
 ```ts file=src/ticket/dto/ticket.dto.ts
 import { Text } from "@agboss/core/dto";
@@ -77,13 +76,13 @@ export class CustomerDto {
 ```
 
 ```ts file=src/ticket/dto/triage.dto.ts
-import { Flag, OneOf } from "@agboss/core/dto";
+import { Bool, Enum } from "@agboss/core/dto";
 
 export class TriageDto {
-  @OneOf({ values: ["billing", "bug", "other"], prompt: "the ticket's queue" })
+  @Enum(["billing", "bug", "other"], { prompt: "the ticket's queue" })
   queue!: "billing" | "bug" | "other";
 
-  @Flag({ prompt: "whether the ticket is urgent" })
+  @Bool({ prompt: "whether the ticket is urgent" })
   isUrgent!: boolean;
 }
 ```
@@ -111,7 +110,7 @@ export class TicketWorkflowStart {}
 ```
 
 ```ts file=src/ticket/agents/ticket-triage/ticket-triage.agent.ts
-import { Agent, optional } from "@agboss/core";
+import { Agent, optional, inline } from "@agboss/core";
 import { CustomerDto } from "../../dto/customer.dto.js";
 import { TicketDto } from "../../dto/ticket.dto.js";
 import { TriageDto } from "../../dto/triage.dto.js";
@@ -119,7 +118,7 @@ import { TriageDto } from "../../dto/triage.dto.js";
 @Agent({
   name: "ticket-triage-agent",
   description: "Sorts the ticket into a queue",
-  prompt: "Sort the ticket into a queue; urgent when the customer cannot work.",
+  prompt: inline("Sort the ticket into a queue; urgent when the customer cannot work."),
   model: "moonshotai/kimi-k2.6",
   input: { ticket: TicketDto, customer: optional(CustomerDto) },
   output: TriageDto,
@@ -145,7 +144,7 @@ export class FileTicketAction implements ActionHandler<FileTicketAction> {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(input: InputOf<FileTicketAction>): Promise<OutputOf<FileTicketAction>> {
-    const { queue } = input.triage.value; // { producer, value }: the value and who made it
+    const { queue } = input.triage; // the DTO itself; Metadata.createdBy(input.triage) is who made it
     return Promise.resolve({ ticketId: `${queue}-${this.executionContext.step.idempotencyKey}` });
   }
 }
@@ -164,7 +163,7 @@ export class TicketFiledWorkflowFinish {}
 ```
 
 ```ts file=src/ticket/workflows/ticket/ticket.workflow.ts
-import { Workflow, optional, start } from "@agboss/core";
+import { Workflow, optional, onStart, toAgent, toAction, toFinish, Ttl } from "@agboss/core";
 import { FileTicketAction } from "../../actions/file-ticket.action.js";
 import { TicketTriageAgent } from "../../agents/ticket-triage/ticket-triage.agent.js";
 import { CustomerDto } from "../../dto/customer.dto.js";
@@ -177,23 +176,21 @@ import { TicketWorkflowStart } from "./ticket.workflow-start.js";
 @Workflow({
   name: "ticket-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TicketWorkflowStart)
-      .returns(TicketDto) // a start's map of fields: one .returns per field, any order
-      .returns(optional(CustomerDto))
+    onStart(TicketWorkflowStart) // a start's map of fields: one value per field
       .toAgent(TicketTriageAgent)
-      .returns(TriageDto)
       .toAction(FileTicketAction) // reads ticket (from the start) and triage (from the agent)
-      .returns(TicketFiledDto)
-      .toFinish(TicketFiledWorkflowFinish), // a finish without finish(): hands back its output class
+      .toFinish(TicketFiledWorkflowFinish), // a finish is a pure boundary port: it hands back its output class
   ],
-  maxSteps: 2,
+  executionLimits: { maxSteps: 2 },
 })
 export class TicketWorkflow {}
 ```
 
-- `.returns(…)` must say exactly what the step gives (`[flow.returns-mismatch]`: `ticket-triage-agent
-gives TriageDto — write .returns(TriageDto) after it`); a step without `output` has no `.returns`.
+- What a step gives is its declared `output` (a start's `input`): nothing is written after it, and a step
+  without `output` gives nothing. A step with a `oneOf(…)` output is branched by `.toOneOf([…])`
+  (`[flow.one-of-not-exhaustive]` for a transition right after it).
 - A value nobody reads is `[flow.unused-output]`; a required field no path brings is
   `[input.missing-on-path]`; an `optional(…)` field no path ever brings is `[input.never-produced]`.
 - Two fields of one class in one node read the same value: `[flow.ambiguous-field]` — read it once,
@@ -201,9 +198,12 @@ gives TriageDto — write .returns(TriageDto) after it`); a step without `output
 
 ## 2. A router's choice, a node reached from two places
 
-`.toRouter(R).chooseOne(…)` lists one `route(…)` per route of the `@Router` — exactly those
+`.toRouter(R).onRoute(…)` lists one `route(…)` per route of the `@Router` — exactly those
 (`[router.routes-mismatch]`). A model router reads its `input` and picks by meaning; a code router's
-`route(input)` returns a target, typed by its `routes`. A **text agent** (no `output`) leads only to a
+`route(input)` returns a target, typed by its `routes`. A route's `target` is a class or a thunk of one,
+`{ target: () => NoOrderWorkflowFinish }`: write the thunk when the class is declared below the router
+or in a module that imports it back (a plain class there is a `ReferenceError`, the temporal dead zone);
+`Route<R>` is the same type either way. A **text agent** (no `output`) leads only to a
 finish whose output is `WorkflowFinishTextDto` (`[flow.text-agent-target]`).
 
 ```ts file=src/credit/dto/credit-order.dto.ts
@@ -251,14 +251,14 @@ export class CreditWorkflowStart {}
 ```
 
 ```ts file=src/credit/agents/order-intake/order-intake.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { CreditOrderDto } from "../../dto/credit-order.dto.js";
 
 @Agent({
   name: "order-intake-agent",
   description: "Turns the message into an order",
-  prompt: "Read the order out of the message.",
+  prompt: inline("Read the order out of the message."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: CreditOrderDto,
@@ -267,26 +267,26 @@ export class OrderIntakeAgent {}
 ```
 
 ```ts file=src/credit/agents/credit-question/credit-question.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 
 @Agent({
   name: "credit-question-agent",
   description: "Answers a question about credit terms",
-  prompt: "Answer the question about our credit terms in two sentences.",
+  prompt: inline("Answer the question about our credit terms in two sentences."),
   model: "moonshotai/kimi-k2.6",
 }) // a text agent: no output — it answers text
 export class CreditQuestionAgent {}
 ```
 
 ```ts file=src/credit/agents/credit-approval/credit-approval.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { CreditApprovalDto } from "../../dto/credit-approval.dto.js";
 import { CreditOrderDto } from "../../dto/credit-order.dto.js";
 
 @Agent({
   name: "credit-approval-agent",
   description: "Approves a large order",
-  prompt: "Approve the order if the customer's history allows it.",
+  prompt: inline("Approve the order if the customer's history allows it."),
   model: "moonshotai/kimi-k2.6",
   input: { order: CreditOrderDto },
   output: CreditApprovalDto,
@@ -313,8 +313,8 @@ export class ChargeOrderAction implements ActionHandler<ChargeOrderAction> {
 
   execute(input: InputOf<ChargeOrderAction>): Promise<OutputOf<ChargeOrderAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    const approvedBy: string = input.approval?.value.approvedBy ?? "auto";
-    return Promise.resolve({ chargeId: `${input.order.value.customerId}:${approvedBy}:${key}` });
+    const approvedBy: string = input.approval?.approvedBy ?? "auto";
+    return Promise.resolve({ chargeId: `${input.order.customerId}:${approvedBy}:${key}` });
   }
 }
 ```
@@ -343,8 +343,26 @@ import { CreditOrderDto } from "../../dto/credit-order.dto.js";
 export class OrderHeldWorkflowFinish {}
 ```
 
+A decision model (Jev) is served by a decisions provider — a component naming one says so with `modelProvider`:
+
+```ts file=src/model-providers/decisions.model-provider.ts
+import { secret } from "@agboss/core";
+import { DecisionsDriver, ModelCost, ModelProvider } from "@agboss/core/models";
+import { seconds } from "@agboss/core/units";
+
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Jev and the other decision models, on OpenRouter's Decisions API",
+  driver: DecisionsDriver({ baseUrl: "https://openrouter.ai/api/v1", apiKey: secret("OPENROUTER_API_KEY") }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+export class DecisionsModelProvider {}
+```
+
 ```ts file=src/credit/routers/credit-desk/credit-desk.router.ts
-import { DecidedBy, Router } from "@agboss/core";
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
+import { DecidedBy, Router, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { CreditQuestionAgent } from "../../agents/credit-question/credit-question.agent.js";
 import { OrderIntakeAgent } from "../../agents/order-intake/order-intake.agent.js";
@@ -354,7 +372,8 @@ import { OrderIntakeAgent } from "../../agents/order-intake/order-intake.agent.j
   description: "Sends an order to intake, a question to the answering agent",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick who handles the customer's message.",
+  modelProvider: DecisionsModelProvider,
+  prompt: inline("Pick who handles the customer's message."),
   input: { message: WorkflowStartTextDto },
   maxVisits: 1,
   routes: [
@@ -366,7 +385,7 @@ export class CreditDeskRouter {}
 ```
 
 ```ts file=src/credit/routers/credit-limit/credit-limit.router.ts
-import { DecidedBy, Router, route } from "@agboss/core";
+import { DecidedBy, Router } from "@agboss/core";
 import type { InputOf, Route, RouterHandler } from "@agboss/core";
 import { ChargeOrderAction } from "../../actions/charge-order.action.js";
 import { CreditApprovalAgent } from "../../agents/credit-approval/credit-approval.agent.js";
@@ -379,17 +398,26 @@ const APPROVAL_LIMIT = 1000;
   description: "Sends a large order to approval, charges a small one",
   decidedBy: DecidedBy.Code,
   input: { order: CreditOrderDto },
-  routes: [{ target: CreditApprovalAgent }, { target: ChargeOrderAction }],
+  routes: [CreditApprovalAgent, ChargeOrderAction],
 })
 export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
   route(input: InputOf<CreditLimitRouter>): Route<CreditLimitRouter> {
-    return input.order.value.total > APPROVAL_LIMIT ? CreditApprovalAgent : ChargeOrderAction;
+    return input.order.total > APPROVAL_LIMIT ? CreditApprovalAgent : ChargeOrderAction;
   }
 }
 ```
 
 ```ts file=src/credit/workflows/credit/credit.workflow.ts
-import { Workflow, action, route, start, toFinish } from "@agboss/core";
+import {
+  Workflow,
+  onAction,
+  onStart,
+  toFinish,
+  toAction,
+  toRouter,
+  toAgent,
+  Ttl,
+} from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ChargeOrderAction } from "../../actions/charge-order.action.js";
 import { CreditApprovalAgent } from "../../agents/credit-approval/credit-approval.agent.js";
@@ -409,34 +437,33 @@ import { OrderHeldWorkflowFinish } from "./order-held.workflow-finish.js";
 @Workflow({
   name: "credit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(CreditWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(CreditWorkflowStart)
       .toRouter(CreditDeskRouter)
-      .chooseOne(
-        route(OrderIntakeAgent)
-          .returns(CreditOrderDto)
+      .onRoute(
+        toAgent(OrderIntakeAgent)
           .toRouter(CreditLimitRouter)
           .onError(
             CreditServiceUnavailableError, // route() threw: caught through RouterFailedError's cause
             toFinish(OrderHeldWorkflowFinish),
           )
-          .chooseOne(
-            route(CreditApprovalAgent)
-              .returns(CreditApprovalDto)
-              .toAction(ChargeOrderAction), // ends at the shared node
-            route(ChargeOrderAction),
-          ),
-        route(CreditQuestionAgent)
+          .onRoute(
+            toAgent(CreditApprovalAgent)
+              .toAction(ChargeOrderAction),
+          )
+          .onRoute(toAction(ChargeOrderAction)), // ends at the shared node
+      )
+      .onRoute(
+        toAgent(CreditQuestionAgent)
           .toFinish(CreditAnswerWorkflowFinish), // a text agent → a WorkflowFinishTextDto finish
       ),
 
     // reached from two places (the approval and the limit router): its own path, written once
-    action(ChargeOrderAction)
-      .returns(ChargeResultDto)
+    onAction(ChargeOrderAction)
       .toFinish(OrderChargedWorkflowFinish),
   ],
-  maxSteps: 6,
+  executionLimits: { maxSteps: 6 },
 })
 export class CreditWorkflow {}
 ```
@@ -446,16 +473,16 @@ export class CreditWorkflow {}
 - A router that fails fails the run unless an `.onError(…)` right after it takes it: `RouterFailedError`
   (the original as `cause`, so `.onError(CreditServiceUnavailableError, …)` catches it) or
   `RouterDecisionError` (an answer outside its routes; a `RouterFailedError` too, never retried).
-- `.onError` stands right after the step, before its `.returns(…)` or `.chooseOne(…)`.
-- A model router without `model` takes `defaults.router.model` (`[router.no-model]`); its `input`
-  is never empty (`[router.empty-input]`); `spawn` / `failure` on its routes are for launches only
-  (`[router.policy-with-choose-one]`).
+- `.onError` stands right after the step, before `.onRoute(…)`.
+- A model router without `model` takes `defaults.router.model` (none anywhere: `[model.missing-provider]`); its `input`
+  is never empty (`[router.empty-input]`); a route of a model router is `{ target, prompt }`
+  (`[router.no-prompt]`), a code router's a class.
 
-## 3. A branch by result, a loop, `about`, `historyOf`
+## 3. A branch by result, a loop, `historyOf`
 
-An agent with `output: oneOf(A, B)` says which outcome it is; `.returns(oneOf(A, B)).switch(…)` has
-one `caseOf(…)` per variant. In a loop whose classes are built from each other the flow says what a
-value is **about**, and `historyOf(XDto, { limit })` reads the earlier versions. Every node on a
+An agent with `output: oneOf(A, B)` says which outcome it is; `.toOneOf([…])` has
+one branch per variant. In a loop a new value outdates what was built from the old one, and
+`historyOf(XDto, { maxPrevious })` reads the earlier versions. Every node on a
 cycle needs `maxVisits` (`[graph.cycle-without-max-visits]`).
 
 ```ts file=src/offer/dto/candidate-shortlist.dto.ts
@@ -513,14 +540,14 @@ export class OfferWorkflowStart {}
 ```
 
 ```ts file=src/offer/agents/offer-draft/offer-draft.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { CandidateShortlistDto } from "../../dto/candidate-shortlist.dto.js";
 import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
 
 @Agent({
   name: "offer-draft-agent",
   description: "Writes the first draft of the offer",
-  prompt: "Write the offer for the candidate.",
+  prompt: inline("Write the offer for the candidate."),
   model: "moonshotai/kimi-k2.6",
   input: { shortlist: CandidateShortlistDto },
   output: OfferDraftDto,
@@ -529,7 +556,7 @@ export class OfferDraftAgent {}
 ```
 
 ```ts file=src/offer/agents/offer-reviewer/offer-reviewer.agent.ts
-import { Agent, historyOf, oneOf } from "@agboss/core";
+import { Agent, historyOf, oneOf, inline } from "@agboss/core";
 import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
 import { DraftApprovedDto } from "../../dto/draft-approved.dto.js";
 import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
@@ -537,28 +564,28 @@ import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
 @Agent({
   name: "offer-reviewer-agent",
   description: "Approves the draft or asks for changes",
-  prompt: "Approve the draft, or say what to change. Compare it with the earlier versions.",
+  prompt: inline("Approve the draft, or say what to change. Compare it with the earlier versions."),
   model: "moonshotai/kimi-k2.6",
-  input: { draft: historyOf(OfferDraftDto, { limit: 2 }) }, // { current, previous } — the last two before
+  input: { draft: historyOf(OfferDraftDto, { maxPrevious: 2 }) }, // { current, previous } — the last two before
   output: oneOf(ChangesRequestedDto, DraftApprovedDto),
-  maxVisits: 4,
+  executionLimits: { maxVisits: 4 },
 })
 export class OfferReviewerAgent {}
 ```
 
 ```ts file=src/offer/agents/offer-editor/offer-editor.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
 import { OfferDraftDto } from "../../dto/offer-draft.dto.js";
 
 @Agent({
   name: "offer-editor-agent",
   description: "Rewrites the draft as asked",
-  prompt: "Rewrite the draft so it meets the requested changes.",
+  prompt: inline("Rewrite the draft so it meets the requested changes."),
   model: "moonshotai/kimi-k2.6",
   input: { draft: OfferDraftDto, changes: ChangesRequestedDto },
   output: OfferDraftDto,
-  maxVisits: 3,
+  executionLimits: { maxVisits: 3 },
 })
 export class OfferEditorAgent {}
 ```
@@ -581,7 +608,7 @@ export class SendOfferAction implements ActionHandler<SendOfferAction> {
 
   execute(input: InputOf<SendOfferAction>): Promise<OutputOf<SendOfferAction>> {
     const key: string = this.executionContext.step.idempotencyKey;
-    return Promise.resolve({ offerId: `${String(input.draft.value.text.length)}:${key}` });
+    return Promise.resolve({ offerId: `${String(input.draft.text.length)}:${key}` });
   }
 }
 ```
@@ -598,7 +625,7 @@ import { CandidateShortlistDto } from "../dto/candidate-shortlist.dto.js";
 })
 export class NotifyRecruiterAction implements ActionHandler<NotifyRecruiterAction> {
   async execute(input: InputOf<NotifyRecruiterAction>): Promise<void> {
-    await Promise.resolve(input.shortlist.value.candidate);
+    await Promise.resolve(input.shortlist.candidate);
   }
 }
 ```
@@ -624,7 +651,17 @@ export class OfferFailedWorkflowFinish {}
 ```
 
 ```ts file=src/offer/workflows/offer/offer.workflow.ts
-import { VisitsLimitExceededError, Workflow, agent, caseOf, oneOf, start, toAction } from "@agboss/core";
+import {
+  VisitsLimitExceededError,
+  Workflow,
+  onAgent,
+  oneOf,
+  onStart,
+  toAction,
+  toAgent,
+  toFinish,
+  Ttl,
+} from "@agboss/core";
 import { NotifyRecruiterAction } from "../../actions/notify-recruiter.action.js";
 import { SendOfferAction } from "../../actions/send-offer.action.js";
 import { OfferDraftAgent } from "../../agents/offer-draft/offer-draft.agent.js";
@@ -642,32 +679,27 @@ import { OfferWorkflowStart } from "./offer.workflow-start.js";
 @Workflow({
   name: "offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OfferWorkflowStart)
-      .returns(CandidateShortlistDto)
+    onStart(OfferWorkflowStart)
       .toAgent(OfferDraftAgent)
-      .returns(OfferDraftDto)
       .toAgent(OfferReviewerAgent), // the reviewer is reached from two places: its own path below
 
-    agent(OfferReviewerAgent)
-      .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-      .switch(
-        caseOf(ChangesRequestedDto, { about: OfferDraftDto }) // the changes are about this draft
-          .toAgent(OfferEditorAgent)
+    onAgent(OfferReviewerAgent)
+      .toOneOf([
+        // the editor reads the requested changes: that tells this branch apart
+        toAgent(OfferEditorAgent)
           .onError(
             VisitsLimitExceededError, // the editor's maxVisits spent: a person takes over
             toAction(NotifyRecruiterAction)
               .toFinish(OfferFailedWorkflowFinish),
-          )
-          .returns(OfferDraftDto) // a new draft: the old one and the changes about it are outdated
+          ) // a new draft: the old one and the changes about it are outdated
           .toAgent(OfferReviewerAgent),
-        caseOf(DraftApprovedDto)
-          .toAction(SendOfferAction)
-          .returns(OfferSentDto)
+        toAction(SendOfferAction)
           .toFinish(OfferSentWorkflowFinish),
-      ),
+      ]),
   ],
-  maxSteps: 12,
+  executionLimits: { maxSteps: 12 },
 })
 export class OfferWorkflow {}
 ```
@@ -676,28 +708,23 @@ export class OfferWorkflow {}
   returns a new `OfferDraftDto`, the old draft and the `ChangesRequestedDto` about it are gone from the
   scope. A field that would read an outdated value on some path fails assembly with
   `[input.outdated-on-path]`.
-- **`about`.** The reviewer reads the draft and the editor reads the changes: each is built from the
-  other, so the analyser cannot tell the direction — `[io.ambiguous-cycle]` until one value says what
-  it is about (`caseOf(ChangesRequestedDto, { about: OfferDraftDto })`, or
-  `.returns(CritiqueDto, { about: DraftDto })` on a single class). A start's input is about nothing
-  (`[io.about-on-start]`); `about` on a value a node reads twice is `[io.ambiguous-about]`.
-- **`historyOf(XDto, { limit })`** is `{ current, previous }`, `previous` oldest first, at most
-  `limit` (a positive integer, `[input.history-limit]`); it needs a current `XDto` on every path in.
-- `caseOf(…)` of a class the step does not give is `[flow.switch-unknown-case]`, a missing variant
-  `[flow.switch-not-exhaustive]`; `{ about }` goes on the case, never on `.returns(oneOf(…))`.
+- **`historyOf(XDto, { maxPrevious })`** is `{ current, previous }`, `previous` oldest first, at most
+  `maxPrevious` (a positive integer, `[input.history-max-previous]`); it needs a current `XDto` on every path in.
+- a `.toOneOf([…])` branch no variant is left for, or two reading one variant, is `[flow.one-of-ambiguous]`, a missing
+  variant `[flow.one-of-not-exhaustive]`.
 
 ## 4. Parallel launches and joins
 
 A launch runs several branches at once; `.join()` is where their values meet. Agents with
-`.toParallelAgents(…)`, actions with `.toParallelActions(…)` — never mixed. What the join gives:
+`.inParallel([…])`, actions with `.inParallel([…])` — never mixed. What the join gives:
 
-| Branches                                                              | `.join().returns(…)`                      |
-| --------------------------------------------------------------------- | ----------------------------------------- |
-| an agent listed once                                                  | `XDto`                                    |
-| copies of one agent (`B, B`), two agents with one `output`            | `listOf(XDto)`                            |
-| one target per item (right after `.returns(listOf(ItemDto))`)         | `listOf(XDto)`, in the items' order       |
-| a router route that is `SpawnPolicy.OnDemand` or `FailurePolicy.Skip` | `optional(XDto)`                          |
-| an action without `output`                                            | nothing: `.join()` goes on with `.to…(…)` |
+| Branches                                                          | The join gives                            |
+| ----------------------------------------------------------------- | ----------------------------------------- |
+| an agent listed once                                              | `XDto`                                    |
+| copies of one agent (`B, B`), two agents with one `output`        | `listOf(XDto)`                            |
+| one target per item (right after a step giving `listOf(ItemDto)`) | `listOf(XDto)`, in the items' order       |
+| a branch a router chooses, or a `skip()` drops                    | `optional(XDto)`                          |
+| an action without `output`                                        | nothing: `.join()` goes on with `.to…(…)` |
 
 ```ts file=src/review/dto/article-section.dto.ts
 import { Text } from "@agboss/core/dto";
@@ -730,10 +757,10 @@ export class StyleNotesDto {
 ```
 
 ```ts file=src/review/dto/fact-check.dto.ts
-import { Flag } from "@agboss/core/dto";
+import { Bool } from "@agboss/core/dto";
 
 export class FactCheckDto {
-  @Flag({ prompt: "whether every claim is supported" })
+  @Bool({ prompt: "whether every claim is supported" })
   isSupported!: boolean;
 }
 ```
@@ -773,14 +800,14 @@ export class ArticlePublishWorkflowStart {}
 ```
 
 ```ts file=src/review/agents/section-splitter/section-splitter.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ArticleSectionDto } from "../../dto/article-section.dto.js";
 
 @Agent({
   name: "section-splitter-agent",
   description: "Splits the article into sections",
-  prompt: "Split the article into its sections.",
+  prompt: inline("Split the article into its sections."),
   model: "moonshotai/kimi-k2.6",
   input: { article: WorkflowStartTextDto },
   output: listOf(ArticleSectionDto),
@@ -789,14 +816,14 @@ export class SectionSplitterAgent {}
 ```
 
 ```ts file=src/review/agents/section-reviewer/section-reviewer.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { ArticleSectionDto } from "../../dto/article-section.dto.js";
 import { SectionReviewDto } from "../../dto/section-review.dto.js";
 
 @Agent({
   name: "section-reviewer-agent",
   description: "Reviews one section",
-  prompt: "Say what to fix in this section.",
+  prompt: inline("Say what to fix in this section."),
   model: "moonshotai/kimi-k2.6",
   input: { section: ArticleSectionDto }, // per item: reads the item's class
   output: SectionReviewDto,
@@ -805,14 +832,14 @@ export class SectionReviewerAgent {}
 ```
 
 ```ts file=src/review/agents/style-critic/style-critic.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { StyleNotesDto } from "../../dto/style-notes.dto.js";
 
 @Agent({
   name: "style-critic-agent",
   description: "Checks the style",
-  prompt: "Note what to change in the style.",
+  prompt: inline("Note what to change in the style."),
   model: "moonshotai/kimi-k2.6",
   input: { article: WorkflowStartTextDto },
   output: StyleNotesDto,
@@ -821,14 +848,14 @@ export class StyleCriticAgent {}
 ```
 
 ```ts file=src/review/agents/fact-checker/fact-checker.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { FactCheckDto } from "../../dto/fact-check.dto.js";
 
 @Agent({
   name: "fact-checker-agent",
   description: "Checks the claims",
-  prompt: "Check every claim of the article.",
+  prompt: inline("Check every claim of the article."),
   model: "moonshotai/kimi-k2.6",
   input: { article: WorkflowStartTextDto },
   output: FactCheckDto,
@@ -850,8 +877,8 @@ import { SectionReviewDto } from "../dto/section-review.dto.js";
 })
 export class SectionNotesAction implements ActionHandler<SectionNotesAction> {
   execute(input: InputOf<SectionNotesAction>): Promise<OutputOf<SectionNotesAction>> {
-    // a list field is one { producer, value } per item
-    return Promise.resolve({ notes: input.sections.map((review) => review.value.notes).join("\n") });
+    // a list field is one DTO per item
+    return Promise.resolve({ notes: input.sections.map((review) => review.notes).join("\n") });
   }
 }
 ```
@@ -872,8 +899,8 @@ import { StyleNotesDto } from "../dto/style-notes.dto.js";
 })
 export class ReviewSummaryAction implements ActionHandler<ReviewSummaryAction> {
   execute(input: InputOf<ReviewSummaryAction>): Promise<OutputOf<ReviewSummaryAction>> {
-    const isSupported: boolean = input.facts.every((check) => check.value.isSupported);
-    const plan: string = [input.style.value.notes, input.sections.value.notes, `facts ok: ${String(isSupported)}`].join("\n");
+    const isSupported: boolean = input.facts.every((check) => check.isSupported);
+    const plan: string = [input.style.notes, input.sections.notes, `facts ok: ${String(isSupported)}`].join("\n");
     return Promise.resolve({ plan });
   }
 }
@@ -887,7 +914,7 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
 @Action({ name: "archive-article-action", description: "Archives the article", input: { article: WorkflowStartTextDto } })
 export class ArchiveArticleAction implements ActionHandler<ArchiveArticleAction> {
   async execute(input: InputOf<ArchiveArticleAction>): Promise<void> {
-    await Promise.resolve(input.article.value.text.length);
+    await Promise.resolve(input.article.text.length);
   }
 }
 ```
@@ -900,7 +927,7 @@ import { WorkflowStartTextDto } from "@agboss/core/dto";
 @Action({ name: "index-article-action", description: "Indexes the article for search", input: { article: WorkflowStartTextDto } })
 export class IndexArticleAction implements ActionHandler<IndexArticleAction> {
   async execute(input: InputOf<IndexArticleAction>): Promise<void> {
-    await Promise.resolve(input.article.value.text.length);
+    await Promise.resolve(input.article.text.length);
   }
 }
 ```
@@ -934,7 +961,16 @@ export class ReviewIncompleteWorkflowFinish {}
 ```
 
 ```ts file=src/review/workflows/article-review/article-review.workflow.ts
-import { StepFailedError, Workflow, listOf, start, toFinish } from "@agboss/core";
+import {
+  StepFailedError,
+  Workflow,
+  listOf,
+  onStart,
+  toFinish,
+  toAgent,
+  toAction,
+  Ttl,
+} from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { ArchiveArticleAction } from "../../actions/archive-article.action.js";
 import { IndexArticleAction } from "../../actions/index-article.action.js";
@@ -959,44 +995,39 @@ import { ReviewSummaryWorkflowFinish } from "./review-summary.workflow-finish.js
 @Workflow({
   name: "article-review-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ArticleReviewWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ArticleReviewWorkflowStart)
       .toAgent(SectionSplitterAgent)
-      .returns(listOf(ArticleSectionDto))
-      .toParallelAgents(SectionReviewerAgent, { maxConcurrency: 3, maxItems: 20 }) // one run per item
-      .join()
-      .returns(listOf(SectionReviewDto)) // one value per item, in the list's order
+      .forEachItem(toAgent(SectionReviewerAgent), { takeFirst: 20, maxConcurrency: 3 }) // one run per item
+      .join() // one value per item, in the list's order
       .toAction(SectionNotesAction) // a join goes on with one .to…(…) — never straight into a launch
-      .returns(SectionNotesDto)
-      .toParallelAgents(StyleCriticAgent, FactCheckerAgent, FactCheckerAgent, { maxConcurrency: 2 })
+      .inParallel(
+        [toAgent(StyleCriticAgent), toAgent(FactCheckerAgent), toAgent(FactCheckerAgent)],
+        { maxConcurrency: 2 },
+      )
       .join()
-      .onJoinError(
+      .onError(
         StepFailedError, // a branch failed (FailFast): the others were cancelled
         toFinish(ReviewIncompleteWorkflowFinish),
-      )
-      .returns(StyleNotesDto)
-      .returns(listOf(FactCheckDto)) // fact-checker-agent ran twice: a list
+      ) // fact-checker-agent ran twice: a list
       .toAction(ReviewSummaryAction)
-      .returns(ReviewSummaryDto)
       .toFinish(ReviewSummaryWorkflowFinish),
 
     // side effects at once: actions without output give the join nothing to name
-    start(ArticlePublishWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toParallelActions(ArchiveArticleAction, IndexArticleAction)
-      .join() // no .returns
+    onStart(ArticlePublishWorkflowStart)
+      .inParallel([toAction(ArchiveArticleAction), toAction(IndexArticleAction)])
+      .join() // actions without output: nothing to give
       .toFinish(ArticlePublishedWorkflowFinish), // reads the WorkflowStartTextDto from the path
   ],
-  maxSteps: 30, // the worst case: the splitter, 20 section reviews and three critics
+  executionLimits: { maxSteps: 30 }, // the worst case: the splitter, 20 section reviews and three critics
 })
 export class ArticleReviewWorkflow {}
 ```
 
-A **router before a launch** decides who is launched. Each route states `spawn`:
-`SpawnPolicy.Always` (always launched, no prompt) or `SpawnPolicy.OnDemand` (the router decides it by
-the route's `prompt`); `failure: FailurePolicy.Skip` lets a failed branch drop out instead of failing
-the launch (`FailFast`, the default).
+A **router in a launch** is a branch, `toRouter(R).chooseMany([…])`: it decides which of its routes
+are launched (by each route's `prompt`), its siblings in `.inParallel([…])` run anyway.
+`.onError(E, skip())` on a branch lets a failed branch drop out instead of failing the launch.
 
 ```ts file=src/support/dto/order-lookup.dto.ts
 import { Text } from "@agboss/core/dto";
@@ -1043,14 +1074,14 @@ export class SupportLaunchWorkflowStart {}
 ```
 
 ```ts file=src/support/agents/order-lookup/order-lookup.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { OrderLookupDto } from "../../dto/order-lookup.dto.js";
 
 @Agent({
   name: "order-lookup-agent",
   description: "Looks the order up",
-  prompt: "Say where the order is.",
+  prompt: inline("Say where the order is."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: OrderLookupDto,
@@ -1059,14 +1090,14 @@ export class OrderLookupAgent {}
 ```
 
 ```ts file=src/support/agents/refund-terms/refund-terms.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { RefundTermsDto } from "../../dto/refund-terms.dto.js";
 
 @Agent({
   name: "refund-terms-agent",
   description: "Quotes the refund terms",
-  prompt: "Quote the refund terms that apply.",
+  prompt: inline("Quote the refund terms that apply."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: RefundTermsDto,
@@ -1075,14 +1106,14 @@ export class RefundTermsAgent {}
 ```
 
 ```ts file=src/support/agents/loyalty-offer/loyalty-offer.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { LoyaltyOfferDto } from "../../dto/loyalty-offer.dto.js";
 
 @Agent({
   name: "loyalty-offer-agent",
   description: "Finds an offer for the customer",
-  prompt: "Find one offer for the customer.",
+  prompt: inline("Find one offer for the customer."),
   model: "moonshotai/kimi-k2.6",
   input: { message: WorkflowStartTextDto },
   output: LoyaltyOfferDto,
@@ -1091,7 +1122,7 @@ export class LoyaltyOfferAgent {}
 ```
 
 ```ts file=src/support/agents/support-reply/support-reply.agent.ts
-import { Agent, optional } from "@agboss/core";
+import { Agent, optional, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { LoyaltyOfferDto } from "../../dto/loyalty-offer.dto.js";
 import { OrderLookupDto } from "../../dto/order-lookup.dto.js";
@@ -1101,7 +1132,7 @@ import { SupportReplyDto } from "../../dto/support-reply.dto.js";
 @Agent({
   name: "support-reply-agent",
   description: "Writes the reply from what was found",
-  prompt: "Reply to the customer from the findings.",
+  prompt: inline("Reply to the customer from the findings."),
   model: "moonshotai/kimi-k2.6",
   input: {
     message: WorkflowStartTextDto,
@@ -1123,7 +1154,8 @@ export class SupportReplyWorkflowFinish {}
 ```
 
 ```ts file=src/support/routers/support-launch/support-launch.router.ts
-import { DecidedBy, FailurePolicy, Router, SpawnPolicy } from "@agboss/core";
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
+import { DecidedBy, Router, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { LoyaltyOfferAgent } from "../../agents/loyalty-offer/loyalty-offer.agent.js";
 import { OrderLookupAgent } from "../../agents/order-lookup/order-lookup.agent.js";
@@ -1134,19 +1166,26 @@ import { RefundTermsAgent } from "../../agents/refund-terms/refund-terms.agent.j
   description: "Picks everyone the customer's message needs",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Pick everyone needed to answer the customer's message.",
+  modelProvider: DecisionsModelProvider,
+  prompt: inline("Pick everyone needed to answer the customer's message."),
   input: { message: WorkflowStartTextDto },
-  routes: [
-    { target: OrderLookupAgent, spawn: SpawnPolicy.Always }, // always launched: no prompt
-    { target: RefundTermsAgent, spawn: SpawnPolicy.OnDemand, prompt: "The message is about a return" },
-    { target: LoyaltyOfferAgent, spawn: SpawnPolicy.Always, failure: FailurePolicy.Skip },
-  ],
+  routes: [{ target: RefundTermsAgent, prompt: "The message is about a return" }], // the one the model decides
 })
 export class SupportLaunchRouter {}
 ```
 
 ```ts file=src/support/workflows/support-launch/support-launch.workflow.ts
-import { Workflow, optional, start } from "@agboss/core";
+import {
+  StepFailedError,
+  Workflow,
+  optional,
+  onStart,
+  skip,
+  toAgent,
+  toRouter,
+  toFinish,
+  Ttl,
+} from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { LoyaltyOfferAgent } from "../../agents/loyalty-offer/loyalty-offer.agent.js";
 import { OrderLookupAgent } from "../../agents/order-lookup/order-lookup.agent.js";
@@ -1163,17 +1202,18 @@ import { SupportReplyWorkflowFinish } from "./support-reply.workflow-finish.js";
 @Workflow({
   name: "support-launch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SupportLaunchWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toRouter(SupportLaunchRouter)
-      .toParallelAgents(OrderLookupAgent, RefundTermsAgent, LoyaltyOfferAgent) // exactly its routes
-      .join()
-      .returns(OrderLookupDto)
-      .returns(optional(RefundTermsDto)) // OnDemand: may not be launched
-      .returns(optional(LoyaltyOfferDto)) // Skip: may drop out
+    onStart(SupportLaunchWorkflowStart)
+      .inParallel([
+        toAgent(OrderLookupAgent), // always launched
+        toAgent(LoyaltyOfferAgent)
+          .onError(StepFailedError, skip()), // may drop out
+        toRouter(SupportLaunchRouter)
+          .chooseMany([toAgent(RefundTermsAgent)]), // exactly its routes
+      ])
+      .join() // the router's route may not be launched
       .toAgent(SupportReplyAgent)
-      .returns(SupportReplyDto)
       .toFinish(SupportReplyWorkflowFinish),
   ],
 })
@@ -1183,28 +1223,29 @@ export class SupportLaunchWorkflow {}
 Launch rules:
 
 - A launch is always followed by `.join()` (`[launch.join-required]`, a compile error too); after the
-  join `.onJoinError(E, …)` — never `.onError` — then `.returns(…)`, then exactly one `.to…(…)`: a
+  join `.onError(E, …)` (the join's own handler; not offered between a launch and its join) — then exactly one `.to…(…)`: a
   second launch never follows a join directly (put a step between, as `section-notes-action` above).
-- Per item: one target right after `.returns(listOf(ItemDto))`, `{ maxItems }` required
-  (`[launch.max-items-required]`) and only there (`[launch.max-items-without-list]`); the target
-  reads an `ItemDto` field (`[launch.item-not-read]`). The first `maxItems` items run, the rest are
-  dropped without an error (`result.launches`, `onLaunchItemsTruncated`).
+- Per item: `.forEachItem(step, { takeFirst | maxItems })` right after a step whose output is
+  `listOf(ItemDto)`; the target reads an `ItemDto` field (`[launch.item-not-read]`). With `takeFirst`
+  the first items run and the rest are dropped, recorded (`result.launches`, `onLaunchItemsTruncated`);
+  with `maxItems` more items throw `LimitError.Items`, handled by `.onError(LimitError.Items, …)` after the join.
 - A branch is one step: a launched class continued anywhere else is `[launch.branch-continued]` —
   several steps per item are a child workflow (section 6).
 - A branch sees the scope at the launch, its siblings' values only after the join; a branch renewing
   what a sibling read is `[launch.branch-outdates-sibling]`.
-- Before a launch a model router's every route states `spawn` (`[router.spawn-required]`), an
-  `Always` route has no prompt (`[router.prompt-on-always]`), an `OnDemand` one has one
-  (`[router.no-prompt]`), and at least one is `OnDemand` (`[router.all-routes-always]`). A code
-  router's `route(input)` returns the `OnDemand` targets as a list.
+- A router in a launch is a branch: `toRouter(R).chooseMany([toAgent(A), …])`, the list the router's
+  routes (`[router.routes-mismatch]`), each with its prompt on a model router (`[router.no-prompt]`).
+  A code router's `route(input)` returns the targets to launch as a list, `[]` included.
 - `maxConcurrency` is a sliding window; a failed branch aborts its siblings (`FailFast`); `Skip`
   drops only a `StepFailedError`; `app.cancel` cancels the whole execution, never a branch outcome.
 
 ## 5. Quorums, groups and arbiters
 
-After `.toParallelAgents(…)` a join may count answers instead of waiting for all. `@Arbiter` classes
-decide whether an answer counts: several `.acceptedBy(…)` are an AND in path order,
-`.acceptedBy(anyOf(A, B))` stops at the first that accepts.
+After `.inParallel([…])` (or `.inParallel([toAgent(…)])`) a join may count answers instead of waiting for
+all. One `@Arbiter` class — `.arbitratedBy(A)`, once per launch — decides whether an answer counts;
+how it decides (code, model, or code that asks its own model through `ArbiterModel`) lives in that
+class, never in the flow: no `and` / `or` of arbiters, no `anyOf`. A method takes the answer of its
+targets — `ArbiterAnswerOf<typeof A>` is one target's, `ArbitratedAnswerOf<[typeof A, typeof B]>` the union.
 
 ```ts file=src/panel/dto/panel-candidate.dto.ts
 import { Text } from "@agboss/core/dto";
@@ -1228,10 +1269,10 @@ export class PanelScoreDto {
 ```
 
 ```ts file=src/panel/dto/panel-verdict.dto.ts
-import { Flag } from "@agboss/core/dto";
+import { Bool } from "@agboss/core/dto";
 
 export class PanelVerdictDto {
-  @Flag({ prompt: "whether to hire" })
+  @Bool({ prompt: "whether to hire" })
   isHire!: boolean;
 }
 ```
@@ -1245,14 +1286,14 @@ export class PanelWorkflowStart {}
 ```
 
 ```ts file=src/panel/agents/skills-panel/skills-panel.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
 import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 
 @Agent({
   name: "skills-panel-agent",
   description: "Scores the technical skills",
-  prompt: "Score the technical skills from 1 to 10.",
+  prompt: inline("Score the technical skills from 1 to 10."),
   model: "moonshotai/kimi-k2.6",
   input: { candidate: PanelCandidateDto },
   output: PanelScoreDto,
@@ -1261,14 +1302,14 @@ export class SkillsPanelAgent {}
 ```
 
 ```ts file=src/panel/agents/culture-panel/culture-panel.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
 import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 
 @Agent({
   name: "culture-panel-agent",
   description: "Scores the team fit",
-  prompt: "Score the team fit from 1 to 10.",
+  prompt: inline("Score the team fit from 1 to 10."),
   model: "moonshotai/kimi-k2.6",
   input: { candidate: PanelCandidateDto },
   output: PanelScoreDto,
@@ -1277,14 +1318,14 @@ export class CulturePanelAgent {}
 ```
 
 ```ts file=src/panel/agents/risk-panel/risk-panel.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
 import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 
 @Agent({
   name: "risk-panel-agent",
   description: "Scores the hiring risk",
-  prompt: "Score the hiring risk from 1 (high) to 10 (low).",
+  prompt: inline("Score the hiring risk from 1 (high) to 10 (low)."),
   model: "moonshotai/kimi-k2.6",
   input: { candidate: PanelCandidateDto },
   output: PanelScoreDto,
@@ -1293,14 +1334,14 @@ export class RiskPanelAgent {}
 ```
 
 ```ts file=src/panel/agents/panel-verdict/panel-verdict.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 import { PanelVerdictDto } from "../../dto/panel-verdict.dto.js";
 
 @Agent({
   name: "panel-verdict-agent",
   description: "Decides from the counted scores",
-  prompt: "Decide whether to hire from the scores.",
+  prompt: inline("Decide whether to hire from the scores."),
   model: "moonshotai/kimi-k2.6",
   input: { scores: listOf(PanelScoreDto) },
   output: PanelVerdictDto,
@@ -1329,93 +1370,92 @@ export class PanelUndecidedWorkflowFinish {}
 ```
 
 ```ts file=src/panel/arbiters/score-range/score-range.arbiter.ts
-import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
-import type { ArbiterAnswerOf } from "@agboss/core";
+import { Arbiter, Arbitrate, type ArbitratedAnswerOf } from "@agboss/core";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
 
-// by code: one @OnAnswer(Agent) method per agent of the launch, named from<Agent class minus "Agent">
-@Arbiter({ name: "score-range-arbiter", decidedBy: DecidedBy.Code })
+// by code: @Arbitrate(…targets) methods covering every target of the launch once; the name is yours
+@Arbiter({ name: "score-range-arbiter" })
 export class ScoreRangeArbiter {
-  @OnAnswer(SkillsPanelAgent)
-  fromSkillsPanel(answer: ArbiterAnswerOf<typeof SkillsPanelAgent>): boolean {
-    return this.isInRange(answer.score);
-  }
-
-  @OnAnswer(CulturePanelAgent)
-  fromCulturePanel(answer: ArbiterAnswerOf<typeof CulturePanelAgent>): boolean {
-    return this.isInRange(answer.score);
-  }
-
-  @OnAnswer(RiskPanelAgent)
-  fromRiskPanel(answer: ArbiterAnswerOf<typeof RiskPanelAgent>): boolean {
-    return this.isInRange(answer.score);
-  }
-
-  private isInRange(score: number): boolean {
-    return score >= 1 && score <= 10;
+  @Arbitrate(SkillsPanelAgent, CulturePanelAgent, RiskPanelAgent)
+  isInRange(
+    answer: ArbitratedAnswerOf<
+      [typeof SkillsPanelAgent, typeof CulturePanelAgent, typeof RiskPanelAgent]
+    >,
+  ): boolean {
+    return answer.score >= 1 && answer.score <= 10;
   }
 }
 ```
 
 ```ts file=src/panel/arbiters/reasoned-score/reasoned-score.arbiter.ts
-import { Arbiter, DecidedBy, agent } from "@agboss/core";
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
+import { Arbiter, inline } from "@agboss/core";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
 
-// by model: one criterion per agent of the launch
+// by model: one criterion per target of the launch
 @Arbiter({
   name: "reasoned-score-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  modelProvider: DecisionsModelProvider,
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
-    { agent: SkillsPanelAgent, prompt: "The reason names a concrete technical skill" },
-    { agent: CulturePanelAgent, prompt: "The reason names a concrete trait of the team" },
-    { agent: RiskPanelAgent, prompt: "The reason names a concrete risk" },
+    { target: SkillsPanelAgent, prompt: "The reason names a concrete technical skill" },
+    { target: CulturePanelAgent, prompt: "The reason names a concrete trait of the team" },
+    { target: RiskPanelAgent, prompt: "The reason names a concrete risk" },
   ],
 })
 export class ReasonedScoreArbiter {}
 ```
 
-```ts file=src/panel/arbiters/has-reason/has-reason.arbiter.ts
-import { Arbiter, DecidedBy, OnAnswer } from "@agboss/core";
-import type { ArbiterAnswerOf } from "@agboss/core";
+A code arbiter that lists `ArbiterModel` in `deps` decides what it can at `$0` and asks its own model
+(`model`, resolved like every model: its provider, its workflow's, its application's) only where it
+must — one class for the whole rule, so the flow names _which_ rule applies, never how it escalates:
+
+```ts file=src/panel/arbiters/panel-score/panel-score.arbiter.ts
+import { DecisionsModelProvider } from "../../../model-providers/decisions.model-provider.js";
+import { Arbiter, ArbiterModel, Arbitrate, Decision, type ArbitratedAnswerOf } from "@agboss/core";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
 
-@Arbiter({ name: "has-reason-arbiter", decidedBy: DecidedBy.Code })
-export class HasReasonArbiter {
-  @OnAnswer(SkillsPanelAgent)
-  fromSkillsPanel(answer: ArbiterAnswerOf<typeof SkillsPanelAgent>): boolean {
-    return answer.reason.length > 40;
-  }
+@Arbiter({
+  name: "panel-score-arbiter",
+  model: "typesafe/jev-1.13",
+  modelProvider: DecisionsModelProvider,
+  deps: [ArbiterModel],
+})
+export class PanelScoreArbiter {
+  constructor(private readonly arbiterModel: ArbiterModel) {}
 
-  @OnAnswer(CulturePanelAgent)
-  fromCulturePanel(answer: ArbiterAnswerOf<typeof CulturePanelAgent>): boolean {
-    return answer.reason.length > 40;
-  }
-
-  @OnAnswer(RiskPanelAgent)
-  fromRiskPanel(answer: ArbiterAnswerOf<typeof RiskPanelAgent>): boolean {
-    return answer.reason.length > 40;
+  @Arbitrate(SkillsPanelAgent, CulturePanelAgent, RiskPanelAgent)
+  async isCounted(
+    answer: ArbitratedAnswerOf<
+      [typeof SkillsPanelAgent, typeof CulturePanelAgent, typeof RiskPanelAgent]
+    >,
+  ): Promise<boolean> {
+    if (answer.score < 1 || answer.score > 10) return false; // code, `$0`
+    if (answer.reason.length > 200) return true; // code, `$0`
+    const read = await this.arbiterModel.decide({
+      state: `Score ${String(answer.score)}: ${answer.reason}`,
+      questions: { counts: Decision.boolean("The reason names something concrete") },
+    });
+    return read.counts.probability > 0.7; // budget-checked and charged as arbiter:panel-score-arbiter
   }
 }
 ```
 
 ```ts file=src/panel/workflows/panel/panel.workflow.ts
-import { QuorumNotReachedError, Workflow, anyOf, listOf, start, toFinish } from "@agboss/core";
+import { QuorumNotReachedError, Workflow, listOf, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 import { CulturePanelAgent } from "../../agents/culture-panel/culture-panel.agent.js";
 import { PanelVerdictAgent } from "../../agents/panel-verdict/panel-verdict.agent.js";
 import { RiskPanelAgent } from "../../agents/risk-panel/risk-panel.agent.js";
 import { SkillsPanelAgent } from "../../agents/skills-panel/skills-panel.agent.js";
-import { HasReasonArbiter } from "../../arbiters/has-reason/has-reason.arbiter.js";
-import { ReasonedScoreArbiter } from "../../arbiters/reasoned-score/reasoned-score.arbiter.js";
-import { ScoreRangeArbiter } from "../../arbiters/score-range/score-range.arbiter.js";
+import { PanelScoreArbiter } from "../../arbiters/panel-score/panel-score.arbiter.js";
 import { PanelCandidateDto } from "../../dto/panel-candidate.dto.js";
 import { PanelScoreDto } from "../../dto/panel-score.dto.js";
 import { PanelVerdictDto } from "../../dto/panel-verdict.dto.js";
@@ -1426,25 +1466,25 @@ import { PanelWorkflowStart } from "./panel.workflow-start.js";
 @Workflow({
   name: "panel-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PanelWorkflowStart)
-      .returns(PanelCandidateDto)
-      .toParallelAgents(SkillsPanelAgent, CulturePanelAgent, RiskPanelAgent)
-      .acceptedBy(ScoreRangeArbiter) // AND, in path order: the cheap check first
-      .acceptedBy(anyOf(HasReasonArbiter, ReasonedScoreArbiter)) // the model only when the code rejects
+    onStart(PanelWorkflowStart)
+      .inParallel([toAgent(SkillsPanelAgent), toAgent(CulturePanelAgent), toAgent(RiskPanelAgent)])
+      .arbitratedBy(PanelScoreArbiter) // one arbiter; its code asks its own model only where it must
       .joinQuorum({ min: 2, max: 3, deadline: seconds(30) }) // two accepted answers are enough
-      .onJoinError(QuorumNotReachedError, toFinish(PanelUndecidedWorkflowFinish))
-      .returns(listOf(PanelScoreDto)) // one output class from several agents: a list, in counting order
+      .onError(QuorumNotReachedError, toFinish(PanelUndecidedWorkflowFinish)) // one output class from several agents: a list, in counting order
       .toAgent(PanelVerdictAgent)
-      .returns(PanelVerdictDto)
       .toFinish(PanelVerdictWorkflowFinish),
   ],
 })
 export class PanelWorkflow {}
 ```
 
-Groups — the first complete group, by priority (1 is the highest), continues **its own** path; nothing
-follows the groups but `.onJoinError(…)`:
+A quorum's `deadline` is `seconds()` / `minutes()` / `hours()`, or working time — `deadline: workDays(5), calendar: CorporateWorkingCalendar` (a `@WorkingCalendar` class; `[calendar.required-for-working-duration]` without it). The calendar is asked once at dispatch; if it fails, the join's `.onError(PauseError.WorkingCalendar, …)` takes it.
+
+Groups — `.joinQuorumGroups({ deadline })`, its `.onError(…)` right after it (never after a group), then
+one `.onGroup([targets], { priority }?, subPath)` per group (at least one): the first complete group, by
+priority (1 is the highest), continues **its own** path; nothing follows the groups but more `.onGroup(…)`s:
 
 ```ts file=src/deal/dto/deal.dto.ts
 import { Text } from "@agboss/core/dto";
@@ -1456,10 +1496,10 @@ export class DealDto {
 ```
 
 ```ts file=src/deal/dto/legal-review.dto.ts
-import { Flag } from "@agboss/core/dto";
+import { Bool } from "@agboss/core/dto";
 
 export class LegalReviewDto {
-  @Flag({ prompt: "whether the terms are legal" })
+  @Bool({ prompt: "whether the terms are legal" })
   isLegal!: boolean;
 }
 ```
@@ -1474,10 +1514,10 @@ export class DealCritiqueDto {
 ```
 
 ```ts file=src/deal/dto/fast-screen.dto.ts
-import { Flag } from "@agboss/core/dto";
+import { Bool } from "@agboss/core/dto";
 
 export class FastScreenDto {
-  @Flag({ prompt: "whether the deal is obviously bad" })
+  @Bool({ prompt: "whether the deal is obviously bad" })
   isObviouslyBad!: boolean;
 }
 ```
@@ -1500,34 +1540,34 @@ export class DealWorkflowStart {}
 ```
 
 ```ts file=src/deal/agents/deal-legal/deal-legal.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { DealDto } from "../../dto/deal.dto.js";
 import { LegalReviewDto } from "../../dto/legal-review.dto.js";
 
-@Agent({ name: "deal-legal-agent", description: "Checks the law", prompt: "Check the terms against the law.", model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: LegalReviewDto })
+@Agent({ name: "deal-legal-agent", description: "Checks the law", prompt: inline("Check the terms against the law."), model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: LegalReviewDto })
 export class DealLegalAgent {}
 ```
 
 ```ts file=src/deal/agents/deal-critic/deal-critic.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { DealCritiqueDto } from "../../dto/deal-critique.dto.js";
 import { DealDto } from "../../dto/deal.dto.js";
 
-@Agent({ name: "deal-critic-agent", description: "Finds a weakness", prompt: "Name the deal's worst weakness.", model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: DealCritiqueDto })
+@Agent({ name: "deal-critic-agent", description: "Finds a weakness", prompt: inline("Name the deal's worst weakness."), model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: DealCritiqueDto })
 export class DealCriticAgent {}
 ```
 
 ```ts file=src/deal/agents/deal-screen/deal-screen.agent.ts
-import { Agent } from "@agboss/core";
+import { Agent, inline } from "@agboss/core";
 import { DealDto } from "../../dto/deal.dto.js";
 import { FastScreenDto } from "../../dto/fast-screen.dto.js";
 
-@Agent({ name: "deal-screen-agent", description: "Screens fast", prompt: "Say whether the deal is obviously bad.", model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: FastScreenDto })
+@Agent({ name: "deal-screen-agent", description: "Screens fast", prompt: inline("Say whether the deal is obviously bad."), model: "moonshotai/kimi-k2.6", input: { deal: DealDto }, output: FastScreenDto })
 export class DealScreenAgent {}
 ```
 
 ```ts file=src/deal/agents/deal-report/deal-report.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { DealCritiqueDto } from "../../dto/deal-critique.dto.js";
 import { DealReportDto } from "../../dto/deal-report.dto.js";
 import { LegalReviewDto } from "../../dto/legal-review.dto.js";
@@ -1535,7 +1575,7 @@ import { LegalReviewDto } from "../../dto/legal-review.dto.js";
 @Agent({
   name: "deal-report-agent",
   description: "Writes the full review",
-  prompt: "Write the review from the legal check and the critiques.",
+  prompt: inline("Write the review from the legal check and the critiques."),
   model: "moonshotai/kimi-k2.6",
   input: { legal: LegalReviewDto, critiques: listOf(DealCritiqueDto) },
   output: DealReportDto,
@@ -1568,7 +1608,7 @@ export class DealUnreviewedWorkflowFinish {}
 ```
 
 ```ts file=src/deal/workflows/deal/deal.workflow.ts
-import { QuorumNotReachedError, Workflow, group, listOf, start, toFinish } from "@agboss/core";
+import { QuorumNotReachedError, Workflow, listOf, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
 import { minutes } from "@agboss/core/units";
 import { DealCriticAgent } from "../../agents/deal-critic/deal-critic.agent.js";
 import { DealLegalAgent } from "../../agents/deal-legal/deal-legal.agent.js";
@@ -1587,25 +1627,24 @@ import { DealWorkflowStart } from "./deal.workflow-start.js";
 @Workflow({
   name: "deal-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(DealWorkflowStart)
-      .returns(DealDto)
-      .toParallelAgents(DealLegalAgent, DealCriticAgent, DealCriticAgent, DealScreenAgent)
-      .joinQuorumGroups(
-        group(DealLegalAgent, DealCriticAgent)
-          .priority(1)
-          .returns(LegalReviewDto)
-          .returns(listOf(DealCritiqueDto)) // deal-critic-agent is launched twice: a list, even of one
-          .toAgent(DealReportAgent)
-          .returns(DealReportDto)
+    onStart(DealWorkflowStart)
+      .inParallel([
+        toAgent(DealLegalAgent),
+        toAgent(DealCriticAgent),
+        toAgent(DealCriticAgent),
+        toAgent(DealScreenAgent),
+      ])
+      .joinQuorumGroups({ deadline: minutes(1) })
+      .onError(QuorumNotReachedError, toFinish(DealUnreviewedWorkflowFinish))
+      .onGroup(
+        [DealLegalAgent, DealCriticAgent], // deal-critic-agent is launched twice: a list, even of one
+        { priority: 1 },
+        toAgent(DealReportAgent)
           .toFinish(DealReportWorkflowFinish),
-        group(DealScreenAgent)
-          .priority(2)
-          .returns(FastScreenDto)
-          .toFinish(DealScreenedWorkflowFinish),
-        { deadline: minutes(1) },
       )
-      .onJoinError(QuorumNotReachedError, toFinish(DealUnreviewedWorkflowFinish)),
+      .onGroup([DealScreenAgent], { priority: 2 }, toFinish(DealScreenedWorkflowFinish)),
   ],
 })
 export class DealWorkflow {}
@@ -1613,23 +1652,23 @@ export class DealWorkflow {}
 
 Quorum rules:
 
-- `.acceptedBy(…)` stands between the launch and the quorum (`.acceptedBy(…).join()` does not compile).
-- A code arbiter has exactly one `@OnAnswer(Agent)` method per agent class of the launch —
-  `[arbiter.unhandled-agent]`, `[arbiter.unknown-agent]`, `[arbiter.duplicate-agent]`, its name
-  `from<Agent>` (`[arbiter.method-name]`); a model arbiter has `criteria`, never `@OnAnswer`
-  (`[arbiter.answer-method-on-model]`); an undecorated class is `[arbiter.not-an-arbiter]`.
+- `.arbitratedBy(X)` stands between the launch and the quorum (`.arbitratedBy(…).join()` does not compile), once per launch; after `.forEachItem(…)` only `.joinQuorum(…)` follows (no groups).
+- A code arbiter's `@Arbitrate(…targets)` methods cover every target class of the launch exactly
+  once — `[arbiter.unhandled-target]`, `[arbiter.unknown-target]`, `[arbiter.duplicate-target]`; a
+  void `@Action` has nothing to judge (`[arbiter.branch-has-no-output]`); an undecorated class is
+  `[arbiter.not-an-arbiter]`.
 - `.joinQuorum({ min })` with `min` below the agents launched makes a single answer
-  `optional(XDto)` (`[flow.quorum-return-not-optional]`); `min` above what can run, or a group that can
+  `optional(XDto)` (a step that requires it is `[input.missing-on-path]`); `min` above what can run, or a group that can
   never complete, is `[flow.quorum-impossible]`.
 - At run time each answer is `BranchVerdict.Counted`, `Rejected` or `Surplus`; once the quorum is
   decided the rest is cancelled (`BranchStatus.Cancelled`). A quorum not reached is
-  `QuorumNotReachedError` into `.onJoinError(…)`; an arbiter that throws is `ArbiterError`. The time
+  `QuorumNotReachedError` into `.onError(…)`; an arbiter that throws is `ArbiterError`. The time
   a branch waits for a tree slot does not count against the `deadline`.
 
 ## 6. Child workflows
 
 Any `@Workflow` of the application can be a step: `.toWorkflow(W)` (one child), `route(W)` (a router
-picks it), `.toParallelWorkflows(W, { maxItems })` (one child per item), `workflow(W)` (its own path),
+picks it), `.forEachItem(toWorkflow(W), { takeFirst: maxItems })` (one child per item), `onWorkflow(W)` (its own path),
 or `toWorkflow(W)` as a side-path starter. The child's scope starts with its start's input only; its
 result is one of its finishes' outputs.
 
@@ -1690,7 +1729,7 @@ export class VendorCheckWorkflowStart {}
 ```
 
 ```ts file=src/vendor/agents/vendor-checker/vendor-checker.agent.ts
-import { Agent, oneOf } from "@agboss/core";
+import { Agent, oneOf, inline } from "@agboss/core";
 import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
 import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
 import { VendorDto } from "../../dto/vendor.dto.js";
@@ -1698,7 +1737,7 @@ import { VendorDto } from "../../dto/vendor.dto.js";
 @Agent({
   name: "vendor-checker-agent",
   description: "Scores a vendor, or rejects it",
-  prompt: "Score the vendor from 1 to 10, or reject it with a reason.",
+  prompt: inline("Score the vendor from 1 to 10, or reject it with a reason."),
   model: "moonshotai/kimi-k2.6",
   input: { vendor: VendorDto },
   output: oneOf(VendorScoreDto, VendorRejectedDto),
@@ -1720,7 +1759,7 @@ import { VendorDto } from "../dto/vendor.dto.js";
 })
 export class MarkVendorFailedAction implements ActionHandler<MarkVendorFailedAction> {
   execute(input: InputOf<MarkVendorFailedAction>): Promise<OutputOf<MarkVendorFailedAction>> {
-    return Promise.resolve({ name: input.vendor.value.name });
+    return Promise.resolve({ name: input.vendor.name });
   }
 }
 ```
@@ -1751,7 +1790,16 @@ export class VendorCheckFailedWorkflowFinish {}
 
 ```ts file=src/vendor/workflows/vendor-check/vendor-check.workflow.ts
 // the child: an ordinary @Workflow — one vendor, its own branches, a soft failure on its side path
-import { StepFailedError, Workflow, caseOf, oneOf, start, toAction } from "@agboss/core";
+import {
+  StepFailedError,
+  Workflow,
+  oneOf,
+  onStart,
+  toAction,
+  toAgent,
+  toFinish,
+  Ttl,
+} from "@agboss/core";
 import { MarkVendorFailedAction } from "../../actions/mark-vendor-failed.action.js";
 import { VendorCheckerAgent } from "../../agents/vendor-checker/vendor-checker.agent.js";
 import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
@@ -1766,23 +1814,16 @@ import { VendorScoredWorkflowFinish } from "./vendor-scored.workflow-finish.js";
 @Workflow({
   name: "vendor-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(VendorCheckWorkflowStart)
-      .returns(VendorDto)
+    onStart(VendorCheckWorkflowStart)
       .toAgent(VendorCheckerAgent)
       .onError(
         StepFailedError, // the child catches its own failure: one more result class for its parent
         toAction(MarkVendorFailedAction)
-          .returns(VendorCheckFailedDto)
           .toFinish(VendorCheckFailedWorkflowFinish),
       )
-      .returns(oneOf(VendorScoreDto, VendorRejectedDto))
-      .switch(
-        caseOf(VendorScoreDto)
-          .toFinish(VendorScoredWorkflowFinish),
-        caseOf(VendorRejectedDto)
-          .toFinish(VendorRejectedWorkflowFinish),
-      ),
+      .toOneOf([toFinish(VendorScoredWorkflowFinish), toFinish(VendorRejectedWorkflowFinish)]),
   ],
 })
 export class VendorCheckWorkflow {}
@@ -1805,14 +1846,14 @@ export class SingleVendorWorkflowStart {}
 ```
 
 ```ts file=src/vendor/agents/vendor-finder/vendor-finder.agent.ts
-import { Agent, listOf } from "@agboss/core";
+import { Agent, listOf, inline } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { VendorDto } from "../../dto/vendor.dto.js";
 
 @Agent({
   name: "vendor-finder-agent",
   description: "Finds vendors for the request",
-  prompt: "List the vendors that can deliver the request.",
+  prompt: inline("List the vendors that can deliver the request."),
   model: "moonshotai/kimi-k2.6",
   input: { request: WorkflowStartTextDto },
   output: listOf(VendorDto),
@@ -1821,7 +1862,7 @@ export class VendorFinderAgent {}
 ```
 
 ```ts file=src/vendor/agents/vendor-ranker/vendor-ranker.agent.ts
-import { Agent, listOf, oneOf } from "@agboss/core";
+import { Agent, listOf, oneOf, inline } from "@agboss/core";
 import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
 import { VendorRankingDto } from "../../dto/vendor-ranking.dto.js";
 import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
@@ -1830,9 +1871,9 @@ import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
 @Agent({
   name: "vendor-ranker-agent",
   description: "Ranks the checked vendors",
-  prompt: "Rank the scored vendors; mention the rejected and failed ones.",
+  prompt: inline("Rank the scored vendors; mention the rejected and failed ones."),
   model: "moonshotai/kimi-k2.6",
-  input: { checks: listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto)) },
+  input: { checks: listOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto) },
   output: VendorRankingDto,
 })
 export class VendorRankerAgent {}
@@ -1879,7 +1920,7 @@ export class VendorCrashedWorkflowFinish {}
 ```
 
 ```ts file=src/vendor/workflows/vendor-screening/vendor-screening.workflow.ts
-import { Workflow, listOf, oneOf, start } from "@agboss/core";
+import { Workflow, listOf, oneOf, onStart, toAgent, toFinish, toWorkflow, Ttl } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 import { VendorFinderAgent } from "../../agents/vendor-finder/vendor-finder.agent.js";
 import { VendorRankerAgent } from "../../agents/vendor-ranker/vendor-ranker.agent.js";
@@ -1895,18 +1936,15 @@ import { VendorScreeningWorkflowStart } from "./vendor-screening.workflow-start.
 @Workflow({
   name: "vendor-screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
     // one child per item: each VendorDto enters vendor-check-workflow-start; the join is the list
     // of the child's finish output classes
-    start(VendorScreeningWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(VendorScreeningWorkflowStart)
       .toAgent(VendorFinderAgent)
-      .returns(listOf(VendorDto))
-      .toParallelWorkflows(VendorCheckWorkflow, { maxConcurrency: 3, maxItems: 20 })
-      .join()
-      .returns(listOf(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto))) // one polymorphic list
+      .forEachItem(toWorkflow(VendorCheckWorkflow), { takeFirst: 20, maxConcurrency: 3 })
+      .join() // one polymorphic list
       .toAgent(VendorRankerAgent)
-      .returns(VendorRankingDto)
       .toFinish(VendorRankingWorkflowFinish),
   ],
 })
@@ -1914,7 +1952,15 @@ export class VendorScreeningWorkflow {}
 ```
 
 ```ts file=src/vendor/workflows/single-vendor/single-vendor.workflow.ts
-import { ChildExecutionFailedError, Workflow, caseOf, oneOf, start, toFinish } from "@agboss/core";
+import {
+  ChildExecutionFailedError,
+  Workflow,
+  oneOf,
+  onStart,
+  toFinish,
+  toWorkflow,
+  Ttl,
+} from "@agboss/core";
 import { VendorCheckFailedDto } from "../../dto/vendor-check-failed.dto.js";
 import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
 import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
@@ -1932,23 +1978,19 @@ import { VendorCrashedWorkflowFinish } from "./vendor-crashed.workflow-finish.js
 @Workflow({
   name: "single-vendor-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SingleVendorWorkflowStart)
-      .returns(VendorDto)
+    onStart(SingleVendorWorkflowStart)
       .toWorkflow(VendorCheckWorkflow)
       .onError(
         ChildExecutionFailedError, // an uncaught error of the child (its step, maxSteps, maxVisits)
         toFinish(VendorCrashedWorkflowFinish),
       )
-      .returns(oneOf(VendorScoreDto, VendorRejectedDto, VendorCheckFailedDto))
-      .switch(
-        caseOf(VendorScoreDto)
-          .toFinish(SingleVendorScoredWorkflowFinish),
-        caseOf(VendorRejectedDto)
-          .toFinish(SingleVendorRejectedWorkflowFinish),
-        caseOf(VendorCheckFailedDto)
-          .toFinish(SingleVendorFailedWorkflowFinish),
-      ),
+      .toOneOf([
+        toFinish(SingleVendorScoredWorkflowFinish),
+        toFinish(SingleVendorRejectedWorkflowFinish),
+        toFinish(SingleVendorFailedWorkflowFinish),
+      ]),
   ],
 })
 export class SingleVendorWorkflow {}
@@ -1999,7 +2041,7 @@ import { PaymentRequestDto } from "../dto/payment-request.dto.js";
 @Action({ name: "charge-card-action", description: "Charges the card", input: { payment: PaymentRequestDto }, output: PaymentDoneDto })
 export class ChargeCardAction implements ActionHandler<ChargeCardAction> {
   execute(input: InputOf<ChargeCardAction>): Promise<OutputOf<ChargeCardAction>> {
-    return Promise.resolve({ receipt: `card:${input.payment.value.paymentId}` });
+    return Promise.resolve({ receipt: `card:${input.payment.paymentId}` });
   }
 }
 ```
@@ -2013,7 +2055,7 @@ import { PaymentRequestDto } from "../dto/payment-request.dto.js";
 @Action({ name: "send-invoice-action", description: "Sends an invoice instead", input: { payment: PaymentRequestDto }, output: PaymentDoneDto })
 export class SendInvoiceAction implements ActionHandler<SendInvoiceAction> {
   execute(input: InputOf<SendInvoiceAction>): Promise<OutputOf<SendInvoiceAction>> {
-    return Promise.resolve({ receipt: `invoice:${input.payment.value.paymentId}` });
+    return Promise.resolve({ receipt: `invoice:${input.payment.paymentId}` });
   }
 }
 ```
@@ -2043,7 +2085,7 @@ export class RecoveredWorkflowFinish {}
 ```
 
 ```ts file=src/payment/workflows/payment-recovery/payment-recovery.workflow.ts
-import { Workflow, start } from "@agboss/core";
+import { Workflow, onStart, toAction, toFinish, Ttl } from "@agboss/core";
 import { SendInvoiceAction } from "../../actions/send-invoice.action.js";
 import { PaymentDoneDto } from "../../dto/payment-done.dto.js";
 import { PaymentRequestDto } from "../../dto/payment-request.dto.js";
@@ -2053,11 +2095,10 @@ import { PaymentRecoveryWorkflowStart } from "./payment-recovery.workflow-start.
 @Workflow({
   name: "payment-recovery-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PaymentRecoveryWorkflowStart)
-      .returns(PaymentRequestDto)
+    onStart(PaymentRecoveryWorkflowStart)
       .toAction(SendInvoiceAction)
-      .returns(PaymentDoneDto)
       .toFinish(InvoicedWorkflowFinish),
   ],
 })
@@ -2065,7 +2106,7 @@ export class PaymentRecoveryWorkflow {}
 ```
 
 ```ts file=src/payment/workflows/pay/pay.workflow.ts
-import { StepFailedError, Workflow, start, toWorkflow } from "@agboss/core";
+import { StepFailedError, Workflow, onStart, toWorkflow, toAction, toFinish, Ttl } from "@agboss/core";
 import { ChargeCardAction } from "../../actions/charge-card.action.js";
 import { PaymentDoneDto } from "../../dto/payment-done.dto.js";
 import { PaymentRequestDto } from "../../dto/payment-request.dto.js";
@@ -2077,17 +2118,15 @@ import { RecoveredWorkflowFinish } from "./recovered.workflow-finish.js";
 @Workflow({
   name: "pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PayWorkflowStart)
-      .returns(PaymentRequestDto)
+    onStart(PayWorkflowStart)
       .toAction(ChargeCardAction)
       .onError(
         StepFailedError, // the charge failed: the recovery workflow takes it from here
         toWorkflow(PaymentRecoveryWorkflow)
-          .returns(PaymentDoneDto)
           .toFinish(RecoveredWorkflowFinish),
       )
-      .returns(PaymentDoneDto)
       .toFinish(PaidWorkflowFinish),
   ],
 })
@@ -2100,7 +2139,7 @@ Child rules:
   start with a required field of the item's type (per item) or of the chain's current value. None →
   `[graph.no-matching-start]`; two → `[graph.ambiguous-start]` (fix: make one start's input a
   subclass, `class QuickVendorDto extends VendorDto {}`). Both are compile errors too.
-- **Errors**: `.onError(E, …)` right after `.toWorkflow(W)` or `workflow(W)`; `.onJoinError(E, …)`
+- **Errors**: `.onError(E, …)` right after `.toWorkflow(W)` or `onWorkflow(W)`; `.onError(E, …)`
   right after a per-item join. An uncaught error of the child — its step, its `maxSteps`, a node's
   `maxVisits` — is the parent's `ChildExecutionFailedError` (a `StepFailedError`: `cause`,
   `childExecutionId`, `itemIndex`, `workflow`), so its handler may be an agent. An exhausted budget,
@@ -2110,17 +2149,17 @@ Child rules:
   `[graph.child-without-failure-finish]` (one failed item would cancel all the others).
 - A child need not be listed in `@Application({ workflows })`; it runs alone through its own starts too.
   It spends from the root's budgets; its own execution budget applies only when it runs as the root.
-- **Where it runs (#333)**: on its parent's instance by default; `{ placement:
-ChildPlacement.AnyInstance }` on `.toWorkflow(W, …)`, `.toParallelWorkflows(W, { …, placement })`
-  or `route(W, …)` queues it for any instance with a free step slot (list
-  `SqliteChildExecutionQueueRepository`, else `[application.in-memory-child-queue]`). One class has
-  one placement (`[flow.conflicting-placement]`); pauses, `app.resume`, and per-child crash recovery
+- **Where it runs (#333)**: on its parent's instance by default; `@Workflow({ placement:
+ChildPlacement.AnyWorker })` on the child (never on the flow; else `@Application({ defaults: { workflows: {
+placement } } })`; `OtherWorker` excludes the launching instance) queues it for a live worker with a free
+  step slot (list `SqliteChildExecutionQueueRepository`, else `[application.in-memory-child-queue]`);
+  pauses, `app.resume`, and per-child crash recovery
   work across instances on `<parentThreadId>/child/<id>`.
 
-## 7. Recursion: `ThisWorkflow`
+## 7. Recursion: `() => Self`
 
-A workflow launches itself with the marker `ThisWorkflow` (its class does not exist yet when its
-decorator's arguments are evaluated). `@Workflow({ maxDepth })` is required; on the last level
+A workflow launches itself with a thunk of its own class (the class does not exist yet when its
+decorator's arguments are evaluated; the thunk is read at assembly). `@Workflow({ executionLimits: { maxDepth } })` is required; on the last level
 (`depth === maxDepth`) the options of a branch that would recurse are not offered — so every such
 branch keeps one that does not recurse.
 
@@ -2172,7 +2211,7 @@ export class TopicResearchWorkflowStart {}
 ```
 
 ```ts file=src/topic/agents/topic-researcher/topic-researcher.agent.ts
-import { Agent, oneOf } from "@agboss/core";
+import { Agent, oneOf, inline } from "@agboss/core";
 import { TopicReportDto } from "../../dto/topic-report.dto.js";
 import { TopicTooBroadDto } from "../../dto/topic-too-broad.dto.js";
 import { TopicDto } from "../../dto/topic.dto.js";
@@ -2180,7 +2219,7 @@ import { TopicDto } from "../../dto/topic.dto.js";
 @Agent({
   name: "topic-researcher-agent",
   description: "Reports on a topic, or says it is too broad",
-  prompt: "Report on the topic, or say it is too broad to cover at once.",
+  prompt: inline("Report on the topic, or say it is too broad to cover at once."),
   model: "moonshotai/kimi-k2.6",
   input: { topic: TopicDto },
   output: oneOf(TopicReportDto, TopicTooBroadDto), // on the last level TopicTooBroadDto leaves the schema
@@ -2196,14 +2235,14 @@ import { TopicDto } from "../dto/topic.dto.js";
 @Action({ name: "split-topic-action", description: "Splits a broad topic in three", input: { topic: TopicDto }, output: listOf(TopicDto) })
 export class SplitTopicAction implements ActionHandler<SplitTopicAction> {
   execute(input: InputOf<SplitTopicAction>): Promise<OutputOf<SplitTopicAction>> {
-    const { topic, level } = input.topic.value;
+    const { topic, level } = input.topic;
     return Promise.resolve(["history", "state", "outlook"].map((part) => ({ topic: `${topic}: ${part}`, level: level + 1 })));
   }
 }
 ```
 
 ```ts file=src/topic/agents/topic-merge/topic-merge.agent.ts
-import { Agent, listOf, oneOf } from "@agboss/core";
+import { Agent, listOf, oneOf, inline } from "@agboss/core";
 import { TopicFailedDto } from "../../dto/topic-failed.dto.js";
 import { TopicReportDto } from "../../dto/topic-report.dto.js";
 import { TopicDto } from "../../dto/topic.dto.js";
@@ -2211,9 +2250,9 @@ import { TopicDto } from "../../dto/topic.dto.js";
 @Agent({
   name: "topic-merge-agent",
   description: "Merges the subtopics' reports",
-  prompt: "Merge the reports into one; note the subtopics that failed.",
+  prompt: inline("Merge the reports into one; note the subtopics that failed."),
   model: "moonshotai/kimi-k2.6",
-  input: { topic: TopicDto, parts: listOf(oneOf(TopicReportDto, TopicFailedDto)) },
+  input: { topic: TopicDto, parts: listOf(TopicReportDto, TopicFailedDto) },
   output: TopicReportDto,
 })
 export class TopicMergeAgent {}
@@ -2228,7 +2267,7 @@ import { TopicDto } from "../dto/topic.dto.js";
 @Action({ name: "mark-topic-failed-action", description: "Records a failed topic", input: { topic: TopicDto }, output: TopicFailedDto })
 export class MarkTopicFailedAction implements ActionHandler<MarkTopicFailedAction> {
   execute(input: InputOf<MarkTopicFailedAction>): Promise<OutputOf<MarkTopicFailedAction>> {
-    return Promise.resolve({ topic: input.topic.value.topic });
+    return Promise.resolve({ topic: input.topic.topic });
   }
 }
 ```
@@ -2250,7 +2289,7 @@ export class TopicFailedWorkflowFinish {}
 ```
 
 ```ts file=src/topic/workflows/topic-research/topic-research.workflow.ts
-import { StepFailedError, ThisWorkflow, Workflow, action, caseOf, listOf, oneOf, start, toAction } from "@agboss/core";
+import { StepFailedError, Workflow, onAction, listOf, oneOf, onStart, toAction, toAgent, toFinish, toWorkflow, Ttl } from "@agboss/core";
 import { MarkTopicFailedAction } from "../../actions/mark-topic-failed.action.js";
 import { SplitTopicAction } from "../../actions/split-topic.action.js";
 import { TopicMergeAgent } from "../../agents/topic-merge/topic-merge.agent.js";
@@ -2266,46 +2305,42 @@ import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";
 @Workflow({
   name: "topic-research-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TopicResearchWorkflowStart)
-      .returns(TopicDto)
+    onStart(TopicResearchWorkflowStart)
       .toAgent(TopicResearcherAgent)
       .onError(StepFailedError, toAction(MarkTopicFailedAction)) // a failed topic ends softly
-      .returns(oneOf(TopicReportDto, TopicTooBroadDto))
-      .switch(
-        caseOf(TopicReportDto)
-          .toFinish(TopicReportWorkflowFinish),
-        caseOf(TopicTooBroadDto) // not offered on the last level: this case recurses
-          .toAction(SplitTopicAction)
-          .returns(listOf(TopicDto))
-          .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 3, maxItems: 3 })
+      .toOneOf([
+        toFinish(TopicReportWorkflowFinish),
+        // not offered on the last level: this case recurses
+        toAction(SplitTopicAction)
+          .forEachItem(
+            toWorkflow(() => TopicResearchWorkflow),
+            { takeFirst: 3, maxConcurrency: 3 },
+          )
           .join()
-          .returns(listOf(oneOf(TopicReportDto, TopicFailedDto)))
           .toAgent(TopicMergeAgent)
           .onError(StepFailedError, toAction(MarkTopicFailedAction))
-          .returns(TopicReportDto)
           .toFinish(TopicReportWorkflowFinish),
-      ),
+      ]),
 
     // two ways in (the researcher's error, the merge's error): its own path
-    action(MarkTopicFailedAction)
-      .returns(TopicFailedDto)
+    onAction(MarkTopicFailedAction)
       .toFinish(TopicFailedWorkflowFinish),
   ],
-  maxDepth: 3, // executions at depth 1 (the root) to 3
-  maxConcurrentExecutions: 4, // executions of the whole tree at work at once
+  executionLimits: { maxDepth: 3, maxConcurrency: 4 }, // depth 1 (the root) to 3; at most four executions of the tree work at once
 })
 export class TopicResearchWorkflow {}
 ```
 
 - No `maxDepth` → `[graph.recursion-without-depth]`; a branch whose every option recurses →
-  `[graph.recursion-without-exit]`; only direct recursion — two workflows launching each other, or a
-  flow naming its own class instead of `ThisWorkflow`, is `[graph.mutual-recursion]`.
+  `[graph.recursion-without-exit]`; only direct recursion — two workflows launching each other is
+  `[graph.mutual-recursion]`; a flow naming its own class (as a thunk) is the recursion itself.
 - A launch by code or data past `maxDepth` does not start: the parent's step fails with
   `ChildExecutionFailedError` caused by `DepthLimitExceededError` — take it with
   `.onError(LimitExceededError, …)` (actions and finishes only) right after the launch, or
-  `.onJoinError(…)` after a per-item join.
-- `@Workflow({ maxConcurrentExecutions })` (default 10, a whole number from 1,
+  `.onError(…)` after a per-item join.
+- `@Workflow({ executionLimits: { maxConcurrency } })` (default 10, a whole number from 1,
   `[limits.max-concurrent-executions-invalid]`) is how many executions of the tree work at once; a
   child's own larger cap is never reached (`[limits.child-concurrency-above-parent]`, a warning).
 - Each level has its own `maxSteps`; the root's budgets pay for the whole tree.
@@ -2317,16 +2352,16 @@ optionally its commit point, `committedBy: CommitAction` — once that succeeds 
 undo is an ordinary `@Action` (code, never a model call) that reads only what the path holds **right
 after** its action.
 
-- **Explicit where a path can say it.** A side path (`.onError` / `.onJoinError`) entered after an
+- **Explicit where a path can say it.** A side path (`.onError`) entered after an
   undoable action succeeded must reach its finish through the undo, newest first — `npx agboss check`
   proves it (`[flow.uncompensated-action]`, `[flow.compensation-out-of-order]`). The record of the
   undo is `CompensationReason.SidePath`.
 - **Automatic where no path can say it.** A failed join undoes its finished undoable branches before
-  `.onJoinError` runs (`JoinFailed`); an execution that ends without a finish — an uncaught failure
+  `.onError` runs (`JoinFailed`); an execution that ends without a finish — an uncaught failure
   or limit (`ExecutionFailed`), a cancel or a `FailFast` abort (`ExecutionCancelled`) — undoes its
   open actions, newest first, before it ends. Each automatic undo runs in its own frame (its key is
   the undone step's key + `:compensation`), on a clean-up signal bounded by
-  `@Application({ compensationTimeout })` (default `seconds(15)`), with no budget check; it survives
+  `@Application({ executionLimits: { compensationTimeout } })` (default `seconds(15)`), with no budget check; it survives
   a crash (the next holder of the tree finishes it).
 - An undo that fails does not stop the others; then the execution fails with
   `CompensationFailedError` (`failures`, `cause` the original error) — no side path takes it.
@@ -2398,7 +2433,7 @@ export class ReleaseStockAction implements ActionHandler<ReleaseStockAction> {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   async execute(input: InputOf<ReleaseStockAction>): Promise<void> {
-    await Promise.resolve(`${input.reservation.value.reservationId}:${this.executionContext.step.idempotencyKey}`);
+    await Promise.resolve(`${input.reservation.reservationId}:${this.executionContext.step.idempotencyKey}`);
   }
 }
 ```
@@ -2413,7 +2448,7 @@ export class RefundCardAction implements ActionHandler<RefundCardAction> {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   async execute(input: InputOf<RefundCardAction>): Promise<void> {
-    await Promise.resolve(`${input.payment.value.paymentId}:${this.executionContext.step.idempotencyKey}`);
+    await Promise.resolve(`${input.payment.paymentId}:${this.executionContext.step.idempotencyKey}`);
   }
 }
 ```
@@ -2426,7 +2461,7 @@ import { OrderShippedDto } from "../dto/order-shipped.dto.js";
 @Action({ name: "confirm-order-action", description: "Confirms the order: nothing is undone after it", input: { shipped: OrderShippedDto } })
 export class ConfirmOrderAction implements ActionHandler<ConfirmOrderAction> {
   async execute(input: InputOf<ConfirmOrderAction>): Promise<void> {
-    await Promise.resolve(input.shipped.value.trackingNumber);
+    await Promise.resolve(input.shipped.trackingNumber);
   }
 }
 ```
@@ -2448,7 +2483,7 @@ import { ReleaseStockAction } from "./release-stock.action.js";
 })
 export class ReserveStockAction implements ActionHandler<ReserveStockAction> {
   execute(input: InputOf<ReserveStockAction>): Promise<OutputOf<ReserveStockAction>> {
-    return Promise.resolve({ reservationId: `reservation-${input.order.value.orderId}` });
+    return Promise.resolve({ reservationId: `reservation-${input.order.orderId}` });
   }
 }
 ```
@@ -2471,7 +2506,7 @@ import { RefundCardAction } from "./refund-card.action.js";
 })
 export class ChargeOrderCardAction implements ActionHandler<ChargeOrderCardAction> {
   execute(input: InputOf<ChargeOrderCardAction>): Promise<OutputOf<ChargeOrderCardAction>> {
-    return Promise.resolve({ paymentId: `payment-${input.order.value.orderId}` });
+    return Promise.resolve({ paymentId: `payment-${input.order.orderId}` });
   }
 }
 ```
@@ -2485,7 +2520,7 @@ import { OrderShippedDto } from "../dto/order-shipped.dto.js";
 @Action({ name: "ship-order-action", description: "Hands the order to the carrier", input: { order: OrderRequestDto }, output: OrderShippedDto })
 export class ShipOrderAction implements ActionHandler<ShipOrderAction> {
   execute(input: InputOf<ShipOrderAction>): Promise<OutputOf<ShipOrderAction>> {
-    return Promise.resolve({ trackingNumber: `track-${input.order.value.orderId}` });
+    return Promise.resolve({ trackingNumber: `track-${input.order.orderId}` });
   }
 }
 ```
@@ -2498,7 +2533,7 @@ import { OrderRequestDto } from "../dto/order-request.dto.js";
 @Action({ name: "notify-finance-action", description: "Tells finance a refund failed", input: { order: OrderRequestDto } })
 export class NotifyFinanceAction implements ActionHandler<NotifyFinanceAction> {
   async execute(input: InputOf<NotifyFinanceAction>): Promise<void> {
-    await Promise.resolve(input.order.value.orderId);
+    await Promise.resolve(input.order.orderId);
   }
 }
 ```
@@ -2520,7 +2555,7 @@ export class OrderShippedWorkflowFinish {}
 ```
 
 ```ts file=src/order/workflows/order/order.workflow.ts
-import { Workflow, action, start, toAction } from "@agboss/core";
+import { Workflow, onAction, onStart, toAction, toFinish, Ttl } from "@agboss/core";
 import { ChargeOrderCardAction } from "../../actions/charge-order-card.action.js";
 import { ConfirmOrderAction } from "../../actions/confirm-order.action.js";
 import { NotifyFinanceAction } from "../../actions/notify-finance.action.js";
@@ -2541,17 +2576,15 @@ import { OrderWorkflowStart } from "./order.workflow-start.js";
 @Workflow({
   name: "order-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OrderWorkflowStart)
-      .returns(OrderRequestDto)
+    onStart(OrderWorkflowStart)
       .toAction(ReserveStockAction)
-      .returns(StockReservationDto)
       .toAction(ChargeOrderCardAction)
-      .returns(CardPaymentDto)
       .toAction(ShipOrderAction)
       .onError(
         CarrierError, // the carrier failed: undo what was done, newest first — proved by agboss check
-        toAction(RefundCardAction) // an undo without output: no .returns
+        toAction(RefundCardAction) // an undo without output
           .onError(
             PaymentProviderError, // the refund itself failed: a person takes over; the stock still goes back
             toAction(NotifyFinanceAction)
@@ -2559,11 +2592,10 @@ import { OrderWorkflowStart } from "./order.workflow-start.js";
           )
           .toAction(ReleaseStockAction),
       )
-      .returns(OrderShippedDto)
       .toAction(ConfirmOrderAction) // the commit point of the payment
       .toFinish(OrderShippedWorkflowFinish), // a finish commits what is still open (the reservation)
 
-    action(ReleaseStockAction) // reached from two places: its own path
+    onAction(ReleaseStockAction) // reached from two places: its own path
       .toFinish(OrderFailedWorkflowFinish),
   ],
 })
@@ -2631,7 +2663,7 @@ import { FlightBookingDto } from "../dto/flight-booking.dto.js";
 @Action({ name: "cancel-flight-action", description: "Cancels the flight", input: { flight: FlightBookingDto } })
 export class CancelFlightAction implements ActionHandler<CancelFlightAction> {
   async execute(input: InputOf<CancelFlightAction>): Promise<void> {
-    await Promise.resolve(input.flight.value.bookingId);
+    await Promise.resolve(input.flight.bookingId);
   }
 }
 ```
@@ -2644,7 +2676,7 @@ import { HotelBookingDto } from "../dto/hotel-booking.dto.js";
 @Action({ name: "cancel-hotel-action", description: "Cancels the hotel", input: { hotel: HotelBookingDto } })
 export class CancelHotelAction implements ActionHandler<CancelHotelAction> {
   async execute(input: InputOf<CancelHotelAction>): Promise<void> {
-    await Promise.resolve(input.hotel.value.bookingId);
+    await Promise.resolve(input.hotel.bookingId);
   }
 }
 ```
@@ -2659,7 +2691,7 @@ import { CancelFlightAction } from "./cancel-flight.action.js";
 @Action({ name: "book-flight-action", description: "Books the flight", input: { request: TripRequestDto }, output: FlightBookingDto, compensateWith: CancelFlightAction })
 export class BookFlightAction implements ActionHandler<BookFlightAction> {
   execute(input: InputOf<BookFlightAction>): Promise<OutputOf<BookFlightAction>> {
-    return Promise.resolve({ bookingId: `flight-${input.request.value.destination}` });
+    return Promise.resolve({ bookingId: `flight-${input.request.destination}` });
   }
 }
 ```
@@ -2674,7 +2706,7 @@ import { CancelHotelAction } from "./cancel-hotel.action.js";
 @Action({ name: "book-hotel-action", description: "Books the hotel", input: { request: TripRequestDto }, output: HotelBookingDto, compensateWith: CancelHotelAction })
 export class BookHotelAction implements ActionHandler<BookHotelAction> {
   execute(input: InputOf<BookHotelAction>): Promise<OutputOf<BookHotelAction>> {
-    return Promise.resolve({ bookingId: `hotel-${input.request.value.destination}` });
+    return Promise.resolve({ bookingId: `hotel-${input.request.destination}` });
   }
 }
 ```
@@ -2689,28 +2721,43 @@ export class TripNotBookedWorkflowFinish {}
 
 ```ts file=src/trip/workflows/trip/trip-booked.workflow-finish.ts
 import { WorkflowFinish } from "@agboss/core";
-import type { FinishHandler, InputOf, OutputOf } from "@agboss/core";
-import { FlightBookingDto } from "../../dto/flight-booking.dto.js";
-import { HotelBookingDto } from "../../dto/hotel-booking.dto.js";
 import { TripBookedDto } from "../../dto/trip-booked.dto.js";
 
 @WorkflowFinish({
   name: "trip-booked-workflow-finish",
   description: "Both bookings",
+  output: TripBookedDto,
+})
+export class TripBookedWorkflowFinish {}
+```
+
+```ts file=src/trip/actions/trip-booked.action.ts
+import { Action } from "@agboss/core";
+import type { ActionHandler, InputOf, OutputOf } from "@agboss/core";
+import { FlightBookingDto } from "../dto/flight-booking.dto.js";
+import { HotelBookingDto } from "../dto/hotel-booking.dto.js";
+import { TripBookedDto } from "../dto/trip-booked.dto.js";
+
+@Action({
+  name: "trip-booked-action",
+  description: "Both bookings, as one answer",
   input: { flight: FlightBookingDto, hotel: HotelBookingDto },
   output: TripBookedDto,
 })
-export class TripBookedWorkflowFinish implements FinishHandler<TripBookedWorkflowFinish> {
-  finish(input: InputOf<TripBookedWorkflowFinish>): OutputOf<TripBookedWorkflowFinish> {
-    return { summary: `${input.flight.value.bookingId} + ${input.hotel.value.bookingId}` };
+export class TripBookedAction implements ActionHandler<TripBookedAction> {
+  execute(input: InputOf<TripBookedAction>): Promise<OutputOf<TripBookedAction>> {
+    return Promise.resolve({
+      summary: `${input.flight.bookingId} + ${input.hotel.bookingId}`,
+    });
   }
 }
 ```
 
 ```ts file=src/trip/workflows/trip/trip.workflow.ts
-import { Workflow, start, toFinish } from "@agboss/core";
+import { Workflow, onStart, toFinish, toAction, Ttl } from "@agboss/core";
 import { BookFlightAction } from "../../actions/book-flight.action.js";
 import { BookHotelAction } from "../../actions/book-hotel.action.js";
+import { TripBookedAction } from "../../actions/trip-booked.action.js";
 import { FlightBookingDto } from "../../dto/flight-booking.dto.js";
 import { HotelBookingDto } from "../../dto/hotel-booking.dto.js";
 import { TripRequestDto } from "../../dto/trip-request.dto.js";
@@ -2722,17 +2769,16 @@ import { TripWorkflowStart } from "./trip.workflow-start.js";
 @Workflow({
   name: "trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TripWorkflowStart)
-      .returns(TripRequestDto)
-      .toParallelActions(BookFlightAction, BookHotelAction)
+    onStart(TripWorkflowStart)
+      .inParallel([toAction(BookFlightAction), toAction(BookHotelAction)])
       .join()
-      .onJoinError(
+      .onError(
         BookingFailedError, // the hotel failed: the finished flight is cancelled before this path runs
         toFinish(TripNotBookedWorkflowFinish),
       )
-      .returns(FlightBookingDto)
-      .returns(HotelBookingDto)
+      .toAction(TripBookedAction)
       .toFinish(TripBookedWorkflowFinish), // the finish commits both bookings
   ],
 })
@@ -2779,10 +2825,10 @@ path, and so is an error _caused_ by `E` (an action's own exception is the `caus
 | ↳↳ `ActionFailedError` (`step.action`)                                                          | an action threw (the original as `cause`)                                      | yes                                |
 | ↳↳ `RouterFailedError` (`step.router`) ↳ `RouterDecisionError` (`step.router.invalid-decision`) | `route()` threw / the model failed; an answer outside the routes               | yes                                |
 | ↳↳ `GuardFailedError` (`step.guard`)                                                            | a guardrail's model did not answer (fails closed)                              | yes                                |
-| ↳↳ `ArbiterError` (`step.arbiter`), `QuorumNotReachedError` (`step.quorum`)                     | an arbiter threw; too few counted answers (`.onJoinError`)                     | yes                                |
+| ↳↳ `ArbiterError` (`step.arbiter`), `QuorumNotReachedError` (`step.quorum`)                     | an arbiter threw; too few counted answers (`.onError`)                         | yes                                |
 | ↳↳ `ChildExecutionFailedError` (`step.child`)                                                   | a child's uncaught error (its `cause`)                                         | yes, unless the cause is a limit   |
 | ↳ `GuardrailBlockedError` (`guardrail.blocked`)                                                 | a guardrail said yes; `refusal` is the text to send instead                    | yes                                |
-| ↳ `PiiRefusedError` (`pii.refused`)                                                             | a `blockWithRefusal()` PII rule matched                                        | yes                                |
+| ↳ `PiiRefusedError` (`pii.refused`)                                                             | a `block()` PII rule matched                                                   | yes                                |
 | `LimitExceededError` (`limit`)                                                                  | the parent of every limit                                                      | **no** — actions and finishes only |
 | ↳ `StepsLimitExceededError` (`limit.steps`)                                                     | the workflow's `maxSteps`                                                      | no                                 |
 | ↳ `VisitsLimitExceededError` (`limit.visits`)                                                   | a node's `maxVisits`                                                           | no                                 |
@@ -2802,7 +2848,7 @@ leads only to actions and finishes (`[graph.limit-handler-uses-model]`): nothing
 
 ## 10. Limits the flow is checked against
 
-- `@Workflow({ maxSteps })` — agent and router visits per execution, default (agents + routers) × 3.
+- `@Workflow({ executionLimits: { maxSteps } })` — agent, router, action and external-task visits per execution, default (agents + routers + actions + external tasks) × 3.
   `[limits.max-steps-too-low]`: no finish fits in a hand-set `maxSteps`, or the default cannot hold a
   per-item launch's worst case; `[limits.branch-exceeds-max-steps]`: every path through a node is
   longer; `[limits.max-steps-unused]`: a workflow without agents or routers sets it.
@@ -2814,9 +2860,9 @@ leads only to actions and finishes (`[graph.limit-handler-uses-model]`): nothing
 
 ## Pitfalls
 
-- `start(A).returns(B).toFinish(C)` on one line — one call per line, always.
-- `.onError` after `.returns(…)`: it goes right after the step that throws, before its `.returns`.
-- `.onError` after a join, or `.onJoinError` after a single step — the other one does not compile.
+- `onStart(A).toAgent(B).toFinish(C)` on one line — one call per line, always.
+- `.onError` goes right after the step that throws.
+- `.onError` is not offered between a launch and its `.join*()`; after the join it is the join's own handler.
 - Continuing a shared node inline in two places (`[flow.shared-node-inline]`) — give it its own path.
 - A model router after an agent that already knows the outcome: return `oneOf(…)` and `switch`.
 - `executionContext.depth` read by a prompt — no model sees it; a domain level is an input field.

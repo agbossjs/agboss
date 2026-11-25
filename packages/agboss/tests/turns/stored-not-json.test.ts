@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1194 (#1166, #1121, #906 D4-b): the SQLite Turn store reads its stored texts — a turn's task,
  * answer, stop reason, route and steps, a summary's text — with `parsedStoredJson`: a row whose text
@@ -41,14 +42,14 @@ async function seeded(): Promise<{ path: string; turnId: string; threadId: strin
     runId: "run-1194",
     threadId,
     tenantId: "default",
-    bundle: "b",
+    workflow: "b",
     task: "task",
     replyWith: "answer",
     status: "answered",
     stopReason: "done",
     route: ["alpha"],
     steps: [{ agent: "alpha", content: "answer" }],
-    costUsd: 0,
+    costUsd: usd(0),
     promptVersion: "p",
     modelVersion: "m",
     replayOf: null,
@@ -58,13 +59,13 @@ async function seeded(): Promise<{ path: string; turnId: string; threadId: strin
   await store.addSummary({
     tenantId: "default",
     threadId,
-    bundle: "b",
-    compaction: "c",
+    workflow: "b",
+    memory: "c",
     fromTurnId: turn.id,
     toTurnId: turn.id,
     turns: 1,
     text: "summary",
-    costUsd: 0,
+    costUsd: usd(0),
   });
   store.close();
   return { path, turnId: turn.id, threadId };

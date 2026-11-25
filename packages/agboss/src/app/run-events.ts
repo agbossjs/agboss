@@ -67,8 +67,9 @@ const eventOfWorkflow = (
 /**
  * One leg of an execution (its `execute`, or a `resume`), observed: it paused →
  * `onExecutionPause`, it finished → `onExecutionEnd` (once per execution: only the leg that ends
- * at a finish), it threw → `onExecutionError` (and the error is rethrown) — except a lost lease or
- * an interruption, which is not a failure: another instance goes on with the execution (#265).
+ * at a finish), it was stopped → `onExecutionStop`, cancelled → `onExecutionCancel`, it threw →
+ * `onExecutionError` (and the error is rethrown) — except a lost lease or an interruption, which
+ * is not a failure: another instance goes on with the execution (#265).
  */
 export async function observeLeg(
   observer: ExecutionObserverManager,
@@ -79,6 +80,8 @@ export async function observeLeg(
   shownPending: (pending: ExecutionOutput["pending"]) => Promise<ExecutionOutput["pending"]> = (
     pending,
   ) => Promise.resolve(pending),
+  /** What the end event shows of the output: its finish DTO's sensitive fields masked (#1301). */
+  shownOutput: (result: ExecutionOutput) => unknown = (result) => result.output,
 ): Promise<ExecutionOutput> {
   let result: ExecutionOutput;
   try {
@@ -90,12 +93,55 @@ export async function observeLeg(
     }
     throw error;
   }
-  // a pass that rests with answers already recorded is not a stop: the holder goes on (Q58)
-  if (result.status === ExecutionStatus.Paused && result.pending.length > 0)
-    await observer.onExecutionPause({ ...event, pending: await shownPending(result.pending) });
-  else if (result.finish !== undefined)
-    await observer.onExecutionEnd({ ...event, finish: result.finish, spend: result.spend });
+  await announcedResult(observer, event, result, { pending: shownPending, output: shownOutput });
   return result;
+}
+
+/** What the events of a leg's result show of it: the pending pauses (#1150) and the output (#1301). */
+interface ShownResult {
+  readonly pending: (pending: ExecutionOutput["pending"]) => Promise<ExecutionOutput["pending"]>;
+  readonly output: (result: ExecutionOutput) => unknown;
+}
+
+/** The event of a leg's result: paused, finished, stopped or cancelled. */
+async function announcedResult(
+  observer: ExecutionObserverManager,
+  event: ExecutionEvent,
+  result: ExecutionOutput,
+  shown: ShownResult,
+): Promise<void> {
+  // a pass that rests with answers already recorded is not a stop: the holder goes on (Q58)
+  switch (result.status) {
+    case ExecutionStatus.Paused:
+      // frozen from outside (#1341c): told even with no business pause open (a parked tree)
+      if (result.pending.length > 0 || result.isExternallyPaused)
+        await observer.onExecutionPause({
+          ...event,
+          pending: await shown.pending(result.pending),
+          isExternallyPaused: result.isExternallyPaused,
+          ...(result.reason === undefined ? {} : { reason: result.reason }),
+        });
+      break;
+    case ExecutionStatus.Finished:
+      await observer.onExecutionEnd({
+        ...event,
+        finish: result.finish,
+        output: shown.output(result),
+        spend: result.spend,
+      });
+      break;
+    case ExecutionStatus.Stopped:
+      await observer.onExecutionStop({ ...event, reason: result.reason, spend: result.spend });
+      break;
+    case ExecutionStatus.Cancelled:
+      await observer.onExecutionCancel({
+        ...event,
+        reason: result.reason,
+        compensations: result.compensations,
+        spend: result.spend,
+      });
+      break;
+  }
 }
 
 /** What a caller asked for, before the app found (or started) its execution. */

@@ -1,15 +1,26 @@
-import { Agent, Application, DecidedBy, Router, Workflow } from "../../../src/index.js";
+import {
+  Agent,
+  Application,
+  DecidedBy,
+  Router,
+  Workflow,
+  inline,
+  Ttl,
+} from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
+import type { PromptSource } from "../../../src/components/prompt-source.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { testConfig, testDefaults } from "../../helpers.js";
-import { route, start } from "../../helpers/flow.js";
+import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../../fixtures/test-flow/test.flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** Prompts of one flow: the agent's (inline or files), the router's and its route's. */
 export interface FlowPrompts {
-  readonly agent?: { readonly prompt?: string; readonly promptUrls?: readonly string[] };
+  readonly agent?: { readonly prompt?: PromptSource };
   readonly router?: string;
   readonly route?: string;
 }
@@ -28,8 +39,7 @@ export function workflowWith(prompts: FlowPrompts): {
     description: "Scouts job boards",
     model: "test/alpha",
     price,
-    ...(prompts.agent ?? { prompt: "You scout {{boards}}." }),
-    promptVariables: { boardCount: "2" },
+    ...(prompts.agent ?? { prompt: inline("You scout {{boards}}.") }),
   })
   class Scout {}
 
@@ -37,8 +47,9 @@ export function workflowWith(prompts: FlowPrompts): {
     name: "main-router",
     description: "Sends the task to the scout, or ends",
     decidedBy: DecidedBy.Model,
-    prompt: prompts.router ?? "Pick who handles it.",
+    prompt: inline(prompts.router ?? "Pick who handles it."),
     model: "typesafe/jev-1.13",
+    modelProvider: TestDecisionsModelProvider,
     input: { message: WorkflowStartTextDto },
     maxVisits: 4,
     routes: [
@@ -51,23 +62,24 @@ export function workflowWith(prompts: FlowPrompts): {
   @Workflow({
     name: "prompts-workflow",
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     defaults: testDefaults,
     flow: [
-      start(TestChat)
-        .returns(WorkflowStartTextDto)
+      onStart(TestChat)
         .toRouter(Main)
-        .chooseOne(
-          route(Scout)
+        .onRoute(
+          toAgent(Scout)
             .toFinish(TestAnswer),
-          route(NoAnswer),
-        ),
+        )
+        .onRoute(toFinish(NoAnswer)),
     ],
-    promptVariables: { boards: "LinkedIn, AllJobs" },
+    promptVariables: { boards: "LinkedIn, AllJobs", boardCount: "2" },
   })
   class Prompts {}
 
   @Application({
     name: "prompts-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [Prompts],
@@ -82,5 +94,5 @@ export function workflowWith(prompts: FlowPrompts): {
 export const Templated = workflowWith({
   router: "Pick who handles it; the boards are {{boards}}.",
   route: "Scouting {{boards}}",
-  agent: { promptUrls: ["./scout.prompt.md"] },
+  agent: { prompt: "./scout.prompt.md" },
 });

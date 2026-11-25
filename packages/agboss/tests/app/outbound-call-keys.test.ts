@@ -1,21 +1,20 @@
 /**
- * #825 — what `OutboundCalls` takes, at run time too (a JavaScript caller, a cast): a key the
- * framework made, never a copy of one (`{ ...key, token: key.token + 1 }` keeps the brand's type);
- * a call's request is always its fingerprint, so `FingerprintPolicy.None` on a call's key is
- * refused; a logger and a clock are required; options without a business key make no key.
+ * #825 — what `Idempotency.sendOnce` takes, at run time too (a JavaScript caller, a cast): the key
+ * is the step's own, never one given (so a copy of a key is no longer a way in); a call's request is
+ * always its fingerprint, so a fingerprint a caller gives is not read; a logger and a clock are
+ * required; options without a business key make no key.
  */
 import { describe, expect, it } from "vitest";
 import {
-  effectKeyOf,
-  FingerprintPolicy,
-  FingerprintProblem,
+  Idempotency,
+  InMemoryFencedEffectRepository,
   InMemoryOutboundCallRepository,
-  NotSentTrust,
-  OutboundCallReconciliation,
-  OutboundCalls,
-  OutboundCallSettings,
-  type EffectKeyFields,
+  OutboundRecovery,
+  Reconciliation,
 } from "../../src/index.js";
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
+import { OutboundMasking } from "../../src/app/outbound-masking.js";
+import { effectKeyOf } from "../../src/stores/index.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
@@ -23,17 +22,8 @@ import { SilentLogger } from "../../src/infrastructure/logger.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { testExecutionContext } from "../../src/testing/execution-context.js";
-import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { storeClockOf } from "../helpers/store-clock.js";
-
-const KEY = {
-  scopeKey: "default:execution-1",
-  tenantId: "default",
-  leaseExecutionId: "execution-1",
-  token: 1,
-  idempotencyKey: "execution-1:charge-action:1",
-  name: "charge",
-};
+import { outboundFrame, type OutboundSendCase } from "../helpers/outbound-frame.js";
 
 const clock = new VirtualClock();
 
@@ -45,65 +35,38 @@ function parts() {
   });
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const store = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);
-  return { store, settings: new OutboundCallSettings({ requiresMask: false }) };
+  const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);
+  return { effects, store, settings: new OutboundMasking({ requiresMask: false }) };
 }
 
-const options = {
+const options: OutboundSendCase<{ amountUsd: number }, object> = {
   target: "payments",
   operation: "charge",
   request: { amountUsd: 10 },
   send: () => ({}),
-  notSent: { trust: NotSentTrust.Lookup } as const,
-  reconcile: () => OutboundCallReconciliation.notSent(),
+  recovery: OutboundRecovery.permanentLookup(() => Reconciliation.notExecuted()),
 };
 
 describe("#825: the key a call is sent under", () => {
-  it("a copy of a key the framework made is refused before anything is recorded", async () => {
-    const { store, settings } = parts();
-    const calls = new OutboundCalls(store, settings, new SilentLogger(), clock);
-    const fields: EffectKeyFields = effectKeyForTesting(KEY);
-    const forged = { ...fields, token: 2 };
+  it("a fingerprint or a withoutFingerprint a JavaScript caller gives is not read: the request is the call's fingerprint", async () => {
+    const frame = outboundFrame();
+    const { key } = await frame.keyIn("execution-1", "order:42");
+    // a JavaScript caller's options: a call has no fingerprint of its own to say
+    const said = { ...options, fingerprint: { version: 1 }, withoutFingerprint: true } as never;
 
-    // @ts-expect-error — a copy drops the key's mark: it does not compile (a JavaScript caller's runs)
-    await expect(calls.send(forged, options)).rejects.toThrow(/not a key effectKeyOf made/u);
-    expect(await store.findAllByTenantIdAndStatus({ ...STATUS, limit: 10 })).toEqual({ calls: [] });
+    await frame.send(key, said);
+    const other = frame.send(key, { ...(said as object), request: { amountUsd: 12 } } as never);
+
+    // two requests under one business key: the second is a conflict, never a replay of the first
+    await expect(other).rejects.toBeInstanceOf(IdempotencyError.KeyConflict);
   });
 
-  it("FingerprintPolicy.None on a call's key is refused: its request is its fingerprint", async () => {
-    const { store, settings } = parts();
-    const calls = new OutboundCalls(store, settings, new SilentLogger(), clock);
-    const none = effectKeyForTesting(KEY, {
-      businessKey: "order:42",
-      fingerprintPolicy: FingerprintPolicy.None,
-    });
-
-    await expect(calls.send(none, options)).rejects.toMatchObject({
-      name: "FingerprintRequiredError",
-      reason: FingerprintProblem.Contradictory,
-    });
-    // two requests under it: neither is recorded, so neither can replay the other
-    expect(await store.findAllByTenantIdAndStatus({ ...STATUS, limit: 10 })).toEqual({ calls: [] });
-  });
-
-  it("a fingerprintPolicy on a step's own key is refused too: a call's key never says one", async () => {
-    const { store, settings } = parts();
-    const calls = new OutboundCalls(store, settings, new SilentLogger(), clock);
-    const stepKey = effectKeyForTesting(KEY, { fingerprintPolicy: FingerprintPolicy.None });
-
-    await expect(calls.send(stepKey, options)).rejects.toMatchObject({
-      name: "FingerprintRequiredError",
-      reason: FingerprintProblem.Contradictory,
-    });
-  });
-
-  it("a JavaScript caller's OutboundCalls without a logger or a clock is refused", () => {
-    const { store, settings } = parts();
+  it("a JavaScript caller's Idempotency without a logger or a clock is refused", () => {
+    const { effects, store, settings } = parts();
     const build = (logger: unknown, at: unknown) => () =>
-      new OutboundCalls(store, settings, logger as never, at as never);
+      new Idempotency(effects, store, settings, logger as never, at as never);
 
-    const refusal = new TypeError(
-      "new OutboundCalls(repository, settings, logger, clock): a Logger and a Clock are required",
-    );
+    const refusal = new TypeError("new Idempotency(…): a Logger and a Clock are required");
     for (const [logger, at] of [
       [undefined, clock],
       [null, clock],
@@ -122,5 +85,3 @@ describe("#825: the key a call is sent under", () => {
     );
   });
 });
-
-const STATUS = { tenantId: "default", status: "pending" as never };

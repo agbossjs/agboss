@@ -16,14 +16,16 @@ describe("#633: the in-memory cost ledger keeps accounts apart", () => {
   it("two accounts whose budget, scope and key run together: two limits, two counters", async () => {
     const ledger = new InMemoryCostLedgerRepository();
 
-    await ledger.saveMaxSpend(first, usd(5));
+    await ledger.saveLimit(first, { maxSpend: usd(5) });
     await ledger.saveAll(
       [{ ...first, period: "2026-10-20" }],
       [ledgerEntryOf(recordToolCost("judge", 1))],
     );
 
-    await expect(ledger.findMaxSpendByAccount(second)).resolves.toBeUndefined();
-    await expect(ledger.findSpentByCounter({ ...second, period: "2026-10-20" })).resolves.toBe(0);
+    await expect(ledger.findLimitByAccount(second)).resolves.toBeUndefined();
+    await expect(
+      ledger.findUsageByCounter({ ...second, period: "2026-10-20" }).then((usage) => usage.spent),
+    ).resolves.toBe(0);
   });
 
   it("answers its ping", async () => {

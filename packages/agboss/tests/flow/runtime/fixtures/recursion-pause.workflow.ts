@@ -1,4 +1,4 @@
-import { TerminalUserChannel } from "../../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../fixtures/owner-approval.fixture.js";
 import { Integer } from "../../../../src/dto/index.js";
 import {
   Action,
@@ -6,13 +6,12 @@ import {
   EmptyEnvironment,
   ExecutionContext,
   oneOf,
-  ThisWorkflow,
   Tool,
-  variant,
   Workflow,
   WorkflowStart,
-  type Produced,
-  type ToolHandler,
+  type Tracked,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -21,13 +20,14 @@ import {
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
-import { caseOf, start } from "../../../helpers/flow.js";
+import { onStart, toWorkflow, toFinish } from "../../../helpers/flow.js";
 import {
   CountDoneDto,
   CountDoneWorkflowFinish,
   CountDto,
   recursionLog,
 } from "./recursion.workflow.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #264 AC3 — depth across a pause and a crash. `dig-workflow` (`maxDepth: 3`): the digger goes one
@@ -44,15 +44,15 @@ export class DigConfirmationDto {
 @Tool({
   name: "confirm-dig-tool",
   description: "Confirms digging one level deeper",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: DigConfirmationDto,
   output: DigConfirmationDto,
   deps: [ExecutionContext],
 })
-export class ConfirmDigTool implements ToolHandler<DigConfirmationDto, DigConfirmationDto> {
+export class ConfirmDigTool {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: DigConfirmationDto): Promise<DigConfirmationDto> {
+  execute(input: DigConfirmationDto): Promise<DigConfirmationDto> {
     const depth = this.executionContext.depth;
     recursionLog.readings.push({ at: "confirm-dig-tool", title: "", depth, level: input.left });
     return Promise.resolve(input);
@@ -65,7 +65,7 @@ export class DigWorkflowStart {}
 @Agent({
   name: "digger-agent",
   description: "Digs one level deeper while the count lasts",
-  prompt: "Dig one level deeper while the count lasts.",
+  prompt: inline("Dig one level deeper while the count lasts."),
   model: "moonshotai/kimi-k2.6",
   tools: [ConfirmDigTool],
   input: { count: CountDto },
@@ -76,26 +76,23 @@ export class DiggerAgent {}
 @Workflow({
   name: "dig-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(DigWorkflowStart)
-      .returns(CountDto)
+    onStart(DigWorkflowStart)
       .toAgent(DiggerAgent)
-      .returns(oneOf(CountDto, CountDoneDto))
-      .switch(
-        caseOf(CountDto)
-          .toWorkflow(ThisWorkflow)
-          .returns(CountDoneDto)
+      .toOneOf([
+        toWorkflow(() => DigWorkflow)
           .toFinish(CountDoneWorkflowFinish),
-        caseOf(CountDoneDto)
-          .toFinish(CountDoneWorkflowFinish),
-      ),
+        toFinish(CountDoneWorkflowFinish),
+      ]),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class DigWorkflow {}
 
 @Application({
   name: "recursion-pause-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DigWorkflow],
@@ -119,13 +116,13 @@ export class HoldDepthWorkflowStart {}
 export class HoldDepthAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly count: Produced<CountDto, unknown> }): Promise<unknown> {
-    const { left } = input.count.value;
+  execute(input: { readonly count: Tracked<CountDto> }): Promise<unknown> {
+    const { left } = input.count;
     const { depth, signal } = this.executionContext;
     recursionLog.readings.push({ at: "hold-depth-action", title: "", depth, level: left });
-    if (left > 0) return Promise.resolve(variant(CountDto, { left: left - 1 }));
+    if (left > 0) return Promise.resolve({ left: left - 1 });
     holds.count += 1;
-    if (holds.count > 1) return Promise.resolve(variant(CountDoneDto, { depth }));
+    if (holds.count > 1) return Promise.resolve({ depth });
     return new Promise((_resolve, reject) => {
       signal.addEventListener("abort", () => {
         reject(new Error("stopped"));
@@ -138,21 +135,17 @@ export class HoldDepthAction {
 @Workflow({
   name: "hold-depth-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HoldDepthWorkflowStart)
-      .returns(CountDto)
+    onStart(HoldDepthWorkflowStart)
       .toAction(HoldDepthAction)
-      .returns(oneOf(CountDto, CountDoneDto))
-      .switch(
-        caseOf(CountDto)
-          .toWorkflow(ThisWorkflow)
-          .returns(CountDoneDto)
+      .toOneOf([
+        toWorkflow(() => HoldDepthWorkflow)
           .toFinish(CountDoneWorkflowFinish),
-        caseOf(CountDoneDto)
-          .toFinish(CountDoneWorkflowFinish),
-      ),
+        toFinish(CountDoneWorkflowFinish),
+      ]),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class HoldDepthWorkflow {}
 

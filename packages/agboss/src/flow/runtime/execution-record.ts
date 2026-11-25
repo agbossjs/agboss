@@ -3,15 +3,16 @@ import type { ErrorRecord } from "../../core/error-record.js";
 import type { CostReport } from "../../finops/usage.js";
 import type { OutdatedValueRecord, ScopeValueRecord } from "./records.js";
 import type { ChildExecutionRecord } from "./child-records.js";
-import type { PauseAnswerer } from "../../channels/channel-role.decorator.js";
-import type { PauseResolution } from "../../infrastructure/pause-record.js";
+import type { PauseActor } from "../../channels/pause-contexts.js";
+import type { PauseResolution, PauseTrailRecord } from "../../infrastructure/pause-record.js";
 import type { StepRecord } from "../context/execution-context.js";
 import type { ToolCallRecord } from "./tool-calls.js";
 import type { ExecutionStepRecord } from "./step-records.js";
 import type { ExecutionOrigin } from "../../mesh/mesh-envelope.js";
+import { type PauseRespondent } from "../../pause/respondent.js";
 
 /**
- * The full record of one execution (#270 AC16), returned only with `app.execute(…, { record: true })`:
+ * The full record of one execution (#270 AC16), returned only with `app.execute(…, { includeRecord: true })`:
  * the path, every value of the path scope (with who gave it and what it was built from), the values
  * moved out of it (#271), the last handled error, the spend, its child executions, each nested
  * the same way (#263) with the pauses it asked (#267 S124 c), and who answered each pause of its
@@ -50,25 +51,23 @@ export interface ExecutionRecord {
 
 /** One resolved pause as the execution record keeps it (#267 S107), masked like the rest of it. */
 export interface PauseAnswerRecord {
-  /** Its id — `undefined` for a `PauseAnswerer.Channel` pause: only its channel has it (S100 b). */
+  /** Its id — `undefined` for a `PauseRespondent.Delegate` pause: only its channel has it (S100 b). */
   readonly pauseId: string | undefined;
   /** The execution it waited in: the root's, or a child's (its `ChildExecutionRecord.pauses`, S124 c). */
   readonly executionId: string;
   /** The waiting step: its agent, node, visit, copy, item and tool call. */
   readonly step: StepRecord;
-  /** The channel asked: a role's name or a concrete `@Channel`'s. */
-  readonly role: string;
-  /** Who may answer it (its role's `answerer`). */
-  readonly answerer: PauseAnswerer;
+  /** The pause target it waited under. */
+  readonly target: string;
+  /** The channel asked; absent for an owner's pause nobody was asked about. */
+  readonly channel?: string;
+  /** Who may answer it (its target's `respondent`). */
+  readonly respondent: PauseRespondent;
   /**
-   * Who answered: the `ownerId` or the `answeredBy` credential of `app.resume`; `undefined` when
-   * its channel decided at once, it was withdrawn or cancelled, or its thread has no owner. Before
-   * 0.1.1 `answeredBy` held who may answer (now `answerer`) and `responder` the person: an entry
-   * stored then reads with the new names.
+   * Who answered: the owner (`{ id: ownerId }`) or the `actor` of `app.resume`; `undefined` when
+   * its channel decided at once, it was withdrawn or cancelled, or its thread has no owner.
    */
-  readonly answeredBy: string | undefined;
-  /** @deprecated 0.1.0's name of `answeredBy`, the same value, until 0.2: use `answeredBy`. */
-  readonly responder: string | undefined;
+  readonly actor: PauseActor | undefined;
   readonly resolution: PauseResolution;
   /** When it was asked and resolved (ISO 8601, the application's `Clock`). */
   readonly askedAt: string;
@@ -76,12 +75,19 @@ export interface PauseAnswerRecord {
   /** What was decided, PII-masked; `undefined` when it was withdrawn or cancelled. */
   readonly decision: unknown;
   /**
-   * What was asked, PII-masked (#688): an approval's call as the agent made it — its tool and its
-   * own arguments, before any correction — or a question's ask. Beside `decision` (the call as it
-   * ran, a correction laid over it) it makes every change a reply made auditable. Absent on a
-   * record kept before #688.
+   * What was asked, PII-masked (#688): an approval's call arguments as the agent made them, before
+   * any correction, or a question's ask. Beside `decision` (the call as it ran, a correction laid
+   * over it) it makes every change a reply made auditable.
    */
-  readonly asked?: unknown;
+  readonly input: unknown;
+  /** The tool call an approval waited on, PII-masked; absent for a question. */
+  readonly toolCall?: unknown;
+  /** Who it was for when it closed, PII-masked; absent: nobody in particular. */
+  readonly assignees?: readonly string[];
+  /** The id its channel's system gave it (a ticket key), PII-masked. */
+  readonly externalRef?: string;
+  /** Its chain of custody, newest last, PII-masked: who opened and reassigned it, when, why. */
+  readonly trail: readonly PauseTrailRecord[];
   /**
    * `false` when an answer was recorded and its run never applied it (its tree ended before the step
    * took it; I12): the answer and who gave it are kept. Absent: taken, or no answer.

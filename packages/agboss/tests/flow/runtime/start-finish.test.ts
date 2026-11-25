@@ -68,7 +68,7 @@ describe("#270 AC20 / AC21: starts with a map of fields or a list, typed by the 
     expect(mockLlm(CompanyCheckAgent).requests).toHaveLength(0);
   });
 
-  test("#270 AC16: { record: true } adds the execution record; output stays the business result", async ({
+  test("#270 AC16: { includeRecord: true } adds the execution record; output stays the business result", async ({
     app,
     mockLlm,
   }) => {
@@ -77,7 +77,7 @@ describe("#270 AC20 / AC21: starts with a map of fields or a list, typed by the 
     const result = await app.execute(
       CompanyCheckWorkflowStart,
       { company: { name: "Acme" } },
-      { record: true },
+      { includeRecord: true },
     );
 
     expect(result.output).toEqual({ score: "strong" });

@@ -27,6 +27,7 @@ import {
   scriptOf,
   unitParts,
   type Script,
+  UNIT_ENDPOINT,
 } from "./support/unit-parts.js";
 
 const INPUT_REQUIRED = { state: A2ATaskState.InputRequired, pendingPauses: [] };
@@ -120,8 +121,9 @@ describe("#939 AC4: a follow-up to a closed pause", () => {
     const { tasks, parts } = await setUp(script);
     const message = decide("f-1");
     await tasks.saveMessageIfAbsent({
+      endpoint: UNIT_ENDPOINT,
       ...keyOf("f-1"),
-      requestHash: requestHashOf("unit-workflow-start", message),
+      requestHash: requestHashOf(UNIT_ENDPOINT, "unit-workflow-start", message),
       taskId: "task-1",
       savedAt: NINE,
     });
@@ -137,8 +139,9 @@ describe("#939 AC4: a follow-up to a closed pause", () => {
     const { tasks, parts } = await setUp(script);
     const message = decide("f-1");
     await tasks.saveMessageIfAbsent({
+      endpoint: UNIT_ENDPOINT,
       ...keyOf("f-1"),
-      requestHash: requestHashOf("unit-workflow-start", message),
+      requestHash: requestHashOf(UNIT_ENDPOINT, "unit-workflow-start", message),
       taskId: "task-1",
       savedAt: NINE,
     });

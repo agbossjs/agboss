@@ -17,8 +17,13 @@ import type { ModelProviderType } from "../../src/models/model-provider.decorato
 import { VirtualClock } from "../../src/testing/clock.js";
 import { completion, providerStub, type StubReply } from "./stub.js";
 
-/** The process environment of the provider tests: base URLs come from it, keys never do. */
-export const ENV = {};
+/** The process environment of the provider tests: the variables the fixture drivers' `secret(…)` read. */
+export const ENV = {
+  OPENROUTER_API_KEY: "k",
+  BACKUP_KEY: "backup-key",
+  DECISIONS_API_KEY: "k",
+  KEYED_API_KEY: "keyed-key",
+};
 
 /** The application's environment with the providers' keys, resolved as at a start (#266 S73 c). */
 export const KEYS = resolveEnvironment(
@@ -76,6 +81,7 @@ export async function wireBodies(
 export async function appWithKeys(application: Class, options: BuildOptions = {}): Promise<App> {
   const built = await buildApplication(await applicationOf(application, {}), {
     environment: KEYS,
+    processEnv: ENV,
     ...options,
   });
   return built.app;

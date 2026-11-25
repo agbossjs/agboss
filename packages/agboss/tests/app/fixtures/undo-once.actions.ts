@@ -5,18 +5,16 @@ import {
   ExecutionContext,
   FencedEffectRepository,
   Injectable,
+  Observer,
   SpendRecorder,
-  effectKeyOf,
   oneOf,
-  variant,
   type ExecutionEndEvent,
+  type ExecutionCancelEvent,
   type ExecutionErrorEvent,
   type ExecutionLeaseTakeoverEvent,
-  type OnExecutionEnd,
-  type OnExecutionError,
-  type OnExecutionLeaseTakeover,
-  type Produced,
+  type Tracked,
 } from "../../../src/index.js";
+import { effectKeyOf } from "../../../src/stores/index.js";
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
 import type {
   ExecutionTree,
@@ -106,13 +104,13 @@ async function reached(at: UndoPoint, key: string, instanceId: string): Promise<
 export class RefundBookingAction {
   constructor(
     private readonly executionContext: ExecutionContext,
-    private readonly fencedEffectRepository: FencedEffectRepository<unknown>,
+    private readonly fencedEffectRepository: FencedEffectRepository,
   ) {}
 
-  async execute(input: { readonly booking: Produced<BookingDto, unknown> }): Promise<void> {
+  async execute(input: { readonly booking: Tracked<BookingDto> }): Promise<void> {
     const { instanceId } = this.executionContext.tenant.application;
     const key = this.executionContext.step.idempotencyKey;
-    const { bookingId } = input.booking.value;
+    const { bookingId } = input.booking;
     undoOnceSeen.undos.push({ key, instanceId });
     await reached(UndoPoint.ActionBefore, key, instanceId);
     const effect = effectKeyOf(this.executionContext, "refund");
@@ -136,8 +134,8 @@ export class RefundBookingAction {
 export class PaidBookingAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<BookingDto> {
-    const bookingId = `booking-${input.item.value.name}-d${String(this.executionContext.depth)}`;
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<BookingDto> {
+    const bookingId = `booking-${input.item.name}-d${String(this.executionContext.depth)}`;
     undoOnceSeen.bookings.push(bookingId);
     return Promise.resolve({ bookingId });
   }
@@ -154,9 +152,9 @@ export class PaidBookingAction {
 export class OverspendAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
     this.spendRecorder.record({ service: "refund-test-api", cost: usd(5000) });
-    return Promise.resolve({ name: input.item.value.name });
+    return Promise.resolve({ name: input.item.name });
   }
 }
 
@@ -172,12 +170,12 @@ export class LevelItemAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   execute(input: {
-    readonly item: Produced<ItemDto, unknown>;
-    readonly booking: Produced<BookingDto, unknown>;
+    readonly item: Tracked<ItemDto>;
+    readonly booking: Tracked<BookingDto>;
   }): Promise<unknown> {
-    const { name } = input.item.value;
+    const { name } = input.item;
     if (this.executionContext.depth > 1) throw new Error(`item ${name} failed on level 2`);
-    return Promise.resolve(variant(ItemDto, input.item.value));
+    return Promise.resolve(input.item);
   }
 }
 
@@ -218,8 +216,8 @@ export class HookedExecutionTreeRepository extends InMemoryExecutionTreeReposito
 }
 
 /** Every root's end or failure and every takeover, with its instance. */
-@Injectable({ deps: [ApplicationContext] })
-export class UndoOnceLog implements OnExecutionEnd, OnExecutionError, OnExecutionLeaseTakeover {
+@Observer({ deps: [ApplicationContext] })
+export class UndoOnceLog {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   onExecutionEnd(event: ExecutionEndEvent): void {
@@ -233,6 +231,14 @@ export class UndoOnceLog implements OnExecutionEnd, OnExecutionError, OnExecutio
     const { instanceId } = this.applicationContext;
     const undone = event.compensations.map((undo) => `${undo.compensated.nodeId} ${undo.status}`);
     undoOnceSeen.roots.push({ instanceId, error: event.error.name, undone });
+  }
+
+  /** A root's cancel (#1341) is its end as an error was: kept with the cancel's class name. */
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    if (event.parentExecutionId !== undefined) return;
+    const { instanceId } = this.applicationContext;
+    const undone = event.compensations.map((undo) => `${undo.compensated.nodeId} ${undo.status}`);
+    undoOnceSeen.roots.push({ instanceId, error: "ExecutionCancelledError", undone });
   }
 
   onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): void {

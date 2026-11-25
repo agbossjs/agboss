@@ -9,7 +9,9 @@ import type { InputOf, NoOutput, OutputOf, RouterAnswerOf } from "./generated-ty
  */
 
 /** What an action's `execute` resolves to: its output, nothing without `output`. */
-export type ActionResult<TOutput> = [TOutput] extends [NoOutput] ? Promise<void> : Promise<TOutput>;
+export type ActionResult<TOutput> = [TOutput] extends [NoOutput]
+  ? void | Promise<void>
+  : TOutput | Promise<TOutput>;
 
 /**
  * `@Action`: `execute(input)` — `Promise<OutputOf<Self>>`, `Promise<void>` without `output`. No run
@@ -19,21 +21,11 @@ export interface ActionHandler<TSelf> {
   readonly execute: (input: InputOf<TSelf>) => ActionResult<OutputOf<TSelf>>;
 }
 
-/** `@WorkflowFinish` with `input`: builds the execution's output. */
-export interface FinishHandler<TSelf> {
-  readonly finish: (input: InputOf<TSelf>) => OutputOf<TSelf> | Promise<OutputOf<TSelf>>;
-}
-
 /**
  * `@Router({ decidedBy: DecidedBy.Code })` (#280): `route(input)` returns the target to take —
- * `Route<Self>` after `.chooseOne(…)`, a list after a launch (#273). No model call; the execution
+ * `Route<Self>` after `.onRoute(…)`, a list after a launch (#273). No model call; the execution
  * comes through `deps: [ExecutionContext]`.
  */
 export interface RouterHandler<TSelf> {
   readonly route: (input: InputOf<TSelf>) => RouterAnswerOf<TSelf> | Promise<RouterAnswerOf<TSelf>>;
-}
-
-/** A tool: its input is the plain DTO of the model's call, not `Produced` (#270, Q53). */
-export interface ToolHandler<TSelf> {
-  readonly run: (input: InputOf<TSelf>) => Promise<OutputOf<TSelf>>;
 }

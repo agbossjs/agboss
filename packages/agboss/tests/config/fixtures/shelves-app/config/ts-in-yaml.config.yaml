@@ -1,0 +1,4 @@
+budgets:
+  shelf-attached-budget:
+    maxSpend:
+      variable: DAILY

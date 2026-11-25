@@ -1,4 +1,4 @@
-/** The texts of a `@PiiPolicy`'s model detection (`detectWithModel`, #120). */
+/** The texts of a `@PiiPolicy`'s model detection (`model`, #120). */
 
 /** The instructions: which kinds to find, and the answer's shape. */
 export const piiDetectionInstructions = (kinds: readonly string[]): string =>

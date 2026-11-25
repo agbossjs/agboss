@@ -29,7 +29,7 @@ export enum ToolCallStatus {
   /** The tool ran past its `timeout`. */
   TimedOut = "timed-out",
   /**
-   * A tool interceptor answered the model instead (#384: `ToolCallDecision.replyToModel`): the tool
+   * A tool interceptor answered the model instead (#384: `ToolCallDecision.reply`): the tool
    * never ran; `output` is the message the model read.
    */
   Replied = "replied",

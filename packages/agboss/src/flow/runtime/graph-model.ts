@@ -1,11 +1,12 @@
-import type { Milliseconds, WorkingDuration } from "../../units/index.js";
 import { CompensationFailedError } from "../compensation.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
-import { codeOfErrorClass, errorMatchOf, type ErrorRecord } from "../../core/error-record.js";
+import type { ErrorRecord } from "../../core/error-record.js";
+import { bestHandlerOf } from "./error-handler-rank.js";
+import { isHandOverRecord } from "../../core/error-families/run-errors.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import type { ResolvedField } from "../analyse/fields.js";
-import { EdgeKind, type FlowEdge } from "../analyse/flow-graph.js";
+import { EdgeKind, type FlowEdge, type FlowNode } from "../analyse/flow-graph.js";
 import { NodeKind, type FlowPath } from "../ast.js";
 import { isFieldMap, type ComponentDeclaration } from "../decorators/declaration.js";
 import { isCodeRouter } from "../decorators/router.js";
@@ -16,13 +17,17 @@ import {
   type ValueShape,
 } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
-import { arbiterClassesOf, launchesOf, type RuntimeLaunch } from "./launch/runtime-launch.js";
+import {
+  arbiterClassesOf,
+  launchesOf,
+  quorumCalendarClassesOf,
+  type RuntimeLaunch,
+} from "./launch/runtime-launch.js";
 import { arbiterOf, isCodeArbiter } from "../decorators/arbiter.js";
 import { runtimeProvenanceOf, type RuntimeProvenance } from "./provenance.js";
 
-import type { ChildPlacement } from "../child-placement.js";
-import { childPlacementsOf, placementOfChild } from "../analyse/child-placements.js";
-import { expiresInOfQuestion, questionExpiriesOf } from "../analyse/question-expiry.js";
+import { placementOfWorkflow, type Placements } from "../analyse/child-placements.js";
+import { isQueued, type ChildPlacement } from "../child-placement.js";
 /**
  * A v2 workflow as its runtime reads it (#272 → Runtime): every node with its fields and its
  * outgoing edges grouped by how they are taken — the one next step, the `switch` cases by the
@@ -33,12 +38,12 @@ import { expiresInOfQuestion, questionExpiriesOf } from "../analyse/question-exp
 /** A node's ways out. */
 export interface NodeExits {
   readonly next?: FlowEdge;
-  /** `caseOf(XDto)…` by the DTO class name. */
+  /** a `.toOneOf([…])` branch by the DTO class name. */
   readonly cases: ReadonlyMap<string, FlowEdge>;
-  /** `route(X)…` by the target's node id. */
+  /** `.onRoute(toAgent(X)…)` by the target's node id. */
   readonly routes: ReadonlyMap<string, FlowEdge>;
   readonly errors: readonly FlowEdge[];
-  /** Its parallel launches (#273), by the variant whose `caseOf(…)` launches (`""` outside one). */
+  /** Its parallel launches (#273), by the variant whose a `.toOneOf([…])` branch launches (`""` outside one). */
   readonly launches: ReadonlyMap<string, RuntimeLaunch>;
 }
 
@@ -53,12 +58,10 @@ export interface RuntimeNode {
   readonly exits: NodeExits;
   readonly maxVisits?: number;
   /**
-   * A child workflow's node launched with `placement: ChildPlacement.AnyInstance` (#333 PR 2): its
+   * A child workflow's node launched with `placement: ChildPlacement.AnyWorker` (#333 PR 2): its
    * children are queued for any instance; absent — they run inside the parent's step.
    */
   readonly placement?: ChildPlacement;
-  /** A question step's own `expiresIn` (#941, `.toQuestion(Q, { expiresIn })`); absent — its role's. */
-  readonly expiresIn?: Milliseconds | WorkingDuration;
 }
 
 export interface RuntimeGraph {
@@ -80,16 +83,11 @@ export interface RuntimeGraph {
   readonly analysis: FlowAnalysis;
 }
 
-const caseKeyOf = (edge: FlowEdge): string | undefined => {
-  const [write] = edge.writes;
-  return write !== undefined && typeof write.shape === "function" ? write.shape.name : undefined;
-};
-
 function exitsOf(edges: readonly FlowEdge[]): NodeExits {
   const cases = new Map<string, FlowEdge>();
   const routes = new Map<string, FlowEdge>();
   for (const edge of edges) {
-    const key = caseKeyOf(edge);
+    const key = edge.caseKey;
     if (edge.kind === EdgeKind.Case && key !== undefined) cases.set(key, edge);
     if (edge.kind === EdgeKind.Route) routes.set(edge.to, edge);
   }
@@ -103,17 +101,10 @@ function exitsOf(edges: readonly FlowEdge[]): NodeExits {
 export const isCodeRouterNode = (node: Pick<RuntimeNode, "declaration">): boolean =>
   node.declaration.kind === NodeKind.Router && isCodeRouter(node.declaration.options);
 
-/**
- * A node whose class the container creates — its code runs: an action, a finish with a handler
- * (`input`), a code router.
- */
+/** A node whose class the container creates — its code runs: an action, a code router. */
 export const isCodeNode = (node: Pick<RuntimeNode, "declaration">): boolean => {
   const { declaration } = node;
-  return (
-    declaration.kind === NodeKind.Action ||
-    (declaration.kind === NodeKind.Finish && declaration.options.input !== undefined) ||
-    isCodeRouterNode(node)
-  );
+  return declaration.kind === NodeKind.Action || isCodeRouterNode(node);
 };
 
 /** The undo actions the graph's actions declare (#340): run by the runtime even off every path. */
@@ -126,7 +117,8 @@ const compensatorsOf = (nodes: Iterable<RuntimeNode>): readonly Class[] =>
 
 /**
  * The classes the container creates for a graph's code: actions, finishes with a handler, code
- * routers, code arbiters (#279) and the actions' undo actions (#340).
+ * routers, code arbiters (#279), the actions' undo actions (#340) and the calendars of working-time
+ * quorum deadlines (#1306).
  */
 export const codeClassesOf = (
   graph: Pick<RuntimeGraph, "nodes" | "launches">,
@@ -137,28 +129,38 @@ export const codeClassesOf = (
     const options = arbiterOf(arbiter)?.options;
     return options !== undefined && isCodeArbiter(options);
   }),
+  ...quorumCalendarClassesOf(graph.launches),
 ];
 
 const maxVisitsOf = (declaration: ComponentDeclaration): number | undefined =>
-  declaration.kind === NodeKind.Agent ||
-  declaration.kind === NodeKind.Router ||
-  declaration.kind === NodeKind.Question
-    ? declaration.options.maxVisits
-    : undefined;
+  declaration.kind === NodeKind.Agent
+    ? declaration.options.executionLimits?.maxVisits
+    : declaration.kind === NodeKind.Router || declaration.kind === NodeKind.Question
+      ? declaration.options.maxVisits
+      : undefined;
+
+/** Where a child workflow node runs when it is not in this process (#1286); `undefined` for the current one. */
+const placementOf = (
+  node: FlowNode,
+  applicationPlacement: ChildPlacement | undefined,
+  overrides: Placements | undefined,
+): ChildPlacement | undefined => {
+  if (node.kind !== NodeKind.Workflow) return undefined;
+  const placement = placementOfWorkflow(node.component, applicationPlacement, overrides);
+  return isQueued(placement) ? placement : undefined;
+};
 
 /** The runtime's view of an analysed workflow. */
 export function runtimeGraphOf(
   analysis: FlowAnalysis,
   flow: readonly FlowPath[],
   type: Class,
+  where: { readonly default?: ChildPlacement | undefined; readonly overrides?: Placements } = {},
 ): RuntimeGraph {
   const nodes = new Map<string, RuntimeNode>();
-  const placements = childPlacementsOf(flow);
-  const expiries = questionExpiriesOf(flow);
   for (const node of analysis.graph.nodes.values()) {
     const maxVisits = maxVisitsOf(node.declaration);
-    const placement = placementOfChild(placements, node.component);
-    const expiresIn = expiresInOfQuestion(expiries, node.component);
+    const placement = placementOf(node, where.default, where.overrides);
     const edges = analysis.graph.edges.filter((edge) => edge.from === node.name);
     nodes.set(node.name, {
       id: node.name,
@@ -169,7 +171,6 @@ export function runtimeGraphOf(
       exits: exitsOf(edges),
       ...(maxVisits === undefined ? {} : { maxVisits }),
       ...(placement === undefined ? {} : { placement }),
-      ...(expiresIn === undefined ? {} : { expiresIn }),
     });
   }
   return {
@@ -222,29 +223,29 @@ function dtoIndexOf(analysis: FlowAnalysis): ReadonlyMap<string, DtoClass> {
   return new Map(shapes.flatMap(dtosOf).map((dto) => [dto.name, dto] as const));
 }
 
+/** The code of `ActionFailedError`: the wrapper the action runner puts around what an action's code threw. */
+const ACTION_WRAPPER_CODE = "step.action";
+
+/** The code every framework error has: a handler on it says nothing about the original's own class. */
+const FRAMEWORK_CODE = "agboss";
+
 /**
  * The `.onError` handler of a failure: the one whose class matches most specifically — nearest in
  * the error's class line, then nearest in its cause chain; `.onError(Error, …)` only when nothing
- * else matches. None → the failure is not handled; a failed automatic undo never is (#340 Q4).
+ * else matches. An action's code that threw an error of its own is routed as that ORIGINAL error
+ * (#1325): the runner's `ActionFailedError` around it does not shadow a handler on the original's
+ * class (a project's own error class), and takes it only when none matches. None → the failure is
+ * not handled; a failed automatic undo never is (#340 Q4).
  */
 export function errorHandlerOf(
   exits: Pick<NodeExits, "errors">,
   record: ErrorRecord,
 ): FlowEdge | undefined {
-  if (record.code === CompensationFailedError.code) return undefined;
-  let best: { readonly edge: FlowEdge; readonly rank: readonly number[] } | undefined;
-  for (const edge of exits.errors) {
-    if (edge.error === undefined) continue;
-    const code = codeOfErrorClass(edge.error);
-    const match =
-      code === undefined ? { distance: Infinity, depth: Infinity } : errorMatchOf(record, code);
-    if (match === undefined) continue;
-    const rank = [match.distance, match.depth];
-    if (best === undefined || isBefore(rank, best.rank)) best = { edge, rank };
-  }
-  return best?.edge;
+  if (record.code === CompensationFailedError.code || isHandOverRecord(record)) return undefined;
+  const original = record.lineage[0] === ACTION_WRAPPER_CODE ? record.cause : undefined;
+  const ofOriginal =
+    original === undefined
+      ? undefined
+      : bestHandlerOf(exits, original, (code) => code === FRAMEWORK_CODE);
+  return ofOriginal ?? bestHandlerOf(exits, record);
 }
-
-const isBefore = (rank: readonly number[], other: readonly number[]): boolean =>
-  (rank[0] ?? 0) < (other[0] ?? 0) ||
-  ((rank[0] ?? 0) === (other[0] ?? 0) && (rank[1] ?? 0) < (other[1] ?? 0));

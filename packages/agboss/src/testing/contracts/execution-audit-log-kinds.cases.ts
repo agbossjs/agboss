@@ -1,7 +1,7 @@
 import { expect } from "vitest";
 import {
   ExecutionAuditEventKind,
-  FencedEffectEventOutcome,
+  IdempotencyRunEventOutcome,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
@@ -9,7 +9,7 @@ import {
   type ExecutionAuditEventBase,
   type ExecutionAuditEventRecord,
   type ExecutionAuditLogRepository,
-  type FencedEffectRecord,
+  type IdempotencyRunRecord,
   type OutboundCallEventRecord,
 } from "../../infrastructure/execution-audit-log.repository.js";
 import { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
@@ -64,16 +64,16 @@ const HAND_OVERS: readonly ExecutionAuditEventRecord[] = Object.values(HandOverR
 );
 
 /** A fenced-effect row of `outcome`, with the fields that outcome carries. */
-const effectRow = (outcome: FencedEffectEventOutcome): FencedEffectRecord => ({
+const effectRow = (outcome: IdempotencyRunEventOutcome): IdempotencyRunRecord => ({
   ...base(2),
-  kind: ExecutionAuditEventKind.FencedEffect,
+  kind: ExecutionAuditEventKind.IdempotencyRun,
   name: "charge",
   outcome,
   step: STEP,
-  ...(outcome === FencedEffectEventOutcome.Replayed
+  ...(outcome === IdempotencyRunEventOutcome.Replayed
     ? { writtenToken: 1, replayedFrom: OTHER_STEP }
     : {}),
-  ...(outcome === FencedEffectEventOutcome.Refused ? { observedToken: 3 } : {}),
+  ...(outcome === IdempotencyRunEventOutcome.Refused ? { observedToken: 3 } : {}),
 });
 
 const STATUS_OF: Readonly<Record<OutboundCallEventOutcome, OutboundCallStatus>> = {
@@ -109,7 +109,7 @@ const callRow = (outcome: OutboundCallEventOutcome): OutboundCallEventRecord => 
     : {}),
 });
 
-const EFFECTS = Object.values(FencedEffectEventOutcome).map(effectRow);
+const EFFECTS = Object.values(IdempotencyRunEventOutcome).map(effectRow);
 const CALLS = Object.values(OutboundCallEventOutcome).map(callRow);
 
 /** Saves `rows` on `writer`, then reads the tree on `reader`: what came back. */
@@ -151,7 +151,7 @@ const KIND_CASES: readonly ContractCase<ExecutionAuditLogRepository>[] = [
     name: "#508: a business key's replay keeps the step it replayed (replayedFrom), on a fenced-effect row and an outbound-call row",
     run: async ({ first, second }) => {
       const rows = [
-        effectRow(FencedEffectEventOutcome.Replayed),
+        effectRow(IdempotencyRunEventOutcome.Replayed),
         callRow(OutboundCallEventOutcome.Replayed),
       ];
 
@@ -162,8 +162,8 @@ const KIND_CASES: readonly ContractCase<ExecutionAuditLogRepository>[] = [
     name: "#501: a refused fenced-effect row keeps the token it observed; a row without an optional field comes back without it — absent, never null",
     run: async ({ first, second }) => {
       const rows = [
-        { ...effectRow(FencedEffectEventOutcome.Ran) },
-        { ...effectRow(FencedEffectEventOutcome.Refused) },
+        { ...effectRow(IdempotencyRunEventOutcome.Ran) },
+        { ...effectRow(IdempotencyRunEventOutcome.Refused) },
         ...TAKEOVERS.slice(1, 2),
       ];
 

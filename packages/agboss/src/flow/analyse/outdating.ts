@@ -2,10 +2,10 @@ import { NodeKind } from "../ast.js";
 import type { ComponentName } from "../registry.js";
 import type { ResolvedField } from "./fields.js";
 import type { FlowEdge, FlowGraph } from "./flow-graph.js";
+import { twinSlotsOf } from "./slices.js";
 import {
   afterWrites,
   slotOf,
-  slotOfWrite,
   SlotStatus,
   type AbstractScope,
   type SlotKey,
@@ -15,13 +15,9 @@ import {
 /**
  * The abstract outdating step of #271 (S10), inside the one data-flow engine (#272 S10). Every
  * value remembers the slots its step read (`builtFrom`, rule 3): its `input` fields, or every
- * current value for an agent without `input` (rule 8), and the classes its `{ about }` names. A
- * write replaces its slots' older values; every current value built from a replaced one becomes
- * `Outdated`, then every value built from those, until nothing changes. `{ about: Target }` sets
- * the direction (rule 5) — written in the flow, on the `.returns(…)` or the `caseOf(…)` (#299 S54),
- * and kept on the value (`SlotState.about`): a value of `Target` built from answers about `Target`
- * does not count them in its `builtFrom`, so a new answer never outdates it, while a new `Target`
- * outdates the answers. The new value itself is never outdated by the cascade it starts; what that
+ * current value for an agent without `input` (rule 8). A write replaces its slots' older values;
+ * every current value built from a replaced one becomes `Outdated`, then every value built from
+ * those, until nothing changes. The new value itself is never outdated by the cascade it starts; what that
  * cascade outdated of its own sources leaves its `builtFrom`, since an outdated value never
  * outdates anything again.
  */
@@ -51,8 +47,8 @@ const isCurrent = (scope: AbstractScope, slot: SlotKey): boolean =>
   slotOf(scope, slot).status === SlotStatus.Current;
 
 /**
- * The current slots a producer read in a scope, before `{ about }` is applied: its fields (every
- * slot for an agent without `input`). The `{ about }` targets of each write are added by the write.
+ * The current slots a producer read in a scope: its fields (every slot for an agent without
+ * `input`).
  */
 export function readSlots(
   scope: AbstractScope,
@@ -63,25 +59,6 @@ export function readSlots(
     ? [...scope.keys()]
     : (provenance.fields.get(producer) ?? []).map((field) => field.slot);
   return [...new Set(fields.filter((slot) => isCurrent(scope, slot)))].sort();
-}
-
-/** Whether a read value is an answer about one of the written slots (it does not count, rule 5). */
-export const isAboutWritten = (
-  scope: AbstractScope,
-  slot: SlotKey,
-  written: ReadonlySet<SlotKey>,
-): boolean => slotOf(scope, slot).about.some((target) => written.has(target));
-
-/** What the values an edge writes are built from: the slots read, `{ about }` respected. */
-export function builtFromOf(
-  scope: AbstractScope,
-  edge: FlowEdge,
-  provenance: Provenance,
-): readonly SlotKey[] {
-  const written = new Set(edge.writes.map(slotOfWrite));
-  return readSlots(scope, edge.from, provenance).filter(
-    (slot) => !isAboutWritten(scope, slot, written),
-  );
 }
 
 /** One scope after a step: the outdated slots and, for each, the slot it was outdated through. */
@@ -110,6 +87,23 @@ function liveSources(scope: Map<SlotKey, SlotState>, written: ReadonlySet<SlotKe
   }
 }
 
+/** The twins of a written slot (#1288b) — the slices of a polymorphic list, the lists a slice is part of — are outdated by it. */
+function outdateTwins(
+  next: Map<SlotKey, SlotState>,
+  written: ReadonlySet<SlotKey>,
+  out: { readonly causes: Map<SlotKey, SlotKey>; readonly queue: SlotKey[] },
+): void {
+  for (const slot of written) {
+    for (const twin of twinSlotsOf(slot, next.keys())) {
+      const state = next.get(twin);
+      if (written.has(twin) || state?.status !== SlotStatus.Current) continue;
+      next.set(twin, outdated(state));
+      out.causes.set(twin, slot);
+      out.queue.push(twin);
+    }
+  }
+}
+
 /** The cascade of one write: `after` holds the new values in `written`; `before` the older ones. */
 export function outdate(
   before: AbstractScope,
@@ -120,6 +114,7 @@ export function outdate(
   const next = new Map(after);
   const causes = new Map<SlotKey, SlotKey>();
   const queue = [...replaced];
+  outdateTwins(next, written, { causes, queue });
   for (let cause = queue.shift(); cause !== undefined; cause = queue.shift()) {
     for (const [slot, state] of next) {
       if (written.has(slot) || state.status !== SlotStatus.Current) continue;
@@ -139,7 +134,7 @@ export function stepAlong(
   scope: AbstractScope,
   provenance: Provenance,
 ): readonly OutdatingStep[] {
-  const origin = { producers: [edge.from], builtFrom: builtFromOf(scope, edge, provenance) };
+  const origin = { producers: [edge.from], builtFrom: readSlots(scope, edge.from, provenance) };
   return afterWrites(scope, edge.writes, origin).map((write) =>
     outdate(scope, write.scope, write.written),
   );

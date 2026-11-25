@@ -1,4 +1,4 @@
-import { agent, caseOf, start, toAction } from "../../../src/flow/builder.js";
+import { onAgent, onStart, toAction, toAgent } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
@@ -15,6 +15,7 @@ import {
   ShortlistDto,
   UnrelatedDto,
 } from "./dtos.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** #272 example 2a — a review loop: a node reached from two places has its own path. */
 
@@ -31,7 +32,7 @@ export class OfferWorkflowStart {}
 @Agent({
   name: "draft-agent",
   description: "Drafts the offer",
-  prompt: "Draft the offer.",
+  prompt: inline("Draft the offer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -43,7 +44,7 @@ export class DraftAgent {}
 @Agent({
   name: "reviewer-agent",
   description: "Reviews the draft",
-  prompt: "Review the draft.",
+  prompt: inline("Review the draft."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,
@@ -55,14 +56,14 @@ export class ReviewerAgent {}
 @Agent({
   name: "editor-agent",
   description: "Rewrites the draft by the review notes",
-  prompt: "Rewrite the draft.",
+  prompt: inline("Rewrite the draft."),
   model: "moonshotai/kimi-k2.6",
   input: {
     draft: OfferDraftDto,
     changes: ChangesRequestedDto,
   },
   output: OfferDraftDto,
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
 })
 export class EditorAgent {}
 
@@ -70,7 +71,7 @@ export class EditorAgent {}
 @Agent({
   name: "broken-agent",
   description: "Reads what no path gives",
-  prompt: "Read it.",
+  prompt: inline("Read it."),
   model: "moonshotai/kimi-k2.6",
   input: {
     unrelated: UnrelatedDto,
@@ -88,7 +89,7 @@ export class BrokenAgent {}
 })
 export class NotifyRecruiterAction implements ActionHandler<NotifyRecruiterAction> {
   async execute(input: InputOf<NotifyRecruiterAction>): Promise<void> {
-    await Promise.resolve(input.draft.value.text);
+    await Promise.resolve(input.draft.text);
   }
 }
 
@@ -102,7 +103,7 @@ export class NotifyRecruiterAction implements ActionHandler<NotifyRecruiterActio
 })
 export class SendOfferAction implements ActionHandler<SendOfferAction> {
   execute(input: InputOf<SendOfferAction>): Promise<OutputOf<SendOfferAction>> {
-    return Promise.resolve({ delivered: input.draft.value.text.length > 0 });
+    return Promise.resolve({ delivered: input.draft.text.length > 0 });
   }
 }
 
@@ -121,34 +122,28 @@ export class OfferFailedWorkflowFinish {}
 export class OfferSentWorkflowFinish {}
 
 export const offerPaths = [
-  start(OfferWorkflowStart)
-    .returns(ShortlistDto)
+  onStart(OfferWorkflowStart)
     .toAgent(DraftAgent)
-    .returns(OfferDraftDto)
     .toAgent(ReviewerAgent),
 
-  agent(ReviewerAgent)
-    .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-    .switch(
-      caseOf(ChangesRequestedDto, { about: OfferDraftDto })
-        .toAgent(EditorAgent)
+  onAgent(ReviewerAgent)
+    .toOneOf([
+      toAgent(EditorAgent)
         .onError(
           VisitsLimitExceededError,
           toAction(NotifyRecruiterAction)
             .toFinish(OfferFailedWorkflowFinish),
         )
-        .returns(OfferDraftDto)
         .toAgent(ReviewerAgent),
-      caseOf(DraftApprovedDto)
-        .toAction(SendOfferAction)
-        .returns(OfferSentDto)
+      toAction(SendOfferAction)
         .toFinish(OfferSentWorkflowFinish),
-    ),
+    ]),
 ] as const;
 
 @Workflow({
   name: "offer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: offerPaths,
 })
 export class OfferWorkflow {}

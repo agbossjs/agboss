@@ -7,7 +7,7 @@ import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
 @Agent({
   name: "vendor-checker-agent",
   description: "Checks one vendor",
-  promptUrls: ["./vendor-checker.prompt.md"],
+  prompt: "./vendor-checker.prompt.md",
   model: "moonshotai/kimi-k2.6",
   input: {
     vendor: VendorDto, // the child's start input: all it sees of its parent

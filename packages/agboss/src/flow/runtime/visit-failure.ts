@@ -32,6 +32,7 @@ export function caught(
   const handler = errorHandlerOf(node.exits, record);
   const usage = [...unrecordedSpendOf(error), ...reported.usage];
   if (handler === undefined) throw failureCarryingStep(visit, error, usage);
+  const handled = handledErrorOf(deps, record, node.id, handler.to);
   return {
     ...visited(node, ranAsStep),
     lastError: record,
@@ -40,7 +41,7 @@ export function caught(
     ...failedVisitOf(visit, error, usage),
     children: [...reported.children],
     piiTokens: reported.piiTokens,
-    handledErrors: [handledErrorOf(deps, record, node.id, handler.to)],
-    ...sidePathEntered(visit.state, record, handler.to, node),
+    handledErrors: [handled],
+    ...sidePathEntered(visit.state, record, handler.to, node, handled),
   };
 }

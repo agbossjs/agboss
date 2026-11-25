@@ -7,14 +7,17 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  inline,
+  Ttl,
 } from "../../../../../agboss/src/index.js";
 import {
   WorkflowFinishTextDto,
   WorkflowStartTextDto,
 } from "../../../../../agboss/src/dto/index.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
-import { start } from "../../../../../agboss/tests/helpers/flow.js";
+import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
 import { StreamEnvironment } from "./environments/app.environment.js";
+import { StreamModelProvider } from "../stream-model-provider.js";
 
 @WorkflowStart({
   name: "ask-workflow-start",
@@ -33,7 +36,7 @@ export class AnswerWorkflowFinish {}
 @Agent({
   name: "answering-agent",
   description: "Answers",
-  prompt: "Answer the question.",
+  prompt: inline("Answer the question."),
   model: "stream/model",
 })
 export class AnsweringAgent {}
@@ -41,17 +44,18 @@ export class AnsweringAgent {}
 @Workflow({
   name: "ask-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(AskWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(AskWorkflowStart)
       .toAgent(AnsweringAgent)
       .toFinish(AnswerWorkflowFinish),
   ],
-  defaults: { models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX } },
+  defaults: { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } },
 })
 export class AskWorkflow {}
 
 @Application({
+  modelProvider: StreamModelProvider,
   name: "stream-application",
   version: "1.0.0",
   environment: StreamEnvironment,

@@ -1,3 +1,4 @@
+import { profileCheckOf } from "./cli/check-profiles.js";
 import { applicationWarningsOf, type AssembledApplication } from "@agboss/core/internal";
 import { assembleApplication, loadCliApplication } from "./cli/cli-application.js";
 import { flagOption, textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
@@ -7,7 +8,14 @@ import { modelProblemsOf } from "./cli/check-models.js";
 import { cassetteProblems } from "./cli/check-cassettes.js";
 import { federationProblems, requireFederationFlag } from "./cli/check-federation.js";
 import { envOption } from "./cli/environment.js";
-import { assemble, modelProblem, problemText, type CheckProblem } from "./cli/check-problems.js";
+import {
+  assemble,
+  jsonProblem,
+  modelProblem,
+  problemBlock,
+  problemText,
+  type CheckProblem,
+} from "./cli/check-problems.js";
 import { checkReportOf, type CheckReport } from "./cli/check-report.js";
 import { CliError } from "./cli/errors.js";
 import { writeCheckedTypes } from "./cli/flow-types.js";
@@ -146,11 +154,13 @@ export const handle: CommandHandler = async (context) => {
   // Loop 0 of the eval pipeline (#396 S5): the suites assembled on the application that assembled
   const suites =
     assembly.kind === "failed" ? NO_SUITES : await evalSuiteProblems(context, loaded.application);
+  // every profile of src/config/, the inactive ones too, schema-only; the editor's schema of them
   // a types file not written is never `ok` (#371, #376): generation's errors the assembly did not
   // report, and the assembly's own named by generation's files where it knew none
   const problems: readonly CheckProblem[] = checkProblemsOf(typed, [
     ...checked.problems,
     ...suites.problems,
+    ...(await profileCheckOf(loaded, assembly)),
   ]);
   const { report } = checked;
   const checks = [
@@ -160,13 +170,13 @@ export const handle: CommandHandler = async (context) => {
     ...(typed.types === undefined ? [] : ["types"]),
   ];
   problems.forEach((problem) => {
-    context.say(problemText(problem));
+    context.say(problemBlock(problem));
   });
   if (problems.length === 0) context.say(`ok: ${file} — ${checks.join(", ")}`);
   const result = {
     application: file,
     checks,
-    problems,
+    problems: problems.map(jsonProblem),
     ...(typed.types === undefined ? {} : { types: typed.types }),
     ...(report === undefined ? {} : { report: reportData(report) }),
     ...skillsField(skills),

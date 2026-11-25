@@ -29,12 +29,12 @@ afterEach(() => {
 
 /** From the first call of the look-up tool on, the wall clock reads `back` ms earlier. */
 function stepTheClockBackAtTheLookUp(back: number): void {
-  const tool: { prototype: { run: (input: never) => unknown } } = Probe;
+  const tool: { prototype: { execute: (input: never) => unknown } } = Probe;
   const realNow = Date.now.bind(Date);
-  const run = tool.prototype.run;
-  vi.spyOn(tool.prototype, "run").mockImplementation(function (this: unknown, input: never) {
+  const execute = tool.prototype.execute;
+  vi.spyOn(tool.prototype, "execute").mockImplementation(function (this: unknown, input: never) {
     vi.spyOn(Date, "now").mockImplementation(() => realNow() - back);
-    return run.call(this, input);
+    return execute.call(this, input);
   });
 }
 

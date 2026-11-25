@@ -59,7 +59,7 @@ interface RegisterOptions extends InterleavingOptions {
  */
 export interface InterleavingTargets {
   readonly executionLease?: ContractTarget<ExecutionLeaseRepository> | undefined;
-  readonly fencedEffect?: ContractTarget<FencedEffectTarget<unknown>> | undefined;
+  readonly fencedEffect?: ContractTarget<FencedEffectTarget> | undefined;
   readonly outboundCall?: ContractTarget<OutboundCallTarget> | undefined;
 }
 

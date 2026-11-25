@@ -1,11 +1,10 @@
+import { hours, Ttl } from "../../src/units/index.js";
 /**
  * #1269: the files of a workflow's agents resolved from their sources (#899 §1) — the application's own
  * transcriber, redactor and file store among its providers, each agent's levels, the media types
  * narrowed to what the models take.
  */
 import { describe, expect, it } from "vitest";
-import { A2AExpose } from "../../src/a2a/a2a-expose.decorator.js";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { nameOf } from "../../src/components/name-of.js";
 import { InjectionToken, provide, type Class } from "../../src/components/injection.js";
@@ -13,7 +12,6 @@ import type { AgentMeta } from "../../src/components/meta-types.js";
 import type { AgentsConfigOf } from "../../src/config/types.js";
 import {
   agentFilesOf,
-  skillFilesOf,
   hasFileStore,
   ownFileRedactorOf,
   ownFileTranscriberOf,
@@ -21,25 +19,22 @@ import {
   withNarrowedFiles,
   type FilesSources,
 } from "../../src/files/assemble-files.js";
+import { FilePolicy } from "../../src/files/file-policy.js";
 import { FileRedactor, ModelImageRedactor } from "../../src/files/file-redactor.js";
 import { FileTranscriber, ModelFileTranscriber } from "../../src/files/file-transcriber.js";
-import {
-  AnswerFiles,
-  FileView,
-  ModelFiles,
-  type FileDefaults,
-} from "../../src/files/model-files.js";
+import { AnswerFiles, FileView, ModelFiles } from "../../src/files/model-files.js";
 import { NodeKind } from "../../src/flow/ast.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
-import { InlineA2AFileRepository } from "../../src/infrastructure/a2a-file.repository.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InlineFileRepository } from "../../src/infrastructure/file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import type { ModelUse } from "../../src/models/uses.js";
 import { kilobytes } from "../../src/units/index.js";
-import { Agent, Workflow, WorkflowFinish, WorkflowStart } from "../../src/index.js";
-import { Nested, WorkflowFinishTextDto } from "../../src/dto/index.js";
+import { Agent, Workflow, WorkflowFinish, WorkflowStart, inline } from "../../src/index.js";
+import { WorkflowFinishTextDto } from "../../src/dto/index.js";
 import type { WorkflowDefaults } from "../../src/flow/decorators/workflow.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { BundleDto, readerApplication } from "./reader.factory.js";
+import { ComponentOptions } from "../../src/components/component-options.js";
 
 class OwnTranscriber extends FileTranscriber {
   transcribe(): Promise<never> {
@@ -55,8 +50,8 @@ class OwnRedactor extends FileRedactor {
     return Promise.reject(new Error("not asked"));
   }
 }
-class OwnStore extends InMemoryA2AFileRepository {}
-class OwnInline extends InlineA2AFileRepository {}
+class OwnStore extends InMemoryFileRepository {}
+class OwnInline extends InlineFileRepository {}
 class Plain {
   readonly kind = "plain";
 }
@@ -84,10 +79,10 @@ describe("the application's own providers", () => {
     expect(ownFileRedactorOf(undefined)).toBeUndefined();
   });
 
-  it("a file store: an A2AFileRepository that is not the inline default nor one of its kind", () => {
+  it("a file store: a FileRepository that is not the inline default nor one of its kind", () => {
     expect(hasFileStore([OwnStore])).toBe(true);
-    expect(hasFileStore([Plain, InMemoryA2AFileRepository])).toBe(true);
-    expect(hasFileStore([InlineA2AFileRepository])).toBe(false);
+    expect(hasFileStore([Plain, InMemoryFileRepository])).toBe(true);
+    expect(hasFileStore([InlineFileRepository])).toBe(false);
     expect(hasFileStore([OwnInline])).toBe(false);
     expect(hasFileStore([Plain, OwnTranscriber])).toBe(false);
     expect(hasFileStore([lookalike(OwnStore)])).toBe(false);
@@ -99,14 +94,14 @@ describe("the application's own providers", () => {
 let counter = 0;
 
 /** A workflow of one agent with the files and the defaults a test gives; its start and its agent. */
-function miniWorkflow(files?: ModelFiles, defaults?: WorkflowDefaults) {
+function miniWorkflow(files?: ModelFiles, defaults?: WorkflowDefaults, filePolicy?: Class) {
   counter += 1;
   const suffix = String(counter);
 
   @Agent({
     name: `mini-${suffix}-agent`,
     description: "Reads",
-    prompt: "Read.",
+    prompt: inline("Read."),
     model: "local/reader",
     input: { bundle: BundleDto },
     ...(files === undefined ? {} : { files }),
@@ -126,8 +121,10 @@ function miniWorkflow(files?: ModelFiles, defaults?: WorkflowDefaults) {
   @Workflow({
     name: `mini-${suffix}-workflow`,
     version: "1.0.0",
-    flow: [start(MiniStart).returns(BundleDto).toAgent(MiniAgent).toFinish(MiniFinish)],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(MiniStart).toAgent(MiniAgent).toFinish(MiniFinish)],
     ...(defaults === undefined ? {} : { defaults }),
+    ...(filePolicy === undefined ? {} : { filePolicy }),
   })
   class MiniWorkflow {}
 
@@ -151,8 +148,8 @@ const sourcesOf = (
   owner: undefined,
   workflow: mini.Workflow,
   agents: [agentMetaOf(mini.Agent)],
-  graph: { starts: [nameOf(mini.Start)] },
   pii: { byElement: new Map() },
+  options: ComponentOptions.none,
   ...over,
 });
 
@@ -188,11 +185,12 @@ describe("an agent's files of its sources", () => {
     expect(files?.maxFileSize).toBe(kilobytes(2));
   });
 
-  it("the owner's a2aFiles give the size and the types", () => {
-    const mini = miniWorkflow(ModelFiles.of({}));
-    const owner = { a2aFiles: { maxFileSize: kilobytes(7), allowedMediaTypes: ["text/plain"] } };
+  it("the workflow's filePolicy gives the size and the types", () => {
+    @FilePolicy({ ttl: hours(24), maxFileSize: kilobytes(7), allowedMediaTypes: ["text/plain"] })
+    class SmallTextPolicy {}
+    const mini = miniWorkflow(ModelFiles.of({}), undefined, SmallTextPolicy);
 
-    const files = agentFilesOf(agentMetaOf(mini.Agent), sourcesOf(mini, { owner }));
+    const files = agentFilesOf(agentMetaOf(mini.Agent), sourcesOf(mini));
 
     expect(files?.maxFileSize).toBe(kilobytes(7));
     expect(files?.allowedMediaTypes).toEqual(["text/plain"]);
@@ -220,78 +218,6 @@ describe("an agent's files of its sources", () => {
 
     expect(withPolicy?.views).toEqual([FileView.Transcription]);
     expect(noneForIt?.views).toEqual([FileView.Original]);
-  });
-});
-
-/** An expose of the starts it names, its skills' files as given. */
-const exposeOf = (name: string, exports: Class[], skills?: Record<string, { files?: object }>) => {
-  @A2AExpose({
-    name,
-    version: "1.0.0",
-    description: "Serves documents",
-    exports,
-    ...(skills === undefined ? {} : { skills }),
-  })
-  class Expose {}
-  return Expose;
-};
-
-describe("the skills of the exposes whose starts are the workflow's", () => {
-  const mini = miniWorkflow(ModelFiles.of({}));
-  const other = miniWorkflow(ModelFiles.of({}));
-  const startName = nameOf(mini.Start);
-  const meta = agentMetaOf(mini.Agent);
-  const filesOfExposes = (exposes: Class[]) =>
-    agentFilesOf(meta, sourcesOf(mini, { owner: { exposes } }));
-
-  it("the largest size and the union of the types of its skills, the others' left out", () => {
-    const mine = exposeOf("mine-a2a-expose", [mini.Start, other.Start], {
-      [startName]: {
-        files: { maxFileSize: kilobytes(300), allowedMediaTypes: ["application/pdf"] },
-      },
-      [nameOf(other.Start)]: { files: { maxFileSize: kilobytes(999) } },
-    });
-    const second = exposeOf("second-a2a-expose", [mini.Start], {
-      [startName]: { files: { maxFileSize: kilobytes(200), allowedMediaTypes: ["image/png"] } },
-    });
-    const elsewhere = exposeOf("elsewhere-a2a-expose", [other.Start], {
-      [nameOf(other.Start)]: { files: { maxFileSize: kilobytes(500) } },
-    });
-
-    const files = filesOfExposes([elsewhere, mine, second, mini.Agent]);
-
-    expect(files?.maxFileSize).toBe(kilobytes(300));
-    expect(files?.allowedMediaTypes).toEqual(["application/pdf", "image/png"]);
-  });
-
-  it("a skill with no files, no skills at all, a skill of another start: the built-ins", () => {
-    const noFiles = exposeOf("no-files-a2a-expose", [mini.Start], { [startName]: {} });
-    const noSkills = exposeOf("no-skills-a2a-expose", [mini.Start]);
-    const otherSkill = exposeOf("other-skill-a2a-expose", [mini.Start], {
-      [nameOf(other.Start)]: { files: { maxFileSize: kilobytes(500) } },
-    });
-
-    for (const exposes of [[noFiles], [noSkills], [otherSkill], [mini.Agent], []]) {
-      const files = filesOfExposes(exposes);
-
-      expect(files?.maxFileSize).toBe(kilobytes(64));
-      expect(files?.allowedMediaTypes).toContain("image/png");
-    }
-  });
-
-  it("the skills' files themselves: only the options of the workflow's starts that set them", () => {
-    const options = { maxFileSize: kilobytes(300) };
-    const mine = exposeOf("mine-skills-a2a-expose", [mini.Start, other.Start], {
-      [startName]: { files: options },
-      [nameOf(other.Start)]: { files: { maxFileSize: kilobytes(999) } },
-    });
-    const noFiles = exposeOf("no-files-skills-a2a-expose", [mini.Start], { [startName]: {} });
-
-    expect(skillFilesOf({ exposes: [mine, noFiles, mini.Agent] }, [startName])).toEqual([options]);
-    expect(skillFilesOf({ exposes: [noFiles] }, [startName])).toEqual([]);
-    expect(skillFilesOf({ exposes: [mini.Agent] }, [startName])).toEqual([]);
-    expect(skillFilesOf({}, [startName])).toEqual([]);
-    expect(skillFilesOf(undefined, [startName])).toEqual([]);
   });
 });
 

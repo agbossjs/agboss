@@ -2,30 +2,62 @@ import { describe, expect, it } from "vitest";
 import { type AgentsConfigOf } from "../../src/config/types.js";
 import { TokenLimit } from "../../src/config/types.js";
 import { checkModelUses, resolutionProblems } from "../../src/models/check.js";
+import { secret } from "../../src/environments/secret.js";
+import { seconds } from "../../src/units/index.js";
 import {
+  DecisionsDriver,
+  ModelCost,
+  ModelProvider,
   CachedPart,
   CacheRetention,
-  DecisionsModelProvider,
   PromptCaching,
   Reasoning,
   ReasoningEffort,
 } from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
+import { ModelKind } from "../../src/models/model-kind.js";
 import { modelUsesOf } from "../../src/models/uses.js";
 import { LocalModelProvider, TestOpenRouterProvider } from "./providers.fixture.js";
 import { CLAUDE_ENTRY, GPT5_ENTRY, KIMI_ENTRY, providerStub } from "./stub.js";
 
+/** A decisions gateway that lists its models (`knownModels`): any other is `[model.unknown-model]`. */
+@ModelProvider({
+  name: "decisions-model-provider",
+  description: "Decision models on a decisions gateway",
+  driver: DecisionsDriver({
+    baseUrl: "https://openrouter.ai/api/v1",
+    apiKey: secret("OPENROUTER_API_KEY"),
+    knownModels: ["typesafe/jev-1.13"],
+  }),
+  timeout: seconds(30),
+  cost: ModelCost.fromResponse(),
+})
+class ListingDecisionsProvider {}
+
 /** A fresh directory: each provider instance fetches its model list once. */
 const directoryOf = () =>
-  ModelProviderDirectory.of([TestOpenRouterProvider, DecisionsModelProvider, LocalModelProvider]);
-const models = [KIMI_ENTRY, CLAUDE_ENTRY, GPT5_ENTRY, { id: "local/qwen" }, { id: "local/llama" }];
+  ModelProviderDirectory.of([TestOpenRouterProvider, ListingDecisionsProvider, LocalModelProvider]);
+/** The names the cascade resolves to: each use names its provider (#1313; no `serves` patterns pick one). */
+const OPENROUTER = "openrouter-model-provider";
+const LOCAL = "local-model-provider";
+const DECISIONS = "decisions-model-provider";
+/** What each provider's driver speaks: how a use's protocol is told (no model name does). */
+const KINDS = new Map([[DECISIONS, ModelKind.Decisions]]);
+const models = [
+  KIMI_ENTRY,
+  CLAUDE_ENTRY,
+  GPT5_ENTRY,
+  { id: "local/qwen" },
+  { id: "local/llama" },
+  { id: "backup/kimi-k2.6" },
+];
 
 const config = (agents: AgentsConfigOf<string>["agents"]): AgentsConfigOf<string> => ({
   name: "check",
   version: "1",
   defaults: {
     models: { temperature: 0, maxTokens: 1000 },
-    router: { kind: "jev", model: "typesafe/jev-1.13" },
+    router: { kind: "jev", model: "typesafe/jev-1.13", modelProvider: DECISIONS },
     tools: { maxToolCalls: 1 },
     uncompactedTurns: 1,
   },
@@ -34,9 +66,9 @@ const config = (agents: AgentsConfigOf<string>["agents"]): AgentsConfigOf<string
 
 const problemsOf = async (
   agents: AgentsConfigOf<string>["agents"],
-  routers = [{ name: "main", model: "typesafe/jev-1.13" }],
+  routers = [{ name: "main", model: "typesafe/jev-1.13", modelProvider: DECISIONS }],
 ) =>
-  checkModelUses(modelUsesOf(config(agents), routers), directoryOf(), {
+  checkModelUses(modelUsesOf(config(agents), routers, {}, KINDS), directoryOf(), {
     env: {},
     send: providerStub([], models).fetch,
   });
@@ -45,13 +77,24 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
   it("AC6: settings that fit their models pass", async () => {
     expect(
       await problemsOf({
-        scout: { model: "moonshotai/kimi-k2.6", description: "s", thinking: "none" },
+        scout: {
+          model: "moonshotai/kimi-k2.6",
+          modelProvider: OPENROUTER,
+          description: "s",
+          thinking: "none",
+        },
         writer: {
           model: "anthropic/claude-sonnet-4.5",
+          modelProvider: OPENROUTER,
           description: "w",
           thinking: { budgetTokens: 2000 },
         },
-        local: { model: "local/llama", description: "l", maxTokens: TokenLimit.MODEL_MAX },
+        local: {
+          model: "local/llama",
+          modelProvider: LOCAL,
+          description: "l",
+          maxTokens: TokenLimit.ModelMax,
+        },
       }),
     ).toEqual([]);
   });
@@ -61,22 +104,29 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
       {
         scout: {
           model: "moonshotai/kimi-k2.6",
+          modelProvider: OPENROUTER,
           description: "s",
           thinking: Reasoning.on({ effort: ReasoningEffort.High, budget: { tokens: 4000 } }),
         },
-        writer: { model: "openai/gpt-5", description: "w", thinking: "none" },
+        writer: {
+          model: "openai/gpt-5",
+          modelProvider: OPENROUTER,
+          description: "w",
+          thinking: "none",
+        },
         reviewer: {
           model: "anthropic/claude-sonnet-4.5",
+          modelProvider: OPENROUTER,
           description: "r",
-          cache: PromptCaching.whereSupported({
+          cache: PromptCaching.on({
             retention: CacheRetention.OneDay,
             cachedParts: [CachedPart.History],
           }),
         },
-        ghost: { model: "nobody/listed", description: "g" },
-        cheap: { model: "local/qwen", description: "c" },
+        ghost: { model: "nobody/listed", modelProvider: OPENROUTER, description: "g" },
+        cheap: { model: "local/qwen", modelProvider: LOCAL, description: "c" },
       },
-      [{ name: "main", model: "typesafe/jev-1.4" }],
+      [{ name: "main", model: "typesafe/jev-1.4", modelProvider: DECISIONS }],
     );
 
     expect(problems).toEqual([
@@ -116,6 +166,14 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
         supported: "openrouter-model-provider does not list it",
       },
       {
+        // its fallback is checked for the model it would be asked for (#1313)
+        code: "model.unknown-model",
+        key: "agents.ghost",
+        value: "nobody/listed",
+        model: "nobody/listed",
+        supported: "backup-model-provider does not list it",
+      },
+      {
         code: "model.no-price",
         key: "agents.cheap",
         value: "local/qwen",
@@ -134,7 +192,13 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
 
   it("AC6: nothing is substituted — an effort the model lacks is a problem, not the nearest effort", async () => {
     const problems = await problemsOf({
-      writer: { model: "openai/gpt-5", description: "w", temperature: 0, thinking: "xhigh" },
+      writer: {
+        model: "openai/gpt-5",
+        modelProvider: OPENROUTER,
+        description: "w",
+        temperature: 0,
+        thinking: "xhigh",
+      },
     });
 
     expect(problems.find((p) => p.key === "agents.writer.thinking")).toMatchObject({
@@ -154,15 +218,18 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
         config({
           plain: {
             model: "plain/model",
+            modelProvider: OPENROUTER,
             description: "p",
             thinking: "low",
-            cache: PromptCaching.whereSupported({
+            cache: PromptCaching.on({
               retention: CacheRetention.OneDay,
               cachedParts: [CachedPart.Tools],
             }),
           },
         }),
         [],
+        {},
+        KINDS,
       ),
       directoryOf(),
       { env: {}, send: providerStub([], [noReasoning]).fetch },
@@ -173,17 +240,28 @@ describe("AC6: fail fast — settings must fit their models, all problems at onc
     ]);
   });
 
-  it("AC6: none and several providers are found without asking any provider", () => {
+  it("AC6: a use with no provider, an unlisted one or one of the wrong protocol is found without asking any provider", () => {
     const onlyLocal = ModelProviderDirectory.of([LocalModelProvider]);
+    const uses = modelUsesOf(
+      config({
+        a: { model: "x/y", description: "a" },
+        b: { model: "x/y", modelProvider: OPENROUTER, description: "b" },
+        c: { model: "x/y", modelProvider: DECISIONS, description: "c" },
+      }),
+      [],
+    );
 
-    expect(
-      resolutionProblems(
-        modelUsesOf(config({ a: { model: "x/y", description: "a" } }), []),
-        onlyLocal,
-      ).map((p) => [p.code, p.key]),
-    ).toEqual([
-      ["model.unserved", "agents.a"],
-      ["model.unserved", "defaults.router"],
+    expect(resolutionProblems(uses, onlyLocal).map((p) => [p.code, p.key])).toEqual([
+      ["model.missing-provider", "agents.a"],
+      ["model.missing-provider", "agents.b"],
+      ["model.missing-provider", "agents.c"],
+      ["model.missing-provider", "defaults.router"],
     ]);
+    const listed = ModelProviderDirectory.of([TestOpenRouterProvider, ListingDecisionsProvider]);
+    expect(
+      resolutionProblems(uses, listed)
+        .filter((p) => p.code === "model.incompatible-provider")
+        .map((p) => [p.key, p.supported]),
+    ).toEqual([["agents.c", `${DECISIONS} does not serve chat models`]]);
   });
 });

@@ -5,7 +5,10 @@ import { PiiPolicySet } from "../pii/policy-set.js";
 import { piiRuntimeOf, type PiiRuntime } from "../pii/runtime.js";
 import type { ModelDetection } from "../pii/runtime-policy.js";
 import { resolveListed } from "./application-container.js";
-import { applicationPseudonymKeyOf, type ApplicationKeySource } from "../pii/application-key.js";
+import { applicationPseudonymKeysOf, type ApplicationKeySource } from "../pii/application-key.js";
+import { policiesTokenizing, tokenizeFieldsOf } from "../pii/tokenize-use.js";
+import type { DtoClass } from "../dto/types.js";
+import { toolDtosOf } from "./start-log.js";
 import { newPiiKey } from "../pii/tokens.js";
 import type { AssembledApplication } from "./assemble.js";
 
@@ -13,31 +16,61 @@ import type { AssembledApplication } from "./assemble.js";
 export interface ApplicationPiiKey {
   readonly key: string;
   /**
-   * No `piiKeyField` set and none needed: a key of this instance (its logs and traces), each root
-   * execution's tokens on a key of its own (#334) — `[application.pii-instance-key]`.
+   * No PII secret named and nothing tokenizes: a key of this instance (its logs and traces), each
+   * root execution's field keys on one of its own (#334).
    */
   readonly isInstanceKey: boolean;
+  /** The key `key` rotates from (`@DatabaseStorage({ previousPiiSecret })`): none when not rotating. */
+  readonly previousKey?: string;
 }
 
+/** The DTOs that may carry a `sensitive` field: the contexts, the workflows' paths and the tools'. */
+const dtosOf = (assembled: AssembledApplication): readonly DtoClass[] => [
+  assembled.tenantContext,
+  assembled.executionContext,
+  ...assembled.workflows.flatMap((workflow) => [
+    ...workflow.graph.dtos.values(),
+    ...toolDtosOf(workflow),
+  ]),
+];
+
+/** What makes tokens with the application's key: policies and DTO fields, by name (never a value). */
+const tokenizingOf = (assembled: AssembledApplication): readonly string[] => {
+  const policies = [...new Set(assembled.workflows.flatMap((w) => w.pii?.classes ?? []))];
+  return [
+    ...policiesTokenizing([...new Set([...assembled.piiPolicies, ...policies])]).map(
+      (name) => `policy ${name}`,
+    ),
+    ...tokenizeFieldsOf(dtosOf(assembled)).map((field) => `field ${field}`),
+  ];
+};
+
 /**
- * The application's PII key (#120): its `piiKeyField`, the test's key under `testWith`, else
- * a key of the instance (S94: the start goes on, with a warning) — unless a policy needs the
- * application's, which fails the start.
+ * The application's PII key (#120, #1301): `@DatabaseStorage({ piiSecret })` (and the key it rotates
+ * from), its `piiKeyField`, the test's key under `testWith` (never in production), else
+ * a key of the instance for the logs — unless something tokenizes, which fails the start
+ * (`[pii.secret-required]`).
  */
 export function applicationPiiKeyOf(
   assembled: AssembledApplication,
-  source: Pick<ApplicationKeySource, "environment" | "env" | "fallback">,
+  source: Pick<ApplicationKeySource, "environment" | "env" | "fallback" | "isInstanceKeyAllowed">,
 ): ApplicationPiiKey {
-  const policies = [...new Set(assembled.workflows.flatMap((w) => w.pii?.classes ?? []))];
-  const key = applicationPseudonymKeyOf({
+  const meta = assembled.storage?.database?.meta;
+  const keys = applicationPseudonymKeysOf({
     ...source,
     application: assembled.name,
     field: assembled.piiKeyField,
-    policies,
+    secret: meta?.piiSecret,
+    previousSecret: meta?.previousPiiSecret,
+    tokenizing: tokenizingOf(assembled),
   });
-  return key === undefined
+  return keys === undefined
     ? { key: newPiiKey(), isInstanceKey: true }
-    : { key, isInstanceKey: false };
+    : {
+        key: keys.key,
+        isInstanceKey: false,
+        ...(keys.previousKey === undefined ? {} : { previousKey: keys.previousKey }),
+      };
 }
 
 /** The application's own log never calls a model: a model detection is not built for it. */
@@ -59,7 +92,13 @@ export interface ApplicationPiiMask extends ObservabilityMask {
 /** One set of every policy of `sets`, each once (by name), on the first set's field key. */
 const unionOf = (sets: readonly PiiPolicySet[]): PiiPolicySet => {
   const byName = new Map(sets.flatMap((set) => set.policies).map((each) => [each.name, each]));
-  return new PiiPolicySet([...byName.values()], sets[0]?.fieldKey ?? "");
+  return new PiiPolicySet(
+    [...byName.values()],
+    sets[0]?.fieldKey ?? "",
+    [],
+    sets[0]?.fieldKey ?? "",
+    sets[0]?.previous,
+  );
 };
 
 /** The application's mask (#1130): its own `piiPolicies` at first, the union once workflows are added. */
@@ -70,6 +109,7 @@ export function applicationPiiMaskOf(
   parts: {
     readonly processEnv: NodeJS.ProcessEnv;
     readonly fieldKey: string;
+    readonly previousFieldKey?: string | undefined;
     readonly contexts: RuntimeContexts;
   },
 ): ApplicationPiiMask {
@@ -87,6 +127,7 @@ export function applicationPiiMaskOf(
     detectionOf: noDetection,
     contexts: parts.contexts,
     fieldKey: parts.fieldKey,
+    previousFieldKey: parts.previousFieldKey,
   });
   const sets: PiiPolicySet[] = [own.observed];
   let mask = own.observability;

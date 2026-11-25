@@ -9,7 +9,8 @@ import {
   WorkflowStart,
   listOf,
   type Class,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { MemorySaver } from "@langchain/langgraph";
 import { Application } from "../../../src/application/application.js";
@@ -21,12 +22,13 @@ import {
 import type { CostCounter } from "../../../src/infrastructure/cost-ledger.repository.js";
 import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import { usd } from "../../../src/units/index.js";
 import {
   ItemDto,
   ItemResultDto,
   SummaryWorkflowFinish,
+  SummaryAction,
 } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 
 /**
@@ -147,8 +149,8 @@ function paidStep(name: string, step: string, costOf: (item: string) => number, 
       private readonly executionContext: ExecutionContext,
     ) {}
 
-    async execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemDto> {
-      const item = input.item.value;
+    async execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemDto> {
+      const item = input.item;
       inFlight.ran.push(`${item.name}:${step}`);
       inFlight.where.set(
         `${item.name}:${step}`,
@@ -170,8 +172,8 @@ function doneOf(name: string) {
     output: ItemResultDto,
   })
   class Done {
-    execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
-      return Promise.resolve({ name: input.item.value.name });
+    execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
+      return Promise.resolve({ name: input.item.name });
     }
   }
   return Done;
@@ -180,7 +182,7 @@ function doneOf(name: string) {
 const itemCost = (first: boolean) => (item: string) => (item === "a" ? (first ? 60 : 0) : 30);
 
 /** One item's child: three paid steps, then done. */
-function payItemWorkflowOf(name: string): Class {
+function payItemWorkflowOf(name: string, placement: ChildPlacement): Class {
   const PayOne = paidStep(`${name}-pay-one`, "pay-one", itemCost(true), true);
   const PayTwo = paidStep(`${name}-pay-two`, "pay-two", itemCost(false));
   const PayThree = paidStep(`${name}-pay-three`, "pay-three", itemCost(false));
@@ -192,17 +194,14 @@ function payItemWorkflowOf(name: string): Class {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    placement,
     flow: [
-      start(Start)
-        .returns(ItemDto)
+      onStart(Start)
         .toAction(PayOne)
-        .returns(ItemDto)
         .toAction(PayTwo)
-        .returns(ItemDto)
         .toAction(PayThree)
-        .returns(ItemDto)
         .toAction(Done)
-        .returns(ItemResultDto)
         .toFinish(Finish),
     ],
   })
@@ -210,8 +209,8 @@ function payItemWorkflowOf(name: string): Class {
   return PayItem;
 }
 
-const LocalPayItemWorkflow = payItemWorkflowOf("local-pay-item");
-const AnyPayItemWorkflow = payItemWorkflowOf("any-pay-item");
+const LocalPayItemWorkflow = payItemWorkflowOf("local-pay-item", ChildPlacement.CurrentProcess);
+const AnyPayItemWorkflow = payItemWorkflowOf("any-pay-item", ChildPlacement.AnyWorker);
 
 @WorkflowFinish({ name: "items-paid-workflow-finish", description: "Paid", output: ItemResultDto })
 export class ItemsPaidWorkflowFinish {}
@@ -232,15 +231,12 @@ export class AnyPayItemsWorkflowStart {}
 @Workflow({
   name: "local-pay-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(LocalPayItemsWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(LocalPayItemWorkflow, {
-        maxItems: 2,
-        placement: ChildPlacement.ParentInstance,
-      })
+    onStart(LocalPayItemsWorkflowStart)
+      .forEachItem(toWorkflow(LocalPayItemWorkflow), { takeFirst: 2 })
       .join()
-      .returns(listOf(ItemResultDto))
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -249,15 +245,12 @@ export class LocalPayItemsWorkflow {}
 @Workflow({
   name: "any-pay-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(AnyPayItemsWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(AnyPayItemWorkflow, {
-        maxItems: 2,
-        placement: ChildPlacement.AnyInstance,
-      })
+    onStart(AnyPayItemsWorkflowStart)
+      .forEachItem(toWorkflow(AnyPayItemWorkflow), { takeFirst: 2 })
       .join()
-      .returns(listOf(ItemResultDto))
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })
@@ -272,17 +265,15 @@ class ChildPayWorkflowStart {}
 @WorkflowFinish({ name: "child-pay-workflow-finish", description: "Paid", output: ItemResultDto })
 class ChildPayWorkflowFinish {}
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "child-pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChildPayWorkflowStart)
-      .returns(ItemDto)
+    onStart(ChildPayWorkflowStart)
       .toAction(ChildOne)
-      .returns(ItemDto)
       .toAction(ChildTwo)
-      .returns(ItemDto)
       .toAction(ChildDone)
-      .returns(ItemResultDto)
       .toFinish(ChildPayWorkflowFinish),
   ],
 })
@@ -294,13 +285,11 @@ export class ParentPayWorkflowStart {}
 @Workflow({
   name: "parent-pay-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ParentPayWorkflowStart)
-      .returns(ItemDto)
+    onStart(ParentPayWorkflowStart)
       .toAction(ParentPay)
-      .returns(ItemDto)
-      .toWorkflow(ChildPayWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ItemResultDto)
+      .toWorkflow(ChildPayWorkflow)
       .toFinish(ItemsPaidWorkflowFinish),
   ],
 })
@@ -326,7 +315,7 @@ export class SpendInFlightApplication {}
   environment: EmptyEnvironment,
   workflows: [AnyPayItemsWorkflow, ParentPayWorkflow],
   budgets: TEST_BUDGETS,
-  maxConcurrentSteps: 1,
+  executionLimits: { maxConcurrentSteps: 1 },
   providers: [HeldParentLedger],
 })
 export class SpendInFlightInstancesApplication {}

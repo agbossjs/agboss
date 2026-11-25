@@ -8,7 +8,7 @@ import type { MaskingPiiAction } from "../pii/actions.js";
 /** A DTO class: plain data, constructed with no arguments. */
 export type DtoClass<T = object> = abstract new () => T;
 
-/** Field kinds of plain values — what `@ListOf(Text)` can hold besides DTOs. */
+/** Field kinds of plain values — what `@List(Text)` can hold besides DTOs. */
 export type ScalarKind =
   | "text"
   | "integer"
@@ -25,13 +25,14 @@ export type ScalarKind =
   | "country-code"
   | "phone-number"
   | "media-type"
-  | "time-zone";
+  | "time-zone"
+  | "key-text";
 
 export type FieldKind = ScalarKind | "one-of" | "list-of" | "nested";
 
 /**
- * A sensitive field's action (#120): `sensitive: PiiAction.replaceWithToken()` — a masking action
- * only (`replaceWithKind`, `replacePart`, `replaceWithToken`); `blockWithRefusal` does not compile.
+ * A sensitive field's action (#120): `sensitive: PiiAction.tokenize()` — a masking action
+ * only (`mask()`, `mask(part)`, `tokenize()`); `block` does not compile.
  */
 export type Sensitivity = MaskingPiiAction;
 
@@ -67,6 +68,16 @@ export interface NumberLimits {
   readonly max?: number;
 }
 
+/** `@KeyText`'s options: a key is at most 200 characters of `[a-zA-Z0-9._:-]`; these only narrow it. */
+export interface KeyTextOptions {
+  /** At least this many characters. */
+  readonly minLength?: number;
+  /** At most this many characters (never more than 200). */
+  readonly maxLength?: number;
+  /** A narrower format on top of the key rules, e.g. `/^[a-z0-9-]+$/`. */
+  readonly pattern?: RegExp;
+}
+
 export interface DecimalStringLimits {
   /** At most this many digits after the point. */
   readonly scale?: number;
@@ -85,7 +96,8 @@ export interface FieldSettings
 /** What a list holds or a nested field is: a plain value or a DTO. */
 export type ElementSpec =
   | { readonly kind: "scalar"; readonly scalar: ScalarKind }
-  | { readonly kind: "dto"; readonly dto: DtoClass };
+  | { readonly kind: "dto"; readonly dto: DtoClass }
+  | { readonly kind: "enum"; readonly values: readonly string[] };
 
 /** One decorated field as recorded at class definition. */
 export interface FieldSpec {
@@ -93,7 +105,7 @@ export interface FieldSpec {
   readonly kind: FieldKind;
   readonly optional: boolean;
   readonly settings: FieldSettings;
-  /** `@ListOf` element / `@Nested` DTO. */
+  /** `@List` element / `@Nested` DTO. */
   readonly element?: ElementSpec;
   /** Declared on a `#private` field (not plain data). */
   readonly isPrivate: boolean;
@@ -123,3 +135,20 @@ export interface FieldFactory<T, TLimits extends object = object> {
   (options: TLimits & FieldOptions<T> & OptionalField): FieldDecorator<T | undefined>;
   (options?: TLimits & FieldOptions<T> & RequiredField<T>): FieldDecorator<T>;
 }
+
+/**
+ * What a `@Validate` check reports: a message for the whole DTO, or a message at one field. The
+ * message is the author's fixed text — never the rejected value.
+ */
+export type ValidationIssue<TDto> =
+  string | { readonly field?: keyof TDto & string; readonly reason: string };
+
+/**
+ * A cross-field check: `undefined`, `true` and `[]` mean valid; `false` is invalid with the reason
+ * `"validation failed"`; a string or issue (or a list of them) reports why. It runs after the
+ * fields are parsed, on a value whose fields have their declared types (one that broke its own limits
+ * may still be there, so a check reads defensively).
+ */
+export type DtoCheck<TDto> = (
+  value: TDto,
+) => undefined | boolean | ValidationIssue<TDto> | readonly ValidationIssue<TDto>[];

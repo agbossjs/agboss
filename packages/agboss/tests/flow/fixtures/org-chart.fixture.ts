@@ -1,4 +1,11 @@
-import { caseOf, route, start, toAction, toWorkflow, workflow } from "../../../src/flow/builder.js";
+import {
+  onStart,
+  toAction,
+  toWorkflow,
+  onWorkflow,
+  toAgent,
+  toFinish,
+} from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
@@ -8,18 +15,18 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { listOf, oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types.js";
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
-import { ThisWorkflow } from "../../../src/flow/this-workflow.js";
 import { LimitExceededError } from "../../../src/errors.js";
 import { StepFailedError } from "../../../src/graph/errors.js";
-import { Integer, ListOf, Text } from "../../../src/dto/index.js";
+import { Integer, List, Text } from "../../../src/dto/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
- * #264 S112 — `ThisWorkflow` typed per path: three recursive workflows whose finishes give other
- * classes than the research of recursion.fixture.ts (`TeamChartDto | OrgChartFailedDto`), each typed
- * by its own `ThisWorkflowOutputs` entry. `org-chart-workflow`: a per-item launch with its
- * `.onJoinError(…)`; `org-drill-workflow`: `route(ThisWorkflow)` and `.toWorkflow(ThisWorkflow)`
- * continued on the own path `workflow(ThisWorkflow)…`; `org-retry-workflow`: the side-path starter
- * `.onError(E, toWorkflow(ThisWorkflow)…)`.
+ * #264 S112, #1287 — a workflow launching itself with a thunk, typed per path: three recursive
+ * workflows whose finishes give other classes than the research of recursion.fixture.ts
+ * (`TeamChartDto | OrgChartFailedDto`). `org-chart-workflow`: a per-item launch with its
+ * `.onError(…)`; `org-drill-workflow`: `route(() => Self)` and `.toWorkflow(() => Self)` continued
+ * on the own path `onWorkflow(() => Self)…`; `org-retry-workflow`: the side-path starter
+ * `.onError(E, toWorkflow(() => Self)…)`.
  */
 
 export class OrgUnitDto {
@@ -36,7 +43,7 @@ export class TeamChartDto {
 }
 
 export class OrgSplitDto {
-  @ListOf(Text, { prompt: "the unit's sub-units" })
+  @List(Text, { prompt: "the unit's sub-units" })
   units!: string[];
 }
 
@@ -55,7 +62,7 @@ export class OrgChartWorkflowStart {}
 @Agent({
   name: "org-mapper-agent",
   description: "Charts a unit, or lists its sub-units",
-  prompt: "Chart the unit, or list its sub-units.",
+  prompt: inline("Chart the unit, or list its sub-units."),
   model: "moonshotai/kimi-k2.6",
   input: { unit: OrgUnitDto },
   output: oneOf(TeamChartDto, OrgSplitDto),
@@ -70,17 +77,17 @@ export class OrgMapperAgent {}
 })
 export class SplitUnitAction implements ActionHandler<SplitUnitAction> {
   execute(input: InputOf<SplitUnitAction>): Promise<OutputOf<SplitUnitAction>> {
-    const { level } = input.unit.value;
-    return Promise.resolve(input.split.value.units.map((name) => ({ name, level: level + 1 })));
+    const { level } = input.unit;
+    return Promise.resolve(input.split.units.map((name) => ({ name, level: level + 1 })));
   }
 }
 
 @Agent({
   name: "chart-merger-agent",
   description: "Merges the sub-units' charts",
-  prompt: "Merge the charts.",
+  prompt: inline("Merge the charts."),
   model: "moonshotai/kimi-k2.6",
-  input: { unit: OrgUnitDto, charts: listOf(oneOf(TeamChartDto, OrgChartFailedDto)) },
+  input: { unit: OrgUnitDto, charts: listOf(TeamChartDto, OrgChartFailedDto) },
   output: TeamChartDto,
 })
 export class ChartMergerAgent {}
@@ -93,7 +100,7 @@ export class ChartMergerAgent {}
 })
 export class MarkUnitFailedAction implements ActionHandler<MarkUnitFailedAction> {
   execute(input: InputOf<MarkUnitFailedAction>): Promise<OutputOf<MarkUnitFailedAction>> {
-    return Promise.resolve({ name: input.unit.value.name });
+    return Promise.resolve({ name: input.unit.name });
   }
 }
 
@@ -114,32 +121,28 @@ export class OrgChartFailedWorkflowFinish {}
 @Workflow({
   name: "org-chart-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OrgChartWorkflowStart)
-      .returns(OrgUnitDto)
+    onStart(OrgChartWorkflowStart)
       .toAgent(OrgMapperAgent)
-      .returns(oneOf(TeamChartDto, OrgSplitDto))
-      .switch(
-        caseOf(TeamChartDto)
-          .toFinish(TeamChartWorkflowFinish),
-        caseOf(OrgSplitDto)
-          .toAction(SplitUnitAction)
-          .returns(listOf(OrgUnitDto))
-          .toParallelWorkflows(ThisWorkflow, { maxConcurrency: 2, maxItems: 4 })
+      .toOneOf([
+        toFinish(TeamChartWorkflowFinish),
+        toAction(SplitUnitAction)
+          .forEachItem(
+            toWorkflow(() => OrgChartWorkflow),
+            { takeFirst: 4, maxConcurrency: 2 },
+          )
           .join()
-          .onJoinError(
+          .onError(
             LimitExceededError,
             toAction(MarkUnitFailedAction)
-              .returns(OrgChartFailedDto)
               .toFinish(OrgChartFailedWorkflowFinish),
           )
-          .returns(listOf(oneOf(TeamChartDto, OrgChartFailedDto)))
           .toAgent(ChartMergerAgent)
-          .returns(TeamChartDto)
           .toFinish(TeamChartWorkflowFinish),
-      ),
+      ]),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class OrgChartWorkflow {}
 
@@ -153,61 +156,48 @@ export class OrgDrillWorkflowStart {}
 @Agent({
   name: "unit-picker-agent",
   description: "Charts a unit, or picks the one sub-unit to drill into",
-  prompt: "Chart the unit, or pick the sub-unit to drill into.",
+  prompt: inline("Chart the unit, or pick the sub-unit to drill into."),
   model: "moonshotai/kimi-k2.6",
   input: { unit: OrgUnitDto },
   output: oneOf(TeamChartDto, OrgUnitDto),
 })
 export class UnitPickerAgent {}
 
-/** Deeper while the unit's level is low: `route()` returns `typeof ThisWorkflow` or the agent. */
+/** Deeper while the unit's level is low: `route()` returns the workflow itself or the agent. */
 @Router({
   name: "org-depth-router",
   description: "One level deeper, or chart here",
   decidedBy: DecidedBy.Code,
   input: { unit: OrgUnitDto },
-  routes: [{ target: ThisWorkflow }, { target: UnitPickerAgent }],
+  routes: [() => OrgDrillWorkflow, UnitPickerAgent],
 })
 export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
   route(input: InputOf<OrgDepthRouter>): Route<OrgDepthRouter> {
-    return input.unit.value.level < 1 ? ThisWorkflow : UnitPickerAgent;
+    return input.unit.level < 1 ? OrgDrillWorkflow : UnitPickerAgent;
   }
 }
 
 @Workflow({
   name: "org-drill-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OrgDrillWorkflowStart)
-      .returns(OrgUnitDto)
+    onStart(OrgDrillWorkflowStart)
       .toRouter(OrgDepthRouter)
-      .chooseOne(
-        route(ThisWorkflow),
-        route(UnitPickerAgent)
-          .returns(oneOf(TeamChartDto, OrgUnitDto))
-          .switch(
-            caseOf(TeamChartDto)
-              .toFinish(TeamChartWorkflowFinish),
-            caseOf(OrgUnitDto)
-              .toWorkflow(ThisWorkflow),
-          ),
+      .onRoute(toWorkflow(() => OrgDrillWorkflow))
+      .onRoute(
+        toAgent(UnitPickerAgent)
+          .toOneOf([toFinish(TeamChartWorkflowFinish), toWorkflow(() => OrgDrillWorkflow)]),
       ),
-    workflow(ThisWorkflow)
+    onWorkflow(() => OrgDrillWorkflow)
       .onError(
         StepFailedError,
         toAction(MarkUnitFailedAction)
-          .returns(OrgChartFailedDto)
           .toFinish(OrgChartFailedWorkflowFinish),
       )
-      .returns(oneOf(TeamChartDto, OrgChartFailedDto))
-      .switch(
-        caseOf(TeamChartDto)
-          .toFinish(TeamChartWorkflowFinish),
-        caseOf(OrgChartFailedDto)
-          .toFinish(OrgChartFailedWorkflowFinish),
-      ),
+      .toOneOf([toFinish(TeamChartWorkflowFinish), toFinish(OrgChartFailedWorkflowFinish)]),
   ],
-  maxDepth: 3,
+  executionLimits: { maxDepth: 3 },
 })
 export class OrgDrillWorkflow {}
 
@@ -221,7 +211,7 @@ export class OrgRetryWorkflowStart {}
 @Agent({
   name: "unit-charter-agent",
   description: "Charts a unit",
-  prompt: "Chart the unit.",
+  prompt: inline("Chart the unit."),
   model: "moonshotai/kimi-k2.6",
   input: { unit: OrgUnitDto },
   output: TeamChartDto,
@@ -231,24 +221,17 @@ export class UnitCharterAgent {}
 @Workflow({
   name: "org-retry-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OrgRetryWorkflowStart)
-      .returns(OrgUnitDto)
+    onStart(OrgRetryWorkflowStart)
       .toAgent(UnitCharterAgent)
       .onError(
         StepFailedError,
-        toWorkflow(ThisWorkflow)
-          .returns(oneOf(TeamChartDto, OrgChartFailedDto))
-          .switch(
-            caseOf(TeamChartDto)
-              .toFinish(TeamChartWorkflowFinish),
-            caseOf(OrgChartFailedDto)
-              .toFinish(OrgChartFailedWorkflowFinish),
-          ),
+        toWorkflow(() => OrgRetryWorkflow)
+          .toOneOf([toFinish(TeamChartWorkflowFinish), toFinish(OrgChartFailedWorkflowFinish)]),
       )
-      .returns(TeamChartDto)
       .toFinish(TeamChartWorkflowFinish),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class OrgRetryWorkflow {}

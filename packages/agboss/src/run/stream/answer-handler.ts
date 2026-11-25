@@ -2,6 +2,7 @@ import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { Callbacks } from "@langchain/core/callbacks/manager";
 import type { AttemptStream } from "./agent-stream.js";
 import { STREAM_DISCARD_EVENT } from "../../models/stream-discard.js";
+import { StreamDiscardReason } from "../types.js";
 
 /**
  * The token handler of one answering model call (#1004): the only place the user's stream hears a
@@ -25,7 +26,7 @@ export class AnswerTokenHandler extends BaseCallbackHandler {
 
   /** The model started its answer over (a fallback after its primary died mid-stream, #1005). */
   override handleCustomEvent(eventName: string): void {
-    if (eventName === STREAM_DISCARD_EVENT) this.attempt.restart("stream-broken");
+    if (eventName === STREAM_DISCARD_EVENT) this.attempt.restart(StreamDiscardReason.StreamBroken);
   }
 
   override handleLLMNewToken(token: string): void {

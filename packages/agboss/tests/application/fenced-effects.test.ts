@@ -1,21 +1,14 @@
 /**
- * #500 — `@Application({ fencedEffects })`: the largest result and the retention, checked at
- * assembly (`[application.fenced-effects-invalid]`), read by the fenced-effect store (a result above
- * `maxResultSize` fails the step and rolls back — an ordinary failure, `.onError` takes it) and by
- * the recovery sweep, which removes results and marks past the retention on the `Clock`.
+ * #500, #1317 — the largest result of a call (`maxResultSize` of its key: a result above it fails
+ * the step and rolls back — an ordinary failure, `.onError` takes it); the recovery sweep removes
+ * the results and marks whose `expires_at` has come, on the `Clock`.
  */
-import type { RetentionOptions } from "../../src/application/retention.js";
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
-import { applicationOf } from "../../src/application/assemble.js";
-import {
-  FencedEffectRepository,
-  FencedEffectSettings,
-  InMemoryFencedEffectRepository,
-  type FencedEffectOptions,
-} from "../../src/index.js";
+import { FencedEffectRepository, InMemoryFencedEffectRepository } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";
-import { hours, kilobytes, minutes, seconds, type Bytes } from "../../src/units/index.js";
+import { kilobytes, seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { logged, RecordingLogger, resetLogged } from "../helpers/log.js";
 import { RecoveryLog, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -35,109 +28,53 @@ beforeEach(() => {
   resetRecovery();
 });
 
-const assembledWith = (fencedEffects: FencedEffectOptions, retention?: RetentionOptions) => {
-  @Application({
-    name: "settings-application",
-    version: "1.0.0",
-    environment: IdempotencyKeyEnvironment,
-    idempotencyKeyField: "idempotencyKey",
-    workflows: [ChargeWorkflow],
-    budgets: TEST_BUDGETS,
-    providers: [InMemoryFencedEffectRepository],
-    fencedEffects,
-    ...(retention === undefined ? {} : { retention }),
-  })
-  class SettingsApplication {}
-  return applicationOf(SettingsApplication);
-};
-
-describe("#500: @Application({ fencedEffects }) at assembly", () => {
-  it("defaults to 64 KB and a day", async () => {
-    const assembled = await assembledWith({});
-
-    expect(assembled.fencedEffects).toEqual(new FencedEffectSettings());
-    expect(assembled.fencedEffects).toMatchObject({ maxResultSize: 65_536, retention: hours(24) });
-  });
-
-  it.each([0, -1])("a maxResultSize of %s bytes fails assembly", async (size) => {
-    await expect(assembledWith({ maxResultSize: size as Bytes })).rejects.toThrow(
-      `[application.fenced-effects-invalid] its fencedEffects.maxResultSize is ${String(size)} bytes, not a positive size`,
-    );
-  });
-
-  it("#834: a retention.fencedEffects not above the lease's 30 s fails assembly, with the size's problem too", async () => {
-    const assembly = assembledWith({ maxResultSize: kilobytes(0) }, { fencedEffects: seconds(30) });
-
-    await expect(assembly).rejects.toThrow(
-      "[application.retention-invalid] its retention.fencedEffects is 30000 ms, not above the lease's 30000 ms",
-    );
-    await expect(assembly).rejects.toThrow(/maxResultSize is 0 bytes/);
-  });
-
-  it("takes what it sets", async () => {
-    const assembled = await assembledWith(
-      { maxResultSize: kilobytes(1) },
-      { fencedEffects: seconds(31) },
-    );
-
-    expect(assembled.fencedEffects).toMatchObject({ maxResultSize: 1024, retention: seconds(31) });
-  });
-});
-
 @Application({
   name: "small-fenced-effect-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,
   providers: [InMemoryFencedEffectRepository, RecordingLogger],
-  fencedEffects: { maxResultSize: kilobytes(1) },
-  retention: { fencedEffects: minutes(1) },
 })
 class SmallFencedEffectApplication {}
 
 const small = testWith(SmallFencedEffectApplication);
 
-describe("#500: the store and the sweep read the settings", () => {
+describe("#500: the store and the sweep", () => {
   small(
     "a result above maxResultSize fails the step and rolls back: the side path takes it, nothing charged",
     async ({ app }) => {
       charging.padding = 2000;
+      charging.maxResultSize = kilobytes(1);
 
       const result = await execute(app, ChargeWorkflowStart, { text: "order-1" });
 
       expect(result.finish).toMatchObject({ name: "not-charged-workflow-finish" });
       expect(JSON.stringify(result.handledErrors)).toMatch(
-        /FencedEffectResultTooLargeError|fenced-effect.result-too-large/,
+        /IdempotencyError.ResultTooLarge|fenced-effect.result-too-large/,
       );
       expect(book.charges).toEqual([]);
     },
   );
 
-  small(
-    "the recovery sweep removes what was stored longer ago than the retention, on the Clock",
-    async ({ app, clock }) => {
-      await app.ready();
-      const effects = app.resolve(FencedEffectRepository);
-      const removal = vi.spyOn(effects, "deleteByStoredAtBefore");
-      await execute(app, ChargeWorkflowStart, { text: "order-1" });
+  small("the recovery sweep removes what has expired, on the Clock", async ({ app, clock }) => {
+    await app.ready();
+    const effects = app.resolve(FencedEffectRepository);
+    const removal = vi.spyOn(effects, "deleteExpired");
+    await execute(app, ChargeWorkflowStart, { text: "order-1" });
 
-      await clock.advance(seconds(31));
+    await clock.advance(seconds(31));
 
-      expect(removal).toHaveBeenCalledWith(new Date(clock.now().getTime() - minutes(1)));
-    },
-  );
+    expect(removal).toHaveBeenCalledWith(clock.now());
+  });
 
   small(
     "a store that fails to remove is logged as recovery.failed, and asked again at the next sweep",
     async ({ app, clock }) => {
       await app.ready();
       const effects = app.resolve(FencedEffectRepository);
-      const removal = vi
-        .spyOn(effects, "deleteByStoredAtBefore")
-        .mockRejectedValue(new Error("disk full"));
+      const removal = vi.spyOn(effects, "deleteExpired").mockRejectedValue(new Error("disk full"));
 
       await clock.advance(seconds(31));
       await clock.advance(seconds(31));
@@ -145,7 +82,7 @@ describe("#500: the store and the sweep read the settings", () => {
       expect(logged).toContainEqual(
         expect.objectContaining({
           code: "recovery.failed",
-          message: "the fenced effects' results could not be removed: Error: disk full",
+          message: "the idempotent effects' expired results could not be removed: Error: disk full",
         }),
       );
       expect(removal.mock.calls.length).toBeGreaterThanOrEqual(2);

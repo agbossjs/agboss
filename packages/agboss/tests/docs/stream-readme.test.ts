@@ -20,8 +20,8 @@ function sectionOf(file: string): string {
 describe.each(READMES)("#1004 AC5: %s", (file) => {
   it("names the answer and the tool calls as what the stream carries", () => {
     const section = sectionOf(file);
-    expect(section).toContain("textDelta");
-    expect(section).toContain("toolCall");
+    expect(section).toContain("StreamEventKind.TextDelta");
+    expect(section).toContain("StreamEventKind.ToolCall");
     expect(section).toContain("answering model call");
   });
 
@@ -50,13 +50,9 @@ describe.each(READMES)("#1006 AC5: %s", (file) => {
   it("says streamed text is provisional, when it is retracted and what is held back", () => {
     const text = readFileSync(join(repo, file), "utf8").replace(/\s+/g, " ");
     expect(text).toContain("Streamed text is **provisional**");
-    for (const reason of [
-      "judge-rejected",
-      "tool-turn",
-      "invalid-answer",
-      "stream-broken",
-      "failed",
-    ]) {
+    expect(text).toContain("StreamEventKind.Discarded");
+    expect(text).toContain("StreamDiscardReason");
+    for (const reason of ["JudgeRejected", "ToolTurn", "InvalidAnswer", "StreamBroken", "Failed"]) {
       expect(text, reason).toContain(reason);
     }
     expect(text).toContain("blocking output check");

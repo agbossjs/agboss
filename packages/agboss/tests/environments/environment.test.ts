@@ -4,7 +4,8 @@
  * { … }` in `environments/<name>.environment.ts` next to the application file. Apps default to
  * `dev`, tests to `test` — and fail without it.
  */
-import { createAppWith, type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { type BuildApplicationOptions } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -36,6 +37,7 @@ import { UntestedApplication } from "../fixtures/environments/untested/untested.
 import { toolResultsOf } from "../testing/fixtures/requests.js";
 import { execute } from "../helpers/flow.js";
 import { EmptyEnvironment } from "../../src/index.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** Everything external given; `processEnv` is what `env(…)` and `secret(…)` read. */
 function offline(processEnv: NodeJS.ProcessEnv = {}): BuildApplicationOptions {
@@ -62,7 +64,7 @@ async function violationsOf(application: Class): Promise<string[]> {
 
 describe("#261 AC8: no env named → dev.environment.ts next to the application file", () => {
   it("createApp gives its services the dev values: literals, defaults of env(), env.integer(), env.flag()", async () => {
-    const app = await createAppWith(SettingsApplication, offline(TOKEN));
+    const app = await createTestAppWith(SettingsApplication, offline(TOKEN));
     const { apiUrl, currency, timeoutSeconds, debug } = app.resolve(ApiClient).environment;
     expect({ apiUrl, currency, timeoutSeconds, debug }).toEqual({
       apiUrl: "https://api.dev.example.com",
@@ -75,7 +77,7 @@ describe("#261 AC8: no env named → dev.environment.ts next to the application 
 
   it("createApp(App, { env }) loads another file; a set variable is parsed by its field's type", async () => {
     const vars = { ...TOKEN, FIXTURE_CURRENCY: "ILS", FIXTURE_TIMEOUT: "5" };
-    const app = await createAppWith(SettingsApplication, { ...offline(vars), env: "staging" });
+    const app = await createTestAppWith(SettingsApplication, { ...offline(vars), env: "staging" });
     const { apiUrl, currency, timeoutSeconds } = app.resolve(ApiClient).environment;
     expect({ apiUrl, currency, timeoutSeconds }).toEqual({
       apiUrl: "https://api.staging.example.com",
@@ -86,7 +88,7 @@ describe("#261 AC8: no env named → dev.environment.ts next to the application 
   });
 
   it("the environment is frozen", async () => {
-    const app = await createAppWith(SettingsApplication, offline(TOKEN));
+    const app = await createTestAppWith(SettingsApplication, offline(TOKEN));
     expect(Object.isFrozen(app.resolve(ApiClient).environment)).toBe(true);
     await app.close();
   });
@@ -95,7 +97,7 @@ describe("#261 AC8: no env named → dev.environment.ts next to the application 
 describe("#261 AC9: a missing process variable fails the start naming it, the field and the environment", () => {
   it("every missing variable at once, never a value", async () => {
     await expect(
-      createAppWith(SettingsApplication, { ...offline(), env: "staging" }),
+      createTestAppWith(SettingsApplication, { ...offline(), env: "staging" }),
     ).rejects.toThrow(
       "FIXTURE_API_TOKEN is not set (SettingsEnvironment.apiToken, staging); " +
         "FIXTURE_CURRENCY is not set (SettingsEnvironment.currency, staging); " +
@@ -105,7 +107,7 @@ describe("#261 AC9: a missing process variable fails the start naming it, the fi
 
   it("a value that is not of the field's type fails the start too", async () => {
     const vars = { ...TOKEN, FIXTURE_TIMEOUT: "soon", FIXTURE_DEBUG: "maybe" };
-    await expect(createAppWith(SettingsApplication, offline(vars))).rejects.toMatchObject({
+    await expect(createTestAppWith(SettingsApplication, offline(vars))).rejects.toMatchObject({
       code: EnvironmentErrorCode.InvalidValue,
       message:
         "FIXTURE_TIMEOUT is not an integer (SettingsEnvironment.timeoutSeconds, dev); " +
@@ -114,13 +116,17 @@ describe("#261 AC9: a missing process variable fails the start naming it, the fi
   });
 
   it("an unknown name fails at once, listing the environments (not the contract file)", async () => {
-    await expect(createAppWith(SettingsApplication, { ...offline(), env: "nope" })).rejects.toThrow(
+    await expect(
+      createTestAppWith(SettingsApplication, { ...offline(), env: "nope" }),
+    ).rejects.toThrow(
       /Environment "nope" not found: .*nope\.environment\.ts\. Available: dev, staging, test$/,
     );
   });
 
   it("naming the contract's file is not an environment", async () => {
-    await expect(createAppWith(SettingsApplication, { ...offline(), env: "app" })).rejects.toThrow(
+    await expect(
+      createTestAppWith(SettingsApplication, { ...offline(), env: "app" }),
+    ).rejects.toThrow(
       /app\.environment\.ts holds the contract SettingsEnvironment, not an environment/,
     );
   });
@@ -128,7 +134,7 @@ describe("#261 AC9: a missing process variable fails the start naming it, the fi
 
 describe("#261: an application without an environment contract", () => {
   it("#261 PR 3: a service reading applicationContext.environment gets an empty one", async () => {
-    const app = await createAppWith(NoEnvironmentApplication, offline());
+    const app = await createTestAppWith(NoEnvironmentApplication, offline());
 
     const { applicationContext } = app.resolve(ApiClient);
 
@@ -138,7 +144,7 @@ describe("#261: an application without an environment contract", () => {
   });
 
   it("#239: an observer taking ApplicationContext (no tool does) starts the same way", async () => {
-    const app = await createAppWith(ObservedApplication, offline());
+    const app = await createTestAppWith(ObservedApplication, offline());
 
     expect(app.resolve(RunLog).applicationContext.name).toBe("observed-application");
     await app.close();
@@ -146,7 +152,7 @@ describe("#261: an application without an environment contract", () => {
 
   it("naming an environment fails: the application declares none", async () => {
     await expect(
-      createAppWith(NoEnvironmentApplication, { ...offline(), env: "dev" }),
+      createTestAppWith(NoEnvironmentApplication, { ...offline(), env: "dev" }),
     ).rejects.toMatchObject({
       code: EnvironmentErrorCode.NoContract,
       message: expect.stringContaining(
@@ -181,7 +187,7 @@ describe("#261 AC8: tests default to the test environment", () => {
   );
 
   asDev("{ env } names another one", async ({ app }) => {
-    expect(await app.tool(ApiSettings).invoke({ what: "all" })).toMatchObject({
+    expect((await app.runTool(ApiSettings, { what: "all" })).output).toMatchObject({
       value: { apiUrl: "https://api.dev.example.com", currency: "USD" },
     });
   });
@@ -206,6 +212,7 @@ export class ValuedEnvironment {
 
 @Application({
   name: "valued-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: ValuedEnvironment,
   workflows: [SettingsApp],
@@ -223,6 +230,7 @@ requireEnvironmentFields(FilePausedExecutionRepository, [
 
 @Application({
   name: "ledger-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: ValuedEnvironment,
   workflows: [SettingsApp],
@@ -234,6 +242,7 @@ class LedgerApplication {}
 // @ts-expect-error — environment is required (#261): an untyped caller without one is checked too
 @Application({
   name: "contractless-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   workflows: [SettingsApp],
   providers: [FilePausedExecutionRepository],
@@ -243,6 +252,7 @@ class ContractlessApplication {}
 
 @Application({
   name: "no-settings-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SettingsApp],
@@ -256,7 +266,7 @@ describe("#261 AC1: environment is required; an application with no settings dec
   });
 
   it("an empty contract needs no environment file: createApp's dev and testWith's test are {}", async () => {
-    const app = await createAppWith(NoSettingsApplication, offline());
+    const app = await createTestAppWith(NoSettingsApplication, offline());
     expect(app.resolve(ApiClient).environment).toEqual({});
     await app.close();
     await expect(TestEnvironment.of(NoSettingsApplication)).resolves.toBeInstanceOf(
@@ -266,7 +276,7 @@ describe("#261 AC1: environment is required; an application with no settings dec
 
   it("an environment named for an empty contract still needs its file", async () => {
     await expect(
-      createAppWith(NoSettingsApplication, { ...offline(), env: "prod" }),
+      createTestAppWith(NoSettingsApplication, { ...offline(), env: "prod" }),
     ).rejects.toThrow(/Environment "prod" not found/);
   });
 });

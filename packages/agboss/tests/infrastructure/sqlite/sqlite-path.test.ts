@@ -3,7 +3,7 @@
  * by listing it; `sqlitePath` is required only then, and a missing one fails — at assembly when
  * the contract lacks the field, at start when its value is empty — naming it.
  */
-import { createAppWith } from "../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
@@ -11,7 +11,6 @@ import type { Class } from "../../../src/components/injection.js";
 import {
   EmptyEnvironment,
   GraphRuleError,
-  SqliteCheckpointSaver,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -19,6 +18,7 @@ import {
   SqlitePausedExecutionRepository,
   SqliteRateLimitRepository,
 } from "../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../src/internal.js";
 import { McpStubs, stubbedMcpConnect } from "../../../src/testing/mcp-stubs.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
@@ -28,6 +28,7 @@ import { isSqliteImplementation } from "../../../src/infrastructure/sqlite/sqlit
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecoveryWorkflow } from "../fixtures/recovery.workflow.js";
 import { connectionTo } from "../contracts/store-kinds.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const ALL_SQLITE = [
   SqliteCheckpointSaver,
@@ -42,6 +43,7 @@ const ALL_SQLITE = [
 /** Lists every SQLite implementation, but its contract has no `sqlitePath`. */
 @Application({
   name: "pathless-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
@@ -53,6 +55,7 @@ class PathlessApplication {}
 /** Lists none: no `sqlitePath` needed, every contract in memory. */
 @Application({
   name: "in-memory-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
@@ -85,7 +88,7 @@ describe("#265 AC3: sqlitePath is required only when a SQLite implementation is 
 
   it("listed none: every contract is the built-in in-memory default", async () => {
     const book = new ScriptBook();
-    const app = await createAppWith(InMemoryApplication, {
+    const app = await createTestAppWith(InMemoryApplication, {
       gateway: createScriptedGateway(book),
       connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
     });
@@ -95,9 +98,12 @@ describe("#265 AC3: sqlitePath is required only when a SQLite implementation is 
       .map((contract) => app.resolve(contract))
       .map((instance) => (instance instanceof CheckedIdGenerator ? instance.minting : instance));
 
-    expect(used.map((instance) => (instance as object).constructor)).toEqual([
-      ...INFRASTRUCTURE_DEFAULTS.values(),
-    ]);
+    // the Logger is the masking wrapper (#1301b), which binds every member, `constructor` too:
+    // `bound ConsoleLogger` is the default's own class by name
+    const unbound = (name: string): string => name.replace(/^bound /, "");
+    expect(used.map((instance) => unbound((instance as object).constructor.name))).toEqual(
+      [...INFRASTRUCTURE_DEFAULTS.values()].map((implementation) => implementation.name),
+    );
     expect(used.some((instance) => isSqliteImplementation(instance as object))).toBe(false);
     await app.close();
   });

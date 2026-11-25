@@ -1,4 +1,8 @@
-import type { ExecutionStreamEvent, StreamStep } from "../../src/run/types.js";
+import {
+  StreamEventKind,
+  type ExecutionStreamEvent,
+  type StreamStep,
+} from "../../src/run/types.js";
 
 const keyOf = (step: StreamStep): string =>
   `${step.branch}|${step.agent}|${String(step.visit)}|${String(step.attempt)}`;
@@ -9,11 +13,15 @@ const keyOf = (step: StreamStep): string =>
  */
 export function keptText(events: readonly ExecutionStreamEvent[]): string {
   const retracted = new Set(
-    events.flatMap((event) => (event.kind === "discarded" ? [keyOf(event.step)] : [])),
+    events.flatMap((event) =>
+      event.kind === StreamEventKind.Discarded ? [keyOf(event.step)] : [],
+    ),
   );
   return events
     .flatMap((event) =>
-      event.kind === "textDelta" && !retracted.has(keyOf(event.step)) ? [event.delta] : [],
+      event.kind === StreamEventKind.TextDelta && !retracted.has(keyOf(event.step))
+        ? [event.delta]
+        : [],
     )
     .join("");
 }

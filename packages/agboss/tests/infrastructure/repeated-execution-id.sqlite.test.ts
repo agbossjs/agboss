@@ -1,9 +1,7 @@
 /**
  * #591 on SQLite — the ids handed out live in the file (`execution_ids`): a repeated root id is
  * refused with nothing written, two instances on one file minting one id at once run one tree, and
- * a file an older version wrote knows its trees' ids from their leases — and (#638) the ids of
- * every execution that made an outbound call, a `ParentInstance` child's too, whose step key the
- * other system has seen.
+ * a tree's id is kept for good once it is handed out.
  */
 import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect } from "vitest";
@@ -54,51 +52,6 @@ function rowsOnFile(): Record<string, number> {
   }
 }
 
-/** A file as a version before #591 left it: one tree's lease, no table of ids. */
-function fileOfAnOlderVersion(rootExecutionId: string): void {
-  const database = new DatabaseSync(file.path);
-  try {
-    database.exec(`CREATE TABLE execution_leases (
-      tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, holder_instance_id TEXT NOT NULL,
-      lease_epoch INTEGER NOT NULL, expires_at INTEGER NOT NULL, released INTEGER NOT NULL,
-      yielded INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (tenant_id, root_execution_id));`);
-    database
-      .prepare("INSERT INTO execution_leases VALUES ('acme', ?, 'instance-0', 4, 0, 3, 0)")
-      .run(rootExecutionId);
-  } finally {
-    database.close();
-  }
-}
-
-/**
- * #638: a file of before whose `ParentInstance` child `childId` made a step-keyed call: the row of
- * `outbound_calls` as its store wrote it (the record names the child's execution), under its root's
- * lease scope.
- */
-function fileWithAChildsCall(rootExecutionId: string, childId: string): void {
-  fileOfAnOlderVersion(rootExecutionId);
-  const database = new DatabaseSync(file.path);
-  try {
-    database.exec(`CREATE TABLE outbound_calls (
-      scope_key TEXT NOT NULL, idempotency_key TEXT NOT NULL, name TEXT NOT NULL,
-      tenant_id TEXT NOT NULL, root_execution_id TEXT NOT NULL, status TEXT NOT NULL,
-      ended_at INTEGER, record TEXT NOT NULL, business_key TEXT);`);
-    const record = { rootExecutionId, executionId: childId, tenantId: "acme", name: "pay" };
-    database
-      .prepare(
-        "INSERT INTO outbound_calls VALUES (?, ?, 'pay', 'acme', ?, 'completed', 0, ?, NULL)",
-      )
-      .run(
-        `acme:${rootExecutionId}`,
-        `${childId}:pay-action:1`,
-        rootExecutionId,
-        JSON.stringify(record),
-      );
-  } finally {
-    database.close();
-  }
-}
-
 describe("#591 on SQLite", () => {
   test("a repeated root id is refused with nothing written to the file", async ({
     app,
@@ -136,26 +89,4 @@ describe("#591 on SQLite", () => {
       );
     },
   );
-
-  test("a file of an older version: its trees' ids come from their leases, of any tenant", async ({
-    app,
-  }) => {
-    fileOfAnOlderVersion("old-root");
-    minting.executions = ["old-root"];
-
-    const refused = await rejectionOf(execute(app, OrderWorkflowStart, { text: "a" }));
-
-    expect(refused).toBeInstanceOf(DuplicateExecutionIdError);
-  });
-
-  test("#638: a file of before — a ParentInstance child that made an outbound call keeps its id, of any tenant", async ({
-    app,
-  }) => {
-    fileWithAChildsCall("old-root", "old-child-3");
-    minting.executions = ["old-child-3"];
-
-    const refused = await rejectionOf(execute(app, OrderWorkflowStart, { text: "a" }));
-
-    expect(refused).toBeInstanceOf(DuplicateExecutionIdError);
-  });
 });

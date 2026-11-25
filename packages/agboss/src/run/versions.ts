@@ -1,23 +1,29 @@
 import { compactionPromptTexts } from "../prompts/compaction.js";
-import type { AssembledCompactions } from "../compaction/assembly.js";
-import { compactionSnapshot } from "../compaction/snapshot.js";
+import type { AssembledMemories } from "../memory/assembly.js";
+import { memorySnapshot } from "../memory/snapshot.js";
 import { ragPromptTexts } from "../prompts/rag.js";
 import { routerLaunchPromptTexts } from "../prompts/router-launch.js";
 import { arbiterPromptTexts } from "../prompts/arbiter.js";
 import { guardrailPromptTexts } from "../prompts/guardrail.js";
-import { arbiterClassesOf, modelArbitersOf } from "../flow/runtime/launch/runtime-launch.js";
-import { arbiterOf, isCodeArbiter } from "../flow/decorators/arbiter.js";
-import { declarationOf } from "../flow/decorators/declaration.js";
+import { arbiterModelsOf, arbitersOf, arbiterTexts } from "./arbiter-snapshot.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { routerPromptTexts } from "../routers/index.js";
 import { versionOf } from "../turns/index.js";
 import { byComponentName, flowLines } from "../flow/print.js";
 import type { AgentExecutionDeps } from "./types.js";
 
+import type { AgentsConfigOf } from "../config/types.js";
 import { stripFunctions } from "./strip-functions.js";
+import { componentModels, withoutOperational } from "./operational-config.js";
 import type { AssembledToolInterceptors } from "../tool-interceptors/assembly.js";
 import { guardrailSnapshot, toolInterceptorSnapshot } from "./policy-snapshots.js";
 import { transportSnapshot } from "./transport-snapshot.js";
+import {
+  guardrailModels,
+  guardrailPrompts,
+  interpreterPrompts,
+  rerankerPrompts,
+} from "./prompt-snapshot.js";
 import { fileProcessorSnapshot } from "./file-snapshot.js";
 import { handedDownSnapshot } from "./pii-snapshot.js";
 import type { Class } from "../components/injection.js";
@@ -27,7 +33,7 @@ import {
   elementFingerprintsOf,
   type FingerprintDeps,
 } from "./fingerprints.js";
-import { normalisePromptText, promptTextOf } from "../components/prompt-render.js";
+import { promptTextOf } from "../components/prompt-render.js";
 import type { LoadedRouter } from "../flow/runtime/routers.js";
 import {
   modelGuardrailsOf,
@@ -49,19 +55,6 @@ const routerTexts = (routers: readonly LoadedRouter[]) =>
     routes: router.routes.map((route) => ({ ...route, condition: hashedText(route.condition) })),
   }));
 
-/** The model arbiters' texts (#279): their prompt and each agent's criterion, by name. */
-function arbiterTexts(graph: RuntimeGraph) {
-  return arbiterClassesOf(graph.launches).flatMap((arbiter) => {
-    const options = arbiterOf(arbiter)?.options;
-    if (options === undefined || isCodeArbiter(options)) return [];
-    const criteria = options.criteria.map(({ agent, prompt }) => ({
-      agent: declarationOf(agent)?.options.name ?? agent.name,
-      prompt: normalisePromptText(prompt),
-    }));
-    return [{ name: options.name, prompt: normalisePromptText(options.prompt), criteria }];
-  });
-}
-
 /** What one workflow's snapshot is made of: its assembly (`AssembledWorkflow`) or its run deps. */
 export type SnapshotSource<TName extends string = string> = Pick<
   AgentExecutionDeps<TName>,
@@ -70,10 +63,12 @@ export type SnapshotSource<TName extends string = string> = Pick<
   | "graph"
   | "maxSteps"
   | "routers"
-  | "compactions"
+  | "memories"
   | "modelProviders"
   | "ownFileRedactor"
   | "ownFileTranscriber"
+  | "replyInterpreters"
+  | "rerankers"
 > & {
   readonly guardrails?: { readonly guardrails: readonly LoadedGuardrail[] } | undefined;
   readonly pii?: FingerprintDeps["pii"];
@@ -108,15 +103,19 @@ export function childSourcesIn(workflows: readonly SnapshotSource[]): ChildSnaps
 const ownSnapshot = <TName extends string>(
   deps: SnapshotSource<TName>,
 ): Record<string, unknown> => ({
-  config: stripFunctions(deps.config),
+  // without the operational limits (#1318): a profile tunes them, a paused run still resumes
+  config: stripFunctions(withoutOperational(deps.config)),
   flow: flowLines(deps.graph.flow, byComponentName),
-  maxSteps: deps.maxSteps,
   routers: routerTexts(deps.routers),
   prompts: agentTexts(deps.prompts),
   elements: elementFingerprintsOf(deps),
-  frame: framePrompts(deps.graph, deps.compactions, modelGuardrailsOf(deps.guardrails)),
+  frame: framePrompts(deps.graph, deps.memories, modelGuardrailsOf(deps.guardrails)),
   // the compactions (#120 PR 3): only a workflow that has one, so the others keep their hash
-  ...compactionSnapshot(deps.compactions),
+  ...memorySnapshot(deps.memories),
+  // the reply interpreters' instructions (#1347c): only a workflow that has a model one
+  ...interpreterPrompts(deps.replyInterpreters),
+  // the model rerankers' prompts (#1347): only a workflow that has one
+  ...rerankerPrompts(deps.rerankers),
   // the guardrails (#120): only a workflow that has one, so the others keep their hash
   ...guardrailSnapshot(deps.guardrails?.guardrails ?? []),
   // the tool interceptors (#384): only a workflow that has one, so the others keep their hash
@@ -131,7 +130,7 @@ const ownSnapshot = <TName extends string>(
 
 /**
  * Every child workflow reachable from a workflow's flow (#336), depth first, each once, by name with
- * its own snapshot — never `ThisWorkflow` (a recursive workflow is hashed once, as the root), never
+ * its own snapshot — never itself (a recursive workflow is hashed once, as the root), never
  * the workflow itself; a child `children` does not know is left out.
  */
 function childSnapshotsOf(
@@ -178,7 +177,7 @@ export const configSnapshot = <TName extends string>(
  */
 const framePrompts = (
   graph: RuntimeGraph,
-  compactions: AssembledCompactions | undefined,
+  compactions: AssembledMemories | undefined,
   guardrails: readonly LoadedModelGuardrail[],
 ): object => ({
   routers: routerPromptTexts,
@@ -193,33 +192,17 @@ const framePrompts = (
   ...(guardrails.length === 0 ? {} : { guardrailFrame: guardrailPromptTexts }),
 });
 
-/** The guardrails' questions (#120) in the prompt version; the key `guards` keeps the versions of workflows without them. */
-const guardrailPrompts = (guardrails: readonly LoadedModelGuardrail[]): object => ({
-  guards: guardrails.map(({ name, side, prompt, threshold }) => ({
-    name,
-    side,
-    prompt,
-    threshold,
-  })),
-});
-
 /** The compactions that write summaries (their prompt is not `""`). */
-const summarisingOf = (compactions: AssembledCompactions | undefined) =>
-  (compactions?.compactions ?? []).filter((c) => c.prompt !== "");
+const summarisingOf = (compactions: AssembledMemories | undefined) =>
+  (compactions?.memories ?? []).filter((c) => c.prompt !== "");
 
 /** The compactions' prompts (#120 PR 3) in the prompt version, only where one writes summaries. */
-function compactionPrompts(compactions: AssembledCompactions | undefined): object {
+function compactionPrompts(compactions: AssembledMemories | undefined): object {
   const summarising = summarisingOf(compactions);
   return summarising.length === 0
     ? {}
     : { compactions: summarising.map(({ name, prompt }) => ({ name, prompt })) };
 }
-
-/** The guardrails' models in the model version, only where there is one. */
-const guardrailModels = (guardrails: readonly LoadedModelGuardrail[]): object =>
-  guardrails.length === 0
-    ? {}
-    : { guardrails: guardrails.map(({ name, model }) => ({ name, model })) };
 
 /** Prompt and model versions of the current configuration — stored with every Turn. */
 export function executionVersions<TName extends string>(
@@ -231,6 +214,7 @@ export function executionVersions<TName extends string>(
   readonly configHash: string;
 } {
   const guardrails = modelGuardrailsOf(deps.guardrails);
+  const operational = withoutOperational(deps.config) as AgentsConfigOf<string>;
   return {
     promptVersion: versionOf({
       agents: agentTexts(deps.prompts),
@@ -239,19 +223,24 @@ export function executionVersions<TName extends string>(
         instructions,
         routes,
       })),
-      ...framePrompts(deps.graph, deps.compactions, guardrails),
-      ...compactionPrompts(deps.compactions),
+      ...framePrompts(deps.graph, deps.memories, guardrails),
+      ...compactionPrompts(deps.memories),
       // model arbiters (#279): only a workflow that has one
-      ...(arbiterTexts(deps.graph).length === 0 ? {} : { arbiters: arbiterTexts(deps.graph) }),
+      ...(arbiterTexts(deps.graph).length === 0
+        ? {}
+        : { arbiters: arbiterTexts(deps.graph, arbitersOf(deps)) }),
       ...guardrailPrompts(guardrails),
+      ...interpreterPrompts(deps.replyInterpreters),
+      ...rerankerPrompts(deps.rerankers),
     }),
     modelVersion: versionOf({
-      defaults: deps.config.defaults,
+      defaults: operational.defaults,
       routers: deps.routers.map(({ name, model }) => ({ name, model })),
-      ...(modelArbitersOf(deps.graph.launches).length === 0
-        ? {}
-        : { arbiters: modelArbitersOf(deps.graph.launches) }),
-      agents: deps.config.agents,
+      // the arbiters' models, never their prompts: those are the prompt version's
+      ...(arbitersOf(deps).length === 0 ? {} : { arbiters: arbiterModelsOf(deps) }),
+      agents: operational.agents,
+      // every other model-backed component too: the judges' and the compactions' models
+      ...componentModels(operational),
       ...guardrailModels(guardrails),
     }),
     configVersion: deps.config.version,

@@ -74,7 +74,7 @@ describe("AC7: groups with priority", () => {
 
       expect(result).toFinishWith(DealReportPanelWorkflowFinish, { text: "the report" });
       expect(result.launches[0]?.group).toEqual({
-        agents: ["legal-panel-agent", "critic-panel-agent"],
+        targets: ["legal-panel-agent", "critic-panel-agent"],
         priority: 1,
       });
       expect(result.launches[0]?.branches).toMatchObject([
@@ -96,7 +96,7 @@ describe("AC7: groups with priority", () => {
     const result = await execution;
 
     expect(result).toFinishWith(SecondOpinionPanelWorkflowFinish, { objection: "the price" });
-    expect(result.launches[0]?.group).toEqual({ agents: ["critic-panel-agent"], priority: 2 });
+    expect(result.launches[0]?.group).toEqual({ targets: ["critic-panel-agent"], priority: 2 });
     expect(result.launches[0]?.branches[0]).toMatchObject({ status: BranchStatus.Cancelled });
     // #644 (6): a cancelled branch failed at nothing of its own — no raw AbortError in its record
     expect(result.launches[0]?.branches[0]).not.toHaveProperty("error");
@@ -126,7 +126,7 @@ describe("AC7: groups with priority", () => {
       mockLlm(CriticPanelAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
       mockLlm(FastPanelAgent).thenReturnAlways(failWith(ModelFailure.Timeout));
 
-      const result = await execute(app, DealPanelWorkflowStart, ACME, { record: true });
+      const result = await execute(app, DealPanelWorkflowStart, ACME, { includeRecord: true });
 
       expect(result).toFinishWith(NoQuorumPanelWorkflowFinish, ACME);
       expect(result.launches[0]?.branches).toMatchObject([
@@ -157,7 +157,7 @@ describe("AC9: which group won, and what was counted", () => {
       expect(panel.decided).toMatchObject([
         {
           isReached: true,
-          group: { agents: ["legal-panel-agent", "critic-panel-agent"], priority: 1 },
+          group: { targets: ["legal-panel-agent", "critic-panel-agent"], priority: 1 },
           branches: [
             { verdict: BranchVerdict.Counted },
             { verdict: BranchVerdict.Counted },

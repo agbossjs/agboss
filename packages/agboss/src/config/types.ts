@@ -4,20 +4,20 @@ import type { AgentSettings, AgentsConfig, MaxTokens, Price } from "./settings-t
 
 import { z } from "zod";
 import { ReasoningEffort, type Reasoning } from "../models/reasoning.js";
-import { RagMode, RagTenancy, RerankFailurePolicy } from "../rag/types.js";
+import { RagScope, RerankFailurePolicy } from "../rag/types.js";
 import { CachedPart, CacheRetention, type PromptCaching } from "../models/prompt-caching.js";
-import { CompactionStrategy } from "../compaction/compaction.decorator.js";
+import { CompactionStrategy, CUSTOM_COMPACTION } from "../memory/memory.decorator.js";
 
 /** Limits without a number (#120 S132): enums, next to each other — one spelling per value. */
 
-/** A token limit: `TokenLimit.MODEL_MAX` — no ceiling of our own, what the model allows. */
+/** A token limit: `TokenLimit.ModelMax` — no ceiling of our own, what the model allows. */
 export enum TokenLimit {
-  MODEL_MAX = "max",
+  ModelMax = "max",
 }
 
-/** A window without a limit: `uncompactedTurns: TurnLimit.ALL` — every turn of the thread in full. */
+/** A window without a limit: `uncompactedTurns: TurnLimit.All` — every turn of the thread in full. */
 export enum TurnLimit {
-  ALL = "all",
+  All = "all",
 }
 
 /** OpenRouter `reasoning.effort` levels. "none" disables thinking (not accepted by every model). */
@@ -33,7 +33,7 @@ export const PriceSchema = z.object({
 
 export const MaxTokensSchema = z.union([
   z.number().int().positive(),
-  z.literal(TokenLimit.MODEL_MAX),
+  z.literal(TokenLimit.ModelMax),
 ]);
 
 /** A `Reasoning` value (`@agboss/core/models`): `Reasoning.on({ effort, budget })`, `off()`, `modelDecides()`. */
@@ -61,7 +61,7 @@ export const ThinkingSchema = z.union([
 /** A `PromptCaching` value (`@agboss/core/models`). */
 export const PromptCachingValueSchema = z.discriminatedUnion("kind", [
   z.object({
-    kind: z.literal("where-supported"),
+    kind: z.literal("on"),
     retention: z.enum(CacheRetention),
     cachedParts: z.array(z.enum(CachedPart)).min(1).readonly(),
     key: z.string().min(1).optional(),
@@ -72,7 +72,7 @@ export const PromptCachingValueSchema = z.discriminatedUnion("kind", [
 /** A component's prompt caching until #152: true = the provider's, false = off, or a `PromptCaching`. */
 export const CacheSettingSchema = z.union([z.boolean(), PromptCachingValueSchema]);
 
-/** Output ceiling when a workflow sets none — a model stuck in a loop stops here. `TokenLimit.MODEL_MAX` = no ceiling. */
+/** Output ceiling when a workflow sets none — a model stuck in a loop stops here. `TokenLimit.ModelMax` = no ceiling. */
 export const DEFAULT_MAX_TOKENS = 8192;
 
 /**
@@ -81,7 +81,7 @@ export const DEFAULT_MAX_TOKENS = 8192;
  */
 export const ChatDefaultsSchema = z.object({
   temperature: z.number().min(0).max(2),
-  /** Default 8 192 (`DEFAULT_MAX_TOKENS`); `TokenLimit.MODEL_MAX` for no ceiling. */
+  /** Default 8 192 (`DEFAULT_MAX_TOKENS`); `TokenLimit.ModelMax` for no ceiling. */
   maxTokens: MaxTokensSchema.optional(),
   thinking: ThinkingSchema.optional(),
   cache: CacheSettingSchema.optional(),
@@ -95,21 +95,31 @@ export const ModelSettingsSchema = z.object({
   cache: CacheSettingSchema.optional(),
   /** Overrides the provider's price table; the provider's own cost comes first. */
   price: PriceSchema.optional(),
+  /**
+   * The `@ModelProvider` this model is served from, by its `name` (#1313): the component's own, else
+   * its workflow's, else its application's. Absent: the older providers' `serves` patterns decide.
+   */
+  modelProvider: z.string().min(1).optional(),
+  /**
+   * The provider has no `cost` (#1313): a call with no reported cost and no price is recorded
+   * `CostSource.Unpriced` at 0 USD, its tokens counted — set by the cascade, never by hand.
+   */
+  unpriced: z.literal(true).optional(),
 });
 
-/** How many recent turns a reader sees in full: a whole number from 0, or `TurnLimit.ALL`. */
+/** How many recent turns a reader sees in full: a whole number from 0, or `TurnLimit.All`. */
 export const UncompactedTurnsSchema = z.union([
   z.number().int().nonnegative(),
-  z.literal(TurnLimit.ALL),
+  z.literal(TurnLimit.All),
 ]);
 
 /**
- * A `@Compaction` in use (#120 PR 3), by name: its strategy and — when it writes summaries — its
+ * A `@Memory` that compacts (#1303), by name: its strategy (`custom`: its class's `compact()`) and — when it writes summaries — its
  * model (`maxTokens` = its `summaryMaxTokens`), how many turns gather before a compaction, and for
  * a queue how many summaries are kept. A profile may change any of them.
  */
 export const CompactionSettingsSchema = z.object({
-  strategy: z.enum(CompactionStrategy),
+  strategy: z.union([z.enum(CompactionStrategy), z.literal(CUSTOM_COMPACTION)]),
   model: ModelSettingsSchema.optional(),
   turnsBetweenCompactions: z.number().int().positive().optional(),
   summaryQueueLength: z.number().int().positive().optional(),
@@ -123,21 +133,22 @@ export const AgentSettingsSchema = ModelSettingsSchema.extend({
   tools: z.array(z.string()).optional(),
   /** How many recent turns of the thread the agent sees in full; default `defaults.uncompactedTurns`. */
   uncompactedTurns: UncompactedTurnsSchema.optional(),
+  /** Model calls per call of the agent; crossing it fails the run. Default 12. */
+  maxModelCalls: z.number().int().nonnegative().optional(),
   /** Tool calls per call of the agent; crossing it fails the run. Default: defaults.tools.maxToolCalls, else 20. */
   maxToolCalls: z.number().int().nonnegative().optional(),
   /** Judges of the agent's reply (names in `judges`), and how often a rejected reply is retried (default 0). */
   judges: z.array(z.string()).optional(),
   maxRetries: z.number().int().nonnegative().optional(),
-  /** Knowledge bases the agent uses (from `@Agent({ rag })`): name, mode and passages per retrieval. */
+  /** Knowledge bases the agent uses (from `@Agent({ rag })`): name, scope and passages per retrieval. */
   rag: z
     .array(
       z.object({
         name: z.string(),
-        mode: z.enum(RagMode),
         topK: z.number().int().positive(),
-        /** Whose content it serves (#796). */
-        tenancy: z.enum(RagTenancy),
-        /** Reranked (#703): its `@Reranker`, the candidates fetched, what a failure does. */
+        /** Whose content it serves. */
+        scope: z.enum(RagScope),
+        /** Reranked: its `@RagReranker`, the candidates fetched, what a failure does. */
         rerank: z
           .object({
             reranker: z.string(),
@@ -154,6 +165,7 @@ export const AgentSettingsSchema = ModelSettingsSchema.extend({
 export const JevRouterModelSchema = z.object({
   kind: z.literal("jev"),
   model: z.string().min(1),
+  modelProvider: z.string().min(1).optional(),
 });
 
 /** A chat model asked to reply with JSON. */
@@ -162,31 +174,6 @@ export const LlmRouterModelSchema = ModelSettingsSchema.extend({ kind: z.literal
 export const RouterModelSchema = z.discriminatedUnion("kind", [
   JevRouterModelSchema,
   LlmRouterModelSchema,
-]);
-
-/** MCP server connection. Secrets are never here: only names of env variables. */
-/**
- * The AGBoss application behind an MCP server (#398 PR 3): its `@Application({ name })` — the
- * envelope's `audience` — and its `@McpExpose` name; unset for a third-party server.
- */
-const McpTargetSchema = z.object({ application: z.string().min(1), expose: z.string().min(1) });
-
-export const McpServerConfigSchema = z.discriminatedUnion("transport", [
-  z.object({
-    transport: z.literal("stdio"),
-    target: McpTargetSchema.optional(),
-    command: z.string().min(1),
-    args: z.array(z.string()).optional(),
-    /** Names of env variables passed to the server process. */
-    env: z.array(z.string()).optional(),
-  }),
-  z.object({
-    transport: z.literal("http"),
-    target: McpTargetSchema.optional(),
-    url: z.url(),
-    /** Header name → name of the env variable holding its value. */
-    headers: z.record(z.string(), z.string()).optional(),
-  }),
 ]);
 
 export const AgentsConfigSchema = z.object({
@@ -211,9 +198,8 @@ export const AgentsConfigSchema = z.object({
     /** Recent turns every agent and model router sees in full (workflow over application; 5). */
     uncompactedTurns: UncompactedTurnsSchema,
   }),
-  mcpServers: z.record(z.string(), McpServerConfigSchema).optional(),
   /** The `@Compaction`s its agents and model routers use, by name (#120 PR 3). */
-  compactions: z.record(z.string(), CompactionSettingsSchema).optional(),
+  memories: z.record(z.string(), CompactionSettingsSchema).optional(),
   /** `@Judge` models by judge name. */
   judges: z.record(z.string(), ModelSettingsSchema).optional(),
   agents: z.record(z.string(), AgentSettingsSchema),
@@ -227,7 +213,6 @@ export type {
   CacheSetting,
   CompactionSettings,
   MaxTokens,
-  McpServerConfig,
   ModelSettings,
   Price,
   Thinking,
@@ -265,6 +250,10 @@ export interface ResolvedModelSettings {
   readonly promptCaching?: PromptCaching | undefined;
   /** The price table entry (the component's, else the provider's); none = the provider reports the cost. */
   readonly price?: Price | undefined;
+  /** The provider's `name` its cascade resolved (#1313); absent = by `serves`. */
+  readonly modelProvider?: string | undefined;
+  /** The provider has no `cost`: a call it leaves unpriced is `CostSource.Unpriced` (#1313). */
+  readonly unpriced?: true | undefined;
 }
 
 /** Validates at startup and keeps the literal type of the config; checks tool names if given. */

@@ -62,7 +62,7 @@ function causeChain(step: OutdatingStep, slot: SlotKey): readonly SlotKey[] {
   return chain;
 }
 
-/** Why the value is outdated: `about DraftDto, replaced by writer-agent`. */
+/** Why the value is outdated: `built from DraftDto, replaced by writer-agent`. */
 function reasonOf(
   context: AnalysisContext,
   steps: readonly WitnessStep[],
@@ -74,8 +74,7 @@ function reasonOf(
   const [direct] = chain;
   const root = chain[chain.length - 1];
   if (site === undefined || direct === undefined || root === undefined) return "outdated";
-  const isAbout = slotOf(site.before.state.scope, field.slot).about.includes(direct);
-  const how = `${isAbout ? "about" : "built from"} ${slotLabel(direct)}`;
+  const how = `built from ${slotLabel(direct)}`;
   const writer = site.before.node;
   return direct === root
     ? `${how}, replaced by ${writer}`

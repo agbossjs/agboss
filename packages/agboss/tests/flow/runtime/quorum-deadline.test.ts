@@ -93,13 +93,13 @@ describe("AC2: between min and max, the deadline", () => {
   );
 
   checked(
-    "the deadline with min not reached: QuorumNotReachedError into .onJoinError",
+    "the deadline with min not reached: QuorumNotReachedError into .onError",
     async ({ app, mockLlm, clock }) => {
       mockLlm(SkillsPanelAgent).thenReturn(score(7));
       mockLlm(RisksPanelAgent).thenReturn(cancelledWhileWaiting(60));
       mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting(60));
 
-      const execution = execute(app, PanelWorkflowStart, ANNA, { record: true });
+      const execution = execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
       await untilWaiting(2);
       await clock.advance(seconds(29));
       expect(clock.now().toISOString()).toBe("2026-01-05T09:00:29.000Z");

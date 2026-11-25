@@ -1,14 +1,20 @@
+import type { TenantValues } from "../flow/context/context-values.js";
 import type { ExecutionLeaseGate } from "../application/lease-gate.js";
-import type { AppDepsOptions, BuildOptions } from "../app/app-deps.js";
+import type { BuildOptions } from "../app/app-deps.js";
+import type { ExecutionOutput } from "../app/types.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
 import { buildApplication, type BuiltApplication } from "../application/create-app.js";
 import type { EnvironmentSelection } from "../environments/load.js";
-import type { Class } from "../components/injection.js";
+import type { Class, ServiceEntry } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import { CLOSE_TIMEOUT, closedWithin } from "./bounded-close.js";
 import { VirtualClock } from "./clock.js";
+import { startOf } from "./start-at.js";
+import { assemblyOf, tracingOf, type TestWithSeams } from "./test-with-seams.js";
 import { SkewedClock } from "./clock-skew.js";
+import { onlyWorkflows } from "./only-workflows.js";
+import { branchSchedulerOf } from "./branch-scheduler.js";
 import { testInstancesOf, type TestInstanceOptions } from "./instances.js";
 import { StoreClock, StoreTimeSource, type Clock } from "../infrastructure/clock.js";
 import type { Milliseconds } from "../units/index.js";
@@ -16,7 +22,7 @@ import { SequentialIdGenerator } from "./id-generator.js";
 import { TestSetupError } from "./errors.js";
 import { McpStubs, stubbedMcpConnect, type McpStub } from "./mcp-stubs.js";
 import { ScriptBook, type ModelScript } from "./script-book.js";
-import { createScriptedGateway, type ModelTarget } from "./scripted-gateway.js";
+import { createScriptedGateway, kindsOf, type ModelTarget } from "./scripted-gateway.js";
 import { ModelTargets, scriptKeyOf } from "./model-targets.js";
 import { mcpServersOf, usedComponentsOf } from "./workflow-parts.js";
 import { TestMocks } from "./test-mocks.js";
@@ -24,25 +30,23 @@ import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { vcrGatewayOverProviders, type VcrConfig } from "./vcr.js";
 import { testKeyedEnvironmentOf, testPiiKeyOf, type TestKeyedEnvironment } from "./pii-parts.js";
-import { schedulerOf } from "./concurrency/schedulers.js";
-import { replacementsOf, type Override } from "./units/override.js";
+import { bindingsOf } from "./services.js";
 import type { TestConcurrency } from "./concurrency/test-concurrency.js";
+import type { ProfileSelection } from "../config/profile-names.js";
 import { TEST_IDEMPOTENCY_KEYS } from "../application/idempotency-key.js";
-
-/** The app option of a test's branch schedule: none for `TestConcurrency.Real`. */
-function branchSchedulerOf(
-  concurrency: TestConcurrency | undefined,
-  book: ScriptBook,
-): Pick<AppDepsOptions, "branchScheduler"> {
-  const branchScheduler = schedulerOf(concurrency, book);
-  return branchScheduler === undefined ? {} : { branchScheduler };
-}
 
 /**
  * What `testWith` takes besides the application. `env` names the environment (default `test`: a
  * test never falls back to dev's values, and fails without `test.environment.ts`).
  */
-export interface TestWithOptions extends EnvironmentSelection {
+export interface TestWithOptions extends EnvironmentSelection, TestWithSeams {
+  /**
+   * The tenant the test's calls run for (`ContextValues` of the application's `TenantContext`): what
+   * `app.runAgent` / `runAction` / `runRouter` / `runTool` and `app.execute` use when the call names
+   * none. An application that declares a `tenantContext` refuses a call with neither
+   * (`ValidationError.TenantRequired`).
+   */
+  readonly tenant?: TenantValues & Readonly<Record<string, unknown>>;
   /** Components kept real: MCP server classes connect through their configured transports. */
   readonly real?: readonly Class[];
   /** Hosts a test may reach (`localhost` covers every loopback address); everything else is blocked. */
@@ -66,27 +70,30 @@ export interface TestWithOptions extends EnvironmentSelection {
    */
   readonly concurrency?: TestConcurrency;
   /**
-   * Classes the application's container creates instead of others (#262, #267 S104):
-   * `[override(RefundApprovalRole, AutoApproveChannel)]` — the same `override(…)` as the unit runners.
+   * What the application's container creates or holds instead of the real ones (#1324, #1328): a
+   * fake class that `extends` the real service or names its port (`@Injectable({ injectAs })`), a
+   * channel for a pause target (`AutoApproveChannel.for(Target)`), and values
+   * (`provide(TOKEN, value)`) — the same `services` as the unit runners take.
    */
-  readonly overrides?: readonly Override[];
+  readonly services?: readonly ServiceEntry[];
   /**
-   * A profile on top of every workflow of the application, the child workflows too (#895): as
-   * `createApp(App, { profile })` applies it, `profiles/<workflow>/<profile>.yaml` under
-   * `profileRoot`, but with the models scripted and no keys. `app.settings` shows what it applied.
+   * The workflows the test runs (#996, #1328): `only: [CreditWorkflow]` assembles the application with
+   * these workflows and the child workflows they launch — a large application's siblings stay out of
+   * the test (their models, tools and stores are never built). A class that is not a workflow of the
+   * application is a setup error. Default: every workflow.
    */
-  readonly profile?: string | undefined;
+  readonly only?: readonly Class[];
   /**
-   * Where `profiles/` is (default `process.cwd()`, as in `createApp`). In a monorepo give the
-   * package's directory: `fileURLToPath(new URL("..", import.meta.url))` from a test in `tests/` —
-   * never `.pathname`, which is not a path on Windows.
+   * The profiles layered on the application, its child workflows too (#895, #1318): as
+   * `createApp(App, { profile })` applies them — `src/config/<name>.config.ts|yaml` next to the
+   * application file, over `base.config.*` — but with the models scripted and no keys. Default
+   * `test`: a test never runs on dev's values. `app.settings` shows what they applied.
    */
-  readonly profileRoot?: string | undefined;
+  readonly profile?: ProfileSelection | undefined;
 }
 
-/** The process env without tracing keys: tests never export traces. */
-const testEnv = (): NodeJS.ProcessEnv =>
-  Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("LANGFUSE_")));
+/** The process env as the tests see it: a copy, so no test writes through to the process. (Tests never export traces: tracing is on only with a `tracerProvider`.) */
+const testEnv = (): NodeJS.ProcessEnv => ({ ...process.env });
 
 /** The names of the MCP servers kept real; anything else in `real` is a setup error. */
 function realServers(servers: ReadonlyMap<Class, string>, real: readonly Class[]): Set<string> {
@@ -111,7 +118,7 @@ function realServers(servers: ReadonlyMap<Class, string>, real: readonly Class[]
  */
 export class TestEnvironment {
   readonly book = new ScriptBook();
-  readonly clock = new VirtualClock();
+  readonly clock: VirtualClock;
   /** The test's ids (#313): `thread-1`, `execution-1`, … unless the application lists its own. */
   readonly idGenerator = new SequentialIdGenerator();
   readonly mcp = new McpStubs(this.book);
@@ -119,6 +126,10 @@ export class TestEnvironment {
   readonly database = new InMemoryDatabase();
   /** `mockOf`, `mockTool`, `mockAction`: what the test replaces or watches. */
   readonly mocks: TestMocks;
+  /** The tenant of the test (`testWith(App, { tenant })`), when it names one. */
+  readonly tenant: TenantValues | undefined;
+  /** What the last `execute` or `resume` of any app of the test gave: `answerPause` answers its pause. */
+  lastOutput: ExecutionOutput | undefined;
   readonly #apps: BuiltApplication[] = [];
   readonly #nodes: readonly RuntimeNode[];
   readonly #used: ReadonlySet<Class>;
@@ -139,11 +150,14 @@ export class TestEnvironment {
     options: TestWithOptions,
     { named: environment, processEnv }: TestKeyedEnvironment,
   ) {
+    this.tenant = options.tenant;
+    this.clock = new VirtualClock(startOf(options.startAt));
     const { workflows } = assembled;
     this.#nodes = workflows.flatMap((workflow) => [...workflow.graph.nodes.values()]);
     this.#used = usedComponentsOf(assembled);
     this.#targets = new ModelTargets(assembled, this.#nodes);
-    this.mocks = new TestMocks(this.book, this.#nodes, this.#used);
+    const bindings = bindingsOf(options.services);
+    this.mocks = new TestMocks(this.book, this.#nodes, this.#used, bindings.values);
     for (const node of this.#nodes) {
       const key = scriptKeyOf(node);
       if (key !== undefined) this.book.name(key, node.component.name);
@@ -167,9 +181,10 @@ export class TestEnvironment {
               (failure) => this.book.report(failure),
             ),
           }
-        : { gateway: createScriptedGateway(this.book, this.clock) }),
+        : { gateway: createScriptedGateway(this.book, this.clock, kindsOf(workflows)) }),
+      ...tracingOf(options),
       connectMcp: stubbedMcpConnect(this.mcp, labels, real),
-      container: { ...this.mocks.container, replacements: replacementsOf(options.overrides) },
+      container: { ...this.mocks.container, replacements: bindings.replacements },
       ...branchSchedulerOf(options.concurrency, this.book),
     };
   }
@@ -180,13 +195,11 @@ export class TestEnvironment {
    * it runs — but a PII key's, which gets the test key (#778).
    */
   static async of(application: Class, options: TestWithOptions = {}): Promise<TestEnvironment> {
-    const assembled = await applicationOf(
-      application,
-      { profile: options.profile, profileRoot: options.profileRoot },
-      "testWith",
-    );
-    const environment = await testKeyedEnvironmentOf(assembled, options, testEnv());
-    return new TestEnvironment(assembled, options, environment);
+    const assembled = await applicationOf(application, assemblyOf(options), "testWith");
+    const restricted =
+      options.only === undefined ? assembled : onlyWorkflows(assembled, options.only);
+    const environment = await testKeyedEnvironmentOf(restricted, options, testEnv());
+    return new TestEnvironment(restricted, options, environment);
   }
 
   /**
@@ -206,7 +219,9 @@ export class TestEnvironment {
         storeClock: new StoreClock(StoreTimeSource.Test, this.clock),
         idGenerator: this.idGenerator,
         quiet: true,
-        ...(this.#piiTestKey === undefined ? {} : { piiTestKey: this.#piiTestKey }),
+        ...(this.#piiTestKey === undefined
+          ? { piiInstanceKeys: true }
+          : { piiTestKey: this.#piiTestKey }),
         // #825: a key field with no value in the test's environment gets the test's keys
         idempotencyTestKeys: TEST_IDEMPOTENCY_KEYS,
         observers: [this.mocks.actions],

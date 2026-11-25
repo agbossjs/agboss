@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { InMemoryA2ADirectMessageRepository } from "../../../src/infrastructure/in-memory-a2a-direct-message.repository.js";
 import { SqliteA2ADirectMessageRepository } from "../../../src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
-import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { randomIdGenerator } from "../../../src/infrastructure/clock.js";
 import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.js";
 import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructure/child-execution-queue.repository.js";
@@ -10,7 +10,6 @@ import { InMemoryExecutionHistoryRepository } from "../../../src/infrastructure/
 import { InMemoryExecutionAuditLogRepository } from "../../../src/infrastructure/execution-audit-log.repository.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryExecutionRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
-import type { InMemoryFencedEffectTransaction } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
 import { InMemoryExecutionTreeRepository } from "../../../src/infrastructure/execution-tree.repository.js";
 import { InMemoryMeshRequestRepository } from "../../../src/infrastructure/mesh-request.repository.js";
 import { InMemoryA2ATaskRepository } from "../../../src/infrastructure/in-memory-a2a-task.repository.js";
@@ -42,8 +41,8 @@ import { inMemoryTarget, sharedInMemory, sqliteTarget } from "./store-kinds.js";
  */
 
 /** Every in-memory store of the core. */
-export const inMemoryStores = (): StoreSet<InMemoryFencedEffectTransaction> => ({
-  a2aFile: inMemoryTarget(({ database }) => new InMemoryA2AFileRepository(database)),
+export const inMemoryStores = (): StoreSet => ({
+  a2aFile: inMemoryTarget(({ database }) => new InMemoryFileRepository(database)),
   a2aTask: inMemoryTarget(({ database }) => new InMemoryA2ATaskRepository(database)),
   a2aDirectMessage: inMemoryTarget(({ database }) => ({
     messages: new InMemoryA2ADirectMessageRepository(database),
@@ -76,7 +75,7 @@ export const inMemoryStores = (): StoreSet<InMemoryFencedEffectTransaction> => (
     sharedInMemory(
       seam,
       "records",
-      () => new InMemoryExecutionRecordRepository(seam.clock, randomIdGenerator),
+      () => new InMemoryExecutionRecordRepository(seam.clock, randomIdGenerator, seam.database),
     ),
   ),
   executionTree: inMemoryTarget(({ database }) => new InMemoryExecutionTreeRepository(database)),
@@ -93,7 +92,7 @@ export const inMemoryStores = (): StoreSet<InMemoryFencedEffectTransaction> => (
 });
 
 /** Every SQLite store of the core. */
-export const sqliteStores = (): StoreSet<DatabaseSync> => ({
+export const sqliteStores = (): StoreSet => ({
   a2aTask: sqliteTarget(({ connection }) => new SqliteA2ATaskRepository(connection())),
   a2aDirectMessage: sqliteTarget(({ connection }) => ({
     messages: new SqliteA2ADirectMessageRepository(connection()),

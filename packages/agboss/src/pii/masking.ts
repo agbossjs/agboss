@@ -15,6 +15,8 @@ export interface PiiFinding extends PiiMatch {
   readonly action: AnyPiiAction;
   readonly policy: string;
   readonly key: string;
+  /** The key `key` rotates from (`previousSecret`): a token a thread holds under it is kept. */
+  readonly previousKey?: string;
   /** The more specific detector wins a tie (lower first). */
   readonly rank: number;
 }
@@ -46,7 +48,7 @@ export interface MaskedText {
   readonly text: string;
   /** Tokens this text introduced (token → value): the `piiTokens` the boundary writes. */
   readonly tokens: Record<string, string>;
-  /** Findings of `blockWithRefusal` rules: shown as `<kind>`; the boundary refuses on them. */
+  /** Findings of `block` rules: shown as `<kind>`; the boundary refuses on them. */
   readonly blocked: readonly PiiFinding[];
 }
 
@@ -56,14 +58,14 @@ function replacementOf(
   known: Record<string, string>,
 ): { readonly text: string; readonly token?: string } {
   switch (finding.action.kind) {
-    case PiiActionKind.ReplaceWithToken: {
-      const token = tokenOf(finding.label, value, finding.key, known);
+    case PiiActionKind.Tokenize: {
+      const token = tokenOf(finding.label, value, finding.key, known, finding.previousKey);
       return { text: token, token };
     }
-    case PiiActionKind.ReplacePart:
+    case PiiActionKind.MaskPart:
       return { text: partReplaced(value, finding.action.part) };
-    case PiiActionKind.ReplaceWithKind:
-    case PiiActionKind.BlockWithRefusal:
+    case PiiActionKind.Mask:
+    case PiiActionKind.Block:
       return { text: kindPlaceholder(finding.label) };
   }
 }
@@ -76,7 +78,7 @@ export function maskedText(
 ): MaskedText {
   const tokens: Record<string, string> = {};
   const all: Record<string, string> = { ...known };
-  const blocked = findings.filter((item) => item.action.kind === PiiActionKind.BlockWithRefusal);
+  const blocked = findings.filter((item) => item.action.kind === PiiActionKind.Block);
   let masked = text;
   for (const finding of [...findings].sort((first, second) => second.start - first.start)) {
     const value = text.slice(finding.start, finding.end);

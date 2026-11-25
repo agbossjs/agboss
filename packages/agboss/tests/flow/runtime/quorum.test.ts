@@ -89,7 +89,7 @@ describe("AC3: min unreachable fails at once", () => {
       mockLlm(RisksPanelAgent).thenReturn(score(12));
       mockLlm(HirePanelAgent).thenReturn(cancelledWhileWaiting());
 
-      const result = await execute(app, PanelWorkflowStart, ANNA, { record: true });
+      const result = await execute(app, PanelWorkflowStart, ANNA, { includeRecord: true });
 
       expect(result).toFinishWith(PanelFailedWorkflowFinish, ANNA);
       expect(result.launches[0]?.isQuorumReached).toBe(false);
@@ -107,7 +107,7 @@ describe("AC3: min unreachable fails at once", () => {
   );
 });
 
-describe("AC4: without .onJoinError the execution fails", () => {
+describe("AC4: without .onError the execution fails", () => {
   strict("QuorumNotReachedError names the launching step", async ({ app, mockLlm }) => {
     mockLlm(SkillsPanelAgent).thenReturn(score(0));
     mockLlm(RisksPanelAgent).thenReturn(score(7));

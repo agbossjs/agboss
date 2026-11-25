@@ -23,13 +23,13 @@ export default defineConfig({
       "tests/app/remote-child-*.test.ts",
       "tests/flow/context/spend.test.ts",
       "tests/flow/runtime/{child-limits,remote-limits}.test.ts",
-      "tests/components/accounted-router.test.ts",
+      "tests/components/{accounted-router,decision-model}.test.ts",
       "tests/properties/budget-meter.property.test.ts",
       "tests/channels/paused-spend.test.ts",
       "tests/run/*.test.ts",
       // a trusted caller's budget, and the frame a custom compaction reads before the first step
       "tests/mcp/mcp-mesh-trust.test.ts",
-      "tests/compaction/custom-compaction.test.ts",
+      "tests/memory/custom-compaction.test.ts",
     ],
   },
 });

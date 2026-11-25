@@ -38,7 +38,7 @@ export function visitWrite(
   provenance: RuntimeProvenance,
 ): VisitWrite {
   if (exit === undefined) return NOTHING;
-  const read = { producer: node.id, read: outcome.read, writes: exit.writes };
+  const read = { producer: node.id, read: outcome.read };
   const site = {
     node,
     visitNumber: (state.visits[node.id] ?? 0) + 1,
@@ -60,6 +60,16 @@ export function visitWrite(
 /** What a node gave with all that the visit spent: its own usage and what its code paid services. */
 export type SpentOutcome = NodeOutcome & { readonly usage: readonly UsageRecord[] };
 
+/** The branch of a `.toOneOf` / `.onFinish`: by the class the step gave, else by the finish a child ended at. */
+function caseExitOf(node: RuntimeNode, outcome: NodeOutcome): FlowEdge {
+  const variant = outcome.value?.variant ?? "";
+  const branch = node.exits.cases.get(variant) ?? node.exits.cases.get(outcome.value?.finish ?? "");
+  if (branch !== undefined) return branch;
+  throw new OutputInvalidError({
+    message: `${node.id} gave ${variant || "no class"}, which its .toOneOf([…]) has no branch for`,
+  });
+}
+
 /** The edge a visit leaves by; `undefined` at a finish (the execution ends). */
 export function exitOf(
   node: RuntimeNode,
@@ -76,13 +86,6 @@ export function exitOf(
     const reason = `"${outcome.route}" is not one of its routes`;
     throw new RouterDecisionError({ ...step, reason, usage: outcome.usage });
   }
-  if (exits.cases.size > 0) {
-    const variant = outcome.value?.variant ?? "";
-    const branch = exits.cases.get(variant);
-    if (branch !== undefined) return branch;
-    throw new OutputInvalidError({
-      message: `${node.id} gave ${variant || "no class"}, which its switch has no caseOf(…) for`,
-    });
-  }
+  if (exits.cases.size > 0) return caseExitOf(node, outcome);
   return exits.next;
 }

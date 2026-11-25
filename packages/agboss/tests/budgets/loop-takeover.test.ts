@@ -99,6 +99,6 @@ describe("#727: a takeover in the middle of an agent's loop", () => {
       },
     ];
     for (const record of records)
-      expect(await ledger.findSpentByCounter(counterOf(record, now))).toBe(30);
+      expect((await ledger.findUsageByCounter(counterOf(record, now))).spent).toBe(30);
   });
 });

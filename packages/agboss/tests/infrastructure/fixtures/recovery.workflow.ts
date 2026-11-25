@@ -1,5 +1,7 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
+import type { Page } from "../../../src/app/page.js";
 import { until } from "../../helpers/until.js";
-import { TerminalUserChannel } from "../../../src/channels/terminal-channel.js";
+import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
@@ -7,32 +9,38 @@ import {
   ExecutionRecordRepository,
   ExecutionRecordStatus,
   Injectable,
+  Observer,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ExecutionEndEvent,
+  type ExecutionCancelEvent,
+  type ExecutionStopEvent,
   type ExecutionErrorEvent,
   type ExecutionLease,
-  type OnExecutionError,
-  type OnExecutionEnd,
-  type OnExecutionResume,
-  type ToolHandler,
   type ExecutionResumeEvent,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { ApplicationContext, Clock } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
-import { TurnStoreRecordRepository } from "../../../src/infrastructure/execution-record.repository.js";
+import {
+  TurnStoreRecordRepository,
+  type ExecutionRecordStatusQuery,
+} from "../../../src/infrastructure/execution-record.repository.js";
 import type { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import { createSqliteTurnStore, type Turn } from "../../../src/turns/index.js";
+import { inMemoryInterruptedOf } from "../../../src/infrastructure/in-memory-cancel-mark.js";
 import { hours, seconds, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { storeClockOf } from "../../helpers/store-clock.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #265 PR 2 — a clerk that takes steps (each one counted), holds (the first hold waits until its
@@ -58,6 +66,10 @@ export const seen = {
   resumes: [] as Pick<ExecutionResumeEvent, "reason" | "decision">[],
   ends: [] as EndSeen[],
   errors: [] as Error[],
+  /** The cancels (#1341): an execution cancelled is an outcome, never an error. */
+  cancels: [] as ExecutionCancelEvent[],
+  /** The stops (#1341b): halted where it stood, an outcome too. */
+  stops: [] as ExecutionStopEvent[],
   leases: [] as ExecutionLease[],
 };
 
@@ -114,8 +126,8 @@ export class Query {
 
 /** A step: counted, so a test sees whether it ran again. */
 @Tool({ name: "step-tool", description: "Takes a step", input: Query, output: Query })
-export class Step implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+export class Step {
+  execute(input: Query): Promise<Query> {
     seen.steps.push(input.text);
     return Promise.resolve(input);
   }
@@ -129,10 +141,10 @@ export class Step implements ToolHandler<Query, Query> {
   output: Query,
   deps: [ExecutionContext],
 })
-export class Hold implements ToolHandler<Query, Query> {
+export class Hold {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  run(input: Query): Promise<Query> {
+  execute(input: Query): Promise<Query> {
     const { signal, step } = this.executionContext;
     seen.holds.push(signal);
     seen.holdKeys.push(step.idempotencyKey);
@@ -153,12 +165,12 @@ export class Hold implements ToolHandler<Query, Query> {
 @Tool({
   name: "charge-tool",
   description: "Charges the card",
-  channel: TerminalUserChannel,
+  approval: OwnerToolApproval,
   input: Query,
   output: Query,
 })
-export class Charge implements ToolHandler<Query, Query> {
-  run(input: Query): Promise<Query> {
+export class Charge {
+  execute(input: Query): Promise<Query> {
     seen.charges.push(input.text);
     return Promise.resolve(input);
   }
@@ -167,7 +179,7 @@ export class Charge implements ToolHandler<Query, Query> {
 @Agent({
   name: "clerk-agent",
   description: "Steps, holds and charges",
-  prompt: "Do what you are asked.",
+  prompt: inline("Do what you are asked."),
   tools: [Step, Hold, Charge],
   model: "test/clerk",
   input: { message: WorkflowStartTextDto },
@@ -179,8 +191,8 @@ export class Clerk {}
  * What the observers saw: resumes (with their reason), ends and errors. An event carries no DTO
  * value, so an end's output is read from the execution's record (its finish line).
  */
-@Injectable({ deps: [ExecutionRecordRepository] })
-export class RecoveryLog implements OnExecutionResume, OnExecutionEnd, OnExecutionError {
+@Observer({ deps: [ExecutionRecordRepository] })
+export class RecoveryLog {
   constructor(private readonly executionRecordRepository: ExecutionRecordRepository) {}
 
   onExecutionResume(event: ExecutionResumeEvent): void {
@@ -199,6 +211,12 @@ export class RecoveryLog implements OnExecutionResume, OnExecutionEnd, OnExecuti
   }
   onExecutionError(event: ExecutionErrorEvent): void {
     seen.errors.push(event.error);
+  }
+  onExecutionCancel(event: ExecutionCancelEvent): void {
+    seen.cancels.push(event);
+  }
+  onExecutionStop(event: ExecutionStopEvent): void {
+    seen.stops.push(event);
   }
 }
 
@@ -252,22 +270,26 @@ export class MortalExecutionLeaseRepository extends InMemoryExecutionLeaseReposi
   }
 }
 
-/** The records in memory; `levers.stampedHash` makes the running ones read as another deploy's. */
-@Injectable()
+/**
+ * The records in memory; `levers.stampedHash` makes the running ones read as another deploy's. A
+ * finish reads the in-memory lease store's marks, as the built-in records do (#1341b).
+ */
+@Injectable({ deps: [IN_MEMORY_DATABASE] })
 export class StampedExecutionRecordRepository extends TurnStoreRecordRepository {
-  constructor() {
-    super(createSqliteTurnStore(":memory:", () => new Date()));
+  constructor(database: InMemoryDatabase) {
+    super(
+      createSqliteTurnStore(":memory:", () => new Date()),
+      inMemoryInterruptedOf(database),
+    );
     stores.records ??= this;
   }
 
-  override async findByStatus(
-    status: ExecutionRecordStatus,
-    limit: number,
-    after?: string,
-  ): Promise<Turn[]> {
-    const page = await super.findByStatus(status, limit, after);
+  override async findByStatus(query: ExecutionRecordStatusQuery): Promise<Page<Turn>> {
+    const page = await super.findByStatus(query);
     const configHash = levers.stampedHash;
-    return configHash === undefined ? page : page.map((record) => ({ ...record, configHash }));
+    return configHash === undefined
+      ? page
+      : { ...page, items: page.items.map((record) => ({ ...record, configHash })) };
   }
 }
 
@@ -284,16 +306,15 @@ export class ReceiptWorkflowFinish {}
 @Workflow({
   name: "recovery-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   defaults: {
     models: { maxTokens: 100, temperature: 0 },
     tools: { maxToolCalls: 8 },
   },
-  uncompactedTurns: 1,
+  memory: Window1Memory,
   flow: [
-    start(OrderWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(OrderWorkflowStart)
       .toAgent(Clerk)
-      .returns(ReceiptDto)
       .toFinish(ReceiptWorkflowFinish),
   ],
 })
@@ -307,6 +328,7 @@ const providers = [
 
 @Application({
   name: "recovery-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
@@ -316,9 +338,10 @@ const providers = [
 })
 export class RecoveryApplication {}
 
-/** The same application keeping its executions' records (#401): what `records export` reads. */
+/** The same application keeping its executions' records (#401): what `executions export` reads. */
 @Application({
   name: "kept-recovery-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
@@ -332,12 +355,13 @@ export class KeptRecoveryApplication {}
 /** The same application with its own shutdown timeout. */
 @Application({
   name: "quick-stop-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   observers: [RecoveryLog],
   providers,
   budgets: TEST_BUDGETS,
-  shutdownTimeout: seconds(5),
+  executionLimits: { shutdownTimeout: seconds(5) },
 })
 export class QuickStopApplication {}

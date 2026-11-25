@@ -57,7 +57,7 @@ const nextAttempt: OutboundCallCase = {
     const key = keyOf(await leaseOf(first, "execution-1", minutes(5)));
     const firstStarted = clock.now().toISOString();
     await recorded(first, key);
-    await first.calls.markFailed(key, "owner-1", FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE, null);
     await clock.advance(seconds(40));
     const read = { status: OutboundCallStatus.Failed, attempt: 1, attemptOwner: "owner-1" };
 
@@ -98,14 +98,14 @@ const endingsKeep: OutboundCallCase = {
     const started = clock.now().toISOString();
     await recorded(first, key);
     await clock.advance(seconds(5));
-    await first.calls.markFailed(key, "owner-1", FAILURE);
+    await first.calls.markFailed(key, "owner-1", FAILURE, null);
     const stale = { status: OutboundCallStatus.Pending, attempt: 1, attemptOwner: "owner-1" };
     await clock.advance(seconds(5));
     await first.calls.markPending(key, stale, { attempt: 2, attemptOwner: "owner-2" });
     const failed = await first.calls.findByKey(key);
     const read = { status: OutboundCallStatus.Failed, attempt: 1, attemptOwner: "owner-1" };
     await first.calls.markPending(key, read, { attempt: 2, attemptOwner: "owner-2" });
-    await first.calls.markCompleted(key, "owner-2", '"receipt"');
+    await first.calls.markCompleted(key, "owner-2", '"receipt"', null);
     const completed = await first.calls.findByKey(key);
 
     expect(failed).toMatchObject({ attemptStartedAt: started, firstAttemptStartedAt: started });

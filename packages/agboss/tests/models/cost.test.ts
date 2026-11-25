@@ -10,7 +10,7 @@ import {
 } from "../../src/models/cost.js";
 import { directoryOf, withProviderPrices } from "../../src/models/workflow-models.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
-import { UnitError, usd } from "../../src/units/index.js";
+import { usd } from "../../src/units/index.js";
 import {
   Priced,
   Summariser,
@@ -21,6 +21,7 @@ import {
 } from "./fixtures/priced.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { BudgetExceededError } from "../../src/errors.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 const test = testWith(PricedApplication);
 const tokens = { usage_metadata: { input_tokens: 1_000_000, output_tokens: 1_000_000 } };
@@ -36,7 +37,7 @@ describe("AC6: cost — from the provider's response, a price table as the fallb
       },
     );
 
-    expect(record).toMatchObject({ costUsd: 0.0123, costSource: "api" });
+    expect(record).toMatchObject({ costUsd: usd(0.0123), costSource: "api" });
   });
 
   it("AC6: without a reported cost, tokens × the price table (price-table)", () => {
@@ -48,7 +49,7 @@ describe("AC6: cost — from the provider's response, a price table as the fallb
     );
 
     expect(recordUsage("summariser", { model: "local/llama", price }, tokens)).toMatchObject({
-      costUsd: 3,
+      costUsd: usd(3),
       costSource: "price-table",
     });
   });
@@ -103,11 +104,16 @@ describe("#1382, #1385: a price table holds finite prices from 0", () => {
     ({ inputPerMillion: usd(1), outputPerMillion: usd(2), [field]: value }) as never;
   const table = (field: string, value: unknown) => ({ "local/llama": entry(field, value) });
   const BAD = [-1, Number.NaN, Number.POSITIVE_INFINITY, "five", null, {}, -0.000001];
-  const FIELDS = ["inputPerMillion", "outputPerMillion", "cachedInputPerMillion"];
+  const FIELDS = [
+    "inputPerMillion",
+    "outputPerMillion",
+    "cacheReadPerMillion",
+    "cacheWritePerMillion",
+  ];
 
   it.each(BAD)("a %s price is refused when the table is made, naming the field only", (value) => {
     for (const field of FIELDS) {
-      expect(() => ModelCost.fromPrices(table(field, value))).toThrow(UnitError);
+      expect(() => ModelCost.fromPrices(table(field, value))).toThrow(ConfigError.Unit);
       expect(() => ModelCost.fromPrices(table(field, value))).toThrow(
         new RegExp(
           `^\\[model\\.price-invalid\\] ${field} is .*, not a finite number of dollars from 0`,
@@ -162,7 +168,7 @@ describe("#1382, #1385: a price table holds finite prices from 0", () => {
   it("takes 0 and an absent cached price", () => {
     const cost = ModelCost.fromPrices({
       "a/b": { inputPerMillion: usd(0), outputPerMillion: usd(0) },
-      "c/d": { inputPerMillion: usd(1), outputPerMillion: usd(2), cachedInputPerMillion: usd(0) },
+      "c/d": { inputPerMillion: usd(1), outputPerMillion: usd(2), cacheReadPerMillion: usd(0) },
     });
     expect(priceOf(cost, "c/d")).toEqual({
       inputPerMTok: 1,
@@ -192,7 +198,7 @@ describe("#1382, #1385: a price table holds finite prices from 0", () => {
     for (const value of BAD) {
       for (const field of FIELDS) {
         const literal: ModelCost = { kind: "from-prices", prices: table(field, value) };
-        expect(() => priceOf(literal, "local/llama")).toThrow(UnitError);
+        expect(() => priceOf(literal, "local/llama")).toThrow(ConfigError.Unit);
         expect(() => priceOf(literal, "local/llama")).toThrow(
           new RegExp(`^\\[model\\.price-invalid\\] ${field} is `),
         );
@@ -208,7 +214,7 @@ describe("#1382, #1385: a price table holds finite prices from 0", () => {
     };
     const call = { usage_metadata: { input_tokens: 100, output_tokens: 1000, total_tokens: 1100 } };
     expect(() => recordUsage("w", { model: "m", price: priceOf(literal, "m") }, call)).toThrow(
-      UnitError,
+      ConfigError.Unit,
     );
   });
 
@@ -241,5 +247,47 @@ describe("#1382, #1385: a price table holds finite prices from 0", () => {
         b: { inputPerMillion: 1, outputPerMillion: -1 },
       }),
     ).toMatch(/^outputPerMillion is -1,/);
+  });
+});
+
+describe("ModelPrice: a cached read is priced at cacheReadPerMillion, a cache write at cacheWritePerMillion", () => {
+  const priced = ModelCost.fromPrices({
+    "cache/model": {
+      inputPerMillion: usd(3),
+      outputPerMillion: usd(15),
+      cacheReadPerMillion: usd(0.3),
+      cacheWritePerMillion: usd(3.75),
+    },
+    "plain/model": { inputPerMillion: usd(3), outputPerMillion: usd(15) },
+  });
+  const carrier = {
+    usage_metadata: {
+      input_tokens: 1_000_000,
+      output_tokens: 100_000,
+      input_token_details: { cache_read: 600_000, cache_creation: 100_000 },
+    },
+  };
+  const settingsOf = (model: string) => ({ model, price: priceOf(priced, model) });
+
+  it("prices the tokens read from the cache at cacheRead, the written ones at cacheWrite, the rest at input", () => {
+    const record = recordUsage("agent:a", settingsOf("cache/model"), carrier);
+    // 300k uncached x 3 + 600k read x 0.3 + 100k written x 3.75 + 100k out x 15, per million
+    expect(record.costUsd).toBeCloseTo(0.9 + 0.18 + 0.375 + 1.5, 10);
+    expect(record.cacheReadTokens).toBe(600_000);
+    expect(record.cacheWriteTokens).toBe(100_000);
+  });
+
+  it("a cache price left out is the input price", () => {
+    const record = recordUsage("agent:a", settingsOf("plain/model"), carrier);
+    expect(record.costUsd).toBeCloseTo(3 + 1.5, 10);
+  });
+
+  it("maps both cache prices into the call's price", () => {
+    expect(priceOf(priced, "cache/model")).toEqual({
+      inputPerMTok: 3,
+      outputPerMTok: 15,
+      cacheReadPerMTok: 0.3,
+      cacheWritePerMTok: 3.75,
+    });
   });
 });

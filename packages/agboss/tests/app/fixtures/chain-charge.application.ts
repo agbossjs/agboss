@@ -12,10 +12,11 @@ import {
   WorkflowStart,
   type PiiMatch,
   type PiiPolicyHandler,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { EmailPiiPolicy } from "./outbound-call.workflow.js";
 import {
@@ -27,7 +28,7 @@ import {
 import { PaymentGateway } from "./payment-gateway.js";
 
 /** The order ids only the root workflows mask. */
-@PiiPolicy({ name: "order-id-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "order-id-pii-policy", action: PiiAction.mask() })
 export class OrderIdPiiPolicy implements PiiPolicyHandler {
   findMatches(text: string): readonly PiiMatch[] {
     const at = text.indexOf("order-7");
@@ -44,13 +45,13 @@ export class ChainFarChargeChildStart {}
 
 /** The same charge, as a child queued for any instance. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "chain-far-charge-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChainFarChargeChildStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChainFarChargeChildStart)
       .toAction(ChildChargeAction)
-      .returns(ChargedDto)
       .toFinish(ChildChargedWorkflowFinish),
   ],
   providers: [PaymentGateway],
@@ -81,12 +82,9 @@ export class ChainChargedFinish {}
 @Workflow({
   name: "chain-near-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChainNearChargeStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(ChildChargeWorkflow)
-      .returns(ChargedDto)
-      .toFinish(ChainChargedFinish),
+    onStart(ChainNearChargeStart).toWorkflow(ChildChargeWorkflow).toFinish(ChainChargedFinish),
   ],
   piiPolicies: [OrderIdPiiPolicy],
 })
@@ -95,11 +93,10 @@ export class ChainNearChargeWorkflow {}
 @Workflow({
   name: "chain-far-charge-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChainFarChargeStart)
-      .returns(WorkflowStartTextDto)
-      .toWorkflow(ChainFarChargeChildWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(ChargedDto)
+    onStart(ChainFarChargeStart)
+      .toWorkflow(ChainFarChargeChildWorkflow)
       .toFinish(ChainChargedFinish),
   ],
   piiPolicies: [OrderIdPiiPolicy],
@@ -110,7 +107,6 @@ export class ChainFarChargeWorkflow {}
   name: "chain-charge-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChainNearChargeWorkflow, ChainFarChargeWorkflow],
   budgets: TEST_BUDGETS,
   piiPolicies: [EmailPiiPolicy],

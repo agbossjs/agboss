@@ -1,5 +1,4 @@
 import { childClassesOf } from "../flow/analyse/child-workflow.js";
-import { isThisWorkflow } from "../flow/this-workflow.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { handedDownPiiOf, type FingerprintDeps } from "./fingerprints.js";
 
@@ -17,7 +16,7 @@ export interface HandedDownSource {
  */
 export function handedDownSnapshot(deps: HandedDownSource): object {
   const launchesAnother = childClassesOf(deps.graph.flow).some(
-    (workflow) => workflow !== deps.graph.type && !isThisWorkflow(workflow),
+    (workflow) => workflow !== deps.graph.type,
   );
   if (!launchesAnother) return {};
   const policies = handedDownPiiOf(deps.pii);

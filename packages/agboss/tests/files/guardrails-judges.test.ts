@@ -7,11 +7,9 @@ import { describe, expect } from "vitest";
 import {
   GuardFailedError,
   GuardrailBlockedError,
-  PiiAction,
   PiiFileAction,
   PiiKind,
   PiiPolicy,
-  pii,
 } from "../../src/index.js";
 import { FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
 import {
@@ -167,7 +165,7 @@ describe("AC4: the views the model got are the views a guardrail checks", () => 
   );
 });
 
-describe("AC4: a code guardrail reads the text, or with checkContent the files", () => {
+describe("AC4: a code guardrail reads content.text, or content.files", () => {
   const withText = readerApplication({
     files: ModelFiles.of({ views: [FileView.Original] }),
     guardrails: [TextOnlyGuardrail],
@@ -178,7 +176,7 @@ describe("AC4: a code guardrail reads the text, or with checkContent the files",
   });
 
   testWith(withText.Application)(
-    "AC4: check(text) gets the text and the text of a text file: a forbidden word in a CSV blocks",
+    "AC4: content.text holds the text and the text of a text file: a forbidden word in a CSV blocks",
     async ({ app, mockLlm }) => {
       given.texts.length = 0;
       mockLlm(withText.Agent);
@@ -193,7 +191,7 @@ describe("AC4: a code guardrail reads the text, or with checkContent the files",
   );
 
   testWith(withContent.Application)(
-    "AC4: checkContent gets every file in the view the model got, with its bytes: a picture whose bytes hold the word blocks",
+    "AC4: content.files holds every file in the view the model got, with its bytes: a picture whose bytes hold the word blocks",
     async ({ app, mockLlm }) => {
       given.contents.length = 0;
       mockLlm(withContent.Agent);
@@ -213,7 +211,7 @@ describe("AC4: a code guardrail reads the text, or with checkContent the files",
   );
 
   testWith(withContent.Application)(
-    "AC4: without files check(text) stays what it was: checkContent is not called",
+    "AC4: a text file is in content.files too, and content.text carries its text",
     async ({ app, mockLlm }) => {
       given.contents.length = 0;
       mockLlm(withContent.Agent).thenReturn(replyWith("ok"));
@@ -247,7 +245,7 @@ describe("AC4: input guardrails on the files of tool results (guardToolResultFil
         app,
         tools.Start,
         { document: inline(CSV_BYTES, "text/csv", "items.csv") },
-        { record: true },
+        { includeRecord: true },
       );
 
       expect(result.output).toEqual({ text: "I could not read it" });
@@ -293,7 +291,7 @@ describe("AC4: input guardrails on the files of tool results (guardToolResultFil
         app,
         tools.Start,
         { document: inline(CSV_BYTES, "text/csv", "items.csv") },
-        { record: true },
+        { includeRecord: true },
       );
 
       expect(partsOf(agent.requests[1] ?? agent.onlyRequest).map((part) => part.mediaType)).toEqual(
@@ -370,7 +368,7 @@ describe("AC4: a judge reads the files the agent's model read", () => {
 @PiiPolicy({
   name: "mail-guardrail-pii-policy",
   description: "Hides emails; the original file may go through",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
   files: PiiFileAction.AllowOriginal,
 })
 class MailPolicy {}

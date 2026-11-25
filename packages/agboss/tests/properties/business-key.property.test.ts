@@ -4,24 +4,28 @@
  * one), a key's identity and the key sent with a call are one-to-one with their parts, and the
  * fenced effect under a business key gives, for any sequence of calls of two executions: `Ran` the
  * first time, `Replayed` with the first result and the step that made it for the same fingerprint,
- * `BusinessKeyConflictError` for another, and `Joined` for a call of the same instance in flight.
+ * `IdempotencyError.KeyConflict` for another, and `Joined` for a call of the same instance in flight.
  * Seeds are logged (FC_SEED replays a run).
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { scopeKeyOf } from "../../src/app/lease-lost.js";
-import { callKeyOf } from "../../src/app/outbound-call-business.js";
+import {
+  businessKeyDigestsUnder,
+  callKeyDigestUnder,
+} from "../../src/infrastructure/business-key-digest.js";
 import { keyTextRuleOf } from "../../src/core/errors.js";
 import {
   effectKeyIdentityOf,
   fingerprintsUnder,
-  BusinessKeyConflictError,
 } from "../../src/infrastructure/fenced-effect-key.js";
 import {
-  FencedEffectStatus,
-  type FencedEffectOutcome,
+  IdempotencyRunStatus,
+  type IdempotencyRunOutcome,
   type EffectKey,
+  type EffectKeyFields,
 } from "../../src/infrastructure/fenced-effect.repository.js";
 import { stableJson } from "../../src/turns/versions.js";
 import { seconds } from "../../src/units/index.js";
@@ -54,6 +58,10 @@ const keyWith = (tenantId: string, businessKey: string, effect: string): EffectK
     name: effect,
     businessKey,
   });
+
+/** The digest of a key's business key under a fixed idempotency secret. */
+const digestOf = (key: EffectKey): string =>
+  businessKeyDigestsUnder({ current: "property-key" }, key.businessKey ?? "").businessKey;
 
 /** The keys of `value` in another order. */
 function shuffled(value: unknown, order: number): unknown {
@@ -102,6 +110,12 @@ describe(`#533 AC2: the business-key rules (seed ${String(seed)})`, () => {
         fc.property(triple, triple, ([t1, b1, n1], [t2, b2, n2]) => {
           const isSame = t1 === t2 && b1 === b2 && n1 === n2;
           const [one, other] = [keyWith(t1, b1, n1), keyWith(t2, b2, n2)];
+          // what a store keeps and what a gateway is sent are digests of the key (#1317d)
+          const callKeyOf = (key: EffectKey): string =>
+            callKeyDigestUnder("property-key", {
+              ...(key as EffectKeyFields),
+              businessKey: digestOf(key),
+            });
           return (
             (effectKeyIdentityOf(one) === effectKeyIdentityOf(other)) === isSame &&
             (callKeyOf(one) === callKeyOf(other)) === isSame
@@ -169,9 +183,9 @@ async function outcomesOf(
       origin: { executionId: tree, nodeId: "charge-action", visitNumber: 1 },
     });
     expected.push(expectedOf(call, first));
-    const write = (): Promise<FencedEffectOutcome<{ request: string }>> =>
-      stores.effects.runOnce(key, (transaction) => {
-        void stores.rows.insert(transaction, `${tree}:${call.request}`);
+    const write = (): Promise<IdempotencyRunOutcome<{ request: string }>> =>
+      stores.effects.runOnce(key, () => {
+        void stores.rows.insert(`${tree}:${call.request}`);
         return { request: call.request };
       });
     const settled = await Promise.allSettled(call.isDoubled ? [write(), write()] : [write()]);
@@ -184,14 +198,16 @@ async function outcomesOf(
 /** A settled call as the model names it. */
 function outcomeText(
   result: PromiseSettledResult<{
-    status: FencedEffectStatus;
+    status: IdempotencyRunStatus;
     replayedFrom?: { executionId: string };
   }>,
 ): string {
   if (result.status === "rejected")
-    return result.reason instanceof BusinessKeyConflictError ? "conflict" : String(result.reason);
+    return result.reason instanceof IdempotencyError.KeyConflict
+      ? "conflict"
+      : String(result.reason);
   const { status, replayedFrom } = result.value;
-  if (status === FencedEffectStatus.Replayed)
+  if (status === IdempotencyRunStatus.Replayed)
     return replayedFrom === undefined ? "replayed" : `replayed@${replayedFrom.executionId}`;
   return status;
 }

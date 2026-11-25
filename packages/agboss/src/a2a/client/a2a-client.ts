@@ -1,25 +1,29 @@
-import type { AgentCard, Part, Task } from "@a2a-js/sdk";
+import type { Part } from "@a2a-js/sdk";
+import { markBusinessKeyWriter } from "../../components/container/fenced-reach.js";
 import { validate } from "../../dto/schema.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import { lazyLoad, SystemClock, type Clock } from "../../infrastructure/clock.js";
 import { accept } from "./a2a-accept.js";
-import type { Accepted } from "./a2a-message.js";
-import type { A2ARemotePeer } from "./a2a-card.js";
 import { CardCache, type Wire } from "./a2a-card-cache.js";
+import { AgentConfig, type ResolvedAgent } from "./a2a-agent-config.js";
+import { AgentProfile } from "./a2a-agent-profile.js";
+import { boundCallOf, stepSignalOf } from "./a2a-call-bounds.js";
+import { cardCacheOf } from "./a2a-client-cache.js";
+import { taskCancelOf, taskReadOf, waitedOf, type WireOf } from "./a2a-client-reads.js";
 import {
   agentNameOf,
   allowedOriginsOfClass,
+  headersOfClass,
   checkedCall,
   contractOfClass,
-  deadlineOf,
   urlOf,
   typedContractOf,
   type A2AClientCall,
   type A2AClientContract,
   type A2AClientOptions,
   type A2ATaskResult,
+  type Settled,
 } from "./a2a-client-options.js";
-import { A2AClientOperation } from "./a2a-client-errors.js";
 import {
   a2aClientServicesOf,
   storedFileReaderOf,
@@ -34,23 +38,16 @@ import {
 } from "./a2a-charges.js";
 import { activatedMeshOf } from "./a2a-activation.js";
 import { callPeerOf } from "./a2a-call-peer.js";
-import { originPolicyOf } from "./a2a-origins.js";
 import { outputOf, untypedResultOf } from "./a2a-outcome.js";
-import { inputPartsOf, partsOf, type A2AMessageInput } from "./a2a-parts.js";
-import { waitForTask } from "./a2a-wait.js";
-import type { A2ADownloadOptions, A2AReceivedFile } from "./a2a-download.js";
-import { wireErrorOf } from "./a2a-wire-errors.js";
-
-/** One call's settled answer. */
-interface Settled {
-  readonly accepted: Accepted;
-  readonly task: Task | undefined;
-  readonly peer: A2ARemotePeer;
-}
+import { inputPartsOf, partsOf } from "./a2a-parts.js";
+import { a2aCardOf } from "./a2a-card-map.js";
+import { a2aTaskOf } from "./a2a-public-map.js";
+import type { A2AAgentCard, A2AMessageInput, A2ATask } from "../a2a-types.js";
+import type { A2ADownloadOptions, FileDto } from "./a2a-download.js";
 
 /**
  * Calls an A2A v1.0 agent (#809) — another AGBoss application or any compliant agent — on the
- * official SDK. Subclass it with `@A2AAgent({ name, url, target?, input?, output?, price?, deps })`
+ * official SDK. Subclass it with `@A2AAgent({ name, url, headers?, timeout?, target?, input?, output?, costPerCall?, deps })`
  * and inject it like any provider. The agent's card is read on first use and checked (an A2A 1.0
  * interface on the client's origins, the skill, the skill's schemas); the message is accepted with
  * `returnImmediately` through `OutboundCalls` inside an execution (an ambiguous send reconciled,
@@ -58,49 +55,83 @@ interface Settled {
  * the deadline.
  */
 export class A2AClient<TIn extends object = object, TOut extends object = object> {
-  readonly url: string;
-
-  /** What it calls and how much a call costs: the class's `@A2AAgent`, or the `contract` option. */
-  readonly contract: A2AClientContract | undefined;
+  readonly #declared: A2AClientContract | undefined;
+  readonly #profile: AgentProfile;
 
   readonly #agent: string;
-  readonly #cards: CardCache;
+  readonly #options: A2AClientOptions;
+  readonly #config: AgentConfig;
+  readonly #filePolicy: A2AClientOptions["filePolicy"];
+  #cards: CardCache | undefined;
+  readonly #wired: WireOf = (signal) => this.#wire(signal);
 
   constructor(options: A2AClientOptions = {}) {
-    this.url = options.url ?? urlOf(new.target, new.target.name);
-    this.contract = options.contract ?? contractOfClass(new.target);
+    this.#options = options;
+    this.#declared = options.contract ?? contractOfClass(new.target);
+    this.#filePolicy = options.filePolicy;
     this.#agent = agentNameOf(new.target, new.target.name);
-    const allowed = options.allowedOrigins ?? allowedOriginsOfClass(new.target);
-    const fixed = options.headers ?? {};
-    this.#cards = new CardCache({
-      url: this.url,
-      agent: this.#agent,
-      contract: this.contract,
-      policy: originPolicyOf(this.#agent, this.url, allowed),
-      fetcher: options.fetcher ?? fetch,
-      headersOf: async () => ({ ...fixed, ...(await this.getHeaders()) }),
-      ttl: options.cardTtl,
+    this.#profile = new AgentProfile(new.target, this.#agent, options);
+    this.#config = new AgentConfig(this.#agent, {
+      url: options.url ?? urlOf(new.target, new.target.name),
+      allowedOrigins: options.allowedOrigins ?? allowedOriginsOfClass(new.target),
+      headers: headersOfClass(new.target),
     });
+    // a plain address is checked now (a malformed one never starts); references are read with the application's environment
+    if (this.#config.isPlain) this.#cardCache();
   }
 
-  /** Extra headers per request (e.g. a fresh token); override in a subclass. */
-  protected getHeaders(): Promise<Record<string, string>> {
-    return Promise.resolve({});
+  /** What it calls and how much a call costs: its `@A2AAgent` as the profiles leave it in an application, or the `contract` option. */
+  get contract(): A2AClientContract | undefined {
+    return this.#profile.contractOf(this.#declared, this.#services());
+  }
+
+  /** The agent's base URL; a `defineEnv` reference is read from the application's environment on first use. */
+  get url(): string {
+    return this.#resolve().url;
+  }
+
+  /** The declared address and headers with their references read, once (the running application's environment, else the process's). */
+  #resolve(): ResolvedAgent {
+    const services = this.#services();
+    return this.#profile.configOf(this.#config, services).read(services?.env ?? process.env);
+  }
+
+  /** The agent's card cache: built with the first use, once its address is known. */
+  #cardCache(): CardCache {
+    if (this.#cards !== undefined) return this.#cards;
+    this.#cards = cardCacheOf({
+      agent: this.#agent,
+      contract: this.contract,
+      resolved: this.#resolve(),
+      options: this.#options,
+      dynamicHeaders: async () => await this.getHeaders(),
+    });
+    return this.#cards;
+  }
+
+  /**
+   * Headers added to every request, read per request (a fresh token), over the declared `headers`
+   * and the `headers` option, names compared without case; the framework's own header
+   * (`X-AGBoss-Mesh`) is set last and never replaced. Override in a subclass: sync or async.
+   */
+  protected getHeaders(): Record<string, string> | Promise<Record<string, string>> {
+    return {};
   }
 
   /** The agent's card, checked against the client's contract (fetched once per `cardTtl`). */
-  public async agentCard(call: Pick<A2AClientCall, "signal"> = {}): Promise<AgentCard> {
-    return (await this.#wire(call.signal)).checked.card;
+  public async agentCard(call: Pick<A2AClientCall, "signal"> = {}): Promise<A2AAgentCard> {
+    return a2aCardOf((await this.#wire(stepSignalOf(call))).checked.card);
   }
 
   /**
    * Runs the agent's skill with a typed input (#809 AC1): `input` validated by the input DTO and sent
    * as one data part (text for `WorkflowStartTextDto`), the COMPLETED task's artifact validated by
    * the output DTO. FAILED with an AGBoss mesh limit throws that limit; FAILED / REJECTED
-   * `A2ATaskFailedError`, CANCELED `A2ATaskCanceledError`, INPUT_REQUIRED `A2ATaskInterruptedError`.
+   * `A2ATaskFailedError`, CANCELED `A2ATaskCancelledError`, INPUT_REQUIRED `A2ATaskInterruptedError`.
    * A client without both DTOs throws `[a2a.no-contract]`.
    */
-  public async execute(input: TIn, call: A2AClientCall = {}): Promise<TOut> {
+  public async execute(input: TIn, given: A2AClientCall = {}): Promise<TOut> {
+    const call = boundCallOf(given, this.contract?.timeout);
     const contract = typedContractOf(this.constructor.name, this.contract);
     const read = storedFileReaderOf(this.#services());
     const parts = await inputPartsOf(contract.input, validate(contract.input, input), read);
@@ -118,7 +149,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
    * or a stateless message. FAILED, REJECTED and CANCELED throw as for `execute`.
    */
   public async send(message: A2AMessageInput, call: A2AClientCall = {}): Promise<A2ATaskResult> {
-    return untypedResultOf(await this.#call(partsOf(message), undefined, call), this.#agent);
+    return this.#untyped(message, undefined, call);
   }
 
   /** Continues a task that waits for input (INPUT_REQUIRED) with `answer`, as `send` does. */
@@ -127,45 +158,34 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     answer: A2AMessageInput,
     call: A2AClientCall = {},
   ): Promise<A2ATaskResult> {
-    return untypedResultOf(await this.#call(partsOf(answer), taskId, call), this.#agent);
+    return this.#untyped(answer, taskId, call);
   }
 
-  /**
-   * The bytes of a file an answer gave (#859): inline ones as they came, one by `url` downloaded
-   * through the client's own fetch — on its origins only, with its headers — up to `maxSize`
-   * (`kilobytes(10240)` by default), each checked against its `sha256` when it names one.
-   */
-  public downloadFile(file: A2AReceivedFile, options?: A2ADownloadOptions): Promise<Uint8Array> {
-    const loaded = lazyLoad(import("./a2a-download.js"));
-    return loaded.then((it) => it.downloadedFile(file, { ...options, fetcher: this.#cards.fetch }));
+  /** One untyped call: its files read first when stored (D7: a rejection, never a throw). */
+  async #untyped(
+    input: A2AMessageInput,
+    taskId: string | undefined,
+    call: A2AClientCall,
+  ): Promise<A2ATaskResult> {
+    const parts = await partsOf(input, storedFileReaderOf(this.#services()));
+    const bound = boundCallOf(call, this.contract?.timeout);
+    return untypedResultOf(await this.#call(parts, taskId, bound), this.#agent);
+  }
+
+  public async downloadFile(file: FileDto, options?: A2ADownloadOptions): Promise<Uint8Array> {
+    const using = [this.#cardCache().fetch, this.#clock(), this.#filePolicy] as const;
+    const bounds = await lazyLoad(import("./a2a-download-bounds.js"));
+    return await bounds.downloadedBy(this, file, options, using);
   }
 
   /** The task as the agent has it now. */
-  public getTask(taskId: string, call: Pick<A2AClientCall, "signal"> = {}): Promise<Task> {
-    return this.#read(A2AClientOperation.GetTask, call.signal, (client, options) =>
-      client.getTask({ tenant: "", id: taskId }, options),
-    );
+  public async getTask(taskId: string, call: Pick<A2AClientCall, "signal"> = {}): Promise<A2ATask> {
+    return a2aTaskOf(await taskReadOf(this.#agent, this.#wired, taskId, call));
   }
 
   /** Asks the agent to cancel the task (was `cancel(threadId)`): the task as it answers. */
-  public cancel(taskId: string, call: Pick<A2AClientCall, "signal"> = {}): Promise<Task> {
-    return this.#read(A2AClientOperation.CancelTask, call.signal, (client, options) =>
-      client.cancelTask({ tenant: "", id: taskId, metadata: undefined }, options),
-    );
-  }
-
-  /** One read of the agent on its SDK client, its error translated (codes only). */
-  async #read<T>(
-    operation: A2AClientOperation,
-    signal: AbortSignal | undefined,
-    read: (client: Wire["client"], options: { signal?: AbortSignal }) => Promise<T>,
-  ): Promise<T> {
-    const { client } = await this.#wire(signal);
-    try {
-      return await read(client, signal === undefined ? {} : { signal });
-    } catch (error) {
-      throw wireErrorOf(error, this.#agent, operation, signal);
-    }
+  public async cancel(taskId: string, call: Pick<A2AClientCall, "signal"> = {}): Promise<A2ATask> {
+    return a2aTaskOf(await taskCancelOf(this.#agent, this.#wired, taskId, call));
   }
 
   /** The application's services in an execution; `undefined` outside one. */
@@ -183,7 +203,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
 
   /** The card and its SDK client: fetched, checked, kept for `cardTtl` on the app's clock. */
   #wire(signal: AbortSignal | undefined): Promise<Wire> {
-    return this.#cards.wireOf(this.#clock(), signal);
+    return this.#cardCache().wireOf(this.#clock(), signal);
   }
 
   /**
@@ -197,7 +217,7 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
     taskId: string | undefined,
     call: A2AClientCall,
   ): Promise<Settled> {
-    const key = checkedCall(this.#agent, call, this.contract?.price);
+    const key = checkedCall(this.#agent, call, this.contract?.costPerCall);
     const wire = await this.#wire(call.signal);
     const { activation, skill } = activatedMeshOf(wire, {
       agent: this.#agent,
@@ -221,13 +241,13 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
       meshEchoOf: wire.meshEchoOf,
       signal: call.signal,
     });
-    const price = this.contract?.price;
+    const price = this.contract?.costPerCall;
     const charged = chargedOf(accepted, clock);
     if (accepted.isRefused) {
       return refusedCall({
         agent: this.#agent,
         taskId: accepted.taskId,
-        read: (taskId) => this.getTask(taskId, call),
+        read: (taskId) => taskReadOf(this.#agent, this.#wired, taskId, call),
         charge: () => {
           activation.charge(price, charged);
         },
@@ -237,31 +257,13 @@ export class A2AClient<TIn extends object = object, TOut extends object = object
       });
     }
     activation.charge(price, charged);
-    const task = await this.#waited(wire, accepted, clock, call);
+    const task = await waitedOf({ agent: this.#agent, wire, accepted, clock, call });
     // #860: a direct reply settles on its message (its run report rides its metadata)
     activation.settle(task ?? accepted.message, price, settledChargeOf(charged, clock));
     const peer = settledPeerOf(activation, accepted, this.contract?.application ?? this.#agent);
     return { accepted, task, peer };
   }
-
-  /** The accepted task, waited for until it settles; `undefined` for a stateless answer. */
-  async #waited(
-    wire: Wire,
-    accepted: Accepted,
-    clock: Clock,
-    call: A2AClientCall,
-  ): Promise<Task | undefined> {
-    if (accepted.taskId === undefined) return undefined;
-    return waitForTask({
-      agent: this.#agent,
-      client: wire.client,
-      clock,
-      taskId: accepted.taskId,
-      task: accepted.task,
-      isStreaming: wire.checked.card.capabilities?.streaming === true,
-      deadlineAt: deadlineOf(clock, call),
-      signal: call.signal,
-      onEvent: call.onEvent,
-    });
-  }
 }
+
+// a component that reaches a client sends under a call key of the idempotency secret (#1317d)
+markBusinessKeyWriter(A2AClient);

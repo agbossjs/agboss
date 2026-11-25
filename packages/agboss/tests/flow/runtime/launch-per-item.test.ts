@@ -59,7 +59,7 @@ describe("AC2: an agent per item", () => {
   });
 
   screening(
-    "a limit reached in a branch fails the launch into .onJoinError(LimitExceededError, …)",
+    "a limit reached in a branch fails the launch into .onError(LimitExceededError, …)",
     async ({ app, mockLlm }) => {
       const names = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
       mockLlm(ScreeningAgent).thenReturn(companies(...names));
@@ -126,7 +126,7 @@ describe("AC10: maxItems truncates, never fails", () => {
         executionId: result.executionId,
         launch: `${result.executionId}:items-workflow-start:1`,
         items: 6,
-        maxItems: 4,
+        takeFirst: 4,
         step: { nodeId: "items-workflow-start" },
         workflow: { name: "fan-out-workflow" },
       },

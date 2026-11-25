@@ -1,16 +1,19 @@
 import {
   Agent,
   Arbiter,
-  DecidedBy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   listOf,
   type Class,
-  type Produced,
+  type Tracked,
+  Action,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toAgent } from "../../helpers/flow.js";
+import { LocalModelProvider } from "../providers.fixture.js";
 
 export class AnswerDto {
   @Text({ prompt: "an answer" })
@@ -18,21 +21,22 @@ export class AnswerDto {
 }
 
 /** Two copies of a local agent, accepted by a model arbiter on `model`. */
-export function arbiterWorkflow(model: string): Class {
+export function arbiterWorkflow(model: string, modelProvider: Class): Class {
   @Agent({
     name: "ans-agent",
     description: "A",
-    prompt: "A.",
+    prompt: inline("A."),
     model: "local/llama",
+    modelProvider: LocalModelProvider,
     output: AnswerDto,
   })
   class AnsAgent {}
   @Arbiter({
     name: "ans-arbiter",
-    decidedBy: DecidedBy.Model,
     model,
-    prompt: "Count it.",
-    criteria: [{ agent: AnsAgent, prompt: "ok" }],
+    modelProvider,
+    prompt: inline("Count it."),
+    criteria: [{ target: AnsAgent, prompt: "ok" }],
   })
   class AnsArbiter {}
   @WorkflowStart({
@@ -41,29 +45,37 @@ export function arbiterWorkflow(model: string): Class {
     input: WorkflowStartTextDto,
   })
   class AnsStart {}
-  @WorkflowFinish({
-    name: "ans-finish-workflow-finish",
+  @Action({
+    name: "ans-finish-action",
     description: "f",
     input: { answers: listOf(AnswerDto) },
     output: WorkflowFinishTextDto,
   })
-  class AnsFinish {
-    finish(i: {
-      readonly answers: readonly Produced<AnswerDto, unknown>[];
-    }): WorkflowFinishTextDto {
+  class AnsAction {
+    async execute(i: {
+      readonly answers: readonly Tracked<AnswerDto>[];
+    }): Promise<WorkflowFinishTextDto> {
       return { text: String(i.answers.length) };
     }
   }
+
+  @WorkflowFinish({
+    name: "ans-finish-workflow-finish",
+    description: "f",
+    output: WorkflowFinishTextDto,
+  })
+  class AnsFinish {}
   @Workflow({
     name: "ans-workflow",
+    modelProvider: LocalModelProvider,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(AnsStart)
-        .returns(WorkflowStartTextDto)
-        .toParallelAgents(AnsAgent, AnsAgent)
-        .acceptedBy(AnsArbiter)
+      onStart(AnsStart)
+        .inParallel([toAgent(AnsAgent), toAgent(AnsAgent)])
+        .arbitratedBy(AnsArbiter)
         .joinQuorum({ min: 2 })
-        .returns(listOf(AnswerDto))
+        .toAction(AnsAction)
         .toFinish(AnsFinish),
     ],
   })

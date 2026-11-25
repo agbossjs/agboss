@@ -7,7 +7,9 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { Application } from "../../../src/application/application.js";
@@ -15,15 +17,15 @@ import {
   ModelCost,
   ModelFailure,
   ModelProvider,
-  OpenAiCompatibleProvider,
+  OpenAiCompatibleDriver,
   PromptCaching,
   Reasoning,
   RetryPolicy,
-  type NoRequestFields,
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start, toAction } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /**
  * #396 PR 6 — what chaos exercises: a reservation (undone by its release, #340), then an agent on a
@@ -55,8 +57,8 @@ export class ChaosDesk {
 export class ReleaseAction {
   constructor(private readonly chaosDesk: ChaosDesk) {}
 
-  execute(input: { readonly reservation: Produced<ReservationDto, unknown> }): Promise<void> {
-    this.chaosDesk.release(input.reservation.value.reservationId);
+  execute(input: { readonly reservation: Tracked<ReservationDto> }): Promise<void> {
+    this.chaosDesk.release(input.reservation.reservationId);
     return Promise.resolve();
   }
 }
@@ -76,7 +78,7 @@ export class ReserveAction {
 @Agent({
   name: "confirm-agent",
   description: "Confirms the reservation",
-  prompt: "Confirm the reservation.",
+  prompt: inline("Confirm the reservation."),
   model: "chaos/model",
   input: { message: WorkflowStartTextDto },
 })
@@ -106,11 +108,10 @@ export class ReleasedWorkflowFinish {}
 @Workflow({
   name: "chaos-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChaosWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChaosWorkflowStart)
       .toAction(ReserveAction)
-      .returns(ReservationDto)
       .toAgent(ConfirmAgent)
       .onError(
         StepFailedError,
@@ -124,15 +125,18 @@ export class ReleasedWorkflowFinish {}
 export class ChaosWorkflow {}
 
 const PROVIDER = {
-  serves: [/^chaos\//],
-  baseUrl: "http://chaos.test/v1",
+  driver: OpenAiCompatibleDriver({ baseUrl: "http://chaos.test/v1" }),
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "chaos/model": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
   }),
   reasoning: Reasoning.off(),
   promptCaching: PromptCaching.off(),
-  circuitBreakerPolicy: { failureThreshold: 50, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 50,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
 } as const;
 
 /** Retries a 429 and a timeout, a moment apart. */
@@ -146,23 +150,19 @@ const PROVIDER = {
     retryOn: [ModelFailure.RateLimited, ModelFailure.Timeout],
   }),
 })
-export class RetryingModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class RetryingModelProvider {}
 
 /** Retries nothing: a failure is the step's. */
 @ModelProvider({
   ...PROVIDER,
   name: "fragile-model-provider",
   description: "Retries nothing",
-  retryPolicy: RetryPolicy.none(),
 })
-export class FragileModelProvider extends OpenAiCompatibleProvider {
-  override readonly requestFields: NoRequestFields = {};
-}
+export class FragileModelProvider {}
 
 @Application({
   name: "retrying-chaos-application",
+  modelProvider: RetryingModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChaosWorkflow],
@@ -173,6 +173,7 @@ export class RetryingChaosApplication {}
 
 @Application({
   name: "fragile-chaos-application",
+  modelProvider: FragileModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ChaosWorkflow],

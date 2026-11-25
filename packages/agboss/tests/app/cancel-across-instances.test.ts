@@ -97,12 +97,13 @@ describe("#360 AC1: a cancel on the other instance stops the running execution",
     await clock.advance(seconds(10));
 
     expect(cancelled).toEqual({ cancelled: true });
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
-    expect(seen.errors.map((error) => error.constructor)).toEqual([ExecutionCancelledError]);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
     expect(seen.ends).toEqual([]);
     expect(seen.steps).toEqual(["one"]);
     expect(seen.holds).toHaveLength(1);
-    expect(await lastStatus()).toBe("failed");
+    expect(await lastStatus()).toBe("cancelled");
     expect(await second.cancel(THREAD)).toEqual({ cancelled: false });
     expect(await first.cancel(THREAD)).toEqual({ cancelled: false });
   });
@@ -119,9 +120,10 @@ describe("#360 AC1: a cancel on the other instance stops the running execution",
     levers.letGo?.();
 
     expect(cancelled).toEqual({ cancelled: true });
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
-    expect(seen.errors).toHaveLength(1);
-    expect(await lastStatus()).toBe("failed");
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
+    expect(await lastStatus()).toBe("cancelled");
   });
 
   test("a store error reading the request is retried at the next renewal, never fatal", async ({
@@ -143,8 +145,9 @@ describe("#360 AC1: a cancel on the other instance stops the running execution",
     await clock.advance(seconds(10));
 
     expect(isAbortedWhileDown).toBe(false);
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
-    expect(seen.errors).toHaveLength(1);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
   });
 
   test("a cancel on the holder's own instance writes no request", async ({ apps, mockLlm }) => {
@@ -156,7 +159,7 @@ describe("#360 AC1: a cancel on the other instance stops the running execution",
     const cancelled = await first.cancel(THREAD);
 
     expect(cancelled).toEqual({ cancelled: true });
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(writesOf(writes)).toBe(0);
   });
 });
@@ -182,7 +185,36 @@ describe("#360: the execution moves between the request and the re-read", () => 
 
     expect(cancelled).toEqual({ cancelled: false });
     expect(removed).toBe(1);
-    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Finished });
+    // the request key is withdrawn, but the cancel's durable mark is on the lease row: the holder's
+    // finish never lands over it (#1341b) — the run ends cancelled, never recorded `answered`
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
+    expect(seen.errors).toEqual([]);
+  });
+
+  test("#1341b: a cancel that lands between the finish's look and its write — the stored outcome is cancelled, as the cancel answered", async ({
+    apps,
+    mockLlm,
+  }) => {
+    mockLlm(Clerk).thenReturn(...stepAndHold, replyWith(ReceiptDto, { text: "Done." }));
+    const [first, second] = await pair(apps);
+    const { call } = await holding(first);
+    const records = stores.records;
+    if (records === undefined) throw new Error("the records were not created");
+    const write = records.completeUnlessInterrupted.bind(records);
+    const answers: unknown[] = [];
+    // the finish has looked for a mark and found none: the other instance's cancel lands now
+    vi.spyOn(records, "completeUnlessInterrupted").mockImplementationOnce(async (...args) => {
+      answers.push(await second.cancel(THREAD));
+      return write(...args);
+    });
+
+    levers.letGo?.();
+
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
+    expect(answers).toEqual([{ cancelled: true }]);
+    expect(await lastStatus()).toBe("cancelled");
+    expect(seen.ends).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
     expect(seen.errors).toEqual([]);
   });
 
@@ -203,9 +235,10 @@ describe("#360: the execution moves between the request and the re-read", () => 
     levers.letGo?.();
 
     expect(await cancelling).toEqual({ cancelled: true });
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
-    expect(seen.errors).toHaveLength(1);
-    expect(await lastStatus()).toBe("failed");
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
+    expect(await lastStatus()).toBe("cancelled");
   });
 
   test("a request found before the tree rests paused: it ends cancelled instead", async ({
@@ -227,9 +260,10 @@ describe("#360: the execution moves between the request and the re-read", () => 
 
     const call = execute(first, OrderWorkflowStart, { text: "charge" }, { threadId: THREAD });
 
-    await expect(call).rejects.toBeInstanceOf(ExecutionCancelledError);
-    expect(seen.errors).toHaveLength(1);
-    expect(await lastStatus()).toBe("failed");
+    await expect(call).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
+    expect(await lastStatus()).toBe("cancelled");
     expect(await first.cancel(THREAD)).toEqual({ cancelled: false });
   });
 
@@ -252,10 +286,11 @@ describe("#360: the execution moves between the request and the re-read", () => 
 
     const resumed = second.resume(answerOf(paused, { approved: true }));
 
-    await expect(resumed).rejects.toBeInstanceOf(ExecutionCancelledError);
+    await expect(resumed).resolves.toMatchObject({ status: ExecutionStatus.Cancelled });
     expect(seen.charges).toEqual([]);
-    expect(seen.errors).toHaveLength(1);
-    expect(await lastStatus()).toBe("failed");
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
+    expect(await lastStatus()).toBe("cancelled");
   });
 });
 
@@ -275,10 +310,11 @@ describe("#360 AC2: a cancel requested while the holder is down", () => {
 
     expect(cancelled).toEqual({ cancelled: true });
     await expect(call).rejects.toBeInstanceOf(ExecutionLeaseLostError);
-    expect(seen.errors.map((error) => error.constructor)).toEqual([ExecutionCancelledError]);
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
     expect(seen.resumes).toEqual([]);
     expect(seen.holds).toHaveLength(1);
-    expect(await lastStatus()).toBe("failed");
+    expect(await lastStatus()).toBe("cancelled");
   });
 
   test("an instance of another config version ends it too: ending runs no graph", async ({
@@ -296,9 +332,10 @@ describe("#360 AC2: a cancel requested while the holder is down", () => {
     await clock.advance(seconds(31));
 
     await expect(call).rejects.toBeInstanceOf(ExecutionLeaseLostError);
-    expect(seen.errors.map((error) => error.constructor)).toEqual([ExecutionCancelledError]);
+    expect(seen.errors).toEqual([]);
+    expect(seen.cancels).toHaveLength(1);
     expect(seen.resumes).toEqual([]);
-    expect(await lastStatus()).toBe("failed");
+    expect(await lastStatus()).toBe("cancelled");
   });
 });
 

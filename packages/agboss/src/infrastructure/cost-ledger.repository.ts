@@ -6,7 +6,7 @@ import {
   CostLedgerEntryExpiredError,
   CostLedgerEntryInvalidError,
 } from "../finops/ledger-mark.js";
-import { totalCost, type UsageRecord } from "../finops/usage.js";
+import { totalCost, totalTokens, type UsageRecord } from "../finops/usage.js";
 import { usd, type Usd } from "../units/index.js";
 
 /**
@@ -35,6 +35,28 @@ export interface CostCounter extends BudgetAccount {
 }
 
 /**
+ * What a counter holds (#1318): the dollars and the tokens spent. A call that cost nothing but used
+ * tokens (an unpriced CLI or local model) adds to `tokens` only.
+ */
+export interface BudgetUsage {
+  readonly spent: Usd;
+  /** Input plus output tokens (`tokensOf`): what `maxTokens` counts. */
+  readonly tokens: number;
+}
+
+/**
+ * A budget's limits as the ledger keeps them (#1318): either may be absent (a token-only budget has
+ * no `maxSpend`, a USD-only budget no `maxTokens`). Both absent is no limit.
+ */
+export interface BudgetLimit {
+  readonly maxSpend?: Usd | undefined;
+  readonly maxTokens?: number | undefined;
+}
+
+/** A counter that has never been written. */
+export const NO_USAGE: BudgetUsage = { spent: usd(0), tokens: 0 };
+
+/**
  * One call's spend as the ledger keeps it (#727, #771, #817): its usage record with its identity in
  * the ledger — `ledgerId`, an id of the pass that made it — and the date it was made, `madeAt` (the
  * `Clock`), its cost in `Usd`. What `CostLedgerRepository.saveAll` takes: a record without an id
@@ -56,11 +78,14 @@ export abstract class CostLedgerRepository {
    * timeout of its own.
    */
   abstract ping(): Promise<void>;
-  /** What the counter holds: the spend of its account in its period, `usd(0)` for a new one. */
-  abstract findSpentByCounter(counter: CostCounter): Promise<Usd>;
+  /**
+   * What the counter holds: the spend and the tokens of its account in its period, `NO_USAGE` for a
+   * new one.
+   */
+  abstract findUsageByCounter(counter: CostCounter): Promise<BudgetUsage>;
 
   /**
-   * Adds the cost of these entries to every counter, atomically per counter (#727, #817): each
+   * Adds the cost and the tokens of these entries to every counter, atomically per counter (#727, #817): each
    * entry is the spend of one call under its `ledgerId`, added once — a later save of the same id,
    * on any instance and also one that races it, adds nothing — and kept, dated by its `madeAt`
    * (#771), with the counters it was added to, in one atomic write. Only a `LedgerEntry` is taken:
@@ -86,13 +111,13 @@ export abstract class CostLedgerRepository {
   abstract deleteByMadeAtBefore(cutoff: Date): Promise<void>;
 
   /**
-   * The `maxSpend()` an execution last read for the account — the last known limit, for a report
-   * outside an execution (the framework never calls `maxSpend()` there); `undefined` when none did.
+   * The limits an execution last read for the account — the last known limits, for a report outside
+   * an execution (the framework never reads a budget's limits there); `undefined` when none did.
    */
-  abstract findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined>;
+  abstract findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined>;
 
-  /** Keeps the `maxSpend()` an execution read for the account (the last one wins). */
-  abstract saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void>;
+  /** Keeps the limits an execution read for the account (the last one wins). */
+  abstract saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void>;
 }
 
 /** The row key of an account (`\u0000` never occurs in a name or an id). */
@@ -111,6 +136,16 @@ function invalidityOf(entry: unknown): string | undefined {
     return `its madeAt is no valid Date: ${String(madeAt)}`;
   if (!Number.isFinite(costUsd) || Number(costUsd) < 0)
     return `its costUsd is no finite amount ≥ 0: ${String(costUsd)}`;
+  return tokenInvalidityOf(entry);
+}
+
+/** Tokens that are no count would poison a token budget's counter — NaN is never reached (#1318). */
+function tokenInvalidityOf(entry: object): string | undefined {
+  for (const field of ["inputTokens", "outputTokens"] as const) {
+    const tokens: unknown = Reflect.get(entry, field);
+    if (!Number.isFinite(tokens) || Number(tokens) < 0)
+      return `its ${field} is no finite count ≥ 0: ${String(tokens)}`;
+  }
   return undefined;
 }
 
@@ -214,8 +249,8 @@ export const counterKeyOf = (counter: CostCounter): string =>
  */
 @Injectable()
 export class InMemoryCostLedgerRepository extends CostLedgerRepository {
-  readonly #spent = new Map<string, number>();
-  readonly #maxSpend = new Map<string, Usd>();
+  readonly #spent = new Map<string, { usd: number; tokens: number }>();
+  readonly #limits = new Map<string, BudgetLimit>();
   /** Each entry's `ledgerId` and when it was made, in ms (kept as a number: no caller's `Date`). */
   readonly #entries = new Map<string, number>();
   /** The pruning mark (#771), in ms: entries made before it were, or may have been, removed. */
@@ -225,8 +260,11 @@ export class InMemoryCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  findSpentByCounter(counter: CostCounter): Promise<Usd> {
-    return Promise.resolve(usd(this.#spent.get(counterKeyOf(counter)) ?? 0));
+  findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
+    const held = this.#spent.get(counterKeyOf(counter));
+    return Promise.resolve(
+      held === undefined ? NO_USAGE : { spent: usd(held.usd), tokens: held.tokens },
+    );
   }
 
   saveAll(counters: readonly CostCounter[], entries: readonly LedgerEntry[]): Promise<void> {
@@ -249,12 +287,15 @@ export class InMemoryCostLedgerRepository extends CostLedgerRepository {
       return Promise.reject(
         new CostLedgerEntryExpiredError({ ledgerIds: expired, prunedBefore: mark }),
       );
-    const spent = totalCost(
-      unrecordedEntriesOf(entries, (id, madeAt) => this.#isNewEntry(id, madeAt.getTime())),
+    const added = unrecordedEntriesOf(entries, (id, madeAt) =>
+      this.#isNewEntry(id, madeAt.getTime()),
     );
+    const spent = totalCost(added);
+    const tokens = totalTokens(added);
     for (const counter of counters) {
       const key = counterKeyOf(counter);
-      this.#spent.set(key, (this.#spent.get(key) ?? 0) + spent);
+      const held = this.#spent.get(key) ?? { usd: 0, tokens: 0 };
+      this.#spent.set(key, { usd: held.usd + spent, tokens: held.tokens + tokens });
     }
     return Promise.resolve();
   }
@@ -276,12 +317,12 @@ export class InMemoryCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined> {
-    return Promise.resolve(this.#maxSpend.get(accountKeyOf(account)));
+  findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined> {
+    return Promise.resolve(this.#limits.get(accountKeyOf(account)));
   }
 
-  saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void> {
-    this.#maxSpend.set(accountKeyOf(account), maxSpend);
+  saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void> {
+    this.#limits.set(accountKeyOf(account), limit);
     return Promise.resolve();
   }
 }

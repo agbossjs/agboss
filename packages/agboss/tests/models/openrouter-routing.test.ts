@@ -1,3 +1,5 @@
+import { TestDecisionsProvider } from "./providers.fixture.js";
+import { usd } from "../../src/units/index.js";
 /**
  * #395 PR 6 (S8): OpenRouter's host routing — camelCase in TypeScript (`allowFallbacks`,
  * `quantizations: [Quantization.Bf16]`), snake_case only in the body sent; `UsageRecord.servedBy`
@@ -11,56 +13,59 @@ import { checkModelUses } from "../../src/models/check.js";
 import {
   CachedPart,
   CacheRetention,
-  DecisionsModelProvider,
   ModelCost,
   ModelProvider,
-  OpenRouterProvider,
+  OpenRouterDriver,
   PromptCaching,
   ProviderSort,
   Quantization,
   Reasoning,
   RetryPolicy,
-  type OpenRouterFields,
 } from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { routingProblemsOf, type ModelEndpoint } from "../../src/models/openrouter-routing.js";
 import { servedByFetch } from "../../src/models/served-by.js";
 import type { ProviderFetch } from "../../src/models/resilient-fetch.js";
+import { ModelKind } from "../../src/models/model-kind.js";
 import { modelUsesOf } from "../../src/models/uses.js";
 import { minutes, seconds } from "../../src/units/index.js";
 import type { AgentsConfigOf } from "../../src/config/types.js";
 import { completion, KIMI_ENTRY, providerStub } from "./stub.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { ENV, instanceCalls, KEYS } from "./gateway.js";
+import { handlerOf } from "./driver-handler.js";
+import { secret } from "../../src/environments/secret.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 /** An OpenRouter provider pinned to Fireworks at bf16, without fallbacks. */
 @ModelProvider({
   name: "pinned-openrouter-model-provider",
   description: "OpenRouter, one host at one precision",
-  serves: [/^moonshotai\//],
-  baseUrl: "http://openrouter.test/api/v1",
-  apiKey: "openRouterApiKey",
-  timeout: minutes(2),
-  cost: ModelCost.fromResponse(),
-  reasoning: Reasoning.modelDecides(),
-  promptCaching: PromptCaching.whereSupported({
-    retention: CacheRetention.FiveMinutes,
-    cachedParts: [CachedPart.SystemPrompt],
-  }),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 3, window: minutes(1), openFor: seconds(30) },
-})
-class PinnedOpenRouterProvider extends OpenRouterProvider {
-  override readonly requestFields: OpenRouterFields = {
-    provider: {
+  driver: OpenRouterDriver({
+    baseUrl: "http://openrouter.test/api/v1",
+    apiKey: secret("OPENROUTER_API_KEY"),
+    routing: {
       only: ["fireworks"],
       ignore: ["together"],
       quantizations: [Quantization.Bf16],
       allowFallbacks: false,
       sort: ProviderSort.Throughput,
     },
-  };
-}
+  }),
+  timeout: minutes(2),
+  cost: ModelCost.fromResponse(),
+  reasoning: Reasoning.modelDecides(),
+  promptCaching: PromptCaching.on({
+    retention: CacheRetention.FiveMinutes,
+    cachedParts: [CachedPart.SystemPrompt],
+  }),
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 3,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
+})
+class PinnedOpenRouterProvider {}
 
 const FIREWORKS_BF16: ModelEndpoint = {
   host: "Fireworks",
@@ -71,8 +76,13 @@ const TOGETHER_FP8: ModelEndpoint = { host: "Together", slug: "together", quanti
 
 describe("the routing on the wire: camelCase in, snake_case out", () => {
   it("allowFallbacks becomes allow_fallbacks; every other field as it is", () => {
-    const plan = new PinnedOpenRouterProvider().wirePlanOf({
-      settings: { model: "moonshotai/kimi-k2.6", temperature: 0, maxTokens: 10 },
+    const plan = handlerOf(PinnedOpenRouterProvider).wirePlanOf({
+      settings: {
+        model: "moonshotai/kimi-k2.6",
+        modelProvider: "pinned-openrouter-model-provider",
+        temperature: 0,
+        maxTokens: 10,
+      },
       reasoning: Reasoning.modelDecides(),
       promptCaching: PromptCaching.off(),
     });
@@ -110,7 +120,7 @@ describe("UsageRecord.servedBy: the host that served the call", () => {
       },
     );
 
-    expect(record).toMatchObject({ servedBy: "Fireworks", costUsd: 0.001, costSource: "api" });
+    expect(record).toMatchObject({ servedBy: "Fireworks", costUsd: usd(0.001), costSource: "api" });
   });
 
   it("through the provider's chat model: the call's usage record names its host", async () => {
@@ -118,10 +128,15 @@ describe("UsageRecord.servedBy: the host that served the call", () => {
       { body: { ...(completion("ok", 0.001).body as object), provider: "Fireworks" } },
     ]);
     const gateway = createProviderGateway(
-      ModelProviderDirectory.of([PinnedOpenRouterProvider, DecisionsModelProvider]),
+      ModelProviderDirectory.of([PinnedOpenRouterProvider, TestDecisionsProvider]),
       { env: ENV, environment: KEYS, calls: instanceCalls(), send: stub.fetch },
     );
-    const settings = { model: "moonshotai/kimi-k2.6", temperature: 0, maxTokens: 10 };
+    const settings = {
+      model: "moonshotai/kimi-k2.6",
+      modelProvider: "pinned-openrouter-model-provider",
+      temperature: 0,
+      maxTokens: 10,
+    };
 
     const message = await gateway
       .chatModel({ user: { kind: "agent", agent: "scout" }, settings })
@@ -129,7 +144,7 @@ describe("UsageRecord.servedBy: the host that served the call", () => {
 
     expect(recordUsage("agent:scout", settings, message)).toMatchObject({
       servedBy: "Fireworks",
-      costUsd: 0.001,
+      costUsd: usd(0.001),
     });
     expect(stub.requests.at(-1)?.body).toMatchObject({
       provider: { only: ["fireworks"], allow_fallbacks: false, quantizations: ["bf16"] },
@@ -325,13 +340,28 @@ describe("agboss check --models: [model.no-matching-endpoint]", () => {
     version: "1",
     defaults: {
       models: { temperature: 0, maxTokens: 1000 },
-      router: { kind: "jev", model: "typesafe/jev-1.13" },
+      router: {
+        kind: "jev",
+        model: "typesafe/jev-1.13",
+        modelProvider: "decisions-model-provider",
+      },
       tools: { maxToolCalls: 1 },
       uncompactedTurns: 1,
     },
-    agents: { scout: { model: "moonshotai/kimi-k2.6", description: "s" } },
+    agents: {
+      scout: {
+        model: "moonshotai/kimi-k2.6",
+        modelProvider: "pinned-openrouter-model-provider",
+        description: "s",
+      },
+    },
   };
-  const uses = modelUsesOf(config, []);
+  const uses = modelUsesOf(
+    config,
+    [],
+    {},
+    new Map([["decisions-model-provider", ModelKind.Decisions]]),
+  );
 
   /** OpenRouter's model list and the model's endpoints, the URLs asked kept. */
   const openRouter = (endpoints: readonly Record<string, unknown>[]) => {
@@ -352,7 +382,7 @@ describe("agboss check --models: [model.no-matching-endpoint]", () => {
 
     const problems = await checkModelUses(
       uses,
-      ModelProviderDirectory.of([PinnedOpenRouterProvider, DecisionsModelProvider]),
+      ModelProviderDirectory.of([PinnedOpenRouterProvider, TestDecisionsProvider]),
       { env: {}, send, endpoints: true },
     );
 
@@ -375,7 +405,7 @@ describe("agboss check --models: [model.no-matching-endpoint]", () => {
     ]);
     const atStartup = openRouter([]);
     const directory = () =>
-      ModelProviderDirectory.of([PinnedOpenRouterProvider, DecisionsModelProvider]);
+      ModelProviderDirectory.of([PinnedOpenRouterProvider, TestDecisionsProvider]);
 
     expect(
       await checkModelUses(uses, directory(), { env: {}, send: served.send, endpoints: true }),

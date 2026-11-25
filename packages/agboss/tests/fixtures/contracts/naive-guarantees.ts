@@ -15,9 +15,11 @@ import {
   type BudgetAccount,
   type CostCounter,
   type LedgerEntry,
+  type BudgetLimit,
+  type BudgetUsage,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
 import { CostLedgerEntryExpiredError } from "../../../src/finops/ledger-mark.js";
-import { totalCost } from "../../../src/finops/usage.js";
+import { totalCost, totalTokens } from "../../../src/finops/usage.js";
 import {
   treeKeyOf,
   type InMemoryDatabase,
@@ -28,7 +30,7 @@ import {
 } from "../../../src/infrastructure/mesh-request.repository.js";
 import { InMemoryRateLimitRepository } from "../../../src/infrastructure/rate-limit.repository.js";
 import { usd, type Milliseconds, type Usd } from "../../../src/units/index.js";
-import type { EffectKeyFields } from "../../../src/index.js";
+import type { EffectKeyFields } from "../../../src/stores/index.js";
 import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
 
 /** A key as a naive store rewrites it before passing it on. */
@@ -97,14 +99,18 @@ export class LookThenWriteMeshRequestRepository extends InMemoryMeshRequestRepos
 /** A ledger that reads, waits a round trip, then writes: concurrent saves lose updates. */
 export class ReadThenWriteCostLedgerRepository extends CostLedgerRepository {
   readonly #spent = new Map<string, number>();
-  readonly #maxSpend = new Map<string, Usd>();
+  readonly #tokens = new Map<string, number>();
+  readonly #limits = new Map<string, BudgetLimit>();
 
   ping(): Promise<void> {
     return Promise.resolve();
   }
 
-  findSpentByCounter(counter: CostCounter): Promise<Usd> {
-    return Promise.resolve(usd(this.#spent.get(counterKeyOf(counter)) ?? 0));
+  findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
+    return Promise.resolve({
+      spent: usd(this.#spent.get(counterKeyOf(counter)) ?? 0),
+      tokens: this.#tokens.get(counterKeyOf(counter)) ?? 0,
+    });
   }
 
   async saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]): Promise<void> {
@@ -114,6 +120,7 @@ export class ReadThenWriteCostLedgerRepository extends CostLedgerRepository {
       const before = this.#spent.get(key) ?? 0;
       await new Promise((resolve) => setImmediate(resolve));
       this.#spent.set(key, before + totalCost(records));
+      this.#tokens.set(key, (this.#tokens.get(key) ?? 0) + totalTokens(records));
     }
   }
 
@@ -121,12 +128,12 @@ export class ReadThenWriteCostLedgerRepository extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined> {
-    return Promise.resolve(this.#maxSpend.get(accountKeyOf(account)));
+  findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined> {
+    return Promise.resolve(this.#limits.get(accountKeyOf(account)));
   }
 
-  saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void> {
-    this.#maxSpend.set(accountKeyOf(account), maxSpend);
+  saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void> {
+    this.#limits.set(accountKeyOf(account), limit);
     return Promise.resolve();
   }
 }
@@ -137,14 +144,18 @@ export class ReadThenWriteCostLedgerRepository extends CostLedgerRepository {
  */
 export class PrunedWithoutMarkCostLedgerRepository extends CostLedgerRepository {
   readonly #spent = new Map<string, number>();
+  readonly #tokens = new Map<string, number>();
   readonly #entries = new Map<string, Date>();
 
   ping(): Promise<void> {
     return Promise.resolve();
   }
 
-  findSpentByCounter(counter: CostCounter): Promise<Usd> {
-    return Promise.resolve(usd(this.#spent.get(counterKeyOf(counter)) ?? 0));
+  findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
+    return Promise.resolve({
+      spent: usd(this.#spent.get(counterKeyOf(counter)) ?? 0),
+      tokens: this.#tokens.get(counterKeyOf(counter)) ?? 0,
+    });
   }
 
   saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]): Promise<void> {
@@ -159,6 +170,7 @@ export class PrunedWithoutMarkCostLedgerRepository extends CostLedgerRepository 
     for (const counter of counters) {
       const key = counterKeyOf(counter);
       this.#spent.set(key, (this.#spent.get(key) ?? 0) + totalCost(added));
+      this.#tokens.set(key, (this.#tokens.get(key) ?? 0) + totalTokens(added));
     }
     return Promise.resolve();
   }
@@ -169,11 +181,11 @@ export class PrunedWithoutMarkCostLedgerRepository extends CostLedgerRepository 
     return Promise.resolve();
   }
 
-  findMaxSpendByAccount(): Promise<Usd | undefined> {
+  findLimitByAccount(): Promise<BudgetLimit | undefined> {
     return Promise.resolve(undefined);
   }
 
-  saveMaxSpend(): Promise<void> {
+  saveLimit(): Promise<void> {
     return Promise.resolve();
   }
 }
@@ -184,8 +196,9 @@ export class PrunedWithoutMarkCostLedgerRepository extends CostLedgerRepository 
  */
 abstract class BreakableCostLedger extends CostLedgerRepository {
   readonly #spent = new Map<string, number>();
+  readonly #tokens = new Map<string, number>();
   readonly #entries = new Map<string, Date>();
-  readonly #maxSpend = new Map<string, Usd>();
+  readonly #limits = new Map<string, BudgetLimit>();
   #prunedBefore: Date | undefined;
   protected abstract readonly isChecked: boolean;
   /** Whether it refuses a cutoff that is no date. */
@@ -199,8 +212,11 @@ abstract class BreakableCostLedger extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  findSpentByCounter(counter: CostCounter): Promise<Usd> {
-    return Promise.resolve(usd(this.#spent.get(counterKeyOf(counter)) ?? 0));
+  findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
+    return Promise.resolve({
+      spent: usd(this.#spent.get(counterKeyOf(counter)) ?? 0),
+      tokens: this.#tokens.get(counterKeyOf(counter)) ?? 0,
+    });
   }
 
   saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]): Promise<void> {
@@ -214,26 +230,28 @@ abstract class BreakableCostLedger extends CostLedgerRepository {
       return Promise.reject(
         new CostLedgerEntryExpiredError({ ledgerIds: expired, prunedBefore: this.#prunedBefore }),
       );
-    const spent = this.#addedOf(records);
+    const added = this.#addedOf(records);
+    const spent = totalCost(added);
     for (const counter of counters) {
       const key = counterKeyOf(counter);
       this.#spent.set(key, (this.#spent.get(key) ?? 0) + spent);
+      this.#tokens.set(key, (this.#tokens.get(key) ?? 0) + totalTokens(added));
     }
     return Promise.resolve();
   }
 
   /** What a save adds: a record without an id every time, an entry once. */
-  #addedOf(records: readonly LedgerEntry[]): number {
-    let spent = 0;
+  #addedOf(records: readonly LedgerEntry[]): readonly LedgerEntry[] {
+    const added: LedgerEntry[] = [];
     for (const record of records) {
       const { ledgerId } = record;
-      if (typeof ledgerId !== "string") spent += record.costUsd;
+      if (typeof ledgerId !== "string") added.push(record);
       else if (!this.#entries.has(ledgerId)) {
         this.#entries.set(ledgerId, record.madeAt);
-        spent += record.costUsd;
+        added.push(record);
       }
     }
-    return spent;
+    return added;
   }
 
   deleteByMadeAtBefore(cutoff: Date): Promise<void> {
@@ -248,12 +266,12 @@ abstract class BreakableCostLedger extends CostLedgerRepository {
     return Promise.resolve();
   }
 
-  findMaxSpendByAccount(account: BudgetAccount): Promise<Usd | undefined> {
-    return Promise.resolve(this.#maxSpend.get(accountKeyOf(account)));
+  findLimitByAccount(account: BudgetAccount): Promise<BudgetLimit | undefined> {
+    return Promise.resolve(this.#limits.get(accountKeyOf(account)));
   }
 
-  saveMaxSpend(account: BudgetAccount, maxSpend: Usd): Promise<void> {
-    this.#maxSpend.set(accountKeyOf(account), maxSpend);
+  saveLimit(account: BudgetAccount, limit: BudgetLimit): Promise<void> {
+    this.#limits.set(accountKeyOf(account), limit);
     return Promise.resolve();
   }
 }

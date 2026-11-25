@@ -1,6 +1,7 @@
-import { createAppWith } from "../../src/application/create-app.js";
+import { hours, minutes } from "../../src/units/index.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { afterEach, describe, expect, it } from "vitest";
-import { A2AAgent, A2AClient, A2AExpose, a2aHttpListener } from "../../src/a2a/index.js";
+import { A2AAgent, A2AClient, A2AEndpoint, a2aHttpListener } from "../../src/a2a/index.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { App } from "../../src/app/types.js";
@@ -11,7 +12,7 @@ import { replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
-  OpenCallerResolver,
+  OpenAuthenticator,
   QuoteA2AExpose,
   QuoteWorkflow,
   QuoteWorkflowStart,
@@ -21,6 +22,7 @@ import {
   ShopKbApplication,
 } from "./fixtures/contracts.workflow.js";
 import { offline } from "./fixtures/remote.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const apps: App[] = [];
 
@@ -28,34 +30,35 @@ afterEach(async () => {
   await Promise.all(apps.splice(0).map((app) => app.close()));
 });
 
-describe("#398 PR 3: a2aHttpListener serves an @A2AExpose", () => {
-  it("an expose the application does not list: [application.expose-unlisted]", async () => {
-    const app = await createAppWith(ShopApplication, offline(new ScriptBook()));
+describe("#398 PR 3: a2aHttpListener serves an @A2AEndpoint", () => {
+  it("an expose the application does not list: [application.endpoint-unlisted]", async () => {
+    const app = await createTestAppWith(ShopApplication, offline(new ScriptBook()));
     apps.push(app);
 
     const built = () =>
       a2aHttpListener(app, {
-        expose: QuoteA2AExpose,
-        callerResolver: OpenCallerResolver,
+        endpoint: QuoteA2AExpose,
+        authenticator: OpenAuthenticator,
         publicUrl: "http://127.0.0.1",
       });
 
-    expect(built).toThrow(/^\[application\.expose-unlisted\] QuoteA2AExpose is not listed/);
+    expect(built).toThrow(/^\[application\.endpoint-unlisted\] QuoteA2AExpose is not listed/);
   });
 });
 
 describe("#398 PR 3: the contracts at assembly", () => {
   it("names, exports and targets are checked, every violation at once", async () => {
-    @A2AExpose({
-      name: "shop-expose",
+    @A2AEndpoint({
+      name: "Shop_Expose",
       version: "1.0.0",
       description: "A shop",
-      exports: [QuoteWorkflowStart, Object],
+      ttl: { tasks: hours(24), messages: minutes(15) },
+      skills: [QuoteWorkflowStart, Object],
     })
     class ShopExpose {}
 
     @A2AAgent({
-      name: "billing-desk",
+      name: "Billing_Desk",
       url: "http://billing.invalid",
       input: WorkflowStartTextDto,
       output: WorkflowFinishTextDto,
@@ -67,32 +70,32 @@ describe("#398 PR 3: the contracts at assembly", () => {
 
     @Application({
       name: "broken-application",
+      modelProvider: TestModelProvider,
       version: "1.0.0",
       environment: EmptyEnvironment,
       workflows: [QuoteWorkflow, RefundWorkflow],
       budgets: TEST_BUDGETS,
       providers: [BillingDesk],
-      exposes: [ShopExpose, NotAnExpose, ShopA2AExpose, ShopA2AExpose],
+      endpoints: [ShopExpose, NotAnExpose, ShopA2AExpose, ShopA2AExpose],
     })
     class BrokenApplication {}
 
-    const built = applicationOf(BrokenApplication);
+    const built = applicationOf(BrokenApplication, { withoutIdempotencyKeys: true });
 
     await expect(built).rejects.toBeInstanceOf(GraphRuleError);
     const message = await built.catch((error: unknown) => String(error));
     expect(message).toContain(
-      '[name.kind-suffix] "shop-expose" on @A2AExpose — name it "shop-expose-a2a-expose"',
+      '[name.not-kebab-case] "Shop_Expose" on @A2AEndpoint — a name is kebab-case: "shop-expose"',
     );
-    expect(message).toContain("[name.kind-suffix] class ShopExpose — name it ShopExposeA2AExpose");
-    expect(message).toContain("[application.expose-unknown-start] shop-expose exports Object");
-    expect(message).toContain("[application.not-an-expose] NotAnExpose");
+    expect(message).not.toContain("name.kind-suffix");
+    expect(message).toContain("[application.endpoint-unknown-start] Shop_Expose serves Object");
+    expect(message).toContain("[application.not-an-endpoint] NotAnExpose");
     expect(message).toContain(
-      "[application.duplicate-expose] broken-application exposes two contracts named shop-a2a-expose",
+      "[application.duplicate-endpoint] broken-application serves two contracts named shop-a2a-expose",
     );
     expect(message).toContain(
-      '[name.kind-suffix] "billing-desk" on @A2AAgent — name it "billing-desk-a2a-agent"',
+      '[name.not-kebab-case] "Billing_Desk" on @A2AAgent — a name is kebab-case: "billing-desk"',
     );
-    expect(message).toContain("[name.kind-suffix] class BillingDesk — name it BillingDeskA2AAgent");
     // #809: a target is optional (a foreign agent has none): no [a2a.target-required]
     expect(message).not.toContain("a2a.target-required");
   });
@@ -100,7 +103,9 @@ describe("#398 PR 3: the contracts at assembly", () => {
 
 describe("#398 PR 3: describe --json lists the declared contracts", () => {
   it("AC2: exports by expose and skill, imports (a foreign peer with foreign: true) by client and server, each DTO with its schemaHash", async () => {
-    const contracts = contractsOf(await applicationOf(ShopKbApplication));
+    const contracts = contractsOf(
+      await applicationOf(ShopKbApplication, { withoutIdempotencyKeys: true }),
+    );
 
     expect(contracts.exports).toEqual([
       {

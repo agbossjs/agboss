@@ -1,6 +1,5 @@
-import { Decimal, Flag, ListOf, Nested, Text } from "../decorators.js";
+import { Bool, List, Nested, Text, Validate } from "../decorators.js";
 import { markOpen } from "../metadata.js";
-import { crossFieldRule } from "../schema.js";
 import { PiiAction } from "../../pii/actions.js";
 
 /** The text a workflow run starts with (the input of a text `@WorkflowStart`). */
@@ -11,15 +10,9 @@ export class WorkflowStartTextDto {
   @Text({
     prompt: "who or what sent it, if the caller knows",
     optional: true,
-    sensitive: PiiAction.replaceWithToken(),
+    sensitive: PiiAction.mask(),
   })
   author?: string;
-}
-
-/** The text a workflow run finishes with (the output of a text `@WorkflowFinish`). */
-export class WorkflowFinishTextDto {
-  @Text({ prompt: "the text the run finishes with, in plain words" })
-  text!: string;
 }
 
 /** What a workflow pause asks outside the run — a person or a system. */
@@ -27,7 +20,7 @@ export class WorkflowPauseQuestionDto {
   @Text({ prompt: "the question to ask, in one sentence" })
   question!: string;
 
-  @ListOf(Text, {
+  @List(Text, {
     prompt: "answers to choose from, if the choice is closed",
     optional: true,
     maxItems: 6,
@@ -66,8 +59,13 @@ export class ToolCallApprovalAskDto {
  * The decision on one tool call waiting for approval (#267): who answered is not part of it — the
  * resume's `answeredBy` or the thread's owner, checked by the framework.
  */
+@Validate<ToolCallApprovalDecisionDto>(({ approved, overrideInput }) =>
+  overrideInput !== undefined && !approved
+    ? { field: "overrideInput", reason: "overrideInput only with approved: true" }
+    : undefined,
+)
 export class ToolCallApprovalDecisionDto {
-  @Flag({ prompt: "true to run the call, false to refuse it" })
+  @Bool({ prompt: "true to run the call, false to refuse it" })
   approved!: boolean;
 
   @Text({ prompt: "why: the reason for a rejection, or a note on an approval", optional: true })
@@ -77,20 +75,14 @@ export class ToolCallApprovalDecisionDto {
     prompt: "the arguments to run the call with instead (only with approved: true)",
     optional: true,
   })
-  overrideArguments?: ToolArguments;
+  overrideInput?: ToolArguments;
 }
-
-crossFieldRule(ToolCallApprovalDecisionDto, ({ approved, overrideArguments }) =>
-  overrideArguments !== undefined && !approved
-    ? { field: "overrideArguments", reason: "overrideArguments only with approved: true" }
-    : undefined,
-);
 
 /**
  * What a model reply interpreter answers when a reply does not answer its pause's question (#648):
  * unclear, off topic, a shrug — never a refusal. The pause stays pending and
  * `UninterpretableReplyError` carries the `reason`, as a code interpreter's
- * `ReplyInterpretation.notUnderstood({ reason })` does. Tests script it as
+ * `ChannelInterpretation.notUnderstood({ reason })` does. Tests script it as
  * `replyWith(ReplyInterpreterNotUnderstoodDto, { reason })`.
  */
 export class ReplyInterpreterNotUnderstoodDto {
@@ -110,14 +102,11 @@ export class PlainTextDto {
   text!: string;
 }
 
-/** A piece of text a knowledge base (`@Rag`) found for a query. */
-export class RagSearchResultDto {
-  @Text({ prompt: "the found text" })
-  text!: string;
-
-  @Text({ prompt: "where it comes from: a document, a page, a file" })
-  source!: string;
-
-  @Decimal({ prompt: "how well it matches the query, from 0 to 1", optional: true, min: 0, max: 1 })
-  score?: number;
+/**
+ * The text a workflow run finishes with (the output of a text `@WorkflowFinish`). It is a
+ * `PlainTextDto`, so one text `@Judge({ output: PlainTextDto })` judges an agent's text and a finish's.
+ */
+export class WorkflowFinishTextDto extends PlainTextDto {
+  @Text({ prompt: "the text the run finishes with, in plain words" })
+  override text = "";
 }

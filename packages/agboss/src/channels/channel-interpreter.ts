@@ -1,0 +1,159 @@
+import { recordOptionKeys } from "../components/option-keys.js";
+import { CHANNEL_INTERPRETER_KEYS } from "../components/decorator-options.js";
+import type { PromptVariables } from "../components/prompt-variables.js";
+import { callerFile } from "../components/call-site.js";
+import type { PromptSource } from "../components/prompt-source.js";
+import type { Class, ResolvedAll, Token } from "../components/injection.js";
+import type { InputOf, OutputOf } from "../flow/generated-types.js";
+import { resolvedName } from "../flow/names.js";
+
+/**
+ * `@ChannelInterpreter` (#1310c): the new name of `@ReplyInterpreter` — who turns a free-text reply
+ * to a pause into its target's typed output, named on the target (`@ToolApproval({
+ * channelInterpreter })`). A class with `interpret(input)` decides by code, an empty one with a
+ * `prompt` by its chat `model`.
+ */
+
+/** The two outcomes of a code interpreter's `interpret`. */
+export enum ChannelInterpretationKind {
+  /** The reply was read: its output is validated like any other answer. */
+  Understood = "understood",
+  /** The reply says nothing the interpreter can read: the pause stays pending. */
+  NotUnderstood = "not-understood",
+}
+
+declare const channelInterpretation: unique symbol;
+
+/** The reply was read as `output`. */
+export interface UnderstoodChannelInterpretation<out TOutput> {
+  /** A mark only `ChannelInterpretation.understood` / `.notUnderstood` give. */
+  readonly [channelInterpretation]: true;
+  readonly kind: ChannelInterpretationKind.Understood;
+  readonly output: TOutput;
+}
+
+/** The reply was not understood: `reason` is the `UninterpretableReplyError`'s. */
+export interface NotUnderstoodChannelInterpretation {
+  readonly [channelInterpretation]: true;
+  readonly kind: ChannelInterpretationKind.NotUnderstood;
+  readonly reason: string;
+}
+
+/** What `interpret` returns: `ChannelInterpretation.understood(…)` or `.notUnderstood(reason)`. */
+export type ChannelInterpretation<TOutput = never> =
+  UnderstoodChannelInterpretation<TOutput> | NotUnderstoodChannelInterpretation;
+
+/** The only way to build an interpretation. */
+export const ChannelInterpretation = {
+  /** The reply was read as `output`: validated like an answer given to `app.resume`. */
+  understood<TOutput>(output: TOutput): UnderstoodChannelInterpretation<TOutput> {
+    const built = { kind: ChannelInterpretationKind.Understood, output } as const;
+    return Object.freeze(built) as UnderstoodChannelInterpretation<TOutput>;
+  },
+  /** The reply was not understood: `app.resume` throws `UninterpretableReplyError` with `reason`. */
+  notUnderstood(reason: string): NotUnderstoodChannelInterpretation {
+    const built = { kind: ChannelInterpretationKind.NotUnderstood, reason } as const;
+    return Object.freeze(built) as NotUnderstoodChannelInterpretation;
+  },
+} as const;
+
+/** What a code interpreter's `interpret` takes and gives, for a class without `implements`. */
+export interface ChannelInterpreterHandler<TSelf> {
+  readonly interpret: (
+    input: ChannelInterpreterInput<TSelf>,
+  ) => ChannelInterpretation<OutputOf<TSelf>> | Promise<ChannelInterpretation<OutputOf<TSelf>>>;
+}
+
+/** What `interpret` reads: the pause's question and the reply (`InputOf<Self>`). */
+export type ChannelInterpreterInput<TSelf> = InputOf<TSelf>;
+
+/** `@ChannelInterpreter({ model, prompt })`: one answer tool on a chat model. */
+export interface ModelChannelInterpreterOptions {
+  /** Kebab-case; the class name in kebab-case when left out. */
+  readonly name?: string;
+  readonly description?: string;
+  /**
+   * A chat model (one answer tool); a decision model only for an approval. Left out: the default
+   * model of its provider (#1313).
+   */
+  readonly model?: string;
+  /** The `@ModelProvider` class its model is served from; left out: its workflow's, its application's (#1313). */
+  readonly modelProvider?: Class;
+  /** How to read a reply; static — the question and the reply come in the input message. */
+  readonly prompt?: PromptSource;
+  /** Static `{{key}}` values of this prompt, over the workflow's and the application's. */
+  readonly promptVariables?: PromptVariables;
+  readonly deps?: never;
+}
+
+/** `@ChannelInterpreter({ deps })` on a class with `interpret(input)`. */
+export interface CodeChannelInterpreterOptions<TDeps extends readonly Token[] = readonly Token[]> {
+  readonly name?: string;
+  readonly description?: string;
+  /** Constructor dependencies, in order; compiler-checked. */
+  readonly deps?: TDeps;
+  readonly model?: never;
+  readonly modelProvider?: never;
+  readonly prompt?: never;
+  readonly promptVariables?: never;
+}
+
+/** `@ChannelInterpreter` options: a model's or a code one's. */
+export type ChannelInterpreterOptions =
+  ModelChannelInterpreterOptions | CodeChannelInterpreterOptions;
+
+/** The decorator of an interpreter; a code interpreter's constructor takes its `deps`. */
+export type ChannelInterpreterDecorator<TDeps extends readonly Token[]> = <
+  TClass extends new (...args: ResolvedAll<TDeps>) => object,
+>(
+  value: TClass,
+) => TClass;
+
+/** What `@ChannelInterpreter` recorded on a class: its options, how it decides and the file it is declared in. */
+export interface ChannelInterpreterDeclaration {
+  /** The options, with `name` resolved: given, or the class name in kebab-case. */
+  readonly options: ChannelInterpreterOptions & { readonly name: string };
+  /** `code`: the class's `interpret(input)`; `model`: its chat model reads the reply. */
+  readonly decidedBy: "code" | "model";
+  readonly source?: string;
+}
+
+const interpreters = new WeakMap<Class, ChannelInterpreterDeclaration>();
+
+/** What `@ChannelInterpreter` recorded on a class; `undefined` for an undecorated one. */
+export const channelInterpreterOf = (cls: Class): ChannelInterpreterDeclaration | undefined =>
+  interpreters.get(cls);
+
+/** Whether an interpreter is decided by code. */
+export const isCodeChannelInterpreter = (declaration: ChannelInterpreterDeclaration): boolean =>
+  declaration.decidedBy === "code";
+
+/** An interpreter its class decides: `interpret(input)`, `deps` in its constructor. */
+export function ChannelInterpreter<const TDeps extends readonly Token[] = []>(
+  options?: CodeChannelInterpreterOptions<TDeps>,
+): ChannelInterpreterDecorator<TDeps>;
+/** An interpreter its chat model decides: an empty class with a `prompt` (and, optionally, its `model` and `modelProvider`). */
+export function ChannelInterpreter(
+  options: ModelChannelInterpreterOptions,
+): ChannelInterpreterDecorator<[]>;
+export function ChannelInterpreter(
+  options: ChannelInterpreterOptions = {},
+): <TClass extends Class>(value: TClass) => TClass {
+  const source = callerFile();
+  return <TClass extends Class>(value: TClass): TClass => {
+    recordOptionKeys(value, "ChannelInterpreter", options, CHANNEL_INTERPRETER_KEYS);
+    const name = resolvedName(options.name, value);
+    // a model one has a `prompt` (or names its model or provider); a class with `interpret` decides by code
+    const isModel =
+      options.prompt !== undefined ||
+      options.model !== undefined ||
+      options.modelProvider !== undefined;
+    const declaration: ChannelInterpreterDeclaration = {
+      options: { ...options, name },
+      decidedBy: isModel ? "model" : "code",
+      ...(source === undefined ? {} : { source }),
+    };
+    interpreters.set(value, declaration);
+    return value;
+  };
+}

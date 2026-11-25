@@ -14,6 +14,7 @@ export default defineConfig({
     setupFiles: ["./src/testing/setup.ts"],
     include: [
       "tests/budgets/*.test.ts",
+      "tests/config/shelves.test.ts",
       "tests/ledger.test.ts",
       "tests/properties/budget-meter.property.test.ts",
       "tests/isolation/concurrent-budgets.test.ts",

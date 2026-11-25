@@ -8,7 +8,8 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { ProfileDto, ShortlistDto } from "../fixtures/dtos.js";
 import { KitWorkflowStart } from "../fixtures/kit.fixture.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /** Answer tools of agents with `output` (#272 S6): their names and the model's tool calling. */
 
@@ -20,7 +21,7 @@ class ShortlistOfTheBestCandidatesWithTheirScoresAndTheReviewersNotesDto {
 @Agent({
   name: "long-answer-agent",
   description: "Answers with a long class name",
-  prompt: "Answer.",
+  prompt: inline("Answer."),
   model: "moonshotai/kimi-k2.6",
   input: {
     shortlist: ShortlistDto,
@@ -39,13 +40,8 @@ class LongWorkflowFinish {}
 @Workflow({
   name: "long-answer-workflow",
   version: "1.0.0",
-  flow: [
-    start(KitWorkflowStart)
-      .returns(ShortlistDto)
-      .toAgent(LongAnswerAgent)
-      .returns(ShortlistOfTheBestCandidatesWithTheirScoresAndTheReviewersNotesDto)
-      .toFinish(LongWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(KitWorkflowStart).toAgent(LongAnswerAgent).toFinish(LongWorkflowFinish)],
 })
 class LongAnswerWorkflow {}
 

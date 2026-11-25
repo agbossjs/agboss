@@ -1,7 +1,7 @@
 import { graphDepsNamed } from "../app/own-deps.js";
 import type { BuiltApp } from "../app/create-app.js";
 import { listPausesIn } from "../app/pause-listing.js";
-import type { App } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import type { PauseRecord } from "../infrastructure/pause-record.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
@@ -54,7 +54,7 @@ export const listPausesOf = (
   workflows: readonly BuiltApp[],
   ofThread: (threadId: string, tenantId: string) => Promise<BuiltApp | undefined>,
   pauses: PausedExecutionRepository,
-): App["listPauses"] => {
+): AnyTenantApp["listPauses"] => {
   const maskOf = pauseMaskOf(workflows, ofThread);
   return (query) => listPausesIn({ pauses, maskOf }, query);
 };

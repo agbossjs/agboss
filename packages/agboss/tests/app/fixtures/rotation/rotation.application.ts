@@ -1,23 +1,25 @@
 import { Integer, Text } from "../../../../src/dto/index.js";
 import {
   Action,
-  ExecutionContext,
-  NotSentTrust,
-  OutboundCalls,
-  SqliteExecutionLeaseRepository,
-  SqliteFencedEffectRepository,
-  SqliteOutboundCallRepository,
+  DatabaseStorage,
+  Idempotency,
+  OutboundRecovery,
+  SqliteDriver,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  effectKeyOf,
-  type FencedEffectStatus,
+  secret,
+  env,
+  type IdempotencyRunStatus,
   type OutboundCallSendStatus,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
+import { hours, seconds } from "../../../../src/units/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import { PaymentGateway } from "../payment-gateway.js";
 import { RotationEnvironment } from "./environments/app.environment.js";
 
@@ -30,7 +32,7 @@ import { RotationEnvironment } from "./environments/app.environment.js";
 
 /** What each call saw, in order. */
 export const rotation = {
-  effects: [] as FencedEffectStatus[],
+  effects: [] as IdempotencyRunStatus[],
   calls: [] as OutboundCallSendStatus[],
   /** The business rows the bookings wrote (committed). */
   booked: [] as string[],
@@ -60,24 +62,27 @@ export class ReceiptDto {
   description: "Books the order once, in a fenced effect fingerprinted by its amount",
   input: { order: OrderDto },
   output: ReceiptDto,
-  deps: [ExecutionContext, SqliteFencedEffectRepository],
+  deps: [Idempotency, SqliteConnection],
 })
 export class BookOrderAction {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly fencedEffects: SqliteFencedEffectRepository,
+    private readonly idempotency: Idempotency,
+    private readonly connection: SqliteConnection,
   ) {}
 
-  async execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<ReceiptDto> {
-    const { orderId, amountUsd } = input.order.value;
-    const key = effectKeyOf(this.executionContext, "book", {
-      businessKey: `order:${orderId}`,
+  async execute(input: { readonly order: Tracked<OrderDto> }): Promise<ReceiptDto> {
+    const { orderId, amountUsd } = input.order;
+    const outcome = await this.idempotency.runOnce({
+      name: "book",
+      key: `order:${orderId}`,
       fingerprint: { amountUsd },
-    });
-    const outcome = await this.fencedEffects.runOnce(key, (database) => {
-      database.exec("CREATE TABLE IF NOT EXISTS rotation_bookings (order_id TEXT)");
-      database.prepare("INSERT INTO rotation_bookings VALUES (?)").run(orderId);
-      return { receipt: `booking-${orderId}` };
+      ttl: hours(24),
+      execute: () => {
+        const transaction = this.connection.requireTransaction();
+        transaction.exec("CREATE TABLE IF NOT EXISTS rotation_bookings (order_id TEXT)");
+        transaction.prepare("INSERT INTO rotation_bookings VALUES (?)").run(orderId);
+        return { receipt: `booking-${orderId}` };
+      },
     });
     rotation.effects.push(outcome.status);
     rotation.booked.push(orderId);
@@ -90,25 +95,26 @@ export class BookOrderAction {
   description: "Charges the order once, through the provider, fingerprinted by its request",
   input: { order: OrderDto },
   output: ReceiptDto,
-  deps: [ExecutionContext, OutboundCalls, PaymentGateway],
+  deps: [Idempotency, PaymentGateway],
 })
 export class ChargeOrderAction {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
+    private readonly idempotency: Idempotency,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
-  async execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<ReceiptDto> {
-    const { orderId, amountUsd } = input.order.value;
-    const key = effectKeyOf(this.executionContext, "charge", { businessKey: `order:${orderId}` });
-    const outcome = await this.outboundCalls.send(key, {
+  async execute(input: { readonly order: Tracked<OrderDto> }): Promise<ReceiptDto> {
+    const { orderId, amountUsd } = input.order;
+    const outcome = await this.idempotency.sendOnce({
+      name: "charge",
+      key: `order:${orderId}`,
       target: "payments",
       operation: "charge",
       request: { orderId, amountUsd },
+      timeout: seconds(15),
+      ttl: hours(48),
       send: (call) => this.paymentGateway.charge(call),
-      notSent: { trust: NotSentTrust.Lookup },
-      reconcile: (lookup) => this.paymentGateway.reconcile(lookup),
+      recovery: OutboundRecovery.permanentLookup((lookup) => this.paymentGateway.reconcile(lookup)),
     });
     rotation.calls.push(outcome.status);
     return { receipt: outcome.result.chargeId };
@@ -135,44 +141,45 @@ export class ReceiptFinish {}
 @Workflow({
   name: "book-order-workflow",
   version: "1.0.0",
-  flow: [
-    start(BookOrderStart)
-      .returns(OrderDto)
-      .toAction(BookOrderAction)
-      .returns(ReceiptDto)
-      .toFinish(ReceiptFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(BookOrderStart).toAction(BookOrderAction).toFinish(ReceiptFinish)],
 })
 export class BookOrderWorkflow {}
 
 @Workflow({
   name: "charge-order-workflow",
   version: "1.0.0",
-  flow: [
-    start(ChargeOrderStart)
-      .returns(OrderDto)
-      .toAction(ChargeOrderAction)
-      .returns(ReceiptDto)
-      .toFinish(ReceiptFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ChargeOrderStart).toAction(ChargeOrderAction).toFinish(ReceiptFinish)],
   providers: [PaymentGateway],
 })
 export class ChargeOrderWorkflow {}
 
-const STORES = [
-  SqliteExecutionLeaseRepository,
-  SqliteFencedEffectRepository,
-  SqliteOutboundCallRepository,
-];
+/** One SQLite file for every instance, and the keys the application's fingerprints are made with. */
+const rotatedStorage = (
+  name: string,
+  idempotencySecret: ReturnType<typeof secret>,
+  previousIdempotencySecret?: ReturnType<typeof secret>,
+) => {
+  @DatabaseStorage({
+    name,
+    driver: SqliteDriver({ path: env("ROTATION_SQLITE_PATH") }),
+    auditLogTtl: hours(24),
+    ledgerEntriesTtl: hours(24),
+    idempotencySecret,
+    ...(previousIdempotencySecret === undefined ? {} : { previousIdempotencySecret }),
+  })
+  class RotationStorage {}
+  return RotationStorage;
+};
 
 /** Before the rotation: every fingerprint under `idempotencyKeyV1`. */
 @Application({
   name: "rotation-before-application",
   version: "1.0.0",
   environment: RotationEnvironment,
-  idempotencyKeyField: "idempotencyKeyV1",
   workflows: [BookOrderWorkflow, ChargeOrderWorkflow],
-  providers: STORES,
+  storage: rotatedStorage("rotation-before-storage", secret("ROTATION_IDEMPOTENCY_KEY_V1")),
   budgets: TEST_BUDGETS,
 })
 export class RotationBeforeApplication {}
@@ -182,10 +189,12 @@ export class RotationBeforeApplication {}
   name: "rotation-during-application",
   version: "1.0.0",
   environment: RotationEnvironment,
-  idempotencyKeyField: "idempotencyKeyV2",
-  previousIdempotencyKeyField: "idempotencyKeyV1",
   workflows: [BookOrderWorkflow, ChargeOrderWorkflow],
-  providers: STORES,
+  storage: rotatedStorage(
+    "rotation-during-storage",
+    secret("ROTATION_IDEMPOTENCY_KEY_V2"),
+    secret("ROTATION_IDEMPOTENCY_KEY_V1"),
+  ),
   budgets: TEST_BUDGETS,
 })
 export class RotationDuringApplication {}
@@ -195,9 +204,8 @@ export class RotationDuringApplication {}
   name: "rotation-after-application",
   version: "1.0.0",
   environment: RotationEnvironment,
-  idempotencyKeyField: "idempotencyKeyV2",
   workflows: [BookOrderWorkflow, ChargeOrderWorkflow],
-  providers: STORES,
+  storage: rotatedStorage("rotation-after-storage", secret("ROTATION_IDEMPOTENCY_KEY_V2")),
   budgets: TEST_BUDGETS,
 })
 export class RotationAfterApplication {}
@@ -207,7 +215,6 @@ export class RotationAfterApplication {}
   name: "in-memory-charges-application",
   version: "1.0.0",
   environment: RotationEnvironment,
-  idempotencyKeyField: "idempotencyKeyV1",
   workflows: [ChargeOrderWorkflow],
   budgets: TEST_BUDGETS,
 })

@@ -1,14 +1,15 @@
+import { Window2Memory } from "../../helpers/window-memory.js";
 import { TokenLimit } from "../../../src/config/types.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import type { Class } from "../../../src/components/injection.js";
 import type { ToolHandlerClass } from "../../../src/components/decorators.js";
-import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { TestAnswer, TestChat, testPaths } from "./test.flow.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * The star test workflow (tests/fixtures/test-flow): chat → main-router ("test/router", a chat
@@ -16,18 +17,21 @@ import { EmptyEnvironment } from "../../../src/index.js";
  */
 @Workflow({
   name: "test-bundle-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: testPaths,
   defaults: {
-    models: { temperature: 0, maxTokens: TokenLimit.MODEL_MAX, cache: true },
+    models: { temperature: 0, maxTokens: TokenLimit.ModelMax, cache: true },
     tools: { maxToolCalls: 3 },
   },
-  uncompactedTurns: 2,
+  memory: Window2Memory,
 })
 export class StarWorkflow {}
 
 @Application({
   name: "test-bundle-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [StarWorkflow],
@@ -49,20 +53,23 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
   @Agent({
     name: "alpha-agent",
     description: "Handles alpha work with tools",
-    prompt: "You are alpha.",
+    prompt: inline("You are alpha."),
     model: "test/alpha",
     price: { inputPerMTok: 3, outputPerMTok: 6 },
     tools: options.tools,
-    ...(options.maxToolCalls === undefined ? {} : { maxToolCalls: options.maxToolCalls }),
+    ...(options.maxToolCalls === undefined
+      ? {}
+      : { executionLimits: { maxToolCalls: options.maxToolCalls } }),
   })
   class ToolAlpha {}
 
   @Workflow({
     name: "tools-workflow",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(TestChat)
-        .returns(WorkflowStartTextDto)
+      onStart(TestChat)
         .toAgent(ToolAlpha)
         .toFinish(TestAnswer),
     ],
@@ -70,7 +77,7 @@ export function toolWorkflowOf(options: ToolWorkflowOptions): Class {
       tools: { maxToolCalls: 3 },
       router: { model: "typesafe/jev-test" },
     },
-    uncompactedTurns: 2,
+    memory: Window2Memory,
   })
   class ToolWorkflow {}
   return ToolWorkflow;

@@ -5,7 +5,8 @@
  * not say the graph finished. In-memory and SQLite savers, on the virtual clock.
  */
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import { ExecutionLeaseLostError, SqliteConnection } from "../../src/index.js";
+import { ExecutionLeaseLostError } from "../../src/index.js";
+import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connection.js";
 import { testWith } from "../../src/testing/index.js";
 import type { VirtualClock } from "../../src/testing/clock.js";
 import { processHoldPoints } from "../../src/testing/faults/hold-points.js";

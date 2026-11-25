@@ -12,15 +12,17 @@ import { DEFAULT_MAX_TOKENS } from "../../../src/config/types.js";
 import { nodesOf, type NodeSnapshot } from "../../../src/describe/snapshot-nodes.js";
 import type { AssembledWorkflow } from "../../../src/workflow.js";
 import { PiiPolicy } from "../../../src/pii/pii-policy.decorator.js";
-import { PiiAction, PiiKind, pii } from "../../../src/pii/index.js";
+import { PiiKind } from "../../../src/pii/index.js";
 import { OutlineWorkflow } from "../../flow/fixtures/recursion.fixture.js";
-import { NotesDeskApplication } from "../../compaction/compaction.fixture.js";
+import { NotesDeskApplication } from "../../memory/compaction.fixture.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { TestApplication } from "../../fixtures/test-workflow/test.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const outlineApplication = async () => {
   @Application({
     name: "outline-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [OutlineWorkflow],
@@ -120,8 +122,8 @@ describe("#1366: an agent's settings as resolved", () => {
     expect(coder?.provider).not.toBe("");
     expect(coder?.instructions).not.toBe("");
     expect(coder?.piiPolicies).toStrictEqual([]);
-    expect(coder?.compaction).toBeUndefined();
-    expect(coder).not.toHaveProperty("compaction");
+    expect(coder?.memory).toBeUndefined();
+    expect(coder).not.toHaveProperty("memory");
   });
 
   it("an agent under a compaction names it", async () => {
@@ -130,7 +132,7 @@ describe("#1366: an agent's settings as resolved", () => {
     if (workflow === undefined) throw new TypeError("one workflow");
 
     expect(nodeNamed(workflow, "note-agent").agent).toMatchObject({
-      compaction: "note-compaction",
+      memory: "note-memory",
     });
   });
 });
@@ -179,7 +181,7 @@ describe("#1366: a node's own facts", () => {
 @PiiPolicy({
   name: "card-numbers-pii-policy",
   description: "Hides card numbers",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
 })
 class CardNumbersPolicy {}
 
@@ -262,10 +264,7 @@ describe("#1366: the routers of a node", () => {
 
     expect(router).toStrictEqual({
       decidedBy: "code",
-      routes: [
-        { target: "this-workflow", spawn: expect.anything(), failure: expect.anything() },
-        { target: "outline-agent", spawn: expect.anything(), failure: expect.anything() },
-      ],
+      routes: [{ target: "outline-workflow" }, { target: "outline-agent" }],
     });
   });
 
@@ -277,7 +276,7 @@ describe("#1366: the routers of a node", () => {
 
     const lacking = nodes.filter((node) => !("description" in node)).map((node) => node.name);
 
-    expect(lacking).toStrictEqual(["this-workflow"]);
+    expect(lacking).toStrictEqual(["outline-workflow"]);
     expect(
       nodes
         .filter((node) => "description" in node)

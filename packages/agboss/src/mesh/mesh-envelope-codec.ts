@@ -21,6 +21,7 @@ const EnvelopeSchema = z.object({
   schema: z.literal(1),
   issuer: ID,
   audience: ID.optional(),
+  tenantId: ID.optional(),
   origin: z.object({
     rootExecutionId: ID,
     executionId: ID,
@@ -32,7 +33,13 @@ const EnvelopeSchema = z.object({
   issuedAt: z.iso.datetime().optional(),
   expiresIn: ID.optional(),
   bodyHash: ID.optional(),
-  budget: z.object({ remaining: ID, currency: z.literal("USD") }).optional(),
+  budget: z
+    .object({
+      remaining: ID.optional(),
+      currency: z.literal("USD").optional(),
+      remainingTokens: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
+    })
+    .optional(),
   deadline: z.object({ remaining: ID }).optional(),
 });
 

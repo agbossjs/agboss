@@ -15,7 +15,7 @@ import type { AnalysisContext } from "./context.js";
 
 /**
  * Name rules (#272 AC13, #270 AC14, S5): every `name` ends with its kind (`[name.kind-suffix]`);
- * every DTO class used as an input, an output, in `.returns(…)` or `caseOf(…)` ends with `Dto`
+ * every DTO class used as an input, an output, or a `.toOneOf([…])` branch ends with `Dto`
  * (`[dto.name]`); DTO class names are unique, because they key checkpoints (`[dto.duplicate-name]`).
  */
 
@@ -26,7 +26,7 @@ const NAME_KINDS: Readonly<Record<NodeKind, NameKind>> = {
   [NodeKind.Action]: NameKind.Action,
   [NodeKind.Router]: NameKind.Router,
   [NodeKind.Workflow]: NameKind.Workflow,
-  [NodeKind.Question]: NameKind.Question,
+  [NodeKind.Question]: NameKind.ExternalTask,
 };
 
 /** The DTO classes inside a shape. */
@@ -57,11 +57,12 @@ export function declaredDtos(declaration: ComponentDeclaration): readonly DtoCla
     }
     case NodeKind.Agent:
     case NodeKind.Action:
-    case NodeKind.Finish:
     case NodeKind.Question: {
       const { input, output } = declaration.options;
       return [...dtosOfFields(input), ...(output === undefined ? [] : dtosOf(output))];
     }
+    case NodeKind.Finish:
+      return dtosOf(declaration.options.output);
     case NodeKind.Router:
       return dtosOfFields(declaration.options.input);
     case NodeKind.Workflow:
@@ -73,13 +74,9 @@ export function declaredDtos(declaration: ComponentDeclaration): readonly DtoCla
 function usedDtos(context: AnalysisContext): readonly DtoClass[] {
   const nodes = [...context.graph.nodes.values()].flatMap((node) => declaredDtos(node.declaration));
   const edges = context.graph.edges.flatMap((edge) =>
-    edge.writes.flatMap((write) => [...dtosOf(write.shape), ...(write.about ?? [])]),
+    edge.writes.flatMap((write) => dtosOf(write.shape)),
   );
-  const cases = context.walked.switches.flatMap((site) => [
-    ...site.step.cases.flatMap((branch) => [branch.dto, ...(branch.about ?? [])]),
-    ...(site.returned === undefined ? [] : dtosOf(site.returned)),
-  ]);
-  return [...new Set([...nodes, ...edges, ...cases])].sort((first, second) =>
+  return [...new Set([...nodes, ...edges])].sort((first, second) =>
     first.name.localeCompare(second.name),
   );
 }

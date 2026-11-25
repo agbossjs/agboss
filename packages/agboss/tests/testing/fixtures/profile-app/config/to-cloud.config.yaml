@@ -1,0 +1,6 @@
+workflows:
+  profile-kid-workflow:
+    agents:
+      kid-agent:
+        model: cloud/x
+        modelProvider: cloud-model-provider

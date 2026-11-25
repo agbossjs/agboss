@@ -5,6 +5,8 @@ import {
   ClassifyAction,
   reported,
   ReportFinish,
+  ReportFinishAction,
+  TakeBugAction,
   TicketStart,
   TriageApplication,
 } from "./fixtures/triage.workflow.js";
@@ -17,13 +19,17 @@ beforeEach(() => {
 });
 
 describe("#272: an @Action runs execute(input) with its fields from the path scope", () => {
-  test("its variant(XDto, value) picks the case; the finish tells the variants apart", async ({
-    app,
-  }) => {
+  test("its plain object picks the case; the finish tells the variants apart", async ({ app }) => {
     const bug = await execute(app, TicketStart, { text: "it crashes", kind: "bug" });
     const question = await execute(app, TicketStart, { text: "how?", kind: "question" });
 
-    expect(bug).toFollowPath([TicketStart, ClassifyAction, ReportFinish]);
+    expect(bug).toFollowPath([
+      TicketStart,
+      ClassifyAction,
+      TakeBugAction,
+      ReportFinishAction,
+      ReportFinish,
+    ]);
     expect(bug).toFinishWith(ReportFinish, { text: "a bug" });
     expect(question).toFinishWith(ReportFinish, { text: "a question" });
     expect(reported).toEqual([
@@ -32,17 +38,22 @@ describe("#272: an @Action runs execute(input) with its fields from the path sco
     ]);
   });
 
-  test("a oneOf value without variant(…) fails the step: the class is never guessed", async ({
+  test("a oneOf value that fits none of its classes fails the step: the class is never guessed", async ({
     app,
   }) => {
     const run = execute(app, TicketStart, { text: "?", kind: "unmarked" });
 
     await expect(run).rejects.toFailWith(OutputInvalidError);
-    await expect(run).rejects.toThrow("return variant(XDto, value)");
+    await expect(run).rejects.toThrow("return a value of exactly one of them");
   });
 
   test("the record names who gave each value and what it was built from", async ({ app }) => {
-    const result = await execute(app, TicketStart, { text: "x", kind: "bug" }, { record: true });
+    const result = await execute(
+      app,
+      TicketStart,
+      { text: "x", kind: "bug" },
+      { includeRecord: true },
+    );
 
     expect(result.output).toEqual({ text: "a bug" });
     expect(result.record?.scope).toEqual(

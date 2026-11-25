@@ -150,14 +150,14 @@ describe("#383: observers see a code guardrail's decision", () => {
     const [started, ended] = guardrailEvents;
     expect(started).toMatchObject({
       name: "card-number-guardrail",
-      input: { side: "input", element: "shop-router" },
+      input: { side: "input", component: { name: "shop-router", kind: "router" } },
     });
     expect(started !== undefined && "input" in started ? started.input.text : "").toMatch(
       /<email:[0-9a-f]+>/,
     );
     expect(ended).toMatchObject({
       name: "card-number-guardrail",
-      update: { isBlocked: false, probability: 0 },
+      output: { isBlocked: false, probability: 0 },
     });
   });
 });

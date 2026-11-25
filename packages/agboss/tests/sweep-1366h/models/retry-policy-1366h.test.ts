@@ -3,12 +3,12 @@
  * both constructors), the longest wait and the wait before a retry of each backoff (jitter between half and the whole
  * of the grown wait), a `None` policy never retried, the failures a provider retries by default.
  */
+import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   Backoff,
   ModelFailure,
   RetryPolicy,
-  RetryPolicyError,
   TRANSIENT_FAILURES,
 } from "../../../src/models/index.js";
 import { delayBefore, isRetried, longestWaitOf } from "../../../src/models/retry-policy.js";
@@ -33,8 +33,8 @@ describe("#1366: the attempts a policy admits", () => {
   });
 
   it.each([0, -1, 1.5, Number.NaN])("%s attempts are refused by both constructors", (attempts) => {
-    expect(() => exponentialOf(attempts)).toThrow(RetryPolicyError);
-    expect(() => fixedOf(attempts)).toThrow(RetryPolicyError);
+    expect(() => exponentialOf(attempts)).toThrow(ConfigError.RetryPolicy);
+    expect(() => fixedOf(attempts)).toThrow(ConfigError.RetryPolicy);
   });
 
   it("the refusals of one class are told apart by the field they name", () => {
@@ -56,7 +56,7 @@ describe("#1366: the attempts a policy admits", () => {
         jitter: false,
         retryOn: [],
       }),
-    ).toThrow(RetryPolicyError);
+    ).toThrow(ConfigError.RetryPolicy);
   });
 
   it("a delay equal to the initial one is admitted", () => {
@@ -71,11 +71,8 @@ describe("#1366: the attempts a policy admits", () => {
     ).toBe(Backoff.Exponential);
   });
 
-  it("a none policy is never retried, whatever else its object carries", () => {
-    const carrying = { ...exponentialOf(5), backoff: Backoff.None as const };
-
-    expect(isRetried(carrying, ModelFailure.Timeout, 1)).toBe(false);
-    expect(isRetried(RetryPolicy.none(), ModelFailure.Timeout, 1)).toBe(false);
+  it("no policy is never retried", () => {
+    expect(isRetried(undefined, ModelFailure.Timeout, 1)).toBe(false);
   });
 });
 
@@ -83,12 +80,12 @@ describe("#1366: the waits of a policy", () => {
   it("the longest wait of each backoff", () => {
     expect(longestWaitOf(exponentialOf(3))).toBe(seconds(8));
     expect(longestWaitOf(fixedOf(3))).toBe(seconds(2));
-    expect(longestWaitOf(RetryPolicy.none())).toBe(0);
+    expect(longestWaitOf(undefined)).toBe(0);
   });
 
   it("the wait before a retry: fixed is the delay, none is nothing, exponential doubles up to its cap", () => {
     expect(delayBefore(fixedOf(3), 2, () => 0)).toBe(seconds(2));
-    expect(delayBefore(RetryPolicy.none(), 1, () => 0)).toBe(0);
+    expect(delayBefore(undefined, 1, () => 0)).toBe(0);
     const grown = [1, 2, 3, 4, 5].map((retry) => delayBefore(exponentialOf(9), retry, () => 0));
     expect(grown).toEqual([seconds(1), seconds(2), seconds(4), seconds(8), seconds(8)]);
   });

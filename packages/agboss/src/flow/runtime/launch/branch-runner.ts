@@ -4,7 +4,7 @@ import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { runInFrame } from "../../context/frame.js";
 import { failedVisitOf, visitStepsOf, visitTimerOf, type VisitSite } from "../visit-step.js";
-import { compensationsOfBranch } from "../../compensation.js";
+import { compensationsOfBranch, type CompensationEntry } from "../../compensation.js";
 import type { RuntimeGraph, RuntimeNode } from "../graph-model.js";
 import { checkVisit } from "../limits.js";
 import { recordsOf, type GraphNode, type NodeOutcome, type NodeRunner } from "../node-runner.js";
@@ -35,19 +35,19 @@ import { arbiterDepsFor, liveLaunchOf, type BranchQuorumDeps } from "./branch-qu
 import { leaveQuorum, markAnswer, type MarkedAnswer, type QuorumMark } from "./quorum-branch.js";
 import { BranchStatus, type BranchTicket } from "./records.js";
 import { abortLaunch, settledEnd } from "./branch-settle.js";
-import { FailurePolicy } from "../../decorators/router.js";
+import { isSkippedBranch } from "./branch-skip.js";
 import { gated, inSchedule, type ScheduledBranch } from "./branch-schedule.js";
 import { branchFrameOf, branchVisitOf } from "./branch-view.js";
 import type { EndedChildRecord } from "../child-records.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
-import type { CompensationEntry } from "../../compensation.js";
+import { withTaken } from "../compensation/held-entries.js";
 
 /**
  * One branch of a launch (#273 S20, S21): one `Send` task. It takes a slot of the launch's
  * semaphore when it starts and frees it in `finally` — when it ends, fails, is cancelled or pauses —
  * checks the limits for its own visit, runs its node in its own frame (copy id, copy number, item),
  * and writes how it ended as a record: `Finished` with its value, `Skipped` for a step failure under
- * `FailurePolicy.Skip`, `Failed` (which aborts the launch, so its siblings end `Cancelled`) for
+ * `.onError(E, skip())`, `Failed` (which aborts the launch, so its siblings end `Cancelled`) for
  * anything else — a limit too. Under a quorum (#279) its arbiter chain runs in the same slot and
  * frame, and the record carries the answer's verdict. A pause, a hand-over and a cancel of the
  * execution pass through LangGraph; everything else meets at the join.
@@ -157,10 +157,11 @@ async function ran(run: BranchRun, runner: NodeRunner): Promise<BranchEnd> {
       });
     },
   );
-  // an undoable action's branch opens its entry as it ends (#340): a failed join undoes it
-  const branch = { launchId: run.owner.ticket.launchId, value: outcome.value };
+  const { launchId } = run.owner.ticket;
+  const branch = { launchId, branchIndex: ticket.index, value: outcome.value };
   const opened = await compensationsOfBranch({ node, view, frame, config, branch, deps });
-  return answeredEnd(run, outcome, marked, opened, run.visited());
+  const taken = { taken: outcome.compensations, branch, parts: deps.compensation, frame };
+  return answeredEnd(run, outcome, marked, withTaken(taken, opened), run.visited());
 }
 
 /** A branch that threw: skipped, failed (aborting its siblings) or cancelled by a sibling. */
@@ -174,7 +175,7 @@ async function ended(run: BranchRun, error: unknown): Promise<BranchEnd> {
   const failure = failureOfBranch(run.budgetStop, error);
   const status = failedStatusOf({ live, ticket, isQuorum: live.quorum !== undefined }, failure);
   // an expired branch follows its launch: a quorum or `Skip` drops it, a plain `FailFast` launch fails
-  const isDropped = live.quorum !== undefined || ticket.failure === FailurePolicy.Skip;
+  const isDropped = live.quorum !== undefined || isSkippedBranch(ticket, failure);
   if (status === BranchStatus.Failed || (status === BranchStatus.Expired && !isDropped)) {
     live.errors.set(ticket.index, failure);
     run.deps.branchErrors?.keep(run.owner.ticket.launchId, ticket.index, failure);

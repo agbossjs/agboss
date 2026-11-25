@@ -9,7 +9,7 @@ import { withFileFetches, withFileTransport } from "../../../src/a2a/files/a2a-f
 import type { FileTransport } from "../../../src/a2a/files/a2a-file-transport.js";
 import { testWith } from "../../../src/testing/index.js";
 import { until } from "../../helpers/until.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { FILE_ORIGIN, FilesA2AExpose, FilesApplication } from "../fixtures/files.application.js";
 import { rpc } from "../server/rpc.js";
 import { fileMessage, PDF, scriptedTransport, urlPart } from "./support.js";
@@ -102,7 +102,7 @@ describe("#904 item 6: FileFetches", () => {
 });
 
 const test = testWith(FilesApplication);
-const listener = { expose: FilesA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { endpoint: FilesA2AExpose, authenticator: BearerAuthenticator };
 
 /** A transport whose answers wait for `release()`. */
 function gatedTransport() {

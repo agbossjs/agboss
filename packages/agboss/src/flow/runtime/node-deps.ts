@@ -47,6 +47,7 @@ function launchDepsOf(
     ...(deps.pause === undefined ? {} : { pauses: deps.pause }),
     ...(deps.branchErrors === undefined ? {} : { branchErrors: deps.branchErrors }),
     ...(deps.branchScheduler === undefined ? {} : { scheduler: deps.branchScheduler }),
+    ...(deps.childDepsOf === undefined ? {} : { childDepsOf: deps.childDepsOf }),
   };
 }
 
@@ -77,6 +78,7 @@ export function nodeDepsOf(
     compensation: deps.compensation,
     container: deps.container,
     ...(deps.stepEntries === undefined ? {} : { stepEntries: deps.stepEntries }),
+    ...(deps.childDepsOf === undefined ? {} : { childDepsOf: deps.childDepsOf }),
   };
   const launchDeps = launchDepsOf(deps, visitDeps, checkpointer);
   return { visitDeps, launchDeps };

@@ -4,7 +4,9 @@ import { checkedCallerId, checkedTenantId } from "../flow/context/context-values
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { type ThreadAccess } from "../run/thread.js";
 import { InvalidThreadIdError } from "../core/errors.js";
-import { remoteCancel, type CancelParts } from "./cancel-requests.js";
+import type { CancelParts } from "./cancel-requests.js";
+import { remoteCancel } from "./cancel-remote.js";
+import { cancelTransitionOf } from "./cancel-marks.js";
 import type { LiveRuns } from "./live-runs.js";
 import { cancelledPaused } from "./cancel-paused.js";
 import type { ExecutionRequest } from "./run-events.js";
@@ -42,7 +44,11 @@ export async function cancelThread(
   });
   // #909: the cancel is durable — fencing every instance — before the run here is aborted; a
   // failed write rejects the cancel, nothing aborted (a retry is idempotent)
-  for (const tree of live.treesOf(thread)) await parts.leases.requestCancel(tree);
+  const transition = cancelTransitionOf(thread, {
+    ownerId: options.ownerId ?? null,
+    reason: options.reason,
+  });
+  for (const tree of live.treesOf(thread)) await parts.leases.requestCancel(tree, transition);
   const running = live.abort(thread);
   // a running resume completes its own Turn when the abort stops it
   if (running) {
@@ -50,6 +56,6 @@ export async function cancelThread(
     return { cancelled: true };
   }
   // paused (its run in the shared store): withdrawn, undone (#340), cancelled — after the undo
-  if (await cancelledPaused(parts, thread)) return { cancelled: true };
-  return { cancelled: await remoteCancel(parts, thread, options.ownerId) };
+  if (await cancelledPaused(parts, thread, undefined, options)) return { cancelled: true };
+  return { cancelled: await remoteCancel(parts, thread, options.ownerId, options.reason) };
 }

@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 /**
  * #533 item 5: the linearizability checker on histories written by hand — a sound one passes, with
  * overlapping operations in either order; a double owner (an epoch granted twice, a take of a live
@@ -34,7 +35,7 @@ class Recorded {
     if (to !== undefined) {
       const done =
         output === "fenced"
-          ? { error: { name: "ExecutionFencedError", message: "fenced" } }
+          ? { error: { name: "ExecutionError.Fenced", message: "fenced" } }
           : { output };
       this.history.record({
         ...base,

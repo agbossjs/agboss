@@ -3,35 +3,38 @@
  * why, the budgets by scope with their periods, the execution budget that caps each workflow (its
  * own or the default), the observers, the assembly warnings and each workflow's count limits.
  */
+import { Window1Memory } from "./helpers/window-memory.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../src/application/application.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../src/budgets/budget.js";
 import { describedApplicationOf } from "../src/describe/application.js";
 import { describedLimitsOf } from "../src/describe/limits.js";
-import { describeApplication } from "../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../src/describe/describe-application.js";
 import { applicationOf } from "../src/application/assemble.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../src/dto/index.js";
 import {
   Agent,
   EmptyEnvironment,
-  Injectable,
+  Observer,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type OnExecutionEnd,
+  inline,
+  Ttl,
 } from "../src/index.js";
 import { ImplementationReason } from "../src/application/implementations.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
 import { usd, type Usd } from "../src/units/index.js";
-import { start } from "./helpers/flow.js";
+import { onStart } from "./helpers/flow.js";
 import { RecordingCostLedgerRepository } from "./application/fixtures/desks.application.js";
+import { TestModelProvider } from "../src/testing/test-model-provider.js";
 
 @Agent({
   name: "teller-agent",
   description: "Tells",
-  prompt: "Tell.",
+  prompt: inline("Tell."),
   model: "test/teller",
-  maxVisits: 2,
+  executionLimits: { maxVisits: 2 },
 })
 class TellerAgent {}
 
@@ -47,16 +50,13 @@ class ToldWorkflowFinish {}
 
 @Workflow({
   name: "tell-workflow",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
-  maxSteps: 2,
+  historyTtl: Ttl.Forever,
+  executionLimits: { maxSteps: 2 },
   defaults: { models: { temperature: 0 } },
-  uncompactedTurns: 1,
-  flow: [
-    start(TellWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(TellerAgent)
-      .toFinish(ToldWorkflowFinish),
-  ],
+  memory: Window1Memory,
+  flow: [onStart(TellWorkflowStart).toAgent(TellerAgent).toFinish(ToldWorkflowFinish)],
 })
 class TellWorkflow {}
 
@@ -92,8 +92,8 @@ class TellExecutionBudget implements BudgetHandler {
   }
 }
 
-@Injectable()
-class TellAuditObserver implements OnExecutionEnd {
+@Observer()
+class TellAuditObserver {
   onExecutionEnd(): void {
     // audited
   }
@@ -133,16 +133,16 @@ describe("#261 M1: describe shows the application", () => {
       "RecordingCostLedgerRepository",
       ImplementationReason.Listed,
     ]);
-    expect(describeApplication(tellApplication)).toContain(
+    expect(describeAssembledApplication(tellApplication)).toContain(
       "  CostLedgerRepository → RecordingCostLedgerRepository (listed in @Application providers)",
     );
-    expect(describeApplication(tellApplication)).toContain(
+    expect(describeAssembledApplication(tellApplication)).toContain(
       "  Logger → ConsoleLogger (built-in default: none listed)",
     );
   });
 
   it("the budgets by scope with their periods, and the workflow's own execution budget", () => {
-    const lines = describeApplication(tellApplication);
+    const lines = describeAssembledApplication(tellApplication);
     const at = lines.indexOf("budgets");
 
     expect(lines.slice(at, at + 5)).toEqual([
@@ -157,13 +157,11 @@ describe("#261 M1: describe shows the application", () => {
     ]);
   });
 
-  it("the observers and the warnings (a durable ledger listed, no pause: only the PII key's)", () => {
-    const lines = describeApplication(tellApplication);
+  it("the observers and the warnings (a durable ledger listed, no pause: none)", () => {
+    const lines = describeAssembledApplication(tellApplication);
 
     expect(lines).toContain("observers TellAuditObserver");
-    expect(describedApplicationOf(tellApplication).warnings).toEqual([
-      "[application.pii-instance-key] no @Application({ piiKeyField }): sensitive fields make PII tokens with a key of each execution — one value gets another token in each execution (in logs and traces: on each instance), so tokens compare across executions only with piiKeyField",
-    ]);
+    expect(describedApplicationOf(tellApplication).warnings).toEqual([]);
     expect(lines.filter((line) => line.startsWith("warning ")).length).toBeLessThanOrEqual(1);
   });
 
@@ -173,17 +171,17 @@ describe("#261 M1: describe shows the application", () => {
       isMaxStepsSet: true,
       maxVisits: { "teller-agent": 2 },
     });
-    const lines = describeApplication(tellApplication);
+    const lines = describeAssembledApplication(tellApplication);
     const at = lines.indexOf("limits");
     expect(lines.slice(at, at + 8)).toEqual([
       "limits",
       "  maxSteps 2 (set) · steps 1–1",
       "  maxVisits teller-agent 2",
       "  Worst case of one tell-workflow-start call",
-      "    workflow executions     1  1 tell-workflow",
-      "    at the same time        1  1 tell-workflow",
-      "    agent and router steps  1  1 in tell-workflow (longest path)",
-      "    nesting depth           1  tell-workflow",
+      "    workflow executions  1  1 tell-workflow",
+      "    at the same time     1  1 tell-workflow",
+      "    steps                1  1 in tell-workflow (longest path)",
+      "    nesting depth        1  tell-workflow",
     ]);
   });
 });

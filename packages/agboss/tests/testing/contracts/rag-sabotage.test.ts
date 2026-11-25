@@ -1,11 +1,11 @@
 /**
- * #700 AC2 — the RAG connector contract bites: a sound connector passes every case, and each
+ * #700 AC2 — the RAG source contract bites: a sound connector passes every case, and each
  * connector broken one way fails exactly the cases of its rule — ignoring the tenant, folding its id,
  * appending on re-index, ignoring topK, ignoring the signal, reporting NaN.
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import { ragConnectorContract } from "../../../src/testing/contracts/index.js";
-import { memoryTarget } from "../../fixtures/contracts/rag-connectors.js";
+import { ragSourceContract } from "../../../src/testing/contracts/index.js";
+import { memoryTarget } from "../../fixtures/contracts/rag-sources.js";
 import { runContractFixtures, type FixtureRun } from "./fixture-runs.js";
 
 const FIXTURE = "rag-sabotage.contract-fixture.ts";
@@ -19,7 +19,7 @@ beforeAll(async () => {
 /** The failing cases of `target`'s suite, by the start of their names. */
 const failedOf = (target: string): readonly string[] =>
   run.cases
-    .filter((found) => found.suites[0] === `RAG connector contract (${target})`)
+    .filter((found) => found.suites[0] === `RAG source contract (${target})`)
     .filter((found) => found.state === "fail")
     .map((found) => found.name.split(" — ")[0] ?? found.name);
 
@@ -37,14 +37,14 @@ const EVERY_TENANT_SERVED = "#818 shared: a tenant it never saw";
 const RETRIEVING = [ISOLATION, NEAR, REINDEX, TOP_K, COST, WELL_FORMED];
 
 describe("#700 AC2: a connector that breaks a rule fails the RAG contract suite", () => {
-  it("the sound connector passes every case (7)", () => {
-    const cases = run.cases.filter((found) => found.suites[0] === "RAG connector contract (sound)");
+  it("the sound source passes every case (7)", () => {
+    const cases = run.cases.filter((found) => found.suites[0] === "RAG source contract (sound)");
     expect(cases.map((found) => found.state)).toEqual(Array(7).fill("pass"));
   });
 
   it("#799 AC2: a sound reranker in place passes every case (7)", () => {
     const cases = run.cases.filter(
-      (found) => found.suites[0] === "RAG connector contract (sound, reranked)",
+      (found) => found.suites[0] === "RAG source contract (sound, reranked)",
     );
     expect(cases.map((found) => found.state)).toEqual(Array(7).fill("pass"));
   });
@@ -58,15 +58,15 @@ describe("#700 AC2: a connector that breaks a rule fails the RAG contract suite"
     ["ignores the signal", [ABORT]],
     ["reports NaN", [COST]],
     ["ignores the tenant, reranked", [ISOLATION, NEAR, REINDEX]],
-  ])("a connector that %s fails %j only", (target, expected) => {
+  ])("a source that %s fails %j only", (target, expected) => {
     expect(failedOf(target)).toEqual(expected);
   });
 
   it.each(["shared", "shared, reranked"])(
-    "#818 AC5: a %s corpus passes the Shared cases and the cases of either tenancy (7)",
+    "#818 AC5: a %s corpus passes the Shared cases and the cases of every scope (7)",
     (target) => {
       const cases = run.cases.filter(
-        (found) => found.suites[0] === `RAG connector contract (${target})`,
+        (found) => found.suites[0] === `RAG source contract (${target})`,
       );
       expect(cases.map((found) => found.name.split(" — ")[0])).toEqual([
         TOP_K,
@@ -81,16 +81,14 @@ describe("#700 AC2: a connector that breaks a rule fails the RAG contract suite"
     },
   );
 
-  it("#818 AC5: a connector keyed by tenant, declared Shared, fails every Shared case: another tenant gets nothing", () => {
+  it("#818 AC5: a source that keys its corpus by the asker, declared Shared, reads nothing: the core hands it no scope id, so every case that retrieves fails", () => {
     expect(failedOf("shared, keyed by tenant")).toEqual([
+      TOP_K,
+      WELL_FORMED,
       SHARED_CORPUS,
       SHARED_REINDEX,
       EVERY_TENANT_SERVED,
     ]);
-  });
-
-  it("#818 AC5: one source with a copy per tenant, refreshed by its own index only, fails the shared re-index", () => {
-    expect(failedOf("shared, a copy per tenant")).toEqual([SHARED_REINDEX]);
   });
 
   // a reranker that fails quietly is never replaced by the retrieval's own order
@@ -102,10 +100,10 @@ describe("#700 AC2: a connector that breaks a rule fails the RAG contract suite"
   );
 });
 
-describe("#818: a tenancy the suite does not know runs no case — it is refused, never an empty pass", () => {
-  it.each(["Shared", "per_tenant", ""])("tenancy %j", (tenancy) => {
+describe("#818: a scope the suite does not know runs no case — it is refused, never an empty pass", () => {
+  it.each(["Everyone", "per_tenant", ""])("scope %j", (scope) => {
     expect(() => {
-      ragConnectorContract({ ...memoryTarget("odd"), tenancy: tenancy as never });
-    }).toThrow(/tenancy is RagTenancy\.PerTenant or RagTenancy\.Shared/u);
+      ragSourceContract({ ...memoryTarget("odd"), scope: scope as never });
+    }).toThrow(/scope is RagScope\.Shared, Tenant, Owner or Custom/u);
   });
 });

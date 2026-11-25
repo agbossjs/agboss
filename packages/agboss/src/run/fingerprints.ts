@@ -1,4 +1,4 @@
-import type { UncompactedTurns } from "../compaction/compaction.decorator.js";
+import type { UncompactedTurns } from "../memory/memory.decorator.js";
 import { formatHistory, formatSummaries } from "../flow/runtime/history.js";
 import { answerToolDescription } from "../flow/runtime/answer-tools.js";
 import { ONE_ANSWER_MESSAGE } from "../graph/agent-loop/answer-node.js";
@@ -32,7 +32,7 @@ export interface PiiRuleFingerprint {
 export interface PiiPolicyFingerprint {
   readonly name: string;
   readonly rules?: readonly PiiRuleFingerprint[];
-  readonly detectWithModel?: string;
+  readonly model?: string;
   /** What it lets happen to files (#899): only a policy that says. */
   readonly files?: string;
   readonly action?: Readonly<Record<string, unknown>>;
@@ -47,8 +47,8 @@ export interface JudgeFingerprint {
 /** What one agent or model router reads besides its decorator. */
 export interface ElementFingerprint {
   readonly uncompactedTurns: UncompactedTurns;
-  /** The compaction summarising what is older than its window; absent = none. */
-  readonly compaction?: string;
+  /** The memory of the reader; absent = none. */
+  readonly memory?: string;
   /** Absent = none. */
   readonly piiPolicies?: readonly PiiPolicyFingerprint[];
   /** Absent = none. */
@@ -62,7 +62,7 @@ export interface ElementFingerprint {
 export interface FingerprintDeps {
   readonly config: AgentExecutionDeps<string>["config"];
   readonly routers: AgentExecutionDeps<string>["routers"];
-  readonly compactions?: AgentExecutionDeps<string>["compactions"];
+  readonly memories?: AgentExecutionDeps<string>["memories"];
   readonly pii?: PiiRuntime | AssembledPii | undefined;
 }
 
@@ -96,7 +96,7 @@ export function handedDownPiiOf(pii: FingerprintDeps["pii"]): readonly PiiPolicy
   return metas.map(piiPolicyFingerprint);
 }
 
-/** An action as plain data: a `replacePart({ pattern })` regular expression as its text. */
+/** An action as plain data: a `mask({ pattern })` regular expression as its text. */
 const actionFingerprint = (action: AnyPiiAction): Readonly<Record<string, unknown>> =>
   "part" in action && action.part.pattern !== undefined
     ? { ...action, part: { ...action.part, pattern: String(action.part.pattern) } }
@@ -113,10 +113,10 @@ function piiPolicyFingerprint(meta: PiiPolicyMeta): PiiPolicyFingerprint {
     name: meta.name,
     ...(meta.files === undefined ? {} : { files: meta.files }),
     rules: meta.rules.map((rule) => ({
-      target: rule.target,
+      target: rule.target.id,
       action: actionFingerprint(rule.action),
     })),
-    ...(meta.detectWithModel === undefined ? {} : { detectWithModel: meta.detectWithModel }),
+    ...(meta.model === undefined ? {} : { model: meta.model }),
   };
 }
 
@@ -126,7 +126,7 @@ function judgesOf(deps: FingerprintDeps, agent: string): readonly JudgeFingerpri
 }
 
 function elementFingerprint(deps: FingerprintDeps, name: string): ElementFingerprint {
-  const reader = deps.compactions?.readers.get(name);
+  const reader = deps.memories?.readers.get(name);
   const policies = piiMetasOf(deps.pii, name);
   const judges = judgesOf(deps, name);
   return {
@@ -134,7 +134,7 @@ function elementFingerprint(deps: FingerprintDeps, name: string): ElementFingerp
       reader?.uncompactedTurns ??
       deps.config.agents[name]?.uncompactedTurns ??
       deps.config.defaults.uncompactedTurns,
-    ...(reader?.compaction === undefined ? {} : { compaction: reader.compaction }),
+    ...(reader?.memory === undefined ? {} : { memory: reader.memory }),
     ...(policies.length === 0 ? {} : { piiPolicies: policies.map(piiPolicyFingerprint) }),
     ...(judges.length === 0 ? {} : { judges }),
   };

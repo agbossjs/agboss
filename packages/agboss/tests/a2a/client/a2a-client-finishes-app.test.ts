@@ -7,7 +7,7 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { A2AAgent, A2AClient, A2AUnexpectedFinishError } from "../../../src/a2a/index.js";
-import { createAppWith } from "../../../src/application/create-app.js";
+import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import type { App } from "../../../src/app/types.js";
@@ -22,11 +22,12 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { execute, start, toFinish } from "../../helpers/flow.js";
+import { execute, onStart, toFinish } from "../../helpers/flow.js";
 import { offline } from "../fixtures/remote.workflow.js";
 import {
   FileSummaryWorkflow,
@@ -36,6 +37,7 @@ import {
 } from "../fixtures/files.application.js";
 import { agentEndingAt, AnswerDto } from "./support/finishes-agent.js";
 import { AGENT_URL } from "./support/sdk-agent.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const apps: App[] = [];
 afterEach(async () => {
@@ -67,8 +69,8 @@ class AnswersA2AAgent extends A2AClient<WorkflowStartTextDto, AnswerDto> {
 class AskPeerAction {
   constructor(private readonly peer: AnswersA2AAgent) {}
 
-  execute(input: { readonly question: Produced<WorkflowStartTextDto, unknown> }) {
-    return this.peer.execute({ text: input.question.value.text });
+  execute(input: { readonly question: Tracked<WorkflowStartTextDto> }) {
+    return this.peer.execute({ text: input.question.text });
   }
 }
 
@@ -92,12 +94,11 @@ class HandedOverFinish {}
 @Workflow({
   name: "ask-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(AskWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(AskWorkflowStart)
       .toAction(AskPeerAction)
       .onError(A2AUnexpectedFinishError, toFinish(HandedOverFinish))
-      .returns(AnswerDto)
       .toFinish(AnsweredFinish),
   ],
   providers: [AnswersA2AAgent],
@@ -106,6 +107,7 @@ class AskWorkflow {}
 
 @Application({
   name: "ask-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [AskWorkflow],
@@ -115,7 +117,7 @@ class AskApplication {}
 
 describe("#916 item 3: an unexpected finish in an execution", () => {
   it("AC3.8 the step fails with A2AUnexpectedFinishError and .onError takes it", async () => {
-    const app = await createAppWith(AskApplication, offline(new ScriptBook()));
+    const app = await createTestAppWith(AskApplication, offline(new ScriptBook()));
     apps.push(app);
 
     const result = await execute(app, AskWorkflowStart, { text: "hi" });
@@ -131,7 +133,7 @@ describe("#916 item 3: an unexpected finish in an execution", () => {
   });
 
   it("AC3.9 describe and --json show the finishes the client takes", async () => {
-    const assembled = await applicationOf(AskApplication);
+    const assembled = await applicationOf(AskApplication, { withoutIdempotencyKeys: true });
 
     expect(a2aAgentLines(assembled)).toEqual([
       "a2a agents",
@@ -168,7 +170,7 @@ function consumerOf(finishes: readonly string[] | undefined): Class {
 }
 
 const memberOf = async (application: Class) => {
-  const assembled = await applicationOf(application);
+  const assembled = await applicationOf(application, { withoutIdempotencyKeys: true });
   return {
     name: assembled.name,
     version: assembled.version,
@@ -241,9 +243,9 @@ describe("#916 item 3: target.finishes at assembly", () => {
     })
     class FinishesApplication {}
 
-    const message = await applicationOf(FinishesApplication).catch((error: unknown) =>
-      String(error),
-    );
+    const message = await applicationOf(FinishesApplication, {
+      withoutIdempotencyKeys: true,
+    }).catch((error: unknown) => String(error));
 
     expect(message).toContain(
       `[a2a.unknown-finish] named-a2a-agent's target.finishes "answer" is no @WorkflowFinish name`,

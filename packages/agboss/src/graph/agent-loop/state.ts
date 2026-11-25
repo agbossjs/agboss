@@ -1,4 +1,4 @@
-import type { A2AFileDto } from "../../a2a/files/a2a-file.dto.js";
+import type { FileDto } from "../../dto/standard/file.js";
 import {
   NO_FILES,
   type FileTally,
@@ -12,9 +12,12 @@ import type { AgentAnswer } from "../../flow/runtime/answer-tools.js";
 import type { HistoryTurn } from "../../flow/runtime/history.js";
 import type { ApprovalRecord } from "../../pause/index.js";
 import type { SensitiveValue } from "../../pii/policy-set.js";
+import { mergeMove } from "./move-entries.js";
 import { mergeTokens, type PiiTokenMap } from "../../pii/tokens.js";
 import type { LoopProgress } from "../../flow/context/frame.js";
 import type { ToolCallStop } from "./tool-stops.js";
+import type { ErrorRecord } from "../../core/error-record.js";
+import type { ToolCallRemote } from "../../mesh/mesh-call.js";
 import type { MeshLimitBody } from "../../mesh/mesh-wire.js";
 import type { ToolCallRecord } from "../../flow/runtime/tool-calls.js";
 import type {
@@ -64,12 +67,64 @@ export interface StoredToolFiles {
   readonly bytes: number;
 }
 
+/**
+ * What a call became before its approval (#1295c): its arguments checked against the tool's input,
+ * through the PII policies and the tool interceptors' `before` hooks — in that order, once. Kept by
+ * call id, so a pause and a resume at its approval reuse it: nothing is checked, masked or asked of
+ * an interceptor again.
+ */
+export type PreparedCall = PreparedCallEnd & {
+  /** The arguments it was prepared on, as the tool is to get them: a rewrite of a hook included. */
+  readonly args: Readonly<Record<string, unknown>>;
+  /** Whose arguments they are: the model's, or an approver's override (prepared once more, #1295c). */
+  readonly from: PreparedFrom;
+  /** The tool the call was for and the digest of the arguments the model gave: a reused call id never matches (#1295c). */
+  readonly tool: string;
+  readonly argsDigest: string;
+  /** The remote execution an interceptor's hook reported while it ran (#398). */
+  readonly remote?: ToolCallRemote;
+};
+
+export enum PreparedFrom {
+  Model = "model",
+  Approver = "approver",
+}
+
+/** How the preparing of a call ended. */
+export type PreparedCallEnd =
+  | {
+      /** Passed every check: it waits for its approval (when its tool needs one), then it runs. */
+      readonly kind: "ready";
+      /** The arguments as an approver may see them: the PII policies' masks and `sensitive` fields applied. */
+      readonly shown: Readonly<Record<string, unknown>>;
+    }
+  | {
+      /** Its arguments are no input of the tool: never asked about, the tool's own error is the result. */
+      readonly kind: "invalid";
+    }
+  | {
+      /** A PII block rule's kind in its arguments: never asked about, never run. */
+      readonly kind: "refused";
+      readonly content: string;
+      readonly refusal: ErrorRecord;
+    }
+  | {
+      /** An interceptor answered the model (`reply`): never asked about, never run. */
+      readonly kind: "replied";
+      readonly message: string;
+    }
+  | {
+      /** An interceptor stopped it (`block`, or a failure): never asked about, never run. */
+      readonly kind: "stopped";
+      readonly stop: ToolCallStop;
+    };
+
 /** An approver's decision on one call, before it ran. */
 export interface CallDecision {
   readonly approved: boolean;
   readonly by: string;
   readonly reason?: string;
-  readonly overrideArguments?: Record<string, unknown>;
+  readonly overrideInput?: Record<string, unknown>;
 }
 
 /**
@@ -122,7 +177,7 @@ export const AgentLoopState = Annotation.Root({
    */
   seen: Annotation<SeenFile[]>({ reducer: append, default: () => [] }),
   /** The files of the answer (#899 §8): what the output guardrails check with it; none while working. */
-  answerFiles: Annotation<A2AFileDto[]>({ reducer: replace, default: () => [] }),
+  answerFiles: Annotation<FileDto[]>({ reducer: replace, default: () => [] }),
   /** How many source files and bytes of them the conversation holds (#899): its limits are checked on it. */
   fileTally: Annotation<FileTally>({ reducer: replace, default: () => NO_FILES }),
   /** The flow nodes visited up to and including this agent (limit errors name it). */
@@ -133,15 +188,29 @@ export const AgentLoopState = Annotation.Root({
   messages: Annotation<BaseMessage[]>({ reducer: append, default: () => [] }),
   /** The model's last move while its tool calls are judged, approved and run. */
   move: Annotation<AIMessage | null>({ reducer: replace, default: () => null }),
-  results: Annotation<Record<string, StoredToolCall>>({ reducer: merge, default: () => ({}) }),
-  decisions: Annotation<Record<string, CallDecision>>({ reducer: merge, default: () => ({}) }),
-  /** The answers to the visit's question calls by call id (#712): asked before the move's tools run. */
-  questionAnswers: Annotation<Record<string, QuestionCallAnswer>>({
-    reducer: merge,
+  results: Annotation<Record<string, StoredToolCall>, Record<string, StoredToolCall | undefined>>({
+    reducer: mergeMove,
     default: () => ({}),
   }),
+  decisions: Annotation<Record<string, CallDecision>, Record<string, CallDecision | undefined>>({
+    reducer: mergeMove,
+    default: () => ({}),
+  }),
+  /** The calls of the move as they were prepared by call id (#1295c): checked before any approval. */
+  prepared: Annotation<Record<string, PreparedCall>, Record<string, PreparedCall | undefined>>({
+    reducer: mergeMove,
+    default: () => ({}),
+  }),
+  /** The answers to the visit's question calls by call id (#712): asked before the move's tools run. */
+  questionAnswers: Annotation<
+    Record<string, QuestionCallAnswer>,
+    Record<string, QuestionCallAnswer | undefined>
+  >({ reducer: mergeMove, default: () => ({}) }),
   /** Each ended call's record by its call id (#395): run, refused, declined or unparsable. */
-  callRecords: Annotation<Record<string, ToolCallRecord>>({ reducer: merge, default: () => ({}) }),
+  callRecords: Annotation<
+    Record<string, ToolCallRecord>,
+    Record<string, ToolCallRecord | undefined>
+  >({ reducer: mergeMove, default: () => ({}) }),
   /** The visit's tool calls in call order (#395): a move's records, appended when it is collected. */
   trajectory: Annotation<ToolCallRecord[]>({ reducer: append, default: () => [] }),
   /** The judges' verdicts on the visit's replies (#395 C3), in the order they judged. */
@@ -191,6 +260,8 @@ export interface ToolTask {
   readonly tool: string;
   readonly args: Record<string, unknown>;
   readonly runId: string;
+  /** How the call was prepared (#1295c): its checked arguments, or why it does not run. */
+  readonly prepared: PreparedCall;
   /** The execution's key of field tokens (#334); absent (a task of an old checkpoint) or null = the policies'. */
   readonly piiKey?: string | null;
   /**
@@ -198,6 +269,11 @@ export interface ToolTask {
    * call (a knowledge base's reranker) masks as the agent's own model does; absent in an old task.
    */
   readonly piiValues?: readonly SensitiveValue[];
+  /**
+   * The model call of the visit that made the move, from 1 (#1311): the `attempt` of its
+   * `StreamEventKind.ToolCall` event's step; absent in a task from before it.
+   */
+  readonly turn?: number;
   /** The loop's progress when its move was made (#268 S93); absent in a task from before it. */
   readonly progress?: LoopProgress;
   /** What the loop's files and spend were when the move was made (#899): a call's files are checked on it. */
@@ -229,6 +305,7 @@ export const LOOP_NODE = {
   input: "input",
   model: "model",
   boundary: "boundary",
+  prepare: "prepare",
   approval: "approval",
   tool: "tool",
   collect: "collect",

@@ -61,8 +61,8 @@ export interface FakeGatewayPayment {
   readonly paymentId: string;
   readonly idempotencyKey: string;
   readonly amount: number;
-  /** When it was made, on the clock (ms). */
-  readonly madeAt: number;
+  /** When it was made, on the clock. */
+  readonly madeAt: Date;
   readonly firstReceipt: FakeGatewayReceipt;
 }
 
@@ -187,7 +187,7 @@ export class FakePaymentGateway {
     return this.#payments.findLast(
       (payment) =>
         payment.idempotencyKey === idempotencyKey &&
-        now - payment.madeAt <= this.capabilities.keyRetention,
+        now - payment.madeAt.getTime() <= this.capabilities.keyRetention,
     );
   }
 
@@ -212,7 +212,7 @@ export class FakePaymentGateway {
       paymentId,
       idempotencyKey: request.idempotencyKey,
       amount: request.amount,
-      madeAt: this.#clock.now().getTime(),
+      madeAt: this.#clock.now(),
       firstReceipt,
     });
     return firstReceipt;

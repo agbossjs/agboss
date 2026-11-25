@@ -1,4 +1,4 @@
-import { OneOf, Text } from "@agboss/core/dto";
+import { Enum, Text } from "@agboss/core/dto";
 
 /** `read_text_file` of the filesystem server: which file. */
 export class PolicyFileRead {
@@ -14,6 +14,6 @@ export class PolicyFileContent {
 
 /** What the helpline's model asks for: one policy by its topic. */
 export class PolicyTopic {
-  @OneOf({ values: ["returns", "shipping"], prompt: "the policy to read" })
+  @Enum(["returns", "shipping"], { prompt: "the policy to read" })
   topic!: "returns" | "shipping";
 }

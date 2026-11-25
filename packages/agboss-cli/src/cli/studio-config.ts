@@ -29,6 +29,8 @@ export interface StudioSource {
   readonly workflows: readonly string[];
   /** `--env <name>`; undefined = the default (`dev`). */
   readonly env: string | undefined;
+  /** `--profile <name>`; undefined = the default (`dev`). */
+  readonly profile: string | undefined;
 }
 
 /** The written files, absolute, and the graph of each workflow as `langgraph.json` names it. */
@@ -88,7 +90,11 @@ export function studioEntryText(
   applicationExport: string,
   folder: string,
 ): string {
-  const options = source.env === undefined ? "" : `, { env: ${JSON.stringify(source.env)} }`;
+  const given = [
+    ...(source.env === undefined ? [] : [`env: ${JSON.stringify(source.env)}`]),
+    ...(source.profile === undefined ? [] : [`profile: ${JSON.stringify(source.profile)}`]),
+  ];
+  const options = given.length === 0 ? "" : `, { ${given.join(", ")} }`;
   const exports = source.workflows.map(
     (workflow) =>
       `export const ${exportNameOf(workflow)} = studio.graph(${JSON.stringify(workflow)});`,

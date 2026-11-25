@@ -4,6 +4,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -12,8 +13,13 @@ import {
   RecoveryLog,
   StampedExecutionRecordRepository,
 } from "../../../infrastructure/fixtures/recovery.workflow.js";
-import { start } from "../../../helpers/flow.js";
-import { ItemDto, ItemResultDto, SummaryWorkflowFinish } from "./fan-out.workflow.js";
+import { onStart, toWorkflow } from "../../../helpers/flow.js";
+import {
+  ItemDto,
+  ItemResultDto,
+  SummaryWorkflowFinish,
+  SummaryAction,
+} from "./fan-out.workflow.js";
 import { RecoverableItemAction } from "./launch-recovery.workflow.js";
 import { ChildEventLog } from "./children.workflow.js";
 
@@ -40,11 +46,10 @@ export class HoldCheckedWorkflowFinish {}
 @Workflow({
   name: "hold-check-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HoldCheckWorkflowStart)
-      .returns(ItemDto)
+    onStart(HoldCheckWorkflowStart)
       .toAction(RecoverableItemAction)
-      .returns(ItemResultDto)
       .toFinish(HoldCheckedWorkflowFinish),
   ],
 })
@@ -60,12 +65,12 @@ export class HoldItemsWorkflowStart {}
 @Workflow({
   name: "hold-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HoldItemsWorkflowStart)
-      .returns(listOf(ItemDto))
-      .toParallelWorkflows(HoldCheckWorkflow, { maxItems: 10 })
+    onStart(HoldItemsWorkflowStart)
+      .forEachItem(toWorkflow(HoldCheckWorkflow), { takeFirst: 10 })
       .join()
-      .returns(listOf(ItemResultDto))
+      .toAction(SummaryAction)
       .toFinish(SummaryWorkflowFinish),
   ],
 })

@@ -15,6 +15,11 @@ const StoredNotice = z.object({
   closedAt: z.string().optional(),
   expiresAt: z.string().optional(),
   previousExpiresAt: z.string().optional(),
+  previousAssignees: z.array(z.string()).optional(),
+  assignees: z.array(z.string()).optional(),
+  previousTarget: z.string().optional(),
+  previousChannel: z.string().optional(),
+  previousExternalRef: z.string().optional(),
   launch: z.string().optional(),
   errorCode: z.string().optional(),
 });
@@ -41,9 +46,13 @@ export function toMailbox(row: unknown): StoredMailbox {
     tenantId: r.tenant_id,
     pauseId: r.pause_id,
     recipient: r.recipient,
-    notices: z
-      .array(StoredNotice)
-      .parse(parsedStoredJson("pause notice mailbox", r.notices, { pauseId: r.pause_id })),
+    notices: z.array(StoredNotice).parse(
+      parsedStoredJson({
+        what: "pause notice mailbox",
+        text: r.notices,
+        ids: { pauseId: r.pause_id },
+      }),
+    ),
     delivered: r.delivered,
     attempts: r.attempts,
     nextAttemptAt: new Date(r.next_attempt_at),

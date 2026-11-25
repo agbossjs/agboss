@@ -8,23 +8,20 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import {
   Action,
-  ExecutionContext,
   ExecutionLeaseRepository,
+  Idempotency,
   InMemoryOutboundCallRepository,
   Injectable,
-  NotSentTrust,
   OutboundCallSendStatus,
   OutboundCallRepository,
-  OutboundCalls,
-  effectKeyOf,
-  type EffectKey,
-  type OutboundCallKey,
+  OutboundRecovery,
 } from "../../src/index.js";
+import { type EffectKey } from "../../src/stores/index.js";
 import { type OutboundCallIntent } from "../../src/stores/index.js";
 import { Clock, StoreClock } from "../../src/infrastructure/clock.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
-import { override, testAction } from "../../src/testing/index.js";
-import { seconds } from "../../src/units/index.js";
+import { testUnit } from "../../src/testing/index.js";
+import { hours, seconds } from "../../src/units/index.js";
 import { settle } from "./fixtures/fence-takeover.js";
 import { gateway, PaymentGateway, resetGateway } from "./fixtures/payment-gateway.js";
 
@@ -57,40 +54,37 @@ class GatedOutboundCallRepository extends InMemoryOutboundCallRepository {
 /** What the second call of the action got. */
 const seen = { statuses: [] as OutboundCallSendStatus[] };
 
-const charge = (
-  outboundCalls: OutboundCalls,
-  gatewayOf: PaymentGateway,
-  key: EffectKey | OutboundCallKey,
-) =>
-  outboundCalls.send(key, {
+const charge = (idempotency: Idempotency, gatewayOf: PaymentGateway) =>
+  idempotency.sendOnce({
+    name: "charge",
+    key: "order:1",
     target: "payments",
     operation: "charge",
     request: { orderId: "order-1", amountUsd: 10 },
+    timeout: seconds(15),
+    ttl: hours(48),
     send: (call) => gatewayOf.charge(call),
-    notSent: { trust: NotSentTrust.Lookup },
-    reconcile: (lookup) => gatewayOf.reconcile(lookup),
+    recovery: OutboundRecovery.permanentLookup((lookup) => gatewayOf.reconcile(lookup)),
   });
 
 @Action({
   name: "charge-in-window-action",
   description: "Charges an order, and once more while the first charge is in its window",
   input: { message: WorkflowStartTextDto },
-  deps: [ExecutionContext, OutboundCalls, PaymentGateway],
+  deps: [Idempotency, PaymentGateway],
 })
 class ChargeInWindowAction {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
+    private readonly idempotency: Idempotency,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
   async execute(): Promise<void> {
-    const key = effectKeyOf(this.executionContext, "charge", { businessKey: "order:1" });
     window.isArmed = true;
     const reached = reachedWindow();
-    const first = charge(this.outboundCalls, this.paymentGateway, key);
+    const first = charge(this.idempotency, this.paymentGateway);
     await reached;
-    const second = charge(this.outboundCalls, this.paymentGateway, key);
+    const second = charge(this.idempotency, this.paymentGateway);
     window.letGo?.();
     const outcomes = await Promise.all([first, second]);
     seen.statuses.push(...outcomes.map((outcome) => outcome.status));
@@ -101,23 +95,21 @@ class ChargeInWindowAction {
   name: "charge-once-action",
   description: "Charges an order once",
   input: { message: WorkflowStartTextDto },
-  deps: [ExecutionContext, OutboundCalls, PaymentGateway],
+  deps: [Idempotency, PaymentGateway],
 })
 class ChargeOnceAction {
   constructor(
-    private readonly executionContext: ExecutionContext,
-    private readonly outboundCalls: OutboundCalls,
+    private readonly idempotency: Idempotency,
     private readonly paymentGateway: PaymentGateway,
   ) {}
 
   async execute(): Promise<void> {
-    const key = effectKeyOf(this.executionContext, "charge", { businessKey: "order:1" });
-    await charge(this.outboundCalls, this.paymentGateway, key);
+    await charge(this.idempotency, this.paymentGateway);
   }
 }
 
-const order = { message: { value: { text: "order-1" } } } as never;
-const gated = { overrides: [override(OutboundCallRepository, GatedOutboundCallRepository)] };
+const order = { message: { text: "order-1" } } as never;
+const gated = { services: [GatedOutboundCallRepository] };
 
 beforeEach(() => {
   resetGateway();
@@ -131,7 +123,7 @@ afterEach(() => {
 
 describe("#508: the window between recording an intent and sending it", () => {
   it("a second call of the key arriving between the save and the send is joined, never sent", async () => {
-    const run = testAction(ChargeInWindowAction, gated);
+    const run = testUnit(ChargeInWindowAction, gated);
 
     await run(order);
 
@@ -140,7 +132,7 @@ describe("#508: the window between recording an intent and sending it", () => {
   });
 
   it("a step aborted in the window — after its intent is recorded, before its send — sends nothing", async () => {
-    const run = testAction(ChargeOnceAction, gated);
+    const run = testUnit(ChargeOnceAction, gated);
     window.isArmed = true;
     const reached = reachedWindow();
     const call = run(order, { timeout: seconds(1) });

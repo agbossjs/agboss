@@ -33,8 +33,9 @@ export function meshRefusalOf(
   const isLoop = chain.some(
     (hop) => hop.application === entry.application && hop.start === entry.start,
   );
-  if (isLoop) return new MeshLoopDetectedError({ entry, chain });
-  if (chain.length >= maxMeshHops) return new HopsLimitExceededError({ entry, chain, maxMeshHops });
+  if (isLoop) return new MeshLoopDetectedError({ entry, callChain: chain });
+  if (chain.length >= maxMeshHops)
+    return new HopsLimitExceededError({ entry, callChain: chain, maxMeshHops });
   return undefined;
 }
 
@@ -63,6 +64,7 @@ export function inboundMeshOfRequest(
 /** A trusted peer's claims, as its execution keeps them. */
 function trustedOf(envelope: MeshEnvelope, peer: string): TrustedMesh {
   const budget = dollarsOf(envelope.budget?.remaining);
+  const budgetTokens = envelope.budget?.remainingTokens;
   const deadline = millisecondsOf(envelope.deadline?.remaining);
   const origin: ExecutionOrigin = {
     ...envelope.origin,
@@ -72,6 +74,7 @@ function trustedOf(envelope: MeshEnvelope, peer: string): TrustedMesh {
   return {
     origin,
     ...(budget === undefined ? {} : { budget }),
+    ...(budgetTokens === undefined ? {} : { budgetTokens }),
     ...(deadline === undefined ? {} : { deadline }),
   };
 }

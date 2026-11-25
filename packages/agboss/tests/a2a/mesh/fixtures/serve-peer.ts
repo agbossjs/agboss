@@ -10,7 +10,7 @@ import {
   peer,
   PeerA2AExpose,
   PeerApplication,
-  PeerCallerResolver,
+  PeerAuthenticator,
   type EndLosingPeerApplication,
   type KeylessPeerApplication,
   type StrictPeerApplication,
@@ -39,8 +39,8 @@ export async function servePeer(
   peer.clock = clock;
   const app = await createApp(Peer, { env: "test" });
   const listener = a2aHttpListener(app, {
-    expose: PeerA2AExpose,
-    callerResolver: PeerCallerResolver,
+    endpoint: PeerA2AExpose,
+    authenticator: PeerAuthenticator,
     publicUrl: "http://peer.test",
     base: "/a2a",
   });
@@ -67,9 +67,12 @@ export const executionSpentOf = (
   app: Pick<App, "resolve">,
   rootExecutionId: string,
 ): Promise<number> =>
-  app.resolve(CostLedgerRepository).findSpentByCounter({
-    budget: "test-execution-budget",
-    scope: BudgetScope.Execution,
-    key: rootExecutionId,
-    period: "",
-  });
+  app
+    .resolve(CostLedgerRepository)
+    .findUsageByCounter({
+      budget: "test-execution-budget",
+      scope: BudgetScope.Execution,
+      key: rootExecutionId,
+      period: "",
+    })
+    .then((usage) => usage.spent);

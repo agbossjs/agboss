@@ -3,15 +3,14 @@
  * `defaults.tools` (application → workflow), else 128 KB — cut before PII masking, with a marker;
  * error results and context-mode knowledge blocks too; `onToolEnd` says whether it was cut.
  */
-import type { MessageContent } from "@langchain/core/messages";
+import type { ShownContent } from "../../../src/models/messages.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applicationOf } from "../../../src/application/assemble.js";
 import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
 import { GraphRuleError } from "../../../src/index.js";
 import { truncatedResultMarker } from "../../../src/prompts/agents.js";
-import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
+import { callTool, replyWith, testUnit, testWith } from "../../../src/testing/index.js";
 import type { ModelScript } from "../../../src/testing/model-script.js";
-import { testTool } from "../../../src/testing/units/test-tool.js";
 import { execute } from "../../helpers/flow.js";
 import {
   BoundedPageApplication,
@@ -35,7 +34,7 @@ const page = "x".repeat(MEGABYTE);
 const renderedSize = MEGABYTE + `{"text":""}`.length;
 
 /** A message's content as text (a tool result and an input message are text). */
-const textOf = (content: MessageContent | undefined): string =>
+const textOf = (content: ShownContent | undefined): string =>
   typeof content === "string" ? content : JSON.stringify(content);
 
 /** The last message the agent's model read on its second call: the tool's result. */
@@ -151,13 +150,13 @@ describe("#336 AC3: tool results bounded by maxResultSize", () => {
     await execute(app, PageStart, { text: "read both" });
 
     expect(toolEnds.map((event) => event.isResultTruncated)).toEqual([true, false]);
-    expect(toolEnds[1]?.update).toBe(`{"text":"a short page"}`);
+    expect(toolEnds[1]?.output).toBe(`{"text":"a short page"}`);
   });
 });
 
 describe("#336 AC3: the bound's settings", () => {
-  it("testTool(…).run returns the full output: the bound is the model's", async () => {
-    const run = testTool(FetchPageTool);
+  it("testUnit(…).run returns the full output: the bound is the model's", async () => {
+    const run = testUnit(FetchPageTool);
 
     const { output } = await run({ url: "https://example.com" });
 

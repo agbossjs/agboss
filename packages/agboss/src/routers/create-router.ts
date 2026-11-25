@@ -23,7 +23,12 @@ export function withTrivialOptions(router: RouterEngine): RouterEngine {
 /** A router's configured model with the chat defaults applied (LLM routers). */
 function decisionModelOf(model: RouterModel, chatDefaults: ChatDefaults): DecisionModel {
   return model.kind === "jev"
-    ? { kind: "jev", model: model.model }
+    ? {
+        kind: "jev",
+        model: model.model,
+        // the provider its cascade resolved: without it the call has no provider to go to (#1313)
+        ...(model.modelProvider === undefined ? {} : { modelProvider: model.modelProvider }),
+      }
     : { kind: "llm", settings: resolveSettings(model, chatDefaults) };
 }
 

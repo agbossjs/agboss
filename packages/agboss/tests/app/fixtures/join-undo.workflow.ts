@@ -1,7 +1,7 @@
-import { Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
-import { start } from "../../helpers/flow.js";
+import { Workflow, WorkflowFinish, WorkflowStart, Ttl } from "../../../src/index.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
-import { BookingDto, BookItemAction, ConfirmBookingAction } from "./finished-undo.workflow.js";
+import { BookItemAction, ConfirmBookingAction } from "./finished-undo.workflow.js";
 import { GatedItemAction } from "./remote-child-yield.workflow.js";
 
 /**
@@ -27,13 +27,11 @@ export class JoinUndoWorkflowFinish {}
 @Workflow({
   name: "join-undo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(JoinUndoWorkflowStart)
-      .returns(ItemDto)
-      .toParallelActions(BookItemAction, GatedItemAction)
+    onStart(JoinUndoWorkflowStart)
+      .inParallel([toAction(BookItemAction), toAction(GatedItemAction)])
       .join()
-      .returns(BookingDto)
-      .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)
       .toFinish(JoinUndoWorkflowFinish),
   ],
@@ -58,13 +56,11 @@ export class RootUndoWorkflowFinish {}
 @Workflow({
   name: "root-undo-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RootUndoWorkflowStart)
-      .returns(ItemDto)
+    onStart(RootUndoWorkflowStart)
       .toAction(BookItemAction)
-      .returns(BookingDto)
       .toAction(GatedItemAction)
-      .returns(ItemResultDto)
       .toAction(ConfirmBookingAction)
       .toFinish(RootUndoWorkflowFinish),
   ],

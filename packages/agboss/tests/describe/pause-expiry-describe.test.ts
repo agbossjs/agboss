@@ -1,42 +1,46 @@
 /**
- * #941 AC1: `agboss describe` prints `expiresIn` per role, per question step and per tool.
+ * #941 AC1: `agboss describe` prints the timeout of each pause target.
  */
 import { describe, expect, it } from "vitest";
 import { applicationOf } from "../../src/application/assemble.js";
 import { describedChannelsOf } from "../../src/describe/channels.js";
-import { describeApplication } from "../../src/describe/describe-application.js";
+import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { durationLabel } from "../../src/units/duration-label.js";
 import { AgentExpiryApplication } from "../flow/fixtures/agent-expiry.fixture.js";
 import { PublicExpiryApplication } from "../flow/fixtures/expiry-public.fixture.js";
 
 describe("#941 AC1: describe shows the deadlines", () => {
-  it("a role's expiresIn is data and a line's `expires in`", async () => {
+  it("a target's timeout is data and a line's `expires in`", async () => {
     const assembled = await applicationOf(AgentExpiryApplication);
 
     const channel = describedChannelsOf(assembled).find(
-      (one) => one.name === "expiring-refund-approval",
+      (one) => one.name === "expiring-refund-approval-tool-approval",
     );
 
     expect(channel?.expiresIn).toBe(24 * 3_600_000);
-    expect(describeApplication(assembled).join("\n")).toContain(
-      "expiring-refund-approval (RefundApprovalRole): AgentRefundDto → ToolCallApprovalDecisionDto · answered by the channel · expires in 24 h",
+    expect(describeAssembledApplication(assembled).join("\n")).toContain(
+      "expiring-refund-approval-tool-approval (RefundApprovalToolApproval): AgentRefundDto → ToolCallApprovalDecisionDto · answered by the channel · expires in 24 h",
     );
   });
 
-  it("a tool's expiresIn is on its line", async () => {
-    const text = describeApplication(await applicationOf(AgentExpiryApplication)).join("\n");
+  it("a tool's approval carries its own timeout: urgent 4 h, the others 24 h", async () => {
+    const text = describeAssembledApplication(await applicationOf(AgentExpiryApplication)).join(
+      "\n",
+    );
 
     expect(text).toMatch(
-      /urgent-refund-tool \(channel:expiring-refund-approval[^\n]*· expires in 4 h/,
+      /urgent-refund-tool-approval \(UrgentRefundToolApproval\)[^\n]*expires in 4 h/,
     );
-    expect(text).not.toMatch(/\nexpiring-refund-tool[^\n]*expires in/);
+    expect(text).toMatch(/\n +· urgent-refund-tool \(approval:urgent-refund-tool-approval,/);
   });
 
-  it("a question step's expiresIn is in the flow", async () => {
-    const text = describeApplication(await applicationOf(PublicExpiryApplication)).join("\n");
+  it("a step's own target is in the flow", async () => {
+    const text = describeAssembledApplication(await applicationOf(PublicExpiryApplication)).join(
+      "\n",
+    );
 
-    expect(text).toContain(".toQuestion(ManagerQuestion, { expiresIn: 14400000 })");
-    expect(text).toContain("toQuestion(DirectorQuestion, { expiresIn: 3600000 })");
+    expect(text).toContain(".toExternalTask(ShortManagerExternalTask)");
+    expect(text).toContain("toExternalTask(HourDirectorExternalTask)");
   });
 
   it("durations read as people write them", () => {

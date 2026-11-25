@@ -1,13 +1,13 @@
 import {
   listOf,
-  ThisWorkflow,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  oneOf,
-  type Produced,
+  type Tracked,
+  Action,
+  Ttl,
 } from "../../../src/index.js";
-import { caseOf, start } from "../../helpers/flow.js";
+import { onStart, toAction, toWorkflow, toFinish } from "../../helpers/flow.js";
 import {
   ChargeOrderAction,
   HoldOrderAction,
@@ -39,11 +39,10 @@ export class NoteChildWorkflowFinish {}
 @Workflow({
   name: "note-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(NoteChildWorkflowStart)
-      .returns(OrderDto)
+    onStart(NoteChildWorkflowStart)
       .toAction(NoteOrderAction)
-      .returns(OrderNoteDto)
       .toFinish(NoteChildWorkflowFinish),
   ],
 })
@@ -57,13 +56,11 @@ export class PaidChildWorkflowFinish {}
 @Workflow({
   name: "paid-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PaidChildWorkflowStart)
-      .returns(OrderDto)
+    onStart(PaidChildWorkflowStart)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
       .toWorkflow(NoteChildWorkflow)
-      .returns(OrderNoteDto)
       .toFinish(PaidChildWorkflowFinish),
   ],
 })
@@ -76,33 +73,42 @@ export class PaidChildWorkflow {}
 })
 export class PaidItemsWorkflowStart {}
 
-@WorkflowFinish({
-  name: "paid-items-workflow-finish",
+@Action({
+  name: "paid-items-action",
   description: "Every order's note",
   input: { notes: listOf(OrderNoteDto) },
   output: OrderNoteDto,
 })
-export class PaidItemsWorkflowFinish {
-  finish(input: { readonly notes: readonly Produced<OrderNoteDto, unknown>[] }): OrderNoteDto {
+export class PaidItemsAction {
+  async execute(input: {
+    readonly notes: readonly Tracked<OrderNoteDto>[];
+  }): Promise<OrderNoteDto> {
     return {
-      note: input.notes.map((note) => note.value.note)
+      note: input.notes
+        .map((note) => note.note)
         .join("; "),
     };
   }
 }
 
+@WorkflowFinish({
+  name: "paid-items-workflow-finish",
+  description: "Every order's note",
+  output: OrderNoteDto,
+})
+export class PaidItemsWorkflowFinish {}
+
 /** Charged past the budgets for every order, then one child per order. */
 @Workflow({
   name: "paid-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PaidItemsWorkflowStart)
-      .returns(listOf(OrderDto))
+    onStart(PaidItemsWorkflowStart)
       .toAction(OverspendOrdersAction)
-      .returns(listOf(OrderDto))
-      .toParallelWorkflows(NoteChildWorkflow, { maxItems: 3 })
+      .forEachItem(toWorkflow(NoteChildWorkflow), { takeFirst: 3 })
       .join()
-      .returns(listOf(OrderNoteDto))
+      .toAction(PaidItemsAction)
       .toFinish(PaidItemsWorkflowFinish),
   ],
 })
@@ -117,21 +123,17 @@ export class PaidLevelWorkflowFinish {}
 @Workflow({
   name: "paid-level-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PaidLevelWorkflowStart)
-      .returns(OrderDto)
+    onStart(PaidLevelWorkflowStart)
       .toAction(LevelOrderAction)
-      .returns(oneOf(OrderDto, OrderNoteDto))
-      .switch(
-        caseOf(OrderDto)
-          .toWorkflow(ThisWorkflow)
-          .returns(OrderNoteDto)
+      .toOneOf([
+        toWorkflow(() => PaidLevelWorkflow)
           .toFinish(PaidLevelWorkflowFinish),
-        caseOf(OrderNoteDto)
-          .toFinish(PaidLevelWorkflowFinish),
-      ),
+        toFinish(PaidLevelWorkflowFinish),
+      ]),
   ],
-  maxDepth: 2,
+  executionLimits: { maxDepth: 2 },
 })
 export class PaidLevelWorkflow {}
 
@@ -144,14 +146,12 @@ export class PaidLaunchWorkflowFinish {}
 @Workflow({
   name: "paid-launch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PaidLaunchWorkflowStart)
-      .returns(OrderDto)
+    onStart(PaidLaunchWorkflowStart)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
-      .toParallelActions(NoteOrderAction, MemoOrderAction)
+      .inParallel([toAction(NoteOrderAction), toAction(MemoOrderAction)])
       .join()
-      .returns(OrderNoteDto)
       .toFinish(PaidLaunchWorkflowFinish),
   ],
 })
@@ -166,12 +166,11 @@ export class PaidRaceWorkflowFinish {}
 @Workflow({
   name: "paid-race-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PaidRaceWorkflowStart)
-      .returns(OrderDto)
-      .toParallelActions(ChargeOrderAction, NoteOrderAction)
+    onStart(PaidRaceWorkflowStart)
+      .inParallel([toAction(ChargeOrderAction), toAction(NoteOrderAction)])
       .join()
-      .returns(OrderNoteDto)
       .toFinish(PaidRaceWorkflowFinish),
   ],
 })
@@ -186,13 +185,11 @@ export class PaidHoldWorkflowFinish {}
 @Workflow({
   name: "paid-hold-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PaidHoldWorkflowStart)
-      .returns(OrderDto)
+    onStart(PaidHoldWorkflowStart)
       .toAction(HoldOrderAction)
-      .returns(OrderDto)
       .toAction(NoteOrderAction)
-      .returns(OrderNoteDto)
       .toFinish(PaidHoldWorkflowFinish),
   ],
 })

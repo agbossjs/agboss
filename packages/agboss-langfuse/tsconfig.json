@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // typecheck, lint and tests see the framework's sources; the build (tsconfig.build.json)
+    // compiles against the built package, as a user installs it
+    "paths": {
+      "@agboss/core": ["../agboss/src/index.ts"],
+      "@agboss/core/*": ["../agboss/src/*/index.ts", "../agboss/src/*.ts"]
+    }
+  },
+  "include": ["src", "tests", "vitest.config.ts"]
+}

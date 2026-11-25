@@ -1,14 +1,17 @@
+import { type Usd } from "../../units/index.js";
 import type { ComponentKind } from "../../flow/runtime/records.js";
 import type { ToolCallStatus } from "../../flow/runtime/tool-calls.js";
 import type { GuardrailSide } from "../../components/policy-decorators.js";
 import type { JudgeMetrics } from "../../components/judge-decorators.js";
 import type { CompensationReason, CompensationStatus } from "../../flow/compensation.js";
 import type { PauseResolution } from "../../infrastructure/pause-record.js";
+import type { PauseActor } from "../../channels/pause-contexts.js";
+import type { ExecutionStatus } from "../../app/types.js";
 import type { ChildExecutionStatus } from "../../flow/runtime/child-records.js";
 
 /**
  * What a run artifact keeps of the case's last execution (#397 PR 2, schemaVersion 2): its
- * trajectory, step by step — taken from its execution record (`{ record: true }`), so every value
+ * trajectory, step by step — taken from its execution record (`{ includeRecord: true }`), so every value
  * is masked by the application's and the workflow's PII policies as the record is. Plain JSON,
  * smaller than the record: a step's spend is its model calls, a tool call names its tool.
  */
@@ -24,10 +27,12 @@ export interface EvalModelCallTrace {
   /** Who called, as the spend names it: the agent or router, `guardrail:<name>`, `judge:<name>`, … */
   readonly caller: string;
   readonly model: string;
+  /** The `@ModelProvider` that served it, by its `name`; `(none)` for a charge no provider made (a tool's). */
+  readonly provider: string;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly cacheReadTokens: number;
-  readonly costUsd: number;
+  readonly costUsd: Usd;
 }
 
 /** One tool call of an agent's visit. */
@@ -45,6 +50,9 @@ export interface EvalToolCallTrace {
   readonly isResultTruncated: boolean;
   /** Answers and tool arguments of the visit that failed validation before this call. */
   readonly validationAttempts: number;
+  /** When it started and ended, on the application's `Clock`. */
+  readonly startedAt: Date;
+  readonly endedAt: Date;
 }
 
 /** One guardrail's decision in a visit. */
@@ -81,9 +89,9 @@ export interface EvalStepTrace {
   readonly toolCalls: readonly EvalToolCallTrace[];
   readonly guardrailDecisions: readonly EvalGuardrailDecisionTrace[];
   readonly judgeVerdicts: readonly EvalJudgeVerdictTrace[];
-  readonly spentUsd: number;
-  readonly startedAt: string;
-  readonly endedAt: string;
+  readonly spentUsd: Usd;
+  readonly startedAt: Date;
+  readonly endedAt: Date;
   /** The failure an `.onError` side path took. */
   readonly error?: EvalTraceError;
 }
@@ -99,14 +107,13 @@ export interface EvalHandledErrorTrace {
 export interface EvalPauseTrace {
   /** The waiting step's node. */
   readonly nodeId: string;
-  readonly role: string;
+  /** The pause target (the `@ToolApproval` / `@ExternalTask` / question it waited on), by name. */
+  readonly target: string;
   readonly resolution: PauseResolution;
-  /** Who answered (`answeredBy` of its log entry). */
-  readonly answeredBy?: string;
-  /** @deprecated 0.1.0's name of `answeredBy`, the same value, until 0.2: use `answeredBy`. */
-  readonly responder?: string;
+  /** Who answered; absent when its channel decided at once or it was withdrawn. */
+  readonly actor?: PauseActor | undefined;
   /** What was decided, masked. */
-  readonly decision?: unknown;
+  readonly output?: unknown;
 }
 
 /** An undo action that ran. */
@@ -120,7 +127,13 @@ export interface EvalCompensationTrace {
 }
 
 /** An execution's trajectory: its own steps, then its handled errors, pauses, undos and children. */
-export interface EvalExecutionTrace {
+export interface EvalExecutionTrace extends EvalTrajectory {
+  /** How the last turn ended: `Finished`, or `Paused`, `Stopped`, `Cancelled`. */
+  readonly status: ExecutionStatus;
+}
+
+/** What every execution's trace has, the root's and a child's. */
+export interface EvalTrajectory {
   readonly executionId: string;
   readonly path: readonly string[];
   readonly steps: readonly EvalStepTrace[];
@@ -134,7 +147,7 @@ export interface EvalExecutionTrace {
 }
 
 /** A child execution's trajectory, nested in its parent's. */
-export interface EvalChildTrace extends EvalExecutionTrace {
+export interface EvalChildTrace extends EvalTrajectory {
   readonly workflow: string;
   readonly status: ChildExecutionStatus;
   /** The parent's node that launched it. */
@@ -143,10 +156,10 @@ export interface EvalChildTrace extends EvalExecutionTrace {
   readonly error?: EvalTraceError;
 }
 
-/** A tool a case requires, with the partial its arguments must match (absent: any call). */
+/** A tool a case requires, with the partial its input must match (absent: any call). */
 export interface EvalExpectedToolCallTrace {
   readonly tool: string;
-  readonly arguments?: unknown;
+  readonly input?: unknown;
 }
 
 /** What a case expects of a run, as written (masked): what the page sets beside the run's output. */

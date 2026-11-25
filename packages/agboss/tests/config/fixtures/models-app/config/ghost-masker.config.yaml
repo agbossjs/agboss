@@ -1,0 +1,3 @@
+fileMaskers:
+  ghost-agent:
+    model: local/other

@@ -28,10 +28,15 @@ export interface IncompatibleResumeErrorOptions extends IncompatibleResume {
   readonly cause?: unknown;
 }
 
-/** "resume": continue the paused checkpoint on the current graph; "reject": fail the resume. */
-export type ResumeDecision = "resume" | "reject";
+/** What an `onIncompatibleResume` policy decides (#1324). */
+export enum ResumeDecision {
+  /** Continue the paused checkpoint on the current graph. */
+  Resume = "resume",
+  /** Fail the resume with `IncompatibleResumeError`. */
+  Reject = "reject",
+}
 
-/** Decides an incompatible resume, e.g. `({ paused }) => paused.workflowVersion === "1.1.0" ? "resume" : "reject"`. */
+/** Decides an incompatible resume, e.g. `({ paused }) => paused.workflowVersion === "1.1.0" ? ResumeDecision.Resume : ResumeDecision.Reject`. */
 export type IncompatibleResumePolicy = (resume: IncompatibleResume) => ResumeDecision;
 
 const shortHash = (hash: string): string => hash.slice(0, 12);
@@ -56,7 +61,8 @@ export class IncompatibleResumeError extends AGBossError {
     super(
       `[resume.incompatible] thread "${resume.threadId}" paused under ${label(resume.paused)}, ` +
         `this app runs ${label(resume.current)} — register ` +
-        `WorkflowSettings.builder().onIncompatibleResume(…) to resume it anyway`,
+        `WorkflowSettings.builder().onIncompatibleResume(…) to resume it anyway ` +
+        `(limits, ttl and provider fallback settings are not part of the config, so a profile that only tunes them never causes this)`,
       { cause: resume.cause },
     );
     this.threadId = resume.threadId;
@@ -72,6 +78,6 @@ export function checkResume(
   policy: IncompatibleResumePolicy | undefined,
 ): void {
   if (resume.paused.configHash === resume.current.configHash) return;
-  if (policy?.(resume) === "resume") return;
+  if (policy?.(resume) === ResumeDecision.Resume) return;
   throw new IncompatibleResumeError(resume);
 }

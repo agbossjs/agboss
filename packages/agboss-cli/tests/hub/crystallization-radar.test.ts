@@ -6,7 +6,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { ComponentKind, type ExecutionStepRecord } from "@agboss/core";
-import { buildCostReport } from "../../../agboss/src/finops/usage.js";
+import { CostReport } from "../../../agboss/src/finops/usage.js";
+import { usd } from "@agboss/core/units";
 import { bareRecordOf } from "../../../agboss/src/flow/runtime/records.js";
 import {
   historyRecordOf,
@@ -33,7 +34,7 @@ function stepOf(
     decision,
     judgeVerdicts: [],
     guardrailDecisions: [],
-    spend: { ...buildCostReport([]), calls, totalUsd: calls === 0 ? 0 : 0.01 },
+    spend: { ...CostReport.fromUsage([]), calls, totalUsd: usd(calls === 0 ? 0 : 0.01) },
     startedAt: "2026-01-05T09:00:00.000Z",
     endedAt: "2026-01-05T09:00:01.000Z",
   };

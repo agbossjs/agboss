@@ -13,7 +13,8 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { isApplicationSpendExhausted } from "../../src/budgets/application-spend.js";
@@ -27,7 +28,7 @@ import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledg
 import { testWith } from "../../src/testing/index.js";
 import { usd, type Usd } from "../../src/units/index.js";
 import { TEST_BUDGETS, TestTenantDailyBudget } from "../flow/fixtures/budgets.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import { ledgerEntryOf } from "../helpers.js";
 import { ItemDto, ItemResultDto } from "../flow/runtime/fixtures/fan-out.workflow.js";
 
@@ -71,13 +72,13 @@ describe("#728 AC1: eight $0.10 calls exhaust $0.80", () => {
       key: "exact-application",
       maxSpend: 0.8,
     };
-    await ledger.saveMaxSpend(
+    await ledger.saveLimit(
       {
         budget: "daily-application-budget",
         scope: BudgetScope.Application,
         key: "exact-application",
       },
-      usd(0.8),
+      { maxSpend: usd(0.8) },
     );
     await ledger.saveAll(
       [counterOf(record, systemClock.now())],
@@ -125,10 +126,10 @@ class DailyApplicationBudget implements BudgetHandler {
 })
 class DimesAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
-  execute(input: { readonly item: Produced<ItemDto, unknown> }): Promise<ItemResultDto> {
+  execute(input: { readonly item: Tracked<ItemDto> }): Promise<ItemResultDto> {
     for (let call = 0; call < 8; call += 1)
       this.spendRecorder.record({ service: "search", cost: usd(0.1) });
-    return Promise.resolve({ name: input.item.value.name });
+    return Promise.resolve({ name: input.item.name });
   }
 }
 @WorkflowStart({ name: "dimes-workflow-start", description: "An item", input: ItemDto })
@@ -138,13 +139,8 @@ class DimesFinish {}
 @Workflow({
   name: "dimes-workflow",
   version: "1.0.0",
-  flow: [
-    start(DimesStart)
-      .returns(ItemDto)
-      .toAction(DimesAction)
-      .returns(ItemResultDto)
-      .toFinish(DimesFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(DimesStart).toAction(DimesAction).toFinish(DimesFinish)],
 })
 class DimesWorkflow {}
 @Application({

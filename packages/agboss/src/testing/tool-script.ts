@@ -10,14 +10,23 @@ export enum ToolFailure {
   Timeout = "timeout",
 }
 
-/** A tool's script: `mockTool(SearchJobsTool).thenFail(ToolFailure.Timeout)`. */
+/** A tool's script: `mockTool(SearchJobsTool).thenReturn({ jobs: [] }).thenFail(ToolFailure.Timeout)`. */
 export interface ToolScript {
+  /**
+   * The next calls return these outputs, one each, in order, without running the tool's `execute`
+   * (what the agent's loop validates and reads as it would the real one's); the calls after them run
+   * the real tool. An output no call took fails the test at its end.
+   */
+  thenReturn(...outputs: readonly unknown[]): ToolScript;
   /**
    * The next calls fail, one failure each, in order; the calls after them run the real tool. A
    * failure no call took fails the test at its end.
    */
   thenFail(...failures: readonly ToolFailure[]): ToolScript;
 }
+
+/** One scripted call: an output to return, or a failure to throw. */
+type Scripted = { readonly returns: unknown } | { readonly fails: ToolFailure };
 
 /** The error each failure is, as the tool's own code would throw it: what the agent then reads. */
 const FAILURES: Readonly<Record<ToolFailure, (timeout: Milliseconds) => Error>> = {
@@ -26,15 +35,18 @@ const FAILURES: Readonly<Record<ToolFailure, (timeout: Milliseconds) => Error>> 
 
 /** A tool instance: what the agent's loop calls. */
 interface ToolInstance {
-  run(input: unknown): Promise<unknown>;
+  execute(input: unknown): unknown;
 }
 
 const isToolInstance = (value: unknown): value is ToolInstance =>
-  typeof value === "object" && value !== null && "run" in value && typeof value.run === "function";
+  typeof value === "object" &&
+  value !== null &&
+  "execute" in value &&
+  typeof value.execute === "function";
 
-/** One tool class's scripted failures; the real `run` for every call after them. */
-class ToolFailures implements ToolScript, ScriptedExpectation {
-  readonly #failures: ToolFailure[] = [];
+/** One tool class's scripted calls; the real `execute` for every call after them. */
+class ToolCalls implements ToolScript, ScriptedExpectation {
+  readonly #calls: Scripted[] = [];
   #position = 0;
 
   constructor(
@@ -42,32 +54,39 @@ class ToolFailures implements ToolScript, ScriptedExpectation {
     private readonly timeout: Milliseconds,
   ) {}
 
-  thenFail(...failures: readonly ToolFailure[]): this {
-    this.#failures.push(...failures);
+  thenReturn(...outputs: readonly unknown[]): this {
+    this.#calls.push(...outputs.map((returns) => ({ returns })));
     return this;
   }
 
-  /** The failure of the next call, if one is scripted. */
-  take(): Error | undefined {
-    const failure = this.#failures[this.#position];
-    if (failure === undefined) return undefined;
+  thenFail(...failures: readonly ToolFailure[]): this {
+    this.#calls.push(...failures.map((fails) => ({ fails })));
+    return this;
+  }
+
+  /** What the next call does, if one is scripted: return an output or fail. */
+  take(): { readonly returns: unknown } | { readonly error: Error } | undefined {
+    const next = this.#calls[this.#position];
+    if (next === undefined) return undefined;
     this.#position += 1;
-    return FAILURES[failure](this.timeout);
+    return "fails" in next
+      ? { error: FAILURES[next.fails](this.timeout) }
+      : { returns: next.returns };
   }
 
   leftovers(): readonly string[] {
-    const left = this.#failures.length - this.#position;
+    const left = this.#calls.length - this.#position;
     if (left === 0) return [];
-    return [`mockTool(${this.tool.name}): ${String(left)} scripted failure(s) never caused`];
+    return [`mockTool(${this.tool.name}): ${String(left)} scripted call(s) never made`];
   }
 }
 
 /**
  * The tool scripts of one test. The container still creates every tool (its dependencies real or
- * mocked); a scripted one's `run` fails first, then runs as written.
+ * mocked); a scripted one's `execute` fails first, then runs as written.
  */
 export class ToolScripts {
-  readonly #scripts = new Map<Class, ToolFailures>();
+  readonly #scripts = new Map<Class, ToolCalls>();
 
   constructor(private readonly onScripted: (script: ScriptedExpectation) => void) {}
 
@@ -75,22 +94,23 @@ export class ToolScripts {
     const existing = this.#scripts.get(tool);
     if (existing !== undefined) return existing;
     const kind = requireComponent(tool, "tool", "mockTool");
-    const created = new ToolFailures(tool, kind.meta.timeout ?? DEFAULT_TOOL_TIMEOUT);
+    const created = new ToolCalls(tool, kind.meta.timeout ?? DEFAULT_TOOL_TIMEOUT);
     this.#scripts.set(tool, created);
     this.onScripted(created);
     return created;
   }
 
-  /** Wraps a created tool's `run` when its class is scripted (the container's `onCreate`). */
+  /** Wraps a created tool's `execute` when its class is scripted (the container's `onCreate`). */
   patch(instance: unknown): void {
     if (!isToolInstance(instance)) return;
     const script = [...this.#scripts.values()].find((item) => instance instanceof item.tool);
     if (script === undefined) return;
-    const run = instance.run.bind(instance);
-    const failing = (input: unknown): Promise<unknown> => {
-      const failure = script.take();
-      return failure === undefined ? run(input) : Promise.reject(failure);
+    const execute = instance.execute.bind(instance);
+    const scripted = (input: unknown): unknown => {
+      const call = script.take();
+      if (call === undefined) return execute(input);
+      return "error" in call ? Promise.reject(call.error) : Promise.resolve(call.returns);
     };
-    Object.defineProperty(instance, "run", { value: failing });
+    Object.defineProperty(instance, "execute", { value: scripted });
   }
 }

@@ -229,7 +229,7 @@ const BROKEN: readonly (readonly [string, string, Make])[] = [
   [
     A,
     "the replacement keeps its addressee unset",
-    tweaked({ plan: inserting((one) => ({ ...one, assignee: "" })) }),
+    tweaked({ plan: inserting((one) => ({ ...one, assignees: [""] })) }),
   ],
   [B, "findOrCreate answers the replacement", () => new FindOrCreateAnswersReplacement()],
   [B, "findOrCreate makes a second pause", () => new FindOrCreateMakesASecond()],
@@ -237,7 +237,7 @@ const BROKEN: readonly (readonly [string, string, Make])[] = [
   [
     C,
     "the replacement keeps its addressee unset",
-    tweaked({ plan: inserting((one) => ({ ...one, assignee: "" })) }),
+    tweaked({ plan: inserting((one) => ({ ...one, assignees: [""] })) }),
   ],
   [
     C,

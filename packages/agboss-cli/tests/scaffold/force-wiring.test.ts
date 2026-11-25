@@ -68,7 +68,7 @@ describe("#237: --force keeps the wiring", () => {
     expect(regenerated).toContain('description: "Bills customers"');
     expect(regenerated).not.toBe(wired);
     expect(regenerated).toContain("tools: [QuoteTool, TicketsSearchTool]");
-    expect(regenerated).toContain("rag: [{ use: PoliciesRag, mode: RagMode.Tool }]");
+    expect(regenerated).toContain("rag: [PoliciesRag]");
     expect(regenerated).toContain('import { QuoteTool } from "../../tools/quote.tool.js";');
     expectStaticChecks(project, ["src"]);
     const tests = vitestOf(project);
@@ -80,7 +80,8 @@ describe("#237: --force keeps the wiring", () => {
       /billing-agent .*\n\s+Bills customers\n\s+limits: .*\n\s+rag: policies-rag/,
     );
     expect(described.out).toContain("· quote-tool (local)");
-    expect(described.out).toContain("· tickets-search-tool (MCP tickets)");
+    // an MCP tool is a local tool of its server now (#1319a: the "mcp-tool" kind is gone)
+    expect(described.out).toContain("· tickets-search-tool (local) ← TicketsServer");
   }, 240_000);
 
   it("AC2: the conflict suggests --force, which keeps the wiring; wiring --force cannot keep is refused, --force --reset drops it", () => {

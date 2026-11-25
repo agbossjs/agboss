@@ -1,4 +1,4 @@
-import type { FingerprintPolicy } from "./fenced-effect-fingerprint.js";
+import type { Bytes } from "../units/index.js";
 
 /**
  * The key of one protected write (#500, #505, #508, #825): what it is made of, and the two branded
@@ -22,12 +22,18 @@ export interface EffectKeyFields {
    * A business identity (#508, `"order:42"`): the effect is then one per tenant, name and business
    * key — deduplicated across tool calls, visits, executions and threads — instead of one per step.
    * Fencing is the caller's lease as always. A key's text (#538, `KeyTextRule`): validated by
-   * `effectKeyOf`, `OutboundCalls.send` and every store's entry (`InvalidBusinessKeyError`).
+   * `effectKeyOf`, `Idempotency` and every store's entry (`IdempotencyError.InvalidKey`).
    */
   readonly businessKey?: string;
   /**
+   * The same business key's digest under the application's previous idempotency secret (#1317d, a
+   * rotation): a row stored before the rotation is found by it, so a call retried across the
+   * rotation replays. Never written: new rows carry `businessKey`. None when no previous secret is named.
+   */
+  readonly previousBusinessKey?: string;
+  /**
    * What the effect does, as a keyed digest (#825: an HMAC of canonical JSON under the application's
-   * idempotency key): another one under the same business key is `BusinessKeyConflictError`,
+   * idempotency key): another one under the same business key is `IdempotencyError.KeyConflict`,
    * never a replay. Any text is a fingerprint, the empty one too (#574): `""` and none are two
    * requests — refused against each other, in flight or stored, so a store keeps `""` as `""`, never
    * as `NULL`. A store keeps this one only — never `previousFingerprint`.
@@ -40,10 +46,20 @@ export interface EffectKeyFields {
    */
   readonly previousFingerprint?: string;
   /**
-   * `FingerprintPolicy.None` (#825): the business key says on purpose that it has no fingerprint —
+   * `withoutFingerprint: true` (#825): the business key says on purpose that it has no fingerprint —
    * any work under it replays the first. Absent otherwise.
    */
-  readonly fingerprintPolicy?: FingerprintPolicy;
+  readonly withoutFingerprint?: true;
+  /**
+   * When the rows the key writes — its result, the scope's mark — may be removed: `now + ttl` of the
+   * call (`Idempotency.runOnce` / `sendOnce`, on the framework's `Clock`), or `null` for `Ttl.Forever`
+   * (kept for good). A store keeps it as the row's `expires_at`; the scope's mark keeps the latest of
+   * every key's, `null` winning over any date (a short ttl never truncates a long one). A key made
+   * by `effectKeyOf` has `null` until the caller says another.
+   */
+  readonly expiresAt: Date | null;
+  /** The largest result the effect may store, in UTF-8 bytes of its JSON: the store's check (default 64 KB). */
+  readonly maxResultSize?: Bytes;
   /** The step that made the key: what a replay from another step or execution names. */
   readonly origin?: FencedEffectOrigin;
   /**
@@ -89,8 +105,7 @@ export type EffectKey = EffectKeyFields & EffectKeyMark;
 /**
  * A business key without a fingerprint of its own (#825): `effectKeyOf(executionContext, name, {
  * businessKey })`. Only `OutboundCalls.send` takes it — its request is its fingerprint; a fenced
- * effect needs `fingerprint` or `fingerprintPolicy: FingerprintPolicy.None` (a compile error, and
- * `FingerprintRequiredError` for a JavaScript caller).
+ * effect needs `fingerprint` or `withoutFingerprint: true`.
  */
 export type OutboundCallKey = EffectKeyFields & OutboundCallKeyMark;
 

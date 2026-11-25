@@ -3,15 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
   Agent,
   Injectable,
-  PiiAction,
   PiiKind,
   PiiPolicy,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pii,
   secret,
   type PiiRefusal,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
@@ -20,7 +20,7 @@ import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { GraphRuleError } from "../../src/graph/rule-error.js";
 import { effectivePiiPolicies } from "../../src/pii/effective-policies.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { CardPiiPolicy, ContactPiiPolicy, GovernmentPiiPolicy } from "./pii.fixture.js";
 
 const KEY = secret("PII_UNIT_KEY");
@@ -28,24 +28,24 @@ const KEY = secret("PII_UNIT_KEY");
 @PiiPolicy({
   name: "email-kind-pii-policy",
   description: "Emails by kind",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
-  pseudonymKey: KEY,
+  rules: [PiiKind.Email.mask()],
+  secret: KEY,
 })
 class EmailKindPiiPolicy {}
 
 @PiiPolicy({
   name: "no-refusal-pii-policy",
   description: "A block rule without a text",
-  rules: [pii(PiiKind.Iban, PiiAction.blockWithRefusal())],
-  pseudonymKey: KEY,
+  rules: [PiiKind.Iban.block()],
+  secret: KEY,
 })
 class NoRefusalPiiPolicy {}
 
 @PiiPolicy({
   name: "unused-refusal-pii-policy",
   description: "A refusal method no rule uses",
-  rules: [pii(PiiKind.Iban, PiiAction.blockWithRefusal({ refusal: "No IBANs." }))],
-  pseudonymKey: KEY,
+  rules: [PiiKind.Iban.block("No IBANs.")],
+  secret: KEY,
 })
 class UnusedRefusalPiiPolicy implements PiiRefusal {
   refusal(): string {
@@ -56,20 +56,16 @@ class UnusedRefusalPiiPolicy implements PiiRefusal {
 @PiiPolicy({
   name: "names-pii-policy",
   description: "Names without a model",
-  rules: [
-    pii(PiiKind.PersonName, PiiAction.replaceWithKind()),
-    pii(PiiKind.Email, PiiAction.replaceWithKind()),
-    pii(PiiKind.Email, PiiAction.replaceWithToken()),
-  ],
-  pseudonymKey: KEY,
+  rules: [PiiKind.PersonName.mask(), PiiKind.Email.mask(), PiiKind.Email.tokenize()],
+  secret: KEY,
 })
 class NamesPiiPolicy {}
 
 @PiiPolicy({
-  name: "badly-named",
-  description: "Its name lacks the kind",
-  rules: [pii(PiiKind.Jwt, PiiAction.replaceWithKind())],
-  pseudonymKey: KEY,
+  name: "Badly_Named",
+  description: "Its name is not kebab-case",
+  rules: [PiiKind.Jwt.mask()],
+  secret: KEY,
 })
 class BadlyNamedPolicy {}
 
@@ -140,7 +136,7 @@ describe("#120 AC6: conflicting rules after adding up", () => {
     const [conflict] = result.violations;
     expect(conflict?.code).toBe("pii.conflicting-rules");
     expect(conflict?.message).toBe(
-      "a-agent: email is replaceWithToken() in contact-pii-policy but replaceWithKind() in email-kind-pii-policy",
+      "a-agent: email is tokenize() in contact-pii-policy but mask() in email-kind-pii-policy",
     );
     expect(conflict?.nodes).toEqual(["a-agent", "contact-pii-policy", "email-kind-pii-policy"]);
   });
@@ -171,7 +167,7 @@ describe("#120: a policy's own rules", () => {
       elements: [],
     }).violations.map((item) => item.code);
 
-  it("[pii.missing-refusal]: blockWithRefusal() without text and without refusal(kind)", () => {
+  it("[pii.missing-refusal]: block() without text and without refusal(kind)", () => {
     expect(codesOf(NoRefusalPiiPolicy)).toEqual(["pii.missing-refusal"]);
   });
 
@@ -179,12 +175,12 @@ describe("#120: a policy's own rules", () => {
     expect(codesOf(UnusedRefusalPiiPolicy)).toEqual(["pii.unused-refusal"]);
   });
 
-  it("two actions for one kind, a model-only kind without detectWithModel", () => {
-    expect(codesOf(NamesPiiPolicy)).toEqual(["pii.conflicting-rules", "pii.kind-needs-model"]);
+  it("[pii.duplicate-target]: one kind named twice, a model-only kind without model", () => {
+    expect(codesOf(NamesPiiPolicy)).toEqual(["pii.duplicate-target", "pii.kind-needs-model"]);
   });
 
-  it("[name.kind-suffix] and [pii.not-a-policy]", () => {
-    expect(codesOf(BadlyNamedPolicy)).toEqual(["name.kind-suffix"]);
+  it("[name.not-kebab-case] and [pii.not-a-policy]", () => {
+    expect(codesOf(BadlyNamedPolicy)).toEqual(["name.not-kebab-case"]);
     expect(codesOf(NotAPolicy)).toEqual(["pii.not-a-policy"]);
   });
 });
@@ -198,7 +194,7 @@ class LevelFinish {}
 @Agent({
   name: "lv-agent",
   description: "d",
-  prompt: "p",
+  prompt: inline("p"),
   model: "test/lv",
   excludePiiPolicies: [GovernmentPiiPolicy],
 })
@@ -207,7 +203,8 @@ class LevelAgent {}
 @Workflow({
   name: "lv-workflow",
   version: "1.0.0",
-  flow: [start(LevelStart).returns(WorkflowStartTextDto).toAgent(LevelAgent).toFinish(LevelFinish)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(LevelStart).toAgent(LevelAgent).toFinish(LevelFinish)],
   piiPolicies: [EmailKindPiiPolicy],
 })
 class LevelWorkflow {}

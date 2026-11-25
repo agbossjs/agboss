@@ -1,8 +1,8 @@
 /**
  * #333 PR 4 (AC2, AC3, AC4, S7, S9):
  * - AC2: while a parent awaits remote children, it yields its root lease in
- *   `ExecutionLeaseRepository` and reclaims it before `.join()` / `.onJoinError()`.
- * - AC3: a remote child (`ChildPlacement.AnyInstance`) that pauses interrupts its parent's node
+ *   `ExecutionLeaseRepository` and reclaims it before `.join()` / `.onError()`.
+ * - AC3: a remote child (`ChildPlacement.AnyWorker`) that pauses interrupts its parent's node
  *   with `{ waitingForChild: { …, remote: true } }`, surfaces in `result.pending` with its
  *   `childExecutionId` and `itemIndex`, resumes on any instance via `app.resume`, and populates
  *   `PauseAnswerRecord` in `result.children[i].pauses` and `result.record.pauses`.
@@ -150,7 +150,7 @@ describe("#333 PR 4 AC3: remote children that pause, resume across instances, an
     // resume on the SECOND instance: only "b" continues on its own thread, with the same child id
     const done = await instance(apps, 1).resume(answerOf(paused), {
       tenantId: "acme",
-      record: true,
+      includeRecord: true,
     });
 
     expect(done).toFinishWith(ReviewsSummaryWorkflowFinish, { text: "a, b" });

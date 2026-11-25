@@ -12,12 +12,12 @@ import { ExecutionStatus } from "../../src/app/types.js";
 import { DurableExecutionStatus, executionControlOf } from "../../src/app/execution-control.js";
 import {
   DtoValidationError,
-  PauseAnswererError,
   PauseClosedError,
   ThreadOwnerError,
   UnknownPauseError,
 } from "../../src/errors.js";
-import { PauseClosedReason, PauseResolution, PauseStatus, pauseKeyOf } from "../../src/index.js";
+import { PauseError, PauseClosedReason, PauseResolution, PauseStatus } from "../../src/index.js";
+import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import {
   callTool,
@@ -32,6 +32,7 @@ import { execute } from "../helpers/flow.js";
 import { logged, resetLogged } from "../helpers/log.js";
 import { until } from "../channels/fixtures/pause-scripts.js";
 import {
+  FinanceDeskBackupChannel,
   BatchRefundAgent,
   BatchWorkflowStart,
   DeskClerkAgent,
@@ -46,6 +47,9 @@ import {
   type SentAsk,
 } from "../channels/fixtures/pauses.workflow.js";
 import {
+  ExtendManagerBackupChannel,
+  ExtendManagerChannel,
+  ExtendOwnerBackupChannel,
   resetTold,
   told,
   managerFlow,
@@ -65,7 +69,7 @@ const desk = testWith(PausesApplication);
 const twoDesks = testWith(PausesApplication, { instances: 2 });
 const priced = testWith(PricedPausesApplication);
 const extension = testWith(ExtensionApplication, { instances: 3 });
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 const approve = { approved: true };
 const REFUND = { text: "refund order 7" };
 const THREAD = { threadId: "reassign-thread" };
@@ -131,13 +135,16 @@ describe("#946 AC1: an operator reassigns an approval", () => {
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       expect(clerk.turns()).toBe(1);
 
-      const moved = await app.reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+      const moved = await app.reassignPause(
+        { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
 
       const sent = replacementOf("7");
-      expect(sent).toMatchObject({ assignee: "deputy-3", replaces: { pauseId: oldId } });
+      expect(sent).toMatchObject({ assignees: ["deputy-3"], replaces: { pauseId: oldId } });
       expect(sent.pauseId).not.toBe(oldId);
       // the caller gets the new pause's key, never its id (a capability)
-      expect(moved).toEqual({ pauseKey: pauseKeyOf("default", sent.pauseId) });
+      expect(moved).toMatchObject({ pauseKey: pauseKeyOf("default", sent.pauseId) });
       const refused = await failureOf(app.resume({ pauseId: oldId, decision: approve }, manager));
       expect(refused).toBeInstanceOf(PauseClosedError);
       expect(refused).toMatchObject({ reason: PauseClosedReason.Reassigned });
@@ -161,7 +168,14 @@ describe("#946 AC1: an operator reassigns an approval", () => {
       expect(first).not.toHaveProperty("assignee");
       expect(first).not.toHaveProperty("replaces");
 
-      await app.reassignPause({ pauseId: first?.pauseId ?? "", assignee: "deputy-3" }, manager);
+      await app.reassignPause(
+        {
+          pauseId: first?.pauseId ?? "",
+          channel: FinanceDeskBackupChannel,
+          assignees: ["deputy-3"],
+        },
+        manager,
+      );
 
       const old = await pauseStore().findByTenantIdAndPauseId("default", first?.pauseId ?? "");
       const next = await pauseStore().findByTenantIdAndPauseId(
@@ -176,7 +190,7 @@ describe("#946 AC1: an operator reassigns an approval", () => {
       expect(next).toMatchObject({
         status: PauseStatus.Pending,
         isSent: true,
-        assignee: "deputy-3",
+        assignees: ["deputy-3"],
         reassignedFrom: first?.pauseId,
       });
     },
@@ -189,7 +203,10 @@ describe("#946 AC1: an operator reassigns an approval", () => {
       await execute(app, DeskWorkflowStart, REFUND);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
 
-      await app.reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+      await app.reassignPause(
+        { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
 
       await until(() => seen.closed.length === 1);
       expect(seen.closed).toMatchObject([
@@ -201,14 +218,12 @@ describe("#946 AC1: an operator reassigns an approval", () => {
         },
       ]);
       expect(asksAbout("7").filter((ask) => ask.replaces !== undefined)).toHaveLength(1);
-      // the listeners heard the old pause closed (reassigned) and the replacement opened
-      await until(() => seen.heard.filter((one) => one.listener === "audit").length === 3);
-      expect(
-        seen.heard
-          .filter((one) => one.listener === "audit")
-          .map((one) => one.type)
-          .sort(),
-      ).toEqual(["closed", "opened", "opened"]);
+      // the listeners heard the pause opened, then one reassigned — never the old pause closed and a new one opened
+      await until(() => seen.heard.filter((one) => one.listener === "audit").length === 2);
+      expect(seen.heard.filter((one) => one.listener === "audit").map((one) => one.type)).toEqual([
+        "opened",
+        "reassigned",
+      ]);
     },
   );
 
@@ -229,7 +244,10 @@ describe("#946 AC1: an operator reassigns an approval", () => {
       expect(paused.pending).toHaveLength(3);
       const idOf = (orderId: string) => asksAbout(orderId)[0]?.pauseId ?? "";
 
-      await app.reassignPause({ pauseId: idOf("B"), assignee: "deputy-3" }, manager);
+      await app.reassignPause(
+        { pauseId: idOf("B"), channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
 
       const store = pauseStore();
       for (const orderId of ["A", "C"])
@@ -282,7 +300,10 @@ describe("#946 AC1: an operator reassigns an approval", () => {
       await execute(app, BatchWorkflowStart, [{ orderId: "A" }, { orderId: "B" }]);
       const idOf = (orderId: string) => asksAbout(orderId)[0]?.pauseId ?? "";
       const ledger = costLedger();
-      await app.reassignPause({ pauseId: idOf("A"), assignee: "deputy-3" }, manager);
+      await app.reassignPause(
+        { pauseId: idOf("A"), channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
 
       const afterB = await app.resume({ pauseId: idOf("B"), decision: approve }, manager);
 
@@ -303,16 +324,19 @@ describe("#946 AC1: an operator reassigns an approval", () => {
   );
 
   desk(
-    "AC1: the new id is in no log and no listener's notice without allowAnswering, and in no result of the call",
+    "AC1: the new id is in no log and no listener's notice without includePauseIds, and in no result of the call",
     async ({ app, mockLlm }) => {
       scriptedClerk(mockLlm);
       await execute(app, DeskWorkflowStart, REFUND);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
 
-      const moved = await app.reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+      const moved = await app.reassignPause(
+        { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
       const newId = replacementOf("7").pauseId;
-      await until(() => seen.heard.filter((one) => one.listener === "audit").length === 3);
-      await until(() => seen.heard.filter((one) => one.listener === "trusted").length === 3);
+      await until(() => seen.heard.filter((one) => one.listener === "audit").length === 2);
+      await until(() => seen.heard.filter((one) => one.listener === "trusted").length === 2);
 
       expect(JSON.stringify(moved)).not.toContain(newId);
       expect(JSON.stringify(logged)).not.toContain(newId);
@@ -326,7 +350,7 @@ describe("#946 AC1: an operator reassigns an approval", () => {
       ).toContainEqual(expect.stringContaining(newId));
       const done = await app.resume(
         { pauseId: newId, decision: approve },
-        { ...manager, record: true },
+        { ...manager, includeRecord: true },
       );
       expect(JSON.stringify(done)).not.toContain(newId);
       // the audit trail shows the step once, under its own key, never a replacement's `~r1`
@@ -347,7 +371,10 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
         ask.replaces === undefined ? Promise.resolve() : Promise.reject(new Error("slack is down"));
 
       // the reassignment is done: the caller is told, the failed send is logged and retried by the look
-      const moved = await app.reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+      const moved = await app.reassignPause(
+        { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
 
       expect(moved.pauseKey).toBeDefined();
       const attempted = replacementOf("7");
@@ -366,7 +393,7 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
       expect(sends.length).toBeGreaterThanOrEqual(2);
       expect(sends.at(-1)).toMatchObject({
         pauseId: attempted.pauseId,
-        assignee: "deputy-3",
+        assignees: ["deputy-3"],
         replaces: { pauseId: oldId },
       });
       // sent: the look asks no more, however long it looks
@@ -393,7 +420,10 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
                 reject(new Error("slack is down"));
               };
             });
-      const call = app.reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+      const call = app.reassignPause(
+        { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
       await until(() => asksAbout("7").some((ask) => ask.replaces !== undefined));
       release();
       await call;
@@ -415,7 +445,10 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       hooks.closeFailure = new Error("the old message cannot be edited yet");
 
-      await app.reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+      await app.reassignPause(
+        { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
 
       expect(replacementOf("7")).toBeDefined();
       await until(() => seen.closed.length >= 1);
@@ -439,7 +472,10 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
         .spyOn(store, "markSentByTenantIdAndPauseId")
         .mockImplementation((_tenant, id) => Promise.reject(new Error(`database refused ${id}`)));
 
-      await instance(apps, 0).reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+      await instance(apps, 0).reassignPause(
+        { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
       await clock.advance(seconds(40));
       await until(() => failing.mock.calls.length >= 2);
       await clock.advance(seconds(10));
@@ -462,13 +498,16 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
       hooks.decideReassigned = approve;
 
-      await app.reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+      await app.reassignPause(
+        { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
 
       const newId = replacementOf("7").pauseId;
       const stored = await pauseStore().findByTenantIdAndPauseId("default", newId);
       expect(stored).toMatchObject({
         status: PauseStatus.Taken,
-        answer: { decision: approve, answeredBy: "refund-approval-channel" },
+        answer: { decision: approve, actor: { id: "finance-desk-backup-channel" } },
       });
       expect(seen.refunds).toEqual(["7"]);
       expect(clerk.turns()).toBe(2);
@@ -493,7 +532,10 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
         .spyOn(store, "resolveByTenantIdAndPauseId")
         .mockRejectedValueOnce(new Error("the instance died"));
 
-      await instance(apps, 0).reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+      await instance(apps, 0).reassignPause(
+        { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
 
       const newId = replacementOf("7").pauseId;
       expect(await store.findByTenantIdAndPauseId("default", newId)).toMatchObject({
@@ -529,14 +571,17 @@ describe("#946 AC2: the instance dies, or the channel fails, between the reassig
       scriptedClerk(mockLlm);
       await execute(app, DeskWorkflowStart, REFUND, THREAD);
       const oldId = asksAbout("7")[0]?.pauseId ?? "";
-      await app.reassignPause({ pauseId: oldId, assignee: "deputy-3" }, manager);
+      await app.reassignPause(
+        { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
       const newId = replacementOf("7").pauseId;
       const store = pauseStore();
       // the answer is recorded; no pass took it
       await store.resolveByTenantIdAndPauseId(
         "default",
         newId,
-        { decision: approve, answeredBy: "deputy-3" },
+        { decision: approve, actor: { id: "deputy-3" } },
         clock.now(),
         { listeners: [] },
       );
@@ -568,7 +613,12 @@ describe("#946 AC3: the deadline, and the races", () => {
       // the look is held back: the pause still reads Pending at its deadline
       const look = vi.spyOn(store, "findPendingByExpiresAtBefore").mockResolvedValue([]);
       await clock.advance(hours(24));
-      const early = await failureOf(app.reassignPause({ pauseId, assignee: "deputy-3" }, manager));
+      const early = await failureOf(
+        app.reassignPause(
+          { pauseId, channel: ExtendManagerBackupChannel, assignees: ["deputy-3"] },
+          manager,
+        ),
+      );
       look.mockRestore();
       await clock.advance(seconds(10));
       await until(
@@ -576,7 +626,12 @@ describe("#946 AC3: the deadline, and the races", () => {
           (await store.findByTenantIdAndPauseId("default", pauseId))?.status !==
           PauseStatus.Pending,
       );
-      const late = await failureOf(app.reassignPause({ pauseId, assignee: "deputy-3" }, manager));
+      const late = await failureOf(
+        app.reassignPause(
+          { pauseId, channel: ExtendManagerBackupChannel, assignees: ["deputy-3"] },
+          manager,
+        ),
+      );
 
       for (const refused of [early, late]) {
         expect(refused).toBeInstanceOf(PauseClosedError);
@@ -600,7 +655,10 @@ describe("#946 AC3: the deadline, and the races", () => {
       await clock.advance(hours(24));
 
       const refused = await failureOf(
-        app.reassignPause({ pauseId, assignee: "deputy-3" }, manager),
+        app.reassignPause(
+          { pauseId, channel: ExtendManagerBackupChannel, assignees: ["deputy-3"] },
+          manager,
+        ),
       );
       look.mockRestore();
 
@@ -616,8 +674,14 @@ describe("#946 AC3: the deadline, and the races", () => {
       const pauseId = told.sent[0]?.pauseId ?? "";
 
       const results = await Promise.allSettled([
-        instance(apps, 1).reassignPause({ pauseId, assignee: "deputy-1" }, manager),
-        instance(apps, 2).reassignPause({ pauseId, assignee: "deputy-2" }, manager),
+        instance(apps, 1).reassignPause(
+          { pauseId, channel: ExtendManagerBackupChannel, assignees: ["deputy-1"] },
+          manager,
+        ),
+        instance(apps, 2).reassignPause(
+          { pauseId, channel: ExtendManagerBackupChannel, assignees: ["deputy-2"] },
+          manager,
+        ),
       ]);
 
       expect(results.filter((one) => one.status === "fulfilled")).toHaveLength(1);
@@ -645,7 +709,10 @@ describe("#946 AC3: the deadline, and the races", () => {
         const pauseId = told.sent[0]?.pauseId ?? "";
         const answer = () => instance(apps, 1).resume({ pauseId, decision: approve }, manager);
         const move = () =>
-          instance(apps, 2).reassignPause({ pauseId, assignee: "deputy-1" }, manager);
+          instance(apps, 2).reassignPause(
+            { pauseId, channel: ExtendManagerBackupChannel, assignees: ["deputy-1"] },
+            manager,
+          );
 
         const started = answerFirst ? [answer(), move()] : [move(), answer()];
         const results = await Promise.allSettled(started);
@@ -676,14 +743,17 @@ describe("#946 AC3: the deadline, and the races", () => {
       const pauseId = (await pausesOf(app))[0]?.pauseId ?? "";
       told.ownerDecides = approve;
 
-      await app.reassignPause({ pauseId, assignee: "deputy-3" }, { ownerId: "alice" });
+      await app.reassignPause(
+        { pauseId, channel: ExtendOwnerBackupChannel, assignees: ["deputy-3"] },
+        { ownerId: "alice" },
+      );
 
       const store = app.resolve(PausedExecutionRepository);
       const all = await store.findPageByTenantId("default", { statuses: [PauseStatus.Taken] }, 10);
       expect(all.pauses).toHaveLength(1);
       const [taken] = all.pauses;
-      expect(taken?.answer?.answeredBy).toBe(taken?.channel);
-      expect(taken?.answer?.answeredBy).not.toBe("alice");
+      expect(taken?.answer?.actor?.id).toBe(taken?.channel);
+      expect(taken?.answer?.actor?.id).not.toBe("alice");
       expect(told.recorded).toEqual(["o-1: approved"]);
     },
   );
@@ -695,7 +765,10 @@ describe("#946 AC3: the deadline, and the races", () => {
       const pauseId = told.sent[0]?.pauseId ?? "";
       const deadline = paused.pending[0]?.expiresAt ?? "";
       await clock.advance(hours(1));
-      await app.reassignPause({ pauseId, assignee: "deputy-3" }, manager);
+      await app.reassignPause(
+        { pauseId, channel: ExtendManagerBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
       const newId = told.sent.find((ask) => ask.replaces !== undefined)?.pauseId ?? "";
       const store = app.resolve(PausedExecutionRepository);
 
@@ -721,13 +794,19 @@ describe("#946 AC3: the deadline, and the races", () => {
     async ({ app }) => {
       await execute(app, managerFlow.start, { orderId: "o-1" }, THREAD);
       const first = told.sent[0]?.pauseId ?? "";
-      await app.reassignPause({ pauseId: first, assignee: "deputy-1" }, manager);
+      await app.reassignPause(
+        { pauseId: first, channel: ExtendManagerBackupChannel, assignees: ["deputy-1"] },
+        manager,
+      );
       const second = told.sent.find((ask) => ask.replaces?.pauseId === first)?.pauseId ?? "";
 
-      await app.reassignPause({ pauseId: second, assignee: "deputy-2" }, manager);
+      await app.reassignPause(
+        { pauseId: second, channel: ExtendManagerChannel, assignees: ["deputy-2"] },
+        manager,
+      );
 
       const third = told.sent.find((ask) => ask.replaces?.pauseId === second);
-      expect(third).toMatchObject({ assignee: "deputy-2" });
+      expect(third).toMatchObject({ assignees: ["deputy-2"] });
       const keys = await stepKeysOf(app, first);
       const base = keys[0] ?? "";
       expect(keys).toEqual([base, `${base}~r1`, `${base}~r2`]);
@@ -741,17 +820,17 @@ describe("#946 AC3: the deadline, and the races", () => {
 
 describe("#946: who may reassign, and what is refused", () => {
   extension(
-    "the answerer is checked as for an answer (a thread owner's pause)",
+    "the respondent is checked as for an answer (a thread owner's pause)",
     async ({ app }) => {
       await execute(app, ownerFlow.start, { orderId: "o-1" }, { ...THREAD, ownerId: "alice" });
       const pauseId = (await pausesOf(app))[0]?.pauseId ?? "";
-      const request = { pauseId, assignee: "deputy-3" };
+      const request = { pauseId, channel: ExtendOwnerBackupChannel, assignees: ["deputy-3"] };
 
       expect(await failureOf(app.reassignPause(request, { ownerId: "bob" }))).toBeInstanceOf(
         ThreadOwnerError,
       );
       expect(await failureOf(app.reassignPause(request, manager))).toBeInstanceOf(
-        PauseAnswererError,
+        PauseError.PermissionDenied,
       );
       const moved = await app.reassignPause(request, { ownerId: "alice" });
 
@@ -761,11 +840,15 @@ describe("#946: who may reassign, and what is refused", () => {
 
   extension("a Channel pause needs answeredBy: none and ownerId are refused", async ({ app }) => {
     await execute(app, managerFlow.start, { orderId: "o-1" }, THREAD);
-    const request = { pauseId: told.sent[0]?.pauseId ?? "", assignee: "deputy-3" };
+    const request = {
+      pauseId: told.sent[0]?.pauseId ?? "",
+      channel: ExtendManagerBackupChannel,
+      assignees: ["deputy-3"],
+    };
 
-    for (const options of [{}, { answeredBy: " " }, { ownerId: "alice" }])
+    for (const options of [{}, { actor: { id: " " } }, { ownerId: "alice" }])
       expect(await failureOf(app.reassignPause(request, options as never))).toBeInstanceOf(
-        PauseAnswererError,
+        PauseError.PermissionDenied,
       );
     expect(told.sent).toHaveLength(1);
   });
@@ -788,10 +871,20 @@ describe("#946: who may reassign, and what is refused", () => {
         undefined,
       ])
         expect(
-          await failureOf(app.reassignPause({ pauseId, assignee: assignee as never }, manager)),
+          await failureOf(
+            app.reassignPause(
+              { pauseId, channel: ExtendManagerBackupChannel, assignees: [assignee] as never },
+              manager,
+            ),
+          ),
         ).toMatchObject({ name: "DtoValidationError", dto: "ReassignPauseRequest" });
       expect(
-        await failureOf(app.reassignPause({ pauseId: "", assignee: "x" }, manager)),
+        await failureOf(
+          app.reassignPause(
+            { pauseId: "", channel: ExtendManagerBackupChannel, assignees: ["x"] },
+            manager,
+          ),
+        ),
       ).toBeInstanceOf(DtoValidationError);
       expect(told.sent).toHaveLength(1);
     },
@@ -806,7 +899,11 @@ describe("#946: who may reassign, and what is refused", () => {
         { orderId: "o-1" },
         { ...THREAD, tenant: { tenantId: "acme" } },
       );
-      const request = { pauseId: told.sent[0]?.pauseId ?? "", assignee: "deputy-3" };
+      const request = {
+        pauseId: told.sent[0]?.pauseId ?? "",
+        channel: ExtendManagerBackupChannel,
+        assignees: ["deputy-3"],
+      };
 
       expect(await failureOf(app.reassignPause(request, manager))).toBeInstanceOf(
         UnknownPauseError,
@@ -829,7 +926,10 @@ describe("#946: who may reassign, and what is refused", () => {
       await app.resume({ pauseId, decision: approve }, manager);
 
       const refused = await failureOf(
-        app.reassignPause({ pauseId, assignee: "deputy-3" }, manager),
+        app.reassignPause(
+          { pauseId, channel: ExtendManagerBackupChannel, assignees: ["deputy-3"] },
+          manager,
+        ),
       );
 
       expect(refused).toBeInstanceOf(PauseClosedError);

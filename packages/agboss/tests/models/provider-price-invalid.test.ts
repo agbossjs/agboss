@@ -18,18 +18,22 @@ import {
 } from "../../src/models/index.js";
 import type { TransportModelProviderOptions } from "../../src/models/model-provider.decorator.js";
 import { directoryOf, withProviderPrices } from "../../src/models/workflow-models.js";
-import { UnitError, minutes, seconds, usd } from "../../src/units/index.js";
+import { minutes, seconds, usd } from "../../src/units/index.js";
 import { bedrockApplicationOn } from "./transport/bedrock-apps.fixture.js";
 import { answer } from "./transport/bedrock-provider.fixture.js";
+import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
+import { ConfigError } from "../../src/core/error-families/config-errors.js";
 
 const options = (name: string, cost: ModelCost): TransportModelProviderOptions => ({
   name,
   description: "A transport with a price table",
-  serves: [/^bedrock\//],
   timeout: seconds(5),
   cost,
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 1, window: minutes(1), openFor: minutes(1) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 1,
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
 });
 
 const literal = (field: string, value: unknown): ModelCost => ({
@@ -46,8 +50,8 @@ class NegativeInputProvider implements ModelProviderHandler {
   }
 }
 
-@ModelProvider(options("nan-cached-model-provider", literal("cachedInputPerMillion", Number.NaN)))
-class NanCachedProvider implements ModelProviderHandler {
+@ModelProvider(options("nan-cache-read-model-provider", literal("cacheReadPerMillion", Number.NaN)))
+class NanCacheReadProvider implements ModelProviderHandler {
   complete(): Promise<ModelProviderResponse> {
     return Promise.resolve(answer("never"));
   }
@@ -74,12 +78,12 @@ class ByResponseProvider implements ModelProviderHandler {
 
 @ModelProvider({
   ...options("guarded-model-provider", ModelCost.fromResponse()),
-  circuitBreakerPolicy: {
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
     failureThreshold: 1,
-    window: minutes(1),
-    openFor: minutes(1),
-    fallback: NegativeInputProvider,
-  },
+    failureWindow: minutes(1),
+    openDuration: minutes(1),
+  }),
+  fallback: NegativeInputProvider,
 })
 class GuardedProvider implements ModelProviderHandler {
   complete(): Promise<ModelProviderResponse> {
@@ -108,13 +112,13 @@ describe("#1385: assembly refuses a provider's price that is no amount from 0", 
     const assembled = applicationOf(
       bedrockApplicationOn({
         name: "two-bad-application",
-        providers: [NegativeInputProvider, NanCachedProvider],
+        providers: [NegativeInputProvider, NanCacheReadProvider],
       }),
       {},
     );
 
     await expect(assembled).rejects.toThrow(
-      /nan-cached-model-provider \(NanCachedProvider\): cachedInputPerMillion is NaN,/,
+      /nan-cache-read-model-provider \(NanCacheReadProvider\): cacheReadPerMillion is NaN,/,
     );
     await expect(assembled).rejects.toThrow(/negative-input-model-provider/);
   });
@@ -143,8 +147,10 @@ describe("#1385: assembly refuses a provider's price that is no amount from 0", 
 });
 
 describe("#1385: at run time a bad price throws before any cost is recorded", () => {
-  it("the provider prices a model of the config through priceOf: a bad table throws a UnitError", () => {
-    const config = { agents: { a: { model: "bedrock/m" } } } as never;
+  it("the provider prices a model of the config through priceOf: a bad table throws a ConfigError.Unit", () => {
+    const config = {
+      agents: { a: { model: "bedrock/m", modelProvider: "run-time-model-provider" } },
+    } as never;
     const bad: ModelCost = {
       kind: "from-prices",
       prices: { "bedrock/m": { inputPerMillion: -5 as never, outputPerMillion: usd(1) } },
@@ -157,7 +163,9 @@ describe("#1385: at run time a bad price throws before any cost is recorded", ()
       }
     }
 
-    expect(() => withProviderPrices(config, directoryOf([RunTimeProvider]))).toThrow(UnitError);
+    expect(() => withProviderPrices(config, directoryOf([RunTimeProvider]))).toThrow(
+      ConfigError.Unit,
+    );
   });
 
   it("a fallback's answer is not costed by a bad table", () => {
@@ -170,6 +178,8 @@ describe("#1385: at run time a bad price throws before any cost is recorded", ()
       usage_metadata: { input_tokens: 100, output_tokens: 1000, total_tokens: 1100 },
     });
 
-    expect(() => markedFallbackMessage(message, "m", bad)).toThrow(/\[model\.price-invalid\]/);
+    expect(() => markedFallbackMessage(message, { provider: "p", model: "m", cost: bad })).toThrow(
+      /\[model\.price-invalid\]/,
+    );
   });
 });

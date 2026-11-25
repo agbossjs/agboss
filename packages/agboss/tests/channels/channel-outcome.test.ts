@@ -1,10 +1,13 @@
 /** #267 AC5 / AC7 / AC11 (PR 1): what `send` returns decides whether the execution pauses. */
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { ChannelOutcome, ChannelOutcomeKind } from "../../src/channels/channel-outcome.js";
 import { AutoApproveChannel, AutoRejectChannel } from "../../src/channels/test-channels.js";
-import { Channel, Tool, type ToolHandler } from "../../src/components/decorators.js";
+import { Channel, Tool } from "../../src/components/decorators.js";
+import { ToolApproval } from "../../src/channels/pause-targets.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
+import { days, Ttl } from "../../src/units/index.js";
 import type { Class } from "../../src/components/injection.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
@@ -14,13 +17,14 @@ import {
   PausedExecutionRepository,
   PauseResolution,
   PauseStatus,
+  inline,
 } from "../../src/index.js";
 import { callTool, replyWith } from "../../src/testing/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../flow/fixtures/dtos.js";
-import { start } from "../flow/fixtures/paths.js";
+import { onStart } from "../flow/fixtures/paths.js";
 import {
   RefundCardInputDto,
   RefundCardOutputDto,
@@ -33,6 +37,7 @@ import {
   SlackRefundsApplication,
 } from "../flow/fixtures/refunds.fixture.js";
 import { execute } from "../helpers/flow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const offline = (book: ScriptBook) => ({ processEnv: {}, gateway: createScriptedGateway(book) });
 
@@ -48,8 +53,18 @@ function refundScript(amountCents: number): ScriptBook {
   return book;
 }
 
+/** What the refund tool of these applications waits for: its channel is the one the application lists. */
+@ToolApproval({
+  name: "refund-card-tool-approval",
+  description: "Approves card refunds",
+  input: RefundCardInputDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(1),
+})
+class RefundCardToolApproval {}
+
 /** A channel that returns no outcome (a project channel written against the old contract). */
-@Channel({ name: "silent-channel" })
+@Channel({ name: "silent-channel", target: RefundCardToolApproval, ttl: days(1) })
 class SilentChannel {
   send(): Promise<unknown> {
     return Promise.resolve(undefined);
@@ -57,11 +72,11 @@ class SilentChannel {
 }
 
 /** A channel that decides with a decision its role's DTO rejects (a refusal that overrides). */
-@Channel({ name: "careless-channel" })
+@Channel({ name: "careless-channel", target: RefundCardToolApproval, ttl: days(1) })
 class CarelessChannel {
   send(): Promise<unknown> {
-    const overrideArguments = { orderId: "A-2", amountCents: 1 };
-    return Promise.resolve(ChannelOutcome.decided({ approved: false, overrideArguments }));
+    const overrideInput = { orderId: "A-2", amountCents: 1 };
+    return Promise.resolve(ChannelOutcome.decided({ approved: false, overrideInput }));
   }
 }
 
@@ -72,12 +87,12 @@ function applicationWith(name: string, channel: Class): Class {
     description: "Refunds",
     input: RefundCardInputDto,
     output: RefundCardOutputDto,
-    channel,
+    approval: RefundCardToolApproval,
     deps: [RefundDesk],
   })
-  class ChannelRefundTool implements ToolHandler<RefundCardInputDto, RefundCardOutputDto> {
+  class ChannelRefundTool {
     constructor(private readonly refundDesk: RefundDesk) {}
-    run({ orderId }: RefundCardInputDto): Promise<RefundCardOutputDto> {
+    execute({ orderId }: RefundCardInputDto): Promise<RefundCardOutputDto> {
       this.refundDesk.refunded.push(orderId);
       return Promise.resolve({ status: `refunded ${orderId}` });
     }
@@ -85,7 +100,7 @@ function applicationWith(name: string, channel: Class): Class {
   @Agent({
     name: "refund-clerk-agent",
     description: "d",
-    prompt: "p",
+    prompt: inline("p"),
     model: "test/m",
     input: { message: WorkflowStartTextDto },
     output: RefundCardOutputDto,
@@ -95,23 +110,20 @@ function applicationWith(name: string, channel: Class): Class {
   @Workflow({
     name: `${name}-workflow`,
     version: "1.0.0",
-    flow: [
-      start(RefundWorkflowStart)
-        .returns(WorkflowStartTextDto)
-        .toAgent(ClerkAgent)
-        .returns(RefundCardOutputDto)
-        .toFinish(RefundWorkflowFinish),
-    ],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(RefundWorkflowStart).toAgent(ClerkAgent).toFinish(RefundWorkflowFinish)],
     defaults: { router: { model: "typesafe/jev-test" } },
     providers: [RefundDesk],
   })
   class ChannelWorkflow {}
   @Application({
     name: `${name}-application`,
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [ChannelWorkflow],
     budgets: TEST_BUDGETS,
+    channels: [channel],
   })
   class ChannelApplication {}
   return ChannelApplication;
@@ -120,7 +132,7 @@ function applicationWith(name: string, channel: Class): Class {
 /** Runs one refund of `amountCents` on the application: the result and its desk. */
 async function refundOn(application: Class, amountCents: number) {
   const book = refundScript(amountCents);
-  const app = await createAppWith(application, offline(book));
+  const app = await createTestAppWith(application, offline(book));
   const result = await execute(app, RefundWorkflowStart, { text: "refund A-1" }).catch(
     (error: unknown) => error,
   );
@@ -134,7 +146,7 @@ describe("#267 AC5: awaitReply pauses, decided goes on and leaves no pending rec
 
     expect(result).toMatchObject({
       status: ExecutionStatus.Paused,
-      pending: [{ ask: { tool: "refund-card-tool" } }],
+      pending: [{ toolCall: { tool: "refund-card-tool" } }],
     });
     expect(desk.posted).toHaveLength(1);
     expect(desk.refunded).toEqual([]);
@@ -142,7 +154,7 @@ describe("#267 AC5: awaitReply pauses, decided goes on and leaves no pending rec
   });
 
   it("#267 S35 / S107: decided(…) closes the pause it reserved at once — nothing is left waiting", async () => {
-    const app = await createAppWith(RuleRefundsApplication, offline(refundScript(1200)));
+    const app = await createTestAppWith(RuleRefundsApplication, offline(refundScript(1200)));
 
     const done = await execute(app, RefundWorkflowStart, { text: "refund A-1" });
 
@@ -199,7 +211,7 @@ describe("#267 AC7 (PR 1 part): a decided decision is validated on the way in", 
   it("a decision its DTO rejects fails the step; the tool does not run", async () => {
     const { app, result, desk } = await refundOn(applicationWith("careless", CarelessChannel), 100);
 
-    expect(String(result)).toContain("overrideArguments only with approved: true");
+    expect(String(result)).toContain("overrideInput only with approved: true");
     expect(result).toBeInstanceOf(Error);
     expect(desk.refunded).toEqual([]);
     await app.close();
@@ -209,7 +221,7 @@ describe("#267 AC7 (PR 1 part): a decided decision is validated on the way in", 
 describe("#267 AC11 (PR 1 part): the built-in test channels decide at once", () => {
   it("AutoApproveChannel approves: the tool runs with no pause", async () => {
     const { app, result, desk } = await refundOn(
-      applicationWith("approving", AutoApproveChannel),
+      applicationWith("approving", AutoApproveChannel.for(RefundCardToolApproval)),
       100,
     );
 
@@ -221,7 +233,7 @@ describe("#267 AC11 (PR 1 part): the built-in test channels decide at once", () 
 
   it("AutoRejectChannel rejects: the tool does not run, no pause", async () => {
     const { app, result, desk } = await refundOn(
-      applicationWith("rejecting", AutoRejectChannel),
+      applicationWith("rejecting", AutoRejectChannel.for(RefundCardToolApproval)),
       100,
     );
 

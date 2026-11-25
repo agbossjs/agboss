@@ -1,23 +1,24 @@
+import { hours, minutes, Ttl } from "../../../../src/units/index.js";
 /**
  * #1244: the storage tier's size, pinned: of each exported start, its input's files take
  * `maxTotalFileSize`, its finishes' files `maxFileSize`; the most of them all.
  */
 import { describe, expect, it } from "vitest";
-import { A2AExpose } from "../../../../src/a2a/a2a-expose.decorator.js";
-import { A2AFileDto, WorkflowFinishFileDto } from "../../../../src/a2a/files/a2a-file.dto.js";
-import type { A2AFileOptions } from "../../../../src/a2a/files/a2a-file-options.js";
+import { A2AEndpoint } from "../../../../src/a2a/a2a-endpoint.decorator.js";
+import { FileDto, WorkflowFinishFileDto } from "../../../../src/dto/standard/file.js";
+import { FilePolicy, type FilePolicyOptions } from "../../../../src/files/file-policy.js";
 import { fileTierSizeOf, finishDtosOf } from "../../../../src/a2a/files/a2a-file-tier.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import type { Class } from "../../../../src/components/injection.js";
-import { ListOf, Nested, Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
+import { List, Nested, Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Action } from "../../../../src/flow/decorators/action.js";
-import type { Produced } from "../../../../src/index.js";
+import type { Tracked } from "../../../../src/index.js";
 import { Workflow } from "../../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../../src/flow/decorators/workflow-start.js";
 import type { Bytes } from "../../../../src/units/index.js";
-import { oneOf, variant, type Variant } from "../../../../src/flow/dto-wrappers.js";
-import { caseOf, start } from "../../../helpers/flow.js";
+import { oneOf } from "../../../../src/flow/dto-wrappers.js";
+import { onStart, toFinish } from "../../../helpers/flow.js";
 import {
   FileReviewFinish,
   FilesA2AExpose,
@@ -27,10 +28,11 @@ import {
   ReviewRequestDto,
   ReviewResultDto,
 } from "../../fixtures/files.application.js";
+import { ComponentOptions } from "../../../../src/components/component-options.js";
 
 class FilesInDto {
-  @Nested(A2AFileDto, { prompt: "f" })
-  file!: A2AFileDto;
+  @Nested(FileDto, { prompt: "f" })
+  file!: FileDto;
 }
 class TextDto {
   @Text({ prompt: "t" })
@@ -46,7 +48,11 @@ interface Skill {
 }
 
 /** An exported skill whose input and finish hold files (or not). */
-function skill(input: new () => object, output: new () => object, files?: A2AFileOptions): Skill {
+function skill(
+  input: new () => object,
+  output: new () => object,
+  files: FilePolicyOptions = SIZES,
+): Skill {
   counter += 1;
   const id = `tier-${String(counter)}`;
 
@@ -56,65 +62,72 @@ function skill(input: new () => object, output: new () => object, files?: A2AFil
   @WorkflowFinish({ name: `${id}-workflow-finish`, description: "f", output })
   class TierFinish {}
 
+  @FilePolicy({ ttl: hours(24), name: `${id}-file-policy`, ...files })
+  class TierPolicy {}
+
   @Workflow({
     name: `${id}-workflow`,
     version: "1.0.0",
-    flow: [start(TierStart).returns(input).toFinish(TierFinish)],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(TierStart).toFinish(TierFinish)],
+    filePolicy: TierPolicy,
   })
   class TierWorkflow {}
 
-  @A2AExpose({
+  @A2AEndpoint({
     name: `${id}-a2a-expose`,
     version: "1.0.0",
     description: "t",
-    exports: [TierStart],
-    ...(files === undefined ? {} : { skills: { [`${id}-workflow-start`]: { files } } }),
+    ttl: { tasks: hours(24), messages: minutes(15) },
+    skills: [TierStart],
   })
   class TierExpose {}
 
   return { expose: TierExpose, workflow: TierWorkflow, start: TierStart };
 }
 
-const SIZES: A2AFileOptions = { maxFileSize: 100 as Bytes, maxTotalFileSize: 1000 as Bytes };
-const tierOf = (skills: readonly Skill[], application?: A2AFileOptions): number =>
+const SIZES: FilePolicyOptions = { maxFileSize: 100 as Bytes, maxTotalFileSize: 1000 as Bytes };
+const tierOf = (skills: readonly Skill[]): number =>
   fileTierSizeOf(
     skills.map((each) => each.expose),
     skills.map((each) => each.workflow),
-    application,
+    ComponentOptions.none,
   );
 
 describe("fileTierSizeOf", () => {
   it("files in the input only: the total limit", () => {
-    expect(tierOf([skill(FilesInDto, TextDto)], SIZES)).toBe(1000);
+    expect(tierOf([skill(FilesInDto, TextDto)])).toBe(1000);
   });
 
   it("files in a finish only: the file limit", () => {
-    expect(tierOf([skill(TextDto, FilesInDto)], SIZES)).toBe(100);
-    expect(tierOf([skill(TextDto, WorkflowFinishFileDto)], SIZES)).toBe(100);
+    expect(tierOf([skill(TextDto, FilesInDto)])).toBe(100);
+    expect(tierOf([skill(TextDto, WorkflowFinishFileDto)])).toBe(100);
   });
 
   it("a list of files counts as files", () => {
     class ListedDto {
-      @ListOf(A2AFileDto, { prompt: "l" })
-      files!: A2AFileDto[];
+      @List(FileDto, { prompt: "l" })
+      files!: FileDto[];
     }
-    expect(tierOf([skill(ListedDto, TextDto)], SIZES)).toBe(1000);
+    expect(tierOf([skill(ListedDto, TextDto)])).toBe(1000);
   });
 
   it("both: the larger of the two", () => {
-    expect(tierOf([skill(FilesInDto, FilesInDto)], SIZES)).toBe(1000);
+    expect(tierOf([skill(FilesInDto, FilesInDto)])).toBe(1000);
     expect(
-      tierOf([skill(FilesInDto, FilesInDto)], {
-        maxFileSize: 5000 as Bytes,
-        maxTotalFileSize: 1000 as Bytes,
-      }),
+      tierOf([
+        skill(FilesInDto, FilesInDto, {
+          maxFileSize: 5000 as Bytes,
+          maxTotalFileSize: 1000 as Bytes,
+        }),
+      ]),
     ).toBe(5000);
   });
 
   it("no files at all: 0, and with no skills: 0", () => {
-    expect(tierOf([skill(TextDto, TextDto)], SIZES)).toBe(0);
-    expect(tierOf([skill(WorkflowStartTextDto, TextDto)], SIZES)).toBe(0);
-    expect(tierOf([], SIZES)).toBe(0);
+    expect(tierOf([skill(TextDto, TextDto)])).toBe(0);
+    expect(tierOf([skill(WorkflowStartTextDto, TextDto)])).toBe(0);
+    expect(tierOf([])).toBe(0);
   });
 
   it("a start whose input is a map of fields takes no files of its own", () => {
@@ -130,39 +143,46 @@ describe("fileTierSizeOf", () => {
     @Workflow({
       name: `${id}-workflow`,
       version: "1.0.0",
-      flow: [start(MapStart).returns(TextDto).toFinish(MapFinish)],
+      historyTtl: Ttl.Forever,
+      flow: [onStart(MapStart).toFinish(MapFinish)],
     })
     class MapWorkflow {}
 
-    @A2AExpose({
+    @A2AEndpoint({
       name: `${id}-a2a-expose`,
       version: "1.0.0",
       description: "m",
-      exports: [MapStart],
+      ttl: { tasks: hours(24), messages: minutes(15) },
+      skills: [MapStart],
     })
     class MapExpose {}
 
-    expect(tierOf([{ expose: MapExpose, workflow: MapWorkflow, start: MapStart }], SIZES)).toBe(0);
+    expect(tierOf([{ expose: MapExpose, workflow: MapWorkflow, start: MapStart }])).toBe(0);
   });
 
-  it("the most of all exported skills; each skill's own options over the application's", () => {
-    const small = skill(FilesInDto, TextDto, { maxTotalFileSize: 300 as Bytes });
-    const big = skill(FilesInDto, TextDto, { maxTotalFileSize: 700 as Bytes });
+  it("the most of all exported skills; each skill's workflow policy its own", () => {
+    const small = skill(FilesInDto, TextDto, {
+      maxFileSize: 100 as Bytes,
+      maxTotalFileSize: 300 as Bytes,
+    });
+    const big = skill(FilesInDto, TextDto, {
+      maxFileSize: 100 as Bytes,
+      maxTotalFileSize: 700 as Bytes,
+    });
     const none = skill(TextDto, TextDto);
 
-    expect(tierOf([small, none, big, small], SIZES)).toBe(700);
-    expect(tierOf([small], SIZES)).toBe(300);
-    expect(tierOf([none, small], SIZES)).toBe(300);
+    expect(tierOf([small, none, big, small])).toBe(700);
+    expect(tierOf([small])).toBe(300);
+    expect(tierOf([none, small])).toBe(300);
   });
 
-  it("an expose with no files option for its skill takes the application's, then the default", () => {
-    const plain = skill(FilesInDto, TextDto);
+  it("a workflow policy that sets no size takes the default", () => {
+    const plain = skill(FilesInDto, TextDto, {});
 
-    expect(tierOf([plain], SIZES)).toBe(1000);
-    expect(tierOf([plain], undefined)).toBe(64 * 1024);
+    expect(tierOf([plain])).toBe(64 * 1024);
   });
 
-  it("only an @A2AExpose counts: a class that is none (or no component) is skipped", () => {
+  it("only an @A2AEndpoint counts: a class that is none (or no component) is skipped", () => {
     @Injectable({ deps: [] })
     class NotAnExpose {}
     class Undecorated {
@@ -170,9 +190,13 @@ describe("fileTierSizeOf", () => {
     }
     const real = skill(FilesInDto, TextDto);
 
-    expect(fileTierSizeOf([NotAnExpose, Undecorated, real.expose], [real.workflow], SIZES)).toBe(
-      1000,
-    );
+    expect(
+      fileTierSizeOf(
+        [NotAnExpose, Undecorated, real.expose],
+        [real.workflow],
+        ComponentOptions.none,
+      ),
+    ).toBe(1000);
   });
 
   it("an export that is no start, or no declaration, keeps no file", () => {
@@ -185,15 +209,16 @@ describe("fileTierSizeOf", () => {
       readonly bare = true;
     }
 
-    @A2AExpose({
+    @A2AEndpoint({
       name: `${id}-a2a-expose`,
       version: "1.0.0",
       description: "o",
-      exports: [OddFinish, Undecorated],
+      ttl: { tasks: hours(24), messages: minutes(15) },
+      skills: [OddFinish, Undecorated],
     })
     class OddExpose {}
 
-    expect(fileTierSizeOf([OddExpose], [], SIZES)).toBe(0);
+    expect(fileTierSizeOf([OddExpose], [], ComponentOptions.none)).toBe(0);
   });
 });
 
@@ -205,36 +230,39 @@ describe("fileTierSizeOf", () => {
 })
 class MixedAction {
   execute(_input: {
-    readonly request: Produced<ReviewRequestDto, unknown>;
-  }): Promise<Variant<typeof ReviewResultDto | typeof TextDto>> {
-    return Promise.resolve(variant(TextDto, { text: "no report" }));
+    readonly request: Tracked<ReviewRequestDto>;
+  }): Promise<ReviewResultDto | TextDto> {
+    return Promise.resolve({ text: "no report" });
   }
 }
 
 @WorkflowFinish({ name: "tier-mixed-text-workflow-finish", description: "t", output: TextDto })
 class MixedTextFinish {}
 
+@FilePolicy({
+  ttl: hours(24),
+  name: "tier-mixed-file-policy",
+  maxFileSize: 5000 as Bytes,
+  maxTotalFileSize: 5000 as Bytes,
+})
+class MixedPolicy {}
+
 @Workflow({
   name: "tier-mixed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  filePolicy: MixedPolicy,
   flow: [
-    start(FileReviewWorkflowStart)
-      .returns(ReviewRequestDto)
+    onStart(FileReviewWorkflowStart)
       .toAction(MixedAction)
-      .returns(oneOf(ReviewResultDto, TextDto))
-      .switch(
-        caseOf(ReviewResultDto).toFinish(FileReviewFinish),
-        caseOf(TextDto).toFinish(MixedTextFinish),
-      ),
+      .toOneOf([toFinish(FileReviewFinish), toFinish(MixedTextFinish)]),
   ],
 })
 class MixedWorkflow {}
 
 describe("a skill whose finishes differ", () => {
   it("files in only one of its finishes count: the file limit is in", () => {
-    const limits = { maxFileSize: 5000 as Bytes, maxTotalFileSize: 1000 as Bytes };
-
-    expect(fileTierSizeOf([FilesA2AExpose], [MixedWorkflow], limits)).toBe(5000);
+    expect(fileTierSizeOf([FilesA2AExpose], [MixedWorkflow], ComponentOptions.none)).toBe(5000);
   });
 });
 

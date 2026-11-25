@@ -19,7 +19,7 @@ import {
 } from "../../../src/infrastructure/stored-step.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { applicationOn, connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
-import { oldPauseJson } from "./pause-names-0.1.0.fixtures.js";
+import { pauseJson } from "./stored-rows.fixtures.js";
 
 const SECRET = "ssn-078-05-1120";
 /**
@@ -73,7 +73,12 @@ describe.each(TEXTS)("#1121: %s is the coded unreadable refusal", (_name, NOT_JS
 
   it("the helper stores share: the ids it is given, the record it names", async () => {
     await refused(
-      () => parsedStoredJson("pause", NOT_JSON, { pauseId: "p1", tenantId: undefined }),
+      () =>
+        parsedStoredJson({
+          what: "pause",
+          text: NOT_JSON,
+          ids: { pauseId: "p1", tenantId: undefined },
+        }),
       "pause",
       "pauseId p1",
     );
@@ -81,7 +86,11 @@ describe.each(TEXTS)("#1121: %s is the coded unreadable refusal", (_name, NOT_JS
 
   it("a text that is JSON is parsed, its reviver applied", () => {
     expect(
-      parsedStoredJson("pause", '{"a":1}', {}, (_key, value) => (value === 1 ? 2 : value)),
+      parsedStoredJson({
+        what: "pause",
+        text: '{"a":1}',
+        reviver: (_key, value) => (value === 1 ? 2 : value),
+      }),
     ).toEqual({ a: 2 });
   });
 
@@ -107,7 +116,7 @@ describe.each(TEXTS)("#1121: %s is the coded unreadable refusal", (_name, NOT_JS
       "INSERT INTO pauses (tenant_id, pause_id, step_key, root_execution_id, status, is_sent, pause, answer, resolution, resolved_at) VALUES ('default', ?, ?, 'run-1', 'resolved', 1, ?, ?, 'replied', '2026-01-05T09:05:00.000Z')",
     );
     insert.run("p1", "run-1:s:1", NOT_JSON, null);
-    insert.run("p2", "run-1:s:2", oldPauseJson, NOT_JSON);
+    insert.run("p2", "run-1:s:2", pauseJson, NOT_JSON);
     const pauses = new SqlitePausedExecutionRepository(connectionTo(path), clock);
 
     await refused(() => pauses.findByTenantIdAndPauseId("default", "p1"), "pause", "pauseId p1");

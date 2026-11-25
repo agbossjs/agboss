@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #396 PR 3 — a run against its baseline: each case's `CaseComparison` (S2 Q6–Q7: a changed case
  * is not compared, a case that flapped on the baseline is quarantined, regressed = pass^k there and
@@ -22,7 +23,9 @@ const runOf = (run: number, passed: boolean): EvalRunResult => ({
   threadId: `thread-${String(run)}`,
   passed,
   checks: [],
-  spentUsd: 0,
+  executionUsd: usd(0),
+  judgeUsd: usd(0),
+  totalUsd: usd(0),
 });
 
 /** A case over its runs (`[true, false, true]`: ✓✗✓), with its hash. */
@@ -51,11 +54,11 @@ const reportOf = (cases: readonly EvalCaseReport[]): EvalRunReport => ({
   environment: "eval",
   runs: 3,
   cascade: EvalCascade.StopAtFirstFailure,
-  startedAt: "2026-01-05T09:00:00.000Z",
-  endedAt: "2026-01-05T09:01:00.000Z",
+  startedAt: new Date("2026-01-05T09:00:00.000Z"),
+  endedAt: new Date("2026-01-05T09:01:00.000Z"),
   cases,
   summary: summaryOf(cases),
-  spend: { totalUsd: 0 },
+  spend: { executionUsd: usd(0), judgeUsd: usd(0), totalUsd: usd(0) },
 });
 
 const BASELINE = reportOf([
@@ -105,7 +108,7 @@ describe("#396 PR 3: each case against its baseline", () => {
       file: "main.json",
       configHash: "7c1e09",
       runs: 3,
-      startedAt: "2026-01-05T09:00:00.000Z",
+      startedAt: new Date("2026-01-05T09:00:00.000Z"),
     });
   });
 
@@ -134,9 +137,9 @@ describe("#396 PR 3: the baseline artifact read back", () => {
       kind: "invalid",
       reason: 'kind is "agboss.describe", not "agboss.eval-run"',
     });
-    expect(evalRunReportOf({ ...BASELINE, schemaVersion: 5 })).toEqual({
+    expect(evalRunReportOf({ ...BASELINE, schemaVersion: 4 })).toEqual({
       kind: "invalid",
-      reason: "schemaVersion 5 — this agboss reads 1 to 4",
+      reason: "schemaVersion 4 — this agboss reads 5 only",
     });
     expect(evalRunReportOf({ ...BASELINE, cases: [{ name: "x" }] })).toMatchObject({
       kind: "invalid",

@@ -1,3 +1,4 @@
+import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 /**
  * #626 (keys-and-calls shard) — the outbound call's runtime pieces on their own, where an end to
  * end run cannot reach a branch: who a replay names, how an error names a key, what a superseded
@@ -6,11 +7,7 @@
  */
 import { getEventListeners } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import {
-  checkedCall,
-  replayedFromOf,
-  reportedKeyOf,
-} from "../../src/app/outbound-call-business.js";
+import { checkedCall, replayedFromOf } from "../../src/app/outbound-call-business.js";
 import {
   fencedEnd,
   leaseClosed,
@@ -18,8 +15,8 @@ import {
   unreconciledOf,
 } from "../../src/app/outbound-call-endings.js";
 import { joinedOrMade } from "../../src/app/outbound-call-join.js";
-import { OutboundCallSendStatus } from "../../src/app/outbound-calls.js";
-import { ExecutionFencedError } from "../../src/app/lease-lost.js";
+import { OutboundCallSendStatus } from "../../src/app/idempotency.js";
+import {} from "../../src/app/lease-lost.js";
 import {
   OutboundCallEventOutcome,
   OutboundCallLeaseState,
@@ -52,17 +49,7 @@ describe("#626: the step a replayed call names", () => {
   });
 });
 
-describe("#626: how an error names a call's key", () => {
-  it("a step's key as it is; a business key by its handle, or by its name with no handle", () => {
-    const business = { businessKey: "order:42", name: "charge" };
-
-    expect(reportedKeyOf({ name: "charge" } as never, "k:charge")).toBe("k:charge");
-    expect(reportedKeyOf({ ...business, businessKeyHash: "h1" } as never, "k")).toBe(
-      "business-key:h1:charge",
-    );
-    expect(reportedKeyOf(business as never, "k")).toBe("business-key:charge");
-  });
-
+describe("#626: what a call's key is checked against", () => {
   it("a step's key finds no conflict in a stored fingerprint: a store's leftover, never compared", async () => {
     const run = { key: { name: "charge" }, options: {}, parts: { owners: new Set() } } as never;
     const found = { fingerprint: "left-by-a-store", status: OutboundCallStatus.Completed } as never;
@@ -172,7 +159,7 @@ describe("#626: a superseded attempt tells the intent as it reads, naming the ne
 describe("#626: an attempt's fenced end", () => {
   it("a write the lease refused is logged as an answer after the hand-over, then thrown", async () => {
     const { run, entries } = endingRun(() => Promise.resolve(undefined));
-    const fenced = ExecutionFencedError.of({ scopeKey: "default:execution-1", token: 2 });
+    const fenced = fencedRefusalOf({ scopeKey: "default:execution-1", token: 2 });
 
     await expect(fencedEnd(run, 1, () => Promise.reject(fenced))).rejects.toBe(fenced);
 

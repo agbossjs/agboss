@@ -1,4 +1,4 @@
-import { Flag, ListOf, Text } from "../../../src/dto/index.js";
+import { Bool, List, Text } from "../../../src/dto/index.js";
 
 /** DTOs of the #270 examples (the support desk, the tagged drafts). */
 
@@ -21,10 +21,10 @@ export class ExpertDraftDto {
   @Text({ prompt: "the reply text" })
   text!: string;
 
-  @Flag({ prompt: "a human should double-check before sending" })
+  @Bool({ prompt: "a human should double-check before sending" })
   needsHumanCheck!: boolean;
 
-  @ListOf(Text, { prompt: "the policies the reply relies on" })
+  @List(Text, { prompt: "the policies the reply relies on" })
   citedPolicies!: string[];
 }
 
@@ -32,7 +32,7 @@ export class CustomerReplyDto {
   @Text({ prompt: "the reply to send" })
   text!: string;
 
-  @Flag({ prompt: "hold for a human before sending" })
+  @Bool({ prompt: "hold for a human before sending" })
   holdForReview!: boolean;
 }
 

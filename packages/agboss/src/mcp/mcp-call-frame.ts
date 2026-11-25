@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { appWorkflowOf } from "../app/app-workflow.js";
-import type { App } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { standaloneCallFrameOf } from "../flow/context/call-frame.js";
 import { runInFrame } from "../flow/context/frame.js";
@@ -9,7 +9,7 @@ import type { McpCall } from "./mcp-service-helpers.js";
 
 /** An exported tool as one call over MCP sees it: its app, its class and its `name`. */
 export interface ExportedToolCall {
-  readonly app: App;
+  readonly app: AnyTenantApp;
   readonly type: Class;
   readonly name: string;
 }

@@ -1,0 +1,3 @@
+ragRerankers:
+  docs-reranker:
+    model: local/other

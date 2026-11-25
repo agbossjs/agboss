@@ -16,9 +16,7 @@ import { until } from "../channels/fixtures/pause-scripts.js";
 import {
   ExtensionApplication,
   managerFlow,
-  openFlow,
   resetTold,
-  tightFlow,
   told,
   span,
 } from "../flow/fixtures/pause-extension.fixture.js";
@@ -26,7 +24,7 @@ import {
 const memory = testWith(ExtensionApplication, { instances: 3 });
 const ORDER = { orderId: "o-1" };
 const THREAD = { threadId: "remind-1" };
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 
 beforeEach(resetTold);
 
@@ -107,27 +105,6 @@ describe("#942 AC3: the reminder", () => {
       for (const one of expiring()) expect(one.expiresAt).toBe(extension.expiresAt);
     },
   );
-
-  memory("AC3: none when remindBefore ≥ the time left at creation", async ({ app, clock }) => {
-    await execute(app, tightFlow.start, ORDER, THREAD);
-
-    expect((await pauseOf(app))?.remindAt).toBeUndefined();
-    expect((await pauseOf(app))?.expiresAt).toBeDefined();
-    await clock.advance(minutes(59));
-    await clock.advance(seconds(30));
-    expect(expiring()).toEqual([]);
-  });
-
-  memory("AC3: no reminder for a pause without a deadline", async ({ app, clock }) => {
-    await execute(app, openFlow.start, ORDER, THREAD);
-    const page = await app
-      .resolve(PausedExecutionRepository)
-      .findPageByTenantId("default", { statuses: [PauseStatus.Pending] }, 10);
-
-    expect(page.pauses.map((pause) => pause.remindAt)).toEqual([undefined]);
-    await clock.advance(hours(100));
-    expect(expiring()).toEqual([]);
-  });
 
   memory(
     "AC3: reminder of a run-deadline-bound pause: before the run's deadline",

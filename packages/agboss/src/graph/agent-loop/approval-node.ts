@@ -14,7 +14,7 @@ import {
   type CallDecision,
 } from "./state.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { DtoValidationError, pathOf } from "../../dto/errors.js";
+import { DtoValidationError } from "../../dto/errors.js";
 import { countBoundOf } from "../count-limit.js";
 import { totalCost } from "../../finops/usage.js";
 import { currentFrame } from "../../flow/context/frame.js";
@@ -28,6 +28,14 @@ import type { ToolCallRequest } from "./deps.js";
 import { redactedArguments } from "../../dto/redact.js";
 import { inToolCallFrame } from "../../flow/context/frame.js";
 import type { AnyTool } from "../../tools/index.js";
+
+/** The call's arguments as an approver may see them: kept by its preparing, never made again. */
+function shownOf(state: AgentLoopStateType, call: ToolCallRequest): Record<string, unknown> {
+  const prepared = state.prepared[call.callId];
+  // an ask is made only for a call that passed its checks
+  if (prepared?.kind !== "ready") throw new TypeError(`tool call ${call.callId} is not ready`);
+  return { ...prepared.shown };
+}
 
 /** One sentence on what the call will do (the ask's `summary`), `sensitive` fields masked. */
 const summaryOf = (tool: AnyTool, args: Record<string, unknown>): string =>
@@ -56,19 +64,19 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
     const { approval } = deps;
     if (call === undefined || approval === undefined) return {};
     const tool = toolNamed(deps.agent, call.tool);
-    if (tool?.channel === undefined) return {};
+    if (tool?.approval === undefined) return {};
+    // what the call became before this ask (#1295c): the approver sees its arguments masked
+    const shown = shownOf(state, call);
     if (tool.question !== undefined)
-      return askQuestion(state, deps, { call, tool, approval }, config);
+      return askQuestion(state, deps, { call, tool, approval, shown }, config);
 
     const decision = await askedOrFailed(state, deps, () =>
       approval.requestApproval(
         {
           callId: call.callId,
           tool: call.tool,
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-          arguments: call.args as Record<string, unknown>,
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-          summary: summaryOf(tool, call.args as Record<string, unknown>),
+          arguments: shown,
+          summary: summaryOf(tool, shown),
         },
         deps.agent.name,
         tool,
@@ -80,9 +88,7 @@ function approvalOf(deps: AgentLoopDeps): AsyncNode<AgentLoopStateType, AgentLoo
       approved: decision.approved,
       by: decision.by,
       ...(decision.reason === undefined ? {} : { reason: decision.reason }),
-      ...(decision.overrideArguments === undefined
-        ? {}
-        : { overrideArguments: decision.overrideArguments }),
+      ...(decision.overrideInput === undefined ? {} : { overrideInput: decision.overrideInput }),
     };
     // a free-text reply's interpreter calls are the loop's spend from now on (#267 PR 3)
     const update = { decisions: { [call.callId]: recorded }, usage: [...decision.usage] };
@@ -159,6 +165,8 @@ interface QuestionCall {
   readonly call: ToolCallRequest;
   readonly tool: AnyTool;
   readonly approval: ToolCallApproval;
+  /** The question's arguments as prepared: valid as the role's ask, masked. */
+  readonly shown: Record<string, unknown>;
 }
 
 /** How many of the role's calls this visit asked already. */
@@ -186,38 +194,17 @@ function checkBeforeAsking(state: AgentLoopStateType, deps: AgentLoopDeps, tool:
 async function askQuestion(
   state: AgentLoopStateType,
   deps: AgentLoopDeps,
-  { call, tool, approval }: QuestionCall,
+  { call, tool, approval, shown }: QuestionCall,
   config: RunnableConfig | undefined,
 ): Promise<AgentLoopUpdate> {
-  const ask = askOf(tool, call.args);
-  // arguments that are no valid ask ask nobody: the model reads why and may try again
-  if (ask.kind === "invalid")
-    return { questionAnswers: { [call.callId]: { tool: tool.name, problem: ask.problem } } };
+  // arguments that are no valid ask ask nobody: the preparing found that already (#1295c)
   checkBeforeAsking(state, deps, tool);
   const reply = await askedOrFailed(
     state,
     deps,
-    () => approval.requestAnswer(ask.value, deps.agent.name, tool, config?.signal),
+    () => approval.requestAnswer(shown, deps.agent.name, tool, config?.signal),
     true,
   );
   const answered = { tool: tool.name, answer: reply.answer, by: reply.by };
   return { questionAnswers: { [call.callId]: answered }, usage: [...reply.usage] };
-}
-
-/** A question call's arguments read as the role's ask: valid, or why not. */
-type CheckedAsk =
-  | { readonly kind: "valid"; readonly value: Readonly<Record<string, unknown>> }
-  | { readonly kind: "invalid"; readonly problem: string };
-
-/**
- * The model's arguments as the role's `ask` — the question tool's input is strict, so a field the
- * ask does not declare is refused too, never passed on to whoever answers. The problem names paths
- * and reasons, never a value.
- */
-function askOf(tool: AnyTool, args: Readonly<Record<string, unknown>>): CheckedAsk {
-  const parsed = tool.input.safeParse(args);
-  // Stryker disable next-line StringLiteral: equivalent: the kind is only ever compared with "invalid", so any other text is the valid one
-  if (parsed.success) return { kind: "valid", value: parsed.data as Record<string, unknown> };
-  const issues = parsed.error.issues.map((issue) => `${pathOf(issue.path)}: ${issue.message}`);
-  return { kind: "invalid", problem: `invalid input: ${issues.join("; ")}` };
 }

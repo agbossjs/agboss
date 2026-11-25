@@ -18,7 +18,7 @@ describe("#1366: a mesh limit read off the wire", () => {
     const error = meshLimitErrorOf(loop({ entry, chain: [hop(1), hop(2)] }));
 
     expect(error).toBeInstanceOf(MeshLoopDetectedError);
-    expect(error).toMatchObject({ code: "limit.mesh-loop", entry, chain: [hop(1), hop(2)] });
+    expect(error).toMatchObject({ code: "limit.mesh-loop", entry, callChain: [hop(1), hop(2)] });
   });
 
   it("the hops refusal: its class, entry, chain and maxMeshHops", () => {
@@ -28,7 +28,7 @@ describe("#1366: a mesh limit read off the wire", () => {
     expect(error).toMatchObject({
       code: "limit.hops",
       entry,
-      chain: [hop(1), hop(2)],
+      callChain: [hop(1), hop(2)],
       maxMeshHops: 2,
       hops: 3,
     });

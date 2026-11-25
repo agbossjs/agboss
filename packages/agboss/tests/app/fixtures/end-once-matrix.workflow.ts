@@ -3,10 +3,9 @@ import {
   ApplicationContext,
   EmptyEnvironment,
   Injectable,
+  Observer,
   type ExecutionEndEvent,
   type ExecutionLeaseTakeoverEvent,
-  type OnExecutionEnd,
-  type OnExecutionLeaseTakeover,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -118,8 +117,8 @@ export const finishesSeen: { finish: string; instanceId: string }[] = [];
 export const takeoversSeen: { holder: string; previous: string | undefined }[] = [];
 
 /** Keeps every root's finish: which way the tree went, whoever ended it. */
-@Injectable({ deps: [ApplicationContext] })
-export class FinishLog implements OnExecutionEnd, OnExecutionLeaseTakeover {
+@Observer({ deps: [ApplicationContext] })
+export class FinishLog {
   constructor(private readonly applicationContext: ApplicationContext) {}
 
   onExecutionEnd(event: ExecutionEndEvent): void {

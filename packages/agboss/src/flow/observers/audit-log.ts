@@ -1,14 +1,14 @@
 import type { FencedEffectOrigin } from "../../infrastructure/fenced-effect.repository.js";
 import type { OutboundCallStatus } from "../../infrastructure/outbound-call.repository.js";
 import type {
-  FencedEffectEventOutcome,
+  IdempotencyRunEventOutcome,
   OutboundCallEventOutcome,
   OutboundCallClosedLease,
   HandOverReason,
   HandOverSite,
   LeaseTakeoverReason,
 } from "../../infrastructure/execution-audit-log.repository.js";
-import type { HookResult } from "../../core/hook-result.js";
+import type { ExecutionObserver } from "../../core/observer-hooks.js";
 import type { NodeEvent } from "./execution-event.js";
 
 /**
@@ -22,7 +22,7 @@ export interface ExecutionLeaseTakeoverEvent {
   readonly tenantId: string;
   /** The tree's root. */
   readonly rootExecutionId: string;
-  /** The execution whose lease it is: the root, or a `ChildPlacement.AnyInstance` child. */
+  /** The execution whose lease it is: the root, or a `ChildPlacement.AnyWorker` child. */
   readonly leaseExecutionId: string;
   /** `executionContext.fence.scopeKey` of the lease. */
   readonly scopeKey: string;
@@ -55,42 +55,22 @@ export interface StepHandedOverEvent extends NodeEvent {
   readonly holderInstanceId: string;
   /** The token the step held — a refused write's own token. */
   readonly token: number;
-  /** The newer token the external system saw, when it said (`ExecutionFencedError.observedToken`). */
+  /** The newer token the external system saw, when it said (`ExecutionError.Fenced.observedToken`). */
   readonly observedToken?: number;
 }
 
 /**
- * An instance took a tree's lease over (#501): the recovery sweep, an undo's takeover, a remote
- * child's reclaim or its holder's reclaim after a yield — and any take whose store names the holder whose
- * lease expired. Its `Takeover` row of the audit log is written first; a throw is only a warning.
- */
-export interface OnExecutionLeaseTakeover {
-  /** Called once per takeover, after its row is written, before the tree moves on. */
-  onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): HookResult;
-}
-
-/**
- * A step stopped without failing (#501): its lease was lost or an external system fenced its write
- * (`ExecutionFencedError`), or the instance stopped. Once per error, its `HandedOver` row of the
- * audit log written first; a throw is only a warning and never reaches the hand-over.
- */
-export interface OnStepHandedOver {
-  /** Called once per hand-over, before the moving call rejects. */
-  onStepHandedOver(event: StepHandedOverEvent): HookResult;
-}
-
-/**
- * One call of a step's fenced effect (#500, #501 `onFencedEffect`): it ran, its stored result was
+ * One call of a step's fenced effect (#500, #501 `onIdempotencyRun`): it ran, its stored result was
  * replayed, it joined a call in flight, or the lease refused it — the step's `step`, the effect's
  * `name`, the lease scope and the call's `token`, never the result. Its `FencedEffect` row of the
  * audit log is written first.
  */
-export interface FencedEffectEvent extends NodeEvent {
+export interface IdempotencyRunEvent extends NodeEvent {
   readonly name: string;
   readonly scopeKey: string;
   /** The token the call ran under (`effectKeyOf(…).token`). */
   readonly token: number;
-  readonly outcome: FencedEffectEventOutcome;
+  readonly outcome: IdempotencyRunEventOutcome;
   /** The token the stored result was first written under, when there is a result. */
   readonly writtenToken?: number;
   /** A business key's replay of what another step or execution wrote (#508): that step. */
@@ -99,15 +79,6 @@ export interface FencedEffectEvent extends NodeEvent {
   readonly observedToken?: number;
   /** The instance that made the call. */
   readonly holderInstanceId: string;
-}
-
-/**
- * A step's fenced effect was called (#501): ran, replayed, joined or refused. Its row of the lease
- * log is written first; a throw is only a warning and never reaches the effect or its step.
- */
-export interface OnFencedEffect {
-  /** Called once per call of `runOnce`, after its outcome is known. */
-  onFencedEffect(event: FencedEffectEvent): HookResult;
 }
 
 /**
@@ -143,17 +114,8 @@ export interface OutboundCallEvent extends NodeEvent {
   readonly closedLease?: OutboundCallClosedLease;
 }
 
-/**
- * A step's call that leaves the system moved (#505). Its row of the audit log is written first; a
- * throw is only a warning and never reaches the call or its step.
- */
-export interface OnOutboundCall {
-  /** Called once per move of the call, in the order of the moves. */
-  onOutboundCall(event: OutboundCallEvent): HookResult;
-}
-
 /** The hooks of the audit log (#501, #505): what happened to a tree's leases and its steps' calls. */
-export type AuditLogHooks = OnExecutionLeaseTakeover &
-  OnStepHandedOver &
-  OnFencedEffect &
-  OnOutboundCall;
+export type AuditLogHooks = Pick<
+  ExecutionObserver,
+  "onExecutionLeaseTakeover" | "onStepHandedOver" | "onIdempotencyRun" | "onOutboundCall"
+>;

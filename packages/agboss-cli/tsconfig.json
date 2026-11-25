@@ -8,5 +8,11 @@
       "@agboss/core/*": ["../agboss/src/*/index.ts", "../agboss/src/*.ts"]
     }
   },
-  "include": ["src", "tests", "vitest.config.ts", "vitest.mutation-stream.config.ts"]
+  "include": [
+    "src",
+    "tests",
+    "../agboss/.agboss/types.d.ts",
+    "vitest.config.ts",
+    "vitest.mutation-stream.config.ts"
+  ]
 }

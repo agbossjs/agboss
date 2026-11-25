@@ -1,30 +1,25 @@
+import { invalidEffectName, unissuedKey } from "./idempotency-errors.js";
 import { markBusinessKeyWriter } from "../components/container/fenced-reach.js";
 import { cancelMet, fencedErrorOf } from "../app/handed-over.js";
 import { currentFrame, type FrameSpec } from "../flow/context/frame.js";
 import { nodeEventOf } from "../flow/observers/execution-event.js";
-import { FencedEffectEventOutcome } from "./execution-audit-log.repository.js";
+import { IdempotencyRunEventOutcome } from "./execution-audit-log.repository.js";
 import type { EffectKey, FencedEffectOrigin } from "./effect-key.js";
 import { LeaseCheck, type StoreDescriptor } from "./execution-lease.repository.js";
-import {
-  InvalidFencedEffectKeyError,
-  isIssuedKey,
-  keyProblemOf,
-  UNISSUED_KEY,
-} from "./issued-keys.js";
+import { isIssuedKey, keyProblemOf, UNISSUED_KEY } from "./issued-keys.js";
 import {
   businessKeyErrorOf,
   effectKeyIdentityOf,
   fingerprintErrorOf,
-  InvalidFencedEffectNameError,
   isEffectName,
 } from "./fenced-effect-key.js";
-import { FencedEffectResultTooLargeError } from "./fenced-effect-settings.js";
-import type { FencedEffectSettings } from "./fenced-effect-settings.js";
+import { resultTooLarge } from "./idempotency-errors.js";
+import { kilobytes, type Bytes } from "../units/index.js";
 
 /**
  * The fenced effect (#500): one protected write of a step, made exactly once per step on the
  * store's own database — a durable singleflight on the step's idempotency key. In one transaction
- * with the write: the lease the step runs under is checked (`ExecutionFencedError` when it is no
+ * with the write: the lease the step runs under is checked (`ExecutionError.Fenced` when it is no
  * longer the current one), then the scope's high-water mark (`token < highest` refused before any
  * key is looked up, so a zombie never reads the new holder's result), then the key — found, the
  * stored result comes back and the write does not run again. Wiki → Several-instances.
@@ -48,7 +43,7 @@ export type JsonValue<T> = T extends JsonPrimitive
       : never;
 
 /** How a call got its result. */
-export enum FencedEffectStatus {
+export enum IdempotencyRunStatus {
   /** The write ran now, and its result was stored with it. */
   Ran = "ran",
   /** The key was written before (a step run again): the stored result, the write not run. */
@@ -58,8 +53,8 @@ export enum FencedEffectStatus {
 }
 
 /** What a call gives: how it got the result, the result, the token it was first written under. */
-export interface FencedEffectOutcome<TResult> {
-  readonly status: FencedEffectStatus;
+export interface IdempotencyRunOutcome<TResult> {
+  readonly status: IdempotencyRunStatus;
   readonly result: TResult;
   /** The token the result was first written under (a replay on a newer lease: the older one). */
   readonly token: number;
@@ -68,22 +63,23 @@ export interface FencedEffectOutcome<TResult> {
 }
 
 /**
- * The protected write: business rows in `transaction`, then its result (plain JSON). A store may
- * run it more than once within one call (#730: MongoDB's driver runs an aborted attempt again on a
- * transient transaction error), keeping only the last attempt's writes: it writes only through
- * `transaction` and does nothing else — no call to another system, nothing sent or counted outside.
+ * The protected write: business rows written through the store's ambient transaction
+ * (`requireTransaction()` of its connection, #1317c), then its result (plain JSON). It is handed no
+ * transaction. A store may run it more than once within one call (#730: MongoDB's driver runs an
+ * aborted attempt again on a transient transaction error), keeping only the last attempt's writes:
+ * it writes only through the ambient transaction and does nothing else — no call to another system,
+ * nothing sent or counted outside.
  */
-export type FencedEffectWork<TTransaction, TResult> = (
-  transaction: TTransaction,
-) => (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
+export type FencedEffectWork<TResult> = () =>
+  (TResult & JsonValue<TResult>) | Promise<TResult & JsonValue<TResult>>;
 
 /** The calls in flight of each store instance, by their full key: the in-process join. */
-const inFlight = new WeakMap<object, Map<string, Promise<FencedEffectOutcome<unknown>>>>();
+const inFlight = new WeakMap<object, Map<string, Promise<IdempotencyRunOutcome<unknown>>>>();
 
 /**
  * The calls one leader is joined by: the same scope, identity and token — and the same fingerprint
  * (#508), so a call with other parameters under a business key never gets another call's result: it
- * reaches the transaction, which refuses it (`BusinessKeyConflictError`). No fingerprint is
+ * reaches the transaction, which refuses it (`IdempotencyError.KeyConflict`). No fingerprint is
  * `null` and every text, `""` too, is itself (#574): as `replayedFromOf` tells them apart.
  */
 const joinKeyOf = (key: EffectKey): string =>
@@ -97,7 +93,7 @@ const joinKeyOf = (key: EffectKey): string =>
  * application's SQLite file. A store reads the leases of the lease store on its own database, so
  * the application lists the two together.
  */
-export abstract class FencedEffectRepository<TTransaction> {
+export abstract class FencedEffectRepository {
   /**
    * Where the store's rows live and how it checks the lease against its write (#526, #825): its
    * `backend` must be the application's lease store's — its write and the lease check are one
@@ -107,17 +103,12 @@ export abstract class FencedEffectRepository<TTransaction> {
    */
   static readonly store: StoreDescriptor = { backend: undefined, leaseCheck: LeaseCheck.Atomic };
 
-  constructor(
-    /** `@Application({ fencedEffects })`: the largest result, how long rows are kept. */
-    protected readonly settings: FencedEffectSettings,
-  ) {}
-
   /** Whether the store answers (#300): one fast round trip. */
   abstract ping(): Promise<void>;
 
   /**
    * The write and its result in one transaction with the fencing checks; the stored result on a
-   * repeat. A refused lease or a lower token → `ExecutionFencedError` (a hand-over: nothing
+   * repeat. A refused lease or a lower token → `ExecutionError.Fenced` (a hand-over: nothing
    * written, no result); `work` throws → everything rolled back and the error rethrown as it is —
    * the next call runs it again. `work` may run more than once within one call (an aborted attempt
    * run again, as on MongoDB, #730): only the last attempt's writes are kept. Concurrent calls on one key of this instance share the first's
@@ -125,15 +116,14 @@ export abstract class FencedEffectRepository<TTransaction> {
    */
   runOnce<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<TTransaction, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>> {
+    work: FencedEffectWork<TResult>,
+  ): Promise<IdempotencyRunOutcome<TResult>> {
     // #825: no key at all from JavaScript is refused as one effectKeyOf did not make, not a throw
     const given: unknown = key;
     if (typeof given !== "object" || given === null)
-      return Promise.reject(new InvalidFencedEffectKeyError(UNISSUED_KEY));
+      return Promise.reject(unissuedKey(UNISSUED_KEY));
     // the name first, as every store checks it at its entry (#508, #526 AC7)
-    if (!isEffectName(key.name))
-      return Promise.reject(new InvalidFencedEffectNameError({ length: key.name.length }));
+    if (!isEffectName(key.name)) return Promise.reject(invalidEffectName(key.name.length));
     // the business key's text (#538): its own error, naming the rule, never the key
     const invalidKey = businessKeyErrorOf(key);
     if (invalidKey !== undefined) return Promise.reject(invalidKey);
@@ -141,25 +131,25 @@ export abstract class FencedEffectRepository<TTransaction> {
     const unfingerprinted = fingerprintErrorOf(key);
     if (unfingerprinted !== undefined) return Promise.reject(unfingerprinted);
     // #825: a key effectKeyOf made — a copy or a hand-built object from JavaScript is refused
-    if (!isIssuedKey(key)) return Promise.reject(new InvalidFencedEffectKeyError(UNISSUED_KEY));
+    if (!isIssuedKey(key)) return Promise.reject(unissuedKey(UNISSUED_KEY));
     const problem = keyProblemOf(key);
     if (problem !== undefined)
-      return Promise.reject(new InvalidFencedEffectKeyError(`not a fenced effect key: ${problem}`));
+      return Promise.reject(unissuedKey(`not a fenced effect key: ${problem}`));
     return observedCall(key, currentFrame(), this.#call(key, work));
   }
 
   /** The call itself: the leader's transaction, or the outcome of the leader on its key. */
   #call<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<TTransaction, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>> {
-    const calls = inFlight.get(this) ?? new Map<string, Promise<FencedEffectOutcome<unknown>>>();
+    work: FencedEffectWork<TResult>,
+  ): Promise<IdempotencyRunOutcome<TResult>> {
+    const calls = inFlight.get(this) ?? new Map<string, Promise<IdempotencyRunOutcome<unknown>>>();
     inFlight.set(this, calls);
     const joinKey = joinKeyOf(key);
     const leader = calls.get(joinKey);
     // a follower's result is the leader's, of the same key and so of the same work's type
     if (leader !== undefined)
-      return leader.then(joinedOutcome) as Promise<FencedEffectOutcome<TResult>>;
+      return leader.then(joinedOutcome) as Promise<IdempotencyRunOutcome<TResult>>;
     const call = this.runInTransaction(key, work).finally(() => {
       calls.delete(joinKey);
     });
@@ -175,51 +165,56 @@ export abstract class FencedEffectRepository<TTransaction> {
    */
   protected abstract runInTransaction<TResult>(
     key: EffectKey,
-    work: FencedEffectWork<TTransaction, TResult>,
-  ): Promise<FencedEffectOutcome<TResult>>;
+    work: FencedEffectWork<TResult>,
+  ): Promise<IdempotencyRunOutcome<TResult>>;
 
-  /** Removes the results and marks stored before `cutoff` (the recovery sweep, `now - retention`). */
-  abstract deleteByStoredAtBefore(cutoff: Date): Promise<void>;
+  /**
+   * Removes the results and marks whose `expires_at` has come (`<= now`, the recovery sweep, on the
+   * `Clock`): a row with no expiry (`Ttl.Forever`, `NULL`) is never removed. The number of rows
+   * removed. A scope's mark keeps the latest expiry of every key written under it, `NULL` first, so
+   * a short ttl never removes the mark a longer one still relies on.
+   */
+  abstract deleteExpired(now: Date): Promise<number>;
 
   /**
    * The result as stored: its JSON, within `maxResultSize` (UTF-8 bytes) — else
-   * `FencedEffectResultTooLargeError`, thrown inside the transaction so it rolls back.
+   * `IdempotencyError.ResultTooLarge`, thrown inside the transaction so it rolls back.
    */
   protected storedResultOf(key: EffectKey, result: unknown): string {
     const text = JSON.stringify(result);
     // Stryker disable next-line StringLiteral: `Buffer.byteLength` counts UTF-8 for an empty encoding as for "utf8"
     const size = Buffer.byteLength(text, "utf8");
-    if (size > this.settings.maxResultSize)
-      throw new FencedEffectResultTooLargeError({
-        effect: key.name,
-        size,
-        maxResultSize: this.settings.maxResultSize,
-      });
+    const maxResultSize = key.maxResultSize ?? DEFAULT_RESULT_SIZE;
+    if (size > maxResultSize)
+      throw resultTooLarge({ effect: key.name, size: size as Bytes, maxResultSize });
     return text;
   }
 }
+
+/** The largest stored result when a call names none: 64 KB — a receipt, not a document. */
+export const DEFAULT_RESULT_SIZE: Bytes = kilobytes(64);
 
 // #825: a component that reaches any fenced-effect store can write under a business key
 markBusinessKeyWriter(FencedEffectRepository);
 
 /** How the audit log names each outcome of a call. */
-const LOGGED_OUTCOME: Readonly<Record<FencedEffectStatus, FencedEffectEventOutcome>> = {
-  [FencedEffectStatus.Ran]: FencedEffectEventOutcome.Ran,
-  [FencedEffectStatus.Replayed]: FencedEffectEventOutcome.Replayed,
-  [FencedEffectStatus.Joined]: FencedEffectEventOutcome.Joined,
+const LOGGED_OUTCOME: Readonly<Record<IdempotencyRunStatus, IdempotencyRunEventOutcome>> = {
+  [IdempotencyRunStatus.Ran]: IdempotencyRunEventOutcome.Ran,
+  [IdempotencyRunStatus.Replayed]: IdempotencyRunEventOutcome.Replayed,
+  [IdempotencyRunStatus.Joined]: IdempotencyRunEventOutcome.Joined,
 };
 
 /**
  * The call, told to the lease the step runs under (#501): how it went — ran, replayed, joined, or
- * refused (`ExecutionFencedError`) — as a row of the audit log and `onFencedEffect`, never its
+ * refused (`ExecutionError.Fenced`) — as a row of the audit log and `onIdempotencyRun`, never its
  * result; a failure of the write itself is no outcome. Nothing outside a step or under a lease that
  * does not record (a unit runner's).
  */
 function observedCall<TResult>(
   key: EffectKey,
   frame: FrameSpec | undefined,
-  call: Promise<FencedEffectOutcome<TResult>>,
-): Promise<FencedEffectOutcome<TResult>> {
+  call: Promise<IdempotencyRunOutcome<TResult>>,
+): Promise<IdempotencyRunOutcome<TResult>> {
   return frame === undefined ? call : observedInStep(key, frame, call);
 }
 
@@ -227,13 +222,13 @@ function observedCall<TResult>(
 function observedInStep<TResult>(
   key: EffectKey,
   frame: FrameSpec,
-  call: Promise<FencedEffectOutcome<TResult>>,
-): Promise<FencedEffectOutcome<TResult>> {
+  call: Promise<IdempotencyRunOutcome<TResult>>,
+): Promise<IdempotencyRunOutcome<TResult>> {
   const { lease } = frame.execution;
-  if (lease?.recordFencedEffect === undefined) return call;
-  const record = lease.recordFencedEffect.bind(lease);
+  if (lease?.recordIdempotencyRun === undefined) return call;
+  const record = lease.recordIdempotencyRun.bind(lease);
   const { name, scopeKey, token } = key;
-  const report = (outcome: FencedEffectEventOutcome, tokens: object): void => {
+  const report = (outcome: IdempotencyRunEventOutcome, tokens: object): void => {
     record({
       event: nodeEventOf(frame),
       name,
@@ -255,10 +250,10 @@ function observedInStep<TResult>(
     (error: unknown) => {
       const fenced = fencedErrorOf(error);
       if (fenced !== undefined)
-        report(FencedEffectEventOutcome.Refused, { observedToken: fenced.observedToken });
+        report(IdempotencyRunEventOutcome.Refused, { observedToken: fenced.observedToken });
       // #909: told first, then the holder stops the tree as cancelled — not a hand-over
       cancelMet(error, lease, () => {
-        report(FencedEffectEventOutcome.Cancelled, {});
+        report(IdempotencyRunEventOutcome.Cancelled, {});
       });
       throw error;
     },
@@ -266,8 +261,10 @@ function observedInStep<TResult>(
 }
 
 /** A follower's outcome: the leader's, a copy of its result. */
-const joinedOutcome = (outcome: FencedEffectOutcome<unknown>): FencedEffectOutcome<unknown> => ({
-  status: FencedEffectStatus.Joined,
+const joinedOutcome = (
+  outcome: IdempotencyRunOutcome<unknown>,
+): IdempotencyRunOutcome<unknown> => ({
+  status: IdempotencyRunStatus.Joined,
   result: structuredClone(outcome.result),
   token: outcome.token,
 });
@@ -280,26 +277,10 @@ export type {
 } from "./effect-key.js";
 export {
   effectKeyOf,
-  FingerprintNotJsonError,
-  FingerprintPolicy,
-  FingerprintRequiredError,
-  BusinessKeyConflictError,
-  IdempotencyKeyMissingError,
-  type IdempotencyKeyMissingErrorOptions,
-  InvalidBusinessKeyError,
-  InvalidFencedEffectNameError,
-  type InvalidFencedEffectNameErrorOptions,
   type BusinessKeyOptions,
   type EffectKeyOptions,
   type FingerprintedKeyOptions,
   type FingerprintKeys,
   type UnfingerprintedKeyOptions,
   type OutboundCallKeyOptions,
-  type BusinessKeyConflictErrorOptions,
-  type FingerprintNotJsonErrorOptions,
-  type InvalidBusinessKeyErrorOptions,
 } from "./fenced-effect-key.js";
-export {
-  FencedEffectResultTooLargeError,
-  type FencedEffectResultTooLargeErrorOptions,
-} from "./fenced-effect-settings.js";

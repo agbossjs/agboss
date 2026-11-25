@@ -1,6 +1,6 @@
 /**
- * #648 — what a chat-model `@ReplyInterpreter` of an approval role is given. AC1: its answer tool
- * describes `overrideArguments` with the approved tool's input fields (every one optional: the
+ * #648 — what a chat-model `@ChannelInterpreter` of an approval role is given. AC1: its answer tool
+ * describes `overrideInput` with the approved tool's input fields (every one optional: the
  * fields the reply changes, the rest kept from the call), so "ok but only up to $500" can be an
  * approval with one changed field. AC2: it can say "not understood" through a tool of its own — the
  * pause stays `Pending` and `UninterpretableReplyError` carries its reason, never a refusal.
@@ -30,7 +30,7 @@ const test = testWith(TreasuryApplication);
 
 beforeEach(resetReplyDesk);
 
-const manager = { answeredBy: "manager-17" };
+const manager = { actor: { id: "manager-17" } };
 const payout = { payee: "ann", amountCents: 1000 };
 
 /** The finance desk's only ask: its pause's id is the reply key. */
@@ -46,7 +46,7 @@ interface Schema {
   readonly description?: string;
 }
 
-describe("#648 AC1: overrideArguments is described by the approved tool's input", () => {
+describe("#648 AC1: overrideInput is described by the approved tool's input", () => {
   test("AC1: the answer tool lists the call's fields, none required; a not-understood tool beside it", async ({
     app,
     mockLlm,
@@ -66,7 +66,7 @@ describe("#648 AC1: overrideArguments is described by the approved tool's input"
       NOT_UNDERSTOOD_TOOL,
     ]);
     const answer = byName.get("answer-tool-call-approval-decision-dto")?.parameters as Schema;
-    const correction = answer.properties?.overrideArguments;
+    const correction = answer.properties?.overrideInput;
     expect(Object.keys(correction?.properties ?? {})).toEqual(["amountCents", "payee"]);
     expect(correction?.required).toBeUndefined();
     expect(correction?.description).toContain("keeps the call's own value");
@@ -83,7 +83,7 @@ describe("#648 AC1: overrideArguments is described by the approved tool's input"
       .thenReturn(
         replyWith(ToolCallApprovalDecisionDto, {
           approved: true,
-          overrideArguments: { amountCents: 500 },
+          overrideInput: { amountCents: 500 },
         }),
       );
     await execute(app, TreasuryWorkflowStart, { text: "pay ann $10" });

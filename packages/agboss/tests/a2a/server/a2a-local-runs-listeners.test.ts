@@ -1,7 +1,7 @@
 /** #1008 AC4: one listener that throws never stops the event reaching the others. */
 import { describe, expect, it } from "vitest";
 import { LocalRuns } from "../../../src/a2a/server/a2a-local-runs.js";
-import type { ExecutionStreamEvent } from "../../../src/run/types.js";
+import { StreamEventKind, type ExecutionStreamEvent } from "../../../src/run/types.js";
 import { rejectingListener } from "../../stream/async-listener.js";
 import type { FrameworkLog } from "../../../src/infrastructure/logger.js";
 
@@ -29,15 +29,14 @@ describe("#1008 AC4: LocalRuns' fan-out", () => {
     });
     runs.listen(KEY, (event) => heard.push(event));
 
-    emit({ kind: "textDelta", delta: "SECRET-TEXT", step: STEP });
-    emit({ kind: "textDelta", delta: "more", step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "SECRET-TEXT", step: STEP });
+    emit({ kind: StreamEventKind.TextDelta, delta: "more", step: STEP });
     finish();
     await settled;
 
-    expect(heard.map((event) => (event.kind === "textDelta" ? event.delta : ""))).toEqual([
-      "SECRET-TEXT",
-      "more",
-    ]);
+    expect(
+      heard.map((event) => (event.kind === StreamEventKind.TextDelta ? event.delta : "")),
+    ).toEqual(["SECRET-TEXT", "more"]);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toMatchObject({
       code: "stream.listener-failed",
@@ -68,8 +67,8 @@ describe("#1008 AC4: LocalRuns' fan-out", () => {
       runs.listen(KEY, rejectingListener());
       runs.listen(KEY, (event) => heard.push(event));
 
-      emit({ kind: "textDelta", delta: "a", step: STEP });
-      emit({ kind: "textDelta", delta: "b", step: STEP });
+      emit({ kind: StreamEventKind.TextDelta, delta: "a", step: STEP });
+      emit({ kind: StreamEventKind.TextDelta, delta: "b", step: STEP });
       finish();
       await settled;
       await new Promise((resolve) => setImmediate(resolve));

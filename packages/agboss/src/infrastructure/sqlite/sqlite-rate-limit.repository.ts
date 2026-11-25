@@ -7,22 +7,6 @@ import { Clock } from "../clock.js";
 import { RateLimitRepository, type RateLimitLease } from "../rate-limit.repository.js";
 import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
 
-const SCHEMA = `CREATE TABLE IF NOT EXISTS rate_limit_slots (
-  slot_id TEXT PRIMARY KEY, slot_key TEXT NOT NULL, holder_instance_id TEXT NOT NULL,
-  expires_at INTEGER NOT NULL);
-CREATE INDEX IF NOT EXISTS rate_limit_slots_key ON rate_limit_slots(slot_key, expires_at);`;
-
-/**
- * The windows and pauses (#266 S58, #265 S52), added to a file an older version wrote: a migration
- * by `CREATE TABLE IF NOT EXISTS` — the slots' table is left as it is.
- */
-const WINDOWS_SCHEMA = `CREATE TABLE IF NOT EXISTS rate_limit_window_entries (
-  window_key TEXT NOT NULL, counted_at INTEGER NOT NULL, amount REAL NOT NULL);
-CREATE INDEX IF NOT EXISTS rate_limit_window_entries_key
-  ON rate_limit_window_entries(window_key, counted_at);
-CREATE TABLE IF NOT EXISTS rate_limit_pauses (
-  pause_key TEXT PRIMARY KEY, paused_until INTEGER NOT NULL);`;
-
 const Count = z.object({ taken: z.number() });
 const Total = z.object({ total: z.number().nullable() });
 const Pause = z.object({ paused_until: z.number() });
@@ -42,10 +26,6 @@ export class SqliteRateLimitRepository extends RateLimitRepository {
     private readonly applicationContext: ApplicationContext,
   ) {
     super();
-    // Stryker disable next-line StringLiteral: the name only keys the connection's memory that it ran this DDL, which is idempotent
-    connection.ensureSchema("rate_limit_slots", SCHEMA);
-    // Stryker disable next-line StringLiteral: the name only keys the connection's memory that it ran this DDL, which is idempotent
-    connection.ensureSchema("rate_limit_windows", WINDOWS_SCHEMA);
   }
 
   ping(): Promise<void> {

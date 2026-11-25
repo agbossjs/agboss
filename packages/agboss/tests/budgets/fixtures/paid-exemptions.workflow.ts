@@ -1,5 +1,11 @@
-import { BudgetExceededError, Workflow, WorkflowFinish, WorkflowStart } from "../../../src/index.js";
-import { action, start, toAction } from "../../helpers/flow.js";
+import {
+  BudgetExceededError,
+  Workflow,
+  WorkflowFinish,
+  WorkflowStart,
+  Ttl,
+} from "../../../src/index.js";
+import { onAction, onStart, toAction } from "../../helpers/flow.js";
 import {
   AuditOrderAction,
   CheckOrderAction,
@@ -37,9 +43,8 @@ export class LimitLaunchedWorkflowFinish {}
 
 /** The budget's side path: tells the team, then launches a memo and an audit. */
 const launchedAfterLimit = toAction(TellOrderAction)
-  .toParallelActions(MemoOrderAction, AuditOrderAction)
+  .inParallel([toAction(MemoOrderAction), toAction(AuditOrderAction)])
   .join()
-  .returns(OrderNoteDto)
   .toFinish(LimitLaunchedWorkflowFinish);
 
 @startOf("limit-launch")
@@ -49,14 +54,12 @@ export class LimitLaunchWorkflowStart {}
 @Workflow({
   name: "limit-launch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(LimitLaunchWorkflowStart)
-      .returns(OrderDto)
+    onStart(LimitLaunchWorkflowStart)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
       .toAction(NoteOrderAction)
       .onError(BudgetExceededError, launchedAfterLimit)
-      .returns(OrderNoteDto)
       .toFinish(LimitNotedWorkflowFinish),
   ],
 })
@@ -69,13 +72,12 @@ export class JoinLimitWorkflowStart {}
 @Workflow({
   name: "join-limit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(JoinLimitWorkflowStart)
-      .returns(OrderDto)
-      .toParallelActions(ChargeOrderAction, NoteOrderAction)
+    onStart(JoinLimitWorkflowStart)
+      .inParallel([toAction(ChargeOrderAction), toAction(NoteOrderAction)])
       .join()
-      .onJoinError(BudgetExceededError, launchedAfterLimit)
-      .returns(OrderNoteDto)
+      .onError(BudgetExceededError, launchedAfterLimit)
       .toFinish(LimitNotedWorkflowFinish),
   ],
 })
@@ -88,21 +90,17 @@ export class HeldLimitWorkflowStart {}
 @Workflow({
   name: "held-limit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HeldLimitWorkflowStart)
-      .returns(OrderDto)
+    onStart(HeldLimitWorkflowStart)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
       .toAction(NoteOrderAction)
       .onError(
         BudgetExceededError,
         toAction(HoldOrderAction)
-          .returns(OrderDto)
           .toAction(NotifyOrderAction)
-          .returns(OrderNoteDto)
           .toFinish(LimitNotedWorkflowFinish),
       )
-      .returns(OrderNoteDto)
       .toFinish(LimitNotedWorkflowFinish),
   ],
 })
@@ -115,22 +113,18 @@ export class HeldLaunchWorkflowStart {}
 @Workflow({
   name: "held-launch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HeldLaunchWorkflowStart)
-      .returns(OrderDto)
+    onStart(HeldLaunchWorkflowStart)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
       .toAction(NoteOrderAction)
       .onError(
         BudgetExceededError,
         toAction(HoldOrderAction)
-          .returns(OrderDto)
-          .toParallelActions(MemoOrderAction, AuditOrderAction)
+          .inParallel([toAction(MemoOrderAction), toAction(AuditOrderAction)])
           .join()
-          .returns(OrderNoteDto)
           .toFinish(LimitLaunchedWorkflowFinish),
       )
-      .returns(OrderNoteDto)
       .toFinish(LimitNotedWorkflowFinish),
   ],
 })
@@ -149,15 +143,14 @@ export class RefundStepWorkflowFinish {}
 @Workflow({
   name: "refund-step-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RefundStepWorkflowStart)
-      .returns(OrderDto)
+    onStart(RefundStepWorkflowStart)
       .toAction(BookOrderAction)
       .toAction(CheckOrderAction)
       .onError(OrderDeclinedError, toAction(RefundOrderAction))
-      .returns(OrderDto)
       .toAction(RefundOrderAction),
-    action(RefundOrderAction)
+    onAction(RefundOrderAction)
       .toFinish(RefundStepWorkflowFinish),
   ],
 })
@@ -173,19 +166,17 @@ export class RebookWorkflowStart {}
 @Workflow({
   name: "rebook-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RebookWorkflowStart)
-      .returns(OrderDto)
+    onStart(RebookWorkflowStart)
       .toAction(RejectOrderAction)
       .onError(
         OrderDeclinedError,
         toAction(BookOrderAction)
           .toAction(OverspendOrderAction)
-          .returns(OrderDto)
           .toAction(RefundOrderAction)
           .toFinish(RefundStepWorkflowFinish),
       )
-      .returns(OrderDto)
       .toFinish(RefundStepWorkflowFinish),
   ],
 })
@@ -200,22 +191,21 @@ export class NestedLimitWorkflowFinish {}
 @Workflow({
   name: "nested-limit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(NestedLimitWorkflowStart)
-      .returns(OrderDto)
+    onStart(NestedLimitWorkflowStart)
       .toAction(OverspendOrderAction)
-      .returns(OrderDto)
       .toAction(NoteOrderAction)
       .onError(
         BudgetExceededError,
         toAction(RejectOrderAction)
-          .onError(OrderDeclinedError, toAction(NotifyOrderAction)
-            .returns(OrderNoteDto)
-            .toFinish(NestedLimitWorkflowFinish))
-          .returns(OrderDto)
+          .onError(
+            OrderDeclinedError,
+            toAction(NotifyOrderAction)
+              .toFinish(NestedLimitWorkflowFinish),
+          )
           .toFinish(RefundStepWorkflowFinish),
       )
-      .returns(OrderNoteDto)
       .toFinish(LimitNotedWorkflowFinish),
   ],
 })
@@ -231,15 +221,17 @@ export class RefundToldWorkflowFinish {}
 @Workflow({
   name: "refund-handled-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RefundHandledWorkflowStart)
-      .returns(OrderDto)
+    onStart(RefundHandledWorkflowStart)
       .toAction(BookOrderAction)
       .toAction(CheckOrderAction)
-      .returns(OrderDto)
       .toAction(RefundOrderAction)
-      .onError(BudgetExceededError, toAction(TellOrderAction)
-        .toFinish(RefundToldWorkflowFinish))
+      .onError(
+        BudgetExceededError,
+        toAction(TellOrderAction)
+          .toFinish(RefundToldWorkflowFinish),
+      )
       .toFinish(RefundStepWorkflowFinish),
   ],
 })

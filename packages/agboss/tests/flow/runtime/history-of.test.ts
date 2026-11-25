@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { Metadata } from "../../../src/flow/metadata.js";
 import { analyseWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { inputMessageOf } from "../../../src/flow/runtime/input-message.js";
 import {
@@ -20,18 +21,16 @@ import {
 } from "../fixtures/history.fixture.js";
 
 /**
- * #299 AC4 (S56) at run time: `historyOf(OfferDraftDto, { limit: 2 })` on the review loop is the
+ * #299 AC4 (S56) at run time: `historyOf(OfferDraftDto, { maxPrevious: 2 })` on the review loop is the
  * current draft and at most the two before it, oldest first; `historyOf(OfferDraftDto)` every
  * earlier version. `previous` comes from the slot's `outdatedValues`; the input message shows it.
  */
 
 const test = testWith(HistoryOfferApplication);
 
-/** A version as a history holds it: who wrote it and the draft. */
-const version = (producer: typeof FirstDraftAgent | typeof DraftEditorAgent, text: string) => ({
-  producer,
-  value: { text },
-});
+/** A version as a history holds it: the draft, tracked by who wrote it. */
+const version = (producer: typeof FirstDraftAgent | typeof DraftEditorAgent, text: string) =>
+  Metadata.with({ text }, { createdBy: producer });
 
 describe("#299 AC4: historyOf at run time", () => {
   beforeEach(resetReviews);
@@ -61,6 +60,12 @@ describe("#299 AC4: historyOf at run time", () => {
         previous: [version(DraftEditorAgent, "v2"), version(DraftEditorAgent, "v3")],
       },
     ]);
+    expect(reviews.map((review) => Metadata.createdBy(review.draft.current))).toEqual([
+      FirstDraftAgent,
+      DraftEditorAgent,
+      DraftEditorAgent,
+      DraftEditorAgent,
+    ]);
     expect(result).toFinishWith(DraftHistoryWorkflowFinish, { changes: "v1 → v2 → v3 → v4" });
   });
 });
@@ -80,7 +85,7 @@ describe("#299 AC4: the input message shows the history", () => {
     outdated: { byValueId: "next", reason: OutdatedReason.Replaced },
   });
 
-  it("the current value, then its earlier versions oldest first (at most the limit)", () => {
+  it("the current value, then its earlier versions oldest first (at most maxPrevious)", () => {
     if (field === undefined) throw new Error("review-draft-action has no field");
     const view = {
       scope: { OfferDraftDto: record("draft-editor-agent:3/OfferDraftDto", "v4") },

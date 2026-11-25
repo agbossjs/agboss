@@ -13,7 +13,7 @@ import { fileMaskOf } from "../../src/files/file-mask.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { FileView, ModelFiles } from "../../src/files/model-files.js";
 import { NO_FILES, filePiecesOf, type FileRuntime } from "../../src/files/visit-files.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { PiiAction } from "../../src/pii/actions.js";
 import { PiiKeyPurpose, purposeDigestOf, purposeKeyOf } from "../../src/pii/key-hierarchy.js";
@@ -24,6 +24,7 @@ import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
 import { inline, PNG_BYTES } from "../files/reader.factory.js";
 import { NO_REDACTION } from "../files/runtime-parts.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 const ROOT = "application-pii-key";
 const SALT = "agboss/pii-key-hierarchy";
@@ -38,7 +39,7 @@ const sha256Hex = (text: string): string => createHash("sha256").update(text).di
 const DANA: SensitiveValue = {
   value: "dana@example.com",
   label: "email",
-  action: PiiAction.replaceWithToken(),
+  action: PiiAction.tokenize(),
 };
 
 describe("#1269: one key per purpose, derived by HKDF-SHA256", () => {
@@ -184,8 +185,7 @@ const runtime: FileRuntime = {
   settings: resolvedFilesOf({
     agent: ModelFiles.of({ views: [FileView.Transcription] }).options,
     defaults: undefined,
-    skills: [],
-    a2aFiles: undefined,
+    limits: DEFAULT_FILE_LIMITS,
     hasPiiPolicy: true,
   }),
   maxResultSize: kilobytes(8),
@@ -196,7 +196,7 @@ const runtime: FileRuntime = {
     return Promise.resolve({ text: "write to dana@example.com" });
   },
   context: () => ({
-    store: new InMemoryA2AFileRepository(new InMemoryDatabase()),
+    store: new InMemoryFileRepository(new InMemoryDatabase()),
     tenantId: "t",
     ownerId: "o",
     signal: new AbortController().signal,

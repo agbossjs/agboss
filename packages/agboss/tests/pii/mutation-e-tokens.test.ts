@@ -5,9 +5,9 @@
  */
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { PiiAction } from "../../src/pii/actions.js";
+import {} from "../../src/pii/actions.js";
 import { PiiKind } from "../../src/pii/kinds.js";
-import { pii, PiiFileAction, type PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
+import { PiiFileAction, type PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
 import { PiiKeyPurpose, purposeDigestOf } from "../../src/pii/key-hierarchy.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
 import { runtimePolicyOf } from "../../src/pii/runtime-policy.js";
@@ -74,7 +74,7 @@ const policyWith = (extra: Partial<PiiPolicyMeta>) =>
     meta: {
       name: "cards-pii-policy",
       description: "cards",
-      rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+      rules: [PiiKind.CardNumber.mask()],
       deps: [],
       ...extra,
     } as PiiPolicyMeta,
@@ -86,7 +86,7 @@ describe("the policy set's hash covers each setting", () => {
   const plain = new PiiPolicySet([policyWith({})], "root");
 
   it("a model detection or a file action is another hash", () => {
-    const detecting = new PiiPolicySet([policyWith({ detectWithModel: "m/model" })], "root");
+    const detecting = new PiiPolicySet([policyWith({ model: "m/model" })], "root");
     const files = new PiiPolicySet([policyWith({ files: PiiFileAction.AllowOriginal })], "root");
 
     expect(detecting.fingerprint).not.toBe(plain.fingerprint);
@@ -96,7 +96,7 @@ describe("the policy set's hash covers each setting", () => {
   });
 
   it("a policy with no model detection and no file action is hashed with both as null", () => {
-    const rules = [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())];
+    const rules = [PiiKind.CardNumber.mask()];
     const hashed = [{ name: "cards-pii-policy", masks: rules, model: null, files: null }];
 
     expect(plain.redactionDigestOf(["b", "a"])).toBe(

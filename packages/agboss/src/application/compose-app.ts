@@ -1,15 +1,13 @@
 import { keptAlive, pauseCallsOf } from "./kept-alive-app.js";
 import { assemblyWarningsOf, logStart, warningText } from "./start-log.js";
-import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import { stopOf, type InstanceParts } from "./graceful-stop.js";
 import type { BuiltApplication } from "./create-app.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import { appWorkflowOf, rememberAppWorkflow } from "../app/app-workflow.js";
 import type { BuiltApp } from "../app/create-app.js";
-import type { App } from "../app/types.js";
+import type { AnyTenantApp } from "../app/types.js";
 import type { Class } from "../components/injection.js";
 import { NodeKind } from "../flow/ast.js";
-import { treeRead } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import type { AssembledApplication } from "./assemble.js";
 import type { GracefulStop } from "./graceful-stop.js";
@@ -23,7 +21,7 @@ import { healthCheckOf, type HealthCheckHandler } from "../health/health-check.j
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { ExecutionAuditLogRepository } from "../infrastructure/execution-audit-log.repository.js";
 import type { OutboundCallRepository } from "../infrastructure/outbound-call.repository.js";
-import { auditLogIn, listPausesOf, pendingCallsOf } from "./instance-reads.js";
+import { instanceReadsOf, listPausesOf } from "./instance-reads.js";
 import type { RecoverySweep } from "../infrastructure/recovery.js";
 import type { PauseTimers } from "./pause-timers.js";
 import { modelProvidersOf } from "../models/resolution.js";
@@ -52,7 +50,10 @@ function startsOf(workflows: readonly BuiltApp[]): ReadonlyMap<Class, BuiltApp> 
 }
 
 /** What an instance adds to its workflows' apps: its graceful stop, warnings and probes. */
-export interface InstanceSurface extends Pick<Infrastructure, "pausedExecutions"> {
+export interface InstanceSurface extends Pick<
+  Infrastructure,
+  "pausedExecutions" | "executionHistory" | "records"
+> {
   readonly stop: GracefulStop;
   /** `app.checkLiveness()` / `app.checkReadiness()` (#300). */
   readonly health: ApplicationHealth;
@@ -64,35 +65,26 @@ export interface InstanceSurface extends Pick<Infrastructure, "pausedExecutions"
   readonly outboundCalls: OutboundCallRepository;
 }
 
-/** What an operator reads of the instance: its probes, its audit log, its outbound calls. */
-type InstanceReads = Pick<
-  App,
-  "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf"
->;
-
-const instanceReadsOf = ({ health, auditLog, outboundCalls }: InstanceSurface): InstanceReads => ({
-  checkLiveness: () => health.checkLiveness(),
-  checkReadiness: () => health.checkReadiness(),
-  // #568, #580: a tenant id and a root execution id are keys' text here too — on UTF-8 stores
-  // t\uD800 would read t\uFFFD's rows
-  // rows written before #825 read with this version's names
-  auditLogOf: (tree) => treeRead(tree, () => auditLogIn(auditLog, tree)),
-  // stored masked by the calling workflow's policies (#505); a business key by its handle (#508)
-  outboundCallsOf: ({ tenantId, rootExecutionId }) =>
-    treeRead({ tenantId, rootExecutionId }, async () =>
-      (await outboundCalls.findAllByTenantIdAndRootExecutionId(tenantId, rootExecutionId)).map(
-        shownCallOf,
-      ),
-    ),
-  // #825: a page at a time, by the store's cursor — never every pending call of a tenant at once
-  pendingOutboundCallsOf: (query) => pendingCallsOf(outboundCalls, query),
+/** `cancel` and `stop`: each routed to the workflow its thread belongs to. */
+const threadCallsOf = (
+  ofThread: (thread: string, tenantId?: string) => Promise<BuiltApp>,
+): Pick<AnyTenantApp, "cancel" | "stop" | "pause" | "unpause"> => ({
+  cancel: async (threadId, options) =>
+    (await ofThread(threadId, options?.tenantId)).app.cancel(threadId, options),
+  stop: async (threadId, options) =>
+    (await ofThread(threadId, options?.tenantId)).app.stop(threadId, options),
+  pause: async (threadId, options) =>
+    (await ofThread(threadId, options?.tenantId)).app.pause(threadId, options),
+  unpause: async (threadId, options) =>
+    (await ofThread(threadId, options?.tenantId)).app.unpause(threadId, options),
 });
 
 export function composeApp(
   assembled: AssembledApplication,
   workflows: readonly BuiltApp[],
   surface: InstanceSurface,
-): App {
+  processEnv: NodeJS.ProcessEnv = process.env,
+): AnyTenantApp {
   const { stop, warnings } = surface;
   const [first] = workflows;
   // the assembly rejects an application without workflows
@@ -115,7 +107,7 @@ export function composeApp(
     const named = workflows.find((workflow) => workflow.deps.config.name === pause?.workflow);
     return named ?? first;
   };
-  const app: App = keptAlive({
+  const app: AnyTenantApp = keptAlive(assembled.hasTenantContext, {
     name: assembled.name,
     version: assembled.version,
     warnings,
@@ -123,16 +115,15 @@ export function composeApp(
     // the start a plain text goes to: the first listed workflow's that has one
     textStart: workflows.map((one) => one.app.textStart).find((start) => start !== undefined),
     // a start no workflow has goes to the first, whose check rejects it (`onRunRejected`)
-    execute: (start, input, ...options) =>
+    execute: async (start, input, ...options) =>
       (starts.get(start) ?? first).app.execute(start, input, ...options),
     resume: async (request, options) =>
       (await ofPause(request.pauseId, options?.tenantId)).app.resume(request, options),
     ...pauseCallsOf(ofPause),
-    cancel: async (threadId, options) =>
-      (await ofThread(threadId, options?.tenantId)).app.cancel(threadId, options),
-    close: (options) => stop.close(options),
+    ...threadCallsOf(ofThread),
+    close: async (options) => stop.close(options),
     ...instanceReadsOf(surface),
-    listPauses: listPausesOf(workflows, ofThread, surface.pausedExecutions),
+    listPauses: async (query) => listPausesOf(workflows, ofThread, surface.pausedExecutions)(query),
     resolve: (token) => first.app.resolve(token),
     hasTool: (name) => workflows.some((workflow) => workflow.app.hasTool(name)),
   });
@@ -140,7 +131,7 @@ export function composeApp(
   if (remembered !== undefined) rememberAppWorkflow(app, remembered);
   rememberListedProviders(app, listedProviderCheckOf(assembled.modules));
   // the instance's one observer manager: every workflow's is it (#875, #860)
-  const mesh = meshSettingsFor(assembled, app);
+  const mesh = meshSettingsFor(assembled, app, processEnv);
   rememberMeshSettings(app, () => mesh);
   return app;
 }
@@ -206,6 +197,7 @@ export function instanceHealthOf(
     infrastructure: parts.infrastructure,
     modelProviders: modelProvidersOf(assembled.providers),
     healthChecks: projectChecksOf(assembled.healthChecks, workflows),
+    storage: assembled.storage,
     stepSlots: parts.stepSlots,
   });
 }
@@ -219,7 +211,8 @@ export function instanceHealthOf(
 export interface InstanceAppParts extends InstanceParts {
   readonly contexts: RuntimeContexts;
   readonly quiet: boolean | undefined;
-  readonly isInstanceKey: boolean;
+  /** The process environment the instance reads its references from (the mesh's keys). */
+  readonly processEnv: NodeJS.ProcessEnv;
 }
 
 /** The instance's stop and sweep started, its start logged, its app composed. */
@@ -230,25 +223,22 @@ export function instanceAppOf(
 ): Pick<BuiltApplication, "app" | "infrastructure" | "closed" | "log"> {
   const { infrastructure, log } = parts;
   const { stop, sweep, timers } = stopOf(assembled, workflows, parts);
-  const warnings = startupWarningsOf(assembled, workflows, parts.isInstanceKey);
+  const warnings = startupWarningsOf(assembled, workflows);
   if (parts.quiet !== true)
     logStart(log, parts.contexts.application, assembled.workflows, warnings);
   const health = instanceHealthOf(assembled, workflows, { stop, sweep, timers, ...parts });
   const surface = { stop, warnings, health, ...infrastructure };
-  const app = composeApp(assembled, workflows, surface);
+  const app = composeApp(assembled, workflows, surface, parts.processEnv);
   return { app, infrastructure, closed: stop.closed, log };
 }
 
 /**
- * The assembly warnings (a PII key of the instance only when it made one, S94 — never under
- * `testWith`, which has a fixed key), then each workflow's own (a config changed without a version
- * bump).
+ * The assembly warnings, then each workflow's own (a config changed without a version bump).
  */
 const startupWarningsOf = (
   assembled: AssembledApplication,
   workflows: readonly BuiltApp[],
-  isInstanceKey: boolean,
 ): readonly string[] => [
-  ...assemblyWarningsOf({ ...assembled, isPiiKeyOfInstance: isInstanceKey }).map(warningText),
+  ...assemblyWarningsOf(assembled).map(warningText),
   ...workflows.flatMap((workflow) => workflow.app.warnings),
 ];

@@ -5,7 +5,11 @@
  * config-drift warning) only after every `onInit` → `onStart` ran, and the warning is still in
  * `app.warnings` and the start log.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import {
+  IN_MEMORY_DATABASE,
+  type InMemoryDatabase,
+} from "../../src/infrastructure/in-memory-database.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
@@ -22,9 +26,10 @@ import {
   WorkflowFinish,
   WorkflowStart,
   type OnInit,
+  Ttl,
 } from "../../src/index.js";
 import { logged, resetLogged, RecordingLogger } from "../helpers/log.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 
 /** The record store's calls made before its `onInit`, by method name (the test reads it). */
@@ -45,12 +50,12 @@ const methodNamesOf = (prototype: object): string[] =>
  * A record store that is ready only once its `onInit` ran — as one on a database whose schema its
  * connection checks at start. Every call before it is noted; the config snapshot reports drift.
  */
-@Injectable({ deps: [Clock, IdGenerator] })
+@Injectable({ deps: [Clock, IdGenerator, IN_MEMORY_DATABASE] })
 class StartedRecordRepository extends InMemoryExecutionRecordRepository implements OnInit {
   #isStarted = false;
 
-  constructor(clock: Clock, idGenerator: IdGenerator) {
-    super(clock, idGenerator);
+  constructor(clock: Clock, idGenerator: IdGenerator, database: InMemoryDatabase) {
+    super(clock, idGenerator, database);
     for (const name of methodNamesOf(TurnStoreRecordRepository.prototype)) {
       const method: unknown = Reflect.get(this, name);
       if (typeof method !== "function") continue;
@@ -95,23 +100,16 @@ class NoteWorkflowFinish {}
   output: WorkflowFinishTextDto,
 })
 class NoteAction {
-  execute(input: {
-    readonly text: { readonly value: WorkflowStartTextDto };
-  }): Promise<WorkflowFinishTextDto> {
-    return Promise.resolve({ text: input.text.value.text });
+  execute(input: { readonly text: WorkflowStartTextDto }): Promise<WorkflowFinishTextDto> {
+    return Promise.resolve({ text: input.text.text });
   }
 }
 
 @Workflow({
   name: "note-workflow",
   version: "1.0.0",
-  flow: [
-    start(NoteWorkflowStart)
-      .returns(WorkflowStartTextDto)
-      .toAction(NoteAction)
-      .returns(WorkflowFinishTextDto)
-      .toFinish(NoteWorkflowFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(NoteWorkflowStart).toAction(NoteAction).toFinish(NoteWorkflowFinish)],
 })
 class NoteWorkflow {}
 
@@ -135,14 +133,14 @@ beforeEach(() => {
 
 describe("#747: no store is called before the components started", () => {
   it("AC1: the record store's first call comes after its onInit", async () => {
-    const app = await createAppWith(StartedStoresApplication, { processEnv: {} });
+    const app = await createTestAppWith(StartedStoresApplication, { processEnv: {} });
     await app.close();
 
     expect(callsBeforeStart).toEqual([]);
   });
 
   it("AC3: the config snapshot is still written at start: its drift is a start warning", async () => {
-    const app = await createAppWith(StartedStoresApplication, { processEnv: {} });
+    const app = await createTestAppWith(StartedStoresApplication, { processEnv: {} });
     await app.close();
 
     expect(app.warnings).toContainEqual(expect.stringMatching(DRIFT_WARNING));

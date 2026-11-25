@@ -1,22 +1,23 @@
 import {
   Agent,
   Channel,
-  ChannelOf,
   ChannelOutcome,
-  ChannelRole,
   EmptyEnvironment,
-  PauseAnswerer,
+  PauseRespondent,
   Tool,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
   type ChannelAsk,
-  type Produced,
-  type ToolHandler,
+  type Tracked,
+  Action,
+  inline,
+  ToolApproval,
+  Ttl,
 } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 import {
   ReservedDto,
   ReserveRoomAction,
@@ -27,6 +28,8 @@ import {
   UndoRequestDto,
 } from "./undo.workflow.js";
 import { UnwindLog } from "./unwind.workflow.js";
+import { days } from "../../../../src/units/index.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #340 PR 3 — trees that rest paused when they are cancelled: a room reserved, then an agent that
@@ -34,17 +37,23 @@ import { UnwindLog } from "./unwind.workflow.js";
  * reserved seat — a cancel withdraws the question and undoes both, the child's from its checkpoint.
  */
 
-@ChannelRole({
-  name: "guest-approval-channel",
+@ToolApproval({
+  name: "guest-tool-approval",
   description: "The guest approves the reservation",
-  approves: UndoRequestDto,
-  answerer: PauseAnswerer.ThreadOwner,
+  input: UndoRequestDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
 })
-export abstract class GuestApprovalChannel extends ChannelOf<GuestApprovalChannel> {}
+export class GuestToolApproval {}
 
-@Channel({ name: "guest-inbox-channel", description: "Asks the guest and waits" })
-export class GuestInboxChannel extends GuestApprovalChannel {
-  send(_ask: ChannelAsk<GuestApprovalChannel>): Promise<ChannelOutcome<GuestApprovalChannel>> {
+@Channel({
+  name: "guest-inbox-channel",
+  description: "Asks the guest and waits",
+  target: GuestToolApproval,
+  ttl: days(1),
+})
+export class GuestInboxChannel {
+  send(_ask: ChannelAsk<GuestToolApproval>): Promise<ChannelOutcome<GuestToolApproval>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -54,10 +63,10 @@ export class GuestInboxChannel extends GuestApprovalChannel {
   description: "Asks the guest to approve",
   input: UndoRequestDto,
   output: UndoRequestDto,
-  channel: GuestApprovalChannel,
+  approval: GuestToolApproval,
 })
-export class AskGuestTool implements ToolHandler<UndoRequestDto, UndoRequestDto> {
-  run(request: UndoRequestDto): Promise<UndoRequestDto> {
+export class AskGuestTool {
+  execute(request: UndoRequestDto): Promise<UndoRequestDto> {
     return Promise.resolve(request);
   }
 }
@@ -65,7 +74,7 @@ export class AskGuestTool implements ToolHandler<UndoRequestDto, UndoRequestDto>
 @Agent({
   name: "guest-agent",
   description: "Confirms the room with the guest",
-  prompt: "Ask the guest, then say what is reserved.",
+  prompt: inline("Ask the guest, then say what is reserved."),
   model: "moonshotai/kimi-k2.6",
   input: { room: RoomDto },
   output: ReservedDto,
@@ -91,13 +100,11 @@ export class UnwindGuestWorkflowStart {}
 @Workflow({
   name: "unwind-guest-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(UnwindGuestWorkflowStart)
-      .returns(UndoRequestDto)
+    onStart(UnwindGuestWorkflowStart)
       .toAction(ReserveRoomAction)
-      .returns(RoomDto)
       .toAgent(GuestAgent)
-      .returns(ReservedDto)
       .toFinish(GuestReservedWorkflowFinish),
   ],
   providers: [UndoDesk],
@@ -111,32 +118,38 @@ export class UnwindGuestWorkflow {}
 })
 export class UnwindPausedWorkflowStart {}
 
-@WorkflowFinish({
-  name: "seat-reserved-workflow-finish",
+@Action({
+  name: "seat-reserved-action",
   description: "The seat and the guest's room",
   input: { seat: SeatDto, reserved: ReservedDto },
   output: ReservedDto,
 })
-export class SeatReservedWorkflowFinish {
-  finish(input: {
-    readonly seat: Produced<SeatDto, unknown>;
-    readonly reserved: Produced<ReservedDto, unknown>;
-  }): ReservedDto {
-    return { summary: `${input.seat.value.seatId} + ${input.reserved.value.summary}` };
+export class SeatReservedAction {
+  async execute(input: {
+    readonly seat: Tracked<SeatDto>;
+    readonly reserved: Tracked<ReservedDto>;
+  }): Promise<ReservedDto> {
+    return { summary: `${input.seat.seatId} + ${input.reserved.summary}` };
   }
 }
+
+@WorkflowFinish({
+  name: "seat-reserved-workflow-finish",
+  description: "The seat and the guest's room",
+  output: ReservedDto,
+})
+export class SeatReservedWorkflowFinish {}
 
 /** A seat, then the child that waits for the guest. */
 @Workflow({
   name: "unwind-paused-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(UnwindPausedWorkflowStart)
-      .returns(UndoRequestDto)
+    onStart(UnwindPausedWorkflowStart)
       .toAction(ReserveSeatAction)
-      .returns(SeatDto)
       .toWorkflow(UnwindGuestWorkflow)
-      .returns(ReservedDto)
+      .toAction(SeatReservedAction)
       .toFinish(SeatReservedWorkflowFinish),
   ],
   providers: [UndoDesk],
@@ -145,6 +158,7 @@ export class UnwindPausedWorkflow {}
 
 @Application({
   name: "unwind-pause-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [UnwindGuestWorkflow, UnwindPausedWorkflow],

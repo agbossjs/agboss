@@ -1,11 +1,12 @@
-import { start, toAction } from "../../../src/flow/builder.js";
+import { onStart, toAction } from "../../../src/flow/builder.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
-import type { ActionHandler, FinishHandler } from "../../../src/flow/handlers.js";
+import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { OrderRequestDto, OrderShippedDto, StockReservationDto } from "./dtos.js";
+import { Ttl } from "../../../src/index.js";
 
 /** #272 example 3 — errors and an explicit rollback, with a branch for a failed rollback. */
 
@@ -29,7 +30,7 @@ export class OrderWorkflowStart {}
 })
 export class ReserveStockAction implements ActionHandler<ReserveStockAction> {
   execute(input: InputOf<ReserveStockAction>): Promise<OutputOf<ReserveStockAction>> {
-    return Promise.resolve({ reservationId: `reservation-${input.order.value.orderId}` });
+    return Promise.resolve({ reservationId: `reservation-${input.order.orderId}` });
   }
 }
 
@@ -43,7 +44,7 @@ export class ReserveStockAction implements ActionHandler<ReserveStockAction> {
 })
 export class ShipOrderAction implements ActionHandler<ShipOrderAction> {
   execute(input: InputOf<ShipOrderAction>): Promise<OutputOf<ShipOrderAction>> {
-    return Promise.resolve({ trackingNumber: `track-${input.order.value.orderId}` });
+    return Promise.resolve({ trackingNumber: `track-${input.order.orderId}` });
   }
 }
 
@@ -56,7 +57,7 @@ export class ShipOrderAction implements ActionHandler<ShipOrderAction> {
 })
 export class RefundCardAction implements ActionHandler<RefundCardAction> {
   async execute(input: InputOf<RefundCardAction>): Promise<void> {
-    await Promise.resolve(input.order.value.orderId);
+    await Promise.resolve(input.order.orderId);
   }
 }
 
@@ -69,7 +70,7 @@ export class RefundCardAction implements ActionHandler<RefundCardAction> {
 })
 export class NotifyFinanceTeamAction implements ActionHandler<NotifyFinanceTeamAction> {
   async execute(input: InputOf<NotifyFinanceTeamAction>): Promise<void> {
-    await Promise.resolve(input.order.value.orderId);
+    await Promise.resolve(input.order.orderId);
   }
 }
 
@@ -82,7 +83,7 @@ export class NotifyFinanceTeamAction implements ActionHandler<NotifyFinanceTeamA
 })
 export class ReleaseStockAction implements ActionHandler<ReleaseStockAction> {
   async execute(input: InputOf<ReleaseStockAction>): Promise<void> {
-    await Promise.resolve(input.reservation.value.reservationId);
+    await Promise.resolve(input.reservation.reservationId);
   }
 }
 
@@ -93,25 +94,30 @@ export class ReleaseStockAction implements ActionHandler<ReleaseStockAction> {
 })
 export class OrderFailedWorkflowFinish {}
 
-@WorkflowFinish({
-  name: "order-workflow-finish",
+@Action({
+  name: "order-action",
   description: "The shipped order",
   input: {
     shipped: OrderShippedDto,
   },
   output: OrderShippedDto,
 })
-export class OrderWorkflowFinish implements FinishHandler<OrderWorkflowFinish> {
-  finish(input: InputOf<OrderWorkflowFinish>): OutputOf<OrderWorkflowFinish> {
-    return { trackingNumber: input.shipped.value.trackingNumber };
+export class OrderAction {
+  async execute(input: InputOf<OrderAction>): Promise<OutputOf<OrderAction>> {
+    return { trackingNumber: input.shipped.trackingNumber };
   }
 }
 
+@WorkflowFinish({
+  name: "order-workflow-finish",
+  description: "The shipped order",
+  output: OrderShippedDto,
+})
+export class OrderWorkflowFinish {}
+
 export const orderPaths = [
-  start(OrderWorkflowStart)
-    .returns(OrderRequestDto)
+  onStart(OrderWorkflowStart)
     .toAction(ReserveStockAction)
-    .returns(StockReservationDto)
     .toAction(ShipOrderAction)
     .onError(
       CarrierError,
@@ -124,13 +130,14 @@ export const orderPaths = [
         .toAction(ReleaseStockAction)
         .toFinish(OrderFailedWorkflowFinish),
     )
-    .returns(OrderShippedDto)
+    .toAction(OrderAction)
     .toFinish(OrderWorkflowFinish),
 ] as const;
 
 @Workflow({
   name: "order-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: orderPaths,
 })
 export class OrderWorkflow {}

@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /** #202 AC3: a fallback call is sent as the fallback's model and priced with the fallback's prices. */
 import { describe, expect, it } from "vitest";
 import { appWithKeys } from "../models/gateway.js";
@@ -21,7 +22,7 @@ const answered = {
 describe("#202 AC3: the fallback provider has its own model mapping and prices", () => {
   it("AC3: with the primary's breaker open, the call goes out as backup/model and costs backup's prices", async () => {
     const primary = providerStub([{ status: 500 }], [{ id: "primary/model" }]);
-    const backup = providerStub([answered]);
+    const backup = providerStub([answered], [{ id: "backup/model" }]);
     const send: ProviderFetch = (input, init) =>
       String(input instanceof Request ? input.url : input).startsWith("http://backup-202.test")
         ? backup.fetch(input, init)
@@ -31,22 +32,27 @@ describe("#202 AC3: the fallback provider has its own model mapping and prices",
       providerFetch: send,
     });
 
-    await expect(execute(app, ChatStart, { text: "first" })).rejects.toThrow();
+    // the first call fails after its retries: the fallback answers it, the breaker opens
+    await execute(app, ChatStart, { text: "first" });
     const result = await execute(app, ChatStart, { text: "second" });
 
     expect(primary.requests.filter((r) => r.url.endsWith("/chat/completions"))).toHaveLength(1);
     // the start reads the backup's model list for the input kinds it takes (#899 §4): only the chat call matters here
     const chats = backup.requests.filter((r) => r.url.endsWith("/chat/completions"));
-    expect(chats.map((request) => request.body?.model)).toEqual(["backup/model"]);
+    expect(chats.map((request) => request.body?.model)).toEqual(["backup/model", "backup/model"]);
     expect(result.output).toEqual({ text: "from backup" });
     // 1M input × $10 + 0.5M output × $20 = $20 — the primary's table would say $2
     expect(result.spend.trace).toEqual([
-      expect.objectContaining({ model: "backup/model", costUsd: 20, costSource: "price-table" }),
+      expect.objectContaining({
+        model: "backup/model",
+        costUsd: usd(20),
+        costSource: "price-table",
+      }),
     ]);
     await app.close();
   });
 
-  it("AC3: a fallback without a model for a used model fails at startup, before any call", async () => {
+  it("AC3: a fallback not told a model for a used model is sent it by name, and without a price for it fails at startup, before any call", async () => {
     const stub = providerStub([], [{ id: "primary/model" }]);
     const start = appWithKeys(UnmappedFallbackApplication, {
       processEnv: env,
@@ -55,7 +61,14 @@ describe("#202 AC3: the fallback provider has its own model mapping and prices",
 
     await expect(start).rejects.toBeInstanceOf(ConfigurationError);
     await expect(start).rejects.toMatchObject({
-      problems: [{ code: "model.fallback-unmapped", key: "agents.cashier-agent" }],
+      problems: [
+        {
+          code: "model.fallback-no-price",
+          key: "agents.cashier-agent",
+          model: "primary/model",
+          supported: expect.stringContaining("has no price for primary/model"),
+        },
+      ],
     });
     expect(stub.requests).toEqual([]);
   });

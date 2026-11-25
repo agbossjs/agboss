@@ -14,6 +14,7 @@ import {
   type ComponentDecoratorName,
 } from "../../src/components/component-decorators.js";
 import { agbossPlugin } from "../../src/eslint/index.js";
+import { HttpAuthenticator } from "../../src/index.js";
 
 const linter = new TSESLint.Linter({ configType: "flat" });
 
@@ -49,6 +50,21 @@ const statefulClass = (decorator: string, method: string): string =>
 
 /** AC1: one fixture per component decorator — its decorator line and a method of its contract. */
 const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
+  Application: statefulClass('@Application({ name: "app-application" })', "describe(): void"),
+  Workflow: statefulClass('@Workflow({ name: "app-workflow" })', "describe(): void"),
+  WorkflowStart: statefulClass(
+    '@WorkflowStart({ name: "app-workflow-start" })',
+    "describe(): void",
+  ),
+  WorkflowFinish: statefulClass(
+    '@WorkflowFinish({ name: "app-workflow-finish" })',
+    "describe(): void",
+  ),
+  Agent: statefulClass('@Agent({ name: "app-agent" })', "describe(): void"),
+  Mesh: statefulClass('@Mesh({ name: "app-mesh" })', "describe(): void"),
+  McpEndpoint: statefulClass('@McpEndpoint({ name: "app-mcp-endpoint" })', "describe(): void"),
+  A2AEndpoint: statefulClass('@A2AEndpoint({ name: "app-a2a-endpoint" })', "describe(): void"),
+  EvalSuite: statefulClass('@EvalSuite({ name: "app-eval-suite" })', "describe(): void"),
   Injectable: statefulClass("@Injectable()", "lookUp(): void"),
   Tool: statefulClass(
     '@Tool({ name: "order-status-tool", description: "d", input: OrderQuery, output: OrderInfo })',
@@ -62,58 +78,78 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@Router({ name: "credit-router", description: "d", decidedBy: DecidedBy.Code, input: { order: OrderDto }, routes: [] })',
     "route(): void",
   ),
-  WorkflowFinish: statefulClass(
-    '@WorkflowFinish({ name: "order-workflow-finish", description: "d", input: { order: OrderDto }, output: OrderDto })',
-    "finish(): void",
+  Channel: statefulClass(
+    '@Channel({ name: "slack-channel", target: RefundToolApproval, ttl: days(1) })',
+    "async send(): Promise<void>",
   ),
-  Channel: statefulClass('@Channel({ name: "slack-channel" })', "async send(): Promise<void>"),
-  ReplyInterpreter: statefulClass(
-    '@ReplyInterpreter({ name: "refund-reply-interpreter", description: "d", decidedBy: DecidedBy.Code })',
+  ChannelInterpreter: statefulClass(
+    '@ChannelInterpreter({ name: "refund-reply-interpreter", description: "d" })',
     "interpret(): void",
   ),
   InputGuardrail: statefulClass(
-    '@InputGuardrail({ name: "length-guardrail", description: "d", decidedBy: DecidedBy.Code, refusal: "r" })',
+    '@InputGuardrail({ name: "length-guardrail", description: "d", refusal: "r" })',
     "check(): void",
   ),
   OutputGuardrail: statefulClass(
-    '@OutputGuardrail({ name: "answer-guardrail", description: "d", decidedBy: DecidedBy.Code, refusal: "r" })',
+    '@OutputGuardrail({ name: "answer-guardrail", description: "d", refusal: "r" })',
     "check(): void",
   ),
   ToolInterceptor: statefulClass(
     '@ToolInterceptor({ name: "audit-tool-interceptor", description: "d" })',
-    "beforeToolCall(): void",
+    "beforeAnyTool(): void",
   ),
   PiiPolicy: statefulClass(
-    '@PiiPolicy({ name: "order-id-pii-policy", description: "d", action: PiiAction.replaceWithKind() })',
+    '@PiiPolicy({ name: "order-id-pii-policy", description: "d", action: PiiAction.mask() })',
     "findMatches(): void",
   ),
   Judge: statefulClass(
-    '@Judge({ name: "grounded-judge", model: "moonshotai/kimi-k2.6", reply: AnswerDto })',
+    '@Judge({ name: "grounded-judge", model: "moonshotai/kimi-k2.6", output: AnswerDto, deps: [JudgeModel] })',
     "async judge(): Promise<void>",
   ),
-  Arbiter: statefulClass(
-    '@Arbiter({ name: "in-range-arbiter", decidedBy: DecidedBy.Code })',
-    "isInRange(): void",
-  ),
-  Compaction: statefulClass(
-    '@Compaction({ name: "graph-compaction", description: "d", strategy: CompactionStrategy.Custom, turnsBetweenCompactions: 5 })',
+  Arbiter: statefulClass('@Arbiter({ name: "in-range-arbiter" })', "isInRange(): void"),
+  Memory: statefulClass(
+    '@Memory({ name: "graph-memory", description: "d", ttl: Ttl.Forever, turnsBetweenCompactions: 5 })',
     "async compact(): Promise<void>",
   ),
   Budget: statefulClass(
     '@Budget({ name: "execution-budget", scope: BudgetScope.Execution })',
     "maxSpend(): void",
   ),
+  FilePolicy: statefulClass('@FilePolicy({ name: "stateful-file-policy" })', "describe(): void"),
   HealthCheck: statefulClass(
     '@HealthCheck({ name: "crm-health-check", timeout: seconds(2) })',
     "async check(): Promise<void>",
   ),
-  PauseListener: statefulClass(
-    '@PauseListener({ name: "back-office-pause-listener" })',
-    "async onPauseClosed(): Promise<void>",
+  ToolApproval: statefulClass(
+    '@ToolApproval({ name: "refund-tool-approval", description: "d", respondent: PauseRespondent.Owner, timeout: hours(1) })',
+    "assign(): void",
   ),
+  ExternalTask: statefulClass(
+    '@ExternalTask({ name: "limit-external-task", description: "d", input: AskDto, output: AnswerDto, respondent: PauseRespondent.Owner, timeout: hours(1) })',
+    "permitAnswer(): void",
+  ),
+  ChannelSelector: statefulClass(
+    "@ChannelSelector({ target: RefundToolApproval })",
+    "selectChannel(): void",
+  ),
+  ChannelListener: statefulClass("@ChannelListener()", "onPauseOpened(): void"),
+  HttpAuthenticator: statefulClass("@HttpAuthenticator()", "authenticate(): void"),
+  Observer: statefulClass('@Observer({ name: "desk-observer" })', "onExecutionEnd(): void"),
   WorkingCalendar: statefulClass(
     '@WorkingCalendar({ name: "office-working-calendar" })',
     "async addWorkingTime(): Promise<void>",
+  ),
+  DatabaseStorage: statefulClass(
+    '@DatabaseStorage({ name: "app-database-storage", driver: SqliteDriver.inMemory(), auditLogTtl: hours(24), ledgerEntriesTtl: hours(24) })',
+    "async ping(): Promise<void>",
+  ),
+  ClusterStorage: statefulClass(
+    '@ClusterStorage({ name: "app-cluster-storage", driver: redis })',
+    "async ping(): Promise<void>",
+  ),
+  ObjectStorage: statefulClass(
+    '@ObjectStorage({ name: "app-object-storage", driver: InMemoryObjectDriver() })',
+    "async ping(): Promise<void>",
   ),
   ModelProvider: statefulClass(
     '@ModelProvider({ name: "local-model-provider", description: "d", serves: [/^local\\//], baseUrl: "http://localhost" })',
@@ -123,16 +159,12 @@ const FIXTURES: Readonly<Record<ComponentDecoratorName, string>> = {
     '@McpServer({ name: "files", command: "npx", args: [], tools: {} })',
     "async connect(): Promise<void>",
   ),
-  McpTool: statefulClass(
-    '@McpTool({ name: "read-file-tool", description: "d", server: FilesServer, input: FileRead, output: FileContent })',
-    "async run(): Promise<void>",
-  ),
   Rag: statefulClass(
     '@Rag({ name: "jobs-rag", description: "d" })',
     "async search(): Promise<void>",
   ),
-  Reranker: statefulClass(
-    '@Reranker({ name: "jobs-reranker", description: "d", decidedBy: DecidedBy.Code })',
+  RagReranker: statefulClass(
+    '@RagReranker({ name: "jobs-reranker", description: "d", candidates: 5 })',
     "async rerank(): Promise<void>",
   ),
   A2AAgent: statefulClass(
@@ -169,17 +201,16 @@ describe("#402 AC1: `this.x = …` in a method of every component is reported", 
  * each with why — a new decorator must land in `COMPONENT_DECORATORS` or here.
  */
 const NOT_COMPONENTS: Readonly<Record<string, string>> = {
-  Agent:
-    "metadata of a flow node: an empty class, never instantiated (its loop is the framework's)",
-  WorkflowStart: "metadata of a flow node: an empty class, never instantiated",
-  Workflow: "the module: metadata only, never instantiated",
-  Application: "the application: metadata only, never instantiated",
-  ChannelRole: "an abstract role: its @Channel implementation is the component",
-  McpExpose: "what createMcpService exposes: an empty configuration class",
-  A2AExpose: "what a2aHttpListener serves (#398 PR 3): an empty configuration class",
-  BindTool: "a method decorator",
-  OnAnswer: "a method decorator (of a code @Arbiter)",
-  EvalSuite: "an eval suite (#396): its cases and checks as metadata, never instantiated",
+  Arbitrate: "a method decorator (of a code @Arbiter)",
+  SqliteDriver: "a driver factory (#1321): settings for a storage component, not a class",
+  S3Driver: "a driver factory (#1321): settings for a storage component, not a class",
+  LocalDiskDriver: "a driver factory (#1321): settings for a storage component, not a class",
+  InMemoryObjectDriver: "a driver factory (#1321): settings for a storage component, not a class",
+  DecisionsDriver: "a driver factory (#1313): settings for a model provider, not a class",
+  OpenAiCompatibleDriver: "a driver factory (#1313): settings for a model provider, not a class",
+  OpenRouterDriver: "a driver factory (#1313): settings for a model provider, not a class",
+  BeforeTool: "a method decorator (of a @ToolInterceptor)",
+  AfterTool: "a method decorator (of a @ToolInterceptor)",
 };
 
 /**
@@ -193,7 +224,6 @@ async function exportedDecorators(): Promise<ReadonlyMap<string, string>> {
     mcp: await import("../../src/mcp/index.js"),
     rag: await import("../../src/rag/index.js"),
     a2a: await import("../../src/a2a/index.js"),
-    memory: await import("../../src/memory/index.js"),
     eval: await import("../../src/eval/index.js"),
     testing: await import("../../src/testing/index.js"),
   };

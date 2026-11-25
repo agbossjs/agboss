@@ -139,8 +139,8 @@ describe("#1131 AC3: a receiver past the claim is never called twice at once", (
       for (const app of apps) await app.ready();
       await execute(first, DeskWorkflowStart, REFUND, ACME);
       const pauseId = askFor("7").pauseId;
-      const recipients = { channel: "refund-approval-channel", listeners: [] };
-      const answer = { decision: { approved: true }, answeredBy: "manager-17" };
+      const recipients = { channel: "finance-desk-refund-approval-channel", listeners: [] };
+      const answer = { decision: { approved: true }, actor: { id: "manager-17" } };
       await pauseStore().resolveByTenantIdAndPauseId(
         "acme",
         pauseId,

@@ -48,7 +48,7 @@ describe("#271 AC10: onValuesOutdated", () => {
     );
     mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "secret article" }));
 
-    const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { record: true });
+    const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { includeRecord: true });
 
     expect(outdatingEvents.map((event) => event.trigger.valueId)).toEqual([
       "loop-writer-agent:2/DraftDto",
@@ -65,7 +65,7 @@ describe("#271 AC10: onValuesOutdated", () => {
         valueId: "loop-reviewer-agent:2/DraftChangesDto",
         slot: "DraftChangesDto",
         producer: "loop-reviewer-agent",
-        reason: OutdatedReason.AboutReplaced,
+        reason: OutdatedReason.BuiltFromReplaced,
       },
     ]);
     expect(outdatingEvents.flatMap((event) => event.outdated)).toHaveLength(
@@ -119,7 +119,7 @@ describe("#271 AC10: onValuesOutdated", () => {
     mockLlm(LoopReviewerAgent).thenReturn(replyWith(ApprovalDto, { reason: "ok" }));
     mockLlm(LoopPublisherAgent).thenReturn(replyWith(ArticleDto, { body: "a" }));
 
-    const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { record: true });
+    const result = await execute(app, LoopWorkflowStart, { topic: "t" }, { includeRecord: true });
 
     expect(outdatingEvents).toEqual([]);
     expect(result.record?.outdatedValues).toEqual([]);
@@ -155,10 +155,7 @@ const value = (valueId: string, builtFrom: readonly string[] = []): ScopeValueRe
 describe("#271 rule 11: the trace entry of a cascade", () => {
   it("one 'values outdated' entry per cascade, with a sentence per value and no values", async () => {
     const draft1 = value("writer-agent:1/DraftDto");
-    const changes1 = {
-      ...value("critic-agent:1/DraftChangesDto", [draft1.valueId]),
-      about: ["DraftDto"],
-    };
+    const changes1 = value("critic-agent:1/DraftChangesDto", [draft1.valueId]);
     const draft2 = value("writer-agent:2/DraftDto");
     const scope = { DraftDto: draft1, DraftChangesDto: changes1 };
     const outcome = writeAndOutdate(scope, { DraftDto: draft2 });
@@ -208,7 +205,7 @@ describe("#271 rule 11: the trace entry of a cascade", () => {
     expect(trace.runs[0]?.input).toMatchObject({
       reasons: [
         "DraftDto#1 outdated: replaced by DraftDto#2 from writer-agent",
-        "DraftChangesDto#1 outdated: about DraftDto#1, replaced by DraftDto#2 from writer-agent",
+        "DraftChangesDto#1 outdated: built from DraftDto#1, replaced by DraftDto#2 from writer-agent",
       ],
     });
     expect(JSON.stringify(trace.runs)).not.toContain("secret");

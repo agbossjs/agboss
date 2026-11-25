@@ -10,10 +10,6 @@ import { NodeKind } from "../../src/flow/ast.js";
 import { inTreeSlot, stepFrameAt, type TreeSlotSite } from "../../src/flow/runtime/step-frame.js";
 import { ComponentKind } from "../../src/flow/runtime/records.js";
 
-vi.mock("../../src/flow/decorators/workflow.js", () => ({
-  declaredMaxConcurrentExecutionsOf: (type: { cap?: number }) => type.cap,
-  maxConcurrentExecutionsOf: (type: { cap?: number }) => type.cap ?? 10,
-}));
 vi.mock("../../src/flow/context/runtime-contexts.js", () => ({
   tenantOfExecution: (_contexts: unknown, values: { tenantId: string }) => ({
     tenantId: values.tenantId,
@@ -158,6 +154,8 @@ function slotsOf(options: { tree?: boolean; instance?: "none" | "refuse" | "gran
   );
   const registry = {
     slotsOf: slotsOfTree,
+    // the limits of each workflow as the application leaves them: here the fake type's own `cap`
+    limitsOf: (type: { cap?: number }) => ({ maxConcurrency: type.cap }),
     steps: undefined,
     ...(options.instance === undefined || options.instance === "none"
       ? {}

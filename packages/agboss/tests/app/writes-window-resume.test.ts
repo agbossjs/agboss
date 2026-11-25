@@ -83,7 +83,7 @@ function answerSecondFrom(b: TestApp, executionId: () => string, skip: number) {
   void second.then(async (pauseId) => {
     const resumed = b.resume(
       { pauseId, decision: { approved: true } },
-      { answeredBy: "approver-2" },
+      { actor: { id: "approver-2" } },
     );
     resumed.catch(() => undefined);
     call.resumed = resumed;
@@ -120,7 +120,7 @@ describe("#1098 B: a waiting resume takes a tree its holder lost between a task'
         const from = pausesWindow.writes.length;
         const first = { pauseId: pausesWindow.asked[0] ?? "", decision: { approved: true } };
 
-        const moved = rejectionOf(a.resume(first, { answeredBy: "approver-1" }));
+        const moved = rejectionOf(a.resume(first, { actor: { id: "approver-1" } }));
         await passLive(clock, seconds(40));
         expect(await moved).toBeInstanceOf(ExecutionLeaseLostError);
         // the window: the cut task's result saved on the root's thread, its checkpoint asked for, nothing after

@@ -1,61 +1,46 @@
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
-import { SilentLogger } from "../../src/infrastructure/logger.js";
 /**
  * #626 — what each error of a call that leaves the system says and carries, each field found by a
- * mutant that lived: its name, code, message, details, usage (none: no model ran) and the step it
- * names; the text stored in place of an unmaskable failure.
+ * mutant that lived: its name, code, message, details; the text stored in place of an unmaskable failure.
  */
 import { describe, expect, it } from "vitest";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
-import { applicationContextOf } from "../../src/flow/context/application-context.js";
-import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
+import { OutboundRecovery, Reconciliation } from "../../src/index.js";
 import {
-  InvalidBusinessKeyError,
-  InvalidFencedEffectNameError,
-} from "../../src/infrastructure/fenced-effect-key.js";
-import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
-import { InMemoryOutboundCallRepository } from "../../src/infrastructure/outbound-call.repository.js";
-import { OutboundCallSettings } from "../../src/infrastructure/fenced-effect-settings.js";
-import { VirtualClock } from "../../src/testing/clock.js";
-import { NotSentTrust } from "../../src/app/outbound-call-contract.js";
-import {
-  OutboundCallInFlightError,
-  OutboundCallPart,
-  OutboundCallPayloadTooLargeError,
-  OutboundCallReconciliation,
-  OutboundCallResultNotStoredError,
-  OutboundCallUnmaskedError,
-  OutboundCallUnreconciledError,
-  OutboundCalls,
+  inFlightError,
+  payloadTooLargeError,
   REDACTED,
-} from "../../src/app/outbound-calls.js";
-import { storeClockOf } from "../helpers/store-clock.js";
+  resultNotStoredError,
+  unmaskedError,
+  unreconciledError,
+} from "../../src/app/outbound-call-errors.js";
+import type { Bytes } from "../../src/units/index.js";
+import { outboundFrame, type OutboundSendCase } from "../helpers/outbound-frame.js";
 
 const CALL = { call: "charge", target: "payments", operation: "charge" };
 
 describe("#626: the outbound call's errors", () => {
-  it("OutboundCallUnreconciledError", () => {
+  it("OutboundCallError.Unreconciled", () => {
     const cause = new Error("lookup failed");
-    const error = new OutboundCallUnreconciledError({
+    const error = unreconciledError({
       ...CALL,
-      idempotencyKey: "default:order%3A42:charge",
+      idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw",
       reason: "reconcile.unknown",
       detail: "the lookup timed out",
       cause,
     });
 
     expect(error).toMatchObject({
-      name: "OutboundCallUnreconciledError",
+      name: "OutboundCallError.Unreconciled",
       code: "outbound-call.unreconciled",
       message:
-        'outbound call "charge" (charge on payments, key default:order%3A42:charge) is left pending and could not be reconciled (reconcile.unknown): the lookup timed out — nothing was sent; an operator decides (app.pendingOutboundCallsOf)',
+        'outbound call "charge" (charge on payments, key kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw) is left pending and could not be reconciled (reconcile.unknown): the lookup timed out — nothing was sent; an operator decides (app.listOutboundCalls)',
       call: "charge",
       target: "payments",
       operation: "charge",
-      idempotencyKey: "default:order%3A42:charge",
+      idempotencyKey: "kozeA6UXkFQOmJlRz1_iDumLcer6Ops_OXo1PjSvjAw",
       reason: "reconcile.unknown",
       detail: "the lookup timed out",
-      usage: [],
       cause,
       details: {
         call: "charge",
@@ -65,32 +50,31 @@ describe("#626: the outbound call's errors", () => {
         detail: "the lookup timed out",
       },
     });
-    expect(error.usage).toEqual([]);
   });
 
-  it("OutboundCallPayloadTooLargeError", () => {
-    const error = new OutboundCallPayloadTooLargeError({
+  it("OutboundCallError.PayloadTooLarge", () => {
+    const error = payloadTooLargeError({
       call: "charge",
-      part: OutboundCallPart.Request,
-      size: 70_000,
-      maxPayloadSize: 65_536,
+      part: "request",
+      size: 70_000 as Bytes,
+      maxPayloadSize: 65_536 as Bytes,
     });
 
     expect(error).toMatchObject({
-      name: "OutboundCallPayloadTooLargeError",
+      name: "OutboundCallError.PayloadTooLarge",
       code: "outbound-call.payload-too-large",
       message:
-        'the request of outbound call "charge" is 70000 bytes, above its maxPayloadSize of 65536 bytes — send and store a reference, or raise @Application({ outboundCalls: { maxPayloadSize } })',
+        'the request of outbound call "charge" is 70000 bytes, above its maxPayloadSize of 65536 bytes — send and store a reference, or raise maxPayloadSize of sendOnce',
       call: "charge",
-      part: OutboundCallPart.Request,
+      part: "request",
       size: 70_000,
       maxPayloadSize: 65_536,
     });
   });
 
-  it("OutboundCallUnmaskedError", () => {
-    expect(new OutboundCallUnmaskedError({ call: "charge" })).toMatchObject({
-      name: "OutboundCallUnmaskedError",
+  it("OutboundCallError.Unmasked", () => {
+    expect(unmaskedError("charge")).toMatchObject({
+      name: "OutboundCallError.Unmasked",
       code: "outbound-call.unmasked",
       message:
         'outbound call "charge" was refused: the application lists PII policies, but this step has no mask to store its request with — nothing was recorded or sent',
@@ -98,11 +82,11 @@ describe("#626: the outbound call's errors", () => {
     });
   });
 
-  it("OutboundCallInFlightError", () => {
-    const error = new OutboundCallInFlightError(CALL);
+  it("OutboundCallError.InFlight", () => {
+    const error = inFlightError(CALL);
 
     expect(error).toMatchObject({
-      name: "OutboundCallInFlightError",
+      name: "OutboundCallError.InFlight",
       code: "outbound-call.in-flight",
       message:
         'outbound call "charge" (charge on payments) is already in flight: another call holds its key and has not ended — nothing was sent',
@@ -111,17 +95,16 @@ describe("#626: the outbound call's errors", () => {
       operation: "charge",
       details: { call: "charge", target: "payments", operation: "charge" },
     });
-    expect(error.usage).toEqual([]);
   });
 
-  it("OutboundCallResultNotStoredError", () => {
-    const error = new OutboundCallResultNotStoredError({
+  it("OutboundCallError.ResultNotStored", () => {
+    const error = resultNotStoredError({
       ...CALL,
       reason: "outbound-call.payload-too-large",
     });
 
     expect(error).toMatchObject({
-      name: "OutboundCallResultNotStoredError",
+      name: "OutboundCallError.ResultNotStored",
       code: "outbound-call.result-not-stored",
       message:
         'outbound call "charge" (charge on payments) happened, but its result was not stored (outbound-call.payload-too-large): there is nothing to replay — nothing was sent again; read the result from payments',
@@ -133,7 +116,6 @@ describe("#626: the outbound call's errors", () => {
         reason: "outbound-call.payload-too-large",
       },
     });
-    expect(error.usage).toEqual([]);
   });
 
   it("an unmaskable failure's text is stored as [redacted]", () => {
@@ -141,7 +123,7 @@ describe("#626: the outbound call's errors", () => {
   });
 });
 
-describe("#626: send checks a key built by hand first", () => {
+describe("#626: sendOnce checks the name and the business key first", () => {
   const KEY = effectKeyForTesting({
     scopeKey: "default:execution-1",
     tenantId: "default",
@@ -151,39 +133,27 @@ describe("#626: send checks a key built by hand first", () => {
     name: "charge",
   });
 
-  function outboundCalls() {
-    const [clock, database] = [new VirtualClock(), new InMemoryDatabase()];
-    const application = applicationContextOf({
-      ...{ name: "keys-application", version: "1.0.0", instanceId: "instance-1" },
-      ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
-    });
-    const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
-    return new OutboundCalls(
-      new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases),
-      new OutboundCallSettings({ requiresMask: false }),
-      new SilentLogger(),
-      clock,
-    );
-  }
-
-  const options = {
+  const options: OutboundSendCase<object, object> = {
     target: "payments",
     operation: "charge",
     request: {},
     send: () => ({}),
-    notSent: { trust: NotSentTrust.Lookup } as const,
-    reconcile: () => OutboundCallReconciliation.notSent(),
+    recovery: OutboundRecovery.permanentLookup(() => Reconciliation.notExecuted()),
   };
 
-  it("an invalid name is refused before anything else — even outside a step", async () => {
+  it("an invalid name is refused before anything else", async () => {
+    const frame = outboundFrame();
+
     await expect(
-      outboundCalls().send(effectKeyForTesting(KEY, { name: "a:b" }), options),
-    ).rejects.toBeInstanceOf(InvalidFencedEffectNameError);
+      frame.send(effectKeyForTesting(KEY, { name: "a:b" }), options),
+    ).rejects.toBeInstanceOf(IdempotencyError.InvalidName);
   });
 
-  it("an invalid business key is refused before anything else — even outside a step", async () => {
+  it("an invalid business key is refused before anything else", async () => {
+    const frame = outboundFrame();
+
     await expect(
-      outboundCalls().send(effectKeyForTesting(KEY, { businessKey: "order:\u200b42" }), options),
-    ).rejects.toBeInstanceOf(InvalidBusinessKeyError);
+      frame.send(effectKeyForTesting(KEY, { businessKey: "order:\u200b42" }), options),
+    ).rejects.toBeInstanceOf(IdempotencyError.InvalidKey);
   });
 });

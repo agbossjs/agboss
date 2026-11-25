@@ -12,6 +12,7 @@ import {
   nameOf,
   UnknownThreadError,
   Workflow,
+  Ttl,
 } from "../../../src/index.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
 import { execute, answerOf } from "../../helpers/flow.js";
@@ -172,6 +173,7 @@ describe("#261 AC15: observers are registered only in @Application", () => {
       Workflow({
         name: "unobserved-workflow",
         version: "1.0.0",
+        historyTtl: Ttl.Forever,
         flow: [],
         // @ts-expect-error — observers belong to @Application({ observers })
         observers: [RunLog],

@@ -33,7 +33,7 @@ const callsOf = (tool: ToolHandlerClass, calls: readonly ToolCallRecord[]) =>
 
 function missingRequired(expected: ExpectedToolCall, calls: readonly ToolCallRecord[]): string[] {
   const ran = callsOf(expected.tool, calls).filter((call) => RAN.has(call.status));
-  const { arguments: partial } = expected;
+  const { input: partial } = expected;
   const isMatched = ran.some(
     (call) => partial === undefined || matchesPartial(call.input, partial),
   );

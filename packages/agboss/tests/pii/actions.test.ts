@@ -19,14 +19,14 @@ const finding = (
 };
 
 describe("#120 AC5: actions", () => {
-  it("replaceWithKind() → <israeli-id>, one-way", () => {
+  it("mask() → <israeli-id>, one-way", () => {
     const text = "id 000000018";
-    const action = PiiAction.replaceWithKind();
-    const result = maskedText(text, [finding(text, "000000018", action, PiiKind.IsraeliId)], {});
+    const action = PiiAction.mask();
+    const result = maskedText(text, [finding(text, "000000018", action, PiiKind.IsraeliId.id)], {});
     expect(result).toEqual({ text: "id <israeli-id>", tokens: {}, blocked: [] });
   });
 
-  it("replacePart({ keep… }) keeps what it names", () => {
+  it("mask({ keep… }) keeps what it names", () => {
     expect(partReplaced("4242 4242 4242 4242", { keepLast: 4 })).toBe("•••• 4242");
     expect(partReplaced("dana@acme.com", { keepDomain: true })).toBe("d•••@acme.com");
     expect(partReplaced("+1 555 123 4542", { keepFirst: 2, keepLast: 2 })).toBe("+1•••• 42");
@@ -34,16 +34,16 @@ describe("#120 AC5: actions", () => {
     expect(partReplaced("no-at-sign", { keepDomain: true })).toBe("••••");
   });
 
-  it("replacePart({ pattern }) replaces every match", () => {
+  it("mask({ pattern }) replaces every match", () => {
     expect(partReplaced("AB-1234-CD", { pattern: /\d{4}/ })).toBe("AB-••••-CD");
     expect(partReplaced("1 and 2", { pattern: /\d/g })).toBe("•••• and ••••");
   });
 
-  it("replaceWithToken() → one HMAC token per value, revealed only by the map", () => {
+  it("tokenize() → one HMAC token per value, revealed only by the map", () => {
     const text = "alice@example.com and Alice@Example.com";
     const findings = [
-      finding(text, "alice@example.com", PiiAction.replaceWithToken()),
-      { ...finding(text, "Alice@Example.com", PiiAction.replaceWithToken()), start: 22, end: 39 },
+      finding(text, "alice@example.com", PiiAction.tokenize()),
+      { ...finding(text, "Alice@Example.com", PiiAction.tokenize()), start: 22, end: 39 },
     ];
     const result = maskedText(text, findings, {});
     const [token] = Object.keys(result.tokens);
@@ -62,14 +62,14 @@ describe("#120 AC5: actions", () => {
     expect(longer.startsWith(short.slice(0, -1))).toBe(true);
   });
 
-  it("blockWithRefusal: the value is shown as <kind> and reported", () => {
+  it("block: the value is shown as <kind> and reported", () => {
     const text = "card 4111";
-    const action = PiiAction.blockWithRefusal({ refusal: "No cards." });
+    const action = PiiAction.block("No cards.");
     const result = maskedText(text, [finding(text, "4111", action, "card-number")], {});
     expect(result.text).toBe("card <card-number>");
     expect(result.blocked).toHaveLength(1);
-    expect(actionText(action)).toBe('blockWithRefusal("No cards.")');
-    expect(actionText(PiiAction.blockWithRefusal())).toBe("blockWithRefusal()");
+    expect(actionText(action)).toBe('block("No cards.")');
+    expect(actionText(PiiAction.block())).toBe("block()");
   });
 
   it("an unknown token stays and is listed", () => {
@@ -81,8 +81,8 @@ describe("#120 AC5: actions", () => {
 
   it("overlaps: the longest wins, then the more specific detector", () => {
     const text = "0123456789";
-    const long = { ...finding(text, "0123456789", PiiAction.replaceWithKind(), "phone"), rank: 5 };
-    const short = { ...finding(text, "01234", PiiAction.replaceWithKind(), "us-ssn"), rank: 1 };
+    const long = { ...finding(text, "0123456789", PiiAction.mask(), "phone"), rank: 5 };
+    const short = { ...finding(text, "01234", PiiAction.mask(), "us-ssn"), rank: 1 };
     const tie = { ...long, label: "card-number", rank: 2 };
     expect(withoutOverlaps([short, long]).map((item) => item.label)).toEqual(["phone"]);
     expect(withoutOverlaps([long, tie]).map((item) => item.label)).toEqual(["card-number"]);
@@ -96,28 +96,28 @@ describe("#120 AC5: actions", () => {
   });
 
   it("two actions are the same when their kind and options are", () => {
-    expect(
-      isSameAction(PiiAction.replacePart({ keepLast: 4 }), PiiAction.replacePart({ keepLast: 4 })),
-    ).toBe(true);
-    expect(
-      isSameAction(PiiAction.replacePart({ keepLast: 4 }), PiiAction.replacePart({ pattern: /x/ })),
-    ).toBe(false);
+    expect(isSameAction(PiiAction.mask({ keepLast: 4 }), PiiAction.mask({ keepLast: 4 }))).toBe(
+      true,
+    );
+    expect(isSameAction(PiiAction.mask({ keepLast: 4 }), PiiAction.mask({ pattern: /x/ }))).toBe(
+      false,
+    );
   });
 });
 
 describe("#120 AC5 / AC13: what does not compile", () => {
   it("keep and pattern together, a block action on a field or in a project's detector", () => {
     // @ts-expect-error — either what to keep or what to replace, never both
-    PiiAction.replacePart({ keepLast: 4, pattern: /x/ });
+    PiiAction.mask({ keepLast: 4, pattern: /x/ });
 
     class Holder {
       // @ts-expect-error — a field's `sensitive` takes a masking action only
-      @Text({ sensitive: PiiAction.blockWithRefusal() })
+      @Text({ sensitive: PiiAction.block() })
       name!: string;
     }
 
     // @ts-expect-error — a project's detector applies a masking action only
-    @PiiPolicy({ name: "x-pii-policy", action: PiiAction.blockWithRefusal() })
+    @PiiPolicy({ name: "x-pii-policy", action: PiiAction.block() })
     class BlockingDetector implements PiiPolicyHandler {
       findMatches(): [] {
         return [];

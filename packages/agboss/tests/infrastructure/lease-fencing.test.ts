@@ -10,7 +10,7 @@ import { AIMessageChunk } from "@langchain/core/messages";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ExecutionLeaseLostError, ResumeReason } from "../../src/index.js";
 import { idempotencyKeyOf } from "../../src/flow/context/idempotency.js";
-import { withCallIds } from "../../src/graph/agent-loop/model-node.js";
+import { withCallIds } from "../../src/graph/agent-loop/call-ids.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { seconds } from "../../src/units/index.js";

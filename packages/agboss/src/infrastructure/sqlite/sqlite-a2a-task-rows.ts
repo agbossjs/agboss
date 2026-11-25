@@ -1,3 +1,4 @@
+import { storedUsd } from "../../finops/cost-report.js";
 import { z } from "zod";
 import { parsedStoredJson } from "../stored-step.js";
 import { PauseKind } from "../../pause/types.js";
@@ -12,24 +13,23 @@ import {
 
 /** The rows of `SqliteA2ATaskRepository` (#807): its schema, and their records. */
 
-/** #810: the body hash of a trusted task's first message, added to a file written before. */
-export const MESH_BODY_HASH_COLUMN = ["a2a_tasks", "mesh_body_hash", "TEXT"] as const;
-
 export const TERMINAL_STATES = Object.values(A2ATaskState).filter(isTerminalA2ATaskState);
 
 export const SCHEMA = `CREATE TABLE IF NOT EXISTS a2a_tasks (
-  tenant_id TEXT NOT NULL, task_id TEXT NOT NULL, owner_id TEXT NOT NULL,
+  endpoint TEXT NOT NULL, tenant_id TEXT NOT NULL, task_id TEXT NOT NULL, owner_id TEXT NOT NULL,
   context_id TEXT NOT NULL, skill TEXT NOT NULL, state TEXT NOT NULL, status TEXT NOT NULL,
   version INTEGER NOT NULL, accepted_at TEXT NOT NULL, status_at TEXT NOT NULL, caller_peer TEXT,
   mesh_body_hash TEXT,
   PRIMARY KEY (tenant_id, task_id));
 CREATE INDEX IF NOT EXISTS a2a_tasks_by_owner
   ON a2a_tasks (tenant_id, owner_id, status_at DESC, task_id DESC);
+CREATE INDEX IF NOT EXISTS a2a_tasks_by_endpoint ON a2a_tasks (endpoint, state, status_at);
 CREATE TABLE IF NOT EXISTS a2a_messages (
-  tenant_id TEXT NOT NULL, owner_id TEXT NOT NULL, message_id TEXT NOT NULL,
+  endpoint TEXT NOT NULL, tenant_id TEXT NOT NULL, owner_id TEXT NOT NULL, message_id TEXT NOT NULL,
   request_hash TEXT NOT NULL, task_id TEXT NOT NULL, saved_at TEXT NOT NULL, reply TEXT,
   PRIMARY KEY (tenant_id, owner_id, message_id));
-CREATE INDEX IF NOT EXISTS a2a_messages_by_task ON a2a_messages (tenant_id, task_id);`;
+CREATE INDEX IF NOT EXISTS a2a_messages_by_task ON a2a_messages (tenant_id, task_id);
+CREATE INDEX IF NOT EXISTS a2a_messages_by_endpoint ON a2a_messages (endpoint, task_id, saved_at);`;
 
 /** `work`'s result as a store's answer: a failure (a refused page token, a corrupt row) rejects. */
 export const answerOf = <T>(work: () => T): Promise<T> =>
@@ -41,6 +41,7 @@ export const answerOf = <T>(work: () => T): Promise<T> =>
 const { datetime: isoTime } = z.iso;
 
 const TaskRow = z.object({
+  endpoint: z.string(),
   tenant_id: z.string(),
   task_id: z.string(),
   owner_id: z.string(),
@@ -57,6 +58,7 @@ const TaskRow = z.object({
 });
 
 const MessageRow = z.object({
+  endpoint: z.string(),
   tenant_id: z.string(),
   owner_id: z.string(),
   message_id: z.string(),
@@ -71,20 +73,28 @@ const Status = z.looseObject({
   state: z.enum(A2ATaskState),
   message: z.string().optional(),
   pendingPauses: z.array(
-    z.looseObject({ pauseId: z.string().optional(), kind: z.enum(PauseKind), ask: z.unknown() }),
+    z.looseObject({
+      pauseId: z.string().optional(),
+      kind: z.enum(PauseKind),
+      input: z.unknown(),
+      toolCall: z.unknown().optional(),
+    }),
   ),
   finish: z.string().optional(),
   output: z.unknown().optional(),
   errorCode: z.string().optional(),
   errorDetails: z.unknown().optional(),
-  spentUsd: z.number().nonnegative().optional(),
-  cancelRequestedAt: isoTime().optional(),
+  spentUsd: storedUsd.optional(),
+  spentTokens: z.number().int().nonnegative().optional(),
+  cancelRequestedAt: isoTime()
+    .transform((text) => new Date(text))
+    .optional(),
 });
 
 /** The status of a row whose `state` column agrees with it (M6: a compare-and-set reads the column). */
 function statusOf(row: z.infer<typeof TaskRow>): A2ATaskStatus {
   const status = Status.parse(
-    parsedStoredJson("a2a task status", row.status, { taskId: row.task_id }),
+    parsedStoredJson({ what: "a2a task status", text: row.status, ids: { taskId: row.task_id } }),
   );
   if (status.state !== row.state)
     throw new Error(`a2a_tasks row ${row.task_id}: its state column and its status disagree`);
@@ -99,6 +109,7 @@ const ownerOf = (column: string): string | undefined => (column === "" ? undefin
 export const taskOf = (row: unknown): A2ATaskRecord => {
   const parsed = TaskRow.parse(row);
   return {
+    endpoint: parsed.endpoint,
     tenantId: parsed.tenant_id,
     taskId: parsed.task_id,
     ownerId: ownerOf(parsed.owner_id),
@@ -116,6 +127,7 @@ export const taskOf = (row: unknown): A2ATaskRecord => {
 export const messageOf = (row: unknown): A2AMessageRecord => {
   const parsed = MessageRow.parse(row);
   return {
+    endpoint: parsed.endpoint,
     tenantId: parsed.tenant_id,
     ownerId: ownerOf(parsed.owner_id),
     messageId: parsed.message_id,
@@ -125,8 +137,12 @@ export const messageOf = (row: unknown): A2AMessageRecord => {
     ...(parsed.reply === null
       ? {}
       : {
-          reply: parsedStoredJson("a2a message reply", parsed.reply, {
-            messageId: parsed.message_id,
+          reply: parsedStoredJson({
+            what: "a2a message reply",
+            text: parsed.reply,
+            ids: {
+              messageId: parsed.message_id,
+            },
           }),
         }),
   };

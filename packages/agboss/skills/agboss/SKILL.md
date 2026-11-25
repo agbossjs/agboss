@@ -16,7 +16,7 @@ agents, routers, actions, finishes — wired by a dependency-injection container
 and a CLI. This file is always read first; it routes every task to one reference below. Read that
 reference before writing code: the names here are the installed version's, and older names you may
 remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `ToolFailedError`,
-`@Guardrail`) do not exist.
+`@Guardrail`, `@ChannelRole`, `@PauseListener`, `@A2AExpose`, built-in model providers) do not exist.
 
 ## The 10 invariants
 
@@ -37,48 +37,53 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    live in their own subfolder `<name>/` inside their kind folder — even when `DecidedBy.Code` —
    (`agents/<name>/<name>.agent.ts` + `<name>.prompt.md`, `routers/<name>/<name>.router.ts`,
    `judges/<name>/<name>.judge.ts`, `arbiters/<name>/<name>.arbiter.ts`,
-   `compactions/<name>/<name>.compaction.ts`, `guardrails/<name>/<name>.guardrail.ts`,
+   `memories/<name>/<name>.memory.ts`, `guardrails/<name>/<name>.guardrail.ts`,
    `reply-interpreters/<name>/<name>.reply-interpreter.ts`); every other entity is a single file in
    its kind folder (`dto/<name>.dto.ts`, `tools/<name>.tool.ts`, `actions/<name>.action.ts`,
    `services/<name>.service.ts`, `repositories/<name>.repository.ts`, `schemas/<name>.schema.ts`,
    `sql/<name>.sql`, `errors/<name>.error.ts`, `observers/<name>.observer.ts`,
    `budgets/<name>.budget.ts`, `tool-interceptors/<name>.tool-interceptor.ts`,
-   `channels/<name>.channel-role.ts`, `channels/<name>.channel.ts`,
+   `tool-approvals/<name>.tool-approval.ts`, `external-tasks/<name>.external-task.ts`, `channels/<name>.channel.ts`,
    `pii-policies/<name>.pii-policy.ts`, `rag/<name>.rag.ts`, `rerankers/<name>.reranker.ts`, `retrievers/<name>.retriever.ts`,
-   `mcp/<name>.mcp-server.ts`, `mcp/<name>.mcp-tool.ts`, `mcp/<name>.mcp-expose.ts`,
-   `a2a/<name>.a2a-agent.ts`, `a2a/<name>.a2a-expose.ts`, `model-providers/<name>.model-provider.ts`,
+   `mcp/<name>.mcp-server.ts`, `mcp/<name>.mcp-expose.ts`,
+   `a2a/<name>.a2a-agent.ts`, `a2a/<name>.a2a-endpoint.ts`, `model-providers/<name>.model-provider.ts`,
+   `storages/<name>.database-storage.ts`, `file-policies/<name>.file-policy.ts`,
    `health-checks/<name>.health-check.ts`, `eval-suites/<name>.eval-suite.ts`,
    `contexts/<name>.context.ts`, `infrastructure/<name>.<contract>.ts` (your own `Logger`, `IdGenerator`,
    `Clock`: `infrastructure/json.logger.ts`), `config/<name>.config.ts`, `scripts/<name>.ts` (run by `npm run`),
    `http/server.ts`, `environments/*.environment.ts`,
    `<app>.application.ts`), and `tests/` mirrors `src/` symmetrically (`tests/tools/<name>.tool.test.ts`,
-   `tests/workflows/<workflow-name>/<workflow-name>.workflow.test.ts`, …). A component's `name` is in
-   kebab-case ending with its kind (`billing-agent`, `refund-tool`, `desk-router`, `chat-workflow-start`,
-   `desk-workflow`) — `[name.kind-suffix]`; the class is that name in PascalCase (`BillingAgent`,
+   `tests/workflows/<workflow-name>/<workflow-name>.workflow.test.ts`, …). A persisted component's `name` is in
+   kebab-case ending with its kind (`billing-agent`, `desk-router`, `chat-workflow-start`,
+   `desk-workflow`) — `[name.kind-suffix]`; the `name` of every other component (`@HealthCheck`, `@Judge`,
+   `@InputGuardrail`, `@ToolInterceptor`, `@PiiPolicy`, `@ModelProvider`, …) is optional — kebab-case, the
+   class name by default — and a tool's name needs no `-tool` suffix; the class is that name in PascalCase (`BillingAgent`,
    `DeskWorkflow`), and for an `@Application` and a `@Budget` the same rule checks the class name too
    (a `@Budget` class `DailyLimit` fails: `name it DailyLimitBudget`). Every `*Dto` class is its own
    file in `dto/<name>.dto.ts` and ends with `Dto` (`[dto.name]`). Every custom error is an
    `AGBossError` subclass in `errors/<name>.error.ts` ending with `Error`.
-3. **The flow is paths, written one call per line.** `@Workflow({ flow: [start(S) … .toFinish(F)] })`;
-   `.returns(XDto)` says what the step before put on the path (its scope), and a later node reads its
-   `input` fields from that scope — as `{ producer, value }` records (`input.order.value`), never by
+3. **The flow is paths, written one call per line.** `@Workflow({ flow: [onStart(S) … .toFinish(F)] })`;
+   what the step before gives (its declared `output`, a start's `input`) is on the path (its scope), and a later node reads its
+   `input` fields from that scope — as the DTOs themselves (`input.order.orderId`; `Metadata.createdBy(input.order)` tells who made it), never by
    position. Every path ends in a finish.
 4. **Data are DTO classes, values are plain objects.** One field decorator per field (`@Text`,
-   `@Integer`, `@Flag`, `@OneOf`, `@ListOf`, `@Nested`, …) from `@agboss/core/dto`; a value is
+   `@Integer`, `@Bool`, `@Enum`, `@List`, `@Nested`, …) from `@agboss/core/dto`; a value is
    `{ orderId: "7" }`, never `new OrderDto()`. No zod, no JSON Schema by hand.
 5. **Decorator = metadata, constructor = dependencies, methods = a contract.** `deps: [A, B]` lists
-   the constructor's parameters in order (the compiler checks it); `implements ToolHandler<In, Out>`,
-   `ActionHandler<Self>`, `RouterHandler<Self>`, `JudgeHandler<TReply>`, … The container creates
+   the constructor's parameters in order (the compiler checks it); a tool is an `execute` method (the `ToolHandler<In, Out>` shape), no `implements`; `ActionHandler<Self>`,
+   `RouterHandler<Self>`, `JudgeHandler<TReply>`, … The container creates
    every component — project code never calls `new` on one.
 6. **Components keep no state.** Another instance may continue an execution after a pause: read the
    execution from an injected `ExecutionContext`, time from `Clock`, ids from `IdGenerator`; data
-   that outlive a step go through the path (`.returns`) or your own service over external storage.
+   that outlive a step go through the path (a step's `output`) or your own service over external storage.
 7. **Values carry units.** `seconds(30)`, `minutes(5)`, `hours(24)`, `usd(0.05)`, `kilobytes(256)`
    from `@agboss/core/units` — `timeout: seconds(5)`, never `timeoutMs: 5000`.
-8. **Infrastructure lives in the application only.** Stores (`Sqlite…Repository`), `Clock`,
-   `IdGenerator`, `Logger`, model providers, channel implementations and observers are listed in
-   `@Application({ providers | observers })`; a workflow's `providers` are its services
-   (`[di.infrastructure-in-workflow]`). A contract gets the one listed class that `extends` it.
+8. **Infrastructure lives in the application only.** Where the rows go is `@Application({ storage })`
+   (`@DatabaseStorage` with a driver, `storages/<name>.database-storage.ts`); the model providers
+   (`@ModelProvider({ driver })`, the default one named by `@Application({ modelProvider })` — there are
+   no built-ins), `Clock`, `IdGenerator`, `Logger` are in `providers`; channels, selectors and listeners in
+   `channels` / `channelSelectors` / `channelListeners`; observers in `observers`. A workflow's `providers`
+   are its services (`[di.infrastructure-in-workflow]`). A contract gets the one listed class that `extends` it.
 9. **Failures are typed and handled in the flow.** Every error is an `AGBossError` subclass with a
    stable `code` (`static override readonly code`) — never a `StepFailedError`, the framework's
    wrapper of a step's failure; `.onError(ErrorClass, side path)` right after a step catches that class, its
@@ -114,20 +119,20 @@ npm test                                                           # scripted mo
 ## Testing and evals: cheapest check first
 
 - **Loop 0** (static, $0): `npx agboss check` and `npx agboss describe`. **Loop 1** (every commit,
-  $0): the unit runners (`testTool`, `testJudge`, …) first, then `testWith(App)` with scripted models
+  $0): the unit runners (`testUnit`, …) first, then `testWith(App)` with scripted models
   or a recorded cassette — reference 10. Assert the path, the finish and trajectory invariants
   through `result.toolCalls` (`ToolCallRecord`, `ToolCallStatus`, `toolCallsOf`): which tools ran,
   with what, how each ended — never the position of a step. `result.record.steps`
-  (`{ record: true }`) has each visit's judge verdicts, guardrail decisions, spend and `inputHash`;
+  (`{ includeRecord: true }`) has each visit's judge verdicts, guardrail decisions, spend and `inputHash`;
   a judge reads the visit's calls as `input.toolCalls`.
 - **A stale cassette** (`StaleCassetteError`, `[vcr.stale-cassette]` — a component's prompt or
   schema changed since it was recorded; `npx agboss check --cassettes` finds it without a test):
   never edit the cassette by hand — re-record its stale interactions with
-  `AGBOSS_VCR_MODE=RECORD_STALE npm test`, then run the evals.
+  `AGBOSS_VCR_MODE=record-stale npm test`, then run the evals.
 - **Evals on a live model** are declared as an `@EvalSuite` (`@agboss/core/eval`,
   `eval-suites/<name>.eval-suite.ts`): cases built with `evalCase`, `turn`, `pastTurn`, `toolCall`,
   `toolInvariant`, checks in a declared order with `EvalCascade` — free trajectory invariants
-  (`checkTrajectory()`), then code judges (`@Judge({ decidedBy: DecidedBy.Code })`), then model
+  (a case's `tools`), then code judges (`@Judge({ })`), then model
   judges. `npx agboss check` assembles them too (Loop 0).
 - **Loops 2 and 3** (a live model, paid): `npx agboss eval run --suite <name> --runs <k> --report
 <run.json> [--save-baseline <baseline.json>]` — each case k times on the real application (`--env`), the cascade per run, pass@k and
@@ -151,7 +156,7 @@ npm test                                                           # scripted mo
 ## The gate's rules
 
 AGBoss code follows these everywhere — the framework's own gate enforces them with lint
-(`agboss/no-component-state`, `agboss/no-direct-time`, `agboss/no-internal-import`,
+(`agboss/no-component-state`, `agboss/no-direct-time`, `agboss/no-process-env`, `agboss/no-internal-import`,
 `@stylistic/newline-per-chained-call`) and a
 suppression budget, and a project made by `npx agboss create` lints with the same rules (its
 `eslint.config.js`). Never work around them:
@@ -173,8 +178,8 @@ suppression budget, and a project made by `npx agboss create` lints with the sam
   over a typed ORM / query builder (such as Drizzle ORM) with table definitions in
   `schemas/<name>.schema.ts` and DDL migrations in `sql/<name>.sql` — never inline `CREATE TABLE`
   strings in TypeScript, never string-interpolated SQL (`SELECT … ${clause}`), and never database
-  connections, schemas, or errors inside `services/`. A repository injects `SqliteConnection` (both listed in
-  `@Application({ providers })`, never a workflow's) and uses `sqliteConnection.database` (never an internal helper of `@agboss/core`), and a write
+  connections, schemas, or errors inside `services/`. A repository injects `SqliteConnection` (of `@agboss/core/stores`; the application's
+  SQLite storage provides it, and the repository is a service listed in a workflow's `providers`) and uses `sqliteConnection.database` (never an internal helper of `@agboss/core`), and a write
   transaction is `sqliteConnection.transaction(() => …)` — synchronous, no `await` inside: two
   instances on one event loop (`testWith(App, { instances: 2 })`) would wait on each other's lock
   (reference 09).
@@ -182,7 +187,7 @@ suppression budget, and a project made by `npx agboss create` lints with the sam
   copy its folders and names as they are.
 - Imports only from the public entries: `agboss`, `@agboss/core/dto`, `@agboss/core/units`, `@agboss/core/models`,
   `@agboss/core/testing` (+ `@agboss/core/testing/setup`, `@agboss/core/testing/vitest`), `@agboss/core/mcp`, `@agboss/core/rag`, `@agboss/core/a2a`,
-  `@agboss/core/memory`, `@agboss/core/eval`, and `@agboss/core/eslint` in `eslint.config.js` — never `@agboss/core/internal`
+  `@agboss/core/stores`, `@agboss/core/describe`, `@agboss/core/eval`, and `@agboss/core/eslint` in `eslint.config.js` — never `@agboss/core/internal`
   (`agboss/no-internal-import`; `studioOf`, the graphs `agboss studio` draws, is in `@agboss/core/testing`),
   `agboss/dist/…` or LangGraph directly.
 
@@ -207,7 +212,7 @@ export class OrderBookService {
 
 ```ts file=src/tools/order-status.tool.ts
 // the shape of every component: decorator, deps, a typed contract
-import { ExecutionContext, Tool, type ToolHandler } from "@agboss/core";
+import { ExecutionContext, Tool } from "@agboss/core";
 import { seconds } from "@agboss/core/units";
 
 @Tool({
@@ -218,13 +223,13 @@ import { seconds } from "@agboss/core/units";
   timeout: seconds(10),
   deps: [ExecutionContext, OrderBookService],
 })
-export class OrderStatusTool implements ToolHandler<OrderQueryDto, OrderStatusDto> {
+export class OrderStatusTool {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly orderBookService: OrderBookService,
   ) {}
 
-  async run({ orderId }: OrderQueryDto): Promise<OrderStatusDto> {
+  async execute({ orderId }: OrderQueryDto): Promise<OrderStatusDto> {
     const key: string = this.executionContext.step.idempotencyKey; // one key per call, stable on retry
     return { status: await this.orderBookService.statusOf(orderId, key) };
   }
@@ -241,21 +246,21 @@ answer the rest — then read only the files it names; after changing code, `gra
 
 ## Where to read next
 
-| Task                                                                                                                                                                                                                                  | Read                                              |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Designing a workflow: which primitive, how to split it, its DTOs, files and images                                                                                                                                                    | `references/01-composition-and-architecture.md`   |
-| Writing `*.workflow.ts` paths: branches, loops, parallel launches, quorums, `.onError`                                                                                                                                                | `references/02-flow-dsl-all-combinations.md`      |
-| A component class: decorators, DI, lifecycle hooks, contexts, environments, `app.*`, a `@ToolInterceptor` around tool calls                                                                                                           | `references/03-components-di-and-lifecycle.md`    |
-| Connecting MCP servers, exposing a workflow over MCP, calling or serving A2A agents                                                                                                                                                   | `references/04-mcp-and-a2a.md`                    |
-| Human approvals, pauses, channels, `app.resume`                                                                                                                                                                                       | `references/05-channels-and-human-in-the-loop.md` |
-| Budgets, model providers, retries, rate limits, circuit breakers                                                                                                                                                                      | `references/06-finops-providers-and-queues.md`    |
-| Input / output guardrails, PII masking                                                                                                                                                                                                | `references/07-guardrails-pii-and-security.md`    |
-| Execution records, observers, Langfuse / OpenTelemetry traces                                                                                                                                                                         | `references/08-observability-and-tracing.md`      |
-| SQLite stores, recovery, graceful shutdown, health probes, rolling deploys                                                                                                                                                            | `references/09-persistence-k8s-and-deploy.md`     |
-| Tests: `testWith`, unit runners (`testTool`, `testAction`, `testRouter`, `testArbiter`, `testRag`, `testJudge`, `testGuardrail`, `testToolInterceptor`, `testPii`, `testCompaction`), races, VCR cassettes, `@EvalSuite`, code judges | `references/10-testing-vcr-and-evals.md`          |
-| A CLI command, LangGraph Studio, a `[rule.code]` error                                                                                                                                                                                | `references/11-cli-studio-and-error-catalog.md`   |
-| A whole feature or application from scratch                                                                                                                                                                                           | `references/12-end-to-end-recipes.md`             |
-| Migrating a LangGraph graph (`StateAnnotation`, `addConditionalEdges`, `Command`, `Send`, `interrupt`) to AGBoss                                                                                                                      | `references/13-migrating-from-langgraph.md`       |
+| Task                                                                                                                        | Read                                              |
+| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Designing a workflow: which primitive, how to split it, its DTOs, files and images                                          | `references/01-composition-and-architecture.md`   |
+| Writing `*.workflow.ts` paths: branches, loops, parallel launches, quorums, `.onError`                                      | `references/02-flow-dsl-all-combinations.md`      |
+| A component class: decorators, DI, lifecycle hooks, contexts, environments, `app.*`, a `@ToolInterceptor` around tool calls | `references/03-components-di-and-lifecycle.md`    |
+| Connecting MCP servers, exposing a workflow over MCP, calling or serving A2A agents                                         | `references/04-mcp-and-a2a.md`                    |
+| Human approvals, pauses, channels, `app.resume`                                                                             | `references/05-channels-and-human-in-the-loop.md` |
+| Budgets, model providers, retries, rate limits, circuit breakers                                                            | `references/06-finops-providers-and-queues.md`    |
+| Input / output guardrails, PII masking                                                                                      | `references/07-guardrails-pii-and-security.md`    |
+| Execution records, observers, OpenTelemetry traces (`tracerProvider`, `@agboss/langfuse`)                                   | `references/08-observability-and-tracing.md`      |
+| Storage (`@DatabaseStorage`), recovery, graceful shutdown, health probes, rolling deploys                                   | `references/09-persistence-k8s-and-deploy.md`     |
+| Tests: `testWith`, unit runners (`testUnit`), races, VCR cassettes, `@EvalSuite`, code judges                               | `references/10-testing-vcr-and-evals.md`          |
+| A CLI command, LangGraph Studio, a `[rule.code]` error                                                                      | `references/11-cli-studio-and-error-catalog.md`   |
+| A whole feature or application from scratch                                                                                 | `references/12-end-to-end-recipes.md`             |
+| Migrating a LangGraph graph (`StateAnnotation`, `addConditionalEdges`, `Command`, `Send`, `interrupt`) to AGBoss            | `references/13-migrating-from-langgraph.md`       |
 
 Put this project's own rules in the root `AGENTS.md`, never in this folder: `npx agboss check`
 replaces it on every `@agboss/core` upgrade.

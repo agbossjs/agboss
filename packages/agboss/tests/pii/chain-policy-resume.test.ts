@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { createAppWith } from "../../src/application/create-app.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { createAppDeps, type AppDeps } from "../../src/app/app-deps.js";
 import { ownDepsOf } from "../../src/app/own-deps.js";
 import type { Class } from "../../src/components/injection.js";
@@ -26,6 +26,8 @@ import {
   WorkflowStart,
   type PiiMatch,
   type PiiPolicyHandler,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { childSourcesIn, configSnapshot } from "../../src/run/versions.js";
@@ -34,7 +36,7 @@ import { callTool, replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { answerOf, execute, start } from "../helpers/flow.js";
+import { answerOf, execute, onStart } from "../helpers/flow.js";
 import {
   resetSharedDatabase,
   SharedCheckpointSaver,
@@ -42,12 +44,13 @@ import {
   SharedPausedExecutionRepository,
 } from "../helpers/shared-infrastructure.js";
 import { SendEmail, sent } from "../app/fixtures/mail.workflow.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const none = (): readonly PiiMatch[] => [];
 
 /** A policy by name and file action: two of one name are one policy changed between deployments. */
 const policyOf = (name: string, files: PiiFileAction): Class => {
-  @PiiPolicy({ name, action: PiiAction.replaceWithKind(), files })
+  @PiiPolicy({ name, action: PiiAction.mask(), files })
   class ChainPolicy implements PiiPolicyHandler {
     findMatches = none;
   }
@@ -64,7 +67,7 @@ const OwnMask = policyOf("cr-own-pii-policy", PiiFileAction.Mask);
 @Agent({
   name: "cr-mailer-agent",
   description: "Sends the emails it is asked to",
-  prompt: "Send the email you are asked to send.",
+  prompt: inline("Send the email you are asked to send."),
   tools: [SendEmail],
   model: "test/cr-mailer",
 })
@@ -105,9 +108,8 @@ function deployment({ application = [], root = [], own = [] }: Policies): {
   @Workflow({
     name: "cr-child-workflow",
     version: "1.0.0",
-    flow: [
-      start(CrChildStart).returns(WorkflowStartTextDto).toAgent(CrMailer).toFinish(CrChildFinish),
-    ],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(CrChildStart).toAgent(CrMailer).toFinish(CrChildFinish)],
     piiPolicies: own,
   })
   class CrChild {}
@@ -115,19 +117,15 @@ function deployment({ application = [], root = [], own = [] }: Policies): {
   @Workflow({
     name: "cr-root-workflow",
     version: "1.0.0",
-    flow: [
-      start(CrRootStart)
-        .returns(WorkflowStartTextDto)
-        .toWorkflow(CrChild)
-        .returns(WorkflowFinishTextDto)
-        .toFinish(CrRootFinish),
-    ],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(CrRootStart).toWorkflow(CrChild).toFinish(CrRootFinish)],
     piiPolicies: root,
   })
   class CrRoot {}
 
   @Application({
     name: "cr-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [CrRoot],
@@ -155,9 +153,8 @@ function nested(middle: readonly Class[]): Class {
   @Workflow({
     name: "cr-leaf-workflow",
     version: "1.0.0",
-    flow: [
-      start(CrChildStart).returns(WorkflowStartTextDto).toAgent(CrMailer).toFinish(CrChildFinish),
-    ],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(CrChildStart).toAgent(CrMailer).toFinish(CrChildFinish)],
   })
   class CrLeaf {}
 
@@ -178,13 +175,8 @@ function nested(middle: readonly Class[]): Class {
   @Workflow({
     name: "cr-middle-workflow",
     version: "1.0.0",
-    flow: [
-      start(CrMiddleStart)
-        .returns(WorkflowStartTextDto)
-        .toWorkflow(CrLeaf)
-        .returns(WorkflowFinishTextDto)
-        .toFinish(CrMiddleFinish),
-    ],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(CrMiddleStart).toWorkflow(CrLeaf).toFinish(CrMiddleFinish)],
     piiPolicies: middle,
   })
   class CrMiddle {}
@@ -192,18 +184,14 @@ function nested(middle: readonly Class[]): Class {
   @Workflow({
     name: "cr-root-workflow",
     version: "1.0.0",
-    flow: [
-      start(CrRootStart)
-        .returns(WorkflowStartTextDto)
-        .toWorkflow(CrMiddle)
-        .returns(WorkflowFinishTextDto)
-        .toFinish(CrRootFinish),
-    ],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(CrRootStart).toWorkflow(CrMiddle).toFinish(CrRootFinish)],
   })
   class CrRoot {}
 
   @Application({
     name: "cr-nested-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [CrRoot],
@@ -225,12 +213,12 @@ const scripted = (): ScriptBook => {
 async function resumedAcross(before: Policies, after: Policies) {
   const book = scripted();
   const options = () => ({ processEnv: {}, gateway: createScriptedGateway(book) });
-  const first = await createAppWith(deployment(before).app, options());
+  const first = await createTestAppWith(deployment(before).app, options());
   const paused = await execute(first, CrRootStart, { text: "Email the boss" });
   await first.close();
   expect(paused.status).toBe(ExecutionStatus.Paused);
   expect(paused.pending[0]?.childExecutionId).toBeDefined();
-  const next = await createAppWith(deployment(after).app, options());
+  const next = await createTestAppWith(deployment(after).app, options());
   try {
     return await next.resume(answerOf(paused, { approved: true }));
   } finally {

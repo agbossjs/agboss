@@ -14,10 +14,9 @@ import {
   ResearchWorkflowStart,
   ScreeningFailedWorkflowFinish,
 } from "../fixtures/launch.fixture.js";
-import { WorkflowStartTextDto } from "../fixtures/dtos.js";
-import { ArticleDraftDto } from "../fixtures/launch-dtos.js";
-import { CritiqueDto, PlanDto, ResearchDto } from "../fixtures/review-dtos.js";
-import { start, toAction, toFinish } from "../fixtures/paths.js";
+import { CritiqueDto, ResearchDto } from "../fixtures/review-dtos.js";
+import { onStart, toAction, toFinish, toAgent } from "../fixtures/paths.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
  * #945 V3.6 — the settled answers on the error path: the `EdgeKind.JoinError` edge makes each branch
@@ -56,42 +55,40 @@ let count = 0;
 function codesOf(sidePath: ReturnType<typeof toAction>): readonly string[] {
   count += 1;
   const flow: Flow = [
-    start(ResearchWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ResearchWorkflowStart)
       .toAgent(PlannerAgent)
-      .returns(PlanDto)
-      .toParallelAgents(PlanResearcherAgent, CriticAgent, CriticAgent, { maxConcurrency: 3 })
+      .inParallel([toAgent(PlanResearcherAgent), toAgent(CriticAgent), toAgent(CriticAgent)], {
+        maxConcurrency: 3,
+      })
       .join()
-      .onJoinError(PauseExpiredError, sidePath)
-      .returns(ResearchDto)
-      .returns(listOf(CritiqueDto))
+      .onError(PauseExpiredError, sidePath)
       .toAgent(ArticleWriterAgent)
-      .returns(ArticleDraftDto)
       .toFinish(ArticleDraftWorkflowFinish),
   ];
-  @Workflow({ name: `settled-${String(count)}-workflow`, version: "1.0.0", flow })
+  @Workflow({
+    name: `settled-${String(count)}-workflow`,
+    version: "1.0.0",
+    historyTtl: Ttl.Forever,
+    flow,
+  })
   class SettledWorkflow {}
   return checkWorkflow(SettledWorkflow).errors.map((found) => found.code);
 }
 
 describe("V3.6: the settled answers on the error path", () => {
   it("a side path reads a branch output as optional, a list as a list", () => {
-    const side = toAction(SettledOptionalAction)
-      .returns(ScreeningFailedDto)
-      .toFinish(ScreeningFailedWorkflowFinish);
+    const side = toAction(SettledOptionalAction).toFinish(ScreeningFailedWorkflowFinish);
 
     expect(codesOf(side)).toEqual([]);
   });
 
   it("a side path reading a branch output non-optionally is an assembly error", () => {
-    const side = toAction(SettledRequiredAction)
-      .returns(ScreeningFailedDto)
-      .toFinish(ScreeningFailedWorkflowFinish);
+    const side = toAction(SettledRequiredAction).toFinish(ScreeningFailedWorkflowFinish);
 
     expect(codesOf(side)).toContain("input.missing-on-path");
   });
 
-  it(".onJoinError(PauseExpiredError, toFinish(F)) reading none of them: no [flow.unused-output]", () => {
+  it(".onError(PauseExpiredError, toFinish(F)) reading none of them: no [flow.unused-output]", () => {
     expect(codesOf(toFinish(ArticleDraftWorkflowFinish))).not.toContain("flow.unused-output");
   });
 });

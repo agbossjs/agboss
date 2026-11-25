@@ -6,7 +6,7 @@ import { TestSetupError } from "./errors.js";
 /** One instance of a test (#831): its own settings, `apps[i]`'s in `instances[i]`. */
 export interface TestInstanceOptions {
   /**
-   * The instance's clock skew (#533; default `ClockSkew.none`): its wall clock ahead or behind,
+   * The instance's clock skew (#533; default `ClockSkew.None`): its wall clock ahead or behind,
    * running fast or slow — while the stores decide by the test's clock, as by a database's own.
    */
   readonly clockSkew?: ClockSkew;

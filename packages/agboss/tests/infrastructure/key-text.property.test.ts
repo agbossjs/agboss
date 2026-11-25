@@ -5,16 +5,14 @@
  * outbound call's intent, a fenced effect's result). And for any text at all: refused exactly when
  * a rule says so, with an error that is the rule's own, never the text.
  */
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
-import {
-  FencedEffectStatus,
-  FingerprintPolicy,
-  InvalidBusinessKeyError,
-  type EffectKey,
-} from "../../src/index.js";
+import { invalidBusinessKey } from "../../src/infrastructure/idempotency-errors.js";
+import { IdempotencyRunStatus } from "../../src/index.js";
+import { type EffectKey } from "../../src/stores/index.js";
 import { assertBusinessKey } from "../../src/stores/index.js";
 import {
   keyOf,
@@ -150,9 +148,9 @@ describe("#538 AC2: any text is refused exactly when a rule says so, never echoe
         })();
         if (rule === undefined) expect(error).toBeUndefined();
         else {
-          expect(error).toBeInstanceOf(InvalidBusinessKeyError);
+          expect(error).toBeInstanceOf(IdempotencyError.InvalidKey);
           expect((error as Error).message).toBe(
-            new InvalidBusinessKeyError({ effect: "charge", rule }).message,
+            invalidBusinessKey({ effect: "charge", rule }).message,
           );
         }
       }),
@@ -281,8 +279,8 @@ describe.each(CALL_TARGETS)("#538 AC2: outbound-call intents (%s)", (_kind, targ
 });
 
 /** The fenced-effect property on `target`'s stores, whatever their transaction. */
-function effectsProperty<TTransaction>(
-  target: ContractTarget<FencedEffectTarget<TTransaction>>,
+function effectsProperty(
+  target: ContractTarget<FencedEffectTarget>,
   numRuns: number,
 ): () => Promise<void> {
   return withTarget(target, async ({ first, second }) => {
@@ -294,7 +292,7 @@ function effectsProperty<TTransaction>(
         const keyed = (businessKey: string): EffectKey =>
           effectKeyForTesting(keyOf(lease, `charge-${String(round)}`), {
             businessKey,
-            fingerprintPolicy: FingerprintPolicy.None,
+            withoutFingerprint: true,
           });
         const count = { runs: 0 };
         for (const [index, businessKey] of keys.entries()) {
@@ -302,7 +300,7 @@ function effectsProperty<TTransaction>(
             keyed(businessKey),
             writing(first.rows, `r${String(index)}`, count),
           );
-          expect(ran.status).toBe(FencedEffectStatus.Ran);
+          expect(ran.status).toBe(IdempotencyRunStatus.Ran);
         }
         for (const [index, businessKey] of keys.entries()) {
           const replayed = await second.effects.runOnce(
@@ -310,7 +308,7 @@ function effectsProperty<TTransaction>(
             writing(second.rows, "never", count),
           );
           expect(replayed).toMatchObject({
-            status: FencedEffectStatus.Replayed,
+            status: IdempotencyRunStatus.Replayed,
             result: { receipt: `r${String(index)}` },
           });
         }

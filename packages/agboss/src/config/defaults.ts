@@ -1,4 +1,4 @@
-import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
+import type { ApplicationDefaults, WorkflowDefaults } from "../flow/decorators/workflow.js";
 import { mergedFileDefaults } from "../files/file-settings.js";
 import { withoutUndefined } from "../types/defined.js";
 
@@ -24,7 +24,7 @@ export interface DefaultsLevels {
 /** One level: its name, its `defaults` and its window (`uncompactedTurns`, #120 PR 3). */
 interface DefaultsLevel_ {
   readonly name: string;
-  readonly defaults?: WorkflowDefaults;
+  readonly defaults?: ApplicationDefaults;
   readonly uncompactedTurns?: unknown;
 }
 
@@ -59,7 +59,6 @@ export function cascadeDefaults(
     router: merged(application.router, workflow.router),
     guardrail: merged(application.guardrail, workflow.guardrail),
     tools: merged(application.tools, workflow.tools),
-    flow: merged(application.flow, workflow.flow),
   });
 }
 
@@ -79,8 +78,6 @@ export const defaultsLevelsOf = (graph: object): DefaultsLevels | undefined =>
 export function uncompactedTurnsSourceOf(levels: DefaultsLevels): DefaultSource | undefined {
   if (levels.workflow.uncompactedTurns !== undefined)
     return { level: DefaultsLevel.Workflow, name: levels.workflow.name };
-  if (levels.application?.uncompactedTurns !== undefined)
-    return { level: DefaultsLevel.Application, name: levels.application.name };
   return undefined;
 }
 

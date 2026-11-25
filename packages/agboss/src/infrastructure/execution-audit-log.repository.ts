@@ -1,8 +1,9 @@
 import { Injectable } from "../components/decorators.js";
-import { IN_MEMORY_DATABASE } from "./in-memory-database.js";
+import { IN_MEMORY_DATABASE, treeKeyOf } from "./in-memory-database.js";
 import type { InMemoryDatabase } from "./in-memory-database.js";
 import type { FencedEffectOrigin } from "./fenced-effect.repository.js";
 import type { OutboundCallStatus } from "./outbound-call.repository.js";
+import type { ExecutionTree } from "./execution-tree.repository.js";
 
 /**
  * Infrastructure (#501): the audit log — an append-only record of what happened to the leases of an
@@ -21,8 +22,8 @@ export enum ExecutionAuditEventKind {
   Takeover = "takeover",
   /** A step stopped without failing: its lease was lost or fenced, or the app stopped (`onStepHandedOver`). */
   HandedOver = "handed-over",
-  /** A step's fenced effect (#500) ran, was replayed, joined or was refused (`onFencedEffect`). */
-  FencedEffect = "fenced-effect",
+  /** A step's fenced effect (#500) ran, was replayed, joined or was refused (`onIdempotencyRun`). */
+  IdempotencyRun = "idempotency-run",
   /** A step's call that leaves the system (#505) moved: recorded, sent, reconciled… (`onOutboundCall`). */
   OutboundCall = "outbound-call",
 }
@@ -79,14 +80,14 @@ export enum OutboundCallLeaseState {
 }
 
 /** How one call of a fenced effect (#500) went, as the audit log keeps it. */
-export enum FencedEffectEventOutcome {
-  /** The write ran now (`FencedEffectStatus.Ran`). */
+export enum IdempotencyRunEventOutcome {
+  /** The write ran now (`IdempotencyRunStatus.Ran`). */
   Ran = "ran",
-  /** The stored result came back, the write did not run again (`FencedEffectStatus.Replayed`). */
+  /** The stored result came back, the write did not run again (`IdempotencyRunStatus.Replayed`). */
   Replayed = "replayed",
-  /** The call joined one in flight on the same key (`FencedEffectStatus.Joined`). */
+  /** The call joined one in flight on the same key (`IdempotencyRunStatus.Joined`). */
   Joined = "joined",
-  /** The lease or the scope's mark refused the call (`ExecutionFencedError`): nothing written. */
+  /** The lease or the scope's mark refused the call (`ExecutionError.Fenced`): nothing written. */
   Refused = "refused",
   /** Its tree's cancel is durable (#909, `ExecutionCancelFencedError`): the write did not run. */
   Cancelled = "cancelled",
@@ -102,7 +103,7 @@ export enum LeaseTakeoverReason {
   Cancelled = "cancelled",
   /** The recovery sweep finishes its automatic undo (#340 PR 4). */
   Unwinding = "unwinding",
-  /** A worker runs or reclaims a `ChildPlacement.AnyInstance` child under its own lease (#333). */
+  /** A worker runs or reclaims a `ChildPlacement.AnyWorker` child under its own lease (#333). */
   RemoteChild = "remote-child",
   /** Its holder took its yielded lease back after waiting for remote children, at a new token. */
   Reclaimed = "reclaimed",
@@ -114,7 +115,7 @@ export enum LeaseTakeoverReason {
 export enum HandOverReason {
   /** Its lease expired or another instance took it (`ExecutionLeaseLostError`). */
   LeaseLost = "lease-lost",
-  /** An external system refused one of its writes (`ExecutionFencedError`, #471). */
+  /** An external system refused one of its writes (`ExecutionError.Fenced`, #471). */
   Fenced = "fenced",
   /** The instance stopped past its shutdown timeout (`ApplicationStoppingError`). */
   ApplicationStopping = "application-stopping",
@@ -182,12 +183,12 @@ export interface StepHandedOverRecord extends ExecutionAuditEventBase {
   readonly observedToken?: number;
 }
 
-/** One call of a step's fenced effect (`ExecutionAuditEventKind.FencedEffect`), never its result. */
-export interface FencedEffectRecord extends ExecutionAuditEventBase {
-  readonly kind: ExecutionAuditEventKind.FencedEffect;
+/** One call of a step's fenced effect (`ExecutionAuditEventKind.IdempotencyRun`), never its result. */
+export interface IdempotencyRunRecord extends ExecutionAuditEventBase {
+  readonly kind: ExecutionAuditEventKind.IdempotencyRun;
   /** The effect's name (`effectKeyOf(executionContext, name)`). */
   readonly name: string;
-  readonly outcome: FencedEffectEventOutcome;
+  readonly outcome: IdempotencyRunEventOutcome;
   readonly step: AuditEventStep;
   /** The token the stored result was first written under (a replay on a newer lease: the older). */
   readonly writtenToken?: number;
@@ -235,7 +236,7 @@ export interface OutboundCallClosedLease {
 
 /** One row of the audit log. */
 export type ExecutionAuditEventRecord =
-  LeaseTakeoverRecord | StepHandedOverRecord | FencedEffectRecord | OutboundCallEventRecord;
+  LeaseTakeoverRecord | StepHandedOverRecord | IdempotencyRunRecord | OutboundCallEventRecord;
 
 /** The outcomes a row written before #825 names by their old values. */
 const RENAMED_OUTCOMES: Readonly<Record<string, OutboundCallEventOutcome>> = {
@@ -275,9 +276,19 @@ export abstract class ExecutionAuditLogRepository {
     rootExecutionId: string,
   ): Promise<readonly ExecutionAuditEventRecord[]>;
 
-  /** Removes every row that happened before `cutoff` (the recovery sweep, `now - retention`). */
-  abstract deleteByOccurredAtBefore(cutoff: Date): Promise<void>;
+  /**
+   * Removes the rows that happened before `cutoff` (the recovery sweep, `now - retention`; a retention
+   * of none is a cutoff of now) of the trees `isEnded` says have ended, and gives the number removed
+   * (`onTtlSweep`'s count). A row of a tree that has not ended — live or paused — is never removed,
+   * whatever its age: the takeover of a tree reads its hand-over rows to charge the passes the
+   * previous holder lost (#853). A tree that ended stays ended, so asking `isEnded` once per tree
+   * (a tree with several rows is asked once) before the rows go is safe.
+   */
+  abstract deleteExpired(cutoff: Date, isEnded: EndedTree): Promise<number>;
 }
+
+/** Whether a tree has ended (finished, failed or was cancelled): terminal, it never turns live again. */
+export type EndedTree = (tree: ExecutionTree) => Promise<boolean>;
 
 /** The built-in default: the rows in this instance's memory (a test's instances share them). */
 @Injectable({ deps: [IN_MEMORY_DATABASE] })
@@ -306,11 +317,19 @@ export class InMemoryExecutionAuditLogRepository extends ExecutionAuditLogReposi
     return Promise.resolve(found.map((row) => structuredClone(row)));
   }
 
-  deleteByOccurredAtBefore(cutoff: Date): Promise<void> {
-    const kept = this.database.executionAuditLog.filter(
-      (row) => Date.parse(row.occurredAt) >= cutoff.getTime(),
+  async deleteExpired(cutoff: Date, isEnded: EndedTree): Promise<number> {
+    const rows = this.database.executionAuditLog;
+    const expired = rows.filter((row) => Date.parse(row.occurredAt) < cutoff.getTime());
+    const ended = new Map<string, boolean>();
+    for (const { tenantId, rootExecutionId } of expired) {
+      const key = treeKeyOf(tenantId, rootExecutionId);
+      if (!ended.has(key)) ended.set(key, await isEnded({ tenantId, rootExecutionId }));
+    }
+    // rows saved while the tree was asked about are not in `expired`: an index is no safe handle
+    const gone = new Set(
+      expired.filter((row) => ended.get(treeKeyOf(row.tenantId, row.rootExecutionId)) === true),
     );
-    this.database.executionAuditLog.splice(0, Infinity, ...kept);
-    return Promise.resolve();
+    rows.splice(0, Infinity, ...rows.filter((row) => !gone.has(row)));
+    return gone.size;
   }
 }

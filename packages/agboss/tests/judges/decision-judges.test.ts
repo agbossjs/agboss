@@ -1,10 +1,10 @@
 /**
  * #226: decision models are first-class — a judge decides on any decision model with typed answers
- * (`judgeModel.decide`, `Decision.choice / noul / score / image`), its spend under `judge:<name>`;
+ * (`judgeModel.decide`, `Decision.choice / boolean / score / image`), its spend under `judge:<name>`;
  * routers route on any decision model; the wrong call for a model's kind is a `ModelKindError`.
  */
 import { describe, expect, it } from "vitest";
-import { AgentFailedError, DecisionRequestError, ModelKindError } from "../../src/errors.js";
+import { AgentFailedError, DecisionError, ModelKindError } from "../../src/index.js";
 import { Decision } from "../../src/index.js";
 import { decideWith, replyWith, routeTo, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
@@ -54,7 +54,7 @@ describe("AC1: a judge on a decision model", () => {
         reply: "Acme is hiring a TS engineer.",
       },
       questions: {
-        grounded: { type: "noul" },
+        grounded: { type: "boolean" },
         tone: {
           type: "choice",
           criteria: { neutral: "Plain, factual", pushy: "Sells or pressures" },
@@ -177,6 +177,6 @@ describe("Decision builders refuse what the Decisions API would", () => {
     ["a choice of one option", () => Decision.choice("Pick", { only: null })],
     ["a score of one level", () => Decision.score("Rate", ["only"])],
   ])("%s", (_, build) => {
-    expect(build).toThrow(DecisionRequestError);
+    expect(build).toThrow(DecisionError.InvalidRequest);
   });
 });

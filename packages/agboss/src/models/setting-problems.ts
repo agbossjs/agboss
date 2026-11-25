@@ -1,7 +1,7 @@
 import { TokenLimit } from "../config/types.js";
 import type { ModelCapabilities, ReasoningSupport } from "./capabilities.js";
 import type { ModelProblem } from "./problems.js";
-import type { PromptCaching } from "./prompt-caching.js";
+import { isAutoCaching, type PromptCaching } from "./prompt-caching.js";
 import { reasoningLabel, type Reasoning, type ReasoningOnOptions } from "./reasoning.js";
 import type { ModelUse } from "./uses.js";
 
@@ -49,7 +49,13 @@ function cachingProblems(
 ): ModelProblem[] {
   const support = capabilities.promptCaching;
   // "where supported": a model without caching simply gets none
-  if (support === undefined || !support.supported || caching.kind === "off") return [];
+  if (
+    support === undefined ||
+    !support.supported ||
+    caching.kind === "off" ||
+    isAutoCaching(caching)
+  )
+    return [];
   const problems: ModelProblem[] = [];
   if (!support.retentions.includes(caching.retention)) {
     problems.push(
@@ -87,7 +93,7 @@ function parameterProblems(
             `parameters ${list(parameters)}`,
           ),
         ]),
-    ...(settings.maxTokens === TokenLimit.MODEL_MAX || takes("max_tokens", "max_completion_tokens")
+    ...(settings.maxTokens === TokenLimit.ModelMax || takes("max_tokens", "max_completion_tokens")
       ? []
       : [
           unsupported(

@@ -1,8 +1,10 @@
+import { type Usd, usd } from "../units/index.js";
 import {
   isApplicationSpendExhausted,
   recordApplicationSpend,
 } from "../budgets/application-spend.js";
 import type { ApplicationBudgets } from "../budgets/execution-budgets.js";
+import { totalCost } from "../finops/usage.js";
 import type { RouteOutcome, RouteRequest, RouterEngine } from "../routers/index.js";
 import type { RegistryGateway } from "../llm/registry.js";
 import type { Turn, TurnRecords } from "../turns/index.js";
@@ -29,7 +31,7 @@ export const BUDGET_EXHAUSTED = "the application's budget is exhausted";
 
 export interface ScoringReport {
   readonly scored: number;
-  readonly costUsd: number;
+  readonly costUsd: Usd;
   readonly stoppedBy?: string;
 }
 
@@ -52,15 +54,20 @@ export function scoreOf(outcome: RouteOutcome): number | undefined {
 /** Scores the given Turns within the eval budget; a judge failure leaves a Turn unscored. */
 export async function scoreTurns(deps: EvalDeps, turns: readonly Turn[]): Promise<ScoringReport> {
   let scored = 0;
-  let costUsd = 0;
+  let costUsd: Usd = usd(0);
   for (const turn of turns) {
     if (await isApplicationSpendExhausted(deps.budgets)) {
       return { scored, costUsd, stoppedBy: BUDGET_EXHAUSTED };
     }
     const outcome = await deps.judge.route(judgeRequest(turn));
-    if (outcome.usage !== undefined) {
-      await recordApplicationSpend(deps.budgets, [outcome.usage]);
-      costUsd += outcome.usage.costUsd;
+    // what the judge spent, a failed call's partial spend too (#1399): real money either way
+    const spent = [
+      ...(outcome.usage === undefined ? [] : [outcome.usage]),
+      ...(outcome.spent ?? []),
+    ];
+    if (spent.length > 0) {
+      await recordApplicationSpend(deps.budgets, spent);
+      costUsd = usd(costUsd + totalCost(spent));
     }
     const score = scoreOf(outcome);
     if (score === undefined) continue;

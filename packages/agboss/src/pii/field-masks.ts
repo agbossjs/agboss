@@ -18,16 +18,20 @@ export interface TokenFieldMask {
 }
 
 /** The mask of the model boundary: tokens with `key`, new ones collected. */
-export function tokenFieldMask(key: string, known: PiiTokenMap): TokenFieldMask {
+export function tokenFieldMask(
+  key: string,
+  known: PiiTokenMap,
+  previousKey?: string,
+): TokenFieldMask {
   const tokens: Record<string, string> = {};
   const mask: FieldMask = (action, label, value) => {
     switch (action.kind) {
-      case PiiActionKind.ReplacePart:
+      case PiiActionKind.MaskPart:
         return partReplaced(value, action.part);
-      case PiiActionKind.ReplaceWithKind:
+      case PiiActionKind.Mask:
         return kindPlaceholder(label);
-      case PiiActionKind.ReplaceWithToken: {
-        const token = tokenOf(label, value, key, { ...known, ...tokens });
+      case PiiActionKind.Tokenize: {
+        const token = tokenOf(label, value, key, { ...known, ...tokens }, previousKey);
         tokens[token] = value;
         return token;
       }

@@ -7,11 +7,12 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import { usd } from "../../../src/units/index.js";
 import { CheckOrderAction, ExemptionsLog } from "./paid-exemptions.actions.js";
 import {
@@ -42,15 +43,15 @@ export class HeldBranchWorkflowFinish {}
 
 /** Booked, charged past the budgets, then the refund launched beside a memo. */
 @Workflow({
+  placement: ChildPlacement.AnyWorker,
   name: "held-branch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HeldBranchWorkflowStart)
-      .returns(OrderDto)
+    onStart(HeldBranchWorkflowStart)
       .toAction(BookOrderAction)
       .toAction(CheckOrderAction)
-      .returns(OrderDto)
-      .toParallelActions(RefundOrderAction, MemoOrderAction)
+      .inParallel([toAction(RefundOrderAction), toAction(MemoOrderAction)])
       .join()
       .toFinish(HeldBranchWorkflowFinish),
   ],
@@ -68,10 +69,10 @@ export class HeldBranchWorkflow {}
 export class SplitOrderAction {
   constructor(private readonly spendRecorder: SpendRecorder) {}
 
-  execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<readonly OrderDto[]> {
+  execute(input: { readonly order: Tracked<OrderDto> }): Promise<readonly OrderDto[]> {
     paidSteps.ran.push("split");
     this.spendRecorder.record({ service: "order-api", cost: usd(paidSteps.charge) });
-    const { orderId } = input.order.value;
+    const { orderId } = input.order;
     return Promise.resolve([{ orderId: `${orderId}-a` }, { orderId: `${orderId}-b` }]);
   }
 }
@@ -85,13 +86,12 @@ export class HeldItemsWorkflowFinish {}
 @Workflow({
   name: "held-items-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HeldItemsWorkflowStart)
-      .returns(OrderDto)
+    onStart(HeldItemsWorkflowStart)
       .toAction(BookOrderAction)
       .toAction(SplitOrderAction)
-      .returns(listOf(OrderDto))
-      .toParallelActions(RefundOrderAction, { maxItems: 2 })
+      .forEachItem(toAction(RefundOrderAction), { takeFirst: 2 })
       .join()
       .toFinish(HeldItemsWorkflowFinish),
   ],
@@ -107,11 +107,10 @@ export class HeldLocalWorkflowFinish {}
 @Workflow({
   name: "held-local-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HeldLocalWorkflowStart)
-      .returns(OrderDto)
+    onStart(HeldLocalWorkflowStart)
       .toWorkflow(HeldBranchWorkflow)
-      .returns(OrderDto)
       .toFinish(HeldLocalWorkflowFinish),
   ],
 })
@@ -126,11 +125,10 @@ export class HeldAnyWorkflowFinish {}
 @Workflow({
   name: "held-any-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HeldAnyWorkflowStart)
-      .returns(OrderDto)
-      .toWorkflow(HeldBranchWorkflow, { placement: ChildPlacement.AnyInstance })
-      .returns(OrderDto)
+    onStart(HeldAnyWorkflowStart)
+      .toWorkflow(HeldBranchWorkflow)
       .toFinish(HeldAnyWorkflowFinish),
   ],
 })

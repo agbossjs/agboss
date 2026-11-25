@@ -6,6 +6,7 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../../../../agboss/src/index.js";
 import {
   WorkflowFinishTextDto,
@@ -18,8 +19,9 @@ import {
   SearchRequestDto,
 } from "../../../../../agboss/tests/flow/fixtures/data-dtos.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
-import { start } from "../../../../../agboss/tests/helpers/flow.js";
+import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
 import { DeskEnvironment } from "./environments/app.environment.js";
+import { TestModelProvider } from "../../../../../agboss/src/testing/test-model-provider.js";
 
 @WorkflowStart({
   name: "inbox-workflow-start",
@@ -56,10 +58,8 @@ export class CriteriaScreeningWorkflowStart {}
   output: WorkflowFinishTextDto,
 })
 export class EchoAction {
-  execute(input: {
-    readonly message: { readonly value: WorkflowStartTextDto };
-  }): Promise<WorkflowFinishTextDto> {
-    return Promise.resolve({ text: `echo: ${input.message.value.text}` });
+  execute(input: { readonly message: WorkflowStartTextDto }): Promise<WorkflowFinishTextDto> {
+    return Promise.resolve({ text: `echo: ${input.message.text}` });
   }
 }
 
@@ -70,8 +70,8 @@ export class EchoAction {
   output: CompanyScoreDto,
 })
 export class ScreenAction {
-  execute(input: { readonly company: { readonly value: CompanyDto } }): Promise<CompanyScoreDto> {
-    return Promise.resolve({ score: `${input.company.value.name}: fits` });
+  execute(input: { readonly company: CompanyDto }): Promise<CompanyScoreDto> {
+    return Promise.resolve({ score: `${input.company.name}: fits` });
   }
 }
 
@@ -82,10 +82,8 @@ export class ScreenAction {
   output: CompanyScoreDto,
 })
 export class RankAction {
-  execute(input: {
-    readonly companies: readonly { readonly value: CompanyDto }[];
-  }): Promise<CompanyScoreDto> {
-    const names = input.companies.map((company) => company.value.name);
+  execute(input: { readonly companies: readonly CompanyDto[] }): Promise<CompanyScoreDto> {
+    const names = input.companies.map((company) => company.name);
     return Promise.resolve({ score: names.join(" > ") });
   }
 }
@@ -98,11 +96,11 @@ export class RankAction {
 })
 export class CriteriaAction {
   execute(input: {
-    readonly company: { readonly value: CompanyDto };
-    readonly request?: { readonly value: SearchRequestDto };
+    readonly company: CompanyDto;
+    readonly request?: SearchRequestDto;
   }): Promise<CompanyScoreDto> {
-    const criteria = input.request?.value.criteria ?? "anything";
-    return Promise.resolve({ score: `${input.company.value.name} for ${criteria}` });
+    const criteria = input.request?.criteria ?? "anything";
+    return Promise.resolve({ score: `${input.company.name} for ${criteria}` });
   }
 }
 
@@ -123,11 +121,10 @@ export class ScoreWorkflowFinish {}
 @Workflow({
   name: "inbox-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(InboxWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(InboxWorkflowStart)
       .toAction(EchoAction)
-      .returns(WorkflowFinishTextDto)
       .toFinish(EchoWorkflowFinish),
   ],
 })
@@ -136,22 +133,16 @@ export class InboxWorkflow {}
 @Workflow({
   name: "screening-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ScreeningWorkflowStart)
-      .returns(CompanyDto)
+    onStart(ScreeningWorkflowStart)
       .toAction(ScreenAction)
-      .returns(CompanyScoreDto)
       .toFinish(ScoreWorkflowFinish),
-    start(BatchScreeningWorkflowStart)
-      .returns(listOf(CompanyDto))
+    onStart(BatchScreeningWorkflowStart)
       .toAction(RankAction)
-      .returns(CompanyScoreDto)
       .toFinish(ScoreWorkflowFinish),
-    start(CriteriaScreeningWorkflowStart)
-      .returns(CompanyDto)
-      .returns(optional(SearchRequestDto))
+    onStart(CriteriaScreeningWorkflowStart)
       .toAction(CriteriaAction)
-      .returns(CompanyScoreDto)
       .toFinish(ScoreWorkflowFinish),
   ],
 })
@@ -160,6 +151,7 @@ export class ScreeningWorkflow {}
 /** Two workflows, four starts (a text, a DTO, a list, a map): `agboss run` needs `--start`. */
 @Application({
   name: "desk-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: DeskEnvironment,
   workflows: [InboxWorkflow, ScreeningWorkflow],

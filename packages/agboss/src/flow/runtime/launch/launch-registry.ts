@@ -4,7 +4,9 @@ import type { LiveQuorum } from "./quorum-branch.js";
 import type { StepSlots } from "../../../app/step-slots.js";
 import type { StepEntries } from "../step-entries.js";
 import type { Class } from "../../../components/injection.js";
-import { treeLaunchesOnAnyInstance } from "../../analyse/child-placements.js";
+import { treeLaunchesQueued, type Placements } from "../../analyse/child-placements.js";
+import type { ChildPlacement } from "../../child-placement.js";
+import type { ExecutionLimitsOf } from "../../decorators/workflow.js";
 import { SharedTreeSlots, type SharedSlotParts } from "./shared-tree-slots.js";
 import {
   holdOnce,
@@ -19,7 +21,7 @@ import {
  * `maxConcurrency` (a sliding window: a branch takes a slot when it starts and frees it when it ends,
  * fails, is cancelled or pauses), the `AbortController` a `FailFast` failure aborts, the spend of
  * the branches that ended (so a later branch checks the money limits against it) and the errors
- * themselves (thrown as they are when no `.onJoinError(…)` takes them), and — for a quorum (#279
+ * themselves (thrown as they are when no `.onError(…)` takes them), and — for a quorum (#279
  * S26) — its state, rebuilt from the finished branches' records when the entry is made anew. In-process
  * is enough: only the tree's lease holder moves a tree (Q58); after a crash or a resume the entry is
  * made anew. Next to the launches, the trees' concurrency caps of the pass (#264 S27,
@@ -113,7 +115,7 @@ export class LaunchRegistry {
 }
 
 /**
- * The tree's concurrency cap (#264 S27): `@Workflow({ maxConcurrentExecutions })` of the root — how
+ * The tree's concurrency cap (#264 S27): `@Workflow({ executionLimits: { maxConcurrency } })` of the root — how
  * many executions of one tree (the root and all its descendants) work at once. A priority semaphore
  * per tree, in-process: only the tree's lease holder moves it (Q58) and its children are subgraphs
  * of its checkpoint (#263 S24), so its slots never leave this process — no storage contract.
@@ -124,7 +126,7 @@ export class LaunchRegistry {
  * cannot deadlock. A step without a free slot waits in the queue (a throttle, never an error) in
  * this order: a parent whose children have all finished (it closes a branch), then the deepest
  * execution; every `AGING_STEP` of waiting counts as one level deeper, read from the application's
- * `Clock` when a slot frees. A child workflow's own, smaller `maxConcurrentExecutions` caps its
+ * `Clock` when a slot frees. A child workflow's own, smaller `maxConcurrency` caps its
  * subtree inside the tree's. A waiter whose signal aborts (a cancel, a `FailFast` launch) leaves the
  * queue (`slot-queue.ts`, shared with the instance's `StepSlots`, #332). After a pause or a crash the next pass makes the tree's slots anew: the unfinished tasks
  * claim them again (a resume elsewhere starts with no slot held).
@@ -234,9 +236,16 @@ export class TreeSlotRegistry {
    * tree that can launch on any instance are kept (#333 PR 3), when it runs in an application.
    */
   constructor(
+    /** Each workflow's `executionLimits` as the selected profiles leave them (#1318c): the assembly's carrier, never the decorator alone. */
+    readonly limitsOf: ExecutionLimitsOf,
     readonly instance?: StepSlots,
     readonly steps?: StepEntries,
-    readonly shared?: Pick<SharedSlotParts, "rateLimits" | "clock">,
+    readonly shared?: Pick<SharedSlotParts, "rateLimits" | "clock"> & {
+      /** `@Application({ defaults: { workflows: { placement } } })`: a child that sets none runs there. */
+      readonly defaultPlacement?: ChildPlacement | undefined;
+      /** What the selected profiles give child workflows (#1318c): their placement over the declared one. */
+      readonly placements?: Placements | undefined;
+    },
   ) {}
 
   /** The tree's slots, made on its first claim with the root's cap. */
@@ -250,7 +259,10 @@ export class TreeSlotRegistry {
 
   #madeFor(root: TreeRoot, maxConcurrentExecutions: number, clock: Clock): TreeSlotCap {
     const { shared } = this;
-    if (shared === undefined || !treeLaunchesOnAnyInstance(root.workflow.type))
+    if (
+      shared === undefined ||
+      !treeLaunchesQueued(root.workflow.type, shared.defaultPlacement, shared.placements)
+    )
       return new TreeSlots(maxConcurrentExecutions, clock);
     const parts = { ...shared, tenantId: root.tenant.tenantId };
     return new SharedTreeSlots(parts, root.executionId, maxConcurrentExecutions);

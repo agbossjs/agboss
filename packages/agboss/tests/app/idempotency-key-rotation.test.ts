@@ -2,22 +2,18 @@
  * #825 AC7 — the idempotency key rotated under live business keys, on one SQLite file: an intent
  * recorded before the rotation and retried during it (the previous key named) is recognised — a
  * completed one replays, a pending one is reconciled, a fenced effect replays: no
- * `BusinessKeyConflictError`, nothing sent or booked twice. Once the previous key is removed,
+ * `IdempotencyError.KeyConflict`, nothing sent or booked twice. Once the previous key is removed,
  * what was stored under it fails closed: a conflict, nothing sent, nothing run. New rows are stored
  * under the current key only, so they replay after the previous one is gone.
  */
-import { createAppWith } from "../../src/application/create-app.js";
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  FencedEffectStatus,
-  BusinessKeyConflictError,
-  OutboundCallSendStatus,
-  type App,
-} from "../../src/index.js";
+import { IdempotencyRunStatus, OutboundCallSendStatus, type App } from "../../src/index.js";
 import { execute } from "./../helpers/flow.js";
 import { gateway, resetGateway } from "./fixtures/payment-gateway.js";
 import {
@@ -43,7 +39,7 @@ async function instanceOf(application: Class): Promise<App> {
     ROTATION_IDEMPOTENCY_KEY_V2: "key-after-the-rotation",
     ROTATION_OPENROUTER_API_KEY: "sk-unused",
   };
-  const app = await createAppWith(application, { env: "dev", processEnv });
+  const app = await createTestAppWith(application, { env: "dev", processEnv });
   opened.push(app);
   return app;
 }
@@ -107,24 +103,26 @@ describe("#825 AC7: an outbound call recorded before the rotation", { timeout: 6
     const before = await instanceOf(RotationBeforeApplication);
     await expect(execute(before, ChargeOrderStart, ORDER)).rejects.toThrow();
     await closed(before);
-    gateway.charges.set("default:order%3A42:charge", { chargeId: "ch-42-lost" });
+    const wireKey = gateway.calls[0]?.idempotencyKey ?? "";
+    gateway.charges.set(wireKey, { chargeId: "ch-42-lost" });
 
     await execute(await instanceOf(RotationDuringApplication), ChargeOrderStart, ORDER);
 
     expect(rotation.calls).toEqual([OutboundCallSendStatus.Reconciled]);
     expect(gateway.calls).toHaveLength(1);
-    expect(gateway.lookups).toHaveLength(1);
+    // the intent kept its wire key: the lookup asks for the one the first send used, whatever the secret is now
+    expect(gateway.lookups).toEqual([{ idempotencyKey: wireKey, attempt: 1 }]);
   });
 
-  it("after the previous key is removed: fails closed — BusinessKeyConflictError, nothing sent", async () => {
+  it("after the previous secret is removed: the row written under it is no longer found — the call is made again, under a key of the new secret (keep the previous secret for the longest ttl)", async () => {
     const first = await instanceOf(RotationBeforeApplication);
     await execute(first, ChargeOrderStart, ORDER);
     await closed(first);
 
-    await expect(
-      execute(await instanceOf(RotationAfterApplication), ChargeOrderStart, ORDER),
-    ).rejects.toFailWith(BusinessKeyConflictError, { effect: "charge" });
-    expect(gateway.calls).toHaveLength(1);
+    await execute(await instanceOf(RotationAfterApplication), ChargeOrderStart, ORDER);
+
+    expect(gateway.calls).toHaveLength(2);
+    expect(gateway.calls[1]?.idempotencyKey).not.toBe(gateway.calls[0]?.idempotencyKey);
   });
 
   it("another request during the rotation is still a conflict under either key", async () => {
@@ -137,7 +135,7 @@ describe("#825 AC7: an outbound call recorded before the rotation", { timeout: 6
         ...ORDER,
         amountUsd: 12,
       }),
-    ).rejects.toFailWith(BusinessKeyConflictError, { effect: "charge" });
+    ).rejects.toFailWith(IdempotencyError.KeyConflict, { effect: "charge" });
     expect(gateway.calls).toHaveLength(1);
   });
 
@@ -155,7 +153,7 @@ describe("#825 AC7: an outbound call recorded before the rotation", { timeout: 6
 
 // under a loaded gate (3 workers beside other gates) a case here ran 5.7-11 s against vitest's 5 s default, and 0.6-3 s alone (#1225, as #1160): the bound says "not hung"
 describe("#825 AC7: a fenced effect stored before the rotation", { timeout: 60_000 }, () => {
-  it("retried during it: replayed, booked once; after the previous key is removed: a conflict, nothing run", async () => {
+  it("retried during it: replayed, booked once; after the previous secret is removed: the row is not found, the write runs again", async () => {
     const first = await instanceOf(RotationBeforeApplication);
     await execute(first, BookOrderStart, ORDER);
     await closed(first);
@@ -163,10 +161,14 @@ describe("#825 AC7: a fenced effect stored before the rotation", { timeout: 60_0
     await execute(during, BookOrderStart, ORDER);
     await closed(during);
 
-    const after = execute(await instanceOf(RotationAfterApplication), BookOrderStart, ORDER);
+    await execute(await instanceOf(RotationAfterApplication), BookOrderStart, ORDER);
 
-    await expect(after).rejects.toFailWith(BusinessKeyConflictError, { effect: "book" });
-    expect(rotation.effects).toEqual([FencedEffectStatus.Ran, FencedEffectStatus.Replayed]);
-    expect(bookingsOn(file)).toBe(1);
+    // the row written under the removed previous secret is not found: the write runs again
+    expect(rotation.effects).toEqual([
+      IdempotencyRunStatus.Ran,
+      IdempotencyRunStatus.Replayed,
+      IdempotencyRunStatus.Ran,
+    ]);
+    expect(bookingsOn(file)).toBe(2);
   });
 });

@@ -19,22 +19,16 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import { GraphRuleError } from "../../../src/graph/rule-error.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../fixtures/budgets.js";
-import {
-  ChangesRequestedDto,
-  DraftApprovedDto,
-  OfferDraftDto,
-  OfferSentDto,
-  ShortlistDto,
-} from "../fixtures/dtos.js";
+import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto } from "../fixtures/dtos.js";
 import {
   DraftKitAgent,
   KitWorkflowStart,
   SendKitAction,
   SentKitWorkflowFinish,
 } from "../fixtures/kit.fixture.js";
-import { agent, caseOf, start } from "../fixtures/paths.js";
+import { onAgent, onStart, toAgent, toAction } from "../fixtures/paths.js";
 
 const BAD: readonly (readonly [string, unknown, string])[] = [
   ["NaN", Number.NaN, "NaN"],
@@ -67,18 +61,18 @@ function loopOf(
   @Agent({
     name: `limit-${String(count)}-edit-agent`,
     description: "Edits the draft",
-    prompt: "Edit it.",
+    prompt: inline("Edit it."),
     model: "moonshotai/kimi-k2.6",
-    input: { draft: OfferDraftDto },
+    input: { draft: OfferDraftDto, changes: ChangesRequestedDto },
     output: OfferDraftDto,
-    ...(editor as object),
+    executionLimits: editor as never,
   })
   class LimitEditAgent {}
 
   @Agent({
     name: `limit-${String(count)}-review-agent`,
     description: "Reviews the draft",
-    prompt: "Review it.",
+    prompt: inline("Review it."),
     model: "moonshotai/kimi-k2.6",
     input: { draft: OfferDraftDto },
     output: oneOf(ChangesRequestedDto, DraftApprovedDto),
@@ -88,24 +82,13 @@ function loopOf(
   @Workflow({
     name: `limit-${String(count)}-loop-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(KitWorkflowStart)
-        .returns(ShortlistDto)
-        .toAgent(DraftKitAgent)
-        .returns(OfferDraftDto)
-        .toAgent(LimitReviewAgent),
-      agent(LimitReviewAgent)
-        .returns(oneOf(ChangesRequestedDto, DraftApprovedDto))
-        .switch(
-          caseOf(ChangesRequestedDto)
-            .toAgent(LimitEditAgent)
-            .returns(OfferDraftDto)
-            .toAgent(LimitReviewAgent),
-          caseOf(DraftApprovedDto)
-            .toAction(SendKitAction)
-            .returns(OfferSentDto)
-            .toFinish(SentKitWorkflowFinish),
-        ),
+      onStart(KitWorkflowStart).toAgent(DraftKitAgent).toAgent(LimitReviewAgent),
+      onAgent(LimitReviewAgent).toOneOf([
+        toAgent(LimitEditAgent).toAgent(LimitReviewAgent),
+        toAction(SendKitAction).toFinish(SentKitWorkflowFinish),
+      ]),
     ],
     ...workflow,
   })
@@ -142,7 +125,9 @@ describe("#1373: maxVisits that is no whole number from 0 fails assembly", () =>
   });
 
   it("the analysis reads the value as the run does: a bound of 0 in the worst case", () => {
-    const check = checkWorkflow(loopOf({ maxVisits: Number.NaN }, { maxSteps: 10 }));
+    const check = checkWorkflow(
+      loopOf({ maxVisits: Number.NaN }, { executionLimits: { maxSteps: 10 } }),
+    );
 
     expect(check.errors.map((found) => found.code)).toEqual(["limits.count-invalid"]);
     expect(check.warnings.map((found) => found.code)).not.toContain(
@@ -218,12 +203,14 @@ describe("#1373: maxSteps that is no whole number from 0 fails assembly, its val
   it.each(BAD)(
     "%s: [limits.count-invalid] alone — no other steps rule reads it",
     (_kind, value, shown) => {
-      const check = checkWorkflow(loopOf({ maxVisits: 2 }, { maxSteps: value as never }));
+      const check = checkWorkflow(
+        loopOf({ maxVisits: 2 }, { executionLimits: { maxSteps: value as never } }),
+      );
 
       expect(check.errors.map((found) => found.code)).toEqual(["limits.count-invalid"]);
       expect(check.errors[0]?.message).toMatch(
         new RegExp(
-          `^limit-\\d+-loop-workflow has maxSteps: ${shown}, not a whole number of steps from 0`,
+          `^limit-\\d+-loop-workflow has executionLimits.maxSteps: ${shown}, not a whole number of steps from 0`,
         ),
       );
       expect(check.errors[0]?.message).not.toContain("five");
@@ -235,8 +222,8 @@ describe("#1373: maxSteps that is no whole number from 0 fails assembly, its val
   );
 
   it("a whole number that holds the flow passes, one that is too low is still [limits.max-steps-too-low]", () => {
-    expect(codesOf(loopOf({ maxVisits: 2 }, { maxSteps: 50 }))).toEqual([]);
-    expect(codesOf(loopOf({ maxVisits: 2 }, { maxSteps: 0 }))).toEqual([
+    expect(codesOf(loopOf({ maxVisits: 2 }, { executionLimits: { maxSteps: 50 } }))).toEqual([]);
+    expect(codesOf(loopOf({ maxVisits: 2 }, { executionLimits: { maxSteps: 0 } }))).toEqual([
       "limits.max-steps-too-low",
     ]);
   });
@@ -295,7 +282,7 @@ describe("#1373: a router and a question step have a maxVisits that is a whole n
 
 describe("#1373: the application refuses the loop of the issue before any model is called", () => {
   it('maxVisits "five" on both loop nodes: a GraphRuleError with [limits.count-invalid], no value quoted', async () => {
-    const workflow = loopOf({ maxVisits: "five" }, { maxSteps: 500 });
+    const workflow = loopOf({ maxVisits: "five" }, { executionLimits: { maxSteps: 500 } });
 
     @Application({
       name: "limit-issue-application",

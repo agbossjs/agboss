@@ -8,13 +8,13 @@ import { describe, expect, it } from "vitest";
 import { Weekday, WorkingWeek } from "../../src/index.js";
 import { unestimatedWorkingWeek, weekReaches } from "../../src/calendar/working-week.js";
 import { HOUR, TEL_AVIV, week } from "./helpers.js";
-import { milliseconds } from "./units.js";
+import { workMs } from "./units.js";
 
 const request = (from: string, amount: number) => ({
   from: new Date(from),
-  amount: milliseconds(amount),
+  amount: workMs(amount),
   tenantId: "default",
-  channel: "r",
+  target: "r",
 });
 
 /** One working hour a week, Monday 09:00–10:00 UTC. */
@@ -83,9 +83,9 @@ describe("#1148: the start check counts the holidays", () => {
   it("a span that passes without holidays is refused with fifty Monday holidays, and the walk agrees", () => {
     const withHolidays = WorkingWeek.of({ ...MONDAY_HOUR, holidays: mondays(50) });
 
-    expect(weekReaches(thin, 1307 * HOUR)).toBe(true);
-    expect(weekReaches(withHolidays, 1307 * HOUR)).toBe(false);
-    expect(weekReaches(withHolidays, 800 * HOUR)).toBe(true);
+    expect(weekReaches(thin, workMs(1307 * HOUR))).toBe(true);
+    expect(weekReaches(withHolidays, workMs(1307 * HOUR))).toBe(false);
+    expect(weekReaches(withHolidays, workMs(800 * HOUR))).toBe(true);
     expect(() =>
       withHolidays.addWorkingTime(request("2026-01-05T09:00:00.000Z", 1307 * HOUR)),
     ).toThrow(/25 years/);
@@ -100,12 +100,12 @@ describe("#1148: the start check counts the holidays", () => {
     });
     const hoursOfYears = 40 * 52 * 20; // twenty years of a 40-hour week
 
-    expect(weekReaches(office, hoursOfYears * HOUR)).toBe(true);
-    expect(weekReaches(office, hoursOfYears * 2 * HOUR)).toBe(false);
+    expect(weekReaches(office, workMs(hoursOfYears * HOUR))).toBe(true);
+    expect(weekReaches(office, workMs(hoursOfYears * 2 * HOUR))).toBe(false);
   });
 
   it("a span the estimate lets through is reached by the walk, from the day after a Monday start too", () => {
-    expect(weekReaches(thin, 1307 * HOUR)).toBe(true);
+    expect(weekReaches(thin, workMs(1307 * HOUR))).toBe(true);
     expect(thin.addWorkingTime(request("2026-01-06T09:00:00.000Z", 1307 * HOUR))).toBeInstanceOf(
       Date,
     );

@@ -92,6 +92,7 @@ describe("AC1: copies of one target", () => {
         "one-item-workflow-start",
         "stamp-action#1",
         "stamp-action#2",
+        "stamps-action",
         "stamps-workflow-finish",
       ]);
       expect(result).toFinishWith(StampsWorkflowFinish, {

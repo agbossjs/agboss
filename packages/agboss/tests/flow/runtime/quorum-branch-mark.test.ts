@@ -1,3 +1,4 @@
+import { usd } from "../../../src/units/index.js";
 /**
  * #1366: what a branch's answer is marked with when the quorum is decided while its arbiters judge it — no mark, its
  * place in the quorum left and the spend of the arbiters' calls kept; and what happens to the other branches when
@@ -11,10 +12,11 @@ import { cancelIfDecided, markAnswer } from "../../../src/flow/runtime/launch/qu
 vi.mock("../../../src/flow/runtime/launch/arbiters.js", () => ({ judgeAnswer: vi.fn() }));
 
 const record = (costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "arbiter",
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -40,7 +42,10 @@ function liveOf(isDecided: boolean) {
 }
 
 const ticket = { index: 3, node: "agent" } as never;
-const arbiters = { launch: { launch: { acceptedBy: [{}] } }, deps: {} } as never;
+const arbiters = {
+  launch: { launch: { arbitratedBy: (() => undefined) as never } },
+  deps: {},
+} as never;
 
 describe("#1366: the mark of a judged answer", () => {
   it("an answer judged while the quorum was decided is no mark: its place left, the spend of its arbiters kept", async () => {

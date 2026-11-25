@@ -43,7 +43,7 @@ describe("the first complete group by priority goes on", () => {
       const result = await app.execute(IntakeWorkflowStart, ANNA);
 
       expect(result).toFinishWith(IntakeReportWorkflowFinish, LEGAL);
-      expect(result.launches[0]?.group).toEqual({ agents: ["legal-check-agent"], priority: 1 });
+      expect(result.launches[0]?.group).toEqual({ targets: ["legal-check-agent"], priority: 1 });
       expect(result.launches[0]?.branches.map((branch) => branch.status)).toContain(
         BranchStatus.Cancelled,
       );
@@ -59,7 +59,7 @@ describe("the first complete group by priority goes on", () => {
       const result = await app.execute(IntakeWorkflowStart, ANNA);
 
       expect(result).toFinishWith(QuickScreenWorkflowFinish, SCREEN);
-      expect(result.launches[0]?.group).toEqual({ agents: ["fast-screen-agent"], priority: 2 });
+      expect(result.launches[0]?.group).toEqual({ targets: ["fast-screen-agent"], priority: 2 });
     },
   );
 });

@@ -1,6 +1,4 @@
 import {
-  SqliteCheckpointSaver,
-  SqliteConnection,
   SqliteCostLedgerRepository,
   SqliteExecutionAuditLogRepository,
   SqliteExecutionLeaseRepository,
@@ -9,6 +7,8 @@ import {
   SqliteOutboundCallRepository,
   SqlitePausedExecutionRepository,
 } from "../../../../src/index.js";
+import { SqliteCheckpointSaver } from "../../../../src/internal.js";
+import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";
@@ -27,7 +27,6 @@ import {
   name: "sqlite-outbound-call-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,
@@ -51,7 +50,6 @@ export class SqliteOutboundCallApplication {}
   name: "unlisted-outbound-call-store-application",
   version: "1.0.0",
   environment: SqliteTestEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   budgets: TEST_BUDGETS,
   piiPolicies: [EmailPiiPolicy],

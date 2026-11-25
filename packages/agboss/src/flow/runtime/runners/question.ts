@@ -3,7 +3,7 @@ import { DtoValidationError } from "../../../dto/errors.js";
 import { validate } from "../../../dto/schema.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { systemClock } from "../../../infrastructure/clock.js";
-import { PauseKind, questionAskOf } from "../../../infrastructure/pause-record.js";
+import { PauseKind, pauseInputOf } from "../../../infrastructure/pause-record.js";
 import { NodeKind } from "../../ast.js";
 import { currentFrame } from "../../context/frame.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
@@ -17,10 +17,6 @@ import type { BudgetMeter } from "../../../budgets/execution-budgets.js";
 import { expiryFailureOf, PauseExpirySignal } from "../pause-expiry-failure.js";
 import { ComponentKind } from "../records.js";
 import type { ExecutionStateType } from "../state.js";
-
-/** The question's value: the field reads it as `{ producer, value }`, like every input field. */
-const questionOf = (field: unknown): unknown =>
-  typeof field === "object" && field !== null && "value" in field ? field.value : field;
 
 /** How a question step fails: its channel's `send`, an invalid decision, an expired pause (#941). */
 async function failedAsking(
@@ -64,24 +60,24 @@ export function questionRunner(
 ): NodeRunner {
   const { declaration } = node;
   if (declaration.kind !== NodeKind.Question) throw new TypeError(`${node.id} is not a question`);
-  const { output: answer, role } = declaration.options;
+  const { output: answer, target: task } = declaration.options;
   const answered = (decision: unknown): unknown => validate(answer, decision);
   return async (state, config) => {
     const input = readInput(deps.graph, node, state);
     const frame = currentFrame();
-    const { pause, channelOf } = deps;
-    if (pause === undefined || channelOf === undefined || frame === undefined)
+    const { pause, targetOf } = deps;
+    if (pause === undefined || targetOf === undefined || frame === undefined)
       throw new TypeError(`${node.id}: a question is asked only inside its application`);
     // the question as the channel, the records and the events see it: `sensitive` fields masked
-    const ask = questionAskOf(redactedDto(role.ask, questionOf(input.fields.ask)));
+    const ask = pauseInputOf(redactedDto(task.input, input.fields.ask));
     const onSend = (): Promise<void> =>
       reportNodeEvent((base) =>
-        deps.observer?.onChannelStart({ ...base, name: role.name, input: ask }),
+        deps.observer?.onChannelStart({ ...base, name: task.name, input: ask }),
       );
     const site: PauseStepSite = {
       pauses: pause.pauses,
       answers: pause.answers,
-      channel: channelOf(role.name),
+      target: targetOf(task.name),
       frame,
       signal: config?.signal,
       clock: deps.clock ?? systemClock,
@@ -92,16 +88,15 @@ export function questionRunner(
     };
     frame.execution.lease?.assertHeld();
     const asked = {
-      kind: PauseKind.Question,
+      kind: PauseKind.ExternalTask,
       step: node.id,
-      ask,
-      ...(node.expiresIn === undefined ? {} : { expiresIn: node.expiresIn }),
+      input: ask,
     };
     const reply = await pauseStep(site, asked).catch((error: unknown) =>
       failedAsking(error, node, { state, budgets }),
     );
     await reportNodeEvent((base) =>
-      deps.observer?.onChannelEnd({ ...base, name: role.name, update: reply.decision }),
+      deps.observer?.onChannelEnd({ ...base, name: task.name, output: reply.decision }),
     );
     return { value: { value: answered(reply.decision) }, read: input.read, usage: reply.usage };
   };

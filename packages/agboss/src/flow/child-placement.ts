@@ -1,37 +1,19 @@
-import type { Milliseconds, WorkingDuration } from "../units/index.js";
-import { FlowSyntaxError } from "./flow-syntax-error.js";
+import { minutes, type Milliseconds } from "../units/index.js";
 
 /**
- * Where a child workflow runs (#333 PR 2, ADR-0022): a launch option of `.toWorkflow(W, …)`,
- * `.toParallelWorkflows(W, …)` and `route(W, …)`. `ParentInstance` (the default) — inside its
- * parent's step, on the parent's instance, as before; `AnyInstance` — queued in the application's
- * `ChildExecutionQueueRepository` and claimed by any instance with a free step slot (#332), the
- * parent waiting for it at its node.
+ * Where a child workflow runs (#333 PR 2, ADR-0022, #1286): declared on the child's `@Workflow({
+ * placement })`, else the application's `defaults.workflows.placement`, else `CurrentProcess`.
+ * Never on the flow: the same graph runs in one process in dev and on a cluster in production.
  */
 export enum ChildPlacement {
-  /** On the parent's instance, inside its parent's step (the default). */
-  ParentInstance = "parent-instance",
-  /** On any instance of the application that claims it from the shared queue. */
-  AnyInstance = "any-instance",
-}
-
-/** The options of one child step: `.toWorkflow(W, { placement })`, `route(W, { placement })`. */
-export interface ChildStepOptions {
-  /** Where the child runs; `ChildPlacement.ParentInstance` when absent. */
-  readonly placement?: ChildPlacement;
-}
-
-/**
- * The options of a question step (#941): `.toQuestion(Q, { expiresIn })` and the side path
- * `toQuestion(Q, { expiresIn })`.
- */
-export interface QuestionStepOptions {
-  /**
-   * How long this question waits for its answer, over its role's `expiresIn`; at least
-   * `seconds(1)`. A question node has one value: two edges to it with different values are
-   * `[question.expires-in-conflict]`.
-   */
-  readonly expiresIn?: Milliseconds | WorkingDuration;
+  /** In the current Node.js process, inside the parent's step, with no queue hop (the default). */
+  CurrentProcess = "current-process",
+  /** Queued in `ChildExecutionQueueRepository`; claimed by any live worker with a free slot. */
+  AnyWorker = "any-worker",
+  /** Queued; claimed only by a live worker other than the one that launched it. */
+  OtherWorker = "other-worker",
+  /** A fresh isolated Node.js process of its own, exiting when the child ends (#1286b). */
+  IsolatedWorker = "isolated-worker",
 }
 
 const PLACEMENTS: ReadonlySet<unknown> = new Set(Object.values(ChildPlacement));
@@ -39,17 +21,9 @@ const PLACEMENTS: ReadonlySet<unknown> = new Set(Object.values(ChildPlacement));
 /** Whether `value` is a placement (untyped code may pass anything). */
 export const isChildPlacement = (value: unknown): value is ChildPlacement => PLACEMENTS.has(value);
 
-/**
- * The `placement` of a child step's options (#333 PR 2): `undefined` when absent; anything but a
- * `ChildPlacement` is refused (untyped code).
- */
-export function placementOptionOf(options: unknown, call: string): ChildPlacement | undefined {
-  if (options === undefined) return undefined;
-  if (typeof options !== "object" || options === null)
-    throw new FlowSyntaxError({ message: `${call} takes an options object` });
-  const placement: unknown = Reflect.get(options, "placement");
-  if (placement === undefined || isChildPlacement(placement)) return placement;
-  throw new FlowSyntaxError({
-    message: `${call} takes a ChildPlacement: ChildPlacement.ParentInstance or ChildPlacement.AnyInstance`,
-  });
-}
+/** Whether a child with this placement goes through `ChildExecutionQueueRepository`. */
+export const isQueued = (placement: ChildPlacement | undefined): boolean =>
+  placement !== undefined && placement !== ChildPlacement.CurrentProcess;
+
+/** How long an `OtherWorker` child waits for a worker other than its launcher before its parent fails (#1286, D9). */
+export const CHILD_CLAIM_TIMEOUT: Milliseconds = minutes(1);

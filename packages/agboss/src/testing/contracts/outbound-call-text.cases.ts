@@ -22,7 +22,7 @@ const requestAndResult: OutboundCallCase = {
 
     // the attempt's owner as `recorded` writes it (#508: an attempt ends only for its owner)
     expect(
-      await first.calls.markCompleted(key, "owner-1", JSON.stringify({ receipt: NUL_TEXT })),
+      await first.calls.markCompleted(key, "owner-1", JSON.stringify({ receipt: NUL_TEXT }), null),
     ).toBe(true);
 
     expect(await second.calls.findByKey(key)).toMatchObject({
@@ -40,7 +40,7 @@ const failureMessage: OutboundCallCase = {
     await recorded(first, key);
     const failure = { name: NUL_TEXT, code: NUL_TEXT, message: NUL_TEXT };
 
-    expect(await first.calls.markFailed(key, "owner-1", failure)).toBe(true);
+    expect(await first.calls.markFailed(key, "owner-1", failure, null)).toBe(true);
 
     expect((await second.calls.findByKey(key))?.failure).toEqual(failure);
   },

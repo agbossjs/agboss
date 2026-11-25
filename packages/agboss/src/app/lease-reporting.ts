@@ -1,4 +1,4 @@
-import type { FencedEffectReport, HandOverReport, OutboundCallReport } from "./audit-log.js";
+import type { IdempotencyRunReport, HandOverReport, OutboundCallReport } from "./audit-log.js";
 import type { AuditLogWriter } from "./execution-leases.js";
 import { AuditLogReports, CancelFoundHooks } from "./lease-yields.js";
 
@@ -19,8 +19,8 @@ export abstract class ReportingLease extends CancelFoundHooks {
     this.reports.handOver(this.events, report, this.scopeKey);
   }
 
-  recordFencedEffect(report: FencedEffectReport): void {
-    this.#stepCall((record, log, holder) => record.recordFencedEffect(log, report, holder));
+  recordIdempotencyRun(report: IdempotencyRunReport): void {
+    this.#stepCall((record, log, holder) => record.recordIdempotencyRun(log, report, holder));
   }
 
   recordOutboundCall(report: OutboundCallReport): void {

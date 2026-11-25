@@ -1,5 +1,4 @@
 import { PauseKind } from "../../src/pause/index.js";
-import { PauseAnswerer } from "../../src/channels/channel-role.decorator.js";
 import "../../src/testing/setup.js";
 import { writeFile } from "node:fs/promises";
 import http, { createServer, type Server } from "node:http";
@@ -26,6 +25,7 @@ import {
 } from "./fixtures/desk.workflow.js";
 import { toolResultsOf } from "./fixtures/requests.js";
 import { execute } from "../helpers/flow.js";
+import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const test = testWith(DeskApplication);
 const local = testWith(DeskApplication, { allowNetwork: ["localhost"] });
@@ -115,7 +115,7 @@ describe("AC12: everything external is replaced; a live call fails the test befo
     async ({ app }) => {
       await writeFile(join(NOTES_DIR, "real-note.md"), "from disk");
 
-      const read = await app.tool(ReadNote).invoke({ title: "real-note" });
+      const { output: read } = await app.runTool(ReadNote, { title: "real-note" });
 
       expect(read).toEqual({ kind: "ok", value: { text: "from disk" } });
     },
@@ -132,19 +132,16 @@ describe("AC12: everything external is replaced; a live call fails the test befo
     expect(result.pending).toEqual([
       {
         pauseId: expect.stringMatching(/^[0-9a-f]{32}$/),
-        answerer: PauseAnswerer.ThreadOwner,
-        answeredBy: PauseAnswerer.ThreadOwner,
+        respondent: PauseRespondent.Owner,
         kind: PauseKind.Approval,
         step: "support-agent",
-        channel: "terminal-user-channel",
+        target: "owner-tool-approval",
+        expiresAt: expect.any(String),
         childExecutionId: undefined,
         itemIndex: undefined,
-        ask: {
-          callId: "call-1",
-          tool: "save-note-tool",
-          arguments: { title: "n2", text: "x" },
-          summary: expect.any(String),
-        },
+        input: { title: "n2", text: "x" },
+        toolCall: { callId: "call-1", tool: "save-note-tool", summary: expect.any(String) },
+        trail: [expect.objectContaining({ action: "opened" })],
       },
     ]);
   });

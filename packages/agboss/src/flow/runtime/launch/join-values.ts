@@ -1,7 +1,7 @@
 import type { FlowEdge, ValueWrite } from "../../analyse/flow-graph.js";
 import { producersOfSlot } from "../../analyse/join-groups.js";
 import { slotOfWrite, writtenValue } from "../../analyse/scope.js";
-import { builtFromOf, writtenProvenanceOf, type RuntimeProvenance } from "../provenance.js";
+import { builtFromOf, type RuntimeProvenance } from "../provenance.js";
 import { valueIdOf, type ScopeRecords, type ScopeValueRecord } from "../records.js";
 import {
   BranchStatus,
@@ -12,7 +12,7 @@ import {
 import type { RuntimeLaunch } from "./runtime-launch.js";
 
 /**
- * What a join writes into the path scope (#273): one value per `.join().returns(…)`, gathered from
+ * What a join writes into the path scope (#273): one value per class the branches give, gathered from
  * the branches that finished — a list in the branches' order (listed order, or the items' order:
  * never the order they finished in), a single value from its one branch, nothing for an `optional`
  * one whose branch did not run or dropped out. Each value is built from what its branches read at
@@ -55,10 +55,10 @@ function gatheredFor(site: JoinSite, write: ValueWrite): readonly Gathered[] {
   });
 }
 
-/** What the gathered branches built the value from: their reads at the launch, rule 5 respected. */
-function sourcesOf(site: JoinSite, gathered: readonly Gathered[], writes: readonly ValueWrite[]) {
+/** What the gathered branches built the value from: their reads at the launch. */
+function sourcesOf(site: JoinSite, gathered: readonly Gathered[]) {
   const read = gathered.flatMap(({ ticket, record }) =>
-    builtFromOf({ producer: ticket.node, read: record.read, writes }, site.scope, site.provenance),
+    builtFromOf({ producer: ticket.node, read: record.read }, site.scope, site.provenance),
   );
   return [...new Set(read)].sort();
 }
@@ -98,31 +98,25 @@ function producersOf(
   };
 }
 
-function joinRecord(
-  site: JoinSite,
-  write: ValueWrite,
-  writes: readonly ValueWrite[],
-): ScopeValueRecord | undefined {
+function joinRecord(site: JoinSite, write: ValueWrite): ScopeValueRecord | undefined {
   const gathered = gatheredFor(site, write);
   const asList = isList(write);
   const [first] = gathered;
   if (first === undefined && !asList) return undefined;
   const slot = slotOfWrite(write);
-  const sources = sourcesOf(site, gathered, writes);
-  const { builtFrom, about } = writtenProvenanceOf(sources, write, site.scope, writes);
+  const builtFrom = sourcesOf(site, gathered);
   return {
     ...producersOf(site, gathered, slot, asList),
     slot,
     value: asList ? gathered.map(elementOf) : first?.record.value?.value,
     builtFrom,
-    ...(about.length === 0 ? {} : { about }),
   };
 }
 
 /** Every value of the join, by slot. */
 export function joinValuesOf(site: JoinSite): ScopeRecords {
   const writes = site.edge.join?.values ?? [];
-  const records = writes.flatMap((write) => joinRecord(site, write, writes) ?? []);
+  const records = writes.flatMap((write) => joinRecord(site, write) ?? []);
   return Object.fromEntries(records.map((record) => [record.slot, record]));
 }
 

@@ -1,28 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
-import { listOf } from "../../../src/flow/dto-wrappers.js";
 import { describeWorkflow } from "../../../src/describe/describe-workflow.js";
 import { workflowOf } from "../../../src/testing/workflow-of.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import {
   BatchDoneWorkflowFinish,
   BatchWorkflow,
   BatchWorkflowStart,
   SerialBatchWorkflow,
+  BatchDoneAction,
 } from "../runtime/fixtures/tree-batch.workflow.js";
 import { NarrowGroupsWorkflow } from "../runtime/fixtures/tree-groups.workflow.js";
 import {
-  TaskDoneDto,
   TaskDoneWorkflowFinish,
-  TaskDto,
   TaskWorkflow,
   TaskWorkflowStart,
   WorkAction,
 } from "../runtime/fixtures/tree-task.workflow.js";
+import { Ttl } from "../../../src/index.js";
 
 /**
- * #264 PR 2 (AC8, AC11) — `@Workflow({ maxConcurrentExecutions })` at assembly: a whole number of
+ * #264 PR 2 (AC8, AC11) — `@Workflow({ executionLimits: { maxConcurrency } })` at assembly: a whole number of
  * executions from 1 (`[limits.max-concurrent-executions-invalid]`); a child's own cap above its
  * parent's is never reached (`[limits.child-concurrency-above-parent]`, a warning); `describe`
  * prints the tree's cap of a workflow that launches children.
@@ -37,16 +36,16 @@ function tree(cap: number | undefined, child: Workflowish = TaskWorkflow): Workf
   const options: WorkflowOptions = {
     name: `cap-${String(count)}-workflow`,
     version: "1.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(BatchWorkflowStart)
-        .returns(listOf(TaskDto))
-        .toParallelWorkflows(child, { maxItems: 10 })
+      onStart(BatchWorkflowStart)
+        .forEachItem(toWorkflow(child), { takeFirst: 10 })
         .join()
-        .returns(listOf(TaskDoneDto))
+        .toAction(BatchDoneAction)
         .toFinish(BatchDoneWorkflowFinish),
     ],
   };
-  @Workflow(cap === undefined ? options : { ...options, maxConcurrentExecutions: cap })
+  @Workflow(cap === undefined ? options : { ...options, executionLimits: { maxConcurrency: cap } })
   class CapWorkflow {}
   return CapWorkflow;
 }
@@ -57,14 +56,9 @@ function cappedTask(cap: number): Workflowish {
   @Workflow({
     name: `capped-task-${String(count)}-workflow`,
     version: "1.0.0",
-    flow: [
-      start(TaskWorkflowStart)
-        .returns(TaskDto)
-        .toAction(WorkAction)
-        .returns(TaskDoneDto)
-        .toFinish(TaskDoneWorkflowFinish),
-    ],
-    maxConcurrentExecutions: cap,
+    historyTtl: Ttl.Forever,
+    flow: [onStart(TaskWorkflowStart).toAction(WorkAction).toFinish(TaskDoneWorkflowFinish)],
+    executionLimits: { maxConcurrency: cap },
   })
   class CappedTaskWorkflow {}
   return CappedTaskWorkflow;
@@ -97,7 +91,7 @@ describe("[limits.child-concurrency-above-parent]: a child's own cap cannot exce
 
     expect(warningsOf(tree(4, child))).toEqual([
       expect.stringMatching(
-        /^limits\.child-concurrency-above-parent: cap-\d+-workflow: capped-task-\d+-workflow sets maxConcurrentExecutions 8, above its parent's 4/,
+        /^limits\.child-concurrency-above-parent: cap-\d+-workflow: capped-task-\d+-workflow sets executionLimits.maxConcurrency 8, above its parent's 4/,
       ),
     ]);
     expect(warningsOf(tree(undefined, child))).toEqual([]);
@@ -119,14 +113,14 @@ describe("AC11: describe prints the tree's cap of a workflow that launches child
   it("set, the default, and none for a workflow without children", async () => {
     const lines = async (target: Workflowish): Promise<readonly string[]> =>
       describeWorkflow(await workflowOf(target, [])).filter((line) =>
-        line.startsWith("  maxConcurrentExecutions"),
+        line.startsWith("  maxConcurrency"),
       );
 
     expect(await lines(BatchWorkflow)).toEqual([
-      "  maxConcurrentExecutions 2 (set) · executions of the tree at work at once",
+      "  maxConcurrency 2 (set) · executions of the tree at work at once",
     ]);
     expect(await lines(SerialBatchWorkflow)).toEqual([
-      "  maxConcurrentExecutions 10 (default) · executions of the tree at work at once",
+      "  maxConcurrency 10 (default) · executions of the tree at work at once",
     ]);
     expect(await lines(TaskWorkflow)).toEqual([]);
   });

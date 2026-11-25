@@ -10,7 +10,7 @@ import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { PausedExecutionRepository } from "../../src/index.js";
 import { callTool, replyWith, testWith, type ModelRequest } from "../../src/testing/index.js";
 import {
-  ApproverQuestion,
+  ApproverExternalTask,
   BuyerAgent,
   BuyerDesk,
   BuyerWorkflowFinish,
@@ -46,7 +46,7 @@ describe("#712: invalid question arguments ask nobody", () => {
       mockLlm,
     }) => {
       mockLlm(BuyerAgent).thenReturn(
-        callTool(ApproverQuestion, malformed(args)),
+        callTool(ApproverExternalTask, malformed(args)),
         replyWith("could not ask"),
       );
 
@@ -72,9 +72,9 @@ describe("#712: invalid question arguments ask nobody", () => {
     mockLlm,
   }) => {
     mockLlm(BuyerAgent).thenReturn(
-      callTool(ApproverQuestion, malformed({ item: "laptop" })),
-      callTool(ApproverQuestion, malformed({ item: "laptop", priceUsd: "a lot" })),
-      callTool(ApproverQuestion, { item: "laptop", priceUsd: 900 }),
+      callTool(ApproverExternalTask, malformed({ item: "laptop" })),
+      callTool(ApproverExternalTask, malformed({ item: "laptop", priceUsd: "a lot" })),
+      callTool(ApproverExternalTask, { item: "laptop", priceUsd: 900 }),
     );
 
     await expect(

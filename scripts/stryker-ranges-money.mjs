@@ -70,6 +70,11 @@ export function cancelStoresShard() {
 export function meshChargeShard() {
   return {
     configFile: "vitest.mutation-mesh-charge.config.ts",
-    mutate: ["src/mesh/mesh-report.ts", "src/a2a/client/a2a-mesh-seam.ts"],
+    mutate: [
+      "src/mesh/mesh-report.ts",
+      "src/a2a/client/a2a-mesh-seam.ts",
+      // #1319a: an MCP call's identity and ledger key — each call its own, a replay the same
+      "src/components/mcp-call-identity.ts",
+    ],
   };
 }

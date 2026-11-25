@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1269 (mutation shard files-pii): `viewOf` in the transcription view — what is kept for the cache and
  * what is not, the transcriber's call and its spend, the masking's spend, and the file as the model saw it.
@@ -15,11 +16,13 @@ import type { UsageRecord } from "../../src/finops/usage.js";
 import { megabytes } from "../../src/units/index.js";
 import { PNG } from "../a2a/files/support.js";
 import { NO_REDACTION } from "./runtime-parts.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
 const usageOf = (caller: string): UsageRecord => ({
+  provider: "test-provider",
   caller,
   model: "m/x",
-  costUsd: 0.5,
+  costUsd: usd(0.5),
   costSource: CostSource.Api,
   inputTokens: 1,
   outputTokens: 2,
@@ -63,8 +66,7 @@ function setup(
     settings: resolvedFilesOf({
       agent: {},
       defaults: undefined,
-      skills: [],
-      a2aFiles: undefined,
+      limits: DEFAULT_FILE_LIMITS,
       hasPiiPolicy: false,
     }),
     maxResultSize: megabytes(1),

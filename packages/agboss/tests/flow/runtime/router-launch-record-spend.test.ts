@@ -1,6 +1,6 @@
 /**
  * #1366: the spend of a model router's launch decision — its call is in the usage the router's step hands on, so
- * the execution's record (`record: true`) states it with the agents' own.
+ * the execution's record (`includeRecord: true`) states it with the agents' own.
  */
 import { describe, expect } from "vitest";
 import { decideWith, replyWith, testWith } from "../../../src/testing/index.js";
@@ -36,7 +36,7 @@ describe("#1366: the record of a run with a model router", () => {
       app,
       HelpDeskWorkflowStart,
       { text: "can I return it?" },
-      { record: true },
+      { includeRecord: true },
     );
 
     expect(result.spend.totalUsd).toBeCloseTo(0.125, 9);

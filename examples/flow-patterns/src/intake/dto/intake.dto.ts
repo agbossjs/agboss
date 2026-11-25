@@ -1,8 +1,8 @@
-import { Flag, Text } from "@agboss/core/dto";
+import { Bool, Text } from "@agboss/core/dto";
 
 /** A full legal check of the candidate's paperwork. */
 export class LegalReviewDto {
-  @Flag({ prompt: "whether the paperwork is in order" })
+  @Bool({ prompt: "whether the paperwork is in order" })
   isCleared!: boolean;
 
   @Text({ prompt: "what the check found" })

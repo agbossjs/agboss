@@ -42,7 +42,7 @@ export class PaidStepError extends AGBossError {
     | "step.tool-blocked"
     | "step.rerank-failed"
     | "step.model-file-limit"
-    | "step.file-redaction-failed"
+    | "step.file-masking-failed"
     | "outbound-call.in-flight"
     | "outbound-call.superseded"
     | "outbound-call.unreconciled"
@@ -102,9 +102,9 @@ export interface StepFailedErrorOptions extends PaidStepErrorOptions, StepCoordi
 /**
  * A step's own failure (#273 S22): an agent, a router, an action or a guard failed — never a limit,
  * a cancellation or a lost lease. It names the step (`component`, `nodeId`, `visitNumber`,
- * `itemIndex`), so `result`, the trace and the observers say which one failed; `FailurePolicy.Skip`
+ * `itemIndex`), so `result`, the trace and the observers say which one failed; `.onError(E, skip())`
  * drops only these (S21). Its own code `step.failed` (lineage `[step.agent, step.failed, step]`)
- * makes `.onError(StepFailedError)` / `.onJoinError(StepFailedError)` take exactly these. Subclasses by kind of node: `AgentFailedError`, `RouterFailedError`,
+ * makes `.onError(StepFailedError)` take exactly these. Subclasses by kind of node: `AgentFailedError`, `RouterFailedError`,
  * `ActionFailedError`, `GuardFailedError`.
  */
 export class StepFailedError extends PaidStepError {

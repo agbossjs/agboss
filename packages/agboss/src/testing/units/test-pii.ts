@@ -34,8 +34,8 @@ function runtimePoliciesOf(site: UnitSite, policies: readonly Class[]): RuntimeP
   return policies.map((cls) => {
     const meta = piiPolicyMetaOf(cls);
     if (meta === undefined)
-      throw new TestSetupError({ message: `testPii: ${cls.name} is not a @PiiPolicy` });
-    const model = isCustomPolicy(meta) ? undefined : meta.detectWithModel;
+      throw new TestSetupError({ message: `testUnit: ${cls.name} is not a @PiiPolicy` });
+    const model = isCustomPolicy(meta) ? undefined : meta.model;
     const detection = (name: string, id: string) => {
       const settings = unitChatSettings(id);
       const user = { kind: "pii-policy", policy: name } as const;
@@ -48,7 +48,7 @@ function runtimePoliciesOf(site: UnitSite, policies: readonly Class[]): RuntimeP
       meta,
       instance: site.instanceOf(cls),
       key: TEST_PSEUDONYM_KEY,
-      ...(model === undefined ? {} : { detectWithModel: detection(meta.name, model) }),
+      ...(model === undefined ? {} : { detection: detection(meta.name, model) }),
     });
   });
 }
@@ -57,10 +57,10 @@ function runtimePoliciesOf(site: UnitSite, policies: readonly Class[]): RuntimeP
  * The policies as an element that lists them applies them (#120): their own rules checked first
  * (`[name.kind-suffix]` — a name ends with `-pii-policy` —, `[pii.conflicting-rules]`, …, a
  * `GraphRuleError` with all of them), each created by the runner's container (a project detector's
- * `deps`, `overrides`, the `environment`), tokens made with the fixed test key; a `detectWithModel`
+ * `deps`, `overrides`, the `environment`), tokens made with the fixed test key; a `model`
  * policy's model answers from `model` (`replyWith('{"found":[…]}')`, one turn per detection).
  */
-export function testPii<
+export function piiUnit<
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
 >(
@@ -69,12 +69,12 @@ export function testPii<
 ): PiiRunner {
   const [first] = policies;
   if (first === undefined)
-    throw new TestSetupError({ message: "testPii([]): name the policies to apply" });
-  throwIfViolated([...policyViolations(policies), ...conflictViolations("testPii", policies)]);
+    throw new TestSetupError({ message: "testUnit([]): name the policies to apply" });
+  throwIfViolated([...policyViolations(policies), ...conflictViolations("testUnit", policies)]);
   const site = new UnitSite(options);
   for (const cls of policies) {
     const meta = piiPolicyMetaOf(cls);
-    if (meta !== undefined && !isCustomPolicy(meta) && meta.detectWithModel !== undefined)
+    if (meta !== undefined && !isCustomPolicy(meta) && meta.model !== undefined)
       site.scriptModel(piiPolicyKeyOf(meta.name), cls.name, options.model);
   }
   const set = new PiiPolicySet(runtimePoliciesOf(site, policies), TEST_PSEUDONYM_KEY);

@@ -8,13 +8,7 @@ import type { Tool, ToolInvocationContext, ToolOutput } from "./types.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
 import { systemClock, type Clock } from "../infrastructure/clock.js";
 import { timeoutOn } from "../infrastructure/clock.js";
-import {
-  kilobytes,
-  seconds,
-  type Bytes,
-  type Milliseconds,
-  type WorkingDuration,
-} from "../units/index.js";
+import { kilobytes, seconds, type Bytes, type Milliseconds } from "../units/index.js";
 import { inCurrentStepEntry } from "../flow/runtime/step-entries.js";
 
 /** How long a tool call may run when its tool sets no `timeout`. */
@@ -64,9 +58,8 @@ export interface ToolDefinition<TName extends string, TInput, TOutput> {
   readonly description: string;
   readonly input: z.ZodType<TInput>;
   readonly output: z.ZodType<TOutput>;
-  readonly channel?: string;
+  readonly approval?: string;
   readonly timeout?: Milliseconds;
-  readonly expiresIn?: Milliseconds | WorkingDuration;
   readonly maxResultSize?: Bytes;
   readonly run: (input: TInput, ctx: ToolInvocationContext) => Promise<TOutput>;
 }
@@ -177,9 +170,8 @@ export function defineTool<TName extends string, TInput, TOutput>(
   return {
     name: definition.name,
     description: definition.description,
-    ...(definition.channel === undefined ? {} : { channel: definition.channel }),
+    ...(definition.approval === undefined ? {} : { approval: definition.approval }),
     timeout,
-    ...(definition.expiresIn === undefined ? {} : { expiresIn: definition.expiresIn }),
     ...(definition.maxResultSize === undefined ? {} : { maxResultSize: definition.maxResultSize }),
     input: definition.input,
     output: definition.output,

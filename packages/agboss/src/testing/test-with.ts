@@ -12,7 +12,13 @@ import type { ToolScript } from "./tool-script.js";
 import { createTestApp, type TestApp } from "./test-app.js";
 import type { VirtualClock } from "./clock.js";
 import { TestSetupError } from "./errors.js";
-import { withA2ATestServers, type A2AServerFixture } from "./a2a-server.js";
+import type { ExecutionOutput } from "../app/types.js";
+import type { EvalPauseOptions } from "../eval/suite/pauses.js";
+import { pauseAndBoundaryFixtures } from "./extra-fixtures.js";
+import type { PauseOutputOf } from "../flow/generated-types.js";
+import type { A2AServerFixture } from "./a2a-server.js";
+import type { McpServerFixture } from "./mcp-server.js";
+import type { A2AStub, RagStub } from "./boundary-stubs.js";
 import { withTestLeases, type TestLeases } from "./leases.js";
 import "./vitest-types.js";
 
@@ -62,8 +68,41 @@ export interface WorkflowFixtures {
     server: new () => TServer,
   ) => McpStub<TServer>;
   /**
+   * Answers the open pause of `target` the last `execute` / `resume` of the test left, with its
+   * decision: `await answerPause(RefundApproval, { approved: true })` — the same call as an eval
+   * case's, `{ actor }` being who answers (a thread owner's `ownerId`). The answer is the
+   * resumed execution's output; a pause of no such target is `test.no-open-pause`.
+   */
+  readonly answerPause: <const TTarget extends Class>(
+    target: TTarget,
+    decision: PauseOutputOf<InstanceType<TTarget>>,
+    options?: EvalPauseOptions,
+  ) => Promise<ExecutionOutput>;
+  /**
+   * Answers the open pause of `target` with a free-text reply its channel interpreter reads
+   * (`await replyToPause(RefundApproval, "yes, but only half")`); the rest as `answerPause`.
+   */
+  readonly replyToPause: (
+    target: Class,
+    reply: string,
+    options?: EvalPauseOptions,
+  ) => Promise<ExecutionOutput>;
+  /**
+   * The scripted retrievals of a knowledge base: `mockRag(Handbook).thenReturn({ results: [...] })` —
+   * its pipeline (scope, reranking, PII policies, spend) still runs on what it returns.
+   */
+  readonly mockRag: (rag: Class) => RagStub;
+  /** The scripted answers of an A2A peer the application calls: `mockA2A(BillingDesk).thenReturn({ … })`. */
+  readonly mockA2A: (agent: Class) => A2AStub;
+  /**
+   * The application served as an MCP server (#1319), symmetric with `a2aServer`: `const { url } =
+   * await mcpServer(ShortlistEndpoint, { authenticator })` — `mcpHttpListener(app, …)` on
+   * `127.0.0.1:0`, the loopback open for the test, closed at its end.
+   */
+  readonly mcpServer: McpServerFixture;
+  /**
    * The application served over A2A (#387): `const { url } = await a2aServer({ expose,
-   * callerResolver })` — `a2aHttpListener(app, …)` on `127.0.0.1:0`, the resolver from the app's
+   * authenticator })` — `a2aHttpListener(app, …)` on `127.0.0.1:0`, the authenticator from the app's
    * container, the loopback open for the test (no `allowNetwork` needed), closed at its end.
    */
   readonly a2aServer: A2AServerFixture;
@@ -163,7 +202,7 @@ export function testWith<TApplication extends Class>(
     mcpOf: async ({ environment }, use) => {
       await use((server) => environment.mcpOf(server));
     },
-    a2aServer: ({ app }, use) => withA2ATestServers(app, use),
+    ...pauseAndBoundaryFixtures,
     leases: ({ environment }, use) => withTestLeases(environment, use),
   });
 }

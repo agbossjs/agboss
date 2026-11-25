@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
+import { isErrorFamily } from "../../src/core/error-families/family.js";
 import { fixtures as agbossFixtures } from "./error-options.fixtures.js";
 import { plainFixtures } from "./error-options.fixtures-plain.js";
 
@@ -48,7 +49,12 @@ const exportedErrors = (): ReadonlyMap<string, ErrorClass> => {
   const found = new Map<string, ErrorClass>();
   for (const entry of Object.values(ENTRIES))
     for (const [name, value] of Object.entries(entry))
-      if (typeof value === "function" && value.prototype instanceof Error)
+      if (
+        typeof value === "function" &&
+        value.prototype instanceof Error &&
+        // a family (`LimitError`) is the base of its variants, which `error-families.test.ts` walks
+        !isErrorFamily(value)
+      )
         found.set(name, value as ErrorClass);
   found.delete("AGBossError");
   return found;
@@ -59,8 +65,13 @@ const classes = exportedErrors();
 describe("#906 AC1: every exported error takes one options bag with a cause", () => {
   it("AC1: the walk covers every entry of package.json#exports and finds the errors, each with a fixture", () => {
     expect(Object.keys(ENTRIES).length).toBe(Object.keys(exportMap).length);
-    // the acceptance's enumeration found 120 in core's built entries, `AGBossError` among them
-    expect(classes.size).toBeGreaterThanOrEqual(119);
+    // the acceptance's enumeration found 120 in core's built entries, `AGBossError` among them; 112
+    // after #1317a, which moved the fenced-effect and outbound-call errors into their families; 109
+    // after the rework's removals of errors; 108 once `PauseAnswererError` became
+    // `PauseError.PermissionDenied`; 106 once `A2ACallerRejectedError` became
+    // `A2AError.CallerRejected` and the A2A stores left the root entry (#1320)
+    // 104 once the five model-policy error classes folded into `ConfigError` (F2)
+    expect(classes.size).toBeGreaterThanOrEqual(104);
     expect([...classes.keys()].filter((name) => !(name in fixtures)).sort()).toEqual([]);
     expect(
       Object.keys(fixtures)

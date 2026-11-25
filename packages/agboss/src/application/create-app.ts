@@ -1,43 +1,45 @@
-import type { AppDepsOptions, BuildOptions, WorkflowDepsParts } from "../app/app-deps.js";
-import { buildApp, type AppOptions, type BuiltApp } from "../app/create-app.js";
-import type { App } from "../app/types.js";
+import type { BuildOptions, WorkflowDepsParts } from "../app/app-deps.js";
+import { buildApp, type BuiltApp } from "../app/create-app.js";
+import type { CreateAppOptions } from "../app/create-app-options.js";
+import type { App, AnyTenantApp } from "../app/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
-import { startComponents } from "../components/container/lifecycle.js";
-import { isClassProvider, type Class } from "../components/injection.js";
-import {
-  APP_DEFAULT_ENVIRONMENT,
-  namedEnvironmentFor,
-  type EnvironmentOwner,
-} from "../environments/load.js";
+import type { Class } from "../components/injection.js";
+import { namedEnvironmentFor, type EnvironmentOwner } from "../environments/load.js";
+import { contextsOf } from "./instance-contexts.js";
 import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
-import { randomUUID } from "node:crypto";
-import { applicationContextOf } from "../flow/context/application-context.js";
-import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
+import { withEnvOverrides } from "./env-overrides.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
-import type { Clock } from "../infrastructure/clock.js";
 import { gatedInfrastructure } from "./lease-gate.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
 import { instanceAppOf } from "./compose-app.js";
+import { startMeshSigner } from "../mesh/mesh-start.js";
 import { closeOnStopSignals } from "./stop-signals.js";
+import { sourcesOf } from "./instance-sources.js";
 import { applicationOf, type AssembledApplication } from "./assemble.js";
+import { createListed } from "./create-listed.js";
 import { productionOptionsOf } from "./app-options.js";
 import type { InstanceSeams } from "./instance-seams.js";
 
 export type { InstanceSeams } from "./instance-seams.js";
-import { frameworkLogOf, type FrameworkLog } from "../infrastructure/logger.js";
+import type { FrameworkLog } from "../infrastructure/logger.js";
 import { observersOf } from "./observers.js";
+import { attachedBudgetsOf, budgetsOfApplication } from "../budgets/budget-rules.js";
+import type { BudgetListing } from "../app/app-deps.js";
 import { withExecutionControl as byId } from "../app/tree-control.js";
 import type { ApplicationClass } from "./types.js";
-import { applicationPiiKeyOf, applicationPiiMaskOf } from "./application-pii.js";
+import type { applicationPiiMaskOf } from "./application-pii.js";
+import { instancePiiOf } from "./instance-pii.js";
 import { applicationIdempotencyKeysOf } from "./idempotency-key.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type * as InstanceSteps from "./instance-steps.js";
 import { childrenFirst } from "../flow/analyse/child-workflow.js";
 import { lazyLoad } from "../infrastructure/clock.js";
+import { releaseAll, startAll } from "./instance-lifecycle.js";
+import { isolatedPartsOf } from "./instance-workers.js";
 
 /** An application instance with the parts it was built from (the testing toolkit reads them). */
 export interface BuiltApplication {
-  readonly app: App;
+  readonly app: AnyTenantApp;
   readonly assembled: AssembledApplication;
   readonly workflows: readonly BuiltApp[];
   readonly infrastructure: Infrastructure;
@@ -45,46 +47,6 @@ export interface BuiltApplication {
   readonly closed: Promise<void>;
   /** The instance's log (its `Logger`, stamped by its clock). */
   readonly log: FrameworkLog;
-}
-
-/**
-/**
- * The instance's context levels (#261): its one `ApplicationContext` — name, version, its id,
- * when it started (the framework's clock), the chosen environment and the host — and the context
- * classes the application declares.
- */
-export function contextsOf(
-  assembled: AssembledApplication,
-  options: AppDepsOptions,
-  seams: InstanceSeams,
-  clock: Clock,
-): RuntimeContexts {
-  const application = applicationContextOf({
-    name: assembled.name,
-    version: assembled.version,
-    instanceId: seams.instanceId ?? randomUUID(),
-    startedAt: clock.now(),
-    environmentName: options.environmentName ?? APP_DEFAULT_ENVIRONMENT,
-    environment: options.environment ?? NO_ENVIRONMENT_VALUES,
-  });
-  const { tenantContext, executionContext } = assembled;
-  return { application, tenantContext, executionContext };
-}
-
-/**
- * Every class the application and its workflows list (providers, budgets), created now — one
- * instance each, so a missing dependency fails at start and every one gets its hooks.
- */
-function createListed(assembled: AssembledApplication, workflows: readonly BuiltApp[]): void {
-  const [first] = workflows;
-  if (first === undefined) return;
-  for (const module of assembled.modules) {
-    for (const provider of module.providers) {
-      if (typeof provider === "function") first.app.resolve(provider);
-      // a class for a token (#891): created now too, under its token, its hooks with the rest
-      else if (isClassProvider(provider)) first.app.resolve(provider.useClass);
-    }
-  }
 }
 
 /**
@@ -100,6 +62,12 @@ async function buildWorkflows(
   built: BuiltApp[],
   mask: ReturnType<typeof applicationPiiMaskOf>, // each workflow's policies join its union (#1130)
 ): Promise<void> {
+  const { clock } = parts.infrastructure;
+  // #1320: the mesh's keys before any handshake; a key that is no Ed25519 key fails the start
+  startMeshSigner(assembled, parts.contexts?.application, {
+    clock,
+    processEnv: options.processEnv ?? process.env,
+  });
   const byClass = new Map<Class, GraphDeps<string>>();
   const childDepsOf = (workflow: Class): GraphDeps<string> | undefined => byClass.get(workflow);
   const bundles = new Map(assembled.workflows.map((bundle) => [bundle.graph.type, bundle]));
@@ -125,35 +93,39 @@ const instancePartsOf = async (
 ): Promise<InstanceSteps.SharedInstanceParts> =>
   (await lazyLoad(import("./instance-steps.js"))).instancePartsOf(...args);
 
-/**
- * `onInit` → `onStart` of every component, then each workflow's config snapshot (#747): the stores
- * are ready only now — a PostgreSQL schema is checked or migrated at its connection's `onInit`.
- */
-async function startAll(created: unknown[], workflows: readonly BuiltApp[]): Promise<void> {
-  await startComponents(created);
-  for (const workflow of workflows) await workflow.deps.rememberConfig();
-}
-
-/** Closes what the workflows already built opened (a later workflow or a start hook failed). */
-async function releaseAll(built: readonly BuiltApp[]): Promise<void> {
-  for (const workflow of built) await workflow.app.close();
-}
-
 /** The budgets every workflow of the application counts against. */
-const budgetsOf = (assembled: AssembledApplication) => ({
-  budgets: assembled.budgets,
-  applicationName: assembled.name,
-});
+export const budgetsOf = (assembled: AssembledApplication): BudgetListing => {
+  // the child workflows a listed one launches count too: a budget one of them attaches is the application's
+  const workflows = assembled.workflows.map((one) => one.graph.type);
+  return {
+    budgets: budgetsOfApplication({
+      budgets: assembled.budgets,
+      workflows,
+      budgetOverlays: assembled.budgetOverlays,
+    }),
+    attached: attachedBudgetsOf({ workflows, budgetOverlays: assembled.budgetOverlays }),
+    ...(assembled.budgetOverlays === undefined ? {} : { budgetOverlays: assembled.budgetOverlays }),
+    applicationName: assembled.name,
+  };
+};
 
 /**
  * Builds an assembled application into one instance: one container for the application (its
  * infrastructure first, then every workflow's components), then `onInit` → `onStart` of every
  * component the container created — once, for all the workflows.
  */
-export async function buildApplication(
+export const buildApplication = (
   assembled: AssembledApplication,
   options: BuildOptions = {},
   seams: InstanceSeams = {},
+): Promise<BuiltApplication> =>
+  // the profiles' `configureEnv` values stand in for the process's, per defineEnv key
+  builtOn(assembled, withEnvOverrides(options, assembled.envOverrides), seams);
+
+async function builtOn(
+  assembled: AssembledApplication,
+  options: BuildOptions,
+  seams: InstanceSeams,
 ): Promise<BuiltApplication> {
   const created: unknown[] = [];
   const onCreate = (instance: unknown): void => {
@@ -163,32 +135,30 @@ export async function buildApplication(
   // the clock first: the contexts read their start from it
   const clock = seams.clock ?? clockOf(assembled.modules, { ...options.container, onCreate });
   const contexts = contextsOf(assembled, options, seams, clock);
-  const sources = { modules: assembled.modules, clock, contexts, idGenerator: seams.idGenerator };
+  const processEnv = options.processEnv ?? process.env;
+  const sources = sourcesOf(assembled, { clock, contexts, seams, processEnv });
   const { database, reused: instances, quiet, storeClock, idempotencyTestKeys: testKeys } = seams;
   const shared = applicationContainerOf(
     {
       ...sources,
       ...{ database, instances, quiet, storeClock },
-      ...{ fencedEffects: assembled.fencedEffects, outboundCalls: assembled.outboundCalls },
+      ...{ outboundMasking: assembled.outboundMasking },
     },
     { ...options.container, onCreate },
   );
   const container: ContainerOptions = { ...options.container, application: shared };
   const resolved = resolveInfrastructure(shared, { ...container, onCreate });
   const infrastructure = gatedInfrastructure(resolved, seams.leaseGate);
-  const processEnv = options.processEnv ?? process.env;
   const environment = options.environment ?? NO_ENVIRONMENT_VALUES;
-  // a test's instances share a fixed PII key when the application sets none (#120, #334)
-  const fallback = seams.piiTestKey;
-  const piiKey = applicationPiiKeyOf(assembled, { environment, env: processEnv, fallback });
-  const piiParts = { processEnv, fieldKey: piiKey.key, contexts };
-  const mask = applicationPiiMaskOf(assembled, shared, { ...container, onCreate }, piiParts);
-  const log = frameworkLogOf(infrastructure.logger, clock, (message) => mask.text(message));
-  const instance = await instancePartsOf(assembled, clock, log, infrastructure);
+  const { piiKey, mask, log } = instancePiiOf(assembled, {
+    ...{ shared, environment, processEnv, seams, contexts, clock, infrastructure },
+    container: { ...container, onCreate },
+  });
+  const instance = await instancePartsOf(assembled, clock, log, infrastructure, contexts);
   const workflows: BuiltApp[] = [];
   const seen = { assembled, shared, log, seams, mask, created, instance, infrastructure };
   const { observer, auditLog } = await observersOf(seen, { ...container, onCreate }, options);
-  const common = { infrastructure, created, auditLog, ...instance };
+  const common = { infrastructure, created, auditLog, processEnv, ...instance };
   try {
     // #825: its business-key fingerprints' keys, a Secret of their own (a test's when unset)
     const keys = applicationIdempotencyKeysOf(assembled, environment, processEnv, testKeys);
@@ -200,7 +170,8 @@ export async function buildApplication(
     await releaseAll(workflows);
     throw error;
   }
-  const surface = { ...common, log, contexts, quiet, isInstanceKey: piiKey.isInstanceKey };
+  const isolated = isolatedPartsOf(seams, contexts);
+  const surface = { ...common, observer, log, contexts, quiet, isolated };
   return { ...byId(instanceAppOf(assembled, workflows, surface), workflows), assembled, workflows };
 }
 
@@ -226,8 +197,9 @@ export const environmentOwnerOf = (assembled: AssembledApplication): Environment
  */
 export async function createApp<TApplication extends Class>(
   application: ApplicationClass<TApplication>,
-  options: AppOptions = {},
-): Promise<App> {
+  options: CreateAppOptions = {},
+): Promise<App<InstanceType<TApplication>>> {
+  // the instance enforces the tenant at run time; the type asks for it per the application's brand
   return (await builtApplicationOf(application, productionOptionsOf(options))).app;
 }
 
@@ -237,13 +209,18 @@ export async function createApp<TApplication extends Class>(
  * the container's hooks, the branch scheduler, the run's chaos. `testWith`, the CLI and the
  * framework's own tests go through it; never an option of `createApp`.
  */
-export interface BuildApplicationOptions extends AppOptions, Omit<BuildOptions, "environment"> {}
+export interface BuildApplicationOptions
+  extends CreateAppOptions, Omit<BuildOptions, "environment"> {}
 
-/** An app instance on the internal build path (#834): `createApp` with its seams. */
+/**
+ * An app instance on the internal build path (#834): `createApp` with its seams — and never the
+ * test's idempotency keys: those are given by the test paths only (`testWith`, `createTestAppWith`
+ * of `@agboss/core/testing`).
+ */
 export async function createAppWith(
   application: Class,
   options: BuildApplicationOptions = {},
-): Promise<App> {
+): Promise<AnyTenantApp> {
   return (await builtApplicationOf(application, options)).app;
 }
 
@@ -255,6 +232,7 @@ export async function createAppWith(
 export async function builtApplicationOf(
   application: Class,
   options: BuildApplicationOptions = {},
+  seams: InstanceSeams = {},
 ): Promise<BuiltApplication> {
   const assembled = await applicationOf(application, options);
   const environment = await namedEnvironmentFor(
@@ -262,7 +240,8 @@ export async function builtApplicationOf(
     options,
     options.processEnv ?? process.env,
   );
-  const built = await buildApplication(assembled, { ...options, ...environment });
-  closeOnStopSignals(built);
+  const built = await buildApplication(assembled, { ...options, ...environment }, seams);
+  // the internal path (the CLI, the framework's tests) listens unless told not to; `createApp` does not unasked
+  if (options.handleSignals ?? true) closeOnStopSignals(built);
   return built;
 }

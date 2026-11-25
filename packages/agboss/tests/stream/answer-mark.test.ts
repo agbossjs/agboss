@@ -61,8 +61,8 @@ async function depsWith(recorder?: TokenRecorder) {
   if (recorder === undefined) return deps;
   const tracing: ExecutionTracing = {
     callbacks: () => [recorder],
-    sessionUrl: () => undefined,
-    shutdown: () => Promise.resolve(),
+    traceUrl: () => undefined,
+    close: () => Promise.resolve(),
   };
   return { ...deps, tracing };
 }

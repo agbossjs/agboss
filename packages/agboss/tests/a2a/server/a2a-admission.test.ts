@@ -13,12 +13,12 @@ import {
   resetRecovery,
   seen,
 } from "../../infrastructure/fixtures/recovery.workflow.js";
-import { asked, BearerCallerResolver, resetAsked } from "../fixtures/bearer-caller-resolver.js";
+import { asked, BearerAuthenticator, resetAsked } from "../fixtures/bearer-authenticator.js";
 import { OrdersA2AExpose, OrdersApplication } from "../fixtures/task.application.js";
 import { post, rpc, rpcBody, text, userMessage } from "./rpc.js";
 
 const test = testWith(OrdersApplication);
-const listener = { expose: OrdersA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { endpoint: OrdersA2AExpose, authenticator: BearerAuthenticator };
 const READ_ONLY = { owner: "dana:read-only" };
 
 beforeEach(() => {
@@ -104,7 +104,7 @@ describe("#808: the resolver sees the request the handler acts on", () => {
     await rpc(url, "CancelTask", { id: "task-b", metadata: {} });
     await post(url, rpcBody("SubscribeToTask", { id: "task-c" }));
 
-    expect(asked.map(({ operation, taskId }) => `${operation}:${String(taskId)}`)).toEqual([
+    expect(asked.map(({ operation, taskId }) => `${String(operation)}:${String(taskId)}`)).toEqual([
       "GetTask:7",
       "CancelTask:task-b",
       "SubscribeToTask:task-c",

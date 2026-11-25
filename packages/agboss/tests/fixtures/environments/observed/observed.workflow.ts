@@ -1,19 +1,20 @@
 import {
   Agent,
   ApplicationContext,
-  Injectable,
+  Observer,
   Workflow,
-  type OnExecutionStart,
+  inline,
+  Ttl,
 } from "../../../../src/index.js";
 import { ChatStart, Reply, settingsDefaults } from "../app/settings.workflow.js";
-import { start } from "../../../helpers/flow.js";
-import { WorkflowStartTextDto } from "../../../../src/dto/index.js";
+import { onStart } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
+import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** An observer — not a tool — that reads the app's environment; created when the app starts. */
-@Injectable({ deps: [ApplicationContext] })
-export class RunLog implements OnExecutionStart {
+@Observer({ deps: [ApplicationContext] })
+export class RunLog {
   constructor(readonly applicationContext: ApplicationContext) {}
 
   onExecutionStart(): void {
@@ -25,7 +26,7 @@ export class RunLog implements OnExecutionStart {
 @Agent({
   name: "greeter-agent",
   description: "Greets",
-  prompt: "Greet the user.",
+  prompt: inline("Greet the user."),
   model: "test/greeter",
   price: { inputPerMTok: 1, outputPerMTok: 10 },
 })
@@ -35,9 +36,9 @@ export class Greeter {}
 @Workflow({
   name: "observed-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChatStart)
-      .returns(WorkflowStartTextDto)
+    onStart(ChatStart)
       .toAgent(Greeter)
       .toFinish(Reply),
   ],
@@ -49,6 +50,7 @@ export class ObservedApp {}
 // what an untyped caller gets at run time (an empty environment)
 @Application({
   name: "observed-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   workflows: [ObservedApp],
   observers: [RunLog],

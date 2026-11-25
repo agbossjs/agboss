@@ -8,7 +8,6 @@ import { FileSource, FileView, ModelFiles } from "../../src/files/model-files.js
 import type { DtoClass } from "../../src/dto/types.js";
 import { AnswerFiles } from "../../src/files/model-files.js";
 import {
-  DecidedBy,
   GuardrailVerdict,
   InputGuardrail,
   PiiAction,
@@ -17,27 +16,26 @@ import {
   PiiPolicy,
   type PiiMatch,
   type PiiPolicyHandler,
-  pii,
 } from "../../src/index.js";
 import { kilobytes } from "../../src/units/index.js";
-import { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import { FileDto } from "../../src/dto/standard/file.js";
 import { fieldsOf, recordField } from "../../src/dto/metadata.js";
 import { METADATA_KEY } from "../../src/polyfills/symbol-metadata.js";
-import { hasFileAtAnyDepth } from "../../src/a2a/files/a2a-file.dto.js";
-import { ListOf, Nested, Text } from "../../src/dto/index.js";
+import { hasFileAtAnyDepth } from "../../src/dto/standard/file.js";
+import { List, Nested, Text } from "../../src/dto/index.js";
 import { FetchedDto, readerApplication } from "./reader.factory.js";
 
 @PiiPolicy({
   name: "cards-pii-policy",
   description: "Hides cards",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
 })
 class CardsPiiPolicy {}
 
 @PiiPolicy({
   name: "open-cards-pii-policy",
   description: "Hides cards in text, lets the original file through",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
   files: PiiFileAction.AllowOriginal,
 })
 class OpenCardsPiiPolicy {}
@@ -45,12 +43,12 @@ class OpenCardsPiiPolicy {}
 @PiiPolicy({
   name: "open-emails-pii-policy",
   description: "Hides emails in text, lets the original file through",
-  rules: [pii(PiiKind.Email, PiiAction.replaceWithKind())],
+  rules: [PiiKind.Email.mask()],
   files: PiiFileAction.AllowOriginal,
 })
 class OpenEmailsPiiPolicy {}
 
-@PiiPolicy({ name: "staff-id-pii-policy", action: PiiAction.replaceWithKind() })
+@PiiPolicy({ name: "staff-id-pii-policy", action: PiiAction.mask() })
 class StaffIdPiiPolicy implements PiiPolicyHandler {
   findMatches(): readonly PiiMatch[] {
     return [];
@@ -100,8 +98,8 @@ describe("[files.invalid-setting] is an assembly rule, never thrown at import", 
 });
 
 class InnerDto {
-  @Nested(A2AFileDto, { prompt: "f" })
-  file!: A2AFileDto;
+  @Nested(FileDto, { prompt: "f" })
+  file!: FileDto;
 }
 class MiddleDto {
   @Nested(InnerDto, { prompt: "i" })
@@ -112,7 +110,7 @@ class TopDto {
   middle!: MiddleDto;
 }
 class ListedDto {
-  @ListOf(InnerDto, { prompt: "l" })
+  @List(InnerDto, { prompt: "l" })
   items!: InnerDto[];
 }
 class NodeDto {
@@ -137,7 +135,6 @@ class LeafDto {
   name: "files-test-input-guardrail",
   description: "Passes everything",
   refusal: "No.",
-  decidedBy: DecidedBy.Code,
 })
 class TextOnlyGuardrail {
   check(): GuardrailVerdict {
@@ -148,7 +145,7 @@ class TextOnlyGuardrail {
 @PiiPolicy({
   name: "other-cards-pii-policy",
   description: "Hides cards, original files stay masked",
-  rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+  rules: [PiiKind.CardNumber.mask()],
 })
 class OtherCardsPiiPolicy {}
 
@@ -230,7 +227,7 @@ describe("AC3: [files.no-redactor], [pii.original-file], [pii.redacted-needs-kin
     @PiiPolicy({
       name: "wrong-files-pii-policy",
       description: "Says something else",
-      rules: [pii(PiiKind.CardNumber, PiiAction.replaceWithKind())],
+      rules: [PiiKind.CardNumber.mask()],
       // @ts-expect-error a string that is no PiiFileAction
       files: "maybe",
     })

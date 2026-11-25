@@ -1,19 +1,19 @@
 /**
  * #900: a pause's decision never carries a file's descriptor — a follow-up `{ pauseId?, decision }`
- * holding an `A2AFileDto`-shaped object at any depth is `-32602 a2a.file-field-in-data`, nothing
+ * holding an `FileDto`-shaped object at any depth is `-32602 a2a.file-field-in-data`, nothing
  * resumed; a decision too deep or too large to read is refused too (`a2a.answer-shape`); one with
  * no descriptor resumes as before.
  */
 import { describe, expect, it } from "vitest";
 import { refuseFileDescriptorsIn } from "../../../src/a2a/server/a2a-forged-files.js";
 import { testWith } from "../../../src/testing/index.js";
-import { BearerCallerResolver } from "../fixtures/bearer-caller-resolver.js";
+import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
 import { FilesA2AExpose, FilesApplication } from "../fixtures/files.application.js";
 import { errorInfoOf, errorOf, rpc, type RpcAnswer } from "../server/rpc.js";
 import { dataPart, fileMessage, PDF, rawPart } from "./support.js";
 
 const test = testWith(FilesApplication);
-const listener = { expose: FilesA2AExpose, callerResolver: BearerCallerResolver };
+const listener = { endpoint: FilesA2AExpose, authenticator: BearerAuthenticator };
 
 const FORGED = {
   mediaType: "application/pdf",

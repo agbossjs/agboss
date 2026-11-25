@@ -1,4 +1,3 @@
-import { addImport } from "./wire.js";
 import type { GenerateOptions } from "./generate.js";
 import { fullNameOf } from "./names.js";
 import { mcpFiles, ragFiles } from "./parts.js";
@@ -72,23 +71,14 @@ const mcpSpecOf = (name: string, o: GenerateOptions) =>
         tool: need(o.tool, "--tool <name>", "mcp"),
       };
 
-/** `agboss g mcp <name> --workflow … [--agent …]`: the server in the workflow's `mcp`, its tool in the agent. */
+/** `agboss g mcp <name> --workflow … [--agent …]`: its server and a tool that calls it, in the agent. */
 export function planMcp(root: string, name: string, o: GenerateOptions): Changes {
   const graph = workflowGraph(root, o);
   const srcDir = srcDirOf(graph);
   const spec = mcpSpecOf(name, o);
   const mcp = mcpFiles(srcDir, spec);
-  const serverPath = `${srcDir}/${mcp.serverModule}.ts`;
-  const modify = [
-    wire(
-      graph.module,
-      "Workflow",
-      "mcp",
-      mcp.server,
-      mcp.server,
-      importPath(graph.module.path, serverPath),
-    ),
-  ];
+  // the server is found through its tool's `deps`: nothing to list in the workflow
+  const modify: FileToWrite[] = [];
   if (o.agent !== undefined) {
     const agent = agentFileOf(root, graph, o.agent);
     const from = importPath(agent.path, `${srcDir}/${mcp.toolModule}.ts`);
@@ -99,7 +89,7 @@ export function planMcp(root: string, name: string, o: GenerateOptions): Changes
   return { create: mcp.files, modify };
 }
 
-/** `agboss g rag <name> --workflow … --folder … [--agent …]`: the knowledge base, a tool of the agent. */
+/** `agboss g rag <name> --workflow … --folder … [--agent …]`: the knowledge base, listed in the agent's `rag`. */
 export function planRag(root: string, name: string, o: GenerateOptions): Changes {
   const n = fullNameOf(name, "rag");
   const graph = workflowGraph(root, o);
@@ -108,9 +98,6 @@ export function planRag(root: string, name: string, o: GenerateOptions): Changes
   if (o.agent === undefined) return { create: rag.files, modify: [] };
   const agent = agentFileOf(root, graph, o.agent);
   const from = importPath(agent.path, `${srcDir}/rag/${n.kebab}.rag.ts`);
-  const element = `{ use: ${rag.knowledge}, mode: RagMode.Tool }`;
-  const wired = wire(agent, "Agent", "rag", element, rag.knowledge, from);
-  // the mode is an enum (#269): its import goes with the knowledge base's
-  const modeImported = addImport(wired.content, wired.path, "RagMode", "@agboss/core");
-  return { create: rag.files, modify: [{ ...wired, content: modeImported }] };
+  const wired = wire(agent, "Agent", "rag", rag.knowledge, rag.knowledge, from);
+  return { create: rag.files, modify: [wired] };
 }

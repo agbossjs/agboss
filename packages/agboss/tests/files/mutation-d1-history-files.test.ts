@@ -2,23 +2,25 @@
  * #1269 (mutation shard files-pii): `historyDescriptorsOf` and `historySourcesOf` — which lines of the
  * remembered turns hold descriptors, how each is named and de-duplicated, and how a stored one is copied.
  */
+import { bytes as byteSize } from "../../src/units/index.js";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import type { A2AFileDto } from "../../src/a2a/files/a2a-file.dto.js";
+import type { FileDto } from "../../src/dto/standard/file.js";
 import { sha256Of, type FileReadContext } from "../../src/files/file-bytes.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { historyDescriptorsOf, historySourcesOf } from "../../src/files/history-files.js";
 import type { FileRuntime, SourceFile } from "../../src/files/visit-files.js";
 import type { HistoryTurn } from "../../src/flow/runtime/history.js";
-import type { NewA2AFile } from "../../src/infrastructure/a2a-file.repository.js";
-import { InMemoryA2AFileRepository } from "../../src/infrastructure/in-memory-a2a-file.repository.js";
+import type { NewFile } from "../../src/infrastructure/file.repository.js";
+import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { kilobytes, megabytes, seconds } from "../../src/units/index.js";
 import { PNG } from "../a2a/files/support.js";
 import { NO_REDACTION } from "./runtime-parts.js";
+import { DEFAULT_FILE_LIMITS } from "../../src/files/file-policy.js";
 
-const png = (source: Record<string, string>): A2AFileDto => ({ mediaType: "image/png", ...source });
+const png = (source: Record<string, string>): FileDto => ({ mediaType: "image/png", ...source });
 const turn = (start: string, finish = "finish f: {}"): HistoryTurn => ({ start, finish });
 const startOf = (value: unknown, name = "s"): string => `start ${name}: ${JSON.stringify(value)}`;
 const finishOf = (value: unknown, name = "f"): string => `finish ${name}: ${JSON.stringify(value)}`;
@@ -135,16 +137,16 @@ describe("historyDescriptorsOf: each file once, oldest first", () => {
 });
 
 /** A store that keeps what it is told to save, and can lose bytes. */
-class RecordingStore extends InMemoryA2AFileRepository {
-  readonly saved: NewA2AFile[] = [];
+class RecordingStore extends InMemoryFileRepository {
+  readonly saved: NewFile[] = [];
   isLosingBytes = false;
 
-  override save(file: NewA2AFile): Promise<void> {
+  override save(file: NewFile): Promise<void> {
     this.saved.push(file);
     return super.save(file);
   }
 
-  override findBytes(...args: Parameters<InMemoryA2AFileRepository["findBytes"]>) {
+  override findBytes(...args: Parameters<InMemoryFileRepository["findBytes"]>) {
     return this.isLosingBytes ? Promise.resolve(undefined) : super.findBytes(...args);
   }
 }
@@ -170,8 +172,7 @@ function setup(owners: readonly string[] = ["root-1", OWNER]) {
     settings: resolvedFilesOf({
       agent: {},
       defaults: undefined,
-      skills: [],
-      a2aFiles: undefined,
+      limits: DEFAULT_FILE_LIMITS,
       hasPiiPolicy: false,
     }),
     maxResultSize: megabytes(1),
@@ -193,16 +194,16 @@ const keep = (store: RecordingStore, fileId: string, ownerId: string, filename?:
     mediaType: "image/png",
     ...(filename === undefined ? {} : { filename }),
     sha256: SHA,
-    sizeBytes: PNG.byteLength,
+    sizeBytes: byteSize(PNG.byteLength),
     createdAt: new Date(0),
     bytes: PNG,
   });
-const sourceOf = (descriptor: A2AFileDto): SourceFile => ({
+const sourceOf = (descriptor: FileDto): SourceFile => ({
   descriptor,
   field: "f",
   producer: "p",
 });
-const sourcesFor = (descriptors: readonly A2AFileDto[]) =>
+const sourcesFor = (descriptors: readonly FileDto[]) =>
   descriptors.map((descriptor, index) =>
     turn(startOf(descriptor, `n${String(index)}`), "finish f: {}"),
   );

@@ -112,7 +112,7 @@ export function suitesHealthOf(runs: readonly HubEvalRun[]): SuiteHealth[] {
       suite: report.suite,
       workflow: report.workflow.name,
       file,
-      endedAt: report.endedAt,
+      endedAt: report.endedAt.toISOString(),
       cases: report.summary.cases,
       passAtK: report.summary.passAtK,
       passHatK: report.summary.passHatK,

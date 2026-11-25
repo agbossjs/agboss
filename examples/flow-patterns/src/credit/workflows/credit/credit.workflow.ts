@@ -1,11 +1,7 @@
-import { action, route, start, toFinish, Workflow } from "@agboss/core";
-import { WorkflowStartTextDto } from "@agboss/core/dto";
+import { onAction, onStart, toFinish, Workflow, toAgent, toAction, Ttl } from "@agboss/core";
 import { ChargeCardAction } from "../../actions/charge-card.action.js";
 import { ApprovalAgent } from "../../agents/approval/approval.agent.js";
 import { OrderIntakeAgent } from "../../agents/order-intake/order-intake.agent.js";
-import { ChargeResultDto } from "../../dto/charge-result.dto.js";
-import { CreditApprovalDto } from "../../dto/credit-approval.dto.js";
-import { CreditOrderDto } from "../../dto/credit-order.dto.js";
 import { CreditLimitRouter } from "../../routers/credit-limit/credit-limit.router.js";
 import { DeskRouter } from "../../routers/desk/desk.router.js";
 import { CreditServiceUnavailableError } from "../../errors/credit-service-unavailable.error.js";
@@ -25,30 +21,27 @@ import { CreditWorkflowStart } from "./credit.workflow-start.js";
 @Workflow({
   name: "credit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(CreditWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(CreditWorkflowStart)
       .toRouter(DeskRouter)
-      .chooseOne(
-        route(OrderIntakeAgent)
-          .returns(CreditOrderDto)
+      .onRoute(
+        toAgent(OrderIntakeAgent)
           .toRouter(CreditLimitRouter)
           .onError(CreditServiceUnavailableError, toFinish(OrderHeldWorkflowFinish))
-          .chooseOne(
-            route(ApprovalAgent)
-              .returns(CreditApprovalDto)
+          .onRoute(
+            toAgent(ApprovalAgent)
               .toAction(ChargeCardAction),
-            route(ChargeCardAction),
-          ),
-        route(NoOrderWorkflowFinish),
-      ),
+          )
+          .onRoute(toAction(ChargeCardAction)),
+      )
+      .onRoute(toFinish(NoOrderWorkflowFinish)),
 
     // two ways in (ApprovalAgent, CreditLimitRouter): the charge's path is its own
-    action(ChargeCardAction)
-      .returns(ChargeResultDto)
+    onAction(ChargeCardAction)
       .toFinish(CreditWorkflowFinish),
   ],
-  maxSteps: 8,
+  executionLimits: { maxSteps: 8 },
   providers: [CreditService],
 })
 export class CreditWorkflow {}

@@ -1,7 +1,7 @@
 /**
  * #267 AC10 with #273 S21: a branch fails with a domain error while a sibling is paused — the
  * sibling's pause is withdrawn and the join, in the next pass, routes the branch's error as it was
- * thrown: `.onJoinError(E, …)` by class and cause chain (the domain error, or `StepFailedError`
+ * thrown: `.onError(E, …)` by class and cause chain (the domain error, or `StepFailedError`
  * above it), and without a handler the execution fails with the original error object.
  */
 import { beforeEach, describe, expect } from "vitest";
@@ -64,7 +64,7 @@ const confirmation = async () => {
     : pauseStore().findByTenantIdAndPauseId("default", ask.pauseId);
 };
 
-describe("#267 AC10 / #273 S21: .onJoinError(…) after a withdrawal matches by class and cause", () => {
+describe("#267 AC10 / #273 S21: .onError(…) after a withdrawal matches by class and cause", () => {
   testWith(PayoutsApplication)(
     "the domain error's own handler takes it; the paused sibling was withdrawn",
     async ({ app, clock, mockLlm }) => {

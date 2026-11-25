@@ -1,10 +1,10 @@
 import { expect } from "vitest";
-import { PauseAnswerer } from "../../channels/channel-role.decorator.js";
 import type { PauseAnswerRecord } from "../../flow/runtime/execution-record.js";
 import { ComponentKind } from "../../flow/runtime/records.js";
 import type { ExecutionRecordRepository } from "../../infrastructure/execution-record.repository.js";
 import { PauseResolution } from "../../infrastructure/pause-record.js";
 import type { ContractCase } from "./define.js";
+import { PauseRespondent } from "../../pause/respondent.js";
 
 /**
  * The pause answer log (#267 S107, #676): one answer per pause **of a tree** — a step key names no
@@ -14,8 +14,8 @@ import type { ContractCase } from "./define.js";
 
 const STEP_KEY = "child-7:refund-agent:1:call-1";
 
-/** The answer of the refund pause at `STEP_KEY`, by `responder`, decided `approved`. */
-const answerOf = (
+/** The answer of the refund pause at `STEP_KEY`, by `responder` (as its actor), decided `approved`. */
+export const answerOf = (
   responder: string,
   approved: boolean,
   key = STEP_KEY,
@@ -39,14 +39,26 @@ const answerOf = (
     toolLoopIteration: 1,
     validationAttempts: 0,
   },
-  role: "refund-approval-channel",
-  answerer: PauseAnswerer.Channel,
-  answeredBy: responder,
-  responder,
+  target: "refund-tool-approval",
+  channel: "refund-approval-channel",
+  respondent: PauseRespondent.Delegate,
+  actor: { id: responder, orgId: "holding-hq" },
   resolution: PauseResolution.Replied,
   askedAt,
   resolvedAt: "2026-01-05T09:05:00.000Z",
   decision: { approved },
+  input: { text: "10 USD" },
+  toolCall: { callId: "call-1", tool: "charge", summary: "charge" },
+  assignees: ["manager-17", "manager-18"],
+  externalRef: "JIRA-17",
+  trail: [
+    {
+      action: "opened",
+      at: askedAt,
+      target: "refund-tool-approval",
+      channel: "refund-approval-channel",
+    },
+  ],
 });
 
 const respondersOf = async (
@@ -54,7 +66,7 @@ const respondersOf = async (
   rootExecutionId: string,
 ): Promise<readonly (string | undefined)[]> =>
   (await records.findPauseAnswersByTenantIdAndRootExecutionId("acme", rootExecutionId)).map(
-    (answer) => answer.answeredBy,
+    (answer) => answer.actor?.id,
   );
 
 const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
@@ -95,7 +107,7 @@ const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
       expect(rest).toEqual([]);
       expect(entry).toMatchObject({
         isTaken: false,
-        answeredBy: "manager-17",
+        actor: { id: "manager-17", orgId: "holding-hq" },
         decision: { approved: true },
       });
     },
@@ -114,7 +126,7 @@ const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
       expect(entries).toHaveLength(1);
       expect(entries[0]).toMatchObject({
         isTaken: false,
-        answeredBy: "manager-17",
+        actor: { id: "manager-17", orgId: "holding-hq" },
         decision: { approved: true },
       });
     },
@@ -139,7 +151,10 @@ const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
 
         const entries = await first.findPauseAnswersByTenantIdAndRootExecutionId("acme", root);
         expect(entries).toHaveLength(1);
-        expect(entries[0]).toMatchObject({ isTaken: false, answeredBy: "manager-17" });
+        expect(entries[0]).toMatchObject({
+          isTaken: false,
+          actor: { id: "manager-17", orgId: "holding-hq" },
+        });
       }
     },
   },
@@ -164,7 +179,7 @@ const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
       await second.markPauseAnswerNotTaken("acme", "root-1", { ...early, isTaken: false });
 
       const entries = await first.findPauseAnswersByTenantIdAndRootExecutionId("acme", "root-1");
-      expect(entries.map((entry) => entry.answeredBy)).toEqual(["manager-1", "manager-2"]);
+      expect(entries.map((entry) => entry.actor?.id)).toEqual(["manager-1", "manager-2"]);
       expect(entries.map((entry) => entry.isTaken)).toEqual([false, undefined]);
     },
   },

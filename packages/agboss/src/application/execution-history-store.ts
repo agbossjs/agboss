@@ -2,12 +2,14 @@ import { startComponents, stopComponents } from "../components/container/lifecyc
 import type { Class } from "../components/injection.js";
 import { namedEnvironmentFor } from "../environments/load.js";
 import type { ExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
+import { resolvedStorageOf } from "../storage/storage-assembly.js";
 import { applicationContainerOf, clockOf, resolveInfrastructure } from "./application-container.js";
 import { applicationOf } from "./assemble.js";
-import { contextsOf, environmentOwnerOf, type BuildApplicationOptions } from "./create-app.js";
+import { environmentOwnerOf, type BuildApplicationOptions } from "./create-app.js";
+import { contextsOf } from "./instance-contexts.js";
 
 /**
- * An application's execution history opened for reading (#401 PR 1, `agboss records export`):
+ * An application's execution history opened for reading (#401 PR 1, `agboss executions export`):
  * the application assembled, its environment read, its stores created as an instance creates them
  * — and nothing else: no workflow built, no recovery sweep, no execution moved.
  */
@@ -21,13 +23,17 @@ export interface OpenedExecutionHistory {
   readonly close: () => Promise<void>;
 }
 
-/** Opens the execution history of `application` in its `env` environment. */
+/** Opens the execution history of `application` under its `profile` and in its `env` environment. */
 export async function openExecutionHistory(
   application: Class,
-  options: Pick<BuildApplicationOptions, "env" | "processEnv"> = {},
+  options: Pick<BuildApplicationOptions, "env" | "profile" | "processEnv"> = {},
 ): Promise<OpenedExecutionHistory> {
-  const assembled = await applicationOf(application, {}, "agboss records export");
   const processEnv = options.processEnv ?? process.env;
+  const assembled = await applicationOf(
+    application,
+    { profile: options.profile, processEnv, withoutIdempotencyKeys: true },
+    "agboss executions export",
+  );
   const owner = environmentOwnerOf(assembled);
   const environment = await namedEnvironmentFor(owner, options, processEnv);
   const created: unknown[] = [];
@@ -36,7 +42,8 @@ export async function openExecutionHistory(
   };
   const clock = clockOf(assembled.modules, { onCreate });
   const contexts = contextsOf(assembled, { ...options, ...environment }, {}, clock);
-  const sources = { modules: assembled.modules, clock, contexts };
+  const storage = resolvedStorageOf(assembled.storage, processEnv);
+  const sources = { modules: assembled.modules, clock, contexts, storage };
   const shared = applicationContainerOf(sources, { onCreate });
   const { executionHistory } = resolveInfrastructure(shared, { application: shared, onCreate });
   await startComponents(created);

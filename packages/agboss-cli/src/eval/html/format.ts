@@ -10,8 +10,8 @@ export function shareText(count: number, total: number): string {
 }
 
 /** The time between two ISO 8601 instants: `850 ms`, `12.4 s`, `3 min 5 s`; empty when unreadable. */
-export function durationText(startedAt: string, endedAt: string): string {
-  const elapsed = Date.parse(endedAt) - Date.parse(startedAt);
+export function durationText(startedAt: Date | string, endedAt: Date | string): string {
+  const elapsed = new Date(endedAt).getTime() - new Date(startedAt).getTime();
   if (!Number.isFinite(elapsed) || elapsed < 0) return "";
   if (elapsed < 1000) return `${String(elapsed)} ms`;
   if (elapsed < 60_000) return `${(elapsed / 1000).toFixed(1)} s`;

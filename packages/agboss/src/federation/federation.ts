@@ -127,7 +127,7 @@ function schemaProblems(
   const { consumer, contract } = pairing;
   const where = `${producer.name} › ${exported.kind === "a2a" ? exported.skill : exported.tool}`;
   const problems: FederationProblem[] = [];
-  if (exported.input !== null) {
+  if (exported.input !== null && contract.input !== null) {
     const reasons = differences(
       { member: producer, dto: exported.input },
       { member: consumer, dto: contract.input },

@@ -1,4 +1,5 @@
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
+import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
 import {
@@ -11,11 +12,14 @@ import { routerModelOf } from "../../graph/router-model.js";
 import { throwIfViolated } from "../../graph/rule-error.js";
 import { loadedGuardrailOf, type LoadedGuardrail } from "../../guardrails/assembly.js";
 import { guardrailViolations } from "../../guardrails/checks.js";
+import { contentOf } from "../../guardrails/code-guardrail.js";
 import { checkGuardrail, runtimeGuardrailOf } from "../../guardrails/runtime.js";
+import { GuardFailedError } from "../../graph/errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { TestSetupError } from "../errors.js";
 import { guardrailKeyOf } from "../scripted-gateway.js";
 import { callTimeoutOf, UnitSite } from "./unit-site.js";
+import { modelProviderOf } from "../../models/model-provider.decorator.js";
 import { UNIT_DECISION_MODEL, unitRouterDeps } from "./unit-models.js";
 import type { UnitCallOptions, UnitClock, UnitModelOptions, UnitRun } from "./unit-types.js";
 
@@ -44,7 +48,7 @@ function checkedMetaOf(guardrail: Class): GuardrailMeta {
   const meta = guardrailMetaOf(guardrail);
   if (meta === undefined)
     throw new TestSetupError({
-      message: `testGuardrail(${guardrail.name}): not an @InputGuardrail / @OutputGuardrail`,
+      message: `testUnit(${guardrail.name}): not an @InputGuardrail / @OutputGuardrail`,
     });
   throwIfViolated(guardrailViolations([guardrail], UNIT_DECISION_MODEL));
   return meta;
@@ -58,7 +62,7 @@ async function loadedOf(guardrail: Class): Promise<LoadedGuardrail> {
   loader.throwIfAny();
   if (loaded === undefined)
     throw new TestSetupError({
-      message: `testGuardrail(${guardrail.name}): could not be assembled`,
+      message: `testUnit(${guardrail.name}): could not be assembled`,
     });
   return loaded;
 }
@@ -71,7 +75,7 @@ function checkedScript(
 ): void {
   if (isCodeGuardrail(meta) && options.model !== undefined)
     throw new TestSetupError({
-      message: `testGuardrail(${guardrail.name}): ${meta.name} is decided by code (DecidedBy.Code) — it calls no model; leave out model`,
+      message: `testUnit(${guardrail.name}): ${meta.name} is decided by code — it calls no model; leave out model`,
     });
 }
 
@@ -85,7 +89,7 @@ function checkedScript(
  * A model that does not answer rejects with `GuardFailedError`. A code guardrail (#383) runs its
  * class's `check(text)` instead — no `model` script (one is a `TestSetupError`), no spend.
  */
-export function testGuardrail<
+export function guardrailUnit<
   TExecution extends ExecutionContext = ExecutionContext,
   TTenant extends TenantContext = TenantContext,
 >(guardrail: Class, options: UnitModelOptions<unknown, TExecution, TTenant> = {}): GuardrailRunner {
@@ -99,10 +103,14 @@ export function testGuardrail<
     call: GuardrailCallOptions = {},
   ): Promise<UnitRun<GuardrailCheck>> => {
     const loaded = await loadedOf(guardrail);
-    const deps = unitRouterDeps(site.gateway);
+    const deps = unitRouterDeps(site.gateway, [meta.modelProvider]);
+    // a unit has no cascade: the guardrail's own provider is the one its model is served by
+    const ownProvider =
+      meta.modelProvider === undefined ? undefined : modelProviderOf(meta.modelProvider).name;
     const runtime = runtimeGuardrailOf(loaded, {
       resolve: (cls) => site.instanceOf(cls),
-      modelOf: (model) => routerModelOf(model, deps),
+      modelOf: (model, modelProvider, unpriced) =>
+        routerModelOf(model, deps, modelProvider ?? ownProvider, unpriced),
       deciderDeps: { gateway: deps.gateway, chatDefaults: deps.chatDefaults },
     });
     const frame = {
@@ -111,17 +119,21 @@ export function testGuardrail<
       ...callTimeoutOf(call.timeout),
     };
     return site.run(frame, async ({ spent }) => {
-      const element = call.element ?? "test-agent";
-      const checked = { text, element, side: loaded.side };
+      const component = bareRecordOf(call.element ?? "test-agent", ComponentKind.Agent);
+      const checked = { text, component, side: loaded.side };
       const used: UsageRecord[] = [];
       const outcome = await checkGuardrail(runtime, checked, used, undefined);
       spent.push(...used);
       if (!outcome.isBlocked) return { isBlocked: false, probability: outcome.probability };
-      return {
-        isBlocked: true,
-        probability: outcome.probability,
-        refusal: await runtime.refusal(),
-      };
+      const refusal = outcome.refusal ?? (await runtime.refusal(contentOf(checked)));
+      if (refusal === undefined)
+        throw new GuardFailedError({
+          guard: name,
+          usage: used,
+          reason:
+            "blocked with no refusal — give blocked(refusal), the decorator { refusal } or a refusal(content) method",
+        });
+      return { isBlocked: true, probability: outcome.probability, refusal };
     });
   };
   return Object.assign(run, { clock: site.clock });

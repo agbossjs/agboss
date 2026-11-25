@@ -21,6 +21,7 @@ import {
   InMemoryCostLedgerRepository,
   type CostCounter,
   type LedgerEntry,
+  type BudgetUsage,
 } from "../../src/infrastructure/cost-ledger.repository.js";
 import { systemClock } from "../../src/infrastructure/clock.js";
 import { BudgetExceededError } from "../../src/index.js";
@@ -37,12 +38,12 @@ class ScheduledLedger extends InMemoryCostLedgerRepository {
 
   /** What the counter holds, read past the scheduler: after the moves. */
   writtenOf(counter: CostCounter): Promise<Usd> {
-    return super.findSpentByCounter(counter);
+    return super.findUsageByCounter(counter).then((usage) => usage.spent);
   }
 
-  override async findSpentByCounter(counter: CostCounter): Promise<Usd> {
+  override async findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
     await this.scheduler.schedule(Promise.resolve(), "read");
-    return super.findSpentByCounter(counter);
+    return super.findUsageByCounter(counter);
   }
 
   override async saveAll(

@@ -1,6 +1,7 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionCancelFencedError, ExecutionFencedError } from "../../app/lease-lost.js";
-import { FencedEffectStatus } from "../../infrastructure/fenced-effect.repository.js";
+import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
+import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import { effectKeyForTesting } from "./effect-key.js";
 import {
@@ -22,9 +23,9 @@ import {
  */
 
 /** One case of the contract, for a store of any transaction. */
-type Case<TTransaction> = ContractCase<FencedEffectTarget<TTransaction>>;
+type Case = ContractCase<FencedEffectTarget>;
 
-const childRefusedByRoot = <TTransaction>(): Case<TTransaction> => ({
+const childRefusedByRoot = (): Case => ({
   name: "#909 AC1: a child's key (its own lease, leaseExecutionId ≠ rootExecutionId) is refused by its root's cancel — the root need not hold a lease — and not by another root's",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -46,13 +47,13 @@ const childRefusedByRoot = <TTransaction>(): Case<TTransaction> => ({
       rootExecutionId: "root-1",
       leaseExecutionId: "child-1",
     });
-    expect(ofAnotherRoot.status).toBe(FencedEffectStatus.Ran);
+    expect(ofAnotherRoot.status).toBe(IdempotencyRunStatus.Ran);
     expect(await second.rows.committed()).toEqual(["other-root"]);
   },
 });
 
-const staleTokenIsHandOver = <TTransaction>(): Case<TTransaction> => ({
-  name: "#909: a stale token after a cancel is ExecutionFencedError, not the cancel — a zombie is a hand-over first; the new holder's write is the cancel's",
+const staleTokenIsHandOver = (): Case => ({
+  name: "#909: a stale token after a cancel is ExecutionError.Fenced, not the cancel — a zombie is a hand-over first; the new holder's write is the cancel's",
   isFencing: true,
   run: async ({ first, second }) => {
     const old = await leaseOf(first);
@@ -68,14 +69,14 @@ const staleTokenIsHandOver = <TTransaction>(): Case<TTransaction> => ({
       second.effects.runOnce(keyOf(taken), writing(second.rows, "holder", count)),
     );
 
-    expect(zombie).toBeInstanceOf(ExecutionFencedError);
+    expect(zombie).toBeInstanceOf(ExecutionError.Fenced);
     expect(zombie).not.toBeInstanceOf(ExecutionCancelFencedError);
     expect(holder).toBeInstanceOf(ExecutionCancelFencedError);
     expect(count.runs).toBe(0);
   },
 });
 
-const cancelBeforeFirstAcquire = <TTransaction>(): Case<TTransaction> => ({
+const cancelBeforeFirstAcquire = (): Case => ({
   name: "#909 AC1: a cancel before the tree's first acquire (no lease row yet) refuses the write of the lease taken after it",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -93,7 +94,7 @@ const cancelBeforeFirstAcquire = <TTransaction>(): Case<TTransaction> => ({
   },
 });
 
-const businessResultOfAnotherTree = <TTransaction>(): Case<TTransaction> => ({
+const businessResultOfAnotherTree = (): Case => ({
   name: "#909: a business-key result stored by another tree replays for a cancelled tree — a stored result is never refused",
   isFencing: true,
   run: async ({ first, second }) => {
@@ -109,7 +110,7 @@ const businessResultOfAnotherTree = <TTransaction>(): Case<TTransaction> => ({
     );
 
     expect(replayed).toMatchObject({
-      status: FencedEffectStatus.Replayed,
+      status: IdempotencyRunStatus.Replayed,
       result: { receipt: "stored" },
     });
     expect(count.runs).toBe(1);
@@ -117,14 +118,12 @@ const businessResultOfAnotherTree = <TTransaction>(): Case<TTransaction> => ({
 });
 
 /** The corners of the cancel as a fence of the fenced effect. */
-export const cancelEdgeCases = <TTransaction>(): ContractGroup<
-  FencedEffectTarget<TTransaction>
-> => ({
+export const cancelEdgeCases = (): ContractGroup<FencedEffectTarget> => ({
   title: "a tree's cancel is a fence: its corners (#909)",
   cases: [
-    childRefusedByRoot<TTransaction>(),
-    staleTokenIsHandOver<TTransaction>(),
-    cancelBeforeFirstAcquire<TTransaction>(),
-    businessResultOfAnotherTree<TTransaction>(),
+    childRefusedByRoot(),
+    staleTokenIsHandOver(),
+    cancelBeforeFirstAcquire(),
+    businessResultOfAnotherTree(),
   ],
 });

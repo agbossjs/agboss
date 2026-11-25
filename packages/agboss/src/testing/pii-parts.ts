@@ -9,11 +9,16 @@ import {
   type NamedEnvironment,
 } from "../environments/load.js";
 import type { LoadedEnvironment } from "../environments/resolve.js";
-import { isResolvedSecret, Secret, variableOfSecret } from "../environments/secret.js";
+import {
+  isResolvedSecret,
+  Secret,
+  variableOfSecret,
+  variableOfSecretRef,
+} from "../environments/secret.js";
 import { isModelGuardrail, type LoadedGuardrail } from "../guardrails/loaded.js";
 import { isCustomPolicy } from "../pii/pii-policy.decorator.js";
 import { piiPolicyMetaOf } from "../pii/policy-checks.js";
-import { customCompactionClassesOf } from "../compaction/custom-classes.js";
+import { customCompactionClassesOf } from "../memory/custom-classes.js";
 import { compactionKeyOf, guardrailKeyOf, piiPolicyKeyOf } from "./scripted-gateway.js";
 
 /**
@@ -24,11 +29,8 @@ import { compactionKeyOf, guardrailKeyOf, piiPolicyKeyOf } from "./scripted-gate
  * secret.
  */
 
-import { TEST_PSEUDONYM_KEY } from "../pii/application-key.js";
-import {
-  TEST_IDEMPOTENCY_KEY,
-  TEST_PREVIOUS_IDEMPOTENCY_KEY,
-} from "../application/idempotency-key.js";
+import { TEST_PREVIOUS_PSEUDONYM_KEY, TEST_PSEUDONYM_KEY } from "../pii/application-key.js";
+import {} from "../application/idempotency-key.js";
 import type { TestWithOptions } from "./environment.js";
 
 /** The options of tests whose instances make PII tokens on keys of their own (#334). */
@@ -52,12 +54,11 @@ const policyClassesOf = (assembled: AssembledApplication): readonly Class[] => [
   ...new Set(assembled.workflows.flatMap((workflow) => workflow.pii?.classes ?? [])),
 ];
 
-/** The script key of a `@PiiPolicy` with `detectWithModel` in the application; none for anything else. */
+/** The script key of a `@PiiPolicy` with `model` in the application; none for anything else. */
 export function piiScriptKeyOf(target: Class, assembled: AssembledApplication): string | undefined {
   if (!policyClassesOf(assembled).includes(target)) return undefined;
   const meta = piiPolicyMetaOf(target);
-  if (meta === undefined || isCustomPolicy(meta) || meta.detectWithModel === undefined)
-    return undefined;
+  if (meta === undefined || isCustomPolicy(meta) || meta.model === undefined) return undefined;
   return piiPolicyKeyOf(meta.name);
 }
 
@@ -79,26 +80,6 @@ const applicationKeyVariablesOf = (
 ): readonly string[] => keyVariablesOf(assembled.piiKeyField, loaded);
 
 /**
- * The idempotency key variables the test process does not set (#825), with the test keys: the
- * current field's `TEST_IDEMPOTENCY_KEY`, the previous one's another — as #778 gives the PII key.
- */
-function testIdempotencyKeys(
-  assembled: AssembledApplication,
-  processEnv: NodeJS.ProcessEnv,
-  loaded: LoadedEnvironment | undefined,
-): Record<string, string> {
-  const keyed = [
-    ...keyVariablesOf(assembled.idempotencyKeyField, loaded).map(
-      (v) => [v, TEST_IDEMPOTENCY_KEY] as const,
-    ),
-    ...keyVariablesOf(assembled.previousIdempotencyKeyField, loaded).map(
-      (v) => [v, TEST_PREVIOUS_IDEMPOTENCY_KEY] as const,
-    ),
-  ];
-  return Object.fromEntries(keyed.filter(([variable]) => (processEnv[variable] ?? "") === ""));
-}
-
-/**
  * The process variables of the PII keys the test process does not set, with the test key: the
  * policies' own and the application's `piiKeyField`'s (#778) — a test that sets one keeps it.
  */
@@ -107,15 +88,21 @@ export function testPseudonymKeys(
   processEnv: NodeJS.ProcessEnv,
   loaded?: LoadedEnvironment,
 ): Record<string, string> {
-  const policies = policyClassesOf(assembled).flatMap((cls) => {
+  const own = policyClassesOf(assembled).flatMap((cls) => {
     const meta = piiPolicyMetaOf(cls);
-    if (meta === undefined || isCustomPolicy(meta) || meta.pseudonymKey === undefined) return [];
-    return [variableOfSecret(meta.pseudonymKey)];
+    if (meta === undefined || isCustomPolicy(meta) || meta.secret === undefined) return [];
+    return [
+      [variableOfSecretRef(meta.secret), TEST_PSEUDONYM_KEY] as const,
+      ...(meta.previousSecret === undefined
+        ? []
+        : [[variableOfSecretRef(meta.previousSecret), TEST_PREVIOUS_PSEUDONYM_KEY] as const]),
+    ];
   });
+  const application = applicationKeyVariablesOf(assembled, loaded).map(
+    (variable) => [variable, TEST_PSEUDONYM_KEY] as const,
+  );
   return Object.fromEntries(
-    [...policies, ...applicationKeyVariablesOf(assembled, loaded)]
-      .filter((variable) => (processEnv[variable] ?? "") === "")
-      .map((variable) => [variable, TEST_PSEUDONYM_KEY]),
+    [...own, ...application].filter(([variable]) => (processEnv[variable] ?? "") === ""),
   );
 }
 
@@ -140,7 +127,6 @@ export async function testKeyedEnvironmentOf(
   const keyed = {
     ...processEnv,
     ...testPseudonymKeys(assembled, processEnv, loaded),
-    ...testIdempotencyKeys(assembled, processEnv, loaded),
   };
   return { named: namedEnvironmentOf(loaded, keyed), processEnv: keyed };
 }
@@ -176,7 +162,7 @@ export function compactionScriptKeyOf(
   assembled: AssembledApplication,
 ): string | undefined {
   const compaction = assembled.workflows
-    .flatMap((workflow) => workflow.compactions?.compactions ?? [])
+    .flatMap((workflow) => workflow.memories?.memories ?? [])
     .find((candidate) => candidate.type === target && candidate.prompt !== "");
   return compaction === undefined ? undefined : compactionKeyOf(compaction.name);
 }
@@ -184,5 +170,5 @@ export function compactionScriptKeyOf(
 /** Whether a class is a custom compaction of the application (#382): its `compact()` calls no model. */
 export const isCustomCompactionIn = (target: Class, assembled: AssembledApplication): boolean =>
   assembled.workflows.some((workflow) =>
-    customCompactionClassesOf(workflow.compactions).includes(target),
+    customCompactionClassesOf(workflow.memories).includes(target),
   );

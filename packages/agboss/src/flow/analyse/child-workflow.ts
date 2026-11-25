@@ -7,10 +7,10 @@ import {
   type WorkflowDeclaration,
   type WorkflowStartDeclaration,
 } from "../decorators/declaration.js";
-import { oneOf, type OutputShape, type ValueShape } from "../dto-wrappers.js";
+import { oneOf, type ListWrapper, type OutputShape, type ValueShape } from "../dto-wrappers.js";
+import { FlowSyntaxError } from "../flow-syntax-error.js";
 import type { ComponentName } from "../registry.js";
-import { isThisWorkflow } from "../this-workflow.js";
-import { dtoLabel } from "./labels.js";
+import { shapeLabel } from "./labels.js";
 import { slotOfField, type SlotKey } from "./scope.js";
 
 /**
@@ -41,8 +41,10 @@ export interface ChildStart {
 export interface ChildWorkflow {
   readonly name: ComponentName;
   readonly starts: readonly ChildStart[];
+  /** The finishes its flow reaches, sorted by name (`.onFinish(F, …)` names one of them, #1275). */
+  readonly finishes: readonly Class[];
   /** The distinct output classes of its finishes, sorted by name. */
-  readonly outputs: readonly DtoClass[];
+  readonly outputs: readonly (DtoClass | ListWrapper)[];
   /** What it gives its parent: one class, a `oneOf(…)` of several, nothing without a finish. */
   readonly output?: OutputShape;
 }
@@ -61,18 +63,20 @@ function startOf(component: Class, declaration: WorkflowStartDeclaration): Child
   return { name, component, fields };
 }
 
-/** Every step of a path and of its sub-paths (cases, routes, side paths). */
+/** Every step of a path and of its sub-paths (routes, branches, side paths). */
 function allSteps(steps: readonly Step[]): readonly Step[] {
   return steps.flatMap((step): readonly Step[] => {
     switch (step.kind) {
-      case StepKind.Switch:
-        return [step, ...step.cases.flatMap((branch) => allSteps(branch.path.steps))];
+      case StepKind.OneOf:
+        return [step, ...step.branches.flatMap((branch) => allSteps(branch.steps))];
+      case StepKind.OnFinish:
+        return [step, ...allSteps(step.path.steps)];
       case StepKind.ChooseOne:
         return [step, ...step.routes.flatMap((route) => allSteps(route.path.steps))];
       case StepKind.OnError:
         return [step, ...allSteps(step.path.steps)];
       case StepKind.Join:
-        return [step, ...step.onJoinError.flatMap((handler) => allSteps(handler.path.steps))];
+        return [step, ...step.onError.flatMap((handler) => allSteps(handler.path.steps))];
       default:
         return [step];
     }
@@ -80,7 +84,7 @@ function allSteps(steps: readonly Step[]): readonly Step[] {
 }
 
 /** The finish classes a flow names: `.toFinish(F)` and `route(F)`. */
-function finishesOf(flow: readonly FlowPath[]): readonly Class[] {
+export function finishesOf(flow: readonly FlowPath[]): readonly Class[] {
   const targets = flow
     .flatMap((path) => allSteps(path.steps))
     .flatMap((step): readonly Class[] => {
@@ -91,20 +95,36 @@ function finishesOf(flow: readonly FlowPath[]): readonly Class[] {
   return [...new Set(targets)].filter((target) => declarationOf(target)?.kind === NodeKind.Finish);
 }
 
-function outputsOf(flow: readonly FlowPath[]): readonly DtoClass[] {
+function outputsOf(flow: readonly FlowPath[]): readonly (DtoClass | ListWrapper)[] {
   const outputs = finishesOf(flow).flatMap((finish) => {
     const declaration = declarationOf(finish);
     return declaration?.kind === NodeKind.Finish ? [declaration.options.output] : [];
   });
-  return [...new Set(outputs)].sort((first, second) =>
-    dtoLabel(first).localeCompare(dtoLabel(second)),
+  const byLabel = new Map(outputs.map((output) => [shapeLabel(output), output]));
+  return [...byLabel.values()].sort((first, second) =>
+    shapeLabel(first).localeCompare(shapeLabel(second)),
   );
 }
 
-const outputShapeOf = (outputs: readonly DtoClass[]): OutputShape | undefined => {
-  const [first, second, ...rest] = outputs;
+const outputShapeOf = (
+  outputs: readonly (DtoClass | ListWrapper)[],
+  workflow: string,
+): OutputShape | undefined => {
+  const [first, second] = outputs;
   if (first === undefined) return undefined;
-  return second === undefined ? first : oneOf(first, second, ...rest);
+  if (second === undefined) return first;
+  const classes = outputs.filter((output): output is DtoClass => typeof output === "function");
+  const [firstClass, secondClass, ...moreClasses] = classes;
+  if (classes.length !== outputs.length || firstClass === undefined || secondClass === undefined) {
+    throw new FlowSyntaxError({
+      message: `${workflow}: its finishes give ${outputs
+        .map(shapeLabel)
+        .join(
+          " and ",
+        )} — a list output cannot be one of several; give every finish the same list, or end the lists in one finish`,
+    });
+  }
+  return oneOf(firstClass, secondClass, ...moreClasses);
 };
 
 function summarise(declaration: WorkflowDeclaration): ChildWorkflow {
@@ -118,10 +138,11 @@ function summarise(declaration: WorkflowDeclaration): ChildWorkflow {
     (first, second) => first.name.localeCompare(second.name),
   );
   const outputs = outputsOf(flow);
-  const output = outputShapeOf(outputs);
+  const output = outputShapeOf(outputs, name);
   return {
     name: name as ComponentName,
     starts: unique,
+    finishes: [...finishesOf(flow)].sort((first, second) => first.name.localeCompare(second.name)),
     outputs,
     ...(output === undefined ? {} : { output }),
   };
@@ -131,7 +152,8 @@ function summarise(declaration: WorkflowDeclaration): ChildWorkflow {
 function stepClassesOf(steps: readonly Step[]): readonly Class[] {
   return allSteps(steps).flatMap((step): readonly Class[] => {
     if (step.kind === StepKind.To) return [step.target];
-    if (step.kind === StepKind.Launch) return step.targets;
+    if (step.kind === StepKind.InParallel) return step.branches.map((branch) => branch.target);
+    if (step.kind === StepKind.ForEachItem) return [step.branch.target];
     if (step.kind === StepKind.Join && step.quorum?.kind === QuorumKind.Groups)
       return step.quorum.groups.flatMap((group) => stepClassesOf(group.path.steps));
     return step.kind === StepKind.ChooseOne ? step.routes.map((route) => route.target) : [];
@@ -144,12 +166,12 @@ export function flowClassesOf(flow: readonly FlowPath[]): readonly Class[] {
 }
 
 /**
- * The workflow classes a flow launches: `.toWorkflow(W)`, `route(W)`, `.toParallelWorkflows(W, …)` —
- * never `ThisWorkflow` (#264), which is the workflow itself.
+ * The workflow classes a flow launches: `.toWorkflow(W)`, `.onRoute(toWorkflow(W))`, `.forEachItem(toWorkflow(W), …)` —
+ * never `self`, the workflow the flow belongs to, when given (a recursion, #264, #1287).
  */
-export const childClassesOf = (flow: readonly FlowPath[]): readonly Class[] =>
+export const childClassesOf = (flow: readonly FlowPath[], self?: Class): readonly Class[] =>
   flowClassesOf(flow).filter(
-    (target) => declarationOf(target)?.kind === NodeKind.Workflow && !isThisWorkflow(target),
+    (target) => declarationOf(target)?.kind === NodeKind.Workflow && target !== self,
   );
 
 /** The workflows and, depth first, every child workflow they launch, each once. */
@@ -160,7 +182,7 @@ export function withChildWorkflows(workflows: readonly Class[]): readonly Class[
     found.add(workflow);
     const declaration = declarationOf(workflow);
     if (declaration?.kind === NodeKind.Workflow)
-      childClassesOf(declaration.options.flow).forEach(visit);
+      childClassesOf(declaration.options.flow, workflow).forEach(visit);
   };
   workflows.forEach(visit);
   return [...found];
@@ -178,7 +200,7 @@ export function childrenFirst(workflows: readonly Class[]): readonly Class[] {
     entered.add(workflow);
     const declaration = declarationOf(workflow);
     if (declaration?.kind === NodeKind.Workflow)
-      childClassesOf(declaration.options.flow).forEach(visit);
+      childClassesOf(declaration.options.flow, workflow).forEach(visit);
     ordered.push(workflow);
   };
   workflows.forEach(visit);

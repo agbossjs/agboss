@@ -2,6 +2,7 @@
  * #807 — the A2A task stores' helpers on their own: the page token's refusal, a saved task's shape,
  * the sweep's expiry, the stores' `ping()` and the SQLite store's registration.
  */
+import { ensureBaselineSchema } from "../../src/infrastructure/sqlite/sqlite-baseline-schema.js";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { a2aPagePositionOf, nextPageTokenOf } from "../../src/infrastructure/a2a-task-pages.js";
@@ -21,6 +22,7 @@ import { hours } from "../../src/units/index.js";
 
 const NINE = new Date("2026-01-05T09:00:00.000Z");
 const accepted = {
+  endpoint: "orders-a2a-expose",
   tenantId: "default",
   taskId: "t-1",
   ownerId: undefined,
@@ -67,19 +69,22 @@ describe("#807: the A2A task stores' helpers", () => {
   });
 
   it("the sweep's expiry names the finished tasks and removes them by their status time", async () => {
-    const asked: Date[] = [];
+    const asked: ReadonlyMap<string, Date>[] = [];
     const tasks = {
-      deleteTerminalByStatusAtBefore: (cutoff: Date) => {
-        asked.push(cutoff);
-        return Promise.resolve();
+      deleteExpired: (cutoffs: ReadonlyMap<string, Date>) => {
+        asked.push(cutoffs);
+        return Promise.resolve(0);
       },
     };
 
-    const expiry = a2aTaskExpiryOf(tasks, hours(24));
+    const expiry = a2aTaskExpiryOf(tasks, "billing", hours(24));
     await expiry.remove?.(NINE);
 
-    expect(expiry).toMatchObject({ what: "the finished A2A tasks", retention: hours(24) });
-    expect(asked).toEqual([NINE]);
+    expect(expiry).toMatchObject({
+      what: "the finished A2A tasks of billing",
+      retention: hours(24),
+    });
+    expect(asked).toEqual([new Map([["billing", NINE]])]);
   });
 
   it("#824: each store declares its backend; the contract leaves it undeclared", () => {
@@ -115,15 +120,8 @@ describe("#807: the A2A task stores' helpers", () => {
 
   it("a SQLite row whose state column and status disagree is refused, never read (M6)", async () => {
     const database = new DatabaseSync(":memory:");
-    const connection = {
-      database,
-      ensureSchema: (_name: string, ddl: string) => {
-        database.exec(ddl);
-      },
-      // #810: the schema written today has the column already
-      addColumn: () => undefined,
-      transaction: <T>(work: () => T): T => work(),
-    };
+    ensureBaselineSchema(database);
+    const connection = { database, transaction: <T>(work: () => T): T => work() };
     const sqlite = new SqliteA2ATaskRepository(connection as never);
     await sqlite.saveIfAbsent(accepted);
     database.prepare("UPDATE a2a_tasks SET state = 'TASK_STATE_COMPLETED'").run();

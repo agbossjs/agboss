@@ -45,6 +45,8 @@ export interface UnwindSite {
   readonly isSealing: boolean;
   /** Where a late undo's spend goes (the ledger, at once). */
   readonly record: (usage: readonly UsageRecord[]) => Promise<void>;
+  /** The unwind is a stop's (#1341b): nothing is undone and nothing sealed — what was done stays. */
+  readonly isStopped?: boolean | undefined;
   /** After each undo ended: its durable mark when it succeeded (a child's, a root's, #340 PR 4). */
   readonly onUndone?: ((entry: CompensationEntry) => Promise<void>) | undefined;
 }
@@ -139,6 +141,7 @@ function seal(site: UnwindSite): void {
 
 /** Undoes the open entries the unwind covers, newest first (see above). */
 export async function unwound(site: UnwindSite): Promise<Unwound> {
+  if (site.isStopped === true) return { closed: [], usage: [], failures: [] };
   await bodiesSettled(site);
   const done = new Set<string>();
   const closed: CompensationEntry[] = [];

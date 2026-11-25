@@ -18,6 +18,7 @@ import {
 } from "../../src/models/wire.js";
 import { ENV, KEYS } from "./gateway.js";
 import { TestOpenRouterProvider } from "./providers.fixture.js";
+import { handlerOf } from "./driver-handler.js";
 import { completion, providerStub } from "./stub.js";
 
 const IMAGE = { kind: "image", mediaType: "image/png", data: "AAAA", detail: "low" } as const;
@@ -31,7 +32,7 @@ const PDF = {
 /** What the real OpenAI client sends for one call with these messages. */
 async function sentFor(messages: readonly (HumanMessage | SystemMessage)[]) {
   const stub = providerStub([completion()]);
-  const provider = new TestOpenRouterProvider();
+  const provider = handlerOf(TestOpenRouterProvider);
   const connection = connectionOf(modelProviderOf(TestOpenRouterProvider), {
     env: ENV,
     environment: KEYS,

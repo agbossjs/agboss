@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — what the input step adds to the loop when it has nothing to read, and the text of the
  * decisions an agent is told about, each on its own over fakes: no files, no guardrails and no mask leave the lists empty
@@ -11,12 +12,10 @@ import { fileMaskOf } from "../../src/files/file-mask.js";
 import { guardedFilesOf } from "../../src/files/guarded-files.js";
 import { formatDecisionsForAgent, makeInputNode } from "../../src/graph/agent-loop/input-node.js";
 import { loopPoliciesOf } from "../../src/graph/agent-loop/model-pii.js";
-import { memoryViewOf } from "../../src/graph/agent-loop/memory-view.js";
 import { gatherKnowledge } from "../../src/graph/nodes/knowledge.js";
 import { runGuardrails } from "../../src/guardrails/runtime.js";
 
 vi.mock("../../src/graph/nodes/knowledge.js", () => ({ gatherKnowledge: vi.fn() }));
-vi.mock("../../src/graph/agent-loop/memory-view.js", () => ({ memoryViewOf: vi.fn() }));
 vi.mock("../../src/graph/agent-loop/model-pii.js", () => ({ loopPoliciesOf: vi.fn() }));
 vi.mock("../../src/files/guarded-files.js", () => ({ guardedFilesOf: vi.fn() }));
 vi.mock("../../src/files/file-mask.js", () => ({ fileMaskOf: vi.fn() }));
@@ -32,10 +31,11 @@ vi.mock("../../src/files/visit-files.js", async (original) => ({
 }));
 
 const record = (costUsd: number): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller: "x",
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -46,6 +46,8 @@ const stateOf = (changes: Record<string, unknown> = {}) =>
     from: { usage: 0 },
     flowPath: ["a"],
     inputMessage: "hello",
+    summaries: [],
+    history: [],
     approvals: [],
     piiTokens: {},
     inputFiles: [],
@@ -66,7 +68,6 @@ const nodeOf = (changes: Record<string, unknown> = {}) =>
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(memoryViewOf).mockResolvedValue({ summaries: [], history: [] });
   vi.mocked(gatherKnowledge).mockResolvedValue({ block: "", records: [] });
   vi.mocked(loopPoliciesOf).mockReturnValue(undefined);
 });

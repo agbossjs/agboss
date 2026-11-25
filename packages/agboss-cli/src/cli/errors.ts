@@ -44,6 +44,20 @@ export const usageError = (command: string, code: string, message: string): CliE
   new CliError("usage", code, `${message} — see agboss help ${command}`);
 
 /**
+ * A `--scope <id>` as given, once it is a key's text: else a usage error naming the rule, never the
+ * id — a scope id no source can have would read nothing, silently.
+ */
+export function scopeOptionOf(command: string, scope: string | undefined): string | undefined {
+  const rule = scope === undefined ? undefined : keyTextRuleOf(scope);
+  if (rule === undefined) return scope;
+  throw usageError(
+    command,
+    "usage.option-value",
+    `option --scope needs a scope id, and a scope id is a key's text: this one breaks ${rule}`,
+  );
+}
+
+/**
  * A `--tenant <id>` as given, once it is a key's text (#580, the rules of #552): else a usage error
  * naming the rule, never the id — a tenant id no tenant can have would read nothing, silently.
  */

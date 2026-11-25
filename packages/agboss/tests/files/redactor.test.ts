@@ -16,6 +16,7 @@ import {
   redacted,
 } from "../../src/files/model-image-redactor-work.js";
 import { boxOf, MAX_REGIONS, regionsOf } from "../../src/files/redaction-regions.js";
+import { SILENT_LOG } from "../../src/infrastructure/logger.js";
 import { PiiKind } from "../../src/pii/kinds.js";
 import { seconds } from "../../src/units/index.js";
 import { runNodeReporting } from "../helpers/process.js";
@@ -136,10 +137,38 @@ async function failure(
 }
 
 describe("AC3: everything that goes wrong fails closed, never the unredacted file", () => {
-  it("the model's answer is no JSON, has no list, names a target nobody asked for", async () => {
+  it("the model's answer is no JSON, or has no list", async () => {
     await failure("I found a card.");
     await failure('{"regions":"all"}');
-    await failure('{"regions":[{"target":"email","x":0.1,"y":0.1,"w":0.2,"h":0.2}]}');
+  });
+
+  it("#1301: a region whose target nobody asked for is painted all the same, the file is not refused, and the log hears of it", async () => {
+    const file = await imageOf(undefined, "jpeg");
+    const answer = '{"regions":[{"target":"email","x":0.5,"y":0.5,"w":0.1,"h":0.1}]}';
+    const warned: { code: string; message: string }[] = [];
+    const log = {
+      ...SILENT_LOG,
+      warn: (code: string, message: string) => warned.push({ code, message }),
+    };
+
+    const result = await redacted(
+      bindingAnswering(answer),
+      "reader-agent",
+      file,
+      OPTIONS,
+      undefined,
+      log,
+    );
+
+    expect(Math.max(...(await pixelAt(result.file.bytes, 105, 52)))).toBeLessThan(10);
+    expect(result.found).toEqual([]);
+    expect(warned).toEqual([
+      {
+        code: "files.redactor-unknown-target",
+        message:
+          "reader-agent: the redaction model named 1 region(s) with a target it was not asked for — painted all the same",
+      },
+    ]);
   });
 
   it("a region out of the image, empty, not finite or not a number is refused as a whole answer", async () => {
@@ -158,11 +187,20 @@ describe("AC3: everything that goes wrong fails closed, never the unredacted fil
     );
   });
 
-  it("the target 'value' is only known when values were given", async () => {
-    await failure('{"regions":[{"target":"value","x":0.1,"y":0.1,"w":0.2,"h":0.2}]}', undefined, {
-      ...OPTIONS,
-      values: [],
-    });
+  it("#1301: the target 'value' is only known when values were given: without them it is painted and warned", async () => {
+    const warned: string[] = [];
+    const log = { ...SILENT_LOG, warn: (code: string) => warned.push(code) };
+
+    await redacted(
+      bindingAnswering('{"regions":[{"target":"value","x":0.1,"y":0.1,"w":0.2,"h":0.2}]}'),
+      "reader-agent",
+      await imageOf(),
+      { ...OPTIONS, values: [] },
+      undefined,
+      log,
+    );
+
+    expect(warned).toEqual(["files.redactor-unknown-target"]);
   });
 
   it("an animated (multi-frame) image is refused", async () => {
@@ -274,7 +312,6 @@ describe("AC3: nothing the model wrote reaches an error, a log or a cause", () =
       }),
     );
     const answers = [
-      `{"regions":[{"target":"${SECRET}","x":0.1,"y":0.1,"w":0.2,"h":0.2}]}`,
       `{"regions":[{"target":"card-number","x":0.1,"y":0.1,"w":0.2,"h":9,"note":"${SECRET}"}]}`,
       `${SECRET} is on the card`,
       `{"regions":"${SECRET}"}`,
@@ -291,12 +328,33 @@ describe("AC3: nothing the model wrote reaches an error, a log or a cause", () =
     expect(logged.join("\n")).not.toContain("Dana");
   });
 
-  it("the reason says which region and what is wrong, with the counts", async () => {
-    const error = await failure(
-      '{"regions":[{"target":"card-number","x":0.1,"y":0.1,"w":0.2,"h":0.2},{"target":"nope","x":0.1,"y":0.1,"w":0.2,"h":0.2}]}',
+  it("a target that is the model's own text is painted and never in the log line", async () => {
+    const warned: string[] = [];
+    const log = {
+      ...SILENT_LOG,
+      warn: (code: string, message: string) => warned.push(`${code} ${message}`),
+    };
+
+    await redacted(
+      bindingAnswering(`{"regions":[{"target":"${SECRET}","x":0.1,"y":0.1,"w":0.2,"h":0.2}]}`),
+      "reader-agent",
+      await imageOf(),
+      OPTIONS,
+      undefined,
+      log,
     );
 
-    expect(error.reason).toContain("region 2 of 2 names an unknown target");
+    expect(warned).toHaveLength(1);
+    expect(warned.join("\n")).not.toContain("Dana");
+    expect(warned.join("\n")).not.toContain("4242");
+  });
+
+  it("the reason says which region and what is wrong, with the counts", async () => {
+    const error = await failure(
+      '{"regions":[{"target":"card-number","x":0.1,"y":0.1,"w":0.2,"h":0.2},{"target":"card-number","x":0.1,"y":0.1,"w":0.2,"h":9}]}',
+    );
+
+    expect(error.reason).toContain("region 2 of 2 is out of bounds");
   });
 });
 

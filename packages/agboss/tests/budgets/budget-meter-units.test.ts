@@ -22,6 +22,7 @@ import {
   InMemoryCostLedgerRepository,
   type CostCounter,
   type LedgerEntry,
+  type BudgetUsage,
 } from "../../src/infrastructure/cost-ledger.repository.js";
 import { VirtualClock } from "../../src/testing/index.js";
 import { seconds, usd, type Usd } from "../../src/units/index.js";
@@ -51,9 +52,9 @@ class CountedLedger extends InMemoryCostLedgerRepository {
   reads = 0;
   readonly writes: (readonly CostCounter[])[] = [];
 
-  override findSpentByCounter(counter: CostCounter): Promise<Usd> {
+  override findUsageByCounter(counter: CostCounter): Promise<BudgetUsage> {
     this.reads += 1;
-    return super.findSpentByCounter(counter);
+    return super.findUsageByCounter(counter);
   }
 
   override saveAll(counters: readonly CostCounter[], records: readonly LedgerEntry[]) {
@@ -128,7 +129,7 @@ describe("#633: a check counts what the meter recorded and tallied", () => {
     });
 
     expect(error).toBeInstanceOf(DeadlineExceededError);
-    expect(error).toMatchObject({ path: ["clerk-agent"], spentUsd: 0.25, usage });
+    expect(error).toMatchObject({ path: ["clerk-agent"], spentUsd: usd(0.25), usage });
   });
 
   it("no budgets: nothing is tallied, taken in or recorded — a deadline's error carries the caller's spend only", async () => {
@@ -142,7 +143,7 @@ describe("#633: a check counts what the meter recorded and tallied", () => {
       meter.check(0.25, []);
     });
 
-    expect(error).toMatchObject({ spentUsd: 0.25 });
+    expect(error).toMatchObject({ spentUsd: usd(0.25) });
     expect(meter.exhausted.aborted).toBe(false);
   });
 });
@@ -309,13 +310,13 @@ class NotABudget {
 
 describe("#633: an execution's budgets", () => {
   it("another workflow's execution budget is not the default; a class without @Budget is none", () => {
-    const ThisWorkflow = class {
-      readonly name = "this-workflow";
+    const OwnWorkflow = class {
+      readonly name = "own-workflow";
     };
 
     const chosen = budgetsOfExecution(
-      [NotABudget, OtherWorkflowBudget, DefaultExecutionBudget],
-      ThisWorkflow,
+      { budgets: [NotABudget, OtherWorkflowBudget, DefaultExecutionBudget] },
+      OwnWorkflow,
     );
 
     expect(chosen.map((each) => each.meta.name)).toEqual(["default-execution-budget"]);

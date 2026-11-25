@@ -1,5 +1,5 @@
 /**
- * #824 AC3 — fail closed at assembly: an application that serves A2A (`@A2AExpose`) on a lease
+ * #824 AC3 — fail closed at assembly: an application that serves A2A (`@A2AEndpoint`) on a lease
  * store its instances share (any backend but `in-memory`) keeps its A2A tasks where they share them
  * too — the leases' backend, or another backend no single host owns — else
  * `[a2a.task-store-not-shared]` names both stores and the one to list: on each instance's own

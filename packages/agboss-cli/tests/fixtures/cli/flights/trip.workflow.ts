@@ -1,7 +1,8 @@
 // `agboss check` fixture (#371): a workflow with its own FlightBookingDto — the other has one too
 // the untyped builder: this package has no generated types for the framework's fixtures
-import { start } from "../../../../../agboss/tests/flow/fixtures/paths.js";
+import { onStart } from "../../../../../agboss/tests/flow/fixtures/paths.js";
 import { Workflow } from "../../../../../agboss/src/flow/decorators/workflow.js";
+import { Ttl } from "../../../../../agboss/src/units/index.js";
 import { WorkflowFinish } from "../../../../../agboss/src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../../../agboss/src/flow/decorators/workflow-start.js";
 import { Text } from "../../../../../agboss/src/dto/index.js";
@@ -21,9 +22,9 @@ export class TripWorkflowFinish {}
 @Workflow({
   name: "trip-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TripWorkflowStart)
-      .returns(FlightBookingDto)
+    onStart(TripWorkflowStart)
       .toFinish(TripWorkflowFinish),
   ],
 })

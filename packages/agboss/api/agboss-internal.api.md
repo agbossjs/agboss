@@ -7,12 +7,14 @@
 import type { BaseCallbackHandler } from '@langchain/core/callbacks/base';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { BaseCheckpointSaver } from '@langchain/langgraph';
-import type { BaseMessage } from '@langchain/core/messages';
+import { CheckpointTuple } from '@langchain/langgraph';
+import type { DatabaseSync } from 'node:sqlite';
 import type { Graph } from '@langchain/core/runnables/graph';
 import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
 import type { RunnableConfig } from '@langchain/core/runnables';
+import type { TracerProvider } from '@opentelemetry/api';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 
@@ -32,7 +34,7 @@ export interface A2ATaskRepairParts {
 }
 
 // @public
-export interface AGBossErrorOptions {
+export interface AGBossErrorOptions extends ErrorDiagnostics {
     // (undocumented)
     readonly cause?: unknown;
     // (undocumented)
@@ -46,6 +48,11 @@ export interface AgentExecutionDeps<TName extends string> extends GraphDeps<TNam
     readonly modelProviders?: readonly ModelProviderType[] | undefined;
     readonly ownFileRedactor?: Class | undefined;
     readonly ownFileTranscriber?: Class | undefined;
+    readonly replyInterpreters?: readonly AssembledReplyInterpreter[] | undefined;
+    readonly rerankers?: readonly {
+        readonly name: string;
+        readonly prompt?: string;
+    }[] | undefined;
     readonly tracing?: ExecutionTracing | undefined;
     // (undocumented)
     readonly turns: TurnRecords;
@@ -88,14 +95,55 @@ export interface AppDepsOptions {
     readonly meterProvider?: MeterProvider;
     readonly processEnv?: NodeJS.ProcessEnv;
     readonly providerFetch?: ProviderFetch;
+    readonly tracerProvider?: TracerProvider | TracingAdapter;
     readonly transport?: TransportFactory;
 }
+
+// @public
+export interface ApplicationContracts {
+    // (undocumented)
+    readonly exports: readonly (A2AExportContract | McpExportContract)[];
+    // (undocumented)
+    readonly imports: readonly (A2AImportContract | A2AForeignImportContract | McpImportContract)[];
+    // (undocumented)
+    readonly schemas: Readonly<Record<string, {
+        readonly schemaHash: string;
+        readonly jsonSchema: JsonSchema;
+    }>>;
+}
+
+// @public
+export function applicationDataOf(assembled: AssembledApplication, environment: DescribedEnvironment | undefined): DescribedApplication;
 
 // @public
 export interface ApplicationDescription {
     readonly environment?: DescribedEnvironment;
     readonly profile?: string;
     readonly source?: string;
+}
+
+// @public
+export interface ApplicationFacts {
+    // (undocumented)
+    readonly budgets: readonly DescribedBudget[];
+    // (undocumented)
+    readonly executionBudgets: readonly DescribedExecutionBudget[];
+    // (undocumented)
+    readonly implementations: readonly ImplementationChoice[];
+    readonly maxConcurrentSteps?: number;
+    // (undocumented)
+    readonly modelProviders: readonly DescribedModelProvider[];
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly observers: readonly string[];
+    readonly pauseListeners: readonly DescribedPauseListener[];
+    readonly storage?: readonly DescribedStorage[];
+    // (undocumented)
+    readonly version: string;
+    // (undocumented)
+    readonly warnings: readonly string[];
+    readonly workflows: readonly string[];
 }
 
 // @public
@@ -110,7 +158,7 @@ export class ApplicationLoadError extends AGBossError {
 }
 
 // @public
-export function applicationModelUsesOf(workflows: readonly WorkflowModels[]): readonly ModelUse[];
+export function applicationModelUsesOf(workflows: readonly WorkflowModels_2[]): readonly ModelUse[];
 
 // @public (undocumented)
 export function applicationOf(application: Class, assembly?: ApplicationAssembly, where?: string): Promise<AssembledApplication>;
@@ -131,36 +179,37 @@ export interface ApplicationStart {
 export const applicationWarningsOf: (assembled: AssembledApplication) => readonly AssemblyWarning[];
 
 // @public
-export interface AssembledApplication extends AssembledKeyFields {
-    readonly a2aFileRetention: Milliseconds;
-    readonly a2aFiles?: A2AFileOptions;
-    readonly a2aMessageRetention: Milliseconds;
-    readonly a2aTaskRetention: Milliseconds;
+export interface AssembledApplication extends AssembledKeyFields, StorageFields, P.ProfileFields {
     // (undocumented)
     readonly application: Class;
-    readonly auditLogRetention: Milliseconds;
+    readonly auditLogRetention?: Milliseconds | undefined;
+    readonly budgetOverlays?: BudgetOverlays | undefined;
     // (undocumented)
     readonly budgets: readonly Class[];
+    readonly childClaimTimeout: Milliseconds;
+    readonly childPlacement?: ChildPlacement;
     readonly compensationTimeout: Milliseconds;
+    readonly endpoints: readonly Class[];
     readonly environment?: Class;
     // (undocumented)
     readonly executionContext: ExecutionContextClass;
     readonly executionRecordRetention?: Milliseconds;
-    readonly exposes: readonly Class[];
-    readonly fencedEffects: FencedEffectSettings;
+    readonly hasTenantContext: boolean;
     readonly healthChecks: readonly Class[];
-    readonly ledgerEntryRetention: Milliseconds;
+    readonly isolatedWorker?: IsolatedWorkerOptions;
+    readonly ledgerEntryRetention?: Milliseconds | undefined;
     readonly maxConcurrentSteps?: number;
     readonly maxMeshHops: number;
-    readonly mesh?: MeshOptions;
+    readonly mesh?: MeshMeta;
     readonly meshAnswerRetention: Milliseconds;
     readonly modules: readonly ProviderModule[];
     // (undocumented)
     readonly name: string;
     readonly observers: readonly Class[];
-    readonly outboundCalls: OutboundCallSettings;
+    readonly outboundMasking: OutboundMasking;
     readonly pauseRecordRetention: Milliseconds;
     readonly piiPolicies: readonly Class[];
+    readonly profileSelection?: ProfileSelection;
     readonly providers: readonly Provider[];
     readonly shutdownTimeout: Milliseconds;
     readonly source?: string;
@@ -173,12 +222,12 @@ export interface AssembledApplication extends AssembledKeyFields {
 // @public
 export interface AssembledWorkflow<TName extends string = string> {
     readonly arbiters?: readonly ModelArbiterUse[];
+    readonly budgetOverlays?: BudgetOverlays | undefined;
     readonly businessKeyWriter?: BusinessKeyWriterUse;
-    readonly channels?: (services: WorkflowServices) => ReadonlyMap<string, PauseChannel>;
-    // (undocumented)
-    readonly compactions?: AssembledCompactions;
+    readonly componentOptions?: ComponentOptions | undefined;
     // (undocumented)
     readonly config: AgentsConfigOf<TName>;
+    readonly decisionTargetOf?: DecisionTargetOf;
     readonly graph: RuntimeGraph;
     readonly guardrails?: AssembledGuardrails;
     readonly hasFileStore?: boolean;
@@ -186,16 +235,21 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly knowledge?: (services: WorkflowServices) => ReadonlyMap<string, readonly KnowledgeSource[]>;
     readonly knowledgeBases?: (services: WorkflowServices) => readonly {
         readonly name: string;
-        readonly connector: RagConnector;
+        readonly scope: RagScope;
+        readonly index: (options: RagIndexOptions) => Promise<RagIndexReport | undefined>;
     }[];
     readonly maxSteps: number;
+    readonly mcpServerClasses?: ReadonlyMap<Class, string>;
+    readonly mcpServerConfigs?: Readonly<Record<string, McpServerConfig>>;
     // (undocumented)
     readonly mcpServers: readonly McpServerHandle<string>[];
-    readonly memoryStrategies?: (services: WorkflowServices) => ReadonlyMap<string, BaseMemoryStrategy>;
+    // (undocumented)
+    readonly memories?: AssembledMemories;
     readonly modelProviders: readonly ModelProviderType[];
     readonly onIncompatibleResume?: IncompatibleResumePolicy | undefined;
     readonly ownFileRedactor?: Class | undefined;
     readonly ownFileTranscriber?: Class | undefined;
+    readonly pauseTargets?: (services: WorkflowServices) => ReadonlyMap<string, PauseTarget>;
     readonly pii?: AssembledPii;
     // (undocumented)
     readonly prompts: AgentPrompts<TName>;
@@ -203,6 +257,8 @@ export interface AssembledWorkflow<TName extends string = string> {
     readonly rerankers?: readonly {
         readonly name: string;
         readonly model: string;
+        readonly modelProvider?: string;
+        readonly prompt?: string;
     }[];
     readonly resolve: (services: WorkflowServices) => (token: Class) => unknown;
     readonly routers: readonly LoadedRouter[];
@@ -238,6 +294,12 @@ export enum AttemptDivergenceReason {
 }
 
 // @public
+export type AuditLogHooks = Pick<ExecutionObserver, "onExecutionLeaseTakeover" | "onStepHandedOver" | "onIdempotencyRun" | "onOutboundCall">;
+
+// @public
+export function backtraceModeOf(env?: NodeJS.ProcessEnv): BacktraceMode;
+
+// @public
 export interface BlastRadiusEntry {
     // (undocumented)
     readonly application: string;
@@ -248,15 +310,15 @@ export interface BlastRadiusEntry {
 }
 
 // @public
-export interface BudgetListing {
+export interface BudgetListing extends OverlaidBudgets {
     // (undocumented)
     readonly applicationName: string;
-    // (undocumented)
+    readonly attached?: readonly Class[] | undefined;
     readonly budgets: readonly Class[];
 }
 
 // @public
-export interface BuildApplicationOptions extends AppOptions, Omit<BuildOptions, "environment"> {
+export interface BuildApplicationOptions extends CreateAppOptions, Omit<BuildOptions, "environment"> {
 }
 
 // @public
@@ -268,7 +330,7 @@ export interface BuildOptions extends AppDepsOptions {
 // @public
 export interface BuiltApplication {
     // (undocumented)
-    readonly app: App;
+    readonly app: AnyTenantApp;
     // (undocumented)
     readonly assembled: AssembledApplication;
     readonly closed: Promise<void>;
@@ -280,7 +342,7 @@ export interface BuiltApplication {
 }
 
 // @public
-export function builtApplicationOf(application: Class, options?: BuildApplicationOptions): Promise<BuiltApplication>;
+export function builtApplicationOf(application: Class, options?: BuildApplicationOptions, seams?: InstanceSeams): Promise<BuiltApplication>;
 
 // @public
 export function calibrateJudges(report: EvalRunReport, labels: readonly EvalLabel[]): EvalCalibrationResult;
@@ -301,8 +363,7 @@ export function cassetteFilesUnder(root: string): string[];
 
 // @public
 export enum ChannelImplementationReason {
-    Listed = "listed",
-    NamedByTool = "named-by-tool"
+    Listed = "listed"
 }
 
 // @public
@@ -334,12 +395,13 @@ export type ChildSnapshotSources = (workflow: Class) => SnapshotSource | undefin
 export function childSourcesIn(workflows: readonly SnapshotSource[]): ChildSnapshotSources;
 
 // @public
-export function compareBundleProfiles(bundle: AssembledWorkflow, names: readonly string[], options: AppDepsOptions & {
-    readonly profileRoot?: string;
-}, tasksOf: (base: AppDeps) => Promise<readonly string[]>): Promise<ProfileComparison>;
+export function compareBundleProfiles(bundleOf: (profile: string) => Promise<AssembledWorkflow>, names: readonly string[], options: AppDepsOptions, tasksOf: (base: AppDeps) => Promise<readonly string[]>): Promise<ProfileComparison>;
 
 // @public
 export function compareEvalRuns(baseline: EvalRunReport, candidate: EvalRunReport, file: string): EvalRunComparison;
+
+// @public
+export function compareEvalSuiteWith(application: Class, suite: Class, options: CompareEvalSuiteOptions & Pick<NonNullable<CompareSeams>, "seams">): Promise<EvalSuiteComparison>;
 
 // @public
 export function compareProfilesWith<TApplication extends Class>(application: ApplicationClass<TApplication>, options: CompareProfilesOptions & {
@@ -347,7 +409,10 @@ export function compareProfilesWith<TApplication extends Class>(application: App
 }): Promise<ProfileComparison>;
 
 // @public
-export const completedStatusOf: (finish: string, output: unknown, spentUsd: number) => A2ATaskStatus;
+export const completedStatusOf: (finish: string, output: unknown, spentUsd: Usd, spentTokens?: number) => A2ATaskStatus;
+
+// @public
+export function configJsonSchemaOf(assembled: AssembledApplication): Schema;
 
 // @public
 export const configSnapshot: <TName extends string>(deps: SnapshotDeps<TName>, children?: ChildSnapshotSources | undefined) => unknown;
@@ -362,33 +427,26 @@ export function contextsOutsideExecution(workflow: {
 export type ContinueOptions = Omit<AgentExecutionOptions, "replayOf" | "runId" | "contexts">;
 
 // @public
-export function contractsOf(assembled: AssembledApplication): ContractsSnapshot;
-
-// @public
-export interface ContractsSnapshot {
-    // (undocumented)
-    readonly exports: readonly (A2AExportContract | McpExportContract)[];
-    // (undocumented)
-    readonly imports: readonly (A2AImportContract | A2AForeignImportContract | McpImportContract)[];
-    // (undocumented)
-    readonly schemas: Readonly<Record<string, {
-        readonly schemaHash: string;
-        readonly jsonSchema: JsonSchema;
-    }>>;
-}
+export function contractsOf(assembled: AssembledApplication): ApplicationContracts;
 
 // @public
 export enum CostCategory {
     // (undocumented)
     Agents = "agents",
     // (undocumented)
-    Compaction = "compaction",
+    Arbiters = "arbiters",
     // (undocumented)
     Files = "files",
     // (undocumented)
-    Guards = "guards",
+    Guardrails = "guardrails",
     // (undocumented)
-    Retrieval = "retrieval",
+    Memory = "memory",
+    // (undocumented)
+    Pauses = "pauses",
+    // (undocumented)
+    Pii = "pii",
+    // (undocumented)
+    Rag = "rag",
     // (undocumented)
     Review = "review",
     // (undocumented)
@@ -406,46 +464,64 @@ export interface CostLine extends TokenUsage {
     // (undocumented)
     readonly costSource: CostSource;
     // (undocumented)
-    readonly costUsd: number;
+    readonly costUsd: Usd;
     // (undocumented)
     readonly model: string;
+    readonly provider: string;
     readonly servedBy?: string;
 }
 
 // @public
 export interface CostReport {
     // (undocumented)
-    readonly byCaller: Readonly<Record<string, number>>;
-    readonly byCategory: Readonly<Record<CostCategory, number>>;
+    readonly byCaller: Readonly<Record<string, Usd>>;
+    readonly byCategory: Readonly<Record<CostCategory, Usd>>;
     // (undocumented)
-    readonly byModel: Readonly<Record<string, number>>;
-    // (undocumented)
+    readonly byModel: Readonly<Record<string, Usd>>;
+    readonly byProvider: Readonly<Record<string, Usd>>;
     readonly cacheReadTokens: number;
+    readonly cacheWriteTokens: number;
     readonly calls: number;
-    readonly totalUsd: number;
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly totalTokens: number;
+    readonly totalUsd: Usd;
     readonly trace: readonly CostLine[];
     readonly unknownCalls: number;
 }
+
+// @public
+export const CostReport: {
+    readonly fromUsage: (records: readonly UsageRecord[]) => CostReport;
+    readonly empty: () => CostReport;
+    readonly sum: (reports: readonly CostReport[]) => CostReport;
+};
 
 // @public
 export enum CostSource {
     Api = "api",
     PriceTable = "price-table",
     Tool = "tool",
-    Unknown = "unknown"
+    Unknown = "unknown",
+    Unpriced = "unpriced"
 }
 
 // @public
 export function createAppDeps(bundle: AssembledWorkflow, options?: AppDepsOptions): Promise<AppDeps>;
 
 // @public
-export function createAppWith(application: Class, options?: BuildApplicationOptions): Promise<App>;
+export function createAppWith(application: Class, options?: BuildApplicationOptions): Promise<AnyTenantApp>;
 
 // @public
 export function createStartComponents(bundle: AssembledWorkflow, services: WorkflowServices): void;
 
 // @public (undocumented)
 export function createWorkflowDeps(bundle: AssembledWorkflow, options: BuildOptions, parts: WorkflowDepsParts): Promise<AppDeps>;
+
+// @public
+export interface DatabaseMigrationRun extends StorageMigration {
+    readonly backend: string;
+}
 
 // @public
 export enum DefaultsLevel {
@@ -475,37 +551,14 @@ export interface DefaultSource {
 export function defaultSourceOf(levels: DefaultsLevels, section: Section, field: string): DefaultSource | undefined;
 
 // @public
-export function describeApplication(assembled: AssembledApplication, description?: ApplicationDescription): string[];
+export function describeAssembledApplication(assembled: AssembledApplication, description?: ApplicationDescription): string[];
 
 // @public
-export interface DescribedApplication {
-    // (undocumented)
-    readonly budgets: readonly DescribedBudget[];
-    // (undocumented)
-    readonly executionBudgets: readonly DescribedExecutionBudget[];
-    // (undocumented)
-    readonly implementations: readonly ImplementationChoice[];
-    readonly maxConcurrentSteps?: number;
-    // (undocumented)
-    readonly modelProviders: readonly DescribedModelProvider[];
-    // (undocumented)
-    readonly name: string;
-    // (undocumented)
-    readonly observers: readonly string[];
-    readonly pauseListeners: readonly DescribedPauseListener[];
-    // (undocumented)
-    readonly version: string;
-    // (undocumented)
-    readonly warnings: readonly string[];
-    readonly workflows: readonly string[];
-    readonly workingCalendar?: string;
-}
-
-// @public
-export function describedApplicationOf(assembled: AssembledApplication): DescribedApplication;
+export function describedApplicationOf(assembled: AssembledApplication): ApplicationFacts;
 
 // @public
 export interface DescribedBudget {
+    readonly description?: string;
     // (undocumented)
     readonly name: string;
     // (undocumented)
@@ -518,16 +571,12 @@ export interface DescribedBudget {
 // @public
 export interface DescribedChannel {
     readonly answer: string;
-    // @deprecated (undocumented)
-    readonly answeredBy: PauseAnswerer;
-    readonly answerer: PauseAnswerer;
     readonly askedBy?: readonly string[];
     readonly className: string;
     readonly expiresIn?: number;
     readonly implementation?: string;
     readonly isExpiresInWorking?: true;
     readonly isRemindBeforeWorking?: true;
-    // (undocumented)
     readonly isRole: boolean;
     readonly name: string;
     readonly question: string;
@@ -535,6 +584,7 @@ export interface DescribedChannel {
     readonly reason?: ChannelImplementationReason;
     readonly remindBefore?: number;
     readonly replyInterpreter?: string;
+    readonly respondent: PauseRespondent;
     readonly tools: readonly string[];
     readonly workingCalendar?: string;
 }
@@ -549,7 +599,7 @@ export interface DescribedChild {
     readonly launch: DescribedLaunch;
     // (undocumented)
     readonly maxDepth?: number;
-    readonly workflow: DescribedWorkflowNode;
+    readonly workflow: DescribedWorkflowTree;
 }
 
 // @public
@@ -586,9 +636,9 @@ export interface DescribedLaunch {
 // @public
 export interface DescribedLimits {
     // (undocumented)
-    readonly isMaxConcurrentExecutionsSet: boolean;
+    readonly isMaxConcurrencySet: boolean;
     readonly isMaxStepsSet: boolean;
-    readonly maxConcurrentExecutions: number;
+    readonly maxConcurrency: number;
     readonly maxDepth?: number;
     // (undocumented)
     readonly maxSteps: number;
@@ -609,12 +659,12 @@ export function describedLimitsOf(bundle: AssembledWorkflow): DescribedLimits;
 export interface DescribedModelProvider {
     // (undocumented)
     readonly className: string;
+    readonly isNamed: boolean;
     readonly isTransport: boolean;
     // (undocumented)
     readonly name: string;
     // (undocumented)
     readonly reason: ImplementationReason;
-    readonly serves: readonly string[];
 }
 
 // @public
@@ -623,9 +673,9 @@ export function describedPiiPoliciesOf(bundle: AssembledWorkflow): readonly Desc
 // @public
 export interface DescribedPiiPolicy {
     readonly className: string;
-    readonly detectWithModel?: string;
     readonly elements: readonly string[];
     readonly masksObservability: boolean;
+    readonly model?: string;
     // (undocumented)
     readonly name: string;
     // (undocumented)
@@ -642,14 +692,14 @@ export interface DescribedPiiRule {
 // @public
 export interface DescribedTree {
     // (undocumented)
-    readonly workflows: readonly DescribedWorkflowNode[];
+    readonly workflows: readonly DescribedWorkflowTree[];
 }
 
 // @public
 export function describedTreeOf(assembled: AssembledApplication): DescribedTree;
 
 // @public
-export interface DescribedWorkflowNode {
+export interface DescribedWorkflowTree {
     // (undocumented)
     readonly children: readonly DescribedChild[];
     // (undocumented)
@@ -666,17 +716,50 @@ export const describeServices: WorkflowServices;
 export const describeServicesWith: (environment: DescribedEnvironment | undefined) => WorkflowServices;
 
 // @public
+export interface Diagnostic {
+    readonly code: string;
+    // (undocumented)
+    readonly help?: string;
+    // (undocumented)
+    readonly message: string;
+    // (undocumented)
+    readonly notes?: readonly string[];
+    readonly patch?: string;
+    readonly primary?: LabeledSpan;
+    readonly secondary?: readonly LabeledSpan[];
+}
+
+// @public
+export function diagnosticOfViolation(violation: RuleViolation): Diagnostic;
+
+// @public
 export const directoryOf: (providers: readonly ModelProviderType[]) => ModelProviderDirectory;
 
 // @public
-export type DiscardReason = "judge-rejected" | "tool-turn" | "invalid-answer" | "stream-broken" | "failed";
+export interface DraftPause {
+    readonly actor?: {
+        readonly id: string;
+    };
+    // (undocumented)
+    readonly decision: unknown;
+    // (undocumented)
+    readonly target: string;
+}
 
 // @public
 export interface DraftToolCall {
     // (undocumented)
-    readonly arguments: unknown;
+    readonly input: unknown;
     // (undocumented)
     readonly tool: string;
+}
+
+// @public
+export interface DraftTurn {
+    // (undocumented)
+    readonly input: unknown;
+    // (undocumented)
+    readonly pauses?: readonly DraftPause[];
 }
 
 // @public (undocumented)
@@ -691,12 +774,15 @@ export type DurableExecutionState = {
     readonly status: DurableExecutionStatus.Finished;
     readonly finish: string;
     readonly output: unknown;
-    readonly spentUsd: number;
+    readonly spentUsd: Usd;
+    readonly spentTokens?: number;
 } | {
     readonly status: DurableExecutionStatus.Failed;
     readonly reason: string;
 } | {
     readonly status: DurableExecutionStatus.Cancelled;
+} | {
+    readonly status: DurableExecutionStatus.Stopped;
 };
 
 // @public
@@ -706,7 +792,8 @@ export enum DurableExecutionStatus {
     Finished = "finished",
     NotStarted = "not-started",
     Paused = "paused",
-    Running = "running"
+    Running = "running",
+    Stopped = "stopped"
 }
 
 // @public
@@ -743,6 +830,7 @@ export type EvalCalibrationResult = {
 // @public
 export interface EvalCaseDraft {
     readonly execution?: Readonly<Record<string, unknown>>;
+    readonly expectedStatus?: ExecutionStatus.Stopped | ExecutionStatus.Cancelled;
     // (undocumented)
     readonly history: readonly ObservedTurn[];
     // (undocumented)
@@ -752,9 +840,7 @@ export interface EvalCaseDraft {
     readonly start: string;
     readonly tenant?: Readonly<Record<string, unknown>>;
     // (undocumented)
-    readonly turns: readonly {
-        readonly input: unknown;
-    }[];
+    readonly turns: readonly DraftTurn[];
 }
 
 // @public
@@ -839,7 +925,7 @@ export type EventMask = (event: unknown) => Promise<unknown>;
 export function executeAgent<TName extends string>(input: unknown, deps: AgentExecutionDeps<TName>, options?: AgentExecutionOptions): Promise<AgentExecutionOutput>;
 
 // @public
-export const executeWithoutInputCheck: (app: Pick<App, "execute">, start: Class, input: unknown, options?: ExecutionOptions) => Promise<ExecutionOutput>;
+export const executeWithoutInputCheck: (app: Pick<AnyTenantApp, "execute">, start: Class, input: unknown, options?: ExecutionOptions) => Promise<ExecutionOutput>;
 
 // @public
 export const EXECUTION_RECORD_KIND = "agboss.execution-record";
@@ -865,11 +951,13 @@ export interface ExecutionControl extends WorkflowExecutionControl {
 }
 
 // @public
-export const executionControlOf: (instance: Pick<App, "execute"> | object) => ExecutionControl | undefined;
+export const executionControlOf: (instance: Pick<AnyTenantApp, "execute"> | object) => ExecutionControl | undefined;
 
 // @public
-export class ExecutionObserverManager implements Required<ExecutionObserver> {
+export class ExecutionObserverManager extends ObserverHookCalls implements Required<ExecutionObserver> {
     constructor(observers: readonly ExecutionObserver[], onFailure?: ObserverFailure, mask?: EventMask, builtIn?: readonly ExecutionObserver[], unknownCosts?: UnknownCostTally | undefined);
+    // (undocumented)
+    protected each<TEvent>(hook: ObserverHook, event: TEvent, call: (observer: ExecutionObserver, event: TEvent) => Promise<void> | void): Promise<void>;
     masked(mask: EventMask): ExecutionObserverManager;
     // (undocumented)
     onActionEnd(event: ActionEndEvent): Promise<void>;
@@ -878,21 +966,29 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     // (undocumented)
     onAgentEnd(event: AgentEndEvent): Promise<void>;
     // (undocumented)
+    onAgentRetry(event: AgentRetryEvent): Promise<void>;
+    // (undocumented)
     onAgentStart(event: AgentStartEvent): Promise<void>;
     // (undocumented)
     onChannelEnd(event: ChannelEndEvent): Promise<void>;
     // (undocumented)
     onChannelStart(event: ChannelStartEvent): Promise<void>;
     // (undocumented)
+    onCircuitStateChange(event: CircuitStateChangeEvent): Promise<void>;
+    // (undocumented)
+    onCompactionEnd(event: CompactionEndEvent): Promise<void>;
+    // (undocumented)
+    onCompactionStart(event: CompactionStartEvent): Promise<void>;
+    // (undocumented)
     onCompensationEnd(event: CompensationEndEvent): Promise<void>;
     // (undocumented)
     onCompensationStart(event: CompensationStartEvent): Promise<void>;
     // (undocumented)
+    onExecutionCancel(event: ExecutionCancelEvent): Promise<void>;
+    // (undocumented)
     onExecutionEnd(event: ExecutionEndEvent): Promise<void>;
     // (undocumented)
     onExecutionError(event: ExecutionErrorEvent): Promise<void>;
-    // (undocumented)
-    onExecutionLeaseTakeover(event: ExecutionLeaseTakeoverEvent): Promise<void>;
     // (undocumented)
     onExecutionPause(event: ExecutionPauseEvent): Promise<void>;
     // (undocumented)
@@ -902,7 +998,7 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     // (undocumented)
     onExecutionStart(event: ExecutionStartEvent): Promise<void>;
     // (undocumented)
-    onFencedEffect(event: FencedEffectEvent): Promise<void>;
+    onExecutionStop(event: ExecutionStopEvent): Promise<void>;
     // (undocumented)
     onGuardrailEnd(event: GuardrailEndEvent): Promise<void>;
     // (undocumented)
@@ -918,8 +1014,6 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     // (undocumented)
     onModelStart(event: ModelStartEvent): Promise<void>;
     // (undocumented)
-    onOutboundCall(event: OutboundCallEvent): Promise<void>;
-    // (undocumented)
     onQuorumDecided(event: QuorumDecidedEvent): Promise<void>;
     // (undocumented)
     onRagEnd(event: RagEndEvent): Promise<void>;
@@ -929,8 +1023,6 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
     onRouterEnd(event: RouterEndEvent): Promise<void>;
     // (undocumented)
     onRouterStart(event: RouterStartEvent): Promise<void>;
-    // (undocumented)
-    onStepHandedOver(event: StepHandedOverEvent): Promise<void>;
     // (undocumented)
     onToolEnd(event: ToolEndEvent): Promise<void>;
     // (undocumented)
@@ -943,20 +1035,24 @@ export class ExecutionObserverManager implements Required<ExecutionObserver> {
 
 // @public
 export type ExecutionStreamEvent = {
-    readonly kind: "textDelta";
+    readonly kind: StreamEventKind.TextDelta;
     readonly delta: string;
     readonly step: StreamStep;
 }
 /** The text streamed for `step` is retracted (#1006): show it no more. */
 | {
-    readonly kind: "discarded";
+    readonly kind: StreamEventKind.Discarded;
     readonly step: StreamStep;
-    readonly reason: DiscardReason;
+    readonly reason: StreamDiscardReason;
 }
-/** An agent's tool call as it starts (#848): the tool's name only — never its arguments. */
+/**
+* An agent's tool call as it starts (#848): the tool's name only — never its arguments; `step`
+* is the model call of the visit that asked for it (#1311).
+*/
 | {
-    readonly kind: "toolCall";
+    readonly kind: StreamEventKind.ToolCall;
     readonly tool: string;
+    readonly step: StreamStep;
 };
 
 // @public
@@ -978,6 +1074,9 @@ export function executionVersions<TName extends string>(deps: AgentExecutionDeps
 };
 
 // @public
+export const explainedRuleCodes: () => readonly string[];
+
+// @public
 export const exportedRecordLine: (record: ExecutionHistoryRecord) => string;
 
 // @public
@@ -992,7 +1091,7 @@ export function failureTaxonomyOf(content: string): EvalFailureTaxonomyRead;
 // @public
 export interface FederationMember {
     // (undocumented)
-    readonly contracts: ContractsSnapshot;
+    readonly contracts: ApplicationContracts;
     // (undocumented)
     readonly file: string;
     // (undocumented)
@@ -1102,14 +1201,14 @@ export function goldenFromRecent(turns: TurnRecords, bundle: string, name: strin
 
 // @public
 export interface GraphDeps<TName extends string> {
-    readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModel | undefined;
+    readonly arbiterModelFor?: (arbiter: ArbiterClass) => ArbiterModels | undefined;
+    readonly arbiters?: readonly ModelArbiterUse[];
     readonly branchErrors?: BranchErrors;
     readonly branchScheduler?: BranchScheduler;
     readonly channelNames?: readonly string[];
     readonly channelOf?: (channelName: string) => PauseChannel;
     readonly childDepsOf?: (workflow: Class) => GraphDeps<string> | undefined;
     readonly clock?: Clock | undefined;
-    readonly compactions?: AssembledCompactions;
     readonly compensation?: CompensationParts | undefined;
     // (undocumented)
     readonly config: AgentsConfigOf<TName>;
@@ -1118,6 +1217,7 @@ export interface GraphDeps<TName extends string> {
     };
     readonly contexts?: RuntimeContexts;
     readonly executionIds?: ExecutionIds | undefined;
+    readonly executionLimitsOf: ExecutionLimitsOf;
     readonly fingerprintKeys?: FingerprintKeys | undefined;
     readonly graph: RuntimeGraph;
     readonly guardrails?: GuardrailRuntime;
@@ -1127,7 +1227,7 @@ export interface GraphDeps<TName extends string> {
     readonly lease?: FrameLease | undefined;
     readonly log?: FrameworkLog | undefined;
     readonly maxSteps: number;
-    readonly memory?: ReadonlyMap<string, BaseMemoryStrategy>;
+    readonly memories?: AssembledMemories;
     // (undocumented)
     readonly observer?: ExecutionObserverManager;
     readonly pause?: PauseSeam | undefined;
@@ -1140,9 +1240,14 @@ export interface GraphDeps<TName extends string> {
     readonly routers: readonly LoadedRouter[];
     readonly stepEntries?: StepEntries | undefined;
     readonly stepSlots?: StepSlots | undefined;
+    readonly targetOf?: (targetName: string) => PauseTarget;
+    readonly targets?: readonly PauseTarget[];
     readonly toolInterceptors?: ToolInterceptorRuntime;
     readonly tools: (name: string) => AnyTool;
 }
+
+// @public
+export const hasLatestByStep: (saver: BaseCheckpointSaver) => saver is LatestByStepCheckpointSaver;
 
 // @public
 export interface HistoryExportQuery {
@@ -1157,13 +1262,16 @@ export interface HistoryExportQuery {
 export function historyRecordsOf(history: ExecutionHistoryRepository, query: HistoryExportQuery): AsyncGenerator<ExecutionHistoryRecord>;
 
 // @public
+export type HookResult = Promise<void> | void;
+
+// @public
 export function inputLines(analysis: FlowAnalysis): readonly string[];
 
 // @public
 export const INTERNAL_FAILURE = "internal";
 
 // @public
-export const isJudgeCheckName: (check: string) => boolean;
+export const isJudgeResult: (check: EvalCheckResult) => boolean;
 
 // @public (undocumented)
 export const isMcpFacade: (tool: Tool) => tool is McpFacade;
@@ -1177,6 +1285,7 @@ export interface KnowledgeRetrieval extends RagRetrieval {
 export type KnowledgeRetrieve = (query: string, options: {
     readonly topK: number;
     readonly signal: AbortSignal;
+    readonly filter?: unknown;
 }) => Promise<KnowledgeRetrieval>;
 
 // @public
@@ -1191,6 +1300,12 @@ export interface KnowledgeSource {
 
 // @public
 export function labelsWith(content: string, label: EvalLabel): string;
+
+// @public
+export interface LatestByStepCheckpointSaver extends BaseCheckpointSaver {
+    // Warning: (ae-unresolved-link) The @link reference could not be resolved: The package "@agboss/core" does not have an export "NO_STEP"
+    latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
+}
 
 // @public
 export function loadApplicationClass(path: string, options?: {
@@ -1211,13 +1326,16 @@ export const loadWorkflow: (path: string, options?: {
 }) => Promise<AssembledWorkflow>;
 
 // @public
-export type McpConnect = (bundle: AssembledWorkflow, config: AgentsConfigOf<string>, env: NodeJS.ProcessEnv) => Promise<McpConnections>;
+export type McpConnect = (bundle: AssembledWorkflow, config: AgentsConfigOf<string>, env: NodeJS.ProcessEnv, identity: McpIdentity) => Promise<McpConnections>;
 
 // @public
 export interface MessageErrorOptions extends AGBossErrorOptions {
     // (undocumented)
     readonly message: string;
 }
+
+// @public
+export function migratedDatabaseOf(storage: AssembledStorage | undefined, processEnv: NodeJS.ProcessEnv, options: StorageMigrationOptions): Promise<DatabaseMigrationRun | undefined>;
 
 // @public
 export class ModelProviderDirectory {
@@ -1239,14 +1357,15 @@ export interface ModelUse {
     readonly key: ModelUseKey;
     // (undocumented)
     readonly model: string;
+    readonly modelProvider?: string | undefined;
     readonly needs?: readonly InputNeed[];
     // (undocumented)
-    readonly purpose: ModelPurpose;
+    readonly purpose: ModelKind;
     readonly settings?: ResolvedModelSettings;
 }
 
 // @public
-export function modelUsesOf(config: AgentsConfigOf<string>, routers: readonly ModelNamingRouter[], components?: ModelNamingComponents): readonly ModelUse[];
+export function modelUsesOf(config: AgentsConfigOf<string>, routers: readonly ModelNamingRouter[], components?: ModelNamingComponents, kinds?: ProviderKinds): readonly ModelUse[];
 
 // @public
 export interface ObservedExecution {
@@ -1255,7 +1374,9 @@ export interface ObservedExecution {
     readonly history: readonly ObservedTurn[];
     // (undocumented)
     readonly input: unknown;
+    readonly pauses: readonly PauseAnswerRecord[];
     readonly start: string;
+    readonly status: ExecutionHistoryStatus;
     readonly tenant: Readonly<Record<string, unknown>>;
     readonly toolCalls: readonly ToolCallRecord[];
 }
@@ -1275,8 +1396,17 @@ export interface ObservedTurn {
     readonly start: string;
 }
 
+// @public (undocumented)
+export const OBSERVER_HOOKS: readonly ObserverHook[];
+
+// @public
+export type ObserverClass = Class<ExecutionObserver>;
+
 // @public
 export type ObserverFailure = (observer: string, hook: ObserverHook, error: unknown) => void;
+
+// @public
+export type ObserverHook = keyof ExecutionObserver;
 
 // @public
 export interface OpenedExecutionHistory {
@@ -1288,7 +1418,7 @@ export interface OpenedExecutionHistory {
 }
 
 // @public
-export function openExecutionHistory(application: Class, options?: Pick<BuildApplicationOptions, "env" | "processEnv">): Promise<OpenedExecutionHistory>;
+export function openExecutionHistory(application: Class, options?: Pick<BuildApplicationOptions, "env" | "profile" | "processEnv">): Promise<OpenedExecutionHistory>;
 
 // @public
 export function pausedStatusOf(pending: readonly PendingPause[]): A2ATaskStatus;
@@ -1310,17 +1440,53 @@ export interface ProcessVariable {
 
 // @public
 export class ProfileError extends AGBossError {
-    constructor(options: MessageErrorOptions);
+    constructor(options: ProfileErrorOptions);
     // (undocumented)
     static readonly code: "config.profile";
     // (undocumented)
     readonly code: typeof ProfileError.code;
     // (undocumented)
     name: string;
+    readonly reason: ProfileErrorReason;
 }
 
 // @public
+export enum ProfileErrorReason {
+    BadName = "bad-name",
+    Duplicate = "duplicate",
+    Forbidden = "forbidden",
+    Invalid = "invalid",
+    Unknown = "unknown"
+}
+
+// @public
+export interface ProfileProblem {
+    // (undocumented)
+    readonly file: string;
+    // (undocumented)
+    readonly message: string;
+    // (undocumented)
+    readonly profile: string;
+}
+
+// @public
+export function profileProblemsOf(application: Class, where: string): Promise<readonly ProfileProblem[]>;
+
+// @public
 export type ProviderFetch = typeof fetch;
+
+// @public
+export function referencedVariablesOf(assembled: AssembledApplication): readonly ProcessVariable[];
+
+// @public
+export function renderDiagnostic(diagnostic: Diagnostic, options?: RenderOptions): string;
+
+// @public (undocumented)
+export interface RenderOptions {
+    readonly cwd?: string;
+    readonly explainHint?: boolean;
+    readonly readSource?: (file: string) => string | undefined;
+}
 
 // @public
 export function renderTemplate(text: string, variables: Readonly<Record<string, unknown>>, unknown: (key: string) => Error): string;
@@ -1338,7 +1504,7 @@ export function replay<TName extends string>(run: AgentExecutionDeps<TName>, eva
 export const reservedExecutionIdOf: (options: object) => string | undefined;
 
 // @public
-export function resolvedModelUsesOf(workflow: WorkflowModels): readonly ResolvedModelUse[];
+export function resolvedModelUsesOf(workflow: WorkflowModels_2): readonly ResolvedModelUse[];
 
 // @public
 export function resolveEnvironment(loaded: LoadedEnvironment, processEnv: NodeJS.ProcessEnv, secrets?: SecretResolution): Environment;
@@ -1350,7 +1516,73 @@ export const resolveTools: (bundle: AssembledWorkflow, services: WorkflowService
 export function resumeAgent<TName extends string>(paused: AgentExecutionOutput, resume: TreeResume, deps: AgentExecutionDeps<TName>, options?: ContinueOptions): Promise<AgentExecutionOutput>;
 
 // @public
-export function runEvalSuite(built: BuiltApplication, suite: Class, options: EvalRunOptions): Promise<EvalRunReport>;
+export interface RouteOption {
+    // (undocumented)
+    readonly description: string;
+    // (undocumented)
+    readonly name: string;
+}
+
+// @public
+export type RouteOutcome = {
+    readonly kind: "decided";
+    readonly decision: RouterDecision;
+    readonly usage?: UsageRecord;
+    readonly spent?: readonly UsageRecord[];
+} | {
+    readonly kind: "failed";
+    readonly reason: string;
+    readonly usage?: UsageRecord;
+    readonly spent?: readonly UsageRecord[];
+    readonly unknownOption?: string;
+    readonly cause?: unknown;
+};
+
+// @public
+export const ROUTER_FACTORY: InjectionToken<(name: string) => RouterEngine>;
+
+// @public (undocumented)
+export interface RouterDecision {
+    readonly confidence?: number;
+    // (undocumented)
+    readonly next: string;
+    // (undocumented)
+    readonly reason: string;
+}
+
+// @public
+export interface RouterEngine {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly route: (request: RouteRequest) => Promise<RouteOutcome>;
+}
+
+// @public
+export interface RouteRequest {
+    // (undocumented)
+    readonly input: MessageContent;
+    readonly instructions?: string;
+    // (undocumented)
+    readonly options: readonly RouteOption[];
+}
+
+// @public
+export interface RuleExplanation {
+    readonly fix?: string;
+    readonly means: string;
+}
+
+// @public
+export const ruleExplanationOf: (code: string) => RuleExplanation | undefined;
+
+// @public
+export function runEvalSuiteWith(application: Class, suite: Class, options?: RunEvalSuiteOptions & {
+    readonly seams?: Pick<BuildApplicationOptions, "gateway">;
+}): Promise<EvalRunReport>;
+
+// @public
+export function runSuiteOn(built: BuiltApplication, suite: Class, options: EvalRunOptions): Promise<EvalRunReport>;
 
 // @public
 export interface RuntimeContexts {
@@ -1387,6 +1619,23 @@ export type SnapshotReading = {
     readonly kind: "invalid";
     readonly reason: string;
 };
+
+// @public
+export class SqliteCheckpointSaver extends BaseCheckpointSaver implements LatestByStepCheckpointSaver {
+    constructor(connection: SqliteConnection);
+    deleteThread(threadId: string): Promise<void>;
+    // (undocumented)
+    getTuple(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
+    // (undocumented)
+    latestByStep(config: RunnableConfig): Promise<CheckpointTuple | undefined>;
+    // (undocumented)
+    list(config: RunnableConfig, options?: NonNullable<Parameters<BaseCheckpointSaver["list"]>[1]>): AsyncGenerator<CheckpointTuple>;
+    ping(): Promise<void>;
+    // (undocumented)
+    put(config: RunnableConfig, checkpoint: Parameters<BaseCheckpointSaver["put"]>[1], metadata: Parameters<BaseCheckpointSaver["put"]>[2]): Promise<RunnableConfig>;
+    // (undocumented)
+    putWrites(...input: Parameters<BaseCheckpointSaver["putWrites"]>): Promise<void>;
+}
 
 // @public
 export interface StaleCassette {
@@ -1452,6 +1701,7 @@ export function studioOfWith(application: Class, options?: StudioOptions & {
 export interface StudioOptions {
     readonly env?: string | undefined;
     readonly processEnv?: NodeJS.ProcessEnv;
+    readonly profile?: ProfileSelection | undefined;
 }
 
 // @public
@@ -1459,12 +1709,12 @@ export function textRequestOf(graph: RuntimeGraph, text: string): StartRequest;
 
 // @public
 export function toolOf<TInput, TOutput>(instance: {
-    run: (input: TInput) => Promise<TOutput>;
+    execute: (input: TInput) => TOutput | Promise<TOutput>;
 }): Tool<string, TInput, TOutput>;
 
 // @public
 export interface TreeResume {
-    readonly answeredBy: readonly (string | undefined)[];
+    readonly actors: readonly (PauseActor | undefined)[];
     readonly decisions: readonly unknown[];
     readonly hasUnansweredExpiry: boolean;
     readonly pauseIds: readonly string[];
@@ -1486,10 +1736,10 @@ export const unmasked: EventMask;
 export const versionOf: (value: unknown) => string;
 
 // @public
-export function withProfile(bundle: AssembledWorkflow, profile: string | undefined, root?: string): Promise<AssembledWorkflow>;
+export function withReservedExecutionId<TOptions extends object>(options: TOptions, executionId: string): TOptions;
 
 // @public
-export function withReservedExecutionId<TOptions extends object>(options: TOptions, executionId: string): TOptions;
+export function workflowDataOf(bundle: AssembledWorkflow, profile?: string, environment?: DescribedEnvironment, children?: ChildSnapshotSources): DescribedWorkflow;
 
 // @public
 export interface WorkflowDepsParts {
@@ -1518,7 +1768,9 @@ export const workflowOf: (workflow: Class, application?: readonly ProviderModule
 export interface WorkflowServices {
     readonly container?: ContainerOptions;
     readonly contexts?: RuntimeContexts;
-    readonly rerankModel?: (reranker: string, model: string) => ModelBinding;
+    readonly decide?: DecisionService;
+    readonly rerankInstructions?: (reranker: string) => string;
+    readonly rerankModel?: (reranker: string, model: string, modelProvider?: string) => ModelBinding;
     readonly router: (name: string) => RouterEngine;
 }
 
@@ -1559,8 +1811,7 @@ export interface WorstCase {
     readonly executions: number;
     readonly isStepsCapped: boolean;
     readonly parts: readonly string[];
-    // (undocumented)
-    readonly start: ComponentName;
+    readonly start: string;
     readonly steps: number;
     readonly treeSteps: number;
     readonly workflow: string;
@@ -1570,7 +1821,7 @@ export interface WorstCase {
 export interface WorstCaseChild {
     readonly atOnce: number;
     readonly count: number;
-    readonly from: ComponentName;
+    readonly from: string;
     readonly isRecursive: boolean;
     readonly maxConcurrency?: number;
     readonly maxItems?: number;
@@ -1579,7 +1830,7 @@ export interface WorstCaseChild {
 
 // @public
 export interface WorstCaseLimits {
-    readonly maxConcurrentExecutions: number;
+    readonly maxConcurrency: number;
     readonly maxDepth?: number;
 }
 
@@ -1595,7 +1846,7 @@ export enum WorstCaseMeasure {
     // (undocumented)
     Executions = "workflow executions",
     // (undocumented)
-    Steps = "agent and router steps"
+    Steps = "steps"
 }
 
 // @public
@@ -1626,7 +1877,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "container".
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "infrastructure".
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "executionHistory".
-// src/app/app-deps.ts - (ae-undocumented) Missing documentation for "budgets".
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "applicationName".
 // src/app/app-deps.ts - (ae-undocumented) Missing documentation for "createWorkflowDeps".
 // src/app/execution-control.ts - (ae-undocumented) Missing documentation for "tenantId".
@@ -1648,27 +1898,39 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/create-app.ts - (ae-undocumented) Missing documentation for "workflows".
 // src/application/create-app.ts - (ae-undocumented) Missing documentation for "infrastructure".
 // src/application/execution-history-store.ts - (ae-undocumented) Missing documentation for "history".
+// src/config/check-profiles.ts - (ae-undocumented) Missing documentation for "profile".
+// src/config/check-profiles.ts - (ae-undocumented) Missing documentation for "file".
+// src/config/check-profiles.ts - (ae-undocumented) Missing documentation for "message".
 // src/config/defaults.ts - (ae-undocumented) Missing documentation for "Application".
 // src/config/defaults.ts - (ae-undocumented) Missing documentation for "Workflow".
 // src/config/defaults.ts - (ae-undocumented) Missing documentation for "application".
 // src/config/defaults.ts - (ae-undocumented) Missing documentation for "workflow".
 // src/config/defaults.ts - (ae-undocumented) Missing documentation for "level".
 // src/config/defaults.ts - (ae-undocumented) Missing documentation for "name".
-// src/config/profiles.ts - (ae-undocumented) Missing documentation for "code".
-// src/config/profiles.ts - (ae-undocumented) Missing documentation for "code".
-// src/config/profiles.ts - (ae-undocumented) Missing documentation for "name".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
+// src/config/profile-error.ts - (ae-undocumented) Missing documentation for "code".
+// src/config/profile-error.ts - (ae-undocumented) Missing documentation for "code".
+// src/config/profile-error.ts - (ae-undocumented) Missing documentation for "name".
+// src/core/diagnostics/render-diagnostic.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/diagnostics/render-diagnostic.ts - (ae-undocumented) Missing documentation for "notes".
+// src/core/diagnostics/render-diagnostic.ts - (ae-undocumented) Missing documentation for "help".
+// src/core/diagnostics/render-diagnostic.ts - (ae-undocumented) Missing documentation for "RenderOptions".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "details".
+// src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
+// src/core/observer-hooks.ts - (ae-undocumented) Missing documentation for "OBSERVER_HOOKS".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "unknownCosts".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "each".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionPause".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionResume".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionEnd".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionStop".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionCancel".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionError".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionRejected".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onAgentStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onAgentEnd".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onAgentRetry".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onRouterStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onRouterEnd".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onToolStart".
@@ -1688,19 +1950,15 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onValuesOutdated".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onLaunchItemsTruncated".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onQuorumDecided".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCircuitStateChange".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompactionStart".
+// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompactionEnd".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompensationStart".
 // src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onCompensationEnd".
-// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onExecutionLeaseTakeover".
-// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onStepHandedOver".
-// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onFencedEffect".
-// src/core/observer-manager.ts - (ae-undocumented) Missing documentation for "onOutboundCall".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "name".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "scope".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "period".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "isOwn".
-// src/describe/application.ts - (ae-undocumented) Missing documentation for "name".
-// src/describe/application.ts - (ae-undocumented) Missing documentation for "className".
-// src/describe/application.ts - (ae-undocumented) Missing documentation for "reason".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "name".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "version".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "implementations".
@@ -1709,8 +1967,6 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "executionBudgets".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "observers".
 // src/describe/application.ts - (ae-undocumented) Missing documentation for "warnings".
-// src/describe/channels.ts - (ae-undocumented) Missing documentation for "isRole".
-// src/describe/channels.ts - (ae-undocumented) Missing documentation for "answeredBy".
 // src/describe/channels.ts - (ae-undocumented) Missing documentation for "reason".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "exports".
 // src/describe/contracts-types.ts - (ae-undocumented) Missing documentation for "imports".
@@ -1718,8 +1974,11 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/limits.ts - (ae-undocumented) Missing documentation for "maxSteps".
 // src/describe/limits.ts - (ae-undocumented) Missing documentation for "steps".
 // src/describe/limits.ts - (ae-undocumented) Missing documentation for "worstCases".
-// src/describe/limits.ts - (ae-undocumented) Missing documentation for "isMaxConcurrentExecutionsSet".
+// src/describe/limits.ts - (ae-undocumented) Missing documentation for "isMaxConcurrencySet".
 // src/describe/limits.ts - (ae-undocumented) Missing documentation for "describedLimitsOf".
+// src/describe/model-providers.ts - (ae-undocumented) Missing documentation for "name".
+// src/describe/model-providers.ts - (ae-undocumented) Missing documentation for "className".
+// src/describe/model-providers.ts - (ae-undocumented) Missing documentation for "reason".
 // src/describe/pii-policies.ts - (ae-undocumented) Missing documentation for "name".
 // src/describe/pii-policies.ts - (ae-undocumented) Missing documentation for "rules".
 // src/describe/snapshot.ts - (ae-undocumented) Missing documentation for "configHash".
@@ -1762,7 +2021,11 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "input".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "execution".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "tool".
-// src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "arguments".
+// src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "input".
+// src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "target".
+// src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "decision".
+// src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "input".
+// src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "pauses".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "name".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "history".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "turns".
@@ -1792,23 +2055,24 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/federation/federation-types.ts - (ae-undocumented) Missing documentation for "problems".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Agents".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Routing".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guards".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Guardrails".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Review".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Tools".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Compaction".
-// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Retrieval".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Memory".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Rag".
 // src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Files".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pii".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Arbiters".
+// src/finops/cost-category.ts - (ae-undocumented) Missing documentation for "Pauses".
+// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byCaller".
+// src/finops/cost-report.ts - (ae-undocumented) Missing documentation for "byModel".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "caller".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "category".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costSource".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "cacheReadTokens".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byCaller".
-// src/finops/usage.ts - (ae-undocumented) Missing documentation for "byModel".
 // src/flow/analyse/steps.ts - (ae-undocumented) Missing documentation for "least".
 // src/flow/analyse/steps.ts - (ae-undocumented) Missing documentation for "most".
-// src/flow/analyse/worst-case.ts - (ae-undocumented) Missing documentation for "start".
 // src/flow/analyse/worst-case.ts - (ae-undocumented) Missing documentation for "executions".
 // src/flow/analyse/worst-case.ts - (ae-undocumented) Missing documentation for "concurrentExecutions".
 // src/flow/context/runtime-contexts.ts - (ae-undocumented) Missing documentation for "application".
@@ -1821,6 +2085,11 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/graph/deps.ts - (ae-undocumented) Missing documentation for "observer".
 // src/infrastructure/execution-history-export.ts - (ae-undocumented) Missing documentation for "from".
 // src/infrastructure/execution-history-export.ts - (ae-undocumented) Missing documentation for "to".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "getTuple".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "latestByStep".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "list".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "put".
+// src/infrastructure/sqlite/sqlite-checkpoint-saver.ts - (ae-undocumented) Missing documentation for "putWrites".
 // src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/loader/load-errors.ts - (ae-undocumented) Missing documentation for "name".
@@ -1835,6 +2104,15 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "name".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "topK".
 // src/rag/types.ts - (ae-undocumented) Missing documentation for "retrieve".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "name".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "description".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "input".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "options".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "RouterDecision".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "next".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "reason".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "name".
+// src/routers/types.ts - (ae-undocumented) Missing documentation for "route".
 // src/run/continue-run.ts - (ae-undocumented) Missing documentation for "ContinueOptions".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "turns".
 // src/run/types.ts - (ae-undocumented) Missing documentation for "AgentExecutionOptions".
@@ -1847,7 +2125,7 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/workflow.ts - (ae-undocumented) Missing documentation for "prompts".
 // src/workflow.ts - (ae-undocumented) Missing documentation for "tools".
 // src/workflow.ts - (ae-undocumented) Missing documentation for "mcpServers".
-// src/workflow.ts - (ae-undocumented) Missing documentation for "compactions".
+// src/workflow.ts - (ae-undocumented) Missing documentation for "memories".
 // src/workflow.ts - (ae-undocumented) Missing documentation for "resolveTools".
 
 // (No @packageDocumentation comment for this package)

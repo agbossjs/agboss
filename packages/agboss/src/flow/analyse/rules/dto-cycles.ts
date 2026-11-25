@@ -5,7 +5,7 @@ import type { AnalysisContext } from "./context.js";
 import { declaredDtos } from "./names.js";
 
 /**
- * A DTO that holds itself through `@Nested` or `@ListOf`, directly or via other DTOs, has no finite
+ * A DTO that holds itself through `@Nested` or `@List`, directly or via other DTOs, has no finite
  * JSON Schema for a model and no finite value of its own: `[dto.cyclic]` names the component and
  * the cycle (`A → B → A`) at start, instead of a stack overflow while a schema is built (#1080).
  * A DTO used twice (a diamond) is not a cycle.
@@ -33,7 +33,7 @@ function cyclesOf(dtos: readonly DtoClass[]): (readonly DtoClass[])[] {
 }
 
 export function dtoCycleRules(context: AnalysisContext): readonly RuleViolation[] {
-  // a `.returns(…)` or `caseOf(…)` DTO must be some node's output, so the nodes cover every DTO
+  // an output or a `.toOneOf([…])` branch DTO must be some node's output, so the nodes cover every DTO
   return [...context.graph.nodes.values()].flatMap((node) =>
     cyclesOf(declaredDtos(node.declaration)).map((cycle) =>
       violation("dto.cyclic", message(node.name, cycle), [node.name]),

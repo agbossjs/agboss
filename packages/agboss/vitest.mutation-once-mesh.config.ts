@@ -22,6 +22,8 @@ export default defineConfig({
       "tests/mcp/mcp-run-report.units.test.ts",
       // the dedupe end to end, over a real MCP session
       "tests/mcp/mcp-mesh-trust.test.ts",
+      // the identity and ledger key of a call, keyless included: its position, its arguments, its explicit key
+      "tests/mcp/{mcp-client-call,mcp-call-frame-ids}.test.ts",
     ],
   },
 });

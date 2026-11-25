@@ -14,9 +14,11 @@ import {
   FirstDraftAgent,
   HistoryOfferWorkflow,
   HistoryOfferWorkflowStart,
+  DraftHistoryAction,
 } from "../fixtures/history.fixture.js";
-import { start } from "../fixtures/paths.js";
+import { onStart } from "../fixtures/paths.js";
 import { ResearchDto } from "../fixtures/review-dtos.js";
+import { inline, Ttl } from "../../../src/index.js";
 
 /**
  * #299 S56 (AC4, analysis): `historyOf(XDto)` needs a current `XDto` on every path into its node;
@@ -31,9 +33,9 @@ const errorsOf = (workflow: abstract new () => unknown, code: string): readonly 
 @Agent({
   name: "draft-history-agent",
   description: "Reads the drafts so far",
-  prompt: "Compare the drafts.",
+  prompt: inline("Compare the drafts."),
   model: "moonshotai/kimi-k2.6",
-  input: { drafts: historyOf(OfferDraftDto, { limit: 2 }) },
+  input: { drafts: historyOf(OfferDraftDto, { maxPrevious: 2 }) },
   output: DraftChangesDto,
 })
 class DraftHistoryAgent {}
@@ -41,11 +43,11 @@ class DraftHistoryAgent {}
 @Workflow({
   name: "no-draft-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HistoryOfferWorkflowStart)
-      .returns(ShortlistDto)
+    onStart(HistoryOfferWorkflowStart)
       .toAgent(DraftHistoryAgent)
-      .returns(DraftChangesDto)
+      .toAction(DraftHistoryAction)
       .toFinish(DraftHistoryWorkflowFinish),
   ],
 })
@@ -55,7 +57,7 @@ class NoDraftWorkflow {}
 @Agent({
   name: "research-agent",
   description: "Researches",
-  prompt: "Research.",
+  prompt: inline("Research."),
   model: "moonshotai/kimi-k2.6",
   input: { shortlist: ShortlistDto },
   output: ResearchDto,
@@ -65,7 +67,7 @@ class ResearchAgent {}
 @Agent({
   name: "research-draft-agent",
   description: "Drafts from the research",
-  prompt: "Draft.",
+  prompt: inline("Draft."),
   model: "moonshotai/kimi-k2.6",
   input: { research: ResearchDto },
   output: OfferDraftDto,
@@ -75,7 +77,7 @@ class ResearchDraftAgent {}
 @Agent({
   name: "research-again-agent",
   description: "Researches again",
-  prompt: "Research again.",
+  prompt: inline("Research again."),
   model: "moonshotai/kimi-k2.6",
   input: { shortlist: ShortlistDto },
   output: ResearchDto,
@@ -85,17 +87,14 @@ class ResearchAgainAgent {}
 @Workflow({
   name: "stale-draft-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HistoryOfferWorkflowStart)
-      .returns(ShortlistDto)
+    onStart(HistoryOfferWorkflowStart)
       .toAgent(ResearchAgent)
-      .returns(ResearchDto)
       .toAgent(ResearchDraftAgent)
-      .returns(OfferDraftDto)
       .toAgent(ResearchAgainAgent)
-      .returns(ResearchDto)
       .toAgent(DraftHistoryAgent)
-      .returns(DraftChangesDto)
+      .toAction(DraftHistoryAction)
       .toFinish(DraftHistoryWorkflowFinish),
   ],
 })
@@ -103,10 +102,10 @@ class StaleDraftWorkflow {}
 
 @Agent({
   name: "limitless-agent",
-  description: "A history with a limit that is not one",
-  prompt: "Read.",
+  description: "A history with a maxPrevious that is not one",
+  prompt: inline("Read."),
   model: "moonshotai/kimi-k2.6",
-  input: { drafts: historyOf(OfferDraftDto, { limit: 0 }) },
+  input: { drafts: historyOf(OfferDraftDto, { maxPrevious: 0 }) },
   output: DraftChangesDto,
 })
 class LimitlessAgent {}
@@ -114,13 +113,12 @@ class LimitlessAgent {}
 @Workflow({
   name: "bad-limit-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(HistoryOfferWorkflowStart)
-      .returns(ShortlistDto)
+    onStart(HistoryOfferWorkflowStart)
       .toAgent(FirstDraftAgent)
-      .returns(OfferDraftDto)
       .toAgent(LimitlessAgent)
-      .returns(DraftChangesDto)
+      .toAction(DraftHistoryAction)
       .toFinish(DraftHistoryWorkflowFinish),
   ],
 })
@@ -137,20 +135,20 @@ describe("#299 AC4: historyOf(Dto) in the analysis", () => {
 
   it("without a current Dto on the path → [input.missing-on-path]", () => {
     expect(errorsOf(NoDraftWorkflow, "input.missing-on-path")).toContain(
-      "no-draft-workflow: draft-history-agent.drafts (historyOf(OfferDraftDto, { limit: 2 })) is not produced on the path history-offer-workflow-start → draft-history-agent",
+      "no-draft-workflow: draft-history-agent.drafts (historyOf(OfferDraftDto, { maxPrevious: 2 })) is not produced on the path history-offer-workflow-start → draft-history-agent",
     );
   });
 
   it("a latest Dto that is outdated is no current one: [input.missing-on-path], not outdated-on-path", () => {
     expect(errorsOf(StaleDraftWorkflow, "input.missing-on-path")).toContain(
-      "stale-draft-workflow: draft-history-agent.drafts (historyOf(OfferDraftDto, { limit: 2 })) has no current OfferDraftDto on the path history-offer-workflow-start → research-agent → research-draft-agent → research-again-agent → draft-history-agent — the latest one is outdated; renew it on that path before draft-history-agent",
+      "stale-draft-workflow: draft-history-agent.drafts (historyOf(OfferDraftDto, { maxPrevious: 2 })) has no current OfferDraftDto on the path history-offer-workflow-start → research-agent → research-draft-agent → research-again-agent → draft-history-agent — the latest one is outdated; renew it on that path before draft-history-agent",
     );
     expect(errorsOf(StaleDraftWorkflow, "input.outdated-on-path")).toEqual([]);
   });
 
-  it("a limit that is not a positive integer → [input.history-limit]", () => {
-    expect(errorsOf(BadLimitWorkflow, "input.history-limit")).toEqual([
-      "bad-limit-workflow: limitless-agent.drafts (historyOf(OfferDraftDto, { limit: 0 })): limit 0 — historyOf(…, { limit }) takes a positive integer, or no limit for every earlier version",
+  it("a maxPrevious that is not a positive integer → [input.history-max-previous]", () => {
+    expect(errorsOf(BadLimitWorkflow, "input.history-max-previous")).toEqual([
+      "bad-limit-workflow: limitless-agent.drafts (historyOf(OfferDraftDto, { maxPrevious: 0 })): maxPrevious 0 — historyOf(…, { maxPrevious }) takes a positive integer, or no maxPrevious for every earlier version",
     ]);
   });
 });

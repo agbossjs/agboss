@@ -11,8 +11,7 @@ import { describedTreeOf, treeLines } from "../../../src/describe/tree.js";
 import { WorkflowFinishTextDto } from "../../../src/dto/index.js";
 import { WorkflowStartTextDto } from "../../flow/fixtures/dtos.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
-import { start } from "../../helpers/flow.js";
-import { listOf } from "../../../src/flow/dto-wrappers.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
@@ -25,10 +24,13 @@ import {
   TreasuryWorkflow,
   treasuryChannels,
 } from "../../flow/fixtures/replies.fixture.js";
+import { Ttl } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const applicationOver = async (...workflows: Class[]) => {
   @Application({
     name: "tree-application",
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows,
@@ -40,7 +42,7 @@ const applicationOver = async (...workflows: Class[]) => {
 };
 
 /** A workflow that splits a request and launches the treasury once per line, with these options. */
-const perItemWorkflow = (name: string, options: { maxItems: number; maxConcurrency?: number }) => {
+const perItemWorkflow = (name: string, options: { takeFirst: number; maxConcurrency?: number }) => {
   @WorkflowStart({
     name: `${name}-workflow-start`,
     description: "Lines",
@@ -56,14 +58,12 @@ const perItemWorkflow = (name: string, options: { maxItems: number; maxConcurren
   @Workflow({
     name: `${name}-workflow`,
     version: "2.0.0",
+    historyTtl: Ttl.Forever,
     flow: [
-      start(Start)
-        .returns(WorkflowStartTextDto)
+      onStart(Start)
         .toAction(SplitRequestsAction)
-        .returns(listOf(WorkflowStartTextDto))
-        .toParallelWorkflows(TreasuryWorkflow, options)
+        .forEachItem(toWorkflow(TreasuryWorkflow), options)
         .join()
-        .returns(listOf(WorkflowFinishTextDto))
         .toAgent(BatchSummaryAgent)
         .toFinish(Finish),
     ],
@@ -77,8 +77,8 @@ describe("#1366: the launch of a child in the tree", () => {
     const tree = describedTreeOf(
       await applicationOver(
         TreasuryWorkflow,
-        perItemWorkflow("items", { maxItems: 4 }),
-        perItemWorkflow("slots", { maxItems: 6, maxConcurrency: 2 }),
+        perItemWorkflow("items", { takeFirst: 4 }),
+        perItemWorkflow("slots", { takeFirst: 6, maxConcurrency: 2 }),
       ),
     );
 
@@ -95,8 +95,8 @@ describe("#1366: the launch of a child in the tree", () => {
     const lines = treeLines(
       await applicationOver(
         TreasuryWorkflow,
-        perItemWorkflow("items", { maxItems: 4 }),
-        perItemWorkflow("both", { maxItems: 5, maxConcurrency: 3 }),
+        perItemWorkflow("items", { takeFirst: 4 }),
+        perItemWorkflow("both", { takeFirst: 5, maxConcurrency: 3 }),
       ),
     );
 
@@ -122,13 +122,8 @@ describe("#1366: the launch of a child in the tree", () => {
     @Workflow({
       name: "grand-workflow",
       version: "3.1.0",
-      flow: [
-        start(GrandStart)
-          .returns(WorkflowStartTextDto)
-          .toWorkflow(TreasuryDeskWorkflow)
-          .returns(WorkflowFinishTextDto)
-          .toFinish(GrandFinish),
-      ],
+      historyTtl: Ttl.Forever,
+      flow: [onStart(GrandStart).toWorkflow(TreasuryDeskWorkflow).toFinish(GrandFinish)],
     })
     class GrandWorkflow {}
 

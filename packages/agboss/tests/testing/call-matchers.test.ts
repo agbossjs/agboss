@@ -38,9 +38,7 @@ describe("AC9: what a model was called with, how often, what it returned", () =>
 
     await app.execute(IntakeWorkflowStart, { text: "my resume" });
 
-    expect(mockLlm(ScoutAgent).inputs).toEqual([
-      { profile: { producer: ProfilerAgent, value: { summary: "TS backend" } } },
-    ]);
+    expect(mockLlm(ScoutAgent).inputs).toEqual([{ profile: { summary: "TS backend" } }]);
     expect(mockLlm(MainRouter).inputs).toHaveLength(2);
   });
 

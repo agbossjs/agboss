@@ -8,6 +8,7 @@
 import { Command, MemorySaver } from "@langchain/langgraph";
 import { describe, expect, it, vi } from "vitest";
 import type { AppDeps } from "../../src/app/app-deps.js";
+import { ExecutionPausedError } from "../../src/app/lease-stopped.js";
 import { runQueuedChild, streamed } from "../../src/app/remote/queued-child-run.js";
 import { ApplicationStoppingError, ExecutionCancelledError } from "../../src/core/errors.js";
 import { BudgetScope } from "../../src/budgets/budget.js";
@@ -534,6 +535,18 @@ describe("#1366: one claimed child's pass on its worker", () => {
     const { pass } = await claimed({ failWith: stopping });
 
     expect(pass).toBeUndefined();
+  });
+
+  it("a pause of the child's tree parks it like a hand-over: nothing is answered, failed or cancelled (#1341c)", async () => {
+    const paused = new ExecutionPausedError({ message: "the child's tree was paused" });
+    const byError = await claimed({ failWith: paused });
+    expect(byError.pass).toBeUndefined();
+
+    // the abort of the worker's watch surfaces as whatever error the step threw: the signal's reason says why
+    const abort = new AbortController();
+    abort.abort(paused);
+    const bySignal = await claimed({ signal: abort.signal, failWith: new Error("aborted") });
+    expect(bySignal.pass).toBeUndefined();
   });
 
   it("a failure is the row's failure text; a cancellation is announced as the child's, with its claimed child", async () => {

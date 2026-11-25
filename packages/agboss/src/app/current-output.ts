@@ -1,11 +1,12 @@
 import { compensationRecordsOf } from "../flow/compensation.js";
-import { buildCostReport } from "../finops/usage.js";
+import { CostReport } from "../finops/usage.js";
 import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { PauseStatus } from "../infrastructure/paused-execution.repository.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import { NotPausedError } from "../run/resume-agent.js";
+import { endedResultOf } from "./ended-output.js";
 import { pauseClosed } from "./pause-closed.js";
 import { endOfRecord } from "./tree-end-pauses.js";
 import { forgetTree, type TreeEndParts } from "./tree-ends.js";
@@ -71,6 +72,8 @@ export async function currentOutputOf(
   // LangGraph boundary: a checkpoint's values are the flow's own state
   const state = snapshot.values as Partial<ExecutionStateType>;
   if (!hasGraphEnded(snapshot) || state.finish === undefined || state.finish === "") {
+    const ended = await endedOutputOf(deps, tree);
+    if (ended !== undefined) return ended;
     throw new NotPausedError({ message: `Thread "${tree.threadId}" has no paused run` });
   }
   return withPauseAnswers(
@@ -80,7 +83,7 @@ export async function currentOutputOf(
       tenantId: tree.tenantId,
       executionId: tree.runId,
       path: state.path ?? [],
-      spend: buildCostReport(state.usage ?? []),
+      spend: CostReport.fromUsage(state.usage ?? []),
       ...recordsOf(state),
       pending: [],
       finish: nodeRecordIn(deps, state.finish),
@@ -90,6 +93,43 @@ export async function currentOutputOf(
   );
 }
 
+/**
+ * A tree that ended and forgot its checkpoints (`forgetTree`, #1321d): its answered root record
+ * keeps the finish, the masked output and the spend — a late resume reads them from there.
+ */
+async function endedOutputOf(
+  deps: AgentExecutionDeps<string>,
+  tree: ThreadKey & { readonly runId: string },
+): Promise<ExecutionOutput | undefined> {
+  const record = await deps.turns.findByTenantIdAndRunId(tree.tenantId, tree.runId);
+  if (record?.threadId !== tree.threadId) return undefined;
+  const ended = endedResultOf(deps.graph, record);
+  if (ended === undefined) return undefined;
+  return withPauseAnswers(
+    {
+      status: ExecutionStatus.Finished,
+      threadId: tree.threadId,
+      tenantId: tree.tenantId,
+      executionId: tree.runId,
+      path: record.route,
+      spend: ended.spend,
+      ...recordsOf({}),
+      pending: [],
+      finish: nodeRecordIn(deps, ended.finish),
+      output: ended.output,
+    },
+    deps,
+  );
+}
+
+/** The statuses of a root record that ended without a finish (text: a record's status may be compared with them). */
+const ENDED_WITHOUT_FINISH: readonly (string | undefined)[] = [
+  ExecutionRecordStatus.Failed,
+  ExecutionRecordStatus.Guarded,
+  ExecutionRecordStatus.Stopped,
+  ExecutionRecordStatus.Cancelled,
+];
+
 /** What a resume holds once it took the tree's lease: the lease, and the pause it answered. */
 export interface ResumeTake {
   readonly lease: Pick<HeldExecutionLease, "release">;
@@ -97,8 +137,8 @@ export interface ResumeTake {
 }
 
 /**
- * A resume's take of a tree whose root's record ended without a finish — failed (a cancel too) or
- * guarded — is refused (#901): final, no pass moves the tree again, though the answer the resume
+ * A resume's take of a tree whose root's record ended without a finish — failed, guarded, stopped
+ * or cancelled — is refused (#901): final, no pass moves the tree again, though the answer the resume
  * recorded may still be `Resolved` (a drain took it and its pass stopped on a cancel) — the lease
  * held, so it first finishes the tree's end (`forgetTree`, idempotent: the answer no step took
  * closed not taken, its paused run removed), gives the lease back and refuses with
@@ -114,7 +154,7 @@ export async function refusedIfFailed(
   const record = await deps.turns.findByTenantIdAndRunId(state.tenantId, state.runId);
   const status = record?.threadId === state.threadId ? record.status : undefined;
   if (record === undefined || deps.pause === undefined) return;
-  if (status !== ExecutionRecordStatus.Failed && status !== ExecutionRecordStatus.Guarded) return;
+  if (!ENDED_WITHOUT_FINISH.includes(status)) return;
   try {
     await forgetTree(parts, state, endOfRecord(record));
     const pause = { tenantId: state.tenantId, pauseId: take.pauseId };

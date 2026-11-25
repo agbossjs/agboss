@@ -1,13 +1,8 @@
 import type { Class } from "../../../src/components/injection.js";
-import type { DtoClass } from "../../../src/dto/types.js";
 import { NodeKind, type PathSource } from "../../../src/flow/ast.js";
-import type { ReturnsOptions } from "../../../src/flow/builder-types.js";
-import type { ValueShape } from "../../../src/flow/dto-wrappers.js";
 import {
-  aboutTargets,
   fromComponent,
   fromSource,
-  groupFrom,
   subPathFrom,
   type PathBuilder,
 } from "../../../src/flow/path-builder.js";
@@ -18,43 +13,36 @@ import {
  * (`builder.ts`) would not let compile. The AST it writes is the same.
  */
 
-export const start = (source: Class): PathBuilder<PathSource> =>
+export const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
-export const agent = (source: Class): PathBuilder<PathSource> =>
+export const onAgent = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Agent, source);
 
-export const router = (source: Class): PathBuilder<PathSource> =>
+export const onRouter = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Router, source);
 
-export const action = (source: Class): PathBuilder<PathSource> =>
+export const onAction = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Action, source);
 
-export const workflow = (source: Class): PathBuilder<PathSource> =>
+export const onWorkflow = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Workflow, source);
 
-export const question = (source: Class): PathBuilder<PathSource> =>
+export const onExternalTask = (source: Class): PathBuilder<PathSource> =>
   fromComponent(NodeKind.Question, source);
-
-export const route = (target: Class): PathBuilder => subPathFrom({ kind: "route", target });
-
-export const caseOf = (dto: DtoClass, options?: ReturnsOptions): PathBuilder => {
-  const about = aboutTargets(options);
-  return subPathFrom(about === undefined ? { kind: "case", dto } : { kind: "case", dto, about });
-};
-
-/** `.returns(A).returns(B)…` — a start's several values, one `.returns` each (#299 S54). */
-export const returnsEach = <TBuilder extends PathBuilder>(
-  path: TBuilder,
-  shapes: readonly ValueShape[],
-): TBuilder => shapes.reduce<TBuilder>((built, shape) => built.returns(shape) as TBuilder, path);
 
 /** A side path of `.onError(E, …)` with nothing in it yet. */
 export const side = (): PathBuilder => subPathFrom({ kind: "side" });
 
+export { skip } from "../../../src/flow/parallel-step.js";
+
 export const toAction = (target: Class): PathBuilder =>
   side()
     .toAction(target);
+
+export const toRouter = (target: Class): PathBuilder =>
+  side()
+    .toRouter(target);
 
 export const toAgent = (target: Class): PathBuilder =>
   side()
@@ -64,15 +52,12 @@ export const toFinish = (target: Class): PathBuilder =>
   side()
     .toFinish(target);
 
-/** The side path `.onError(E, toQuestion(Q)…)` (#910). */
-export const toQuestion = (target: Class, options?: unknown): PathBuilder =>
+/** The side path `.onError(E, toExternalTask(Q)…)` (#910). */
+export const toExternalTask = (target: Class): PathBuilder =>
   side()
-    .toQuestion(target, options);
+    .toExternalTask(target);
 
 /** The side path `.onError(E, toWorkflow(W)…)` (#263 S85). */
 export const toWorkflow = (target: Class): PathBuilder =>
   side()
     .toWorkflow(target);
-
-/** `group(A, B, …)` of `.joinQuorumGroups(…)` (#279). */
-export const group = (...agents: readonly Class[]): PathBuilder => groupFrom(agents);

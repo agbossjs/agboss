@@ -2,17 +2,23 @@ import { requireApplication } from "../application/application.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import type { Class } from "../components/injection.js";
 import { childWorkflowOf } from "../flow/analyse/child-workflow.js";
-import { EdgeKind, type FlowEdge, type FlowGraph } from "../flow/analyse/flow-graph.js";
+import {
+  EdgeKind,
+  itemBoundOf,
+  type FlowEdge,
+  type FlowGraph,
+} from "../flow/analyse/flow-graph.js";
 import { startLabel } from "../flow/analyse/rules/children.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
+import type { ExecutionLimitsOf } from "../flow/decorators/workflow.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
 /**
  * The tree of an application as `agboss describe` shows it (#268 AC4): the workflows it lists,
  * each with its starts and, below it, the child workflows it launches — by which step, one or one
- * per item (`maxItems`, `maxConcurrency`) — down to their own children; `ThisWorkflow` (#264) is the
- * workflow again, marked with its `maxDepth`. Read from the decorators only.
+ * per item (`maxItems`, `maxConcurrency`) — down to their own children; a workflow that launches itself (#264,
+ * #1287) is shown as the workflow again, marked with its `maxDepth`. Read from the decorators only.
  */
 
 /** How a child is entered from its parent. */
@@ -25,7 +31,7 @@ export interface DescribedLaunch {
 }
 
 /** One workflow of the tree: its name, version, starts and children. */
-export interface DescribedWorkflowNode {
+export interface DescribedWorkflowTree {
   readonly name: string;
   readonly version: string;
   /** `chat-workflow-start (WorkflowStartTextDto)`, a map as `({ a: ADto, b: BDto })`. */
@@ -36,16 +42,16 @@ export interface DescribedWorkflowNode {
 /** A child of a workflow in the tree. */
 export interface DescribedChild {
   readonly launch: DescribedLaunch;
-  /** `ThisWorkflow` (#264): the enclosing workflow again, `maxDepth` levels at most. */
+  /** A recursion (#264): the enclosing workflow again, `maxDepth` levels at most. */
   readonly isRecursive: boolean;
   readonly maxDepth?: number;
   /** The child workflow; a recursive one is its parent again and is not expanded. */
-  readonly workflow: DescribedWorkflowNode;
+  readonly workflow: DescribedWorkflowTree;
 }
 
 /** The workflows the application lists, each a tree of its children. */
 export interface DescribedTree {
-  readonly workflows: readonly DescribedWorkflowNode[];
+  readonly workflows: readonly DescribedWorkflowTree[];
 }
 
 function launchOf(edges: readonly FlowEdge[]): DescribedLaunch {
@@ -54,7 +60,7 @@ function launchOf(edges: readonly FlowEdge[]): DescribedLaunch {
   return {
     from: [...new Set(edges.map((edge) => edge.from))].sort(),
     isPerItem,
-    ...(isPerItem && launch.maxItems !== undefined ? { maxItems: launch.maxItems } : {}),
+    ...(isPerItem && itemBoundOf(launch) !== undefined ? { maxItems: itemBoundOf(launch) } : {}),
     ...(isPerItem && launch.maxConcurrency !== undefined
       ? { maxConcurrency: launch.maxConcurrency }
       : {}),
@@ -67,13 +73,15 @@ const startsOf = (workflow: Class): readonly string[] =>
 /** Where the tree finds each workflow's assembled graph. */
 interface TreeSource {
   readonly graphOf: (workflow: Class) => FlowGraph | undefined;
+  /** A workflow's `executionLimits` as the application's profiles leave them. */
+  readonly limitsOf: ExecutionLimitsOf;
 }
 
 function nodeOf(
   workflow: Class,
   source: TreeSource,
   above: readonly Class[],
-): DescribedWorkflowNode {
+): DescribedWorkflowTree {
   const declaration = declarationOf(workflow);
   const options = declaration?.kind === NodeKind.Workflow ? declaration.options : undefined;
   const graph = source.graphOf(workflow);
@@ -81,7 +89,7 @@ function nodeOf(
     if (node.kind !== NodeKind.Workflow || graph === undefined) return [];
     const launch = launchOf(graph.edges.filter((edge) => edge.to === node.name));
     if (node.recursionOf !== undefined) {
-      const maxDepth = options?.maxDepth;
+      const { maxDepth } = source.limitsOf(workflow);
       return [
         {
           launch,
@@ -108,8 +116,8 @@ function nodeOf(
   };
 }
 
-/** A workflow named in the tree without its children (`ThisWorkflow`: its parent again). */
-function leafOf(workflow: Class): DescribedWorkflowNode {
+/** A workflow named in the tree without its children (a recursion: its parent again). */
+function leafOf(workflow: Class): DescribedWorkflowTree {
   const declaration = declarationOf(workflow);
   const options = declaration?.kind === NodeKind.Workflow ? declaration.options : undefined;
   return {
@@ -127,6 +135,7 @@ export function describedTreeOf(assembled: AssembledApplication): DescribedTree 
   );
   const source: TreeSource = {
     graphOf: (workflow) => byClass.get(workflow)?.graph.analysis.graph,
+    limitsOf: assembled.componentOptions.executionLimitsOf,
   };
   const listed = requireApplication(assembled.application, "agboss describe").options.workflows;
   return { workflows: listed.map((workflow) => nodeOf(workflow, source, [])) };
@@ -135,7 +144,7 @@ export function describedTreeOf(assembled: AssembledApplication): DescribedTree 
 /** `per item from vendor-finder-agent (maxItems 20, maxConcurrency 3)`, `from triage-agent`. */
 function launchText(launch: DescribedLaunch): string {
   const limits = [
-    ...(launch.maxItems === undefined ? [] : [`maxItems ${String(launch.maxItems)}`]),
+    ...(itemBoundOf(launch) === undefined ? [] : [`maxItems ${String(itemBoundOf(launch))}`]),
     ...(launch.maxConcurrency === undefined
       ? []
       : [`maxConcurrency ${String(launch.maxConcurrency)}`]),
@@ -148,9 +157,7 @@ function childLines(child: DescribedChild, indent: string): string[] {
   const { workflow } = child;
   if (child.isRecursive) {
     const depth = child.maxDepth === undefined ? "" : `, maxDepth ${String(child.maxDepth)}`;
-    return [
-      `${indent}child ${workflow.name} (ThisWorkflow, recursive${depth}) ${launchText(child.launch)}`,
-    ];
+    return [`${indent}child ${workflow.name} (recursive${depth}) ${launchText(child.launch)}`];
   }
   return [
     `${indent}child ${workflow.name} ${workflow.version} ${launchText(child.launch)}`,
@@ -158,7 +165,7 @@ function childLines(child: DescribedChild, indent: string): string[] {
   ];
 }
 
-function nodeLines(node: DescribedWorkflowNode, indent: string, withTitle: boolean): string[] {
+function nodeLines(node: DescribedWorkflowTree, indent: string, withTitle: boolean): string[] {
   return [
     ...(withTitle ? [`${indent}${node.name} ${node.version}`] : []),
     ...node.starts.map((start) => `${indent}${withTitle ? "  " : ""}start ${start}`),

@@ -1,3 +1,4 @@
+import { usd } from "../../src/units/index.js";
 /**
  * #1366 (budget-loop shard) — the budget rules at the loop's approval step, for a question role an agent asks as a
  * tool (#712), each on its own over fakes: before the ask its `maxVisits`, the execution's budgets with the loop's
@@ -30,10 +31,11 @@ vi.mock("../../src/flow/context/frame.js", async (original) => ({
 }));
 
 const record = (costUsd: number, caller = "x"): UsageRecord => ({
+  provider: "test-provider",
   ...ZERO_USAGE,
   caller,
   model: "m",
-  costUsd,
+  costUsd: usd(costUsd),
   costSource: CostSource.Api,
 });
 
@@ -44,6 +46,7 @@ const stateOf = (changes: Record<string, unknown> = {}) =>
     from: { usage: 1 },
     flowPath: ["a"],
     questionAnswers: {},
+    prepared: { c1: { kind: "ready", args: { q: "?" }, shown: { q: "?" }, from: "model" } },
     ...changes,
   }) as never;
 
@@ -58,7 +61,7 @@ function setup(options: { maxVisits?: number; asked?: boolean } = {}) {
   );
   const tool = {
     name: "ask-tool",
-    channel: "ch",
+    approval: "ch",
     question: options.maxVisits === undefined ? {} : { maxVisits: options.maxVisits },
     input: { safeParse: (args: unknown) => ({ success: true, data: args }) },
   };
@@ -145,7 +148,7 @@ describe("#1366: the checks before a question is asked", () => {
     const failure = await made.node(state, undefined).catch((e: unknown) => e);
 
     expect(failure).toBeInstanceOf(VisitsLimitExceededError);
-    expect(failure).toMatchObject({ maxVisits: 1, path: ["a"], spentUsd: 1.5 });
+    expect(failure).toMatchObject({ maxVisits: 1, path: ["a"], spentUsd: usd(1.5) });
     expect((failure as VisitsLimitExceededError).component).toMatchObject({ name: "ask-tool" });
     expect(made.check).not.toHaveBeenCalled();
     expect(made.requestAnswer).not.toHaveBeenCalled();
@@ -166,7 +169,7 @@ describe("#1366: the checks before a question is asked", () => {
       const failure = await made.node(stateOf(), undefined).catch((e: unknown) => e);
 
       expect(failure).toBeInstanceOf(VisitsLimitExceededError);
-      expect(failure).toMatchObject({ maxVisits: 0, path: ["a"], spentUsd: 1.5 });
+      expect(failure).toMatchObject({ maxVisits: 0, path: ["a"], spentUsd: usd(1.5) });
       expect((failure as Error).message).not.toContain("five");
       expect(made.check).not.toHaveBeenCalled();
       expect(made.requestAnswer).not.toHaveBeenCalled();
@@ -225,72 +228,6 @@ describe("#1366: what the question costs", () => {
       "alpha",
       expect.objectContaining({ name: "ask-tool" }),
     ]);
-  });
-
-  it("arguments that are no valid ask ask nobody: no budget check, no spend", async () => {
-    const made = setup();
-    vi.mocked(awaitingApproval).mockReturnValue([{ ...call, args: {} }] as never);
-    const tool = {
-      name: "ask-tool",
-      channel: "ch",
-      question: {},
-      input: {
-        safeParse: () => ({
-          success: false,
-          error: { issues: [{ path: ["q"], message: "Required" }] },
-        }),
-      },
-    };
-    const deps = {
-      agent: { name: "alpha", tools: [tool] },
-      budgets: made.budgets,
-      approval: { requestAnswer: made.requestAnswer },
-    };
-    const node = makeApprovalNode(deps as never);
-
-    const out = await node(stateOf(), undefined);
-
-    expect(out).toEqual({
-      questionAnswers: { c1: { tool: "ask-tool", problem: "invalid input: q: Required" } },
-    });
-    expect(made.check).not.toHaveBeenCalled();
-    expect(made.requestAnswer).not.toHaveBeenCalled();
-  });
-});
-
-describe("#1366: what is wrong with a question's arguments is said", () => {
-  it("every issue is named by its path and its reason, in the order they were found, and no value", async () => {
-    const made = setup();
-    vi.mocked(awaitingApproval).mockReturnValue([{ ...call, args: { secret: "x" } }] as never);
-    const tool = {
-      name: "ask-tool",
-      channel: "ch",
-      question: {},
-      input: {
-        safeParse: () => ({
-          success: false,
-          error: {
-            issues: [
-              { path: ["q"], message: "Required" },
-              { path: ["to", 0], message: "Expected string" },
-            ],
-          },
-        }),
-      },
-    };
-    const deps = {
-      agent: { name: "alpha", tools: [tool] },
-      budgets: made.budgets,
-      approval: { requestAnswer: made.requestAnswer },
-    };
-
-    const out = await makeApprovalNode(deps as never)(stateOf(), undefined);
-
-    expect(out).toEqual({
-      questionAnswers: {
-        c1: { tool: "ask-tool", problem: "invalid input: q: Required; to[0]: Expected string" },
-      },
-    });
   });
 });
 

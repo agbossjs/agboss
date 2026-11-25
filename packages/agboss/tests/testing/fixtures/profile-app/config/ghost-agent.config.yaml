@@ -1,0 +1,5 @@
+workflows:
+  profile-kid-workflow:
+    agents:
+      ghost-agent:
+        thinking: low

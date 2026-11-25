@@ -7,16 +7,12 @@ import {
   InMemoryExecutionLeaseRepository,
   storeDescriptorOf,
 } from "../../infrastructure/execution-lease.repository.js";
-import { FencedEffects } from "../../app/fenced-effects.js";
-import { OutboundCalls } from "../../app/outbound-calls.js";
-import {
-  FencedEffectSettings,
-  OutboundCallSettings,
-} from "../../infrastructure/fenced-effect-settings.js";
+import { Idempotency } from "../../app/idempotency.js";
+import { OutboundMasking } from "../../app/outbound-masking.js";
 import { FencedEffectRepository } from "../../infrastructure/fenced-effect.repository.js";
 import { InMemoryFencedEffectRepository } from "../../infrastructure/in-memory-fenced-effect.repository.js";
 import { IN_MEMORY_DATABASE } from "../../infrastructure/in-memory-database.js";
-import { InMemoryOutboundCallRepository } from "../../infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../infrastructure/in-memory-outbound-call.repository.js";
 import { OutboundCallRepository } from "../../infrastructure/outbound-call.repository.js";
 import { InMemoryDatabase } from "../../infrastructure/in-memory-database.js";
 import { seconds } from "../../units/index.js";
@@ -28,27 +24,25 @@ import type { TestFenceOptions } from "../fence.js";
  * runner's own, and — for every fenced-effect store the runner's container creates, the SQLite one
  * too — the runner's lease in the lease store of that store's backend (#825: `static store`): the
  * fence's token, held until its `trustedUntil`, released when the options say it was lost. So
- * `testAction` / `testTool` run a component's `runOnce` as a step of a held lease does.
+ * `testUnit` / `testUnit` run a component's `runOnce` as a step of a held lease does.
  * The same for the calls that leave the system (#505): `OutboundCalls` over the in-memory
  * outbound-call store, its lease held the same way.
  */
 export class UnitFencedEffects {
   readonly core: readonly (readonly [Token, unknown])[] = [
     [IN_MEMORY_DATABASE, new InMemoryDatabase()],
-    [FencedEffectSettings, new FencedEffectSettings()],
     // a unit runner lists no PII policies: its frames carry no mask to require (#795: said, not defaulted)
-    [OutboundCallSettings, new OutboundCallSettings({ requiresMask: false })],
+    [OutboundMasking, new OutboundMasking({ requiresMask: false })],
   ];
 
   readonly defaults: ReadonlyMap<Class, Class> = new Map<Class, Class>([
     [FencedEffectRepository, InMemoryFencedEffectRepository],
     // a component that injects the in-memory store by its own class gets the runner's
     [InMemoryFencedEffectRepository, InMemoryFencedEffectRepository],
-    [FencedEffects, FencedEffects],
     [ExecutionLeaseRepository, InMemoryExecutionLeaseRepository],
     [OutboundCallRepository, InMemoryOutboundCallRepository],
     [InMemoryOutboundCallRepository, InMemoryOutboundCallRepository],
-    [OutboundCalls, OutboundCalls],
+    [Idempotency, Idempotency],
     // what `OutboundCalls` logs: nothing, unless the runner lists a logger
     [Logger, SilentLogger],
   ]);

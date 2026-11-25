@@ -7,7 +7,8 @@ import {
   WorkflowFinish,
   WorkflowStart,
   listOf,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
@@ -17,9 +18,8 @@ import {
   type CostCounter,
   type LedgerEntry,
 } from "../../../src/infrastructure/cost-ledger.repository.js";
-import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toAction } from "../../helpers/flow.js";
 import { seconds, usd } from "../../../src/units/index.js";
 import { OrderDto } from "./paid-steps.dto.js";
 
@@ -76,13 +76,13 @@ export class PayThriceAction {
     private readonly clock: Clock,
   ) {}
 
-  async execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<OrderDto> {
+  async execute(input: { readonly order: Tracked<OrderDto> }): Promise<OrderDto> {
     for (const cost of [60, 25, 1]) {
       this.spendRecorder.record({ service: "order-api", cost: usd(cost) });
       await this.clock.sleep(seconds(1));
     }
     lostAnswer.log.push("paid");
-    return input.order.value;
+    return input.order;
   }
 }
 
@@ -96,7 +96,7 @@ export class PayThriceAction {
 export class WorkAction {
   constructor(private readonly executionContext: ExecutionContext) {}
 
-  async execute(input: { readonly order: Produced<OrderDto, unknown> }): Promise<OrderDto> {
+  async execute(input: { readonly order: Tracked<OrderDto> }): Promise<OrderDto> {
     const { signal } = this.executionContext;
     await new Promise<void>((resolve, reject) => {
       lostAnswer.release = resolve;
@@ -112,35 +112,42 @@ export class WorkAction {
       );
     });
     lostAnswer.log.push("worked");
-    return input.order.value;
+    return input.order;
   }
 }
 
 @WorkflowStart({ name: "lost-answer-workflow-start", description: "An order", input: OrderDto })
 export class LostAnswerWorkflowStart {}
 
-@WorkflowFinish({
-  name: "lost-answer-workflow-finish",
+@Action({
+  name: "lost-answer-action",
   description: "Paid and worked",
   input: { results: listOf(OrderDto) },
   output: OrderDto,
 })
-export class LostAnswerWorkflowFinish {
-  finish(input: { readonly results: readonly Produced<OrderDto, unknown>[] }): OrderDto {
-    const ids = input.results.map((result) => result.value.orderId);
+export class LostAnswerAction {
+  async execute(input: { readonly results: readonly Tracked<OrderDto>[] }): Promise<OrderDto> {
+    const ids = input.results.map((result) => result.orderId);
     return { orderId: ids.join(",") };
   }
 }
 
+@WorkflowFinish({
+  name: "lost-answer-workflow-finish",
+  description: "Paid and worked",
+  output: OrderDto,
+})
+export class LostAnswerWorkflowFinish {}
+
 @Workflow({
   name: "lost-answer-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(LostAnswerWorkflowStart)
-      .returns(OrderDto)
-      .toParallelActions(PayThriceAction, WorkAction)
+    onStart(LostAnswerWorkflowStart)
+      .inParallel([toAction(PayThriceAction), toAction(WorkAction)])
       .join()
-      .returns(listOf(OrderDto))
+      .toAction(LostAnswerAction)
       .toFinish(LostAnswerWorkflowFinish),
   ],
 })

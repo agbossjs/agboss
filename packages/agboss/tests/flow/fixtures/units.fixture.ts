@@ -2,17 +2,17 @@ import { Application } from "../../../src/application/application.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { SpendRecorder } from "../../../src/components/spend-recorder.js";
 import { Integer, Text } from "../../../src/dto/index.js";
-import { caseOf, route, start } from "../../../src/flow/builder.js";
+import { onStart, toAction, toFinish } from "../../../src/flow/builder.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { oneOf, variant } from "../../../src/flow/dto-wrappers.js";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types.js";
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
-import { EmptyEnvironment } from "../../../src/index.js";
+import { EmptyEnvironment, Ttl } from "../../../src/index.js";
 import { usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 
@@ -71,12 +71,12 @@ export class PriceQuoteAction implements ActionHandler<PriceQuoteAction> {
   ) {}
 
   async execute(input: InputOf<PriceQuoteAction>): Promise<OutputOf<PriceQuoteAction>> {
-    const { product, quantity } = input.request.value;
+    const { product, quantity } = input.request;
     const price = await this.priceListService.priceOf(product);
     this.spendRecorder.record({ service: "price-list", cost: usd(0.001) });
-    if (price === undefined) return variant(QuoteRefusedDto, { reason: `no price for ${product}` });
+    if (price === undefined) return { reason: `no price for ${product}` };
     const pricedBy = this.executionContext.step.nodeId;
-    return variant(QuoteDto, { cents: price * quantity, pricedBy });
+    return { cents: price * quantity, pricedBy };
   }
 }
 
@@ -109,40 +109,34 @@ export class ManualQuoteWorkflowFinish {}
   input: {
     request: QuoteRequestDto,
   },
-  routes: [{ target: PriceQuoteAction }, { target: ManualQuoteWorkflowFinish }],
+  routes: [PriceQuoteAction, ManualQuoteWorkflowFinish],
   deps: [PriceListService],
 })
 export class QuoteSizeRouter implements RouterHandler<QuoteSizeRouter> {
   constructor(private readonly priceListService: PriceListService) {}
 
   async route(input: InputOf<QuoteSizeRouter>): Promise<Route<QuoteSizeRouter>> {
-    const price = await this.priceListService.priceOf(input.request.value.product);
-    return (price ?? 0) * input.request.value.quantity > 10_000
+    const price = await this.priceListService.priceOf(input.request.product);
+    return (price ?? 0) * input.request.quantity > 10_000
       ? ManualQuoteWorkflowFinish
       : PriceQuoteAction;
   }
 }
 
 export const quotePaths = [
-  start(QuoteWorkflowStart)
-    .returns(QuoteRequestDto)
+  onStart(QuoteWorkflowStart)
     .toRouter(QuoteSizeRouter)
-    .chooseOne(
-      route(PriceQuoteAction)
-        .returns(oneOf(QuoteDto, QuoteRefusedDto))
-        .switch(
-          caseOf(QuoteDto)
-            .toFinish(QuoteWorkflowFinish),
-          caseOf(QuoteRefusedDto)
-            .toFinish(QuoteRefusedWorkflowFinish),
-        ),
-      route(ManualQuoteWorkflowFinish),
-    ),
+    .onRoute(
+      toAction(PriceQuoteAction)
+        .toOneOf([toFinish(QuoteWorkflowFinish), toFinish(QuoteRefusedWorkflowFinish)]),
+    )
+    .onRoute(toFinish(ManualQuoteWorkflowFinish)),
 ] as const;
 
 @Workflow({
   name: "quote-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: quotePaths,
   providers: [PriceListService],
 })

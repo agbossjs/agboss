@@ -22,7 +22,7 @@ async function takenBy(store: ExecutionLeaseRepository): Promise<ExecutionLease>
 
 /**
  * A retired lease (#520): its holder gave it up for good, the work under it over (an
- * `AnyInstance` child answered or failed). No `acquire` gets that key again — not another instance,
+ * `AnyWorker` child answered or failed). No `acquire` gets that key again — not another instance,
  * not the holder, not after any time —, so a stale instance never takes over finished work; it is
  * matched as `release` matches (another holder's lease is kept), and renewed, yielded and reclaimed
  * no more.

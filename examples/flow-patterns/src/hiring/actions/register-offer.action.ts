@@ -27,7 +27,7 @@ export class RegisterOfferAction implements ActionHandler<RegisterOfferAction> {
   ) {}
 
   async execute(input: InputOf<RegisterOfferAction>): Promise<OutputOf<RegisterOfferAction>> {
-    const { candidateId, role } = input.request.value;
+    const { candidateId, role } = input.request;
     const key: string = this.executionContext.step.idempotencyKey;
     return { offerId: await this.atsClientService.registerOffer(candidateId, role, key) };
   }

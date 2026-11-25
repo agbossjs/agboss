@@ -2,40 +2,9 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import { testRules } from "./eslint.tests.js";
 import { agbossRules } from "./scripts/eslint-agboss-plugin.mjs";
+import { isolationRules } from "./scripts/eslint-isolation.mjs";
 import { flowStyleRules } from "./scripts/flow-style.mjs";
 import { cliImportPatterns, packageImportPatterns } from "./scripts/public-entries.mjs";
-
-/** What any framework module may not import (src/routers, tools and turns have their own rules). */
-const frameworkImportPatterns = [
-  {
-    regex: "(^|/)examples/",
-    message: "The framework never imports example code (#91).",
-  },
-  {
-    regex: "/routers/(?!index\\.js$)",
-    message: "Import routers only through src/routers/index.ts.",
-  },
-  {
-    regex: "/tools/(?!index\\.js$)",
-    message: "Import tools only through src/tools/index.ts.",
-  },
-  {
-    regex: "/turns/(?!index\\.js$)",
-    message: "Import turns only through src/turns/index.ts.",
-  },
-];
-
-/** Every model call goes through ModelGateway (#135): only src/llm and src/routers touch clients. */
-const modelClientImportPatterns = [
-  {
-    regex: "^@langchain/openai",
-    message: "Model clients are created only behind ModelGateway (src/llm/gateway.ts).",
-  },
-  {
-    regex: "/llm/(model|jev-client)\\.js$",
-    message: "Model clients are created only behind ModelGateway (src/llm/gateway.ts).",
-  },
-];
 
 export default tseslint.config(
   {
@@ -84,85 +53,6 @@ export default tseslint.config(
     },
   },
   {
-    files: ["packages/agboss/src/routers/**/*.ts"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              regex: "(^|/)examples/",
-              message: "The framework never imports example code (#91).",
-            },
-            {
-              regex: "/(graph|prompts|tools)/",
-              message: "Routers are isolated: depend only on config, finops and llm.",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    files: ["packages/agboss/src/tools/**/*.ts"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              regex: "(^|/)examples/",
-              message: "The framework never imports example code (#91).",
-            },
-            {
-              regex: "/(graph|prompts|routers)/",
-              message: "Tools are isolated: depend only on config, finops and llm.",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    files: ["packages/agboss/src/turns/**/*.ts"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              regex: "(^|/)examples/",
-              message: "The framework never imports example code (#91).",
-            },
-            {
-              // `../core/` only: core is the leaf layer of errors and has no dependencies (#1194, so
-              // the turn store's stored texts are read with `parsedStoredJson`); turns stay isolated
-              // from infrastructure, stores and everything else.
-              regex: "^\\.\\./(?!core/)",
-              message: "Turns are isolated: they depend on nothing else in src but core.",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    files: ["packages/agboss/src/**/*.ts"],
-    ignores: [
-      "packages/agboss/src/llm/**",
-      "packages/agboss/src/models/**",
-      "packages/agboss/src/routers/**",
-      "packages/agboss/src/tools/**",
-      "packages/agboss/src/turns/**",
-    ],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        { patterns: [...frameworkImportPatterns, ...modelClientImportPatterns] },
-      ],
-    },
-  },
-  {
     // #646: every dynamic import of the core is a lazy load the test's clock waits for
     files: ["packages/agboss/src/**/*.ts"],
     rules: {
@@ -178,13 +68,6 @@ export default tseslint.config(
     },
   },
   {
-    // the model-call seam itself (#135): src/llm and the model providers (#151) create the clients
-    files: ["packages/agboss/src/llm/**/*.ts", "packages/agboss/src/models/**/*.ts"],
-    rules: {
-      "no-restricted-imports": ["error", { patterns: frameworkImportPatterns }],
-    },
-  },
-  {
     // An example uses AGBoss like any outside project: only its public entries, the allowlist
     // generated from packages/agboss/package.json#exports (#195), so they cannot drift.
     files: ["examples/*/src/**/*.ts", "examples/*/tests/**/*.ts"],
@@ -197,6 +80,7 @@ export default tseslint.config(
     files: ["packages/agboss-cli/src/**/*.ts"],
     rules: { "no-restricted-imports": ["error", { patterns: cliImportPatterns() }] },
   },
+  ...isolationRules,
   ...testRules,
   ...agbossRules,
   // one call per line in flow chains (#289): these files are formatted by ESLint, not Prettier

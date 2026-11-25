@@ -1,42 +1,42 @@
+import { hours, minutes, days, Ttl } from "../../../src/units/index.js";
 // #859 — an application that takes files and gives them back over A2A: a start whose input holds a
-// document (and optional more pages), an action that reads its bytes through A2AFiles and answers
+// document (and optional more pages), an action that reads its bytes through Files and answers
 // with a report file and a verdict, or — asked to — pauses for its caller first (INPUT_REQUIRED),
 // then reads the same document again after the answer. Stores: none listed (files inline) in
-// FilesApplication, InMemoryA2AFileRepository in StoredFilesApplication.
-import { A2AExpose } from "../../../src/a2a/a2a-expose.decorator.js";
-import { A2AFileDto, WorkflowFinishFileDto } from "../../../src/a2a/files/a2a-file.dto.js";
-import { A2AFiles } from "../../../src/a2a/files/a2a-files.service.js";
+// FilesApplication, InMemoryFileRepository in StoredFilesApplication.
+import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
+import { FileDto, WorkflowFinishFileDto } from "../../../src/dto/standard/file.js";
+import { Files } from "../../../src/a2a/files/files.service.js";
+import { FilePolicy } from "../../../src/files/file-policy.js";
 import { Application } from "../../../src/application/application.js";
 import { Channel } from "../../../src/components/decorators.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import {
-  ChannelRole,
-  PauseAnswerer,
-  ReplyInterpretation,
-  ReplyInterpreter,
-} from "../../../src/channels/channel-role.decorator.js";
-import { ListOf, Nested, Text } from "../../../src/dto/index.js";
+  ChannelInterpretation,
+  ChannelInterpreter,
+} from "../../../src/channels/channel-interpreter.js";
+import { List, Nested, Text } from "../../../src/dto/index.js";
 import { Action } from "../../../src/flow/decorators/action.js";
-import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { oneOf, variant, type Variant } from "../../../src/flow/dto-wrappers.js";
-import { EmptyEnvironment, type Produced } from "../../../src/index.js";
-import { InMemoryA2AFileRepository } from "../../../src/infrastructure/in-memory-a2a-file.repository.js";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
+import { EmptyEnvironment, type Tracked, ExternalTask } from "../../../src/index.js";
+import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { kilobytes } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { caseOf, start } from "../../helpers/flow.js";
-import { BearerCallerResolver } from "./bearer-caller-resolver.js";
+import { onStart, toFinish, toExternalTask } from "../../helpers/flow.js";
+import { BearerAuthenticator } from "./bearer-authenticator.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
 
 /** What a caller sends: a document, maybe more pages, and a note ("ask" pauses first). */
 export class ReviewRequestDto {
-  @Nested(A2AFileDto, { prompt: "the document to review" })
-  document!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the document to review" })
+  document!: FileDto;
 
-  @ListOf(A2AFileDto, { prompt: "more pages", optional: true })
-  pages?: A2AFileDto[];
+  @List(FileDto, { prompt: "more pages", optional: true })
+  pages?: FileDto[];
 
   @Text({ prompt: "a note to the reviewer", optional: true })
   note?: string;
@@ -44,8 +44,8 @@ export class ReviewRequestDto {
 
 /** What a review gives: its report, a file, and its verdict. */
 export class ReviewResultDto {
-  @Nested(A2AFileDto, { prompt: "the review's report" })
-  report!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the review's report" })
+  report!: FileDto;
 
   @Text({ prompt: "the verdict" })
   verdict!: string;
@@ -56,8 +56,8 @@ export class ReviewAskDto {
   @Text({ prompt: "what the reviewer needs" })
   ask!: string;
 
-  @Nested(A2AFileDto, { prompt: "the document under review" })
-  document!: A2AFileDto;
+  @Nested(FileDto, { prompt: "the document under review" })
+  document!: FileDto;
 }
 
 /** The caller's answer. */
@@ -75,16 +75,16 @@ const reportOf = (bytes: Uint8Array, note: string): string =>
   description: "Reads the document and answers with a report",
   input: { request: ReviewRequestDto },
   output: oneOf(ReviewResultDto, ReviewAskDto),
-  deps: [A2AFiles],
+  deps: [Files],
 })
 export class FileReviewAction {
-  constructor(private readonly a2aFiles: A2AFiles) {}
+  constructor(private readonly a2aFiles: Files) {}
 
   async execute(input: {
-    readonly request: Produced<ReviewRequestDto, unknown>;
-  }): Promise<Variant<typeof ReviewResultDto | typeof ReviewAskDto>> {
-    const { document, note, pages } = input.request.value;
-    if (note === "ask") return variant(ReviewAskDto, { ask: "may I keep it?", document });
+    readonly request: Tracked<ReviewRequestDto>;
+  }): Promise<ReviewResultDto | ReviewAskDto> {
+    const { document, note, pages } = input.request;
+    if (note === "ask") return { ask: "may I keep it?", document };
     const bytes = await this.a2aFiles.read(document);
     for (const page of pages ?? []) await this.a2aFiles.read(page);
     const text = reportOf(bytes, `${String((pages ?? []).length)} more pages`);
@@ -93,7 +93,7 @@ export class FileReviewAction {
       mediaType: "text/plain",
       filename: "report.txt",
     });
-    return variant(ReviewResultDto, { report, verdict: "ok" });
+    return { report, verdict: "ok" };
   }
 }
 
@@ -102,44 +102,49 @@ export class FileReviewAction {
   description: "Reads the document again once its caller answered, and gives it back",
   input: { ask: ReviewAskDto, reply: ReviewReplyDto },
   output: WorkflowFinishFileDto,
-  deps: [A2AFiles],
+  deps: [Files],
 })
 export class FileAnsweredAction {
-  constructor(private readonly a2aFiles: A2AFiles) {}
+  constructor(private readonly a2aFiles: Files) {}
 
   async execute(input: {
-    readonly ask: Produced<ReviewAskDto, unknown>;
-    readonly reply: Produced<ReviewReplyDto, unknown>;
+    readonly ask: Tracked<ReviewAskDto>;
+    readonly reply: Tracked<ReviewReplyDto>;
   }): Promise<WorkflowFinishFileDto> {
-    await this.a2aFiles.read(input.ask.value.document);
-    return { file: input.ask.value.document };
+    await this.a2aFiles.read(input.ask.document);
+    return { file: input.ask.document };
   }
 }
 
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "file-reply-interpreter",
   description: "Takes the caller's reply as it is",
-  decidedBy: DecidedBy.Code,
 })
 export class FileReplyInterpreter {
-  interpret(input: { readonly reply: string }): ReplyInterpretation<ReviewReplyDto> {
-    return ReplyInterpretation.understood({ reply: input.reply });
+  interpret(input: { readonly reply: string }): ChannelInterpretation<ReviewReplyDto> {
+    return ChannelInterpretation.understood({ reply: input.reply });
   }
 }
 
-@ChannelRole({
-  name: "file-review-question",
+@ExternalTask({
+  name: "file-review-external-task",
   description: "Asks the caller about its document",
-  ask: ReviewAskDto,
-  answer: ReviewReplyDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  replyInterpreter: FileReplyInterpreter,
+  input: ReviewAskDto,
+  output: ReviewReplyDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+  channelInterpreter: FileReplyInterpreter,
 })
-export abstract class FileReviewQuestion extends ChannelOf<FileReviewQuestion> {}
+export class FileReviewExternalTask {}
 
-@Channel({ name: "file-caller-channel", description: "The review's caller" })
-export class FileCallerChannel extends FileReviewQuestion {
-  send(_ask: ChannelAsk<FileReviewQuestion>): Promise<ChannelOutcome<FileReviewQuestion>> {
+@Channel({
+  name: "file-caller-channel",
+  description: "The review's caller",
+  target: FileReviewExternalTask,
+  ttl: days(1),
+})
+export class FileCallerChannel {
+  send(_ask: ChannelAsk<FileReviewExternalTask>): Promise<ChannelOutcome<FileReviewExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -165,26 +170,54 @@ export class FileReviewFinish {}
 })
 export class FileReturnedFinish {}
 
+/** The files a test's skill takes: PDFs and text, by url from one origin too. */
+export const FILE_ORIGIN = "https://files.example";
+
+@FilePolicy({
+  ttl: hours(24),
+  allowedMediaTypes: ["application/pdf", "text/plain", "image/png"],
+  allowedOrigins: [FILE_ORIGIN],
+})
+export class FileReviewPolicy {}
+
+/** The same files with room for a store's bigger ones. */
+@FilePolicy({
+  ttl: hours(24),
+  allowedMediaTypes: ["application/pdf", "text/plain", "image/png"],
+  allowedOrigins: [FILE_ORIGIN],
+  maxFileSize: kilobytes(512),
+  maxTotalFileSize: kilobytes(1024),
+})
+export class StoredFileReviewPolicy {}
+
+export const fileReviewFlow = [
+  onStart(FileReviewWorkflowStart)
+    .toAction(FileReviewAction)
+    .toOneOf([
+      toFinish(FileReviewFinish),
+      toExternalTask(FileReviewExternalTask)
+        .toAction(FileAnsweredAction)
+        .toFinish(FileReturnedFinish),
+    ]),
+] as const;
+
 @Workflow({
   name: "file-review-workflow",
   version: "1.0.0",
-  flow: [
-    start(FileReviewWorkflowStart)
-      .returns(ReviewRequestDto)
-      .toAction(FileReviewAction)
-      .returns(oneOf(ReviewResultDto, ReviewAskDto))
-      .switch(
-        caseOf(ReviewResultDto).toFinish(FileReviewFinish),
-        caseOf(ReviewAskDto)
-          .toQuestion(FileReviewQuestion)
-          .returns(ReviewReplyDto)
-          .toAction(FileAnsweredAction)
-          .returns(WorkflowFinishFileDto)
-          .toFinish(FileReturnedFinish),
-      ),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: fileReviewFlow,
+  filePolicy: FileReviewPolicy,
 })
 export class FileReviewWorkflow {}
+
+@Workflow({
+  name: "stored-file-review-workflow",
+  version: "1.0.0",
+  historyTtl: Ttl.Forever,
+  flow: fileReviewFlow,
+  filePolicy: StoredFileReviewPolicy,
+})
+export class StoredFileReviewWorkflow {}
 
 /** The same review, one finish only: what a typed client's output DTO matches (#859 AC2). */
 @Action({
@@ -192,17 +225,15 @@ export class FileReviewWorkflow {}
   description: "Reads the document and answers with a report",
   input: { request: ReviewRequestDto },
   output: ReviewResultDto,
-  deps: [A2AFiles],
+  deps: [Files],
 })
 export class FileSummaryAction {
-  constructor(private readonly a2aFiles: A2AFiles) {}
+  constructor(private readonly a2aFiles: Files) {}
 
-  async execute(input: {
-    readonly request: Produced<ReviewRequestDto, unknown>;
-  }): Promise<ReviewResultDto> {
-    const bytes = await this.a2aFiles.read(input.request.value.document);
+  async execute(input: { readonly request: Tracked<ReviewRequestDto> }): Promise<ReviewResultDto> {
+    const bytes = await this.a2aFiles.read(input.request.document);
     const report = await this.a2aFiles.save({
-      bytes: new TextEncoder().encode(reportOf(bytes, input.request.value.note ?? "")),
+      bytes: new TextEncoder().encode(reportOf(bytes, input.request.note ?? "")),
       mediaType: "text/plain",
       filename: "report.txt",
     });
@@ -220,40 +251,27 @@ export class FileSummaryWorkflowStart {}
 @Workflow({
   name: "file-summary-workflow",
   version: "1.0.0",
-  flow: [
-    start(FileSummaryWorkflowStart)
-      .returns(ReviewRequestDto)
-      .toAction(FileSummaryAction)
-      .returns(ReviewResultDto)
-      .toFinish(FileReviewFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(FileSummaryWorkflowStart).toAction(FileSummaryAction).toFinish(FileReviewFinish)],
+  filePolicy: FileReviewPolicy,
 })
 export class FileSummaryWorkflow {}
 
-@A2AExpose({
+@A2AEndpoint({
   name: "file-summary-a2a-expose",
   version: "1.0.0",
   description: "Summarises documents",
-  exports: [FileSummaryWorkflowStart],
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [FileSummaryWorkflowStart],
 })
 export class FileSummaryA2AExpose {}
 
-/** The files a test's skill takes: PDFs and text, by url from one origin too. */
-export const FILE_ORIGIN = "https://files.example";
-
-@A2AExpose({
+@A2AEndpoint({
   name: "files-a2a-expose",
   version: "1.0.0",
   description: "Reviews documents",
-  exports: [FileReviewWorkflowStart],
-  skills: {
-    "file-review-workflow-start": {
-      files: {
-        allowedMediaTypes: ["application/pdf", "text/plain", "image/png"],
-        allowedFileOrigins: [FILE_ORIGIN],
-      },
-    },
-  },
+  ttl: { tasks: hours(24), messages: minutes(15) },
+  skills: [FileReviewWorkflowStart],
 })
 export class FilesA2AExpose {}
 
@@ -262,8 +280,8 @@ export class FilesA2AExpose {}
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow, FileSummaryWorkflow],
-  providers: [BearerCallerResolver, FileCallerChannel],
-  exposes: [FilesA2AExpose, FileSummaryA2AExpose],
+  providers: [BearerAuthenticator, FileCallerChannel],
+  endpoints: [FilesA2AExpose, FileSummaryA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class FilesApplication {}
@@ -272,10 +290,9 @@ export class FilesApplication {}
   name: "stored-files-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
-  workflows: [FileReviewWorkflow],
-  providers: [BearerCallerResolver, FileCallerChannel, InMemoryA2AFileRepository],
-  exposes: [FilesA2AExpose],
-  a2aFiles: { maxFileSize: kilobytes(512), maxTotalFileSize: kilobytes(1024) },
+  workflows: [StoredFileReviewWorkflow],
+  providers: [BearerAuthenticator, FileCallerChannel, InMemoryFileRepository],
+  endpoints: [FilesA2AExpose],
   budgets: TEST_BUDGETS,
 })
 export class StoredFilesApplication {}

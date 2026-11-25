@@ -6,16 +6,22 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type ToolHandler,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";
-import { ApprovalDesk, ChatAppChannel } from "../channels/approval.workflow.js";
+import {
+  ApprovalDesk,
+  ChatAppChannel,
+  ChatAppToolApproval,
+} from "../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { start } from "../helpers/flow.js";
+import { onStart } from "../helpers/flow.js";
 import { SharedExecutionRecordRepository } from "../helpers/shared-infrastructure.js";
 import { ContactPiiPolicy, EmailSend, EmailSent, Outbox } from "./pii.fixture.js";
+import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What the approved email tool received, across app instances (a recovery builds a new one). */
 export const approvedRecipients: string[] = [];
@@ -25,16 +31,16 @@ export const approvedRecipients: string[] = [];
   description: "Sends an email once approved",
   input: EmailSend,
   output: EmailSent,
-  channel: ChatAppChannel,
+  approval: ChatAppToolApproval,
   deps: [Outbox, ExecutionContext],
 })
-export class SendApprovedEmail implements ToolHandler<EmailSend, EmailSent> {
+export class SendApprovedEmail {
   constructor(
     private readonly outbox: Outbox,
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  run({ to }: EmailSend): Promise<EmailSent> {
+  execute({ to }: EmailSend): Promise<EmailSent> {
     this.executionContext.signal.throwIfAborted();
     this.outbox.sent.push(to);
     approvedRecipients.push(to);
@@ -45,7 +51,7 @@ export class SendApprovedEmail implements ToolHandler<EmailSend, EmailSent> {
 @Agent({
   name: "mailer-agent",
   description: "Sends approved emails",
-  prompt: "Send the email.",
+  prompt: inline("Send the email."),
   model: "test/mailer",
   price: { inputPerMTok: 1, outputPerMTok: 10 },
   tools: [SendApprovedEmail],
@@ -69,7 +75,8 @@ export class MailFinish {}
 @Workflow({
   name: "mail-workflow",
   version: "1.0.0",
-  flow: [start(MailStart).returns(WorkflowStartTextDto).toAgent(MailerAgent).toFinish(MailFinish)],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(MailStart).toAgent(MailerAgent).toFinish(MailFinish)],
   defaults: { models: { temperature: 0 }, tools: { maxToolCalls: 2 } },
   providers: [ApprovalDesk, Outbox],
 })
@@ -77,10 +84,12 @@ export class MailWorkflow {}
 
 @Application({
   name: "mail-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [MailWorkflow],
   piiPolicies: [ContactPiiPolicy],
+  channels: [ChatAppChannel],
   providers: [SharedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
 })

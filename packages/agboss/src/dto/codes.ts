@@ -30,3 +30,28 @@ export const TIME_ZONES: ReadonlySet<string> = new Set([
   ...Intl.supportedValuesOf("timeZone"),
   "UTC",
 ]);
+
+const unitsOf = (digits: number, codes: string): [string, number][] =>
+  codes
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((code) => [code, digits]);
+
+/**
+ * ISO 4217 minor units: how many digits follow the point in each currency's amounts. Every
+ * currency of `CURRENCY_CODES` not named here has 2; funds and metals have none (`undefined`).
+ */
+const MINOR_UNITS: ReadonlyMap<string, number> = new Map([
+  ...unitsOf(0, "BIF CLP DJF GNF ISK JPY KMF KRW PYG RWF UGX UYI VND VUV XAF XOF XPF"),
+  ...unitsOf(3, "BHD IQD JOD KWD LYD OMR TND"),
+  ...unitsOf(4, "CLF UYW"),
+]);
+
+/** Currencies that are no money: precious metals, SDR, test and fund codes have no minor unit. */
+const NO_MINOR_UNIT: ReadonlySet<string> = new Set(
+  "XAG XAU XBA XBB XBC XBD XDR XPD XPT XSU XTS XUA XXX".split(" "),
+);
+
+/** The digits after the point in a currency's amounts (ISO 4217); none for a code that is no money. */
+export const minorUnitsOf = (currency: string): number | undefined =>
+  NO_MINOR_UNIT.has(currency) ? undefined : (MINOR_UNITS.get(currency) ?? 2);

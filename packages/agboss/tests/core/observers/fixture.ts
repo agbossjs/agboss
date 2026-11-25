@@ -1,19 +1,22 @@
+import { Window1Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   Injectable,
   Tool,
   Workflow,
-  type ObserverClass,
+  type ExecutionObserver,
   type Provider,
   WorkflowFinish,
   WorkflowStart,
+  Ttl,
 } from "../../../src/index.js";
 import { WorkflowStartTextDto, WorkflowFinishTextDto, Text } from "../../../src/dto/index.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 export class EchoInput {
   @Text() text!: string;
@@ -48,7 +51,7 @@ export class AuditService {
 })
 export class EchoTool {
   constructor(private readonly audit: AuditService) {}
-  run(input: EchoInput): Promise<EchoInput> {
+  execute(input: EchoInput): Promise<EchoInput> {
     this.audit.record(input.text);
     return Promise.resolve({ text: `echo ${input.text}` });
   }
@@ -72,15 +75,15 @@ export function workflowWith(name: string, providers: readonly Provider[] = []):
   @Workflow({
     name,
     version: "1",
+    historyTtl: Ttl.Forever,
     defaults: {
       models: { temperature: 0, cache: true },
       router: { model: "typesafe/jev-1.13" },
       tools: { maxToolCalls: 2 },
     },
-    uncompactedTurns: 1,
+    memory: Window1Memory,
     flow: [
-      start(Start)
-        .returns(WorkflowStartTextDto)
+      onStart(Start)
         .toAgent(Worker)
         .toFinish(Finish),
     ],
@@ -96,13 +99,14 @@ export function workflowWith(name: string, providers: readonly Provider[] = []):
  */
 export function applicationWith(
   name: string,
-  observers: readonly ObserverClass[],
+  observers: readonly Class<ExecutionObserver>[],
   providers: readonly Provider[] = [],
   infrastructure: readonly Provider[] = [],
 ): Class {
   const workflow = workflowWith(name, providers);
   @Application({
     name: name.replace(/-workflow$/, "-application"),
+    modelProvider: TestModelProvider,
     version: "1.0.0",
     environment: EmptyEnvironment,
     workflows: [workflow],

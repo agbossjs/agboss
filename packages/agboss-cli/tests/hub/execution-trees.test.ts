@@ -14,7 +14,7 @@ import {
   type ToolCallRecord,
 } from "@agboss/core";
 import { bareRecordOf } from "../../../agboss/src/flow/runtime/records.js";
-import { buildCostReport } from "../../../agboss/src/finops/usage.js";
+import { CostReport } from "../../../agboss/src/finops/usage.js";
 import {
   historyRecordOf,
   toolCallOf,
@@ -82,7 +82,7 @@ const childOf = (
   input: {},
   status: ChildExecutionStatus.Finished,
   path: [],
-  spend: buildCostReport([]),
+  spend: CostReport.fromUsage([]),
   toolCalls,
   steps: [],
   pauses: [],

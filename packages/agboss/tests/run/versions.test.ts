@@ -1,6 +1,6 @@
 /**
  * #336 AC2 — a root's `configSnapshot` covers its child workflows: `children` holds every child
- * reachable from its flow, recursively, each once by name with its own snapshot; `ThisWorkflow` is
+ * reachable from its flow, recursively, each once by name with its own snapshot; a workflow launching itself is
  * never one (a recursive workflow is hashed once); a workflow without children keeps its hash; the
  * hash a run carries is the hash `agboss describe --json` gives.
  */
@@ -78,7 +78,7 @@ describe("#336 AC2: a root's configSnapshot covers its children", () => {
     expect(versionOf(snapshotOf(leaf, children.workflows))).toBe(versionOf(configSnapshot(leaf)));
   });
 
-  test("a recursive workflow hashes itself once: ThisWorkflow is not a child", () => {
+  test("a recursive workflow hashes itself once: itself is not a child", () => {
     const topic = named(recursion.workflows, "topic-research-workflow");
 
     const snapshot = snapshotOf(topic, recursion.workflows);

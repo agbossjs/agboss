@@ -1,14 +1,17 @@
+import { usd } from "../../src/units/index.js";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { retrieve, index } from "./access.js";
 import { describe, expect, it } from "vitest";
-import { chunkMarkdown, ftsQuery, SqliteFtsConnector } from "../../src/rag/sqlite-fts.js";
+import { chunkMarkdown, ftsQuery } from "../../src/rag/sqlite-fts-chunks.js";
+import { SqliteFtsRagSource } from "../../src/rag/sqlite-fts.js";
 
 const signal = new AbortController().signal;
-const tenantId = "default";
-const asDefault = { tenantId, signal };
+const scopeId = "default";
+const asDefault = { tenantId: scopeId, scopeId, signal };
 
-async function docs(): Promise<{ folder: string; connector: SqliteFtsConnector }> {
+async function docs(): Promise<{ folder: string; connector: SqliteFtsRagSource }> {
   const folder = await mkdtemp(join(tmpdir(), "fts-"));
   await writeFile(
     join(folder, "onboarding.md"),
@@ -18,7 +21,10 @@ async function docs(): Promise<{ folder: string; connector: SqliteFtsConnector }
   await writeFile(join(folder, "notes.bin"), "ignored");
   return {
     folder,
-    connector: new SqliteFtsConnector({ folder, sqlitePath: join(folder, "index", "fts.sqlite") }),
+    connector: new SqliteFtsRagSource({
+      directory: folder,
+      path: join(folder, "index", "fts.sqlite"),
+    }),
   };
 }
 
@@ -27,22 +33,22 @@ describe("SQLite FTS5 connector (reference implementation)", () => {
     const { connector } = await docs();
     const changed = await docs();
 
-    const first = await connector.index(asDefault);
-    await connector.index(asDefault);
+    const first = await index(connector, asDefault);
+    await index(connector, asDefault);
     // two connections on one file, at once
-    const other = new SqliteFtsConnector({
-      folder: changed.folder,
-      sqlitePath: join(changed.folder, "index", "fts.sqlite"),
+    const other = new SqliteFtsRagSource({
+      directory: changed.folder,
+      path: join(changed.folder, "index", "fts.sqlite"),
     });
-    await Promise.all([changed.connector.index(asDefault), other.index(asDefault)]);
-    const everything = await connector.retrieve("onboarding nimbus call demo", {
+    await Promise.all([index(changed.connector, asDefault), index(other, asDefault)]);
+    const everything = await retrieve(connector, "onboarding nimbus call demo", {
       topK: 50,
       ...asDefault,
     });
 
     expect(first.chunks).toBe(3);
     expect(everything.results).toHaveLength(3);
-    expect((await changed.connector.index(asDefault)).chunks).toBe(3);
+    expect((await index(changed.connector, asDefault)).chunks).toBe(3);
   });
 
   it("#700: each tenant its own folder and its own chunks; a tenant without a folder has none", async () => {
@@ -50,21 +56,31 @@ describe("SQLite FTS5 connector (reference implementation)", () => {
     await mkdir(join(root, "a"));
     await writeFile(join(root, "a", "a.md"), "Alpha secret is amber.");
     const folders = new Map([["Acme", join(root, "a")]]);
-    const connector = new SqliteFtsConnector({
-      folder: (tenant) => folders.get(tenant),
-      sqlitePath: join(root, "fts.sqlite"),
+    const connector = new SqliteFtsRagSource({
+      directory: ({ tenantId }) => (tenantId === undefined ? undefined : folders.get(tenantId)),
+      path: join(root, "fts.sqlite"),
     });
 
-    const own = await connector.retrieve("alpha secret", { topK: 5, tenantId: "Acme", signal });
-    const twin = await connector.retrieve("alpha secret", { topK: 5, tenantId: "acme", signal });
+    const own = await retrieve(connector, "alpha secret", {
+      topK: 5,
+      tenantId: "Acme",
+      scopeId: "Acme",
+      signal,
+    });
+    const twin = await retrieve(connector, "alpha secret", {
+      topK: 5,
+      tenantId: "acme",
+      scopeId: "acme",
+      signal,
+    });
 
     expect(own.results.map((r) => r.source)).toEqual(["a.md"]);
     expect(twin.results).toEqual([]);
-    expect(await connector.index({ tenantId: "acme", signal })).toEqual({
+    expect(await index(connector, { tenantId: "acme", scopeId: "acme", signal })).toEqual({
       documents: 0,
       chunks: 0,
       skipped: 0,
-      costUsd: 0,
+      costUsd: usd(0),
     });
   });
 
@@ -74,13 +90,18 @@ describe("SQLite FTS5 connector (reference implementation)", () => {
     controller.abort();
     const bad = "acme\u00A0corp";
 
-    await expect(connector.index({ tenantId, signal: controller.signal })).rejects.toThrow();
     await expect(
-      connector.retrieve("x", { topK: 1, tenantId, signal: controller.signal }),
+      index(connector, { tenantId: scopeId, scopeId, signal: controller.signal }),
     ).rejects.toThrow();
-    const refused = await connector
-      .retrieve("x", { topK: 1, tenantId: bad, signal })
-      .catch((e: unknown) => e);
+    await expect(
+      retrieve(connector, "x", { topK: 1, tenantId: scopeId, scopeId, signal: controller.signal }),
+    ).rejects.toThrow();
+    const refused = await retrieve(connector, "x", {
+      topK: 1,
+      tenantId: bad,
+      scopeId: bad,
+      signal,
+    }).catch((e: unknown) => e);
     expect((refused as Error).message).toContain("space-separator");
     expect((refused as Error).message).not.toContain(bad);
   });
@@ -88,15 +109,15 @@ describe("SQLite FTS5 connector (reference implementation)", () => {
   it("AC3: indexes Markdown, skips unchanged files, re-indexes a changed one; no cost", async () => {
     const { folder, connector } = await docs();
 
-    const first = await connector.index(asDefault);
-    const second = await connector.index(asDefault);
+    const first = await index(connector, asDefault);
+    const second = await index(connector, asDefault);
     await writeFile(
       join(folder, "product.md"),
       "# Nimbus\n\nNimbus predicts frost, rain and hail.",
     );
-    const third = await connector.index(asDefault);
+    const third = await index(connector, asDefault);
 
-    expect(first).toEqual({ documents: 2, chunks: 3, skipped: 0, costUsd: 0 });
+    expect(first).toEqual({ documents: 2, chunks: 3, skipped: 0, costUsd: usd(0) });
     expect(second.skipped).toBe(2);
     expect(third).toMatchObject({ documents: 2, skipped: 1 });
   });
@@ -104,7 +125,7 @@ describe("SQLite FTS5 connector (reference implementation)", () => {
   it("AC2: top-k results by BM25 with the file as source; builds the index on first use", async () => {
     const { connector } = await docs();
 
-    const retrieval = await connector.retrieve("When does on-call start?", {
+    const retrieval = await retrieve(connector, "When does on-call start?", {
       topK: 1,
       ...asDefault,
     });
@@ -118,10 +139,13 @@ describe("SQLite FTS5 connector (reference implementation)", () => {
   it("no terms or no match → no results; k larger than the corpus returns what there is", async () => {
     const { connector } = await docs();
 
-    expect((await connector.retrieve("?!", { topK: 3, ...asDefault })).results).toEqual([]);
-    expect((await connector.retrieve("kubernetes", { topK: 3, ...asDefault })).results).toEqual([]);
+    expect((await retrieve(connector, "?!", { topK: 3, ...asDefault })).results).toEqual([]);
+    expect((await retrieve(connector, "kubernetes", { topK: 3, ...asDefault })).results).toEqual(
+      [],
+    );
     expect(
-      (await connector.retrieve("Nimbus frost on-call", { topK: 50, ...asDefault })).results.length,
+      (await retrieve(connector, "Nimbus frost on-call", { topK: 50, ...asDefault })).results
+        .length,
     ).toBeLessThanOrEqual(3);
   });
 
@@ -149,18 +173,24 @@ describe("#818: the read path indexes lazily, once per tenant per instance", () 
   async function counted(folders: ReadonlyMap<string, string>) {
     const root = await mkdtemp(join(tmpdir(), "fts-lazy-"));
     const looked: string[] = [];
-    const connector = new SqliteFtsConnector({
-      folder: (tenant) => {
-        looked.push(tenant);
-        return folders.get(tenant);
+    const connector = new SqliteFtsRagSource({
+      directory: ({ tenantId }) => {
+        // the source's own second look, for another tenant, is not a lookup of this scope
+        if (!tenantId?.includes("another-tenant")) looked.push(tenantId ?? "");
+        return tenantId === undefined ? undefined : folders.get(tenantId);
       },
-      sqlitePath: join(root, "fts.sqlite"),
+      path: join(root, "fts.sqlite"),
     });
     return { connector, looked };
   }
 
-  const ask = (connector: SqliteFtsConnector, tenant: string, own = signal) =>
-    connector.retrieve("alpha secret", { topK: 5, tenantId: tenant, signal: own });
+  const ask = (connector: SqliteFtsRagSource, tenant: string, own = signal) =>
+    retrieve(connector, "alpha secret", {
+      topK: 5,
+      tenantId: tenant,
+      scopeId: tenant,
+      signal: own,
+    });
 
   it("a tenant without documents: its first retrieval indexes it, the next ones only read", async () => {
     const { connector, looked } = await counted(new Map());
@@ -198,7 +228,7 @@ describe("#818: the read path indexes lazily, once per tenant per instance", () 
     const root = await mkdtemp(join(tmpdir(), "fts-lazy-built-"));
     await writeFile(join(root, "a.md"), "Alpha secret is amber.");
     const { connector, looked } = await counted(new Map([["acme", root]]));
-    await connector.index({ tenantId: "acme", signal });
+    await index(connector, { tenantId: "acme", scopeId: "acme", signal });
     looked.length = 0;
 
     await ask(connector, "acme");
@@ -209,18 +239,18 @@ describe("#818: the read path indexes lazily, once per tenant per instance", () 
   it("a first look that failed is no look: the next retrieval tries again", async () => {
     const root = await mkdtemp(join(tmpdir(), "fts-lazy-fail-"));
     let isBroken = true;
-    const connector = new SqliteFtsConnector({
-      folder: () => {
+    const connector = new SqliteFtsRagSource({
+      directory: () => {
         if (isBroken) throw new Error("folder unreadable");
         return undefined;
       },
-      sqlitePath: join(root, "fts.sqlite"),
+      path: join(root, "fts.sqlite"),
     });
 
     await expect(ask(connector, "acme")).rejects.toThrow("folder unreadable");
     isBroken = false;
 
-    await expect(ask(connector, "acme")).resolves.toEqual({ results: [], costUsd: 0 });
+    await expect(ask(connector, "acme")).resolves.toEqual({ results: [], costUsd: usd(0) });
   });
 
   it("a first build stopped midway — an abort between two documents — leaves nothing: the next retrieval builds it whole", async () => {
@@ -233,7 +263,12 @@ describe("#818: the read path indexes lazily, once per tenant per instance", () 
     const stopped = ask(connector, "acme", caller.signal);
     caller.abort(new Error("caller gone"));
     await expect(stopped).rejects.toThrow("caller gone");
-    const next = await connector.retrieve("secret", { topK: 5, tenantId: "acme", signal });
+    const next = await retrieve(connector, "secret", {
+      topK: 5,
+      tenantId: "acme",
+      scopeId: "acme",
+      signal,
+    });
 
     expect(next.results.map((r) => r.source).sort()).toEqual(["a.md", "b.md"]);
   });
@@ -248,7 +283,12 @@ describe("#818: the read path indexes lazily, once per tenant per instance", () 
     await expect(ask(connector, "acme")).rejects.toThrow();
     await rm(join(root, "b.md"), { recursive: true });
     await writeFile(join(root, "b.md"), "Beta secret is blue.");
-    const next = await connector.retrieve("secret", { topK: 5, tenantId: "acme", signal });
+    const next = await retrieve(connector, "secret", {
+      topK: 5,
+      tenantId: "acme",
+      scopeId: "acme",
+      signal,
+    });
 
     expect(next.results.map((r) => r.source).sort()).toEqual(["a.md", "b.md", "c.md"]);
   });
@@ -272,13 +312,13 @@ describe("#818: the read path indexes lazily, once per tenant per instance", () 
     const root = await mkdtemp(join(tmpdir(), "fts-lazy-shared-fail-"));
     let tries = 0;
     let isBroken = true;
-    const connector = new SqliteFtsConnector({
-      folder: () => {
+    const connector = new SqliteFtsRagSource({
+      directory: () => {
         tries += 1;
         if (isBroken) throw new Error("folder unreadable");
         return undefined;
       },
-      sqlitePath: join(root, "fts.sqlite"),
+      path: join(root, "fts.sqlite"),
     });
 
     const results = await Promise.allSettled([ask(connector, "acme"), ask(connector, "acme")]);
@@ -286,7 +326,7 @@ describe("#818: the read path indexes lazily, once per tenant per instance", () 
 
     expect(results.map((result) => result.status)).toEqual(["rejected", "rejected"]);
     expect(tries).toBe(1);
-    await expect(ask(connector, "acme")).resolves.toEqual({ results: [], costUsd: 0 });
+    await expect(ask(connector, "acme")).resolves.toEqual({ results: [], costUsd: usd(0) });
   });
 
   it("a retrieval waiting on another's first look, aborted by its own caller, tries its own", async () => {

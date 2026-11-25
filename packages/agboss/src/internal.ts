@@ -8,11 +8,25 @@
  */
 export { createStartComponents } from "./app/start-components.js";
 export { renderTemplate } from "./components/render-template.js";
-export { ProfileError } from "./config/profiles.js";
+export { ProfileError, ProfileErrorReason } from "./config/profile-error.js";
+export { profileProblemsOf, type ProfileProblem } from "./config/check-profiles.js";
+export { configJsonSchemaOf } from "./config/config-json-schema.js";
 export type { AGBossErrorOptions, ErrorDetails, MessageErrorOptions } from "./core/errors.js";
+export { backtraceModeOf } from "./core/diagnostics/backtrace.js";
+export {
+  renderDiagnostic,
+  type Diagnostic,
+  type RenderOptions,
+} from "./core/diagnostics/render-diagnostic.js";
+export {
+  explainedRuleCodes,
+  ruleExplanationOf,
+  type RuleExplanation,
+} from "./core/diagnostics/rule-catalog.js";
+export { diagnosticOfViolation } from "./graph/rule-diagnostic.js";
 export { describeServices, describeServicesWith } from "./describe/describe-workflow.js";
 export { workflowSnapshotOf, type WorkflowSnapshot } from "./describe/snapshot.js";
-export { contractsOf, type ContractsSnapshot } from "./describe/contracts.js";
+export { contractsOf, type ApplicationContracts } from "./describe/contracts.js";
 export {
   checkFederation,
   FederationProblemCode,
@@ -23,7 +37,7 @@ export {
 } from "./federation/federation.js";
 export { federationMemberOf, type SnapshotReading } from "./federation/federation-snapshot.js";
 export {
-  describeApplication,
+  describeAssembledApplication,
   type ApplicationDescription,
 } from "./describe/describe-application.js";
 export {
@@ -31,7 +45,7 @@ export {
   type DescribedChild,
   type DescribedLaunch,
   type DescribedTree,
-  type DescribedWorkflowNode,
+  type DescribedWorkflowTree,
 } from "./describe/tree.js";
 export {
   ChannelImplementationReason,
@@ -57,6 +71,7 @@ export {
   selectedEnvironment,
   type EnvironmentOwner,
 } from "./environments/load.js";
+export { referencedVariablesOf } from "./application/referenced-variables.js";
 export {
   environmentVariablesOf,
   resolveEnvironment,
@@ -68,7 +83,9 @@ export { compareBundleProfiles } from "./eval/compare-profiles.js";
 export { formatComparison } from "./eval/compare-report.js";
 export { evaluate } from "./eval/eval.js";
 export { checkEvalSuite, evalSuiteWarningsOf } from "./eval/suite/check-suite.js";
-export { runEvalSuite, type EvalRunOptions } from "./eval/run/run-suite.js";
+export { runSuiteOn, type EvalRunOptions } from "./eval/run/run-suite.js";
+export { runEvalSuiteWith } from "./eval/run/public-run.js";
+export { compareEvalSuiteWith } from "./eval/run/compare-suite.js";
 export { loadEvalSuites, type FoundEvalSuite } from "./loader/load-eval-suites.js";
 export {
   builtApplicationOf,
@@ -83,7 +100,9 @@ export {
 export {
   evalCaseDraftOf,
   observedExecutionOf,
+  type DraftPause,
   type DraftToolCall,
+  type DraftTurn,
   type EvalCaseDraft,
   type ObservedExecution,
   type ObservedTurn,
@@ -97,7 +116,7 @@ export {
 export { compareEvalRuns } from "./eval/run/compare-runs.js";
 export type { ChaosOptions } from "./eval/chaos/chaos-failure.js";
 export { evalRunReportOf, type EvalRunReportRead } from "./eval/run/read-report.js";
-export { isJudgeCheckName } from "./eval/run/report.js";
+export { isJudgeResult } from "./eval/run/report.js";
 export { calibrateJudges, type EvalCalibrationResult } from "./eval/calibrate/calibrate.js";
 export {
   evalLabelOf,
@@ -118,17 +137,17 @@ export {
 } from "./eval/run/divergence.js";
 export { goldenFile, goldenFromRecent, loadGolden, saveGolden } from "./eval/golden.js";
 export { replay } from "./eval/replay.js";
-export { CostCategory, CostSource, type CostLine, type CostReport } from "./finops/usage.js";
+export { CostCategory, CostSource, type CostLine, CostReport } from "./finops/usage.js";
 export { flowLines } from "./flow/print.js";
 export { childLines, inputLines } from "./describe/inputs.js";
 export {
   applicationWarningsOf,
   describedApplicationOf,
-  type DescribedApplication,
+  type ApplicationFacts,
   type DescribedBudget,
   type DescribedExecutionBudget,
-  type DescribedModelProvider,
 } from "./describe/application.js";
+export type { DescribedModelProvider } from "./describe/model-providers.js";
 export { describedLimitsOf, worstCaseLimitsOf, type DescribedLimits } from "./describe/limits.js";
 export { stepsRangeOf, type StepsRange } from "./flow/analyse/steps.js";
 export { executeWithoutInputCheck } from "./app/execute-without-input-check.js";
@@ -156,11 +175,12 @@ export { modelUsesOf, type ModelUse } from "./models/uses.js";
 export { directoryOf, modelSummaryOf } from "./models/workflow-models.js";
 export { applicationModelUsesOf, resolvedModelUsesOf } from "./models/resolution.js";
 export { frameworkPackageJson } from "./package-json.js";
-export { type DiscardReason, type ExecutionStreamEvent, type StreamStep } from "./run/types.js";
+export { type ExecutionStreamEvent, type StreamStep } from "./run/types.js";
 export { childSourcesIn, configSnapshot, type ChildSnapshotSources } from "./run/versions.js";
 export { shortVersion, versionOf } from "./turns/index.js";
 export { isMcpFacade } from "./tools/index.js";
 export { applicationOf, type AssembledApplication } from "./application/assemble.js";
+export { migratedDatabaseOf, type DatabaseMigrationRun } from "./storage/storage-migrate.js";
 export { environmentOwnerOf } from "./application/create-app.js";
 export { startsOfApplication, type ApplicationStart } from "./application/application-starts.js";
 export { startInputIssuesOf } from "./flow/runtime/start-input-issues.js";
@@ -177,6 +197,8 @@ export {
 } from "./testing/vcr-check.js";
 export * from "./internal-a2a.js";
 export * from "./internal-run.js";
+export * from "./internal-routers.js";
+export * from "./internal-surface.js";
 // assembly internals (#834): an app's and a workflow's dependencies, the observers' manager
 export * from "./app/app-deps.js";
 export type { GraphDeps } from "./graph/deps.js";
@@ -184,3 +206,6 @@ export * from "./core/observer-manager.js";
 // #895: the assembly a unit test reads; `testWith` and `testTool` are the testing API
 export { workflowOf } from "./testing/workflow-of.js";
 export { toolOf } from "./components/runtime.js";
+export { OBSERVER_HOOKS, type ObserverClass, type ObserverHook } from "./core/observer-hooks.js";
+export type { HookResult } from "./core/hook-result.js";
+export type { AuditLogHooks } from "./flow/observers/audit-log.js";

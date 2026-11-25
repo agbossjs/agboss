@@ -15,26 +15,29 @@ import {
   WorkflowStart,
   type JudgeHandler,
   type JudgeInput,
+  inline,
+  Ttl,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { PlainTextDto, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { execute, start } from "../helpers/flow.js";
+import { execute, onStart } from "../helpers/flow.js";
 import { requestText, tokensIn } from "../pii/boundary.helpers.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
 import { DEFAULTS, MODEL_PROVIDERS } from "./fixtures/judged.workflow.js";
+import { LocalModelProvider } from "../models/providers.fixture.js";
 
 const EMAIL = "alice@example.com";
 const seen: string[] = [];
 
 /** Asks its model whether the reply is fine; keeps what the model said, as `judge()` got it. */
-@Judge({ name: "contact-judge", model: "local/judge", reply: PlainTextDto, deps: [JudgeModel] })
+@Judge({ name: "contact-judge", model: "local/judge", output: PlainTextDto, deps: [JudgeModel] })
 class ContactJudge implements JudgeHandler<PlainTextDto> {
   constructor(private readonly judgeModel: JudgeModel) {}
 
-  async judge({ reply }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
-    const said = await this.judgeModel.invoke(`Is this reply fine? ${reply.text}`);
+  async judge({ output }: JudgeInput<PlainTextDto>): Promise<JudgeVerdict> {
+    const said = await this.judgeModel.invoke(`Is this reply fine? ${output.text}`);
     seen.push(said);
     return JudgeVerdict.passed();
   }
@@ -42,7 +45,7 @@ class ContactJudge implements JudgeHandler<PlainTextDto> {
 
 @Agent({
   name: "contact-writer-agent",
-  prompt: "Write.",
+  prompt: inline("Write."),
   description: "Writes an answer",
   model: "local/llama",
   judges: [ContactJudge],
@@ -67,18 +70,15 @@ class ContactFinish {}
 @Workflow({
   name: "contact-workflow",
   version: "1.0.0",
-  flow: [
-    start(ContactStart)
-      .returns(WorkflowStartTextDto)
-      .toAgent(ContactWriter)
-      .toFinish(ContactFinish),
-  ],
+  historyTtl: Ttl.Forever,
+  flow: [onStart(ContactStart).toAgent(ContactWriter).toFinish(ContactFinish)],
   defaults: DEFAULTS,
 })
 class ContactWorkflow {}
 
 @Application({
   name: "contact-judge-application",
+  modelProvider: LocalModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ContactWorkflow],

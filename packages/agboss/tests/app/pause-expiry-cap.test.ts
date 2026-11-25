@@ -84,6 +84,6 @@ describe("#1092: unmovable due pauses take no place of maxConcurrentSteps", () =
     await clock.advance(seconds(5));
     await until(() => expiry.asked.length === 1);
 
-    expect(expiry.asked[0]?.value).toMatchObject({ orderId: "o-free" });
+    expect(expiry.asked[0]?.input).toMatchObject({ orderId: "o-free" });
   });
 });

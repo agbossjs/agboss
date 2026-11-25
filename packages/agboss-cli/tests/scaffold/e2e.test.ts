@@ -38,14 +38,11 @@ function check(): string {
 /** How `agboss describe` prints the generated flow with these agents, one call per line. */
 const FLOW_OF = (agents: readonly string[]): string =>
   [
-    "  start(TextWorkflowStart)",
-    "    .returns(WorkflowStartTextDto)",
+    "  onStart(TextWorkflowStart)",
     "    .toRouter(MainRouter)",
-    "    .chooseOne(",
     agents
-      .map((agent) => `      route(${agent})\n        .toFinish(TextWorkflowFinish)`)
-      .join(",\n"),
-    "    )",
+      .map((agent) => `    .onRoute(toAgent(${agent})\n      .toFinish(TextWorkflowFinish))`)
+      .join("\n"),
   ].join("\n");
 
 const scripts = (): Record<string, string> =>
@@ -91,13 +88,15 @@ describe("agboss create / agboss generate end to end", () => {
     expect(out).toContain("desk-workflow 0.1.0");
     // #272: the generated workflow is one path — start → main router → an agent → the finish
     expect(out).toContain(FLOW_OF(["TriageAgent", "AnswererAgent"]));
-    expect(out).toContain("  maxSteps 9 (default: (agents + routers) × 3) · steps 2–2");
+    expect(out).toContain(
+      "  maxSteps 9 (default: (agents + routers + actions + external tasks) × 3) · steps 2–2",
+    );
     // create wires the MCP server and the knowledge base into the first agent
     expect(out).toMatch(
-      /triage-agent .*\n\s+Sorts requests\n\s+limits: .*\n\s+rag: desk-notes-rag \(tool, k 3, per-tenant\)/,
+      /triage-agent .*\n\s+Sorts requests\n\s+limits: .*\n\s+rag: desk-notes-rag \(k 3, shared\)/,
     );
     expect(out).toContain("· search-orders-tool (local)");
-    expect(out).toContain("· read-desk-files-tool (MCP desk-files)");
+    expect(out).toContain("read-desk-files-tool");
     // #107 AC2: files named by kind, the prompt next to its agent (no prompt parameter)
     for (const file of [
       "src/agents/answerer/answerer.agent.ts",
@@ -126,9 +125,11 @@ describe("agboss create / agboss generate end to end", () => {
     );
     // #142: the main router of a new workflow is on the star's cycle, so it declares maxVisits
     expect(desk("routers/main/main.router.ts")).toContain("maxVisits: 3,");
-    expect(
-      readFileSync(join(project, "src/agents/answerer/answerer.agent.ts"), "utf8"),
-    ).not.toContain("prompt:");
+    // its Jev model is served by the project's decisions provider, named explicitly
+    expect(desk("routers/main/main.router.ts")).toContain("modelProvider: DecisionsModelProvider,");
+    expect(readFileSync(join(project, "src/agents/answerer/answerer.agent.ts"), "utf8")).toContain(
+      'prompt: "./answerer.prompt.md"',
+    );
     // #268 AC1: the application's path is set once in package.json; the scripts name no path
     expect(JSON.parse(readFileSync(join(project, "package.json"), "utf8"))).toMatchObject({
       agboss: { application: "src/desk.application.ts" },
@@ -182,7 +183,7 @@ describe("agboss create / agboss generate end to end", () => {
     const out = check();
 
     expect(out).toMatch(/billing-agent .*\n\s+Handles invoices/);
-    // a new agent joins the router's choice — a route in the main router and in its chooseOne
+    // a new agent joins the router's choice — a route in the main router and an .onRoute(…) in the flow
     expect(out).toContain(FLOW_OF(["TriageAgent", "AnswererAgent", "BillingAgent"]));
     expect(readFileSync(join(project, "src/routers/main/main.router.ts"), "utf8")).toContain(
       '{ prompt: "Handles invoices", target: BillingAgent }',
@@ -191,9 +192,9 @@ describe("agboss create / agboss generate end to end", () => {
     expect(
       readFileSync(join(project, "src/routers/escalation/escalation.router.ts"), "utf8"),
     ).toContain("maxVisits: 1,");
-    expect(out).toContain("rag: policies-rag (tool, k 3, per-tenant)");
+    expect(out).toContain("rag: policies-rag (k 3, shared)");
     expect(out).toContain("· refund-tool (local)");
-    expect(out).toContain("· tickets-search-tool (MCP tickets)");
+    expect(out).toContain("tickets-search-tool");
     // #141 AC3: a text-only MCP server tool replies with PlainTextDto
     expect(readFileSync(join(project, "src/mcp/tickets.mcp-server.ts"), "utf8")).toContain(
       "output: PlainTextDto",

@@ -35,7 +35,7 @@ describe("#817 AC1: saveAll takes ledger entries only", () => {
     // @ts-expect-error -- madeAt is a Date, never ms
     const ms: LedgerEntry = { ...entry, madeAt: 1_760_000_000_000 };
     // @ts-expect-error -- an amount crossing the store boundary is Usd
-    const plain: LedgerEntry = { ...entry, costUsd: 0.25 };
+    const plain: LedgerEntry = { ...entry, costUsd: usd(0.25) };
     expectTypeOf([text, ms, plain]).toEqualTypeOf<LedgerEntry[]>();
   });
 
@@ -48,9 +48,9 @@ describe("#817 AC1: saveAll takes ledger entries only", () => {
 });
 
 describe("#817 AC4: Date and Usd at the store boundary", () => {
-  it("findSpentByCounter answers Usd; deleteByMadeAtBefore takes a Date", () => {
-    expectTypeOf<CostLedgerRepository["findSpentByCounter"]>().returns.toEqualTypeOf<
-      Promise<Usd>
+  it("findUsageByCounter answers Usd and tokens; deleteByMadeAtBefore takes a Date", () => {
+    expectTypeOf<CostLedgerRepository["findUsageByCounter"]>().returns.toEqualTypeOf<
+      Promise<{ readonly spent: Usd; readonly tokens: number }>
     >();
     expectTypeOf<CostLedgerRepository["deleteByMadeAtBefore"]>().parameter(0).toEqualTypeOf<Date>();
   });
@@ -80,7 +80,17 @@ describe("#817 AC5: the closed sets are enums", () => {
     const source: CostSource = "api";
     const api: CostSource = CostSource.Api;
     expectTypeOf<`${CostCategory}`>().toEqualTypeOf<
-      "agents" | "routing" | "guards" | "review" | "tools" | "compaction" | "retrieval" | "files"
+      | "agents"
+      | "routing"
+      | "guardrails"
+      | "review"
+      | "tools"
+      | "memory"
+      | "rag"
+      | "files"
+      | "pii"
+      | "arbiters"
+      | "pauses"
     >();
     expectTypeOf([source, api]).toEqualTypeOf<CostSource[]>();
   });

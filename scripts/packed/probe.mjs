@@ -59,18 +59,18 @@ export const FILES_APPLICATION = `import {
   BudgetPeriod,
   BudgetScope,
   EmptyEnvironment,
+  Ttl,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  start,
+  onStart,
 } from "@agboss/core";
-import { A2AFileDto, WorkflowFinishFileDto } from "@agboss/core/a2a";
-import { Nested } from "@agboss/core/dto";
+import { File, FileDto, WorkflowFinishFileDto } from "@agboss/core/dto";
 import { usd } from "@agboss/core/units";
 
 export class DocumentDto {
-  @Nested(A2AFileDto, { prompt: "the document" })
-  document!: A2AFileDto;
+  @File({ prompt: "the document" })
+  document!: FileDto;
 }
 
 @WorkflowStart({ name: "files-workflow-start", description: "A document", input: DocumentDto })
@@ -89,11 +89,10 @@ export class FilesWorkflowFinish {}
 @Workflow({
   name: "files-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(FilesWorkflowStart)
-      .returns(DocumentDto)
+    onStart(FilesWorkflowStart)
       .toAction(FilesAction)
-      .returns(WorkflowFinishFileDto)
       .toFinish(FilesWorkflowFinish),
   ],
 })

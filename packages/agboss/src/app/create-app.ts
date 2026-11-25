@@ -1,6 +1,6 @@
-import type { MeterProvider } from "@opentelemetry/api";
-import { lazyLoad } from "../infrastructure/clock.js";
+import { interruptControlsOf } from "./interrupt-controls.js";
 import { runIdOf, treeControlOf, type TreeControl } from "./tree-control.js";
+import { containerInlineFilesOf } from "../files/inline-offload.js";
 import { newThreadOf } from "./new-thread.js";
 import { rememberAppWorkflow } from "./app-workflow.js";
 import { workflowIdentityOf } from "../flow/runtime/workflow-keys.js";
@@ -40,38 +40,14 @@ import { orphanEndsOf, type OrphanEnds } from "./orphan-tree.js";
 import { expireRootOf, type ExpireRoot } from "./expire-root.js";
 import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf, treeQuestionAnswersOf } from "./child-deps.js";
-import { lazyReplyAnswering, resumeOf } from "./resume.js";
+import { resumeOf } from "./resume.js";
+import { answerPartsOf } from "./answer-parts.js";
 import { extendPauseOf } from "./pause-extension.js";
 import { reassignPauseOf, replacementSendsOf, resendOf } from "./pause-reassignment.js";
 import { meshContextValuesOf } from "../mesh/mesh-context-values.js";
 import { checkedCallerId } from "../flow/context/context-values.js";
 
 export { NotAWorkflowStartError } from "./starts.js";
-
-/**
- * `createApp` options (#834): the environment, a profile on top of each workflow and where the
- * instance publishes its metrics — nothing else. Infrastructure is listed in
- * `@Application({ providers })`; every other setting is an `@Application` option, and the seams a
- * test or a tool replaces (models, MCP transports, the process environment) are on the internal
- * build path only (`testWith`, the CLI).
- */
-export interface AppOptions {
-  /**
-   * The environment: `environments/<env>.environment.ts` next to the application file (default
-   * `dev`) — of an application that declares `@Application({ environment })`.
-   */
-  readonly env?: string | undefined;
-  /** `profiles/<workflow>/<profile>.yaml` under `profileRoot` (default: the working directory). */
-  readonly profile?: string | undefined;
-  readonly profileRoot?: string | undefined;
-  /**
-   * Where the instance publishes its metrics (#485, Wiki → Metrics): an OpenTelemetry
-   * `MeterProvider` — an SDK one with a Prometheus or an OTLP exporter, or the global one
-   * (`metrics.getMeterProvider()`). A runtime object, so an option here and not of `@Application`.
-   * Absent = no metrics: nothing loaded, no store read.
-   */
-  readonly meterProvider?: MeterProvider;
-}
 
 /** Why an execution or a resume is refused once `app.close()` has begun. */
 const STOPPING = "the app is stopping: app.close() was called, no new execution is accepted";
@@ -128,10 +104,11 @@ export async function buildApp(
   const questions = treeQuestionAnswersOf(deps);
   const tools = treeToolsOf(deps);
   const answers = { pauses, paused, owned, tools, questions, current, policy, ...marks };
-  const replies = { replies: lazyReplyAnswering(deps), clock, answers: log };
+  const replies = answerPartsOf(deps, clock, log);
   const ownerOf = async (tenantId: string, threadId: string): Promise<string | undefined> =>
     (await deps.turns.threadOwner(deps.config.name, tenantId, threadId))?.owner;
   const newThread = newThreadOf(deps, owned);
+  const inline = containerInlineFilesOf(deps.container, clock, bundle.graph.type);
   const contexts = deps.contexts ?? contextsOutsideExecution(deps.config);
   let closed = false;
   let released = false;
@@ -146,7 +123,7 @@ export async function buildApp(
   const accepting = (): void => {
     if (closed) throw new ApplicationStoppingError({ message: STOPPING });
   };
-  const resuming = { ...answers, ...replies, admit, accepting, moves, ownerOf };
+  const resuming = { ...answers, ...replies, admit, accepting, moves, ownerOf, inline, leases };
   const resends = replacementSendsOf(resuming, { pauses, clock, deps });
   const app: WorkflowApp = {
     name: deps.config.name,
@@ -168,6 +145,7 @@ export async function buildApp(
         // #589: the owner is stored with the thread — a key's text, before anything is read
         checkedCallerId("ExecutionOptions", "ownerId", call.ownerId);
         const valid = checkedStart(start, input, bundle.graph);
+        inline.check(valid.input);
         // the contexts' values, checked before the first step and frozen (#261); the call chain
         // a mesh transport admitted, kept with them (#398)
         const values = meshContextValuesOf(contextValuesOf(contexts, call), call, clock.now());
@@ -199,6 +177,7 @@ export async function buildApp(
       const threadId = checked.isNew
         ? await newThread({ tenantId, threadId: call.threadId, ownerId: call.ownerId })
         : (call.threadId ?? "");
+      await inline.offloadNew(checked.input, { tenantId, ownerId: runId });
       const origin = values.mesh?.trusted?.origin;
       const tree = { runId, threadId, tenantId, startedVersion: deps.config.version, origin };
       await deps.observer.onExecutionStart(executionEventAt(tree, deps));
@@ -214,9 +193,7 @@ export async function buildApp(
       // the generated `WorkflowStarts` types the output; at run time it is the finish's validated DTO
       return result as ExecutionOutput<never>;
     },
-    // loaded on the first cancel; one on another instance's execution leaves it a request (#360)
-    cancel: async (threadId, options = {}) =>
-      (await lazyLoad(import("./cancel-thread.js"))).cancelThread(cancelParts, threadId, options),
+    ...interruptControlsOf(cancelParts, moves),
     resume: resumeOf(resuming),
     extendPause: extendPauseOf({ pauses, owned, clock, accepting, deps }),
     reassignPause: reassignPauseOf({ ...resends, owned, accepting }),
@@ -244,7 +221,7 @@ export async function buildApp(
       live.interrupt(reason);
     },
     recover: recoverRootOf({ deps, moves, current, policy }),
-    ...orphanEndsOf({ deps, paused, trees, clock, leases }),
+    ...orphanEndsOf({ deps, paused, trees, clock, leases }, log),
     expire: expireRootOf({ deps, moves, current, policy }),
     resend: resendOf(resends),
     ...byId,

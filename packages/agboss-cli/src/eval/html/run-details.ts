@@ -88,7 +88,7 @@ export function runDetails(
     element("summary", {}, [
       `Run ${String(result.run)} — `,
       element("span", { class: `status status-${status}` }, [status]),
-      ` · ${usdText(result.spentUsd)}`,
+      ` · ${usdText(result.totalUsd)}`,
     ]),
     factsOf([
       ["Execution", result.executionId ?? ""],

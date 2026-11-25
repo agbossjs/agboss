@@ -9,12 +9,11 @@ import {
   type ExecutionLease,
 } from "../../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryFencedEffectRepository } from "../../../src/infrastructure/in-memory-fenced-effect.repository.js";
-import { FencedEffectSettings } from "../../../src/infrastructure/fenced-effect-settings.js";
 import {
-  InMemoryOutboundCallRepository,
   type OutboundCallClaim,
   type OutboundCallState,
 } from "../../../src/infrastructure/outbound-call.repository.js";
+import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import type { EffectKey } from "../../../src/infrastructure/fenced-effect.repository.js";
 import type { Milliseconds } from "../../../src/units/index.js";
 import { StoreClock, StoreTimeSource } from "../../../src/infrastructure/clock.js";
@@ -141,9 +140,7 @@ export const BROKEN_CALL_TARGETS: Readonly<Record<string, ContractTarget<Outboun
 };
 
 /** The broken fenced-effect targets. */
-export const BROKEN_EFFECT_TARGETS: Readonly<
-  Record<string, ContractTarget<FencedEffectTarget<unknown>>>
-> = {
+export const BROKEN_EFFECT_TARGETS: Readonly<Record<string, ContractTarget<FencedEffectTarget>>> = {
   "effects that trust the current lease's token": inMemoryTarget((seam) => {
     const stores = inMemoryFencedEffects(false)(seam);
     return {
@@ -156,7 +153,6 @@ export const BROKEN_EFFECT_TARGETS: Readonly<
     const effects = new InMemoryFencedEffectRepository(
       storeClockOf(seam.clock),
       seam.database,
-      new FencedEffectSettings(),
       stores.leases,
     );
     return { ...stores, effects };

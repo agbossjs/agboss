@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
-import { OfferDraftDto } from "../fixtures/dtos.js";
 import {
   DraftKitWorkflowFinish,
   EditKitAgent,
   NotifyKitAction,
   SecondKitWorkflowStart,
 } from "../fixtures/kit.fixture.js";
-import { side, start, toAction, toFinish } from "../fixtures/paths.js";
+import { side, onStart, toAction, toFinish } from "../fixtures/paths.js";
+import { Ttl } from "../../../src/index.js";
 
 /** `.onError(E, …)` right after the step that throws, one handler per class (#272 AC7). */
 
@@ -18,13 +18,12 @@ class MailError extends Error {}
 @Workflow({
   name: "two-handlers-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SecondKitWorkflowStart)
-      .returns(OfferDraftDto)
+    onStart(SecondKitWorkflowStart)
       .toAgent(EditKitAgent)
       .onError(CarrierError, toAction(NotifyKitAction).toFinish(DraftKitWorkflowFinish))
       .onError(MailError, toFinish(DraftKitWorkflowFinish))
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ],
 })
@@ -33,13 +32,12 @@ class TwoHandlersWorkflow {}
 @Workflow({
   name: "duplicate-handler-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SecondKitWorkflowStart)
-      .returns(OfferDraftDto)
+    onStart(SecondKitWorkflowStart)
       .toAgent(EditKitAgent)
       .onError(CarrierError, toAction(NotifyKitAction).toFinish(DraftKitWorkflowFinish))
       .onError(CarrierError, toFinish(DraftKitWorkflowFinish))
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ],
 })
@@ -48,12 +46,11 @@ class DuplicateHandlerWorkflow {}
 @Workflow({
   name: "empty-handler-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SecondKitWorkflowStart)
-      .returns(OfferDraftDto)
+    onStart(SecondKitWorkflowStart)
       .toAgent(EditKitAgent)
       .onError(CarrierError, side())
-      .returns(OfferDraftDto)
       .toFinish(DraftKitWorkflowFinish),
   ],
 })

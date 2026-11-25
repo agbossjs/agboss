@@ -74,7 +74,7 @@ describe("#776: a sibling's spend in flight, a grandchild on any instance about 
         key: executionId ?? "",
         maxSpend: 0,
       };
-      expect(await ledger.findSpentByCounter(counterOf(execution, clock.now()))).toBe(110);
+      expect((await ledger.findUsageByCounter(counterOf(execution, clock.now()))).spent).toBe(110);
     },
   );
 });

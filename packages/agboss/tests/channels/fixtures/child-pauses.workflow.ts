@@ -5,27 +5,32 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Action,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart, toWorkflow } from "../../helpers/flow.js";
 import {
   BatchSummaryDto,
   ConfirmOrderTool,
   CustomerOrderConfirmationChannel,
   FinanceDeskRefundApprovalChannel,
+  AutoRefundChannel,
   PauseLog,
   RefundDoneDto,
   RefundRequestDto,
   RefundTool,
   SeenPausedExecutionRepository,
 } from "./pauses.workflow.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #267 × #263 — pauses inside child workflows: a child whose agent waits on a channel role, alone
- * (the customer confirms: `PauseAnswerer.ThreadOwner`, its id in `result.pending`) or one child per
- * order, several waiting at once (the finance desk: `PauseAnswerer.Channel`, its id sent to the
+ * (the customer confirms: `PauseRespondent.Owner`, its id in `result.pending`) or one child per
+ * order, several waiting at once (the finance desk: `PauseRespondent.Delegate`, its id sent to the
  * desk). Every pause shows in the root's `result.pending` and is resumed by its id.
  */
 
@@ -47,7 +52,7 @@ export class RefundOneWorkflowFinish {}
 @Agent({
   name: "child-refund-agent",
   description: "Handles one order",
-  prompt: "Handle the order.",
+  prompt: inline("Handle the order."),
   model: "moonshotai/kimi-k2.6",
   tools: [RefundTool, ConfirmOrderTool],
   input: { request: RefundRequestDto },
@@ -59,11 +64,10 @@ export class ChildRefundAgent {}
 @Workflow({
   name: "refund-one-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(RefundOneWorkflowStart)
-      .returns(RefundRequestDto)
+    onStart(RefundOneWorkflowStart)
       .toAgent(ChildRefundAgent)
-      .returns(RefundDoneDto)
       .toFinish(RefundOneWorkflowFinish),
   ],
 })
@@ -87,11 +91,10 @@ export class SingleChildWorkflowFinish {}
 @Workflow({
   name: "single-child-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(SingleChildWorkflowStart)
-      .returns(RefundRequestDto)
+    onStart(SingleChildWorkflowStart)
       .toWorkflow(RefundOneWorkflow)
-      .returns(RefundDoneDto)
       .toFinish(SingleChildWorkflowFinish),
   ],
 })
@@ -104,34 +107,41 @@ export class SingleChildWorkflow {}
 })
 export class ChildBatchWorkflowStart {}
 
-@WorkflowFinish({
-  name: "child-batch-workflow-finish",
+@Action({
+  name: "child-batch-action",
   description: "What was refunded",
   input: { refunds: listOf(RefundDoneDto) },
   output: BatchSummaryDto,
 })
-export class ChildBatchWorkflowFinish {
-  finish(input: {
-    readonly refunds: readonly Produced<RefundDoneDto, unknown>[];
-  }): BatchSummaryDto {
+export class ChildBatchAction {
+  async execute(input: {
+    readonly refunds: readonly Tracked<RefundDoneDto>[];
+  }): Promise<BatchSummaryDto> {
     return {
       text: input.refunds
-        .map((refund) => refund.value.orderId)
+        .map((refund) => refund.orderId)
         .join(", "),
     };
   }
 }
 
+@WorkflowFinish({
+  name: "child-batch-workflow-finish",
+  description: "What was refunded",
+  output: BatchSummaryDto,
+})
+export class ChildBatchWorkflowFinish {}
+
 /** One child per order: several children wait at once, each resumed by its own pause's id. */
 @Workflow({
   name: "child-batch-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(ChildBatchWorkflowStart)
-      .returns(listOf(RefundRequestDto))
-      .toParallelWorkflows(RefundOneWorkflow, { maxConcurrency: 3, maxItems: 5 })
+    onStart(ChildBatchWorkflowStart)
+      .forEachItem(toWorkflow(RefundOneWorkflow), { takeFirst: 5, maxConcurrency: 3 })
       .join()
-      .returns(listOf(RefundDoneDto))
+      .toAction(ChildBatchAction)
       .toFinish(ChildBatchWorkflowFinish),
   ],
 })
@@ -139,11 +149,13 @@ export class ChildBatchWorkflow {}
 
 @Application({
   name: "child-pauses-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow, ChildBatchWorkflow],
   providers: [
     FinanceDeskRefundApprovalChannel,
+    AutoRefundChannel,
     CustomerOrderConfirmationChannel,
     SeenPausedExecutionRepository,
   ],

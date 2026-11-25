@@ -1,5 +1,5 @@
 import { AGBossError } from "../../../../src/core/errors.js";
-import { Integer, ListOf, OneOf, Text } from "../../../../src/dto/index.js";
+import { Integer, List, Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
   Clock,
@@ -7,13 +7,14 @@ import {
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  type Produced,
+  type Tracked,
+  Ttl,
 } from "../../../../src/index.js";
 import { seconds } from "../../../../src/units/index.js";
-import { start } from "../../../helpers/flow.js";
+import { onStart } from "../../../helpers/flow.js";
 
 /**
- * #264 PR 2 — the tree's concurrency cap, `@Workflow({ maxConcurrentExecutions })`. Every task is a
+ * #264 PR 2 — the tree's concurrency cap, `@Workflow({ executionLimits: { maxConcurrency } })`. Every task is a
  * child execution whose one action works for its `seconds` on the application's clock; the log
  * shows what started and ended, in order, and the most tasks at work at once. A task `fail`s after
  * its wait (none for 0 seconds); the first run of a `hold` task waits until its execution stops (a
@@ -27,7 +28,7 @@ export class TaskDto {
   @Integer({ prompt: "how long it works, in seconds" })
   seconds!: number;
 
-  @OneOf({ values: ["ok", "fail", "hold"], prompt: "how it ends" })
+  @Enum(["ok", "fail", "hold"], { prompt: "how it ends" })
   outcome!: "ok" | "fail" | "hold";
 }
 
@@ -40,7 +41,7 @@ export class GroupDto {
   @Text({ prompt: "the group's name" })
   name!: string;
 
-  @ListOf(TaskDto, { prompt: "its tasks" })
+  @List(TaskDto, { prompt: "its tasks" })
   tasks!: TaskDto[];
 }
 
@@ -95,8 +96,8 @@ export class WorkAction {
     private readonly executionContext: ExecutionContext,
   ) {}
 
-  async execute(input: { readonly task: Produced<TaskDto, unknown> }): Promise<TaskDoneDto> {
-    const { name, outcome } = input.task.value;
+  async execute(input: { readonly task: Tracked<TaskDto> }): Promise<TaskDoneDto> {
+    const { name, outcome } = input.task;
     const isFirstHold = outcome === "hold" && !treeLog.events.includes(`start ${name}`);
     treeLog.events.push(`start ${name}`);
     treeLog.working += 1;
@@ -104,7 +105,7 @@ export class WorkAction {
     try {
       const { signal } = this.executionContext;
       if (isFirstHold) await untilStopped(signal);
-      const wait = input.task.value.seconds;
+      const wait = input.task.seconds;
       if (wait > 0) await this.clock.sleep(seconds(wait), signal);
       if (signal.aborted) {
         treeLog.events.push(`cancelled ${name}`);
@@ -128,11 +129,10 @@ export class TaskDoneWorkflowFinish {}
 @Workflow({
   name: "task-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(TaskWorkflowStart)
-      .returns(TaskDto)
+    onStart(TaskWorkflowStart)
       .toAction(WorkAction)
-      .returns(TaskDoneDto)
       .toFinish(TaskDoneWorkflowFinish),
   ],
 })

@@ -95,7 +95,9 @@ describe("#810: a run report's charge is dated inside the caller's window", () =
       await second.settled();
 
       expect(inWindow(writtenMadeAtOf(kept))).toBe(true);
-      expect(await ledger.findSpentByCounter(counterOf(budget, clock.now()))).toBeCloseTo(2);
+      expect((await ledger.findUsageByCounter(counterOf(budget, clock.now()))).spent).toBeCloseTo(
+        2,
+      );
     },
   );
 });

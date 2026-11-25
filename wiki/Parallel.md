@@ -6,13 +6,13 @@ first five checked companies are enough, or one of several known combinations of
 the case. A **quorum** (#279) says how many answers are enough, how long to wait, which answers
 count and — with groups — which combination wins and where the execution goes next.
 
-> **Status.** #279 PR 1 (the grammar, `@Arbiter` / `@OnAnswer`, the analyser, the generated
+> **Status.** #279 PR 1 (the grammar, `@Arbiter` / `@Arbitrate`, the analyser, the generated
 > types) and PR 2 (quorums at run time: counting, cancelling the rest, the deadline on the `Clock`,
 > `QuorumNotReachedError`, `ArbiterError`, traces and `onQuorumDecided`, `agboss generate arbiter`).
 > A runnable example: `examples/flow-patterns/src/panel`.
 
 > **A failed join's undo (#340).** When a launch fails, the join first undoes its finished
-> branches that declare `@Action({ compensateWith })`, newest first, before `.onJoinError` runs or
+> branches that declare `@Action({ compensateWith })`, newest first, before `.onError` runs or
 > the branch's error fails the execution (`CompensationReason.JoinFailed`) — the join's values never
 > reach the side path, so no path could undo them. Quorums launch agents only: nothing of theirs is
 > undone. [Rollback → A failed join undoes its finished branches](Rollback#a-failed-join-undoes-its-finished-branches).
@@ -20,8 +20,9 @@ count and — with groups — which combination wins and where the execution goe
 ## Writing it
 
 <!-- snippet-context
-import { Agent, Arbiter, DecidedBy, OnAnswer, Workflow, WorkflowFinish, WorkflowStart, anyOf, group, start } from "@agboss/core";
-import { Integer, Text, listOf, optional } from "@agboss/core/dto";
+import { inline, Agent, Arbiter, Arbitrate, Workflow, WorkflowFinish, WorkflowStart, onStart, toAgent, toFinish, Ttl } from "@agboss/core";
+import { Integer, Text } from "@agboss/core/dto";
+import { listOf, optional } from "@agboss/core";
 import { minutes, seconds } from "@agboss/core/units";
 
 export class CandidateDto {
@@ -54,50 +55,50 @@ export class DealReportDto {
 }
 @WorkflowStart({ name: "candidate-workflow-start", description: "A candidate", input: CandidateDto })
 export class CandidateWorkflowStart {}
-@Agent({ name: "score-a-agent", description: "Scores skills", prompt: "Score.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
+@Agent({ name: "score-a-agent", description: "Scores skills", prompt: inline("Score."), model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
 export class ScoreAAgent {}
-@Agent({ name: "score-b-agent", description: "Scores risks", prompt: "Score.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
+@Agent({ name: "score-b-agent", description: "Scores risks", prompt: inline("Score."), model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
 export class ScoreBAgent {}
-@Agent({ name: "score-c-agent", description: "Scores the hire", prompt: "Score.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
+@Agent({ name: "score-c-agent", description: "Scores the hire", prompt: inline("Score."), model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto }, output: ScoreDto })
 export class ScoreCAgent {}
-@Agent({ name: "score-summary-agent", description: "Sums up", prompt: "Sum up.", model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto, scores: listOf(ScoreDto) }, output: ScoreReviewDto })
+@Agent({ name: "score-summary-agent", description: "Sums up", prompt: inline("Sum up."), model: "moonshotai/kimi-k2.6", input: { candidate: CandidateDto, scores: listOf(ScoreDto) }, output: ScoreReviewDto })
 export class ScoreSummaryAgent {}
 @WorkflowFinish({ name: "score-review-workflow-finish", description: "The review", output: ScoreReviewDto })
 export class ScoreReviewWorkflowFinish {}
 @WorkflowStart({ name: "deal-workflow-start", description: "A deal", input: CandidateDto })
 export class DealWorkflowStart {}
-@Agent({ name: "legal-agent", description: "Legal review", prompt: "Review.", model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: LegalReviewDto })
+@Agent({ name: "legal-agent", description: "Legal review", prompt: inline("Review."), model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: LegalReviewDto })
 export class LegalAgent {}
-@Agent({ name: "critic-agent", description: "Objects", prompt: "Object.", model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: CritiqueDto })
+@Agent({ name: "critic-agent", description: "Objects", prompt: inline("Object."), model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: CritiqueDto })
 export class CriticAgent {}
-@Agent({ name: "fast-screen-agent", description: "Screens", prompt: "Screen.", model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: FastScreenDto })
+@Agent({ name: "fast-screen-agent", description: "Screens", prompt: inline("Screen."), model: "moonshotai/kimi-k2.6", input: { deal: CandidateDto }, output: FastScreenDto })
 export class FastScreenAgent {}
-@Agent({ name: "full-review-agent", description: "Reports", prompt: "Report.", model: "moonshotai/kimi-k2.6", input: { legal: optional(LegalReviewDto), critiques: listOf(CritiqueDto) }, output: DealReportDto })
+@Agent({ name: "full-review-agent", description: "Reports", prompt: inline("Report."), model: "moonshotai/kimi-k2.6", input: { legal: optional(LegalReviewDto), critiques: listOf(CritiqueDto) }, output: DealReportDto })
 export class FullReviewAgent {}
 @WorkflowFinish({ name: "deal-report-workflow-finish", description: "The report", output: DealReportDto })
 export class DealReportWorkflowFinish {}
 @WorkflowFinish({ name: "quick-reject-workflow-finish", description: "Rejected at once", output: FastScreenDto })
 export class QuickRejectWorkflowFinish {}
 // @snippet
-@Workflow({ name: "quorum-workflow", version: "1.0.0", flow: quorumPaths })
+@Workflow({ name: "quorum-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: quorumPaths })
 export class QuorumWorkflow {}
 -->
 
 ```ts
-// arbiters/in-range.arbiter.ts — by code: one @OnAnswer(Agent) method per agent of the launch
-@Arbiter({ name: "in-range-arbiter", decidedBy: DecidedBy.Code })
+// arbiters/in-range.arbiter.ts — by code: one @Arbitrate(…targets) method per target of the launch
+@Arbiter({ name: "in-range-arbiter" })
 export class InRangeArbiter {
-  @OnAnswer(ScoreAAgent)
+  @Arbitrate(ScoreAAgent)
   fromScoreA(answer: ScoreDto): boolean {
     return this.isInRange(answer);
   }
 
-  @OnAnswer(ScoreBAgent)
+  @Arbitrate(ScoreBAgent)
   fromScoreB(answer: ScoreDto): boolean {
     return this.isInRange(answer);
   }
 
-  @OnAnswer(ScoreCAgent)
+  @Arbitrate(ScoreCAgent)
   fromScoreC(answer: ScoreDto): boolean {
     return this.isInRange(answer);
   }
@@ -110,47 +111,41 @@ export class InRangeArbiter {
 // arbiters/valid-score.arbiter.ts — by model: a criterion for every agent of the launch
 @Arbiter({
   name: "valid-score-arbiter",
-  decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
-  prompt: "Count an answer only if it meets the criterion of the agent that gave it.",
+  prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
-    { agent: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
-    { agent: ScoreBAgent, prompt: "Names at least two concrete risks" },
-    { agent: ScoreCAgent, prompt: "Ends with a clear hire / no hire" },
+    { target: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
+    { target: ScoreBAgent, prompt: "Names at least two concrete risks" },
+    { target: ScoreCAgent, prompt: "Ends with a clear hire / no hire" },
   ],
 })
 export class ValidScoreArbiter {}
 
 export const quorumPaths = [
   // any two of three: the counted answers only, the third cancelled
-  start(CandidateWorkflowStart)
-    .returns(CandidateDto)
-    .toParallelAgents(ScoreAAgent, ScoreBAgent, ScoreCAgent)
-    .acceptedBy(anyOf(InRangeArbiter, ValidScoreArbiter)) // the model only when the code rejects
+  onStart(CandidateWorkflowStart)
+    .inParallel([toAgent(ScoreAAgent), toAgent(ScoreBAgent), toAgent(ScoreCAgent)])
+    .arbitratedBy(ValidScoreArbiter) // one arbiter; a hybrid one asks its own model only where its code cannot decide
     .joinQuorum({ min: 2, max: 3, deadline: seconds(30) })
-    .returns(listOf(ScoreDto))
     .toAgent(ScoreSummaryAgent)
-    .returns(ScoreReviewDto)
     .toFinish(ScoreReviewWorkflowFinish),
 
   // groups: the first complete one (by priority) continues its own path
-  start(DealWorkflowStart)
-    .returns(CandidateDto)
-    .toParallelAgents(LegalAgent, CriticAgent, CriticAgent, FastScreenAgent)
-    .joinQuorumGroups(
-      group(LegalAgent, CriticAgent)
-        .priority(1)
-        .returns(LegalReviewDto)
-        .returns(listOf(CritiqueDto)) // critic-agent is launched twice: a list, even of one
-        .toAgent(FullReviewAgent)
-        .returns(DealReportDto)
+  onStart(DealWorkflowStart)
+    .inParallel([
+      toAgent(LegalAgent),
+      toAgent(CriticAgent),
+      toAgent(CriticAgent),
+      toAgent(FastScreenAgent),
+    ])
+    .joinQuorumGroups({ deadline: minutes(1) })
+    .onGroup(
+      [LegalAgent, CriticAgent], // critic-agent is launched twice: a list, even of one
+      { priority: 1 },
+      toAgent(FullReviewAgent)
         .toFinish(DealReportWorkflowFinish),
-      group(FastScreenAgent)
-        .priority(2)
-        .returns(FastScreenDto)
-        .toFinish(QuickRejectWorkflowFinish),
-      { deadline: minutes(1) },
-    ),
+    )
+    .onGroup([FastScreenAgent], { priority: 2 }, toFinish(QuickRejectWorkflowFinish)),
 ] as const;
 ```
 
@@ -161,103 +156,144 @@ export const quorumPaths = [
 | `.joinQuorum({ min })` | `max` defaults to `min`: after `min` counted answers go on, cancel the rest |
 | `min` | how many **counted** answers are enough to go on |
 | `max` | after how many counted answers to stop waiting and cancel the rest |
-| `deadline` | how long the join waits — `seconds()`, `minutes()`, `hours()` (`@agboss/core/units`), never a bare number |
-| `.joinQuorumGroups(group(…).priority(n)<path>, …, { deadline })` | go on when a group is complete, along **that group's own path**; `min` / `max` do not apply |
-| `.acceptedBy(X)` | an arbiter every answer passes before it counts — between the launch and the quorum |
-| `.acceptedBy(X).acceptedBy(Y)` | the only AND: in path order, the first rejection stops the chain |
-| `.acceptedBy(anyOf(X, Y))` | tried in order, the first that accepts accepts (S57) — the cheap code arbiter first |
+| `deadline` | how long the join waits — `seconds()`, `minutes()`, `hours()` (`@agboss/core/units`), never a bare number; or working time, `workDays(5)` / `workHours(2)` / `workMin(30)`, with `calendar` (below) |
+| `calendar` | the `@WorkingCalendar` class that counts a working-time `deadline`; required with one (`[calendar.required-for-working-duration]`), refused beside a plain duration |
+| `.joinQuorumGroups({ deadline })` + `.onGroup([targets], { priority }?, subPath)` | go on when a group is complete, along **that group's own path**; `min` / `max` do not apply |
+| `.arbitratedBy(X)` | the one arbiter every answer passes before it counts — between the launch and the quorum; once per launch (no `anyOf`, no and / or of arbiters: the rule, and how it escalates from code to a model, lives in the class — `ArbiterModel`) |
 
 Options are always an object: `.joinQuorum(2)` does not compile and the untyped builder refuses it.
-`.acceptedBy(…).join()` does not compile; nothing follows `.joinQuorumGroups(…)` but
-`.onJoinError(E, <side path>)`. A quorum follows `.toParallelAgents(…)` only — arbiters judge
-agents' answers.
+`.arbitratedBy(…).join()` does not compile; nothing follows `.joinQuorumGroups(…)` but its
+`.onError(E, <side path>)` — written **right after the join, before the first `.onGroup(…)`**, never after
+one — and its `.onGroup(…)`s: the join is not a path until it has at least one. A quorum follows `.inParallel([…])`, `.forEachItem(…)` (`.joinQuorum(…)`
+only: every item runs one target, so there are no groups) and `.inParallel([…])`.
 
 ## Groups
 
-- A group is `group(A, B, …)`; a repeated agent in it means "any of its copies", written n times n
-  copies are needed. It is complete when **all** its places are counted.
-- `.priority(n)` right after `group(…)`: **1 is the highest**; equal numbers (or none) are equal
-  groups — the first complete one wins.
-- Every group continues its own path: `group(…).priority(n).returns(…).toAgent / .toAction /
-  .toRouter / .toWorkflow / .toFinish(…)`; a group without a continuation does not compile (and is
-  `[graph.dead-end]` for the untyped builder). A node reached from two groups (or a group and a
-  route, or `.onJoinError`) has its own path, by the general rules — `agent(FullReviewAgent)…`.
+- A group is `.onGroup([A, B, …], …)`: the targets of the launch (`@Agent`, `@ExternalTask`, `@Action`,
+  `@Workflow`, from any launch — `.inParallel([…])` included); a repeated target in it means "any of
+  its copies", written n times n copies are needed. It is complete when **all** its places are counted.
+- `{ priority: n }` (the optional second argument): **1 is the highest**; equal numbers (or none)
+  are equal groups — the first complete one wins.
+- Every group continues its own path, its last argument: `toAgent(…)` / `toAction(…)` / `toRouter(…)` /
+  `toExternalTask(…)` / `toWorkflow(…)` / `toFinish(…)` / `inParallel([…])` / `forEachItem(…)` — the
+  same starters as `.onError(E, …)`; a group without a continuation does not compile (and is
+  `[graph.dead-end]` for the untyped builder, as is a join with no `.onGroup(…)`). An open undoable
+  action is owed only on the path of the group that counted it. A node reached from two groups (or a group and a
+  route, or `.onError`) has its own path, by the general rules — `onAgent(FullReviewAgent)…`.
   `.joinQuorumGroups` counts as one nesting level (`[flow.path-too-deep]`).
 
-## What `.returns(…)` may promise
+## What the counted answers give
 
-The counted answers enter the [path scope](Path-scope#quorums) as the values the join's `.returns(…)`
-names; the shape comes from **the launch**, not from the group:
+The counted answers enter the [path scope](Path-scope#quorums) as the values the join gives, derived
+from the branches (#1270); the shape comes from **the launch**, not from the group:
 
 | After | A single agent's value | A repeated class, or several agents with one `output` |
 | --- | --- | --- |
-| `.join()` | required `XDto` (`optional` for an `OnDemand` / `Skip` route) | `listOf(XDto)` |
+| `.join()` | required `XDto` (`optional` for a branch a router may leave out or a `skip()` drops) | `listOf(XDto)` |
 | `.joinQuorum({ min })`, `min` = agents launched | required `XDto` | `listOf(XDto)` |
 | `.joinQuorum({ min })`, any other `min` | `optional(XDto)` | `listOf(XDto)` |
-| `group(A, B…)` of `.joinQuorumGroups(…)` | required `XDto` (the group's agents only) | `listOf(XDto)`, even when the group counts one copy |
+| `.onGroup([A, B…], …)` of `.joinQuorumGroups(…)` | required `XDto` (the group's targets only) | `listOf(XDto)`, even when the group counts one copy |
 
-The typed builder checks it against the generated `JoinOutputs`: a quorum's singles are the launch's
-entry made optional unless `min` is the number of agents (one check, `Min extends Count`), and each
-group has an entry of its own, keyed `<launch> group(<agents as listed>)`. `agboss check` checks it
-again on the quorum itself — a required `XDto` after `.joinQuorum({ min: 2 })` of three agents is
+Nothing is written for them: a step that requires a single answer a quorum may leave out is
 
 ```text
-[flow.quorum-return-not-optional] fit-review-workflow-start → toParallelAgents(skills-score-agent,
-culture-score-agent, salary-fit-agent): .joinQuorum({ min: 2 }) may leave skills-score-agent out of
-the quorum — write .returns(optional(SkillsScoreDto)), not .returns(SkillsScoreDto) (or min: 3 to
-count every agent)
+[input.missing-on-path] skills-reader-agent.skills (SkillsScoreDto) is not produced on the path
+fit-review-workflow-start → skills-reader-agent (skills-score-agent may be left out of the quorum) —
+declare it optional(SkillsScoreDto) or listOf(SkillsScoreDto)
 ```
 
 ## Expiry of a branch's pause (#945)
 
 A branch whose pause expired ends `BranchStatus.Expired` (`step.pause-expired` in `result.launches`), not
-`Cancelled` or `Skipped`. In a quorum it did not vote and is no failure whatever the `FailurePolicy`; the quorum's
+`Cancelled` or `Skipped`. In a quorum it did not vote and is no failure whatever it skips; the quorum's
 deadline binds its pauses, so the tree wakes by itself at it, and `QuorumNotReachedError.expired` names the
-branches that expired. In a plain `.join()` it follows the `FailurePolicy`: `Skip` drops it, `FailFast` fails the
-launch with its `PauseExpiredError`; the `.onJoinError(…)` side path reads the answers already settled as
+branches that expired. In a plain `.join()` it follows the branch's `.onError(E, skip())`: a skipped one is dropped, else it fails the
+launch with its `PauseExpiredError`; the `.onError(…)` side path reads the answers already settled as
 `optional(…)` inputs (see [Pauses](Pauses#expiry-in-parallel-launches-945)).
 
-A child workflow cannot be a quorum branch: a quorum launches agents only, so the pause that the quorum's deadline binds is always an agent's own (an approval or a question it asks in its tool loop).
+## External tasks in a launch (#1306)
+
+`toExternalTask(Task)` is a branch of `.inParallel([…])` and the step of `.forEachItem(…, { takeFirst })`
+like `toAgent`, `toAction` and `toWorkflow` — no `@Agent` wrapped around a person or a service just to
+wait in parallel. Every branch is its own pause on its task's channel (`PendingPause.itemIndex` for the
+item of a `.forEachItem`); `.onError(E, skip())` on the branch drops its failure from the join. A
+quorum (`.joinQuorum(…)`, `.joinQuorumGroups(…)`) counts the answers the arbiter accepts: an
+`@Arbitrate(LegalSignOffExternalTask, …)` method judges the task's output DTO, so `{ approved: false }` is
+a valid answer and no vote. Once the quorum is decided — or it can no longer be reached — the pauses
+still open are withdrawn (`PauseResolution.Withdrawn`), and a late answer to one fails with
+`PauseClosedError`. The accepted answers go on as `listOf(AnswerDto)`, which a node below must read.
+
+```text
+onStart(ContractCommitteeWorkflowStart)
+  .inParallel([toExternalTask(LegalSignOff), toExternalTask(SecuritySignOff), toExternalTask(FinanceDirector)])
+  .arbitratedBy(SignOffArbiter)
+  .joinQuorum({ min: 2, deadline: hours(2) })
+  .onError(QuorumNotReachedError, toFinish(ContractRejectedWorkflowFinish))
+  .toAction(SignContractAction)
+  .toFinish(ContractSignedWorkflowFinish)
+```
+
+The runnable version is `examples/flow-patterns/src/committee/`. A text `@Agent` branch (no `output`) gives
+its judge the reply as a `WorkflowFinishTextDto`, a `@Workflow` branch the output of its finishes.
+
+### A deadline in working time
+
+`.joinQuorum({ min: 2, deadline: workDays(5), calendar: CorporateWorkingCalendar })` (and
+`.joinQuorumGroups({ deadline: workHours(4), calendar })`) waits five working days of that calendar, not
+120 hours: weekends, holidays and the calendar's time zone are the calendar's own arithmetic — the same
+`@WorkingCalendar` classes, `WorkingWeek.of(…)` grids and the same call a pause's `expiresIn: workHours(…)`
+uses. The calendar is the quorum's own (the application's `workingCalendar` serves pauses, not quorums); a
+`@WorkingCalendar` class used here is created by the workflow's container, so it needs no entry in
+`providers`. A working `deadline` without `calendar` is `[calendar.required-for-working-duration]`; a class
+that is no valid `@WorkingCalendar` is `[working-calendar.invalid]`. The calendar is asked once, when the
+launch is dispatched — from `Clock.now()`, for the execution's tenant, with no `target` and no
+`assignees` — and the instant it gives is the launch's `deadlineAt`, bounding the branches' pauses like
+any other deadline. A calendar that throws, times out or answers a bad date is
+`PauseError.WorkingCalendar`: no branch is dispatched, no pause is opened, the launching step's own output
+stays in the scope, and the join's `.onError(PauseError.WorkingCalendar, …)` handler takes it (without one
+the execution fails with the error).
 
 ## Arbiters
 
-`@Arbiter` (`arbiters/<name>.arbiter.ts`, a `name` ending with `-arbiter`) decides **whether an
+`@Arbiter` (`arbiters/<name>.arbiter.ts`, an optional kebab-case `name`) decides **whether an
 arriving answer counts** — once per answer; it is not a router and never chooses where to go. How it
-decides is declared with `decidedBy`; nothing is inferred from its members:
+decides follows from what it declares:
 
-- `DecidedBy.Model` — `model`, `prompt` (how to judge) and `criteria: [{ agent, prompt }]`, one per
-  agent of the launch; the `prompt` never stands in for a missing criterion — an agent whose answers
-  need no real check gets an explicit one ("Any non-empty answer").
-- `DecidedBy.Code` — one `@OnAnswer(Agent) from<Agent>(answer: XDto): boolean` (or
-  `Promise<boolean>`) method per agent class; the answer is the plain DTO, which copy or item it is
-  comes from `executionContext.step.copyNumber` / `.itemIndex` (`deps: [ExecutionContext]`). The
-  decorator checks the method: a wrong answer type, a return type other than `boolean` or a second
-  required parameter does not compile. A rule shared by several agents is a private method each one
-  calls; `@OnAnswer` takes exactly one class.
+- `criteria: [{ target, prompt }]` with `model` and `prompt` (how to judge) — a model arbiter, one
+  criterion per target of the launch; the `prompt` never stands in for a missing criterion — a
+  target whose answers need no real check gets an explicit one ("Any non-empty answer").
+- `@Arbitrate(A, B, …) isMeaningful(answer: XDto): boolean` (or `Promise<boolean>`) — an arbiter of
+  code (`$0`), one method for one or more targets (`@Agent`, `@ExternalTask`, `@Action`, `@Workflow`;
+  the method name is yours); the answer is the target's output, `Metadata.createdBy(answer)` the
+  target that gave it; which copy or item it is comes from `executionContext.step.copyNumber` /
+  `.itemIndex` (`deps: [ExecutionContext]`). The decorator checks the method: a wrong answer type, a
+  return type other than `boolean` or a second required parameter does not compile.
+- `deps: [ArbiterModel]` (and an optional `model`) on a code arbiter — a hybrid: the code decides
+  what it can at `$0` and asks its own model (`arbiterModel.decide(…)` / `.invoke(…)`) only where it
+  must. Every call checks the execution's budgets first and is charged under `arbiter:<name>`, a
+  failed call's partial spend too. `model` without `ArbiterModel` in `deps` does not compile.
 
-The other strategy's options do not compile (`criteria` on a code arbiter, `deps` on a model one).
-A criterion or a method applies to every copy of a repeated agent and every item of a per-item
-launch.
+`criteria` on an arbiter with `deps` does not compile. A criterion or a method applies to every copy
+of a repeated target and every item of a per-item launch.
 
 ## Rules
 
 | Code | |
 | --- | --- |
-| `[flow.quorum-impossible]` | `min` above the agents launched (per item: above `maxItems`); a group listing an agent the launch does not run, or more copies than it runs |
-| `[flow.quorum-return-not-optional]` | a required `XDto` after `.joinQuorum({ min })` that may leave its agent out |
-| `[flow.returns-mismatch]` | a quorum's or a group's `.returns(…)` names something else than its counted answers give |
+| `[flow.quorum-impossible]` | `min` above the agents launched (per item: above `takeFirst`); a group listing an agent the launch does not run, or more copies than it runs |
+| `[launch.unjoinable-output]` | a branch's output no join value can carry (a list launched several times, a lone `oneOf`) |
 | `[input.missing-on-path]` | a required field whose producer may be left out — the message names the agent and the fix `optional(…)` / `listOf(…)` |
-| `[arbiter.not-an-arbiter]` | `.acceptedBy(X)` of a class without `@Arbiter` |
-| `[arbiter.unhandled-agent]` | an agent of the launch without a criterion / an `@OnAnswer` method |
-| `[arbiter.unknown-agent]` | a criterion / method for an agent the launch does not run |
-| `[arbiter.duplicate-agent]` | two criteria / methods for one agent class |
-| `[arbiter.answer-method-on-model]` | `@OnAnswer` on a `DecidedBy.Model` arbiter |
-| `[arbiter.method-name]` | the method judging `CompanyCheckAgent` is not named `fromCompanyCheck` |
-| `[name.kind-suffix]` | an arbiter's `name` without `-arbiter` |
+| `[arbiter.not-an-arbiter]` | `.arbitratedBy(X)` of a class without `@Arbiter` |
+| `[arbiter.unhandled-target]` | a target of the launch without a criterion / an `@Arbitrate` method |
+| `[arbiter.unknown-target]` | a criterion / method for a target the launch does not run |
+| `[arbiter.duplicate-target]` | two criteria / methods for one target class |
+| `[arbiter.branch-has-no-output]` | a void `@Action` (no `output`) in a launch an arbiter judges |
+| `[arbiter.model-without-arbiter-model]` | a code `@Arbiter` names `model` / `modelProvider` without `ArbiterModel` in `deps` |
+| `[name.not-kebab-case]` | an arbiter's `name` is not kebab-case |
 
 ## Describe
 
-`agboss describe` prints the quorum as written (`.acceptedBy(anyOf(…))`, `.joinQuorum({ min: 2,
+`agboss describe` prints the quorum as written (`.arbitratedBy(…)`, `.joinQuorum({ min: 2,
 max: 3, deadline: seconds(30) })`, each group) and, for a list a quorum counts, each producer's
 counts: `full-review-agent ← deal: deal-workflow-start, legal: legal-agent (optional), critiques:
 critic-agent ×1–2` — a group counts at least the copies it lists and at most those launched, a
@@ -268,15 +304,13 @@ critic-agent ×1–2` — a group counts at least the copies it lists and at mos
 A quorum is decided inside its launch's superstep (S26), as answers arrive — never by waiting for
 every branch and deciding at the join:
 
-1. Each branch runs its agent and then its **arbiter chain** under one `maxConcurrency` slot and in
-   its own step frame (a code arbiter's `executionContext.step` is the branch's: `copyNumber`,
-   `itemIndex`). The `.acceptedBy(…)` steps are an AND in path order — the first rejection stops the
-   chain, later arbiters are not called; inside `anyOf(A, B)` the arbiters run in order and the first
-   that accepts accepts.
-2. The answer is recorded at once, synchronously after its chain: **`BranchVerdict.Counted`** with a
+1. Each branch runs its target and then its **arbiter** under one `maxConcurrency` slot and in its own
+   step frame (a code arbiter's `executionContext.step` is the branch's: `copyNumber`, `itemIndex`).
+   A hybrid arbiter's model calls are checked against the budgets first and charged under
+   `arbiter:<name>`, a failed call's spend kept; once the quorum is decided it asks no more.
+2. The answer is recorded at once, synchronously after its check: **`BranchVerdict.Counted`** with a
    monotonic `acceptedSequence` while places are left, **`Rejected`** (with `rejectedBy`: the
-   arbiters that said no — every one of an `anyOf`), **`Surplus`** when it was accepted after the
-   quorum was already decided.
+   arbiter that said no), **`Surplus`** when it was accepted after the quorum was already decided.
 3. Once the outcome is fixed — `max` answers counted (`max` defaults to `min`), a group has won (no
    higher-priority group can still complete), `min` or every group can no longer be reached, every
    branch is through, or the deadline passed — the launch is aborted: the branches still running or
@@ -286,7 +320,7 @@ every branch and deciding at the join:
    (`acceptedSequence` — never listed or finish order) go into the path scope; for groups the winning
    group's agents' answers, on that group's own path. Not reached → **`QuorumNotReachedError`**
    (`step.quorum`, a `StepFailedError` naming the launching step, with `min` and `counted`) into
-   `.onJoinError(QuorumNotReachedError, …)`, else the execution fails with it.
+   `.onError(QuorumNotReachedError, …)`, else the execution fails with it.
 
 | What happens in a branch | Its record |
 | --- | --- |
@@ -295,9 +329,9 @@ every branch and deciding at the join:
 | accepted after the quorum was decided | `Finished`, `Surplus` |
 | still running (or checked) when the quorum was decided | `Cancelled` |
 | its own step failed (`StepFailedError`) | `Skipped` — under a quorum it only leaves its place empty |
-| an arbiter threw, returned no boolean, or its model did not answer | `Failed` with `ArbiterError` (`step.arbiter`): the launch fails, `.onJoinError(ArbiterError, …)` takes it |
+| an arbiter threw, returned no boolean, or its model did not answer | `Failed` with `ArbiterError` (`step.arbiter`): the launch fails, `.onError(ArbiterError, …)` takes it |
 | a limit, `app.cancel` | as for every launch (#273 S21): the launch fails / the execution is cancelled |
-| a budget exhausted by any branch's call (#338) | its calls in flight aborted at once, `Failed` with `BudgetExceededError`: the launch fails before the quorum is decided, `.onJoinError(BudgetExceededError, …)` takes it ([FinOps → At run time](FinOps#at-run-time)) |
+| a budget exhausted by any branch's call (#338) | its calls in flight aborted at once, `Failed` with `BudgetExceededError`: the launch fails before the quorum is decided, `.onError(BudgetExceededError, …)` takes it ([FinOps → At run time](FinOps#at-run-time)) |
 
 Every branch's spend counts — a cancelled or surplus branch's too. Each branch's calls are counted
 the moment they are made (#338), so an arbiter's check before its model call sees the siblings'
@@ -305,12 +339,12 @@ spend while they run.
 
 ### The deadline
 
-`deadline` (`seconds()`, `minutes()`, `hours()`) is turned into `deadlineAt` once, when the launch is
+`deadline` (`seconds()`, `minutes()`, `hours()`; or working time through the quorum's calendar, see above) is turned into `deadlineAt` once, when the launch is
 dispatched, from the application's `Clock`, and kept in the launch's ticket (the state and every
 branch's payload). A `Clock` sleep ends the quorum at that moment: `min` reached → go on (groups: the
 highest-priority complete group), else `QuorumNotReachedError` ("the deadline passed"). A pause
 counts as elapsed time. The time its branches wait in the tree's queue (#264
-`maxConcurrentExecutions`) does not: the deadline moves by it, in the process that runs the launch
+`maxConcurrency`) does not: the deadline moves by it, in the process that runs the launch
 ([FinOps → Concurrency of a tree](FinOps#concurrency-of-a-tree-264)); a model call's wait for a
 provider's rate limit (#266) is not excluded. A `QuorumNotReachedError` past the moved deadline says so: `the deadline passed
 (2026-01-05T09:01:10.000Z: the ticket's deadline plus 40 s in the tree's queue)`. The time in the queue
@@ -344,7 +378,7 @@ finds the quorum decided, cancels the unfinished branches and withdraws their pa
 ### Model arbiters
 
 A `DecidedBy.Model` arbiter makes one decision per answer, on its own `model`: a decision model gets
-one `Decision.noul` — the agent's criterion — over the arbiter's `prompt` and the answer as JSON; a
+one `Decision.boolean` — the agent's criterion — over the arbiter's `prompt` and the answer as JSON; a
 chat model answers through one answer tool (`answer-arbiter`) with a boolean. P(yes) > 0.5 counts.
 Its spend is recorded under `arbiter:<name>`; the execution's budgets are checked before every call.
 The arbiter's prompt and criteria are part of the workflow's prompt version, its model of the model
@@ -353,7 +387,7 @@ version, and its model is a model use like a router's (`arbiters.<name>` in `agb
 
 ### What it shows
 
-`result.launches` adds, per quorum launch, `isQuorumReached`, `group` (the winning group's `agents`
+`result.launches` adds, per quorum launch, `isQuorumReached`, `group` (the winning group's `targets`
 and `priority`) and, per branch, `verdict`, `acceptedSequence` and `rejectedBy`. The branch's trace
 entry carries the same; the join adds a trace entry "quorum decided" and the observer event
 `onQuorumDecided` ([Observability](Observability#quorums)).
@@ -361,7 +395,7 @@ entry carries the same; the join adds a trace entry "quorum decided" and the obs
 ### `agboss generate arbiter`
 
 `agboss generate arbiter in-range-arbiter --workflow panel-workflow` writes
-`arbiters/in-range.arbiter.ts`: a code arbiter with one `@OnAnswer(Agent) from<Agent>(answer:
-ArbiterAnswerOf<typeof Agent>): boolean` method per distinct agent of the flow's launch (`--agent
+`arbiters/in-range.arbiter.ts`: a code arbiter with one `@Arbitrate(A, B) isMeaningful(answer:
+ArbitratedAnswerOf<[typeof A, typeof B]>): boolean` method for the distinct agents of the flow's launch (`--agent
 <name>-agent` picks the launch when there are several). It is not put into the flow — attach it with
-`.acceptedBy(InRangeArbiter)` where it belongs.
+`.arbitratedBy(InRangeArbiter)` where it belongs.

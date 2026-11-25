@@ -1,3 +1,5 @@
+import { leaseMarksOf } from "./lease-marks.js";
+import type { NewStatusTransition } from "../turns/index.js";
 import { scopeKeyOf } from "./lease-lost.js";
 import type * as AuditLog from "./audit-log.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
@@ -59,7 +61,12 @@ export interface HeldExecutionLease extends FrameLease {
    * Runs `listener` when a fenced write or a call of a step under this lease was refused by its
    * tree's cancel (#909, `cancelFound`): the holder's pass stops as cancelled at once.
    */
-  whenCancelFound(listener: () => void): void;
+  whenCancelFound(listener: (cause: Error) => void): void;
+  /**
+   * An `AfterStep` stop was found (#1341b): every step that starts under this lease from now on is
+   * refused with `error` (`ExecutionStoppedError`); the step in flight finishes and commits.
+   */
+  stopAfterStep(error: Error): void;
   /**
    * Yields the lease in `ExecutionLeaseRepository` while `wait` awaits remote children (#333 PR 4,
    * S9 Q1) — only while no other step of the tree runs (#471) — and reclaims it, at the next token,
@@ -78,7 +85,14 @@ export interface HeldExecutionLease extends FrameLease {
 export type RenewalCheck = () => Promise<void>;
 
 /** The leases of one application instance's trees. */
-export interface ExecutionLeases {
+/**
+ * The tree's lease and its marks, as the app moves a tree (`requestStop` and `stopOf` are the lease
+ * store's own, #1341b: the stop is durable on its backend, idempotent, the mode only escalates).
+ */
+export interface ExecutionLeases extends Pick<
+  ExecutionLeaseRepository,
+  "requestStop" | "stopOf" | "markedOf" | "requestPause" | "unpause" | "pauseOf"
+> {
   /**
    * The tree's lease: at once when free, else once its holder releases it or its lease expires;
    * `signal` (the caller's) ends the wait with its reason.
@@ -89,9 +103,10 @@ export interface ExecutionLeases {
   /**
    * The tree's cancel is durable on the lease store's backend (#909): from now on every fencing
    * store refuses a new effect of the tree, in the transaction that checks the lease. Resolves once
-   * written; idempotent; rejects with the store's error, nothing written.
+   * written; idempotent; rejects with the store's error, nothing written. A `transition` (#1341d)
+   * is the thread's history row, written in the mark's own transaction.
    */
-  requestCancel(tree: ExecutionTree): Promise<void>;
+  requestCancel(tree: ExecutionTree, transition?: NewStatusTransition): Promise<void>;
   /**
    * Whether the tree's cancel is durable on the lease store's backend (#1152): the sweep's look at
    * a resting tree. A store that fails rejects.
@@ -120,8 +135,7 @@ export function executionLeasesOf(
     takeLease(taking, tree, why);
   return {
     tryHold: take,
-    requestCancel: (tree) => repository.requestCancel(tree),
-    isCancelRequested: (tree) => repository.isCancelRequested(tree),
+    ...leaseMarksOf(repository),
     hold: async (tree, signal, why) => {
       const key = treeKeyOf(tree.tenantId, tree.rootExecutionId);
       for (;;) {

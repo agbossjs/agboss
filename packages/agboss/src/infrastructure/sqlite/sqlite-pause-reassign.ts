@@ -1,4 +1,4 @@
-import type { PauseRecipients, PauseReplacement } from "../pause-notices.js";
+import type { PauseReassignmentChange, PauseRecipients } from "../pause-notices.js";
 import { reassignChange } from "../pause-reassign-transition.js";
 import type { PauseRecord } from "../pause-record.js";
 import type { SqliteConnection } from "./sqlite-connection.js";
@@ -17,7 +17,7 @@ export interface ReassignRows {
 export interface ReassignTarget {
   readonly tenantId: string;
   readonly pauseId: string;
-  readonly replacement: PauseReplacement;
+  readonly replacement: PauseReassignmentChange;
 }
 
 /**
@@ -40,9 +40,11 @@ export function reassignedIn(
       rows.pauses.findAllByRoot(tenantId, current.rootExecutionId).map((pause) => pause.stepKey),
     );
     const change = reassignChange(current, replacement, taken, at, recipients);
-    if (change?.inserted === undefined) return undefined;
+    if (change === undefined) return undefined;
     oneRowChanged(rows.pauses.write(change.pause, current.status) ? 1 : 0);
     rows.notices.append(change.pause, change.notices);
+    // in place: the changed pause itself; otherwise the replacement is inserted
+    if (change.inserted === undefined) return change.pause;
     rows.pauses.insert(change.inserted);
     return change.inserted;
   });

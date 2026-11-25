@@ -6,6 +6,8 @@ import {
   WorkflowStart,
   type OnInit,
   type OnStart,
+  inline,
+  Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
@@ -21,7 +23,8 @@ import {
 } from "../../../src/models/index.js";
 import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { start } from "../../helpers/flow.js";
+import { onStart } from "../../helpers/flow.js";
+import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
 
 /** #439: an application whose only model provider is a transport — what a VCR test records from. */
 
@@ -34,14 +37,16 @@ export class EchoLog {
 @ModelProvider({
   name: "echo-model-provider",
   description: "Answers by the request, offline",
-  serves: [/^echo\//],
   timeout: seconds(5),
   cost: ModelCost.fromPrices({
     "echo/first": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
     "echo/second": { inputPerMillion: usd(1), outputPerMillion: usd(1) },
   }),
-  retryPolicy: RetryPolicy.none(),
-  circuitBreakerPolicy: { failureThreshold: 5, window: minutes(1), openFor: seconds(30) },
+  circuitBreakerPolicy: CircuitBreakerPolicy.fixed({
+    failureThreshold: 5,
+    failureWindow: minutes(1),
+    openDuration: seconds(30),
+  }),
   deps: [EchoLog],
 })
 export class EchoModelProvider implements ModelProviderHandler, OnInit, OnStart {
@@ -59,7 +64,7 @@ export class EchoModelProvider implements ModelProviderHandler, OnInit, OnStart 
     this.echoLog.entries.push(`complete ${request.model}`);
     return Promise.resolve({
       text: `answered by ${request.model}`,
-      usage: { inputTokens: 10, outputTokens: 5 },
+      usage: { inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 },
     });
   }
 }
@@ -83,13 +88,19 @@ function echoWorkflowOn(
   })
   class EchoFinish {}
 
-  @Agent({ name: `${prefix}-agent`, description: "Echoes", prompt: "Repeat the message.", model })
+  @Agent({
+    name: `${prefix}-agent`,
+    description: "Echoes",
+    prompt: inline("Repeat the message."),
+    model,
+  })
   class EchoAgent {}
 
   @Workflow({
     name: `${prefix}-workflow`,
     version: "1.0.0",
-    flow: [start(EchoStart).returns(WorkflowStartTextDto).toAgent(EchoAgent).toFinish(EchoFinish)],
+    historyTtl: Ttl.Forever,
+    flow: [onStart(EchoStart).toAgent(EchoAgent).toFinish(EchoFinish)],
   })
   class EchoWorkflow {}
 
@@ -101,6 +112,7 @@ export const SECOND = echoWorkflowOn("echo/second", "second-echo");
 
 @Application({
   name: "echo-application",
+  modelProvider: EchoModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [FIRST.workflow, SECOND.workflow],

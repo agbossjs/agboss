@@ -1,6 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { AsyncLocalStorageProviderSingleton } from "@langchain/core/singletons";
 import { BaseCheckpointSaver, emptyCheckpoint } from "@langchain/langgraph";
+import { childThreadOf, ROOT_EXECUTION_ID_KEY } from "../../infrastructure/checkpoint-threads.js";
 import type { ChildIdentityRecord } from "./child-records.js";
 import type { ExecutionStateType } from "./state.js";
 
@@ -13,9 +14,7 @@ import type { ExecutionStateType } from "./state.js";
  * after a pause or a crash finds it (the place that held the child's whole state before, #263 S24).
  */
 
-/** The child's own checkpoint thread (S4 D3). */
-export const childThreadOf = (parentThreadId: string, executionId: string): string =>
-  `${parentThreadId}/child/${executionId}`;
+export { childThreadOf };
 
 /** What the launching task's marker holds: the child's identity and its own thread. */
 export interface ChildMarker {
@@ -65,7 +64,14 @@ export function markerConfigOf(config: RunnableConfig | undefined): RunnableConf
   const threadId: unknown = config?.configurable?.thread_id;
   const namespace: unknown = config?.configurable?.checkpoint_ns;
   if (typeof threadId !== "string" || typeof namespace !== "string") return undefined;
-  return { configurable: { thread_id: threadId, checkpoint_ns: namespace } };
+  const root: unknown = config?.configurable?.[ROOT_EXECUTION_ID_KEY];
+  return {
+    configurable: {
+      thread_id: threadId,
+      checkpoint_ns: namespace,
+      ...(typeof root === "string" ? { [ROOT_EXECUTION_ID_KEY]: root } : {}),
+    },
+  };
 }
 
 /** Keeps the launching task's marker: written once, on the child's first entry. */
@@ -95,7 +101,7 @@ export const childThreadIn = (values: unknown): string | undefined =>
 /** What a waiting parent's node interrupts with (`child-own-thread.ts`): where its child is. */
 export interface WaitingFor {
   readonly thread: string;
-  /** The parent's node: the child's graph is its registered subgraph (or `ThisWorkflow`'s own). */
+  /** The parent's node: the child's graph is its registered subgraph (or its own, for a recursion). */
   readonly node: string;
   readonly isRecursive: boolean;
   /** Whether the child runs on any instance through `ChildExecutionQueueRepository` (#333 PR 4). */

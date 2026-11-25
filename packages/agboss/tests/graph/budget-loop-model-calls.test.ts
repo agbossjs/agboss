@@ -10,8 +10,8 @@ import {
   makeModelNode,
   toolDefinitionsOf,
   ToolCallingUnsupportedError,
-  withCallIds,
 } from "../../src/graph/agent-loop/model-node.js";
+import { withCallIds } from "../../src/graph/agent-loop/call-ids.js";
 import {
   loopPoliciesOf,
   maskedRequest,

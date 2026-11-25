@@ -1,21 +1,17 @@
 import { Channel, Injectable } from "../../../src/components/decorators.js";
-import { ChannelOf, type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import {
-  ChannelRole,
-  PauseAnswerer,
-  ReplyInterpretation,
-  ReplyInterpreter,
-  type ReplyInterpreterHandler,
-} from "../../../src/channels/channel-role.decorator.js";
-import { Flag, Integer, Text } from "../../../src/dto/index.js";
+  ChannelInterpretation,
+  ChannelInterpreter,
+} from "../../../src/channels/channel-interpreter.js";
+import { Bool, Integer, Text } from "../../../src/dto/index.js";
 import { ExecutionContext } from "../../../src/flow/context/execution-context.js";
 import { Action } from "../../../src/flow/decorators/action.js";
-import { DecidedBy } from "../../../src/flow/decorators/router.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { oneOf, variant } from "../../../src/flow/dto-wrappers.js";
+import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { Application } from "../../../src/application/application.js";
@@ -23,8 +19,12 @@ import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { PiiAction } from "../../../src/pii/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
-import { caseOf, question, start, toFinish } from "./paths.js";
+import { onExternalTask, onStart, toFinish, toExternalTask } from "./paths.js";
 import { QuestionFailedError } from "../../../src/flow/runtime/errors.js";
+import { inline, ExternalTask, Ttl } from "../../../src/index.js";
+import { PauseRespondent } from "../../../src/pause/respondent.js";
+import { days } from "../../../src/units/index.js";
+import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #659 — question roles: a purchase asks its budget owner for a spending limit before it is placed.
@@ -40,12 +40,12 @@ export class PurchaseQuestionDto {
   @Integer({ prompt: "its price in dollars", min: 0 })
   priceUsd!: number;
 
-  @Text({ prompt: "who asks", optional: true, sensitive: PiiAction.replaceWithKind() })
+  @Text({ prompt: "who asks", optional: true, sensitive: PiiAction.mask() })
   requester?: string;
 }
 
 export class SpendingLimitAnswerDto {
-  @Flag({ prompt: "whether the purchase may go on" })
+  @Bool({ prompt: "whether the purchase may go on" })
   approved!: boolean;
 
   @Integer({ prompt: "the most it may cost, in dollars", min: 0 })
@@ -60,57 +60,57 @@ export class PurchasePlacedDto {
 /** What the channels were asked and the actions did, across the instances of a test. */
 @Injectable()
 export class QuestionInbox {
-  readonly asked: ChannelAsk<SpendingLimitQuestion>[] = [];
-  readonly ownerAsked: ChannelAsk<BudgetOwnerQuestion>[] = [];
+  readonly asked: ChannelAsk<SpendingLimitQuestionExternalTask>[] = [];
+  readonly ownerAsked: ChannelAsk<BudgetOwnerQuestionExternalTask>[] = [];
   readonly placed: SpendingLimitAnswerDto[] = [];
 }
 
 /** Reads "up to 500" / "no" into a limit; anything else is not understood. */
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "spending-limit-reply-interpreter",
   description: "Reads the owner's limit",
-  decidedBy: DecidedBy.Code,
 })
-export class SpendingLimitReplyInterpreter
-  implements ReplyInterpreterHandler<SpendingLimitReplyInterpreter>
-{
+export class SpendingLimitReplyInterpreter {
   interpret(
     input: InputOf<SpendingLimitReplyInterpreter>,
-  ): ReplyInterpretation<OutputOf<SpendingLimitReplyInterpreter>> {
+  ): ChannelInterpretation<OutputOf<SpendingLimitReplyInterpreter>> {
     const limit = /up to \$?(\d+)/.exec(input.reply);
     if (limit?.[1] !== undefined)
-      return ReplyInterpretation.understood({ approved: true, limitUsd: Number(limit[1]) });
+      return ChannelInterpretation.understood({ approved: true, limitUsd: Number(limit[1]) });
     if (/^no\b/i.test(input.reply.trim()))
-      return ReplyInterpretation.understood({ approved: false, limitUsd: 0 });
-    return ReplyInterpretation.notUnderstood({ reason: `"${input.reply}" names no limit` });
+      return ChannelInterpretation.understood({ approved: false, limitUsd: 0 });
+    return ChannelInterpretation.notUnderstood(`"${input.reply}" names no limit`);
   }
 }
 
-@ChannelRole({
-  name: "spending-limit-question",
+@ExternalTask({
+  name: "spending-limit-question-external-task",
   description: "Asks the thread's owner for this purchase's spending limit",
-  ask: PurchaseQuestionDto,
-  answer: SpendingLimitAnswerDto,
-  answerer: PauseAnswerer.ThreadOwner,
-  replyInterpreter: SpendingLimitReplyInterpreter,
+  input: PurchaseQuestionDto,
+  output: SpendingLimitAnswerDto,
+  respondent: PauseRespondent.Owner,
+  timeout: days(365),
+  channelInterpreter: SpendingLimitReplyInterpreter,
 })
-export abstract class SpendingLimitQuestion extends ChannelOf<SpendingLimitQuestion> {}
+export class SpendingLimitQuestionExternalTask {}
 
 /** Posts the question to the owner's inbox and waits for the reply. */
 @Channel({
   name: "inbox-spending-limit-channel",
   description: "The owner's inbox",
   deps: [ExecutionContext, QuestionInbox],
+  target: SpendingLimitQuestionExternalTask,
+  ttl: days(1),
 })
-export class InboxSpendingLimitChannel extends SpendingLimitQuestion {
+export class InboxSpendingLimitChannel {
   constructor(
     private readonly executionContext: ExecutionContext,
     private readonly questionInbox: QuestionInbox,
-  ) {
-    super();
-  }
+  ) {}
 
-  send(ask: ChannelAsk<SpendingLimitQuestion>): Promise<ChannelOutcome<SpendingLimitQuestion>> {
+  send(
+    ask: ChannelAsk<SpendingLimitQuestionExternalTask>,
+  ): Promise<ChannelOutcome<SpendingLimitQuestionExternalTask>> {
     this.executionContext.signal.throwIfAborted();
     this.questionInbox.asked.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
@@ -118,47 +118,56 @@ export class InboxSpendingLimitChannel extends SpendingLimitQuestion {
 }
 
 /** Decides at once: a purchase of $100 or less goes on with a limit of $100. */
-@Channel({ name: "rule-spending-limit-channel", description: "Up to $100 at once" })
-export class RuleSpendingLimitChannel extends SpendingLimitQuestion {
-  send(ask: ChannelAsk<SpendingLimitQuestion>): Promise<ChannelOutcome<SpendingLimitQuestion>> {
+@Channel({
+  name: "rule-spending-limit-channel",
+  description: "Up to $100 at once",
+  target: SpendingLimitQuestionExternalTask,
+  ttl: days(1),
+})
+export class RuleSpendingLimitChannel {
+  send(
+    ask: ChannelAsk<SpendingLimitQuestionExternalTask>,
+  ): Promise<ChannelOutcome<SpendingLimitQuestionExternalTask>> {
     return Promise.resolve(
-      ChannelOutcome.decided({ approved: ask.value.priceUsd <= 100, limitUsd: 100 }),
+      ChannelOutcome.decided({ approved: ask.input.priceUsd <= 100, limitUsd: 100 }),
     );
   }
 }
 
 /** A budget owner's words read by a chat model. */
-@ReplyInterpreter({
+@ChannelInterpreter({
   name: "budget-owner-reply-interpreter",
   description: "Reads the budget owner's limit",
-  decidedBy: DecidedBy.Model,
   model: "test/m",
-  prompt: "The budget owner names the most this purchase may cost.",
+  prompt: inline("The budget owner names the most this purchase may cost."),
 })
 export class BudgetOwnerReplyInterpreter {}
 
-@ChannelRole({
-  name: "budget-owner-question",
+@ExternalTask({
+  name: "budget-owner-question-external-task",
   description: "Asks a budget owner, authenticated by the channel",
-  ask: PurchaseQuestionDto,
-  answer: SpendingLimitAnswerDto,
-  answerer: PauseAnswerer.Channel,
-  replyInterpreter: BudgetOwnerReplyInterpreter,
+  input: PurchaseQuestionDto,
+  output: SpendingLimitAnswerDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: days(365),
+  channelInterpreter: BudgetOwnerReplyInterpreter,
   maxVisits: 2,
 })
-export abstract class BudgetOwnerQuestion extends ChannelOf<BudgetOwnerQuestion> {}
+export class BudgetOwnerQuestionExternalTask {}
 
 @Channel({
   name: "inbox-budget-owner-channel",
   description: "The budget owners' inbox",
   deps: [QuestionInbox],
+  target: BudgetOwnerQuestionExternalTask,
+  ttl: days(1),
 })
-export class InboxBudgetOwnerChannel extends BudgetOwnerQuestion {
-  constructor(private readonly questionInbox: QuestionInbox) {
-    super();
-  }
+export class InboxBudgetOwnerChannel {
+  constructor(private readonly questionInbox: QuestionInbox) {}
 
-  send(ask: ChannelAsk<BudgetOwnerQuestion>): Promise<ChannelOutcome<BudgetOwnerQuestion>> {
+  send(
+    ask: ChannelAsk<BudgetOwnerQuestionExternalTask>,
+  ): Promise<ChannelOutcome<BudgetOwnerQuestionExternalTask>> {
     this.questionInbox.ownerAsked.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
@@ -187,7 +196,7 @@ export class PurchaseUnaskedWorkflowFinish {}
 })
 export class DraftQuestionAction implements ActionHandler<DraftQuestionAction> {
   execute({ message }: InputOf<DraftQuestionAction>): Promise<OutputOf<DraftQuestionAction>> {
-    const [item = "", price = "0"] = message.value.text.split(" for ");
+    const [item = "", price = "0"] = message.text.split(" for ");
     return Promise.resolve({ item, priceUsd: Number(price), requester: "alice" });
   }
 }
@@ -204,9 +213,9 @@ export class PlacePurchaseAction implements ActionHandler<PlacePurchaseAction> {
   constructor(private readonly questionInbox: QuestionInbox) {}
 
   execute(input: InputOf<PlacePurchaseAction>): Promise<OutputOf<PlacePurchaseAction>> {
-    const { item, priceUsd } = input.question.value;
-    const { approved, limitUsd } = input.answer.value;
-    this.questionInbox.placed.push(input.answer.value);
+    const { item, priceUsd } = input.question;
+    const { approved, limitUsd } = input.answer;
+    this.questionInbox.placed.push(input.answer);
     const within = approved && priceUsd <= limitUsd;
     const status = within
       ? `placed ${item} at ${String(priceUsd)} within ${String(limitUsd)}`
@@ -224,57 +233,57 @@ export class PlacePurchaseAction implements ActionHandler<PlacePurchaseAction> {
 })
 export class CheckLimitAction implements ActionHandler<CheckLimitAction> {
   execute({ question, answer }: InputOf<CheckLimitAction>): Promise<OutputOf<CheckLimitAction>> {
-    if (answer.value.limitUsd >= question.value.priceUsd)
-      return Promise.resolve(variant(PurchasePlacedDto, { status: `placed within ${String(answer.value.limitUsd)}` }));
-    const { item, priceUsd, requester } = question.value;
-    return Promise.resolve(variant(PurchaseQuestionDto, { item, priceUsd, requester }));
+    if (answer.limitUsd >= question.priceUsd)
+      return Promise.resolve({ status: `placed within ${String(answer.limitUsd)}` });
+    const { item, priceUsd, requester } = question;
+    return Promise.resolve({ item, priceUsd, requester });
   }
 }
 
 @Workflow({
   name: "purchase-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(PurchaseWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(PurchaseWorkflowStart)
       .toAction(DraftQuestionAction)
-      .returns(PurchaseQuestionDto)
-      .toQuestion(SpendingLimitQuestion)
+      .toExternalTask(SpendingLimitQuestionExternalTask)
       .onError(QuestionFailedError, toFinish(PurchaseUnaskedWorkflowFinish))
-      .returns(SpendingLimitAnswerDto)
       .toAction(PlacePurchaseAction)
-      .returns(PurchasePlacedDto)
       .toFinish(PurchaseWorkflowFinish),
   ],
   providers: [QuestionInbox],
 })
 export class PurchaseWorkflow {}
 
-@WorkflowStart({ name: "owner-purchase-workflow-start", description: "d", input: WorkflowStartTextDto })
+@WorkflowStart({
+  name: "owner-purchase-workflow-start",
+  description: "d",
+  input: WorkflowStartTextDto,
+})
 export class OwnerPurchaseWorkflowStart {}
 
-@WorkflowFinish({ name: "owner-purchase-workflow-finish", description: "d", output: PurchasePlacedDto })
+@WorkflowFinish({
+  name: "owner-purchase-workflow-finish",
+  description: "d",
+  output: PurchasePlacedDto,
+})
 export class OwnerPurchaseWorkflowFinish {}
 
 @Workflow({
   name: "owner-purchase-workflow",
   version: "1.0.0",
+  historyTtl: Ttl.Forever,
   flow: [
-    start(OwnerPurchaseWorkflowStart)
-      .returns(WorkflowStartTextDto)
+    onStart(OwnerPurchaseWorkflowStart)
       .toAction(DraftQuestionAction)
-      .returns(PurchaseQuestionDto)
-      .toQuestion(BudgetOwnerQuestion),
-    question(BudgetOwnerQuestion)
-      .returns(SpendingLimitAnswerDto, { about: PurchaseQuestionDto })
+      .toExternalTask(BudgetOwnerQuestionExternalTask),
+    onExternalTask(BudgetOwnerQuestionExternalTask)
       .toAction(CheckLimitAction)
-      .returns(oneOf(PurchasePlacedDto, PurchaseQuestionDto))
-      .switch(
-        caseOf(PurchasePlacedDto)
-          .toFinish(OwnerPurchaseWorkflowFinish),
-        caseOf(PurchaseQuestionDto)
-          .toQuestion(BudgetOwnerQuestion),
-      ),
+      .toOneOf([
+        toFinish(OwnerPurchaseWorkflowFinish),
+        toExternalTask(BudgetOwnerQuestionExternalTask),
+      ]),
   ],
   providers: [QuestionInbox],
 })
@@ -282,6 +291,7 @@ export class OwnerPurchaseWorkflow {}
 
 @Application({
   name: "questions-application",
+  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [PurchaseWorkflow, OwnerPurchaseWorkflow],

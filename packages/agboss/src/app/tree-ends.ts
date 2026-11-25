@@ -3,6 +3,7 @@ import type {
   ExecutionTree,
   ExecutionTreeRepository,
 } from "../infrastructure/execution-tree.repository.js";
+import { FileRepository } from "../infrastructure/file.repository.js";
 import { withoutRecoveryOf } from "./tree-control.js";
 import type { AppDeps } from "./app-deps.js";
 import type { LiveRuns } from "./live-runs.js";
@@ -65,7 +66,7 @@ export type TreeEndParts = Pick<TreeMoveParts, "deps" | "trees" | "clock">;
 
 /**
  * The tree ended (finished, failed, cancelled): its keys removed — a cancel request among them —
- * and its pauses closed last (#267 AC10, #939): the reason follows `end`. Idempotent, so the orphan
+ * its checkpoint threads deleted (#1321d), and its pauses closed last (#267 AC10, #939): the reason follows `end`. Idempotent, so the orphan
  * look runs it again for a tree whose instance died in the middle. The root's record is terminal
  * before this runs — never earlier: the cancel request goes with the keys, and a recovery of a
  * still `running` root would run a cancelled tree's pass again (#901's class).
@@ -76,14 +77,29 @@ export async function forgetTree(
   cause: unknown = TREE_FINISHED,
 ): Promise<void> {
   await parts.trees.deleteAllInTree(treeOf(state));
+  // its files age from now (#1316): never before, a running or a paused tree keeps them
+  await parts.deps.container.get(FileRepository).markOwnerCompleted({
+    tenantId: state.tenantId,
+    ownerId: state.runId,
+    workflow: parts.deps.config.name,
+    completedAt: parts.clock.now(),
+  });
   // its queued children (#333 PR 2): a worker still running one stops at its next look
   await parts.deps.remoteChildren?.queue.deleteAllByTenantIdAndRootExecutionId(
     state.tenantId,
     state.runId,
   );
   parts.deps.branchErrors?.forgetExecution(state.runId);
+  // no history is kept (`historyTtl: Ttl.None`): the thread's status history goes with its tree,
+  // so no row outlives the transient ones (#1341d)
+  if (parts.deps.executionHistory === undefined)
+    await parts.deps.turns.forgetStatusHistory(state.tenantId, state.threadId);
   const { pause } = parts.deps;
   if (pause === undefined) return;
+  // its checkpoints, the root's thread and every child's (#1321d): an ended tree is read from its
+  // kept record from here on, never from a checkpoint; before the pauses close, so a crash between
+  // the two leaves the pause rows for the orphan look, which runs this again
+  await pause.checkpointer.deleteThread(state.runId);
   const ends = { stores: pause };
   const site = { ...treeOf(state), threadId: state.threadId };
   const end = { cause: cause instanceof Error ? cause : new Error(String(cause)) };

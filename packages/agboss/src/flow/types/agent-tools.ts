@@ -1,32 +1,29 @@
-import { questionRoleOf } from "../../channels/discovery.js";
+import { externalTaskOf } from "../../channels/discovery.js";
 import { componentOf } from "../../components/metadata.js";
 import type { Class } from "../../components/injection.js";
-import { RagMode } from "../../rag/types.js";
 import { NodeKind } from "../ast.js";
-import type { AgentDeclaration } from "../decorators/declaration.js";
+import { declarationOf, type AgentDeclaration } from "../decorators/declaration.js";
 import type { ImportTable } from "./imports.js";
 import type { AnalysedWorkflow, TypeTable } from "./tables.js";
 
 /**
  * The `AgentTools` table (#679): per agent, the names its model may call — each `@Tool` /
- * `@McpTool` and question role (#712) it lists and each tool-mode knowledge base's `search-<rag>-tool` — so a scripted
+ * and external task (#712) it lists and each tool-mode knowledge base's `search-<rag>-tool` — so a scripted
  * `callTool(…)` / `callTools(…)` turn of another tool does not compile. Each tool and knowledge-base
  * class is branded with its name (`readonly [agbossComponent]?: "order-status-tool"`), what
  * `callTool(Tool, …)` reads.
  */
 
 /**
- * The name a tool, MCP tool, knowledge base or question role (#712) class is known by; `undefined`
+ * The name a tool, MCP tool, knowledge base or external task (#712) class is known by; `undefined`
  * for any other class.
  */
 export function toolComponentNameOf(cls: Class): string | undefined {
-  const role = questionRoleOf(cls);
-  if (role !== undefined) return role.name;
+  const task = externalTaskOf(cls);
+  if (task !== undefined) return task.name;
   const component = componentOf(cls);
   switch (component?.kind) {
     case "tool":
-    case "mcp-tool":
-    case "rag":
       return component.meta.name;
     default:
       return undefined;
@@ -35,7 +32,7 @@ export function toolComponentNameOf(cls: Class): string | undefined {
 
 /** The tool names of one agent's options, its classes registered for their brands. */
 function toolNamesOf(
-  options: Pick<AgentDeclaration["options"], "tools" | "rag">,
+  options: Pick<AgentDeclaration["options"], "tools">,
   names: ImportTable,
 ): readonly string[] {
   const tools = (options.tools ?? []).flatMap((cls) => {
@@ -43,13 +40,7 @@ function toolNamesOf(
     if (name === undefined || names.refIfExported(cls) === undefined) return [];
     return [name];
   });
-  const searches = (options.rag ?? []).flatMap(({ use, mode }) => {
-    const name = toolComponentNameOf(use);
-    if (mode !== RagMode.Tool || name === undefined) return [];
-    names.refIfExported(use);
-    return [`search-${name}-tool`];
-  });
-  return [...new Set([...tools, ...searches])].sort();
+  return [...new Set(tools)].sort();
 }
 
 /** Every agent's entry: the union of its tool names, `never` for an agent without tools. */
@@ -68,5 +59,25 @@ export function agentToolsTableOf(
         tools.length === 0 ? "never" : tools.map((n) => JSON.stringify(n)).join(" | "),
       );
     }
+  return table;
+}
+
+/** The tools of the agents no workflow reaches (#1324g): a standalone agent's `AgentTools` entry. */
+export function standaloneAgentToolsOf(
+  components: readonly Class[],
+  reached: ReadonlySet<Class>,
+  names: ImportTable,
+): TypeTable {
+  const table = new Map<string, string>();
+  for (const component of components) {
+    const declaration = declarationOf(component);
+    if (reached.has(component) || declaration?.kind !== NodeKind.Agent) continue;
+    if (table.has(declaration.options.name)) continue;
+    const tools = toolNamesOf(declaration.options, names);
+    table.set(
+      declaration.options.name,
+      tools.length === 0 ? "never" : tools.map((n) => JSON.stringify(n)).join(" | "),
+    );
+  }
   return table;
 }

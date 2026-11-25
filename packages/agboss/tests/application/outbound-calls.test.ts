@@ -1,30 +1,17 @@
 /**
- * #505 — `@Application({ outboundCalls })`: the largest request and result and the retention of
- * ended intents, checked at assembly (`[application.outbound-calls-invalid]`), read by
- * `OutboundCalls` (a request above `maxPayloadSize` is neither recorded nor sent; a result above it
- * leaves the intent pending, so the next attempt reconciles) and by the recovery sweep, which
- * removes ended intents past the retention on the `Clock` — never a pending one.
+ * #505, #1317 — the largest request and result of a call (`maxPayloadSize` of `sendOnce`: a request
+ * above it is neither recorded nor sent; a result above it leaves the intent marked as not stored),
+ * and the recovery sweep, which removes ended intents whose expiry has come, on the `Clock` — never a
+ * pending one. A call's `timeout` is refused when it is not a positive duration.
  */
-import type { RetentionOptions } from "../../src/application/retention.js";
+import { OutboundCallError } from "../../src/core/error-families/effect-errors.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import {
-  OutboundCallPayloadTooLargeError,
-  OutboundCallRepository,
-  OutboundCallSettings,
-  OutboundCallStatus,
-  type OutboundCallOptions,
-} from "../../src/index.js";
+import { OutboundCallRepository, OutboundCallStatus } from "../../src/index.js";
+import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import { testWith } from "../../src/testing/index.js";
-import {
-  hours,
-  kilobytes,
-  minutes,
-  seconds,
-  type Bytes,
-  type Milliseconds,
-} from "../../src/units/index.js";
+import { kilobytes, seconds, type Milliseconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { logged, RecordingLogger, resetLogged } from "../helpers/log.js";
 import { RecoveryLog, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
@@ -34,6 +21,7 @@ import {
   ChargeWorkflowStart,
   OutboundCallApplication,
   resetRuns,
+  runs,
 } from "../app/fixtures/outbound-call.workflow.js";
 import { gateway, resetGateway } from "../app/fixtures/payment-gateway.js";
 import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
@@ -47,73 +35,20 @@ beforeEach(() => {
 
 const TREE = { tenantId: "default", rootExecutionId: "execution-1" };
 
-const assembledWith = (outboundCalls: OutboundCallOptions, retention?: RetentionOptions) => {
-  @Application({
-    name: "settings-application",
-    version: "1.0.0",
-    environment: IdempotencyKeyEnvironment,
-    idempotencyKeyField: "idempotencyKey",
-    workflows: [ChargeWorkflow],
-    budgets: TEST_BUDGETS,
-    outboundCalls,
-    ...(retention === undefined ? {} : { retention }),
-  })
-  class SettingsApplication {}
-  return applicationOf(SettingsApplication);
-};
+describe("#505, #1317: the outbound calls' masking at assembly", () => {
+  it("a request is stored masked only where the application lists PII policies", async () => {
+    @Application({
+      name: "masking-application",
+      version: "1.0.0",
+      environment: IdempotencyKeyEnvironment,
+      workflows: [ChargeWorkflow],
+      budgets: TEST_BUDGETS,
+    })
+    class MaskingApplication {}
 
-describe("#505: @Application({ outboundCalls }) at assembly", () => {
-  it("defaults to 64 KB and a week", async () => {
-    const assembled = await assembledWith({});
+    const assembled = await applicationOf(MaskingApplication, { withoutIdempotencyKeys: true });
 
-    expect(assembled.outboundCalls).toEqual(new OutboundCallSettings({ requiresMask: false }));
-    expect(assembled.outboundCalls).toMatchObject({
-      maxPayloadSize: 65_536,
-      retention: hours(168),
-      attemptTimeout: minutes(2),
-    });
-  });
-
-  it.each([0, -1, Number.NaN])(
-    "#508 re-review HIGH1: an attemptTimeout of %s ms fails assembly",
-    async (timeout) => {
-      await expect(assembledWith({ attemptTimeout: timeout as Milliseconds })).rejects.toThrow(
-        `[application.outbound-calls-invalid] its outboundCalls.attemptTimeout is ${String(timeout)} ms, not a positive duration`,
-      );
-    },
-  );
-
-  it("#508 re-review HIGH1: takes the attemptTimeout it sets", async () => {
-    const assembled = await assembledWith({ attemptTimeout: seconds(45) });
-
-    expect(assembled.outboundCalls.attemptTimeout).toBe(seconds(45));
-  });
-
-  it.each([0, -1])("a maxPayloadSize of %s bytes fails assembly", async (size) => {
-    await expect(assembledWith({ maxPayloadSize: size as Bytes })).rejects.toThrow(
-      `[application.outbound-calls-invalid] its outboundCalls.maxPayloadSize is ${String(size)} bytes, not a positive size`,
-    );
-  });
-
-  it("#834: a retention.outboundCalls not above the lease's 30 s fails assembly, with the size's problem too", async () => {
-    const assembly = assembledWith(
-      { maxPayloadSize: kilobytes(0) },
-      { outboundCalls: seconds(30) },
-    );
-
-    await expect(assembly).rejects.toThrow(
-      "[application.retention-invalid] its retention.outboundCalls is 30000 ms, not above the lease's 30000 ms",
-    );
-    await expect(assembly).rejects.toThrow(/maxPayloadSize is 0 bytes/);
-  });
-
-  it("takes what it sets", async () => {
-    const assembled = await assembledWith(
-      { maxPayloadSize: kilobytes(1) },
-      { outboundCalls: seconds(31) },
-    );
-
-    expect(assembled.outboundCalls).toMatchObject({ maxPayloadSize: 1024, retention: seconds(31) });
+    expect(assembled.outboundMasking).toEqual(new OutboundMasking({ requiresMask: false }));
   });
 });
 
@@ -121,27 +56,24 @@ describe("#505: @Application({ outboundCalls }) at assembly", () => {
   name: "small-outbound-call-application",
   version: "1.0.0",
   environment: IdempotencyKeyEnvironment,
-  idempotencyKeyField: "idempotencyKey",
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,
   providers: [RecordingLogger],
-  outboundCalls: { maxPayloadSize: kilobytes(1) },
-  retention: { outboundCalls: minutes(1) },
 })
 class SmallOutboundCallApplication {}
 
 const small = testWith(SmallOutboundCallApplication);
 const test = testWith(OutboundCallApplication);
 
-describe("#505: OutboundCalls and the sweep read the settings", () => {
+describe("#505: sendOnce's maxPayloadSize and the sweep read the settings", () => {
   small("a request above maxPayloadSize: nothing recorded, nothing sent", async ({ app }) => {
+    runs.callOptions = { maxPayloadSize: kilobytes(1) };
     const call = execute(app, ChargeWorkflowStart, { text: "x".repeat(2000) });
 
-    await expect(call).rejects.toMatchObject({
-      cause: expect.any(OutboundCallPayloadTooLargeError) as unknown,
-    });
-    await expect(call).rejects.toMatchObject({ cause: { part: "request", maxPayloadSize: 1024 } });
+    // a family's error is not wrapped by the action's step (decision 8)
+    await expect(call).rejects.toBeInstanceOf(OutboundCallError.PayloadTooLarge);
+    await expect(call).rejects.toMatchObject({ part: "request", maxPayloadSize: 1024 });
     expect(await app.outboundCallsOf(TREE)).toEqual([]);
     expect(gateway.calls).toEqual([]);
   });
@@ -150,6 +82,7 @@ describe("#505: OutboundCalls and the sweep read the settings", () => {
     "#508: a result above maxPayloadSize: the call happened — Completed with a marker in place of the result, the step gets the answer, never sent again",
     async ({ app }) => {
       gateway.padding = 2000;
+      runs.callOptions = { maxPayloadSize: kilobytes(1) };
 
       const result = await execute(app, ChargeWorkflowStart, { text: "order-1" });
 
@@ -168,21 +101,21 @@ describe("#505: OutboundCalls and the sweep read the settings", () => {
   );
 
   small(
-    "the recovery sweep removes ended intents older than the retention, on the Clock",
+    "the recovery sweep removes the intents whose expiry has come, on the Clock",
     async ({ app, clock }) => {
       await app.ready();
-      const removal = vi.spyOn(app.resolve(OutboundCallRepository), "deleteByEndedAtBefore");
+      const removal = vi.spyOn(app.resolve(OutboundCallRepository), "deleteExpired");
       await execute(app, ChargeWorkflowStart, { text: "order-1" });
 
       await clock.advance(seconds(31));
 
-      expect(removal).toHaveBeenCalledWith(new Date(clock.now().getTime() - minutes(1)));
+      expect(removal).toHaveBeenCalledWith(clock.now());
     },
   );
 
   small("a store that fails to remove is logged as recovery.failed", async ({ app, clock }) => {
     await app.ready();
-    vi.spyOn(app.resolve(OutboundCallRepository), "deleteByEndedAtBefore").mockRejectedValue(
+    vi.spyOn(app.resolve(OutboundCallRepository), "deleteExpired").mockRejectedValue(
       new Error("disk full"),
     );
 
@@ -191,7 +124,7 @@ describe("#505: OutboundCalls and the sweep read the settings", () => {
     expect(logged).toContainEqual(
       expect.objectContaining({
         code: "recovery.failed",
-        message: "the ended outbound calls could not be removed: Error: disk full",
+        message: "the expired outbound calls could not be removed: Error: disk full",
       }),
     );
   });
@@ -217,4 +150,23 @@ describe("#505: a provider that answers with an error", () => {
       }),
     ]);
   });
+});
+
+describe("#508 re-review HIGH1: the call's timeout", () => {
+  for (const timeout of [0, -1, Number.NaN]) {
+    test(`a timeout of ${String(timeout)} ms is refused: ConfigError.Option, nothing recorded, nothing sent`, async ({
+      app,
+    }) => {
+      runs.callOptions = { timeout: timeout as Milliseconds };
+
+      const failure = await execute(app, ChargeWorkflowStart, { text: "order-1" }).catch(
+        (thrown: unknown) => thrown,
+      );
+
+      expect(JSON.stringify(failure, Object.getOwnPropertyNames(failure))).toContain(
+        "not a positive duration",
+      );
+      expect(gateway.calls).toEqual([]);
+    });
+  }
 });

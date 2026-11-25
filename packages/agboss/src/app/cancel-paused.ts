@@ -1,14 +1,28 @@
-import { ExecutionCancelledError } from "../core/errors.js";
+import { InterruptKind, interruptErrorOf } from "./interrupt-requests.js";
+import type { InterruptMode } from "./interrupt-types.js";
 import { CompensationFailedError } from "../flow/compensation.js";
 import { writeCancelRequest, type CancelParts } from "./cancel-requests.js";
 import { endedWithoutPass, rootRecordOf } from "./ended-tree.js";
-import { endOfRecord } from "./tree-end-pauses.js";
+import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import type { ThreadKey } from "./live-runs.js";
 import { treeOf } from "./tree-ends.js";
 import { LeaseTakeoverReason } from "../infrastructure/execution-audit-log.repository.js";
 import { rootTakeOf } from "./execution-leases.js";
 import type { ExecutionTree } from "../infrastructure/execution-tree.repository.js";
 import type { TreeState } from "./tree-move-types.js";
+
+/** Who asked for the cancel or stop, why, and (a stop's) how: `app.cancel` / `app.stop` options. */
+export interface CancelCommand {
+  readonly ownerId?: string | undefined;
+  readonly reason?: string | undefined;
+  /** `Stop` (#1341b): the tree is stopped, nothing undone; absent: cancelled. */
+  readonly kind?: InterruptKind | undefined;
+  readonly mode?: InterruptMode | undefined;
+}
+
+/** The status of a cancelled root (text: a record's status may be compared with it). */
+const CANCELLED: string = ExecutionRecordStatus.Cancelled;
+const STOPPED: string = ExecutionRecordStatus.Stopped;
 
 /**
  * `app.cancel` of a thread whose tree rests paused on this application (#340 PR 3, Q6): under the
@@ -23,6 +37,7 @@ export async function cancelledPaused(
   parts: CancelParts,
   thread: ThreadKey,
   runId?: string,
+  command?: CancelCommand,
 ): Promise<boolean> {
   const { deps, paused, leases } = parts;
   const found = await paused.find(thread);
@@ -35,10 +50,7 @@ export async function cancelledPaused(
   // the mark first (#909): from here on no effect of the tree but its undo's is accepted; and the
   // tree key (#1073), the one request an expiry's holder or a lease taken over reads
   const requested = { tenantId: thread.tenantId, rootExecutionId: tree.runId };
-  await writeCancelRequest(parts, requested, {
-    requestedAt: parts.clock.now().toISOString(),
-    ownerId: null,
-  });
+  await requestedBy(parts, requested, thread, command);
   const take = rootTakeOf(deps.pause, tree.runId, LeaseTakeoverReason.Cancelled);
   const lease = await leases.hold(treeOf({ ...tree, startedVersion }), undefined, take);
   try {
@@ -51,9 +63,7 @@ export async function cancelledPaused(
     if (run?.runId !== tree.runId)
       return await endedAsCancelled(parts, { ...tree, startedVersion }, requested);
     const state = { ...tree, startedVersion: run.startedVersion ?? deps.config.version };
-    const cause = new ExecutionCancelledError({
-      message: `thread "${thread.threadId}" was cancelled while paused`,
-    });
+    const cause = pausedCauseOf(command, thread);
     const ended = await endedWithoutPass(parts, state, { cause, signal: lease.signal, lease });
     if (ended.error instanceof CompensationFailedError) throw ended.error;
     return true;
@@ -61,6 +71,29 @@ export async function cancelledPaused(
     await lease.release();
   }
 }
+
+/** Why a paused tree ends: the cancel or stop of `command` (a cancel when it names no kind). */
+const pausedCauseOf = (command: CancelCommand | undefined, thread: ThreadKey) =>
+  interruptErrorOf(
+    { kind: command?.kind ?? InterruptKind.Cancel, reason: command?.reason },
+    thread.threadId,
+    " while paused",
+  );
+
+/** The cancel's request written for `thread`: its mark and key, and its row of the status history. */
+const requestedBy = (
+  parts: CancelParts,
+  tree: ExecutionTree,
+  thread: ThreadKey,
+  command: CancelCommand | undefined,
+): Promise<void> =>
+  writeCancelRequest(parts, tree, {
+    requestedAt: parts.clock.now().toISOString(),
+    ownerId: command?.ownerId ?? null,
+    threadId: thread.threadId,
+    reason: command?.reason,
+    ...(command?.kind === undefined ? {} : { kind: command.kind, mode: command.mode }),
+  });
 
 /**
  * A holder moved the tree while this cancel waited for its lease (#1073): when it ended the tree
@@ -76,5 +109,5 @@ async function endedAsCancelled(
   if (record === undefined || record.status === "running" || record.status === "paused")
     return false;
   await parts.trees.deleteAllInTree(tree);
-  return record.status === "failed" && endOfRecord(record) instanceof ExecutionCancelledError;
+  return CANCELLED === record.status || STOPPED === record.status;
 }

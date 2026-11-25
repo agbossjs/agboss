@@ -1,5 +1,5 @@
 /**
- * #933 AC1: `.onError(E, toQuestion(Q)…)` — a question role's step starts a side path: the failure
+ * #933 AC1: `.onError(E, toExternalTask(Q)…)` — a question role's step starts a side path: the failure
  * is handled by asking, and the answer goes on the path. A question after a limit stays refused.
  */
 import { describe, expect, it } from "vitest";
@@ -11,24 +11,20 @@ import { StepFailedError } from "../../src/graph/errors.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { testWith } from "../../src/testing/index.js";
 import { answerOf, execute } from "../helpers/flow.js";
-import { WorkflowStartTextDto } from "./fixtures/dtos.js";
-import { toQuestion as publicToQuestion } from "../../src/flow/builder.js";
+import { toExternalTask as publicToQuestion } from "../../src/flow/builder.js";
 import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
-import { side, start, toQuestion } from "./fixtures/paths.js";
+import { side, onStart, toExternalTask } from "./fixtures/paths.js";
 import {
   DraftQuestionAction,
   PlacePurchaseAction,
-  PurchasePlacedDto,
-  PurchaseQuestionDto,
   PurchaseWorkflowFinish,
   InboxSpendingLimitChannel,
   QuestionInbox,
-  SpendingLimitAnswerDto,
-  SpendingLimitQuestion,
+  SpendingLimitQuestionExternalTask,
 } from "./fixtures/questions.fixture.js";
 import {
   EdgeCalls,
-  EdgeOnceQuestion,
+  EdgeOnceExternalTask,
   EdgeOnceStart,
   EdgeTwiceStart,
   PublicStarterWorkflowStart,
@@ -41,12 +37,13 @@ import {
   SideQuestionApplication,
   SideQuestionWorkflowStart,
 } from "./fixtures/side-question.fixture.js";
+import { Ttl } from "../../src/index.js";
 
 const test = testWith(SideQuestionApplication);
 const asking = { threadId: "side-1", ownerId: "alice" };
 
 describe("#933 AC1: a question starts an .onError side path", () => {
-  test("AC1: onError(StepFailedError, toQuestion(Q)…) runs the question", async ({ app }) => {
+  test("AC1: onError(StepFailedError, toExternalTask(Q)…) runs the question", async ({ app }) => {
     const paused = await execute(
       app,
       SideQuestionWorkflowStart,
@@ -59,14 +56,14 @@ describe("#933 AC1: a question starts an .onError side path", () => {
       "side-question-workflow-start",
       "draft-question-action",
       "flaky-check-action",
-      "spending-limit-question",
+      "spending-limit-question-external-task",
     ]);
     // the question reads the ask from the path as the request was drafted
     expect(paused.pending).toEqual([
       expect.objectContaining({
-        kind: PauseKind.Question,
-        step: "spending-limit-question",
-        ask: expect.objectContaining({ item: "laptop", priceUsd: 900 }),
+        kind: PauseKind.ExternalTask,
+        step: "spending-limit-question-external-task",
+        input: expect.objectContaining({ item: "laptop", priceUsd: 900 }),
       }),
     ]);
     expect(app.resolve(QuestionInbox).asked).toHaveLength(1);
@@ -83,7 +80,7 @@ describe("#933 AC1: a question starts an .onError side path", () => {
       "side-question-workflow-start",
       "draft-question-action",
       "flaky-check-action",
-      "spending-limit-question",
+      "spending-limit-question-external-task",
       "place-purchase-action",
       "purchase-workflow-finish",
     ]);
@@ -97,21 +94,17 @@ describe("#933 AC1: assembly", () => {
     @Workflow({
       name: `side-question-case-${String(count)}-workflow`,
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [
-        start(SideQuestionWorkflowStart)
-          .returns(WorkflowStartTextDto)
+        onStart(SideQuestionWorkflowStart)
           .toAction(DraftQuestionAction)
-          .returns(PurchaseQuestionDto)
           .toAction(FlakyCheckAction)
           .onError(
             error,
-            toQuestion(SpendingLimitQuestion)
-              .returns(SpendingLimitAnswerDto)
+            toExternalTask(SpendingLimitQuestionExternalTask)
               .toAction(PlacePurchaseAction)
-              .returns(PurchasePlacedDto)
               .toFinish(PurchaseWorkflowFinish),
           )
-          .returns(PurchasePlacedDto)
           .toFinish(PurchaseWorkflowFinish),
       ],
     })
@@ -129,10 +122,10 @@ describe("#933 AC1: assembly", () => {
 });
 
 describe("#933: the shipped toQuestion starter", () => {
-  it("toQuestion(Q) builds the same path as side().toQuestion(Q)", () => {
+  it("toExternalTask(Q) builds the same path as side().toExternalTask(Q)", () => {
     // a starter that records another node kind (toAgent) builds a different path
-    expect(publicToQuestion(SpendingLimitQuestion)).toEqual(
-      side().toQuestion(SpendingLimitQuestion),
+    expect(publicToQuestion(SpendingLimitQuestionExternalTask)).toEqual(
+      side().toExternalTask(SpendingLimitQuestionExternalTask),
     );
   });
 
@@ -149,7 +142,10 @@ describe("#933: the shipped toQuestion starter", () => {
       );
 
       expect(paused.pending).toEqual([
-        expect.objectContaining({ kind: PauseKind.Question, step: "spending-limit-question" }),
+        expect.objectContaining({
+          kind: PauseKind.ExternalTask,
+          step: "spending-limit-question-external-task",
+        }),
       ]);
       const done = await app.resume(answerOf(paused, { approved: true, limitUsd: 1000 }), {
         ownerId: "alice",
@@ -165,17 +161,17 @@ describe("#933 edge: the same role on the main path and on the side path", () =>
   const edgeTest = testWith(SideQuestionEdgeApplication);
 
   edgeTest(
-    "written once with question(R) it is one node; maxVisits 2 pauses twice, then finishes",
+    "written once with onExternalTask(R) it is one node; maxVisits 2 pauses twice, then finishes",
     async ({ app }) => {
       const first = await execute(app, EdgeTwiceStart, { text: "laptop for 900" }, asking);
-      expect(first.pending.map(({ step }) => step)).toEqual(["edge-twice-question"]);
+      expect(first.pending.map(({ step }) => step)).toEqual(["edge-twice-external-task"]);
 
       // the answer goes to the failing action; the side path asks the same node again
       const second = await app.resume(answerOf(first, { approved: true, limitUsd: 1000 }), {
         ownerId: "alice",
       });
       expect(second.status).toBe(ExecutionStatus.Paused);
-      expect(second.pending.map(({ step }) => step)).toEqual(["edge-twice-question"]);
+      expect(second.pending.map(({ step }) => step)).toEqual(["edge-twice-external-task"]);
 
       const done = await app.resume(answerOf(second, { approved: true, limitUsd: 2000 }), {
         ownerId: "alice",
@@ -184,9 +180,9 @@ describe("#933 edge: the same role on the main path and on the side path", () =>
       expect(done.path).toEqual([
         "edge-twice-workflow-start",
         "draft-question-action",
-        "edge-twice-question",
+        "edge-twice-external-task",
         "fail-first-place-action",
-        "edge-twice-question",
+        "edge-twice-external-task",
         "fail-first-place-action",
         "purchase-workflow-finish",
       ]);
@@ -208,17 +204,22 @@ describe("#933 edge: the same role on the main path and on the side path", () =>
   let count = 0;
   const codesOf = (flow: ReturnType<typeof sharedEdgeFlow>) => {
     count += 1;
-    @Workflow({ name: `edge-case-${String(count)}-workflow`, version: "1.0.0", flow })
+    @Workflow({
+      name: `edge-case-${String(count)}-workflow`,
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow,
+    })
     class EdgeWorkflow {}
     return checkWorkflow(EdgeWorkflow).errors.map(({ code, message }) => `[${code}] ${message}`);
   };
 
-  it("written once with question(R) it passes assembly", () => {
-    expect(codesOf(sharedEdgeFlow(EdgeOnceStart, EdgeOnceQuestion))).toEqual([]);
+  it("written once with onExternalTask(R) it passes assembly", () => {
+    expect(codesOf(sharedEdgeFlow(EdgeOnceStart, EdgeOnceExternalTask))).toEqual([]);
   });
 
   it("written inline twice → [flow.continuation-twice]", () => {
-    expect(codesOf(inlineTwiceEdgeFlow(EdgeOnceStart, EdgeOnceQuestion))).toEqual([
+    expect(codesOf(inlineTwiceEdgeFlow(EdgeOnceStart, EdgeOnceExternalTask))).toEqual([
       expect.stringContaining("[flow.continuation-twice]"),
     ]);
   });
@@ -229,19 +230,15 @@ describe("#933: a concrete channel class as the question", () => {
     @Workflow({
       name: "channel-class-question-workflow",
       version: "1.0.0",
+      historyTtl: Ttl.Forever,
       flow: [
-        start(SideQuestionWorkflowStart)
-          .returns(WorkflowStartTextDto)
+        onStart(SideQuestionWorkflowStart)
           .toAction(DraftQuestionAction)
-          .returns(PurchaseQuestionDto)
           .toAction(FlakyCheckAction)
           .onError(
             StepFailedError,
-            toQuestion(InboxSpendingLimitChannel)
-              .returns(SpendingLimitAnswerDto)
-              .toFinish(PurchaseWorkflowFinish),
+            toExternalTask(InboxSpendingLimitChannel).toFinish(PurchaseWorkflowFinish),
           )
-          .returns(PurchasePlacedDto)
           .toFinish(PurchaseWorkflowFinish),
       ],
     })
