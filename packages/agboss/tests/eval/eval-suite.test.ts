@@ -33,6 +33,7 @@ import {
   RefundWorkflowFinish,
   RefundWorkflowStart,
   SlackRefundsApplication,
+  UnservedRefundsApplication,
 } from "../flow/fixtures/refunds.fixture.js";
 import { EvalDeskModelProvider } from "../flow/fixtures/eval-desk.fixture.js";
 import {
@@ -281,12 +282,12 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
     })
     class JudgedEvalSuite {}
 
-    expect(codesOf(SlackRefundsApplication, JudgedEvalSuite)).toEqual([
+    expect(codesOf(UnservedRefundsApplication, JudgedEvalSuite)).toEqual([
       "eval.judge-wrong-output",
       "eval.judge-wrong-output",
       "eval.judge-missing-provider",
     ]);
-    expect(() => checkEvalSuite(SlackRefundsApplication, JudgedEvalSuite)).toThrow(
+    expect(() => checkEvalSuite(UnservedRefundsApplication, JudgedEvalSuite)).toThrow(
       /judged-eval-suite: beds-judge judges BedsDto, but the runs of refund-workflow-start end at finishes with RefundCardOutputDto — it judges none of them/u,
     );
   });
@@ -323,13 +324,13 @@ describe("#396: the suite's assembly rules, every violation at once", () => {
     })
     class PinnedEvalSuite {}
 
-    expect(codesOf(SlackRefundsApplication, UnpinnedEvalSuite)).toEqual([
+    expect(codesOf(UnservedRefundsApplication, UnpinnedEvalSuite)).toEqual([
       "eval.judge-missing-provider",
     ]);
-    expect(() => checkEvalSuite(SlackRefundsApplication, UnpinnedEvalSuite)).toThrow(
+    expect(() => checkEvalSuite(UnservedRefundsApplication, UnpinnedEvalSuite)).toThrow(
       /unpinned-judge calls a model, and no model provider is pinned for it/u,
     );
-    expect(codesOf(SlackRefundsApplication, PinnedEvalSuite)).toEqual([]);
+    expect(codesOf(UnservedRefundsApplication, PinnedEvalSuite)).toEqual([]);
   });
 
   it("a judge's own rules: not a @Judge, a code judge with a model", () => {

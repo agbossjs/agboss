@@ -16,6 +16,7 @@ import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../../fixtures/test-flow/test.flow.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** Prompts of one flow: the agent's (inline or files), the router's and its route's. */
 export interface FlowPrompts {
@@ -48,6 +49,7 @@ export function workflowWith(prompts: FlowPrompts): {
     decidedBy: DecidedBy.Model,
     prompt: inline(prompts.router ?? "Pick who handles it."),
     model: "typesafe/jev-1.13",
+    modelProvider: TestDecisionsModelProvider,
     input: { message: WorkflowStartTextDto },
     maxVisits: 4,
     routes: [

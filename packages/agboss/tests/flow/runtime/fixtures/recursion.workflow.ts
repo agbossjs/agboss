@@ -29,6 +29,7 @@ import {
   toFinish,
 } from "../../../helpers/flow.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #264 — recursion at run time. `topic-research-workflow` (the issue's example, `maxDepth: 3`): a
@@ -387,6 +388,7 @@ export class LinkAgent {}
   decidedBy: DecidedBy.Model,
   prompt: inline("Go one link further, or end the chain."),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { link: LinkDto },
   maxVisits: 1,
   routes: [

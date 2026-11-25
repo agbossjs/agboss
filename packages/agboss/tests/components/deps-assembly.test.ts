@@ -36,6 +36,7 @@ import {
 } from "./fixture/deps-contract.workflow.js";
 import { days } from "../../src/units/index.js";
 import { PauseRespondent } from "../../src/pause/respondent.js";
+import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
 
 const MISSING = new InjectionToken<string>("MISSING");
 const notRegistered = (consumer: string): string =>
@@ -46,6 +47,7 @@ const notRegistered = (consumer: string): string =>
   description: "Needs a missing value",
   prompt: inline("Is it bad?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   threshold: 0.9,
   deps: [MISSING],
 })

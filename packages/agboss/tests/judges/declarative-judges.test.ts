@@ -35,6 +35,7 @@ import {
   TwoJudgesApplication,
   TwoJudgesWriter,
 } from "./fixtures/declarative.workflow.js";
+import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
 
 const PASSED = '{"passed":true,"reason":""}';
 const failed = (reason: string): string => JSON.stringify({ passed: false, reason });
@@ -331,6 +332,7 @@ describe("#1290b: testUnit on a declarative judge", () => {
       output: PlainTextDto,
       prompt: inline("The reply is correct."),
       model: "openai/gpt-6-luna-decisions",
+      modelProvider: TestDecisionsModelProvider,
     })
     class DecidedJudge {
       readonly marker = true;

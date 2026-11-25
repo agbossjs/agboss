@@ -54,6 +54,7 @@ import { WorkingCalendar } from "../../../src/index.js";
 import { TEL_AVIV } from "../../calendar/helpers.js";
 import { onAgent, onStart, side, toAction, toAgent, toFinish } from "../fixtures/paths.js";
 import { inline } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #279 PR 1 — quorums in the analyser: impossible quorums, what `.returns` may promise, arbiters. */
 
@@ -256,6 +257,7 @@ describe("#279 AC7 / AC13: groups continue their own paths, shapes from the laun
 @Arbiter({
   name: "partial-score-arbiter",
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Count an answer only if it meets its criterion."),
   criteria: [
     { target: ScoreAAgent, prompt: "A score" },
@@ -295,6 +297,7 @@ class OneMethodArbiter {
 @Arbiter({
   name: "Badly_Named",
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Judge."),
   criteria: [
     { target: ScoreAAgent, prompt: "A score" },

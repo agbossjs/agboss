@@ -1,3 +1,4 @@
+import { ModelKind } from "../src/models/model-kind.js";
 import { usd } from "../src/units/index.js";
 import { createTestAppWith } from "../src/testing/create-app-with.js";
 import { TestWorkflow, TestApplication } from "./fixtures/test-workflow/test.workflow.js";
@@ -76,7 +77,8 @@ describe("AC12: createAppDeps on an injected model gateway", () => {
     };
     const app = await createTestAppWith(TestApplication, {
       processEnv: env,
-      gateway: { chatModel, routeTo, decide },
+      // the routers and guardrails of the application decide (their provider's driver says so)
+      gateway: { chatModel, routeTo, decide, kindOf: () => ModelKind.Decisions },
     });
 
     const result = await execute(app, TestChat, { text: "What time is it?" });

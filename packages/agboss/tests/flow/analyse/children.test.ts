@@ -46,6 +46,7 @@ import {
 } from "../fixtures/starts.fixture.js";
 import { onAgent, onStart, toAction, toAgent, toFinish, toWorkflow } from "../fixtures/paths.js";
 import { inline, Ttl } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #263 PR 1 — child workflows in the analyser: the start per edge, outputs, scope, warnings. */
 
@@ -450,6 +451,7 @@ describe("#263 AC11: a per-item child with no way to fail softly", () => {
   decidedBy: DecidedBy.Model,
   prompt: inline("Choose."),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { company: CompanyDto },
   routes: [
     { prompt: "Grade the company", target: SoloGradeWorkflow },

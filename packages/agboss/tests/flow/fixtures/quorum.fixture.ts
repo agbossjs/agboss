@@ -50,6 +50,7 @@ import {
 } from "./quorum-agents.js";
 import { ScoreDto } from "./quorum-dtos.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #279 — the issue's quorums, each a workflow: any two of three with a deadline and an arbiter
@@ -88,6 +89,7 @@ export class QuickScoreArbiter {
 @Arbiter({
   name: "valid-score-arbiter",
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: ScoreAAgent, prompt: "Gives a 1–10 score for technical skills, with a reason" },
@@ -141,6 +143,7 @@ export class GoodScoreArbiter {
 @Arbiter({
   name: "convincing-reason-arbiter",
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: CompanyVetAgent, prompt: "The check names concrete facts about the company" },
@@ -168,6 +171,7 @@ export class CompanySearchWorkflow {}
 @Arbiter({
   name: "due-diligence-arbiter",
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: LegalAgent, prompt: "Names the legal risks found, or states that none were found" },

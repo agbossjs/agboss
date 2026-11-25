@@ -19,6 +19,7 @@ import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS, TestApplicationDailyBudget } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** The editor's draft: each visit replaces the one before in the path scope. */
 export class DraftDto {
@@ -76,6 +77,7 @@ export class GaveUpFinish {}
   decidedBy: DecidedBy.Model,
   prompt: inline("Is the draft good?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { draft: DraftDto },
   maxVisits: 5,
   routes: [
@@ -119,6 +121,7 @@ export class PatientEditorAgent {}
   decidedBy: DecidedBy.Model,
   prompt: inline("Is the draft good?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { draft: DraftDto },
   maxVisits: 5,
   routes: [

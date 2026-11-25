@@ -15,6 +15,7 @@ import {
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onAction, onAgent, onStart, toAgent } from "./paths.js";
 import { inline, Ttl } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #270 — the support desk: a router, an optional loyalty offer, a finish reading `fast` or `expert`. */
 
@@ -103,6 +104,7 @@ export class SupportWorkflowFinish {}
   description: "Picks how to answer",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: {
     order: OrderStatusDto,
   },
@@ -118,19 +120,11 @@ export const supportPaths = [
   onStart(SupportWorkflowStart)
     .toAgent(OrderAgent)
     .toRouter(AnswerRouter)
-    .onRoute(
-      toAgent(FastAnswerAgent)
-        .toAction(SupportAction),
-    )
-    .onRoute(
-      toAgent(LoyaltyAgent)
-        .toAgent(ExpertAnswerAgent),
-    )
+    .onRoute(toAgent(FastAnswerAgent).toAction(SupportAction))
+    .onRoute(toAgent(LoyaltyAgent).toAgent(ExpertAnswerAgent))
     .onRoute(toAgent(ExpertAnswerAgent)),
-  onAgent(ExpertAnswerAgent)
-    .toAction(SupportAction),
-  onAction(SupportAction)
-    .toFinish(SupportWorkflowFinish),
+  onAgent(ExpertAnswerAgent).toAction(SupportAction),
+  onAction(SupportAction).toFinish(SupportWorkflowFinish),
 ];
 
 @Workflow({

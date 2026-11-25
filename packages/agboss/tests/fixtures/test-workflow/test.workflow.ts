@@ -18,6 +18,7 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { PersonalDataGuardrail, PromptInjectionGuardrail } from "../guardrails.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const price = { inputPerMTok: 0.5, outputPerMTok: 3, cacheReadPerMTok: 0.1 };
 class ClockQuery {
@@ -78,6 +79,7 @@ export class Coder {}
   decidedBy: DecidedBy.Model,
   prompt: inline("Pick who handles the message."),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { message: WorkflowStartTextDto },
   maxVisits: 10,
   routes: [

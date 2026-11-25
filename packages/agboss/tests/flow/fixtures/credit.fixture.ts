@@ -16,6 +16,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #280 — the credit-limit flow: a code router inside a model router's route. */
 
@@ -133,6 +134,7 @@ export class CreditLimitRouter implements RouterHandler<CreditLimitRouter> {
   description: "Sends an order to the intake, ends on anything else",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Pick who handles the customer's message."),
   input: {
     message: WorkflowStartTextDto,
@@ -185,6 +187,7 @@ export class CreditApplication {}
   description: "Sends large orders for approval, charges the rest",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: {
     order: CreditOrderDto,
   },

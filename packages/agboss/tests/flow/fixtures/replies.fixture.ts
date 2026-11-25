@@ -36,6 +36,7 @@ import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart, toWorkflow } from "./paths.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #267 PR 3 — free-text replies: a payout approved by a finance desk that passes the manager's
@@ -153,6 +154,7 @@ export class PayoutReplyInterpreter {}
   name: "deposit-reply-interpreter",
   description: "Reads whether a clerk's free-text reply approves a deposit return",
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("The clerk answered a deposit return."),
 })
 export class DepositReplyInterpreter {}

@@ -21,6 +21,7 @@ import {
 import { onAction, onStart, toAgent, toAction } from "../fixtures/paths.js";
 import { OfferWorkflow } from "../fixtures/offer.fixture.js";
 import { inline, Ttl } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** The data rules of #270 (AC7, AC19, AC22) on the abstract scopes. */
 
@@ -76,6 +77,7 @@ class DeadStoreWorkflow {}
   description: "Sends the draft, or drafts it again",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: {
     shortlist: ShortlistDto,
   },
@@ -130,6 +132,7 @@ class CollectDraftsAction {
   description: "Drafts several offers or none",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: {
     shortlist: ShortlistDto,
   },

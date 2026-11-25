@@ -34,6 +34,7 @@ import {
   StoryWriterAgent,
 } from "../fixtures/review.fixture.js";
 import { inline, Ttl } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #271 PR 1: outdating in the analyser (S10) and `[input.outdated-on-path]` (rule 6). */
 
@@ -62,6 +63,7 @@ const messagesOf = (workflow: object, code: string): readonly string[] =>
   description: "Sends the article to whoever works on it next",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   maxVisits: 8,
   input: {
     request: ArticleRequestDto,
@@ -206,6 +208,7 @@ class FreshScoresWorkflow {}
   description: "Decides on the scored jobs",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { jobs: JobListDto },
   routes: [{ target: JobPickerAgent, prompt: "Pick a job" }],
 })
@@ -359,6 +362,7 @@ const gateRouter = (name: string, publisher: object): object => {
     description: "Reviews again or publishes",
     decidedBy: DecidedBy.Model,
     model: "typesafe/jev-1.13",
+    modelProvider: TestDecisionsModelProvider,
     maxVisits: 6,
     input: { draft: DraftDto },
     routes: [
@@ -445,6 +449,7 @@ const pickLoop = (name: string, picker: object): object => {
     description: "Picks again, corrects the profile, or stops",
     decidedBy: DecidedBy.Model,
     model: "typesafe/jev-1.13",
+    modelProvider: TestDecisionsModelProvider,
     maxVisits: 4,
     input: { pick: JobPickDto },
     routes: [
@@ -593,6 +598,7 @@ class InnerReviewerAgent {}
   description: "Plans again or publishes",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   maxVisits: 3,
   input: { approval: ApprovalDto },
   routes: [

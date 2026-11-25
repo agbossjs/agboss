@@ -21,6 +21,7 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { ContactPiiPolicy, PII_KEY_VARIABLE } from "./pii.fixture.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** Who the execution talks to: identity, marked for PII. */
 export class ShopExecutionContext extends ExecutionContext {
@@ -90,6 +91,7 @@ export class HandOverFinish {}
   decidedBy: DecidedBy.Model,
   prompt: inline("Pick who answers."),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { message: DeskMessageDto },
   maxVisits: 1,
   routes: [

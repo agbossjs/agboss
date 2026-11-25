@@ -22,7 +22,6 @@ import { minutes, seconds, usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
 import { CircuitBreakerPolicy } from "../../../../src/models/circuit-breaker-policy.js";
-import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #649 — an agent whose only tool is its answer tool, on a real OpenAI-compatible HTTP provider: it
@@ -137,7 +136,7 @@ export class WireModelProvider {}
 
 @Application({
   name: "one-answer-application",
-  modelProvider: TestModelProvider,
+  modelProvider: WireModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [ReviewWorkflow, ReadingWorkflow],

@@ -8,6 +8,7 @@ import type { Route } from "../../../src/flow/generated-types.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { ChargeResultDto } from "./credit-dtos.js";
 import { inline, Ttl } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #1271b — a router that names the finish and the agent declared BELOW it: the thunk `() => Target`
@@ -28,6 +29,7 @@ export class LazyWorkflowStart {}
   description: "Sends an order to the intake, ends on anything else",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Pick who handles the customer's message."),
   input: { message: WorkflowStartTextDto },
   routes: [
@@ -64,8 +66,7 @@ export class LazyOrderFinish {}
 /** What the router decides on, by its generated table: the same type with or without a thunk. */
 export type LazyDeskRoute = Route<LazyDeskRouter>;
 
-const desk = onStart(LazyWorkflowStart)
-  .toRouter(LazyDeskRouter);
+const desk = onStart(LazyWorkflowStart).toRouter(LazyDeskRouter);
 
 @Workflow({
   name: "lazy-workflow",
@@ -73,10 +74,7 @@ const desk = onStart(LazyWorkflowStart)
   historyTtl: Ttl.Forever,
   flow: [
     desk
-      .onRoute(
-        toAgent(LazyIntakeAgent)
-          .toFinish(LazyOrderFinish),
-      )
+      .onRoute(toAgent(LazyIntakeAgent).toFinish(LazyOrderFinish))
       .onRoute(toFinish(LazyNoOrderFinish)),
   ],
 })

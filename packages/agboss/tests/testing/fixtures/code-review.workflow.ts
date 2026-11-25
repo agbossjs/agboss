@@ -19,6 +19,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const price = { inputPerMTok: 1, outputPerMTok: 2 };
 
@@ -76,6 +77,7 @@ export class PullRequest {}
   decidedBy: DecidedBy.Model,
   prompt: inline("Is the review clean?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { review: ReviewDto },
   maxVisits: 3,
   routes: [

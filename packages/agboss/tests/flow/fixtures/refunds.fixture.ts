@@ -158,6 +158,17 @@ export class CardRefundsWorkflow {}
 })
 export class SlackRefundsApplication {}
 
+/** The same application with no `modelProvider`: a model judge of an eval suite finds none. */
+@Application({
+  name: "unserved-refunds-application",
+  version: "1.0.0",
+  environment: EmptyEnvironment,
+  workflows: [CardRefundsWorkflow],
+  budgets: TEST_BUDGETS,
+  providers: [SlackRefundApprovalChannel],
+})
+export class UnservedRefundsApplication {}
+
 @Application({
   name: "rule-refunds-application",
   modelProvider: TestModelProvider,

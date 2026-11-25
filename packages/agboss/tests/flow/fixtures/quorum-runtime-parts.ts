@@ -28,6 +28,7 @@ import {
   ScoreDto,
   ScoreReviewDto,
 } from "./quorum-dtos.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #279 PR 2 — the components of the runtime's quorums (`quorum-runtime.fixture.ts` wires them): three
@@ -236,6 +237,7 @@ export class InRangeArbiter {
 @Arbiter({
   name: "panel-model-arbiter",
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Count an answer only if it meets the criterion of the agent that gave it."),
   criteria: [
     { target: SkillsPanelAgent, prompt: "Scores the technical skills" },
@@ -261,7 +263,12 @@ export class PanelChatArbiter {}
  * A hybrid arbiter (#1283): one method for all three agents; a clear score is decided by code at `$0`,
  * a borderline one (4 to 7) asks its own model; 13 breaks the check after one model call.
  */
-@Arbiter({ name: "hybrid-panel-arbiter", model: "typesafe/jev-1.13", deps: [ArbiterModel] })
+@Arbiter({
+  name: "hybrid-panel-arbiter",
+  model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
+  deps: [ArbiterModel],
+})
 export class HybridPanelArbiter {
   constructor(private readonly arbiterModel: ArbiterModel) {}
 

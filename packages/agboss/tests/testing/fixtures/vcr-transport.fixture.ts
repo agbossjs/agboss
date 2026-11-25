@@ -25,7 +25,6 @@ import { minutes, seconds, usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { CircuitBreakerPolicy } from "../../../src/models/circuit-breaker-policy.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #439: an application whose only model provider is a transport — what a VCR test records from. */
 
@@ -113,7 +112,7 @@ export const SECOND = echoWorkflowOn("echo/second", "second-echo");
 
 @Application({
   name: "echo-application",
-  modelProvider: TestModelProvider,
+  modelProvider: EchoModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [FIRST.workflow, SECOND.workflow],

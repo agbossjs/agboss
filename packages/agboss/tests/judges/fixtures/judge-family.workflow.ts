@@ -19,6 +19,7 @@ import {
   WorkflowStartTextDto,
 } from "../../../src/dto/index.js";
 import { onStart } from "../../helpers/flow.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * `[judge.same-model-family]` (#396 PR 5, S2 Q9): judges of an agent's own model family, of another
@@ -32,7 +33,13 @@ export class OpenAiJudge implements JudgeHandler<PlainTextDto> {
   judge = passes;
 }
 
-@Judge({ name: "jev-judge", model: "typesafe/jev-1.13", output: PlainTextDto, deps: [JudgeModel] })
+@Judge({
+  name: "jev-judge",
+  model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
+  output: PlainTextDto,
+  deps: [JudgeModel],
+})
 export class JevJudge implements JudgeHandler<PlainTextDto> {
   judge = passes;
 }

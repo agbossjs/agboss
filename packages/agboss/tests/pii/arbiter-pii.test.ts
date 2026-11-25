@@ -28,6 +28,7 @@ import { execute, onStart, toAgent } from "../helpers/flow.js";
 import { requestText, tokensIn } from "./boundary.helpers.js";
 import { ContactPiiPolicy, PII_KEY_VARIABLE } from "./pii.fixture.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
 
 const EMAIL = "alice@example.com";
 
@@ -54,6 +55,7 @@ class ContactAnswerAgent {}
 @Arbiter({
   name: "contact-arbiter",
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Count an answer that names an owner."),
   criteria: [{ target: ContactAnswerAgent, prompt: "Names the owner with a contact" }],
 })

@@ -25,6 +25,7 @@ import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** What the components read of their execution, in order (reset by `resetSeen`). */
 export const seen = {
@@ -185,6 +186,7 @@ export class PublishedFinish {}
   decidedBy: DecidedBy.Model,
   prompt: inline("Is the draft good?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { draft: DraftDto },
   maxVisits: 4,
   routes: [

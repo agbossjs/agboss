@@ -25,7 +25,6 @@ import {
 import { minutes, seconds } from "../../../src/units/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const breaker = CircuitBreakerPolicy.fixed({
   failureThreshold: 3,
@@ -297,7 +296,6 @@ export class NoProviderWorkflow {}
 /** A driver provider is listed, no cascade names one: `[model.missing-provider]`. */
 @Application({
   name: "no-provider-application",
-  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [NoProviderWorkflow],
@@ -320,7 +318,6 @@ export class DecisionProviderWorkflow {}
 /** A chat agent on a provider with a decisions driver: `[model.incompatible-provider]`. */
 @Application({
   name: "decision-provider-application",
-  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [DecisionProviderWorkflow],

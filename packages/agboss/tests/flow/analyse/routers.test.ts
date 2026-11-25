@@ -16,6 +16,7 @@ import { CreditWorkflow } from "../fixtures/credit.fixture.js";
 import { inline, Ttl } from "../../../src/index.js";
 import { onRouter, onStart, toAgent, toFinish } from "../fixtures/paths.js";
 import { TopicsWorkflow } from "../fixtures/topics.fixture.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** Router rules (#272 AC6, #270, #280): routes as sets, input, model. */
 
@@ -174,6 +175,7 @@ class BlindCodeRouterWorkflow {}
   description: "A route without a prompt",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Pick one."),
   input: { draft: OfferDraftDto },
   routes: [{ target: DraftKitWorkflowFinish, prompt: " " }],

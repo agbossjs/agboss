@@ -40,6 +40,7 @@ import {
   SupportAction,
 } from "../fixtures/support.fixture.js";
 import { inline, Ttl } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** The path scope (#270 AC4) on the data-flow engine (#272 S10). */
 
@@ -100,6 +101,7 @@ class StrictExpertAgent {}
   description: "Picks how to answer",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: {
     order: OrderStatusDto,
   },

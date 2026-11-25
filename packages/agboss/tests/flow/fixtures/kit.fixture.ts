@@ -12,6 +12,7 @@ import {
   ShortlistDto,
 } from "./dtos.js";
 import { inline } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * Components the analyser's tests wire into small flows, right and wrong (the offer review of #272
@@ -155,6 +156,7 @@ export class DraftKitWorkflowFinish {}
   description: "Edits the draft again or sends it",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: {
     draft: OfferDraftDto,
   },

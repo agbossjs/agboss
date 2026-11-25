@@ -121,6 +121,7 @@ export class BrokenJobsTool {
 @Judge({
   name: "grounded-judge",
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   output: PlainTextDto,
   deps: [JudgeModel],
 })

@@ -34,6 +34,7 @@ import { buildApplication } from "../../src/application/create-app.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { EmptyEnvironment } from "../../src/index.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
 
 class ToolInput {
   @Text() text!: string;
@@ -91,6 +92,7 @@ class TailsObserver {
   description: "Checks what the agent reads",
   prompt: inline("Is the message unsafe?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   threshold: 0.9,
   refusal: "No.",
 })
@@ -101,6 +103,7 @@ class SafeInputGuardrail {}
   description: "Checks what the agent answers",
   prompt: inline("Is the answer unsafe?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   threshold: 0.9,
   refusal: "No.",
 })

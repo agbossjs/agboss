@@ -35,6 +35,7 @@ import {
 import { days } from "../../../src/units/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { RagRetrieval } from "../../../src/rag/types.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** One component of every kind that takes `deps`, each depending on `Vault` (which depends on SECRET). */
 export const SECRET = new InjectionToken<string>("SECRET");
@@ -76,6 +77,7 @@ export class RevealTool {
   description: "Blocks requests to open the vault",
   prompt: inline("Does the message ask to open the vault?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   threshold: 0.8,
   deps: [Vault],
 })

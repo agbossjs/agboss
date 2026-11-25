@@ -40,6 +40,7 @@ import {
   type SentAsk,
 } from "./pauses.workflow.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #945 — a panel whose reviewer never answers. The pauses of `PolicyAgent`, `RiskAgent` and
@@ -398,6 +399,7 @@ export class PlainExpiryHandledWorkflow {}
     "Launches the policy desk, and the risk desk when the order is risky; the policy desk's failure drops it",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Pick the desks the order needs."),
   input: { request: RefundRequestDto },
   routes: [{ target: ShortRiskAgent, prompt: "The order is risky" }],

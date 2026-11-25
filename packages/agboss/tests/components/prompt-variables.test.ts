@@ -30,6 +30,7 @@ import { testConfig, testDefaults } from "../helpers.js";
 import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../fixtures/test-flow/test.flow.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** #1347c: `promptVariables` cascade (application → workflow → component), `env(…)` values, no secrets. */
 
@@ -75,6 +76,7 @@ function applicationWith(levels: Levels): Class {
     decidedBy: DecidedBy.Model,
     prompt: inline("Pick."),
     model: "typesafe/jev-1.13",
+    modelProvider: TestDecisionsModelProvider,
     input: { message: WorkflowStartTextDto },
     maxVisits: 4,
     routes: [
@@ -283,6 +285,7 @@ describe("#1347c: [prompt.unused-variable]", () => {
       threshold: 0.5,
       refusal: "No.",
       model: "typesafe/jev-1.13",
+      modelProvider: TestDecisionsModelProvider,
     })
     class Tone {}
     const loader = new PromptLoader();

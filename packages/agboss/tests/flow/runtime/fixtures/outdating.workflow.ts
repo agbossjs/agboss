@@ -31,6 +31,7 @@ import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { EmptyEnvironment } from "../../../../src/index.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
  * #271 PR 2 — workflows that outdate at run time: the review loop of the issue (the reviewer's
@@ -231,6 +232,7 @@ export class JobsWorkflowFinish {}
   decidedBy: DecidedBy.Model,
   prompt: inline("Is the pick good?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   maxVisits: 3,
   input: { pick: JobPickDto },
   routes: [

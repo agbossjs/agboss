@@ -15,6 +15,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #271 — the review loop (`caseOf(…)` after the reviewer, #299) and a polish
@@ -155,6 +156,7 @@ export class PolishedWorkflowFinish {}
   description: "Polishes again or stops",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   maxVisits: 3,
   input: {
     critiques: listOf(CritiqueDto),

@@ -26,6 +26,7 @@ import {
   SkillsScoreDto,
 } from "./quorum-dtos.js";
 import { inline } from "../../../src/index.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #279 — the components of the issue's quorums (`quorum.fixture.ts` wires them). */
 
@@ -283,6 +284,7 @@ export class NotifyReviewerAction implements ActionHandler<NotifyReviewerAction>
   decidedBy: DecidedBy.Model,
   prompt: inline("Pick what the critiques lead to."),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { critiques: listOf(DealCritiqueDto) },
   routes: [
     { prompt: "A full review is worth it", target: FullReviewAgent },

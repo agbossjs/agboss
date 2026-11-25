@@ -81,6 +81,7 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
   description: "Blocks answers that give legal advice",
   prompt: inline("Does the answer give legal advice?"),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   threshold: 0.8,
   refusal: "I can't give legal advice. Please contact a lawyer.",
 })
@@ -139,6 +140,7 @@ export class NotesAgent {}
   decidedBy: DecidedBy.Model,
   prompt: inline("Pick who handles the message."),
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   input: { message: WorkflowStartTextDto },
   routes: [
     { prompt: "Medical questions", target: AdviceAgent },

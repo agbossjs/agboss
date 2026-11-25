@@ -23,6 +23,7 @@ import {
 import { CritiqueDto, PlanDto, ResearchDto } from "./review-dtos.js";
 import { inline, Ttl } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #273 — the issue's four launches, each a workflow of its own: different agents (a repeated one),
@@ -345,6 +346,7 @@ export class LoyaltyOfferAgent {}
   description: "Picks everyone needed for the customer's message",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Pick everyone needed for the customer's message."),
   input: {
     message: WorkflowStartTextDto,

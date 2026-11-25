@@ -33,7 +33,6 @@ import {
   LocalModelProvider,
   TestDecisionsProvider,
 } from "../providers.fixture.js";
-import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #266: every model of an application resolves to exactly one of its model providers by `serves` —
@@ -129,7 +128,6 @@ export class EveryKindWorkflow {}
 /** Only the local server is listed, and nothing names it: no model has a provider. */
 @Application({
   name: "every-kind-application",
-  modelProvider: TestModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [EveryKindWorkflow],

@@ -28,6 +28,7 @@ import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { execute, onStart, toAgent } from "../../helpers/flow.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 const EMAIL = "alice@example.com";
 
@@ -53,6 +54,7 @@ class RotaAnswerAgent {}
 @Arbiter({
   name: "rota-arbiter",
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Count an answer that names an owner."),
   criteria: [{ target: RotaAnswerAgent, prompt: "Names the owner with a contact" }],
 })

@@ -24,6 +24,7 @@ import {
 } from "./fenced-effect.workflow.js";
 import { WindowMemoryCheckpoints } from "./writes-window.application.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
  * #1090 — a model router before a charge: start, router (its decision costs money), charge,
@@ -49,6 +50,7 @@ export class RoutedChargeWorkflowStart {}
   description: "Sends the order to its charge, or stops",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Charge the order, or stop."),
   input: { message: WorkflowStartTextDto },
   maxVisits: 1,

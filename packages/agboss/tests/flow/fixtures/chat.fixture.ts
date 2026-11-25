@@ -10,6 +10,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
+import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #272 example 1 — chat: a router in a loop. */
 
@@ -71,6 +72,7 @@ export class NoReplyWorkflowFinish {}
   description: "Sends the message to the step that handles it, or ends the execution",
   decidedBy: DecidedBy.Model,
   model: "typesafe/jev-1.13",
+  modelProvider: TestDecisionsModelProvider,
   prompt: inline("Pick who handles the customer's message next."),
   input: {
     message: WorkflowStartTextDto,
