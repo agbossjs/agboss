@@ -53,6 +53,8 @@ export interface TrackedSession {
   readonly callerKey: string;
   /** The requests being served (an open event stream is one): the idle clock runs at none. */
   inFlight: number;
+  /** Set when the session is removed: a request of it that closes later neither re-arms its clock nor counts it. */
+  closed?: boolean;
   /** Stops the idle clock. */
   release?: () => void;
 }
@@ -129,7 +131,10 @@ export class McpSessions {
   }
 
   remove(id: string): void {
-    this.#open.get(id)?.release?.();
+    const session = this.#open.get(id);
+    if (session === undefined) return;
+    session.closed = true;
+    session.release?.();
     this.#open.delete(id);
   }
 
@@ -138,6 +143,7 @@ export class McpSessions {
     session.inFlight += 1;
     session.release?.();
     res.once("close", () => {
+      if (session.closed === true) return;
       session.inFlight -= 1;
       this.#arm(session);
     });
@@ -145,7 +151,7 @@ export class McpSessions {
 
   #arm(session: TrackedSession): void {
     session.release?.();
-    if (session.inFlight > 0) return;
+    if (session.closed === true || session.inFlight > 0) return;
     const idle = timeoutOn(this.clock, this.#idleTimeout as Milliseconds, () => new Error("idle"));
     idle.signal.addEventListener(
       "abort",
