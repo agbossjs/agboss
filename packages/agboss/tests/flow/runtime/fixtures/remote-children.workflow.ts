@@ -169,7 +169,8 @@ export class RemoteChecksAction {
     readonly results: readonly Tracked<ItemResultDto>[];
   }): Promise<SummaryDto> {
     return {
-      text: input.results.map((result) => result.name).join(", "),
+      text: input.results.map((result) => result.name)
+        .join(", "),
     };
   }
 }
@@ -211,7 +212,8 @@ export class RemoteChecksFailedWorkflowFinish {}
       .join()
       .onError(
         StepError.Child,
-        toAction(RemoteChecksFailedAction).toFinish(RemoteChecksFailedWorkflowFinish),
+        toAction(RemoteChecksFailedAction)
+          .toFinish(RemoteChecksFailedWorkflowFinish),
       )
       .toAction(RemoteChecksAction)
       .toFinish(RemoteChecksWorkflowFinish),

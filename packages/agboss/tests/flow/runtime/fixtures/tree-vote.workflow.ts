@@ -120,7 +120,8 @@ export class NotVotedWorkflowFinish {}
       .joinQuorum({ min: 2, deadline: seconds(30) })
       .onError(
         StepError.QuorumNotReached,
-        toAction(NotVotedAction).toFinish(NotVotedWorkflowFinish),
+        toAction(NotVotedAction)
+          .toFinish(NotVotedWorkflowFinish),
       )
       .toAction(VotedAction)
       .toFinish(VotedWorkflowFinish),
@@ -162,12 +163,14 @@ export class MixedNotVotedWorkflowFinish {}
   flow: [
     onStart(MixedWorkflowStart)
       .toRouter(TaskKindRouter)
-      .onRoute(toWorkflow(TaskWorkflow).toFinish(TaskDoneWorkflowFinish))
+      .onRoute(toWorkflow(TaskWorkflow)
+        .toFinish(TaskDoneWorkflowFinish))
       .onRoute(
-        toWorkflow(VoteWorkflow).toOneOf([
-          toFinish(MixedNotVotedWorkflowFinish),
-          toFinish(MixedVotedWorkflowFinish),
-        ]),
+        toWorkflow(VoteWorkflow)
+          .toOneOf([
+            toFinish(MixedNotVotedWorkflowFinish),
+            toFinish(MixedVotedWorkflowFinish),
+          ]),
       ),
   ],
 })
