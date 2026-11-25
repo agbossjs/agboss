@@ -129,7 +129,9 @@ export class JobScoutDatabaseStorage {}
 - `node:sqlite` is synchronous: a transaction is one group of statements with no `await`. A lock of
   another process is never waited for inside SQLite (that would block the loop): the call is tried
   again asynchronously until the lock-wait deadline. Code that uses `connection.transaction()` outside a
-  repository operation runs it through `connection.serve(…)` for the same wait.
+  repository operation runs it through `connection.serve(…)` for the same wait. In a custom SQLite
+  repository every statement after an `await` must run through `connection.serve(…)`: outside it the
+  statement fails at once, every time (#1317).
 - With them, what one process wrote is there for the next: `agboss run` / `chat --thread <id>`
   continue a thread after a restart, `agboss eval` / `replay` / `golden` read the records of
   earlier runs (a workflow run on its own uses the infrastructure its application lists), a pause

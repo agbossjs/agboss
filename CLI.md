@@ -45,7 +45,9 @@ with `PlainTextDto`. The workflow is one path ([Workflow](Workflow)):
 a workflow by its start's full name (`"chat": "agboss chat --start support-desk-text-workflow-start"`,
 `run` the same), so they keep working when the application gets more workflows; `npm run types`
 (`agboss check`) writes `.agboss/types.d.ts` — run on install (`postinstall`) and by `npm run check`
-(= types + tsc + `npm run lint` + `npm test`). `vitest.config.ts` has three projects by file name — `unit`
+(= types + tsc + `npm run lint` + `npm test`). `agboss check` imports every module of `src/` to type it, so a module that runs on import (a
+launcher, a server, a listener on stdin) belongs in `scripts/` or `bin/`, which it leaves out; the CLI
+stops listening to stdin after any command but `run` and `chat`, so a stray listener never hangs it. `vitest.config.ts` has three projects by file name — `unit`
 (`*.test.ts`), `integration` (`*.integration.test.ts`), `suites` (`*.suite.test.ts`, real models); empty
 ones pass. `npm test` runs unit + integration, the `test:suites` script the suites.
 
