@@ -36,7 +36,10 @@ const sourcesOf = (changes: Partial<RetentionSources> = {}) => {
     meshRequests: store("deleteExpired"),
     executionHistory: store("deleteExpired"),
     fencedEffects: store("deleteExpired"),
-    auditLog: store("deleteExpired"),
+    auditLog: {
+      ...store("deleteExpired"),
+      findAllByTenantIdAndRootExecutionIdOrderByOccurredAt: vi.fn(() => Promise.resolve([])),
+    },
     outboundCalls: store("deleteExpired"),
   };
   /** The root records the audit sweep reads to tell whether a tree ended (#1321b): by default every tree has. */
@@ -125,6 +128,25 @@ describe("#1366: the sweep removes each kind of rows past its retention", () => 
     // a live, a paused and an unknown tree count as live: nothing is removed on a guess
     expect(await ended("running")).toBe(false);
     expect(await ended("paused")).toBe(false);
+    // no record and a recent row: a record still racing to be written, live
+    const rows = stores.auditLog.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt;
+    rows.mockResolvedValue([{ occurredAt: new Date(NOW.getTime() - 1000).toISOString() }] as never);
+    expect(await ended(undefined)).toBe(false);
+    // no record and every row older than the retention and a day: the idle sweep removed it (#1410 M2)
+    rows.mockResolvedValue([
+      { occurredAt: new Date(NOW.getTime() - 25 * 3_600_000).toISOString() },
+    ] as never);
+    expect(await ended(undefined)).toBe(true);
+    // a row exactly at the grace's edge is not older than it: still live
+    rows.mockResolvedValue([
+      { occurredAt: new Date(NOW.getTime() - 24 * 3_600_000).toISOString() },
+    ] as never);
+    expect(await ended(undefined)).toBe(false);
+    // one recent row among old ones: still live
+    rows.mockResolvedValue([
+      { occurredAt: new Date(NOW.getTime() - 25 * 3_600_000).toISOString() },
+      { occurredAt: new Date(NOW.getTime() - 1000).toISOString() },
+    ] as never);
     expect(await ended(undefined)).toBe(false);
     expect(treeRecords.findByTenantIdAndRunId).toHaveBeenLastCalledWith("tenant-1", "root-1");
   });

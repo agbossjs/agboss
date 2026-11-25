@@ -9,6 +9,7 @@ import { MeshInboundMode } from "../mesh/mesh.decorator.js";
 import type { McpEndpointOptions } from "./mcp-endpoint.decorator.js";
 import { callIdOf, mcpServerOptionsOf } from "./mcp-service-helpers.js";
 import type { McpCaller } from "./mcp-service-helpers.js";
+import { stableOwnerOf } from "./mcp-session-identity.js";
 import { collectTools } from "./mcp-tool-registry.js";
 import { dedupedMcpCall } from "./mcp-dedupe.js";
 import { admitMcpCall } from "./mcp-mesh-gate.js";
@@ -82,7 +83,12 @@ export function mcpServerOf(
       });
     // a trusted call with a callId runs once (#398 PR 2b): a repeat gets the kept result
     const tenantId = session.tenant?.tenantId;
-    return dedupedMcpCall(app, { tool: name, args, peer: admission.peer, callId, tenantId }, run);
+    const ownerId = stableOwnerOf(session);
+    return dedupedMcpCall(
+      app,
+      { tool: name, args, peer: admission.peer, callId, tenantId, ownerId },
+      run,
+    );
   });
 
   return mcp;

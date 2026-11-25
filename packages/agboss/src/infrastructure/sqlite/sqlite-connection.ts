@@ -16,7 +16,7 @@ import { CleanAttempt, inImmediateTransaction, joinedTransaction } from "./sqlit
 export { inImmediateTransaction } from "./sqlite-attempt.js";
 import { guardedDatabase } from "./sqlite-guard.js";
 import { heldTransaction, SQLITE_HOLD_CAP } from "./sqlite-hold.js";
-import { assertLockWaitBudget, whileBusy } from "./sqlite-lock-wait.js";
+import { assertLockWaitBudget, isBusy, startupLockTimeout, whileBusy } from "./sqlite-lock-wait.js";
 import { EXECUTION_LEASE } from "../../app/lease-fence.js";
 export { SQLITE_HOLD_CAP } from "./sqlite-hold.js";
 import { gatedSqliteImplementation, type SqliteGateOptions } from "./sqlite-gate.js";
@@ -202,16 +202,29 @@ export class SqliteConnection implements OnDestroy {
    */
   ensureSchema(name: string, ddl: string): void {
     if (this.#prepared.has(name)) return;
-    // synchronous schema work (startup): SQLite may wait for the file here, as at the open
-    this.#database.exec(`PRAGMA busy_timeout = ${String(BUSY_TIMEOUT)}`);
-    try {
+    this.startupWork(() => {
       inImmediateTransaction(this.#database, () => {
         this.#database.exec(ddl);
       });
+    });
+    this.#prepared.add(name);
+  }
+
+  /**
+   * Synchronous work at startup — a repository's DDL or migration, which cannot await: SQLite may
+   * wait for another process's write lock here, as at the open (`BUSY_TIMEOUT`, or `window`), then
+   * `busy_timeout` is 0 again. A lock held past the window is `StoreError.LockTimeout`, nothing
+   * applied, never a raw "database is locked" (#1317).
+   */
+  startupWork<T>(work: () => T, window: number = BUSY_TIMEOUT): T {
+    this.#database.exec(`PRAGMA busy_timeout = ${String(window)}`);
+    try {
+      return work();
+    } catch (error) {
+      throw isBusy(error) ? startupLockTimeout(window, error) : error;
     } finally {
       this.#database.exec("PRAGMA busy_timeout = 0");
     }
-    this.#prepared.add(name);
   }
 
   /** The columns a table of this file has now (none when it does not exist): what a shape-keyed schema step reads. */

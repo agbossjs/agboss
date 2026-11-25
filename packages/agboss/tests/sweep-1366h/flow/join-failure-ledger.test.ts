@@ -12,6 +12,29 @@ vi.mock("../../../src/flow/compensation.js", async (original) => ({
   ...(await original<typeof import("../../../src/flow/compensation.js")>()),
   compensationsOfFailedJoin,
 }));
+const mocks = vi.hoisted(() => ({
+  heldEntriesUndone: vi.fn(),
+  errorHandlerOf: vi.fn(),
+  joinedValues: vi.fn(),
+}));
+vi.mock("../../../src/flow/runtime/compensation/held-on-error.js", async (original) => ({
+  ...(await original<typeof import("../../../src/flow/runtime/compensation/held-on-error.js")>()),
+  heldEntriesUndone: mocks.heldEntriesUndone,
+}));
+vi.mock("../../../src/flow/runtime/step-frame.js", () => ({
+  stepFrameAt: vi.fn(() => ({ execution: { executionId: "e1" } })),
+}));
+vi.mock("../../../src/flow/runtime/launch/join-write.js", () => ({
+  joinedValues: mocks.joinedValues,
+}));
+vi.mock("../../../src/flow/runtime/graph-model.js", async (original) => ({
+  ...(await original<typeof import("../../../src/flow/runtime/graph-model.js")>()),
+  errorHandlerOf: mocks.errorHandlerOf,
+}));
+vi.mock("../../../src/flow/runtime/workflow-keys.js", async (original) => ({
+  ...(await original<typeof import("../../../src/flow/runtime/workflow-keys.js")>()),
+  handledErrorOf: vi.fn(() => ({ handled: true })),
+}));
 vi.mock("../../../src/flow/runtime/launch/join-notices.js", () => ({
   noticeJoinFailed: vi.fn(() => Promise.resolve()),
 }));
@@ -40,10 +63,14 @@ function site() {
     error: { name: "Error", code: "Error", lineage: [], message: "boom" },
   };
   const parts = {
-    state: {},
+    state: { compensations: [] },
     config: undefined,
     ticket: { launchId: "l1", launcher: "launcher", branches: [{ node: "branch", nodeId: "b" }] },
-    deps: { pauses: {}, limits: { budgets: { record } } },
+    deps: {
+      pauses: {},
+      limits: { budgets: { record } },
+      graph: { nodes: new Map([["launcher", { name: "launcher" }]]) },
+    },
     records: [failedRecord],
   };
   return { record, failedRecord, parts };
@@ -81,5 +108,27 @@ describe("#1366: the spend of an undo run by a failed join", () => {
     ).rejects.toBe(thrown);
 
     expect(record).toHaveBeenCalledExactlyOnceWith([]);
+  });
+});
+
+describe("#1410 L3: the spend of the held entries a failed join undid", () => {
+  it("a side path that cannot start: the held undo's usage is recorded in the ledger, once, beside the join's own", async () => {
+    const { record, failedRecord, parts } = site();
+    const boom = new Error("the side path cannot start");
+    const heldSpend: UsageRecord = { ...undoSpend, caller: "held-refund", costUsd: usd(0.25) };
+    compensationsOfFailedJoin.mockResolvedValue({ usage: [undoSpend], compensations: [] });
+    mocks.heldEntriesUndone.mockResolvedValue({ usage: [heldSpend], compensations: [] });
+    mocks.errorHandlerOf.mockReturnValue({ to: "side" });
+    mocks.joinedValues.mockRejectedValue(boom);
+
+    await expect(
+      failedJoined(
+        { joinErrors: [] } as never,
+        { record: failedRecord, thrown: new Error("boom") } as never,
+        parts as never,
+      ),
+    ).rejects.toBe(boom);
+
+    expect(record.mock.calls).toEqual([[[heldSpend]], [[undoSpend]]]);
   });
 });

@@ -131,6 +131,24 @@ describe("#1366: a trusted MCP call runs once", () => {
     ).toMatchObject({ response: result("paid 1") });
   });
 
+  it("#1410 L4: two owners of one peer and tenant do not share a slot; a peer's own owner keeps the plain key", async () => {
+    const requests = new ListedRequests();
+    const app = appOf(requests);
+    const { run, runs } = counting();
+
+    await dedupedMcpCall(app, { ...TRUSTED, ownerId: "mesh:orders-app" }, run);
+    await dedupedMcpCall(app, { ...TRUSTED, ownerId: "dana" }, run);
+    await dedupedMcpCall(app, { ...TRUSTED, ownerId: "eve" }, run);
+    await dedupedMcpCall(app, { ...TRUSTED, ownerId: "dana" }, run);
+    // a call id shaped like an owner's key is no way into it
+    await dedupedMcpCall(app, { ...TRUSTED, callId: requests.saved[1]?.idempotencyKey }, run);
+
+    expect(runs.count).toBe(4);
+    expect(requests.saved[0]?.idempotencyKey).toBe("c-1");
+    const keys = requests.saved.map((record) => record.idempotencyKey);
+    expect(new Set(keys).size).toBe(4); // dana's repeat shares her slot
+  });
+
   it("answers a repeat with the kept result, and runs nothing again", async () => {
     const requests = new ListedRequests();
     const app = appOf(requests);

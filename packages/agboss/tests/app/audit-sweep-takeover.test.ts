@@ -180,4 +180,81 @@ describe("the idle-thread sweep takes the audit rows of its trees with it", () =
       await auditLog.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt("default", "root-2"),
     ).toHaveLength(1);
   });
+
+  it("a failing audit store between the thread's removal and its rows' removal loses no rows: a later look removes them (#1410 M2)", async () => {
+    const { clock, auditLog, sources, takeoverRow } = setup();
+    const records = new Map<string, ExecutionRecordStatus>([
+      ["root-1", ExecutionRecordStatus.Answered],
+    ]);
+    await auditLog.save(takeoverRow(2));
+    await clock.advance(seconds(5));
+    const threadRecords = {
+      findByTenantIdAndRunId: (_tenant: string, runId: string) => {
+        const status = records.get(runId);
+        return Promise.resolve(status === undefined ? undefined : ({ status } as never));
+      },
+      deleteIdleThreads: async (
+        _cutoffs: ReadonlyMap<string, Date>,
+        isEnded: (tree: { tenantId: string; rootExecutionId: string }) => Promise<boolean>,
+      ) => {
+        if (!(await isEnded({ tenantId: "default", rootExecutionId: "root-1" }))) return 0;
+        records.delete("root-1");
+        return 1;
+      },
+    };
+    let failures = 1; // the idle sweep's own call (a cutoff past now), not the audit expiry's
+    const flaky = Object.create(auditLog) as typeof auditLog;
+    flaky.deleteExpired = (cutoff, isEnded) => {
+      if (cutoff.getTime() > clock.now().getTime() && failures-- > 0)
+        return Promise.reject(new Error("audit store down"));
+      return auditLog.deleteExpired(cutoff, isEnded);
+    };
+    const flakySources = {
+      ...sources,
+      auditLog: flaky,
+      auditLogRetention: hours(1),
+      treeRecords: threadRecords,
+      threadRecords,
+      threadTtls: new Map([["w", hours(1)]]),
+    };
+    const reported: unknown[] = [];
+
+    await removeExpired(flakySources, (failure) => reported.push(failure));
+
+    expect(reported).toHaveLength(1); // the record is gone, the rows are left behind
+    const rowsOf = () =>
+      auditLog.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt("default", "root-1");
+    expect(await rowsOf()).toHaveLength(1);
+
+    // a recent row of a missing record is not swept yet: nothing is removed on a guess
+    await clock.advance(hours(2));
+    await removeExpired(flakySources, () => undefined);
+    expect(await rowsOf()).toHaveLength(1);
+
+    await clock.advance(hours(24));
+    await removeExpired(flakySources, () => undefined);
+    expect(await rowsOf()).toEqual([]);
+  });
+
+  it("a tree with no record is not ended for the idle sweep: its thread is kept", async () => {
+    const { sources } = setup();
+    const asked: boolean[] = [];
+    const threadRecords = {
+      findByTenantIdAndRunId: () => Promise.resolve(undefined),
+      deleteIdleThreads: async (
+        _cutoffs: ReadonlyMap<string, Date>,
+        isEnded: (tree: { tenantId: string; rootExecutionId: string }) => Promise<boolean>,
+      ) => {
+        asked.push(await isEnded({ tenantId: "default", rootExecutionId: "root-9" }));
+        return 0;
+      },
+    };
+
+    await removeExpired(
+      { ...sources, threadRecords, threadTtls: new Map([["w", hours(1)]]) },
+      () => undefined,
+    );
+
+    expect(asked).toEqual([false]);
+  });
 });

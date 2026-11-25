@@ -98,6 +98,7 @@ export function ledgerRetentionShard() {
     configFile: "vitest.mutation-ledger-retention.config.ts",
     mutate: [
       "src/infrastructure/retention-sweep.ts",
+      "src/infrastructure/ended-tree.ts",
       "src/components/rag.ts",
       "src/components/rag-reranker.ts",
       "src/components/rag-retrieval.ts",

@@ -6,6 +6,7 @@ import { standaloneCallFrameOf } from "../flow/context/call-frame.js";
 import { runInFrame } from "../flow/context/frame.js";
 import { outboundChainOf } from "../mesh/inbound-mesh.js";
 import type { McpCall } from "./mcp-service-helpers.js";
+import { stableOwnerOf } from "./mcp-session-identity.js";
 
 /** An exported tool as one call over MCP sees it: its app, its class and its `name`. */
 export interface ExportedToolCall {
@@ -18,8 +19,9 @@ export interface ExportedToolCall {
  * Runs one MCP call of an exported tool in its own frame (#280; what `deps: [ExecutionContext]`
  * reads): the call id is the client's `_meta.callId` (else a new one). The frame runs for the
  * session's tenant and owner, and the execution id (so `step.idempotencyKey`) is scoped by tenant,
- * caller, tool and `callId`: the same caller repeating a call gets the same key, and no other
- * tenant or caller can reach it by choosing the same `callId`.
+ * caller, tool and `callId`: the same caller repeating a call gets the same key, in any MCP session
+ * (the session's own synthetic owner is not part of it), and no other tenant or caller can reach it
+ * by choosing the same `callId`.
  */
 export function inMcpCallFrame<TResult>(
   { app, type, name }: ExportedToolCall,
@@ -34,7 +36,9 @@ export function inMcpCallFrame<TResult>(
     execution: call.session.execution,
   });
   const callId = call.callId ?? `mcp_${name}_${randomUUID()}`;
-  const { ownerId, peer } = call.session;
+  // the caller's own identity, not its session's: a retry in a new session keeps the key (#1410 H1)
+  const ownerId = stableOwnerOf(call.session);
+  const { peer } = call.session;
   const executionId = scopedExecutionId({ tenantId: tenant.tenantId, ownerId, peer, name, callId });
   // the tool is this application's entry of the call chain (#398): its own calls carry it on
   const entry = { application: tenant.application.name, start: name };

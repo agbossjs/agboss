@@ -13,6 +13,7 @@ import { Clock, SystemClock } from "../../src/infrastructure/clock.js";
 import { Logger, SilentLogger } from "../../src/infrastructure/logger.js";
 import { McpEndpoint } from "../../src/mcp/mcp-endpoint.decorator.js";
 import { mcpHttpListener, type McpHttpListenerOptions } from "../../src/mcp/mcp-http-listener.js";
+import { VirtualClock } from "../../src/testing/clock.js";
 import { ms } from "../../src/units/index.js";
 import { ChatStart } from "../testing/fixtures/desk.workflow.js";
 
@@ -41,14 +42,13 @@ afterEach(() => {
   }
 });
 
-async function listening(limits: Partial<McpHttpListenerOptions>): Promise<string> {
+async function listening(
+  limits: Partial<McpHttpListenerOptions>,
+  clock: Clock = new SystemClock(),
+): Promise<string> {
   const served = Object.assign(app, {
     resolve: (token: unknown) =>
-      token === Logger
-        ? new SilentLogger()
-        : token === Clock
-          ? new SystemClock()
-          : new HeaderAuthenticator(),
+      token === Logger ? new SilentLogger() : token === Clock ? clock : new HeaderAuthenticator(),
   });
   const server = createServer(
     mcpHttpListener(served as never, {
@@ -87,8 +87,6 @@ async function open(url: string, owner: string) {
   return { status: answer.status, id: answer.headers.get("mcp-session-id") ?? "", text };
 }
 
-const sleep = (time: number) => new Promise((resolve) => setTimeout(resolve, time));
-
 describe("#1319: the sessions of an MCP HTTP listener are bounded", () => {
   it("a caller over its cap is refused 429 with a typed code, another caller is not", async () => {
     const url = await listening({ maxSessionsPerCaller: 2 });
@@ -115,14 +113,15 @@ describe("#1319: the sessions of an MCP HTTP listener are bounded", () => {
   });
 
   it("an idle session is closed: its id is then unknown, and its place is free again", async () => {
-    const url = await listening({ sessionIdleTimeout: ms(150), maxSessionsPerCaller: 1 });
+    const clock = new VirtualClock();
+    const url = await listening({ sessionIdleTimeout: ms(150), maxSessionsPerCaller: 1 }, clock);
     const first = await open(url, "alice");
     expect((await open(url, "alice")).status).toBe(429);
     expect((await post(url, { "x-owner": "alice", "mcp-session-id": first.id }, PING)).status).toBe(
       200,
     );
 
-    await sleep(500);
+    await clock.advance(ms(500));
 
     const late = await post(url, { "x-owner": "alice", "mcp-session-id": first.id }, PING);
     expect(late.status).toBe(404);

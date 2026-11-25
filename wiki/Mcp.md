@@ -101,7 +101,10 @@ tests, an in-memory pair).
 
 An AGBoss application's `@McpServer` calls made inside an execution send `_meta`:
 
-- `callId` — the step's `executionContext.step.idempotencyKey`, so an AGBoss MCP server answers a
+- `callId` — the step's `executionContext.step.idempotencyKey` (over an MCP server, the execution id and
+  this key follow the caller's stable identity — tenant, owner, peer, tool and `callId` — not the MCP session,
+  so a retry after a reconnect, an idle timeout or a restart repeats the same call; an anonymous caller,
+  with no tenant, owner or peer, is no one principal: its key is per session, a retry in a new session is a new call), so an AGBoss MCP server answers a
   repeated call as the same one (its call frame's key follows it);
 - `"agboss.dev/mesh"` — the mesh envelope ([A2A → The mesh](A2A#6-the-mesh--call-chains-hops-and-loops-398)),
   the same unsecured JWS as the `agboss-mesh` header;
@@ -129,7 +132,7 @@ an expired envelope or other arguments are refused before anything runs — an e
 `_meta["agboss.dev/error"]` `{ code: "mesh.signature-invalid" | "mesh.envelope-expired" |
 "mesh.body-mismatch" }`. A trusted call with a `_meta.callId` (the AGBoss client sends the calling
 step's idempotency key) is deduplicated in the application's `MeshRequestRepository` by `(tenant,
-peer, callId)` (#398 PR 2b; an A2A v1.0 task by its `messageId`, #808): a repeat gets the kept result without
+owner, peer, callId)` (#398 PR 2b; an A2A v1.0 task by its `messageId`, #808): a repeat gets the kept result without
 running again, one while the first still runs an error result with `_meta["agboss.dev/error"]`
 `{ code: "mesh.request-in-progress" }`; a call that threw is forgotten. Untrusted calls are never
 deduplicated.

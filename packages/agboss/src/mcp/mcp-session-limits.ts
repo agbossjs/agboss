@@ -53,7 +53,7 @@ export interface TrackedSession {
   readonly callerKey: string;
   /** The requests being served (an open event stream is one): the idle clock runs at none. */
   inFlight: number;
-  /** Set when the session is removed: a request of it that closes later neither re-arms its clock nor counts it. */
+  /** Set when the session is removed: a request of it that closes later does not re-arm its clock. */
   closed?: boolean;
   /** Stops the idle clock. */
   release?: () => void;
@@ -142,8 +142,8 @@ export class McpSessions {
   use(session: TrackedSession, res: ServerResponse): void {
     session.inFlight += 1;
     session.release?.();
+    // a session removed meanwhile is not re-armed: `#arm` refuses a closed one
     res.once("close", () => {
-      if (session.closed === true) return;
       session.inFlight -= 1;
       this.#arm(session);
     });

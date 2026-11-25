@@ -46,9 +46,22 @@ export const isSameCaller = (a: McpCaller, b: McpCaller): boolean =>
 /**
  * The caller as the session `id` owns it: one that names no owner is the session's own — a tenant's
  * key `mcp-session:<id>`, an anonymous caller `anonymous:<id>` — so only a client holding the id,
- * of that tenant, is the same caller. Never made from the connection.
+ * of that tenant, is the same caller. Never made from the connection. A caller with an owner or a
+ * tenant keeps its identity as `authOwnerId` (none for a tenant's key): what a call's idempotency is
+ * scoped by, across sessions. An anonymous caller is no one principal, so it has none: its calls
+ * are scoped by its session's own owner.
  */
-export const inSession = (caller: McpCaller, id: string): McpCaller =>
-  caller.ownerId !== undefined || caller.peer !== undefined
-    ? caller
-    : { ...caller, ownerId: `${caller.tenant === undefined ? "anonymous" : "mcp-session"}:${id}` };
+export const inSession = (caller: McpCaller, id: string): McpCaller => {
+  if (caller.ownerId !== undefined || caller.peer !== undefined)
+    return { ...caller, authOwnerId: caller.ownerId };
+  if (caller.tenant === undefined) return { ...caller, ownerId: `anonymous:${id}` };
+  return { ...caller, ownerId: `mcp-session:${id}`, authOwnerId: undefined };
+};
+
+/**
+ * The owner that identifies the caller's calls (#1410 H1): the one it came with, before `inSession`
+ * gave it a session's own — so a retry in a new session is the same call. An anonymous caller (no
+ * tenant, owner or peer) keeps its session's owner: its calls repeat only within one session.
+ */
+export const stableOwnerOf = (caller: McpCaller): string | undefined =>
+  "authOwnerId" in caller ? caller.authOwnerId : caller.ownerId;

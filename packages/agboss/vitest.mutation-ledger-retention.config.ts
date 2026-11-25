@@ -18,6 +18,7 @@ export default defineConfig({
       "tests/rag/rerank-pii.test.ts",
       "tests/rag/tenant-isolation.test.ts",
       "tests/infrastructure/ledger-retention-units.test.ts",
+      "tests/app/audit-sweep-takeover.test.ts",
       "tests/rag/ledger-rag-spend.test.ts",
       "tests/rag/ledger-rag-meta.test.ts",
     ],

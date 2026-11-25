@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ErrorDetails } from "../core/errors.js";
+import { keyTextRuleOf, type ErrorDetails } from "../core/errors.js";
 import {
   HopsLimitExceededError,
   isMeshLimitError,
@@ -20,7 +20,7 @@ export interface MeshLimitBody {
 }
 
 /**
- * A name on the wire (an application, a start, an execution id): printable ASCII of the shapes names
+ * A name on the wire (an application, a start): printable ASCII of the shapes names
  * and ids take, never a control character, a space or a quote — what a remote says is data, not text
  * for a log or a model. Over 128 characters is not one.
  */
@@ -32,7 +32,14 @@ const NAME = z
 
 const EntrySchema = z.object({ application: NAME, start: NAME });
 
-const HopSchema = EntrySchema.extend({ executionId: NAME });
+/** An execution id as `IdGenerator`s make them (#1410 M1): up to 200 characters, any a key's text allows. */
+const EXECUTION_ID = z
+  .string()
+  .min(1)
+  .max(200)
+  .refine((id) => keyTextRuleOf(id) === undefined);
+
+const HopSchema = EntrySchema.extend({ executionId: EXECUTION_ID });
 
 const LoopSchema = z.object({
   code: z.literal("limit.mesh-loop"),

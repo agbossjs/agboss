@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, mkdtempSync, openSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -19,48 +19,74 @@ afterEach(() => {
   for (const directory of projects.splice(0)) rmSync(directory, { recursive: true, force: true });
 });
 
+/** A project whose `src/` has a module that attaches to stdin as it is imported. */
+function launcherProject(): string {
+  const cwd = mkdtempSync(join(dirname(fixture("cli/no-breaker.application.ts")), ".stdin-"));
+  projects.push(cwd);
+  writeFileSync(
+    join(cwd, "package.json"),
+    JSON.stringify({
+      name: "p",
+      type: "module",
+      agboss: { application: "src/app.application.ts" },
+    }),
+  );
+  mkdirSync(join(cwd, "src"));
+  writeFileSync(
+    join(cwd, "src/app.application.ts"),
+    'export { NoBreakerApplication, TestWorkflow } from "../../no-breaker.application.js";\n',
+  );
+  writeFileSync(
+    join(cwd, "src/launcher.ts"),
+    'process.stdin.on("data", () => undefined);\nexport const launcher = true;\n',
+  );
+  return cwd;
+}
+
+/** `agboss check` in `cwd` with the given stdin; its exit code (or `timeout`) and output. */
+async function checked(cwd: string, stdin: "pipe" | number) {
+  const child = spawn(process.execPath, ["--import", tsx, main, "check"], {
+    cwd,
+    env: { PATH: process.env.PATH, NO_COLOR: "1" },
+    stdio: [stdin, "pipe", "pipe"],
+  });
+  let output = "";
+  child.stdout?.on("data", (chunk: Buffer) => (output += chunk.toString()));
+  child.stderr?.on("data", (chunk: Buffer) => (output += chunk.toString()));
+  const exit = await new Promise<number | "timeout">((resolve) => {
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      resolve("timeout");
+    }, 15_000);
+    child.on("exit", (code) => {
+      clearTimeout(timer);
+      resolve(code ?? -1);
+    });
+  });
+  child.stdin?.destroy();
+  return { exit, output };
+}
+
 describe("agboss check with a module that attaches to stdin on import", () => {
-  it("exits 0 although stdin stays open", async () => {
-    const cwd = mkdtempSync(join(dirname(fixture("cli/no-breaker.application.ts")), ".stdin-"));
-    projects.push(cwd);
-    writeFileSync(
-      join(cwd, "package.json"),
-      JSON.stringify({
-        name: "p",
-        type: "module",
-        agboss: { application: "src/app.application.ts" },
-      }),
-    );
-    mkdirSync(join(cwd, "src"));
-    writeFileSync(
-      join(cwd, "src/app.application.ts"),
-      'export { NoBreakerApplication, TestWorkflow } from "../../no-breaker.application.js";\n',
-    );
-    writeFileSync(
-      join(cwd, "src/launcher.ts"),
-      'process.stdin.on("data", () => undefined);\nexport const launcher = true;\n',
-    );
-
-    const child = spawn(process.execPath, ["--import", tsx, main, "check"], {
-      cwd,
-      env: { PATH: process.env.PATH, NO_COLOR: "1" },
-      stdio: ["pipe", "pipe", "pipe"],
+  it("exits 0 although stdin (a pipe) stays open", async () => {
+    expect(await checked(launcherProject(), "pipe")).toMatchObject({
+      exit: 0,
+      output: expect.stringContaining("ok:"),
     });
-    let output = "";
-    child.stdout.on("data", (chunk: Buffer) => (output += chunk.toString()));
-    child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));
-    const exit = await new Promise<number | "timeout">((resolve) => {
-      const timer = setTimeout(() => {
-        child.kill("SIGKILL");
-        resolve("timeout");
-      }, 15_000);
-      child.on("exit", (code) => {
-        clearTimeout(timer);
-        resolve(code ?? -1);
+  });
+
+  it("exits 0 with stdin redirected from a file (an fs.ReadStream, which has no unref)", async () => {
+    const cwd = launcherProject();
+    const input = join(cwd, "input.txt");
+    writeFileSync(input, "");
+    const fd = openSync(input, "r");
+    try {
+      expect(await checked(cwd, fd)).toMatchObject({
+        exit: 0,
+        output: expect.stringContaining("ok:"),
       });
-    });
-    child.stdin.destroy();
-
-    expect({ exit, output }).toMatchObject({ exit: 0, output: expect.stringContaining("ok:") });
+    } finally {
+      closeSync(fd);
+    }
   });
 });
