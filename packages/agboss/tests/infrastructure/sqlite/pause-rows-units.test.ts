@@ -3,6 +3,7 @@
  * pause row and a mailbox row read back, what a text that is no JSON says, a write over a row another writer
  * changed, a claim with no recipient asked of no SQL, and a mailbox claimed under a token with no end.
  */
+import { pauseKeyOf } from "../../../src/infrastructure/pause-record.js";
 import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -130,12 +131,12 @@ describe("#1356: a pause row", () => {
     expect(pause).toBeInstanceOf(StoreError.UnreadableRecord);
     expect(pause).toHaveProperty(
       "message",
-      "a stored pause is not readable (pauseId p-1): the text is not valid JSON",
+      `a stored pause is not readable (pause ${pauseKeyOf("default", "p-1")}): the text is not valid JSON`,
     );
     expect(answer).toBeInstanceOf(StoreError.UnreadableRecord);
     expect(answer).toHaveProperty(
       "message",
-      "a stored pause answer is not readable (pauseId p-1): the text is not valid JSON",
+      `a stored pause answer is not readable (pause ${pauseKeyOf("default", "p-1")}): the text is not valid JSON`,
     );
   });
 });
@@ -218,7 +219,7 @@ describe("#1356: a mailbox row", () => {
     expect(failure).toBeInstanceOf(StoreError.UnreadableRecord);
     expect(failure).toHaveProperty(
       "message",
-      "a stored pause notice mailbox is not readable (pauseId p-1): the text is not valid JSON",
+      `a stored pause notice mailbox is not readable (pause ${pauseKeyOf("default", "p-1")}): the text is not valid JSON`,
     );
   });
 });

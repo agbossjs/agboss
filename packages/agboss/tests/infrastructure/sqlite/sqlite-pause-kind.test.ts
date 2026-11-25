@@ -2,6 +2,7 @@
  * 0.1.1 (the pause contract): a pause record stores its `kind` and names its `step`; the reader never
  * infers a kind — a row without one fails its own read, naming the pause.
  */
+import { pauseKeyOf } from "../../../src/infrastructure/pause-record.js";
 import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
 import { PauseKind } from "../../../src/index.js";
@@ -108,7 +109,9 @@ describe("0.1.1: the SQLite pause store reads the kind it stores", () => {
     const pauses = new SqlitePausedExecutionRepository(connectionTo(path), clock);
 
     await expect(readOf(pauses, "kindless")).rejects.toThrow(
-      /a stored pause is not readable \(pauseId kindless, executionId run-1.*kind/,
+      new RegExp(
+        `a stored pause is not readable \\(pause ${pauseKeyOf("default", "kindless")}, executionId run-1.*kind`,
+      ),
     );
   });
 });

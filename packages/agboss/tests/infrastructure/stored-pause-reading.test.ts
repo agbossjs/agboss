@@ -4,6 +4,7 @@
  * pause row reads through it too, so its tests catch a removal as well, but this one names it). Also
  * the answer-log entry and the kept history record a store parsed. The rows are 0.1.1's.
  */
+import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
 import { PauseRespondent } from "../../src/index.js";
@@ -96,7 +97,7 @@ describe("a store's parsed JSON is read through the core", () => {
     const read = (): unknown => pauseRecordOfJson({ ...PAUSE, ...change });
 
     expect(read).toThrow(StoreError.UnreadableRecord);
-    expect(read).toThrow(new RegExp(`pauseId p1.*${field}`));
+    expect(read).toThrow(new RegExp(`pause ${pauseKeyOf("default", "p1")}.*${field}`));
     expect(read).not.toThrow(/sk-live-PLANTED/);
   });
 

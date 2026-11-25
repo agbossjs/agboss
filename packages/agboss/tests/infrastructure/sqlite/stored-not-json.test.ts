@@ -4,6 +4,7 @@
  * row's ids — and, as D4-b has it, quotes no stored text: not in the message, not in the stack, not in
  * the cause (a parser's own message quotes the text it failed on).
  */
+import { pauseKeyOf } from "../../../src/infrastructure/pause-record.js";
 import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
@@ -119,11 +120,15 @@ describe.each(TEXTS)("#1121: %s is the coded unreadable refusal", (_name, NOT_JS
     insert.run("p2", "run-1:s:2", pauseJson, NOT_JSON);
     const pauses = new SqlitePausedExecutionRepository(connectionTo(path), clock);
 
-    await refused(() => pauses.findByTenantIdAndPauseId("default", "p1"), "pause", "pauseId p1");
+    await refused(
+      () => pauses.findByTenantIdAndPauseId("default", "p1"),
+      "pause",
+      `pause ${pauseKeyOf("default", "p1")}`,
+    );
     await refused(
       () => pauses.findByTenantIdAndPauseId("default", "p2"),
       "pause answer",
-      "pauseId p2",
+      `pause ${pauseKeyOf("default", "p2")}`,
     );
   });
 

@@ -162,7 +162,7 @@ describe("#1366: a protocol error", () => {
 });
 
 describe("#1366: a contract error", () => {
-  it("keeps the rule, the skill and the differences, and its details name them", () => {
+  it("keeps the rule, the skill and the differences, and its details name the rule and the skill only (the card's differences are remote text)", () => {
     const error = new A2AError.Contract({
       agent: "a",
       rule: A2AContractRule.SchemaMismatch,
@@ -174,7 +174,6 @@ describe("#1366: a contract error", () => {
       agent: "a",
       rule: "a2a.schema-mismatch",
       skill: "refund",
-      differences: ["input: amount", "output: id"],
     });
     expect(error.differences).toEqual(["input: amount", "output: id"]);
     expect(error.rule).toBe(A2AContractRule.SchemaMismatch);
@@ -194,7 +193,6 @@ describe("#1366: a contract error", () => {
       agent: "a",
       rule: "a2a.unknown-skill",
       skill: "s",
-      differences: [],
     });
   });
 });
@@ -212,7 +210,6 @@ describe("#1366: what a refusal before sending knows", () => {
       agent: "a",
       origin: "https://evil.example",
       site: "redirect",
-      allowedOrigins: ["https://a.example", "https://b.example"],
     });
     expect(error.allowedOrigins).toEqual(["https://a.example", "https://b.example"]);
     expect(error.code).toBe("a2a.origin-refused");
@@ -305,6 +302,7 @@ describe("#1366: what a task's end knows", () => {
     });
     expect(late.details).toStrictEqual({
       ...ids,
+      deadlineAt: "2026-01-01T00:00:00.000Z",
       cancel: "cancelled",
       isCancelled: true,
     });

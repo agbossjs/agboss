@@ -4,6 +4,7 @@
  * stored text — not in the message, the stack or the cause. A site that goes back to a bare
  * `JSON.parse` fails its case: the parser's `SyntaxError` quotes the planted secret and has no code.
  */
+import { pauseKeyOf } from "../../../src/infrastructure/pause-record.js";
 import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -269,7 +270,11 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
       claimed_until: null,
     };
 
-    await refused(() => toMailbox(row), "pause notice mailbox", "pauseId p1");
+    await refused(
+      () => toMailbox(row),
+      "pause notice mailbox",
+      `pause ${pauseKeyOf("default", "p1")}`,
+    );
   });
 
   it("an a2a file's metadata on disk", async () => {

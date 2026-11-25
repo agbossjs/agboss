@@ -4,6 +4,7 @@
  * answer column alike — with `StoreError.UnreadableRecord` naming the record's id and the field, never
  * the value. Rows are inserted as a damaged file would hold them.
  */
+import { pauseKeyOf } from "../../../src/infrastructure/pause-record.js";
 import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
@@ -185,7 +186,11 @@ describe("D1 / D2: a pause's answer column and the answer log", () => {
   ])("a pause whose answer has %s names the pause and the field", async (_name, answer, field) => {
     const pauses = pausesWith(JSON.stringify(answer));
 
-    await refusal(() => pauses.findByTenantIdAndPauseId("default", "p1"), "pauseId p1", field);
+    await refusal(
+      () => pauses.findByTenantIdAndPauseId("default", "p1"),
+      `pause ${pauseKeyOf("default", "p1")}`,
+      field,
+    );
   });
 
   it("an answer-log entry whose role is an object names the execution and the field", async () => {
