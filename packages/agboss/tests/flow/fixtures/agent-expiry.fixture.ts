@@ -53,15 +53,15 @@ export class AgentRefundDoneDto {
   text!: string;
 }
 
+/** What the approval channel's expiry handler does with an expired ask. */
+type ExpiryBehavior = ((ask: ExpiredContext<RefundApprovalToolApproval>) => Expiry) | undefined;
+type Expiry = PauseExpiration<RefundApprovalToolApproval>;
+
 export const agentExpiry = {
   /** The refunds the tools ran. */
   refunds: [] as string[],
   /** What the approval channel's expiry handler does; none: `fail()`. */
-  behavior: undefined as
-    | undefined
-    | ((
-        ask: ExpiredContext<RefundApprovalToolApproval>,
-      ) => PauseExpiration<RefundApprovalToolApproval>),
+  behavior: undefined as ExpiryBehavior,
   /** The contexts the approval targets' handler was called with. */
   asked: [] as ExpiredContext<RefundApprovalToolApproval>[],
   /** What the gate tool waits for: replaced by each test. */

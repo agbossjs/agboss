@@ -89,11 +89,9 @@ export class PtLimitChannelInterpreter {
   interpret(
     input: InputOf<PtLimitChannelInterpreter>,
   ): ChannelInterpretation<OutputOf<PtLimitChannelInterpreter>> {
-    return input.reply.length > 0
-      ? ChannelInterpretation.understood({
-          limitUsd: 100,
-        } satisfies OutputOf<PtLimitChannelInterpreter>)
-      : ChannelInterpretation.notUnderstood("empty");
+    if (input.reply.length === 0) return ChannelInterpretation.notUnderstood("empty");
+    const understood = { limitUsd: 100 } satisfies OutputOf<PtLimitChannelInterpreter>;
+    return ChannelInterpretation.understood(understood);
   }
 }
 
