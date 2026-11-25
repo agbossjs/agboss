@@ -300,8 +300,7 @@ A router's step fails in two ways (#280 S19), both caught by `.onError(…)` rig
 | `StepError.RouterDecision` | `step.router.invalid-decision` | the answer is not allowed: a target outside `routes` (a cast), a list outside `chooseMany([…])`, an unknown or unreadable answer from the model — never retried |
 
 Both carry `component` (`{ name }`), `nodeId` and `visitNumber`; `StepError.RouterDecision` is a
-`StepError.Router` (its `reason` says what was wrong), so `.onError(StepError.Router, …)` takes
-both. Matching goes through the cause chain: `.onError(CreditServiceUnavailableError, …)` takes the
+sibling of `StepError.Router`, not its subclass (its `reason` says what was wrong): `.onError(StepError.Router, …)` does not take it — catch `StepError.RouterDecision`, or the `StepError` family for both. Matching goes through the cause chain: `.onError(CreditServiceUnavailableError, …)` takes the
 service's failure inside `StepError.Router`, as in the credit flow above. A limit
 (`LimitError`), a cancel or a pause thrown inside `route()` passes as it is, never wrapped.
 

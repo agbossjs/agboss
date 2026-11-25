@@ -1,7 +1,7 @@
 /**
  * The errors a run can fail with — every one a `AGBossError` with a stable `code`, so a flow
  * can `.onError(<class>, …)` it (also after a resume from a checkpoint) and a caller can tell them
- * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`, `limit.depth` (#264), `limit.mesh-loop`, `limit.hops` (#398); `step` ⊃ `step.failed` (`StepError`, #273 S22) ⊃
+ * apart. `limit` ⊃ `limit.budget`, `limit.steps`, `limit.visits`, `limit.depth` (#264), `limit.mesh-loop`, `limit.hops` (#398); `step` (`StepError`, #273 S22) is the family of
  * `step.agent`, `step.action`, `step.guardrail`, `step.router`, `step.arbiter`, `step.quorum` (#279),
  * `step.child` (`StepError.Child`, #263) and `step.tool-blocked` (`StepError.ToolBlocked`, #384);
  * `step.pause-expired` (`StepError.PauseExpired`, #941) is a pause whose deadline passed, `pause.expiry-handler-failed` (`PauseError.ExpiryHandlerFailed`) why its expiry decision fell back to failing;

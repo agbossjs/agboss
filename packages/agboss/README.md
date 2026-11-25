@@ -1502,7 +1502,7 @@ may wake and write after the new holder did. Domain code gets no raw fence and n
 the lease's `scopeKey` and fencing `token`, the step's `idempotencyKey` and the checks are made by
 `Idempotency` — `runOnce` for rows of the application's own database, `sendOnce` for a call that
 leaves the system (the key it sends is a 43-character HMAC of them). A write refused because the
-lease moved is `ExecutionError.Fenced` (`ExecutionFencedError`, `extends ExecutionLeaseLostError`),
+lease moved is `ExecutionError.Fenced` (`execution.lease-lost.fenced`, a variant of its own: a hand-over like `ExecutionLeaseLostError`),
 found in any cause chain: a hand-over — no `.onError`, no undo, the record stays `running` and the call
 rejects with it — and it is kept (#501): a `HandedOver` row of the audit log (`app.auditLogOf`) and
 an `onStepHandedOver` (`reason`, `site`, the step, `token`, `observedToken`); an idempotent write's call
@@ -1516,7 +1516,7 @@ step has a held lease (`fence: { token, isLost, renewNowFails }`).
 no fencing or idempotency table of the application's: the application's `Idempotency` (#890, #1317, a
 core service a component injects, over the listed `FencedEffectRepository`) `runOnce({ name, ttl,
 execute })` checks, in one transaction, the step's lease (not its epoch,
-released or expired → `ExecutionFencedError`), the scope's high-water mark (a lower token refused
+released or expired → `ExecutionError.Fenced`), the scope's high-water mark (a lower token refused
 before any key is read, so a zombie never gets the new holder's result), then the step's key —
 written before, the stored result comes back (`IdempotencyRunStatus.Replayed`) and `execute` does not run;
 else `execute` writes its rows and its result is stored with them (`Ran`). A concurrent call on one key

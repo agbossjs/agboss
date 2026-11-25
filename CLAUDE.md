@@ -1286,7 +1286,7 @@ export const quorumPaths = [
   router's a class. In `.inParallel([…])` a router is a branch, `toRouter(R).chooseMany([…])`. A router that fails **fails the run** unless an
   `.onError(…)` right after it takes it: `StepError.Router` (`step.router`: `route()` threw or
   the model call failed, the original as `cause` — `.onError(DomainError, …)` catches it through
-  the cause) or `StepError.RouterDecision` (`step.router.invalid-decision`, a `StepError.Router`: an
+  the cause) or `StepError.RouterDecision` (`step.router.invalid-decision`, a sibling of `StepError.Router`, not its subclass: an
   answer outside its routes, never retried).
 - `agboss describe` prints the flow in this grammar; Studio draws the same graph.
 
@@ -1669,7 +1669,7 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   into it (a decision model there is `[reply-interpreter.decision-model]`), `decided(answer)` at
   once; a code node (no slot, no step of `maxSteps`, budget-checked like an action, its fence
   checked before `send`), a `send` that throws or an invalid `decided(…)` is `StepError.ExternalTask`
-  (`step.external-task`, `question` the step; `new StepError.ExternalTask({ question, cause })`) for `.onError` right after it;
+  (`step.external-task`, `externalTask` the step; `new StepError.ExternalTask({ externalTask, cause })`) for `.onError` right after it;
   `agboss describe` prints `asked at <step> (<workflow>)` for it. **An agent asks one as a tool (#712):** `@Agent({ tools: [SpendingLimitExternalTask] })` — its model sees a tool named the task (input = `input`, strict: invalid arguments — an undeclared field too — ask nobody, the model reads a tool error, counted against `maxVisits`), the call pauses at the loop's approval step (before the move's other tools; a move's question calls one after another), the validated `output` is the call's result (PII-masked, `maxResultSize`, `onToolStart` / `onToolEnd`, `result.toolCalls` with `component.kind` `external-task`; no tool interceptors), `result.pending[i].step` the asking agent; `maxVisits` bounds one visit's calls (`LimitError.Visits` before the ask), budgets and the fence checked before each ask, a failed `send` or invalid `decided(…)` is `StepError.Agent`; a `@ToolApproval` there is `[channel.approval-role-as-tool]`; `callTool(Task, input)` scripts it; describe: `asked at <agent>'s tool loop (<workflow>)`. A channel has
   one method, `send(ask: ChannelAsk<Target>): Promise<ChannelOutcome<Target>>` (`ask = { pauseId, input, toolCall?, expiresAt?, assignees?, trail }`,
   typed by the generated `AGBossTypes` tables): `ChannelOutcome.awaitReply()` pauses the execution until
@@ -2881,10 +2881,9 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   family and `.onError(LimitError.Budget, …)` one variant (the nearest class in the error's line wins). A variant
   is named `Family.Variant`, takes its own facts and `{ message?, cause?, details? }`, and its default sentence
   holds no fact. A family of a step, a limit, a guardrail or PII carries `usage` and `spend`. `ExecutionError`'s
-  `CancelFenced`, `LeaseLost`, `Fenced` and `ApplicationStopping` are hand-overs: no `.onError` takes them. A
+  `LeaseLost`, `Fenced` and `ApplicationStopping` are hand-overs: no `.onError` takes them; `CancelFenced` is a cancel (no `.onError` takes it either, but the lease is still held and the tree unwinds). A
   class's code is its own `static code` — a project class without one is caught by its name, never by an inherited
-  `agboss`. The old classes (`LimitError.Budget`, `StepError`, …) are still thrown until each family's
-  owning ticket moves its throw sites. **`Result<T, E = AGBossError>`** is a utility: `Result.ok`, `Result.err`,
+  `agboss`. **`Result<T, E = AGBossError>`** is a utility: `Result.ok`, `Result.err`,
   `Result.try(fn)` (sync or async; keeps only an `AGBossError` as `{ ok: false, error }`, any other throw is a bug
   and goes on), `Result.tryAll(fn)` (keeps anything), `.unwrap()`, `.unwrapOr()`, `.map()`, `.mapErr()`; no `App`
   method returns one and none has a `try…` twin — every public async method rejects, never throws at the call.
@@ -2923,10 +2922,7 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   is positional). Its instance `code` is its
   class's literal — `static override readonly code = "…" as const;` and `declare readonly code:
 typeof X.code;` — so `switch (error.code)` over a union of errors narrows
-  (`tests/public-api/error-codes.test-d.ts`); the six parents with subclasses (`StepError`,
-  `StepError`, `StepError.Agent`, `LimitError`, `StepError.Router`,
-  `ExecutionLeaseLostError`) declare the literal union of their family on the instance — a new
-  subclass must be listed there (the compiler says so) — while their `static code` stays `string`. `.onError` matches by class, so a subclass is caught by its parent's
+  (`tests/public-api/error-codes.test-d.ts`); an error family (`StepError`, `LimitError`, `ExecutionError`, …) is a base class with one sibling class per variant, each declaring its own literal `code` on the instance, so `error instanceof Family` and `.onError(Family, …)` take every variant while `.onError(Family.Variant, …)` takes that one only — a variant is never the subclass of another. Of your own classes `.onError` matches by class, so a subclass is caught by its parent's
   side path — by the class's code line (its `static code`, else its class name — give a routed class a
   `static code`: a name may change with a bundler), so a failure that crosses a takeover or an instance routes the same
   way on every holder (#598): a child's claimed failure (#596), an undo's mark (#340) and a remote

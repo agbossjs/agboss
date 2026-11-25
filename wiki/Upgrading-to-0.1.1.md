@@ -257,3 +257,24 @@ below are for a database an earlier build of the package wrote; SQLite is the co
   [MongoDB](MongoDB#the-schema-and-its-versions).
 
 The full list of changes of the release is in the [Changelog](Changelog).
+
+## Errors — the classes are variants of families (#1325)
+
+Every error class below is gone from `@agboss/core` (no alias); catch the variant, or its family for all of them. A variant is a sibling of the others of its family, never their subclass. A record's code line is `[variant code, family code, "agboss"]` (`step.failed` is gone).
+
+| Was | Is | Code was → is |
+| --- | --- | --- |
+| `StepFailedError`, `PaidStepError` | `StepError` | `step.failed`, `step` → `step` |
+| `AgentFailedError`, `AgentAnswerInvalidError`, `QualityGateError` | `StepError.Agent`, `.AgentAnswerInvalid`, `.QualityGate` | unchanged |
+| `ActionFailedError`, `QuestionFailedError`, `GuardFailedError` | `StepError.Action`, `.ExternalTask` (`externalTask`), `.Guardrail` (`guardrail`) | `step.question` → `step.external-task`, `step.guard` → `step.guardrail` |
+| `RouterFailedError`, `RouterDecisionError` | `StepError.Router`, `StepError.RouterDecision` (no longer a subclass) | unchanged |
+| `ArbiterError`, `QuorumNotReachedError`, `ChildExecutionFailedError`, `PauseExpiredError` (`kind` → `pauseKind`), `ToolBlockedError` | `StepError.Arbiter`, `.QuorumNotReached`, `.Child`, `.PauseExpired`, `.ToolBlocked` | unchanged |
+| `GuardrailBlockedError` (`guard` → `guardrail`), `PiiRefusedError` (`kind` → `piiKind`), `PiiDetectionFailedError` | `GuardrailError.Blocked`, `PiiError.Refused`, `PiiError.DetectionFailed` | unchanged |
+| `LimitExceededError`, `BudgetExceededError`, `DeadlineExceededError`, `StepsLimitExceededError`, `VisitsLimitExceededError`, `DepthLimitExceededError`, `HopsLimitExceededError`, `MeshLoopDetectedError` | `LimitError`, `LimitError.Budget`, `.Deadline`, `.Steps`, `.Visits`, `.Depth`, `.Hops`, `.MeshLoop` (an agent's own limits: `LimitError.Agent`) | unchanged (`limit` → `limit.agent` for the last) |
+| `GraphRuleError`, `ConfigurationError`, `EnvironmentError`, `EvalCaseInvalidError`, `NotAWorkflowStartError`, `WorkflowLoadError`, `ApplicationLoadError`, `ModelKindError` | `ConfigError.GraphRules`, `.ModelSettings`, `.Environment` (`envCode`), `.EvalCase`, `.NotAWorkflowStart`, `.WorkflowLoad`, `.ApplicationLoad`, `.ModelKind` | `graph.rules`, `eval.case-invalid`, `workflow.not-a-start`, `load.*`, `model.wrong-kind` → `config.*` |
+| `UnknownThreadError`, `ThreadOwnerError`, `InvalidThreadIdError`, `DuplicateExecutionIdError`, `IncompatibleResumeError`, `CompensationFailedError`, `ExecutionCancelFencedError` | `ExecutionError.UnknownThread`, `.ThreadOwnerMismatch`, `.InvalidThreadId`, `.DuplicateExecutionId`, `.IncompatibleResume`, `.CompensationFailed`, `.CancelFenced` (a cancel, no hand-over) | `run.*`, `resume.incompatible`, `compensation.failed` → `execution.*` |
+| `PauseClosedError`, `UnknownPauseError`, `PauseExtensionContendedError`, `ExpiryHandlerError` | `PauseError.Closed`, `.UnknownPause`, `.UpdateContended`, `.ExpiryHandlerFailed` | unchanged |
+| `StoreOutcomeUnknownError`, `StoreCallTimeoutError` (no longer a subclass; `isStoreOutcomeUnknown(error)` is true for both), `StoredNamesUnreadableError`, `CostLedger*Error` | `StoreError.OutcomeUnknown`, `.CallTimeout`, `.UnreadableRecord`, `.Ledger*` | `stored.unreadable`, `cost-ledger.*` → `store.*` |
+| `A2A*Error` (client) | `A2AError.*` | unchanged |
+
+`ExecutionCancelledError` and its subclasses are internal now; `isExecutionCancelled` is in `@agboss/core/internal`.

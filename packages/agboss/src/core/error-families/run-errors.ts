@@ -36,7 +36,7 @@ export enum ExecutionErrorKind {
   RemoteChildLost = "remote-child-lost",
 }
 
-/** An execution or a thread could not be started, continued or settled. `CancelFenced`, `LeaseLost` and `Fenced` are hand-overs: they reach no `.onError`. */
+/** An execution or a thread could not be started, continued or settled. `LeaseLost`, `Fenced` and `ApplicationStopping` are hand-overs; `CancelFenced` is a cancel: both reach no `.onError`. */
 export type ExecutionError =
   | ExecutionError.CancelFenced
   | ExecutionError.LeaseLost

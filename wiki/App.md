@@ -315,7 +315,7 @@ it started with ([Context and Authorization](Context-And-Authorization#the-value
 as the thread's owner; the result has the same shape — `threadId` and `executionId` included — and, when
 other pauses remain, `status: Paused` with the rest in `pending`. A pause that is closed (taken,
 withdrawn, expired, …) → `PauseError.Closed` with its `reason`. A run paused under another workflow version or config is checked by
-the workflow's `onIncompatibleResume` policy (`ExecutionError.IncompatibleResume`, `resume.incompatible`, an
+the workflow's `onIncompatibleResume` policy (`ExecutionError.IncompatibleResume`, `execution.incompatible-resume`, an
 `AGBossError`); the config hash covers the root's child workflows, recursively (#336), so a paused
 run whose child changed is incompatible too, its pause inside the child or not. The whole model:
 [Pauses](Pauses).

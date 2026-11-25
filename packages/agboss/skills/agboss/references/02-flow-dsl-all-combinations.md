@@ -472,7 +472,7 @@ export class CreditWorkflow {}
   …"), never "the answer is ready".
 - A router that fails fails the run unless an `.onError(…)` right after it takes it: `StepError.Router`
   (the original as `cause`, so `.onError(CreditServiceUnavailableError, …)` catches it) or
-  `StepError.RouterDecision` (an answer outside its routes; a `StepError.Router` too, never retried).
+  `StepError.RouterDecision` (an answer outside its routes; a sibling of `StepError.Router`, not a subclass — catch the `StepError` family for both —, never retried).
 - `.onError` stands right after the step, before `.onRoute(…)`.
 - A model router without `model` takes `defaults.router.model` (none anywhere: `[model.missing-provider]`); its `input`
   is never empty (`[router.empty-input]`); a route of a model router is `{ target, prompt }`
@@ -2810,32 +2810,31 @@ CompensationReason.JoinFailed })` (reference 10). `npx agboss describe` prints
 
 ## 9. Errors: what `.onError` can catch
 
-`.onError(E, …)` matches by class through the cause chain: a subclass is caught by its parent's side
-path, and so is an error _caused_ by `E` (an action's own exception is the `cause` of its
+`.onError(E, …)` matches by class through the cause chain: a family's side path takes every variant of it and a variant's only that variant (variants are siblings, never subclasses of each other), and so is an error _caused_ by `E` (an action's own exception is the `cause` of its
 `StepError.Action`). The most specific handler wins; two for one class on one step are
 `[flow.duplicate-error-handler]`. Without a handler the execution fails.
 
-| Class (`code`)                                                                                      | Thrown when                                                        | Side path may use a model?         |
-| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------- |
-| `StepError` (`step`)                                                                                | the parent of a step's failures that cost money (rows below)       | yes                                |
-| ↳↳ `StepError.Agent` (`step.agent`)                                                                 | an agent's model call or loop failed                               | yes                                |
-| ↳↳↳ `StepError.AgentAnswerInvalid` (`step.agent.invalid-answer`)                                    | its answers stayed invalid after the retries                       | yes                                |
-| ↳↳↳ `StepError.QualityGate` (`step.agent.quality-gate`)                                             | its judges rejected the answer after `maxRetries`                  | yes                                |
-| ↳↳ `StepError.Action` (`step.action`)                                                               | an action threw (the original as `cause`)                          | yes                                |
-| ↳↳ `StepError.Router` (`step.router`) ↳ `StepError.RouterDecision` (`step.router.invalid-decision`) | `route()` threw / the model failed; an answer outside the routes   | yes                                |
-| ↳↳ `StepError.Guardrail` (`step.guardrail`)                                                         | a guardrail's model did not answer (fails closed)                  | yes                                |
-| ↳↳ `StepError.Arbiter` (`step.arbiter`), `StepError.QuorumNotReached` (`step.quorum`)               | an arbiter threw; too few counted answers (`.onError`)             | yes                                |
-| ↳↳ `StepError.Child` (`step.child`)                                                                 | a child's uncaught error (its `cause`)                             | yes, unless the cause is a limit   |
-| ↳ `GuardrailError.Blocked` (`guardrail.blocked`)                                                    | a guardrail said yes; `refusal` is the text to send instead        | yes                                |
-| ↳ `PiiError.Refused` (`pii.refused`)                                                                | a `block()` PII rule matched                                       | yes                                |
-| `LimitError` (`limit`)                                                                              | the parent of every limit                                          | **no** — actions and finishes only |
-| ↳ `LimitError.Steps` (`limit.steps`)                                                                | the workflow's `maxSteps`                                          | no                                 |
-| ↳ `LimitError.Visits` (`limit.visits`)                                                              | a node's `maxVisits`                                               | no                                 |
-| ↳ `LimitError.Budget` (`limit.budget`)                                                              | a `@Budget`'s `maxSpend()`                                         | no                                 |
-| ↳ `LimitError.Depth` (`limit.depth`)                                                                | a recursive launch past `maxDepth` (inside `StepError.Child`)      | no                                 |
-| `ExecutionCancelledError` (`execution.cancelled`)                                                   | `app.cancel` or the caller's `signal` — never taken by a side path | —                                  |
-| `ApplicationStoppingError` (`app.stopping`)                                                         | `app.close()` interrupted it — never taken                         | —                                  |
-| `ExecutionError.CompensationFailed` (`execution.compensation-failed`)                               | an automatic undo failed — never taken                             | —                                  |
+| Class (`code`)                                                                                  | Thrown when                                                        | Side path may use a model?         |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------- |
+| `StepError` (`step`)                                                                            | the family of a step's failures (every `StepError.*` row)          | yes                                |
+| `StepError.Agent` (`step.agent`)                                                                | an agent's model call or loop failed                               | yes                                |
+| `StepError.AgentAnswerInvalid` (`step.agent.invalid-answer`)                                    | its answers stayed invalid after the retries                       | yes                                |
+| `StepError.QualityGate` (`step.agent.quality-gate`)                                             | its judges rejected the answer after `maxRetries`                  | yes                                |
+| `StepError.Action` (`step.action`)                                                              | an action threw (the original as `cause`)                          | yes                                |
+| `StepError.Router` (`step.router`), `StepError.RouterDecision` (`step.router.invalid-decision`) | `route()` threw / the model failed; an answer outside the routes   | yes                                |
+| `StepError.Guardrail` (`step.guardrail`)                                                        | a guardrail's model did not answer (fails closed)                  | yes                                |
+| `StepError.Arbiter` (`step.arbiter`), `StepError.QuorumNotReached` (`step.quorum`)              | an arbiter threw; too few counted answers (`.onError`)             | yes                                |
+| `StepError.Child` (`step.child`)                                                                | a child's uncaught error (its `cause`)                             | yes, unless the cause is a limit   |
+| `GuardrailError.Blocked` (`guardrail.blocked`)                                                  | a guardrail said yes; `refusal` is the text to send instead        | yes                                |
+| `PiiError.Refused` (`pii.refused`)                                                              | a `block()` PII rule matched                                       | yes                                |
+| `LimitError` (`limit`)                                                                          | the family of every limit                                          | **no** — actions and finishes only |
+| `LimitError.Steps` (`limit.steps`)                                                              | the workflow's `maxSteps`                                          | no                                 |
+| `LimitError.Visits` (`limit.visits`)                                                            | a node's `maxVisits`                                               | no                                 |
+| `LimitError.Budget` (`limit.budget`)                                                            | a `@Budget`'s `maxSpend()`                                         | no                                 |
+| `LimitError.Depth` (`limit.depth`)                                                              | a recursive launch past `maxDepth` (inside `StepError.Child`)      | no                                 |
+| `ExecutionCancelledError` (`execution.cancelled`)                                               | `app.cancel` or the caller's `signal` — never taken by a side path | —                                  |
+| `ApplicationStoppingError` (`app.stopping`)                                                     | `app.close()` interrupted it — never taken                         | —                                  |
+| `ExecutionError.CompensationFailed` (`execution.compensation-failed`)                           | an automatic undo failed — never taken                             | —                                  |
 
 `ToolTimeoutError` (`tool.timeout`) never reaches the flow: a tool call past its `timeout` is read by
 its agent's model as the tool's error, like any tool error. All of them are `AGBossError`s.

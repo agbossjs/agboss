@@ -200,7 +200,7 @@ Expect two lines `taken — finished at offsite-booking-workflow-finish: {"summa
 Lodge: booked; flights TLV → LIS: booked"}`: both answers taken, the run went on, no question
 printed again. Now press the same answer again — in the first terminal answer `y`
 (`agboss run: pause <key> is closed: answered at <time>`), or `npm run answer -- <first pause id>` in
-the second (`PauseClosedError: pause <key> is closed: answered at <time>`). In Langfuse each buyer's
+the second (`PauseError.Closed: pause <key> is closed: answered at <time>`). In Langfuse each buyer's
 `place-purchase-tool` ran once.
 
 Answering in the first terminal only (`y`, then `y`) takes the two answers one after the other.
