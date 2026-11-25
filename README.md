@@ -561,7 +561,7 @@ runs graphify.
 2. **[`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof)** — Side-by-side proof of 4 production graph bugs (`[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, `[flow.uncompensated-action]`) that pass `tsc --noEmit` in raw LangGraph `Annotation.Root` (`langgraph-broken/`) and are caught before runtime by `agboss check` (`agboss-broken/` vs `agboss-fixed/`).
 3. **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** — Support & refund desk proving reversible `@PiiPolicy` (`tokenize()`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`reply`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction`, and a 5-loop `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$).
 4. **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** — Transactional multi-step saga (`compensateWith` / `committedBy`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.inParallel([…]).arbitratedBy(…).joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (`onPauseClosed()`, `PauseClosedError`, SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter).
-5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyWorker`, `SqliteDriver`, recursive a thunk of its own class (`() => Self`) (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `IncompatibleResumeError`.
+5. **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** — Multi-instance horizontal scaling with `ChildPlacement.AnyWorker`, `SqliteDriver`, recursive a thunk of its own class (`() => Self`) (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `ExecutionError.IncompatibleResume`.
 6. **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** — 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AEndpoint` and `@McpServer` / `@McpEndpoint`, Ed25519 mesh envelope (A2A message metadata / MCP `_meta`), the billing Agent Card tested and called by the official SDK client, `MeshLoopDetectedError` & `HopsLimitExceededError`, MCP `_meta.callId` deduplication via `SqliteMeshRequestRepository`, and `agboss check --federation` Blast Radius.
 7. **[`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)** — Side-by-side comparison of raw `@langchain/langgraph` (`before-langgraph/support.graph.ts` with 15-field `Annotation.Root` God State, string-keyed `addConditionalEdges`, unbounded `Send()`, dynamic prompt interpolation) vs AGBoss (`after-agboss/src/` + `after-agboss/tests/` with 10 narrow `@Dto`s, `@Router`, bounded `.toParallelAgents()`, `@Action`, `@Channel`, and `agboss check --strict`).
 8. **[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout)** — the job scout the snippets above come from (in this repository until #489): resume → proposed search brief → Greenhouse jobs ranked by Jev — typed child workflows, per-item launches, a quorum and a budget on a real multi-step agent; its `check`, `test` and `demo` scripts run offline at $0 against the published `@agboss/core`, `demo:live` with `OPENROUTER_API_KEY`.
@@ -1188,13 +1188,13 @@ const { cancelled } = await app.cancel(threadId, { tenantId: "acme", ownerId: us
 ```
 
 A thread created with an `ownerId` belongs to it: `execute` on that thread, `resume` and `cancel`
-with another owner (or none) throw `ThreadOwnerError` (`run.thread-owner`) before anything runs or
+with another owner (or none) throw `ExecutionError.ThreadOwnerMismatch` (`execution.thread-owner-mismatch`) before anything runs or
 is read. A thread belongs to its tenant too (#261): its key is `tenantId` + `threadId`, so another
 tenant's thread does not exist for the caller. `execute` with a `threadId` the tenant does not have
 yet creates that thread — the caller's own, idempotent id (an order number, a ticket), bound to its
 `ownerId`; the same id in another tenant is another thread (#262 Q4). An id that cannot be one
-(empty, over 200 characters, a control character) is `InvalidThreadIdError`
-(`run.invalid-thread-id`); `cancel` of a thread the tenant does not have is `UnknownThreadError`.
+(empty, over 200 characters, a control character) is `ExecutionError.InvalidThreadId`
+(`execution.invalid-thread-id`); `cancel` of a thread the tenant does not have is `ExecutionError.UnknownThread`.
 `resume` and `cancel` take the tenant by its id (omitted → `"default"`), and a resumed execution
 runs on the context values it started with. With nothing declared `tenant: { tenantId?, weight? }` is
 all there is (`weight`, a positive integer, default 1, is the tenant's share for #266's
@@ -1215,7 +1215,7 @@ lists every waiting pause (`PendingPause`: `kind`, `respondent`, `target`, `step
 (unknown, or another tenant's → `UnknownPauseError`, `pause.unknown`); with other pauses left the
 execution pauses again with the rest; the result carries `threadId` and `executionId`. Who may answer is
 the pause target's `respondent`: a `PauseRespondent.Owner` pause lists its `pauseId` in
-`result.pending` and is resumed with the thread's `ownerId` (another → `ThreadOwnerError`); a
+`result.pending` and is resumed with the thread's `ownerId` (another → `ExecutionError.ThreadOwnerMismatch`); a
 `PauseRespondent.Delegate` pause's id is the right to answer it — only its channel got it
 (`ask.pauseId`), `result.pending` leaves it out — and it is resumed with `{ actor:
 "manager-17" }`, recorded on the pause and in `onExecutionResume`; the other credential (or an empty
@@ -1471,7 +1471,7 @@ run — it stops before its next model or tool call and `execute` resolves with
 `ExecutionStatus.Cancelled` — or drops a paused one, whose pauses are withdrawn: their `resume` then
 throws `PauseClosedError` (`reason: "cancelled"`);
 `cancelled` is `false` when the thread had neither (a thread the tenant does not have is
-`UnknownThreadError`). From `app.close()` on, `execute` and `resume`
+`ExecutionError.UnknownThread`). From `app.close()` on, `execute` and `resume`
 are refused with `ApplicationStoppingError` (`app.stopping`, an `onExecutionRejected`); running executions
 go on and `cancel` still works. An execution tree is moved by one holder at a time (#265, Q58):
 `execute` and `resume` hold its lease (`seconds(30)`, renewed every 7.5 s and before every checkpoint
@@ -1753,7 +1753,7 @@ longer waiting, an
 `app.close()` — emits `onExecutionRejected` (`operation`: `ExecutionOperation.Execute | Resume |
 Cancel`, `threadId` when given, `tenantId`, the error's stable `code`, a `message` without the input
 values; never an `executionId`) and still throws. A resume refused as incompatible after a deploy
-(`IncompatibleResumeError`) is an `onExecutionError` on the paused execution; it stays paused. A
+(`ExecutionError.IncompatibleResume`) is an `onExecutionError` on the paused execution; it stays paused. A
 write that renews a value of the path scope outdates what was built from the older one:
 `onValuesOutdated` fires once per such cascade (the new value, each outdated value with its
 `OutdatedReason`; never DTO values), and `result.record.outdatedValues` keeps the values themselves.

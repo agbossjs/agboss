@@ -1,10 +1,6 @@
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import {
-  ActionFailedError,
-  CompensationFailedError,
-  CompensationReason,
-  CompensationStatus,
-} from "../../../src/index.js";
+import { ActionFailedError, CompensationReason, CompensationStatus } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import { seconds } from "../../../src/units/index.js";
@@ -29,7 +25,7 @@ import {
  * #340 PR 2 — a failed join undoes its finished undoable branches (Q3, `JoinFailed`): newest first,
  * each in its own frame on a clean-up signal bounded by `compensationTimeout`, before the
  * `.onError` side path runs or the branch's error fails the execution; an undo that fails does
- * not stop the others, then `CompensationFailedError` (Q4), which no side path takes.
+ * not stop the others, then `ExecutionError.CompensationFailed` (Q4), which no side path takes.
  */
 
 const test = testWith(UndoApplication);
@@ -161,7 +157,7 @@ describe("a failed join undoes its finished branches", () => {
 });
 
 describe("an undo that fails (Q4)", () => {
-  test("the rest still runs, then CompensationFailedError — never the side path", async ({
+  test("the rest still runs, then ExecutionError.CompensationFailed — never the side path", async ({
     app,
     mockService,
   }) => {
@@ -172,7 +168,7 @@ describe("an undo that fails (Q4)", () => {
 
     const run = execute(app, UndoWorkflowStart, GUEST);
 
-    await expect(run).rejects.toFailWith(CompensationFailedError, {
+    await expect(run).rejects.toFailWith(ExecutionError.CompensationFailed, {
       failures: [
         {
           compensated: expect.objectContaining({
@@ -218,7 +214,7 @@ describe("the clean-up signal (AC3)", () => {
       });
       await clock.advance(seconds(2));
 
-      await expect(run).rejects.toFailWith(CompensationFailedError, {
+      await expect(run).rejects.toFailWith(ExecutionError.CompensationFailed, {
         failures: [
           expect.objectContaining({ status: CompensationStatus.Failed }) as unknown,
           expect.objectContaining({ status: CompensationStatus.Failed }) as unknown,

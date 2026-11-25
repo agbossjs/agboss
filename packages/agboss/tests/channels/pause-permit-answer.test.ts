@@ -5,6 +5,7 @@
  * no channel asks nobody and waits for the owner's resume. The guarantees of a resume stay: after the
  * deadline and on a second answer it is refused before the hook is asked.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import {
@@ -12,7 +13,6 @@ import {
   PauseClosedError,
   PauseStatus,
   PausedExecutionRepository,
-  ThreadOwnerError,
 } from "../../src/index.js";
 import { PauseKind } from "../../src/pause/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
@@ -204,7 +204,7 @@ describe("#1307c: an owner's target with no channel asks nobody", () => {
     expect(stored).toMatchObject({ status: PauseStatus.Pending, isSent: true });
     await expect(
       app.resume({ pauseId: pending?.pauseId ?? "", decision: approve }, { ownerId: "bob" }),
-    ).rejects.toBeInstanceOf(ThreadOwnerError);
+    ).rejects.toBeInstanceOf(ExecutionError.ThreadOwnerMismatch);
     expect(app.resolve(PermitRefunds).refunded).toEqual([]);
 
     const done = await app.resume(

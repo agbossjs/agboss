@@ -5,16 +5,13 @@
  * goes with the recovery, each problem is logged as what it is, a pass takes its recorded answers
  * only when they are this run's, and a root's calls are counted in and out.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, it, vi } from "vitest";
 import type { AppDeps } from "../../src/app/app-deps.js";
 import { problemOf, recoverRootOf } from "../../src/app/recover-root.js";
 import { recordEndedOf, recoveryPassOf, RootCalls } from "../../src/app/recovery-pass.js";
 import type { TreeMoves } from "../../src/app/tree-moves.js";
-import {
-  IncompatibleResumeError,
-  ResumeDecision,
-  type IncompatibleResume,
-} from "../../src/run/resume-guard.js";
+import { ResumeDecision, type IncompatibleResume } from "../../src/run/resume-guard.js";
 import type { InterruptedRun } from "../../src/run/continue-agent.js";
 import type { Turn } from "../../src/turns/index.js";
 
@@ -152,7 +149,7 @@ describe("#633: recoverRootOf", () => {
 
     await resuming(recordOf(), signal);
     await resuming(recordOf({ configVersion: null }), signal);
-    await expect(leaving(recordOf(), signal)).rejects.toThrow(IncompatibleResumeError);
+    await expect(leaving(recordOf(), signal)).rejects.toThrow(ExecutionError.IncompatibleResume);
 
     expect(seen.map((resume) => resume.paused)).toEqual([
       { workflowVersion: "1.0.0", configHash: "hash-1" },
@@ -179,7 +176,7 @@ describe("#633: recoverRootOf", () => {
 });
 
 describe("#633: problemOf", () => {
-  const incompatible = new IncompatibleResumeError({
+  const incompatible = new ExecutionError.IncompatibleResume({
     threadId: "thread-1",
     executionId: "root-1",
     paused: { workflowVersion: "1.0.0", configHash: "hash-1" },

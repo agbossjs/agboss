@@ -4,6 +4,7 @@
  * before its pause took the answer, accepted after it (logged), or — an unexpected failure, its
  * pause still pending — the request failed (logged).
  */
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { ValidationError } from "../../../src/index.js";
 import { describe, expect, it } from "vitest";
 import {
@@ -19,7 +20,6 @@ import {
   UninterpretableReplyError,
 } from "../../../src/channels/decision.js";
 import { NotPausedError } from "../../../src/run/resume-agent.js";
-import { ThreadOwnerError } from "../../../src/core/errors.js";
 import { scriptOf, unitParts } from "./support/unit-parts.js";
 
 type Refusal = Exclude<KeptReply, { readonly accepted: true }>;
@@ -130,7 +130,7 @@ describe("#824: a resume that settled", () => {
         [
           new NotPausedError({ message: "x" }),
           new UnknownPauseError({ message: "x" }),
-          new ThreadOwnerError({ message: "x" }),
+          new ExecutionError.ThreadOwnerMismatch({ message: "x" }),
           reply,
           new ReplyInterpreterMissingError({ message: "x" }),
         ].map((error) => outcomeOf(error, isStillPending).outcome),

@@ -357,7 +357,7 @@ await app.resume({ pauseId, reply: "reject: duplicate" }, { tenantId: "acme", ac
 
 | `respondent` of the target | `app.resume` takes                                       | Where the `pauseId` is              |
 | -------------------------- | -------------------------------------------------------- | ----------------------------------- |
-| `PauseRespondent.Owner`    | `ownerId` — the thread's owner (else `ThreadOwnerError`) | `result.pending[i].pauseId`         |
+| `PauseRespondent.Owner`    | `ownerId` — the thread's owner (else `ExecutionError.ThreadOwnerMismatch`) | `result.pending[i].pauseId`         |
 | `PauseRespondent.Delegate` | `actor` — non-empty, recorded                            | only in the channel's `ask.pauseId` |
 
 `respondent` is who _may_ answer; `actor` is who _did_ (a `PauseActor`, kept on the pause, its answer
@@ -779,7 +779,7 @@ test("a large refund waits for the manager, then runs", async ({ app, mockModel,
 | `[di.infrastructure-in-workflow]`                                                                            | a channel or a provider in `@Workflow({ providers })` → `@Application({ channels })` / `({ providers })`                                                                  |
 | `[application.in-memory-pauses]`                                                                             | pauses possible on the in-memory stores (a warning; an error under `--strict`) → a durable `@DatabaseStorage`                                                             |
 | `PauseError.PermissionDenied`                                                                                | `ownerId` for a Delegate target or `actor` for an Owner target → the other credential                                                                                     |
-| `IncompatibleResumeError`                                                                                    | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`                                                                         |
+| `ExecutionError.IncompatibleResume`                                                                                    | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`                                                                         |
 
 ## Pitfalls
 

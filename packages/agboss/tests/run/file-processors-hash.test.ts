@@ -1,9 +1,10 @@
 /**
  * #1269 (F1 of #899's review): the application's own `FileRedactor` and `FileTranscriber` are part of each
  * workflow's `configHash`, by class name — swapping one is another configuration, so a run paused under
- * one is not resumed blindly under the other (`IncompatibleResumeError`, #201). An application without one
+ * one is not resumed blindly under the other (`ExecutionError.IncompatibleResume`, #201). An application without one
  * keeps the hash it had.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -13,7 +14,6 @@ import { FileRedactor } from "../../src/files/file-redactor.js";
 import { FileTranscriber } from "../../src/files/file-transcriber.js";
 import {
   EmptyEnvironment,
-  IncompatibleResumeError,
   Injectable,
   type FileContent,
   type RedactionResult,
@@ -165,23 +165,23 @@ beforeEach(() => {
 });
 
 describe("#1269 F1: a run paused under one file processor is not resumed blindly under another", () => {
-  it("another redactor: IncompatibleResumeError, nothing sent", async () => {
+  it("another redactor: ExecutionError.IncompatibleResume, nothing sent", async () => {
     const resumed = resumedAcross([PresidioImageRedactor], [BlackBoxRedactor]);
 
-    await expect(resumed).rejects.toBeInstanceOf(IncompatibleResumeError);
+    await expect(resumed).rejects.toBeInstanceOf(ExecutionError.IncompatibleResume);
     expect(sent).toEqual([]);
   });
 
-  it("another transcriber: IncompatibleResumeError, nothing sent", async () => {
+  it("another transcriber: ExecutionError.IncompatibleResume, nothing sent", async () => {
     const resumed = resumedAcross([OcrTranscriber], [WhisperTranscriber]);
 
-    await expect(resumed).rejects.toBeInstanceOf(IncompatibleResumeError);
+    await expect(resumed).rejects.toBeInstanceOf(ExecutionError.IncompatibleResume);
     expect(sent).toEqual([]);
   });
 
-  it("a redactor dropped: IncompatibleResumeError", async () => {
+  it("a redactor dropped: ExecutionError.IncompatibleResume", async () => {
     await expect(resumedAcross([PresidioImageRedactor], [])).rejects.toBeInstanceOf(
-      IncompatibleResumeError,
+      ExecutionError.IncompatibleResume,
     );
   });
 

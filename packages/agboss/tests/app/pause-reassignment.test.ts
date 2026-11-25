@@ -7,10 +7,11 @@
  * a reassignment and an answer, at the same moment: exactly one wins. The new id goes to the
  * channel only. The chain (V3.4): the checkpoint keeps the first id, the live pause is the last.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { DurableExecutionStatus, executionControlOf } from "../../src/app/execution-control.js";
-import { PauseClosedError, ThreadOwnerError, UnknownPauseError } from "../../src/errors.js";
+import { PauseClosedError, UnknownPauseError } from "../../src/errors.js";
 import {
   PauseError,
   PauseClosedReason,
@@ -828,7 +829,7 @@ describe("#946: who may reassign, and what is refused", () => {
       const request = { pauseId, channel: ExtendOwnerBackupChannel, assignees: ["deputy-3"] };
 
       expect(await failureOf(app.reassignPause(request, { ownerId: "bob" }))).toBeInstanceOf(
-        ThreadOwnerError,
+        ExecutionError.ThreadOwnerMismatch,
       );
       expect(await failureOf(app.reassignPause(request, manager))).toBeInstanceOf(
         PauseError.PermissionDenied,

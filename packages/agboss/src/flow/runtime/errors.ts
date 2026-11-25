@@ -1,10 +1,6 @@
 import { type Usd } from "../../units/index.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
-import {
-  AGBossError,
-  ExecutionCancelledError,
-  type MessageErrorOptions,
-} from "../../core/errors.js";
+import { ExecutionCancelledError } from "../../core/errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import {
   AgentFailedError,
@@ -211,16 +207,5 @@ export class GuardrailBlockedError extends PaidStepError {
     this.key = key;
     this.probability = probability;
     this.threshold = threshold;
-  }
-}
-
-/** A node returned a value its `output` does not allow (an action, a finish). */
-export class OutputInvalidError extends AGBossError {
-  static override readonly code = "step.output-invalid" as const;
-  declare readonly code: typeof OutputInvalidError.code;
-  override name = "OutputInvalidError";
-
-  constructor(options: MessageErrorOptions) {
-    super(options.message, options);
   }
 }

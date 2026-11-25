@@ -844,7 +844,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   `execute`; a holder past its lease, its tree taken over, undoes nothing: a hand-over; what is left is
   the undo action's own run up to its write, which only a fenced write closes; #662: every action's
   visit — a side path's undo action too, and a forward step — checks the same fence right before its
-  `execute`, after its awaited `onActionStart`: a holder past its lease runs no action, a hand-over); an undo that fails → the rest still run, then `CompensationFailedError`
+  `execute`, after its awaited `onActionStart`: a holder past its lease runs no action, a hand-over); an undo that fails → the rest still run, then `ExecutionError.CompensationFailed`
   (`compensation.failed`, `failures`, `cause`), never taken by a side path; `result.compensations`,
   `onCompensationStart` / `onCompensationEnd`, `toHaveCompensated(A, { by, reason?, status? })`.
   An execution that ends without a finish (#340 PR 3) undoes its open records the same way, newest
@@ -853,7 +853,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   root by the lease's holder after its pass fails (before its record is failed — `running` while
   the undo runs, #340 S7 —, its keys go and `onExecutionError`, whose `compensations` lists what
   ran), `app.cancel` of a paused tree after withdrawing its pauses and before it returns (an undo
-  that failed → it rejects with `CompensationFailedError`), a cancel request (#360) found at lease
+  that failed → it rejects with `ExecutionError.CompensationFailed`), a cancel request (#360) found at lease
   take first; durable (#340 PR 4): `@agboss/unwinding` before a root's undo and
   `@agboss/compensated/<key>` after each success — the instance that takes the tree over
   (recovery, a resume) finishes the rest without a pass, a re-entered child its own before any
@@ -869,7 +869,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   step; `tests/app/undo-once.matrix.test.ts`); it awaits the tree's
   running step bodies up to `compensationTimeout` (one returning later is undone at once, in
   process), reads the records from the checkpoint and the instance's registry, writes the undo's
-  spend to the ledger at once; `CompensationFailedError` passes a child's boundary as it is — the
+  spend to the ledger at once; `ExecutionError.CompensationFailed` passes a child's boundary as it is — the
   parent undoes its own), `@WorkflowFinish`
   (output DTO). `app.execute(Start, input)` is typed by the generated tables:
   `input` is the start's input, `result.output` the finishes' outputs.
@@ -1547,7 +1547,7 @@ PostgresConnection)`; a storage driver's `env(…)` / `secret(…)` references a
   `[di.ambiguous-implementation]`, in a workflow's `providers` → `[di.infrastructure-in-workflow]`);
   created before the stores that inject it, so it may not depend on the contexts. Every id it mints
   is a key's text (#578, `keyTextRuleOf`: the framework mints through `CheckedIdGenerator`), else
-  `InvalidMintedIdError` (`run.invalid-minted-id`: `generator`, `method`, `rule`, never the id)
+  `ExecutionError.InvalidMintedId` (`execution.invalid-minted-id`: `generator`, `method`, `rule`, never the id)
   before the id is used or stored — `x\uD800` and `x\uDFFF` would be one tree in UTF-8;
   `app.resolve(IdGenerator)` gives that check, `app.resolve(<the listed class>)` the listed instance
   itself, unchecked (#614) — a component mints through `deps: [IdGenerator]`, never its own class. An id is
@@ -1555,11 +1555,11 @@ PostgresConnection)`; a storage driver's `env(…)` / `secret(…)` references a
   by the lease store before anything else of it is written (`ExecutionLeaseRepository.claimExecutionId`,
   by the id alone, across tenants; `ExecutionIds` in `infrastructure/clock.ts`; the ids of before from the
   leases, the outbound calls' executions, #638, and the pauses' executions and trees, #663), and one any execution had —
-  running, paused, finished, failed or cancelled — is `DuplicateExecutionIdError`
-  (`run.duplicate-execution-id`: `generator`, never the id): a root refused, a child's or a level's
+  running, paused, finished, failed or cancelled — is `ExecutionError.DuplicateExecutionId`
+  (`execution.duplicate-execution-id`: `generator`, never the id): a root refused, a child's or a level's
   launch failed before it starts; a resume or a recovery is not a create. A minted thread id the
-  tenant has is minted again (#550), 100 times at most, then `ThreadIdsExhaustedError`
-  (`run.thread-ids-exhausted`: `generator`, `tries`, never an id, #613 — #890: was
+  tenant has is minted again (#550), 100 times at most, then `ExecutionError.ThreadIdsExhausted`
+  (`execution.thread-ids-exhausted`: `generator`, `tries`, never an id, #613 — #890: was
   `DuplicateThreadIdError`; `idGeneratorNameOf`, `@agboss/core/stores`, names
   the project's class for a store of your own). Never a `pauseId`
   (an answer credential: a random 128-bit token) and never a model call's id (the provider's).
@@ -1758,7 +1758,7 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   before an execution starts or is located (another owner's thread, an unknown or answered pause,
   an unknown thread, invalid input, an exhausted budget) → `onExecutionRejected` (`operation:
 ExecutionOperation`, `threadId?`, `tenantId`, `code`, `message` without input values, no
-  `executionId`), still thrown; `IncompatibleResumeError` → `onExecutionError` on the paused
+  `executionId`), still thrown; `ExecutionError.IncompatibleResume` → `onExecutionError` on the paused
   execution, which stays paused. `onValuesOutdated` (`trigger`, `outdated` — no DTO values) once
   per outdating cascade, never empty; `onLaunchItemsTruncated` (`launch`, `items`, `maxItems`) when
   a per-item launch dropped items (#273); `onQuorumDecided` (`launch`, `isReached`, `branches`,
@@ -2458,7 +2458,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   step that met it stops the tree as cancelled at once (`lease.cancelFound`, audit outcome `cancelled`), not at the next renewal.
   The options are named like the
   `ExecutionContext` fields they fill — `threadId`, never `thread`. A thread with an `ownerId`
-  rejects another owner (`ThreadOwnerError`).
+  rejects another owner (`ExecutionError.ThreadOwnerMismatch`).
 - **Context levels (#261 PR 3):** `ApplicationContext` (`name`, `version`, `instanceId`,
   `startedAt`, `environmentName`, `environment`, `host`) → `TenantContext` (`tenantId`, `weight` —
   a positive integer, default 1, for #266's `TenantWeighted` — and the project's fields) →
@@ -2473,8 +2473,8 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   thread's key is `tenantId` + `threadId`: another tenant's thread does not exist for the caller —
   `execute` with an id the tenant does not have yet creates the caller's own thread (#262 Q4: an
   idempotent id; bound to `ownerId`; only once the budgets pass; a key's text — the business key's
-  rules, #538 —, else `InvalidThreadIdError` naming its `rule`, never the id, and kept out of
-  `onExecutionRejected`; `cancel`'s thread id the same, #552), `cancel` of it is `UnknownThreadError`;
+  rules, #538 —, else `ExecutionError.InvalidThreadId` naming its `rule`, never the id, and kept out of
+  `onExecutionRejected`; `cancel`'s thread id the same, #552), `cancel` of it is `ExecutionError.UnknownThread`;
   a tenant id is a key's text too (#552: at `execute`, `resume` and `cancel` — #568: and at
   `auditLogOf`, `outboundCallsOf`, `pendingOutboundCallsOf`, whose tree reads check `rootExecutionId` (#580)
   so too; `agboss executions export --tenant` and `generate eval-case --tenant`, `usage.option-value`; a

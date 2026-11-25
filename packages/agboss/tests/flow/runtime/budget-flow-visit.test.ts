@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { usd } from "../../../src/units/index.js";
 /**
  * #1366 (budget-flow shard) — what a node's visit does with the budgets, each rule on its own over fakes: the
@@ -14,7 +15,6 @@ import { caught } from "../../../src/flow/runtime/visit-failure.js";
 import { inTreeSlot } from "../../../src/flow/runtime/step-frame.js";
 import { visitNode } from "../../../src/flow/runtime/visit.js";
 import { RouterDecisionError } from "../../../src/flow/runtime/router-error.js";
-import { OutputInvalidError } from "../../../src/flow/runtime/errors.js";
 import { visitNumberOf } from "../../../src/flow/runtime/step-frame.js";
 import { recordOfNode } from "../../../src/flow/runtime/workflow-keys.js";
 import { recordsOf } from "../../../src/flow/runtime/node-runner.js";
@@ -503,7 +503,7 @@ describe("#1366: the way out of a visit, and what the visit writes", () => {
     const unknown = await run(withCases, { read: [], value: { variant: "Z" } }, setup().deps);
     const none = await run(withCases, { read: [] }, setup().deps);
 
-    expect(unknown.error).toBeInstanceOf(OutputInvalidError);
+    expect(unknown.error).toBeInstanceOf(ExecutionError.OutputInvalid);
     expect((unknown.error as Error).message).toBe(
       "n gave Z, which its .toOneOf([…]) has no branch for",
     );

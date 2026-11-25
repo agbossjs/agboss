@@ -53,7 +53,7 @@ describe("#1281b: the excluded branches of a quorum are undone", () => {
     desk.release.mockRejectedValue(new Error("the desk is down"));
 
     await expect(execute(app, QuorumExcludedWorkflowStart, GUEST)).rejects.toMatchObject({
-      code: "compensation.failed",
+      code: "execution.compensation-failed",
     });
     // the seat once at the join; the counted room is undone by the failed execution's own unwind
     expect(desk.release.mock.calls.filter(([id]) => id === "seat-1")).toHaveLength(1);

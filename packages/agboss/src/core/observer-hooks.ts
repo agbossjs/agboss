@@ -84,7 +84,7 @@ export interface ExecutionObserver {
   onExecutionStop?(event: ExecutionStopEvent): void | Promise<void>;
   /** The execution was cancelled (running or paused): aborted and its open undoable actions undone; once per execution. */
   onExecutionCancel?(event: ExecutionCancelEvent): void | Promise<void>;
-  /** The execution failed (also after a resume), or a resume of a paused one was refused as incompatible (`IncompatibleResumeError`; it stays paused). A cancel is `onExecutionCancel`. */
+  /** The execution failed (also after a resume), or a resume of a paused one was refused as incompatible (`ExecutionError.IncompatibleResume`; it stays paused). A cancel is `onExecutionCancel`. */
   onExecutionError?(event: ExecutionErrorEvent): void | Promise<void>;
   onAgentStart?(event: AgentStartEvent): void | Promise<void>;
   onAgentEnd?(event: AgentEndEvent): void | Promise<void>;

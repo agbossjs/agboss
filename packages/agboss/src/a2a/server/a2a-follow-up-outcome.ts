@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { ValidationError } from "../../core/error-families/effect-errors.js";
 import type { A2AError } from "@a2a-js/sdk/errors";
 import { NotPausedError, UnknownPauseError } from "../../run/resume-agent.js";
@@ -8,7 +9,6 @@ import {
 import type { A2ATaskKey } from "../../infrastructure/a2a-task.repository.js";
 import { PauseClosedError } from "../../app/pause-closed-error.js";
 import { PauseClosedReason } from "../../infrastructure/pause-record.js";
-import { ThreadOwnerError } from "../../core/errors.js";
 import { logSubjectOf, type A2AServerParts } from "./a2a-server-parts.js";
 import {
   A2AInternalError,
@@ -84,7 +84,8 @@ function refusedResume(error: unknown, isStillPending: boolean): KeptReply | und
     return { refused: "unsupported", code: "a2a.no-pending-pause" };
   if (error instanceof UnknownPauseError)
     return { refused: "invalid-params", code: "a2a.unknown-pause" };
-  if (error instanceof ThreadOwnerError) return { refused: "not-found", code: "a2a.not-owner" };
+  if (error instanceof ExecutionError.ThreadOwnerMismatch)
+    return { refused: "not-found", code: "a2a.not-owner" };
   // read before the pause is resolved: never this answer taken, whoever took the pause since
   if (error instanceof UninterpretableReplyError || error instanceof ReplyInterpreterMissingError)
     return { refused: "invalid-params", code: "a2a.reply-not-understood" };

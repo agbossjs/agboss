@@ -3,6 +3,7 @@
  * `ExecutionRecordRepository`, `PausedExecutionRepository`, `BaseCheckpointSaver` — each with an
  * in-memory default: nothing is written to the home folder, nothing outlives the instance.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { InMemoryExecutionHistoryRepository } from "../../src/infrastructure/execution-history.repository.js";
 import { mkdtempSync, readdirSync } from "node:fs";
@@ -15,7 +16,6 @@ import { buildApplication } from "../../src/application/create-app.js";
 import { CostLedgerRepository } from "../../src/infrastructure/cost-ledger.repository.js";
 import { ExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
-import { UnknownThreadError } from "../../src/core/errors.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
 import { InMemoryMeshRequestRepository } from "../../src/infrastructure/mesh-request.repository.js";
@@ -77,7 +77,7 @@ describe("#261 S28: the built-in infrastructure is in memory", () => {
     const second = await createTestAppWith(DesksApplication, options);
 
     // the second instance has its own records: the first one's thread is unknown to it
-    await expect(second.cancel(thread)).rejects.toBeInstanceOf(UnknownThreadError);
+    await expect(second.cancel(thread)).rejects.toBeInstanceOf(ExecutionError.UnknownThread);
     expect(readdirSync(folder)).toEqual([]);
     await second.close();
   });

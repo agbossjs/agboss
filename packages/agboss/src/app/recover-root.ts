@@ -1,6 +1,6 @@
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import {
   checkResume,
-  IncompatibleResumeError,
   type IncompatibleResumePolicy,
   type ResumeVersions,
 } from "../run/resume-guard.js";
@@ -11,7 +11,7 @@ import type { TreeMoves } from "./tree-moves.js";
 
 /**
  * Continues one `running` root of this workflow (#265 S30) when its lease is free; `signal` stops
- * it like a stop of the app. `IncompatibleResumeError` when this instance may not continue it.
+ * it like a stop of the app. `ExecutionError.IncompatibleResume` when this instance may not continue it.
  */
 export type RecoverRoot = (record: Turn, signal: AbortSignal) => Promise<void>;
 
@@ -64,7 +64,7 @@ export interface RecoveryProblem {
 /** The problem of one record's recovery. */
 export const problemOf = (record: Turn, error: unknown): RecoveryProblem => {
   const ids = { executionId: record.runId ?? record.id, tenantId: record.tenantId };
-  return error instanceof IncompatibleResumeError
+  return error instanceof ExecutionError.IncompatibleResume
     ? {
         code: "recovery.incompatible",
         text: `execution ${ids.executionId} is left to an instance of a compatible version: ${error.message}`,

@@ -3,19 +3,15 @@
  * a paused tree's cancel under its lease and what became of a request that a holder moved on, the sweep of a
  * resting tree whose cancel died half way, and the checks `app.cancel` makes first.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { cancelledPaused } from "../../src/app/cancel-paused.js";
 import { isCancelMarked, isMarkedAlive } from "../../src/app/cancel-marks.js";
 import { CANCEL_REQUEST_KEY } from "../../src/app/cancel-requests.js";
 import { endRestingCancelled, RESTING } from "../../src/app/cancel-resting.js";
 import { cancelThread } from "../../src/app/cancel-thread.js";
-import {
-  ExecutionCancelledError,
-  InvalidThreadIdError,
-  KeyTextRule,
-} from "../../src/core/errors.js";
+import { ExecutionCancelledError, KeyTextRule } from "../../src/core/errors.js";
 import { ExecutionOperation } from "../../src/core/observability.js";
-import { CompensationFailedError } from "../../src/flow/compensation.js";
 import { LeaseTakeoverReason } from "../../src/infrastructure/execution-audit-log.repository.js";
 
 const ended = vi.hoisted(() => ({ end: vi.fn() }));
@@ -270,7 +266,7 @@ describe("#1356: the cancel of a thread resting paused", () => {
 
   it("an undo that failed rejects the cancel with it, the lease still released", async () => {
     const { parts, lease } = partsOf({ found: [pausedRun(), pausedRun()] });
-    const failure = new CompensationFailedError({ failures: [] });
+    const failure = new ExecutionError.CompensationFailed({ failures: [] });
     ended.end.mockResolvedValue({ error: failure, isEnded: true });
 
     await expect(cancelledPaused(parts, THREAD)).rejects.toBe(failure);
@@ -402,7 +398,7 @@ describe("#1356: `app.cancel` of a thread", () => {
       cancelThread(thread({ running: true }).parts, threadId, options);
 
     await expect(bad("thread-1", { tenantId: "" })).rejects.toThrow(/tenantId/);
-    await expect(bad("", {})).rejects.toBeInstanceOf(InvalidThreadIdError);
+    await expect(bad("", {})).rejects.toBeInstanceOf(ExecutionError.InvalidThreadId);
     await expect(bad("", {})).rejects.toMatchObject({
       rule: KeyTextRule.Length,
       message: expect.stringContaining("Not a thread id (length)") as unknown,

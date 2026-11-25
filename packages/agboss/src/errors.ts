@@ -9,20 +9,14 @@
  */
 export {
   AGBossError,
-  DuplicateExecutionIdError,
-  type DuplicateExecutionIdErrorOptions,
-  ThreadIdsExhaustedError,
   ExecutionCancelledError,
   type ExecutionCancelledErrorOptions,
-  InvalidMintedIdError,
   KeyTextRule,
   keyTextRuleOf,
   type ErrorDetails,
   type AGBossErrorOptions,
   type MessageErrorOptions,
   type PlainErrorOptions,
-  type InvalidMintedIdErrorOptions,
-  type ThreadIdsExhaustedErrorOptions,
 } from "./core/errors.js";
 export { errorRecordOf, type ErrorRecord } from "./core/error-record.js";
 // diagnostics and backtraces (#1325c)
@@ -75,7 +69,6 @@ export {
   type AgentAnswerInvalidErrorOptions,
   GuardrailBlockedError,
   type GuardrailBlockedErrorOptions,
-  OutputInvalidError,
   VisitsLimitExceededError,
   type VisitsLimitExceededErrorOptions,
 } from "./flow/runtime/errors.js";
@@ -110,10 +103,6 @@ export {
   type MeshLoopDetectedErrorOptions,
   type MeshLimitPlace,
 } from "./mesh/mesh-errors.js";
-export {
-  CompensationFailedError,
-  type CompensationFailedErrorOptions,
-} from "./flow/compensation.js";
 export { ExecutionContextUnavailableError } from "./flow/context/errors.js";
 export { SpendOutsideStepError } from "./components/spend-recorder.js";
 export {
@@ -135,12 +124,6 @@ export {
   UninterpretableReplyError,
   type UninterpretableReplyErrorOptions,
 } from "./channels/decision.js";
-export {
-  InvalidThreadIdError,
-  type InvalidThreadIdErrorOptions,
-  ThreadOwnerError,
-  UnknownThreadError,
-} from "./core/errors.js";
 export { ModelKind, ModelKindError, type ModelKindErrorOptions } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./core/errors.js";
 export {

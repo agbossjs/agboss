@@ -867,7 +867,7 @@ const first = await app.execute(
   {
     tenant: { tenantId: "acme" },
     threadId: "ticket-4821", // the caller's own id: the next turn of the same conversation
-    ownerId: "customer-17", // another owner on this thread → ThreadOwnerError
+    ownerId: "customer-17", // another owner on this thread → ExecutionError.ThreadOwnerMismatch
     signal: controller.signal,
     onStream: (event) => {
       if (event.kind === StreamEventKind.ToolCall) return; // the name only: a "working…" hint
@@ -1085,7 +1085,7 @@ export class SeatWorkflow {}
   `@Application({ executionLimits: { compensationTimeout } })` (default `seconds(15)`), when the lease is lost or the
   instance stops; no budget refuses it; what its services cost (`SpendRecorder`) is spend under
   `action:<undo name>`. An undo that fails does not stop the others; then the execution fails with
-  `CompensationFailedError` (`compensation.failed`: `failures`, `cause`).
+  `ExecutionError.CompensationFailed` (`compensation.failed`: `failures`, `cause`).
 - **Observers** see the automatic ones through `onCompensationStart` / `onCompensationEnd`
   (`CompensationStartEvent`: `step`, `compensated`, `reason`; `CompensationEndEvent` adds `status`,
   `error`), around the undo action's own `onActionStart` / `onActionEnd`; `onExecutionError`'s

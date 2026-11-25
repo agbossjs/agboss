@@ -20,7 +20,6 @@ import type {
   LimitExceededError,
   PaidStepError,
   StepFailedError,
-  ThreadIdsExhaustedError,
   UnknownPauseError,
   BudgetExceededError,
   AgentFailedError,
@@ -108,7 +107,7 @@ describe("#941: the pause deadline's errors", () => {
 
 type Failure =
   | IdempotencyError.KeyConflict
-  | ThreadIdsExhaustedError
+  | ExecutionError.ThreadIdsExhausted
   | ExecutionError.Fenced
   | UnknownPauseError
   | StepFailedError;
@@ -120,8 +119,8 @@ describe("#906 AC2: switch (error.code) narrows over a union of instances", () =
         case "idempotency.key-conflict":
           expectTypeOf(error).toEqualTypeOf<IdempotencyError.KeyConflict>();
           return error.effect;
-        case "run.thread-ids-exhausted":
-          expectTypeOf(error).toEqualTypeOf<ThreadIdsExhaustedError>();
+        case "execution.thread-ids-exhausted":
+          expectTypeOf(error).toEqualTypeOf<ExecutionError.ThreadIdsExhausted>();
           return String(error.tries);
         case "execution.lease-lost.fenced":
           expectTypeOf(error).toEqualTypeOf<ExecutionError.Fenced>();

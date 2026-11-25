@@ -1,16 +1,12 @@
 /**
  * #262 Q4: `app.execute(Start, input, { threadId })` with an id the tenant does not have yet
  * creates that thread — the caller's own, idempotent id — keyed by tenant + thread and bound to
- * `ownerId`. An existing thread keeps its rules (another owner → `ThreadOwnerError`); `resume` and
- * `cancel` of an unknown thread stay `UnknownThreadError`; a refused execution creates nothing.
+ * `ownerId`. An existing thread keeps its rules (another owner → `ExecutionError.ThreadOwnerMismatch`); `resume` and
+ * `cancel` of an unknown thread stay `ExecutionError.UnknownThread`; a refused execution creates nothing.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect } from "vitest";
-import {
-  BudgetExceededError,
-  InvalidThreadIdError,
-  ThreadOwnerError,
-  UnknownThreadError,
-} from "../../src/errors.js";
+import { BudgetExceededError } from "../../src/errors.js";
 import { replyWith, routeTo, testWith } from "../../src/testing/index.js";
 import { usd } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -62,10 +58,10 @@ describe("#262 Q4: a caller's own thread id", () => {
     expect(other.threadId).toBe(shared);
     expect(other.tenantId).toBe("globex");
     expect(historyOf(mockModel(Writer).lastRequest)).toBe("without it");
-    await expect(app.cancel(shared)).rejects.toBeInstanceOf(UnknownThreadError);
+    await expect(app.cancel(shared)).rejects.toBeInstanceOf(ExecutionError.UnknownThread);
   });
 
-  test("the same id from another owner of the tenant is ThreadOwnerError", async ({
+  test("the same id from another owner of the tenant is ExecutionError.ThreadOwnerMismatch", async ({
     app,
     mockModel,
   }) => {
@@ -80,18 +76,18 @@ describe("#262 Q4: a caller's own thread id", () => {
       { threadId: "order-7", ownerId: "mallory" },
     );
 
-    await expect(mallory).rejects.toBeInstanceOf(ThreadOwnerError);
+    await expect(mallory).rejects.toBeInstanceOf(ExecutionError.ThreadOwnerMismatch);
     await expect(mallory).rejects.not.toThrow(/alice|mallory/);
   });
 
   test("an id that cannot be a thread is rejected; nothing is created", async ({ app }) => {
     for (const threadId of ["", "a\u0000b", "x".repeat(201)]) {
       await expect(execute(app, ChatStart, { text: "hi" }, { threadId })).rejects.toBeInstanceOf(
-        InvalidThreadIdError,
+        ExecutionError.InvalidThreadId,
       );
     }
     // #552: cancel holds its thread id to the same rules — refused for its text, before any lookup
-    await expect(app.cancel("a\u0000b")).rejects.toBeInstanceOf(InvalidThreadIdError);
+    await expect(app.cancel("a\u0000b")).rejects.toBeInstanceOf(ExecutionError.InvalidThreadId);
   });
 
   test("a refused execution creates nothing: no thread before the budget check", async ({
@@ -103,6 +99,6 @@ describe("#262 Q4: a caller's own thread id", () => {
     const refused = execute(app, ChatStart, { text: "hi" }, { threadId: "order-8" });
 
     await expect(refused).rejects.toBeInstanceOf(BudgetExceededError);
-    await expect(app.cancel("order-8")).rejects.toBeInstanceOf(UnknownThreadError);
+    await expect(app.cancel("order-8")).rejects.toBeInstanceOf(ExecutionError.UnknownThread);
   });
 });

@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { storedOutputOf, type FinalOutputDeps } from "../../pii/final-output-mask.js";
 import { recordOfNode, type ComponentRecords } from "./workflow-keys.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
@@ -9,7 +10,6 @@ import { CostReport, type UsageRecord } from "../../finops/usage.js";
 import { BudgetExceededError, LimitExceededError } from "../../graph/limits.js";
 import type { WorkflowRecord } from "../context/execution-context.js";
 import { ChildExecutionFailedError } from "./child-errors.js";
-import { CompensationFailedError } from "../compensation.js";
 import {
   ChildExecutionStatus,
   type EndedChildRecord,
@@ -165,7 +165,10 @@ export function childFailureOf(
   if (isRecordedAs(error, BudgetExceededError.code))
     return { thrown: error, status: ChildExecutionStatus.Failed, usage, reported: usage };
   // a failed automatic undo passes the boundary as it is: no side path takes it (#340 S5)
-  if (error instanceof CompensationFailedError || isRecordedAs(error, CompensationFailedError.code))
+  if (
+    error instanceof ExecutionError.CompensationFailed ||
+    isRecordedAs(error, ExecutionError.CompensationFailed.code)
+  )
     return { thrown: error, status: ChildExecutionStatus.Failed, usage, reported: [] };
   const identity = { executionId: child.identity.executionId, workflow: child.workflow };
   const thrown = new ChildExecutionFailedError({

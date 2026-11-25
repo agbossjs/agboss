@@ -3,8 +3,9 @@
  * a tree with nothing undoable (its children's workflows looked at too, each once) undoes nothing
  * and marks nothing; one with an undo reads its checkpoint's entries through the marks, undoes them
  * all under the call's lease, writes the undo's spend at once to the budgets its checkpoint keeps,
- * and ends with the cause — or `CompensationFailedError` when an undo failed.
+ * and ends with the cause — or `ExecutionError.CompensationFailed` when an undo failed.
  */
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppDeps } from "../../../src/app/app-deps.js";
 import { markTreeUnwinding, unwoundTree } from "../../../src/app/compensation/root-unwind.js";
@@ -18,7 +19,6 @@ import {
   CompensationReason,
   CompensationStatus,
 } from "../../../src/flow/compensation.js";
-import { CompensationFailedError } from "../../../src/flow/compensation.js";
 import type { UnwindSite } from "../../../src/flow/runtime/compensation/unwind.js";
 import {
   markUndone,
@@ -243,7 +243,7 @@ describe("#633: a tree with an undo", () => {
     ]);
   });
 
-  it("an undo that failed: CompensationFailedError, caused by the original", async () => {
+  it("an undo that failed: ExecutionError.CompensationFailed, caused by the original", async () => {
     const { deps } = depsOf({ nodes: [undoable] });
     const failure = closedOf(entryOf("open"), CompensationStatus.Failed).undo;
     mocks.unwound.mockResolvedValue({ closed: [], usage: [], failures: [failure] });
@@ -251,8 +251,8 @@ describe("#633: a tree with an undo", () => {
 
     const ended = await unwoundTree(deps, STATE, ending);
 
-    expect(ended.error).toBeInstanceOf(CompensationFailedError);
-    expect((ended.error as CompensationFailedError).cause).toBe(ending.cause);
+    expect(ended.error).toBeInstanceOf(ExecutionError.CompensationFailed);
+    expect((ended.error as ExecutionError.CompensationFailed).cause).toBe(ending.cause);
   });
 
   it("no pause store, no compensation parts, no owner: nothing read, the default bound", async () => {

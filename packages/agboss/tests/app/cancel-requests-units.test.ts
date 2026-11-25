@@ -3,6 +3,7 @@
  * the holder's watch does with it, how a tree that has one is ended — at a take, at rest, by the
  * sweep, from another instance — and what each of those hands the end.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CANCEL_REQUEST_KEY,
@@ -19,7 +20,6 @@ import { remoteCancel } from "../../src/app/cancel-remote.js";
 import { WITHOUT_RECOVERY_KEY } from "../../src/app/tree-ends.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import { CompensationFailedError } from "../../src/flow/compensation.js";
 import { LeaseTakeoverReason } from "../../src/infrastructure/execution-audit-log.repository.js";
 
 const ended = vi.hoisted(() => ({ end: vi.fn() }));
@@ -465,7 +465,7 @@ describe("#1356: a cancel of a thread that runs on another instance", () => {
     const failing = partsOf();
     failing.turns.lastTurns.mockResolvedValue([turn({})]);
     failing.turns.byIds.mockResolvedValue([turn({ status: "paused" })]);
-    const failure = new CompensationFailedError({ failures: [] });
+    const failure = new ExecutionError.CompensationFailed({ failures: [] });
     ended.end.mockResolvedValueOnce({ error: failure, isEnded: true });
     await expect(remoteCancel(failing.parts, thread, undefined)).rejects.toBe(failure);
   });

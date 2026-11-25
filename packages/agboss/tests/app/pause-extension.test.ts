@@ -4,11 +4,11 @@
  * after the deadline is refused "expired", one past the run's deadline is refused with that
  * deadline; the respondent is checked as for an answer; extend and the expiry look at one tick: one wins.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
 import {
   PauseClosedError,
   PauseExtensionContendedError,
-  ThreadOwnerError,
   UnknownPauseError,
 } from "../../src/errors.js";
 import { MAX_EXTEND_ATTEMPTS } from "../../src/app/pause-extension.js";
@@ -119,7 +119,7 @@ describe("#942 AC1: an operator extends an open approval", () => {
     const request = { pauseId, expiresIn: hours(24) };
 
     expect(await failureOf(app.extendPause(request, { ownerId: "bob" }))).toBeInstanceOf(
-      ThreadOwnerError,
+      ExecutionError.ThreadOwnerMismatch,
     );
     expect(await failureOf(app.extendPause(request, manager))).toBeInstanceOf(
       PauseError.PermissionDenied,

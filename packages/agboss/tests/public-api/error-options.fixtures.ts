@@ -16,7 +16,6 @@ const message = "it went wrong";
 
 export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.ApplicationStoppingError, { message }),
-  fx(root.DuplicateExecutionIdError, { generator: "SequentialIds" }),
   fx(root.ExecutionCancelledError, { message }),
   fx(root.ExecutionStoppedError, { message }),
   fx(root.ExecutionPausedError, { message }),
@@ -36,12 +35,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     token: 2,
     effect: "charge",
   }),
-  fx(root.InvalidMintedIdError, {
-    generator: "G",
-    method: "newThreadId",
-    rule: root.KeyTextRule.Length,
-  }),
-  fx(root.ThreadIdsExhaustedError, { generator: "G", tries: 100 }),
   fx(StoredNamesUnreadableError, { record: "pause", ids: "pauseId p1", fields: "respondent" }),
   fx(root.ExecutionLeaseLostError, { rootExecutionId: "root-1" }),
   fx(root.StoreOutcomeUnknownError, {
@@ -84,15 +77,6 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
     calendar: "tenant-holidays-working-calendar",
     problem: root.WorkingCalendarProblem.CalendarFailed,
   }),
-  fx(root.UnknownThreadError, { message }),
-  fx(root.ThreadOwnerError, { message }),
-  fx(root.InvalidThreadIdError, { rule: root.KeyTextRule.Length }),
-  fx(root.IncompatibleResumeError, {
-    threadId: "t-1",
-    executionId: "e-1",
-    paused: { workflowVersion: "1", configHash: "a" },
-    current: { workflowVersion: "2", configHash: "b" },
-  }),
   fx(root.ReplyInterpreterMissingError, { message }),
   fx(root.UninterpretableReplyError, { message, reason: "no verdict" }),
   fx(root.EvalCaseInvalidError, {
@@ -117,6 +101,5 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.SpendOutsideStepError, { message }),
   fx(root.NotAWorkflowStartError, { message }),
   fx(root.ExecutionContextUnavailableError, { message }),
-  fx(root.OutputInvalidError, { message }),
   ...Object.entries(flowFixtures),
 ]);

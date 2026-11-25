@@ -1,6 +1,7 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import { PauseClosedError, UnknownThreadError } from "../../src/index.js";
+import { PauseClosedError } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import {
   blocking,
@@ -77,8 +78,10 @@ describe("#187 AC1: after cancelling a paused run, approving it does not execute
     expect(await app.cancel(done.threadId)).toEqual({ cancelled: false });
   });
 
-  test("#261: a thread the tenant does not have is UnknownThreadError", async ({ app }) => {
-    await expect(app.cancel("no-such-thread")).rejects.toBeInstanceOf(UnknownThreadError);
+  test("#261: a thread the tenant does not have is ExecutionError.UnknownThread", async ({
+    app,
+  }) => {
+    await expect(app.cancel("no-such-thread")).rejects.toBeInstanceOf(ExecutionError.UnknownThread);
   });
 });
 

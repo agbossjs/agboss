@@ -83,7 +83,7 @@ export function lazyReplyAnswering(deps: AppDeps): ReplyAnswering {
 
 /** What recording an answer needs from the workflow's app. */
 export interface AnswerParts extends AnsweredRootParts {
-  /** Checks the caller is the thread's owner (`ThreadOwnerError` otherwise). */
+  /** Checks the caller is the thread's owner (`ExecutionError.ThreadOwnerMismatch` otherwise). */
   readonly owned: (access: ThreadAccess) => Promise<void>;
   /** The tool a pause approves (its input checks `overrideInput`). */
   readonly tools: (name: string) => AnyTool;

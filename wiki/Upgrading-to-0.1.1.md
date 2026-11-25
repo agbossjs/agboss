@@ -108,7 +108,7 @@ observed of it ([Guards → Levels](Guards#levels)). What to check:
 that launches another changes once** when the application or the workflow itself lists a PII
 policy: its snapshot adds `handedDown`, the policies its children inherit, so an inherited policy's
 change is a change of the root. A tree of such a root paused or running before the upgrade is
-incompatible with it (`IncompatibleResumeError`, `recovery.incompatible`) unless the root's
+incompatible with it (`ExecutionError.IncompatibleResume`, `recovery.incompatible`) unless the root's
 `onIncompatibleResume` says `ResumeDecision.Resume` — as for any change of what its models read: the child now
 runs under its chain's policies, which it did not under 0.1.0. Finish or drain those trees before
 the upgrade, or give the root an `onIncompatibleResume` policy. Workflows without children, and trees where

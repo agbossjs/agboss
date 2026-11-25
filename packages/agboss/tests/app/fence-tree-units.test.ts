@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #1366 (shard `fence-tree`) on their own: the end of a tree whose instance died (`orphan-tree.ts`) is made
@@ -8,7 +9,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
 import { orphanEndsOf } from "../../src/app/orphan-tree.js";
-import { CompensationFailedError } from "../../src/flow/compensation.js";
 import { RecordedError, errorRecordOf } from "../../src/core/error-record.js";
 import { ChildExecutionFailedError } from "../../src/flow/runtime/child-errors.js";
 import { assertAnnouncing, eventOf, failedChild } from "../../src/flow/runtime/child-failure.js";
@@ -509,7 +509,7 @@ describe("#1366: failedChild", () => {
 
   it("a failed undo carries no spend: it is written to the ledger now — by class and by record, never for another error", async () => {
     const spend = [{ costUsd: usd(3) }] as never;
-    const undoFailed = new CompensationFailedError({ failures: [], cause: undefined });
+    const undoFailed = new ExecutionError.CompensationFailed({ failures: [], cause: undefined });
     const recorded = new RecordedError(errorRecordOf(undoFailed));
     for (const [error, isWritten] of [
       [undoFailed, true],
@@ -595,7 +595,7 @@ describe("#1366: failedChild of a child that has nothing to hand its parent", ()
       ).catch((error: unknown) => error);
       expect(thrown).toBe(own);
     }
-    const undoFailed = new CompensationFailedError({ failures: [], cause: undefined });
+    const undoFailed = new ExecutionError.CompensationFailed({ failures: [], cause: undefined });
     await expect(
       failedChild(
         parent,

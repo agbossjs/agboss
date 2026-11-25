@@ -7,7 +7,7 @@ import { Wrapper, type OneOfWrapper, type OutputShape } from "../../dto-wrappers
 import type { RuntimeNode } from "../graph-model.js";
 import type { NodeRunner } from "../node-runner.js";
 import { stepNodeIdOf } from "../step-frame.js";
-import { ActionFailedError, OutputInvalidError, passesThrough } from "../errors.js";
+import { ActionFailedError, passesThrough } from "../errors.js";
 import { readInput, type NodeValue } from "../scope.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
 import { currentFrame, runInFrame, type FrameSpec } from "../../context/frame.js";
@@ -41,7 +41,7 @@ function variantOf(
   const dto = strictMatchOf(oneOf.variants, value);
   if (dto === undefined || !oneOf.variants.includes(dto)) {
     const classes = oneOf.variants.map((variant) => variant.name).join(", ");
-    throw new OutputInvalidError({
+    throw new ExecutionError.OutputInvalid({
       message: `${node} has output oneOf(${classes}) — return a value of exactly one of them`,
     });
   }
@@ -56,7 +56,9 @@ export function checkedActionValue(node: string, output: OutputShape, result: un
     return { value, variant: dto.name };
   }
   if (!Array.isArray(result))
-    throw new OutputInvalidError({ message: `${node} has a list output — return an array` });
+    throw new ExecutionError.OutputInvalid({
+      message: `${node} has a list output — return an array`,
+    });
   const { element } = output;
   const items = (result as readonly unknown[]).map((item) => {
     if (typeof element === "function") return validate(element, item);
@@ -165,7 +167,7 @@ export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRu
   return async (state) => {
     const instance: unknown = deps.container.get(node.component);
     if (!isAction(instance))
-      throw new OutputInvalidError({ message: `${node.id} has no execute(input)` });
+      throw new ExecutionError.OutputInvalid({ message: `${node.id} has no execute(input)` });
     const input = readInput(deps.graph, node, state);
     const name = stepNodeIdOf(node);
     await reportNodeEvent((base) =>

@@ -76,13 +76,13 @@ export interface ExecutionOptions extends CallOptions {
    * id it does not have yet is created as the caller's own new thread (#262 Q4) — an idempotent id
    * the caller picked; the same id in another tenant is another thread. Created only once the
    * budgets pass: a refused execution creates nothing. A key's text (#538, `KeyTextRule`: 1–200
-   * characters, no control or format character, no lone surrogate, NFC), else `InvalidThreadIdError`. Omitted → a new thread with an id of its own.
+   * characters, no control or format character, no lone surrogate, NFC), else `ExecutionError.InvalidThreadId`. Omitted → a new thread with an id of its own.
    */
   readonly threadId?: string | undefined;
   /**
    * Who the thread belongs to (its access key, `executionContext.ownerId`). A new thread is bound
    * to it; continuing, resuming or cancelling a thread with another owner (or none for an owned
-   * thread) throws `ThreadOwnerError` before anything runs. A key's text (#589: `keyTextRuleOf`),
+   * thread) throws `ExecutionError.ThreadOwnerMismatch` before anything runs. A key's text (#589: `keyTextRuleOf`),
    * else `validation.dto-invalid` naming `ownerId` and the rule, never the id.
    */
   readonly ownerId?: string | undefined;
@@ -152,7 +152,7 @@ export type PauseCallerOptions = OwnerPauseOptions | DelegatePauseOptions;
 /** The caller of a `PauseRespondent.Owner` pause: checked against the thread's `ownerId`. */
 export interface OwnerPauseOptions {
   readonly tenantId?: string | undefined;
-  /** The thread's owner (omitted for a thread without one; another → `ThreadOwnerError`); a key's text (#589). */
+  /** The thread's owner (omitted for a thread without one; another → `ExecutionError.ThreadOwnerMismatch`); a key's text (#589). */
   readonly ownerId?: string | undefined;
   readonly actor?: never;
 }
@@ -283,7 +283,7 @@ export interface App<TApp = unknown> {
    * resolves with `ExecutionStatus.Cancelled` once what it had undoable is undone — an undo that
    * failed rejects with `ExecutionError.CompensationFailed`), a paused one is dropped (its `resume`
    * throws `NotPausedError`).
-   * A thread the tenant does not have → `UnknownThreadError`.
+   * A thread the tenant does not have → `ExecutionError.UnknownThread`.
    */
   cancel(threadId: string, ...options: TenantPointArgs<TApp, CancelOptions>): Promise<CancelOutput>;
   /**
@@ -295,7 +295,7 @@ export interface App<TApp = unknown> {
    * every new write of the tree is refused. A paused execution is ended at once (its open pauses
    * close as `TreeEnded`). The call returns `{ state }`: `Stopped` (halted before it returned),
    * `Stopping` (durable; its holder winds down) or `NotRunning` (nothing to stop, or already over).
-   * Idempotent, and `Cancel > Stop`. A thread the tenant does not have → `UnknownThreadError`.
+   * Idempotent, and `Cancel > Stop`. A thread the tenant does not have → `ExecutionError.UnknownThread`.
    */
   stop(threadId: string, ...options: TenantPointArgs<TApp, StopOptions>): Promise<StopOutput>;
   /**
@@ -308,7 +308,7 @@ export interface App<TApp = unknown> {
    * `app.unpause` (`app.resume` of an answer → `ExecutionError.ExternallyPaused`). The call returns
    * `{ state }`: `Paused` (frozen before it returned), `Pausing` (durable; its holder parks) or
    * `NotRunning`. Idempotent; `Cancel > Stop > Pause` (a thread being cancelled or stopped →
-   * `ExecutionError.AlreadyTerminal`). A thread the tenant does not have → `UnknownThreadError`.
+   * `ExecutionError.AlreadyTerminal`). A thread the tenant does not have → `ExecutionError.UnknownThread`.
    */
   pause(
     threadId: string,

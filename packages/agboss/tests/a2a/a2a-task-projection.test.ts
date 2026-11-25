@@ -273,7 +273,7 @@ describe("#807 AC3: a status the events missed is repaired on read", () => {
         state: A2ATaskState.Failed,
         errorCode: "a2a.start-lost",
       });
-      await expect(run(app)).rejects.toMatchObject({ code: "run.duplicate-execution-id" });
+      await expect(run(app)).rejects.toMatchObject({ code: "execution.duplicate-execution-id" });
     },
   );
 });

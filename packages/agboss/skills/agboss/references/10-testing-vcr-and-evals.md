@@ -855,7 +855,7 @@ reason, status, error?, startedAt, endedAt }` — and `expect(result).toHaveComp
 reason?, status? })` asserts one, with `CompensationReason` (`SidePath`, `JoinFailed`,
 `ExecutionFailed`, `ExecutionCancelled`) and `CompensationStatus` (`Compensated`, `Failed`). An
 execution that fails has no result: assert the undo through the mocked service, and a failed
-automatic undo through `rejects.toFailWith(CompensationFailedError, { cause })`.
+automatic undo through `rejects.toFailWith(ExecutionError.CompensationFailed, { cause })`.
 
 A car rental, in its own domain folder — its data, error and service:
 
@@ -1097,7 +1097,7 @@ The workflow's tests, in the mirror of its folder:
 
 ```ts file=tests/rental/workflows/rental/rental.workflow.test.ts
 import { expect } from "vitest";
-import { CompensationFailedError, CompensationReason, CompensationStatus, StepFailedError } from "@agboss/core";
+import { ExecutionError.CompensationFailed, CompensationReason, CompensationStatus, StepFailedError } from "@agboss/core";
 import { testWith } from "@agboss/core/testing";
 import { RentalApplication } from "../../../../src/rental.application.js";
 import { CancelCarAction } from "../../../../src/rental/actions/cancel-car.action.js";
@@ -1138,13 +1138,13 @@ test("an uncaught failure: the car is cancelled automatically, then the run fail
   expect(fleet.cancel.mock.calls[0]?.[1]).toMatch(/:reserve-car-action:1:compensation$/u);
 });
 
-test("an undo that fails: CompensationFailedError, the original error as its cause", async ({ app, mockService }) => {
+test("an undo that fails: ExecutionError.CompensationFailed, the original error as its cause", async ({ app, mockService }) => {
   const fleet = mockService(FleetService);
   fleet.reserve.mockResolvedValue("car-1");
   fleet.chargeDeposit.mockRejectedValue(new Error("payment gateway down"));
   fleet.cancel.mockRejectedValue(new Error("fleet API down"));
 
-  await expect(app.execute(RentalWorkflowStart, REQUEST)).rejects.toFailWith(CompensationFailedError, {
+  await expect(app.execute(RentalWorkflowStart, REQUEST)).rejects.toFailWith(ExecutionError.CompensationFailed, {
     cause: StepFailedError,
   });
 });

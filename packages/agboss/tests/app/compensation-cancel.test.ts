@@ -1,5 +1,6 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { CompensationFailedError, CompensationReason, PauseClosedError } from "../../src/index.js";
+import { CompensationReason, PauseClosedError } from "../../src/index.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -92,7 +93,7 @@ describe("a cancel of a paused tree (Q6)", () => {
     );
   });
 
-  test("an undo that fails: the cancel rejects with CompensationFailedError (S7 1)", async ({
+  test("an undo that fails: the cancel rejects with ExecutionError.CompensationFailed (S7 1)", async ({
     app,
     mockModel,
     mockService,
@@ -105,10 +106,10 @@ describe("a cancel of a paused tree (Q6)", () => {
 
     const cancel = app.cancel("t-1");
 
-    await expect(cancel).rejects.toFailWith(CompensationFailedError, {
+    await expect(cancel).rejects.toFailWith(ExecutionError.CompensationFailed, {
       cause: ExecutionCancelledError,
     });
-    expect(unwindSeen.errors[0]?.error.name).toBe("CompensationFailedError");
+    expect(unwindSeen.errors[0]?.error.name).toBe("ExecutionError.CompensationFailed");
     // the tree ended all the same: a second cancel finds nothing to cancel
     await expect(app.cancel("t-1")).resolves.toEqual({ cancelled: false });
   });

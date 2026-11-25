@@ -3,14 +3,10 @@
  * running one stops with `ExecutionCancelledError` within one lease renewal, a request made while
  * its holder is down ends it at recovery, and unknown, foreign or finished threads behave as before.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import {
-  ExecutionLeaseLostError,
-  ExecutionStatus,
-  ThreadOwnerError,
-  UnknownThreadError,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, ExecutionStatus } from "../../src/index.js";
 import { InMemoryExecutionTreeRepository } from "../../src/infrastructure/execution-tree.repository.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
@@ -351,11 +347,15 @@ describe("#360 AC3: threads with nothing to cancel behave as before on both inst
 
     for (const app of [first, second]) {
       expect(await app.cancel(THREAD, { ownerId: "ann" })).toEqual({ cancelled: false });
-      await expect(app.cancel("unknown-thread")).rejects.toBeInstanceOf(UnknownThreadError);
+      await expect(app.cancel("unknown-thread")).rejects.toBeInstanceOf(
+        ExecutionError.UnknownThread,
+      );
       await expect(
         app.cancel(THREAD, { tenantId: "another-tenant", ownerId: "ann" }),
-      ).rejects.toBeInstanceOf(UnknownThreadError);
-      await expect(app.cancel(THREAD, { ownerId: "bob" })).rejects.toBeInstanceOf(ThreadOwnerError);
+      ).rejects.toBeInstanceOf(ExecutionError.UnknownThread);
+      await expect(app.cancel(THREAD, { ownerId: "bob" })).rejects.toBeInstanceOf(
+        ExecutionError.ThreadOwnerMismatch,
+      );
     }
     expect(writesOf(writes)).toBe(0);
   });

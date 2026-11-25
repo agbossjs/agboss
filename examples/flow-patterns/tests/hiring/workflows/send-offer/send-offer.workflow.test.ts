@@ -1,8 +1,8 @@
+import { ExecutionError } from "@agboss/core";
 import { expect } from "vitest";
 import {
   BudgetExceededError,
   ChannelOutcome,
-  CompensationFailedError,
   CompensationReason,
   CompensationStatus,
   StepFailedError,
@@ -169,7 +169,7 @@ test("an uncaught failure: undone automatically, newest first, then the run fail
   expect(released).toBeLessThan(withdrawn ?? 0);
 });
 
-test("an undo that fails: the rest still runs, the run fails with CompensationFailedError", async ({
+test("an undo that fails: the rest still runs, the run fails with ExecutionError.CompensationFailed", async ({
   app,
   mockModel,
   mockService,
@@ -184,7 +184,7 @@ test("an undo that fails: the rest still runs, the run fails with CompensationFa
 
   const run = app.execute(SendOfferWorkflowStart, REQUEST);
 
-  await expect(run).rejects.toFailWith(CompensationFailedError, {
+  await expect(run).rejects.toFailWith(ExecutionError.CompensationFailed, {
     failures: [
       expect.objectContaining({
         compensated: expect.objectContaining({

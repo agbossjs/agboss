@@ -96,5 +96,4 @@ export const flowFixtures: Readonly<Record<string, object>> = Object.fromEntries
   }),
   fx(root.MeshLoopDetectedError, { entry, callChain: chain, ...lost }),
   fx(root.HopsLimitExceededError, { entry, callChain: chain, maxMeshHops: 8, ...lost }),
-  fx(root.CompensationFailedError, { failures: [] }),
 ]);

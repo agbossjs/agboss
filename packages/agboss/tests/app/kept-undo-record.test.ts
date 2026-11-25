@@ -5,9 +5,9 @@
  * failure, a failed per-item child, a cancel of the paused tree, a cancel request seen at rest. The
  * takeover rows are in `kept-undo-takeover.test.ts`.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import { CompensationFailedError } from "../../src/index.js";
 import {
   ExecutionTreeRepository,
   InMemoryExecutionTreeRepository,
@@ -71,7 +71,7 @@ describe("#635: a root's kept record lists every undo that ran, as its error eve
 
     const run = execute(app, UnwindWorkflowStart, GUEST, THREAD);
 
-    await expect(run).rejects.toBeInstanceOf(CompensationFailedError);
+    await expect(run).rejects.toBeInstanceOf(ExecutionError.CompensationFailed);
     expect(await keptAsTheEvent(app, "failed")).toEqual([ROOM, "release-seat-action failed"]);
   });
 

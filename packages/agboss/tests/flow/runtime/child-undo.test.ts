@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { describe, expect, type Mocked } from "vitest";
 import { CompensationReason } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
@@ -139,7 +140,7 @@ describe("#1281b: a parent that fails after its child finished undoes what the c
     });
   }
 
-  test("a failed undo of a moved entry fails the parent with CompensationFailedError", async ({
+  test("a failed undo of a moved entry fails the parent with ExecutionError.CompensationFailed", async ({
     app,
     mockService,
   }) => {
@@ -148,7 +149,7 @@ describe("#1281b: a parent that fails after its child finished undoes what the c
     desk.release.mockRejectedValue(new Error("the desk is down"));
 
     await expect(execute(app, QuorumTripWorkflowStart, GUEST)).rejects.toMatchObject({
-      code: "compensation.failed",
+      code: "execution.compensation-failed",
     });
     // each once at the join, never again by the failed execution's own unwind
     expect(desk.release.mock.calls.map(([id]) => id)).toEqual(["room-1", "seat-1"]);

@@ -24,7 +24,7 @@ import type { AppDeps } from "./app-deps.js";
  * inbound mesh). `execute` keeps that id in the lease store instead of minting one
  * (`ReservedExecutionIds.keep`), so an id another execution ever had — the same task started again
  * on a resend, on another instance, after a crash, or an id a sweep fenced — is
- * `DuplicateExecutionIdError` before anything of the run is written.
+ * `ExecutionError.DuplicateExecutionId` before anything of the run is written.
  */
 const RESERVED_EXECUTION_ID: unique symbol = Symbol("agboss.reserved-execution-id");
 

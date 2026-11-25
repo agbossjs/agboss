@@ -3,10 +3,10 @@
  * refused with nothing written, two instances on one file minting one id at once run one tree, and
  * a tree's id is kept for good once it is handed out.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { DuplicateExecutionIdError } from "../../src/errors.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -65,7 +65,7 @@ describe("#591 on SQLite", () => {
     const refused = await rejectionOf(execute(app, OrderWorkflowStart, { text: "b" }));
 
     expect(first.status).toBe(ExecutionStatus.Finished);
-    expect(refused).toBeInstanceOf(DuplicateExecutionIdError);
+    expect(refused).toBeInstanceOf(ExecutionError.DuplicateExecutionId);
     expect(rowsOnFile()).toEqual(before);
     expect(before.execution_ids).toBe(1);
   });
@@ -85,7 +85,7 @@ describe("#591 on SQLite", () => {
 
       expect(outcomes.filter((outcome) => outcome === undefined)).toHaveLength(1);
       expect(outcomes.find((outcome) => outcome !== undefined)).toBeInstanceOf(
-        DuplicateExecutionIdError,
+        ExecutionError.DuplicateExecutionId,
       );
     },
   );

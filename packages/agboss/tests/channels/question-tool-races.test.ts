@@ -4,6 +4,7 @@
  * again, a cancel withdraws it, another tenant or owner cannot answer it, the role's `maxVisits`
  * bounds the calls of one visit, and a channel that fails fails the agent's step.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect } from "vitest";
 import { UnknownPauseError } from "../../src/run/resume-agent.js";
 import { AgentFailedError } from "../../src/graph/errors.js";
@@ -13,7 +14,6 @@ import {
   PausedExecutionRepository,
   ValidationError,
 } from "../../src/index.js";
-import { ThreadOwnerError } from "../../src/core/errors.js";
 import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { callTool, callTools, replyWith, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -130,7 +130,7 @@ describe("#712 AC4: cancel, tenants and owners", () => {
       app.resume(answerOf(paused, yes), { tenantId: "acme", ownerId: "alice" }),
     ).rejects.toBeInstanceOf(UnknownPauseError);
     await expect(app.resume(answerOf(paused, yes), { ownerId: "mallory" })).rejects.toBeInstanceOf(
-      ThreadOwnerError,
+      ExecutionError.ThreadOwnerMismatch,
     );
     expect(await statusOf(app, pauseId)).toBe(PauseStatus.Pending);
   });

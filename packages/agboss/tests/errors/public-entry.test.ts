@@ -2,6 +2,7 @@
  * #194 AC2: every error a user can catch is importable from the public entry (`agboss`), is a
  * `AGBossError` and has its own stable code. Type-checked by `tsc` (tests are in the project).
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import * as agboss from "../../src/index.js";
 import {
@@ -15,7 +16,6 @@ import {
   PaidStepError,
   RouterDecisionError,
   ToolTimeoutError,
-  UnknownThreadError,
   ExecutionCancelledError,
   type ErrorRecord,
   ValidationError,
@@ -32,7 +32,7 @@ const catchable = {
   PaidStepError,
   RouterDecisionError,
   ToolTimeoutError,
-  UnknownThreadError,
+  ExecutionError,
   ExecutionCancelledError,
 };
 

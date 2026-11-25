@@ -50,7 +50,7 @@ export function observedPass(
       // returns the paused output and the drain writes the rest (`passesOf`)
       if (isPause(error)) return parkedOutputOf(deps, state, error);
       // a cancel is an outcome, not a failure (#1341): its undo ran before this error, and the
-      // call resolves cancelled — an undo that failed is `CompensationFailedError`, thrown on
+      // call resolves cancelled — an undo that failed is `ExecutionError.CompensationFailed`, thrown on
       return cancelledOutputOf(deps, state, { cause: error, compensations: undo.compensations });
     }
   };

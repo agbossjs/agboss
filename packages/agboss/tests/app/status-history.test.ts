@@ -1,5 +1,5 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { InvalidThreadIdError } from "../../src/core/errors.js";
 import { ExecutionRecordRepository } from "../../src/index.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
 import { callTool, testWith } from "../../src/testing/index.js";
@@ -60,7 +60,7 @@ describe("#1341d: app.getStatusHistory", () => {
 
     const error = await app.getStatusHistory("t\uD800").catch((e: unknown) => e);
 
-    expect(error).toBeInstanceOf(InvalidThreadIdError);
+    expect(error).toBeInstanceOf(ExecutionError.InvalidThreadId);
     expect(String(error)).not.toContain("\uD800");
     expect(read).not.toHaveBeenCalled();
   });

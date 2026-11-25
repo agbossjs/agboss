@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { StoredNamesUnreadableError } from "../../src/core/stored-json.js";
 /**
  * #598 — a failure's durable record and the failure rebuilt from it: the record of the rebuilt one
@@ -27,7 +28,6 @@ import {
 } from "../../src/index.js";
 import { ActionFailedError } from "../../src/flow/runtime/errors.js";
 import { CompensationReason } from "../../src/flow/compensation.js";
-import { CompensationFailedError } from "../../src/flow/compensation.js";
 import {
   causeOfMark,
   unwindingMarkOf,
@@ -187,10 +187,10 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
       path: [],
       spentUsd: usd(2),
     });
-    const undo = new CompensationFailedError({ failures: [], cause: declined });
+    const undo = new ExecutionError.CompensationFailed({ failures: [], cause: declined });
 
     expect(stored(budget)?.record.lineage).toContain(BudgetExceededError.code);
-    expect(stored(undo)?.record.lineage).toContain(CompensationFailedError.code);
+    expect(stored(undo)?.record.lineage).toContain(ExecutionError.CompensationFailed.code);
   });
 
   it("rebuilt, a budget's and a failed undo's error pass the child's boundary as they are; any other is wrapped", () => {
@@ -221,7 +221,7 @@ describe("#598: what a store holds, as each reader rebuilds it", () => {
         spentUsd: usd(2),
       }),
     );
-    const undo = stored(new CompensationFailedError({ failures: [], cause: declined }));
+    const undo = stored(new ExecutionError.CompensationFailed({ failures: [], cause: declined }));
 
     expect(through(budget)).toBe(budget);
     expect(through(undo)).toBe(undo);

@@ -1,9 +1,5 @@
-import {
-  InvalidThreadIdError,
-  keyTextRuleOf,
-  ThreadOwnerError,
-  UnknownThreadError,
-} from "../core/errors.js";
+import { ExecutionError } from "../core/error-families/run-errors.js";
+import { keyTextRuleOf } from "../core/errors.js";
 import type { HistoryTurn, ReaderMemory } from "../flow/runtime/history.js";
 import type { Summary, Turn, TurnRecords, TurnStore } from "../turns/index.js";
 import { isTurn, toTurns } from "./turns.js";
@@ -28,8 +24,8 @@ export function isThreadId(threadId: string): boolean {
   return keyTextRuleOf(threadId) === undefined;
 }
 
-const notTheOwner = (threadId: string): ThreadOwnerError =>
-  new ThreadOwnerError({
+const notTheOwner = (threadId: string): ExecutionError.ThreadOwnerMismatch =>
+  new ExecutionError.ThreadOwnerMismatch({
     message: `Thread "${threadId}" belongs to another owner`,
     details: { thread: threadId },
   });
@@ -67,7 +63,7 @@ export async function checkThreadOwner(
 /**
  * `execute` with a thread id (#262 Q4): an id the tenant has must belong to the caller's owner; an
  * id it does not have yet is the caller's own new thread — `true`, created once the budgets pass
- * (a refused execution creates nothing). An id that cannot be one is `InvalidThreadIdError`.
+ * (a refused execution creates nothing). An id that cannot be one is `ExecutionError.InvalidThreadId`.
  */
 export async function isNewThread(
   turns: Pick<TurnStore, "threadOwner">,
@@ -75,7 +71,7 @@ export async function isNewThread(
   access: ThreadAccess,
 ): Promise<boolean> {
   const rule = keyTextRuleOf(access.threadId);
-  if (rule !== undefined) throw new InvalidThreadIdError({ rule });
+  if (rule !== undefined) throw new ExecutionError.InvalidThreadId({ rule });
   const thread = await turns.threadOwner(bundle, access.tenantId, access.threadId);
   if (thread === undefined) return true;
   if (thread.owner !== access.ownerId) throw notTheOwner(access.threadId);
@@ -84,8 +80,8 @@ export async function isNewThread(
 }
 
 /** No such thread in the tenant — with no hint whether another tenant has the id. */
-const unknownThread = (bundle: string, threadId: string): UnknownThreadError =>
-  new UnknownThreadError({ message: `Unknown thread "${threadId}" for "${bundle}"` });
+const unknownThread = (bundle: string, threadId: string): ExecutionError.UnknownThread =>
+  new ExecutionError.UnknownThread({ message: `Unknown thread "${threadId}" for "${bundle}"` });
 
 /**
  * `execute` or `cancel` on a given thread: it must exist in the caller's tenant for this workflow —

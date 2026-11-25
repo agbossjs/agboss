@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * The skill matrix of #305 (AC1): the public names each skill file covers. Each name appears in
  * its file and is exported by an API report (`packages/agboss/api/*.api.md`) — a renamed or removed
@@ -84,8 +85,12 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["Injectable", "InjectionToken", "provide"],
     ...["ExecutionContext", "SpendRecorder", "ApplicationContext", "TenantContext"],
     ...["Secret", "env", "secret", "seconds", "minutes", "hours", "usd", "kilobytes", "createApp"],
-    ...["ExecutionCancelledError", "ApplicationStoppingError", "ThreadOwnerError"],
-    ...["CompensationFailedError"],
+    ...[
+      "ExecutionCancelledError",
+      "ApplicationStoppingError",
+      "ExecutionError.ThreadOwnerMismatch",
+    ],
+    ...["ExecutionError.CompensationFailed"],
     ...["CompensationStartEvent", "CompensationEndEvent"],
     "ExecutionContextUnavailableError",
     ...["ToolInterceptor", "ToolCallDecision", "BeforeTool", "AfterTool"],
@@ -149,7 +154,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "ChannelListenerJoinFailedEvent",
     ],
     ...["UninterpretableReplyError"],
-    ...["ReplyInterpreterMissingError", "IncompatibleResumeError", "WorkflowSettings"],
+    ...["ReplyInterpreterMissingError", "ExecutionError.IncompatibleResume", "WorkflowSettings"],
   ],
   "references/07-guardrails-pii-and-security.md": [
     ...["InputGuardrail", "OutputGuardrail", "GuardrailRefusal", "GuardrailBlockedError"],
@@ -177,7 +182,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "CompensationRecord",
       "CompensationReason",
       "CompensationStatus",
-      "CompensationFailedError",
+      "ExecutionError.CompensationFailed",
     ],
     ...["ToolCallRecord", "ToolCallStatus", "TypedToolCall", "toolCallsOf", "JudgeInput"],
     ...["ExecutionStepRecord", "JudgeVerdictRecord", "GuardrailDecisionRecord"],
@@ -207,7 +212,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "CompensationRecord",
       "CompensationReason",
       "CompensationStatus",
-      "CompensationFailedError",
+      "ExecutionError.CompensationFailed",
     ],
   ],
   "references/06-finops-providers-and-queues.md": [
@@ -250,7 +255,12 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["PausedExecutionRepository", "ExecutionLease"],
     ...["HealthCheck", "HealthCheckContext", "HealthCheckResult", "HealthReport", "HealthStatus"],
     ...["HealthComponentKind", "HealthComponentReport", "ApplicationStoppingError", "ResumeReason"],
-    ...["WorkflowSettings", "WorkflowDefinition", "IncompatibleResume", "IncompatibleResumeError"],
+    ...[
+      "WorkflowSettings",
+      "WorkflowDefinition",
+      "IncompatibleResume",
+      "ExecutionError.IncompatibleResume",
+    ],
     ...["ResumeDecision", "NotPausedError", "PauseClosedError", "UnknownPauseError", "createApp"],
     ...["testWith"],
     ...["Clock", "ApplicationContext", "IdGenerator", "seconds", "hours"],
@@ -278,12 +288,21 @@ export const SKILL_COVERAGE: SkillCoverage = {
       "PiiRefusedError",
       "PiiDetectionFailedError",
     ],
-    ...["CompensationFailedError", "ExecutionCancelledError"],
-    ...["ExecutionLeaseLostError", "ApplicationStoppingError", "ThreadOwnerError"],
-    ...["UnknownThreadError", "NotPausedError", "InvalidThreadIdError", "UnknownPauseError"],
+    ...["ExecutionError.CompensationFailed", "ExecutionCancelledError"],
+    ...[
+      "ExecutionLeaseLostError",
+      "ApplicationStoppingError",
+      "ExecutionError.ThreadOwnerMismatch",
+    ],
+    ...[
+      "ExecutionError.UnknownThread",
+      "NotPausedError",
+      "ExecutionError.InvalidThreadId",
+      "UnknownPauseError",
+    ],
     ...["PauseError", "UninterpretableReplyError", "ReplyInterpreterMissingError"],
     ...["PauseExtensionContendedError"],
-    ...["IncompatibleResumeError", "ValidationError", "ExecutionContextUnavailableError"],
+    ...["ExecutionError.IncompatibleResume", "ValidationError", "ExecutionContextUnavailableError"],
     ...["ToolTimeoutError", "ModelCallError", "ModelKindError", "DecisionError"],
     ...["ModelProviderFailureError", "ModelProvider"],
     "NotAWorkflowStartError",

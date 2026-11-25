@@ -1,6 +1,6 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import type { FlowEdge } from "../analyse/flow-graph.js";
-import { OutputInvalidError } from "./errors.js";
 import type { RuntimeNode } from "./graph-model.js";
 import type { NodeOutcome } from "./node-runner.js";
 import { writeAndOutdate, type OutdatingCascade } from "./outdating.js";
@@ -65,7 +65,7 @@ function caseExitOf(node: RuntimeNode, outcome: NodeOutcome): FlowEdge {
   const variant = outcome.value?.variant ?? "";
   const branch = node.exits.cases.get(variant) ?? node.exits.cases.get(outcome.value?.finish ?? "");
   if (branch !== undefined) return branch;
-  throw new OutputInvalidError({
+  throw new ExecutionError.OutputInvalid({
     message: `${node.id} gave ${variant || "no class"}, which its .toOneOf([…]) has no branch for`,
   });
 }

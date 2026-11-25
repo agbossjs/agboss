@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../../core/error-families/run-errors.js";
 import { ExecutionStoppedError } from "../../../app/lease-stopped.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { extractRunContext } from "../../../core/run-context.js";
@@ -9,7 +10,6 @@ import {
   type CompensationEntry,
   type FailedJoinUndo,
 } from "../../compensation.js";
-import { CompensationFailedError } from "../../compensation.js";
 import { rootFactsOf } from "../../context/frame.js";
 import type { JoinDeps } from "../launch/join-node.js";
 import type { LaunchTicket } from "../launch/records.js";
@@ -26,7 +26,7 @@ import { heldUndoSiteOf, holderOf } from "./held-entries.js";
  * finished undoable branches are undone, newest first. It first awaits the launch's branches whose
  * bodies still run (#340 Q-A, up to `compensationTimeout`), so one that returns meanwhile is undone
  * too; the entries are the state's and the instance registry's. An undo that fails does not stop
- * the others; then the execution fails with `CompensationFailedError` (its cause the branch's error),
+ * the others; then the execution fails with `ExecutionError.CompensationFailed` (its cause the branch's error),
  * which no side path takes — the undo's spend written to the ledger first (#340 S4). A child
  * workflow's branch is undone the same way (#1281b): the entries its finish moved up to the
  * launching execution, each in the child's own workflow, newest first with the actions'. Durable once
@@ -42,7 +42,7 @@ export interface JoinUnwindSite {
   readonly config: RunnableConfig | undefined;
   readonly ticket: LaunchTicket;
   readonly deps: JoinDeps;
-  /** The error the join fails with: the cause of a `CompensationFailedError`. */
+  /** The error the join fails with: the cause of a `ExecutionError.CompensationFailed`. */
   readonly cause: unknown;
   /**
    * A quorum join that went on (#1281): only the entries of these branches (their ticket indexes —
@@ -114,14 +114,14 @@ async function unwindSiteOf(site: JoinUnwindSite): Promise<UnwindSite> {
 
 /**
  * Undoes the failed join's finished undoable branches, newest first: the entries closed and their
- * undo's spend for the join's update, or `CompensationFailedError` when one of them failed.
+ * undo's spend for the join's update, or `ExecutionError.CompensationFailed` when one of them failed.
  */
 export async function unwoundJoin(site: JoinUnwindSite): Promise<FailedJoinUndo> {
   const unwind = await unwindSiteOf(site);
   const { closed, usage, failures } = await unwound(unwind);
   if (failures.length > 0) {
     await unwind.record(usage);
-    throw new CompensationFailedError({ failures, cause: site.cause });
+    throw new ExecutionError.CompensationFailed({ failures, cause: site.cause });
   }
   return { compensations: [...undoneEarlier(site, unwind), ...closed], usage: [...usage] };
 }

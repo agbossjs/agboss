@@ -5,9 +5,10 @@
  * Refused at `app.execute`, `app.resume` and `app.cancel` with `dto.invalid`, the field and the rule
  * named, never the id; and `app.cancel`'s thread id is held to the rules `execute`'s is.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { ValidationError } from "../../src/index.js";
 import { beforeEach, describe, expect } from "vitest";
-import { InvalidThreadIdError, KeyTextRule } from "../../src/errors.js";
+import { KeyTextRule } from "../../src/errors.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import {
@@ -112,11 +113,11 @@ describe("#552 AC2: app.cancel's thread id is a key's text", () => {
     ["a zero-width space", KeyTextRule.FormatCharacter, "thread​-1"],
     ["a lone surrogate", KeyTextRule.LoneSurrogate, "thread-\uD800"],
   ] as const)(
-    "%s → InvalidThreadIdError, the id in no message and no event",
+    "%s → ExecutionError.InvalidThreadId, the id in no message and no event",
     async ([, rule, threadId], { app }) => {
       const error = await rejectionOf(app.cancel(threadId));
 
-      expect(error).toBeInstanceOf(InvalidThreadIdError);
+      expect(error).toBeInstanceOf(ExecutionError.InvalidThreadId);
       expect(error).toMatchObject({ rule });
       expect((error as Error).message).not.toContain(threadId);
       expect(JSON.stringify(echoSeen.events)).not.toContain(JSON.stringify(threadId).slice(1, -1));

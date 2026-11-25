@@ -274,7 +274,7 @@ export interface ExecutionCancelEvent extends ExecutionEvent {
 
 /**
  * An execution failed (`onExecutionError`) — also after a resume — or a resume of a paused one was
- * refused as incompatible (`IncompatibleResumeError`; it stays paused). A cancel is
+ * refused as incompatible (`ExecutionError.IncompatibleResume`; it stays paused). A cancel is
  * `onExecutionCancel`, never an error.
  */
 export interface ExecutionErrorEvent extends ExecutionEvent {
@@ -326,7 +326,7 @@ export interface ExecutionRejectedEvent {
   readonly threadId?: string;
   /** The tenant the request named (`"default"` when it named none, or its values were invalid). */
   readonly tenantId: string;
-  /** The error's stable code (`run.thread-owner`, `run.not-paused`, `validation.dto-invalid`, …). */
+  /** The error's stable code (`execution.thread-owner-mismatch`, `run.not-paused`, `validation.dto-invalid`, …). */
   readonly code: string;
   /** What went wrong, without the input values (`invalid WorkflowStartTextDto at text`). */
   readonly message: string;

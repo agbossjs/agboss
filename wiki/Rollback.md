@@ -308,7 +308,7 @@ spend under `action:<undo name>` ([FinOps](FinOps)). `onCompensationStart` / `on
 report each one ([Observability](Observability)).
 
 An undo that fails does not stop the others; then the execution fails with
-`CompensationFailedError` (`compensation.failed`): `failures` are the undo actions that threw,
+`ExecutionError.CompensationFailed` (`compensation.failed`): `failures` are the undo actions that threw,
 `cause` the branch's error — `toFailWith(BookingFailedError)` still matches through it. No
 `.onError` takes it (after a launch, on its join). `agboss describe` marks a launched undoable action:
 
@@ -335,7 +335,7 @@ before it ends (#340 PR 3): `CompensationReason.ExecutionFailed` for a failure o
   record is failed, its keys are removed and `onExecutionError` is observed (whose `compensations`
   lists what ran, [Observability](Observability#automatic-undo)) — the actions of a paused child of
   it too, read from its checkpoint. The record is written **after** the undo (#340 S7): while it
-  runs the root stays `running`, then its status and error are final (`CompensationFailedError`
+  runs the root stays `running`, then its status and error are final (`ExecutionError.CompensationFailed`
   included).
 - **`app.cancel` of a paused tree** takes its lease, withdraws its pauses (their channels are told,
   #337), undoes, and only then returns `{ cancelled: true }`
@@ -352,13 +352,13 @@ is logged (`compensation.step-still-running`) and, if it returns later, undone a
 `compensation.late-undo-failed`). The undo's service spend goes to the ledger at once
 ([FinOps](FinOps)).
 
-A failing undo does not stop the others; then the execution fails with `CompensationFailedError`,
+A failing undo does not stop the others; then the execution fails with `ExecutionError.CompensationFailed`,
 its `cause` the original error (`toFailWith(StepFailedError)` still matches through it).
-`CompensationFailedError` passes a child's boundary as it is — never wrapped in
+`ExecutionError.CompensationFailed` passes a child's boundary as it is — never wrapped in
 `ChildExecutionFailedError`, like a cancel or an exhausted budget — so no `.onError` of the parent
 takes it, and the parent, getting it uncaught, undoes its own open actions too. A cancel whose undo
 failed still cancels the tree, but `app.cancel` of a paused tree **rejects** with the
-`CompensationFailedError` (its `cause` the `ExecutionCancelledError`), and a running tree's holder's
+`ExecutionError.CompensationFailed` (its `cause` the `ExecutionCancelledError`), and a running tree's holder's
 `execute` / `resume` rejects with it (#340 S7).
 
 **Durable (#340 PR 4).** An undo that an instance's stop, crash or lost lease interrupts is finished
@@ -397,7 +397,7 @@ uncaught step failure or limit, an aborted child workflow, and the finished bran
 join, whose values never reach the side path. There — and only there — the framework runs the open
 actions' undo actions itself, newest first, each with its own idempotency key and a bounded
 clean-up signal; a failing undo does not stop the others, and the execution fails with
-`CompensationFailedError`. A failed join's undo came with #340 PR 2, the undo of an execution that
+`ExecutionError.CompensationFailed`. A failed join's undo came with #340 PR 2, the undo of an execution that
 ends without a finish — a cancel, an uncaught failure or limit, an aborted child — with #340 PR 3
 ([above](#an-execution-that-ends-without-a-finish)), and finishing an undo a stop, a crash or a
 lost lease interrupted with #340 PR 4.

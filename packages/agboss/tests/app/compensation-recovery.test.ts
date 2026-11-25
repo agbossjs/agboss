@@ -1,9 +1,6 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi, type Mocked } from "vitest";
-import {
-  ApplicationStoppingError,
-  CompensationFailedError,
-  ExecutionLeaseLostError,
-} from "../../src/index.js";
+import { ApplicationStoppingError, ExecutionLeaseLostError } from "../../src/index.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -195,7 +192,7 @@ describe("#340 AC4: an undo interrupted on one instance is finished by the other
 
 describe("#340 S7: the record after the undo, a failed undo's rejection", () => {
   single(
-    "the record is running while the undo runs, then failed with CompensationFailedError",
+    "the record is running while the undo runs, then failed with ExecutionError.CompensationFailed",
     async ({ app, mockService }) => {
       const desk = deskOf(mockService(UndoDesk));
       let letGo = (): void => undefined;
@@ -216,7 +213,7 @@ describe("#340 S7: the record after the undo, a failed undo's rejection", () => 
       expect((await recordOf())?.status).toBe("running");
       letGo();
 
-      await expect(run).rejects.toBeInstanceOf(CompensationFailedError);
+      await expect(run).rejects.toBeInstanceOf(ExecutionError.CompensationFailed);
       const record = await recordOf();
       expect(record?.status).toBe("failed");
       expect(record?.stopReason).toMatch(/^An automatic undo failed/);
@@ -237,7 +234,7 @@ describe("#340 S7: the record after the undo, a failed undo's rejection", () => 
 
       await expect(app.cancel("t-1")).resolves.toEqual({ cancelled: true });
 
-      await expect(run).rejects.toFailWith(CompensationFailedError, {
+      await expect(run).rejects.toFailWith(ExecutionError.CompensationFailed, {
         cause: ExecutionCancelledError,
       });
       expect(releasedIds(desk)).toEqual(["room-1", "seat-1"]);

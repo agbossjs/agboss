@@ -1,10 +1,11 @@
 /**
  * #1321d: a thread id that holds the child separator is refused at every entry that takes one —
- * `app.execute`, `app.cancel`, `app.stop`, `app.pause`, `app.unpause` — with `InvalidThreadIdError`
+ * `app.execute`, `app.cancel`, `app.stop`, `app.pause`, `app.unpause` — with `ExecutionError.InvalidThreadId`
  * naming `reserved-separator`, never the id; nothing runs and nothing is written for it.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
-import { InvalidThreadIdError, KeyTextRule } from "../../src/errors.js";
+import { KeyTextRule } from "../../src/errors.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { ChatStart, DeskApplication } from "../testing/fixtures/desk.workflow.js";
@@ -29,7 +30,7 @@ describe("#1321d: a thread id with the child separator, at every entry", () => {
     ];
 
     for (const error of refusals) {
-      expect(error).toBeInstanceOf(InvalidThreadIdError);
+      expect(error).toBeInstanceOf(ExecutionError.InvalidThreadId);
       expect(error).toMatchObject({ rule: KeyTextRule.ReservedSeparator });
       expect((error as Error).message).not.toContain("x-evil");
     }

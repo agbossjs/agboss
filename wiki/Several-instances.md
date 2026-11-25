@@ -887,7 +887,7 @@ export class ChargeOrderAction {
   stored and compared byte for byte: no case folding, no NFKC, so `Order:42`, `order 42` and
   `order:４２` are three keys. `keyTextRuleOf(text)` says which rule a text breaks;
   a refusal is `IdempotencyError.InvalidKey` (`idempotency.invalid-key`) or
-  `InvalidThreadIdError` (`run.invalid-thread-id`), with `rule` and a message naming the rule —
+  `ExecutionError.InvalidThreadId` (`execution.invalid-thread-id`), with `rule` and a message naming the rule —
   never the key, which is not echoed in `onExecutionRejected` either. Checked by
   `runOnce`, `sendOnce` and every store's entry, for a key built by hand
   (`assertBusinessKey`, for a store of your own), before anything runs; a thread id at
@@ -1293,7 +1293,7 @@ cannot write is a warning (`audit-log.failed`) and never reaches the takeover.
 
 `app.cancel(threadId, { tenantId, ownerId })` reaches the thread's execution on whichever instance
 moves it (#360) — behind a load balancer a cancel lands on a random instance. Access is checked as
-always (`UnknownThreadError` for another tenant's or an unknown thread, `ThreadOwnerError` for
+always (`ExecutionError.UnknownThread` for another tenant's or an unknown thread, `ExecutionError.ThreadOwnerMismatch` for
 another owner, `onExecutionRejected`), then:
 
 1. **this instance runs it** — it is aborted at once; before the abort the tree's durable **cancel
@@ -1373,7 +1373,7 @@ An execution that ends without a finish undoes its open undoable actions before 
   state (pending writes applied, the children's namespaces included), the ones marked done skipped,
   then the tree ends failed with the recorded reason — its record failed, its pauses withdrawn, its
   keys removed, `onExecutionCancel` for a cancel, `onExecutionError` once (an `AGBossError`
-  with the original message for a failure; `CompensationFailedError` when an undo failed) — and no
+  with the original message for a failure; `ExecutionError.CompensationFailed` when an undo failed) — and no
   pass runs; the log says `compensation.recovered`;
 - **a child re-entered mid-undo** — the root's pass continued from its checkpoint, the child's step
   run again — reads its own key before its next step: found, the child takes no step, finishes its

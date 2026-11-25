@@ -198,7 +198,7 @@ describe("#471 AC6: a fenced error inside an agent's loop and in an undo", () =>
     expect(recovery.errors).toEqual([]);
   });
 
-  test("an undo fenced while the failed tree unwinds is a hand-over: no CompensationFailedError, no onExecutionError", async ({
+  test("an undo fenced while the failed tree unwinds is a hand-over: no ExecutionError.CompensationFailed, no onExecutionError", async ({
     app,
   }) => {
     levers.isUndoFenced = true;

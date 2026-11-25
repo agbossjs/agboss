@@ -8,9 +8,10 @@
  *   and inside a step (`effectKeyOf`, and a key built by hand at `OutboundCalls.send`) —
  *   and nothing runs under a refused thread id.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { InvalidThreadIdError, KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
+import { KeyTextRule, keyTextRuleOf } from "../../src/errors.js";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { logged, resetLogged } from "../helpers/log.js";
@@ -153,7 +154,7 @@ describe("#538 acceptance: a refused thread id is in no log entry and no event, 
       { threadId: "after-the-refusal", ownerId: "bob" },
     );
 
-    expect(error).toBeInstanceOf(InvalidThreadIdError);
+    expect(error).toBeInstanceOf(ExecutionError.InvalidThreadId);
     expect(error).toMatchObject({ rule });
     expect(leaks({ logged, events: echoSeen.events, error }, text)).toBe(false);
     expect(echoSeen.ran).toBe(1);

@@ -3,11 +3,11 @@
  * time, is refused; another instance continues it; a cancel withdraws it; another tenant or owner
  * cannot answer it; a cycle asks it at most `maxVisits` times.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { UnknownPauseError } from "../../src/run/resume-agent.js";
 import { PauseClosedError, PauseStatus, PausedExecutionRepository } from "../../src/index.js";
-import { ThreadOwnerError } from "../../src/core/errors.js";
 import { VisitsLimitExceededError } from "../../src/flow/runtime/errors.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -123,7 +123,7 @@ describe("#659 AC5: cancel, tenants and owners", () => {
       app.resume(answerOf(paused, yes), { tenantId: "acme", ownerId: "alice" }),
     ).rejects.toBeInstanceOf(UnknownPauseError);
     await expect(app.resume(answerOf(paused, yes), { ownerId: "mallory" })).rejects.toBeInstanceOf(
-      ThreadOwnerError,
+      ExecutionError.ThreadOwnerMismatch,
     );
     await expect(app.resume(answerOf(paused, yes), { actor: { id: "alice" } })).rejects.toThrow(
       /pass ownerId, not actor/,

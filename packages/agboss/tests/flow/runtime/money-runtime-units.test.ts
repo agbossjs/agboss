@@ -5,6 +5,7 @@
  * (#1090), the ledger ids of lost passes (#853), the spend a failure carries and the run's drain of it, what a
  * paused run has spent (#267).
  */
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { GraphInterrupt } from "@langchain/langgraph";
 import { describe, expect, it, vi } from "vitest";
 import { BudgetMeter } from "../../../src/budgets/execution-budgets.js";
@@ -14,10 +15,7 @@ import { ApplicationStoppingError, ExecutionCancelledError } from "../../../src/
 import { errorRecordOf, RecordedError } from "../../../src/core/error-record.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
 import { NodeKind } from "../../../src/flow/ast.js";
-import {
-  CompensationEntryStatus,
-  CompensationFailedError,
-} from "../../../src/flow/compensation.js";
+import { CompensationEntryStatus } from "../../../src/flow/compensation.js";
 import { ChildExecutionFailedError } from "../../../src/flow/runtime/child-errors.js";
 import {
   childFailureOf,
@@ -731,7 +729,10 @@ describe("#1356: how a child's failure reaches its parent", () => {
   });
 
   it("gives a failed undo's error, built or rebuilt, as it is and reports nothing", () => {
-    const undo = new CompensationFailedError({ failures: [], cause: new Error("declined") });
+    const undo = new ExecutionError.CompensationFailed({
+      failures: [],
+      cause: new Error("declined"),
+    });
     const rebuilt = new RecordedError(errorRecordOf(undo));
 
     for (const error of [undo, rebuilt])
@@ -767,7 +768,7 @@ describe("#1356: how a child's failure reaches its parent", () => {
     const rebuilt = new RecordedError(errorRecordOf(budgetError()));
 
     expect(isRecordedAs(rebuilt, BudgetExceededError.code)).toBe(true);
-    expect(isRecordedAs(rebuilt, CompensationFailedError.code)).toBe(false);
+    expect(isRecordedAs(rebuilt, ExecutionError.CompensationFailed.code)).toBe(false);
     expect(isRecordedAs(budgetError(), BudgetExceededError.code)).toBe(false);
     expect(isRecordedAs("limit.budget", BudgetExceededError.code)).toBe(false);
   });

@@ -476,7 +476,7 @@ are `PauseRespondent.Owner` / `.Delegate` (#1307).
 
 | `respondent`                   | `resume` takes                                    | Its `pauseId`                                       |
 | ---------------------------- | ------------------------------------------------- | --------------------------------------------------- |
-| `PauseRespondent.Owner`  | the thread's `ownerId` (another → `ThreadOwnerError`) | listed in `result.pending`                      |
+| `PauseRespondent.Owner`  | the thread's `ownerId` (another → `ExecutionError.ThreadOwnerMismatch`) | listed in `result.pending`                      |
 | `PauseRespondent.Delegate`      | `actor: { id: "manager-17" }` — non-empty            | only in the channel's `ask.pauseId`                 |
 
 The channel's side authenticates who answers a `Channel` pause (Slack, a ticket system, an admin
@@ -1203,7 +1203,7 @@ It is refused:
 - an `assignee` that is no key's text (#589: non-empty, no control or invisible characters, NFC) —
   `ValidationError.DtoInvalid` (`dto: "ReassignPauseRequest"`);
 - another tenant's pause or an unknown id — `UnknownPauseError`; a caller that may not answer it —
-  `ThreadOwnerError` / `PauseError.PermissionDenied`;
+  `ExecutionError.ThreadOwnerMismatch` / `PauseError.PermissionDenied`;
 - a pause its channel decided at once: it never waited, it is closed `answered`;
 - a pause whose channel is still being asked for the first time (its step's `send` has not returned) —
   `PauseError.UpdateContended` (`pause.update-contended`; nothing changed, trying again once the send returned

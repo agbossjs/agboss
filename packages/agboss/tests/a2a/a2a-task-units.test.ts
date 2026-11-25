@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #807 — the A2A task status mapping, projection and read repair on their own: an in-memory task
@@ -30,7 +31,6 @@ import {
 import { InMemoryA2ATaskRepository } from "../../src/infrastructure/in-memory-a2a-task.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { PauseKind, type PendingPause } from "../../src/pause/types.js";
-import { IncompatibleResumeError } from "../../src/run/resume-guard.js";
 import { seconds } from "../../src/units/index.js";
 import { PauseRespondent } from "../../src/pause/respondent.js";
 
@@ -421,7 +421,11 @@ describe("#807: the projection on its own", () => {
     const { projection } = projectionOf(tasks, over.control);
 
     await projection.onExecutionError(
-      errorOf(Object.create(IncompatibleResumeError.prototype) as IncompatibleResumeError),
+      errorOf(
+        Object.create(
+          ExecutionError.IncompatibleResume.prototype,
+        ) as ExecutionError.IncompatibleResume,
+      ),
     );
     const kept = await tasks.findById(KEY);
     const asked = [...over.asked];

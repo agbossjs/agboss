@@ -4,9 +4,10 @@
  * pause and in `onExecutionResume`; the other credential is refused, and a refused resume leaves the
  * pause waiting. A `Channel` pause's id is never listed to the caller (only its channel has it).
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
-import { PauseRespondent, PauseError, PauseStatus, ThreadOwnerError } from "../../src/index.js";
+import { PauseRespondent, PauseError, PauseStatus } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { answerOf, execute } from "../helpers/flow.js";
 import {
@@ -48,7 +49,7 @@ describe("#267 AC4: a ThreadOwner pause is answered by the thread's owner", () =
       respondent: PauseRespondent.Owner,
     });
     await expect(app.resume(answerOf(paused, approve), { ownerId: "bob" })).rejects.toBeInstanceOf(
-      ThreadOwnerError,
+      ExecutionError.ThreadOwnerMismatch,
     );
     await expect(app.resume(answerOf(paused, approve), manager)).rejects.toBeInstanceOf(
       PauseError.PermissionDenied,

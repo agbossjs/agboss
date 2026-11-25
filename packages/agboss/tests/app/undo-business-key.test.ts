@@ -3,6 +3,7 @@
  * idempotency keys, as a step's does, so a refund's fenced effect and its outbound call are keyed
  * there — a root's undo (its execution failed) and a child's (in its parent's node) alike.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
 import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -35,7 +36,7 @@ describe("#825: an undo under a business key", () => {
       execute(app, KeyedUndoWorkflowStart, { name: "root", delay: 0, outcome: "ok" }),
     );
 
-    expect(failed).not.toMatchObject({ name: "CompensationFailedError" });
+    expect(failed).not.toMatchObject({ name: "ExecutionError.CompensationFailed" });
     expect((failed as Error).message).toContain("the carrier refused");
     expect(keyedUndoSeen).toEqual({ booked: ["booking-root"], sent: ["booking-root"] });
     // the refund's call is shown by its business key's handle: the undo had the PII key too
@@ -54,7 +55,7 @@ describe("#825: an undo under a business key", () => {
       execute(app, KeyedParentWorkflowStart, { name: "child", delay: 0, outcome: "ok" }),
     );
 
-    expect(failed).not.toMatchObject({ name: "CompensationFailedError" });
+    expect(failed).not.toMatchObject({ name: "ExecutionError.CompensationFailed" });
     expect(keyedUndoSeen).toEqual({ booked: ["booking-child"], sent: ["booking-child"] });
     const sent = await app.resolve(OutboundCallRepository).findAllByTenantIdAndStatus({
       tenantId: "default",

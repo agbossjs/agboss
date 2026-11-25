@@ -23,7 +23,7 @@ import type { CancelledExecutionOutput, StoppedExecutionOutput } from "./types.j
  * tree, #340 PR 4's interrupted undo): its undo is marked under way and its record is `running`
  * while it runs (#340 S7 3: a crash mid-undo is found by the recovery sweep), its paused run dropped
  * (its pauses withdrawn, #337), its open undoable actions undone, then its record ended — cancelled,
- * or failed with `CompensationFailedError` when an undo failed —, its keys and pauses forgotten and
+ * or failed with `ExecutionError.CompensationFailed` when an undo failed —, its keys and pauses forgotten and
  * `onExecutionCancel` (`onExecutionError` for a failure) observed once, only when this call ended
  * the record. A cancel is an outcome, not an error: it is reported as a cancelled output (#1341).
  */

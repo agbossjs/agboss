@@ -1,3 +1,4 @@
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import { definedOf } from "../infrastructure/clock.js";
 import { checkedCallerId, treeRead } from "../flow/context/context-values.js";
@@ -5,7 +6,6 @@ import { ExecutionRecordStatus } from "../infrastructure/execution-record.reposi
 import { runConfig } from "../run/paused.js";
 import { NotPausedError } from "../run/resume-agent.js";
 import { readingGraphOf } from "../run/run-budgets.js";
-import { InvalidThreadIdError } from "../core/errors.js";
 import type { Turn } from "../turns/index.js";
 import { writeCancelRequest, type CancelParts } from "./cancel-requests.js";
 import { cancelledPaused } from "./cancel-paused.js";
@@ -45,7 +45,7 @@ const stateOf = (parts: CancelParts, tree: ExecutionTreeOfThread): TreeState => 
 async function checkedTree<T>(tree: ExecutionTreeOfThread, read: () => Promise<T>): Promise<T> {
   return treeRead(tree, () => {
     const rule = keyTextRuleOf(tree.threadId);
-    if (rule !== undefined) throw new InvalidThreadIdError({ rule });
+    if (rule !== undefined) throw new ExecutionError.InvalidThreadId({ rule });
     return read();
   });
 }

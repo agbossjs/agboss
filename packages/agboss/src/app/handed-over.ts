@@ -7,7 +7,8 @@ import { currentFrame, type FrameLease, type FrameSpec } from "../flow/context/f
 import { nodeEventOf } from "../flow/observers/execution-event.js";
 import type { HandOverSite } from "../infrastructure/execution-audit-log.repository.js";
 import { ApplicationStoppingError } from "../core/errors.js";
-import { ExecutionError, isHandOverError } from "../core/error-families/run-errors.js";
+import { isHandOverError } from "../core/error-families/hand-over.js";
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import { ExecutionCancelFencedError, ExecutionLeaseLostError } from "./lease-lost.js";
 
 /**

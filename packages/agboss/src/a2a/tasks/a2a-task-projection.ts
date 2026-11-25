@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import type { ExecutionObserver } from "../../core/observer-hooks.js";
 import type {
   ExecutionCancelEvent,
@@ -15,7 +16,6 @@ import {
   type A2ATaskRepository,
   type A2ATaskStatus,
 } from "../../infrastructure/a2a-task.repository.js";
-import { IncompatibleResumeError } from "../../run/resume-guard.js";
 import {
   CANCELED,
   completedStatusOf,
@@ -95,7 +95,7 @@ export class A2ATaskProjection implements ExecutionObserver {
 
   /** An incompatible resume leaves the execution paused: no change. */
   onExecutionError(event: ExecutionErrorEvent): Promise<void> {
-    if (event.error instanceof IncompatibleResumeError) return Promise.resolve();
+    if (event.error instanceof ExecutionError.IncompatibleResume) return Promise.resolve();
     return this.#move(event, async () => {
       const { status } = await this.#durableStateOf(event);
       const isOver =

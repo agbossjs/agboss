@@ -4,6 +4,7 @@
  * and injected; their values passed per execution, validated before the first step, frozen and
  * kept by a resume; the default tenant; threads keyed by tenant + thread.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { App } from "../../src/app/types.js";
@@ -13,7 +14,6 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import {
   ExecutionContextUnavailableError,
   TenantContext,
-  UnknownThreadError,
   UnknownPauseError,
 } from "../../src/index.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
@@ -229,7 +229,7 @@ describe("#261 AC5: the default tenant; a thread's key is tenant + thread", () =
       cancelled: false,
     });
     await expect(app.cancel(first.threadId, { tenantId: "eilat-clinic" })).rejects.toBeInstanceOf(
-      UnknownThreadError,
+      ExecutionError.UnknownThread,
     );
     expect(await app.cancel(first.threadId, { tenantId: "haifa-clinic" })).toEqual({
       cancelled: false,

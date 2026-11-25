@@ -397,7 +397,7 @@ newest first, in its parent's step before its error reaches the parent (#340 PR 
 `ExecutionFailed` / `ExecutionCancelled`): its records come from its checkpoint and the instance's
 registry, never from the last state the parent saw; the undone records go into the parent's state
 with the error, so a later pass never undoes them again; its `onExecutionError` lists them
-(`compensations`). If one of its undo actions fails, its error is `CompensationFailedError`, which
+(`compensations`). If one of its undo actions fails, its error is `ExecutionError.CompensationFailed`, which
 passes the boundary as it is — never `ChildExecutionFailedError`, like a cancel or an exhausted
 budget — so no `.onError` of the parent takes it; the parent, getting it uncaught,
 undoes its own open actions in turn. [Rollback](Rollback#an-execution-that-ends-without-a-finish).

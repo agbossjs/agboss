@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 /**
  * #261 PR 6 — observer events: one event object per hook with the common fields of the execution
@@ -5,15 +6,7 @@ import { ConfigError } from "../../../src/core/error-families/config-errors.js";
  * framework's internal state; `onExecutionRejected` names the refused operation (#269).
  */
 import { beforeEach, describe, expect } from "vitest";
-import {
-  ComponentKind,
-  ExecutionOperation,
-  InvalidThreadIdError,
-  nameOf,
-  UnknownThreadError,
-  Workflow,
-  Ttl,
-} from "../../../src/index.js";
+import { ComponentKind, ExecutionOperation, nameOf, Workflow, Ttl } from "../../../src/index.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
 import { execute, answerOf } from "../../helpers/flow.js";
 import {
@@ -150,13 +143,13 @@ describe("#269: onExecutionRejected names the refused operation (ExecutionOperat
     app,
   }) => {
     await expect(app.cancel("no-such-thread", { tenantId: "acme" })).rejects.toBeInstanceOf(
-      UnknownThreadError,
+      ExecutionError.UnknownThread,
     );
     await expect(app.resume({ pauseId: "no-such-pause", decision: approve })).rejects.toThrow();
     // an unknown id is the caller's own new thread (#262 Q4): an invalid one is refused
     await expect(
       execute(app, Ask, { text: "x" }, { threadId: "no\nthread" }),
-    ).rejects.toBeInstanceOf(InvalidThreadIdError);
+    ).rejects.toBeInstanceOf(ExecutionError.InvalidThreadId);
 
     expect(rejections.map(({ operation, tenantId }) => ({ operation, tenantId }))).toEqual([
       { operation: ExecutionOperation.Cancel, tenantId: "acme" },

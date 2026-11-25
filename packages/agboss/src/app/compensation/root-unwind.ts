@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import type { FrameLease } from "../../flow/context/frame.js";
 import { meterOf } from "../../budgets/execution-budgets.js";
 import type { UsageRecord } from "../../finops/usage.js";
@@ -7,7 +8,6 @@ import {
   type CompensationEntry,
   type CompensationRecord,
 } from "../../flow/compensation.js";
-import { CompensationFailedError } from "../../flow/compensation.js";
 import { entriesInCheckpoint } from "../../flow/runtime/compensation/checkpoint-entries.js";
 import { mergedEntries, unwound } from "../../flow/runtime/compensation/unwind.js";
 import {
@@ -39,7 +39,7 @@ import { undoSiteOf, type TreeUndoSites } from "./tree-undo-sites.js";
  * root's, and a descendant's no child node undid here (a paused child) — is undone newest first,
  * from its checkpoint (pending writes applied, Q-C) merged with the instance registry (S2); the
  * tree is sealed for a body that returns later (Q-B). The undo's spend is written to the ledger at
- * once. A failing undo makes the tree's error `CompensationFailedError` (its cause the original).
+ * once. A failing undo makes the tree's error `ExecutionError.CompensationFailed` (its cause the original).
  * Durable (#340 PR 4): `@agboss/unwinding` is written before the undo starts and
  * `@agboss/compensated/<key>` after each success — an instance that takes the tree over finishes the
  * rest, the undos marked done skipped (`withUndoneMarks`).
@@ -55,8 +55,8 @@ export interface TreeUnwindCall<TCause> {
 
 /** What the tree's end raises and the undo records its error event carries. */
 export interface TreeUnwound<TCause> {
-  /** The cause, or `CompensationFailedError` (caused by it) when an undo failed. */
-  readonly error: TCause | CompensationFailedError;
+  /** The cause, or `ExecutionError.CompensationFailed` (caused by it) when an undo failed. */
+  readonly error: TCause | ExecutionError.CompensationFailed;
   readonly compensations: readonly CompensationRecord[];
 }
 
@@ -163,6 +163,6 @@ export async function unwoundTree<TCause>(
   const error =
     done.failures.length === 0
       ? call.cause
-      : new CompensationFailedError({ failures: done.failures, cause: call.cause });
+      : new ExecutionError.CompensationFailed({ failures: done.failures, cause: call.cause });
   return { error, compensations };
 }

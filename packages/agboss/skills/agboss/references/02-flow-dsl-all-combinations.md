@@ -2143,7 +2143,7 @@ Child rules:
   right after a per-item join. An uncaught error of the child — its step, its `maxSteps`, a node's
   `maxVisits` — is the parent's `ChildExecutionFailedError` (a `StepFailedError`: `cause`,
   `childExecutionId`, `itemIndex`, `workflow`), so its handler may be an agent. An exhausted budget,
-  a cancel and `CompensationFailedError` stop the whole tree as they are — never wrapped.
+  a cancel and `ExecutionError.CompensationFailed` stop the whole tree as they are — never wrapped.
 - **Soft failure per item**: a child that catches its own error and ends at a failure finish gives
   one more result class; a per-item child with no finish reachable from an `.onError` side path warns
   `[graph.child-without-failure-finish]` (one failed item would cancel all the others).
@@ -2364,7 +2364,7 @@ after** its action.
   `@Application({ executionLimits: { compensationTimeout } })` (default `seconds(15)`), with no budget check; it survives
   a crash (the next holder of the tree finishes it).
 - An undo that fails does not stop the others; then the execution fails with
-  `CompensationFailedError` (`failures`, `cause` the original error) — no side path takes it.
+  `ExecutionError.CompensationFailed` (`failures`, `cause` the original error) — no side path takes it.
 
 ```ts file=src/order/dto/order-request.dto.ts
 import { Text } from "@agboss/core/dto";
@@ -2836,7 +2836,7 @@ path, and so is an error _caused_ by `E` (an action's own exception is the `caus
 | ↳ `DepthLimitExceededError` (`limit.depth`)                                                     | a recursive launch past `maxDepth` (inside `ChildExecutionFailedError`)        | no                                 |
 | `ExecutionCancelledError` (`execution.cancelled`)                                               | `app.cancel` or the caller's `signal` — never taken by a side path             | —                                  |
 | `ApplicationStoppingError` (`app.stopping`)                                                     | `app.close()` interrupted it — never taken                                     | —                                  |
-| `CompensationFailedError` (`compensation.failed`)                                               | an automatic undo failed — never taken                                         | —                                  |
+| `ExecutionError.CompensationFailed` (`compensation.failed`)                                               | an automatic undo failed — never taken                                         | —                                  |
 
 `ToolTimeoutError` (`tool.timeout`) never reaches the flow: a tool call past its `timeout` is read by
 its agent's model as the tool's error, like any tool error. All of them are `AGBossError`s.

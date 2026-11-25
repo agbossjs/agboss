@@ -95,9 +95,7 @@ export {
   type ExecutionHistoryRecord,
 } from "../infrastructure/execution-history.repository.js";
 export {
-  IncompatibleResumeError,
   ResumeDecision,
-  type IncompatibleResumeErrorOptions,
   type IncompatibleResume,
   type IncompatibleResumePolicy,
   type ResumeVersions,

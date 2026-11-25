@@ -1,8 +1,8 @@
+import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi, type Mocked } from "vitest";
 import {
   ActionFailedError,
   ChildExecutionFailedError,
-  CompensationFailedError,
   CompensationReason,
   CompensationStatus,
 } from "../../../src/index.js";
@@ -210,7 +210,7 @@ describe("an uncaught failure", { timeout: 60_000 }, () => {
     ]);
   });
 
-  test("a failed undo: the older still runs, then CompensationFailedError", async ({
+  test("a failed undo: the older still runs, then ExecutionError.CompensationFailed", async ({
     app,
     mockService,
   }) => {
@@ -221,9 +221,11 @@ describe("an uncaught failure", { timeout: 60_000 }, () => {
 
     const run = execute(app, UnwindWorkflowStart, GUEST);
 
-    await expect(run).rejects.toFailWith(CompensationFailedError, { cause: ActionFailedError });
+    await expect(run).rejects.toFailWith(ExecutionError.CompensationFailed, {
+      cause: ActionFailedError,
+    });
     expect(releasedIds(desk)).toEqual(["room-1", "seat-1"]);
-    expect(unwindSeen.errors[0]?.error).toBeInstanceOf(CompensationFailedError);
+    expect(unwindSeen.errors[0]?.error).toBeInstanceOf(ExecutionError.CompensationFailed);
   });
 });
 
@@ -357,7 +359,7 @@ describe("a child that ends without a finish (Q2, S5)", { timeout: 60_000 }, () 
 
     const run = execute(app, UnwindParentWorkflowStart, GUEST);
 
-    await expect(run).rejects.toBeInstanceOf(CompensationFailedError);
+    await expect(run).rejects.toBeInstanceOf(ExecutionError.CompensationFailed);
     await expect(run).rejects.not.toBeInstanceOf(ChildExecutionFailedError);
     expect(releasedIds(desk)).toEqual(["room-1", "seat-1"]);
     expect(unwindSeen.undos.at(-1)?.reason).toBe(CompensationReason.ExecutionFailed);

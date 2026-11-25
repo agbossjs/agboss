@@ -973,7 +973,7 @@ children, in the order they are made — counted from 1 in every test and shared
 (`instances: 2`, `recoverApp()`), so a test names them. A caller's own `threadId` is used as given.
 An application that lists an `IdGenerator` keeps it in its tests too. The ids start again in every
 test, so two tests on one kept database (a SQLite file shared by tests) mint `execution-1` twice:
-the second is `DuplicateExecutionIdError` (#591) — give each test a store of its own. A `pauseId` never comes from
+the second is `ExecutionError.DuplicateExecutionId` (#591) — give each test a store of its own. A `pauseId` never comes from
 it: it stays a random 128-bit token (32 hex characters) — read it from `result.pending`.
 
 <!-- snippet-context

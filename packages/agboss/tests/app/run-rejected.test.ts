@@ -1,12 +1,6 @@
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect } from "vitest";
-import {
-  BudgetExceededError,
-  InvalidThreadIdError,
-  PauseClosedError,
-  ThreadOwnerError,
-  UnknownPauseError,
-  UnknownThreadError,
-} from "../../src/errors.js";
+import { BudgetExceededError, PauseClosedError, UnknownPauseError } from "../../src/errors.js";
 import {
   ExecutionOperation,
   NotAWorkflowStartError,
@@ -57,7 +51,7 @@ function expectRejected(
   return event;
 }
 
-describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread-owner, no runId", () => {
+describe("#246 AC1: a thread of another owner → onExecutionRejected execution.thread-owner-mismatch, no runId", () => {
   test("execute on alice's thread as mallory: rejected before any run event", async ({
     app,
     mockModel,
@@ -68,9 +62,9 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread
 
     const again = execute(app, Ask, { text: "two" }, { threadId: first.threadId, ...mallory });
 
-    await expect(again).rejects.toBeInstanceOf(ThreadOwnerError);
+    await expect(again).rejects.toBeInstanceOf(ExecutionError.ThreadOwnerMismatch);
     expectRejected(
-      { operation: ExecutionOperation.Execute, threadId: first.threadId, code: "run.thread-owner" },
+      { operation: ExecutionOperation.Execute, threadId: first.threadId, code: "execution.thread-owner-mismatch" },
       [first.executionId, "alice", "mallory", "two"],
     );
     expect(workflowEvents()).toEqual([]);
@@ -87,15 +81,19 @@ describe("#246 AC1: a thread of another owner → onExecutionRejected run.thread
     const paused = await execute(app, Ask, { text: "apply" }, alice);
     resetEvents();
 
-    await expect(app.resume(answerOf(paused, approve), mallory)).rejects.toThrow(ThreadOwnerError);
+    await expect(app.resume(answerOf(paused, approve), mallory)).rejects.toThrow(
+      ExecutionError.ThreadOwnerMismatch,
+    );
     expectRejected(
-      { operation: ExecutionOperation.Resume, threadId: paused.threadId, code: "run.thread-owner" },
+      { operation: ExecutionOperation.Resume, threadId: paused.threadId, code: "execution.thread-owner-mismatch" },
       [paused.executionId, "dana"],
     );
     resetEvents();
-    await expect(app.cancel(paused.threadId, mallory)).rejects.toThrow(ThreadOwnerError);
+    await expect(app.cancel(paused.threadId, mallory)).rejects.toThrow(
+      ExecutionError.ThreadOwnerMismatch,
+    );
     expectRejected(
-      { operation: ExecutionOperation.Cancel, threadId: paused.threadId, code: "run.thread-owner" },
+      { operation: ExecutionOperation.Cancel, threadId: paused.threadId, code: "execution.thread-owner-mismatch" },
       [paused.executionId],
     );
     expect(workflowEvents()).toEqual([]);
@@ -136,26 +134,26 @@ describe("#246 AC2: nothing to resume, an unknown thread, an invalid start → o
     expectRejected({ operation: ExecutionOperation.Resume, code: "pause.unknown-pause" });
   });
 
-  test("execute with an id that cannot be a thread: run.invalid-thread-id, before onWorkflowStart", async ({
+  test("execute with an id that cannot be a thread: execution.invalid-thread-id, before onWorkflowStart", async ({
     app,
   }) => {
     // an id the tenant does not have yet is the caller's own new thread (#262 Q4); a bad one is not
     const run = execute(app, Ask, { text: "hello" }, { threadId: "bad\nid" });
 
-    await expect(run).rejects.toBeInstanceOf(InvalidThreadIdError);
+    await expect(run).rejects.toBeInstanceOf(ExecutionError.InvalidThreadId);
     // #538: an id refused for its text is never echoed: the event names the rule, not the id
-    expectRejected({ operation: ExecutionOperation.Execute, code: "run.invalid-thread-id" }, [
+    expectRejected({ operation: ExecutionOperation.Execute, code: "execution.invalid-thread-id" }, [
       "bad",
     ]);
     expect(workflowEvents()).toEqual([]);
   });
 
-  test("cancel of an unknown thread: run.unknown-thread", async ({ app }) => {
-    await expect(app.cancel("no-such-thread")).rejects.toBeInstanceOf(UnknownThreadError);
+  test("cancel of an unknown thread: execution.unknown-thread", async ({ app }) => {
+    await expect(app.cancel("no-such-thread")).rejects.toBeInstanceOf(ExecutionError.UnknownThread);
     expectRejected({
       operation: ExecutionOperation.Cancel,
       threadId: "no-such-thread",
-      code: "run.unknown-thread",
+      code: "execution.unknown-thread",
     });
   });
 
@@ -214,7 +212,7 @@ describe("#261 AC10: a tenant's day spent before the execution → it is rejecte
 
 /** No thread was created: the first id the store would hand out is still unknown. */
 async function expectNoNewThread(app: Pick<TestApp, "cancel">): Promise<void> {
-  await expect(app.cancel("thread-1")).rejects.toBeInstanceOf(UnknownThreadError);
+  await expect(app.cancel("thread-1")).rejects.toBeInstanceOf(ExecutionError.UnknownThread);
 }
 
 describe("#261: a request refused before it starts leaves no trace — no thread, no record", () => {

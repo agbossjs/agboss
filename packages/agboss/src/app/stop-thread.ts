@@ -1,5 +1,6 @@
+import { ExecutionError } from "../core/error-families/run-errors.js";
 import { ExecutionOperation } from "../core/observability.js";
-import { InvalidThreadIdError, keyTextRuleOf } from "../core/errors.js";
+import { keyTextRuleOf } from "../core/errors.js";
 import { checkedCallerId, checkedTenantId } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import { cancelledPaused, type CancelCommand } from "./cancel-paused.js";
@@ -36,7 +37,7 @@ export async function stopThread(
   await parts.admit(request, () => {
     checkedTenantId(thread.tenantId);
     const rule = keyTextRuleOf(threadId);
-    if (rule !== undefined) throw new InvalidThreadIdError({ rule });
+    if (rule !== undefined) throw new ExecutionError.InvalidThreadId({ rule });
     checkedCallerId("StopOptions", "ownerId", options.ownerId);
     return parts.known({ ...thread, ownerId: options.ownerId });
   });

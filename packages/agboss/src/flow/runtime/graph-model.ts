@@ -1,9 +1,9 @@
-import { CompensationFailedError } from "../compensation.js";
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import type { ErrorRecord } from "../../core/error-record.js";
 import { bestHandlerOf } from "./error-handler-rank.js";
-import { isHandOverRecord } from "../../core/error-families/run-errors.js";
+import { isHandOverRecord } from "../../core/error-families/hand-over.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import type { ResolvedField } from "../analyse/fields.js";
 import { EdgeKind, type FlowEdge, type FlowNode } from "../analyse/flow-graph.js";
@@ -241,7 +241,8 @@ export function errorHandlerOf(
   exits: Pick<NodeExits, "errors">,
   record: ErrorRecord,
 ): FlowEdge | undefined {
-  if (record.code === CompensationFailedError.code || isHandOverRecord(record)) return undefined;
+  if (record.code === ExecutionError.CompensationFailed.code || isHandOverRecord(record))
+    return undefined;
   const original = record.lineage[0] === ACTION_WRAPPER_CODE ? record.cause : undefined;
   const ofOriginal =
     original === undefined

@@ -492,7 +492,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed("the application's configuration reading: no money decision", ["src/config/**"]),
   ...reviewed(
-    "the error families' declarations (#1325a): enums, types and a table of codes and sentences; their behaviour is `family.ts` and the hand-over guard of `run-errors.ts`, both in the takeover shard",
+    "the error families' declarations (#1325a): enums, types and a table of codes and sentences; their behaviour is `family.ts` and the hand-over guard `hand-over.ts`, both in the takeover shard; the sentences made of the facts of `ExecutionError` are `run-error-messages.ts`, message text only, asserted by tests/core/errors-units.test.ts",
     [
       "src/core/error-families/a2a-errors.ts",
       "src/core/error-families/config-errors.ts",
@@ -501,6 +501,8 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/core/error-families/outbound-call-errors.ts",
       "src/core/error-families/pause-errors.ts",
       "src/core/error-families/remote-errors.ts",
+      "src/core/error-families/run-error-messages.ts",
+      "src/core/error-families/run-errors.ts",
       "src/core/error-families/step-errors.ts",
       "src/core/error-families/store-errors.ts",
     ],
@@ -656,7 +658,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     "src/flow/builder.ts",
     "src/flow/child-placement.ts",
     "src/flow/compensation.ts",
-    "src/flow/compensation-failed.ts",
     "src/flow/dto-wrappers.ts",
     "src/flow/finish-output.ts",
     "src/flow/generated-types.ts",

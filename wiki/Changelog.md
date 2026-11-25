@@ -225,8 +225,8 @@ Breaking changes and notable additions, newest first. The API reports
   `new ModelProviderFailureError({ failure, retryAfter })`, `new ToolTimeoutError({ timeout })`, …;
   an error with only its text: `new UnknownPauseError({ message, cause })` (`FlowSyntaxError`,
   `NotPausedError`, `ExecutionCancelledError({ message? })`, the `DecisionError` family, …). `cause`
-  was refused or dropped on ten of them (`BusinessKeyConflictError`, `ThreadIdsExhaustedError`,
-  `InvalidMintedIdError`, `FingerprintNotJsonError`, `InvalidBusinessKeyError`,
+  was refused or dropped on ten of them (`BusinessKeyConflictError`, `ExecutionError.ThreadIdsExhausted`,
+  `ExecutionError.InvalidMintedId`, `FingerprintNotJsonError`, `InvalidBusinessKeyError`,
   `OutboundCallInFlightError`, `OutboundCallResultNotStoredError`, `OutboundCallPayloadTooLargeError`,
   `FencedEffectResultTooLargeError`, `ExecutionFencedError`). Only the base
   `AGBossError(message, { cause, details })` is positional — the base of your own errors.
@@ -416,10 +416,10 @@ Breaking changes and notable additions, newest first. The API reports
   **Changed — breaking**: `FencedEffectRepository.saveResultIfAbsent` → `runOnce`. **Migration:**
   inject `FencedEffects` instead of a store's class ([Several instances](Several-instances#the-fenced-effect-500)).
 - **Changed — breaking (errors)**: `IdempotencyKeyConflictError` → `BusinessKeyConflictError`
-  (`fenced-effect.business-key-conflict`), `DuplicateThreadIdError` → `ThreadIdsExhaustedError`
+  (`fenced-effect.business-key-conflict`), `DuplicateThreadIdError` → `ExecutionError.ThreadIdsExhausted`
   (`run.thread-ids-exhausted`), `FencedEffectAsyncWorkError` → `SyncWorkRequiredError`
   (`fenced-effect.sync-work-required`), no aliases; one options bag, its keys the error's fields
-  (`effect`, `call`, `cause` among them), for `InvalidMintedIdError`, `ThreadIdsExhaustedError`,
+  (`effect`, `call`, `cause` among them), for `ExecutionError.InvalidMintedId`, `ExecutionError.ThreadIdsExhausted`,
   `FingerprintNotJsonError`, `InvalidBusinessKeyError`, `BusinessKeyConflictError`, the
   outbound-call errors and `QuestionFailedError({ question, cause })`;
   `OutboundCallUnreconciledError.reason` a code (`reconcile.unknown`, `reconcile.threw`,
@@ -1411,7 +1411,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   level an older execution's lease, fencing token, lease log and step keys, so a fenced effect or an
   outbound call replayed the other tree's result. Every minted execution id is now kept by the lease
   store before anything of its execution is written; an id any execution had is
-  `DuplicateExecutionIdError` (`run.duplicate-execution-id`, never the id). [App → Infrastructure](App#infrastructure).
+  `ExecutionError.DuplicateExecutionId` (`run.duplicate-execution-id`, never the id). [App → Infrastructure](App#infrastructure).
 - **Breaking for stores outside the core**: `ExecutionLeaseRepository.saveExecutionIdIfAbsent({
   executionId, tenantId })` — an atomic insert-if-absent by the id alone, never removed, checked by
   the lease contract's `an execution's identity` cases. SQLite: `execution_ids`, filled from
@@ -1454,7 +1454,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Fixed**: every id the framework mints through the application's `IdGenerator` — a root's, a
   child's or a recursion level's execution id, a new thread's id (at `execute`, a workflow run on
   its own, the eval runner) — is checked at the mint by `keyTextRuleOf`. One that breaks a rule, or
-  is no string, is `InvalidMintedIdError` (`run.invalid-minted-id`: `generator`, `method`, `rule`,
+  is no string, is `ExecutionError.InvalidMintedId` (`run.invalid-minted-id`: `generator`, `method`, `rule`,
   never the id), before it is used or stored. Before, `x\uD800` and `x\uDFFF` were one tree's lease
   on SQLite and PostgreSQL. The built-in generators are unaffected. [App → Infrastructure](App#infrastructure).
 ## Unreleased — 0.1.1: the linearizability checker (#533 item 5)
@@ -1640,7 +1640,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   when it breaks a rule of #538 (`dto.invalid`, `tenantId` and the rule named, never the id). A
   tenant id with a lone surrogate was stored as U+FFFD, so two tenants shared one thread, lease and
   business-key row, and its first execution failed with a raw `URIError` after binding the thread.
-  `app.cancel` checks its thread id as `execute` does (`InvalidThreadIdError`, the id in neither the
+  `app.cancel` checks its thread id as `execute` does (`ExecutionError.InvalidThreadId`, the id in neither the
   message nor `onExecutionRejected`).
 - **Tests**: ids from the usual sources (UUIDs, ULIDs, Slack ts, e-mail addresses, phone numbers,
   provider ids, URLs) are keys; the accepted code point next to each refused range; a refused key in
@@ -1737,7 +1737,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   a format character (Unicode `Cf`: zero-width space and joiners, so emoji joined by U+200D too,
   bidi controls, U+FEFF, the soft hyphen, tags) or not in NFC are refused, never normalized
   silently — beside the empty or too long text, C0 controls and lone surrogates refused before.
-  `InvalidBusinessKeyError` and `InvalidThreadIdError` carry `rule` (`KeyTextRule`,
+  `InvalidBusinessKeyError` and `ExecutionError.InvalidThreadId` carry `rule` (`KeyTextRule`,
   `keyTextRuleOf(text)` from the root) and name it, never the key; an invalid thread id is no
   longer echoed in `onExecutionRejected`. `InvalidBusinessKeyErrorOptions` takes `rule` instead of
   `problem`. **Migration:** normalize keys where they are made (`text.normalize("NFC")`).
@@ -1799,7 +1799,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Fixed — a lone surrogate is no business key or thread id** (#530): half of a surrogate pair
   passed the thread-id rule; SQLite and PostgreSQL keep text as UTF-8, where two such keys become one
   row, and the outbound call's key threw `URIError`. It is `InvalidBusinessKeyError` /
-  `InvalidThreadIdError` now.
+  `ExecutionError.InvalidThreadId` now.
 - **Fixed — `check:installs` and `check:real-time` miss no common form** (#531): `npm install-test`, a
   command continued with `\`, every `--package=` of an `npx`, npm spawned with `["i", …]` or a whole
   `"npm install …"` string; a duration through a second variable, a limit named by a constant.
@@ -2957,9 +2957,9 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   finishes its own before any step.
 - **Changed — the root's record is written after its undo**
   ([Rollback](Rollback#an-execution-that-ends-without-a-finish)): `running` while the undo runs, then
-  failed with the final error — `CompensationFailedError` when an undo failed (before, the record
+  failed with the final error — `ExecutionError.CompensationFailed` when an undo failed (before, the record
   kept the original error).
-- **Changed — `app.cancel` rejects with `CompensationFailedError`** when it ran the undo itself (a
+- **Changed — `app.cancel` rejects with `ExecutionError.CompensationFailed`** when it ran the undo itself (a
   paused tree, or a paused tree of another instance's request) and an undo failed — the others ran,
   the tree is cancelled ([Cancellation](Saga-And-Cancellation#global-cancellation)); before, it
   returned `{ cancelled: true }`. **Breaking** for a caller that expected the cancel to resolve.
@@ -3000,7 +3000,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Changed — `app.cancel` of a paused tree** takes its lease, withdraws its pauses, undoes, then
   returns `{ cancelled: true }` ([Cancellation](Saga-And-Cancellation#global-cancellation)); a cancel
   request (#360) found at lease take undoes first, then ends the tree as before.
-- **Changed — `CompensationFailedError` passes a child's boundary as it is**, never wrapped in
+- **Changed — `ExecutionError.CompensationFailed` passes a child's boundary as it is**, never wrapped in
   `ChildExecutionFailedError`: no `.onError` / `.onJoinError` of the parent takes it, and the
   parent undoes its own open actions.
 - **Added — `ExecutionErrorEvent.compensations`** ([Observability](Observability#automatic-undo)):
@@ -3062,7 +3062,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   launch's running branches — each undo in its own frame (key `<step key>:compensation`,
   `StepRecord.compensates`, a clean-up signal), no slot, no budget check
   (`CompensationReason.JoinFailed`). An undo that fails → the others still run, then
-  `CompensationFailedError` (`compensation.failed`, `failures`, `cause`), taken by no side path.
+  `ExecutionError.CompensationFailed` (`compensation.failed`, `failures`, `cause`), taken by no side path.
 - **Added — `@Application({ executionLimits: { compensationTimeout } })`** ([App](App)), default `seconds(15)`.
 - **Added — observer hooks** `onCompensationStart` / `onCompensationEnd`
   ([Observability](Observability#automatic-undo)); **matcher** `toHaveCompensated(Action, { by,
@@ -3144,7 +3144,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **Breaking — `ToolEndEvent.isResultTruncated: boolean`** is required: an object built as a
   `ToolEndEvent` (an observer test) sets it.
 - **Changed — every workflow's `configHash`** once: the truncation marker is a framework text of
-  the agent loop; a paused execution resumed on the new version is `IncompatibleResumeError` unless
+  the agent loop; a paused execution resumed on the new version is `ExecutionError.IncompatibleResume` unless
   `onIncompatibleResume` accepts it.
 - **Added — `agboss describe`** prints each tool's `maxResultSize` and where it came from;
   `describe --json` has `schemas.tools[name].maxResultSize` and each agent's `maxResultSize`.
@@ -3177,7 +3177,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   ([Turns and evaluation → What the config hash covers](Turns-and-evaluation#what-the-config-hash-covers-120-pr-4)):
   the snapshot adds `children` — every child reachable from the flow, recursively, each once by
   name, `ThisWorkflow` excluded. A run paused or running inside a child that a deploy changed is
-  now `IncompatibleResumeError` / `recovery.incompatible`, decided by the root's
+  now `ExecutionError.IncompatibleResume` / `recovery.incompatible`, decided by the root's
   `onIncompatibleResume`, instead of continuing silently on the changed child
   ([Several instances → Recovery](Several-instances#recovery)).
 - **Breaking — hashes of workflows with children change once**: every workflow that launches a
@@ -3185,7 +3185,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   start after the upgrade warns once that its version changed without a bump); runs of such a
   workflow paused or running before the upgrade are incompatible with it unless its
   `onIncompatibleResume` says `"resume"`. Workflows without children keep their hash.
-- **Breaking — `IncompatibleResumeError` is an `AGBossError`** with `static code =
+- **Breaking — `ExecutionError.IncompatibleResume` is an `AGBossError`** with `static code =
   "resume.incompatible"` (the same string; its instance `code` is typed `string`), so
   `.onError(AGBossError, …)` and `error instanceof AGBossError` include it.
 
@@ -3276,7 +3276,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `timeout: seconds(5)` (a `Milliseconds` value; default 30 s); a tool's timeout error reads
   `timed out after 5 s`. Internal: `DEFAULT_TOOL_TIMEOUT`, `JEV_TIMEOUT`.
 - **Breaking — `Execution…`, not `run…`** ([Naming](Naming)): `ExecutionOutput.runId` →
-  `executionId`; `IncompatibleResume` / `IncompatibleResumeError` `{ thread, runId }` →
+  `executionId`; `IncompatibleResume` / `ExecutionError.IncompatibleResume` `{ thread, runId }` →
   `{ threadId, executionId }`; `MemoryTurn.runId` → `executionId`; `RunId` → `ExecutionId`,
   `PausedRun` → `PausedExecution` (`PausedExecutionRepository`), `runAgent` → `executeAgent`,
   `RunDeps` → `AgentExecutionDeps`, `RunOptions` → `AgentExecutionOptions`, `runVersions` →
@@ -3874,8 +3874,8 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 - **A caller's own thread id** ([App](App)): `app.execute(Start, input, { threadId })` with an id
   the tenant does not have yet creates that thread — keyed by `tenantId` + `threadId` (the same id
   in another tenant is another thread), bound to `ownerId`, created only once the budgets pass.
-  Before, it was `UnknownThreadError`; that stays for `cancel` of an unknown thread. A bad id
-  (empty, over 200 characters, a control character) is the new `InvalidThreadIdError`
+  Before, it was `ExecutionError.UnknownThread`; that stays for `cancel` of an unknown thread. A bad id
+  (empty, over 200 characters, a control character) is the new `ExecutionError.InvalidThreadId`
   (`run.invalid-thread-id`). **Breaking for your own `ExecutionRecordRepository`:**
   `createThread({ workflow, tenantId, ownerId?, threadId? }: NewThread)` takes one object and
   returns the thread's id; every read by thread names both values — `lastTerns(tenantId, threadId,
@@ -4196,7 +4196,7 @@ ownerId })` (was `thread`, `owner`), `app.resume(threadId, decision, { tenantId,
   `app.cancel(threadId, { tenantId, ownerId })`; `ExecutionOutput.threadId` (was `thread`) and the
   new `ExecutionOutput.tenantId`.
 - **Breaking — a thread belongs to its tenant**: its key is `tenantId` + `threadId`;
-  `app.cancel` of a thread the tenant does not have throws `UnknownThreadError` (it answered
+  `app.cancel` of a thread the tenant does not have throws `ExecutionError.UnknownThread` (it answered
   `{ cancelled: false }`). The storage contracts take the tenant:
   `ExecutionRecordRepository.createThread(workflow, tenantId, owner?)`, `hasThread(workflow,
 tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record carries

@@ -9,7 +9,7 @@
 import { describe, expect } from "vitest";
 import { testWith } from "../../src/testing/index.js";
 import { errorRecordOf } from "../../src/core/error-record.js";
-import { isHandOverRecord } from "../../src/core/error-families/run-errors.js";
+import { isHandOverRecord } from "../../src/core/error-families/hand-over.js";
 import {
   ApplicationStoppingError,
   ExecutionCancelFencedError,

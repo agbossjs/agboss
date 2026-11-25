@@ -1,3 +1,4 @@
+import { ExecutionError } from "../../../core/error-families/run-errors.js";
 import { ExecutionStoppedError } from "../../../app/lease-stopped.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
@@ -6,7 +7,6 @@ import { extractRunContext, type RunContext } from "../../../core/run-context.js
 import type { UsageRecord } from "../../../finops/usage.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { COMPENSATION_TIMEOUT, type CompensationEntry } from "../../compensation.js";
-import { CompensationFailedError } from "../../compensation.js";
 import { rootFactsOf, type ExecutionFacts, type Frame } from "../../context/frame.js";
 import type { WorkflowIdentity } from "../step-frame.js";
 import { joinKeysOf } from "../workflow-keys.js";
@@ -31,7 +31,7 @@ import {
  * passes', S3 Q-C) merged with the instance registry's (this pass's: the child's in-process last
  * state misses writes after the abort, S2); its running bodies are awaited first (Q-A), and once
  * done the child is sealed (Q-B). The undo's spend goes to the ledger at once — the parent's step
- * may never write its state. A failing undo makes the child's error `CompensationFailedError`,
+ * may never write its state. A failing undo makes the child's error `ExecutionError.CompensationFailed`,
  * which passes the parent's boundary as it is (S5). The entries its own children's finishes moved up
  * to it are its own now (#1281b): undone with them, each in its child's workflow. Durable (#340 PR 4): its undo is marked under
  * way (`@agboss/unwinding:<childExecutionId>`, with the child's own error) and each success done —
@@ -132,5 +132,5 @@ export async function unwoundChild(site: ChildUnwindSite, thrown: unknown): Prom
   const { closed, usage, failures } = await unwound(unwind);
   await record(usage);
   if (failures.length === 0) return { thrown, closed };
-  return { thrown: new CompensationFailedError({ failures, cause: thrown }), closed };
+  return { thrown: new ExecutionError.CompensationFailed({ failures, cause: thrown }), closed };
 }

@@ -4,8 +4,8 @@
  * (never its thread's other runs; honoured before the run's record exists), a sweep's fence of a
  * reserved id, and where a tree is as its durable records say.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { DuplicateExecutionIdError } from "../../src/errors.js";
 import { PauseClosedError } from "../../src/app/pause-closed-error.js";
 import { CANCEL_REQUEST_KEY } from "../../src/app/cancel-requests.js";
 import {
@@ -105,7 +105,7 @@ describe("#807 AC1: a reserved execution id starts one execution, ever", () => {
     expect(result.executionId).toBe(TASK);
   });
 
-  test("the same id again, on either instance, is DuplicateExecutionIdError: nothing runs", async ({
+  test("the same id again, on either instance, is ExecutionError.DuplicateExecutionId: nothing runs", async ({
     apps,
     mockModel,
   }) => {
@@ -113,8 +113,8 @@ describe("#807 AC1: a reserved execution id starts one execution, ever", () => {
     const [first, second] = await pair(apps);
     await reserved(first);
 
-    await expect(reserved(first)).rejects.toBeInstanceOf(DuplicateExecutionIdError);
-    await expect(reserved(second)).rejects.toBeInstanceOf(DuplicateExecutionIdError);
+    await expect(reserved(first)).rejects.toBeInstanceOf(ExecutionError.DuplicateExecutionId);
+    await expect(reserved(second)).rejects.toBeInstanceOf(ExecutionError.DuplicateExecutionId);
     expect(seen.steps).toEqual(["once"]);
   });
 
@@ -129,7 +129,7 @@ describe("#807 AC1: a reserved execution id starts one execution, ever", () => {
 
     expect(calls.map(({ status }) => status).sort()).toEqual(["fulfilled", "rejected"]);
     const refused = calls.find((call) => call.status === "rejected");
-    expect(refused?.reason).toBeInstanceOf(DuplicateExecutionIdError);
+    expect(refused?.reason).toBeInstanceOf(ExecutionError.DuplicateExecutionId);
     expect(seen.steps).toEqual(["once"]);
   });
 
@@ -158,7 +158,7 @@ describe("#807 AC1: a reserved execution id starts one execution, ever", () => {
     const again = await controlOf(second).claimExecutionId({ executionId: TASK, tenantId: "acme" });
 
     expect([fenced, again]).toEqual([true, false]);
-    await expect(reserved(second)).rejects.toBeInstanceOf(DuplicateExecutionIdError);
+    await expect(reserved(second)).rejects.toBeInstanceOf(ExecutionError.DuplicateExecutionId);
   });
 
   test("a start wins: the fence finds the id taken", async ({ apps, mockModel }) => {
@@ -337,7 +337,7 @@ describe("#807 AC2: a cancel of one execution tree", () => {
     ).rejects.toMatchObject({ code: "validation.dto-invalid" });
     await expect(
       controlOf(first).cancelExecution({ ...tree(), threadId: "x\uD800" }),
-    ).rejects.toMatchObject({ code: "run.invalid-thread-id" });
+    ).rejects.toMatchObject({ code: "execution.invalid-thread-id" });
     await expect(controlOf(first).cancelExecution({ ...tree(), ownerId: "" })).rejects.toThrow(
       /^invalid ExecutionCancelRequest: ownerId: /u,
     );

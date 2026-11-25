@@ -502,7 +502,7 @@ or `secret`, `optional` / `has a default`) — the list for the manifest.
 - A paused or running execution started under another hash is **not** continued by an instance of
   the new version unless the workflow's `onIncompatibleResume` policy says `ResumeDecision.Resume`
   (`implements WorkflowDefinition`, `settings()` above): `app.resume` rejects with
-  `IncompatibleResumeError` (`resume.incompatible`) and the execution stays paused; recovery leaves
+  `ExecutionError.IncompatibleResume` (`resume.incompatible`) and the execution stays paused; recovery leaves
   such a root to an instance of a compatible version (logged once, `recovery.incompatible`).
 - So a rolling deploy works as: new instances start next to the old ones; old ones finish or pause
   their executions and stop gracefully; executions the policy refuses wait for an instance of their

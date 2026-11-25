@@ -466,7 +466,7 @@ workflow that launches another workflow fingerprints the application's and its o
 lists as `handedDown` — also when it has no agent or router of its own, such as an orchestrator
 root — and its root's hash covers every child's part (#336). So every policy in effect anywhere in
 a tree is in the root's `configHash`: a deploy that changes an inherited policy makes a tree paused
-inside the child `IncompatibleResumeError` unless the root's `onIncompatibleResume` accepts it. The policies in
+inside the child `ExecutionError.IncompatibleResume` unless the root's `onIncompatibleResume` accepts it. The policies in
 effect at each agent's and router's model — their rules and actions — are part of the workflow's
 config hash ([Turns and evaluation](Turns-and-evaluation#what-the-config-hash-covers-120-pr-4)): an
 `excludePiiPolicies` on one agent changes it. A declarative policy's `refusal(kind)` is checked on

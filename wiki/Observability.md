@@ -133,9 +133,9 @@ started, and another owner's is not revealed.
 
 | Refusal                                                              | Operation                     | `code`                   |
 | -------------------------------------------------------------------- | ----------------------------- | ------------------------ |
-| a thread of another owner (`ThreadOwnerError`)                       | `Execute`, `Resume`, `Cancel` | `run.thread-owner`       |
+| a thread of another owner (`ExecutionError.ThreadOwnerMismatch`)                       | `Execute`, `Resume`, `Cancel` | `execution.thread-owner-mismatch`       |
 | nothing paused on the thread (`NotPausedError`)                      | `Resume`                      | `run.not-paused`         |
-| an unknown thread of the tenant (`UnknownThreadError`)               | `Execute`, `Cancel`           | `run.unknown-thread`     |
+| an unknown thread of the tenant (`ExecutionError.UnknownThread`)               | `Execute`, `Cancel`           | `execution.unknown-thread`     |
 | a class that is not a start of the workflow                          | `Execute`                     | `workflow.not-a-start`   |
 | invalid start input or context values (`ValidationError.DtoInvalid`) | `Execute`                     | `validation.dto-invalid` |
 | an exhausted budget before the first step                            | `Execute`                     | `limit.budget`           |
@@ -143,7 +143,7 @@ started, and another owner's is not revealed.
 
 For invalid input the message names the DTO and its fields (`invalid Voucher at code`), never
 their values; the thrown error keeps the full message. A resume refused after a deploy
-(`IncompatibleResumeError`) is not a refused request: the paused execution is known, so it is an
+(`ExecutionError.IncompatibleResume`) is not a refused request: the paused execution is known, so it is an
 `onExecutionError` with its `executionId` and thread, and it stays paused — resumable by an app
 whose `onIncompatibleResume` policy accepts it.
 
@@ -283,7 +283,7 @@ finish, [Rollback](Rollback#an-execution-that-ends-without-a-finish)) is reporte
 An execution that fails (`onExecutionError`) carries them too: `ExecutionErrorEvent.compensations`
 — the `CompensationRecord`s of the undo actions that ran for it, its side paths' first, then the
 automatic undo of its end in the order they ran (`[]` when none ran); a failed undo is there with
-`status: CompensationStatus.Failed`, and the event's `error` is then `CompensationFailedError`. A
+`status: CompensationStatus.Failed`, and the event's `error` is then `ExecutionError.CompensationFailed`. A
 child's event lists its own; a root's its own and those its end undid for a paused child.
 
 ```ts

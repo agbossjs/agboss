@@ -3,20 +3,15 @@
  * error is its class's name and its code, says what it was given to say (and never an id), carries its cause and facts
  * only when it has them; and the rules of a key's text are worded as an error shows them.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   AGBossError,
   ApplicationStoppingError,
   causeOptionOf,
-  DuplicateExecutionIdError,
   ExecutionCancelledError,
-  InvalidMintedIdError,
-  InvalidThreadIdError,
   KEY_TEXT_RULE_TEXT,
   KeyTextRule,
-  ThreadIdsExhaustedError,
-  ThreadOwnerError,
-  UnknownThreadError,
 } from "../../src/core/errors.js";
 
 describe("#1366: the base of the framework's errors", () => {
@@ -91,15 +86,15 @@ describe("#1366: the errors of the ids a generator mints and a caller picks", ()
   it("an id that is no key names the generator, the method and the rule, never the id", () => {
     const cause = new Error("root");
 
-    const error = new InvalidMintedIdError({
+    const error = new ExecutionError.InvalidMintedId({
       generator: "MyIds",
       method: "newThreadId",
       rule: KeyTextRule.Spacing,
       cause,
     });
 
-    expect(error.name).toBe("InvalidMintedIdError");
-    expect(error.code).toBe("run.invalid-minted-id");
+    expect(error.name).toBe("ExecutionError.InvalidMintedId");
+    expect(error.code).toBe("execution.invalid-minted-id");
     expect(error.message).toBe(
       `MyIds.newThreadId() minted an id that is no key (spacing): ${KEY_TEXT_RULE_TEXT[KeyTextRule.Spacing]} — fix the IdGenerator`,
     );
@@ -113,36 +108,36 @@ describe("#1366: the errors of the ids a generator mints and a caller picks", ()
   });
 
   it("an execution id another execution has names the generator", () => {
-    const error = new DuplicateExecutionIdError({ generator: "MyIds" });
+    const error = new ExecutionError.DuplicateExecutionId({ generator: "MyIds" });
 
-    expect(error.name).toBe("DuplicateExecutionIdError");
-    expect(error.code).toBe("run.duplicate-execution-id");
-    expect(DuplicateExecutionIdError.code).toBe("run.duplicate-execution-id");
+    expect(error.name).toBe("ExecutionError.DuplicateExecutionId");
+    expect(error.code).toBe("execution.duplicate-execution-id");
+    expect(ExecutionError.DuplicateExecutionId.code).toBe("execution.duplicate-execution-id");
     expect(error.message).toBe(
       "MyIds.newExecutionId() minted an execution id another execution already has — an IdGenerator never repeats an id over the life of the application's stores",
     );
-    expect(error.details).toEqual({ generator: "MyIds", method: "newExecutionId" });
+    expect(error.details).toEqual({ generator: "MyIds" });
     expect(error.generator).toBe("MyIds");
   });
 
   it("thread ids all taken name the generator and how many were tried", () => {
-    const error = new ThreadIdsExhaustedError({ generator: "MyIds", tries: 7 });
+    const error = new ExecutionError.ThreadIdsExhausted({ generator: "MyIds", tries: 7 });
 
-    expect(error.name).toBe("ThreadIdsExhaustedError");
-    expect(error.code).toBe("run.thread-ids-exhausted");
-    expect(ThreadIdsExhaustedError.code).toBe("run.thread-ids-exhausted");
+    expect(error.name).toBe("ExecutionError.ThreadIdsExhausted");
+    expect(error.code).toBe("execution.thread-ids-exhausted");
+    expect(ExecutionError.ThreadIdsExhausted.code).toBe("execution.thread-ids-exhausted");
     expect(error.message).toBe(
       "MyIds.newThreadId() minted 7 ids in a row that are threads the tenant has — an IdGenerator never repeats an id over the life of the application's stores",
     );
-    expect(error.details).toEqual({ generator: "MyIds", method: "newThreadId", tries: 7 });
+    expect(error.details).toEqual({ generator: "MyIds", tries: 7 });
     expect([error.generator, error.tries]).toEqual(["MyIds", 7]);
   });
 
   it("a thread id that cannot be one names the rule", () => {
-    const error = new InvalidThreadIdError({ rule: KeyTextRule.Length });
+    const error = new ExecutionError.InvalidThreadId({ rule: KeyTextRule.Length });
 
-    expect(error.name).toBe("InvalidThreadIdError");
-    expect(error.code).toBe("run.invalid-thread-id");
+    expect(error.name).toBe("ExecutionError.InvalidThreadId");
+    expect(error.code).toBe("execution.invalid-thread-id");
     expect(error.message).toBe(
       `Not a thread id (length): ${KEY_TEXT_RULE_TEXT[KeyTextRule.Length]}`,
     );
@@ -151,8 +146,8 @@ describe("#1366: the errors of the ids a generator mints and a caller picks", ()
   });
 
   it.each([
-    [UnknownThreadError, "UnknownThreadError", "run.unknown-thread"],
-    [ThreadOwnerError, "ThreadOwnerError", "run.thread-owner"],
+    [ExecutionError.UnknownThread, "ExecutionError.UnknownThread", "execution.unknown-thread"],
+    [ExecutionError.ThreadOwnerMismatch, "ExecutionError.ThreadOwnerMismatch", "execution.thread-owner-mismatch"],
   ])("%s has its own name and code, and says what it was given", (ErrorClass, name, code) => {
     const error = new ErrorClass({ message: "no such thread", cause: "why" });
 

@@ -183,7 +183,7 @@ describe("#808: a start the app refuses", () => {
 
     expect(refused.status).toMatchObject({
       state: "TASK_STATE_FAILED",
-      message: { parts: [{ text: "the task failed: run.thread-owner" }] },
+      message: { parts: [{ text: "the task failed: execution.thread-owner-mismatch" }] },
     });
     expect(mockModel(DeskClerkAgent)).toHaveBeenCalledTimes(1);
   });
