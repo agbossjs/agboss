@@ -29,7 +29,7 @@ export function itemsOverflowOf(
   node: RuntimeNode,
   state: ExecutionStateType,
   records: ComponentRecords,
-): ExecutionStateUpdate | undefined {
+): { readonly stoppedBy: ExecutionStateUpdate; readonly failure: Error } | undefined {
   const { launch, ticket } = launched;
   const limit = launch.launch.maxItems;
   if (limit === undefined || !isItemsOverflow(launch, ticket)) return undefined;
@@ -40,10 +40,14 @@ export function itemsOverflowOf(
     limit,
     actual: ticket.items,
   });
-  return joinErrorTaken({ launch, node, state, records }, error);
+  return { stoppedBy: joinErrorTaken({ launch, node, state, records }, error), failure: error };
 }
 
-/** Where a launch's failure goes at dispatch: the update of the join's `.onError(…)` handler's side path. */
+/**
+ * Where a launch's failure goes at dispatch: the update of the join's `.onError(…)` handler's side
+ * path. The visit then undoes what the execution's children held (#1281 (10), `heldEntriesUndone`),
+ * as a failed join does, once its own entries are open.
+ */
 export function joinErrorTaken(
   site: {
     readonly launch: RuntimeLaunch;

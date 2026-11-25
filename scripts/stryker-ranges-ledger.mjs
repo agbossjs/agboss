@@ -52,7 +52,10 @@ export function ledgerMemoryShard() {
 export function ledgerBranchShard() {
   return {
     configFile: "vitest.mutation-ledger-branch.config.ts",
-    mutate: ["src/flow/runtime/launch/branch-runner.ts"],
+    mutate: [
+      "src/flow/runtime/launch/branch-runner.ts",
+      "src/flow/runtime/launch/branch-answer.ts",
+    ],
   };
 }
 
