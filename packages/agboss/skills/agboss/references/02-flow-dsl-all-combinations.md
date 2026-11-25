@@ -2836,7 +2836,7 @@ path, and so is an error _caused_ by `E` (an action's own exception is the `caus
 | ↳ `DepthLimitExceededError` (`limit.depth`)                                                     | a recursive launch past `maxDepth` (inside `ChildExecutionFailedError`)        | no                                 |
 | `ExecutionCancelledError` (`execution.cancelled`)                                               | `app.cancel` or the caller's `signal` — never taken by a side path             | —                                  |
 | `ApplicationStoppingError` (`app.stopping`)                                                     | `app.close()` interrupted it — never taken                                     | —                                  |
-| `ExecutionError.CompensationFailed` (`compensation.failed`)                                               | an automatic undo failed — never taken                                         | —                                  |
+| `ExecutionError.CompensationFailed` (`compensation.failed`)                                     | an automatic undo failed — never taken                                         | —                                  |
 
 `ToolTimeoutError` (`tool.timeout`) never reaches the flow: a tool call past its `timeout` is read by
 its agent's model as the tool's error, like any tool error. All of them are `AGBossError`s.

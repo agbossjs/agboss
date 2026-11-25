@@ -147,7 +147,11 @@ describe("#1366: the errors of the ids a generator mints and a caller picks", ()
 
   it.each([
     [ExecutionError.UnknownThread, "ExecutionError.UnknownThread", "execution.unknown-thread"],
-    [ExecutionError.ThreadOwnerMismatch, "ExecutionError.ThreadOwnerMismatch", "execution.thread-owner-mismatch"],
+    [
+      ExecutionError.ThreadOwnerMismatch,
+      "ExecutionError.ThreadOwnerMismatch",
+      "execution.thread-owner-mismatch",
+    ],
   ])("%s has its own name and code, and says what it was given", (ErrorClass, name, code) => {
     const error = new ErrorClass({ message: "no such thread", cause: "why" });
 

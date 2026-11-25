@@ -355,10 +355,10 @@ await app.resume(
 await app.resume({ pauseId, reply: "reject: duplicate" }, { tenantId: "acme", actor: { id: "manager-17" } });
 ```
 
-| `respondent` of the target | `app.resume` takes                                       | Where the `pauseId` is              |
-| -------------------------- | -------------------------------------------------------- | ----------------------------------- |
+| `respondent` of the target | `app.resume` takes                                                         | Where the `pauseId` is              |
+| -------------------------- | -------------------------------------------------------------------------- | ----------------------------------- |
 | `PauseRespondent.Owner`    | `ownerId` — the thread's owner (else `ExecutionError.ThreadOwnerMismatch`) | `result.pending[i].pauseId`         |
-| `PauseRespondent.Delegate` | `actor` — non-empty, recorded                            | only in the channel's `ask.pauseId` |
+| `PauseRespondent.Delegate` | `actor` — non-empty, recorded                                              | only in the channel's `ask.pauseId` |
 
 `respondent` is who _may_ answer; `actor` is who _did_ (a `PauseActor`, kept on the pause, its answer
 record and its trail). The wrong credential for the target is `PauseError.PermissionDenied`. The
@@ -774,12 +774,12 @@ test("a large refund waits for the manager, then runs", async ({ app, mockModel,
 | `[pause.permit-hook-not-enforced]`                                                                           | a `permit…` hook on a target that cannot enforce it → drop it                                                                                                             |
 | `[working-calendar.invalid]`                                                                                 | a grid with an unknown zone, no days, a bad interval, a break outside the hours, no working minute; a class that is no listed `@WorkingCalendar` → fix it                 |
 | `[working-calendar.duplicate-name]`                                                                          | two listed `@WorkingCalendar` classes with one `name` → give each its own                                                                                                 |
-| `PauseError.WorkingCalendar`                                                                                       | a pause's calendar failed (`pause.working-calendar`, `calendar-failed` \| `calendar-timeout` \| `not-a-date` \| `not-after-start`) → the step's `cause`; nobody was asked |
+| `PauseError.WorkingCalendar`                                                                                 | a pause's calendar failed (`pause.working-calendar`, `calendar-failed` \| `calendar-timeout` \| `not-a-date` \| `not-after-start`) → the step's `cause`; nobody was asked |
 | `[di.ambiguous-implementation]`                                                                              | two implementations of one service → keep one (one per application)                                                                                                       |
 | `[di.infrastructure-in-workflow]`                                                                            | a channel or a provider in `@Workflow({ providers })` → `@Application({ channels })` / `({ providers })`                                                                  |
 | `[application.in-memory-pauses]`                                                                             | pauses possible on the in-memory stores (a warning; an error under `--strict`) → a durable `@DatabaseStorage`                                                             |
 | `PauseError.PermissionDenied`                                                                                | `ownerId` for a Delegate target or `actor` for an Owner target → the other credential                                                                                     |
-| `ExecutionError.IncompatibleResume`                                                                                    | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`                                                                         |
+| `ExecutionError.IncompatibleResume`                                                                          | resumed on an app with another config hash → `WorkflowSettings.builder().onIncompatibleResume(…)`                                                                         |
 
 ## Pitfalls
 

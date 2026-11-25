@@ -1,7 +1,4 @@
-import {
-  ConfigError,
-  keyTextRuleOf,
-} from "@agboss/core";
+import { ConfigError, keyTextRuleOf } from "@agboss/core";
 import { ProfileError } from "@agboss/core/internal";
 import { ScaffoldConflictError, ScaffoldError, ScaffoldUsageError } from "../scaffold/errors.js";
 import { NoTextStartError } from "./text-start.js";
@@ -92,7 +89,8 @@ function scaffoldError(error: ScaffoldError): CliError {
 export function cliErrorOf(error: unknown): CliError {
   if (error instanceof CliError) return error;
   if (error instanceof ScaffoldError) return scaffoldError(error);
-  if (error instanceof ConfigError.Environment) return new CliError("project", error.envCode ?? error.code, error.message);
+  if (error instanceof ConfigError.Environment)
+    return new CliError("project", error.envCode ?? error.code, error.message);
   const message = error instanceof Error ? error.message : String(error);
   const known = PROJECT_ERRORS.find(([type]) => error instanceof type);
   if (known !== undefined) return new CliError("project", known[1], message);

@@ -1,4 +1,3 @@
-import { ConfigError } from "@agboss/core";
 import {
   applicationModelUsesOf,
   checkModelUses,

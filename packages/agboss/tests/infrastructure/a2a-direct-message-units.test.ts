@@ -121,7 +121,10 @@ describe("#860: a SQLite row of a direct message", () => {
     const completed = { state: "completed", completed_at: NINE.toISOString() };
 
     expect(() => directMessageOf(row({ ...completed, reply: "{" }))).toThrow(
-      expect.objectContaining({ code: "store.unreadable-record", record: "a2a direct message reply" }),
+      expect.objectContaining({
+        code: "store.unreadable-record",
+        record: "a2a direct message reply",
+      }),
     );
     expect(() => directMessageOf(row({ ...completed, reply: '{"finish":1}' }))).toThrow();
   });
