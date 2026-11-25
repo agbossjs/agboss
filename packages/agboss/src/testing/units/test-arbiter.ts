@@ -47,7 +47,7 @@ export function arbiterUnit<
   const site = new UnitSite(options);
   if (hasArbiterModel(declaration.options))
     site.scriptModel(arbiterKeyOf(name), arbiter.name, options.model);
-  const routerDeps = unitRouterDeps(site.gateway);
+  const routerDeps = unitRouterDeps(site.gateway, [declaration.options.modelProvider]);
   const run = <TTarget extends Class>(
     target: TTarget,
     answer: ArbiterAnswerOf<TTarget>,

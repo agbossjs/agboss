@@ -19,6 +19,7 @@ import type { UsageRecord } from "../../finops/usage.js";
 import { TestSetupError } from "../errors.js";
 import { guardrailKeyOf } from "../scripted-gateway.js";
 import { callTimeoutOf, UnitSite } from "./unit-site.js";
+import { modelProviderOf } from "../../models/model-provider.decorator.js";
 import { UNIT_DECISION_MODEL, unitRouterDeps } from "./unit-models.js";
 import type { UnitCallOptions, UnitClock, UnitModelOptions, UnitRun } from "./unit-types.js";
 
@@ -102,11 +103,14 @@ export function guardrailUnit<
     call: GuardrailCallOptions = {},
   ): Promise<UnitRun<GuardrailCheck>> => {
     const loaded = await loadedOf(guardrail);
-    const deps = unitRouterDeps(site.gateway);
+    const deps = unitRouterDeps(site.gateway, [meta.modelProvider]);
+    // a unit has no cascade: the guardrail's own provider is the one its model is served by
+    const ownProvider =
+      meta.modelProvider === undefined ? undefined : modelProviderOf(meta.modelProvider).name;
     const runtime = runtimeGuardrailOf(loaded, {
       resolve: (cls) => site.instanceOf(cls),
       modelOf: (model, modelProvider, unpriced) =>
-        routerModelOf(model, deps, modelProvider, unpriced),
+        routerModelOf(model, deps, modelProvider ?? ownProvider, unpriced),
       deciderDeps: { gateway: deps.gateway, chatDefaults: deps.chatDefaults },
     });
     const frame = {

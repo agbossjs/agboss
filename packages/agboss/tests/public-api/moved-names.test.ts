@@ -77,7 +77,7 @@ describe("#895: the leaked wiring and the inlined pieces are named by no public 
       SqlitePauseRows SqlitePauseNoticeRows SqlitePauseScans StoredMailbox PlannedNotice ModelGateway
       ChatModelSpec ChatModelUser DecideSpec DecisionSpec RouterDecisionModel DecisionOutcome
       ReplyInterpreterInput TurnStore ConfigStore MemoryStore PauseAnswerEntry AnswerArgs TurnRecords
-      TurnStoreRecordRepository AgentMeta RagBinding AgentToolClass QuestionRoleClass GuardrailFields
+      TurnStoreRecordRepository AgentMeta RagBinding QuestionRoleClass GuardrailFields
       PiiPolicyFields CompactionFields ToolInterceptorFields ChannelMeta ChannelRoleForm AutoDecision
       ComponentClass StartClass ActionClass ContextFields`,
     "agboss-models": `ModelProviderDirectory KeptModelProviderOptions RegisteredModelProvider ProviderQuery

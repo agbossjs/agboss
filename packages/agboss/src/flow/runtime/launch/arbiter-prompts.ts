@@ -1,6 +1,7 @@
 import type { Class } from "../../../components/injection.js";
+import { modelProviderOf } from "../../../models/model-provider.decorator.js";
 import { PromptLoader } from "../../../components/prompt-render.js";
-import { arbiterOf, isDeclarativeArbiter } from "../../decorators/arbiter.js";
+import { arbiterOf, hasArbiterModel, isDeclarativeArbiter } from "../../decorators/arbiter.js";
 import { arbiterClassesOf, type ModelArbiterUse, type RuntimeLaunch } from "./runtime-launch.js";
 
 /**
@@ -28,19 +29,26 @@ export async function arbiterPromptsOf(
 }
 
 /**
- * One declarative arbiter's use outside a workflow assembly (a unit test): its prompt read as at
- * assembly, with no workflow variables; a code arbiter has none.
+ * One model arbiter's use outside a workflow assembly (a unit test): a declarative one's prompt read
+ * as at assembly, with no workflow variables; a code arbiter that injects `ArbiterModel` has its
+ * own model and provider and no prompt; any other has none.
  */
 export async function unitArbiterUsesOf(arbiter: Class): Promise<readonly ModelArbiterUse[]> {
   const declaration = arbiterOf(arbiter);
-  if (declaration === undefined || !isDeclarativeArbiter(declaration.options)) return [];
-  const { name, prompt, model } = declaration.options;
+  if (declaration === undefined || !hasArbiterModel(declaration.options)) return [];
+  const { options } = declaration;
+  const provider =
+    options.modelProvider === undefined
+      ? {}
+      : { modelProvider: modelProviderOf(options.modelProvider).name };
+  if (!isDeclarativeArbiter(options))
+    return [{ name: options.name, model: options.model ?? "", prompt: "", ...provider }];
   const loader = new PromptLoader();
   const text = await loader.load({
-    label: `@Arbiter "${name}"`,
-    options: { prompt },
+    label: `@Arbiter "${options.name}"`,
+    options: { prompt: options.prompt },
     source: declaration.source,
   });
   loader.throwIfAny();
-  return [{ name, model: model ?? "", prompt: text }];
+  return [{ name: options.name, model: options.model ?? "", prompt: text, ...provider }];
 }

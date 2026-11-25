@@ -51,15 +51,15 @@ describe("#261 AC2: `this.x = …` outside the constructor of a component is a l
     expect(found[1]).toContain("`this.calls = …`");
   }, 60_000);
 
-  it("flags any component, any method: an onInit, an arrow-function member, a callback inside a method", async () => {
+  it("flags any component, any method but a lifecycle hook: an arrow-function member, a callback inside a method; an onInit is allowed (#1324)", async () => {
     const onInit = await findings(service("  onInit(): void {\n    this.cache = ['a'];\n  }"));
     const arrow = await findings(service("  warm = (): void => {\n    this.cache = [];\n  };"));
     const callback = await findings(
       service("  warm(): void {\n    [1].forEach(() => {\n      this.cache = [];\n    });\n  }"),
     );
 
-    expect([onInit, arrow, callback].map((found) => found.length)).toEqual([1, 1, 1]);
-    expect(onInit[0]).toContain("outside the constructor of a @Injectable");
+    expect([onInit, arrow, callback].map((found) => found.length)).toEqual([0, 1, 1]);
+    expect(arrow[0]).toContain("outside the constructor of a @Injectable");
   }, 60_000);
 
   it("allows it in the constructor, in locals, in a function with its own `this` and outside components", async () => {
