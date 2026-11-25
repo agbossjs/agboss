@@ -1,3 +1,4 @@
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #860 AC2: the client of a direct-reply skill — a `Message` answer needs no task to wait for (no
  * `GetTask`, no subscription), its output read from the message's parts; an AGBoss skill whose card
@@ -22,7 +23,7 @@ import { DirectApplication, QuoteAgent, QuotesA2AExpose } from "../fixtures/dire
 import { callerOf } from "./fixtures/caller.js";
 import { agentMessage, scripts, SdkAgent, type AgentScript } from "./support/sdk-agent.js";
 import { AgentEvent } from "@a2a-js/sdk/server";
-import { A2ARemoteCallError, A2ARemoteCallReason } from "../../../src/a2a/index.js";
+import { A2ARemoteCallReason } from "../../../src/a2a/index.js";
 
 const PEER = { application: "peer-application", skill: "ask-workflow-start" };
 const MESSAGE_SKILL = { "ask-workflow-start": { reply: "message" } };
@@ -104,7 +105,7 @@ const dataEcho: AgentScript = async (context, bus) => {
 };
 
 describe("#860 AC2: a Message answer inside an execution", () => {
-  it("AC2: a message with no readable output is A2ARemoteCallError NoTask, never an empty answer", async () => {
+  it("AC2: a message with no readable output is A2AError.Remote NoTask, never an empty answer", async () => {
     const agent = new SdkAgent({ script: scripts.messageEcho });
     const parts = await callerOf({ agent });
     apps.push(parts.app);
@@ -112,7 +113,7 @@ describe("#860 AC2: a Message answer inside an execution", () => {
     await parts.ask("price?").catch(() => undefined);
 
     expect(parts.errors).toEqual([expect.objectContaining({ reason: A2ARemoteCallReason.NoTask })]);
-    expect(parts.errors[0]).toBeInstanceOf(A2ARemoteCallError);
+    expect(parts.errors[0]).toBeInstanceOf(A2AError.Remote);
   });
 
   it("AC2: a message whose ids are not ids (an unsafe contextId) is MalformedAnswer, nothing kept of it", async () => {

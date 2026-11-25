@@ -1,0 +1,6 @@
+---
+section: Breaking
+issue: 1325
+---
+
+**The A2A client's errors are variants of `A2AError`** (#1325, #1320): `A2ARemoteCallError`, `A2AProtocolError`, `A2AContractError`, `A2ATaskFailedError`, `A2ATaskCancelledError`, `A2ATaskInterruptedError`, `A2ACallDeadlineError`, `A2AOriginError`, `A2AMeshUnsupportedError` and `A2AUnexpectedFinishError` are removed, with their `…Options` types, from `@agboss/core/a2a`. They are `A2AError.Remote`, `A2AError.Protocol`, `A2AError.Contract`, `A2AError.TaskFailed`, `A2AError.TaskCancelled`, `A2AError.TaskInterrupted`, `A2AError.Deadline`, `A2AError.OriginRefused`, `A2AError.MeshUnsupported` and `A2AError.UnexpectedFinish` (`A2AErrorKind`, the same `a2a.*` codes), each carrying its facts as typed fields (`agent`, `taskId`, `contextId`, `rpcCode`, `httpStatus`, `remoteCode`, `rule`, `origin`, …); `.onError(A2AError.TaskFailed, …)` and `error.kind` take the place of `instanceof` on the old classes. A request that got no answer, or was never sent, leaves the client as `A2AError.Unavailable` (`sent: false` when it certainly never left). `A2AContractRule`, `A2AClientOperation`, `A2ARemoteCallReason`, `A2ATaskEnd`, `A2ATaskInterruption`, `A2ACancelOutcome`, `A2AOriginSite` and `A2AMesh` stay. A variant's `details` now hold all its plain facts (the `contextId` of a task error, the `application` of a mesh refusal, …).

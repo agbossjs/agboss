@@ -1,15 +1,16 @@
+import { A2AError } from "../../core/error-families/remote-errors.js";
 import { TaskState, type StreamResponse, type Task } from "@a2a-js/sdk";
 import type { Client } from "@a2a-js/sdk/client";
 import type { Clock } from "../../infrastructure/clock.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
 import { isSettled, stateOf } from "./a2a-outcome.js";
 import { checkedTask, updatedTask } from "./a2a-task-view.js";
-import { A2ACallDeadlineError, A2ACancelOutcome, safeTaskIdOf } from "./a2a-task-errors.js";
+import { A2ACancelOutcome, safeTaskIdOf } from "./a2a-task-errors.js";
 
 /**
  * One wait for a remote task in progress (#809): its own signal — the caller's, and the
  * deadline's on the `Clock` — the task as its events and reads change it, and at the deadline the
- * best-effort cancel and `A2ACallDeadlineError`.
+ * best-effort cancel and `A2AError.Deadline`.
  */
 
 /** What one wait needs. */
@@ -111,15 +112,18 @@ export class Waiter {
     return result;
   }
 
-  async #deadlineError(): Promise<A2ACallDeadlineError> {
+  async #deadlineError(): Promise<A2AError.Deadline> {
     const { agent, clock, taskId, deadlineAt } = this.wait;
     const { outcome, task } = await this.#canceled();
-    return new A2ACallDeadlineError({
+    const endedAt = deadlineAt ?? clock.now();
+    return new A2AError.Deadline({
       agent,
       taskId,
       contextId: safeTaskIdOf(this.#task?.contextId ?? task?.contextId) ?? "",
-      deadlineAt: deadlineAt ?? clock.now(),
+      deadlineAt: endedAt,
+      details: { deadlineAt: endedAt.toISOString() },
       cancel: outcome,
+      isCancelled: outcome === A2ACancelOutcome.Cancelled,
     });
   }
 

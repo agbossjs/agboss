@@ -1902,14 +1902,14 @@ candidates` (`[rag.rerank-invalid]`); `onFailure` defaults to `RerankFailurePoli
   `WorkflowStartTextDto`; the COMPLETED task's artifact), `send(message)` untyped (`A2ATaskResult`),
   `reply(taskId, …)`, `getTask`, `cancel(taskId)`, `agentCard()`. The card
   (`<url>/.well-known/agent-card.json`, read on first use) is checked before anything is sent: an A2A
-  1.0 interface (a v0.3-only card → `A2AProtocolError` naming its version), the skill
+  1.0 interface (a v0.3-only card → `A2AError.Protocol` naming its version), the skill
   (`[a2a.unknown-skill]`), an AGBoss peer's skill schemas against the DTOs (`[a2a.schema-mismatch]`,
-  `A2AContractError`; the output against every finish of the skill — or, #916, only the ones
+  `A2AError.Contract`; the output against every finish of the skill — or, #916, only the ones
   `target.finishes` names, each a finish of the skill, `[a2a.unknown-finish]`, also at assembly for
   a name no `@WorkflowFinish` could have, an empty list or an untyped agent; a task that ends at
-  another finish is `A2AUnexpectedFinishError`, `a2a.unexpected-finish`, for `.onError`, before its
+  another finish is `A2AError.UnexpectedFinish`, `a2a.unexpected-finish`, for `.onError`, before its
   output is read; `describe` / `--json` show the list, `check --federation` compares only those,
-  `[federation.unknown-finish]`), every interface on the `url`'s origin or `allowedOrigins` (`A2AOriginError`;
+  `[federation.unknown-finish]`), every interface on the `url`'s origin or `allowedOrigins` (`A2AError.OriginRefused`;
   no request, no header goes elsewhere, a redirect elsewhere refused). Inside an execution the accept
   (`SendMessage`, `returnImmediately`, a messageId derived from the step's key) goes through
   `Idempotency.sendOnce` (`a2a.<agent>[.reply][.<call.key>]`; `[a2a.repeated-call]`): a send of unknown
@@ -1918,15 +1918,15 @@ candidates` (`[rag.rerank-invalid]`); `onFailure` defaults to `RerankFailurePoli
   a card that changed since is unknown), never to a foreign one (`OutboundCallError.Unreconciled`; a
   reply is looked up only when the task's history holds its messageId); definite failures are an
   allowlist of codes that come before the agent acts; a step of no composed application (a unit
-  runner's) is refused, `[a2a.outside-application]`; the price is charged at the accept — on every pass, a replayed one too (a task an AGBoss agent the mesh rode to `REJECTED` at the accept with a mesh limit — a loop, the hop limit, nothing run —: nothing charged on any pass, the accept storing the refusal, the tool call's record `remote.refused: true`; never waited on, its output never used, read back once by `GetTask` — no longer refused → the price charged and `A2AProtocolError`, #849), and a verified run report's excess at the task's end, each under the call's own ledger identity (`UsageRecord.ledgerKey`, `a2a:<messageId>:price` / `:report`, #810 AC5: the ledger adds each once, so a takeover that replays the accept charges price + excess exactly once, `tests/a2a/mesh/a2a-mesh-takeover.test.ts`); then the task is waited for by `SubscribeToTask` (a dropped stream
+  runner's) is refused, `[a2a.outside-application]`; the price is charged at the accept — on every pass, a replayed one too (a task an AGBoss agent the mesh rode to `REJECTED` at the accept with a mesh limit — a loop, the hop limit, nothing run —: nothing charged on any pass, the accept storing the refusal, the tool call's record `remote.refused: true`; never waited on, its output never used, read back once by `GetTask` — no longer refused → the price charged and `A2AError.Protocol`, #849), and a verified run report's excess at the task's end, each under the call's own ledger identity (`UsageRecord.ledgerKey`, `a2a:<messageId>:price` / `:report`, #810 AC5: the ledger adds each once, so a takeover that replays the accept charges price + excess exactly once, `tests/a2a/mesh/a2a-mesh-takeover.test.ts`); then the task is waited for by `SubscribeToTask` (a dropped stream
   reopened) or `GetTask` polled on the `Clock`, to the execution's deadline or `call.timeout`
-  (best-effort `CancelTask`, `A2ACallDeadlineError` with its `cancel: A2ACancelOutcome`). Outcomes: FAILED / REJECTED
-  `A2ATaskFailedError` (an AGBoss peer's mesh limit → the same `MeshLoopDetectedError` /
-  `HopsLimitExceededError`), CANCELED `A2ATaskCancelledError`, INPUT_REQUIRED
-  `A2ATaskInterruptedError`, a JSON-RPC error `A2AProtocolError`, nothing usable
-  `A2ARemoteCallError` — codes only, never a remote text. The mesh rides as the extension
+  (best-effort `CancelTask`, `A2AError.Deadline` with its `cancel: A2ACancelOutcome`). Outcomes: FAILED / REJECTED
+  `A2AError.TaskFailed` (an AGBoss peer's mesh limit → the same `MeshLoopDetectedError` /
+  `HopsLimitExceededError`), CANCELED `A2AError.TaskCancelled`, INPUT_REQUIRED
+  `A2AError.TaskInterrupted`, a JSON-RPC error `A2AError.Protocol`, nothing usable
+  `A2AError.Remote` — codes only, never a remote text. The mesh rides as the extension
   `https://agboss.dev/a2a/mesh/v1` (`A2AMesh.Required`, the default with a `target.application` →
-  `A2AMeshUnsupportedError` without it, or `IfSupported`): the envelope in `message.metadata[uri]`,
+  `A2AError.MeshUnsupported` without it, or `IfSupported`): the envelope in `message.metadata[uri]`,
   bound to the message by `meshBodyHashOf` (`src/a2a/a2a-mesh-message.ts`), signed only with an
   `audience` (`audienceRefusalOf`, `src/mesh/mesh-verification.ts`: a signed one without is
   `mesh.audience-missing`, another's `mesh.audience-mismatch`, before its signature is checked — on

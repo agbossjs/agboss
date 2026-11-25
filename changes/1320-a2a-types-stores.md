@@ -13,7 +13,7 @@ and read a stored file (`fileId`) before sending it. Every public method of `A2A
 before its promise. `A2ATaskRepository`, `A2ADirectMessageRepository` and their in-memory and SQLite classes
 are exported by `@agboss/core/stores`, no longer by the root or `/a2a`. `A2ACallerRejectedError` is
 `A2AError.CallerRejected`. Every `Canceled` is `Cancelled` (`A2ATaskState.Cancelled`, `A2ACancelOutcome`,
-`A2ATaskCancelledError`, `A2AErrorKind.TaskCancelled`, `isCancelled`); the wire's `TASK_STATE_CANCELED` is
-unchanged. `A2ACallDeadlineError.deadlineAt` and `A2ATaskStatus.cancelRequestedAt` are `Date`s.
+`A2AError.TaskCancelled`, `A2AErrorKind.TaskCancelled`, `isCancelled`); the wire's `TASK_STATE_CANCELED` is
+unchanged. `A2AError.Deadline.deadlineAt` and `A2ATaskStatus.cancelRequestedAt` are `Date`s.
 `A2ATaskState` gains `AuthRequired` and `Unspecified`, a remote agent's. `@A2AExpose` is gone: use
 `@A2AEndpoint`. `a2aHttpListener({ maxTaskDuration })` is gone.

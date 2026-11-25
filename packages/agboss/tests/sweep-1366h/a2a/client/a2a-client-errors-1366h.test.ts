@@ -1,3 +1,4 @@
+import { A2AError } from "../../../../src/core/error-families/remote-errors.js";
 /**
  * #1366: what the A2A client's errors keep as facts: the `details` each error carries (the agent, the task, the codes — present
  * only when the call had them), the properties read by code (`differences`, `protocolVersions`, `isCancelled`), the stable remote
@@ -6,26 +7,18 @@
 import { describe, expect, it } from "vitest";
 import {
   A2AClientOperation,
-  A2AContractError,
   A2AContractRule,
-  A2AProtocolError,
-  A2ARemoteCallError,
   A2ARemoteCallReason,
   remoteCodeOf,
 } from "../../../../src/a2a/client/a2a-client-errors.js";
 import {
-  A2AMesh,
-  A2AMeshUnsupportedError,
-  A2AOriginError,
-  A2AOriginSite,
-} from "../../../../src/a2a/client/a2a-guard-errors.js";
+  protocolMessageOf,
+  versionsShownOf,
+} from "../../../../src/a2a/client/a2a-error-messages.js";
+import { A2AMesh, A2AOriginSite } from "../../../../src/a2a/client/a2a-guard-errors.js";
 import {
-  A2ACallDeadlineError,
   A2ACancelOutcome,
-  A2ATaskCancelledError,
   A2ATaskEnd,
-  A2ATaskFailedError,
-  A2ATaskInterruptedError,
   A2ATaskInterruption,
   hasSafeIds,
   safeTaskIdOf,
@@ -76,18 +69,22 @@ describe("#1366: a remote code is shown only when it reads as a stable error cod
 });
 
 describe("#1366: a remote call error", () => {
-  it("keeps the agent, the reason and the task, and says only the agent and the reason in its details", () => {
-    const withTask = new A2ARemoteCallError({
+  it("keeps the agent, the reason and the task, and says the agent, the reason and the task in its details", () => {
+    const withTask = new A2AError.Remote({
       agent: "refunds",
       reason: A2ARemoteCallReason.NoOutput,
       taskId: "t-1",
     });
-    const withoutTask = new A2ARemoteCallError({
+    const withoutTask = new A2AError.Remote({
       agent: "refunds",
       reason: A2ARemoteCallReason.NoTask,
     });
 
-    expect(withTask.details).toStrictEqual({ agent: "refunds", reason: "no-output" });
+    expect(withTask.details).toStrictEqual({
+      agent: "refunds",
+      reason: "no-output",
+      taskId: "t-1",
+    });
     expect(withTask.taskId).toBe("t-1");
     expect(withoutTask.details).toStrictEqual({ agent: "refunds", reason: "no-task" });
     expect(withoutTask.taskId).toBeUndefined();
@@ -99,62 +96,58 @@ describe("#1366: a protocol error", () => {
   const base = { agent: "a", operation: A2AClientOperation.GetTask } as const;
 
   it("details name the agent and the operation, the rpc code and the status only when there are", () => {
-    expect(new A2AProtocolError(base).details).toStrictEqual({ agent: "a", operation: "GetTask" });
-    expect(new A2AProtocolError({ ...base, rpcCode: -32001 }).details).toStrictEqual({
+    expect(new A2AError.Protocol(base).details).toStrictEqual({ agent: "a", operation: "GetTask" });
+    expect(new A2AError.Protocol({ ...base, rpcCode: -32001 }).details).toStrictEqual({
       agent: "a",
       operation: "GetTask",
       rpcCode: -32001,
     });
-    expect(new A2AProtocolError({ ...base, httpStatus: 502 }).details).toStrictEqual({
+    expect(new A2AError.Protocol({ ...base, httpStatus: 502 }).details).toStrictEqual({
       agent: "a",
       operation: "GetTask",
       httpStatus: 502,
     });
-    expect(new A2AProtocolError({ ...base, rpcCode: 0, httpStatus: 0 }).details).toStrictEqual({
+    expect(new A2AError.Protocol({ ...base, rpcCode: 0, httpStatus: 0 }).details).toStrictEqual({
       agent: "a",
       operation: "GetTask",
       rpcCode: 0,
       httpStatus: 0,
     });
-    const both = new A2AProtocolError({ ...base, rpcCode: -1, httpStatus: 400 });
+    const both = new A2AError.Protocol({ ...base, rpcCode: -1, httpStatus: 400 });
     expect([both.rpcCode, both.httpStatus]).toEqual([-1, 400]);
-    expect(new A2AProtocolError(base).protocolVersions).toBeUndefined();
+    expect(new A2AError.Protocol(base).protocolVersions).toBeUndefined();
   });
 
-  it("the versions of a card are kept only when they read as versions, at most five", () => {
-    const error = new A2AProtocolError({
-      ...base,
-      protocolVersions: [
-        "0.3",
-        "v0.3",
-        "0.3 and more",
-        "1.0.0",
-        "10.20.130",
-        "0.30",
-        "1000",
-        "0.3.0.1",
-        "free text",
-        "2",
-        "3.1",
-        "4.0",
-        "5.0",
-        "6.0",
-      ],
-    });
+  it("the versions of a card are shown only when they read as versions, at most five", () => {
+    const shown = versionsShownOf([
+      "0.3",
+      "v0.3",
+      "0.3 and more",
+      "1.0.0",
+      "10.20.130",
+      "0.30",
+      "1000",
+      "0.3.0.1",
+      "free text",
+      "2",
+      "3.1",
+      "4.0",
+      "5.0",
+      "6.0",
+    ]);
 
-    expect(error.protocolVersions).toEqual(["0.3", "1.0.0", "10.20.130", "0.30", "2"]);
+    expect(shown).toEqual(["0.3", "1.0.0", "10.20.130", "0.30", "2"]);
   });
 
   it("a card with no version that reads as one keeps none", () => {
-    expect(
-      new A2AProtocolError({ ...base, protocolVersions: ["junk", ""] }).protocolVersions,
-    ).toEqual([]);
+    expect(versionsShownOf(["junk", ""])).toEqual([]);
+    expect(protocolMessageOf({ ...base, protocolVersions: ["junk", ""] })).toContain("A2A none");
   });
 });
 
 describe("#1366: a contract error", () => {
-  it("keeps the rule, the skill and the differences, its details only the three facts", () => {
-    const error = new A2AContractError({
+  it("keeps the rule, the skill and the differences, and its details name them", () => {
+    const error = new A2AError.Contract({
       agent: "a",
       rule: A2AContractRule.SchemaMismatch,
       skill: "refund",
@@ -165,6 +158,7 @@ describe("#1366: a contract error", () => {
       agent: "a",
       rule: "a2a.schema-mismatch",
       skill: "refund",
+      differences: ["input: amount", "output: id"],
     });
     expect(error.differences).toEqual(["input: amount", "output: id"]);
     expect(error.rule).toBe(A2AContractRule.SchemaMismatch);
@@ -172,20 +166,26 @@ describe("#1366: a contract error", () => {
   });
 
   it("with no differences there are none", () => {
-    const error = new A2AContractError({
+    const error = new A2AError.Contract({
       agent: "a",
       rule: A2AContractRule.UnknownSkill,
       skill: "s",
+      differences: [],
     });
 
     expect(error.differences).toEqual([]);
-    expect(error.details).toStrictEqual({ agent: "a", rule: "a2a.unknown-skill", skill: "s" });
+    expect(error.details).toStrictEqual({
+      agent: "a",
+      rule: "a2a.unknown-skill",
+      skill: "s",
+      differences: [],
+    });
   });
 });
 
 describe("#1366: what a refusal before sending knows", () => {
   it("a refused origin keeps the agent, the origin, the site and the origins it may talk to", () => {
-    const error = new A2AOriginError({
+    const error = new A2AError.OriginRefused({
       agent: "a",
       origin: "https://evil.example",
       site: A2AOriginSite.Redirect,
@@ -196,16 +196,18 @@ describe("#1366: what a refusal before sending knows", () => {
       agent: "a",
       origin: "https://evil.example",
       site: "redirect",
+      allowedOrigins: ["https://a.example", "https://b.example"],
     });
     expect(error.allowedOrigins).toEqual(["https://a.example", "https://b.example"]);
     expect(error.code).toBe("a2a.origin-refused");
   });
 
   it("a mesh refusal keeps the agent, the application when there is one", () => {
-    const named = new A2AMeshUnsupportedError({ agent: "a", application: "billing" });
-    const bare = new A2AMeshUnsupportedError({ agent: "a", application: undefined });
+    const named = new A2AError.MeshUnsupported({ agent: "a", application: "billing" });
+    const bare = new A2AError.MeshUnsupported({ agent: "a", application: undefined });
 
-    expect(named.details).toStrictEqual({ agent: "a" });
+    expect(named.details).toStrictEqual({ agent: "a", application: "billing" });
+    expect(bare.details).toStrictEqual({ agent: "a" });
     expect(named.application).toBe("billing");
     expect(bare.application).toBeUndefined();
     expect(A2AMesh.Required).toBe("required");
@@ -239,14 +241,14 @@ describe("#1366: a task's ids", () => {
 
 describe("#1366: what a task's end knows", () => {
   it("a failed task keeps its ids and end; the remote code only when there is one", () => {
-    const bare = new A2ATaskFailedError({
+    const bare = new A2AError.TaskFailed({
       agent: "a",
       taskId: "t",
       contextId: "c",
       end: A2ATaskEnd.Rejected,
       remoteCode: undefined,
     });
-    const coded = new A2ATaskFailedError({
+    const coded = new A2AError.TaskFailed({
       agent: "a",
       taskId: "t",
       contextId: "c",
@@ -254,11 +256,17 @@ describe("#1366: what a task's end knows", () => {
       remoteCode: "limit.hops",
     });
 
-    expect(bare.details).toStrictEqual({ agent: "a", taskId: "t", end: "rejected" });
+    expect(bare.details).toStrictEqual({
+      agent: "a",
+      taskId: "t",
+      contextId: "c",
+      end: "rejected",
+    });
     expect(bare.remoteCode).toBeUndefined();
     expect(coded.details).toStrictEqual({
       agent: "a",
       taskId: "t",
+      contextId: "c",
       end: "failed",
       remoteCode: "limit.hops",
     });
@@ -268,27 +276,29 @@ describe("#1366: what a task's end knows", () => {
   it("a canceled task, an interrupted one and a deadline keep their facts in details", () => {
     const ids = { agent: "a", taskId: "t", contextId: "c" };
 
-    expect(new A2ATaskCancelledError(ids).details).toStrictEqual({ agent: "a", taskId: "t" });
+    expect(new A2AError.TaskCancelled(ids).details).toStrictEqual(ids);
     expect(
-      new A2ATaskInterruptedError({ ...ids, interruption: A2ATaskInterruption.AuthRequired })
+      new A2AError.TaskInterrupted({ ...ids, interruption: A2ATaskInterruption.AuthRequired })
         .details,
-    ).toStrictEqual({ agent: "a", taskId: "t", interruption: "auth-required" });
-    const late = new A2ACallDeadlineError({
+    ).toStrictEqual({ ...ids, interruption: "auth-required" });
+    const late = new A2AError.Deadline({
       ...ids,
       deadlineAt: new Date("2026-01-01T00:00:00.000Z"),
       cancel: A2ACancelOutcome.Cancelled,
+      isCancelled: true,
     });
     expect(late.details).toStrictEqual({
-      agent: "a",
-      taskId: "t",
-      deadlineAt: "2026-01-01T00:00:00.000Z",
+      ...ids,
+      cancel: "cancelled",
+      isCancelled: true,
     });
     expect(late.isCancelled).toBe(true);
     expect(
-      new A2ACallDeadlineError({
+      new A2AError.Deadline({
         ...ids,
         deadlineAt: new Date(0),
         cancel: A2ACancelOutcome.NoAnswer,
+        isCancelled: false,
       }).isCancelled,
     ).toBe(false);
   });

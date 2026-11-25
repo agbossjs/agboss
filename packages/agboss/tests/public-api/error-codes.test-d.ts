@@ -1,3 +1,4 @@
+import { A2AError } from "../../src/core/error-families/remote-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 /**
  * #906 AC2 (API review G8, completing #890), at compile time: the instance `code` of every error is
@@ -12,7 +13,6 @@ import {
 } from "../../src/core/error-families/effect-errors.js";
 import { describe, expectTypeOf, it } from "vitest";
 import * as a2a from "../../src/a2a/index.js";
-import type { A2ATaskFailedError } from "../../src/a2a/index.js";
 import * as models from "../../src/models/index.js";
 import * as rag from "../../src/rag/index.js";
 import * as root from "../../src/index.js";
@@ -58,7 +58,7 @@ describe("#906 AC2: the instance code is the class's literal", () => {
     expectTypeOf<
       IdempotencyError.KeyConflict["code"]
     >().toEqualTypeOf<"idempotency.key-conflict">();
-    expectTypeOf<A2ATaskFailedError["code"]>().toEqualTypeOf<"a2a.task-failed">();
+    expectTypeOf<A2AError.TaskFailed["code"]>().toEqualTypeOf<"a2a.task-failed">();
     expectTypeOf<
       OutboundCallError.Unreconciled["code"]
     >().toEqualTypeOf<"outbound-call.unreconciled">();

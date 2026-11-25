@@ -218,7 +218,7 @@ async function answerOf(
 
 /**
  * The fetch every request of a client goes through: only to the client's origins (any other is
- * `A2AOriginError`, nothing sent — so its headers never leave them), redirects never followed by
+ * `A2AError.OriginRefused`, nothing sent — so its headers never leave them), redirects never followed by
  * the fetcher (`redirect: "manual"`), the caller's headers on each request, the answer as
  * `answerOf` takes it — and, for a send that asked for `echo.uri`, whether its answer echoed it.
  */

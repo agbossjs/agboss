@@ -1,3 +1,4 @@
+import { A2AError } from "../../core/error-families/remote-errors.js";
 import { TaskState, type Message, type Task, type TaskStatus } from "@a2a-js/sdk";
 import type { DtoClass } from "../../dto/types.js";
 import type { MeshLimitError } from "../../mesh/mesh-errors.js";
@@ -9,21 +10,14 @@ import { receivedFileOf } from "./a2a-client-files.js";
 import { assertTakenFinish } from "./a2a-finish.js";
 import type { A2ARemotePeer } from "./a2a-card.js";
 import type { A2ATaskResult } from "./a2a-client-options.js";
-import { A2ARemoteCallError, A2ARemoteCallReason, remoteCodeOf } from "./a2a-client-errors.js";
-import {
-  A2ATaskCancelledError,
-  A2ATaskEnd,
-  A2ATaskFailedError,
-  A2ATaskInterruptedError,
-  A2ATaskInterruption,
-  safeTaskIdOf,
-} from "./a2a-task-errors.js";
+import { A2ARemoteCallReason, remoteCodeOf } from "./a2a-client-errors.js";
+import { A2ATaskEnd, A2ATaskInterruption, safeTaskIdOf } from "./a2a-task-errors.js";
 
 /**
  * How a remote task's state maps to the call's outcome (#809, design §4.2 "Outcomes"): COMPLETED is
  * the output, FAILED with an AGBoss mesh limit the same limit error, any other FAILED or REJECTED
- * `A2ATaskFailedError`, CANCELED `A2ATaskCancelledError`, INPUT_REQUIRED / AUTH_REQUIRED
- * `A2ATaskInterruptedError`.
+ * `A2AError.TaskFailed`, CANCELED `A2AError.TaskCancelled`, INPUT_REQUIRED / AUTH_REQUIRED
+ * `A2AError.TaskInterrupted`.
  */
 
 const TERMINAL = new Set<TaskState | undefined>([
@@ -68,11 +62,11 @@ export function meshRefusalOf(task: Task): MeshLimitError | undefined {
 
 /**
  * The error of a settled task that gives no output — `undefined` for COMPLETED. A state the client
- * cannot read (none, unspecified, unknown) is `A2ARemoteCallError`.
+ * cannot read (none, unspecified, unknown) is `A2AError.Remote`.
  */
 export function failureOf(task: Task, agent: string, isPeer: boolean): Error | undefined {
   const ids = { agent, taskId: task.id, contextId: safeTaskIdOf(task.contextId) ?? "" };
-  const malformed = new A2ARemoteCallError({
+  const malformed = new A2AError.Remote({
     agent,
     reason: A2ARemoteCallReason.MalformedAnswer,
     taskId: task.id,
@@ -85,7 +79,7 @@ export function failureOf(task: Task, agent: string, isPeer: boolean): Error | u
     // a mesh limit's facts are a verified peer's word only (signed to its application, mesh echoed)
     return (
       (isPeer ? meshLimitErrorOf(failure) : undefined) ??
-      new A2ATaskFailedError({ ...ids, end, remoteCode })
+      new A2AError.TaskFailed({ ...ids, end, remoteCode })
     );
   };
   switch (status.state) {
@@ -96,14 +90,14 @@ export function failureOf(task: Task, agent: string, isPeer: boolean): Error | u
     case TaskState.TASK_STATE_REJECTED:
       return failedAs(A2ATaskEnd.Rejected);
     case TaskState.TASK_STATE_CANCELED:
-      return new A2ATaskCancelledError(ids);
+      return new A2AError.TaskCancelled(ids);
     case TaskState.TASK_STATE_INPUT_REQUIRED:
-      return new A2ATaskInterruptedError({
+      return new A2AError.TaskInterrupted({
         ...ids,
         interruption: A2ATaskInterruption.InputRequired,
       });
     case TaskState.TASK_STATE_AUTH_REQUIRED:
-      return new A2ATaskInterruptedError({
+      return new A2AError.TaskInterrupted({
         ...ids,
         interruption: A2ATaskInterruption.AuthRequired,
       });
@@ -115,8 +109,8 @@ export function failureOf(task: Task, agent: string, isPeer: boolean): Error | u
 /**
  * A typed call's raw output (#809 AC1): the COMPLETED task's artifact — or a stateless message's
  * parts — read for `output` (a data part, text for a text finish). A task that ended otherwise
- * throws its failure; an answer at a finish outside `finishes` (#916) `A2AUnexpectedFinishError`;
- * an answer with no readable output is `A2ARemoteCallError`.
+ * throws its failure; an answer at a finish outside `finishes` (#916) `A2AError.UnexpectedFinish`;
+ * an answer with no readable output is `A2AError.Remote`.
  */
 export function outputOf(
   agent: string,
@@ -133,7 +127,7 @@ export function outputOf(
   const raw = answer === undefined ? undefined : rawOutputOf(output, answerPartsOf(answer));
   if (raw === undefined) {
     const reason = task === undefined ? A2ARemoteCallReason.NoTask : A2ARemoteCallReason.NoOutput;
-    throw new A2ARemoteCallError({ agent, reason, taskId: task?.id });
+    throw new A2AError.Remote({ agent, reason, taskId: task?.id });
   }
   return raw.value;
 }

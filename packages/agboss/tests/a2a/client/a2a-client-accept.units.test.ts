@@ -1,3 +1,4 @@
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #809 — the accept round trip piece by piece (the `a2a-client` mutation shard): the message and
  * request it sends, what it stores of the answer, its resends of unknown outcome by peer, and how it
@@ -33,12 +34,7 @@ import {
 } from "../../../src/a2a/client/a2a-message.js";
 import { acceptRequestOf, type AcceptRequest } from "../../../src/a2a/client/a2a-reconcile.js";
 import { A2APeerKind, type A2ARemotePeer } from "../../../src/a2a/client/a2a-card.js";
-import {
-  A2AContractError,
-  A2AContractRule,
-  A2AProtocolError,
-  A2AClientOperation,
-} from "../../../src/a2a/client/a2a-client-errors.js";
+import { A2AContractRule, A2AClientOperation } from "../../../src/a2a/client/a2a-client-errors.js";
 import { A2ANetworkError } from "../../../src/a2a/client/a2a-transport.js";
 import { isDefiniteSendFailure } from "../../../src/a2a/client/a2a-wire-errors.js";
 import {
@@ -147,7 +143,7 @@ function callOf(changes: Partial<AcceptCall> = {}): AcceptCall {
 }
 
 const network = () =>
-  new A2AProtocolError({ agent: "a", operation: A2AClientOperation.SendMessage, httpStatus: 503 });
+  new A2AError.Protocol({ agent: "a", operation: A2AClientOperation.SendMessage, httpStatus: 503 });
 
 describe("the message and the request one SendMessage sends", () => {
   it("returnImmediately, the call's ids or empty, a copy of its parts, no metadata without a skill", async () => {
@@ -273,7 +269,7 @@ describe("the message and the request one SendMessage sends", () => {
     await expect(
       sentOf(callOf({ client: clientAnswering(raw).client }), "m"),
     ).rejects.toMatchObject({
-      name: "A2AProtocolError",
+      name: "A2AError.Protocol",
       operation: A2AClientOperation.SendMessage,
       agent: "desk-a2a-agent",
     });
@@ -413,7 +409,7 @@ describe("outside an execution: sent directly", () => {
   });
 
   it("a definite failure is never sent again; a foreign peer never sent again at all", async () => {
-    const definite = new A2AProtocolError({
+    const definite = new A2AError.Protocol({
       agent: "a",
       operation: A2AClientOperation.SendMessage,
       rpcCode: -32602,
@@ -425,7 +421,7 @@ describe("outside an execution: sent directly", () => {
       definite,
     );
     await expect(acceptedDirectly(callOf({ client: foreign.client }))).rejects.toBeInstanceOf(
-      A2AProtocolError,
+      A2AError.Protocol,
     );
     expect([agboss.sent.length, foreign.sent.length]).toEqual([1, 1]);
   });
@@ -577,10 +573,10 @@ describe("inside an execution: through Idempotency.sendOnce", () => {
 
     await expect(
       acceptedThrough(callOf({ peer: AGBOSS }), runtimeOf(agboss.outboundCalls)),
-    ).rejects.toBeInstanceOf(A2AProtocolError);
+    ).rejects.toBeInstanceOf(A2AError.Protocol);
     await expect(
       acceptedThrough(callOf(), runtimeOf(foreign.outboundCalls)),
-    ).rejects.toBeInstanceOf(A2AProtocolError);
+    ).rejects.toBeInstanceOf(A2AError.Protocol);
     await expect(acceptedThrough(callOf(), runtimeOf(definite.outboundCalls))).rejects.toThrow(
       "OutboundCallError.Unreconciled",
     );
@@ -606,7 +602,7 @@ describe("inside an execution: through Idempotency.sendOnce", () => {
       runtimeOf(outboundCalls, frame),
     );
 
-    await expect(other).rejects.toBeInstanceOf(A2AContractError);
+    await expect(other).rejects.toBeInstanceOf(A2AError.Contract);
     await expect(other).rejects.toMatchObject({
       rule: A2AContractRule.RepeatedCall,
       skill: "ask",

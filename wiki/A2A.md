@@ -364,7 +364,7 @@ export class QuotesA2AEndpoint {}
   is accepted anew — its retention counts from the takeover — so a reply a takeover keeps is never
   thrown away under a waiting resend.
 - **The client.** `A2AClient` takes a `Message` answer without waiting for a task; a message with no
-  output it can read is `A2ARemoteCallError` `no-task`. For a skill whose card says `reply:
+  output it can read is `A2AError.Remote` `no-task`. For a skill whose card says `reply:
 "message"`, an ambiguous send is resent with its `messageId` only within the card's
   `messageIdempotencyRetention` (15 min when it declares none) — never the tasks' 24 h; past it the
   call fails closed, `OutboundCallError.Unreconciled`.
@@ -377,23 +377,23 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
 - **Discovery.** `url` is the agent's base URL: its card is read from
   `<url>/.well-known/agent-card.json` on first use and kept `cardTtl` (5 minutes). Before anything
   is sent it is checked: an A2A 1.0 interface on JSON-RPC or HTTP+JSON (a v0.3-only card is
-  `A2AProtocolError` with `protocolVersions: ["0.3.0"]`); the named `target.skill` among its skills
+  `A2AError.Protocol` with `protocolVersions: ["0.3.0"]`); the named `target.skill` among its skills
   (`[a2a.unknown-skill]`; optional with one skill); when an AGBoss peer declares the skill's schemas
   (the skills extension `https://agboss.dev/a2a/skills/v1`), the skill's input must accept the input
   DTO and the output DTO every finish output (`[a2a.schema-mismatch]`, compared like
-  [§8](#8-the-federation-check-398-pr-4)) — both `A2AContractError`.
+  [§8](#8-the-federation-check-398-pr-4)) — both `A2AError.Contract`.
 - **Some finishes only (#916).** By default a typed client's `output` covers every finish of its
   skill. `@A2AAgent({ target: { finishes: ["answer-workflow-finish"] } })` names the ones it takes:
   the card check compares only those, each a finish the card lists (`[a2a.unknown-finish]`,
-  `A2AContractError` with `rule: A2AContractRule.UnknownFinish`; at assembly already for a name no
+  `A2AError.Contract` with `rule: A2AContractRule.UnknownFinish`; at assembly already for a name no
   `@WorkflowFinish` could have, an empty list, a name twice or an agent with no `output`). A task
   that ends at another finish (its artifact's `metadata[skills-uri].finish`) fails the call with
-  `A2AUnexpectedFinishError` (`a2a.unexpected-finish`: `agent`, `finish`, `finishes`, `taskId`)
-  before its output is read — a step's side path takes it, `.onError(A2AUnexpectedFinishError, …)`;
+  `A2AError.UnexpectedFinish` (`a2a.unexpected-finish`: `agent`, `finish`, `finishes`, `taskId`)
+  before its output is read — a step's side path takes it, `.onError(A2AError.UnexpectedFinish, …)`;
   an answer that names no finish (a foreign agent's) is read as before. `agboss describe` prints
   `· finishes: …` on the agent's line, `--json` the import's `target.finishes`.
 - **Origins.** Every interface the card names must be on the `url`'s origin or one of
-  `allowedOrigins` (`["https://rpc.billing.example"]`), else `A2AOriginError`
+  `allowedOrigins` (`["https://rpc.billing.example"]`), else `A2AError.OriginRefused`
   (`a2a.origin-refused`): no request goes elsewhere — so the client's headers (`headers`,
   `getHeaders()`) never leave its origins — and a redirect off them is refused, never followed.
 - **The message.** `execute(input)` sends one `data` part (`application/json`; one `text` part for
@@ -424,22 +424,22 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
 - **Waiting** is a pure read, safe after any crash: `SubscribeToTask` when the card streams (a
   dropped stream is opened again, then polling), else `GetTask` polled on the `Clock` (250 ms
   doubling to 5 s). A task that works — an out-of-band pause included — is waited for up to the
-  execution's deadline or `call.timeout`: then a best-effort `CancelTask` and `A2ACallDeadlineError`
+  execution's deadline or `call.timeout`: then a best-effort `CancelTask` and `A2AError.Deadline`
   (`cancel: A2ACancelOutcome` — `canceled`, `not-canceled`, `refused`, `no-answer`). Every event and
-  read must be of the waited task (another id, a message in its stream: `A2ARemoteCallError`); a
+  read must be of the waited task (another id, a message in its stream: `A2AError.Remote`); a
   read that fails transiently (no answer, a 5xx, 408, 429, `-32603`) is tried again, by stream or
   poll alike, any other ends the wait; the caller's `onEvent` failing ends it with its own error. The call's `signal` ends the wait with its reason and cancels nothing.
 - **Outcomes.** COMPLETED → the output, read from the artifact an AGBoss finish marks
-  (`metadata[skills-uri].finish`) when the task has one, else from every artifact in order (none readable: `A2ARemoteCallError`, was `A2ARemoteError`);
-  FAILED / REJECTED → `A2ATaskFailedError` (an AGBoss peer's `limit.mesh-loop` / `limit.hops` → the
+  (`metadata[skills-uri].finish`) when the task has one, else from every artifact in order (none readable: `A2AError.Remote`, was `A2ARemoteError`);
+  FAILED / REJECTED → `A2AError.TaskFailed` (an AGBoss peer's `limit.mesh-loop` / `limit.hops` → the
   same `MeshLoopDetectedError` / `HopsLimitExceededError`, rebuilt only from an addressed, signed
-  peer — from an unaddressed server they are not rebuilt — and carrying `isRemote: true`); CANCELED → `A2ATaskCancelledError`;
-  INPUT_REQUIRED → `A2ATaskInterruptedError` from `execute` (a remote pause is not a local one yet),
-  the task from `send`; a JSON-RPC error → `A2AProtocolError` (`rpcCode`); a refused caller →
+  peer — from an unaddressed server they are not rebuilt — and carrying `isRemote: true`); CANCELED → `A2AError.TaskCancelled`;
+  INPUT_REQUIRED → `A2AError.TaskInterrupted` from `execute` (a remote pause is not a local one yet),
+  the task from `send`; a JSON-RPC error → `A2AError.Protocol` (`rpcCode`); a refused caller →
   `A2ACallerRejectedError`. Only codes: an agent's message, status text or body is never kept.
 - **The mesh** rides as the extension `https://agboss.dev/a2a/mesh/v1`: `mesh: A2AMesh.Required`
   (the default with a `target.application`; a card without the extension is
-  `A2AMeshUnsupportedError`, nothing sent) or `A2AMesh.IfSupported` (`result.peer.mesh: false`). The
+  `A2AError.MeshUnsupported`, nothing sent) or `A2AMesh.IfSupported` (`result.peer.mesh: false`). The
   envelope ([§6](#6-the-mesh--call-chains-hops-and-loops-398)) goes in
   `message.metadata[uri].envelope` with `A2A-Extensions` and `traceparent`, its `bodyHash` the
   message's canonical JSON without that entry (`meshBodyHashOf`); it is signed only with an
@@ -459,7 +459,7 @@ application, executionId, refused: true }`). Only an AGBoss agent the mesh rode 
   refusal is the agent's word, so it is fail-closed: such a task is never waited on and none of its
   output is used; the client reads it once more (`GetTask`) — still refused, the limit is thrown;
   anything else (working, completed) contradicts it, so the price is charged and the call fails
-  with `A2AProtocolError` — and a verified run
+  with `A2AError.Protocol` — and a verified run
   report's spend above it at the end (the report must name the call's task); a completed task with
   no run report the caller verifies — an untrusted caller, a peer that signs nothing, another body's
   or task's report — is charged the price alone and said so in the tool call's record (`remote: {

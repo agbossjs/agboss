@@ -1,3 +1,4 @@
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #810 — the mesh between two AGBoss applications on the A2A v1.0 wire, end to end: the real P2b
  * client (`@A2AAgent`, `A2AMesh.Required`) against the real P2a server (`a2aHttpListener`) on a
@@ -11,11 +12,7 @@ import { STRANGER_KEYS } from "./fixtures/keys.js";
 import { signMeshHttp } from "../../../src/mesh/mesh-http.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { afterEach, beforeEach, describe, expect } from "vitest";
-import {
-  A2A_MESH_EXTENSION,
-  A2AProtocolError,
-  A2ATaskFailedError,
-} from "../../../src/a2a/index.js";
+import { A2A_MESH_EXTENSION } from "../../../src/a2a/index.js";
 import { HopsLimitExceededError, MeshLoopDetectedError } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
@@ -87,7 +84,7 @@ describe("#810 AC2: a trusted caller's call is charged its verified run report, 
     );
     expect(outcome).toBeInstanceOf(Error);
 
-    expect(caller.callErrors[0]).toBeInstanceOf(A2ATaskFailedError);
+    expect(caller.callErrors[0]).toBeInstanceOf(A2AError.TaskFailed);
     expect(caller.callErrors[0]).toMatchObject({ remoteCode: "limit.budget" });
     // #849: accepted, then failed there — the price is charged all the same
     expect(await executionSpentOf(app, "execution-1")).toBeCloseTo(PRICE);
@@ -163,7 +160,7 @@ describe("#810 AC1: a chain the peer refuses is a REJECTED task: the same limit 
     );
 
     expect(outcome).toBeInstanceOf(Error);
-    expect(caller.callErrors[0]).toBeInstanceOf(A2AProtocolError);
+    expect(caller.callErrors[0]).toBeInstanceOf(A2AError.Protocol);
     expect(caller.answers).toEqual([]);
     expect(JSON.stringify(outcome)).not.toContain(FREE_WORK);
     expect(await executionSpentOf(app, "execution-1")).toBeCloseTo(PRICE);

@@ -30,20 +30,9 @@ import {
 import { A2APeerKind, type A2ARemotePeer } from "../../../src/a2a/client/a2a-card.js";
 import { artifactPartsOf, dataPartOf, textPartOf } from "../../../src/a2a/client/a2a-parts.js";
 import { A2A_SKILLS_EXTENSION } from "../../../src/a2a/a2a-extension-uris.js";
-import {
-  A2AClientOperation,
-  A2AProtocolError,
-  A2ARemoteCallError,
-  remoteCodeOf,
-} from "../../../src/a2a/client/a2a-client-errors.js";
-import { A2AOriginError, A2AOriginSite } from "../../../src/a2a/client/a2a-guard-errors.js";
-import {
-  A2ATaskCancelledError,
-  A2ATaskEnd,
-  A2ATaskFailedError,
-  A2ATaskInterruptedError,
-  A2ATaskInterruption,
-} from "../../../src/a2a/client/a2a-task-errors.js";
+import { A2AClientOperation, remoteCodeOf } from "../../../src/a2a/client/a2a-client-errors.js";
+import { A2AOriginSite } from "../../../src/a2a/client/a2a-guard-errors.js";
+import { A2ATaskEnd, A2ATaskInterruption } from "../../../src/a2a/client/a2a-task-errors.js";
 import {
   failureOf,
   isInterrupted,
@@ -191,8 +180,8 @@ describe("the mesh on a message", () => {
   });
 });
 
-const protocol = (fields: Partial<ConstructorParameters<typeof A2AProtocolError>[0]>) =>
-  new A2AProtocolError({ agent: "a", operation: A2AClientOperation.SendMessage, ...fields });
+const protocol = (fields: Partial<ConstructorParameters<typeof A2AError.Protocol>[0]>) =>
+  new A2AError.Protocol({ agent: "a", operation: A2AClientOperation.SendMessage, ...fields });
 
 describe("which failed sends did nothing", () => {
   it("a refused caller, a JSON-RPC error but -32603, a 4xx but 408 are definite", () => {
@@ -212,12 +201,12 @@ describe("which failed sends did nothing", () => {
     expect(isDefiniteSendFailure(protocol({ httpStatus: 399 }))).toBe(false);
     expect(isDefiniteSendFailure(protocol({ httpStatus: 500 }))).toBe(false);
     expect(isDefiniteSendFailure(protocol({}))).toBe(false);
-    expect(isDefiniteSendFailure(new A2ANetworkError(new TypeError("x")))).toBe(false);
+    expect(isDefiniteSendFailure(new A2AError.Unavailable({ sent: true }))).toBe(false);
     expect(isDefiniteSendFailure(new Error("x"))).toBe(false);
   });
 
   it("only a network failure or an indefinite protocol error is ambiguous (asked again)", () => {
-    expect(isAmbiguous(new A2ANetworkError(new TypeError("x")))).toBe(true);
+    expect(isAmbiguous(new A2AError.Unavailable({ sent: true }))).toBe(true);
     expect(isAmbiguous(protocol({ httpStatus: 503 }))).toBe(true);
     expect(isAmbiguous(protocol({ rpcCode: -32603 }))).toBe(true);
     expect(isAmbiguous(protocol({ rpcCode: -32602 }))).toBe(false);
@@ -237,26 +226,36 @@ describe("wireErrorOf: codes only", () => {
     controller.abort(reason);
     expect(wireErrorOf(new Error("aborted"), "a", op, controller.signal)).toBe(reason);
     expect(wireErrorOf(new Error("x"), "a", op, new AbortController().signal)).toBeInstanceOf(
-      A2AProtocolError,
+      A2AError.Protocol,
     );
   });
 
   it("passes the client's own errors through, found in the causes", () => {
-    const network = new A2ANetworkError(new TypeError("reset"));
+    const reset = new TypeError("reset");
+    const network = new A2ANetworkError(reset);
+    const unavailable = new A2AError.Unavailable({ sent: true });
     const refused = new A2AError.CallerRejected({
       httpStatus: 401,
       wireCode: "a2a.caller-x",
     });
-    const origin = new A2AOriginError({
+    const origin = new A2AError.OriginRefused({
       agent: "a",
       origin: "https://e",
       site: A2AOriginSite.Request,
       allowedOrigins: [],
     });
     const known = protocol({ httpStatus: 502 });
-    for (const error of [network, refused, origin, known]) {
+    for (const error of [unavailable, refused, origin, known]) {
       expect(wireErrorOf(new Error("wrapped", { cause: error }), "a", op)).toBe(error);
     }
+    // the transport's own signal leaves the client as `A2AError.Unavailable`, its cause kept
+    expect(wireErrorOf(new Error("wrapped", { cause: network }), "a", op)).toMatchObject({
+      code: "a2a.unavailable",
+      agent: "a",
+      operation: op,
+      sent: true,
+      cause: reset,
+    });
   });
 
   it("a JSON-RPC error keeps its code, not its message", () => {
@@ -284,7 +283,7 @@ describe("wireErrorOf: codes only", () => {
 
   it("anything else is a protocol error without its text", () => {
     const translated = wireErrorOf(new Error("Failed to parse SSE event data: {secret}"), "a", op);
-    expect(translated).toBeInstanceOf(A2AProtocolError);
+    expect(translated).toBeInstanceOf(A2AError.Protocol);
     expect(translated).toMatchObject({ rpcCode: undefined, httpStatus: undefined });
     expect(String(translated)).not.toMatch(/secret/);
   });
@@ -293,7 +292,7 @@ describe("wireErrorOf: codes only", () => {
     const first = new Error("a");
     const second = new Error("b", { cause: first });
     Object.defineProperty(first, "cause", { value: second });
-    expect(wireErrorOf(first, "a", op)).toBeInstanceOf(A2AProtocolError);
+    expect(wireErrorOf(first, "a", op)).toBeInstanceOf(A2AError.Protocol);
   });
 });
 
@@ -368,7 +367,7 @@ describe("wireFetchOf", () => {
     const fetcher = wireFetchOf(answering(), () => Promise.resolve({ authorization: "B" }), policy);
 
     await expect(fetcher("https://evil.example/a2a", { method: "POST" })).rejects.toBeInstanceOf(
-      A2AOriginError,
+      A2AError.OriginRefused,
     );
     expect(calls).toEqual([]);
   });
@@ -610,21 +609,21 @@ describe("each task state's outcome", () => {
     ).toMatchObject({ remoteCode: undefined });
     expect(
       failureOf(taskIn(TaskState.TASK_STATE_FAILED, { [MESH]: "x" }), "a", true),
-    ).toBeInstanceOf(A2ATaskFailedError);
+    ).toBeInstanceOf(A2AError.TaskFailed);
     expect(failureOf(taskIn(TaskState.TASK_STATE_CANCELED), "a", true)).toBeInstanceOf(
-      A2ATaskCancelledError,
+      A2AError.TaskCancelled,
     );
     expect(failureOf(taskIn(TaskState.TASK_STATE_INPUT_REQUIRED), "a", true)).toMatchObject({
       interruption: A2ATaskInterruption.InputRequired,
     });
     expect(failureOf(taskIn(TaskState.TASK_STATE_AUTH_REQUIRED), "a", true)).toBeInstanceOf(
-      A2ATaskInterruptedError,
+      A2AError.TaskInterrupted,
     );
     expect(failureOf(taskIn(TaskState.TASK_STATE_AUTH_REQUIRED), "a", true)).toMatchObject({
       interruption: A2ATaskInterruption.AuthRequired,
     });
     expect(failureOf(taskIn(TaskState.TASK_STATE_UNSPECIFIED), "a", true)).toBeInstanceOf(
-      A2ARemoteCallError,
+      A2AError.Remote,
     );
   });
 
@@ -648,7 +647,7 @@ describe("each task state's outcome", () => {
     const loop = { [MESH]: { code: "limit.mesh-loop", details: { entry, chain } } };
 
     expect(failureOf(taskIn(TaskState.TASK_STATE_FAILED, loop), "a", false)).toBeInstanceOf(
-      A2ATaskFailedError,
+      A2AError.TaskFailed,
     );
     const limit = failureOf(taskIn(TaskState.TASK_STATE_FAILED, loop), "a", true);
     expect(limit).toBeInstanceOf(MeshLoopDetectedError);
@@ -878,7 +877,7 @@ describe("reconciling a pending accept, by peer", () => {
         storedFor(foreign, "t-1"),
         "m",
       ),
-    ).rejects.toMatchObject({ name: "A2AProtocolError", operation: "GetTask" });
+    ).rejects.toMatchObject({ name: "A2AError.Protocol", operation: "GetTask" });
   });
 
   it("the call's name: one per client, kind and key", () => {
@@ -949,7 +948,7 @@ describe("the transport's edges", () => {
     await fetcher(new URL("https://agent.example/a"));
     await fetcher(new Request("https://agent.example/b"));
     await expect(fetcher(new Request("https://evil.example/c"))).rejects.toBeInstanceOf(
-      A2AOriginError,
+      A2AError.OriginRefused,
     );
     expect(seen).toEqual(["https://agent.example/a", "https://agent.example/b"]);
   });
@@ -1020,11 +1019,15 @@ describe("the transport's edges", () => {
         error = new Error(`layer ${String(index)}`, { cause: error });
       return error;
     };
-    expect(wireErrorOf(wrapped(MAX_CAUSES), "a", A2AClientOperation.GetTask)).toBe(network);
-    expect(wireErrorOf(wrapped(MAX_CAUSES + 1), "a", A2AClientOperation.GetTask)).not.toBe(network);
+    expect(wireErrorOf(wrapped(MAX_CAUSES), "a", A2AClientOperation.GetTask)).toBeInstanceOf(
+      A2AError.Unavailable,
+    );
+    expect(wireErrorOf(wrapped(MAX_CAUSES + 1), "a", A2AClientOperation.GetTask)).toBeInstanceOf(
+      A2AError.Protocol,
+    );
   });
 
-  it("only an A2AProtocolError's codes count as definite: a plain error with one does not", () => {
+  it("only an A2AError.Protocol's codes count as definite: a plain error with one does not", () => {
     const lookalike = Object.assign(new Error("x"), { rpcCode: -32602, httpStatus: 400 });
     expect(isDefiniteSendFailure(lookalike)).toBe(false);
   });
@@ -1073,7 +1076,7 @@ describe("the outcome's edges", () => {
     expect(
       failureOf({ ...taskIn(TaskState.TASK_STATE_FAILED), status: undefined }, "a", true),
     ).toMatchObject({
-      name: "A2ARemoteCallError",
+      name: "A2AError.Remote",
       agent: "a",
       reason: "malformed-answer",
       taskId: "t-1",
@@ -1082,7 +1085,7 @@ describe("the outcome's edges", () => {
       expect(
         failureOf(taskIn(TaskState.TASK_STATE_FAILED, { [MESH]: entry }), "a", true),
       ).toMatchObject({
-        name: "A2ATaskFailedError",
+        name: "A2AError.TaskFailed",
         remoteCode: undefined,
       });
     }

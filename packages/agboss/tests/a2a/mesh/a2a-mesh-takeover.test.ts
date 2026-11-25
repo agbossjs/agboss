@@ -1,3 +1,4 @@
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #810 AC5 (money) — an A2A call's charges across a takeover, end to end: the caller's step asks
  * the peer (price 1) and the peer's execution spends 3, so the call costs exactly 3 — the price
@@ -24,7 +25,6 @@ import {
   PRICE,
   resetCaller,
 } from "./fixtures/caller/caller.application.js";
-import { A2AProtocolError } from "../../../src/a2a/index.js";
 import { HopsLimitExceededError } from "../../../src/index.js";
 import { peer, resetPeer, StrictPeerApplication } from "./fixtures/peer/peer.application.js";
 import { executionSpentOf, servePeer, type ServedPeer } from "./fixtures/serve-peer.js";
@@ -212,7 +212,7 @@ describe("#849: a call the peer REJECTED charges nothing, a takeover's replay of
       caller.isGetTaskCompleted = true; // the peer lies from now on
       await takenOverByB(clock, leases, a);
       await untilReached(
-        () => caller.callErrors.some((error) => error instanceof A2AProtocolError),
+        () => caller.callErrors.some((error) => error instanceof A2AError.Protocol),
         "B's replay finds the refusal contradicted",
       );
       await settle();

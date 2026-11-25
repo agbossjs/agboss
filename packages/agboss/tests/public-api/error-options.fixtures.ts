@@ -2,7 +2,6 @@
  * #906 AC1: each exported error's documented options (without `cause`), typed by its constructor —
  * `tsc` checks them — and keyed by the class's name. Part two: `error-options.fixtures-flow.ts`.
  */
-import * as a2a from "../../src/a2a/index.js";
 import * as root from "../../src/index.js";
 import * as stores from "../../src/stores/index.js";
 import * as models from "../../src/models/index.js";
@@ -13,7 +12,6 @@ import { StoredNamesUnreadableError } from "../../src/infrastructure/stored-step
 import { fx } from "./error-options.fx.js";
 import { flowFixtures } from "./error-options.fixtures-flow.js";
 
-const task = { agent: "refund-agent", taskId: "t-1", contextId: "c-1" };
 const message = "it went wrong";
 
 export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
@@ -121,44 +119,5 @@ export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.FlowSyntaxError, { message }),
   fx(root.ExecutionContextUnavailableError, { message }),
   fx(root.OutputInvalidError, { message }),
-  fx(a2a.A2AContractError, {
-    agent: "refund-agent",
-    rule: a2a.A2AContractRule.UnknownSkill,
-    skill: "refund",
-    differences: ["input: currency"],
-  }),
-  fx(a2a.A2AProtocolError, {
-    agent: "refund-agent",
-    operation: a2a.A2AClientOperation.GetTask,
-    rpcCode: -32001,
-    httpStatus: 500,
-    protocolVersions: ["0.3"],
-  }),
-  fx(a2a.A2ARemoteCallError, {
-    agent: "refund-agent",
-    reason: a2a.A2ARemoteCallReason.NoOutput,
-    taskId: "t-1",
-  }),
-  fx(a2a.A2AUnexpectedFinishError, {
-    agent: "refund-agent",
-    finish: "other-finish",
-    finishes: ["refund-finish"],
-    taskId: "t-1",
-  }),
-  fx(a2a.A2AMeshUnsupportedError, { agent: "refund-agent", application: "refunds" }),
-  fx(a2a.A2AOriginError, {
-    agent: "refund-agent",
-    origin: "https://x.example",
-    site: a2a.A2AOriginSite.Redirect,
-    allowedOrigins: ["https://y.example"],
-  }),
-  fx(a2a.A2ACallDeadlineError, {
-    ...task,
-    deadlineAt: new Date("2026-01-01T00:00:00.000Z"),
-    cancel: a2a.A2ACancelOutcome.Cancelled,
-  }),
-  fx(a2a.A2ATaskCancelledError, task),
-  fx(a2a.A2ATaskFailedError, { ...task, end: a2a.A2ATaskEnd.Failed, remoteCode: "limit.hops" }),
-  fx(a2a.A2ATaskInterruptedError, { ...task, interruption: a2a.A2ATaskInterruption.InputRequired }),
   ...Object.entries(flowFixtures),
 ]);

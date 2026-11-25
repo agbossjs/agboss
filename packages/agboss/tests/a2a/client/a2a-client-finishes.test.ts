@@ -1,17 +1,13 @@
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #916 item 3 (option C): a typed client's output covers every finish of its skill by default; with
  * `@A2AAgent({ target: { finishes } })` it covers those it names — the card check compares only
  * them (a name the card does not list: `[a2a.unknown-finish]`), and a task that ends at another
- * finish is `A2AUnexpectedFinishError`, which `.onError` takes. Names no finish could have are
+ * finish is `A2AError.UnexpectedFinish`, which `.onError` takes. Names no finish could have are
  * refused at assembly; `describe` and `--json` show the list.
  */
 import { describe, expect, it } from "vitest";
-import {
-  A2AClient,
-  A2AContractError,
-  A2AContractRule,
-  A2AUnexpectedFinishError,
-} from "../../../src/a2a/index.js";
+import { A2AClient, A2AContractRule } from "../../../src/a2a/index.js";
 import type { DtoClass } from "../../../src/dto/types.js";
 import { FileDto, Nested, Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { testWith } from "../../../src/testing/index.js";
@@ -70,9 +66,9 @@ describe("#916 item 3: the card check of a client's output against its skill's f
   }) => {
     const refused = await cardCheckOf((await a2aServer(serve)).url, ReviewResultDto);
 
-    expect(refused).toBeInstanceOf(A2AContractError);
-    expect((refused as A2AContractError).rule).toBe(A2AContractRule.SchemaMismatch);
-    expect((refused as A2AContractError).differences.join("; ")).toContain(`output (${RETURNED})`);
+    expect(refused).toBeInstanceOf(A2AError.Contract);
+    expect((refused as A2AError.Contract).rule).toBe(A2AContractRule.SchemaMismatch);
+    expect((refused as A2AError.Contract).differences.join("; ")).toContain(`output (${RETURNED})`);
   });
 
   test("AC3.2 by default a DTO that takes every finish is accepted", async ({ a2aServer }) => {
@@ -94,8 +90,8 @@ describe("#916 item 3: the card check of a client's output against its skill's f
       "refund-workflow-finish",
     ]);
 
-    expect((refused as A2AContractError).rule).toBe(A2AContractRule.UnknownFinish);
-    expect((refused as A2AContractError).message).toMatch(
+    expect((refused as A2AError.Contract).rule).toBe(A2AContractRule.UnknownFinish);
+    expect((refused as A2AError.Contract).message).toMatch(
       /^\[a2a\.unknown-finish\] .*refund-workflow-finish is not a finish of the skill \(its finishes: file-review-workflow-finish, file-returned-workflow-finish\)/,
     );
   });
@@ -127,14 +123,14 @@ const askerOf = (agent: SdkAgent, finishes?: readonly string[]) =>
   });
 
 describe("#916 item 3: a task that ends at a finish the client does not take", () => {
-  it("AC3.6 A2AUnexpectedFinishError naming the finish, the agent and what it takes", async () => {
+  it("AC3.6 A2AError.UnexpectedFinish naming the finish, the agent and what it takes", async () => {
     const agent = agentEndingAt("hand-over-workflow-finish");
 
     const failed = await askerOf(agent, ["answer-workflow-finish"])
       .execute({ text: "hi" })
       .catch((error: unknown) => error);
 
-    expect(failed).toBeInstanceOf(A2AUnexpectedFinishError);
+    expect(failed).toBeInstanceOf(A2AError.UnexpectedFinish);
     expect(failed).toMatchObject({
       code: "a2a.unexpected-finish",
       finish: "hand-over-workflow-finish",

@@ -1,3 +1,4 @@
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #809 — the A2A v1.0 client inside an execution: the accept round trip through `Idempotency.sendOnce`
  * (an ambiguous send resent with the same messageId to an AGBoss peer, never to a foreign one), the
@@ -6,13 +7,7 @@
  */
 import { OutboundCallError } from "../../../src/core/error-families/effect-errors.js";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  A2ACallDeadlineError,
-  A2AContractError,
-  A2AContractRule,
-  A2AMesh,
-  A2AMeshUnsupportedError,
-} from "../../../src/a2a/index.js";
+import { A2AContractRule, A2AMesh } from "../../../src/a2a/index.js";
 import { HopsLimitExceededError, MeshLoopDetectedError } from "../../../src/index.js";
 import type { App } from "../../../src/app/types.js";
 import { hours, seconds, usd } from "../../../src/units/index.js";
@@ -92,8 +87,8 @@ describe("#809: the accept round trip through Idempotency.sendOnce", () => {
     await ask("twice").catch(() => undefined);
 
     expect(agent.count("SendMessage")).toBe(1);
-    expect(errors[0]).toBeInstanceOf(A2AContractError);
-    expect((errors[0] as A2AContractError).rule).toBe(A2AContractRule.RepeatedCall);
+    expect(errors[0]).toBeInstanceOf(A2AError.Contract);
+    expect((errors[0] as A2AError.Contract).rule).toBe(A2AContractRule.RepeatedCall);
   });
 });
 
@@ -154,13 +149,13 @@ describe("#809: the mesh rides an AGBoss call", () => {
     expect(agent.count("SendMessage")).toBe(0);
   });
 
-  it("an AGBoss target without the mesh extension is refused: A2AMeshUnsupportedError, nothing sent", async () => {
+  it("an AGBoss target without the mesh extension is refused: A2AError.MeshUnsupported, nothing sent", async () => {
     const agent = new SdkAgent({ script: scripts.completeWith({ data: { text: "ran" } }) });
     const { ask, errors } = await caller({ agent, target: PEER });
 
     await ask("hello").catch(() => undefined);
 
-    expect(errors[0]).toBeInstanceOf(A2AMeshUnsupportedError);
+    expect(errors[0]).toBeInstanceOf(A2AError.MeshUnsupported);
     expect(agent.count("SendMessage")).toBe(0);
   });
 
@@ -216,13 +211,13 @@ describe("#809 security: a signed envelope always names its audience", () => {
 });
 
 describe("#809: the deadline and the price", () => {
-  it("at the call's deadline the task is canceled and the call fails A2ACallDeadlineError", async () => {
+  it("at the call's deadline the task is canceled and the call fails A2AError.Deadline", async () => {
     const agent = new SdkAgent({ script: workingThen() });
     const { ask, errors } = await caller({ agent, timeout: seconds(0.3) });
 
     await ask("slow").catch(() => undefined);
 
-    expect(errors[0]).toBeInstanceOf(A2ACallDeadlineError);
+    expect(errors[0]).toBeInstanceOf(A2AError.Deadline);
     expect(errors[0]).toMatchObject({ isCancelled: true });
     expect(agent.count("CancelTask")).toBe(1);
   });

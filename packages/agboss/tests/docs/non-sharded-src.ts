@@ -149,6 +149,10 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/a2a/client/a2a-card.ts"],
   ),
   ...reviewed(
+    "the sentences of the A2AError variants a client call fails with, each made of the call's stable facts (an agent, a task, a code): message text only, never read by code; its facts and codes are asserted by tests/sweep-1366h/a2a/client/a2a-client-errors-1366h.test.ts, tests/a2a/client/a2a-client-units.test.ts, tests/errors/error-families.test.ts (F2)",
+    ["src/a2a/client/a2a-error-messages.ts"],
+  ),
+  ...reviewed(
     "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 92 mutants, 59 killed in the final run; the 50 that had lived in the first run each got a test (27), an equivalence reason (0) or was classed message text (23); covered by tests/sweep-1366h/a2a/client/a2a-client-errors-1366h.test.ts, tests/a2a/client/a2a-client-wire.test.ts, tests/a2a/client/a2a-client-units.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/a2a/client/a2a-client-errors.ts"],
   ),

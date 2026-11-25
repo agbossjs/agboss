@@ -73,7 +73,8 @@ describe("#906 AC1: every exported error takes one options bag with a cause", ()
     // 104 once the five model-policy error classes folded into `ConfigError` (F2)
     // 101 once `DtoValidationError`, `DtoError` and `SqliteSchemaTooNewError` folded into `ValidationError`,
     // `ConfigError` and `StoreError` (F2)
-    expect(classes.size).toBeGreaterThanOrEqual(101);
+    // 91 once the ten A2A client error classes folded into `A2AError` (F2)
+    expect(classes.size).toBeGreaterThanOrEqual(91);
     expect([...classes.keys()].filter((name) => !(name in fixtures)).sort()).toEqual([]);
     expect(
       Object.keys(fixtures)

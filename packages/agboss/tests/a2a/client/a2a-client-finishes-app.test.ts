@@ -1,12 +1,13 @@
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #916 item 3 (option C), in an application: an `@A2AAgent({ target: { finishes } })` called from an
- * action whose task ends at another finish fails the step with `A2AUnexpectedFinishError`, which
+ * action whose task ends at another finish fails the step with `A2AError.UnexpectedFinish`, which
  * `.onError` takes; `target.finishes` that no finish could match is `[a2a.unknown-finish]` at
  * assembly; `agboss describe` and `--json` show the list, and `check --federation` compares only the
  * listed finishes (`[federation.unknown-finish]` for one the receiver's start lacks).
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { A2AAgent, A2AClient, A2AUnexpectedFinishError } from "../../../src/a2a/index.js";
+import { A2AAgent, A2AClient } from "../../../src/a2a/index.js";
 import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
@@ -98,7 +99,7 @@ class HandedOverFinish {}
   flow: [
     onStart(AskWorkflowStart)
       .toAction(AskPeerAction)
-      .onError(A2AUnexpectedFinishError, toFinish(HandedOverFinish))
+      .onError(A2AError.UnexpectedFinish, toFinish(HandedOverFinish))
       .toFinish(AnsweredFinish),
   ],
   providers: [AnswersA2AAgent],
@@ -116,7 +117,7 @@ class AskWorkflow {}
 class AskApplication {}
 
 describe("#916 item 3: an unexpected finish in an execution", () => {
-  it("AC3.8 the step fails with A2AUnexpectedFinishError and .onError takes it", async () => {
+  it("AC3.8 the step fails with A2AError.UnexpectedFinish and .onError takes it", async () => {
     const app = await createTestAppWith(AskApplication, offline(new ScriptBook()));
     apps.push(app);
 

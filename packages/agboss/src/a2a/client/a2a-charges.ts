@@ -1,14 +1,10 @@
+import { A2AError } from "../../core/error-families/remote-errors.js";
 import { currentFrame } from "../../flow/context/frame.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import type { A2ARemotePeer } from "./a2a-card.js";
 import type { Task } from "@a2a-js/sdk";
 import type { Accepted } from "./a2a-message.js";
-import {
-  A2AClientOperation,
-  A2AProtocolError,
-  A2ARemoteCallError,
-  A2ARemoteCallReason,
-} from "./a2a-client-errors.js";
+import { A2AClientOperation, A2ARemoteCallReason } from "./a2a-client-errors.js";
 import { meshRefusalOf } from "./a2a-outcome.js";
 import type { A2ACharged, A2AMeshActivation } from "./a2a-mesh-seam.js";
 
@@ -91,12 +87,12 @@ export interface RefusedCall {
  * none of its output used. The refusal is the agent's word, so the task is read once more: still
  * `REJECTED` with its mesh limit → charged nothing, recorded `refused: true`, the limit thrown;
  * anything else (working, completed, another end, another task) contradicts the refusal → the
- * price charged and `A2AProtocolError` thrown. A read that fails throws its error, nothing charged.
+ * price charged and `A2AError.Protocol` thrown. A read that fails throws its error, nothing charged.
  */
 export async function refusedCall(call: RefusedCall): Promise<never> {
   const { agent, taskId } = call;
   if (taskId === undefined) {
-    throw new A2ARemoteCallError({ agent, reason: A2ARemoteCallReason.MalformedAnswer });
+    throw new A2AError.Remote({ agent, reason: A2ARemoteCallReason.MalformedAnswer });
   }
   const read = await call.read(taskId);
   const refusal = read.id === taskId ? meshRefusalOf(read) : undefined;
@@ -105,5 +101,5 @@ export async function refusedCall(call: RefusedCall): Promise<never> {
     throw refusal;
   }
   call.charge();
-  throw new A2AProtocolError({ agent, operation: A2AClientOperation.GetTask });
+  throw new A2AError.Protocol({ agent, operation: A2AClientOperation.GetTask });
 }

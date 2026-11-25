@@ -1,3 +1,4 @@
+import { A2AError } from "../../../../src/core/error-families/remote-errors.js";
 /**
  * #1366: the client's reading of a raw agent card is pinned by outcome: the card URL, the request
  * made for it, which interfaces are usable (binding, 1.x version), the versions named when none is,
@@ -12,12 +13,8 @@ import {
   skillOf,
   type CardExpectation,
 } from "../../../../src/a2a/client/a2a-card.js";
-import {
-  A2AClientOperation,
-  A2AProtocolError,
-} from "../../../../src/a2a/client/a2a-client-errors.js";
+import { A2AClientOperation } from "../../../../src/a2a/client/a2a-client-errors.js";
 import { A2AOriginSite } from "../../../../src/a2a/client/a2a-guard-errors.js";
-import { A2AOriginError } from "../../../../src/a2a/client/a2a-guard-errors.js";
 import { A2A_MESH_EXTENSION } from "../../../../src/a2a/a2a-extension-uris.js";
 
 const URL_OK = "http://agent.test/a2a";
@@ -131,9 +128,9 @@ describe("#1366 fetchCard: the request", () => {
     expect(seen[0]?.init && "signal" in seen[0].init).toBe(false);
   });
 
-  it("a failed answer is an A2AProtocolError with the status", async () => {
+  it("a failed answer is an A2AError.Protocol with the status", async () => {
     const error = await rejectionOf(fetchCard(URL_OK, fetcherOf({}, 503), POLICY));
-    expect(error).toBeInstanceOf(A2AProtocolError);
+    expect(error).toBeInstanceOf(A2AError.Protocol);
     expect(error).toMatchObject({
       agent: "peer",
       operation: A2AClientOperation.AgentCard,
@@ -147,16 +144,16 @@ describe("#1366 fetchCard: the request", () => {
     ["a string", "card"],
     ["a number", 3],
   ])(
-    "%s as the card is an A2AProtocolError of the card operation, no status",
+    "%s as the card is an A2AError.Protocol of the card operation, no status",
     async (_name, body) => {
       const error = await rejectionOf(fetchCard(URL_OK, fetcherOf(body), POLICY));
-      expect(error).toBeInstanceOf(A2AProtocolError);
+      expect(error).toBeInstanceOf(A2AError.Protocol);
       expect(error).toMatchObject({
         agent: "peer",
         operation: A2AClientOperation.AgentCard,
-        httpStatus: undefined,
-        protocolVersions: undefined,
       });
+      expect(error instanceof A2AError.Protocol && error.httpStatus).toBeUndefined();
+      expect(error instanceof A2AError.Protocol && error.protocolVersions).toBeUndefined();
     },
   );
 });
@@ -167,11 +164,11 @@ describe("#1394 fetchCard: a malformed interface entry refuses the card", () => 
     ["a number", 42],
     ["an entry without protocolVersion", { url: URL_OK, protocolBinding: "JSONRPC" }],
     ["an entry with a non-string url", iface({ url: 7 })],
-  ])("%s next to a usable interface: A2AProtocolError, never TypeError", async (_name, entry) => {
+  ])("%s next to a usable interface: A2AError.Protocol, never TypeError", async (_name, entry) => {
     const error = await rejectionOf(
       fetchCard(URL_OK, fetcherOf(rawCard({ supportedInterfaces: [iface(), entry] })), POLICY),
     );
-    expect(error).toBeInstanceOf(A2AProtocolError);
+    expect(error).toBeInstanceOf(A2AError.Protocol);
     expect(error).toMatchObject({ agent: "peer", operation: A2AClientOperation.AgentCard });
     expect((error as Error).message).not.toContain(URL_OK);
   });
@@ -181,19 +178,19 @@ describe("#1394 fetchCard: a malformed interface entry refuses the card", () => 
     ["[42]", [42]],
     ["an entry without protocolVersion", [{ url: URL_OK }]],
     ["an entry with a non-string url", [iface({ url: 7 })]],
-  ])("%s alone: A2AProtocolError", async (_name, supportedInterfaces) => {
+  ])("%s alone: A2AError.Protocol", async (_name, supportedInterfaces) => {
     const error = await rejectionOf(
       fetchCard(URL_OK, fetcherOf(rawCard({ supportedInterfaces })), POLICY),
     );
-    expect(error).toBeInstanceOf(A2AProtocolError);
+    expect(error).toBeInstanceOf(A2AError.Protocol);
   });
 });
 
 describe("#1366 fetchCard: the versions named when no interface is usable", () => {
   const versionsOf = async (raw: Record<string, unknown>): Promise<unknown> => {
     const error = await rejectionOf(fetchCard(URL_OK, fetcherOf(raw), POLICY));
-    expect(error).toBeInstanceOf(A2AProtocolError);
-    return (error as A2AProtocolError).protocolVersions;
+    expect(error).toBeInstanceOf(A2AError.Protocol);
+    return (error as A2AError.Protocol).protocolVersions;
   };
 
   it("lists each interface's version and the top-level one, once, skipping bad entries", async () => {
@@ -264,16 +261,16 @@ describe("#1366 fetchCard: which interfaces are usable", () => {
     ["url missing", { url: undefined }],
     ["url a number", { url: 5 }],
   ])("%s: not usable, the card is refused as a protocol error", async (_name, over) => {
-    expect(await refusedFor(iface(over))).toBeInstanceOf(A2AProtocolError);
+    expect(await refusedFor(iface(over))).toBeInstanceOf(A2AError.Protocol);
   });
 
   it("a non-object entry refuses the card even beside a good one (#1394, fail closed)", async () => {
-    expect(await refusedFor("x")).toBeInstanceOf(A2AProtocolError);
+    expect(await refusedFor("x")).toBeInstanceOf(A2AError.Protocol);
   });
 
   it("a usable interface elsewhere is refused as an origin error at the card interface", async () => {
     const error = await refusedFor(iface({ url: "http://evil.test/a2a" }));
-    expect(error).toBeInstanceOf(A2AOriginError);
+    expect(error).toBeInstanceOf(A2AError.OriginRefused);
     expect(error).toMatchObject({ site: A2AOriginSite.CardInterface, origin: "http://evil.test" });
   });
 

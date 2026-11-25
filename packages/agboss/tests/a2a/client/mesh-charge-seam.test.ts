@@ -1,3 +1,4 @@
+import { A2AError } from "../../../src/core/error-families/remote-errors.js";
 /**
  * #1366 (mesh-charge shard) — what a call's mesh seam decides on its own, each rule over fakes: an agent that does not
  * declare the mesh is refused under `Required` and called without it otherwise (the price charged all the same); a call
@@ -7,7 +8,7 @@
  */
 import { HTTP_EXTENSION_HEADER, Role, TaskState, type AgentCard, type Message } from "@a2a-js/sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { A2AMesh, A2AMeshUnsupportedError } from "../../../src/a2a/client/a2a-guard-errors.js";
+import { A2AMesh } from "../../../src/a2a/client/a2a-guard-errors.js";
 import {
   AGBOSS_MESH,
   priceLedgerKeyOf,
@@ -66,7 +67,7 @@ beforeEach(() => {
 describe("#1366: a call to an agent that does not declare the mesh", () => {
   it("is refused under Required, naming the agent and the application: nothing is sent", () => {
     expect(() => AGBOSS_MESH.activate(plain, peer, callOf({ mesh: A2AMesh.Required }))).toThrow(
-      new A2AMeshUnsupportedError({ agent: "billing-agent", application: "billing" }),
+      new A2AError.MeshUnsupported({ agent: "billing-agent", application: "billing" }),
     );
   });
 
@@ -186,7 +187,7 @@ describe("#1366: the mesh as it rides one call", () => {
       serviceParameters: {},
     });
     expect(() => required.sign(message)).toThrow(
-      new A2AMeshUnsupportedError({ agent: "billing-agent", application: "billing" }),
+      new A2AError.MeshUnsupported({ agent: "billing-agent", application: "billing" }),
     );
   });
 });

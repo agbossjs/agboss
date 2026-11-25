@@ -12,14 +12,9 @@ import { describe, expect, it } from "vitest";
 import {
   A2AAgent,
   A2AClient,
-  A2ACallDeadlineError,
   A2ACancelOutcome,
   A2AMesh,
-  A2AMeshUnsupportedError,
-  A2AOriginError,
   A2AOriginSite,
-  A2AProtocolError,
-  A2ARemoteCallError,
   A2ARemoteCallReason,
 } from "../../../src/a2a/index.js";
 import { A2A_MESH_EXTENSION } from "../../../src/a2a/a2a-extension-uris.js";
@@ -27,16 +22,13 @@ import { peerOf } from "../../../src/a2a/client/a2a-card.js";
 import { A2AClientOperation } from "../../../src/a2a/client/a2a-client-errors.js";
 import { AGBOSS_MESH } from "../../../src/a2a/client/a2a-mesh-seam.js";
 import { originPolicyOf } from "../../../src/a2a/client/a2a-origins.js";
-import {
-  A2ANetworkError,
-  A2ANotSentError,
-  wireFetchOf,
-} from "../../../src/a2a/client/a2a-transport.js";
+import { wireFetchOf } from "../../../src/a2a/client/a2a-transport.js";
 import { Waiter } from "../../../src/a2a/client/a2a-waiter.js";
 import {
   isDefiniteSendFailure,
   isEndedAtSubscribe,
   isTransientWireError,
+  notSentOf,
   rpcCodeOf,
 } from "../../../src/a2a/client/a2a-wire-errors.js";
 import { A2AError } from "../../../src/core/error-families/remote-errors.js";
@@ -61,7 +53,7 @@ const fieldOf = (verdict: object, field: "reason" | "result"): unknown =>
   Reflect.get(verdict, field);
 
 const protocol = (fields: { readonly rpcCode?: number; readonly httpStatus?: number }) =>
-  new A2AProtocolError({ agent: "a", operation: A2AClientOperation.SendMessage, ...fields });
+  new A2AError.Protocol({ agent: "a", operation: A2AClientOperation.SendMessage, ...fields });
 const protocolRpc = (rpcCode: number) => protocol({ rpcCode });
 
 class AskOutputDto {
@@ -82,9 +74,8 @@ describe("which codes certainly did nothing: an allowlist", () => {
   });
 
   it("a request never sent is definite: nothing reached the agent", () => {
-    expect(isDefiniteSendFailure(new A2ANotSentError(new Error("token refresh failed")))).toBe(
-      true,
-    );
+    expect(isDefiniteSendFailure(new A2AError.Unavailable({ sent: false }))).toBe(true);
+    expect(isDefiniteSendFailure(new A2AError.Unavailable({ sent: true }))).toBe(false);
   });
 });
 
@@ -107,7 +98,7 @@ describe("one rule for what a wait may read again", () => {
         new A2AError.CallerRejected({ httpStatus: 401, wireCode: "a2a.caller-x" }),
       ),
     ).toBe(false);
-    const origin = new A2AOriginError({
+    const origin = new A2AError.OriginRefused({
       agent: "a",
       origin: "https://e",
       site: A2AOriginSite.Request,
@@ -148,12 +139,14 @@ describe("the HTTP+JSON binding's errors", () => {
       () => Promise.resolve({}),
       policy,
     );
-    await expect(fetcher("https://agent.example/a2a")).rejects.toBeInstanceOf(A2AOriginError);
+    await expect(fetcher("https://agent.example/a2a")).rejects.toBeInstanceOf(
+      A2AError.OriginRefused,
+    );
   });
 });
 
 describe("a request that never left", () => {
-  it("getHeaders() failing is A2ANotSentError, and nothing is sent", async () => {
+  it("getHeaders() failing is an unsent A2AError.Unavailable, and nothing is sent", async () => {
     const agent = new SdkAgent({ script: scripts.messageEcho });
     class BrokenTokenClient extends A2AClient {
       protected override getHeaders(): Promise<Record<string, string>> {
@@ -163,7 +156,8 @@ describe("a request that never left", () => {
 
     const sent = new BrokenTokenClient({ url: AGENT_URL, fetcher: agent.fetcher }).send("hi");
 
-    await expect(sent).rejects.toBeInstanceOf(A2ANotSentError);
+    await expect(sent).rejects.toBeInstanceOf(A2AError.Unavailable);
+    await expect(sent).rejects.toMatchObject({ code: "a2a.unavailable", sent: false });
     expect(agent.received).toEqual([]);
   });
 
@@ -205,7 +199,7 @@ describe("the wait's own failures are never a dropped stream", () => {
     const run = new A2AClient({ url: AGENT_URL, fetcher: agent.fetcher }).send("hi");
 
     await expect(run).rejects.toMatchObject({
-      name: "A2ARemoteCallError",
+      name: "A2AError.Remote",
       reason: A2ARemoteCallReason.MalformedAnswer,
     });
     expect(agent.count("SubscribeToTask")).toBe(1);
@@ -234,7 +228,7 @@ describe("every event and read is of the waited task", () => {
 
     await expect(
       new A2AClient({ url: AGENT_URL, fetcher: agent.fetcher }).send("hi"),
-    ).rejects.toBeInstanceOf(A2ARemoteCallError);
+    ).rejects.toBeInstanceOf(A2AError.Remote);
   });
 
   it("a polled task of another id is malformed", async () => {
@@ -295,7 +289,8 @@ describe("remote strings never reach an error", () => {
       .send("hi")
       .catch((e: unknown) => e);
 
-    expect(sent).toMatchObject({ reason: A2ARemoteCallReason.MalformedAnswer, taskId: undefined });
+    expect(sent).toMatchObject({ reason: A2ARemoteCallReason.MalformedAnswer });
+    expect(sent instanceof A2AError.Remote && sent.taskId).toBeUndefined();
     expect(String(sent)).not.toMatch(/script/u);
   });
 
@@ -368,7 +363,7 @@ describe("how the cancel at a deadline went", () => {
     expect(await deadlineOf(() => new Promise<Task>(() => undefined))).toMatchObject({
       cancel: A2ACancelOutcome.NoAnswer,
     });
-    expect(await deadlineOf(() => Promise.resolve(working))).toBeInstanceOf(A2ACallDeadlineError);
+    expect(await deadlineOf(() => Promise.resolve(working))).toBeInstanceOf(A2AError.Deadline);
   });
 });
 
@@ -379,7 +374,7 @@ describe("the price is charged when the call is accepted", () => {
 
     const result = await ask("slow").finally(() => app.close());
 
-    expect(errors[0]).toBeInstanceOf(A2ACallDeadlineError);
+    expect(errors[0]).toBeInstanceOf(A2AError.Deadline);
     expect(result.spend.byModel["a2a:caller-peer-a2a-agent"]).toBeCloseTo(0.4);
   });
 });
@@ -423,7 +418,9 @@ describe("the mesh refused where it cannot ride", () => {
       }
     }
 
-    await expect(testUnit(SignTool)({ text: "x" })).rejects.toBeInstanceOf(A2AMeshUnsupportedError);
+    await expect(testUnit(SignTool)({ text: "x" })).rejects.toBeInstanceOf(
+      A2AError.MeshUnsupported,
+    );
     expect(card.capabilities?.extensions.some((each) => each.uri === A2A_MESH_EXTENSION)).toBe(
       true,
     );
@@ -502,7 +499,7 @@ describe("the remaining edges, one by one", () => {
       updatedTask(of, task, {
         payload: { $case: "statusUpdate", value: { ...update, taskId: "t-2" } },
       }),
-    ).toThrow(A2ARemoteCallError);
+    ).toThrow(A2AError.Remote);
   });
 
   it("an artifact update appends to its artifact, replaces it, or adds one; another task's is malformed", () => {
@@ -536,7 +533,7 @@ describe("the remaining edges, one by one", () => {
       },
     };
     expect(updatedTask(of, task, noArtifact)).toBe(task);
-    expect(() => updatedTask(of, task, update("x", "b", true, "t-2"))).toThrow(A2ARemoteCallError);
+    expect(() => updatedTask(of, task, update("x", "b", true, "t-2"))).toThrow(A2AError.Remote);
   });
 
   it("a whole task replaces it; a message or nothing in the event", () => {
@@ -546,17 +543,18 @@ describe("the remaining edges, one by one", () => {
   });
 
   it("a network failure is transient; only -32004 says the task ended at subscribe", () => {
-    expect(isTransientWireError(new A2ANetworkError(new TypeError("x")))).toBe(true);
+    expect(isTransientWireError(new A2AError.Unavailable({ sent: true }))).toBe(true);
     expect(isEndedAtSubscribe(new Error("x", { cause: protocolRpc(-32004) }))).toBe(true);
     expect(isEndedAtSubscribe(protocolRpc(-32001))).toBe(false);
     expect(isEndedAtSubscribe(new Error("x"))).toBe(false);
   });
 
-  it("A2ANotSentError says it was not sent and keeps its cause; a failing sign is one", async () => {
+  it("an unsent request says it was not sent and keeps its cause; a failing sign is one", async () => {
     const cause = new Error("no signing key");
-    expect(new A2ANotSentError(cause)).toMatchObject({
-      name: "A2ANotSentError",
-      message: "the A2A request was not sent: what it needed first failed",
+    expect(notSentOf("a", A2AClientOperation.SendMessage, cause)).toMatchObject({
+      code: "a2a.unavailable",
+      message: "a (SendMessage): request was not sent",
+      sent: false,
       cause,
     });
     const call = {
@@ -578,7 +576,11 @@ describe("the remaining edges, one by one", () => {
       },
       signal: undefined,
     };
-    await expect(sentOf(call, "m")).rejects.toMatchObject({ name: "A2ANotSentError", cause });
+    await expect(sentOf(call, "m")).rejects.toMatchObject({
+      code: "a2a.unavailable",
+      sent: false,
+      cause,
+    });
   });
 
   it("a task with a safe id but an unsafe context id is malformed", async () => {
@@ -707,7 +709,7 @@ describe("a task that ended before the stream was opened", () => {
 
 describe("the second review's edges", () => {
   it("a read never sent (getHeaders failed) is transient for a wait", () => {
-    expect(isTransientWireError(new A2ANotSentError(new Error("token")))).toBe(true);
+    expect(isTransientWireError(new A2AError.Unavailable({ sent: false }))).toBe(true);
   });
 
   it("an unsafe context id is never put on a task's error", () => {

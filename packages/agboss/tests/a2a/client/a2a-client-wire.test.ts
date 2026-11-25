@@ -8,16 +8,9 @@ import { AgentEvent } from "@a2a-js/sdk/server";
 import {
   A2AClient,
   A2AError,
-  A2AContractError,
   A2AContractRule,
-  A2AOriginError,
   A2AOriginSite,
   A2APeerKind,
-  A2AProtocolError,
-  A2ARemoteCallError,
-  A2ATaskCancelledError,
-  A2ATaskFailedError,
-  A2ATaskInterruptedError,
   A2ATaskInterruption,
   A2ATaskState,
   type A2AStreamEvent,
@@ -58,13 +51,13 @@ function recording(next: typeof fetch) {
 }
 
 describe("#809: discovery", () => {
-  it("a v0.3-only agent is A2AProtocolError naming its version; nothing is sent", async () => {
+  it("a v0.3-only agent is A2AError.Protocol naming its version; nothing is sent", async () => {
     const legacy = { name: "old", url: AGENT_URL, protocolVersion: "0.3.0", skills: [] };
     const agent = new SdkAgent({ script: scripts.messageEcho, rawCard: legacy });
 
     const sent = clientOf(agent).send("hi");
 
-    await expect(sent).rejects.toBeInstanceOf(A2AProtocolError);
+    await expect(sent).rejects.toBeInstanceOf(A2AError.Protocol);
     await expect(sent).rejects.toMatchObject({
       protocolVersions: ["0.3.0"],
       operation: "agent-card",
@@ -101,7 +94,7 @@ describe("#809: discovery", () => {
 
     const run = clientOf(agent).execute({ invoiceId: "inv-7" });
 
-    await expect(run).rejects.toBeInstanceOf(A2AContractError);
+    await expect(run).rejects.toBeInstanceOf(A2AError.Contract);
     await expect(run).rejects.toMatchObject({ rule: A2AContractRule.SchemaMismatch });
     await expect(run).rejects.toMatchObject({
       differences: [expect.stringMatching(/^input: invoiceId/u)],
@@ -124,7 +117,7 @@ describe("#809: discovery", () => {
     });
   });
 
-  it("a card that fails is A2AProtocolError with its status only", async () => {
+  it("a card that fails is A2AError.Protocol with its status only", async () => {
     const fetcher: typeof fetch = () =>
       Promise.resolve(new Response("boom: secret@example.com", { status: 500 }));
     const sent = new A2AClient({ url: AGENT_URL, fetcher }).send("hi");
@@ -159,7 +152,7 @@ describe("#809 security: the client talks to its own origins only", () => {
 
     const sent = client.send("hi");
 
-    await expect(sent).rejects.toBeInstanceOf(A2AOriginError);
+    await expect(sent).rejects.toBeInstanceOf(A2AError.OriginRefused);
     await expect(sent).rejects.toMatchObject({
       origin: "https://evil.example",
       site: A2AOriginSite.CardInterface,
@@ -263,15 +256,15 @@ describe("#809: typed and untyped calls against a foreign agent", () => {
     expect(result.message?.messageId).toMatch(/^answer-/);
   });
 
-  it("a typed call answered by a message without its output is A2ARemoteCallError", async () => {
+  it("a typed call answered by a message without its output is A2AError.Remote", async () => {
     const agent = new SdkAgent({ script: scripts.messageEcho });
 
     await expect(clientOf(agent).execute({ invoiceId: "x" })).rejects.toBeInstanceOf(
-      A2ARemoteCallError,
+      A2AError.Remote,
     );
   });
 
-  it("INPUT_REQUIRED: send returns the task, execute throws A2ATaskInterruptedError, reply continues it", async () => {
+  it("INPUT_REQUIRED: send returns the task, execute throws A2AError.TaskInterrupted, reply continues it", async () => {
     const agent = new SdkAgent({
       script: async (context, bus, self) => {
         if (context.task === undefined) {
@@ -295,11 +288,11 @@ describe("#809: typed and untyped calls against a foreign agent", () => {
     await expect(interrupted).rejects.toMatchObject({
       interruption: A2ATaskInterruption.InputRequired,
     });
-    await expect(interrupted).rejects.toBeInstanceOf(A2ATaskInterruptedError);
+    await expect(interrupted).rejects.toBeInstanceOf(A2AError.TaskInterrupted);
     expect(replied.data).toEqual({ status: "paid" });
   });
 
-  it("FAILED is A2ATaskFailedError without the status text; CANCELED A2ATaskCancelledError", async () => {
+  it("FAILED is A2AError.TaskFailed without the status text; CANCELED A2AError.TaskCancelled", async () => {
     const failing = new SdkAgent({
       script: scripts.endWith(TaskState.TASK_STATE_FAILED, "db down for alice@example.com"),
     });
@@ -312,11 +305,11 @@ describe("#809: typed and untyped calls against a foreign agent", () => {
       .catch((error: unknown) => error);
     const canceled = clientOf(canceling).send("x");
 
-    expect(failed).toBeInstanceOf(A2ATaskFailedError);
+    expect(failed).toBeInstanceOf(A2AError.TaskFailed);
     expect(
-      JSON.stringify({ message: String(failed), details: (failed as A2ATaskFailedError).details }),
+      JSON.stringify({ message: String(failed), details: (failed as A2AError.TaskFailed).details }),
     ).not.toMatch(/alice|db down/);
-    await expect(canceled).rejects.toBeInstanceOf(A2ATaskCancelledError);
+    await expect(canceled).rejects.toBeInstanceOf(A2AError.TaskCancelled);
   });
 
   it("a mesh limit from an agent the call did not mesh with (no signed envelope to its application) is an ordinary failed task", async () => {
@@ -334,7 +327,7 @@ describe("#809: typed and untyped calls against a foreign agent", () => {
       script: scripts.endWith(TaskState.TASK_STATE_REJECTED, "too many hops", metadata),
     });
 
-    await expect(clientOf(agent).send("x")).rejects.toBeInstanceOf(A2ATaskFailedError);
+    await expect(clientOf(agent).send("x")).rejects.toBeInstanceOf(A2AError.TaskFailed);
   });
 
   it("a JSON-RPC error keeps its code, never the agent's message", async () => {

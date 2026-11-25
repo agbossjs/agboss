@@ -89,10 +89,11 @@ export type FamilyConstructor<
   VariantConstructors<TVariants> & { readonly code: string };
 
 /**
- * How one variant is declared at run time: its default sentence (never made of a stored or model
- * text) and, when it is not `<family code>.<kind>`, its code.
+ * How one variant is declared at run time: its default sentence — a text, or a function of the
+ * variant's facts (never made of a stored or model text) — and, when it is not
+ * `<family code>.<kind>`, its code.
  */
-export type VariantSpec = readonly [message: string, code?: string];
+export type VariantSpec = readonly [message: string | ((facts: never) => string), code?: string];
 
 /** The names of a family constructor's variants. */
 export type VariantNamesOf<TConstructor> = Exclude<keyof TConstructor, "prototype" | "code">;
@@ -185,7 +186,7 @@ function variantOf(
         suggestionPatch,
         ...facts
       } = options;
-      super(typeof message === "string" ? message : defaultMessage, {
+      super(typeof message === "string" ? message : defaultMessageOf(defaultMessage, facts), {
         cause,
         location,
         secondarySpans,
@@ -205,7 +206,12 @@ const isDetails = (value: unknown): value is ErrorDetails =>
   typeof value === "object" && value !== null;
 
 function isVariantSpec(value: unknown): value is VariantSpec {
-  return Array.isArray(value) && typeof value[0] === "string";
+  return Array.isArray(value) && (typeof value[0] === "string" || typeof value[0] === "function");
+}
+
+/** A variant's default sentence: a fixed text, or one made of the facts it was given. */
+function defaultMessageOf(spec: VariantSpec[0], facts: object): string {
+  return typeof spec === "string" ? spec : (spec as (facts: object) => string)(facts);
 }
 
 /**

@@ -76,7 +76,7 @@ export interface A2AClientCall {
   readonly onEvent?: (event: A2AStreamEvent) => void;
   /**
    * How long the call waits for the task at most — the execution's deadline is the other bound,
-   * the earlier wins; then a best-effort CancelTask and `A2ACallDeadlineError`. At most 24 hours
+   * the earlier wins; then a best-effort CancelTask and `A2AError.Deadline`. At most 24 hours
    * (`[a2a.timeout-invalid]`, #1141).
    */
   readonly timeout?: Milliseconds;

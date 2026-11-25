@@ -5,7 +5,7 @@
 call any v1.0 agent. The 0.1.0 wire is gone, with **no shim**: its `POST <url>/execute`, `/resume`
 and `/cancel`, its `agboss-mesh` header and its `A2AExecutionResponse`. A 0.1.1 client and a 0.1.0
 server do not interoperate — upgrade both sides of an A2A call together. MCP is unchanged. A v0.3
-agent is an explicit `A2AProtocolError` naming its version.
+agent is an explicit `A2AError.Protocol` naming its version.
 
 Pauses change too: `withdraw` on a channel is gone — [`onPauseClosed`](#pauses--withdraw-is-gone-a-channel-hears-every-close)
 replaces it — and `answeredBy` on a channel role is `answerer`.
@@ -26,7 +26,7 @@ the AGBoss guarantees as two extensions
 | `a2aHttpListener(app, { endpoint, authenticator })`                      | adds `publicUrl`: where callers reach it, the card's interface URL                                                                                                                                               |
 | `@A2AExpose({ name, version, exports })`                               | `@A2AEndpoint({ name, version, description, ttl, skills })`: a `description` (`[a2a.endpoint-description-required]`), a required `ttl`, and `skills: [{ start, tags }]` for a card worth finding (`[a2a.skill-tags]`, a warning) |
 | `A2AExecutionResponse`, `A2AStatus`, `A2AEvent`, `A2AExecutionRequest` | removed; a call returns the remote output (`execute`) or an `A2ATaskResult` (`send`)                                                                                                                             |
-| `A2ARemoteError`, `A2AContract`                                        | `A2ARemoteCallError`, `A2AClientContract`; the adapter types are gone                                                                                                                                            |
+| `A2ARemoteError`, `A2AContract`                                        | `A2AError.Remote`, `A2AClientContract`; the adapter types are gone                                                                                                                                            |
 | the mesh envelope in the `agboss-mesh` header                          | `message.metadata["https://agboss.dev/a2a/mesh/v1"].envelope`                                                                                                                                                    |
 | a run report in the response body                                      | `task.metadata[uri].report`                                                                                                                                                                                      |
 | `describe --json` exports and imports by `start`                       | by `skill`; a foreign `@A2AAgent` is listed with `foreign: true` — re-save your federation snapshots (a 0.1.0 snapshot is still read)                                                                            |
