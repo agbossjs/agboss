@@ -84,7 +84,7 @@ export const STEP_SPECS = {
       (f: { router?: string; nodeId?: string; reason?: string }) =>
         `Router "${nameOf(f)}" decided wrongly: ${f.reason ?? ""}`,
       "step.router.invalid-decision",
-      routerStep(),
+      { ...routerStep(), hidden: ["reason"] },
     ],
     ["router"],
     "a router answered outside its routes",

@@ -105,6 +105,8 @@ export const MORE_STEP_SPECS = {
       {
         ...stepOf(ComponentKind.Guardrail, (f: { guardrail?: string }) => f.guardrail ?? ""),
         cause: (f: { reason?: string }) => f.reason,
+        // a model's text, not a fixed enum
+        hidden: ["reason"],
       },
     ],
     ["guardrail"],

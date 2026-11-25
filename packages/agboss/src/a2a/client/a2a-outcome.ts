@@ -65,11 +65,15 @@ export function meshRefusalOf(task: Task): MeshLimitError | undefined {
  * cannot read (none, unspecified, unknown) is `A2AError.Remote`.
  */
 export function failureOf(task: Task, agent: string, isPeer: boolean): Error | undefined {
-  const ids = { agent, taskId: task.id, contextId: safeTaskIdOf(task.contextId) ?? "" };
+  const ids = {
+    agent,
+    taskId: safeTaskIdOf(task.id) ?? "",
+    contextId: safeTaskIdOf(task.contextId) ?? "",
+  };
   const malformed = new A2AError.Remote({
     agent,
     reason: A2ARemoteCallReason.MalformedAnswer,
-    taskId: task.id,
+    taskId: safeTaskIdOf(task.id),
   });
   const { status } = task;
   if (status === undefined) return malformed;
@@ -127,7 +131,7 @@ export function outputOf(
   const raw = answer === undefined ? undefined : rawOutputOf(output, answerPartsOf(answer));
   if (raw === undefined) {
     const reason = task === undefined ? A2ARemoteCallReason.NoTask : A2ARemoteCallReason.NoOutput;
-    throw new A2AError.Remote({ agent, reason, taskId: task?.id });
+    throw new A2AError.Remote({ agent, reason, taskId: safeTaskIdOf(task?.id) });
   }
   return raw.value;
 }

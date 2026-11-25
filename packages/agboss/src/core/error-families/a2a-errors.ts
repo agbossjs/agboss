@@ -194,7 +194,8 @@ export const A2AError: FamilyConstructor<
   kinds: A2AErrorKind,
   variants: {
     CallerRejected: ["the caller was rejected"],
-    Contract: [contractMessageOf],
+    // the differences are built from the remote card's names: not for the wire
+    Contract: [contractMessageOf, undefined, { hidden: ["differences"] }],
     // a card is remote text: only what reads as a version is kept, in the fact and in the details
     Protocol: [
       protocolMessageOf,
@@ -209,12 +210,20 @@ export const A2AError: FamilyConstructor<
     ],
     Remote: [remoteCallMessageOf],
     Unavailable: ["the remote cannot be reached"],
-    Deadline: [deadlineMessageOf],
+    Deadline: [
+      deadlineMessageOf,
+      undefined,
+      {
+        extra: ({ deadlineAt }: { readonly deadlineAt?: Date }) =>
+          deadlineAt === undefined ? {} : { deadlineAt: deadlineAt.toISOString() },
+      },
+    ],
     TaskCancelled: [taskCancelledMessageOf],
     TaskFailed: [taskFailedMessageOf],
     TaskInterrupted: [taskInterruptedMessageOf],
     UnexpectedFinish: [unexpectedFinishMessageOf],
     MeshUnsupported: [meshUnsupportedMessageOf],
-    OriginRefused: [originMessageOf],
+    // the allowed origins are local configuration: not for the wire
+    OriginRefused: [originMessageOf, undefined, { hidden: ["allowedOrigins"] }],
   },
 });
