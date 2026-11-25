@@ -4,8 +4,6 @@ import { SendOfferAction } from "../../actions/send-offer.action.js";
 import { DraftAgent } from "../../agents/draft/draft.agent.js";
 import { EditorAgent } from "../../agents/editor/editor.agent.js";
 import { ReviewerAgent } from "../../agents/reviewer/reviewer.agent.js";
-import { ChangesRequestedDto } from "../../dto/changes-requested.dto.js";
-import { DraftApprovedDto } from "../../dto/draft-approved.dto.js";
 import { OfferMailer } from "../../services/offer-mailer.service.js";
 import { RecruiterInbox } from "../../services/recruiter-inbox.service.js";
 import { OfferFailedWorkflowFinish } from "./offer-failed.workflow-finish.js";

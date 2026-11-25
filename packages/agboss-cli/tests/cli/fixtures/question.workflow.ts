@@ -11,6 +11,7 @@ import { onStart } from "../../../../agboss/tests/flow/fixtures/paths.js";
 import { PauseRespondent } from "../../../../agboss/src/pause/respondent.js";
 import { ExternalTask } from "../../../../agboss/src/channels/pause-targets.js";
 import { days, Ttl } from "../../../../agboss/src/units/index.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 /** #659 — a question the terminal answers: the limit of a purchase, typed as JSON. */
 
@@ -63,6 +64,7 @@ export class LimitWorkflowFinish {}
 export class LimitWorkflow {}
 
 @Application({
+  modelProvider: TestModelProvider,
   name: "limit-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

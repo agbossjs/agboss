@@ -79,7 +79,7 @@ describe("#489 AC2: #268 AC4 agboss describe on flow-patterns' desk application"
               { name: "decisions-model-provider", className: "DecisionsModelProvider" },
             ].map((provider) => expect.objectContaining(provider) as unknown),
           ),
-          channels: [
+          channels: expect.arrayContaining([
             expect.objectContaining({
               name: "purchase-tool-approval",
               question: "PurchaseOrder",
@@ -92,7 +92,13 @@ describe("#489 AC2: #268 AC4 agboss describe on flow-patterns' desk application"
               implementation: "RecruiterInboxChannel",
               tools: ["send-offer-letter-tool (send-offer-workflow)"],
             }),
-          ],
+            // an external task asks through its channel too: the pause's target names who answers
+            expect.objectContaining({
+              name: "legal-sign-off-external-task",
+              implementation: "LegalInboxChannel",
+              askedBy: ["legal-sign-off-external-task (contract-committee-workflow)"],
+            }),
+          ]),
         },
       },
     });
@@ -111,7 +117,7 @@ describe("#268 AC4: agboss describe on flow-patterns — what the public surface
         "  onAgent(ReviewerAgent)",
         "  reviewer-agent ← draft: draft-agent | editor-agent (latest, historyOf, maxPrevious 1)",
         "",
-        "      caseOf(ChangesRequestedDto)",
+        "    .toOneOf([",
         "  desk-router  decisions typesafe/jev-1.13 (own) · maxVisits 1 — Sends an order to the intake, ends on anything else",
         "  credit-limit-router  code — Sends large orders for approval, charges the rest",
       ]),

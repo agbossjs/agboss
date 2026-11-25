@@ -19,6 +19,7 @@ import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js"
 import { starOf } from "../../../../agboss/tests/fixtures/test-flow/star.js";
 import { testConfig, testDefaults } from "../../../../agboss/tests/helpers.js";
 import { usd } from "@agboss/core/units";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 @Rag({
   name: "notes-rag",
@@ -98,6 +99,7 @@ export class NotesWorkflow {}
 
 /** The application `agboss rag index --application` indexes. */
 @Application({
+  modelProvider: TestModelProvider,
   name: "notes-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

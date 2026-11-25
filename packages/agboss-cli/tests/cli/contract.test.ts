@@ -88,7 +88,7 @@ describe("#198 AC1: every command has --help and a --json description", () => {
     expect(workflows[0]?.models).toContainEqual({
       key: "routers.main-router",
       model: "typesafe/jev-1.13",
-      provider: "decisions-model-provider",
+      provider: "test-decisions-model-provider",
     });
   });
 

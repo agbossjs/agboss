@@ -12,6 +12,7 @@ import { Text } from "../../../../../agboss/src/dto/index.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
 import { onStart } from "../../../../../agboss/tests/flow/fixtures/paths.js";
 import { BookingDto as HotelBookingDto, HotelWorkflowStart } from "./hotel.workflow.js";
+import { TestModelProvider } from "../../../../../agboss/src/testing/test-model-provider.js";
 
 export class BookingDto {
   @Text({ prompt: "the stay confirmed" })
@@ -37,11 +38,14 @@ export class StayWorkflowFinish {}
   name: "stay-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(HotelWorkflowStart).toAction(ConfirmAction).toFinish(StayWorkflowFinish)],
+  flow: [onStart(HotelWorkflowStart)
+    .toAction(ConfirmAction)
+    .toFinish(StayWorkflowFinish)],
 })
 export class StayWorkflow {}
 
 @Application({
+  modelProvider: TestModelProvider,
   name: "stay-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

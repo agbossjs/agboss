@@ -11,6 +11,7 @@ import {
 import { IN_MEMORY_DATABASE } from "../../../../agboss/src/infrastructure/in-memory-database.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { TestWorkflow } from "../../../../agboss/tests/fixtures/test-workflow/test.workflow.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 /** A fenced-effect store on no declared backend that opts out of the atomic lease check. */
 @Injectable({
@@ -28,6 +29,7 @@ export class OptedOutEffects extends InMemoryFencedEffectRepository {
  * a warning, `[application.lease-check-not-atomic]`, an error under `--strict`.
  */
 @Application({
+  modelProvider: TestModelProvider,
   name: "opted-out-store-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

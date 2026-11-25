@@ -12,8 +12,6 @@ import { MarkTopicFailedAction } from "../../actions/mark-topic-failed.action.js
 import { SubtopicsAction } from "../../actions/subtopics.action.js";
 import { MergeAgent } from "../../agents/merge/merge.agent.js";
 import { ResearcherAgent } from "../../agents/researcher/researcher.agent.js";
-import { TopicReportDto } from "../../dto/topic-report.dto.js";
-import { TopicTooBroadDto } from "../../dto/topic-too-broad.dto.js";
 import { TopicFailedWorkflowFinish } from "./topic-failed.workflow-finish.js";
 import { TopicReportWorkflowFinish } from "./topic-report.workflow-finish.js";
 import { TopicResearchWorkflowStart } from "./topic-research.workflow-start.js";

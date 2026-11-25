@@ -27,7 +27,7 @@ implementations
   FileTranscriber → ModelFileTranscriber (built-in default: none listed)
   FileRedactor → ModelImageRedactor (built-in default: none listed)
 model providers
-  harness-model-provider → HarnessModelProvider (listed in @Application providers) · serves /^harness\// · transport: HarnessModelProvider.complete()
+  harness-model-provider → HarnessModelProvider (listed in @Application providers) · transport: HarnessModelProvider.complete()
 budgets
   application: application-daily-budget (day)
   tenant: tenant-daily-budget (day)
@@ -50,7 +50,7 @@ pii policies
   customer-id-pii-policy — findMatches(): tokenize() · on desk-agent · masks logs and traces
 memory
   case-notes-memory — strategy: custom (CaseNotesMemory.compact()) every 1 turns · older than 2 turns
-pause     on — tools with channel wait for external signal
+pause     on — tools with an approval wait for external signal
 flow
   onStart(DeskWorkflowStart)
     .toAgent(DeskAgent)
@@ -61,10 +61,10 @@ routers
 limits
   maxSteps 3 (default: (agents + routers + actions + external tasks) × 3) · steps 1–1
   Worst case of one desk-workflow-start call
-    workflow executions     1  1 desk-workflow
-    at the same time        1  1 desk-workflow
-    steps  1  1 in desk-workflow (longest path)
-    nesting depth           1  desk-workflow
+    workflow executions  1  1 desk-workflow
+    at the same time     1  1 desk-workflow
+    steps                1  1 in desk-workflow (longest path)
+    nesting depth        1  desk-workflow
 models
   agents.desk-agent  model: harness/desk → harness-model-provider
 agents

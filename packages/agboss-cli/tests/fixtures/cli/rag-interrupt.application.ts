@@ -18,6 +18,7 @@ import {
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { starOf } from "../../../../agboss/tests/fixtures/test-flow/star.js";
 import { testConfig, testDefaults } from "../../../../agboss/tests/helpers.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 /** What the test sees of the run: that it started, and whether its signal aborted it. */
 export interface InterruptProbe {
@@ -75,6 +76,7 @@ export class SlowReaderAgent {}
 export class SlowNotesWorkflow {}
 
 @Application({
+  modelProvider: TestModelProvider,
   name: "slow-notes-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

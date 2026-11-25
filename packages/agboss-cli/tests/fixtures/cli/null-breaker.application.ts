@@ -13,6 +13,8 @@ import { minutes, seconds } from "../../../../agboss/src/units/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { TestWorkflow } from "../../../../agboss/tests/fixtures/test-workflow/test.workflow.js";
 
+export { TestWorkflow };
+
 /**
  * `agboss check` fixture (#521 AC1, acceptance): a JS project's provider — or a cast — with
  * `circuitBreakerPolicy: null` in place of the policy its type requires.
@@ -37,6 +39,7 @@ export class NullBreakerModelProvider {}
 
 /** The application `agboss --application` loads: the test workflow on that provider. */
 @Application({
+  modelProvider: NullBreakerModelProvider,
   name: "null-breaker-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

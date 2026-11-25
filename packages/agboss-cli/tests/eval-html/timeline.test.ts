@@ -79,7 +79,7 @@ describe("#397 PR 2: a run's timeline", () => {
   it("side-path failures, pauses, undo actions, a child nested, and the output", () => {
     expect(run).toContain("<li>refund-agent → notify-action: step.agent the agent failed</li>");
     expect(run).toContain(
-      "<li>refund-agent asked refund-approval-channel: replied by owner-1 — {&quot;approved&quot;:true}</li>",
+      "<li>refund-agent asked refund-approval-tool-approval-3: replied by owner-1 — {&quot;approved&quot;:true}</li>",
     );
     expect(run).toContain(
       "<li>refund-charge-action undid charge-action (side-path): compensated</li>",

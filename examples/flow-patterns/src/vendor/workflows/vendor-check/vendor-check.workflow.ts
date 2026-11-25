@@ -1,8 +1,6 @@
 import { onStart, StepFailedError, toAction, Workflow, toFinish, Ttl } from "@agboss/core";
 import { MarkVendorFailedAction } from "../../actions/mark-vendor-failed.action.js";
 import { VendorCheckerAgent } from "../../agents/vendor-checker/vendor-checker.agent.js";
-import { VendorRejectedDto } from "../../dto/vendor-rejected.dto.js";
-import { VendorScoreDto } from "../../dto/vendor-score.dto.js";
 import { VendorCheckFailedWorkflowFinish } from "./vendor-check-failed.workflow-finish.js";
 import { VendorRejectedWorkflowFinish } from "./vendor-rejected.workflow-finish.js";
 import { VendorScoredWorkflowFinish } from "./vendor-scored.workflow-finish.js";

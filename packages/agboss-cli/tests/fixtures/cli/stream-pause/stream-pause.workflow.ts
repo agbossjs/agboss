@@ -21,6 +21,7 @@ import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.
 import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
 import { StreamEnvironment } from "./environments/app.environment.js";
 import { days } from "../../../../../agboss/src/units/index.js";
+import { StreamModelProvider } from "../stream-model-provider.js";
 
 @WorkflowStart({
   name: "pause-ask-workflow-start",
@@ -58,7 +59,9 @@ export class PauseRefundToolApproval {}
 /** Posts nothing: the terminal asks the thread's owner. */
 @Channel({ name: "pause-silent-refund-channel", target: PauseRefundToolApproval, ttl: days(1) })
 export class PauseSilentRefundChannel {
-  send(_ask: ChannelAsk<PauseRefundToolApproval>): Promise<ChannelOutcome<PauseRefundToolApproval>> {
+  send(
+    _ask: ChannelAsk<PauseRefundToolApproval>,
+  ): Promise<ChannelOutcome<PauseRefundToolApproval>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
   }
 }
@@ -99,6 +102,7 @@ export class PauseClerk {}
 export class PauseWorkflow {}
 
 @Application({
+  modelProvider: StreamModelProvider,
   name: "stream-pause-application",
   version: "1.0.0",
   environment: StreamEnvironment,

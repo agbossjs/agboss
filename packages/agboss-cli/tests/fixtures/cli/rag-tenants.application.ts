@@ -4,6 +4,7 @@ import { Application, EmptyEnvironment, TenantContext } from "../../../../agboss
 import { Enum } from "../../../../agboss/src/dto/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { NotesWorkflow } from "./rag.workflow.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 export class NotesTenantContext extends TenantContext {
   @Enum(["free", "pro"])
@@ -11,6 +12,7 @@ export class NotesTenantContext extends TenantContext {
 }
 
 @Application({
+  modelProvider: TestModelProvider,
   name: "tenant-notes-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

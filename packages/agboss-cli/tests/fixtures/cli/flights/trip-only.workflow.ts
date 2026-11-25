@@ -3,8 +3,10 @@
 import { Application, EmptyEnvironment } from "../../../../../agboss/src/index.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
 import { TripWorkflow } from "./trip.workflow.js";
+import { TestModelProvider } from "../../../../../agboss/src/testing/test-model-provider.js";
 
 @Application({
+  modelProvider: TestModelProvider,
   name: "trip-only-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

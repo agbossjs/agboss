@@ -16,6 +16,7 @@ import {
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
 import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
 import { StreamEnvironment } from "./environments/app.environment.js";
+import { StreamModelProvider } from "../stream-model-provider.js";
 
 @WorkflowStart({
   name: "ask-workflow-start",
@@ -53,6 +54,7 @@ export class AnsweringAgent {}
 export class AskWorkflow {}
 
 @Application({
+  modelProvider: StreamModelProvider,
   name: "stream-application",
   version: "1.0.0",
   environment: StreamEnvironment,

@@ -19,6 +19,7 @@ import {
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { starOf } from "../../../../agboss/tests/fixtures/test-flow/star.js";
 import { testConfig, testDefaults } from "../../../../agboss/tests/helpers.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 @Rag({ name: "owner-notes-rag", description: "An owner's notes", scope: RagScope.Owner, topK: 2 })
 export class OwnerNotesRag extends RagSource {
@@ -56,6 +57,7 @@ export class OwnerReaderAgent {}
 export class OwnerNotesWorkflow {}
 
 @Application({
+  modelProvider: TestModelProvider,
   name: "owner-notes-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

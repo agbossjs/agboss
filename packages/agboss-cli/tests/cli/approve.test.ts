@@ -120,7 +120,7 @@ describe("#659: a question pause in the terminal", () => {
     const done = await untilDone(paused, app, ask);
 
     expect(ask.mock.calls[0]?.[0]).toBe(
-      'limit-question asks {"item":"laptop"} — your answer (a line starting with { is the typed answer as JSON, anything else a reply): ',
+      'limit-external-task asks {"item":"laptop"} — your answer (a line starting with { is the typed answer as JSON, anything else a reply): ',
     );
     expect(ask.mock.calls[1]?.[0]).toMatch(/limitUsd[\s\S]*your answer \(.*\): $/);
     expect(done).toFinishWith(LimitWorkflowFinish, { approved: true, limitUsd: 900 });

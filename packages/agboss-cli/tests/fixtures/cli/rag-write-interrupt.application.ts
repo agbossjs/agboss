@@ -11,6 +11,7 @@ import { Rag, RagScope, SqliteFtsRagSource } from "../../../../agboss/src/rag/in
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { starOf } from "../../../../agboss/tests/fixtures/test-flow/star.js";
 import { testConfig, testDefaults } from "../../../../agboss/tests/helpers.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 @Rag({
   name: "write-rag",
@@ -47,6 +48,7 @@ export class WriteReaderAgent {}
 export class WriteNotesWorkflow {}
 
 @Application({
+  modelProvider: TestModelProvider,
   name: "write-notes-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

@@ -4,11 +4,13 @@ import { Application, EmptyEnvironment } from "../../../../../agboss/src/index.j
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
 import { ApprovalsWorkflow } from "./approvals.workflow.js";
 import { TripWorkflow } from "./trip.workflow.js";
+import { TestModelProvider } from "../../../../../agboss/src/testing/test-model-provider.js";
 
 // a module outside a src/ is generated alone: its workflows are found among its exports
 export { ApprovalsWorkflow, TripWorkflow };
 
 @Application({
+  modelProvider: TestModelProvider,
   name: "flights-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

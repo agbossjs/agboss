@@ -18,6 +18,7 @@ import {
   KitRouter,
   SecondKitWorkflowStart,
 } from "../../../../agboss/tests/flow/fixtures/kit.fixture.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 // the types import the DTO from a module the check loads
 export { OfferDraftDto };
@@ -42,6 +43,7 @@ export class StepsBelowWorkflow {}
 
 /** The application `agboss --application` loads (#268): this workflow alone. */
 @Application({
+  modelProvider: TestModelProvider,
   name: "steps-below-application",
   version: "1.0.0",
   environment: EmptyEnvironment,

@@ -145,6 +145,7 @@ export class QuotesLookupJudge implements JudgeHandler<WorkflowFinishTextDto> {
 
 @Application({
   name: "evals-application",
+  modelProvider: ScriptedModelProvider,
   version: "1.0.0",
   environment: EmptyEnvironment,
   workflows: [LookupWorkflow],

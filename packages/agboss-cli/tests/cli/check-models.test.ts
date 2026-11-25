@@ -18,7 +18,7 @@ describe("AC6: agboss check --models", () => {
     );
 
     expect(report.exitCode).toBe(0);
-    expect(report.lines.at(-1)).toBe("ok: 3 model settings fit their models");
+    expect(report.lines.at(-1)).toBe("ok: 2 model settings fit their models");
     expect(report.lines[0]).toContain("agents.summariser-agent  local/llama · provider local");
   });
 
@@ -67,10 +67,8 @@ describe("AC6: agboss check --models", () => {
     expect(report.exitCode).toBe(0);
     expect(report.lines.map((line) => line.split(" · ").slice(0, 2).join(" · "))).toEqual([
       "drafting-workflow agents.drafting-agent  local/llama · provider local-model-provider",
-      "drafting-workflow defaults.router  typesafe/jev-1.13 · provider decisions-model-provider",
       "polishing-workflow agents.polishing-agent  moonshotai/kimi-k2.6 · provider openrouter-model-provider",
-      "polishing-workflow defaults.router  typesafe/jev-1.13 · provider decisions-model-provider",
-      "ok: 4 model settings fit their models",
+      "ok: 2 model settings fit their models",
     ]);
   });
 

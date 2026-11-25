@@ -165,11 +165,9 @@ describe("#521 / #1313b: agboss check on a model provider without circuitBreaker
 
     expect(breakerProblems(call)).toEqual([]);
     expect(call.stderr).not.toMatch(/Cannot read properties/);
-    // the provider is still checked: it is the unserved models that fail the run, not the missing breaker
-    expect(call.code).toBe(3);
-    expect((envelope(call).result as CheckResult).problems).toContainEqual(
-      expect.objectContaining({ code: "model.unserved" }),
-    );
+    // the provider is in use, its models served: nothing is a problem, the run passes
+    expect(call.code).toBe(0);
+    expect((envelope(call).result as CheckResult).problems).toEqual([]);
   });
 });
 
@@ -179,6 +177,7 @@ describe("#521 / #1313b acceptance: agboss check on circuitBreakerPolicy: null",
 
     expect(breakerProblems(call)).toEqual([]);
     expect(call.stderr).not.toMatch(/Cannot (read|destructure) propert/);
-    expect(call.code).toBe(3);
+    expect(call.code).toBe(0);
+    expect((envelope(call).result as CheckResult).problems).toEqual([]);
   });
 });

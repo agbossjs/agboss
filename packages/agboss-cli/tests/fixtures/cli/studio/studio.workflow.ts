@@ -14,6 +14,7 @@ import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.
 import { SplitWorkflow } from "../../../../../agboss/tests/flow/runtime/fixtures/recursion.workflow.js";
 import { onStart, toWorkflow } from "../../../../../agboss/tests/helpers/flow.js";
 import { StudioEnvironment } from "./environments/app.environment.js";
+import { TestModelProvider } from "../../../../../agboss/src/testing/test-model-provider.js";
 
 export class StudioItemDto {
   @Text({ prompt: "the item" })
@@ -62,7 +63,9 @@ export class ItemCheckedWorkflowFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(StudioItemWorkflowStart).toAction(CheckItemAction).toFinish(ItemCheckedWorkflowFinish),
+    onStart(StudioItemWorkflowStart)
+      .toAction(CheckItemAction)
+      .toFinish(ItemCheckedWorkflowFinish),
   ],
 })
 export class StudioItemWorkflow {}
@@ -83,7 +86,8 @@ export class StudioItemsWorkflowStart {}
 export class SummaryAction {
   execute(input: { readonly results: readonly StudioResultDto[] }): Promise<StudioSummaryDto> {
     return Promise.resolve({
-      text: input.results.map((result) => result.name).join(", "),
+      text: input.results.map((result) => result.name)
+        .join(", "),
     });
   }
 }
@@ -135,6 +139,7 @@ export class StudioOneWorkflow {}
 
 /** The child is not listed: it belongs to its parents. */
 @Application({
+  modelProvider: TestModelProvider,
   name: "studio-application",
   version: "1.0.0",
   environment: StudioEnvironment,

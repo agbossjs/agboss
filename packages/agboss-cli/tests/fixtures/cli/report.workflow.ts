@@ -20,6 +20,7 @@ import { listOf } from "../../../../agboss/src/flow/dto-wrappers.js";
 import { Text } from "../../../../agboss/src/dto/index.js";
 import type { Usd } from "../../../../agboss/src/units/index.js";
 import { onStart, toWorkflow } from "../../../../agboss/tests/flow/fixtures/paths.js";
+import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 /** One item of the batch. */
 export class ReportItemDto {
@@ -158,6 +159,7 @@ export class ReportExecutionBudget implements BudgetHandler {
 
 /** The application `agboss --application` loads (#268): the batch and, through it, its child. */
 @Application({
+  modelProvider: TestModelProvider,
   name: "report-application",
   version: "2.0.0",
   environment: EmptyEnvironment,

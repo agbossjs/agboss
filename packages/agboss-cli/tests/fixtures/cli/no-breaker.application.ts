@@ -13,6 +13,8 @@ import { minutes, seconds } from "../../../../agboss/src/units/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { TestWorkflow } from "../../../../agboss/tests/fixtures/test-workflow/test.workflow.js";
 
+export { TestWorkflow };
+
 /**
  * `agboss check` fixture (#521 AC1): a JS project's provider — or a cast — without the
  * `circuitBreakerPolicy` its type requires.
@@ -39,6 +41,7 @@ export class UnguardedModelProvider {}
 
 /** The application `agboss --application` loads: the test workflow on that provider. */
 @Application({
+  modelProvider: UnguardedModelProvider,
   name: "no-breaker-application",
   version: "1.0.0",
   environment: EmptyEnvironment,
