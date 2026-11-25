@@ -6,5 +6,4 @@ export {
   ExecutionPauseFencedError,
   ExecutionStopFencedError,
   ExecutionStoppedError,
-  type InterruptFenced,
 } from "./app/lease-stopped.js";

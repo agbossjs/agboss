@@ -4,6 +4,7 @@
  */
 import { StoreError } from "../../src/core/error-families/store-errors.js";
 import * as root from "../../src/index.js";
+import * as internal from "../../src/internal.js";
 import * as stores from "../../src/stores/index.js";
 import * as models from "../../src/models/index.js";
 import { ModelKind } from "../../src/llm/decision-errors.js";
@@ -16,6 +17,25 @@ const message = "it went wrong";
 
 export const fixtures: Readonly<Record<string, object>> = Object.fromEntries([
   fx(root.ApplicationStoppingError, { message }),
+  fx(internal.ExecutionCancelledError, { message }),
+  fx(internal.ExecutionStoppedError, { message }),
+  fx(internal.ExecutionPausedError, { message }),
+  fx(internal.ExecutionStopFencedError, {
+    scopeKey: "acme:root-1",
+    tenantId: "acme",
+    rootExecutionId: "root-1",
+    leaseExecutionId: "child-1",
+    token: 2,
+    effect: "charge",
+  }),
+  fx(internal.ExecutionPauseFencedError, {
+    scopeKey: "acme:root-1",
+    tenantId: "acme",
+    rootExecutionId: "root-1",
+    leaseExecutionId: "child-1",
+    token: 2,
+    effect: "charge",
+  }),
   fx(root.ExecutionLeaseLostError, { rootExecutionId: "root-1" }),
   fx(stores.InvalidA2APageTokenError, {}),
   fx(root.NotPausedError, { message }),

@@ -109,6 +109,7 @@ export { NotPausedError } from "./run/resume-agent.js";
 export { ModelKind } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./core/errors.js";
 export { cancelFencedErrorOf } from "./app/handed-over.js";
+export type { CancelFencedFacts } from "./core/error-families/run-error-facts.js";
 export {
   fencedRefusalOf,
   ExecutionLeaseLostError,

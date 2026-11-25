@@ -1,5 +1,5 @@
 import { errorRecordOf } from "../core/error-record.js";
-import { cancelFencedErrorOf } from "./handed-over.js";
+import { interruptFencedOf } from "./handed-over.js";
 import {} from "./lease-lost.js";
 import { ExecutionError } from "../core/error-families/run-errors.js";
 import { isStoreOutcomeUnknown } from "../infrastructure/store-call-timeout.js";
@@ -205,7 +205,7 @@ export function replayed<TRequest, TResult>(
 export const cancelledBy =
   <TRequest, TResult>(run: CallRun<TRequest, TResult>) =>
   async (error: unknown): Promise<never> => {
-    const cancelled = cancelFencedErrorOf(error);
+    const cancelled = interruptFencedOf(error);
     if (cancelled !== undefined) {
       told(run, OutboundCallEventOutcome.Cancelled, [OutboundCallStatus.Pending, 0]);
       run.frame.execution.lease?.cancelFound?.(cancelled);

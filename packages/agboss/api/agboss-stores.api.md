@@ -372,7 +372,7 @@ export interface BusinessKeyOptions {
 }
 
 // @public
-export const cancelFencedErrorOf: (error: unknown) => ExecutionError.CancelFenced | InterruptFenced | undefined;
+export const cancelFencedErrorOf: (error: unknown) => ExecutionError.CancelFenced | undefined;
 
 // @public
 export type CancelFencedKey = Pick<EffectKey, "scopeKey" | "tenantId" | "leaseExecutionId" | "token" | "name" | "rootExecutionId">;

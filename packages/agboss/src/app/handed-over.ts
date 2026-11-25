@@ -50,11 +50,11 @@ export const fencedErrorOf = (error: unknown): FencedRefusalError | undefined =>
   errorOfClass(error, ExecutionError.Fenced) ?? errorOfClass(error, ExecutionError.Fenced);
 
 /**
- * The `ExecutionError.CancelFenced` behind `error` (#909): the error itself, or one in its `cause`
+ * The cancel's, a stop's or a pause's fenced refusal behind `error` (#909): the error itself, or one in its `cause`
  * chain or an `AggregateError`'s `errors` — a store's refusal of a write after its tree's cancel,
  * however a driver or a step wrapped it.
  */
-export const cancelFencedErrorOf = (
+export const interruptFencedOf = (
   error: unknown,
 ): ExecutionError.CancelFenced | InterruptFenced | undefined =>
   errorOfClass(error, ExecutionError.CancelFenced) ??
@@ -70,7 +70,7 @@ export function cancelMet(
   lease: Pick<FrameLease, "cancelFound">,
   tell: () => void,
 ): void {
-  const cancelled = cancelFencedErrorOf(error);
+  const cancelled = interruptFencedOf(error);
   if (cancelled === undefined) return;
   tell();
   lease.cancelFound?.(cancelled);
@@ -166,3 +166,7 @@ export function recordedHandOver<T extends HandedOver>(
   lease.recordHandOver({ event: nodeEventOf(frame), error: handedOver, site });
   return handedOver;
 }
+
+/** The `ExecutionError.CancelFenced` behind `error` (#909): the error itself, or one in its `cause` chain. */
+export const cancelFencedErrorOf = (error: unknown): ExecutionError.CancelFenced | undefined =>
+  errorOfClass(error, ExecutionError.CancelFenced);

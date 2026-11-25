@@ -1339,9 +1339,6 @@ export function inputLines(analysis: FlowAnalysis): readonly string[];
 export const INTERNAL_FAILURE = "internal";
 
 // @public
-export type InterruptFenced = ExecutionStopFencedError | ExecutionPauseFencedError;
-
-// @public
 export const isExecutionCancelled: (error: unknown) => error is ExecutionCancelledError | ExecutionError.CancelFenced;
 
 // @public

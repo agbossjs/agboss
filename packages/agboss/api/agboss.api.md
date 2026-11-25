@@ -944,7 +944,19 @@ export interface CallOptions {
 }
 
 // @public
-export const cancelFencedErrorOf: (error: unknown) => ExecutionError.CancelFenced | InterruptFenced | undefined;
+export const cancelFencedErrorOf: (error: unknown) => ExecutionError.CancelFenced | undefined;
+
+// @public
+export interface CancelFencedFacts {
+    readonly effect?: string | undefined;
+    readonly leaseExecutionId?: string | undefined;
+    readonly rootExecutionId?: string | undefined;
+    readonly scopeKey?: string | undefined;
+    // (undocumented)
+    readonly tenantId?: string | undefined;
+    // (undocumented)
+    readonly token?: number | undefined;
+}
 
 // @public
 export type CancelledErrorCode = "execution.cancelled" | "execution.cancelled.fenced" | "execution.stopped" | "execution.stopped.fenced" | "execution.paused.fenced" | "execution.paused";
@@ -10912,6 +10924,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Conflict".
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Refused".
 // src/core/error-families/remote-errors.ts - (ae-undocumented) Missing documentation for "Unavailable".
+// src/core/error-families/run-error-facts.ts - (ae-undocumented) Missing documentation for "tenantId".
+// src/core/error-families/run-error-facts.ts - (ae-undocumented) Missing documentation for "token".
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "CancelFenced".
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "LeaseLost".
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "Fenced".
