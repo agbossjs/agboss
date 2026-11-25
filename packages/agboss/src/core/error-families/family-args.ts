@@ -40,10 +40,10 @@ function factsOf(
 ): Readonly<Record<string, unknown>> {
   const { keep, force } = spec[2] ?? {};
   const kept = keep === undefined ? {} : (keep as (facts: object) => object)(given);
+  // a fact given as `undefined` stays a (key-bearing) fact unless the variant derives its value
   const defined = Object.fromEntries(
-    Object.entries(given).filter(([, value]) => value !== undefined),
+    Object.entries(given).filter(([key, value]) => value !== undefined || !(key in kept)),
   );
-  // what was given wins over what the variant derives, unless the variant must clean what it is given
   return force === true ? { ...given, ...kept } : { ...kept, ...defined };
 }
 
