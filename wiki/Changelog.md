@@ -111,7 +111,7 @@ Breaking changes and notable additions, newest first. The API reports
   store reads it in the transaction that checks the lease, after the lease, the scope's mark and the
   key's lookup: `FencedEffectRepository.runOnce` (a new effect), `OutboundCallRepository.saveIfAbsent`
   (a new intent) and `markPending` (a new attempt) of a cancelled tree are refused with the new
-  `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`; `of(key)`
+  `ExecutionError.CancelFenced` (`execution.cancelled.fenced`, an `ExecutionCancelledError`; `of(key)`
   builds it, `cancelFencedErrorOf(error)` finds it in a cause chain, both also in
   `@agboss/core/stores`) — nothing written or sent; a stored result replays, an undo's key and the end
   of a claimed attempt are never refused. `EffectKeyFields` has two optional fields, `rootExecutionId`

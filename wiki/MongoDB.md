@@ -91,7 +91,7 @@ And what no setting can enforce — the assumptions of [Guarantees](Guarantees) 
   (`saveIfAbsent`, `markPending`) check it in their transaction after the lease, the scope's mark
   and (for an effect) the key's stored result: the root's document is *written* first (a counter
   nothing reads — an update that changes nothing is skipped and locks nothing), then read, and a
-  set `cancelRequestedAt` refuses the write with `ExecutionCancelFencedError`; an undo's key is not
+  set `cancelRequestedAt` refuses the write with `ExecutionError.CancelFenced`; an undo's key is not
   refused. For a root's or a `SameInstance` key that document is the lease `checkFence` already
   wrote; for a child's key it is its root's, seeded in the same transaction when it does not exist
   yet, so a document always exists to conflict on. The cancel either waits for a transaction that

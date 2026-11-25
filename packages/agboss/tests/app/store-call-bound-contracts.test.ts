@@ -3,10 +3,11 @@
  * have taken effect, and what is done next (a retry, a resend, the sweep) finds the store as it is
  * and moves it once. Each case lets the real store apply the call and then never answers.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { ExecutionCancelFencedError, PauseStatus } from "../../src/index.js";
+import { PauseStatus } from "../../src/index.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { STORE_CALL_BOUND } from "../../src/app/lease-fence.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
@@ -109,7 +110,7 @@ const cancelMarksOf = (app: Parameters<typeof databaseOf>[0]): readonly number[]
 
 describe("#928 AC2: requestCancel", () => {
   fence(
-    "AC2: unanswered: app.cancel rejects; the retry writes the mark once; the next fenced write is refused ExecutionCancelFencedError",
+    "AC2: unanswered: app.cancel rejects; the retry writes the mark once; the next fenced write is refused ExecutionError.CancelFenced",
     async ({ apps }) => {
       const [first, second] = apps;
       if (first === undefined || second === undefined) throw new Error("two instances");
@@ -140,7 +141,7 @@ describe("#928 AC2: requestCancel", () => {
       const ended = await moving;
       expect(ended).toMatchObject({ status: ExecutionStatus.Cancelled });
       expect(fenced.refusals).toHaveLength(1);
-      expect(fenced.refusals[0]).toBeInstanceOf(ExecutionCancelFencedError);
+      expect(fenced.refusals[0]).toBeInstanceOf(ExecutionError.CancelFenced);
       expect(fenced.charged).toEqual([]);
     },
   );

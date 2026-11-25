@@ -1,5 +1,5 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
 import type { EffectKey } from "../../infrastructure/fenced-effect.repository.js";
 import { hours } from "../../units/index.js";
@@ -42,8 +42,8 @@ export const outboundCancelRetentionCases = (): ContractGroup<OutboundCallTarget
           first.calls.saveIfAbsent(childKey(later), intentOf(childKey(later))),
         );
 
-        expect(ofChild).toBeInstanceOf(ExecutionCancelFencedError);
-        expect(ofLater).toBeInstanceOf(ExecutionCancelFencedError);
+        expect(ofChild).toBeInstanceOf(ExecutionError.CancelFenced);
+        expect(ofLater).toBeInstanceOf(ExecutionError.CancelFenced);
         expect(await first.calls.findByKey(childKey(child))).toBeUndefined();
         expect(await first.calls.findByKey(childKey(later))).toBeUndefined();
       },
@@ -61,7 +61,7 @@ export const outboundCancelRetentionCases = (): ContractGroup<OutboundCallTarget
         const refused = await rejectionOf(first.calls.saveIfAbsent(key, intentOf(key)));
 
         expect(lease.token).toBe(1);
-        expect(refused).toBeInstanceOf(ExecutionCancelFencedError);
+        expect(refused).toBeInstanceOf(ExecutionError.CancelFenced);
         expect(await first.calls.findByKey(key)).toBeUndefined();
       },
     },

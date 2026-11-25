@@ -1,6 +1,8 @@
 import { defineFamily, type ErrorVariant, type FamilyConstructor } from "./family.js";
+import type { CancelFencedFacts } from "./run-error-facts.js";
 import type { KeyTextRule } from "../key-text-rule.js";
 import {
+  cancelFencedMessageOf,
   compensationFailedMessageOf,
   duplicateExecutionIdMessageOf,
   incompatibleResumeMessageOf,
@@ -58,11 +60,12 @@ export type ExecutionError =
 
 /** The variants of `ExecutionError`, each with the facts it carries. */
 export declare namespace ExecutionError {
-  /** The execution was cancelled and its writes are fenced. */
+  /** The execution was cancelled and its writes are fenced: a cancel, unwound under the lease the instance still holds — no hand-over. */
   export type CancelFenced = ErrorVariant<
     ExecutionErrorKind.CancelFenced,
     "execution.cancelled.fenced"
-  >;
+  > &
+    CancelFencedFacts;
   /** The instance lost the lease of the tree it was moving. */
   export type LeaseLost = ErrorVariant<ExecutionErrorKind.LeaseLost, "execution.lease-lost"> & {
     readonly rootExecutionId: string;
@@ -200,10 +203,7 @@ export const ExecutionError: FamilyConstructor<
   code: "execution",
   kinds: ExecutionErrorKind,
   variants: {
-    CancelFenced: [
-      "the execution was cancelled and its writes are fenced",
-      "execution.cancelled.fenced",
-    ],
+    CancelFenced: [cancelFencedMessageOf, "execution.cancelled.fenced"],
     LeaseLost: ["the instance lost the lease of the tree it was moving"],
     Fenced: ["an external system refused a write of this execution", "execution.lease-lost.fenced"],
     ExternallyPaused: ["the execution is paused from outside"],

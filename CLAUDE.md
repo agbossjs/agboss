@@ -2451,7 +2451,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   until its tree is over (its lease retired) and the fencing stores' retention lifts it — never by age alone: a tree not over stays fenced — and `app.cancel` resolves only once it is durable (it rejects with the store's
   error, nothing aborted, when it cannot be written); from then on every fencing store refuses, in the transaction that checks the
   lease, a new fenced effect (`runOnce`), a new intent (`saveIfAbsent`) and a new attempt (`markPending`) of the tree with
-  `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`, nothing written or sent) — after the
+  `ExecutionError.CancelFenced` (`execution.cancelled.fenced`: a cancel, never a hand-over, unwound under the held lease — `isExecutionCancelled`, `cancelFencedOf(key)` in `@agboss/core/stores`; nothing written or sent) — after the
   lease and mark checks and, for an effect, after the key's lookup: a stored result replays, an undo's key (`isCompensation`, set by
   `effectKeyOf` from `step.compensates`) is never refused, a child's key is fenced by its root's cancel (`rootExecutionId`,
   `cancelTreeOf(key)`), a stale token is still `ExecutionError.Fenced`; `markCompleted`/`markFailed`/`findByKey` are accepted. The

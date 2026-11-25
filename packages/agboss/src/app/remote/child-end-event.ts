@@ -1,3 +1,4 @@
+import { isExecutionCancelled } from "../../core/execution-cancelled.js";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import type { ExecutionEndEvent } from "../../core/observability.js";
 import type { ExecutionEvent } from "../../flow/observers/execution-event.js";
@@ -90,4 +91,4 @@ export async function announcePass(
 
 /** The cancellation a failed pass ended with, if that is what stopped it. */
 export const cancelledOf = (child: ClaimedChild, cause: unknown): CancelledChild | undefined =>
-  cause instanceof ExecutionCancelledError ? { ...child, error: cause } : undefined;
+  isExecutionCancelled(cause) ? { ...child, error: cause } : undefined;

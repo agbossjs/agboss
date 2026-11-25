@@ -63,7 +63,7 @@ export enum OutboundCallEventOutcome {
   LeaseClosed = "lease-closed",
   /**
    * Refused before anything was recorded or sent: its tree's cancel is durable (#909,
-   * `ExecutionCancelFencedError`) — the step stops, the tree unwinds as cancelled. Told with
+   * `ExecutionError.CancelFenced`) — the step stops, the tree unwinds as cancelled. Told with
    * attempt 0 and a `Pending` status: no intent or attempt was made.
    */
   Cancelled = "cancelled",
@@ -89,7 +89,7 @@ export enum IdempotencyRunEventOutcome {
   Joined = "joined",
   /** The lease or the scope's mark refused the call (`ExecutionError.Fenced`): nothing written. */
   Refused = "refused",
-  /** Its tree's cancel is durable (#909, `ExecutionCancelFencedError`): the write did not run. */
+  /** Its tree's cancel is durable (#909, `ExecutionError.CancelFenced`): the write did not run. */
   Cancelled = "cancelled",
 }
 

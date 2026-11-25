@@ -7,8 +7,8 @@ import {
   BudgetScope,
   LimitExceededError,
   PaidStepError,
-  ExecutionCancelledError,
 } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 
 import { usd } from "../../src/units/index.js";
 

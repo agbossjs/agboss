@@ -1,6 +1,6 @@
+import { isExecutionCancelled } from "../core/execution-cancelled.js";
 import { storedInputOf } from "../pii/final-output-mask.js";
 import { maskedTreeRecordOf, treeMasksFor } from "./record-masks.js";
-import { ExecutionCancelledError } from "../core/errors.js";
 import { ExecutionStoppedError } from "../app/lease-stopped.js";
 import { shownCallOf } from "../infrastructure/fenced-effect-key.js";
 import { currentAuditEventOf } from "../infrastructure/execution-audit-log.repository.js";
@@ -78,7 +78,7 @@ export const historyEndOf = (
   status:
     error instanceof ExecutionStoppedError
       ? ExecutionHistoryStatus.Stopped
-      : error instanceof ExecutionCancelledError
+      : isExecutionCancelled(error)
         ? ExecutionHistoryStatus.Cancelled
         : ExecutionHistoryStatus.Failed,
   error,

@@ -12,7 +12,6 @@ import { errorRecordOf } from "../../src/core/error-record.js";
 import { isHandOverRecord } from "../../src/core/error-families/hand-over.js";
 import {
   ApplicationStoppingError,
-  ExecutionCancelFencedError,
   ExecutionError,
   ExecutionLeaseLostError,
 } from "../../src/index.js";
@@ -68,7 +67,6 @@ describe("#1325a: a hand-over reaches no .onError, not even the family's", () =>
   test("the kinds that are a hand-over, and only they, are handed over", () => {
     const handedOver = [
       new ExecutionError.LeaseLost({ rootExecutionId: "r" }),
-      new ExecutionError.CancelFenced(),
       new ExecutionError.ApplicationStopping(),
       new ExecutionError.Fenced({
         scopeKey: "t:r",
@@ -80,6 +78,8 @@ describe("#1325a: a hand-over reaches no .onError, not even the family's", () =>
 
     for (const error of handedOver) expect(isHandedOver(error), error.name).toBe(true);
     expect(isHandedOver(new ExecutionError.UnknownThread())).toBe(false);
+    // a cancel unwound under the held lease, not a hand-over
+    expect(isHandedOver(new ExecutionError.CancelFenced())).toBe(false);
     expect(isHandedOver(new ExecutionLeaseLostError({ rootExecutionId: "r" }))).toBe(true);
   });
 });
@@ -93,26 +93,16 @@ describe("#1325a: the legacy hand-overs and the family's are guarded alike while
       tenantId: "t",
       leaseExecutionId: "r",
     }),
-    new ExecutionCancelFencedError({
-      scopeKey: "t:r",
-      tenantId: "t",
-      rootExecutionId: "r",
-      leaseExecutionId: "r",
-      token: 1,
-      effect: "charge",
-    }),
   ];
 
   test("the record of each legacy hand-over, and of each family one, is a hand-over record", () => {
     for (const error of legacy)
       expect(isHandOverRecord(errorRecordOf(error)), error.name).toBe(true);
-    const family = [
-      new ExecutionError.LeaseLost({ rootExecutionId: "r" }),
-      new ExecutionError.CancelFenced(),
-    ];
+    const family = [new ExecutionError.LeaseLost({ rootExecutionId: "r" })];
     for (const error of family)
       expect(isHandOverRecord(errorRecordOf(error)), error.name).toBe(true);
     expect(isHandOverRecord(errorRecordOf(new ExecutionError.UnknownThread()))).toBe(false);
+    expect(isHandOverRecord(errorRecordOf(new ExecutionError.CancelFenced()))).toBe(false);
   });
 
   test("the legacy lease-lost, fenced and stopping errors are handed over (a cancel-fenced one is read by `cancelFencedErrorOf`)", () => {

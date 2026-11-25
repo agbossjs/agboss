@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect } from "vitest";
-import {
-  ActionFailedError,
-  BranchStatus,
-  StepFailedError,
-  ExecutionCancelledError,
-} from "../../../src/index.js";
+import { ActionFailedError, BranchStatus, StepFailedError } from "../../../src/index.js";
+import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { testWith, TestConcurrency } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {

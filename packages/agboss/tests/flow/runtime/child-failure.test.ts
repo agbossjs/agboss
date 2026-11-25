@@ -3,9 +3,9 @@ import {
   BranchStatus,
   ChildExecutionFailedError,
   ChildExecutionStatus,
-  ExecutionCancelledError,
   StepFailedError,
 } from "../../../src/index.js";
+import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { TestConcurrency, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import { ItemFailedError, type ItemDto } from "./fixtures/fan-out.workflow.js";

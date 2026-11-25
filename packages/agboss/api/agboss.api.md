@@ -944,7 +944,7 @@ export interface CallOptions {
 }
 
 // @public
-export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | InterruptFenced | undefined;
+export const cancelFencedErrorOf: (error: unknown) => ExecutionError.CancelFenced | InterruptFenced | undefined;
 
 // @public
 export type CancelledErrorCode = "execution.cancelled" | "execution.cancelled.fenced" | "execution.stopped" | "execution.stopped.fenced" | "execution.paused.fenced" | "execution.paused";
@@ -2725,60 +2725,6 @@ export interface ExecutionCancelEvent extends ExecutionEvent {
 }
 
 // @public
-export class ExecutionCancelFencedError extends ExecutionCancelledError {
-    constructor(options: ExecutionCancelFencedErrorOptions);
-    // (undocumented)
-    static readonly code: "execution.cancelled.fenced";
-    // (undocumented)
-    readonly code: typeof ExecutionCancelFencedError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    readonly leaseExecutionId: string;
-    // (undocumented)
-    name: string;
-    static of(key: Pick<EffectKey, "scopeKey" | "tenantId" | "leaseExecutionId" | "token" | "name" | "rootExecutionId">): ExecutionCancelFencedError;
-    // (undocumented)
-    readonly rootExecutionId: string;
-    // (undocumented)
-    readonly scopeKey: string;
-    // (undocumented)
-    readonly tenantId: string;
-    // (undocumented)
-    readonly token: number;
-}
-
-// @public
-export interface ExecutionCancelFencedErrorOptions {
-    // (undocumented)
-    readonly cause?: unknown;
-    readonly effect: string;
-    readonly leaseExecutionId: string;
-    readonly rootExecutionId: string;
-    readonly scopeKey: string;
-    // (undocumented)
-    readonly tenantId: string;
-    // (undocumented)
-    readonly token: number;
-}
-
-// @public
-export class ExecutionCancelledError extends AGBossError {
-    constructor(options?: ExecutionCancelledErrorOptions);
-    // (undocumented)
-    static readonly code: string;
-    readonly code: CancelledErrorCode;
-    // (undocumented)
-    name: string;
-}
-
-// @public
-export interface ExecutionCancelledErrorOptions extends AGBossErrorOptions {
-    // (undocumented)
-    readonly message?: string;
-}
-
-// @public
 export abstract class ExecutionContext {
     readonly application: ApplicationContext;
     readonly depth: number;
@@ -2862,7 +2808,7 @@ export type ExecutionError = ExecutionError.CancelFenced | ExecutionError.LeaseL
 export namespace ExecutionError {
     export type AlreadyTerminal = ErrorVariant<ExecutionErrorKind.AlreadyTerminal, "execution.already-terminal">;
     export type ApplicationStopping = ErrorVariant<ExecutionErrorKind.ApplicationStopping, "execution.application-stopping">;
-    export type CancelFenced = ErrorVariant<ExecutionErrorKind.CancelFenced, "execution.cancelled.fenced">;
+    export type CancelFenced = ErrorVariant<ExecutionErrorKind.CancelFenced, "execution.cancelled.fenced"> & CancelFencedFacts;
     export type CompensationFailed = ErrorVariant<ExecutionErrorKind.CompensationFailed, "execution.compensation-failed"> & {
         readonly failures: readonly CompensationRecord[];
     };
@@ -3288,44 +3234,11 @@ export type ExecutionOutputOf<TInstance> = WorkflowStartEntry<TInstance> extends
 } ? TOutput : unknown;
 
 // @public
-export class ExecutionPausedError extends ExecutionStoppedError {
-    constructor(options?: ExecutionCancelledErrorOptions);
-    // (undocumented)
-    static readonly code: string;
-    // (undocumented)
-    name: string;
-}
-
-// @public
 export interface ExecutionPauseEvent extends ExecutionEvent {
     readonly isExternallyPaused: boolean;
     // (undocumented)
     readonly pending: readonly PendingPause[];
     readonly reason?: string | undefined;
-}
-
-// @public
-export class ExecutionPauseFencedError extends ExecutionPausedError {
-    constructor(options: ExecutionCancelFencedErrorOptions);
-    // (undocumented)
-    static readonly code: "execution.paused.fenced";
-    // (undocumented)
-    readonly code: typeof ExecutionPauseFencedError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    readonly leaseExecutionId: string;
-    // (undocumented)
-    name: string;
-    static of(key: Parameters<typeof ExecutionCancelFencedError.of>[0]): ExecutionPauseFencedError;
-    // (undocumented)
-    readonly rootExecutionId: string;
-    // (undocumented)
-    readonly scopeKey: string;
-    // (undocumented)
-    readonly tenantId: string;
-    // (undocumented)
-    readonly token: number;
 }
 
 // @public
@@ -3478,39 +3391,6 @@ export interface ExecutionStepRecord {
 export interface ExecutionStopEvent extends ExecutionEvent {
     readonly reason?: string | undefined;
     readonly spend: CostReport;
-}
-
-// @public
-export class ExecutionStopFencedError extends ExecutionStoppedError {
-    constructor(options: ExecutionCancelFencedErrorOptions);
-    // (undocumented)
-    static readonly code: "execution.stopped.fenced";
-    // (undocumented)
-    readonly code: typeof ExecutionStopFencedError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    readonly leaseExecutionId: string;
-    // (undocumented)
-    name: string;
-    static of(key: Parameters<typeof ExecutionCancelFencedError.of>[0]): ExecutionStopFencedError;
-    // (undocumented)
-    readonly rootExecutionId: string;
-    // (undocumented)
-    readonly scopeKey: string;
-    // (undocumented)
-    readonly tenantId: string;
-    // (undocumented)
-    readonly token: number;
-}
-
-// @public
-export class ExecutionStoppedError extends ExecutionCancelledError {
-    constructor(options?: ExecutionCancelledErrorOptions);
-    // (undocumented)
-    static readonly code: string;
-    // (undocumented)
-    name: string;
 }
 
 // @public
@@ -5014,9 +4894,6 @@ export interface InterruptCleanupErrorEvent extends NodeEvent {
     readonly error: unknown;
     readonly reason: InterruptReason;
 }
-
-// @public
-export type InterruptFenced = ExecutionStopFencedError | ExecutionPauseFencedError;
 
 // @public
 export enum InterruptMode {
@@ -10678,40 +10555,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "cause".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "code".
 // src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "token".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "cause".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "scopeKey".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "leaseExecutionId".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "token".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "effect".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "scopeKey".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "leaseExecutionId".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "token".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "effect".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "scopeKey".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "leaseExecutionId".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "token".
-// src/app/lease-stopped.ts - (ae-undocumented) Missing documentation for "effect".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "target".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "operation".
 // src/app/outbound-call-types.ts - (ae-undocumented) Missing documentation for "target".
@@ -11118,12 +10961,9 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "cause".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "details".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
-// src/core/errors.ts - (ae-undocumented) Missing documentation for "name".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "code".
 // src/core/errors.ts - (ae-undocumented) Missing documentation for "name".

@@ -1,4 +1,4 @@
-import { ExecutionCancelFencedError } from "../app/lease-lost.js";
+import { cancelFencedOf } from "../app/cancel-fenced.js";
 import { InjectionToken } from "../components/injection.js";
 import { InterruptMode } from "../app/interrupt-types.js";
 import { ExecutionPauseFencedError, ExecutionStopFencedError } from "../app/lease-stopped.js";
@@ -87,7 +87,7 @@ export class InMemoryDatabase {
 /**
  * The cancel check of the in-memory stores (#909): the key's tree — its root's lease row — carries
  * the cancel mark (#1117: `cancelRequestedAt`, never lifted) and the key is not an undo's —
- * `ExecutionCancelFencedError`, nothing written or sent. After the lease and mark checks and, for
+ * `ExecutionError.CancelFenced`, nothing written or sent. After the lease and mark checks and, for
  * an effect, after the key's lookup (a stored result replays).
  */
 export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey): void {
@@ -98,7 +98,7 @@ export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey):
   if (row?.cancelRequestedAt === undefined && row?.stopMode === InterruptMode.Immediate)
     throw ExecutionStopFencedError.of(key);
   if (key.isCompensation === true) return;
-  if (row?.cancelRequestedAt !== undefined) throw ExecutionCancelFencedError.of(key);
+  if (row?.cancelRequestedAt !== undefined) throw cancelFencedOf(key);
 }
 
 /**

@@ -6,11 +6,8 @@
  * (and kept it, renewed) and wrote a `RemoteChild` takeover for it.
  */
 import { beforeEach, describe, expect } from "vitest";
-import {
-  ChildExecutionFailedError,
-  ExecutionCancelledError,
-  ExecutionRecordStatus,
-} from "../../src/index.js";
+import { ChildExecutionFailedError, ExecutionRecordStatus } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { testWith, type TestLeases } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import type { VirtualClock } from "../../src/testing/clock.js";

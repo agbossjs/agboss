@@ -3,7 +3,7 @@
  * `ExecutionCancelledError`, the real way: the mocked service calls `app.cancel(threadId)`.
  */
 import { describe, expect } from "vitest";
-import { ExecutionCancelledError } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { callTool, routeTo, testWith } from "../../src/testing/index.js";
 import {
   ChatStart,

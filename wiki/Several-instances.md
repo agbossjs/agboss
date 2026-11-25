@@ -1323,7 +1323,7 @@ writes the tree's cancel mark with `ExecutionLeaseRepository.requestCancel(tree)
 lease store's database, keyed by the tree's root, idempotent, changing no lease. From then on every
 fencing store of that database refuses, in the transaction that checks the lease, a **new**
 idempotent write (`runOnce`), outbound call intent (`saveIfAbsent`) or attempt (`markPending`) of the
-tree with `ExecutionCancelFencedError` (`execution.cancelled.fenced`, an `ExecutionCancelledError`):
+tree with `ExecutionError.CancelFenced` (`execution.cancelled.fenced`, a cancel — never a hand-over):
 nothing is written or sent, so a holder that has not read the request yet — up to a renewal, 7.5 s —
 cannot charge. What stays: a result stored **before** replays; the tree's own **undo** (the key of a
 step that compensates another, `isCompensation`) is never refused, so the unwinding can refund; a

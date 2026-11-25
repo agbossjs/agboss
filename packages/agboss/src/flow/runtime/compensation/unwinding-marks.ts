@@ -1,3 +1,4 @@
+import { isExecutionCancelled } from "../../../core/execution-cancelled.js";
 import { AGBossError, ExecutionCancelledError } from "../../../core/errors.js";
 import {
   durableRecordOf,
@@ -90,7 +91,7 @@ export type UndoneMarks = Pick<UnwindMarks, "trees" | "tree">;
 
 /** Why an execution that ended without a finish is undone: cancelled, or failed. */
 export const reasonOfCause = (cause: unknown): CompensationReason =>
-  cause instanceof ExecutionCancelledError
+  isExecutionCancelled(cause)
     ? CompensationReason.ExecutionCancelled
     : CompensationReason.ExecutionFailed;
 

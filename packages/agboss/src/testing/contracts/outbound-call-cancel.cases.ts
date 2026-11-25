@@ -1,6 +1,5 @@
 import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import {
   OutboundCallStatus,
   type OutboundCallState,
@@ -20,7 +19,7 @@ import {
 /**
  * The cancel as a fence of the outbound call (#909): once a tree's cancel request is durable
  * (`ExecutionLeaseRepository.requestCancel`), no new send starts under it — `saveIfAbsent` (a new
- * intent) and `markPending` (a new attempt) are refused with `ExecutionCancelFencedError`, nothing
+ * intent) and `markPending` (a new attempt) are refused with `ExecutionError.CancelFenced`, nothing
  * recorded or claimed, so nothing can be sent. What ends or reads an attempt that was claimed before
  * is accepted — `markCompleted`, `markFailed`, `findByKey`: refusing them would lose what happened.
  */
@@ -41,7 +40,7 @@ const treeOf = (lease: ExecutionLease) => ({
 });
 
 const saveRefused: OutboundCallCase = {
-  name: "#909 AC1: saveIfAbsent after its tree's durable cancel is refused — ExecutionCancelFencedError, nothing recorded, so nothing can be sent",
+  name: "#909 AC1: saveIfAbsent after its tree's durable cancel is refused — ExecutionError.CancelFenced, nothing recorded, so nothing can be sent",
   isFencing: true,
   run: async ({ first, second }) => {
     const lease = await leaseOf(first);
@@ -50,7 +49,7 @@ const saveRefused: OutboundCallCase = {
 
     const refused = await rejectionOf(first.calls.saveIfAbsent(key, intentOf(key)));
 
-    expect(refused).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(refused).not.toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({ code: "execution.cancelled.fenced", effect: "charge" });
     expect(await first.calls.findByKey(key)).toBeUndefined();
@@ -72,7 +71,7 @@ const markPendingRefused: OutboundCallCase = {
       first.calls.markPending(key, FAILED, { attempt: 2, attemptOwner: "owner-2" }),
     );
 
-    expect(refused).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(await second.calls.findByKey(key)).toMatchObject({
       status: OutboundCallStatus.Failed,
       attempt: 1,
@@ -157,7 +156,7 @@ const staleTokenIsHandOver: OutboundCallCase = {
     const holder = await rejectionOf(second.calls.saveIfAbsent(keyOf(taken), intentOf(key)));
 
     expect(zombie).toBeInstanceOf(ExecutionError.Fenced);
-    expect(holder).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(holder).toBeInstanceOf(ExecutionError.CancelFenced);
   },
 };
 
@@ -170,7 +169,7 @@ const cancelBeforeFirstAcquire: OutboundCallCase = {
 
     const refused = await rejectionOf(first.calls.saveIfAbsent(key, intentOf(key)));
 
-    expect(refused).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(refused).toBeInstanceOf(ExecutionError.CancelFenced);
   },
 };
 

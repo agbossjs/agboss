@@ -1,5 +1,5 @@
+import { isExecutionCancelled } from "../core/execution-cancelled.js";
 import type { FrameLease } from "../flow/context/frame.js";
-import { ExecutionCancelledError } from "../core/errors.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
 import { runningOutcome } from "../run/execute.js";
 import type { Turn, TurnOutcome } from "../turns/index.js";
@@ -44,7 +44,7 @@ export async function rootRecordOf(deps: AppDeps, state: TreeState): Promise<Tur
 function endedOutcomeOf(record: Turn, error: Error): TurnOutcome {
   const outcome = cancelledRecordOutcome(record.route, record.costUsd);
   if (isStop(error)) return { ...outcome, status: "stopped", stopReason: STOPPED_STOP_REASON };
-  return error instanceof ExecutionCancelledError
+  return isExecutionCancelled(error)
     ? outcome
     : { ...outcome, status: "failed", stopReason: error.message };
 }
@@ -103,10 +103,9 @@ export async function endedWithoutPass(
   if (isEnded) await keepExecutionRecord(deps, state, historyEndOf(error, compensations, lost));
   if (isEnded) tallyLostRun(deps, state, lost);
   // read before the tree's keys go: what it spent and undid, as the caller and the event report it
-  const output =
-    error instanceof ExecutionCancelledError
-      ? await cancelledOutputOf(deps, state, { cause: error, compensations, lostUsage: lost })
-      : undefined;
+  const output = isExecutionCancelled(error)
+    ? await cancelledOutputOf(deps, state, { cause: error, compensations, lostUsage: lost })
+    : undefined;
   await forgetTree(parts, state, error);
   if (isEnded) {
     const event = executionEventAt(state, deps);

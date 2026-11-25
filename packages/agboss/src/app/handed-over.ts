@@ -9,7 +9,7 @@ import type { HandOverSite } from "../infrastructure/execution-audit-log.reposit
 import { ApplicationStoppingError } from "../core/errors.js";
 import { isHandOverError } from "../core/error-families/hand-over.js";
 import { ExecutionError } from "../core/error-families/run-errors.js";
-import { ExecutionCancelFencedError, ExecutionLeaseLostError } from "./lease-lost.js";
+import { ExecutionLeaseLostError } from "./lease-lost.js";
 
 /**
  * Work that stopped without failing (#265): its instance lost the tree's lease
@@ -50,14 +50,14 @@ export const fencedErrorOf = (error: unknown): FencedRefusalError | undefined =>
   errorOfClass(error, ExecutionError.Fenced) ?? errorOfClass(error, ExecutionError.Fenced);
 
 /**
- * The `ExecutionCancelFencedError` behind `error` (#909): the error itself, or one in its `cause`
+ * The `ExecutionError.CancelFenced` behind `error` (#909): the error itself, or one in its `cause`
  * chain or an `AggregateError`'s `errors` — a store's refusal of a write after its tree's cancel,
  * however a driver or a step wrapped it.
  */
 export const cancelFencedErrorOf = (
   error: unknown,
-): ExecutionCancelFencedError | InterruptFenced | undefined =>
-  errorOfClass(error, ExecutionCancelFencedError) ??
+): ExecutionError.CancelFenced | InterruptFenced | undefined =>
+  errorOfClass(error, ExecutionError.CancelFenced) ??
   errorOfClass(error, ExecutionStopFencedError) ??
   errorOfClass(error, ExecutionPauseFencedError);
 

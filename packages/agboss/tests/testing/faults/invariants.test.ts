@@ -902,7 +902,7 @@ describe("#484 AC1: the invariant checker fails on a broken run", () => {
       operation: StoreHoldPoint.FencedEffectWrite,
       key: "root-1",
       input: { ...key(1), name: "later", rootExecutionId: "root-1" },
-      error: { name: "ExecutionCancelFencedError", message: "refused" },
+      error: { name: "ExecutionError.CancelFenced", message: "refused" },
     });
 
     expect(invariantsOf(run)).toEqual([]);

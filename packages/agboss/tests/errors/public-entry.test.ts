@@ -16,10 +16,10 @@ import {
   PaidStepError,
   RouterDecisionError,
   ToolTimeoutError,
-  ExecutionCancelledError,
   type ErrorRecord,
   ValidationError,
 } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 
 const catchable = {
   AgentFailedError,
@@ -33,7 +33,6 @@ const catchable = {
   RouterDecisionError,
   ToolTimeoutError,
   ExecutionError,
-  ExecutionCancelledError,
 };
 
 describe("#194 AC2: the errors a user can catch come from the public entry", () => {

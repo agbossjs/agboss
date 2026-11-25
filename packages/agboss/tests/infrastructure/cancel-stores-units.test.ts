@@ -3,8 +3,8 @@
  * mark of a tree refuses, the seed row of a cancel before the first acquire, the old marks moved onto the lease
  * rows, and the retention of the fenced effects.
  */
+import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
-import { ExecutionCancelFencedError } from "../../src/app/lease-lost.js";
 import {
   checkInMemoryCancel,
   InMemoryDatabase,
@@ -51,10 +51,10 @@ describe("#1356: the cancel check of the in-memory stores", () => {
   it("refuses a key whose tree's lease row carries the mark — the mark at 0 as well", () => {
     expect(() => {
       checkInMemoryCancel(database("t1", "root", 5), key());
-    }).toThrow(ExecutionCancelFencedError);
+    }).toThrow(ExecutionError.CancelFenced);
     expect(() => {
       checkInMemoryCancel(database("t1", "root", 0), key());
-    }).toThrow(ExecutionCancelFencedError);
+    }).toThrow(ExecutionError.CancelFenced);
   });
 
   it("lets a key through when the row has no mark, when there is no row, or when the mark is of another tree or tenant", () => {
@@ -76,7 +76,7 @@ describe("#1356: the cancel check of the in-memory stores", () => {
     const own = key({ rootExecutionId: undefined });
     expect(() => {
       checkInMemoryCancel(database("t1", "child", 5), own);
-    }).toThrow(ExecutionCancelFencedError);
+    }).toThrow(ExecutionError.CancelFenced);
     expect(() => {
       checkInMemoryCancel(database("t1", "root", 5), own);
     }).not.toThrow();
@@ -216,7 +216,7 @@ describe("#1356: the cancel mark and check of the SQLite stores", () => {
 
     expect(() => {
       checkSqliteCancel(database, key());
-    }).toThrow(ExecutionCancelFencedError);
+    }).toThrow(ExecutionError.CancelFenced);
     expect(() => {
       checkSqliteCancel(database, key({ rootExecutionId: "free" }));
     }).not.toThrow();
@@ -228,7 +228,7 @@ describe("#1356: the cancel mark and check of the SQLite stores", () => {
     }).not.toThrow();
     expect(() => {
       checkSqliteCancel(database, key({ rootExecutionId: undefined, leaseExecutionId: "root" }));
-    }).toThrow(ExecutionCancelFencedError);
+    }).toThrow(ExecutionError.CancelFenced);
     expect(() => {
       checkSqliteCancel(database, key({}, true));
     }).not.toThrow();

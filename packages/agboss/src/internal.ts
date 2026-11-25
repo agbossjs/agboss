@@ -208,3 +208,4 @@ export { toolOf } from "./components/runtime.js";
 export { OBSERVER_HOOKS, type ObserverClass, type ObserverHook } from "./core/observer-hooks.js";
 export type { HookResult } from "./core/hook-result.js";
 export type { AuditLogHooks } from "./flow/observers/audit-log.js";
+export * from "./internal-cancel.js";

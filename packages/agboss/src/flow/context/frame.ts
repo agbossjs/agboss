@@ -1,6 +1,6 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import type { StoreOutcomeUnknown } from "../../infrastructure/store-call-timeout.js";
 import type { HandledErrorRecord } from "../runtime/child-records.js";
-import type { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import type { InterruptReason } from "../../app/interrupt-types.js";
 import { interruptCleanups, type InterruptCleanups } from "./interrupt-cleanup.js";
 import { interruptedOf, withReport } from "./frame-interrupt.js";
@@ -123,10 +123,10 @@ export interface FrameLease {
   recordOutboundCall?(report: OutboundCallReport): void;
   /**
    * A fenced write or a call of a step under it was refused because its tree's cancel is durable
-   * (#909, `ExecutionCancelFencedError`): the holder stops the tree as cancelled — its signal
+   * (#909, `ExecutionError.CancelFenced`): the holder stops the tree as cancelled — its signal
    * aborts, the open undos run under this very lease — at once, not at its next renewal.
    */
-  cancelFound?(cause: ExecutionCancelFencedError | InterruptFenced): void;
+  cancelFound?(cause: ExecutionError.CancelFenced | InterruptFenced): void;
   /**
    * The lease is not released before `attempt` settles (#508): an outbound call's attempt in flight
    * keeps it open — renewed on — so no other instance takes its pending intent for gone.

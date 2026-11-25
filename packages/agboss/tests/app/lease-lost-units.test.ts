@@ -1,3 +1,4 @@
+import { cancelFencedOf } from "../../src/app/cancel-fenced.js";
 import { fencedRefusalOf } from "../../src/app/lease-lost.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { fenceOf } from "../../src/flow/context/execution-fence.js";
@@ -8,7 +9,6 @@ import { fenceOf } from "../../src/flow/context/execution-fence.js";
  */
 import { describe, expect, it } from "vitest";
 import {
-  ExecutionCancelFencedError,
   ExecutionLeaseLostError,
   heldAtRelease,
   heldWhileYieldsRun,
@@ -18,7 +18,7 @@ import {
   scopeKeyOf,
   scopeOfKey,
 } from "../../src/app/lease-lost.js";
-import { ExecutionCancelledError } from "../../src/core/errors.js";
+import { isExecutionCancelled } from "../../src/core/execution-cancelled.js";
 
 describe("#1356: a lease that is over", () => {
   it("is named, with the execution whose lease it was and the cause", () => {
@@ -178,10 +178,10 @@ describe("#1356: a write the tree's cancel refused", () => {
   };
 
   it("names the write's scope, tokens and effect, and the root whose cancel it is", () => {
-    const error = ExecutionCancelFencedError.of(key);
+    const error = cancelFencedOf(key);
 
-    expect(error).toBeInstanceOf(ExecutionCancelledError);
-    expect(error.name).toBe("ExecutionCancelFencedError");
+    expect(isExecutionCancelled(error)).toBe(true);
+    expect(error.name).toBe("ExecutionError.CancelFenced");
     expect(error.code).toBe("execution.cancelled.fenced");
     expect(error.scopeKey).toBe("acme:lease-1");
     expect(error.tenantId).toBe("acme");
@@ -196,13 +196,13 @@ describe("#1356: a write the tree's cancel refused", () => {
   it("the root is the lease's execution when the key names none", () => {
     const { rootExecutionId: _root, ...withoutRoot } = key;
 
-    expect(ExecutionCancelFencedError.of(withoutRoot).rootExecutionId).toBe("lease-1");
+    expect(cancelFencedOf(withoutRoot).rootExecutionId).toBe("lease-1");
   });
 
   it("keeps the cause it is given", () => {
     const cause = new Error("driver");
 
-    expect(new ExecutionCancelFencedError({ ...key, effect: "charge", cause }).cause).toBe(cause);
+    expect(new ExecutionError.CancelFenced({ ...key, effect: "charge", cause }).cause).toBe(cause);
   });
 });
 

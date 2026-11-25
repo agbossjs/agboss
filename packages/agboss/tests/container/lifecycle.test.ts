@@ -1,7 +1,8 @@
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { startComponents, stopComponents } from "../../src/components/container/lifecycle.js";
-import { ApplicationStoppingError, ExecutionCancelledError } from "../../src/index.js";
+import { ApplicationStoppingError } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import type { AnyTenantApp as App } from "../../src/app/types.js";
 import {
   Ask,

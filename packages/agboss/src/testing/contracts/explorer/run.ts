@@ -151,7 +151,7 @@ export const isFenced = (error: unknown): boolean =>
 
 /** Whether `error` is the cancel's refusal (#909): the answer a new write of a cancelled tree gets. */
 export const isCancelFenced = (error: unknown): boolean =>
-  error instanceof Error && error.name === "ExecutionCancelFencedError";
+  error instanceof Error && error.name === "ExecutionError.CancelFenced";
 
 /** An action as the printed schedule names it. */
 export function describe(action: ExplorerAction): string {

@@ -1,7 +1,6 @@
 import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionCancelledError } from "../../core/errors.js";
-import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
+import { isExecutionCancelled } from "../../core/execution-cancelled.js";
 import { IdempotencyRunStatus } from "../../infrastructure/fenced-effect.repository.js";
 import type { ContractCase, ContractGroup } from "./define.js";
 import { effectKeyForTesting } from "./effect-key.js";
@@ -19,7 +18,7 @@ import {
 /**
  * The cancel as a fence of the fenced effect (#909): once a tree's cancel request is durable
  * (`ExecutionLeaseRepository.requestCancel`), a new effect of the tree is refused in the transaction
- * that checks its lease — `ExecutionCancelFencedError`, the work not run, nothing written. Not
+ * that checks its lease — `ExecutionError.CancelFenced`, the work not run, nothing written. Not
  * refused: a result stored before (it replays), an undo's key (`isCompensation`), another tree's or
  * tenant's effect; a stale token is still `ExecutionError.Fenced`, the hand-over. A cancel asked
  * while a write's transaction is open lands after it, or the write is refused — never the write
@@ -30,7 +29,7 @@ import {
 type Case = ContractCase<FencedEffectTarget>;
 
 const writeRefused = (): Case => ({
-  name: "#909 AC1: a write after its tree's durable cancel is refused — ExecutionCancelFencedError (an ExecutionCancelledError, never a hand-over), the work not run, nothing written",
+  name: "#909 AC1: a write after its tree's durable cancel is refused — ExecutionError.CancelFenced (a cancel, never a hand-over), the work not run, nothing written",
   isFencing: true,
   run: async ({ first, second }) => {
     const lease = await leaseOf(first);
@@ -41,8 +40,8 @@ const writeRefused = (): Case => ({
       first.effects.runOnce(keyOf(lease), writing(first.rows, "r1", count)),
     );
 
-    expect(refused).toBeInstanceOf(ExecutionCancelFencedError);
-    expect(refused).toBeInstanceOf(ExecutionCancelledError);
+    expect(refused).toBeInstanceOf(ExecutionError.CancelFenced);
+    expect(isExecutionCancelled(refused)).toBe(true);
     expect(refused).not.toBeInstanceOf(ExecutionError.Fenced);
     expect(refused).toMatchObject({
       code: "execution.cancelled.fenced",
@@ -84,7 +83,7 @@ const storedBeforeReplays = (): Case => ({
       status: IdempotencyRunStatus.Replayed,
       result: { receipt: "business" },
     });
-    expect(another).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(another).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(count.runs).toBe(2);
     expect([...(await second.rows.committed())].sort()).toEqual(["business", "step"]);
   },

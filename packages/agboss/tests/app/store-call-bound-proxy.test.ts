@@ -1,3 +1,4 @@
+import { cancelFencedOf } from "../../src/app/cancel-fenced.js";
 import type { StoreOutcomeUnknown } from "../../src/infrastructure/store-call-timeout.js";
 import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { fencedRefusalOf } from "../../src/app/lease-lost.js";
@@ -11,11 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { leaseScope } from "../../src/app/lease-scope.js";
 import { boundedStoreOf, type StoreCallParts } from "../../src/app/store-call-bound.js";
 import type { FrameLease } from "../../src/flow/context/frame.js";
-import {
-  ExecutionCancelFencedError,
-  ExecutionLeaseLostError,
-  StoreOutcomeSource,
-} from "../../src/index.js";
+import { ExecutionLeaseLostError, StoreOutcomeSource } from "../../src/index.js";
 import { VirtualClock } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { recordingLog } from "../helpers/log.js";
@@ -112,9 +109,9 @@ describe("#928 AC1: what a store's own error becomes", () => {
     expect(await call).toBe(commandTimeout);
   });
 
-  it("AC1: ExecutionCancelFencedError and ExecutionError.Fenced pass through the proxy unchanged", async () => {
+  it("AC1: ExecutionError.CancelFenced and ExecutionError.Fenced pass through the proxy unchanged", async () => {
     const fenced = fencedRefusalOf({ scopeKey: "acme:root-1", token: 1 });
-    const cancel = ExecutionCancelFencedError.of({
+    const cancel = cancelFencedOf({
       ...{ scopeKey: "acme:root-1", tenantId: "acme", leaseExecutionId: "root-1" },
       ...{ token: 1, name: "charge" },
     });

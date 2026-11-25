@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect } from "vitest";
-import { ExecutionCancelledError } from "../../../src/index.js";
+import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { callTool, replyWith, testWith } from "../../../src/testing/index.js";
 import { execute } from "../../helpers/flow.js";
 import {

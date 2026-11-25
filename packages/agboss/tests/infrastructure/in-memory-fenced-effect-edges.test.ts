@@ -11,7 +11,6 @@ import { IdempotencyError } from "../../src/core/error-families/effect-errors.js
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { storeMismatch } from "../../src/infrastructure/idempotency-errors.js";
 import { describe, expect, it } from "vitest";
-import { ExecutionCancelFencedError } from "../../src/app/lease-lost.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import {
@@ -271,7 +270,7 @@ describe("#909, #1117: a tree's cancel mark in memory", () => {
     await clock.advance(seconds(60));
     await effects.deleteExpired(new Date(clock.now().getTime() + seconds(60)));
     await expect(effects.runOnce(key, () => ({}))).rejects.toBeInstanceOf(
-      ExecutionCancelFencedError,
+      ExecutionError.CancelFenced,
     );
     await leases.retire(lease);
 

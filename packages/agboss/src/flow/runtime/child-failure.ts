@@ -1,8 +1,8 @@
+import { isExecutionCancelled } from "../../core/execution-cancelled.js";
 import { ExecutionError } from "../../core/error-families/run-errors.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
-import { ExecutionCancelledError } from "../../core/errors.js";
 import type { RunContext } from "../../core/run-context.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import { takeCarriedRecords } from "./carried-records.js";
@@ -164,7 +164,7 @@ export async function failedChild(
   assertAnnouncing(frame);
   // #596: one pass of all that saw it wins the claim; its fence checked again after the round trip
   const { tenantId } = frame.execution.tenant;
-  const cause = failure.thrown instanceof ExecutionCancelledError ? failure.thrown : error;
+  const cause = isExecutionCancelled(failure.thrown) ? failure.thrown : error;
   if (!(await isFailureClaimed(parent.deps, ended.identity, tenantId, cause))) throw raised;
   assertAnnouncing(frame);
   const asError = raised instanceof Error ? raised : new Error(String(error));

@@ -1,4 +1,4 @@
-import { ExecutionCancelledError } from "../core/errors.js";
+import { isExecutionCancelled } from "../core/execution-cancelled.js";
 import {
   PauseResolution,
   PauseStatus,
@@ -45,7 +45,7 @@ function isCancel(error: unknown): boolean {
   // a stop (#1341b) ends the tree: its pauses close with `TreeEnded`, not as a cancel's withdrawal
   if (isStop(error)) return false;
   for (let current: unknown = error; current instanceof Error; current = current.cause)
-    if (current instanceof ExecutionCancelledError) return true;
+    if (isExecutionCancelled(current)) return true;
   return false;
 }
 

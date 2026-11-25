@@ -1,5 +1,5 @@
+import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { expect } from "vitest";
-import { ExecutionCancelFencedError } from "../../app/lease-lost.js";
 import { systemClock } from "../../infrastructure/clock.js";
 import type { ExecutionLease } from "../../infrastructure/execution-lease.repository.js";
 import type { FencedEffectWork } from "../../infrastructure/fenced-effect.repository.js";
@@ -68,7 +68,7 @@ const cancelDuringWrite = (): Case => ({
       .runOnce(keyOf(lease), writingThroughCancel({ first, second }, lease, seen))
       .then(
         () => "landed",
-        (error: unknown) => (error instanceof ExecutionCancelFencedError ? "refused" : error),
+        (error: unknown) => (error instanceof ExecutionError.CancelFenced ? "refused" : error),
       );
     // a store whose work is synchronous (SQLite) runs no other call meanwhile: the cancel comes after
     await (seen.cancel ?? second.leases.requestCancel(treeOf(lease)));
@@ -83,7 +83,7 @@ const cancelDuringWrite = (): Case => ({
     const later = await rejectionOf(
       second.effects.runOnce(keyOf(lease, "later"), writing(second.rows, "later", count)),
     );
-    expect(later).toBeInstanceOf(ExecutionCancelFencedError);
+    expect(later).toBeInstanceOf(ExecutionError.CancelFenced);
     expect(count.runs).toBe(0);
   },
 });

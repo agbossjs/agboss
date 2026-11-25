@@ -1,3 +1,4 @@
+import { isExecutionCancelled } from "../core/execution-cancelled.js";
 import { type Usd } from "../units/index.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { ExecutionStoppedError, isPause } from "../app/lease-stopped.js";
@@ -58,7 +59,7 @@ export const outcomeError = (error: unknown, signal: AbortSignal | undefined): u
   // a fenced write behind the error first (#471): the moving call rejects with it, as it is
   const handedOver = handedOverOf(error, signal);
   if (handedOver !== undefined) return handedOver;
-  return signal?.aborted === true && !(error instanceof ExecutionCancelledError)
+  return signal?.aborted === true && !isExecutionCancelled(error)
     ? new ExecutionCancelledError({ message: "the run was cancelled" })
     : error;
 };
@@ -101,7 +102,7 @@ export const failedOutcome = (error: unknown, spent: readonly UsageRecord[]): Tu
   status:
     error instanceof ExecutionStoppedError
       ? "stopped"
-      : error instanceof ExecutionCancelledError
+      : isExecutionCancelled(error)
         ? "cancelled"
         : "failed",
   stopReason: errorMessage(error),

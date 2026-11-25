@@ -4,7 +4,8 @@
  * orders completions through gates: races, `FailFast` and quorums reproduced on every run.
  */
 import { beforeEach, describe, expect, vi } from "vitest";
-import { BranchStatus, BranchVerdict, ExecutionCancelledError } from "../../src/index.js";
+import { BranchStatus, BranchVerdict } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { decideWith, replyWith, step, TestConcurrency, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { ScoreDto, ScoreReviewDto } from "../flow/fixtures/quorum-dtos.js";

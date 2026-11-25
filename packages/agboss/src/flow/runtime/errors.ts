@@ -1,6 +1,6 @@
+import { isExecutionCancelled } from "../../core/execution-cancelled.js";
 import { type Usd } from "../../units/index.js";
 import { isGraphInterrupt } from "@langchain/langgraph";
-import { ExecutionCancelledError } from "../../core/errors.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import {
   AgentFailedError,
@@ -159,9 +159,7 @@ export interface QuestionFailedErrorOptions {
  * passed on as it is, never wrapped in the step's error.
  */
 export const passesThrough = (error: unknown): boolean =>
-  isGraphInterrupt(error) ||
-  error instanceof LimitExceededError ||
-  error instanceof ExecutionCancelledError;
+  isGraphInterrupt(error) || error instanceof LimitExceededError || isExecutionCancelled(error);
 
 /** What a guardrail that blocked takes (#906): the guard, its refusal, the spend and how sure it was. */
 export interface GuardrailBlockedErrorOptions {

@@ -4,7 +4,8 @@
  * joins all six; a failed remote child reaches its parent's join as `ChildExecutionFailedError`.
  */
 import { beforeEach, describe, expect, vi } from "vitest";
-import { ExecutionCancelledError, ExecutionStatus } from "../../../src/index.js";
+import { ExecutionStatus } from "../../../src/index.js";
+import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { seconds } from "../../../src/units/index.js";
 import {
   callTool,

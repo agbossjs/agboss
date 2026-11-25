@@ -7,13 +7,13 @@
  */
 import { beforeEach, describe, expect } from "vitest";
 import {
-  ExecutionCancelledError,
   ExecutionAuditEventKind,
   ExecutionLeaseLostError,
   ExecutionLeaseRepository,
   ExecutionStatus,
   LeaseTakeoverReason,
 } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { replyWith, callTool, testWith, type ModelRequest } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import type { VirtualClock } from "../../src/testing/clock.js";

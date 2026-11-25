@@ -372,7 +372,13 @@ export interface BusinessKeyOptions {
 }
 
 // @public
-export const cancelFencedErrorOf: (error: unknown) => ExecutionCancelFencedError | InterruptFenced | undefined;
+export const cancelFencedErrorOf: (error: unknown) => ExecutionError.CancelFenced | InterruptFenced | undefined;
+
+// @public
+export type CancelFencedKey = Pick<EffectKey, "scopeKey" | "tenantId" | "leaseExecutionId" | "token" | "name" | "rootExecutionId">;
+
+// @public
+export const cancelFencedOf: (key: CancelFencedKey) => ExecutionError.CancelFenced;
 
 // @public
 export const cancelTreeOf: (key: Pick<EffectKeyFields, "tenantId" | "leaseExecutionId" | "rootExecutionId">) => {
@@ -891,30 +897,6 @@ export abstract class ExecutionAuditLogRepository {
     abstract findAllByTenantIdAndRootExecutionIdOrderByOccurredAt(tenantId: string, rootExecutionId: string): Promise<readonly ExecutionAuditEventRecord[]>;
     abstract ping(): Promise<void>;
     abstract save(record: ExecutionAuditEventRecord): Promise<void>;
-}
-
-// @public
-export class ExecutionCancelFencedError extends ExecutionCancelledError {
-    constructor(options: ExecutionCancelFencedErrorOptions);
-    // (undocumented)
-    static readonly code: "execution.cancelled.fenced";
-    // (undocumented)
-    readonly code: typeof ExecutionCancelFencedError.code;
-    // (undocumented)
-    readonly effect: string;
-    // (undocumented)
-    readonly leaseExecutionId: string;
-    // (undocumented)
-    name: string;
-    static of(key: Pick<EffectKey, "scopeKey" | "tenantId" | "leaseExecutionId" | "token" | "name" | "rootExecutionId">): ExecutionCancelFencedError;
-    // (undocumented)
-    readonly rootExecutionId: string;
-    // (undocumented)
-    readonly scopeKey: string;
-    // (undocumented)
-    readonly tenantId: string;
-    // (undocumented)
-    readonly token: number;
 }
 
 // @public
@@ -2999,15 +2981,6 @@ export interface WrittenLedgerMark {
 
 // Warnings were encountered during analysis:
 //
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "code".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "name".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "scopeKey".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "leaseExecutionId".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "token".
-// src/app/lease-lost.ts - (ae-undocumented) Missing documentation for "effect".
 // src/app/paused-runs.ts - (ae-undocumented) Missing documentation for "run".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Finished".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Paused".

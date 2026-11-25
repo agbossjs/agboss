@@ -503,6 +503,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/core/error-families/pause-errors.ts",
       "src/core/error-families/remote-errors.ts",
       "src/core/error-families/pause-error-messages.ts",
+      "src/core/error-families/run-error-facts.ts",
       "src/core/error-families/run-error-messages.ts",
       "src/core/error-families/run-errors.ts",
       "src/core/error-families/step-errors.ts",
@@ -1005,6 +1006,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed("the input of a run: types", ["src/input.ts"]),
   ...reviewed("an internal entry: exports", [
     "src/internal-a2a.ts",
+    "src/internal-cancel.ts",
     "src/internal-routers.ts",
     "src/internal-run.ts",
     "src/internal-surface.ts",

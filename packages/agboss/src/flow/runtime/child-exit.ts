@@ -1,3 +1,4 @@
+import { isExecutionCancelled } from "../../core/execution-cancelled.js";
 import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { storedOutputOf, type FinalOutputDeps } from "../../pii/final-output-mask.js";
 import { recordOfNode, type ComponentRecords } from "./workflow-keys.js";
@@ -146,13 +147,12 @@ export function childFailureOf(
   const handedOver = handedOverOf(error, signal);
   if (handedOver !== undefined) throw recordedHandOver(handedOver, HandOverSite.Child);
   const usage = [...spent, ...unrecordedSpendOf(error)];
-  if (signal.aborted || error instanceof ExecutionCancelledError) {
-    const cancelled =
-      error instanceof ExecutionCancelledError
-        ? error
-        : new ExecutionCancelledError({
-            message: `child execution ${child.identity.executionId} was cancelled`,
-          });
+  if (signal.aborted || isExecutionCancelled(error)) {
+    const cancelled = isExecutionCancelled(error)
+      ? error
+      : new ExecutionCancelledError({
+          message: `child execution ${child.identity.executionId} was cancelled`,
+        });
     return { thrown: cancelled, status: ChildExecutionStatus.Cancelled, usage, reported: usage };
   }
   if (error instanceof BudgetExceededError)

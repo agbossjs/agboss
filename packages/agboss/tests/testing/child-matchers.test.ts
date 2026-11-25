@@ -2,9 +2,9 @@ import { beforeEach, describe, expect } from "vitest";
 import {
   ActionFailedError,
   ChildExecutionFailedError,
-  ExecutionCancelledError,
   StepsLimitExceededError,
 } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import {
   replyWith,
   TestConcurrency,

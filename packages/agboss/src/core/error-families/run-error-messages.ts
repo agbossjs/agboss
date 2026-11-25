@@ -66,3 +66,11 @@ export const compensationFailedMessageOf = (
     ? "an automatic undo failed"
     : `An automatic undo failed — ${undone.join("; ")}; the others ran`;
 };
+
+/** What `ExecutionError.CancelFenced` says: the write refused after its tree's cancel — nothing written or sent. */
+export const cancelFencedMessageOf = (
+  facts: Partial<{ readonly effect: string; readonly rootExecutionId: string }>,
+): string =>
+  facts.effect === undefined || facts.rootExecutionId === undefined
+    ? "the execution was cancelled and its writes are fenced"
+    : `"${facts.effect}" of execution ${facts.rootExecutionId} was refused: its tree's cancel was requested — nothing was written or sent`;

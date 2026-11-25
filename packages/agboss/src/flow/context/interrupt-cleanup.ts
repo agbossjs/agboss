@@ -1,5 +1,5 @@
+import { isExecutionCancelled } from "../../core/execution-cancelled.js";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { ExecutionCancelledError } from "../../core/errors.js";
 import { ExecutionStoppedError, isPause } from "../../app/lease-stopped.js";
 import { isHandedOver } from "../../app/handed-over.js";
 import { InterruptReason } from "../../app/interrupt-types.js";
@@ -62,7 +62,7 @@ export function interruptReasonOf(
   // a pause is a stop that parks (#1341c): its steps are told `Paused`, never `Stopped`
   if (isPause(cause)) return InterruptReason.Paused;
   if (cause instanceof ExecutionStoppedError) return InterruptReason.Stopped;
-  if (cause instanceof ExecutionCancelledError) return InterruptReason.Cancelled;
+  if (isExecutionCancelled(cause)) return InterruptReason.Cancelled;
   if (isHandedOver(cause)) return InterruptReason.HandedOver;
   const isTimeout = cause instanceof Error && cause.name === "TimeoutError";
   return signal.aborted && isTimeout ? InterruptReason.TimedOut : undefined;

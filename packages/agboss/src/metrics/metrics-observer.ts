@@ -1,3 +1,4 @@
+import { isExecutionCancelled } from "../core/execution-cancelled.js";
 import type { Counter, Meter } from "@opentelemetry/api";
 import type {
   ExecutionCancelEvent,
@@ -8,7 +9,6 @@ import type {
 import type { ExecutionObserver } from "../core/observer-hooks.js";
 import type { UnknownCostTally } from "../core/observer-manager.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
-import { ExecutionCancelledError } from "../core/errors.js";
 import type { CompensationEndEvent } from "../flow/observers/compensation-events.js";
 import type {
   ExecutionLeaseTakeoverEvent,
@@ -29,7 +29,7 @@ export const counterOf = (meter: Meter, spec: MetricSpec): Counter =>
  * root's cancel is `onExecutionCancel`, #1341).
  */
 const outcomeOf = (error: Error): ExecutionOutcome =>
-  error instanceof ExecutionCancelledError ? ExecutionOutcome.Cancelled : ExecutionOutcome.Failed;
+  isExecutionCancelled(error) ? ExecutionOutcome.Cancelled : ExecutionOutcome.Failed;
 
 /** The counting observer on `meter`. */
 export function metricsObserverOf(meter: Meter): ExecutionObserver {

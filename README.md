@@ -985,7 +985,6 @@ a code one is created by the container and replaced with `mockService(Interprete
 (`mockReturnValue(ChannelInterpretation.understood({ approved: true }))`).
 
 <!-- snippet-context
-import { ExecutionCancelledError } from "@agboss/core";
 import { Text } from "@agboss/core/dto";
 export class ChangesRequestedDto {
   @Text({ prompt: "what to change" })
@@ -1032,9 +1031,9 @@ test("a cancel from inside a mock cancels the execution", async ({ app, mockServ
   mockTool(SearchJobsTool).thenFail(ToolFailure.Timeout); // the next call fails as a timeout would
   mockService(MailerService).send.mockImplementation(() => app.cancel("thread-1").then(() => undefined));
 
-  await expect(app.execute(OfferWorkflowStart, shortlist)).rejects.toFailWith(
-    ExecutionCancelledError,
-  );
+  await expect(app.execute(OfferWorkflowStart, shortlist)).rejects.toMatchObject({
+    code: "execution.cancelled",
+  });
 });
 ```
 

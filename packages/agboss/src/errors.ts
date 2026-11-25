@@ -9,8 +9,6 @@
  */
 export {
   AGBossError,
-  ExecutionCancelledError,
-  type ExecutionCancelledErrorOptions,
   KeyTextRule,
   keyTextRuleOf,
   type ErrorDetails,
@@ -112,18 +110,8 @@ export { ModelKind } from "./llm/decision-errors.js";
 export { ApplicationStoppingError } from "./core/errors.js";
 export { cancelFencedErrorOf } from "./app/handed-over.js";
 export {
-  ExecutionCancelFencedError,
   fencedRefusalOf,
   ExecutionLeaseLostError,
-  type ExecutionCancelFencedErrorOptions,
   type ExecutionLeaseLostErrorOptions,
   type FencedWriteRefusal,
 } from "./app/lease-lost.js";
-// a stop (#1341b): the abort reason of a stopped execution, and a fenced write's refusal by an Immediate stop
-export {
-  ExecutionPausedError,
-  ExecutionPauseFencedError,
-  ExecutionStopFencedError,
-  ExecutionStoppedError,
-  type InterruptFenced,
-} from "./app/lease-stopped.js";

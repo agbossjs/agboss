@@ -8,12 +8,12 @@ import {
   SpendRecorder,
   Workflow,
   WorkflowFinish,
-  ExecutionCancelledError,
   WorkflowStart,
   type LaunchItemsTruncatedEvent,
   type Tracked,
   Ttl,
 } from "../../../../src/index.js";
+import { ExecutionCancelledError } from "../../../../src/core/errors.js";
 import { Application } from "../../../../src/application/application.js";
 import { usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";

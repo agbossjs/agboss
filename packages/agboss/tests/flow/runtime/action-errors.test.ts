@@ -11,8 +11,8 @@ import {
   RouterDecisionError,
   RouterFailedError,
   StepFailedError,
-  ExecutionCancelledError,
 } from "../../../src/index.js";
+import { ExecutionCancelledError } from "../../../src/core/errors.js";
 import { stepCoordinatesOf } from "../../../src/graph/errors.js";
 import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { codeOfErrorClass, errorMatchOf } from "../../../src/core/error-record.js";

@@ -23,9 +23,9 @@ import {
   BudgetExceededError,
   BudgetScope,
   ChildExecutionFailedError,
-  ExecutionCancelledError,
   StepFailedError,
 } from "../../src/index.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { ActionFailedError } from "../../src/flow/runtime/errors.js";
 import { CompensationReason } from "../../src/flow/compensation.js";
 import {
