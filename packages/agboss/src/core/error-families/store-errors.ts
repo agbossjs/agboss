@@ -27,6 +27,7 @@ export enum StoreErrorKind {
   LedgerEntryExpired = "ledger-entry-expired",
   LedgerEntryInvalid = "ledger-entry-invalid",
   ClusterLeaseBehind = "cluster-lease-behind",
+  LockTimeout = "lock-timeout",
 }
 
 /** A store (a database, a cluster, an object storage) failed or refused. The store packages build these with `StoreError.of(kind, options)`. */
@@ -49,7 +50,8 @@ export type StoreError =
   | StoreError.LedgerCutoffInvalid
   | StoreError.LedgerEntryExpired
   | StoreError.LedgerEntryInvalid
-  | StoreError.ClusterLeaseBehind;
+  | StoreError.ClusterLeaseBehind
+  | StoreError.LockTimeout;
 
 /** The variants of `StoreError`, each with the facts it carries. */
 export declare namespace StoreError {
@@ -127,6 +129,8 @@ export declare namespace StoreError {
     StoreErrorKind.ClusterLeaseBehind,
     "store.cluster-lease-behind"
   >;
+  /** The store's lock stayed held by another process past the wait: nothing was applied, a retry is safe. */
+  export type LockTimeout = ErrorVariant<StoreErrorKind.LockTimeout, "store.lock-timeout">;
 }
 
 /** The variant of `StoreError` of one kind. */
@@ -189,6 +193,7 @@ export const StoreError: FamilyConstructor<
     LedgerEntryExpired: StoreError.LedgerEntryExpired;
     LedgerEntryInvalid: StoreError.LedgerEntryInvalid;
     ClusterLeaseBehind: StoreError.ClusterLeaseBehind;
+    LockTimeout: StoreError.LockTimeout;
   }
 > &
   StoreErrorStatics = withOf(
@@ -216,6 +221,7 @@ export const StoreError: FamilyConstructor<
       LedgerEntryExpired: ["the ledger entry is past its retention"],
       LedgerEntryInvalid: ["the ledger entry is not valid"],
       ClusterLeaseBehind: ["the cluster's lease is behind the database's lease row"],
+      LockTimeout: ["the store's lock stayed held by another process past the wait"],
     },
   }),
 );

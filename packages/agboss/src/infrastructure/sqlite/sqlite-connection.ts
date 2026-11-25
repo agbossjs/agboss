@@ -10,10 +10,12 @@ import { EnvironmentField } from "../../environments/contract.js";
 import { afterFailedCommit, classifiedDatabase } from "./sqlite-outcome.js";
 import { ensureBaselineSchema } from "./sqlite-baseline-schema.js";
 import { checkedSchemaVersion } from "./sqlite-schema-version.js";
-import { openSqliteDatabase } from "./sqlite-open.js";
+import { BUSY_TIMEOUT, openSqliteDatabase } from "./sqlite-open.js";
 export { BUSY_TIMEOUT, openSqliteDatabase } from "./sqlite-open.js";
 import { guardedDatabase } from "./sqlite-guard.js";
 import { heldTransaction, SQLITE_HOLD_CAP } from "./sqlite-hold.js";
+import { assertLockWaitBudget, whileBusy } from "./sqlite-lock-wait.js";
+import { EXECUTION_LEASE } from "../../app/lease-fence.js";
 export { SQLITE_HOLD_CAP } from "./sqlite-hold.js";
 import { gatedSqliteImplementation, type SqliteGateOptions } from "./sqlite-gate.js";
 import { ambientHoldScope, mutexOfSqliteFile, type SqliteMutex } from "./sqlite-mutex.js";
@@ -29,9 +31,11 @@ export { SQLITE_SCHEMA_VERSION } from "./sqlite-schema-version.js";
  * on first use) on the environment's `sqlitePath`, shared by every SQLite implementation the
  * application lists — two instances open two connections to one file. `journal_mode=WAL` (readers never
  * block the writer; its switch on a new file, tried again while busy, the whole open bounded by the
- * busy timeout, #911), then `busy_timeout` (a writer waits for the other's lock), and every atomic
- * operation in one `BEGIN IMMEDIATE` transaction. The driver is synchronous: a transaction is one
- * group of statements with no `await` inside, and a busy wait blocks this instance's event loop.
+ * busy timeout, #911), and every atomic operation in one `BEGIN IMMEDIATE` transaction. The driver is
+ * synchronous: a transaction is one group of statements with no `await` inside. SQLite's own busy
+ * wait would block this instance's event loop, so once the file is open `busy_timeout` is 0 and an
+ * operation that meets another process's lock waits asynchronously (`whileBusy`, up to
+ * `LOCK_WAIT_DEADLINE`, then `StoreError.LockTimeout`).
  * Time values are parameters from the framework's clock, never SQLite's own.
  */
 
@@ -99,11 +103,15 @@ export class SqliteConnection implements OnDestroy {
         `the SQLite implementations need sqlitePath: string in the environment — ${problems}; set it in the environment's file, or in a unit test pass it: testUnit(X, { environment: { sqlitePath: ":memory:" } })`,
       );
     }
+    // the wait for another process's lock fits the lease, or the instance does not start
+    assertLockWaitBudget({ lease: EXECUTION_LEASE, holdCap: SQLITE_HOLD_CAP });
     this.path = parsed.data.sqlitePath;
     const database = openSqliteDatabase(this.path);
     checkedSchemaVersion(database);
     try {
       ensureBaselineSchema(database);
+      // the open above may wait for the file (synchronous startup); from here on no wait blocks the loop
+      database.exec("PRAGMA busy_timeout = 0");
     } catch (error) {
       database.close();
       throw error;
@@ -147,9 +155,12 @@ export class SqliteConnection implements OnDestroy {
     work: () => TValue,
     options?: { readonly isPriority?: boolean; readonly isRenewal?: boolean },
   ): TValue | Promise<Awaited<TValue>> {
-    return options?.isPriority === true
-      ? this.#mutex.ahead(this, work, options.isRenewal === true)
-      : this.#mutex.whenFree(work);
+    // each try asks the mutex again: a hold of this process may have opened while the lock was waited for
+    return whileBusy(this.#database, () =>
+      options?.isPriority === true
+        ? this.#mutex.ahead(this, work, options.isRenewal === true)
+        : this.#mutex.whenFree(work),
+    );
   }
 
   /** Whether the caller is inside this file's open `runOnce` transaction. */
@@ -198,9 +209,15 @@ export class SqliteConnection implements OnDestroy {
    */
   ensureSchema(name: string, ddl: string): void {
     if (this.#prepared.has(name)) return;
-    inImmediateTransaction(this.#database, () => {
-      this.#database.exec(ddl);
-    });
+    // synchronous schema work (startup): SQLite may wait for the file here, as at the open
+    this.#database.exec(`PRAGMA busy_timeout = ${String(BUSY_TIMEOUT)}`);
+    try {
+      inImmediateTransaction(this.#database, () => {
+        this.#database.exec(ddl);
+      });
+    } finally {
+      this.#database.exec("PRAGMA busy_timeout = 0");
+    }
     this.#prepared.add(name);
   }
 

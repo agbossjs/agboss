@@ -2620,7 +2620,7 @@ export interface StoredNamesUnreadableErrorOptions {
 }
 
 // @public
-export type StoreError = StoreError.OutcomeUnknown | StoreError.CallTimeout | StoreError.UnreadableRecord | StoreError.Mismatch | StoreError.LiveLeases | StoreError.SchemaMissing | StoreError.SchemaTooNew | StoreError.MigrationChanged | StoreError.SettingsInvalid | StoreError.DeploymentUnsupported | StoreError.DurabilityInsufficient | StoreError.CollationInvalid | StoreError.LedgerMarkMissing | StoreError.LeaseKeyConflict | StoreError.ObjectStorage | StoreError.LedgerCutoffInvalid | StoreError.LedgerEntryExpired | StoreError.LedgerEntryInvalid | StoreError.ClusterLeaseBehind;
+export type StoreError = StoreError.OutcomeUnknown | StoreError.CallTimeout | StoreError.UnreadableRecord | StoreError.Mismatch | StoreError.LiveLeases | StoreError.SchemaMissing | StoreError.SchemaTooNew | StoreError.MigrationChanged | StoreError.SettingsInvalid | StoreError.DeploymentUnsupported | StoreError.DurabilityInsufficient | StoreError.CollationInvalid | StoreError.LedgerMarkMissing | StoreError.LeaseKeyConflict | StoreError.ObjectStorage | StoreError.LedgerCutoffInvalid | StoreError.LedgerEntryExpired | StoreError.LedgerEntryInvalid | StoreError.ClusterLeaseBehind | StoreError.LockTimeout;
 
 // @public
 export namespace StoreError {
@@ -2635,6 +2635,7 @@ export namespace StoreError {
     export type LedgerEntryInvalid = ErrorVariant<StoreErrorKind.LedgerEntryInvalid, "store.ledger-entry-invalid">;
     export type LedgerMarkMissing = ErrorVariant<StoreErrorKind.LedgerMarkMissing, "store.ledger-mark-missing">;
     export type LiveLeases = ErrorVariant<StoreErrorKind.LiveLeases, "store.live-leases">;
+    export type LockTimeout = ErrorVariant<StoreErrorKind.LockTimeout, "store.lock-timeout">;
     export type MigrationChanged = ErrorVariant<StoreErrorKind.MigrationChanged, "store.migration-changed">;
     export type Mismatch = ErrorVariant<StoreErrorKind.Mismatch, "store.mismatch">;
     export type ObjectStorage = ErrorVariant<StoreErrorKind.ObjectStorage, "store.object-storage">;
@@ -2666,6 +2667,7 @@ export const StoreError: FamilyConstructor<StoreError, {
     LedgerEntryExpired: StoreError.LedgerEntryExpired;
     LedgerEntryInvalid: StoreError.LedgerEntryInvalid;
     ClusterLeaseBehind: StoreError.ClusterLeaseBehind;
+    LockTimeout: StoreError.LockTimeout;
 }> & StoreErrorStatics;
 
 // @public
@@ -2692,6 +2694,8 @@ export enum StoreErrorKind {
     LedgerMarkMissing = "ledger-mark-missing",
     // (undocumented)
     LiveLeases = "live-leases",
+    // (undocumented)
+    LockTimeout = "lock-timeout",
     // (undocumented)
     MigrationChanged = "migration-changed",
     // (undocumented)
@@ -2998,6 +3002,7 @@ export interface WrittenLedgerMark {
 // src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerEntryExpired".
 // src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LedgerEntryInvalid".
 // src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "ClusterLeaseBehind".
+// src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "LockTimeout".
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "details".
 // src/core/error-record.ts - (ae-undocumented) Missing documentation for "name".

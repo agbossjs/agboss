@@ -97,7 +97,12 @@ export const sqliteStores = [
 - **One connection per application instance**, shared by its SQLite stores and opened when the
   first one is created; two instances (two processes, or `testWith(App, { instances: 2 })`) open
   two connections to one file. The file is in WAL mode (readers never block the writer) with a
-  `busy_timeout` of 5 s (a writer waits for the other's lock, then fails — it never hangs). Several instances may
+  `busy_timeout` of 5 s while it opens (startup is synchronous), then 0: an operation that meets another
+  process's lock — a `runOnce` of another instance holds `BEGIN IMMEDIATE` for up to 15 s — waits for it
+  **asynchronously** (a jittered growing pause, never blocking the event loop), up to 20 s (the hold cap and
+  5 s), and then fails with `StoreError.LockTimeout` (nothing was applied; a retry is safe) — it never hangs.
+  The wait is shorter than the 30 s lease, which is checked at start (`ConfigError`), so a renewal that
+  waits through a whole hold still lands before the lease lapses. Several instances may
   open one new file at once: the switch to WAL, which SQLite can refuse at once on a fresh file,
   is tried again within the busy timeout (#911) — the whole open, SQLite's own waits included, is
   bounded by it (the tries run with SQLite's `busy_timeout` at 0, set once the switch is done); the
@@ -123,8 +128,10 @@ export const sqliteStores = [
 - **Time comes from the application's `Clock`** (#262, [Testing → The clock](Testing#the-clock)),
   never from SQLite (`expiresAt`, the ledger's UTC day are parameters), so `clock.advance(…)` moves
   SQLite leases in tests like in-memory ones.
-- `node:sqlite` is synchronous: a transaction is one group of statements with no `await`, and a
-  busy wait blocks that instance's event loop for at most the busy timeout.
+- `node:sqlite` is synchronous: a transaction is one group of statements with no `await`. A lock of
+  another process is never waited for inside SQLite (that would block the loop): the call is tried
+  again asynchronously until the lock-wait deadline. Code that uses `connection.transaction()` outside a
+  repository operation runs it through `connection.serve(…)` for the same wait.
 - With them, what one process wrote is there for the next: `agboss run` / `chat --thread <id>`
   continue a thread after a restart, `agboss eval` / `replay` / `golden` read the records of
   earlier runs (a workflow run on its own uses the infrastructure its application lists), a pause

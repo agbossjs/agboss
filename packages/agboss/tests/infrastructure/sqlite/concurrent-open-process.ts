@@ -36,9 +36,15 @@ try {
   });
   const connection = container.get(SqliteConnection);
   if (!(connection instanceof SqliteConnection)) throw new Error("not a SqliteConnection");
-  connection.database.exec("CREATE TABLE IF NOT EXISTS notes (text TEXT NOT NULL);");
-  connection.transaction(() => {
-    connection.database.exec("INSERT INTO notes VALUES ('x')");
+  // a use of the connection outside a repository operation goes through `serve`: it waits for another
+  // process's lock asynchronously (SQLite's own wait is off once the connection is open, #1317c)
+  await connection.serve(() => {
+    connection.database.exec("CREATE TABLE IF NOT EXISTS notes (text TEXT NOT NULL);");
+  });
+  await connection.serve(() => {
+    connection.transaction(() => {
+      connection.database.exec("INSERT INTO notes VALUES ('x')");
+    });
   });
   await report("opened");
   process.exit(0);

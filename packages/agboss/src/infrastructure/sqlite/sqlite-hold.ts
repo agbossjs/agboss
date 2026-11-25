@@ -1,17 +1,14 @@
 import type { DatabaseSync } from "node:sqlite";
 import { IdempotencyError } from "../../core/error-families/effect-errors.js";
-import { seconds, type Milliseconds } from "../../units/index.js";
+import type { Milliseconds } from "../../units/index.js";
+import { EXECUTION_LEASE } from "../../app/lease-fence.js";
 import { systemClock } from "../clock.js";
+import { assertLockWaitBudget, LOCK_WAIT_DEADLINE, whileBusy } from "./sqlite-lock-wait.js";
 import type { Hold, SqliteMutex } from "./sqlite-mutex.js";
 import { afterFailedCommit } from "./sqlite-outcome.js";
 import { SqliteTransactionScope, type SqliteTransactionHandle } from "./sqlite-transaction.js";
 
-/**
- * The longest a `runOnce` keeps the file's transaction open on SQLite (#1317c, decision 10): past it
- * the attempt is rolled back and the file is free for the queue behind it — the lease is 30 s, a
- * hold of 15 s leaves its renewals (served ahead of the queue) and every other operation room.
- */
-export const SQLITE_HOLD_CAP: Milliseconds = seconds(15);
+export { SQLITE_HOLD_CAP } from "./sqlite-lock-wait.js";
 
 /** What a hold runs on: the connection's database, its file's mutex and the connection itself. */
 export interface HoldSite {
@@ -62,8 +59,11 @@ async function span<TValue>(
 ): Promise<TValue> {
   const { database, mutex } = site;
   const trusted: Trusted = (inner) => mutex.trusted(inner);
-  trusted(() => {
-    database.exec("BEGIN IMMEDIATE");
+  // another process's hold of the file is waited for without blocking the loop (sqlite-lock-wait.ts)
+  await whileBusy(database, () => {
+    trusted(() => {
+      database.exec("BEGIN IMMEDIATE");
+    });
   });
   const scope = new SqliteTransactionScope(database, trusted);
   hold.scope = scope;
@@ -107,6 +107,8 @@ export function heldTransaction<TValue>(
   work: (handle: SqliteTransactionHandle) => TValue | Promise<TValue>,
   cap: Milliseconds,
 ): Promise<TValue> {
+  // a hold longer than the wait other processes are given, or a wait longer than the lease, breaks renewals
+  assertLockWaitBudget({ lease: EXECUTION_LEASE, holdCap: cap, deadline: LOCK_WAIT_DEADLINE });
   return site.mutex.hold(
     site.owner,
     (hold) => span(site, hold, work, cap),

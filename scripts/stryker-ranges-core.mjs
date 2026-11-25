@@ -56,7 +56,7 @@ export function sqliteStoresShard() {
       "src/infrastructure/sqlite/sqlite-execution-lease.repository.ts",
       "src/infrastructure/sqlite/sqlite-fenced-effect.repository.ts",
       // #1317c: the file's mutex, the hold of a runOnce, its ambient transaction handle and the gate of every repository
-      "src/infrastructure/sqlite/sqlite-{mutex,hold,transaction,gate,guard,cancel,open}.ts",
+      "src/infrastructure/sqlite/sqlite-{mutex,hold,transaction,gate,guard,cancel,open,lock-wait}.ts",
       "src/infrastructure/sqlite/sqlite-outbound-call.repository.ts",
       "src/infrastructure/sqlite/sqlite-outbound-call-pages.ts",
       // #825: the table's declared seq, and its upgrade

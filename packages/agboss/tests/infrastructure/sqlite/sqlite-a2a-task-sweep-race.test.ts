@@ -36,8 +36,7 @@ describe("#960: the SQLite orphan sweep against a resend of the orphan's message
     const path = temporarySqlitePath();
     const sweeper = connectionTo(path);
     const other = connectionTo(path);
-    // the other instance answers a busy lock at once, so the interleaving shows as a refusal
-    other.database.exec("PRAGMA busy_timeout = 0");
+    // the other instance answers a busy lock at once and waits for it asynchronously (#1317c)
     const tasks = new SqliteA2ATaskRepository(other);
     const message = {
       endpoint: "orders-a2a-expose",
@@ -54,17 +53,15 @@ describe("#960: the SQLite orphan sweep against a resend of the orphan's message
     sweeper.transaction(() => {
       // the sweep has the write lock: the resend would be a new task under the orphan's message id
       interleaved = tasks.saveIfAbsent(newTask("t-20", "m-x", at(20))).then(
-        () => "saved",
+        (saved) => (saved.status === A2ATaskSaveStatus.Saved ? "saved" : "not saved"),
         () => "refused",
       );
       sweepSqliteA2ATasks(sweeper.database, new Map([["orders-a2a-expose", at(10)]]));
     });
 
-    expect(await interleaved).toBe("refused");
-    expect(await tasks.findByMessage(message)).toBeUndefined();
-    expect((await tasks.saveIfAbsent(newTask("t-20", "m-x", at(20)))).status).toBe(
-      A2ATaskSaveStatus.Saved,
-    );
+    // the resend waited for the sweep's commit, and ran after it: never inside it
+    expect(await interleaved).toBe("saved");
+    expect((await tasks.findByMessage(message))?.taskId).toBe("t-20");
     // a later sweep leaves the live task's message; its resend is a duplicate
     sweeper.transaction(() => {
       sweepSqliteA2ATasks(sweeper.database, new Map([["orders-a2a-expose", at(10)]]));
