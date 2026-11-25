@@ -72,3 +72,11 @@ describe("details", () => {
     expect(decision.message).toContain("SECRET");
   });
 });
+
+describe("facts", () => {
+  it("a fact given as undefined keeps its key; a paid family's spend is not overwritten by a fact", () => {
+    const error = new StepError.Agent({ agent: "a", cause: "boom", usage: [] });
+    expect(Object.hasOwn(error, "usage")).toBe(true);
+    expect(error.spend).toBeDefined();
+  });
+});

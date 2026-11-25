@@ -111,7 +111,7 @@ const SENTENCE_OF_FACTS: ReadonlySet<string> = new Set([
 const KEBAB = (name: string): string => name.replace(/(?<!^)(?=[A-Z])/g, "-").toLowerCase();
 
 describe("#1325a: the error families", () => {
-  it("the walk finds all sixteen families but ModelCallError (a single class)", () => {
+  it("the walk finds all the families but ModelCallError (a single class)", () => {
     expect([...FAMILIES.keys()].sort()).toEqual(
       [
         "A2AError",

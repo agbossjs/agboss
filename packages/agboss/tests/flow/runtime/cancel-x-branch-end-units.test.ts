@@ -21,7 +21,7 @@ import {
 } from "../../../src/flow/runtime/launch/branch-end.js";
 import { BranchStatus } from "../../../src/flow/runtime/launch/records.js";
 
-const stepFailed = (): Error => Object.create(StepError.prototype) as Error;
+const stepFailed = (): Error => new StepError.Action({ action: "x-action", cause: "boom" });
 const arbiterFailed = (): Error => Object.create(StepError.Arbiter.prototype) as Error;
 const expired = (): Error => Object.create(StepError.PauseExpired.prototype) as Error;
 

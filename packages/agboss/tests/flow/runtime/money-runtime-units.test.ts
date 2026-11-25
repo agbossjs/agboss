@@ -6,7 +6,12 @@
  * paused run has spent (#267).
  */
 import { StepError } from "../../../src/core/error-families/step-errors.js";
-import { LimitError } from "../../../src/core/error-families/limit-errors.js";
+import {
+  GuardrailError,
+  LimitError,
+  PiiError,
+} from "../../../src/core/error-families/limit-errors.js";
+import { isPaidError } from "../../../src/core/error-families/paid.js";
 import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { GraphInterrupt } from "@langchain/langgraph";
 import { describe, expect, it, vi } from "vitest";
@@ -536,6 +541,22 @@ describe("#1356: the spend a failure carries", () => {
     expect(unrecordedSpendOf(new Error("plain"))).toEqual([]);
     expect(unrecordedSpendOf({ usage: spent })).toEqual([]);
     expect(unrecordedSpendOf(undefined)).toEqual([]);
+  });
+
+  it("is a guardrail's and a PII refusal's own usage too, so the ledger counts them once (#1413)", () => {
+    const blocked = new GuardrailError.Blocked({
+      guardrail: "g",
+      refusal: "no",
+      probability: 1,
+      threshold: 0.5,
+      usage: spent,
+    });
+    const refused = new PiiError.Refused({ piiKind: "email", refusal: "no", usage: spent });
+
+    expect(unrecordedSpendOf(blocked)).toBe(spent);
+    expect(unrecordedSpendOf(refused)).toBe(spent);
+    expect(isPaidError(blocked)).toBe(true);
+    expect(isPaidError(refused)).toBe(true);
   });
 
   it("is recorded by a run's drain before the failure rises, a paid one's and a limit's; a plain failure records none", async () => {
