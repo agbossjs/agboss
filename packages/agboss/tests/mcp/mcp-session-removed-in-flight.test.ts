@@ -20,8 +20,53 @@ const sessionOf = (closes: { count: number }): TrackedSession => ({
   inFlight: 0,
 });
 
+/** What the listener does for a request that opens a session: the check, the count, then the slow initialize. */
+async function initialize(sessions: McpSessions, id: string, callerKey: string) {
+  const refusal = sessions.refusalFor(callerKey);
+  if (refusal !== undefined) return refusal.status;
+  sessions.opening(id, callerKey, new EventEmitter() as never);
+  await new Promise((resolve) => setImmediate(resolve)); // the transport initializes asynchronously
+  sessions.add(id, { ...sessionOf({ count: 0 }), callerKey });
+  return 200;
+}
+
+describe("#1410 M3: a burst of initializes cannot pass the caps together (#opening)", () => {
+  it("three at once from one caller over a cap of two: exactly one 429", async () => {
+    const sessions = new McpSessions({ maxSessionsPerCaller: 2 }, new VirtualClock());
+
+    const statuses = await Promise.all(
+      ["a", "b", "c"].map((id) => initialize(sessions, id, "alice")),
+    );
+
+    expect(statuses.sort()).toEqual([200, 200, 429]);
+    expect(sessions.size).toBe(2);
+  });
+
+  it("three at once from three callers over a total of two: exactly one 503", async () => {
+    const sessions = new McpSessions({ maxSessions: 2 }, new VirtualClock());
+
+    const statuses = await Promise.all(
+      ["a", "b", "c"].map((id) => initialize(sessions, id, `caller-${id}`)),
+    );
+
+    expect(statuses.sort()).toEqual([200, 200, 503]);
+    expect(sessions.size).toBe(2);
+  });
+
+  it("a request that closes before its session initialized frees its place", async () => {
+    const sessions = new McpSessions({ maxSessions: 1 }, new VirtualClock());
+    const response = new EventEmitter();
+    sessions.opening("a", "alice", response as never);
+    expect(sessions.refusalFor("bob")?.status).toBe(503);
+
+    response.emit("close");
+
+    expect(sessions.refusalFor("bob")).toBeUndefined();
+  });
+});
+
 describe("#1403: a removed session is not brought back by a request that closes later", () => {
-  it("does not re-arm the idle clock or count the session after remove", async () => {
+  it("does not re-arm the idle clock after remove (the one guard is `#arm`'s)", async () => {
     const clock = new VirtualClock();
     const closes = { count: 0 };
     const sessions = new McpSessions({ sessionIdleTimeout: minutes(1), maxSessions: 1 }, clock);

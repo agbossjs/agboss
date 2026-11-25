@@ -6,17 +6,15 @@ import type { PauseAnswerLog } from "./pause-answer-log.js";
 import { removeClosedPauses } from "./pause-log-repair.js";
 import type { MeshRequestRepository } from "./mesh-request.repository.js";
 import type { FencedEffectRepository } from "./fenced-effect.repository.js";
-import type { EndedTree, ExecutionAuditLogRepository } from "./execution-audit-log.repository.js";
+import type { ExecutionAuditLogRepository } from "./execution-audit-log.repository.js";
 import type { OutboundCallRepository } from "./outbound-call.repository.js";
 import type { ExecutionHistoryRepository } from "./execution-history.repository.js";
 import type { CostLedgerRepository } from "./cost-ledger.repository.js";
-import {
-  ExecutionRecordStatus,
-  type ExecutionRecordRepository,
-} from "./execution-record.repository.js";
+import type { ExecutionRecordRepository } from "./execution-record.repository.js";
 import type { Clock } from "./clock.js";
 import type { FrameworkLog } from "./logger.js";
 import { pauseKeyOf } from "./pause-record.js";
+import { endedOrSweptTreeOf, endedTreeOf } from "./ended-tree.js";
 import type { Milliseconds } from "../units/index.js";
 import { observedFailureOf, type ObservedFailure } from "../flow/observers/failure.js";
 
@@ -104,37 +102,19 @@ async function setAsideUnknown(sources: RetentionSources, cutoff: Date): Promise
     );
 }
 
-/** The statuses of a root record that ended (text: a record's status may be compared with them). */
-const ENDED_STATUSES: readonly string[] = [
-  ExecutionRecordStatus.Answered,
-  ExecutionRecordStatus.Failed,
-  ExecutionRecordStatus.Guarded,
-  ExecutionRecordStatus.Stopped,
-  ExecutionRecordStatus.Cancelled,
-];
-
-/**
- * Whether a tree ended, by its root's record. A tree with no record, a `running` or a `paused` one
- * counts as live: nothing is removed on a guess.
- */
-const endedTreeOf =
-  (records: Pick<ExecutionRecordRepository, "findByTenantIdAndRunId">): EndedTree =>
-  async ({ tenantId, rootExecutionId }) => {
-    const record = await records.findByTenantIdAndRunId(tenantId, rootExecutionId);
-    return record !== undefined && ENDED_STATUSES.includes(record.status);
-  };
-
 /** The audit log's old rows of the trees that ended; with no records to tell it by, none (#1321b). */
 const auditLogExpiry = ({
   auditLog,
   treeRecords,
   auditLogRetention,
+  clock,
 }: RetentionSources): Expiry => ({
   what: "the audit log's old rows",
   remove:
     auditLog &&
     treeRecords &&
-    ((cutoff) => auditLog.deleteExpired(cutoff, endedTreeOf(treeRecords))),
+    ((cutoff) =>
+      auditLog.deleteExpired(cutoff, endedOrSweptTreeOf(treeRecords, auditLog, clock, cutoff))),
   retention: auditLogRetention,
 });
 

@@ -57,17 +57,17 @@ async function failedJoin(
   const handler = errorHandlerOf({ errors: launch.joinErrors }, record);
   if (handler === undefined) throw cause;
   const held = await heldEntriesUndone(heldSiteOf(failed, cause));
-  const handled = handledErrorOf(failed.deps, record, failed.node, handler.to);
-  const entered = sidePathEntered(failed.state, record, handler.to, undefined, handled);
-  const settled = await settledValues(launch, handler, failed);
-  const update = {
-    ...settled,
-    lastError: record,
-    next: handler.to,
-    handledErrors: [handled],
-    ...entered,
-  };
-  return withHeldUndone({ ...update, ...failed.joinUndo }, held);
+  try {
+    const handled = handledErrorOf(failed.deps, record, failed.node, handler.to);
+    const entered = sidePathEntered(failed.state, record, handler.to, undefined, handled);
+    const settled = await settledValues(launch, handler, failed);
+    const update = { ...settled, lastError: record, next: handler.to, handledErrors: [handled] };
+    return withHeldUndone({ ...update, ...entered, ...failed.joinUndo }, held);
+  } catch (error) {
+    // the held undo was paid for and its spend reaches no state: the ledger at once (#340 S4)
+    await failed.deps.limits.budgets.record(held?.usage ?? []);
+    throw error;
+  }
 }
 
 /** Where a failed join undoes the held entries: the launching step's frame, the state as its undo left it. */
