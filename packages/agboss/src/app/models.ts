@@ -15,7 +15,13 @@ import { checkedModelUses, resolutionProblems } from "../models/check.js";
 import { ConfigurationError } from "../models/problems.js";
 import { workflowModelUsesOf } from "../models/resolution.js";
 import { providersAtStart } from "./providers-at-start.js";
-import { directoryOf, modelSummaryOf, withProviderPrices } from "../models/workflow-models.js";
+import {
+  directoryOf,
+  modelPricingOf,
+  modelSummaryOf,
+  withProviderPrices,
+} from "../models/workflow-models.js";
+import type { ModelPricing } from "../models/model-pricing.js";
 import { withRedactionValues } from "../files/redaction-values.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
@@ -31,6 +37,8 @@ export interface AppModels {
    */
   readonly checkModels: () => Promise<ModelInputs>;
   readonly priced: (config: AgentsConfigOf<string>) => AgentsConfigOf<string>;
+  /** Prices any other model use — a router's, a guardrail's, a reranker's, … — by its own provider and model. */
+  readonly pricing: ModelPricing;
   readonly summary: readonly string[];
 }
 
@@ -111,6 +119,7 @@ export async function modelsFor(
   return {
     gateway,
     checkModels,
+    pricing: modelPricingOf(directory),
     priced: (config) =>
       withRedactionValues(withProviderPrices(config, directory), uses, (use) => {
         const resolution = directory.resolve(use);

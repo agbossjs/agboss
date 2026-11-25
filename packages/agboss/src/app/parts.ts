@@ -33,6 +33,7 @@ import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import type { ReplyReaderParts } from "../channels/reply-reader.js";
 import type { Class } from "../components/injection.js";
 import { decisionServiceOf } from "../components/decision-target.js";
+import type { ModelPricing } from "../models/model-pricing.js";
 
 export class UnknownToolError extends Error {
   override name = "UnknownToolError";
@@ -76,12 +77,13 @@ export const servicesFor = (
   gateway: ModelGateway,
   contexts: RuntimeContexts,
   container: ContainerOptions,
+  pricing: ModelPricing,
 ): WorkflowServices => ({
   router: (name) => defaultRouterOf(name, bundle.config, gateway),
   decide: decisionServiceOf(bundle, gateway),
   contexts,
   container,
-  rerankModel: rerankerBindingOf(bundle.config, gateway),
+  rerankModel: rerankerBindingOf(bundle.config, gateway, pricing),
   rerankInstructions: (reranker) =>
     bundle.rerankers?.find((found) => found.name === reranker)?.prompt ?? "",
 });
@@ -121,11 +123,12 @@ export const guardrailsFor = (
   services: WorkflowServices,
   config: AgentsConfigOf<string>,
   gateway: ModelGateway,
+  pricing: ModelPricing,
 ): GuardrailRuntime =>
   flowGuardrailRuntime(bundle.guardrails, bundle.resolve(services), {
     gateway,
     chatDefaults: config.defaults.models,
-    chatModelSettings: chatModelSettingsOf(config),
+    chatModelSettings: chatModelSettingsOf(pricing),
   });
 
 /** The workflow's guardrails (#120) and its tool interceptors (#384), their classes from its container. */
@@ -134,11 +137,12 @@ export const policiesFor = (
   services: WorkflowServices,
   config: AgentsConfigOf<string>,
   gateway: ModelGateway,
+  pricing: ModelPricing,
 ): {
   readonly guardrails: GuardrailRuntime;
   readonly toolInterceptors: ToolInterceptorRuntime;
 } => ({
-  guardrails: guardrailsFor(bundle, services, config, gateway),
+  guardrails: guardrailsFor(bundle, services, config, gateway, pricing),
   toolInterceptors: toolInterceptorRuntimeOf(bundle.toolInterceptors, bundle.resolve(services)),
 });
 
@@ -169,6 +173,7 @@ export const flowFor = (
   bundle: AssembledWorkflow,
   config: AgentsConfigOf<string>,
   gateway: ModelGateway,
+  pricing: ModelPricing,
   branchScheduler?: BranchScheduler,
 ): Pick<
   AgentExecutionDeps<string>,
@@ -186,7 +191,7 @@ export const flowFor = (
   const routerDeps = {
     gateway,
     chatDefaults: config.defaults.models,
-    chatModelSettings: chatModelSettingsOf(config),
+    chatModelSettings: chatModelSettingsOf(pricing),
   };
   return {
     graph: bundle.graph,
@@ -209,11 +214,12 @@ export const repliesFor = (
   bundle: AssembledWorkflow,
   config: AgentsConfigOf<string>,
   gateway: ModelGateway,
+  pricing: ModelPricing,
   container: { readonly get: <T>(token: Class<T>) => T },
 ): ReplyReaderParts => ({
   interpreters: bundle.replyInterpreters ?? [],
   gateway,
   chatDefaults: config.defaults.models,
-  chatModelSettings: chatModelSettingsOf(config),
+  chatModelSettings: chatModelSettingsOf(pricing),
   instanceOf: (interpreter) => container.get(interpreter),
 });

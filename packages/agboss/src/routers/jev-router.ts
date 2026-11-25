@@ -2,6 +2,8 @@ import { extractText } from "./multimodal-utils.js";
 import { z } from "zod";
 import { CostSource, NO_PROVIDER, ZERO_USAGE, type UsageRecord } from "../finops/usage.js";
 import { billedDecisionRecord } from "../finops/failed-decision.js";
+import { pricedDecisionRecord } from "../finops/decision-price.js";
+import type { ModelPricing } from "../models/model-pricing.js";
 import { usd, type Usd } from "../units/index.js";
 import type { JevClient } from "../llm/jev-client.js";
 import { callFailed, decided, failed, unknownOption } from "./outcome.js";
@@ -18,6 +20,8 @@ export interface JevRouterDeps {
   readonly servedBy?: (
     raw: unknown,
   ) => { readonly provider: string; readonly model: string } | undefined;
+  /** Prices an answer whose provider reported no cost by that provider's table (bughunt 2026-11-25 #2). */
+  readonly pricing?: ModelPricing;
 }
 
 const JevResponseSchema = z.object({
@@ -71,30 +75,44 @@ function toOutcome(
   return decided(score === undefined ? decision : { ...decision, confidence: score }, record);
 }
 
+/** A call that got no answer costs nothing, whichever way its provider prices (#1399). */
+const API_ZERO = { costUsd: usd(0), costSource: CostSource.Api } as const;
+
 type UsageFactory = (reportedModel: string | undefined, costUsd: Usd) => UsageRecord;
 
-/** Jev picks among options with calibrated probabilities; cost comes from the API response. */
-export function createJevRouter(deps: JevRouterDeps): RouterEngine {
-  const usageFor =
-    (served: { readonly provider: string; readonly model: string } | undefined): UsageFactory =>
-    (reportedModel, costUsd) => ({
+/** The record of an answer: under who served it, priced by its table when it reports no cost (bughunt #2). */
+const usageFactoryOf =
+  (deps: JevRouterDeps, raw: unknown): UsageFactory =>
+  (reportedModel, costUsd) => {
+    const served = deps.servedBy?.(raw);
+    const record = {
       caller: routerCaller(deps.name),
       model: reportedModel ?? served?.model ?? deps.model,
       provider: served?.provider ?? deps.provider ?? NO_PROVIDER,
       ...ZERO_USAGE,
       costUsd,
       costSource: CostSource.Api,
-    });
+    };
+    return pricedDecisionRecord(record, raw, served?.model ?? deps.model, deps.pricing);
+  };
+
+/** The one record of an answer the provider billed that is no usable decision (#1399), priced like any. */
+function billedRecordOf(deps: JevRouterDeps, raw: unknown, request: RouteRequest): UsageRecord {
+  const served = deps.servedBy?.(raw);
+  const model = served?.model ?? deps.model;
+  const record = billedDecisionRecord(
+    { caller: routerCaller(deps.name), model, provider: served?.provider ?? deps.provider },
+    { input: extractText(request.input), options: request.options },
+    raw,
+  );
+  return pricedDecisionRecord(record, raw, model, deps.pricing);
+}
+
+/** Jev picks among options with calibrated probabilities; cost comes from the API response. */
+export function createJevRouter(deps: JevRouterDeps): RouterEngine {
+  const usageFor = (raw: unknown): UsageFactory => usageFactoryOf(deps, raw);
   const billed = (raw: unknown, request: RouteRequest): UsageRecord =>
-    billedDecisionRecord(
-      {
-        caller: routerCaller(deps.name),
-        model: deps.servedBy?.(raw)?.model ?? deps.model,
-        provider: deps.servedBy?.(raw)?.provider ?? deps.provider,
-      },
-      { input: extractText(request.input), options: request.options },
-      raw,
-    );
+    billedRecordOf(deps, raw, request);
   return {
     name: deps.name,
     route: async (request) => {
@@ -111,9 +129,10 @@ export function createJevRouter(deps: JevRouterDeps): RouterEngine {
             },
           },
         });
-        return toOutcome(raw, request, usageFor(deps.servedBy?.(raw)), billed);
+        return toOutcome(raw, request, usageFor(raw), billed);
       } catch (error) {
-        return callFailed(error, usageFor(undefined)(undefined, usd(0)));
+        // no answer came: nothing was billed — a 0 USD record of the call, as reported
+        return callFailed(error, { ...usageFor(undefined)(undefined, usd(0)), ...API_ZERO });
       }
     },
   };

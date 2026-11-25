@@ -17,6 +17,8 @@ export default defineConfig({
       "tests/stream/**/*.test.ts",
       "tests/models/streaming/*.test.ts",
       "tests/models/openrouter-routing.test.ts",
+      // the decision priced by its provider's table (src/finops/decision-price.ts)
+      "tests/models/component-prices-kinds.test.ts",
       "tests/a2a/server/{a2a-sse-*,a2a-subscriber-queue*,a2a-artifact-view*,a2a-local-runs*,a2a-stream*}.test.ts",
     ],
   },

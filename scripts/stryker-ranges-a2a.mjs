@@ -136,6 +136,8 @@ export function streamShard() {
       // #1399: the same for a call of any other component, and a fallback's share of it
       "src/finops/charged-call.ts",
       "src/finops/failed-decision.ts",
+      // bughunt 2026-11-25 #2: a decision priced by its own provider's table when it reports no cost
+      "src/finops/decision-price.ts",
     ],
   };
 }

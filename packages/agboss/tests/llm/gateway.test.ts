@@ -1,3 +1,4 @@
+import { asDeclared } from "../../src/models/model-pricing.js";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
@@ -119,7 +120,7 @@ describe("AC12: model clients are asked for through the gateway", () => {
       },
     };
 
-    const registry = createModelRegistry(config, gateway);
+    const registry = createModelRegistry(config, gateway, asDeclared);
 
     expect(registry.agents.get("alpha")?.model).toBe(model);
     expect(chatModel.mock.calls.map(([spec]) => [spec.user, spec.settings.model])).toEqual([

@@ -1,4 +1,5 @@
-import type { AgentsConfigOf, ModelSettings } from "../config/types.js";
+import type { AgentsConfigOf } from "../config/types.js";
+import type { ModelPricing } from "./model-pricing.js";
 import { costLabel, priceOf } from "./cost.js";
 import { promptCachingLabel } from "./prompt-caching.js";
 import { reasoningLabel } from "./reasoning.js";
@@ -11,20 +12,18 @@ import type { ModelUse } from "./uses.js";
 export const directoryOf = (providers: readonly ModelProviderType[]): ModelProviderDirectory =>
   ModelProviderDirectory.of(providers);
 
-/** A chat model's settings with the price from its provider's table when it has none of its own. */
-function priced<T extends ModelSettings>(settings: T, directory: ModelProviderDirectory): T {
-  if (settings.price !== undefined) return settings;
-  const resolution = directory.resolve({
-    key: settings.model,
-    model: settings.model,
-    purpose: ModelKind.Chat,
-    // the provider its cascade resolved, not the one `serves` finds (#1313)
-    ...(settings.modelProvider === undefined ? {} : { modelProvider: settings.modelProvider }),
-  });
-  if (resolution.kind === "problem") return settings;
-  const { cost } = resolution.provider.options;
-  const price = cost === undefined ? undefined : priceOf(cost, settings.model);
-  return price === undefined ? settings : { ...settings, price };
+/** The pricing of an application's model providers. */
+export function modelPricingOf(directory: ModelProviderDirectory): ModelPricing {
+  return (settings) => {
+    if (settings.price !== undefined || settings.modelProvider === undefined) return settings;
+    // the provider its cascade resolved (a chat or a decisions one), not one that lists the model (#1313)
+    const provider = directory.named(settings.modelProvider);
+    if (provider === undefined) return settings;
+    const { cost } = provider.options;
+    if (cost === undefined) return { ...settings, unpriced: true };
+    const price = priceOf(cost, settings.model);
+    return price === undefined ? settings : { ...settings, price };
+  };
 }
 
 /** The config with every chat model priced by its provider's table where it sets no price itself. */
@@ -32,10 +31,14 @@ export function withProviderPrices(
   config: AgentsConfigOf<string>,
   directory: ModelProviderDirectory,
 ): AgentsConfigOf<string> {
+  const priced = modelPricingOf(directory);
+  const router = config.defaults.router;
   return {
     ...config,
+    // the default router (guards, `ROUTER_FACTORY`, eval) on a chat model is priced like any other use
+    ...(router?.kind === "llm" ? { defaults: { ...config.defaults, router: priced(router) } } : {}),
     agents: Object.fromEntries(
-      Object.entries(config.agents).map(([name, agent]) => [name, priced(agent, directory)]),
+      Object.entries(config.agents).map(([name, agent]) => [name, priced(agent)]),
     ),
     ...(config.memories === undefined
       ? {}
@@ -45,7 +48,7 @@ export function withProviderPrices(
               name,
               compaction.model === undefined
                 ? compaction
-                : { ...compaction, model: priced(compaction.model, directory) },
+                : { ...compaction, model: priced(compaction.model) },
             ]),
           ),
         }),
@@ -53,7 +56,7 @@ export function withProviderPrices(
       ? {}
       : {
           judges: Object.fromEntries(
-            Object.entries(config.judges).map(([name, judge]) => [name, priced(judge, directory)]),
+            Object.entries(config.judges).map(([name, judge]) => [name, priced(judge)]),
           ),
         }),
   };

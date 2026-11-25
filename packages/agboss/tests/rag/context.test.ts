@@ -1,3 +1,4 @@
+import { asDeclared } from "../../src/models/model-pricing.js";
 import { usd } from "../../src/units/index.js";
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
@@ -30,7 +31,7 @@ async function setup(source: KnowledgeSource) {
   const base = await fakeDeps({ "test/router": [routeTo("alpha-agent")] });
   const deps: AgentExecutionDeps<string> = {
     ...base,
-    registry: createModelRegistry(base.config, fakeGateway(factory)),
+    registry: createModelRegistry(base.config, fakeGateway(factory), asDeclared),
     knowledge: (agent) => (agent === "alpha-agent" ? [source] : []),
   };
   return { deps, alpha };

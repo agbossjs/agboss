@@ -7,6 +7,12 @@ import type { McpEndpointOptions } from "../../mcp/mcp-endpoint.decorator.js";
 import type { MeshOptions } from "../../mesh/mesh.decorator.js";
 import type { ModelProviderOptions } from "../../models/model-provider.decorator.js";
 import type {
+  DecisionsDriverOptions,
+  OpenAiCompatibleDriverOptions,
+  OpenRouterDriverOptions,
+} from "../../models/model-drivers.js";
+import type { OpenRouterRouting } from "../../models/openrouter-routing.js";
+import type {
   ClusterStorageOptions,
   DatabaseStorageOptions,
   ObjectStorageOptions,
@@ -30,6 +36,40 @@ export const MODEL_PROVIDER_KEYS = optionKeys<ModelProviderOptions>()([
   "driver",
   "model",
   "models",
+]);
+
+/**
+ * What each model driver factory takes (bughunt 2026-11-25 #5): a stray key (`baseURL`, `apikey`) would
+ * otherwise be dropped and the call sent to the driver's default upstream with the key it was given.
+ * `headers` and `requestFields` are free records by design — the server's own names — so only their bag is listed.
+ */
+export const OPENROUTER_ROUTING_KEYS = optionKeys<OpenRouterRouting>()([
+  "order",
+  "only",
+  "ignore",
+  "sort",
+  "quantizations",
+  "allowFallbacks",
+]);
+
+export const OPENAI_COMPATIBLE_DRIVER_KEYS = optionKeys<OpenAiCompatibleDriverOptions>()([
+  "baseUrl",
+  "apiKey",
+  "headers",
+  "requestFields",
+]);
+
+export const OPENROUTER_DRIVER_KEYS = optionKeys<OpenRouterDriverOptions>()(
+  ["apiKey", "baseUrl", "headers", "routing", "transforms"],
+  { routing: OPENROUTER_ROUTING_KEYS },
+);
+
+export const DECISIONS_DRIVER_KEYS = optionKeys<DecisionsDriverOptions>()([
+  "baseUrl",
+  "apiKey",
+  "headers",
+  "path",
+  "knownModels",
 ]);
 
 export const MCP_SERVER_KEYS = optionKeys<

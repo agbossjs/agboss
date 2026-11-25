@@ -1,3 +1,4 @@
+import { asDeclared } from "../src/models/model-pricing.js";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
 import { describe, expect, it, vi } from "vitest";
 import { createModelRegistry, resolveSettings } from "../src/llm/registry.js";
@@ -41,6 +42,7 @@ describe("createModelRegistry", () => {
     const registry = createModelRegistry(
       testConfig,
       fakeGateway(() => new FakeListChatModel({ responses: [] })),
+      asDeclared,
     );
 
     expect([...registry.agents.keys()]).toEqual(["alpha", "beta"]);
@@ -56,7 +58,7 @@ describe("createModelRegistry", () => {
       },
     };
 
-    const registry = createModelRegistry(config, fakeGateway(factory));
+    const registry = createModelRegistry(config, fakeGateway(factory), asDeclared);
 
     expect(factory).toHaveBeenCalledTimes(1);
     expect(registry.agents.get("alpha")?.model).toBe(registry.agents.get("beta")?.model);

@@ -1,7 +1,8 @@
 import { mergeTextWithContent } from "./multimodal-utils.js";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { ResolvedModelSettings } from "../config/types.js";
-import { recordUsage } from "../finops/usage.js";
+import type { AIMessageChunk } from "@langchain/core/messages";
+import { ModelCostError, recordUsage, unpricedUsageOf } from "../finops/usage.js";
 import { compareNames } from "../llm/canonical-order.js";
 import { readRouterDecision, type ParsedDecision } from "./decision.js";
 import { callFailed, decided, failed, unknownOption } from "./outcome.js";
@@ -36,9 +37,28 @@ function outcomeOf(read: ParsedDecision, usage: UsageRecord): RouteOutcome {
   }
 }
 
-/** Chat model asked for JSON; output validated with zod; priced from the config table. */
-/** A call that failed before an replyWith is recorded at no cost. */
+/** A call that failed before an answer is recorded at no cost (what it streamed is the sink's, #1399). */
 const NO_CALL_COST = { response_metadata: { usage: { cost: 0 } } };
+
+/**
+ * The record of a router call that failed: at no cost when no answer came; when the provider answered
+ * — and billed — and only its accounting failed, the answer's tokens, unpriced (bughunt 2026-11-25 #2).
+ */
+function failedCallUsageOf(
+  caller: string,
+  deps: LlmRouterDeps,
+  answered: AIMessageChunk | undefined,
+): UsageRecord {
+  if (answered === undefined) return recordUsage(caller, deps.settings, NO_CALL_COST);
+  try {
+    return recordUsage(caller, deps.settings, answered);
+  } catch (failure) {
+    if (!(failure instanceof ModelCostError)) throw failure;
+    return unpricedUsageOf(caller, deps.settings, answered);
+  }
+}
+
+/** Chat model asked for JSON; output validated with zod; priced by its provider's table. */
 
 export function createLlmRouter(deps: LlmRouterDeps): RouterEngine {
   const caller = routerCaller(deps.name);
@@ -46,6 +66,7 @@ export function createLlmRouter(deps: LlmRouterDeps): RouterEngine {
     name: deps.name,
     route: async (request) => {
       const { sink, collected } = frameOrCollected();
+      let answered: AIMessageChunk | undefined;
       try {
         const prompt = await llmRouterPrompt.formatMessages({
           // routes in a canonical order (by name): declaration order changes neither request nor fingerprint
@@ -58,17 +79,12 @@ export function createLlmRouter(deps: LlmRouterDeps): RouterEngine {
               : mergeTextWithContent(`${request.instructions}\n\n`, request.input),
         });
         const spec = { caller, settings: deps.settings, sent: prompt, sink };
-        const response = await chargedCall(spec, (callbacks) =>
-          deps.model.invoke(prompt, { callbacks }),
-        );
-        const usage = recordUsage(caller, deps.settings, response);
+        answered = await chargedCall(spec, (callbacks) => deps.model.invoke(prompt, { callbacks }));
+        const usage = recordUsage(caller, deps.settings, answered);
         const allowed = new Set(request.options.map((option) => option.name));
-        return withSpent(outcomeOf(readRouterDecision(response.text, allowed), usage), collected);
+        return withSpent(outcomeOf(readRouterDecision(answered.text, allowed), usage), collected);
       } catch (error) {
-        return withSpent(
-          callFailed(error, recordUsage(caller, deps.settings, NO_CALL_COST)),
-          collected,
-        );
+        return withSpent(callFailed(error, failedCallUsageOf(caller, deps, answered)), collected);
       }
     },
   };
