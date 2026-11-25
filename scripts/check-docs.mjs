@@ -42,9 +42,11 @@ const ROOT_DOCS = [
   "QUALITY.md",
   "WORKFLOW.md",
   "CONTRIBUTING.md",
-  "CHANGELOG.md",
   "SECURITY.md",
 ];
+// CHANGELOG.md is not checked: it records released history, whose snippets and commands use forms
+// removed by later releases, and only the release PR (release/*) may edit it. The new entries are
+// assembled from changes/ fragments, which are checked by changelog-assemble --check.
 // the project skills shipped with agboss (#305): checked like every doc, plus docs/skills.mjs
 const SKILLS_FOLDER = "packages/agboss/skills";
 

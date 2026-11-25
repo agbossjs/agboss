@@ -172,7 +172,7 @@ TernRecords` → `turns: TurnRecords`, `TernStoreRecordRepository` → `TurnStor
     `LeaseEventStep` → `ExecutionAuditEventRecord` / `ExecutionAuditEventBase` /
     `ExecutionAuditEventKind` / `AuditEventStep`, `app.leaseEventsOf(tree)` →
     `app.auditLogOf(tree: ExecutionTreeQuery)` (`LeaseEventsQuery` → `ExecutionTreeQuery`, also
-    `outboundCallsOf`'s), `ExecutionHistoryRecord.leaseEvents` → `auditLog` (and in `agboss executions
+    `outboundCallsOf`'s), `ExecutionHistoryRecord.leaseEvents` → `auditLog` (and in `agboss records
 export`), `@Application({ retention: { leaseEvents } })` → `retention.auditLog` (the old key is
     refused by `[application.retention-invalid]` naming the new one), the contract suite
     `executionLeaseEventContract` → `executionAuditLogContract` and
@@ -419,29 +419,55 @@ index` (as before) — a running instance does not re-read a folder on its own.
   (`if (pause.kind === PauseKind.Approval) pause.ask.arguments`); read `pending[i].step` for
   `pending[i].agent`.
 
-- **One meaning per name: `answeredBy` is who answered, `respondent` is who may** (#934, #1307, API
-  review Q3) — `answeredBy` meant two things on the 0.1.0 surface. In 0.1.1 the person who answered is
-  `actor` (`{ id, orgId? }`) and who may answer is the pause target's `respondent: PauseRespondent`
-  (`Owner` or `Delegate`), on `PendingPause`, `PauseRecord`, `PauseAnswerRecord` and `describe` JSON. The
-  `@ChannelRole` that carried `answeredBy` / `answerer` is split into a target and a channel (see
-  Upgrading to 0.1.1); no alias is kept.
+- **One meaning per name: `answeredBy` is who answered, `answerer` is who may** (#934, API review Q3)
+  — `answeredBy` meant two things on the 0.1.0 surface; now it is always the person (a string) and
+  who may answer is `answerer: PauseAnswerer`, everywhere:
 
-  **Breaking (silent):** an audit filter written for 0.1.0 on `answeredBy` no longer compiles:
+  | Where                                                            | 0.1.0                                        | Now                                                  | Until 0.2                                                                              |
+  | ---------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+  | `@ChannelRole` options                                           | `answeredBy: PauseAnswerer`                  | `answerer`                                           | `answeredBy` accepted, `@deprecated`; both given and different → `[channel.role-form]` |
+  | `PendingPause` (`result.pending`, `ExecutionPauseEvent.pending`) | `answeredBy: PauseAnswerer`                  | `answerer`                                           | `answeredBy`, the same value, `@deprecated`                                            |
+  | `PauseRecord` (store contract)                                   | `answeredBy: PauseAnswerer`                  | `answerer`                                           | `answeredBy?` `@deprecated`, never filled                                              |
+  | `PauseAnswer` (`PauseRecord.answer`)                             | `answerer: string \| undefined` (the person) | `answeredBy`                                         | none: a 0.1.0 reader gets a compile error, not a wrong value                           |
+  | `PauseAnswerRecord` (`result.record.pauses`)                     | `answeredBy: PauseAnswerer`, `responder`     | `answerer: PauseAnswerer`, `answeredBy` (the person) | `responder`, the same value as `answeredBy`, `@deprecated`                             |
+  | `EvalPauseTrace` (`@agboss/core/eval`)                           | `responder?`                                 | `answeredBy?`                                        | `responder`, `@deprecated`; a saved run artifact reads with either key                 |
+  | `describe` JSON, `DescribedChannel`                              | `answeredBy`                                 | `answerer`                                           | `answeredBy` emitted too                                                               |
+
+  **Breaking (silent):** `PauseAnswerRecord.answeredBy` keeps its name and changes its meaning — before:
+  the kind (`"channel"` or `"thread-owner"`), now: the person who answered (`"manager-17"`, or
+  `undefined`). Nothing fails to compile (`PauseAnswerer` is a string enum) and no alias can keep the
+  old meaning, so an audit filter written for 0.1.0 still builds and quietly matches nobody:
 
   ```ts
-  import { PauseRespondent, type PauseAnswerRecord } from "@agboss/core";
+  import { PauseAnswerer, type PauseAnswerRecord } from "@agboss/core";
 
   declare const pauses: readonly PauseAnswerRecord[]; // `result.record.pauses`
 
-  // BEFORE, 0.1.0 — `pause.answeredBy === PauseAnswerer.Channel`: the pauses a channel answered
-  // AFTER, 0.1.1 — the same filter on `respondent`; who answered is `actor.id`
-  export const after = pauses.filter((pause) => pause.respondent === PauseRespondent.Delegate);
-  export const answeredByManager = pauses.filter((pause) => pause.actor?.id === "manager-17");
+  // BEFORE, 0.1.0 — the audit filter: the pauses a channel answered.
+  // On 0.1.1 this very line still compiles and matches nobody: `answeredBy` is "manager-17" now.
+  export const before = pauses.filter((pause) => pause.answeredBy === PauseAnswerer.Channel);
+
+  // AFTER, 0.1.1 — the same filter on `answerer`; who answered is `answeredBy`
+  export const after = pauses.filter((pause) => pause.answerer === PauseAnswerer.Channel);
+  export const answeredByManager = pauses.filter((pause) => pause.answeredBy === "manager-17");
   ```
 
-  The same goes for a column of an export of `result.record.pauses` or of `agboss executions export`:
-  `actor` is the person, `respondent` the kind. **Migration:** `@ToolApproval({ respondent })`;
-  `pending[i].respondent`; `record.pauses[i].respondent` for the kind and `.actor` for the person.
+  The same goes for a column of an export of `result.record.pauses` or of `agboss records export`:
+  `answeredBy` is the person now (`responder` holds the same value until 0.2), `answerer` the kind.
+  **`PauseRecord.answeredBy`** (the store contract's record, deprecated) is **never filled from
+  0.1.1**: a record the core returns has `answerer` and no `answeredBy` (`undefined`), so a 0.1.0
+  reader of it gets `undefined`, not a kind — it is not a read-only alias with a value; a store of
+  your own may still write it (the core reads `answerer ?? answeredBy`). **Stored data:** nothing is
+  migrated; every store reads what 0.1.0 wrote with the new names (SQLite including `pauses.answer` and
+  its answer log, PostgreSQL, MongoDB, the kept execution history records and their children's pauses,
+  a saved eval run artifact), through `pauseRecordOfJson`, `pauseAnswerRecordOfValue` and
+  `executionHistoryRecordOfJson` in `@agboss/core/stores`, which take the JSON a store parsed, check
+  every field they read — a history record's pauses and children's at any depth, a pause's `answer` and
+  its names, a log entry's — and return the record with the new names; a value that is neither shape
+  throws `StoredNamesUnreadableError` (`stored.unreadable`), naming the record's id and the field, never
+  a value. **Migration:** `@ChannelRole({ answerer })`; `pending[i].answerer`;
+  `record.pauses[i].answerer` for the kind and `.answeredBy` for the person; `answer.answeredBy` for
+  `answer.answerer`.
 
 - **Under `CI`, the VCR refuses every mode that records against real models** (#839) — an explicit
   `RECORD` or `RECORD_STALE`, or `AUTO` with no cassette (set by `vcr.mode` or `AGBOSS_VCR_MODE`),
@@ -1241,7 +1267,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   new execution joined. The core's stores mint the next id instead.
 
 - **A tree whose undo a takeover finished keeps its undo actions** (#541, found by #484) — its kept
-  record (`ExecutionHistoryRecord.compensations`, what `agboss executions export` writes) listed none;
+  record (`ExecutionHistoryRecord.compensations`, what `agboss records export` writes) listed none;
   it lists every undo action that ran, as its `onExecutionError` does.
 
 - **A lone surrogate** (#530) is no business key or thread id (`InvalidBusinessKeyError`,
@@ -1289,7 +1315,7 @@ LeaseCheck.WithoutDoubleChargeProtection`, failing `[fault-suite.opted-out-store
   call under one is never deduplicated (its refusal was kept as the answer, under the merged key);
   its `onExecutionRejected` names the tenant `"default"`, as the event's documentation says, never
   the refused id. A tree's reads check its root execution id the same way (#580) (`dto.invalid` naming
-  `rootExecutionId`: `r\uD800` read root `r\uFFFD`'s lease log), and `agboss executions export
+  `rootExecutionId`: `r\uD800` read root `r\uFFFD`'s lease log), and `agboss records export
 --tenant` and `agboss generate eval-case --tenant` refuse a tenant id that is no key's text (exit 2,
   `usage.option-value`, the rule named, never the id) instead of reading nothing.
 
@@ -1494,7 +1520,7 @@ fencedEffects: { maxResultSize, retention } })` (64 KB, 24 h; `[application.fenc
   `app.outboundCallsOf({ tenantId, rootExecutionId })` and `app.pendingOutboundCalls({ tenantId })`;
   `@Application({ outboundCalls: { maxPayloadSize, retention } })` (64 KB, 168 h; a `Pending`
   intent is never swept). Every move is told, never with its payload: `onOutboundCall`, the lease
-  log's row and `ExecutionHistoryRecord.outboundCalls` (so `agboss executions export` carries them).
+  log's row and `ExecutionHistoryRecord.outboundCalls` (so `agboss records export` carries them).
   An `AnyInstance` child's run context carried no mask and a `ParentInstance` child its parent's:
   both carry the child workflow's own now. The flow-patterns travel desk books through it. The
   reads and defaults were reviewed since: see #795 and #825.
@@ -1581,7 +1607,7 @@ fencedEffects: { maxResultSize, retention } })` (64 KB, 24 h; `[application.fenc
   caller's disconnect, its row in flight 30 s), never continued by a recovery
   (`withoutRecovery`: an instance taking its lease over ends it as cancelled — and, for a skill
   that can call a model, keeps one call of unknown cost in its record, `spend.unknownCalls`, what
-  `agboss executions export` writes, under the run's ledger key `unknown:lost-run:<tenantId>:<runId>`,
+  `agboss records export` writes, under the run's ledger key `unknown:lost-run:<tenantId>:<runId>`,
   counted in `agboss.instance.costs.unknown`, as #853's lost passes), and one lost — a crash — is
   taken over once by a resend or the sweep, which removes its files. The sweep removes completed
   replies only: an attempt in flight keeps its row and its id's claim however old its message, and a
@@ -1747,7 +1773,7 @@ rootExecutionId })` and removed by the recovery sweep after `@Application({ rete
   and kept too: `onStepHandedOver` (`StepHandedOverEvent`, `HandOverReason`, `HandOverSite`) and a
   `HandedOver` row, once per error at the innermost site, written before the moving call rejects;
   a kept `ExecutionHistoryRecord` carries its tree's rows as `leaseEvents` (and so does
-  `agboss executions export`). Every call of a fenced effect from a step is told and kept as well:
+  `agboss records export`). Every call of a fenced effect from a step is told and kept as well:
   `onFencedEffect` (`FencedEffectEvent`, `FencedEffectEventOutcome`: ran, replayed, joined,
   refused — never the result) and a `FencedEffect` row, so the public log alone tells a zombie
   refused at its write from one that never reached it, and a replay from a new write.
@@ -2102,7 +2128,7 @@ the Wiki's Changelog lists the breaking changes made between pull requests on th
   `app.checkReadiness()`) (#265, #335, #360, #367, #300). Execution history (#401): with
   `@Application({ executionRecordRetention })` every root execution's record — with its identity,
   masked like its traces — is kept in the new `ExecutionHistoryRepository` (in memory or
-  `SqliteExecutionHistoryRepository`) and swept after it; `agboss executions export` writes it as JSON
+  `SqliteExecutionHistoryRepository`) and swept after it; `agboss records export` writes it as JSON
   Lines.
 - **Models and FinOps** — model providers as infrastructure (OpenRouter and the Decisions API built
   in) with retry, rate-limit and circuit-breaker policies; `@Budget`s per execution, tenant and
