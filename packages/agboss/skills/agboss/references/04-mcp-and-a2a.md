@@ -805,7 +805,9 @@ without). What it does apply is the chain, before anything runs:
 
 On the caller `A2AClient` rethrows them typed — `MeshLoopDetectedError` / `HopsLimitExceededError`,
 both `LimitExceededError`s — from the `REJECTED` / `FAILED` task's code and details, and so does an
-MCP error result with `_meta["agboss.dev/error"]`. A tool that meets one
+MCP error result with `_meta["agboss.dev/error"]`. They are rebuilt only from an addressed, signed
+peer; from an unaddressed server they are not rebuilt (its facts are not read), and a rebuilt one
+carries `isRemote: true` (its names are in `entry` / `callChain`, never in the message). A tool that meets one
 **fails its step** (the model never reads it: retrying a loop loops again); take it on the path:
 
 <!-- snippet-context

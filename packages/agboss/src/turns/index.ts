@@ -8,8 +8,10 @@ export { openTurnDatabase } from "./schema.js";
 export { pauseAnswerEntryOf } from "./writes.js";
 // the status history of a thread (#1341d)
 export {
+  recordTransitionOf,
   StatusTrigger,
   ThreadStatus,
+  transitionOf,
   type NewStatusTransition,
   type StatusContext,
   type ThreadStatusTransition,

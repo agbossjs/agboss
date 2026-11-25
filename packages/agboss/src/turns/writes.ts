@@ -5,6 +5,7 @@ import type { StatusLog } from "./status-log.js";
 import { recordTransitionOf, type StatusContext } from "./status-transition.js";
 import { storedTextOf } from "./schema.js";
 import type { PauseAnswerEntry, Turn, TurnOutcome, TurnStore, TurnTree } from "./types.js";
+import type { TurnStatus } from "./types.js";
 
 /** The current time (the application's clock, given by the caller). */
 type Now = () => Date;
@@ -124,7 +125,7 @@ function appendedStatus(
   log: StatusLog,
   now: Now,
   thread: { readonly tenantId: string; readonly threadId: string },
-  status: string,
+  status: TurnStatus,
   context: StatusContext | undefined,
 ): void {
   const next = recordTransitionOf(thread, status, log.lastOf(thread), context);
