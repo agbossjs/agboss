@@ -60,27 +60,32 @@ export type ModelDriverSpec<TKind extends ModelKind> = Omit<
   ModelDriver<TKind>,
   typeof driverBrand
 > & {
-  readonly handler: ProviderHandler;
+  /**
+   * Makes a handler. Each application that registers the driver's provider gets a handler of its
+   * own: it holds the model list it fetched, which is that application's (its base URL and key),
+   * never another's in the same process.
+   */
+  readonly createHandler: () => ProviderHandler;
 };
 
 const DRIVERS = new WeakSet<object>();
-const HANDLERS = new WeakMap<object, ProviderHandler>();
+const HANDLER_FACTORIES = new WeakMap<object, () => ProviderHandler>();
 
-/** The handler that speaks a driver's protocol over a connection (internal: no public type names it). */
+/** A new handler that speaks a driver's protocol over a connection (internal: no public type names it). */
 export const driverHandlerOf = (driver: ModelDriver): ProviderHandler => {
-  const handler = HANDLERS.get(driver);
-  if (handler === undefined) throw new TypeError("not a model driver");
-  return handler;
+  const create = HANDLER_FACTORIES.get(driver);
+  if (create === undefined) throw new TypeError("not a model driver");
+  return create();
 };
 
 /** Makes a driver: what `OpenAiCompatibleDriver(…)` and the other drivers return. */
 export function defineModelDriver<TKind extends ModelKind>(
   spec: ModelDriverSpec<TKind>,
 ): ModelDriver<TKind> {
-  const { handler, ...fields } = spec;
+  const { createHandler, ...fields } = spec;
   const driver = Object.freeze(fields) as ModelDriver<TKind>;
   DRIVERS.add(driver);
-  HANDLERS.set(driver, handler);
+  HANDLER_FACTORIES.set(driver, createHandler);
   return driver;
 }
 

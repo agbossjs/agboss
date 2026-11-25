@@ -100,6 +100,12 @@ function decisionJudge(
   };
 }
 
+/** The agent's provider reads its files too (#899, #1313): its built-in transcriber's and redactor's models go to it. */
+const providerOfAgent = (settings: ModelSettings): Partial<ModelSettings> => ({
+  ...(settings.modelProvider === undefined ? {} : { modelProvider: settings.modelProvider }),
+  ...(settings.unpriced === undefined ? {} : { unpriced: settings.unpriced }),
+});
+
 /** Builds one binding per agent and judge; each model comes from the gateway (which shares identical ones). */
 export function createModelRegistry(
   config: AgentsConfigOf<string>,
@@ -129,22 +135,21 @@ export function createModelRegistry(
       judgeBindingOf(judge, settings, config, gateway),
     ]),
   );
-  const fileTranscribers = new Map(
-    Object.entries(config.agents).flatMap(([name, settings]) => {
-      const files = settings.files;
-      if (files?.views.includes(FileView.Transcription) !== true) return [];
-      const model = { model: files.transcriptionModel, maxTokens: files.transcriptionMaxTokens };
-      return [[name, bindFor({ kind: "file-transcriber" })(model)] as const];
-    }),
-  );
-  const fileRedactors = new Map(
-    Object.entries(config.agents).flatMap(([name, settings]) => {
-      const files = settings.files;
-      if (files?.views.includes(FileView.Redacted) !== true) return [];
-      const model = { model: files.redactionModel, maxTokens: files.transcriptionMaxTokens };
-      return [[name, bindFor({ kind: "file-redactor" })(model)] as const];
-    }),
-  );
+  const fileBindings = (view: FileView, kind: "file-transcriber" | "file-redactor") =>
+    new Map(
+      Object.entries(config.agents).flatMap(([name, settings]) => {
+        const files = settings.files;
+        if (files?.views.includes(view) !== true) return [];
+        const model = {
+          model: view === FileView.Redacted ? files.redactionModel : files.transcriptionModel,
+          maxTokens: files.transcriptionMaxTokens,
+          ...providerOfAgent(settings),
+        };
+        return [[name, bindFor({ kind })(model)] as const];
+      }),
+    );
+  const fileTranscribers = fileBindings(FileView.Transcription, "file-transcriber");
+  const fileRedactors = fileBindings(FileView.Redacted, "file-redactor");
   return { agents, compactions, judges, fileTranscribers, fileRedactors };
 }
 
