@@ -1,4 +1,5 @@
-import { executionsFromRootOf, rootFactsOf, type FrameSpec } from "../context/frame.js";
+import { definedFields } from "../../core/defined-fields.js";
+import { executionsFromRootOf, type FrameSpec } from "../context/frame.js";
 import { idempotencyKeyOf } from "../context/idempotency.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import {
@@ -6,16 +7,10 @@ import {
   PauseExpiryBound,
   PauseStatus,
   type PauseRecord,
-  type PauseTrailRecord,
 } from "../../infrastructure/pause-record.js";
-import {
-  onlyChannelOf,
-  type ChooseChannel,
-  type PauseChannel,
-  type PauseTarget,
-} from "./pause-channel.js";
+import { onlyChannelOf, type ChooseChannel, type PauseTarget } from "./pause-channel.js";
 import type { PauseQuestion } from "./pause.js";
-import { plainRecordOf } from "./records.js";
+import { openedEntryOf, placeOf, type OpeningHooks } from "./pause-record-facts.js";
 import { isWorkingDuration, type WorkingDuration } from "../../units/index.js";
 import type { ReminderSpan } from "../../calendar/calendar-call.js";
 import type { TimeSpan } from "../../units/working-time.js";
@@ -182,41 +177,18 @@ async function addedReminderOf(
     : undefined;
 }
 
-/** The first entry of a pause's chain of custody: it was opened, under this target, with this deadline. */
-const openedEntryOf = (
-  target: PauseTarget,
-  channel: PauseChannel | undefined,
-  at: Date,
-  expiresAt: string | undefined,
-): PauseTrailRecord => ({
-  action: "opened",
-  at: at.toISOString(),
-  target: target.name,
-  // an owner's pause with no channel is asked of nobody
-  ...(channel === undefined ? {} : { channel: channel.name }),
-  ...(expiresAt === undefined ? {} : { expiresAt }),
-});
-
-/** What the pause's record says of where and how it was asked: its frame's identity and its step. */
-function placeOf(frame: FrameSpec, question: PauseQuestion) {
-  const { execution, step } = frame;
-  return {
-    tenantId: execution.tenant.tenantId,
-    threadId: execution.threadId,
-    // inside a child workflow (#263) the record belongs to the tree: its root, the child's own id
-    rootExecutionId: rootFactsOf(execution).executionId,
-    executionId: execution.executionId,
-    workflow: execution.workflow.name,
-    stepKey: step.idempotencyKey,
-    nodeId: step.nodeId,
-    visitNumber: step.visitNumber,
-    // a per-item child's own index when its step has none (#263)
-    itemIndex: step.itemIndex ?? execution.itemIndex,
-    copyNumber: step.copyNumber,
-    component: plainRecordOf(question.component ?? step.component),
-    ...(step.toolLoopIteration === undefined ? {} : { toolLoopIteration: step.toolLoopIteration }),
-    validationAttempts: step.validationAttempts,
-  };
+/** The deadline fields of a pause opened `now`: its own wait, capped by the target's total-wait limit, bounded by the run's and quorum's. */
+async function openingDeadlineOf(
+  frame: FrameSpec,
+  hooks: OpeningHooks,
+  expiresIn: TimeSpan | undefined,
+  at: { readonly now: Date; readonly add: AddWorkingTime },
+): Promise<Pick<PauseRecord, "expiresAt" | "expiryBound" | "boundAt">> {
+  const own = await ownDeadlineOf(expiresIn, at.now, at.add);
+  // the target's total-wait limit caps the pause's own wait, never the run's or a quorum's bound
+  const max = await ownDeadlineOf(hooks.maxTotalTimeout, at.now, at.add);
+  const isCapped = own !== undefined && max !== undefined && max < own;
+  return boundedDeadlineOf(frame, isCapped ? max : own);
 }
 
 /** The record a step would make: a new id, `Pending`, not sent; working time asks the calendar (`add`). */
@@ -228,10 +200,11 @@ export async function newRecordOf(
   add: AddWorkingTime,
   remind?: RemindAt,
   choose: ChooseChannel = onlyChannelOf(target),
+  hooks: OpeningHooks = {},
 ): Promise<PauseRecord> {
   const now = clock.now();
-  const expiresIn = target.timeout;
-  const deadline = boundedDeadlineOf(frame, await ownDeadlineOf(expiresIn, now, add));
+  const expiresIn = hooks.timeout ?? target.timeout;
+  const deadline = await openingDeadlineOf(frame, hooks, expiresIn, { now, add });
   const remindAt = await reminderOf(
     now,
     { expiresAt: deadline.expiresAt, expiresIn },
@@ -239,10 +212,13 @@ export async function newRecordOf(
     add,
     remind,
   );
-  const opened = openedEntryOf(target, undefined, now, deadline.expiresAt);
+  const { assignees } = hooks;
   const channel = await choose({
-    ...(deadline.expiresAt === undefined ? {} : { expiresAt: new Date(deadline.expiresAt) }),
-    trail: [opened],
+    ...definedFields({
+      expiresAt: deadline.expiresAt === undefined ? undefined : new Date(deadline.expiresAt),
+      assignees,
+    }),
+    trail: [openedEntryOf(target, undefined, now, deadline.expiresAt, assignees)],
   });
   return {
     pauseId: newPauseId(),
@@ -250,16 +226,19 @@ export async function newRecordOf(
     kind: question.kind,
     step: question.step,
     target: target.name,
-    ...(channel === undefined ? {} : { channel: channel.name }),
     branchKeys: branchKeysAt(frame),
     respondent: target.respondent,
     input: question.input,
-    ...(question.toolCall === undefined ? {} : { toolCall: question.toolCall }),
-    trail: [openedEntryOf(target, channel, now, deadline.expiresAt)],
+    trail: [openedEntryOf(target, channel, now, deadline.expiresAt, assignees)],
     status: PauseStatus.Pending,
     isSent: false,
     askedAt: now.toISOString(),
     ...deadline,
-    ...(remindAt === undefined ? {} : { remindAt }),
+    ...definedFields({
+      channel: channel?.name,
+      toolCall: question.toolCall,
+      assignees,
+      remindAt,
+    }),
   };
 }

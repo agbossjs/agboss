@@ -4,6 +4,7 @@
  * execution, the thread, the workflow, the channel) and
  * the deadlines; never the pause's id (the right to answer it) or the assignee.
  */
+import { ExtendManagerBackupChannel } from "../../flow/fixtures/pause-extension.fixture.js";
 import { beforeEach, describe, expect } from "vitest";
 import { nameOf } from "../../../src/index.js";
 import { PauseClosedError } from "../../../src/errors.js";
@@ -71,10 +72,16 @@ describe("#1343: onPauseReassigned", () => {
     const oldId = pauseId();
     const deadline = paused.pending[0]?.expiresAt ?? "";
 
-    await app.reassignPause({ pauseId: oldId, assignees: ["deputy-3"] }, manager);
+    await app.reassignPause(
+      { pauseId: oldId, channel: ExtendManagerBackupChannel, assignees: ["deputy-3"] },
+      manager,
+    );
     // the old id is closed: a second reassignment loses and tells nothing
     const lost = await app
-      .reassignPause({ pauseId: oldId, assignees: ["deputy-4"] }, manager)
+      .reassignPause(
+        { pauseId: oldId, channel: ExtendManagerBackupChannel, assignees: ["deputy-4"] },
+        manager,
+      )
       .catch((error: unknown) => error);
     expect(lost).toBeInstanceOf(PauseClosedError);
 
@@ -85,7 +92,8 @@ describe("#1343: onPauseReassigned", () => {
       threadId: "change-thread",
       workflow: nameOf(managerFlow.workflow),
       target: "extendable-manager-external-task",
-      channel: "extendable-manager-channel",
+      channel: "extendable-manager-backup-channel",
+      previousTarget: "extendable-manager-external-task",
       previousChannel: "extendable-manager-channel",
       expiresAt: new Date(deadline),
     });

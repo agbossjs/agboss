@@ -23,8 +23,10 @@ export interface PauseTimeoutChangedEvent extends PauseChange {
 
 /** An operator moved a pause to another addressee (`onPauseReassigned`): once, by the call that won. */
 export interface PauseReassignedEvent extends PauseChange {
+  /** The target the pause waited under before (`target` is where it waits now). */
+  readonly previousTarget: string;
   /** The channel the pause was asked on before; absent for one nobody was asked about. */
   readonly previousChannel?: string;
-  /** The deadline it keeps (the old pause's). */
+  /** The deadline it has now: its old one, unless the reassignment set another. */
   readonly expiresAt?: Date;
 }

@@ -74,7 +74,7 @@ export interface WorkingAppConfig {
   readonly calendar?: WorkingCalendarSource | WorkingWeekOptions;
   /** Other providers: calendar classes and what they read. */
   readonly providers?: readonly Class[];
-  /** The channel's `onPauseExpired` (#1148): what it does when the pause's deadline is looked at. */
+  /** The target's `onExpired` (#1148): what it does when the pause's deadline is looked at. */
   readonly onExpired?: () => Promise<FailExpiration>;
 }
 
@@ -121,7 +121,11 @@ export function workingParts(name: string, config: WorkingAppConfig): WorkingPar
     ...(config.role.remindBefore === undefined ? {} : { remindBefore: config.role.remindBefore }),
     ...(calendar === undefined ? {} : { calendar }),
   })
-  class SomeQuestionExternalTask {}
+  class SomeQuestionExternalTask {
+    onExpired(): Promise<FailExpiration> {
+      return config.onExpired?.() ?? Promise.resolve(PauseExpiration.fail());
+    }
+  }
   @Channel({
     name: `${name}-channel`,
     description: "d",
@@ -137,10 +141,6 @@ export function workingParts(name: string, config: WorkingAppConfig): WorkingPar
     onPauseExpiring(event: { expiresAt: string; deliveryId: string }): Promise<void> {
       told.expiring.push(event);
       return Promise.resolve();
-    }
-
-    onPauseExpired(): Promise<FailExpiration> {
-      return config.onExpired?.() ?? Promise.resolve(PauseExpiration.fail());
     }
   }
   @WorkflowStart({ name: `${name}-workflow-start`, description: "d", input: ExpiryOrderDto })

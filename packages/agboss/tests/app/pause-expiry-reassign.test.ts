@@ -1,7 +1,7 @@
 /**
- * #1310a: a channel's expiry decision may hand the pause on — `PauseExpiration.reassign({ assignees,
- * timeout?, reason? })`. The old pause closes `reassigned` by the store's due-at compare-and-set, a
- * new one waits for the assignees under a new deadline, its channel asked again by the re-send look,
+ * #1310a / #1307d: a target's `onExpired` may hand the pause on — `PauseExpiration.reassign({ assignees,
+ * timeout?, reason? })`. A pause that stays with its target and channel changes in place by the
+ * store's due-at compare-and-set (same id, same `externalRef`, a `reassigned` entry, a new deadline),
  * the tree resting paused all the while; a bad request, or a deadline already past, expires the
  * pause as `fail()`.
  */
@@ -26,7 +26,7 @@ const test = testWith(ExpiryApplication);
 beforeEach(resetExpiry);
 
 describe("#1310a: an expiry reassigns the pause", () => {
-  test("the old pause closes reassigned, the new one waits for the assignees under a new deadline, the tree rests paused", async ({
+  test("the pause waits on for the assignees under a new deadline, in place, the tree rests paused", async ({
     app,
     clock,
   }) => {
@@ -49,23 +49,22 @@ describe("#1310a: an expiry reassigns the pause", () => {
     };
 
     await clock.advance(hours(24));
-    await until(() => expiry.sent.length === 2 || calls > 0);
-    await until(() => expiry.sent.length === 2);
+    await until(() => calls > 0);
+    await clock.advance(minutes(1));
 
     const pauses = await expiryStore().findAllByTenantIdAndRootExecutionId(
       "default",
       paused.executionId,
     );
-    const old = pauses.find((one) => one.reassignedTo !== undefined);
-    const next = pauses.find((one) => one.reassignedFrom !== undefined);
-    expect(old).toMatchObject({
-      status: PauseStatus.Cancelled,
-      resolution: PauseResolution.Reassigned,
-    });
+    // in place: no second pause, the same id
+    expect(pauses).toHaveLength(1);
+    const [next] = pauses;
     expect(next).toMatchObject({
+      pauseId: expiry.sent[0]?.pauseId,
       status: PauseStatus.Pending,
       assignees: ["deputy-1", "deputy-2"],
     });
+    expect(next?.reassignedFrom).toBeUndefined();
     expect(Date.parse(next?.expiresAt ?? "") - clock.now().getTime()).toBeLessThanOrEqual(hours(2));
     expect(next?.remindAt).toBeUndefined();
     expect(next?.trail.map((entry) => entry.action)).toEqual(["opened", "reassigned"]);
@@ -73,18 +72,19 @@ describe("#1310a: an expiry reassigns the pause", () => {
       assignees: ["deputy-1", "deputy-2"],
       reason: "no answer in a day",
     });
-    expect(expiry.sent[1]).toMatchObject({ assignees: ["deputy-1", "deputy-2"] });
-    // the handler was asked once: the new pause's deadline is two hours away
+    // its channel is not asked again: nothing was made
+    expect(expiry.sent).toHaveLength(1);
+    // the handler was asked once: the pause's deadline is two hours away
     expect(calls).toBe(1);
     expect(expiry.errors).toEqual([]);
     const again = await app.resume(
-      { pauseId: expiry.sent[1]?.pauseId ?? "", decision: { approved: true } },
+      { pauseId: expiry.sent[0]?.pauseId ?? "", decision: { approved: true } },
       { actor: { id: "deputy-1" } },
     );
     expect(again.status).toBe(ExecutionStatus.Finished);
   });
 
-  test("a request with no assignees expires the pause as fail(), the problem kept", async ({
+  test("a request that is no valid reassignment expires the pause as fail(), the problem kept", async ({
     app,
     clock,
   }) => {
@@ -94,7 +94,7 @@ describe("#1310a: an expiry reassigns the pause", () => {
       { orderId: "o-2" },
       { threadId: "re-2" },
     );
-    expiry.behavior = () => PauseExpiration.reassign({ assignees: [] });
+    expiry.behavior = () => PauseExpiration.reassign({ assignees: ["d-1"], timeout: 5 as never });
 
     await clock.advance(hours(24));
     await until(() => expiry.asked.length === 1);

@@ -5,6 +5,10 @@
  * counted closed either: `opened` and `closed` balance. A person's answer of a replacement is still
  * counted as before.
  */
+import {
+  ExtendManagerBackupChannel,
+  ExtendOwnerBackupChannel,
+} from "../flow/fixtures/pause-extension.fixture.js";
 import { DataPointType } from "@opentelemetry/sdk-metrics";
 import { beforeEach, describe, expect } from "vitest";
 import { PauseResolution, PauseStatus } from "../../src/index.js";
@@ -84,7 +88,11 @@ describe("#1193: a channel's decision for a reassigned send is a decision", () =
       told.ownerDecides = approve;
 
       await app.reassignPause(
-        { pauseId: first?.pauseId ?? "", assignees: ["deputy-3"] },
+        {
+          pauseId: first?.pauseId ?? "",
+          channel: ExtendOwnerBackupChannel,
+          assignees: ["deputy-3"],
+        },
         { ownerId: "alice" },
       );
       await until(() => told.recorded.length === 1);
@@ -119,7 +127,11 @@ describe("#1193: a channel's decision for a reassigned send is a decision", () =
         await store.findPageByTenantId("default", { statuses: [PauseStatus.Pending] }, 10)
       ).pauses;
       await app.reassignPause(
-        { pauseId: first?.pauseId ?? "", assignees: ["deputy-3"] },
+        {
+          pauseId: first?.pauseId ?? "",
+          channel: ExtendManagerBackupChannel,
+          assignees: ["deputy-3"],
+        },
         { actor: { id: "manager-17" } },
       );
       await until(() => told.sent.some((ask) => ask.replaces !== undefined));

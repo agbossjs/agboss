@@ -1,5 +1,6 @@
 import { interrupt } from "@langchain/langgraph";
 import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
+import { keyTextRuleOf } from "../../core/key-text-rule.js";
 import type { ChannelSenderSend } from "../../channels/channel-sender.js";
 import type { PauseToolCallSummary } from "../../channels/pause-contexts.js";
 import { ChannelOutcomeKind, isChannelOutcome } from "../../channels/channel-outcome.js";
@@ -12,7 +13,8 @@ import {
   type PauseKind,
   type PauseRecord,
 } from "../../infrastructure/pause-record.js";
-import type { PauseChannel, PauseTarget } from "./pause-channel.js";
+import { DEFAULT_CHANNEL_TIMEOUT, type PauseChannel, type PauseTarget } from "./pause-channel.js";
+import { callInFrame, NoticeTimeoutError, type NoticeCall } from "../../app/pause-notice-call.js";
 import { PauseExpirySignal } from "./pause-expiry-failure.js";
 import { askOfPause, assertSameQuestion, livePauseAfter } from "./pause-chain.js";
 import { noticesWritten, recipientsIn } from "../../pause/index.js";
@@ -117,21 +119,44 @@ export const channelOfPause = (
 ): PauseChannel | undefined =>
   pause.channel === undefined ? undefined : target.channels.get(pause.channel);
 
-/** The channel's outcome: the decision it gave now, or `undefined` when the step waits for a reply. */
-async function sendOnce(
+/** What a channel's `send` said: the decision it gave now, or that the step waits (with the pause's reference in its system). */
+export type Sent = { readonly decision: unknown } | { readonly externalRef?: string | undefined };
+
+/** The reference a channel gave its pause: a key's text, else `send` is refused — never a stored value nobody can read back. */
+function checkedExternalRef(channel: string, given: unknown): string | undefined {
+  if (given === undefined) return undefined;
+  if (typeof given !== "string" || keyTextRuleOf(given) !== undefined)
+    throw new TypeError(`channel ${channel}: externalRef of awaitReply() is a key's text`);
+  return given;
+}
+
+/** The channel's outcome: the decision it gave now, or what the step waits with (its `externalRef`). */
+export async function sendOnce(
   channel: PauseChannel | undefined,
   pause: PauseRecord,
   signal: AbortSignal | undefined,
-): Promise<{ decision: unknown } | undefined> {
+  within?: Omit<NoticeCall, "timeout">,
+): Promise<Sent> {
   // an owner's pause with no channel asks nobody: it waits for the owner's resume (#1307c)
-  if (channel === undefined) return undefined;
-  const outcome = await sentBy(channel, askOfPause(pause), signal);
+  if (channel === undefined) return {};
+  const send = (): Promise<unknown> => sentBy(channel, askOfPause(pause), signal);
+  const timeout = channel.timeout ?? DEFAULT_CHANNEL_TIMEOUT;
+  const outcome = await (within === undefined
+    ? send()
+    : callInFrame({ ...within, timeout }, send).catch((error: unknown) => {
+        // a send that ran out its timeout is the channel's failure, like any other of its throws
+        throw error instanceof NoticeTimeoutError
+          ? new ChannelSendError(channel.name, error)
+          : error;
+      }));
   if (!isChannelOutcome(outcome)) {
     throw new TypeError(
       `channel ${channel.name}: send() must return ChannelOutcome.awaitReply() or ChannelOutcome.decided(…)`,
     );
   }
-  return outcome.kind === ChannelOutcomeKind.Decided ? { decision: outcome.decision } : undefined;
+  return outcome.kind === ChannelOutcomeKind.Decided
+    ? { decision: outcome.decision }
+    : { externalRef: checkedExternalRef(channel.name, outcome.externalRef) };
 }
 
 /** Whether its channel decided the pause's answer: at once, or when its deadline passed (#941). */
@@ -204,11 +229,23 @@ async function answeredAtOnce(
 async function sentOnce(site: PauseStepSite, pause: PauseRecord): Promise<StepAnswer | undefined> {
   const { pauses, target } = site;
   const { tenantId } = site.frame.execution.tenant;
+  // a pause an expiry or an operator moved to another target's channel is asked by the re-send look, which
+  // finds that channel; this step's own target does not have it — never mark it sent unasked
+  if (pause.channel !== undefined && channelOfPause(target, pause) === undefined) return undefined;
   await site.onSend();
-  const decided = await sendOnce(channelOfPause(target, pause), pause, site.signal);
-  if (decided !== undefined) return answeredAtOnce(site, pause, decided.decision);
+  const sent = await sendOnce(channelOfPause(target, pause), pause, site.signal, {
+    frame: site.frame,
+    clock: site.clock,
+    interruption: site.signal,
+  });
+  if ("decision" in sent) return answeredAtOnce(site, pause, sent.decision);
   const recipients = recipientsIn(site, pause);
-  const isPending = await pauses.markSentByTenantIdAndPauseId(tenantId, pause.pauseId, recipients);
+  const isPending = await pauses.markSentByTenantIdAndPauseId(
+    tenantId,
+    pause.pauseId,
+    recipients,
+    sent.externalRef,
+  );
   // its notices are written: looked for at once — before `settledAnswer` and `interrupt()` throw
   noticesWritten(site);
   // asked: this pass saw `isSent` false and the store marked it (a re-entry never gets here)

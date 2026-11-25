@@ -14,7 +14,8 @@ import {
 } from "../../src/errors.js";
 import { MAX_EXTEND_ATTEMPTS } from "../../src/app/pause-extension.js";
 import { DeadlineExceededError } from "../../src/budgets/execution-deadline.js";
-import { PauseError, PauseClosedReason, PauseStatus, pauseKeyOf } from "../../src/index.js";
+import { PauseError, PauseClosedReason, PauseStatus } from "../../src/index.js";
+import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";

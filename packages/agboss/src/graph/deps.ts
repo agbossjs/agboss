@@ -53,6 +53,8 @@ export interface GraphDeps<TName extends string> {
   readonly branchScheduler?: BranchScheduler;
   /** The pause target a tool or step names, by its name (#267, #1307): created with the app, with its channels. */
   readonly targetOf?: (targetName: string) => PauseTarget;
+  /** Every pause target of the workflow, its `escalatesTo` ones too: where a reassignment may go. */
+  readonly targets?: readonly PauseTarget[];
   /** The channel of a name (#1307), as a pause record names it. */
   readonly channelOf?: (channelName: string) => PauseChannel;
   /** The names of the channels of its targets (#940): the receivers of its pauses' notices. */

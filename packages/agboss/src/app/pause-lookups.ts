@@ -5,6 +5,8 @@ import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 export interface PauseLookups {
   readonly targetOf: (targetName: string) => PauseTarget;
   readonly channelOf: (channelName: string) => PauseChannel;
+  /** Every pause target of the workflow, its `escalatesTo` ones too: where a reassignment may go. */
+  readonly targets: readonly PauseTarget[];
   /** The names of its channels: the receivers of its pauses' notices (#940). */
   readonly channelNames: readonly string[];
 }
@@ -27,6 +29,7 @@ export const pauseLookups = (
       if (!target) throw new Error(`Unknown pause target: ${targetName}`);
       return target;
     },
+    targets: [...targets.values()],
     channelOf: (channelName) => {
       const channel = channels.get(channelName);
       if (!channel) throw new Error(`Unknown channel: ${channelName}`);

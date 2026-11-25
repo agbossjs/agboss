@@ -229,6 +229,8 @@ export const KINDS: ReadonlySet<string> = new Set([
   "budgets",
   "tool-interceptors",
   "channels",
+  "external-tasks",
+  "tool-approvals",
   "pii-policies",
   "rag",
   "rerankers",

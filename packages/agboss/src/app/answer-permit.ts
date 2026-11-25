@@ -5,7 +5,10 @@ import { pauseKeyOf, type PauseRecord } from "../infrastructure/pause-record.js"
 import { PauseError } from "../core/error-families/pause-errors.js";
 import type { AnswerParts } from "./resume.js";
 import { ownDepsOf } from "./own-deps.js";
+import { definedFields } from "../core/defined-fields.js";
 import type { AppDeps } from "./app-deps.js";
+import type { Class } from "../components/injection.js";
+import type { Milliseconds, WorkingDuration } from "../units/index.js";
 
 /**
  * A target's `permitAnswer` (#1307c): called by the resume once the answer is read and validated and
@@ -109,8 +112,12 @@ export function assertAnswerPermitted(
 /** What a reassignment asks of `permitReassign`: where to, and why. */
 export interface ReassignAsk {
   readonly actor?: PauseActor | undefined;
-  readonly assignees: readonly string[];
+  readonly assignees?: readonly string[] | undefined;
   readonly reason?: string | undefined;
+  /** The target and channel classes the call names, and the wait it asks for. */
+  readonly toTarget?: Class | undefined;
+  readonly toChannel?: Class | undefined;
+  readonly timeout?: Milliseconds | WorkingDuration | undefined;
 }
 
 /** A pause's `permitReassign` as its workflow has it now; `undefined`: none. Fails closed like `permitsOf`. */
@@ -128,22 +135,28 @@ export function assertReassignPermitted(
   deps: AppDeps,
   pause: PauseRecord,
   ask: ReassignAsk,
+  target?: PauseTarget,
 ): Promise<void> {
   return assertPermitted(
     pause,
     "reassignment",
     "permitReassign",
-    () => reassignPermitsOf(deps)(pause),
+    () => (target === undefined ? reassignPermitsOf(deps)(pause) : target.permitReassign),
     () => ({
-      ...(ask.actor === undefined ? {} : { actor: ask.actor }),
+      ...definedFields({
+        actor: ask.actor,
+        assignees: pause.assignees,
+        channel: pause.channel,
+        toAssignees: ask.assignees,
+        toTarget: ask.toTarget,
+        toChannel: ask.toChannel,
+        timeout: ask.timeout,
+        reason: ask.reason,
+        toolCall: pause.toolCall,
+        externalRef: pause.externalRef,
+      }),
       input: pause.input,
-      ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
       target: pause.target,
-      ...(pause.channel === undefined ? {} : { channel: pause.channel }),
-      toAssignees: ask.assignees,
-      ...(ask.reason === undefined ? {} : { reason: ask.reason }),
-      ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
-      ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
       trail: trailOf(pause),
     }),
   );

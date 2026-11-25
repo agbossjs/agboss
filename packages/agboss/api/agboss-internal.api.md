@@ -1241,6 +1241,7 @@ export interface GraphDeps<TName extends string> {
     readonly stepEntries?: StepEntries | undefined;
     readonly stepSlots?: StepSlots | undefined;
     readonly targetOf?: (targetName: string) => PauseTarget;
+    readonly targets?: readonly PauseTarget[];
     readonly toolInterceptors?: ToolInterceptorRuntime;
     readonly tools: (name: string) => AnyTool;
 }

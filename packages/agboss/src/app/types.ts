@@ -17,8 +17,10 @@ import type { PauseActor, PauseToolCallSummary } from "../channels/pause-context
 import type { PendingPauseBase } from "../pause/index.js";
 import type { PauseClosedReason, PauseKind, PauseStatus } from "../infrastructure/pause-record.js";
 import type { ExecutionStreamEvent } from "../run/types.js";
-import type { Milliseconds, WorkingDuration } from "../units/index.js";
+import type { Milliseconds } from "../units/index.js";
 import type { ExecutionOutput } from "./execution-output.js";
+import type { ExtendPauseRequest, PauseExtension } from "./extend-types.js";
+import type { PauseReassignment, ReassignPauseRequest } from "./reassign-types.js";
 import type { Page, PageQuery } from "./page.js";
 import type { TenantContextBranded, TenantListArgs, TenantPointArgs } from "./tenant-args.js";
 import type {
@@ -27,6 +29,8 @@ import type {
 } from "../infrastructure/execution-history.repository.js";
 
 export type * from "./execution-output.js";
+export type * from "./reassign-types.js";
+export type * from "./extend-types.js";
 import type { HealthReport } from "../health/health-check.js";
 import type { ExecutionAuditEventRecord } from "../infrastructure/execution-audit-log.repository.js";
 import type {
@@ -177,50 +181,6 @@ export interface OwnerResumeOptions extends OwnerPauseOptions, CallOptions {}
  */
 export interface DelegateResumeOptions extends DelegatePauseOptions, CallOptions {}
 
-/** What an extension asks. */
-export interface ExtendPauseRequest {
-  /** The pause's id: `result.pending[i].pauseId`, or the `ask.pauseId` its channel was sent. */
-  readonly pauseId: string;
-  /**
-   * How long from now the pause waits: its new deadline is `now + expiresIn` (at least `seconds(1)`);
-   * `workingHours(8)` counts the pause's calendar (#944): `calendar.add(now, expiresIn)`.
-   */
-  readonly expiresIn: Milliseconds | WorkingDuration;
-}
-
-/** What an extension did: the pause by its key (never its id) and the deadline before and after. */
-export interface PauseExtension {
-  /** Correlation, answers nothing: `pauseKeyOf(tenantId, pauseId)`. */
-  readonly pauseKey: string;
-  /** The new deadline (ISO 8601). */
-  readonly expiresAt: string;
-  /** The deadline it had (ISO 8601). */
-  readonly previousExpiresAt: string;
-}
-
-/** What a reassignment asks (#946). */
-export interface ReassignPauseRequest {
-  /** The open pause's id: `result.pending[i].pauseId`, or the `ask.pauseId` its channel was sent. */
-  readonly pauseId: string;
-  /**
-   * Who the same channel asks now, as the channel reads it (a Slack user, an address, the members of
-   * a queue): one to 100 key's texts (#589), each non-empty, none twice — the 1-of-N pool its
-   * answers come from. The channel's one implementation routes on them.
-   */
-  readonly assignees: readonly string[];
-  /** Why, as a person reads it in the pause's chain of custody: one to 500 characters; PII-masked before it is kept. */
-  readonly reason?: string;
-}
-
-/**
- * What a reassignment did: the new pause by its key, never its id — the new id is a capability, it goes
- * to the channel only (`ChannelAsk.pauseId` of the new send) and answers the new pause.
- */
-export interface PauseReassignment {
-  /** Correlation, answers nothing: `pauseKeyOf(tenantId, newPauseId)`. */
-  readonly pauseKey: string;
-}
-
 /** `app.cancel(threadId, { tenantId, ownerId })`: the thread's tenant and the caller's owner. */
 export interface CancelOptions {
   readonly tenantId?: string | undefined;
@@ -297,16 +257,22 @@ export interface App<TApp = unknown> {
     ...options: TenantPointArgs<TApp, PauseCallerOptions>
   ): Promise<PauseExtension>;
   /**
-   * Moves an open pause to another addressee (#946): the same channel is asked again (`send`) with a
-   * new pause id, `ChannelAsk.assignee` and `ChannelAsk.replaces` (the old id), and told
-   * `onPauseClosed(Reassigned)` for the old message — in no fixed order. The old id answers nothing any
-   * more (`PauseClosedError`, reason `reassigned`); the deadline is kept; the agent and the step do not
-   * run again. By whoever may answer the pause (as `extendPause`). Refused: a pause that is closed or past
-   * its deadline (`PauseClosedError`, of two reassignments, or a reassignment and an answer, at the same
-   * moment exactly one wins), an `assignee` that is no key's text (`DtoValidationError`, `dto:
-   * "ReassignPauseRequest"`); another tenant's or an unknown pause is `UnknownPauseError`. The new id
-   * is returned to no caller: only its key. The new send is made by this call; when the instance dies
-   * first, another instance's timers send it.
+   * Moves an open pause to other assignees, another channel or another target (#946, #1307d): by
+   * whoever may answer it (as `extendPause`) and only when its target's `permitReassign` says `true`
+   * (`PauseError.PermissionDenied` otherwise). A pause that stays with its target and channel is
+   * changed in place — the same id, its `externalRef` kept, its deadline kept unless `timeout` says
+   * otherwise — and its channel is told `onPauseReassigned`. One moved to another channel or target is
+   * made again: a new pause with a new id (the old id answers nothing any more, `PauseClosedError`,
+   * reason `reassigned`) that the new channel is sent (`ChannelAsk.replaces` names the old id), while
+   * the old channel is told `onPauseClosed(Reassigned)`; its chain of custody goes with it. The
+   * agent and the step do not run again. The listeners and the observers hear one `onPauseReassigned`.
+   * Refused: a pause that is closed or past its deadline (`PauseClosedError`; of two reassignments, or
+   * a reassignment and an answer, at the same moment exactly one wins), one reassigned as often as
+   * its `escalationLimits.maxReassignments` allow (`PauseError.EscalationLimitExceeded`), a target
+   * of another kind or other DTOs (`PauseError.IncompatibleTarget`), a bad assignee list
+   * (`DtoValidationError`, `dto: "ReassignPauseRequest"`); another tenant's or an unknown pause is
+   * `UnknownPauseError`. The new id of a moved pause is returned to no caller: only its key. The new
+   * send is made by this call; when the instance dies first, another instance's timers send it.
    */
   reassignPause(
     request: ReassignPauseRequest,

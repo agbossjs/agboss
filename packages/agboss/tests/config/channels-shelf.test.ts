@@ -56,10 +56,10 @@ describe("the channels shelf", () => {
     );
   });
 
-  it("a timeout nothing reads is refused as it is when a channel declares it ([pause.setting-not-enforced])", async () => {
-    await expect(paused("channel-timeout")).rejects.toThrow(
-      /pause\.setting-not-enforced[\s\S]*desk-refund-channel[\s\S]*timeout/u,
-    );
+  it("a profile's call timeout of a channel is read, so the assembly takes it", async () => {
+    const app = await paused("channel-timeout");
+
+    expect(app.componentOptions.channelMetaOf(DeskRefundChannel)?.timeout).toBeDefined();
   });
 
   it("never changes the declared channel, nor another assembly of it", async () => {

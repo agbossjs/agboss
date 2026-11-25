@@ -60,15 +60,18 @@ function reassignedEntryOf(
   replacement: ReplacementOf,
   at: Date,
 ): PauseTrailRecord {
-  const { assignees, actor, reason, due } = replacement;
-  const expiresAt = due === undefined ? pause.expiresAt : due.expiresAt;
+  const { assignees, actor, reason, due, timeout, to } = replacement;
+  const deadline = due ?? timeout;
+  const expiresAt = deadline === undefined ? pause.expiresAt : deadline.expiresAt;
+  const target = to === undefined ? pause.target : to.target;
+  const channel = to === undefined ? pause.channel : to.channel;
   return {
     action: "reassigned",
     at: at.toISOString(),
     ...(actor === undefined ? {} : { actor }),
-    target: pause.target,
-    ...(pause.channel === undefined ? {} : { channel: pause.channel }),
-    assignees,
+    target,
+    ...(channel === undefined ? {} : { channel }),
+    ...(assignees === undefined ? {} : { assignees }),
     ...(expiresAt === undefined ? {} : { expiresAt }),
     ...(reason === undefined ? {} : { reason }),
   };
@@ -77,19 +80,35 @@ function reassignedEntryOf(
 /** What a replacement is made from. */
 type ReplacementOf = Pick<
   PauseReplacement,
-  "pauseId" | "assignees" | "actor" | "reason" | "due"
+  "pauseId" | "assignees" | "actor" | "reason" | "due" | "timeout" | "to"
 > & {
   readonly stepKey: string;
 };
 
-/** The old pause without what a replacement does not keep: its reference, and on an expiry its deadline and reminder. */
-function keptOf(pause: PauseRecord, isExpiry: boolean): Omit<PauseRecord, "externalRef"> {
-  const dropped: readonly string[] = isExpiry
-    ? ["externalRef", "expiresAt", "expiryBound", "remindAt"]
-    : ["externalRef"];
+/**
+ * The old pause without what a replacement does not keep: its reference, its assignees and its channel
+ * (the replacement says its own), and when a new deadline is set its deadline and reminder.
+ */
+function keptOf(pause: PauseRecord, isNewDeadline: boolean): Omit<PauseRecord, "externalRef"> {
+  const dropped: readonly string[] = [
+    "externalRef",
+    "assignees",
+    "channel",
+    ...(isNewDeadline ? ["expiresAt", "expiryBound", "remindAt"] : []),
+  ];
   return Object.fromEntries(
     Object.entries(pause).filter(([key]) => !dropped.includes(key)),
   ) as Omit<PauseRecord, "externalRef">;
+}
+
+/** Where a replacement waits: the destination's target and respondent, or the old pause's own; its channel, if any. */
+function placeOf(pause: PauseRecord, to: PauseReplacement["to"]) {
+  if (to === undefined) return pause.channel === undefined ? {} : { channel: pause.channel };
+  return {
+    target: to.target,
+    respondent: to.respondent,
+    ...(to.channel === undefined ? {} : { channel: to.channel }),
+  };
 }
 
 /**
@@ -103,12 +122,14 @@ export function replacementPause(
   replacement: ReplacementOf,
   at: Date,
 ): PauseRecord {
-  const { pauseId, assignees, stepKey, due } = replacement;
+  const { pauseId, assignees, stepKey, due, timeout, to } = replacement;
   return {
-    ...keptOf(pause, due !== undefined),
+    ...keptOf(pause, due !== undefined || timeout !== undefined),
     ...due,
+    ...timeout,
+    ...placeOf(pause, to),
     pauseId,
-    assignees,
+    ...(assignees === undefined ? {} : { assignees }),
     stepKey,
     status: PauseStatus.Pending,
     isSent: false,

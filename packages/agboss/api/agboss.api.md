@@ -435,6 +435,9 @@ export type AnswersOf<Q extends DecisionQuestions> = {
 };
 
 // @public
+export type AnyPauseExpiration = FailExpiration | DecideExpiration<unknown> | ReassignExpiration;
+
+// @public
 export type AnyPiiAction = MaskingPiiAction | BlockAction;
 
 // @public
@@ -707,6 +710,7 @@ export interface AuthenticatedHttpAuthResult {
 
 // @public
 export interface AwaitReplyOutcome {
+    readonly externalRef?: string;
     // (undocumented)
     readonly kind: ChannelOutcomeKind.AwaitReply;
 }
@@ -1164,12 +1168,13 @@ export interface ChannelListenerOptions<TDeps extends readonly Token[] = readonl
 
 // @public
 export interface ChannelListenerReassignedEvent extends ChannelListenerEventBase {
+    readonly actor?: PauseActor;
     // (undocumented)
     readonly previousAssignees?: readonly string[];
     // (undocumented)
     readonly previousChannel?: string;
     // (undocumented)
-    readonly previousExpiresAt?: Date;
+    readonly previousExpiresAt?: string;
     // (undocumented)
     readonly previousExternalRef?: string;
     // (undocumented)
@@ -1201,7 +1206,9 @@ export type ChannelOutcome<TTarget> = AwaitReplyOutcome | DecidedOutcome<PauseOu
 
 // @public (undocumented)
 export const ChannelOutcome: {
-    readonly awaitReply: () => AwaitReplyOutcome;
+    readonly awaitReply: (options?: {
+        readonly externalRef?: string;
+    }) => AwaitReplyOutcome;
     readonly decided: <TDecision>(decision: TDecision) => DecidedOutcome<TDecision>;
 };
 
@@ -1265,13 +1272,19 @@ export interface ChannelPauseJoinFailedEvent<TTarget> extends PauseDeliveredEven
 
 // @public
 export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEvent {
+    readonly actor?: PauseActor;
+    readonly assignees?: readonly string[];
     // (undocumented)
     readonly channel: string;
+    readonly expiresAt?: string;
+    readonly externalRef?: string;
     readonly input: PauseInputOf<TTarget>;
     // (undocumented)
     readonly pauseId: string;
+    readonly previousAssignees?: readonly string[];
     // (undocumented)
     readonly previousChannel: string;
+    readonly previousExpiresAt?: string;
     // (undocumented)
     readonly previousTarget: string;
     // (undocumented)
@@ -3703,6 +3716,24 @@ export abstract class ExecutionTreeRepository {
 export type ExecutionTreeValue = string | number | boolean | null | readonly ExecutionTreeValue[] | {
     readonly [field: string]: ExecutionTreeValue;
 };
+
+// @public
+export interface ExpiredContext<TTarget> {
+    readonly askedAt: Date;
+    // (undocumented)
+    readonly assignees?: readonly string[];
+    readonly expiresAt: Date;
+    // (undocumented)
+    readonly externalRef?: string;
+    readonly firstAskedAt: Date;
+    // (undocumented)
+    readonly input: PauseInputOf<TTarget>;
+    readonly pauseKey: string;
+    // (undocumented)
+    readonly toolCall?: PauseToolCallSummary;
+    // (undocumented)
+    readonly trail: readonly PauseTrailEntry[];
+}
 
 // @public
 export class ExpiryHandlerError extends AGBossError {
@@ -7252,15 +7283,6 @@ export interface PauseActor {
 }
 
 // @public
-export interface PauseAnswer {
-    readonly actor: PauseActor | undefined;
-    readonly byDelegate?: true;
-    // (undocumented)
-    readonly decision: unknown;
-    readonly usage?: readonly UsageRecord[];
-}
-
-// @public
 export interface PauseAnswerRecord {
     readonly actor: PauseActor | undefined;
     readonly askedAt: string;
@@ -7395,11 +7417,11 @@ export abstract class PausedExecutionRepository {
     abstract findPendingByExpiresAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingByRemindAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingUnsentReassignedBefore(cutoff: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
-    abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients): Promise<boolean>;
+    abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients, externalRef?: string): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
     abstract noticeOnceByTenantIdAndPauseId(tenantId: string, pauseId: string, kind: PauseNoticeKind, facts: PauseNoticeFacts, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract ping(): Promise<void>;
-    abstract reassignByTenantIdAndPauseId(tenantId: string, pauseId: string, replacement: PauseReplacement, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract reassignByTenantIdAndPauseId(tenantId: string, pauseId: string, replacement: PauseReassignmentChange, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract remindByTenantIdAndPauseId(tenantId: string, pauseId: string, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract renewNotice(claim: PauseNoticeClaim, at: Date, claimFor: Milliseconds): Promise<PauseNoticeClaim | undefined>;
     abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
@@ -7513,8 +7535,10 @@ export const PauseExpiration: {
     readonly fail: () => FailExpiration;
     readonly decide: <TAnswer>(answer: TAnswer) => DecideExpiration<TAnswer>;
     readonly reassign: (options: {
-        readonly assignees: readonly string[];
-        readonly timeout?: Milliseconds;
+        readonly target?: Class;
+        readonly channel?: Class;
+        readonly assignees?: readonly string[];
+        readonly timeout?: Milliseconds | WorkingDuration;
         readonly reason?: string;
     }) => ReassignExpiration;
 };
@@ -7566,7 +7590,7 @@ export interface PauseExpiredErrorOptions {
 // @public
 export interface PauseExpiryHandler<TTarget> {
     // (undocumented)
-    onPauseExpired(ask: ChannelAsk<TTarget>): PauseExpiration<TTarget> | Promise<PauseExpiration<TTarget>>;
+    onExpired(ctx: ExpiredContext<TTarget>): PauseExpiration<TTarget> | Promise<PauseExpiration<TTarget>>;
 }
 
 // @public
@@ -7608,9 +7632,6 @@ export type PauseInputOf<TTarget> = [TTarget] extends [never] ? never : Generate
 export function pauseInputOf(input: unknown): Readonly<Record<string, unknown>>;
 
 // @public
-export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
-
-// @public
 export enum PauseKind {
     Approval = "approval",
     ExternalTask = "external-task"
@@ -7640,11 +7661,16 @@ export type PauseOutputOf<TTarget> = [TTarget] extends [never] ? never : Generat
 export interface PauseReassignedEvent extends PauseChange {
     readonly expiresAt?: Date;
     readonly previousChannel?: string;
+    readonly previousTarget: string;
 }
 
 // @public
 export interface PauseReassignment {
+    readonly assignees?: readonly string[];
+    readonly channel?: string;
+    readonly expiresAt?: Date;
     readonly pauseKey: string;
+    readonly target: string;
 }
 
 // @public
@@ -7711,28 +7737,6 @@ export enum PauseRespondent {
 }
 
 // @public
-export interface PauseSite {
-    readonly branchKeys?: readonly string[];
-    readonly component?: ComponentRecord;
-    readonly copyNumber: number;
-    readonly executionId: string;
-    // (undocumented)
-    readonly itemIndex: number | undefined;
-    readonly nodeId: string;
-    readonly rootExecutionId: string;
-    readonly stepKey: string;
-    // (undocumented)
-    readonly tenantId: string;
-    // (undocumented)
-    readonly threadId: string;
-    readonly toolLoopIteration?: number;
-    readonly validationAttempts?: number;
-    // (undocumented)
-    readonly visitNumber: number;
-    readonly workflow: string;
-}
-
-// @public
 export interface PausesPage {
     // (undocumented)
     readonly next?: string;
@@ -7779,6 +7783,7 @@ export interface PauseTargetBaseOptions<TDeps extends readonly Token[] = readonl
 interface PauseTargetHooks {
     // (undocumented)
     readonly assign?: (ctx: never) => readonly string[] | undefined | Promise<readonly string[] | undefined>;
+    readonly onExpired?: (ctx: never) => AnyPauseExpiration | Promise<AnyPauseExpiration>;
     // (undocumented)
     readonly permitAnswer?: (ctx: never) => boolean | Promise<boolean>;
     // (undocumented)
@@ -7796,7 +7801,7 @@ export interface PauseTargetOverlay {
 }
 
 // @public
-type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "pause.setting-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
+type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
 
 // @public
 export interface PauseTimeoutChangedEvent extends PauseChange {
@@ -8474,18 +8479,23 @@ export abstract class RateLimitRepository {
 
 // @public
 export interface ReassignExpiration {
-    readonly assignees: readonly string[];
+    readonly assignees?: readonly string[];
+    readonly channel?: Class;
     // (undocumented)
     readonly kind: PauseExpirationKind.Reassign;
     readonly reason?: string;
-    readonly timeout?: Milliseconds;
+    readonly target?: Class;
+    readonly timeout?: Milliseconds | WorkingDuration;
 }
 
 // @public
 export interface ReassignPauseRequest {
-    readonly assignees: readonly string[];
+    readonly assignees?: readonly string[];
+    readonly channel?: Class;
     readonly pauseId: string;
     readonly reason?: string;
+    readonly target?: Class;
+    readonly timeout?: Milliseconds | WorkingDuration;
 }
 
 // @public
@@ -11467,6 +11477,11 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "trail".
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "input".
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "assignees".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "toolCall".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "externalRef".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "trail".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "input".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "assignees".
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "expiresAt".
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "toolCall".
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "trail".
@@ -11474,7 +11489,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "kind".
 // src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "answer".
 // src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "kind".
-// src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "onPauseExpired".
+// src/channels/pause-expiration.ts - (ae-undocumented) Missing documentation for "onExpired".
 // src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "assign".
 // src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "resolveTimeout".
 // src/channels/pause-targets.ts - (ae-undocumented) Missing documentation for "permitAnswer".
@@ -12523,11 +12538,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "Withdrawn".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "TreeEnded".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "Reassigned".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "decision".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "threadId".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "visitNumber".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "itemIndex".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "action".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "channel".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "assignees".

@@ -1914,8 +1914,18 @@ export function pauseClosedReasonOf(pause: PauseRecord, now: Date): PauseClosedR
 
 // @public
 export interface PauseDeadlineChange {
+    readonly actor?: PauseActor;
     readonly expiresAt: string;
+    readonly maxExtensions?: number;
     readonly previousExpiresAt: string;
+    readonly remindAt?: string;
+}
+
+// @public
+export interface PauseDeadlineSet {
+    readonly expiresAt?: string;
+    // (undocumented)
+    readonly expiryBound?: PauseExpiryBound;
     readonly remindAt?: string;
 }
 
@@ -1949,11 +1959,11 @@ export abstract class PausedExecutionRepository {
     abstract findPendingByExpiresAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingByRemindAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingUnsentReassignedBefore(cutoff: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
-    abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients): Promise<boolean>;
+    abstract markSentByTenantIdAndPauseId(tenantId: string, pauseId: string, recipients: PauseRecipients, externalRef?: string): Promise<boolean>;
     abstract markTakenByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<void>;
     abstract noticeOnceByTenantIdAndPauseId(tenantId: string, pauseId: string, kind: PauseNoticeKind, facts: PauseNoticeFacts, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract ping(): Promise<void>;
-    abstract reassignByTenantIdAndPauseId(tenantId: string, pauseId: string, replacement: PauseReplacement, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract reassignByTenantIdAndPauseId(tenantId: string, pauseId: string, replacement: PauseReassignmentChange, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract remindByTenantIdAndPauseId(tenantId: string, pauseId: string, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract renewNotice(claim: PauseNoticeClaim, at: Date, claimFor: Milliseconds): Promise<PauseNoticeClaim | undefined>;
     abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
@@ -1998,6 +2008,20 @@ export interface PauseFirstClose {
 }
 
 // @public
+export interface PauseInPlaceReassignment {
+    // (undocumented)
+    readonly actor?: PauseActor;
+    readonly assignees?: readonly string[];
+    readonly countsAsExtension?: true;
+    readonly due?: PauseDeadlineSet;
+    readonly maxExtensions?: number;
+    readonly maxReassignments?: number;
+    readonly pauseId?: never;
+    readonly reason?: string;
+    readonly timeout?: PauseDeadlineSet;
+}
+
+// @public
 export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
 
 // @public
@@ -2025,13 +2049,18 @@ export interface PauseMailbox {
 
 // @public
 export interface PauseNotice {
+    readonly assignees?: readonly string[];
     readonly closedAt?: string;
     readonly errorCode?: string;
     readonly expiresAt?: string;
     // (undocumented)
     readonly kind: PauseNoticeKind;
     readonly launch?: string;
+    readonly previousAssignees?: readonly string[];
+    readonly previousChannel?: string;
     readonly previousExpiresAt?: string;
+    readonly previousExternalRef?: string;
+    readonly previousTarget?: string;
     readonly reason?: PauseClosedReason;
     readonly seq: number;
     readonly writtenAt: string;
@@ -2064,7 +2093,8 @@ export enum PauseNoticeKind {
     Expiring = "expiring",
     Extended = "extended",
     JoinFailed = "join-failed",
-    Opened = "opened"
+    Opened = "opened",
+    Reassigned = "reassigned"
 }
 
 // @public
@@ -2074,6 +2104,9 @@ export interface PausePage {
     // (undocumented)
     readonly pauses: readonly PauseRecord[];
 }
+
+// @public
+export type PauseReassignmentChange = PauseReplacement | PauseInPlaceReassignment;
 
 // @public
 export interface PauseRecipients {
@@ -2117,13 +2150,19 @@ export const pauseRecordOfJson: (value: unknown) => PauseRecord;
 // @public
 export interface PauseReplacement {
     readonly actor?: PauseActor;
-    readonly assignees: readonly string[];
-    readonly due?: {
-        readonly expiresAt?: string;
-        readonly expiryBound?: PauseExpiryBound;
-    };
+    readonly assignees?: readonly string[];
+    readonly countsAsExtension?: true;
+    readonly due?: PauseDeadlineSet;
+    readonly maxExtensions?: number;
+    readonly maxReassignments?: number;
     readonly pauseId: string;
     readonly reason?: string;
+    readonly timeout?: PauseDeadlineSet;
+    readonly to?: {
+        readonly target: string;
+        readonly respondent: PauseRespondent;
+        readonly channel?: string;
+    };
 }
 
 // @public
@@ -3269,6 +3308,8 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "pauseId".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "recipient".
+// src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "expiryBound".
+// src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "actor".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "Pause".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "RunDeadline".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "Quorum".

@@ -62,13 +62,12 @@ export {
   PausedExecutionRepository,
   PauseResolution,
   PauseStatus,
-  type PauseAnswer,
   type PauseCancellation,
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
-export type { PauseSite, PauseTrailRecord } from "../infrastructure/pause-record.js";
-// why a pause closed, and the one-way key that stands for it where its id may not appear (#935, I14)
-export { ExpiryProblem, PauseClosedReason, pauseKeyOf } from "../infrastructure/pause-record.js";
+export type { PauseTrailRecord } from "../infrastructure/pause-record.js";
+// why a pause closed (the one-way key `pauseKeyOf`, `PauseAnswer` and `PauseSite` are store-implementer names: @agboss/core/stores)
+export { ExpiryProblem, PauseClosedReason } from "../infrastructure/pause-record.js";
 export type { PendingApproval, PendingPause, PendingQuestion } from "../pause/index.js";
 // a coordination lease store's durable ids and cancel mark (#891, #1198): provide(EXECUTION_ID_STORE, <a durable lease store>)
 export { EXECUTION_ID_STORE, type ExecutionIdStore } from "../infrastructure/execution-id-store.js";

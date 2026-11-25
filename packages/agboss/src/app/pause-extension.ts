@@ -1,4 +1,3 @@
-import { isPauseTimeout } from "../channels/channel-rules.js";
 import { checkedCallers } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import {
@@ -14,10 +13,7 @@ import {
   workingTimeAfter,
   type CalendarSite,
 } from "../calendar/calendar-call.js";
-import { isWorkingDuration } from "../units/index.js";
-import { spanText } from "../units/working-time.js";
 import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
-import { DtoValidationError, type DtoIssue } from "../dto/errors.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import { pauseKeyOf, PauseStatus, type PauseRecord } from "../infrastructure/pause-record.js";
@@ -26,11 +22,26 @@ import { pauseTallyOf } from "../pause/pause-tally.js";
 import type { AppDeps } from "./app-deps.js";
 import { ownDepsOf } from "./own-deps.js";
 import { toldTimeoutChanged } from "./pause-change-events.js";
+import {
+  chainLimitsOf,
+  limitExceeded,
+  maxExpiresAtOf,
+  timeoutChangesOf,
+  type ChainLimits,
+} from "./pause-limits.js";
+import { definedFields } from "../core/defined-fields.js";
+import type { PauseActor } from "../channels/pause-contexts.js";
 import type { AnswerParts } from "./resume.js";
 import { actorOf, pauseOf } from "./resume.js";
+import { assertSameKind, checked, reject, previousDeadlineOf } from "./extend-request.js";
 import { pauseClosed } from "./pause-closed.js";
 import { PauseExtensionContendedError } from "./pause-closed-error.js";
-import type { AnyTenantApp, ExtendPauseRequest, PauseCallerOptions } from "./types.js";
+import type {
+  AnyTenantApp,
+  ExtendPauseRequest,
+  PauseCallerOptions,
+  PauseExtension,
+} from "./types.js";
 
 /**
  * `app.extendPause` (#942, Q7): an operator moves an open pause's deadline later. Who may: as an
@@ -67,69 +78,11 @@ function targetOf(deps: AppDeps, pause: PauseRecord): PauseTarget | undefined {
   }
 }
 
-function reject(issues: readonly DtoIssue[]): never {
-  throw new DtoValidationError({ dto: "ExtendPauseRequest", issues });
-}
-
-/** The request as an untyped (JS) caller may pass it, checked: a pause id and a duration. */
-function checked(request: unknown): ExtendPauseRequest {
-  const pauseId: unknown =
-    typeof request === "object" && request !== null ? Reflect.get(request, "pauseId") : undefined;
-  const expiresIn: unknown =
-    typeof request === "object" && request !== null ? Reflect.get(request, "expiresIn") : undefined;
-  if (typeof pauseId !== "string" || pauseId === "")
-    reject([{ path: ".pauseId", reason: "a pause's id is a non-empty text" }]);
-  if (!isPauseTimeout(expiresIn))
-    reject([
-      {
-        path: ".expiresIn",
-        reason: `${spanText(expiresIn)} is no duration — a positive finite one of at least seconds(1) and at most 5 years, like hours(24) or workingHours(8)`,
-      },
-    ]);
-  return { pauseId, expiresIn };
-}
-
-/** The deadline an extension of `pause` to `expiresAt` moves from; refused when it may not move there. */
-function previousDeadlineOf(pause: PauseRecord, expiresAt: string): string {
-  const { expiresAt: current, boundAt } = pause;
-  if (current === undefined)
-    return reject([{ path: ".pauseId", reason: "the pause has no deadline: none is added to it" }]);
-  if (expiresAt <= current)
-    return reject([
-      {
-        path: ".expiresIn",
-        reason: `the new deadline ${expiresAt} is not later than the current one, ${current}`,
-      },
-    ]);
-  if (boundAt !== undefined && expiresAt > boundAt)
-    return reject([
-      {
-        path: ".expiresIn",
-        reason: `the new deadline ${expiresAt} is past the deadline the pause is bound by, ${boundAt}`,
-      },
-    ]);
-  return current;
-}
-
 /** The pause open and not yet past its deadline, or why it is not. */
 async function assertOpen(parts: ExtendParts, pause: PauseRecord): Promise<void> {
   const isDue = pause.expiresAt !== undefined && pause.expiresAt <= parts.clock.now().toISOString();
   if (pause.status !== PauseStatus.Pending || isDue)
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
-}
-
-/**
- * A plain `expiresIn` for a pause whose role reminds in working time is refused (#944): a calendar
- * cannot subtract — the run-time twin of `[pause.remind-before-working-without-working-timeout]`.
- */
-function assertSameKind(request: ExtendPauseRequest, target: PauseTarget | undefined): void {
-  if (isWorkingDuration(target?.remindBefore) && !isWorkingDuration(request.expiresIn))
-    reject([
-      {
-        path: ".expiresIn",
-        reason: "this target reminds in working time: extend it with workingHours / workingMinutes",
-      },
-    ]);
 }
 
 /**
@@ -199,39 +152,10 @@ export const extendPauseOf =
     checkedCallers("PauseCallerOptions", { ...call, tenantId });
     const request = checked(given);
     let pause = await pauseOf(parts.pauses, request, tenantId);
-    await actorOf(parts, pause, call);
+    const actor = await actorOf(parts, pause, call);
     for (let attempt = 1; attempt <= MAX_EXTEND_ATTEMPTS; attempt += 1) {
-      await assertOpen(parts, pause);
-      const target = targetOf(parts.deps, pause);
-      assertSameKind(request, target);
-      const now = parts.clock.now();
-      const { add, remind } = calendarAdder(parts, pause, target);
-      const expiresAt = (await instantAfter(request.expiresIn, now, add)).toISOString();
-      const previousExpiresAt = previousDeadlineOf(pause, expiresAt);
-      const remindAt = await reminderOf(
-        now,
-        { expiresAt, expiresIn: request.expiresIn },
-        target?.remindBefore,
-        add,
-        remind,
-      );
-      // the calendar took time: whether the pause is still open is decided at this instant, not at
-      // the call's start (#1148); the deadline itself keeps counting from `now`
-      const at = parts.clock.now();
-      await assertOpen(parts, pause);
-      const extended = await parts.pauses.extendByTenantIdAndPauseId(
-        tenantId,
-        pause.pauseId,
-        { expiresAt, previousExpiresAt, ...(remindAt === undefined ? {} : { remindAt }) },
-        at,
-        recipientsIn(parts.deps.pause, pause),
-      );
-      if (extended !== undefined) {
-        noticesWritten(parts.deps.pause);
-        pauseTallyOf(parts.deps.pause)?.timeoutChanged(extended);
-        await toldTimeoutChanged(parts.deps, pause, { previousExpiresAt, expiresAt });
-        return { pauseKey: pauseKeyOf(tenantId, pause.pauseId), expiresAt, previousExpiresAt };
-      }
+      const extended = await extendedOnce(parts, { pause, request, tenantId, actor });
+      if (extended !== undefined) return extended;
       // lost the compare-and-set: the expiry, an answer, a cancel or another extension won — read what it left
       pause = await pauseOf(parts.pauses, request, tenantId);
     }
@@ -240,3 +164,65 @@ export const extendPauseOf =
       attempts: MAX_EXTEND_ATTEMPTS,
     });
   };
+
+/** The chain's limits the extension to `expiresAt` must keep, or the error that refuses it. */
+async function assertWithinLimits(
+  parts: ExtendParts,
+  pause: PauseRecord,
+  expiresAt: string,
+): Promise<ChainLimits> {
+  const limits = chainLimitsOf(parts.deps, pause);
+  if (limits.maxExtensions !== undefined && timeoutChangesOf(pause) >= limits.maxExtensions)
+    throw limitExceeded(pause, "maxExtensions");
+  const cap = await maxExpiresAtOf(parts, pause, limits, pause.assignees);
+  if (cap !== undefined && expiresAt > cap) throw limitExceeded(pause, "maxTotalTimeout");
+  return limits;
+}
+
+/** One try of an extension over the pause as it was read; `undefined`: the compare-and-set was lost. */
+async function extendedOnce(
+  parts: ExtendParts,
+  call: {
+    readonly pause: PauseRecord;
+    readonly request: ExtendPauseRequest;
+    readonly tenantId: string;
+    readonly actor: PauseActor | undefined;
+  },
+): Promise<PauseExtension | undefined> {
+  const { pause, request, tenantId, actor } = call;
+  await assertOpen(parts, pause);
+  const target = targetOf(parts.deps, pause);
+  assertSameKind(request, target);
+  const now = parts.clock.now();
+  const { add, remind } = calendarAdder(parts, pause, target);
+  const expiresAt = (await instantAfter(request.expiresIn, now, add)).toISOString();
+  const previousExpiresAt = previousDeadlineOf(pause, expiresAt);
+  const limits = await assertWithinLimits(parts, pause, expiresAt);
+  const remindAt = await reminderOf(
+    now,
+    { expiresAt, expiresIn: request.expiresIn },
+    target?.remindBefore,
+    add,
+    remind,
+  );
+  // the calendar took time: whether the pause is still open is decided at this instant, not at
+  // the call's start (#1148); the deadline itself keeps counting from `now`
+  const at = parts.clock.now();
+  await assertOpen(parts, pause);
+  const extended = await parts.pauses.extendByTenantIdAndPauseId(
+    tenantId,
+    pause.pauseId,
+    {
+      expiresAt,
+      previousExpiresAt,
+      ...definedFields({ remindAt, actor, maxExtensions: limits.maxExtensions }),
+    },
+    at,
+    recipientsIn(parts.deps.pause, pause),
+  );
+  if (extended === undefined) return undefined;
+  noticesWritten(parts.deps.pause);
+  pauseTallyOf(parts.deps.pause)?.timeoutChanged(extended);
+  await toldTimeoutChanged(parts.deps, pause, { previousExpiresAt, expiresAt });
+  return { pauseKey: pauseKeyOf(tenantId, pause.pauseId), expiresAt, previousExpiresAt };
+}

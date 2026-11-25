@@ -27,7 +27,7 @@ import {
 /** #946: the notices of a reassignment, the re-send look's scan and the retention. */
 export const REASSIGN_NOTICE_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
   {
-    name: "a sent old pause writes `closed` (reassigned) to the channel and every listener; the replacement writes nothing until its markSent writes `opened` to the listeners",
+    name: "a sent old pause writes `closed` (reassigned) to its channel only; the replacement writes nothing until its markSent writes one `reassigned` (no `opened`) to the listeners",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
       await first.markSentByTenantIdAndPauseId("default", "pause-a", RECIPIENTS);
@@ -36,7 +36,8 @@ export const REASSIGN_NOTICE_CASES: readonly ContractCase<PausedExecutionReposit
       const claims = await peeker(first)();
 
       expect(kindsOf(claims, "pause-a", CHANNEL_KEY)).toEqual(["closed"]);
-      expect(kindsOf(claims, "pause-a", SLACK)).toEqual(["opened", "closed"]);
+      // the listeners hear one `reassigned` of the replacement, never the old pause closed
+      expect(kindsOf(claims, "pause-a", SLACK)).toEqual(["opened"]);
       expect(noticesOf(claims, "pause-a", CHANNEL_KEY)[0]).toMatchObject({
         reason: PauseClosedReason.Reassigned,
         closedAt: MID.toISOString(),
@@ -48,7 +49,10 @@ export const REASSIGN_NOTICE_CASES: readonly ContractCase<PausedExecutionReposit
       );
       const after = await peeker(first)();
 
-      expect(kindsOf(after, "pause-b", AUDIT)).toEqual(["opened"]);
+      expect(kindsOf(after, "pause-b", AUDIT)).toEqual(["reassigned"]);
+      expect(noticesOf(after, "pause-b", AUDIT)[0]).toMatchObject({
+        previousTarget: "refund-tool-approval",
+      });
       expect(kindsOf(after, "pause-b", CHANNEL_KEY)).toEqual([]);
     },
   },

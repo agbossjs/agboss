@@ -100,6 +100,23 @@ export interface ReassignPermissionContext<TTarget> {
   readonly trail: readonly PauseTrailEntry[];
 }
 
+/** What `onExpired` reads: the pause that ran out its deadline, with its chain of custody. */
+export interface ExpiredContext<TTarget> {
+  /** Correlation, answers nothing: `pauseKeyOf(tenantId, pauseId)`. */
+  readonly pauseKey: string;
+  readonly input: PauseInputOf<TTarget>;
+  readonly assignees?: readonly string[];
+  /** When the pause was last asked. */
+  readonly askedAt: Date;
+  /** When it was first asked: where the chain's total wait counts from. */
+  readonly firstAskedAt: Date;
+  /** The deadline it ran out. */
+  readonly expiresAt: Date;
+  readonly toolCall?: PauseToolCallSummary;
+  readonly externalRef?: string;
+  readonly trail: readonly PauseTrailEntry[];
+}
+
 /** What `selectChannel` reads, when two or more channels serve one target. */
 export interface ChannelSelectContext<TTarget> {
   readonly input: PauseInputOf<TTarget>;

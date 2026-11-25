@@ -185,8 +185,10 @@ export interface ChannelListenerReassignedEvent extends ChannelListenerEventBase
   readonly previousChannel?: string;
   readonly previousAssignees?: readonly string[];
   readonly previousExternalRef?: string;
-  readonly previousExpiresAt?: Date;
+  readonly previousExpiresAt?: string;
   readonly reason?: string;
+  /** Who moved it; absent for the framework's own (an expiry). */
+  readonly actor?: PauseActor;
 }
 
 /** A pause this channel sent was reassigned in place, on the same channel (#1307d). */
@@ -199,5 +201,17 @@ export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEven
   readonly previousTarget: string;
   readonly previousChannel: string;
   readonly channel: string;
+  /** Who it is for now; absent: nobody in particular. */
+  readonly assignees?: readonly string[];
+  /** Who it was for before. */
+  readonly previousAssignees?: readonly string[];
+  /** The id the channel's system gave it: kept by an in-place reassignment. */
+  readonly externalRef?: string;
+  /** The deadline now (ISO 8601). */
+  readonly expiresAt?: string;
+  /** The deadline before (ISO 8601). */
+  readonly previousExpiresAt?: string;
   readonly reason?: string;
+  /** Who moved it; absent for the framework's own (an expiry). */
+  readonly actor?: PauseActor;
 }

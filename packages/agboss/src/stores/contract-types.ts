@@ -17,7 +17,6 @@ export {
   OutboundCallRepository,
   PausedExecutionRepository,
   PauseClosedReason,
-  pauseKeyOf,
   ExpiryProblem,
   RateLimitRepository,
 } from "../index.js";
@@ -133,11 +132,9 @@ export type {
   OutboundCallRecord,
   OutdatedMark,
   OutdatedValueRecord,
-  PauseAnswer,
   PauseCancellation,
   PausedExecution,
   PauseRecord,
-  PauseSite,
   PauseTrailRecord,
   PendingApproval,
   PendingPause,
@@ -195,3 +192,13 @@ export { InMemoryA2ATaskRepository } from "../infrastructure/in-memory-a2a-task.
 export { InMemoryA2ADirectMessageRepository } from "../infrastructure/in-memory-a2a-direct-message.repository.js";
 export { SqliteA2ATaskRepository } from "../infrastructure/sqlite/sqlite-a2a-task.repository.js";
 export { SqliteA2ADirectMessageRepository } from "../infrastructure/sqlite/sqlite-a2a-direct-message.repository.js";
+
+// store-implementer names no application code needs (moved out of the root entry, #1307)
+export { pauseKeyOf } from "../infrastructure/pause-record.js";
+export type { PauseAnswer, PauseSite } from "../infrastructure/pause-record.js";
+export type {
+  PauseDeadlineSet,
+  PauseInPlaceReassignment,
+  PauseReassignmentChange,
+  PauseReplacement,
+} from "../infrastructure/pause-notices.js";

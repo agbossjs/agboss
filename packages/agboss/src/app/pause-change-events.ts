@@ -65,7 +65,8 @@ export function toldReassigned(
 ): Promise<void> {
   return toldPauseChange(deps, pause, (observer) =>
     observer.onPauseReassigned({
-      ...pauseChangeOf(pause),
+      ...pauseChangeOf(replacement),
+      previousTarget: pause.target,
       ...(pause.channel === undefined ? {} : { previousChannel: pause.channel }),
       ...(replacement.expiresAt === undefined
         ? {}

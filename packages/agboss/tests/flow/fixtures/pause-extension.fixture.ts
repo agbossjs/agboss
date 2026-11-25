@@ -1,6 +1,8 @@
 import { Application } from "../../../src/application/application.js";
 import { ApplicationContext } from "../../../src/flow/context/application-context.js";
 import { Channel } from "../../../src/components/decorators.js";
+import { ChannelSelector } from "../../../src/channels/channel-selector.js";
+import type { ExpiredContext } from "../../../src/channels/pause-contexts.js";
 import type { ExecutionErrorEvent } from "../../../src/index.js";
 import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
@@ -64,7 +66,7 @@ export const told = {
   other: [] as string[],
   recorded: [] as string[],
   /** The asks the manager channel's expiry decision was called with. */
-  expiryAsked: [] as ChannelAsk<ExtendManagerExternalTask>[],
+  expiryAsked: [] as ExpiredContext<ExtendManagerExternalTask>[],
   /** The errors executions failed with. */
   errors: [] as Error[],
   /** Every pause an operator extended or reassigned, as the observers were told (#1343). */
@@ -96,16 +98,18 @@ export function resetTold(): void {
   timeout: hours(24),
   remindBefore: hours(2),
 })
-export class ExtendManagerExternalTask {}
+export class ExtendManagerExternalTask {
+  /** What an expiry would decide: it goes on approved, the worst answer for a run past its deadline. */
+  onExpired(
+    ctx: ExpiredContext<ExtendManagerExternalTask>,
+  ): PauseExpiration<ExtendManagerExternalTask> {
+    told.expiryAsked.push(ctx);
+    return PauseExpiration.decide({ approved: true });
+  }
+}
 
-@Channel({
-  name: "extendable-manager-channel",
-  description: "Asks the manager",
-  deps: [ApplicationContext],
-  target: ExtendManagerExternalTask,
-  ttl: days(1),
-})
-export class ExtendManagerChannel {
+/** What the manager's channels share. */
+abstract class ExtendManagerChannelBase {
   constructor(private readonly context: ApplicationContext) {}
 
   send(
@@ -113,14 +117,6 @@ export class ExtendManagerChannel {
   ): Promise<ChannelOutcome<ExtendManagerExternalTask>> {
     told.sent.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
-  }
-
-  /** What an expiry would decide: it goes on approved, the worst answer for a run past its deadline. */
-  onPauseExpired(
-    ask: ChannelAsk<ExtendManagerExternalTask>,
-  ): PauseExpiration<ExtendManagerExternalTask> {
-    told.expiryAsked.push(ask);
-    return PauseExpiration.decide({ approved: true });
   }
 
   onPauseClosed(event: ChannelPauseClosedEvent<ExtendManagerExternalTask>): Promise<void> {
@@ -167,18 +163,41 @@ export class ExtendManagerChannel {
 })
 export class ExtendOwnerExternalTask {}
 
+/** What the owner's channels share. */
+abstract class ExtendOwnerChannelBase {
+  send(ask: ChannelAsk<ExtendOwnerExternalTask>): Promise<ChannelOutcome<ExtendOwnerExternalTask>> {
+    // #946: the owner's channel decides at once for a reassigned send, when the test says so
+    if (ask.replaces !== undefined && told.ownerDecides !== undefined)
+      return Promise.resolve(ChannelOutcome.decided(told.ownerDecides as never));
+    return Promise.resolve(ChannelOutcome.awaitReply());
+  }
+}
+
 @Channel({
   name: "extendable-owner-channel",
   description: "Waits for the owner",
   target: ExtendOwnerExternalTask,
   ttl: days(1),
 })
-export class ExtendOwnerChannel {
-  send(ask: ChannelAsk<ExtendOwnerExternalTask>): Promise<ChannelOutcome<ExtendOwnerExternalTask>> {
-    // #946: the owner's channel decides at once for a reassigned send, when the test says so
-    if (ask.replaces !== undefined && told.ownerDecides !== undefined)
-      return Promise.resolve(ChannelOutcome.decided(told.ownerDecides as never));
-    return Promise.resolve(ChannelOutcome.awaitReply());
+export class ExtendOwnerChannel extends ExtendOwnerChannelBase {}
+
+/** The owner's second channel: where a reassignment across channels goes. */
+@Channel({
+  name: "extendable-owner-backup-channel",
+  description: "Waits for the owner, on the backup route",
+  target: ExtendOwnerExternalTask,
+  ttl: days(1),
+})
+export class ExtendOwnerBackupChannel extends ExtendOwnerChannelBase {}
+
+@ChannelSelector({
+  name: "extendable-owner-selector",
+  description: "Picks the first owner channel",
+  target: ExtendOwnerExternalTask,
+})
+export class ExtendOwnerSelector {
+  selectChannel(): typeof ExtendOwnerChannel {
+    return ExtendOwnerChannel;
   }
 }
 
@@ -349,7 +368,46 @@ export const ownerFlow = { start: ExtendOwnerWorkflowStart, workflow: ExtendOwne
 export const openFlow = { start: ExtendOpenWorkflowStart, workflow: ExtendOpenWorkflow };
 
 export const FLOWS = [managerFlow, ownerFlow, openFlow].map((one) => one.workflow);
-export const CHANNELS = [ExtendManagerChannel, ExtendOwnerChannel, ExtendOpenChannel];
+@Channel({
+  name: "extendable-manager-channel",
+  description: "Asks the manager",
+  deps: [ApplicationContext],
+  target: ExtendManagerExternalTask,
+  ttl: days(1),
+})
+export class ExtendManagerChannel extends ExtendManagerChannelBase {}
+
+/** The manager's second channel: where a reassignment across channels goes. */
+@Channel({
+  name: "extendable-manager-backup-channel",
+  description: "Asks the manager, on the backup route",
+  deps: [ApplicationContext],
+  target: ExtendManagerExternalTask,
+  ttl: days(1),
+})
+export class ExtendManagerBackupChannel extends ExtendManagerChannelBase {}
+
+/** New pauses of the manager go to the first channel; a reassignment names the backup one. */
+@ChannelSelector({
+  name: "extendable-manager-selector",
+  description: "Picks the first manager channel",
+  target: ExtendManagerExternalTask,
+})
+export class ExtendManagerSelector {
+  selectChannel(): typeof ExtendManagerChannel {
+    return ExtendManagerChannel;
+  }
+}
+
+export const CHANNELS = [
+  ExtendManagerChannel,
+  ExtendManagerBackupChannel,
+  ExtendManagerSelector,
+  ExtendOwnerChannel,
+  ExtendOwnerBackupChannel,
+  ExtendOwnerSelector,
+  ExtendOpenChannel,
+];
 
 @Application({
   name: "extension-application",

@@ -7,7 +7,7 @@ import type {
   PauseNoticeKind,
   PausePage,
   PauseRecipients,
-  PauseReplacement,
+  PauseReassignmentChange,
   PauseScanAfter,
   PauseDeadlineChange,
   SetAsideMailbox,
@@ -102,11 +102,14 @@ export abstract class PausedExecutionRepository {
    * `closedAtOf`) to the channel and the listeners — a cancel during `send` must still take the
    * channel's buttons off; when it is a closed-untaken one (`Cancelled` with an answer), its
    * `answerNotTaken` to the same. Returns whether the pause is still `Pending`. Serves I7, I8.
+   * With `externalRef` (what the channel's own system calls the pause, from `awaitReply({ externalRef })`)
+   * the pause keeps it, and so does its newest chain-of-custody entry; the same write, only while `isSent` was false.
    */
   abstract markSentByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
     recipients: PauseRecipients,
+    externalRef?: string,
   ): Promise<boolean>;
 
   /**
@@ -207,11 +210,19 @@ export abstract class PausedExecutionRepository {
    * transaction (I7); the replacement's `opened` is written by its `markSent`. Returns the replacement,
    * `undefined` when it does not apply (of two racing reassignments, or a reassignment and an answer,
    * exactly one does; I1, I3).
+   *
+   * A change with no `pauseId` (`PauseInPlaceReassignment`, #1307d) keeps the pause: its `assignees` replaced
+   * (absent: released), a `reassigned` entry appended to its chain of custody, its id, target, channel and
+   * `externalRef` kept, its deadline replaced when the change sets one, and a `reassigned` notice written to
+   * its channel and listeners when it was sent. Returns the changed pause. With `due` the write applies only
+   * while the deadline is at or before `at` (an expiry's reassignment), otherwise only while the pause is open;
+   * `maxReassignments` refuses it, in the same transaction, once the chain holds that many `reassigned` entries.
+   * A replacement made `to` another target or channel is `Pending` and unsent under it, with no `externalRef`.
    */
   abstract reassignByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    replacement: PauseReplacement,
+    replacement: PauseReassignmentChange,
     at: Date,
     recipients: PauseRecipients,
   ): Promise<PauseRecord | undefined>;

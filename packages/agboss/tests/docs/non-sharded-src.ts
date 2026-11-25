@@ -1465,6 +1465,32 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/runtime/pause-record-made.ts"],
   ),
   ...reviewed(
+    "the plan and the limits of a pause's reassignment and extension, split from `pause-reassignment.ts`, `pause-extension.ts` and `pause-record-made.ts` (#1307, #1310) to keep each under the line limit: the destination target, the chain's reassignment, extension and total-wait limits, the deadline a change sets, and the checks of a request; each was a function of the file it came from and is judged by the same atomic store write; matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; covered by tests/app/pause-reassign-targets.test.ts, tests/app/pause-reassignment.test.ts, tests/app/pause-extension.test.ts and tests/app/pause-expiry-reassign.test.ts",
+    [
+      "src/app/extend-request.ts",
+      "src/app/pause-limits.ts",
+      "src/app/pause-reassign-deadline.ts",
+      "src/app/pause-reassign-plan.ts",
+      "src/app/pause-reassign-support.ts",
+      "src/flow/runtime/pause-record-facts.ts",
+      "src/flow/runtime/pause-hooks.ts",
+      "src/infrastructure/pause-notice-plans.ts",
+    ],
+  ),
+  ...reviewed(
+    "the types, the pause's calendar and the events of a pause's change, split out of `types.ts`, `pause-extension.ts` and `pause-change-events.ts` (#1307, #1310): request and answer shapes, the working-time calendar asked for a deadline, and the event told after a reassignment; no spend, limit, lease or fence decision of their own; covered by tests/app/pause-reassign-targets.test.ts, tests/app/pause-extension.test.ts and tests/app/pause-working-time.test.ts",
+    [
+      "src/app/extend-types.ts",
+      "src/app/reassign-types.ts",
+      "src/app/pause-calendar.ts",
+      "src/app/pause-reassigned-events.ts",
+    ],
+  ),
+  ...reviewed(
+    "a spread of the fields of an object that are not `undefined`, used by the pause hooks and reassignment (#1307); no spend, limit, lease or fence decision; covered by tests/app/pause-reassign-targets.test.ts",
+    ["src/core/defined-fields.ts"],
+  ),
+  ...reviewed(
     "holds spend, rate-limit or deadline sites (recursion depth <) - not mutated: covered by tests/app/undo-once.matrix.test.ts, tests/infrastructure/store-conformance.in-memory.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
     ["src/flow/runtime/recursion-launch.ts"],
   ),

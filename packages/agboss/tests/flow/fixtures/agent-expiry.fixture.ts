@@ -11,10 +11,8 @@ import {
   inline,
   ToolApproval, Ttl,
 } from "../../../src/index.js";
-import {
-  PauseExpiration,
-  type PauseExpiryHandler,
-} from "../../../src/channels/pause-expiration.js";
+import { PauseExpiration } from "../../../src/channels/pause-expiration.js";
+import type { ExpiredContext } from "../../../src/channels/pause-contexts.js";
 import { Text } from "../../../src/dto/index.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { Action } from "../../../src/flow/decorators/action.js";
@@ -60,10 +58,10 @@ export const agentExpiry = {
   behavior: undefined as
     | undefined
     | ((
-      ask: ChannelAsk<RefundApprovalToolApproval>,
+      ask: ExpiredContext<RefundApprovalToolApproval>,
     ) => PauseExpiration<RefundApprovalToolApproval>),
-  /** The asks the approval channel's handler was called with. */
-  asked: [] as ChannelAsk<RefundApprovalToolApproval>[],
+  /** The contexts the approval targets' handler was called with. */
+  asked: [] as ExpiredContext<RefundApprovalToolApproval>[],
   /** What the gate tool waits for: replaced by each test. */
   gate: Promise.resolve(),
   /** The approval channel's sends. */
@@ -78,6 +76,16 @@ export function resetAgentExpiry(): void {
   agentExpiry.behavior = undefined;
 }
 
+/** What every refund target does when its pause runs out: the test decides (none: `fail()`). */
+abstract class RefundTargetBase {
+  onExpired(
+    ctx: ExpiredContext<RefundApprovalToolApproval>,
+  ): PauseExpiration<RefundApprovalToolApproval> {
+    agentExpiry.asked.push(ctx);
+    return agentExpiry.behavior?.(ctx) ?? PauseExpiration.fail();
+  }
+}
+
 @ToolApproval({
   name: "expiring-refund-approval-tool-approval",
   description: "A manager approves a refund within 24 hours",
@@ -85,22 +93,15 @@ export function resetAgentExpiry(): void {
   respondent: PauseRespondent.Delegate,
   timeout: hours(24),
 })
-export class RefundApprovalToolApproval {}
+export class RefundApprovalToolApproval extends RefundTargetBase {}
 
-/** What every refund channel of this fixture does: asked, it waits; on expiry the test decides. */
-export abstract class RefundChannelBase implements PauseExpiryHandler<RefundApprovalToolApproval> {
+/** What every refund channel of this fixture does: asked, it waits. */
+export abstract class RefundChannelBase {
   send(
     ask: ChannelAsk<RefundApprovalToolApproval>,
   ): Promise<ChannelOutcome<RefundApprovalToolApproval>> {
     agentExpiry.sent.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
-  }
-
-  onPauseExpired(
-    ask: ChannelAsk<RefundApprovalToolApproval>,
-  ): PauseExpiration<RefundApprovalToolApproval> {
-    agentExpiry.asked.push(ask);
-    return agentExpiry.behavior?.(ask) ?? PauseExpiration.fail();
   }
 }
 
@@ -134,7 +135,7 @@ export class ExpiringRefundTool {
   respondent: PauseRespondent.Delegate,
   timeout: hours(4),
 })
-export class UrgentRefundToolApproval {}
+export class UrgentRefundToolApproval extends RefundTargetBase {}
 
 @Channel({
   name: "urgent-refund-expiry-channel",
@@ -152,7 +153,7 @@ export class UrgentRefundChannel extends RefundChannelBase {}
   respondent: PauseRespondent.Delegate,
   timeout: seconds(5),
 })
-export class QuickRefundToolApproval {}
+export class QuickRefundToolApproval extends RefundTargetBase {}
 
 @Channel({
   name: "quick-refund-expiry-channel",

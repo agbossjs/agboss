@@ -13,11 +13,11 @@ import {
   PauseClosedReason,
   PauseKind,
   ChannelListener,
-  pauseKeyOf,
   type OnInit,
   type ChannelListenerClosedEvent,
   type ChannelListenerOpenedEvent,
 } from "../../src/index.js";
+import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { EmptyEnvironment } from "../../src/environments/empty.js";

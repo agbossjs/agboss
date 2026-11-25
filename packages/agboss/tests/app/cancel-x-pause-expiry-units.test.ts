@@ -55,6 +55,7 @@ const pause = (overrides: Record<string, unknown> = {}) => ({
   rootExecutionId: "root-1",
   workflow: "desk-workflow",
   channel: "refund-channel",
+  target: "refund-tool-approval",
   status: PauseStatus.Pending,
   kind: PauseKind.Approval,
   respondent: PauseRespondent.Delegate,
@@ -94,6 +95,10 @@ function partsOf(
     graph: { nodes: new Map(), type: Error },
     channelOf:
       "channelOf" in options ? options.channelOf : () => ({ sender: options.sender ?? {} }),
+    // the expiry is the target's call (`onExpired`), kept here under the old option's name
+    targetOf: () => ({
+      onExpired: (options.sender as { onPauseExpired?: unknown } | undefined)?.onPauseExpired,
+    }),
     tools,
     log: { warn },
     pause:
@@ -185,7 +190,11 @@ describe("#1366: the channel's decision on an expiry", () => {
       expect.any(Function),
     );
     expect(onPauseExpired).toHaveBeenCalledWith(
-      expect.objectContaining({ pauseId: "p-1", input: pause().input, trail: [] }),
+      expect.objectContaining({
+        pauseKey: pauseKeyOf("acme", "p-1"),
+        input: pause().input,
+        trail: [],
+      }),
     );
     expect(expire).toHaveBeenCalledWith("acme", "p-1", {}, NOW, RECIPIENTS);
   });
@@ -241,7 +250,7 @@ describe("#1366: the channel's decision on an expiry", () => {
     );
     expect(warn).toHaveBeenCalledWith(
       "pause.expiry-handler-failed",
-      `pause expiry decision of channel refund-channel fell back to fail(): ${ExpiryProblem.AnswerInvalid} (pauseKey ${pauseKeyOf("acme", "p-1")})`,
+      `pause expiry decision of target refund-tool-approval fell back to fail(): ${ExpiryProblem.AnswerInvalid} (pauseKey ${pauseKeyOf("acme", "p-1")})`,
       { tenantId: "acme", executionId: "root-1" },
     );
   });

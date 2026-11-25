@@ -15,6 +15,8 @@ import {
 import { rootFactsOf, type FrameSpec } from "../context/frame.js";
 import type { ChooseChannel, PauseChannel, PauseTarget, PendingOpening } from "./pause-channel.js";
 import { trailEntryOf } from "./pause-chain.js";
+import { assignedBy, resolvedTimeoutBy, type OpeningFacts } from "./pause-hooks.js";
+import type { OpeningHooks } from "./pause-record-facts.js";
 import { newRecordOf, type RemindAt } from "./pause-record-made.js";
 import type { PauseQuestion } from "./pause.js";
 
@@ -49,8 +51,13 @@ export async function openedPause(
 ): Promise<PauseRecord> {
   const { pauses, target, frame } = site;
   const { tenantId } = frame.execution.tenant;
-  // working time asks the calendar, a selector asks the project's code: neither runs again for a re-entry
-  if (isWorkingDuration(target.timeout) || target.select !== undefined) {
+  // working time asks the calendar, a selector or a hook asks the project's code: none runs again for a re-entry
+  if (
+    isWorkingDuration(target.timeout) ||
+    target.select !== undefined ||
+    target.assign !== undefined ||
+    target.resolveTimeout !== undefined
+  ) {
     const found = await pauses.findByTenantIdAndRootExecutionIdAndStepKey(
       tenantId,
       rootFactsOf(frame.execution).executionId,
@@ -58,10 +65,18 @@ export async function openedPause(
     );
     if (found !== undefined) return found;
   }
+  const facts: OpeningFacts = {
+    input: question.input,
+    toolCall: question.toolCall,
+    trail: [{ action: "opened", at: site.clock.now(), target: target.name }],
+  };
+  // who it is for comes first: a calendar that resolves its schedule per assignee needs them
+  const assignees = await assignedBy(target, facts);
   const calendarSite: CalendarSite = {
     calendar: target.calendar,
     tenantId,
     role: target.name,
+    assignees,
     frame,
     clock: site.clock,
     interruption: site.signal,
@@ -71,8 +86,14 @@ export async function openedPause(
     workingTimeAfter(calendarSite, from, amount);
   const remind: RemindAt = (span) => workingReminderAt(calendarSite, span);
   const choose: ChooseChannel = (opening) => chosenChannel(target, question, opening);
+  const timeout = await resolvedTimeoutBy(target, { ...facts, assignees });
+  const hooks: OpeningHooks = {
+    assignees,
+    timeout,
+    maxTotalTimeout: target.escalationLimits?.maxTotalTimeout,
+  };
   return pauses.findOrCreateByStepKey(
-    await newRecordOf(frame, target, question, site.clock, add, remind, choose),
+    await newRecordOf(frame, target, question, site.clock, add, remind, choose, hooks),
   );
 }
 
@@ -86,9 +107,9 @@ export class ChannelSelectError extends Error {
 }
 
 /** The channel a new pause is sent through: the only one, or the one its `@ChannelSelector` picks; none for an owner's target. */
-async function chosenChannel(
+export async function chosenChannel(
   target: PauseTarget,
-  question: PauseQuestion,
+  question: Pick<PauseQuestion, "input" | "toolCall">,
   opening: PendingOpening,
 ): Promise<PauseChannel | undefined> {
   const channels = [...target.channels.values()];
@@ -100,6 +121,7 @@ async function chosenChannel(
     );
   const ctx: ChannelSelectContext<never> = {
     input: question.input as never,
+    ...(opening.assignees === undefined ? {} : { assignees: opening.assignees }),
     ...(question.toolCall === undefined ? {} : { toolCall: question.toolCall }),
     ...(opening.expiresAt === undefined ? {} : { expiresAt: opening.expiresAt }),
     trail: opening.trail.map(trailEntryOf),

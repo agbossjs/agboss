@@ -24,12 +24,15 @@ import {
   type ChannelListenerClosedEvent,
   type ChannelListenerEventBase,
   type ChannelListenerOpenedEvent,
+  type ChannelListenerReassignedEvent,
   type ExecutionResumeEvent,
   type ExecutionPauseEvent,
   type Tracked,
   Action,
   inline,
-  ToolApproval, Ttl,
+  ToolApproval,
+  Ttl,
+  ChannelSelector,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { minutes, days } from "../../../src/units/index.js";
@@ -80,9 +83,11 @@ export interface SeenNotTaken extends SentAsk {
 /** A notice a listener heard (#940): which, what it carried and where its hook ran. */
 export interface Heard {
   readonly listener: string;
-  readonly type: "opened" | "closed" | "answer-not-taken";
+  readonly type: "opened" | "closed" | "answer-not-taken" | "reassigned";
   readonly event: ChannelListenerEventBase &
-    Partial<Pick<ChannelListenerClosedEvent, "reason" | "actor" | "answer" | "closedAt">>;
+    Partial<Pick<ChannelListenerClosedEvent, "actor" | "answer" | "closedAt">> & {
+      readonly reason?: unknown;
+    };
   readonly executionId: string;
   readonly tenantId: string;
 }
@@ -226,15 +231,8 @@ export class RefundDeskToolApproval {}
 })
 export class OrderConfirmationToolApproval {}
 
-/** The finance desk: posts the ask (its `pauseId` is the reply key) and waits for the reply. */
-@Channel({
-  name: "finance-desk-refund-approval-channel",
-  description: "Asks the finance desk",
-  deps: [ExecutionContext],
-  target: RefundDeskToolApproval,
-  ttl: days(1),
-})
-export class FinanceDeskRefundApprovalChannel {
+/** What the finance desk's channels share: they post the ask (its `pauseId` is the reply key) and wait for the reply. */
+abstract class FinanceDeskChannelBase {
   constructor(private readonly executionContext: ExecutionContext) {}
 
   async send(
@@ -264,6 +262,38 @@ export class FinanceDeskRefundApprovalChannel {
     event: ChannelPauseAnswerNotTakenEvent<RefundDeskToolApproval>,
   ): Promise<void> {
     return recordNotTaken("finance-desk", event);
+  }
+}
+
+/** The finance desk. */
+@Channel({
+  name: "finance-desk-refund-approval-channel",
+  description: "Asks the finance desk",
+  deps: [ExecutionContext],
+  target: RefundDeskToolApproval,
+  ttl: days(1),
+})
+export class FinanceDeskRefundApprovalChannel extends FinanceDeskChannelBase {}
+
+/** The finance desk's backup route: where a reassignment across channels goes (#1307d). */
+@Channel({
+  name: "finance-desk-backup-channel",
+  description: "Asks the finance desk on the backup route",
+  deps: [ExecutionContext],
+  target: RefundDeskToolApproval,
+  ttl: days(1),
+})
+export class FinanceDeskBackupChannel extends FinanceDeskChannelBase {}
+
+/** New refund pauses go to the first desk; a reassignment names the backup one. */
+@ChannelSelector({
+  name: "refund-desk-selector",
+  description: "Picks the first finance desk",
+  target: RefundDeskToolApproval,
+})
+export class RefundDeskSelector {
+  selectChannel(): typeof FinanceDeskRefundApprovalChannel {
+    return FinanceDeskRefundApprovalChannel;
   }
 }
 
@@ -399,6 +429,10 @@ export class AuditPauseListener {
   onPauseAnswerNotTaken(event: ChannelListenerAnswerNotTakenEvent): Promise<void> {
     return hear("audit", this.executionContext, "answer-not-taken", event);
   }
+
+  onPauseReassigned(event: ChannelListenerReassignedEvent): Promise<void> {
+    return hear("audit", this.executionContext, "reassigned", event);
+  }
 }
 
 /** A trusted component: it may answer a channel's pauses, so it sees their ids (D4). */
@@ -416,6 +450,10 @@ export class TrustedPauseListener {
 
   onPauseClosed(event: ChannelListenerClosedEvent): Promise<void> {
     return hear("trusted", this.executionContext, "closed", event);
+  }
+
+  onPauseReassigned(event: ChannelListenerReassignedEvent): Promise<void> {
+    return hear("trusted", this.executionContext, "reassigned", event);
   }
 }
 
@@ -617,6 +655,8 @@ export class AuditWorkflow {}
   workflows: [DeskWorkflow, BatchWorkflow, AuditWorkflow],
   providers: [
     FinanceDeskRefundApprovalChannel,
+    FinanceDeskBackupChannel,
+    RefundDeskSelector,
     CustomerOrderConfirmationChannel,
     AutoRefundChannel,
     SeenPausedExecutionRepository,

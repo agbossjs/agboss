@@ -13,9 +13,8 @@ export interface ChannelSender {
   onPauseAnswerNotTaken?(event: ChannelSenderNotTaken): Promise<void>;
   onPauseTimeoutChanged?(event: ChannelSenderExtended): Promise<void>;
   onPauseExpiring?(event: ChannelSenderExpiring): Promise<void>;
+  onPauseReassigned?(event: ChannelSenderReassigned): Promise<void>;
   onPauseJoinFailed?(event: ChannelSenderJoinFailed): Promise<void>;
-  /** What the expiry of a pause it sent means (#941); absent: `PauseExpiration.fail()`. */
-  onPauseExpired?(ask: ChannelSenderSend): unknown;
 }
 
 /** The ask as the framework builds it: the pause's id and what it asks. */
@@ -60,6 +59,19 @@ export interface ChannelSenderExtended extends ChannelSenderAsk, PauseDeliveredE
 /** A reminder as the framework builds it (#942). */
 export interface ChannelSenderExpiring extends ChannelSenderAsk, PauseDeliveredEvent {
   readonly expiresAt: string;
+}
+
+/** An in-place reassignment as the framework builds it (#1307d). */
+export interface ChannelSenderReassigned extends ChannelSenderAsk, PauseDeliveredEvent {
+  readonly previousTarget: string;
+  readonly previousChannel: string;
+  readonly channel: string;
+  readonly assignees?: readonly string[];
+  readonly previousAssignees?: readonly string[];
+  readonly externalRef?: string;
+  readonly expiresAt?: string;
+  readonly previousExpiresAt?: string;
+  readonly reason?: string;
 }
 
 /** A failed join as the framework builds it (#945). */

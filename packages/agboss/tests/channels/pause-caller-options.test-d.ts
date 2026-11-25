@@ -32,15 +32,21 @@ describe("#946: app.reassignPause takes PauseCallerOptions too", () => {
     void app.reassignPause(reassignment, { actor: { id: "m" }, ownerId: "alice" });
   });
 
-  it("the request is a pause id and its assignees; the answer is the new pause's key only", async () => {
-    // @ts-expect-error — the assignees are required
+  it("the request is a pause id and what moves; the answer is the pause's key and where it waits", async () => {
+    // a pause id and nothing else compiles: it asks the target's `assign`
     void app.reassignPause({ pauseId: "p" });
     // @ts-expect-error — 0.1.0's one `assignee` is gone: a pool of `assignees`
     void app.reassignPause({ pauseId: "p", assignee: "d" });
-    // @ts-expect-error — no new deadline: a reassignment keeps it
+    // @ts-expect-error — the wait is `timeout`, the 0.1.0 `expiresIn` is gone
     void app.reassignPause({ pauseId: "p", assignees: ["d"], expiresIn: 1000 });
+    // @ts-expect-error — a target is a class, not its name
+    void app.reassignPause({ pauseId: "p", target: "some-tool-approval" });
     expectTypeOf(await app.reassignPause(reassignment)).toEqualTypeOf<{
       readonly pauseKey: string;
+      readonly target: string;
+      readonly channel?: string;
+      readonly assignees?: readonly string[];
+      readonly expiresAt?: Date;
     }>();
   });
 });

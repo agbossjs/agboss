@@ -1,3 +1,4 @@
+import { channelReassignedOf, listenerReassignedOf } from "./pause-reassigned-events.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
 import type { ChannelListenerHandler } from "../pause/channel-listener.js";
 
@@ -67,6 +68,12 @@ function laterChannelHook(sender: ChannelSender, kind: PauseNoticeKind): Hook | 
       // Stryker disable next-line OptionalChaining: hookOverridden has seen that the sender's hook is a function
       return Promise.resolve(() => sender.onPauseTimeoutChanged?.(event) ?? Promise.resolve());
     };
+  if (kind === PauseNoticeKind.Reassigned && hookOverridden(sender, "onPauseReassigned"))
+    return (sources) => {
+      const event = channelReassignedOf(sources);
+      // Stryker disable next-line OptionalChaining: hookOverridden has seen that the sender's hook is a function
+      return Promise.resolve(() => sender.onPauseReassigned?.(event) ?? Promise.resolve());
+    };
   if (kind === PauseNoticeKind.Expiring && hookOverridden(sender, "onPauseExpiring"))
     return (sources) => {
       const event = channelExpiringOf(sources);
@@ -106,6 +113,12 @@ function laterListenerHook(listener: ListenerReceiver, kind: PauseNoticeKind): H
       const event = await listenerExtendedOf(sources, includePauseIds);
       // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined
       return () => handler.onPauseTimeoutChanged?.(event) ?? Promise.resolve();
+    };
+  if (kind === PauseNoticeKind.Reassigned && handler.onPauseReassigned !== undefined)
+    return async (sources) => {
+      const event = await listenerReassignedOf(sources, includePauseIds);
+      // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined
+      return () => handler.onPauseReassigned?.(event) ?? Promise.resolve();
     };
   if (kind === PauseNoticeKind.Expiring && handler.onPauseExpiring !== undefined)
     return async (sources) => {

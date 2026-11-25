@@ -126,7 +126,11 @@ describe("#1366: a pause without a reminder", () => {
 
     expect(spy).toHaveBeenCalledTimes(1);
     const change: unknown = spy.mock.calls[0]?.[2];
-    expect(Object.keys(change as object).sort()).toEqual(["expiresAt", "previousExpiresAt"]);
+    expect(Object.keys(change as object).sort()).toEqual([
+      "actor",
+      "expiresAt",
+      "previousExpiresAt",
+    ]);
   });
 });
 

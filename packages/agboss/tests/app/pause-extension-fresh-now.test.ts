@@ -47,7 +47,7 @@ class SlowCalendar implements WorkingCalendarHandler {
   }
 }
 
-/** The channel's `onPauseExpired`: counted, then held until the test lets it go. */
+/** The target onExpired: counted, then held until the test lets it go. */
 const expiry = { entered: 0, gate: Promise.resolve() };
 
 const desk = workingApp("fresh-now-desk", {

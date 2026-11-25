@@ -9,6 +9,7 @@ import { declared, recordDeclaration } from "../flow/decorators/declaration.js";
 import { PauseRespondent } from "../pause/respondent.js";
 import type { PauseEscalationLimits } from "./pause-contexts.js";
 import { ComponentError, componentOf } from "../components/metadata.js";
+import type { DecideExpiration, FailExpiration, ReassignExpiration } from "./pause-expiration.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 
 /**
@@ -39,7 +40,12 @@ export interface PauseTargetHooks {
   readonly permitAnswer?: (ctx: never) => boolean | Promise<boolean>;
   readonly permitTimeoutChange?: (ctx: never) => boolean | Promise<boolean>;
   readonly permitReassign?: (ctx: never) => boolean | Promise<boolean>;
+  /** What the expiry of one of its pauses means; absent: `PauseExpiration.fail()`. */
+  readonly onExpired?: (ctx: never) => AnyPauseExpiration | Promise<AnyPauseExpiration>;
 }
+
+/** An expiry decision of any target: its `decide` answer is checked at run time against the output DTO. */
+export type AnyPauseExpiration = FailExpiration | DecideExpiration<unknown> | ReassignExpiration;
 
 /** What `@ToolApproval` and `@ExternalTask` share. */
 export interface PauseTargetBaseOptions<TDeps extends readonly Token[] = readonly Token[]> {
@@ -108,6 +114,18 @@ export type PauseTargetDeclaration =
 
 /** The options of either target, as the runtime and the rules read them. */
 export type PauseTargetOptions = ToolApprovalOptions | ExternalTaskOptions;
+
+/** Whether `to` can take the pauses `from` opened: the same kind, and the same DTOs. */
+export function canTakePausesOf(from: PauseTargetDeclaration, to: PauseTargetDeclaration): boolean {
+  if (from.kind === "tool-approval" && to.kind === "tool-approval") {
+    const { input } = to.options;
+    return input === undefined || from.options.input === undefined || input === from.options.input;
+  }
+  if (from.kind === "external-task" && to.kind === "external-task") {
+    return from.options.input === to.options.input && from.options.output === to.options.output;
+  }
+  return false;
+}
 
 const targets = new WeakMap<Class, PauseTargetDeclaration>();
 

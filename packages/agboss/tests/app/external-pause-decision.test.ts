@@ -3,6 +3,7 @@
  * not resumed — the pause is `Resolved`, the run stays paused, the decision is not lost — and once the
  * freeze is lifted by `app.unpause` the run resumes exactly once with that decision.
  */
+import { ExtendOwnerBackupChannel } from "../flow/fixtures/pause-extension.fixture.js";
 import { beforeEach, describe, expect } from "vitest";
 import { PauseStatus } from "../../src/index.js";
 import { ExecutionStatus } from "../../src/app/types.js";
@@ -48,7 +49,11 @@ describe("#1341c: a channel decision on a root paused from outside", () => {
       told.ownerDecides = approve;
 
       await app.reassignPause(
-        { pauseId: pause?.pauseId ?? "", assignees: ["deputy-3"] },
+        {
+          pauseId: pause?.pauseId ?? "",
+          channel: ExtendOwnerBackupChannel,
+          assignees: ["deputy-3"],
+        },
         { ownerId: "alice" },
       );
       await clock.advance(seconds(40));

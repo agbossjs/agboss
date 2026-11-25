@@ -44,6 +44,7 @@ const NOTICE_HOOKS = [
   "onPauseAnswerNotTaken",
   "onPauseTimeoutChanged",
   "onPauseExpiring",
+  "onPauseReassigned",
   "onPauseJoinFailed",
 ] as const;
 

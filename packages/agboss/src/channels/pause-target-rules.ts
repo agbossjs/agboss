@@ -6,13 +6,13 @@ import { kindSuffixProblem, NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { channelSelectorOf } from "./channel-selector.js";
 import type { ChannelUse } from "./discovery.js";
-import { ignoredSettingViolations, targetsOf } from "./pause-setting-rules.js";
+import { targetsOf } from "./pause-setting-rules.js";
 import {
   channelTargetOf,
   listedClassesOf,
+  canTakePausesOf,
   pauseTargetOf,
   PauseRespondent,
-  type PauseTargetDeclaration,
 } from "./pause-targets.js";
 
 /**
@@ -122,24 +122,12 @@ function selectorViolations(modules: readonly ProviderModule[]): RuleViolation[]
   });
 }
 
-/** Whether `to` can take the pauses `from` opened: the same kind, and the same DTOs. */
-function isCompatible(from: PauseTargetDeclaration, to: PauseTargetDeclaration): boolean {
-  if (from.kind === "tool-approval" && to.kind === "tool-approval") {
-    const { input } = to.options;
-    return input === undefined || from.options.input === undefined || input === from.options.input;
-  }
-  if (from.kind === "external-task" && to.kind === "external-task") {
-    return from.options.input === to.options.input && from.options.output === to.options.output;
-  }
-  return false;
-}
-
 /** `[pause.incompatible-escalation-target]` over each target's `escalatesTo`. */
 function escalationViolations(uses: readonly ChannelUse[]): RuleViolation[] {
   return targetsOf(uses).flatMap(([target, declaration]) =>
     (declaration.options.escalatesTo ?? []).flatMap((to) => {
       const found = pauseTargetOf(to);
-      if (found !== undefined && isCompatible(declaration, found)) return [];
+      if (found !== undefined && canTakePausesOf(declaration, found)) return [];
       const why =
         found === undefined
           ? "is no @ToolApproval or @ExternalTask"
@@ -200,7 +188,6 @@ export function pauseTargetViolations(
   return [
     ...nameViolations(uses),
     ...permitHookViolations(uses),
-    ...ignoredSettingViolations(uses, modules, options),
     ...bindingViolations(uses, modules),
     ...channelViolations(modules, options),
     ...selectorViolations(modules),

@@ -2,11 +2,9 @@ import { Application } from "../../../src/application/application.js";
 import { ApplicationContext } from "../../../src/flow/context/application-context.js";
 import { Channel, Injectable } from "../../../src/components/decorators.js";
 import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import type { ExpiredContext } from "../../../src/channels/pause-contexts.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
-import {
-  PauseExpiration,
-  type PauseExpiryHandler,
-} from "../../../src/channels/pause-expiration.js";
+import { PauseExpiration } from "../../../src/channels/pause-expiration.js";
 import type { ChannelPauseClosedEvent } from "../../../src/pause/notice-events.js";
 import { Bool, Text } from "../../../src/dto/index.js";
 import { EmptyEnvironment } from "../../../src/environments/empty.js";
@@ -58,7 +56,7 @@ export class ExpiryDoneDto {
 
 /** What `onPauseExpired` is made to do. */
 export type ExpiryBehavior = (
-  ask: ChannelAsk<ManagerExternalTask>,
+  ask: ExpiredContext<ManagerExternalTask>,
 ) => PauseExpiration<ManagerExternalTask> | Promise<PauseExpiration<ManagerExternalTask>>;
 
 export const expiry = {
@@ -67,14 +65,14 @@ export const expiry = {
   /** The instance each handler call ran on. */
   holders: [] as string[],
   /** Every ask the handler was called with, in order. */
-  asked: [] as ChannelAsk<ManagerExternalTask>[],
+  asked: [] as ExpiredContext<ManagerExternalTask>[],
   /** Every close the manager's channel was told. */
   closed: [] as ChannelPauseClosedEvent<ManagerExternalTask>[],
   /** The asks the owner's channel handler was called with. */
-  ownerAsked: [] as ChannelAsk<OwnerExternalTask>[],
+  ownerAsked: [] as ExpiredContext<OwnerExternalTask>[],
   /** What the owner's expiry handler does; none: `fail()`. */
   ownerBehavior: undefined as
-    undefined | ((ask: ChannelAsk<OwnerExternalTask>) => PauseExpiration<OwnerExternalTask>),
+    undefined | ((ask: ExpiredContext<OwnerExternalTask>) => PauseExpiration<OwnerExternalTask>),
   /** The director's asks. */
   directorAsked: [] as ChannelAsk<DirectorExternalTask>[],
   /** What the actions recorded. */
@@ -124,6 +122,19 @@ export function resetExpiry(): void {
   expiry.onResume = undefined;
 }
 
+/** What every manager target does when its pause runs out: the test decides (none: `fail()`). */
+abstract class ManagerTargetBase {
+  constructor(private readonly context: ApplicationContext) {}
+
+  onExpired(
+    ctx: ExpiredContext<ManagerExternalTask>,
+  ): PauseExpiration<ManagerExternalTask> | Promise<PauseExpiration<ManagerExternalTask>> {
+    expiry.asked.push(ctx);
+    expiry.holders.push(this.context.instanceId);
+    return expiry.behavior?.(ctx) ?? PauseExpiration.fail();
+  }
+}
+
 @ExternalTask({
   name: "expiring-manager-external-task",
   description: "Asks a manager to approve an order within 24 hours",
@@ -131,13 +142,12 @@ export function resetExpiry(): void {
   output: ExpiryDecisionDto,
   respondent: PauseRespondent.Delegate,
   timeout: hours(24),
+  deps: [ApplicationContext],
 })
-export class ManagerExternalTask {}
+export class ManagerExternalTask extends ManagerTargetBase {}
 
-/** What every manager channel does: asked, told of a close, decides on expiry. */
-export abstract class ManagerChannelBase implements PauseExpiryHandler<ManagerExternalTask> {
-  constructor(private readonly context: ApplicationContext) {}
-
+/** What every manager channel does: asked, told of a close. */
+export abstract class ManagerChannelBase {
   send(ask: ChannelAsk<ManagerExternalTask>): Promise<ChannelOutcome<ManagerExternalTask>> {
     expiry.sent.push(ask);
     return Promise.resolve(ChannelOutcome.awaitReply());
@@ -148,19 +158,11 @@ export abstract class ManagerChannelBase implements PauseExpiryHandler<ManagerEx
     return Promise.resolve();
   }
 
-  onPauseExpired(
-    ask: ChannelAsk<ManagerExternalTask>,
-  ): PauseExpiration<ManagerExternalTask> | Promise<PauseExpiration<ManagerExternalTask>> {
-    expiry.asked.push(ask);
-    expiry.holders.push(this.context.instanceId);
-    return expiry.behavior?.(ask) ?? PauseExpiration.fail();
-  }
 }
 
 @Channel({
   name: "manager-expiry-channel",
   description: "Asks the manager",
-  deps: [ApplicationContext],
   target: ManagerExternalTask,
   ttl: days(1),
 })
@@ -174,13 +176,13 @@ export class ManagerChannel extends ManagerChannelBase {}
   output: ExpiryDecisionDto,
   respondent: PauseRespondent.Delegate,
   timeout: hours(4),
+  deps: [ApplicationContext],
 })
-export class ShortManagerExternalTask {}
+export class ShortManagerExternalTask extends ManagerTargetBase {}
 
 @Channel({
   name: "short-manager-expiry-channel",
   description: "Asks the manager, short",
-  deps: [ApplicationContext],
   target: ShortManagerExternalTask,
   ttl: days(1),
 })
@@ -194,13 +196,13 @@ export class ShortManagerChannel extends ManagerChannelBase {}
   output: ExpiryDecisionDto,
   respondent: PauseRespondent.Delegate,
   timeout: seconds(3),
+  deps: [ApplicationContext],
 })
-export class SlowManagerExternalTask {}
+export class SlowManagerExternalTask extends ManagerTargetBase {}
 
 @Channel({
   name: "slow-manager-expiry-channel",
   description: "Asks the manager, quick",
-  deps: [ApplicationContext],
   target: SlowManagerExternalTask,
   ttl: days(1),
 })
@@ -422,7 +424,14 @@ export class ReviewerWorkflow {}
   respondent: PauseRespondent.Owner,
   timeout: minutes(10),
 })
-export class OwnerExternalTask {}
+export class OwnerExternalTask {
+  onExpired(
+    ctx: ExpiredContext<OwnerExternalTask>,
+  ): PauseExpiration<OwnerExternalTask> | Promise<PauseExpiration<OwnerExternalTask>> {
+    expiry.ownerAsked.push(ctx);
+    return expiry.ownerBehavior?.(ctx) ?? PauseExpiration.fail();
+  }
+}
 
 @Channel({
   name: "owner-expiry-channel",
@@ -430,16 +439,9 @@ export class OwnerExternalTask {}
   target: OwnerExternalTask,
   ttl: days(1),
 })
-export class OwnerChannel implements PauseExpiryHandler<OwnerExternalTask> {
+export class OwnerChannel {
   send(): Promise<ChannelOutcome<OwnerExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
-  }
-
-  onPauseExpired(
-    ask: ChannelAsk<OwnerExternalTask>,
-  ): PauseExpiration<OwnerExternalTask> | Promise<PauseExpiration<OwnerExternalTask>> {
-    expiry.ownerAsked.push(ask);
-    return expiry.ownerBehavior?.(ask) ?? PauseExpiration.fail();
   }
 }
 

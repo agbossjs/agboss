@@ -18,6 +18,7 @@ import { EXTEND_RACE_CASES } from "./paused-execution-extend-race.cases.js";
 import { REASSIGN_CASES } from "./paused-execution-reassign.cases.js";
 import { REASSIGN_TRAIL_CASES } from "./paused-execution-reassign-trail.cases.js";
 import { REASSIGN_KEY_CASES } from "./paused-execution-reassign-key.cases.js";
+import { REASSIGN_CHANGE_CASES } from "./paused-execution-reassign-change.cases.js";
 import { REASSIGN_NOTICE_CASES } from "./paused-execution-reassign-notice.cases.js";
 import { REASSIGN_RACE_CASES } from "./paused-execution-reassign-race.cases.js";
 import { NOTICE_ORDER_CASES } from "./paused-execution-order.cases.js";
@@ -187,6 +188,7 @@ export function pausedExecutionContract(target: ContractTarget<PausedExecutionRe
           ...REASSIGN_TRAIL_CASES,
           ...REASSIGN_RACE_CASES,
           ...REASSIGN_NOTICE_CASES,
+          ...REASSIGN_CHANGE_CASES,
           ...REASSIGN_KEY_CASES,
         ],
       },

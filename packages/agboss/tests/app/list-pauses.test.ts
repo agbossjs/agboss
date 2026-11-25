@@ -10,9 +10,9 @@ import {
   PauseClosedReason,
   PauseKind,
   PauseStatus,
-  pauseKeyOf,
   type ListedPause,
 } from "../../src/index.js";
+import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import { hours } from "../../src/units/index.js";

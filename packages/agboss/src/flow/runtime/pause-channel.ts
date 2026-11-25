@@ -6,7 +6,7 @@ import type {
 } from "../../channels/pause-contexts.js";
 import type { ChannelSender } from "../../channels/channel-sender.js";
 import type { PauseCalendar } from "../../calendar/calendar-call.js";
-import type { Milliseconds, WorkingDuration } from "../../units/index.js";
+import { seconds, type Milliseconds, type WorkingDuration } from "../../units/index.js";
 import type { Class } from "../../components/injection.js";
 import type { PauseTrailRecord } from "../../infrastructure/pause-record.js";
 
@@ -17,7 +17,12 @@ export interface PauseChannel {
   readonly sender: ChannelSender;
   /** The class, as a `@ChannelSelector` names it and `app.reassignPause({ channel })` takes it. */
   readonly cls: Class;
+  /** How long one `send` may take (`@Channel({ timeout })`); `DEFAULT_CHANNEL_TIMEOUT` when left out. */
+  readonly timeout?: Milliseconds | undefined;
 }
+
+/** How long a channel's `send` may take when its `@Channel` says nothing. */
+export const DEFAULT_CHANNEL_TIMEOUT: Milliseconds = seconds(30);
 
 /** What a `@ChannelSelector` is asked: the target's pause so far, as the selector's context reads it. */
 export type SelectChannel = (ctx: never) => Promise<Class>;
@@ -47,11 +52,30 @@ export interface PauseTarget {
   readonly permitAnswer?: PermitAnswer | undefined;
   /** The target's `permitReassign` (#1307d): anything but `true` refuses a reassignment; `undefined`: none. */
   readonly permitReassign?: PermitReassign | undefined;
+  /** The target's `assign`: who a new pause is for; `undefined`: nobody in particular (or no hook). */
+  readonly assign?: AssignHook | undefined;
+  /** The target's `resolveTimeout`: this pause's wait, over the declared `timeout`; `undefined`: none. */
+  readonly resolveTimeout?: ResolveTimeoutHook | undefined;
+  /** The target's `onExpired`: what the expiry of its pauses means; `undefined`: `PauseExpiration.fail()`. */
+  readonly onExpired?: ExpiredHook | undefined;
+  /** The `escalatesTo` targets' names: where an expiry or an operator may move its pauses to. */
+  readonly escalatesTo?: readonly string[] | undefined;
 }
+
+/** A target's `assign` as the runtime calls it. */
+export type AssignHook = (ctx: never) => Promise<readonly string[] | undefined>;
+/** A target's `resolveTimeout` as the runtime calls it. */
+export type ResolveTimeoutHook = (
+  ctx: never,
+) => Promise<Milliseconds | WorkingDuration | undefined>;
+/** A target's `onExpired` as the runtime calls it. */
+export type ExpiredHook = (ctx: never) => Promise<unknown>;
 
 /** What a `@ChannelSelector` reads of a pause about to be sent: its deadline and chain of custody so far. */
 export interface PendingOpening {
   readonly expiresAt?: Date;
+  /** Who the pause is for, from the target's `assign`. */
+  readonly assignees?: readonly string[];
   readonly trail: readonly PauseTrailRecord[];
 }
 

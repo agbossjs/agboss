@@ -6,13 +6,14 @@ import { describe, expectTypeOf, it } from "vitest";
 import {
   PauseExpiration,
   PauseExpirationKind,
-  type ChannelAsk,
+  type ExpiredContext,
   type ExternalTaskOptions,
   type ToolApprovalOptions,
   type DecideExpiration,
   type FailExpiration,
   type ReassignExpiration,
   type PauseExpiryHandler,
+  type ChannelHandler,
   type ToolOptions,
 } from "../../src/index.js";
 import type { DtoClass } from "../../src/dto/types.js";
@@ -29,30 +30,37 @@ describe("#941: PauseExpiration and PauseExpiryHandler", () => {
     expectTypeOf(PauseExpiration.decide(1).kind).toEqualTypeOf<PauseExpirationKind.Decide>();
   });
 
-  it("a handler of a role returns the role's expiration: decide checks the role's answer type", () => {
+  it("a target's onExpired returns its expiration: decide checks the target's output type", () => {
     class Sync implements PauseExpiryHandler<ManagerExternalTask> {
-      onPauseExpired(ask: ChannelAsk<ManagerExternalTask>) {
-        expectTypeOf(ask.input.orderId).toEqualTypeOf<string>();
-        return ask.input.orderId === "small"
+      onExpired(ctx: ExpiredContext<ManagerExternalTask>) {
+        expectTypeOf(ctx.input.orderId).toEqualTypeOf<string>();
+        expectTypeOf(ctx.expiresAt).toEqualTypeOf<Date>();
+        expectTypeOf(ctx.firstAskedAt).toEqualTypeOf<Date>();
+        return ctx.input.orderId === "small"
           ? PauseExpiration.decide({ approved: true, comment: "auto" })
           : PauseExpiration.fail();
       }
     }
     class Async implements PauseExpiryHandler<ManagerExternalTask> {
-      onPauseExpired(): Promise<PauseExpiration<ManagerExternalTask>> {
+      onExpired(): Promise<PauseExpiration<ManagerExternalTask>> {
         return Promise.resolve(PauseExpiration.decide({ approved: false }));
       }
     }
     class Wrong implements PauseExpiryHandler<ManagerExternalTask> {
-      // @ts-expect-error the answer must be the role's: { approved: boolean, comment?: string }
-      onPauseExpired() {
+      // @ts-expect-error the answer must be the target's: { approved: boolean, comment?: string }
+      onExpired() {
         return PauseExpiration.decide({ approved: "yes" });
       }
     }
 
-    expectTypeOf<Sync["onPauseExpired"]>().toBeFunction();
-    expectTypeOf<Async["onPauseExpired"]>().toBeFunction();
-    expectTypeOf<Wrong["onPauseExpired"]>().toBeFunction();
+    expectTypeOf<Sync["onExpired"]>().toBeFunction();
+    expectTypeOf<Async["onExpired"]>().toBeFunction();
+    expectTypeOf<Wrong["onExpired"]>().toBeFunction();
+  });
+
+  it("the channel no longer decides an expiry: onPauseExpired is gone from its contract", () => {
+    // @ts-expect-error the expiry is the target's call (onExpired), no longer the channel's
+    expectTypeOf<ChannelHandler<ManagerExternalTask>["onPauseExpired"]>().toBeUndefined();
   });
 
   it("a target takes a timeout: a duration; a tool and a step take none (#1307)", () => {
@@ -62,16 +70,17 @@ describe("#941: PauseExpiration and PauseExpiryHandler", () => {
     expectTypeOf<ToolOptions<DtoClass, DtoClass, []>["expiresIn"]>().toBeUndefined();
   });
 
-  it("#1310a: reassign takes assignees, a duration and a reason — and nothing of a person's answer", () => {
+  it("#1310a: reassign takes assignees, a target, a channel, a duration and a reason — and nothing of a person's answer", () => {
     const moved = PauseExpiration.reassign({
+      target: ManagerExternalTask,
       assignees: ["deputy-1"],
       timeout: hours(2),
       reason: "no answer",
     });
     expectTypeOf(moved).toEqualTypeOf<ReassignExpiration>();
     expectTypeOf(moved.kind).toEqualTypeOf<PauseExpirationKind.Reassign>();
-    // @ts-expect-error assignees are required
-    PauseExpiration.reassign({ timeout: hours(2) });
+    // @ts-expect-error a target is a class, not its name
+    PauseExpiration.reassign({ target: "manager-external-task" });
     // @ts-expect-error a duration (hours(2)), not a number
     PauseExpiration.reassign({ assignees: ["d"], timeout: 2 });
   });

@@ -24,7 +24,12 @@ import { codeClassesOf, type RuntimeGraph } from "../flow/runtime/graph-model.js
 import { NodeKind } from "../flow/ast.js";
 import type { AssembledMemories } from "../memory/assembly.js";
 import { customCompactionClassesOf } from "../memory/custom-classes.js";
-import type { PauseChannel, PauseTarget } from "../flow/runtime/pause-channel.js";
+import type {
+  AssignHook,
+  PauseChannel,
+  PauseTarget,
+  ResolveTimeoutHook,
+} from "../flow/runtime/pause-channel.js";
 import type { TimeSpan } from "../units/working-time.js";
 
 /**
@@ -85,7 +90,7 @@ const selectorsOf = (target: Class, modules: readonly ProviderModule[]): readonl
 function hookOf(
   cls: Class,
   holder: unknown,
-  name: "permitAnswer" | "permitReassign",
+  name: "permitAnswer" | "permitReassign" | "assign" | "resolveTimeout" | "onExpired",
 ): ((ctx: never) => Promise<unknown>) | undefined {
   const hook: unknown = Reflect.get(cls.prototype as object, name);
   if (typeof hook !== "function") return undefined;
@@ -112,7 +117,8 @@ const pauseTimesOf = (
 function pausedChannelOf(cls: Class, sender: ChannelSender): PauseChannel {
   const meta = componentOf(cls);
   const name = meta?.kind === "channel" ? meta.meta.name : cls.name;
-  return { name, cls, sender };
+  const timeout = meta?.kind === "channel" ? meta.meta.timeout : undefined;
+  return { name, cls, sender, timeout };
 }
 
 /**
@@ -139,6 +145,49 @@ function channelsOfTarget(
   );
 }
 
+/** One pause target of a workflow, its hooks and channels created by its container. */
+function pauseTargetOfClass(
+  cls: Class,
+  bundle: WorkflowMeta,
+  services: WorkflowServices,
+  modules: readonly ProviderModule[],
+): PauseTarget {
+  const options = pauseTargetOf(cls)?.options;
+  if (options === undefined) throw new TypeError(`${targetNameOf(cls)} is no pause target`);
+  const container = containerFor(bundle, services);
+  const holder = instanceOf(cls, container);
+  const [selector] = selectorsOf(cls, modules);
+  const select =
+    selector === undefined
+      ? undefined
+      : async (ctx: never): Promise<Class> => {
+          const instance = container.get(selector) as {
+            selectChannel(ctx: never): Class | Promise<Class>;
+          };
+          return instance.selectChannel(ctx);
+        };
+  // a profile's deadline and reminder (`toolApprovals` / `externalTasks`) over the target's own
+  const { timeout, remindBefore } = pauseTimesOf(options, bundle.pauseOverrides?.get(options.name));
+  return {
+    name: options.name,
+    cls,
+    kind: options.output === undefined ? "tool-approval" : "external-task",
+    respondent: options.respondent,
+    channels: channelsOfTarget(cls, modules, container),
+    select,
+    timeout,
+    remindBefore,
+    calendar: pauseCalendarOf(options.calendar, (one) => container.get(one)),
+    escalationLimits: options.escalationLimits,
+    permitAnswer: hookOf(cls, holder, "permitAnswer") as PermitAnswer | undefined,
+    permitReassign: hookOf(cls, holder, "permitReassign") as PermitReassign | undefined,
+    assign: hookOf(cls, holder, "assign") as AssignHook | undefined,
+    resolveTimeout: hookOf(cls, holder, "resolveTimeout") as ResolveTimeoutHook | undefined,
+    onExpired: hookOf(cls, holder, "onExpired"),
+    escalatesTo: (options.escalatesTo ?? []).map(targetNameOf),
+  };
+}
+
 /** The workflow's pause targets by name, created by its container. */
 export function channelPartsOf(
   bundle: WorkflowMeta,
@@ -150,42 +199,8 @@ export function channelPartsOf(
     pauseTargets: (services: WorkflowServices) =>
       new Map(
         targets.map((cls) => {
-          const options = pauseTargetOf(cls)?.options;
-          if (options === undefined) throw new TypeError(`${targetNameOf(cls)} is no pause target`);
-          const container = containerFor(bundle, services);
-          const holder = instanceOf(cls, container);
-          const channels = channelsOfTarget(cls, modules, container);
-          const [selector] = selectorsOf(cls, modules);
-          const select =
-            selector === undefined
-              ? undefined
-              : async (ctx: never): Promise<Class> => {
-                  const instance = container.get(selector) as {
-                    selectChannel(ctx: never): Class | Promise<Class>;
-                  };
-                  return instance.selectChannel(ctx);
-                };
-          // a profile's deadline and reminder (`toolApprovals` / `externalTasks`) over the target's own
-          const { timeout, remindBefore } = pauseTimesOf(
-            options,
-            bundle.pauseOverrides?.get(options.name),
-          );
-          const calendar = pauseCalendarOf(options.calendar, (one) => container.get(one));
-          const target: PauseTarget = {
-            name: options.name,
-            cls,
-            kind: options.output === undefined ? "tool-approval" : "external-task",
-            respondent: options.respondent,
-            channels,
-            select,
-            timeout,
-            remindBefore,
-            calendar,
-            escalationLimits: options.escalationLimits,
-            permitAnswer: hookOf(cls, holder, "permitAnswer") as PermitAnswer | undefined,
-            permitReassign: hookOf(cls, holder, "permitReassign") as PermitReassign | undefined,
-          };
-          return [options.name, target];
+          const target = pauseTargetOfClass(cls, bundle, services, modules);
+          return [target.name, target];
         }),
       ),
   };

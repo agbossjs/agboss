@@ -2,9 +2,9 @@ import { PauseExpiration,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
-  pauseKeyOf,
   type DecideExpiration, ExternalTask } from "../../../index.js";
 import { Channel } from "../../../components/decorators.js";
+import { pauseKeyOf } from "../../../infrastructure/pause-record.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
 import type { Class } from "../../../components/injection.js";
 import { NodeKind, type PathSource } from "../../../flow/ast.js";
@@ -117,32 +117,32 @@ export const FAULT_EXPIRES_IN = seconds(30);
   output: FaultApprovalDto,
   respondent: PauseRespondent.Owner,
   timeout: FAULT_EXPIRES_IN,
+  deps: [FaultPodLink],
 })
-export class FaultExpiringExternalTask {}
+export class FaultExpiringExternalTask {
+  constructor(private readonly faultPodLink: FaultPodLink) {}
 
-/**
- * Nobody is sent anything; when nobody answers in time the channel approves the order itself and
- * tells the test each time its decision was asked (a handler a crash lets run twice, #941 I5).
- */
+  /**
+   * When nobody answers in time the target approves the order itself and tells the test each time
+   * its decision was asked (a handler a crash lets run twice, #941 I5). Untyped here: the package's
+   * own fixtures have no generated tables (the target's answer is a type of them).
+   */
+  onExpired(ctx: { readonly pauseKey: string }): DecideExpiration<{ approved: boolean }> {
+    this.faultPodLink.emit("pause-expiry-asked", { pauseKey: ctx.pauseKey });
+    return PauseExpiration.decide({ approved: true });
+  }
+}
+
+/** Nobody is sent anything: the order waits for its thread owner or for the expiry. */
 @Channel({
   name: "fault-expiring-channel",
-  description: "Approves the order itself when nobody answers",
-  deps: [FaultPodLink],
+  description: "Sends nothing: the order waits for its owner",
   target: FaultExpiringExternalTask,
   ttl: days(1),
 })
 export class FaultExpiringChannel {
-  constructor(private readonly faultPodLink: FaultPodLink) {
-  }
-
   send(): Promise<ChannelOutcome<FaultExpiringExternalTask>> {
     return Promise.resolve(ChannelOutcome.awaitReply());
-  }
-
-  // untyped here: the package's own fixtures have no generated tables (the role's answer is a type of them)
-  onPauseExpired(ask: { readonly pauseId: string }): DecideExpiration<{ approved: boolean }> {
-    this.faultPodLink.emit("pause-expiry-asked", { pauseKey: pauseKeyOf("default", ask.pauseId) });
-    return PauseExpiration.decide({ approved: true });
   }
 }
 

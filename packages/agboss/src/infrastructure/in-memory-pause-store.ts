@@ -1,6 +1,11 @@
 import { InMemoryPauseBook } from "./in-memory-pause-book.js";
 import { InMemoryPauseQueryRepository } from "./in-memory-pause-queries.js";
-import type { PauseDeadlineChange, PauseRecipients, PauseReplacement } from "./pause-notices.js";
+import {
+  isInPlace,
+  type PauseDeadlineChange,
+  type PauseReassignmentChange,
+  type PauseRecipients,
+} from "./pause-notices.js";
 import {
   decidedPause,
   PauseStatus,
@@ -63,8 +68,11 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
     tenantId: string,
     pauseId: string,
     recipients: PauseRecipients,
+    externalRef?: string,
   ): Promise<boolean> {
-    const sent = this.book.change(tenantId, pauseId, (pause) => markSentChange(pause, recipients));
+    const sent = this.book.change(tenantId, pauseId, (pause) =>
+      markSentChange(pause, recipients, externalRef),
+    );
     return Promise.resolve(sent?.status === PauseStatus.Pending);
   }
 
@@ -149,15 +157,17 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
   reassignByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    replacement: PauseReplacement,
+    replacement: PauseReassignmentChange,
     at: Date,
     recipients: PauseRecipients,
   ): Promise<PauseRecord | undefined> {
     const reassigned = this.book.change(tenantId, pauseId, (pause) =>
       reassignChange(pause, replacement, this.#stepKeysOf(pause), at, recipients),
     );
+    if (reassigned === undefined) return Promise.resolve(undefined);
+    // in place: the pause itself; otherwise its replacement
     return Promise.resolve(
-      reassigned === undefined ? undefined : this.book.find(tenantId, replacement.pauseId),
+      this.book.find(tenantId, isInPlace(replacement) ? pauseId : replacement.pauseId),
     );
   }
 

@@ -3,6 +3,7 @@
  * transaction won) and the replacement opened (once it was asked) — by workflow and role; the id
  * of neither pause is a label. A refused reassignment counts nothing.
  */
+import { FinanceDeskBackupChannel } from "../channels/fixtures/pauses.workflow.js";
 import { beforeEach, describe, expect } from "vitest";
 import { callTool, testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
@@ -50,16 +51,28 @@ describe("#946 with #943: a reassignment is counted", () => {
       const role = "refund-gate-tool-approval/finance-desk-refund-approval-channel";
       expect(await countedOf(meter, OPENED)).toEqual({ [`desk-workflow/${role}`]: 1 });
 
-      await app.reassignPause({ pauseId: oldId, assignees: ["deputy-3"] }, manager);
+      await app.reassignPause(
+        { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-3"] },
+        manager,
+      );
       await until(() => seen.asks.length === 2);
       // refused twice (the old pause is closed): counted nowhere
       await app
-        .reassignPause({ pauseId: oldId, assignees: ["deputy-4"] }, manager)
+        .reassignPause(
+          { pauseId: oldId, channel: FinanceDeskBackupChannel, assignees: ["deputy-4"] },
+          manager,
+        )
         .catch(() => undefined);
 
-      expect(await countedOf(meter, OPENED)).toEqual({ [`desk-workflow/${role}`]: 2 });
+      // the first pause opened on the desk, its replacement on the backup channel
+      expect(await countedOf(meter, OPENED)).toEqual({
+        [`desk-workflow/${role}`]: 1,
+        "desk-workflow/refund-gate-tool-approval/finance-desk-backup-channel": 1,
+      });
       // counted once, by the call whose transaction won: the refused one counts nothing
-      expect(await countedOf(meter, REASSIGNED)).toEqual({ [`desk-workflow/${role}`]: 1 });
+      expect(await countedOf(meter, REASSIGNED)).toEqual({
+        "desk-workflow/refund-gate-tool-approval/finance-desk-backup-channel": 1,
+      });
       expect(await countedOf(meter, CLOSED)).toEqual({
         [`desk-workflow/${role}/reassigned`]: 1,
       });
