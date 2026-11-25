@@ -1,5 +1,6 @@
 import type { Class } from "../../components/injection.js";
 import type { WorkflowDescriptor } from "./execution-context.js";
+import type { ContextFields } from "./context-values.js";
 import type { FrameSpec } from "./frame.js";
 import type { TenantContext } from "./tenant-context.js";
 import { idempotencyKeyOf } from "./idempotency.js";
@@ -14,8 +15,12 @@ export interface StandaloneCall {
   readonly name: string;
   readonly executionId: string;
   readonly callId: string;
+  /** Who the call runs for: the session's owner, none for a call of no caller. */
+  readonly ownerId?: string | undefined;
+  /** The declared execution-context values of the session. */
+  readonly values?: ContextFields;
   readonly signal: AbortSignal;
-  /** The tenant the call runs for: the application's default one (#261). */
+  /** The tenant the call runs for: the session's own, else the application's default one (#261). */
   readonly tenant: TenantContext;
   /** The call chain the call's mesh calls carry (#398): what reached it, then its own hop. */
   readonly mesh?: InboundMesh;
@@ -32,11 +37,11 @@ export function standaloneCallFrameOf(call: StandaloneCall): FrameSpec {
     execution: Object.freeze({
       executionId,
       threadId: executionId,
-      ownerId: undefined,
+      ownerId: call.ownerId,
       signal: call.signal,
       workflow: Object.freeze({ ...workflow, startedVersion: workflow.version }),
       tenant: call.tenant,
-      values: Object.freeze({}),
+      values: call.values ?? Object.freeze({}),
       ...(call.mesh === undefined ? {} : { mesh: call.mesh }),
     }),
     step: Object.freeze({

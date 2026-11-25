@@ -34,15 +34,15 @@ describe("#1366: a mesh limit read off the wire", () => {
     });
   });
 
-  it("a name of one character and one of 200 are read, an empty one or one of 201 is no mesh limit", () => {
+  it("a name of one character and one of 128 are read, an empty one or one of 129 is no mesh limit", () => {
     const named = (name: string) => ({ application: name, start: name });
     const body = (name: string) =>
       hops({ entry: named(name), chain: [{ ...named(name), executionId: name }], maxMeshHops: 1 });
 
     expect(meshLimitErrorOf(body("a"))).toBeInstanceOf(HopsLimitExceededError);
-    expect(meshLimitErrorOf(body("a".repeat(200)))).toBeInstanceOf(HopsLimitExceededError);
+    expect(meshLimitErrorOf(body("a".repeat(128)))).toBeInstanceOf(HopsLimitExceededError);
     expect(meshLimitErrorOf(body(""))).toBeUndefined();
-    expect(meshLimitErrorOf(body("a".repeat(201)))).toBeUndefined();
+    expect(meshLimitErrorOf(body("a".repeat(129)))).toBeUndefined();
     expect(
       meshLimitErrorOf(hops({ entry, chain: [{ ...entry, executionId: "" }], maxMeshHops: 1 })),
     ).toBeUndefined();

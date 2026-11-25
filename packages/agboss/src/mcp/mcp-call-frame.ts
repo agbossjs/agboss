@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { appWorkflowOf } from "../app/app-workflow.js";
 import type { AnyTenantApp } from "../app/types.js";
 import type { Class } from "../components/injection.js";
@@ -16,8 +16,10 @@ export interface ExportedToolCall {
 
 /**
  * Runs one MCP call of an exported tool in its own frame (#280; what `deps: [ExecutionContext]`
- * reads): the call id is the client's `_meta.callId` (else a new one), and the execution id follows
- * it, so a client repeating a call with the same `callId` gets the same `step.idempotencyKey`.
+ * reads): the call id is the client's `_meta.callId` (else a new one). The frame runs for the
+ * session's tenant and owner, and the execution id (so `step.idempotencyKey`) is scoped by tenant,
+ * caller, tool and `callId`: the same caller repeating a call gets the same key, and no other
+ * tenant or caller can reach it by choosing the same `callId`.
  */
 export function inMcpCallFrame<TResult>(
   { app, type, name }: ExportedToolCall,
@@ -26,9 +28,18 @@ export function inMcpCallFrame<TResult>(
 ): Promise<TResult> {
   const known = appWorkflowOf(app);
   if (known === undefined) return work();
-  const { workflow, tenant } = known;
+  const { workflow } = known;
+  const { tenant, execution } = known.contextsOf({
+    tenant: call.session.tenant,
+    execution: call.session.execution,
+  });
   const callId = call.callId ?? `mcp_${name}_${randomUUID()}`;
-  const executionId = `mcp_${callId}`;
+  const executionId = scopedExecutionId(
+    tenant.tenantId,
+    call.session.ownerId ?? call.session.peer,
+    name,
+    callId,
+  );
   // the tool is this application's entry of the call chain (#398): its own calls carry it on
   const entry = { application: tenant.application.name, start: name };
   const frame = standaloneCallFrameOf({
@@ -38,8 +49,23 @@ export function inMcpCallFrame<TResult>(
     executionId,
     callId,
     signal: call.signal,
+    ownerId: call.session.ownerId,
+    values: execution,
     tenant,
     mesh: outboundChainOf(entry, executionId, call.mesh),
   });
   return runInFrame(frame, work);
+}
+
+/** `mcp_` + a hash of (tenant, caller, tool, callId): a client cannot pick another's id. */
+function scopedExecutionId(
+  tenantId: string,
+  caller: string | undefined,
+  tool: string,
+  callId: string,
+): string {
+  const digest = createHash("sha256")
+    .update(JSON.stringify([tenantId, caller ?? null, tool, callId]))
+    .digest("hex");
+  return `mcp_${digest.slice(0, 32)}`;
 }

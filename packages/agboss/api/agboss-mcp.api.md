@@ -111,8 +111,13 @@ export interface McpHttpListenerOptions {
     readonly base?: string;
     readonly endpoint: Class;
     readonly maxBodySize?: Bytes;
+    // (undocumented)
+    readonly maxSessions?: number;
+    // (undocumented)
+    readonly maxSessionsPerCaller?: number;
     readonly onError?: (error: unknown, req: IncomingMessage) => void;
     readonly publicUrl?: string | (() => string);
+    readonly sessionIdleTimeout?: Milliseconds;
 }
 
 // @public
@@ -249,6 +254,8 @@ export type ToolsOf<TServer> = TServer extends {
 // src/mcp/mcp-endpoint.decorator.ts - (ae-undocumented) Missing documentation for "name".
 // src/mcp/mcp-endpoint.decorator.ts - (ae-undocumented) Missing documentation for "version".
 // src/mcp/mcp-endpoint.decorator.ts - (ae-undocumented) Missing documentation for "tools".
+// src/mcp/mcp-http-listener.ts - (ae-undocumented) Missing documentation for "maxSessionsPerCaller".
+// src/mcp/mcp-http-listener.ts - (ae-undocumented) Missing documentation for "maxSessions".
 
 // (No @packageDocumentation comment for this package)
 

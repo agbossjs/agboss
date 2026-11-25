@@ -28,8 +28,8 @@ import { leasingOf } from "../infrastructure/contracts.js";
 import { treeMovesOf } from "./tree-moves.js";
 import {
   contextValuesOf,
-  defaultTenantOf,
   contextsOutsideExecution,
+  callContextsOf,
 } from "../flow/context/runtime-contexts.js";
 import { admitRequest, executionEventAt, type ExecutionRequest } from "./run-events.js";
 import { checkedStart, textStartOf } from "./starts.js";
@@ -207,7 +207,7 @@ export async function buildApp(
     hasTool: (name) => knows(deps.tools, name),
   };
   const workflow = workflowIdentityOf(deps);
-  rememberAppWorkflow(app, { workflow, tenant: defaultTenantOf(contexts) });
+  rememberAppWorkflow(app, { workflow, contextsOf: callContextsOf(contexts) });
   return {
     app,
     deps,

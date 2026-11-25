@@ -11,14 +11,17 @@ import { inMcpCallFrame } from "../../src/mcp/mcp-call-frame.js";
 const app = {} as never;
 rememberAppWorkflow(app, {
   workflow: { name: "desk", version: "1.0.0", configHash: "h" },
-  tenant: { tenantId: "default", application: { name: "desk-app" } },
+  contextsOf: (given: { tenant?: { tenantId?: string } }) => ({
+    tenant: { tenantId: given.tenant?.tenantId ?? "default", application: { name: "desk-app" } },
+    execution: {},
+  }),
 } as never);
 
 const tool = { app, type: Object, name: "pay" };
 
 /** The ids a call's frame holds, as its work reads them. */
-const idsOf = (callId: string | undefined) =>
-  inMcpCallFrame(tool, { callId, signal: new AbortController().signal } as never, () =>
+const idsOf = (callId: string | undefined, session: object = {}) =>
+  inMcpCallFrame(tool, { callId, session, signal: new AbortController().signal } as never, () =>
     Promise.resolve({
       executionId: currentFrame()?.execution.executionId,
       callId: currentFrame()?.step.callId,
@@ -32,7 +35,8 @@ describe("#1366: the frame of an MCP call", () => {
     const again = await idsOf("c-1");
     const other = await idsOf("c-2");
 
-    expect(first).toMatchObject({ executionId: "mcp_c-1", callId: "c-1" });
+    expect(first).toMatchObject({ callId: "c-1" });
+    expect(first.executionId).toMatch(/^mcp_[0-9a-f]{32}$/u);
     expect(again).toEqual(first);
     expect(other.key).not.toBe(first.key);
   });
@@ -42,7 +46,18 @@ describe("#1366: the frame of an MCP call", () => {
     const second = await idsOf(undefined);
 
     expect(first.callId).toMatch(/^mcp_pay_/u);
-    expect(first.executionId).toBe(`mcp_${first.callId ?? ""}`);
+    expect(first.executionId).toMatch(/^mcp_[0-9a-f]{32}$/u);
     expect(second.callId).not.toBe(first.callId);
+  });
+
+  it("gives two tenants, and two owners, the same callId different keys", async () => {
+    const acme = await idsOf("c-1", { tenant: { tenantId: "acme" }, ownerId: "dana" });
+    const globex = await idsOf("c-1", { tenant: { tenantId: "globex" }, ownerId: "dana" });
+    const eve = await idsOf("c-1", { tenant: { tenantId: "acme" }, ownerId: "eve" });
+    const again = await idsOf("c-1", { tenant: { tenantId: "acme" }, ownerId: "dana" });
+
+    expect(new Set([acme.key, globex.key, eve.key]).size).toBe(3);
+    expect(new Set([acme.executionId, globex.executionId, eve.executionId]).size).toBe(3);
+    expect(again.key).toBe(acme.key);
   });
 });

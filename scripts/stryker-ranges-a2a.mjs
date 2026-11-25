@@ -59,6 +59,9 @@ export function a2aServerShard() {
       "src/mcp/mcp-http-io.ts",
       "src/mcp/mcp-public-url.ts",
       "src/mcp/mcp-session-identity.ts",
+      // the session caps and the idle lifetime (#1402)
+      "src/mcp/mcp-session-limits.ts",
+      "src/mcp/mcp-http-identity.ts",
       // #1320: the mesh's numbers: hops from 1, a deduplication that outlives a signature
       "src/mesh/mesh-rules.ts",
     ],

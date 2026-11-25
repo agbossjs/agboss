@@ -4710,6 +4710,7 @@ export class HopsLimitExceededError extends LimitExceededError {
     readonly code: typeof HopsLimitExceededError.code;
     readonly entry: MeshEntry;
     readonly hops: number;
+    readonly isRemote: boolean;
     readonly maxMeshHops: number;
     // (undocumented)
     name: string;
@@ -6007,6 +6008,7 @@ export class MeshLoopDetectedError extends LimitExceededError {
     // (undocumented)
     readonly code: typeof MeshLoopDetectedError.code;
     readonly entry: MeshEntry;
+    readonly isRemote: boolean;
     // (undocumented)
     name: string;
 }
@@ -6017,6 +6019,7 @@ export interface MeshLoopDetectedErrorOptions extends Partial<MeshLimitPlace> {
     // (undocumented)
     readonly cause?: unknown;
     readonly entry: MeshEntry;
+    readonly isRemote?: boolean;
 }
 
 // @public

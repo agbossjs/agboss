@@ -1,3 +1,5 @@
+import { treeKeyOf } from "./in-memory-database.js";
+import type { ExecutionTree } from "./execution-tree.repository.js";
 import type { Expiry } from "./expiry.js";
 import type { PausedExecutionRepository } from "./paused-execution.repository.js";
 import type { PauseAnswerLog } from "./pause-answer-log.js";
@@ -136,19 +138,51 @@ const auditLogExpiry = ({
   retention: auditLogRetention,
 });
 
-/** The idle threads of the workflows' memories: each older than its `ttl` by the `Clock`; the count removed (#1303). */
-const idleThreadsExpiry = ({ threadRecords, threadTtls }: RetentionSources): Expiry => ({
+/**
+ * The idle threads of the workflows' memories: each older than its `ttl` by the `Clock`; the count removed (#1303).
+ * The thread's trees go with it, and so do their audit rows: a tree whose record the sweep removed
+ * would read as live to the audit sweep (no record counts as live) and keep its rows for good.
+ */
+const idleThreadsExpiry = ({ threadRecords, threadTtls, auditLog }: RetentionSources): Expiry => ({
   what: "the idle memory threads",
   remove:
     threadRecords === undefined || threadTtls === undefined || threadTtls.size === 0
       ? undefined
-      : (now) =>
-          threadRecords.deleteIdleThreads(
+      : async (now) => {
+          const ended = endedTreeOf(threadRecords);
+          const asked = new Map<string, ExecutionTree>();
+          const removed = await threadRecords.deleteIdleThreads(
             new Map([...threadTtls].map(([workflow, ttl]) => [workflow, cutoffOf(now, ttl)])),
-            endedTreeOf(threadRecords),
-          ),
+            async (tree) => {
+              const isEnded = await ended(tree);
+              if (isEnded) asked.set(treeKeyOf(tree.tenantId, tree.rootExecutionId), tree);
+              return isEnded;
+            },
+          );
+          if (removed > 0 && auditLog !== undefined)
+            await removeAuditOfGone(auditLog, threadRecords, asked, now);
+          return removed;
+        },
   retention: DUE_NOW,
 });
+
+/** The audit rows of the ended trees whose record is now gone: their thread was removed, nothing else reads them. */
+async function removeAuditOfGone(
+  auditLog: ExecutionAuditLogRepository,
+  records: Pick<ExecutionRecordRepository, "findByTenantIdAndRunId">,
+  asked: ReadonlyMap<string, ExecutionTree>,
+  now: Date,
+): Promise<void> {
+  const gone = new Set<string>();
+  for (const [key, { tenantId, rootExecutionId }] of asked)
+    if ((await records.findByTenantIdAndRunId(tenantId, rootExecutionId)) === undefined)
+      gone.add(key);
+  if (gone.size === 0) return;
+  // every row of those trees, whenever it was written (up to this look's `now`)
+  await auditLog.deleteExpired(new Date(now.getTime() + 1), ({ tenantId, rootExecutionId }) =>
+    Promise.resolve(gone.has(treeKeyOf(tenantId, rootExecutionId))),
+  );
+}
 
 const cutoffOf = (now: Date, ttl: Milliseconds): Date => new Date(now.getTime() - ttl);
 

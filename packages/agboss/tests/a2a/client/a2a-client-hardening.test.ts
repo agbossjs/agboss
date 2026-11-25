@@ -608,24 +608,26 @@ describe("the remaining edges, one by one", () => {
       referenceTaskIds: [],
     };
     const completed = { ...task, status, artifacts: [] };
-    expect(() => outputOf("a", AskOutputDto, undefined, message)).toThrow(
+    expect(() => outputOf("a", AskOutputDto, undefined, message, undefined, true)).toThrow(
       expect.objectContaining({
         agent: "a",
         reason: A2ARemoteCallReason.NoTask,
         taskId: undefined,
       }),
     );
-    expect(() => outputOf("a", AskOutputDto, completed, undefined)).toThrow(
+    expect(() => outputOf("a", AskOutputDto, completed, undefined, undefined, true)).toThrow(
       expect.objectContaining({ reason: A2ARemoteCallReason.NoOutput, taskId: "t-1" }),
     );
-    expect(() => outputOf("a", AskOutputDto, undefined, undefined)).toThrow(
+    expect(() => outputOf("a", AskOutputDto, undefined, undefined, undefined, true)).toThrow(
       expect.objectContaining({ reason: A2ARemoteCallReason.NoTask }),
     );
     const answered = {
       ...completed,
       artifacts: [{ ...artifact("x", "z"), parts: [dataPart({ status: "paid" })] }],
     };
-    expect(outputOf("a", AskOutputDto, answered, undefined)).toEqual({ status: "paid" });
+    expect(outputOf("a", AskOutputDto, answered, undefined, undefined, true)).toEqual({
+      status: "paid",
+    });
   });
 
   it("a stored request that is no object has no peer: unknown", async () => {
@@ -717,8 +719,10 @@ describe("the second review's edges", () => {
       history: [],
       metadata: undefined,
     };
-    expect(failureOf(failed, "a")).toMatchObject({ contextId: "" });
-    expect(failureOf({ ...failed, contextId: "c-1" }, "a")).toMatchObject({ contextId: "c-1" });
+    expect(failureOf(failed, "a", true)).toMatchObject({ contextId: "" });
+    expect(failureOf({ ...failed, contextId: "c-1" }, "a", true)).toMatchObject({
+      contextId: "c-1",
+    });
   });
 
   it("another task's CANCELED answer is no cancel of this one", async () => {

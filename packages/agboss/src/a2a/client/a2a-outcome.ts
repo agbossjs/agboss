@@ -70,7 +70,7 @@ export function meshRefusalOf(task: Task): MeshLimitError | undefined {
  * The error of a settled task that gives no output — `undefined` for COMPLETED. A state the client
  * cannot read (none, unspecified, unknown) is `A2ARemoteCallError`.
  */
-export function failureOf(task: Task, agent: string): Error | undefined {
+export function failureOf(task: Task, agent: string, isPeer: boolean): Error | undefined {
   const ids = { agent, taskId: task.id, contextId: safeTaskIdOf(task.contextId) ?? "" };
   const malformed = new A2ARemoteCallError({
     agent,
@@ -82,7 +82,11 @@ export function failureOf(task: Task, agent: string): Error | undefined {
   const failedAs = (end: A2ATaskEnd): Error => {
     const failure = meshFailureOf(status);
     const remoteCode = remoteCodeOf(failure.code);
-    return meshLimitErrorOf(failure) ?? new A2ATaskFailedError({ ...ids, end, remoteCode });
+    // a mesh limit's facts are a verified peer's word only (signed to its application, mesh echoed)
+    return (
+      (isPeer ? meshLimitErrorOf(failure) : undefined) ??
+      new A2ATaskFailedError({ ...ids, end, remoteCode })
+    );
   };
   switch (status.state) {
     case TaskState.TASK_STATE_COMPLETED:
@@ -119,9 +123,10 @@ export function outputOf(
   output: DtoClass,
   task: Task | undefined,
   message: Message | undefined,
-  finishes?: readonly string[],
+  finishes: readonly string[] | undefined,
+  isPeer: boolean,
 ): unknown {
-  const failure = task === undefined ? undefined : failureOf(task, agent);
+  const failure = task === undefined ? undefined : failureOf(task, agent, isPeer);
   if (failure !== undefined) throw failure;
   const answer = task ?? message;
   assertTakenFinish(agent, finishes, answer);
@@ -144,7 +149,8 @@ export function untypedResultOf(
 ): A2ATaskResult {
   const { task, peer } = settled;
   const { message } = settled.accepted;
-  const failure = task === undefined || isInterrupted(task) ? undefined : failureOf(task, agent);
+  const failure =
+    task === undefined || isInterrupted(task) ? undefined : failureOf(task, agent, peer.mesh);
   if (failure !== undefined) throw failure;
   const answer = task ?? message;
   // Stryker disable next-line ArrayDeclaration: any array of no part reads as no text and no data

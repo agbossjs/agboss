@@ -131,3 +131,53 @@ describe("#1321b: auditLogTtl applies to the rows of trees that ended", () => {
     ).toHaveLength(1);
   });
 });
+
+describe("the idle-thread sweep takes the audit rows of its trees with it", () => {
+  it("the rows of a swept thread's ended tree are removed, a tree of a kept thread keeps its own", async () => {
+    const { clock, auditLog, sources, takeoverRow } = setup();
+    const records = new Map<string, ExecutionRecordStatus>([
+      ["root-1", ExecutionRecordStatus.Answered],
+      ["root-2", ExecutionRecordStatus.Running],
+    ]);
+    await auditLog.save(takeoverRow(2));
+    await auditLog.save({ ...takeoverRow(2), rootExecutionId: "root-2", executionId: "root-2" });
+    await clock.advance(seconds(5));
+    const threadRecords = {
+      findByTenantIdAndRunId: (_tenant: string, runId: string) => {
+        const status = records.get(runId);
+        return Promise.resolve(status === undefined ? undefined : ({ status } as never));
+      },
+      // the store removes a thread only when all its trees ended; here the root-1 thread
+      deleteIdleThreads: async (
+        _cutoffs: ReadonlyMap<string, Date>,
+        isEnded: (tree: { tenantId: string; rootExecutionId: string }) => Promise<boolean>,
+      ) => {
+        let removed = 0;
+        for (const id of ["root-1", "root-2"])
+          if (await isEnded({ tenantId: "default", rootExecutionId: id })) {
+            records.delete(id);
+            removed += 1;
+          }
+        return removed;
+      },
+    };
+
+    const swept = await removeExpired(
+      {
+        ...sources,
+        auditLogRetention: hours(24),
+        threadRecords,
+        threadTtls: new Map([["w", hours(1)]]),
+      },
+      () => undefined,
+    );
+
+    expect(swept.find((one) => one.what === "the idle memory threads")?.removed).toBe(1);
+    expect(
+      await auditLog.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt("default", "root-1"),
+    ).toEqual([]);
+    expect(
+      await auditLog.findAllByTenantIdAndRootExecutionIdOrderByOccurredAt("default", "root-2"),
+    ).toHaveLength(1);
+  });
+});
