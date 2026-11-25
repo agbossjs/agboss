@@ -790,7 +790,8 @@ without any code of yours:
   signed, below); ids only — no `ownerId`, no `tenantId`, no input values;
 - a W3C `traceparent` (header / `_meta.traceparent`): the caller's trace continued;
 - over MCP `_meta.callId` = `executionContext.step.idempotencyKey`, so an AGBoss MCP server answers
-  a repeated call as the same one; over A2A the step's key is the message's `messageId`.
+  a repeated call as the same one, also in a new MCP session (the key follows tenant, owner, peer, tool and
+  `callId`, never the `Mcp-Session-Id`); over A2A the step's key is the message's `messageId`.
 
 Outside an execution (a script's `new A2AClient(…)`) nothing is sent. The receiver reads the
 envelope into `MeshEnvelope` for the mesh checks — a **claim** (unless signed by a
@@ -950,7 +951,7 @@ not cut). `A2AClient.cancel(taskId)` sends A2A `CancelTask` for that task only (
 - `MeshRequestRepository` is infrastructure (in memory; `SqliteMeshRequestRepository` shares it
   between instances), kept `@Mesh({ deduplicationTtl })` (default `minutes(30)`), then removed by the
   recovery sweep. Only trusted MCP requests are deduplicated: a `tools/call` by its `_meta.callId` (the AGBoss client sends
-  the step's key) — a repeat gets the kept result, one in flight an error result with
+  the step's key; one slot per tenant, owner, peer and `callId`) — a repeat gets the kept result, one in flight an error result with
   `_meta["agboss.dev/error"]` `mesh.request-in-progress`.
 - `[mesh.not-a-mesh]`, `[mesh.limit-invalid]`, `[mesh.peer-without-keys]`, `[mesh.unknown-endpoint]`, `[mesh.duplicate-peer]` at assembly;
   `[mesh.invalid-key] <field> holds no …` at start (never the value).

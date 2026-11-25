@@ -1,7 +1,7 @@
 /**
  * #1366: what a mesh limit reads as off the wire: the loop and the hops refusal come back as their own error
  * class with their entry, chain (each hop with its execution) and maxMeshHops; a body with another code, a name
- * empty or over 200, a chain over 64 hops, or a maxMeshHops that is not an integer of at least 1 is no mesh limit.
+ * empty or over 128 (an application or a start), an execution id empty, over 200 or not a key's text, a chain over 64 hops, or a maxMeshHops that is not an integer of at least 1 is no mesh limit.
  */
 import { describe, expect, it } from "vitest";
 import { HopsLimitExceededError, MeshLoopDetectedError } from "../../../src/index.js";
@@ -37,7 +37,7 @@ describe("#1366: a mesh limit read off the wire", () => {
   it("a name of one character and one of 128 are read, an empty one or one of 129 is no mesh limit", () => {
     const named = (name: string) => ({ application: name, start: name });
     const body = (name: string) =>
-      hops({ entry: named(name), chain: [{ ...named(name), executionId: name }], maxMeshHops: 1 });
+      hops({ entry: named(name), chain: [{ ...named(name), executionId: "e-1" }], maxMeshHops: 1 });
 
     expect(meshLimitErrorOf(body("a"))).toBeInstanceOf(HopsLimitExceededError);
     expect(meshLimitErrorOf(body("a".repeat(128)))).toBeInstanceOf(HopsLimitExceededError);
@@ -47,6 +47,23 @@ describe("#1366: a mesh limit read off the wire", () => {
       meshLimitErrorOf(hops({ entry, chain: [{ ...entry, executionId: "" }], maxMeshHops: 1 })),
     ).toBeUndefined();
     expect(meshLimitErrorOf(hops({ entry, chain: [entry], maxMeshHops: 1 }))).toBeUndefined();
+  });
+
+  it("#1410 M1: an execution id any IdGenerator makes (200 characters, Unicode) arrives as the typed limit", () => {
+    const withId = (executionId: string) => ({ ...entry, executionId });
+    const loopOf = (executionId: string) =>
+      meshLimitErrorOf(loop({ entry, chain: [withId(executionId)] }));
+    const hopsOf = (executionId: string) =>
+      meshLimitErrorOf(hops({ entry, chain: [withId(executionId)], maxMeshHops: 1 }));
+
+    for (const id of ["x".repeat(200), "заказ №1 ✓", "-lead", "a b", "e/1#2"]) {
+      expect(loopOf(id)).toBeInstanceOf(MeshLoopDetectedError);
+      expect(hopsOf(id)).toBeInstanceOf(HopsLimitExceededError);
+    }
+    for (const id of ["", "x".repeat(201), " padded", "tab\there", "nul\u0000"]) {
+      expect(loopOf(id)).toBeUndefined();
+      expect(hopsOf(id)).toBeUndefined();
+    }
   });
 
   it("a chain of 64 hops is read, one of 65 is not (the loop and the hops alike)", () => {

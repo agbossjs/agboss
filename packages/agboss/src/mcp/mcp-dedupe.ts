@@ -19,7 +19,7 @@ import { errorResult } from "./mcp-service-helpers.js";
 /**
  * A trusted MCP call's idempotency (#398 PR 2b, S5): a `tools/call` whose envelope carries the
  * session peer's valid signature and a `_meta.callId` is kept in the application's
- * `MeshRequestRepository` by `(tenant, peer, callId)` (A2A deduplicates by `messageId` in its task and
+ * `MeshRequestRepository` by `(tenant, owner, peer, callId)` (A2A deduplicates by `messageId` in its task and
  * message stores). A repeat gets the kept result without running again, one while the
  * first still runs an error result with `_meta["agboss.dev/error"]` `mesh.request-in-progress`; a
  * call that threw is forgotten, so the caller may try again. Untrusted calls, and calls without a
@@ -33,6 +33,8 @@ export interface McpDedupeCall {
   readonly peer: string | undefined;
   readonly callId: string | undefined;
   readonly tenantId: string | undefined;
+  /** The caller's own owner (before any session's), when it has one (#1410 L4). */
+  readonly ownerId?: string | undefined;
 }
 
 const refusal = (code: MeshRefusalCode): CallToolResult => {
@@ -52,7 +54,25 @@ const keyOf = (call: McpDedupeCall): MeshRequestKey | undefined => {
   // t\uFFFD); the call runs and its execution refuses it
   if (call.peer === undefined || call.callId === undefined || keyTextRuleOf(tenantId) !== undefined)
     return undefined;
-  return { tenantId, peer: call.peer, idempotencyKey: call.callId };
+  return {
+    tenantId,
+    peer: call.peer,
+    idempotencyKey: idempotencyKeyOf(call.peer, call.ownerId, call.callId),
+  };
+};
+
+/**
+ * The call id as the store's key (#1410 L4): itself for a peer's own call (its owner is `mesh:<peer>`),
+ * else `o:` + a hash of (owner, call id), so two owners of one peer and tenant never share a slot.
+ * A call id that starts with `o:` is hashed too (owner none), so none can name another's key.
+ */
+const idempotencyKeyOf = (peer: string, ownerId: string | undefined, callId: string): string => {
+  const own = ownerId === undefined || ownerId === `mesh:${peer}`;
+  if (own && !callId.startsWith("o:")) return callId;
+  const digest = createHash("sha256")
+    .update(JSON.stringify([own ? null : ownerId, callId]))
+    .digest("hex");
+  return `o:${digest}`;
 };
 
 /** Runs `run` once per trusted call key: a repeat answered from the store. */

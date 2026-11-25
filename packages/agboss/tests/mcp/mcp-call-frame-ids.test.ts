@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { rememberAppWorkflow } from "../../src/app/app-workflow.js";
 import { currentFrame } from "../../src/flow/context/frame.js";
 import { inMcpCallFrame } from "../../src/mcp/mcp-call-frame.js";
+import { inSession } from "../../src/mcp/mcp-session-identity.js";
 
 const app = {} as never;
 rememberAppWorkflow(app, {
@@ -67,5 +68,35 @@ describe("#1366: the frame of an MCP call", () => {
 
     expect(owner.key).not.toBe(peer.key);
     expect(owner.executionId).not.toBe(peer.executionId);
+  });
+
+  it("#1410 H1: the same caller in two sessions, the same callId, gets one execution id and key", async () => {
+    const tenantOnly = { tenant: { tenantId: "acme" } };
+    const first = await idsOf("c-1", inSession(tenantOnly, "session-1"));
+    const second = await idsOf("c-1", inSession(tenantOnly, "session-2"));
+    const anonymous = await idsOf("c-1", inSession({}, "session-1"));
+    const anonymousLater = await idsOf("c-1", inSession({}, "session-2"));
+
+    expect(second).toEqual(first);
+    expect(anonymousLater).toEqual(anonymous);
+    expect(anonymous.key).not.toBe(first.key);
+  });
+
+  it("#1410 H1: other tenants, owners and peers still differ, in sessions too", async () => {
+    const at = (session: object, id = "s-1") => idsOf("c-1", inSession(session, id));
+    const base = await at({ tenant: { tenantId: "acme" } });
+    const others = [
+      await at({ tenant: { tenantId: "globex" } }),
+      await at({ tenant: { tenantId: "acme" }, ownerId: "dana" }),
+      await at({ tenant: { tenantId: "acme" }, ownerId: "eve" }),
+      await at({ tenant: { tenantId: "acme" }, peer: "orders-app" }),
+      await at({ tenant: { tenantId: "acme" }, peer: "other-app" }),
+    ];
+
+    const keys = new Set([base, ...others].map((ids) => ids.key));
+    expect(keys.size).toBe(6);
+    // a caller that names the owner `mcp-session:s-1` is no match for a tenant's session `s-1`
+    const named = await at({ tenant: { tenantId: "acme" }, ownerId: "mcp-session:s-1" });
+    expect(named.key).not.toBe(base.key);
   });
 });
