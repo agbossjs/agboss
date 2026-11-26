@@ -454,7 +454,7 @@ it calls it like any tool, and:
 - The answer — a `decision` validated as the target's `answer` DTO, a reply its interpreter read into
   it, or the channel's `decided(answer)` — is the **call's result**: it goes through the tool-result
   path (the answer DTO's `sensitive` fields masked for the model, `maxResultSize`, `onToolStart` /
-  `onToolEnd` once, after the answer, `result.toolCalls` with `step.component.kind` `question`, its
+  `onToolEnd` once, after the answer, `result.toolCalls` with `step.component.kind` `external-task`, its
   `output` the answer). Tool interceptors do not apply: the call runs no tool.
 - Every guarantee of a question step holds: one answer wins, another instance resumes it, a cancel
   withdraws it, tenant and owner checks, an interpreter that does not understand keeps it pending.

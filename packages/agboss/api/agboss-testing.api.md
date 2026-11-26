@@ -594,7 +594,9 @@ export interface InvalidToolCallTurn<TName extends string = string> {
 }
 
 // @public
-export type IsFlowNode<TInstance, TKind extends ComponentKind> = [KindOf<TInstance>] extends [never] ? false : [KindOf<TInstance>] extends [TKind] ? true : false;
+export type IsFlowNode<TInstance, TKind extends keyof KindLabels> = [KindOf<TInstance>] extends [
+never
+] ? false : [KindOf<TInstance>] extends [TKind] ? true : false;
 
 // @public
 type IsKnown<TSelf> = [NameOf<TSelf>] extends [never] ? false : true;

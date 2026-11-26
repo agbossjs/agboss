@@ -59,7 +59,7 @@ export function questionRunner(
 ): NodeRunner {
   const { declaration } = node;
   if (declaration.kind !== ComponentKind.ExternalTask)
-    throw new TypeError(`${node.id} is not a question`);
+    throw new TypeError(`${node.id} is not an external task`);
   const { output: answer, target: task } = declaration.options;
   const answered = (decision: unknown): unknown => validate(answer, decision);
   return async (state, config) => {
@@ -67,7 +67,7 @@ export function questionRunner(
     const frame = currentFrame();
     const { pause, targetOf } = deps;
     if (pause === undefined || targetOf === undefined || frame === undefined)
-      throw new TypeError(`${node.id}: a question is asked only inside its application`);
+      throw new TypeError(`${node.id}: an external task is asked only inside its application`);
     // the question as the channel, the records and the events see it: `sensitive` fields masked
     const ask = pauseInputOf(redactedDto(task.input, input.fields.ask));
     const onSend = (): Promise<void> =>

@@ -20,7 +20,7 @@ const kinds = [
   ["agent", ComponentKind.Agent],
   ["router", ComponentKind.Router],
   ["child", ComponentKind.Workflow],
-  ["question", ComponentKind.ExternalTask],
+  ["task", ComponentKind.ExternalTask],
 ] as const;
 
 /** A step `A` whose `.onError(error, …)` leads to `H`, an action; `H` goes on to the nodes given. */

@@ -5,6 +5,7 @@
  */
 import { describe, expectTypeOf, it } from "vitest";
 import type { FlowNodeKind } from "../../src/flow/ast.js";
+import type { KindLabels } from "../../src/flow/builder-types.js";
 import { ComponentKind } from "../../src/flow/runtime/records.js";
 
 const exhaustive = (kind: FlowNodeKind): string => {
@@ -42,5 +43,11 @@ describe("#1324: FlowNodeKind", () => {
     expectTypeOf<ComponentKind>().not.toExtend<FlowNodeKind>();
     // @ts-expect-error a tool is not a flow node
     exhaustive(ComponentKind.Tool);
+  });
+});
+
+describe("#1324: how a message names the kinds", () => {
+  it("calls an ExternalTask an external task", () => {
+    expectTypeOf<KindLabels[ComponentKind.ExternalTask]>().toEqualTypeOf<"an external task">();
   });
 });

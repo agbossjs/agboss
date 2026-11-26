@@ -59,7 +59,7 @@ export interface KindLabels {
   [ComponentKind.Action]: "an action";
   [ComponentKind.Router]: "a router";
   [ComponentKind.Workflow]: "a workflow";
-  [ComponentKind.ExternalTask]: "a question role";
+  [ComponentKind.ExternalTask]: "an external task";
 }
 
 export type KindLabel<TKind extends keyof KindLabels> = KindLabels[TKind];

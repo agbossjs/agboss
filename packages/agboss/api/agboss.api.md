@@ -4811,7 +4811,7 @@ type KindLabel<TKind extends keyof KindLabels> = KindLabels[TKind];
 // @public
 interface KindLabels {
     // (undocumented)
-    [ComponentKind.ExternalTask]: "a question role";
+    [ComponentKind.ExternalTask]: "an external task";
     // (undocumented)
     [ComponentKind.WorkflowFinish]: "a workflow finish";
     // (undocumented)

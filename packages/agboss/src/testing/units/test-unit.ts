@@ -1,4 +1,5 @@
 import { ComponentKind } from "../../flow/runtime/records.js";
+import type { KindLabels } from "../../flow/builder-types.js";
 import type { Class } from "../../components/injection.js";
 import { componentOf } from "../../components/metadata.js";
 import { pauseTargetOf } from "../../channels/pause-targets.js";
@@ -32,7 +33,9 @@ import { toolUnit, type ToolRunner } from "./test-tool.js";
 import type { UnitModelOptions } from "./unit-types.js";
 
 /** Whether a component's brand (`agboss check`) says it is a flow node of this kind. */
-export type IsFlowNode<TInstance, TKind extends ComponentKind> = [KindOf<TInstance>] extends [never]
+export type IsFlowNode<TInstance, TKind extends keyof KindLabels> = [KindOf<TInstance>] extends [
+  never,
+]
   ? false
   : [KindOf<TInstance>] extends [TKind]
     ? true
