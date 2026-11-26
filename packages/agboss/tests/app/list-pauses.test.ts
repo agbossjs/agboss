@@ -423,7 +423,6 @@ describe("#943 AC1: listing pauses", () => {
     ]);
     expect(await threads({ expiringBefore: "2026-01-05T10:00:00.001Z" })).toEqual(["thread-p1"]);
     expect(await threads({ expiringBefore: soon })).toEqual([]);
-    expect(await threads({ target: ListManagerExternalTask })).toEqual([]);
     expect(await threads({ channel: "refund-approval-channel", assignee: "ann" })).toEqual([
       "thread-p1",
     ]);
@@ -453,8 +452,26 @@ describe("#943 AC1: listing pauses", () => {
     expect(shown.find((one) => one.respondent === PauseRespondent.Owner)?.pauseId).toBe(
       owned.pending[0]?.pauseId,
     );
-    const error = await failureOf(app.listPauses({ includePauseIds: "yes" } as never));
-    expect(JSON.stringify(error)).not.toContain(sentId);
+    // errors raised while ids are in play: a cursor that is an id, a refused query with the flag on
+    for (const query of [
+      { includePauseIds: true, cursor: sentId },
+      { includePauseIds: true, assignee: sentId, limit: 0 },
+      { includePauseIds: true, target: sentId, status: sentId },
+    ]) {
+      const error = await failureOf(app.listPauses(query as never));
+      expect(error, JSON.stringify(query)).toBeInstanceOf(ValidationError.DtoInvalid);
+      const text = `${JSON.stringify(error)} ${(error as Error).message} ${String((error as Error).stack)}`;
+      expect(text).not.toContain(sentId.slice(0, 12));
+    }
+    // allTenants with ids: every tenant's delegated id, each with its tenant
+    await open(app, managerFlow as never, "c9", "tenant-z");
+    const every = await allOf(app, { allTenants: true, includePauseIds: true } as never);
+    expect(every.every((one) => typeof one.pauseId === "string")).toBe(true);
+    expect(new Set(every.map((one) => one.tenantId))).toEqual(new Set(["default", "tenant-z"]));
+    const hidden = await allOf(app, { allTenants: true } as never);
+    expect(hidden.filter((one) => one.respondent === PauseRespondent.Delegate)).toSatisfy(
+      (rest: ListedPause[]) => rest.length > 0 && rest.every((one) => one.pauseId === undefined),
+    );
   });
 
   test("#1307e: a query field the listing does not have (a retired after, a role) is refused, never ignored", async ({
@@ -475,6 +492,11 @@ describe("#943 AC1: listing pauses", () => {
       (await allOf(app, query as never)).map((one) => one.threadId);
 
     expect(await threads({ channel: ListManagerChannel })).toEqual(["t-default-m1"]);
+    // a target class is its name: same non-empty page
+    const byClass = await threads({ target: ListManagerExternalTask });
+    expect(byClass).toEqual(["t-default-m1"]);
+    expect(await threads({ target: "list-manager-external-task" })).toEqual(byClass);
+    expect(await threads({ target: managerFlow.role })).toEqual(byClass);
     expect(await threads({ channel: "list-manager-channel" })).toEqual(["t-default-m1"]);
     for (const bad of [ListManagerExternalTask, Object, "", 7]) {
       const error = await failureOf(app.listPauses({ channel: bad } as never));
@@ -530,5 +552,19 @@ describe("#943 AC1: listing pauses", () => {
       const error = await failureOf(app.listPauses({ tenantId: "tenant-a", cursor: forged }));
       expect(error, forged).toBeInstanceOf(ValidationError.DtoInvalid);
     }
+  });
+
+  test("#1307e: allTenants false with a tenantId lists that tenant; both given as true is refused", async ({
+    app,
+  }) => {
+    await open(app, openFlow as never, "x1", "tenant-a");
+    await open(app, openFlow as never, "x2", "tenant-b");
+
+    const own = await allOf(app, { tenantId: "tenant-a", allTenants: false } as never);
+    expect(own.map((one) => one.tenantId)).toEqual(["tenant-a"]);
+    const error = await failureOf(
+      app.listPauses({ tenantId: "tenant-a", allTenants: true } as never),
+    );
+    expect(error).toBeInstanceOf(ValidationError.DtoInvalid);
   });
 });

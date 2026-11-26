@@ -12,6 +12,7 @@ import {
   type ExecutionHistoryRecord,
 } from "../../src/infrastructure/execution-history.repository.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
+import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 import { ValidationError } from "../../src/core/error-families/effect-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -144,8 +145,25 @@ describe("#1324e: an application with a tenantContext refuses a call that names 
       const other = await app.getExecution("e-acme", { tenantId: "globex" });
       const listed = await app.listExecutions({ tenantId: "acme" });
       const all = await app.listExecutions({ allTenants: true } as never);
-      expect((await app.listPauses({ allTenants: true } as never)).items).toEqual([]);
-      expect((await app.listPauses({ tenantId: "acme" })).items).toEqual([]);
+      const pauses = app.resolve(PausedExecutionRepository);
+      for (const [tenant, id] of [
+        ["acme", "p-acme"],
+        ["globex", "p-globex"],
+      ] as const)
+        await pauses.findOrCreateByStepKey({
+          ...pauseOf(id, `root-${id}:q:1`),
+          tenantId: tenant,
+          rootExecutionId: `root-${id}`,
+          executionId: `root-${id}`,
+        });
+      const everyTenant = await app.listPauses({ allTenants: true } as never);
+      expect(everyTenant.items.map((one) => one.tenantId)).toEqual(["acme", "globex"]);
+      expect((await app.listPauses({ tenantId: "acme" })).items.map((one) => one.tenantId)).toEqual(
+        ["acme"],
+      );
+      expect(
+        await rejection(app.listPauses({ tenantId: "acme", allTenants: true } as never)),
+      ).toBeInstanceOf(ValidationError.DtoInvalid);
 
       expect(own?.executionId).toBe("e-acme");
       expect(other).toBeUndefined();
