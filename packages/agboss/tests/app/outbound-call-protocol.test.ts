@@ -26,7 +26,6 @@ import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { testUnit, VirtualClock } from "../../src/testing/index.js";
 import { hours, seconds } from "../../src/units/index.js";
 import { ChargeOrderAction, resetRuns, runs } from "./fixtures/outbound-call.workflow.js";
@@ -243,7 +242,7 @@ describe("#505: what the protocol refuses", () => {
     const [clock, database] = [new VirtualClock(), new InMemoryDatabase()];
     const application = applicationContextOf({
       ...{ name: "outside-application", version: "1.0.0", instanceId: "instance-1" },
-      ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+      ...{ startedAt: clock.now(), profiles: ["test"] },
     });
     const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
     const store = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);

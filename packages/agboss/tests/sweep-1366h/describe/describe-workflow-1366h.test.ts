@@ -4,12 +4,7 @@
  * tools) of the workflow, builds its tools without calling a router and with the app's environment.
  */
 import { describe, expect, it } from "vitest";
-import {
-  describeServices,
-  describeServicesWith,
-  describeWorkflow,
-} from "../../../src/describe/describe-workflow.js";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
+import { describeServices, describeWorkflow } from "../../../src/describe/describe-workflow.js";
 import { workflowOf } from "../../../src/testing/workflow-of.js";
 import type { AssembledWorkflow } from "../../../src/workflow.js";
 import { Greetings } from "../../components/fixture/components.js";
@@ -138,14 +133,11 @@ describe("describe services", () => {
     );
   });
 
-  it("with no environment the services are the empty ones; with one its name and values reach the tools", () => {
-    const environment = { name: "stage", values: NO_ENVIRONMENT_VALUES, fields: {} };
+  it("the tools are built with the contexts of a workflow outside an application: no profiles, no settings", () => {
+    const application = describeServices.contexts?.application;
 
-    expect(describeServicesWith(undefined)).toBe(describeServices);
-    expect(describeServices.contexts?.application.environmentName).toBe("dev");
-    const given = describeServicesWith(environment);
-    expect(given.contexts?.application.environmentName).toBe("stage");
-    expect(given.contexts?.application.environment).toStrictEqual(NO_ENVIRONMENT_VALUES);
-    expect(given.router).toBe(describeServices.router);
+    expect(application?.profiles).toEqual([]);
+    expect(application).not.toHaveProperty("environment");
+    expect(application).not.toHaveProperty("environmentName");
   });
 });

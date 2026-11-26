@@ -4,8 +4,6 @@ import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication } from "../../src/application/create-app.js";
 import type { Class } from "../../src/components/injection.js";
 import type { ResolvedModelSettings } from "../../src/config/types.js";
-import { resolveEnvironment } from "../../src/environments/resolve.js";
-import { secret } from "../../src/environments/secret.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import type { Clock } from "../../src/infrastructure/clock.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
@@ -25,16 +23,6 @@ export const ENV = {
   KEYED_API_KEY: "keyed-key",
 };
 
-/** The application's environment with the providers' keys, resolved as at a start (#266 S73 c). */
-export const KEYS = resolveEnvironment(
-  {
-    name: "test",
-    contract: "ProviderTestEnvironment",
-    values: { openRouterApiKey: secret("OPENROUTER_API_KEY"), backupApiKey: secret("BACKUP_KEY") },
-  },
-  { OPENROUTER_API_KEY: "k", BACKUP_KEY: "backup-key" },
-);
-
 /**
  * The shared calls of one application instance (rate limits, 429 pauses, breakers) over the
  * in-memory `RateLimitRepository` — two instances of one test share `database`.
@@ -49,8 +37,6 @@ export function instanceCalls(
     version: "1.0.0",
     instanceId,
     startedAt: clock.now(),
-    environmentName: "test",
-    environment: KEYS,
   });
   return new ProviderCalls(new InMemoryRateLimitRepository(clock, application, database), clock);
 }
@@ -64,7 +50,6 @@ export async function wireBodies(
   const stub = providerStub(replies);
   const gateway = createProviderGateway(ModelProviderDirectory.of(providers), {
     env: ENV,
-    environment: KEYS,
     calls: instanceCalls(),
     send: stub.fetch,
   });
@@ -75,12 +60,11 @@ export async function wireBodies(
 }
 
 /**
- * An app of `application` whose environment holds the providers' keys (`KEYS`) — as `createApp`
+ * An app of `application` whose providers' keys are in `ENV` — as `createApp`
  * builds it from an environment file that sets them; for tests of the providers' HTTP side.
  */
 export async function appWithKeys(application: Class, options: BuildOptions = {}): Promise<App> {
   const built = await buildApplication(await applicationOf(application, {}), {
-    environment: KEYS,
     processEnv: ENV,
     ...options,
   });

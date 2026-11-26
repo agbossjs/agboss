@@ -16,7 +16,7 @@ import {
   type WireMessage,
   type WirePlan,
 } from "../../src/models/wire.js";
-import { ENV, KEYS } from "./gateway.js";
+import { ENV } from "./gateway.js";
 import { TestOpenRouterProvider } from "./providers.fixture.js";
 import { handlerOf } from "./driver-handler.js";
 import { completion, providerStub } from "./stub.js";
@@ -35,7 +35,6 @@ async function sentFor(messages: readonly (HumanMessage | SystemMessage)[]) {
   const provider = handlerOf(TestOpenRouterProvider);
   const connection = connectionOf(modelProviderOf(TestOpenRouterProvider), {
     env: ENV,
-    environment: KEYS,
     requireKeys: true,
     send: stub.fetch,
   });

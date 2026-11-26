@@ -1,6 +1,5 @@
 /** #1324b: `ApplicationContext.profiles`, and `Ttl` from the root and `/units`. */
 import { describe, expect, it } from "vitest";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import * as root from "../../src/index.js";
 import * as units from "../../src/units/index.js";
@@ -10,13 +9,13 @@ const values = {
   version: "1.0.0",
   instanceId: "i-1",
   startedAt: new Date(0),
-  environmentName: "prod",
-  environment: NO_ENVIRONMENT_VALUES,
 } as const;
 
 describe("#1324b: ApplicationContext.profiles", () => {
-  it("is the profiles the instance runs with, frozen; `[environmentName]` while the old name stands", () => {
-    expect(applicationContextOf(values).profiles).toEqual(["prod"]);
+  it("is the profiles the instance runs with, frozen; none when none was given — and no environment on the context", () => {
+    expect(applicationContextOf(values).profiles).toEqual([]);
+    expect(applicationContextOf(values)).not.toHaveProperty("environment");
+    expect(applicationContextOf(values)).not.toHaveProperty("environmentName");
     const layered = applicationContextOf({ ...values, profiles: ["prod", "economy"] });
 
     expect(layered.profiles).toEqual(["prod", "economy"]);

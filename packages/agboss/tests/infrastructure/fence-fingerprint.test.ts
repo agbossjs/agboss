@@ -5,7 +5,6 @@
  */
 import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { describe, expect, it } from "vitest";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import {
   InMemoryFencedEffectRepository,
@@ -30,7 +29,7 @@ import { storeClockOf } from "../helpers/store-clock.js";
 const clock = new VirtualClock();
 const application = applicationContextOf({
   ...{ name: "fence-application", version: "1.0.0", instanceId: "instance-1" },
-  ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+  ...{ startedAt: clock.now(), profiles: ["test"] },
 });
 
 /** A store whose entry skips every check of `runOnce`: straight to its transaction. */

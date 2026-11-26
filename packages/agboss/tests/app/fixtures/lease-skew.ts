@@ -8,7 +8,6 @@
  */
 import { executionLeasesOf, type HeldExecutionLease } from "../../../src/app/execution-leases.js";
 import { EXECUTION_LEASE, LEASE_SAFETY_MARGIN } from "../../../src/app/lease-fence.js";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { Clock, StoreClock, StoreTimeSource } from "../../../src/infrastructure/clock.js";
 import type {
@@ -113,7 +112,7 @@ const TREE = { tenantId: "default", rootExecutionId: "root-1" };
 const contextOf = (instanceId: string, clock: Clock) =>
   applicationContextOf({
     ...{ name: "skew-application", version: "1.0.0", instanceId, startedAt: clock.now() },
-    ...{ environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+    ...{ profiles: ["test"] },
   });
 
 /** The holder's store: its renewals, once `isDown`, fail as an unreachable store's do. */

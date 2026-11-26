@@ -15,7 +15,6 @@ import {
   ExecutionPauseFencedError,
   ExecutionStopFencedError,
 } from "../../src/app/lease-stopped.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import type {
   ExecutionLease,
@@ -46,8 +45,7 @@ const contextOf = (instanceId: string) =>
     version: "1.0.0",
     instanceId,
     startedAt: new Date(0),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
 
 /** Two instances over one in-memory database (one test's instances share it). */

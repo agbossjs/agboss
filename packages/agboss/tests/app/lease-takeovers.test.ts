@@ -16,7 +16,6 @@ import {
 } from "../../src/app/execution-leases.js";
 import { ExecutionObserverManager } from "../../src/core/observer-manager.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import type { ExecutionLeaseTakeoverEvent } from "../../src/flow/observers/audit-log.js";
 import {
   InMemoryExecutionLeaseRepository,
@@ -268,8 +267,7 @@ describe("#501: a waiting hold that takes an expired lease reports it", () => {
         version: "1.0.0",
         instanceId,
         startedAt: clock.now(),
-        environmentName: "test",
-        environment: NO_ENVIRONMENT_VALUES,
+        profiles: ["test"],
       });
     const first = new InMemoryExecutionLeaseRepository(
       storeClockOf(clock),

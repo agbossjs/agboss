@@ -10,8 +10,8 @@ import {
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
 import {
   ChargeWorkflow,
   EmailPiiPolicy,
@@ -47,7 +47,6 @@ export class CallerClockOutboundCallRepository extends SqliteOutboundCallReposit
 
 const charge = {
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,
@@ -57,13 +56,18 @@ const charge = {
 @Application({
   ...charge,
   name: "skew-charge-application",
-  providers: [SqliteExecutionLeaseRepository, SqliteOutboundCallRepository],
+  storage: sqliteTestStorage({
+    only: [SqliteExecutionLeaseRepository, SqliteOutboundCallRepository],
+  }),
 })
 export class SkewChargeApplication {}
 
 @Application({
   ...charge,
   name: "caller-clock-charge-application",
-  providers: [CallerClockLeaseRepository, CallerClockOutboundCallRepository],
+  storage: sqliteTestStorage({
+    only: [SqliteExecutionLeaseRepository, SqliteOutboundCallRepository],
+    replace: [CallerClockLeaseRepository, CallerClockOutboundCallRepository],
+  }),
 })
 export class CallerClockChargeApplication {}

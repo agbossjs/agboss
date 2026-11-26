@@ -62,7 +62,7 @@ describe("#904 item 4: the bucket's layout", () => {
   it("AC4.3 a prefix that leaves no room for the longest key is refused, naming its size", () => {
     expect(prefixProblemOf(prefix)).toBeUndefined();
     expect(prefixProblemOf(`${prefix}x`)).toBe(
-      `a2aS3Prefix is ${String(MAX_PREFIX_BYTES + 1)} bytes: at most ${String(MAX_PREFIX_BYTES)} keep every key within S3's 1024`,
+      `the S3 prefix is ${String(MAX_PREFIX_BYTES + 1)} bytes: at most ${String(MAX_PREFIX_BYTES)} keep every key within S3's 1024`,
     );
   });
 });

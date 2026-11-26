@@ -71,7 +71,6 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
       createTestAppWith(MeshApplication, {
         ...offline(new ScriptBook()),
         processEnv,
-        env: "signing",
       });
     const rsaPem = rsa.publicKey.export({ type: "spki", format: "pem" }).toString();
 
@@ -99,7 +98,6 @@ describe("#398 PR 2: @Application({ mesh }) at assembly and start", () => {
     const app = await createTestAppWith(MeshApplication, {
       ...offline(new ScriptBook()),
       processEnv: meshEnvOf(own, peer),
-      env: "signing",
     });
     apps.push(app);
 

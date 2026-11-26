@@ -24,6 +24,7 @@ import type { SqliteTransactionHandle } from "../../../../src/infrastructure/sql
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";
 import {
   book,
@@ -31,7 +32,6 @@ import {
   DoubleChargeWorkflow,
   gate,
 } from "../../../app/fixtures/fenced-effect.workflow.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
 
 /**
  * #500 — the order charged through `SqliteFencedEffectRepository`: the charge row goes into a table
@@ -133,19 +133,19 @@ export class SqliteChargeWorkflow {}
 @Application({
   name: "sqlite-fenced-effect-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({
+    only: [
+      SqliteExecutionLeaseRepository,
+      SqliteFencedEffectRepository,
+      SqliteExecutionRecordRepository,
+      SqlitePausedExecutionRepository,
+      SqliteCheckpointSaver,
+      SqliteCostLedgerRepository,
+      SqliteExecutionTreeRepository,
+    ],
+  }),
   workflows: [SqliteChargeWorkflow],
   observers: [RecoveryLog],
-  providers: [
-    SqliteExecutionLeaseRepository,
-    SqliteFencedEffectRepository,
-    SqliteExecutionRecordRepository,
-    SqlitePausedExecutionRepository,
-    SqliteCheckpointSaver,
-    SqliteCostLedgerRepository,
-    SqliteExecutionTreeRepository,
-    SqliteConnection, // the file's one connection: a component injects the SQLite store
-  ],
   budgets: TEST_BUDGETS,
 })
 export class SqliteFencedEffectApplication {}
@@ -154,9 +154,8 @@ export class SqliteFencedEffectApplication {}
 @Application({
   name: "unlisted-fenced-effect-store-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({ only: [SqliteExecutionLeaseRepository] }),
   workflows: [DoubleChargeWorkflow],
   budgets: TEST_BUDGETS,
-  providers: [SqliteExecutionLeaseRepository, SqliteConnection],
 })
 export class UnlistedFencedEffectStoreApplication {}

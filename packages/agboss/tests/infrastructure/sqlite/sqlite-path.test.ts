@@ -1,16 +1,12 @@
 /**
- * #265 AC3: every storage contract defaults to in-memory; a SQLite implementation is enabled only
- * by listing it; `sqlitePath` is required only then, and a missing one fails — at assembly when
- * the contract lacks the field, at start when its value is empty — naming it.
+ * #265 AC3, #1324b: every storage contract defaults to in-memory; a SQLite implementation is
+ * enabled only by the application's `@DatabaseStorage({ driver: SqliteDriver({ path }) })`: its
+ * path is the file, and with no such storage — or an empty path — the start fails naming it.
  */
-import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../../src/application/application.js";
-import { applicationOf } from "../../../src/application/assemble.js";
-import type { Class } from "../../../src/components/injection.js";
 import {
-  EmptyEnvironment,
   SqliteCostLedgerRepository,
   SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
@@ -40,7 +36,7 @@ const ALL_SQLITE = [
   SqliteRateLimitRepository,
 ];
 
-/** Lists every SQLite implementation, but its contract has no `sqlitePath`. */
+/** Lists every SQLite implementation, but declares no database storage: no file to open. */
 @Application({
   name: "pathless-application",
   modelProvider: TestModelProvider,
@@ -51,7 +47,7 @@ const ALL_SQLITE = [
 })
 class PathlessApplication {}
 
-/** Lists none: no `sqlitePath` needed, every contract in memory. */
+/** Lists none: no file needed, every contract in memory. */
 @Application({
   name: "in-memory-application",
   modelProvider: TestModelProvider,
@@ -61,27 +57,18 @@ class PathlessApplication {}
 })
 class InMemoryApplication {}
 
-async function violationsOf(application: Class): Promise<string[]> {
-  const error: unknown = await applicationOf(application).then(
-    () => undefined,
-    (thrown: unknown) => thrown,
-  );
-  if (!(error instanceof ConfigError.GraphRules)) return [];
-  return error.violations.map((found) => `[${found.code}] ${found.message}`);
-}
+describe("#265 AC3: the SQLite file is the storage's, required only when a SQLite implementation is listed", () => {
+  it("listed without a database storage: the start fails naming the storage to declare", async () => {
+    const book = new ScriptBook();
 
-describe("#265 AC3: sqlitePath is required only when a SQLite implementation is listed", () => {
-  it("required only when listed, missing names it: one violation per listed implementation", async () => {
-    const violations = await violationsOf(PathlessApplication);
-
-    expect(violations).toEqual(
-      ALL_SQLITE.map(
-        (implementation) =>
-          // #511: the field is SqliteConnection's, read through each implementation's deps
-          `[environment.missing-field] ${implementation.name} needs sqlitePath: string in EmptyEnvironment (read by SqliteConnection)`,
-      ),
+    await expect(
+      createTestAppWith(PathlessApplication, {
+        gateway: createScriptedGateway(book),
+        connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
+      }),
+    ).rejects.toThrow(
+      /need the application's @DatabaseStorage\(\{ driver: SqliteDriver\(\{ path \}\) \}\)/,
     );
-    expect(await violationsOf(InMemoryApplication)).toEqual([]);
   });
 
   it("listed none: every contract is the built-in in-memory default", async () => {
@@ -106,7 +93,7 @@ describe("#265 AC3: sqlitePath is required only when a SQLite implementation is 
     await app.close();
   });
 
-  it("an empty sqlitePath fails at start, naming it", () => {
-    expect(() => connectionTo("")).toThrow(/sqlitePath/);
+  it("an empty path fails at start, naming it", () => {
+    expect(() => connectionTo("")).toThrow(/SqliteDriver's path/);
   });
 });

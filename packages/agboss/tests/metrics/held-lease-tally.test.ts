@@ -9,7 +9,6 @@ import { HeldLeaseTally } from "../../src/metrics/held-lease-tally.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { storeClockOf } from "../helpers/store-clock.js";
 
@@ -39,8 +38,7 @@ describe("#485: the held-lease tally", () => {
       version: "1",
       instanceId: "instance-1",
       startedAt: clock.now(),
-      environmentName: "test",
-      environment: NO_ENVIRONMENT_VALUES,
+      profiles: ["test"],
     });
     const repository = new InMemoryExecutionLeaseRepository(
       storeClockOf(clock),

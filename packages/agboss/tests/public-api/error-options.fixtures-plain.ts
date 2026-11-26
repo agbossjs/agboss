@@ -4,7 +4,6 @@
  */
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { ProfileError } from "../../src/config/profile-error.js";
-import { EnvironmentErrorCode } from "../../src/environments/errors.js";
 import { ModelFailure } from "../../src/models/model-failure.js";
 import {
   AppCloseTimeoutError,

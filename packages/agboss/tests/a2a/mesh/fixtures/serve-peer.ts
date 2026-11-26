@@ -37,7 +37,7 @@ export async function servePeer(
     | typeof EndLosingPeerApplication = PeerApplication,
 ): Promise<ServedPeer> {
   peer.clock = clock;
-  const app = await createApp(Peer, { env: "test" });
+  const app = await createApp(Peer, {});
   const listener = a2aHttpListener(app, {
     endpoint: PeerA2AExpose,
     authenticator: PeerAuthenticator,

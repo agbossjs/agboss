@@ -5,7 +5,6 @@
  * renews it (G7) — and fails; the real store passes them all.
  */
 import { describe, expect, it } from "vitest";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import {
   InMemoryExecutionLeaseRepository,
@@ -83,8 +82,7 @@ function instancesOf(Store: Store) {
         version: "1.0.0",
         instanceId,
         startedAt: clock.now(),
-        environmentName: "test",
-        environment: NO_ENVIRONMENT_VALUES,
+        profiles: ["test"],
       }),
       database,
     );

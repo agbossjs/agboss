@@ -28,7 +28,6 @@ import { testWith } from "../../src/testing/index.js";
 import { execute } from "../helpers/flow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { MortalExecutionLeaseRepository } from "../infrastructure/fixtures/recovery.workflow.js";
-import { SqliteTestEnvironment } from "../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import { sqliteFilePerTest } from "../infrastructure/sqlite/fixtures/sqlite.workflow.js";
 import { UnlistedFencedEffectStoreApplication } from "../infrastructure/sqlite/fixtures/sqlite-fenced-effect.workflow.js";
 import {
@@ -53,7 +52,6 @@ const assembledWith = (providers: readonly Provider[]) => {
     name: "stores-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: SqliteTestEnvironment,
     workflows: [ReleaseWorkflow],
     budgets: TEST_BUDGETS,
     providers: [SqliteConnection, ...providers],
@@ -96,7 +94,6 @@ describe("#500, #526: the fenced-effect store beside its lease store", () => {
     @Application({
       name: "own-store-application",
       version: "1.0.0",
-      environment: SqliteTestEnvironment,
       workflows: [ReleaseWorkflow],
       budgets: TEST_BUDGETS,
       providers: [OwnFencedEffectRepository, SqliteExecutionLeaseRepository, SqliteConnection],

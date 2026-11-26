@@ -239,12 +239,12 @@ describe("AC12: createApp — the real app", () => {
   });
 });
 
-describe("#834 AC4: createApp takes env, profile and meterProvider only", () => {
+describe("#834 AC4: createApp takes profile and meterProvider only", () => {
   it("a JavaScript caller's seam is refused, naming where it goes — never ignored", async () => {
     const seams = { clock: {}, gateway: createScriptedGateway(new ScriptBook()) };
 
     await expect(createApp(CodeReviewApplication, seams as never)).rejects.toThrow(
-      "createApp takes only env, profile, meterProvider, tracerProvider, handleSignals, processEnv — not clock, gateway: infrastructure and settings go in @Application({ … }), test seams in testWith",
+      "createApp takes only profile, meterProvider, tracerProvider, handleSignals, processEnv — not clock, gateway: infrastructure and settings go in @Application({ … }), test seams in testWith",
     );
   });
 
@@ -252,7 +252,7 @@ describe("#834 AC4: createApp takes env, profile and meterProvider only", () => 
     "options that are not an object of the four (%s) are refused",
     async (options) => {
       await expect(createApp(CodeReviewApplication, options as never)).rejects.toThrow(
-        /createApp takes an object of env, profile, meterProvider, tracerProvider, handleSignals, processEnv — not/,
+        /createApp takes an object of profile, meterProvider, tracerProvider, handleSignals, processEnv — not/,
       );
     },
   );
@@ -260,10 +260,10 @@ describe("#834 AC4: createApp takes env, profile and meterProvider only", () => 
   it("an inherited or a symbol key is refused too: no seam reaches the build", async () => {
     const inherited: object = Object.create({ gateway: createScriptedGateway(new ScriptBook()) });
     await expect(createApp(CodeReviewApplication, inherited as never)).rejects.toThrow(
-      /createApp takes an object of env/,
+      /createApp takes an object of profile/,
     );
     await expect(createApp(CodeReviewApplication, { [Symbol("seam")]: true })).rejects.toThrow(
-      /createApp takes only env, profile, meterProvider, tracerProvider, handleSignals, processEnv — not Symbol\(seam\)/,
+      /createApp takes only profile, meterProvider, tracerProvider, handleSignals, processEnv — not Symbol\(seam\)/,
     );
   });
 

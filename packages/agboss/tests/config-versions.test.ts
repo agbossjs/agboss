@@ -1,6 +1,5 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { KEYS } from "./models/gateway.js";
 import { createWorkflowDeps } from "../src/app/app-deps.js";
 import { standaloneApplicationOf } from "../src/application/application-container.js";
 import { TurnStoreRecordRepository } from "../src/infrastructure/execution-record.repository.js";
@@ -116,7 +115,7 @@ describe("config versions", () => {
       ...standaloneApplicationOf(base, {}).infrastructure,
       records: new TurnStoreRecordRepository(createSqliteTurnStore(":memory:", () => new Date())),
     };
-    const options = { processEnv: {}, environment: KEYS, providerFetch };
+    const options = { processEnv: {}, providerFetch };
     const first = await createWorkflowDeps(base, options, { infrastructure });
     await first.close();
     const changed = {

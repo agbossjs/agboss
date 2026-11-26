@@ -136,7 +136,7 @@ export interface TckSut {
 
 /** Serves the conformance application on `127.0.0.1:<port>` (`0`: any free port). */
 export async function serveTckSut(port = 0): Promise<TckSut> {
-  const app = await createApp(TckApplication, { env: "test" });
+  const app = await createApp(TckApplication, {});
   const front = createServer();
   const url = `http://127.0.0.1:${String(await listening(front, port))}`;
   const listener = a2aHttpListener(app, {

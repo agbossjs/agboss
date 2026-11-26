@@ -6,7 +6,6 @@
  * cutoff is kept; `ping()` resolves.
  */
 import { describe, expect, it } from "vitest";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import {
   InMemoryExecutionLeaseRepository,
@@ -27,7 +26,7 @@ function storesOn() {
   const database = new InMemoryDatabase();
   const application = applicationContextOf({
     ...{ name: "store-application", version: "1.0.0", instanceId: "instance-1" },
-    ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+    ...{ startedAt: clock.now(), profiles: ["test"] },
   });
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const calls = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);

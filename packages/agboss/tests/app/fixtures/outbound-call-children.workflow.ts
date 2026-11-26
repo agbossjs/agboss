@@ -25,7 +25,6 @@ import { onStart } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { EmailPiiPolicy } from "./outbound-call.workflow.js";
 import { PaymentGateway, type ChargeReceipt } from "./payment-gateway.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
  * #505 — an outbound call made by a child workflow, run in its parent's step (`CurrentProcess`) or
@@ -203,7 +202,6 @@ export class FarChargeWorkflow {}
 @Application({
   name: "outbound-call-children-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [NearChargeWorkflow, FarChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,

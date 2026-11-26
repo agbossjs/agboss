@@ -37,7 +37,6 @@ import {
   ReleaseWorkflow,
   ToolEndLog,
 } from "./fence.workflow.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
@@ -124,7 +123,6 @@ const WORKFLOWS = [ReleaseWorkflow, AgentReleaseWorkflow, BookedReleaseWorkflow,
   name: "audit-log-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: WORKFLOWS,
   observers: [RecoveryLog, ToolEndLog, AuditLogObserver],
   budgets: TEST_BUDGETS,
@@ -135,7 +133,6 @@ export class AuditLogApplication {}
   name: "throwing-lease-observer-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: WORKFLOWS,
   observers: [ThrowingLeaseObserver, RecoveryLog, ToolEndLog, AuditLogObserver],
   providers: [RecordingLogger],
@@ -147,7 +144,6 @@ export class ThrowingLeaseObserverApplication {}
   name: "silent-takeover-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: WORKFLOWS,
   observers: [RecoveryLog, ToolEndLog, AuditLogObserver],
   providers: [SilentTakeoverLeaseRepository],
@@ -159,7 +155,6 @@ export class SilentTakeoverApplication {}
   name: "down-audit-log-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: WORKFLOWS,
   observers: [RecoveryLog, ToolEndLog, AuditLogObserver],
   providers: [DownAuditLogRepository, RecordingLogger],
@@ -171,7 +166,6 @@ export class DownLeaseLogApplication {}
   name: "kept-audit-log-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: WORKFLOWS,
   observers: [RecoveryLog, ToolEndLog, AuditLogObserver],
   retention: { executionRecords: hours(24) },
@@ -183,7 +177,6 @@ export class KeptAuditLogApplication {}
 @Application({
   name: "fenced-effect-events-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChargeWorkflow, DoubleChargeWorkflow],
   observers: [RecoveryLog, AuditLogObserver],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],
@@ -194,7 +187,6 @@ export class FencedEffectEventsApplication {}
 @Application({
   name: "throwing-fenced-effect-observer-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChargeWorkflow, DoubleChargeWorkflow],
   observers: [ThrowingLeaseObserver, RecoveryLog, AuditLogObserver],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],

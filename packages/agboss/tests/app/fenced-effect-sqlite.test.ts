@@ -13,6 +13,8 @@ import {
   IdempotencyRunStatus,
   SqliteFencedEffectRepository,
 } from "../../src/index.js";
+import { provide } from "../../src/components/injection.js";
+import { DATABASE_SETTINGS } from "../../src/storage/settings.js";
 import { testUnit, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -134,11 +136,13 @@ describe(
 
 describe("#500: a unit runner's SQLite fenced effect", () => {
   const order = { message: { text: "order-1" } } as never;
-  // the SQLite stores read sqlitePath only; the fixtures' generated Environment is another shape
-  // #890: the action injects FencedEffects — the SQLite store is the one the test lists
+  // #890: the action injects FencedEffects — the SQLite store is the one the test lists; its file is
+  // the database storage's settings, which a unit gives as a value (#1324b)
   const onFile = {
-    environment: { sqlitePath: ":memory:" } as never,
-    services: [SqliteFencedEffectRepository],
+    services: [
+      SqliteFencedEffectRepository,
+      provide(DATABASE_SETTINGS, { kind: "sqlite", path: ":memory:" }),
+    ],
   };
 
   it("runs on the runner's held lease, then replays the receipt on the same step", async () => {

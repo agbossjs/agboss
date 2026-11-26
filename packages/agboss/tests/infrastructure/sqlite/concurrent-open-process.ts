@@ -8,7 +8,7 @@
 import { nextFromParent, report } from "../../helpers/child-channel.js";
 import { createContainer } from "../../../src/components/container/container.js";
 import type { Token } from "../../../src/components/injection.js";
-import { resolveEnvironment } from "../../../src/environments/resolve.js";
+import { DATABASE_SETTINGS } from "../../../src/storage/settings.js";
 import {
   ApplicationContext,
   applicationContextOf,
@@ -24,15 +24,14 @@ try {
     version: "1.0.0",
     instanceId: `instance-${String(process.pid)}`,
     startedAt: new Date(0),
-    environmentName: "test",
-    environment: resolveEnvironment(
-      { name: "test", contract: "StoreEnvironment", values: { sqlitePath: path } },
-      {},
-    ),
+    profiles: ["test"],
   });
   const container = createContainer({
     modules: [],
-    core: new Map<Token, unknown>([[ApplicationContext, application]]),
+    core: new Map<Token, unknown>([
+      [ApplicationContext, application],
+      [DATABASE_SETTINGS, { kind: "sqlite", path }],
+    ]),
   });
   const connection = container.get(SqliteConnection);
   if (!(connection instanceof SqliteConnection)) throw new Error("not a SqliteConnection");

@@ -1,13 +1,4 @@
-import {
-  SqliteChildExecutionQueueRepository,
-  SqliteCostLedgerRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-  SqliteRateLimitRepository,
-} from "../../../../src/index.js";
-import { SqliteCheckpointSaver } from "../../../../src/internal.js";
+import { SqliteCostLedgerRepository } from "../../../../src/index.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Injectable } from "../../../../src/components/decorators.js";
 import { Application } from "../../../../src/application/application.js";
@@ -22,7 +13,7 @@ import {
   holdsParentPay,
   ParentPayWorkflow,
 } from "../../../budgets/fixtures/spend-in-flight.workflow.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 
 /** The file's ledger, holding the write of the parent's own spend (#732) until the test lets it go. */
 @Injectable({ deps: [SqliteConnection] })
@@ -44,19 +35,9 @@ export class HeldParentSqliteLedger extends SqliteCostLedgerRepository {
 @Application({
   name: "sqlite-spend-in-flight-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({ replace: [HeldParentSqliteLedger] }),
   workflows: [AnyPayItemsWorkflow, ParentPayWorkflow],
   budgets: TEST_BUDGETS,
   executionLimits: { maxConcurrentSteps: 1 },
-  providers: [
-    SqliteCheckpointSaver,
-    HeldParentSqliteLedger,
-    SqliteExecutionLeaseRepository,
-    SqliteExecutionRecordRepository,
-    SqliteExecutionTreeRepository,
-    SqlitePausedExecutionRepository,
-    SqliteRateLimitRepository,
-    SqliteChildExecutionQueueRepository,
-  ],
 })
 export class SqliteSpendInFlightApplication {}

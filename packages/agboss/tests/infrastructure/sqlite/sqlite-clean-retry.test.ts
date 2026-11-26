@@ -11,7 +11,6 @@ import { CleanAttempt } from "../../../src/infrastructure/sqlite/sqlite-attempt.
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { whileBusy } from "../../../src/infrastructure/sqlite/sqlite-lock-wait.js";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { storeClockOf } from "../../helpers/store-clock.js";
@@ -186,8 +185,7 @@ describe("#1317c: no SQLite path of the core fails fast under another process's 
         version: "1.0.0",
         instanceId: "instance-b",
         startedAt: clock.now(),
-        environmentName: "test",
-        environment: NO_ENVIRONMENT_VALUES,
+        profiles: ["test"],
       }),
     );
     const lease = {

@@ -14,7 +14,6 @@ import {
   resolveEnv,
 } from "../../src/environments/define-env.js";
 import { env } from "../../src/environments/env-readers.js";
-import { EnvironmentErrorCode } from "../../src/environments/errors.js";
 import { Secret, secret } from "../../src/environments/secret.js";
 import { ConfigError } from "../../src/index.js";
 import { Ttl, kilobytes, megabytes, usd } from "../../src/units/index.js";
@@ -110,7 +109,7 @@ describe("#1324b: resolveEnv reads the process once, typed", () => {
     const error = catching(() => resolveEnv(appEnv, {}));
 
     expect(error).toBeInstanceOf(ConfigError.Environment);
-    expect(error.envCode).toBe(EnvironmentErrorCode.MissingVariables);
+    expect(error.message).toContain("[environment.missing-variable] REGION is not set");
     for (const variable of ["REGION", "RATIO", "DEADLINE", "HISTORY_TTL", "API_KEY"])
       expect(error.message).toContain(variable);
     expect(error.message).not.toContain("TOKEN");
@@ -121,7 +120,7 @@ describe("#1324b: resolveEnv reads the process once, typed", () => {
       resolveEnv(appEnv, { ...GOOD, DEADLINE: "soon-4242", AUDIT_TTL: "never", PORT: "80x" }),
     );
 
-    expect(error.envCode).toBe(EnvironmentErrorCode.InvalidValue);
+    expect(error.message).toContain("[environment.invalid-value] DEADLINE is not a duration");
     expect(error.message).toContain("DEADLINE is not a duration");
     expect(error.message).toContain("AUDIT_TTL is not a duration");
     expect(error.message).toContain("PORT is not an integer");

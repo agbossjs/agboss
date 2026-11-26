@@ -20,7 +20,6 @@ import {
   ChargeWorkflowStart,
   resetFencedEffect,
 } from "../app/fixtures/fenced-effect.workflow.js";
-import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 
 beforeEach(() => {
   resetLogged();
@@ -31,7 +30,6 @@ beforeEach(() => {
 @Application({
   name: "small-fenced-effect-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,

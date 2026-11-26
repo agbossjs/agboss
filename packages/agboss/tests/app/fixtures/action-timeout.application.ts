@@ -16,7 +16,6 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toAction } from "../../helpers/flow.js";
 import { StepError } from "../../../src/core/error-families/step-errors.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
  * #1318e: an @Action with a timeout whose `execute` keeps running past it. `seen` is what it did, and
@@ -221,7 +220,6 @@ export class ActionTimeoutWorkflow {}
 @Application({
   name: "action-timeout-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ActionTimeoutWorkflow],
   providers: [InMemoryFencedEffectRepository],
   budgets: TEST_BUDGETS,

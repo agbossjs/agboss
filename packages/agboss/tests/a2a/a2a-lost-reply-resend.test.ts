@@ -7,17 +7,8 @@
 import { hours, minutes } from "../../src/units/index.js";
 import { beforeEach, describe, expect, vi } from "vitest";
 import { A2AEndpoint } from "../../src/a2a/a2a-endpoint.decorator.js";
-import { SqliteA2ATaskRepository } from "../../src/stores/index.js";
 import { Application } from "../../src/application/application.js";
 import { A2ATaskRepository } from "../../src/infrastructure/a2a-task.repository.js";
-import {
-  SqliteCostLedgerRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-  SqliteRateLimitRepository,
-} from "../../src/index.js";
-import { SqliteCheckpointSaver } from "../../src/internal.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
@@ -36,7 +27,7 @@ import {
   MortalSqliteExecutionLeaseRepository,
   sqliteFilePerTest,
 } from "../infrastructure/sqlite/fixtures/sqlite.workflow.js";
-import { SqliteTestEnvironment } from "../infrastructure/sqlite/fixtures/environments/app.environment.js";
+import { sqliteTestStorage } from "../infrastructure/sqlite/fixtures/sqlite-test-storage.js";
 import {
   data,
   errorInfoOf,
@@ -61,20 +52,10 @@ class SqliteOrdersA2AExpose {}
   name: "ac4-sqlite-orders-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({ replace: [MortalSqliteExecutionLeaseRepository] }),
   workflows: [RecoveryWorkflow],
   observers: [RecoveryLog],
-  providers: [
-    MortalSqliteExecutionLeaseRepository,
-    SqliteExecutionRecordRepository,
-    SqlitePausedExecutionRepository,
-    SqliteCheckpointSaver,
-    SqliteCostLedgerRepository,
-    SqliteExecutionTreeRepository,
-    SqliteRateLimitRepository,
-    SqliteA2ATaskRepository,
-    BearerAuthenticator,
-  ],
+  providers: [BearerAuthenticator],
   endpoints: [SqliteOrdersA2AExpose],
   budgets: TEST_BUDGETS,
 })

@@ -393,7 +393,6 @@ describe("#396 PR 2: pass@k and pass^k over k runs", () => {
       application: { name: "eval-desk-application", version: "1.0.0" },
       workflow: { name: "eval-desk-workflow", version: "1.0.0" },
       start: "desk-workflow-start",
-      environment: "test",
       runs: 1,
       cascade: EvalCascade.StopAtFirstFailure,
       startedAt: new Date("2026-01-05T09:00:00.000Z"),

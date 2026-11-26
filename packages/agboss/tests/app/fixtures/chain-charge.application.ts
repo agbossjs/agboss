@@ -17,7 +17,6 @@ import {
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { EmailPiiPolicy } from "./outbound-call.workflow.js";
 import {
   ChargedDto,
@@ -106,7 +105,6 @@ export class ChainFarChargeWorkflow {}
 @Application({
   name: "chain-charge-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChainNearChargeWorkflow, ChainFarChargeWorkflow],
   budgets: TEST_BUDGETS,
   piiPolicies: [EmailPiiPolicy],

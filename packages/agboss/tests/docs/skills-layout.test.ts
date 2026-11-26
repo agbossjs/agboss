@@ -325,7 +325,6 @@ describe("#474: the layout rules find what they guard against", () => {
   it.each([
     ["src/desk/loose.ts", "src/desk/ is a domain — it holds only kind folders"],
     ["src/desk/desk.application.ts", "*.application.ts stays at the src/ root"],
-    ["src/desk/environments/app.environment.ts", "environments/ stays at the src/ root"],
     [
       "src/desk/billing/agents/refund/refund.agent.ts",
       "src/desk/billing/ is not a kind folder — one domain level holds kind folders",
@@ -341,7 +340,7 @@ describe("#474: the layout rules find what they guard against", () => {
 
   it.each([
     "src/shop.application.ts",
-    "src/environments/app.environment.ts",
+    "src/config/app.env.ts",
     "src/billing/agents/refund/refund.agent.ts",
     "src/billing/workflows/refund/refund.workflow.ts",
     "src/agents/refund/refund.agent.ts",
@@ -355,9 +354,7 @@ describe("#474: the layout rules find what they guard against", () => {
   });
 
   it("AC4: every kind folder may be a domain's", () => {
-    const files = [...KINDS]
-      .filter((kind) => kind !== "environments")
-      .map((kind) => `src/billing/${kind}/x.ts`);
+    const files = [...KINDS].map((kind) => `src/billing/${kind}/x.ts`);
 
     expect(files.flatMap((file) => domainOf(at(file)))).toEqual([]);
   });

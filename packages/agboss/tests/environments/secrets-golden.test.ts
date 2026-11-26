@@ -80,7 +80,7 @@ describe("#1324b golden: the stored fingerprint of a real application", () => {
     );
 
     expect(failure).toBeInstanceOf(Error);
-    const text = String((failure as Error).message);
+    const text = (failure as Error).message;
     expect(text).toContain("GOLDEN_IDEMPOTENCY is not set");
     expect(text).not.toContain(PREVIOUS);
   });
@@ -103,7 +103,8 @@ describe("#1324b golden: the stored fingerprint of a real application", () => {
     try {
       const rows = database
         .prepare("SELECT business_key, facts FROM fenced_effect_business_results")
-        .all() as readonly { readonly business_key: string; readonly facts: string }[];
+        .all()
+        .map((row) => ({ business_key: String(row.business_key), facts: String(row.facts) }));
       expect(rows).toHaveLength(1);
       const serialised = JSON.stringify(rows);
       expect(serialised).toContain(GOLDEN_FINGERPRINT);

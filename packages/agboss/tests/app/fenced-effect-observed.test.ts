@@ -8,7 +8,6 @@ import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import type { IdempotencyRunReport } from "../../src/app/audit-log.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
 import { IdempotencyRunEventOutcome } from "../../src/infrastructure/execution-audit-log.repository.js";
@@ -31,7 +30,7 @@ function effectsInFrame() {
   const database = new InMemoryDatabase();
   const application = applicationContextOf({
     ...{ name: "observed-application", version: "1.0.0", instanceId: "instance-1" },
-    ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+    ...{ startedAt: clock.now(), profiles: ["test"] },
   });
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);

@@ -26,7 +26,6 @@ import { seconds } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { execute } from "../helpers/flow.js";
 import { ends, resetRecovery } from "../infrastructure/fixtures/recovery.workflow.js";
-import { SqliteTestEnvironment } from "../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import { sqliteFilePerTest } from "../infrastructure/sqlite/fixtures/sqlite.workflow.js";
 import { instance, rejectionOf, settle } from "./fixtures/fence-takeover.js";
 import {
@@ -99,7 +98,6 @@ const assembledWith = (providers: readonly Provider[]) => {
   @Application({
     name: "outbound-stores-application",
     version: "1.0.0",
-    environment: SqliteTestEnvironment,
     workflows: [ChargeWorkflow],
     budgets: TEST_BUDGETS,
     providers: [SqliteConnection, ...providers],

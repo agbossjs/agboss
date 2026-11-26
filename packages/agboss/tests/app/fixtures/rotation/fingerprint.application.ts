@@ -14,7 +14,6 @@ import { effectKeyOf, type EffectKey } from "../../../../src/stores/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
-import { RotationEnvironment } from "./environments/app.environment.js";
 import { OrderDto, ReceiptDto } from "./rotation.application.js";
 
 /**
@@ -199,7 +198,6 @@ export const BOOKINGS = Object.fromEntries(
 @Application({
   name: "fingerprint-application",
   version: "1.0.0",
-  environment: RotationEnvironment,
   workflows: Object.values(BOOKINGS).map((booking) => booking.workflow),
   providers: [InMemoryFencedEffectRepository],
   budgets: TEST_BUDGETS,

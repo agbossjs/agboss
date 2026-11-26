@@ -9,7 +9,6 @@ import {
   type NewThread,
   Ttl,
 } from "../../../../src/index.js";
-import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
@@ -20,7 +19,7 @@ import {
   ReceiptDto,
   ReceiptWorkflowFinish,
 } from "../../fixtures/recovery.workflow.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** What the project's records repository saw: the threads it created, on which instance. */
@@ -77,9 +76,8 @@ export class AuditedNoteWorkflow {}
   name: "audited-records-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({ replace: [AuditedSqliteExecutionRecordRepository] }),
   workflows: [AuditedNoteWorkflow],
-  providers: [AuditedSqliteExecutionRecordRepository, SqliteCheckpointSaver],
   budgets: TEST_BUDGETS,
 })
 export class AuditedRecordsApplication {}

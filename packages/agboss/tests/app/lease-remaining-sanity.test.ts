@@ -7,7 +7,6 @@
 import { describe, expect, it } from "vitest";
 import { executionLeasesOf } from "../../src/app/execution-leases.js";
 import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import {
   InMemoryExecutionLeaseRepository,
@@ -27,7 +26,7 @@ function storeAnswering(clock: VirtualClock, answer: unknown) {
     storeClockOf(clock),
     applicationContextOf({
       ...{ name: "sanity-application", version: "1.0.0", instanceId: "instance-1" },
-      ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+      ...{ startedAt: clock.now(), profiles: ["test"] },
     }),
     new InMemoryDatabase(),
   );

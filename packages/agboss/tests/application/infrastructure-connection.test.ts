@@ -33,7 +33,6 @@ import { SqliteConnection } from "../../src/infrastructure/sqlite/sqlite-connect
 import { testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { execute, onStart } from "../helpers/flow.js";
-import { SqliteTestEnvironment } from "../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import { sqliteFilePerTest } from "../infrastructure/sqlite/fixtures/sqlite.workflow.js";
 import {
   chargesIn,
@@ -200,7 +199,6 @@ const applicationReading = (dependency: object, providers: readonly object[]) =>
   @Application({
     name: "reading-application",
     version: "1.0.0",
-    environment: SqliteTestEnvironment,
     workflows: [workflowReading(dependency) as typeof ConnectionlessEffectApplication],
     budgets: TEST_BUDGETS,
     providers: providers as readonly (typeof OrderLedger)[],

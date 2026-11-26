@@ -16,7 +16,6 @@ import { InMemoryA2ADirectMessageRepository } from "../../../src/infrastructure/
 import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-database.js";
 import { Injectable, type StoreDescriptor } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { SqliteTestEnvironment } from "../../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import {
   LmdbA2ATasks,
   MongoA2ATasks,
@@ -48,7 +47,6 @@ const applicationWith = (providers: readonly Provider[], endpoints: readonly Cla
     name: "stores-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: SqliteTestEnvironment,
     workflows: [QuoteWorkflow],
     budgets: TEST_BUDGETS,
     providers,

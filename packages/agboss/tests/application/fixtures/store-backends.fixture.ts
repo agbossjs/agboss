@@ -23,7 +23,6 @@ import {
   SqliteOutboundCallRepository,
 } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { SqliteTestEnvironment } from "../../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import { MortalExecutionLeaseRepository } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { ReleaseWorkflow } from "../../app/fixtures/fence.workflow.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
@@ -218,7 +217,6 @@ export function storesApplication(providers: readonly Provider[]): Class {
     name: "stores-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: SqliteTestEnvironment,
     workflows: [ReleaseWorkflow],
     budgets: TEST_BUDGETS,
     providers,

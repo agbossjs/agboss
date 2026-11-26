@@ -19,7 +19,6 @@ import { applicationContextOf } from "../../src/flow/context/application-context
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { SilentLogger } from "../../src/infrastructure/logger.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { testExecutionContext } from "../../src/testing/execution-context.js";
 import { storeClockOf } from "../helpers/store-clock.js";
@@ -31,7 +30,7 @@ function parts() {
   const database = new InMemoryDatabase();
   const application = applicationContextOf({
     ...{ name: "keys-application", version: "1.0.0", instanceId: "instance-1" },
-    ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+    ...{ startedAt: clock.now(), profiles: ["test"] },
   });
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const store = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);

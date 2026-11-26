@@ -3,15 +3,15 @@ import { ExecutionError } from "../../../../src/core/error-families/run-errors.j
 import { DatabaseSync } from "node:sqlite";
 import {
   ApplicationContext,
-  Clock,
   StoreClock,
   Injectable,
+  type ExecutionLease,
+} from "../../../../src/index.js";
+import {
   SqliteCostLedgerRepository,
-  SqliteExecutionLeaseRepository,
   SqliteExecutionRecordRepository,
   SqliteExecutionTreeRepository,
   SqlitePausedExecutionRepository,
-  type ExecutionLease,
 } from "../../../../src/index.js";
 import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { Application } from "../../../../src/application/application.js";
@@ -20,7 +20,7 @@ import { IN_MEMORY_DATABASE } from "../../../../src/infrastructure/in-memory-dat
 import type { Milliseconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import {
   ArtifactLedger,
   ledger,
@@ -131,18 +131,10 @@ export class SqliteArtifactLedger {
 @Application({
   name: "fence-sqlite-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage(),
   workflows: [ReleaseWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,
-  providers: [
-    SqliteCheckpointSaver,
-    SqliteCostLedgerRepository,
-    SqliteExecutionLeaseRepository,
-    SqliteExecutionRecordRepository,
-    SqliteExecutionTreeRepository,
-    SqlitePausedExecutionRepository,
-  ],
 })
 export class FenceSqliteApplication {}
 
@@ -172,10 +164,19 @@ export class CountedExecutionLeaseRepository extends InMemoryExecutionLeaseRepos
 @Application({
   name: "fence-own-leases-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  // the project's own lease store (in memory) beside every SQLite store but the SQLite lease store
+  storage: sqliteTestStorage({
+    only: [
+      SqliteCostLedgerRepository,
+      SqliteExecutionRecordRepository,
+      SqliteExecutionTreeRepository,
+      SqlitePausedExecutionRepository,
+      SqliteCheckpointSaver,
+    ],
+    replace: [CountedExecutionLeaseRepository],
+  }),
   workflows: [ReleaseWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,
-  providers: [CountedExecutionLeaseRepository],
 })
 export class FenceOwnLeasesApplication {}

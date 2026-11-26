@@ -11,7 +11,6 @@ import { describe, expect, it } from "vitest";
 import { cancelTransitionOf } from "../../src/app/cancel-marks.js";
 import { InterruptMode } from "../../src/app/interrupt-types.js";
 import { stopTransitionOf } from "../../src/app/stop-requests.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { randomIdGenerator } from "../../src/infrastructure/clock.js";
 import {
@@ -43,8 +42,7 @@ const contextOf = (instanceId: string) =>
     version: "1.0.0",
     instanceId,
     startedAt: new Date(0),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
 
 /** The holder and the operator's instance over one in-memory database. */

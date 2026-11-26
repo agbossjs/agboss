@@ -27,7 +27,6 @@ import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toAction } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { PaymentGateway, type ChargeReceipt } from "./payment-gateway.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
@@ -346,7 +345,6 @@ export class SendChargesWorkflow {}
   name: "business-key-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [CashierWorkflow, ChargeOrderWorkflow, SendChargeWorkflow, SendChargesWorkflow],
   providers: [...MODEL_PROVIDERS, InMemoryFencedEffectRepository],
   budgets: TEST_BUDGETS,

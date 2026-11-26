@@ -14,7 +14,6 @@ import {
 } from "../../src/app/remote/isolated-supervisor.js";
 import { StepSlots } from "../../src/app/step-slots.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { ChildPlacement } from "../../src/flow/child-placement.js";
 import { remoteChildSignals } from "../../src/flow/runtime/remote/remote-child-signals.js";
 import { InMemoryChildExecutionQueueRepository } from "../../src/infrastructure/child-execution-queue.repository.js";
@@ -71,8 +70,7 @@ function rigOf(): Rig {
     version: "1.0.0",
     instanceId: "instance-1",
     startedAt: clock.now(),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
   const queue = new InMemoryChildExecutionQueueRepository(clock, context, new InMemoryDatabase());
   const forks: RecordedFork[] = [];
@@ -89,7 +87,7 @@ function rigOf(): Rig {
         queue,
         clock,
         log: { ...SILENT_LOG, error: (code) => void errors.push(code) },
-        spec: { entry: "file:///app/main.js", environmentName: "prod", profile: ["economy"] },
+        spec: { entry: "file:///app/main.js", profile: ["economy"] },
         launch: (spec) => {
           const fork = new RecordedFork(spec, closes);
           forks.push(fork);
@@ -131,14 +129,12 @@ describe("#1286b: the supervisor of isolated workers", () => {
     expect(rig.forks.map((fork) => fork.spec)).toEqual([
       {
         entry: "file:///app/main.js",
-        environmentName: "prod",
         profile: ["economy"],
         tenantId: "default",
         executionId: "c-1",
       },
       {
         entry: "file:///app/main.js",
-        environmentName: "prod",
         profile: ["economy"],
         tenantId: "default",
         executionId: "c-2",

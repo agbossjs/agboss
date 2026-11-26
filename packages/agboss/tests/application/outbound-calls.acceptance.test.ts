@@ -18,7 +18,6 @@ import {
   runs,
 } from "../app/fixtures/outbound-call.workflow.js";
 import { gateway, resetGateway } from "../app/fixtures/payment-gateway.js";
-import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 
 beforeEach(() => {
   resetGateway();
@@ -30,7 +29,6 @@ beforeEach(() => {
 @Application({
   name: "edge-outbound-call-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,

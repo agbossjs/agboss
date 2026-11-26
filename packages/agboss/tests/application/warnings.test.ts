@@ -10,7 +10,7 @@ import { TEST_PSEUDONYM_KEY } from "../../src/pii/application-key.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
 import { applicationWarningsOf } from "../../src/describe/application.js";
-import { KeyedApplication } from "../pii/fixtures/keyed/keyed.application.js";
+import { KeyedApplication } from "../pii/keyed.fixture.js";
 import { ClinicApplication } from "../guardrails/guardrails.fixture.js";
 import { LogLevel } from "../../src/index.js";
 import { testWith } from "../../src/testing/index.js";

@@ -260,27 +260,39 @@ describe("#1366: a transaction", () => {
 });
 
 describe("#1366: the connection of an instance", () => {
-  const connect = (environment: object): SqliteConnection =>
-    new SqliteConnection({ environment } as never);
+  const connect = (settings: object | undefined): SqliteConnection =>
+    new SqliteConnection(settings as never);
 
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
   it.each([
-    [{}, "Invalid input: expected string, received undefined"],
-    [{ sqlitePath: "" }, "sqlitePath is empty — a file path, or :memory: in tests"],
+    [{ kind: "sqlite" }, "Invalid input: expected string, received undefined"],
+    [{ kind: "sqlite", path: "" }, "path is empty — a file path, or :memory: in tests"],
   ])(
-    "an environment that does not name the file (%j) is refused, saying what is missing",
-    (environment, why) => {
-      expect(() => connect(environment)).toThrow(
-        `the SQLite implementations need sqlitePath: string in the environment — ${why}; set it in the environment's file, or in a unit test pass it: testUnit(X, { environment: { sqlitePath: ":memory:" } })`,
+    "settings that do not name the file (%j) are refused, saying what is missing",
+    (settings, why) => {
+      expect(() => connect(settings)).toThrow(
+        `the SQLite implementations need SqliteDriver's path: string — ${why}`,
       );
     },
   );
 
+  it("no database storage at all is refused, naming the storage to declare", () => {
+    expect(() => connect(undefined)).toThrow(
+      "the SQLite implementations need the application's @DatabaseStorage({ driver: SqliteDriver({ path }) })",
+    );
+  });
+
+  it("settings of another driver are refused", () => {
+    expect(() => connect({ kind: "postgres" })).toThrow(
+      "the SQLite stores are on the database storage's postgres driver, not SqliteDriver",
+    );
+  });
+
   it("names its file, answers a ping while open and refuses it once closed", async () => {
-    const connection = connect({ sqlitePath: ":memory:" });
+    const connection = connect({ kind: "sqlite", path: ":memory:" });
 
     expect(connection.path).toBe(":memory:");
     await expect(connection.ping()).resolves.toBeUndefined();
@@ -289,7 +301,7 @@ describe("#1366: the connection of an instance", () => {
   });
 
   it("closes the file once when its instance stops, and a second stop is none", () => {
-    const connection = connect({ sqlitePath: ":memory:" });
+    const connection = connect({ kind: "sqlite", path: ":memory:" });
 
     connection.onDestroy();
 
@@ -300,7 +312,7 @@ describe("#1366: the connection of an instance", () => {
   });
 
   it("names the columns of a table, and none for a table the file lacks", () => {
-    const connection = connect({ sqlitePath: ":memory:" });
+    const connection = connect({ kind: "sqlite", path: ":memory:" });
     connection.database.exec("CREATE TABLE notes (text TEXT NOT NULL);");
 
     expect(connection.columnsOf("notes")).toEqual(["text"]);
@@ -308,7 +320,7 @@ describe("#1366: the connection of an instance", () => {
   });
 
   it("runs work in a transaction of its own", () => {
-    const connection = connect({ sqlitePath: ":memory:" });
+    const connection = connect({ kind: "sqlite", path: ":memory:" });
     connection.database.exec("CREATE TABLE notes (text TEXT NOT NULL);");
 
     connection.transaction(() => {
@@ -319,7 +331,7 @@ describe("#1366: the connection of an instance", () => {
   });
 
   it("a row of a table the file has with a name that is no text is refused, not passed on", () => {
-    const connection = connect({ sqlitePath: ":memory:" });
+    const connection = connect({ kind: "sqlite", path: ":memory:" });
     vi.spyOn(connection.database, "prepare").mockImplementation((() => ({
       all: () => [{ name: 5 }],
     })) as never);

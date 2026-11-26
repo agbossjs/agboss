@@ -13,7 +13,6 @@ import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { ItemDto, ItemResultDto } from "../../flow/runtime/fixtures/fan-out.workflow.js";
 import { BookingDto } from "./finished-undo.workflow.js";
 
@@ -133,7 +132,6 @@ export class KeyedParentWorkflow {}
 @Application({
   name: "keyed-undo-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [KeyedUndoWorkflow, KeyedParentWorkflow],
   budgets: TEST_BUDGETS,
 })

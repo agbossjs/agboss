@@ -44,10 +44,10 @@ describe("#834 AC1: one retention group", () => {
   });
 });
 
-describe("#834 AC4 / #1324f / #1324e: createApp takes env, profile, the providers, handleSignals and processEnv only", () => {
-  it("its options are those six", () => {
+describe("#834 AC4 / #1324f / #1324e: createApp takes profile, the providers, handleSignals and processEnv only", () => {
+  it("its options are those five", () => {
     expectTypeOf<keyof CreateAppOptions>().toEqualTypeOf<
-      "env" | "profile" | "meterProvider" | "tracerProvider" | "handleSignals" | "processEnv"
+      "profile" | "meterProvider" | "tracerProvider" | "handleSignals" | "processEnv"
     >();
     expectTypeOf<CreateAppOptions["handleSignals"]>().toEqualTypeOf<boolean | undefined>();
     expectTypeOf<CreateAppOptions["processEnv"]>().toEqualTypeOf<NodeJS.ProcessEnv | undefined>();

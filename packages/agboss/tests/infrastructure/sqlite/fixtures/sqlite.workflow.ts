@@ -33,7 +33,7 @@ import {
   RecoveryWorkflow,
   seen,
 } from "../../fixtures/recovery.workflow.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import { storeClockOf } from "../../../helpers/store-clock.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
@@ -106,24 +106,13 @@ export class MortalSqliteExecutionLeaseRepository extends SqliteExecutionLeaseRe
   }
 }
 
-/** Every SQLite implementation but the lease store. */
-const SQLITE_STORES = [
-  SqliteExecutionRecordRepository,
-  SqlitePausedExecutionRepository,
-  SqliteCheckpointSaver,
-  SqliteCostLedgerRepository,
-  SqliteExecutionTreeRepository,
-  SqliteRateLimitRepository,
-];
-
 @Application({
   name: "sqlite-recovery-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({ replace: [MortalSqliteExecutionLeaseRepository] }),
   workflows: [RecoveryWorkflow],
   observers: [RecoveryLog],
-  providers: [MortalSqliteExecutionLeaseRepository, ...SQLITE_STORES],
   budgets: TEST_BUDGETS,
 })
 export class SqliteRecoveryApplication {}
@@ -148,10 +137,9 @@ export class NoteWorkflow {}
   name: "sqlite-note-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage(),
   workflows: [NoteWorkflow],
   observers: [RecoveryLog],
-  providers: [SqliteExecutionLeaseRepository, ...SQLITE_STORES],
   budgets: TEST_BUDGETS,
 })
 export class SqliteNoteApplication {}
@@ -160,10 +148,9 @@ export class SqliteNoteApplication {}
 @Application({
   name: "sqlite-unwind-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({ replace: [MortalSqliteExecutionLeaseRepository] }),
   workflows: [UnwindWorkflow],
   observers: [UnwindLog],
-  providers: [MortalSqliteExecutionLeaseRepository, ...SQLITE_STORES],
   budgets: TEST_BUDGETS,
   executionLimits: { compensationTimeout: seconds(60) },
 })

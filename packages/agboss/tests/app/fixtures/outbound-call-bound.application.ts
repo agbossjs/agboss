@@ -6,7 +6,6 @@ import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-databa
 import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import { withHoldPoints } from "../../../src/testing/faults/held-stores.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
@@ -56,7 +55,6 @@ export const HeldOutbound = withHoldPoints(DownableOutbound);
 @Application({
   name: "outbound-call-bound-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChargeWorkflow, ChargeAndNotifyWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,
@@ -70,7 +68,6 @@ export class OutboundCallBoundApplication {}
   name: "outbound-call-bound-keyed-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [CashierWorkflow, ChargeOrderWorkflow, SendChargeWorkflow, SendChargesWorkflow],
   providers: [...MODEL_PROVIDERS, InMemoryFencedEffectRepository, HeldOutbound, RecordingLogger],
   budgets: TEST_BUDGETS,

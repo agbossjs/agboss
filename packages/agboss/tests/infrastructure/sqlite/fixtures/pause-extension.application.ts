@@ -1,19 +1,11 @@
 import { Application } from "../../../../src/application/application.js";
-import {
-  SqliteCostLedgerRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-  SqliteRateLimitRepository,
-} from "../../../../src/index.js";
-import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import {
   CHANNELS,
   ExtensionPauseListener,
   FLOWS,
 } from "../../../flow/fixtures/pause-extension.fixture.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import { MortalSqliteExecutionLeaseRepository } from "./sqlite.workflow.js";
 
 /**
@@ -23,19 +15,9 @@ import { MortalSqliteExecutionLeaseRepository } from "./sqlite.workflow.js";
 @Application({
   name: "sqlite-extension-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({ replace: [MortalSqliteExecutionLeaseRepository] }),
   workflows: FLOWS,
   budgets: TEST_BUDGETS,
-  providers: [
-    MortalSqliteExecutionLeaseRepository,
-    SqliteExecutionRecordRepository,
-    SqlitePausedExecutionRepository,
-    SqliteCheckpointSaver,
-    SqliteCostLedgerRepository,
-    SqliteExecutionTreeRepository,
-    SqliteRateLimitRepository,
-    ...CHANNELS,
-    ExtensionPauseListener,
-  ],
+  providers: [...CHANNELS, ExtensionPauseListener],
 })
 export class SqliteExtensionApplication {}

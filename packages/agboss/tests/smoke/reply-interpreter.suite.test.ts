@@ -9,8 +9,6 @@ import type { AssembledReplyInterpreter } from "../../src/channels/discovery.js"
 import { readByModel } from "../../src/channels/reply-reader.js";
 import { Integer, Text } from "../../src/dto/index.js";
 import { ToolCallApprovalDecisionDto } from "../../src/dto/standard/framework.js";
-import { resolveEnvironment } from "../../src/environments/resolve.js";
-import { secret } from "../../src/environments/secret.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import {} from "../../src/models/index.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
@@ -48,17 +46,8 @@ const ask = {
 };
 
 function site() {
-  const environment = resolveEnvironment(
-    {
-      name: "smoke",
-      contract: "SmokeEnvironment",
-      values: { openRouterApiKey: secret("OPENROUTER_API_KEY") },
-    },
-    process.env,
-  );
   const gateway = createProviderGateway(ModelProviderDirectory.of([TestOpenRouterProvider]), {
     env: process.env,
-    environment,
     calls: instanceCalls(),
   });
   const settings = { model: MODEL, temperature: 0, maxTokens: 300 };

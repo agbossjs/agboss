@@ -21,7 +21,6 @@ import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
 import { PaymentGateway } from "../payment-gateway.js";
-import { RotationEnvironment } from "./environments/app.environment.js";
 
 /**
  * #825 — an idempotency key rotated under live business keys: one SQLite file, three applications of
@@ -177,7 +176,6 @@ const rotatedStorage = (
 @Application({
   name: "rotation-before-application",
   version: "1.0.0",
-  environment: RotationEnvironment,
   workflows: [BookOrderWorkflow, ChargeOrderWorkflow],
   storage: rotatedStorage("rotation-before-storage", secret("ROTATION_IDEMPOTENCY_KEY_V1")),
   budgets: TEST_BUDGETS,
@@ -188,7 +186,6 @@ export class RotationBeforeApplication {}
 @Application({
   name: "rotation-during-application",
   version: "1.0.0",
-  environment: RotationEnvironment,
   workflows: [BookOrderWorkflow, ChargeOrderWorkflow],
   storage: rotatedStorage(
     "rotation-during-storage",
@@ -203,7 +200,6 @@ export class RotationDuringApplication {}
 @Application({
   name: "rotation-after-application",
   version: "1.0.0",
-  environment: RotationEnvironment,
   workflows: [BookOrderWorkflow, ChargeOrderWorkflow],
   storage: rotatedStorage("rotation-after-storage", secret("ROTATION_IDEMPOTENCY_KEY_V2")),
   budgets: TEST_BUDGETS,
@@ -214,7 +210,6 @@ export class RotationAfterApplication {}
 @Application({
   name: "in-memory-charges-application",
   version: "1.0.0",
-  environment: RotationEnvironment,
   workflows: [ChargeOrderWorkflow],
   budgets: TEST_BUDGETS,
 })

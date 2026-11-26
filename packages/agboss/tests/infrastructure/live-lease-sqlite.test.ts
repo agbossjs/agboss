@@ -6,7 +6,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { OutboundCallLeaseState } from "../../src/infrastructure/execution-audit-log.repository.js";
 import { sqliteLeaseStateOf } from "../../src/infrastructure/live-lease.js";
 import { SqliteExecutionLeaseRepository } from "../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
@@ -21,7 +20,7 @@ function sqliteLeases() {
   const connection = connectionTo(temporarySqlitePath());
   const application = applicationContextOf({
     ...{ name: "live-lease-application", version: "1.0.0", instanceId: "instance-1" },
-    ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+    ...{ startedAt: clock.now(), profiles: ["test"] },
   });
   const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);
   const stateOf = (leaseExecutionId: string, token: number): OutboundCallLeaseState =>

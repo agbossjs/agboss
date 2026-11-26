@@ -8,7 +8,6 @@ import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { effectKeyForTesting } from "../../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import {} from "../../../src/app/lease-lost.js";
 import { IdempotencyRunStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
@@ -28,8 +27,7 @@ function storesOn(path = temporarySqlitePath(), clock = new VirtualClock()) {
     version: "1.0.0",
     instanceId: "instance-1",
     startedAt: clock.now(),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
   const effects = new SqliteFencedEffectRepository(connection, storeClockOf(clock));
   const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);

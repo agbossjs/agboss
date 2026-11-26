@@ -1,6 +1,9 @@
 /** The application's PII key (#120): one token per value on every instance. */
+import { hours } from "../../src/units/index.js";
 import {
   Agent,
+  DatabaseStorage,
+  SqliteDriver,
   ExecutionContext,
   PiiAction,
   PiiKind,
@@ -16,7 +19,6 @@ import {
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { EmployeeDirectory, PII_KEY_VARIABLE } from "./pii.fixture.js";
@@ -106,15 +108,24 @@ export class KeyedWorkflow {}
 })
 export class UnkeyedApplication {}
 
-/** A key field the contract does not declare. */
+/** The keyed application's database storage (#1321): its PII key is `piiSecret`, the variable `PII_APP_KEY`. */
+@DatabaseStorage({
+  name: "keyed-storage",
+  driver: SqliteDriver({ path: ":memory:" }),
+  auditLogTtl: hours(1),
+  ledgerEntriesTtl: hours(1),
+  piiSecret: secret("PII_APP_KEY"),
+})
+export class KeyedStorage {}
+
+/** The keyed application (#120): its PII key is the storage's `piiSecret`. */
 @Application({
-  name: "misnamed-key-application",
+  name: "keyed-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
-  // @ts-expect-error #825: a field the contract lacks (or a text one) does not compile — the runtime rule is a JavaScript caller's
-  piiKeyField: "piiKey",
+  storage: KeyedStorage,
   workflows: [KeyedWorkflow],
+  executionContext: KeyedExecutionContext,
   budgets: TEST_BUDGETS,
 })
-export class MisnamedKeyApplication {}
+export class KeyedApplication {}

@@ -8,13 +8,12 @@ import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import type { ProviderResolution, RegisteredModelProvider } from "../../src/models/resolve.js";
 import { request } from "../routers/fixtures.js";
-import { ENV, instanceCalls, KEYS } from "../models/gateway.js";
+import { ENV, instanceCalls } from "../models/gateway.js";
 import { LocalModelProvider, TestDecisionsProvider } from "../models/providers.fixture.js";
 import { providerStub } from "../models/stub.js";
 
 const options = (send = providerStub().fetch) => ({
   env: ENV,
-  environment: KEYS,
   calls: instanceCalls(),
   send,
 });

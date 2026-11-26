@@ -37,8 +37,6 @@ function pairOf(database: InMemoryDatabase, cluster: InMemoryCluster, now: () =>
     version: "1.0.0",
     instanceId: id,
     startedAt: new Date(0),
-    environmentName: "test",
-    environment: {} as never,
   });
   const store = new InMemoryExecutionLeaseRepository(
     { now: () => now() } as never,

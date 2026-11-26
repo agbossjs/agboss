@@ -1,14 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { CheckpointTuple } from "@langchain/langgraph";
-import {
-  Injectable,
-  SqliteCostLedgerRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqliteFencedEffectRepository,
-  SqlitePausedExecutionRepository,
-} from "../../../../src/index.js";
+import { Injectable, SqliteExecutionLeaseRepository } from "../../../../src/index.js";
 import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
@@ -25,7 +17,7 @@ import {
   wroteOne,
 } from "../../../app/fixtures/writes-window.application.js";
 import { SqliteChargeWorkflow } from "./sqlite-fenced-effect.workflow.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 
 /** #1090 — the SQLite charge workflow on the levers of `writes-window.application.ts`. */
 
@@ -54,20 +46,10 @@ const HeldSqliteLeases = withHoldPoints(SqliteExecutionLeaseRepository);
 @Application({
   name: "writes-window-sqlite-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({ replace: [HeldSqliteLeases, WindowSqliteCheckpoints] }),
   workflows: [SqliteChargeWorkflow],
   observers: [RecoveryLog],
-  providers: [
-    HeldSqliteLeases,
-    SqliteFencedEffectRepository,
-    SqliteExecutionRecordRepository,
-    SqlitePausedExecutionRepository,
-    WindowSqliteCheckpoints,
-    SqliteCostLedgerRepository,
-    SqliteExecutionTreeRepository,
-    SqliteConnection,
-    RecordingLogger,
-  ],
+  providers: [RecordingLogger],
   budgets: TEST_BUDGETS,
 })
 export class WritesWindowSqliteApplication {}

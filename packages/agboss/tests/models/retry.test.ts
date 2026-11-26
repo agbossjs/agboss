@@ -9,7 +9,7 @@ import { delayBefore } from "../../src/models/retry-policy.js";
 import { minutes, seconds } from "../../src/units/index.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
-import { ENV, instanceCalls, KEYS } from "./gateway.js";
+import { ENV, instanceCalls } from "./gateway.js";
 import { advanceUntil, slowProvider } from "./slow-provider.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { InstantClock } from "./time.js";
@@ -144,7 +144,6 @@ describe("AC6: retry policies — only the listed failures, Retry-After honoured
     const stub = providerStub([{ status: 502 }, { status: 502 }, completion("ok", 0.002)]);
     const gateway = createProviderGateway(ModelProviderDirectory.of([TestOpenRouterProvider]), {
       env: ENV,
-      environment: KEYS,
       calls: instanceCalls(),
       send: stub.fetch,
       clock: new InstantClock(),

@@ -11,8 +11,7 @@ import {
   type ModelGateway,
 } from "../../src/llm/gateway.js";
 import type { JevClient } from "../../src/llm/jev-client.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
-import { ENV, KEYS } from "../models/gateway.js";
+import { ENV } from "../models/gateway.js";
 import { TestDecisionsProvider, TestOpenRouterProvider } from "../models/providers.fixture.js";
 import { directoryOf } from "../../src/models/workflow-models.js";
 import { createModelRegistry } from "../../src/llm/registry.js";
@@ -92,14 +91,12 @@ describe("AC12: the default model gateway", () => {
     expect(() =>
       createProviderGateway(directoryOf([TestOpenRouterProvider, TestDecisionsProvider]), {
         env: {},
-        environment: NO_ENVIRONMENT_VALUES,
       }),
     ).toThrow(ConfigError.Environment);
     expect(
       Object.keys(
         createProviderGateway(directoryOf([TestOpenRouterProvider, TestDecisionsProvider]), {
           env: ENV,
-          environment: KEYS,
         }),
       ),
     ).toEqual(["chatModel", "routeTo", "decide", "kindOf"]);

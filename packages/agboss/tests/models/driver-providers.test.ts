@@ -18,7 +18,6 @@ import {
 import { modelNamedBy } from "../../src/models/model-cascade.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
-import { resolveEnvironment } from "../../src/environments/resolve.js";
 import { execute } from "../helpers/flow.js";
 import { appWithKeys, instanceCalls } from "./gateway.js";
 import { completion, providerStub } from "./stub.js";
@@ -34,8 +33,6 @@ import {
   SingleModelProvider,
   UnlistedApplication,
 } from "./fixtures/driver-providers.workflow.js";
-
-const EMPTY = resolveEnvironment({ name: "test", contract: "Empty", values: {} }, {});
 
 async function violationsOf(application: Class): Promise<(readonly [string, string])[]> {
   const error: unknown = await applicationOf(application).then(
@@ -191,7 +188,6 @@ describe("#1313a: drivers and the directory", () => {
 describe("#1313a: a driver's connection", () => {
   const settings = {
     env: { LLM_URL: "http://llm.test/v1", LLM_KEY: "sk-1", LLM_TOKEN: "tok-1", OR_KEY: "or-1" },
-    environment: EMPTY,
     calls: instanceCalls(),
   };
 

@@ -27,7 +27,6 @@ import {
   TestTenantDailyBudget,
 } from "../../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../../helpers/flow.js";
-import { MeshEnvironment } from "../../../fixtures/environments/mesh.environment.js";
 import { CALLER_TOKEN, PEER_APPLICATION } from "../peer/peer.application.js";
 import { TestModelProvider } from "../../../../../src/testing/test-model-provider.js";
 
@@ -265,7 +264,6 @@ class CallerMesh {}
   name: "caller-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: MeshEnvironment,
   workflows: [CallerWorkflow],
   observers: [CallerLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, CallerExecutionBudget],

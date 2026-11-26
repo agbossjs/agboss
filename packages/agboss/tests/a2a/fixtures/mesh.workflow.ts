@@ -2,7 +2,6 @@ import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { A2AAgent, A2AClient, A2AEndpoint } from "../../../src/a2a/index.js";
 import {
   Agent,
-  EmptyEnvironment,
   Injectable,
   Observer,
   Tool,
@@ -14,7 +13,6 @@ import {
   type ExecutionEvent,
   Ttl,
 } from "../../../src/index.js";
-import { MeshEnvironment } from "./environments/mesh.environment.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import type { Class } from "../../../src/components/injection.js";
 import { minutes, type Usd, hours } from "../../../src/units/index.js";
@@ -195,14 +193,11 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
 
   const mesh =
     spec.mesh ?? (spec.maxMeshHops === undefined ? undefined : hopsMesh(spec.maxMeshHops));
-  // one of two contracts, as the spec says: the decorator's field types are the union's
-  const environment: Class = spec.mesh === undefined ? EmptyEnvironment : MeshEnvironment;
   @Application({
     name: `${name}-application`,
     modelProvider: TestModelProvider,
     endpoints: [MeshA2AExpose],
     version: "1.0.0",
-    environment,
     workflows: [MeshWorkflow],
     budgets: TEST_BUDGETS,
     observers: [StartObserver],

@@ -43,7 +43,6 @@ import {
   OrderWorkflowStart,
   ReceiptDto,
 } from "../infrastructure/fixtures/recovery.workflow.js";
-import { SqliteTestEnvironment } from "../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 const folder = mkdtempSync(join(tmpdir(), "agboss-storage-test-"));
@@ -125,7 +124,6 @@ describe("storage components", () => {
       name: "odd-storage-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
       budgets: TEST_BUDGETS,
       storage: OddStorage,
@@ -143,7 +141,6 @@ describe("storage components", () => {
       name: "memory-storage-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
       budgets: TEST_BUDGETS,
       storage: InMemoryDatabaseStorage,
@@ -190,7 +187,6 @@ describe("storage rules", () => {
       name: "services-storage-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
       budgets: TEST_BUDGETS,
       storage: FileDatabaseStorage,
@@ -206,7 +202,6 @@ describe("storage rules", () => {
       name: "conflict-storage-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
       budgets: TEST_BUDGETS,
       storage: FileDatabaseStorage,
@@ -222,7 +217,6 @@ describe("storage rules", () => {
       name: "retention-storage-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
       budgets: TEST_BUDGETS,
       storage: FileDatabaseStorage,
@@ -241,7 +235,6 @@ describe("storage rules", () => {
       name: "plain-storage-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
       budgets: TEST_BUDGETS,
       storage: Plain,
@@ -262,7 +255,6 @@ describe("storage rules", () => {
       name: "short-storage-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
       budgets: TEST_BUDGETS,
       storage: ShortStorage,
@@ -285,7 +277,6 @@ describe("storage rules", () => {
       name: "none-storage-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
       budgets: TEST_BUDGETS,
       storage: NoneStorage,
@@ -309,7 +300,6 @@ describe("storage rules", () => {
       name: "volatile-storage-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
       budgets: TEST_BUDGETS,
       storage: { database: InMemoryDatabaseStorage, cluster: AnyCluster },
@@ -334,7 +324,6 @@ describe("storage rules", () => {
       name: "shared-storage-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
       budgets: TEST_BUDGETS,
       storage: SharedStorage,
@@ -355,7 +344,6 @@ describe("storage rules", () => {
       name: "wrong-storage-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: SqliteTestEnvironment,
       workflows: [NoteWorkflow],
       budgets: TEST_BUDGETS,
       storage: WrongStorage,
@@ -432,20 +420,20 @@ describe("the storage's secrets", () => {
     const assembled = await applicationOf(KeyedApplication);
 
     expect(
-      applicationIdempotencyKeysOf(assembled, {} as never, {
+      applicationIdempotencyKeysOf(assembled, {
         STORAGE_TEST_IDEMPOTENCY: "one",
         STORAGE_TEST_PREVIOUS: "zero",
       }),
     ).toEqual({ fingerprintKeys: { current: "one", previous: "zero" } });
-    expect(
-      applicationIdempotencyKeysOf(assembled, {} as never, { STORAGE_TEST_IDEMPOTENCY: "one" }),
-    ).toEqual({ fingerprintKeys: { current: "one" } });
+    expect(applicationIdempotencyKeysOf(assembled, { STORAGE_TEST_IDEMPOTENCY: "one" })).toEqual({
+      fingerprintKeys: { current: "one" },
+    });
   });
 
   it("fail the start, naming the variable and never a value, when one is not set", async () => {
     const assembled = await applicationOf(KeyedApplication);
 
-    expect(() => applicationIdempotencyKeysOf(assembled, {} as never, {})).toThrow(
+    expect(() => applicationIdempotencyKeysOf(assembled, {})).toThrow(
       "STORAGE_TEST_IDEMPOTENCY is not set",
     );
   });
@@ -453,12 +441,10 @@ describe("the storage's secrets", () => {
   it("are the application's PII key", async () => {
     const assembled = await applicationOf(KeyedApplication);
 
-    expect(
-      applicationPiiKeyOf(assembled, {
-        environment: {} as never,
-        env: { STORAGE_TEST_PII: "pii" },
-      }),
-    ).toEqual({ key: "pii", isInstanceKey: false });
+    expect(applicationPiiKeyOf(assembled, { env: { STORAGE_TEST_PII: "pii" } })).toEqual({
+      key: "pii",
+      isInstanceKey: false,
+    });
   });
 });
 

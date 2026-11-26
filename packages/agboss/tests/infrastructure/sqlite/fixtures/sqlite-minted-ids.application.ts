@@ -1,16 +1,7 @@
-import {
-  SqliteCostLedgerRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-  SqliteRateLimitRepository,
-} from "../../../../src/index.js";
-import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { PlannedIdGenerator } from "../../fixtures/minted-ids.application.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import { NoteWorkflow } from "./sqlite.workflow.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
@@ -19,18 +10,9 @@ import { TestModelProvider } from "../../../../src/testing/test-model-provider.j
   name: "sqlite-planned-ids-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage(),
   workflows: [NoteWorkflow],
-  providers: [
-    PlannedIdGenerator,
-    SqliteExecutionLeaseRepository,
-    SqliteExecutionRecordRepository,
-    SqlitePausedExecutionRepository,
-    SqliteCheckpointSaver,
-    SqliteCostLedgerRepository,
-    SqliteExecutionTreeRepository,
-    SqliteRateLimitRepository,
-  ],
+  providers: [PlannedIdGenerator],
   budgets: TEST_BUDGETS,
 })
 export class SqlitePlannedIdsApplication {}

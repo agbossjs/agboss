@@ -3,7 +3,6 @@
  * when something tokenizes — the start fails with `[pii.secret-required]`, not a silent key.
  */
 import { describe, expect, it } from "vitest";
-import { unitEnvironmentOf } from "../../src/environments/resolve.js";
 import { secret } from "../../src/index.js";
 import {
   applicationPseudonymKeysOf,
@@ -13,7 +12,6 @@ import {
 const sourceOf = (more: Partial<ApplicationKeySource>): ApplicationKeySource => ({
   application: "pii-application",
   secret: secret.optional("OPTIONAL_PII_SECRET"),
-  environment: unitEnvironmentOf({}),
   env: {},
   tokenizing: [],
   ...more,

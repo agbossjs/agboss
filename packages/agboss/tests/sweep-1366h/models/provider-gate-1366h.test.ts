@@ -8,7 +8,6 @@
  * when nobody waits or a new one replaces it, and how many calls of a tenant are in flight.
  */
 import { describe, expect, it } from "vitest";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import {
@@ -29,8 +28,7 @@ const application = applicationContextOf({
   version: "1.0.0",
   instanceId: "instance-1",
   startedAt: new Date(0),
-  environmentName: "test",
-  environment: NO_ENVIRONMENT_VALUES,
+  profiles: ["test"],
 });
 
 /** The clock, with the signal of every sleep (a timer not stopped stays unaborted). */

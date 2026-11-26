@@ -12,7 +12,6 @@ import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { describe, expect, it } from "vitest";
 import {} from "../../src/app/lease-lost.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import {
   ExecutionLeaseRepository,
   InMemoryExecutionLeaseRepository,
@@ -32,8 +31,7 @@ function storesOn(database = new InMemoryDatabase(), clock = new VirtualClock())
     version: "1.0.0",
     instanceId: "instance-1",
     startedAt: clock.now(),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);

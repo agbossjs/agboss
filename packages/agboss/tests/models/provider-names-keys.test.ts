@@ -8,19 +8,12 @@ import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import {
-  NO_ENVIRONMENT_VALUES,
-  resolveEnvironment,
-  SecretResolution,
-} from "../../src/environments/resolve.js";
-import { Secret, secret } from "../../src/environments/secret.js";
 import { env } from "../../src/environments/env-readers.js";
 import { ModelProvider, OpenAiCompatibleDriver } from "../../src/models/index.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { providerBaseUrlOf, providerKeyOf } from "../../src/models/provider-environment.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { LocalWorkflow } from "./fixtures/resolution.workflow.js";
-import { KEYS } from "./gateway.js";
 import {
   driverOptionsOf,
   LocalModelProvider,
@@ -71,7 +64,7 @@ describe("#266 S73 c: provider names are kebab-case", () => {
 
 describe("#1313: a driver provider's key and base URL are references read from the process", () => {
   const openRouter = modelProviderOf(TestOpenRouterProvider);
-  const source = (env: NodeJS.ProcessEnv) => ({ environment: NO_ENVIRONMENT_VALUES, env });
+  const source = (env: NodeJS.ProcessEnv) => ({ env });
 
   it("secret(…) is read from its variable: the value, never a field of the environment", () => {
     expect(providerKeyOf(openRouter, source({ OPENROUTER_API_KEY: "k2" }), true)).toBe("k2");
@@ -101,21 +94,5 @@ describe("#1313: a driver provider's key and base URL are references read from t
       "http://stub.test/v1",
     );
     expect(() => providerBaseUrlOf(proxied, source({}))).toThrow(ConfigError.Environment);
-  });
-});
-
-describe("#266: resolving an environment's shape without its secrets", () => {
-  const loaded = { name: "dev", contract: "C", values: { key: secret("KEY"), url: env("URL") } };
-
-  it("Deferred keeps a secret whose variable is unset; other variables are still required", () => {
-    const shaped = resolveEnvironment(loaded, { URL: "http://u.test" }, SecretResolution.Deferred);
-
-    expect(Reflect.get(shaped, "key")).toBeInstanceOf(Secret);
-    expect(() => resolveEnvironment(loaded, {}, SecretResolution.Deferred)).toThrow(
-      "URL is not set (C.url, dev)",
-    );
-    expect(() => resolveEnvironment(loaded, { URL: "http://u.test" })).toThrow(
-      "KEY is not set (C.key, dev)",
-    );
   });
 });

@@ -8,7 +8,6 @@ import { describe, expect, it } from "vitest";
 import { executionLeasesOf } from "../../src/app/execution-leases.js";
 import { EXECUTION_LEASE, LEASE_SAFETY_MARGIN, RENEW_EVERY } from "../../src/app/lease-fence.js";
 import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import {
   InMemoryExecutionLeaseRepository,
@@ -36,8 +35,7 @@ class MarginRecordingLeaseRepository extends InMemoryExecutionLeaseRepository {
         version: "1.0.0",
         instanceId: "instance-1",
         startedAt: time.now(),
-        environmentName: "test",
-        environment: NO_ENVIRONMENT_VALUES,
+        profiles: ["test"],
       }),
       rows,
     );

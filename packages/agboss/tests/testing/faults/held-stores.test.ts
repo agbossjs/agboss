@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { depsOf } from "../../../src/components/container/container.js";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { InMemoryDatabase } from "../../../src/infrastructure/in-memory-database.js";
 import {
@@ -36,8 +35,7 @@ function heldLeases(database: InMemoryDatabase, instanceId: string): ExecutionLe
     version: "1.0.0",
     instanceId,
     startedAt: clock.now(),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
   const Concrete: unknown = Held;
   return new (Concrete as new (...args: unknown[]) => ExecutionLeaseRepository)(
@@ -279,8 +277,7 @@ describe("#1126: a hold after the store answered waits for a claim that found so
       version: "1.0.0",
       instanceId: "instance-1",
       startedAt: clock.now(),
-      environmentName: "test",
-      environment: NO_ENVIRONMENT_VALUES,
+      profiles: ["test"],
     });
     const Concrete: unknown = Held;
     return new (Concrete as new (...args: unknown[]) => InMemoryChildExecutionQueueRepository)(
