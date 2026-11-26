@@ -63,6 +63,8 @@ describe("an in-place reassignment", () => {
     expect(none?.pause).not.toHaveProperty("expiryBound");
     expect(none?.pause).not.toHaveProperty("remindAt");
     expect(unbound?.pause).toMatchObject({ expiresAt: T12 });
+    // a deadline with no assignees releases the pool too
+    expect(unbound?.pause).not.toHaveProperty("assignees");
     expect(unbound?.pause).not.toHaveProperty("expiryBound");
     expect(unbound?.pause).not.toHaveProperty("remindAt");
   });
