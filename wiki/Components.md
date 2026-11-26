@@ -59,9 +59,9 @@ Every component reads the same way, top to bottom:
 3. **The methods implement a contract**:
    - your own implementation → `implements` the contract (`ToolHandler<In, Out>` for `@Tool`,
      `ActionHandler<Self>` for `@Action`, `RouterHandler<Self>` for a code `@Router`
-     (`decidedBy: DecidedBy.Code`, [Routers](Routers#routers-decided-by-code)), `RagConnector` for `@Rag`, `JudgeHandler<TReply>` for `@Judge`,
+     (`decidedBy: DecidedBy.Code`, [Routers](Routers#routers-decided-by-code)), `JudgeHandler<TReply>` for `@Judge`,
      `BeforeToolCall` and / or `AfterToolCall` for a `@ToolInterceptor`, [Tools](Tools#tool-interceptors));
-   - extending a standard implementation → `extends` it (`SqliteFtsConnector`, `McpServerClient`) and
+   - extending a standard implementation → `extends` it (`RagSource` for `@Rag` — `retrieve` is its one abstract method, [Knowledge bases](Knowledge-bases); `SqliteFtsRagSource`, `McpServerClient`) and
      mark overridden methods `override` (`noImplicitOverride` is on).
 
    **The check is on the decorator line; `implements` is documentation** (#120 PR 4). Every contract
@@ -342,12 +342,15 @@ throws is the step's failure (`StepError.Action`, the original in `cause`), take
 ## An arbiter
 
 An `@Arbiter` (#279) decides whether one answer of a parallel launch counts for its quorum; it is
-attached in the flow with `.arbitratedBy(X)` and never chooses where to go. `decidedBy:
-DecidedBy.Model` — `model`, `prompt`, one `criteria` entry per agent of the launch;
-`DecidedBy.Code` — one `@OnAnswer(Agent) from<Agent>(answer: XDto): boolean` method per agent class
-(the plain answer; the copy or item through `deps: [ExecutionContext]`). No `…Handler` interface:
-`@OnAnswer(Agent)` types the method itself, so a wrong answer type, return type or an extra
-parameter does not compile; coverage is `[arbiter.unhandled-agent]` at assembly. The whole contract
+attached in the flow with `.arbitratedBy(X)` and never chooses where to go. There is no `decidedBy`:
+the class itself says how it decides. An empty class with `@Arbiter({ prompt, criteria, model? })` is
+a model arbiter — one `criteria` entry per agent of the launch. A class with `@Arbiter({ name?, deps? })`
+and one or more `@Arbitrate(AgentA, AgentB)` methods decides by code: the method takes the answer
+(the plain answer; the copy or item through `deps: [ExecutionContext]`) and returns
+`boolean | Promise<boolean>` (`true` counts the answer, `false` refuses it). With `ArbiterModel` in
+`deps` a method may also ask its own model (`this.arbiterModel.decide(…)` / `invoke(…)`). No
+`…Handler` interface: `@Arbitrate(…targets)` types the method itself, so a wrong answer type, return
+type or an extra parameter does not compile; coverage is `[arbiter.unhandled-agent]` at assembly. The whole contract
 is on [Parallel](Parallel#arbiters).
 
 ## The execution context

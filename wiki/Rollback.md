@@ -323,9 +323,9 @@ actions
 
 An execution that stops before a finish — an uncaught step failure, an uncaught limit
 (`LimitError.Budget`, `LimitError.Steps`, `LimitError.Visits`), `app.cancel`, a
-sibling's failure — undoes its open undoable actions, newest first,
+sibling branch's failure — undoes its open undoable actions, newest first,
 before it ends (#340 PR 3): `CompensationReason.ExecutionFailed` for a failure or a limit,
-`ExecutionCancelled` for a cancel or a `FailFast` abort. Each undo runs as a failed join's does
+`ExecutionCancelled` for a cancel or a sibling branch's failure (an uncaught failure of one branch of an `inParallel` cancels the branches still running, undoes the finished ones' open undo records and fails its `join`; `.joinQuorum({ min, … })` keeps waiting while `min` is still reachable). Each undo runs as a failed join's does
 (above): its own frame and key, the clean-up signal, no slot, no budget check. Where it happens:
 
 - **A child workflow** undoes its own actions in its parent's step, before its error reaches the

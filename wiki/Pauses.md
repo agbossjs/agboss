@@ -141,7 +141,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
   amount to halve is in `ask.arguments` — and what it gives is validated like a decision (the target's
   answer DTO: `ToolCallApprovalDecisionDto` for an `approves` role, `overrideInput` checked by
   the tool's input). Code downstream decides by types, never by the text.
-- **`DecidedBy.Model`** — a chat model answers through one answer tool of the target's answer DTO; its
+- **A model interpreter** (an empty class, `@ChannelInterpreter({ prompt, model? })`) — a chat model answers through one answer tool of the target's answer DTO; its
   static `prompt` are its instructions, the question and the reply come in the input
   message (`### ask` / `### reply`, #270 Q51). For a tool approval (#648) the answer tool describes
   `overrideInput` by the approved tool's input, every field optional: the fields the reply
@@ -182,10 +182,10 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
   agent's: a `tokenize()` value is a token for the model, its answer is revealed before it is
   validated (the tool gets the real value), a token no map knows is a decline (the pause stays
   `Pending`), a `block` value in them throws `PiiError.Refused`.
-- **`DecidedBy.Code`** — `implements ChannelInterpreterHandler<Self>`: `interpret(input:
+- **A code interpreter** (`@ChannelInterpreter({ deps? })`, no `prompt`, no `model`; `implements ChannelInterpreterHandler<Self>` is optional, the decorator checks the signature) — `interpret(input:
   InputOf<Self>)` returns its outcome (#267 S124 b), sync or as a promise —
   `ChannelInterpretation.understood(decision)` (`OutputOf<Self>`, validated like any decision) or
-  `ChannelInterpretation.notUnderstood({ reason })` for a reply it cannot read; a plain object does not
+  `ChannelInterpretation.notUnderstood(reason)` for a reply it cannot read; a plain object does not
   compile (the pattern of `ChannelOutcome` and `JudgeVerdict`). Typed by the generated
   `.agboss/types.d.ts`; `deps` like any component, created by the application's container. A `throw`
   is for an unexpected crash only: it is unreadable too, the thrown error its `cause`.
@@ -503,7 +503,7 @@ after a crash — finds the same `pauseId`:
 | `Pending`     | waiting; `isSent` once its channel's `send` returned                                     |
 | `Resolved`    | a resume recorded its decision (atomically, from `Pending` only); the holder takes it    |
 | `Taken`       | its step took the decision and went on — or its channel decided at once                  |
-| `Cancelled`   | closed with no answer: a sibling failed under `FailFast`, its launch's quorum was decided, the thread was cancelled, the tree ended, or the deadline passed with nobody answering |
+| `Cancelled`   | closed with no answer: a sibling branch failed, its launch's quorum was decided, the thread was cancelled, the tree ended, or the deadline passed with nobody answering |
 
 An answer to anything but `Pending` → `PauseError.Closed` (`pause.closed`: `pauseId`, `tenantId`,
 `reason: PauseClosedReason` — `answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`,
@@ -518,7 +518,7 @@ its answer (`answer: PauseAnswer` — the decision, who answered, what reading a
 | ----------------- | --------------------------------------------------------------------- | ----------- |
 | `Decided`         | its channel answered `ChannelOutcome.decided(…)` — the call never paused | `Taken`  |
 | `Replied`         | `awaitReply()`, then `app.resume` (a `decision` or a `reply`)          | `Resolved` → `Taken` |
-| `Withdrawn`       | a `FailFast` sibling failed, or its launch's quorum was decided, before an answer | `Cancelled` |
+| `Withdrawn`       | a sibling branch failed, or its launch's quorum was decided, before an answer | `Cancelled` |
 | `Cancelled`       | `app.cancel` before an answer                                          | `Cancelled` |
 | `TreeEnded`       | its tree finished or failed before an answer                           | `Cancelled` |
 | `Expired`         | its deadline passed and the channel did not decide (`PauseExpiration.fail()`, or no handler), or a run's deadline bound it | `Cancelled` |
@@ -583,7 +583,7 @@ grandchild's in its own record), masked like the execution record; the root's `r
 the whole tree's. A per-item launch whose children each pause gives each child's record its own
 entry (its `step.itemIndex` the child's item).
 
-**`FailFast` drops paused siblings** (#273 S21): a branch that fails cancels its launch, and its paused
+**A sibling branch's failure drops paused siblings** (#273 S21): a branch that fails cancels its launch, and its paused
 siblings' pauses are withdrawn — the tree goes on to the join (its `.onError(…)`, else the
 execution fails with the branch's error) instead of waiting for answers nobody needs. The join
 runs in the pass that takes the withdrawal, and it still gets the error object the branch threw:
@@ -595,7 +595,7 @@ throws (not cancelled) fails the asking agent's step: `StepError.Agent`, the cha
 `deadline` counts elapsed time on the application's `Clock`, pauses included ([Parallel](Parallel)).
 
 **A pause inside a child is its branch's** (#337): a pause records the launch branches it waits
-under — its own step and every step that launched one of its executions — so a `FailFast` failure
+under — its own step and every step that launched one of its executions — so a sibling branch's failure
 withdraws a sibling **child's** pause under `.forEachItem(toWorkflow(…), …)` too, at any depth, and the
 execution fails (or takes its `.onError(…)`) in the same call instead of resting paused.
 
