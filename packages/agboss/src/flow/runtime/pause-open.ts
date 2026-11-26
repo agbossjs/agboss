@@ -90,7 +90,6 @@ export async function openedPause(
   const hooks: OpeningHooks = {
     assignees,
     timeout,
-    maxTotalTimeout: target.escalationLimits?.maxTotalTimeout,
   };
   return pauses.findOrCreateByStepKey(
     await newRecordOf(frame, target, question, site.clock, add, remind, choose, hooks),

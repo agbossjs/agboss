@@ -184,7 +184,7 @@ async function addedReminderOf(
  */
 async function openingDeadlineOf(
   frame: FrameSpec,
-  hooks: OpeningHooks,
+  target: PauseTarget,
   expiresIn: TimeSpan | undefined,
   at: { readonly now: Date; readonly add: AddWorkingTime },
 ): Promise<{
@@ -193,7 +193,7 @@ async function openingDeadlineOf(
 }> {
   const own = await ownDeadlineOf(expiresIn, at.now, at.add);
   // the target's total-wait limit caps the pause's own wait, never the run's or a quorum's bound
-  const max = await ownDeadlineOf(hooks.maxTotalTimeout, at.now, at.add);
+  const max = await ownDeadlineOf(target.escalationLimits?.maxTotalTimeout, at.now, at.add);
   const isCapped = own !== undefined && max !== undefined && max < own;
   return { deadline: boundedDeadlineOf(frame, isCapped ? max : own), maxExpiresAt: max };
 }
@@ -205,7 +205,7 @@ async function openingTimesOf(
 ) {
   const { frame, target, hooks } = opened;
   const expiresIn = hooks.timeout ?? target.timeout;
-  const { deadline, maxExpiresAt } = await openingDeadlineOf(frame, hooks, expiresIn, at);
+  const { deadline, maxExpiresAt } = await openingDeadlineOf(frame, target, expiresIn, at);
   const spans = { expiresAt: deadline.expiresAt, expiresIn };
   const remindAt = await reminderOf(at.now, spans, target.remindBefore, at.add, at.remind);
   return { deadline, maxExpiresAt, remindAt };

@@ -29,8 +29,6 @@ export interface OpeningHooks {
   readonly assignees?: readonly string[] | undefined;
   /** `resolveTimeout`'s answer, checked; `undefined`: the target's own `timeout`. */
   readonly timeout?: TimeSpan | undefined;
-  /** The target's `escalationLimits.maxTotalTimeout`: no wait of this pause ends later than it, counted from its first asking. */
-  readonly maxTotalTimeout?: TimeSpan | undefined;
 }
 
 /** What the pause's record says of where and how it was asked: its frame's identity and its step. */

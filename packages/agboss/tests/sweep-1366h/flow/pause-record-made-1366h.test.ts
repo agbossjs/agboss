@@ -111,6 +111,47 @@ describe("#1366: the record a pause step makes", () => {
     expect(record.expiresAt).toBe(new Date(ASKED.getTime() + hours(2)).toISOString());
   });
 
+  it("materializes the limits from the target alone: a call with no hooks gets the cap and the counts together (#1307, Q-D)", async () => {
+    const target = {
+      ...targetOfChannel({ ...channel, expiresIn: hours(2) }),
+      escalationLimits: { maxExtensions: 3, maxReassignments: 0, maxTotalTimeout: hours(5) },
+    };
+
+    const record = await newRecordOf(
+      frameOf(stepOf("ask")),
+      target,
+      question,
+      new VirtualClock(ASKED),
+      noCalendar,
+    );
+
+    expect(record.firstAskedAt).toBe(ASKED.toISOString());
+    expect(record.maxExpiresAt).toBe(new Date(ASKED.getTime() + hours(5)).toISOString());
+    expect(record.escalationLimits).toEqual({ maxExtensions: 3, maxReassignments: 0 });
+    // the cap caps the pause's own wait when that is longer
+    const capped = await newRecordOf(
+      frameOf(stepOf("ask")),
+      { ...target, timeout: hours(9) },
+      question,
+      new VirtualClock(ASKED),
+      noCalendar,
+    );
+    expect(capped.expiresAt).toBe(record.maxExpiresAt);
+  });
+
+  it("a target with no limits makes a record with an empty escalationLimits and no maxExpiresAt", async () => {
+    const record = await newRecordOf(
+      frameOf(stepOf("ask")),
+      targetOfChannel(channel),
+      question,
+      new VirtualClock(ASKED),
+      noCalendar,
+    );
+
+    expect(record.escalationLimits).toEqual({});
+    expect("maxExpiresAt" in record).toBe(false);
+  });
+
   it("lists only its own branch key for a step of a root execution", async () => {
     const record = await newRecordOf(
       frameOf(stepOf("ask")),
