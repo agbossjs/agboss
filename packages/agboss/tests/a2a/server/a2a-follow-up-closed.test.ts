@@ -110,6 +110,33 @@ describe("#939 AC4: a follow-up to a closed pause", () => {
       });
     });
 
+  for (const [name, closedAt] of [
+    ["no closedAt", undefined],
+    ["a closedAt of no instant", new Date(Number.NaN)],
+  ] as const)
+    it(`${name}: still -32004 a2a.pause-closed with its reason, and no closedAt on the wire (never a RangeError)`, async () => {
+      const { parts } = await setUp(
+        scriptOf({
+          state: { status: DurableExecutionStatus.Paused, pending: [{ pauseId: "p-1" }] } as never,
+          runError: new PauseError.Closed({
+            pauseId: "p-1",
+            tenantId: "acme",
+            reason: PauseClosedReason.Expired,
+            ...(closedAt === undefined ? {} : { closedAt }),
+          }),
+        }),
+      );
+
+      const refused = await refusedWith(followedUpTask(parts, callerOf(), decide("f-9")));
+
+      expect(refused).toMatchObject({
+        name: "UnsupportedOperationError",
+        message: TEXT[PauseClosedReason.Expired],
+        metadata: { code: "a2a.pause-closed", reason: PauseClosedReason.Expired },
+      });
+      expect(refused.metadata).not.toHaveProperty("closedAt");
+    });
+
   it("a resend of a refused follow-up replays the same refusal, resuming nothing again", async () => {
     const script = refusing(PauseClosedReason.Cancelled);
     const { parts } = await setUp(script);

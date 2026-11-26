@@ -4,6 +4,7 @@
  * to throw while it is made.
  */
 import { describe, expect, it } from "vitest";
+import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import { StepError } from "../../src/core/error-families/step-errors.js";
 import { PauseClosedReason, pauseKeyOf } from "../../src/infrastructure/pause-record.js";
@@ -40,7 +41,7 @@ describe("#1307: a Date fact of an error", () => {
     expect(error.message).toContain("at an unknown time");
   });
 
-  it("an invalid Date never makes the error throw: no detail of it, the message says unknown", () => {
+  it("a Date of no instant never makes the error throw: details and message show the fact", () => {
     const error = new PauseError.Closed({
       pauseId: "p-1",
       tenantId: "acme",
@@ -48,8 +49,8 @@ describe("#1307: a Date fact of an error", () => {
       closedAt: new Date(Number.NaN),
     });
 
-    expect(error.details).not.toHaveProperty("closedAt");
-    expect(error.message).toContain("at an unknown time");
+    expect(error.details).toMatchObject({ closedAt: "an invalid time" });
+    expect(error.message).toContain("at an invalid time");
   });
 
   it("StepError.PauseExpired: expiresAt is the Date given; details and message say the ISO text", () => {
@@ -60,14 +61,27 @@ describe("#1307: a Date fact of an error", () => {
     expect(error.message).toBe("ask: its pause on desk expired at 2026-01-05T09:00:00.000Z");
   });
 
-  it("StepError.PauseExpired with an invalid Date: the message names no time", () => {
+  it("StepError.PauseExpired with a Date of no instant: the message and details say so", () => {
     const error = new StepError.PauseExpired({
       step: "ask",
       target: "desk",
       expiresAt: new Date(Number.NaN),
     });
 
-    expect(error.details).not.toHaveProperty("expiresAt");
-    expect(error.message).toBe("ask: its pause on desk expired at ");
+    expect(error.details).toMatchObject({ expiresAt: "an invalid time" });
+    expect(error.message).toBe("ask: its pause on desk expired at an invalid time");
+  });
+
+  it("LimitError.Deadline: deadlineAt is the Date given; details and message say the ISO text (the same pause expiry reaches .onError with a Date either way)", () => {
+    const error = new LimitError.Deadline({
+      deadline: 30_000 as never,
+      deadlineAt: AT,
+      path: ["start"],
+      spentUsd: 0 as never,
+    });
+
+    expect(error.deadlineAt).toBe(AT);
+    expect(error.details).toMatchObject({ deadlineAt: "2026-01-05T09:00:00.000Z" });
+    expect(error.message).toContain("(at 2026-01-05T09:00:00.000Z)");
   });
 });

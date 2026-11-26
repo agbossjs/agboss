@@ -1,11 +1,12 @@
+import { timeText } from "./time-text.js";
 import type { AGBossErrorOptions, ErrorDetails } from "../errors.js";
 import type { VariantCommon, VariantSpec } from "./family.js";
 
 /** Plain JSON facts only (a text, a number, a boolean, a list of them): what a record keeps. */
 function detailsOf(facts: Readonly<Record<string, unknown>>): ErrorDetails {
   // a `Date` fact is an ISO 8601 text on the record (G3: dates in memory, texts on the wire)
-  const asText = (value: unknown): unknown =>
-    value instanceof Date && !Number.isNaN(value.getTime()) ? value.toISOString() : value;
+  // a `Date` fact is an ISO 8601 text on the record (G3: dates in memory, texts on the wire); one of no instant is shown as such
+  const asText = (value: unknown): unknown => (value instanceof Date ? timeText(value, "") : value);
   const isPlain = (value: unknown): boolean =>
     value === null || ["string", "number", "boolean"].includes(typeof value);
   return Object.fromEntries(
