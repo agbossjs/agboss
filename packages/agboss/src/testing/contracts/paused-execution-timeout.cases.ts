@@ -187,4 +187,30 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
       });
     },
   },
+  {
+    name: "a timeout change stores the reminder it is given, and clears the old one when it is given none (#1307)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+      const remindAt = "2026-01-05T09:55:00.000Z";
+      const change = async (expiresAt: string, previousExpiresAt: string, remind?: string) =>
+        second.changeTimeoutByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          await withSeen(second, "pause-a", {
+            expiresAt,
+            previousExpiresAt,
+            ...(remind === undefined ? {} : { remindAt: remind }),
+          }),
+          MID,
+          R,
+        );
+
+      expect((await change(EARLIER, FROM, remindAt))?.remindAt).toBe(remindAt);
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.remindAt).toBe(remindAt);
+      expect((await change(LATER, EARLIER))?.remindAt).toBeUndefined();
+      expect(
+        (await first.findByTenantIdAndPauseId("default", "pause-a"))?.remindAt,
+      ).toBeUndefined();
+    },
+  },
 ];

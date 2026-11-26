@@ -707,6 +707,38 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     },
   ],
   [
+    race("a timeout change stores the reminder"),
+    "the reminder is never stored",
+    {
+      extend: (pause, change, at, recipients) => {
+        const planned = timeoutChange(pause, change, at, recipients);
+        return planned === undefined
+          ? undefined
+          : { ...planned, pause: { ...planned.pause, remindAt: undefined } };
+      },
+    },
+  ],
+  [
+    race("a timeout change stores the reminder"),
+    "the old reminder is kept when none is given",
+    {
+      extend: (pause, change, at, recipients) => {
+        const planned = timeoutChange(pause, change, at, recipients);
+        return planned === undefined
+          ? undefined
+          : {
+              ...planned,
+              pause: { ...planned.pause, remindAt: change.remindAt ?? pause.remindAt },
+            };
+      },
+    },
+  ],
+  [
+    race("a timeout change stores the reminder"),
+    "a lookup finds nothing",
+    { found: () => undefined },
+  ],
+  [
     race("a pause with no deadline"),
     "a pause with no deadline is never changed",
     {
