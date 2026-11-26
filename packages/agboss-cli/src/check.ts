@@ -110,7 +110,7 @@ async function reportAndCheck(
   selected: readonly ApplicationCheck[],
 ): Promise<CheckedApplication> {
   const { context } = target;
-  const report = checkReportOf(target.assembled);
+  const report = checkReportOf(target.assembled, context.io.env);
   [...report.lines, ""].forEach(context.say);
   const problems = await problemsAfterAssembly(
     {

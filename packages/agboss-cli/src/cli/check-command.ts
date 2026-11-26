@@ -18,7 +18,10 @@ export const CHECK_COMMAND: CommandSpec = {
       "federation",
       "also check the declared contracts against the neighbours' snapshots, no network",
     ),
-    flag("strict", "the analyser's warnings are errors ([flow.path-too-deep], …)"),
+    flag(
+      "strict",
+      "the analyser's warnings are errors ([flow.path-too-deep], …), and a required variable the process does not set fails (a secret's only with --models)",
+    ),
     flag("prompts", "prompts: files exist, every {{variable}} is known — always checked"),
     PROFILE,
   ],

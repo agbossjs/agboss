@@ -25,7 +25,7 @@ export interface StartReport {
 
 /** The process variables the application's components read, as data. */
 export interface VariablesReport {
-  readonly variables: readonly ProcessVariable[];
+  readonly variables: readonly (ProcessVariable & { readonly isSet: boolean })[];
 }
 
 /** What `agboss check` reports besides its problems. */
@@ -40,9 +40,10 @@ export interface CheckReport {
 }
 
 /** How a variable is needed: required, with a default, or optional (`env.optional`, #266 S90). */
-const presenceLabel = (found: ProcessVariable): string => {
+const presenceLabel = (found: VariablesReport["variables"][number]): string => {
   if (found.optional) return ", optional";
-  return found.required ? "" : ", has a default";
+  if (found.required) return found.isSet ? "" : ", not set";
+  return ", has a default";
 };
 
 /** `the application needs 3 process variables:`, then one aligned line per variable. */
@@ -59,13 +60,19 @@ function variableLines(report: VariablesReport): readonly string[] {
 }
 
 /** The check report of an assembled application. */
-export function checkReportOf(assembled: AssembledApplication): CheckReport {
+export function checkReportOf(
+  assembled: AssembledApplication,
+  env: NodeJS.ProcessEnv = {},
+): CheckReport {
   const title = `${assembled.name} ${assembled.version}${assembled.profiles.length === 0 ? "" : `, profiles ${assembled.profiles.join("+")}`}`;
   const cases = assembled.workflows.flatMap((workflow) => {
     const limits = describedLimitsOf(workflow);
     return limits.worstCases.map((worst) => ({ worst, limits: worstCaseLimitsOf(limits) }));
   });
-  const variables = referencedVariablesOf(assembled);
+  const variables = referencedVariablesOf(assembled).map((found) => ({
+    ...found,
+    isSet: (env[found.variable] ?? "") !== "",
+  }));
   const environment = variables.length === 0 ? undefined : { variables };
   const lines = [
     title,

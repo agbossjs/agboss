@@ -1,3 +1,4 @@
+import { envOfProcess } from "../environments/define-env.js";
 import { startComponents, stopComponents } from "../components/container/lifecycle.js";
 import type { Class } from "../components/injection.js";
 import type { ExecutionHistoryRepository } from "../infrastructure/execution-history.repository.js";
@@ -41,8 +42,14 @@ export async function openExecutionHistory(
   const contexts = contextsOf(assembled, options, {}, clock);
   const storage = resolvedStorageOf(assembled.storage, processEnv);
   const sources = { modules: assembled.modules, clock, contexts, storage };
-  const shared = applicationContainerOf(sources, { onCreate });
-  const { executionHistory } = resolveInfrastructure(shared, { application: shared, onCreate });
+  // the same process for the storage's references and for `deps: [appEnv]`
+  const envOf = envOfProcess(processEnv);
+  const shared = applicationContainerOf(sources, { onCreate, envOf });
+  const { executionHistory } = resolveInfrastructure(shared, {
+    application: shared,
+    onCreate,
+    envOf,
+  });
   await startComponents(created);
   return {
     application: assembled.name,

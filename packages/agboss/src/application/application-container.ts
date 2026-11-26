@@ -37,6 +37,7 @@ import { containerProvidersOf } from "../models/resolution.js";
 import { settingsEntriesOf, type ResolvedStorage } from "../storage/settings.js";
 import { resolvedStorageOfOptions } from "../storage/storage-fields.js";
 import { attachedBudgetsOf, budgetsOfApplication } from "../budgets/budget-rules.js";
+import { envOfProcess } from "../environments/define-env.js";
 import { applicationDeclarationOf, applicationsListing } from "./application.js";
 
 /** What the shared container of an application instance is built from besides its providers. */
@@ -248,7 +249,9 @@ export function standaloneApplicationOf(
   onCreate?: (instance: unknown) => void,
 ): { readonly application: ApplicationContainer; readonly infrastructure: Infrastructure } {
   const modules = [applicationProvidersOf(bundle)];
-  const container = onCreate === undefined ? {} : { onCreate };
+  // the same process for the storage's references and for `deps: [appEnv]` (the default is the real one)
+  const envOf = envOfProcess(options.processEnv);
+  const container = onCreate === undefined ? { envOf } : { envOf, onCreate };
   const clock = clockOf(modules, container);
   const storage = resolvedStorageOfOptions(
     listingApplicationOf(bundle)?.options.storage,
