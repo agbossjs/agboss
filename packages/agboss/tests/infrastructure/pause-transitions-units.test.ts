@@ -584,7 +584,7 @@ describe("#1307: the reassignment a first send owes its channel (inFirstSendNoti
     const tripled = changedInPlace({
       trail: [
         entry("opened"),
-        { ...entry("opened"), action: "timeout-changed" as never },
+        { ...entry("opened"), action: "timeout-changed" },
         entry("reassigned", { at: T9 }),
       ],
     });
