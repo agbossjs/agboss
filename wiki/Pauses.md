@@ -24,18 +24,18 @@ in the same pass (a paused branch frees its `maxConcurrency` slot), and the exec
 when nothing else can move — the join waits only for the paused ones. `result.pending` lists every
 waiting pause, one `PendingPause` each:
 
-| Field              | What it is                                                                             |
-| ------------------ | -------------------------------------------------------------------------------------- |
-| `kind`             | `PauseKind.Approval` (a tool call) or `PauseKind.ExternalTask` (an external task's step, #659) |
-| `pauseId`          | what `app.resume` takes — only for a `PauseRespondent.Owner` pause (below)         |
-| `respondent`       | who may answer it: `PauseRespondent.Owner` or `PauseRespondent.Delegate` (its target's); who answered is `actor` (a `PauseActor`, #1307) |
+| Field                       | What it is                                                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `kind`                      | `PauseKind.Approval` (a tool call) or `PauseKind.ExternalTask` (an external task's step, #659)                                                                                       |
+| `pauseId`                   | what `app.resume` takes — only for a `PauseRespondent.Owner` pause (below)                                                                                                           |
+| `respondent`                | who may answer it: `PauseRespondent.Owner` or `PauseRespondent.Delegate` (its target's); who answered is `actor` (a `PauseActor`, #1307)                                             |
 | `step`, `target`, `channel` | the step that asks — the agent whose tool call waits, or the external task's step —, the pause target it waits under, and the channel asked (absent for an owner's target with none) |
-| `itemIndex`        | the item of a per-item launch it waits in — no copy of the item                        |
-| `childExecutionId` | the child execution it waits in ([Workflow as a step](Workflow-as-a-step#at-run-time)); `undefined` in the root |
-| `input`            | what it asks: an approval's tool arguments, or an external task's input, as `Readonly<Record<string, unknown>>`; `sensitive` fields masked |
-| `toolCall`         | an approval only: the call it waits on, `{ callId, tool, summary? }` |
-| `assignees`, `externalRef` | who it is for (a 1-of-N pool), and the id its channel's system gave it (a ticket key) |
-| `trail`            | its chain of custody, newest last: `opened`, then one entry per reassignment (who, when, to whom, why) |
+| `itemIndex`                 | the item of a per-item launch it waits in — no copy of the item                                                                                                                      |
+| `childExecutionId`          | the child execution it waits in ([Workflow as a step](Workflow-as-a-step#at-run-time)); `undefined` in the root                                                                      |
+| `input`                     | what it asks: an approval's tool arguments, or an external task's input, as `Readonly<Record<string, unknown>>`; `sensitive` fields masked                                           |
+| `toolCall`                  | an approval only: the call it waits on, `{ callId, tool, summary? }`                                                                                                                 |
+| `assignees`, `externalRef`  | who it is for (a 1-of-N pool), and the id its channel's system gave it (a ticket key)                                                                                                |
+| `trail`                     | its chain of custody, newest last: `opened`, then one entry per reassignment (who, when, to whom, why)                                                                               |
 
 The fields every kind has are `PendingPauseBase`; `PendingPause` is `PendingApproval |
 PendingQuestion`, told apart by `kind`. Narrow on `kind` before reading `toolCall`: only an approval has one;
@@ -90,7 +90,7 @@ console.log(result.threadId, result.executionId, result.pending.length);
   tool) — else `ValidationError.DtoInvalid` and the pause keeps waiting. The same check applies to a
   channel's `ChannelOutcome.decided(…)` (the step fails). Approved → the tool runs once (with the
   `overrideInput`, if given); rejected → the model reads `Tool error: the call was rejected by
-  <who answered>[: <reason>]`.
+<who answered>[: <reason>]`.
 - `app.cancel(threadId)` stays by thread — a conversation is cancelled, not a pause: its pauses are
   withdrawn.
 
@@ -135,7 +135,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
 ```
 
 - **Exactly one of `decision` or `reply`** — by types (`ResumeRequest = DecisionResumeRequest |
-  ReplyResumeRequest`) and at run time: both, or an empty `reply`, is `ValidationError.DtoInvalid` before the
+ReplyResumeRequest`) and at run time: both, or an empty `reply`, is `ValidationError.DtoInvalid` before the
   pause is looked up. The credential (`ownerId` / `actor`) is checked as for a decision.
 - **The interpreter gets the pause's original question and the reply** — `{ ask, reply }`, where the
   amount to halve is in `ask.arguments` — and what it gives is validated like a decision (the target's
@@ -151,7 +151,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
   `@agboss/core/dto`) for a reply that does not answer ("🤷", off topic): never a refusal — the pause
   stays `Pending`, `PauseError.UninterpretableReply.reason` is "the reply does not answer the question:
   <its reason>", as a code interpreter's `notUnderstood`. One call per move (`parallel_tool_calls:
-  false`); a "not understood" call wins over an answer beside it. The framework's instructions
+false`); a "not understood" call wins over an answer beside it. The framework's instructions
   and tools (#688) make a one-line `prompt` enough on a cheap model: for a tool approval the
   answer tool names three decisions — `approve` (the call as it is: a plain yes, or a limit at or
   above the call's value; a correction beside it is dropped), `approve-with-changes` (with
@@ -183,7 +183,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
   validated (the tool gets the real value), a token no map knows is a decline (the pause stays
   `Pending`), a `block` value in them throws `PiiError.Refused`.
 - **A code interpreter** (`@ChannelInterpreter({ deps? })`, no `prompt`, no `model`; `implements ChannelInterpreterHandler<Self>` is optional, the decorator checks the signature) — `interpret(input:
-  InputOf<Self>)` returns its outcome (#267 S124 b), sync or as a promise —
+InputOf<Self>)` returns its outcome (#267 S124 b), sync or as a promise —
   `ChannelInterpretation.understood(decision)` (`OutputOf<Self>`, validated like any decision) or
   `ChannelInterpretation.notUnderstood(reason)` for a reply it cannot read; a plain object does not
   compile (the pattern of `ChannelOutcome` and `JudgeVerdict`). Typed by the generated
@@ -367,6 +367,7 @@ call as asked (`asked`) beside the call as it ran (`decision`).
 <!-- snippet-context
 import { ToolCallDecision, ToolInterceptor, type ToolCallContext } from "@agboss/core";
 -->
+
 ```ts
 @ToolInterceptor({
   name: "payout-limit-tool-interceptor",
@@ -469,15 +470,15 @@ it calls it like any tool, and:
 ## Who may answer
 
 `@ToolApproval({ …, respondent })` and `@ExternalTask({ …, respondent })` require it (no default): a forgotten value must not let a customer
-approve their own refund. One meaning per name (#934): **`respondent` is who *may* answer**
-(`PauseRespondent`), **`actor` is who *did*** — the person, a string, in `app.resume`'s options, on a
+approve their own refund. One meaning per name (#934): **`respondent` is who _may_ answer**
+(`PauseRespondent`), **`actor` is who _did_** — the person, a string, in `app.resume`'s options, on a
 pause's answer and in the audit trail. A target names its `respondent`; 0.1.0's `PauseAnswerer.ThreadOwner` / `.Channel`
 are `PauseRespondent.Owner` / `.Delegate` (#1307).
 
-| `respondent`                   | `resume` takes                                    | Its `pauseId`                                       |
-| ---------------------------- | ------------------------------------------------- | --------------------------------------------------- |
-| `PauseRespondent.Owner`  | the thread's `ownerId` (another → `ExecutionError.ThreadOwnerMismatch`) | listed in `result.pending`                      |
-| `PauseRespondent.Delegate`      | `actor: { id: "manager-17" }` — non-empty            | only in the channel's `ask.pauseId`                 |
+| `respondent`               | `resume` takes                                                          | Its `pauseId`                       |
+| -------------------------- | ----------------------------------------------------------------------- | ----------------------------------- |
+| `PauseRespondent.Owner`    | the thread's `ownerId` (another → `ExecutionError.ThreadOwnerMismatch`) | listed in `result.pending`          |
+| `PauseRespondent.Delegate` | `actor: { id: "manager-17" }` — non-empty                               | only in the channel's `ask.pauseId` |
 
 The channel's side authenticates who answers a `Channel` pause (Slack, a ticket system, an admin
 panel already knows the manager); the framework adds no permission model of its own — it checks that
@@ -498,11 +499,11 @@ Every pause is a record of the application's `PausedExecutionRepository`
 by the waiting step's idempotency key, so a step re-entered — after a sibling's answer, or a retry
 after a crash — finds the same `pauseId`:
 
-| `PauseStatus` | Means                                                                                    |
-| ------------- | ---------------------------------------------------------------------------------------- |
-| `Pending`     | waiting; `isSent` once its channel's `send` returned                                     |
-| `Resolved`    | a resume recorded its decision (atomically, from `Pending` only); the holder takes it    |
-| `Taken`       | its step took the decision and went on — or its channel decided at once                  |
+| `PauseStatus` | Means                                                                                                                                                                   |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Pending`     | waiting; `isSent` once its channel's `send` returned                                                                                                                    |
+| `Resolved`    | a resume recorded its decision (atomically, from `Pending` only); the holder takes it                                                                                   |
+| `Taken`       | its step took the decision and went on — or its channel decided at once                                                                                                 |
 | `Cancelled`   | closed with no answer: a sibling branch failed, its launch's quorum was decided, the thread was cancelled, the tree ended, or the deadline passed with nobody answering |
 
 An answer to anything but `Pending` → `PauseError.Closed` (`pause.closed`: `pauseId`, `tenantId`,
@@ -514,16 +515,16 @@ the thread-level paths only. Over [A2A](A2A) the same refusal is `-32004` with `
 its answer (`answer: PauseAnswer` — the decision, who answered, what reading a reply cost) and when
 (`askedAt`, `resolvedAt`, on the application's `Clock`):
 
-| `PauseResolution` | How                                                                   | Status      |
-| ----------------- | --------------------------------------------------------------------- | ----------- |
-| `Decided`         | its channel answered `ChannelOutcome.decided(…)` — the call never paused | `Taken`  |
-| `Replied`         | `awaitReply()`, then `app.resume` (a `decision` or a `reply`)          | `Resolved` → `Taken` |
-| `Withdrawn`       | a sibling branch failed, or its launch's quorum was decided, before an answer | `Cancelled` |
-| `Cancelled`       | `app.cancel` before an answer                                          | `Cancelled` |
-| `TreeEnded`       | its tree finished or failed before an answer                           | `Cancelled` |
-| `Expired`         | its deadline passed and the channel did not decide (`PauseExpiration.fail()`, or no handler), or a run's deadline bound it | `Cancelled` |
-| `DecidedOnExpiry` | its deadline passed and the channel decided (`PauseExpiration.decide(…)`) — [A deadline for the answer](#a-deadline-for-the-answer-941) | `Resolved` → `Taken` |
-| `Reassigned`      | the pause was moved to another addressee (`app.reassignPause`, [Reassigning a pause](#reassigning-a-pause-to-someone-else-946)); its replacement waits on | `Cancelled` |
+| `PauseResolution` | How                                                                                                                                                       | Status               |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `Decided`         | its channel answered `ChannelOutcome.decided(…)` — the call never paused                                                                                  | `Taken`              |
+| `Replied`         | `awaitReply()`, then `app.resume` (a `decision` or a `reply`)                                                                                             | `Resolved` → `Taken` |
+| `Withdrawn`       | a sibling branch failed, or its launch's quorum was decided, before an answer                                                                             | `Cancelled`          |
+| `Cancelled`       | `app.cancel` before an answer                                                                                                                             | `Cancelled`          |
+| `TreeEnded`       | its tree finished or failed before an answer                                                                                                              | `Cancelled`          |
+| `Expired`         | its deadline passed and the channel did not decide (`PauseExpiration.fail()`, or no handler), or a run's deadline bound it                                | `Cancelled`          |
+| `DecidedOnExpiry` | its deadline passed and the channel decided (`PauseExpiration.decide(…)`) — [A deadline for the answer](#a-deadline-for-the-answer-941)                   | `Resolved` → `Taken` |
+| `Reassigned`      | the pause was moved to another addressee (`app.reassignPause`, [Reassigning a pause](#reassigning-a-pause-to-someone-else-946)); its replacement waits on | `Cancelled`          |
 
 What a caller of `app.resume` is told for a pause that is closed is the same list as `PauseClosedReason`:
 `answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`, `reassigned` — a pause whose deadline
@@ -539,7 +540,7 @@ removed by the [recovery sweep](Several-instances#recovery) (every 30 s, on the 
 failed or cancelled — its stored paused run is removed (only that run's, never a later run of the
 thread) and every pause it still has is closed: a waiting one `Cancelled` (`PauseResolution.Cancelled`,
 after an `app.cancel`) or `TreeEnded`; a `Resolved` one — an answer no step consumed, a cancel won
-over it — closed *not taken*: its answer and who gave it are kept and the answer log says so. A step
+over it — closed _not taken_: its answer and who gave it are kept and the answer log says so. A step
 marks its answer `Taken` the moment it consumes it, before it acts, so an answer whose tool ran stays
 `Taken` whatever fails after, and a pass that is stopped takes nothing. The sweep removes closed
 records after the retention like any other, writing a missing log entry first (#939, #910); before,
@@ -555,17 +556,17 @@ under a run that is gone.
 ([Observability → the execution record](Observability)); its `pauses` are the audit trail — every
 resolved pause of the tree, in the order they were asked:
 
-| Field                    | What it is                                                                     |
-| ------------------------ | ------------------------------------------------------------------------------ |
-| `pauseId`                | its id — `undefined` for a `PauseRespondent.Delegate` pause (only its channel has it) |
-| `executionId`            | the execution it waited in: the root's, or a child's (#267 S124)               |
-| `step`                   | the waiting step: agent (its `ComponentRecord`), node, visit, copy, item, tool call, the loop's `toolLoopIteration` and `validationAttempts` (`StepRecord`, #268) |
-| `target`, `respondent`       | the channel asked and who may answer                                           |
-| `actor`             | who answered — the person: the `ownerId` / `actor` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled (0.1.0's `responder` alias is gone, #1307d) |
-| `resolution`             | `PauseResolution`                                                              |
-| `askedAt`, `resolvedAt`  | ISO 8601, the application's `Clock`                                            |
-| `decision`               | what was decided, masked by the application's PII policies; `undefined` when withdrawn or cancelled |
-| `asked`                  | what was asked, masked (#688): an approval's call as the agent made it — its tool and own arguments, before any correction a reply made — or a question's ask; beside `decision` it makes every change auditable |
+| Field                   | What it is                                                                                                                                                                                                       |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pauseId`               | its id — `undefined` for a `PauseRespondent.Delegate` pause (only its channel has it)                                                                                                                            |
+| `executionId`           | the execution it waited in: the root's, or a child's (#267 S124)                                                                                                                                                 |
+| `step`                  | the waiting step: agent (its `ComponentRecord`), node, visit, copy, item, tool call, the loop's `toolLoopIteration` and `validationAttempts` (`StepRecord`, #268)                                                |
+| `target`, `respondent`  | the channel asked and who may answer                                                                                                                                                                             |
+| `actor`                 | who answered — the person: the `ownerId` / `actor` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled (0.1.0's `responder` alias is gone, #1307d)                                         |
+| `resolution`            | `PauseResolution`                                                                                                                                                                                                |
+| `askedAt`, `resolvedAt` | ISO 8601, the application's `Clock`                                                                                                                                                                              |
+| `decision`              | what was decided, masked by the application's PII policies; `undefined` when withdrawn or cancelled                                                                                                              |
+| `asked`                 | what was asked, masked (#688): an approval's call as the agent made it — its tool and own arguments, before any correction a reply made — or a question's ask; beside `decision` it makes every change auditable |
 
 The list is the permanent history: each entry is written when its pause is resolved — answered,
 decided at once, withdrawn or cancelled — into the execution records
@@ -1258,12 +1259,13 @@ retention keeps a reassigned pause while its replacement is stored: the step's i
 
 ## List and watch pauses
 
-`app.listPauses({ tenantId, status?, target?, expiringBefore?, limit?, after? })` is an operator's queue of one
-tenant's pauses ([App](App#applistpauses-tenantid-status-target-expiringbefore-limit-after-943)): by default
-the `Pending` ones, by channel name (`target`) and by deadline, 100 a page, each pause exactly once across
-pages even while others open and close. A pause shows its `pauseKey` always and its `pauseId` only when the
-thread's owner answers it; its `ask` is masked by its workflow's policies; a closed one carries `reason`,
-`closedAt` and who answered. "What expires in the next hour":
+`app.listPauses({ tenantId | allTenants, status?, target?, channel?, assignee?, externalRef?, expiringBefore?, includePauseIds?, limit?, cursor? })`
+is an operator's queue of pauses, `Page<ListedPause>` ([App](App#applistpauses-tenantid--alltenants-status-target-channel-assignee-externalref-expiringbefore-includepauseids-limit-cursor-943-1307)):
+by default one tenant's `Pending` ones, by target (a class or its name), assignee, external reference and deadline,
+100 a page, each pause exactly once across pages even while others open and close. A pause shows its `pauseKey`
+and `tenantId` always and its `pauseId` only when `includePauseIds: true` is asked (default `false`: the id of
+any pause is the right to answer it; the thread's owner reads his from `result.pending`); its `input` is masked by its workflow's policies; a
+closed one carries `reason`, `closedAt` and who answered. "What expires in the next hour":
 `app.listPauses({ tenantId, expiringBefore: new Date(Date.now() + 3600e3) })`.
 
 The instance's meter counts them ([Metrics](Metrics)): `agboss.instance.pauses.opened`, `.closed` by
@@ -1424,7 +1426,7 @@ try {
 - **The reply is not read** — the check comes before a reply's interpreter is called, so a late reply
   costs no model call.
 - **A recorded answer can still lose.** When an answer was recorded and then the run ended first (a
-  cancel, the tree's end), nobody applied it: the pause closes *not taken*, the answer and who gave
+  cancel, the tree's end), nobody applied it: the pause closes _not taken_, the answer and who gave
   it stay in the audit trail, and the channel's optional `onPauseAnswerNotTaken(event)` is told
   ([Telling the channel and the listeners](#telling-the-channel-and-the-listeners-940)). Another answer
   to such a pause is refused `answered`: one answer was recorded already.

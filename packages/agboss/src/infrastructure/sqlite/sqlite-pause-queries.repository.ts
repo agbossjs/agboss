@@ -9,7 +9,7 @@ import type {
   SetAsideMailbox,
 } from "../pause-notices.js";
 import type { PauseRecord } from "../pause-record.js";
-import { assertPauseFilter, assertScanLimit, seqOfCursor } from "../pause-scans.js";
+import { assertListing, assertScanLimit, seqOfCursor } from "../pause-scans.js";
 import { SqlitePausedRunRepository } from "./sqlite-paused-runs.repository.js";
 
 /**
@@ -55,9 +55,17 @@ export abstract class SqlitePauseQueryRepository extends SqlitePausedRunReposito
     limit: number,
     after?: string,
   ): Promise<PausePage> {
-    assertScanLimit(limit);
-    assertPauseFilter(filter);
+    assertListing(filter, limit);
     return Promise.resolve(this.scans.ofTenant(tenantId, filter, seqOfCursor(after), limit));
+  }
+
+  async findPageOfAllTenants(
+    filter: PauseFilter,
+    limit: number,
+    after?: string,
+  ): Promise<PausePage> {
+    assertListing(filter, limit);
+    return Promise.resolve(this.scans.ofAllTenants(filter, seqOfCursor(after), limit));
   }
 
   async findClosedByResolvedAtBefore(

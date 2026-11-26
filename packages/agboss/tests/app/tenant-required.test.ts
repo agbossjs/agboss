@@ -11,6 +11,8 @@ import {
   ExecutionHistoryStatus,
   type ExecutionHistoryRecord,
 } from "../../src/infrastructure/execution-history.repository.js";
+import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
+import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 import { ValidationError } from "../../src/core/error-families/effect-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -73,7 +75,8 @@ describe("#1324e: an application with a tenantContext refuses a call that names 
     ["getStatusHistory", (app) => app.getStatusHistory("thread-1")],
     ["listExecutions", (app) => app.listExecutions()],
     ["listExecutions", (app) => app.listExecutions({ limit: 5 })],
-    ["listPauses", (app) => app.listPauses({} as never)],
+    ["listPauses", (app) => app.listPauses({})],
+    ["listPauses", (app) => app.listPauses({ limit: 5 })],
     ["auditLogOf", (app) => app.auditLogOf({ rootExecutionId: "r" } as never)],
     ["outboundCallsOf", (app) => app.outboundCallsOf({ rootExecutionId: "r" } as never)],
     ["pendingOutboundCallsOf", (app) => app.pendingOutboundCallsOf({} as never)],
@@ -96,6 +99,11 @@ describe("#1324e: an application with a tenantContext refuses a call that names 
     try {
       const history = app.resolve(ExecutionHistoryRepository);
       await history.save(recordOf("default", "e-default", "2026-01-01T00:00:00.000Z"));
+      const pauses = app.resolve(PausedExecutionRepository);
+      const pauseReads = [
+        vi.spyOn(pauses, "findPageByTenantId"),
+        vi.spyOn(pauses, "findPageOfAllTenants"),
+      ];
       const reads = [
         vi.spyOn(history, "findByTenantIdAndExecutionId"),
         vi.spyOn(history, "findAllByTenantIdAndStartedAtBetween"),
@@ -105,8 +113,10 @@ describe("#1324e: an application with a tenantContext refuses a call that names 
       await rejection(app.getExecution("e-default"));
       await rejection(app.listExecutions());
       await rejection(app.listExecutions({ tenantId: undefined, allTenants: undefined } as never));
+      await rejection(app.listPauses({ tenantId: undefined, allTenants: undefined } as never));
 
       expect(reads.map((read) => read.mock.calls.length)).toEqual([0, 0, 0]);
+      expect(pauseReads.map((read) => read.mock.calls.length)).toEqual([0, 0]);
     } finally {
       await app.close();
     }
@@ -135,6 +145,25 @@ describe("#1324e: an application with a tenantContext refuses a call that names 
       const other = await app.getExecution("e-acme", { tenantId: "globex" });
       const listed = await app.listExecutions({ tenantId: "acme" });
       const all = await app.listExecutions({ allTenants: true } as never);
+      const pauses = app.resolve(PausedExecutionRepository);
+      for (const [tenant, id] of [
+        ["acme", "p-acme"],
+        ["globex", "p-globex"],
+      ] as const)
+        await pauses.findOrCreateByStepKey({
+          ...pauseOf(id, `root-${id}:q:1`),
+          tenantId: tenant,
+          rootExecutionId: `root-${id}`,
+          executionId: `root-${id}`,
+        });
+      const everyTenant = await app.listPauses({ allTenants: true } as never);
+      expect(everyTenant.items.map((one) => one.tenantId)).toEqual(["acme", "globex"]);
+      expect((await app.listPauses({ tenantId: "acme" })).items.map((one) => one.tenantId)).toEqual(
+        ["acme"],
+      );
+      expect(
+        await rejection(app.listPauses({ tenantId: "acme", allTenants: true } as never)),
+      ).toBeInstanceOf(ValidationError.DtoInvalid);
 
       expect(own?.executionId).toBe("e-acme");
       expect(other).toBeUndefined();

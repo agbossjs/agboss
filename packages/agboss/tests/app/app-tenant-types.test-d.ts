@@ -92,6 +92,8 @@ describe("App<TApp> of a generated application", () => {
     void generatedPlain.resume({ pauseId: "p", decision: {} });
     void generatedPlain.cancel("t");
     void generatedPlain.listExecutions();
+    void generatedPlain.listPauses();
+    void generatedPlain.listPauses({ assignee: "ann", includePauseIds: true });
     expectTypeOf<HasTenantContext<ChatApplication>>().toEqualTypeOf<false>();
   });
 
@@ -99,6 +101,14 @@ describe("App<TApp> of a generated application", () => {
     // @ts-expect-error — the application declares a tenantContext: name the tenant
     void generatedTenanted.resume({ pauseId: "p", decision: {} });
     void generatedTenanted.resume({ pauseId: "p", decision: {} }, { tenantId: "acme" });
+    // @ts-expect-error — a listing of pauses names its tenant, or every tenant
+    void generatedTenanted.listPauses();
+    // @ts-expect-error — a listing of pauses names its tenant, or every tenant
+    void generatedTenanted.listPauses({ limit: 5 });
+    void generatedTenanted.listPauses({ tenantId: "acme" });
+    void generatedTenanted.listPauses({ allTenants: true, externalRef: "JIRA-1" });
+    // @ts-expect-error — one tenant or every tenant, never both
+    void generatedTenanted.listPauses({ tenantId: "acme", allTenants: true });
     expectTypeOf<HasTenantContext<ClinicApplication>>().toEqualTypeOf<true>();
   });
 });

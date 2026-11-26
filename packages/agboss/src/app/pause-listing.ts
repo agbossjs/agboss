@@ -1,5 +1,4 @@
-import { type DtoIssue, invalidDto } from "../dto/errors.js";
-import { tenantIdReason } from "../flow/context/context-values.js";
+import { invalidDto } from "../dto/errors.js";
 import type { ObservabilityMask } from "../pii/observability-mask.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import { closedAtOf, closedReasonOf } from "../infrastructure/pause-closing.js";
@@ -9,9 +8,10 @@ import {
   PauseStatus,
   type PauseRecord,
 } from "../infrastructure/pause-record.js";
-import type { PauseFilter } from "../infrastructure/pause-notices.js";
-import type { ListedPause, PausesPage } from "./types.js";
-import { PauseRespondent } from "../pause/respondent.js";
+import type { Page } from "./page.js";
+import type { ListedPause } from "./types.js";
+import { openedCursor, queryHashOf, sealedCursor } from "./query-cursor.js";
+import { checked, QUERY_DTO } from "./pause-listing-query.js";
 
 /**
  * `app.listPauses` (#943): a tenant's pauses a page at a time, through the store's keyset
@@ -28,106 +28,18 @@ export interface PauseListing {
   readonly maskOf: (pause: PauseRecord) => Promise<ObservabilityMask | undefined>;
 }
 
-const DEFAULT_PAGE = 100;
-const MAX_PAGE = 1000;
-const DTO = "PausesQuery";
-const STATUSES: readonly string[] = Object.values(PauseStatus);
-
-/** The query checked, as a store's filter and page. */
-interface CheckedQuery {
-  readonly tenantId: string;
-  readonly filter: PauseFilter;
-  readonly limit: number;
-  readonly after: string | undefined;
-}
-
-const fieldOf = (query: object, key: string): unknown => Reflect.get(query, key) as unknown;
-
-function statusesOf(status: unknown, issues: DtoIssue[]): readonly PauseStatus[] {
-  if (status === undefined) return [PauseStatus.Pending];
-  const given: readonly unknown[] = Array.isArray(status) ? (status as unknown[]) : [status];
-  const unknown = given.filter((one) => typeof one !== "string" || !STATUSES.includes(one));
-  if (given.length === 0 || unknown.length > 0)
-    issues.push({
-      path: "status",
-      reason: `a status, or a non-empty list of them, from ${STATUSES.join(", ")}`,
-    });
-  return [...new Set(given as PauseStatus[])];
-}
-
-const isKey = (value: unknown): value is string => typeof value === "string" && value !== "";
-
-/** A field's problem, as an issue list (empty: none). */
-type Check = (value: unknown) => readonly DtoIssue[];
-
-const issue = (path: string, reason: string): readonly DtoIssue[] => [{ path, reason }];
-
-const checkTenant: Check = (tenantId) => {
-  if (typeof tenantId !== "string") return issue("tenantId", "a tenant id is a text");
-  const reason = tenantIdReason(tenantId);
-  return reason === undefined ? [] : issue("tenantId", reason);
-};
-const checkTarget: Check = (target) =>
-  target === undefined || isKey(target)
-    ? []
-    : issue("target", "a target is the pause target's name: a non-empty text");
-const checkBefore: Check = (before) =>
-  before === undefined || (before instanceof Date && !Number.isNaN(before.getTime()))
-    ? []
-    : issue("expiringBefore", "a valid Date");
-const checkLimit: Check = (limit) =>
-  typeof limit === "number" && Number.isInteger(limit) && limit >= 1 && limit <= MAX_PAGE
-    ? []
-    : issue("limit", `a page is a whole number of pauses from 1 to ${String(MAX_PAGE)}`);
-const checkAfter: Check = (after) =>
-  after === undefined || isKey(after)
-    ? []
-    : issue("after", "a cursor is the next of a page before: a non-empty text");
-
-/** The query as an untyped (JS) caller may pass it, checked all at once: `validation.dto-invalid` else. */
-function checked(query: unknown): CheckedQuery {
-  if (typeof query !== "object" || query === null)
-    throw invalidDto({
-      dto: DTO,
-      issues: issue("", "a query is an object with a tenantId"),
-    });
-  const issues: DtoIssue[] = [];
-  const statuses = statusesOf(fieldOf(query, "status"), issues);
-  const field = (key: string): unknown => fieldOf(query, key);
-  const limit = field("limit") ?? DEFAULT_PAGE;
-  issues.push(
-    ...checkTenant(field("tenantId")),
-    ...checkTarget(field("target")),
-    ...checkBefore(field("expiringBefore")),
-    ...checkLimit(limit),
-    ...checkAfter(field("after")),
-  );
-  if (issues.length > 0) throw invalidDto({ dto: DTO, issues });
-  const [target, before] = [
-    field("target") as string | undefined,
-    field("expiringBefore") as Date | undefined,
-  ];
-  return {
-    tenantId: field("tenantId") as string,
-    limit: limit as number,
-    after: field("after") as string | undefined,
-    filter: {
-      statuses,
-      ...(target === undefined ? {} : { target }),
-      ...(before === undefined ? {} : { expiresBefore: before }),
-    },
-  };
-}
-
 /** One pause as the listing shows it, what it asks and who has it through `mask`. */
 async function listedOf(
   pause: PauseRecord,
   mask: ObservabilityMask | undefined,
+  includePauseIds: boolean,
 ): Promise<ListedPause> {
   const respondent = pauseRespondentOf(pause);
   return {
-    // the rule of `result.pending` (AC3): a Channel pause's id stays with its channel
-    ...(respondent === PauseRespondent.Owner ? { pauseId: pause.pauseId } : {}),
+    // a pause's id is its answer credential (AC3): shown only to a caller who asked for ids; a
+    // thread owner reads his own from `result.pending`, which is unchanged
+    ...(includePauseIds ? { pauseId: pause.pauseId } : {}),
+    tenantId: pause.tenantId,
     respondent,
     step: pause.step,
     target: pause.target,
@@ -185,18 +97,30 @@ function closedPartOf(pause: PauseRecord): Pick<ListedPause, "reason" | "closedA
 }
 
 /** `app.listPauses` over `listing`. */
-export async function listPausesIn(listing: PauseListing, query: unknown): Promise<PausesPage> {
-  const { tenantId, filter, limit, after } = checked(query);
-  const page = await listing.pauses
-    .findPageByTenantId(tenantId, filter, limit, after)
-    .catch((error: unknown) => {
-      // a cursor the store does not read as one of its own
-      if (after === undefined || !(error instanceof TypeError || error instanceof RangeError))
-        throw error;
-      const reason = "a cursor is the next of a page before, as it was given";
-      throw invalidDto({ dto: DTO, issues: [{ path: "after", reason }], cause: error });
-    });
-  const pauses: ListedPause[] = [];
-  for (const pause of page.pauses) pauses.push(await listedOf(pause, await listing.maskOf(pause)));
-  return page.next === undefined ? { pauses } : { pauses, next: page.next };
+export async function listPausesIn(
+  listing: PauseListing,
+  query: unknown,
+): Promise<Page<ListedPause>> {
+  const { tenantId, filter, limit, cursor: given, includePauseIds } = checked(query);
+  // the cursor is bound to what this query selects (L2): another tenant or filter refuses it
+  const hash = queryHashOf({ tenantId, filter });
+  const opened = given === undefined ? undefined : openedCursor(given, hash);
+  if (opened?.problem !== undefined)
+    throw invalidDto({ dto: QUERY_DTO, issues: [{ path: "cursor", reason: opened.problem }] });
+  const cursor = opened?.storeCursor;
+  const read =
+    tenantId === undefined
+      ? listing.pauses.findPageOfAllTenants(filter, limit, cursor)
+      : listing.pauses.findPageByTenantId(tenantId, filter, limit, cursor);
+  const page = await read.catch((error: unknown) => {
+    // a position the store does not read as one of its own
+    if (cursor === undefined || !(error instanceof TypeError || error instanceof RangeError))
+      throw error;
+    const reason = "a cursor is the nextCursor of a page before, as it was given";
+    throw invalidDto({ dto: QUERY_DTO, issues: [{ path: "cursor", reason }], cause: error });
+  });
+  const items: ListedPause[] = [];
+  for (const pause of page.pauses)
+    items.push(await listedOf(pause, await listing.maskOf(pause), includePauseIds));
+  return page.next === undefined ? { items } : { items, nextCursor: sealedCursor(page.next, hash) };
 }

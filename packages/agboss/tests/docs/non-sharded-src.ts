@@ -1315,8 +1315,17 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/app/history-sources.ts"],
   ),
   ...reviewed(
-    "holds spend, rate-limit or deadline sites (pause page limit 0; pause page limit over) - not mutated: covered by tests/app/list-pauses.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
-    ["src/app/pause-listing.ts"],
+    "holds spend, rate-limit or deadline sites (pause page limit 0; pause page limit over) and the listing's credential gate (which pause ids are shown, which tenant's pauses are read, which cursor is accepted) - not mutated by a shard: covered by tests/app/list-pauses.test.ts and the contract cases of the pause store; each sabotage was run by hand against tests/app/list-pauses.test.ts and the in-memory conformance run and fails them (#1307e review L8): `includePauseIds ? { pauseId }` to `true ? { pauseId }` in pause-listing.ts (2 tests fail; before H1 `|| includePauseIds` to `|| true`), `includePauseIds === true` to `true` (2), `allTenants === true ? undefined` to `allTenants !== undefined ? undefined` (1), the tenant check of `inScope` dropped in pause-scans.ts (9), the query hash of the cursor made constant (1); the page limit 0 and over 1000 sabotages (2 in the #1366 pattern sweep) fail one test each",
+    ["src/app/pause-listing.ts", "src/app/pause-listing-query.ts"],
+  ),
+  ...reviewed(
+    "the listings' shared query rules (#1307e): the strict instant of a deadline filter, the cursor bound to its query, the refusal of unknown query fields and the name of a @Channel class - not mutated by a shard: covered by tests/app/list-pauses.test.ts and tests/app/list-unknown-fields.test.ts (an instant without a zone or in the host's reading, a cursor of another tenant or filter, a forged cursor and a retired field each fail one of them); listed for the reviewer",
+    [
+      "src/app/instant.ts",
+      "src/app/query-cursor.ts",
+      "src/app/query-fields.ts",
+      "src/channels/channel-name.ts",
+    ],
   ),
   ...reviewed(
     "holds spend, rate-limit or deadline sites (reassign due <) - not mutated: covered by tests/app/pause-reassignment.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
