@@ -658,7 +658,7 @@ timeout: hours(24), reason }, { actor })` (the `ownerId` for an owner's pause �
     quorum) the pause was made under (exactly that deadline is allowed) or past the chain's `escalationLimits`
     (`maxTotalTimeout` counted from the first asking, `maxExtensions`; a reassignment with a `timeout` counts too) —
     `PauseError.EscalationLimitExceeded`; `Timeout.None` is past any of them —, a pause whose first `send` is still
-    in flight — `PauseError.UpdateContended`, retry once it returned —; a blank or too long `reason` is
+    in flight — `PauseError.UpdateContended`, retry once it returned —; a target with `permitAnswer` but no `permitTimeoutChange` refuses (`PauseError.PermissionDenied`) any change that is not a longer deadline — an earlier one, one where there was none, `Timeout.None` — and a target with `permitAnswer` but no `permitReassign` refuses `reassignPause`: declare the hook to allow it; a blank or too long `reason` is
     `ValidationError.DtoInvalid` (`dto: "SetPauseTimeoutRequest"`); another tenant's pause is `PauseError.UnknownPause`
     (`PauseError.UpdateContended` too when 8 calls in a row lose the store's compare-and-set).
     A change and the expiry look at one tick: the store lets one win.

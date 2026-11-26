@@ -137,6 +137,7 @@ export function assertReassignPermitted(
   ask: ReassignAsk,
   target?: PauseTarget,
 ): Promise<void> {
+  if (target === undefined) assertNotAnswerGuarded(deps, pause, "permitReassign", "a reassignment");
   return assertPermitted(
     pause,
     "reassignment",
@@ -159,6 +160,49 @@ export function assertReassignPermitted(
       target: pause.target,
       trail: trailOf(pause),
     }),
+  );
+}
+
+/**
+ * A pause whose target guards its answers (`permitAnswer`) but not this operator act (`hook` absent) must
+ * not let the act force what only an answer may: a shorter deadline makes `onExpired` decide, a
+ * reassignment changes who answers (#1307, H2). Fail closed: `PauseError.PermissionDenied`; declare the
+ * hook to allow it. A target that cannot be resolved is left to the hook's own check.
+ */
+export function assertNotAnswerGuarded(
+  deps: AppDeps,
+  pause: PauseRecord,
+  hook: "permitTimeoutChange" | "permitReassign",
+  what: string,
+): void {
+  let target: PauseTarget | undefined;
+  try {
+    target = targetOfPause(deps, pause);
+  } catch {
+    return;
+  }
+  if (target[hook] !== undefined || target.permitAnswer === undefined) return;
+  throw new PauseError.PermissionDenied({
+    message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: its target guards answers with permitAnswer but has no ${hook}, so ${what} is refused`,
+  });
+}
+
+/** Whether the change is no longer deadline: an earlier one, one where there was none, or none where there was one (#1307, H2). */
+const isShortening = (current: string | undefined, next: string | undefined): boolean =>
+  next === undefined ? current !== undefined : current === undefined || next < current;
+
+/** `assertNotAnswerGuarded` for a change of the deadline to `expiresAt` (absent: none): only a longer one passes without `permitTimeoutChange`. */
+export function assertDeadlineNotGuarded(
+  deps: AppDeps,
+  pause: PauseRecord,
+  expiresAt: string | undefined,
+): void {
+  if (!isShortening(pause.expiresAt, expiresAt)) return;
+  assertNotAnswerGuarded(
+    deps,
+    pause,
+    "permitTimeoutChange",
+    "a change that is not a longer deadline",
   );
 }
 

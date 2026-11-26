@@ -2425,7 +2425,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   warning `[channel.remind-before-exceeds-expiry]` (`flow/analyse/remind-before.ts`: a target's `timeout` ≤ its
   `remindBefore`). `app.setPauseTimeout` (`app/pause-timeout.ts`, request checks `app/timeout-request.ts`; the workflow app's, routed by the composed app like `resume`; #1307):
   `{ pauseId, timeout: WorkingDuration | Milliseconds | Timeout.None, reason? }`, `actorOf` as an answer, then `PauseError.Closed` (closed or due), `assertNotInFirstSend` (`PauseError.UpdateContended`
-  while `!isSent`, as a reassignment), `assertTimeoutChangePermitted` (`app/answer-permit.ts`: the target's `permitTimeoutChange`, fail closed to `PauseError.PermissionDenied`
+  while `!isSent`, as a reassignment), `assertNotAnswerGuarded` (same file: a target with `permitAnswer` and no `permitTimeoutChange` / `permitReassign` refuses a change that is not a longer deadline / any reassignment with `PauseError.PermissionDenied` — H2, fail closed), `assertTimeoutChangePermitted` (`app/answer-permit.ts`: the target's `permitTimeoutChange`, fail closed to `PauseError.PermissionDenied`
   — `false`, a throw, an unresolvable target), the deadline `now + timeout` by the target's calendar (a shorter one is as good as a later one; `PauseError.InvalidTimeout` below `seconds(1)`), the
   limits (`maxExtensions`, `maxTotalTimeout` from the first asking, `boundAt`: `PauseError.EscalationLimitExceeded`; `Timeout.None` is past any of them), `reminderOf` recomputed (none when not after now or without a deadline),
   then `changeTimeoutByTenantIdAndPauseId` (`infrastructure/pause-transitions.ts` `timeoutChange`: its CAS over `previousExpiresAt`, absent for none, is the final word against the

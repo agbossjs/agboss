@@ -14,7 +14,11 @@ import { pauseTallyOf } from "../pause/pause-tally.js";
 import { Timeout } from "../units/index.js";
 import { definedFields } from "../core/defined-fields.js";
 import type { PauseActor } from "../channels/pause-contexts.js";
-import { assertTimeoutChangePermitted, targetOfPause } from "./answer-permit.js";
+import {
+  assertDeadlineNotGuarded,
+  assertTimeoutChangePermitted,
+  targetOfPause,
+} from "./answer-permit.js";
 import type { AppDeps } from "./app-deps.js";
 import { calendarOfTarget } from "./pause-calendar.js";
 import { toldTimeoutChanged } from "./pause-change-events.js";
@@ -153,6 +157,7 @@ async function deadlineAfter(
   const expiresAt =
     span === undefined ? undefined : (await instantAfter(span, now, add)).toISOString();
   const limits = await assertWithinLimits(parts, pause, expiresAt);
+  assertDeadlineNotGuarded(parts.deps, pause, expiresAt);
   const remindAt = await reminderOf(
     now,
     { expiresAt, expiresIn: span },
@@ -208,14 +213,10 @@ async function changedOnce(
   },
 ): Promise<PauseTimeoutChangeResult | undefined> {
   const { pause, request, tenantId, actor } = call;
+  const { timeout } = request;
   await assertOpen(parts, pause);
   const target = await permittedTarget(parts, call);
-  const { expiresAt, remindAt, limits } = await deadlineAfter(
-    parts,
-    pause,
-    target,
-    request.timeout,
-  );
+  const { expiresAt, remindAt, limits } = await deadlineAfter(parts, pause, target, timeout);
   const reason = await maskedReason(parts.deps, pause, request.reason);
   // the calendar took time: whether the pause is still open is decided at this instant, not at
   // the call's start (#1148); the deadline itself keeps counting from `now`
@@ -242,7 +243,10 @@ async function changedOnce(
   if (changed === undefined) return undefined;
   noticesWritten(parts.deps.pause);
   pauseTallyOf(parts.deps.pause)?.timeoutChanged(changed);
-  await toldTimeoutChanged(parts.deps, pause, { previousExpiresAt: pause.expiresAt, expiresAt });
+  await toldTimeoutChanged(parts.deps, pause, {
+    previousExpiresAt: pause.expiresAt,
+    expiresAt,
+  });
   return {
     ...(expiresAt === undefined ? {} : { expiresAt: new Date(expiresAt) }),
     ...(pause.expiresAt === undefined ? {} : { previousExpiresAt: new Date(pause.expiresAt) }),

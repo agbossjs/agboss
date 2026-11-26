@@ -1129,7 +1129,7 @@ timeout on a pause that has none sets one. The target's `permitTimeoutChange(ctx
 as asked, `currentExpiresAt`, the `reason`, the `input` and the `trail` — is asked first and **only `true` permits**:
 `false`, a throw, a rejection, any other value and a target that cannot be resolved are `PauseError.PermissionDenied`, and
 the pause stays as it was. The channel's optional `onPauseTimeoutChanged(event)` and a listener's `onPauseTimeoutChanged`
-hear "moved to `event.expiresAt`" (`previousExpiresAt` too; each absent when there is none), and the reminder is made
+hear "moved to `event.expiresAt`" (`previousExpiresAt` too; each absent when there is none; `actor` and the masked `reason` when the call gave them), and the reminder is made
 again before the new deadline — none when it would not be after now. The `reason` (PII-masked) and the actor go to the
 pause's chain of custody as a `timeout-changed` entry. It is refused:
 
@@ -1139,6 +1139,12 @@ pause's chain of custody as a `timeout-changed` entry. It is refused:
   allowed, and a pause set to it expires there as the run's own, as one made with it does —, or past the chain's
   `escalationLimits` (`maxTotalTimeout`, counted from the first asking; `maxExtensions`, every change counts, a
   reassignment with a `timeout` too) — `PauseError.EscalationLimitExceeded`; `Timeout.None` is past any of them;
+- a pause whose target guards its answers (`permitAnswer`) but declares no `permitTimeoutChange`, when the change is not a
+  longer deadline (an earlier one, one where there was none, or `Timeout.None`) — `PauseError.PermissionDenied`: a shorter
+  deadline would make the target's `onExpired` decide, perhaps `PauseExpiration.decide({ approved: true })`, without
+  `permitAnswer` ever being asked. A longer deadline is allowed; declare `permitTimeoutChange` to allow the rest. The same
+  holds for `reassignPause`: a target with `permitAnswer` and no `permitReassign` refuses it (it changes who answers and
+  may shorten the wait);
 - a pause whose first `send` has not returned — `PauseError.UpdateContended`: the channel would hear of the change before it
   heard of the pause; trying again once it returned is safe;
 - another tenant's pause or an unknown id — `PauseError.UnknownPause`;
