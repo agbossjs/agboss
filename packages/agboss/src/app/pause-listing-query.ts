@@ -1,4 +1,5 @@
 import { type DtoIssue, invalidDto } from "../dto/errors.js";
+import { INSTANT_REASON, instantOf } from "./instant.js";
 import { unknownFieldIssues } from "./query-fields.js";
 import { tenantIdReason } from "../flow/context/context-values.js";
 import { PauseStatus } from "../infrastructure/pause-record.js";
@@ -79,14 +80,10 @@ const checkChannel: Check = (channel) =>
       ? issue("channel", "a channel is a @Channel class (this class is none) or its name")
       : []
     : checkText("channel", "a channel is a @Channel class or its name")(channel);
-const checkBefore: Check = (before) => {
-  if (before === undefined) return [];
-  const date =
-    before instanceof Date ? before : typeof before === "string" ? new Date(before) : NaN;
-  return date instanceof Date && !Number.isNaN(date.getTime())
+const checkBefore: Check = (before) =>
+  before === undefined || instantOf(before) !== undefined
     ? []
-    : issue("expiringBefore", "a valid Date, or an ISO 8601 text");
-};
+    : issue("expiringBefore", INSTANT_REASON);
 const checkLimit: Check = (limit) =>
   typeof limit === "number" && Number.isInteger(limit) && limit >= 1 && limit <= MAX_PAGE
     ? []
@@ -157,7 +154,7 @@ function filterOf(query: object, statuses: readonly PauseStatus[]): PauseFilter 
     statuses,
     ...(target === undefined ? {} : { target }),
     ...(channel === undefined ? {} : { channel }),
-    ...(before === undefined ? {} : { expiresBefore: new Date(before) }),
+    ...(before === undefined ? {} : { expiresBefore: instantOf(before) as Date }),
     ...(assignee === undefined ? {} : { assignee }),
     ...(externalRef === undefined ? {} : { externalRef }),
   };

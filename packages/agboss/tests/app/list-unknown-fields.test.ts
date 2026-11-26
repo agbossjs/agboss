@@ -54,4 +54,36 @@ describe("#1307e 21.3: unknown query fields are refused by every listing", () =>
       await app.close();
     }
   });
+
+  it("#1307e L1: one strict instant for expiringBefore and startedAfter/startedBefore", async () => {
+    const app = await open();
+    try {
+      for (const bad of ["5", "12", "Nov 26 2026", "2026-11-26T10:00", "2026-11-26", "", 5]) {
+        for (const field of ["startedAfter", "startedBefore"]) {
+          const error = await rejection(
+            app.listExecutions({ tenantId: "acme", [field]: bad } as never),
+          );
+          expect(error, `${field} ${String(bad)}`).toBeInstanceOf(ValidationError.DtoInvalid);
+        }
+        const pauses = await rejection(
+          app.listPauses({ tenantId: "acme", expiringBefore: bad } as never),
+        );
+        expect(pauses, `expiringBefore ${String(bad)}`).toBeInstanceOf(ValidationError.DtoInvalid);
+      }
+      for (const good of [
+        "2026-11-26T10:00:00Z",
+        "2026-11-26T10:00:00.123+05:30",
+        "2026-11-26T10:00Z",
+      ]) {
+        expect((await app.listExecutions({ tenantId: "acme", startedAfter: good })).items).toEqual(
+          [],
+        );
+        expect((await app.listPauses({ tenantId: "acme", expiringBefore: good })).items).toEqual(
+          [],
+        );
+      }
+    } finally {
+      await app.close();
+    }
+  });
 });

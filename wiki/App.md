@@ -353,7 +353,7 @@ The scope is the tenant (`tenantId`; `"default"` when the application has no `te
 `allTenants: true` for every tenant's pauses, never both; an application with a `tenantContext` that names neither
 rejects with `ValidationError.TenantRequired`. `status` is one `PauseStatus` or a list (default `Pending`); `target`
 is a `@ToolApproval` / `@ExternalTask` class or its name; `channel` a `@Channel` class or its name (a class that is no channel is a `ValidationError.DtoInvalid`); `assignee` keeps the pauses that one is among the
-`assignees` of; `externalRef` the pause its channel gave that reference; `expiringBefore` a `Date` or an ISO 8601
+`assignees` of; `externalRef` the pause its channel gave that reference; `expiringBefore` a `Date` or an ISO 8601 text with its zone
 text (a pause with no deadline is never listed by it); `limit` 1 to 1000 (default 100); `cursor` the `nextCursor`
 of the page before. Pauses come in the order they were made and the cursor is a position in that order — never an
 offset — so a pause that opens or closes between two pages makes no other pause skipped or repeated. A field the

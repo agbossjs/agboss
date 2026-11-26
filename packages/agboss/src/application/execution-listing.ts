@@ -1,5 +1,6 @@
 import type { ExecutionsQuery, AnyTenantApp } from "../app/types.js";
 import type { Page } from "../app/page.js";
+import { INSTANT_REASON, instantOf } from "../app/instant.js";
 import { refuseUnknownFields } from "../app/query-fields.js";
 import { invalidDto } from "../dto/errors.js";
 import { tenantRead } from "../flow/context/context-values.js";
@@ -45,13 +46,10 @@ const refused = (path: string, reason: string): never => {
   throw invalidDto({ dto: QUERY, issues: [{ path, reason }] });
 };
 
-/** A time bound: a valid `Date`, or an ISO 8601 text. */
+/** A time bound: a valid `Date`, or an ISO 8601 text with its zone. */
 function boundOf(path: string, value: Date | string | undefined, fallback: Date): Date {
   if (value === undefined) return fallback;
-  const date = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(date.getTime())
-    ? refused(path, "a time is a valid Date or an ISO 8601 text")
-    : date;
+  return instantOf(value) ?? refused(path, INSTANT_REASON);
 }
 
 /** The records of a tenant's history: one by its id. */

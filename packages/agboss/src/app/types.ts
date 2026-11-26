@@ -366,7 +366,7 @@ export interface App<TApp = unknown> {
   /**
    * A page of pauses (#943, #1307e), oldest made first: by `status` (default `Pending`), `target`
    * (a `@ToolApproval` / `@ExternalTask` class or its name), `channel` (a `@Channel` class or its name), `assignee`, `externalRef` and
-   * `expiringBefore` (`Date`, or an ISO 8601 text), at most `limit` (1 to 1000, default 100), from
+   * `expiringBefore` (`Date`, or an ISO 8601 text with its zone), at most `limit` (1 to 1000, default 100), from
    * the `cursor` of the page before; `nextCursor` is there while more may follow. The cursor is a
    * position in the order the pauses were made, so a pause that opens or closes between two pages
    * never makes another skipped or repeated. A pause's id is shown as `result.pending` shows it
@@ -421,9 +421,9 @@ export interface App<TApp = unknown> {
 
 /** Which executions `app.listExecutions` reads (#1324e); the tenant is its scope, named per its application. */
 export interface ExecutionsQuery extends PageQuery {
-  /** Only those started at or after it (`Date`, or an ISO 8601 text). */
+  /** Only those started at or after it (`Date`, or an ISO 8601 text with its zone). */
   readonly startedAfter?: Date | string;
-  /** Only those started before it (`Date`, or an ISO 8601 text). */
+  /** Only those started before it (`Date`, or an ISO 8601 text with its zone). */
   readonly startedBefore?: Date | string;
   /** Only the executions of the workflow of this name. */
   readonly workflow?: string;
@@ -452,7 +452,7 @@ export interface PausesQuery extends PageQuery {
   readonly assignee?: string;
   /** Only the pause that carries this external reference (a ticket id of the channel). */
   readonly externalRef?: string;
-  /** Only pauses whose deadline is before it (`Date`, or an ISO 8601 text); one with no deadline is never listed. */
+  /** Only pauses whose deadline is before it (`Date`, or an ISO 8601 text with its zone); one with no deadline is never listed. */
   readonly expiringBefore?: Date | string;
   /**
    * Show the `pauseId` of a delegated pause too (default `false`). A pause's id is the right to

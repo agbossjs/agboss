@@ -8,3 +8,5 @@ issue: 1307
 **Unknown query fields are refused by every listing** (#1307e): `listExecutions` and `pendingOutboundCallsOf` now reject a field their query does not have (`after`, `role`, `offset`, a typo) with `ValidationError.DtoInvalid` naming it, like `listPauses`, instead of ignoring it. (`listOutboundCalls` and `listAuditEvents` do not exist yet; their reshape takes the same shared `refuseUnknownFields`.)
 
 **`ListedPause.tenantId`** (#1307e): every listed pause names its tenant, so an `allTenants` page can be acted on (`resume`, `reassignPause`, `setPauseTimeout` need `{ tenantId }`). **`PauseError.UnknownPause` and two logs name a pause by its key** (`pauseKeyOf`), never its raw id: a pause id resumed under the wrong tenant no longer reaches an error message or a log.
+
+**One strict instant for listing filters** (#1307e): `expiringBefore` (`listPauses`) and `startedAfter` / `startedBefore` (`listExecutions`) take a valid `Date` or an ISO 8601 text WITH its zone (`2026-11-26T10:00:00Z`, `…+05:30`); `"5"`, `"Nov 26 2026"` and a time or a date without a zone are a `ValidationError.DtoInvalid` (they read differently on different hosts).
