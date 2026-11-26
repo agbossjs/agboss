@@ -16,7 +16,6 @@ import type { ResumeVersions } from "../../run/resume-guard.js";
 /** The kinds of `ExecutionError`: `switch (error.kind)` is exhaustive. */
 export enum ExecutionErrorKind {
   CancelFenced = "cancel-fenced",
-  LeaseLost = "lease-lost",
   Fenced = "fenced",
   ExternallyPaused = "externally-paused",
   AlreadyTerminal = "already-terminal",
@@ -29,17 +28,15 @@ export enum ExecutionErrorKind {
   DuplicateExecutionId = "duplicate-execution-id",
   ContextUnavailable = "context-unavailable",
   SpendOutsideStep = "spend-outside-step",
-  ApplicationStopping = "application-stopping",
   CompensationFailed = "compensation-failed",
   OutputInvalid = "output-invalid",
   NothingToRecover = "nothing-to-recover",
   RemoteChildLost = "remote-child-lost",
 }
 
-/** An execution or a thread could not be started, continued or settled. `LeaseLost`, `Fenced` and `ApplicationStopping` are hand-overs; `CancelFenced` is a cancel: both reach no `.onError`. */
+/** An execution or a thread could not be started, continued or settled. `Fenced` is a hand-over (as are `ExecutionLeaseLostError` and `ApplicationStoppingError`, standalone classes); `CancelFenced` is a cancel: both reach no `.onError`. */
 export type ExecutionError =
   | ExecutionError.CancelFenced
-  | ExecutionError.LeaseLost
   | ExecutionError.Fenced
   | ExecutionError.ExternallyPaused
   | ExecutionError.AlreadyTerminal
@@ -52,7 +49,6 @@ export type ExecutionError =
   | ExecutionError.DuplicateExecutionId
   | ExecutionError.ContextUnavailable
   | ExecutionError.SpendOutsideStep
-  | ExecutionError.ApplicationStopping
   | ExecutionError.CompensationFailed
   | ExecutionError.OutputInvalid
   | ExecutionError.NothingToRecover
@@ -66,10 +62,6 @@ export declare namespace ExecutionError {
     "execution.cancelled.fenced"
   > &
     CancelFencedFacts;
-  /** The instance lost the lease of the tree it was moving. */
-  export type LeaseLost = ErrorVariant<ExecutionErrorKind.LeaseLost, "execution.lease-lost"> & {
-    readonly rootExecutionId: string;
-  };
   /** An external system refused a write of this execution. */
   export type Fenced = ErrorVariant<ExecutionErrorKind.Fenced, "execution.lease-lost.fenced"> & {
     readonly scopeKey: string;
@@ -144,11 +136,6 @@ export declare namespace ExecutionError {
     ExecutionErrorKind.SpendOutsideStep,
     "execution.spend-outside-step"
   >;
-  /** The application is stopping and takes no new execution. */
-  export type ApplicationStopping = ErrorVariant<
-    ExecutionErrorKind.ApplicationStopping,
-    "execution.application-stopping"
-  >;
   /** An automatic undo failed. */
   export type CompensationFailed = ErrorVariant<
     ExecutionErrorKind.CompensationFailed,
@@ -179,7 +166,6 @@ export const ExecutionError: FamilyConstructor<
   ExecutionError,
   {
     CancelFenced: ExecutionError.CancelFenced;
-    LeaseLost: ExecutionError.LeaseLost;
     Fenced: ExecutionError.Fenced;
     ExternallyPaused: ExecutionError.ExternallyPaused;
     AlreadyTerminal: ExecutionError.AlreadyTerminal;
@@ -192,7 +178,6 @@ export const ExecutionError: FamilyConstructor<
     DuplicateExecutionId: ExecutionError.DuplicateExecutionId;
     ContextUnavailable: ExecutionError.ContextUnavailable;
     SpendOutsideStep: ExecutionError.SpendOutsideStep;
-    ApplicationStopping: ExecutionError.ApplicationStopping;
     CompensationFailed: ExecutionError.CompensationFailed;
     OutputInvalid: ExecutionError.OutputInvalid;
     NothingToRecover: ExecutionError.NothingToRecover;
@@ -204,7 +189,6 @@ export const ExecutionError: FamilyConstructor<
   kinds: ExecutionErrorKind,
   variants: {
     CancelFenced: [cancelFencedMessageOf, "execution.cancelled.fenced"],
-    LeaseLost: ["the instance lost the lease of the tree it was moving"],
     Fenced: ["an external system refused a write of this execution", "execution.lease-lost.fenced"],
     ExternallyPaused: ["the execution is paused from outside"],
     AlreadyTerminal: ["the execution already ended"],
@@ -217,7 +201,6 @@ export const ExecutionError: FamilyConstructor<
     DuplicateExecutionId: [duplicateExecutionIdMessageOf],
     ContextUnavailable: ["there is no execution to read here"],
     SpendOutsideStep: ["spend was recorded outside a step"],
-    ApplicationStopping: ["the application is stopping and takes no new execution"],
     CompensationFailed: [compensationFailedMessageOf],
     OutputInvalid: ["the execution's output is not what its finish declares"],
     NothingToRecover: ["the run stored nothing to continue"],

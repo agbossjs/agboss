@@ -2881,7 +2881,7 @@ LimitError` narrows to the union, `switch (err.kind)` is exhaustive, `.onError(L
   family and `.onError(LimitError.Budget, …)` one variant (the nearest class in the error's line wins). A variant
   is named `Family.Variant`, takes its own facts and `{ message?, cause?, details? }`, and its default sentence
   holds no fact. A family of a step, a limit, a guardrail or PII carries `usage` and `spend`. `ExecutionError`'s
-  `LeaseLost`, `Fenced` and `ApplicationStopping` are hand-overs: no `.onError` takes them; `CancelFenced` is a cancel (no `.onError` takes it either, but the lease is still held and the tree unwinds). A
+  `Fenced` and the standalone `ExecutionLeaseLostError` and `ApplicationStoppingError` are hand-overs: no `.onError` takes them; `CancelFenced` is a cancel (no `.onError` takes it either, but the lease is still held and the tree unwinds). A
   class's code is its own `static code` — a project class without one is caught by its name, never by an inherited
   `agboss`. **`Result<T, E = AGBossError>`** is a utility: `Result.ok`, `Result.err`,
   `Result.try(fn)` (sync or async; keeps only an `AGBossError` as `{ ok: false, error }`, any other throw is a bug

@@ -5,11 +5,10 @@ import "../../finops/cost-report.js";
 /** The kinds of `GuardrailError`: `switch (error.kind)` is exhaustive. */
 export enum GuardrailErrorKind {
   Blocked = "blocked",
-  Failed = "failed",
 }
 
-/** A guardrail stopped a step (`Blocked`) or could not decide (`Failed`). */
-export type GuardrailError = GuardrailError.Blocked | GuardrailError.Failed;
+/** A guardrail blocked the content; one that could not decide fails its step as `StepError.Guardrail`. */
+export type GuardrailError = GuardrailError.Blocked;
 
 /** The variants of `GuardrailError`, each with the facts it carries. */
 export declare namespace GuardrailError {
@@ -22,16 +21,12 @@ export declare namespace GuardrailError {
     readonly probability: number;
     readonly threshold: number;
   };
-  /** A guardrail could not decide. */
-  export type Failed = PaidErrorVariant<GuardrailErrorKind.Failed, "guardrail.failed"> & {
-    readonly guardrail: string;
-  };
 }
 
 /** `GuardrailError`: the family's constructor and its variants'. */
 export const GuardrailError: FamilyConstructor<
   GuardrailError,
-  { Blocked: GuardrailError.Blocked; Failed: GuardrailError.Failed },
+  { Blocked: GuardrailError.Blocked },
   { Blocked: "key" }
 > = defineFamily({
   name: "GuardrailError",
@@ -49,7 +44,6 @@ export const GuardrailError: FamilyConstructor<
         plain: "a guardrail blocked the content",
       },
     ],
-    Failed: ["a guardrail could not decide"],
   },
 });
 

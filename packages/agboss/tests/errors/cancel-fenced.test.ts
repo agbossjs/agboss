@@ -8,6 +8,7 @@ import * as root from "../../src/index.js";
 import * as internal from "../../src/internal.js";
 import * as stores from "../../src/stores/index.js";
 import { isHandedOver } from "../../src/app/handed-over.js";
+import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { HAND_OVER_KINDS, isHandOverError } from "../../src/core/error-families/hand-over.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
@@ -34,9 +35,7 @@ describe("ExecutionError.CancelFenced is a cancel, not a hand-over", () => {
   it("is a cancel for the one predicate, as a cancel and a stop are; a lost lease is not", () => {
     expect(isExecutionCancelled(stores.cancelFencedOf(key))).toBe(true);
     expect(isExecutionCancelled(new ExecutionCancelledError())).toBe(true);
-    expect(isExecutionCancelled(new ExecutionError.LeaseLost({ rootExecutionId: "r" }))).toBe(
-      false,
-    );
+    expect(isExecutionCancelled(new ExecutionLeaseLostError({ rootExecutionId: "r" }))).toBe(false);
     expect(isExecutionCancelled(new Error("x"))).toBe(false);
   });
 

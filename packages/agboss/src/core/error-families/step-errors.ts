@@ -25,7 +25,6 @@ export enum StepErrorKind {
   ChildWorkerUnavailable = "child-worker-unavailable",
   Guardrail = "guardrail",
   ToolBlocked = "tool-blocked",
-  ToolTimeout = "tool-timeout",
   RerankFailed = "rerank-failed",
   Memory = "memory",
   ModelFileLimit = "model-file-limit",
@@ -49,7 +48,6 @@ export type StepError =
   | StepError.ChildWorkerUnavailable
   | StepError.Guardrail
   | StepError.ToolBlocked
-  | StepError.ToolTimeout
   | StepError.RerankFailed
   | StepError.Memory
   | StepError.ModelFileLimit
@@ -141,9 +139,6 @@ export declare namespace StepError {
       readonly interceptor: string;
       readonly reason: string;
     };
-  /** A tool ran past its timeout. */
-  export type ToolTimeout = PaidErrorVariant<StepErrorKind.ToolTimeout, "step.tool-timeout"> &
-    StepCoordinates & { readonly tool: string; readonly timeout: Milliseconds };
   /** A reranker failed. */
   export type RerankFailed = PaidErrorVariant<StepErrorKind.RerankFailed, "step.rerank-failed"> &
     StepCoordinates & { readonly rag: string; readonly reranker: string };
@@ -188,7 +183,6 @@ export const StepError: FamilyConstructor<
     ChildWorkerUnavailable: StepError.ChildWorkerUnavailable;
     Guardrail: StepError.Guardrail;
     ToolBlocked: StepError.ToolBlocked;
-    ToolTimeout: StepError.ToolTimeout;
     RerankFailed: StepError.RerankFailed;
     Memory: StepError.Memory;
     ModelFileLimit: StepError.ModelFileLimit;
@@ -222,7 +216,6 @@ export const StepError: FamilyConstructor<
     ],
     Guardrail: MORE_STEP_SPECS.guardrail,
     ToolBlocked: MORE_STEP_SPECS.toolBlocked,
-    ToolTimeout: ["a tool ran past its timeout"],
     RerankFailed: MORE_STEP_SPECS.rerankFailed,
     Memory: ["a memory's compaction failed"],
     ModelFileLimit: MORE_STEP_SPECS.modelFileLimit,
