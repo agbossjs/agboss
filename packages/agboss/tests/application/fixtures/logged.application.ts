@@ -10,7 +10,6 @@ import { OwnerToolApproval } from "../../flow/fixtures/owner-approval.fixture.js
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
-  EmptyEnvironment,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -154,7 +153,6 @@ export class SendWorkflow {}
   name: "logged-application",
   modelProvider: TestModelProvider,
   version: "2.3.0",
-  environment: EmptyEnvironment,
   workflows: [NoteWorkflow, SendWorkflow],
   providers: [RecordingLogger],
   budgets,
@@ -166,7 +164,6 @@ export class LoggedApplication {}
   name: "durable-logged-application",
   modelProvider: TestModelProvider,
   version: "2.3.0",
-  environment: EmptyEnvironment,
   workflows: [NoteWorkflow, SendWorkflow],
   providers: [
     RecordingLogger,
@@ -183,7 +180,6 @@ export class DurableLoggedApplication {}
   name: "note-logged-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [NoteWorkflow],
   providers: [RecordingLogger],
   budgets,

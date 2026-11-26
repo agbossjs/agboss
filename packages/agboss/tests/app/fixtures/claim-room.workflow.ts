@@ -1,7 +1,6 @@
 import {
   Action,
   ChildPlacement,
-  EmptyEnvironment,
   ExecutionContext,
   listOf,
   Workflow,
@@ -165,7 +164,6 @@ export class ClaimRoomBatchWorkflow {}
 @Application({
   name: "claim-room-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow],
   budgets: TEST_BUDGETS,
   executionLimits: { maxConcurrentSteps: 3 },

@@ -14,7 +14,6 @@ import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { testConfig, testDefaults } from "../../helpers.js";
 import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../../fixtures/test-flow/test.flow.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
@@ -76,7 +75,6 @@ export function workflowWith(prompts: FlowPrompts): {
     name: "prompts-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [Prompts],
     budgets: TEST_BUDGETS,
   })

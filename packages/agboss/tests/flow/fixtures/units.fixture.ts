@@ -12,7 +12,7 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf, Route } from "../../../src/flow/generated-types.js";
 import type { ActionHandler, RouterHandler } from "../../../src/flow/handlers.js";
-import { EmptyEnvironment, Ttl } from "../../../src/index.js";
+import { Ttl } from "../../../src/index.js";
 import { usd } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 
@@ -148,7 +148,6 @@ export class QuoteWorkflow {}
 @Application({
   name: "quote-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [QuoteWorkflow],
   budgets: TEST_BUDGETS,
 })

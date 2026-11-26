@@ -19,7 +19,6 @@ import { listOf, oneOf, type ListWrapper } from "../../../src/flow/dto-wrappers.
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { ReviewRequestDto } from "../fixtures/files.application.js";
@@ -85,7 +84,6 @@ function servedWith(
   @Application({
     name: "nested-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [NestedWorkflow],
     providers: [...providers],
     endpoints: [NestedExpose],
@@ -127,7 +125,6 @@ function servedWithListOutput(item: ListWrapper) {
   @Application({
     name: "listed-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [ListedWorkflow],
     endpoints: [ListedExpose],
     budgets: TEST_BUDGETS,

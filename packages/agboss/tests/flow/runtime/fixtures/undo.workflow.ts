@@ -2,7 +2,6 @@ import { Text } from "../../../../src/dto/index.js";
 import {
   Observer,
   Action,
-  EmptyEnvironment,
   ExecutionContext,
   SpendRecorder,
   Workflow,
@@ -359,7 +358,6 @@ export class UndoLog {
 @Application({
   name: "undo-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [UndoWorkflow, UndoUnhandledWorkflow, UndoPathWorkflow],
   observers: [UndoLog],
   budgets: TEST_BUDGETS,
@@ -370,7 +368,6 @@ export class UndoApplication {}
 @Application({
   name: "undo-quick-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [UndoWorkflow],
   budgets: TEST_BUDGETS,
   executionLimits: { compensationTimeout: seconds(2) },

@@ -3,7 +3,6 @@ import {
   Agent,
   ApplicationContext,
   ChildPlacement,
-  EmptyEnvironment,
   ExecutionContext,
   Tool,
   Workflow,
@@ -125,7 +124,6 @@ export class LoopParentWorkflow {}
   name: "loop-takeover-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LoopParentWorkflow],
   budgets: TEST_BUDGETS,
 })

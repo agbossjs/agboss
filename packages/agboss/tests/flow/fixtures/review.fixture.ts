@@ -13,7 +13,7 @@ import { ArticleDto, ArticleRequestDto } from "./dtos.js";
 import { ApprovalDto, CritiqueDto, DraftDto, ResearchDto } from "./review-dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
@@ -112,7 +112,6 @@ export class StoryWorkflow {}
   name: "story-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [StoryWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -191,7 +190,6 @@ export class PolishWorkflow {}
   name: "polish-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PolishWorkflow],
   budgets: TEST_BUDGETS,
 })

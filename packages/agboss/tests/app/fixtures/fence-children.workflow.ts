@@ -5,7 +5,6 @@ import {
   Budget,
   BudgetScope,
   ChildPlacement,
-  EmptyEnvironment,
   ExecutionContext,
   Workflow,
   WorkflowFinish,
@@ -227,7 +226,6 @@ export class FenceProbeBudget implements BudgetHandler {
 @Application({
   name: "fence-children-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [NearParentWorkflow, FarParentWorkflow],
   observers: [RecoveryLog],
   budgets: [...TEST_BUDGETS, FenceProbeBudget],

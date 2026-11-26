@@ -4,7 +4,6 @@ import { Injectable } from "../../src/components/decorators.js";
 import { A2AEndpoint } from "../../src/a2a/index.js";
 import {
   Agent,
-  EmptyEnvironment,
   Judge,
   JudgeModel,
   JudgeVerdict,
@@ -82,7 +81,6 @@ export class AuditA2AExpose {}
   name: "a2a-audit-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [A2AWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

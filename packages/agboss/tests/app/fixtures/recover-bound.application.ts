@@ -1,5 +1,5 @@
 import type { Page } from "../../../src/app/page.js";
-import { EmptyEnvironment, Injectable } from "../../../src/index.js";
+import { Injectable } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Clock, IdGenerator } from "../../../src/infrastructure/clock.js";
 import {
@@ -72,7 +72,6 @@ export class InstanceProbe {
 @Application({
   name: "recover-bound-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow],
   budgets: TEST_BUDGETS,
   providers: [HoldableRecordRepository, InstanceLogger, InstanceProbe],

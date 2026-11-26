@@ -863,7 +863,7 @@ export class OpenRouterModelProvider {}
 
 ```ts file=src/support.application.ts
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
-import { Application, EmptyEnvironment } from "@agboss/core";
+import { Application } from "@agboss/core";
 import { SupportApplicationBudget } from "./support/budgets/support-application.budget.js";
 import { SupportExecutionBudget } from "./support/budgets/support-execution.budget.js";
 import { SupportTenantBudget } from "./support/budgets/support-tenant.budget.js";
@@ -875,7 +875,6 @@ import { SupportWorkflow } from "./support/workflows/support/support.workflow.js
   modelProvider: OpenRouterModelProvider,
   name: "support-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SupportWorkflow],
   budgets: [SupportApplicationBudget, SupportTenantBudget, SupportExecutionBudget],
   providers: [OpenRouterModelProvider, SupervisorQueueService],

@@ -14,7 +14,7 @@ import { ChargeResultDto, CreditApprovalDto, CreditOrderDto } from "./credit-dto
 import { WorkflowStartTextDto } from "./dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
@@ -177,7 +177,6 @@ export class CreditWorkflow {}
   name: "credit-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CreditWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -227,7 +226,6 @@ export class CreditByModelWorkflow {}
   name: "credit-by-model-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CreditByModelWorkflow],
   budgets: TEST_BUDGETS,
 })

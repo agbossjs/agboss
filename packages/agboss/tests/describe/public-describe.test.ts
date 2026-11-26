@@ -10,15 +10,7 @@ import {
   describeApplicationData,
   describeWorkflow,
 } from "../../src/describe/index.js";
-import {
-  Agent,
-  EmptyEnvironment,
-  Workflow,
-  WorkflowFinish,
-  WorkflowStart,
-  inline,
-  Ttl,
-} from "../../src/index.js";
+import { Agent, Workflow, WorkflowFinish, WorkflowStart, inline, Ttl } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
@@ -61,7 +53,6 @@ class OtherWorkflow {}
   name: "greet-application",
   modelProvider: TestModelProvider,
   version: "2.0.0",
-  environment: EmptyEnvironment,
   workflows: [GreetWorkflow],
   budgets: TEST_BUDGETS,
 })

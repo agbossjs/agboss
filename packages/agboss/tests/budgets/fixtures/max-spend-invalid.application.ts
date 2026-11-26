@@ -1,4 +1,4 @@
-import { Budget, BudgetScope, EmptyEnvironment } from "../../../src/index.js";
+import { Budget, BudgetScope } from "../../../src/index.js";
 import type { BudgetHandler } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd, type Usd } from "../../../src/units/index.js";
@@ -29,7 +29,6 @@ export class GivenBudget implements BudgetHandler {
   name: "given-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BriefWorkflow],
   tenantContext: ShopTenantContext,
   budgets: [ShopApplicationDailyBudget, ShopTenantMonthlyBudget, GivenBudget],

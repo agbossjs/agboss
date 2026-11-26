@@ -1,7 +1,6 @@
 import {
   Agent,
   DecidedBy,
-  EmptyEnvironment,
   optional,
   Router,
   Workflow,
@@ -103,7 +102,6 @@ export class PickyWorkflow {}
   name: "picky-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PickyWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -164,7 +162,6 @@ export class StrictWorkflow {}
   name: "strict-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [StrictWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -227,7 +224,6 @@ export class BudgetDeskExecutionBudget implements BudgetHandler {
   name: "budget-desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BudgetDeskWorkflow],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, BudgetDeskExecutionBudget],
 })

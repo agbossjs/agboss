@@ -3,7 +3,7 @@
  * step hands on, so the kept record of the execution states it, with the run's own.
  */
 import { describe, expect } from "vitest";
-import { Application, EmptyEnvironment, ExecutionHistoryRepository } from "../../src/index.js";
+import { Application, ExecutionHistoryRepository } from "../../src/index.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { hours, usd } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -24,7 +24,6 @@ import { TestModelProvider } from "../../src/testing/test-model-provider.js";
   name: "kept-questions-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PurchaseWorkflow, OwnerPurchaseWorkflow],
   budgets: TEST_BUDGETS,
   providers: [InboxSpendingLimitChannel, InboxBudgetOwnerChannel],

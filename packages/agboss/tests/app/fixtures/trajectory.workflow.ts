@@ -1,7 +1,6 @@
 import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
   Agent,
-  EmptyEnvironment,
   Injectable,
   Judge,
   JudgeModel,
@@ -218,7 +217,6 @@ export class OrderPiiPolicy {}
   name: "trajectory-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ClerkWorkflow, FrontDeskWorkflow, StrictClerkWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

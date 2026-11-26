@@ -5,7 +5,6 @@ import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import {
@@ -70,7 +69,6 @@ export class SideQuestionWorkflow {}
 @Application({
   name: "side-question-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SideQuestionWorkflow],
   budgets: TEST_BUDGETS,
   providers: [InboxSpendingLimitChannel],

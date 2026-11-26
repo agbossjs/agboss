@@ -1,12 +1,5 @@
 // `agboss rag index` interrupted in its write phase (#891 D1): a real SqliteFtsRagSource over the folder and file the test names
-import {
-  Agent,
-  Application,
-  EmptyEnvironment,
-  Workflow,
-  inline,
-  Ttl,
-} from "../../../../agboss/src/index.js";
+import { Agent, Application, Workflow, inline, Ttl } from "../../../../agboss/src/index.js";
 import { Rag, RagScope, SqliteFtsRagSource } from "../../../../agboss/src/rag/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { starOf } from "../../../../agboss/tests/fixtures/test-flow/star.js";
@@ -50,7 +43,6 @@ export class WriteNotesWorkflow {}
   modelProvider: TestModelProvider,
   name: "write-notes-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [WriteNotesWorkflow],
   budgets: TEST_BUDGETS,
 })

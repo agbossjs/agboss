@@ -23,7 +23,6 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { hours, seconds, type Milliseconds, days, Ttl } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { ExpiryDecisionDto, ExpiryDoneDto, ExpiryOrderDto } from "./expiry.fixture.js";
@@ -412,7 +411,6 @@ export const CHANNELS = [
 @Application({
   name: "extension-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: FLOWS,
   budgets: TEST_BUDGETS,
   providers: [...CHANNELS, ExtensionPauseListener],

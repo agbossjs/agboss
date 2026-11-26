@@ -634,7 +634,7 @@ export class RefundRequest {
   @Text() orderId!: string;
 }
 // @snippet
-import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
+import { Agent, Application, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @Tool({ name: "refund-tool", description: "Refunds an order", input: RefundRequest, output: RefundRequest, approval: RefundToolApproval })
 export class RefundTool {
@@ -659,7 +659,6 @@ export class RefundWorkflow {}
 @Application({
   name: "refund-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RefundWorkflow],
   providers: [SlackRefundApprovalChannel],
 })
@@ -829,7 +828,7 @@ target's `timeout`.
 the flow's `.onError(StepError.PauseExpired, …)` is the escalation — a question step on a side path.
 
 ```ts file=desk-flow.ts
-import { Action, Application, Channel, ChannelOutcome, EmptyEnvironment, Injectable, PauseRespondent, StepError, Workflow, WorkflowFinish, WorkflowStart, onStart, toExternalTask, type ActionHandler, type ChannelAsk, type InputOf, type OutputOf, toAction, toFinish, ExternalTask, ToolApproval, Ttl } from "@agboss/core";
+import { Action, Application, Channel, ChannelOutcome, Injectable, PauseRespondent, StepError, Workflow, WorkflowFinish, WorkflowStart, onStart, toExternalTask, type ActionHandler, type ChannelAsk, type InputOf, type OutputOf, toAction, toFinish, ExternalTask, ToolApproval, Ttl } from "@agboss/core";
 import { Bool, Text } from "@agboss/core/dto";
 import { hours } from "@agboss/core/units";
 
@@ -969,7 +968,6 @@ export class DeskWorkflow {}
 @Application({
   name: "desk-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DeskWorkflow],
   channels: [DeskManagerChannel, DeskDirectorChannel],
 })

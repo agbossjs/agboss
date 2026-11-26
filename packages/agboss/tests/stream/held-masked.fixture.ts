@@ -4,7 +4,6 @@
  */
 import {
   Agent,
-  EmptyEnvironment,
   GuardrailVerdict,
   OutputGuardrail,
   PiiKind,
@@ -110,7 +109,6 @@ class PlainHeldWorkflow {}
   name: "masked-held-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [MaskedHeldWorkflow, PlainHeldWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

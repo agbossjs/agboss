@@ -37,7 +37,6 @@ import { inMemoryInterruptedOf } from "../../../src/infrastructure/in-memory-can
 import { hours, seconds, type Milliseconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { storeClockOf } from "../../helpers/store-clock.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
@@ -328,7 +327,6 @@ const providers = [
   name: "recovery-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   observers: [RecoveryLog],
   providers,
@@ -341,7 +339,6 @@ export class RecoveryApplication {}
   name: "kept-recovery-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   observers: [RecoveryLog],
   providers,
@@ -355,7 +352,6 @@ export class KeptRecoveryApplication {}
   name: "quick-stop-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   observers: [RecoveryLog],
   providers,

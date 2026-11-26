@@ -4,7 +4,6 @@ import { minutes } from "../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf, type AssembledApplication } from "../../src/application/assemble.js";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { meshAppOf } from "../a2a/fixtures/mesh.workflow.js";
 import { meshRefusalOf, inboundMeshOfRequest } from "../../src/mesh/mesh-admission.js";
@@ -141,7 +140,6 @@ describe("#398 PR 1: @Mesh({ maxHops })", () => {
       name: "hops-invalid-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [parts.MeshWorkflow],
       budgets: TEST_BUDGETS,
       mesh: HopsMesh,

@@ -1,6 +1,5 @@
 import {
   Agent,
-  EmptyEnvironment,
   Injectable,
   SpendRecorder,
   Tool,
@@ -104,7 +103,6 @@ export class PricedBatchWorkflow {}
   name: "priced-pauses-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PricedBatchWorkflow],
   providers: [
     FinanceDeskRefundApprovalChannel,

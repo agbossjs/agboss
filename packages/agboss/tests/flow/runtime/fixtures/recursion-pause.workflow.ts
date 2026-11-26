@@ -3,7 +3,6 @@ import { Integer } from "../../../../src/dto/index.js";
 import {
   Action,
   Agent,
-  EmptyEnvironment,
   ExecutionContext,
   oneOf,
   Tool,
@@ -94,7 +93,6 @@ export class DigWorkflow {}
   name: "recursion-pause-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DigWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -152,7 +150,6 @@ export class HoldDepthWorkflow {}
 @Application({
   name: "recursion-recovery-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [HoldDepthWorkflow],
   observers: [RecoveryLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],

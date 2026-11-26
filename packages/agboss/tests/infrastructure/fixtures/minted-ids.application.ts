@@ -1,4 +1,4 @@
-import { EmptyEnvironment, IdGenerator, Injectable } from "../../../src/index.js";
+import { IdGenerator, Injectable } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { SingleChildWorkflow } from "../../channels/fixtures/child-pauses.workflow.js";
@@ -53,7 +53,6 @@ export class PlannedIdGenerator extends IdGenerator {
   name: "planned-ids-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
   providers: [
     PlannedIdGenerator,

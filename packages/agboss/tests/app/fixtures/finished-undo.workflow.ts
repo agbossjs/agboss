@@ -2,7 +2,6 @@ import { Text } from "../../../src/dto/index.js";
 import {
   Action,
   ChildPlacement,
-  EmptyEnvironment,
   ExecutionContext,
   Workflow,
   WorkflowFinish,
@@ -142,7 +141,6 @@ export class UndoOneWorkflow {}
 @Application({
   name: "finished-undo-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [UndoOneWorkflow],
   observers: [YieldLog],
   providers: [RecordingLogger],

@@ -14,7 +14,6 @@ import { ChatStart, Reply } from "../channels/approval.workflow.js";
 import { onStart } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
 
 /** One failed call opens a breaker for a minute (names of their own: breaker state is per name). */
@@ -99,7 +98,6 @@ export class WithFallback {}
   name: "fallback-application",
   modelProvider: Primary202,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [WithFallback],
   providers: [Primary202, TestDecisionsProvider, Backup202],
   budgets: TEST_BUDGETS,
@@ -122,7 +120,6 @@ export class UnmappedFallback {}
   name: "unmapped-application",
   modelProvider: Unmapped202,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [UnmappedFallback],
   providers: [Unmapped202, TestDecisionsProvider, Backup202],
   budgets: TEST_BUDGETS,

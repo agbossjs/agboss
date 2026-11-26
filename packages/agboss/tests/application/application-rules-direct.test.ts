@@ -10,7 +10,7 @@ import {
   listedClassesOf,
 } from "../../src/application/application-rules.js";
 import { Budget, BudgetPeriod, BudgetScope } from "../../src/budgets/budget.js";
-import { EmptyEnvironment, Injectable, Ttl } from "../../src/index.js";
+import { Injectable, Ttl } from "../../src/index.js";
 import { ModelCost, ModelProvider, RetryPolicy } from "../../src/models/index.js";
 import type { TransportModelProviderOptions } from "../../src/models/model-provider.decorator.js";
 import { minutes, seconds, usd, type Usd } from "../../src/units/index.js";
@@ -41,7 +41,6 @@ class Application {
 const options = (rest: Partial<ApplicationOptions>): ApplicationOptions => ({
   name: "shop-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OrdersWorkflow],
   budgets: TEST_BUDGETS,
   ...rest,
@@ -189,7 +188,6 @@ describe("#1366: applicationRuleViolations", () => {
     const bare: ApplicationOptions = {
       name: "shop-application",
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [OrdersWorkflow],
     };
 

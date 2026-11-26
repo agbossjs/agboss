@@ -3,7 +3,6 @@ import {
   Observer,
   listOf,
   Action,
-  EmptyEnvironment,
   ExecutionContext,
   Workflow,
   WorkflowFinish,
@@ -297,7 +296,6 @@ export class UnwindLog {
 @Application({
   name: "unwind-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     UnwindWorkflow,
     UnwindCommittedWorkflow,

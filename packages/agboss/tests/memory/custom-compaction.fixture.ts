@@ -23,7 +23,6 @@ import {
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import type { Class } from "../../src/components/injection.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
@@ -125,7 +124,6 @@ export const graphDeskOn = (memory: Class, name: string): Class => {
     name,
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [GraphDeskWorkflow],
     piiPolicies: [GraphContactPiiPolicy],
     budgets: TEST_BUDGETS,

@@ -1,4 +1,4 @@
-import { Application, EmptyEnvironment, Injectable } from "../../../src/index.js";
+import { Application, Injectable } from "../../../src/index.js";
 import {
   InMemoryExecutionHistoryRepository,
   type ExecutionHistoryRecord,
@@ -32,7 +32,6 @@ import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
   name: "history-desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EvalDeskWorkflow],
   tenantContext: DeskTenantContext,
   executionContext: DeskExecutionContext,
@@ -46,7 +45,6 @@ export class HistoryDeskApplication {}
   name: "history-treasury-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TreasuryWorkflow],
   budgets: TEST_BUDGETS,
   providers: treasuryChannels,
@@ -58,7 +56,6 @@ export class HistoryTreasuryApplication {}
   name: "history-sensitive-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SensitiveWorkflow],
   executionContext: ShopExecutionContext,
   piiPolicies: [ContactPiiPolicy],
@@ -80,7 +77,6 @@ export class RefusingExecutionHistoryRepository extends InMemoryExecutionHistory
   name: "broken-history-desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EvalDeskWorkflow],
   tenantContext: DeskTenantContext,
   executionContext: DeskExecutionContext,
@@ -116,7 +112,6 @@ export class NotingExecutionTreeRepository extends InMemoryExecutionTreeReposito
   name: "end-order-desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EvalDeskWorkflow],
   tenantContext: DeskTenantContext,
   executionContext: DeskExecutionContext,
@@ -131,7 +126,6 @@ export class EndOrderDeskApplication {}
   name: "end-order-treasury-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TreasuryWorkflow],
   budgets: TEST_BUDGETS,
   providers: [...treasuryChannels, NotingExecutionHistoryRepository, NotingExecutionTreeRepository],

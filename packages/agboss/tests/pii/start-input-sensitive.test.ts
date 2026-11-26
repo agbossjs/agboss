@@ -8,7 +8,6 @@ import { describe, expect, it, vi } from "vitest";
 import { NodeKind } from "../../src/flow/ast.js";
 import { Application } from "../../src/application/application.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { displayMask } from "../../src/dto/redact.js";
 import { ExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { ExecutionHistoryRepository } from "../../src/infrastructure/execution-history.repository.js";
@@ -136,7 +135,6 @@ class EndObserver {
 @Application({
   name: "start-input-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [MemoryDeskWorkflow, ParentDeskWorkflow],
   executionContext: ShopExecutionContext,
   piiPolicies: [ContactPiiPolicy],

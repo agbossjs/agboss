@@ -4,7 +4,6 @@ import {
   Arbitrate,
   Channel,
   ChannelOutcome,
-  EmptyEnvironment,
   ExternalTask,
   Injectable,
   PauseRespondent,
@@ -254,7 +253,6 @@ export class AuditUnhandledWorkflow {}
   name: "audit-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     AuditHoursWorkflow,
     AuditDaysWorkflow,

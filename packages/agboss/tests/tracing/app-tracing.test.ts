@@ -22,7 +22,6 @@ import { tracingOf, type TracingAdapter } from "../../src/tracing/index.js";
 import { ExecutionStatus } from "../../src/index.js";
 import { execute } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
   ContactPiiPolicy,
@@ -44,7 +43,6 @@ import { TestModelProvider } from "../../src/testing/test-model-provider.js";
   name: "pii-traced-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PiiWorkflow, OpenWorkflow],
   piiPolicies: [ContactPiiPolicy],
   budgets: TEST_BUDGETS,

@@ -19,7 +19,6 @@ import { usd, type Usd } from "../../src/units/index.js";
 import { onStart, toFinish } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 export class Payment {
@@ -127,7 +126,6 @@ export class Shop {}
   name: "shop-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Shop],
   budgets: SHOP_BUDGETS,
 })
@@ -154,7 +152,6 @@ export class ShopCatchingLimits {}
   name: "shop-limits-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ShopCatchingLimits],
   budgets: SHOP_BUDGETS,
 })
@@ -178,7 +175,6 @@ export class ShopUncaught {}
   name: "shop-uncaught-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ShopUncaught],
   budgets: SHOP_BUDGETS,
 })

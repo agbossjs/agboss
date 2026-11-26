@@ -5,7 +5,6 @@ import {
   Action,
   Agent,
   DecidedBy,
-  EmptyEnvironment,
   optional,
   Router,
   Workflow,
@@ -139,7 +138,6 @@ export class InParallelWorkflow {}
   name: "in-parallel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [InParallelWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -171,7 +169,6 @@ export class UnskippedWorkflow {}
   name: "unskipped-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [UnskippedWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -277,7 +274,6 @@ export class ChooserWorkflow {}
 @Application({
   name: "chooser-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ChooserWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -327,7 +323,6 @@ export class ModelChooserWorkflow {}
   name: "model-chooser-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ModelChooserWorkflow],
   budgets: TEST_BUDGETS,
 })

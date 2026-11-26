@@ -18,7 +18,7 @@ import { Idempotency } from "../../src/app/idempotency.js";
 import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import { hours } from "../../src/units/index.js";
 import { meshContextValuesOf } from "../../src/mesh/mesh-context-values.js";
-import { EmptyEnvironment, HealthCheck, HealthCheckResult, Tool } from "../../src/index.js";
+import { HealthCheck, HealthCheckResult, Tool } from "../../src/index.js";
 import {
   ModelCost,
   ModelProvider,
@@ -75,7 +75,6 @@ function applicationWith({
   Application({
     name: "capped-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [ProbeWorkflow],
     budgets: TEST_BUDGETS,
     executionLimits,

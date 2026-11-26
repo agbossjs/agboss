@@ -15,7 +15,6 @@ import { onStart, toFinish, toAgent } from "../../helpers/flow.js";
 import { NoAnswer, TestAnswer, TestChat } from "../test-flow/test.flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { PersonalDataGuardrail, PromptInjectionGuardrail } from "../guardrails.js";
 import { PricedTestModelProvider } from "../priced-test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
@@ -124,7 +123,6 @@ export class TestWorkflow {}
   name: "test-application",
   modelProvider: PricedTestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TestWorkflow],
   budgets: TEST_BUDGETS,
 })

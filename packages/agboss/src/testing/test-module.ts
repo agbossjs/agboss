@@ -3,7 +3,6 @@ import type { TestRunOptions } from "./slices.js";
 import { Application, type ApplicationOptions } from "../application/application.js";
 import type { Class, Resolved, Token } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
-import { EmptyEnvironment } from "../environments/empty.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { ToolOutput } from "../tools/index.js";
@@ -92,7 +91,6 @@ function applicationOf(options: TestModuleOptions): Class {
     readonly components = components;
   }
   Application({
-    environment: EmptyEnvironment,
     ...application,
     name: "test-module-application",
     version: "0.0.0",

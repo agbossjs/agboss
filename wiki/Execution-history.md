@@ -8,7 +8,7 @@ once it ended longer ago than that. `agboss executions export` writes it as JSON
 ## Keeping it: `retention.executionRecords`
 
 <!-- snippet-context
-import { Application, DatabaseStorage, EmptyEnvironment, Injectable, SqliteDriver } from "@agboss/core";
+import { Application, DatabaseStorage, Injectable, SqliteDriver } from "@agboss/core";
 import { hours } from "@agboss/core/units";
 @Injectable()
 export class DeskWorkflow {}
@@ -25,7 +25,6 @@ export class DeskDatabaseStorage {}
 @Application({
   name: "desk-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DeskWorkflow],
   storage: DeskDatabaseStorage, // SQLite: its stores keep the history too
   retention: { executionRecords: hours(24 * 30) }, // unset → nothing is kept (the default)

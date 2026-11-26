@@ -5,7 +5,6 @@ import { BundleDto } from "../../../files/reader.factory.js";
 import { onStart } from "../../../helpers/flow.js";
 import { A2AEndpoint } from "../../../../src/a2a/a2a-endpoint.decorator.js";
 import { Application } from "../../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../../src/index.js";
 import { FilePolicy } from "../../../../src/files/file-policy.js";
 import { Workflow } from "../../../../src/flow/decorators/workflow.js";
 import { hours, kilobytes, minutes } from "../../../../src/units/index.js";
@@ -84,7 +83,6 @@ export class FilesSkillExpose {}
   name: "files-config-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow, FileSummaryWorkflow, FilesReaderWorkflow],
   providers: [FileCallerChannel],
   endpoints: [FilesSkillExpose],
@@ -104,7 +102,6 @@ export class FilesBareWorkflow {}
 @Application({
   name: "files-bare-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FilesBareWorkflow],
   providers: [FileCallerChannel],
   budgets: TEST_BUDGETS,

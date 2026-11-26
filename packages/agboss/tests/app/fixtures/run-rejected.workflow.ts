@@ -16,7 +16,6 @@ import { onStart } from "../../helpers/flow.js";
 import { AnswerDto, Apply, Done, Lookup, RunLog } from "./run-events.workflow.js";
 import { Application } from "../../../src/application/application.js";
 import { TestApplicationDailyBudget, TestExecutionBudget } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** A start input with a code a rule checks; the rule's reason echoes the value it rejects. */
@@ -81,7 +80,6 @@ export class VouchersTenantDailyBudget implements BudgetHandler {
   name: "vouchers-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Vouchers],
   observers: [RunLog],
   budgets: [TestApplicationDailyBudget, VouchersTenantDailyBudget, TestExecutionBudget],

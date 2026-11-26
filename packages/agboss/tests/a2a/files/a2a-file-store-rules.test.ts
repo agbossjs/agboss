@@ -20,7 +20,7 @@ import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-databa
 import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import type { StoreDescriptor } from "../../../src/infrastructure/execution-lease.repository.js";
 import { LocalDiskFileRepository } from "../../../src/infrastructure/local-disk-file.repository.js";
-import { EmptyEnvironment, Ttl } from "../../../src/index.js";
+import { Ttl } from "../../../src/index.js";
 import { hours, kilobytes, minutes } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { PostgresLeases } from "../../application/fixtures/store-backends.fixture.js";
@@ -68,7 +68,6 @@ const appWith = (
     name: "rules-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [RulesWorkflow],
     providers: [FileCallerChannel, ...providers],
     endpoints: [RulesA2AExpose],

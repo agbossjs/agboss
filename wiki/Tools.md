@@ -447,7 +447,7 @@ instance serves every workflow of the application. `AutoApproveChannel.for(Targe
 `AutoRejectChannel.for(Target)` are the test channels that decide at once:
 
 <!-- snippet-context
-import { inline, Agent, Application, EmptyEnvironment, Injectable, Workflow, WorkflowFinish, WorkflowStart, onStart, Ttl } from "@agboss/core";
+import { inline, Agent, Application, Injectable, Workflow, WorkflowFinish, WorkflowStart, onStart, Ttl } from "@agboss/core";
 import { Integer, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 export class RefundCardInputDto {
   @Text() orderId!: string;
@@ -480,7 +480,6 @@ export class RefundWorkflow {}
 @Application({
   name: "refund-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RefundWorkflow],
   channels: [SlackRefundApprovalChannel], // the target's channel: its transport
 })

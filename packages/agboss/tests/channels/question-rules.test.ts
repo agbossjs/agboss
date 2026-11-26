@@ -12,7 +12,7 @@ import { Channel, Tool } from "../../src/components/decorators.js";
 import type { Class } from "../../src/components/injection.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
-import { EmptyEnvironment, inline, ExternalTask, Ttl } from "../../src/index.js";
+import { inline, ExternalTask, Ttl } from "../../src/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -66,7 +66,6 @@ function askingApplication(name: string, role: Class, providers: readonly Class[
     name: `${name}-application`,
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [AskingWorkflow],
     budgets: TEST_BUDGETS,
     providers,
@@ -159,7 +158,6 @@ describe("#659 AC1: a question role's name and implementation", () => {
     @Application({
       name: "tool-question-application",
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [ToolQuestionWorkflow],
       budgets: TEST_BUDGETS,
       providers: [channel],

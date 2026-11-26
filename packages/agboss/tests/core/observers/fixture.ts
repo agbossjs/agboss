@@ -15,7 +15,6 @@ import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 export class EchoInput {
@@ -106,7 +105,6 @@ export function applicationWith(
     name: name.replace(/-workflow$/, "-application"),
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [workflow],
     budgets: TEST_BUDGETS,
     observers,

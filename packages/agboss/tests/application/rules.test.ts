@@ -24,7 +24,6 @@ import {
   OrdersWorkflowFinish,
   RefundsWorkflowStart,
 } from "./fixtures/desks.application.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** The codes and messages an application's assembly fails with. */
@@ -55,7 +54,6 @@ class NotABudget {
 @Application({
   name: "misnamed",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [],
   budgets: [DailyLimit, NotABudget],
 })
@@ -85,7 +83,6 @@ class SecondOrdersWorkflow {}
   name: "clashing-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OrdersWorkflow, SecondOrdersWorkflow, OrdersAgent],
   budgets: TEST_BUDGETS,
 })
@@ -105,7 +102,6 @@ class LedgeredWorkflow {}
   name: "ledgered-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LedgeredWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -148,7 +144,6 @@ class SecondPausedExecutionRepository extends InMemoryPausedExecutionRepository 
   name: "two-pauses-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OrdersWorkflow],
   providers: [FirstPausedExecutionRepository, SecondPausedExecutionRepository],
   budgets: TEST_BUDGETS,

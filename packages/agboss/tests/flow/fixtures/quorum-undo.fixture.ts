@@ -2,7 +2,6 @@ import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
   Arbiter,
   Arbitrate,
-  EmptyEnvironment,
   Action,
   Workflow,
   WorkflowStart,
@@ -124,7 +123,6 @@ export class QuorumRefusedWorkflow {}
 @Application({
   name: "quorum-undo-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [QuorumExcludedWorkflow, QuorumRefusedWorkflow],
   budgets: TEST_BUDGETS,
 })

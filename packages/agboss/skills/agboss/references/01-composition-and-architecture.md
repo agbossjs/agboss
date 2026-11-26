@@ -320,7 +320,7 @@ export class OpenRouterModelProvider {}
 ```ts file=src/shortlist.application.ts
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 // shortlist.application.ts — what createApp, testWith and the CLI take
-import { Application, EmptyEnvironment } from "@agboss/core";
+import { Application } from "@agboss/core";
 import { ApplicationDailyBudget } from "./shortlist/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./shortlist/budgets/execution.budget.js";
 import { TenantDailyBudget } from "./shortlist/budgets/tenant-daily.budget.js";
@@ -331,7 +331,6 @@ import { ShortlistWorkflow } from "./shortlist/workflows/shortlist/shortlist.wor
   providers: [OpenRouterModelProvider],
   name: "shortlist-application",
   version: "1.0.0",
-  environment: EmptyEnvironment, // no settings; see reference 03 for an environment contract
   workflows: [ShortlistWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
 })

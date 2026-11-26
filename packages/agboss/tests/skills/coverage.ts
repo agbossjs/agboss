@@ -286,7 +286,7 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["ActionHandler", "RouterHandler", "InputOf", "OutputOf", "Route", "ExecutionContext"],
     ...["oneOf", "listOf", "historyOf", "onAgent", "onStart", "toFinish"],
     ...["ToolApproval", "Channel", "ChannelOutcome", "PauseRespondent", "ExecutionStatus"],
-    ...["LimitError", "Text", "Integer", "Budget", "EmptyEnvironment"],
+    ...["LimitError", "Text", "Integer", "Budget"],
     "DatabaseStorage",
     ...["routeTo", "callTool", "replyWith", "testUnit"],
   ],

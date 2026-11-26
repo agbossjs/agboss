@@ -85,7 +85,6 @@ const applicationSource = (start: string): string => `import {
   Budget,
   BudgetPeriod,
   BudgetScope,
-  EmptyEnvironment,
   Ttl,
   Workflow,
   WorkflowFinish,
@@ -149,7 +148,6 @@ export class ExecutionBudget {
 @Application({
   name: "echo-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EchoWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
 })

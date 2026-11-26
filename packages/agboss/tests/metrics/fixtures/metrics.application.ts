@@ -1,11 +1,4 @@
-import {
-  ChildPlacement,
-  EmptyEnvironment,
-  listOf,
-  Workflow,
-  WorkflowStart,
-  Ttl,
-} from "../../../src/index.js";
+import { ChildPlacement, listOf, Workflow, WorkflowStart, Ttl } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart, toWorkflow } from "../../helpers/flow.js";
@@ -49,7 +42,6 @@ export class MetricsBatchWorkflow {}
 
 const SHAPE = {
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [MetricsBatchWorkflow, RemoteItemWorkflow],
   budgets: TEST_BUDGETS,
 } as const;

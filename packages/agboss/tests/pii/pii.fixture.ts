@@ -23,7 +23,6 @@ import { DatabaseStorage } from "../../src/storage/index.js";
 import { defineStorageDriver, StorageRole } from "../../src/stores/index.js";
 import { hours } from "../../src/units/index.js";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
@@ -214,7 +213,6 @@ export class PiiAppStorage {}
   name: "pii-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PiiWorkflow, OpenWorkflow],
   piiPolicies: [ContactPiiPolicy, GovernmentPiiPolicy],
   budgets: TEST_BUDGETS,

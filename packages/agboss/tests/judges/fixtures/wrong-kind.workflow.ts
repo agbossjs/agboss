@@ -12,7 +12,6 @@ import { onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 import { LocalModelProvider, TestDecisionsProvider } from "../../models/providers.fixture.js";
 
@@ -80,7 +79,6 @@ export class ChatDeciderDesk {}
   name: "chat-decider-desk-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ChatDeciderDesk],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
@@ -102,7 +100,6 @@ export class DecisionChatterDesk {}
   name: "decision-chatter-desk-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DecisionChatterDesk],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
@@ -172,7 +169,6 @@ export class LunaRouted {}
   name: "luna-routed-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LunaRouted],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

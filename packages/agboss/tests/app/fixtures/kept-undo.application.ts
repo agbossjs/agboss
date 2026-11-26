@@ -1,4 +1,3 @@
-import { EmptyEnvironment } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { hours, seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -28,7 +27,6 @@ import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
   name: "kept-undo-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [UnwindWorkflow, UnwindSidePathWorkflow, UnwindManyWorkflow, UnwindGuestWorkflow],
   observers: [UnwindLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository, GuestInboxChannel],

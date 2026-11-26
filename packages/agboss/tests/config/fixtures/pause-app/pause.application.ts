@@ -1,5 +1,4 @@
 import { Application } from "../../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import {
   DeskRefundChannel,
@@ -14,7 +13,6 @@ import { TestModelProvider } from "../../../../src/testing/test-model-provider.j
   name: "pause-shelves-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PurchaseTargetsWorkflow, RefundTargetsWorkflow],
   budgets: TEST_BUDGETS,
   channels: [InboxSpendingLimitChannel, DeskRefundChannel],

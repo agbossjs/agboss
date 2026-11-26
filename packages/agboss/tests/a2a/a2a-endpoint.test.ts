@@ -18,7 +18,6 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
 import { componentOf } from "../../src/components/metadata.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import { hours, minutes, seconds, Ttl } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -52,7 +51,6 @@ function applicationWith(endpoint: Partial<A2AEndpointOptions>) {
     name: "refunds-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [RefundWorkflow],
     budgets: TEST_BUDGETS,
     endpoints: [RefundsEndpoint],
@@ -155,7 +153,6 @@ class OrdersBEndpoint {}
   name: "two-doors-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   providers: [BearerAuthenticator],
   endpoints: [OrdersAEndpoint, OrdersBEndpoint],

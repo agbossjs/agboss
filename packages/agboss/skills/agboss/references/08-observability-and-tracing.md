@@ -309,7 +309,7 @@ export class OpenRouterModelProvider {}
 
 ```ts file=src/desk.application.ts
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
-import { Application, EmptyEnvironment } from "@agboss/core";
+import { Application } from "@agboss/core";
 import { ApplicationDailyBudget } from "./desk/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./desk/budgets/execution.budget.js";
 import { TenantDailyBudget } from "./desk/budgets/tenant-daily.budget.js";
@@ -323,7 +323,6 @@ import { DeskWorkflow } from "./desk/workflows/desk/desk.workflow.js";
   modelProvider: OpenRouterModelProvider,
   name: "desk-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DeskWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   observers: [ExecutionMetricsObserver, CompensationAuditObserver], // the only place observers go

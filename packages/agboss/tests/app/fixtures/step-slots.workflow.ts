@@ -1,4 +1,4 @@
-import { EmptyEnvironment, listOf, Workflow, WorkflowStart, Ttl } from "../../../src/index.js";
+import { listOf, Workflow, WorkflowStart, Ttl } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { onStart, toAction } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -49,7 +49,6 @@ export class ItemsWorkflow {}
 @Application({
   name: "step-cap-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ItemsWorkflow],
   budgets: TEST_BUDGETS,
   executionLimits: { maxConcurrentSteps: 4 },
@@ -60,7 +59,6 @@ export class StepCapApplication {}
 @Application({
   name: "single-step-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BatchWorkflow],
   budgets: TEST_BUDGETS,
   executionLimits: { maxConcurrentSteps: 1 },
@@ -71,7 +69,6 @@ export class SingleStepApplication {}
 @Application({
   name: "step-cap-recovery-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ItemsWorkflow],
   observers: [RecoveryLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],

@@ -8,15 +8,7 @@
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import {
-  Action,
-  Agent,
-  EmptyEnvironment,
-  Workflow,
-  WorkflowStart,
-  inline,
-  Ttl,
-} from "../../src/index.js";
+import { Action, Agent, Workflow, WorkflowStart, inline, Ttl } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
@@ -56,7 +48,6 @@ class NoteWorkflow {}
 @Application({
   name: "model-free-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [NoteWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -83,7 +74,6 @@ class NotedWorkflow {}
   name: "model-using-application",
   modelProvider: TestOpenRouterProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [NotedWorkflow],
   budgets: TEST_BUDGETS,
 })

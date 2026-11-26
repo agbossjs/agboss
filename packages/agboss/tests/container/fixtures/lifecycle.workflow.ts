@@ -16,7 +16,6 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What the hooks and the tool did, in order (`Pool.onInit`, `search started`, …). */
@@ -141,7 +140,6 @@ export class LifecycleWorkflow {}
   name: "lifecycle-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LifecycleWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -194,7 +192,6 @@ export class BrokenLifecycleWorkflow {}
   name: "broken-lifecycle-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BrokenLifecycleWorkflow],
   budgets: TEST_BUDGETS,
 })

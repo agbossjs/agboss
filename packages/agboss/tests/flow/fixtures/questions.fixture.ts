@@ -16,7 +16,6 @@ import { oneOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { PiiAction } from "../../../src/pii/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
@@ -293,7 +292,6 @@ export class OwnerPurchaseWorkflow {}
   name: "questions-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PurchaseWorkflow, OwnerPurchaseWorkflow],
   budgets: TEST_BUDGETS,
   providers: [InboxSpendingLimitChannel, InboxBudgetOwnerChannel],
@@ -303,7 +301,6 @@ export class QuestionsApplication {}
 @Application({
   name: "rule-questions-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PurchaseWorkflow],
   budgets: TEST_BUDGETS,
   providers: [RuleSpendingLimitChannel],

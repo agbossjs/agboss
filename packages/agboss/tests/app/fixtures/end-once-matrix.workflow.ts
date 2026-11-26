@@ -1,7 +1,6 @@
 import { MemorySaver } from "@langchain/langgraph";
 import {
   ApplicationContext,
-  EmptyEnvironment,
   Injectable,
   Observer,
   type ExecutionEndEvent,
@@ -136,7 +135,6 @@ export class FinishLog {
 @Application({
   name: "end-once-matrix-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     EndOnceLocalWorkflow,
     YieldOneWorkflow,

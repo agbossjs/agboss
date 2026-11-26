@@ -22,7 +22,7 @@ by its runner, `agboss eval run` ([below](#running-a-suite-agboss-eval-run), #39
 
 <!-- snippet-context
 import { Ttl } from "@agboss/core";
-import { inline, Application, EmptyEnvironment, Injectable, Judge, JudgeModel, JudgeVerdict, Tool, Workflow, WorkflowFinish, WorkflowStart, Agent, onStart, type JudgeHandler, type JudgeInput, type ToolHandler } from "@agboss/core";
+import { inline, Application, Injectable, Judge, JudgeModel, JudgeVerdict, Tool, Workflow, WorkflowFinish, WorkflowStart, Agent, onStart, type JudgeHandler, type JudgeInput, type ToolHandler } from "@agboss/core";
 import { Integer, Text, WorkflowStartTextDto } from "@agboss/core/dto";
 -->
 
@@ -106,7 +106,6 @@ export class RefundsWorkflow {}
 @Application({
   name: "refunds-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RefundsWorkflow],
 })
 export class RefundsApplication {}

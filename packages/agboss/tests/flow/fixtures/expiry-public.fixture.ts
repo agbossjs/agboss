@@ -1,6 +1,5 @@
 import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import {
@@ -59,7 +58,6 @@ export class PublicExpiryWorkflow {}
 @Application({
   name: "public-expiry-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PublicExpiryWorkflow],
   budgets: TEST_BUDGETS,
   providers: [

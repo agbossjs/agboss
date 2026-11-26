@@ -8,7 +8,7 @@ import { applicationOf } from "../../src/application/assemble.js";
 import type { App } from "../../src/app/types.js";
 import { contractsOf } from "../../src/describe/contracts.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
-import { EmptyEnvironment, Injectable } from "../../src/index.js";
+import { Injectable } from "../../src/index.js";
 import { replyWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -73,7 +73,6 @@ describe("#398 PR 3: the contracts at assembly", () => {
       name: "broken-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [QuoteWorkflow, RefundWorkflow],
       budgets: TEST_BUDGETS,
       providers: [BillingDesk],

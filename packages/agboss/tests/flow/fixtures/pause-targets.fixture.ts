@@ -23,7 +23,6 @@ import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import { days, hours, Ttl } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart } from "./paths.js";
 import { inline } from "../../../src/index.js";
@@ -216,7 +215,6 @@ export class PtLimitWorkflow {}
 @Application({
   name: "pt-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PtPayoutWorkflow, PtLimitWorkflow],
   budgets: TEST_BUDGETS,
   channels: [PtPayoutChannel, PtAnyChannel, PtLimitChannel],

@@ -1,4 +1,3 @@
-import { EmptyEnvironment } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { ExemptionsLog } from "./paid-exemptions.actions.js";
@@ -21,7 +20,6 @@ import { PaidStepsLog } from "./paid-steps.actions.js";
 @Application({
   name: "paid-exemptions-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     LimitLaunchWorkflow,
     JoinLimitWorkflow,

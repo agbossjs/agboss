@@ -1,5 +1,5 @@
 // `agboss check` fixture (#272 PR 3): a v2 workflow whose types need classes no module exports
-import { Application, EmptyEnvironment } from "../../../../agboss/src/index.js";
+import { Application } from "../../../../agboss/src/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { HiddenWorkflow } from "../../../../agboss/tests/flow/fixtures/unexported.fixture.js";
 import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
@@ -11,7 +11,6 @@ export { HiddenWorkflow };
   modelProvider: TestModelProvider,
   name: "hidden-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [HiddenWorkflow],
   budgets: TEST_BUDGETS,
 })

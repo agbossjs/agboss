@@ -18,7 +18,6 @@ import {
 import { createAppWith } from "../../src/application/create-app.js";
 import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import type { Secret } from "../../src/index.js";
 import {
@@ -136,7 +135,6 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
       name: "plain-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [PlainWorkflow],
       budgets: TEST_BUDGETS,
       storage: UNKEYED,
@@ -181,7 +179,6 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
     @Application({
       name: "in-memory-plain-application",
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [PlainWorkflow],
       budgets: TEST_BUDGETS,
     })

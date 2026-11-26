@@ -11,7 +11,6 @@ import { applicationOf } from "../../src/application/assemble.js";
 import { Application } from "../../src/application/application.js";
 import type { Class } from "../../src/components/injection.js";
 import { type RuleViolation } from "../../src/graph/rule-error.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { FileSummaryWorkflow } from "./fixtures/files.application.js";
@@ -79,7 +78,6 @@ function applicationWith(price: unknown): Class {
   @Application({
     name: "priced-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [FileSummaryWorkflow],
     providers: [PricedA2AAgent],
     budgets: TEST_BUDGETS,

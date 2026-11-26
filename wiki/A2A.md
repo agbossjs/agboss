@@ -603,7 +603,7 @@ rotation lists the old and the new one — `secret(…)` / `secret.optional(…)
 `-----BEGIN PUBLIC KEY-----`).
 
 <!-- snippet-context
-import { Application, EmptyEnvironment, Mesh, MeshInboundMode, defineEnv, secret } from "@agboss/core";
+import { Application, Mesh, MeshInboundMode, defineEnv, secret } from "@agboss/core";
 import { minutes } from "@agboss/core/units";
 export class BillingWorkflow {} // a @Workflow of its own
 -->
@@ -633,7 +633,6 @@ export class BillingMesh {}
 @Application({
   name: "billing-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BillingWorkflow],
   mesh: BillingMesh,
 })
@@ -821,7 +820,7 @@ target: { application, endpoint } })`'s). A receiver of another name refuses it,
 `@McpEndpoint`s in `@Application({ endpoints })`:
 
 <!-- snippet-context
-import { Application, EmptyEnvironment, WorkflowStart } from "@agboss/core";
+import { Application, WorkflowStart } from "@agboss/core";
 import { WorkflowStartTextDto } from "@agboss/core/dto";
 @WorkflowStart({ name: "billing-workflow-start", description: "A question", input: WorkflowStartTextDto })
 export class BillingWorkflowStart {}
@@ -845,7 +844,6 @@ export class BillingA2AEndpoint {}
 @Application({
   name: "billing-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BillingWorkflow],
   endpoints: [BillingA2AEndpoint],
 })

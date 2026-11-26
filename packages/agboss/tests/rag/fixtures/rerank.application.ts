@@ -1,5 +1,5 @@
 import { usd, Ttl } from "../../../src/units/index.js";
-import { Agent, EmptyEnvironment, Tool, Workflow, inline } from "../../../src/index.js";
+import { Agent, Tool, Workflow, inline } from "../../../src/index.js";
 import {
   WorkflowFinish,
   WorkflowStart,
@@ -233,7 +233,6 @@ export function rerankApplication(
     name: "rerank-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [
       MODEL_TOOL,
       MODEL_CONTEXT,

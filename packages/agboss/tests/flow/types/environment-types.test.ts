@@ -10,7 +10,6 @@ import * as contractModule from "../../fixtures/environments/app/environments/ap
 import * as settingsModule from "../../fixtures/environments/app/settings.workflow.js";
 import * as dtoModule from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../fixtures/budgets.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
@@ -18,7 +17,6 @@ import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
   name: "no-settings-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [settingsModule.SettingsApp],
   budgets: TEST_BUDGETS,
 })

@@ -17,7 +17,6 @@ import {
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { effectivePiiPolicies } from "../../src/pii/effective-policies.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
@@ -212,7 +211,6 @@ class LevelWorkflow {}
 @Application({
   name: "lv-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LevelWorkflow],
   piiPolicies: [ContactPiiPolicy],
   budgets: TEST_BUDGETS,

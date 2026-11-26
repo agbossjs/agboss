@@ -342,7 +342,7 @@ export class OpenRouterModelProvider {}
 
 ```ts file=offers/src/offers.application.ts
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
-import { Application, EmptyEnvironment } from "@agboss/core";
+import { Application } from "@agboss/core";
 import { OffersApplicationBudget } from "./budgets/offers-application.budget.js";
 import { OffersExecutionBudget } from "./budgets/offers-execution.budget.js";
 import { OffersTenantBudget } from "./budgets/offers-tenant.budget.js";
@@ -353,7 +353,6 @@ import { OfferLetterWorkflow } from "./workflows/offer-letter/offer-letter.workf
   providers: [OpenRouterModelProvider],
   name: "offers-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OfferLetterWorkflow],
   budgets: [OffersApplicationBudget, OffersTenantBudget, OffersExecutionBudget],
 })
@@ -1333,7 +1332,7 @@ export class OpenRouterModelProvider {}
 
 ```ts file=helpdesk/src/helpdesk.application.ts
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
-import { Application, EmptyEnvironment } from "@agboss/core";
+import { Application } from "@agboss/core";
 import { HelpdeskHttpAuthenticator } from "./a2a/helpdesk.http-authenticator.js";
 import { HelpdeskA2AEndpoint } from "./a2a/helpdesk.a2a-endpoint.js";
 import { HelpdeskApplicationBudget } from "./budgets/helpdesk-application.budget.js";
@@ -1346,7 +1345,6 @@ import { HelpdeskWorkflow } from "./workflows/helpdesk/helpdesk.workflow.js";
   providers: [OpenRouterModelProvider],
   name: "helpdesk-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [HelpdeskWorkflow],
   services: [HelpdeskHttpAuthenticator], // an @HttpAuthenticator is a service: the listener resolves it
   budgets: [HelpdeskApplicationBudget, HelpdeskTenantBudget, HelpdeskExecutionBudget],

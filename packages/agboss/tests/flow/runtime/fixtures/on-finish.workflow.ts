@@ -1,7 +1,6 @@
 import { Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
-  EmptyEnvironment,
   oneOf,
   Workflow,
   WorkflowFinish,
@@ -207,7 +206,6 @@ export class OnboardWorkflow {}
 @Application({
   name: "onboard-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OnboardWorkflow, KycWorkflow],
   budgets: TEST_BUDGETS,
 })

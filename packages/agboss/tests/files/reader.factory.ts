@@ -22,7 +22,6 @@ import type { ExecutionContextClass } from "../../src/flow/context/context-value
 import type { Class } from "../../src/components/injection.js";
 import type { DtoClass } from "../../src/dto/types.js";
 import { List, Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import type { ModelFiles } from "../../src/files/model-files.js";
 import type { WorkflowDefaults } from "../../src/flow/decorators/workflow.js";
 import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.js";
@@ -188,7 +187,6 @@ export function readerApplication(options: ReaderOptions = {}): ReaderApp {
     name: `reader-${suffix}-application`,
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [ReaderWorkflow],
     providers: options.providers === undefined ? [InMemoryFileRepository] : [...options.providers],
     ...(options.piiPolicies === undefined ? {} : { piiPolicies: [...options.piiPolicies] }),

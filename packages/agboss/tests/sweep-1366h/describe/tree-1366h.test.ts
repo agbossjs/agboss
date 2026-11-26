@@ -10,7 +10,6 @@ import type { Class } from "../../../src/components/injection.js";
 import { describedTreeOf, treeLines } from "../../../src/describe/tree.js";
 import { WorkflowFinishTextDto } from "../../../src/dto/index.js";
 import { WorkflowStartTextDto } from "../../flow/fixtures/dtos.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { onStart, toWorkflow } from "../../helpers/flow.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
@@ -32,7 +31,6 @@ const applicationOver = async (...workflows: Class[]) => {
     name: "tree-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows,
     budgets: TEST_BUDGETS,
     providers: treasuryChannels,

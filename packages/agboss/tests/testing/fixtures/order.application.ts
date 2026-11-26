@@ -1,5 +1,4 @@
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { OrderWorkflow } from "../../flow/fixtures/order.fixture.js";
 
@@ -7,7 +6,6 @@ import { OrderWorkflow } from "../../flow/fixtures/order.fixture.js";
 @Application({
   name: "order-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OrderWorkflow],
   budgets: TEST_BUDGETS,
 })

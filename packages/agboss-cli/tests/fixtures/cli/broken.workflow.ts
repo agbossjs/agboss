@@ -1,4 +1,4 @@
-import { Agent, Application, EmptyEnvironment, inline, Ttl } from "../../../../agboss/src/index.js";
+import { Agent, Application, inline, Ttl } from "../../../../agboss/src/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { Workflow } from "@agboss/core";
 import { TestAnswer, TestChat } from "../../../../agboss/tests/fixtures/test-flow/test.flow.js";
@@ -49,7 +49,6 @@ export class BrokenWorkflow {}
   name: "broken-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BrokenWorkflow],
   budgets: TEST_BUDGETS,
 })

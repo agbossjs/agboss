@@ -91,9 +91,8 @@ export class AuditApplication {}
   `[environment.conflicting-field]`. `SqliteConnection` declares `sqlitePath` this way; a store
   outside the core declares its connection's ([Several instances](Several-instances#writing-your-own-store-the-published-contract-suites-481)).
   The variables behind them are what `agboss check --env <name>` lists, as for every field.
-- `environment` is required: an application with no settings declares the framework's empty
-  contract, `@Application({ environment: EmptyEnvironment })` (any contract without fields works the
-  same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets an empty environment.)
+- `environment` is optional: an application with no settings omits it
+  and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets an empty environment.)
 
 ## The environments
 

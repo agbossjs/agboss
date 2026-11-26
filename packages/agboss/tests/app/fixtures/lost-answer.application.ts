@@ -1,4 +1,3 @@
-import { EmptyEnvironment } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { InMemoryChildExecutionQueueRepository } from "../../../src/infrastructure/child-execution-queue.repository.js";
 import { withHoldPoints } from "../../../src/testing/faults/held-stores.js";
@@ -13,7 +12,6 @@ export const HeldQueue = withHoldPoints(InMemoryChildExecutionQueueRepository);
 @Application({
   name: "lost-answer-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [YieldOneWorkflow],
   observers: [YieldLog],
   providers: [HeldQueue, RecordingLogger],

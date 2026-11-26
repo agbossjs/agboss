@@ -532,7 +532,7 @@ export class OpenRouterModelProvider {}
 
 ```ts file=src/screening.application.ts
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
-import { Application, EmptyEnvironment } from "@agboss/core";
+import { Application } from "@agboss/core";
 import { ApplicationDailyBudget } from "./screening/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./screening/budgets/execution.budget.js";
 import { TenantDailyBudget } from "./screening/budgets/tenant-daily.budget.js";
@@ -544,7 +544,6 @@ import { ScreeningWorkflow } from "./screening/workflows/screening/screening.wor
   providers: [OpenRouterModelProvider],
   name: "screening-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ScreeningWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   piiPolicies: [ContactPiiPolicy],
@@ -1075,7 +1074,7 @@ export class RentalExecutionBudget implements BudgetHandler {
 
 ```ts file=src/rental.application.ts
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
-import { Application, EmptyEnvironment } from "@agboss/core";
+import { Application } from "@agboss/core";
 import { RentalApplicationBudget } from "./rental/budgets/rental-application.budget.js";
 import { RentalExecutionBudget } from "./rental/budgets/rental-execution.budget.js";
 import { RentalTenantBudget } from "./rental/budgets/rental-tenant.budget.js";
@@ -1086,7 +1085,6 @@ import { RentalWorkflow } from "./rental/workflows/rental/rental.workflow.js";
   providers: [OpenRouterModelProvider],
   name: "rental-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RentalWorkflow],
   budgets: [RentalApplicationBudget, RentalTenantBudget, RentalExecutionBudget],
 })

@@ -1,5 +1,5 @@
 /** The workflows of an agent chain, a DTO agent, a parallel launch (#1004, #1006, #1007). */
-import { EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart, Ttl } from "../../src/index.js";
+import { Workflow, WorkflowFinish, WorkflowStart, Ttl } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -77,7 +77,6 @@ class LaunchWorkflow {}
   name: "stream-flow-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ChainWorkflow, ShapeWorkflow, LaunchWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

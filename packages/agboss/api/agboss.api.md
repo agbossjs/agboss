@@ -447,7 +447,7 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly channelSelectors?: readonly Class[];
     readonly defaults?: ApplicationDefaults;
     readonly endpoints?: readonly Class[];
-    readonly environment: Class<TEnvironment>;
+    readonly environment?: Class<TEnvironment>;
     readonly executionContext?: ExecutionContextClass;
     readonly executionLimits?: ApplicationExecutionLimits;
     readonly guardrails?: readonly Class[];

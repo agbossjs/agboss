@@ -1,6 +1,5 @@
 import {
   Agent,
-  EmptyEnvironment,
   Injectable,
   Workflow,
   WorkflowFinish,
@@ -72,7 +71,6 @@ export class RegionService {
 @Application({
   name: "ts-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TsWorkflow],
   budgets: TEST_BUDGETS,
   modelProvider: ConfigModels,

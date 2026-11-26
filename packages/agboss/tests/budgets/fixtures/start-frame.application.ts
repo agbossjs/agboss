@@ -1,4 +1,4 @@
-import { Budget, BudgetScope, EmptyEnvironment, ExecutionContext } from "../../../src/index.js";
+import { Budget, BudgetScope, ExecutionContext } from "../../../src/index.js";
 import type { BudgetHandler } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { usd, type Usd } from "../../../src/units/index.js";
@@ -99,7 +99,6 @@ const threadOf = (context: ExecutionContext): string => {
   name: "frame-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BriefWorkflow],
   tenantContext: ShopTenantContext,
   budgets: [ShopApplicationDailyBudget, ShopTenantMonthlyBudget, FrameReadingBudget],

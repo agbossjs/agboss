@@ -18,7 +18,6 @@ import { FileDto } from "../../../src/dto/standard/file.js";
 import { Application } from "../../../src/application/application.js";
 import type { DtoClass } from "../../../src/dto/types.js";
 import { List, Nested, Text } from "../../../src/dto/index.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
@@ -63,7 +62,6 @@ export class SummaryFilesA2AExpose {}
 @Application({
   name: "card-outputs-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow, FileSummaryWorkflow],
   providers: [BearerAuthenticator, FileCallerChannel],
   endpoints: [FilesA2AExpose, MarkedOutputsA2AExpose, SummaryFilesA2AExpose],

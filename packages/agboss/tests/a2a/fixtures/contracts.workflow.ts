@@ -6,7 +6,6 @@ import { McpServerClient } from "../../../src/components/mcp-client.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
-  EmptyEnvironment,
   Injectable,
   Tool,
   Workflow,
@@ -230,7 +229,6 @@ export class ShopMcpEndpoint {}
   name: "shop-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, RefundWorkflow],
   budgets: TEST_BUDGETS,
   endpoints: [ShopA2AExpose, ShopMcpEndpoint],
@@ -253,7 +251,6 @@ export class ShopDatabaseStorage {}
   name: "shop-kb-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, RefundWorkflow, KbWorkflow],
   storage: ShopDatabaseStorage,
   budgets: TEST_BUDGETS,

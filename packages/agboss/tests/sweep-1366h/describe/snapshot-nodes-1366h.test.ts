@@ -6,7 +6,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import { DEFAULT_MAX_TOKENS } from "../../../src/config/types.js";
 import { nodesOf, type NodeSnapshot } from "../../../src/describe/snapshot-nodes.js";
@@ -24,7 +23,6 @@ const outlineApplication = async () => {
     name: "outline-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [OutlineWorkflow],
     budgets: TEST_BUDGETS,
   })

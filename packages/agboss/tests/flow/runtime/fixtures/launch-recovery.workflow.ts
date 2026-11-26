@@ -1,6 +1,5 @@
 import {
   Action,
-  EmptyEnvironment,
   ExecutionContext,
   Workflow,
   type Tracked,
@@ -80,7 +79,6 @@ export class LaunchRecoveryWorkflow {}
 @Application({
   name: "launch-recovery-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LaunchRecoveryWorkflow],
   observers: [RecoveryLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],

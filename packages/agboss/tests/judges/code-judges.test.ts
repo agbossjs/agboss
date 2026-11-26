@@ -12,7 +12,6 @@ import { ExecutionStatus } from "../../src/app/types.js";
 import { PlainTextDto } from "../../src/dto/index.js";
 import {
   Agent,
-  EmptyEnvironment,
   Judge,
   JudgeModel,
   JudgeVerdict,
@@ -114,7 +113,6 @@ function gatedBy(judge: typeof NamedModelJudge, name: string) {
   @Application({
     name: `${name}-application`,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [GatedWorkflow],
     budgets: TEST_BUDGETS,
   })

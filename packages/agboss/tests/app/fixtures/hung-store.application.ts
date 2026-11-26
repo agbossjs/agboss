@@ -2,7 +2,6 @@ import type { Page } from "../../../src/app/page.js";
 import {
   ApplicationContext,
   Clock,
-  EmptyEnvironment,
   IdGenerator,
   Injectable,
   type QueuedChildExecution,
@@ -96,7 +95,6 @@ export class HungConnection {
 @Application({
   name: "hung-store-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow],
   budgets: TEST_BUDGETS,
   executionLimits: {
@@ -119,7 +117,6 @@ export class HungStoreApplication {}
   name: "hung-checkout-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Checkout],
   budgets: TEST_BUDGETS,
   executionLimits: { shutdownTimeout: seconds(5) },

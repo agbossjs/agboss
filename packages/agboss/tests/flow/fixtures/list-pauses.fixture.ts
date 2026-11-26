@@ -9,7 +9,6 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { PiiKind, PiiPolicy, ExternalTask, Ttl } from "../../../src/index.js";
 import { hours, days } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
@@ -252,7 +251,6 @@ export const openFlow = { start: ListOpenWorkflowStart, role: "list-open-externa
   name: "listing-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ListManagerWorkflow, ListOwnerWorkflow, ListFinanceWorkflow, ListOpenWorkflow],
   budgets: TEST_BUDGETS,
   providers: [ListManagerChannel, ListOwnerChannel, ListFinanceChannel, ListOpenChannel],

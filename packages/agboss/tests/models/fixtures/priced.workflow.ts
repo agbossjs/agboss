@@ -19,7 +19,6 @@ import { Application } from "../../../src/application/application.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
 import { Budget, BudgetScope, type BudgetHandler } from "../../../src/budgets/budget.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 
 /** The summariser's summary: the writer reads it. */
 export class SummaryDto {
@@ -89,7 +88,6 @@ export class PricedExecutionBudget implements BudgetHandler {
 @Application({
   name: "priced-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Priced],
   providers: [TestOpenRouterProvider, TestDecisionsProvider, LocalModelProvider],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, PricedExecutionBudget],

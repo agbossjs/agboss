@@ -2213,7 +2213,7 @@ export class NoLegalAdviceGuardrail {}
 
 One set per application, in `environments/` next to the application file (#261). The contract is a
 plain class with declared fields only, declared once — `@Application({ environment: AppEnvironment })`
-above, required (no settings → `environment: EmptyEnvironment`, no environment file needed); a
+above, optional (no settings → omit it, no environment file needed); a
 value in it fails assembly (`[environment.contract-value]`), a field a listed framework
 implementation reads and the contract lacks too (`[environment.missing-field]`):
 

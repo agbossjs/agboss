@@ -2,7 +2,6 @@ import { Window4Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
   DecidedBy,
-  EmptyEnvironment,
   ExecutionContext,
   Injectable,
   Judge,
@@ -104,7 +103,6 @@ export class PromiseDesk {}
   name: "promise-desk-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PromiseDesk],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

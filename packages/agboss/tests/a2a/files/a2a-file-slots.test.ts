@@ -6,7 +6,6 @@ import { hours, Ttl } from "../../../src/units/index.js";
  */
 import { describe, expect, it } from "vitest";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import {
   FilePolicy,
   filePolicyViolations,
@@ -605,7 +604,6 @@ function poolApplication(fetchPool: FileFetchPool) {
   @Application({
     name: `pool-${id}-files-application`,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [PoolWorkflow],
     providers: [BearerAuthenticator, FileCallerChannel],
     endpoints: [FilesA2AExpose],

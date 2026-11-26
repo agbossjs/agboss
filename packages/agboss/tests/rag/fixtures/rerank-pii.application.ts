@@ -1,4 +1,4 @@
-import { Agent, EmptyEnvironment, Tool, Workflow, inline, Ttl } from "../../../src/index.js";
+import { Agent, Tool, Workflow, inline, Ttl } from "../../../src/index.js";
 import { WorkflowFinish, WorkflowStart, type Class } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -160,7 +160,6 @@ export const CARDS_CONTEXT = workflowWith("cards-context", CardsRag, "context");
   name: "rerank-pii-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   executionContext: ShopExecutionContext,
   workflows: [PEOPLE_TOOL, PEOPLE_CONTEXT, CARDS_TOOL, CARDS_CONTEXT].map((w) => w.workflow),
   providers: MODEL_PROVIDERS,

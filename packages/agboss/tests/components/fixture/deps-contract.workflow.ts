@@ -29,7 +29,6 @@ import {
 } from "./deps-contract.components.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 import { usd } from "../../../src/units/index.js";
 
@@ -116,7 +115,6 @@ export function applicationWith(
   @Application({
     name: name.replace(/-workflow$/, "-application"),
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [workflow],
     channels,
     budgets: TEST_BUDGETS,
@@ -143,7 +141,6 @@ export class VaultWorkflow {}
   name: "vault-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [VaultWorkflow],
   budgets: TEST_BUDGETS,
 })

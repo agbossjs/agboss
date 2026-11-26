@@ -18,7 +18,6 @@ import { TurnStoreRecordRepository } from "../../src/infrastructure/execution-re
 import {
   Action,
   Clock,
-  EmptyEnvironment,
   IdGenerator,
   Injectable,
   LogLevel,
@@ -116,7 +115,6 @@ class NoteWorkflow {}
 @Application({
   name: "started-stores-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [NoteWorkflow],
   budgets: TEST_BUDGETS,
   providers: [StartedRecordRepository, RecordingLogger],

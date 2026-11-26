@@ -3,7 +3,6 @@ import {
   Agent,
   Application,
   DecidedBy,
-  EmptyEnvironment,
   Router,
   Workflow,
   inline,
@@ -68,7 +67,6 @@ export class BadPrompts {}
   name: "prompts-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BadPrompts],
   budgets: TEST_BUDGETS,
 })

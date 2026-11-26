@@ -190,7 +190,7 @@ once; an approval the thread's owner answers needs no channel at
 all (`@ToolApproval({ respondent: PauseRespondent.Owner })`, answered by `app.resume`).
 
 <!-- snippet-context
-import { Agent, Application, EmptyEnvironment, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, inline, Ttl } from "@agboss/core";
+import { Agent, Application, Tool, Workflow, WorkflowFinish, WorkflowStart, onStart, inline, Ttl } from "@agboss/core";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { DeleteUserInputDto, SlackClient, SlackUserDeletionApprovalChannel, UserDeletionToolApproval } from "./channels.js";
 export class UserDeletedDto {
@@ -214,7 +214,6 @@ export class AdminWorkflow {}
 @Application({
   name: "admin-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [AdminWorkflow],
   channels: [SlackUserDeletionApprovalChannel], // the target's channel
 })

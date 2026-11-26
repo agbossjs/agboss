@@ -19,7 +19,7 @@ import { NodeKind } from "../../../src/flow/ast.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
-import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../fixtures/budgets.js";
 import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto } from "../fixtures/dtos.js";
 import {
@@ -287,7 +287,6 @@ describe("#1373: the application refuses the loop of the issue before any model 
     @Application({
       name: "limit-issue-application",
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [workflow],
       budgets: TEST_BUDGETS,
     })

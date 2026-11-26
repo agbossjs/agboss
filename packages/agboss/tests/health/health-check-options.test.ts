@@ -6,7 +6,6 @@
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { Application } from "../../src/application/application.js";
 import {
-  EmptyEnvironment,
   HealthCheck,
   HealthCheckResult,
   HealthStatus,
@@ -49,7 +48,6 @@ class WaitingHealthCheck {
   name: "options-probe-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ProbeWorkflow],
   budgets: TEST_BUDGETS,
   healthChecks: [WaitingHealthCheck],
@@ -60,7 +58,6 @@ class WaitingProbeApplication {}
   name: "bare-probe-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ProbeWorkflow],
   budgets: TEST_BUDGETS,
   healthChecks: [BareHealthCheck],

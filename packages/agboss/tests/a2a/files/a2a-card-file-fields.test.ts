@@ -19,7 +19,6 @@ import { Application } from "../../../src/application/application.js";
 import { applicationOf } from "../../../src/application/assemble.js";
 import { contractsOf } from "../../../src/describe/contracts.js";
 import { Text } from "../../../src/dto/index.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { BearerAuthenticator } from "../fixtures/bearer-authenticator.js";
@@ -66,7 +65,6 @@ export class OwnFilesA2AExpose {}
 @Application({
   name: "card-files-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow],
   providers: [BearerAuthenticator, FileCallerChannel],
   endpoints: [FilesA2AExpose, MarkedFilesA2AExpose, OwnFilesA2AExpose],

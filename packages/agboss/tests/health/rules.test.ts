@@ -9,13 +9,7 @@ import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Class } from "../../src/components/injection.js";
-import {
-  EmptyEnvironment,
-  HealthCheck,
-  HealthCheckResult,
-  HealthStatus,
-  nameOf,
-} from "../../src/index.js";
+import { HealthCheck, HealthCheckResult, HealthStatus, nameOf } from "../../src/index.js";
 import { seconds } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { CrmClient, ProbeWorkflow } from "./fixtures/health.application.js";
@@ -64,7 +58,6 @@ class UndecoratedHealthCheck {
   name: "checked-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ProbeWorkflow],
   budgets: TEST_BUDGETS,
   healthChecks: [

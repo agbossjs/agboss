@@ -15,7 +15,7 @@ import { ChannelImplementationReason, describedChannelsOf } from "../../src/desc
 import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
-import { EmptyEnvironment, inline, ExternalTask, Ttl } from "../../src/index.js";
+import { inline, ExternalTask, Ttl } from "../../src/index.js";
 import type { AgentToolClass } from "../../src/components/decorators.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -67,7 +67,6 @@ function buyingApplication(
     name: `${name}-application`,
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [BuyingWorkflow],
     budgets: TEST_BUDGETS,
     providers: [...providers],

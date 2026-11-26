@@ -29,7 +29,6 @@ import {
 } from "../../fixtures/review-dtos.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../../src/index.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../../src/testing/test-model-provider.js";
 
@@ -152,7 +151,6 @@ export class LoopWorkflow {}
   name: "loop-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LoopWorkflow],
   observers: [OutdatingLog],
   budgets: TEST_BUDGETS,
@@ -271,7 +269,6 @@ export class JobsWorkflow {}
   name: "jobs-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [JobsWorkflow],
   observers: [OutdatingLog],
   budgets: TEST_BUDGETS,

@@ -69,7 +69,7 @@ enters a CI run (`RELEASE_CHECKLIST.md` → Dependency installs).
 
 <!--
 ```ts file=job-scout.ts
-import { inline, Agent, Application, DecidedBy, Injectable, EmptyEnvironment, Tool, ToolApproval, PauseRespondent, Router, onStart, Workflow, WorkflowFinish, WorkflowStart, toAgent, toAction, toRouter, toFinish, Ttl } from "@agboss/core";
+import { inline, Agent, Application, DecidedBy, Injectable, Tool, ToolApproval, PauseRespondent, Router, onStart, Workflow, WorkflowFinish, WorkflowStart, toAgent, toAction, toRouter, toFinish, Ttl } from "@agboss/core";
 import { List, Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 import { McpServer, McpServerClient, McpTransport } from "@agboss/core/mcp";
 import { hours } from "@agboss/core/units";
@@ -159,7 +159,7 @@ export class MainRouter {}
   providers: [OrderBook],
 })
 export class JobScout {}
-@Application({ name: "job-scout-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [JobScout] })
+@Application({ name: "job-scout-application", version: "1.0.0", workflows: [JobScout] })
 export class JobScoutApplication {}
 ```
 -->

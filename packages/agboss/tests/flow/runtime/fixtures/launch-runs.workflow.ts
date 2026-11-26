@@ -4,7 +4,6 @@ import { Text } from "../../../../src/dto/index.js";
 import {
   Agent,
   DecidedBy,
-  EmptyEnvironment,
   listOf,
   Router,
   Tool,
@@ -127,7 +126,6 @@ export class PlanLoopWorkflow {}
   name: "plan-loop-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PlanLoopWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -184,7 +182,6 @@ export class ClerkWorkflow {}
   name: "clerk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ClerkWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -263,7 +260,6 @@ export class TiredWorkflow {}
   name: "tired-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TiredWorkflow],
   budgets: TEST_BUDGETS,
 })

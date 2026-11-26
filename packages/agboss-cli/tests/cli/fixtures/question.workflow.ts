@@ -2,7 +2,6 @@ import { Application } from "../../../../agboss/src/application/application.js";
 import { ChannelOutcome } from "../../../../agboss/src/channels/channel-outcome.js";
 import { Channel } from "../../../../agboss/src/components/decorators.js";
 import { Bool, Integer, Text } from "../../../../agboss/src/dto/index.js";
-import { EmptyEnvironment } from "../../../../agboss/src/environments/empty.js";
 import { Workflow } from "../../../../agboss/src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../../agboss/src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../../agboss/src/flow/decorators/workflow-start.js";
@@ -72,7 +71,6 @@ export class LimitWorkflow {}
   modelProvider: TestModelProvider,
   name: "limit-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LimitWorkflow],
   budgets: TEST_BUDGETS,
   providers: [TerminalLimitChannel],

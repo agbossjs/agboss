@@ -1,6 +1,5 @@
 import {
   Application,
-  EmptyEnvironment,
   ExecutionLeaseRepository,
   InMemoryFencedEffectRepository,
   Injectable,
@@ -32,7 +31,6 @@ export class OptedOutEffects extends InMemoryFencedEffectRepository {
   modelProvider: TestModelProvider,
   name: "opted-out-store-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TestWorkflow],
   providers: [OptedOutEffects],
   budgets: TEST_BUDGETS,

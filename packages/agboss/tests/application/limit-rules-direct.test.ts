@@ -6,7 +6,6 @@
 import { describe, expect, it } from "vitest";
 import type { ApplicationOptions } from "../../src/application/application.js";
 import { limitViolations } from "../../src/application/limit-rules.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { MAX_TIMEOUT, timerProblemOf } from "../../src/units/timer-limits.js";
 import type { Milliseconds } from "../../src/units/index.js";
 
@@ -14,7 +13,6 @@ const NAME = "limited-application";
 const options = (rest: Partial<ApplicationOptions>): ApplicationOptions => ({
   name: NAME,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [],
   ...rest,
 });

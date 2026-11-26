@@ -44,7 +44,6 @@ interface PausedReply {
 }
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { jsonSchemaOf } from "../../src/dto/schema.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
@@ -122,7 +121,6 @@ class ClerkDesk implements WorkflowDefinition {
   name: "clerk-desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ClerkDesk],
   budgets: TEST_BUDGETS,
 })

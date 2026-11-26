@@ -8,7 +8,7 @@ import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { TestAnswer, TestChat, testPaths } from "./test.flow.js";
-import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 import { PricedTestModelProvider } from "../priced-test-model-provider.js";
 
 /**
@@ -33,7 +33,6 @@ export class StarWorkflow {}
   name: "test-bundle-application",
   modelProvider: PricedTestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [StarWorkflow],
   budgets: TEST_BUDGETS,
 })

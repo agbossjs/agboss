@@ -13,7 +13,6 @@ import { onAction, onStart, toAction } from "../../../helpers/flow.js";
 import { Metadata } from "../../../../src/flow/metadata.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../../src/index.js";
 
 export class TicketDto {
   @Text({ prompt: "the ticket" })
@@ -131,7 +130,6 @@ export class TriageWorkflow {}
 @Application({
   name: "triage-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TriageWorkflow],
   budgets: TEST_BUDGETS,
 })

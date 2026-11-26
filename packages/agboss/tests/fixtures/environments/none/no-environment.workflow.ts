@@ -18,8 +18,8 @@ import { TestModelProvider } from "../../../../src/testing/test-model-provider.j
 })
 export class NoEnvironmentApp {}
 
-// @ts-expect-error — environment is required (#261): this fixture omits it on purpose, to test
-// what an untyped caller gets at run time (an empty environment)
+// this fixture omits the environment on purpose, to test what the application gets at run time
+// (an empty environment)
 @Application({
   name: "no-environment-application",
   modelProvider: TestModelProvider,

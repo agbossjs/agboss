@@ -4,7 +4,6 @@ import {
   Agent,
   Channel,
   ChannelOutcome,
-  EmptyEnvironment,
   ExecutionContext,
   Injectable,
   Observer,
@@ -655,7 +654,6 @@ export class AuditWorkflow {}
   name: "pauses-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DeskWorkflow, BatchWorkflow, AuditWorkflow],
   providers: [
     FinanceDeskRefundApprovalChannel,
@@ -678,7 +676,6 @@ export class PausesApplication {}
   name: "retained-pauses-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DeskWorkflow],
   providers: [
     FinanceDeskRefundApprovalChannel,

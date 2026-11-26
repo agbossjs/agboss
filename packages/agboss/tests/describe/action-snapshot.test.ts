@@ -6,7 +6,7 @@ import { describeAssembledApplication } from "../../src/describe/describe-applic
 import { describeServices } from "../../src/describe/describe-workflow.js";
 import { workflowSnapshotOf } from "../../src/describe/snapshot.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
-import { EmptyEnvironment, Ttl } from "../../src/index.js";
+import { Ttl } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
   BookTripAction,
@@ -41,7 +41,6 @@ class BookingWorkflow {}
 @Application({
   name: "booking-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BookingWorkflow],
   budgets: TEST_BUDGETS,
 })

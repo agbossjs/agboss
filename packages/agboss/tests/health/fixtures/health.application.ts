@@ -5,7 +5,6 @@ import {
   Agent,
   ApplicationContext,
   Clock,
-  EmptyEnvironment,
   HealthCheck,
   HealthCheckResult,
   IdGenerator,
@@ -149,7 +148,6 @@ export class ProbeWorkflow {}
   name: "probe-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ProbeWorkflow],
   budgets: TEST_BUDGETS,
   providers: [
@@ -170,7 +168,6 @@ export class ProbeApplication {}
   name: "plain-probe-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ProbeWorkflow],
   budgets: TEST_BUDGETS,
   // a checkpoint saver without ping(): readiness reads a thread that does not exist instead

@@ -11,7 +11,6 @@ import {
   inline,
   Ttl,
 } from "../../../src/index.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { Integer, List, PlainTextDto, Text, type DtoClass } from "../../../src/dto/index.js";
 import { listOf, oneOf } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -110,7 +109,6 @@ export class TypedJudgeWorkflow {}
   name: "typed-judge-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TypedJudgeWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
@@ -195,7 +193,6 @@ export class VariantJudgeWorkflow {}
   name: "variant-judge-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [VariantJudgeWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
@@ -316,7 +313,6 @@ export class WrongListReplyWorkflow {}
 @Application({
   name: "wrong-reply-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [WrongReplyWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
@@ -375,7 +371,6 @@ export class ListJudgeWorkflow {}
   name: "list-judge-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ListJudgeWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
@@ -448,7 +443,6 @@ export class VariantListJudgeWorkflow {}
   name: "variant-list-judge-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [VariantListJudgeWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

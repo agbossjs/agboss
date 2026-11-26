@@ -9,7 +9,6 @@ import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
   Action,
   ApplicationContext,
-  EmptyEnvironment,
   ExecutionContext,
   Observer,
   Workflow,
@@ -125,7 +124,6 @@ export class ChargeWorkflow {}
 @Application({
   name: "action-fence-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SideUndoWorkflow, ChargeWorkflow],
   observers: [EndOnceLog, FinishLog, ActionStartGate],
   providers: [RecordingLogger, MatrixCheckpointSaver],

@@ -8,7 +8,6 @@ import { Text } from "../../../src/dto/index.js";
 import {
   Action,
   Application,
-  EmptyEnvironment,
   ExecutionContext,
   Injectable,
   Workflow,
@@ -106,7 +105,6 @@ class HandledWorkflow {}
 @Application({
   name: "handled-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [HandledWorkflow],
   budgets: TEST_BUDGETS,
 })

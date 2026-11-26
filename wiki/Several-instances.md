@@ -1786,7 +1786,7 @@ fan out into many parallel agents on the same pod, would otherwise all run in it
 branch of a parallel launch is one — this instance runs at once, over every tree and every tenant:
 
 <!-- snippet-context
-import { Application, EmptyEnvironment } from "@agboss/core";
+import { Application } from "@agboss/core";
 export class DeskWorkflow {}
 export class ApplicationDailyBudget {}
 export class TenantDailyBudget {}
@@ -1797,7 +1797,6 @@ export class ExecutionBudget {}
 @Application({
   name: "desk-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DeskWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   executionLimits: { maxConcurrentSteps: 32 }, // this instance's agent, router and action steps at work at once

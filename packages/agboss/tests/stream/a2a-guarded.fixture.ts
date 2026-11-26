@@ -2,7 +2,7 @@
 import { hours, minutes, Ttl } from "../../src/units/index.js";
 import { A2AEndpoint } from "../../src/a2a/index.js";
 import { Injectable } from "../../src/components/decorators.js";
-import { EmptyEnvironment, Workflow, WorkflowFinish, WorkflowStart } from "../../src/index.js";
+import { Workflow, WorkflowFinish, WorkflowStart } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -56,7 +56,6 @@ export class WireA2AExpose {}
   name: "wire-guarded-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [WireGuardedWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

@@ -1,6 +1,5 @@
 import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -118,7 +117,6 @@ export class SidePathLocalWorkflow {}
 @Application({
   name: "child-failure-once-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EndOnceLocalWorkflow, UndoLocalWorkflow, SidePathLocalWorkflow],
   observers: [EndOnceLog],
   providers: [RecordingLogger],

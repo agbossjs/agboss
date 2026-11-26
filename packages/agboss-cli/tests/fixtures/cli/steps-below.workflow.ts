@@ -2,7 +2,7 @@
 // (maxVisits 3) ↔ edit-kit-agent (maxVisits 2), worst case 5 steps — with a hand-set maxSteps of 4:
 // [limits.max-steps-below-worst-case] (#643), a warning, an error under --strict
 // the untyped builder: this package has no generated types for the framework's fixtures
-import { Application, EmptyEnvironment, Ttl } from "../../../../agboss/src/index.js";
+import { Application, Ttl } from "../../../../agboss/src/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import {
   onRouter,
@@ -46,7 +46,6 @@ export class StepsBelowWorkflow {}
   modelProvider: TestModelProvider,
   name: "steps-below-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [StepsBelowWorkflow],
   budgets: TEST_BUDGETS,
 })

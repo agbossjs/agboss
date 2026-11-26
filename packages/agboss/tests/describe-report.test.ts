@@ -15,7 +15,6 @@ import { describedPiiPoliciesOf } from "../src/describe/pii-policies.js";
 import { describedTreeOf } from "../src/describe/tree.js";
 import { worstCaseReportLines, worstCaseRowsOf } from "../src/describe/worst-case-report.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../src/dto/index.js";
-import { EmptyEnvironment } from "../src/environments/empty.js";
 import {
   Agent,
   PiiKind,
@@ -81,7 +80,6 @@ class ClerkWorkflow {}
   name: "clerk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ClerkWorkflow],
   piiPolicies: [IbanPiiPolicy],
   budgets: TEST_BUDGETS,
@@ -331,7 +329,6 @@ function applicationWith(workflow: Class): Class {
     name: "one-workflow-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [workflow],
     budgets: TEST_BUDGETS,
   })

@@ -6,7 +6,7 @@
  */
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
-import { Agent, EmptyEnvironment, Workflow, type Class, inline, Ttl } from "../../src/index.js";
+import { Agent, Workflow, type Class, inline, Ttl } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { Rag, RagReranker, RagScope, RagSource, type RagRetrieval } from "../../src/rag/index.js";
 import { workflowOf } from "../../src/testing/workflow-of.js";

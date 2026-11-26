@@ -5,7 +5,6 @@
  */
 import {
   Agent,
-  EmptyEnvironment,
   Judge,
   JudgeModel,
   JudgeVerdict,
@@ -71,7 +70,6 @@ export class AuditWorkflow {}
   name: "audit-judge-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [AuditWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

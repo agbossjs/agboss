@@ -37,7 +37,6 @@ import {
 import { UntestedApplication } from "../fixtures/environments/untested/untested.workflow.js";
 import { toolResultsOf } from "../testing/fixtures/requests.js";
 import { execute } from "../helpers/flow.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** Everything external given; `processEnv` is what `env(…)` and `secret(…)` read. */
@@ -151,15 +150,10 @@ describe("#261: an application without an environment contract", () => {
     await app.close();
   });
 
-  it("naming an environment fails: the application declares none", async () => {
+  it("naming an environment it has no file for fails like an empty contract", async () => {
     await expect(
       createTestAppWith(NoEnvironmentApplication, { ...offline(), env: "dev" }),
-    ).rejects.toMatchObject({
-      envCode: EnvironmentErrorCode.NoContract,
-      message: expect.stringContaining(
-        "no-environment-application declares no environment",
-      ) as string,
-    });
+    ).rejects.toMatchObject({ envCode: EnvironmentErrorCode.NotFound });
   });
 });
 
@@ -240,7 +234,7 @@ requireEnvironmentFields(FilePausedExecutionRepository, [
 })
 class LedgerApplication {}
 
-// @ts-expect-error — environment is required (#261): an untyped caller without one is checked too
+// environment is optional: an application without one gets an empty environment
 @Application({
   name: "contractless-application",
   modelProvider: TestModelProvider,
@@ -255,7 +249,6 @@ class ContractlessApplication {}
   name: "no-settings-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SettingsApp],
   budgets: TEST_BUDGETS,
 })
@@ -298,10 +291,10 @@ describe("#261 AC8: the contract's rules, at the application's assembly", () => 
     );
   });
 
-  it("missing field without a contract names the fix", async () => {
+  it("missing field without a contract is read against the empty one", async () => {
     expect(await violationsOf(ContractlessApplication)).toEqual([
-      "[environment.missing-field] FilePausedExecutionRepository needs sqlitePath: string in the environment contract — declare one: @Application({ environment: AppEnvironment })",
-      "[environment.missing-field] FilePausedExecutionRepository needs apiUrl: string in the environment contract — declare one: @Application({ environment: AppEnvironment })",
+      "[environment.missing-field] FilePausedExecutionRepository needs sqlitePath: string in EmptyEnvironment",
+      "[environment.missing-field] FilePausedExecutionRepository needs apiUrl: string in EmptyEnvironment",
     ]);
   });
 });

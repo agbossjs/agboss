@@ -7,7 +7,6 @@ import {
   type CompensationReason,
   type CompensationStartEvent,
   Decision,
-  EmptyEnvironment,
   Observer,
   StepError,
   Workflow,
@@ -334,7 +333,6 @@ export class HeldUndoReasons {
 @Application({
   name: "held-undo-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     ArbiterThrowsWorkflow,
     ArbiterThrowsChildWorkflow,

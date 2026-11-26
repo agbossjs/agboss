@@ -1,6 +1,5 @@
 import {
   Agent,
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -68,7 +67,6 @@ export class BossWorkflow {}
 @Application({
   name: "profile-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BossWorkflow],
   budgets: TEST_BUDGETS,
   providers: [LocalModelProvider, TestDecisionsProvider],

@@ -17,7 +17,6 @@ import { LocalModelProvider, TestDecisionsProvider } from "../../models/provider
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 
 /** What the recaller recalled. */
 export class RecallDto {
@@ -104,7 +103,6 @@ export class MemoryDesk {}
 @Application({
   name: "memory-desk-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [MemoryDesk],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
@@ -144,7 +142,6 @@ export class CompactingDesk {}
   name: "compacting-desk-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CompactingDesk],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

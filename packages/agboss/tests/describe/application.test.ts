@@ -4,7 +4,6 @@ import { describedApplicationOf } from "../../src/describe/application.js";
 import { describeAssembledApplication } from "../../src/describe/describe-application.js";
 import { ItemsWorkflow, StepCapApplication } from "../app/fixtures/step-slots.workflow.js";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 
 /**
@@ -15,7 +14,6 @@ import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 @Application({
   name: "uncapped-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ItemsWorkflow],
   budgets: TEST_BUDGETS,
 })

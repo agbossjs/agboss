@@ -10,7 +10,6 @@ import { Application } from "../../src/application/application.js";
 import { endedResultOf } from "../../src/app/ended-output.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
 import { NodeKind } from "../../src/flow/ast.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { displayMask } from "../../src/dto/redact.js";
 import { ExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { ExecutionHistoryRepository } from "../../src/infrastructure/execution-history.repository.js";
@@ -60,7 +59,6 @@ class EndObserver {
   name: "final-output-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SensitiveWorkflow],
   executionContext: ShopExecutionContext,
   piiPolicies: [ContactPiiPolicy],

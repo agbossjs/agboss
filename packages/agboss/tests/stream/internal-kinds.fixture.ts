@@ -6,7 +6,6 @@
 import {
   Agent,
   Arbiter,
-  EmptyEnvironment,
   OutputGuardrail,
   Workflow,
   WorkflowFinish,
@@ -138,7 +137,6 @@ class OwnersWorkflow {}
   name: "internal-kinds-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [GuardedTextWorkflow, OwnersWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

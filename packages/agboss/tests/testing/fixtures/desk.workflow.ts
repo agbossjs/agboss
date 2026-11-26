@@ -33,7 +33,6 @@ import {
   type BudgetHandler,
 } from "../../../src/budgets/budget.js";
 import { usd, type Usd } from "../../../src/units/index.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
@@ -291,7 +290,6 @@ export class DeskTenantDailyBudget implements BudgetHandler {
   name: "desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Desk],
   budgets: [TestApplicationDailyBudget, DeskTenantDailyBudget, DeskExecutionBudget],
 })

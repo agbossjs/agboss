@@ -4,7 +4,7 @@ import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { EmptyEnvironment, type Tracked, Ttl } from "../../../src/index.js";
+import { type Tracked, Ttl } from "../../../src/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { TEST_BUDGETS } from "./budgets.js";
@@ -93,7 +93,6 @@ export class SyncWorkflow {}
 @Application({
   name: "sync-actions-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SyncWorkflow],
   budgets: TEST_BUDGETS,
 })

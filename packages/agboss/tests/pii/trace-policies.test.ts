@@ -15,7 +15,6 @@ import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { Application } from "../../src/application/application.js";
 import type { AgentStartEvent } from "../../src/core/observability.js";
 import { Observer } from "../../src/index.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { replyWith, routeTo } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
@@ -75,7 +74,6 @@ class BreakingObserver {
   name: "trace-policies-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PiiWorkflow, OpenWorkflow],
   piiPolicies: [ContactPiiPolicy],
   observers: [BreakingObserver],
@@ -90,7 +88,6 @@ class TracePoliciesApplication {}
   name: "other-tracing-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OpenWorkflow],
   piiPolicies: [ContactPiiPolicy],
   budgets: TEST_BUDGETS,

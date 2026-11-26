@@ -1,6 +1,5 @@
 import {
   Action,
-  EmptyEnvironment,
   ExecutionContext,
   SpendRecorder,
   Workflow,
@@ -156,7 +155,6 @@ export class LostAnswerWorkflow {}
 @Application({
   name: "lost-answer-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LostAnswerWorkflow],
   budgets: TEST_BUDGETS,
   providers: [LostAnswerLedger],

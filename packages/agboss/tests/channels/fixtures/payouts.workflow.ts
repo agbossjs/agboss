@@ -2,7 +2,6 @@ import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { AGBossError } from "../../../src/core/errors.js";
 import {
   Agent,
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -139,7 +138,6 @@ export class PayoutWorkflow {}
   name: "payouts-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PayoutWorkflow],
   providers,
   observers: [PauseLog],
@@ -168,7 +166,6 @@ export class PayoutStepsWorkflow {}
   name: "payout-steps-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PayoutStepsWorkflow],
   providers,
   observers: [PauseLog],
@@ -195,7 +192,6 @@ export class PayoutUnhandledWorkflow {}
   name: "payout-unhandled-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PayoutUnhandledWorkflow],
   providers,
   observers: [PauseLog],

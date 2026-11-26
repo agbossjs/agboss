@@ -12,7 +12,6 @@ import {
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import type { ExecutionStreamEvent } from "../../src/run/types.js";
 import { ChatStart, Reply } from "../channels/approval.workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -73,7 +72,6 @@ class RoutedWorkflow {}
   name: "routed-audit-application",
   modelProvider: BedrockModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RoutedWorkflow],
   providers: [BedrockModelProvider, BedrockSdkClient],
   budgets: TEST_BUDGETS,

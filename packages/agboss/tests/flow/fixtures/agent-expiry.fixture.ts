@@ -16,7 +16,6 @@ import {
 import { PauseExpiration } from "../../../src/channels/pause-expiration.js";
 import type { ExpiredContext } from "../../../src/channels/pause-contexts.js";
 import { Text } from "../../../src/dto/index.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
@@ -409,7 +408,6 @@ export class AgentGatedWorkflow {}
   name: "agent-expiry-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [AgentExpiryWorkflow, AgentBareWorkflow, AgentBatchWorkflow, AgentGatedWorkflow],
   budgets: TEST_BUDGETS,
   providers: [

@@ -5,7 +5,6 @@
  */
 import {
   Agent,
-  EmptyEnvironment,
   GuardrailVerdict,
   OutputGuardrail,
   PiiKind,
@@ -162,7 +161,6 @@ class GuardrailWorkflow {}
   name: "guarded-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [GuardedWorkflow, CardWorkflow, GuardrailWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

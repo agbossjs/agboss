@@ -17,7 +17,6 @@ import { Reasoning } from "../../../src/models/index.js";
 import { onAgent, onStart, toAgent, toFinish } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 import { usd } from "../../../src/units/index.js";
@@ -121,7 +120,6 @@ export class CodeReview {}
   name: "code-review-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CodeReview],
   budgets: TEST_BUDGETS,
 })

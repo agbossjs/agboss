@@ -4,7 +4,6 @@ import {
   DecidedBy,
   Router,
   ChannelOutcome,
-  EmptyEnvironment,
   Observer,
   listOf,
   PauseRespondent,
@@ -439,7 +438,6 @@ export class SkipExpiryWorkflow {}
   name: "quorum-expiry-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     QuorumExpiryWorkflow,
     QuorumExpiryOneWorkflow,

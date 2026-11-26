@@ -19,7 +19,7 @@ import { listOf, oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import {
   CompanyGradeDto,
@@ -347,7 +347,6 @@ export class LinkOfferWorkflow {}
   name: "company-review-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CompanyReviewWorkflow, CompanyScreeningWorkflow, JobOfferWorkflow, LinkOfferWorkflow],
   budgets: TEST_BUDGETS,
 })

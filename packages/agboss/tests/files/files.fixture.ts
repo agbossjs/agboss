@@ -20,7 +20,6 @@ import { FilePolicy } from "../../src/files/file-policy.js";
 import { FileDto } from "../../src/dto/standard/file.js";
 import { Application } from "../../src/application/application.js";
 import { Nested, Text, WorkflowFinishTextDto } from "../../src/dto/index.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { ContactPiiPolicy } from "../pii/pii.fixture.js";
 import { onStart, toAgent } from "../helpers/flow.js";
@@ -178,7 +177,6 @@ export class EveryEvent {
   name: "reader-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ReaderWorkflow],
   observers: [EveryEvent],
   budgets: TEST_BUDGETS,
@@ -189,7 +187,6 @@ export class ReaderApplication {}
   name: "private-reader-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ReaderWorkflow],
   observers: [EveryEvent],
   piiPolicies: [ContactPiiPolicy],

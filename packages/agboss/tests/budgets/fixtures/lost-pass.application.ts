@@ -16,7 +16,6 @@ import {
   Ttl,
 } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import {
   CostLedgerRepository,
   InMemoryCostLedgerRepository,
@@ -267,7 +266,6 @@ export class LostBranchWorkflow {}
   name: "lost-pass-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LostPassWorkflow, LostBranchWorkflow],
   observers: [SpendLog],
   providers: [SharedCostLedgerRepository],

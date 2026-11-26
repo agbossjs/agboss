@@ -34,7 +34,6 @@ import {
 import type { AssembledWorkflow } from "../../src/workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent } from "../helpers/flow.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { modelGuardrailsOf } from "../../src/guardrails/loaded.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../src/testing/test-model-provider.js";
@@ -139,7 +138,6 @@ const applicationDefaults: WorkflowDefaults = {
   name: "ask-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [AskWorkflow],
   defaults: applicationDefaults,
   budgets: TEST_BUDGETS,
@@ -161,7 +159,6 @@ class OwnDefaultsWorkflow {}
   name: "own-defaults-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OwnDefaultsWorkflow],
   defaults: applicationDefaults,
   budgets: TEST_BUDGETS,
@@ -181,7 +178,6 @@ class BareWorkflow {}
 @Application({
   name: "router-only-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BareWorkflow],
   defaults: { router: { model: "typesafe/jev-application" } },
   budgets: TEST_BUDGETS,
@@ -191,7 +187,6 @@ class RouterOnlyApplication {}
 @Application({
   name: "bare-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BareWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -209,7 +204,6 @@ class BareRouterWorkflow {}
 @Application({
   name: "bare-router-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BareRouterWorkflow],
   budgets: TEST_BUDGETS,
 })

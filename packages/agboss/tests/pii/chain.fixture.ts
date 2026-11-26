@@ -25,7 +25,6 @@ import {
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { hours } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent, toFinish } from "../helpers/flow.js";
@@ -296,7 +295,6 @@ export class ChainPlainRootWorkflow {}
   name: "chain-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ChainRootWorkflow, ChainPlainRootWorkflow],
   piiPolicies: [ContactPiiPolicy],
   observers: [ChainObserver],

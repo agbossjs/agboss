@@ -13,7 +13,6 @@ import {
 import { onStart, toFinish, toAction } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../../src/index.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
@@ -141,7 +140,6 @@ export class AskWorkflow {}
   name: "ask-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [AskWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -167,7 +165,6 @@ export class AskCaughtWorkflow {}
 @Application({
   name: "ask-caught-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [AskCaughtWorkflow],
   budgets: TEST_BUDGETS,
 })
