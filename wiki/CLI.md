@@ -506,7 +506,7 @@ key, no network and no project code run (no `maxSpend()`):
   their own children; a workflow launching itself is the workflow again, marked with its `maxDepth`.
 - **Implementations** — each infrastructure contract's class and why (listed in `@Application
   providers` / built-in default); **model providers** — the listed ones, else the built-ins, each
-  with what it `serves` ([Model providers](Model-providers)).
+  with its models ([Model providers](Model-providers)).
 - **Channels** — each one a tool names: a role's question → answer (an approval role's question is
   the tool input it approves; the answer `ToolCallApprovalDecisionDto`), who answers, its reply
   interpreter and its one implementation with why; a concrete `@Channel` named by the tool is used

@@ -1,6 +1,6 @@
 # Upgrading to 0.1.1 — A2A is the real protocol
 
-0.1.1 has one breaking change in A2A: `@A2AExpose` / `a2aHttpListener` serve **A2A v1.0**
+0.1.1 changes A2A first (the other changes are the sections below): `@A2AExpose` / `a2aHttpListener` serve **A2A v1.0**
 ([the specification](https://a2a-protocol.org/v1.0.0/specification/)) and `@A2AAgent` / `A2AClient`
 call any v1.0 agent. The 0.1.0 wire is gone, with **no shim**: its `POST <url>/execute`, `/resume`
 and `/cancel`, its `agboss-mesh` header and its `A2AExecutionResponse`. A 0.1.1 client and a 0.1.0
@@ -113,6 +113,33 @@ incompatible with it (`ExecutionError.IncompatibleResume`, `recovery.incompatibl
 runs under its chain's policies, which it did not under 0.1.0. Finish or drain those trees before
 the upgrade, or give the root an `onIncompatibleResume` policy. Workflows without children, and trees where
 neither the application nor a launching workflow lists a policy, keep their hash.
+
+## Environments — a profile selects, `defineEnv` holds the variables (#1324)
+
+The environment contract is gone: no `environments/<name>.environment.ts` files, no loader, no environment
+name. The process variables an application reads are one `defineEnv`; the values of a deployment are a
+[profile](Configuration#profiles-srcconfig-1318) (`src/config/<name>.config.ts`), which sets keys with
+`configureEnv`. See [Environments](Environments).
+
+| 0.1.0                                                                             | 0.1.1                                                                                                              |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `environments/<name>.environment.ts`, `@Application({ environment })`, `AppEnvironment` | `export const appEnv = defineEnv({ … })`; a differing value goes in `src/config/<name>.config.ts` (`configureEnv`) |
+| `EnvironmentField.text()` / `.secret()` / …, `EmptyEnvironment`, `SecretFieldOf`  | `env("X")`, `env.integer("X", { default })`, `secret("X")` … references; `env.flag` is `env.boolean`                |
+| `@Injectable({ environmentFields })`, `applicationContext.environment`            | `@Injectable({ deps: [appEnv] })`, injected as `InferEnv<typeof appEnv>` (`testApp.get(appEnv)` in a test)        |
+| `ApplicationContext.environmentName`                                              | `ApplicationContext.profiles`                                                                                      |
+| `createApp(App, { env: "prod" })`, `testWith(App, { env: "name" })`, `--env prod` | `{ profile: "prod" }` (`"prod,economy"` or a list layers), `--profile prod`; `testWith` runs on `test`            |
+| `testWith(App, { environment: { … } })`                                           | `testWith(App, { env: configureEnv(appEnv, { … }) })`; a secret is never an override: it comes from `processEnv`   |
+| a store's file, bucket or URL as an environment field                             | the driver of the application's storage: `@DatabaseStorage({ driver: SqliteDriver({ path: env("…") }) })`          |
+| `@Application({ piiKeyField, idempotencyKeyField })`                              | `@DatabaseStorage({ piiSecret, idempotencySecret })` ([PII keys](#pii-keys--a-policys-secret-the-storages-piisecret-rotation-1301)) |
+| `[environment.contract-value]`, `[environment.missing-field]`, `[storage.key-conflict]` | `[environment.missing-variable]`, `[environment.invalid-value]` (`ConfigError.Environment`), `[storage.secret-shared]` |
+| `agboss check` verified the environment file's variables                          | `agboss check` needs no variable and no key; `agboss check --strict` fails on a required one that is unset         |
+| `describe` printed an environment; `application.environment` in `describe --json` | gone; the variables are `agboss check`'s report ("the application needs N process variables")                     |
+| `EvalRunReport.environment`, the start line `environment prod`                    | `EvalRunReport.profile`, `profiles prod`                                                                           |
+
+A secret is read from a process variable only — a profile's `configureEnv` and a test's `env` refuse one.
+Migration: replace each environment file with a `defineEnv` and a `src/config/<name>.config.ts`, read the
+values with `deps: [appEnv]`, move a store's file or bucket into its storage's driver, and replace `--env` with
+`--profile` in scripts and CI.
 
 ## Pauses — `withdraw` is gone, a channel hears every close
 

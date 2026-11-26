@@ -143,7 +143,7 @@ flowchart LR
    answered>[: <reason>]`. The model is **not** asked again for the turn that asked for the call — it
    continues with the results.
 5. **One call per pause**: two calls needing approval in one model turn → two pauses, in call order.
-6. **A deadline** (#941): the record carries `expiresAt` (the smaller of the tool's / role's `expiresIn` and the
+6. **A deadline** (#941): the record carries `expiresAt` (the smaller of the target's `timeout` and the
    run's deadline), `expiryBound` and `boundAt`, fixed when it is made, with `firstAskedAt`, `maxExpiresAt` and `escalationLimits`
    (the target's limits, read once and only narrowed by a move to another target: #1307). A re-entry of an expired pause
    (`Cancelled` / `Expired`) throws the internal expiry signal and the loop's approval node fails the whole

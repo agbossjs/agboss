@@ -1,7 +1,7 @@
 # Environments
 
-The application's own settings (#261, #1324): one `defineEnv` per application, in a file next to
-the application file; workflows have none. It names the process variables the application reads,
+The application's own settings (#261, #1324): one `defineEnv` per application, in a `*.env.ts` file next to
+the application file (`agboss create` writes `src/config/app.env.ts`); workflows have none. It names the process variables the application reads,
 once, as `env(...)` and `secret(...)` references, and the framework resolves them when the application
 starts. The same code and the same `providers` run in every profile — only values differ (dev / prod
 parity, 12-factor).
@@ -164,11 +164,13 @@ export default defineConfig({
   naming the variable ([Model providers](Model-providers#drivers)); tests script or replay models and need
   none. There is no second way: `env()` / `secret()` (and `defineEnv`) are the only readers of process
   variables (`EnvironmentVariable` is removed, #266).
-- **`agboss check` reads the application's shape, not its secrets**: without `--models` a secret whose
-  variable is unset is no problem — writing types and checking the assembly need no key, so
-  `npm run types` (`postinstall`) works on a fresh `npm install`. `--models` connects to the
-  providers, so it needs the secrets: a missing one fails, naming its variable
-  (`[environment.missing-variable] OPENROUTER_API_KEY is not set`).
+- **`agboss check` needs no secret and no variable**: it builds the application on placeholders (an
+  unset required value is an empty text, `0`, `false`; a secret stays unresolved and fails at
+  `reveal()`), so writing types and checking the assembly work on a fresh `npm install`
+  (`postinstall`), and an unset variable is only reported as `not set`. `--strict` makes a required
+  variable the process and the profile do not set fail; a secret only together with `--models`
+  (`[environment.missing-variable] OPENROUTER_API_KEY is not set (apiKey)`); a variable set to a value
+  its reference cannot read is `[environment.invalid-value]`.
 
 ## The PII key
 
@@ -183,6 +185,12 @@ secret.optional("…")`), read from the process when the application starts — 
 - **Why it is shared:** every instance uses the same key, so one value gets one token on every
   machine, and logs and traces from different machines match.
 - **Precedence:** a policy's own `secret` wins.
+- **Its variable is its own:** the variable of `piiSecret`, `previousPiiSecret`, `idempotencySecret` or
+  `previousIdempotencySecret` may not be read by anything else the application holds — a model
+  provider's `apiKey`, the mesh's `signingKey`, a PII policy's key, any other `secret(…)` / `env(…)`
+  of a component, a driver or `deps: [defineEnv]` — `[storage.secret-shared]` at assembly: rotating a
+  provider's key must never change every stored token and fingerprint. Two providers on one key are fine.
+  A secret comes from the process only: a profile's `configureEnv` and a test's `env` refuse one.
 - **At start:** a `tokenize()` rule or action, or a `sensitive: PiiAction.tokenize()` field, with no
   key to make its token fails the start with `[pii.secret-required]`, naming the policy or the
   `Dto.field` — no storage supplies one, `InMemoryDatabaseStorage` included. `mask()` needs no key.
@@ -197,7 +205,7 @@ Each loads the application of `package.json` (`"agboss": { "application" }`, or 
 
 | Command                      | What it does with the variables                                                                       |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `agboss check`               | creates what every workflow's start creates, and lists the process variables the application needs: names only, `value` / `secret`, never a value |
+| `agboss check`               | creates what every workflow's start creates, on placeholders, and lists the process variables the application needs: names only, `value` / `secret`, `not set` where the process lacks one, never a value; `--strict` fails on a required one that is unset |
 | `agboss describe`            | shows the application; a secret is masked as `***`, no keys                                           |
 
 ```

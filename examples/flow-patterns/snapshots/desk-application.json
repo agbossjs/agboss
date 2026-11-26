@@ -28,47 +28,47 @@
         {
           "contract": "BaseCheckpointSaver",
           "implementation": "SqliteCheckpointSaver",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "ExecutionRecordRepository",
           "implementation": "SqliteExecutionRecordRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "CostLedgerRepository",
           "implementation": "SqliteCostLedgerRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "PausedExecutionRepository",
           "implementation": "SqlitePausedExecutionRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "ExecutionLeaseRepository",
           "implementation": "SqliteExecutionLeaseRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "ExecutionTreeRepository",
           "implementation": "SqliteExecutionTreeRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "RateLimitRepository",
           "implementation": "SqliteRateLimitRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "MeshRequestRepository",
           "implementation": "SqliteMeshRequestRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "A2ATaskRepository",
           "implementation": "SqliteA2ATaskRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "FileRepository",
@@ -78,32 +78,32 @@
         {
           "contract": "A2ADirectMessageRepository",
           "implementation": "SqliteA2ADirectMessageRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "ExecutionHistoryRepository",
           "implementation": "SqliteExecutionHistoryRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "ChildExecutionQueueRepository",
           "implementation": "SqliteChildExecutionQueueRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "FencedEffectRepository",
           "implementation": "SqliteFencedEffectRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "ExecutionAuditLogRepository",
           "implementation": "SqliteExecutionAuditLogRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "OutboundCallRepository",
           "implementation": "SqliteOutboundCallRepository",
-          "reason": "listed"
+          "reason": "storage"
         },
         {
           "contract": "FileTranscriber",
@@ -234,13 +234,6 @@
             }
           }
         }
-      },
-      "environment": {
-        "name": "dev",
-        "fields": {
-          "openRouterApiKey": "<missing OPENROUTER_API_KEY>",
-          "openRouterBaseUrl": "<unset OPENROUTER_BASE_URL, optional>"
-        }
       }
     },
     "workflows": [
@@ -248,7 +241,7 @@
         "name": "desk-workflow",
         "version": "1.0.0",
         "profile": "base",
-        "config": "3ccacb54",
+        "config": "4d3de4a8",
         "piiPolicies": [
           {
             "name": "customer-id-pii-policy",
@@ -342,7 +335,7 @@
           "least": 1,
           "most": 1
         },
-        "configHash": "3ccacb54e627615247c41a2c1ef9a643fb9c55a5a4fd4ee1caec2a4abc3f1a75",
+        "configHash": "4d3de4a8ed8806db509d028808318c9efe54a6b6f37a82fa158cca536aa9f305",
         "starts": [
           "desk-workflow-start"
         ],
