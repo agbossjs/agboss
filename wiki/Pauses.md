@@ -506,6 +506,14 @@ after a crash — finds the same `pauseId`:
 | `Taken`       | its step took the decision and went on — or its channel decided at once                                                                                                 |
 | `Cancelled`   | closed with no answer: a sibling branch failed, its launch's quorum was decided, the thread was cancelled, the tree ended, or the deadline passed with nobody answering |
 
+**Every time a pause shows is a `Date`** (#1307): `result.pending[]`, `app.listPauses` (`askedAt`, `expiresAt`,
+`closedAt`, `trail[].at`), every channel and listener event (`closedAt`, `at`, `expiresAt`, `previousExpiresAt`),
+`result.record.pauses`, `PauseError.Closed.closedAt`, `StepError.PauseExpired.expiresAt` and
+`LimitError.Deadline.deadlineAt`. Print one with `date.toISOString()`; an error's `details` and the A2A wire carry the
+ISO 8601 text. **Compare two of them with `a.getTime() === b.getTime()` (or `<`), never with `===` or `!==`**: those
+compare the objects, so two `Date`s of one instant are "different" and a check such as "is this still the deadline I
+read" is always false.
+
 An answer to anything but `Pending` → `PauseError.Closed` (`pause.closed`: `pauseId`, `tenantId`,
 `reason: PauseClosedReason` — `answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`,
 `reassigned` —, `closedAt?: Date` (an ISO 8601 text in the error's `details`); its message names the pause by its `pauseKey`, never its id), checked
@@ -714,7 +722,7 @@ export class SlackRefundApprovalChannel {
 
 - **What a channel gets** — `ChannelPauseClosedEvent<Role>`: the `pauseId` and `value` as `send` got
   them, `reason: PauseClosedReason` (`Answered`, `Expired`, `Cancelled`, `Withdrawn`, `TreeEnded`),
-  `closedAt`, and for an answer `actor` (the resume's `actor`, or the thread's owner) and the
+  `closedAt` (a `Date`; print one with `.toISOString()`), and for an answer `actor` (the resume's `actor`, or the thread's owner) and the
   `answer` (masked by the PII policies), and `deliveryId`. The channel hears an answer **given
   elsewhere** too — a manager approves in the back office, the Slack message loses its buttons — and
   its own. `onPauseAnswerNotTaken(event)` is told, after the `closed`, when a recorded answer is never
@@ -781,7 +789,7 @@ List it in `@Application({ providers })`: the container creates it at start (its
 (`executionId` is the child's) — and, with the optional `onPauseAnswerNotTaken`, the answers never
 applied. An event carries the safe context — `pauseKey`, `tenantId`, `rootExecutionId`,
 `executionId`, `threadId`, `workflow`, `step`, `kind`, `channel`, `respondent`, the masked `ask`,
-`askedAt`, `expiresAt` — and `deliveryId`. Assembly rules: `[name.not-kebab-case]`,
+`askedAt`, `expiresAt` (`Date`s) — and `deliveryId`. Assembly rules: `[name.not-kebab-case]`,
 `[channel-listener.duplicate-name]`, `[channel-listener.missing-handler]`, `[channel-listener.unknown-hook]`;
 `agboss describe` lists the listeners.
 
@@ -822,7 +830,7 @@ changes the number without touching the code. `[limits.timeout-invalid]` for a v
 `seconds(1)` or no finite duration. The absolute deadline is fixed **when the pause is made** — a
 deploy that changes `timeout` never moves an open pause — as the smaller of it and the run's
 deadline (`app.execute(…, { deadline })`, a mesh caller's remaining time): a tie goes to the run.
-`result.pending[].expiresAt` and the `onExecutionPause` event carry it; `agboss describe` prints each
+`result.pending[].expiresAt` (a `Date`) and the `onExecutionPause` event carry it; `agboss describe` prints each
 target's `timeout`.
 
 **A worked example: ask the manager for a day, then the director.** The tool approval has a deadline;

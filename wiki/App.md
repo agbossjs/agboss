@@ -364,8 +364,8 @@ query does not have (the retired `after`, `role`) is refused, never ignored.
 A `ListedPause` shows no `pauseId` by default (the listing is an operator's, possibly across tenants; the id of
 any pause is the right to answer it, and a thread started without an `ownerId` is answered by the id alone;
 a thread's owner reads his own id from `result.pending`, which is unchanged), its `pauseKey` and `tenantId` always, `kind`, `step`, `target`, `channel`, `assignees`, `externalRef`, `trail`,
-`status`, `rootExecutionId`, `threadId`, `askedAt`, `expiresAt`; a closed one also `reason` (`PauseClosedReason`),
-`closedAt` and `actor` (who answered; absent when its channel decided). `includePauseIds: true` (default `false`)
+`status`, `rootExecutionId`, `threadId`, `askedAt` and `expiresAt` (`Date`s, like `trail[].at`), a closed one also `reason` (`PauseClosedReason`),
+`closedAt` (a `Date`) and `actor` (who answered; absent when its channel decided). `includePauseIds: true` (default `false`)
 shows the `pauseId` of every pause (`Owner` and delegated), so an admin tool can act on a stuck pause: a pause's id is the
 right to answer it, so ask for it only for a caller who may answer, and never put it in a log or a report. Its
 `input` is masked by the policies of the workflow it waits in. Another tenant's pauses are never listed without

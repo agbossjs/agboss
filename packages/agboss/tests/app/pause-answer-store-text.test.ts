@@ -53,12 +53,12 @@ describe("P6a: what the answer log's store is handed", () => {
       );
 
       expect(saved).toHaveLength(1);
-      const [answer] = saved;
-      expect(typeof answer?.askedAt).toBe("string");
-      expect(answer?.askedAt).toBe(askedAt.toISOString());
-      expect(answer?.resolvedAt).toBe(answeredAt.toISOString());
-      expect(answer?.trail[0]?.at).toBe(askedAt.toISOString());
-      expect(done.record?.pauses[0]?.askedAt).toEqual(askedAt);
-      expect(done.record?.pauses[0]?.resolvedAt).toEqual(answeredAt);
+      // texts, exactly what toISOString() writes: `toMatchObject` never equals a Date to a text
+      expect(saved[0]).toMatchObject({
+        askedAt: askedAt.toISOString(),
+        resolvedAt: answeredAt.toISOString(),
+        trail: [{ at: askedAt.toISOString() }],
+      });
+      expect(done.record?.pauses[0]).toMatchObject({ askedAt, resolvedAt: answeredAt });
     });
 });
