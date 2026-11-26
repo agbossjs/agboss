@@ -1320,7 +1320,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed(
     "holds spend, rate-limit or deadline sites (pause page limit 0; pause page limit over) - not mutated: covered by tests/app/list-pauses.test.ts, each sabotage of it (2 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
-    ["src/app/pause-listing.ts"],
+    ["src/app/pause-listing.ts", "src/app/pause-listing-query.ts"],
   ),
   ...reviewed(
     "holds spend, rate-limit or deadline sites (reassign due <) - not mutated: covered by tests/app/pause-reassignment.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
