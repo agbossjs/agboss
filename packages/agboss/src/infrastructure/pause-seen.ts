@@ -23,12 +23,15 @@ export const seenOf = (pause: PauseRecord): PauseSeen => ({
  * Whether the pause is still the one the change was permitted and planned against (#1307); a change
  * with no `seen` (a caller that skipped the plan) is never as seen: refused, not a `TypeError`.
  */
-export const isAsSeen = (pause: PauseRecord, seen: PauseSeen | undefined): boolean =>
-  seen !== undefined &&
-  pause.trail.length === seen.trailLength &&
-  pause.expiresAt === seen.expiresAt &&
-  pause.isSent === seen.isSent &&
-  sameAssignees(pause.assignees, seen.assignees);
+export function isAsSeen(pause: PauseRecord, seen: PauseSeen | undefined): boolean {
+  if (seen === undefined) return false;
+  return (
+    pause.trail.length === seen.trailLength &&
+    pause.expiresAt === seen.expiresAt &&
+    pause.isSent === seen.isSent &&
+    sameAssignees(pause.assignees, seen.assignees)
+  );
+}
 
 /** `isAsSeen` under its other name: whether the pause is still the one `seen` names. */
 export const isSeenAs = isAsSeen;

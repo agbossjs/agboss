@@ -60,14 +60,21 @@ export function instantOf(text: string | undefined): Date {
 }
 
 /**
- * The index of the first in-place `reassigned` entry of a pause the channel was just sent: one after
- * its own `opened` entry, on a pause no reassignment made (a replacement's own `reassigned` entry is
- * told by `openingNotices`); -1 when it was not changed in place.
+ * A pause the channel was just sent that was changed in place meanwhile: its `opened` entry (the
+ * first of its trail, what the channel was asked with) and the first `reassigned` entry after it. A
+ * pause no reassignment made only — a replacement's own `reassigned` entry is told by `openingNotices`;
+ * `undefined` when it was not changed in place.
  */
-const firstChangeOf = (pause: PauseRecord): number =>
-  pause.reassignedFrom !== undefined
-    ? -1
-    : pause.trail.findIndex((entry, at) => at > 0 && entry.action === "reassigned");
+function inPlaceChangeOf(
+  pause: PauseRecord,
+): { readonly asked: PauseTrailRecord; readonly changed: PauseTrailRecord } | undefined {
+  // every pause has its `opened` entry first
+  const [asked, ...rest] = pause.trail as [PauseTrailRecord, ...PauseTrailRecord[]];
+  const changed = rest.find((entry) => entry.action === "reassigned");
+  return pause.reassignedFrom !== undefined || changed === undefined
+    ? undefined
+    : { asked, changed };
+}
 
 /**
  * The notices of a pause whose channel was just asked: `opened` to the listeners — with the deadline
@@ -83,8 +90,7 @@ export function openingNotices(
 ): readonly PlannedNotice[] {
   const at = instantOf(pause.askedAt);
   if (pause.reassignedFrom === undefined) {
-    // a change in place makes the `opened` entry (the first: `firstChangeOf` is past it) the asked one
-    const asked = firstChangeOf(pause) === -1 ? pause : (pause.trail[0] as PauseTrailRecord);
+    const asked = inPlaceChangeOf(pause)?.asked ?? pause;
     return noticesOf(
       recipients,
       PauseNoticeKind.Opened,
@@ -120,10 +126,9 @@ export function inFirstSendNotices(
   sent: PauseRecord,
   recipients: PauseRecipients,
 ): readonly PlannedNotice[] {
-  const changed = sent.trail[firstChangeOf(sent)];
-  if (changed === undefined) return [];
-  // a change in place is past the first entry, the `opened` one
-  const asked = sent.trail[0] as PauseTrailRecord;
+  const change = inPlaceChangeOf(sent);
+  if (change === undefined) return [];
+  const { asked, changed } = change;
   return noticesOf(
     recipients,
     PauseNoticeKind.Reassigned,
