@@ -124,7 +124,6 @@ export {
   type ListedPause,
   type PauseCallerOptions,
   type PauseExtension,
-  type PausesPage,
   type PausesQuery,
   type ExecutionsQuery,
   type AnyTenantApp,

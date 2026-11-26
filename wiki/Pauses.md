@@ -1245,12 +1245,13 @@ retention keeps a reassigned pause while its replacement is stored: the step's i
 
 ## List and watch pauses
 
-`app.listPauses({ tenantId, status?, target?, expiringBefore?, limit?, after? })` is an operator's queue of one
-tenant's pauses ([App](App#applistpauses-tenantid-status-target-expiringbefore-limit-after-943)): by default
-the `Pending` ones, by channel name (`target`) and by deadline, 100 a page, each pause exactly once across
-pages even while others open and close. A pause shows its `pauseKey` always and its `pauseId` only when the
-thread's owner answers it; its `ask` is masked by its workflow's policies; a closed one carries `reason`,
-`closedAt` and who answered. "What expires in the next hour":
+`app.listPauses({ tenantId | allTenants, status?, target?, assignee?, externalRef?, expiringBefore?, includePauseIds?, limit?, cursor? })`
+is an operator's queue of pauses, `Page<ListedPause>` ([App](App#applistpauses-tenantid--alltenants-status-target-assignee-externalref-expiringbefore-includepauseids-limit-cursor-943-1307)):
+by default one tenant's `Pending` ones, by target (a class or its name), assignee, external reference and deadline,
+100 a page, each pause exactly once across pages even while others open and close. A pause shows its `pauseKey`
+always and its `pauseId` only when the thread's owner answers it, unless `includePauseIds: true` is asked (default
+`false`: a delegated pause's id is the right to answer it); its `input` is masked by its workflow's policies; a
+closed one carries `reason`, `closedAt` and who answered. "What expires in the next hour":
 `app.listPauses({ tenantId, expiringBefore: new Date(Date.now() + 3600e3) })`.
 
 The instance's meter counts them ([Metrics](Metrics)): `agboss.instance.pauses.opened`, `.closed` by

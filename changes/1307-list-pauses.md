@@ -1,0 +1,6 @@
+---
+section: Breaking
+issue: 1307
+---
+
+**`app.listPauses` is a `Page` listing with a tenant scope and more filters** (#1307e): `listPauses(...TenantListArgs<TApp, PausesQuery>)` returns the standard `Page<ListedPause>` (`{ items, nextCursor? }`, `{ cursor, limit }`) like `listExecutions`; `PausesPage` (`{ pauses, next }`) and the `after` field are gone, and a query field the listing does not have is refused (`ValidationError.DtoInvalid`) instead of ignored. The scope is `{ tenantId }` or `{ allTenants: true }` (never both; required when the application declares a `tenantContext`, else `"default"`). New filters: `assignee` (one of a pool), `externalRef`, `target` as a class or its name, `expiringBefore` as `Date` or ISO text. `includePauseIds` (default `false`) shows the `pauseId` of delegated pauses too — a pause's id is the right to answer it, so by default only an `Owner` pause's id is listed, as in `result.pending`. **Stores:** `PauseFilter` gains `assignee` and `externalRef`, and `PausedExecutionRepository` gains the abstract `findPageOfAllTenants(filter, limit, after?)`; SQLite reads both filters from the pause's JSON and indexes the reference. The `@agboss/postgres` and `@agboss/mongodb` filters follow in their repositories.

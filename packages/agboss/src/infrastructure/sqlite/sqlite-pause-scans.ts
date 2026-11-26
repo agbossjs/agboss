@@ -26,6 +26,33 @@ const sequenced = (row: unknown): SequencedPause => ({
   seq: SequenceRow.parse(row).seq,
 });
 
+/** The conditions of a filter over alias `p`; the assignee and the reference are read from the pause's JSON. */
+function filterClauses(filter: PauseFilter): {
+  readonly clauses: readonly string[];
+  readonly values: readonly SQLInputValue[];
+} {
+  const clauses = [`p.status IN (${filter.statuses.map(() => "?").join(", ")})`];
+  const values: SQLInputValue[] = [...filter.statuses];
+  const add = (clause: string, value: SQLInputValue): void => {
+    clauses.push(clause);
+    values.push(value);
+  };
+  if (filter.target !== undefined) add("p.target = ?", filter.target);
+  if (filter.expiresBefore !== undefined)
+    add("p.expires_at IS NOT NULL AND p.expires_at < ?", filter.expiresBefore.toISOString());
+  if (filter.assignee !== undefined)
+    add(
+      `CASE WHEN json_valid(p.pause) THEN EXISTS (SELECT 1 FROM json_each(p.pause, '$.assignees') WHERE value = ?) END`,
+      filter.assignee,
+    );
+  if (filter.externalRef !== undefined)
+    add(
+      `CASE WHEN json_valid(p.pause) THEN json_extract(p.pause, '$.externalRef') END = ?`,
+      filter.externalRef,
+    );
+  return { clauses, values };
+}
+
 export class SqlitePauseScans {
   constructor(private readonly database: DatabaseSync) {}
 
@@ -91,17 +118,17 @@ export class SqlitePauseScans {
 
   /** One tenant's pauses `filter` selects, after the cursor. */
   ofTenant(tenantId: string, filter: PauseFilter, from: number, limit: number): PausePage {
-    const marks = filter.statuses.map(() => "?").join(", ");
-    const clauses = [`p.tenant_id = ?`, `p.status IN (${marks})`];
-    const values: SQLInputValue[] = [tenantId, ...filter.statuses];
-    if (filter.target !== undefined) {
-      clauses.push("p.target = ?");
-      values.push(filter.target);
-    }
-    if (filter.expiresBefore !== undefined) {
-      clauses.push("p.expires_at IS NOT NULL AND p.expires_at < ?");
-      values.push(filter.expiresBefore.toISOString());
-    }
+    const { clauses, values } = filterClauses(filter);
+    return this.page(
+      { clause: ["p.tenant_id = ?", ...clauses].join(" AND "), values: [tenantId, ...values] },
+      from,
+      limit,
+    );
+  }
+
+  /** Every tenant's pauses `filter` selects, after the cursor. */
+  ofAllTenants(filter: PauseFilter, from: number, limit: number): PausePage {
+    const { clauses, values } = filterClauses(filter);
     return this.page({ clause: clauses.join(" AND "), values }, from, limit);
   }
 

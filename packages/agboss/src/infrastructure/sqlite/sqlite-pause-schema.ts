@@ -12,12 +12,14 @@ export const PAUSES_TABLE = `CREATE TABLE IF NOT EXISTS pauses (
   expires_at TEXT, remind_at TEXT, target TEXT, seq INTEGER PRIMARY KEY AUTOINCREMENT,
   UNIQUE (tenant_id, pause_id), UNIQUE (tenant_id, root_execution_id, step_key));`;
 
-/** #910: the deadline and reminder scans, and a tenant's pages (`seq` is the insertion sequence). */
+/** #910: the deadline and reminder scans, and a tenant's pages; #1307e: the external reference's lookup (`seq` is the insertion sequence). */
 export const PAUSES_INDEXES = `CREATE INDEX IF NOT EXISTS pauses_by_root ON pauses (tenant_id, root_execution_id);
 CREATE INDEX IF NOT EXISTS pauses_by_resolved_at ON pauses (status, resolved_at);
 CREATE INDEX IF NOT EXISTS pauses_pending_by_expiry ON pauses (status, expires_at);
 CREATE INDEX IF NOT EXISTS pauses_pending_by_remind ON pauses (status, remind_at);
 CREATE INDEX IF NOT EXISTS pauses_by_tenant ON pauses (tenant_id, status, target);
+CREATE INDEX IF NOT EXISTS pauses_by_external_ref
+  ON pauses ((CASE WHEN json_valid(pause) THEN json_extract(pause, '$.externalRef') END));
 CREATE INDEX IF NOT EXISTS pauses_pending_unsent ON pauses (seq) WHERE status = 'pending' AND is_sent = 0;`;
 
 export const PAUSES_SCHEMA = `${PAUSES_TABLE}\n${PAUSES_INDEXES}`;

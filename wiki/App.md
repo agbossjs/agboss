@@ -346,21 +346,29 @@ a deadline not later than the current one or past the one the pause was made und
 `dto: "ExtendPauseRequest"`), another tenant's pause (`PauseError.UnknownPause`). Atomic in the store against
 the expiry look; no lease is taken. [Pauses → Extending a pause](Pauses#extending-a-pause-and-reminding-before-its-deadline-942).
 
-## `app.listPauses({ tenantId, status?, target?, expiringBefore?, limit?, after? })` (#943)
+## `app.listPauses({ tenantId | allTenants, status?, target?, assignee?, externalRef?, expiringBefore?, includePauseIds?, limit?, cursor? })` (#943, #1307)
 
-An operator's queue of one tenant's pauses, a page at a time: `PausesPage { pauses: ListedPause[]; next? }`.
-`status` is one `PauseStatus` or a list (default `Pending`); `target` the pause target's name; `expiringBefore` a
-`Date` (a pause with no deadline is never listed by it); `limit` 1 to 1000 (default 100); `after` the
-`next` of the page before. Pauses come in the order they were made and the cursor is a position in that
-order — never an offset — so a pause that opens or closes between two pages makes no other pause skipped
-or repeated. A `ListedPause` shows `pauseId` as `result.pending` does (only an `Owner` pause's; a
-channel pause's id stays with its channel), its `pauseKey` always, `kind`, `step`, `channel`,
-`answerer`, `status`, `rootExecutionId`, `threadId`, `askedAt`, `expiresAt`; a closed one also `reason`
-(`PauseClosedReason`), `closedAt` and `actor` (who answered; absent when its channel decided). Its
-`ask` is masked by the policies of the workflow it waits in. Another tenant's pauses are never listed; an
-invalid query is a `ValidationError.DtoInvalid` (`dto: "PausesQuery"`). On the application the method finds each
-pause's workflow by its root's; a pause of a workflow the application no longer lists is masked with the
-union of every workflow's policies (fail closed).
+An operator's queue of pauses, a page at a time: `Page<ListedPause>` (`{ items, nextCursor? }`, like `listExecutions`).
+The scope is the tenant (`tenantId`; `"default"` when the application has no `tenantContext` and none is named) or
+`allTenants: true` for every tenant's pauses, never both; an application with a `tenantContext` that names neither
+rejects with `ValidationError.TenantRequired`. `status` is one `PauseStatus` or a list (default `Pending`); `target`
+is a `@ToolApproval` / `@ExternalTask` class or its name; `assignee` keeps the pauses that one is among the
+`assignees` of; `externalRef` the pause its channel gave that reference; `expiringBefore` a `Date` or an ISO 8601
+text (a pause with no deadline is never listed by it); `limit` 1 to 1000 (default 100); `cursor` the `nextCursor`
+of the page before. Pauses come in the order they were made and the cursor is a position in that order — never an
+offset — so a pause that opens or closes between two pages makes no other pause skipped or repeated. A field the
+query does not have (the retired `after`, `role`) is refused, never ignored.
+
+A `ListedPause` shows `pauseId` as `result.pending` does (only an `Owner` pause's; a delegated pause's id stays
+with its channel), its `pauseKey` always, `kind`, `step`, `target`, `channel`, `assignees`, `externalRef`, `trail`,
+`status`, `rootExecutionId`, `threadId`, `askedAt`, `expiresAt`; a closed one also `reason` (`PauseClosedReason`),
+`closedAt` and `actor` (who answered; absent when its channel decided). `includePauseIds: true` (default `false`)
+shows the `pauseId` of the delegated pauses too, so an admin tool can act on a stuck pause: a pause's id is the
+right to answer it, so ask for it only for a caller who may answer, and never put it in a log or a report. Its
+`input` is masked by the policies of the workflow it waits in. Another tenant's pauses are never listed without
+`allTenants`; an invalid query is a `ValidationError.DtoInvalid` (`dto: "PausesQuery"`). On the application the
+method finds each pause's workflow by its root's; a pause of a workflow the application no longer lists is masked
+with the union of every workflow's policies (fail closed).
 
 ## `app.reassignPause({ pauseId, assignees }, { tenantId, ownerId | actor })` (#946)
 

@@ -28,12 +28,30 @@ export function assertPauseFilter(filter: PauseFilter): void {
   if (filter.statuses.length === 0) throw new TypeError("a pause filter names at least one status");
 }
 
+/** Throws unless a listing's `limit` and `filter` are well formed. */
+export function assertListing(filter: PauseFilter, limit: number): void {
+  assertScanLimit(limit);
+  assertPauseFilter(filter);
+}
+
 /** Whether `pause` is what `filter` selects. */
 export const matchesFilter = (pause: PauseRecord, filter: PauseFilter): boolean =>
   filter.statuses.includes(pause.status) &&
   (filter.target === undefined || pause.target === filter.target) &&
   (filter.expiresBefore === undefined ||
-    (pause.expiresAt ?? NEVER) < filter.expiresBefore.toISOString());
+    (pause.expiresAt ?? NEVER) < filter.expiresBefore.toISOString()) &&
+  heldAs(pause, filter);
+
+/** Whether `pause` is the one `filter`'s assignee and external reference name (those it names). */
+const heldAs = (pause: PauseRecord, { assignee, externalRef }: PauseFilter): boolean =>
+  (assignee === undefined || (pause.assignees?.includes(assignee) ?? false)) &&
+  (externalRef === undefined || pause.externalRef === externalRef);
+
+/** What a page selects: the pauses `filter` selects, of `tenantId` or (none given) of every tenant. */
+export const inScope =
+  (filter: PauseFilter, tenantId?: string) =>
+  ({ pause }: { readonly pause: PauseRecord }): boolean =>
+    (tenantId === undefined || pause.tenantId === tenantId) && matchesFilter(pause, filter);
 
 /** Text order by code unit — SQLite's binary collation — never the locale's. */
 export const compareText = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);

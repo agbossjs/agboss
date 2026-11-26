@@ -315,11 +315,22 @@ export abstract class PausedExecutionRepository {
   abstract findOpenAfter(after: string | undefined, limit: number): Promise<PausePage>;
 
   /**
-   * One tenant's pauses that `filter` selects (statuses, channel, `expiresBefore`), in the store's
-   * insertion order, `limit` per page, `after` as `findOpenAfter`'s. Never another tenant's.
+   * One tenant's pauses that `filter` selects (statuses, target, `expiresBefore`, assignee,
+   * external reference), in the store's insertion order, `limit` per page, `after` as
+   * `findOpenAfter`'s. Never another tenant's.
    */
   abstract findPageByTenantId(
     tenantId: string,
+    filter: PauseFilter,
+    limit: number,
+    after?: string,
+  ): Promise<PausePage>;
+
+  /**
+   * The pauses of every tenant that `filter` selects, paged as `findPageByTenantId` pages them
+   * (#1307e): the operator's cross-tenant look (`app.listPauses({ allTenants: true })`).
+   */
+  abstract findPageOfAllTenants(
     filter: PauseFilter,
     limit: number,
     after?: string,

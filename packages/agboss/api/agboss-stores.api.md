@@ -1941,6 +1941,7 @@ export abstract class PausedExecutionRepository {
     abstract findOpenAfter(after: string | undefined, limit: number): Promise<PausePage>;
     abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
     abstract findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
+    abstract findPageOfAllTenants(filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
     abstract findPendingByExpiresAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingByRemindAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingUnsentReassignedBefore(cutoff: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
@@ -1984,7 +1985,9 @@ export const pauseFencedOf: (key: CancelFencedKey) => AGBossError;
 
 // @public
 export interface PauseFilter {
+    readonly assignee?: string;
     readonly expiresBefore?: Date;
+    readonly externalRef?: string;
     readonly statuses: readonly PauseStatus[];
     readonly target?: string;
 }

@@ -14,11 +14,11 @@ import type {
 } from "./pause-notices.js";
 import { isExpiredPause, PauseStatus, type PauseRecord } from "./pause-record.js";
 import {
-  assertPauseFilter,
+  assertListing,
   compareText,
   assertScanLimit,
   firstByTime,
-  matchesFilter,
+  inScope,
   NEVER,
   pageOf,
   seqOfCursor,
@@ -125,15 +125,17 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     limit: number,
     after?: string,
   ): Promise<PausePage> {
-    assertScanLimit(limit);
-    assertPauseFilter(filter);
-    return Promise.resolve(
-      this.#pageAfter(
-        after,
-        limit,
-        ({ pause }) => pause.tenantId === tenantId && matchesFilter(pause, filter),
-      ),
-    );
+    assertListing(filter, limit);
+    return Promise.resolve(this.#pageAfter(after, limit, inScope(filter, tenantId)));
+  }
+
+  async findPageOfAllTenants(
+    filter: PauseFilter,
+    limit: number,
+    after?: string,
+  ): Promise<PausePage> {
+    assertListing(filter, limit);
+    return Promise.resolve(this.#pageAfter(after, limit, inScope(filter)));
   }
 
   async findClosedByResolvedAtBefore(

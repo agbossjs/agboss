@@ -21,6 +21,7 @@ import { PausedExecutionRepository } from "../../src/infrastructure/paused-execu
 import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 import { until } from "../channels/fixtures/pause-scripts.js";
 import {
+  ListManagerExternalTask,
   ListingApplication,
   asked,
   financeFlow,
@@ -74,9 +75,12 @@ async function allOf(
   const found: ListedPause[] = [];
   let after: string | undefined;
   do {
-    const page = await app.listPauses({ ...query, ...(after === undefined ? {} : { after }) });
-    found.push(...page.pauses);
-    after = page.next;
+    const page = await app.listPauses({
+      ...query,
+      ...(after === undefined ? {} : { cursor: after }),
+    });
+    found.push(...page.items);
+    after = page.nextCursor;
   } while (after !== undefined);
   return found;
 }
@@ -134,13 +138,13 @@ describe("#943 AC1: listing pauses", () => {
       );
 
     const first = await app.listPauses({ tenantId: "default" });
-    expect(first.pauses).toHaveLength(100);
-    const second = await app.listPauses({ tenantId: "default", after: first.next ?? "" });
-    expect(second.pauses).toHaveLength(100);
-    const third = await app.listPauses({ tenantId: "default", after: second.next ?? "" });
-    expect(third.pauses).toHaveLength(50);
-    expect(third.next).toBeUndefined();
-    const keys = [...first.pauses, ...second.pauses, ...third.pauses].map((one) => one.pauseKey);
+    expect(first.items).toHaveLength(100);
+    const second = await app.listPauses({ tenantId: "default", cursor: first.nextCursor ?? "" });
+    expect(second.items).toHaveLength(100);
+    const third = await app.listPauses({ tenantId: "default", cursor: second.nextCursor ?? "" });
+    expect(third.items).toHaveLength(50);
+    expect(third.nextCursor).toBeUndefined();
+    const keys = [...first.items, ...second.items, ...third.items].map((one) => one.pauseKey);
     expect(new Set(keys).size).toBe(250);
   });
 
@@ -157,14 +161,14 @@ describe("#943 AC1: listing pauses", () => {
     await app.resume({ pauseId: sent[15]?.pauseId ?? "", decision: { approved: true } }, manager);
     await open(app, managerFlow as never, "late");
     const rest: ListedPause[] = [];
-    let after = first.next;
+    let after = first.nextCursor;
     while (after !== undefined) {
-      const page = await app.listPauses({ tenantId: "default", limit: 10, after });
-      rest.push(...page.pauses);
-      after = page.next;
+      const page = await app.listPauses({ tenantId: "default", limit: 10, cursor: after });
+      rest.push(...page.items);
+      after = page.nextCursor;
     }
 
-    const keys = [...first.pauses, ...rest].map((one) => one.pauseKey);
+    const keys = [...first.items, ...rest].map((one) => one.pauseKey);
     expect(new Set(keys).size).toBe(keys.length);
     // listed before it closed (the first), still pending (all but the one answered before its page),
     // and the new one appear — each once
@@ -215,9 +219,9 @@ describe("#943 AC1: listing pauses", () => {
     expect(await allOf(app, { tenantId: "tenant-c" })).toEqual([]);
     // a cursor of one tenant's page does not read another's rows
     const page = await app.listPauses({ tenantId: "tenant-a", limit: 1 });
-    expect(page.pauses).toHaveLength(1);
-    const other = await app.listPauses({ tenantId: "tenant-b", after: "0" });
-    expect(other.pauses.map((one) => one.threadId)).toEqual(["t-tenant-b-b1"]);
+    expect(page.items).toHaveLength(1);
+    const other = await app.listPauses({ tenantId: "tenant-b", cursor: "0" });
+    expect(other.items.map((one) => one.threadId)).toEqual(["t-tenant-b-b1"]);
     expect(await failureOf(app.listPauses({ tenantId: "t\uD800" }))).toBeInstanceOf(
       ValidationError.DtoInvalid,
     );
@@ -292,7 +296,7 @@ describe("#943 AC1: listing pauses", () => {
     };
     await app.resolve(PausedExecutionRepository).findOrCreateByStepKey(ghost);
 
-    const [listed] = (await app.listPauses({ tenantId: "ghost-tenant" })).pauses;
+    const [listed] = (await app.listPauses({ tenantId: "ghost-tenant" })).items;
 
     // the SSN is hidden by the manager workflow's policy alone, the email by the application's
     const text = JSON.stringify(listed?.input);
@@ -306,14 +310,18 @@ describe("#943 AC1: listing pauses", () => {
     await open(app, openFlow as never, "e2");
 
     expect(await app.listPauses({ tenantId: "default", target: "no-such-external-task" })).toEqual({
-      pauses: [],
+      items: [],
     });
     const one = await app.listPauses({ tenantId: "default", limit: 1 });
-    expect(one.pauses).toHaveLength(1);
-    expect(one.next).toBeDefined();
-    const last = await app.listPauses({ tenantId: "default", limit: 1, after: one.next ?? "" });
-    expect(last.next).toBeUndefined();
-    expect((await app.listPauses({ tenantId: "default", limit: 1000 })).pauses).toHaveLength(2);
+    expect(one.items).toHaveLength(1);
+    expect(one.nextCursor).toBeDefined();
+    const last = await app.listPauses({
+      tenantId: "default",
+      limit: 1,
+      cursor: one.nextCursor ?? "",
+    });
+    expect(last.nextCursor).toBeUndefined();
+    expect((await app.listPauses({ tenantId: "default", limit: 1000 })).items).toHaveLength(2);
   });
 
   test("an invalid query is a ValidationError.DtoInvalid of PausesQuery", async ({ app }) => {
@@ -324,18 +332,126 @@ describe("#943 AC1: listing pauses", () => {
       { tenantId: "default", status: [] },
       { tenantId: "default", status: "gone" },
       { tenantId: "default", expiringBefore: new Date("nope") },
-      { tenantId: "default", expiringBefore: "2026-01-01" },
+      { tenantId: "default", expiringBefore: "not a time" },
+      { tenantId: "default", expiringBefore: 12 },
+      { tenantId: "default", assignee: "" },
+      { tenantId: "default", externalRef: "" },
+      { tenantId: "default", includePauseIds: "yes" },
+      { tenantId: "default", allTenants: true },
+      { allTenants: "all" },
+      { tenantId: "default", target: 7 },
+      { tenantId: "default", after: "0" },
       { tenantId: "default", target: "" },
-      { tenantId: "default", after: "" },
-      { tenantId: "default", after: "not-a-cursor" },
+      { tenantId: "default", cursor: "" },
+      { tenantId: "default", cursor: "not-a-cursor" },
       { tenantId: 7 },
-      {},
-      null,
+      "tenant-a",
     ];
     for (const query of bad) {
       const error = await failureOf(app.listPauses(query as never));
       expect(error, JSON.stringify(query)).toBeInstanceOf(ValidationError.DtoInvalid);
       expect((error as ValidationError.DtoInvalid).dto).toBe("PausesQuery");
+    }
+  });
+
+  test('#1307e: no tenant named is the tenant "default"; allTenants lists every tenant\'s, paged by cursor', async ({
+    app,
+  }) => {
+    await open(app, openFlow as never, "d1");
+    await open(app, openFlow as never, "a1", "tenant-a");
+    await open(app, openFlow as never, "b1", "tenant-b");
+
+    const own = (await app.listPauses()).items.map((one) => one.threadId);
+    const all = await allOf(app, { allTenants: true, limit: 2 } as never);
+
+    expect(own).toEqual(["t-default-d1"]);
+    expect(all.map((one) => one.threadId)).toEqual([
+      "t-default-d1",
+      "t-tenant-a-a1",
+      "t-tenant-b-b1",
+    ]);
+    const first = await app.listPauses({ allTenants: true, limit: 2 } as never);
+    expect(first.items).toHaveLength(2);
+    expect(first.nextCursor).toBeDefined();
+  });
+
+  test("#1307e: assignee, externalRef, target as a class and expiringBefore as a text filter the page", async ({
+    app,
+  }) => {
+    await app.ready();
+    const store = app.resolve(PausedExecutionRepository);
+    const stored = (id: string, extra: object, tenantId = "default") =>
+      store.findOrCreateByStepKey({
+        ...pauseOf(id, `root-${id}:q:1`),
+        tenantId,
+        rootExecutionId: `root-${id}`,
+        executionId: `root-${id}`,
+        threadId: `thread-${id}`,
+        ...extra,
+      });
+    const soon = "2026-01-05T10:00:00.000Z";
+    await stored("p1", { assignees: ["ann", "bob"], externalRef: "JIRA-1", expiresAt: soon });
+    await stored("p2", { assignees: ["bob"], externalRef: "JIRA-2" });
+    await stored("p3", { assignees: ["ann"], externalRef: "JIRA-1" }, "tenant-b");
+    await stored("p4", {});
+    const threads = async (query: object): Promise<string[]> =>
+      (await allOf(app, query as never)).map((one) => one.threadId);
+
+    expect(await threads({ assignee: "bob" })).toEqual(["thread-p1", "thread-p2"]);
+    expect(await threads({ assignee: "ann" })).toEqual(["thread-p1"]);
+    expect(await threads({ assignee: "nobody" })).toEqual([]);
+    expect(await threads({ externalRef: "JIRA-1" })).toEqual(["thread-p1"]);
+    expect(await threads({ externalRef: "JIRA-1", allTenants: true })).toEqual([
+      "thread-p1",
+      "thread-p3",
+    ]);
+    expect(await threads({ assignee: "ann", externalRef: "JIRA-2" })).toEqual([]);
+    expect(await threads({ assignee: "ann", allTenants: true })).toEqual([
+      "thread-p1",
+      "thread-p3",
+    ]);
+    expect(await threads({ target: "refund-tool-approval", assignee: "bob" })).toEqual([
+      "thread-p1",
+      "thread-p2",
+    ]);
+    expect(await threads({ expiringBefore: "2026-01-05T10:00:00.001Z" })).toEqual(["thread-p1"]);
+    expect(await threads({ expiringBefore: soon })).toEqual([]);
+    expect(await threads({ target: ListManagerExternalTask })).toEqual([]);
+    // a pause target class that is no target at all is a mistake, not an empty page
+    expect(await failureOf(app.listPauses({ target: Object }))).toBeInstanceOf(Error);
+  });
+
+  test("#1307e AC3: pauseId of a delegated pause is shown only for includePauseIds: true, never in an error", async ({
+    app,
+  }) => {
+    await open(app, managerFlow as never, "c1");
+    const owned = await open(app, ownerFlow as never, "w1", "default", "alice");
+    const sentId = asked.sent[0]?.pauseId ?? "";
+
+    const byDefault = await allOf(app, {});
+    const off = await allOf(app, { includePauseIds: false });
+    const shown = await allOf(app, { includePauseIds: true });
+
+    for (const page of [byDefault, off]) {
+      expect(page.find((one) => one.respondent === PauseRespondent.Delegate)).not.toHaveProperty(
+        "pauseId",
+      );
+      expect(JSON.stringify(page)).not.toContain(sentId);
+    }
+    expect(shown.find((one) => one.respondent === PauseRespondent.Delegate)?.pauseId).toBe(sentId);
+    expect(shown.find((one) => one.respondent === PauseRespondent.Owner)?.pauseId).toBe(
+      owned.pending[0]?.pauseId,
+    );
+    const error = await failureOf(app.listPauses({ includePauseIds: "yes" } as never));
+    expect(JSON.stringify(error)).not.toContain(sentId);
+  });
+
+  test("#1307e: a query field the listing does not have (a retired after, a role) is refused, never ignored", async ({
+    app,
+  }) => {
+    for (const query of [{ after: "0" }, { role: "x" }, { next: "1" }]) {
+      const error = await failureOf(app.listPauses(query as never));
+      expect(error, JSON.stringify(query)).toBeInstanceOf(ValidationError.DtoInvalid);
     }
   });
 });
