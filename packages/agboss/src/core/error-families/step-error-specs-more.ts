@@ -1,3 +1,4 @@
+import { timeText } from "./time-text.js";
 import { plainly, type VariantMore } from "./family.js";
 import type { WorkflowRecord } from "../../flow/context/execution-context.js";
 import { ComponentKind } from "../../flow/runtime/records.js";
@@ -32,8 +33,8 @@ const childStep: VariantMore = {
 export const MORE_STEP_SPECS = {
   pauseExpired: plainly(
     [
-      (f: { step?: string; target?: string; expiresAt?: string }) =>
-        `${f.step ?? ""}: its pause on ${f.target ?? ""} expired at ${f.expiresAt ?? ""}`,
+      (f: { step?: string; target?: string; expiresAt?: Date }) =>
+        `${f.step ?? ""}: its pause on ${f.target ?? ""} expired at ${timeText(f.expiresAt, "")}`,
       undefined,
       {
         keep: (f: Coordinated & { step?: string; stepKind?: ComponentKind }) =>

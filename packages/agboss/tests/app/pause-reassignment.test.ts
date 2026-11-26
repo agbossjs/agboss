@@ -66,6 +66,9 @@ import {
   costLedger,
 } from "../channels/fixtures/priced-pauses.workflow.js";
 
+/** A deadline as the record keeps it: ISO 8601 (`""`: none). */
+const isoOf = (at: Date | undefined): string => at?.toISOString() ?? "";
+
 const desk = testWith(PausesApplication);
 const twoDesks = testWith(PausesApplication, { instances: 2 });
 const priced = testWith(PricedPausesApplication);
@@ -608,7 +611,7 @@ describe("#946 AC3: the deadline, and the races", () => {
     async ({ app, clock }) => {
       const paused = await execute(app, managerFlow.start, { orderId: "o-1" }, THREAD);
       const pauseId = told.sent[0]?.pauseId ?? "";
-      const deadline = paused.pending[0]?.expiresAt ?? "";
+      const deadline = isoOf(paused.pending[0]?.expiresAt);
       const store = app.resolve(PausedExecutionRepository);
 
       // the look is held back: the pause still reads Pending at its deadline
@@ -636,7 +639,10 @@ describe("#946 AC3: the deadline, and the races", () => {
 
       for (const refused of [early, late]) {
         expect(refused).toBeInstanceOf(PauseError.Closed);
-        expect(refused).toMatchObject({ reason: PauseClosedReason.Expired, closedAt: deadline });
+        expect(refused).toMatchObject({
+          reason: PauseClosedReason.Expired,
+          closedAt: new Date(deadline),
+        });
       }
       expect(told.sent).toHaveLength(1);
       expect(
@@ -764,7 +770,7 @@ describe("#946 AC3: the deadline, and the races", () => {
     async ({ app, clock }) => {
       const paused = await execute(app, managerFlow.start, { orderId: "o-1" }, THREAD);
       const pauseId = told.sent[0]?.pauseId ?? "";
-      const deadline = paused.pending[0]?.expiresAt ?? "";
+      const deadline = isoOf(paused.pending[0]?.expiresAt);
       await clock.advance(hours(1));
       await app.reassignPause(
         { pauseId, channel: ExtendManagerBackupChannel, assignees: ["deputy-3"] },

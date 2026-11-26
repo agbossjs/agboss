@@ -1,3 +1,4 @@
+import { isoOf } from "../../core/error-families/time-text.js";
 import { PauseError } from "../../core/error-families/pause-errors.js";
 import { ExecutionError } from "../../core/error-families/run-errors.js";
 import { ValidationError } from "../../core/error-families/effect-errors.js";
@@ -28,7 +29,7 @@ export type KeptReply =
   | {
       readonly refused: "invalid-params" | "unsupported" | "not-found";
       readonly code: string;
-      /** `a2a.pause-closed`: why the pause closed, and when (ISO 8601). */
+      /** `a2a.pause-closed`: why the pause closed, and when (ISO 8601 on the wire). */
       readonly reason?: PauseClosedReason;
       readonly closedAt?: string;
     };
@@ -56,7 +57,7 @@ const REASON_TEXT: Readonly<Record<PauseClosedReason, string>> = {
 export const refusalOf = (kept: Exclude<KeptReply, { readonly accepted: true }>): A2AError => {
   const text = REFUSAL_TEXT[kept.code] ?? "the answer was refused";
   if (kept.refused === "not-found") return taskNotFound();
-  if (kept.code === PAUSE_CLOSED && kept.reason !== undefined && kept.closedAt !== undefined)
+  if (kept.code === PAUSE_CLOSED && kept.reason !== undefined)
     return pauseClosedRefusal(kept.reason, REASON_TEXT[kept.reason], kept.closedAt);
   return kept.refused === "unsupported"
     ? unsupportedOperation(kept.code, text)
@@ -68,13 +69,15 @@ export const isKeptReply = (value: unknown): value is KeptReply =>
 
 /** A resume that threw before its pause was resolved, as its refusal; `undefined`: it was accepted. */
 function refusedResume(error: unknown, isStillPending: boolean): KeptReply | undefined {
-  if (error instanceof PauseError.Closed)
+  if (error instanceof PauseError.Closed) {
+    const closedAt = isoOf(error.closedAt);
     return {
       refused: "unsupported",
       code: PAUSE_CLOSED,
       reason: error.reason,
-      closedAt: error.closedAt,
+      ...(closedAt === undefined ? {} : { closedAt }),
     };
+  }
   // a thread-level miss: the tree no longer rests (a cancel dropped it) — no pause to name
   if (error instanceof NotPausedError)
     return { refused: "unsupported", code: "a2a.no-pending-pause" };

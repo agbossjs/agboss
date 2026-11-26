@@ -87,16 +87,16 @@ export function pausesShard() {
   return {
     configFile: "vitest.mutation-pauses.config.ts",
     mutate: [
-      "src/infrastructure/{pause-answer-log,pause-bound,pause-closers,pause-closing,pause-log-repair,pause-mailboxes,pause-notice-plans,pause-limits-stored,pause-notices,pause-reassign-transition,pause-record,pause-replacement,pause-scans,pause-seen,pause-timeout-change,pause-transitions}.ts",
+      "src/infrastructure/{instants,pause-record-instants,pause-answer-log,pause-bound,pause-closers,pause-closing,pause-log-repair,pause-mailboxes,pause-notice-plans,pause-limits-stored,pause-notices,pause-reassign-transition,pause-record,pause-replacement,pause-scans,pause-seen,pause-timeout-change,pause-transitions}.ts",
       "src/infrastructure/in-memory-pause-{book,queries,store}.ts",
       // #1307: a refused decision at once marks the pause sent, so its listeners and channel are told
       "src/flow/runtime/pause-asked.ts",
       // #1307c: an answer is recorded only once its target's permitAnswer said true; fails closed
       "src/app/{answer-permit,answer-parts,pause-expiry-reassign}.ts",
       // #1307, Q-D: where the limits are first written (the opening's deadline, cap and counts), read back (the expiry's context) and fail closed (the strict stored record)
-      "src/flow/runtime/pause-record-made.ts:181-269",
+      "src/flow/runtime/pause-record-made.ts:182-270",
       "src/flow/runtime/pause-open.ts",
-      "src/app/pause-expiry.ts:125-142",
+      "src/app/pause-expiry.ts:121-138",
       "src/infrastructure/stored-pause.ts",
       // #1307, #1310: the limits and the permission of a reassignment and a timeout change — the chain's counts and total wait, the destination, the deadline a change sets, the request's checks
       "src/app/{timeout-request,pause-timeout,pause-limits,pause-reassign-deadline,pause-reassign-plan,pause-reassign-support}.ts",

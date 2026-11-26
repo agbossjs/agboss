@@ -2,29 +2,15 @@ import type { ChannelSenderSend } from "../../channels/channel-sender.js";
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
 import type { PauseToolCallSummary, PauseTrailEntry } from "../../channels/pause-contexts.js";
-import {
-  pauseKeyOf,
-  type PauseKind,
-  type PauseRecord,
-  type PauseTrailRecord,
-} from "../../infrastructure/pause-record.js";
+import { pauseKeyOf, type PauseKind, type PauseRecord } from "../../infrastructure/pause-record.js";
+import { instantOf, trailEntriesOf } from "../../infrastructure/pause-record-instants.js";
 import { livePauseOf } from "../../run/waiting-pauses.js";
 
 /** A reassigned pause's chain (#946): what its channel is sent, and the pause a step goes on with. */
 
-/** A trail entry of a record as a channel and a hook read it: its times as `Date`s. */
-export const trailEntryOf = (entry: PauseTrailRecord): PauseTrailEntry => {
-  const { at, expiresAt, ...rest } = entry;
-  return {
-    ...rest,
-    at: new Date(at),
-    ...(expiresAt === undefined ? {} : { expiresAt: new Date(expiresAt) }),
-  };
-};
-
 /** A pause's chain of custody as a channel and a hook read it. */
 export const trailOf = (pause: Pick<PauseRecord, "trail">): readonly PauseTrailEntry[] =>
-  pause.trail.map(trailEntryOf);
+  trailEntriesOf(pause.trail);
 
 /**
  * What a channel is sent for `pause`: its id, what it asks (`input`, with the tool call an approval
@@ -36,7 +22,7 @@ export const askOfPause = (pause: PauseRecord): ChannelSenderSend => ({
   pauseId: pause.pauseId,
   input: pause.input,
   ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
-  ...(pause.expiresAt === undefined ? {} : { expiresAt: new Date(pause.expiresAt) }),
+  ...(pause.expiresAt === undefined ? {} : { expiresAt: instantOf(pause.expiresAt) }),
   ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
   trail: trailOf(pause),
   ...(pause.reassignedFrom === undefined ? {} : { replaces: { pauseId: pause.reassignedFrom } }),

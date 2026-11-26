@@ -39,7 +39,7 @@ export function checkDeadline(
   if (deadline === undefined || now.getTime() < Date.parse(deadline.at)) return;
   throw new LimitError.Deadline({
     deadline: deadline.deadline,
-    deadlineAt: deadline.at,
+    deadlineAt: new Date(deadline.at),
     path: place.path,
     spentUsd: place.spentUsd,
     usage: place.usage,

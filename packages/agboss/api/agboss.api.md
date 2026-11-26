@@ -965,7 +965,7 @@ export interface ChannelListenerAnswerNotTakenEvent extends ChannelListenerEvent
     readonly actor?: PauseActor;
     readonly answer: unknown;
     // (undocumented)
-    readonly at: string;
+    readonly at: Date;
     // (undocumented)
     readonly reason: PauseClosedReason.Cancelled | PauseClosedReason.TreeEnded;
 }
@@ -975,7 +975,7 @@ export interface ChannelListenerClosedEvent extends ChannelListenerEventBase {
     readonly actor?: PauseActor;
     readonly answer?: unknown;
     // (undocumented)
-    readonly closedAt: string;
+    readonly closedAt: Date;
     // (undocumented)
     readonly reason: PauseClosedReason;
 }
@@ -983,12 +983,12 @@ export interface ChannelListenerClosedEvent extends ChannelListenerEventBase {
 // @public
 export interface ChannelListenerEventBase extends PauseDeliveredEvent {
     // (undocumented)
-    readonly askedAt: string;
+    readonly askedAt: Date;
     readonly assignees?: readonly string[];
     readonly channel?: string;
     readonly executionId: string;
     // (undocumented)
-    readonly expiresAt?: string;
+    readonly expiresAt?: Date;
     readonly externalRef?: string;
     readonly input: Readonly<Record<string, unknown>>;
     // (undocumented)
@@ -1005,13 +1005,13 @@ export interface ChannelListenerEventBase extends PauseDeliveredEvent {
     // (undocumented)
     readonly threadId: string;
     readonly toolCall?: PauseToolCallSummary;
-    readonly trail: readonly PauseTrailRecord[];
+    readonly trail: readonly PauseTrailEntry[];
     readonly workflow: string;
 }
 
 // @public
 export interface ChannelListenerExpiringEvent extends ChannelListenerEventBase {
-    readonly expiresAt: string;
+    readonly expiresAt: Date;
 }
 
 // @public
@@ -1035,7 +1035,7 @@ export interface ChannelListenerHandler {
 // @public
 export interface ChannelListenerJoinFailedEvent extends ChannelListenerEventBase {
     // (undocumented)
-    readonly at: string;
+    readonly at: Date;
     // (undocumented)
     readonly errorCode: string;
     // (undocumented)
@@ -1062,7 +1062,7 @@ export interface ChannelListenerReassignedEvent extends ChannelListenerEventBase
     // (undocumented)
     readonly previousChannel?: string;
     // (undocumented)
-    readonly previousExpiresAt?: string;
+    readonly previousExpiresAt?: Date;
     // (undocumented)
     readonly previousExternalRef?: string;
     // (undocumented)
@@ -1074,8 +1074,8 @@ export interface ChannelListenerReassignedEvent extends ChannelListenerEventBase
 // @public
 export interface ChannelListenerTimeoutChangedEvent extends ChannelListenerEventBase {
     readonly actor?: PauseActor;
-    readonly expiresAt?: string;
-    readonly previousExpiresAt?: string;
+    readonly expiresAt?: Date;
+    readonly previousExpiresAt?: Date;
     readonly reason?: string;
 }
 
@@ -1118,7 +1118,7 @@ export interface ChannelOverlay {
 export interface ChannelPauseAnswerNotTakenEvent<TTarget> extends PauseDeliveredEvent {
     readonly actor?: PauseActor;
     readonly answer: PauseOutputOf<TTarget>;
-    readonly at: string;
+    readonly at: Date;
     // (undocumented)
     readonly input: PauseInputOf<TTarget>;
     // (undocumented)
@@ -1132,7 +1132,7 @@ export interface ChannelPauseAnswerNotTakenEvent<TTarget> extends PauseDelivered
 export interface ChannelPauseClosedEvent<TTarget> extends PauseDeliveredEvent {
     readonly actor?: PauseActor;
     readonly answer?: PauseOutputOf<TTarget>;
-    readonly closedAt: string;
+    readonly closedAt: Date;
     readonly input: PauseInputOf<TTarget>;
     readonly pauseId: string;
     // (undocumented)
@@ -1142,7 +1142,7 @@ export interface ChannelPauseClosedEvent<TTarget> extends PauseDeliveredEvent {
 
 // @public
 export interface ChannelPauseExpiringEvent<TTarget> extends PauseDeliveredEvent {
-    readonly expiresAt: string;
+    readonly expiresAt: Date;
     readonly input: PauseInputOf<TTarget>;
     // (undocumented)
     readonly pauseId: string;
@@ -1151,7 +1151,7 @@ export interface ChannelPauseExpiringEvent<TTarget> extends PauseDeliveredEvent 
 
 // @public
 export interface ChannelPauseJoinFailedEvent<TTarget> extends PauseDeliveredEvent {
-    readonly at: string;
+    readonly at: Date;
     readonly errorCode: string;
     readonly input: PauseInputOf<TTarget>;
     readonly launch: string;
@@ -1166,7 +1166,7 @@ export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEven
     readonly assignees?: readonly string[];
     // (undocumented)
     readonly channel: string;
-    readonly expiresAt?: string;
+    readonly expiresAt?: Date;
     readonly externalRef?: string;
     readonly input: PauseInputOf<TTarget>;
     // (undocumented)
@@ -1174,7 +1174,7 @@ export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEven
     readonly previousAssignees?: readonly string[];
     // (undocumented)
     readonly previousChannel: string;
-    readonly previousExpiresAt?: string;
+    readonly previousExpiresAt?: Date;
     // (undocumented)
     readonly previousTarget: string;
     // (undocumented)
@@ -1185,11 +1185,11 @@ export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEven
 // @public
 export interface ChannelPauseTimeoutChangedEvent<TTarget> extends PauseDeliveredEvent {
     readonly actor?: PauseActor;
-    readonly expiresAt?: string;
+    readonly expiresAt?: Date;
     readonly input: PauseInputOf<TTarget>;
     // (undocumented)
     readonly pauseId: string;
-    readonly previousExpiresAt?: string;
+    readonly previousExpiresAt?: Date;
     readonly reason?: string;
     readonly toolCall?: PauseToolCallSummary;
 }
@@ -1266,9 +1266,9 @@ export interface ChildExecutionQueueWatch {
 }
 
 // @public
-export interface ChildExecutionRecord extends Omit<EndedChildRecord, "children"> {
-    readonly children: readonly ChildExecutionRecord[];
-    readonly pauses: readonly PauseAnswerRecord[];
+export interface ChildExecutionRecord<TPause = ExecutionPauseRecord> extends Omit<EndedChildRecord, "children"> {
+    readonly children: readonly ChildExecutionRecord<TPause>[];
+    readonly pauses: readonly TPause[];
 }
 
 // @public
@@ -2747,7 +2747,7 @@ export interface ExecutionHistoryQuery extends PageQuery {
 }
 
 // @public
-export interface ExecutionHistoryRecord extends ExecutionRecord {
+export interface ExecutionHistoryRecord extends ExecutionRecord<PauseAnswerRecord> {
     // (undocumented)
     readonly application: ApplicationRecord;
     readonly auditLog?: readonly ExecutionAuditEventRecord[];
@@ -3043,8 +3043,16 @@ export interface ExecutionPauseEvent extends ExecutionEvent {
 }
 
 // @public
-export interface ExecutionRecord {
-    readonly children: readonly ChildExecutionRecord[];
+export interface ExecutionPauseRecord extends Omit<PauseAnswerRecord, "askedAt" | "resolvedAt" | "trail"> {
+    readonly askedAt: Date;
+    // (undocumented)
+    readonly resolvedAt: Date | undefined;
+    readonly trail: readonly PauseTrailEntry[];
+}
+
+// @public
+export interface ExecutionRecord<TPause = ExecutionPauseRecord> {
+    readonly children: readonly ChildExecutionRecord<TPause>[];
     readonly compensations: readonly CompensationRecord[];
     // (undocumented)
     readonly lastError?: ErrorRecord;
@@ -3053,7 +3061,7 @@ export interface ExecutionRecord {
     readonly outdatedValues: readonly OutdatedValueRecord[];
     // (undocumented)
     readonly path: readonly string[];
-    readonly pauses: readonly PauseAnswerRecord[];
+    readonly pauses: readonly TPause[];
     // (undocumented)
     readonly scope: readonly ScopeValueRecord[];
     // (undocumented)
@@ -4965,7 +4973,7 @@ export namespace LimitError {
     }
     export type Deadline = PaidErrorVariant<LimitErrorKind.Deadline, "limit.deadline"> & Where & Pick<Counted, "limit" | "actual" | "key"> & {
         readonly deadline: Milliseconds;
-        readonly deadlineAt: string;
+        readonly deadlineAt: Date;
     };
     export type Depth = PaidErrorVariant<LimitErrorKind.Depth, "limit.depth"> & Where & Counted & {
         readonly workflow: string;
@@ -5046,11 +5054,11 @@ export enum LimitErrorKind {
 export interface ListedPause extends PendingPauseBase {
     readonly actor?: PauseActor;
     // (undocumented)
-    readonly askedAt: string;
+    readonly askedAt: Date;
     // (undocumented)
-    readonly closedAt?: string;
+    readonly closedAt?: Date;
     // (undocumented)
-    readonly expiresAt?: string;
+    readonly expiresAt?: Date;
     // (undocumented)
     readonly kind: PauseKind;
     readonly pauseKey: string;
@@ -6538,7 +6546,7 @@ export namespace PauseError {
         readonly pauseId: string;
         readonly tenantId: string;
         readonly reason: PauseClosedReason;
-        readonly closedAt: string;
+        readonly closedAt?: Date | undefined;
     };
     export type EscalationLimitExceeded = ErrorVariant<PauseErrorKind.EscalationLimitExceeded, "pause.escalation-limit-exceeded">;
     export type ExpiryHandlerFailed = ErrorVariant<PauseErrorKind.ExpiryHandlerFailed, "pause.expiry-handler-failed"> & {
@@ -6660,7 +6668,7 @@ export enum PauseExpirationKind {
 export interface PauseExpiredFacts {
     // (undocumented)
     readonly channel?: string | undefined;
-    readonly expiresAt?: string | undefined;
+    readonly expiresAt?: Date | undefined;
     readonly pauseKind?: PauseKind | undefined;
     // (undocumented)
     readonly step: string;
@@ -6937,7 +6945,7 @@ export interface PendingPauseBase {
     readonly assignees?: readonly string[];
     readonly channel?: string;
     readonly childExecutionId: string | undefined;
-    readonly expiresAt?: string;
+    readonly expiresAt?: Date;
     readonly externalRef?: string;
     readonly input: Readonly<Record<string, unknown>>;
     readonly itemIndex: number | undefined;
@@ -6945,7 +6953,7 @@ export interface PendingPauseBase {
     readonly respondent: PauseRespondent;
     readonly step: string;
     readonly target: string;
-    readonly trail: readonly PauseTrailRecord[];
+    readonly trail: readonly PauseTrailEntry[];
 }
 
 // @public
@@ -10695,6 +10703,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "lastError".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "spend".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolution".
+// src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "slot".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "reason".

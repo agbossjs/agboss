@@ -1,4 +1,5 @@
 import { definedFields } from "../core/defined-fields.js";
+import { instantOfOptional } from "../infrastructure/pause-record-instants.js";
 import type { PauseRecord } from "../infrastructure/pause-record.js";
 import type { ChannelSenderReassigned } from "../channels/channel-sender.js";
 import type { ChannelListenerReassignedEvent } from "../pause/notice-events.js";
@@ -25,8 +26,8 @@ export function channelReassignedOf(sources: EventSources): ChannelSenderReassig
       assignees: pause.assignees,
       previousAssignees: notice.previousAssignees,
       externalRef: pause.externalRef,
-      expiresAt: notice.expiresAt,
-      previousExpiresAt: notice.previousExpiresAt,
+      expiresAt: instantOfOptional(notice.expiresAt),
+      previousExpiresAt: instantOfOptional(notice.previousExpiresAt),
       reason: entry?.reason,
       actor: entry?.actor,
     }),
@@ -52,7 +53,7 @@ export async function listenerReassignedOf(
       previousChannel: notice.previousChannel,
       previousAssignees: previous.assignees,
       previousExternalRef: previous.externalRef,
-      previousExpiresAt: notice.previousExpiresAt,
+      previousExpiresAt: instantOfOptional(notice.previousExpiresAt),
       reason: entry?.reason,
       actor: entry?.actor === undefined ? undefined : await maskedActor(sources, entry.actor),
     }),

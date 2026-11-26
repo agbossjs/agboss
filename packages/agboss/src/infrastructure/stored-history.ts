@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ChildExecutionRecord } from "../flow/runtime/child-records.js";
+import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import {
   ExecutionHistoryStatus,
   type ExecutionHistoryRecord,
@@ -53,7 +54,7 @@ const executed = {
   origin: StoredOrigin.optional(),
 };
 
-const Child: z.ZodType<ChildExecutionRecord> = z.lazy(() =>
+const Child: z.ZodType<ChildExecutionRecord<PauseAnswerRecord>> = z.lazy(() =>
   z.object({ ...storedEndedShape, pauses: executed.pauses, children: z.array(Child) }),
 );
 

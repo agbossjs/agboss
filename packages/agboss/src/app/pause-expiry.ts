@@ -1,3 +1,4 @@
+import { instantOf, isDueAt } from "../infrastructure/pause-record-instants.js";
 import { effectiveBoundOf } from "../infrastructure/pause-bound.js";
 import { isPauseExpiration, PauseExpirationKind } from "../channels/pause-expiration.js";
 import { movedOnExpiry, reassignmentOf, type ExpiryOutcome } from "./pause-expiry-reassign.js";
@@ -46,13 +47,8 @@ export async function duePausesOf(
     tree.runId,
   );
   if (records === undefined) return [];
-  const at = now.toISOString();
   return records.filter(
-    (pause) =>
-      pause.status === PauseStatus.Pending &&
-      // Stryker disable next-line ConditionalExpression: `undefined <= at` is false, so a pause with no deadline is left out below too; the check only narrows its type
-      pause.expiresAt !== undefined &&
-      pause.expiresAt <= at,
+    (pause) => pause.status === PauseStatus.Pending && isDueAt(pause.expiresAt, now),
   );
 }
 
@@ -132,10 +128,10 @@ function expiredContextOf(pause: PauseRecord): ExpiredContext<never> {
     pauseKey: pauseKeyOf(pause.tenantId, pause.pauseId),
     input: pause.input as never,
     ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
-    askedAt: new Date(pause.askedAt),
-    firstAskedAt: new Date(pause.firstAskedAt),
-    expiresAt: new Date(pause.expiresAt ?? pause.askedAt),
-    ...(pause.maxExpiresAt === undefined ? {} : { maxExpiresAt: new Date(pause.maxExpiresAt) }),
+    askedAt: instantOf(pause.askedAt),
+    firstAskedAt: instantOf(pause.firstAskedAt),
+    expiresAt: instantOf(pause.expiresAt ?? pause.askedAt),
+    ...(pause.maxExpiresAt === undefined ? {} : { maxExpiresAt: instantOf(pause.maxExpiresAt) }),
     ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
     ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
     trail: trailOf(pause),

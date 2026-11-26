@@ -59,7 +59,7 @@ describe("#939 AC4: a late answer is a PauseError.Closed with its reason", () =>
       code: "pause.closed",
       pauseId,
       reason: PauseClosedReason.Answered,
-      closedAt: answeredAt,
+      closedAt: new Date(answeredAt),
     });
     expect(error.message).toBe(
       `pause ${pauseKeyOf(DEFAULT_TENANT_ID, pauseId)} is closed: answered at ${answeredAt}`,
@@ -85,8 +85,14 @@ describe("#939 AC4: a late answer is a PauseError.Closed with its reason", () =>
     // a reply of a role with no interpreter would be `PauseError.ChannelInterpreterMissing` if it were read
     const reply = await refusedWith(app.resume({ pauseId, reply: "yes, go ahead" }));
 
-    expect(error).toMatchObject({ reason: PauseClosedReason.Cancelled, closedAt: cancelledAt });
-    expect(reply).toMatchObject({ reason: PauseClosedReason.Cancelled, closedAt: cancelledAt });
+    expect(error).toMatchObject({
+      reason: PauseClosedReason.Cancelled,
+      closedAt: new Date(cancelledAt),
+    });
+    expect(reply).toMatchObject({
+      reason: PauseClosedReason.Cancelled,
+      closedAt: new Date(cancelledAt),
+    });
     expect(seen.charges).toEqual([]);
   });
 
@@ -112,7 +118,7 @@ describe("#939 AC4: a late answer is a PauseError.Closed with its reason", () =>
 
       const error = await refusedWith(app.resume({ pauseId, decision: approve }));
 
-      expect(error).toMatchObject({ reason, closedAt });
+      expect(error).toMatchObject({ reason, closedAt: new Date(closedAt) });
       expect(seen.charges).toEqual([]);
     });
 

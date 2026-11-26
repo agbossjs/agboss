@@ -12,7 +12,7 @@ describe("#939: PauseError.Closed's type", () => {
         case "pause.closed":
           expectTypeOf(error).toEqualTypeOf<PauseError.Closed>();
           expectTypeOf(error.reason).toEqualTypeOf<PauseClosedReason>();
-          expectTypeOf(error.closedAt).toBeString();
+          expectTypeOf(error.closedAt).toEqualTypeOf<Date | undefined>();
           return error.pauseId;
         default:
           return error.message;

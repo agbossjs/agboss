@@ -68,7 +68,7 @@ describe("#1356: a deadline that has passed", () => {
     expect(caught.limit).toBe(30_000);
     expect(caught.actual).toBe(30_000);
     expect(caught.deadline).toBe(30_000);
-    expect(caught.deadlineAt).toBe("2026-11-20T10:00:30.000Z");
+    expect(caught.deadlineAt).toEqual(new Date("2026-11-20T10:00:30.000Z"));
     expect(caught.path).toEqual(["start", "pay"]);
     expect(caught.spentUsd).toBe(1.5);
     expect(caught.usage).toEqual(place.usage);
@@ -88,7 +88,7 @@ describe("#1356: a deadline that has passed", () => {
     const cause = new Error("slow store");
     const error = new LimitError.Deadline({
       deadline: 1_500 as Milliseconds,
-      deadlineAt: "2026-11-20T10:00:01.500Z",
+      deadlineAt: new Date("2026-11-20T10:00:01.500Z"),
       path: ["start"],
       spentUsd: usd(0),
       cause,

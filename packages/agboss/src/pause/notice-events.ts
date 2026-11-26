@@ -1,10 +1,10 @@
-import type { PauseActor, PauseToolCallSummary } from "../channels/pause-contexts.js";
-import type { PauseOutputOf, PauseInputOf } from "../flow/generated-types.js";
 import type {
-  PauseClosedReason,
-  PauseKind,
-  PauseTrailRecord,
-} from "../infrastructure/pause-record.js";
+  PauseActor,
+  PauseToolCallSummary,
+  PauseTrailEntry,
+} from "../channels/pause-contexts.js";
+import type { PauseOutputOf, PauseInputOf } from "../flow/generated-types.js";
+import type { PauseClosedReason, PauseKind } from "../infrastructure/pause-record.js";
 import { type PauseRespondent } from "./respondent.js";
 
 /**
@@ -31,8 +31,8 @@ export interface ChannelPauseClosedEvent<TTarget> extends PauseDeliveredEvent {
   /** The tool call an approval waited on. */
   readonly toolCall?: PauseToolCallSummary;
   readonly reason: PauseClosedReason;
-  /** ISO 8601 (an expiry: the deadline). */
-  readonly closedAt: string;
+  /** When it closed; an expiry: its deadline. */
+  readonly closedAt: Date;
   /** Answered: the resume's `actor`, or the thread's owner. */
   readonly actor?: PauseActor;
   /** Answered, or an expiry's decision: masked by the PII policy. */
@@ -46,8 +46,8 @@ export interface ChannelPauseAnswerNotTakenEvent<TTarget> extends PauseDelivered
   readonly toolCall?: PauseToolCallSummary;
   /** Why it was not applied. */
   readonly reason: PauseClosedReason.Cancelled | PauseClosedReason.TreeEnded;
-  /** When its tree's end closed it (ISO 8601). */
-  readonly at: string;
+  /** When its tree's end closed it. */
+  readonly at: Date;
   /** Who had answered. */
   readonly actor?: PauseActor;
   /** The answer not applied, masked. */
@@ -61,10 +61,10 @@ export interface ChannelPauseTimeoutChangedEvent<TTarget> extends PauseDelivered
   readonly input: PauseInputOf<TTarget>;
   /** The tool call an approval waited on. */
   readonly toolCall?: PauseToolCallSummary;
-  /** The new deadline (ISO 8601); absent: none now (`Timeout.None`). */
-  readonly expiresAt?: string;
-  /** The deadline it had (ISO 8601); absent: none. */
-  readonly previousExpiresAt?: string;
+  /** The new deadline; absent: none now (`Timeout.None`). */
+  readonly expiresAt?: Date;
+  /** The deadline it had; absent: none. */
+  readonly previousExpiresAt?: Date;
   /** Who changed it (`actor` of the call). */
   readonly actor?: PauseActor;
   /** Why, as the pause's chain of custody keeps it: masked by the workflow's PII policy. */
@@ -78,8 +78,8 @@ export interface ChannelPauseExpiringEvent<TTarget> extends PauseDeliveredEvent 
   readonly input: PauseInputOf<TTarget>;
   /** The tool call an approval waited on. */
   readonly toolCall?: PauseToolCallSummary;
-  /** The deadline (ISO 8601). */
-  readonly expiresAt: string;
+  /** The deadline. */
+  readonly expiresAt: Date;
 }
 
 /**
@@ -97,8 +97,8 @@ export interface ChannelPauseJoinFailedEvent<TTarget> extends PauseDeliveredEven
   readonly launch: string;
   /** The failing branch's error code (`step.pause-expired`). */
   readonly errorCode: string;
-  /** When the join failed (ISO 8601). */
-  readonly at: string;
+  /** When the join failed. */
+  readonly at: Date;
 }
 
 /** What a listener reads of every pause: the full safe context. */
@@ -135,9 +135,9 @@ export interface ChannelListenerEventBase extends PauseDeliveredEvent {
   /** The id its channel's system gave it, masked. */
   readonly externalRef?: string;
   /** Its chain of custody, newest last, masked. */
-  readonly trail: readonly PauseTrailRecord[];
-  readonly askedAt: string;
-  readonly expiresAt?: string;
+  readonly trail: readonly PauseTrailEntry[];
+  readonly askedAt: Date;
+  readonly expiresAt?: Date;
 }
 
 /** A pause was opened: its channel was asked and awaits a reply. */
@@ -146,7 +146,7 @@ export type ChannelListenerOpenedEvent = ChannelListenerEventBase;
 /** A pause closed. */
 export interface ChannelListenerClosedEvent extends ChannelListenerEventBase {
   readonly reason: PauseClosedReason;
-  readonly closedAt: string;
+  readonly closedAt: Date;
   /** Who answered. */
   readonly actor?: PauseActor;
   /** Masked. */
@@ -156,7 +156,7 @@ export interface ChannelListenerClosedEvent extends ChannelListenerEventBase {
 /** A recorded answer was never applied: its run ended first. */
 export interface ChannelListenerAnswerNotTakenEvent extends ChannelListenerEventBase {
   readonly reason: PauseClosedReason.Cancelled | PauseClosedReason.TreeEnded;
-  readonly at: string;
+  readonly at: Date;
   readonly actor?: PauseActor;
   /** Masked. */
   readonly answer: unknown;
@@ -164,10 +164,10 @@ export interface ChannelListenerAnswerNotTakenEvent extends ChannelListenerEvent
 
 /** A pause's deadline moved (#942): an operator changed it. */
 export interface ChannelListenerTimeoutChangedEvent extends ChannelListenerEventBase {
-  /** The new deadline (ISO 8601); absent: none now (`Timeout.None`). */
-  readonly expiresAt?: string;
-  /** The deadline it had (ISO 8601); absent: none. */
-  readonly previousExpiresAt?: string;
+  /** The new deadline; absent: none now (`Timeout.None`). */
+  readonly expiresAt?: Date;
+  /** The deadline it had; absent: none. */
+  readonly previousExpiresAt?: Date;
   /** Who changed it (`actor` of the call). */
   readonly actor?: PauseActor;
   /** Why, as the pause's chain of custody keeps it: masked by the workflow's PII policy. */
@@ -176,15 +176,15 @@ export interface ChannelListenerTimeoutChangedEvent extends ChannelListenerEvent
 
 /** A pause is about to expire (#942): `remindBefore` before its deadline. */
 export interface ChannelListenerExpiringEvent extends ChannelListenerEventBase {
-  /** The deadline (ISO 8601). */
-  readonly expiresAt: string;
+  /** The deadline. */
+  readonly expiresAt: Date;
 }
 
 /** An answered branch's launch did not collect all its answers (#945): its error path is running. */
 export interface ChannelListenerJoinFailedEvent extends ChannelListenerEventBase {
   readonly launch: string;
   readonly errorCode: string;
-  readonly at: string;
+  readonly at: Date;
 }
 
 /** A pause moved to another assignee, channel or target (#1307d tells it; the shape is fixed here). */
@@ -193,7 +193,7 @@ export interface ChannelListenerReassignedEvent extends ChannelListenerEventBase
   readonly previousChannel?: string;
   readonly previousAssignees?: readonly string[];
   readonly previousExternalRef?: string;
-  readonly previousExpiresAt?: string;
+  readonly previousExpiresAt?: Date;
   readonly reason?: string;
   /** Who moved it; absent for the framework's own (an expiry). */
   readonly actor?: PauseActor;
@@ -215,10 +215,10 @@ export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEven
   readonly previousAssignees?: readonly string[];
   /** The id the channel's system gave it: kept by an in-place reassignment. */
   readonly externalRef?: string;
-  /** The deadline now (ISO 8601). */
-  readonly expiresAt?: string;
-  /** The deadline before (ISO 8601). */
-  readonly previousExpiresAt?: string;
+  /** The deadline now. */
+  readonly expiresAt?: Date;
+  /** The deadline before. */
+  readonly previousExpiresAt?: Date;
   readonly reason?: string;
   /** Who moved it; absent for the framework's own (an expiry). */
   readonly actor?: PauseActor;

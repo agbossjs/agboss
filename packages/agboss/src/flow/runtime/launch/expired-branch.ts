@@ -1,3 +1,4 @@
+import { instantOf } from "../../../infrastructure/pause-record-instants.js";
 import { StepError } from "../../../core/error-families/step-errors.js";
 import { errorRecordOf, type ErrorRecord } from "../../../core/error-record.js";
 import { effectiveBoundOf } from "../../../infrastructure/pause-bound.js";
@@ -39,7 +40,7 @@ function expiryOf(pause: PauseRecord): StepError.PauseExpired {
     target: pause.target,
     channel: pause.channel,
     pauseKind: pause.kind,
-    expiresAt: pause.expiresAt ?? pause.askedAt,
+    expiresAt: instantOf(pause.expiresAt ?? pause.askedAt),
     usage: [],
   });
 }

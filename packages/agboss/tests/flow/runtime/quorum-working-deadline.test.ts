@@ -44,7 +44,7 @@ describe("#1306: the quorum's deadline in working time bounds its branches' paus
     const paused = await execute(app, AuditHoursWorkflowStart, contract, owner);
 
     expect(paused.status).toBe(ExecutionStatus.Paused);
-    expect(paused.pending.map((pause) => pause.expiresAt)).toEqual([
+    expect(paused.pending.map((pause) => pause.expiresAt?.toISOString())).toEqual([
       "2026-01-11T08:30:00.000Z",
       "2026-01-11T08:30:00.000Z",
     ]);
@@ -58,7 +58,7 @@ describe("#1306: the quorum's deadline in working time bounds its branches' paus
 
     const paused = await execute(app, AuditDaysWorkflowStart, contract, owner);
 
-    expect(paused.pending[0]?.expiresAt).toBe("2026-01-11T16:00:00.000Z");
+    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe("2026-01-11T16:00:00.000Z");
   });
 
   test("the pauses are asked once: the deadline is counted at dispatch, and an answer goes on", async ({
@@ -78,7 +78,7 @@ describe("#1306: the quorum's deadline in working time bounds its branches' paus
 
     const paused = await execute(app, AuditGroupsWorkflowStart, contract, owner);
 
-    expect(paused.pending.map((pause) => pause.expiresAt)).toEqual([
+    expect(paused.pending.map((pause) => pause.expiresAt?.toISOString())).toEqual([
       "2026-01-11T08:30:00.000Z",
       "2026-01-11T08:30:00.000Z",
     ]);

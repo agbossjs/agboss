@@ -47,7 +47,7 @@ describe("#659 AC2: a question pauses like any pause", () => {
         step: "spending-limit-question-external-task",
         target: "spending-limit-question-external-task",
         channel: "inbox-spending-limit-channel",
-        expiresAt: expect.any(String),
+        expiresAt: expect.any(Date),
         childExecutionId: undefined,
         itemIndex: undefined,
         // the requester is `sensitive`: masked in the record, the channel's ask and the result

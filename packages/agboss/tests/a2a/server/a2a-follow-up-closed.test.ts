@@ -66,7 +66,12 @@ async function refusedWith(run: Promise<unknown>) {
 }
 
 const closed = (reason: PauseClosedReason): PauseError.Closed =>
-  new PauseError.Closed({ pauseId: "p-1", tenantId: "acme", reason, closedAt: CLOSED_AT });
+  new PauseError.Closed({
+    pauseId: "p-1",
+    tenantId: "acme",
+    reason,
+    closedAt: new Date(CLOSED_AT),
+  });
 
 /** A script whose pause `p-1` waits (as the task's records say) and whose resume is refused as closed. */
 const refusing = (reason: PauseClosedReason): Script =>
@@ -103,6 +108,33 @@ describe("#939 AC4: a follow-up to a closed pause", () => {
         reason,
         closedAt: CLOSED_AT,
       });
+    });
+
+  for (const [name, closedAt] of [
+    ["no closedAt", undefined],
+    ["a closedAt of no instant", new Date(Number.NaN)],
+  ] as const)
+    it(`${name}: still -32004 a2a.pause-closed with its reason, and no closedAt on the wire (never a RangeError)`, async () => {
+      const { parts } = await setUp(
+        scriptOf({
+          state: { status: DurableExecutionStatus.Paused, pending: [{ pauseId: "p-1" }] } as never,
+          runError: new PauseError.Closed({
+            pauseId: "p-1",
+            tenantId: "acme",
+            reason: PauseClosedReason.Expired,
+            ...(closedAt === undefined ? {} : { closedAt }),
+          }),
+        }),
+      );
+
+      const refused = await refusedWith(followedUpTask(parts, callerOf(), decide("f-9")));
+
+      expect(refused).toMatchObject({
+        name: "UnsupportedOperationError",
+        message: TEXT[PauseClosedReason.Expired],
+        metadata: { code: "a2a.pause-closed", reason: PauseClosedReason.Expired },
+      });
+      expect(refused.metadata).not.toHaveProperty("closedAt");
     });
 
   it("a resend of a refused follow-up replays the same refusal, resuming nothing again", async () => {

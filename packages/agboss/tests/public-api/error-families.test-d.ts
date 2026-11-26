@@ -23,7 +23,7 @@ declare const thrown: unknown;
 
 describe("#1325a: a family is a discriminated union", () => {
   it("a deadline names when it passed, as text", () => {
-    expectTypeOf<LimitError.Deadline["deadlineAt"]>().toEqualTypeOf<string>();
+    expectTypeOf<LimitError.Deadline["deadlineAt"]>().toEqualTypeOf<Date>();
   });
 
   it("narrows `unknown` with instanceof, then by kind to the variant's own facts", () => {

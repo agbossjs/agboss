@@ -55,7 +55,7 @@ describe("#824: a follow-up's refusal on the wire", () => {
     ]);
   });
 
-  it("a closed pause's refusal needs its code, its reason and its time: without any, the generic one; with all, the reason's text and metadata", () => {
+  it("a closed pause's refusal needs its code and its reason: without either, the generic one; with both, the reason's text and metadata (its time is on the wire when there is one)", () => {
     const CLOSED_AT = "2026-01-05T09:00:00.000Z";
     const wire = (refusal: Refusal) => {
       const error = wireRefusalOf(refusal);
@@ -67,15 +67,15 @@ describe("#824: a follow-up's refusal on the wire", () => {
       message: "the pause expired",
       metadata: { code: "a2a.pause-closed", reason: "expired", closedAt: CLOSED_AT },
     });
-    for (const incomplete of [
-      base,
-      { ...base, reason: PauseClosedReason.Expired },
-      { ...base, closedAt: CLOSED_AT },
-    ])
+    for (const incomplete of [base, { ...base, closedAt: CLOSED_AT }])
       expect(wire(incomplete)).toEqual({
         message: "the answer was refused",
         metadata: { code: "a2a.pause-closed" },
       });
+    expect(wire({ ...base, reason: PauseClosedReason.Expired })).toEqual({
+      message: "the pause expired",
+      metadata: { code: "a2a.pause-closed", reason: "expired" },
+    });
     // another code with a reason and a time is no closed pause
     expect(
       wire({

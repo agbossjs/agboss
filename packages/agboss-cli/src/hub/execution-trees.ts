@@ -63,7 +63,7 @@ interface Execution {
   readonly endedAt?: string;
   readonly spend: { readonly totalUsd: number };
   readonly toolCalls: readonly ToolCallRecord[];
-  readonly children: readonly ChildExecutionRecord[];
+  readonly children: readonly ChildExecutionRecord<unknown>[];
 }
 
 /** The records a tree is stitched from: by the receiver's origin key, by every execution id. */
@@ -74,7 +74,7 @@ interface Index {
   readonly holderOf: ReadonlyMap<string, HubRecord>;
 }
 
-const childIds = (children: readonly ChildExecutionRecord[]): string[] =>
+const childIds = (children: readonly ChildExecutionRecord<unknown>[]): string[] =>
   children.flatMap((child) => [child.executionId, ...childIds(child.children)]);
 
 function indexOf(records: readonly HubRecord[]): Index {

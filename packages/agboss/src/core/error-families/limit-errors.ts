@@ -72,8 +72,8 @@ export declare namespace LimitError {
     Pick<Counted, "limit" | "actual" | "key"> & {
       /** The duration it was given. */
       readonly deadline: Milliseconds;
-      /** When it passed (ISO 8601). */
-      readonly deadlineAt: string;
+      /** When it passed; in the error's `details` an ISO 8601 text. */
+      readonly deadlineAt: Date;
     };
   /** A launch has more items than its limit allows. */
   export type Items = PaidErrorVariant<LimitErrorKind.Items, "limit.items"> &

@@ -136,7 +136,7 @@ describe("AC12: everything external is replaced; a live call fails the test befo
         kind: PauseKind.Approval,
         step: "support-agent",
         target: "owner-tool-approval",
-        expiresAt: expect.any(String),
+        expiresAt: expect.any(Date),
         childExecutionId: undefined,
         itemIndex: undefined,
         input: { title: "n2", text: "x" },

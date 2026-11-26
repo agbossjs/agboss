@@ -1,3 +1,4 @@
+import { isDueAt } from "../infrastructure/pause-record-instants.js";
 import { z } from "zod";
 import { ExecutionStatus } from "./types.js";
 import type { ResumeVersions } from "../run/resume-guard.js";
@@ -110,7 +111,7 @@ export async function markAnswered(
 ): Promise<boolean> {
   const now = await parts.pauses.findByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
   // a deadline passed meanwhile (a reply's interpreter takes time): refused before the mark (#941)
-  const isDue = now?.expiresAt !== undefined && now.expiresAt <= parts.clock.now().toISOString();
+  const isDue = isDueAt(now?.expiresAt, parts.clock.now());
   if (now?.status !== PauseStatus.Pending || isDue)
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
   if (rested === undefined) return false;
@@ -147,8 +148,7 @@ export async function refusedAnswer(
     : pauseClosed(parts.pauses, pause, parts.clock.now()));
   const fresh = await parts.pauses.findByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
   const isOpen =
-    fresh?.status === PauseStatus.Pending &&
-    (fresh.expiresAt === undefined || fresh.expiresAt > parts.clock.now().toISOString());
+    fresh?.status === PauseStatus.Pending && !isDueAt(fresh.expiresAt, parts.clock.now());
   return isOpen
     ? new PauseError.UpdateContended({
         message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: it changed while the answer was permitted; retry is safe and asks the permit again`,

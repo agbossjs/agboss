@@ -275,9 +275,9 @@ describe("#943 AC1: listing pauses", () => {
       [PauseClosedReason.Answered, PauseClosedReason.Cancelled, PauseClosedReason.Expired].sort(),
     );
     expect(byReason[PauseClosedReason.Answered]?.actor).toEqual({ id: "manager-17" });
-    expect(byReason[PauseClosedReason.Answered]?.closedAt).toBe(answeredAt);
+    expect(byReason[PauseClosedReason.Answered]?.closedAt?.toISOString()).toBe(answeredAt);
     // an expiry closed at the deadline itself
-    expect(byReason[PauseClosedReason.Expired]?.closedAt).toBe(
+    expect(byReason[PauseClosedReason.Expired]?.closedAt).toEqual(
       byReason[PauseClosedReason.Expired]?.expiresAt,
     );
     expect(byReason[PauseClosedReason.Cancelled]?.actor).toBeUndefined();

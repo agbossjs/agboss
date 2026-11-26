@@ -1,3 +1,4 @@
+import { timeText } from "./time-text.js";
 import { BudgetScope, BudgetUnit, type BudgetPeriod } from "../../budgets/budget.js";
 import { periodWords } from "../../budgets/budget-period.js";
 import { bareRecordOf, ComponentKind, type ComponentRecord } from "../../flow/runtime/records.js";
@@ -125,8 +126,8 @@ export const LIMIT_SPECS = {
   ),
   deadline: plainly(
     [
-      (f: { deadline?: number; deadlineAt?: string }) =>
-        `the execution ran past its deadline of ${String((f.deadline ?? 0) / 1000)} s (at ${f.deadlineAt ?? ""})`,
+      (f: { deadline?: number; deadlineAt?: Date }) =>
+        `the execution ran past its deadline of ${String((f.deadline ?? 0) / 1000)} s (at ${timeText(f.deadlineAt, "")})`,
       undefined,
       counted((f: { deadline: number }) => ({
         key: "deadline",

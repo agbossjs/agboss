@@ -123,8 +123,8 @@ describe("#940 AC5: what a listener hears", () => {
         toolCall: expect.objectContaining({ tool: "refund-tool" }),
         input: { orderId: "7" },
         trail: [expect.objectContaining({ action: "opened" })],
-        askedAt: expect.any(String),
-        expiresAt: expect.any(String),
+        askedAt: expect.any(Date),
+        expiresAt: expect.any(Date),
       });
       // opened is told to listeners only: the channel sent the question itself
       expect(seen.closed).toEqual([]);

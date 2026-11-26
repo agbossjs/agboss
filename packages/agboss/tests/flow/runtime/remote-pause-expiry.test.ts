@@ -74,7 +74,7 @@ describe("#941 I17: an any-instance child's pause expires through its root", () 
     );
     expect(paused.pending[0]?.childExecutionId).toBeDefined();
     const expiresAt = new Date(clock.now().getTime() + minutes(5)).toISOString();
-    expect(paused.pending[0]?.expiresAt).toBe(expiresAt);
+    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe(expiresAt);
 
     await clock.advance(minutes(5));
     const pauses = first.resolve(PausedExecutionRepository);

@@ -1,5 +1,5 @@
 import type { BaseCheckpointSaver } from "@langchain/langgraph";
-import type { PauseToolCallSummary } from "../channels/pause-contexts.js";
+import type { PauseToolCallSummary, PauseTrailEntry } from "../channels/pause-contexts.js";
 import type { PauseAnswerLog } from "../infrastructure/pause-answer-log.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import type { PauseTally } from "./pause-tally.js";
@@ -9,7 +9,6 @@ import {
   pauseInputOf,
   type PauseRecipients,
   type PauseRecord,
-  type PauseTrailRecord,
 } from "../infrastructure/pause-record.js";
 import { type PauseRespondent } from "./respondent.js";
 
@@ -88,17 +87,17 @@ export interface PendingPauseBase {
   /** The id the channel's own system gave it (a ticket key); absent until the channel returned one. */
   readonly externalRef?: string;
   /** Its chain of custody, newest last: `opened`, then every reassignment. */
-  readonly trail: readonly PauseTrailRecord[];
+  readonly trail: readonly PauseTrailEntry[];
   /** The child execution it waits in (#263); `undefined` in the root. */
   readonly childExecutionId: string | undefined;
   /** The item of a per-item launch it waits in (no copy of the item: its index is enough). */
   readonly itemIndex: number | undefined;
   /**
-   * When the pause expires (#941, ISO 8601, the application's clock): fixed when it was asked — the
+   * When the pause expires (#941, on the application's clock): fixed when it was asked — the
    * smaller of its `expiresIn` and its run's deadline; absent: it waits without a deadline. An
    * answer at or after it is refused (`PauseError.Closed`, reason `expired`).
    */
-  readonly expiresAt?: string;
+  readonly expiresAt?: Date;
 }
 
 /** A tool call waiting for its approval. */

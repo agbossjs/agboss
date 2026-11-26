@@ -82,6 +82,7 @@ export type {
   ChildExecutionQueueCounts,
   ChildExecutionQueueWatch,
   ChildExecutionRecord,
+  ExecutionPauseRecord,
   ChildLaunchRecord,
   CompensationEntry,
   CompensationRecord,

@@ -20,7 +20,7 @@ import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
 import { PauseError, PauseStatus, Ttl } from "../../src/index.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
-import type { PauseRecord } from "../../src/infrastructure/pause-record.js";
+import { PauseExpiryBound, type PauseRecord } from "../../src/infrastructure/pause-record.js";
 import { PauseRespondent } from "../../src/pause/respondent.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
@@ -283,6 +283,69 @@ describe("a pause is opened with its limits materialized", () => {
       app.setPauseTimeout({ pauseId: moved?.pauseId ?? "", timeout: hours(10) }, operator),
     ).rejects.toBeInstanceOf(PauseError.EscalationLimitExceeded);
     await app.setPauseTimeout({ pauseId: moved?.pauseId ?? "", timeout: hours(9) }, operator);
+  });
+
+  test("a move whose own wait runs past the total-wait cap is clamped to the cap", async ({
+    app,
+    clock,
+  }) => {
+    const first = await opened(app, StoredStart, "stored-clamp");
+    const cap = new Date(Date.parse(first.firstAskedAt) + hours(10)).toISOString();
+    await clock.advance(hours(8));
+
+    // four hours from now (hour 12) runs past the cap (hour 10): the deadline is the cap itself
+    await app.reassignPause({ pauseId: first.pauseId, target: TightTask }, operator);
+
+    const moved = (
+      await store(app).findAllByTenantIdAndRootExecutionId("default", first.rootExecutionId)
+    ).find((one) => one.reassignedFrom === first.pauseId);
+    expect(moved?.maxExpiresAt).toBe(cap);
+    expect(moved?.expiresAt).toBe(cap);
+    expect(moved?.expiryBound).toBe(PauseExpiryBound.Pause);
+  });
+
+  test("a move whose own wait ends before the cap keeps its own deadline", async ({
+    app,
+    clock,
+  }) => {
+    const first = await opened(app, StoredStart, "stored-no-clamp");
+    await clock.advance(hours(1));
+
+    await app.reassignPause({ pauseId: first.pauseId, target: TightTask }, operator);
+
+    const moved = (
+      await store(app).findAllByTenantIdAndRootExecutionId("default", first.rootExecutionId)
+    ).find((one) => one.reassignedFrom === first.pauseId);
+    expect(moved?.expiresAt).toBe(new Date(clock.now().getTime() + hours(4)).toISOString());
+    expect(moved?.expiresAt).not.toBe(moved?.maxExpiresAt);
+  });
+
+  test("a move whose own wait runs past the run's deadline is clamped to it, and says the run's deadline bound it", async ({
+    app,
+    clock,
+  }) => {
+    const paused = await execute(
+      app,
+      StoredStart,
+      { orderId: "o-1" },
+      { threadId: "stored-run-bound", deadline: hours(6) },
+    );
+    const [first] = await store(app).findAllByTenantIdAndRootExecutionId(
+      "default",
+      paused.executionId,
+    );
+    if (first === undefined) throw new Error("no pause was opened");
+    await clock.advance(hours(4));
+
+    await app.reassignPause({ pauseId: first.pauseId, target: TightTask }, operator);
+
+    const moved = (
+      await store(app).findAllByTenantIdAndRootExecutionId("default", first.rootExecutionId)
+    ).find((one) => one.reassignedFrom === first.pauseId);
+    // four hours from now is hour 8: past the run's deadline at hour 6
+    expect(moved?.expiresAt).toBe(first.boundAt);
+    expect(moved?.expiresAt).toBe(new Date(Date.parse(first.askedAt) + hours(6)).toISOString());
+    expect(moved?.expiryBound).toBe(PauseExpiryBound.RunDeadline);
   });
 
   test("a move on to a LAXER target and then another loosens nothing: the limits stay the tight tier's minimum", async ({

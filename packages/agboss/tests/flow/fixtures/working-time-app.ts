@@ -81,7 +81,7 @@ export interface WorkingAppConfig {
 /** What the channel heard, in order. */
 export interface WorkingTold {
   readonly sent: { readonly pauseId: string }[];
-  readonly expiring: { readonly expiresAt: string; readonly deliveryId: string }[];
+  readonly expiring: { readonly expiresAt: Date; readonly deliveryId: string }[];
 }
 
 /** What `workingApp` made: the application, its start and workflow, the role, what the channel heard. */
@@ -138,7 +138,7 @@ export function workingParts(name: string, config: WorkingAppConfig): WorkingPar
       return Promise.resolve(ChannelOutcome.awaitReply());
     }
 
-    onPauseExpiring(event: { expiresAt: string; deliveryId: string }): Promise<void> {
+    onPauseExpiring(event: { expiresAt: Date; deliveryId: string }): Promise<void> {
       told.expiring.push(event);
       return Promise.resolve();
     }

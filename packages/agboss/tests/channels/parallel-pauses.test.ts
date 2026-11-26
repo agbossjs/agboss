@@ -44,7 +44,7 @@ describe("#267 AC1: a paused branch does not stop its siblings", () => {
         step: "batch-refund-agent",
         target: "refund-gate-tool-approval",
         channel: "finance-desk-refund-approval-channel",
-        expiresAt: expect.any(String),
+        expiresAt: expect.any(Date),
         childExecutionId: undefined,
         itemIndex: index + 1,
         toolCall: expect.objectContaining({ tool: "refund-tool" }),

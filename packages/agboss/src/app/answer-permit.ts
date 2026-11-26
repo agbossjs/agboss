@@ -1,3 +1,4 @@
+import { instantOfOptional } from "../infrastructure/pause-record-instants.js";
 import type { AnswerPermitCall, PauseActor, PermitAnswer } from "../channels/pause-contexts.js";
 import { trailOf } from "../flow/runtime/pause-chain.js";
 import type { PauseTarget } from "../flow/runtime/pause.js";
@@ -232,7 +233,7 @@ export function assertTimeoutChangePermitted(
       ...definedFields({
         actor: ask.actor,
         assignees: pause.assignees,
-        currentExpiresAt: pause.expiresAt === undefined ? undefined : new Date(pause.expiresAt),
+        currentExpiresAt: instantOfOptional(pause.expiresAt),
         reason: ask.reason,
         toolCall: pause.toolCall,
         externalRef: pause.externalRef,

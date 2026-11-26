@@ -1,3 +1,4 @@
+import { isDueAt } from "../infrastructure/pause-record-instants.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import type { PauseTarget } from "../flow/runtime/pause-channel.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -66,7 +67,7 @@ export async function refusedReassignment(
   const now = parts.clock.now();
   const fresh =
     (await parts.pauses.findByTenantIdAndPauseId(pause.tenantId, pause.pauseId)) ?? pause;
-  const isDue = fresh.expiresAt !== undefined && fresh.expiresAt <= now.toISOString();
+  const isDue = isDueAt(fresh.expiresAt, now);
   if (fresh.status !== PauseStatus.Pending || isDue) return pauseClosed(parts.pauses, pause, now);
   if (max !== undefined && reassignmentsOf(fresh) >= max)
     return limitExceeded(fresh, "maxReassignments");
