@@ -1397,13 +1397,13 @@ export interface InvalidA2APageTokenErrorOptions {
 }
 
 // @public
-export const isAsSeen: (pause: PauseRecord, seen: PauseSeen | undefined) => boolean;
+export function isAsSeen(pause: PauseRecord, seen: PauseSeen | undefined): boolean;
 
 // @public
 export function isKeyFingerprint(key: Pick<EffectKeyFields, "fingerprint" | "previousFingerprint">, stored: string | null | undefined): boolean;
 
 // @public
-export const isSeenAs: (pause: PauseRecord, seen: PauseSeen | undefined) => boolean;
+export const isSeenAs: typeof isAsSeen;
 
 // @public
 export const isStoreOutcomeUnknown: (error: unknown) => error is StoreOutcomeUnknown;
