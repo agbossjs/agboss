@@ -246,7 +246,7 @@ children
 | One child, own path | `.onError(E, path)` right after `onWorkflow(W)` |
 | Per item | `.onError(E, path)` right after the join; not between the launch and its join |
 | Soft failure | an error the child catches itself, ending at a failure finish (`VendorCheckFailedDto` above), is one more ordinary result class for the parent — the way to skip a failed item and go on |
-| No soft failure | a per-item child with no finish reachable from one of its `.onError` side paths warns `[graph.child-without-failure-finish]` — one failed item would cancel the others (FailFast); an error under `agboss check --strict`; no flag silences it |
+| No soft failure | a per-item child with no finish reachable from one of its `.onError` side paths warns `[graph.child-without-failure-finish]` — one failed item would cancel the others (a sibling branch's failure); an error under `agboss check --strict`; no flag silences it |
 | After a limit | a side path that can catch a `LimitError` — the class, a subclass (`LimitError.Budget`, `LimitError.Visits`, …) or a parent (`AGBossError`, `Error`) — leads only to actions and finishes, no model call past the limit — its actions run whatever the budgets, as the reaction to the limit, their spend counted ([FinOps](FinOps#at-run-time), #634): `[graph.limit-handler-uses-model]` when it reaches an agent, a router or a child workflow. This holds for every `.onError`, not only a child's |
 
 ### At run time: whose limit it is (S25)
@@ -268,7 +268,7 @@ never takes them. Every call of the tree is counted the moment it is made (#338)
 call exhausts a budget, the model and tool calls in flight of its sibling children (and of every
 other branch of the tree) are aborted at once, those children fail with that `LimitError.Budget`
 and their spend so far, and the join takes `.onError(LimitError.Budget, …)`
-([FinOps → At run time](FinOps#at-run-time)). Per item, FailFast holds: the running children are cancelled (their spend stays
+([FinOps → At run time](FinOps#at-run-time)). Per item, a sibling's failure aborts the rest: the running children are cancelled (their spend stays
 counted, their observers get `onExecutionError` with `ExecutionCancelledError`), no new one starts,
 and the join takes `.onError(…)` against the parent's scope **as it was before the launch** —
 the children that finished first are in `result.children` / `result.record.children` and the
@@ -372,7 +372,7 @@ registry — the workflow's own compiled graph, never its own subgraph ([Recursi
 | PII policies | its chain's (#1150): the application's, the root's, every ancestor's and its own `@Workflow({ piiPolicies })` mask its models and everything observed of it — on its parent's instance or, by the names its launch carries, on any other; `excludePiiPolicies` (an agent's, a router's, its `@Workflow`'s) removes an inherited one at its models only ([Guards → Levels](Guards#levels)) |
 | Steps | each workflow counts its own: a child's steps never spend the parent's `maxSteps` |
 | Concurrency | `maxConcurrency` of a per-item launch: a sliding window, a child frees its slot when it ends, fails or pauses |
-| Pauses | a paused child does not stop its siblings — the execution pauses only when nothing else can move; its pause is the root's, in `result.pending` with its `childExecutionId` (and `itemIndex` per item), and `app.resume({ pauseId, decision })` continues it where it waits; once resolved, it is in the child's record as `pauses` (#267 S124) ([Pauses](Pauses)). A sibling child's failure under `FailFast`, or a decided quorum, withdraws a waiting child's pauses (#337: a pause records the launch branches above it) |
+| Pauses | a paused child does not stop its siblings — the execution pauses only when nothing else can move; its pause is the root's, in `result.pending` with its `childExecutionId` (and `itemIndex` per item), and `app.resume({ pauseId, decision })` continues it where it waits; once resolved, it is in the child's record as `pauses` (#267 S124) ([Pauses](Pauses)). A sibling child's failure, or a decided quorum, withdraws a waiting child's pauses (#337: a pause records the launch branches above it) |
 | Traces | a nested run named after the child workflow under the parent's step, its metadata `executionId`, `parentExecutionId`, `rootExecutionId`, `itemIndex`, `workflowName` and `workflowChain` (the root's name first, its own last: what its spans are masked by, #1150) |
 
 **Records.** Every child execution that ended is a nested record in `result.children` (and
@@ -392,7 +392,7 @@ ones. From then on they are the parent's: its finish commits them, and its unwin
 its own, newest first, each in the child's workflow — a join that fails, a quorum that goes on
 without the child's branch (`QuorumExcluded`), the parent's own failure or cancel; a grandchild's go
 up both levels. What the child committed or undid never moves. A child that ends without a finish — it
-failed, it was cancelled, or its launch's `FailFast` aborted it — undoes its own open actions,
+failed, it was cancelled, or a sibling branch's failure aborted it — undoes its own open actions,
 newest first, in its parent's step before its error reaches the parent (#340 PR 3,
 `ExecutionFailed` / `ExecutionCancelled`): its records come from its checkpoint and the instance's
 registry, never from the last state the parent saw; the undone records go into the parent's state
@@ -505,7 +505,7 @@ export const anyInstancePaths = [
   waits again, no second row) and waits on that row — woken at once when the child ends in the same
   process, else reading it every second on the framework's `Clock`. While waiting, the parent yields
   its lease in `ExecutionLeaseRepository` and reclaims it before continuing. The wait is under
-  the step's own signal, so a `FailFast` sibling, `app.cancel`, a lost lease, an exhausted budget
+  the step's own signal, so a failed sibling branch, `app.cancel`, a lost lease, an exhausted budget
   and the failure records take the same paths as for a child on the parent's instance.
 - **Who runs it**: an instance with a free step slot ([#332](Several-instances#an-instances-cap-on-steps-332);
   no cap → always) claims it — at once when it was queued in the same process, else at its next sweep

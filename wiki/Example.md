@@ -103,7 +103,7 @@ npm test
   component (`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …) — `testUnit` with `services`,
   `testUnit` on the tool calls of a scripted visit.
 - **`src/helpline/`** — two applications over [A2A](A2A) (#398): `desk-application` serves
-  `desk-workflow-start` (`@A2AExpose` in `@Application({ endpoints })`; its `@HttpAuthenticator` takes the
+  `desk-workflow-start` (`@A2AEndpoint` in `@Application({ endpoints })`; its `@HttpAuthenticator` takes the
   tenant from an `x-tenant-id` header, for callers on the same host only), and the helpline's
   `ask-desk-tool` calls it through `DeskA2AAgent`, an `@A2AAgent` contract with its own
   `DeskCallDto`. `npm run check` runs `agboss check --federation` twice, no network: the desk
@@ -111,7 +111,7 @@ npm test
   `version` is `[federation.version-not-bumped]`), and the application against the desk's fresh
   `agboss describe --json` — renaming a field of `DeskCallDto` gives
   `[federation.incompatible-schema] … — affects flow-patterns-application › helpline-workflow
-  (ask-desk-tool)`. `npm run snapshot` rewrites the desk's snapshot. `tests/desk/a2a/desk.a2a-expose.test.ts` serves
+  (ask-desk-tool)`. `npm run snapshot` rewrites the desk's snapshot. `tests/desk/a2a/desk.a2a-endpoint.test.ts` serves
   the desk with the `a2aServer` fixture and calls it with the helpline's contract
   (`new A2AClient({ url, headers, contract })`); the consumer's own test replaces the remote with
   `mockService(DeskA2AAgent)`.

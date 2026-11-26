@@ -175,7 +175,7 @@ answers. **Then the turn ends** — the router is not asked again
 ## Its notices (#940)
 
 `PauseSeam.notices` (`recipientsOf(pause)`, `delivered()`) replaced the old `withdrawn` hook: every
-transition call site — the pause step's `markSent`, `app.resume`, a cancel, a `FailFast` or quorum
+transition call site — the pause step's `markSent`, `app.resume`, a cancel, a sibling branch's failure or a quorum
 withdrawal, a tree's end — asks `recipientsOf` who hears of the change (the channel that asked when
 it overrides `onPauseClosed` or `onPauseAnswerNotTaken`, and every `@ChannelListener`), passes it to
 the store transition — the notices are written in its transaction — and calls `delivered()` right

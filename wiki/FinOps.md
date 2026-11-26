@@ -543,7 +543,7 @@ how many executions of the tree work on a step at once — a throttle, never an 
 | a launch's `maxConcurrency` | holds too: the stricter of the launch's width and the tree's cap wins |
 | a child's own `maxConcurrency` | a smaller one limits its subtree inside the tree's; a larger one is never reached — `[limits.child-concurrency-above-parent]`, a warning (an error under `--strict`) |
 | a quorum's `deadline` | the time its branches wait for a slot does not count ([Parallel → The deadline](Parallel#the-deadline)) |
-| a `FailFast` failure, a cancel | the waiting steps of the aborted launch leave the queue unstarted |
+| a sibling branch's failure, a cancel | the waiting steps of the aborted launch leave the queue unstarted |
 | a pause, a crash | for a local tree, the slots live in the process that holds the tree's lease ([Several instances](Several-instances)), never in a store; when the tree can launch a child on any instance (`ChildPlacement.AnyWorker`, #333 PR 3), its slots are leases in `RateLimitRepository` (`tree:<tenantId>:<rootExecutionId>` and `:subtree:<executionId>`, renewed while held, so a crashed instance's slot expires by itself); the next pass rebuilds the queue from the unfinished tasks |
 
 What it is not: a slot is an execution, not model load — one execution may fan out into several

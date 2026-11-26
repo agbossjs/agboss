@@ -59,9 +59,9 @@ Every component reads the same way, top to bottom:
 3. **The methods implement a contract**:
    - your own implementation → `implements` the contract (`ToolHandler<In, Out>` for `@Tool`,
      `ActionHandler<Self>` for `@Action`, `RouterHandler<Self>` for a code `@Router`
-     (`decidedBy: DecidedBy.Code`, [Routers](Routers#routers-decided-by-code)), `RagConnector` for `@Rag`, `JudgeHandler<TReply>` for `@Judge`,
+     (`decidedBy: DecidedBy.Code`, [Routers](Routers#routers-decided-by-code)), `JudgeHandler<TReply>` for `@Judge`,
      `BeforeToolCall` and / or `AfterToolCall` for a `@ToolInterceptor`, [Tools](Tools#tool-interceptors));
-   - extending a standard implementation → `extends` it (`SqliteFtsConnector`, `McpServerClient`) and
+   - extending a standard implementation → `extends` it (`RagSource` for `@Rag` — `retrieve` is its one abstract method, [Knowledge bases](Knowledge-bases); `SqliteFtsRagSource`, `McpServerClient`) and
      mark overridden methods `override` (`noImplicitOverride` is on).
 
    **The check is on the decorator line; `implements` is documentation** (#120 PR 4). Every contract
@@ -183,7 +183,7 @@ export class SearchOrders implements ToolHandler<OrderQuery, OrderStatus> {
   compile error (standard decorators have no parameter-type metadata, so they are listed once).
 - `run` gets only its input — there is no `ctx` parameter (#280); the execution, its step and the
   call's idempotency key come from the injected `ExecutionContext`.
-- Test it on its own with `testTool(SearchOrders, { overrides: [override(OrderBook, FakeOrderBook)] })`
+- Test it on its own with `testUnit(SearchOrders, { overrides: [override(OrderBook, FakeOrderBook)] })`
   — its own container, the frame of a tool call, no `new` ([Tools](Tools#testing),
   [Testing](Testing#unit-runners--one-component-on-its-own)).
 
@@ -302,8 +302,8 @@ export class FinalReviewerAgent {}
 ```
 
 The options must be a static object (a call or a conditional spread → `[agent.dynamic-options]`).
-The other options — `temperature`, `cache`, `maxToolCalls`, `uncompactedTurns`, `compaction`,
-`judges` + `maxRetries`, `rag` (`RagMode.Tool` / `RagMode.Context`), `memoryStrategy`, guardrails
+The other options — `temperature`, `cache`, `maxToolCalls`, `memory`,
+`judges` + `maxRetries`, `rag`, guardrails
 and PII policies — are on [Configuration](Configuration) and the pages of each feature. How the
 agent runs: [Agents](Agents).
 
@@ -342,12 +342,15 @@ throws is the step's failure (`StepError.Action`, the original in `cause`), take
 ## An arbiter
 
 An `@Arbiter` (#279) decides whether one answer of a parallel launch counts for its quorum; it is
-attached in the flow with `.acceptedBy(X)` and never chooses where to go. `decidedBy:
-DecidedBy.Model` — `model`, `prompt`, one `criteria` entry per agent of the launch;
-`DecidedBy.Code` — one `@OnAnswer(Agent) from<Agent>(answer: XDto): boolean` method per agent class
-(the plain answer; the copy or item through `deps: [ExecutionContext]`). No `…Handler` interface:
-`@OnAnswer(Agent)` types the method itself, so a wrong answer type, return type or an extra
-parameter does not compile; coverage is `[arbiter.unhandled-agent]` at assembly. The whole contract
+attached in the flow with `.arbitratedBy(X)` and never chooses where to go. There is no `decidedBy`:
+the class itself says how it decides. An empty class with `@Arbiter({ prompt, criteria, model? })` is
+a model arbiter — one `criteria` entry per agent of the launch. A class with `@Arbiter({ name?, deps? })`
+and one or more `@Arbitrate(AgentA, AgentB)` methods decides by code: the method takes the answer
+(the plain answer; the copy or item through `deps: [ExecutionContext]`) and returns
+`boolean | Promise<boolean>` (`true` counts the answer, `false` refuses it). With `ArbiterModel` in
+`deps` a method may also ask its own model (`this.arbiterModel.decide(…)` / `invoke(…)`). No
+`…Handler` interface: `@Arbitrate(…targets)` types the method itself, so a wrong answer type, return
+type or an extra parameter does not compile; coverage is `[arbiter.unhandled-agent]` at assembly. The whole contract
 is on [Parallel](Parallel#arbiters).
 
 ## The execution context
@@ -647,7 +650,7 @@ the constructor of any component the container creates — `@Injectable`, `@Tool
 (`@agboss/core/rag`), `@A2AAgent` (`@agboss/core/a2a`). The list is one module of the framework
 (`src/components/component-decorators.ts`, #402); a test fails when an exported class decorator
 is neither in it nor named as not a component (`@Agent`, `@WorkflowStart`, `@Workflow`,
-`@Application`, `@ChannelRole`, `@McpExpose`, `@A2AExpose`: metadata, never instantiated).
+`@Application`, `@ToolApproval`, `@ExternalTask`, `@McpEndpoint`, `@A2AEndpoint`: metadata, never instantiated).
 - `agboss describe` shows each tool's dependencies.
 
 ## Add…
@@ -659,8 +662,8 @@ is neither in it nor named as not a component (`@Agent`, `@WorkflowStart`, `@Wor
 - **an action** — `actions/<name>.action.ts`, a step of a path (`.toAction(NewAction)`).
 - **an MCP server** — an `@McpServer` class and the `@Tool`s that call it, in `mcp/`; the tools list the server in their `deps`, the workflow lists it in `providers`.
 - **another application to call** — an `@A2AAgent` in `a2a/<name>.a2a-agent.ts` (its `target`, `input`,
-  `output`), listed in `providers`; what you serve — an `@A2AExpose` in `a2a/<name>.a2a-expose.ts`,
-  listed in `@Application({ exposes })` ([A2A](A2A#7-declared-contracts-398-pr-3)).
+  `output`), listed in `providers`; what you serve — an `@A2AEndpoint` in `a2a/<name>.a2a-endpoint.ts`,
+  listed in `@Application({ endpoints })` ([A2A](A2A#7-declared-contracts-398-pr-3)).
 
 `agboss generate <kind> <full name> --workflow <workflow's full name>` (alias `agb g`; `agboss g
 agent billing-agent --workflow desk-workflow`) writes and wires each of them,

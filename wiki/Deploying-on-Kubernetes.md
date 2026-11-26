@@ -344,5 +344,5 @@ With Helm, run the Job as a release of its own (or a pipeline step) between a sc
 chart's upgrade; with Argo CD, a sync wave that sets the replicas to zero before the migration Job.
 A `pre-upgrade` / `PreSync` hook stays right for an upgrade that changes no schema: `migrate` prints
 `nothing to apply` and exits 0. What `migrate` can check is the leases of running executions (it refuses with
-`PostgresLiveLeasesError` / `MongoLiveLeasesError`; `--allow-live-leases` overrides); an idle
+`StoreError.LiveLeases` — thrown by the store package as `PostgresLiveLeasesError` / `MongoLiveLeasesError`; `--allow-live-leases` overrides); an idle
 old pod holds none, so only scaling to zero proves that nothing old is running.

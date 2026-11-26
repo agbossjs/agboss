@@ -286,7 +286,7 @@ and R decides which of them are launched, the others never run. A model router's
 `prompt` (`[router.no-prompt]`) and decides all its routes in one call — a yes/no per route; a code
 router's `route()` returns the targets to launch as a list, `[]` included. A branch the router did not
 choose gives an `optional(XDto)` value to the join. There is no per-route launch policy: the 0.1.0
-`spawn` and `failure` options (`SpawnPolicy`, `FailurePolicy`) are gone — a failure a launch may
+`spawn` and `failure` options (`SpawnPolicy`, `FailurePolicy`) are gone — a sibling branch's failure fails the launch (the other branches are cancelled, the finished ones' open undo records are undone), and a failure a launch may
 survive is `.onError(StepError, skip())` on its branch. How a model router decides its routes
 is in [Routing patterns](Advanced-Routing#6-a-router-decides-who-is-launched).
 
