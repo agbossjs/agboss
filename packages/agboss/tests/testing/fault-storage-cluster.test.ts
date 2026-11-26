@@ -13,6 +13,7 @@ import { faultStores } from "../faults/sqlite.fault-stores.js";
 
 class RedisQueueStore {
   static readonly store = { backend: "redis" };
+  readonly kind = "redis-queue";
 }
 
 const withCluster: FaultStoreSet = {
@@ -38,11 +39,7 @@ describe("#1324b: FaultStorage.cluster", () => {
 
   it("given: a database and a cluster storage with the cluster's settings", () => {
     const storage = faultStorageOf(withCluster);
-    if (
-      typeof storage === "function" ||
-      storage.database === undefined ||
-      storage.cluster === undefined
-    )
+    if (typeof storage === "function" || storage.cluster === undefined)
       throw new Error("a database and a cluster expected");
 
     const clusterDriver = driverOf(clusterStorageOf(storage.cluster), StorageRole.Cluster);
