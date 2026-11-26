@@ -14,17 +14,15 @@ import type { TreeMoveParts } from "./tree-move-types.js";
 /** What an expiry came to: a decision to record, or a reassignment to apply (#1310a). */
 export type ExpiryOutcome = PauseExpiry | { readonly reassign: ReassignExpiration };
 
-/** Whether a reassignment's timeout, reason, target and channel are what `app.reassignPause` and a deadline accept. */
+/** Whether a reassignment's timeout, reason and target are what `app.reassignPause` and a deadline accept. */
 const isAskedValid = (asked: ReassignExpiration): boolean => {
-  const { timeout, reason, target, channel } = asked;
+  const { timeout, reason, target } = asked;
   const isTimeoutOk = timeout === undefined || isPauseTimeout(timeout);
   const isReasonOk =
     reason === undefined ||
     (typeof reason === "string" && reason.trim() !== "" && reason.length <= MAX_REASON);
-  const isClassOk = [target, channel].every(
-    (one) => one === undefined || typeof one === "function",
-  );
-  return isTimeoutOk && isReasonOk && isClassOk;
+  const isTargetOk = target === undefined || typeof target === "function";
+  return isTimeoutOk && isReasonOk && isTargetOk;
 };
 
 /** The reassignment a target asked for, checked like `app.reassignPause`'s request; `undefined`: it is not valid. */
@@ -60,7 +58,9 @@ export async function movedOnExpiry(
  * An expiry's reassignment (#1310a, #1307d): made by the store's due-at compare-and-set — a pause
  * that stays with its target and channel is changed in place under a new deadline, one moved is
  * replaced (the old closed `reassigned`, the new `Pending` and unsent, its channel asked by the re-send
- * look) — the tree resting again. `lost`: another instance decided first; `failed`: it cannot be
+ * look) — the tree resting again. The target's `permitReassign` is not called: it authorizes an
+ * outside `actor` (`app.reassignPause`), and an expiry has none — it is the target's own policy,
+ * run by the worker's timer, and its `escalatesTo` already bounds where it may go (#1310, Q-F). `lost`: another instance decided first; `failed`: it cannot be
  * made (no deadline can be given, the target does not fit, a limit is reached), so the pause
  * expires as `fail()`.
  */
@@ -103,7 +103,6 @@ async function expiryPlanOf(
       targetOfPause(parts.deps, pause),
       {
         target: asked.target,
-        channel: asked.channel,
         assignees: asked.assignees,
         timeout: asked.timeout,
         reason,

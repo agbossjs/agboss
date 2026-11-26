@@ -2411,8 +2411,8 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   workflow by its record's `bundle`, `BuiltApp.expire` = `app/expire-root.ts`) calls `TreeMoves.expired`: `leases.tryHold(…, Expired)` →
   `endedAtTake` (a cancel request ends the tree — a cancel beats an expiry) → the root's Turn (`running`: skipped, its drain expires the pause
   before it rests; ended: `forgetTree`) → `expiredPassOf` (`app/tree-expiry.ts`): the pauses due now re-read, the root `paused → running` (#850's
-  order), each due pause expired by `expirePauses` (`app/pause-expiry.ts`: no handler for a `RunDeadline`/`Quorum` bound, else the channel's
-  `onPauseExpired` in the pause's frame under the tool's timeout — any problem is an `ExpiryProblem` kept on the record —, then
+  order), each due pause expired by `expirePauses` (`app/pause-expiry.ts`: no handler for a `RunDeadline`/`Quorum` bound, else the target's
+  `onExpired` (`ExpiredContext`, with `maxExpiresAt` from `maxExpiresAtOf`) in the pause's frame under the tool's timeout — any problem is an `ExpiryProblem` kept on the record —, then
   `expireByTenantIdAndPauseId`, the CAS, I1/I5; a cancel request found before the handler or the CAS drops the decision), then the pass
   that takes them (`ResumeReason.Expired`, `TreeResume.reasons` / `hasUnansweredExpiry`, `announceResume`). The drain does the same at every
   rest (`TreeMover.afterRest`): a pass never rests on a due pause (I6). `settledAnswer` throws `PauseExpirySignal` for `Cancelled / Expired`;

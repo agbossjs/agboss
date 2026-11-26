@@ -1390,12 +1390,12 @@ pause); the timeout is required, at least `seconds(1)` (`[limits.timeout-invalid
 A run's deadline bounds every pause too: the smaller wins, a tie goes to the run. The deadline is
 hard: an answer at or after it is refused with `PauseError.Closed` (`reason: expired`, `closedAt` the
 deadline) — atomically in the store, whoever raced — and within seconds the pause timers' expiry look
-takes the tree, asks the channel's optional `onPauseExpired(ask)` (`implements
-PauseExpiryHandler<Role>`) what the expiry means and records one decision: `PauseExpiration.fail()` —
+takes the tree, asks the target's optional `onExpired(ctx)` (`implements
+PauseExpiryHandler<Target>`) what the expiry means and records one decision: `PauseExpiration.fail()` —
 the step fails with `StepError.PauseExpired` (`step.pause-expired`, `.onError(StepError.PauseExpired, …)`
 escalates; inside an agent the whole agent step fails, its spend kept) — or
 `PauseExpiration.decide(answer)` — the step goes on with that answer, validated like a resume's and
-recorded as answered by the channel (`PauseResolution.DecidedOnExpiry`; an approval decided
+recorded as answered by the expiry, no person (`PauseResolution.DecidedOnExpiry`; an approval decided
 `approved: true` runs its tool with no person having looked). The handler runs under the tree's lease
 in the pause's frame under the tool's timeout, once per expiry — again only after a crash before its
 decision was recorded — so it must have no effects of its own; a throw, a timeout, a value that is no

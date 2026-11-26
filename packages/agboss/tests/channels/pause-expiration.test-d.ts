@@ -14,11 +14,12 @@ import {
   type ReassignExpiration,
   type PauseExpiryHandler,
   type ChannelHandler,
+  type App,
   type ToolOptions,
 } from "../../src/index.js";
 import type { DtoClass } from "../../src/dto/types.js";
 import { hours, type Milliseconds, type WorkingDuration } from "../../src/units/index.js";
-import { ManagerExternalTask } from "../flow/fixtures/expiry.fixture.js";
+import { ManagerChannel, ManagerExternalTask } from "../flow/fixtures/expiry.fixture.js";
 
 describe("#941: PauseExpiration and PauseExpiryHandler", () => {
   it("fail() and decide(answer) are the two kinds", () => {
@@ -79,9 +80,39 @@ describe("#941: PauseExpiration and PauseExpiryHandler", () => {
     });
     expectTypeOf(moved).toEqualTypeOf<ReassignExpiration>();
     expectTypeOf(moved.kind).toEqualTypeOf<PauseExpirationKind.Reassign>();
+    // @ts-expect-error an expiry is domain policy: it names no channel (Q-E); app.reassignPause keeps one
+    PauseExpiration.reassign({ target: ManagerExternalTask, channel: ManagerChannel });
     // @ts-expect-error a target is a class, not its name
     PauseExpiration.reassign({ target: "manager-external-task" });
     // @ts-expect-error a duration (hours(2)), not a number
     PauseExpiration.reassign({ assignees: ["d"], timeout: 2 });
+  });
+
+  it("#1310: the channel is gone from ReassignExpiration; the imperative reassignPause keeps it", () => {
+    expectTypeOf<keyof ReassignExpiration>().toEqualTypeOf<
+      "kind" | "target" | "assignees" | "timeout" | "reason"
+    >();
+    expectTypeOf<Parameters<App["reassignPause"]>[0]>().toHaveProperty("channel");
+  });
+
+  it("#1310: expiry types are covariant, a bare PauseExpiration is fail() or reassign(…)", () => {
+    // a decide() result fits the target's expiry type, as a declared behavior returns it
+    const behave = (): PauseExpiration<ManagerExternalTask> =>
+      PauseExpiration.decide({ approved: true, comment: "auto" });
+    expectTypeOf(behave).returns.toEqualTypeOf<PauseExpiration<ManagerExternalTask>>();
+    // narrower answer into a wider one (out TAnswer)
+    expectTypeOf<DecideExpiration<{ approved: true }>>().toExtend<
+      DecideExpiration<{ approved: boolean }>
+    >();
+    expectTypeOf<DecideExpiration<{ approved: boolean }>>().not.toExtend<
+      DecideExpiration<{ approved: true }>
+    >();
+    // the default `never`: no argument needed, and nothing to decide with
+    expectTypeOf<PauseExpiration>().toEqualTypeOf<
+      FailExpiration | DecideExpiration<never> | ReassignExpiration
+    >();
+    expectTypeOf<ExpiredContext<ManagerExternalTask>["maxExpiresAt"]>().toEqualTypeOf<
+      Date | undefined
+    >();
   });
 });
