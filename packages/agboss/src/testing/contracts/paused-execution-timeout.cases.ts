@@ -4,7 +4,7 @@ import { NO_RECIPIENTS, type PauseTimeoutChange } from "../../infrastructure/pau
 import type { PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
-import { DEADLINE, expiringPauseOf, MID, pauseOf } from "./paused-execution-data.js";
+import { DEADLINE, expiringPauseOf, MID, pauseOf, withSeen } from "./paused-execution-data.js";
 
 /**
  * #1307: what a timeout change may do to a pause's deadline — shorten it, set one on a pause with none,
@@ -25,11 +25,11 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
     name: "a timeout change may shorten: to an earlier deadline after the moment of the write, over the deadline the caller read; never to the moment or the past (#1307)",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const change = (expiresAt: string, previousExpiresAt: string) =>
+      const change = async (expiresAt: string, previousExpiresAt: string) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
-          { expiresAt, previousExpiresAt },
+          await withSeen(second, "pause-a", { expiresAt, previousExpiresAt }),
           MID,
           R,
         );
@@ -55,8 +55,14 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(pauseOf("pause-a"));
       await first.findOrCreateByStepKey(expiringPauseOf("pause-b", "run-1:s:1:call-2"));
-      const change = (pauseId: string, request: PauseTimeoutChange) =>
-        second.changeTimeoutByTenantIdAndPauseId("default", pauseId, request, MID, R);
+      const change = async (pauseId: string, request: Omit<PauseTimeoutChange, "seen">) =>
+        second.changeTimeoutByTenantIdAndPauseId(
+          "default",
+          pauseId,
+          await withSeen(second, pauseId, request),
+          MID,
+          R,
+        );
 
       // a caller that read a deadline of a pause with none is stale; one that read none is right
       expect(
@@ -80,17 +86,17 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
     name: "a timeout change is written to the chain of custody with who and why, and counted against `maxExtensions` atomically with the write (#1307)",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const change = (expiresAt: string, previousExpiresAt: string, maxExtensions: number) =>
+      const change = async (expiresAt: string, previousExpiresAt: string, maxExtensions: number) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
-          {
+          await withSeen(second, "pause-a", {
             expiresAt,
             previousExpiresAt,
             actor: { id: "manager-17" },
             reason: "escalated",
             maxExtensions,
-          },
+          }),
           MID,
           R,
         );
@@ -110,6 +116,75 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
       const stored = await first.findByTenantIdAndPauseId("default", "pause-a");
       expect(stored?.expiresAt).toBe(LATER);
       expect(stored?.trail.filter((entry) => entry.action === "timeout-changed")).toHaveLength(2);
+    },
+  },
+  {
+    name: "a timeout change is made over the pause as it was read: a change, a reassignment in place or a send marked between the read and the write makes it lose (#1307)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(pauseOf("pause-a"));
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-b", "run-1:s:1:call-2"));
+      const read = async (pauseId: string) => (await withSeen(second, pauseId, {})).seen;
+      const change = (pauseId: string, seen: PauseTimeoutChange["seen"], deadline?: string) =>
+        second.changeTimeoutByTenantIdAndPauseId(
+          "default",
+          pauseId,
+          {
+            seen,
+            ...(deadline === undefined ? {} : { expiresAt: LATER, previousExpiresAt: deadline }),
+          },
+          MID,
+          R,
+        );
+
+      // none over none from a read that a change has outdated: the deadline is the same, the chain is not
+      const stale = await read("pause-a");
+      expect(await change("pause-a", stale)).toBeDefined();
+      expect(await change("pause-a", stale)).toBeUndefined();
+      expect(await change("pause-a", await read("pause-a"))).toBeDefined();
+      // the same deadline over itself from an outdated read
+      const staleB = await read("pause-b");
+      expect(await change("pause-b", staleB, FROM)).toMatchObject({ expiresAt: LATER });
+      expect(await change("pause-b", staleB, LATER)).toBeUndefined();
+      // the assignees and the sent mark of the read are the pause's now
+      const assigned = await read("pause-b");
+      expect(
+        await change("pause-b", { ...assigned, assignees: ["somebody"] }, LATER),
+      ).toBeUndefined();
+      expect(
+        await change("pause-b", { ...assigned, isSent: !assigned.isSent }, LATER),
+      ).toBeUndefined();
+      expect(await change("pause-b", assigned, LATER)).toMatchObject({ expiresAt: LATER });
+    },
+  },
+  {
+    name: "an in-place reassignment between the read and the write makes a timeout change lose, though it keeps the deadline (#1307)",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+      const read = await withSeen(second, "pause-a", { expiresAt: LATER, previousExpiresAt: FROM });
+      const moved = await first.reassignByTenantIdAndPauseId(
+        "default",
+        "pause-a",
+        { assignees: ["deputy-1"], seen: read.seen },
+        MID,
+        R,
+      );
+      expect(moved?.expiresAt).toBe(FROM);
+
+      expect(
+        await second.changeTimeoutByTenantIdAndPauseId("default", "pause-a", read, MID, R),
+      ).toBeUndefined();
+      const stored = await first.findByTenantIdAndPauseId("default", "pause-a");
+      expect(stored?.expiresAt).toBe(FROM);
+      expect(stored?.assignees).toEqual(["deputy-1"]);
+      const fresh = await withSeen(second, "pause-a", {
+        expiresAt: LATER,
+        previousExpiresAt: FROM,
+      });
+      expect(
+        await second.changeTimeoutByTenantIdAndPauseId("default", "pause-a", fresh, MID, R),
+      ).toMatchObject({
+        expiresAt: LATER,
+      });
     },
   },
 ];

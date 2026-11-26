@@ -10,6 +10,7 @@ import {
 } from "./pause-notices.js";
 import type { PauseRecord, PauseTrailRecord } from "./pause-record.js";
 import { reassignedPause, replacementPause, replacementStepKeyOf } from "./pause-replacement.js";
+import { isAsSeen } from "./pause-seen.js";
 import { closing, isDueAt, isOpenAt, type PauseChange } from "./pause-transitions.js";
 
 /**
@@ -27,22 +28,6 @@ import { closing, isDueAt, isOpenAt, type PauseChange } from "./pause-transition
 /** How many reassignments a pause's chain of custody holds. */
 export const reassignmentsOf = (pause: Pick<PauseRecord, "trail">): number =>
   pause.trail.filter((entry) => entry.action === "reassigned").length;
-
-const sameAssignees = (
-  one: readonly string[] | undefined,
-  other: readonly string[] | undefined,
-): boolean =>
-  one === undefined || other === undefined
-    ? one === other
-    : one.length === other.length && one.every((key, index) => key === other[index]);
-
-/** Whether the pause is still the one the change was permitted and planned against (#1307). */
-const isAsSeen = (pause: PauseRecord, seen: PauseSeen | undefined): boolean =>
-  seen === undefined ||
-  (pause.trail.length === seen.trailLength &&
-    pause.expiresAt === seen.expiresAt &&
-    pause.isSent === seen.isSent &&
-    sameAssignees(pause.assignees, seen.assignees));
 
 /**
  * Whether the change may apply to the pause now: still as the permit saw it, open (or due, for an

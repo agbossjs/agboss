@@ -151,6 +151,12 @@ export interface PauseTimeoutChange {
    * (#1099) — and the `timeout-changed` notice names it as `previousExpiresAt`.
    */
   readonly previousExpiresAt?: string;
+  /**
+   * The pause as the caller read, permitted and planned against: the change applies only while the
+   * pause is still exactly this (trail, assignees, deadline, `isSent`) — a deadline that can move both
+   * ways, to and from none, is no version of the pause by itself, and an in-place reassignment keeps it.
+   */
+  readonly seen: PauseSeen;
   /** The new reminder time (ISO 8601); absent: none. */
   readonly remindAt?: string;
   /** Who changed it; absent for the framework's own. Kept in the chain of custody. */

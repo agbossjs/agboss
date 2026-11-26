@@ -15,6 +15,7 @@ import {
   remindChange,
   resolveChange,
 } from "../../src/infrastructure/pause-transitions.js";
+import { seenOf } from "../../src/infrastructure/pause-seen.js";
 import { PauseNoticeKind } from "../../src/infrastructure/pause-notices.js";
 import {
   ExpiryProblem,
@@ -223,6 +224,7 @@ describe("#1356, #1307: a change of a deadline (#1099)", () => {
         ...(to === undefined ? {} : { expiresAt: to }),
         ...(previous === undefined ? {} : { previousExpiresAt: previous }),
         remindAt: T11,
+        seen: seenOf(pause),
       },
       AT,
       RECIPIENTS,
@@ -282,6 +284,7 @@ describe("#1356, #1307: a change of a deadline (#1099)", () => {
       {
         expiresAt: T12,
         previousExpiresAt: T11,
+        seen: seenOf(record),
         actor: { id: "manager-17" },
         reason: "customer escalated",
       },
@@ -316,7 +319,12 @@ describe("#1356, #1307: a change of a deadline (#1099)", () => {
     const limited = (record: PauseRecord, maxExtensions: number) =>
       timeoutChange(
         record,
-        { expiresAt: T12, previousExpiresAt: record.expiresAt ?? "", maxExtensions },
+        {
+          expiresAt: T12,
+          previousExpiresAt: record.expiresAt ?? "",
+          seen: seenOf(record),
+          maxExtensions,
+        },
         AT,
         RECIPIENTS,
       );
@@ -324,6 +332,31 @@ describe("#1356, #1307: a change of a deadline (#1099)", () => {
     expect(limited(once?.pause ?? pending(), 1)).toBeUndefined();
     expect(limited(once?.pause ?? pending(), 2)).toBeDefined();
     expect(limited(pending({ expiresAt: T11 }), 1)).toBeDefined();
+  });
+
+  it("only while the pause is as the caller read it: trail, assignees, sent mark, deadline (#1307)", () => {
+    const record = pending({ expiresAt: T11, assignees: ["a"] });
+    const seen = seenOf(record);
+    const apply = (now: PauseRecord, read = seen) =>
+      timeoutChange(now, { expiresAt: T12, previousExpiresAt: T11, seen: read }, AT, RECIPIENTS);
+
+    expect(apply(record)).toBeDefined();
+    expect(apply({ ...record, assignees: ["b"] })).toBeUndefined();
+    expect(apply({ ...record, assignees: undefined })).toBeUndefined();
+    expect(apply({ ...record, isSent: !record.isSent })).toBeUndefined();
+    expect(
+      apply({ ...record, trail: [...record.trail, record.trail[0] as never] }),
+    ).toBeUndefined();
+    // none over none: the deadline is the same, the chain is not
+    const none = pending();
+    const readNone = seenOf(none);
+    const again = timeoutChange(none, { seen: readNone }, AT, RECIPIENTS);
+    expect(again).toBeDefined();
+    expect(timeoutChange(again?.pause ?? none, { seen: readNone }, AT, RECIPIENTS)).toBeUndefined();
+    // a change without what it was read against is refused
+    expect(
+      timeoutChange(record, { expiresAt: T12, previousExpiresAt: T11 } as never, AT, RECIPIENTS),
+    ).toBeUndefined();
   });
 
   it("not a pause that is closed, or whose deadline passed", () => {

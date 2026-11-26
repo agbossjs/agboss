@@ -6,6 +6,7 @@ export {
   replacementStepKeyOf,
   type ReplacementKeyed,
 } from "../infrastructure/pause-replacement.js";
+export { isAsSeen, seenOf } from "../infrastructure/pause-seen.js";
 export {
   NO_RECIPIENTS,
   PauseNoticeKind,

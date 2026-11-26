@@ -14,6 +14,7 @@ import {
   DEADLINE,
   expiringPauseOf,
   MID,
+  withSeen,
 } from "./paused-execution-data.js";
 
 /**
@@ -34,11 +35,11 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
     name: "an extension whose write happens after the deadline is refused, even to a deadline still ahead of it, nothing written (#1148)",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const extend = (at: Date) =>
+      const extend = async (at: Date) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
-          { expiresAt: EVEN_LATER, previousExpiresAt: FROM },
+          await withSeen(second, "pause-a", { expiresAt: EVEN_LATER, previousExpiresAt: FROM }),
           at,
           R,
         );
@@ -53,11 +54,11 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
     name: "extend only over the deadline the caller read: a stale `previousExpiresAt` is refused, nothing written (#1099)",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const extend = (expiresAt: string, previousExpiresAt: string) =>
+      const extend = async (expiresAt: string, previousExpiresAt: string) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
-          { expiresAt, previousExpiresAt },
+          await withSeen(second, "pause-a", { expiresAt, previousExpiresAt }),
           BEFORE_DEADLINE,
           R,
         );
@@ -76,17 +77,19 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
       for (const [index, longerFirst] of [true, false].entries()) {
         const pauseId = `pause-${String(index)}`;
         await first.findOrCreateByStepKey(expiringPauseOf(pauseId, `run-1:s:${String(index)}`));
+        // both read the pause before either writes: one read, two writers
+        const { seen } = await withSeen(first, pauseId, {});
         const longer = first.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
-          { expiresAt: EVEN_LATER, previousExpiresAt: FROM },
+          { expiresAt: EVEN_LATER, previousExpiresAt: FROM, seen },
           BEFORE_DEADLINE,
           R,
         );
         const shorter = second.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
-          { expiresAt: LATER, previousExpiresAt: FROM },
+          { expiresAt: LATER, previousExpiresAt: FROM, seen },
           BEFORE_DEADLINE,
           R,
         );
@@ -105,7 +108,7 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
         const retried = await second.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
-          { expiresAt: loserTo, previousExpiresAt: stored ?? "" },
+          await withSeen(second, pauseId, { expiresAt: loserTo, previousExpiresAt: stored ?? "" }),
           BEFORE_DEADLINE,
           R,
         );
@@ -119,11 +122,11 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
       await first.findOrCreateByStepKey(expiringPauseOf("pause-b", "run-1:s:1:call-2"));
-      const extend = (pauseId: string, at: Date) =>
+      const extend = async (pauseId: string, at: Date) =>
         first.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
-          { expiresAt: LATER, previousExpiresAt: FROM },
+          await withSeen(first, pauseId, { expiresAt: LATER, previousExpiresAt: FROM }),
           at,
           R,
         );
@@ -165,7 +168,7 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
         const moved = await second.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
-          { expiresAt: LATER, previousExpiresAt: FROM },
+          await withSeen(second, pauseId, { expiresAt: LATER, previousExpiresAt: FROM }),
           BEFORE_DEADLINE,
           R,
         );

@@ -19,6 +19,7 @@ import {
   NINE,
   RECIPIENTS,
   MID,
+  withSeen,
 } from "./paused-execution-data.js";
 import { kindsOf, noticesOf, peeker } from "./paused-execution-mailboxes.js";
 
@@ -125,7 +126,10 @@ export const NOTICE_WRITE_CASES: readonly ContractCase<PausedExecutionRepository
       await second.changeTimeoutByTenantIdAndPauseId(
         "default",
         "pause-a",
-        { expiresAt: NINE.toISOString(), previousExpiresAt: DEADLINE.toISOString() },
+        await withSeen(second, "pause-a", {
+          expiresAt: NINE.toISOString(),
+          previousExpiresAt: DEADLINE.toISOString(),
+        }),
         MID,
         RECIPIENTS,
       );

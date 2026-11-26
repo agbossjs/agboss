@@ -6,6 +6,7 @@ import {
   type PauseNoticeFacts,
   type PauseRecipients,
 } from "./pause-notices.js";
+import { isAsSeen } from "./pause-seen.js";
 import {
   closedNotices,
   instantOf,
@@ -132,7 +133,7 @@ export function timeoutChange(
 ): PauseChange | undefined {
   if (!isOpenAt(pause, at)) return undefined;
   // from the deadline the caller read, to none or to a time after `at`: never to a past time (I3)
-  if (pause.expiresAt !== change.previousExpiresAt) return undefined;
+  if (pause.expiresAt !== change.previousExpiresAt || change.seen === undefined || !isAsSeen(pause, change.seen)) return undefined;
   if (change.expiresAt !== undefined && change.expiresAt <= at.toISOString()) return undefined;
   const changes = pause.trail.filter((entry) => entry.action === "timeout-changed").length;
   if (change.maxExtensions !== undefined && changes >= change.maxExtensions) return undefined;

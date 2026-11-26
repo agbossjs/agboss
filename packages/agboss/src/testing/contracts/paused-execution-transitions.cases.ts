@@ -14,6 +14,7 @@ import {
   LISTENER_KEYS,
   RECIPIENTS,
   MID,
+  withSeen,
 } from "./paused-execution-data.js";
 import { kindsOf, peeker } from "./paused-execution-mailboxes.js";
 
@@ -45,11 +46,14 @@ const TRANSITIONS: readonly (readonly [
   ],
   [
     "extend",
-    (s, id) =>
+    async (s, id) =>
       s.changeTimeoutByTenantIdAndPauseId(
         "default",
         id,
-        { expiresAt: "2026-01-05T12:00:00.000Z", previousExpiresAt: DEADLINE.toISOString() },
+        await withSeen(s, id, {
+          expiresAt: "2026-01-05T12:00:00.000Z",
+          previousExpiresAt: DEADLINE.toISOString(),
+        }),
         MID,
         RECIPIENTS,
       ),

@@ -6,6 +6,7 @@ import { checkedTimeout } from "../flow/runtime/pause-hooks.js";
 import type { PauseTarget } from "../flow/runtime/pause.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
+import { seenOf } from "../infrastructure/pause-seen.js";
 import { pauseKeyOf, PauseStatus, type PauseRecord } from "../infrastructure/pause-record.js";
 import { noticesWritten, recipientsIn } from "../pause/index.js";
 import { pauseTallyOf } from "../pause/pause-tally.js";
@@ -190,14 +191,17 @@ async function changedOnce(
   const changed = await parts.pauses.changeTimeoutByTenantIdAndPauseId(
     tenantId,
     pause.pauseId,
-    definedFields({
-      expiresAt,
-      previousExpiresAt: pause.expiresAt,
-      remindAt,
-      actor,
-      reason,
-      maxExtensions: limits.maxExtensions,
-    }),
+    {
+      seen: seenOf(pause),
+      ...definedFields({
+        expiresAt,
+        previousExpiresAt: pause.expiresAt,
+        remindAt,
+        actor,
+        reason,
+        maxExtensions: limits.maxExtensions,
+      }),
+    },
     at,
     recipientsIn(parts.deps.pause, pause),
   );

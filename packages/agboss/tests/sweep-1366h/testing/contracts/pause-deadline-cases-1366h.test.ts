@@ -33,6 +33,7 @@ import {
 } from "../../../../src/infrastructure/pause-transitions.js";
 import type { ContractCase } from "../../../../src/testing/contracts/define.js";
 import { DEADLINE_CASES } from "../../../../src/testing/contracts/paused-execution-deadline.cases.js";
+import { seenOf } from "../../../../src/infrastructure/pause-seen.js";
 import { EXTEND_RACE_CASES } from "../../../../src/testing/contracts/paused-execution-extend-race.cases.js";
 import { TIMEOUT_CHANGE_CASES } from "../../../../src/testing/contracts/paused-execution-timeout.cases.js";
 import type { PausedExecutionRepository } from "../../../../src/infrastructure/paused-execution.repository.js";
@@ -635,7 +636,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
       extend: (pause, change, at, recipients) =>
         timeoutChange(
           pause,
-          { ...change, previousExpiresAt: pause.expiresAt ?? "" },
+          { ...change, previousExpiresAt: pause.expiresAt ?? "", seen: seenOf(pause) },
           at,
           recipients,
         ),
@@ -647,6 +648,64 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     { answers: { extend: (_answered, before) => before } },
   ],
   [race("a timeout change may shorten"), "a lookup finds nothing", { found: () => undefined }],
+  [
+    race("a timeout change is made over the pause as it was read"),
+    "the seen pause is ignored",
+    {
+      extend: (pause, change, at, recipients) =>
+        timeoutChange(pause, { ...change, seen: seenOf(pause) }, at, recipients),
+    },
+  ],
+  [
+    race("a timeout change is made over the pause as it was read"),
+    "the seen trail is ignored",
+    {
+      extend: (pause, change, at, recipients) =>
+        timeoutChange(
+          pause,
+          { ...change, seen: { ...change.seen, trailLength: pause.trail.length } },
+          at,
+          recipients,
+        ),
+    },
+  ],
+  [
+    race("a timeout change is made over the pause as it was read"),
+    "the seen assignees are ignored",
+    {
+      extend: (pause, change, at, recipients) => {
+        const { assignees: _read, ...rest } = change.seen;
+        const seen = pause.assignees === undefined ? rest : { ...rest, assignees: pause.assignees };
+        return timeoutChange(pause, { ...change, seen }, at, recipients);
+      },
+    },
+  ],
+  [
+    race("a timeout change is made over the pause as it was read"),
+    "the seen sent mark is ignored",
+    {
+      extend: (pause, change, at, recipients) =>
+        timeoutChange(
+          pause,
+          { ...change, seen: { ...change.seen, isSent: pause.isSent } },
+          at,
+          recipients,
+        ),
+    },
+  ],
+  [
+    race("a timeout change is made over the pause as it was read"),
+    "a lookup finds nothing",
+    { found: () => undefined },
+  ],
+  [
+    race("an in-place reassignment between"),
+    "the seen pause is ignored",
+    {
+      extend: (pause, change, at, recipients) =>
+        timeoutChange(pause, { ...change, seen: seenOf(pause) }, at, recipients),
+    },
+  ],
   [
     race("a pause with no deadline"),
     "a pause with no deadline is never changed",
@@ -748,7 +807,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
       extend: (pause, change, at, recipients) =>
         timeoutChange(
           pause,
-          { ...change, previousExpiresAt: pause.expiresAt ?? "" },
+          { ...change, previousExpiresAt: pause.expiresAt ?? "", seen: seenOf(pause) },
           at,
           recipients,
         ),

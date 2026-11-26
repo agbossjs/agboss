@@ -27,6 +27,7 @@ import {
 import { deadlineAfter } from "./pause-reassign-deadline.js";
 import { ownDepsOf } from "./own-deps.js";
 import { reassignmentsOf } from "../infrastructure/pause-reassign-transition.js";
+import { seenOf } from "../infrastructure/pause-seen.js";
 
 /**
  * What a reassignment comes to (#946, #1307d): where the pause waits after it — the same target and
@@ -170,13 +171,6 @@ function deadlineOfChange(plan: Omit<ReassignPlan, "change">, ask: ReassignFacts
   if (ask.isExpiry) return { due: plan.deadline ?? {} };
   return plan.deadline === undefined ? {} : { timeout: plan.deadline };
 }
-
-/** What the plan was made against: the store applies it only while the pause is still this (#1307). */
-const seenOf = (pause: PauseRecord): PauseSeen => ({
-  trailLength: pause.trail.length,
-  isSent: pause.isSent,
-  ...definedFields({ assignees: pause.assignees, expiresAt: pause.expiresAt }),
-});
 
 /** The change the store applies for a plan. */
 function changeOf(

@@ -15,6 +15,7 @@ import {
   expiringPauseOf,
   pauseOf,
   MID,
+  withSeen,
 } from "./paused-execution-data.js";
 
 /** #910 I3: extend, remind and close-untaken — each only in its own state, once. */
@@ -29,11 +30,11 @@ export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
     name: "extend only while Pending and before `expiresAt`; never to a past time",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const extend = (at: Date, expiresAt: string) =>
+      const extend = async (at: Date, expiresAt: string) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
-          { expiresAt, previousExpiresAt: FROM },
+          await withSeen(second, "pause-a", { expiresAt, previousExpiresAt: FROM }),
           at,
           R,
         );
@@ -64,7 +65,7 @@ export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
         await first.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
-          { expiresAt: LATER, previousExpiresAt: FROM },
+          await withSeen(first, "pause-a", { expiresAt: LATER, previousExpiresAt: FROM }),
           new Date(0),
           R,
         ),
@@ -73,7 +74,7 @@ export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
         await first.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-b",
-          { expiresAt: LATER, previousExpiresAt: FROM },
+          await withSeen(first, "pause-b", { expiresAt: LATER, previousExpiresAt: FROM }),
           new Date(0),
           R,
         ),

@@ -142,6 +142,7 @@ describe("#1366: a pause without a reminder", () => {
       "actor",
       "expiresAt",
       "previousExpiresAt",
+      "seen",
     ]);
   });
 });
