@@ -1,6 +1,7 @@
 import type { ExecutionPauseRecord, PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import type { PauseTrailEntry } from "../channels/pause-contexts.js";
-import { earlierOf, isBefore, sameInstant } from "./instants.js";
+import { StoreError } from "../core/error-families/store-errors.js";
+import { isBefore, sameInstant } from "./instants.js";
 import type { PauseTrailRecord } from "./pause-record.js";
 
 /**
@@ -13,8 +14,22 @@ import type { PauseTrailRecord } from "./pause-record.js";
  * `instantOf` / `trailEntryOf` then passes the record's own value.
  */
 
-/** The instant an ISO 8601 text the record kept names. */
-export const instantOf = (text: string): Date => new Date(text);
+/** The one spelling of a time a record keeps: what `toISOString()` writes (four-digit year, milliseconds, `Z`). */
+const CANONICAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+/**
+ * The instant a time the record kept names. Only the canonical `toISOString()` text is read, so the
+ * order of the instants and the order of the texts (which a store's own compare-and-set uses) are
+ * the same for every value that gets through; any other spelling (no zone, an offset, no
+ * milliseconds, a year past 9999, an unparsable text) is a loud `StoreError.UnreadableRecord`, never
+ * an Invalid Date or a time read in the process's zone. `field` names it; the value is never in the error.
+ */
+export const instantOf = (text: string, field = "a time of the pause record"): Date => {
+  const at = new Date(text);
+  if (!CANONICAL.test(text) || Number.isNaN(at.getTime()) || at.toISOString() !== text)
+    throw new StoreError.UnreadableRecord({ record: "pause", fields: field });
+  return at;
+};
 
 /** `instantOf` of a time that may be absent. */
 export const instantOfOptional = (text: string | undefined): Date | undefined =>
@@ -44,12 +59,6 @@ export const isBeforeText = (a: string, b: string): boolean => isBefore(instantO
 /** Whether two times of records name the same instant; two absent ones do. */
 export const sameInstantText = (a: string | undefined, b: string | undefined): boolean =>
   sameInstant(instantOfOptional(a), instantOfOptional(b));
-
-/** The earlier of two times of records, as the record keeps it (`a` when they are the same instant). */
-export const earlierText = (a: string, b: string): string => {
-  const first = instantOf(a);
-  return earlierOf(first, instantOf(b)) === first ? a : b;
-};
 
 /** The order of two times of records by instant (for `sort`): negative when `a` is earlier. */
 export const compareText = (a: string, b: string): number =>

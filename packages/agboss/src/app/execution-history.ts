@@ -8,7 +8,7 @@ import { errorRecordOf } from "../core/error-record.js";
 import { CostReport, type UsageRecord } from "../finops/usage.js";
 import { compensationRecordsOf, type CompensationRecord } from "../flow/compensation.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
-import { withChildPauses, withHistoryChildPauses } from "../flow/runtime/child-records.js";
+import { withHistoryChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
 import { finishPartOf } from "./history-finish.js";

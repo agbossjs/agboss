@@ -11,6 +11,3 @@ export const sameInstant = (a: Date | undefined, b: Date | undefined): boolean =
 
 /** Whether `a` is strictly before `b`. */
 export const isBefore = (a: Date, b: Date): boolean => a.getTime() < b.getTime();
-
-/** The earlier of two instants: `a` when they are the same, so the one the caller holds stays. */
-export const earlierOf = (a: Date, b: Date): Date => (isBefore(b, a) ? b : a);

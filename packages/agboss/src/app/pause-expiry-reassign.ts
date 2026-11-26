@@ -116,7 +116,7 @@ async function expiryPlanOf(
 }
 
 /** Why the store refused an expiry's reassignment: `failed` on a limit while the pause is still pending and due, else `lost`. */
-async function refusedOnExpiry(
+export async function refusedOnExpiry(
   stores: NonNullable<TreeMoveParts["deps"]["pause"]>,
   pause: PauseRecord,
 ): Promise<"failed" | "lost"> {

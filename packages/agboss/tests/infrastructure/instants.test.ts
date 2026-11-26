@@ -4,11 +4,11 @@
  * hold over any millisecond, and the table pins what the naive operators get wrong.
  */
 import fc from "fast-check";
+import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { describe, expect, it } from "vitest";
-import { earlierOf, isBefore, sameInstant } from "../../src/infrastructure/instants.js";
+import { isBefore, sameInstant } from "../../src/infrastructure/instants.js";
 import {
   compareText,
-  earlierText,
   instantOf,
   isBeforeText,
   isDueAt,
@@ -26,7 +26,7 @@ describe("sameInstant (#1307)", () => {
       fc.property(millis, (ms) => {
         const a = new Date(ms);
         const b = new Date(ms);
-        expect(a === b).toBe(false);
+        expect(Object.is(a, b)).toBe(false);
         expect(sameInstant(a, b)).toBe(true);
       }),
       SEED,
@@ -64,7 +64,7 @@ describe("sameInstant (#1307)", () => {
   });
 });
 
-describe("isBefore and earlierOf (#1307)", () => {
+describe("isBefore (#1307)", () => {
   it("isBefore is a strict order: irreflexive, asymmetric, by milliseconds", () => {
     fc.assert(
       fc.property(near, near, (x, y) => {
@@ -77,61 +77,61 @@ describe("isBefore and earlierOf (#1307)", () => {
       SEED,
     );
   });
+});
 
-  it("earlierOf is the smaller instant, and the first argument on a tie", () => {
+describe("the texts a record keeps, compared by instant (#1307, until the record is typed)", () => {
+  /** The canonical texts: what `toISOString()` writes, years 0000-9999. */
+  const canonical = near.map((ms) => new Date(ms).toISOString());
+
+  it("for every text that is read, the order and the sameness of the instants are those of the texts", () => {
     fc.assert(
-      fc.property(near, near, (x, y) => {
-        const a = new Date(x);
-        const b = new Date(y);
-        const earlier = earlierOf(a, b);
-        expect(earlier.getTime()).toBe(Math.min(x, y));
-        expect(earlier).toBe(y < x ? b : a);
+      fc.property(canonical, canonical, (a, b) => {
+        expect(isBeforeText(a, b)).toBe(a < b);
+        expect(sameInstantText(a, b)).toBe(a === b);
+        expect(Math.sign(compareText(a, b))).toBe(a < b ? -1 : a > b ? 1 : 0);
       }),
       SEED,
     );
   });
-});
 
-describe("the texts a record keeps, compared by instant (#1307, until the record is typed)", () => {
-  it("the same instant in another spelling is the same instant, though not the same text", () => {
-    const spellings = [
-      "2026-01-05T09:00:00.000Z",
+  it("a text that is no canonical toISOString() is refused loudly, whatever it would name", () => {
+    for (const text of [
       "2026-01-05T09:00:00Z",
-      "2026-01-05T11:00:00+02:00",
-    ];
-    for (const a of spellings)
-      for (const b of spellings) {
-        expect(sameInstantText(a, b)).toBe(true);
-        expect(isBeforeText(a, b)).toBe(false);
-        expect(compareText(a, b)).toBe(0);
+      "2026-01-05T11:00:00.000+02:00",
+      "2026-01-05T09:00:00.000",
+      "2026-01-05 09:00:00.000Z",
+      "2026-01-05",
+      "+010000-01-01T00:00:00.000Z",
+      "2026-02-30T09:00:00.000Z",
+      "nonsense",
+      "",
+    ]) {
+      expect(() => instantOf(text)).toThrow(StoreError.UnreadableRecord);
+      expect(() => isBeforeText(text, "2026-01-05T09:00:00.000Z")).toThrow(
+        StoreError.UnreadableRecord,
+      );
+      expect(() => sameInstantText("2026-01-05T09:00:00.000Z", text)).toThrow(
+        StoreError.UnreadableRecord,
+      );
+      expect(() => compareText(text, text)).toThrow(StoreError.UnreadableRecord);
+      expect(() => isDueAt(text, new Date(0))).toThrow(StoreError.UnreadableRecord);
+    }
+  });
+
+  it("the error names the field and never the value", () => {
+    const secret = "not-a-time-4711";
+
+    const thrown = (() => {
+      try {
+        return instantOf(secret, "expiresAt");
+      } catch (error) {
+        return error;
       }
-    const [exact, bare] = spellings;
-    expect(exact === bare).toBe(false);
-  });
+    })();
 
-  it("an earlier instant sorts before a later one whatever the zone says: +02:00 09:00 is 07:00Z", () => {
-    expect(isBeforeText("2026-01-05T09:00:00+02:00", "2026-01-05T08:00:00.000Z")).toBe(true);
-    // as texts, "09…" > "08…": the order of the texts is the wrong one
-    const textBefore = (a: string, b: string): boolean => a < b;
-    expect(textBefore("2026-01-05T09:00:00+02:00", "2026-01-05T08:00:00.000Z")).toBe(false);
-    expect(earlierText("2026-01-05T09:00:00+02:00", "2026-01-05T08:00:00.000Z")).toBe(
-      "2026-01-05T09:00:00+02:00",
-    );
-  });
-
-  it("earlierText picks the earlier of the two wherever it stands", () => {
-    const early = "2026-01-05T08:00:00.000Z";
-    const late = "2026-01-05T09:00:00.000Z";
-    expect(earlierText(early, late)).toBe(early);
-    expect(earlierText(late, early)).toBe(early);
-  });
-
-  it("earlierText keeps its first argument on a tie, and an absent time equals only an absent one", () => {
-    expect(earlierText("2026-01-05T09:00:00.000Z", "2026-01-05T09:00:00Z")).toBe(
-      "2026-01-05T09:00:00.000Z",
-    );
-    expect(sameInstantText(undefined, undefined)).toBe(true);
-    expect(sameInstantText("2026-01-05T09:00:00.000Z", undefined)).toBe(false);
+    expect(thrown).toBeInstanceOf(StoreError.UnreadableRecord);
+    expect((thrown as Error).message).toContain("expiresAt");
+    expect(JSON.stringify(thrown)).not.toContain(secret);
   });
 
   it("a deadline is due at its own instant, not a millisecond before; none is never due", () => {
@@ -141,5 +141,10 @@ describe("the texts a record keeps, compared by instant (#1307, until the record
     expect(isDueAt(deadline, new Date(at))).toBe(true);
     expect(isDueAt(deadline, new Date(at + 1))).toBe(true);
     expect(isDueAt(undefined, new Date(at))).toBe(false);
+  });
+
+  it("absent times are the same only as each other", () => {
+    expect(sameInstantText(undefined, undefined)).toBe(true);
+    expect(sameInstantText("2026-01-05T09:00:00.000Z", undefined)).toBe(false);
   });
 });
