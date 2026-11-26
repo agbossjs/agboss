@@ -506,9 +506,17 @@ after a crash — finds the same `pauseId`:
 | `Taken`       | its step took the decision and went on — or its channel decided at once                                                                                                 |
 | `Cancelled`   | closed with no answer: a sibling branch failed, its launch's quorum was decided, the thread was cancelled, the tree ended, or the deadline passed with nobody answering |
 
+**Every time a pause shows is a `Date`** (#1307): `result.pending[]`, `app.listPauses` (`askedAt`, `expiresAt`,
+`closedAt`, `trail[].at`), every channel and listener event (`closedAt`, `at`, `expiresAt`, `previousExpiresAt`),
+`result.record.pauses`, `PauseError.Closed.closedAt`, `StepError.PauseExpired.expiresAt` and
+`LimitError.Deadline.deadlineAt`. Print one with `date.toISOString()`; an error's `details` and the A2A wire carry the
+ISO 8601 text. **Compare two of them with `a.getTime() === b.getTime()` (or `<`), never with `===` or `!==`**: those
+compare the objects, so two `Date`s of one instant are "different" and a check such as "is this still the deadline I
+read" is always false.
+
 An answer to anything but `Pending` → `PauseError.Closed` (`pause.closed`: `pauseId`, `tenantId`,
 `reason: PauseClosedReason` — `answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`,
-`reassigned` —, `closedAt`; its message names the pause by its `pauseKey`, never its id), checked
+`reassigned` —, `closedAt?: Date` (an ISO 8601 text in the error's `details`); its message names the pause by its `pauseKey`, never its id), checked
 before a reply's interpreter is called: a double click, a late answer to a withdrawn question. An
 answer that was recorded and then closed not taken is refused `answered`. `NotPausedError` stays for
 the thread-level paths only. Over [A2A](A2A) the same refusal is `-32004` with `a2a.pause-closed`. Each record also says how it was resolved (`PauseResolution`), with
@@ -564,7 +572,7 @@ resolved pause of the tree, in the order they were asked:
 | `target`, `respondent`  | the channel asked and who may answer                                                                                                                                                                             |
 | `actor`                 | who answered — the person: the `ownerId` / `actor` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled (0.1.0's `responder` alias is gone, #1307d)                                         |
 | `resolution`            | `PauseResolution`                                                                                                                                                                                                |
-| `askedAt`, `resolvedAt` | ISO 8601, the application's `Clock`                                                                                                                                                                              |
+| `askedAt`, `resolvedAt` | `Date`, the application's `Clock`                                                                                                                                                                                 |
 | `decision`              | what was decided, masked by the application's PII policies; `undefined` when withdrawn or cancelled                                                                                                              |
 | `asked`                 | what was asked, masked (#688): an approval's call as the agent made it — its tool and own arguments, before any correction a reply made — or a question's ask; beside `decision` it makes every change auditable |
 
@@ -714,7 +722,7 @@ export class SlackRefundApprovalChannel {
 
 - **What a channel gets** — `ChannelPauseClosedEvent<Role>`: the `pauseId` and `value` as `send` got
   them, `reason: PauseClosedReason` (`Answered`, `Expired`, `Cancelled`, `Withdrawn`, `TreeEnded`),
-  `closedAt`, and for an answer `actor` (the resume's `actor`, or the thread's owner) and the
+  `closedAt` (a `Date`; print one with `.toISOString()`), and for an answer `actor` (the resume's `actor`, or the thread's owner) and the
   `answer` (masked by the PII policies), and `deliveryId`. The channel hears an answer **given
   elsewhere** too — a manager approves in the back office, the Slack message loses its buttons — and
   its own. `onPauseAnswerNotTaken(event)` is told, after the `closed`, when a recorded answer is never
@@ -781,7 +789,7 @@ List it in `@Application({ providers })`: the container creates it at start (its
 (`executionId` is the child's) — and, with the optional `onPauseAnswerNotTaken`, the answers never
 applied. An event carries the safe context — `pauseKey`, `tenantId`, `rootExecutionId`,
 `executionId`, `threadId`, `workflow`, `step`, `kind`, `channel`, `respondent`, the masked `ask`,
-`askedAt`, `expiresAt` — and `deliveryId`. Assembly rules: `[name.not-kebab-case]`,
+`askedAt`, `expiresAt` (`Date`s) — and `deliveryId`. Assembly rules: `[name.not-kebab-case]`,
 `[channel-listener.duplicate-name]`, `[channel-listener.missing-handler]`, `[channel-listener.unknown-hook]`;
 `agboss describe` lists the listeners.
 
@@ -822,7 +830,7 @@ changes the number without touching the code. `[limits.timeout-invalid]` for a v
 `seconds(1)` or no finite duration. The absolute deadline is fixed **when the pause is made** — a
 deploy that changes `timeout` never moves an open pause — as the smaller of it and the run's
 deadline (`app.execute(…, { deadline })`, a mesh caller's remaining time): a tie goes to the run.
-`result.pending[].expiresAt` and the `onExecutionPause` event carry it; `agboss describe` prints each
+`result.pending[].expiresAt` (a `Date`) and the `onExecutionPause` event carry it; `agboss describe` prints each
 target's `timeout`.
 
 **A worked example: ask the manager for a day, then the director.** The tool approval has a deadline;
@@ -1019,7 +1027,7 @@ may answer `onExpired(ctx)` — `ctx` is an `ExpiredContext`: `input`, `expiresA
 latest instant the pause's stored `maxTotalTimeout` limit lets it wait until; absent: no such limit), `trail` — with:
 
 - `PauseExpiration.fail()` (the default without the method): the step fails with `StepError.PauseExpired`
-  (`step.pause-expired`: `step`, `stepKind`, `channel`, `kind`, `expiresAt`; never the pause's id) —
+  (`step.pause-expired`: `step`, `stepKind`, `channel`, `kind`, `expiresAt: Date`; never the pause's id) —
   `.onError(StepError.PauseExpired, …)` escalates, a question step's side path may ask the next person.
   Inside an agent an expired approval, or a question the agent asked as a tool, fails the whole
   **agent step**, its spend kept, and none of the move's calls ran;
@@ -1098,7 +1106,7 @@ export class DeskManagerChannel {
   // once per deadline, whatever the number of instances; at least once, so a chat message
   // that is sent twice must be harmless — deduplicate by event.deliveryId
   async onPauseExpiring(event: ChannelPauseExpiringEvent<DeskManagerExternalTask>): Promise<void> {
-    await this.chat.ask("manager", event.pauseId, `Order ${event.input.orderId}: answer by ${event.expiresAt}`);
+    await this.chat.ask("manager", event.pauseId, `Order ${event.input.orderId}: answer by ${event.expiresAt.toISOString()}`);
   }
 }
 
@@ -1116,7 +1124,7 @@ export class OnCallPauseListener implements ChannelListenerHandler {
   }
 
   async onPauseExpiring(event: ChannelListenerExpiringEvent): Promise<void> {
-    await this.chat.ask("on-call", event.pauseKey, `A ${event.channel} pause expires at ${event.expiresAt}`);
+    await this.chat.ask("on-call", event.pauseKey, `A ${event.channel} pause expires at ${event.expiresAt.toISOString()}`);
   }
 }
 ```
@@ -1429,7 +1437,7 @@ try {
   if (!(error instanceof PauseError.Closed)) throw error;
   const sorry =
     error.reason === PauseClosedReason.Expired
-      ? `Too late: the question closed at ${error.closedAt}`
+      ? `Too late: the question closed at ${error.closedAt?.toISOString() ?? "an unknown time"}`
       : error.reason === PauseClosedReason.Answered
         ? "Someone answered already"
         : `The question is closed (${error.reason})`;

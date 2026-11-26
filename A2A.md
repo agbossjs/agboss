@@ -708,7 +708,7 @@ report is ignored: a caller never pays what an untrusted peer says.
 **The deadline** is yours too: `app.execute(Start, input, { deadline: seconds(30) })` — fixed on the
 `Clock` when the execution starts, kept in its state (a pause counts), checked where the budgets
 are: before every agent and router step and every model call (a call in flight is not cut short).
-`LimitError.Deadline` (`limit.deadline`: `deadline`, `deadlineAt`) is a `LimitError`.
+`LimitError.Deadline` (`limit.deadline`: `deadline`, `deadlineAt: Date` — an ISO text in `details`) is a `LimitError`.
 
 The envelope's `audience` and a contract price come with declared contracts ([§7](#7-declared-contracts-398-pr-3)).
 
