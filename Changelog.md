@@ -3370,7 +3370,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   the worst case of one call — workflow executions, at the same time, agent and router steps of the
   whole tree, nesting depth — each with how it is made up, from the decorators only; `--json`:
   `result.report`. `describe` prints the same report under each workflow's limits (it was one line).
-- **Changed — `agboss check --env <name>`** lists the variables as `prod environment needs 3 process
+- **Changed — `agboss check` with the environment flag** lists the variables as `prod environment needs 3 process
   variables:` with aligned `NAME  value | secret[, optional | , has a default]` lines — the field
   name is no longer printed, never a value ([Environments](Environments#the-cli)).
 - **Breaking — `describeWorkflow` is removed from the public API** (it was a root export): describing
@@ -3383,7 +3383,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `worstCaseReportLines` / `worstCaseRowsOf` (`WorstCaseMeasure`), `worstCaseLimitsOf`; a
   `WorstCase` carries its `workflow`, `isStepsCapped`, `treeSteps` and `children` (each edge into a
   child: `count`, `atOnce`, `maxItems`, `maxConcurrency`, `isRecursive`, the child's worst case).
-- **job-scout**: a `prod` environment (`agboss check --env prod`).
+- **job-scout**: a `prod` environment (`agboss check` on the `prod` environment, by the since-removed environment flag).
 
 ## Unreleased — health checks: `@HealthCheck`, `app.checkLiveness()`, `app.checkReadiness()` (#300, PR 1)
 
@@ -3458,7 +3458,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
   `OPENROUTER_API_KEY` (`openRouterApiKey`, a `Secret`) and, optionally, `OPENROUTER_BASE_URL`
   (`openRouterBaseUrl`) for the built-in providers; `test` is unchanged. Every store of its
   application is SQLite now (records, pauses, checkpoints, leases, tree keys, besides the ledger).
-  `npm run check` also runs `agboss check --models --env test` (no key); `npm run answer` answers
+  `npm run check` also runs `agboss check --models` on the `test` environment (no key); `npm run answer` answers
   waiting pauses from another process. Its `README.md` says how to run the manual checks #263 M1,
   #264 M1 and #267 M1.
 
@@ -3913,7 +3913,7 @@ From the 0.1.1 API review; the surface is not published yet, so no aliases.
 
 - **`env.optional("X")`**, `env.integer.optional("X")`, `env.flag.optional("X")` — a variable that
   may be unset: typed `T | undefined`, unset → `undefined` (not a missing variable), a set value
-  still checked; `agboss check --env` marks it `(optional)` ([Environments](Environments#the-environments)).
+  still checked; `agboss check` with the environment flag marks it `(optional)` ([Environments](Environments#the-environments)).
   New public type `EnvironmentValueReader<T>`; `EnvironmentVariableReader` extends it.
 - **The base-URL field repeats no default**: `openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")`
   — unset → the decorator's `baseUrl` ([Model providers](Model-providers)); job-scout and
@@ -4345,7 +4345,7 @@ tenantId, threadId)`, `threadOwner(workflow, tenantId, threadId)`; every record 
   field does not compile); `EnvironmentErrorCode` (`environment.not-found`,
   `environment.missing-variables`, `environment.invalid-value`, `environment.no-contract`). A missing
   variable fails the start as `DATABASE_URL is not set (AppEnvironment.databaseUrl, prod)`;
-  `agboss check --env <name>` lists the variables it needs, marked value / secret.
+  `agboss check` with the environment flag lists the variables it needs, marked value / secret.
 - **Breaking — tests run on `test`**: `testWith(App)` loads `test.environment.ts` and fails without
   it (no fallback to `dev`); `testWith(App, { environment })` and `createApp(App, { environment })`
   are removed — name an environment with `env`. **Breaking — `@Application({ environment })` is

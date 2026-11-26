@@ -42,7 +42,7 @@ public surface (#419): twelve workflows, one per `*.workflow.ts`, in one applica
 its start, #261), on the public entries only, tested by script (no model key, no cassette). They are
 what the manual checks of the flow point the CLI at; `make check` runs `agboss check --strict` on the
 application and on the offline `src/desk.application.ts`, each with `--federation` (below; then
-`agboss check --models --env test`, which needs no key), the example's own lint (`eslint.config.js` with `@agboss/core/eslint`, as `agboss
+`agboss check --models`, which needs no key), the example's own lint (`eslint.config.js` with `@agboss/core/eslint`, as `agboss
 create` writes it), the desk's eval suite offline (`npm run eval:check`, below) and its tests with
 coverage (`isolate: false`: one module graph per worker, each test assembling its application anew). Besides the two below: `src/review/` (parallel launches in waves,
 #273), `src/panel/` (a quorum, [Parallel](Parallel)), `src/vendor/` and `src/topic/` (a child workflow
@@ -91,9 +91,9 @@ npm test
   `close-account-tool`, answers for an archived order (`reply`) and cuts a status's internal
   note (`afterAnyTool`), and the workflow a `@Memory` with its own `compact(input)` past a two-turn
   window. `src/desk.application.ts` lists the same workflow with the transport alone, so
-  `PII_PSEUDONYM_KEY=offline-only npx agboss run --application src/desk.application.ts --env offline
+  `PII_PSEUDONYM_KEY=offline-only npx agboss run --application src/desk.application.ts
   --start desk-workflow-start --input '{"customerId":"c-1","question":"Where is order #7?"}'`
-  answers offline (`offline`: the stores in memory, only the PII key read — the desk's PII policy
+  answers offline (offline: only the PII key read — the desk's PII policy
   makes tokens with it outside tests).
   The same agent carries the operational contracts: a code `@Judge` that reads the visit's
   `toolCalls` (`maxRetries: 1`, then `StepError.QualityGate`), a `@Rag` it searches through a tool
@@ -126,7 +126,7 @@ npm test
   (`failWith(ModelFailure.RateLimited)`) lets the quick screen's group go on.
   The desk's [eval suite](Eval-Suites) (`src/desk/eval-suites/desk.eval-suite.ts`:
   the cases' `tools`, then the code `desk-answer-judge` on the finish's text) runs on the same
-  transport: `npm run eval:check` is `agboss eval run --env offline --runs 2 --baseline
+  transport: `npm run eval:check` is `agboss eval run --runs 2 --baseline
   eval/runs/desk-eval-suite.json --fail-on-regression` (no key, fake prices only), `agboss eval show
   --html` of the checked-in baseline and `agboss eval calibrate` on `eval/labels/desk-eval-suite.jsonl`
   — two labelers, one of whom fails the archived-order answers (`asks-instead-of-answering`, from
@@ -134,7 +134,7 @@ npm test
   metrics over the disagreements. `npm run eval` rewrites the baseline (relabel after). `agboss eval
   score` is not part of it: it scores with Jev, which needs OpenRouter.
   The desk keeps each execution 30 days (`retention.executionRecords`, [Execution history](Execution-history),
-  #401) in `.agboss/desk-offline.sqlite` on `--env offline`: `npm run records:check` runs it once,
+  #401) in `.agboss/desk-offline.sqlite`: `npm run records:check` runs it once,
   exports the kept records (`agboss executions export --tenant default --out .agboss/records/desk.jsonl`)
   and drafts an eval case from the newest (`agboss generate eval-case lookup-from-history --suite
   desk-eval-suite --from-execution <id> --dry-run`) — what `agboss eval ui`'s "Save as golden case"
@@ -159,12 +159,12 @@ npm test
 
 ### Real runs of flow-patterns (#346)
 
-The `dev` environment calls real models: `openRouterApiKey: secret("OPENROUTER_API_KEY")` and
-`openRouterBaseUrl: env.optional("OPENROUTER_BASE_URL")` for the built-in OpenRouter providers,
+The application calls real models: `secret("OPENROUTER_API_KEY")` and
+`env("OPENROUTER_BASE_URL", { default })` are references of the OpenRouter providers' drivers,
 while the rows and the keys are the application's `@DatabaseStorage` (`src/storage/`, read through
 `defineEnv`): `SqliteDriver` on `.agboss/flow-patterns.sqlite` (`AGBOSS_SQLITE_PATH`),
 `AGBOSS_IDEMPOTENCY_SECRET` for the business-key fingerprints of the credit desk's charge and
-`PII_PSEUDONYM_KEY` for the PII key (`examples/flow-patterns/.env.example`); `test` has neither key — the tests script every model. A run is traced
+`PII_PSEUDONYM_KEY` for the PII key (`examples/flow-patterns/.env.example`); the tests have neither key — the tests script every model. A run is traced
 only when its application is given a `tracerProvider` (`LangfuseTracer` from `@agboss/langfuse`;
 `scripts/langfuse.sh up` writes the Langfuse keys to the repo's `.env`). The example's `README.md` walks through the manual checks it serves — #263 M1 (the
 vendor screening's children in Langfuse), #264 M1 (the topic research, `maxDepth: 3`,

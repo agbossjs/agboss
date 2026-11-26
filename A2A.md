@@ -20,7 +20,7 @@ allowedOrigins?, deps })`, listed in `providers` and injected into a `@Tool` or 
 The framework never guesses a tenant from a request. The host says who calls, for every request,
 with an **`@HttpAuthenticator`**: a class with `authenticate(request)` (sync or async, no
 `implements`), listed in `@Application({ services })` and created by the
-application's container like any service — its own services through `deps`, its environment, its
+application's container like any service — its own services through `deps`, its `defineEnv` (`deps: [appEnv]`), its
 hooks and a test's `override(…)` apply; never `new`.
 
 <!-- snippet-context
@@ -95,7 +95,7 @@ import { createServer } from "node:http";
 import { createApp } from "@agboss/core";
 import { a2aHttpListener } from "@agboss/core/a2a";
 
-const app = await createApp(ShopApplication, { env: "prod" });
+const app = await createApp(ShopApplication, { profile: "prod" });
 
 createServer(
   a2aHttpListener(app, {
@@ -279,10 +279,10 @@ finish gives as files that it reads as data).
 records (the checkpoint, the task's output) — silently up to 64 KB, with the warning
 `[a2a.inline-files-without-store]` up to 256 KB (an error under `--strict`), above it
 `[a2a.file-store-required]`. A listed store keeps it under the task (`InMemoryFileRepository`,
-`LocalDiskFileRepository` on the environment's `a2aFilesPath`, `S3FileRepository` — a bucket
-every instance reaches, on plain `fetch` with Signature Version 4: `a2aS3Bucket`, `a2aS3Region`,
-`a2aS3Endpoint?` (an S3-compatible store), `a2aS3Prefix?`, `a2aS3AccessKeyId`,
-`a2aS3SecretAccessKey`; every key within S3's 255-byte segments and 1024-byte keys for every valid id — a long id in pieces, one past 300 characters as its digest —, a file's metadata in its object's body, `a2aS3Prefix` at most 87 bytes (#904, #1316) —, or your own, proved by
+`LocalDiskFileRepository`, `S3FileRepository` — a bucket
+every instance reaches, on plain `fetch` with Signature Version 4 — both take their settings only from the
+application's `@ObjectStorage` (`LocalDiskDriver({ directory })`, `S3Driver({ bucket, region?, endpoint?, prefix?,
+accessKeyId?, secretAccessKey? })`, each a text or an `env(…)` / `secret(…)` reference); every key within S3's 255-byte segments and 1024-byte keys for every valid id — a long id in pieces, one past 300 characters as its digest —, a file's metadata in its object's body, the S3 `prefix` at most 87 bytes (#904, #1316) —, or your own, proved by
 `fileContract`); on leases the instances share, one host's store with files above 256 KB is
 `[a2a.file-store-not-shared]`. A task's files are its own: a step reads no other task's, a task's
 artifact serves only its own. They are removed `@FilePolicy({ ttl })` after

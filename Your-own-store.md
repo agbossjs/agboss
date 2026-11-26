@@ -737,7 +737,7 @@ second charge, a lost or doubled child, an undo on a hand-over or a tree that ne
 **1. The store set's module.** Every pod imports it. It exports `faultStores`:
 
 - the store classes, as `@Application({ providers })` lists them;
-- the environment they read: the pod's database is the process variable `AGBOSS_FAULT_DATABASE_URL`;
+- the storage they are on (`storage`: the backend and the driver's settings): the pod's database is the process variable `AGBOSS_FAULT_DATABASE_URL`, a reference in the settings;
 - how the fixture's charge writes its business row in your fenced effect's transaction, and reads
   the committed rows back;
 - `resolvesCommitByRetry` (#1017, optional, `false` when absent): `true` when your client retries a
@@ -776,8 +776,7 @@ declare class PgHistory {}
 declare class PgChildQueue {}
 declare class PgPauses {}
 declare class PgCheckpoints {}
-declare class PgFaultEnvironment { postgresUrl: unknown }
-declare function secret(name: string): unknown;
+declare function env(name: string): unknown;
 declare function resolveConnection(app: App): PgConnection;
 -->
 
@@ -789,9 +788,9 @@ export const faultStores: FaultStoreSet<PoolClient> = {
   providers: [PgLeases, PgLeaseLog, PgFencedEffects, PgCalls, PgRecords, PgTrees, PgHistory, PgChildQueue, PgPauses, PgCheckpoints],
   // the leases expire by clock_timestamp(): the history is read at the real rate
   storeTime: FaultStoreTime.Database,
-  environment: {
-    contract: PgFaultEnvironment,
-    values: { postgresUrl: secret("AGBOSS_FAULT_DATABASE_URL") },
+  storage: {
+    backend: "postgres",
+    settings: { kind: "postgres", url: env("AGBOSS_FAULT_DATABASE_URL") },
   },
   businessRows: {
     insert: async (client, row) => {

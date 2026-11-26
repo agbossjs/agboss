@@ -406,7 +406,7 @@ undoes its own open actions in turn. [Rollback](Rollback#an-execution-that-ends-
 workflows are collected transitively, and an unlisted child goes through every rule a listed one
 does — names (`[name.kind-suffix]`, `[graph.duplicate-node-name]`), its models
 (`[model.unserved]`, `[model.ambiguous-provider]`), DI and infrastructure (`[di.*]`, infrastructure
-only in the application's `providers`, so `[environment.missing-field]` comes from what the
+only in the application's `providers`, so `[storage.providers-conflict]` comes from what the
 application lists), channel roles. Budgets aside: a child spends from its root's, so it needs no
 execution budget of its own.
 

@@ -98,7 +98,7 @@ A file's folder says its kind, as its name does. `src/` holds kind folders (`wor
 `routers/`, `dto/`, `tools/`, `services/`, …), optionally under **one** domain level —
 `src/[<domain>/]<kind>/…`, e.g. `src/billing/agents/refund/refund.agent.ts`. A domain is any folder
 that is not a kind folder; it holds only kind folders (no loose file, no second domain). The
-application file and `environments/` stay at the `src/` root. A workflow's folder is named after it
+application file and `config/` stay at the `src/` root. A workflow's folder is named after it
 without its kind (`refund-workflow` → `workflows/refund/refund.workflow.ts`, its starts and finishes
 beside it); a prompt-bearing component's after its name likewise (`refund-agent` →
 `agents/refund/refund.agent.ts` + `refund.prompt.md`); a DTO's file after its class
