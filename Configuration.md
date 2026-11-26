@@ -346,7 +346,7 @@ maximum, naming the field, and accepted at it:
 | `.joinQuorum({ deadline })`, `.joinQuorumGroups({ deadline })`                  | 24 days  | `ConfigError.FlowSyntax` where the flow is written                                   |
 | `app.execute(…, { deadline })`                                                  | 24 days  | `ConfigError.Unit` (`config.unit`), the execution not started                        |
 
-A pause's `expiresIn` is not one timer: pause deadlines are read by the pause timers' loop every
+A pause's `timeout` is not one timer: pause deadlines are read by the pause timers' loop every
 5 seconds, never by one `setTimeout`, so a long deadline is safe. The system `Clock` also waits out
 any delay above the timer's limit in parts (a `Retry-After` or a peer's deadline that no setting
 bounds), so no timer of the framework overflows.

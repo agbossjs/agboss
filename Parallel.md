@@ -241,7 +241,7 @@ its judge the reply as a `WorkflowFinishTextDto`, a `@Workflow` branch the outpu
 `.joinQuorum({ min: 2, deadline: workDays(5), calendar: CorporateWorkingCalendar })` (and
 `.joinQuorumGroups({ deadline: workHours(4), calendar })`) waits five working days of that calendar, not
 120 hours: weekends, holidays and the calendar's time zone are the calendar's own arithmetic — the same
-`@WorkingCalendar` classes, `WorkingWeek.of(…)` grids and the same call a pause's `expiresIn: workHours(…)`
+`@WorkingCalendar` classes, `WorkingWeek.of(…)` grids and the same call a pause's `timeout: workHours(…)`
 uses. The calendar is the quorum's own (the application's `workingCalendar` serves pauses, not quorums); a
 `@WorkingCalendar` class used here is created by the workflow's container, so it needs no entry in
 `providers`. A working `deadline` without `calendar` is `[calendar.required-for-working-duration]`; a class

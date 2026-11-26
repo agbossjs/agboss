@@ -549,8 +549,7 @@ ConfigError.ModelSettings: 2 model setting(s) do not fit their models
 
 Codes: `model.unsupported-setting` (reasoning form, cache retention or parts, `temperature`,
 `max_tokens`), `model.unknown-model`, `model.no-price`, `model.no-matching-endpoint` (`--models`
-only: a pinned host or quantization, above), `model.unserved`,
-`model.ambiguous-provider` (the last two also fail the assembly, above). **Nothing is substituted** — not the nearest effort, not the nearest
+only: a pinned host or quantization, above). **Nothing is substituted** — not the nearest effort, not the nearest
 retention, not "budget instead of both". Caching "where supported" on a model without caching is
 simply none.
 

@@ -84,9 +84,8 @@ npm test
 - **`src/desk/`** — the four extension points around one agent (#382–#385): `desk-agent` runs on
   `harness/desk`, served by `HarnessModelProvider` (`src/model-providers/`), a transport
   `@ModelProvider` whose `complete(request)` looks the `#<id>` order up, then quotes the tool — no
-  key, no network. Beside it the application lists the built-in `OpenRouterModelProvider` and
-  `DecisionsModelProvider` — catch-alls that yield `harness/…` to the transport that claims it
-  (#454, [Model providers](Model-providers#which-provider-serves-a-model)). The agent has two code guardrails (`decidedBy: DecidedBy.Code`:
+  key, no network. There are no built-in providers: the application lists the ones it needs, and the agent reaches
+  this one by `modelProvider` (#1313, [Model providers](Model-providers#the-model-cascade-1313)). The agent has two code guardrails (`decidedBy: DecidedBy.Code`:
   credentials in the question, a promised date in the answer), a `@ToolInterceptor` that blocks
   `close-account-tool`, answers for an archived order (`reply`) and cuts a status's internal
   note (`afterAnyTool`), and the workflow a `@Memory` with its own `compact(input)` past a two-turn

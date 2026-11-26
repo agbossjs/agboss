@@ -245,8 +245,8 @@ keys (#895, #1318). Without a `profile` a test runs on `test` — never on dev's
 `test.config.*` is no layer. The read-only `app.settings` (by workflow name) is what the profiles
 applied: `expect(app.settings["scout-workflow"]?.agents["scout-agent"]?.thinking).toBe("low")`; its
 `version` is the profile's. An unknown profile is a `ProfileError` listing the profiles that exist,
-and a model a profile switches to one no listed provider serves fails the assembly with
-`[model.unserved]`, not the first call. See [Configuration](Configuration#profiles-srcconfig-1318).
+and a model a profile switches to one its provider does not list fails the assembly with
+`[model.unknown-model]`, not the first call. See [Configuration](Configuration#profiles-srcconfig-1318).
 
 ### Variables in a test
 
