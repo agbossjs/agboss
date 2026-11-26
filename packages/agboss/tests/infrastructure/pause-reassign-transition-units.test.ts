@@ -4,7 +4,7 @@
  * field (a store, or a mutant, that drops one fails here), and when they apply.
  */
 import { describe, expect, it } from "vitest";
-import { PauseNoticeKind } from "../../src/infrastructure/pause-notices.js";
+import { PauseNoticeKind, type PauseRecipients } from "../../src/infrastructure/pause-notices.js";
 import { reassignChange } from "../../src/infrastructure/pause-reassign-transition.js";
 import {
   PauseExpiryBound,
@@ -35,8 +35,8 @@ const sentPause = (fields: Partial<PauseRecord> = {}): PauseRecord => ({
   ...fields,
 });
 
-const inPlace = (pause: PauseRecord, change: object, recipients = RECIPIENTS) =>
-  reassignChange(pause, { ...change, seen: seenOf(pause) } as never, new Set(), AT, recipients);
+const inPlace = (pause: PauseRecord, change: object, recipients: PauseRecipients = RECIPIENTS) =>
+  reassignChange(pause, { ...change, seen: seenOf(pause) }, new Set(), AT, recipients);
 
 describe("an in-place reassignment", () => {
   it("replaces the assignees and sets the deadline, bound and reminder it names, dropping the old ones", () => {
@@ -53,6 +53,18 @@ describe("an in-place reassignment", () => {
       externalRef: "JIRA-1",
     });
     expect(done?.pause).not.toHaveProperty("remindAt");
+  });
+
+  it("takes away what a deadline it sets leaves out: none at all, or a bound it does not name", () => {
+    const none = inPlace(sentPause(), { timeout: {} });
+    const unbound = inPlace(sentPause(), { timeout: { expiresAt: T12 } });
+
+    expect(none?.pause).not.toHaveProperty("expiresAt");
+    expect(none?.pause).not.toHaveProperty("expiryBound");
+    expect(none?.pause).not.toHaveProperty("remindAt");
+    expect(unbound?.pause).toMatchObject({ expiresAt: T12 });
+    expect(unbound?.pause).not.toHaveProperty("expiryBound");
+    expect(unbound?.pause).not.toHaveProperty("remindAt");
   });
 
   it("keeps the deadline, bound and reminder when it sets none, and releases the pool when it names none", () => {
@@ -135,6 +147,23 @@ describe("an in-place reassignment", () => {
       previousTarget: "refund-tool-approval",
       previousChannel: "refund",
       previousExternalRef: "JIRA-1",
+    });
+  });
+
+  it("tells only what there is: a bare pause and a bare call make a notice of the kind, the time and the target", () => {
+    const bare = sentPause({
+      channel: undefined,
+      externalRef: undefined,
+      expiresAt: undefined,
+      assignees: undefined,
+    });
+    const done = inPlace(bare, {}, { listeners: ["metrics"] });
+
+    expect(done?.notices.map((one) => one.recipient)).toEqual(["listener:metrics"]);
+    expect(done?.notices[0]?.notice).toStrictEqual({
+      kind: PauseNoticeKind.Reassigned,
+      writtenAt: T10,
+      previousTarget: "refund-tool-approval",
     });
   });
 

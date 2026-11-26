@@ -605,6 +605,20 @@ describe("#1307: the reassignment a first send owes its channel (inFirstSendNoti
     expect(kinds(changedInPlace({ status: PauseStatus.Cancelled }))).not.toContain("reassigned");
   });
 
+  it("a replacement with a short chain of custody still tells its listeners `reassigned`, naming nothing it was moved from", () => {
+    const short = pending({ isSent: false, reassignedFrom: "p-0", trail: [entry("reassigned")] });
+    const told = markSentChange(short, RECIPIENTS).notices;
+
+    expect(told.map((one) => [one.recipient, one.notice.kind])).toEqual([
+      ["listener:metrics", PauseNoticeKind.Reassigned],
+    ]);
+    expect(told[0]?.notice).not.toHaveProperty("previousTarget");
+    expect(told[0]?.notice).not.toHaveProperty("previousChannel");
+    expect(told[0]?.notice).not.toHaveProperty("previousExpiresAt");
+    expect(told[0]?.notice).not.toHaveProperty("previousAssignees");
+    expect(told[0]?.notice).not.toHaveProperty("previousExternalRef");
+  });
+
   it("a pause is as seen only while each of trail length, assignees, deadline and isSent is the same", () => {
     const pause = changedInPlace();
     const seen = seenOf(pause);

@@ -10,6 +10,7 @@ import {
   PauseClosedReason,
   PauseResolution,
   type PauseRecord,
+  type PauseTrailRecord,
   type PauseUntakenResolution,
 } from "./pause-record.js";
 import { definedFields } from "../core/defined-fields.js";
@@ -82,12 +83,13 @@ export function openingNotices(
 ): readonly PlannedNotice[] {
   const at = instantOf(pause.askedAt);
   if (pause.reassignedFrom === undefined) {
-    const asked = firstChangeOf(pause) === -1 ? pause : pause.trail[0];
+    // a change in place makes the `opened` entry (the first: `firstChangeOf` is past it) the asked one
+    const asked = firstChangeOf(pause) === -1 ? pause : (pause.trail[0] as PauseTrailRecord);
     return noticesOf(
       recipients,
       PauseNoticeKind.Opened,
       at,
-      definedFields({ expiresAt: asked?.expiresAt }),
+      definedFields({ expiresAt: asked.expiresAt }),
     );
   }
   const before = pause.trail.at(-2);
@@ -118,10 +120,10 @@ export function inFirstSendNotices(
   sent: PauseRecord,
   recipients: PauseRecipients,
 ): readonly PlannedNotice[] {
-  const index = firstChangeOf(sent);
-  const asked = sent.trail[0];
-  const changed = sent.trail[index];
-  if (asked === undefined || changed === undefined) return [];
+  const changed = sent.trail[firstChangeOf(sent)];
+  if (changed === undefined) return [];
+  // a change in place is past the first entry, the `opened` one
+  const asked = sent.trail[0] as PauseTrailRecord;
   return noticesOf(
     recipients,
     PauseNoticeKind.Reassigned,

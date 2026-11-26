@@ -36,12 +36,10 @@ function isApplicable(pause: PauseRecord, change: PauseReassignmentChange, at: D
   if (!isSeenAs(pause, change.seen)) return false;
   const isExpiry = change.due !== undefined;
   if (isExpiry ? !isDueAt(pause, at) : !isOpenAt(pause, at)) return false;
-  if (change.maxReassignments !== undefined && reassignmentsOf(pause) >= change.maxReassignments)
-    return false;
+  // no limit named: no count reaches it
+  if (reassignmentsOf(pause) >= (change.maxReassignments ?? Infinity)) return false;
   return !(
-    change.countsAsExtension === true &&
-    change.maxExtensions !== undefined &&
-    extensionsOf(pause) >= change.maxExtensions
+    change.countsAsExtension === true && extensionsOf(pause) >= (change.maxExtensions ?? Infinity)
   );
 }
 
@@ -51,7 +49,7 @@ const extensionsOf = (pause: Pick<PauseRecord, "trail">): number =>
 
 /** The recipients of the old pause's `closed`: its channel only — listeners hear `reassigned`. */
 const channelOnly = (recipients: PauseRecipients): PauseRecipients => ({
-  ...(recipients.channel === undefined ? {} : { channel: recipients.channel }),
+  ...recipients,
   listeners: [],
 });
 
@@ -84,9 +82,8 @@ function reassignedInPlace(
 ): PauseRecord {
   const deadline = change.due ?? change.timeout;
   const expiresAt = deadline === undefined ? pause.expiresAt : deadline.expiresAt;
-  const dropped = ["assignees", ...(deadline === undefined ? [] : DEADLINE_KEYS)];
   return {
-    ...withoutKeys(pause, dropped),
+    ...withoutKeys(pause, deadline === undefined ? ["assignees"] : ["assignees", ...DEADLINE_KEYS]),
     ...deadline,
     ...(change.assignees === undefined ? {} : { assignees: change.assignees }),
     trail: [
