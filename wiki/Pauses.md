@@ -1065,7 +1065,7 @@ store transaction, so the instance that gets there first reminds and the rest fi
 lease is taken and nothing of the run moves. `remindBefore` is a positive finite duration shorter than the
 target's own `timeout` (`[pause.remind-before-invalid]`). The reminder time is fixed when the pause
 is made — `expiresAt − remindBefore`, so a pause the run's deadline bound is reminded before **that**
-deadline — and again by an extension. A `remindBefore` shorter than the pause timers' 5 s
+deadline — and again by a timeout change. A `remindBefore` shorter than the pause timers' 5 s
 tick can be skipped, since a tick may fall on none of its window (`[pause.remind-before-below-tick]`, a
 warning; an error under `--strict`). The look pages through the due reminders with a
 keyset cursor and hands each to the store without waiting, like the expiry look: another application's
@@ -1213,7 +1213,7 @@ It is refused:
 - a pause whose channel is still being asked for the first time (its step's `send` has not returned) —
   `PauseError.UpdateContended` (`pause.update-contended`; nothing changed, trying again once the send returned
   is safe): the step acts on what `send` returns, so a change written meanwhile is one it would never see;
-- a change planned against a pause that changed before the write (another reassignment, an extension, its
+- a change planned against a pause that changed before the write (another reassignment, a timeout change, its
   channel marked asked) — `PauseError.UpdateContended` too. A call that sets a `timeout` counts as an
   extension against `escalationLimits.maxExtensions` whether it changes the pause in place or moves it to
   another target or channel — `PauseError.EscalationLimitExceeded` past it.
