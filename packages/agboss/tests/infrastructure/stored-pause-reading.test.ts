@@ -163,6 +163,15 @@ describe("0.1.0 is refused, never defaulted", () => {
     ["no askedAt", { askedAt: undefined }, "askedAt"],
     // a record this version did not write has no limits to hold: unreadable, never "no limit" (Q-D)
     ["no firstAskedAt", { firstAskedAt: undefined }, "firstAskedAt"],
+    ["a cap with no milliseconds", { maxExpiresAt: "2026-01-05T20:00:00Z" }, "maxExpiresAt"],
+    ["a cap with an offset", { maxExpiresAt: "2026-01-05T22:00:00.000+02:00" }, "maxExpiresAt"],
+    ["a cap that is no date", { maxExpiresAt: "tomorrow" }, "maxExpiresAt"],
+    [
+      "a first asking with an offset",
+      { firstAskedAt: "2026-01-05T09:00:00.000+00:00" },
+      "firstAskedAt",
+    ],
+    ["a cap that is null, not absent", { maxExpiresAt: null }, "maxExpiresAt"],
     ["no escalationLimits", { escalationLimits: undefined }, "escalationLimits"],
     ["a count that is not a number", { escalationLimits: { maxExtensions: "2" } }, "maxExtensions"],
     ["a limit it does not know", { escalationLimits: { maxTotalTimeout: 5 } }, "escalationLimits"],
