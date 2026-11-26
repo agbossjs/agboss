@@ -31,6 +31,14 @@ export interface FaultStorage {
    * its process: `{ kind: "sqlite", path: env("AGBOSS_FAULT_DATABASE_URL") }`, or a `secret(…)`.
    */
   readonly settings: DriverSettings;
+  /**
+   * The settings of the cluster storage when the set's coordination stores (the child queue, the rate
+   * limits, …) are on another backend than its database — a Redis one beside SQLite rows:
+   * `{ kind: "redis", url: secret("AGBOSS_FAULT_REDIS_URL"), keyPrefix: env("AGBOSS_FAULT_REDIS_PREFIX") }`.
+   * The pod then declares a `@ClusterStorage` of these settings; the set's stores whose backend is
+   * `cluster.kind` are its stores, the others the database's. Absent: one database, no cluster.
+   */
+  readonly cluster?: DriverSettings | undefined;
 }
 
 /**

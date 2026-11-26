@@ -1,6 +1,7 @@
 import { depsOf } from "../components/container/container.js";
 import { isEnvContract } from "../environments/define-env.js";
 import { usedComponentsOf } from "../testing/workflow-parts.js";
+import { piiPolicyMetaOf } from "../pii/policy-checks.js";
 import { componentOf } from "../components/metadata.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import type { Class } from "../components/injection.js";
@@ -16,7 +17,7 @@ import type { AssembledApplication } from "./assemble.js";
  * application assembles; each variable once, in the order found, never a value.
  */
 
-type Reference = VariableReference | Secret | OptionalSecretReference;
+export type Reference = VariableReference | Secret | OptionalSecretReference;
 
 const isReference = (value: unknown): value is Reference =>
   value instanceof VariableReference ||
@@ -77,6 +78,46 @@ function envDepsOf(assembled: AssembledApplication): readonly (readonly [string,
         ),
       ),
   );
+}
+
+/** One reference an application's options hold: whose it is, where, and the reference itself. */
+export interface OwnedReference {
+  readonly owner: string;
+  readonly path: string;
+  readonly reference: Reference;
+}
+
+/**
+ * Every reference of the application's options, none left out for being a second use of a variable:
+ * the storage components', the components' (providers, model providers, budgets, endpoints, …), the
+ * mesh's and the PII policies' (the application's and its workflows'), and the `deps: [appEnv]` ones.
+ */
+export function referencesOf(assembled: AssembledApplication): readonly OwnedReference[] {
+  const storages = [
+    assembled.storage?.database,
+    assembled.storage?.cluster,
+    assembled.storage?.objects,
+  ].flatMap((entry) => (entry === undefined ? [] : [[entry.cls.name, entry.meta] as const]));
+  const policies = [
+    ...assembled.piiPolicies,
+    ...assembled.workflows.flatMap((one) => one.pii?.classes ?? []),
+  ];
+  const components = [...componentsOf(assembled), ...policies].flatMap((cls) => {
+    const meta = isModelProviderClass(cls)
+      ? modelProviderOf(cls)
+      : (componentOf(cls) ?? piiPolicyMetaOf(cls));
+    return meta === undefined ? [] : [[cls.name, meta] as const];
+  });
+  const mesh = assembled.mesh === undefined ? [] : [["@Mesh", assembled.mesh] as const];
+  const own = [...storages, ...components, ...mesh].flatMap(([owner, meta]) =>
+    referencesIn(meta, owner, new Set()).map(([path, reference]) => ({ owner, path, reference })),
+  );
+  const deps = envDepsOf(assembled).map(([path, reference]) => ({
+    owner: path.split(".")[0] ?? path,
+    path,
+    reference,
+  }));
+  return [...own, ...deps];
 }
 
 /** The variables the application's components name, once each, in the order found. */
