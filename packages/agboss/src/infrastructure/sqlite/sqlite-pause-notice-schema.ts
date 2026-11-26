@@ -15,6 +15,8 @@ const StoredNotice = z.object({
   closedAt: z.string().optional(),
   expiresAt: z.string().optional(),
   previousExpiresAt: z.string().optional(),
+  actor: z.object({ id: z.string(), orgId: z.string().optional() }).optional(),
+  changeReason: z.string().optional(),
   previousAssignees: z.array(z.string()).optional(),
   assignees: z.array(z.string()).optional(),
   previousTarget: z.string().optional(),

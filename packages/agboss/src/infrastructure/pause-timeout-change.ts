@@ -42,6 +42,8 @@ export function timeoutChange(
     notices: noticesOf(recipients, PauseNoticeKind.TimeoutChanged, at, {
       ...(change.expiresAt === undefined ? {} : { expiresAt: change.expiresAt }),
       ...(pause.expiresAt === undefined ? {} : { previousExpiresAt: pause.expiresAt }),
+      ...(change.actor === undefined ? {} : { actor: change.actor }),
+      ...(change.reason === undefined ? {} : { changeReason: change.reason }),
     }),
   };
 }

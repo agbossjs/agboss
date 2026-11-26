@@ -56,6 +56,10 @@ export interface PauseNotice {
   readonly previousAssignees?: readonly string[];
   /** `reassigned`: who it is for now (absent: nobody in particular). */
   readonly assignees?: readonly string[];
+  /** `timeout-changed`: who changed it — written with the notice, so a late delivery names its own change. */
+  readonly actor?: PauseActor;
+  /** `timeout-changed`: why, already masked by the pause's workflow's PII policy. */
+  readonly changeReason?: string;
   /** `reassigned`: the target it waited under before. */
   readonly previousTarget?: string;
   /** `reassigned`: the channel it was asked on before (absent: none). */

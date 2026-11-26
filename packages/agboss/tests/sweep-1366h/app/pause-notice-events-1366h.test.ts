@@ -189,6 +189,39 @@ describe("#1366: deadlines", () => {
     }
   });
 
+  it("a late delivery names its own change: actor and reason come from the notice, not the chain's newest entry (#1307)", async () => {
+    const own = notice({
+      kind: PauseNoticeKind.TimeoutChanged,
+      expiresAt: "2026-02-01T00:00:00.000Z",
+      actor: { id: "first-operator" },
+      changeReason: "first reason",
+    });
+    // a second change by someone else is already on the chain when the first notice is delivered
+    const later = {
+      ...answered,
+      trail: [
+        ...answered.trail,
+        {
+          action: "timeout-changed" as const,
+          at: "2026-01-21T00:00:00.000Z",
+          actor: { id: "second-operator" },
+          reason: "second reason",
+          target: "t",
+        },
+      ],
+    };
+
+    const channel = channelTimeoutChangedOf(sources(later, own));
+    const listener = await listenerTimeoutChangedOf(sources(later, own), false);
+
+    for (const event of [channel, listener])
+      expect(event).toMatchObject({ actor: { id: "first-operator" }, reason: "first reason" });
+    // a change that named neither carries neither, whatever the chain holds
+    const bare = notice({ kind: PauseNoticeKind.TimeoutChanged });
+    expect(channelTimeoutChangedOf(sources(later, bare))).not.toHaveProperty("actor");
+    expect(channelTimeoutChangedOf(sources(later, bare))).not.toHaveProperty("reason");
+  });
+
   it("a listener's expiresAt is the notice's, else the pause's, else absent", async () => {
     const pause = { ...answered, expiresAt: "2026-03-01T00:00:00.000Z" };
     const own = notice({

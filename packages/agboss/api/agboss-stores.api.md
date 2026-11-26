@@ -2032,7 +2032,9 @@ export interface PauseMailbox {
 
 // @public
 export interface PauseNotice {
+    readonly actor?: PauseActor;
     readonly assignees?: readonly string[];
+    readonly changeReason?: string;
     readonly closedAt?: string;
     readonly errorCode?: string;
     readonly expiresAt?: string;

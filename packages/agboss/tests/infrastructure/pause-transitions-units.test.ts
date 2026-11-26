@@ -302,6 +302,12 @@ describe("#1356, #1307: a change of a deadline (#1099)", () => {
       reason: "customer escalated",
     });
     expect(change(record, undefined)?.pause.trail.at(-1)).not.toHaveProperty("expiresAt");
+    // the notice carries the same actor and reason: a late delivery must not read them off the chain
+    expect(moved?.notices[0]?.notice).toMatchObject({
+      actor: { id: "manager-17" },
+      changeReason: "customer escalated",
+    });
+    expect(change(record, T12)?.notices[0]?.notice).not.toHaveProperty("actor");
   });
 
   it("never to the moment or the past, never from a deadline another writer moved", () => {

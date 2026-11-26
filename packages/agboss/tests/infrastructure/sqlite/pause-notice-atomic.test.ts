@@ -13,8 +13,10 @@ import {
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import {
   RECIPIENTS,
+  DEADLINE,
   expiringPauseOf,
   MID,
+  withSeen,
 } from "../../../src/testing/contracts/paused-execution-data.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
@@ -71,5 +73,38 @@ describe("one mailbox row that does not read does not stop the claim of the othe
 
     expect(claims.map(({ mailbox }) => mailbox.pauseId)).toEqual(["pause-b"]);
     expect(await pauses.countNotices()).toEqual({ live: 3, dead: 1 });
+  });
+});
+
+describe("a timeout-changed notice keeps who and why through the store (#1307)", () => {
+  it("the claimed notice carries the actor and the masked reason it was written with", async () => {
+    const pauses = new SqlitePausedExecutionRepository(
+      connectionTo(temporarySqlitePath()),
+      new VirtualClock(MID),
+    );
+    await pauses.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+    await pauses.markSentByTenantIdAndPauseId("default", "pause-a", RECIPIENTS);
+    await pauses.changeTimeoutByTenantIdAndPauseId(
+      "default",
+      "pause-a",
+      await withSeen(pauses, "pause-a", {
+        expiresAt: "2026-01-05T12:00:00.000Z",
+        previousExpiresAt: DEADLINE.toISOString(),
+        actor: { id: "operator-1", orgId: "hq" },
+        reason: "customer escalated",
+      }),
+      MID,
+      RECIPIENTS,
+    );
+
+    const claims = await pauses.claimNoticesDue(MID, 10, seconds(30), ["listener:audit-listener"]);
+
+    expect(claims.flatMap(({ mailbox }) => mailbox.notices)).toContainEqual(
+      expect.objectContaining({
+        kind: "timeout-changed",
+        actor: { id: "operator-1", orgId: "hq" },
+        changeReason: "customer escalated",
+      }),
+    );
   });
 });
