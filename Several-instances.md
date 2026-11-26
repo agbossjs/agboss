@@ -103,7 +103,11 @@ export class JobScoutDatabaseStorage {}
   waits through a whole hold still lands before the lease lapses. Several instances may
   open one new file at once: the switch to WAL, which SQLite can refuse at once on a fresh file,
   is tried again within the busy timeout (#911) — the whole open, SQLite's own waits included, is
-  bounded by it (the tries run with SQLite's `busy_timeout` at 0, set once the switch is done); the
+  bounded by it (the tries run with SQLite's `busy_timeout` at 0, set once the switch is done). A store's
+  own startup work — the record store's migration, `SqliteConnection.ensureSchema` — is synchronous too: it
+  waits for another process's write lock for the same 5 s, then `busy_timeout` is 0 again, and past the 5 s
+  it fails with `StoreError.LockTimeout` (#1317), never at once with a raw "database is locked" (an instance
+  that started beside a writer would not start). The
   connection is closed in `onDestroy` when the instance stops. `SqliteConnection` is the DI token
   of that connection (a subclass names it in its `deps`, [below](#extending-a-sqlite-implementation));
   the container creates it — project code never constructs it.
