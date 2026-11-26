@@ -42,6 +42,27 @@ export class SqlitePauseNoticeRows {
     return row === undefined ? undefined : toMailbox(row);
   }
 
+  /**
+   * The mailbox a scanned row holds. A row that does not read (a notice kind no code writes any more,
+   * damage) is set aside as dead with its problem — one bad row never stops the claim of the others.
+   */
+  #readable(row: unknown): readonly StoredMailbox[] {
+    try {
+      return [toMailbox(row)];
+    } catch (error) {
+      const key = z
+        .object({ tenant_id: z.string(), pause_id: z.string(), recipient: z.string() })
+        .safeParse(row);
+      if (!key.success) throw error;
+      this.database
+        .prepare(
+          "UPDATE pause_notices SET is_dead = 1, problem = ? WHERE tenant_id = ? AND pause_id = ? AND recipient = ?",
+        )
+        .run("unreadable mailbox", key.data.tenant_id, key.data.pause_id, key.data.recipient);
+      return [];
+    }
+  }
+
   /** Every mailbox of the pause. */
   ofPause(tenantId: string, pauseId: string): readonly StoredMailbox[] {
     return this.database
@@ -114,7 +135,7 @@ export class SqlitePauseNoticeRows {
            AND (claim_token IS NULL OR claimed_until <= ?) ORDER BY next_attempt_at LIMIT ?`,
       )
       .all(...recipients, now, now, limit)
-      .map(toMailbox);
+      .flatMap((row) => this.#readable(row));
     return due.map((box) => {
       const until = new Date(at.getTime() + claimFor);
       const token = newToken();
@@ -175,7 +196,7 @@ export class SqlitePauseNoticeRows {
            ORDER BY head_written_at LIMIT ?`,
       )
       .all(writtenBefore.toISOString(), at.toISOString(), limit)
-      .map(toMailbox);
+      .flatMap((row) => this.#readable(row));
     for (const box of stale) this.put(setAsideMailbox(box, problem));
     return stale.map(({ tenantId, pauseId, recipient }) => ({ tenantId, pauseId, recipient }));
   }
