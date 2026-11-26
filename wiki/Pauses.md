@@ -1254,7 +1254,10 @@ that left the chain's history cannot drop out of it). A move to **another target
 the smaller of the pause's own and the destination's, the destination's total wait counted from the first asking by
 its calendar for the new assignees — a laxer target frees nothing; a change in place, or to another channel of the
 same target, narrows nothing. A pause stored without these fields (not one this version wrote) is unreadable
-(`StoreError.UnreadableRecord`): the limits are never guessed.
+(`StoreError.UnreadableRecord`): the limits are never guessed — so **before upgrading, answer, cancel or let expire
+every pending pause**: the expiry, reminder and re-send scans stop at an unreadable row, and no pause behind it is
+expired or reminded until it is gone. The store itself also refuses, in the write, a deadline past `maxExpiresAt` (or
+none while a cap is set).
 
 **Races.** One transaction of the store makes the old pause `Reassigned` and the replacement `Pending` (unsent,
 the old deadline and question, the step key `<original>~r<n>` — a second reassignment is `~r2`, never
