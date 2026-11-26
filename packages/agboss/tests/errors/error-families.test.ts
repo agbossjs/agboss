@@ -49,10 +49,8 @@ const variantOf = (family: FamilyValue, name: string): VariantClass => {
 const FACTS: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
   "LimitError.Items": { node: "fan-out", limit: 50, actual: 51, path: ["a"], spentUsd: usd(0.5) },
   "StepError.Agent": { agent: "buyer", nodeId: "buyer", visitNumber: 1 },
-  "StepError.ToolTimeout": { tool: "pay", timeout: 30_000 },
   "GuardrailError.Blocked": { guardrail: "toxicity", refusal: "blocked", key: "k" },
   "PiiError.Refused": { piiKind: "email", refusal: "refused" },
-  "ExecutionError.LeaseLost": { rootExecutionId: "run-1" },
   "ValidationError.TenantRequired": { operation: "execute" },
   "ValidationError.DtoInvalid": { dto: "Order", issues: [{ path: "id", reason: "missing" }] },
   "A2AError.Contract": {
@@ -249,7 +247,6 @@ describe("#1325a: the spend of a paid family", () => {
           usage,
         }),
     ],
-    ["GuardrailError.Failed", () => new root.GuardrailError.Failed({ guardrail: "g", usage })],
     ["PiiError.DetectionFailed", () => new root.PiiError.DetectionFailed({ usage })],
   ])("%s carries its usage and the report of it", (_name, make) => {
     const error = make();

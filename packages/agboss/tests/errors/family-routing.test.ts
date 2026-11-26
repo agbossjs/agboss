@@ -62,7 +62,7 @@ describe("#1325a: a family's errors take the side path of the nearest class", ()
 
 describe("#1325a: a hand-over reaches no .onError, not even the family's", () => {
   test("LeaseLost and Fenced reject the call: no side path, no finish", async ({ app }) => {
-    await expect(run(app, "lease-lost")).rejects.toBeInstanceOf(ExecutionError.LeaseLost);
+    await expect(run(app, "lease-lost")).rejects.toBeInstanceOf(ExecutionLeaseLostError);
     // the family's refusal itself, never rebuilt as the legacy ExecutionError.Fenced around it
     const fenced: unknown = await run(app, "fenced").catch((error: unknown) => error);
     expect(fenced).toBeInstanceOf(ExecutionError.Fenced);
@@ -70,8 +70,8 @@ describe("#1325a: a hand-over reaches no .onError, not even the family's", () =>
 
   test("the kinds that are a hand-over, and only they, are handed over", () => {
     const handedOver = [
-      new ExecutionError.LeaseLost({ rootExecutionId: "r" }),
-      new ExecutionError.ApplicationStopping(),
+      new ExecutionLeaseLostError({ rootExecutionId: "r" }),
+      new ApplicationStoppingError({ message: "closing" }),
       new ExecutionError.Fenced({
         scopeKey: "t:r",
         token: 1,
@@ -102,9 +102,9 @@ describe("#1325a: the legacy hand-overs and the family's are guarded alike while
   test("the record of each legacy hand-over, and of each family one, is a hand-over record", () => {
     for (const error of legacy)
       expect(isHandOverRecord(errorRecordOf(error)), error.name).toBe(true);
-    const family = [new ExecutionError.LeaseLost({ rootExecutionId: "r" })];
-    for (const error of family)
-      expect(isHandOverRecord(errorRecordOf(error)), error.name).toBe(true);
+    expect(isHandOverRecord(errorRecordOf(new ApplicationStoppingError({ message: "x" })))).toBe(
+      true,
+    );
     expect(isHandOverRecord(errorRecordOf(new ExecutionError.UnknownThread()))).toBe(false);
     expect(isHandOverRecord(errorRecordOf(new ExecutionError.CancelFenced()))).toBe(false);
   });

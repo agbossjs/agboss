@@ -50,7 +50,7 @@ describe("#194 AC2: the errors a user can catch come from the public entry", () 
   });
 
   it("`ExecutionError` is the family of the execution's errors (#1325), not the old class", () => {
-    expect(Object.keys(agboss.ExecutionError)).toContain("LeaseLost");
+    expect(Object.keys(agboss.ExecutionError)).toContain("Fenced");
     expect(agboss.ExecutionError.code).toBe("execution");
   });
 });

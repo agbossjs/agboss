@@ -65,7 +65,7 @@ describe("#1325a: a family is a discriminated union", () => {
 
   it("the code is the variant's literal: `switch (error.code)` narrows", () => {
     expectTypeOf<LimitError.Budget["code"]>().toEqualTypeOf<"limit.budget">();
-    expectTypeOf<ExecutionError.LeaseLost["code"]>().toEqualTypeOf<"execution.lease-lost">();
+    expectTypeOf<ExecutionError.Fenced["code"]>().toEqualTypeOf<"execution.lease-lost.fenced">();
     expectTypeOf<DecisionError["code"]>().toEqualTypeOf<
       "model.decision.invalid-request" | "model.decision.invalid-response"
     >();

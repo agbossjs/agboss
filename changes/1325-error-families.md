@@ -13,7 +13,7 @@ LimitError.Budget` and `.onError(LimitError.Budget, …)` take one variant; ever
 `Family.Variant`, so two families never collide on a name. A project's error class without its own
 `static code` is caught by its class name, never by every `AGBossError` through an inherited `agboss`.
 `StoreError.of(kind, options)` builds a genuine `StoreError` for the store packages. A hand-over
-(`ExecutionError.LeaseLost`, `.Fenced`, `.CancelFenced`, `.ApplicationStopping`) reaches no `.onError`,
+(`ExecutionLeaseLostError`, `ApplicationStoppingError`, `ExecutionError.Fenced`) reaches no `.onError`,
 not even `.onError(ExecutionError)`. `RecordedError` is an `AGBossError`.
 
 `Result<T, E = AGBossError>` is a utility: `Result.ok`, `Result.err`, `Result.try(fn)` (keeps only an

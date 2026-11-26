@@ -1,3 +1,4 @@
+import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
 import { usd, hours, minutes, Ttl } from "../../src/units/index.js";
 import {
   Action,
@@ -59,7 +60,7 @@ const THROWN: Readonly<Record<string, (() => Error) | undefined>> = {
     new LimitError.Items({ node: "n", limit: 1, actual: 2, path: [], spentUsd: usd(0) }),
   "cancel-fenced": () => new ExecutionError.CancelFenced(),
   "unknown-thread": () => new ExecutionError.UnknownThread(),
-  "lease-lost": () => new ExecutionError.LeaseLost({ rootExecutionId: "run-1" }),
+  "lease-lost": () => new ExecutionLeaseLostError({ rootExecutionId: "run-1" }),
   fenced,
   "one-payment": () => new OnePaymentError("declined"),
   "other-payment": () => new OtherPaymentError("declined"),

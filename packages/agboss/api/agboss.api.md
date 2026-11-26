@@ -2633,12 +2633,11 @@ export interface ExecutionEndEvent extends ExecutionEvent {
 }
 
 // @public
-export type ExecutionError = ExecutionError.CancelFenced | ExecutionError.LeaseLost | ExecutionError.Fenced | ExecutionError.ExternallyPaused | ExecutionError.AlreadyTerminal | ExecutionError.IncompatibleResume | ExecutionError.UnknownThread | ExecutionError.InvalidThreadId | ExecutionError.InvalidMintedId | ExecutionError.ThreadIdsExhausted | ExecutionError.ThreadOwnerMismatch | ExecutionError.DuplicateExecutionId | ExecutionError.ContextUnavailable | ExecutionError.SpendOutsideStep | ExecutionError.ApplicationStopping | ExecutionError.CompensationFailed | ExecutionError.OutputInvalid | ExecutionError.NothingToRecover | ExecutionError.RemoteChildLost;
+export type ExecutionError = ExecutionError.CancelFenced | ExecutionError.Fenced | ExecutionError.ExternallyPaused | ExecutionError.AlreadyTerminal | ExecutionError.IncompatibleResume | ExecutionError.UnknownThread | ExecutionError.InvalidThreadId | ExecutionError.InvalidMintedId | ExecutionError.ThreadIdsExhausted | ExecutionError.ThreadOwnerMismatch | ExecutionError.DuplicateExecutionId | ExecutionError.ContextUnavailable | ExecutionError.SpendOutsideStep | ExecutionError.CompensationFailed | ExecutionError.OutputInvalid | ExecutionError.NothingToRecover | ExecutionError.RemoteChildLost;
 
 // @public
 export namespace ExecutionError {
     export type AlreadyTerminal = ErrorVariant<ExecutionErrorKind.AlreadyTerminal, "execution.already-terminal">;
-    export type ApplicationStopping = ErrorVariant<ExecutionErrorKind.ApplicationStopping, "execution.application-stopping">;
     export type CancelFenced = ErrorVariant<ExecutionErrorKind.CancelFenced, "execution.cancelled.fenced"> & CancelFencedFacts;
     export type CompensationFailed = ErrorVariant<ExecutionErrorKind.CompensationFailed, "execution.compensation-failed"> & {
         readonly failures: readonly CompensationRecord[];
@@ -2669,9 +2668,6 @@ export namespace ExecutionError {
     export type InvalidThreadId = ErrorVariant<ExecutionErrorKind.InvalidThreadId, "execution.invalid-thread-id"> & {
         readonly rule: KeyTextRule;
     };
-    export type LeaseLost = ErrorVariant<ExecutionErrorKind.LeaseLost, "execution.lease-lost"> & {
-        readonly rootExecutionId: string;
-    };
     export type NothingToRecover = ErrorVariant<ExecutionErrorKind.NothingToRecover, "execution.nothing-to-recover">;
     export type OutputInvalid = ErrorVariant<ExecutionErrorKind.OutputInvalid, "execution.output-invalid">;
     export type RemoteChildLost = ErrorVariant<ExecutionErrorKind.RemoteChildLost, "execution.remote-child-lost">;
@@ -2687,7 +2683,6 @@ export namespace ExecutionError {
 // @public
 export const ExecutionError: FamilyConstructor<ExecutionError, {
     CancelFenced: ExecutionError.CancelFenced;
-    LeaseLost: ExecutionError.LeaseLost;
     Fenced: ExecutionError.Fenced;
     ExternallyPaused: ExecutionError.ExternallyPaused;
     AlreadyTerminal: ExecutionError.AlreadyTerminal;
@@ -2700,7 +2695,6 @@ export const ExecutionError: FamilyConstructor<ExecutionError, {
     DuplicateExecutionId: ExecutionError.DuplicateExecutionId;
     ContextUnavailable: ExecutionError.ContextUnavailable;
     SpendOutsideStep: ExecutionError.SpendOutsideStep;
-    ApplicationStopping: ExecutionError.ApplicationStopping;
     CompensationFailed: ExecutionError.CompensationFailed;
     OutputInvalid: ExecutionError.OutputInvalid;
     NothingToRecover: ExecutionError.NothingToRecover;
@@ -2719,8 +2713,6 @@ export enum ExecutionErrorKind {
     // (undocumented)
     AlreadyTerminal = "already-terminal",
     // (undocumented)
-    ApplicationStopping = "application-stopping",
-    // (undocumented)
     CancelFenced = "cancel-fenced",
     // (undocumented)
     CompensationFailed = "compensation-failed",
@@ -2738,8 +2730,6 @@ export enum ExecutionErrorKind {
     InvalidMintedId = "invalid-minted-id",
     // (undocumented)
     InvalidThreadId = "invalid-thread-id",
-    // (undocumented)
-    LeaseLost = "lease-lost",
     // (undocumented)
     NothingToRecover = "nothing-to-recover",
     // (undocumented)
@@ -3889,7 +3879,7 @@ export interface GuardrailDefaults {
 export type GuardrailEndEvent = EndEvent<GuardrailOutcome>;
 
 // @public
-export type GuardrailError = GuardrailError.Blocked | GuardrailError.Failed;
+export type GuardrailError = GuardrailError.Blocked;
 
 // @public
 export namespace GuardrailError {
@@ -3900,15 +3890,11 @@ export namespace GuardrailError {
         readonly probability: number;
         readonly threshold: number;
     };
-    export type Failed = PaidErrorVariant<GuardrailErrorKind.Failed, "guardrail.failed"> & {
-        readonly guardrail: string;
-    };
 }
 
 // @public
 export const GuardrailError: FamilyConstructor<GuardrailError, {
     Blocked: GuardrailError.Blocked;
-    Failed: GuardrailError.Failed;
 }, {
     Blocked: "key";
 }>;
@@ -3916,9 +3902,7 @@ export const GuardrailError: FamilyConstructor<GuardrailError, {
 // @public
 export enum GuardrailErrorKind {
     // (undocumented)
-    Blocked = "blocked",
-    // (undocumented)
-    Failed = "failed"
+    Blocked = "blocked"
 }
 
 // @public
@@ -8516,7 +8500,7 @@ export interface StepDescriptor extends StepRecord {
 }
 
 // @public
-export type StepError = StepError.Agent | StepError.AgentAnswerInvalid | StepError.QualityGate | StepError.Action | StepError.ActionOutcomeUnknown | StepError.Router | StepError.RouterDecision | StepError.ExternalTask | StepError.PauseExpired | StepError.Arbiter | StepError.QuorumNotReached | StepError.Child | StepError.ChildWorkerUnavailable | StepError.Guardrail | StepError.ToolBlocked | StepError.ToolTimeout | StepError.RerankFailed | StepError.Memory | StepError.ModelFileLimit | StepError.FileMaskingFailed;
+export type StepError = StepError.Agent | StepError.AgentAnswerInvalid | StepError.QualityGate | StepError.Action | StepError.ActionOutcomeUnknown | StepError.Router | StepError.RouterDecision | StepError.ExternalTask | StepError.PauseExpired | StepError.Arbiter | StepError.QuorumNotReached | StepError.Child | StepError.ChildWorkerUnavailable | StepError.Guardrail | StepError.ToolBlocked | StepError.RerankFailed | StepError.Memory | StepError.ModelFileLimit | StepError.FileMaskingFailed;
 
 // @public
 export namespace StepError {
@@ -8596,10 +8580,6 @@ export namespace StepError {
         readonly interceptor: string;
         readonly reason: string;
     };
-    export type ToolTimeout = PaidErrorVariant<StepErrorKind.ToolTimeout, "step.tool-timeout"> & StepCoordinates & {
-        readonly tool: string;
-        readonly timeout: Milliseconds;
-    };
 }
 
 // @public
@@ -8619,7 +8599,6 @@ export const StepError: FamilyConstructor<StepError, {
     ChildWorkerUnavailable: StepError.ChildWorkerUnavailable;
     Guardrail: StepError.Guardrail;
     ToolBlocked: StepError.ToolBlocked;
-    ToolTimeout: StepError.ToolTimeout;
     RerankFailed: StepError.RerankFailed;
     Memory: StepError.Memory;
     ModelFileLimit: StepError.ModelFileLimit;
@@ -8665,9 +8644,7 @@ export enum StepErrorKind {
     // (undocumented)
     RouterDecision = "router-decision",
     // (undocumented)
-    ToolBlocked = "tool-blocked",
-    // (undocumented)
-    ToolTimeout = "tool-timeout"
+    ToolBlocked = "tool-blocked"
 }
 
 // @public
@@ -10259,7 +10236,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/family.ts - (ae-undocumented) Missing documentation for "spend".
 // src/core/error-families/family.ts - (ae-undocumented) Missing documentation for "cause".
 // src/core/error-families/guardrail-errors.ts - (ae-undocumented) Missing documentation for "Blocked".
-// src/core/error-families/guardrail-errors.ts - (ae-undocumented) Missing documentation for "Failed".
 // src/core/error-families/guardrail-errors.ts - (ae-undocumented) Missing documentation for "Refused".
 // src/core/error-families/guardrail-errors.ts - (ae-undocumented) Missing documentation for "DetectionFailed".
 // src/core/error-families/limit-errors.ts - (ae-undocumented) Missing documentation for "Budget".
@@ -10309,7 +10285,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/run-error-facts.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/core/error-families/run-error-facts.ts - (ae-undocumented) Missing documentation for "token".
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "CancelFenced".
-// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "LeaseLost".
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "Fenced".
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "ExternallyPaused".
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "AlreadyTerminal".
@@ -10322,7 +10297,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "DuplicateExecutionId".
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "ContextUnavailable".
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "SpendOutsideStep".
-// src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "ApplicationStopping".
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "CompensationFailed".
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "OutputInvalid".
 // src/core/error-families/run-errors.ts - (ae-undocumented) Missing documentation for "NothingToRecover".
@@ -10361,7 +10335,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ChildWorkerUnavailable".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Guardrail".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ToolBlocked".
-// src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ToolTimeout".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "RerankFailed".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "Memory".
 // src/core/error-families/step-errors.ts - (ae-undocumented) Missing documentation for "ModelFileLimit".

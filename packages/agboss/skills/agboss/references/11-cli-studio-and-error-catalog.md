@@ -610,7 +610,7 @@ Errors come in families (#1325): `LimitError`, `StepError`, `ExecutionError`, �
 toFinish(F))` or one variant with `.onError(LimitError.Budget, …)`; in code, `err instanceof LimitError` narrows to
 the union and `switch (err.kind)` (`LimitErrorKind.Budget`) is exhaustive. `Result.try(() => app.execute(…))` gives
 `{ ok, value | error }` for a framework error (a `TypeError` is a bug and is thrown on); `Result.tryAll` keeps
-anything. A hand-over (`ExecutionError.LeaseLost`, `.Fenced`) reaches no `.onError`.
+anything. A hand-over (`ExecutionLeaseLostError`, `ApplicationStoppingError`, `ExecutionError.Fenced`) reaches no `.onError`.
 
 Every error the framework throws is an `AGBossError` with a stable `code`; `.onError` takes the
 classes of a step's failures (reference 02, section 9). `expect(run).rejects.toFailWith(ErrorClass,
