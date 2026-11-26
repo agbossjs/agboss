@@ -1059,7 +1059,7 @@ where the expiry reads it). Over [A2A](A2A) the task goes
 the look is `-32004 a2a.pause-closed` (`reason: expired`). How the instances do it:
 [Several instances → Expiring a pause](Several-instances#expiring-a-pause-941).
 
-## Extending a pause and reminding before its deadline (#942)
+## Changing a pause's deadline and reminding before it (#942, #1307)
 
 **A reminder.** `@ToolApproval({ timeout: hours(24), remindBefore: hours(2) })` (or an `@ExternalTask`) makes the channel's
 optional `onPauseExpiring(event)` and a `@ChannelListener`'s optional `onPauseExpiring` hear "expiring at
@@ -1069,7 +1069,7 @@ store transaction, so the instance that gets there first reminds and the rest fi
 lease is taken and nothing of the run moves. `remindBefore` is a positive finite duration shorter than the
 target's own `timeout` (`[pause.remind-before-invalid]`). The reminder time is fixed when the pause
 is made — `expiresAt − remindBefore`, so a pause the run's deadline bound is reminded before **that**
-deadline — and again by an extension. A `remindBefore` shorter than the pause timers' 5 s
+deadline — and again by a timeout change. A `remindBefore` shorter than the pause timers' 5 s
 tick can be skipped, since a tick may fall on none of its window (`[pause.remind-before-below-tick]`, a
 warning; an error under `--strict`). The look pages through the due reminders with a
 keyset cursor and hands each to the store without waiting, like the expiry look: another application's
@@ -1120,52 +1120,65 @@ export class OnCallPauseListener implements ChannelListenerHandler {
 }
 ```
 
-**An extension.** `await app.extendPause({ pauseId, expiresIn: hours(24) }, { actor })` — the
-`ownerId` for a thread owner's pause: whoever may answer may extend; the options are
+**A timeout change.** `await app.setPauseTimeout({ pauseId, timeout: hours(24), reason: "customer escalated" }, { actor })` — the
+`ownerId` for a thread owner's pause: whoever may answer may change it; the options are
 `PauseCallerOptions`, the caller fields of `resume`'s and none of a run's — moves an open pause's deadline
-to `now + expiresIn` and returns `PauseExtension { pauseKey, expiresAt, previousExpiresAt }`. The channel's
-optional `onPauseTimeoutChanged(event)` and a listener's `onPauseTimeoutChanged` hear "extended until `event.expiresAt`"
-(`previousExpiresAt` too), and the reminder is made again before the new deadline. It is refused:
+to `now + timeout`, **later or earlier**, and returns `PauseTimeoutChangeResult { expiresAt?, previousExpiresAt? }`
+(`Date`s). `timeout: Timeout.None` takes the deadline away (`expiresAt` is then absent, and so is the reminder), a
+timeout on a pause that has none sets one. The target's `permitTimeoutChange(ctx)` — `ctx` has the `actor`, the `timeout`
+as asked, `currentExpiresAt`, the `reason`, the `input` and the `trail` — is asked first and **only `true` permits**:
+`false`, a throw, a rejection, any other value and a target that cannot be resolved are `PauseError.PermissionDenied`, and
+the pause stays as it was. The channel's optional `onPauseTimeoutChanged(event)` and a listener's `onPauseTimeoutChanged`
+hear "moved to `event.expiresAt`" (`previousExpiresAt` too; each absent when there is none; `actor` and the masked `reason` when the call gave them), and the reminder is made
+again before the new deadline — none when it would not be after now. The `reason` (PII-masked) and the actor go to the
+pause's chain of custody as a `timeout-changed` entry. It is refused:
 
+- a `timeout` that is no duration of at least `seconds(1)` — `PauseError.InvalidTimeout`;
 - a pause that is closed, or already past its deadline — `PauseError.Closed` (`reason: expired`);
-- a pause with **no deadline** — none is ever added to it — and a new deadline that is not later than the
-  current one — `ValidationError.DtoInvalid` (`dto: "ExtendPauseRequest"`);
 - a deadline past the one the pause was made under — its run's (or a quorum's): exactly that deadline is
-  allowed, and a pause extended to it expires there as the run's own, as one made with it does — also
-  `ValidationError.DtoInvalid`, naming that deadline;
-- another tenant's pause or an unknown id — `PauseError.UnknownPause`.
-- eight lost races in a row against other extensions of the same pause — `PauseError.UpdateContended`
+  allowed, and a pause set to it expires there as the run's own, as one made with it does —, or past the chain's
+  `escalationLimits` (`maxTotalTimeout`, counted from the first asking; `maxExtensions`, every change counts, a
+  reassignment with a `timeout` too) — `PauseError.EscalationLimitExceeded`; `Timeout.None` is past any of them;
+- a pause whose target guards its answers (`permitAnswer`) but declares no `permitTimeoutChange`, when the change is not a
+  longer deadline (an earlier one, one where there was none, or `Timeout.None`) — `PauseError.PermissionDenied`: a shorter
+  deadline would make the target's `onExpired` decide, perhaps `PauseExpiration.decide({ approved: true })`, without
+  `permitAnswer` ever being asked. A longer deadline is allowed; declare `permitTimeoutChange` to allow the rest. The same
+  holds for `reassignPause`: a target with `permitAnswer` and no `permitReassign` refuses it (it changes who answers and
+  may shorten the wait);
+- a pause whose first `send` has not returned — `PauseError.UpdateContended`: the channel would hear of the change before it
+  heard of the pause; trying again once it returned is safe;
+- another tenant's pause or an unknown id — `PauseError.UnknownPause`;
+- eight lost races in a row against other changes of the same pause — `PauseError.UpdateContended`
   (`pause.update-contended`; nothing changed, trying again is safe).
 
 ```ts
 import { hours } from "@agboss/core/units";
-import type { App, PauseExtension } from "@agboss/core";
+import type { App, PauseTimeoutChangeResult } from "@agboss/core";
 
 declare const app: App;
 declare const pauseId: string; // the id the channel was sent
 
 // the manager asks for one more day; the credential of a `Delegate` target is `actor`
-const extension: PauseExtension = await app.extendPause(
-  { pauseId, expiresIn: hours(24) },
+const changed: PauseTimeoutChangeResult = await app.setPauseTimeout(
+  { pauseId, timeout: hours(24) },
   { tenantId: "acme", actor: { id: "manager-17" } },
 );
-console.log(extension.expiresAt, extension.previousExpiresAt);
+console.log(changed.expiresAt, changed.previousExpiresAt);
 ```
 
-The store applies the extension atomically: its compare-and-set applies it only while the pause is open, over
-the deadline the caller read (`PauseDeadlineChange.previousExpiresAt`) and to a deadline later than the stored
-one. So exactly one of an extension and an expiry at one tick wins, and of two extensions at once one wins and the
-other re-reads: it is refused ("not later", `ValidationError.DtoInvalid`) when the winner's deadline is at least as late,
-and otherwise applied over the new deadline — the deadline never shortens, "extended" is told once by the writer
+The store applies the change atomically: its compare-and-set applies it only while the pause is open, over
+the deadline the caller read (`PauseTimeoutChange.previousExpiresAt`, absent for none) and to a deadline after the moment of the
+write or to none. So exactly one of a change and an expiry at one tick wins, and of two changes at once from one read one wins and the
+other re-reads and applies its own deadline over the new one — "timeout-changed" is told once by the writer
 that won, and `previousExpiresAt` is the deadline that write replaced. A store of your own does the same in its
-`extendByTenantIdAndPauseId` (the contract suite has the cases). An extended pause answered on any
+`changeTimeoutByTenantIdAndPauseId` (the contract suite has the cases). A changed pause answered on any
 instance, an expiry look on any instance, all read the new deadline from the record.
 
 ### Reassigning a pause to someone else (#946)
 
 The approver is on leave: the request must go to a deputy, and the agent or the step must not run again.
 `await app.reassignPause({ pauseId, assignees: ["deputy-3"] }, { actor })` — the `ownerId` for a thread
-owner's pause: whoever may answer may reassign; `PauseCallerOptions`, as `extendPause` — moves the open pause
+owner's pause: whoever may answer may reassign; `PauseCallerOptions`, as `setPauseTimeout` — moves the open pause
 to another addressee of **the same channel** and returns `PauseReassignment { pauseKey }`, the new pause's key.
 It is the same role's implementation that routes on `assignee` (a Slack user, an address, a queue): no other
 role, no other implementation, no change of the injection (`[di.ambiguous-implementation]` stays: a channel
@@ -1210,7 +1223,7 @@ It is refused:
 - a pause whose channel is still being asked for the first time (its step's `send` has not returned) —
   `PauseError.UpdateContended` (`pause.update-contended`; nothing changed, trying again once the send returned
   is safe): the step acts on what `send` returns, so a change written meanwhile is one it would never see;
-- a change planned against a pause that changed before the write (another reassignment, an extension, its
+- a change planned against a pause that changed before the write (another reassignment, a timeout change, its
   channel marked asked) — `PauseError.UpdateContended` too. A call that sets a `timeout` counts as an
   extension against `escalationLimits.maxExtensions` whether it changes the pause in place or moves it to
   another target or channel — `PauseError.EscalationLimitExceeded` past it.
@@ -1262,7 +1275,7 @@ once, by the instance that applied it; labels are the workflow, the target, the 
 
 "Approve within 2 hours" often means 2 **working** hours: a request at 17:30 on a Thursday in Tel Aviv
 is due at 10:30 on Sunday, not 19:30 the same evening; lunch and holidays do not count. `expiresIn`,
-`remindBefore` and `extendPause`'s `expiresIn` take working durations — `workingHours(n)`,
+`remindBefore` and `setPauseTimeout`'s `timeout` take working durations — `workingHours(n)`,
 `workingMinutes(n)` from `@agboss/core/units`, a positive finite number (`RangeError` otherwise), at least
 `seconds(1)` as a deadline — beside plain `hours(n)`. A **calendar** turns "now + N working time" into a
 date; nothing else changes: the deadline is still one stored absolute instant, the expiry look, the
@@ -1346,11 +1359,10 @@ working `remindBefore` is `[pause.remind-before-working-without-working-timeout]
 when `askedAt < remindAt < expiresAt`, checked after the run's or a quorum's deadline clamped `expiresAt` —
 otherwise none.
 
-**`extendPause` with working time.** `expiresAt = calendar.add(now, expiresIn)`, the reminder from `now` as
-above. A **plain** `expiresIn` for a pause whose target reminds in working time is refused with
-`ValidationError.DtoInvalid` (`dto: "ExtendPauseRequest"`, `.expiresIn`: "this target reminds in working time: extend
-it with workingHours / workingMinutes"); a pause whose channel has no calendar any more is refused working
-time the same way. The pause is unchanged on every refusal. **The calendar may take seconds, the write is
+**`setPauseTimeout` with working time.** `expiresAt = calendar.add(now, timeout)`, the reminder from `now` as
+above. A **plain** `timeout` for a pause whose target reminds in working time is refused with
+`PauseError.WorkingCalendar` ("it reminds in working time, so its timeout must count working time"); a pause whose target has no
+calendar any more is refused working time the same way. The pause is unchanged on every refusal. **The calendar may take seconds, the write is
 decided at its own instant:** the deadline counts from the call's start, but whether the pause is still open
 is decided with the clock read after the calendar answered (and the store's compare-and-set takes that
 instant as its `at`). A deadline that passed while the calendar computed is not moved — `PauseError.Closed`,
