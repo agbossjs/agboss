@@ -10,6 +10,8 @@ import { describe, expect } from "vitest";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { PauseError, PauseStatus, PausedExecutionRepository } from "../../src/index.js";
 import { PauseKind } from "../../src/pause/index.js";
+import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
+import { seenNow } from "../../src/testing/contracts/paused-execution-data.js";
 import { callTool, replyWith, testWith } from "../../src/testing/index.js";
 import { hours } from "../../src/units/index.js";
 import {
@@ -66,6 +68,56 @@ describe("#1307c: permitAnswer gates the answer of a delegate approval", () => {
     const done = await app.resume({ pauseId, decision: approve }, dana);
 
     expect(done).toFinishWith(GatedFinish, { text: "Refunded." });
+    expect(app.resolve(PermitRefunds).refunded).toEqual(["A-1"]);
+  });
+
+  test("an answer permitted over the assignees a pause had is not recorded once an in-place reassignment moved it: UpdateContended, nothing written; the retry asks the hook again and goes through", async ({
+    app,
+    clock,
+    mockModel,
+  }) => {
+    mockModel(GatedClerkAgent).thenReturn(
+      callTool(GatedRefundTool, { orderId: "A-1" }),
+      replyWith("Refunded."),
+    );
+    await execute(app, GatedStart, { text: "refund A-1" });
+    const policy = app.resolve(PermitPolicy);
+    const store = app.resolve(PausedExecutionRepository);
+    const { pauseId } = app.resolve(GatedRefundChannel).asked[0] ?? { pauseId: "" };
+    const planned = await seenNow(store, pauseId);
+    // the hook is user code: while it decides, an operator's reassignment lands (the in-memory
+    // store writes before it returns)
+    let moves = 0;
+    Object.defineProperty(policy, "verdict", {
+      configurable: true,
+      get: () => {
+        moves += 1;
+        if (moves === 1)
+          void store.reassignByTenantIdAndPauseId(
+            "default",
+            pauseId,
+            { assignees: ["manager"], seen: planned },
+            clock.now(),
+            NO_RECIPIENTS,
+          );
+        return true;
+      },
+    });
+
+    const refused = await app
+      .resume({ pauseId, decision: approve }, dana)
+      .catch((error: unknown) => error);
+
+    expect(refused).toBeInstanceOf(PauseError.UpdateContended);
+    const stored = await store.findByTenantIdAndPauseId("default", pauseId);
+    expect(stored).toMatchObject({ status: PauseStatus.Pending, assignees: ["manager"] });
+    expect(stored?.answer).toBeUndefined();
+    expect(app.resolve(PermitRefunds).refunded).toEqual([]);
+
+    const done = await app.resume({ pauseId, decision: approve }, dana);
+
+    expect(done).toFinishWith(GatedFinish, { text: "Refunded." });
+    expect(policy.asked).toHaveLength(2);
     expect(app.resolve(PermitRefunds).refunded).toEqual(["A-1"]);
   });
 

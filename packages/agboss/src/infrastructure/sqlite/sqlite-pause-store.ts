@@ -88,10 +88,10 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     answer: PauseAnswer,
     at: Date,
     recipients: PauseRecipients,
+    seen?: PauseSeen,
   ): Promise<PauseRecord | undefined> {
-    return Promise.resolve(
-      this.#change(tenantId, pauseId, (pause) => resolveChange(pause, answer, at, recipients)),
-    );
+    const resolve = (pause: PauseRecord) => resolveChange(pause, answer, at, recipients, seen);
+    return Promise.resolve(this.#change(tenantId, pauseId, resolve));
   }
 
   async decideByTenantIdAndPauseId(
@@ -101,10 +101,8 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     at: Date,
     seen: PauseSeen,
   ): Promise<boolean> {
-    const decided = this.#change(tenantId, pauseId, (pause) =>
-      decideChange(pause, answer, at, seen),
-    );
-    return Promise.resolve(decided !== undefined);
+    const decide = (pause: PauseRecord) => decideChange(pause, answer, at, seen);
+    return Promise.resolve(this.#change(tenantId, pauseId, decide) !== undefined);
   }
 
   async cancelByTenantIdAndPauseId(

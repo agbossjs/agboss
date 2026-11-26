@@ -119,6 +119,11 @@ export abstract class PausedExecutionRepository {
    * answer is ever recorded at or after the deadline, whatever the sweep did yet (I1, I2) — and
    * returns it; `undefined` when the pause is not pending, past its deadline, or none. A sent
    * pause's `closed` (`Answered`) goes in the same transaction to the channel and the listeners (I7).
+   * With `seen` (`seenOf` of the record the answer's `permitAnswer` was asked over: the same trail
+   * length, deadline, assignees and `isSent`) the write applies **only while the pause is still that**:
+   * an answer permitted for the assignees a pause had is never recorded after an in-place reassignment
+   * moved it to others (`undefined`, nothing written; the caller re-reads and retries). Absent: unguarded
+   * (an answer with no permit to compare against); the core's `app.resume` always sets it.
    */
   abstract resolveByTenantIdAndPauseId(
     tenantId: string,
@@ -126,6 +131,7 @@ export abstract class PausedExecutionRepository {
     answer: PauseAnswer,
     at: Date,
     recipients: PauseRecipients,
+    seen?: PauseSeen,
   ): Promise<PauseRecord | undefined>;
 
   /**

@@ -64,14 +64,18 @@ export const isOpenAt = (pause: PauseRecord, at: Date): boolean =>
 export const isDueAt = (pause: PauseRecord, at: Date): boolean =>
   pause.status === PauseStatus.Pending && (pause.expiresAt ?? NEVER) <= at.toISOString();
 
-/** `Pending → Resolved` with the answer, only while `expiresAt` is after `at` (I1, I2). */
+/**
+ * `Pending → Resolved` with the answer, only while `expiresAt` is after `at` (I1, I2) and, when the
+ * caller names the pause its permit was asked over (`seen`), only while it is still that one.
+ */
 export function resolveChange(
   pause: PauseRecord,
   answer: PauseAnswer,
   at: Date,
   recipients: PauseRecipients,
+  seen?: PauseSeen,
 ): PauseChange | undefined {
-  return isOpenAt(pause, at)
+  return isOpenAt(pause, at) && (seen === undefined || isSeenAs(pause, seen))
     ? closing(pause, resolvedPause(pause, answer, at), at, recipients)
     : undefined;
 }

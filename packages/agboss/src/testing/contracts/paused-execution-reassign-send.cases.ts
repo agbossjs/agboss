@@ -6,10 +6,12 @@ import {
   type PausedExecutionRepository,
   type PauseRecord,
 } from "../../infrastructure/paused-execution.repository.js";
+import type { PauseSeen } from "../../infrastructure/pause-notices.js";
 import type { ContractCase } from "./define.js";
 import {
   decideNow,
   AFTER_DEADLINE,
+  APPROVED_BY_MANAGER,
   BEFORE_DEADLINE,
   CHANNEL_KEY,
   DEADLINE,
@@ -171,6 +173,46 @@ export const REASSIGN_SEND_CASES: readonly ContractCase<PausedExecutionRepositor
 
       // over the pause as it is now, the decision is taken
       expect(await decideNow(second, "pause-a", DECIDED_ANSWER, decidedAt)).toBe(true);
+    },
+  },
+  {
+    name: "an answer permitted over the pause as it was (`seen`) is not recorded once an in-place reassignment — an operator's, or an expiry's under a new deadline — changed it: refused untouched; recorded over what the pause is now",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+      await first.markSentByTenantIdAndPauseId("default", "pause-a", RECIPIENTS, "JIRA-1");
+      const resolve = (store: PausedExecutionRepository, seen: PauseSeen, at = BEFORE_DEADLINE) =>
+        store.resolveByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          APPROVED_BY_MANAGER,
+          at,
+          RECIPIENTS,
+          seen,
+        );
+      const permitted = await seenNow(first, "pause-a");
+
+      // (a) an operator moves it to the manager before the clerk's permitted answer lands
+      await reassignWith(second, "pause-a", { assignees: ["manager"] });
+      expect(await resolve(first, permitted)).toBeUndefined();
+      // (b) the expiry's due-at change under a new deadline: the answer is after the original one
+      const later = "2026-01-05T12:00:00.000Z";
+      await reassignWith(
+        second,
+        "pause-a",
+        { assignees: ["director"], due: { expiresAt: later } },
+        AFTER_DEADLINE,
+      );
+      const afterDeadline = new Date(AFTER_DEADLINE.getTime() + 60_000);
+      expect(await resolve(first, permitted, afterDeadline)).toBeUndefined();
+      const stored = await first.findByTenantIdAndPauseId("default", "pause-a");
+      expect(stored).toMatchObject({ status: PauseStatus.Pending, assignees: ["director"] });
+      expect(stored?.answer).toBeUndefined();
+
+      // permitted over what the pause is now: recorded
+      const now = await seenNow(second, "pause-a");
+      expect(await resolve(second, now, afterDeadline)).toMatchObject({
+        status: PauseStatus.Resolved,
+      });
     },
   },
 ];

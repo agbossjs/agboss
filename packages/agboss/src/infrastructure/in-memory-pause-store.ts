@@ -83,9 +83,12 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
     answer: PauseAnswer,
     at: Date,
     recipients: PauseRecipients,
+    seen?: PauseSeen,
   ): Promise<PauseRecord | undefined> {
     return Promise.resolve(
-      this.book.change(tenantId, pauseId, (pause) => resolveChange(pause, answer, at, recipients)),
+      this.book.change(tenantId, pauseId, (pause) =>
+        resolveChange(pause, answer, at, recipients, seen),
+      ),
     );
   }
 

@@ -8,6 +8,7 @@ import {
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
 import { pauseKeyOf } from "../infrastructure/pause-record.js";
+import { PauseError } from "../core/error-families/pause-errors.js";
 import { pauseClosed } from "./pause-closed.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { closeTreePauses } from "./tree-end-pauses.js";
@@ -128,6 +129,31 @@ export async function refusedAfterMark(
   const text = `the resume of pause ${pauseKeyOf(pause.tenantId, pause.pauseId)} was refused after it made execution ${pause.rootExecutionId} running again: recovery rests it at its pause`;
   parts.log.warn("resume.refused-after-mark", text, subject);
   return pauseClosed(parts.pauses, pause, parts.clock.now());
+}
+
+/**
+ * Why the store did not record an answer: the pause closed or its deadline passed (`Closed`; after a
+ * mark, told), or it is still open but no longer the pause the answer was permitted over — changed in
+ * place meanwhile — and `PauseError.UpdateContended` says so: nothing was written, the retry asks the
+ * permit again over what the pause is now.
+ */
+export async function refusedAnswer(
+  parts: AnsweredRootParts,
+  pause: PauseRecord,
+  isMarked: boolean,
+): Promise<Error> {
+  const closed = await (isMarked
+    ? refusedAfterMark(parts, pause)
+    : pauseClosed(parts.pauses, pause, parts.clock.now()));
+  const fresh = await parts.pauses.findByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
+  const isOpen =
+    fresh?.status === PauseStatus.Pending &&
+    (fresh.expiresAt === undefined || fresh.expiresAt > parts.clock.now().toISOString());
+  return isOpen
+    ? new PauseError.UpdateContended({
+        message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: it changed while the answer was permitted; retry is safe and asks the permit again`,
+      })
+    : closed;
 }
 
 /** JSON keeps no `Infinity` (a run without a cost limit has `budgetUsd: Infinity`): tagged. */
