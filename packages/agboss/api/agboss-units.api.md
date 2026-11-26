@@ -56,6 +56,11 @@ export const seconds: (amount: number) => Milliseconds;
 export const tb: (amount: number) => Bytes;
 
 // @public
+export enum Timeout {
+    None = "none"
+}
+
+// @public
 export enum Ttl {
     Forever = "forever",
     None = "none"

@@ -1,5 +1,5 @@
 /**
- * #1148: `extendPause` with working time asks a calendar that may take seconds (30 s at most). The
+ * #1148: `setPauseTimeout` with working time asks a calendar that may take seconds (30 s at most). The
  * extension is decided at the instant of its write, as a plain one is (#942, #1099): a deadline that
  * passed while the calendar computed is not moved, whatever the clock said when the call began. The
  * working deadline itself still counts from the call's start. Tel Aviv, IST = UTC+2 in November: the
@@ -112,7 +112,7 @@ describe("#1148: an extension in working time is decided when it is written", ()
 
     // the clock passes the deadline inside the calendar; the expiry look enters the channel's handler
     const refused: unknown = await app
-      .extendPause({ pauseId, expiresIn: workingHours(8) }, manager)
+      .setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager)
       .catch((error: unknown) => error);
     await until(() => expiry.entered === 1);
     release();
@@ -129,11 +129,11 @@ describe("#1148: an extension in working time is decided when it is written", ()
   }) => {
     const pauseId = await pausedThenSlow(app, clock, "2026-11-22T08:00:00.000Z", seconds(20));
 
-    const extension = await app.extendPause({ pauseId, expiresIn: workingHours(8) }, manager);
+    const extension = await app.setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager);
 
     // 08:00:00Z = Sunday 10:00 IST + 8 working hours (10:00–13:00, 14:00–18:00 = 7 h, 09:00–10:00 Monday)
-    expect(extension.previousExpiresAt).toBe(DEADLINE);
-    expect(extension.expiresAt).toBe("2026-11-23T08:00:00.000Z");
+    expect(extension.previousExpiresAt?.toISOString()).toBe(DEADLINE);
+    expect(extension.expiresAt?.toISOString()).toBe("2026-11-23T08:00:00.000Z");
     expect((await pauseOf(app, pauseId)).expiresAt).toBe("2026-11-23T08:00:00.000Z");
   });
 });

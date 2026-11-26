@@ -10,7 +10,7 @@ export {
   NO_RECIPIENTS,
   PauseNoticeKind,
   recipientKeysOf,
-  type PauseDeadlineChange,
+  type PauseTimeoutChange,
   type PauseFilter,
   type PauseMailbox,
   type PauseNotice,

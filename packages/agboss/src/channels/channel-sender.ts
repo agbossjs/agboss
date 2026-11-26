@@ -50,10 +50,10 @@ export interface ChannelSenderNotTaken extends ChannelSenderAsk, PauseDeliveredE
   readonly answer: unknown;
 }
 
-/** An extension as the framework builds it (#942). */
+/** A timeout change as the framework builds it (#942, #1307): each deadline absent when there is none. */
 export interface ChannelSenderExtended extends ChannelSenderAsk, PauseDeliveredEvent {
-  readonly expiresAt: string;
-  readonly previousExpiresAt: string;
+  readonly expiresAt?: string;
+  readonly previousExpiresAt?: string;
 }
 
 /** A reminder as the framework builds it (#942). */

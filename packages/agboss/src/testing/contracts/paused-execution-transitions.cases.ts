@@ -46,14 +46,14 @@ const TRANSITIONS: readonly (readonly [
   [
     "extend",
     (s, id) =>
-      s.extendByTenantIdAndPauseId(
+      s.changeTimeoutByTenantIdAndPauseId(
         "default",
         id,
         { expiresAt: "2026-01-05T12:00:00.000Z", previousExpiresAt: DEADLINE.toISOString() },
         MID,
         RECIPIENTS,
       ),
-    "extended",
+    "timeout-changed",
   ],
   ["remind", (s, id) => s.remindByTenantIdAndPauseId("default", id, MID, RECIPIENTS), "expiring"],
 ];

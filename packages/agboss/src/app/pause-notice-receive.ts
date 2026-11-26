@@ -62,7 +62,7 @@ type Hook = (sources: EventSources) => Promise<() => Promise<void>>;
 
 /** The notices of #942 and #945 a channel may hear. */
 function laterChannelHook(sender: ChannelSender, kind: PauseNoticeKind): Hook | undefined {
-  if (kind === PauseNoticeKind.Extended && hookOverridden(sender, "onPauseTimeoutChanged"))
+  if (kind === PauseNoticeKind.TimeoutChanged && hookOverridden(sender, "onPauseTimeoutChanged"))
     return (sources) => {
       const event = channelExtendedOf(sources);
       // Stryker disable next-line OptionalChaining: hookOverridden has seen that the sender's hook is a function
@@ -108,7 +108,7 @@ function channelHook(sender: ChannelSender, kind: PauseNoticeKind): Hook | undef
 /** The notices of #942 and #945 a listener may hear. */
 function laterListenerHook(listener: ListenerReceiver, kind: PauseNoticeKind): Hook | undefined {
   const { handler, includePauseIds } = listener;
-  if (kind === PauseNoticeKind.Extended && handler.onPauseTimeoutChanged !== undefined)
+  if (kind === PauseNoticeKind.TimeoutChanged && handler.onPauseTimeoutChanged !== undefined)
     return async (sources) => {
       const event = await listenerExtendedOf(sources, includePauseIds);
       // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined

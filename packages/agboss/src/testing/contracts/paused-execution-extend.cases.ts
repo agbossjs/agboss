@@ -30,7 +30,7 @@ export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
       const extend = (at: Date, expiresAt: string) =>
-        second.extendByTenantIdAndPauseId(
+        second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
           { expiresAt, previousExpiresAt: FROM },
@@ -61,7 +61,7 @@ export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
       );
 
       expect(
-        await first.extendByTenantIdAndPauseId(
+        await first.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
           { expiresAt: LATER, previousExpiresAt: FROM },
@@ -70,7 +70,7 @@ export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
         ),
       ).toBeUndefined();
       expect(
-        await first.extendByTenantIdAndPauseId(
+        await first.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-b",
           { expiresAt: LATER, previousExpiresAt: FROM },

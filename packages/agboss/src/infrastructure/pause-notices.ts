@@ -26,8 +26,8 @@ export enum PauseNoticeKind {
   AnswerNotTaken = "answer-not-taken",
   /** An answered branch's launch failed (#945, Q11). */
   JoinFailed = "join-failed",
-  /** Its deadline moved. */
-  Extended = "extended",
+  /** Its deadline moved, was set or taken away (`app.setPauseTimeout`). */
+  TimeoutChanged = "timeout-changed",
   /** Its deadline is near: the reminder. */
   Expiring = "expiring",
   /**
@@ -48,9 +48,9 @@ export interface PauseNotice {
   readonly reason?: PauseClosedReason;
   /** `closed`, `answerNotTaken`: when it closed (the untaken close's time). */
   readonly closedAt?: string;
-  /** `opened`, `extended`, `expiring`. */
+  /** `opened`, `timeout-changed` (absent: no deadline now), `expiring`. */
   readonly expiresAt?: string;
-  /** `extended`. */
+  /** `timeout-changed`: the deadline it had (absent: none). */
   readonly previousExpiresAt?: string;
   /** `reassigned`: who the pause was for before (absent: nobody in particular). */
   readonly previousAssignees?: readonly string[];
@@ -141,20 +141,22 @@ export interface SetAsideMailbox {
   readonly recipient: string;
 }
 
-/** The deadline change `extend…` applies. */
-export interface PauseDeadlineChange {
-  /** The new deadline (ISO 8601); after `at` and after the stored one. */
-  readonly expiresAt: string;
+/** The deadline change `changeTimeout…` applies: to a later or an earlier one, set, or taken away. */
+export interface PauseTimeoutChange {
+  /** The new deadline (ISO 8601), after `at`; absent: the pause has none from now on. */
+  readonly expiresAt?: string;
   /**
-   * The deadline the caller read and extends from (ISO 8601): the change applies only while the
-   * stored deadline is still this one — the compare of the compare-and-set (#1099) — and the
-   * `extended` notice names it as `previousExpiresAt`.
+   * The deadline the caller read and changes from (ISO 8601; absent: it had none): the change
+   * applies only while the stored deadline is still this one — the compare of the compare-and-set
+   * (#1099) — and the `timeout-changed` notice names it as `previousExpiresAt`.
    */
-  readonly previousExpiresAt: string;
+  readonly previousExpiresAt?: string;
   /** The new reminder time (ISO 8601); absent: none. */
   readonly remindAt?: string;
   /** Who changed it; absent for the framework's own. Kept in the chain of custody. */
   readonly actor?: PauseActor;
+  /** Why, as the chain of custody keeps it: already masked by the pause's own workflow's PII policy. */
+  readonly reason?: string;
   /**
    * The most `timeout-changed` entries the pause's chain of custody may hold (the targets'
    * `escalationLimits.maxExtensions`, tightened along its chain): refused, atomically with the

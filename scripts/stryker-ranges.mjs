@@ -91,8 +91,8 @@ export function pausesShard() {
       "src/infrastructure/in-memory-pause-{book,queries,store}.ts",
       // #1307c: an answer is recorded only once its target's permitAnswer said true; fails closed
       "src/app/{answer-permit,answer-parts,pause-expiry-reassign}.ts",
-      // #1307, #1310: the limits and the permission of a reassignment and an extension — the chain's counts and total wait, the destination, the deadline a change sets, the request's checks
-      "src/app/{extend-request,pause-limits,pause-reassign-deadline,pause-reassign-plan,pause-reassign-support}.ts",
+      // #1307, #1310: the limits and the permission of a reassignment and a timeout change — the chain's counts and total wait, the destination, the deadline a change sets, the request's checks
+      "src/app/{timeout-request,pause-timeout,pause-limits,pause-reassign-deadline,pause-reassign-plan,pause-reassign-support}.ts",
     ],
   };
 }

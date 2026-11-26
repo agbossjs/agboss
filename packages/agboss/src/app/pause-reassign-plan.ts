@@ -224,7 +224,7 @@ export async function planOf(
   assertWithinLimits(pause, ask, limits);
   if (isTimeoutOnly(ask, to === from))
     throw new PauseError.InvalidTimeout({
-      message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: a deadline alone is extendPause's change, not a reassignment's`,
+      message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: a deadline alone is setPauseTimeout's change, not a reassignment's`,
     });
   const assignees = await assigneesAfter(pause, to, to === from, ask.assignees);
   const askedChannel = [...to.channels.values()].find((one) => one.cls === ask.channel);

@@ -205,9 +205,12 @@ describe("#944 AC3: a tenant's own holiday table", () => {
       await until(() => holidayDesk.told.expiring.length === 1);
       seen.requests.length = 0;
 
-      const extension = await app.extendPause({ pauseId, expiresIn: workingMinutes(30) }, manager);
+      const extension = await app.setPauseTimeout(
+        { pauseId, timeout: workingMinutes(30) },
+        manager,
+      );
 
-      expect(extension.expiresAt).toBe("2026-01-11T09:20:00.000Z");
+      expect(extension.expiresAt?.toISOString()).toBe("2026-01-11T09:20:00.000Z");
       expect(seen.requests).toHaveLength(1);
       expect(seen.requests[0]).toMatchObject({ amount: workingMinutes(30), tenantId: "default" });
       expect((await pauseOf(app, pauseId)).remindAt).toBeUndefined();
@@ -222,10 +225,10 @@ describe("#944 AC3: a tenant's own holiday table", () => {
       const pauseId = sentId();
       seen.requests.length = 0;
 
-      const extension = await app.extendPause({ pauseId, expiresIn: workingHours(3) }, manager);
+      const extension = await app.setPauseTimeout({ pauseId, timeout: workingHours(3) }, manager);
 
       // now Sunday 09:00 IST + 3 h: 09:00–13:00 is 4 h → 12:00 IST; the reminder 3 h − 45 min = 2.25 h → 11:15 IST
-      expect(extension.expiresAt).toBe("2026-01-11T10:00:00.000Z");
+      expect(extension.expiresAt?.toISOString()).toBe("2026-01-11T10:00:00.000Z");
       expect((await pauseOf(app, pauseId)).remindAt).toBe("2026-01-11T09:15:00.000Z");
       expect(seen.requests.map((one) => one.amount.amount)).toEqual([hours(3), hours(2.25)]);
     },
@@ -316,7 +319,7 @@ describe("#944 AC5: a calendar that cannot answer asks nobody", () => {
   );
 
   flakyTest(
-    "AC5: extendPause with a failing calendar rejects with the PauseError.WorkingCalendar, the pause unchanged",
+    "AC5: setPauseTimeout with a failing calendar rejects with the PauseError.WorkingCalendar, the pause unchanged",
     async ({ app, clock }) => {
       await moveTo(clock, "2026-01-08T15:30:00.000Z");
       const paused = await execute(app, flakyDesk.start, ORDER, { threadId: "t-1" });
@@ -326,7 +329,7 @@ describe("#944 AC5: a calendar that cannot answer asks nobody", () => {
       flaky.mode = "throw";
 
       const refused: unknown = await app
-        .extendPause({ pauseId, expiresIn: workingHours(8) }, manager)
+        .setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager)
         .catch((error: unknown) => error);
 
       expect(refused).toBeInstanceOf(PauseError.WorkingCalendar);

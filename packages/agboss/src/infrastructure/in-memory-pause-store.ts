@@ -2,7 +2,7 @@ import { InMemoryPauseBook } from "./in-memory-pause-book.js";
 import { InMemoryPauseQueryRepository } from "./in-memory-pause-queries.js";
 import {
   isInPlace,
-  type PauseDeadlineChange,
+  type PauseTimeoutChange,
   type PauseReassignmentChange,
   type PauseRecipients,
 } from "./pause-notices.js";
@@ -20,7 +20,7 @@ import {
   cancelChange,
   closeUntakenChange,
   expireChange,
-  extendChange,
+  timeoutChange,
   markSentChange,
   remindChange,
   resolveChange,
@@ -142,15 +142,15 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
     );
   }
 
-  extendByTenantIdAndPauseId(
+  changeTimeoutByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    change: PauseDeadlineChange,
+    change: PauseTimeoutChange,
     at: Date,
     recipients: PauseRecipients,
   ): Promise<PauseRecord | undefined> {
     return Promise.resolve(
-      this.book.change(tenantId, pauseId, (pause) => extendChange(pause, change, at, recipients)),
+      this.book.change(tenantId, pauseId, (pause) => timeoutChange(pause, change, at, recipients)),
     );
   }
 

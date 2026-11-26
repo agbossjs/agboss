@@ -7,7 +7,7 @@
  * moved to explicit instants; no machine zone is read.
  */
 import { beforeEach, describe, expect } from "vitest";
-import { PauseStatus, ValidationError } from "../../src/index.js";
+import { PauseError, PauseStatus } from "../../src/index.js";
 import { PauseExpiryBound } from "../../src/infrastructure/pause-record.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { callTool, testWith } from "../../src/testing/index.js";
@@ -122,7 +122,7 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     expect(desk.told.expiring[0]?.expiresAt).toBe("2026-01-11T08:30:00.000Z");
   });
 
-  test("AC4: extendPause by workingHours(8) is calendar.add(now, 8 h); its reminder 7 working hours from now", async ({
+  test("AC4: setPauseTimeout by workingHours(8) is calendar.add(now, 8 h); its reminder 7 working hours from now", async ({
     app,
     clock,
   }) => {
@@ -131,11 +131,11 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     const paused = await execute(app, flow.start, ORDER, { threadId: "t-1" });
     const pauseId = sentId();
 
-    const extension = await app.extendPause({ pauseId, expiresIn: workingHours(8) }, manager);
+    const extension = await app.setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager);
 
     // 30 min Thursday + 7.5 h Sunday (09:00–13:00, 14:00–17:30) → Sunday 17:30 IST = 15:30Z
-    expect(extension.expiresAt).toBe("2026-01-11T15:30:00.000Z");
-    expect(extension.previousExpiresAt).toBe("2026-01-11T08:30:00.000Z");
+    expect(extension.expiresAt?.toISOString()).toBe("2026-01-11T15:30:00.000Z");
+    expect(extension.previousExpiresAt?.toISOString()).toBe("2026-01-11T08:30:00.000Z");
     const pause = await pauseOf(app, pauseId);
     expect(pause.expiresAt).toBe("2026-01-11T15:30:00.000Z");
     // 8 h − 1 h = 7 working hours from now → Sunday 16:30 IST = 14:30Z
@@ -153,14 +153,14 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     await execute(first, flow.start, ORDER, { threadId: "t-1" });
     const pauseId = sentId();
 
-    const extension = await second.extendPause({ pauseId, expiresIn: workingHours(8) }, manager);
+    const extension = await second.setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager);
 
-    expect(extension.expiresAt).toBe("2026-01-11T15:30:00.000Z");
+    expect(extension.expiresAt?.toISOString()).toBe("2026-01-11T15:30:00.000Z");
     expect((await pauseOf(first, pauseId)).expiresAt).toBe("2026-01-11T15:30:00.000Z");
     expect((await pauseOf(first, pauseId)).remindAt).toBe("2026-01-11T14:30:00.000Z");
   });
 
-  test("AC4: extendPause with a plain duration on a role whose reminder is working time → ValidationError.DtoInvalid, the pause unchanged", async ({
+  test("AC4: setPauseTimeout with a plain duration on a role whose reminder is working time → PauseError.WorkingCalendar, the pause unchanged", async ({
     app,
     clock,
   }) => {
@@ -171,24 +171,17 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     const before = await pauseOf(app, pauseId);
 
     const refused: unknown = await app
-      .extendPause({ pauseId, expiresIn: hours(100) }, manager)
+      .setPauseTimeout({ pauseId, timeout: hours(100) }, manager)
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
+    expect(refused).toBeInstanceOf(PauseError.WorkingCalendar);
     expect(refused).toMatchObject({
-      dto: "ExtendPauseRequest",
-      issues: [
-        {
-          path: ".expiresIn",
-          reason:
-            "this target reminds in working time: extend it with workingHours / workingMinutes",
-        },
-      ],
+      message: expect.stringContaining("it reminds in working time, so its timeout must count"),
     });
     expect(await pauseOf(app, pauseId)).toEqual(before);
   });
 
-  test("an extension by working time that is not later than the deadline is refused like a plain one", async ({
+  test("a change by working time to an earlier deadline is applied like a plain one", async ({
     app,
     clock,
   }) => {
@@ -197,13 +190,12 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     const paused = await execute(app, flow.start, ORDER, { threadId: "t-1" });
     const pauseId = sentId();
 
-    // 1 working hour from Thursday 17:30 is Sunday 09:30: before the current Sunday 10:30
-    const refused: unknown = await app
-      .extendPause({ pauseId, expiresIn: workingHours(1) }, manager)
-      .catch((error: unknown) => error);
+    // 1 working hour from Thursday 17:30 is Sunday 09:30 (07:30Z): before the current Sunday 10:30
+    const changed = await app.setPauseTimeout({ pauseId, timeout: workingHours(1) }, manager);
 
-    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
-    expect((await pauseOf(app, pauseId)).expiresAt).toBe("2026-01-11T08:30:00.000Z");
+    expect(changed.expiresAt?.toISOString()).toBe("2026-01-11T07:30:00.000Z");
+    expect(changed.previousExpiresAt?.toISOString()).toBe("2026-01-11T08:30:00.000Z");
+    expect((await pauseOf(app, pauseId)).expiresAt).toBe("2026-01-11T07:30:00.000Z");
   });
 
   test("an extension by working minutes is checked as a duration: at least seconds(1)", async ({
@@ -215,7 +207,7 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     const paused = await execute(app, flow.start, ORDER, { threadId: "t-1" });
     const pauseId = sentId();
 
-    for (const expiresIn of [
+    for (const timeout of [
       workingMinutes(0.01),
       5,
       "8h",
@@ -225,9 +217,9 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
       workingHours(1e9),
     ]) {
       const refused: unknown = await app
-        .extendPause({ pauseId, expiresIn } as never, manager)
+        .setPauseTimeout({ pauseId, timeout } as never, manager)
         .catch((error: unknown) => error);
-      expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
+      expect(refused).toBeInstanceOf(PauseError.InvalidTimeout);
     }
   });
 });
@@ -298,13 +290,12 @@ describe("#944: the run's deadline stays wall-clock (#941 D8)", () => {
     const pauseId = sentId();
 
     const past: unknown = await app
-      .extendPause({ pauseId, expiresIn: workingHours(9) }, manager)
+      .setPauseTimeout({ pauseId, timeout: workingHours(9) }, manager)
       .catch((error: unknown) => error);
-    expect(past).toBeInstanceOf(ValidationError.DtoInvalid);
-    expect(String((past as ValidationError.DtoInvalid).issues[0]?.reason)).toContain("bound");
+    expect(past).toBeInstanceOf(PauseError.EscalationLimitExceeded);
 
-    const exact = await app.extendPause({ pauseId, expiresIn: workingHours(8) }, manager);
-    expect(exact.expiresAt).toBe("2026-01-11T15:30:00.000Z");
+    const exact = await app.setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager);
+    expect(exact.expiresAt?.toISOString()).toBe("2026-01-11T15:30:00.000Z");
   });
 });
 
@@ -341,7 +332,7 @@ const plainRole = workingApp("wt-plain", {
 });
 const plainTest = testWith(plainRole.application);
 
-describe("#944: extendPause with working time on a pause whose channel has no calendar", () => {
+describe("#944: setPauseTimeout with working time on a pause whose channel has no calendar", () => {
   plainTest("is refused: extend it with hours / minutes; the pause unchanged", async ({ app }) => {
     await app.ready();
     await execute(app, plainRole.start, ORDER, { threadId: "t-1" });
@@ -349,17 +340,15 @@ describe("#944: extendPause with working time on a pause whose channel has no ca
     const before = await pauseOf(app, pauseId);
 
     const refused: unknown = await app
-      .extendPause({ pauseId, expiresIn: workingHours(8) }, manager)
+      .setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager)
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
-    expect(refused).toMatchObject({
-      issues: [{ path: ".expiresIn", reason: expect.stringContaining("no working calendar") }],
-    });
+    expect(refused).toBeInstanceOf(PauseError.WorkingCalendar);
+    expect(refused).toMatchObject({ message: expect.stringContaining("has no calendar") });
     expect(await pauseOf(app, pauseId)).toEqual(before);
     // a plain extension of the same pause is as in #942
-    const plain = await app.extendPause({ pauseId, expiresIn: hours(48) }, manager);
-    expect(Date.parse(plain.expiresAt)).toBeGreaterThan(Date.parse(before.expiresAt ?? ""));
+    const plain = await app.setPauseTimeout({ pauseId, timeout: hours(48) }, manager);
+    expect(plain.expiresAt?.getTime() ?? 0).toBeGreaterThan(Date.parse(before.expiresAt ?? ""));
   });
 });
 

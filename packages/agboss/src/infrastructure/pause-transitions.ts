@@ -2,7 +2,7 @@ import { decidedOnExpiryPause, expiredPause, untakenPause } from "./pause-closer
 import type { PlannedNotice } from "./pause-mailboxes.js";
 import {
   PauseNoticeKind,
-  type PauseDeadlineChange,
+  type PauseTimeoutChange,
   type PauseNoticeFacts,
   type PauseRecipients,
 } from "./pause-notices.js";
@@ -120,62 +120,53 @@ export function closeUntakenChange(
 }
 
 /**
- * A pending pause's deadline moved, never to a past time (I3), never earlier or equal (#1099), and
- * only from the deadline the caller read: whoever read an older one lost to a writer that moved it.
+ * A pending pause's deadline changed (`app.setPauseTimeout`): later, earlier, set or taken away —
+ * never to a past time (I3), and only from the deadline the caller read: whoever read an older one
+ * lost to a writer that moved it. A pause that is not open takes no change.
  */
-export function extendChange(
+export function timeoutChange(
   pause: PauseRecord,
-  extension: PauseDeadlineChange,
+  change: PauseTimeoutChange,
   at: Date,
   recipients: PauseRecipients,
 ): PauseChange | undefined {
-  // a pause with no deadline gets none, and one that is not open takes no extension (I3)
-  if (
-    !isOpenAt(pause, at) ||
-    // Stryker disable next-line ConditionalExpression: the floors below hold a time of the pause's own, and no extension is after `undefined`, so a pause with no deadline is refused there too
-    pause.expiresAt === undefined
-  )
-    return undefined;
-  // from the deadline the caller read, to a time after it and after `at`: never to a past time (I3), never
-  // earlier or equal (#1099) — one comparison against both floors
-  const floors = [pause.expiresAt, at.toISOString()];
-  if (
-    pause.expiresAt !== extension.previousExpiresAt ||
-    !floors.every((floor) => extension.expiresAt > floor)
-  )
-    return undefined;
+  if (!isOpenAt(pause, at)) return undefined;
+  // from the deadline the caller read, to none or to a time after `at`: never to a past time (I3)
+  if (pause.expiresAt !== change.previousExpiresAt) return undefined;
+  if (change.expiresAt !== undefined && change.expiresAt <= at.toISOString()) return undefined;
   const changes = pause.trail.filter((entry) => entry.action === "timeout-changed").length;
-  if (extension.maxExtensions !== undefined && changes >= extension.maxExtensions) return undefined;
+  if (change.maxExtensions !== undefined && changes >= change.maxExtensions) return undefined;
   return {
     pause: {
       ...pause,
-      expiresAt: extension.expiresAt,
+      expiresAt: change.expiresAt,
       expiryBound: PauseExpiryBound.Pause,
-      remindAt: extension.remindAt,
-      trail: [...pause.trail, timeoutChangedEntryOf(pause, extension, at)],
+      remindAt: change.remindAt,
+      trail: [...pause.trail, timeoutChangedEntryOf(pause, change, at)],
     },
-    notices: noticesOf(recipients, PauseNoticeKind.Extended, at, {
-      expiresAt: extension.expiresAt,
-      previousExpiresAt: pause.expiresAt,
+    notices: noticesOf(recipients, PauseNoticeKind.TimeoutChanged, at, {
+      ...(change.expiresAt === undefined ? {} : { expiresAt: change.expiresAt }),
+      ...(pause.expiresAt === undefined ? {} : { previousExpiresAt: pause.expiresAt }),
     }),
   };
 }
 
-/** The entry a deadline change adds to the chain of custody: who moved it, when, to what. */
+/** The entry a deadline change adds to the chain of custody: who moved it, when, to what, why. */
 function timeoutChangedEntryOf(
   pause: PauseRecord,
-  extension: PauseDeadlineChange,
+  change: PauseTimeoutChange,
   at: Date,
 ): PauseTrailRecord {
   return {
     action: "timeout-changed",
     at: at.toISOString(),
-    ...(extension.actor === undefined ? {} : { actor: extension.actor }),
+    ...(change.actor === undefined ? {} : { actor: change.actor }),
     target: pause.target,
     ...(pause.channel === undefined ? {} : { channel: pause.channel }),
     ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
-    expiresAt: extension.expiresAt,
+    ...(change.expiresAt === undefined ? {} : { expiresAt: change.expiresAt }),
     ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
+    ...(change.reason === undefined ? {} : { reason: change.reason }),
   };
 }
 

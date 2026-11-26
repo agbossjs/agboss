@@ -45,10 +45,10 @@ import { PauseRespondent } from "../../../src/pause/respondent.js";
 /** One notice a receiver was told, with the instance that told it. */
 export interface Told {
   readonly receiver: "channel" | "listener";
-  readonly kind: "extended" | "expiring";
+  readonly kind: "timeout-changed" | "expiring";
   readonly instance: string;
   readonly deliveryId: string;
-  readonly expiresAt: string;
+  readonly expiresAt?: string;
   readonly previousExpiresAt?: string;
 }
 
@@ -129,7 +129,7 @@ abstract class ExtendManagerChannelBase {
   ): Promise<void> {
     told.notices.push({
       receiver: "channel",
-      kind: "extended",
+      kind: "timeout-changed",
       instance: this.context.instanceId,
       deliveryId: event.deliveryId,
       expiresAt: event.expiresAt,
@@ -241,7 +241,7 @@ export class ExtensionPauseListener {
   onPauseTimeoutChanged(event: ChannelListenerTimeoutChangedEvent): Promise<void> {
     told.notices.push({
       receiver: "listener",
-      kind: "extended",
+      kind: "timeout-changed",
       instance: this.context.instanceId,
       deliveryId: event.deliveryId,
       expiresAt: event.expiresAt,

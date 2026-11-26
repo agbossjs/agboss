@@ -638,22 +638,29 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   made: `expiresAt − remindBefore`, none when that is not after the ask; a `remindBefore` shorter than
   the pause timers' 5 s tick can be skipped by a tick that falls on none of its window
   (`[pause.remind-before-below-tick]`, a warning, an error under `--strict`); a pause bound by its run's
-  deadline is reminded before that deadline; one with no deadline never. `await app.extendPause({ pauseId,
-expiresIn: hours(24) }, { actor })` (the `ownerId` for an owner's pause — who may answer may change the
-  deadline unless the target's `permitTimeoutChange(ctx)` says otherwise; the options are
+  deadline is reminded before that deadline; one with no deadline never. `await app.setPauseTimeout({ pauseId,
+timeout: hours(24), reason }, { actor })` (the `ownerId` for an owner's pause — who may answer may change the
+  deadline, and the target's `permitTimeoutChange(ctx)` — `actor`, `timeout`, `currentExpiresAt`, `reason`,
+  `input`, `trail` — must say `true`: `false`, a throw, a rejection, any other value and a target that cannot be resolved
+  are `PauseError.PermissionDenied`, the pause unchanged; the options are
   `PauseCallerOptions`: the caller fields only, no `signal` / `onStream` / `record`) moves an open pause's deadline to
-  `now + expiresIn` and returns `PauseExtension` (`pauseKey`, `expiresAt`, `previousExpiresAt`); the
-  channel's optional `onPauseTimeoutChanged(event)` (`ChannelPauseTimeoutChangedEvent`, + `previousExpiresAt`) and a
-  listener's `onPauseTimeoutChanged` (`ChannelListenerTimeoutChangedEvent`) hear "moved to …", the reminder is
-  made again before the new deadline. Refused: a closed pause or one past its deadline —
-  `PauseError.Closed` (`reason: expired`) —, a pause with no deadline (none is ever added), a deadline
-  not later than the current one, and one past the deadline of the run (or quorum) the pause was made
-  under (exactly that deadline is allowed) — `ValidationError.DtoInvalid` (`dto: "ExtendPauseRequest"`);
-  another tenant's pause is `PauseError.UnknownPause`; `escalationLimits` on the target bounds the number of
-  extensions, reassignments and the total time (`PauseError.UpdateContended` when two race for one pause).
-  An extension and the expiry look at one tick: the store lets one win.
+  `now + timeout` — later **or earlier** — or, with `timeout: Timeout.None` (`@agboss/core`), takes it away; it
+  returns `PauseTimeoutChangeResult` (`expiresAt?`, `previousExpiresAt?`: `Date`s, absent when there is none; no
+  `pauseKey`); the channel's optional `onPauseTimeoutChanged(event)` (`ChannelPauseTimeoutChangedEvent`, `expiresAt?`
+  - `previousExpiresAt?`) and a listener's `onPauseTimeoutChanged` (`ChannelListenerTimeoutChangedEvent`) hear "moved to …",
+    and the reminder is made again before the new deadline (none when that is not after now, or without a deadline).
+    `reason` (one to 500 characters, PII-masked) and the actor go to the pause's chain of custody as a `timeout-changed`
+    entry. Refused: a `timeout` that is no duration of at least `seconds(1)` — `PauseError.InvalidTimeout` —, a closed
+    pause or one past its deadline — `PauseError.Closed` (`reason: expired`) —, a deadline past the one of the run (or
+    quorum) the pause was made under (exactly that deadline is allowed) or past the chain's `escalationLimits`
+    (`maxTotalTimeout` counted from the first asking, `maxExtensions`; a reassignment with a `timeout` counts too) —
+    `PauseError.EscalationLimitExceeded`; `Timeout.None` is past any of them —, a pause whose first `send` is still
+    in flight — `PauseError.UpdateContended`, retry once it returned —; a blank or too long `reason` is
+    `ValidationError.DtoInvalid` (`dto: "SetPauseTimeoutRequest"`); another tenant's pause is `PauseError.UnknownPause`
+    (`PauseError.UpdateContended` too when 8 calls in a row lose the store's compare-and-set).
+    A change and the expiry look at one tick: the store lets one win.
 - **Reassign a pause** (#946): `await app.reassignPause({ pauseId, assignees: ["deputy-3"] }, { actor })`
-  (`ownerId` for an owner's pause; `PauseCallerOptions`, as `extendPause`; `ReassignPauseRequest` also takes a `target`
+  (`ownerId` for an owner's pause; `PauseCallerOptions`, as `setPauseTimeout`; `ReassignPauseRequest` also takes a `target`
   from the target's `escalatesTo`, a `channel`, a `timeout` and a `reason`; `permitReassign(ctx)` on the target
   may refuse) moves an open pause to another addressee — the agent and the step do not run again — and
   returns `PauseReassignment` (`pauseKey` only: the new `pauseId` is a capability, given to the channel's
@@ -667,9 +674,9 @@ expiresIn: hours(24) }, { actor })` (the `ownerId` for an owner's pause — who 
   A new `send` that fails or never happens (the instance died) is made up by another instance's pause timers within a minute
   (at-least-once: deduplicate by the new `pauseId`). A new `send` that returns `ChannelOutcome.decided(…)` answers the replacement at once, once.
   `assign(ctx)` on the target picks the assignees of a new pause; `permitAnswer(ctx)` says whether an
-  answer is taken (a refusal is `PauseError.PermissionDenied`). A hook the framework does not enforce for
-  a target is `[pause.permit-hook-not-enforced]`.
-- **Deadlines in working time** (#944): `timeout`, `remindBefore` and `extendPause`'s `expiresIn` take
+  answer is taken, `permitTimeoutChange(ctx)` a timeout change and `permitReassign(ctx)` a reassignment (a refusal of any is
+  `PauseError.PermissionDenied`).
+- **Deadlines in working time** (#944): `timeout`, `remindBefore` and `setPauseTimeout`'s `timeout` take
   `workHours(n)` / `workMin(n)` / `workDays(n)` (`@agboss/core/units`) beside `hours(n)` — counted by the
   target's `calendar` (a `@WorkingCalendar` class; there is no application-wide calendar). `WorkingWeek.of({ timeZone,
 days: [Weekday.Sunday, …], hours: [{ from: "09:00", to: "18:00" }], breaks?, holidays? })` is the built-in
@@ -682,11 +689,11 @@ assignees })` (returns a `WorkingWeek.of(…)` or `WorkingWeek.anyOf([…])`, th
   and holidays skipped), not 24 hours; `isHoliday(localDate)` is a holiday rule beside `holidays`. The deadline is computed **once**, when the pause opens
   (before the channel is asked), into `expiresAt` / `remindAt`; a calendar changed later never moves an open
   pause — change its deadline. Reminder: both working → `calendar.add(askedAt, timeout − remindBefore)`; a working
-  `remindBefore` needs a working `timeout` (`[pause.remind-before-working-without-working-timeout]`; `extendPause`
-  refuses a plain `expiresIn` there with `ValidationError.DtoInvalid`). A working duration with no `calendar` on the target is
+  `remindBefore` needs a working `timeout` (`[pause.remind-before-working-without-working-timeout]`; `setPauseTimeout`
+  refuses a plain `timeout` there with `PauseError.WorkingCalendar`). A working duration with no `calendar` on the target is
   `[calendar.required-for-working-duration]`. A calendar that throws, times out,
   answers no `Date` or a date not after `from` fails the step — `StepError.ExternalTask` / `StepError.Agent` with
-  a `PauseError.WorkingCalendar` (`pause.working-calendar`) as its `cause` — and nobody is asked; an extension with
+  a `PauseError.WorkingCalendar` (`pause.working-calendar`) as its `cause` — and nobody is asked; a timeout change with
   it rejects with it. The run's deadline stays wall-clock (the smaller wins, a tie to the run).
 - **Expiry in parallel launches (#945):** a branch whose pause expired ends `BranchStatus.Expired`
   (its error `step.pause-expired` stays in `result.launches`). A pause asked in a quorum branch is
@@ -770,7 +777,6 @@ test("a large refund waits for the manager, then runs", async ({ app, mockModel,
 | `[pause.remind-before-below-tick]`                                                                           | `remindBefore` is shorter than the pause timers' 5 s tick (a warning): the reminder can be skipped → at least 5 s                                                         |
 | `[pause.remind-before-working-without-working-timeout]`                                                      | a working `remindBefore` over a plain `timeout` → give `timeout` in `workHours`, or `remindBefore` in plain time                                                          |
 | `[pause.incompatible-escalation-target]`                                                                     | `escalatesTo` names a class of another kind, or one that takes other DTOs → a target of the same kind and DTOs                                                            |
-| `[pause.permit-hook-not-enforced]`                                                                           | a `permit…` hook on a target that cannot enforce it → drop it                                                                                                             |
 | `[working-calendar.invalid]`                                                                                 | a grid with an unknown zone, no days, a bad interval, a break outside the hours, no working minute; a class that is no listed `@WorkingCalendar` → fix it                 |
 | `[working-calendar.duplicate-name]`                                                                          | two listed `@WorkingCalendar` classes with one `name` → give each its own                                                                                                 |
 | `PauseError.WorkingCalendar`                                                                                 | a pause's calendar failed (`pause.working-calendar`, `calendar-failed` \| `calendar-timeout` \| `not-a-date` \| `not-after-start`) → the step's `cause`; nobody was asked |

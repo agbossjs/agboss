@@ -44,7 +44,7 @@ export * from "./core/error-families/step-errors.js";
 export type * as ErrorTypes from "./public/error-types.js";
 export { Result, type TryOutcome } from "./core/result.js";
 export * from "./infrastructure/store-call-timeout.js";
-export { Ttl } from "./units/index.js";
+export { Timeout, Ttl } from "./units/index.js";
 // `defineConfig` (#1318): one profile, `src/config/<name>.config.ts`
 export { defineConfig, type ConfigOverlay } from "./config/define-config.js";
 export type { BudgetOverlay } from "./budgets/budget-overlay.js";

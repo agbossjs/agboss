@@ -1,20 +1,22 @@
 /**
- * #1366: the paused-execution contract's deadline cases (`paused-execution-deadline.cases.ts`, #910)
- * and extension race cases (`paused-execution-extend-race.cases.ts`, #1099, #1148) judge a store by
+ * #1366: the paused-execution contract's deadline cases (`paused-execution-deadline.cases.ts`, #910),
+ * extension race cases (`paused-execution-extend-race.cases.ts`, #1099, #1148) and timeout change cases
+ * (`paused-execution-timeout.cases.ts`, #1307) judge a store by
  * what it answers and keeps: each passes on the sound in-memory store — also when one instance is
  * slower than the other, so the other's call is first — and FAILS (with an assertion, never a crash)
  * on a store that breaks the rule the case names: an answer taken at or after the deadline, a
  * refused call that wrote, a closer that answers a wrong record, an extension that skips the
- * compare-and-set of the deadline read, the later-than check, the open check or the deadline's own
- * time.
+ * compare-and-set of the deadline read, the shortening, the none-over-none, the chain's count, the open check or the
+ * deadline's own time.
  */
 import { describe, expect, it } from "vitest";
 import { InMemoryPausedExecutionRepository } from "../../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import type {
-  PauseDeadlineChange,
+  PauseTimeoutChange,
   PauseRecipients,
 } from "../../../../src/infrastructure/pause-notices.js";
 import {
+  PauseExpiryBound,
   PauseResolution,
   PauseStatus,
   type PauseAnswer,
@@ -25,13 +27,14 @@ import {
 import {
   cancelChange,
   expireChange,
-  extendChange,
+  timeoutChange,
   resolveChange,
   type PauseChange,
 } from "../../../../src/infrastructure/pause-transitions.js";
 import type { ContractCase } from "../../../../src/testing/contracts/define.js";
 import { DEADLINE_CASES } from "../../../../src/testing/contracts/paused-execution-deadline.cases.js";
 import { EXTEND_RACE_CASES } from "../../../../src/testing/contracts/paused-execution-extend-race.cases.js";
+import { TIMEOUT_CHANGE_CASES } from "../../../../src/testing/contracts/paused-execution-timeout.cases.js";
 import type { PausedExecutionRepository } from "../../../../src/infrastructure/paused-execution.repository.js";
 
 type Who = "first" | "second";
@@ -77,7 +80,7 @@ interface Tweaks {
   /** Replaces the planned change of an extension. */
   readonly extend?: (
     pause: PauseRecord,
-    change: PauseDeadlineChange,
+    change: PauseTimeoutChange,
     at: Date,
     recipients: PauseRecipients,
   ) => Planned | undefined;
@@ -188,14 +191,14 @@ class Instance extends InMemoryPausedExecutionRepository {
     );
   }
 
-  override extendByTenantIdAndPauseId(
+  override changeTimeoutByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    change: PauseDeadlineChange,
+    change: PauseTimeoutChange,
     at: Date,
     recipients: PauseRecipients,
   ): Promise<PauseRecord | undefined> {
-    const plan = this.tweaks.extend ?? extendChange;
+    const plan = this.tweaks.extend ?? timeoutChange;
     return this.#change("extend", tenantId, pauseId, (pause) =>
       plan(pause, change, at, recipients),
     );
@@ -222,7 +225,8 @@ const caseIn = (cases: readonly Case[], start: string): Case => {
   return found;
 };
 const deadline = (start: string): Case => caseIn(DEADLINE_CASES, start);
-const race = (start: string): Case => caseIn(EXTEND_RACE_CASES, start);
+const race = (start: string): Case =>
+  caseIn([...EXTEND_RACE_CASES, ...TIMEOUT_CHANGE_CASES], start);
 
 const RACE_AT = "an answer 1 ms before the deadline";
 const AT_AND_AFTER = "resolve at `expiresAt` and after";
@@ -253,15 +257,15 @@ const ignoringDeadline = (
 const extendWhen =
   (
     store: boolean,
-    condition: (pause: PauseRecord, change: PauseDeadlineChange, at: Date) => boolean,
+    condition: (pause: PauseRecord, change: PauseTimeoutChange, at: Date) => boolean,
   ) =>
   (
     pause: PauseRecord,
-    change: PauseDeadlineChange,
+    change: PauseTimeoutChange,
     at: Date,
     recipients: PauseRecipients,
   ): Planned | undefined => {
-    const sound = extendChange(pause, change, at, recipients);
+    const sound = timeoutChange(pause, change, at, recipients);
     if (sound !== undefined || !condition(pause, change, at)) return sound;
     return { pause: { ...pause, expiresAt: change.expiresAt }, notices: [], unstored: true };
   };
@@ -497,7 +501,7 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
   ],
 ];
 
-const sameDeadline = (pause: PauseRecord, change: PauseDeadlineChange): boolean =>
+const sameDeadline = (pause: PauseRecord, change: PauseTimeoutChange): boolean =>
   change.previousExpiresAt === pause.expiresAt;
 
 const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
@@ -533,7 +537,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     {
       extend: extendWhen(
         false,
-        (pause, change) => change.previousExpiresAt > (pause.expiresAt ?? ""),
+        (pause, change) => (change.previousExpiresAt ?? "") > (pause.expiresAt ?? ""),
       ),
     },
   ],
@@ -543,7 +547,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     {
       extend: extendWhen(
         false,
-        (pause, change) => change.previousExpiresAt < (pause.expiresAt ?? ""),
+        (pause, change) => (change.previousExpiresAt ?? "") < (pause.expiresAt ?? ""),
       ),
     },
   ],
@@ -572,72 +576,177 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
   ],
   [race("extend only over the deadline"), "a lookup finds nothing", { found: () => undefined }],
   [
-    race("an extension not later"),
-    "an extension to the stored deadline, from the first one, is answered, stored nowhere",
+    race("a timeout change may shorten"),
+    "a store keeps only later deadlines: an earlier one is refused",
     {
-      extend: extendWhen(
-        false,
-        (pause, change) =>
-          sameDeadline(pause, change) &&
-          change.expiresAt === pause.expiresAt &&
-          pause.expiresAt === FROM,
-      ),
+      extend: (pause, change, at, recipients) =>
+        change.expiresAt !== undefined &&
+        pause.expiresAt !== undefined &&
+        change.expiresAt <= pause.expiresAt
+          ? undefined
+          : timeoutChange(pause, change, at, recipients),
     },
   ],
   [
-    race("an extension not later"),
-    "an extension to the stored deadline, from a moved one, is answered, stored nowhere",
+    race("a timeout change may shorten"),
+    "an earlier deadline is answered, stored nowhere",
     {
-      extend: extendWhen(
-        false,
-        (pause, change) =>
-          sameDeadline(pause, change) &&
-          change.expiresAt === pause.expiresAt &&
-          pause.expiresAt === LATER,
-      ),
+      extend: (pause, change, at, recipients) => {
+        const planned = timeoutChange(pause, change, at, recipients);
+        return planned !== undefined &&
+          change.expiresAt !== undefined &&
+          change.expiresAt < (pause.expiresAt ?? "")
+          ? { ...planned, unstored: true }
+          : planned;
+      },
     },
   ],
   [
-    race("an extension not later"),
-    "an extension a little earlier than the first deadline is answered, stored nowhere",
+    race("a timeout change may shorten"),
+    "a deadline at the moment of the write is taken",
     {
-      extend: extendWhen(
-        false,
-        (pause, change) =>
-          sameDeadline(pause, change) &&
-          pause.expiresAt === FROM &&
-          change.expiresAt < FROM &&
-          Date.parse(FROM) - Date.parse(change.expiresAt) < 10 * 60_000,
-      ),
+      extend: (pause, change, at, recipients) =>
+        timeoutChange(pause, change, at, recipients) ??
+        (sameDeadline(pause, change) &&
+        pause.status === PauseStatus.Pending &&
+        change.expiresAt === at.toISOString()
+          ? { pause: { ...pause, expiresAt: change.expiresAt }, notices: [] }
+          : undefined),
     },
   ],
   [
-    race("an extension not later"),
-    "an extension earlier than a moved deadline is answered, stored nowhere",
+    race("a timeout change may shorten"),
+    "a deadline before the moment of the write is taken",
     {
-      extend: extendWhen(
-        false,
-        (pause, change) =>
-          sameDeadline(pause, change) &&
-          pause.expiresAt === LATER &&
-          change.expiresAt < LATER &&
-          Date.parse(LATER) - Date.parse(change.expiresAt) < 2 * HOUR,
-      ),
+      extend: (pause, change, at, recipients) =>
+        timeoutChange(pause, change, at, recipients) ??
+        (sameDeadline(pause, change) &&
+        pause.status === PauseStatus.Pending &&
+        change.expiresAt !== undefined &&
+        change.expiresAt < at.toISOString()
+          ? { pause: { ...pause, expiresAt: change.expiresAt }, notices: [] }
+          : undefined),
     },
   ],
   [
-    race("an extension not later"),
-    "an extension is answered as the pause was",
+    race("a timeout change may shorten"),
+    "a stale read is taken over the deadline stored now",
+    {
+      extend: (pause, change, at, recipients) =>
+        timeoutChange(
+          pause,
+          { ...change, previousExpiresAt: pause.expiresAt ?? "" },
+          at,
+          recipients,
+        ),
+    },
+  ],
+  [
+    race("a timeout change may shorten"),
+    "a change is answered as the pause was",
     { answers: { extend: (_answered, before) => before } },
   ],
-  [race("an extension not later"), "a lookup finds nothing", { found: () => undefined }],
+  [race("a timeout change may shorten"), "a lookup finds nothing", { found: () => undefined }],
+  [
+    race("a pause with no deadline"),
+    "a pause with no deadline is never changed",
+    {
+      extend: (pause, change, at, recipients) =>
+        pause.expiresAt === undefined ? undefined : timeoutChange(pause, change, at, recipients),
+    },
+  ],
+  [
+    race("a pause with no deadline"),
+    "a stale read of a deadline takes a pause with none",
+    {
+      extend: (pause, change, at, recipients) =>
+        pause.expiresAt === undefined
+          ? timeoutChange(pause, { ...change, previousExpiresAt: undefined }, at, recipients)
+          : timeoutChange(pause, change, at, recipients),
+    },
+  ],
+  [
+    race("a pause with no deadline"),
+    "the deadline taken away stays",
+    {
+      extend: (pause, change, at, recipients) => {
+        const planned = timeoutChange(pause, change, at, recipients);
+        return planned !== undefined && change.expiresAt === undefined
+          ? { ...planned, pause: { ...planned.pause, expiresAt: pause.expiresAt } }
+          : planned;
+      },
+    },
+  ],
+  [
+    race("a pause with no deadline"),
+    "a source other than the pause's own is kept when the deadline is taken away",
+    {
+      answers: {
+        extend: (answered) =>
+          answered.expiresAt === undefined
+            ? { ...answered, expiryBound: PauseExpiryBound.RunDeadline }
+            : answered,
+      },
+    },
+  ],
+  [race("a pause with no deadline"), "a lookup finds nothing", { found: () => undefined }],
+  [
+    race("a timeout change is written"),
+    "the limit of changes is ignored",
+    {
+      extend: (pause, change, at, recipients) =>
+        timeoutChange(pause, { ...change, maxExtensions: undefined }, at, recipients),
+    },
+  ],
+  [
+    race("a timeout change is written"),
+    "the limit of changes is one too many",
+    {
+      extend: (pause, change, at, recipients) =>
+        timeoutChange(
+          pause,
+          { ...change, maxExtensions: (change.maxExtensions ?? 0) + 1 },
+          at,
+          recipients,
+        ),
+    },
+  ],
+  [
+    race("a timeout change is written"),
+    "the chain is not written",
+    {
+      extend: (pause, change, at, recipients) => {
+        const planned = timeoutChange(pause, change, at, recipients);
+        return planned === undefined
+          ? undefined
+          : { ...planned, pause: { ...planned.pause, trail: pause.trail } };
+      },
+    },
+  ],
+  [
+    race("a timeout change is written"),
+    "the chain names no actor",
+    {
+      extend: (pause, change, at, recipients) =>
+        timeoutChange(pause, { ...change, actor: undefined }, at, recipients),
+    },
+  ],
+  [
+    race("a timeout change is written"),
+    "the chain keeps no reason",
+    {
+      extend: (pause, change, at, recipients) =>
+        timeoutChange(pause, { ...change, reason: undefined }, at, recipients),
+    },
+  ],
+  [race("a timeout change is written"), "a lookup finds nothing", { found: () => undefined }],
   [
     race("two concurrent extends"),
     "a deadline read before another's move still takes a later one",
     {
       slow: "first",
       extend: (pause, change, at, recipients) =>
-        extendChange(
+        timeoutChange(
           pause,
           { ...change, previousExpiresAt: pause.expiresAt ?? "" },
           at,
@@ -650,22 +759,12 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "a deadline moves to an earlier one when the read is stale",
     {
       extend: (pause, change, at, recipients) =>
-        extendChange(pause, change, at, recipients) ??
+        timeoutChange(pause, change, at, recipients) ??
         (pause.status === PauseStatus.Pending &&
+        change.expiresAt !== undefined &&
         change.expiresAt < (pause.expiresAt ?? "") &&
         change.expiresAt > at.toISOString()
           ? { pause: { ...pause, expiresAt: change.expiresAt }, notices: [] }
-          : undefined),
-    },
-  ],
-  [
-    race("two concurrent extends"),
-    "an extension to the stored deadline is taken",
-    {
-      extend: (pause, change, at, recipients) =>
-        extendChange(pause, change, at, recipients) ??
-        (sameDeadline(pause, change) && change.expiresAt === pause.expiresAt
-          ? { pause, notices: [] }
           : undefined),
     },
   ],
@@ -686,7 +785,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     {
       slow: "first",
       extend: (pause, change, at, recipients) =>
-        pause.expiresAt === FROM ? extendChange(pause, change, at, recipients) : undefined,
+        pause.expiresAt === FROM ? timeoutChange(pause, change, at, recipients) : undefined,
     },
   ],
   [
@@ -694,7 +793,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "an extension of a closed pause is taken",
     {
       extend: (pause, change, at, recipients) =>
-        extendChange(pause, change, at, recipients) ??
+        timeoutChange(pause, change, at, recipients) ??
         (pause.status !== PauseStatus.Pending && sameDeadline(pause, change)
           ? { pause: { ...pause, expiresAt: change.expiresAt }, notices: [] }
           : undefined),
@@ -705,7 +804,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "an extension of an answered pause is answered with another deadline",
     {
       extend: (pause, change, at, recipients) =>
-        extendChange(pause, change, at, recipients) ??
+        timeoutChange(pause, change, at, recipients) ??
         (pause.status === PauseStatus.Resolved
           ? {
               pause: { ...pause, expiresAt: "2030-01-01T00:00:00.000Z" },
@@ -753,7 +852,7 @@ const SOUND_TWEAKS: readonly (readonly [string, Tweaks])[] = [
 describe("#1366: the deadline and extension race contract cases", () => {
   for (const [title, tweaks] of SOUND_TWEAKS)
     it(`every case passes on a sound store (${title})`, async () => {
-      for (const one of [...DEADLINE_CASES, ...EXTEND_RACE_CASES])
+      for (const one of [...DEADLINE_CASES, ...EXTEND_RACE_CASES, ...TIMEOUT_CHANGE_CASES])
         expect(await outcomeOf(one, tweaks), one.name).toBe("pass");
     });
 

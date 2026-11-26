@@ -74,13 +74,13 @@ describe("#1341: a cancelled execution resolves with ExecutionStatus.Cancelled",
 
 /** R7: a bad argument is a rejected promise, never a synchronous throw. */
 describe("R7: the app's async methods reject, they never throw", () => {
-  test("cancel, resume, extendPause, reassignPause and execute with an argument no one can use", async ({
+  test("cancel, resume, setPauseTimeout, reassignPause and execute with an argument no one can use", async ({
     app,
   }) => {
     const calls: readonly (() => Promise<unknown>)[] = [
       () => app.cancel(7 as never),
       () => app.resume(null as never),
-      () => app.extendPause(null as never),
+      () => app.setPauseTimeout(null as never),
       () => app.reassignPause(null as never),
       () => app.execute(null as never, {} as never),
     ];

@@ -3,6 +3,7 @@ import type {
   PauseEscalationLimits,
   PermitAnswer,
   PermitReassign,
+  PermitTimeoutChange,
 } from "../../channels/pause-contexts.js";
 import type { ChannelSender } from "../../channels/channel-sender.js";
 import type { PauseCalendar } from "../../calendar/calendar-call.js";
@@ -50,6 +51,8 @@ export interface PauseTarget {
   readonly escalationLimits?: PauseEscalationLimits | undefined;
   /** The target's `permitAnswer` (#1307c): anything but `true` refuses an answer; `undefined`: none. */
   readonly permitAnswer?: PermitAnswer | undefined;
+  /** The target's `permitTimeoutChange` (#1307): anything but `true` refuses a timeout change; `undefined`: none. */
+  readonly permitTimeoutChange?: PermitTimeoutChange | undefined;
   /** The target's `permitReassign` (#1307d): anything but `true` refuses a reassignment; `undefined`: none. */
   readonly permitReassign?: PermitReassign | undefined;
   /** The target's `assign`: who a new pause is for; `undefined`: nobody in particular (or no hook). */

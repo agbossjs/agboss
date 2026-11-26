@@ -9,7 +9,7 @@ import { ExtendManagerBackupChannel } from "../../flow/fixtures/pause-extension.
 import { beforeEach, describe, expect } from "vitest";
 import { nameOf } from "../../../src/index.js";
 import { testWith } from "../../../src/testing/index.js";
-import { hours } from "../../../src/units/index.js";
+import { hours, Timeout } from "../../../src/units/index.js";
 import { execute } from "../../helpers/flow.js";
 import {
   ExtensionApplication,
@@ -36,7 +36,10 @@ describe("#1343: onPauseTimeoutChanged", () => {
     const oldDeadline = paused.pending[0]?.expiresAt ?? "";
     await clock.advance(hours(1));
 
-    const extension = await app.extendPause({ pauseId: pauseId(), expiresIn: hours(24) }, manager);
+    const extension = await app.setPauseTimeout(
+      { pauseId: pauseId(), timeout: hours(24) },
+      manager,
+    );
 
     expect(told.changes).toHaveLength(1);
     expect(told.changes[0]).toEqual({
@@ -47,20 +50,38 @@ describe("#1343: onPauseTimeoutChanged", () => {
       target: "extendable-manager-external-task",
       channel: "extendable-manager-channel",
       previousExpiresAt: new Date(oldDeadline),
-      expiresAt: new Date(extension.expiresAt),
+      expiresAt: extension.expiresAt,
     });
   });
 
-  test("a refused extension tells nothing", async ({ app, clock }) => {
+  test("a refused change tells nothing", async ({ app, clock }) => {
     await execute(app, managerFlow.start, ORDER, THREAD);
     await clock.advance(hours(1));
 
-    // shorter than the deadline it has: refused
+    // not a duration: refused
     await app
-      .extendPause({ pauseId: pauseId(), expiresIn: hours(1) }, manager)
+      .setPauseTimeout({ pauseId: pauseId(), timeout: 0 as never }, manager)
       .catch(() => undefined);
 
     expect(told.changes).toEqual([]);
+  });
+
+  test("a shorter deadline is told too, and taking the deadline away names none", async ({
+    app,
+    clock,
+  }) => {
+    const paused = await execute(app, managerFlow.start, ORDER, THREAD);
+    const oldDeadline = paused.pending[0]?.expiresAt ?? "";
+    await clock.advance(hours(1));
+
+    const shorter = await app.setPauseTimeout({ pauseId: pauseId(), timeout: hours(3) }, manager);
+    await app.setPauseTimeout({ pauseId: pauseId(), timeout: Timeout.None }, manager);
+
+    expect(told.changes).toMatchObject([
+      { previousExpiresAt: new Date(oldDeadline), expiresAt: shorter.expiresAt },
+      { previousExpiresAt: shorter.expiresAt },
+    ]);
+    expect(told.changes[1]).not.toHaveProperty("expiresAt");
   });
 });
 

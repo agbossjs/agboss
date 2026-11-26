@@ -26,6 +26,15 @@ export enum Ttl {
   None = "none",
 }
 
+/**
+ * "No deadline" where a duration is asked (#1318): `app.setPauseTimeout({ pauseId, timeout: Timeout.None })`
+ * takes a pause's deadline away.
+ */
+export enum Timeout {
+  /** No deadline: the pause waits until it is answered, cancelled or reassigned. */
+  None = "none",
+}
+
 function nonNegative(amount: number, unit: string): number {
   if (!Number.isFinite(amount) || amount < 0) {
     // a number is printed, anything else by its kind: what was passed may be stored text (#1373)

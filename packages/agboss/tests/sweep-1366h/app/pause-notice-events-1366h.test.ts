@@ -142,7 +142,7 @@ describe("#1366: a close's time and answer", () => {
 describe("#1366: deadlines", () => {
   it("expiring and extended events carry the notice's deadlines; one without them is refused", async () => {
     const extended = notice({
-      kind: PauseNoticeKind.Extended,
+      kind: PauseNoticeKind.TimeoutChanged,
       expiresAt: "2026-02-01T00:00:00.000Z",
       previousExpiresAt: "2026-01-20T00:00:00.000Z",
     });
@@ -154,21 +154,45 @@ describe("#1366: deadlines", () => {
     expect(await listenerExpiringOf(sources(answered, extended), false)).toMatchObject(deadline);
 
     const noDeadline = notice({ kind: PauseNoticeKind.Expiring });
-    const noPrevious = notice({ kind: PauseNoticeKind.Extended, expiresAt: deadline.expiresAt });
     expect(() => channelExpiringOf(sources(answered, noDeadline))).toThrow(TypeError);
-    expect(() => channelExtendedOf(sources(answered, noDeadline))).toThrow(TypeError);
-    expect(() => channelExtendedOf(sources(answered, noPrevious))).toThrow(TypeError);
     await expect(listenerExpiringOf(sources(answered, noDeadline), false)).rejects.toThrow(
-      TypeError,
-    );
-    await expect(listenerExtendedOf(sources(answered, noPrevious), false)).rejects.toThrow(
       TypeError,
     );
   });
 
+  it("a timeout change names only the deadlines there are: none before (set), none after (taken away)", async () => {
+    const set = notice({
+      kind: PauseNoticeKind.TimeoutChanged,
+      expiresAt: "2026-02-01T00:00:00.000Z",
+    });
+    const taken = notice({
+      kind: PauseNoticeKind.TimeoutChanged,
+      previousExpiresAt: "2026-01-20T00:00:00.000Z",
+    });
+
+    for (const [one, expected] of [
+      [set, { expiresAt: "2026-02-01T00:00:00.000Z" }],
+      [taken, { previousExpiresAt: "2026-01-20T00:00:00.000Z" }],
+    ] as const) {
+      const channel = channelExtendedOf(sources(answered, one));
+      const listener = await listenerExtendedOf(sources(answered, one), false);
+      for (const event of [channel, listener]) {
+        expect(event).toMatchObject(expected);
+        expect(
+          Object.keys(event)
+            .filter((key) => key.endsWith("ExpiresAt") || key === "expiresAt")
+            .sort(),
+        ).toEqual(Object.keys(expected).sort());
+      }
+    }
+  });
+
   it("a listener's expiresAt is the notice's, else the pause's, else absent", async () => {
     const pause = { ...answered, expiresAt: "2026-03-01T00:00:00.000Z" };
-    const own = notice({ kind: PauseNoticeKind.Extended, expiresAt: "2026-02-01T00:00:00.000Z" });
+    const own = notice({
+      kind: PauseNoticeKind.TimeoutChanged,
+      expiresAt: "2026-02-01T00:00:00.000Z",
+    });
     const plain = notice({ kind: PauseNoticeKind.Opened });
 
     expect((await listenerBaseOf(sources(pause, own), false)).expiresAt).toBe(own.expiresAt);

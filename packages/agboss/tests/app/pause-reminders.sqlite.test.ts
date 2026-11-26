@@ -47,11 +47,14 @@ test("AC3: three instances on one file: one reminder for each receiver, after an
       .sort(),
   ).toEqual(["channel", "listener"]);
 
-  const extension = await instance(apps, 2).extendPause({ pauseId, expiresIn: hours(24) }, manager);
+  const extension = await instance(apps, 2).setPauseTimeout(
+    { pauseId, timeout: hours(24) },
+    manager,
+  );
   const seenByOther = await instance(apps, 1)
     .resolve(SqlitePausedExecutionRepository)
     .findByTenantIdAndPauseId("default", pauseId);
-  expect(seenByOther?.expiresAt).toBe(extension.expiresAt);
+  expect(seenByOther?.expiresAt).toBe(extension.expiresAt?.toISOString());
   await clock.advance(span(hours(22), minutes(1)));
   await until(() => expiring().length === 4);
   await clock.advance(hours(1));
@@ -62,7 +65,7 @@ test("AC3: three instances on one file: one reminder for each receiver, after an
     expiring()
       .slice(2)
       .map((one) => one.expiresAt),
-  ).toEqual([extension.expiresAt, extension.expiresAt]);
-  const extended = told.notices.filter((one) => one.kind === "extended");
+  ).toEqual([extension.expiresAt?.toISOString(), extension.expiresAt?.toISOString()]);
+  const extended = told.notices.filter((one) => one.kind === "timeout-changed");
   expect(extended.map((one) => one.receiver).sort()).toEqual(["channel", "listener"]);
 });

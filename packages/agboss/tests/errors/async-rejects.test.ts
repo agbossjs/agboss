@@ -30,7 +30,7 @@ const ASYNC_METHODS = [
   "execute",
   "resume",
   "cancel",
-  "extendPause",
+  "setPauseTimeout",
   "reassignPause",
   "checkLiveness",
   "checkReadiness",

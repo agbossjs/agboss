@@ -122,7 +122,7 @@ export const NOTICE_WRITE_CASES: readonly ContractCase<PausedExecutionRepository
         AFTER_DEADLINE,
         RECIPIENTS,
       );
-      await second.extendByTenantIdAndPauseId(
+      await second.changeTimeoutByTenantIdAndPauseId(
         "default",
         "pause-a",
         { expiresAt: NINE.toISOString(), previousExpiresAt: DEADLINE.toISOString() },

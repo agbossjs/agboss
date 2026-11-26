@@ -23,7 +23,7 @@ export const updateContendedMessageOf = (
 ): string =>
   facts.pauseKey === undefined
     ? "two updates of one pause raced"
-    : `extendPause of pause ${facts.pauseKey} lost its compare-and-set ${String(facts.attempts ?? 0)} times to other writers`;
+    : `setPauseTimeout of pause ${facts.pauseKey} lost its compare-and-set ${String(facts.attempts ?? 0)} times to other writers`;
 
 /** What `PauseError.ExpiryHandlerFailed` says: the channel and the problem, never the handler's text. */
 export const expiryHandlerFailedMessageOf = (

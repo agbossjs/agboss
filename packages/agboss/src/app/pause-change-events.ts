@@ -41,18 +41,23 @@ async function toldPauseChange(
   if (observer !== undefined) await tell(observer);
 }
 
-/** An extension that won: both deadlines (ISO 8601 in the record) as dates. */
+/** A timeout change that won: both deadlines (ISO 8601 in the record; absent: none) as dates. */
 export function toldTimeoutChanged(
   deps: AppDeps,
   pause: PauseRecord,
-  deadlines: { readonly previousExpiresAt: string; readonly expiresAt: string },
+  deadlines: {
+    readonly previousExpiresAt?: string | undefined;
+    readonly expiresAt?: string | undefined;
+  },
 ): Promise<void> {
   const { previousExpiresAt, expiresAt } = deadlines;
   return toldPauseChange(deps, pause, (observer) =>
     observer.onPauseTimeoutChanged({
       ...pauseChangeOf(pause),
-      previousExpiresAt: new Date(previousExpiresAt),
-      expiresAt: new Date(expiresAt),
+      ...(previousExpiresAt === undefined
+        ? {}
+        : { previousExpiresAt: new Date(previousExpiresAt) }),
+      ...(expiresAt === undefined ? {} : { expiresAt: new Date(expiresAt) }),
     }),
   );
 }

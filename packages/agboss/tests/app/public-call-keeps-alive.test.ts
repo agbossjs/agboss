@@ -121,7 +121,7 @@ describe("#1093: a pending public call keeps the process alive", () => {
 
   // the fixture's store takes a second over the extension on Clock.sleep (an unref'd timer), as a slow database does:
   // the call settles in a script that does nothing else only while the wrapper keeps it alive
-  it("a script that only calls app.extendPause prints the result and exits 0", async () => {
+  it("a script that only calls app.setPauseTimeout prints the result and exits 0", async () => {
     const file = join(folder, "held-extend.sqlite");
     const app = await createTestAppWith(HeldCancelApplication, {
       env: "dev",

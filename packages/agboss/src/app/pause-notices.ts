@@ -12,7 +12,7 @@ import {
   deadlineOf,
   listenedOf,
   maskedActor,
-  previousDeadlineOf,
+  changedDeadlinesOf,
 } from "./pause-notice-shape.js";
 import type { PauseNotice } from "../infrastructure/pause-notices.js";
 import type {
@@ -144,8 +144,7 @@ export function channelExtendedOf(sources: EventSources): ChannelSenderExtended 
     deliveryId,
     pauseId: pause.pauseId,
     ...askedOf(pause),
-    expiresAt: deadlineOf(notice),
-    previousExpiresAt: previousDeadlineOf(notice),
+    ...changedDeadlinesOf(notice),
   };
 }
 
@@ -231,7 +230,7 @@ export async function listenerExtendedOf(
 ): Promise<ChannelListenerTimeoutChangedEvent> {
   const base = await listenerBaseOf(sources, includePauseIds);
   const { notice } = sources;
-  return { ...base, expiresAt: deadlineOf(notice), previousExpiresAt: previousDeadlineOf(notice) };
+  return { ...base, ...changedDeadlinesOf(notice) };
 }
 
 /** The `expiring` event of a listener (#942). */

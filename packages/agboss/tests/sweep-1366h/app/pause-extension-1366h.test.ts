@@ -6,8 +6,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApplicationStoppingError } from "../../../src/errors.js";
-import { extendPauseOf } from "../../../src/app/pause-extension.js";
-import { PauseStatus, ValidationError } from "../../../src/index.js";
+import { setPauseTimeoutOf } from "../../../src/app/pause-timeout.js";
+import { PauseError, PauseStatus, ValidationError } from "../../../src/index.js";
 import { PausedExecutionRepository } from "../../../src/infrastructure/paused-execution.repository.js";
 import { testWith } from "../../../src/testing/index.js";
 import type { TestApp } from "../../../src/testing/test-app.js";
@@ -45,7 +45,7 @@ const pauseOf = async (app: TestApp, pauseId: string) => {
   return found;
 };
 
-const noParts = (accepting: () => void) => extendPauseOf({ accepting } as never);
+const noParts = (accepting: () => void) => setPauseTimeoutOf({ accepting } as never);
 
 describe("#1366: a request is checked before any pause is read", () => {
   it("no object, no pause id: ValidationError.DtoInvalid on .pauseId", async () => {
@@ -53,33 +53,41 @@ describe("#1366: a request is checked before any pause is read", () => {
     for (const request of [null, undefined, "pause", 5, {}, { pauseId: "" }, { pauseId: 5 }]) {
       const error = await failureOf(extend(request as never, {}));
       expect(error).toBeInstanceOf(ValidationError.DtoInvalid);
-      expect(error).toMatchObject({ dto: "ExtendPauseRequest", issues: [{ path: ".pauseId" }] });
+      expect(error).toMatchObject({
+        dto: "SetPauseTimeoutRequest",
+        issues: [{ path: ".pauseId" }],
+      });
     }
   });
 
-  test("a bad duration: ValidationError.DtoInvalid on .expiresIn", async ({ app }) => {
+  test("a bad duration: PauseError.InvalidTimeout", async ({ app }) => {
     await app.ready();
     const refused = await failureOf(
-      app.extendPause({ pauseId: "any", expiresIn: 0 } as never, manager),
+      app.setPauseTimeout({ pauseId: "any", timeout: 0 } as never, manager),
     );
 
-    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
-    expect(refused).toMatchObject({ issues: [{ path: ".expiresIn" }] });
+    expect(refused).toBeInstanceOf(PauseError.InvalidTimeout);
   });
 
-  test("a deadline not later than the current one: refused on .expiresIn", async ({ app }) => {
+  test("a deadline not later than the current one is applied: the pause is shortened", async ({
+    app,
+  }) => {
     await app.ready();
     await execute(app, plain.start, ORDER, { threadId: "t-1" });
     const pauseId = plain.told.sent.at(-1)?.pauseId ?? "";
 
-    const shorter = await failureOf(app.extendPause({ pauseId, expiresIn: hours(1) }, manager));
+    const shorter = await app.setPauseTimeout({ pauseId, timeout: hours(1) }, manager);
 
-    expect(shorter).toMatchObject({ dto: "ExtendPauseRequest", issues: [{ path: ".expiresIn" }] });
+    expect(shorter.expiresAt?.getTime() ?? Infinity).toBeLessThan(
+      shorter.previousExpiresAt?.getTime() ?? 0,
+    );
   });
 });
 
 describe("#1366: a pause whose channel its workflow no longer has", () => {
-  test("a plain extension goes through; working time is refused on .expiresIn", async ({ app }) => {
+  test("a plain change goes through; working time is PauseError.WorkingCalendar", async ({
+    app,
+  }) => {
     await app.ready();
     await execute(app, plain.start, ORDER, { threadId: "t-2" });
     const pauseId = plain.told.sent.at(-1)?.pauseId ?? "";
@@ -91,25 +99,26 @@ describe("#1366: a pause whose channel its workflow no longer has", () => {
     });
 
     const working = await failureOf(
-      app.extendPause({ pauseId, expiresIn: workingHours(80) }, manager),
+      app.setPauseTimeout({ pauseId, timeout: workingHours(80) }, manager),
     );
-    const extended = await app.extendPause({ pauseId, expiresIn: hours(48) }, manager);
+    const extended = await app.setPauseTimeout({ pauseId, timeout: hours(48) }, manager);
 
-    expect(working).toBeInstanceOf(ValidationError.DtoInvalid);
-    expect(working).toMatchObject({ issues: [{ path: ".expiresIn" }] });
-    expect(Date.parse(extended.expiresAt)).toBeGreaterThan(Date.parse(extended.previousExpiresAt));
+    expect(working).toBeInstanceOf(PauseError.WorkingCalendar);
+    expect(extended.expiresAt?.getTime() ?? 0).toBeGreaterThan(
+      extended.previousExpiresAt?.getTime() ?? 0,
+    );
     expect((await pauseOf(app, pauseId)).status).toBe(PauseStatus.Pending);
   });
 });
 
 describe("#1366: a stopped application", () => {
-  it("refuses an extension with ApplicationStoppingError before anything is read", async () => {
+  it("refuses a timeout change with ApplicationStoppingError before anything is read", async () => {
     const stopping = new ApplicationStoppingError({ message: "stopping" });
     const extend = noParts(() => {
       throw stopping;
     });
 
-    const refused = await failureOf(extend({ pauseId: "p-1", expiresIn: hours(48) }, {}));
+    const refused = await failureOf(extend({ pauseId: "p-1", timeout: hours(48) }, {}));
 
     expect(refused).toBe(stopping);
   });
@@ -120,9 +129,12 @@ describe("#1366: a pause without a reminder", () => {
     await app.ready();
     await execute(app, noReminder.start, ORDER, { threadId: "t-4" });
     const pauseId = noReminder.told.sent.at(-1)?.pauseId ?? "";
-    const spy = vi.spyOn(app.resolve(PausedExecutionRepository), "extendByTenantIdAndPauseId");
+    const spy = vi.spyOn(
+      app.resolve(PausedExecutionRepository),
+      "changeTimeoutByTenantIdAndPauseId",
+    );
 
-    await app.extendPause({ pauseId, expiresIn: hours(48) }, manager);
+    await app.setPauseTimeout({ pauseId, timeout: hours(48) }, manager);
 
     expect(spy).toHaveBeenCalledTimes(1);
     const change: unknown = spy.mock.calls[0]?.[2];
@@ -139,13 +151,17 @@ const fixtureTest = testWith(ExtensionApplication);
 describe("#1366: the other refusals name their field", () => {
   beforeEach(resetTold);
 
-  fixtureTest("past the deadline the pause is bound by: refused on .expiresIn", async ({ app }) => {
-    await execute(app, managerFlow.start, ORDER, { threadId: "bound-1", deadline: hours(30) });
-    const pauseId = told.sent[0]?.pauseId ?? "";
+  fixtureTest(
+    "past the deadline the pause is bound by: PauseError.EscalationLimitExceeded",
+    async ({ app }) => {
+      await execute(app, managerFlow.start, ORDER, { threadId: "bound-1", deadline: hours(30) });
+      const pauseId = told.sent[0]?.pauseId ?? "";
 
-    const refused = await failureOf(app.extendPause({ pauseId, expiresIn: hours(31) }, manager));
+      const refused = await failureOf(
+        app.setPauseTimeout({ pauseId, timeout: hours(31) }, manager),
+      );
 
-    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
-    expect(refused).toMatchObject({ dto: "ExtendPauseRequest", issues: [{ path: ".expiresIn" }] });
-  });
+      expect(refused).toBeInstanceOf(PauseError.EscalationLimitExceeded);
+    },
+  );
 });

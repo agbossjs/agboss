@@ -367,7 +367,7 @@ describe("a reassignment that keeps the target and the channel changes the pause
     expect(moved.expiresAt?.toISOString()).toBe(pause?.expiresAt);
   });
 
-  test("a deadline alone is extendPause's change: refused; with other changes it counts as an extension, once, even at once", async ({
+  test("a deadline alone is setPauseTimeout's change: refused; with other changes it counts as an extension, once, even at once", async ({
     app,
   }) => {
     const { pauseId, rootId } = await opened(app);
@@ -517,7 +517,7 @@ describe("a reassignment applies only to the pause the permit saw (#1307)", () =
       .catch((error: unknown) => error);
     await until(() => told.permitCalls === 1);
 
-    await app.extendPause({ pauseId, expiresIn: hours(30) }, operator);
+    await app.setPauseTimeout({ pauseId, timeout: hours(30) }, operator);
     release(true);
 
     expect(await held).toBeInstanceOf(PauseError.UpdateContended);
