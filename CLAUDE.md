@@ -233,7 +233,7 @@ an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AE
 `@EvalSuite` with a code eval judge (#396); `src/intake/` a quorum by groups (`joinQuorumGroups`,
 tested under `TestConcurrency.inOrder` and `failWith(ModelFailure.RateLimited)`); the review loop's
 reviewer reads `historyOf(OfferDraftDto)`; `tests/approvals/workflows/offsite-booking/offsite-booking.workflow.test.ts` resumes a pause on a second
-instance (`testWith(App, { instances: 2 })`, one SQLite file per test through `AGBOSS_SQLITE_PATH` — `tests/environments/support/instances-file.ts`, #550);
+instance (`testWith(App, { instances: 2 })`, one SQLite file per test through `AGBOSS_SQLITE_PATH` — `tests/storages/support/instances-file.ts`, #550);
 every unit runner runs on the patterns' components in the test that mirrors each
 (`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …), `src/model-providers/`: the driver providers of OpenRouter (chat) and of the Decisions API, and the offline transport `HarnessModelProvider` the desk agent names, #382–#385, #1313) · `npm test`.
 Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
@@ -591,7 +591,7 @@ billing-agent --workflow desk-workflow`, `--agent billing-agent`; a name without
 rejected with a `Did you mean "…"?`, never completed; the workflow is found in the application of
 `package.json`, or `--application`); `agboss generate workflow onboarding-workflow` writes a new
 workflow beside the application file and lists it in `@Application({ workflows })`; `agboss create
-<project>` writes the application (`src/<project>.application.ts`, its `src/environment.ts` (`defineEnv`) and `src/config/test.config.ts`, budgets, model
+<project>` writes the application (`src/<project>.application.ts`, its `src/config/app.env.ts` (`defineEnv`) and `src/config/test.config.ts`, budgets, model
 provider and guardrail) and its first workflow `<project>-workflow` in `src/<project>/`. A project's `npm run types` (`agboss check`) writes
 `.agboss/types.d.ts` (git-ignored, regenerated on install); its `tsconfig.json` includes it.
 
@@ -2248,7 +2248,7 @@ application file, `export default defineConfig({ …, env: configureEnv(appEnv, 
 `createApp(App, { profile: "prod" })` (`"prod,economy"` or a list, layered left to right) and the CLI's
 `--profile` select them (default `dev`); `testWith(App)` runs on `test`, so a test never reaches dev's
 addresses. `testWith` / `testModule` / the unit runners take `env: configureEnv(appEnv, { auditUrl:
-"http://audit.test" })` (one or a list — the only thing `env` takes; the variable map is `processEnv`):
+"http://audit.test" })` (one or a list — the only thing `env` takes; the variable map is `processEnv`). An override reaches every reference of that `defineEnv` — a storage driver's `path`, a provider's URL, `deps: [appEnv]` — and never a secret: a secret comes from its process variable only (a profile that sets one is refused). `testWith` copies the process's variables when it makes the test's app, so `vi.stubEnv` goes in a `beforeAll`, before the fixtures run (or the value goes in `env`):
 
 ```ts file=src/desk/config/test.config.ts
 import { configureEnv, defineConfig } from "@agboss/core";

@@ -248,6 +248,16 @@ applied: `expect(app.settings["scout-workflow"]?.agents["scout-agent"]?.thinking
 and a model a profile switches to one no listed provider serves fails the assembly with
 `[model.unserved]`, not the first call. See [Configuration](Configuration#profiles-srcconfig-1318).
 
+### Variables in a test
+
+`testWith(App, { env: configureEnv(appEnv, { auditUrl: "http://audit.test" }) })` (one or a list) sets
+variables of a `defineEnv` for the test, over the profile's own. An override reaches every reference of
+that `defineEnv`: what a component reads with `deps: [appEnv]`, and what its options name — a storage
+driver's `path`, a provider's URL — so no reader sees another value. A secret is no override: it
+comes from its process variable only, and a `configureEnv` that sets one is refused. `testWith` copies
+the process's variables when it makes the test's app, before the test body runs: a `vi.stubEnv` goes in a
+`beforeAll` (or the value in `env`), not inside the test.
+
 ## Scripted models
 
 <!-- snippet-context
