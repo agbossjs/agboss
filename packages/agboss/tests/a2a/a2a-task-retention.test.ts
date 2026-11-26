@@ -12,7 +12,6 @@ import {
   A2ATaskState,
   type A2ATaskStatus,
 } from "../../src/infrastructure/a2a-task.repository.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { testWith, type TestApp } from "../../src/testing/index.js";
 import { hours, minutes, seconds, Ttl } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -53,7 +52,6 @@ class ForeverTasksEndpoint {}
   name: "short-tasks-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   budgets: TEST_BUDGETS,
   endpoints: [ShortTasksEndpoint, LongTasksEndpoint, ForeverTasksEndpoint],

@@ -15,7 +15,6 @@ import {
   BudgetPeriod,
   BudgetScope,
   CostLedgerRepository,
-  EmptyEnvironment,
   type BudgetHandler,
 } from "../../src/index.js";
 import { replyWith, routeTo, testExecutionContext, testWith } from "../../src/testing/index.js";
@@ -273,7 +272,6 @@ function applicationWith(budgets: readonly Class[]) {
     name: "budgets-rules-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [BriefWorkflow],
     budgets,
   })

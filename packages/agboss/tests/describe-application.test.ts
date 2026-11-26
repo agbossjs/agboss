@@ -14,7 +14,6 @@ import { applicationOf } from "../src/application/assemble.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../src/dto/index.js";
 import {
   Agent,
-  EmptyEnvironment,
   Observer,
   Workflow,
   WorkflowFinish,
@@ -102,7 +101,6 @@ class TellAuditObserver {
 @Application({
   name: "tell-application",
   version: "4.0.0",
-  environment: EmptyEnvironment,
   workflows: [TellWorkflow],
   providers: [RecordingCostLedgerRepository],
   observers: [TellAuditObserver],

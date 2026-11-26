@@ -4,7 +4,6 @@ import { hours, minutes } from "../../../src/units/index.js";
 import { A2AEndpoint } from "../../../src/a2a/a2a-endpoint.decorator.js";
 import { BearerAuthenticator } from "./bearer-authenticator.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import {
   OrderWorkflowStart,
@@ -27,7 +26,6 @@ export class OrdersA2AExpose {}
   name: "orders-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   observers: [RecoveryLog],
   providers: [StampedExecutionRecordRepository, BearerAuthenticator],
@@ -41,7 +39,6 @@ export class OrdersApplication {}
   name: "orders-internal-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   providers: [StampedExecutionRecordRepository],
   budgets: TEST_BUDGETS,

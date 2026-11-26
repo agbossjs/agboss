@@ -9,7 +9,6 @@ import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
 import { onStart } from "./paths.js";
@@ -152,7 +151,6 @@ export class CardRefundsWorkflow {}
   name: "slack-refunds-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CardRefundsWorkflow],
   budgets: TEST_BUDGETS,
   providers: [SlackRefundApprovalChannel],
@@ -163,7 +161,6 @@ export class SlackRefundsApplication {}
 @Application({
   name: "unserved-refunds-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CardRefundsWorkflow],
   budgets: TEST_BUDGETS,
   providers: [SlackRefundApprovalChannel],
@@ -174,7 +171,6 @@ export class UnservedRefundsApplication {}
   name: "rule-refunds-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CardRefundsWorkflow],
   budgets: TEST_BUDGETS,
   providers: [RuleRefundApprovalChannel],
@@ -185,7 +181,6 @@ export class RuleRefundsApplication {}
 @Application({
   name: "unprovided-refunds-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CardRefundsWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -195,7 +190,6 @@ export class UnprovidedRefundsApplication {}
 @Application({
   name: "doubled-refunds-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CardRefundsWorkflow],
   budgets: TEST_BUDGETS,
   providers: [SlackRefundApprovalChannel, RuleRefundApprovalChannel],

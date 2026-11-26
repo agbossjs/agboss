@@ -27,7 +27,6 @@ import { ExecutionLeaseRepository } from "../../src/infrastructure/execution-lea
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { testDefaults } from "../helpers.js";
 import { onStart } from "../helpers/flow.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
@@ -124,7 +123,6 @@ const applicationOver = (...workflows: ReturnType<typeof workflowOver>[]) => {
     name: "services-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows,
     services: [EmailNotifier],
     budgets: TEST_BUDGETS,

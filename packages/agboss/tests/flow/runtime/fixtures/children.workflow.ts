@@ -6,7 +6,6 @@ import {
   Observer,
   Action,
   Agent,
-  EmptyEnvironment,
   ExecutionContext,
   listOf,
   oneOf,
@@ -651,7 +650,6 @@ export class ChildEventLog {
   name: "children-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   tenantContext: ShopTenantContext,
   executionContext: ShopExecutionContext,
   workflows: [
@@ -686,7 +684,6 @@ export class ItemReviewExecutionBudget implements BudgetHandler {
   name: "child-budgets-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   tenantContext: ShopTenantContext,
   executionContext: ShopExecutionContext,
   workflows: [ReviewOneWorkflow, ReviewItemsWorkflow, ItemReviewWorkflow],

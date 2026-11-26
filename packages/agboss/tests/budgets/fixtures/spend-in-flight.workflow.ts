@@ -1,7 +1,6 @@
 import {
   Action,
   ChildPlacement,
-  EmptyEnvironment,
   ExecutionContext,
   SpendRecorder,
   Workflow,
@@ -295,7 +294,6 @@ export class ParentPayWorkflow {}
 @Application({
   name: "spend-in-flight-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LocalPayItemsWorkflow, AnyPayItemsWorkflow, ParentPayWorkflow],
   budgets: TEST_BUDGETS,
   providers: [HeldParentLedger, WatchedCheckpointSaver],
@@ -309,7 +307,6 @@ export class SpendInFlightApplication {}
 @Application({
   name: "spend-in-flight-instances-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [AnyPayItemsWorkflow, ParentPayWorkflow],
   budgets: TEST_BUDGETS,
   executionLimits: { maxConcurrentSteps: 1 },

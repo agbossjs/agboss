@@ -1,5 +1,5 @@
 import { Window1Memory } from "../../helpers/window-memory.js";
-import { Agent, EmptyEnvironment, TokenLimit, Workflow, Ttl } from "../../../src/index.js";
+import { Agent, TokenLimit, Workflow, Ttl } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
   ModelCost,
@@ -77,7 +77,6 @@ export class LimitedWorkflow {}
 @Application({
   name: "limited-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LimitedWorkflow],
   providers: [LimitedModelProvider],
   modelProvider: LimitedModelProvider,

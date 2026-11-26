@@ -2,7 +2,6 @@ import { Text } from "../../../../src/dto/index.js";
 import {
   Action,
   DecidedBy,
-  EmptyEnvironment,
   Router,
   Workflow,
   WorkflowFinish,
@@ -116,7 +115,6 @@ export class LimitsKeptWorkflow {}
 @Application({
   name: "limits-config-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LimitsSpinWorkflow, LimitsKeptWorkflow, CountdownWorkflow, BatchWorkflow],
   retention: { executionRecords: hours(24) },
   budgets: TEST_BUDGETS,

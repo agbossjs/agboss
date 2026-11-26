@@ -19,7 +19,6 @@ import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js"
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { HttpAuthResult, HttpAuthenticator } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
@@ -140,7 +139,6 @@ export class RemoteDeskA2AExpose {}
   name: "remote-desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RemoteDesk],
   budgets: TEST_BUDGETS,
   endpoints: [RemoteDeskA2AExpose],

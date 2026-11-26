@@ -4,7 +4,6 @@ import { Text } from "../../../src/dto/index.js";
 import {
   Action,
   DecidedBy,
-  EmptyEnvironment,
   Router,
   Workflow,
   WorkflowFinish,
@@ -125,7 +124,6 @@ const applicationOf = (workflow: typeof SpinDefaultWorkflow) => {
   @Application({
     name: "spin-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [workflow],
     budgets: TEST_BUDGETS,
   })

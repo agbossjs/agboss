@@ -8,7 +8,6 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { EmptyEnvironment } from "../../src/index.js";
 import { applicationIdempotencyKeysOf } from "../../src/application/idempotency-key.js";
 import { applicationPiiKeyOf } from "../../src/application/application-pii.js";
 import { describedApplicationOf } from "../../src/describe/application.js";
@@ -64,7 +63,6 @@ class FileDatabaseStorage {}
   name: "storage-file-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [NoteWorkflow],
   budgets: TEST_BUDGETS,
   storage: FileDatabaseStorage,
@@ -87,7 +85,6 @@ describe("storage components", () => {
       name: "history-storage-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [NoteWorkflow],
       budgets: TEST_BUDGETS,
       storage: FileDatabaseStorage,
@@ -425,7 +422,6 @@ describe("the storage's secrets", () => {
     name: "keyed-storage-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [NoteWorkflow],
     budgets: TEST_BUDGETS,
     storage: KeyedStorage,

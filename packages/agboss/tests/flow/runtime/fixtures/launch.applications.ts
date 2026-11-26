@@ -1,5 +1,4 @@
 import { Application } from "../../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../../src/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import {
   CheckoutWorkflow,
@@ -16,7 +15,6 @@ import { TestModelProvider } from "../../../../src/testing/test-model-provider.j
   name: "research-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ResearchWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -26,7 +24,6 @@ export class ResearchApplication {}
   name: "screening-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ScreeningWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -36,7 +33,6 @@ export class ScreeningApplication {}
   name: "checkout-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CheckoutWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -46,7 +42,6 @@ export class CheckoutApplication {}
   name: "help-desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [HelpDeskWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -56,7 +51,6 @@ export class HelpDeskApplication {}
   name: "offers-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OffersWorkflow],
   budgets: TEST_BUDGETS,
 })

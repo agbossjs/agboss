@@ -1,7 +1,6 @@
 import { Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
-  EmptyEnvironment,
   oneOf,
   Workflow,
   WorkflowFinish,
@@ -125,7 +124,6 @@ export class OneOfTriageWorkflow {}
 @Application({
   name: "one-of-triage-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OneOfTriageWorkflow],
   budgets: TEST_BUDGETS,
 })

@@ -18,7 +18,6 @@ import type { StepDescriptor } from "../../../src/index.js";
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What a component read of its execution (`deps: [ExecutionContext]`, #280). */
@@ -192,7 +191,6 @@ export class Checkout {}
   name: "checkout-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Checkout],
   budgets: TEST_BUDGETS,
 })
@@ -203,7 +201,6 @@ export class CheckoutApplication {}
   name: "kept-checkout-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Checkout],
   budgets: TEST_BUDGETS,
   retention: { executionRecords: hours(24) },
@@ -239,7 +236,6 @@ export class MaskedCheckout {}
   name: "masked-checkout-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [MaskedCheckout],
   budgets: TEST_BUDGETS,
   retention: { executionRecords: hours(24) },

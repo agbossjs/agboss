@@ -384,7 +384,7 @@ export class OpenRouterModelProvider {}
 
 ```ts file=src/support.application.ts
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
-import { Application, EmptyEnvironment } from "@agboss/core";
+import { Application } from "@agboss/core";
 import { SupportA2AEndpoint } from "./support/a2a/support.a2a-endpoint.js";
 import { ApplicationDailyBudget } from "./support/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./support/budgets/execution.budget.js";
@@ -396,7 +396,6 @@ import { SupportWorkflow } from "./support/workflows/support/support.workflow.js
   providers: [OpenRouterModelProvider],
   name: "support-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SupportWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   endpoints: [SupportA2AEndpoint], // describe --json lists it among the exported contracts
@@ -880,7 +879,7 @@ export class BillingMesh {}
 ```
 
 <!-- snippet-context
-import { Application, EmptyEnvironment } from "@agboss/core";
+import { Application } from "@agboss/core";
 import { BillingMesh } from "./config/mesh.config.js";
 export class BillingWorkflow {} // a @Workflow of its own
 -->
@@ -892,7 +891,6 @@ import { OpenRouterModelProvider } from "./model-providers/openrouter.model-prov
   providers: [OpenRouterModelProvider],
   name: "billing-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BillingWorkflow],
   mesh: BillingMesh,
 })

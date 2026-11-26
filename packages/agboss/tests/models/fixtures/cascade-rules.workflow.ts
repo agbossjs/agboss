@@ -1,7 +1,6 @@
 import { Window1Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
-  EmptyEnvironment,
   TokenLimit,
   Workflow,
   WorkflowFinish,
@@ -140,7 +139,6 @@ export class BrokenAgentWorkflow {}
 @Application({
   name: "broken-app-level-applicationlication",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SoundWorkflow],
   modelProvider: BrokenModels,
   budgets: TEST_BUDGETS,
@@ -151,7 +149,6 @@ export class BrokenAppLevelApplication {}
 @Application({
   name: "broken-workflow-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BrokenWorkflow],
   modelProvider: SoundModels,
   budgets: TEST_BUDGETS,
@@ -162,7 +159,6 @@ export class BrokenWorkflowApplication {}
 @Application({
   name: "broken-agent-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BrokenAgentWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -172,7 +168,6 @@ export class BrokenAgentApplication {}
 @Application({
   name: "sound-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SoundWorkflow],
   modelProvider: SoundModels,
   budgets: TEST_BUDGETS,
@@ -223,7 +218,6 @@ export class NamedWorkflow {}
 @Application({
   name: "named-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [NamedWorkflow],
   modelProvider: SoundModels,
   budgets: TEST_BUDGETS,

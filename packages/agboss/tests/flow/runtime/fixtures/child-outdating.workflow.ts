@@ -1,7 +1,6 @@
 import {
   Agent,
   DecidedBy,
-  EmptyEnvironment,
   Router,
   Workflow,
   WorkflowFinish,
@@ -83,7 +82,6 @@ export class PickLoopWorkflow {}
   name: "pick-loop-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   tenantContext: ShopTenantContext,
   executionContext: ShopExecutionContext,
   workflows: [PickLoopWorkflow],

@@ -10,7 +10,6 @@ import type {
   ToolStartEvent,
 } from "../../src/core/observability.js";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TenantContext } from "../../src/flow/context/tenant-context.js";
 import { observabilityMaskOf } from "../../src/pii/observability-mask.js";
 import { PiiPolicySet } from "../../src/pii/policy-set.js";
@@ -60,7 +59,6 @@ class SeeingObserver {
   name: "seen-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PiiWorkflow, OpenWorkflow],
   piiPolicies: [ContactPiiPolicy, GovernmentPiiPolicy],
   observers: [SeeingObserver],

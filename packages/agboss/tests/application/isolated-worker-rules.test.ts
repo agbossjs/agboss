@@ -10,7 +10,7 @@ import { InMemoryDatabaseStorage } from "../../src/storage/in-memory-storage.js"
 import { assembledStorageOf } from "../../src/storage/storage-assembly.js";
 import { isolatedWorkerViolations } from "../../src/application/isolated-worker-rules.js";
 import type { Class } from "../../src/components/injection.js";
-import { EmptyEnvironment, SqliteChildExecutionQueueRepository, Ttl } from "../../src/index.js";
+import { SqliteChildExecutionQueueRepository, Ttl } from "../../src/index.js";
 import { ChildPlacement } from "../../src/flow/child-placement.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
@@ -57,7 +57,6 @@ function parentWith(placement: ChildPlacement | undefined): Class {
 const options = (rest: Partial<ApplicationOptions>): ApplicationOptions => ({
   name: NAME,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [],
   ...rest,
 });

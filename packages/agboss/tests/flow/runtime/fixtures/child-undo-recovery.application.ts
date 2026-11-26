@@ -1,5 +1,4 @@
 import {
-  EmptyEnvironment,
   Observer,
   type CompensationStartEvent,
   type ExecutionEndEvent,
@@ -86,7 +85,6 @@ export class ChildEndGate {
 @Application({
   name: "child-undo-recovery-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     ChargedTripWorkflow,
     CommitTripWorkflow,

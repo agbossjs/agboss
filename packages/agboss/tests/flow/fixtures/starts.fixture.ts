@@ -7,7 +7,7 @@ import { listOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { CompanyDto, CompanyScoreDto, SearchRequestDto } from "./data-dtos.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
-import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #270 AC20 / AC21 — a start's input as a map of fields and as a list. */
@@ -82,7 +82,6 @@ export class CompanyCheckWorkflow {}
   name: "company-check-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CompanyCheckWorkflow],
   budgets: TEST_BUDGETS,
 })

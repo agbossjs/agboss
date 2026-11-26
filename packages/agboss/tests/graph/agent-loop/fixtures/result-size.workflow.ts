@@ -15,7 +15,6 @@ import { Rag } from "../../../../src/components/decorators.js";
 import type { ToolEndEvent } from "../../../../src/core/observability.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { Application } from "../../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../../src/index.js";
 import {
   PiiAction,
   PiiPolicy,
@@ -193,7 +192,6 @@ export class PageWorkflow {}
   name: "page-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PageWorkflow],
   budgets: TEST_BUDGETS,
   observers: [ToolEndLog],
@@ -206,7 +204,6 @@ export class PageApplication {}
   name: "bounded-page-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PageWorkflow],
   budgets: TEST_BUDGETS,
   defaults: { tools: { maxResultSize: kilobytes(64) } },
@@ -258,7 +255,6 @@ export class ZeroBoundWorkflow {}
 @Application({
   name: "zero-bound-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ZeroBoundWorkflow],
   budgets: TEST_BUDGETS,
 })

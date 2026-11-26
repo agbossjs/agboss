@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect } from "vitest";
-import { ApplicationStoppingError, EmptyEnvironment } from "../../src/index.js";
+import { ApplicationStoppingError } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { TestConcurrency, testWith } from "../../src/testing/index.js";
@@ -125,7 +125,6 @@ describe("AC1: the cap is a whole number of steps from 1", () => {
     @Application({
       name: "invalid-cap-application",
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [ItemsWorkflow],
       budgets: TEST_BUDGETS,
       executionLimits: { maxConcurrentSteps },

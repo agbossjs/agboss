@@ -28,7 +28,7 @@ import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
 import { oneOf } from "../../src/flow/dto-wrappers.js";
-import { EmptyEnvironment, type Tracked, ExternalTask } from "../../src/index.js";
+import { type Tracked, ExternalTask } from "../../src/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toFinish, toExternalTask } from "../helpers/flow.js";
 import { HttpAuthResult, type HttpAuthRequest, HttpAuthenticator } from "../../src/index.js";
@@ -290,7 +290,6 @@ export class TckA2AExpose {}
 @Application({
   name: "tck-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   executionContext: TckExecutionContext,
   workflows: [TckWorkflow, TckMessageWorkflow],
   providers: [TckCallerChannel, TckAuthenticator],

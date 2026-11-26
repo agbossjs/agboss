@@ -1,12 +1,4 @@
-import {
-  listOf,
-  Agent,
-  EmptyEnvironment,
-  inline,
-  Workflow,
-  WorkflowStart,
-  Ttl,
-} from "../../../../src/index.js";
+import { listOf, Agent, inline, Workflow, WorkflowStart, Ttl } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { WorkflowStartTextDto } from "../../../flow/fixtures/dtos.js";
@@ -67,7 +59,6 @@ export class GatedBatchWorkflow {}
   name: "limits-resume-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [GatedBatchWorkflow, BatchWorkflow, DigWorkflow],
   budgets: TEST_BUDGETS,
 })

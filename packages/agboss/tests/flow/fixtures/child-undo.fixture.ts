@@ -4,7 +4,6 @@ import {
   Arbiter,
   Arbitrate,
   ChildPlacement,
-  EmptyEnvironment,
   StepError,
   Workflow,
   WorkflowFinish,
@@ -410,7 +409,6 @@ export class RemoteChargedTripWorkflow {}
 @Application({
   name: "child-undo-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     QuorumTripWorkflow,
     RefusedTripWorkflow,

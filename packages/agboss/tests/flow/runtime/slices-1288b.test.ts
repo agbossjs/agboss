@@ -7,7 +7,6 @@ import { Integer, Text } from "../../../src/dto/index.js";
 import {
   Action,
   Application,
-  EmptyEnvironment,
   listOf,
   Workflow,
   WorkflowFinish,
@@ -84,7 +83,6 @@ class SlicesWorkflow {}
 @Application({
   name: "slices-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SlicesWorkflow],
   budgets: TEST_BUDGETS,
 })

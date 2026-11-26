@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Agent, EmptyEnvironment, Tool, Workflow, inline, Ttl } from "../../../src/index.js";
+import { Agent, Tool, Workflow, inline, Ttl } from "../../../src/index.js";
 import { WorkflowFinish, WorkflowStart } from "../../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { Application } from "../../../src/application/application.js";
@@ -137,7 +137,6 @@ export class ReadWorkflow {}
   name: "tenant-docs-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SearchWorkflow, ReadWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

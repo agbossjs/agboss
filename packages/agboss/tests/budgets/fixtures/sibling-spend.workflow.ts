@@ -1,7 +1,6 @@
 import {
   Action,
   ChildPlacement,
-  EmptyEnvironment,
   ExecutionContext,
   Observer,
   SpendRecorder,
@@ -240,7 +239,6 @@ export class SiblingItemsWorkflow {}
 @Application({
   name: "sibling-spend-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SiblingItemsWorkflow],
   budgets: TEST_BUDGETS,
   observers: [GrandStartObserver],

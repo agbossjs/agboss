@@ -5,7 +5,6 @@ import {
   Memory,
   Ttl,
   DecidedBy,
-  EmptyEnvironment,
   Injectable,
   Judge,
   JudgeModel,
@@ -130,7 +129,6 @@ export class EveryKindWorkflow {}
 @Application({
   name: "every-kind-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EveryKindWorkflow],
   providers: [LocalModelProvider],
   budgets: TEST_BUDGETS,
@@ -163,7 +161,6 @@ export class LocalWorkflow {}
 @Application({
   name: "mirrored-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LocalWorkflow],
   providers: [LocalModelProvider, LocalMirrorModelProvider, TestDecisionsProvider],
   budgets: TEST_BUDGETS,
@@ -174,7 +171,6 @@ export class MirroredApplication {}
 @Application({
   name: "built-in-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LocalWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -184,7 +180,6 @@ export class BuiltInApplication {}
 @Application({
   name: "local-only-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LocalWorkflow],
   providers: [LocalModelProvider],
   modelProvider: LocalModelProvider,
@@ -214,7 +209,6 @@ export class MisplacedProviderWorkflow {}
 @Application({
   name: "misplaced-provider-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [MisplacedProviderWorkflow],
   budgets: TEST_BUDGETS,
 })

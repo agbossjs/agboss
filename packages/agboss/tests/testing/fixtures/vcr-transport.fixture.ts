@@ -12,7 +12,6 @@ import {
 import { Application } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import {
   ModelCost,
   ModelProvider,
@@ -114,7 +113,6 @@ export const SECOND = echoWorkflowOn("echo/second", "second-echo");
   name: "echo-application",
   modelProvider: EchoModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FIRST.workflow, SECOND.workflow],
   providers: [EchoModelProvider, EchoLog],
   budgets: TEST_BUDGETS,

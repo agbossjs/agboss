@@ -17,7 +17,6 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import { joinKeysOf } from "../../src/flow/runtime/workflow-keys.js";
 import {
   Agent,
-  EmptyEnvironment,
   PiiAction,
   PiiFileAction,
   PiiPolicy,
@@ -127,7 +126,6 @@ function deployment({ application = [], root = [], own = [] }: Policies): {
     name: "cr-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [CrRoot],
     providers: [
       SharedCheckpointSaver,
@@ -193,7 +191,6 @@ function nested(middle: readonly Class[]): Class {
     name: "cr-nested-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [CrRoot],
     budgets: TEST_BUDGETS,
   })

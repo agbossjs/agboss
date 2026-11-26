@@ -1,7 +1,6 @@
 import {
   Action,
   ChildPlacement,
-  EmptyEnvironment,
   SpendRecorder,
   Workflow,
   WorkflowFinish,
@@ -137,7 +136,6 @@ export class HeldAnyWorkflow {}
 @Application({
   name: "held-branch-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [HeldBranchWorkflow, HeldItemsWorkflow, HeldLocalWorkflow, HeldAnyWorkflow],
   observers: [PaidStepsLog, ExemptionsLog],
   budgets: TEST_BUDGETS,

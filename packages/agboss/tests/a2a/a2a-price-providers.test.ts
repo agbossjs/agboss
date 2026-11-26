@@ -13,7 +13,7 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
-import { EmptyEnvironment, Ttl } from "../../src/index.js";
+import { Ttl } from "../../src/index.js";
 import { usd } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart } from "../helpers/flow.js";
@@ -91,7 +91,6 @@ async function codesOf(place: Place, price: unknown): Promise<readonly string[]>
   @Application({
     name: `placed-${n}-application`,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [ParentWorkflow],
     budgets: TEST_BUDGETS,
     ...providers("application"),
@@ -129,7 +128,6 @@ describe("#1366: a class listed as a workflow that is none is a rule violation, 
     @Application({
       name: "beside-application",
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [NotAWorkflow],
       providers: [BesideA2AAgent],
       budgets: TEST_BUDGETS,

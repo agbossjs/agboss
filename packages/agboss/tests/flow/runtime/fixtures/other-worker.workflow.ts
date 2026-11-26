@@ -3,7 +3,6 @@ import {
   ApplicationContext,
   ChildPlacement,
   StepError,
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -99,7 +98,6 @@ export class OtherWorkerRootWorkflow {}
 @Application({
   name: "other-worker-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OtherWorkerRootWorkflow],
   executionLimits: { childClaimTimeout: seconds(5) },
   budgets: TEST_BUDGETS,

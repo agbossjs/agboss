@@ -35,7 +35,6 @@ import {
   OrdersWorkflowFinish,
   RefundsWorkflowStart,
 } from "./fixtures/desks.application.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 class PlanTenantContext extends TenantContext {
@@ -85,7 +84,6 @@ class UnitsWorkflow {}
   name: "plan-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PlainWorkflow],
   budgets: TEST_BUDGETS,
   tenantContext: PlanTenantContext,
@@ -96,7 +94,6 @@ class PlanApplication {}
   name: "spoofed-tenant-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PlainWorkflow],
   budgets: TEST_BUDGETS,
   tenantContext: SpoofedTenantContext,
@@ -107,7 +104,6 @@ class SpoofedTenantApplication {}
   name: "spoofed-execution-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PlainWorkflow],
   budgets: TEST_BUDGETS,
   executionContext: SpoofedExecutionContext as never, // the spoof does not fit the context's type
@@ -118,7 +114,6 @@ class SpoofedExecutionApplication {}
   name: "own-fields-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PlainWorkflow],
   budgets: TEST_BUDGETS,
   tenantContext: OwnFieldsTenantContext,
@@ -128,7 +123,6 @@ class OwnFieldsApplication {}
 @Application({
   name: "undecorated-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PlainWorkflow],
   budgets: TEST_BUDGETS,
   executionContext: UndecoratedExecutionContext,
@@ -138,7 +132,6 @@ class UndecoratedApplication {}
 @Application({
   name: "units-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [UnitsWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -148,7 +141,6 @@ class UnitsApplication {}
   name: "plain-application",
   modelProvider: TestModelProvider,
   version: "2.0.0",
-  environment: EmptyEnvironment,
   workflows: [PlainWorkflow],
   budgets: TEST_BUDGETS,
 })

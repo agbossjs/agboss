@@ -4,7 +4,6 @@
  */
 import { describe, expect } from "vitest";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import type { ExecutionStreamEvent } from "../../src/run/types.js";
 import { LogLevel } from "../../src/infrastructure/logger.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
@@ -20,7 +19,6 @@ import { TestModelProvider } from "../../src/testing/test-model-provider.js";
   name: "listener-log-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [AuditWorkflow],
   providers: [...MODEL_PROVIDERS, RecordingLogger],
   budgets: TEST_BUDGETS,

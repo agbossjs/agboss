@@ -3,7 +3,6 @@ import {
   Agent,
   Arbiter,
   DecidedBy,
-  EmptyEnvironment,
   InputGuardrail,
   PiiAction,
   PiiKind,
@@ -167,7 +166,6 @@ export function componentsApplication(levels: ComponentLevels): Class {
   @Application({
     name: "lv-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [LvWorkflow],
     modelProvider: levels.appProvider,
     budgets: TEST_BUDGETS,
@@ -243,7 +241,6 @@ export function arbiterApplication(modelProvider?: Class): Class {
   @Application({
     name: "arb-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [ArbWorkflow],
     modelProvider: AlphaModels,
     budgets: TEST_BUDGETS,

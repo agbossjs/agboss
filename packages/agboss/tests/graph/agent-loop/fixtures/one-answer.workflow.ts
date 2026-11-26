@@ -1,7 +1,6 @@
 import { Text, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import {
   Agent,
-  EmptyEnvironment,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -142,7 +141,6 @@ export class WireModelProvider {}
   name: "one-answer-application",
   modelProvider: WireModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ReviewWorkflow, ReadingWorkflow],
   providers: [WireModelProvider],
   budgets: TEST_BUDGETS,

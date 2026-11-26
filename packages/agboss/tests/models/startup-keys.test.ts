@@ -13,7 +13,6 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import type { Class } from "../../src/components/injection.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { MODEL_USE_KINDS, type ModelUseKind } from "../../src/models/uses.js";
 import { workflowModelUsesOf } from "../../src/models/resolution.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -44,7 +43,6 @@ function applicationFor(
   @Application({
     name: "every-kind-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [...parts.workflows],
     providers: [...listed, ...parts.providers],
     budgets: TEST_BUDGETS,

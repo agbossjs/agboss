@@ -10,7 +10,6 @@ import { Application } from "../../src/application/application.js";
 import {
   Action,
   DatabaseStorage,
-  EmptyEnvironment,
   Injectable,
   SqliteDriver,
   Ttl,
@@ -88,7 +87,6 @@ class StudioDatabaseStorage {}
   name: "studio-storage-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [StudioLedgerWorkflow],
   budgets: TEST_BUDGETS,
   storage: StudioDatabaseStorage,

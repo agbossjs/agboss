@@ -22,7 +22,6 @@ import type { UsageRecord } from "../../../src/finops/usage.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { testDefaults } from "../../helpers.js";
 import { onStart } from "../../helpers/flow.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
@@ -154,7 +153,6 @@ export class RefundsWorkflow {}
   name: "desks-application",
   modelProvider: TestModelProvider,
   version: "3.1.0",
-  environment: EmptyEnvironment,
   workflows: [OrdersWorkflow, RefundsWorkflow],
   providers: [RecordingCostLedgerRepository],
   budgets: TEST_BUDGETS,
@@ -175,7 +173,6 @@ export class OrdersCopyWorkflow {}
   name: "ambiguous-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OrdersWorkflow, OrdersCopyWorkflow],
   budgets: TEST_BUDGETS,
 })

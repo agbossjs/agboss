@@ -12,7 +12,6 @@ import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js"
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { PiiAction } from "../../../src/pii/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { WorkflowStartTextDto } from "./dtos.js";
@@ -238,7 +237,6 @@ export class OwnerBuyerWorkflow {}
   name: "question-tools-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BuyerWorkflow, OwnerBuyerWorkflow],
   budgets: TEST_BUDGETS,
   providers: [DeskApproverChannel, InboxBudgetOwnerChannel],
@@ -249,7 +247,6 @@ export class QuestionToolsApplication {}
   name: "rule-question-tools-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BuyerWorkflow],
   budgets: TEST_BUDGETS,
   providers: [RuleApproverChannel],
@@ -260,7 +257,6 @@ export class RuleQuestionToolsApplication {}
   name: "down-question-tools-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BuyerWorkflow],
   budgets: TEST_BUDGETS,
   providers: [DownApproverChannel],
@@ -271,7 +267,6 @@ export class DownQuestionToolsApplication {}
   name: "wrong-question-tools-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BuyerWorkflow],
   budgets: TEST_BUDGETS,
   providers: [WrongApproverChannel],

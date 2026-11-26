@@ -9,7 +9,6 @@ import { beforeEach, describe, expect } from "vitest";
 import {
   Application,
   ChannelInterpreterOutcome,
-  EmptyEnvironment,
   Observer,
   type ChannelInterpreterEndEvent,
   type ChannelInterpreterStartEvent,
@@ -61,7 +60,6 @@ class DeskInterpreterWatch {
   name: "watched-treasury-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TreasuryWorkflow, TreasuryDeskWorkflow, TreasuryBatchWorkflow],
   budgets: TEST_BUDGETS,
   providers: treasuryChannels,

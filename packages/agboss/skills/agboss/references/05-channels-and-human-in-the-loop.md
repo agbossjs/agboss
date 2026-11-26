@@ -306,7 +306,7 @@ export class RefundsDatabaseStorage {}
 ```
 
 ```ts file=src/refunds.application.ts
-import { Application, EmptyEnvironment } from "@agboss/core";
+import { Application } from "@agboss/core";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 import { ApplicationDailyBudget } from "./refunds/budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./refunds/budgets/execution.budget.js";
@@ -318,7 +318,6 @@ import { RefundWorkflow } from "./refunds/workflows/refund/refund.workflow.js";
 @Application({
   name: "refunds-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RefundWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   storage: RefundsDatabaseStorage, // pauses survive a restart (in-memory is an assembly warning)

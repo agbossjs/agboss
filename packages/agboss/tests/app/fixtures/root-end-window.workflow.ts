@@ -1,5 +1,5 @@
 import { MemorySaver } from "@langchain/langgraph";
-import { EmptyEnvironment, Injectable } from "../../../src/index.js";
+import { Injectable } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { RecordingLogger } from "../../helpers/log.js";
@@ -76,7 +76,6 @@ export class RootWindowCheckpointSaver extends MemorySaver {
 @Application({
   name: "root-end-window-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EndOnceLocalWorkflow],
   observers: [EndOnceLog],
   providers: [RecordingLogger, RootWindowCheckpointSaver],

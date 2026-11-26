@@ -25,7 +25,6 @@ import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS, TestApplicationDailyBudget } from "../flow/fixtures/budgets.js";
 import { Budget, BudgetPeriod, BudgetScope, type BudgetHandler } from "../../src/budgets/budget.js";
 import { SharedExecutionRecordRepository } from "../helpers/shared-infrastructure.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** What the payment tool got: the owner of each call (`executionContext.ownerId`) and the cards charged. */
@@ -108,7 +107,6 @@ export class Payments implements WorkflowDefinition {
   name: "payments-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Payments],
   channels: [ChatAppChannel],
   budgets: TEST_BUDGETS,
@@ -120,7 +118,6 @@ export class PaymentsApplication {}
   name: "durable-payments-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Payments],
   channels: [ChatAppChannel],
   providers: [SharedExecutionRecordRepository],
@@ -185,7 +182,6 @@ export class CappedTenantDailyBudget implements BudgetHandler {
   name: "capped-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Capped],
   budgets: [TestApplicationDailyBudget, CappedTenantDailyBudget, CappedExecutionBudget],
 })

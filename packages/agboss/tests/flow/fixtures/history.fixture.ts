@@ -11,7 +11,7 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import { DraftChangesDto } from "./data-dtos.js";
 import { ChangesRequestedDto, DraftApprovedDto, OfferDraftDto, ShortlistDto } from "./dtos.js";
-import { EmptyEnvironment, inline, Ttl } from "../../../src/index.js";
+import { inline, Ttl } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /**
@@ -133,7 +133,6 @@ export class HistoryOfferWorkflow {}
   name: "history-offer-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [HistoryOfferWorkflow],
   budgets: TEST_BUDGETS,
 })

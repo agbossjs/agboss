@@ -1,4 +1,3 @@
-import { EmptyEnvironment } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import {
   MortalExecutionLeaseRepository,
@@ -19,7 +18,6 @@ import { TestModelProvider } from "../../../../src/testing/test-model-provider.j
   name: "tree-cap-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     BatchWorkflow,
     SerialBatchWorkflow,
@@ -38,7 +36,6 @@ export class TreeCapApplication {}
 @Application({
   name: "tree-cap-recovery-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SingleFileWorkflow],
   observers: [RecoveryLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],

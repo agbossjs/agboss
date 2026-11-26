@@ -15,7 +15,7 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
-import { EmptyEnvironment, type Tracked, inline } from "../../../src/index.js";
+import { type Tracked, inline } from "../../../src/index.js";
 import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
@@ -181,7 +181,6 @@ export class QuotesA2AExpose {}
   name: "quotes-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [QuoteWorkflow, QuoteFileWorkflow, AckWorkflow],
   providers: [BearerAuthenticator, InMemoryFileRepository],
   endpoints: [QuotesA2AExpose],

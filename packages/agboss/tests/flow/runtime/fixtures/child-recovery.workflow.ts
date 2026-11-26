@@ -1,5 +1,4 @@
 import {
-  EmptyEnvironment,
   listOf,
   Workflow,
   WorkflowFinish,
@@ -79,7 +78,6 @@ export class HoldItemsWorkflow {}
 @Application({
   name: "child-recovery-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [HoldItemsWorkflow],
   observers: [RecoveryLog, ChildEventLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],

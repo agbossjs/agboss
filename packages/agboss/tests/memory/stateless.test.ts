@@ -6,7 +6,6 @@ import { describe, expect } from "vitest";
 import {
   Agent,
   Application,
-  EmptyEnvironment,
   Injectable,
   Logger,
   Workflow,
@@ -76,7 +75,6 @@ const applicationOf = (workflow: typeof StatelessWorkflow, name: string) => {
     name,
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [workflow],
     providers: [CollectingLogger],
     budgets: TEST_BUDGETS,

@@ -1,6 +1,6 @@
 import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import { LimitError } from "../../../../src/core/error-families/limit-errors.js";
-import { EmptyEnvironment, Workflow, Ttl } from "../../../../src/index.js";
+import { Workflow, Ttl } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
 import { onStart, toAction } from "../../../helpers/flow.js";
@@ -39,7 +39,6 @@ export class TakeFirstWorkflow {}
 @Application({
   name: "take-first-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TakeFirstWorkflow],
   observers: [FanOutLog],
   budgets: TEST_BUDGETS,
@@ -66,7 +65,6 @@ export class MaxItemsWorkflow {}
 @Application({
   name: "max-items-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [MaxItemsWorkflow],
   budgets: TEST_BUDGETS,
 })

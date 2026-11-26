@@ -24,7 +24,7 @@ import {
   SharedExecutionRecordRepository,
   SharedPausedExecutionRepository,
 } from "../../helpers/shared-infrastructure.js";
-import { EmptyEnvironment, Ttl } from "../../../src/index.js";
+import { Ttl } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** Emails the tool really sent, in order (the tests reset it). */
@@ -155,7 +155,6 @@ const durable = [
   name: "mail-v1-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [MailV1],
   providers: durable,
   budgets: TEST_BUDGETS,
@@ -167,7 +166,6 @@ export class MailV1Application {}
   name: "mail-v2-application",
   modelProvider: TestModelProvider,
   version: "2.0.0",
-  environment: EmptyEnvironment,
   workflows: [MailV2],
   providers: durable,
   budgets: TEST_BUDGETS,
@@ -179,7 +177,6 @@ export class MailV2Application {}
   name: "mail-v2-migrating-application",
   modelProvider: TestModelProvider,
   version: "2.0.0",
-  environment: EmptyEnvironment,
   workflows: [MailV2Migrating],
   providers: durable,
   budgets: TEST_BUDGETS,
@@ -192,7 +189,6 @@ export class MailV2MigratingApplication {}
   name: "mail-v1-memory-pauses-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [MailV1],
   providers: [SharedCheckpointSaver, SharedExecutionRecordRepository],
   budgets: TEST_BUDGETS,
@@ -205,7 +201,6 @@ export class MailV1MemoryPausesApplication {}
   name: "mail-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [MailV1],
   budgets: TEST_BUDGETS,
   observers: [MailLog],

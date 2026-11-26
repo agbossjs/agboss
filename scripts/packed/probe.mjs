@@ -58,7 +58,6 @@ export const FILES_APPLICATION = `import {
   Budget,
   BudgetPeriod,
   BudgetScope,
-  EmptyEnvironment,
   FilePolicy,
   Ttl,
   Workflow,
@@ -128,7 +127,6 @@ export class FilesExecutionBudget {
 @Application({
   name: "files-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FilesWorkflow],
   budgets: [FilesApplicationBudget, FilesTenantBudget, FilesExecutionBudget],
 })

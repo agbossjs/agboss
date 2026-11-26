@@ -1,6 +1,6 @@
 import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment, Workflow, Ttl } from "../../../src/index.js";
+import { Workflow, Ttl } from "../../../src/index.js";
 import { seconds } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import {
@@ -247,7 +247,6 @@ export class DealPanelWorkflow {}
   name: "quick-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [QuickPanelWorkflow],
   observers: [QuorumLog],
   budgets: TEST_BUDGETS,
@@ -258,7 +257,6 @@ export class QuickPanelApplication {}
   name: "checked-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CheckedPanelWorkflow],
   observers: [QuorumLog],
   budgets: TEST_BUDGETS,
@@ -269,7 +267,6 @@ export class CheckedPanelApplication {}
   name: "strict-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [StrictPanelWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -279,7 +276,6 @@ export class StrictPanelApplication {}
   name: "model-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ModelPanelWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -289,7 +285,6 @@ export class ModelPanelApplication {}
   name: "hybrid-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [HybridPanelWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -299,7 +294,6 @@ export class HybridPanelApplication {}
   name: "arbitrated-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ArbitratedPanelWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -309,7 +303,6 @@ export class ArbitratedPanelApplication {}
   name: "each-item-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EachItemPanelWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -319,7 +312,6 @@ export class EachItemPanelApplication {}
   name: "item-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ItemPanelWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -329,7 +321,6 @@ export class ItemPanelApplication {}
   name: "copies-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CopiesPanelWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -339,7 +330,6 @@ export class CopiesPanelApplication {}
   name: "deal-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DealPanelWorkflow],
   observers: [QuorumLog],
   budgets: TEST_BUDGETS,
@@ -350,7 +340,6 @@ export class DealPanelApplication {}
   name: "recovery-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RecoveryPanelWorkflow],
   observers: [RecoveryLog, QuorumLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],
@@ -362,7 +351,6 @@ export class RecoveryPanelApplication {}
   name: "chat-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ChatPanelWorkflow],
   budgets: TEST_BUDGETS,
 })

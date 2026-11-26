@@ -26,7 +26,6 @@ import { listOf } from "../../../src/flow/dto-wrappers.js";
 import type { InputOf, OutputOf } from "../../../src/flow/generated-types.js";
 import type { ActionHandler } from "../../../src/flow/handlers.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { PiiPolicy } from "../../../src/pii/pii-policy.decorator.js";
 import { PiiKind } from "../../../src/pii/index.js";
 import { minutes, days } from "../../../src/units/index.js";
@@ -499,7 +498,6 @@ export const treasuryChannels = [
   name: "treasury-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TreasuryWorkflow, TreasuryDeskWorkflow, TreasuryBatchWorkflow],
   budgets: TEST_BUDGETS,
   providers: treasuryChannels,
@@ -512,7 +510,6 @@ export class TreasuryApplication {}
   name: "brief-treasury-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TreasuryWorkflow],
   budgets: TEST_BUDGETS,
   providers: treasuryChannels,

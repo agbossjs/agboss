@@ -1,4 +1,3 @@
-import { EmptyEnvironment } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import {
@@ -29,7 +28,6 @@ import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
   name: "paid-steps-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     PaidActionWorkflow,
     PaidRouterWorkflow,

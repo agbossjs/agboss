@@ -2,7 +2,6 @@ import {
   Action,
   Agent,
   ChildPlacement,
-  EmptyEnvironment,
   listOf,
   Workflow,
   WorkflowFinish,
@@ -142,7 +141,6 @@ export class RemoteSpendWorkflow {}
   name: "remote-limits-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RemoteCappedWorkflow, RemoteSpendWorkflow],
   budgets: TEST_BUDGETS,
 })

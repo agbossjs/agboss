@@ -1,6 +1,5 @@
 import {
   ApplicationContext,
-  EmptyEnvironment,
   Injectable,
   Observer,
   LeaseTakeoverReason,
@@ -163,7 +162,6 @@ export class EndOnceLog {
 @Application({
   name: "child-end-once-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [YieldOneWorkflow, EndOnceLocalWorkflow],
   observers: [EndOnceLog],
   providers: [RecordingLogger],
@@ -233,7 +231,6 @@ export class WindowCheckpointSaver extends MemorySaver {
 @Application({
   name: "child-end-window-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EndOnceLocalWorkflow],
   observers: [EndOnceLog],
   providers: [RecordingLogger, WindowCheckpointSaver],

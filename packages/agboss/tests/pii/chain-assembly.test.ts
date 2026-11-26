@@ -24,7 +24,6 @@ import { applicationOf } from "../../src/application/assemble.js";
 import { logStart } from "../../src/application/start-log.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { piiPolicyLines } from "../../src/describe/pii-policies.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import type { FrameworkLog } from "../../src/infrastructure/logger.js";
 import { listOf } from "../../src/flow/dto-wrappers.js";
@@ -175,7 +174,6 @@ class ConflictRootWorkflow {}
   name: "cc-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ConflictRootWorkflow],
   budgets: TEST_BUDGETS,
 })

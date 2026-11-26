@@ -1,5 +1,4 @@
 import {
-  EmptyEnvironment,
   Agent,
   listOf,
   Workflow,
@@ -150,7 +149,6 @@ export class ChildBatchWorkflow {}
   name: "child-pauses-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow, ChildBatchWorkflow],
   providers: [
     FinanceDeskRefundApprovalChannel,

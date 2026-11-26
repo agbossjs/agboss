@@ -71,8 +71,7 @@ import { Errands, TaskStart } from "./errands.workflow.js";
 -->
 
 ```ts
-import { EmptyEnvironment } from "@agboss/core";
-@Application({ name: "errands-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [Errands] })
+@Application({ name: "errands-application", version: "1.0.0", workflows: [Errands] })
 class ErrandsApplication {}
 
 const app = await createApp(ErrandsApplication);

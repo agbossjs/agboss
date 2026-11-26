@@ -9,7 +9,7 @@ import {
   childLog,
   resetChildLog,
 } from "./fixtures/children.workflow.js";
-import { Observer, EmptyEnvironment, type ExecutionEndEvent } from "../../../src/index.js";
+import { Observer, type ExecutionEndEvent } from "../../../src/index.js";
 import { Injectable } from "../../../src/components/decorators.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../fixtures/budgets.js";
@@ -47,7 +47,6 @@ export class RemoteEndLog {
 @Application({
   name: "clock-step-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RemoteOneWorkflow],
   observers: [RemoteEndLog],
   budgets: TEST_BUDGETS,

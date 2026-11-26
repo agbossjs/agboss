@@ -2,7 +2,6 @@ import { LimitError } from "../../../../src/core/error-families/limit-errors.js"
 import {
   ChildPlacement,
   DecidedBy,
-  EmptyEnvironment,
   Router,
   Workflow,
   WorkflowStart,
@@ -104,7 +103,6 @@ export class RemoteChainWorkflow {}
   name: "remote-recursion-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RemoteCountdownWorkflow, RemoteChainWorkflow],
   defaults: { router: { model: "typesafe/jev-1.13" } },
   budgets: TEST_BUDGETS,

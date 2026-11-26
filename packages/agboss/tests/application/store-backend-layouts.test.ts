@@ -18,7 +18,6 @@ import { IN_MEMORY_DATABASE } from "../../src/infrastructure/in-memory-database.
 import {
   ApplicationContext,
   Clock,
-  EmptyEnvironment,
   Injectable,
   LogLevel,
   SqliteExecutionAuditLogRepository,
@@ -154,7 +153,6 @@ describe("#526 AC1: the opt-out, LeaseCheck.WithoutDoubleChargeProtection", () =
     @Application({
       name: "unchecked-application",
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [ReleaseWorkflow],
       budgets: TEST_BUDGETS,
       providers: [UncheckedEffects, RecordingLogger],

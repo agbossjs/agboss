@@ -1,6 +1,5 @@
 import {
   Agent,
-  EmptyEnvironment,
   Judge,
   Workflow,
   WorkflowFinish,
@@ -111,7 +110,6 @@ export class TwoJudgesDesk {}
   name: "declared-desk-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DeclaredDesk],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
@@ -122,7 +120,6 @@ export class DeclaredDeskApplication {}
   name: "two-judges-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TwoJudgesDesk],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

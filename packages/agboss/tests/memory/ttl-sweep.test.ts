@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import {
   Agent,
   Application,
-  EmptyEnvironment,
   Memory,
   Ttl,
   Workflow,
@@ -65,7 +64,6 @@ const ttlsOf = async (workflows: readonly Class[], records: object) => {
     name: "ttl-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows,
     budgets: TEST_BUDGETS,
   })

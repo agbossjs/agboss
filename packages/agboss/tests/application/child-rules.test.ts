@@ -4,7 +4,6 @@ import {
   Agent,
   Budget,
   BudgetScope,
-  EmptyEnvironment,
   Injectable,
   Tool,
   Workflow,
@@ -132,7 +131,6 @@ const applicationOfParent = (
     name: `rules-${String(count)}-application`,
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [parent],
     budgets: TEST_BUDGETS,
     ...(extra.providers === undefined ? {} : { providers: [...extra.providers] }),
@@ -215,7 +213,6 @@ describe("#263: an unlisted child goes through the application's rules", () => {
     @Application({
       name: `rules-${String(count)}-application`,
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [ParentWorkflow],
       budgets: TEST_BUDGETS,
     })
@@ -274,7 +271,6 @@ describe("#263: an unlisted child goes through the application's rules", () => {
       name: "rules-budgeted-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [ParentWorkflow],
       budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, ParentExecutionBudget],
     })

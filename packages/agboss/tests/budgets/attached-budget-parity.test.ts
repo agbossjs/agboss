@@ -26,7 +26,7 @@ import { InMemoryCostLedgerRepository } from "../../src/infrastructure/cost-ledg
 import { openExecutionBudgets } from "../../src/run/run-budgets.js";
 import type { AgentExecutionDeps } from "../../src/run/types.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { EmptyEnvironment, Ttl } from "../../src/index.js";
+import { Ttl } from "../../src/index.js";
 import { WorkflowStartTextDto } from "../../src/dto/index.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
@@ -91,7 +91,6 @@ const PlainWorkflow = workflowOf("plain");
 @Application({
   name: "parity-shop-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CappedWorkflow, TenantCappedWorkflow, OwnBudgetWorkflow, PlainWorkflow],
   budgets: [ListedDefaultBudget],
 })

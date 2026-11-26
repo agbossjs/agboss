@@ -1,7 +1,6 @@
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
-  EmptyEnvironment,
   ExecutionContext,
   ResumeDecision,
   Tool,
@@ -183,7 +182,6 @@ const durable = [
 ];
 
 const deployment = {
-  environment: EmptyEnvironment,
   providers: durable,
   budgets: TEST_BUDGETS,
   observers: [MailLog],

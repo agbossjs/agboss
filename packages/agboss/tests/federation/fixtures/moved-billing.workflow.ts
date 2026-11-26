@@ -3,7 +3,6 @@ import { A2AEndpoint } from "../../../src/a2a/index.js";
 import { Application } from "../../../src/application/application.js";
 import {
   Agent,
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -66,7 +65,6 @@ export class MovedBillingA2AExpose {}
   name: "billing-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [MovedBillingWorkflow],
   budgets: TEST_BUDGETS,
   endpoints: [MovedBillingA2AExpose],

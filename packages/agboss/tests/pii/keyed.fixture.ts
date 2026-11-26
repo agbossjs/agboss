@@ -100,7 +100,6 @@ export class KeyedWorkflow {}
   name: "unkeyed-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [KeyedWorkflow],
   executionContext: KeyedExecutionContext,
   budgets: TEST_BUDGETS,

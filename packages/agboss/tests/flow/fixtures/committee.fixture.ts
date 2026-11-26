@@ -6,7 +6,6 @@ import {
   Arbitrate,
   Channel,
   ChannelOutcome,
-  EmptyEnvironment,
   ExternalTask,
   Injectable,
   inline,
@@ -475,7 +474,6 @@ export class CommitteeNotesWorkflow {}
   name: "committee-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     ContractCommitteeWorkflow,
     BudgetApprovalWorkflow,

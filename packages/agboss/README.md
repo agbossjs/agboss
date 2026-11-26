@@ -731,9 +731,8 @@ export class AuditStoreService {
   dev's addresses by accident); `testWith(Application, { env: "dev" })` names another.
 - Dev / prod parity (12-factor): the same `providers` — the same implementations and code — in
   every environment; only values differ.
-- `environment` is required: an application with no settings declares the framework's empty
-  contract, `@Application({ environment: EmptyEnvironment })` (any contract without fields works the
-  same), and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets an empty environment.)
+- `environment` is optional: an application with no settings omits it
+  and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets an empty environment.)
 - Model provider keys are not fields of the environment contract (#1313): a driver reads its own
   settings — `OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY"), baseUrl: env("OPENROUTER_BASE_URL",
 { default: "https://openrouter.ai/api/v1" }) })` — from the process when the application starts. A
@@ -1699,7 +1698,6 @@ execution.
 ```ts
 import {
   Application,
-  EmptyEnvironment,
   Observer,
   type AgentStartEvent,
   type ExecutionEndEvent,
@@ -1722,7 +1720,6 @@ export class MetricsObserver {
 @Application({
   name: "metrics-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [],
   observers: [MetricsObserver], // the only place observers are registered
 })

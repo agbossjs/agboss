@@ -1,4 +1,3 @@
-import { EmptyEnvironment } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { hours, seconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
@@ -17,7 +16,6 @@ import { UnwindLog, UnwindParentWorkflow, UnwindWorkflow } from "./unwind.workfl
 @Application({
   name: "unwind-recovery-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [UnwindWorkflow, UnwindParentWorkflow],
   observers: [UnwindLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],
@@ -30,7 +28,6 @@ export class UnwindRecoveryApplication {}
 @Application({
   name: "kept-unwind-recovery-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [UnwindWorkflow, UnwindParentWorkflow],
   observers: [UnwindLog],
   providers: [MortalExecutionLeaseRepository, StampedExecutionRecordRepository],

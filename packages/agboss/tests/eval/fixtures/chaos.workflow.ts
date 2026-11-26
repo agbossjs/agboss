@@ -3,7 +3,6 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/
 import {
   Action,
   Agent,
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -161,7 +160,6 @@ export class FragileModelProvider {}
   name: "retrying-chaos-application",
   modelProvider: RetryingModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ChaosWorkflow],
   providers: [RetryingModelProvider],
   budgets: TEST_BUDGETS,
@@ -172,7 +170,6 @@ export class RetryingChaosApplication {}
   name: "fragile-chaos-application",
   modelProvider: FragileModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ChaosWorkflow],
   providers: [FragileModelProvider],
   budgets: TEST_BUDGETS,

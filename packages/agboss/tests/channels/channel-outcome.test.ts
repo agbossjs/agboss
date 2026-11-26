@@ -13,7 +13,6 @@ import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import {
-  EmptyEnvironment,
   PausedExecutionRepository,
   PauseResolution,
   PauseStatus,
@@ -120,7 +119,6 @@ function applicationWith(name: string, channel: Class): Class {
     name: `${name}-application`,
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [ChannelWorkflow],
     budgets: TEST_BUDGETS,
     channels: [channel],

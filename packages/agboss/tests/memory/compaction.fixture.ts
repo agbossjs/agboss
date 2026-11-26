@@ -21,7 +21,6 @@ import {
 } from "../../src/index.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent, toFinish } from "../helpers/flow.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
@@ -158,7 +157,6 @@ export class HelpDeskWorkflow {}
   name: "help-desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [HelpDeskWorkflow],
   piiPolicies: [ContactPiiPolicy],
   budgets: TEST_BUDGETS,
@@ -186,7 +184,6 @@ export class NotesDeskWorkflow {}
   name: "notes-desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [NotesDeskWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -234,7 +231,6 @@ export class WindowDeskWorkflow {}
   name: "window-desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [WindowDeskWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -277,7 +273,6 @@ export class EagerDeskWorkflow {}
   name: "eager-desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EagerDeskWorkflow],
   budgets: TEST_BUDGETS,
 })

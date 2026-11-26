@@ -23,7 +23,6 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { describeWorkflow } from "../../src/describe/describe-workflow.js";
 import { nodesOf } from "../../src/describe/snapshot-nodes.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { configSnapshot } from "../../src/run/versions.js";
 import type { AssembledWorkflow } from "../../src/workflow.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -110,7 +109,6 @@ function appWith(agentClass: object, lists: { app?: object[]; workflow?: object[
   @Application({
     name: "bad-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [BadWorkflow],
     toolInterceptors: (lists.app ?? []) as never,
     budgets: TEST_BUDGETS,
@@ -313,7 +311,6 @@ describe("#1295: the hook rules", () => {
       name: "quiet-ping-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [QuietPingWorkflow],
       toolInterceptors: [AuditToolInterceptor],
       budgets: TEST_BUDGETS,
@@ -341,7 +338,6 @@ describe("#1295: the hook rules", () => {
     @Application({
       name: "bad-application",
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [BadWorkflow],
       budgets: TEST_BUDGETS,
     })

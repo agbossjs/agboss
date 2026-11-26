@@ -45,7 +45,6 @@ const ALL_SQLITE = [
   name: "pathless-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   providers: ALL_SQLITE,
   budgets: TEST_BUDGETS,
@@ -57,7 +56,6 @@ class PathlessApplication {}
   name: "in-memory-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RecoveryWorkflow],
   budgets: TEST_BUDGETS,
 })

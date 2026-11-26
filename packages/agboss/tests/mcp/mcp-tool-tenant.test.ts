@@ -10,7 +10,6 @@ import {
   Tool,
   inline,
   Ttl,
-  EmptyEnvironment,
 } from "../../src/index.js";
 import { Application } from "../../src/application/application.js";
 import type { BuildApplicationOptions } from "../../src/application/create-app.js";
@@ -95,7 +94,6 @@ class EchoDesk implements WorkflowDefinition {
   name: "echo-desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EchoDesk],
   budgets: TEST_BUDGETS,
 })

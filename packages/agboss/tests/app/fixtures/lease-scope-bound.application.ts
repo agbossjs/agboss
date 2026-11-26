@@ -1,4 +1,4 @@
-import { EmptyEnvironment, Injectable } from "../../../src/index.js";
+import { Injectable } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { Clock, IdGenerator } from "../../../src/infrastructure/clock.js";
 import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.js";
@@ -125,7 +125,6 @@ export const HeldHistory = withHoldPoints(InMemoryExecutionHistoryRepository);
   name: "lease-scope-bound-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [UnwindWorkflow, UnwindGuestWorkflow, YieldOneWorkflow],
   observers: [UnwindLog, YieldLog],
   providers: [

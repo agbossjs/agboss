@@ -5,7 +5,6 @@ import {
   Budget,
   BudgetPeriod,
   BudgetScope,
-  EmptyEnvironment,
   ExecutionContext,
   listOf,
   SpendRecorder,
@@ -376,7 +375,6 @@ const TIGHT_EXECUTION = [TestApplicationDailyBudget, TestTenantDailyBudget, Tigh
 
 const application = {
   version: "1.0.0",
-  environment: EmptyEnvironment,
   providers: [ParallelCostLedgerRepository],
 } as const;
 

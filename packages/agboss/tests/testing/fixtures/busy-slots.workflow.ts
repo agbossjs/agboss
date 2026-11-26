@@ -1,7 +1,6 @@
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Agent,
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -62,7 +61,6 @@ export class ChunkWorkflow {}
   name: "busy-slots-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ChunkWorkflow],
   budgets: TEST_BUDGETS,
   executionLimits: { maxConcurrentSteps: 2 },

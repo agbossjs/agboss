@@ -19,7 +19,6 @@ import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import { checkFederation, FederationProblemCode } from "../../../src/federation/federation.js";
 import {
   Action,
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -110,7 +109,6 @@ class AskWorkflow {}
   name: "ask-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [AskWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -161,7 +159,6 @@ function consumerOf(finishes: readonly string[] | undefined): Class {
   @Application({
     name: "review-consumer-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [FileSummaryWorkflow],
     providers: [ReviewA2AAgent],
     budgets: TEST_BUDGETS,
@@ -237,7 +234,6 @@ describe("#916 item 3: target.finishes at assembly", () => {
     @Application({
       name: "finishes-application",
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [AskWorkflow],
       providers: [NamedA2AAgent, EmptyA2AAgent, UntypedA2AAgent],
       budgets: TEST_BUDGETS,

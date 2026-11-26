@@ -3,7 +3,6 @@
 import {
   Action,
   Application,
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   Ttl,
@@ -50,7 +49,6 @@ export class StayWorkflow {}
   modelProvider: TestModelProvider,
   name: "stay-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [StayWorkflow],
   budgets: TEST_BUDGETS,
 })

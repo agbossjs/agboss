@@ -3,7 +3,6 @@ import {
   Action,
   ApplicationContext,
   ChildPlacement,
-  EmptyEnvironment,
   listOf,
   Workflow,
   WorkflowStart,
@@ -154,7 +153,6 @@ export class RemoteReviewItemsWorkflow {}
   name: "remote-recovery-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   tenantContext: ShopTenantContext,
   executionContext: ShopExecutionContext,
   workflows: [

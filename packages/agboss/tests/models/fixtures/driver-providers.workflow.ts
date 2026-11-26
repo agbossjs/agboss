@@ -1,7 +1,6 @@
 import { Window1Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
-  EmptyEnvironment,
   TokenLimit,
   Workflow,
   WorkflowFinish,
@@ -251,7 +250,6 @@ export class LiteralWorkflow {}
 @Application({
   name: "drivers-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FastWorkflow, PlainWorkflow, OwnWorkflow, LiteralWorkflow],
   modelProvider: AppChatModels,
   providers: [AppChatModels, SingleModelProvider],
@@ -263,7 +261,6 @@ export class DriversApplication {}
 @Application({
   name: "unlisted-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FastWorkflow, OwnWorkflow],
   modelProvider: AppChatModels,
   budgets: TEST_BUDGETS,
@@ -287,7 +284,6 @@ export class BareWorkflow {}
 @Application({
   name: "bare-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [BareWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -309,7 +305,6 @@ export class NoProviderWorkflow {}
 @Application({
   name: "no-provider-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [NoProviderWorkflow],
   providers: [AppChatModels],
   budgets: TEST_BUDGETS,
@@ -333,7 +328,6 @@ export class DecisionProviderWorkflow {}
 @Application({
   name: "decision-provider-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DecisionProviderWorkflow],
   budgets: TEST_BUDGETS,
 })

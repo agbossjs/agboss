@@ -1,7 +1,6 @@
 import { Window1Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
-  EmptyEnvironment,
   TokenLimit,
   Workflow,
   WorkflowFinish,
@@ -92,7 +91,6 @@ export class PolishingWorkflow {}
 @Application({
   name: "notes-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DraftingWorkflow, PolishingWorkflow],
   providers: [TestOpenRouterProvider, TestDecisionsProvider, LocalModelProvider],
   budgets: TEST_BUDGETS,

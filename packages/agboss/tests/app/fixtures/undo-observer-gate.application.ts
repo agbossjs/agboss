@@ -8,7 +8,6 @@
  */
 import {
   ApplicationContext,
-  EmptyEnvironment,
   Injectable,
   Observer,
   type ActionStartEvent,
@@ -110,7 +109,6 @@ export class DoneMarkHeldTreeRepository extends InMemoryExecutionTreeRepository 
 @Application({
   name: "undo-observer-gate-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [UndoChildWorkflow, JoinUndoWorkflow, UndoLocalWorkflow],
   observers: [EndOnceLog, FinishLog, UndoStartGate],
   providers: [RecordingLogger, MatrixCheckpointSaver, DoneMarkHeldTreeRepository],

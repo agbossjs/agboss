@@ -4,7 +4,6 @@ import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import { ChannelSelector } from "../../src/channels/channel-selector.js";
 import { Channel } from "../../src/components/decorators.js";
 import { ExternalTask } from "../../src/channels/pause-targets.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { Action } from "../../src/flow/decorators/action.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
@@ -96,7 +95,6 @@ class LimWorkflow {}
 @Application({
   name: "hunt-lim-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LimWorkflow],
   providers: [AChannel, BChannel, Selector],
   budgets: TEST_BUDGETS,

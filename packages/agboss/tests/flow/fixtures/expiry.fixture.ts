@@ -8,7 +8,6 @@ import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { PauseExpiration } from "../../../src/channels/pause-expiration.js";
 import type { ChannelPauseClosedEvent } from "../../../src/pause/notice-events.js";
 import { Bool, Text } from "../../../src/dto/index.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
@@ -513,7 +512,6 @@ export class ExpiryLog {
 @Application({
   name: "expiry-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     ExpiryWorkflow,
     ShortExpiryWorkflow,
@@ -541,7 +539,6 @@ export class ExpiryApplication {}
 @Application({
   name: "capped-expiry-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ExpiryWorkflow, ShortExpiryWorkflow, SlowExpiryWorkflow, ReviewerWorkflow],
   budgets: TEST_BUDGETS,
   executionLimits: { maxConcurrentSteps: 4 },

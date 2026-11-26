@@ -8,7 +8,6 @@ import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import {
   Action,
-  EmptyEnvironment,
   SpendRecorder,
   Workflow,
   WorkflowFinish,
@@ -146,7 +145,6 @@ class DimesWorkflow {}
 @Application({
   name: "dimes-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DimesWorkflow],
   budgets: TEST_BUDGETS,
 })

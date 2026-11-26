@@ -22,7 +22,6 @@ import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js"
 import { observerOf } from "../../../src/core/observer-hooks.js";
 import { EchoTool, Start, Worker, applicationWith, workflowWith } from "./fixture.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { MODEL_PROVIDERS } from "../../judges/fixtures/judged.workflow.js";
 import {
@@ -125,7 +124,6 @@ describe("@Observer workflows / agents filters", () => {
   name: "retry-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ClerkWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

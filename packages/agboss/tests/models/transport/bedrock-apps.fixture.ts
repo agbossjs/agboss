@@ -14,7 +14,6 @@ import {
 import { Application } from "../../../src/application/application.js";
 import type { Class, Provider } from "../../../src/components/injection.js";
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import {
   ModelCost,
   ModelProvider,
@@ -169,7 +168,6 @@ export function bedrockApplicationOn(parts: {
   @Application({
     name: parts.name,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [...(parts.desk ?? workflowsOn(parts.model ?? "bedrock/claude", prefix)).workflows],
     modelProvider: (parts.providers ?? [BedrockModelProvider])[0] as Class,
     providers: [...(parts.providers ?? [BedrockModelProvider]), BedrockSdkClient],

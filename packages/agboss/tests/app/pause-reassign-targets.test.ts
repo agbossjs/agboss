@@ -12,7 +12,6 @@ import type { AssignContext, ExpiredContext } from "../../src/channels/pause-con
 import { PauseExpiration } from "../../src/channels/pause-expiration.js";
 import { Channel } from "../../src/components/decorators.js";
 import { ExternalTask } from "../../src/channels/pause-targets.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { Action } from "../../src/flow/decorators/action.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
@@ -233,7 +232,6 @@ class OutsideWorkflow {}
 @Application({
   name: "tiers-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TiersWorkflow, OutsideWorkflow],
   providers: [TierOneChannel, TierTwoChannel, OutsideChannel],
   budgets: TEST_BUDGETS,

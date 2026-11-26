@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   Agent,
   Arbiter,
-  EmptyEnvironment,
   listOf,
   Workflow,
   WorkflowFinish,
@@ -93,7 +92,6 @@ class AnsWorkflow {}
 @Application({
   name: "ans-app-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [AnsWorkflow],
   providers: [LocalModelProvider, TestOpenRouterProvider, BackupModelProvider],
   budgets: TEST_BUDGETS,

@@ -15,7 +15,6 @@ import {
 } from "../../src/environments/resolve.js";
 import { Secret, secret } from "../../src/environments/secret.js";
 import { env } from "../../src/environments/env-readers.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { ModelProvider, OpenAiCompatibleDriver } from "../../src/models/index.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { providerBaseUrlOf, providerKeyOf } from "../../src/models/provider-environment.js";
@@ -42,7 +41,6 @@ class ProxiedServer {}
 @Application({
   name: "badly-named-provider-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [LocalWorkflow],
   providers: [LocalServer, TestDecisionsProvider],
   budgets: TEST_BUDGETS,

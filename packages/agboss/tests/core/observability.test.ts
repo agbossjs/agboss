@@ -35,7 +35,6 @@ import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { buildApplication } from "../../src/application/create-app.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 class ToolInput {
@@ -173,7 +172,6 @@ class ObsWorkflow {}
   name: "obs-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ObsWorkflow],
   observers: [GlobalObserver],
   budgets: TEST_BUDGETS,

@@ -117,7 +117,6 @@ describe("#1303 types", () => {
     Application({
       name: "old-application",
       version: "1.0.0",
-      environment: undefined as never,
       workflows: [],
       // @ts-expect-error -- uncompactedTurns moved into @Memory
       uncompactedTurns: 2,

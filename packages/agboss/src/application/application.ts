@@ -1,6 +1,7 @@
 import { ConfigError } from "../core/error-families/config-errors.js";
 import { recordOptionKeys } from "../components/option-keys.js";
 import { APPLICATION_KEYS } from "../components/decorator-options.js";
+import { EmptyEnvironment } from "../environments/empty.js";
 import type { Secret } from "../environments/secret.js";
 import type { PromptVariables } from "../components/prompt-variables.js";
 import { callerFile } from "../components/call-site.js";
@@ -170,12 +171,12 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    */
   readonly retention?: RetentionOptions;
   /**
-   * The environment contract, required — a class with declared fields only
+   * The environment contract — a class with declared fields only
    * (`environments/app.environment.ts`); each `environments/<name>.environment.ts` next to the
    * application file exports `const environment: AppEnvironment = { … }`. An application with no
-   * settings declares `EmptyEnvironment` (a contract without fields) and needs no environment file.
+   * settings omits it and needs no environment file.
    */
-  readonly environment: Class<TEnvironment>;
+  readonly environment?: Class<TEnvironment>;
   /**
    * The project's tenant level (#261): a subclass of `TenantContext` with DTO field decorators
    * (`config/context.config.ts`). Its fields are then required at every `app.execute(…, { tenant })`;
@@ -280,7 +281,10 @@ export function Application<TEnvironment>(options: ApplicationOptions<TEnvironme
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
     // kept as the application's options: the contract's field types are a compile-time check only
-    const written = options as ApplicationOptions;
+    // no contract = the empty one: what an application with no settings always had
+    const written = (
+      options.environment === undefined ? { ...options, environment: EmptyEnvironment } : options
+    ) as ApplicationOptions;
     recordOptionKeys(value, "Application", written, APPLICATION_KEYS);
     const declared = declaredOptionsOf(written);
     applications.set(

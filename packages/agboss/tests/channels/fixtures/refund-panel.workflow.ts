@@ -1,7 +1,6 @@
 import { Integer } from "../../../src/dto/index.js";
 import {
   Agent,
-  EmptyEnvironment,
   listOf,
   Workflow,
   WorkflowFinish,
@@ -183,7 +182,6 @@ export class RefundGroupsWorkflow {}
   name: "refund-panel-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RefundPanelWorkflow, RefundGroupsWorkflow],
   providers: [FinanceDeskRefundApprovalChannel, SeenPausedExecutionRepository, RecordingLogger],
   observers: [PauseLog],
@@ -216,7 +214,6 @@ export class RefundRecoveryWorkflow {}
   name: "refund-recovery-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RefundRecoveryWorkflow],
   providers: [
     FinanceDeskRefundApprovalChannel,

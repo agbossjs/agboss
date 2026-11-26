@@ -3,7 +3,6 @@ import { AGBossError } from "../../../../src/core/errors.js";
 import { Integer, Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
-  EmptyEnvironment,
   ExecutionContext,
   listOf,
   SpendRecorder,
@@ -204,7 +203,6 @@ export class FanOutWorkflow {}
 @Application({
   name: "fan-out-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FanOutWorkflow],
   observers: [FanOutLog],
   budgets: TEST_BUDGETS,
@@ -229,7 +227,6 @@ export class FanOutUnboundedWorkflow {}
 @Application({
   name: "fan-out-unbounded-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FanOutUnboundedWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -260,7 +257,6 @@ export class ListFinishWorkflow {}
 @Application({
   name: "list-finish-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ListFinishWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -337,7 +333,6 @@ export class CopiesWorkflow {}
 @Application({
   name: "copies-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CopiesWorkflow],
   budgets: TEST_BUDGETS,
 })

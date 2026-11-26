@@ -11,7 +11,6 @@ import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { Application } from "../../../src/application/application.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { TEST_BUDGETS } from "./budgets.js";
 import type { ExecutionRejectedEvent } from "../../../src/core/observability.js";
 import { WorkflowStartTextDto } from "./dtos.js";
@@ -225,7 +224,6 @@ export class BedRequestWorkflow {}
   name: "clinic-application",
   modelProvider: TestModelProvider,
   version: "2.1.0",
-  environment: EmptyEnvironment,
   workflows: [BedRequestWorkflow],
   observers: [ClinicRejectionsObserver],
   budgets: TEST_BUDGETS,

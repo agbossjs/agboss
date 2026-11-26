@@ -18,7 +18,6 @@ import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
 import {
   Action,
   Budget,
-  EmptyEnvironment,
   Injectable,
   InputGuardrail,
   Memory,
@@ -257,7 +256,6 @@ describe("[decorator.unknown-option]: components", () => {
       loose({
         name: "u-listed-application",
         version: "1.0.0",
-        environment: EmptyEnvironment,
         workflows: [],
         providers: [Deep, { provide: Symbol("t"), useClass: Listed }],
       }),
@@ -277,7 +275,6 @@ describe("[decorator.unknown-option]: @Application", () => {
       loose({
         name: "u-app-application",
         version: "1.0.0",
-        environment: EmptyEnvironment,
         workflows: [],
         shutdownTimeout: 1,
         executionLimits: { shutdownTimeout: 1, maxSteps: 2 },
@@ -316,7 +313,6 @@ describe("[decorator.unknown-option]: @Application", () => {
       loose({
         name: "u-asm-application",
         version: "1.0.0",
-        environment: EmptyEnvironment,
         workflows: [Flow],
         guardrail: [],
       }),

@@ -14,7 +14,7 @@ import { Tool } from "../../src/components/decorators.js";
 import { Text } from "../../src/dto/index.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
-import { EmptyEnvironment, inline } from "../../src/index.js";
+import { inline } from "../../src/index.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -83,7 +83,6 @@ function applicationWith(name: string, tools: readonly (typeof ChargeTool)[]) {
   @Application({
     name: `${name}-application`,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [ToolWorkflow],
     budgets: TEST_BUDGETS,
     providers: [RuleRefundApprovalChannel],

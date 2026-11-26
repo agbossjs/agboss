@@ -3,7 +3,6 @@ import {
   Action,
   ApplicationContext,
   ChildPlacement,
-  EmptyEnvironment,
   ExecutionContext,
   listOf,
   Workflow,
@@ -252,7 +251,6 @@ export class RemoteOneWorkflow {}
 @Application({
   name: "remote-children-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [RemoteItemsWorkflow, RemoteOneWorkflow],
   budgets: TEST_BUDGETS,
 })

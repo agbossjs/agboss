@@ -6,7 +6,6 @@
 import { describe, expect } from "vitest";
 import {
   Agent,
-  EmptyEnvironment,
   Judge,
   JudgeModel,
   JudgeVerdict,
@@ -80,7 +79,6 @@ class ContactWorkflow {}
   name: "contact-judge-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ContactWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

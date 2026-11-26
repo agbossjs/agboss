@@ -22,7 +22,7 @@ import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../../src/flow/decorators/workflow-start.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
-import { EmptyEnvironment, type Tracked, ExternalTask } from "../../../src/index.js";
+import { type Tracked, ExternalTask } from "../../../src/index.js";
 import { InMemoryFileRepository } from "../../../src/infrastructure/in-memory-file.repository.js";
 import { kilobytes } from "../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
@@ -278,7 +278,6 @@ export class FilesA2AExpose {}
 @Application({
   name: "files-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FileReviewWorkflow, FileSummaryWorkflow],
   providers: [BearerAuthenticator, FileCallerChannel],
   endpoints: [FilesA2AExpose, FileSummaryA2AExpose],
@@ -289,7 +288,6 @@ export class FilesApplication {}
 @Application({
   name: "stored-files-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [StoredFileReviewWorkflow],
   providers: [BearerAuthenticator, FileCallerChannel, InMemoryFileRepository],
   endpoints: [FilesA2AExpose],

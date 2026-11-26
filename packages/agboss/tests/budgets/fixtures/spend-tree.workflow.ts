@@ -1,6 +1,5 @@
 import {
   ChildPlacement,
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -156,7 +155,6 @@ export class RemoteSpendTreeWorkflow {}
 @Application({
   name: "spend-tree-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SpendTreeWorkflow, RemoteSpendTreeWorkflow],
   budgets: [SpendTreeApplicationBudget, SpendTreeTenantBudget, SpendTreeExecutionBudget],
   observers: [SpendTreeLog],

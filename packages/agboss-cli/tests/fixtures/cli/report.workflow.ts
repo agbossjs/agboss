@@ -7,7 +7,6 @@ import {
   Budget,
   BudgetPeriod,
   BudgetScope,
-  EmptyEnvironment,
   type BudgetHandler,
   inline,
   Ttl,
@@ -163,7 +162,6 @@ export class ReportExecutionBudget implements BudgetHandler {
   modelProvider: TestModelProvider,
   name: "report-application",
   version: "2.0.0",
-  environment: EmptyEnvironment,
   workflows: [BatchReportWorkflow],
   budgets: [ReportApplicationBudget, ReportTenantBudget, ReportExecutionBudget],
 })

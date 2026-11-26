@@ -1,5 +1,5 @@
 import { CircuitBreakerPolicy } from "@agboss/core/models";
-import { Application, EmptyEnvironment } from "../../../../agboss/src/index.js";
+import { Application } from "../../../../agboss/src/index.js";
 import {
   ModelCost,
   ModelProvider,
@@ -48,7 +48,6 @@ export class NullBreakerModelProvider {}
   modelProvider: NullBreakerModelProvider,
   name: "null-breaker-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TestWorkflow],
   providers: [NullBreakerModelProvider],
   budgets: TEST_BUDGETS,

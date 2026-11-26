@@ -19,7 +19,6 @@ import {
 } from "../../src/index.js";
 import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index.js";
 import { Application } from "../../src/application/application.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import { onStart, toAgent, toWorkflow } from "../helpers/flow.js";
 import { ContactPiiPolicy, Outbox, SendEmail } from "./pii.fixture.js";
@@ -300,7 +299,6 @@ export class FailedListWorkflow {}
   name: "handover-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [HandoverWorkflow, FailedHandoverWorkflow, FailedListWorkflow],
   piiPolicies: [ContactPiiPolicy],
   budgets: TEST_BUDGETS,

@@ -11,7 +11,6 @@ import {
   WorkingCalendar,
   type WorkingCalendarSource,
 } from "../../../src/calendar/working-calendar.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import { isWorkingWeek, type WorkingWeekOptions } from "../../../src/calendar/working-week.js";
 import type {
   WorkingCalendarContext,
@@ -176,7 +175,6 @@ export function workingApp(name: string, config: WorkingAppConfig): WorkingApp {
     name: `${name}-application`,
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [parts.workflow],
     budgets: TEST_BUDGETS,
     providers: [parts.channel, ...parts.calendars, ...(config.providers ?? [])],
@@ -259,7 +257,6 @@ export function workingToolApp(
     name: `${name}-application`,
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [SomeWorkflow],
     budgets: TEST_BUDGETS,
     providers: [SomeChannel, ...listed, ...(config.providers ?? [])],

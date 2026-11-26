@@ -30,7 +30,6 @@ import {
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** One observer event: the hook, the run and thread it carried, and what else the test checks. */
@@ -202,7 +201,6 @@ export class Applications {}
   name: "applications-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Applications],
   budgets: TEST_BUDGETS,
   observers: [RunLog],

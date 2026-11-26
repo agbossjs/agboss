@@ -1,7 +1,6 @@
 import { Window1Memory } from "../../helpers/window-memory.js";
 import {
   Agent,
-  EmptyEnvironment,
   TokenLimit,
   Workflow,
   WorkflowFinish,
@@ -105,7 +104,6 @@ export class PaidWorkflow {}
 @Application({
   name: "unpriced-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [UnpricedWorkflow, PaidWorkflow],
   budgets: TEST_BUDGETS,
 })

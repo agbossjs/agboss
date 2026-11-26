@@ -1,6 +1,5 @@
 /** The workflows with child workflows: one child, and one per item in parallel (#1004, #1006). */
 import {
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -107,7 +106,6 @@ class FanWorkflow {}
   name: "stream-children-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OnceWorkflow, FanWorkflow, ChildWriterWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

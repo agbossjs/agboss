@@ -1,7 +1,6 @@
 import {
   ApplicationContext,
   Clock,
-  EmptyEnvironment,
   Injectable,
   type ChildExecutionQueueWatch,
   type QueuedChildExecution,
@@ -76,7 +75,6 @@ export class WakeTestQueueRepository extends InMemoryChildExecutionQueueReposito
 @Application({
   name: "queue-wake-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ClaimRoomBatchWorkflow, ClaimRoomItemWorkflow],
   budgets: TEST_BUDGETS,
   executionLimits: { maxConcurrentSteps: 3 },

@@ -21,7 +21,6 @@ import {
 import { onStart } from "../../helpers/flow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** What the components and the observer saw of their run, in order (reset with `resetSeen`). */
@@ -166,7 +165,6 @@ export class JobSearch {}
   name: "job-search-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [JobSearch],
   observers: [RunIds],
   budgets: TEST_BUDGETS,

@@ -20,7 +20,6 @@ import {
 import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import { seconds } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -84,7 +83,6 @@ class LedgerPauseListener implements OnInit {
   name: "listened-questions-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PurchaseWorkflow, OwnerPurchaseWorkflow],
   budgets: TEST_BUDGETS,
   providers: [InboxSpendingLimitChannel, InboxBudgetOwnerChannel, LedgerPauseListener],
@@ -244,7 +242,6 @@ describe("#940 AC5: the assembly rules", () => {
     @Application({
       name: "ruled-application",
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [PurchaseWorkflow],
       budgets: TEST_BUDGETS,
       providers: [InboxSpendingLimitChannel, ...(listeners as never[])],

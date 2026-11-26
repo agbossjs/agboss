@@ -24,7 +24,6 @@ import { createAppDeps, type AppDeps } from "../../src/app/app-deps.js";
 import { ownDepsOf } from "../../src/app/own-deps.js";
 import { joinKeysOf } from "../../src/flow/runtime/workflow-keys.js";
 import { elementFingerprintsOf } from "../../src/run/fingerprints.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -113,7 +112,6 @@ const PlainRoot = rootOf("fh-plain-root-workflow", []);
 @Application({
   name: "fh-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FilesRoot, PlainRoot],
   budgets: TEST_BUDGETS,
 })

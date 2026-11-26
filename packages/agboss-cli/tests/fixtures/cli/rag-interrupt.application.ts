@@ -1,12 +1,5 @@
 // `agboss rag index` interrupted (#891 AC5): a knowledge base whose index runs until its signal aborts
-import {
-  Agent,
-  Application,
-  EmptyEnvironment,
-  Workflow,
-  inline,
-  Ttl,
-} from "../../../../agboss/src/index.js";
+import { Agent, Application, Workflow, inline, Ttl } from "../../../../agboss/src/index.js";
 import {
   Rag,
   RagScope,
@@ -78,7 +71,6 @@ export class SlowNotesWorkflow {}
   modelProvider: TestModelProvider,
   name: "slow-notes-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SlowNotesWorkflow],
   budgets: TEST_BUDGETS,
 })

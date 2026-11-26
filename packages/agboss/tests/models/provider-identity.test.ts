@@ -14,7 +14,6 @@ import { applicationOf } from "../../src/application/assemble.js";
 import { Application } from "../../src/application/application.js";
 import {
   Agent,
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -92,7 +91,6 @@ function applicationOn(provider: Class, listed: readonly Class[]): Class {
   @Application({
     name: "named-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [NamedWorkflow],
     providers: listed,
     budgets: TEST_BUDGETS,

@@ -11,7 +11,6 @@ import { onStart } from "../../helpers/flow.js";
 import { DEFAULTS, MODEL_PROVIDERS, Reply, TaskStart } from "./judged.workflow.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../src/index.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 import { LocalModelProvider, TestDecisionsProvider } from "../../models/providers.fixture.js";
 
@@ -113,7 +112,6 @@ export class DecisionDesk {}
   name: "decision-judged-desk-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [DecisionDesk],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,
@@ -136,7 +134,6 @@ export class ImageDesk {}
   name: "image-judged-desk-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ImageDesk],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

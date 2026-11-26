@@ -5,7 +5,6 @@ import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import { Enum, Text } from "../../../../src/dto/index.js";
 import {
   Action,
-  EmptyEnvironment,
   Workflow,
   WorkflowFinish,
   WorkflowStart,
@@ -116,7 +115,6 @@ export class UncaughtWorkflow {}
   name: "family-throw-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [StepCatchWorkflow, RemoteCatchWorkflow, UncaughtWorkflow],
   budgets: TEST_BUDGETS,
 })

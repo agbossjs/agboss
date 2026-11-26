@@ -23,7 +23,6 @@ import {
 import { onAgent, onStart, toAgent, toAction } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../../src/index.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../../src/testing/test-model-provider.js";
 import { usd } from "../../../../src/units/index.js";
@@ -218,7 +217,6 @@ export class ContextWorkflow {}
   name: "context-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ContextWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -240,7 +238,6 @@ export class JudgedContextWorkflow {}
   name: "judged-context-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [JudgedContextWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -288,7 +285,6 @@ export class AuditWorkflow {}
   name: "audit-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [AuditWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -310,7 +306,6 @@ export class EagerAuditWorkflow {}
   name: "eager-audit-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EagerAuditWorkflow],
   budgets: TEST_BUDGETS,
 })

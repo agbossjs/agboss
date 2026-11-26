@@ -17,7 +17,6 @@ import { usd, type Usd } from "../../../../src/units/index.js";
 import { onAgent, onStart, toFinish, toAction, toAgent } from "../../../helpers/flow.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS, TestApplicationDailyBudget } from "../../fixtures/budgets.js";
-import { EmptyEnvironment } from "../../../../src/index.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 import { TestDecisionsModelProvider } from "../../../../src/testing/test-model-provider.js";
 
@@ -106,7 +105,6 @@ export class EditWorkflow {}
   name: "edit-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EditWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -153,7 +151,6 @@ export class PatientEditWorkflow {}
   name: "patient-edit-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [PatientEditWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -182,7 +179,6 @@ export class ShortEditWorkflow {}
   name: "short-edit-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ShortEditWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -219,7 +215,6 @@ export class CheapTenantDailyBudget implements BudgetHandler {
   name: "cheap-edit-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [CheapEditWorkflow],
   budgets: [TestApplicationDailyBudget, CheapTenantDailyBudget, CheapEditExecutionBudget],
 })

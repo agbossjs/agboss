@@ -1,7 +1,6 @@
 import {
   Agent,
   DecidedBy,
-  EmptyEnvironment,
   Router,
   Workflow,
   WorkflowFinish,
@@ -183,7 +182,6 @@ export function routerApplication(
   @Application({
     name: "router-prices-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [RouterPricesWorkflow],
     providers: [PricedLocalProvider, OtherPricedProvider, BareLocalProvider, ReportingProvider],
     budgets: budgetsOf(options.maxSpend),
@@ -280,7 +278,6 @@ export function rerankerApplication(
   @Application({
     name: "rerank-prices-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [RerankPricesWorkflow],
     providers: [PricedLocalProvider, BareLocalProvider],
     budgets: budgetsOf(undefined),

@@ -46,7 +46,6 @@ class Finish {}
 import { execute, onStart } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 @Workflow({
@@ -67,7 +66,6 @@ class ObsWf {}
   name: "obs-wf-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ObsWf],
   observers: [MyMetricsObserver],
   budgets: TEST_BUDGETS,

@@ -2,7 +2,6 @@ import {
   Action,
   ApplicationContext,
   ChildPlacement,
-  EmptyEnvironment,
   ExecutionContext,
   Observer,
   Workflow,
@@ -215,7 +214,6 @@ export class RouteLog {
 @Application({
   name: "error-class-route-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: PARENTS.map((parent) => parent.workflow),
   observers: [RouteLog],
   providers: [RecordingLogger],

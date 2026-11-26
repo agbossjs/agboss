@@ -37,7 +37,6 @@ import { onAgent, execute, onStart, answerOf } from "../helpers/flow.js";
 import { ExecutionStatus } from "../../src/app/types.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
 /** Everything external given: scripted models, memory stores, stubbed MCP servers. */
@@ -97,7 +96,6 @@ class TwoStarts {}
   name: "two-starts-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TwoStarts],
   budgets: TEST_BUDGETS,
 })
@@ -117,7 +115,6 @@ class Broken {}
   name: "broken-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Broken],
   budgets: TEST_BUDGETS,
 })

@@ -6,7 +6,6 @@ import {
   Action,
   Agent,
   DecidedBy,
-  EmptyEnvironment,
   ExecutionContext,
   listOf,
   oneOf,
@@ -452,7 +451,6 @@ export class CodeChainWorkflow {}
   name: "recursion-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [
     TopicResearchWorkflow,
     CountdownWorkflow,

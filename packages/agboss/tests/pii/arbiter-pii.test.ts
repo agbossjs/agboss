@@ -9,7 +9,6 @@ import { beforeEach, describe, expect } from "vitest";
 import {
   Agent,
   Arbiter,
-  EmptyEnvironment,
   listOf,
   Workflow,
   WorkflowFinish,
@@ -108,7 +107,6 @@ class OwnersWorkflow {}
   name: "owners-application",
   modelProvider: LocalModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OwnersWorkflow],
   providers: MODEL_PROVIDERS,
   budgets: TEST_BUDGETS,

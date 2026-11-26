@@ -20,7 +20,6 @@ import {
   TestTenantDailyBudget,
 } from "../../fixtures/budgets.js";
 import { Budget, BudgetScope, type BudgetHandler } from "../../../../src/budgets/budget.js";
-import { EmptyEnvironment } from "../../../../src/index.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /** What the components saw (reset by `resetSpendSeen`). */
@@ -156,7 +155,6 @@ export class SpendWorkflow {}
   name: "spend-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SpendWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -187,7 +185,6 @@ export class TightSpendExecutionBudget implements BudgetHandler {
   name: "tight-spend-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [TightSpendWorkflow],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, TightSpendExecutionBudget],
 })

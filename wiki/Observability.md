@@ -550,7 +550,6 @@ export class SupportExecutionBudget implements BudgetHandler {
 ```ts
 import {
   Application,
-  EmptyEnvironment,
   Observer,
   type AgentEndEvent,
   type AgentStartEvent,
@@ -580,7 +579,6 @@ export class ConsoleTracer {
 @Application({
   name: "support-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SupportWorkflow],
   budgets: [SupportApplicationBudget, SupportTenantBudget, SupportExecutionBudget],
   observers: [ConsoleTracer],

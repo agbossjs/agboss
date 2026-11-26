@@ -4,7 +4,6 @@ import { Channel, Injectable } from "../../../src/components/decorators.js";
 import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { Bool, Text } from "../../../src/dto/index.js";
-import { EmptyEnvironment } from "../../../src/environments/empty.js";
 import {
   Action,
   ApplicationContext,
@@ -475,7 +474,6 @@ export const pausesWindowWorkflows = [
 @Application({
   name: "pauses-window-memory-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: pausesWindowWorkflows,
   observers: [RecoveryLog],
   providers: [

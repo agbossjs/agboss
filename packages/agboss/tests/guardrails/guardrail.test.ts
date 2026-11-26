@@ -22,7 +22,6 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto/index
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import type { Class } from "../../src/components/injection.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { guardrailViolations } from "../../src/guardrails/checks.js";
 import { effectiveGuardrails, GuardedElementKind } from "../../src/guardrails/levels.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -267,7 +266,6 @@ class GuardedWorkflow {}
 @Application({
   name: "gr-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [GuardedWorkflow],
   budgets: TEST_BUDGETS,
 })

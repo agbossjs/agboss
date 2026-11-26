@@ -15,8 +15,8 @@ from it, named `@agboss/core` at the framework's version. No `meterProvider` →
 is loaded and no store is read for them.
 
 <!-- snippet-context
-import { Application, EmptyEnvironment } from "@agboss/core";
-@Application({ name: "desk-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [] })
+import { Application } from "@agboss/core";
+@Application({ name: "desk-application", version: "1.0.0", workflows: [] })
 class DeskApplication {}
 -->
 
@@ -132,8 +132,8 @@ its own provider, in its own entry (#831; an entry without one = no metrics ther
 in-memory reader:
 
 <!-- snippet-context
-import { Application, EmptyEnvironment } from "@agboss/core";
-@Application({ name: "desk-application", version: "1.0.0", environment: EmptyEnvironment, workflows: [] })
+import { Application } from "@agboss/core";
+@Application({ name: "desk-application", version: "1.0.0", workflows: [] })
 class DeskApplication {}
 -->
 

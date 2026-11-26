@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   ApplicationContext,
-  EmptyEnvironment,
   IdGenerator,
   Injectable,
   Workflow,
@@ -79,7 +78,6 @@ const CHANNELS = [
   name: "prefixed-ids-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
   providers: [PrefixedIdGenerator, ...CHANNELS],
   observers: [PauseLog],
@@ -92,7 +90,6 @@ export class PrefixedIdsApplication {}
   name: "built-in-ids-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
   providers: CHANNELS,
   observers: [PauseLog],
@@ -105,7 +102,6 @@ export class BuiltInIdsApplication {}
   name: "two-generators-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
   providers: [PrefixedIdGenerator, OtherIdGenerator, ...CHANNELS],
   budgets: TEST_BUDGETS,
@@ -117,7 +113,6 @@ export class TwoGeneratorsApplication {}
   name: "context-generator-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [SingleChildWorkflow],
   providers: [InstanceIdGenerator, ...CHANNELS],
   budgets: TEST_BUDGETS,
@@ -152,7 +147,6 @@ export class EchoWorkflow {}
 @Application({
   name: "generator-in-workflow-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [EchoWorkflow],
   budgets: TEST_BUDGETS,
 })

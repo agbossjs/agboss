@@ -29,7 +29,6 @@ import { applicationOf } from "../../src/application/assemble.js";
 import { memoryViolations } from "../../src/memory/checks.js";
 import { effectiveMemories } from "../../src/memory/levels.js";
 import { memoryPlanOf, readerOf, windowOfCompaction } from "../../src/memory/plan.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import { SHORTER_SUMMARY_REQUEST } from "../../src/prompts/compaction.js";
 import {
   failWith,
@@ -212,7 +211,6 @@ class OddWorkflow {}
   name: "odd-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [OddWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -605,7 +603,6 @@ describe("#1303: onCompactionStart / onCompactionEnd", () => {
     name: "observed-notes-desk-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [NotesDeskWorkflow],
     observers: [CompactionObserver],
     budgets: TEST_BUDGETS,

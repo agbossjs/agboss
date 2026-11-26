@@ -3,7 +3,6 @@
 import {
   Agent,
   Application,
-  EmptyEnvironment,
   Workflow,
   inline,
   Ttl,
@@ -101,7 +100,6 @@ export class NotesWorkflow {}
   modelProvider: TestModelProvider,
   name: "notes-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [NotesWorkflow],
   budgets: TEST_BUDGETS,
 })

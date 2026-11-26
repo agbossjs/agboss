@@ -4,7 +4,6 @@ import {
   BudgetPeriod,
   BudgetScope,
   DecidedBy,
-  EmptyEnvironment,
   InputGuardrail,
   Memory,
   Router,
@@ -167,7 +166,6 @@ export class ShelfWorkflow {}
 @Application({
   name: "shelf-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ShelfWorkflow],
   budgets: [...TEST_BUDGETS, ShelfListedBudget],
   modelProvider: ShelfModels,

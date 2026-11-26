@@ -11,7 +11,6 @@ import { A2AClient } from "../../src/a2a/client/a2a-client.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { usd, hours, minutes } from "../../src/units/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
@@ -43,7 +42,6 @@ function applicationWith(
   @Application({
     name: "card-application",
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [RefundWorkflow],
     providers,
     budgets: TEST_BUDGETS,

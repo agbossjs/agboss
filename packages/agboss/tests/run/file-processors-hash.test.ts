@@ -13,7 +13,6 @@ import type { Class } from "../../src/components/injection.js";
 import { FileRedactor } from "../../src/files/file-redactor.js";
 import { FileTranscriber } from "../../src/files/file-transcriber.js";
 import {
-  EmptyEnvironment,
   Injectable,
   type FileContent,
   type RedactionResult,
@@ -82,7 +81,6 @@ function deployment(processors: readonly Class[]): Class {
     name: "mail-v1-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [MailV1],
     providers: [...durable, ...processors],
     budgets: TEST_BUDGETS,

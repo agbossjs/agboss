@@ -5,12 +5,7 @@
  * (no thread is read to find out).
  */
 import { describe, expect } from "vitest";
-import {
-  Application,
-  EmptyEnvironment,
-  HealthComponentKind,
-  HealthStatus,
-} from "../../src/index.js";
+import { Application, HealthComponentKind, HealthStatus } from "../../src/index.js";
 import { temporaryFileDatabaseStorage } from "../../src/storage/in-memory-storage.js";
 import { testWith } from "../../src/testing/index.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
@@ -23,7 +18,6 @@ const Storage = temporaryFileDatabaseStorage();
   name: "storage-health-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [workflowWith("storage-health-workflow")],
   budgets: TEST_BUDGETS,
   storage: Storage,

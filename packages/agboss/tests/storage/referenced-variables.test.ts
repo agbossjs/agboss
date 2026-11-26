@@ -3,7 +3,6 @@
  * the storage's file and secrets, listed once each, never a value.
  */
 import { describe, expect, it } from "vitest";
-import { EmptyEnvironment } from "../../src/index.js";
 import { referencedVariablesOf } from "../../src/application/referenced-variables.js";
 import { Application } from "../../src/application/application.js";
 import { applicationOf } from "../../src/application/assemble.js";
@@ -35,7 +34,6 @@ class KeyedStorage {}
   name: "referenced-variables-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [NoteWorkflow],
   budgets: TEST_BUDGETS,
   storage: KeyedStorage,

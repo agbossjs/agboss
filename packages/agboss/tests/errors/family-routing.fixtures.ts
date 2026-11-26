@@ -3,7 +3,6 @@ import { usd, hours, minutes, Ttl } from "../../src/units/index.js";
 import {
   Action,
   AGBossError,
-  EmptyEnvironment,
   ExecutionError,
   LimitError,
   StepError,
@@ -208,7 +207,6 @@ export class CancelRouteWorkflow {}
 @Application({
   name: "family-route-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FamilyRouteWorkflow, NarrowRouteWorkflow, CancelRouteWorkflow],
   budgets: TEST_BUDGETS,
 })
@@ -227,7 +225,6 @@ export class FamilyRouteA2AExpose {}
 @Application({
   name: "family-route-served-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [FamilyRouteWorkflow, NarrowRouteWorkflow],
   providers: [BearerAuthenticator],
   endpoints: [FamilyRouteA2AExpose],

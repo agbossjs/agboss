@@ -4,7 +4,6 @@ import {
   Agent,
   Channel,
   ChannelOutcome,
-  EmptyEnvironment,
   Observer,
   optional,
   PauseRespondent,
@@ -320,7 +319,6 @@ export class JoinExpiryLog {
   name: "join-expiry-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [JoinExpiryWorkflow],
   providers: [
     JoinApproverDeskChannel,

@@ -28,13 +28,12 @@ export function writeApplication(root: string, workflow: ListedWorkflow): string
   writeFileSync(
     join(root, path),
     [
-      'import { Application, EmptyEnvironment } from "@agboss/core";',
+      'import { Application } from "@agboss/core";',
       `import { ${workflow.className} } from "./${from}";`,
       "",
       "@Application({",
       '  name: "desk-application",',
       '  version: "1.0.0",',
-      "  environment: EmptyEnvironment,",
       `  workflows: [${workflow.className}],`,
       "})",
       "export class DeskApplication {}",

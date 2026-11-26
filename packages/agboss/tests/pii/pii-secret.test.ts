@@ -12,7 +12,6 @@ import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { createAppWithoutPiiKey } from "./without-pii-key.js";
 import { Injectable } from "../../src/components/decorators.js";
 import { Text } from "../../src/dto/index.js";
-import { EmptyEnvironment } from "../../src/environments/empty.js";
 import {
   DatabaseStorage,
   InMemoryDatabaseStorage,
@@ -251,7 +250,6 @@ const applicationWith = async (
     name,
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: EmptyEnvironment,
     workflows: [options.workflow ?? OpenWorkflow],
     budgets: TEST_BUDGETS,
     piiPolicies: [ContactPiiPolicy, ...(options.piiPolicies ?? [])],
@@ -318,7 +316,6 @@ describe("#1301b: [pii.secret-required]", () => {
       name: "keyless-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [PiiWorkflow],
       piiPolicies: [SsnTokenPiiPolicy],
       budgets: TEST_BUDGETS,
@@ -338,7 +335,6 @@ describe("#1301b: [pii.secret-required]", () => {
       name: "own-secret-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [OpenWorkflow],
       piiPolicies: [ContactPiiPolicy],
       budgets: TEST_BUDGETS,
@@ -435,7 +431,6 @@ describe("#1301b: [pii.secret-required]", () => {
       name: "token-field-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [TokenFieldWorkflow],
       budgets: TEST_BUDGETS,
       storage: KeylessStorage,
@@ -485,7 +480,6 @@ describe("#1301b: a Logger the application's components inject is masked", () =>
       name: "logger-masking-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: EmptyEnvironment,
       workflows: [OpenWorkflow],
       piiPolicies: [ContactPiiPolicy],
       providers: [RecordingLogger, Talker],

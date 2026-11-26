@@ -21,7 +21,6 @@ import { Text, WorkflowFinishTextDto, WorkflowStartTextDto } from "../../src/dto
 import { onStart } from "../helpers/flow.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import { EmptyEnvironment } from "../../src/index.js";
 import { days } from "../../src/units/index.js";
 import { TestModelProvider } from "../../src/testing/test-model-provider.js";
 
@@ -181,7 +180,6 @@ export class Refunds extends NoLimits {}
   name: "refunds-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Refunds],
   budgets: TEST_BUDGETS,
   providers: [DeskRefundApprovalChannel],
@@ -209,7 +207,6 @@ export class AuditedRefundApprovalChannel {
 @Application({
   name: "audited-refunds-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [Refunds],
   budgets: TEST_BUDGETS,
   providers: [AuditedRefundApprovalChannel],

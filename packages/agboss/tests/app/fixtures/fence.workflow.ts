@@ -4,7 +4,6 @@ import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
 import {
   Action,
   Agent,
-  EmptyEnvironment,
   ExecutionContext,
   Injectable,
   Tool,
@@ -469,7 +468,6 @@ export class AgentReleaseWorkflow {}
   name: "fence-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [ReleaseWorkflow, AgentReleaseWorkflow, BookedReleaseWorkflow],
   observers: [RecoveryLog, ToolEndLog],
   budgets: TEST_BUDGETS,
