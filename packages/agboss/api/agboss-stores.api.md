@@ -1397,6 +1397,9 @@ export interface InvalidA2APageTokenErrorOptions {
 }
 
 // @public
+export const isAsSeen: (pause: PauseRecord, seen: PauseSeen | undefined) => boolean;
+
+// @public
 export function isKeyFingerprint(key: Pick<EffectKeyFields, "fingerprint" | "previousFingerprint">, stored: string | null | undefined): boolean;
 
 // @public
@@ -2224,6 +2227,7 @@ export interface PauseTimeoutChange {
     readonly previousExpiresAt?: string;
     readonly reason?: string;
     readonly remindAt?: string;
+    readonly seen: PauseSeen;
 }
 
 // @public
@@ -2407,6 +2411,9 @@ export interface ScopeValueRecord {
     readonly valueId: string;
     readonly variant?: string;
 }
+
+// @public
+export const seenOf: (pause: PauseRecord) => PauseSeen;
 
 // @public
 export interface SetAsideMailbox {
