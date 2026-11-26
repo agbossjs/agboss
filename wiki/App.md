@@ -109,10 +109,10 @@ there is a tenant and an application budget (`[budget.execution-budget-required]
 `[budget.duplicate-execution-budget]`, `[budget.duplicate-default-execution-budget]`,
 `[budget.tenant-budget-required]`, `[budget.application-budget-required]`,
 [FinOps](FinOps#assembly)); infrastructure — model providers too — is listed only in
-`@Application({ providers })` (`[di.infrastructure-in-workflow]`); every model of every workflow
-resolves to exactly one listed model provider by `serves` — the built-in catch-alls yield to a
-provider that claims the model (`[model.unserved]`, `[model.ambiguous-provider]`, #266, #454,
-[Model providers](Model-providers#which-provider-serves-a-model)).
+`@Application({ providers })` (`[di.infrastructure-in-workflow]`); every model use of every workflow
+reaches one listed model provider by `modelProvider` — its own, its workflow's or the application's
+(`[model.missing-provider]`, `[model.incompatible-provider]`, #266, #1313,
+[Model providers](Model-providers#the-model-cascade-1313)).
 
 ## Infrastructure
 
@@ -533,14 +533,14 @@ default. Infrastructure is not an option: it is listed in `@Application({ provid
 
 | Option                    | Default                                                                                           |
 | ------------------------- | ------------------------------------------------------------------------------------------------- |
-| `processEnv`              | `process.env` (provider keys, the `env()` / `secret()` variables)                                 |
-| `gateway`                 | the application's model providers (`@Application({ providers })`, #266) — the one model-call seam |
-| `transport`               | MCP stdio / streamable HTTP from the server's config                                              |
-| `connectMcp`              | connect every server, check its contract (fail fast)                                              |
-| `clock`                   | the system clock (the built-in ledger's UTC day, the records' times)                              |
-| `newThreadId`, `newRunId` | random UUIDs                                                                                      |
-| `container`               | `overrides` (values instead of classes — test mocks), `onCreate`                                  |
 | `profile`                 | `dev` ([Configuration → Profiles](Configuration#profiles-srcconfig-1318), [Environments](Environments)) |
+| `processEnv`              | `process.env` (provider keys, the `env()` / `secret()` variables)                                 |
+| `meterProvider`           | none: no metrics ([Metrics](Metrics))                                                             |
+| `tracerProvider`          | none: no tracing; a `TracerProvider` or a `TracingAdapter` ([Tracing](Tracing))                   |
+| `handleSignals`           | `false`: no SIGTERM / SIGINT handling (see below)                                                 |
 
-`@agboss/core/testing` builds its apps with these: a scripted gateway, stubbed MCP servers, a test clock,
+The model gateway, the transports, the clock and the ids are not options: the model providers, the
+`Clock` and the `IdGenerator` are listed in `@Application({ providers })`.
+
+`@agboss/core/testing` builds its apps on the internal build path: a scripted gateway, stubbed MCP servers, a test clock,
 deterministic ids — on the infrastructure the application lists.

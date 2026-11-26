@@ -19,8 +19,8 @@ import { LangfuseTracer } from "@agboss/langfuse";
 
 const app = await createApp(SupportApplication, {
   tracerProvider: new LangfuseTracer({
-    publicKey: process.env.LANGFUSE_PUBLIC_KEY!,
-    secretKey: process.env.LANGFUSE_SECRET_KEY!,
+    publicKey: "pk-lf-…",
+    secretKey: "sk-lf-…", // the project's keys; `fromEnv()` below reads them from variables
     baseUrl: "https://langfuse.example.com", // your self-hosted server, or https://cloud.langfuse.com
     projectId: "my-project", // optional: ExecutionOutput.traceUrl links the conversation
   }),
@@ -32,8 +32,8 @@ await app.close(); // flushes the tracer and shuts it down: the application owns
 ```
 
 `LangfuseTracer.fromEnv()` reads `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`
-(and `LANGFUSE_PROJECT_ID`) and returns `undefined` when they are not all set. The core itself reads
-none of them.
+(and `LANGFUSE_PROJECT_ID`) and returns `undefined` when they are not all set — use it in a project
+whose lint rule `agboss/no-process-env` refuses a raw `process.env`. The core itself reads none of them.
 
 Spans carry `input.value` and `output.value` (masked), `session.id` (the thread), `gen_ai.*` for model
 calls and `agboss.*` for the workflow, its chain and the run. The provider is isolated: the process's

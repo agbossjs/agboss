@@ -1148,8 +1148,8 @@ test("an undo that fails: ExecutionError.CompensationFailed, the original error 
 });
 ```
 
-- A failed join's undo is `CompensationReason.JoinFailed`; a cancel's (`app.cancel`, a `FailFast`
-  abort) `ExecutionCancelled`.
+- A failed join's undo is `CompensationReason.JoinFailed`; a cancel's (`app.cancel`, a failed
+  sibling's abort) `ExecutionCancelled`.
 - The automatic undo runs on the test's `clock` like everything else: a slow undo is cut at
   `compensationTimeout` only when the clock is advanced past it.
 

@@ -108,7 +108,7 @@ One component per file, the kind in the name; `agboss create` / `agboss generate
 | `services/<name>.service.ts`                   | an `@Injectable` (like an Angular service)                               |
 | `helpers/<name>.helper.ts`                     | plain functions                                                          |
 | `config/<name>.config.ts`                      | a profile's values ([Configuration](Configuration#profiles-srcconfig-1318)) |
-| `<app>.env.ts`                                 | the `defineEnv` of the application ([Environments](Environments))        |
+| `<name>.env.ts`                                | the `defineEnv` of the application, next to it or in `config/` (`agboss create`: `config/app.env.ts`; [Environments](Environments)) |
 
 Prompts are `prompt` (inline) or `promptUrls` (files next to the component, read relative to the
 declaring module), plus `promptVariables`; `{{variables}}` are checked at assembly
@@ -645,7 +645,7 @@ export class SeenJobsRepository {
 
 The lint rule `agboss/no-component-state` flags an assignment to `this.x` (`=`, `+=`, `++`) outside
 the constructor of any component the container creates — `@Injectable`, `@Tool`, `@Action`,
-`@Router`, `@WorkflowFinish`, `@Channel`, `@ReplyInterpreter`, `@InputGuardrail` /
+`@Router`, `@WorkflowFinish`, `@Channel`, `@ChannelInterpreter`, `@InputGuardrail` /
 `@OutputGuardrail`, `@ToolInterceptor` (#384), `@PiiPolicy`, `@Judge`, `@Arbiter`, `@Compaction`, `@Budget`, `@HealthCheck`,
 `@ModelProvider` (`@agboss/core/models`), `@McpServer` / `@McpEndpoint` (`@agboss/core/mcp`), `@Rag`
 (`@agboss/core/rag`), `@A2AAgent` (`@agboss/core/a2a`). The list is one module of the framework

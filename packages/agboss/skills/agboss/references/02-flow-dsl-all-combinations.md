@@ -1008,7 +1008,7 @@ import { ReviewSummaryWorkflowFinish } from "./review-summary.workflow-finish.js
       )
       .join()
       .onError(
-        StepError, // a branch failed (FailFast): the others were cancelled
+        StepError, // a branch failed: the others were cancelled
         toFinish(ReviewIncompleteWorkflowFinish),
       ) // fact-checker-agent ran twice: a list
       .toAction(ReviewSummaryAction)
@@ -1236,7 +1236,7 @@ Launch rules:
 - A router in a launch is a branch: `toRouter(R).chooseMany([toAgent(A), …])`, the list the router's
   routes (`[router.routes-mismatch]`), each with its prompt on a model router (`[router.no-prompt]`).
   A code router's `route(input)` returns the targets to launch as a list, `[]` included.
-- `maxConcurrency` is a sliding window; a failed branch aborts its siblings (`FailFast`); `Skip`
+- `maxConcurrency` is a sliding window; a failed branch aborts its siblings; `skip()`
   drops only a `StepError`; `app.cancel` cancels the whole execution, never a branch outcome.
 
 ## 5. Quorums, groups and arbiters
@@ -2358,7 +2358,7 @@ after** its action.
   undo is `CompensationReason.SidePath`.
 - **Automatic where no path can say it.** A failed join undoes its finished undoable branches before
   `.onError` runs (`JoinFailed`); an execution that ends without a finish — an uncaught failure
-  or limit (`ExecutionFailed`), a cancel or a `FailFast` abort (`ExecutionCancelled`) — undoes its
+  or limit (`ExecutionFailed`), a cancel or a failed sibling's abort (`ExecutionCancelled`) — undoes its
   open actions, newest first, before it ends. Each automatic undo runs in its own frame (its key is
   the undone step's key + `:compensation`), on a clean-up signal bounded by
   `@Application({ executionLimits: { compensationTimeout } })` (default `seconds(15)`), with no budget check; it survives

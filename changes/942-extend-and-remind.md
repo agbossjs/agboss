@@ -4,23 +4,20 @@ issue: 942
 ---
 
 **Change a pause's deadline (named `app.extendPause` in #942, renamed and widened by #1307); remind before it: `app.setPauseTimeout`, `remindBefore`** (#942, #910):
-`await app.setPauseTimeout({ pauseId, expiresIn: hours(24) }, { answeredBy })` (the `ownerId` for a
-thread owner's pause — who may answer may extend) moves an open pause's deadline to `now + expiresIn`
-and returns `PauseTimeoutChangeResult` (`pauseKey`, `expiresAt`, `previousExpiresAt`). Refused: a closed pause
-or one past its deadline (`PauseClosedError`, `reason: expired`), a pause with no deadline (none is
-ever added), a deadline not later than the current one, and one past the deadline of the run (or
-quorum) the pause was made under — exactly that deadline is allowed (`DtoValidationError`, `dto:
-"SetPauseTimeoutRequest"`); another tenant's pause is `UnknownPauseError`. The store applies it
-atomically against the expiry look — one wins. `@ChannelRole({ remindBefore: hours(2) })` (a positive
-finite duration shorter than the role's `expiresIn`, `[channel.remind-before-invalid]`) fixes a
-reminder time `expiresAt − remindBefore` when the pause is made and again by an extension; a step's or
-tool's `expiresIn` no longer than it gives that pause none
-(`[channel.remind-before-exceeds-expiry]`, a warning). The pause timers' reminder look writes
+`await app.setPauseTimeout({ pauseId, timeout: hours(24) }, { actor })` (the `ownerId` for a
+thread owner's pause — who may answer may change it) moves an open pause's deadline to `now + timeout`
+(#1307: later or earlier, `Timeout.None` takes it away) and returns `PauseTimeoutChangeResult`
+(`expiresAt?`, `previousExpiresAt?`). Refused: a closed pause or one past its deadline
+(`PauseError.Closed`, `reason: expired`), a deadline past the one of the run (or quorum) the pause was
+made under — exactly that deadline is allowed (`PauseError.EscalationLimitExceeded`); another tenant's
+pause is `PauseError.UnknownPause`. The store applies it
+atomically against the expiry look — one wins. A target's `remindBefore: hours(2)` (a positive
+finite duration shorter than the target's `timeout`, `[channel.remind-before-invalid]`) fixes a
+reminder time `expiresAt − remindBefore` when the pause is made and again by a timeout change. The pause timers' reminder look writes
 "expiring" once per deadline whatever the number of instances, taking no lease and moving nothing of
 the run. New optional notices, delivered at least once like `onPauseClosed`: a channel's
-`onPauseExtended(event)` / `onPauseExpiring(event)` (`ChannelPauseExtendedEvent`,
-`ChannelPauseExpiringEvent`) and a `@PauseListener`'s `onPauseExtended` / `onPauseExpiring`
-(`PauseListenerExtendedEvent`, `PauseListenerExpiringEvent`); a channel that overrides any notice has
+`onPauseTimeoutChanged(event)` / `onPauseExpiring(event)` (`ChannelPauseTimeoutChangedEvent`,
+`ChannelPauseExpiringEvent`) and a `@PauseListener`'s `onPauseTimeoutChanged` / `onPauseExpiring`; a channel that overrides any notice has
 a mailbox. `agboss describe` prints `reminds 2 h before`. Working-time durations follow (#944).
 
 `app.setPauseTimeout(request, options?: PauseCallerOptions)` takes the caller fields only —
@@ -32,5 +29,5 @@ published version had it); `PauseTimeoutChangeResult` now names the app's result
 
 `findPendingByRemindAtBefore` takes the optional keyset `after?: PauseScanAfter` like `findPendingByExpiresAtBefore`
 (stores entry; the contract suite has a case for it); the reminder look pages with it and starts each reminder
-without waiting, so another application's due pauses on a shared store never hide yours. A pause extended to exactly its
+without waiting, so another application's due pauses on a shared store never hide yours. A pause whose timeout was changed to exactly its
 run's deadline expires as the run's own (`DeadlineExceededError`, the channel's expiry decision not asked).
