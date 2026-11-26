@@ -6,7 +6,6 @@
  */
 import { emptyCheckpoint, type CheckpointMetadata } from "@langchain/langgraph";
 import { beforeAll, describe, expect, it } from "vitest";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { randomIdGenerator } from "../../../src/infrastructure/clock.js";
 import { OutboundCallStatus } from "../../../src/infrastructure/outbound-call-status.js";
@@ -37,8 +36,7 @@ function storesOf(connection: SqliteConnection) {
     version: "1.0.0",
     instanceId: "i",
     startedAt: clock.now(),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
   return {
     clock,

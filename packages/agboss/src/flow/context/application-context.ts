@@ -1,5 +1,4 @@
 import { hostname } from "node:os";
-import type { Environment } from "../generated-types.js";
 
 /**
  * The application level (#261): an immutable description of the running application instance — one
@@ -19,8 +18,8 @@ export interface HostContext {
 }
 
 /**
- * The running application: the type and the DI token (`deps: [ApplicationContext]`). Its
- * `environment` is typed by the application's contract through the generated `.agboss/types.d.ts`.
+ * The running application: the type and the DI token (`deps: [ApplicationContext]`). It holds no
+ * settings: a component reads the values of `defineEnv` through `deps: [appEnv]`.
  */
 export abstract class ApplicationContext {
   /** `@Application({ name })`. */
@@ -31,11 +30,7 @@ export abstract class ApplicationContext {
   abstract readonly instanceId: string;
   /** When this instance started, from the framework's clock. */
   abstract readonly startedAt: Date;
-  /** The chosen environment's name (`prod` for `environments/prod.environment.ts`). */
-  abstract readonly environmentName: string;
-  /** The chosen environment's values, typed by the contract (`@Application({ environment })`). */
-  abstract readonly environment: Environment;
-  /** The profiles the instance runs with, in the order they were layered (#1324; `[environmentName]` for now). */
+  /** The profiles the instance runs with, in the order they were layered (`["base", "prod"]`). */
   abstract readonly profiles: readonly string[];
   abstract readonly host: HostContext;
 }
@@ -46,8 +41,6 @@ export interface ApplicationContextValues {
   readonly version: string;
   readonly instanceId: string;
   readonly startedAt: Date;
-  readonly environmentName: string;
-  readonly environment: Environment;
   readonly profiles?: readonly string[];
 }
 
@@ -57,8 +50,6 @@ class FrozenApplicationContext extends ApplicationContext {
   readonly version: string;
   readonly instanceId: string;
   readonly startedAt: Date;
-  readonly environmentName: string;
-  readonly environment: Environment;
   readonly profiles: readonly string[];
   readonly host: HostContext;
 
@@ -68,9 +59,7 @@ class FrozenApplicationContext extends ApplicationContext {
     this.version = values.version;
     this.instanceId = values.instanceId;
     this.startedAt = new Date(values.startedAt.getTime());
-    this.environmentName = values.environmentName;
-    this.environment = Object.freeze({ ...values.environment });
-    this.profiles = Object.freeze([...(values.profiles ?? [values.environmentName])]);
+    this.profiles = Object.freeze([...(values.profiles ?? [])]);
     this.host = Object.freeze({ ...host });
     Object.freeze(this);
   }

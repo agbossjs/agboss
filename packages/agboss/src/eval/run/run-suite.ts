@@ -135,7 +135,6 @@ export async function runSuiteOn(
     workflow: { name: config.name, version: config.version },
     configHash: workflowIdentityOf(parts.deps).configHash,
     start: parts.start.name,
-    environment: parts.deps.contexts?.application.environmentName ?? "dev",
     runs: options.runs,
     cascade: parts.suite.cascade,
     startedAt,

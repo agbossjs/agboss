@@ -1,19 +1,13 @@
 import {
   ApplicationContext,
   ChannelListener,
-  SqliteCostLedgerRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-  SqliteRateLimitRepository,
   type ChannelListenerClosedEvent,
   type ChannelListenerOpenedEvent,
 } from "../../../../src/index.js";
-import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { RecoveryWorkflow } from "../../fixtures/recovery.workflow.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import { MortalSqliteExecutionLeaseRepository } from "./sqlite.workflow.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
@@ -63,18 +57,9 @@ class CrashPauseListener {
   name: "sqlite-notices-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({ replace: [MortalSqliteExecutionLeaseRepository] }),
   workflows: [RecoveryWorkflow],
-  providers: [
-    MortalSqliteExecutionLeaseRepository,
-    SqliteExecutionRecordRepository,
-    SqlitePausedExecutionRepository,
-    SqliteCheckpointSaver,
-    SqliteCostLedgerRepository,
-    SqliteExecutionTreeRepository,
-    SqliteRateLimitRepository,
-    CrashPauseListener,
-  ],
+  providers: [CrashPauseListener],
   budgets: TEST_BUDGETS,
 })
 export class SqliteNoticesApplication {}

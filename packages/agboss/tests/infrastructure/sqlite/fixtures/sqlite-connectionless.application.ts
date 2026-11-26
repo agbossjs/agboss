@@ -1,13 +1,13 @@
-import { Application } from "../../../../src/application/application.js";
 import {
   SqliteExecutionAuditLogRepository,
   SqliteExecutionLeaseRepository,
   SqliteFencedEffectRepository,
   SqliteOutboundCallRepository,
 } from "../../../../src/index.js";
+import { Application } from "../../../../src/application/application.js";
 import { ChargeWorkflow, EmailPiiPolicy } from "../../../app/fixtures/outbound-call.workflow.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import { SqliteChargeWorkflow } from "./sqlite-fenced-effect.workflow.js";
 
 /**
@@ -19,15 +19,16 @@ import { SqliteChargeWorkflow } from "./sqlite-fenced-effect.workflow.js";
 @Application({
   name: "connectionless-outbound-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({
+    only: [
+      SqliteExecutionLeaseRepository,
+      SqliteOutboundCallRepository,
+      SqliteExecutionAuditLogRepository,
+    ],
+  }),
   workflows: [ChargeWorkflow],
   budgets: TEST_BUDGETS,
   piiPolicies: [EmailPiiPolicy],
-  providers: [
-    SqliteExecutionLeaseRepository,
-    SqliteOutboundCallRepository,
-    SqliteExecutionAuditLogRepository,
-  ],
 })
 export class ConnectionlessOutboundApplication {}
 
@@ -35,9 +36,10 @@ export class ConnectionlessOutboundApplication {}
 @Application({
   name: "connectionless-effect-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({
+    only: [SqliteExecutionLeaseRepository, SqliteFencedEffectRepository],
+  }),
   workflows: [SqliteChargeWorkflow],
   budgets: TEST_BUDGETS,
-  providers: [SqliteExecutionLeaseRepository, SqliteFencedEffectRepository],
 })
 export class ConnectionlessEffectApplication {}

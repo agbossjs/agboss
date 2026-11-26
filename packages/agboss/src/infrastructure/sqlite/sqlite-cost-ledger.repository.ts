@@ -36,7 +36,7 @@ const scopeOf = (account: BudgetAccount): string => z.enum(BudgetScope).parse(ac
  * date, pruned by `deleteByMadeAtBefore` under a mark a later save of it is refused by
  * (#771) —, so the
  * instances on one file share the counters and survive a restart. Listed in
- * `@Application({ providers })`; needs `sqlitePath`.
+ * the application's `@DatabaseStorage({ driver: SqliteDriver({ path }) })`.
  */
 @Injectable({ deps: [SqliteConnection] })
 export class SqliteCostLedgerRepository extends CostLedgerRepository {

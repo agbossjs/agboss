@@ -2,27 +2,23 @@ import type { ProfileSelection } from "./config/profile-names.js";
 import { createAppDeps, type AppDeps, type AppDepsOptions } from "./app/app-deps.js";
 import type { ModelGateway } from "./llm/gateway.js";
 import { applicationOf } from "./application/assemble.js";
-import { environmentOwnerOf } from "./application/create-app.js";
 import type { Class } from "./components/index.js";
-import { namedEnvironmentFor } from "./environments/load.js";
 import type { Graph } from "@langchain/core/runnables/graph";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { studioGraph } from "./graph/studio-graph.js";
 
 /**
  * The graphs `agboss studio` serves (#268 AC7): every workflow of an `@Application` — the listed ones
- * and the children they launch — built on the application's environment. A child is a subgraph node
+ * and the children they launch — built on the application's profiles. A child is a subgraph node
  * of its parent (#263 S37), so Studio draws it inside; a workflow launching itself is a node marked
  * `recursive: maxDepth N` (#264). The module `agboss studio` writes into `.agboss/` reads them by name.
  */
 
-/** How `agboss studio` builds the graphs: the profiles (`--profile`) and the environment (`--env`, default `dev`). */
+/** How `agboss studio` builds the graphs: the profiles (`--profile`). */
 export interface StudioOptions {
   /** The profiles layered on the application, as `createApp`'s `profile`; default `dev`. */
   readonly profile?: ProfileSelection | undefined;
-  /** `environments/<env>.environment.ts` next to the application file; default `dev`. */
-  readonly env?: string | undefined;
-  /** The process environment the environment reads; default `process.env`. */
+  /** The process environment the `defineEnv` references read; default `process.env`. */
   readonly processEnv?: NodeJS.ProcessEnv;
 }
 
@@ -53,7 +49,7 @@ const gatewayOf = ({
 
 /**
  * The application assembled as `createApp` assembles it, every workflow's graph built on its
- * environment: `const studio = await studioOf(JobScoutApplication, { env: "dev" })`, then
+ * profiles: `const studio = await studioOf(JobScoutApplication, { profile: "dev" })`, then
  * `studio.graph("job-scout-workflow")`.
  */
 export const studioOf = (application: Class, options: StudioOptions = {}): Promise<StudioGraphs> =>
@@ -70,16 +66,9 @@ export async function studioOfWith(
     { profile: options.profile, processEnv, withoutIdempotencyKeys: true },
     "agboss studio",
   );
-  const environment = await namedEnvironmentFor(
-    environmentOwnerOf(assembled),
-    { env: options.env },
-    processEnv,
-  );
   const built: AppDeps[] = [];
   for (const workflow of assembled.workflows)
-    built.push(
-      await createAppDeps(workflow, { ...environment, processEnv, ...gatewayOf(options) }),
-    );
+    built.push(await createAppDeps(workflow, { processEnv, ...gatewayOf(options) }));
   const graphs = new Map(built.map((deps) => [deps.config.name, studioGraph(deps)] as const));
   const names = [...graphs.keys()];
   return {

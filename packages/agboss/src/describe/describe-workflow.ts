@@ -20,15 +20,10 @@ import {
 import { configSnapshot, type ChildSnapshotSources } from "../run/versions.js";
 import { shortVersion, versionOf } from "../turns/index.js";
 import { isMcpFacade, type AnyTool } from "../tools/index.js";
-import { NO_ENVIRONMENT_VALUES, type DescribedEnvironment } from "../environments/resolve.js";
 import { modelProviderLine, resolvedModelUsesOf } from "../models/resolution.js";
-import { applicationContextOf } from "../flow/context/application-context.js";
 import { bundleLines } from "./bundle-lines.js";
 import { limitLines } from "./limits.js";
-import {
-  contextsOutsideExecution,
-  type RuntimeContexts,
-} from "../flow/context/runtime-contexts.js";
+import { contextsOutsideExecution } from "../flow/context/runtime-contexts.js";
 
 /** A knowledge base's reranking as describe prints it (#703). */
 const rerankText = (
@@ -40,29 +35,16 @@ const rerankText = (
     ? ""
     : `, reranked by ${rerank.reranker} from ${String(rerank.candidates)}, on failure ${rerank.onFailure}`;
 
-/** The application context `describe` builds tools with: an empty environment unless one is given. */
-const describedApplication = (environment: DescribedEnvironment | undefined): RuntimeContexts => ({
-  ...contextsOutsideExecution({ name: "describe", version: "0.0.0" }),
-  application: applicationContextOf({
-    name: "describe",
-    version: "0.0.0",
-    instanceId: "describe",
-    startedAt: new Date(0),
-    environmentName: environment?.name ?? "dev",
-    environment: environment?.values ?? NO_ENVIRONMENT_VALUES,
-  }),
-});
-
 /**
- * Tools are built with a router that is never called and, unless one is given, an empty environment —
- * describing needs no key, no network and no environment.
+ * Tools are built with a router that is never called and the contexts of a workflow outside an
+ * application — describing needs no key, no network and no environment.
  */
 export const describeServices: WorkflowServices = {
   router: (name) => ({
     name,
     route: () => Promise.reject(new Error("describe does not call routers")),
   }),
-  contexts: describedApplication(undefined),
+  contexts: contextsOutsideExecution({ name: "describe", version: "0.0.0" }),
 };
 
 /** A component's reasoning; unset = its model provider's. */
@@ -173,31 +155,20 @@ function agentLines(bundle: AssembledWorkflow, tools: ReadonlyMap<string, AnyToo
   });
 }
 
-/** Describing services with the app's environment (its tools may read `applicationContext.environment`). */
-export const describeServicesWith = (
-  environment: DescribedEnvironment | undefined,
-): WorkflowServices =>
-  environment === undefined
-    ? describeServices
-    : { ...describeServices, contexts: describedApplication(environment) };
-
 /**
  * The workflow at a glance: its guardrails and PII policies, settings, the flow as transitions, each
  * node's inputs, its count limits with the worst case of each start, the provider of each model,
- * and which agent can use which tool. Its application — implementations, budgets, the environment —
+ * and which agent can use which tool. Its application — implementations, budgets —
  * is `describeApplication`'s (#268).
  */
 export function describeWorkflow(
   bundle: AssembledWorkflow,
   profile = "base",
-  environment?: DescribedEnvironment,
   children?: ChildSnapshotSources,
 ): string[] {
   const c = bundle.config;
   const tools = new Map(
-    resolveTools(bundle, describeServicesWith(environment)).map(
-      (tool) => [tool.name, tool] as const,
-    ),
+    resolveTools(bundle, describeServices).map((tool) => [tool.name, tool] as const),
   );
   const assigned = new Set(Object.values(c.agents).flatMap((agent) => agent.tools ?? []));
   const unassigned = [...tools.keys()].filter((name) => !assigned.has(name));

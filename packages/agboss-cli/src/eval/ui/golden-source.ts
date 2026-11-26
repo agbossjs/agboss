@@ -3,13 +3,12 @@ import { openExecutionHistory } from "@agboss/core/internal";
 import { applicationPathOf } from "../../cli/application-path.js";
 import { loadCliApplication } from "../../cli/cli-application.js";
 import { textOption, type CommandContext } from "../../cli/context.js";
-import { envOption } from "../../cli/environment.js";
 import { CliError } from "../../cli/errors.js";
 import type { GoldenSource } from "./golden-case.js";
 
 /**
  * Where `agboss eval ui` saves golden cases from (#397 PR 5): the application of `--application`
- * (else package.json) with its execution history opened on `--env` — nothing built, nothing run.
+ * (else package.json) with its execution history opened on `--profile` — nothing built, nothing run.
  * No application, one that does not load, or one that keeps no execution records turns the
  * button into why — the pages and the labels still serve.
  */
@@ -30,7 +29,6 @@ async function historyOf(context: CommandContext) {
   try {
     const { application } = await loadCliApplication(context);
     return await openExecutionHistory(application, {
-      env: envOption(context),
       profile: textOption(context.values, "profile"),
       processEnv: context.io.env,
     });

@@ -16,7 +16,7 @@ import { seconds } from "../../src/units/index.js";
 import { ChatStart } from "../channels/approval.workflow.js";
 import { execute } from "../helpers/flow.js";
 import { LimitedApplication, LimitedModelProvider } from "./fixtures/limited.workflow.js";
-import { instanceCalls, KEYS } from "./gateway.js";
+import { instanceCalls } from "./gateway.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
 import { ModelProviderDirectory } from "../../src/models/resolve.js";
 import { advanceUntil, instancesOf, slowProvider, warmUp } from "./slow-provider.js";
@@ -244,7 +244,6 @@ describe("#266 × #279: every model call goes through the provider's gate — ar
     const provider = slowProvider(clock, { ...LIMITED, takes: seconds(5) });
     const gateway = createProviderGateway(ModelProviderDirectory.of([LimitedModelProvider]), {
       env: {},
-      environment: KEYS,
       calls: instanceCalls(clock),
       send: provider.fetch,
       clock,

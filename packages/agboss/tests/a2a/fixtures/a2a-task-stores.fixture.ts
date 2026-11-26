@@ -13,7 +13,6 @@ import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-databa
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { ApplicationContext, Clock, StoreClock, Injectable } from "../../../src/index.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { SqliteTestEnvironment } from "../../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import { ReleaseWorkflow, ReleaseWorkflowStart } from "../../app/fixtures/fence.workflow.js";
 import type { StoreDescriptor } from "../../../src/index.js";
 
@@ -83,7 +82,6 @@ export function a2aStoresApplication(
   @Application({
     name: "a2a-stores-application",
     version: "1.0.0",
-    environment: SqliteTestEnvironment,
     workflows: [ReleaseWorkflow],
     budgets: TEST_BUDGETS,
     providers,

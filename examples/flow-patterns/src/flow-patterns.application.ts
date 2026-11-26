@@ -35,7 +35,6 @@ import { TripWorkflow } from "./travel/workflows/trip/trip.workflow.js";
 import { ReviewWorkflow } from "./review/workflows/review/review.workflow.js";
 import { TopicResearchWorkflow } from "./topic/workflows/topic-research/topic-research.workflow.js";
 import { VendorScreeningWorkflow } from "./vendor/workflows/vendor-screening/vendor-screening.workflow.js";
-import { AppEnvironment } from "./environments/app.environment.js";
 import { FlowPatternsDatabaseStorage } from "./storages/flow-patterns.database-storage.js";
 
 /**
@@ -70,7 +69,6 @@ import { FlowPatternsDatabaseStorage } from "./storages/flow-patterns.database-s
 @Application({
   name: "flow-patterns-application",
   version: "1.0.0",
-  environment: AppEnvironment,
   workflows: [
     OfferWorkflow,
     CreditWorkflow,

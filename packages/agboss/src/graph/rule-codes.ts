@@ -81,7 +81,6 @@ export type RuleCode =
   // a listed store's static store that is no StoreDescriptor (#825)
   | "application.store-descriptor-invalid"
   | "application.idempotency-key-required"
-  | "application.pii-key-shared"
   // an application serving A2A keeps its tasks where its instances share them (#824)
   | "a2a.endpoint-description-required"
   | "a2a.task-store-not-shared"
@@ -154,10 +153,6 @@ export type RuleCode =
   | "budget.conflicting-limit"
   | "budget.application-budget-required"
   | "di.infrastructure-in-workflow"
-  // environments and defaults (#261 PR 4), reported at the application's assembly
-  | "environment.contract-value"
-  | "environment.missing-field"
-  | "environment.conflicting-field"
   // guardrails (#120 PR 2), reported at each workflow's assembly
   | "guardrail.not-a-guardrail"
   | "guardrail.exclude-not-inherited"

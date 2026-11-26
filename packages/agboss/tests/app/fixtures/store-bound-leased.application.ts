@@ -18,7 +18,6 @@ import { IN_MEMORY_DATABASE } from "../../../src/infrastructure/in-memory-databa
 import { InMemoryRateLimitRepository } from "../../../src/infrastructure/rate-limit.repository.js";
 import { withHoldPoints } from "../../../src/testing/faults/held-stores.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import {
   MortalExecutionLeaseRepository,
@@ -89,7 +88,6 @@ export class SlotWorkflow {}
 @Application({
   name: "store-bound-leased-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChargeWorkflow, SlotWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],

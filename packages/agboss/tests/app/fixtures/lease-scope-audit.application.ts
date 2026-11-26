@@ -1,7 +1,6 @@
 import { InMemoryFencedEffectRepository } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
 import {
@@ -15,7 +14,6 @@ import { HeldLeases, ScopedAudit, ScopedCheckpoints } from "./lease-scope-bound.
 @Application({
   name: "lease-scope-audit-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChargeWorkflow, DoubleChargeWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],

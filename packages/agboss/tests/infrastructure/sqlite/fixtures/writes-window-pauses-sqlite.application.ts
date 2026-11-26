@@ -1,11 +1,5 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import {
-  Injectable,
-  SqliteCostLedgerRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-} from "../../../../src/index.js";
+import { Injectable, SqliteExecutionRecordRepository } from "../../../../src/index.js";
 import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
@@ -20,7 +14,7 @@ import {
   WindowSecondChannel,
   wroteWrites,
 } from "../../../app/fixtures/writes-window-pauses.application.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import { MortalSqliteExecutionLeaseRepository } from "./sqlite.workflow.js";
 import { ApplicationContext } from "../../../../src/flow/context/application-context.js";
 import { Clock, IdGenerator } from "../../../../src/infrastructure/clock.js";
@@ -78,20 +72,16 @@ export class PausesWindowSqliteRecords extends SqliteExecutionRecordRepository {
 @Application({
   name: "pauses-window-sqlite-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({
+    replace: [
+      MortalSqliteExecutionLeaseRepository,
+      PausesWindowSqliteRecords,
+      PausesWindowSqliteCheckpoints,
+    ],
+  }),
   workflows: pausesWindowWorkflows,
   observers: [RecoveryLog],
-  providers: [
-    MortalSqliteExecutionLeaseRepository,
-    PausesWindowSqliteRecords,
-    SqlitePausedExecutionRepository,
-    PausesWindowSqliteCheckpoints,
-    SqliteCostLedgerRepository,
-    SqliteExecutionTreeRepository,
-    SqliteConnection,
-    WindowChannel,
-    WindowSecondChannel,
-  ],
+  providers: [WindowChannel, WindowSecondChannel],
   budgets: TEST_BUDGETS,
 })
 export class PausesWindowSqliteApplication {}

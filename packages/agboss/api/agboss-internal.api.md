@@ -10,7 +10,6 @@ import { BaseCheckpointSaver } from '@langchain/langgraph';
 import { CheckpointTuple } from '@langchain/langgraph';
 import type { DatabaseSync } from 'node:sqlite';
 import type { Graph } from '@langchain/core/runnables/graph';
-import { inspect } from 'node:util';
 import type { MessageContent } from '@langchain/core/messages';
 import type { MeterProvider } from '@opentelemetry/api';
 import type { RunnableConfig } from '@langchain/core/runnables';
@@ -89,8 +88,6 @@ export interface AppDepsOptions {
     readonly connectMcp?: McpConnect;
     // (undocumented)
     readonly container?: ContainerOptions;
-    readonly environment?: Environment;
-    readonly environmentName?: string;
     readonly gateway?: ModelGateway;
     readonly meterProvider?: MeterProvider;
     readonly processEnv?: NodeJS.ProcessEnv;
@@ -113,11 +110,10 @@ export interface ApplicationContracts {
 }
 
 // @public
-export function applicationDataOf(assembled: AssembledApplication, environment: DescribedEnvironment | undefined): DescribedApplication;
+export function applicationDataOf(assembled: AssembledApplication): DescribedApplication;
 
 // @public
 export interface ApplicationDescription {
-    readonly environment?: DescribedEnvironment;
     readonly profile?: string;
     readonly source?: string;
 }
@@ -168,7 +164,7 @@ export interface ApplicationStart {
 export const applicationWarningsOf: (assembled: AssembledApplication) => readonly AssemblyWarning[];
 
 // @public
-export interface AssembledApplication extends AssembledKeyFields, StorageFields, P.ProfileFields {
+export interface AssembledApplication extends StorageFields, P.ProfileFields {
     // (undocumented)
     readonly application: Class;
     readonly auditLogRetention?: Milliseconds | undefined;
@@ -179,7 +175,6 @@ export interface AssembledApplication extends AssembledKeyFields, StorageFields,
     readonly childPlacement?: ChildPlacement;
     readonly compensationTimeout: Milliseconds;
     readonly endpoints: readonly Class[];
-    readonly environment?: Class;
     // (undocumented)
     readonly executionContext: ExecutionContextClass;
     readonly executionRecordRetention?: Milliseconds;
@@ -304,12 +299,13 @@ export interface BudgetListing extends OverlaidBudgets {
 }
 
 // @public
-export interface BuildApplicationOptions extends CreateAppOptions, Omit<BuildOptions, "environment"> {
+export interface BuildApplicationOptions extends CreateAppOptions, BuildOptions {
 }
 
 // @public
 export interface BuildOptions extends AppDepsOptions {
     readonly chaos?: ChaosOptions;
+    readonly envOverrides?: readonly EnvOverrides<EnvContract>[];
     readonly gatewayOverProviders?: (real: () => ModelGateway) => ModelGateway;
 }
 
@@ -407,7 +403,7 @@ export const configSnapshot: <TName extends string>(deps: SnapshotDeps<TName>, c
 export function contextsOutsideExecution(workflow: {
     readonly name: string;
     readonly version: string;
-}, environment?: Environment, clock?: Clock): RuntimeContexts;
+}, clock?: Clock): RuntimeContexts;
 
 // @public (undocumented)
 export type ContinueOptions = Omit<AgentExecutionOptions, "replayOf" | "runId" | "contexts">;
@@ -589,18 +585,6 @@ export interface DescribedChild {
 }
 
 // @public
-export interface DescribedEnvironment {
-    readonly fields: Readonly<Record<string, string>>;
-    // (undocumented)
-    readonly name: string;
-    // (undocumented)
-    readonly values: Environment;
-}
-
-// @public
-export function describedEnvironmentFor(owner: EnvironmentOwner, env: string | undefined, processEnv: NodeJS.ProcessEnv): Promise<DescribedEnvironment | undefined>;
-
-// @public
 export interface DescribedExecutionBudget {
     // (undocumented)
     readonly isOwn: boolean;
@@ -699,9 +683,6 @@ export interface DescribedWorkflowTree {
 export const describeServices: WorkflowServices;
 
 // @public
-export const describeServicesWith: (environment: DescribedEnvironment | undefined) => WorkflowServices;
-
-// @public
 export interface Diagnostic {
     readonly code: string;
     // (undocumented)
@@ -784,22 +765,6 @@ export enum DurableExecutionStatus {
 
 // @public
 export function durableStatusOf(state: DurableExecutionState): A2ATaskStatus | undefined;
-
-// @public
-export function environmentFor(owner: EnvironmentOwner, selection: EnvironmentSelection, processEnv: NodeJS.ProcessEnv, defaultName?: string): Promise<Environment | undefined>;
-
-// @public
-export interface EnvironmentOwner {
-    readonly application: string;
-    readonly contract?: Class | undefined;
-    readonly source?: string | undefined;
-}
-
-// @public
-export const environmentOwnerOf: (assembled: AssembledApplication) => EnvironmentOwner;
-
-// @public
-export const environmentVariablesOf: (loaded: LoadedEnvironment) => readonly ProcessVariable[];
 
 // @public
 export type ErrorDetails = Readonly<Record<string, unknown>>;
@@ -1490,7 +1455,7 @@ export interface OpenedExecutionHistory {
 }
 
 // @public
-export function openExecutionHistory(application: Class, options?: Pick<BuildApplicationOptions, "env" | "profile" | "processEnv">): Promise<OpenedExecutionHistory>;
+export function openExecutionHistory(application: Class, options?: Pick<BuildApplicationOptions, "profile" | "processEnv">): Promise<OpenedExecutionHistory>;
 
 // @public
 export function pausedStatusOf(pending: readonly PendingPause[]): A2ATaskStatus;
@@ -1500,7 +1465,6 @@ export const problemLine: (problem: ModelProblem) => string;
 
 // @public
 export interface ProcessVariable {
-    // (undocumented)
     readonly field: string;
     readonly optional: boolean;
     readonly required: boolean;
@@ -1577,9 +1541,6 @@ export const reservedExecutionIdOf: (options: object) => string | undefined;
 
 // @public
 export function resolvedModelUsesOf(workflow: WorkflowModels_2): readonly ResolvedModelUse[];
-
-// @public
-export function resolveEnvironment(loaded: LoadedEnvironment, processEnv: NodeJS.ProcessEnv, secrets?: SecretResolution): Environment;
 
 // @public (undocumented)
 export const resolveTools: (bundle: AssembledWorkflow, services: WorkflowServices) => readonly AnyTool[];
@@ -1668,17 +1629,6 @@ export interface RuntimeContexts {
 
 // @public (undocumented)
 export function saveGolden(file: string, set: GoldenSet): Promise<void>;
-
-// @public
-export enum SecretResolution {
-    // (undocumented)
-    Deferred = "deferred",
-    // (undocumented)
-    Required = "required"
-}
-
-// @public
-export function selectedEnvironment(owner: EnvironmentOwner, env: string | undefined, defaultName?: string): Promise<LoadedEnvironment | undefined>;
 
 // @public
 export const shortVersion: (version: string) => string;
@@ -1771,7 +1721,6 @@ export function studioOfWith(application: Class, options?: StudioOptions & {
 
 // @public
 export interface StudioOptions {
-    readonly env?: string | undefined;
     readonly processEnv?: NodeJS.ProcessEnv;
     readonly profile?: ProfileSelection | undefined;
 }
@@ -1805,13 +1754,21 @@ export interface UnknownCostTally {
 export const unmasked: EventMask;
 
 // @public
+export enum VariableUse {
+    // (undocumented)
+    Secret = "secret",
+    // (undocumented)
+    Value = "value"
+}
+
+// @public
 export const versionOf: (value: unknown) => string;
 
 // @public
 export function withReservedExecutionId<TOptions extends object>(options: TOptions, executionId: string): TOptions;
 
 // @public
-export function workflowDataOf(bundle: AssembledWorkflow, profile?: string, environment?: DescribedEnvironment, children?: ChildSnapshotSources): DescribedWorkflow;
+export function workflowDataOf(bundle: AssembledWorkflow, profile?: string, children?: ChildSnapshotSources): DescribedWorkflow;
 
 // @public
 export interface WorkflowDepsParts {
@@ -2102,13 +2059,10 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/describe/worst-case-report.ts - (ae-undocumented) Missing documentation for "measure".
 // src/describe/worst-case-report.ts - (ae-undocumented) Missing documentation for "total".
 // src/describe/worst-case-report.ts - (ae-undocumented) Missing documentation for "madeUp".
-// src/environments/resolve.ts - (ae-undocumented) Missing documentation for "Required".
-// src/environments/resolve.ts - (ae-undocumented) Missing documentation for "Deferred".
-// src/environments/resolve.ts - (ae-undocumented) Missing documentation for "variable".
-// src/environments/resolve.ts - (ae-undocumented) Missing documentation for "field".
-// src/environments/resolve.ts - (ae-undocumented) Missing documentation for "use".
-// src/environments/resolve.ts - (ae-undocumented) Missing documentation for "name".
-// src/environments/resolve.ts - (ae-undocumented) Missing documentation for "values".
+// src/environments/process-variable.ts - (ae-undocumented) Missing documentation for "Value".
+// src/environments/process-variable.ts - (ae-undocumented) Missing documentation for "Secret".
+// src/environments/process-variable.ts - (ae-undocumented) Missing documentation for "variable".
+// src/environments/process-variable.ts - (ae-undocumented) Missing documentation for "use".
 // src/eval/calibrate/taxonomy.ts - (ae-undocumented) Missing documentation for "tag".
 // src/eval/calibrate/taxonomy.ts - (ae-undocumented) Missing documentation for "description".
 // src/eval/case-from-execution.ts - (ae-undocumented) Missing documentation for "start".

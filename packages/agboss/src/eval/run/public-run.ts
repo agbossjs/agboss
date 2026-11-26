@@ -17,8 +17,6 @@ import { runSuiteOn } from "./run-suite.js";
 export interface RunEvalSuiteOptions {
   /** The profiles the application is built with (`--profile`): `"economy"`, `["prod", "economy"]`. */
   readonly profile?: ProfileSelection | undefined;
-  /** The environment (`--env`): `environments/<env>.environment.ts`. */
-  readonly env?: string | undefined;
   /** How many times each case runs — the k of pass@k and pass^k; default 1. */
   readonly runs?: number;
   /** `--chaos`: failures injected into the candidate's model calls, never into a judge's. */
@@ -44,7 +42,6 @@ export async function runEvalSuiteWith(
   const built = await builtApplicationOf(application, {
     ...options.seams,
     ...(options.chaos === undefined ? {} : { chaos: options.chaos }),
-    env: options.env,
     profile: options.profile,
     ...(options.tracerProvider === undefined ? {} : { tracerProvider: options.tracerProvider }),
     ...(options.processEnv === undefined ? {} : { processEnv: options.processEnv }),

@@ -6,13 +6,11 @@
 import { describe, expect, it } from "vitest";
 import { testUnit } from "../../../src/testing/index.js";
 import { seconds } from "../../../src/units/index.js";
-import type { Environment } from "../../../src/flow/generated-types.js";
+import { provide } from "../../../src/components/injection.js";
+import { DATABASE_SETTINGS } from "../../../src/storage/settings.js";
 
-/**
- * A project's generated `Environment` names its fields (`sqlitePath` among them for SQLite stores);
- * the core's own tests generate none, so the one field is given its type here.
- */
-const SQLITE_ONLY = { sqlitePath: ":memory:" } as object as Partial<Environment>;
+/** The database storage's settings a SQLite store in a unit reads its file from (`SqliteDriver({ path })`). */
+const SQLITE_ONLY = provide(DATABASE_SETTINGS, { kind: "sqlite", path: ":memory:" });
 import {
   PriceListService,
   PriceQuoteAction,
@@ -78,10 +76,9 @@ describe("testUnit", () => {
     expect(() => testUnit(PriceListService)).toThrow("not a component it runs");
   });
 
-  it("#644 (4): a service on SQLite takes only the field it reads: environment { sqlitePath }", async () => {
+  it("#644 (4): a service on SQLite takes only what it reads: the database storage's settings", async () => {
     const runQuote = testUnit(PriceQuoteAction, {
-      services: [SqlitePriceListService],
-      environment: SQLITE_ONLY,
+      services: [SqlitePriceListService, SQLITE_ONLY],
     });
 
     const { output } = await runQuote(request("pen", 2));
@@ -89,13 +86,13 @@ describe("testUnit", () => {
     expect(output).toEqual({ cents: 500, pricedBy: "price-quote-action" });
   });
 
-  it("#644 (4): without it, the error says how to pass it to the runner", async () => {
+  it("#644 (4): without it, the error says what the store needs", async () => {
     const runQuote = testUnit(PriceQuoteAction, {
       services: [SqlitePriceListService],
     });
 
     await expect(runQuote(request("pen", 2))).rejects.toThrow(
-      /testUnit\(X, \{ environment: \{ sqlitePath: ":memory:" \} \}\)/,
+      /need the application's @DatabaseStorage\(\{ driver: SqliteDriver\(\{ path \}\) \}\)/,
     );
   });
 });

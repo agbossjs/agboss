@@ -47,7 +47,7 @@ export enum CheckStatus {
 export const compareEvalSuite: (application: Class, suite: Class, options: CompareEvalSuiteOptions) => Promise<EvalSuiteComparison>;
 
 // @public
-export interface CompareEvalSuiteOptions extends Pick<RunEvalSuiteOptions, "runs" | "metamorphic" | "tracerProvider" | "processEnv" | "env"> {
+export interface CompareEvalSuiteOptions extends Pick<RunEvalSuiteOptions, "runs" | "metamorphic" | "tracerProvider" | "processEnv"> {
     // (undocumented)
     readonly variants: readonly EvalComparisonVariant[];
 }
@@ -486,8 +486,6 @@ export interface EvalRunReport {
     readonly configHash: string;
     // (undocumented)
     readonly endedAt: Date;
-    // (undocumented)
-    readonly environment: string;
     readonly judges?: readonly EvalModelUse[];
     // (undocumented)
     readonly kind: typeof EVAL_RUN_KIND;
@@ -761,7 +759,6 @@ export const runEvalSuite: (application: Class, suite: Class, options?: RunEvalS
 // @public
 export interface RunEvalSuiteOptions {
     readonly chaos?: ChaosOptions;
-    readonly env?: string | undefined;
     readonly metamorphic?: boolean;
     readonly processEnv?: NodeJS.ProcessEnv;
     readonly profile?: ProfileSelection | undefined;
@@ -868,7 +865,6 @@ export const turn: <const TInput>(input: TInput, options?: {
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "application".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "workflow".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "start".
-// src/eval/run/report.ts - (ae-undocumented) Missing documentation for "environment".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "cascade".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "endedAt".
 // src/eval/run/report.ts - (ae-undocumented) Missing documentation for "cases".

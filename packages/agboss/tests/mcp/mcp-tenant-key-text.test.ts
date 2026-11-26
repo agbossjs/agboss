@@ -64,7 +64,6 @@ async function billing(tenantId: string) {
   const book = new ScriptBook();
   const app = await createTestAppWith(parts.MeshApplication, {
     ...offline(book),
-    env: "signing",
     processEnv: meshEnvOf(own, orders),
   });
   apps.push(app);

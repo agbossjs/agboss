@@ -213,8 +213,7 @@ describe("#261 AC4: ApplicationContext — the one description of the running in
     expect(context).toMatchObject({
       name: "plain-application",
       version: "2.0.0",
-      environmentName: "dev",
-      environment: {},
+      profiles: ["dev"],
       host: { pid: process.pid, platform: process.platform, runtimeVersion: process.version },
     });
     expect(context.startedAt).toBeInstanceOf(Date);
@@ -243,7 +242,7 @@ describe("#261: testExecutionContext with the levels — units without the conta
 
     expect(service.unitName("icu")).toBe("Intensive care");
     expect(executionContext.tenant).toMatchObject({ tenantId: "acme", weight: 1 });
-    expect(executionContext.tenant.application.environmentName).toBe("test");
+    expect(executionContext.tenant.application.profiles).toEqual(["test"]);
   });
 
   it("an execution subclass's values are its own fields; invalid ones fail like at execute", () => {

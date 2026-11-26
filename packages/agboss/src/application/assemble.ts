@@ -21,11 +21,7 @@ import type { BudgetOverlays, OverlaidBudgets } from "../budgets/budget-overlay.
 import { applicationRuleViolations, budgetsOfApplication } from "./application-rules.js";
 import { carrierRuleViolations } from "./carrier-rules.js";
 import { assembledRetentionsOf, retentionOf } from "./retention.js";
-import {
-  idempotencyKeyViolations,
-  keyFieldsOf,
-  type AssembledKeyFields,
-} from "./assembled-keys.js";
+import { idempotencyKeyViolations, keyFieldsOf } from "./assembled-keys.js";
 import { storageFieldsOf, type StorageFields } from "../storage/storage-fields.js";
 import { crossWorkflowViolations } from "./workflow-rules.js";
 import { throwIfAny } from "./application-errors.js";
@@ -53,14 +49,12 @@ import { OutboundMasking } from "../app/outbound-masking.js";
  */
 
 /** An assembled application: what `createApp` and `testWith` build an app instance from. */
-export interface AssembledApplication extends AssembledKeyFields, StorageFields, P.ProfileFields {
+export interface AssembledApplication extends StorageFields, P.ProfileFields {
   readonly application: Class;
   readonly name: string;
   readonly version: string;
-  /** The file `@Application` is declared in: its `environments/` folder is next to it. */
+  /** The file `@Application` is declared in: its `src/config/` folder is next to it. */
   readonly source?: string;
-  /** `@Application({ environment })`: the contract its environments are typed by. */
-  readonly environment?: Class;
   /** The application's own providers and budgets, then every workflow's providers. */
   readonly modules: readonly ProviderModule[];
   /** `@Application({ providers })` as listed (its infrastructure, its model providers). */
@@ -192,9 +186,6 @@ export const declaredContextsOf = (
   executionContext: options.executionContext ?? ExecutionContext,
 });
 
-const withEnvironment = (contract: Class | undefined): { readonly environment?: Class } =>
-  contract === undefined ? {} : { environment: contract };
-
 /** Whether anything stored must be masked: the application or a workflow lists PII policies. */
 const hasPiiPolicies = (
   options: ApplicationOptions,
@@ -235,8 +226,6 @@ export async function applicationOf(
     name: options.name,
     version: options.version,
     ...(source === undefined ? {} : { source }),
-    // required by the type; an untyped (JS) caller may leave it out — then the environment is empty
-    ...withEnvironment((options as Partial<ApplicationOptions>).environment),
     modules,
     ...listedOf(options, budgetOverlays),
     budgetOverlays,

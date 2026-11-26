@@ -13,7 +13,6 @@ import { HeldLease } from "../../src/app/held-lease.js";
 import { leaseReleases } from "../../src/app/lease-releases.js";
 import { boundedStoreOf } from "../../src/app/store-call-bound.js";
 import { ExecutionObserverManager } from "../../src/core/observer-manager.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { nodeEventOf } from "../../src/flow/observers/execution-event.js";
 import { ExecutionLeaseLostError, StoreOutcomeSource } from "../../src/index.js";
@@ -77,7 +76,7 @@ async function held() {
   const database = new InMemoryDatabase();
   const application = applicationContextOf({
     ...{ name: "abandon-application", version: "1.0.0", instanceId: "instance-1" },
-    ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+    ...{ startedAt: clock.now(), profiles: ["test"] },
   });
   const store = new CountingLeases(storeClockOf(clock), application, database);
   const audit = new QuietAuditLog(database);

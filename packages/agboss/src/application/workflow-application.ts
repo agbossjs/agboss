@@ -1,6 +1,5 @@
 import { workflowOf } from "../components/assemble.js";
 import type { Class } from "../components/injection.js";
-import type { EnvironmentOwner } from "../environments/load.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import {
   applicationDeclarationOf,
@@ -16,7 +15,7 @@ import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 /**
  * One workflow in its application (#261), for what works on a single workflow — `loadWorkflow`, the
  * CLI's `describe` / `check` / `eval`: the one loaded `@Application` that lists
- * it gives its providers, its `defaults` and its environment. Without one the workflow stands alone.
+ * it gives its providers and its `defaults`. Without one the workflow stands alone.
  */
 
 /** The declaration of the one loaded application that lists `workflow`; undefined for none or two. */
@@ -42,15 +41,4 @@ export async function workflowInApplication(workflow: Class): Promise<AssembledW
     ...workflowModules(withChildWorkflows(options.workflows)),
   ];
   return workflowOf(workflow, modules, options, contextTokensOf(declaredContextsOf(options)));
-}
-
-/** Where the environments of the workflow's application are; one standing alone has none. */
-export function environmentOwnerOfWorkflow(workflow: Class): EnvironmentOwner {
-  const declaration = applicationOfWorkflow(workflow);
-  if (declaration === undefined) return { application: workflow.name };
-  return {
-    application: declaration.options.name,
-    source: declaration.source,
-    contract: declaration.options.environment,
-  };
 }

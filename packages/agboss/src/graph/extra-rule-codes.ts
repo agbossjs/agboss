@@ -11,7 +11,6 @@ export type StorageRuleCode =
   | "storage.cluster-needs-durable-lease-store"
   | "storage.providers-conflict"
   | "storage.retention-conflict"
-  | "storage.key-conflict"
   | "storage.secret-shared"
   | "storage.ttl-invalid";
 

@@ -27,7 +27,6 @@ export interface CompactEvalBaseline {
   readonly workflow: EvalRunReport["workflow"];
   readonly configHash: EvalRunReport["configHash"];
   readonly start: EvalRunReport["start"];
-  readonly environment: EvalRunReport["environment"];
   readonly runs: EvalRunReport["runs"];
   readonly cascade: EvalRunReport["cascade"];
   readonly startedAt: EvalRunReport["startedAt"];
@@ -81,7 +80,6 @@ export function compactBaselineOf(report: EvalRunReport): CompactEvalBaseline {
     workflow: report.workflow,
     configHash: report.configHash,
     start: report.start,
-    environment: report.environment,
     runs: report.runs,
     cascade: report.cascade,
     startedAt: report.startedAt,

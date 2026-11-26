@@ -18,7 +18,7 @@ import { ModelProviderDirectory } from "../../../src/models/resolve.js";
 import { aiMessageOf, providerMessagesOf } from "../../../src/models/transport/messages.js";
 import { transportSnapshot } from "../../../src/run/transport-snapshot.js";
 import { seconds } from "../../../src/units/index.js";
-import { ENV, KEYS } from "../gateway.js";
+import { ENV } from "../gateway.js";
 import { BedrockModelProvider } from "./bedrock-provider.fixture.js";
 
 describe("#385: the transport's messages", () => {
@@ -133,7 +133,6 @@ describe("#385: its errors and its wiring", () => {
   it("a gateway built without the transport chat models refuses a transport's model by name", () => {
     const clients = providerClients(ModelProviderDirectory.of([BedrockModelProvider]), {
       env: ENV,
-      environment: KEYS,
     });
 
     expect(() =>

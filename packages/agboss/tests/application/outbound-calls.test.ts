@@ -24,7 +24,6 @@ import {
   runs,
 } from "../app/fixtures/outbound-call.workflow.js";
 import { gateway, resetGateway } from "../app/fixtures/payment-gateway.js";
-import { IdempotencyKeyEnvironment } from "../helpers/idempotency-key.environment.js";
 
 beforeEach(() => {
   resetLogged();
@@ -40,7 +39,6 @@ describe("#505, #1317: the outbound calls' masking at assembly", () => {
     @Application({
       name: "masking-application",
       version: "1.0.0",
-      environment: IdempotencyKeyEnvironment,
       workflows: [ChargeWorkflow],
       budgets: TEST_BUDGETS,
     })
@@ -55,7 +53,6 @@ describe("#505, #1317: the outbound calls' masking at assembly", () => {
 @Application({
   name: "small-outbound-call-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,

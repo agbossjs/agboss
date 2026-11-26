@@ -6,11 +6,8 @@
 import { bytes as byteSize } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { secret } from "../../../src/environments/secret.js";
-import { resolveEnvironment } from "../../../src/environments/resolve.js";
-import {
-  applicationContextOf,
-  type ApplicationContext,
-} from "../../../src/flow/context/application-context.js";
+import { resolveReferences } from "../../../src/environments/define-env.js";
+import type { ResolvedSettings } from "../../../src/storage/settings.js";
 import { S3FileRepository } from "../../../src/infrastructure/s3/s3-file.repository.js";
 import { authorizationOf } from "../../../src/infrastructure/s3/s3-signing.js";
 import { fileContract } from "../../../src/testing/contracts/index.js";
@@ -24,38 +21,24 @@ const PROCESS_ENV = {
   A2A_S3_SECRET_ACCESS_KEY: S3_KEYS.secretAccessKey,
 };
 
-/** An application context of this environment, as an instance makes one. */
-const contextOf = (
-  values: Record<string, unknown>,
-  processEnv: NodeJS.ProcessEnv = {},
-): ApplicationContext =>
-  applicationContextOf({
-    name: "files-application",
-    version: "1.0.0",
-    instanceId: "instance-1",
-    startedAt: new Date("2026-01-05T09:00:00.000Z"),
-    environmentName: "test",
-    environment: resolveEnvironment(
-      { name: "test", contract: "FilesEnvironment", values },
-      processEnv,
-    ),
-  });
+/** What `@ObjectStorage({ driver: S3Driver(…) })` resolves to: the driver's options with their references read. */
+const settingsOf = (given: Record<string, unknown>): ResolvedSettings =>
+  resolveReferences({ kind: "s3", ...given }, PROCESS_ENV, "test") as ResolvedSettings;
 
-const ENVIRONMENT = {
-  a2aS3Bucket: S3_BUCKET,
-  a2aS3Region: S3_REGION,
-  a2aS3Endpoint: S3_ENDPOINT,
-  a2aS3AccessKeyId: secret("A2A_S3_ACCESS_KEY_ID"),
-  a2aS3SecretAccessKey: secret("A2A_S3_SECRET_ACCESS_KEY"),
-};
+const SETTINGS = settingsOf({
+  bucket: S3_BUCKET,
+  region: S3_REGION,
+  endpoint: S3_ENDPOINT,
+  accessKeyId: secret("A2A_S3_ACCESS_KEY_ID"),
+  secretAccessKey: secret("A2A_S3_SECRET_ACCESS_KEY"),
+});
 
 fileContract({
   name: "S3",
   reset: () => {
     bucket = new FakeS3();
   },
-  instance: ({ clock }) =>
-    new S3FileRepository(contextOf(ENVIRONMENT, PROCESS_ENV), clock, undefined, bucket.fetcher),
+  instance: ({ clock }) => new S3FileRepository(clock, SETTINGS, bucket.fetcher),
 });
 
 describe("#859: S3FileRepository", () => {
@@ -88,12 +71,7 @@ describe("#859: S3FileRepository", () => {
 
   it("the sweep reads the index only up to the cutoff: an owner not yet up is never listed past, read or touched", async () => {
     const s3 = new FakeS3();
-    const store = new S3FileRepository(
-      contextOf(ENVIRONMENT, PROCESS_ENV),
-      new VirtualClock(),
-      undefined,
-      s3.fetcher,
-    );
+    const store = new S3FileRepository(new VirtualClock(), SETTINGS, s3.fetcher);
     const at = new Date("2026-01-05T09:00:00.000Z");
     const owners = ["a", "b", "c", "d", "e", "f"];
     for (const [index, owner] of owners.entries()) {
@@ -141,12 +119,7 @@ describe("#859: S3FileRepository", () => {
 
   it("#1316: the index keys: completed/<workflow>/<utc time>/<tenant>/<owner>, and expires/<utc time>/… for a file with a ttl of its own", async () => {
     const s3 = new FakeS3();
-    const store = new S3FileRepository(
-      contextOf(ENVIRONMENT, PROCESS_ENV),
-      new VirtualClock(),
-      undefined,
-      s3.fetcher,
-    );
+    const store = new S3FileRepository(new VirtualClock(), SETTINGS, s3.fetcher);
     const at = new Date("2026-01-05T09:00:00.000Z");
     await store.save({
       tenantId: "default",
@@ -176,9 +149,15 @@ describe("#859: S3FileRepository", () => {
     ]);
   });
 
-  it("names the environment field it misses, never a value", () => {
-    expect(
-      () => new S3FileRepository(contextOf({ a2aS3Region: "x" }), {} as never, undefined),
-    ).toThrow("S3FileRepository needs a2aS3Bucket in the environment");
+  it("names the driver option it misses, never a value", () => {
+    expect(() => new S3FileRepository({} as never, settingsOf({ region: "x" }))).toThrow(
+      "S3Driver needs bucket",
+    );
+  });
+
+  it("reads nothing but the object storage's settings: with none, it names the @ObjectStorage to declare", () => {
+    expect(() => new S3FileRepository({} as never, undefined)).toThrow(
+      "S3FileRepository needs the application's @ObjectStorage",
+    );
   });
 });

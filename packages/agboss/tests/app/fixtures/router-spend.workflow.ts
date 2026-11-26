@@ -13,7 +13,6 @@ import { Application } from "../../../src/application/application.js";
 import { DecidedBy, Router } from "../../../src/flow/decorators/router.js";
 import { usd, type Usd } from "../../../src/units/index.js";
 import { onStart, toAction, toFinish } from "../../flow/fixtures/paths.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
@@ -79,7 +78,6 @@ export class RoutedChargeWorkflow {}
   name: "router-spend-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [RoutedChargeWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, RouterExecutionBudget],

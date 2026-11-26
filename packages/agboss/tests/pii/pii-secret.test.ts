@@ -263,7 +263,6 @@ describe("#1301b: the application's key from the storage", () => {
   it("piiSecret's variable is the key, previousPiiSecret's the one it rotates from", async () => {
     const assembled = await applicationWith({ storage: KeyedStorage }, "keyed-storage-application");
     const keys = applicationPiiKeyOf(assembled, {
-      environment: {} as never,
       env: { PII_STORAGE_SECRET: NEW, PII_STORAGE_PREVIOUS: OLD },
     });
 
@@ -274,11 +273,11 @@ describe("#1301b: the application's key from the storage", () => {
     const assembled = await applicationWith({ storage: KeyedStorage }, "keyed-storage-application");
     const env = { PII_STORAGE_SECRET: NEW };
 
-    expect(applicationPiiKeyOf(assembled, { environment: {} as never, env })).toEqual({
+    expect(applicationPiiKeyOf(assembled, { env })).toEqual({
       key: NEW,
       isInstanceKey: false,
     });
-    expect(() => applicationPiiKeyOf(assembled, { environment: {} as never, env: {} })).toThrow(
+    expect(() => applicationPiiKeyOf(assembled, { env: {} })).toThrow(
       "@DatabaseStorage({ piiSecret }) has no value — PII_STORAGE_SECRET is not set",
     );
   });
@@ -288,7 +287,6 @@ describe("#1301b: the application's key from the storage", () => {
 
     expect(
       applicationPiiKeyOf(assembled, {
-        environment: {} as never,
         env: {},
         fallback: TEST_PSEUDONYM_KEY,
       }),
@@ -355,9 +353,7 @@ describe("#1301b: [pii.secret-required]", () => {
       "in-memory-application",
     );
 
-    expect(() => applicationPiiKeyOf(assembled, { environment: {} as never, env: {} })).toThrow(
-      ConfigError.GraphRules,
-    );
+    expect(() => applicationPiiKeyOf(assembled, { env: {} })).toThrow(ConfigError.GraphRules);
   });
 
   it("testWith's fixed key is used only through the test seam, never under NODE_ENV=production", async () => {
@@ -365,7 +361,7 @@ describe("#1301b: [pii.secret-required]", () => {
       { storage: InMemoryDatabaseStorage, piiPolicies: [SsnTokenPiiPolicy] },
       "in-memory-application",
     );
-    const source = { environment: {} as never, fallback: TEST_PSEUDONYM_KEY };
+    const source = { fallback: TEST_PSEUDONYM_KEY };
 
     expect(applicationPiiKeyOf(assembled, { ...source, env: {} })).toEqual({
       key: TEST_PSEUDONYM_KEY,
@@ -381,7 +377,6 @@ describe("#1301b: [pii.secret-required]", () => {
 
     expect(() =>
       applicationPiiKeyOf(assembled, {
-        environment: {} as never,
         env: { NODE_ENV: "production" },
         fallback: TEST_PSEUDONYM_KEY,
       }),
@@ -393,7 +388,7 @@ describe("#1301b: [pii.secret-required]", () => {
       { storage: KeylessStorage },
       "masking-only-application",
     );
-    const keys = applicationPiiKeyOf(assembled, { environment: {} as never, env: {} });
+    const keys = applicationPiiKeyOf(assembled, { env: {} });
 
     expect(keys.isInstanceKey).toBe(true);
   });

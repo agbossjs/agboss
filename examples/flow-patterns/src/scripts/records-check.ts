@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 // one run of the desk kept in `.agboss/desk-offline.sqlite`, the kept records exported as JSON
 // Lines, and an eval case drafted from the newest one (--dry-run: printed, the suite untouched) —
 // what `agboss eval ui`'s "Save as golden case" writes into the suite.
-const application = ["--application", "src/desk.application.ts", "--env", "offline"];
+const application = ["--application", "src/desk.application.ts"];
 const env = { ...process.env, PII_PSEUDONYM_KEY: process.env.PII_PSEUDONYM_KEY ?? "offline-only" };
 const agboss = (...args: readonly string[]): string =>
   execFileSync("npx", ["agboss", ...args, ...application], { env, encoding: "utf8" });

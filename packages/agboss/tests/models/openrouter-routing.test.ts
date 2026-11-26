@@ -32,7 +32,7 @@ import { minutes, seconds } from "../../src/units/index.js";
 import type { AgentsConfigOf } from "../../src/config/types.js";
 import { completion, KIMI_ENTRY, providerStub } from "./stub.js";
 import { createProviderGateway } from "../../src/llm/gateway.js";
-import { ENV, instanceCalls, KEYS } from "./gateway.js";
+import { ENV, instanceCalls } from "./gateway.js";
 import { handlerOf } from "./driver-handler.js";
 import { secret } from "../../src/environments/secret.js";
 import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
@@ -129,7 +129,7 @@ describe("UsageRecord.servedBy: the host that served the call", () => {
     ]);
     const gateway = createProviderGateway(
       ModelProviderDirectory.of([PinnedOpenRouterProvider, TestDecisionsProvider]),
-      { env: ENV, environment: KEYS, calls: instanceCalls(), send: stub.fetch },
+      { env: ENV, calls: instanceCalls(), send: stub.fetch },
     );
     const settings = {
       model: "moonshotai/kimi-k2.6",

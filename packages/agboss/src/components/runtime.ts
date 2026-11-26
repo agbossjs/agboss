@@ -18,6 +18,7 @@ import { accountedRouters } from "./accounted-router.js";
 import { ArbiterModel } from "../flow/decorators/arbiter.js";
 import { SpendRecorder } from "./spend-recorder.js";
 import { JudgeModel } from "./judge-decorators.js";
+import { deferredEnvOf } from "../environments/define-env.js";
 import { contextsOutsideExecution } from "../flow/context/runtime-contexts.js";
 import { CONTEXT_TOKENS, contextValuesOf } from "./context-tokens.js";
 import { createContainer, type Container } from "./container/container.js";
@@ -129,6 +130,9 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
     { modules: providerModulesOf(bundle), core },
     {
       ...services.container,
+      // no application's container (`agboss check`, `describe`): types and the tool graph need no key (#266) — a
+      // secret behind `deps: [appEnv]` stays unresolved, its variable named by the report instead of failing the build
+      ...(services.container === undefined ? { envOf: deferredEnvOf } : {}),
       // a `@Rag` source gets its pipeline (scope, reranker, spend) when the container creates it
       onCreate: (instance) => {
         services.container?.onCreate?.(instance);

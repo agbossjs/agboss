@@ -3,7 +3,6 @@ import { withHoldPoints } from "../../../src/testing/faults/held-stores.js";
 import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryOutboundCallRepository } from "../../../src/infrastructure/in-memory-outbound-call.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { ChargeWorkflow, EmailPiiPolicy } from "./outbound-call.workflow.js";
@@ -15,7 +14,6 @@ export const HeldOutboundCalls = withHoldPoints(InMemoryOutboundCallRepository);
 @Application({
   name: "store-bound-outbound-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog],
   budgets: TEST_BUDGETS,

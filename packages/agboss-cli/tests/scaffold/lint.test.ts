@@ -117,7 +117,7 @@ describe("#388: agboss create ships a working ESLint config", () => {
     expect(lint.ok, lint.out).toBe(true);
   }, 60_000);
 
-  it("#1330: an object literal where a DTO class is the parameter type, and an AppEnvironment literal, lint clean", () => {
+  it("#1330: an object literal where a DTO class is the parameter type lints clean", () => {
     const path = "src/literal-for-class.ts";
     write(
       path,

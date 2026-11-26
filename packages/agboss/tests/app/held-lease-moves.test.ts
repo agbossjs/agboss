@@ -17,7 +17,6 @@ import { handedOverOf } from "../../src/app/handed-over.js";
 import type { HeldLease } from "../../src/app/held-lease.js";
 import { leaseReleases } from "../../src/app/lease-releases.js";
 import { ExecutionObserverManager } from "../../src/core/observer-manager.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { nodeEventOf } from "../../src/flow/observers/execution-event.js";
 import { ExecutionLeaseLostError, type ExecutionLease } from "../../src/index.js";
@@ -95,7 +94,7 @@ function scriptedStore() {
   const database = new InMemoryDatabase();
   const application = applicationContextOf({
     ...{ name: "held-lease-application", version: "1.0.0", instanceId: "instance-1" },
-    ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+    ...{ startedAt: clock.now(), profiles: ["test"] },
   });
   const store = new ScriptedLeaseRepository(storeClockOf(clock), application, database);
   return { clock, database, store, script: store.script };

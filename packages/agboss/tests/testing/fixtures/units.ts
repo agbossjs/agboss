@@ -207,8 +207,8 @@ export class LegalAdviceGuardrail implements GuardrailRefusal {
   ) {}
 
   refusal(): string {
-    const { environmentName } = this.applicationContext;
-    return `No legal advice (${environmentName}, ${this.executionContext.step.nodeId}).`;
+    const { profiles } = this.applicationContext;
+    return `No legal advice (${profiles.join("+")}, ${this.executionContext.step.nodeId}).`;
   }
 }
 

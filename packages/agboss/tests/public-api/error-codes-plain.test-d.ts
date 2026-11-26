@@ -19,7 +19,6 @@ import type {
   TestFailure,
 } from "../../src/testing/index.js";
 import type { StoreConformanceError } from "../../src/testing/contracts/index.js";
-import type { EnvironmentErrorCode } from "../../src/index.js";
 
 type ErrorClassesOf<M> = {
   [K in keyof M as M[K] extends abstract new (...args: never) => Error ? K : never]: M[K];
@@ -53,7 +52,7 @@ describe("#906 D1: every error class has a literal code on its instance", () => 
     expectTypeOf<AppCloseTimeoutError["code"]>().toEqualTypeOf<"test.close-timeout">();
     expectTypeOf<ConfigError.Environment["code"]>().toEqualTypeOf<"config.environment">();
     expectTypeOf<ConfigError.Environment["envCode"]>().toEqualTypeOf<
-      EnvironmentErrorCode | undefined
+      "environment.missing-variable" | "environment.invalid-value" | undefined
     >();
   });
 

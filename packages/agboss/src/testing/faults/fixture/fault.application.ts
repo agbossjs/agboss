@@ -1,12 +1,15 @@
 import {
   Application,
   Budget,
+  DatabaseStorage,
+  secret,
   BudgetPeriod,
   BudgetScope,
   provide,
   type BudgetHandler,
 } from "../../../index.js";
 import type { Class } from "../../../components/injection.js";
+import { defineStorageDriver, StorageRole } from "../../../storage/storage-driver.js";
 import { hours, usd, type Milliseconds, type Usd } from "../../../units/index.js";
 import { FaultPodClock } from "../fault-clock.js";
 import { FAULT_BUSINESS_ROWS, type FaultStoreSet } from "../fault-stores.js";
@@ -94,6 +97,30 @@ export const heldProvidersOf = (
   });
 
 /**
+ * The pod's `@DatabaseStorage` (#1321): the set's database, the store classes with their hold points
+ * as its driver's stores — the application lists no store itself (`[storage.providers-conflict]`).
+ */
+export function faultStorageOf(stores: FaultStoreSet, sabotage?: FaultStoreSabotage): Class {
+  const { backend, settings } = stores.storage;
+  @DatabaseStorage({
+    name: "fault-database-storage",
+    driver: defineStorageDriver({
+      role: StorageRole.Database,
+      backend,
+      describes: `${backend} (the fault suite's database)`,
+      settings,
+      providers: heldProvidersOf(stores.providers, sabotage),
+    }),
+    auditLogTtl: hours(24),
+    ledgerEntriesTtl: hours(24),
+    // #825: the fixture's idempotency key — `FAULT_IDEMPOTENCY_KEYS` is given in the pod's place
+    idempotencySecret: secret("AGBOSS_FAULT_IDEMPOTENCY_KEY"),
+  })
+  class FaultDatabaseStorage {}
+  return FaultDatabaseStorage;
+}
+
+/**
  * What the application adds to serve A2A (#811 AC4) on a store set that keeps A2A tasks: the
  * approved order's workflow, the expose, its caller resolver and the question's channel; none on
  * another set, whose application stays as it was.
@@ -121,7 +148,7 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
   return Application({
     name: "fault-application",
     version: "1.0.0",
-    environment: faultEnvironmentOf(stores.environment.contract),
+    storage: faultStorageOf(stores, sabotage),
     workflows: [
       FaultOrderWorkflow,
       FaultBatchWorkflow,
@@ -145,7 +172,6 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
           },
         }),
     providers: [
-      ...heldProvidersOf(stores.providers, sabotage),
       FaultPodClock,
       FaultModelProvider,
       FaultPodLink,
@@ -164,23 +190,6 @@ export function faultApplicationOf(stores: FaultStoreSet, settings: FaultPodSett
 export const FAULT_IDEMPOTENCY_KEYS = Object.freeze({
   current: "agboss-fault-suite-idempotency-key",
 });
-
-const environments = new WeakMap<Class, Class>();
-
-/**
- * The store set's environment contract with the fixture's idempotency key (#825): a store set
- * declares only its own fields; the fixture adds the one its business keys need.
- */
-export function faultEnvironmentOf(contract: Class): Class {
-  const known = environments.get(contract);
-  if (known !== undefined) return known;
-  const base = contract as new () => object;
-  class FaultEnvironment extends base {
-    faultIdempotencyKey: unknown = undefined;
-  }
-  environments.set(contract, FaultEnvironment);
-  return FaultEnvironment;
-}
 
 /** A new class for the application to decorate (one per pod). */
 const faultApplicationClass = (): Class =>

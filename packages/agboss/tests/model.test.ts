@@ -3,7 +3,6 @@ import { usd } from "../src/units/index.js";
 import { createTestAppWith } from "../src/testing/create-app-with.js";
 import { TestWorkflow, TestApplication } from "./fixtures/test-workflow/test.workflow.js";
 import { workflowOf } from "../src/testing/workflow-of.js";
-import { KEYS } from "./models/gateway.js";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,7 +20,6 @@ describe("createAppDeps", () => {
   it("wires every agent of the flow with a prompt, and its Jev router", async () => {
     const deps = await createAppDeps(await workflowOf(TestWorkflow), {
       processEnv: { TERN_DB: ":memory:" },
-      environment: KEYS,
       providerFetch: providerStub([], [{ id: "test/researcher" }, { id: "test/coder" }]).fetch,
     });
 

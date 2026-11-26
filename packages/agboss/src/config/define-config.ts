@@ -1,4 +1,5 @@
 import { isEnvContract } from "../environments/define-env.js";
+import { OptionalSecretReference, Secret } from "../environments/secret.js";
 import { isModelProviderClass } from "../models/model-provider.decorator.js";
 import { budgetOf } from "../budgets/budget.js";
 import { memoryMetaOf } from "../memory/memory.decorator.js";
@@ -95,12 +96,24 @@ const invalid = (message: string): ProfileError =>
 const isClassList = (value: unknown): boolean =>
   Array.isArray(value) && value.every((item) => typeof item === "function");
 
+const isSecretReference = (value: unknown): boolean =>
+  value instanceof Secret || value instanceof OptionalSecretReference;
+
 /** `env` holds `configureEnv(appEnv, { … })` values, one or a list. */
 function checkEnv(env: unknown): void {
   const overrides = env === undefined ? [] : ([] as unknown[]).concat(env);
   for (const override of overrides) {
     if (!isPlain(override) || !isEnvContract(override.contract) || !isPlain(override.values))
       throw invalid("defineConfig: env takes configureEnv(appEnv, { … }), one per defineEnv");
+    // a secret comes from the process only: a profile file is code in the repository (#1324b)
+    const { contract } = override;
+    const secrets = Object.keys(override.values).filter((key) =>
+      isSecretReference(Reflect.get(contract, key)),
+    );
+    if (secrets.length > 0)
+      throw invalid(
+        `defineConfig: env sets ${secrets.join(", ")}, a secret — a secret comes from its process variable, never from a profile`,
+      );
   }
 }
 

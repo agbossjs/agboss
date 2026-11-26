@@ -72,7 +72,7 @@ describe("#397 PR 1: agboss eval show", () => {
     expect(call.code).toBe(0);
     const lines = call.stdout.split("\n");
     expect(lines[0]).toBe(
-      "refunds-eval-suite · refunds-workflow 1.4.0 · config 3f9a1c · 3 cases × 3 runs · env eval",
+      "refunds-eval-suite · refunds-workflow 1.4.0 · config 3f9a1c · 3 cases × 3 runs",
     );
     expect(lines[2]).toBe("refund-within-policy             yes     yes     ✓✓✓");
     expect(lines.at(-2)).toMatch(/^html → .*shown\.html \(\d+\.\d KB, self-contained\)$/u);

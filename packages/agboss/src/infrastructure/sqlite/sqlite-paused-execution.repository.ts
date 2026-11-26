@@ -20,8 +20,7 @@ import { SqlitePauseStore } from "./sqlite-pause-store.js";
  * made at construction; every change of a pause is one `BEGIN IMMEDIATE` transaction with its
  * notices (`sqlite-pause-store.ts`): of two resumes on two instances exactly one records its
  * decision, and a notice is never without its change nor a change without its notice. With
- * `SqliteCheckpointSaver` a pause survives a restart. Listed in `@Application({ providers })`;
- * needs `sqlitePath`. It holds the store privately and delegates every method to it (#895): the
+ * `SqliteCheckpointSaver` a pause survives a restart. On the application's `@DatabaseStorage({ driver: SqliteDriver({ path }) })`. It holds the store privately and delegates every method to it (#895): the
  * store's layers and helpers are no public API.
  */
 @Injectable({ deps: [SqliteConnection, Clock] })

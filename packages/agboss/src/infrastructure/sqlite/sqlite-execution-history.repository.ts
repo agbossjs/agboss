@@ -27,7 +27,7 @@ const recordOf = (row: unknown): ExecutionHistoryRecord => {
 /**
  * `ExecutionHistoryRepository` on the application's SQLite file (#401 PR 1): one row per root
  * execution — its record as JSON beside the columns it is found by. A save replaces the row of its
- * tenant and execution. Listed in `@Application({ providers })`; needs `sqlitePath`.
+ * tenant and execution. On the application's `@DatabaseStorage({ driver: SqliteDriver({ path }) })`.
  */
 @Injectable({ deps: [SqliteConnection] })
 export class SqliteExecutionHistoryRepository extends ExecutionHistoryRepository {

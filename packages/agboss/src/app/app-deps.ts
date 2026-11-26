@@ -10,7 +10,6 @@ import type { CompensationParts } from "../flow/runtime/compensation/registry.js
 import type { RemoteChildren } from "../flow/runtime/remote/remote-child.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
-import type { Environment } from "../flow/generated-types.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
 import type { EvalDeps } from "../eval/eval.js";
@@ -20,6 +19,8 @@ import type { ModelGateway } from "../llm/gateway.js";
 import { createModelRegistry } from "../llm/registry.js";
 import type { ProviderFetch } from "../models/resilient-fetch.js";
 import type { ChaosOptions } from "../eval/chaos/chaos-failure.js";
+import type { EnvOverrides } from "../environments/define-env.js";
+import type { EnvContract } from "../environments/env-ref.js";
 import { startedModels } from "./started-models.js";
 import { appModelsFor } from "./models.js";
 import type { McpConnections, McpIdentity, TransportFactory } from "../tools/index.js";
@@ -106,13 +107,6 @@ export interface AppDepsOptions {
   /** The process environment: model provider keys, MCP servers, stores. Default: process.env. */
   readonly processEnv?: NodeJS.ProcessEnv;
   /**
-   * The app's environment values, resolved (`applicationContext.environment`); absent = none —
-   * an empty environment.
-   */
-  readonly environment?: Environment;
-  /** The chosen environment's name (`applicationContext.environmentName`); default `dev`. */
-  readonly environmentName?: string;
-  /**
    * Every model call goes through it. Default: the workflow's model providers, credentials from
    * `processEnv`, each model's settings checked against what its provider says it supports.
    */
@@ -155,6 +149,12 @@ export interface BuildOptions extends AppDepsOptions {
    * option of this internal path only (`testWith`), never of `createApp`.
    */
   readonly gatewayOverProviders?: (real: () => ModelGateway) => ModelGateway;
+  /**
+   * `configureEnv(appEnv, { … })` values that take the place of the process's for their keys — a
+   * test's (`testWith(App, { env })`), over the selected profiles' own. A key not named here resolves
+   * as it always did.
+   */
+  readonly envOverrides?: readonly EnvOverrides<EnvContract>[];
 }
 
 /**
@@ -247,9 +247,8 @@ export async function createWorkflowDeps(
 ): Promise<AppDeps> {
   const env = options.processEnv ?? process.env;
   const { clock, records: turns, checkpointer } = parts.infrastructure;
-  const contexts =
-    parts.contexts ?? contextsOutsideExecution(bundle.config, options.environment, clock);
-  const started = await appModelsFor(bundle, options, parts, contexts);
+  const contexts = parts.contexts ?? contextsOutsideExecution(bundle.config, clock);
+  const started = await appModelsFor(bundle, options, parts);
   const { gateway, pricing, ...models } = started;
   const lifecycle = lifecycleOf(options.container, parts.infrastructure, parts.created);
   const services = servicesFor(bundle, gateway, contexts, lifecycle.options, pricing);

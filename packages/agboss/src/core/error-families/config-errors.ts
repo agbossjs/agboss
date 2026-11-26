@@ -1,5 +1,4 @@
 import type { PromptProblem } from "../../components/prompt-problems.js";
-import type { EnvironmentErrorCode } from "../../environments/errors.js";
 import type { EvalCaseIssue } from "../../eval/suite/errors.js";
 import type { RuleViolation } from "../../graph/rule-error.js";
 import type { ModelKind as ModelKindOf } from "../../models/model-kind.js";
@@ -103,10 +102,14 @@ export declare namespace ConfigError {
     ConfigErrorKind.NoDefaultRouter,
     "config.no-default-router"
   >;
-  /** The environment is not valid. */
+  /**
+   * The environment is not valid: a `defineEnv` variable that is not set `[environment.missing-variable]`
+   * or whose value does not fit `[environment.invalid-value]` — the message names the rule and the
+   * variable, never a value.
+   */
   export type Environment = ErrorVariant<ConfigErrorKind.Environment, "config.environment"> & {
-    /** Why: the stable code `environment.not-found`, `environment.missing-variables`, … */
-    readonly envCode?: EnvironmentErrorCode | undefined;
+    /** The rule it breaks, as the message's `[…]` names it: an unset variable, or a value that does not fit. */
+    readonly envCode?: "environment.missing-variable" | "environment.invalid-value" | undefined;
   };
   /** A profile is not valid. */
   export type Profile = ErrorVariant<ConfigErrorKind.Profile, "config.profile">;

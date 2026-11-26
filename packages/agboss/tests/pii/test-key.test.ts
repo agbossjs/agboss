@@ -13,7 +13,7 @@ import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { execute } from "../helpers/flow.js";
 import { requestText } from "./boundary.helpers.js";
 import { KeyedAgent, KeyedStart } from "./keyed.fixture.js";
-import { KeyedApplication } from "./fixtures/keyed/keyed.application.js";
+import { KeyedApplication } from "./keyed.fixture.js";
 import { PII_KEY_VARIABLE } from "./pii.fixture.js";
 
 /** The variable of the fixture's `piiPseudonymKey: secret("PII_APP_KEY")`. */
@@ -76,15 +76,15 @@ describe("#778: the application's key under testWith, its variable set by the te
 });
 
 describe("#778: production without the application's key", () => {
-  it("createApp refuses to start, naming the field and its variable", async () => {
+  it("createApp refuses to start, naming the variable: the test's key is never a production key", async () => {
     const failure = await createTestAppWith(KeyedApplication, {
-      processEnv: { [PII_KEY_VARIABLE]: "own-policy-key" },
+      processEnv: { [PII_KEY_VARIABLE]: "own-policy-key", NODE_ENV: "production" },
       gateway: createScriptedGateway(new ScriptBook()),
     }).catch((error: unknown) => error);
 
     expect(failure).toBeInstanceOf(Error);
     expect((failure as Error).message).toContain(
-      `${APP_KEY_VARIABLE} is not set (PiiEnvironment.piiPseudonymKey, dev)`,
+      `[environment.missing-variable] keyed-application: @DatabaseStorage({ piiSecret }) has no value — ${APP_KEY_VARIABLE} is not set`,
     );
   });
 });

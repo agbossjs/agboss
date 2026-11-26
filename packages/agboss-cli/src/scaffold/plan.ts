@@ -78,7 +78,7 @@ const NO_API = {
 /**
  * A tool (`<name>-tool`, class `<Name>Tool`), its test in `folder`, and its input/output DTOs in
  * `../dto/`. With `api` (`agboss create`, #239) the tool injects the project's `ApiService` and its
- * test runs it in the application, on its environment.
+ * test runs it in the application, on its `test` profile.
  */
 export function toolFiles(folder: string, tool: Names, api?: ToolApi): FileToWrite[] {
   const variables = { ...vars(tool), ...(api === undefined ? NO_API : apiVariables(tool, api)) };

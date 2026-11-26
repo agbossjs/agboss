@@ -66,7 +66,6 @@ function gatewayOver(primary: readonly StubReply[], backup: readonly StubReply[]
     ).fetch(input, init);
   const gateway = createProviderGateway(ModelProviderDirectory.of([PrimaryDecisions]), {
     env: {},
-    environment: {} as never,
     calls: instanceCalls(),
     send,
   });

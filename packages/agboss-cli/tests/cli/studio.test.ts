@@ -148,27 +148,25 @@ describe("#268 AC7: the Studio config in .agboss/", () => {
     );
   });
 
-  it("--env <name> is written into the module; the project's .env into langgraph.json", async () => {
+  it("the project's .env is written into langgraph.json; no profile named, none in the module", async () => {
     const cwd = project();
     writeFileSync(join(cwd, ".env"), "OPENROUTER_API_KEY=sk-placeholder\n");
 
-    const studio = await prepareStudio(
-      contextOf(cwd, { env: "prod" }, { PROD_OPENROUTER_API_KEY: "sk-placeholder" }),
-    );
+    const studio = await prepareStudio(contextOf(cwd, {}));
 
     expect(readFileSync(studio.entry, "utf8")).toContain(
-      'const studio = await studioOf(StudioApplication, { env: "prod" });',
+      "const studio = await studioOf(StudioApplication);",
     );
     expect(JSON.parse(readFileSync(studio.config, "utf8"))).toMatchObject({ env: "../.env" });
   });
 
-  it("a variable the environment needs is missing: exit 3 before any server, nothing written", async () => {
+  it("a profile that does not exist: exit 3 before any server, nothing written", async () => {
     const cwd = project();
 
-    const call = await agboss(["studio", "--application", STUDIO, "--env", "prod"], cwd);
+    const call = await agboss(["studio", "--application", STUDIO, "--profile", "nope"], cwd);
 
     expect(call.code).toBe(3);
-    expect(call.stderr).toContain("agboss studio: PROD_OPENROUTER_API_KEY is not set");
+    expect(call.stderr).toContain("nope");
     expect(existsSync(join(cwd, ".agboss"))).toBe(false);
   });
 

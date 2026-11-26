@@ -1,6 +1,6 @@
 import type { Provider } from "../components/injection.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
-import { secretViolations, type KeyFields } from "./storage-secret-rules.js";
+import { secretViolations } from "./storage-secret-rules.js";
 import { ttlProblemOf } from "./ttl-problem.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
 import { Ttl } from "../units/index.js";
@@ -142,7 +142,7 @@ function conflictViolations(
 /** Every violation of an application's `storage`: its shape, its drivers, its ttls, its keys, its providers. */
 export function storageViolations(
   application: string,
-  options: KeyFields & {
+  options: {
     readonly storage?: unknown;
     readonly providers?: readonly Provider[];
     readonly retention?: unknown;
@@ -160,7 +160,7 @@ export function storageViolations(
     ...driverViolations(application, storage),
     ...clusterViolations(application, storage),
     ...ttlViolations(application, storage),
-    ...secretViolations(application, storage, own),
+    ...secretViolations(application, storage),
     ...conflictViolations(application, storage, own.providers ?? []),
     ...clashes.map((field) =>
       violation(

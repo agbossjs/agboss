@@ -19,7 +19,6 @@ import { hours, seconds } from "../../../src/units/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { gate } from "./fenced-effect.workflow.js";
 
 /**
@@ -314,7 +313,6 @@ export class FenceFarWorkflow {}
 @Application({
   name: "cancel-fence-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [FenceChargeWorkflow, FencePayWorkflow, FenceFarWorkflow],
   observers: [CancelFenceObserver],
   budgets: TEST_BUDGETS,

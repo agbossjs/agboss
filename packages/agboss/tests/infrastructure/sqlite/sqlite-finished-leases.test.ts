@@ -8,7 +8,6 @@
  */
 import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, expect } from "vitest";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { ExecutionStatus, SqliteExecutionLeaseRepository } from "../../../src/index.js";
 import {
@@ -67,8 +66,7 @@ function restartedLeases(): SqliteExecutionLeaseRepository {
     version: "1.0.0",
     instanceId: "instance-after-restart",
     startedAt: clock.now(),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
   return new SqliteExecutionLeaseRepository(connectionTo(path), storeClockOf(clock), application);
 }

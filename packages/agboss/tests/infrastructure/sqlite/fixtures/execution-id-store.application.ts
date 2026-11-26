@@ -16,7 +16,9 @@ import {
 } from "../../../../src/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { ReleaseWorkflow } from "../../../app/fixtures/fence.workflow.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
+import { ClusterStorage } from "../../../../src/index.js";
+import { defineStorageDriver, StorageRole } from "../../../../src/storage/storage-driver.js";
 
 /**
  * #891 AC2 — leases on a coordination backend (as Redis's), the execution ids they hand out kept by
@@ -40,15 +42,27 @@ export class CoordinationLeases extends InMemoryExecutionLeaseRepository {
   }
 }
 
-/** The durable lease store under the token: created by the container, never `new`. */
+/** The durable lease store under the token (for the assembly rules' tests): created by the container, never `new`. */
 export const DURABLE_IDS = provide(EXECUTION_ID_STORE, SqliteExecutionLeaseRepository);
+
+/** The coordination backend's cluster storage: its leases are `CoordinationLeases`, the ids stay in the database's lease row. */
+@ClusterStorage({
+  name: "coordination-cluster-storage",
+  driver: defineStorageDriver({
+    role: StorageRole.Cluster,
+    backend: "redis",
+    describes: "coordination leases (in memory)",
+    settings: { kind: "in-memory" },
+    providers: [CoordinationLeases],
+  }),
+})
+export class CoordinationCluster {}
 
 @Application({
   name: "execution-id-store-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: { database: sqliteTestStorage(), cluster: CoordinationCluster },
   workflows: [ReleaseWorkflow],
   budgets: TEST_BUDGETS,
-  providers: [CoordinationLeases, DURABLE_IDS],
 })
 export class ExecutionIdStoreApplication {}

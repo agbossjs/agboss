@@ -110,7 +110,7 @@ export function raiseSqliteMark(database: DatabaseSync, key: EffectKey, now: num
  * other replays. The work is asynchronous and writes through the connection's `requireTransaction()`
  * (#1317c): the file's mutex holds the transaction open (capped at `SQLITE_HOLD_CAP`) while every
  * other operation waits behind it, lease renewals excepted. Listed in `@Application({ providers })` with
- * `SqliteExecutionLeaseRepository`; needs `sqlitePath`.
+ * `SqliteExecutionLeaseRepository`, on the application's `SqliteDriver` storage.
  */
 @Injectable({ deps: [SqliteConnection, StoreClock] })
 export class SqliteFencedEffectRepository extends FencedEffectRepository {

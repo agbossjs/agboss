@@ -2,7 +2,6 @@
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createAppWithoutPiiKey } from "./without-pii-key.js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { applicationOf } from "../../src/application/assemble.js";
 import { tokenOf } from "../../src/pii/tokens.js";
 import { replyWith, testWith } from "../../src/testing/index.js";
 import { ScriptBook } from "../../src/testing/script-book.js";
@@ -10,13 +9,7 @@ import { withInstancePiiKeys } from "../../src/testing/pii-parts.js";
 import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
 import { execute } from "../helpers/flow.js";
 import { requestText } from "./boundary.helpers.js";
-import {
-  KeyedAgent,
-  KeyedStart,
-  MisnamedKeyApplication,
-  UnkeyedApplication,
-} from "./keyed.fixture.js";
-import { KeyedApplication } from "./fixtures/keyed/keyed.application.js";
+import { KeyedAgent, KeyedApplication, KeyedStart, UnkeyedApplication } from "./keyed.fixture.js";
 import { PII_KEY_VARIABLE } from "./pii.fixture.js";
 
 const APP_KEY = "shared-app-key";
@@ -49,6 +42,9 @@ describe("#120: the application's secret", () => {
       const [one, two] = agent.requests.map(requestText);
       const employee = tokenOf("employee-token", "EMP-0042", APP_KEY, {});
       const author = tokenOf("user-id", "zoe-7", APP_KEY, {});
+      // #1324b: the tokens as they were made before the application's key came from the storage's `piiSecret`
+      expect(employee).toBe("<employee-token:076cf8>");
+      expect(author).toBe("<user-id:102389>");
       expect(one).toContain(employee);
       expect(two).toContain(employee);
       expect(one).toContain(author);
@@ -103,17 +99,5 @@ describe("#120: a missing application key", () => {
           'unkeyed-application: policy employee-token-pii-policy, policy app-key-pii-policy, field KeyedExecutionContext.userId make tokens with the application\'s PII secret — name it in @DatabaseStorage({ …, piiSecret: secret("AGBOSS_PII_SECRET") }), or give each policy its own secret',
       }),
     ]);
-  });
-
-  it("a key field the contract does not declare fails assembly", async () => {
-    const failure = await applicationOf(MisnamedKeyApplication).catch((error: unknown) => error);
-
-    expect(failure).toBeInstanceOf(ConfigError.GraphRules);
-    expect((failure as ConfigError.GraphRules).violations).toContainEqual(
-      expect.objectContaining({
-        code: "environment.missing-field",
-        message: "@Application piiKeyField needs piiKey: Secret in EmptyEnvironment",
-      }),
-    );
   });
 });

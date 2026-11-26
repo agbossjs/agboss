@@ -164,11 +164,11 @@ export function assemblyWarningsOf(sources: WarningSources): readonly AssemblyWa
 export const warningText = (warning: AssemblyWarning): string =>
   `[${warning.code}] ${warning.message}`;
 
-/** `Started job-scout-application 1.0.0 — environment prod, host scout-7f3a, process 41237`. */
+/** `Started job-scout-application 1.0.0 — profiles base+prod, host scout-7f3a, process 41237`. */
 export function startedLine(application: ApplicationContext): string {
-  const { name, version, environmentName, host } = application;
+  const { name, version, profiles, host } = application;
   const where = [
-    `environment ${environmentName}`,
+    ...(profiles.length === 0 ? [] : [`profiles ${profiles.join("+")}`]),
     ...(host.hostname === "" ? [] : [`host ${host.hostname}`]),
     `process ${String(host.pid)}`,
   ];

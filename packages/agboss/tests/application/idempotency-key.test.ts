@@ -11,8 +11,6 @@ import {
   applicationIdempotencyKeysOf,
   TEST_IDEMPOTENCY_KEYS,
 } from "../../src/application/idempotency-key.js";
-import { EnvironmentErrorCode } from "../../src/environments/errors.js";
-import { unitEnvironmentOf } from "../../src/environments/resolve.js";
 import { secret } from "../../src/index.js";
 import type { FingerprintKeys } from "../../src/infrastructure/fenced-effect-key.js";
 
@@ -34,7 +32,7 @@ const keysOf = (
   secrets: Secrets | undefined,
   env: NodeJS.ProcessEnv = {},
   fallback?: FingerprintKeys,
-) => applicationIdempotencyKeysOf(assembledWith(secrets), unitEnvironmentOf({}), env, fallback);
+) => applicationIdempotencyKeysOf(assembledWith(secrets), env, fallback);
 
 const refusalOf = (run: () => unknown): unknown => {
   try {
@@ -69,8 +67,7 @@ describe("#825 AC7: the idempotency keys at start", () => {
 
     expect(refused).toBeInstanceOf(ConfigError.Environment);
     expect(refused).toMatchObject({
-      envCode: EnvironmentErrorCode.MissingVariables,
-      message: expect.stringContaining("KEY_V2 is not set"),
+      message: expect.stringMatching(/^\[environment\.missing-variable\] .*KEY_V2 is not set/u),
     });
   });
 
@@ -81,7 +78,7 @@ describe("#825 AC7: the idempotency keys at start", () => {
     };
 
     expect(refusalOf(() => keysOf(both, { KEY_V2: "v2" }))).toMatchObject({
-      envCode: EnvironmentErrorCode.MissingVariables,
+      message: expect.stringMatching(/^\[environment\.missing-variable\] .*KEY_V1 is not set/u),
     });
     expect(
       keysOf({ ...both, previousIdempotencySecret: secret.optional("KEY_V1") }, { KEY_V2: "v2" }),

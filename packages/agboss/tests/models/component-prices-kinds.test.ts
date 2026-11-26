@@ -189,7 +189,6 @@ describe("bughunt #2: each kind of model use is priced by its own provider and m
     ]);
     const gateway = createProviderGateway(directory, {
       env: {},
-      environment: {} as never,
       calls: instanceCalls(),
       send: stub.fetch,
     });
@@ -221,7 +220,6 @@ describe("bughunt #2: each kind of model use is priced by its own provider and m
     ]);
     const gateway = createProviderGateway(directory, {
       env: {},
-      environment: {} as never,
       calls: instanceCalls(),
       send: stub.fetch,
     });

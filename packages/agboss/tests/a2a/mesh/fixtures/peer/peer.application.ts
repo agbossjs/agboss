@@ -27,7 +27,6 @@ import type { Milliseconds } from "../../../../../src/units/index.js";
 import { usd } from "../../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../../helpers/flow.js";
-import { MeshEnvironment } from "../../../fixtures/environments/mesh.environment.js";
 import {
   A2ATaskState,
   type A2ATaskRecord,
@@ -239,7 +238,6 @@ const PeerMesh = peerMesh(8);
 const PEER_OPTIONS = {
   name: PEER_APPLICATION,
   version: "1.0.0",
-  environment: MeshEnvironment,
   workflows: [PeerWorkflow],
   providers: [SharedTestClock, PeerAuthenticator],
   observers: [PeerStarts],
@@ -256,7 +254,6 @@ export class PeerApplication {}
 @Application({
   name: PEER_APPLICATION,
   version: "1.0.0",
-  environment: MeshEnvironment,
   workflows: [PeerWorkflow],
   providers: [SharedTestClock, PeerAuthenticator],
   observers: [PeerStarts],

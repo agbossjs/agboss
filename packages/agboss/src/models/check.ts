@@ -1,5 +1,3 @@
-import type { Environment } from "../flow/generated-types.js";
-import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
 import { connectionOf } from "./connections.js";
 import { priceOf } from "./cost.js";
 import { fallbackProblems, fallbackUseResults } from "./fallback-check.js";
@@ -18,8 +16,6 @@ import type { ModelUse } from "./uses.js";
 /** How the check reaches the providers' model lists (no key needed, no rate limit, no breaker). */
 export interface ModelCheckOptions {
   readonly env: NodeJS.ProcessEnv;
-  /** The application's environment: a key it holds is sent; a missing one is not a problem. */
-  readonly environment?: Environment;
   readonly send?: ProviderFetch;
   /**
    * A transport provider's instance (#385: the application's container); absent — `agboss check
@@ -218,7 +214,6 @@ export async function checkedModelUses(
     if (known !== undefined) return known;
     const made = connectionOf(provider.options, {
       env: options.env,
-      environment: options.environment ?? NO_ENVIRONMENT_VALUES,
       requireKeys: false,
       ...(options.send === undefined ? {} : { send: options.send }),
     });

@@ -1,46 +1,33 @@
 /**
- * #261 PR 4 (AC9): a secret is a `Secret` field set only with `secret("X")` from a process variable;
- * it prints as `***` everywhere — logs, JSON (traces), errors, `agboss describe` — and only
- * `.reveal()` gives the value.
+ * #261 PR 4 (AC9), #1324b: a secret is set only with `secret("X")` from a process variable; it
+ * prints as `***` everywhere — logs, JSON (traces), errors, `agboss describe` — and only `.reveal()`
+ * gives the value.
  */
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
-import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { inspect } from "node:util";
 import { describe, expect, it } from "vitest";
-import {
-  describedEnvironment,
-  environmentVariablesOf,
-  VariableUse,
-} from "../../src/environments/resolve.js";
+import { defineEnv, resolveEnv } from "../../src/environments/define-env.js";
+import { processVariableOf, VariableUse } from "../../src/environments/process-variable.js";
 import { Secret, env, secret } from "../../src/index.js";
-import { McpStubs, stubbedMcpConnect } from "../../src/testing/mcp-stubs.js";
-import { ScriptBook } from "../../src/testing/script-book.js";
-import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
-import type { SettingsEnvironment } from "../fixtures/environments/app/environments/app.environment.js";
-import { environment as staging } from "../fixtures/environments/app/environments/staging.environment.js";
-import { ApiClient, SettingsApplication } from "../fixtures/environments/app/settings.workflow.js";
 
 const VALUE = "s3cret-value";
 
-async function resolvedToken(): Promise<Secret> {
-  const book = new ScriptBook();
-  const app = await createTestAppWith(SettingsApplication, {
-    processEnv: { FIXTURE_API_TOKEN: VALUE },
-    gateway: createScriptedGateway(book),
-    connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
-  });
-  const { apiToken } = app.resolve(ApiClient).environment;
-  await app.close();
-  return apiToken;
-}
+const appEnv = defineEnv({
+  apiToken: secret("FIXTURE_API_TOKEN"),
+  currency: env("FIXTURE_CURRENCY"),
+  timeoutSeconds: env.integer("FIXTURE_TIMEOUT", { default: 30 }),
+});
+
+const PROCESS = { FIXTURE_API_TOKEN: VALUE, FIXTURE_CURRENCY: "EUR" };
 
 describe("#261 AC9: *** everywhere, reveal()", () => {
-  it("reveal() gives the value of the process variable", async () => {
-    expect((await resolvedToken()).reveal()).toBe(VALUE);
+  it("reveal() gives the value of the process variable", () => {
+    expect(resolveEnv(appEnv, PROCESS).apiToken.reveal()).toBe(VALUE);
   });
 
-  it("prints as *** in strings, logs, JSON and error messages", async () => {
-    const token = await resolvedToken();
+  it("prints as *** in strings, logs, JSON and error messages", () => {
+    const token = resolveEnv(appEnv, PROCESS).apiToken;
+
     expect(String(token)).toBe("***");
     expect(`Bearer ${String(token)}`).toBe("Bearer ***");
     expect(inspect({ token })).toBe("{ token: *** }");
@@ -48,42 +35,43 @@ describe("#261 AC9: *** everywhere, reveal()", () => {
     expect(new Error(`failed with ${String(token)}`).message).not.toContain(VALUE);
   });
 
-  it("the whole environment prints without the value", async () => {
-    const book = new ScriptBook();
-    const app = await createTestAppWith(SettingsApplication, {
-      processEnv: { FIXTURE_API_TOKEN: VALUE },
-      gateway: createScriptedGateway(book),
-      connectMcp: stubbedMcpConnect(new McpStubs(book), new Map(), new Set()),
-    });
-    const { environment } = app.resolve(ApiClient);
-    expect(JSON.stringify(environment)).not.toContain(VALUE);
-    expect(inspect(environment)).not.toContain(VALUE);
-    await app.close();
+  it("the whole resolved environment prints without the value", () => {
+    const values = resolveEnv(appEnv, PROCESS);
+
+    expect(JSON.stringify(values)).not.toContain(VALUE);
+    expect(inspect(values)).not.toContain(VALUE);
   });
 
-  it("a secret of an environment file is not resolved: reveal() names where to read it", () => {
-    expect(() => staging.apiToken.reveal()).toThrow(ConfigError.Environment);
+  it("a secret reference is not resolved: reveal() names where to read it", () => {
+    expect(() => secret("X").reveal()).toThrow(ConfigError.Environment);
     expect(() => secret("X").reveal()).toThrow(
-      /not resolved: read it from the application's environment/,
+      /\[environment\.missing-variable\] .*not resolved: read it from the application's defineEnv values/,
     );
   });
 
-  it("agboss describe: *** with the variable, or what is missing — never the value", () => {
-    const loaded = { name: "staging", contract: "SettingsEnvironment", values: staging };
-    const shown = describedEnvironment(loaded, { FIXTURE_API_TOKEN: VALUE, FIXTURE_TIMEOUT: "9" });
-    expect(shown.fields).toEqual({
-      apiUrl: '"https://api.staging.example.com"',
-      apiToken: "*** (FIXTURE_API_TOKEN)",
-      currency: "<missing FIXTURE_CURRENCY>",
-      timeoutSeconds: "9",
-      debug: "false",
-    });
-    expect(describedEnvironment(loaded, {}).fields.apiToken).toBe("<missing FIXTURE_API_TOKEN>");
+  it("a missing secret fails naming the variable, never a value", () => {
+    const failure = (() => {
+      try {
+        resolveEnv(appEnv, { FIXTURE_CURRENCY: "EUR", OTHER: VALUE });
+      } catch (error) {
+        return error;
+      }
+      return undefined;
+    })();
+
+    expect(failure).toBeInstanceOf(ConfigError.Environment);
+    expect((failure as Error).message).toBe(
+      "[environment.missing-variable] FIXTURE_API_TOKEN is not set (apiToken)",
+    );
+    expect((failure as Error).message).not.toContain(VALUE);
   });
 
-  it("agboss check --env lists the process variables, marked value / secret", () => {
-    const loaded = { name: "staging", contract: "SettingsEnvironment", values: staging };
-    expect(environmentVariablesOf(loaded)).toEqual([
+  it("agboss check lists the process variables, marked value / secret", () => {
+    expect(
+      Object.entries(appEnv).map(([field, reference]) =>
+        processVariableOf(field, reference as never),
+      ),
+    ).toEqual([
       {
         variable: "FIXTURE_API_TOKEN",
         field: "apiToken",
@@ -102,23 +90,20 @@ describe("#261 AC9: *** everywhere, reveal()", () => {
         variable: "FIXTURE_TIMEOUT",
         field: "timeoutSeconds",
         use: VariableUse.Value,
-        required: true,
+        required: false,
         optional: false,
       },
     ]);
   });
 
-  it("a literal in a Secret field does not compile, nor a Secret where a string is expected", () => {
-    const literal: Pick<SettingsEnvironment, "apiToken"> = {
-      // @ts-expect-error — a secret comes only from a process variable: secret("X")
-      apiToken: "hardcoded",
-    };
-    const fromEnv: Pick<SettingsEnvironment, "apiToken"> = {
-      // @ts-expect-error — env("X") is a string; a Secret field takes secret("X")
-      apiToken: env("TOKEN"),
-    };
+  it("a literal in a secret slot does not compile, nor a Secret where a string is expected", () => {
+    // never run: a JavaScript caller's literal is refused at `defineEnv` too
+    // @ts-expect-error — a secret comes only from a process variable: secret("X")
+    const literal = () => defineEnv({ apiToken: "hardcoded" });
     // @ts-expect-error — a Secret is not a string: reveal() it where the value is used
     const asText: string = secret("TOKEN");
-    expect([literal, fromEnv, asText]).toHaveLength(3);
+    expect([literal, asText]).toHaveLength(2);
+    expect(literal).toThrow(/no env\(…\) or secret\(…\) reference/);
+    expect(Secret).toBeDefined();
   });
 });

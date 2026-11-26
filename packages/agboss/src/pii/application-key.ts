@@ -1,14 +1,7 @@
 import { ConfigError } from "../core/error-families/config-errors.js";
-import { EnvironmentErrorCode } from "../environments/errors.js";
+import { missingVariableError } from "../environments/environment-rules.js";
 import type { OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
-import {
-  isResolvedSecret,
-  OptionalSecretReference,
-  Secret,
-  variableOfSecret,
-  variableOfSecretRef,
-} from "../environments/secret.js";
-import type { Environment } from "../flow/generated-types.js";
+import { OptionalSecretReference, variableOfSecretRef } from "../environments/secret.js";
 import { violation } from "../graph/rule-error.js";
 
 /**
@@ -28,15 +21,13 @@ export const TEST_PSEUDONYM_KEY = "agboss-test-pseudonym-key";
 /** The previous key a test gets when `previousPiiSecret`'s variable is not set: another one. */
 export const TEST_PREVIOUS_PSEUDONYM_KEY = "agboss-test-previous-pseudonym-key";
 
-/** Where the key is read: the storage's secret, the application's setting, its environment, the process. */
+/** Where the key is read: the storage's secret, the process. */
 export interface ApplicationKeySource {
   readonly application: string;
-  readonly field?: string | undefined;
   /** `@DatabaseStorage({ piiSecret })` (#1321). */
   readonly secret?: SecretRef | OptionalSecretRef | undefined;
   /** `@DatabaseStorage({ previousPiiSecret })`: the key `secret` rotates from. */
   readonly previousSecret?: SecretRef | OptionalSecretRef | undefined;
-  readonly environment: Environment;
   readonly env: NodeJS.ProcessEnv;
   /** What makes tokens with the application's key: policies, DTO fields (names only). */
   readonly tokenizing: readonly string[];
@@ -57,27 +48,6 @@ const variableIn = (env: NodeJS.ProcessEnv, variable: string): string | undefine
   return raw === undefined || raw === "" ? undefined : raw;
 };
 
-/** The field's secret value; none when the field is unset or not a `Secret`. */
-function keyValueOf(source: ApplicationKeySource, field: string): string | undefined {
-  const value: unknown = Reflect.get(source.environment, field);
-  if (!(value instanceof Secret)) return undefined;
-  return isResolvedSecret(value) ? value.reveal() : variableIn(source.env, variableOfSecret(value));
-}
-
-/** The start's error for `piiKeyField` naming a field with no `Secret`, or one whose variable is unset. */
-function namedKeyMissing(source: ApplicationKeySource, field: string): ConfigError.Environment {
-  const option = `@Application({ piiKeyField: "${field}" })`;
-  return Reflect.get(source.environment, field) instanceof Secret
-    ? new ConfigError.Environment({
-        envCode: EnvironmentErrorCode.MissingVariables,
-        message: `${source.application}: ${option} has no value — set ${field}: secret("…") in the environment and its variable`,
-      })
-    : new ConfigError.Environment({
-        envCode: EnvironmentErrorCode.InvalidValue,
-        message: `${source.application}: ${option} names no Secret — set ${field}: secret("…") in the environment`,
-      });
-}
-
 /**
  * The fixed key a test's instances share (`testWith`): never under `NODE_ENV=production`, whatever
  * the seam says — a key every reader of the source knows makes tokens anyone can forge or reverse.
@@ -95,10 +65,9 @@ function storageSecretOf(
   const variable = variableOfSecretRef(ref);
   const value = variableIn(source.env, variable) ?? fallback;
   if (value !== undefined || ref instanceof OptionalSecretReference) return value;
-  throw new ConfigError.Environment({
-    envCode: EnvironmentErrorCode.MissingVariables,
-    message: `${source.application}: @DatabaseStorage({ ${option} }) has no value — ${variable} is not set`,
-  });
+  throw missingVariableError(
+    `${source.application}: @DatabaseStorage({ ${option} }) has no value — ${variable} is not set`,
+  );
 }
 
 /** `[pii.secret-required]`: something tokenizes and no key is named. Names only, never a value. */
@@ -152,12 +121,10 @@ export function applicationPseudonymKeysOf(
     if (keys === undefined) assertNoKeyAllowed(source);
     return keys;
   }
-  const key = source.field === undefined ? undefined : keyValueOf(source, source.field);
-  if (key !== undefined) return { key };
+  // no `piiSecret`: a test's key (`testWith`, never in production), else none — and a key of the
+  // instance, unless something tokenizes (#1301b: never a key made up by the instance for a token)
   const test = testKeyOf(source);
   if (test !== undefined) return { key: test };
-  // #825: a named field without a value fails the start — never a silent key of the instance
-  if (source.field !== undefined) throw namedKeyMissing(source, source.field);
   assertNoKeyAllowed(source);
   return undefined;
 }

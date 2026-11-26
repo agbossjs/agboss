@@ -47,7 +47,7 @@ The desk's `DeskDatabaseStorage` (`src/storages/`) keeps its stores in SQLite an
 desk's PII policy needs outside tests (any value: it only makes tokens):
 
 ```bash
-PII_PSEUDONYM_KEY=offline-only npx agboss run --application src/desk.application.ts --env offline \
+PII_PSEUDONYM_KEY=offline-only npx agboss run --application src/desk.application.ts \
   --start desk-workflow-start --input '{"customerId":"c-1","question":"Where is order #7?"}'
 ```
 
@@ -57,7 +57,7 @@ Its eval suite (`src/desk/eval-suites/desk.eval-suite.ts`: the cases' `tools`, t
 eval score` is not here: it scores with Jev, a decision model, which needs OpenRouter.
 
 The desk keeps each execution for 30 days (`@Application({ retention: { executionRecords } })`, #401) in
-`.agboss/desk-offline.sqlite` on `--env offline`. `npm run records:check` (the last step of `npm run
+`.agboss/desk-offline.sqlite`. `npm run records:check` (the last step of `npm run
 check`) runs the desk once, exports the kept records (`agboss executions export --tenant default --out
 .agboss/records/desk.jsonl`) and drafts an eval case from the newest (`agboss generate eval-case
 lookup-from-history --suite desk-eval-suite --from-execution <id> --dry-run`, #396) — the draft
@@ -104,8 +104,8 @@ its own `Idempotency-Key` is what makes its charge once.
 [`agbossjs/distributed-agent-recovery`](https://github.com/agbossjs/distributed-agent-recovery)
 shows multi-worker lease takeover, zombie-worker fencing and saga compensation.
 
-A real run uses the `dev` environment (`src/environments/`): models
-through OpenRouter, and every store — budgets, records, pauses, checkpoints, leases — in SQLite at
+A real run uses the `dev` profile: models
+through OpenRouter (`OPENROUTER_API_KEY`), and every store — budgets, records, pauses, checkpoints, leases — in SQLite at
 `.agboss/flow-patterns.sqlite` (git-ignored; `FlowPatternsDatabaseStorage` in `src/storages/`, its path
 `AGBOSS_SQLITE_PATH`), so a paused run waits across processes.
 

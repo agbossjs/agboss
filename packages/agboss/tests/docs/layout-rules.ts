@@ -5,7 +5,7 @@ import { StepError } from "../../src/core/error-families/step-errors.js";
  *
  * A project's `src/` holds kind folders, optionally under one domain level (`src/[<domain>/]<kind>/…`):
  * a domain is any folder that is not a kind folder and holds only kind folders; the application file
- * and `environments/` stay at the `src/` root. A workflow lives in `workflows/<w>/` with its starts and
+ * stays at the `src/` root. A workflow lives in `workflows/<w>/` with its starts and
  * finishes, a prompt-bearing component in `<kind>/<n>/<n>.<suffix>.ts` with its `<n>.prompt.md`, a DTO
  * in `dto/`. `tests/` mirrors `src/`. Every violation names where it is and the file.
  */
@@ -246,13 +246,10 @@ export const KINDS: ReadonlySet<string> = new Set([
   "contexts",
   "http",
   "infrastructure",
-  "environments",
   "config",
   "scripts",
 ]);
 
-/** What stays at the `src/` root: the application file and the environments next to it. */
-const ROOT_ONLY: ReadonlySet<string> = new Set(["environments"]);
 const isApplication = (name: string): boolean => name.endsWith(".application.ts");
 
 /** A file right under a domain (`src/<domain>/x.ts`): never, an application least of all. */
@@ -271,7 +268,6 @@ export function domainOf(placed: Placed): Violation[] {
     return isApplication(first) ? [] : [`${at}: src/ holds kind folders and *.application.ts only`];
   if (KINDS.has(first)) return [];
   if (segments.length === 2) return looseInDomainOf(at, first, second);
-  if (ROOT_ONLY.has(second)) return [`${at}: ${second}/ stays at the src/ root`];
   return KINDS.has(second)
     ? []
     : [`${at}: src/${first}/${second}/ is not a kind folder — one domain level holds kind folders`];

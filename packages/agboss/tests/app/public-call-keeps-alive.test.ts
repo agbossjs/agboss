@@ -36,7 +36,6 @@ afterAll(() => {
 /** A paused thread on a fresh file whose tree this process holds for `heldFor` ms of real time. */
 async function heldThread(file: string, heldFor: number): Promise<{ pauseId: string }> {
   const app = await createTestAppWith(HeldCancelApplication, {
-    env: "dev",
     processEnv: { HELD_CANCEL_SQLITE_PATH: file },
   });
   opened.push(app);
@@ -124,7 +123,6 @@ describe("#1093: a pending public call keeps the process alive", () => {
   it("a script that only calls app.setPauseTimeout prints the result and exits 0", async () => {
     const file = join(folder, "held-extend.sqlite");
     const app = await createTestAppWith(HeldCancelApplication, {
-      env: "dev",
       processEnv: { HELD_CANCEL_SQLITE_PATH: file },
     });
     opened.push(app);
@@ -144,7 +142,6 @@ describe("#1093: a pending public call keeps the process alive", () => {
   it("a script that only calls app.reassignPause prints the result and exits 0", async () => {
     const file = join(folder, "held-reassign.sqlite");
     const app = await createTestAppWith(HeldCancelApplication, {
-      env: "dev",
       processEnv: { HELD_CANCEL_SQLITE_PATH: file },
     });
     opened.push(app);

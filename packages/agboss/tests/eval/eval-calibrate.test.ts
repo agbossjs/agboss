@@ -60,7 +60,6 @@ const reportOf = (runResults: readonly EvalRunResult[]): EvalRunReport => {
     workflow: { name: "desk-workflow", version: "1.0.0" },
     configHash: "7c1e09",
     start: "chat-workflow-start",
-    environment: "eval",
     runs: runResults.length,
     cascade: EvalCascade.RunAll,
     startedAt: new Date("2026-01-05T09:00:00.000Z"),

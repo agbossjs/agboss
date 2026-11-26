@@ -11,7 +11,6 @@ import { IdempotencyError } from "../../src/core/error-families/effect-errors.js
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import { storeMismatch } from "../../src/infrastructure/idempotency-errors.js";
 import { describe, expect, it } from "vitest";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import {
   ExecutionLeaseRepository,
@@ -31,7 +30,7 @@ function storesOn() {
   const database = new InMemoryDatabase();
   const application = applicationContextOf({
     ...{ name: "fenced-application", version: "1.0.0", instanceId: "instance-1" },
-    ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+    ...{ startedAt: clock.now(), profiles: ["test"] },
   });
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);

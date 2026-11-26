@@ -154,15 +154,6 @@ export type PauseOutputOf<TTarget> = [TTarget] extends [never]
     ? TOutput
     : MissingGeneratedTypes;
 
-/**
- * The application's environment (#261): `applicationContext.environment`. The generated file makes it the
- * application's contract — `interface Environment extends AppEnvironment {}` for
- * `@Application({ environment: AppEnvironment })`; the project writes no `declare module`.
- */
-export interface Environment {
-  readonly [notGenerated]?: never;
-}
-
 /** The `name` a branded component carries; `never` when it is not branded (not generated). */
 export type NameOf<T> =
   InstanceOrSelf<T> extends {

@@ -1,163 +1,82 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { envelope, fixture, agboss } from "../cli/agboss.js";
 
-const APP = fixture("environments/app/settings.workflow.ts");
-const NONE = fixture("environments/none/no-environment.workflow.ts");
-const OBSERVED = fixture("environments/observed/observed.workflow.ts");
-const TOKEN = { FIXTURE_API_TOKEN: "t0ken" };
-/** staging's values, its secret left unset. */
-const STAGING = { FIXTURE_CURRENCY: "EUR", FIXTURE_TIMEOUT: "5" };
+const APP = fixture("test-workflow/test.workflow.ts");
 
-describe("#182 AC2: --env <name> on every workflow command", () => {
-  it("an unknown name fails at once with exit 3, listing the available environments", async () => {
-    const call = await agboss(["run", "--application", APP, "--env", "nope", "hello"]);
-    expect(call.code).toBe(3);
-    expect(call.stdout).toBe("");
-    expect(call.stderr).toMatch(
-      /Environment "nope" not found: .*nope\.environment\.ts\. Available: dev, staging, test/,
-    );
-    const json = await agboss(["describe", "--application", APP, "--env", "nope", "--json"]);
-    expect(json.code).toBe(3);
-    expect(envelope(json)).toMatchObject({ error: { code: "environment.not-found" } });
-  });
+describe("#1324b: the profile selects the configuration; no command takes --env", () => {
+  it("--env is no option of any workflow command: a usage error, exit 2", async () => {
+    for (const command of ["describe", "check"]) {
+      const call = await agboss([command, "--application", APP, "--env", "dev"]);
 
-  it("every workflow command takes --env", async () => {
-    const commands = ["chat", "run", "describe", "check", "eval", "replay", "golden", "compare"];
-    for (const command of [...commands, "rag"]) {
-      const one = envelope(await agboss(["help", command, "--json"]));
-      expect(JSON.stringify(one.result)).toContain('"flag":"--env"');
-    }
-  });
-});
-
-describe("#182: agboss check validates the selected environment without running anything", () => {
-  it("no --env → dev resolves (defaults, the secret set) → ok", async () => {
-    const call = await agboss(["check", "--application", APP], process.cwd(), TOKEN);
-    expect(call.code).toBe(0);
-    expect(call.stdout).toContain("assembly, environment");
-  });
-
-  it("missing variables are a problem naming each of them (exit 3) — secrets only with --models", async () => {
-    const call = await agboss(["check", "--application", APP, "--env", "staging", "--json"]);
-    expect(call.code).toBe(3);
-    expect(envelope(call).result).toMatchObject({
-      problems: [
-        {
-          code: "environment.missing-variables",
-          message:
-            "FIXTURE_CURRENCY is not set (SettingsEnvironment.currency, staging); " +
-            "FIXTURE_TIMEOUT is not set (SettingsEnvironment.timeoutSeconds, staging)",
-        },
-      ],
-    });
-  });
-
-  it("#266: without --models a missing secret is no problem — types and assembly read the contract's shape", async () => {
-    const call = await agboss(
-      ["check", "--application", APP, "--env", "staging", "--json"],
-      process.cwd(),
-      STAGING,
-    );
-
-    expect(call.code).toBe(0);
-    expect(envelope(call).result).toMatchObject({ problems: [] });
-  });
-
-  it("#266: --models connects, so a missing secret fails, naming its variable", async () => {
-    // the providers' model lists, without a network: no model is listed
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() => Promise.resolve(Response.json({ data: [] }))),
-    );
-    try {
-      const call = await agboss(
-        ["check", "--application", APP, "--env", "staging", "--models", "--json"],
-        process.cwd(),
-        STAGING,
-      );
-
-      expect(call.code).toBe(3);
-      expect((envelope(call).result as { problems: unknown[] }).problems).toContainEqual(
-        expect.objectContaining({
-          code: "environment.missing-variables",
-          message: "FIXTURE_API_TOKEN is not set (SettingsEnvironment.apiToken, staging)",
-        }),
-      );
-    } finally {
-      vi.unstubAllGlobals();
+      expect(call.code, command).toBe(2);
+      expect(call.stdout).toBe("");
+      expect(call.stderr).toContain("--env");
     }
   });
 
-  it("#261 AC9, #268 AC5: --env lists the process variables it needs — names, value / secret, optional, never a value", async () => {
+  it("every workflow command takes --profile, and none lists --env", async () => {
+    const commands = ["chat", "run", "describe", "check", "eval", "studio", "dev", "rag"];
+    for (const command of commands) {
+      const help = JSON.stringify(envelope(await agboss(["help", command, "--json"])).result);
+
+      expect(help, command).toContain('"flag":"--profile"');
+      expect(help, command).not.toContain('"flag":"--env"');
+    }
+  });
+
+  it("describe --json carries no environment: the values are the application's defineEnv, not a file", async () => {
+    const call = await agboss(["describe", "--application", APP, "--json"]);
+
+    expect(call.code).toBe(0);
+    expect(JSON.stringify(envelope(call).result)).not.toContain('"environment"');
+  });
+
+  it("an unknown profile fails at once with exit 3, listing the ones that exist", async () => {
+    const call = await agboss(["check", "--application", APP, "--profile", "nope", "--json"]);
+
+    expect(call.code).toBe(3);
+    expect(JSON.stringify(envelope(call))).toContain("nope");
+  });
+});
+
+describe("#1324b, #266: check and describe need no variable's value", () => {
+  const NEEDS = fixture("cli/env-needs.application.ts");
+
+  it("an unset secret behind deps: [appEnv] is no failure: exit 0, the report names what is not set", async () => {
+    const call = await agboss(["check", "--application", NEEDS], process.cwd(), {});
+
+    expect(call.code, call.stderr).toBe(0);
+    expect(call.stdout).toContain("ENV_NEEDS_URL  value, not set");
+    expect(call.stdout).toContain("ENV_NEEDS_KEY  secret, not set");
+  });
+
+  it("describe builds the tools without the secret too", async () => {
+    const call = await agboss(["describe", "--application", NEEDS], process.cwd(), {});
+
+    expect(call.code, call.stderr).toBe(0);
+  });
+
+  it("--strict fails on the unset value, naming it; the secret only with --models", async () => {
     const call = await agboss(
-      ["check", "--application", APP, "--env", "dev"],
+      ["check", "--application", NEEDS, "--strict", "--json"],
       process.cwd(),
-      TOKEN,
+      {},
     );
-    expect(call.code).toBe(0);
-    expect(call.stdout).toContain(
-      [
-        "dev environment needs 5 process variables:",
-        "  FIXTURE_API_TOKEN  secret",
-        "  FIXTURE_CURRENCY   value, has a default",
-        "  FIXTURE_TIMEOUT    value, has a default",
-        "  FIXTURE_DEBUG      value, has a default",
-        "  FIXTURE_PROXY_URL  value, optional",
-      ].join("\n"),
-    );
-    expect(call.stdout).not.toContain("t0ken");
-    expect(call.stdout).not.toContain("USD");
+
+    expect(call.code).toBe(3);
+    const problems = JSON.stringify(envelope(call).result);
+    expect(problems).toContain("[environment.missing-variable] ENV_NEEDS_URL is not set");
+    expect(problems).not.toContain("ENV_NEEDS_KEY is not set");
   });
 
-  it("#261 PR 3: a service reading the environment of an application without one checks fine", async () => {
-    const call = await agboss(["check", "--application", NONE, "--json"]);
-    expect(call.code).toBe(0);
-    expect(envelope(call).result).toMatchObject({ problems: [] });
-  });
-});
-
-describe("#239: agboss check creates what the app's start creates", () => {
-  it("an observer taking ApplicationContext, no environment → it starts, as createApp", async () => {
-    const call = await agboss(["check", "--application", OBSERVED, "--json"]);
-    expect(call.code).toBe(0);
-    expect(envelope(call).result).toMatchObject({
-      checks: ["assembly", "environment", "application", "prompts", "types"],
-      problems: [],
+  it("with every variable set nothing is `not set`, and no value is printed", async () => {
+    const call = await agboss(["check", "--application", NEEDS], process.cwd(), {
+      ENV_NEEDS_URL: "https://needs.example",
+      ENV_NEEDS_KEY: "needs-secret-value",
     });
-  });
-});
 
-describe("#182: agboss describe shows the environment with secrets masked", () => {
-  it("the dev environment: literals, defaults, a secret as *** — never its value", async () => {
-    const call = await agboss(["describe", "--application", APP], process.cwd(), TOKEN);
-    expect(call.code).toBe(0);
-    expect(call.stdout).toContain(
-      [
-        "environment dev",
-        '  apiUrl = "https://api.dev.example.com"',
-        "  apiToken = *** (FIXTURE_API_TOKEN)",
-        '  currency = "USD"',
-        "  timeoutSeconds = 30",
-        "  debug = false",
-        "  proxyUrl = <unset FIXTURE_PROXY_URL, optional>",
-      ].join("\n"),
-    );
-    expect(call.stdout).not.toContain("t0ken");
-  });
-
-  it("a missing variable is shown, not fatal (describe needs no keys)", async () => {
-    const call = await agboss(["describe", "--application", APP, "--env", "staging", "--json"]);
-    expect(call.code).toBe(0);
-    expect(envelope(call).result).toMatchObject({
-      application: {
-        environment: {
-          name: "staging",
-          fields: {
-            apiToken: "<missing FIXTURE_API_TOKEN>",
-            currency: "<missing FIXTURE_CURRENCY>",
-          },
-        },
-      },
-    });
+    expect(call.code, call.stderr + call.stdout).toBe(0);
+    expect(call.stdout).not.toContain("needs-secret-value");
+    expect(call.stdout).not.toContain("not set");
   });
 });

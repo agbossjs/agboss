@@ -21,7 +21,6 @@ import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
 import { RecordingLogger } from "../../helpers/log.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
  * #538 acceptance — where a refused key could leak: an action that keys a fenced effect by the
@@ -161,7 +160,6 @@ export class HandKeyedWorkflow {}
 @Application({
   name: "key-echo-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [KeyedEffectWorkflow, HandKeyedWorkflow],
   providers: [InMemoryFencedEffectRepository, RecordingLogger],
   budgets: TEST_BUDGETS,

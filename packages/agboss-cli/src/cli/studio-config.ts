@@ -27,8 +27,6 @@ export interface StudioSource {
   readonly application: Class;
   /** The workflows' names, in the application's order: one graph each. */
   readonly workflows: readonly string[];
-  /** `--env <name>`; undefined = the default (`dev`). */
-  readonly env: string | undefined;
   /** `--profile <name>`; undefined = the default (`dev`). */
   readonly profile: string | undefined;
 }
@@ -91,7 +89,6 @@ export function studioEntryText(
   folder: string,
 ): string {
   const given = [
-    ...(source.env === undefined ? [] : [`env: ${JSON.stringify(source.env)}`]),
     ...(source.profile === undefined ? [] : [`profile: ${JSON.stringify(source.profile)}`]),
   ];
   const options = given.length === 0 ? "" : `, { ${given.join(", ")} }`;

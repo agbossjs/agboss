@@ -9,7 +9,7 @@ import type { Runnable } from "@langchain/core/runnables";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { ResolvedModelSettings } from "../../src/config/types.js";
 import { connectionOf } from "../../src/models/connections.js";
-import { ENV, KEYS } from "./gateway.js";
+import { ENV } from "./gateway.js";
 import { PromptCaching, Reasoning, toWireRequest } from "../../src/models/index.js";
 import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -60,7 +60,6 @@ async function bodyOf(bind?: (model: BaseChatModel) => Runnable<BaseLanguageMode
   const provider = handlerOf(TestOpenRouterProvider);
   const connection = connectionOf(modelProviderOf(TestOpenRouterProvider), {
     env,
-    environment: KEYS,
     requireKeys: true,
     send: stub.fetch,
   });
@@ -123,7 +122,6 @@ describe("AC6: the wire form, made in one place (toWireRequest)", () => {
     const stub = providerStub([{ body: { answers: { route: { choice: "b" } } } }]);
     const connection = connectionOf(modelProviderOf(TestDecisionsProvider), {
       env,
-      environment: KEYS,
       requireKeys: true,
       send: stub.fetch,
     });

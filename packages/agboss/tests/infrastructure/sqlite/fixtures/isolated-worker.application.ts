@@ -26,7 +26,6 @@ import { hours, usd, days } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { ItemDto, ItemResultDto } from "../../../flow/runtime/fixtures/fan-out.workflow.js";
 import { onStart } from "../../../helpers/flow.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
 import { PauseRespondent } from "../../../../src/pause/respondent.js";
 
 /**
@@ -220,7 +219,6 @@ export class IsolatedProcessStorage {}
 @Application({
   name: "isolated-process-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
   workflows: [IsolatedRunRootWorkflow, IsolatedAskRootWorkflow],
   isolatedWorker: { entry: import.meta.url },
   budgets: TEST_BUDGETS,

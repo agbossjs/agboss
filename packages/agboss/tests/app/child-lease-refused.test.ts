@@ -14,7 +14,6 @@ import {
   type ChildWorkerParts,
   type ChildWorkers,
 } from "../../src/app/remote/child-workers.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { remoteChildSignals } from "../../src/flow/runtime/remote/remote-child-signals.js";
 import {
@@ -102,7 +101,7 @@ describe("#923 AC2: a refused child lease take backs off on the clock", () => {
     const instance = (instanceId: string) =>
       applicationContextOf({
         ...{ name: "refused-application", version: "1.0.0", instanceId },
-        ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+        ...{ startedAt: clock.now(), profiles: ["test"] },
       });
     const storeClock = storeClockOf(clock);
     const holder = new InMemoryExecutionLeaseRepository(

@@ -3,7 +3,6 @@
  * refusals with their texts, an in-memory row's place, and a pruned row's place gone with it.
  */
 import { describe, expect, it } from "vitest";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
@@ -87,7 +86,7 @@ describe("#825: an in-memory row's place in the record order", () => {
     const database = new InMemoryDatabase();
     const application = applicationContextOf({
       ...{ name: "pages-application", version: "1.0.0", instanceId: "instance-1" },
-      ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+      ...{ startedAt: clock.now(), profiles: ["test"] },
     });
     const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
     const calls = new InMemoryOutboundCallRepository(storeClockOf(clock), database, leases);

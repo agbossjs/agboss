@@ -8,7 +8,6 @@
  */
 import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { IdempotencyRunStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
@@ -28,8 +27,7 @@ function instanceOn(path: string, instanceId: string) {
     version: "1.0.0",
     instanceId,
     startedAt: new Date(0),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
   return {
     connection,

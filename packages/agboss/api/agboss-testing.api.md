@@ -314,11 +314,6 @@ export interface DtoTestHarness<TDto extends object> {
 }
 
 // @public
-export interface EnvironmentSelection {
-    readonly env?: string | undefined;
-}
-
-// @public
 export interface ExpectedChildExecution {
     readonly cancelled?: boolean;
     readonly failedWith?: ErrorClass;
@@ -1010,7 +1005,6 @@ export const studioOf: (application: Class, options?: StudioOptions) => Promise<
 
 // @public
 export interface StudioOptions {
-    readonly env?: string | undefined;
     readonly processEnv?: NodeJS.ProcessEnv;
     readonly profile?: ProfileSelection | undefined;
 }
@@ -1039,13 +1033,11 @@ export interface TestApp extends Pick<AnyTenantApp, "execute" | "resume" | "setP
 
 // @public
 export interface TestApplicationOptions {
-    readonly environment?: Environment;
-    // (undocumented)
-    readonly environmentName?: string;
     // (undocumented)
     readonly instanceId?: string;
     // (undocumented)
     readonly name?: string;
+    readonly profiles?: readonly string[];
     // (undocumented)
     readonly version?: string;
 }
@@ -1078,6 +1070,9 @@ export class TestDecisionsModelProvider {
 
 // @public
 export function testDto<TDto extends DtoClass>(dto: TDto): DtoTestHarness<InstanceType<TDto>>;
+
+// @public
+export type TestEnvOverrides = EnvOverrides<EnvContract> | readonly EnvOverrides<EnvContract>[];
 
 // @public
 export function testExecutionContext<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext>(options?: TestExecutionContextOptions & TestContextOptions<TExecution, TTenant>): TExecution & {
@@ -1243,9 +1238,10 @@ export function testUnit<TTarget extends Class | readonly Class[], TExecution ex
 export function testWith<TApplication extends Class>(application: ApplicationClass<TApplication>, options?: TestWithOptions): TestAPI<WorkflowFixtures>;
 
 // @public
-export interface TestWithOptions extends EnvironmentSelection, TestWithSeams {
+export interface TestWithOptions extends TestWithSeams {
     readonly allowNetwork?: readonly string[];
     readonly concurrency?: TestConcurrency;
+    readonly env?: TestEnvOverrides | undefined;
     readonly instances?: number | readonly TestInstanceOptions[];
     readonly only?: readonly Class[];
     readonly profile?: ProfileSelection | undefined;
@@ -1388,7 +1384,7 @@ export type UnitModelScript<TSelf = unknown> = TurnFor<TSelf> | readonly TurnFor
 
 // @public
 export interface UnitOptions<TExecution extends ExecutionContext = ExecutionContext, TTenant extends TenantContext = TenantContext> extends Omit<TestContextOptions<TExecution, TTenant>, "application"> {
-    readonly environment?: Partial<Environment>;
+    readonly env?: TestEnvOverrides;
     readonly ownerId?: string;
     readonly services?: readonly ServiceEntry[];
 }
@@ -1589,7 +1585,6 @@ export interface WorkflowMatchers<R = unknown> {
 // src/testing/execution-context.ts - (ae-undocumented) Missing documentation for "name".
 // src/testing/execution-context.ts - (ae-undocumented) Missing documentation for "version".
 // src/testing/execution-context.ts - (ae-undocumented) Missing documentation for "instanceId".
-// src/testing/execution-context.ts - (ae-undocumented) Missing documentation for "environmentName".
 // src/testing/execution-context.ts - (ae-undocumented) Missing documentation for "application".
 // src/testing/gateway/fake-payment-gateway.ts - (ae-undocumented) Missing documentation for "paymentId".
 // src/testing/gateway/fake-payment-gateway.ts - (ae-undocumented) Missing documentation for "amount".

@@ -15,12 +15,11 @@ import {
   type CommandContext,
   type CommandHandler,
 } from "./cli/context.js";
-import { envOption } from "./cli/environment.js";
 import { tenantOptionOf, CliError, usageError } from "./cli/errors.js";
 
 /**
  * `agboss executions export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>]
- * [--until <date>] [--env <name>]` (#401 PR 1): the application's kept root executions — its
+ * [--until <date>] ` (#401 PR 1): the application's kept root executions — its
  * `ExecutionHistoryRepository`, opened without running anything — as JSON Lines, one masked record
  * per line (`kind: "agboss.execution-record"`), oldest start first. A tenant is always named, or all
  * of them explicitly; an application that keeps none (no `retention.executionRecords`) is
@@ -98,7 +97,6 @@ export const handle: CommandHandler = async (context) => {
   const out = requiredText(context.values, "out");
   const { application } = await loadCliApplication(context);
   const opened = await openExecutionHistory(application, {
-    env: envOption(context),
     profile: textOption(context.values, "profile"),
     processEnv: context.io.env,
   });

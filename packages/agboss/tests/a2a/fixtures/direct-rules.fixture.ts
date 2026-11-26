@@ -17,7 +17,6 @@ import type { Tracked } from "../../../src/index.js";
 import { FencedEffectRepository } from "../../../src/infrastructure/fenced-effect.repository.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
-import { SqliteTestEnvironment } from "../../infrastructure/sqlite/fixtures/environments/app.environment.js";
 import {
   BoardLookupTool,
   JobBoardServer,
@@ -184,7 +183,6 @@ export function directRulesApplication(
     name: "rules-application",
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment: SqliteTestEnvironment,
     workflows: workflow === undefined ? [] : [workflow, QuoteWorkflow],
     budgets: TEST_BUDGETS,
     providers: [...providers, ...(exported === TckWorkflowStart ? [TckCallerChannel] : [])],

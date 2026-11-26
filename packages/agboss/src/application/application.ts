@@ -1,8 +1,6 @@
 import { ConfigError } from "../core/error-families/config-errors.js";
 import { recordOptionKeys } from "../components/option-keys.js";
 import { APPLICATION_KEYS } from "../components/decorator-options.js";
-import { EmptyEnvironment } from "../environments/empty.js";
-import type { Secret } from "../environments/secret.js";
 import type { PromptVariables } from "../components/prompt-variables.js";
 import { callerFile } from "../components/call-site.js";
 import type { Class, Provider, ServiceEntry } from "../components/injection.js";
@@ -66,13 +64,14 @@ export interface ApplicationExecutionLimits {
 }
 
 /**
- * `@Application` (#261) — the one point of the whole app: what `createApp(App, { env })` and
+ * `@Application` (#261) — the one point of the whole app: what `createApp(App, { profile })` and
  * `testWith(App)` take. It lists the top-level workflows, the infrastructure (`providers`: a
  * framework contract's implementation, found by inheritance; none → the built-in in-memory default;
  * its model providers, #266)
- * and every budget of the application. Its `environments/` folder is next to its file.
+ * and every budget of the application. Its settings come from the profiles next to its file
+ * (`src/config/<name>.config.ts`) and from `defineEnv` references.
  */
-export interface ApplicationOptions<TEnvironment = unknown> {
+export interface ApplicationOptions {
   /** Ends with `-application` (`job-scout-application`). */
   readonly name: string;
   /** The release version (each workflow's own `version` is its behaviour version). */
@@ -171,13 +170,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    */
   readonly retention?: RetentionOptions;
   /**
-   * The environment contract — a class with declared fields only
-   * (`environments/app.environment.ts`); each `environments/<name>.environment.ts` next to the
-   * application file exports `const environment: AppEnvironment = { … }`. An application with no
-   * settings omits it and needs no environment file.
-   */
-  readonly environment?: Class<TEnvironment>;
-  /**
    * The project's tenant level (#261): a subclass of `TenantContext` with DTO field decorators
    * (`config/context.config.ts`). Its fields are then required at every `app.execute(…, { tenant })`;
    * omitted → the built-in `TenantContext` (`tenant: { tenantId? }`, default `"default"`).
@@ -209,37 +201,11 @@ export interface ApplicationOptions<TEnvironment = unknown> {
    */
   readonly toolInterceptors?: readonly Class[];
   /**
-   * The application's PII key (#120): names a `Secret` field of the environment
-   * (`piiKeyField: "piiPseudonymKey"` with `piiPseudonymKey: secret("PII_PSEUDONYM_KEY")`). Tokens of
-   * `sensitive` fields, of a project's own detectors and of any policy without its own
-   * `pseudonymKey` are made with it, so one value is one token on every instance. A policy's own key
-   * wins; a policy that needs this one when it is not set fails the start, naming the field. Not set
-   * and not needed → a key made per root execution (kept in its checkpoint, #334) and the warning
-   * `[application.pii-instance-key]`. Only a `Secret` field of the contract compiles (#825), and one
-   * that is also another key — a model provider's `apiKey`, the mesh's `signingKey`, an idempotency
-   * key, a `Secret` a listed class reads — is `[application.pii-key-shared]`: rotating that key
-   * would change every token.
-   */
-  readonly piiKeyField?: SecretFieldOf<TEnvironment>;
-  /**
    * Defaults of every workflow (#261): merged field by field under each workflow's own `defaults`
    * — the most specific level that sets a field wins (component over workflow over application).
    */
   readonly defaults?: ApplicationDefaults;
 }
-
-/**
- * The `Secret` fields of an environment contract (#825): what `piiKeyField`,
- * `idempotencyKeyField` and `previousIdempotencyKeyField` may name — a typo or a text field does not
- * compile. Any text where the contract is not known.
- */
-export type SecretFieldOf<TEnvironment> = unknown extends TEnvironment
-  ? string
-  : {
-      [TField in keyof TEnvironment & string]-?: NonNullable<TEnvironment[TField]> extends Secret
-        ? TField
-        : never;
-    }[keyof TEnvironment & string];
 
 /** What `@Application` recorded: its options and the file it is declared in. */
 export interface ApplicationDeclaration {
@@ -277,14 +243,10 @@ function withShelfProviders(options: ApplicationOptions): ApplicationOptions {
 export const declaredOptionsOf = (options: ApplicationOptions): ApplicationOptions =>
   withStorageProviders(withServices(withShelfProviders(options)));
 
-export function Application<TEnvironment>(options: ApplicationOptions<TEnvironment>) {
+export function Application(options: ApplicationOptions) {
   const source = callerFile();
   return <TClass extends Class>(value: TClass): TClass => {
-    // kept as the application's options: the contract's field types are a compile-time check only
-    // no contract = the empty one: what an application with no settings always had
-    const written = (
-      options.environment === undefined ? { ...options, environment: EmptyEnvironment } : options
-    ) as ApplicationOptions;
+    const written = options;
     recordOptionKeys(value, "Application", written, APPLICATION_KEYS);
     const declared = declaredOptionsOf(written);
     applications.set(

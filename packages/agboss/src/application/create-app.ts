@@ -4,9 +4,7 @@ import type { CreateAppOptions } from "../app/create-app-options.js";
 import type { App, AnyTenantApp } from "../app/types.js";
 import type { ContainerOptions } from "../components/container/container.js";
 import type { Class } from "../components/injection.js";
-import { namedEnvironmentFor, type EnvironmentOwner } from "../environments/load.js";
 import { contextsOf } from "./instance-contexts.js";
-import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
 import { withEnvOverrides } from "./env-overrides.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import { gatedInfrastructure } from "./lease-gate.js";
@@ -149,9 +147,8 @@ async function builtOn(
   const container: ContainerOptions = { ...options.container, application: shared };
   const resolved = resolveInfrastructure(shared, { ...container, onCreate });
   const infrastructure = gatedInfrastructure(resolved, seams.leaseGate);
-  const environment = options.environment ?? NO_ENVIRONMENT_VALUES;
   const { piiKey, mask, log } = instancePiiOf(assembled, {
-    ...{ shared, environment, processEnv, seams, contexts, clock, infrastructure },
+    ...{ shared, processEnv, seams, contexts, clock, infrastructure },
     container: { ...container, onCreate },
   });
   const instance = await instancePartsOf(assembled, clock, log, infrastructure, contexts);
@@ -161,7 +158,7 @@ async function builtOn(
   const common = { infrastructure, created, auditLog, processEnv, ...instance };
   try {
     // #825: its business-key fingerprints' keys, a Secret of their own (a test's when unset)
-    const keys = applicationIdempotencyKeysOf(assembled, environment, processEnv, testKeys);
+    const keys = applicationIdempotencyKeysOf(assembled, processEnv, testKeys);
     const parts = { ...common, contexts, observer, piiKey, budgets: budgetsOf(assembled), ...keys };
     await buildWorkflows(assembled, { ...options, container }, parts, workflows, mask);
     createListed(assembled, workflows);
@@ -170,7 +167,7 @@ async function builtOn(
     await releaseAll(workflows);
     throw error;
   }
-  const isolated = isolatedPartsOf(seams, contexts);
+  const isolated = isolatedPartsOf(seams);
   const surface = { ...common, observer, log, contexts, quiet, isolated };
   return { ...byId(instanceAppOf(assembled, workflows, surface), workflows), assembled, workflows };
 }
@@ -181,17 +178,10 @@ const historyOf = (assembled: AssembledApplication, infrastructure: Infrastructu
     ? {}
     : { executionHistory: infrastructure.executionHistory };
 
-/** Where an assembled application's environments are, and its contract. */
-export const environmentOwnerOf = (assembled: AssembledApplication): EnvironmentOwner => ({
-  application: assembled.name,
-  source: assembled.source,
-  contract: assembled.environment,
-});
-
 /**
  * Builds an `@Application` into an app instance: every workflow assembled (all assembly errors at
- * once), the environment next to the application file, one container, the components' `onInit` →
- * `onStart` — `const app = await createApp(JobScoutApplication, { env: "prod" })`; then
+ * once), the profiles next to the application file layered, one container, the components' `onInit` →
+ * `onStart` — `const app = await createApp(JobScoutApplication, { profile: "prod" })`; then
  * `app.execute(ScreeningWorkflowStart, input)` runs the workflow of that start,
  * `app.resume({ pauseId, decision })`, `app.close()` — also on SIGTERM / SIGINT (#265 S51).
  */
@@ -209,8 +199,7 @@ export async function createApp<TApplication extends Class>(
  * the container's hooks, the branch scheduler, the run's chaos. `testWith`, the CLI and the
  * framework's own tests go through it; never an option of `createApp`.
  */
-export interface BuildApplicationOptions
-  extends CreateAppOptions, Omit<BuildOptions, "environment"> {}
+export interface BuildApplicationOptions extends CreateAppOptions, BuildOptions {}
 
 /**
  * An app instance on the internal build path (#834): `createApp` with its seams — and never the
@@ -235,12 +224,7 @@ export async function builtApplicationOf(
   seams: InstanceSeams = {},
 ): Promise<BuiltApplication> {
   const assembled = await applicationOf(application, options);
-  const environment = await namedEnvironmentFor(
-    environmentOwnerOf(assembled),
-    options,
-    options.processEnv ?? process.env,
-  );
-  const built = await buildApplication(assembled, { ...options, ...environment }, seams);
+  const built = await buildApplication(assembled, options, seams);
   // the internal path (the CLI, the framework's tests) listens unless told not to; `createApp` does not unasked
   if (options.handleSignals ?? true) closeOnStopSignals(built);
   return built;

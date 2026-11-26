@@ -7,7 +7,7 @@ import {
   DeskTenantContext,
   EvalDeskWorkflow,
 } from "../../../flow/fixtures/eval-desk.fixture.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
@@ -18,11 +18,11 @@ import { TestModelProvider } from "../../../../src/testing/test-model-provider.j
   name: "sqlite-history-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({ only: [SqliteExecutionHistoryRepository] }),
   workflows: [EvalDeskWorkflow],
   tenantContext: DeskTenantContext,
   executionContext: DeskExecutionContext,
-  providers: [SqliteExecutionHistoryRepository],
+
   budgets: TEST_BUDGETS,
   retention: { executionRecords: hours(24) },
 })

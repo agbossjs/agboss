@@ -39,7 +39,7 @@ describe("#261 AC13: the start log", () => {
       "app.worst-case",
     ]);
     expect(info[0]?.message).toMatch(
-      /^Started logged-application 2\.3\.0 — environment dev, host \S+, process \d+$/,
+      /^Started logged-application 2\.3\.0 — profiles dev, host \S+, process \d+$/,
     );
     expect(info.slice(1).map((entry) => entry.message)).toEqual([
       "Worst case of one note-workflow-start call: 1 workflow execution, 1 at the same time, 1 steps",

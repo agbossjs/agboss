@@ -93,7 +93,7 @@ export const fileKeyOf = (tenant: string, file: string): string => `files/${tena
 export function prefixProblemOf(prefix: string): string | undefined {
   const bytes = Buffer.byteLength(prefix, "utf8");
   return bytes > MAX_PREFIX_BYTES
-    ? `a2aS3Prefix is ${String(bytes)} bytes: at most ${String(MAX_PREFIX_BYTES)} keep every key within S3's 1024`
+    ? `the S3 prefix is ${String(bytes)} bytes: at most ${String(MAX_PREFIX_BYTES)} keep every key within S3's 1024`
     : undefined;
 }
 

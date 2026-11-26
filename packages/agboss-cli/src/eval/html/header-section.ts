@@ -23,7 +23,6 @@ export const reportHeaderOf = (report: EvalRunReport, nav?: HtmlElement): HtmlEl
       ["Config", report.configHash],
       ["Profile", report.profile ?? (report.agbossVersion === undefined ? "" : "none")],
       ["Start", report.start],
-      ["Environment", report.environment],
       ["Runs per case (k)", String(report.runs)],
       ["Cascade", report.cascade],
       ["Started", report.startedAt.toISOString()],

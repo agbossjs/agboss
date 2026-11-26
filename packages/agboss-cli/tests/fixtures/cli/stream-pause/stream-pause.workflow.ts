@@ -23,7 +23,6 @@ import {
 } from "../../../../../agboss/src/dto/index.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
 import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
-import { StreamEnvironment } from "./environments/app.environment.js";
 import { days } from "../../../../../agboss/src/units/index.js";
 import { StreamModelProvider } from "../stream-model-provider.js";
 
@@ -109,7 +108,6 @@ export class PauseWorkflow {}
   modelProvider: StreamModelProvider,
   name: "stream-pause-application",
   version: "1.0.0",
-  environment: StreamEnvironment,
   workflows: [PauseWorkflow],
   providers: [PauseSilentRefundChannel],
   budgets: TEST_BUDGETS,

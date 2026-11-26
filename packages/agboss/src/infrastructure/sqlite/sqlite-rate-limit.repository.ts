@@ -16,7 +16,7 @@ const Pause = z.object({ paused_until: z.number() });
  * forgets the key's expired slots, counts the valid ones and takes one in one `BEGIN IMMEDIATE`
  * transaction, so instances on one file never hold more than `maxSlots` together; `renew` extends
  * only a slot still valid. Times are the framework clock's milliseconds. Listed in
- * `@Application({ providers })`; needs `sqlitePath`.
+ * the application's `@DatabaseStorage({ driver: SqliteDriver({ path }) })`.
  */
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
 export class SqliteRateLimitRepository extends RateLimitRepository {

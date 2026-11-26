@@ -57,7 +57,6 @@ async function billing(book: ScriptBook, orders: MeshKeyPair, own: MeshKeyPair) 
   class BillingMcp {}
   const app = await createTestAppWith(parts.MeshApplication, {
     ...offline(book),
-    env: "signing",
     processEnv: meshEnvOf(own, orders),
   });
   apps.push(app);

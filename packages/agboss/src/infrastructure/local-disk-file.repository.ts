@@ -5,8 +5,6 @@ import { join } from "node:path";
 import { Injectable } from "../components/decorators.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import { OBJECT_SETTINGS, type ResolvedSettings } from "../storage/settings.js";
-import { EnvironmentField } from "../environments/contract.js";
-import { ApplicationContext } from "../flow/context/application-context.js";
 import {
   FileRepository,
   isSameFile,
@@ -47,36 +45,36 @@ const parsedOf = (text: string): FileMetadata => {
 };
 
 /**
- * The files in a folder of one host (#859, `a2aFilesPath` of the environment): a folder per tenant,
+ * The files in a folder of one host (#859, `LocalDiskDriver({ directory })` of the application's
+ * `@ObjectStorage`): a folder per tenant,
  * two files per file — its bytes, then its metadata, each written whole under a temporary name and
  * linked into place (a link never replaces: of two saves of one id one is kept, the other compared
  * with it). A file is there once its metadata is. Single-host: `[a2a.file-store-not-shared]` when
  * leases are shared and files are large.
  */
-@Injectable({
-  deps: [ApplicationContext, OBJECT_SETTINGS],
-  environmentFields: { a2aFilesPath: EnvironmentField.text() },
-})
+@Injectable({ deps: [OBJECT_SETTINGS] })
 export class LocalDiskFileRepository extends FileRepository {
   static override readonly store: StoreDescriptor = { backend: "local-disk" };
 
   /** The folder the files are kept in. */
   readonly folder: string;
 
-  constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings) {
+  constructor(settings?: ResolvedSettings) {
     super();
-    if (settings !== undefined && settings.kind !== "local-disk")
+    if (settings === undefined)
+      throw new ConfigError.Option({
+        message:
+          "LocalDiskFileRepository needs the application's @ObjectStorage({ driver: LocalDiskDriver({ directory }) }) — the folder the files are kept in",
+      });
+    if (settings.kind !== "local-disk")
       throw new ConfigError.Option({
         message: `LocalDiskFileRepository is on the object storage's ${settings.kind} driver, not LocalDiskDriver`,
       });
-    const folder: unknown =
-      settings === undefined
-        ? Reflect.get(applicationContext.environment, "a2aFilesPath")
-        : settings.directory;
+    const folder: unknown = settings.directory;
     if (typeof folder !== "string" || folder === "")
-      throw new Error(
-        "LocalDiskFileRepository needs a2aFilesPath: string in the environment — the folder the files are kept in",
-      );
+      throw new ConfigError.Option({
+        message: "LocalDiskDriver needs a directory: string — the folder the files are kept in",
+      });
     this.folder = folder;
   }
 

@@ -28,7 +28,7 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    forbidden. `src/` holds kind folders, optionally under one domain level — `src/[<domain>/]<kind>/…`
    (`src/billing/agents/refund/refund.agent.ts`): a domain is any folder that is not a kind folder
    and holds only kind folders, never a loose file or a second domain; `<app>.application.ts` and
-   `environments/` stay at the `src/` root (`services/` holds **only** `*.service.ts` — never errors, schemas, repositories, or
+   `config/` stay at the `src/` root (`services/` holds **only** `*.service.ts` — never errors, schemas, repositories, or
    SQL). Every `@Workflow` lives in its own subfolder `workflows/<workflow-name>/` alongside its
    `@WorkflowStart` and `@WorkflowFinish` files
    (`workflows/<workflow-name>/<workflow-name>.workflow.ts`,
@@ -50,8 +50,8 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    `storages/<name>.database-storage.ts`, `file-policies/<name>.file-policy.ts`,
    `health-checks/<name>.health-check.ts`, `eval-suites/<name>.eval-suite.ts`,
    `contexts/<name>.context.ts`, `infrastructure/<name>.<contract>.ts` (your own `Logger`, `IdGenerator`,
-   `Clock`: `infrastructure/json.logger.ts`), `config/<name>.config.ts`, `scripts/<name>.ts` (run by `npm run`),
-   `http/server.ts`, `environments/*.environment.ts`,
+   `Clock`: `infrastructure/json.logger.ts`), `config/<name>.config.ts` and `config/<app>.env.ts` (the `defineEnv`), `scripts/<name>.ts` (run by `npm run`),
+   `http/server.ts`,
    `<app>.application.ts`), and `tests/` mirrors `src/` symmetrically (`tests/tools/<name>.tool.test.ts`,
    `tests/workflows/<workflow-name>/<workflow-name>.workflow.test.ts`, …). A persisted component's `name` is in
    kebab-case ending with its kind (`billing-agent`, `desk-router`, `chat-workflow-start`,
@@ -97,7 +97,7 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
 
 ```
 npx agboss generate agent billing-agent --workflow desk-workflow   # scaffold + wire (also tool, router, …)
-npx agboss check                                                   # assembly rules, types, prompts, environment
+npx agboss check                                                   # assembly rules, types, prompts, process variables
 npx agboss describe                                                # the flow, models, limits as assembled
 npm test                                                           # scripted models, no network
 ```
@@ -135,7 +135,7 @@ npm test                                                           # scripted mo
   (a case's `tools`), then code judges (`@Judge({ })`), then model
   judges. `npx agboss check` assembles them too (Loop 0).
 - **Loops 2 and 3** (a live model, paid): `npx agboss eval run --suite <name> --runs <k> --report
-<run.json> [--save-baseline <baseline.json>]` — each case k times on the real application (`--env`), the cascade per run, pass@k and
+<run.json> [--save-baseline <baseline.json>]` — each case k times on the real application, the cascade per run, pass@k and
   pass^k per case, the compact baseline snapshot (`--save-baseline eval/baseline/main-baseline.json`) kept in git from `main` as the reference while full run artifacts go into gitignored `.agboss/eval/` (`--html <file>` writes it as
   one self-contained page — each run's timeline, the baseline diff, and for an unstable case the
   node where its attempts part ways; `npx agboss eval show <run.json> --html <file>` renders a saved one,
@@ -246,21 +246,21 @@ answer the rest — then read only the files it names; after changing code, `gra
 
 ## Where to read next
 
-| Task                                                                                                                        | Read                                              |
-| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Designing a workflow: which primitive, how to split it, its DTOs, files and images                                          | `references/01-composition-and-architecture.md`   |
-| Writing `*.workflow.ts` paths: branches, loops, parallel launches, quorums, `.onError`                                      | `references/02-flow-dsl-all-combinations.md`      |
-| A component class: decorators, DI, lifecycle hooks, contexts, environments, `app.*`, a `@ToolInterceptor` around tool calls | `references/03-components-di-and-lifecycle.md`    |
-| Connecting MCP servers, exposing a workflow over MCP, calling or serving A2A agents                                         | `references/04-mcp-and-a2a.md`                    |
-| Human approvals, pauses, channels, `app.resume`                                                                             | `references/05-channels-and-human-in-the-loop.md` |
-| Budgets, model providers, retries, rate limits, circuit breakers                                                            | `references/06-finops-providers-and-queues.md`    |
-| Input / output guardrails, PII masking                                                                                      | `references/07-guardrails-pii-and-security.md`    |
-| Execution records, observers, OpenTelemetry traces (`tracerProvider`, `@agboss/langfuse`)                                   | `references/08-observability-and-tracing.md`      |
-| Storage (`@DatabaseStorage`), recovery, graceful shutdown, health probes, rolling deploys                                   | `references/09-persistence-k8s-and-deploy.md`     |
-| Tests: `testWith`, unit runners (`testUnit`), races, VCR cassettes, `@EvalSuite`, code judges                               | `references/10-testing-vcr-and-evals.md`          |
-| A CLI command, LangGraph Studio, a `[rule.code]` error                                                                      | `references/11-cli-studio-and-error-catalog.md`   |
-| A whole feature or application from scratch                                                                                 | `references/12-end-to-end-recipes.md`             |
-| Migrating a LangGraph graph (`StateAnnotation`, `addConditionalEdges`, `Command`, `Send`, `interrupt`) to AGBoss            | `references/13-migrating-from-langgraph.md`       |
+| Task                                                                                                                                    | Read                                              |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Designing a workflow: which primitive, how to split it, its DTOs, files and images                                                      | `references/01-composition-and-architecture.md`   |
+| Writing `*.workflow.ts` paths: branches, loops, parallel launches, quorums, `.onError`                                                  | `references/02-flow-dsl-all-combinations.md`      |
+| A component class: decorators, DI, lifecycle hooks, contexts, the `defineEnv` settings, `app.*`, a `@ToolInterceptor` around tool calls | `references/03-components-di-and-lifecycle.md`    |
+| Connecting MCP servers, exposing a workflow over MCP, calling or serving A2A agents                                                     | `references/04-mcp-and-a2a.md`                    |
+| Human approvals, pauses, channels, `app.resume`                                                                                         | `references/05-channels-and-human-in-the-loop.md` |
+| Budgets, model providers, retries, rate limits, circuit breakers                                                                        | `references/06-finops-providers-and-queues.md`    |
+| Input / output guardrails, PII masking                                                                                                  | `references/07-guardrails-pii-and-security.md`    |
+| Execution records, observers, OpenTelemetry traces (`tracerProvider`, `@agboss/langfuse`)                                               | `references/08-observability-and-tracing.md`      |
+| Storage (`@DatabaseStorage`), recovery, graceful shutdown, health probes, rolling deploys                                               | `references/09-persistence-k8s-and-deploy.md`     |
+| Tests: `testWith`, unit runners (`testUnit`), races, VCR cassettes, `@EvalSuite`, code judges                                           | `references/10-testing-vcr-and-evals.md`          |
+| A CLI command, LangGraph Studio, a `[rule.code]` error                                                                                  | `references/11-cli-studio-and-error-catalog.md`   |
+| A whole feature or application from scratch                                                                                             | `references/12-end-to-end-recipes.md`             |
+| Migrating a LangGraph graph (`StateAnnotation`, `addConditionalEdges`, `Command`, `Send`, `interrupt`) to AGBoss                        | `references/13-migrating-from-langgraph.md`       |
 
 Put this project's own rules in the root `AGENTS.md`, never in this folder: `npx agboss check`
 replaces it on every `@agboss/core` upgrade.

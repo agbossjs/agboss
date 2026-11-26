@@ -250,10 +250,6 @@ export class PatientIdPiiPolicy implements PiiPolicyHandler {
 }
 ```
 
-```ts file=src/environments/app.environment.ts
-export class ClinicEnvironment {} // the PII key is the storage's piiSecret, below
-```
-
 ```ts file=src/clinic/storages/clinic.database-storage.ts
 import { DatabaseStorage, SqliteDriver, defineEnv, env, secret } from "@agboss/core";
 import { hours } from "@agboss/core/units";
@@ -271,12 +267,6 @@ const storageEnv = defineEnv({
   piiSecret: storageEnv.piiSecret, // no storage supplies a key; a test's testWith has its own
 })
 export class ClinicDatabaseStorage {}
-```
-
-```ts file=src/environments/test.environment.ts
-import type { ClinicEnvironment } from "./app.environment.js";
-
-export const environment: ClinicEnvironment = {}; // tests: a fixed PII key, no secret to set
 ```
 
 The application's components, one per file:
@@ -466,14 +456,12 @@ import { NoDiagnosisGuardrail } from "./clinic/guardrails/no-diagnosis/no-diagno
 import { ContactPiiPolicy } from "./clinic/pii-policies/contact.pii-policy.js";
 import { ClinicDatabaseStorage } from "./clinic/storages/clinic.database-storage.js";
 import { ClinicWorkflow } from "./clinic/workflows/clinic/clinic.workflow.js";
-import { ClinicEnvironment } from "./environments/app.environment.js";
 
 @Application({
   modelProvider: OpenRouterModelProvider,
   providers: [OpenRouterModelProvider],
   name: "clinic-application",
   version: "1.0.0",
-  environment: ClinicEnvironment,
   executionContext: ClinicExecutionContext, // execute(…, { execution: { locale } })
   storage: ClinicDatabaseStorage, // its piiSecret is the PII key of the tokens
   workflows: [ClinicWorkflow],
@@ -587,5 +575,5 @@ asserts it. A policy's `secret` or the storage's `piiSecret` whose variable is u
   what the model read.
 - Excluding a policy on an agent and expecting logs to show the value: logs and traces stay masked.
 - A secret in a context subclass or a DTO: contexts are identity only; services read secrets from
-  the environment (`Secret`, `.reveal()` only where it is sent).
+  the application's `defineEnv` (`Secret`, `.reveal()` only where it is sent).
 - Catching `StepError.Guardrail` as "allowed": it means nothing was checked.

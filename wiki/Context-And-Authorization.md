@@ -11,7 +11,7 @@ The contexts form one hierarchy, like Spring's `ApplicationContext`; each level 
 component takes the one object of its level and reaches everything above through it:
 
 ```
-ApplicationContext        the application: name, version, instanceId, startedAt, environmentName, environment, host
+ApplicationContext        the application: name, version, instanceId, startedAt, profiles, host
 └── TenantContext         the organization: tenantId, weight + the project's own fields (units, plan, …)
     └── ExecutionContext  one execution: executionId, threadId, ownerId, tenant, signal, workflow, the tree, step
         └── step          component, nodeId, visitNumber, idempotencyKey, callId, itemIndex, copyNumber
@@ -23,10 +23,10 @@ Exactly three context tokens exist, each its type and its DI token: `deps: [Appl
 - **`ApplicationContext`** — an immutable description of the running instance, one object, made by
   the framework at start: `name`, `version` (`@Application`), `instanceId` (the holder of its
   leases, [Several instances](Several-instances)), `startedAt` (the framework's clock),
-  `environmentName` (`"prod"`), `environment` (the values, typed by the contract —
-  [Environments](Environments)) and `host` (`hostname`, `pid`, `platform`, `runtimeVersion`). It is
-  readable at any time: startup services, observers, budgets. There is no separate environment
-  token: `this.applicationContext.environment.auditUrl`.
+  `profiles` (`["prod"]`, the [profiles](Configuration#profiles-srcconfig-1318) the instance runs with)
+  and `host` (`hostname`, `pid`, `platform`, `runtimeVersion`). It is
+  readable at any time: startup services, observers, budgets. It carries no settings: those are the
+  application's `defineEnv`, read with `deps: [appEnv]` ([Environments](Environments)).
 - **`TenantContext`** — the organization the execution works for: `tenantId` (`"default"` when the
   execution names none), `weight` (a positive integer, default 1 — its share of a model provider's
   slots under `QueueBalancingStrategy.TenantWeighted`, #266) and the project's own fields;
@@ -324,7 +324,7 @@ fields through their action — `mask(…)` as written, a token or a kind as `<f
 A component created without the container takes `testExecutionContext({ … })` from
 `@agboss/core/testing` — a frozen `ExecutionContext` readable at any time, with defaults for what is not
 given ([Testing](Testing)); `{ tenantContext, tenant, executionContext, execution, application: {
-environment } }` set the levels, checked like at `execute`:
+profiles } }` set the levels, checked like at `execute`:
 
 <!-- snippet-context
 import { testUnit } from "@agboss/core/testing";

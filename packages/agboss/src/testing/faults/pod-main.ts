@@ -13,7 +13,6 @@ import { buildApplication } from "../../application/create-app.js";
 import { StoreClock, StoreTimeSource, lazyLoad, waitOf } from "../../infrastructure/clock.js";
 import { hostClockOfPod } from "./fault-clock.js";
 import { closeOnStopSignals } from "../../application/stop-signals.js";
-import { resolveEnvironment } from "../../environments/resolve.js";
 import {
   FAULT_STORES_EXPORT,
   optedOutStoresOf,
@@ -100,16 +99,11 @@ const application = faultApplicationOf(stores, {
   ),
 });
 const assembled = await applicationOf(application, { withoutIdempotencyKeys: true });
-const loaded = {
-  name: "fault",
-  contract: stores.environment.contract.name,
-  values: stores.environment.values,
-};
 const instanceId = `${name}-${String(process.pid)}`;
 heldStoreState.instanceId = instanceId;
 const built = await buildApplication(
   assembled,
-  { environmentName: "fault", environment: resolveEnvironment(loaded, process.env) },
+  {},
   // the stores decide by the run's time, never by the pod's skewed clock: a database's (#533)
   {
     instanceId,

@@ -102,7 +102,6 @@ function applicationOf(options: TestModuleOptions): Class {
 
 /** The keys of the options that are the `@Application`'s, not the test's. */
 const APPLICATION_KEYS = [
-  "environment",
   "promptVariables",
   "channels",
   "channelSelectors",
@@ -122,7 +121,6 @@ const APPLICATION_KEYS = [
   "executionLimits",
   "mesh",
   "exposes",
-  "piiKeyField",
 ] as const;
 
 /** The `@Application` options among a module's. */

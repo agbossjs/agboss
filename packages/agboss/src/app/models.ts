@@ -2,7 +2,6 @@ import { ConfigError } from "../core/error-families/config-errors.js";
 import type { AgentsConfigOf } from "../config/types.js";
 import { createProviderGateway, type ModelGateway } from "../llm/gateway.js";
 import type { ModelInputKind } from "../models/content.js";
-import type { Environment } from "../flow/generated-types.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import { chatExtensionsFor, type ProviderClientOptions } from "../llm/provider-clients.js";
 import type { TransportResolver } from "../models/transport/transport-resolver.js";
@@ -43,8 +42,8 @@ export interface AppModels {
 }
 
 /**
- * The production clients' options from the app's: the process environment (base URLs), the
- * application's environment (its `applicationContext.environment`: the keys), the instance's clock and shared calls — rate limits, 429
+ * The production clients' options from the app's: the process environment (the references of the
+ * providers' drivers), the instance's clock and shared calls — rate limits, 429
  * pauses and breakers in its `RateLimitRepository` — and, in tests, a stub client.
  */
 /** What an app's models are made with: its stub client and process (tests), a given gateway. */
@@ -67,13 +66,11 @@ export type GatewayOverProviders = (real: () => ModelGateway) => ModelGateway;
 
 export const providerClientsOf = (
   options: AppModelsOptions,
-  application: { readonly environment: Environment },
   infrastructure: Pick<Infrastructure, "clock" | "rateLimits">,
   transports?: TransportResolver,
 ): ProviderClientOptions => ({
   ...(transports === undefined ? {} : { transports }),
   env: options.processEnv ?? process.env,
-  environment: application.environment,
   clock: infrastructure.clock,
   calls: providerCallsOf(infrastructure.rateLimits, infrastructure.clock),
   ...sendOf(options),
@@ -136,7 +133,7 @@ export async function modelsFor(
 async function overProviders(
   bundle: AssembledWorkflow,
   over: GatewayOverProviders,
-  clients: Pick<ProviderClientOptions, "env" | "environment" | "transports">,
+  clients: Pick<ProviderClientOptions, "env" | "transports">,
 ): Promise<ModelGateway> {
   const directory = directoryOf(bundle.modelProviders);
   const extensions = await chatExtensionsFor(directory);
@@ -162,20 +159,13 @@ export async function appModelsFor(
   bundle: AssembledWorkflow,
   options: AppModelsOptions,
   parts: { readonly infrastructure: Pick<Infrastructure, "clock" | "rateLimits"> },
-  contexts: { readonly application: { readonly environment: Environment } },
 ): Promise<StartingModels> {
   const transports = lateTransports();
   const { infrastructure } = parts;
-  const clients = providerClientsOf(
-    options,
-    contexts.application,
-    infrastructure,
-    transports.resolver,
-  );
+  const clients = providerClientsOf(options, infrastructure, transports.resolver);
   const given = options.gatewayOverProviders
     ? await overProviders(bundle, options.gatewayOverProviders, {
         env: clients.env,
-        environment: clients.environment,
         transports: transports.resolver,
       })
     : options.gateway;

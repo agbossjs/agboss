@@ -407,15 +407,13 @@ export interface App<TApp = unknown> {
 }
 
 // @public (undocumented)
-export function Application<TEnvironment>(options: ApplicationOptions<TEnvironment>): <TClass extends Class>(value: TClass) => TClass;
+export function Application(options: ApplicationOptions): <TClass extends Class>(value: TClass) => TClass;
 
 // @public
 export type ApplicationClass<TApplication extends Class> = TApplication & ([NameOf<InstanceType<TApplication>>] extends [never] ? unknown : NameOf<InstanceType<TApplication>> extends `${string}-workflow` ? WorkflowIsNotAnApplication : unknown);
 
 // @public
 export abstract class ApplicationContext {
-    abstract readonly environment: Environment;
-    abstract readonly environmentName: string;
     // (undocumented)
     abstract readonly host: HostContext;
     abstract readonly instanceId: string;
@@ -440,14 +438,13 @@ export interface ApplicationExecutionLimits {
 }
 
 // @public
-export interface ApplicationOptions<TEnvironment = unknown> {
+export interface ApplicationOptions {
     readonly budgets?: readonly Class[];
     readonly channelListeners?: readonly Class[];
     readonly channels?: readonly Class[];
     readonly channelSelectors?: readonly Class[];
     readonly defaults?: ApplicationDefaults;
     readonly endpoints?: readonly Class[];
-    readonly environment?: Class<TEnvironment>;
     readonly executionContext?: ExecutionContextClass;
     readonly executionLimits?: ApplicationExecutionLimits;
     readonly guardrails?: readonly Class[];
@@ -457,7 +454,6 @@ export interface ApplicationOptions<TEnvironment = unknown> {
     readonly modelProvider?: Class;
     readonly name: string;
     readonly observers?: readonly Class<ExecutionObserver>[];
-    readonly piiKeyField?: SecretFieldOf<TEnvironment>;
     readonly piiPolicies?: readonly Class[];
     readonly promptVariables?: PromptVariables;
     readonly providers?: readonly Provider[];
@@ -1581,9 +1577,6 @@ export function compareProfiles<TApplication extends Class>(application: Applica
 
 // @public
 export interface CompareProfilesOptions {
-    readonly env?: string | undefined;
-    readonly environment?: Environment;
-    readonly environmentName?: string;
     readonly meterProvider?: MeterProvider;
     readonly processEnv?: NodeJS.ProcessEnv;
     readonly profiles: readonly string[];
@@ -1732,7 +1725,7 @@ export namespace ConfigError {
     export type Component = ErrorVariant<ConfigErrorKind.Component, "config.component">;
     export type Dto = ErrorVariant<ConfigErrorKind.Dto, "config.dto">;
     export type Environment = ErrorVariant<ConfigErrorKind.Environment, "config.environment"> & {
-        readonly envCode?: EnvironmentErrorCode | undefined;
+        readonly envCode?: "environment.missing-variable" | "environment.invalid-value" | undefined;
     };
     export type EvalCase = ErrorVariant<ConfigErrorKind.EvalCase, "config.eval-case"> & {
         readonly suite?: string | undefined;
@@ -2028,7 +2021,6 @@ export function createApp<TApplication extends Class>(application: ApplicationCl
 
 // @public
 export interface CreateAppOptions {
-    readonly env?: string | undefined;
     readonly handleSignals?: boolean;
     readonly meterProvider?: MeterProvider;
     readonly processEnv?: NodeJS.ProcessEnv;
@@ -2266,10 +2258,6 @@ export interface DynamicWorkingCalendarOptions<TDeps extends readonly Token[] = 
 }
 
 // @public
-export class EmptyEnvironment {
-}
-
-// @public
 export interface EndedChildRecord {
     readonly children: readonly EndedChildRecord[];
     readonly depth: number;
@@ -2311,42 +2299,6 @@ export type EnvContract<TSpec extends EnvSpec = EnvSpec> = TSpec & {
 };
 
 // @public
-export interface Environment {
-    // (undocumented)
-    readonly [notGenerated]?: never;
-}
-
-// @public
-export enum EnvironmentErrorCode {
-    InvalidValue = "environment.invalid-value",
-    MissingVariables = "environment.missing-variables",
-    NoContract = "environment.no-contract",
-    NotFound = "environment.not-found"
-}
-
-// @public
-export interface EnvironmentField {
-    // (undocumented)
-    readonly [environmentFieldBrand]: true;
-}
-
-// @public
-export const EnvironmentField: Readonly<{
-    text: (options?: EnvironmentFieldOptions) => EnvironmentField;
-    integer: (options?: EnvironmentFieldOptions) => EnvironmentField;
-    flag: (options?: EnvironmentFieldOptions) => EnvironmentField;
-    secret: (options?: EnvironmentFieldOptions) => EnvironmentField;
-}>;
-
-// @public
-export interface EnvironmentFieldOptions {
-    readonly optional?: boolean;
-}
-
-// @public
-export type EnvironmentFields = Readonly<Record<string, EnvironmentField>>;
-
-// @public
 export interface EnvOptions<TValue> {
     // (undocumented)
     readonly default?: TValue;
@@ -2373,7 +2325,6 @@ export interface EnvReaders extends EnvReader<string, string> {
     readonly boolean: EnvReader<boolean, boolean>;
     readonly bytes: EnvReader<Bytes>;
     readonly duration: EnvReader<Milliseconds>;
-    readonly flag: EnvReader<boolean, boolean>;
     // (undocumented)
     readonly integer: EnvReader<number, number>;
     // (undocumented)
@@ -4489,7 +4440,6 @@ export function Injectable<const D extends readonly Token[] = [], const TPorts e
 // @public
 export interface InjectableOptions<D extends readonly Token[], TPorts extends InjectAs = readonly []> {
     readonly deps?: D;
-    readonly environmentFields?: EnvironmentFields;
     readonly injectAs?: TPorts;
 }
 
@@ -7814,7 +7764,7 @@ export type RouteStep<THead extends PathHead, TRemaining> = [TRemaining] extends
 };
 
 // @public
-export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "launch.join-required" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-target" | "arbiter.unknown-target" | "arbiter.duplicate-target" | "arbiter.branch-has-no-output" | "arbiter.model-without-arbiter-model" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "application.pii-key-shared" | "a2a.endpoint-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.cost-per-call-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-endpoint" | "application.duplicate-endpoint" | "application.endpoint-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "dto.ambiguous-one-of" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.max-steps-above-0.1.0-default" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "channel-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "environment.contract-value" | "environment.missing-field" | "environment.conflicting-field" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model.duplicate-provider-name" | "model-provider.both-modes" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "pause.remind-before-invalid" | "pause.remind-before-below-tick" | "pause.remind-before-working-without-working-timeout" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "reply-interpreter.decision-model" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "application.isolated-worker-invalid" | ExtraRuleCode;
+export type RuleCode = "graph.not-a-node" | "graph.choose-from-non-router" | "graph.duplicate-node-name" | "graph.no-workflow-start" | "graph.unreachable-node" | "graph.dead-end" | "graph.next-after-workflow-finish" | "router.routes-mismatch" | "router.no-prompt" | "graph.wrong-kind" | "graph.cycle-without-max-visits" | "flow.shared-node-inline" | "flow.single-entry-own-path" | "flow.continuation-twice" | "flow.one-of-not-exhaustive" | "flow.one-of-ambiguous" | "flow.duplicate-error-handler" | "flow.path-too-deep" | "flow.analysis-too-large" | "flow.unused-output" | "flow.ambiguous-field" | "flow.text-agent-target" | "input.missing-on-path" | "input.never-produced" | "input.several-on-path" | "input.history-max-previous" | "input.outdated-on-path" | "router.duplicate-route" | "router.empty-input" | "launch.join-required" | "launch.item-not-read" | "launch.unjoinable-output" | "launch.branch-continued" | "launch.branch-outdates-sibling" | "flow.quorum-impossible" | "arbiter.not-an-arbiter" | "arbiter.unhandled-target" | "arbiter.unknown-target" | "arbiter.duplicate-target" | "arbiter.branch-has-no-output" | "arbiter.model-without-arbiter-model" | "graph.no-matching-start" | "graph.ambiguous-start" | "graph.child-without-failure-finish" | "graph.limit-handler-uses-model" | "graph.recursion-without-depth" | "graph.recursion-without-exit" | "graph.mutual-recursion" | "limits.max-concurrent-executions-invalid" | "limits.child-concurrency-above-parent" | "action.compensator-not-an-action" | "action.committer-not-an-action" | "action.self-compensation" | "action.compensator-compensates" | "action.invalid-compensator-input" | "action.committer-without-compensator" | "flow.uncompensated-action" | "flow.uncommitted-action" | "flow.compensation-out-of-order" | "flow.committer-unreachable" | "limits.max-concurrent-steps-invalid" | "limits.max-mesh-hops-invalid" | "limits.timeout-invalid" | "application.store-backend-mismatch" | "application.store-backend-undeclared" | "application.store-descriptor-invalid" | "application.idempotency-key-required" | "a2a.endpoint-description-required" | "a2a.task-store-not-shared" | "a2a.message-store-not-shared" | "a2a.message-skill-pause" | "a2a.message-skill-effect" | "a2a.message-skill-tool" | "a2a.message-skill-compensation" | "a2a.message-skill-child" | "a2a.unknown-skill-option" | "a2a.file-options-invalid" | "a2a.file-store-required" | "a2a.file-store-not-shared" | "a2a.nested-file-field" | "a2a.unknown-finish" | "a2a.cost-per-call-invalid" | "application.retention-invalid" | "mesh.not-a-mesh" | "mesh.limit-invalid" | "mesh.peer-without-keys" | "mesh.unknown-endpoint" | "mesh.duplicate-peer" | "application.not-an-endpoint" | "application.duplicate-endpoint" | "application.endpoint-unknown-start" | "name.kind-suffix" | "name.not-kebab-case" | "dto.name" | "dto.duplicate-name" | "dto.cyclic" | "dto.ambiguous-one-of" | "tool.name-too-long" | "tool.name-invalid" | "tools.max-result-size-invalid" | "limits.max-steps-too-low" | "limits.max-steps-below-worst-case" | "limits.max-steps-above-0.1.0-default" | "limits.branch-exceeds-max-steps" | "limits.max-steps-unused" | "limits.count-invalid" | "agent.dynamic-options" | "agent.duplicate-rag" | "model.no-tool-calling" | "types.unexported-class" | "application.no-workflows" | "application.not-a-workflow" | "application.duplicate-workflow" | "application.ambiguous-start" | "budget.not-a-budget" | "health.not-a-health-check" | "health.duplicate-name" | "channel-listener.duplicate-name" | "budget.execution-budget-required" | "budget.duplicate-execution-budget" | "budget.duplicate-default-execution-budget" | "budget.tenant-budget-required" | "budget.missing-limit" | "budget.conflicting-limit" | "budget.application-budget-required" | "di.infrastructure-in-workflow" | "guardrail.not-a-guardrail" | "guardrail.exclude-not-inherited" | "guardrail.missing-refusal" | "guardrail.refusal-twice" | "guardrail.no-prompt" | "guardrail.threshold-invalid" | "guardrail.output-on-router" | "guardrail.no-model-call" | "rag.rerank-invalid" | "rag.scope-required" | "rag.custom-scope-missing-resolver" | "rag.not-a-reranker" | "guardrail.missing-handler" | "tool-interceptor.not-an-interceptor" | "tool-interceptor.exclude-not-inherited" | "tool-interceptor.missing-handler" | "tool-interceptor.target-not-a-tool" | "tool-interceptor.duplicate-hook" | "tool-interceptor.override-drops-target" | "tool-interceptor.unresolved-tool" | "tool-interceptor.duplicate-tool-name" | "tool-interceptor.unknown-hook" | "memory.not-a-memory" | "memory.invalid-setting" | "memory.uncompacted-turns-invalid" | "memory.conflicting-compaction" | "model.missing-provider" | "model.incompatible-provider" | "model.missing" | "model.price-invalid" | "model.duplicate-provider-name" | "model-provider.both-modes" | "context.prompt-unused" | "channel.wrong-tool" | "channel.shared-interpreter" | "pause.remind-before-invalid" | "pause.remind-before-below-tick" | "pause.remind-before-working-without-working-timeout" | "working-calendar.invalid" | "working-calendar.duplicate-name" | "reply-interpreter.decision-model" | "di.ambiguous-implementation" | "judge.wrong-output" | "judge.same-model-family" | "judge.zero-retries" | "eval.unknown-start" | "eval.duplicate-case" | "eval.judge-wrong-output" | "application.isolated-worker-invalid" | ExtraRuleCode;
 
 // @public
 export interface RuleViolation {
@@ -7899,11 +7849,6 @@ export class Secret {
 
 // @public
 export const secret: SecretReader;
-
-// @public
-export type SecretFieldOf<TEnvironment> = unknown extends TEnvironment ? string : {
-    [TField in keyof TEnvironment & string]-?: NonNullable<TEnvironment[TField]> extends Secret ? TField : never;
-}[keyof TEnvironment & string];
 
 // @public
 export interface SecretReader {
@@ -8742,7 +8687,7 @@ export enum StopRequestState {
 }
 
 // @public
-export type StorageRuleCode = "storage.not-a-storage" | "storage.driver-invalid" | "storage.database-required" | "storage.cluster-needs-durable-lease-store" | "storage.providers-conflict" | "storage.retention-conflict" | "storage.key-conflict" | "storage.secret-shared" | "storage.ttl-invalid";
+export type StorageRuleCode = "storage.not-a-storage" | "storage.driver-invalid" | "storage.database-required" | "storage.cluster-needs-durable-lease-store" | "storage.providers-conflict" | "storage.retention-conflict" | "storage.secret-shared" | "storage.ttl-invalid";
 
 // @public
 export class StoreClock {
@@ -10404,8 +10349,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/result.ts - (ae-undocumented) Missing documentation for "value".
 // src/core/result.ts - (ae-undocumented) Missing documentation for "ok".
 // src/core/result.ts - (ae-undocumented) Missing documentation for "error".
-// src/environments/define-env.ts - (ae-undocumented) Missing documentation for "contract".
-// src/environments/define-env.ts - (ae-undocumented) Missing documentation for "values".
 // src/environments/define-env.ts - (ae-undocumented) Missing documentation for "kind".
 // src/environments/define-env.ts - (ae-undocumented) Missing documentation for "secret".
 // src/environments/define-env.ts - (ae-undocumented) Missing documentation for "bearer".
@@ -10422,7 +10365,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/environments/env-ref.ts - (ae-undocumented) Missing documentation for "variable".
 // src/environments/env-ref.ts - (ae-undocumented) Missing documentation for "[optionalSecretRefBrand]".
 // src/environments/env-ref.ts - (ae-undocumented) Missing documentation for "variable".
-// src/environments/fields.ts - (ae-undocumented) Missing documentation for "[environmentFieldBrand]".
+// src/environments/overrides.ts - (ae-undocumented) Missing documentation for "contract".
+// src/environments/overrides.ts - (ae-undocumented) Missing documentation for "values".
 // src/environments/secret.ts - (ae-undocumented) Missing documentation for "toString".
 // src/environments/secret.ts - (ae-undocumented) Missing documentation for "toJSON".
 // src/environments/secret.ts - (ae-undocumented) Missing documentation for "[inspect.custom]".
@@ -10665,7 +10609,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[noInput]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "__error".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "__error".
-// src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".
 // src/flow/generated-types.ts - (ae-undocumented) Missing documentation for "[notGenerated]".

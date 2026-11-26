@@ -1,7 +1,6 @@
 /** `agboss eval run | score | show | calibrate | ui` (#396 S4, #397): one command of subcommands, each its own schema. */
 import {
   APPLICATION,
-  ENV,
   flag,
   PROFILE,
   START,
@@ -24,7 +23,7 @@ export const EVAL_COMMAND: CommandSpec = {
       summary:
         "run an eval suite: every case --runs times, its checks under the cascade, pass@k / pass^k",
       usage:
-        "agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--save-baseline <file.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic] [--profile <name>] [--env <name>]",
+        "agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--save-baseline <file.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic] [--profile <name>]",
       options: [
         text(
           "suite",
@@ -71,7 +70,6 @@ export const EVAL_COMMAND: CommandSpec = {
         ),
         APPLICATION,
         PROFILE,
-        ENV,
       ],
     },
     score: {
@@ -83,7 +81,6 @@ export const EVAL_COMMAND: CommandSpec = {
         text("version", "<v>", "only runs of this prompt version"),
         text("limit", "N", "how many runs", { default: "100" }),
         PROFILE,
-        ENV,
       ],
     },
     show: {
@@ -111,7 +108,7 @@ export const EVAL_COMMAND: CommandSpec = {
       summary:
         "a folder of run artifacts served on 127.0.0.1 behind a token: the runs, each run's report, labels and κ, a run saved as a golden case — nothing runs",
       usage:
-        "agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>] [--taxonomy <file>] [--labeler <name>] [--application <path>] [--env <name>]",
+        "agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>] [--taxonomy <file>] [--labeler <name>] [--application <path>]",
       options: [
         text("dir", "<folder>", "the folder of run artifacts (*.json)", {
           default: ".agboss/eval",
@@ -125,7 +122,6 @@ export const EVAL_COMMAND: CommandSpec = {
         }),
         text("labeler", "<name>", "who labels, as the forms start (default: the system user)"),
         APPLICATION,
-        ENV,
       ],
     },
   },
@@ -136,5 +132,4 @@ export const EVAL_CASE_OPTIONS: readonly OptionSpec[] = [
   text("suite", "<name>", "eval-case: the eval suite to add the case to (optional with one)"),
   text("from-execution", "<executionId>", "eval-case: the kept execution the case is drafted from"),
   text("tenant", "<id>", "eval-case: the execution's tenant, when two tenants have the id"),
-  ENV,
 ];

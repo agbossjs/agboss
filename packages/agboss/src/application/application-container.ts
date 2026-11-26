@@ -7,7 +7,6 @@ import {
 } from "../components/container/container.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class, Token } from "../components/injection.js";
-import type { Environment } from "../flow/generated-types.js";
 import { CONTEXT_TOKENS, contextValuesOf } from "../components/context-tokens.js";
 import {
   contextsOutsideExecution,
@@ -38,6 +37,7 @@ import { containerProvidersOf } from "../models/resolution.js";
 import { settingsEntriesOf, type ResolvedStorage } from "../storage/settings.js";
 import { resolvedStorageOfOptions } from "../storage/storage-fields.js";
 import { attachedBudgetsOf, budgetsOfApplication } from "../budgets/budget-rules.js";
+import { envOfProcess } from "../environments/define-env.js";
 import { applicationDeclarationOf, applicationsListing } from "./application.js";
 
 /** What the shared container of an application instance is built from besides its providers. */
@@ -244,13 +244,14 @@ function applicationProvidersOf(bundle: AssembledWorkflow): ProviderModule {
 export function standaloneApplicationOf(
   bundle: AssembledWorkflow,
   options: {
-    readonly environment?: Environment | undefined;
     readonly processEnv?: NodeJS.ProcessEnv | undefined;
   },
   onCreate?: (instance: unknown) => void,
 ): { readonly application: ApplicationContainer; readonly infrastructure: Infrastructure } {
   const modules = [applicationProvidersOf(bundle)];
-  const container = onCreate === undefined ? {} : { onCreate };
+  // the same process for the storage's references and for `deps: [appEnv]` (the default is the real one)
+  const envOf = envOfProcess(options.processEnv);
+  const container = onCreate === undefined ? { envOf } : { envOf, onCreate };
   const clock = clockOf(modules, container);
   const storage = resolvedStorageOfOptions(
     listingApplicationOf(bundle)?.options.storage,
@@ -262,7 +263,7 @@ export function standaloneApplicationOf(
       clock,
       storage,
       componentOptions: bundle.componentOptions,
-      contexts: contextsOutsideExecution(bundle.config, options.environment, clock),
+      contexts: contextsOutsideExecution(bundle.config, clock),
     },
     container,
   );

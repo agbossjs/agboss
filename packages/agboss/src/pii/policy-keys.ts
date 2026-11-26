@@ -1,5 +1,5 @@
 import { ConfigError } from "../core/error-families/config-errors.js";
-import { EnvironmentErrorCode } from "../environments/errors.js";
+import { missingVariableError } from "../environments/environment-rules.js";
 import type { OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
 import { OptionalSecretReference, variableOfSecretRef } from "../environments/secret.js";
 import { isCustomPolicy, type PiiPolicyMeta } from "./pii-policy.decorator.js";
@@ -22,10 +22,7 @@ const unsetSecret = (
   option: string,
   variable: string,
 ): ConfigError.Environment =>
-  new ConfigError.Environment({
-    envCode: EnvironmentErrorCode.MissingVariables,
-    message: `${variable} is not set (${meta.name}.${option})`,
-  });
+  missingVariableError(`${variable} is not set (${meta.name}.${option})`);
 
 /** The value of a policy's `secret`: its variable's, or the start fails naming the variable. */
 function secretOf(meta: PiiPolicyMeta, ref: SecretRef, env: NodeJS.ProcessEnv): string {

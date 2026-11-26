@@ -8,7 +8,6 @@ import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import fc from "fast-check";
 import { scopeKeyOf } from "../../src/app/lease-lost.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import type { ExecutionLease } from "../../src/infrastructure/execution-lease.repository.js";
 import { effectKeyIdentityOf } from "../../src/infrastructure/fenced-effect-key.js";
@@ -119,8 +118,7 @@ export async function instancesOn<TStore>(
       version: "1.0.0",
       instanceId,
       startedAt: clock.now(),
-      environmentName: "test",
-      environment: NO_ENVIRONMENT_VALUES,
+      profiles: ["test"],
     });
     stores.push(
       await target.instance({

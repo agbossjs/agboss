@@ -8,7 +8,6 @@
 import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { describe, expect, it } from "vitest";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { InMemoryExecutionLeaseRepository } from "../../src/infrastructure/execution-lease.repository.js";
 import { IdempotencyRunStatus } from "../../src/infrastructure/fenced-effect.repository.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
@@ -45,8 +44,7 @@ function stores() {
     version: "1.0.0",
     instanceId: "instance-1",
     startedAt: clock.now(),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);

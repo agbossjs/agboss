@@ -7,7 +7,6 @@ import { evalSuiteProblems, type EvalSuitesCheck } from "./cli/check-eval-suites
 import { modelProblemsOf } from "./cli/check-models.js";
 import { cassetteProblems } from "./cli/check-cassettes.js";
 import { federationProblems, requireFederationFlag } from "./cli/check-federation.js";
-import { envOption } from "./cli/environment.js";
 import {
   assemble,
   jsonProblem,
@@ -42,8 +41,6 @@ export interface CheckTarget {
   readonly file: string;
   readonly assembled: AssembledApplication;
   readonly env: NodeJS.ProcessEnv;
-  /** `--env <name>`; undefined = the default. */
-  readonly envName: string | undefined;
   /** `--models`: the checks connect, so the environment's secrets must be set (#266). */
   readonly needsSecrets: boolean;
 }
@@ -113,14 +110,12 @@ async function reportAndCheck(
   selected: readonly ApplicationCheck[],
 ): Promise<CheckedApplication> {
   const { context } = target;
-  const envName = envOption(context);
-  const report = await checkReportOf(target.assembled, envName);
+  const report = checkReportOf(target.assembled, context.io.env);
   [...report.lines, ""].forEach(context.say);
   const problems = await problemsAfterAssembly(
     {
       ...target,
       env: context.io.env,
-      envName,
       needsSecrets: flagOption(context.values, "models"),
     },
     selected,
@@ -129,9 +124,9 @@ async function reportAndCheck(
 }
 
 /**
- * `agboss check [--models] [--cassettes] [--federation <snapshot…>] [--strict] [--profile <p>] [--env <name>] [--json]` — every workflow of
+ * `agboss check [--models] [--cassettes] [--federation <snapshot…>] [--strict] [--profile <p>] [--json]` — every workflow of
  * the application; no API key needed. After the assembly it prints the report (#268 AC5): the
- * worst case of one call of each start and, with `--env`, the process variables it needs.
+ * worst case of one call of each start and the process variables its `defineEnv` references need.
  */
 export const handle: CommandHandler = async (context) => {
   // the project skills (#305) first: an application that does not assemble is when they help most

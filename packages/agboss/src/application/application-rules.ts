@@ -3,14 +3,12 @@ import { budgetOf } from "../budgets/budget.js";
 import { budgetRuleViolations, budgetsOfApplication } from "../budgets/budget-rules.js";
 import type { OverlaidBudgets } from "../budgets/budget-overlay.js";
 import { createdClassesOf, type Class, type Provider } from "../components/injection.js";
-import { depsOf } from "../components/container/container.js";
 import { moduleOf } from "../components/module.js";
 import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { kebabNameProblem, kindSuffixProblem, NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
-import { environmentRuleViolations, readingClassesOf } from "../environments/contract.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import { listedModelProvidersOf } from "../models/resolution.js";
 import { providerPriceViolations, providerModeViolations } from "../models/provider-mode-rules.js";
@@ -31,7 +29,6 @@ import { a2aMessageStoreViolations, a2aTaskStoreViolations } from "../a2a/a2a-ta
 import { messageSkillViolations } from "../a2a/a2a-message-skill-rule.js";
 import { nestedFileFieldViolations } from "../a2a/a2a-nested-file-rule.js";
 import { limitViolations } from "./limit-rules.js";
-import { keyFieldViolations } from "./key-field-rules.js";
 import { storageOwnedClassesOf } from "../storage/storage-assembly.js";
 import { storageViolations } from "../storage/storage-rules.js";
 
@@ -192,13 +189,6 @@ export function applicationRuleViolations(
     ...providerModeViolations(options.name, withNamedModelProvider(options)),
     ...providerPriceViolations(options.name, withNamedModelProvider(options)),
     ...infrastructureViolations(options),
-    ...environmentRuleViolations(
-      options.name,
-      options.environment,
-      readingClassesOf(listedClassesOf(options), depsOf),
-    ),
-    // #825: the key fields — declared, Secret, none shared with another key
-    ...keyFieldViolations(options, listedClassesOf(options)),
     ...healthCheckRuleViolations(options),
     ...channelListenerRuleViolations(options.name, options.providers),
     ...workingCalendarNameViolations(options.name, listedClassesOf(options)),

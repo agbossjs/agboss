@@ -26,8 +26,7 @@ const KEY = "tenant_id = ? AND peer = ? AND idempotency_key = ?";
 /**
  * `MeshRequestRepository` on the application's SQLite file (#398 PR 2): one row per request (its tool, the hash of its
  * arguments, when it expires), its answer as JSON. `saveIfAbsent` is one `INSERT OR IGNORE` in a `BEGIN IMMEDIATE` transaction, so
- * of two instances admitting one key exactly one runs it. Listed in `@Application({ providers })`;
- * needs `sqlitePath`.
+ * of two instances admitting one key exactly one runs it. On the application's `@DatabaseStorage({ driver: SqliteDriver({ path }) })`.
  */
 @Injectable({ deps: [SqliteConnection] })
 export class SqliteMeshRequestRepository extends MeshRequestRepository {

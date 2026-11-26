@@ -30,7 +30,7 @@ import { sqliteInterruptedOf } from "./sqlite-stop.js";
  * `agboss eval` / `replay` / `golden` and `--thread` see the records of earlier processes, and
  * recovery finds the roots a dead instance left `running`. Status writes that must not land late
  * are compare-and-set (`completeIfStatus`, one statement). A new thread's id comes from the
- * application's `IdGenerator` (#313). Listed in `@Application({ providers })`; needs `sqlitePath`.
+ * application's `IdGenerator` (#313). On the application's `@DatabaseStorage({ driver: SqliteDriver({ path }) })`.
  * A project subclasses it through public tokens only (#265 S70): `@Injectable({ deps:
  * [SqliteConnection, Clock, ApplicationContext, IdGenerator] })`, the same `deps` as this class.
  * It holds the Turn store privately and delegates every method to it (#895): the store's seam is

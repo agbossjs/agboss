@@ -24,12 +24,6 @@ export interface FaultDatabase {
 }
 
 // @public
-export interface FaultEnvironment {
-    readonly contract: Class;
-    readonly values: Readonly<Record<string, unknown>>;
-}
-
-// @public
 export enum FaultInvariant {
     A2ATasksOnce = "a2a-tasks-once",
     ChildrenOnce = "children-once",
@@ -96,13 +90,19 @@ export interface FaultShard {
 }
 
 // @public
+export interface FaultStorage {
+    readonly backend: string;
+    readonly settings: DriverSettings;
+}
+
+// @public
 export interface FaultStoreSet {
     // (undocumented)
     readonly businessRows: FaultBusinessRows;
-    // (undocumented)
-    readonly environment: FaultEnvironment;
     readonly providers: readonly Class[];
     readonly resolvesCommitByRetry?: boolean;
+    // (undocumented)
+    readonly storage: FaultStorage;
     readonly storeTime: FaultStoreTime;
 }
 
@@ -307,7 +307,7 @@ export function withHoldPoints<TStore extends Class>(store: TStore): TStore;
 //
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "message".
 // src/core/error-options.ts - (ae-undocumented) Missing documentation for "cause".
-// src/testing/faults/fault-stores.ts - (ae-undocumented) Missing documentation for "environment".
+// src/testing/faults/fault-stores.ts - (ae-undocumented) Missing documentation for "storage".
 // src/testing/faults/fault-stores.ts - (ae-undocumented) Missing documentation for "businessRows".
 // src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "Before".
 // src/testing/faults/hold-points.ts - (ae-undocumented) Missing documentation for "After".

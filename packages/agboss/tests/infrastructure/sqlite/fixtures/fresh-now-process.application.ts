@@ -1,23 +1,16 @@
 import { Application } from "../../../../src/application/application.js";
 import { PauseExpiration } from "../../../../src/channels/pause-expiration.js";
 import {
-  SqliteCostLedgerRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-  SqliteRateLimitRepository,
   Weekday,
   WorkingCalendar,
   WorkingWeek,
   type WorkingCalendarHandler,
   type WorkingCalendarContext,
 } from "../../../../src/index.js";
-import { SqliteCheckpointSaver } from "../../../../src/internal.js";
 import { seconds } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { workingParts } from "../../../flow/fixtures/working-time-app.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 
 /**
  * #1148 — one question role with a plain 2 s deadline and a working calendar that really takes 3 s once
@@ -58,19 +51,9 @@ export const desk = workingParts("real-fresh-now", {
 @Application({
   name: "sqlite-fresh-now-process-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage(),
   workflows: [desk.workflow],
   budgets: TEST_BUDGETS,
-  providers: [
-    desk.channel,
-    RealSlowCalendar,
-    SqliteExecutionLeaseRepository,
-    SqliteExecutionRecordRepository,
-    SqlitePausedExecutionRepository,
-    SqliteCheckpointSaver,
-    SqliteCostLedgerRepository,
-    SqliteExecutionTreeRepository,
-    SqliteRateLimitRepository,
-  ],
+  providers: [desk.channel, RealSlowCalendar],
 })
 export class SqliteFreshNowProcessApplication {}

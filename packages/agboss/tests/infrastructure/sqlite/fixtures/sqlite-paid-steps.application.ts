@@ -1,11 +1,10 @@
 import { SqliteCostLedgerRepository } from "../../../../src/index.js";
-import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { PaidHoldWorkflow } from "../../../budgets/fixtures/paid-launches.workflow.js";
 import { PaidFinishWorkflow } from "../../../budgets/fixtures/paid-steps.workflow.js";
 import { PaidStepsLog } from "../../../budgets/fixtures/paid-steps.actions.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 
 /**
  * #634 — a held order and an overspend on one SQLite file's ledger: each instance its own
@@ -14,9 +13,8 @@ import { SqliteTestEnvironment } from "./environments/app.environment.js";
 @Application({
   name: "sqlite-paid-steps-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({ only: [SqliteCostLedgerRepository] }),
   workflows: [PaidHoldWorkflow, PaidFinishWorkflow],
-  providers: [SqliteCostLedgerRepository, SqliteConnection],
   observers: [PaidStepsLog],
   budgets: TEST_BUDGETS,
 })

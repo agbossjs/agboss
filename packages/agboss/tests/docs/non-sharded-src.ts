@@ -371,8 +371,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/application/instance-seams.ts",
       "src/application/instance-timers.ts",
       "src/application/kept-alive-app.ts",
-      "src/application/key-field-rules.ts",
-      "src/application/key-variables.ts",
       "src/application/lease-gate.ts",
       "src/application/listed-providers.ts",
       "src/application/pause-masks.ts",

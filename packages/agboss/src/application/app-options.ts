@@ -3,7 +3,6 @@ import { shownValueOf } from "../core/shown-value.js";
 
 /** The options `createApp` takes (#834): a JavaScript caller's other keys are refused, never ignored. */
 const APP_OPTIONS: readonly (keyof CreateAppOptions)[] = [
-  "env",
   "profile",
   "meterProvider",
   "tracerProvider",
@@ -60,7 +59,6 @@ export function productionOptionsOf(options: unknown): CreateAppOptions {
     // a library takes no signals unasked (the CLI asks)
     handleSignals: given.handleSignals ?? false,
     ...(given.processEnv === undefined ? {} : { processEnv: given.processEnv }),
-    ...(given.env === undefined ? {} : { env: given.env }),
     ...(given.profile === undefined ? {} : { profile: given.profile }),
     ...(given.meterProvider === undefined ? {} : { meterProvider: given.meterProvider }),
     ...(given.tracerProvider === undefined ? {} : { tracerProvider: given.tracerProvider }),

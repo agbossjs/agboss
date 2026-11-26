@@ -26,7 +26,7 @@ const ValueRow = z.object({ value: z.string() });
  * `ExecutionTreeRepository` on the application's SQLite file (#265, S32): one row per key of a
  * tree, the value as JSON. `saveIfAbsentInTree` is one `INSERT OR IGNORE` in a `BEGIN IMMEDIATE`
  * transaction, so of two instances on one file saving one key exactly one gets `true`. Listed in
- * `@Application({ providers })`; needs `sqlitePath`.
+ * the application's `@DatabaseStorage({ driver: SqliteDriver({ path }) })`.
  */
 @Injectable({ deps: [SqliteConnection] })
 export class SqliteExecutionTreeRepository extends ExecutionTreeRepository {

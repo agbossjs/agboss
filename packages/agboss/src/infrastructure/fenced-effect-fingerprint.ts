@@ -60,9 +60,9 @@ export const FINGERPRINT_LABEL = "agboss/fingerprint/v1";
 
 /** The idempotency keys a step's fingerprints are made under (#825): the current, the previous. */
 export interface FingerprintKeys {
-  /** `@Application({ idempotencyKeyField })`'s value: what every fingerprint is stored under. */
+  /** `@DatabaseStorage({ idempotencySecret })`'s value: what every fingerprint is stored under. */
   readonly current: string;
-  /** `previousIdempotencyKeyField`'s value during a rotation: what older rows are matched by. */
+  /** `previousIdempotencySecret`'s value during a rotation: what older rows are matched by. */
   readonly previous?: string | undefined;
 }
 
@@ -81,7 +81,7 @@ const digestUnder = (key: string, text: string): string =>
  * application's idempotency key — the same in every execution and on every instance, so a business
  * key's calls compare across them, and no guessable request can be found from a stored one — and,
  * during a rotation, the same under the previous key (`previousFingerprint`, matched, never stored).
- * No key in the step (no `idempotencyKeyField`, or outside a step) → `IdempotencyError.SecretKeyMissing`:
+ * No key in the step (no `idempotencySecret`, or outside a step) → `IdempotencyError.SecretKeyMissing`:
  * never an unkeyed digest.
  */
 export function fingerprintsOf(value: unknown, name: string): KeyFingerprints {

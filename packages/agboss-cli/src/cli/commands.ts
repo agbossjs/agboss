@@ -5,11 +5,10 @@
 import {
   APPLICATION,
   DRY_RUN,
-  ENV,
   flag,
   RAG_INDEX_OPTIONS,
   PROFILE,
-  PROFILE_AND_ENV,
+  PROFILE_OPTIONS,
   START,
   text,
   THREAD,
@@ -28,14 +27,13 @@ import { HUB_COMMAND } from "./hub-commands.js";
 const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   chat: {
     summary: "interactive chat with a workflow of the application",
-    usage:
-      "agboss chat [--start <name>] [--thread <id>] [--profile <name>] [--env <name>] [--application <path>]",
-    options: [START, APPLICATION, THREAD, PROFILE, ENV],
+    usage: "agboss chat [--start <name>] [--thread <id>] [--profile <name>] [--application <path>]",
+    options: [START, APPLICATION, THREAD, PROFILE],
   },
   run: {
     summary: "one execution of a start, the reply to stdout",
     usage:
-      'agboss run [--start <name>] ("<task>" | --input <json> | --input-file <file>) [--thread <id>] [--profile <name>] [--env <name>]',
+      'agboss run [--start <name>] ("<task>" | --input <json> | --input-file <file>) [--thread <id>] [--profile <name>]',
     positionals: "<task…> (a start taking WorkflowStartTextDto)",
     options: [
       START,
@@ -43,7 +41,7 @@ const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       text("input-file", "<file>", "the start's input from a JSON file"),
       APPLICATION,
       THREAD,
-      ...PROFILE_AND_ENV,
+      ...PROFILE_OPTIONS,
     ],
   },
   eval: EVAL_COMMAND,
@@ -55,7 +53,7 @@ const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       APPLICATION,
       text("version", "<v>", "the prompt version to replay", { required: true }),
       text("limit", "N", "how many tasks", { default: "100" }),
-      ...PROFILE_AND_ENV,
+      ...PROFILE_OPTIONS,
     ],
   },
   golden: {
@@ -67,7 +65,7 @@ const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       APPLICATION,
       text("name", "<name>", "the set: golden/<workflow>/<name>.yaml", { required: true }),
       text("from-last", "N", "how many recent tasks", { default: "20" }),
-      ...PROFILE_AND_ENV,
+      ...PROFILE_OPTIONS,
     ],
   },
   compare: {
@@ -81,7 +79,6 @@ const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       }),
       text("golden", "<name>", "the tasks of a golden set"),
       text("last", "N", "or the last N real tasks", { default: "20" }),
-      ENV,
     ],
   },
 };
@@ -91,39 +88,39 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   describe: {
     summary:
       "every workflow: agents, their tools, knowledge bases and settings (no API key needed)",
-    usage: "agboss describe [--profile <name>] [--env <name>] [--application <path>] [--json]",
-    options: [APPLICATION, PROFILE, ENV],
+    usage: "agboss describe [--profile <name>] [--application <path>] [--json]",
+    options: [APPLICATION, PROFILE],
   },
   check: CHECK_COMMAND,
   dev: {
     summary: "watch mode: the types regenerated and the problems printed on every change",
-    usage: "agboss dev [--strict] [--profile <name>] [--env <name>] [--application <path>]",
+    usage: "agboss dev [--strict] [--profile <name>] [--application <path>]",
     options: [
       APPLICATION,
       flag("strict", "the analyser's warnings are errors, as in agboss check --strict"),
-      ...PROFILE_AND_ENV,
+      ...PROFILE_OPTIONS,
     ],
   },
   studio: {
     summary: "LangGraph Studio on every workflow of the application, children inside their parent",
-    usage: "agboss studio [--port N] [--profile <name>] [--env <name>] [--application <path>]",
+    usage: "agboss studio [--port N] [--profile <name>] [--application <path>]",
     options: [
       APPLICATION,
       text("port", "N", "the port of the local Studio server", { default: "2024" }),
-      ...PROFILE_AND_ENV,
+      ...PROFILE_OPTIONS,
     ],
   },
   rag: {
     summary: "build / update the application's knowledge bases",
     usage:
-      "agboss rag index [--rag <name>] [--tenant <id>] [--scope <id>] [--profile <name>] [--env <name>] [--application <path>]",
+      "agboss rag index [--rag <name>] [--tenant <id>] [--scope <id>] [--profile <name>] [--application <path>]",
     positionals: "index",
     options: RAG_INDEX_OPTIONS,
   },
   executions: {
     summary: "export the application's kept execution records as JSON Lines (masked)",
     usage:
-      "agboss executions export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--profile <name>] [--env <name>] [--application <path>]",
+      "agboss executions export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--profile <name>] [--application <path>]",
     positionals: "export",
     options: [
       APPLICATION,
@@ -132,7 +129,7 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
       text("out", "<file.jsonl>", "where to write them, one record per line", { required: true }),
       text("since", "<date>", "records started at or after this ISO 8601 date or time"),
       text("until", "<date>", "records started before this ISO 8601 date or time"),
-      ...PROFILE_AND_ENV,
+      ...PROFILE_OPTIONS,
     ],
   },
   hub: HUB_COMMAND,

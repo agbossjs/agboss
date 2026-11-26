@@ -90,7 +90,7 @@ export class ImportTable {
     return this.ref(component);
   }
 
-  /** Like `ref`, for a class the file imports but never brands (an environment contract, #261). */
+  /** Like `ref`, for a class the file imports but never brands (a context class, #261). */
   refPlain(component: Class): string {
     this.plain.add(component);
     return this.ref(component);

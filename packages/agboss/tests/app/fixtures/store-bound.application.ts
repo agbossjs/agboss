@@ -3,7 +3,6 @@ import { InMemoryExecutionLeaseRepository } from "../../../src/infrastructure/ex
 import { Application } from "../../../src/application/application.js";
 import { withHoldPoints } from "../../../src/testing/faults/held-stores.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
 import {
   ChargeWorkflow,
@@ -21,7 +20,6 @@ export const HeldFencedEffects = withHoldPoints(InMemoryFencedEffectRepository);
 @Application({
   name: "store-bound-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChargeWorkflow, DoubleChargeWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],

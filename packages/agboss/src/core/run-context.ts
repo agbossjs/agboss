@@ -42,8 +42,8 @@ export interface RunContext {
    */
   readonly correlationKey?: string | undefined;
   /**
-   * The application's idempotency keys (#825, `idempotencyKeyField` and the previous one): what a
-   * business key's fingerprint is keyed by. None without `idempotencyKeyField`.
+   * The application's idempotency keys (#825, #1317, `idempotencySecret` and the previous one): what a
+   * business key's fingerprint is keyed by. None without `idempotencySecret`.
    */
   readonly fingerprintKeys?: FingerprintKeys | undefined;
   /**

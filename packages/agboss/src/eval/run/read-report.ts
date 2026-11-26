@@ -113,7 +113,6 @@ const ReportSchema: z.ZodType<EvalRunReport> = z.looseObject({
   workflow: ComponentSchema,
   configHash: z.string(),
   start: z.string(),
-  environment: z.string(),
   runs: z.number().int().positive(),
   cascade: z.enum(EvalCascade),
   startedAt: DateSchema,

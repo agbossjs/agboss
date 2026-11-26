@@ -1,10 +1,11 @@
 import type { AnyTenantApp } from "../../app/types.js";
 import { InjectionToken, type Class } from "../../components/injection.js";
 import { optsOutOfLeaseCheck } from "../../infrastructure/execution-lease.repository.js";
+import type { DriverSettings } from "../../storage/storage-driver.js";
 
 /**
  * The store set a fault suite runs on (#484 AC4): what a store author's module exports as
- * `faultStores` — the store classes as an application lists them, the environment they read, and
+ * `faultStores` — the store classes as an application lists them, the database they are on, and
  * how the fixture's charge writes its business row in the fenced effect's transaction and reads
  * the committed rows back. Every pod imports the module and lists the stores, the fencing ones
  * and the child queue with their hold points (`withHoldPoints`).
@@ -18,15 +19,18 @@ export interface FaultBusinessRows {
   committed(app: AnyTenantApp): Promise<readonly string[]>;
 }
 
-/** The environment the stores read: the contract, and its values with the database's address. */
-export interface FaultEnvironment {
-  /** The contract class (`@Application({ environment })`): every field a store reads. */
-  readonly contract: Class;
+/**
+ * The database the stores are on, as the pod's `@DatabaseStorage` driver is made of it: the stores'
+ * connection reads its address from these settings and nowhere else.
+ */
+export interface FaultStorage {
+  /** The backend its stores declare (`static store = { backend }`): `"sqlite"`, `"postgres"`, … */
+  readonly backend: string;
   /**
-   * The values, as an environment file's (`env(…)`, `secret(…)`): the database's address is the
-   * process variable `AGBOSS_FAULT_DATABASE_URL` — `secret("AGBOSS_FAULT_DATABASE_URL")`.
+   * The driver's options, `kind` first, the database's address a reference the pod resolves from
+   * its process: `{ kind: "sqlite", path: env("AGBOSS_FAULT_DATABASE_URL") }`, or a `secret(…)`.
    */
-  readonly values: Readonly<Record<string, unknown>>;
+  readonly settings: DriverSettings;
 }
 
 /**
@@ -55,7 +59,7 @@ export interface FaultStoreSet {
    * processes, so each must be listed).
    */
   readonly providers: readonly Class[];
-  readonly environment: FaultEnvironment;
+  readonly storage: FaultStorage;
   readonly businessRows: FaultBusinessRows;
   /**
    * The time the fencing stores (leases, fenced effects, outbound calls) decide by (#799): the

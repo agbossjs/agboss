@@ -9,7 +9,6 @@ import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
  * replay of the same step names no other; the async-work error has its name.
  */
 import { describe, expect, it } from "vitest";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import {} from "../../../src/app/lease-lost.js";
 import { IdempotencyRunStatus } from "../../../src/infrastructure/fenced-effect.repository.js";
@@ -92,8 +91,7 @@ function storesOnContext() {
     version: "1.0.0",
     instanceId: "instance-1",
     startedAt: new Date(0),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
 }
 

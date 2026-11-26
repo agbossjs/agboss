@@ -1,9 +1,7 @@
-import type { Class, Environment } from "@agboss/core";
+import type { Class } from "@agboss/core";
 import type { AssembledWorkflow } from "@agboss/core/internal";
 import {
   applicationOf,
-  environmentFor,
-  environmentOwnerOf,
   loadApplicationClass,
   startsOfApplication,
   type ApplicationStart,
@@ -11,7 +9,6 @@ import {
 } from "@agboss/core/internal";
 import { applicationPathOf, type ApplicationPath } from "./application-path.js";
 import { loadOptions, type CommandContext } from "./context.js";
-import { envOption } from "./environment.js";
 import { loadProjectEnv } from "./project-env.js";
 import { startOf } from "./start-choice.js";
 
@@ -70,10 +67,3 @@ export function workflowOfStart(
     throw new Error(`${start.workflow} is not assembled in ${assembled.name}`);
   return found;
 }
-
-/** The `--env` environment of the assembled application, resolved against the CLI's process env. */
-export const applicationEnvironment = (
-  context: CommandContext,
-  assembled: AssembledApplication,
-): Promise<Environment | undefined> =>
-  environmentFor(environmentOwnerOf(assembled), { env: envOption(context) }, context.io.env);

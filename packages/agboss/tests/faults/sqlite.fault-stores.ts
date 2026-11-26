@@ -31,11 +31,6 @@ import { FaultStoreTime, type FaultStoreSet } from "../../src/testing/faults/ind
 /** The table of the fixture's business rows. */
 const BUSINESS_ROWS = "CREATE TABLE IF NOT EXISTS fault_business_rows (row TEXT NOT NULL)";
 
-/** The environment the SQLite stores read: the file every pod opens. */
-export class SqliteFaultEnvironment {
-  sqlitePath!: string;
-}
-
 export const sqliteFaultStoreClasses = [
   SqliteConnection,
   SqliteCheckpointSaver,
@@ -57,9 +52,10 @@ export const faultStores: FaultStoreSet = {
   providers: sqliteFaultStoreClasses,
   // the SQLite stores read the pod's clock: the history runs at the suite's timeScale (#799)
   storeTime: FaultStoreTime.Host,
-  environment: {
-    contract: SqliteFaultEnvironment,
-    values: { sqlitePath: env("AGBOSS_FAULT_DATABASE_URL") },
+  // the file every pod opens: the stores read it from the storage's `SqliteDriver` settings
+  storage: {
+    backend: "sqlite",
+    settings: { kind: "sqlite", path: env("AGBOSS_FAULT_DATABASE_URL") },
   },
   businessRows: {
     insert: (row) => {

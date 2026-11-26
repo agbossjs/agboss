@@ -6,8 +6,8 @@ import { sec, type Milliseconds } from "../units/index.js";
  * driver's options with every `env(…)` / `secret(…)` reference replaced by its value, resolved once,
  * when the application starts. A connection class (`SqliteConnection`, a store package's own) lists
  * the token of its role in `deps` and checks `kind` — the driver that made them — before it reads a
- * field; `undefined` is an application that names no storage component (the environment's fields
- * are then read, until they are removed).
+ * field; `undefined` is an application that names no storage component — a store that needs one
+ * then fails the start, naming the storage to declare.
  */
 export interface ResolvedSettings {
   /** The driver that made them: `"sqlite"`, `"postgres"`, `"s3"`, … */

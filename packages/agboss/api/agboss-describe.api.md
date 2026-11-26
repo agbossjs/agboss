@@ -211,10 +211,6 @@ export interface DescribedApplication {
     // (undocumented)
     readonly channels: readonly DescribedChannel[];
     readonly contracts: ApplicationContracts;
-    readonly environment?: {
-        readonly name: string;
-        readonly fields: Readonly<Record<string, string>>;
-    };
     // (undocumented)
     readonly executionBudgets: readonly DescribedExecutionBudget[];
     // (undocumented)

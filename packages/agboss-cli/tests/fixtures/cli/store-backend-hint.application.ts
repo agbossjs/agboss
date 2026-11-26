@@ -2,7 +2,6 @@ import { Application } from "../../../../agboss/src/index.js";
 import { TEST_BUDGETS } from "../../../../agboss/tests/flow/fixtures/budgets.js";
 import { TestWorkflow } from "../../../../agboss/tests/fixtures/test-workflow/test.workflow.js";
 import { PostgresEffects } from "../../../../agboss/tests/application/fixtures/store-backends.fixture.js";
-import { SqliteTestEnvironment } from "../../../../agboss/tests/infrastructure/sqlite/fixtures/environments/app.environment.js";
 import { TestModelProvider } from "../../../../agboss/src/testing/test-model-provider.js";
 
 /**
@@ -13,7 +12,6 @@ import { TestModelProvider } from "../../../../agboss/src/testing/test-model-pro
   modelProvider: TestModelProvider,
   name: "store-backend-hint-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
   workflows: [TestWorkflow],
   providers: [PostgresEffects],
   budgets: TEST_BUDGETS,

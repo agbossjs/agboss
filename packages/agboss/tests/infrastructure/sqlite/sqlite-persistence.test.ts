@@ -2,17 +2,13 @@
  * #265 PR 3 (#261 S49 b): with the SQLite implementations listed, what one process wrote is there
  * for the next — a thread is continued after a restart (`--thread`), and a workflow run on its own
  * (`agboss eval` / `replay` / `golden`, `createAppDeps`) reads its application's records from the
- * file. Nothing is written outside `sqlitePath`.
+ * file. Nothing is written outside the storage's `SqliteDriver` path.
  */
 import { readdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { beforeEach, describe, expect } from "vitest";
 import { createAppDeps } from "../../../src/app/app-deps.js";
-import {
-  environmentOwnerOfWorkflow,
-  workflowInApplication,
-} from "../../../src/application/workflow-application.js";
-import { environmentFor } from "../../../src/environments/load.js";
+import { workflowInApplication } from "../../../src/application/workflow-application.js";
 import { replyWith, testWith } from "../../../src/testing/index.js";
 import { ScriptBook } from "../../../src/testing/script-book.js";
 import { createScriptedGateway } from "../../../src/testing/scripted-gateway.js";
@@ -55,13 +51,7 @@ describe("#265 PR 3: records persist across processes on the SQLite file", () =>
         threadId: first.threadId,
       },
     );
-    const environment = await environmentFor(
-      environmentOwnerOfWorkflow(NoteWorkflow),
-      { env: "test" },
-      process.env,
-    );
     const standalone = await createAppDeps(await workflowInApplication(NoteWorkflow), {
-      ...(environment === undefined ? {} : { environment }),
       gateway: createScriptedGateway(new ScriptBook()),
     });
     const records = await standalone.turns.lastTurns(first.tenantId, first.threadId, 10);
@@ -72,7 +62,7 @@ describe("#265 PR 3: records persist across processes on the SQLite file", () =>
     expect(records.map((record) => record.status)).toEqual(["answered", "answered"]);
   });
 
-  test("nothing is written outside sqlitePath: its folder holds the file and its WAL only", async ({
+  test("nothing is written outside the SQLite path: its folder holds the file and its WAL only", async ({
     app,
     mockModel,
   }) => {

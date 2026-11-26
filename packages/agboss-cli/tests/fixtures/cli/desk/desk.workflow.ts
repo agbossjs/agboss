@@ -20,7 +20,6 @@ import {
 } from "../../../../../agboss/tests/flow/fixtures/data-dtos.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
 import { onStart } from "../../../../../agboss/tests/helpers/flow.js";
-import { DeskEnvironment } from "./environments/app.environment.js";
 import { TestModelProvider } from "../../../../../agboss/src/testing/test-model-provider.js";
 
 @WorkflowStart({
@@ -153,7 +152,6 @@ export class ScreeningWorkflow {}
   name: "desk-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: DeskEnvironment,
   workflows: [InboxWorkflow, ScreeningWorkflow],
   budgets: TEST_BUDGETS,
 })

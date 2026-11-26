@@ -9,7 +9,7 @@ import { HeldCancelApplication } from "./held-cancel.application.js";
 
 const [operation, id] = process.argv.slice(2);
 if (id === undefined) throw new Error("usage: cancel <threadId> | resume <pauseId>");
-const app = await createApp(HeldCancelApplication, { env: "dev" });
+const app = await createApp(HeldCancelApplication, {});
 if (operation === "extend") {
   const extension = await app.setPauseTimeout(
     { pauseId: id, timeout: hours(5) },

@@ -9,31 +9,9 @@ import { afterAll } from "vitest";
 import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
 import { LocalDiskFileRepository } from "../../src/infrastructure/local-disk-file.repository.js";
 import { fileContract } from "../../src/testing/contracts/index.js";
-import { resolveEnvironment } from "../../src/environments/resolve.js";
-import {
-  applicationContextOf,
-  type ApplicationContext,
-} from "../../src/flow/context/application-context.js";
 import { inMemoryTarget } from "./contracts/store-kinds.js";
 
 fileContract(inMemoryTarget(({ database }) => new InMemoryFileRepository(database)));
-
-/** An application context of this environment, as an instance makes one. */
-const contextOf = (
-  values: Record<string, unknown>,
-  processEnv: NodeJS.ProcessEnv = {},
-): ApplicationContext =>
-  applicationContextOf({
-    name: "files-application",
-    version: "1.0.0",
-    instanceId: "instance-1",
-    startedAt: new Date("2026-01-05T09:00:00.000Z"),
-    environmentName: "test",
-    environment: resolveEnvironment(
-      { name: "test", contract: "FilesEnvironment", values },
-      processEnv,
-    ),
-  });
 
 const folders: string[] = [];
 let folder = "";
@@ -47,5 +25,5 @@ fileContract({
     folder = mkdtempSync(join(tmpdir(), "agboss-a2a-files-"));
     folders.push(folder);
   },
-  instance: () => new LocalDiskFileRepository(contextOf({ a2aFilesPath: folder })),
+  instance: () => new LocalDiskFileRepository({ kind: "local-disk", directory: folder }),
 });

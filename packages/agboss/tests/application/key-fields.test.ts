@@ -1,12 +1,8 @@
 /**
- * #825 AC6, AC7, #1317 — the application's key fields and the storage's idempotency key.
- * `piiKeyField` names a `Secret` field of the environment contract (a typo or a text field does not
- * compile; a field the contract lacks is `[environment.missing-field]` for a JavaScript caller); it
- * is no other key — a model provider's `apiKey` (the built-ins' `openRouterApiKey` when none is
- * listed), a `Secret` a listed class reads (`[application.pii-key-shared]`).
- * The idempotency key is the database storage's `idempotencySecret` (`[storage.secret-shared]` when
- * it shares a variable): an application with a database storage whose components can write under
- * a business key names it (`[application.idempotency-key-required]`).
+ * #825 AC6, AC7, #1317, #1324b — the application's keys are the database storage's secrets: its
+ * `idempotencySecret` and `piiSecret` (`[storage.secret-shared]` when two share a variable). An
+ * application with a database storage whose components can write under a business key names its
+ * `idempotencySecret` (`[application.idempotency-key-required]`).
  */
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
@@ -19,7 +15,6 @@ import { createAppWith } from "../../src/application/create-app.js";
 import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
 import { Application } from "../../src/application/application.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
-import type { Secret } from "../../src/index.js";
 import {
   BookOrderWorkflow,
   ChargeOrderWorkflow,
@@ -65,14 +60,6 @@ class PlainFinish {}
 })
 class PlainWorkflow {}
 
-/** The contract of these applications: Secret fields, and one text field. */
-class KeysEnvironment {
-  openRouterApiKey?: Secret;
-  piiKeyOne?: Secret;
-  meshSigningKey?: Secret;
-  label?: string;
-}
-
 /** A database storage on a temporary SQLite file; `keyed` names its idempotency secret. */
 const storageOf = (name: string, keyed: boolean) => {
   @DatabaseStorage({
@@ -94,7 +81,6 @@ async function violationsOf(options: Partial<ApplicationOptions>): Promise<reado
   @Application({
     name: "keys-application",
     version: "1.0.0",
-    environment: KeysEnvironment,
     workflows: [BookOrderWorkflow],
     storage: KEYED,
     budgets: TEST_BUDGETS,
@@ -149,7 +135,6 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
       name: "in-memory-application",
       modelProvider: TestModelProvider,
       version: "1.0.0",
-      environment: KeysEnvironment,
       workflows: [BookOrderWorkflow],
       budgets: TEST_BUDGETS,
     })
@@ -164,7 +149,6 @@ describe("#825 AC7: an idempotency key where business keys can be made", () => {
     @Application({
       name: "in-memory-test-application",
       version: "1.0.0",
-      environment: KeysEnvironment,
       workflows: [BookOrderWorkflow],
       budgets: TEST_BUDGETS,
     })
@@ -294,36 +278,7 @@ describe("#825 AC6, AC7: no key is another key", () => {
   });
 
   it("keys of their own: none of the rules", async () => {
-    expect(await codesOf({ piiKeyField: "piiKeyOne" })).toEqual([]);
-  });
-
-  it("a field the contract lacks (a JavaScript caller): [environment.missing-field], naming the option", async () => {
-    expect(
-      await violationsOf({
-        piiKeyField: "piiKey",
-      }),
-    ).toEqual([
-      "[environment.missing-field] @Application piiKeyField needs piiKey: Secret in KeysEnvironment",
-    ]);
-  });
-});
-
-describe("#825 AC6: only a Secret field of the contract compiles", () => {
-  it("a text field, a typo or a field of no contract does not compile", () => {
-    const declare = () => {
-      @Application({
-        name: "typed-application",
-        version: "1.0.0",
-        environment: KeysEnvironment,
-        workflows: [],
-        // @ts-expect-error — label is a text field, not a Secret
-        piiKeyField: "label",
-      })
-      class TypedApplication {}
-      return TypedApplication;
-    };
-
-    expect(declare).toBeTypeOf("function");
+    expect(await codesOf({})).toEqual([]);
   });
 });
 
@@ -345,7 +300,6 @@ describe("#1317d: an idempotency secret that is named must resolve", () => {
     @Application({
       name: "optional-secret-application",
       version: "1.0.0",
-      environment: KeysEnvironment,
       workflows,
       budgets: TEST_BUDGETS,
       storage: optionalStorage(),
@@ -358,7 +312,7 @@ describe("#1317d: an idempotency secret that is named must resolve", () => {
     const assembled = await assembledWith([BookOrderWorkflow]);
 
     for (const env of [{}, { OPTIONAL_IDEMPOTENCY: "" }])
-      expect(() => applicationIdempotencyKeysOf(assembled, {} as never, env)).toThrow(
+      expect(() => applicationIdempotencyKeysOf(assembled, env)).toThrow(
         IdempotencyError.SecretKeyMissing,
       );
   });
@@ -367,10 +321,10 @@ describe("#1317d: an idempotency secret that is named must resolve", () => {
     const assembled = await assembledWith([BookOrderWorkflow]);
     const plain = await assembledWith([PlainWorkflow]);
 
-    expect(
-      applicationIdempotencyKeysOf(assembled, {} as never, { OPTIONAL_IDEMPOTENCY: "one" }),
-    ).toEqual({ fingerprintKeys: { current: "one" } });
-    expect(() => applicationIdempotencyKeysOf(plain, {} as never, {})).not.toThrow();
+    expect(applicationIdempotencyKeysOf(assembled, { OPTIONAL_IDEMPOTENCY: "one" })).toEqual({
+      fingerprintKeys: { current: "one" },
+    });
+    expect(() => applicationIdempotencyKeysOf(plain, {})).not.toThrow();
   });
 });
 
@@ -379,7 +333,6 @@ describe("#1317b: the test's idempotency keys are for tests only", () => {
     @Application({
       name: "test-keys-application",
       version: "1.0.0",
-      environment: KeysEnvironment,
       workflows: [BookOrderWorkflow],
       budgets: TEST_BUDGETS,
       storage: KEYED,
@@ -392,7 +345,6 @@ describe("#1317b: the test's idempotency keys are for tests only", () => {
     @Application({
       name: "no-secret-application",
       version: "1.0.0",
-      environment: KeysEnvironment,
       workflows: [BookOrderWorkflow],
       budgets: TEST_BUDGETS,
     })
@@ -404,26 +356,25 @@ describe("#1317b: the test's idempotency keys are for tests only", () => {
   it("createAppWith with a declared secret whose variable is not set fails the start — no fallback key", async () => {
     const { TestKeysApplication } = await keyedApplication();
 
-    await expect(
-      createAppWith(TestKeysApplication, { env: "test", processEnv: {} }),
-    ).rejects.toThrow("KEYS_TEST_IDEMPOTENCY is not set");
+    await expect(createAppWith(TestKeysApplication, { processEnv: {} })).rejects.toThrow(
+      "KEYS_TEST_IDEMPOTENCY is not set",
+    );
   });
 
   it("the keys of a test: a declared secret's unset variable gets them in the test's environment; the variable set is used as it is", async () => {
     const { assembled } = await keyedApplication();
 
-    expect(applicationIdempotencyKeysOf(assembled, {} as never, {}, TEST_IDEMPOTENCY_KEYS)).toEqual(
-      { fingerprintKeys: { current: TEST_IDEMPOTENCY_KEYS.current } },
-    );
+    expect(applicationIdempotencyKeysOf(assembled, {}, TEST_IDEMPOTENCY_KEYS)).toEqual({
+      fingerprintKeys: { current: TEST_IDEMPOTENCY_KEYS.current },
+    });
     expect(
       applicationIdempotencyKeysOf(
         assembled,
-        {} as never,
         { KEYS_TEST_IDEMPOTENCY: "real" },
         TEST_IDEMPOTENCY_KEYS,
       ),
     ).toEqual({ fingerprintKeys: { current: "real" } });
-    expect(() => applicationIdempotencyKeysOf(assembled, {} as never, {})).toThrow(
+    expect(() => applicationIdempotencyKeysOf(assembled, {})).toThrow(
       "KEYS_TEST_IDEMPOTENCY is not set",
     );
   });
@@ -432,15 +383,10 @@ describe("#1317b: the test's idempotency keys are for tests only", () => {
     const { assembled } = await keyedApplication();
 
     expect(() =>
-      applicationIdempotencyKeysOf(
-        assembled,
-        {} as never,
-        { NODE_ENV: "production" },
-        TEST_IDEMPOTENCY_KEYS,
-      ),
+      applicationIdempotencyKeysOf(assembled, { NODE_ENV: "production" }, TEST_IDEMPOTENCY_KEYS),
     ).toThrow(IdempotencyError.SecretKeyMissing);
     expect(
-      applicationIdempotencyKeysOf(assembled, {} as never, {
+      applicationIdempotencyKeysOf(assembled, {
         NODE_ENV: "production",
         KEYS_TEST_IDEMPOTENCY: "real",
       }),

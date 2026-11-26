@@ -137,7 +137,7 @@ const EFFECT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/u;
 /**
  * A business key's handle (#508): 12 hex characters of an HMAC-SHA256 of `business-key\0<key>` under
  * a subkey derived from the PII key of the execution running now (its own, #334, else the
- * application's `piiKeyField`) — a business key is guessable (`order:42`), so never a plain hash,
+ * application's `piiSecret`) — a business key is guessable (`order:42`), so never a plain hash,
  * and never the key's PII token either. `undefined` where no key is available.
  */
 export function businessKeyHashOf(businessKey: string): string | undefined {

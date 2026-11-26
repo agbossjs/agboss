@@ -26,72 +26,53 @@ Each store extends one core contract and is listed in `@Application({ providers 
 in-memory default or the SQLite store — nothing else of the application changes:
 
 ```ts no-check: @agboss/postgres is a package of agbossjs/postgres, not installed in this repository
-import { Application, secret, type Secret } from "@agboss/core";
+import { Application, DatabaseStorage, secret } from "@agboss/core";
 import { hours } from "@agboss/core/units";
-import {
-  PostgresCheckpointSaver,
-  PostgresChildExecutionQueueRepository,
-  PostgresCostLedgerRepository,
-  PostgresExecutionHistoryRepository,
-  PostgresExecutionAuditLogRepository,
-  PostgresExecutionLeaseRepository,
-  PostgresExecutionRecordRepository,
-  PostgresExecutionTreeRepository,
-  PostgresFencedEffectRepository,
-  PostgresMeshRequestRepository,
-  PostgresOutboundCallRepository,
-  PostgresPausedExecutionRepository,
-  PostgresRateLimitRepository,
-} from "@agboss/postgres";
+import { PostgresDriver } from "@agboss/postgres";
 
-// environments/app.environment.ts
-export class AppEnvironment {
-  postgresUrl!: Secret; // required as soon as one PostgreSQL store is listed
-  postgresPoolSize?: number; // this instance's pool: at most this many connections, default 10
-  postgresSchemaSetup?: string; // "check" (default) or "migrate-on-start"
-}
-
-// environments/prod.environment.ts
-export const environment: AppEnvironment = {
-  postgresUrl: secret("DATABASE_URL"),
-  postgresPoolSize: 20,
-};
+// storages/desk.database-storage.ts — one storage component; the driver creates every store below
+@DatabaseStorage({
+  name: "desk-database-storage",
+  driver: PostgresDriver({ url: secret("DATABASE_URL") }),
+  auditLogTtl: hours(24 * 30),
+  ledgerEntriesTtl: hours(24 * 30),
+  piiSecret: secret("PII_PSEUDONYM_KEY"),
+})
+export class DeskDatabaseStorage {}
 
 @Application({
   name: "desk-application",
   version: "1.0.0",
-  environment: AppEnvironment,
   workflows: [DeskWorkflow],
+  storage: DeskDatabaseStorage, // none of the stores below is listed in `providers`
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   retention: { executionRecords: hours(24 * 30) }, // 30 days
-  retention: { costLedgerEntries: hours(24) }, // the ledger's entries (#771): the default, pruned by the sweep
-  providers: [
-    PostgresCheckpointSaver, // LangGraph's PostgresSaver on the shared pool
-    PostgresChildExecutionQueueRepository, // ChildPlacement.AnyWorker children
-    PostgresCostLedgerRepository, // budgets count every pod's spend
-    PostgresExecutionHistoryRepository, // agboss executions export on any pod
-    PostgresExecutionAuditLogRepository, // the audit log: app.auditLogOf
-    PostgresExecutionLeaseRepository, // one holder per tree, fenced by epoch
-    PostgresExecutionRecordRepository, // threads, records, scores, summaries
-    PostgresExecutionTreeRepository, // the shared state of one request
-    PostgresFencedEffectRepository, // a protected write once per step or business key
-    PostgresMeshRequestRepository, // a mesh request retried on another pod runs once
-    PostgresOutboundCallRepository, // Idempotency.sendOnce: intents, recovered on any pod
-    PostgresPausedExecutionRepository, // a pause answered on any pod
-    PostgresRateLimitRepository, // a provider's limits, 429 pauses and breakers across pods
-  ],
 })
 export class DeskApplication {}
 ```
 
-- **The environment.** `PostgresConnection` declares the fields it reads
-  (`@Injectable({ environmentFields })`, #511), so a contract without `postgresUrl` fails the
-  application's assembly with `[environment.missing-field] … needs postgresUrl: Secret in
-  AppEnvironment (read by PostgresConnection)` before anything connects; a value of the wrong kind
-  (a plain string for the URL, a pool size of 0) fails the start with `PostgresSettingsError`,
-  naming the field, never the URL. `PostgresConnection` itself need not be listed — the container
-  creates it for the stores that inject it (#526 AC8); list it only when a component of yours
-  injects it.
+The driver creates, over one `pg` pool per instance, a store for every contract:
+`PostgresCheckpointSaver` (LangGraph's `PostgresSaver` on the shared pool),
+`PostgresChildExecutionQueueRepository` (`ChildPlacement.AnyWorker` children),
+`PostgresCostLedgerRepository` (budgets count every pod's spend), `PostgresExecutionHistoryRepository`
+(`agboss executions export` on any pod), `PostgresExecutionAuditLogRepository` (the audit log),
+`PostgresExecutionLeaseRepository` (one holder per tree, fenced by epoch),
+`PostgresExecutionRecordRepository` (threads, records, scores, summaries),
+`PostgresExecutionTreeRepository` (the shared state of one request), `PostgresFencedEffectRepository`
+(a protected write once per step or business key), `PostgresMeshRequestRepository` (a mesh request
+retried on another pod runs once), `PostgresOutboundCallRepository` (`Idempotency.sendOnce`: intents,
+recovered on any pod), `PostgresPausedExecutionRepository` (a pause answered on any pod) and
+`PostgresRateLimitRepository` (a provider's limits, 429 pauses and breakers across pods). Listing one
+of them in `providers` beside `storage` is `[storage.providers-conflict]`.
+
+- **The settings.** The connection's settings — the URL, the pool size, the schema setup — are the
+  options of the driver (`PostgresDriver({ url: secret("DATABASE_URL"), … })`), references read from the
+  process when the application starts, so a missing variable fails the start naming it
+  (`[environment.missing-variable]`, `config.environment`); a value of the wrong kind (a plain string
+  for the URL, a pool size of 0) fails the start with `PostgresSettingsError`, naming the option,
+  never the URL. With no storage the PostgreSQL stores fail the start naming the missing
+  `@DatabaseStorage`. `PostgresConnection` itself need not be listed — the container creates it for the
+  stores that inject it (#526 AC8); list it only when a component of yours injects it.
 - **One pool per instance.** Every store injects `PostgresConnection`: one `pg.Pool` per application
   instance, opened at `onInit`, ended at `onDestroy` after its stores; every store's `ping()` is one
   `SELECT 1` (`app.checkReadiness()`).
@@ -154,11 +135,10 @@ LangGraph's checkpoint tables (`PostgresSaver.setup()`), never created implicitl
   are [below](#the-checkpoint-index-962).
 - **Or in code**: `await migratePostgres({ url, signal })` → `{ schema, applied, version,
   checkpointMigrations, stepIndex }`.
-- **Or at start** with `postgresSchemaSetup: SchemaSetup.MigrateOnStart` — for a single instance or a
+- **Or at start** with the driver's schema setup `SchemaSetup.MigrateOnStart` — for a single instance or a
   development database. With migrations pending the start waits for live leases to
   lapse and fails with `PostgresLiveLeasesError` while one is live (a rolling restart over a running
-  old pod is refused); `allowLiveLeases: true` in the connection's settings, or `postgresAllowLiveLeases: true`
-  in the application's environment, overrides it. The wait is twice the longest lease the database shows
+  old pod is refused); `allowLiveLeases: true` in the driver's options overrides it. The wait is twice the longest lease the database shows
   (the lease of a running instance is renewed, so a custom lease duration is waited for too): at least a
   minute, at most ten, polled each second on the database's clock. A lease that outlasts ten minutes
   is refused: stop the old pods first.
@@ -258,8 +238,8 @@ else stops.
 
 (The platform's side — pods, grace, probes, the autoscaler's maximum: [Deploying on Kubernetes](Deploying-on-Kubernetes).)
 
-- **Count them.** Each instance opens at most `postgresPoolSize` connections (default 10); the
-  migration command two (the lock's session and LangGraph's setup). Pods × `postgresPoolSize`, plus a
+- **Count them.** Each instance opens at most the driver's pool size (default 10) connections; the
+  migration command two (the lock's session and LangGraph's setup). Pods × the pool size, plus a
   migration Job during a rollout, plus everything else on the server, must stay under its
   `max_connections` (100 by default) — a pod that cannot connect fails its operations, and the
   framework's hand-over rules apply.

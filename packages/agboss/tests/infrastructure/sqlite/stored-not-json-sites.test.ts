@@ -32,7 +32,6 @@ import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite
 import { directMessageOf } from "../../../src/infrastructure/sqlite/sqlite-a2a-direct-message-rows.js";
 import { messageOf, taskOf } from "../../../src/infrastructure/sqlite/sqlite-a2a-task-rows.js";
 import { toMailbox } from "../../../src/infrastructure/sqlite/sqlite-pause-notice-schema.js";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { businessKeyOf, keyOf } from "../../../src/testing/contracts/fenced-effect-data.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
@@ -228,8 +227,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
       version: "1.0.0",
       instanceId: "instance-1",
       startedAt: clock.now(),
-      environmentName: "test",
-      environment: NO_ENVIRONMENT_VALUES,
+      profiles: ["test"],
     });
     const effects = new SqliteFencedEffectRepository(connection, storeClockOf(clock));
     const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);
@@ -280,9 +278,7 @@ describe.each(TEXTS)("#1166: %s is the coded unreadable refusal", (_name, NOT_JS
   it("an a2a file's metadata on disk", async () => {
     const folder = mkdtempSync(join(tmpdir(), "agboss-1166-files-"));
     folders.push(folder);
-    const files = new LocalDiskFileRepository({
-      environment: { a2aFilesPath: folder },
-    } as never);
+    const files = new LocalDiskFileRepository({ kind: "local-disk", directory: folder });
     const name = (text: string) => createHash("sha256").update(text).digest("hex");
     mkdirSync(join(folder, name("default")), { recursive: true });
     writeFileSync(join(folder, name("default"), `${name("file-1")}.json`), NOT_JSON);

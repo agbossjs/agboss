@@ -4,7 +4,6 @@ import type { BuildOptions } from "../app/app-deps.js";
 import type { ExecutionOutput } from "../app/types.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
 import { buildApplication, type BuiltApplication } from "../application/create-app.js";
-import type { EnvironmentSelection } from "../environments/load.js";
 import type { Class, ServiceEntry } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
@@ -29,17 +28,26 @@ import { TestMocks } from "./test-mocks.js";
 import { reusableInfrastructure } from "../infrastructure/contracts.js";
 import { InMemoryDatabase } from "../infrastructure/in-memory-database.js";
 import { vcrGatewayOverProviders, type VcrConfig } from "./vcr.js";
-import { testKeyedEnvironmentOf, testPiiKeyOf, type TestKeyedEnvironment } from "./pii-parts.js";
+import { testKeyedProcessEnvOf, testPiiKeyOf } from "./pii-parts.js";
 import { bindingsOf } from "./services.js";
 import type { TestConcurrency } from "./concurrency/test-concurrency.js";
 import type { ProfileSelection } from "../config/profile-names.js";
 import { TEST_IDEMPOTENCY_KEYS } from "../application/idempotency-key.js";
+import { envOverridesOf, type TestEnvOverrides } from "../application/env-overrides.js";
 
 /**
- * What `testWith` takes besides the application. `env` names the environment (default `test`: a
- * test never falls back to dev's values, and fails without `test.environment.ts`).
+ * What `testWith` takes besides the application. `profile` selects the configuration (default
+ * `test`: a test never falls back to dev's values); `env` overrides `defineEnv` variables.
  */
-export interface TestWithOptions extends EnvironmentSelection, TestWithSeams {
+export interface TestWithOptions extends TestWithSeams {
+  /**
+   * `defineEnv` variables the test sets (#1324b): `env: configureEnv(appEnv, { apiUrl: "http://fake" })`,
+   * one `configureEnv` per `defineEnv`, or a list of them. They take the place of the process's
+   * variables for their keys, over what the selected profiles set; the keys left out resolve from
+   * the process. The components read them through `deps: [appEnv]`; `testApp.get(appEnv)` shows
+   * what they got.
+   */
+  readonly env?: TestEnvOverrides | undefined;
   /**
    * The tenant the test's calls run for (`ContextValues` of the application's `TenantContext`): what
    * `app.runAgent` / `runAction` / `runRouter` / `runTool` and `app.execute` use when the call names
@@ -148,7 +156,7 @@ export class TestEnvironment {
   private constructor(
     readonly assembled: AssembledApplication,
     options: TestWithOptions,
-    { named: environment, processEnv }: TestKeyedEnvironment,
+    processEnv: NodeJS.ProcessEnv,
   ) {
     this.tenant = options.tenant;
     this.clock = new VirtualClock(startOf(options.startAt));
@@ -169,7 +177,7 @@ export class TestEnvironment {
     const labels = new Map([...this.#servers].map(([cls, name]) => [name, cls.name] as const));
     this.#options = {
       processEnv,
-      ...environment,
+      envOverrides: envOverridesOf(options.env),
       // a recording builds the providers' gateway as createApp does: its transports from this
       // app's container (#439)
       ...(options.vcr
@@ -190,16 +198,15 @@ export class TestEnvironment {
   }
 
   /**
-   * Assembles the application and resolves its environment once up front (`test` unless `env`
-   * names another): every assembly error, a missing environment or variable fails the test before
-   * it runs — but a PII key's, which gets the test key (#778).
+   * Assembles the application once up front (the `test` profile unless `profile` names another):
+   * every assembly error fails the test before it runs — a PII key's missing variable excepted,
+   * which gets the test key (#778).
    */
   static async of(application: Class, options: TestWithOptions = {}): Promise<TestEnvironment> {
     const assembled = await applicationOf(application, assemblyOf(options), "testWith");
     const restricted =
       options.only === undefined ? assembled : onlyWorkflows(assembled, options.only);
-    const environment = await testKeyedEnvironmentOf(restricted, options, testEnv());
-    return new TestEnvironment(restricted, options, environment);
+    return new TestEnvironment(restricted, options, testKeyedProcessEnvOf(restricted, testEnv()));
   }
 
   /**

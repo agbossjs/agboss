@@ -13,7 +13,6 @@ import { describe, expect, it } from "vitest";
 import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { StoreError, StoreErrorKind } from "../../../src/core/error-families/store-errors.js";
 import { EXECUTION_LEASE } from "../../../src/app/lease-fence.js";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
 import { SqliteCheckpointSaver } from "../../../src/infrastructure/sqlite/sqlite-checkpoint-saver.js";
 import {
@@ -45,8 +44,7 @@ function instanceOn(path: string, instanceId: string, clock = new VirtualClock()
     version: "1.0.0",
     instanceId,
     startedAt: clock.now(),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
   return {
     connection,

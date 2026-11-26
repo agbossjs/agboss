@@ -1,14 +1,4 @@
-import {
-  ChildPlacement,
-  SqliteChildExecutionQueueRepository,
-  SqliteCostLedgerRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqlitePausedExecutionRepository,
-  SqliteRateLimitRepository,
-} from "../../../../src/index.js";
-import { SqliteCheckpointSaver } from "../../../../src/internal.js";
+import { ChildPlacement } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { ChildEventLog } from "../../../flow/runtime/fixtures/children.workflow.js";
@@ -20,7 +10,7 @@ import {
   RemoteHoldItemsWorkflow,
   RemoteReviewItemsWorkflow,
 } from "../../../flow/runtime/fixtures/remote-recovery.workflow.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 
 /**
@@ -32,7 +22,7 @@ import { TestModelProvider } from "../../../../src/testing/test-model-provider.j
   name: "remote-sqlite-application",
   modelProvider: TestModelProvider,
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage(),
   workflows: [
     RemoteItemsWorkflow,
     RemoteOneWorkflow,
@@ -43,15 +33,5 @@ import { TestModelProvider } from "../../../../src/testing/test-model-provider.j
   budgets: TEST_BUDGETS,
   executionLimits: { maxConcurrentSteps: 1 },
   defaults: { workflows: { placement: ChildPlacement.AnyWorker } },
-  providers: [
-    SqliteCheckpointSaver,
-    SqliteCostLedgerRepository,
-    SqliteExecutionLeaseRepository,
-    SqliteExecutionRecordRepository,
-    SqliteExecutionTreeRepository,
-    SqlitePausedExecutionRepository,
-    SqliteRateLimitRepository,
-    SqliteChildExecutionQueueRepository,
-  ],
 })
 export class RemoteSqliteApplication {}

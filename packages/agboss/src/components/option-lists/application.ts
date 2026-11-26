@@ -92,13 +92,11 @@ export const APPLICATION_KEYS = optionKeys<ApplicationOptions>()(
     "executionLimits",
     "isolatedWorker",
     "retention",
-    "environment",
     "tenantContext",
     "executionContext",
     "piiPolicies",
     "guardrails",
     "toolInterceptors",
-    "piiKeyField",
     "defaults",
   ],
   {

@@ -8,7 +8,7 @@ import { modelProviderOf } from "../../src/models/model-provider.decorator.js";
 import { resilientFetch } from "../../src/models/resilient-fetch.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { minutes, seconds } from "../../src/units/index.js";
-import { ENV, instanceCalls, KEYS } from "./gateway.js";
+import { ENV, instanceCalls } from "./gateway.js";
 import { TestOpenRouterProvider } from "./providers.fixture.js";
 import { completion, providerStub, type StubReply } from "./stub.js";
 import { CircuitBreakerPolicy } from "../../src/models/circuit-breaker-policy.js";
@@ -33,7 +33,7 @@ async function openedGateway(send: typeof fetch) {
   const breaker = calls.breakerOf(options.name, options.circuitBreakerPolicy ?? policy);
   for (let failure = 0; failure < 3; failure++) await breaker.recordFailure();
   const directory = ModelProviderDirectory.of([TestOpenRouterProvider]);
-  return createProviderGateway(directory, { env: ENV, environment: KEYS, calls, send });
+  return createProviderGateway(directory, { env: ENV, calls, send });
 }
 
 /** A client of one provider on one instance; two clients over one database are two instances. */
@@ -185,7 +185,7 @@ describe("AC6: the circuit breaker", () => {
     const failing = providerStub([{ status: 500 }]);
     const connection = connectionOf(
       { ...modelProviderOf(TestOpenRouterProvider), retryPolicy: undefined },
-      { env: ENV, environment: KEYS, requireKeys: false, send: failing.fetch },
+      { env: ENV, requireKeys: false, send: failing.fetch },
     );
 
     for (let n = 0; n < 4; n++) await connection.fetch(`${connection.baseUrl}/x`);

@@ -6,7 +6,7 @@ import { DeskWorkflowStart } from "../workflows/desk/desk.workflow-start.js";
 
 /**
  * The desk's eval suite (#396): run offline by `desk-application`, whose transport model answers
- * by the request — `npx agboss eval run --application src/desk.application.ts --env test` needs no
+ * by the request — `npx agboss eval run --application src/desk.application.ts` needs no
  * key and spends no money. The free checks first, then the code judge.
  */
 @EvalSuite({

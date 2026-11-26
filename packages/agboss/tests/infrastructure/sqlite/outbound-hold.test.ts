@@ -5,7 +5,6 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { SqliteOutboundCallRepository } from "../../../src/infrastructure/sqlite/sqlite-outbound-call.repository.js";
 import { keyOf, leaseOf } from "../../../src/testing/contracts/fenced-effect-data.js";
@@ -31,8 +30,7 @@ describe("hunt: outbound call markCompleted vs an open hold", () => {
       version: "1.0.0",
       instanceId: "i",
       startedAt: clock.now(),
-      environmentName: "test",
-      environment: NO_ENVIRONMENT_VALUES,
+      profiles: ["test"],
     });
     const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);
     const calls = new SqliteOutboundCallRepository(connection, storeClockOf(clock));

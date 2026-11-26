@@ -1,7 +1,6 @@
 /**
- * `env("X")` in an environment file (#261): a field read from a process variable when the app
- * starts. The file is plain data typed by the contract (`export const environment: AppEnvironment =
- * { … }`), so `env` is typed as the value it stands for — a `string`, `number` or `boolean` — and the
+ * `env("X")` in a `defineEnv` (#261, #1324): a value read from a process variable when the app
+ * starts — an `EnvRef<T>`, typed as the value it stands for (a `string`, `number` or `boolean`); the
  * framework replaces each reference with the variable's value before any component sees it.
  */
 

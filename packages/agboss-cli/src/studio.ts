@@ -34,7 +34,7 @@ function serve(context: CommandContext, line: CommandLine): Promise<number> {
 }
 
 /**
- * `agboss studio [--profile <name>] [--env <name>] [--port N] [--application <path>]` (#268 AC7) — no `studio.ts`, no
+ * `agboss studio [--profile <name>] [--port N] [--application <path>]` (#268 AC7) — no `studio.ts`, no
  * `langgraph.json` in the project: every workflow of the application in LangGraph Studio, a child
  * drawn inside its parent.
  */

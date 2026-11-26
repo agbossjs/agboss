@@ -338,25 +338,9 @@ import { seconds } from "@agboss/core/units";
 export class DecisionsModelProvider {}
 ```
 
-The application's environment declares only what the code reads through `ApplicationContext`; the keys
+The application's `defineEnv` declares only what the code reads with `deps: [appEnv]`; the keys
 and URLs of the providers are `secret(…)` / `env(…)` in their drivers, read once at start (a test sets none:
 it scripts every model).
-
-```ts file=src/environments/app.environment.ts
-export class AppEnvironment {}
-```
-
-```ts file=src/environments/dev.environment.ts
-import type { AppEnvironment } from "./app.environment.js";
-
-export const environment: AppEnvironment = {};
-```
-
-```ts file=src/environments/test.environment.ts
-import type { AppEnvironment } from "./app.environment.js";
-
-export const environment: AppEnvironment = {}; // tests script every model: no key
-```
 
 **Pinning the host (#395):** `OpenRouterRouting` (the driver's `routing`) — `order`, `only`, `ignore` (hosts by OpenRouter's
 slug, `fireworks`), `sort` (`ProviderSort`), `quantizations` (`Quantization.Bf16`, `Fp8`, …) and
@@ -652,12 +636,10 @@ import { ShopTenantContext } from "./billing/contexts/shop-tenant.context.js";
 import { BackupModelProvider } from "./billing/model-providers/backup.model-provider.js";
 import { AppOpenRouterModelProvider } from "./billing/model-providers/openrouter.model-provider.js";
 import { InvoiceWorkflow } from "./billing/workflows/invoice/invoice.workflow.js";
-import { AppEnvironment } from "./environments/app.environment.js";
 
 @Application({
   name: "billing-application",
   version: "1.0.0",
-  environment: AppEnvironment,
   tenantContext: ShopTenantContext,
   workflows: [InvoiceWorkflow],
   budgets: [
@@ -683,7 +665,7 @@ import { InvoiceWorkflowStart } from "./src/billing/workflows/invoice/invoice.wo
 -->
 
 ```ts
-const app = await createApp(BillingApplication, { env: "prod" });
+const app = await createApp(BillingApplication, { profile: "prod" });
 
 const result = await app.execute(
   InvoiceWorkflowStart,

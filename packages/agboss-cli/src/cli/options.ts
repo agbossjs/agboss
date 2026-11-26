@@ -48,14 +48,8 @@ export const THREAD: OptionSpec = {
   value: "<id>",
   help: "continue a conversation",
 };
-export const ENV: OptionSpec = {
-  name: "env",
-  type: "string",
-  value: "<name>",
-  help: "the environment: environments/<name>.environment.ts next to the application (default dev)",
-};
-/** The two that choose what an application runs on: its profiles, its environment. */
-export const PROFILE_AND_ENV: readonly OptionSpec[] = [PROFILE, ENV];
+/** The one that chooses what an application runs on: its profiles. */
+export const PROFILE_OPTIONS: readonly OptionSpec[] = [PROFILE];
 export const DRY_RUN: OptionSpec = {
   name: "dry-run",
   type: "boolean",
@@ -114,5 +108,4 @@ export const RAG_INDEX_OPTIONS: readonly OptionSpec[] = [
   INDEX_TENANT,
   INDEX_SCOPE,
   PROFILE,
-  ENV,
 ];

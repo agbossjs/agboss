@@ -70,7 +70,7 @@ describe("#481: one case's lifecycle", () => {
 
     expect(seen.map((seam) => seam.instanceId)).toEqual(["instance-1", "instance-2"]);
     expect(seen.map((seam) => seam.application.instanceId)).toEqual(["instance-1", "instance-2"]);
-    expect(seen[0]?.application.environmentName).toBe("test");
+    expect(seen[0]?.application.profiles).toEqual(["test"]);
   });
 
   it("every case starts on a new clock: time moved by one case does not reach the next", async () => {

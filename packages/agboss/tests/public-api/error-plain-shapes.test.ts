@@ -7,7 +7,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AGBossError } from "../../src/index.js";
-import { EnvironmentErrorCode } from "../../src/environments/errors.js";
 import {
   CassetteChange,
   StaleCassetteError,
@@ -29,15 +28,16 @@ describe("#906 D1: the platform classes stay", () => {
     expect(() => usd(-1)).toThrow(ConfigError.Unit);
   });
 
-  it("an environment error takes its envCode as an option and keeps it, its own code is config.environment", () => {
+  it("an environment error's code is config.environment; its message names the rule", () => {
     const environment = new ConfigError.Environment({
-      envCode: EnvironmentErrorCode.MissingVariables,
-      message: "STRIPE_KEY is not set",
+      envCode: "environment.missing-variable",
+      message: "[environment.missing-variable] STRIPE_KEY is not set",
     });
 
     expect(environment).toBeInstanceOf(AGBossError);
-    expect(environment.envCode).toBe("environment.missing-variables");
     expect(environment.code).toBe("config.environment");
+    expect(environment.message).toContain("[environment.missing-variable]");
+    expect(environment.envCode).toBe("environment.missing-variable");
   });
 
   it("a test failure's message starts with its code; its subclasses carry their facts", () => {

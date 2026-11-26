@@ -11,7 +11,6 @@ import {
   InMemoryExecutionTreeRepository,
   type ExecutionTree,
 } from "../../../src/infrastructure/execution-tree.repository.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 import { RecordingLogger } from "../../helpers/log.js";
 import { TestApplicationDailyBudget, TestTenantDailyBudget } from "../../flow/fixtures/budgets.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
@@ -57,7 +56,6 @@ export class QuietHistory extends InMemoryExecutionHistoryRepository {
 @Application({
   name: "unleased-store-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChargeWorkflow, DoubleChargeWorkflow],
   observers: [RecoveryLog],
   budgets: [TestApplicationDailyBudget, TestTenantDailyBudget, FencedExecutionBudget],

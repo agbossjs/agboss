@@ -10,7 +10,6 @@ import { executionLeasesOf } from "../../src/app/execution-leases.js";
 import { InterruptMode } from "../../src/app/interrupt-types.js";
 import { ExecutionPausedError } from "../../src/app/lease-stopped.js";
 import { watchRunningChild } from "../../src/app/remote/child-registry.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import type { QueuedChildExecution } from "../../src/infrastructure/child-execution-queue.repository.js";
 import { ExecutionRecordStatus } from "../../src/infrastructure/execution-record.repository.js";
@@ -39,7 +38,7 @@ function setup() {
   const database = new InMemoryDatabase();
   const context = applicationContextOf({
     ...{ name: "pause-watch", version: "1.0.0", instanceId: "instance-1" },
-    ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+    ...{ startedAt: clock.now(), profiles: ["test"] },
   });
   const repository = new InMemoryExecutionLeaseRepository(storeClockOf(clock), context, database);
   const leases = executionLeasesOf(repository, clock);

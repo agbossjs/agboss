@@ -24,14 +24,12 @@ import { ChildQueueWatch } from "./child-queue-watch.js";
  * with `maxConcurrentSteps` never runs more forks than it has slots; without a cap there is no limit.
  */
 
-/** What a fork is started with: its child, the entry module and the environment of the instance. */
+/** What a fork is started with: its child, the entry module and the profiles of the instance. */
 export interface ForkSpec {
   /** The entry module (`@Application({ isolatedWorker: { entry } })`). */
   readonly entry: string;
   readonly tenantId: string;
   readonly executionId: string;
-  /** The environment the instance runs with (`createApp(App, { env })`); absent = the default one. */
-  readonly environmentName?: string | undefined;
   /** The profiles `createApp({ profile })` named, as given; absent = the default one. */
   readonly profile?: ProfileSelection | undefined;
   /** The temporary SQLite file the instance's database is (`SqliteDriver.inMemory()`): the fork opens the same one. */

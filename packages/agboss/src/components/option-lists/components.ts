@@ -130,5 +130,4 @@ export const BUDGET_KEYS = optionKeys<BudgetOptions>()([
 export const INJECTABLE_KEYS = optionKeys<InjectableOptions<readonly Token[]>>()([
   "deps",
   "injectAs",
-  "environmentFields",
 ]);

@@ -13,7 +13,6 @@ import { listOf } from "../../../../../agboss/src/flow/dto-wrappers.js";
 import { TEST_BUDGETS } from "../../../../../agboss/tests/flow/fixtures/budgets.js";
 import { SplitWorkflow } from "../../../../../agboss/tests/flow/runtime/fixtures/recursion.workflow.js";
 import { onStart, toWorkflow } from "../../../../../agboss/tests/helpers/flow.js";
-import { StudioEnvironment } from "./environments/app.environment.js";
 import { TestModelProvider } from "../../../../../agboss/src/testing/test-model-provider.js";
 
 export class StudioItemDto {
@@ -143,7 +142,6 @@ export class StudioOneWorkflow {}
   modelProvider: TestModelProvider,
   name: "studio-application",
   version: "1.0.0",
-  environment: StudioEnvironment,
   workflows: [StudioItemsWorkflow, StudioOneWorkflow, SplitWorkflow],
   budgets: TEST_BUDGETS,
 })

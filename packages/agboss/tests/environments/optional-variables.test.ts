@@ -1,44 +1,28 @@
 /**
- * #266 S90: `env.optional("X")`, `env.integer.optional("X")`, `env.flag.optional("X")` — a variable
- * that may be unset. Unset (or empty) is `undefined`, not a missing variable; a set value is still
- * checked; `agboss check --env` and `agboss describe` mark it optional.
+ * #266 S90, #1324b: `env.optional("X")`, `env.integer.optional("X")`, `env.boolean.optional("X")` — a
+ * variable that may be unset. Unset (or empty) is `undefined`, not a missing variable; a set value is
+ * still checked; the process variables `agboss check` lists mark it optional.
  */
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { EnvironmentErrorCode } from "../../src/environments/errors.js";
-import {
-  describedEnvironment,
-  environmentVariablesOf,
-  resolveEnvironment,
-  VariableUse,
-} from "../../src/environments/resolve.js";
+import { defineEnv, resolveEnv } from "../../src/environments/define-env.js";
+import { processVariableOf, VariableUse } from "../../src/environments/process-variable.js";
 import { env } from "../../src/index.js";
 
-const loaded = {
-  name: "dev",
-  contract: "C",
-  values: {
-    region: env.optional("REGION"),
-    port: env.integer.optional("PORT"),
-    debug: env.flag.optional("DEBUG"),
-  },
-};
+const optionalEnv = defineEnv({
+  region: env.optional("REGION"),
+  port: env.integer.optional("PORT"),
+  debug: env.boolean.optional("DEBUG"),
+});
 
-const resolved = (processEnv: NodeJS.ProcessEnv): Readonly<Record<string, unknown>> => {
-  const values = resolveEnvironment(loaded, processEnv);
-  return {
-    region: Reflect.get(values, "region"),
-    port: Reflect.get(values, "port"),
-    debug: Reflect.get(values, "debug"),
-  };
-};
+const resolved = (processEnv: NodeJS.ProcessEnv): Readonly<Record<string, unknown>> =>
+  resolveEnv(optionalEnv, processEnv);
 
 describe("#266 S90: optional environment variables", () => {
   it("each reader is typed as its value or undefined", () => {
-    // the plain type an old environment file reads, and the `EnvRef` `defineEnv` reads (#1324)
     expectTypeOf(env.optional("REGION")).toExtend<string | undefined>();
     expectTypeOf(env.integer.optional("PORT")).toExtend<number | undefined>();
-    expectTypeOf(env.flag.optional("DEBUG")).toExtend<boolean | undefined>();
+    expectTypeOf(env.boolean.optional("DEBUG")).toExtend<boolean | undefined>();
     expect(resolved({})).toEqual({ region: undefined, port: undefined, debug: undefined });
   });
 
@@ -59,10 +43,10 @@ describe("#266 S90: optional environment variables", () => {
     });
   });
 
-  it("a set value is still checked: an integer or a flag that does not parse fails", () => {
+  it("a set value is still checked: an integer or a boolean that does not parse fails, naming the variable", () => {
     const failure = (processEnv: NodeJS.ProcessEnv): unknown => {
       try {
-        resolveEnvironment(loaded, processEnv);
+        resolved(processEnv);
       } catch (error) {
         return error;
       }
@@ -71,22 +55,27 @@ describe("#266 S90: optional environment variables", () => {
     const integer = failure({ PORT: "eighty" });
     expect(integer).toBeInstanceOf(ConfigError.Environment);
     expect(integer).toMatchObject({
-      envCode: EnvironmentErrorCode.InvalidValue,
-      message: "PORT is not an integer (C.port, dev)",
+      message: "[environment.invalid-value] PORT is not an integer (port)",
     });
     expect(failure({ DEBUG: "maybe" })).toMatchObject({
-      envCode: EnvironmentErrorCode.InvalidValue,
-      message: "DEBUG is not a flag (true, false, 1, 0) (C.debug, dev)",
+      message: "[environment.invalid-value] DEBUG is not a flag (true, false, 1, 0) (debug)",
     });
   });
 
   it("a required env(…) next to it still fails when unset", () => {
-    const mixed = { ...loaded, values: { ...loaded.values, url: env("URL") } };
-    expect(() => resolveEnvironment(mixed, {})).toThrow("URL is not set (C.url, dev)");
+    const mixed = defineEnv({ region: env.optional("REGION"), url: env("URL") });
+
+    expect(() => resolveEnv(mixed, {})).toThrow(
+      "[environment.missing-variable] URL is not set (url)",
+    );
   });
 
-  it("agboss check --env: not required, marked optional", () => {
-    expect(environmentVariablesOf(loaded)).toEqual([
+  it("agboss check: not required, marked optional", () => {
+    expect(
+      Object.entries(optionalEnv).map(([field, reference]) =>
+        processVariableOf(field, reference as never),
+      ),
+    ).toEqual([
       {
         variable: "REGION",
         field: "region",
@@ -103,13 +92,5 @@ describe("#266 S90: optional environment variables", () => {
         optional: true,
       },
     ]);
-  });
-
-  it("agboss describe: an unset one is labelled optional, a set one shows its value", () => {
-    expect(describedEnvironment(loaded, { PORT: "9" }).fields).toEqual({
-      region: "<unset REGION, optional>",
-      port: "9",
-      debug: "<unset DEBUG, optional>",
-    });
   });
 });

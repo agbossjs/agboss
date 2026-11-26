@@ -1,12 +1,7 @@
-import type { Environment } from "@agboss/core";
 import type { AssembledWorkflow } from "@agboss/core/internal";
 import { describeServices, contextsOutsideExecution } from "@agboss/core/internal";
 import { RagScope, type RagIndexReport } from "@agboss/core/rag";
-import {
-  applicationEnvironment,
-  assembleApplication,
-  loadCliApplication,
-} from "./cli/cli-application.js";
+import { assembleApplication, loadCliApplication } from "./cli/cli-application.js";
 import { textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { didYouMean } from "./cli/did-you-mean.js";
 import { CliError, scopeOptionOf, tenantOptionOf, usageError } from "./cli/errors.js";
@@ -25,16 +20,13 @@ interface KnowledgeBase {
 }
 
 /** Every knowledge base of every workflow, each once (two workflows may bind one). */
-function knowledgeBasesOf(
-  workflows: readonly AssembledWorkflow[],
-  environment: Environment | undefined,
-): readonly KnowledgeBase[] {
-  // no router runs here; the sources read the application's environment through its contexts
+function knowledgeBasesOf(workflows: readonly AssembledWorkflow[]): readonly KnowledgeBase[] {
+  // no router runs here; the sources read the application's contexts
   const bases = workflows.flatMap(
     (workflow) =>
       workflow.knowledgeBases?.({
         router: describeServices.router,
-        contexts: contextsOutsideExecution(workflow.config, environment),
+        contexts: contextsOutsideExecution(workflow.config),
       }) ?? [],
   );
   return [...new Map(bases.map((base) => [base.name, base])).values()];
@@ -149,8 +141,7 @@ export const handle: CommandHandler = async (context) => {
     loaded,
     textOption(context.values, "profile"),
   );
-  const environment = await applicationEnvironment(context, assembled);
-  const bases = selected(context, knowledgeBasesOf(assembled.workflows, environment));
+  const bases = selected(context, knowledgeBasesOf(assembled.workflows));
   if (bases.length === 0) context.say(`No knowledge bases in "${assembled.name}".`);
   const stop = stopSignal();
   try {

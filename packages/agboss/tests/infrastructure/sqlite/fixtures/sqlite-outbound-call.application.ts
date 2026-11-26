@@ -1,18 +1,8 @@
-import {
-  SqliteCostLedgerRepository,
-  SqliteExecutionAuditLogRepository,
-  SqliteExecutionLeaseRepository,
-  SqliteExecutionRecordRepository,
-  SqliteExecutionTreeRepository,
-  SqliteOutboundCallRepository,
-  SqlitePausedExecutionRepository,
-} from "../../../../src/index.js";
-import { SqliteCheckpointSaver } from "../../../../src/internal.js";
-import { SqliteConnection } from "../../../../src/infrastructure/sqlite/sqlite-connection.js";
+import { SqliteExecutionLeaseRepository } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { RecoveryLog } from "../../fixtures/recovery.workflow.js";
-import { SqliteTestEnvironment } from "./environments/app.environment.js";
+import { sqliteTestStorage } from "./sqlite-test-storage.js";
 import {
   ChargeWorkflow,
   EmailPiiPolicy,
@@ -26,22 +16,11 @@ import {
 @Application({
   name: "sqlite-outbound-call-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage(),
   workflows: [ChargeWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,
   piiPolicies: [EmailPiiPolicy],
-  providers: [
-    SqliteExecutionLeaseRepository,
-    SqliteOutboundCallRepository,
-    SqliteExecutionAuditLogRepository,
-    SqliteExecutionRecordRepository,
-    SqlitePausedExecutionRepository,
-    SqliteCheckpointSaver,
-    SqliteCostLedgerRepository,
-    SqliteExecutionTreeRepository,
-    SqliteConnection,
-  ],
 })
 export class SqliteOutboundCallApplication {}
 
@@ -49,10 +28,9 @@ export class SqliteOutboundCallApplication {}
 @Application({
   name: "unlisted-outbound-call-store-application",
   version: "1.0.0",
-  environment: SqliteTestEnvironment,
+  storage: sqliteTestStorage({ only: [SqliteExecutionLeaseRepository] }),
   workflows: [ChargeWorkflow],
   budgets: TEST_BUDGETS,
   piiPolicies: [EmailPiiPolicy],
-  providers: [SqliteExecutionLeaseRepository, SqliteConnection],
 })
 export class UnlistedOutboundCallStoreApplication {}

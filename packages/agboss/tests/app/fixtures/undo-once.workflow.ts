@@ -26,7 +26,6 @@ import {
   SharedCheckpointSaver,
   UndoOnceLog,
 } from "./undo-once.actions.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
  * #607 — one tree per automatic undo: a failed join's, a root's own (failed, cancelled at its gate,
@@ -271,7 +270,6 @@ export class OnceLevelWorkflow {}
 @Application({
   name: "undo-once-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [
     OnceRootWorkflow,
     OnceJoinWorkflow,

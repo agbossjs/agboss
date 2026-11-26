@@ -33,8 +33,7 @@ store packages (`@agboss/postgres`, `@agboss/mongodb`, `@agboss/redis`). The sto
 
 `@DatabaseStorage` requires `auditLogTtl` (a duration, `Ttl.Forever` or `Ttl.None`) and `ledgerEntriesTtl`
 (above the 30 s lease) — `[storage.ttl-invalid]` — and names its keys: `idempotencySecret`,
-`piiSecret` (reference 07), each a `secret(…)` of its own (`[storage.secret-shared]`,
-`[storage.key-conflict]`). `retention.auditLog` and `retention.costLedgerEntries` beside `storage` are
+`piiSecret` (reference 07), each a `secret(…)` of its own (`[storage.secret-shared]`). `retention.auditLog` and `retention.costLedgerEntries` beside `storage` are
 `[storage.retention-conflict]`. A `@ClusterStorage` needs a database whose driver keeps durable lease
 rows (`[storage.cluster-needs-durable-lease-store]`) and a database beside it
 (`[storage.database-required]`). A class in `storage` without its decorator is
@@ -49,22 +48,6 @@ of a networked store is `npx agboss migrate db` (stop the old version first; liv
 `--allow-live-leases`); SQLite creates its schema when it opens the file.
 
 ## The worked example: a durable application
-
-```ts file=src/environments/app.environment.ts
-export class AppEnvironment {} // the storage's path and the keys are env(…) / secret(…) in its decorator
-```
-
-```ts file=src/environments/prod.environment.ts
-import type { AppEnvironment } from "./app.environment.js";
-
-export const environment: AppEnvironment = {};
-```
-
-```ts file=src/environments/test.environment.ts
-import type { AppEnvironment } from "./app.environment.js";
-
-export const environment: AppEnvironment = {};
-```
 
 The storage: SQLite in the file `AGBOSS_SQLITE_PATH` names (a persistent volume), the keys from the
 process. A test sets the variable to `:memory:` in its vitest config (`agbossVitest({ env: {
@@ -266,13 +249,11 @@ import { ClaimsApiHealthCheck } from "./claims/health-checks/claims-api.health-c
 import { ClaimsApiService } from "./claims/services/claims-api.service.js";
 import { ClaimsDatabaseStorage } from "./claims/storages/claims.database-storage.js";
 import { ClaimWorkflow } from "./claims/workflows/claim/claim.workflow.js";
-import { AppEnvironment } from "./environments/app.environment.js";
 
 @Application({
   modelProvider: OpenRouterModelProvider,
   name: "claims-application",
   version: "1.1.0",
-  environment: AppEnvironment,
   workflows: [ClaimWorkflow],
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget],
   // every store durable and shared: no [application.in-memory-…] warning
@@ -301,7 +282,7 @@ import { createApp, type HealthReport } from "@agboss/core";
 import { ClaimsApplication } from "../claims.application.js";
 import { ClaimWorkflowStart } from "../claims/workflows/claim/claim.workflow-start.js";
 
-const app = await createApp(ClaimsApplication, { env: "prod" }); // listens for SIGTERM / SIGINT
+const app = await createApp(ClaimsApplication, { profile: "prod" }); // listens for SIGTERM / SIGINT
 
 const probeOf = (path: string | undefined): Promise<HealthReport> | undefined =>
   path === "/livez" ? app.checkLiveness() : path === "/readyz" ? app.checkReadiness() : undefined;
@@ -491,7 +472,7 @@ spec:
           persistentVolumeClaim: { claimName: claims-data }
 ```
 
-`npx agboss check --env prod` lists the process variables the environment needs (names only, `value`
+`npx agboss check` lists the process variables the application's `defineEnv` references need (names only, `value`
 or `secret`, `optional` / `has a default`) — the list for the manifest.
 
 ## Deploying a new version
@@ -536,8 +517,8 @@ instance and the CLI do not see it); a durable `@DatabaseStorage` keeps it. Expo
 sweep:
 
 ```
-npx agboss executions export --env prod --tenant acme --since 2026-10-16 --out hub/records/acme.jsonl
-npx agboss executions export --env prod --all-tenants --out hub/records/all.jsonl
+npx agboss executions export --tenant acme --since 2026-10-16 --out hub/records/acme.jsonl
+npx agboss executions export --all-tenants --out hub/records/all.jsonl
 ```
 
 One masked record per line, oldest start first, each `{ "kind": "agboss.execution-record",
@@ -553,8 +534,8 @@ network. Each service's CI saves what it has; a platform repo reads the folder:
 
 ```
 npx agboss describe --json > hub/desk-application/describe.json
-npx agboss eval run --suite refunds-eval-suite --runs 5 --env eval --report hub/desk-application/refunds.run.json
-npx agboss executions export --env prod --tenant acme --since 2026-10-16 --out hub/desk-application/records/acme.jsonl
+npx agboss eval run --suite refunds-eval-suite --runs 5 --report hub/desk-application/refunds.run.json
+npx agboss executions export --tenant acme --since 2026-10-16 --out hub/desk-application/records/acme.jsonl
 npx agboss hub show hub/ --html .artifacts/mesh.html
 ```
 

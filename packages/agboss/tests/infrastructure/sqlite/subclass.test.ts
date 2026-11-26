@@ -71,7 +71,6 @@ describe("#313 AC1: a project's SqliteExecutionRecordRepository, public tokens o
     const book = new ScriptBook();
     book.scriptOf("agent:clerk-agent").thenReturn(replyWith(ReceiptDto, { text: "One." }));
     const app = await createTestAppWith(AuditedRecordsApplication, {
-      env: "test",
       gateway: createScriptedGateway(book),
     });
     try {

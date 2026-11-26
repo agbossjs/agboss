@@ -14,7 +14,7 @@
 export {
   FaultStoreTime,
   type FaultBusinessRows,
-  type FaultEnvironment,
+  type FaultStorage,
   type FaultStoreSet,
 } from "./fault-stores.js";
 export {

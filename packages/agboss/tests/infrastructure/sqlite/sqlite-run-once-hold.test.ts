@@ -7,7 +7,6 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { applicationContextOf } from "../../../src/flow/context/application-context.js";
-import { NO_ENVIRONMENT_VALUES } from "../../../src/environments/resolve.js";
 import { IdempotencyError } from "../../../src/core/error-families/effect-errors.js";
 import { SqliteExecutionLeaseRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-lease.repository.js";
 import { SqliteExecutionTreeRepository } from "../../../src/infrastructure/sqlite/sqlite-execution-tree.repository.js";
@@ -27,8 +26,7 @@ function storesOn(path = temporarySqlitePath(), clock = new VirtualClock()) {
     version: "1.0.0",
     instanceId: "instance-1",
     startedAt: clock.now(),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   });
   const effects = new SqliteFencedEffectRepository(connection, storeClockOf(clock));
   const leases = new SqliteExecutionLeaseRepository(connection, storeClockOf(clock), application);

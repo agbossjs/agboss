@@ -1,4 +1,3 @@
-import { NO_ENVIRONMENT_VALUES } from "../../environments/resolve.js";
 import {
   applicationContextOf,
   type ApplicationContext,
@@ -111,8 +110,7 @@ const instanceContextOf = (
     version: "1.0.0",
     instanceId,
     startedAt: clock.now(),
-    environmentName: "test",
-    environment: NO_ENVIRONMENT_VALUES,
+    profiles: ["test"],
   }),
 });
 

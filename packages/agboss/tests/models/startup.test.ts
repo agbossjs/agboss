@@ -9,7 +9,7 @@ import { modelSummaryOf } from "../../src/models/workflow-models.js";
 import { Priced } from "./fixtures/priced.workflow.js";
 import { LocalModelProvider } from "./providers.fixture.js";
 import { KIMI_ENTRY, providerStub } from "./stub.js";
-import { ENV, KEYS } from "./gateway.js";
+import { ENV } from "./gateway.js";
 
 const config = (agents: AgentsConfigOf<string>["agents"]): AgentsConfigOf<string> => ({
   name: "check",
@@ -28,7 +28,6 @@ describe("AC6: the check runs at every startup, before any model call", () => {
     const stub = providerStub([], [KIMI_ENTRY, { id: "backup/kimi-k2.6" }]);
     const start = createAppDeps(await workflowOf(Priced), {
       processEnv: { TERN_DB: ":memory:", ...ENV },
-      environment: KEYS,
       providerFetch: stub.fetch,
     });
 
@@ -42,7 +41,6 @@ describe("AC6: the check runs at every startup, before any model call", () => {
   it("AC6: the startup log shows each model's provider, reasoning and caching, and where they come from", async () => {
     const deps = await createAppDeps(await workflowOf(Priced), {
       processEnv: { TERN_DB: ":memory:", ...ENV },
-      environment: KEYS,
       providerFetch: providerStub(
         [],
         [KIMI_ENTRY, { id: "local/llama" }, { id: "backup/kimi-k2.6" }],

@@ -33,7 +33,7 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
  * `BEGIN IMMEDIATE` transaction — so a task message and a direct message never share an id, and of
  * two instances accepting one message exactly one saves it. Every write that checks first is one
  * transaction. Listed in `@Application({ providers })` beside `SqliteA2ATaskRepository`; needs
- * `sqlitePath`.
+ * the application's `SqliteDriver` storage.
  */
 @Injectable({ deps: [SqliteConnection] })
 export class SqliteA2ADirectMessageRepository extends A2ADirectMessageRepository {

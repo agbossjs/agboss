@@ -3,12 +3,11 @@ import { fileURLToPath } from "node:url";
 import { studioOf } from "@agboss/core/internal";
 import { loadCliApplication } from "./cli-application.js";
 import { requiredText, textOption, type CommandContext } from "./context.js";
-import { envOption } from "./environment.js";
 import { usageError } from "./errors.js";
 import { writeStudioFiles, type StudioFiles } from "./studio-config.js";
 
 /**
- * `agboss studio [--env <name>] [--port N]` (#268 AC7): the application assembled and its
+ * `agboss studio [--profile <name>] [--port N]` (#268 AC7): the application assembled and its
  * environment resolved first — a problem stops it before any server starts — then the Studio
  * config written into `.agboss/` and the LangGraph dev server started on it (`studio-server`).
  */
@@ -20,22 +19,19 @@ export interface PreparedStudio extends StudioFiles {
 }
 
 /**
- * The application checked as the server will build it — assembled, its `--env` environment
- * resolved, every workflow's graph built, then closed — and its Studio config written: a problem
+ * The application checked as the server will build it — assembled, every workflow's graph built, then closed — and its Studio config written: a problem
  * fails here (exit 3), never in the server's log.
  */
 export async function prepareStudio(context: CommandContext): Promise<PreparedStudio> {
   const loaded = await loadCliApplication(context);
-  const env = envOption(context);
   const profile = textOption(context.values, "profile");
-  const studio = await studioOf(loaded.application, { env, profile, processEnv: context.io.env });
+  const studio = await studioOf(loaded.application, { profile, processEnv: context.io.env });
   await studio.close();
   const workflows = studio.names;
   const files = await writeStudioFiles(context.io.cwd, {
     file: loaded.path.file,
     application: loaded.application,
     workflows,
-    env,
     profile,
   });
   context.say(`studio: ${relative(context.io.cwd, files.config)} — ${workflows.join(", ")}`);

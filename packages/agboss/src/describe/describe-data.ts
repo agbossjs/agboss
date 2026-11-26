@@ -1,6 +1,5 @@
 import type { AssembledApplication } from "../application/assemble.js";
 import type { ImplementationReason } from "../application/implementations.js";
-import type { DescribedEnvironment } from "../environments/resolve.js";
 import type { ResolvedModelUse } from "../models/resolution.js";
 import { resolvedModelUsesOf } from "../models/resolution.js";
 import type { StepsRange } from "../flow/analyse/steps.js";
@@ -21,7 +20,7 @@ import type { DescribedStorage } from "../storage/storage-assembly.js";
 import { describedChannelsOf, type DescribedChannel } from "./channels.js";
 import { contractsOf } from "./contracts.js";
 import type { ApplicationContracts } from "./contracts-types.js";
-import { describeServicesWith } from "./describe-workflow.js";
+import { describeServices } from "./describe-workflow.js";
 import { childLines, inputLines } from "./inputs.js";
 import { describedLimitsOf, type DescribedLimits } from "./limits.js";
 import { describedPiiPoliciesOf, type DescribedPiiPolicy } from "./pii-policies.js";
@@ -41,7 +40,7 @@ export interface DescribedImplementation {
   readonly reason: ImplementationReason;
 }
 
-/** The application as data: its infrastructure, model providers, budgets, tree, channels, contracts and environment. */
+/** The application as data: its infrastructure, model providers, budgets, tree, channels, contracts. */
 export interface DescribedApplication {
   readonly name: string;
   readonly version: string;
@@ -65,11 +64,6 @@ export interface DescribedApplication {
   readonly channels: readonly DescribedChannel[];
   /** What it exports and consumes, each DTO with its `schemaHash` (#398: `check --federation`). */
   readonly contracts: ApplicationContracts;
-  /** The environment the tools are built with, its fields shown (secrets masked). */
-  readonly environment?: {
-    readonly name: string;
-    readonly fields: Readonly<Record<string, string>>;
-  };
 }
 
 /** A tool of a described workflow: a local one, or one of an MCP server. */
@@ -131,10 +125,7 @@ export interface DescribedApplicationData {
 }
 
 /** The application as data (`describe --json`'s `application`). */
-export function applicationDataOf(
-  assembled: AssembledApplication,
-  environment: DescribedEnvironment | undefined,
-): DescribedApplication {
+export function applicationDataOf(assembled: AssembledApplication): DescribedApplication {
   const described = describedApplicationOf(assembled);
   return {
     ...described,
@@ -147,9 +138,6 @@ export function applicationDataOf(
     tree: describedTreeOf(assembled).workflows,
     channels: describedChannelsOf(assembled),
     contracts: contractsOf(assembled),
-    ...(environment === undefined
-      ? {}
-      : { environment: { name: environment.name, fields: environment.fields } }),
   };
 }
 
@@ -157,11 +145,10 @@ export function applicationDataOf(
 export function workflowDataOf(
   bundle: AssembledWorkflow,
   profile = "base",
-  environment?: DescribedEnvironment,
   children?: ChildSnapshotSources,
 ): DescribedWorkflow {
   const c = bundle.config;
-  const services = describeServicesWith(environment);
+  const services = describeServices;
   const tools = resolveTools(bundle, services).map((tool): DescribedTool => ({
     name: tool.name,
     description: tool.description,

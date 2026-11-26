@@ -2,7 +2,6 @@ import { createTestAppWith } from "../../../../src/testing/create-app-with.js";
 import { A2AAgent, A2AClient, type A2AMesh, type A2ATarget } from "../../../../src/a2a/index.js";
 import {
   Agent,
-  EmptyEnvironment,
   Tool,
   Workflow,
   WorkflowFinish,
@@ -19,7 +18,6 @@ import { ScriptBook } from "../../../../src/testing/script-book.js";
 import type { Milliseconds, Usd } from "../../../../src/units/index.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { execute, onStart } from "../../../helpers/flow.js";
-import { MeshEnvironment } from "../../fixtures/environments/mesh.environment.js";
 import { meshEnvOf, meshOf, type MeshKeyPair } from "../../fixtures/mesh-keys.js";
 import { AGENT_URL, type SdkAgent } from "../support/sdk-agent.js";
 import { offline } from "../../fixtures/remote.workflow.js";
@@ -146,12 +144,10 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
   })
   class CallerWorkflow {}
 
-  const environment: Class = spec.signing === undefined ? EmptyEnvironment : MeshEnvironment;
   @Application({
     name: `${name}-application`,
     modelProvider: TestModelProvider,
     version: "1.0.0",
-    environment,
     workflows: [CallerWorkflow],
     budgets: TEST_BUDGETS,
     ...(spec.signing === undefined ? {} : { mesh: meshOf("peer-application") }),
@@ -162,7 +158,7 @@ export async function callerOf(spec: CallerSpec): Promise<CallerParts> {
   const signing =
     spec.signing === undefined
       ? {}
-      : { env: "signing", processEnv: meshEnvOf(spec.signing.own, spec.signing.peer) };
+      : { processEnv: meshEnvOf(spec.signing.own, spec.signing.peer) };
   const app = await createTestAppWith(CallerApplication, { ...offline(book), ...signing });
   const ask = (question: string) => {
     book

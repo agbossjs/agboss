@@ -1,7 +1,6 @@
 import { OutboundMasking } from "../../src/app/outbound-masking.js";
 import { effectKeyForTesting } from "../../src/testing/contracts/effect-key.js";
 import type { OutboundCallReport } from "../../src/app/audit-log.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
 import { runInFrame, type FrameLease, type FrameSpec } from "../../src/flow/context/frame.js";
 import {
@@ -103,7 +102,7 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
   const database = new InMemoryDatabase();
   const application = applicationContextOf({
     ...{ name: "outbound-application", version: "1.0.0", instanceId: "instance-1" },
-    ...{ startedAt: clock.now(), environmentName: "test", environment: NO_ENVIRONMENT_VALUES },
+    ...{ startedAt: clock.now(), profiles: ["test"] },
   });
   const leases = new InMemoryExecutionLeaseRepository(storeClockOf(clock), application, database);
   const Store = options.store ?? InMemoryOutboundCallRepository;

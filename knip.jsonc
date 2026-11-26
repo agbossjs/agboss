@@ -30,15 +30,12 @@
         // the process of an isolated worker (#1286b), which its supervisor forks by path
         "src/app/remote/isolated-fork-main.ts",
         "src/testing/vitest.ts",
-        // loaded by path: `--application <file>` (#268) and the environment of `--env <name>`
+        // loaded by path: `--application <file>` (#268)
         "tests/fixtures/loader/**/*.{workflow,application}.ts",
         // loaded by path: the applications `workflowOf` finds next to a workflow (#497)
         "tests/fixtures/outside-graph/**/*.application.ts",
-        "tests/**/fixtures/**/*.environment.ts",
         // loaded by path: the profile files (`config/<profile>.config.ts`) a test names with `profile:` / `--profile`
         "tests/**/fixtures/**/config/*.config.ts",
-        // loaded by path: the environment of the applications a test folder's own files declare (#825)
-        "tests/*/environments/*.environment.ts",
         // loaded by path: the workflows `check:types` generates types for (#272)
         "tests/flow/fixtures/*.fixture.ts",
         // loaded by path: the eval suites `agboss eval run` and `agboss check` find (#396)
@@ -74,12 +71,11 @@
       ],
     },
     "packages/agboss-cli": {
-      // the fixtures are loaded by path (`--application <file>`, #268), with their environments
+      // the fixtures are loaded by path (`--application <file>`, #268)
       "entry": [
         "src/cli/main.ts",
         "tests/fixtures/**/*.workflow.ts",
         "tests/fixtures/**/*.application.ts",
-        "tests/fixtures/**/*.environment.ts",
       ],
       "project": ["src/**/*.ts", "tests/**/*.ts"],
       // the version a generated project depends on (src/scaffold/project.ts), run by the e2e tests
@@ -87,13 +83,12 @@
     },
     "examples/flow-patterns": {
       // the applications, loaded by path (package.json → "agboss": { "application" }, #268, and the
-      // offline desk's `--application`, #419), their workflows, the environments of `--env`, the
+      // offline desk's `--application`, #419), their workflows, the
       // eval suites `agboss eval run` finds by folder (#396) and `npm run answer` (#346)
       "entry": [
         "src/flow-patterns.application.ts",
         "src/desk.application.ts",
         "src/**/*.workflow.ts",
-        "src/environments/*.environment.ts",
         "src/**/eval-suites/*.eval-suite.ts",
         "src/scripts/*.ts",
       ],

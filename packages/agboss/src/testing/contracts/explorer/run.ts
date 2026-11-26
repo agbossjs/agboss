@@ -1,5 +1,4 @@
 import { StoreError } from "../../../core/error-families/store-errors.js";
-import { NO_ENVIRONMENT_VALUES } from "../../../environments/resolve.js";
 import { applicationContextOf } from "../../../flow/context/application-context.js";
 import { TEST_START, VirtualClock } from "../../clock.js";
 import { SkewedClock } from "../../clock-skew.js";
@@ -138,8 +137,7 @@ export class ExplorerRun {
         version: "1.0.0",
         instanceId,
         startedAt: this.clock.now(),
-        environmentName: "test",
-        environment: NO_ENVIRONMENT_VALUES,
+        profiles: ["test"],
       }),
     };
   }

@@ -9,12 +9,11 @@ import type { ExecutionHistoryRecord } from "@agboss/core";
 import { planEvalCase, type EvalCasePlan } from "../scaffold/generate-eval-case.js";
 import { loadCliApplication } from "./cli-application.js";
 import { textOption, type CommandContext } from "./context.js";
-import { envOption } from "./environment.js";
 import { tenantOptionOf, CliError, usageError } from "./errors.js";
 
 /**
  * `agboss generate eval-case <name> [--suite <name>] --from-execution <executionId> [--tenant <id>]
- * [--env <name>]` (#396 PR 8): a kept execution (`retention.executionRecords`, #401) read from the
+ * ` (#396 PR 8): a kept execution (`retention.executionRecords`, #401) read from the
  * application's history — its stores opened, nothing run — and drafted into a case: its start's
  * input as the turn, its contexts, its thread's earlier finished turns as the history, the tool
  * calls it ran as the required calls; then written into the suite's file.
@@ -95,7 +94,6 @@ async function draftOf(context: CommandContext, name: string): Promise<EvalCaseD
   const tenant = tenantOptionOf(COMMAND, textOption(context.values, "tenant"));
   const { application } = await loadCliApplication(context);
   const opened = await openExecutionHistory(application, {
-    env: envOption(context),
     profile: textOption(context.values, "profile"),
     processEnv: context.io.env,
   });

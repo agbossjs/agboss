@@ -24,7 +24,6 @@ import { onStart, toFinish } from "../../helpers/flow.js";
 import { RecoveryLog } from "../../infrastructure/fixtures/recovery.workflow.js";
 import { isDeclined, PaymentGateway, type ChargeRequest } from "./payment-gateway.js";
 import { untilReached } from "../../helpers/reached.js";
-import { IdempotencyKeyEnvironment } from "../../helpers/idempotency-key.environment.js";
 
 /**
  * #505 — an order charged through `Idempotency.sendOnce`: the action has no table or retry logic of its
@@ -245,7 +244,6 @@ export class ChargeAndNotifyWorkflow {}
 @Application({
   name: "outbound-call-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [ChargeWorkflow, ChargeAndNotifyWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,
@@ -276,7 +274,6 @@ export class KeptChargeWorkflow {}
 @Application({
   name: "kept-outbound-call-application",
   version: "1.0.0",
-  environment: IdempotencyKeyEnvironment,
   workflows: [KeptChargeWorkflow],
   observers: [RecoveryLog, OutboundCallLog],
   budgets: TEST_BUDGETS,

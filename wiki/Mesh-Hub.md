@@ -8,8 +8,8 @@ service. It needs no project, assembles no application and reaches no network (#
 ```bash
 # each service's CI saves what it has
 agboss describe --json > hub/desk-application/describe.json
-agboss eval run --suite refunds-eval-suite --runs 5 --env eval --report hub/desk-application/refunds.run.json
-agboss executions export --env prod --tenant acme --since 2026-10-16 --out hub/desk-application/records/acme.jsonl
+agboss eval run --suite refunds-eval-suite --runs 5 --report hub/desk-application/refunds.run.json
+agboss executions export --tenant acme --since 2026-10-16 --out hub/desk-application/records/acme.jsonl
 
 # a platform repo reads the folder: one static page
 agboss hub show hub/ --html .artifacts/mesh.html

@@ -5,7 +5,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { applicationContextOf } from "../../src/flow/context/application-context.js";
-import { NO_ENVIRONMENT_VALUES } from "../../src/environments/resolve.js";
 import { InMemoryDatabase } from "../../src/infrastructure/in-memory-database.js";
 import {
   InMemoryRateLimitRepository,
@@ -22,8 +21,7 @@ const application = applicationContextOf({
   version: "1.0.0",
   instanceId: "instance-1",
   startedAt: new Date(0),
-  environmentName: "test",
-  environment: NO_ENVIRONMENT_VALUES,
+  profiles: ["test"],
 });
 
 interface Made {
