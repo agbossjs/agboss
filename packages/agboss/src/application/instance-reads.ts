@@ -11,6 +11,7 @@ import {
   type OutboundCallPage,
   type OutboundCallRepository,
 } from "../infrastructure/outbound-call.repository.js";
+import { refuseUnknownFields } from "../app/query-fields.js";
 import type { ExecutionTreeQuery, AnyTenantApp, PendingOutboundCallsQuery } from "../app/types.js";
 import type { InstanceSurface } from "./compose-app.js";
 import { executionReadsOf } from "./execution-listing.js";
@@ -40,10 +41,12 @@ export async function auditLogIn(
  * left pending, by the store's cursor — its tenant id a key's text, its limit and cursor checked
  * before the store is read, each call shown as every read shows it (a business key by its handle).
  */
-export function pendingCallsOf(
+export async function pendingCallsOf(
   outboundCalls: OutboundCallRepository,
-  { tenantId, limit, after }: PendingOutboundCallsQuery,
+  asked: PendingOutboundCallsQuery,
 ): Promise<OutboundCallPage> {
+  refuseUnknownFields(PENDING_QUERY, asked, PENDING_FIELDS);
+  const { tenantId, limit, after } = asked;
   return tenantRead(tenantId, async () => {
     const status = OutboundCallStatus.Pending;
     const query = { tenantId, status, limit: pageLimitOf(limit), ...cursorOf(after) };
@@ -55,6 +58,7 @@ export function pendingCallsOf(
 
 /** What `app.pendingOutboundCallsOf` reads (#825): its error's DTO. */
 const PENDING_QUERY = "PendingOutboundCallsQuery";
+const PENDING_FIELDS: ReadonlySet<string> = new Set(["tenantId", "limit", "after"]);
 
 /** A page's size (#825): the default, or a whole number from 1 to the largest — `validation.dto-invalid` else. */
 function pageLimitOf(limit: number | undefined): number {

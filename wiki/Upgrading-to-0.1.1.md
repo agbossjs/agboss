@@ -202,6 +202,7 @@ carries it to the people. It is a hard break — no alias, nothing to keep compi
 | `@ReplyInterpreter`, `ReplyInterpretation`, `overrideArguments`  | `@ChannelInterpreter`, `ChannelInterpretation`, `overrideInput`                                          |
 | `PauseAnswerRecord.role`; pause record `channel` = the role      | `target` (the target) and `channel?` (the transport, absent for an owner's pause nobody is asked about) |
 | `app.listPauses({ role })`                                       | `app.listPauses({ target })`                                                                             |
+| `listPauses` -> `{ pauses, next }`, `{ after }`                  | `Page<ListedPause>` (`{ items, nextCursor }`), `{ cursor }`; `allTenants`, `assignee`, `externalRef`, `includePauseIds` |
 
 A target with several channels names a `@ChannelSelector({ target })` that picks one when a pause is
 made. An `Owner` target with no channel at all waits for `app.resume`. A stored pause, run or answer entry

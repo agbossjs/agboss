@@ -170,6 +170,12 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     return this.#store.findPageByTenantId(...args);
   }
 
+  findPageOfAllTenants(
+    ...args: Parameters<PausedExecutionRepository["findPageOfAllTenants"]>
+  ): Promise<PausePage> {
+    return this.#store.findPageOfAllTenants(...args);
+  }
+
   findClosedByResolvedAtBefore(cutoff: Date, limit: number, after?: string): Promise<PausePage> {
     return this.#store.findClosedByResolvedAtBefore(cutoff, limit, after);
   }

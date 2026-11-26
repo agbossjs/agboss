@@ -208,6 +208,12 @@ export class SharedPausedExecutionRepository extends PausedExecutionRepository {
     return database.pauses.findPageByTenantId(...args);
   }
 
+  findPageOfAllTenants(
+    ...args: Args<"findPageOfAllTenants">
+  ): ReturnType<PausedExecutionRepository["findPageOfAllTenants"]> {
+    return database.pauses.findPageOfAllTenants(...args);
+  }
+
   findClosedByResolvedAtBefore(
     ...args: Args<"findClosedByResolvedAtBefore">
   ): ReturnType<PausedExecutionRepository["findClosedByResolvedAtBefore"]> {

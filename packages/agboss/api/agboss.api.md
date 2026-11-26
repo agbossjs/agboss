@@ -387,7 +387,7 @@ export interface App<TApp = unknown> {
     getStatusHistory(threadId: string, ...options: TenantPointArgs<TApp>): Promise<readonly ThreadStatusTransition[]>;
     hasTool(name: string): boolean;
     listExecutions(...query: TenantListArgs<TApp, ExecutionsQuery>): Promise<Page<ExecutionHistoryRecord>>;
-    listPauses(query: PausesQuery): Promise<PausesPage>;
+    listPauses(...query: TenantListArgs<TApp, PausesQuery>): Promise<Page<ListedPause>>;
     readonly models: readonly string[];
     // (undocumented)
     readonly name: string;
@@ -5086,6 +5086,7 @@ export interface ListedPause extends PendingPauseBase {
     readonly rootExecutionId: string;
     // (undocumented)
     readonly status: PauseStatus;
+    readonly tenantId: string;
     // (undocumented)
     readonly threadId: string;
     readonly toolCall?: PauseToolCallSummary;
@@ -6551,6 +6552,7 @@ export abstract class PausedExecutionRepository {
     abstract findOpenAfter(after: string | undefined, limit: number): Promise<PausePage>;
     abstract findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
     abstract findPageByTenantId(tenantId: string, filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
+    abstract findPageOfAllTenants(filter: PauseFilter, limit: number, after?: string): Promise<PausePage>;
     abstract findPendingByExpiresAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingByRemindAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     abstract findPendingUnsentReassignedBefore(cutoff: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
@@ -6832,22 +6834,14 @@ export enum PauseRespondent {
 }
 
 // @public
-export interface PausesPage {
-    // (undocumented)
-    readonly next?: string;
-    // (undocumented)
-    readonly pauses: readonly ListedPause[];
-}
-
-// @public
-export interface PausesQuery {
-    readonly after?: string;
-    readonly expiringBefore?: Date;
-    readonly limit?: number;
+export interface PausesQuery extends PageQuery {
+    readonly assignee?: string;
+    readonly channel?: Class | string;
+    readonly expiringBefore?: Date | string;
+    readonly externalRef?: string;
+    readonly includePauseIds?: boolean;
     readonly status?: PauseStatus | readonly PauseStatus[];
-    readonly target?: string;
-    // (undocumented)
-    readonly tenantId: string;
+    readonly target?: Class | string;
 }
 
 // @public
@@ -8346,6 +8340,8 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord>;
     // (undocumented)
     findPageByTenantId(...args: Parameters<PausedExecutionRepository["findPageByTenantId"]>): Promise<PausePage>;
+    // (undocumented)
+    findPageOfAllTenants(...args: Parameters<PausedExecutionRepository["findPageOfAllTenants"]>): Promise<PausePage>;
     // (undocumented)
     findPendingByExpiresAtBefore(at: Date, limit: number, after?: PauseScanAfter): Promise<readonly PauseRecord[]>;
     // (undocumented)
@@ -9961,7 +9957,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/types.ts - (ae-undocumented) Missing documentation for "name".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "version".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "tenantId".
-// src/app/types.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "kind".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "status".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
@@ -9969,8 +9964,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/app/types.ts - (ae-undocumented) Missing documentation for "askedAt".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "expiresAt".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "closedAt".
-// src/app/types.ts - (ae-undocumented) Missing documentation for "pauses".
-// src/app/types.ts - (ae-undocumented) Missing documentation for "next".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "rootExecutionId".
 // src/application/application.ts - (ae-undocumented) Missing documentation for "Application".
@@ -11059,6 +11052,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "findPendingByRemindAtBefore".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "findOpenAfter".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "findPageByTenantId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "findPageOfAllTenants".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "findClosedByResolvedAtBefore".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "deleteByResolvedAtBefore".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "claimNoticesDue".

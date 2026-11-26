@@ -363,7 +363,7 @@ exporter to a Collector); none given → no metrics, nothing loaded. `testWith(A
 
 Scale out on the slot demand `max(queued) + sum(waiting) + sum(busy)` per `maxConcurrentSteps`;
 the application is idle only when `max(queued) + max(running) + sum(leases.held) + sum(busy) +
-sum(waiting)` is 0. Never sum a cluster gauge over pods; never label by tenant or execution (a pause's `target` and `channel` are the names of its target and its channel). `app.listPauses({ tenantId, status?, role?, expiringBefore?, limit?, after? })` lists a tenant's pauses page by page for an operator's queue. Match
+sum(waiting)` is 0. Never sum a cluster gauge over pods; never label by tenant or execution (a pause's `target` and `channel` are the names of its target and its channel). `app.listPauses({ tenantId | allTenants, status?, target?, channel?, assignee?, externalRef?, expiringBefore?, includePauseIds?, limit?, cursor? })` lists pauses page by page (`Page<ListedPause>`) for an operator's queue. Match
 `terminationGracePeriodSeconds` to `shutdownTimeout` plus the preStop delay. Wiki → Metrics,
 Autoscaling.
 

@@ -77,7 +77,8 @@ const readsOf = (app: AnyTenantApp, need: Need): Partial<AnyTenantApp> => ({
     return app.listExecutions(query);
   },
   listPauses: async (query) => {
-    need(TenantOperation.ListPauses, tenantIdOf(query));
+    const { allTenants } = (query ?? {}) as { readonly allTenants?: unknown };
+    if (allTenants !== true) need(TenantOperation.ListPauses, tenantIdOf(query));
     return app.listPauses(query);
   },
   auditLogOf: async (tree) => {

@@ -368,15 +368,21 @@ export interface App<TApp = unknown> {
    */
   pendingOutboundCallsOf(query: PendingOutboundCallsQuery): Promise<OutboundCallPage>;
   /**
-   * A page of one tenant's pauses (#943): by `status` (default `Pending`), `role` (the channel's
-   * name) and `expiringBefore`, at most `limit` (1 to 1000, default 100), from the cursor `after`
-   * (a page's `next`). Pauses come in the order they were made; the cursor is a position in that
-   * order, so a pause that opens or closes between two pages never makes another skipped or
-   * repeated. A pause's id is shown as `result.pending` shows it (only a `ThreadOwner` pause's),
-   * its `pauseKey` always; its `ask` is masked by its workflow's observability policies. Another
-   * tenant's pauses are never listed; an invalid query is a `ValidationError.DtoInvalid` (`PausesQuery`).
+   * A page of pauses (#943, #1307e), oldest made first: by `status` (default `Pending`), `target`
+   * (a `@ToolApproval` / `@ExternalTask` class or its name), `channel` (a `@Channel` class or its name), `assignee`, `externalRef` and
+   * `expiringBefore` (`Date`, or an ISO 8601 text with its zone), at most `limit` (1 to 1000, default 100), from
+   * the `cursor` of the page before; `nextCursor` is there while more may follow. The cursor is a
+   * position in the order the pauses were made, so a pause that opens or closes between two pages
+   * never makes another skipped or repeated. A pause's id is NOT shown
+   * unless `includePauseIds: true` is asked (then every item has it) — the id of any pause is the
+   * right to answer it (a thread without an `ownerId` is answered by the id alone), so hand it only
+   * to a caller who may; a thread's owner reads his pause's id from `result.pending`; its `pauseKey` is always
+   * there. Its `ask` is masked by its workflow's observability policies. An application that
+   * declares a `tenantContext` needs `{ tenantId }` or `{ allTenants: true }`, else it rejects with
+   * `ValidationError.TenantRequired`; another tenant's pauses are never listed without `allTenants`.
+   * An invalid query is a `ValidationError.DtoInvalid` (`PausesQuery`).
    */
-  listPauses(query: PausesQuery): Promise<PausesPage>;
+  listPauses(...query: TenantListArgs<TApp, PausesQuery>): Promise<Page<ListedPause>>;
   /**
    * One kept root execution of a tenant (#1324e), or `undefined` when none is kept under that id
    * (the application keeps its history only with `historyTtl`; another tenant's execution is none).
@@ -420,9 +426,9 @@ export interface App<TApp = unknown> {
 
 /** Which executions `app.listExecutions` reads (#1324e); the tenant is its scope, named per its application. */
 export interface ExecutionsQuery extends PageQuery {
-  /** Only those started at or after it (`Date`, or an ISO 8601 text). */
+  /** Only those started at or after it (`Date`, or an ISO 8601 text with its zone). */
   readonly startedAfter?: Date | string;
-  /** Only those started before it (`Date`, or an ISO 8601 text). */
+  /** Only those started before it (`Date`, or an ISO 8601 text with its zone). */
   readonly startedBefore?: Date | string;
   /** Only the executions of the workflow of this name. */
   readonly workflow?: string;
@@ -439,24 +445,32 @@ export interface PendingOutboundCallsQuery {
   readonly after?: string;
 }
 
-/** Which pauses `app.listPauses` reads (#943): a tenant's, a page of them. */
-export interface PausesQuery {
-  readonly tenantId: string;
+/** Which pauses `app.listPauses` reads (#943, #1307e); the tenant is its scope, named per its application. */
+export interface PausesQuery extends PageQuery {
   /** Default `Pending`; several: any of them. */
   readonly status?: PauseStatus | readonly PauseStatus[];
-  /** The pause target's name (a `@ToolApproval`'s or `@ExternalTask`'s). */
-  readonly target?: string;
-  /** Only pauses whose deadline is before it; one with no deadline is never listed. */
-  readonly expiringBefore?: Date;
-  /** How many at most: a whole number from 1 to 1000; default 100. */
-  readonly limit?: number;
-  /** The `next` of the page before; none → from the first. */
-  readonly after?: string;
+  /** Only pauses waiting under this pause target: its class, or its name. */
+  readonly target?: Class | string;
+  /** Only pauses asked through this channel: its `@Channel` class, or its name. */
+  readonly channel?: Class | string;
+  /** Only pauses assigned to this one (a pool's member counts). */
+  readonly assignee?: string;
+  /** Only the pause that carries this external reference (a ticket id of the channel). */
+  readonly externalRef?: string;
+  /** Only pauses whose deadline is before it (`Date`, or an ISO 8601 text with its zone); one with no deadline is never listed. */
+  readonly expiringBefore?: Date | string;
+  /**
+   * Show the `pauseId` of a delegated pause too (default `false`). A pause's id is the right to
+   * answer it: ask for it only for a caller who may answer.
+   */
+  readonly includePauseIds?: boolean;
 }
 
 /** One pause as `app.listPauses` shows it: `pauseId` per the rule of `result.pending`, `pauseKey` always. */
 export interface ListedPause extends PendingPauseBase {
   readonly kind: PauseKind;
+  /** The tenant the pause belongs to: what `resume`, `reassignPause` and `setPauseTimeout` need on a tenanted application (an `allTenants` listing holds several). */
+  readonly tenantId: string;
   /** The tool call an approval waits on, masked by the pause's workflow's observability policies. */
   readonly toolCall?: PauseToolCallSummary;
   /** Who answered a closed pause (`undefined` while open, or when its channel decided). */
@@ -471,12 +485,6 @@ export interface ListedPause extends PendingPauseBase {
   /** Why a closed pause closed. */
   readonly reason?: PauseClosedReason;
   readonly closedAt?: string;
-}
-
-/** A page of `app.listPauses`; `next` is the cursor of the page after it, absent on the last. */
-export interface PausesPage {
-  readonly pauses: readonly ListedPause[];
-  readonly next?: string;
 }
 
 /** Which tree `app.auditLogOf` and `app.outboundCallsOf` read: the tenant's root execution. */

@@ -97,6 +97,7 @@ export const BASELINE_TABLES: readonly string[] = [
   "fenced_effect_results",
   "mesh_requests",
   "outbound_calls",
+  "pause_assignees",
   "pause_notices",
   "paused_executions",
   "pauses",
