@@ -269,13 +269,12 @@ export class JobScout {}
 -->
 
 ```ts file=src/job-scout.application.ts
-import { Application, EmptyEnvironment } from "@agboss/core";
+import { Application } from "@agboss/core";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
 @Application({
   name: "job-scout-application",
   version: "1.0.0",
-  environment: EmptyEnvironment,
   workflows: [JobScout],
   modelProvider: OpenRouterModelProvider, // every chat model that names no provider of its own
   providers: [OpenRouterModelProvider],
