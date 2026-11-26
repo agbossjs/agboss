@@ -42,4 +42,6 @@ export function sharedStorageSecretViolations(assembled: AssembledApplication): 
 }
 
 const variableOf = (reference: Reference): string =>
-  reference instanceof VariableReference ? reference.variable : variableOfSecretRef(reference as SecretRef);
+  reference instanceof VariableReference
+    ? reference.variable
+    : variableOfSecretRef(reference as SecretRef);

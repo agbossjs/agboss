@@ -1,6 +1,7 @@
 import {
   Application,
   Budget,
+  ClusterStorage,
   DatabaseStorage,
   secret,
   BudgetPeriod,
@@ -9,6 +10,8 @@ import {
   type BudgetHandler,
 } from "../../../index.js";
 import type { Class } from "../../../components/injection.js";
+import type { ApplicationStorage } from "../../../storage/storage-assembly.js";
+import { storeDescriptorOf } from "../../../infrastructure/store-descriptor.js";
 import { defineStorageDriver, StorageRole } from "../../../storage/storage-driver.js";
 import { hours, usd, type Milliseconds, type Usd } from "../../../units/index.js";
 import { FaultPodClock } from "../fault-clock.js";
@@ -100,8 +103,15 @@ export const heldProvidersOf = (
  * The pod's `@DatabaseStorage` (#1321): the set's database, the store classes with their hold points
  * as its driver's stores — the application lists no store itself (`[storage.providers-conflict]`).
  */
-export function faultStorageOf(stores: FaultStoreSet, sabotage?: FaultStoreSabotage): Class {
-  const { backend, settings } = stores.storage;
+export function faultStorageOf(
+  stores: FaultStoreSet,
+  sabotage?: FaultStoreSabotage,
+): ApplicationStorage {
+  const { backend, settings, cluster } = stores.storage;
+  const held = heldProvidersOf(stores.providers, sabotage);
+  // the stores on the cluster's backend are the cluster's, every other one the database's
+  const onCluster = (store: Class): boolean =>
+    cluster !== undefined && storeDescriptorOf(store).backend === cluster.kind;
   @DatabaseStorage({
     name: "fault-database-storage",
     driver: defineStorageDriver({
@@ -109,7 +119,7 @@ export function faultStorageOf(stores: FaultStoreSet, sabotage?: FaultStoreSabot
       backend,
       describes: `${backend} (the fault suite's database)`,
       settings,
-      providers: heldProvidersOf(stores.providers, sabotage),
+      providers: held.filter((store) => !onCluster(store)),
     }),
     auditLogTtl: hours(24),
     ledgerEntriesTtl: hours(24),
@@ -117,7 +127,19 @@ export function faultStorageOf(stores: FaultStoreSet, sabotage?: FaultStoreSabot
     idempotencySecret: secret("AGBOSS_FAULT_IDEMPOTENCY_KEY"),
   })
   class FaultDatabaseStorage {}
-  return FaultDatabaseStorage;
+  if (cluster === undefined) return FaultDatabaseStorage;
+  @ClusterStorage({
+    name: "fault-cluster-storage",
+    driver: defineStorageDriver({
+      role: StorageRole.Cluster,
+      backend: cluster.kind,
+      describes: `${cluster.kind} (the fault suite's cluster)`,
+      settings: cluster,
+      providers: held.filter(onCluster),
+    }),
+  })
+  class FaultClusterStorage {}
+  return { database: FaultDatabaseStorage, cluster: FaultClusterStorage };
 }
 
 /**

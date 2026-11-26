@@ -92,6 +92,7 @@ export interface FaultShard {
 // @public
 export interface FaultStorage {
     readonly backend: string;
+    readonly cluster?: DriverSettings | undefined;
     readonly settings: DriverSettings;
 }
 
