@@ -5,6 +5,25 @@ import { invalidValueError } from "../environments/environment-rules.js";
 import { OptionalSecretReference, Secret } from "../environments/secret.js";
 import type { AssembledApplication } from "./assemble.js";
 
+/** The `configureEnv` values of the profiles each assembled workflow was built on (see `profileEnvOf`). */
+const profiledEnv = new WeakMap<object, AssembledApplication["envOverrides"]>();
+
+/** Notes the profiles' `configureEnv` values for the workflows an application assembled. */
+export function rememberProfileEnv(
+  workflows: readonly object[],
+  overrides: AssembledApplication["envOverrides"],
+): void {
+  for (const workflow of workflows) profiledEnv.set(workflow, overrides);
+}
+
+/**
+ * The `configureEnv` values of the profiles a workflow was assembled with: a command that builds
+ * the workflow on its own (studio, replay, golden, eval score, compare, rag index) resolves its
+ * `defineEnv` references with them, as `createApp` does.
+ */
+export const profileEnvOf = (workflow: object): AssembledApplication["envOverrides"] =>
+  profiledEnv.get(workflow) ?? [];
+
 /** The overrides of each `defineEnv`, one per contract: a later layer wins per key. */
 function mergedByContract(
   layers: readonly EnvOverrides<EnvContract>[],
@@ -63,6 +82,19 @@ export function envResolverOf(
   assertNoSecretOverrides(overrides);
   const carried = processEnvWith(processEnv, mergedByContract(overrides));
   return (contract) => resolveEnv(contract, carried);
+}
+
+/**
+ * `envResolverOf` for `agboss check`: the same values, but a required variable nothing sets is a
+ * placeholder and an unset secret stays unresolved (check needs no variable and no key, #266).
+ */
+export function deferredEnvResolverOf(
+  overrides: readonly EnvOverrides<EnvContract>[],
+  processEnv: NodeJS.ProcessEnv,
+): (contract: EnvContract) => unknown {
+  assertNoSecretOverrides(overrides);
+  const carried = processEnvWith(processEnv, mergedByContract(overrides));
+  return (contract) => resolveEnv(contract, carried, undefined, { secrets: "deferred" });
 }
 
 /** What a test's `env` option takes: one `configureEnv(appEnv, { … })` or a list of them. */

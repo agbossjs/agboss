@@ -39,8 +39,8 @@ export const START: OptionSpec = {
 export const PROFILE: OptionSpec = {
   name: "profile",
   type: "string",
-  value: "<name>",
-  help: "layer src/config/<name>.config.ts|yaml over base (a,b or a+b: left to right; default dev)",
+  value: "<list>",
+  help: "the profiles of src/config/<name>.config.ts|yaml, layered over base: one name, or a,b / a+b (left to right; default dev)",
 };
 export const THREAD: OptionSpec = {
   name: "thread",

@@ -23,7 +23,7 @@ export const EVAL_COMMAND: CommandSpec = {
       summary:
         "run an eval suite: every case --runs times, its checks under the cascade, pass@k / pass^k",
       usage:
-        "agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--save-baseline <file.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic] [--profile <name>]",
+        "agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--save-baseline <file.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic] [--profile <list>]",
       options: [
         text(
           "suite",
@@ -74,7 +74,7 @@ export const EVAL_COMMAND: CommandSpec = {
     },
     score: {
       summary: "score recent runs of a start's workflow with Jev",
-      usage: "agboss eval score [--start <name>] [--version <v>] [--limit N] [--profile <name>]",
+      usage: "agboss eval score [--start <name>] [--version <v>] [--limit N] [--profile <list>]",
       options: [
         START,
         APPLICATION,
@@ -132,4 +132,5 @@ export const EVAL_CASE_OPTIONS: readonly OptionSpec[] = [
   text("suite", "<name>", "eval-case: the eval suite to add the case to (optional with one)"),
   text("from-execution", "<executionId>", "eval-case: the kept execution the case is drafted from"),
   text("tenant", "<id>", "eval-case: the execution's tenant, when two tenants have the id"),
+  PROFILE,
 ];

@@ -1,6 +1,7 @@
 import {
   describedLimitsOf,
   referencedVariablesOf,
+  unsetVariablesOf,
   worstCaseLimitsOf,
   worstCaseReportLines,
   worstCaseRowsOf,
@@ -69,9 +70,11 @@ export function checkReportOf(
     const limits = describedLimitsOf(workflow);
     return limits.worstCases.map((worst) => ({ worst, limits: worstCaseLimitsOf(limits) }));
   });
+  // a variable the selected profile gives through configureEnv is set for the application
+  const unset = new Set(unsetVariablesOf(assembled, env).map((found) => found.variable));
   const variables = referencedVariablesOf(assembled).map((found) => ({
     ...found,
-    isSet: (env[found.variable] ?? "") !== "",
+    isSet: found.required ? !unset.has(found.variable) : (env[found.variable] ?? "") !== "",
   }));
   const environment = variables.length === 0 ? undefined : { variables };
   const lines = [

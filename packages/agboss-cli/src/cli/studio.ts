@@ -7,7 +7,7 @@ import { usageError } from "./errors.js";
 import { writeStudioFiles, type StudioFiles } from "./studio-config.js";
 
 /**
- * `agboss studio [--profile <name>] [--port N]` (#268 AC7): the application assembled and its
+ * `agboss studio [--profile <list>] [--port N]` (#268 AC7): the application assembled and its
  * environment resolved first — a problem stops it before any server starts — then the Studio
  * config written into `.agboss/` and the LangGraph dev server started on it (`studio-server`).
  */

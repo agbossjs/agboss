@@ -41,7 +41,7 @@ export interface CheckTarget {
   readonly file: string;
   readonly assembled: AssembledApplication;
   readonly env: NodeJS.ProcessEnv;
-  /** `--models`: the checks connect, so the environment's secrets must be set (#266). */
+  /** `--models`: the checks connect, so the secrets of the `defineEnv` references must be set (#266). */
   readonly needsSecrets: boolean;
 }
 

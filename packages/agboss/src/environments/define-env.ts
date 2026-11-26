@@ -8,7 +8,7 @@ import {
   Secret,
   variableOfSecret,
 } from "./secret.js";
-import { VariablePresence, VariableReference } from "./variables.js";
+import { VariableKind, VariablePresence, VariableReference } from "./variables.js";
 import { overriddenOf, overridesOf, type EnvOverrides } from "./overrides.js";
 
 export { processEnvWith, type EnvOverrides } from "./overrides.js";
@@ -93,6 +93,25 @@ function secretValueOf(
   return raw === undefined ? undefined : resolvedSecret(variable, raw);
 }
 
+/** What a typed reader accepts as its zero, tried in turn (`0`, `0s`, `0kb`, …). */
+const ZEROES = ["0", "0ms", "0s", "0b"] as const;
+
+/**
+ * What a required variable that is unset stands for where no key and no variable is needed (`agboss
+ * check`, `describe`): an empty text, 0, false, and for a typed reader (number, duration, bytes, usd,
+ * ttl) its own zero — never a value of the process, and always of the type the reference promises.
+ */
+function placeholderOf(ref: VariableReference): unknown {
+  if (ref.kind === VariableKind.Integer) return 0;
+  if (ref.kind === VariableKind.Flag) return false;
+  if (ref.expected === "text") return "";
+  for (const zero of ZEROES) {
+    const parsed = ref.parser?.(zero);
+    if (parsed !== undefined) return parsed;
+  }
+  return undefined;
+}
+
 /** A variable key's value: its default when unset, its parsed text when set; or the problem. */
 function variableValueOf(
   ref: VariableReference,
@@ -102,8 +121,9 @@ function variableValueOf(
 ): unknown {
   const raw = present(processEnv, ref.variable);
   if (raw === undefined) {
-    if (ref.fallback === undefined && ref.presence === VariablePresence.Required)
-      problems.missing.push(`${ref.variable} is not set (${key})`);
+    const isRequired = ref.fallback === undefined && ref.presence === VariablePresence.Required;
+    if (isRequired && problems.deferred) return placeholderOf(ref);
+    if (isRequired) problems.missing.push(`${ref.variable} is not set (${key})`);
     return ref.fallback;
   }
   const parsed = ref.parser === undefined ? raw : ref.parser(raw);
@@ -135,7 +155,7 @@ class Problems {
   readonly missing: string[] = [];
   readonly invalid: string[] = [];
 
-  /** `deferred`: a secret whose variable is unset stays an unresolved `Secret` (types and assembly need no key, #266). */
+  /** `deferred`: a secret whose variable is unset stays an unresolved `Secret`, a required value gets a placeholder (types and assembly need no key, no variable, #266). */
   constructor(readonly deferred = false) {}
 
   throwIfAny(): void {
@@ -148,7 +168,7 @@ class Problems {
 
 /** How `resolveEnv` treats what it cannot resolve. */
 export interface ResolveEnvOptions {
-  /** `deferred`: a secret whose variable is unset stays an unresolved `Secret`, no problem (types and describe need no key). */
+  /** `deferred`: a secret whose variable is unset stays an unresolved `Secret`, a required value gets a placeholder, no problem (types and describe need neither). */
   readonly secrets?: "required" | "deferred";
 }
 

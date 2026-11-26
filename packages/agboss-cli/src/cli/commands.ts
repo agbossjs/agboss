@@ -27,13 +27,13 @@ import { HUB_COMMAND } from "./hub-commands.js";
 const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   chat: {
     summary: "interactive chat with a workflow of the application",
-    usage: "agboss chat [--start <name>] [--thread <id>] [--profile <name>] [--application <path>]",
+    usage: "agboss chat [--start <name>] [--thread <id>] [--profile <list>] [--application <path>]",
     options: [START, APPLICATION, THREAD, PROFILE],
   },
   run: {
     summary: "one execution of a start, the reply to stdout",
     usage:
-      'agboss run [--start <name>] ("<task>" | --input <json> | --input-file <file>) [--thread <id>] [--profile <name>]',
+      'agboss run [--start <name>] ("<task>" | --input <json> | --input-file <file>) [--thread <id>] [--profile <list>]',
     positionals: "<task…> (a start taking WorkflowStartTextDto)",
     options: [
       START,
@@ -47,7 +47,7 @@ const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   eval: EVAL_COMMAND,
   replay: {
     summary: "re-run a prompt version on recent tasks of a start's workflow",
-    usage: "agboss replay [--start <name>] --version <v> [--limit N] [--profile <name>]",
+    usage: "agboss replay [--start <name>] --version <v> [--limit N] [--profile <list>]",
     options: [
       START,
       APPLICATION,
@@ -58,7 +58,7 @@ const START_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   },
   golden: {
     summary: "save recent real tasks of a start's workflow as a golden set",
-    usage: "agboss golden add [--start <name>] --name <name> [--from-last N] [--profile <name>]",
+    usage: "agboss golden add [--start <name>] --name <name> [--from-last N] [--profile <list>]",
     positionals: "add",
     options: [
       START,
@@ -88,13 +88,13 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   describe: {
     summary:
       "every workflow: agents, their tools, knowledge bases and settings (no API key needed)",
-    usage: "agboss describe [--profile <name>] [--application <path>] [--json]",
+    usage: "agboss describe [--profile <list>] [--application <path>] [--json]",
     options: [APPLICATION, PROFILE],
   },
   check: CHECK_COMMAND,
   dev: {
     summary: "watch mode: the types regenerated and the problems printed on every change",
-    usage: "agboss dev [--strict] [--profile <name>] [--application <path>]",
+    usage: "agboss dev [--strict] [--profile <list>] [--application <path>]",
     options: [
       APPLICATION,
       flag("strict", "the analyser's warnings are errors, as in agboss check --strict"),
@@ -103,7 +103,7 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   },
   studio: {
     summary: "LangGraph Studio on every workflow of the application, children inside their parent",
-    usage: "agboss studio [--port N] [--profile <name>] [--application <path>]",
+    usage: "agboss studio [--port N] [--profile <list>] [--application <path>]",
     options: [
       APPLICATION,
       text("port", "N", "the port of the local Studio server", { default: "2024" }),
@@ -113,14 +113,14 @@ const APPLICATION_COMMANDS: Readonly<Record<string, CommandSpec>> = {
   rag: {
     summary: "build / update the application's knowledge bases",
     usage:
-      "agboss rag index [--rag <name>] [--tenant <id>] [--scope <id>] [--profile <name>] [--application <path>]",
+      "agboss rag index [--rag <name>] [--tenant <id>] [--scope <id>] [--profile <list>] [--application <path>]",
     positionals: "index",
     options: RAG_INDEX_OPTIONS,
   },
   executions: {
     summary: "export the application's kept execution records as JSON Lines (masked)",
     usage:
-      "agboss executions export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--profile <name>] [--application <path>]",
+      "agboss executions export (--tenant <id> | --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--profile <list>] [--application <path>]",
     positionals: "export",
     options: [
       APPLICATION,

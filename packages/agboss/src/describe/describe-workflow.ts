@@ -45,6 +45,7 @@ export const describeServices: WorkflowServices = {
     route: () => Promise.reject(new Error("describe does not call routers")),
   }),
   contexts: contextsOutsideExecution({ name: "describe", version: "0.0.0" }),
+  deferredEnv: true,
 };
 
 /** A component's reasoning; unset = its model provider's. */

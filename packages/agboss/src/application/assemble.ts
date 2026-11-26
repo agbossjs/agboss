@@ -7,6 +7,7 @@ import { moduleOf } from "../components/module.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import * as P from "./effective-options.js";
+import { rememberProfileEnv } from "./env-overrides.js";
 import type { Milliseconds } from "../units/index.js";
 import { limitFieldsOf } from "./limit-fields.js";
 import { childFieldsOf } from "./child-fields.js";
@@ -248,5 +249,6 @@ export async function applicationOf(
   };
   // the storage's secrets are read by nothing else (#1324b): needs the assembled workflows and options
   throwIfAny(sharedStorageSecretViolations(result), []);
+  rememberProfileEnv(assembled, result.envOverrides);
   return result;
 }

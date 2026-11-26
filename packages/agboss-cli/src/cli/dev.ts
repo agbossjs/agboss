@@ -21,7 +21,7 @@ export interface CliEntry {
   readonly script: string;
 }
 
-/** What one pass runs: `agboss check --application <file> [--profile <name>] [--strict]`. */
+/** What one pass runs: `agboss check --application <file> [--profile <list>] [--strict]`. */
 export interface PassOptions {
   readonly file: string;
   readonly profile: string | undefined;

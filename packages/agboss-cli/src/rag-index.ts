@@ -1,5 +1,10 @@
 import type { AssembledWorkflow } from "@agboss/core/internal";
-import { describeServices, contextsOutsideExecution } from "@agboss/core/internal";
+import {
+  describeServices,
+  contextsOutsideExecution,
+  envResolverOf,
+  profileEnvOf,
+} from "@agboss/core/internal";
 import { RagScope, type RagIndexReport } from "@agboss/core/rag";
 import { assembleApplication, loadCliApplication } from "./cli/cli-application.js";
 import { textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
@@ -20,13 +25,18 @@ interface KnowledgeBase {
 }
 
 /** Every knowledge base of every workflow, each once (two workflows may bind one). */
-function knowledgeBasesOf(workflows: readonly AssembledWorkflow[]): readonly KnowledgeBase[] {
+function knowledgeBasesOf(
+  workflows: readonly AssembledWorkflow[],
+  env: NodeJS.ProcessEnv,
+): readonly KnowledgeBase[] {
   // no router runs here; the sources read the application's contexts
   const bases = workflows.flatMap(
     (workflow) =>
       workflow.knowledgeBases?.({
         router: describeServices.router,
         contexts: contextsOutsideExecution(workflow.config),
+        // a real run: the profile's configureEnv over the process's variables, an unset one a failure
+        container: { envOf: envResolverOf(profileEnvOf(workflow), env) },
       }) ?? [],
   );
   return [...new Map(bases.map((base) => [base.name, base])).values()];
@@ -141,7 +151,7 @@ export const handle: CommandHandler = async (context) => {
     loaded,
     textOption(context.values, "profile"),
   );
-  const bases = selected(context, knowledgeBasesOf(assembled.workflows));
+  const bases = selected(context, knowledgeBasesOf(assembled.workflows, context.io.env));
   if (bases.length === 0) context.say(`No knowledge bases in "${assembled.name}".`);
   const stop = stopSignal();
   try {

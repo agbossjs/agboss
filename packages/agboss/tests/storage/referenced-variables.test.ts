@@ -1,5 +1,5 @@
 /**
- * #1324: every process variable a component reads through `defineEnv` is named by `agboss check --env`:
+ * #1324: every process variable a component reads through `defineEnv` is named by `agboss check`:
  * the storage's file and secrets, listed once each, never a value.
  */
 import { describe, expect, it } from "vitest";

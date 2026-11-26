@@ -36,6 +36,8 @@
         "tests/fixtures/outside-graph/**/*.application.ts",
         // loaded by path: the profile files (`config/<profile>.config.ts`) a test names with `profile:` / `--profile`
         "tests/**/fixtures/**/config/*.config.ts",
+        // loaded by path: the applications the CLI tests check (`--application <file>`, #1324b)
+        "tests/environments/fixtures/**/*.application.ts",
         // loaded by path: the workflows `check:types` generates types for (#272)
         "tests/flow/fixtures/*.fixture.ts",
         // loaded by path: the eval suites `agboss eval run` and `agboss check` find (#396)
@@ -76,6 +78,8 @@
         "src/cli/main.ts",
         "tests/fixtures/**/*.workflow.ts",
         "tests/fixtures/**/*.application.ts",
+        // loaded by path: the profile files a test names with `--profile`
+        "tests/fixtures/**/config/*.config.ts",
       ],
       "project": ["src/**/*.ts", "tests/**/*.ts"],
       // the version a generated project depends on (src/scaffold/project.ts), run by the e2e tests

@@ -21,7 +21,7 @@ import { JudgeModel } from "./judge-decorators.js";
 import { deferredEnvOf } from "../environments/define-env.js";
 import { contextsOutsideExecution } from "../flow/context/runtime-contexts.js";
 import { CONTEXT_TOKENS, contextValuesOf } from "./context-tokens.js";
-import { createContainer, type Container } from "./container/container.js";
+import { createContainer, type Container, type ContainerOptions } from "./container/container.js";
 import type { ProviderModule } from "./container/registrations.js";
 import type { ToolHandler } from "./decorators.js";
 import { InjectionToken, type Class, type Token } from "./injection.js";
@@ -106,6 +106,13 @@ export const providerModulesOf = (bundle: WorkflowMeta): readonly ProviderModule
       },
 ];
 
+/** `agboss check` and `describe` (#266) defer unset variables: the container's `envOf` for them, unless one was given. */
+function deferredEnvOptionOf(services: WorkflowServices): Pick<ContainerOptions, "envOf"> {
+  const { deferredEnv } = services;
+  if (!deferredEnv || services.container?.envOf !== undefined) return {};
+  return { envOf: deferredEnv === true ? deferredEnvOf : deferredEnv };
+}
+
 /** One container per app instance (its services): its tools, knowledge and index share instances. */
 const containers = new WeakMap<WorkflowMeta, WeakMap<WorkflowServices, Container>>();
 export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): Container => {
@@ -130,9 +137,10 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
     { modules: providerModulesOf(bundle), core },
     {
       ...services.container,
-      // no application's container (`agboss check`, `describe`): types and the tool graph need no key (#266) — a
-      // secret behind `deps: [appEnv]` stays unresolved, its variable named by the report instead of failing the build
-      ...(services.container === undefined ? { envOf: deferredEnvOf } : {}),
+      // `agboss check` and `describe` opt in (#266): types and the tool graph need no key and no variable — a
+      // secret behind `deps: [appEnv]` stays unresolved, its variable named by the report instead of failing the build.
+      // Every other path resolves strictly, from the container's `envOf` or the process's variables.
+      ...deferredEnvOptionOf(services),
       // a `@Rag` source gets its pipeline (scope, reranker, spend) when the container creates it
       onCreate: (instance) => {
         services.container?.onCreate?.(instance);

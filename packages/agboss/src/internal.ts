@@ -65,7 +65,12 @@ export {
   type WorstCaseRow,
 } from "./describe/worst-case-report.js";
 export type { WorstCase, WorstCaseChild } from "./flow/analyse/worst-case.js";
-export { referencedVariablesOf } from "./application/referenced-variables.js";
+export {
+  invalidVariablesOf,
+  referencedVariablesOf,
+  unsetVariablesOf,
+  type InvalidVariable,
+} from "./application/referenced-variables.js";
 export { VariableUse, type ProcessVariable } from "./environments/process-variable.js";
 export { compareBundleProfiles } from "./eval/compare-profiles.js";
 export { formatComparison } from "./eval/compare-report.js";
@@ -168,6 +173,7 @@ export { childSourcesIn, configSnapshot, type ChildSnapshotSources } from "./run
 export { shortVersion, versionOf } from "./turns/index.js";
 export { isMcpFacade } from "./tools/index.js";
 export { applicationOf, type AssembledApplication } from "./application/assemble.js";
+export { deferredEnvResolverOf, envResolverOf, profileEnvOf } from "./application/env-overrides.js";
 export { migratedDatabaseOf, type DatabaseMigrationRun } from "./storage/storage-migrate.js";
 export { startsOfApplication, type ApplicationStart } from "./application/application-starts.js";
 export { startInputIssuesOf } from "./flow/runtime/start-input-issues.js";
