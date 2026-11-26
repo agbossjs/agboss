@@ -105,7 +105,7 @@ const test = testWith(LimApplication);
 const operator = { actor: { id: "operator-1" } };
 
 describe("maxExtensions and moved reassignments", () => {
-  test("a move to another channel with a timeout counts as an extension: the second is refused, and so is extendPause", async ({
+  test("a move to another channel with a timeout counts as an extension: the second is refused, and so is setPauseTimeout", async ({
     app,
   }) => {
     const paused = await execute(app, LimStart, { orderId: "o-1" }, { threadId: "lim-1" });
@@ -132,7 +132,7 @@ describe("maxExtensions and moved reassignments", () => {
       app.reassignPause({ pauseId: movedId, channel: AChannel, timeout: hours(72) }, operator),
     ).rejects.toBeInstanceOf(PauseError.EscalationLimitExceeded);
     await expect(
-      app.extendPause({ pauseId: movedId, expiresIn: hours(200) }, operator),
+      app.setPauseTimeout({ pauseId: movedId, timeout: hours(200) }, operator),
     ).rejects.toBeInstanceOf(PauseError.EscalationLimitExceeded);
     expect((await live())?.pauseId).toBe(movedId);
     // a move with no deadline is no extension: still allowed

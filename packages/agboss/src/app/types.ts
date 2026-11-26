@@ -19,7 +19,7 @@ import type { PauseClosedReason, PauseKind, PauseStatus } from "../infrastructur
 import type { ExecutionStreamEvent } from "../run/types.js";
 import type { Milliseconds } from "../units/index.js";
 import type { ExecutionOutput } from "./execution-output.js";
-import type { ExtendPauseRequest, PauseExtension } from "./extend-types.js";
+import type { SetPauseTimeoutRequest, PauseTimeoutChangeResult } from "./timeout-types.js";
 import type { PauseReassignment, ReassignPauseRequest } from "./reassign-types.js";
 import type { Page, PageQuery } from "./page.js";
 import type { TenantContextBranded, TenantListArgs, TenantPointArgs } from "./tenant-args.js";
@@ -30,7 +30,7 @@ import type {
 
 export type * from "./execution-output.js";
 export type * from "./reassign-types.js";
-export type * from "./extend-types.js";
+export type * from "./timeout-types.js";
 import type { HealthReport } from "../health/health-check.js";
 import type { ExecutionAuditEventRecord } from "../infrastructure/execution-audit-log.repository.js";
 import type {
@@ -142,7 +142,7 @@ export interface ReplyResumeRequest {
 export type ResumeOptions = OwnerResumeOptions | DelegateResumeOptions;
 
 /**
- * Who calls and for which tenant, for what acts on a pause without running anything — `app.extendPause`
+ * Who calls and for which tenant, for what acts on a pause without running anything — `app.setPauseTimeout`
  * (#942): the caller fields of `ResumeOptions` and none of `CallOptions` (`signal`, `onStream`, …:
  * nothing executes, so they would be ignored; an object literal with one does not compile). Who may:
  * as an answer — the `ownerId` of a thread owner's pause, the `actor` of a channel's.
@@ -242,23 +242,27 @@ export interface App<TApp = unknown> {
     ...options: TenantPointArgs<TApp, ResumeOptions>
   ): Promise<ExecutionOutput>;
   /**
-   * Moves an open pause's deadline later (#942): `expiresAt = now + expiresIn`, by whoever may
-   * answer it (`answeredBy` for a channel's pause, `ownerId` for its thread owner's, as `resume`).
-   * The channel and the listeners hear "extended" and, `remindBefore` before the new deadline,
-   * "expiring". Refused: a pause that is closed or past its deadline (`PauseError.Closed`), one with
-   * no deadline, a deadline not later than the current one, or one past the deadline of the run (or
-   * quorum) it was made under (`ValidationError.DtoInvalid`, `dto: "ExtendPauseRequest"`); another tenant's
-   * or an unknown pause is `PauseError.UnknownPause`. Atomic at the store against the expiry look; a call
-   * that loses the store's compare-and-set to other writers 8 times in a row is
+   * Changes an open pause's deadline (#942, #1307): `expiresAt = now + timeout` — later or earlier than
+   * the one it has —, or none (`Timeout.None`), by whoever may answer it (`actor` for a channel's pause,
+   * `ownerId` for its thread owner's, as `resume`) and only when its target's `permitTimeoutChange` says
+   * `true` (`PauseError.PermissionDenied` otherwise; fail closed). The channel and the listeners hear
+   * `onPauseTimeoutChanged` and, `remindBefore` before the new deadline, "expiring"; the observers hear
+   * `onPauseTimeoutChanged` once. `reason` goes to the pause's chain of custody, PII-masked. Refused: a
+   * timeout that is no duration of at least `seconds(1)` (`PauseError.InvalidTimeout`), a pause that is
+   * closed or past its deadline (`PauseError.Closed`), a deadline past the one the run (or quorum) made it
+   * under or the chain's `escalationLimits` — `maxTotalTimeout`, `maxExtensions` — (`PauseError.EscalationLimitExceeded`;
+   * `Timeout.None` is past any of them), a pause whose first send is still in flight (`PauseError.UpdateContended`); another
+   * tenant's or an unknown pause is `PauseError.UnknownPause`. Atomic at the store against the expiry
+   * look; a call that loses the store's compare-and-set to other writers 8 times in a row is
    * `PauseError.UpdateContended` (`pause.update-contended`; nothing changed, retry is safe).
    */
-  extendPause(
-    request: ExtendPauseRequest,
+  setPauseTimeout(
+    request: SetPauseTimeoutRequest,
     ...options: TenantPointArgs<TApp, PauseCallerOptions>
-  ): Promise<PauseExtension>;
+  ): Promise<PauseTimeoutChangeResult>;
   /**
    * Moves an open pause to other assignees, another channel or another target (#946, #1307d): by
-   * whoever may answer it (as `extendPause`) and only when its target's `permitReassign` says `true`
+   * whoever may answer it (as `setPauseTimeout`) and only when its target's `permitReassign` says `true`
    * (`PauseError.PermissionDenied` otherwise). A pause that stays with its target and channel is
    * changed in place — the same id, its `externalRef` kept, its deadline kept unless `timeout` says
    * otherwise — and its channel is told `onPauseReassigned`. One moved to another channel or target is

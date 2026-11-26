@@ -160,10 +160,10 @@ export class SharedPausedExecutionRepository extends PausedExecutionRepository {
     return database.pauses.closeUntakenByTenantIdAndPauseId(...args);
   }
 
-  extendByTenantIdAndPauseId(
-    ...args: Args<"extendByTenantIdAndPauseId">
-  ): ReturnType<PausedExecutionRepository["extendByTenantIdAndPauseId"]> {
-    return database.pauses.extendByTenantIdAndPauseId(...args);
+  changeTimeoutByTenantIdAndPauseId(
+    ...args: Args<"changeTimeoutByTenantIdAndPauseId">
+  ): ReturnType<PausedExecutionRepository["changeTimeoutByTenantIdAndPauseId"]> {
+    return database.pauses.changeTimeoutByTenantIdAndPauseId(...args);
   }
 
   remindByTenantIdAndPauseId(

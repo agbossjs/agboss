@@ -1,6 +1,6 @@
 import type { Class } from "../components/injection.js";
 import type { PauseInputOf, PauseOutputOf } from "../flow/generated-types.js";
-import type { Milliseconds, WorkingDuration } from "../units/index.js";
+import type { Milliseconds, Timeout, WorkingDuration } from "../units/index.js";
 
 /** The values a pause target's hooks and its channels read (#1307a). */
 
@@ -75,7 +75,9 @@ export interface TimeoutPermissionContext<TTarget> {
   readonly actor?: PauseActor;
   readonly assignees?: readonly string[];
   readonly input: PauseInputOf<TTarget>;
-  readonly timeout: WorkingDuration | Milliseconds;
+  /** The timeout asked: counted from now; `Timeout.None` takes the deadline away. */
+  readonly timeout: WorkingDuration | Milliseconds | Timeout;
+  /** The deadline the pause has now; absent: none. */
   readonly currentExpiresAt?: Date;
   readonly reason?: string;
   readonly toolCall?: PauseToolCallSummary;
@@ -137,6 +139,14 @@ export type AnswerPermitCall = Omit<AnswerPermissionContext<never>, "input" | "o
   readonly input: unknown;
   readonly output: unknown;
 };
+
+/** What the timeout change hands `permitTimeoutChange`: the context, its `input` as the record keeps it. */
+export type TimeoutPermitCall = Omit<TimeoutPermissionContext<never>, "input"> & {
+  readonly input: unknown;
+};
+
+/** A target's `permitTimeoutChange`, as `app.setPauseTimeout` calls it (#1307): `true` permits; anything else refuses. */
+export type PermitTimeoutChange = (ctx: TimeoutPermitCall) => Promise<unknown>;
 
 /** What the reassignment hands `permitReassign`: the context, its `input` as the record keeps it. */
 export type ReassignPermitCall = Omit<ReassignPermissionContext<never>, "input"> & {

@@ -11,11 +11,11 @@ const [operation, id] = process.argv.slice(2);
 if (id === undefined) throw new Error("usage: cancel <threadId> | resume <pauseId>");
 const app = await createApp(HeldCancelApplication, { env: "dev" });
 if (operation === "extend") {
-  const extension = await app.extendPause(
-    { pauseId: id, expiresIn: hours(5) },
+  const extension = await app.setPauseTimeout(
+    { pauseId: id, timeout: hours(5) },
     { actor: { id: "the operator" }, tenantId: "default" },
   );
-  process.stdout.write(`result extended=${String(extension.pauseKey.length > 0)}\n`);
+  process.stdout.write(`result extended=${String(extension.expiresAt !== undefined)}\n`);
 } else if (operation === "reassign") {
   const moved = await app.reassignPause(
     { pauseId: id, assignees: ["deputy-3"] },

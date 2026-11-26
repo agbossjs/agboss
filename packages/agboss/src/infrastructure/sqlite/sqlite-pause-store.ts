@@ -1,10 +1,11 @@
 import type {
-  PauseDeadlineChange,
+  PauseTimeoutChange,
   PauseNoticeFacts,
   PauseNoticeKind,
   PauseRecipients,
   PauseReassignmentChange,
 } from "../pause-notices.js";
+import { timeoutChange } from "../pause-timeout-change.js";
 import {
   decidedPause,
   PauseStatus,
@@ -18,7 +19,6 @@ import {
   cancelChange,
   closeUntakenChange,
   expireChange,
-  extendChange,
   markSentChange,
   onceNotices,
   remindChange,
@@ -145,15 +145,15 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     );
   }
 
-  async extendByTenantIdAndPauseId(
+  async changeTimeoutByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    change: PauseDeadlineChange,
+    change: PauseTimeoutChange,
     at: Date,
     recipients: PauseRecipients,
   ): Promise<PauseRecord | undefined> {
     return Promise.resolve(
-      this.#change(tenantId, pauseId, (pause) => extendChange(pause, change, at, recipients)),
+      this.#change(tenantId, pauseId, (pause) => timeoutChange(pause, change, at, recipients)),
     );
   }
 

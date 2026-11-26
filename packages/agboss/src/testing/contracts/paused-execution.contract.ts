@@ -15,6 +15,7 @@ import { DEADLINE_CASES } from "./paused-execution-deadline.cases.js";
 import { DELIVERY_CASES } from "./paused-execution-delivery.cases.js";
 import { EXTEND_CASES } from "./paused-execution-extend.cases.js";
 import { EXTEND_RACE_CASES } from "./paused-execution-extend-race.cases.js";
+import { TIMEOUT_CHANGE_CASES } from "./paused-execution-timeout.cases.js";
 import { REASSIGN_CASES } from "./paused-execution-reassign.cases.js";
 import { REASSIGN_TRAIL_CASES } from "./paused-execution-reassign-trail.cases.js";
 import { REASSIGN_KEY_CASES } from "./paused-execution-reassign-key.cases.js";
@@ -180,7 +181,11 @@ export function pausedExecutionContract(target: ContractTarget<PausedExecutionRe
       { title: "the deadline is part of every closer's compare-and-set", cases: DEADLINE_CASES },
       { title: "a pause leaves Pending once, whichever closers race", cases: CLOSER_RACE_CASES },
       { title: "extend, remind, close untaken, find by step key", cases: EXTEND_CASES },
-      { title: "an extension is one compare-and-set (#1099)", cases: EXTEND_RACE_CASES },
+      { title: "a timeout change is one compare-and-set (#1099)", cases: EXTEND_RACE_CASES },
+      {
+        title: "a timeout change shortens, sets, takes away and counts (#1307)",
+        cases: TIMEOUT_CHANGE_CASES,
+      },
       {
         title: "a reassignment moves a pause to a replacement (#946)",
         cases: [

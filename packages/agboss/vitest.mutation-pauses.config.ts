@@ -14,7 +14,7 @@ export default defineConfig({
     include: [
       "tests/infrastructure/store-conformance.in-memory.test.ts",
       "tests/infrastructure/{pause-rules-units,pause-mailboxes-units,pause-transitions-units,pause-store-units,pause-mailbox-store-units,recovery-log-repair,orphan-pauses,orphan-wakes,pause-record-kind,stored-pause-reading,recovery-wake-order}.test.ts",
-      "tests/app/pause-{closed-error,expiry-*,extension,reassign-targets,reassignment*,reminders,working-time}.test.ts",
+      "tests/app/pause-{closed-error,expiry-*,extension,set-timeout,reassign-targets,reassignment*,reminders,working-time}.test.ts",
       "tests/app/{tree-end-pauses,tree-end-pauses-units,list-pauses,pause-answer-log}.test.ts",
       "tests/metrics/pause-metrics.test.ts",
     ],

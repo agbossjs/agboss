@@ -59,9 +59,15 @@ export function deadlineOf(notice: PauseNotice): string {
   return notice.expiresAt;
 }
 
-/** The deadline an extension moved from. */
-export function previousDeadlineOf(notice: PauseNotice): string {
-  if (notice.previousExpiresAt === undefined)
-    throw new TypeError("an extended notice names the deadline it moved from");
-  return notice.previousExpiresAt;
+/** The deadlines a timeout change moved between; each is absent when the pause had, or has, none. */
+export function changedDeadlinesOf(notice: PauseNotice): {
+  readonly expiresAt?: string;
+  readonly previousExpiresAt?: string;
+} {
+  return {
+    ...(notice.expiresAt === undefined ? {} : { expiresAt: notice.expiresAt }),
+    ...(notice.previousExpiresAt === undefined
+      ? {}
+      : { previousExpiresAt: notice.previousExpiresAt }),
+  };
 }

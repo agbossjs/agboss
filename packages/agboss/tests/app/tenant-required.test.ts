@@ -67,7 +67,7 @@ describe("#1324e: an application with a tenantContext refuses a call that names 
     ],
     ["resume", (app) => app.resume({ pauseId: "p", decision: {} })],
     ["cancel", (app) => app.cancel("thread-1")],
-    ["extendPause", (app) => app.extendPause({ pauseId: "p", expiresIn: 1000 as never })],
+    ["setPauseTimeout", (app) => app.setPauseTimeout({ pauseId: "p", timeout: 1000 as never })],
     ["reassignPause", (app) => app.reassignPause({ pauseId: "p", assignees: ["d"] })],
     ["getExecution", (app) => app.getExecution("e-1")],
     ["getStatusHistory", (app) => app.getStatusHistory("thread-1")],
@@ -177,7 +177,7 @@ describe("#1324e: an application without a tenantContext has the one tenant defa
       const calls = [
         app.cancel("no-such-thread"),
         app.resume({ pauseId: "p", decision: {} }),
-        app.extendPause({ pauseId: "p", expiresIn: 1000 as never }),
+        app.setPauseTimeout({ pauseId: "p", timeout: 1000 as never }),
       ];
 
       for (const error of await Promise.all(calls.map(rejection))) {

@@ -61,10 +61,14 @@ export interface ChannelPauseTimeoutChangedEvent<TTarget> extends PauseDelivered
   readonly input: PauseInputOf<TTarget>;
   /** The tool call an approval waited on. */
   readonly toolCall?: PauseToolCallSummary;
-  /** The new deadline (ISO 8601). */
-  readonly expiresAt: string;
-  /** The deadline it had (ISO 8601). */
-  readonly previousExpiresAt: string;
+  /** The new deadline (ISO 8601); absent: none now (`Timeout.None`). */
+  readonly expiresAt?: string;
+  /** The deadline it had (ISO 8601); absent: none. */
+  readonly previousExpiresAt?: string;
+  /** Who changed it (`actor` of the call). */
+  readonly actor?: PauseActor;
+  /** Why, as the pause's chain of custody keeps it: masked by the workflow's PII policy. */
+  readonly reason?: string;
 }
 
 /** A pause this channel sent is about to expire (#942): `remindBefore` before its deadline. */
@@ -160,10 +164,14 @@ export interface ChannelListenerAnswerNotTakenEvent extends ChannelListenerEvent
 
 /** A pause's deadline moved (#942): an operator changed it. */
 export interface ChannelListenerTimeoutChangedEvent extends ChannelListenerEventBase {
-  /** The new deadline (ISO 8601). */
-  readonly expiresAt: string;
-  /** The deadline it had (ISO 8601). */
-  readonly previousExpiresAt: string;
+  /** The new deadline (ISO 8601); absent: none now (`Timeout.None`). */
+  readonly expiresAt?: string;
+  /** The deadline it had (ISO 8601); absent: none. */
+  readonly previousExpiresAt?: string;
+  /** Who changed it (`actor` of the call). */
+  readonly actor?: PauseActor;
+  /** Why, as the pause's chain of custody keeps it: masked by the workflow's PII policy. */
+  readonly reason?: string;
 }
 
 /** A pause is about to expire (#942): `remindBefore` before its deadline. */

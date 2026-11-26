@@ -42,7 +42,7 @@ import { recoverRootOf, type RecoverRoot } from "./recover-root.js";
 import { treeToolsOf, treeQuestionAnswersOf } from "./child-deps.js";
 import { resumeOf } from "./resume.js";
 import { answerPartsOf } from "./answer-parts.js";
-import { extendPauseOf } from "./pause-extension.js";
+import { setPauseTimeoutOf } from "./pause-timeout.js";
 import { reassignPauseOf, replacementSendsOf, resendOf } from "./pause-reassignment.js";
 import { meshContextValuesOf } from "../mesh/mesh-context-values.js";
 import { checkedCallerId } from "../flow/context/context-values.js";
@@ -193,7 +193,7 @@ export async function buildApp(
     },
     ...interruptControlsOf(cancelParts, moves),
     resume: resumeOf(resuming),
-    extendPause: extendPauseOf({ pauses, owned, clock, accepting, deps }),
+    setPauseTimeout: setPauseTimeoutOf({ pauses, owned, clock, accepting, deps }),
     reassignPause: reassignPauseOf({ ...resends, owned, accepting }),
     close: async () => {
       closed = true;

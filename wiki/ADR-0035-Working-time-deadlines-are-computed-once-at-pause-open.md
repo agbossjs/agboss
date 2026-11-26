@@ -32,13 +32,13 @@ the stored record. Working time depends on a calendar — days, hours, breaks, h
    rejected: it is a deadline nobody asked for.
 5. **A reminder cannot be subtracted by a calendar.** A working `remindBefore` needs a working `expiresIn`
    (`calendar.add(askedAt, expiresIn − remindBefore)`); a plain deadline with a working reminder is refused at
-   assembly on the role and on every override site, and at run time by `extendPause`.
+   assembly on the role and on every override site, and at run time by `setPauseTimeout`.
 6. **The run's deadline stays wall-clock.** The smaller of the working deadline and the run's wins, a tie goes
    to the run (#941 D8).
 
 ## Consequences
 
 - No new store contract and no change to the timers: the working-time engine runs only in the asking step and
-  in `app.extendPause`.
+  in `app.setPauseTimeout`.
 - A holiday added after a pause opened does not shorten it; operators extend or accept.
 - A custom calendar's failure is the step's failure, visible and retried by the step's re-entry.

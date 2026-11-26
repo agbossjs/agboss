@@ -1187,8 +1187,8 @@ listeners' mailboxes **and** clears `remindAt` in one store transaction. No leas
 number of instances looking at one tick remind once, a pod that dies before the transaction leaves the pause due
 for the next look, and one that dies after leaves the notice to the mailbox's at-least-once delivery. A pause of
 another application on a shared store is passed. A look that fails is `pause.reminder-failed`
-(`LogLevel.Warn`, with the tenant and the root execution); the others and the next tick go on. An extension
-(`app.extendPause`) writes `remindAt` again, from the new deadline, in the same compare-and-set as the deadline.
+(`LogLevel.Warn`, with the tenant and the root execution); the others and the next tick go on. A timeout change
+(`app.setPauseTimeout`) writes `remindAt` again, from the new deadline, in the same compare-and-set as the deadline.
 
 **The re-send look** (#946) is a third look of the same tick: `findPendingUnsentReassignedBefore(now − 30 s, 50, after)`
 (a keyset cursor, as the reminder look) reads the replacements of a reassignment (`app.reassignPause`) that are still `Pending` and unsent 30 seconds

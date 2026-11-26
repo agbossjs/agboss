@@ -4,6 +4,7 @@
  * change must not stay behind, and no notice without its change either.
  */
 import { describe, expect, it } from "vitest";
+import { seconds } from "../../../src/units/index.js";
 import { NO_RECIPIENTS } from "../../../src/infrastructure/pause-notices.js";
 import {
   PauseResolution,
@@ -12,8 +13,10 @@ import {
 import { SqlitePausedExecutionRepository } from "../../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import {
   RECIPIENTS,
+  DEADLINE,
   expiringPauseOf,
   MID,
+  withSeen,
 } from "../../../src/testing/contracts/paused-execution-data.js";
 import { VirtualClock } from "../../../src/testing/clock.js";
 import { connectionTo, temporarySqlitePath } from "../contracts/store-kinds.js";
@@ -49,5 +52,59 @@ describe("I7: a change and its notices are one transaction", () => {
       status: PauseStatus.Pending,
     });
     expect(await pauses.countNotices()).toEqual({ live: 0, dead: 0 });
+  });
+});
+
+describe("one mailbox row that does not read does not stop the claim of the others (#1307)", () => {
+  it("a notice kind no code writes any more (a store from before the rename: `extended`) is set aside dead", async () => {
+    const path = temporarySqlitePath();
+    const pauses = new SqlitePausedExecutionRepository(connectionTo(path), new VirtualClock(MID));
+    await pauses.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+    await pauses.findOrCreateByStepKey(expiringPauseOf("pause-b", "run-1:s:1:b"));
+    for (const id of ["pause-a", "pause-b"])
+      await pauses.markSentByTenantIdAndPauseId("default", id, RECIPIENTS);
+    connectionTo(path)
+      .database.prepare(
+        `UPDATE pause_notices SET notices = REPLACE(notices, '"opened"', '"extended"') WHERE pause_id = 'pause-a'`,
+      )
+      .run();
+
+    const claims = await pauses.claimNoticesDue(MID, 10, seconds(30), ["listener:audit-listener"]);
+
+    expect(claims.map(({ mailbox }) => mailbox.pauseId)).toEqual(["pause-b"]);
+    expect(await pauses.countNotices()).toEqual({ live: 3, dead: 1 });
+  });
+});
+
+describe("a timeout-changed notice keeps who and why through the store (#1307)", () => {
+  it("the claimed notice carries the actor and the masked reason it was written with", async () => {
+    const pauses = new SqlitePausedExecutionRepository(
+      connectionTo(temporarySqlitePath()),
+      new VirtualClock(MID),
+    );
+    await pauses.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+    await pauses.markSentByTenantIdAndPauseId("default", "pause-a", RECIPIENTS);
+    await pauses.changeTimeoutByTenantIdAndPauseId(
+      "default",
+      "pause-a",
+      await withSeen(pauses, "pause-a", {
+        expiresAt: "2026-01-05T12:00:00.000Z",
+        previousExpiresAt: DEADLINE.toISOString(),
+        actor: { id: "operator-1", orgId: "hq" },
+        reason: "customer escalated",
+      }),
+      MID,
+      RECIPIENTS,
+    );
+
+    const claims = await pauses.claimNoticesDue(MID, 10, seconds(30), ["listener:audit-listener"]);
+
+    expect(claims.flatMap(({ mailbox }) => mailbox.notices)).toContainEqual(
+      expect.objectContaining({
+        kind: "timeout-changed",
+        actor: { id: "operator-1", orgId: "hq" },
+        changeReason: "customer escalated",
+      }),
+    );
   });
 });

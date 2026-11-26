@@ -1,5 +1,5 @@
 /**
- * What `app.extendPause` and `app.reassignPause` tell of the pause they changed (#1307): where it
+ * What `app.setPauseTimeout` and `app.reassignPause` tell of the pause they changed (#1307): where it
  * waits, never its id (the right to answer it) and never its ask or the assignee.
  */
 export interface PauseChange {
@@ -15,10 +15,12 @@ export interface PauseChange {
   readonly channel?: string;
 }
 
-/** An operator moved a pause's deadline later (`onPauseTimeoutChanged`): once, by the call that won. */
+/** An operator changed a pause's deadline (`onPauseTimeoutChanged`): once, by the call that won. */
 export interface PauseTimeoutChangedEvent extends PauseChange {
-  readonly previousExpiresAt: Date;
-  readonly expiresAt: Date;
+  /** The deadline it had; absent: none. */
+  readonly previousExpiresAt?: Date;
+  /** The deadline it has now; absent: none (`Timeout.None`). */
+  readonly expiresAt?: Date;
 }
 
 /** An operator moved a pause to another addressee (`onPauseReassigned`): once, by the call that won. */

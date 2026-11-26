@@ -136,8 +136,8 @@ export const SKILL_COVERAGE: SkillCoverage = {
     ...["NotPausedError", "PauseError"],
     ...["PauseExpiration", "PauseExpiryHandler", "StepError", "PauseError"],
     ...[
-      "ExtendPauseRequest",
-      "PauseExtension",
+      "SetPauseTimeoutRequest",
+      "PauseTimeoutChangeResult",
       "PauseCallerOptions",
       "ChannelPauseTimeoutChangedEvent",
     ],

@@ -8,7 +8,7 @@ import { ownDepsOf } from "./own-deps.js";
 import { definedFields } from "../core/defined-fields.js";
 import type { AppDeps } from "./app-deps.js";
 import type { Class } from "../components/injection.js";
-import type { Milliseconds, WorkingDuration } from "../units/index.js";
+import type { Milliseconds, Timeout, WorkingDuration } from "../units/index.js";
 
 /**
  * A target's `permitAnswer` (#1307c): called by the resume once the answer is read and validated and
@@ -58,7 +58,7 @@ function permitCallOf(
  */
 async function assertPermitted(
   pause: PauseRecord,
-  what: "answer" | "reassignment",
+  what: "answer" | "reassignment" | "timeout change",
   hook: string,
   permitOf: () => PermitHook | undefined,
   ctx: () => unknown,
@@ -137,6 +137,7 @@ export function assertReassignPermitted(
   ask: ReassignAsk,
   target?: PauseTarget,
 ): Promise<void> {
+  if (target === undefined) assertNotAnswerGuarded(deps, pause, "permitReassign", "a reassignment");
   return assertPermitted(
     pause,
     "reassignment",
@@ -157,6 +158,87 @@ export function assertReassignPermitted(
       }),
       input: pause.input,
       target: pause.target,
+      trail: trailOf(pause),
+    }),
+  );
+}
+
+/**
+ * A pause whose target guards its answers (`permitAnswer`) but not this operator act (`hook` absent) must
+ * not let the act force what only an answer may: a shorter deadline makes `onExpired` decide, a
+ * reassignment changes who answers (#1307, H2). Fail closed: `PauseError.PermissionDenied`; declare the
+ * hook to allow it. A target that cannot be resolved is left to the hook's own check.
+ */
+export function assertNotAnswerGuarded(
+  deps: AppDeps,
+  pause: PauseRecord,
+  hook: "permitTimeoutChange" | "permitReassign",
+  what: string,
+): void {
+  let target: PauseTarget | undefined;
+  try {
+    target = targetOfPause(deps, pause);
+  } catch {
+    return;
+  }
+  if (target[hook] !== undefined || target.permitAnswer === undefined) return;
+  throw new PauseError.PermissionDenied({
+    message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: its target guards answers with permitAnswer but has no ${hook}, so ${what} is refused`,
+  });
+}
+
+/** Whether the change is no longer deadline: an earlier one, one where there was none, or none where there was one (#1307, H2). */
+const isShortening = (current: string | undefined, next: string | undefined): boolean =>
+  next === undefined ? current !== undefined : current === undefined || next < current;
+
+/** `assertNotAnswerGuarded` for a change of the deadline to `expiresAt` (absent: none): only a longer one passes without `permitTimeoutChange`. */
+export function assertDeadlineNotGuarded(
+  deps: AppDeps,
+  pause: PauseRecord,
+  expiresAt: string | undefined,
+): void {
+  if (!isShortening(pause.expiresAt, expiresAt)) return;
+  assertNotAnswerGuarded(
+    deps,
+    pause,
+    "permitTimeoutChange",
+    "a change that is not a longer deadline",
+  );
+}
+
+/** What a timeout change asks of `permitTimeoutChange`: how long, and why. */
+export interface TimeoutChangeAsk {
+  readonly actor?: PauseActor | undefined;
+  readonly timeout: Milliseconds | WorkingDuration | Timeout;
+  readonly reason?: string | undefined;
+}
+
+/**
+ * Throws `PauseError.PermissionDenied` unless the pause's target permits this timeout change (or has
+ * no `permitTimeoutChange`): fail closed, as `permitAnswer` — `false`, a throw, a rejection, an
+ * unresolvable target and any other value refuse it, and the pause stays as it was.
+ */
+export function assertTimeoutChangePermitted(
+  deps: AppDeps,
+  pause: PauseRecord,
+  ask: TimeoutChangeAsk,
+): Promise<void> {
+  return assertPermitted(
+    pause,
+    "timeout change",
+    "permitTimeoutChange",
+    () => targetOfPause(deps, pause).permitTimeoutChange,
+    () => ({
+      ...definedFields({
+        actor: ask.actor,
+        assignees: pause.assignees,
+        currentExpiresAt: pause.expiresAt === undefined ? undefined : new Date(pause.expiresAt),
+        reason: ask.reason,
+        toolCall: pause.toolCall,
+        externalRef: pause.externalRef,
+      }),
+      input: pause.input,
+      timeout: ask.timeout,
       trail: trailOf(pause),
     }),
   );

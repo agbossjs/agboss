@@ -1343,18 +1343,25 @@ warned, never its message). A pause the run's deadline bound fails the run with
 and `agboss describe` show the deadlines. Over A2A the task goes `WORKING`, then `FAILED`
 (`step.pause-expired`) or `COMPLETED`.
 
-**Extend a pause, remind before its deadline** (#942). `await app.extendPause({ pauseId, expiresIn:
-hours(24) }, { actor })` (the `ownerId` for a thread owner's pause: who may answer may extend)
-moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension` (`pauseKey`,
-`expiresAt`, `previousExpiresAt`); the channel's optional `onPauseTimeoutChanged(event)` and a
-`@ChannelListener`'s `onPauseTimeoutChanged` hear "extended until …". Refused: a closed pause or one past its
-deadline (`PauseError.Closed`, `reason: expired`), a pause with no deadline (none is ever added), a
-deadline not later than the current one, and one past the deadline of the run the pause was made
-under (`ValidationError.DtoInvalid`, `dto: "ExtendPauseRequest"`) — atomically in the store against the
+**Change a pause's deadline, remind before it** (#942, #1307). `await app.setPauseTimeout({ pauseId,
+timeout: hours(24), reason }, { actor })` (the `ownerId` for a thread owner's pause: who may answer
+may change it) moves an open pause's deadline to `now + timeout` — later or earlier —, and
+`timeout: Timeout.None` takes the deadline away; it returns `PauseTimeoutChangeResult`
+(`expiresAt?`, `previousExpiresAt?`, each a `Date`, absent when there is none). The target's
+`permitTimeoutChange(ctx)` (the actor, the `timeout`, `currentExpiresAt`, the `reason`) is asked first
+and only `true` permits: `false`, a throw or a target that cannot be resolved is
+`PauseError.PermissionDenied`. The channel's optional `onPauseTimeoutChanged(event)` and a
+`@ChannelListener`'s `onPauseTimeoutChanged` hear it; the `reason` and the actor go to the pause's chain of custody.
+Refused: a timeout that is no duration of at least `seconds(1)` (`PauseError.InvalidTimeout`), a closed pause
+or one past its deadline (`PauseError.Closed`, `reason: expired`), a deadline past the one of the run the
+pause was made under or the target's `escalationLimits` — `maxTotalTimeout` counted from the first asking,
+`maxExtensions` — (`PauseError.EscalationLimitExceeded`; `Timeout.None` is past any of them), and a pause whose first
+`send` is still in flight (`PauseError.UpdateContended`; retry once it returned) — atomically in the store against the
 expiry look: one wins. `@ToolApproval({ timeout: hours(24), remindBefore: hours(2) })` makes the
 channel's optional `onPauseExpiring(event)` and a listener's `onPauseExpiring` hear "expiring at …"
-once per deadline, whatever the number of instances, and again before the new deadline after an
-extension (`[pause.remind-before-invalid]` when `remindBefore` is not shorter than the `timeout`).
+once per deadline, whatever the number of instances, and again before a new deadline (none when it
+is not after now, or when the deadline is taken away) (`[pause.remind-before-invalid]` when `remindBefore` is not
+shorter than the `timeout`).
 
 **Reassign a pause** (#946). `await app.reassignPause({ pauseId, assignees: ["deputy-3"] }, { actor })`
 (the `ownerId` for a thread owner's pause: who may answer may reassign; `PauseCallerOptions`) moves an
@@ -1363,7 +1370,7 @@ channel is asked again — `send` gets a new `pauseId`, `ChannelAsk.assignees` a
 (`{ pauseId }` of the old message; both absent on a first send) — and its optional
 `onPauseClosed(event)` hears `reason: reassigned` for the old message, in no fixed order: the channel
 may edit the old message from `send` or from the notice. The old id answers nothing
-(`PauseError.Closed`, `reason: reassigned`); the new pause keeps the deadline (extend it separately);
+(`PauseError.Closed`, `reason: reassigned`); the new pause keeps the deadline (change it separately);
 the call returns `PauseReassignment` (`pauseKey` only: the new id is a capability, it goes to the
 channel and to a `@ChannelListener({ includePauseIds })`, never to the caller or a log). One implementation
 of the role routes on `assignee` (a Slack user, an address, a queue): no other role or implementation.
@@ -1374,7 +1381,7 @@ pause is at-least-once: an instance that dies, or a channel that fails, between 
 made up by the pause timers of another instance within a minute.
 
 **Deadlines in working time** (#944). "Approve within 2 hours" means 2 working hours: `timeout`,
-`remindBefore` and `extendPause`'s `expiresIn` take `workingHours(n)` / `workingMinutes(n)`
+`remindBefore` and `setPauseTimeout`'s `timeout` take `workingHours(n)` / `workingMinutes(n)`
 (`@agboss/core/units`) beside `hours(n)`. A calendar turns "now + N working time" into a date:
 a target's `calendar` — a `@WorkingCalendar({ week: { timeZone, days, hours, breaks, holidays } })` class — a
 weekly grid, DST-safe (an instant is working time when its local time lies in `hours` and in no `break` on a

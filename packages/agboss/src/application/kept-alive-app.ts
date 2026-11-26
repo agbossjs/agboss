@@ -18,7 +18,8 @@ export const keptAlive = (tenanted: boolean, app: AnyTenantApp): AnyTenantApp =>
     stop: (threadId, options) => keepingAlive(() => app.stop(threadId, options)),
     pause: (threadId, options) => keepingAlive(() => app.pause(threadId, options)),
     unpause: (threadId, options) => keepingAlive(() => app.unpause(threadId, options)),
-    extendPause: (request, options) => keepingAlive(() => app.extendPause(request, options)),
+    setPauseTimeout: (request, options) =>
+      keepingAlive(() => app.setPauseTimeout(request, options)),
     reassignPause: (request, options) => keepingAlive(() => app.reassignPause(request, options)),
     close: (options) => keepingAlive(() => app.close(options)),
     checkReadiness: () => keepingAlive(() => app.checkReadiness()),
@@ -27,9 +28,9 @@ export const keptAlive = (tenanted: boolean, app: AnyTenantApp): AnyTenantApp =>
 /** The calls on a pause, each routed to the workflow its pause waits in (#942, #946). */
 export const pauseCallsOf = (
   ofPause: (pauseId: string, tenantId?: string) => Promise<Pick<BuiltApp, "app">>,
-): Pick<AnyTenantApp, "extendPause" | "reassignPause"> => ({
-  extendPause: async (request, options) =>
-    (await ofPause(request.pauseId, options?.tenantId)).app.extendPause(request, options),
+): Pick<AnyTenantApp, "setPauseTimeout" | "reassignPause"> => ({
+  setPauseTimeout: async (request, options) =>
+    (await ofPause(request.pauseId, options?.tenantId)).app.setPauseTimeout(request, options),
   reassignPause: async (request, options) =>
     (await ofPause(request.pauseId, options?.tenantId)).app.reassignPause(request, options),
 });

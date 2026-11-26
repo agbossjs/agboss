@@ -45,6 +45,11 @@ vi.mock("../../src/app/pause-join-notices.js", () => ({
   listenerJoinFailedOf: (_sources: unknown, includePauseIds: boolean) =>
     Promise.resolve(`listener-join-failed-event:${String(includePauseIds)}`),
 }));
+vi.mock("../../src/app/pause-timeout-events.js", () => ({
+  channelTimeoutChangedOf: () => "channel-extended-event",
+  listenerTimeoutChangedOf: (_sources: unknown, includePauseIds: boolean) =>
+    Promise.resolve(`listener-extended-event:${String(includePauseIds)}`),
+}));
 vi.mock("../../src/app/pause-notices.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/app/pause-notices.js")>()),
   deliveryIdOf: () => "delivery-1",
@@ -56,7 +61,6 @@ vi.mock("../../src/app/pause-notices.js", async (importOriginal) => ({
     return Promise.resolve("channel-closed-event");
   },
   channelNotTakenOf: () => Promise.resolve("channel-not-taken-event"),
-  channelExtendedOf: () => "channel-extended-event",
   channelExpiringOf: () => "channel-expiring-event",
   listenerOpenedOf: (_sources: unknown, includePauseIds: boolean) =>
     Promise.resolve(`listener-opened-event:${String(includePauseIds)}`),
@@ -64,8 +68,6 @@ vi.mock("../../src/app/pause-notices.js", async (importOriginal) => ({
     Promise.resolve(`listener-closed-event:${String(includePauseIds)}`),
   listenerNotTakenOf: (_sources: unknown, includePauseIds: boolean) =>
     Promise.resolve(`listener-not-taken-event:${String(includePauseIds)}`),
-  listenerExtendedOf: (_sources: unknown, includePauseIds: boolean) =>
-    Promise.resolve(`listener-extended-event:${String(includePauseIds)}`),
   listenerExpiringOf: (_sources: unknown, includePauseIds: boolean) =>
     Promise.resolve(`listener-expiring-event:${String(includePauseIds)}`),
 }));
@@ -93,7 +95,7 @@ const hookOf = (hook: string) => (event: unknown) => {
 const HOOKS = {
   onPauseClosed: PauseNoticeKind.Closed,
   onPauseAnswerNotTaken: PauseNoticeKind.AnswerNotTaken,
-  onPauseTimeoutChanged: PauseNoticeKind.Extended,
+  onPauseTimeoutChanged: PauseNoticeKind.TimeoutChanged,
   onPauseExpiring: PauseNoticeKind.Expiring,
   onPauseJoinFailed: PauseNoticeKind.JoinFailed,
 } as const;
@@ -171,7 +173,7 @@ describe("#1356: a channel is told the notices it has a hook for", () => {
 
     for (const kind of [
       PauseNoticeKind.AnswerNotTaken,
-      PauseNoticeKind.Extended,
+      PauseNoticeKind.TimeoutChanged,
       PauseNoticeKind.Expiring,
       PauseNoticeKind.JoinFailed,
       PauseNoticeKind.Opened,
@@ -308,7 +310,7 @@ describe("#1356: a listener is told the notices it has a method for", () => {
     ["onPauseOpened", PauseNoticeKind.Opened, "listener-opened-event"],
     ["onPauseClosed", PauseNoticeKind.Closed, "listener-closed-event"],
     ["onPauseAnswerNotTaken", PauseNoticeKind.AnswerNotTaken, "listener-not-taken-event"],
-    ["onPauseTimeoutChanged", PauseNoticeKind.Extended, "listener-extended-event"],
+    ["onPauseTimeoutChanged", PauseNoticeKind.TimeoutChanged, "listener-extended-event"],
     ["onPauseExpiring", PauseNoticeKind.Expiring, "listener-expiring-event"],
     ["onPauseJoinFailed", PauseNoticeKind.JoinFailed, "listener-join-failed-event"],
   ])(
@@ -336,7 +338,7 @@ describe("#1356: a listener is told the notices it has a method for", () => {
 
     for (const kind of [
       PauseNoticeKind.AnswerNotTaken,
-      PauseNoticeKind.Extended,
+      PauseNoticeKind.TimeoutChanged,
       PauseNoticeKind.Expiring,
       PauseNoticeKind.JoinFailed,
     ])
@@ -368,7 +370,7 @@ describe("#1356: a listener is told the notices it has a method for", () => {
       ["onPauseOpened", PauseNoticeKind.Opened],
       ["onPauseClosed", PauseNoticeKind.Closed],
       ["onPauseAnswerNotTaken", PauseNoticeKind.AnswerNotTaken],
-      ["onPauseTimeoutChanged", PauseNoticeKind.Extended],
+      ["onPauseTimeoutChanged", PauseNoticeKind.TimeoutChanged],
       ["onPauseExpiring", PauseNoticeKind.Expiring],
       ["onPauseJoinFailed", PauseNoticeKind.JoinFailed],
     ] as const)
@@ -396,7 +398,7 @@ describe("#1356: a listener is told the notices it has a method for", () => {
 
     for (const kind of [
       PauseNoticeKind.AnswerNotTaken,
-      PauseNoticeKind.Extended,
+      PauseNoticeKind.TimeoutChanged,
       PauseNoticeKind.Expiring,
       PauseNoticeKind.JoinFailed,
     ])
@@ -458,7 +460,7 @@ describe("#1310c: a @ChannelListener's hooks are each optional, and a deadline t
       moved: { handler: handlerWith(["onPauseTimeoutChanged"]), includePauseIds: true },
     });
 
-    await tell(parts, "listener:moved", PauseNoticeKind.Extended);
+    await tell(parts, "listener:moved", PauseNoticeKind.TimeoutChanged);
 
     expect(told).toEqual([
       { hook: "onPauseTimeoutChanged", event: "listener-extended-event:true" },
@@ -474,7 +476,7 @@ describe("#1310c: a @ChannelListener's hooks are each optional, and a deadline t
       },
     });
 
-    await tell(parts, "listener:both", PauseNoticeKind.Extended);
+    await tell(parts, "listener:both", PauseNoticeKind.TimeoutChanged);
 
     expect(told.map(({ hook }) => hook)).toEqual(["onPauseTimeoutChanged"]);
   });
@@ -486,7 +488,7 @@ describe("#1310c: a @ChannelListener's hooks are each optional, and a deadline t
     };
     const { parts } = partsOf();
 
-    await tell(parts, "channel:refund", PauseNoticeKind.Extended);
+    await tell(parts, "channel:refund", PauseNoticeKind.TimeoutChanged);
 
     expect(told).toEqual([{ hook: "onPauseTimeoutChanged", event: "channel-extended-event" }]);
   });
@@ -498,7 +500,7 @@ describe("#1310c: a @ChannelListener's hooks are each optional, and a deadline t
     };
     const { parts } = partsOf();
 
-    await tell(parts, "channel:refund", PauseNoticeKind.Extended);
+    await tell(parts, "channel:refund", PauseNoticeKind.TimeoutChanged);
 
     expect(told.map(({ hook }) => hook)).toEqual(["onPauseTimeoutChanged"]);
   });

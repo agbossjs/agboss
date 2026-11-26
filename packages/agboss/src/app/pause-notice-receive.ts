@@ -17,17 +17,16 @@ import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
 import {
   channelClosedOf,
   channelExpiringOf,
-  channelExtendedOf,
   channelNotTakenOf,
   deliveryIdOf,
   hookOverridden,
   listenerClosedOf,
   listenerExpiringOf,
-  listenerExtendedOf,
   listenerNotTakenOf,
   listenerOpenedOf,
   type EventSources,
 } from "./pause-notices.js";
+import { channelTimeoutChangedOf, listenerTimeoutChangedOf } from "./pause-timeout-events.js";
 
 /**
  * One notice told to one receiver (#940): the event built from the notice and the pause's record
@@ -62,9 +61,9 @@ type Hook = (sources: EventSources) => Promise<() => Promise<void>>;
 
 /** The notices of #942 and #945 a channel may hear. */
 function laterChannelHook(sender: ChannelSender, kind: PauseNoticeKind): Hook | undefined {
-  if (kind === PauseNoticeKind.Extended && hookOverridden(sender, "onPauseTimeoutChanged"))
+  if (kind === PauseNoticeKind.TimeoutChanged && hookOverridden(sender, "onPauseTimeoutChanged"))
     return (sources) => {
-      const event = channelExtendedOf(sources);
+      const event = channelTimeoutChangedOf(sources);
       // Stryker disable next-line OptionalChaining: hookOverridden has seen that the sender's hook is a function
       return Promise.resolve(() => sender.onPauseTimeoutChanged?.(event) ?? Promise.resolve());
     };
@@ -108,9 +107,9 @@ function channelHook(sender: ChannelSender, kind: PauseNoticeKind): Hook | undef
 /** The notices of #942 and #945 a listener may hear. */
 function laterListenerHook(listener: ListenerReceiver, kind: PauseNoticeKind): Hook | undefined {
   const { handler, includePauseIds } = listener;
-  if (kind === PauseNoticeKind.Extended && handler.onPauseTimeoutChanged !== undefined)
+  if (kind === PauseNoticeKind.TimeoutChanged && handler.onPauseTimeoutChanged !== undefined)
     return async (sources) => {
-      const event = await listenerExtendedOf(sources, includePauseIds);
+      const event = await listenerTimeoutChangedOf(sources, includePauseIds);
       // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined
       return () => handler.onPauseTimeoutChanged?.(event) ?? Promise.resolve();
     };

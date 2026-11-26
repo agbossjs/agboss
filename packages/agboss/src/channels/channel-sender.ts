@@ -11,7 +11,7 @@ export interface ChannelSender {
   send(ask: ChannelSenderSend): Promise<unknown>;
   onPauseClosed?(event: ChannelSenderClosed): Promise<void>;
   onPauseAnswerNotTaken?(event: ChannelSenderNotTaken): Promise<void>;
-  onPauseTimeoutChanged?(event: ChannelSenderExtended): Promise<void>;
+  onPauseTimeoutChanged?(event: ChannelSenderTimeoutChanged): Promise<void>;
   onPauseExpiring?(event: ChannelSenderExpiring): Promise<void>;
   onPauseReassigned?(event: ChannelSenderReassigned): Promise<void>;
   onPauseJoinFailed?(event: ChannelSenderJoinFailed): Promise<void>;
@@ -50,10 +50,14 @@ export interface ChannelSenderNotTaken extends ChannelSenderAsk, PauseDeliveredE
   readonly answer: unknown;
 }
 
-/** An extension as the framework builds it (#942). */
-export interface ChannelSenderExtended extends ChannelSenderAsk, PauseDeliveredEvent {
-  readonly expiresAt: string;
-  readonly previousExpiresAt: string;
+/** A timeout change as the framework builds it (#942, #1307): each deadline absent when there is none. */
+export interface ChannelSenderTimeoutChanged extends ChannelSenderAsk, PauseDeliveredEvent {
+  readonly expiresAt?: string;
+  readonly previousExpiresAt?: string;
+  /** Who changed it; absent for the framework's own. */
+  readonly actor?: PauseActor;
+  /** Why, as the chain of custody keeps it (PII-masked). */
+  readonly reason?: string;
 }
 
 /** A reminder as the framework builds it (#942). */

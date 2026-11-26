@@ -2,7 +2,11 @@ import { channelsOf, checkChannels } from "../channels/channel-rules.js";
 import { channelSelectorOf } from "../channels/channel-selector.js";
 import { pauseCalendarOf } from "../calendar/calendar-source.js";
 import type { ChannelSender } from "../channels/channel-sender.js";
-import type { PermitAnswer, PermitReassign } from "../channels/pause-contexts.js";
+import type {
+  PermitAnswer,
+  PermitReassign,
+  PermitTimeoutChange,
+} from "../channels/pause-contexts.js";
 import { pauseTargetOf, targetNameOf, type PauseTargetOverlay } from "../channels/pause-targets.js";
 import type { ProviderModule } from "./container/registrations.js";
 import type { Class } from "./injection.js";
@@ -90,7 +94,7 @@ const selectorsOf = (target: Class, modules: readonly ProviderModule[]): readonl
 function hookOf(
   cls: Class,
   holder: unknown,
-  name: "permitAnswer" | "permitReassign" | "assign" | "resolveTimeout" | "onExpired",
+  name: keyof PauseTarget,
 ): ((ctx: never) => Promise<unknown>) | undefined {
   const hook: unknown = Reflect.get(cls.prototype as object, name);
   if (typeof hook !== "function") return undefined;
@@ -180,6 +184,8 @@ function pauseTargetOfClass(
     calendar: pauseCalendarOf(options.calendar, (one) => container.get(one)),
     escalationLimits: options.escalationLimits,
     permitAnswer: hookOf(cls, holder, "permitAnswer") as PermitAnswer | undefined,
+    permitTimeoutChange: hookOf(cls, holder, "permitTimeoutChange") as
+      PermitTimeoutChange | undefined,
     permitReassign: hookOf(cls, holder, "permitReassign") as PermitReassign | undefined,
     assign: hookOf(cls, holder, "assign") as AssignHook | undefined,
     resolveTimeout: hookOf(cls, holder, "resolveTimeout") as ResolveTimeoutHook | undefined,

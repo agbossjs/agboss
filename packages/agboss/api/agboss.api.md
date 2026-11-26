@@ -383,7 +383,6 @@ export interface App<TApp = unknown> {
     checkReadiness(): Promise<HealthReport>;
     close(options?: CloseOptions): Promise<void>;
     execute<TStart extends Class>(start: TStart, input: ExecutionInputOf<InstanceType<TStart>>, ...options: ExecutionOptionsArgs<InstanceType<TStart>>): Promise<ExecutionOutput<ExecutionOutputOf<InstanceType<TStart>>>>;
-    extendPause(request: ExtendPauseRequest, ...options: TenantPointArgs<TApp, PauseCallerOptions>): Promise<PauseExtension>;
     getExecution(executionId: string, ...options: TenantPointArgs<TApp>): Promise<ExecutionHistoryRecord | undefined>;
     getStatusHistory(threadId: string, ...options: TenantPointArgs<TApp>): Promise<readonly ThreadStatusTransition[]>;
     hasTool(name: string): boolean;
@@ -398,6 +397,7 @@ export interface App<TApp = unknown> {
     reassignPause(request: ReassignPauseRequest, ...options: TenantPointArgs<TApp, PauseCallerOptions>): Promise<PauseReassignment>;
     resolve<T>(token: Class<T>): T;
     resume(request: ResumeRequest, ...options: TenantPointArgs<TApp, ResumeOptions>): Promise<ExecutionOutput>;
+    setPauseTimeout(request: SetPauseTimeoutRequest, ...options: TenantPointArgs<TApp, PauseCallerOptions>): Promise<PauseTimeoutChangeResult>;
     stop(threadId: string, ...options: TenantPointArgs<TApp, StopOptions>): Promise<StopOutput>;
     readonly textStart: Class | undefined;
     unpause(threadId: string, ...options: TenantPointArgs<TApp, UnpauseExecutionOptions>): Promise<ExecutionOutput>;
@@ -1077,8 +1077,10 @@ export interface ChannelListenerReassignedEvent extends ChannelListenerEventBase
 
 // @public
 export interface ChannelListenerTimeoutChangedEvent extends ChannelListenerEventBase {
-    readonly expiresAt: string;
-    readonly previousExpiresAt: string;
+    readonly actor?: PauseActor;
+    readonly expiresAt?: string;
+    readonly previousExpiresAt?: string;
+    readonly reason?: string;
 }
 
 // @public
@@ -1186,11 +1188,13 @@ export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEven
 
 // @public
 export interface ChannelPauseTimeoutChangedEvent<TTarget> extends PauseDeliveredEvent {
-    readonly expiresAt: string;
+    readonly actor?: PauseActor;
+    readonly expiresAt?: string;
     readonly input: PauseInputOf<TTarget>;
     // (undocumented)
     readonly pauseId: string;
-    readonly previousExpiresAt: string;
+    readonly previousExpiresAt?: string;
+    readonly reason?: string;
     readonly toolCall?: PauseToolCallSummary;
 }
 
@@ -3290,12 +3294,6 @@ export enum ExpiryProblem {
     HandlerFailed = "handler-failed",
     // (undocumented)
     HandlerTimeout = "handler-timeout"
-}
-
-// @public
-export interface ExtendPauseRequest {
-    readonly expiresIn: Milliseconds | WorkingDuration;
-    readonly pauseId: string;
 }
 
 // @public
@@ -6536,6 +6534,7 @@ export interface PausedExecutionOutput extends ExecutionOutputBase {
 export abstract class PausedExecutionRepository {
     abstract ackNotice(claim: PauseNoticeClaim, at: Date): Promise<PauseNoticeClaim | undefined>;
     abstract cancelByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseCancellation, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract changeTimeoutByTenantIdAndPauseId(tenantId: string, pauseId: string, change: PauseTimeoutChange, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract claimNoticesDue(at: Date, limit: number, claimFor: Milliseconds, recipients: readonly string[]): Promise<readonly PauseNoticeClaim[]>;
     abstract closeUntakenByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseUntakenResolution, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract countNotices(): Promise<PauseNoticeCounts>;
@@ -6544,7 +6543,6 @@ export abstract class PausedExecutionRepository {
     abstract deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
     abstract deleteByTenantIdAndThreadIdAndRunId(tenantId: string, threadId: string, runId: string): Promise<void>;
     abstract expireByTenantIdAndPauseId(tenantId: string, pauseId: string, expiry: PauseExpiry, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
-    abstract extendByTenantIdAndPauseId(tenantId: string, pauseId: string, change: PauseDeadlineChange, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly PauseRecord[]>;
     abstract findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
     abstract findByTenantIdAndRootExecutionIdAndStepKey(tenantId: string, rootExecutionId: string, stepKey: string): Promise<PauseRecord | undefined>;
@@ -6718,13 +6716,6 @@ export interface PauseExpiredFacts {
 export interface PauseExpiryHandler<TTarget> {
     // (undocumented)
     onExpired(ctx: ExpiredContext<TTarget>): PauseExpiration<TTarget> | Promise<PauseExpiration<TTarget>>;
-}
-
-// @public
-export interface PauseExtension {
-    readonly expiresAt: string;
-    readonly pauseKey: string;
-    readonly previousExpiresAt: string;
 }
 
 // @public
@@ -6905,14 +6896,18 @@ export interface PauseTargetOverlay {
 }
 
 // @public
-type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "pause.permit-hook-not-enforced" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
+type PauseTargetRuleCode = "channel.missing-for-target" | "channel.ambiguous-for-target" | "channel.target-invalid" | "channel.ttl-invalid" | "channel-selector.no-select-method" | "channel-selector.target-invalid" | "pause.incompatible-escalation-target" | "channel-listener.missing-handler" | "channel-listener.unknown-hook" | "channel-interpreter.not-an-interpreter" | "channel-interpreter.no-interpret-method";
 
 // @public
 export interface PauseTimeoutChangedEvent extends PauseChange {
-    // (undocumented)
-    readonly expiresAt: Date;
-    // (undocumented)
-    readonly previousExpiresAt: Date;
+    readonly expiresAt?: Date;
+    readonly previousExpiresAt?: Date;
+}
+
+// @public
+export interface PauseTimeoutChangeResult {
+    readonly expiresAt?: Date;
+    readonly previousExpiresAt?: Date;
 }
 
 // @public
@@ -7944,6 +7939,13 @@ export interface ServiceSpend {
 }
 
 // @public
+export interface SetPauseTimeoutRequest {
+    readonly pauseId: string;
+    readonly reason?: string;
+    readonly timeout: Milliseconds | WorkingDuration | Timeout;
+}
+
+// @public
 export type ShownContent = string | readonly ShownBlock[];
 
 // @public
@@ -8311,6 +8313,8 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     // (undocumented)
     cancelByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["cancelByTenantIdAndPauseId"]>): Promise<PauseRecord | undefined>;
     // (undocumented)
+    changeTimeoutByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["changeTimeoutByTenantIdAndPauseId"]>): Promise<PauseRecord | undefined>;
+    // (undocumented)
     claimNoticesDue(...args: Parameters<PausedExecutionRepository["claimNoticesDue"]>): Promise<readonly PauseNoticeClaim[]>;
     // (undocumented)
     closeUntakenByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["closeUntakenByTenantIdAndPauseId"]>): Promise<PauseRecord | undefined>;
@@ -8326,8 +8330,6 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     deleteByTenantIdAndThreadIdAndRunId(...args: Parameters<PausedExecutionRepository["deleteByTenantIdAndThreadIdAndRunId"]>): Promise<void>;
     // (undocumented)
     expireByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["expireByTenantIdAndPauseId"]>): Promise<PauseRecord | undefined>;
-    // (undocumented)
-    extendByTenantIdAndPauseId(...args: Parameters<PausedExecutionRepository["extendByTenantIdAndPauseId"]>): Promise<PauseRecord | undefined>;
     // (undocumented)
     findAllByTenantIdAndRootExecutionId(...args: Parameters<PausedExecutionRepository["findAllByTenantIdAndRootExecutionId"]>): Promise<readonly PauseRecord[]>;
     // (undocumented)
@@ -8997,12 +8999,16 @@ export interface ThreadStatusTransition {
 }
 
 // @public
+export enum Timeout {
+    None = "none"
+}
+
+// @public
 export interface TimeoutPermissionContext<TTarget> {
     // (undocumented)
     readonly actor?: PauseActor;
     // (undocumented)
     readonly assignees?: readonly string[];
-    // (undocumented)
     readonly currentExpiresAt?: Date;
     // (undocumented)
     readonly externalRef?: string;
@@ -9010,8 +9016,7 @@ export interface TimeoutPermissionContext<TTarget> {
     readonly input: PauseInputOf<TTarget>;
     // (undocumented)
     readonly reason?: string;
-    // (undocumented)
-    readonly timeout: WorkingDuration | Milliseconds;
+    readonly timeout: WorkingDuration | Milliseconds | Timeout;
     // (undocumented)
     readonly toolCall?: PauseToolCallSummary;
     // (undocumented)
@@ -10060,8 +10065,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "actor".
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "assignees".
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "input".
-// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "timeout".
-// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "currentExpiresAt".
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "reason".
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "toolCall".
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "externalRef".
@@ -10735,8 +10738,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/observers/model-fallback.ts - (ae-undocumented) Missing documentation for "reason".
 // src/flow/observers/pause-changes.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/flow/observers/pause-changes.ts - (ae-undocumented) Missing documentation for "threadId".
-// src/flow/observers/pause-changes.ts - (ae-undocumented) Missing documentation for "previousExpiresAt".
-// src/flow/observers/pause-changes.ts - (ae-undocumented) Missing documentation for "expiresAt".
 // src/flow/observers/rerank.ts - (ae-undocumented) Missing documentation for "topK".
 // src/flow/observers/rerank.ts - (ae-undocumented) Missing documentation for "outcome".
 // src/flow/observers/ttl-sweep.ts - (ae-undocumented) Missing documentation for "categories".
@@ -11047,7 +11048,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "cancelByTenantIdAndPauseId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "expireByTenantIdAndPauseId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "closeUntakenByTenantIdAndPauseId".
-// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "extendByTenantIdAndPauseId".
+// src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "changeTimeoutByTenantIdAndPauseId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "reassignByTenantIdAndPauseId".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "findPendingUnsentReassignedBefore".
 // src/infrastructure/sqlite/sqlite-paused-execution.repository.ts - (ae-undocumented) Missing documentation for "remindByTenantIdAndPauseId".

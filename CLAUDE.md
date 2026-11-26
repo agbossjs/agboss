@@ -2423,18 +2423,21 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `remindAtOf(expiresAt, remindBefore, askedAt)` in `newRecordOf` (`remindAt` only when after the ask; the effective `expiresAt`, so a
   run-bound pause is reminded before the run's deadline); rules `[channel.remind-before-invalid]` (`channels/channel-rules.ts`) and the
   warning `[channel.remind-before-exceeds-expiry]` (`flow/analyse/remind-before.ts`: a target's `timeout` ≤ its
-  `remindBefore`). `app.extendPause` (`app/pause-extension.ts`; the workflow app's, routed by the composed app like `resume`):
-  `actorOf` as an answer, then refusals (`ValidationError.DtoInvalid` `ExtendPauseRequest`: no deadline, not later, past `boundAt`;
-  `PauseError.Closed` closed or due), `remindAtOf` recomputed, then `extendByTenantIdAndPauseId` — its CAS is the final word against the
-  expiry look — and `noticesWritten`; no lease, no tree move. The reminder look (`application/pause-reminder-look.ts`, a look of the
+  `remindBefore`). `app.setPauseTimeout` (`app/pause-timeout.ts`, request checks `app/timeout-request.ts`; the workflow app's, routed by the composed app like `resume`; #1307):
+  `{ pauseId, timeout: WorkingDuration | Milliseconds | Timeout.None, reason? }`, `actorOf` as an answer, then `PauseError.Closed` (closed or due), `assertNotInFirstSend` (`PauseError.UpdateContended`
+  while `!isSent`, as a reassignment), `assertNotAnswerGuarded` (same file: a target with `permitAnswer` and no `permitTimeoutChange` / `permitReassign` refuses a change that is not a longer deadline / any reassignment with `PauseError.PermissionDenied` — H2, fail closed), `assertTimeoutChangePermitted` (`app/answer-permit.ts`: the target's `permitTimeoutChange`, fail closed to `PauseError.PermissionDenied`
+  — `false`, a throw, an unresolvable target), the deadline `now + timeout` by the target's calendar (a shorter one is as good as a later one; `PauseError.InvalidTimeout` below `seconds(1)`), the
+  limits (`maxExtensions`, `maxTotalTimeout` from the first asking, `boundAt`: `PauseError.EscalationLimitExceeded`; `Timeout.None` is past any of them), `reminderOf` recomputed (none when not after now or without a deadline),
+  then `changeTimeoutByTenantIdAndPauseId` (`infrastructure/pause-transitions.ts` `timeoutChange`: its CAS over `previousExpiresAt`, absent for none, is the final word against the
+  expiry look; a `timeout-changed` chain entry with the actor and the PII-masked `reason`) and `noticesWritten`; no lease, no tree move. Result `PauseTimeoutChangeResult { expiresAt?, previousExpiresAt? }` (`Date`s). The reminder look (`application/pause-reminder-look.ts`, a look of the
   timers, `ReminderLook`: a sweep of `findPendingByRemindAtBefore(now, 50, after)` pages with the keyset `PauseScanAfter` like the expiry
   look, only trees whose root record's `bundle` is a workflow of the instance, each pause's `remindByTenantIdAndPauseId` with
-  `PauseNoticeHub.recipientsOf` started and not awaited — at most 50 in flight, `settled()` at stop) writes `expiring` once across instances. A pause extended to exactly its `boundAt` expires
-  as run-bound (`effectiveBoundOf`, `infrastructure/pause-record.ts`: a tie goes to the run). Notices `extended` /
+  `PauseNoticeHub.recipientsOf` started and not awaited — at most 50 in flight, `settled()` at stop) writes `expiring` once across instances. A pause set to exactly its `boundAt` expires
+  as run-bound (`effectiveBoundOf`, `infrastructure/pause-record.ts`: a tie goes to the run). Notices `timeout-changed` /
   `expiring` reach a channel's `onPauseTimeoutChanged` / `onPauseExpiring` (`app/pause-notice-receive.ts`; a channel overriding any of the
   four hooks has a mailbox) and a listener's optional methods of the same names.
   **Working time (#944):** `workingHours` / `workingMinutes` (concise `workHours` / `workMin` / `workDays` and `bytes` / `kb` / `mb` / `gb` / `tb`, `ms` / `sec` / `min` / `days` since #1314b-add) (`units/index.ts`: `WorkingDuration`, a frozen `{ [Symbol.for("agboss.units.working-duration")]: true, unit: "ms" | "days", amount }` — `workDays` is `unit: "days"`, a working day of the resolved schedule, never 24 hours (#1310b);
-  `units/working-time.ts`: `amountOf` (in the span's own unit), `unitOf`, `isSameSpan`, `spanText`) are accepted by a target's `timeout` / `remindBefore` and by `extendPause`. A calendar is a
+  `units/working-time.ts`: `amountOf` (in the span's own unit), `unitOf`, `isSameSpan`, `spanText`) are accepted by a target's `timeout` / `remindBefore` and by `setPauseTimeout`. A calendar is a
   `WorkingCalendarHandler` (`calendar/working-calendar.ts`: `@WorkingCalendar`, `PauseError.WorkingCalendar`): `WorkingWeek.of` / `WorkingWeek.anyOf` (`calendar/working-week.ts`, the grid class; `working-grid.ts`: the `Grid` seam, the registry of problems / grids / reach (`weekReaches`) read at assembly as
   `[working-calendar.invalid]`; `working-walk.ts`: the walks — `walkMilliseconds` over the union of the grids a day at a time, `walkDays` per grid by local dates, both forward and (mirrored time) backward; `working-add.ts`: unit dispatch, `anyOf` days = earliest forward / latest back;
   `time-zones.ts` — `Intl` offsets with `hourCycle: "h23"`; per local date the UTC segments of `hours \ breaks` over the offset windows around it, merged), a declarative `@WorkingCalendar({ week })` class (a grid made once per class, no instance), a class with `resolveSchedule(ctx)` (the core walks the schedule it returns; an invalid or empty one is `WorkingCalendarProblem.InvalidSchedule`) or a class with `addWorkingTime(ctx)`, resolved by the container; `WorkingCalendarContext` is `{ from, amount: WorkingDuration, tenantId, target?, assignees? }`. A pause's calendar is its target's own `calendar` — there is no application-wide one (`calendar/calendar-source.ts`). `pauseStep` (`flow/runtime/pause.ts`) looks the
@@ -2443,7 +2446,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `reminderOf`: both working → `calendar.add(askedAt, timeout − remindBefore)`, kept only strictly between the ask and the clamped
   `expiresAt`) asks `workingTimeAfter` (`calendar/calendar-call.ts`: the step's frame, the calendar's own `timeout` (`sec(30)`) on the clock, `workingReminderAt` walks a working reminder back from the clamped deadline (a custom add-only calendar: forward, one unit, else `mixed-units`), a throw / timeout /
   non-`Date` / not-after-`from` → `PauseError.WorkingCalendar`, logged `pause.working-calendar-failed`) before `send`; the question runner and the agent
-  approval wrap it in `StepError.ExternalTask` / `StepError.Agent`. `app.extendPause` (`app/pause-extension.ts`) asks the same in `pauseFrameOf`.
+  approval wrap it in `StepError.ExternalTask` / `StepError.Agent`. `app.setPauseTimeout` (`app/pause-timeout.ts`) asks the same in `pauseFrameOf`.
   Rules: `channels/working-time-rules.ts`. `app.cancel(threadId, { tenantId, ownerId })` aborts a
   running execution (its `execute` resolves `ExecutionStatus.Cancelled`, `app/cancelled-output.ts`) or drops a paused one (its pauses withdrawn); **cancel is a hard fence for effects
   (#909):** every path that cancels a tree (a local `app.cancel`, a remote one, a paused tree's, A2A `CancelTask`) first writes the

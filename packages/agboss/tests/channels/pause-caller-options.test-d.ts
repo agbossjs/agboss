@@ -10,7 +10,7 @@ import type {
 } from "../../src/index.js";
 
 /**
- * #942: `app.extendPause` takes the caller fields only (`PauseCallerOptions`); the call options of
+ * #942: `app.setPauseTimeout` takes the caller fields only (`PauseCallerOptions`); the call options of
  * a run — `signal`, `onStream`, `record`, `configurable` — do not compile there, as they do not on
  * `app.cancel` (the codebase rejects them by types: an object literal with an unknown field fails).
  * `app.resume` keeps every field, and its option types stay what they were.
@@ -53,23 +53,23 @@ describe("#946: app.reassignPause takes PauseCallerOptions too", () => {
 
 describe("#942: PauseCallerOptions", () => {
   it("the caller fields compile", () => {
-    void app.extendPause(request, { actor: { id: "manager-17" } });
-    void app.extendPause(request, { ownerId: "alice", tenantId: "acme" });
-    void app.extendPause(request);
+    void app.setPauseTimeout(request, { actor: { id: "manager-17" } });
+    void app.setPauseTimeout(request, { ownerId: "alice", tenantId: "acme" });
+    void app.setPauseTimeout(request);
   });
 
   it("the call options of a run do not", () => {
-    // @ts-expect-error — `onStream` belongs to a run: extendPause runs nothing
-    void app.extendPause(request, { actor: { id: "m" }, onStream: () => undefined });
+    // @ts-expect-error — `onStream` belongs to a run: setPauseTimeout runs nothing
+    void app.setPauseTimeout(request, { actor: { id: "m" }, onStream: () => undefined });
     // @ts-expect-error — `record` belongs to a run
-    void app.extendPause(request, { ownerId: "alice", includeRecord: true });
+    void app.setPauseTimeout(request, { ownerId: "alice", includeRecord: true });
     // @ts-expect-error — `signal` belongs to a run
-    void app.extendPause(request, { actor: { id: "m" }, signal: new AbortController().signal });
+    void app.setPauseTimeout(request, { actor: { id: "m" }, signal: new AbortController().signal });
   });
 
   it("both credentials at once do not", () => {
     // @ts-expect-error — a pause is answered by its owner or through its channel, not both
-    void app.extendPause(request, { actor: { id: "m" }, ownerId: "alice" });
+    void app.setPauseTimeout(request, { actor: { id: "m" }, ownerId: "alice" });
   });
 
   it("app.resume's options are unchanged: the caller fields and the call options", () => {

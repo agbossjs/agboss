@@ -32,7 +32,7 @@ export interface TestApp extends Pick<
   AnyTenantApp,
   | "execute"
   | "resume"
-  | "extendPause"
+  | "setPauseTimeout"
   | "reassignPause"
   | "close"
   | "cancel"
@@ -115,10 +115,10 @@ function remembering(testApp: TestApp, readyApp: () => AnyTenantApp, gate: Lease
 function controlsOf(
   environment: TestEnvironment,
   built: () => Promise<BuiltApplication>,
-): Pick<TestApp, "extendPause" | "reassignPause" | "cancel" | "stop" | "pause" | "unpause"> {
+): Pick<TestApp, "setPauseTimeout" | "reassignPause" | "cancel" | "stop" | "pause" | "unpause"> {
   return {
-    extendPause: (request, options) =>
-      checked(environment, async () => (await built()).app.extendPause(request, options)),
+    setPauseTimeout: (request, options) =>
+      checked(environment, async () => (await built()).app.setPauseTimeout(request, options)),
     reassignPause: (request, options) =>
       checked(environment, async () => (await built()).app.reassignPause(request, options)),
     cancel: (thread, options) =>

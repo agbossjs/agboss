@@ -27,6 +27,7 @@ import {
 import { deadlineAfter } from "./pause-reassign-deadline.js";
 import { ownDepsOf } from "./own-deps.js";
 import { reassignmentsOf } from "../infrastructure/pause-reassign-transition.js";
+import { seenOf } from "../infrastructure/pause-seen.js";
 
 /**
  * What a reassignment comes to (#946, #1307d): where the pause waits after it — the same target and
@@ -171,13 +172,6 @@ function deadlineOfChange(plan: Omit<ReassignPlan, "change">, ask: ReassignFacts
   return plan.deadline === undefined ? {} : { timeout: plan.deadline };
 }
 
-/** What the plan was made against: the store applies it only while the pause is still this (#1307). */
-const seenOf = (pause: PauseRecord): PauseSeen => ({
-  trailLength: pause.trail.length,
-  isSent: pause.isSent,
-  ...definedFields({ assignees: pause.assignees, expiresAt: pause.expiresAt }),
-});
-
 /** The change the store applies for a plan. */
 function changeOf(
   plan: Omit<ReassignPlan, "change">,
@@ -224,7 +218,7 @@ export async function planOf(
   assertWithinLimits(pause, ask, limits);
   if (isTimeoutOnly(ask, to === from))
     throw new PauseError.InvalidTimeout({
-      message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: a deadline alone is extendPause's change, not a reassignment's`,
+      message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: a deadline alone is setPauseTimeout's change, not a reassignment's`,
     });
   const assignees = await assigneesAfter(pause, to, to === from, ask.assignees);
   const askedChannel = [...to.channels.values()].find((one) => one.cls === ask.channel);
