@@ -1980,6 +1980,9 @@ export enum PauseExpiryBound {
 }
 
 // @public
+export const pauseFencedOf: (key: CancelFencedKey) => AGBossError;
+
+// @public
 export interface PauseFilter {
     readonly expiresBefore?: Date;
     readonly statuses: readonly PauseStatus[];
@@ -2571,6 +2574,9 @@ export interface StepRecord {
     readonly validationAttempts: number;
     readonly visitNumber: number;
 }
+
+// @public
+export const stopFencedOf: (key: CancelFencedKey) => AGBossError;
 
 // @public
 export interface StorageDriver<TRole extends StorageRole = StorageRole> {

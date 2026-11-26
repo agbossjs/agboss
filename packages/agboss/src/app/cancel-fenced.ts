@@ -1,5 +1,7 @@
+import type { AGBossError } from "../core/errors.js";
 import { ExecutionError } from "../core/error-families/run-errors.js";
 import type { EffectKey } from "../infrastructure/effect-key.js";
+import { ExecutionPauseFencedError, ExecutionStopFencedError } from "./lease-stopped.js";
 
 /** Every fact of a write refused by its tree's cancel, a stop or a pause (#909, #906: an options bag). */
 export interface ExecutionCancelFencedErrorOptions {
@@ -36,3 +38,18 @@ export const cancelFencedOf = (key: CancelFencedKey): ExecutionError.CancelFence
     token: key.token,
     effect: key.name,
   });
+
+/**
+ * The refusal of the write `key` names while its tree's `Immediate` pause fences the lease (#1341c):
+ * nothing was written or sent. The core takes it as the pause it is, never as a cancel. A store builds
+ * it with `pauseFencedOf(key)`; the class stays internal, so the type is `AGBossError`.
+ */
+export const pauseFencedOf = (key: CancelFencedKey): AGBossError =>
+  ExecutionPauseFencedError.of(key);
+
+/**
+ * The refusal of the write `key` names while its tree's `Immediate` stop is durable (#1341b): nothing
+ * was written or sent. The core takes it as the stop it is, never as a cancel. A store builds it with
+ * `stopFencedOf(key)`; the class stays internal, so the type is `AGBossError`.
+ */
+export const stopFencedOf = (key: CancelFencedKey): AGBossError => ExecutionStopFencedError.of(key);

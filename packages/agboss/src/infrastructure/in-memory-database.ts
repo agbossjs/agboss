@@ -1,7 +1,6 @@
-import { cancelFencedOf } from "../app/cancel-fenced.js";
+import { cancelFencedOf, pauseFencedOf, stopFencedOf } from "../app/cancel-fenced.js";
 import { InjectionToken } from "../components/injection.js";
 import { InterruptMode } from "../app/interrupt-types.js";
-import { ExecutionPauseFencedError, ExecutionStopFencedError } from "../app/lease-stopped.js";
 import type { EffectKey } from "./effect-key.js";
 import { cancelTreeOf } from "./issued-keys.js";
 import { OutboundMasking } from "../app/outbound-masking.js";
@@ -96,7 +95,7 @@ export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey):
   checkFence(row, key, tree.rootExecutionId);
   // a cancelled tree's undo runs; a stopped one (`Immediate`) has none, and nothing of it is written
   if (row?.cancelRequestedAt === undefined && row?.stopMode === InterruptMode.Immediate)
-    throw ExecutionStopFencedError.of(key);
+    throw stopFencedOf(key);
   if (key.isCompensation === true) return;
   if (row?.cancelRequestedAt !== undefined) throw cancelFencedOf(key);
 }
@@ -111,7 +110,7 @@ function checkFence(row: ExecutionLeaseRow | undefined, key: EffectKey, root: st
   const fenced = row?.fencedThroughToken;
   if (row === undefined || fenced === undefined) return;
   const isStale = key.leaseExecutionId === root ? key.token <= fenced : fenced >= row.lease.token;
-  if (isStale) throw ExecutionPauseFencedError.of(key);
+  if (isStale) throw pauseFencedOf(key);
 }
 
 /** Whether an expiry (ms; `null` = never) has come at `now`: `null` never has. */

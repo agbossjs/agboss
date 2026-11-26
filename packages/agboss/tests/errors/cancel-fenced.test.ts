@@ -7,11 +7,11 @@ import { describe, expect, it } from "vitest";
 import * as root from "../../src/index.js";
 import * as internal from "../../src/internal.js";
 import * as stores from "../../src/stores/index.js";
-import { isHandedOver } from "../../src/app/handed-over.js";
+import { cancelFencedErrorOf, interruptFencedOf, isHandedOver } from "../../src/app/handed-over.js";
 import { ExecutionLeaseLostError } from "../../src/app/lease-lost.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { HAND_OVER_KINDS, isHandOverError } from "../../src/core/error-families/hand-over.js";
-import { ExecutionCancelledError } from "../../src/core/errors.js";
+import { AGBossError, ExecutionCancelledError } from "../../src/core/errors.js";
 import { isExecutionCancelled } from "../../src/core/execution-cancelled.js";
 import { passesThrough } from "../../src/flow/runtime/errors.js";
 
@@ -70,5 +70,42 @@ describe("ExecutionError.CancelFenced is a cancel, not a hand-over", () => {
       expect(name in internal, name).toBe(true);
     }
     expect("ExecutionCancelFencedError" in root).toBe(false);
+  });
+});
+
+describe("#1325: the pause and the stop fence seams of /stores", () => {
+  const facts = { ...key, rootExecutionId: "root-1" };
+
+  it.each([
+    ["pauseFencedOf", stores.pauseFencedOf, "execution.paused.fenced"],
+    ["stopFencedOf", stores.stopFencedOf, "execution.stopped.fenced"],
+  ] as const)("%s builds the internal fence the core finds, no cancel", (_name, seam, code) => {
+    const refused = seam(facts);
+
+    expect(interruptFencedOf(refused)).toBe(refused);
+    expect(interruptFencedOf(new Error("wrapped", { cause: refused }))).toBe(refused);
+    expect(cancelFencedErrorOf(refused)).toBeUndefined();
+    expect(refused).not.toBeInstanceOf(ExecutionError.CancelFenced);
+    expect(refused).toBeInstanceOf(AGBossError);
+    expect(refused).toMatchObject({
+      code,
+      scopeKey: key.scopeKey,
+      tenantId: key.tenantId,
+      leaseExecutionId: key.leaseExecutionId,
+      rootExecutionId: "root-1",
+      token: key.token,
+      effect: key.name,
+    });
+  });
+
+  it("a key without a root names its lease's execution as the root", () => {
+    expect(stores.pauseFencedOf(key)).toMatchObject({ rootExecutionId: key.leaseExecutionId });
+  });
+
+  it("the fence classes are in no public barrel", () => {
+    for (const barrel of [root, stores]) {
+      expect(barrel).not.toHaveProperty("ExecutionPauseFencedError");
+      expect(barrel).not.toHaveProperty("ExecutionStopFencedError");
+    }
   });
 });
