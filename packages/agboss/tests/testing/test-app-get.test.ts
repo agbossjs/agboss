@@ -1,5 +1,5 @@
 /** #1328b: `app.get(token)` gives a class's instance and a `defineEnv` dictionary's values. */
-import { afterEach, describe, expect, expectTypeOf, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, expectTypeOf, vi } from "vitest";
 import { defineEnv } from "../../src/environments/define-env.js";
 import { env } from "../../src/environments/env-readers.js";
 import { testWith } from "../../src/testing/index.js";
@@ -11,7 +11,11 @@ import {
 const test = testWith(RemoteDeskApplication);
 const deskEnv = defineEnv({ region: env("C18_TEST_REGION") });
 
-afterEach(() => {
+// the test's process variables are a copy taken when its app is made (#1324b): set before it
+beforeAll(() => {
+  vi.stubEnv("C18_TEST_REGION", "eu");
+});
+afterAll(() => {
   vi.unstubAllEnvs();
 });
 
@@ -24,7 +28,6 @@ describe("#1328b: TestApp.get", () => {
   });
 
   test("a defineEnv dictionary gives its resolved values", async ({ app }) => {
-    vi.stubEnv("C18_TEST_REGION", "eu");
     await app.ready();
 
     expect(app.get(deskEnv).region).toBe("eu");
