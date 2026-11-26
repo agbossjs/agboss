@@ -132,6 +132,26 @@ async function failureOf(
   return error as FaultInvariantError;
 }
 
+/**
+ * `failureOf`, run again (at most `attempts` times) until it carries `invariant`. For a sabotage
+ * whose bite depends on a race the test cannot order: 5d's zombie, once thawed, either asks the
+ * stale-yes renewal before its own clock or heartbeat decides the lease is over — then it hands over
+ * without ever sending, nothing is sent twice and there is nothing for effects-once to catch (seen
+ * 1 run in 10 on origin/main under a loaded CPU, #1421). The invariant is not weakened: the sabotage
+ * must be caught as `invariant` in one of the runs, and every run still fails the scenario.
+ */
+async function failureCaught(
+  scenario: RunnableFaultScenario,
+  target: typeof unfenced,
+  invariant: FaultInvariant,
+  attempts = 3,
+): Promise<FaultInvariantError> {
+  let failure = await failureOf(scenario, target);
+  for (let attempt = 1; attempt < attempts && !failure.invariants.includes(invariant); attempt += 1)
+    failure = await failureOf(scenario, target);
+  return failure;
+}
+
 describe("#484 AC4: a broken store fails the scenario that targets it", () => {
   it("no fencing check on the business write: 5b fails one-owner — the zombie's stale write accepted", async () => {
     const failure = await failureOf(s05ZombieFirst, unfenced);
@@ -187,14 +207,18 @@ describe("#484 AC4: a broken store fails the scenario that targets it", () => {
   }, 120_000);
 
   it("a renewal that says yes to a lease that is over: 5d's zombie sends the payment again — it fails effects-once", async () => {
-    const failure = await failureOf(s05ZombieRecordedNotSent, staleRenewing);
+    const failure = await failureCaught(
+      s05ZombieRecordedNotSent,
+      staleRenewing,
+      FaultInvariant.EffectsOnce,
+    );
     expect(failure.invariants).toContain(FaultInvariant.EffectsOnce);
     expect(failure.violations.map((found) => found.message)).toContainEqual(
       expect.stringMatching(/o-5d reached the gateway 2 times \(from b, a\)/u),
     );
     // the stale renewal accepted after epoch 2 was granted: no sequential order explains it
     expect(failure.invariants).toContain(FaultInvariant.Linearizable);
-  }, 120_000);
+  }, 360_000);
 
   it("a tree store that forgets an undo's done mark: 12b's next pod releases again — it fails no-undo-on-hand-over", async () => {
     const failure = await failureOf(s12bMarkedUndo, forgetful);
