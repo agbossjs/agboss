@@ -8,7 +8,7 @@ import {
   Secret,
   variableOfSecret,
 } from "./secret.js";
-import { VariablePresence, VariableReference } from "./variables.js";
+import { VariableKind, VariablePresence, VariableReference } from "./variables.js";
 import { overriddenOf, overridesOf, type EnvOverrides } from "./overrides.js";
 
 export { processEnvWith, type EnvOverrides } from "./overrides.js";
@@ -93,6 +93,17 @@ function secretValueOf(
   return raw === undefined ? undefined : resolvedSecret(variable, raw);
 }
 
+/**
+ * What a required variable that is unset stands for where no key and no variable is needed (`agboss
+ * check`, `describe`): an empty text, zero, false — never a value of the process; the other
+ * readers' (number, duration, bytes, …) have none.
+ */
+function placeholderOf(ref: VariableReference): unknown {
+  if (ref.kind === VariableKind.Integer) return 0;
+  if (ref.kind === VariableKind.Flag) return false;
+  return ref.expected === "text" ? "" : undefined;
+}
+
 /** A variable key's value: its default when unset, its parsed text when set; or the problem. */
 function variableValueOf(
   ref: VariableReference,
@@ -102,8 +113,9 @@ function variableValueOf(
 ): unknown {
   const raw = present(processEnv, ref.variable);
   if (raw === undefined) {
-    if (ref.fallback === undefined && ref.presence === VariablePresence.Required)
-      problems.missing.push(`${ref.variable} is not set (${key})`);
+    const isRequired = ref.fallback === undefined && ref.presence === VariablePresence.Required;
+    if (isRequired && problems.deferred) return placeholderOf(ref);
+    if (isRequired) problems.missing.push(`${ref.variable} is not set (${key})`);
     return ref.fallback;
   }
   const parsed = ref.parser === undefined ? raw : ref.parser(raw);
@@ -135,7 +147,7 @@ class Problems {
   readonly missing: string[] = [];
   readonly invalid: string[] = [];
 
-  /** `deferred`: a secret whose variable is unset stays an unresolved `Secret` (types and assembly need no key, #266). */
+  /** `deferred`: a secret whose variable is unset stays an unresolved `Secret`, a required value gets a placeholder (types and assembly need no key, no variable, #266). */
   constructor(readonly deferred = false) {}
 
   throwIfAny(): void {
@@ -148,7 +160,7 @@ class Problems {
 
 /** How `resolveEnv` treats what it cannot resolve. */
 export interface ResolveEnvOptions {
-  /** `deferred`: a secret whose variable is unset stays an unresolved `Secret`, no problem (types and describe need no key). */
+  /** `deferred`: a secret whose variable is unset stays an unresolved `Secret`, a required value gets a placeholder, no problem (types and describe need neither). */
   readonly secrets?: "required" | "deferred";
 }
 

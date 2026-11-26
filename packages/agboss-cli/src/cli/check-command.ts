@@ -3,7 +3,7 @@ import { APPLICATION, flag, PROFILE, type CommandSpec } from "./options.js";
 /** `agboss check`: every key-free validation of the application, with its opt-in checks. */
 export const CHECK_COMMAND: CommandSpec = {
   summary:
-    "every validation that needs no API key: assembly, graph rules, environment, prompts (+ models)",
+    "every validation that needs no API key: assembly, graph rules, profiles, prompts (+ models)",
   usage:
     "agboss check [--models] [--cassettes] [--federation <snapshot…>] [--strict] [--profile <name>] [--application <path>] [--json]",
   positionals: "<snapshot…> (with --federation: agboss describe --json files, or folders of them)",

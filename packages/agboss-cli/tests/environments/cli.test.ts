@@ -80,3 +80,82 @@ describe("#1324b, #266: check and describe need no variable's value", () => {
     expect(call.stdout).not.toContain("not set");
   });
 });
+
+describe("#1324b: agboss check's report and strict mode never carry a value", () => {
+  const NEEDS = fixture("cli/env-needs.application.ts");
+  const SET = {
+    ENV_NEEDS_URL: "https://needs.example",
+    ENV_NEEDS_KEY: "needs-secret-value",
+  };
+
+  it("--json lists the variables by name with use and presence, no value", async () => {
+    const call = await agboss(["check", "--application", NEEDS, "--json"], process.cwd(), SET);
+
+    expect(call.code, call.stderr).toBe(0);
+    const text = JSON.stringify(envelope(call));
+    expect(text).toContain('"variable":"ENV_NEEDS_KEY"');
+    expect(text).toContain('"use":"secret"');
+    expect(text).not.toContain("needs-secret-value");
+    expect(text).not.toContain("https://needs.example");
+  });
+
+  it("--strict with every variable set reports no missing variable and prints no value", async () => {
+    const call = await agboss(
+      ["check", "--application", NEEDS, "--strict", "--json"],
+      process.cwd(),
+      SET,
+    );
+
+    // the in-memory ledger warning is an error under --strict; the variables are not a problem
+    expect(JSON.stringify(envelope(call).result)).not.toContain("environment.missing-variable");
+    expect(call.stdout + call.stderr).not.toContain("needs-secret-value");
+    expect(call.stdout + call.stderr).not.toContain("https://needs.example");
+  });
+
+  it("--strict --models fails on the unset secret too, naming the variable, never a value", async () => {
+    const call = await agboss(
+      ["check", "--application", NEEDS, "--strict", "--models", "--json"],
+      process.cwd(),
+      { ENV_NEEDS_URL: "https://needs.example" },
+    );
+
+    expect(call.code).toBe(3);
+    const text = JSON.stringify(envelope(call).result);
+    expect(text).toContain("[environment.missing-variable] ENV_NEEDS_KEY is not set");
+    expect(text).not.toContain("https://needs.example");
+  });
+
+  it("describe, text and JSON, prints no secret value", async () => {
+    for (const argv of [[], ["--json"]]) {
+      const call = await agboss(["describe", "--application", NEEDS, ...argv], process.cwd(), SET);
+
+      expect(call.code, call.stderr).toBe(0);
+      expect(call.stdout + call.stderr).not.toContain("needs-secret-value");
+    }
+  });
+});
+
+describe("#1324b: every profile of src/config/ is checked schema-only, the inactive ones too", () => {
+  const TS_APP = new URL(
+    "../../../agboss/tests/config/fixtures/ts-app/ts.application.ts",
+    import.meta.url,
+  ).pathname;
+
+  it("a bad inactive profile is a profile.invalid problem naming its file; the value it carries is never printed", async () => {
+    const call = await agboss(["check", "--application", TS_APP, "--json"], process.cwd(), {});
+
+    const problems = JSON.stringify(envelope(call).result);
+    expect(call.code).toBe(3);
+    expect(problems).toContain("typo.config.ts");
+    expect(problems).toContain("wrong-value.config.ts");
+    expect(problems).toContain('"code":"profile.invalid"');
+    expect(call.stdout + call.stderr).not.toContain("hot-secret-value");
+  });
+
+  it("no variable has to be set for it: the variables of its defineEnv are listed, not read", async () => {
+    const call = await agboss(["check", "--application", TS_APP], process.cwd(), {});
+
+    expect(call.stdout).toContain("the application needs 3 process variables:");
+    expect(call.stdout).toContain("TS_APP_API_KEY");
+  });
+});

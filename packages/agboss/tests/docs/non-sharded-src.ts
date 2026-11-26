@@ -246,7 +246,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/application/storage-secret-sharing.ts"],
   ),
   ...reviewed(
-    "the variables a component names through defineEnv, found for `agboss check --env` (#1324): a walk of decorator options listing variable names, never a value; it decides nothing at run time; covered by tests/storage/referenced-variables.test.ts",
+    "the variables a component names through defineEnv, found for `agboss check` (#1324): a walk of decorator options listing variable names, never a value; it decides nothing at run time; covered by tests/storage/referenced-variables.test.ts",
     ["src/application/referenced-variables.ts"],
   ),
   ...reviewed(
