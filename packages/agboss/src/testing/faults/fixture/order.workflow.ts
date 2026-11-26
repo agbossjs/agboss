@@ -29,7 +29,8 @@ const onStart = (source: Class): PathBuilder<PathSource> =>
   fromSource({ kind: NodeKind.Start, node: source });
 
 const toWorkflow = (target: Class): PathBuilder<undefined> =>
-  subPathFrom({ kind: "side" }).toWorkflow(target);
+  subPathFrom({ kind: "side" })
+    .toWorkflow(target);
 
 @WorkflowStart({
   name: "fault-order-workflow-start",

@@ -116,7 +116,9 @@ const workflow = {
     tools: { maxToolCalls: 2 },
   },
   memory: Window1Memory,
-  flow: [onStart(Start).toAgent(Mailer).toFinish(Finish)],
+  flow: [onStart(Start)
+    .toAgent(Mailer)
+    .toFinish(Finish)],
 };
 
 /** The first deployment. */

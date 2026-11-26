@@ -162,7 +162,10 @@ export class ShopCatchingLimitsApplication {}
   name: "shop-uncaught-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(Order).toAgent(Buyer).toAgent(Checker).toFinish(Done)],
+  flow: [onStart(Order)
+    .toAgent(Buyer)
+    .toAgent(Checker)
+    .toFinish(Done)],
   defaults,
   memory: Window4Memory,
 })

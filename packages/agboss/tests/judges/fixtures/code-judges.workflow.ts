@@ -90,7 +90,9 @@ export class PromiseFinish {}
   name: "promise-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(PromiseStart).toAgent(PromiseAgent).toFinish(PromiseFinish)],
+  flow: [onStart(PromiseStart)
+    .toAgent(PromiseAgent)
+    .toFinish(PromiseFinish)],
   defaults: DEFAULTS,
   memory: Window4Memory,
   providers: [BannedWords, provide(RUBRIC, "Is the reply grounded? Answer PASS or FAIL: <why>.")],
@@ -138,7 +140,8 @@ export class SecondOpinionJudge implements JudgeHandler<PlainTextDto> {
     const tries = await Promise.allSettled([
       this.secondOpinion.ask(output.text),
       this.secondOpinion.decide(),
-      Promise.resolve().then(() => this.secondOpinion.model()),
+      Promise.resolve()
+        .then(() => this.secondOpinion.model()),
     ]);
     const outcomes = tries.map((tried) =>
       tried.status === "rejected" && tried.reason instanceof Error

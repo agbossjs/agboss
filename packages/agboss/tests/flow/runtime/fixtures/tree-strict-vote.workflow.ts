@@ -76,8 +76,10 @@ export class StrictMixedWorkflowStart {}
   flow: [
     onStart(StrictMixedWorkflowStart)
       .toRouter(StrictTaskKindRouter)
-      .onRoute(toWorkflow(TaskWorkflow).toFinish(TaskDoneWorkflowFinish))
-      .onRoute(toWorkflow(StrictVoteWorkflow).toFinish(MixedVotedWorkflowFinish)),
+      .onRoute(toWorkflow(TaskWorkflow)
+        .toFinish(TaskDoneWorkflowFinish))
+      .onRoute(toWorkflow(StrictVoteWorkflow)
+        .toFinish(MixedVotedWorkflowFinish)),
   ],
 })
 export class StrictMixedWorkflow {}

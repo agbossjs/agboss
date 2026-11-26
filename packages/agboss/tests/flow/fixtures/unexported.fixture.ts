@@ -35,6 +35,8 @@ export class HiddenWorkflowFinish {}
   name: "hidden-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(HiddenWorkflowStart).toAgent(HiddenAgent).toFinish(HiddenWorkflowFinish)],
+  flow: [onStart(HiddenWorkflowStart)
+    .toAgent(HiddenAgent)
+    .toFinish(HiddenWorkflowFinish)],
 })
 export class HiddenWorkflow {}

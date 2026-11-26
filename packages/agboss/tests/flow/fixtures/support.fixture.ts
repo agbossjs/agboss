@@ -120,11 +120,15 @@ export const supportPaths = [
   onStart(SupportWorkflowStart)
     .toAgent(OrderAgent)
     .toRouter(AnswerRouter)
-    .onRoute(toAgent(FastAnswerAgent).toAction(SupportAction))
-    .onRoute(toAgent(LoyaltyAgent).toAgent(ExpertAnswerAgent))
+    .onRoute(toAgent(FastAnswerAgent)
+      .toAction(SupportAction))
+    .onRoute(toAgent(LoyaltyAgent)
+      .toAgent(ExpertAnswerAgent))
     .onRoute(toAgent(ExpertAnswerAgent)),
-  onAgent(ExpertAnswerAgent).toAction(SupportAction),
-  onAction(SupportAction).toFinish(SupportWorkflowFinish),
+  onAgent(ExpertAnswerAgent)
+    .toAction(SupportAction),
+  onAction(SupportAction)
+    .toFinish(SupportWorkflowFinish),
 ];
 
 @Workflow({

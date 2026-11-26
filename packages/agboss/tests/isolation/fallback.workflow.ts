@@ -86,7 +86,9 @@ const defaults = {
   name: "fallback-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(ChatStart).toAgent(Answerer).toFinish(Reply)],
+  flow: [onStart(ChatStart)
+    .toAgent(Answerer)
+    .toFinish(Reply)],
   defaults,
   memory: Window1Memory,
 })
@@ -106,7 +108,9 @@ export class WithFallbackApplication {}
   name: "unmapped-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(ChatStart).toAgent(Answerer).toFinish(Reply)],
+  flow: [onStart(ChatStart)
+    .toAgent(Answerer)
+    .toFinish(Reply)],
   defaults,
   memory: Window1Memory,
 })

@@ -163,7 +163,9 @@ export function meshAppOf(spec: MeshAppSpec): MeshAppParts {
           .toAgent(MeshDesk)
           .onError(LimitError.MeshLoop, toFinish(LoopFinish))
           .toFinish(MeshAnswer)
-      : onStart(MeshStart).toAgent(MeshDesk).toFinish(MeshAnswer);
+      : onStart(MeshStart)
+          .toAgent(MeshDesk)
+          .toFinish(MeshAnswer);
 
   @Workflow({
     name: `${name}-workflow`,

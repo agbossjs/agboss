@@ -27,6 +27,9 @@ export function starOf(...agents: readonly [Class, ...Class[]]): readonly FlowPa
     ],
   })
   class MainRouter {}
-  const stop = onStart(TestChat).toRouter(MainRouter).onRoute(toFinish(NoAnswer));
-  return [agents.reduce((path, agent) => path.onRoute(toAgent(agent).toFinish(TestAnswer)), stop)];
+  const stop = onStart(TestChat)
+    .toRouter(MainRouter)
+    .onRoute(toFinish(NoAnswer));
+  return [agents.reduce((path, agent) => path.onRoute(toAgent(agent)
+    .toFinish(TestAnswer)), stop)];
 }

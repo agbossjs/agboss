@@ -152,7 +152,9 @@ export class NearChildWorkflow {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(FarChildWorkflowStart).toAction(ScopeFarChildAction).toFinish(FarChildWorkflowFinish),
+    onStart(FarChildWorkflowStart)
+      .toAction(ScopeFarChildAction)
+      .toFinish(FarChildWorkflowFinish),
   ],
 })
 export class FarChildWorkflow {}
@@ -195,7 +197,9 @@ export class NearParentWorkflow {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(FarParentWorkflowStart).toWorkflow(FarChildWorkflow).toFinish(FarParentWorkflowFinish),
+    onStart(FarParentWorkflowStart)
+      .toWorkflow(FarChildWorkflow)
+      .toFinish(FarParentWorkflowFinish),
   ],
 })
 export class FarParentWorkflow {}

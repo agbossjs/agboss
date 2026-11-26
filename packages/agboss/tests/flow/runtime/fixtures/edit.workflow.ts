@@ -91,7 +91,8 @@ export class GateRouter {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(EditStart).toAgent(EditorAgent),
+    onStart(EditStart)
+      .toAgent(EditorAgent),
     onAgent(EditorAgent)
       .toRouter(GateRouter)
       .onRoute(toAgent(EditorAgent))
@@ -134,9 +135,11 @@ export class PatientGateRouter {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(EditStart).toAgent(PatientEditorAgent),
+    onStart(EditStart)
+      .toAgent(PatientEditorAgent),
     onAgent(PatientEditorAgent)
-      .onError(LimitError.Visits, toAction(GaveUpAction).toFinish(GaveUpFinish))
+      .onError(LimitError.Visits, toAction(GaveUpAction)
+        .toFinish(GaveUpFinish))
       .toRouter(PatientGateRouter)
       .onRoute(toAgent(PatientEditorAgent))
       .onRoute(toFinish(DoneFinish)),
@@ -154,7 +157,8 @@ export class PatientEditWorkflow {}
 export class PatientEditApplication {}
 
 const editPaths = [
-  onStart(EditStart).toAgent(EditorAgent),
+  onStart(EditStart)
+    .toAgent(EditorAgent),
   onAgent(EditorAgent)
     .toRouter(GateRouter)
     .onRoute(toAgent(EditorAgent))

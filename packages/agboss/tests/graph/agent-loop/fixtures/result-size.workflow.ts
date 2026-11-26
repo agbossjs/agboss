@@ -176,8 +176,12 @@ export class PageFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(PageStart).toAgent(ResearchAgent).toFinish(PageFinish),
-    onStart(ContextStart).toAgent(ContextAgent).toFinish(PageFinish),
+    onStart(PageStart)
+      .toAgent(ResearchAgent)
+      .toFinish(PageFinish),
+    onStart(ContextStart)
+      .toAgent(ContextAgent)
+      .toFinish(PageFinish),
   ],
   providers: [PageReader],
 })
@@ -240,7 +244,9 @@ export class ZeroBoundStart {}
   name: "zero-bound-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(ZeroBoundStart).toAgent(ZeroBoundAgent).toFinish(PageFinish)],
+  flow: [onStart(ZeroBoundStart)
+    .toAgent(ZeroBoundAgent)
+    .toFinish(PageFinish)],
   defaults: { tools: { maxResultSize: kilobytes(0.1) } },
 })
 export class ZeroBoundWorkflow {}

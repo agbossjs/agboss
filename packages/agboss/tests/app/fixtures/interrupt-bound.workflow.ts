@@ -92,7 +92,9 @@ export class BoundFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   defaults: { models: { maxTokens: 100, temperature: 0 }, tools: { maxToolCalls: 3 } },
-  flow: [onStart(BoundStart).toAgent(BoundAgent).toFinish(BoundFinish)],
+  flow: [onStart(BoundStart)
+    .toAgent(BoundAgent)
+    .toFinish(BoundFinish)],
 })
 export class BoundWorkflow {}
 

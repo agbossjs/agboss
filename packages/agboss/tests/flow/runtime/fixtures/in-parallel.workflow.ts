@@ -123,7 +123,8 @@ export class SummaryWorkflowFinish {}
     onStart(InParallelWorkflowStart)
       .inParallel([
         toAction(FirstAction),
-        toAction(SecondAction).onError(StepError, skip()),
+        toAction(SecondAction)
+          .onError(StepError, skip()),
         toAgent(ThirdAgent),
       ])
       .join()
@@ -260,7 +261,8 @@ export class ChooserWorkflowStart {}
     onStart(ChooserWorkflowStart)
       .inParallel([
         toAction(FirstAction),
-        toRouter(ChooserRouter).chooseMany([toAction(ChosenAAction), toAction(ChosenBAction)]),
+        toRouter(ChooserRouter)
+          .chooseMany([toAction(ChosenAAction), toAction(ChosenBAction)]),
       ])
       .join()
       .toAction(ChosenSummaryAction)
@@ -307,7 +309,8 @@ export class ModelChooserWorkflowStart {}
     onStart(ModelChooserWorkflowStart)
       .inParallel([
         toAction(FirstAction),
-        toRouter(ModelChooserRouter).chooseMany([toAction(ChosenAAction), toAction(ChosenBAction)]),
+        toRouter(ModelChooserRouter)
+          .chooseMany([toAction(ChosenAAction), toAction(ChosenBAction)]),
       ])
       .join()
       .toAction(ChosenSummaryAction)

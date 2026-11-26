@@ -117,7 +117,9 @@ export class AnswerWorkflowFinish {}
   name: "lookup-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(AskWorkflowStart).toAgent(LookupAgent).toFinish(AnswerWorkflowFinish)],
+  flow: [onStart(AskWorkflowStart)
+    .toAgent(LookupAgent)
+    .toFinish(AnswerWorkflowFinish)],
 })
 export class LookupWorkflow {}
 

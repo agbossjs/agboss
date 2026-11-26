@@ -215,7 +215,8 @@ export class UnwindManyWorkflowStart {}
 export class RoomsReservedAction {
   async execute(input: { readonly rooms: readonly Tracked<RoomDto>[] }): Promise<ReservedDto> {
     return {
-      summary: input.rooms.map((room) => room.roomId).join(", "),
+      summary: input.rooms.map((room) => room.roomId)
+        .join(", "),
     };
   }
 }
@@ -258,7 +259,8 @@ export class UnwindParentWorkflowStart {}
     onStart(UnwindParentWorkflowStart)
       .toAction(ReserveSeatAction)
       .toWorkflow(UnwindRoomWorkflow)
-      .onError(StepError, toAction(ReleaseSeatAction).toFinish(NotReservedWorkflowFinish))
+      .onError(StepError, toAction(ReleaseSeatAction)
+        .toFinish(NotReservedWorkflowFinish))
       .toAction(ReservedAction)
       .toFinish(ReservedWorkflowFinish),
   ],

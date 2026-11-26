@@ -126,22 +126,26 @@ export class CompanyReviewFailedWorkflowFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(CompanyReviewWorkflowStart).toAgent(CompanyReviewerAgent),
+    onStart(CompanyReviewWorkflowStart)
+      .toAgent(CompanyReviewerAgent),
 
-    onStart(CompanyLinkReviewWorkflowStart).toAgent(CompanyReviewerAgent),
+    onStart(CompanyLinkReviewWorkflowStart)
+      .toAgent(CompanyReviewerAgent),
 
     // two ways in (two starts) → its own path
-    onAgent(CompanyReviewerAgent).toOneOf([
-      toAgent(DeepDiveAgent)
-        .onError(StepError, toAction(MarkReviewFailedAction))
-        .toAgent(GraderAgent)
-        .onError(StepError, toAction(MarkReviewFailedAction))
-        .toFinish(CompanyGradedWorkflowFinish),
-      toFinish(CompanyRejectedWorkflowFinish),
-    ]),
+    onAgent(CompanyReviewerAgent)
+      .toOneOf([
+        toAgent(DeepDiveAgent)
+          .onError(StepError, toAction(MarkReviewFailedAction))
+          .toAgent(GraderAgent)
+          .onError(StepError, toAction(MarkReviewFailedAction))
+          .toFinish(CompanyGradedWorkflowFinish),
+        toFinish(CompanyRejectedWorkflowFinish),
+      ]),
 
     // two ways in (two onError side paths) → its own path: the soft failure of a per-item child
-    onAction(MarkReviewFailedAction).toFinish(CompanyReviewFailedWorkflowFinish),
+    onAction(MarkReviewFailedAction)
+      .toFinish(CompanyReviewFailedWorkflowFinish),
   ],
   executionLimits: { maxSteps: 10 },
 })
@@ -212,7 +216,8 @@ export class ScreeningStoppedWorkflowFinish {}
       .join()
       .onError(
         LimitError,
-        toAction(NotifyReviewStoppedAction).toFinish(ScreeningStoppedWorkflowFinish),
+        toAction(NotifyReviewStoppedAction)
+          .toFinish(ScreeningStoppedWorkflowFinish),
       )
       .toAgent(ReviewRankerAgent)
       .toFinish(GradedShortlistWorkflowFinish),
@@ -288,7 +293,8 @@ export class ReviewErrorWorkflowFinish {}
       .toWorkflow(CompanyReviewWorkflow)
       .onError(StepError, toFinish(ReviewErrorWorkflowFinish))
       .toOneOf([
-        toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
+        toAgent(JobOfferAgent)
+          .toFinish(JobOfferWorkflowFinish),
         toFinish(NoOfferRejectedWorkflowFinish),
         toFinish(NoOfferFailedWorkflowFinish),
       ]),
@@ -328,7 +334,8 @@ export class LinkOfferWorkflowStart {}
     onWorkflow(CompanyReviewWorkflow)
       .onError(StepError, toFinish(ReviewErrorWorkflowFinish))
       .toOneOf([
-        toAgent(JobOfferAgent).toFinish(JobOfferWorkflowFinish),
+        toAgent(JobOfferAgent)
+          .toFinish(JobOfferWorkflowFinish),
         toFinish(NoOfferRejectedWorkflowFinish),
         toFinish(NoOfferFailedWorkflowFinish),
       ]),

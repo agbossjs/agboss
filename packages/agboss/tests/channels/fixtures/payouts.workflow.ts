@@ -125,7 +125,8 @@ const providers = [
       .join()
       .onError(
         PaymentDeclinedError,
-        toAction(PayoutDeclinedAction).toFinish(PayoutDeclinedWorkflowFinish),
+        toAction(PayoutDeclinedAction)
+          .toFinish(PayoutDeclinedWorkflowFinish),
       )
       .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),
@@ -153,7 +154,8 @@ export class PayoutsApplication {}
     onStart(PayoutWorkflowStart)
       .inParallel([toAgent(PayoutConfirmAgent), toAgent(PayoutRefundAgent)])
       .join()
-      .onError(StepError, toAction(PayoutDeclinedAction).toFinish(PayoutDeclinedWorkflowFinish))
+      .onError(StepError, toAction(PayoutDeclinedAction)
+        .toFinish(PayoutDeclinedWorkflowFinish))
       .toAction(PayoutAction)
       .toFinish(PayoutWorkflowFinish),
   ],

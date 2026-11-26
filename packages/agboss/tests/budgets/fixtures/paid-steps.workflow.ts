@@ -78,7 +78,8 @@ export class PaidRouterWorkflowFinish {}
     onStart(PaidRouterWorkflowStart)
       .toAction(OverspendOrderAction)
       .toRouter(PaidOrderRouter)
-      .onRoute(toAction(NoteOrderAction).toFinish(PaidRouterWorkflowFinish)),
+      .onRoute(toAction(NoteOrderAction)
+        .toFinish(PaidRouterWorkflowFinish)),
   ],
 })
 export class PaidRouterWorkflow {}
@@ -147,7 +148,8 @@ export class DeclinedNotedWorkflowFinish {}
       .toAction(DeclineOrderAction)
       .onError(
         OrderDeclinedError,
-        toAction(NotifyOrderAction).toFinish(DeclinedNotedWorkflowFinish),
+        toAction(NotifyOrderAction)
+          .toFinish(DeclinedNotedWorkflowFinish),
       )
       .toAction(NoteOrderAction)
       .toFinish(PaidDeclinedWorkflowFinish),
@@ -171,7 +173,8 @@ export class OverBudgetWorkflowFinish {}
     onStart(PaidLimitWorkflowStart)
       .toAction(OverspendOrderAction)
       .toAction(NoteOrderAction)
-      .onError(LimitError.Budget, toAction(NotifyOrderAction).toFinish(OverBudgetWorkflowFinish))
+      .onError(LimitError.Budget, toAction(NotifyOrderAction)
+        .toFinish(OverBudgetWorkflowFinish))
       .toFinish(PaidLimitWorkflowFinish),
   ],
 })

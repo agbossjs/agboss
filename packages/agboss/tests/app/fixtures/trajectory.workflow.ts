@@ -128,7 +128,9 @@ const DEFAULTS = {
   name: "clerk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(ClerkStart).toAgent(ClerkAgent).toFinish(ClerkFinish)],
+  flow: [onStart(ClerkStart)
+    .toAgent(ClerkAgent)
+    .toFinish(ClerkFinish)],
   defaults: DEFAULTS,
   providers: [TrajectoryLog],
 })

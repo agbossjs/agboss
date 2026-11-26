@@ -205,7 +205,8 @@ export class DueDiligenceArbiter {}
       .onGroup(
         [AuditorAgent],
         { priority: 1 },
-        toAction(OpenDealRoomAction).toFinish(DealRoomOpenedWorkflowFinish),
+        toAction(OpenDealRoomAction)
+          .toFinish(DealRoomOpenedWorkflowFinish),
       )
       .onGroup(
         [DealCriticAgent, DealCriticAgent],
@@ -216,9 +217,11 @@ export class DueDiligenceArbiter {}
       )
       .onGroup([FastScreenAgent], { priority: 3 }, toFinish(QuickRejectWorkflowFinish)),
 
-    onAgent(FullReviewAgent).toFinish(DueDiligenceReportWorkflowFinish),
+    onAgent(FullReviewAgent)
+      .toFinish(DueDiligenceReportWorkflowFinish),
 
-    onAction(NotifyReviewerAction).toFinish(ReviewerNotifiedWorkflowFinish),
+    onAction(NotifyReviewerAction)
+      .toFinish(ReviewerNotifiedWorkflowFinish),
   ],
 })
 export class DueDiligenceWorkflow {}

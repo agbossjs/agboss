@@ -188,7 +188,9 @@ export class PtPayoutWorkflowFinish {}
   name: "pt-payout-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(PtPayoutWorkflowStart).toAgent(PtPayerAgent).toFinish(PtPayoutWorkflowFinish)],
+  flow: [onStart(PtPayoutWorkflowStart)
+    .toAgent(PtPayerAgent)
+    .toFinish(PtPayoutWorkflowFinish)],
 })
 export class PtPayoutWorkflow {}
 

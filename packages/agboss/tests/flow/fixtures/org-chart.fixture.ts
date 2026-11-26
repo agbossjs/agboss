@@ -135,7 +135,8 @@ export class OrgChartFailedWorkflowFinish {}
           .join()
           .onError(
             LimitError,
-            toAction(MarkUnitFailedAction).toFinish(OrgChartFailedWorkflowFinish),
+            toAction(MarkUnitFailedAction)
+              .toFinish(OrgChartFailedWorkflowFinish),
           )
           .toAgent(ChartMergerAgent)
           .toFinish(TeamChartWorkflowFinish),
@@ -185,13 +186,15 @@ export class OrgDepthRouter implements RouterHandler<OrgDepthRouter> {
       .toRouter(OrgDepthRouter)
       .onRoute(toWorkflow(() => OrgDrillWorkflow))
       .onRoute(
-        toAgent(UnitPickerAgent).toOneOf([
-          toFinish(TeamChartWorkflowFinish),
-          toWorkflow(() => OrgDrillWorkflow),
-        ]),
+        toAgent(UnitPickerAgent)
+          .toOneOf([
+            toFinish(TeamChartWorkflowFinish),
+            toWorkflow(() => OrgDrillWorkflow),
+          ]),
       ),
     onWorkflow(() => OrgDrillWorkflow)
-      .onError(StepError, toAction(MarkUnitFailedAction).toFinish(OrgChartFailedWorkflowFinish))
+      .onError(StepError, toAction(MarkUnitFailedAction)
+        .toFinish(OrgChartFailedWorkflowFinish))
       .toOneOf([toFinish(TeamChartWorkflowFinish), toFinish(OrgChartFailedWorkflowFinish)]),
   ],
   executionLimits: { maxDepth: 3 },
@@ -224,10 +227,11 @@ export class UnitCharterAgent {}
       .toAgent(UnitCharterAgent)
       .onError(
         StepError,
-        toWorkflow(() => OrgRetryWorkflow).toOneOf([
-          toFinish(TeamChartWorkflowFinish),
-          toFinish(OrgChartFailedWorkflowFinish),
-        ]),
+        toWorkflow(() => OrgRetryWorkflow)
+          .toOneOf([
+            toFinish(TeamChartWorkflowFinish),
+            toFinish(OrgChartFailedWorkflowFinish),
+          ]),
       )
       .toFinish(TeamChartWorkflowFinish),
   ],

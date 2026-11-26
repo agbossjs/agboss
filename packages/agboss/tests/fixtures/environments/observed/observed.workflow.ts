@@ -36,7 +36,9 @@ export class Greeter {}
   name: "observed-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(ChatStart).toAgent(Greeter).toFinish(Reply)],
+  flow: [onStart(ChatStart)
+    .toAgent(Greeter)
+    .toFinish(Reply)],
   defaults: settingsDefaults,
 })
 export class ObservedApp {}
