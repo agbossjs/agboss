@@ -67,7 +67,7 @@ describe("#1366: a run-bound pause", () => {
 
     expect(error).toBeInstanceOf(LimitError.Deadline);
     expect((error as LimitError.Deadline).deadline).toBe(30_000);
-    expect((error as LimitError.Deadline).deadlineAt).toBe(EXPIRES);
+    expect((error as LimitError.Deadline).deadlineAt).toEqual(new Date(EXPIRES));
   });
 
   it("does the same inside a frame whose execution has no deadline", async () => {
@@ -91,7 +91,7 @@ describe("#1366: a run-bound pause", () => {
   it("returns the deadline error the budgets' check throws", () => {
     const own = new LimitError.Deadline({
       deadline: seconds(1),
-      deadlineAt: ASKED,
+      deadlineAt: new Date(ASKED),
       path: [],
       spentUsd: usd(0),
     });

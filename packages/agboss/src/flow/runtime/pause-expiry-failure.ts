@@ -81,7 +81,7 @@ export function expiryFailureOf(pause: PauseRecord, site: ExpirySite): Error {
     }
     return new LimitError.Deadline({
       deadline: givenDeadline(pause, expiresAt),
-      deadlineAt: expiresAt,
+      deadlineAt: instantOf(expiresAt),
       path: site.path,
       spentUsd: totalCost([...site.state, ...site.usage]),
       usage: site.usage,

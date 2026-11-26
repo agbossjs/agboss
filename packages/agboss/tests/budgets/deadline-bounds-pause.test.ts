@@ -72,7 +72,10 @@ describe("#941 AC6: the run's deadline bounds a pause", () => {
       await until(() => expiry.errors.length === 1);
 
       expect(expiry.errors[0]).toBeInstanceOf(LimitError.Deadline);
-      expect(expiry.errors[0]).toMatchObject({ deadlineAt: expiresAt, deadline: minutes(5) });
+      expect(expiry.errors[0]).toMatchObject({
+        deadlineAt: new Date(expiresAt),
+        deadline: minutes(5),
+      });
       expect(expiry.asked).toHaveLength(0);
       expect(expiry.directorAsked).toHaveLength(0);
       const [pause] = await expiryStore().findAllByTenantIdAndRootExecutionId(
@@ -206,7 +209,10 @@ describe("#941 V5: the step builds LimitError.Deadline itself when its own check
     );
 
     expect(error).toBeInstanceOf(LimitError.Deadline);
-    expect(error).toMatchObject({ deadlineAt: "2026-01-01T00:05:00.000Z", deadline: minutes(5) });
+    expect(error).toMatchObject({
+      deadlineAt: new Date("2026-01-01T00:05:00.000Z"),
+      deadline: minutes(5),
+    });
   });
 
   it("an agent's approval node builds it with the loop's usage (the visit's own check normally fails first)", () => {
@@ -222,7 +228,7 @@ describe("#941 V5: the step builds LimitError.Deadline itself when its own check
   it("its own check throwing the deadline: that error, the way every visit gets it", () => {
     const own = new LimitError.Deadline({
       deadline: seconds(300),
-      deadlineAt: "2026-01-01T00:05:00.000Z",
+      deadlineAt: new Date("2026-01-01T00:05:00.000Z"),
       path: [],
       spentUsd: usd(0),
     });
