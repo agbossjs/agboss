@@ -455,7 +455,22 @@ describe("#943 AC1: listing pauses", () => {
     expect(shown.find((one) => one.respondent === PauseRespondent.Owner)?.pauseId).toBe(
       owned.pending[0]?.pauseId,
     );
-    // errors raised while ids are in play: a cursor that is an id, a refused query with the flag on
+    // allTenants with ids: every tenant's delegated id, each with its tenant
+    await open(app, managerFlow as never, "c9", "tenant-z");
+    const every = await allOf(app, { allTenants: true, includePauseIds: true } as never);
+    expect(every.every((one) => typeof one.pauseId === "string")).toBe(true);
+    expect(new Set(every.map((one) => one.tenantId))).toEqual(new Set(["default", "tenant-z"]));
+    const hidden = await allOf(app, { allTenants: true } as never);
+    expect(hidden.filter((one) => one.respondent === PauseRespondent.Delegate)).toSatisfy(
+      (rest: ListedPause[]) => rest.length > 0 && rest.every((one) => one.pauseId === undefined),
+    );
+  });
+
+  test("#1307e AC3: no error raised while ids are in play carries an id", async ({ app }) => {
+    await open(app, managerFlow as never, "c1");
+    const sentId = asked.sent[0]?.pauseId ?? "";
+
+    // a cursor that is an id, a refused query with the flag on
     for (const query of [
       { includePauseIds: true, cursor: sentId },
       { includePauseIds: true, assignee: sentId, limit: 0 },
@@ -466,15 +481,6 @@ describe("#943 AC1: listing pauses", () => {
       const text = `${JSON.stringify(error)} ${(error as Error).message} ${String((error as Error).stack)}`;
       expect(text).not.toContain(sentId.slice(0, 12));
     }
-    // allTenants with ids: every tenant's delegated id, each with its tenant
-    await open(app, managerFlow as never, "c9", "tenant-z");
-    const every = await allOf(app, { allTenants: true, includePauseIds: true } as never);
-    expect(every.every((one) => typeof one.pauseId === "string")).toBe(true);
-    expect(new Set(every.map((one) => one.tenantId))).toEqual(new Set(["default", "tenant-z"]));
-    const hidden = await allOf(app, { allTenants: true } as never);
-    expect(hidden.filter((one) => one.respondent === PauseRespondent.Delegate)).toSatisfy(
-      (rest: ListedPause[]) => rest.length > 0 && rest.every((one) => one.pauseId === undefined),
-    );
   });
 
   test("#1307e: a query field the listing does not have (a retired after, a role) is refused, never ignored", async ({

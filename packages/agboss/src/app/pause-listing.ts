@@ -12,7 +12,6 @@ import type { Page } from "./page.js";
 import type { ListedPause } from "./types.js";
 import { openedCursor, queryHashOf, sealedCursor } from "./query-cursor.js";
 import { checked, QUERY_DTO } from "./pause-listing-query.js";
-import { PauseRespondent } from "../pause/respondent.js";
 
 /**
  * `app.listPauses` (#943): a tenant's pauses a page at a time, through the store's keyset
