@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../src/flow/generated-types.js";
 import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { describe, expectTypeOf, it } from "vitest";
 import type { FlowPath } from "../../src/flow/ast.js";
@@ -37,7 +38,7 @@ import {
   type ValueOf,
 } from "../../src/flow/dto-wrappers.js";
 import type { Tracked } from "../../src/flow/metadata.js";
-import { agbossComponent, type NodeKind } from "../../src/flow/generated-types.js";
+import { agbossComponent } from "../../src/flow/generated-types.js";
 import type {
   InputOf,
   MissingGeneratedTypes,
@@ -639,7 +640,7 @@ describe("#280 AC1, AC2: code routers — options by decidedBy, route(input) typ
     class WrongAnswer {
       readonly [agbossComponent]?: {
         readonly name: "credit-limit-router";
-        readonly kind: NodeKind.Router;
+        readonly kind: ComponentKind.Router;
       };
       route(): string {
         return "draft";

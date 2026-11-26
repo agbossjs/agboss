@@ -29,7 +29,7 @@ const siteAnswering = (answers: DecisionOutcome["answers"]): ReplyDecisionSite =
     decide: () => Promise.resolve({ answers, usage: record(0.25, "decide") }),
   } as never,
   model: "m",
-  caller: "reply-interpreter:desk",
+  caller: "channel-interpreter:desk",
   pii: { policies, known: {} },
 });
 

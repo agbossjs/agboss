@@ -1,7 +1,7 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { FlowAnalysis } from "../flow/analyse/analyse.js";
 import type { ResolvedField } from "../flow/analyse/fields.js";
 import { EdgeKind, itemBoundOf, reachableFrom, type FlowEdge } from "../flow/analyse/flow-graph.js";
-import { NodeKind } from "../flow/ast.js";
 import type { ComponentName } from "../flow/registry.js";
 
 /**
@@ -32,5 +32,5 @@ const mostOf = (edge: FlowEdge): string => String(itemBoundOf(edge.join?.launch 
 /** The join of a per-item launch of child workflows. */
 const isPerItemChildJoin = (edge: FlowEdge): boolean =>
   edge.kind === EdgeKind.Join &&
-  edge.join?.launch.branches[0]?.kind === NodeKind.Workflow &&
+  edge.join?.launch.branches[0]?.kind === ComponentKind.Workflow &&
   edge.join.launch.items !== undefined;

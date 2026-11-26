@@ -1,7 +1,7 @@
+import { ComponentKind } from "../runtime/records.js";
 import { externalTaskOf } from "../../channels/discovery.js";
 import { componentOf } from "../../components/metadata.js";
 import type { Class } from "../../components/injection.js";
-import { NodeKind } from "../ast.js";
 import { declarationOf, type AgentDeclaration } from "../decorators/declaration.js";
 import type { ImportTable } from "./imports.js";
 import type { AnalysedWorkflow, TypeTable } from "./tables.js";
@@ -52,7 +52,7 @@ export function agentToolsTableOf(
   for (const { analysis } of workflows)
     for (const node of analysis.graph.nodes.values()) {
       const { declaration } = node;
-      if (declaration.kind !== NodeKind.Agent || table.has(node.name)) continue;
+      if (declaration.kind !== ComponentKind.Agent || table.has(node.name)) continue;
       const tools = toolNamesOf(declaration.options, names);
       table.set(
         node.name,
@@ -71,7 +71,7 @@ export function standaloneAgentToolsOf(
   const table = new Map<string, string>();
   for (const component of components) {
     const declaration = declarationOf(component);
-    if (reached.has(component) || declaration?.kind !== NodeKind.Agent) continue;
+    if (reached.has(component) || declaration?.kind !== ComponentKind.Agent) continue;
     if (table.has(declaration.options.name)) continue;
     const tools = toolNamesOf(declaration.options, names);
     table.set(

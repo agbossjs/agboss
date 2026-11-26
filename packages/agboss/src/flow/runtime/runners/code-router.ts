@@ -1,13 +1,13 @@
+import { ComponentKind } from "../records.js";
 import { StepError } from "../../../core/error-families/step-errors.js";
 import type { Class } from "../../../components/injection.js";
 import type { GraphDeps } from "../../../graph/deps.js";
-import { NodeKind } from "../../ast.js";
 import { declarationOf } from "../../decorators/declaration.js";
 import { passesThrough } from "../errors.js";
 import type { RuntimeNode } from "../graph-model.js";
 import { inputMessageOf } from "../input-message.js";
 import type { NodeRunner } from "../node-runner.js";
-import { type RouterVisit } from "../router-error.js";
+import type { RouterVisit } from "../router-error.js";
 import { readInput } from "../scope.js";
 import { visitNumberOf } from "../step-frame.js";
 import { codeRouterLaunch } from "../launch/router-decision.js";
@@ -73,7 +73,8 @@ const failure = (step: RouterVisit, error: unknown): unknown =>
  * `deps: [ExecutionContext]` (the visit's frame). Its answer is checked against its routes (S19).
  */
 export function codeRouterRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRunner {
-  if (node.declaration.kind !== NodeKind.Router) throw new TypeError(`${node.id} is not a router`);
+  if (node.declaration.kind !== ComponentKind.Router)
+    throw new TypeError(`${node.id} is not a router`);
   return async (state) => {
     const step = { nodeId: node.id, visitNumber: visitNumberOf(node, state) };
     const instance: unknown = deps.container.get(node.component);

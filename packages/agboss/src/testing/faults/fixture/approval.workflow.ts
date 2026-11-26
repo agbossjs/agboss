@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../../flow/runtime/records.js";
 import {
   Workflow,
   WorkflowFinish,
@@ -10,7 +11,7 @@ import { Channel } from "../../../components/decorators.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
 import type { Class } from "../../../components/injection.js";
 import { Bool, Text } from "../../../dto/index.js";
-import { NodeKind, type PathSource } from "../../../flow/ast.js";
+import type { PathSource } from "../../../flow/ast.js";
 import { fromSource, type PathBuilder } from "../../../flow/path-builder.js";
 import {
   FaultChargeAction,
@@ -31,7 +32,7 @@ import { Ttl } from "../../../index.js";
  */
 
 const onStart = (source: Class): PathBuilder<PathSource> =>
-  fromSource({ kind: NodeKind.Start, node: source });
+  fromSource({ kind: ComponentKind.WorkflowStart, node: source });
 
 /** What the question asks: the order to approve. */
 export class FaultApprovalAskDto {

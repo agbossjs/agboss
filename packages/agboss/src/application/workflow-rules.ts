@@ -1,6 +1,7 @@
+import type { FlowNodeKind } from "../flow/ast.js";
+import { ComponentKind } from "../flow/runtime/records.js";
 import { filesViolations } from "../files/file-rules.js";
 import type { Class } from "../components/injection.js";
-import { NodeKind } from "../flow/ast.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
@@ -36,8 +37,8 @@ function duplicateWorkflows(workflows: readonly AssembledWorkflow[]): RuleViolat
 /** Every node class of every workflow by its name, with the workflows it is in. */
 function nodesByName(
   workflows: readonly AssembledWorkflow[],
-): Map<string, { readonly kind: NodeKind; readonly classes: Map<Class, string[]> }> {
-  const byName = new Map<string, { kind: NodeKind; classes: Map<Class, string[]> }>();
+): Map<string, { readonly kind: FlowNodeKind; readonly classes: Map<Class, string[]> }> {
+  const byName = new Map<string, { kind: FlowNodeKind; classes: Map<Class, string[]> }>();
   for (const workflow of workflows) {
     for (const node of workflow.graph.nodes.values()) {
       const entry = byName.get(node.id) ?? { kind: node.kind, classes: new Map<Class, string[]>() };
@@ -64,7 +65,7 @@ export function crossWorkflowViolations(workflows: readonly AssembledWorkflow[])
       continue;
     }
     const [owners = []] = classes.values();
-    if (kind === NodeKind.Start && new Set(owners).size > 1) {
+    if (kind === ComponentKind.WorkflowStart && new Set(owners).size > 1) {
       found.push(
         violation(
           "application.ambiguous-start",

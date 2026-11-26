@@ -1,4 +1,5 @@
-import { NodeKind, type ErrorClass, type PathSource, type ToStep } from "../ast.js";
+import type { FlowNodeKind, ErrorClass, PathSource, ToStep } from "../ast.js";
+import { ComponentKind } from "../runtime/records.js";
 import { declarationOf } from "../decorators/declaration.js";
 import { derivedWrites } from "./derived-writes.js";
 import type { NodeTable } from "./nodes.js";
@@ -48,5 +49,5 @@ export const cursorAt = (
   nextCursor(node, depth, path, node === undefined ? [] : derivedWrites(table.node(node)));
 
 /** A route target's kind is the kind its class is declared with (the builder checked it). */
-export const kindOfTarget = (target: ToStep["target"]): NodeKind =>
-  declarationOf(target)?.kind ?? NodeKind.Agent;
+export const kindOfTarget = (target: ToStep["target"]): FlowNodeKind =>
+  declarationOf(target)?.kind ?? ComponentKind.Agent;

@@ -1,9 +1,9 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import { workflowOf } from "../components/assemble.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class, Provider } from "../components/injection.js";
 import { moduleOf } from "../components/module.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { containerProvidersOf } from "../models/resolution.js";
 import * as P from "./effective-options.js";
@@ -136,10 +136,13 @@ export const applicationModule = (
   ],
 });
 
+const isWorkflowClass = (cls: Class): boolean =>
+  declarationOf(cls)?.kind === ComponentKind.Workflow;
+
 /** The modules of every workflow listed (each `@Workflow` class's own providers). */
 export const workflowModules = (workflows: readonly Class[]): ProviderModule[] =>
   workflows.flatMap((workflow) => {
-    if (declarationOf(workflow)?.kind !== NodeKind.Workflow) return [];
+    if (!isWorkflowClass(workflow)) return [];
     const module = moduleOf(workflow);
     return [{ owner: module.name, providers: module.providers ?? [] }];
   });
@@ -211,7 +214,7 @@ export async function applicationOf(
   // a child workflow is a workflow of the application, listed or not (#263 S74 c)
   const all = withChildWorkflows(options.workflows);
   const modules = [applicationModule(options, budgetOverlays), ...workflowModules(all)];
-  const workflows = all.filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow);
+  const workflows = all.filter(isWorkflowClass);
   const { assembled, errors } = await assembleWorkflows(workflows, modules, assembly, applied);
   if (errors.length === 0) P.checkAppliedProfiles(applied, assembled);
   const keys = idempotencyKeyViolations(

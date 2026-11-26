@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../../flow/runtime/records.js";
 import {
   PauseExpiration,
   Workflow,
@@ -11,7 +12,7 @@ import { ChannelSelector } from "../../../channels/channel-selector.js";
 import { pauseKeyOf } from "../../../infrastructure/pause-record.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
 import type { Class } from "../../../components/injection.js";
-import { NodeKind, type PathSource } from "../../../flow/ast.js";
+import type { PathSource } from "../../../flow/ast.js";
 import { fromSource, type PathBuilder } from "../../../flow/path-builder.js";
 import {
   FaultApprovalAskDto,
@@ -35,7 +36,7 @@ import { Ttl } from "../../../index.js";
  */
 
 const onStart = (source: Class): PathBuilder<PathSource> =>
-  fromSource({ kind: NodeKind.Start, node: source });
+  fromSource({ kind: ComponentKind.WorkflowStart, node: source });
 
 @ExternalTask({
   name: "fault-pause-external-task",

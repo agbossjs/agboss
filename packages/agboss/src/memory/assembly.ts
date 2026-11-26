@@ -1,9 +1,9 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { AgentMeta } from "../components/meta-types.js";
 import type { Class } from "../components/injection.js";
 import { hasPrompt } from "../components/prompt-source.js";
 import type { PromptLoader } from "../components/prompt-render.js";
 import type { CompactionSettings } from "../config/types.js";
-import { NodeKind } from "../flow/ast.js";
 import { isCodeRouter } from "../flow/decorators/router.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { throwIfViolated } from "../graph/rule-error.js";
@@ -76,7 +76,7 @@ export interface MemoryOwners {
 /** The readers of the graph: its agents and its model routers (a code router reads no memory). */
 function readersOf(agents: readonly AgentMeta[], graph: RuntimeGraph): MemoryReaderElement[] {
   const routers = [...graph.nodes.values()].flatMap((node): MemoryReaderElement[] => {
-    if (node.declaration.kind !== NodeKind.Router) return [];
+    if (node.declaration.kind !== ComponentKind.Router) return [];
     const { options } = node.declaration;
     return isCodeRouter(options) ? [] : [options];
   });

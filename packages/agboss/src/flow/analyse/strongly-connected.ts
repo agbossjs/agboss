@@ -1,8 +1,8 @@
+import { ComponentKind } from "../runtime/records.js";
 import { LimitError } from "../../core/error-families/limit-errors.js";
 import { countBoundOf, isCountLimit } from "../../graph/count-limit.js";
 import { definedOf } from "../../infrastructure/clock.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { NodeKind } from "../ast.js";
 import type { ComponentName } from "../registry.js";
 import { EdgeKind, type FlowEdge, type FlowGraph, type FlowNode } from "./flow-graph.js";
 import type { AnalysisContext } from "./rules/context.js";
@@ -68,9 +68,12 @@ export const isCycle = <TVertex extends string>(
 function maxVisitsOf(node: FlowNode | undefined): number | undefined {
   const declaration = node?.declaration;
   let maxVisits: number | undefined;
-  if (declaration?.kind === NodeKind.Agent)
+  if (declaration?.kind === ComponentKind.Agent)
     maxVisits = declaration.options.executionLimits?.maxVisits;
-  else if (declaration?.kind === NodeKind.Router || declaration?.kind === NodeKind.Question)
+  else if (
+    declaration?.kind === ComponentKind.Router ||
+    declaration?.kind === ComponentKind.ExternalTask
+  )
     maxVisits = declaration.options.maxVisits;
   else return undefined;
   // a value that is no count is a bound of 0, as at run time (#1373)

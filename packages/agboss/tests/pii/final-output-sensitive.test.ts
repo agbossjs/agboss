@@ -5,11 +5,11 @@
  * A `tokenize()` field is its token, a `mask()` field its mask; the caller of `execute` keeps the
  * values it was given.
  */
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { describe, expect, it, vi } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { endedResultOf } from "../../src/app/ended-output.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
-import { NodeKind } from "../../src/flow/ast.js";
 import { displayMask } from "../../src/dto/redact.js";
 import { ExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import { ExecutionHistoryRepository } from "../../src/infrastructure/execution-history.repository.js";
@@ -74,7 +74,7 @@ const graph = {
   nodes: new Map([
     [
       "hand-over-workflow-finish",
-      { declaration: { kind: NodeKind.Finish, options: { output: DeskMessageDto } } },
+      { declaration: { kind: ComponentKind.WorkflowFinish, options: { output: DeskMessageDto } } },
     ],
   ]),
 } as never;

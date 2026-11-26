@@ -5,8 +5,16 @@
  * by DTO class name), so it survives a serialising checkpointer.
  */
 
-/** What kind of component a record names (#268 S93): its decorator, the suffix of its `name`. */
+/**
+ * What kind of component there is (#268 S93, #1324): one enum for the graph's nodes, the records
+ * and the decorators. Each value is the kebab-case name of the decorator, the suffix of the
+ * component's `name` (`ExternalTask = "external-task"`); it is what an execution record stores.
+ */
 export enum ComponentKind {
+  /** `@Application`. */
+  Application = "application",
+  /** `@Workflow`: the workflow itself, or a child workflow's node (#263). */
+  Workflow = "workflow",
   /** `@WorkflowStart`. */
   WorkflowStart = "workflow-start",
   /** `@WorkflowFinish`. */
@@ -17,28 +25,74 @@ export enum ComponentKind {
   Action = "action",
   /** `@Router`, by model or by code. */
   Router = "router",
-  /** A child workflow's node (#263), or the workflow itself. */
-  Workflow = "workflow",
-  /** A question role's step (#659): `@ChannelRole({ ask, answer })`. */
-  Question = "question",
   /** `@Arbiter` (#279). */
   Arbiter = "arbiter",
-  /** `@InputGuardrail` / `@OutputGuardrail` (#120). */
-  Guardrail = "guardrail",
   /** `@Tool`. */
   Tool = "tool",
-  /** `@Judge`. */
-  Judge = "judge",
+  /** `@ToolInterceptor`. */
+  ToolInterceptor = "tool-interceptor",
+  /** `@ToolApproval`. */
+  ToolApproval = "tool-approval",
+  /** `@ExternalTask`: a step that pauses on a channel for a person's answer (#659). */
+  ExternalTask = "external-task",
+  /** `@Channel`. */
+  Channel = "channel",
+  /** `@ChannelSelector`. */
+  ChannelSelector = "channel-selector",
+  /** `@WorkingCalendar`. */
+  WorkingCalendar = "working-calendar",
+  /** `@ChannelListener`. */
+  ChannelListener = "channel-listener",
+  /** `@ChannelInterpreter` (#267 PR 3). */
+  ChannelInterpreter = "channel-interpreter",
+  /** `@Memory` (#1303). */
+  Memory = "memory",
   /** `@Rag`: a knowledge base. */
   Rag = "rag",
+  /** `@RagReranker`. */
+  RagReranker = "rag-reranker",
+  /** `@InputGuardrail` / `@OutputGuardrail` (#120). */
+  Guardrail = "guardrail",
+  /** `@Injectable`. */
+  Injectable = "injectable",
+  /** `@PiiPolicy` (#120). */
+  PiiPolicy = "pii-policy",
+  /** `@FilePolicy`. */
+  FilePolicy = "file-policy",
+  /** `@FileMasker`. */
+  FileMasker = "file-masker",
+  /** `@FileTranscriber`. */
+  FileTranscriber = "file-transcriber",
+  /** `@Judge`. */
+  Judge = "judge",
+  /** `@EvalSuite`. */
+  EvalSuite = "eval-suite",
   /** `@Budget` (#261). */
   Budget = "budget",
-  /** `@Memory` that writes summaries with a model (#1303). */
-  Memory = "memory",
-  /** `@ChannelInterpreter` (#267 PR 3). */
-  ChannelInterpreter = "reply-interpreter",
-  /** `@PiiPolicy` that detects with a model (#120). */
-  PiiPolicy = "pii-policy",
+  /** `@ModelProvider`. */
+  ModelProvider = "model-provider",
+  /** `@DatabaseStorage`. */
+  DatabaseStorage = "database-storage",
+  /** `@ClusterStorage`. */
+  ClusterStorage = "cluster-storage",
+  /** `@ObjectStorage`. */
+  ObjectStorage = "object-storage",
+  /** `@Mesh`. */
+  Mesh = "mesh",
+  /** `@HttpAuthenticator`. */
+  HttpAuthenticator = "http-authenticator",
+  /** `@Observer`. */
+  Observer = "observer",
+  /** `@HealthCheck`. */
+  HealthCheck = "health-check",
+  /** `@McpServer`. */
+  McpServer = "mcp-server",
+  /** `@McpEndpoint`. */
+  McpEndpoint = "mcp-endpoint",
+  /** `@A2AAgent`. */
+  A2AAgent = "a2a-agent",
+  /** `@A2AEndpoint`. */
+  A2AEndpoint = "a2a-endpoint",
 }
 
 /**

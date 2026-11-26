@@ -72,13 +72,13 @@ export class SlackClientService {
 }
 ```
 
-```ts file=src/refunds/reply-interpreters/refund/refund.reply-interpreter.ts
+```ts file=src/refunds/channel-interpreters/refund/refund.channel-interpreter.ts
 // free text → a decision, by code (a @ChannelInterpreter with a prompt and a model reads it by a chat model instead)
 import { ChannelInterpretation, ChannelInterpreter } from "@agboss/core";
 import type { ChannelInterpreterHandler, InputOf, OutputOf } from "@agboss/core";
 
 @ChannelInterpreter({
-  name: "refund-reply-interpreter",
+  name: "refund-channel-interpreter",
   description: "Reads a manager's Slack reply to a refund",
 })
 export class RefundReplyInterpreter
@@ -101,7 +101,7 @@ export class RefundReplyInterpreter
 import { PauseRespondent, ToolApproval } from "@agboss/core";
 import { hours } from "@agboss/core/units";
 import { RefundRequestDto } from "../dto/refund-request.dto.js";
-import { RefundReplyInterpreter } from "../reply-interpreters/refund/refund.reply-interpreter.js";
+import { RefundReplyInterpreter } from "../channel-interpreters/refund/refund.channel-interpreter.js";
 
 @ToolApproval({
   name: "refund-tool-approval",
@@ -494,7 +494,7 @@ is recorded — or `{ pauseId, reply: "up to 900" }`, read by the task's `channe
 DTO (a model interpreter — `@ChannelInterpreter({ prompt, model? })` with no class body — gets one
 answer tool, `answer-<output dto>`, and the not-understood tool; a code interpreter returns
 `ChannelInterpretation.understood(output)`; a decision model cannot answer a task,
-`[reply-interpreter.decision-model]`). `result.pending[i].kind` is `PauseKind.ExternalTask`,
+`[channel-interpreter.decision-model]`). `result.pending[i].kind` is `PauseKind.ExternalTask`,
 `step` the task's step, `input` the masked question (opaque: read it after narrowing on `kind`, as
 `const fields: Readonly<Record<string, unknown>> = pending.input`). Exactly one answer wins
 (`PauseError.Closed` for the second), another instance continues it, a cancel withdraws it — as any
@@ -775,7 +775,7 @@ test("a large refund waits for the manager, then runs", async ({ app, mockModel,
 | `[channel-interpreter.not-an-interpreter]`                                                                   | `channelInterpreter:` names an undecorated class → decorate it `@ChannelInterpreter({ … })`                                                                               |
 | `[channel-interpreter.no-interpret-method]`                                                                  | a code interpreter without `interpret` → add it                                                                                                                           |
 | `[channel.shared-interpreter]`                                                                               | one `@ChannelInterpreter` on two targets → one each                                                                                                                       |
-| `[reply-interpreter.decision-model]`                                                                         | an external task's interpreter on a decision model → a chat model, or a code interpreter                                                                                  |
+| `[channel-interpreter.decision-model]`                                                                       | an external task's interpreter on a decision model → a chat model, or a code interpreter                                                                                  |
 | `[channel-listener.missing-handler]`, `[channel-listener.unknown-hook]`, `[channel-listener.duplicate-name]` | a `@ChannelListener` with no hook, a hook it does not know, or one name twice → fix it                                                                                    |
 | `StepError.ExternalTask`                                                                                     | a task's `send` threw or `decided(…)` was not the output DTO (`step.external-task`, `question`) → `.onError`                                                              |
 | `StepError.PauseExpired`                                                                                     | a pause's deadline passed with no answer (`step.pause-expired`) → `.onError(StepError.PauseExpired, …)`, or `onExpired` → `PauseExpiration.decide(…)` / `.reassign(…)`    |

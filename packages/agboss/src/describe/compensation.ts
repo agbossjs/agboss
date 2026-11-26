@@ -1,4 +1,4 @@
-import { NodeKind } from "../flow/ast.js";
+import { ComponentKind } from "../flow/runtime/records.js";
 import { componentLabel } from "../flow/analyse/compensation.js";
 import type { ActionOptions } from "../flow/decorators/action.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
@@ -27,7 +27,7 @@ function snapshotOf(options: ActionOptions): ActionSnapshot | undefined {
 
 /** The node's compensation, when it is an action that declares one. */
 export const actionSnapshotOf = (node: RuntimeNode): ActionSnapshot | undefined =>
-  node.declaration.kind === NodeKind.Action ? snapshotOf(node.declaration.options) : undefined;
+  node.declaration.kind === ComponentKind.Action ? snapshotOf(node.declaration.options) : undefined;
 
 /** `compensateWith withdraw-offer-action · committedBy confirm-offer-action`. */
 const compensationLabel = (snapshot: ActionSnapshot): string =>

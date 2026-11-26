@@ -1,8 +1,8 @@
+import { ComponentKind } from "../../flow/runtime/records.js";
 import type { Class } from "../../components/injection.js";
 import { componentOf } from "../../components/metadata.js";
 import { workflowPartsOf } from "../../describe/contracts-parts.js";
 import type { DtoClass } from "../../dto/types.js";
-import { NodeKind } from "../../flow/ast.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { listItemClassesOf, plainOutputClassOf } from "../../flow/finish-output.js";
 import { fileFieldsOf, inputClassOf } from "../../dto/standard/file.js";
@@ -28,7 +28,7 @@ export function finishDtosOf(
   const entries = (part?.nodes ?? []).flatMap((node): [string, DtoClass][] => {
     const finish = declarationOf(node);
     // Stryker disable next-line OptionalChaining: equivalent: every node of a flow has a declaration
-    if (finish?.kind !== NodeKind.Finish) return [];
+    if (finish?.kind !== ComponentKind.WorkflowFinish) return [];
     // a list output has no top-level fields of its own: its item classes are `listFinishItemsOf`
     const dto = plainOutputClassOf(finish.options.output);
     return dto === undefined ? [] : [[finish.options.name, dto]];
@@ -45,7 +45,7 @@ export function listFinishItemsOf(
   const entries = (part?.nodes ?? []).flatMap((node): [string, readonly DtoClass[]][] => {
     const finish = declarationOf(node);
     // Stryker disable next-line OptionalChaining: equivalent: every node of a flow has a declaration
-    if (finish?.kind !== NodeKind.Finish) return [];
+    if (finish?.kind !== ComponentKind.WorkflowFinish) return [];
     const items = listItemClassesOf(finish.options.output);
     return items.length === 0 ? [] : [[finish.options.name, items]];
   });
@@ -59,7 +59,7 @@ function startSizeOf(
   limits: ReturnType<ComponentOptions["fileLimits"]>,
 ): number {
   const declaration = declarationOf(start);
-  if (declaration?.kind !== NodeKind.Start) return 0;
+  if (declaration?.kind !== ComponentKind.WorkflowStart) return 0;
   const input = inputClassOf(declaration.options.input);
   const takes = input !== undefined && fileFieldsOf(input).length > 0;
   const gives = [...finishDtosOf(start, workflows).values()].some(

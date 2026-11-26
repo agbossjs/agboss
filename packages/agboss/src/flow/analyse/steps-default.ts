@@ -1,13 +1,13 @@
+import { ComponentKind } from "../runtime/records.js";
 import { STEPS_PER_WORKING_NODE } from "../../graph/limits.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { NodeKind } from "../ast.js";
 import type { FlowNode } from "./flow-graph.js";
 import type { AnalysisContext } from "./rules/context.js";
 import { maxStepsOf, mostStepsFrom } from "./steps.js";
 
 /** What 0.1.0 counted: agents and routers only. */
 const isOldStep = (node: FlowNode | undefined): boolean =>
-  node?.kind === NodeKind.Agent || node?.kind === NodeKind.Router;
+  node?.kind === ComponentKind.Agent || node?.kind === ComponentKind.Router;
 
 /**
  * `[limits.max-steps-above-0.1.0-default]` (#1278, D8): a flow without a `maxSteps` whose worst

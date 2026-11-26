@@ -1,5 +1,5 @@
+import { ComponentKind } from "../runtime/records.js";
 import type { Class } from "../../components/injection.js";
-import { NodeKind } from "../ast.js";
 import { TEXT_AGENT_INPUT } from "../analyse/fields.js";
 import {
   declarationOf,
@@ -62,33 +62,33 @@ function write(
 ): void {
   const name = declaration.options.name;
   switch (declaration.kind) {
-    case NodeKind.Start:
+    case ComponentKind.WorkflowStart:
       tables.inputs.set(name, startInputText(declaration.options.input, names));
       tables.producerOutputs.set(name, startOutputText(declaration.options.input, names));
       return;
-    case NodeKind.Finish:
+    case ComponentKind.WorkflowFinish:
       tables.outputs.set(name, valueText(declaration.options.output, names));
       return;
-    case NodeKind.Agent:
+    case ComponentKind.Agent:
       tables.inputs.set(name, inputText(declaration.options.input ?? TEXT_AGENT_INPUT, names));
       tables.producerOutputs.set(name, outputText(declaration.options.output, names));
       return;
-    case NodeKind.Action:
-    case NodeKind.Question:
+    case ComponentKind.Action:
+    case ComponentKind.ExternalTask:
       tables.inputs.set(name, inputText(declaration.options.input ?? {}, names));
       tables.producerOutputs.set(name, outputText(declaration.options.output, names));
       tables.outputs.set(name, outputText(declaration.options.output, names));
       return;
-    case NodeKind.Router:
+    case ComponentKind.Router:
       writeRouter(declaration.options, names, tables);
       return;
-    case NodeKind.Workflow:
+    case ComponentKind.Workflow:
       return;
   }
 }
 
 function writeRouter(
-  options: Extract<ComponentDeclaration, { kind: NodeKind.Router }>["options"],
+  options: Extract<ComponentDeclaration, { kind: ComponentKind.Router }>["options"],
   names: ImportTable,
   tables: StandaloneTables,
 ): void {

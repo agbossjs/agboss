@@ -1,10 +1,10 @@
+import { ComponentKind } from "../../flow/runtime/records.js";
 import { ConfigError } from "../../core/error-families/config-errors.js";
 import type { Class } from "../../components/injection.js";
 import { fieldsOf } from "../../dto/metadata.js";
 import type { A2AExportContract, ApplicationContracts } from "../../describe/contracts-types.js";
 import type { JsonSchema } from "../../dto/schema.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../dto/standard/framework.js";
-import { NodeKind } from "../../flow/ast.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import type { WorkflowStartInput } from "../../flow/decorators/workflow-start.js";
 import { dtoSchemaHashOf } from "../../flow/runtime/join-keys.js";
@@ -79,8 +79,8 @@ export interface ServedSkill {
 /** Whether a node calls a model: an agent, or a router its model decides. */
 function callsModel(node: Class): boolean {
   const declared = declarationOf(node);
-  if (declared?.kind === NodeKind.Agent) return true;
-  return declared?.kind === NodeKind.Router && declared.options.decidedBy !== DecidedBy.Code;
+  if (declared?.kind === ComponentKind.Agent) return true;
+  return declared?.kind === ComponentKind.Router && declared.options.decidedBy !== DecidedBy.Code;
 }
 
 const schemaOf = (contracts: ApplicationContracts, dto: string | undefined): JsonSchema | null =>
@@ -132,7 +132,7 @@ export interface SkillSources {
 function skillOf(start: Class, sources: SkillSources): ServedSkill {
   const { contracts } = sources;
   const declaration = declarationOf(start);
-  if (declaration?.kind !== NodeKind.Start)
+  if (declaration?.kind !== ComponentKind.WorkflowStart)
     throw new ConfigError.Component({
       message: `[a2a.not-a-start] ${start.name} is not a @WorkflowStart`,
     });

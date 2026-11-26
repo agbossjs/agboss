@@ -1,5 +1,5 @@
+import { ComponentKind } from "../../runtime/records.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
 import type { InputFieldShape } from "../../decorators/declaration.js";
 import { listOf, Wrapper } from "../../dto-wrappers.js";
 import type { ComponentName } from "../../registry.js";
@@ -189,6 +189,6 @@ function nodeViolations(context: AnalysisContext, node: ComponentName): readonly
 /** A child workflow's input is checked per edge, by the start chosen there (`children.ts`). */
 export function dataInputRules(context: AnalysisContext): readonly RuleViolation[] {
   return [...context.graph.nodes.values()]
-    .filter((node) => node.kind !== NodeKind.Workflow)
+    .filter((node) => node.kind !== ComponentKind.Workflow)
     .flatMap((node) => nodeViolations(context, node.name));
 }

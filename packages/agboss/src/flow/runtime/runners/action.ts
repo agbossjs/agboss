@@ -2,7 +2,6 @@ import { ExecutionLeaseLostError } from "../../../app/lease-lost.js";
 import { strictMatchOf, validate } from "../../../dto/schema.js";
 import type { DtoClass } from "../../../dto/types.js";
 import type { GraphDeps } from "../../../graph/deps.js";
-import { NodeKind } from "../../ast.js";
 import { Wrapper, type OneOfWrapper, type OutputShape } from "../../dto-wrappers.js";
 import type { RuntimeNode } from "../graph-model.js";
 import type { NodeRunner } from "../node-runner.js";
@@ -177,7 +176,7 @@ const failure = (node: string, error: unknown): unknown =>
  */
 export function actionRunner(node: RuntimeNode, deps: GraphDeps<string>): NodeRunner {
   const { declaration } = node;
-  if (declaration.kind !== NodeKind.Action) throw new TypeError(`${node.id} is not an action`);
+  if (declaration.kind !== ComponentKind.Action) throw new TypeError(`${node.id} is not an action`);
   const { output, timeout } = declaration.options;
   return async (state) => {
     const instance: unknown = deps.container.get(node.component);

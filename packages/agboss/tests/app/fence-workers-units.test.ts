@@ -3,10 +3,10 @@
  * carries the lease its steps run under, and a step that works holds the slots of its tree and of its instance
  * — released at the end of its work, however it ends — and is a running step of its lease.
  */
+import type { FlowNodeKind } from "../../src/flow/ast.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import { newRunContext } from "../../src/core/run-context.js";
-import { NodeKind } from "../../src/flow/ast.js";
 import { inTreeSlot, stepFrameAt, type TreeSlotSite } from "../../src/flow/runtime/step-frame.js";
 import { ComponentKind } from "../../src/flow/runtime/records.js";
 
@@ -16,7 +16,7 @@ vi.mock("../../src/flow/context/runtime-contexts.js", () => ({
   }),
 }));
 
-const node = (kind: NodeKind, id = "clerk-agent") => ({ id, kind, component: `${id}-class` });
+const node = (kind: FlowNodeKind, id = "clerk-agent") => ({ id, kind, component: `${id}-class` });
 
 const WORKFLOW = { name: "desk-workflow", version: "1.0.0", configHash: "h" };
 const stateOf = (overrides: Record<string, unknown> = {}) =>
@@ -39,7 +39,7 @@ describe("#1366: the frame of a visit", () => {
     state: unknown = stateOf(),
   ) =>
     stepFrameAt(
-      { node: node(NodeKind.Agent) as never, visitNumber: 2, ...site },
+      { node: node(ComponentKind.Agent) as never, visitNumber: 2, ...site },
       state as never,
       config,
       { workflow: WORKFLOW as never, contexts: contextsOf, components: new Map() },
@@ -166,7 +166,7 @@ function slotsOf(options: { tree?: boolean; instance?: "none" | "refuse" | "gran
 
 function siteOf(
   given: Record<string, unknown> = {},
-  kind: NodeKind = NodeKind.Agent,
+  kind: FlowNodeKind = ComponentKind.Agent,
 ): TreeSlotSite {
   const { execution: own, ...overrides } = given;
   const root = { executionId: "root-1", workflow: { type: { cap: 5 } } };
@@ -199,7 +199,12 @@ describe("#1366: a step's slots and its lease", () => {
     vi.clearAllMocks();
   });
 
-  it.each([NodeKind.Start, NodeKind.Finish, NodeKind.Workflow, NodeKind.Question])(
+  it.each([
+    ComponentKind.WorkflowStart,
+    ComponentKind.WorkflowFinish,
+    ComponentKind.Workflow,
+    ComponentKind.ExternalTask,
+  ] as const)(
     "a %s takes no slot and is no running step of its lease: its work runs as it is",
     async (kind) => {
       const { registry, treeTake } = slotsOf();
@@ -212,7 +217,7 @@ describe("#1366: a step's slots and its lease", () => {
     },
   );
 
-  it.each([NodeKind.Agent, NodeKind.Router, NodeKind.Action])(
+  it.each([ComponentKind.Agent, ComponentKind.Router, ComponentKind.Action] as const)(
     "a %s works in a slot of its tree and is a running step of its lease",
     async (kind) => {
       const { registry, treeTake } = slotsOf();
@@ -310,8 +315,8 @@ describe("#1366: a step's slots and its lease", () => {
       return treeTake.mock.calls[0]?.[0].closesBranch;
     };
     const nodes = new Map<string, unknown>([
-      ["child-workflow", { kind: NodeKind.Workflow }],
-      ["other-agent", { kind: NodeKind.Agent }],
+      ["child-workflow", { kind: ComponentKind.Workflow }],
+      ["other-agent", { kind: ComponentKind.Agent }],
     ]);
 
     const looked = vi.spyOn(nodes, "get");

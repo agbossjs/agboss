@@ -1652,12 +1652,12 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   `channel`, a re-entry never asks the selector again, and a selector that fails or names a class serving no channel of the
   target makes no pause (`ChannelSelectError`). A pause record has `target`, `channel?`, `respondent`; `PauseKind.Approval` /
   `PauseKind.ExternalTask`. **External tasks (#659):** a workflow question asked by a flow step — `.toExternalTask(Task)`
-  (`onExternalTask(Task)` for its own path; `NodeKind.Question`, the task its node; `maxVisits` its limit on a cycle): the step
+  (`onExternalTask(Task)` for its own path; `ComponentKind.ExternalTask`, the task its node; `maxVisits` its limit on a cycle): the step
   reads one `AskDto` from the path (its field `ask`, #802), asks the task's channel through the pause seam like an
   approval (`result.pending[i].kind === PauseKind.ExternalTask`, `input` the masked question, `step` the step; the record's `kind` is
   `PauseKind.ExternalTask`, stored, its `component.kind` `external-task`, no `callId`), and puts the answer on the path —
   `app.resume({ pauseId, decision })` validated as `AnswerDto`, `{ reply }` read by its interpreter
-  into it (a decision model there is `[reply-interpreter.decision-model]`), `decided(answer)` at
+  into it (a decision model there is `[channel-interpreter.decision-model]`), `decided(answer)` at
   once; a code node (no slot, no step of `maxSteps`, budget-checked like an action, its fence
   checked before `send`), a `send` that throws or an invalid `decided(…)` is `StepError.ExternalTask`
   (`step.external-task`, `externalTask` the step; `new StepError.ExternalTask({ externalTask, cause })`) for `.onError` right after it;
@@ -1691,7 +1691,7 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   target a decision model too (an interpreter's model on a decisions provider) — approve / refuse only, one `Decision.boolean("approved")`, P(yes) > 0.5,
   no `reason` / `overrideInput` (#267 S124); the call checked against the tree's budgets, counted in their
   ledger at once and in the execution's spend when its step takes the answer, traced as
-  `reply-interpreter:<name>`) or a **code** interpreter (`@ChannelInterpreter({ deps? })`, `implements ChannelInterpreterHandler<Self>` —
+  `channel-interpreter:<name>`) or a **code** interpreter (`@ChannelInterpreter({ deps? })`, `implements ChannelInterpreterHandler<Self>` —
   `interpret(input: InputOf<Self>)` returns `ChannelInterpretation.understood(decision)` or
   `ChannelInterpretation.notUnderstood(reason)` (sync or a promise; a plain object does not
   compile; a `throw` is a crash only), `deps`, created by the container). Either kind reads in the pause's execution frame (its `ExecutionContext`:
@@ -1716,7 +1716,7 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   `startedVersion`, `configHash`, no class); node events (agent, router, tool, model, knowledge base, guardrail,
   action, channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`,
   `onQuorumDecided`) add `step`
-  (`StepRecord`: `component` — its `ComponentRecord`, `{ name, kind, promptHash, schemaHash }`,
+  (`StepRecord`: `component` — its `ComponentRecord`, `{ name, kind, promptHash, schemaHash }`, `kind` a `ComponentKind`, the one enum of all 41 component kinds, each the kebab-case name of its decorator: `ExternalTask` is `external-task`, `ChannelInterpreter` `channel-interpreter`; `NodeKind` is gone, the flow engine's internal `FlowNodeKind` is the union of its seven flow kinds,
   the join keys of `describe --json` (#268 S93) —, `nodeId`, `visitNumber`, `copyNumber`,
   `itemIndex`, `idempotencyKey`, `callId`, `toolLoopIteration` (an agent's model call in the visit,
   from 1, during it and its move's tool calls), `validationAttempts` (its answers and tool arguments

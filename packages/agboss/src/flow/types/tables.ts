@@ -1,8 +1,8 @@
+import { ComponentKind } from "../runtime/records.js";
 import type { RuleViolation } from "../../graph/rule-error.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import { EdgeKind, type FlowNode } from "../analyse/flow-graph.js";
 import type { Class } from "../../components/injection.js";
-import { NodeKind } from "../ast.js";
 import { routesOf, type RouterOptions } from "../decorators/router.js";
 import type { ComponentName } from "../registry.js";
 import { TablesImport, type ImportTable } from "./imports.js";
@@ -98,7 +98,7 @@ function startInputsOf(
       () => {
         const inputs = analysis.graph.starts.flatMap((start) => {
           const declaration = analysis.graph.nodes.get(start)?.declaration;
-          return declaration?.kind === NodeKind.Start
+          return declaration?.kind === ComponentKind.WorkflowStart
             ? [startInputText(declaration.options.input, names)]
             : [];
         });
@@ -118,21 +118,21 @@ function writeNode(
 ): void {
   const { declaration, name } = node;
   switch (declaration.kind) {
-    case NodeKind.Start:
+    case ComponentKind.WorkflowStart:
       writeStart(node, declaration.options.input, workflows, names, tables);
       return;
-    case NodeKind.Agent:
+    case ComponentKind.Agent:
       tables.producerOutputs.set(name, outputText(declaration.options.output, names));
       return;
-    case NodeKind.Action:
-    case NodeKind.Question:
+    case ComponentKind.Action:
+    case ComponentKind.ExternalTask:
       tables.producerOutputs.set(name, outputText(declaration.options.output, names));
       tables.outputs.set(name, outputText(declaration.options.output, names));
       return;
-    case NodeKind.Finish:
+    case ComponentKind.WorkflowFinish:
       tables.outputs.set(name, valueText(declaration.options.output, names));
       return;
-    case NodeKind.Router: {
+    case ComponentKind.Router: {
       const { options } = declaration;
       const form = tables.launchingRouters.has(name) ? RouteForm.List : RouteForm.One;
       const targets = routeTargetsOf(options).map((target) => `typeof ${names.ref(target)}`);
@@ -142,7 +142,7 @@ function writeNode(
       tables.routerAnswers.set(name, routerAnswerText(route, form));
       return;
     }
-    case NodeKind.Workflow:
+    case ComponentKind.Workflow:
       writeChild(node, names, tables);
       return;
   }
@@ -182,9 +182,9 @@ export function tablesOf(workflows: readonly AnalysedWorkflow[], names: ImportTa
   for (const node of nodes.values()) {
     names.ref(node.component);
     writeNode(node, workflows, names, tables);
-    if (node.kind === NodeKind.Start) continue;
+    if (node.kind === ComponentKind.WorkflowStart) continue;
     const input = nodeInput(workflows, node.name);
-    const isChild = node.kind === NodeKind.Workflow;
+    const isChild = node.kind === ComponentKind.Workflow;
     const entry = isChild
       ? childInputEntry(input, startInputs.get(node.name)?.() ?? names.use(TablesImport.NoInput))
       : inputEntry(input, names, componentOf);

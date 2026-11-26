@@ -1,6 +1,6 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { hasFileAtAnyDepth } from "../dto/standard/file.js";
 import type { AgentsConfigOf } from "../config/types.js";
-import { NodeKind } from "../flow/ast.js";
 import { classesOf } from "../flow/runtime/answer-tools.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import type { ElementGuardrails } from "../guardrails/assembly.js";
@@ -27,7 +27,7 @@ export interface FileReader {
 /** Whether an agent's output holds a file at any depth. */
 export function answersWithFiles(graph: Pick<RuntimeGraph, "nodes">, name: string): boolean {
   const declaration = graph.nodes.get(name)?.declaration;
-  if (declaration?.kind !== NodeKind.Agent) return false;
+  if (declaration?.kind !== ComponentKind.Agent) return false;
   const { output } = declaration.options;
   return output !== undefined && classesOf(output).some((dto) => hasFileAtAnyDepth(dto));
 }

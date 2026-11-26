@@ -5,6 +5,8 @@
  * (#1090), the ledger ids of lost passes (#853), the spend a failure carries and the run's drain of it, what a
  * paused run has spent (#267).
  */
+import type { FlowNodeKind } from "../../../src/flow/ast.js";
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { StepError } from "../../../src/core/error-families/step-errors.js";
 import {
   GuardrailError,
@@ -21,7 +23,6 @@ import { VirtualClock } from "../../../src/testing/index.js";
 import { ApplicationStoppingError, ExecutionCancelledError } from "../../../src/core/errors.js";
 import { errorRecordOf, RecordedError } from "../../../src/core/error-record.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { CompensationEntryStatus } from "../../../src/flow/compensation.js";
 import {
   childFailureOf,
@@ -57,7 +58,7 @@ const record = (costUsd: number, model = "m"): UsageRecord => ({
   costSource: CostSource.Api,
 });
 
-const node = (id: string, kind: NodeKind, maxVisits?: number) =>
+const node = (id: string, kind: FlowNodeKind, maxVisits?: number) =>
   ({
     id,
     kind,
@@ -114,14 +115,23 @@ const caught = async (work: () => Promise<unknown>): Promise<unknown> => {
 
 describe("#1356: which nodes are steps", () => {
   it("an agent, a router, an action and an external task are (#1278); the rest are not", () => {
-    for (const kind of [NodeKind.Agent, NodeKind.Router, NodeKind.Action, NodeKind.Question])
+    for (const kind of [
+      ComponentKind.Agent,
+      ComponentKind.Router,
+      ComponentKind.Action,
+      ComponentKind.ExternalTask,
+    ] as const)
       expect(isStepKind(node("x", kind))).toBe(true);
-    for (const kind of [NodeKind.Workflow, NodeKind.Start, NodeKind.Finish])
+    for (const kind of [
+      ComponentKind.Workflow,
+      ComponentKind.WorkflowStart,
+      ComponentKind.WorkflowFinish,
+    ] as const)
       expect(isStepKind(node("x", kind))).toBe(false);
   });
 
   it("an action on a side path that took a limit is no step; the same action elsewhere is", () => {
-    const action = node("act", NodeKind.Action);
+    const action = node("act", ComponentKind.Action);
     const after = stateOf({ sidePath: { next: "act", isAfterLimit: true, owed: [] } });
     const before = stateOf({ sidePath: { next: "act", isAfterLimit: false, owed: [] } });
 
@@ -135,7 +145,7 @@ describe("#1356: the limits of a visit", () => {
     const { limits } = limitsOf();
 
     const error = await caught(() =>
-      visit(stateOf({ visits: { clerk: 2 } }), node("clerk", NodeKind.Agent, 2), limits),
+      visit(stateOf({ visits: { clerk: 2 } }), node("clerk", ComponentKind.Agent, 2), limits),
     );
 
     expect(error).toBeInstanceOf(LimitError.Visits);
@@ -147,19 +157,21 @@ describe("#1356: the limits of a visit", () => {
       component: { name: "clerk", kind: "agent", promptHash: "p", schemaHash: "s" },
     });
     await expect(
-      visit(stateOf({ visits: { clerk: 1 } }), node("clerk", NodeKind.Agent, 2), limits),
+      visit(stateOf({ visits: { clerk: 1 } }), node("clerk", ComponentKind.Agent, 2), limits),
     ).resolves.toBe(true);
   });
 
   it("counts the first visit of a node with no count yet, and holds a node with no maxVisits to none", async () => {
     const { limits } = limitsOf();
 
-    await expect(visit(stateOf(), node("clerk", NodeKind.Agent, 1), limits)).resolves.toBe(true);
+    await expect(visit(stateOf(), node("clerk", ComponentKind.Agent, 1), limits)).resolves.toBe(
+      true,
+    );
     await expect(
-      visit(stateOf({ visits: { clerk: 99 } }), node("clerk", NodeKind.Agent), limits),
+      visit(stateOf({ visits: { clerk: 99 } }), node("clerk", ComponentKind.Agent), limits),
     ).resolves.toBe(true);
     expect(
-      await caught(() => visit(stateOf(), node("clerk", NodeKind.Agent, 0), limits)),
+      await caught(() => visit(stateOf(), node("clerk", ComponentKind.Agent, 0), limits)),
     ).toBeInstanceOf(LimitError.Visits);
   });
 
@@ -167,7 +179,7 @@ describe("#1356: the limits of a visit", () => {
     const { limits } = limitsOf();
     const nullBound = {
       id: "clerk",
-      kind: NodeKind.Agent,
+      kind: ComponentKind.Agent,
       component: Object,
       maxVisits: null,
     } as never;
@@ -193,7 +205,11 @@ describe("#1356: the limits of a visit", () => {
     async (_kind, value) => {
       const { limits, calls } = limitsOf();
 
-      for (const kind of [NodeKind.Agent, NodeKind.Router, NodeKind.Question]) {
+      for (const kind of [
+        ComponentKind.Agent,
+        ComponentKind.Router,
+        ComponentKind.ExternalTask,
+      ] as const) {
         const bad = {
           id: "clerk",
           kind,
@@ -224,7 +240,12 @@ describe("#1356: the limits of a visit", () => {
     async (_kind, value) => {
       const { limits } = limitsOf(value as never);
 
-      for (const kind of [NodeKind.Agent, NodeKind.Router, NodeKind.Action, NodeKind.Question]) {
+      for (const kind of [
+        ComponentKind.Agent,
+        ComponentKind.Router,
+        ComponentKind.Action,
+        ComponentKind.ExternalTask,
+      ] as const) {
         const error = await caught(() => visit(stateOf(), node("clerk", kind), limits));
 
         expect(error).toBeInstanceOf(LimitError.Steps);
@@ -239,11 +260,11 @@ describe("#1356: the limits of a visit", () => {
     const three = limitsOf(3).limits;
 
     expect(
-      await caught(() => visit(stateOf(), node("clerk", NodeKind.Agent), zero)),
+      await caught(() => visit(stateOf(), node("clerk", ComponentKind.Agent), zero)),
     ).toBeInstanceOf(LimitError.Steps);
-    await expect(visit(stateOf({ steps: 2 }), node("clerk", NodeKind.Agent), three)).resolves.toBe(
-      true,
-    );
+    await expect(
+      visit(stateOf({ steps: 2 }), node("clerk", ComponentKind.Agent), three),
+    ).resolves.toBe(true);
   });
 
   it("holds a question to its own maxVisits; an action without one and a start to none", async () => {
@@ -251,17 +272,23 @@ describe("#1356: the limits of a visit", () => {
     const state = stateOf({ visits: { ask: 3, act: 3, begin: 3 } });
 
     expect(
-      await caught(() => visit(state, node("ask", NodeKind.Question, 3), limits)),
+      await caught(() => visit(state, node("ask", ComponentKind.ExternalTask, 3), limits)),
     ).toBeInstanceOf(LimitError.Visits);
-    await expect(visit(state, node("act", NodeKind.Action), limits)).resolves.toBe(true);
-    await expect(visit(state, node("begin", NodeKind.Start, 1), limits)).resolves.toBe(false);
+    await expect(visit(state, node("act", ComponentKind.Action), limits)).resolves.toBe(true);
+    await expect(visit(state, node("begin", ComponentKind.WorkflowStart, 1), limits)).resolves.toBe(
+      false,
+    );
   });
 
   it("fails the step past maxSteps — an agent's and a router's — with the version the execution started on", async () => {
     const { limits } = limitsOf(3);
 
     const error = await caught(() =>
-      visit(stateOf({ steps: 3, startedVersion: "v1" }), node("clerk", NodeKind.Agent), limits),
+      visit(
+        stateOf({ steps: 3, startedVersion: "v1" }),
+        node("clerk", ComponentKind.Agent),
+        limits,
+      ),
     );
 
     expect(error).toBeInstanceOf(LimitError.Steps);
@@ -273,33 +300,37 @@ describe("#1356: the limits of a visit", () => {
       workflow: "flow",
     });
     const fresh = await caught(() =>
-      visit(stateOf({ steps: 3 }), node("route", NodeKind.Router), limits),
+      visit(stateOf({ steps: 3 }), node("route", ComponentKind.Router), limits),
     );
     expect(fresh).toMatchObject({ workflowRecord: { startedVersion: "v2" } });
-    await expect(visit(stateOf({ steps: 2 }), node("clerk", NodeKind.Agent), limits)).resolves.toBe(
-      true,
-    );
+    await expect(
+      visit(stateOf({ steps: 2 }), node("clerk", ComponentKind.Agent), limits),
+    ).resolves.toBe(true);
   });
 
   it("counts a step for a question and an action (#1278), but none for a start, and none for a limit's own reaction", async () => {
     const { limits } = limitsOf(1);
 
-    for (const kind of [NodeKind.Question, NodeKind.Action])
+    for (const kind of [ComponentKind.ExternalTask, ComponentKind.Action] as const)
       expect(
         await caught(() => visit(stateOf({ steps: 5 }), node("x", kind), limits)),
       ).toBeInstanceOf(LimitError.Steps);
-    await expect(visit(stateOf({ steps: 5 }), node("begin", NodeKind.Start), limits)).resolves.toBe(
-      false,
-    );
+    await expect(
+      visit(stateOf({ steps: 5 }), node("begin", ComponentKind.WorkflowStart), limits),
+    ).resolves.toBe(false);
     const reacting = stateOf({ steps: 5, sidePath: { next: "act", isAfterLimit: true, owed: [] } });
-    await expect(visit(reacting, node("act", NodeKind.Action), limits)).resolves.toBe(false);
+    await expect(visit(reacting, node("act", ComponentKind.Action), limits)).resolves.toBe(false);
   });
 
   it("says the visits first when both limits are crossed", async () => {
     const { limits } = limitsOf(1);
 
     const error = await caught(() =>
-      visit(stateOf({ steps: 5, visits: { clerk: 1 } }), node("clerk", NodeKind.Agent, 1), limits),
+      visit(
+        stateOf({ steps: 5, visits: { clerk: 1 } }),
+        node("clerk", ComponentKind.Agent, 1),
+        limits,
+      ),
     );
 
     expect(error).toBeInstanceOf(LimitError.Visits);
@@ -309,12 +340,12 @@ describe("#1356: the limits of a visit", () => {
 describe("#1356: which visits the budgets check", () => {
   it("refreshes, then checks the spend so far at the visit's path, for an agent, a router, a question, an action and a workflow", async () => {
     for (const kind of [
-      NodeKind.Agent,
-      NodeKind.Router,
-      NodeKind.Question,
-      NodeKind.Action,
-      NodeKind.Workflow,
-    ]) {
+      ComponentKind.Agent,
+      ComponentKind.Router,
+      ComponentKind.ExternalTask,
+      ComponentKind.Action,
+      ComponentKind.Workflow,
+    ] as const) {
       const { limits, budgets, calls } = limitsOf();
       const state = stateOf();
 
@@ -329,7 +360,7 @@ describe("#1356: which visits the budgets check", () => {
   });
 
   it("checks no start and no finish", async () => {
-    for (const kind of [NodeKind.Start, NodeKind.Finish]) {
+    for (const kind of [ComponentKind.WorkflowStart, ComponentKind.WorkflowFinish] as const) {
       const { limits, calls } = limitsOf();
 
       await expect(visit(stateOf(), node("n", kind), limits)).resolves.toBe(false);
@@ -361,14 +392,19 @@ describe("#1356: which visits the budgets check", () => {
     ] as const) {
       const { limits, calls } = limitsOf();
 
-      await visit(state, node("act", NodeKind.Action), limits);
+      await visit(state, node("act", ComponentKind.Action), limits);
 
       expect(calls).toEqual(expected);
     }
   });
 
   it("checks an agent, a router or a question on the side path that took a limit: only an action goes past the budgets", async () => {
-    for (const kind of [NodeKind.Agent, NodeKind.Router, NodeKind.Question, NodeKind.Workflow]) {
+    for (const kind of [
+      ComponentKind.Agent,
+      ComponentKind.Router,
+      ComponentKind.ExternalTask,
+      ComponentKind.Workflow,
+    ] as const) {
       const { limits, calls } = limitsOf();
 
       await visit(
@@ -410,7 +446,7 @@ describe("#1356: which visits the budgets check", () => {
 
       await visit(
         stateOf({ sidePath: side([...owed]), compensations: [...compensations] }),
-        node("undo", NodeKind.Action),
+        node("undo", ComponentKind.Action),
         limits,
       );
 
@@ -425,7 +461,12 @@ describe("#1356: a service's spend counted at once", () => {
     const kept = record(9);
     budgets.tally.mockReturnValueOnce([kept]);
 
-    const result = countedServiceSpend(limits, node("clerk", NodeKind.Agent), ["start"], record(1));
+    const result = countedServiceSpend(
+      limits,
+      node("clerk", ComponentKind.Agent),
+      ["start"],
+      record(1),
+    );
 
     expect(budgets.tally).toHaveBeenCalledWith(
       [{ ...record(1), caller: "agent:clerk" }],
@@ -438,7 +479,7 @@ describe("#1356: a service's spend counted at once", () => {
     const { limits, budgets } = limitsOf();
     budgets.tally.mockReturnValueOnce([]);
 
-    expect(countedServiceSpend(limits, node("act", NodeKind.Action), [], record(1))).toEqual({
+    expect(countedServiceSpend(limits, node("act", ComponentKind.Action), [], record(1))).toEqual({
       ...record(1),
       caller: "action:act",
     });

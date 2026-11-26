@@ -1,8 +1,8 @@
+import { ComponentKind } from "../records.js";
 import { errorRecordOf } from "../../../core/error-record.js";
 import type { ExecutionTree } from "../../../infrastructure/execution-tree.repository.js";
 import { slotOfDto, slotOfField } from "../../analyse/scope.js";
 import { actionDeclarationOf, undoOf } from "../../analyse/compensation.js";
-import { NodeKind } from "../../ast.js";
 import {
   CompensationEntryStatus,
   CompensationReason,
@@ -159,12 +159,12 @@ export function entriesOfVisit(site: VisitCompensationSite): readonly Compensati
     .sort((first, second) => first.sequence - second.sequence);
   const written: CompensationEntry[] = [];
   const { parent } = site.frame.execution;
-  if (site.node.kind === NodeKind.Finish && parent !== undefined) {
+  if (site.node.kind === ComponentKind.WorkflowFinish && parent !== undefined) {
     // a child's finish commits nothing (#1281b): its open entries move up to its parent, in the
     // finish's own write — the parent commits or undoes them
     const held = open.filter((entry) => holderOf(entry) === facts.executionId);
     written.push(...movedToParent(held, parent.execution.executionId));
-  } else if (site.node.kind === NodeKind.Finish) {
+  } else if (site.node.kind === ComponentKind.WorkflowFinish) {
     const commits = open.filter((entry) => entry.committer === undefined);
     written.push(...commits.map((entry) => withStatus(entry, CompensationEntryStatus.Committed)));
   } else {

@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { AnyTenantApp, ExecutionOptions, ExecutionOutput } from "../app/types.js";
 import type { ToolHandler } from "../components/decorators.js";
@@ -10,7 +11,6 @@ import { withInboundMesh } from "../mesh/inbound-mesh.js";
 import { isMeshLimitError } from "../mesh/mesh-errors.js";
 import { runReportMetaOf } from "./mcp-run-report.js";
 import { ExecutionStatus } from "../app/types.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf, type WorkflowStartDeclaration } from "../flow/decorators/declaration.js";
 import { renderToolResult, type ToolInvocationContext, type ToolOutput } from "../tools/index.js";
 import {
@@ -109,7 +109,7 @@ const toolResult = (output: ToolOutput<unknown>): CallToolResult =>
 /** An exported `@WorkflowStart` class: its declaration. */
 const startOf = (exp: Class): WorkflowStartDeclaration | undefined => {
   const declaration = declarationOf(exp);
-  return declaration?.kind === NodeKind.Start ? declaration : undefined;
+  return declaration?.kind === ComponentKind.WorkflowStart ? declaration : undefined;
 };
 
 const isStart = (exp: Class): boolean => startOf(exp) !== undefined;

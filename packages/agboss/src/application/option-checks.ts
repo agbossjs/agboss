@@ -1,10 +1,10 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { McpTransport } from "../config/mcp-server-config.js";
 import type { FoldedConfig } from "../config/fold-config.js";
 import { ProfileError, ProfileErrorReason } from "../config/profile-error.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import type { ApplicationOptions } from "./application.js";
@@ -24,7 +24,7 @@ function listedClassesIn(options: ApplicationOptions): readonly Class[] {
     ...providersOf(options),
     ...withChildWorkflows(options.workflows).flatMap((workflow) => {
       const declaration = declarationOf(workflow);
-      return declaration?.kind === NodeKind.Workflow ? providersOf(declaration.options) : [];
+      return declaration?.kind === ComponentKind.Workflow ? providersOf(declaration.options) : [];
     }),
   ];
   return [

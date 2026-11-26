@@ -1,6 +1,6 @@
+import { ComponentKind } from "./records.js";
 import type { PromptLoader } from "../../components/prompt-render.js";
 import { inline } from "../../components/prompt-source.js";
-import { NodeKind } from "../ast.js";
 import { declarationOf, type Declared } from "../decorators/declaration.js";
 import { isCodeRouter, routesOf, type ModelRouterOptions } from "../decorators/router.js";
 import type { RuntimeGraph } from "./graph-model.js";
@@ -12,7 +12,7 @@ import { componentModelOf, type ModelResolver } from "../../models/model-resolve
  * After `.onRoute(…)` every route is a choice; hiding a launch's `Always` routes is #273's.
  */
 
-export type ModelRouterDeclaration = Declared<NodeKind.Router, ModelRouterOptions>;
+export type ModelRouterDeclaration = Declared<ComponentKind.Router, ModelRouterOptions>;
 
 /** One route as the router's model sees it: the target's node id and what choosing it means. */
 export interface LoadedRoute {
@@ -90,7 +90,7 @@ export async function loadRouters(
 ): Promise<readonly LoadedRouter[]> {
   const routers = [...graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
-    if (declaration.kind !== NodeKind.Router) return [];
+    if (declaration.kind !== ComponentKind.Router) return [];
     const { options } = declaration;
     return isCodeRouter(options) ? [] : [{ node, declaration: { ...declaration, options } }];
   });

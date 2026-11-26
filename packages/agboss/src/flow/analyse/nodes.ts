@@ -1,6 +1,7 @@
+import type { FlowNodeKind } from "../ast.js";
+import { ComponentKind } from "../runtime/records.js";
 import type { Class } from "../../components/injection.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { NodeKind } from "../ast.js";
 import { declarationOf, type ComponentDeclaration } from "../decorators/declaration.js";
 import { ComponentRegistry, type ComponentName } from "../registry.js";
 import type { FlowNode } from "./flow-graph.js";
@@ -22,7 +23,7 @@ export class NodeTable {
   constructor(private readonly self?: Class) {}
 
   /** The node of `component`, mentioned as `kind`; `undefined` when it cannot be a node. */
-  resolve(component: Class | undefined, kind: NodeKind): ComponentName | undefined {
+  resolve(component: Class | undefined, kind: FlowNodeKind): ComponentName | undefined {
     if (component === undefined) {
       this.reportOnce("graph.mutual-recursion", "undefined", undefinedNode(kind));
       return undefined;
@@ -49,7 +50,11 @@ export class NodeTable {
   }
 
   /** The node of a class; the walked workflow's own class is a recursion (#264, #1287). */
-  private nodeOf(component: Class, kind: NodeKind, declaration: ComponentDeclaration): FlowNode {
+  private nodeOf(
+    component: Class,
+    kind: FlowNodeKind,
+    declaration: ComponentDeclaration,
+  ): FlowNode {
     const name = declaration.options.name as ComponentName;
     return component === this.self
       ? { name, kind, component, declaration, recursionOf: component }
@@ -75,24 +80,29 @@ export class NodeTable {
   }
 }
 
-const undefinedNode = (kind: NodeKind): string =>
+const undefinedNode = (kind: FlowNodeKind): string =>
   `${toCallOf(kind)}(…) names a class that is undefined while the flow is built — usually a ` +
   "circular import, as in mutual recursion (A → B → A), which is not supported: a workflow " +
   "launches itself with toWorkflow(() => ItsOwnClass), and one workflow never launches another " +
   "that launches it";
 
-const notANode = (component: Class, kind: NodeKind): string =>
+const notANode = (component: Class, kind: FlowNodeKind): string =>
   `${toCallOf(kind)}(${classLabel(component)}): ${classLabel(component)} has no ` +
   "@WorkflowStart / @Agent / @Action / @Router / @WorkflowFinish / @Workflow decorator — decorate it" +
-  (kind === NodeKind.Question
+  (kind === ComponentKind.ExternalTask
     ? "; a question is a @ChannelRole class — name the role, not a @Channel class that extends it"
     : "");
 
-const wrongKind = (component: Class, name: string, actual: NodeKind, mentioned: NodeKind): string =>
+const wrongKind = (
+  component: Class,
+  name: string,
+  actual: FlowNodeKind,
+  mentioned: FlowNodeKind,
+): string =>
   `${toCallOf(mentioned)}(${classLabel(component)}): ${name} is ${articled(actual)}, not ` +
   `${articled(mentioned)} — use ${toCallOf(actual)}(${classLabel(component)})`;
 
-const articled = (kind: NodeKind): string =>
+const articled = (kind: FlowNodeKind): string =>
   /^[aeiou]/.test(kind) ? `an ${kind.replace(/-/g, " ")}` : `a ${kind.replace(/-/g, " ")}`;
 
 const duplicateName = (name: string, first: Class, second: Class): string =>

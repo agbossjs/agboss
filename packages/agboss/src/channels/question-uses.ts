@@ -1,6 +1,6 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { Class } from "../components/injection.js";
 import { flowClassesOf } from "../flow/analyse/child-workflow.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { externalTaskOf } from "./discovery.js";
 import type { ChannelUse } from "./discovery.js";
@@ -10,10 +10,10 @@ import type { ChannelUse } from "./discovery.js";
 /** The external-task steps of a workflow's flow (#659), each target once: its node's declaration. */
 export function questionUsesOf(workflow: Class, name: string): readonly ChannelUse[] {
   const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow) return [];
+  if (declaration?.kind !== ComponentKind.Workflow) return [];
   return [...new Set(flowClassesOf(declaration.options.flow))].flatMap((node) => {
     const question = declarationOf(node);
-    if (question?.kind !== NodeKind.Question) return [];
+    if (question?.kind !== ComponentKind.ExternalTask) return [];
     const { options } = question;
     return [
       {
@@ -30,10 +30,10 @@ export function questionUsesOf(workflow: Class, name: string): readonly ChannelU
 /** The external tasks the agents of a workflow's flow ask through their tools (#712), per agent. */
 export function agentQuestionUsesOf(workflow: Class, name: string): readonly ChannelUse[] {
   const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow) return [];
+  if (declaration?.kind !== ComponentKind.Workflow) return [];
   return [...new Set(flowClassesOf(declaration.options.flow))].flatMap((node) => {
     const agent = declarationOf(node);
-    if (agent?.kind !== NodeKind.Agent) return [];
+    if (agent?.kind !== ComponentKind.Agent) return [];
     return [...new Set(agent.options.tools ?? [])].flatMap((cls): readonly ChannelUse[] => {
       const options = externalTaskOf(cls);
       if (options === undefined) return [];

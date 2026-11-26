@@ -1,7 +1,8 @@
+import type { FlowNodeKind } from "../ast.js";
+import type { ComponentKind } from "../runtime/records.js";
 import type { Class } from "../../components/injection.js";
 import type { SourceSpan } from "../../core/diagnostics/source-span.js";
 import type { DtoClass } from "../../dto/types.js";
-import type { NodeKind } from "../ast.js";
 import {
   isWrapper,
   type HistoryWrapper,
@@ -36,7 +37,7 @@ export const isFieldMap = <TFields extends InputFields>(
 ): input is TFields => typeof input !== "function" && !isWrapper(input);
 
 /** A declaration of one kind: the options as written and the declaring file (a `prompt` path is read next to it). */
-export interface Declared<TKind extends NodeKind, TOptions> {
+export interface Declared<TKind extends FlowNodeKind, TOptions> {
   readonly kind: TKind;
   readonly options: TOptions;
   /** The file the decorator was called from (the class's file); absent when it cannot be told. */
@@ -45,14 +46,17 @@ export interface Declared<TKind extends NodeKind, TOptions> {
   readonly span?: SourceSpan;
 }
 
-export type WorkflowStartDeclaration = Declared<NodeKind.Start, WorkflowStartOptions>;
-export type WorkflowFinishDeclaration = Declared<NodeKind.Finish, WorkflowFinishOptions>;
-export type AgentDeclaration = Declared<NodeKind.Agent, AgentOptions>;
-export type ActionDeclaration = Declared<NodeKind.Action, ActionOptions>;
-export type RouterDeclaration = Declared<NodeKind.Router, RouterOptions>;
-export type WorkflowDeclaration = Declared<NodeKind.Workflow, WorkflowOptions>;
+export type WorkflowStartDeclaration = Declared<ComponentKind.WorkflowStart, WorkflowStartOptions>;
+export type WorkflowFinishDeclaration = Declared<
+  ComponentKind.WorkflowFinish,
+  WorkflowFinishOptions
+>;
+export type AgentDeclaration = Declared<ComponentKind.Agent, AgentOptions>;
+export type ActionDeclaration = Declared<ComponentKind.Action, ActionOptions>;
+export type RouterDeclaration = Declared<ComponentKind.Router, RouterOptions>;
+export type WorkflowDeclaration = Declared<ComponentKind.Workflow, WorkflowOptions>;
 /** A question role as its step's node (#659): recorded by `@ChannelRole({ ask, answer })`. */
-export type QuestionDeclaration = Declared<NodeKind.Question, QuestionNodeOptions>;
+export type QuestionDeclaration = Declared<ComponentKind.ExternalTask, QuestionNodeOptions>;
 
 /** What any v2 decorator recorded. */
 export type ComponentDeclaration =
@@ -94,7 +98,7 @@ export function declarationOf(target: object): ComponentDeclaration | undefined 
 }
 
 /** A declaration with the declaring file when it is known. */
-export function declared<TKind extends NodeKind, TOptions>(
+export function declared<TKind extends FlowNodeKind, TOptions>(
   kind: TKind,
   options: TOptions,
   source: string | undefined,

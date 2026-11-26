@@ -1,9 +1,9 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { displayMask, maskedDtoValue, type FieldMask } from "../dto/redact.js";
 import { FileDto } from "../dto/standard/file.js";
 import { strictMatchOf } from "../dto/schema.js";
 import type { DtoClass } from "../dto/types.js";
 import { outputClassesOf } from "../flow/finish-output.js";
-import { NodeKind } from "../flow/ast.js";
 import { isFieldMap } from "../flow/decorators/declaration.js";
 import { Wrapper, type ValueShape } from "../flow/dto-wrappers.js";
 import { throughKeepingFiles } from "../a2a/files/a2a-file-scrub.js";
@@ -69,7 +69,7 @@ export function maskedFinishOutput(
   mask: FieldMask,
 ): unknown {
   const declaration = graph.nodes.get(finish)?.declaration;
-  if (declaration?.kind !== NodeKind.Finish) return output;
+  if (declaration?.kind !== ComponentKind.WorkflowFinish) return output;
   return maskedOutputOf(outputClassesOf(declaration.options.output), output, mask);
 }
 
@@ -119,7 +119,7 @@ export function maskedStartInput(
   mask: FieldMask,
 ): unknown {
   const declaration = graph.nodes.get(start)?.declaration;
-  if (declaration?.kind !== NodeKind.Start) return input;
+  if (declaration?.kind !== ComponentKind.WorkflowStart) return input;
   const declared = declaration.options.input;
   if (!isFieldMap(declared)) return maskedShape(declared, input, mask);
   if (typeof input !== "object" || input === null || Array.isArray(input)) return input;

@@ -3,11 +3,11 @@
  * policies before it is written, and an answered record is all a late resume reads once the tree's
  * checkpoints are forgotten — finish, masked output with its DTO's prototype, spend.
  */
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { END, START, StateGraph } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import { endedResultOf } from "../../src/app/ended-output.js";
 import { Text } from "../../src/dto/index.js";
-import { NodeKind } from "../../src/flow/ast.js";
 import { componentOf } from "../../src/components/metadata.js";
 import { observabilityMaskOf } from "../../src/pii/observability-mask.js";
 import type { PiiPolicyMeta } from "../../src/pii/pii-policy.decorator.js";
@@ -27,7 +27,10 @@ class ReceiptDto {
 
 const graph = {
   nodes: new Map([
-    ["receipt-finish", { declaration: { kind: NodeKind.Finish, options: { output: ReceiptDto } } }],
+    [
+      "receipt-finish",
+      { declaration: { kind: ComponentKind.WorkflowFinish, options: { output: ReceiptDto } } },
+    ],
   ]),
 } as never;
 

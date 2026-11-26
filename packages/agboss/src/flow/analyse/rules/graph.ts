@@ -1,5 +1,5 @@
+import { ComponentKind } from "../../runtime/records.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
 import { EdgeKind, reachableFrom } from "../flow-graph.js";
 import type { AnalysisContext } from "./context.js";
 
@@ -56,7 +56,7 @@ function deadEnds(context: AnalysisContext): readonly RuleViolation[] {
   );
   const branches = branchesOf(context);
   return [...graph.nodes.values()]
-    .filter((node) => node.kind !== NodeKind.Finish && !leaving.has(node.name))
+    .filter((node) => node.kind !== ComponentKind.WorkflowFinish && !leaving.has(node.name))
     .filter((node) => !branches.has(node.name))
     .map((node) => {
       const message =

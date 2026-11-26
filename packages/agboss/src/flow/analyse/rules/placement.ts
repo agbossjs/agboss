@@ -1,5 +1,5 @@
+import { ComponentKind } from "../../runtime/records.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
 import type { ComponentName } from "../../registry.js";
 import type { FlowNode } from "../flow-graph.js";
 import { classLabel, sourceCallOf, toCallOf } from "../labels.js";
@@ -62,7 +62,8 @@ function placementOf(node: FlowNode, counts: NodeMentions): RuleViolation | unde
 export function placementRules(context: AnalysisContext): readonly RuleViolation[] {
   const counts = countMentions(context.walked.mentions);
   return [...context.graph.nodes.values()].flatMap((node) => {
-    if (node.kind === NodeKind.Start || node.kind === NodeKind.Finish) return [];
+    if (node.kind === ComponentKind.WorkflowStart || node.kind === ComponentKind.WorkflowFinish)
+      return [];
     const found = placementOf(
       node,
       counts.get(node.name) ?? { entries: 0, inline: 0, ownPaths: 0 },

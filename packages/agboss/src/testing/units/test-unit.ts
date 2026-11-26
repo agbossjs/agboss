@@ -1,7 +1,8 @@
+import { ComponentKind } from "../../flow/runtime/records.js";
+import type { KindLabels } from "../../flow/builder-types.js";
 import type { Class } from "../../components/injection.js";
 import { componentOf } from "../../components/metadata.js";
 import { pauseTargetOf } from "../../channels/pause-targets.js";
-import { NodeKind } from "../../flow/ast.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import { arbiterOf } from "../../flow/decorators/arbiter.js";
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
@@ -32,7 +33,9 @@ import { toolUnit, type ToolRunner } from "./test-tool.js";
 import type { UnitModelOptions } from "./unit-types.js";
 
 /** Whether a component's brand (`agboss check`) says it is a flow node of this kind. */
-export type IsFlowNode<TInstance, TKind extends NodeKind> = [KindOf<TInstance>] extends [never]
+export type IsFlowNode<TInstance, TKind extends keyof KindLabels> = [KindOf<TInstance>] extends [
+  never,
+]
   ? false
   : [KindOf<TInstance>] extends [TKind]
     ? true
@@ -67,7 +70,7 @@ export type FailClosed<TRunner, TGenerated> = [TGenerated] extends [never]
  * `RagSource`), every other kind by what its runner is called with.
  */
 export type UnitRunnerOf<TClass extends Class> =
-  IsFlowNode<InstanceType<TClass>, NodeKind.Router> extends true
+  IsFlowNode<InstanceType<TClass>, ComponentKind.Router> extends true
     ? FailClosed<
         RouterRunner<
           Untracked<RecordedInputOf<InstanceType<TClass>>>,
@@ -75,7 +78,7 @@ export type UnitRunnerOf<TClass extends Class> =
         >,
         RouterAnswerOf<InstanceType<TClass>>
       >
-    : IsFlowNode<InstanceType<TClass>, NodeKind.Action> extends true
+    : IsFlowNode<InstanceType<TClass>, ComponentKind.Action> extends true
       ? ActionRunner<
           Untracked<ActionInputOf<InstanceType<TClass>>>,
           ActionOutputOf<InstanceType<TClass>>
@@ -117,8 +120,8 @@ const FACTORIES: Readonly<Record<string, UnitFactory>> = {
 /** The runner factory of a class: by its decorator's record; `undefined` for a class that is none of them. */
 function factoryOf(component: Class): UnitFactory | undefined {
   const declaration = declarationOf(component);
-  if (declaration?.kind === NodeKind.Action) return actionUnit;
-  if (declaration?.kind === NodeKind.Router) return routerUnit;
+  if (declaration?.kind === ComponentKind.Action) return actionUnit;
+  if (declaration?.kind === ComponentKind.Router) return routerUnit;
   if (arbiterOf(component) !== undefined) return arbiterUnit;
   if (pauseTargetOf(component) !== undefined) return replyInterpreterUnit;
   const kind = componentOf(component)?.kind;

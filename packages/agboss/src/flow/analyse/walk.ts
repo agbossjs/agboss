@@ -1,7 +1,7 @@
+import { ComponentKind } from "../runtime/records.js";
 import type { Class } from "../../components/injection.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import {
-  NodeKind,
   StepKind,
   type ChooseOneStep,
   type FlowPath,
@@ -55,7 +55,7 @@ class FlowWalker implements LaunchRecorder, BranchRecorder {
     const source = this.table.resolve(path.source.node, path.source.kind);
     if (source !== undefined) {
       this.placements.push({ node: source, depth: 0, path: path.source });
-      if (path.source.kind === NodeKind.Start) this.starts.push(source);
+      if (path.source.kind === ComponentKind.WorkflowStart) this.starts.push(source);
       else this.mentions.push({ node: source, kind: MentionKind.OwnPath, isContinued: true });
     }
     this.walkSteps(path.steps, cursorAt(this.table, source, 0, path.source));
@@ -107,12 +107,12 @@ class FlowWalker implements LaunchRecorder, BranchRecorder {
   private arrive(target: ComponentName, cursor: Cursor, isContinued: boolean): void {
     this.placements.push({ node: target, depth: cursor.depth, path: cursor.path });
     this.mentions.push({ node: target, kind: MentionKind.Entry, isContinued });
-    if (isContinued && this.table.node(target).kind === NodeKind.Finish) {
+    if (isContinued && this.table.node(target).kind === ComponentKind.WorkflowFinish) {
       const message = `${target} is a finish — nothing follows .toFinish(…) or .onRoute(toFinish(…)) of a finish`;
       this.violations.push(violation("graph.next-after-workflow-finish", message, [target]));
     }
     const from = cursor.current;
-    if (from === undefined || this.table.node(from).kind === NodeKind.Finish) return;
+    if (from === undefined || this.table.node(from).kind === ComponentKind.WorkflowFinish) return;
     const { entry: kind, error, launch, join, settled } = cursor;
     this.edges.push({
       from,

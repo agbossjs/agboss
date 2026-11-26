@@ -1,5 +1,5 @@
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { CompensationEntryStatus, type CompensationEntry } from "../../../src/flow/compensation.js";
 import type { FrameSpec } from "../../../src/flow/context/frame.js";
 import type { UndoSite } from "../../../src/flow/runtime/compensation/undo.js";
@@ -195,19 +195,19 @@ interface FakeDeps extends ChildDepsSource {
 
 const action = (id: string, undoable: boolean) => ({
   id,
-  kind: NodeKind.Action,
+  kind: ComponentKind.Action,
   component: {},
   declaration: {
-    kind: NodeKind.Action,
+    kind: ComponentKind.Action,
     options: undoable ? { compensateWith: {} } : {},
   },
 });
 
 const workflowNode = (id: string, component: unknown) => ({
   id,
-  kind: NodeKind.Workflow,
+  kind: ComponentKind.Workflow,
   component,
-  declaration: { kind: NodeKind.Workflow, options: {} },
+  declaration: { kind: ComponentKind.Workflow, options: {} },
 });
 
 function depsOf(
@@ -240,7 +240,11 @@ describe("#1281b: what a launched node can leave to its join", () => {
       workflowNode("plain", Plain),
       workflowNode("self", Root),
       workflowNode("missing", {}),
-      { id: "agent", kind: NodeKind.Agent, declaration: { kind: NodeKind.Agent } } as never,
+      {
+        id: "agent",
+        kind: ComponentKind.Agent,
+        declaration: { kind: ComponentKind.Agent },
+      } as never,
     ],
     new Map<unknown, FakeDeps>([
       [Trip, trip],

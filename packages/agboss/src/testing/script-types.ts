@@ -1,9 +1,9 @@
+import type { ComponentKind } from "../flow/runtime/records.js";
 import type {
   ReplyInterpreterNotUnderstoodDto,
   WorkflowFinishTextDto,
 } from "../dto/standard/framework.js";
 import type { DtoClass } from "../dto/types.js";
-import type { NodeKind } from "../flow/ast.js";
 import type { HistoryOf } from "../flow/dto-wrappers.js";
 import type { WithoutTrack } from "../flow/metadata.js";
 import type {
@@ -146,19 +146,24 @@ export type ReplyInterpreterTurnFor<TSelf> =
 export type TurnFor<TSelf> =
   IsKnown<TSelf> extends false
     ? ScriptedTurn
-    : NameOf<TSelf> extends `${string}-reply-interpreter`
-      ? ReplyInterpreterTurnFor<TSelf>
-      : KindOf<TSelf> extends NodeKind.Agent
-        ? AgentTurnFor<TSelf>
-        : KindOf<TSelf> extends NodeKind.Router
-          ? RouterTurnFor<TSelf>
-          : ScriptedTurn;
+    : [KindOf<TSelf>] extends [never]
+      ? // a brand without a kind (hand-written): the name, as a safety net only
+        NameOf<TSelf> extends `${string}-${"channel" | "reply"}-interpreter`
+        ? ReplyInterpreterTurnFor<TSelf>
+        : ScriptedTurn
+      : KindOf<TSelf> extends ComponentKind.ChannelInterpreter
+        ? ReplyInterpreterTurnFor<TSelf>
+        : KindOf<TSelf> extends ComponentKind.Agent
+          ? AgentTurnFor<TSelf>
+          : KindOf<TSelf> extends ComponentKind.Router
+            ? RouterTurnFor<TSelf>
+            : ScriptedTurn;
 
 /** What a node returns, as `toHaveReturned` names it: an agent's answer, an action's result. */
 export type ReturnedOf<TSelf> =
-  KindOf<TSelf> extends NodeKind.Agent
+  KindOf<TSelf> extends ComponentKind.Agent
     ? ProducerOutputOf<TSelf>
-    : KindOf<TSelf> extends NodeKind.Action
+    : KindOf<TSelf> extends ComponentKind.Action
       ? OutputOf<TSelf>
       : unknown;
 

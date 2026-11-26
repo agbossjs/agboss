@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { usd } from "../../src/units/index.js";
 /**
  * #853 — which passes a recovery finds lost, and which tasks record them: only takeovers at the
@@ -16,7 +17,6 @@ import {
   type LostPasses,
 } from "../../src/flow/runtime/lost-pass-records.js";
 import { CostReport, CostSource, recordToolCost } from "../../src/finops/usage.js";
-import { NodeKind } from "../../src/flow/ast.js";
 
 /** The instance's tally of Unknown-cost entries, as its metrics keep it (#875). */
 const tallyOf = () => ({ recorded: vi.fn(), unrecorded: vi.fn() });
@@ -97,7 +97,7 @@ describe("#853: the tasks that record them", () => {
     const tally = tallyOf();
     const reportUsage = vi.fn();
     const site = {
-      node: { kind: NodeKind.Agent, id: "writer-agent" } as never,
+      node: { kind: ComponentKind.Agent, id: "writer-agent" } as never,
       nodeId: "writer-agent",
       runId: "root",
       services: { reportUsage },

@@ -1,7 +1,7 @@
+import { ComponentKind } from "./runtime/records.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import type { Class } from "../components/injection.js";
 import {
-  NodeKind,
   StepKind,
   type ErrorClass,
   QuorumKind,
@@ -70,40 +70,40 @@ export class PathBuilder<TSource extends SourceOf = SourceOf> {
     return new PathBuilder(this.start, this.source, [...this.steps.slice(0, -1), kept]);
   }
 
-  private to(target: TargetRef, kind: NodeKind): PathBuilder<TSource> {
+  private to(target: TargetRef, kind: ToStep["targetKind"]): PathBuilder<TSource> {
     const rest = { kind: StepKind.To as const, targetKind: kind };
     // only a child workflow may be named by a thunk (#1287): any other target is read as written
     const step: ToStep =
-      kind === NodeKind.Workflow
+      kind === ComponentKind.Workflow
         ? withTarget("target", target, rest)
         : { ...rest, target: target as Class };
     return this.then(step);
   }
 
   toAgent(target: Class): PathBuilder<TSource> {
-    return this.to(target, NodeKind.Agent);
+    return this.to(target, ComponentKind.Agent);
   }
 
   toRouter(target: Class): PathBuilder<TSource> {
-    return this.to(target, NodeKind.Router);
+    return this.to(target, ComponentKind.Router);
   }
 
   toAction(target: Class): PathBuilder<TSource> {
-    return this.to(target, NodeKind.Action);
+    return this.to(target, ComponentKind.Action);
   }
 
   toFinish(target: Class): PathBuilder<TSource> {
-    return this.to(target, NodeKind.Finish);
+    return this.to(target, ComponentKind.WorkflowFinish);
   }
 
   /** `.toExternalTask(Task)` (#659): the external task's step — it pauses, its output goes on the path. */
   toExternalTask(target: Class): PathBuilder<TSource> {
-    return this.to(target, NodeKind.Question);
+    return this.to(target, ComponentKind.ExternalTask);
   }
 
   /** `.toWorkflow(W)` (#263): one child of `W`; where it runs is `W`'s `placement` (#1286). */
   toWorkflow(target: TargetRef): PathBuilder<TSource> {
-    return this.to(target, NodeKind.Workflow);
+    return this.to(target, ComponentKind.Workflow);
   }
 
   /** `.toOneOf([toAction(A)…, toFinish(F)])` (#1275): the branches of a `oneOf(…)` output. */

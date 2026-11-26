@@ -2,13 +2,13 @@
  * #267 PR 1 (AC4, AC6): a channel role's form and the tools it may approve. #659 (AC1): a question
  * role (`ask` / `answer`) is declared again — a flow step asks it; a tool that names it is wrong.
  */
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { ExternalTask, pauseTargetOf, ToolApproval } from "../../src/channels/pause-targets.js";
 import { hours, Ttl } from "../../src/units/index.js";
-import { NodeKind } from "../../src/flow/ast.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { Tool } from "../../src/components/decorators.js";
 import { Text } from "../../src/dto/index.js";
@@ -135,7 +135,7 @@ describe("#659 AC1: an external task is declared, and is its step's node", () =>
       output: ClarificationAnswerDto,
     });
     expect(declarationOf(ClarificationExternalTask)).toMatchObject({
-      kind: NodeKind.Question,
+      kind: ComponentKind.ExternalTask,
       options: {
         name: "clarification-external-task",
         input: { ask: ClarificationQuestionDto },

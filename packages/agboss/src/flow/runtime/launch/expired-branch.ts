@@ -32,10 +32,10 @@ export function isExpiredPause(error: unknown): boolean {
 
 /** The expiry as the failure of the step that asked, from the pause's record. */
 function expiryOf(pause: PauseRecord): StepError.PauseExpired {
-  const isAgent = pause.component?.kind !== ComponentKind.Question;
+  const isAgent = pause.component?.kind !== ComponentKind.ExternalTask;
   return new StepError.PauseExpired({
     step: pause.step,
-    stepKind: isAgent ? ComponentKind.Agent : ComponentKind.Question,
+    stepKind: isAgent ? ComponentKind.Agent : ComponentKind.ExternalTask,
     target: pause.target,
     channel: pause.channel,
     pauseKind: pause.kind,

@@ -77,7 +77,7 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
       isSent: true,
       kind: PauseKind.ExternalTask,
       step: "buyer-agent",
-      component: { name: "approver-external-task", kind: "question" },
+      component: { name: "approver-external-task", kind: "external-task" },
     });
   });
 
@@ -106,7 +106,7 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
     expect(app.resolve(BuyerDesk).ordered).toEqual([{ item: "laptop", limitUsd: 950 }]);
     // the question call is recorded as the role (kind question), its output the answer
     expect(done.toolCalls.map((call) => call.step.component)).toMatchObject([
-      { name: "approver-external-task", kind: "question" },
+      { name: "approver-external-task", kind: "external-task" },
       { name: "order-tool", kind: "tool" },
     ]);
     expect(done.toolCalls[0]?.output).toMatchObject({ approved: true, limitUsd: 950 });

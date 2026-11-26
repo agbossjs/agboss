@@ -1,8 +1,8 @@
+import { ComponentKind } from "../../runtime/records.js";
 import { ambiguousPairOf } from "../../../dto/ambiguity.js";
 import type { DtoClass } from "../../../dto/types.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
-import { type OutputShape } from "../../dto-wrappers.js";
+import type { OutputShape } from "../../dto-wrappers.js";
 import { dtoLabel } from "../labels.js";
 import type { AnalysisContext } from "./context.js";
 
@@ -18,7 +18,8 @@ const variantsOfOutput = (output: OutputShape): readonly DtoClass[] =>
 export function dtoOneOfRules(context: AnalysisContext): readonly RuleViolation[] {
   return [...context.graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
-    if (declaration.kind !== NodeKind.Action || declaration.options.output === undefined) return [];
+    if (declaration.kind !== ComponentKind.Action || declaration.options.output === undefined)
+      return [];
     const pair = ambiguousPairOf(variantsOfOutput(declaration.options.output));
     if (pair === undefined) return [];
     const first = dtoLabel(pair[0]);

@@ -29,7 +29,7 @@ import { chargedCall, reportToFrame } from "../finops/charged-call.js";
  * caller throws `PauseError.UninterpretableReply` and the pause stays pending. What a model interpreter
  * spent is reported either way. A decision-model interpreter makes one `Decision.boolean` (S124 a,
  * `reply-decision.ts`); a chat-model interpreter makes one chat call under the cost caller
- * `reply-interpreter:<name>` — its instructions after the framework's system text, the question and
+ * `channel-interpreter:<name>` — its instructions after the framework's system text, the question and
  * the reply in the input message, one answer tool of the role's answer DTO; no answer is a decline.
  * Its model reads them through the application's PII policies and its answer is revealed before
  * validation, like an agent's (#120): a token no map knows is a decline, a `block` value
@@ -85,7 +85,7 @@ async function maskedRequestOf(
 const ONE_CALL: ToolBinding = { parallel_tool_calls: false };
 
 /** The cost caller of a reply interpreter, also its script key in tests. */
-export const replyInterpreterCaller = (name: string): string => `reply-interpreter:${name}`;
+export const replyInterpreterCaller = (name: string): string => `channel-interpreter:${name}`;
 
 /** One reading of `input` by a model interpreter. */
 export async function readByModel(
@@ -94,7 +94,7 @@ export async function readByModel(
   site: ReplyModelSite,
 ): Promise<ModelReading> {
   const caller = replyInterpreterCaller(interpreter.name);
-  const user = { kind: "reply-interpreter", interpreter: interpreter.name, input } as const;
+  const user = { kind: "channel-interpreter", interpreter: interpreter.name, input } as const;
   const chat = site.gateway.chatModel({ user, settings: site.settings });
   if (chat.bindTools === undefined)
     throw new TypeError(`${caller}: ${site.settings.model} cannot call tools`);

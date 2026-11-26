@@ -4,10 +4,10 @@
  * contains an ancestor, is refused as ChildWorkflowUnavailableError — not run; the graph is held to its own
  * recursion limit of (maxSteps + nodes) x 10; a run's graph is built once per pass.
  */
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { describe, expect, vi } from "vitest";
 import type { GraphDeps } from "../../../src/graph/deps.js";
 import type { ComponentName } from "../../../src/flow/registry.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { ChildWorkflowUnavailableError } from "../../../src/flow/runtime/child-errors.js";
 import type { RuntimeNode } from "../../../src/flow/runtime/graph-model.js";
 import type { ExecutionGraph, RunLimits } from "../../../src/flow/runtime/build.js";
@@ -85,8 +85,8 @@ describe("#1366: the compiled graph", () => {
     const { deps, build } = await captured({ app, mockModel });
     const ghost = withNode(deps, {
       id: "ghost-router" as ComponentName,
-      kind: NodeKind.Router,
-      declaration: { kind: NodeKind.Router, options: { decidedBy: "model" } } as never,
+      kind: ComponentKind.Router,
+      declaration: { kind: ComponentKind.Router, options: { decidedBy: "model" } } as never,
     });
 
     expect(() => build(ghost)).toThrow(expect.objectContaining({ name: "UnknownAgentError" }));
@@ -96,8 +96,8 @@ describe("#1366: the compiled graph", () => {
     const { deps, build } = await captured({ app, mockModel });
     const ghost = withNode(deps, {
       id: "ghost-agent" as ComponentName,
-      kind: NodeKind.Agent,
-      declaration: { kind: NodeKind.Agent, options: {} } as never,
+      kind: ComponentKind.Agent,
+      declaration: { kind: ComponentKind.Agent, options: {} } as never,
     });
 
     expect(() => build(ghost)).toThrow(expect.objectContaining({ name: "UnknownAgentError" }));
@@ -123,7 +123,7 @@ describe("#1366: the compiled graph", () => {
     const { deps, build } = await captured({ app, mockModel });
     const ghost = withNode(deps, {
       id: "ghost-workflow" as ComponentName,
-      kind: NodeKind.Workflow,
+      kind: ComponentKind.Workflow,
       component: GhostChild,
     });
     const reach = (component: unknown): Deps | undefined =>
@@ -131,7 +131,7 @@ describe("#1366: the compiled graph", () => {
     // the child names the root's own class: an ancestor, which is no recursion of the child
     const holder = withNode(deps, {
       id: "ancestor-workflow" as ComponentName,
-      kind: NodeKind.Workflow,
+      kind: ComponentKind.Workflow,
       component: deps.graph.type,
     });
     const sub: Deps = {

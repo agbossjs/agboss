@@ -8,7 +8,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Text } from "../../../src/dto/index.js";
 import { Action } from "../../../src/index.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import {
   CompensationEntryStatus,
   CompensationReason,
@@ -105,7 +104,7 @@ function siteOf(
   overrides: Partial<VisitCompensationSite> = {},
 ): VisitCompensationSite {
   return {
-    node: { id: nodeId, kind: NodeKind.Action, component } as never,
+    node: { id: nodeId, kind: ComponentKind.Action, component } as never,
     entries: [],
     frame: {
       step: stepOf(nodeId),
@@ -354,7 +353,10 @@ describe("#633: commits", () => {
     ];
     const site = siteOf("done-finish", undefined, { entries });
 
-    const written = entriesOfVisit({ ...site, node: { ...site.node, kind: NodeKind.Finish } });
+    const written = entriesOfVisit({
+      ...site,
+      node: { ...site.node, kind: ComponentKind.WorkflowFinish },
+    });
 
     expect(written.map((entry) => [entry.key, entry.status])).toEqual([
       ["first", CompensationEntryStatus.Committed],

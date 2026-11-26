@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { ComponentOptions, type OptionSlots } from "../components/component-options.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
@@ -18,7 +19,6 @@ import {
 } from "../files/file-policy.js";
 import { declaredFilePolicyOf } from "../files/workflow-file-policy.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { WorkflowExecutionLimits } from "../flow/decorators/workflow.js";
 import type { Milliseconds, Ttl } from "../units/index.js";
@@ -40,7 +40,9 @@ function workflowsOf(
 ): readonly { readonly cls: Class; readonly name: string }[] {
   return withChildWorkflows(options.workflows).flatMap((cls) => {
     const declaration = declarationOf(cls);
-    return declaration?.kind === NodeKind.Workflow ? [{ cls, name: declaration.options.name }] : [];
+    return declaration?.kind === ComponentKind.Workflow
+      ? [{ cls, name: declaration.options.name }]
+      : [];
   });
 }
 
@@ -53,7 +55,7 @@ export function placementOverridesOf(
   for (const cls of withChildWorkflows(workflows)) {
     const declaration = declarationOf(cls);
     const placement =
-      declaration?.kind === NodeKind.Workflow
+      declaration?.kind === ComponentKind.Workflow
         ? placementOf(folded, declaration.options.name)
         : undefined;
     if (placement !== undefined) placements.set(cls, placement);
@@ -70,7 +72,7 @@ function limitOverridesOf(
   const historyTtl = new Map<Class, Milliseconds | Ttl>();
   for (const cls of withChildWorkflows(workflows)) {
     const declaration = declarationOf(cls);
-    if (declaration?.kind !== NodeKind.Workflow) continue;
+    if (declaration?.kind !== ComponentKind.Workflow) continue;
     const { name } = declaration.options;
     const limits = executionLimitsOverlayOf(folded, name);
     if (limits !== undefined) executionLimits.set(cls, limits);

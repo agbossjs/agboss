@@ -1,9 +1,9 @@
+import { ComponentKind } from "./records.js";
 import { ConfigError } from "../../core/error-families/config-errors.js";
 import { invalidDto } from "../../dto/errors.js";
 import { validate } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
 import { WorkflowStartTextDto } from "../../dto/standard/framework.js";
-import { NodeKind } from "../ast.js";
 import { isFieldMap } from "../decorators/declaration.js";
 import type { WorkflowStartInput } from "../decorators/workflow-start.js";
 import { Wrapper, type ListWrapper, type ValueShape } from "../dto-wrappers.js";
@@ -38,7 +38,8 @@ function validField(shape: ValueShape, value: unknown, field: string): unknown {
 /** The start's input, checked: the validated value (a copy). */
 export function validStartInput(node: RuntimeNode, payload: unknown): unknown {
   const { declaration } = node;
-  if (declaration.kind !== NodeKind.Start) throw new TypeError(`${node.id} is not a start`);
+  if (declaration.kind !== ComponentKind.WorkflowStart)
+    throw new TypeError(`${node.id} is not a start`);
   return validInputOf(declaration.options.input, node.id, payload);
 }
 
@@ -63,13 +64,13 @@ export function validInputOf(input: WorkflowStartInput, id: string, payload: unk
 
 /** The starts of a graph. */
 export const startsOf = (graph: RuntimeGraph): readonly RuntimeNode[] =>
-  [...graph.nodes.values()].filter((node) => node.kind === NodeKind.Start);
+  [...graph.nodes.values()].filter((node) => node.kind === ComponentKind.WorkflowStart);
 
 /** The start a plain text goes to: the one taking `WorkflowStartTextDto`. */
 export function textStartOf(graph: RuntimeGraph): RuntimeNode | undefined {
   return startsOf(graph).find(
     (node) =>
-      node.declaration.kind === NodeKind.Start &&
+      node.declaration.kind === ComponentKind.WorkflowStart &&
       node.declaration.options.input === WorkflowStartTextDto,
   );
 }
@@ -77,7 +78,7 @@ export function textStartOf(graph: RuntimeGraph): RuntimeNode | undefined {
 /** The start of the graph by its `name`; anything else is a `ConfigError.NotAWorkflowStart`. */
 export function startNamed(graph: RuntimeGraph, name: string): RuntimeNode {
   const node = graph.nodes.get(name);
-  if (node?.kind !== NodeKind.Start) {
+  if (node?.kind !== ComponentKind.WorkflowStart) {
     throw new ConfigError.NotAWorkflowStart({
       message: `${name} is not a workflow start of "${graph.workflow}"`,
     });

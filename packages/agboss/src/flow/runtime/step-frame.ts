@@ -1,7 +1,7 @@
+import { ComponentKind } from "./records.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import { extractRunContext } from "../../core/run-context.js";
-import { NodeKind } from "../ast.js";
 import { maxConcurrencyUnder, type ExecutionLimitsOf } from "../decorators/workflow.js";
 import type { SlotClaim, SubtreeCap, TreeSlotRegistry } from "./launch/launch-registry.js";
 import type { QueueWatch, SlotHold } from "./launch/slot-queue.js";
@@ -17,7 +17,6 @@ import { idempotencyKeyOf } from "../context/idempotency.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
 import type { ExecutionStateType } from "./state.js";
 import type { ComponentRecord } from "./records.js";
-import { componentKindOf } from "./join-keys.js";
 import { recordOfComponent } from "./workflow-keys.js";
 import { inStepEntry } from "./step-entries.js";
 import { meshFactsOf, rootMeshOf } from "./step-mesh.js";
@@ -83,7 +82,7 @@ export function stepFrameAt(
   const executionId: string = run.runId;
   const { node, visitNumber, itemIndex } = site;
   const nodeId = site.nodeId ?? node.id;
-  const record = recordOfComponent(components, node.id, componentKindOf(node.kind));
+  const record = recordOfComponent(components, node.id, node.kind);
   const step = {
     component: Object.freeze({ type: node.component, ...record }),
     nodeId,
@@ -139,7 +138,9 @@ export const stepNodeIdOf = (node: RuntimeNode): string => {
 
 /** Whether a visit of the node works in a slot of its tree. */
 const takesSlot = (node: RuntimeNode): boolean =>
-  node.kind === NodeKind.Agent || node.kind === NodeKind.Router || node.kind === NodeKind.Action;
+  node.kind === ComponentKind.Agent ||
+  node.kind === ComponentKind.Router ||
+  node.kind === ComponentKind.Action;
 
 /** The subtrees below the root whose own cap is smaller than every cap around them. */
 function subtreesOf(
@@ -162,7 +163,7 @@ function subtreesOf(
 /** Whether the step comes right after its execution's child, or its children's join. */
 function closesBranch(graph: RuntimeGraph, state: ExecutionStateType): boolean {
   const previous = state.path.at(-1);
-  return previous !== undefined && graph.nodes.get(previous)?.kind === NodeKind.Workflow;
+  return previous !== undefined && graph.nodes.get(previous)?.kind === ComponentKind.Workflow;
 }
 
 /** Where a step takes its tree slot: its frame (its running body's entry, #367) and its place. */

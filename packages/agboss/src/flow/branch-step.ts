@@ -1,8 +1,8 @@
+import { ComponentKind } from "./runtime/records.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import type { Class } from "../components/injection.js";
 import { declarationOf } from "./decorators/declaration.js";
 import {
-  NodeKind,
   StepKind,
   type ChooseOneRoute,
   type OneOfStep,
@@ -31,7 +31,7 @@ export function oneOfStepOf(branches: unknown, side: SideOf): OneOfStep {
 
 /** `.onFinish(F, path)`: a `@WorkflowFinish` class and the side path it takes. */
 export function onFinishStepOf(finish: unknown, path: unknown, side: SideOf): OnFinishStep {
-  if (typeof finish !== "function" || declarationOf(finish)?.kind !== NodeKind.Finish)
+  if (typeof finish !== "function" || declarationOf(finish)?.kind !== ComponentKind.WorkflowFinish)
     throw syntaxError(".onFinish(F, …) takes a @WorkflowFinish class of the child workflow");
   return {
     kind: StepKind.OnFinish,

@@ -3,13 +3,13 @@
  * carrier of the components' options by the runtime graph, the launch registry, the isolated-worker rules
  * and the assembly warnings; a declared `@Workflow({ placement })` is never changed.
  */
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { declaredExecutionLimitsOf } from "../../src/flow/decorators/workflow.js";
 import { describe, expect, it } from "vitest";
 import { applicationOf, type AssembledApplication } from "../../src/application/assemble.js";
 import { assemblyWarningsOf } from "../../src/application/start-log.js";
 import { SystemClock } from "../../src/infrastructure/clock.js";
 import { ProfileError, ProfileErrorReason } from "../../src/config/profile-error.js";
-import { NodeKind } from "../../src/flow/ast.js";
 import { ChildPlacement } from "../../src/flow/child-placement.js";
 import {
   placementOfWorkflow,
@@ -120,7 +120,7 @@ describe("workflows.<name>.placement: one placement on every path", () => {
     const declaration = declarationOf(PlacedChildWorkflow);
 
     expect(
-      declaration?.kind === NodeKind.Workflow ? declaration.options.placement : undefined,
+      declaration?.kind === ComponentKind.Workflow ? declaration.options.placement : undefined,
     ).toBe(ChildPlacement.AnyWorker);
     expect(graphPlacementOf(plain)).toBe(ChildPlacement.AnyWorker);
     expect(plain.componentOptions.placements.size).toBe(0);

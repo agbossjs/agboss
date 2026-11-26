@@ -5,10 +5,10 @@
  * takes from it (its own spend, its value) and the child's config. The collaborators are scripts that
  * remember what they were asked.
  */
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { describe, expect, it, vi } from "vitest";
 import { trivialExecutionGraph } from "./fixtures/execution-graph.js";
 import type { ExecutionGraph } from "../../../src/flow/runtime/build.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { childRunner, type ChildGraph } from "../../../src/flow/runtime/child.js";
 import type { RuntimeNode } from "../../../src/flow/runtime/graph-model.js";
 import { recordToolCost } from "../../../src/finops/usage.js";
@@ -137,7 +137,7 @@ const IDENTITY = {
 const node = { id: "launch-node" } as RuntimeNode;
 const CHILD_GRAPH = trivialExecutionGraph();
 const ApprovedDto = Object.defineProperty(() => undefined, "name", { value: "ApprovedDto" });
-const FINISH = { kind: NodeKind.Finish, options: { output: ApprovedDto } };
+const FINISH = { kind: ComponentKind.WorkflowFinish, options: { output: ApprovedDto } };
 
 interface Setup {
   readonly isRecursive?: boolean;

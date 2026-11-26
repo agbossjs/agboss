@@ -1,3 +1,4 @@
+import { ComponentKind } from "../runtime/records.js";
 import { recordOptionKeys } from "../../components/option-keys.js";
 import { AGENT_KEYS } from "../../components/decorator-options.js";
 import type { PromptVariables } from "../../components/prompt-variables.js";
@@ -9,7 +10,6 @@ import type { Class } from "../../components/injection.js";
 import type { AgentToolClass } from "../../components/decorators.js";
 import type { CacheSetting, MaxTokens } from "../../config/settings-types.js";
 import type { Reasoning } from "../../models/reasoning.js";
-import { NodeKind } from "../ast.js";
 import type { OutputShape } from "../dto-wrappers.js";
 import { declared, recordDeclaration, type InputFields } from "./declaration.js";
 
@@ -95,7 +95,7 @@ export function Agent(options: AgentOptions) {
   const span = captureCallSite();
   return <TClass extends Class>(value: TClass): TClass => {
     recordOptionKeys(value, "Agent", options, AGENT_KEYS);
-    recordDeclaration(value, declared(NodeKind.Agent, options, source, span));
+    recordDeclaration(value, declared(ComponentKind.Agent, options, source, span));
     return value;
   };
 }

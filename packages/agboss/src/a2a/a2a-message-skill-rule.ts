@@ -1,9 +1,9 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { ApplicationOptions } from "../application/application.js";
 import { isExternalTask, pauseTargetOf } from "../channels/pause-targets.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { violation, type RuleCode, type RuleViolation } from "../graph/rule-error.js";
 import { boundClassesOf, effectOf } from "./a2a-effect-reach.js";
@@ -65,11 +65,11 @@ function toolProblems(agent: string, tool: Class): SkillProblem[] {
 /** What a node is, by its kind: a child, a question, an undo; none for any other. */
 function kindProblem(node: Class, name: string): SkillProblem | undefined {
   const declared = declarationOf(node);
-  if (declared?.kind === NodeKind.Workflow)
+  if (declared?.kind === ComponentKind.Workflow)
     return { code: "a2a.message-skill-child", text: `it launches ${name}` };
-  if (declared?.kind === NodeKind.Question)
+  if (declared?.kind === ComponentKind.ExternalTask)
     return { code: "a2a.message-skill-pause", text: `${name} asks its caller` };
-  if (declared?.kind !== NodeKind.Action) return undefined;
+  if (declared?.kind !== ComponentKind.Action) return undefined;
   const { compensateWith, committedBy } = declared.options;
   return compensateWith === undefined && committedBy === undefined
     ? undefined
@@ -91,7 +91,7 @@ function effectProblem(cls: Class, bound: readonly Class[]): SkillProblem | unde
 function nodeProblems(node: Class, bound: readonly Class[]): SkillProblem[] {
   const declared = declarationOf(node);
   const name = declared?.options.name ?? node.name;
-  const agentTools = declared?.kind === NodeKind.Agent ? declared.options.tools : undefined;
+  const agentTools = declared?.kind === ComponentKind.Agent ? declared.options.tools : undefined;
   // Stryker disable next-line ArrayDeclaration: a text in place of no tools is no tool, no problem
   const tools = agentTools ?? [];
   return [
@@ -105,7 +105,7 @@ function nodeProblems(node: Class, bound: readonly Class[]): SkillProblem[] {
 function flowOf(workflows: readonly Class[], start: Class): readonly Class[] | undefined {
   for (const workflow of withChildWorkflows(workflows)) {
     const declared = declarationOf(workflow);
-    if (declared?.kind !== NodeKind.Workflow) continue;
+    if (declared?.kind !== ComponentKind.Workflow) continue;
     const nodes = flowClassesOf(declared.options.flow);
     if (nodes.includes(start)) return nodes;
   }

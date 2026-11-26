@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../flow/runtime/records.js";
 import { ExecutionError } from "../../core/error-families/run-errors.js";
 import type { FrameLease } from "../../flow/context/frame.js";
 import { meterOf } from "../../budgets/execution-budgets.js";
@@ -21,7 +22,6 @@ import {
 } from "../../flow/runtime/compensation/unwinding-marks.js";
 import { COMPENSATION_TIMEOUT } from "../../flow/compensation.js";
 import { systemClock } from "../../infrastructure/clock.js";
-import { NodeKind } from "../../flow/ast.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import { runConfig } from "../../run/paused.js";
 import type { AppDeps } from "../app-deps.js";
@@ -76,7 +76,8 @@ function treeHasUndoableActions(deps: GraphDeps<string>, seen = new Set<string>(
   seen.add(deps.config.name);
   if (hasUndoableActions(deps.graph)) return true;
   return [...deps.graph.nodes.values()].some((node) => {
-    const child = node.kind === NodeKind.Workflow ? deps.childDepsOf?.(node.component) : undefined;
+    const child =
+      node.kind === ComponentKind.Workflow ? deps.childDepsOf?.(node.component) : undefined;
     return child !== undefined && treeHasUndoableActions(child, seen);
   });
 }

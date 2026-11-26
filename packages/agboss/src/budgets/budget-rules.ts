@@ -1,5 +1,5 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { Class } from "../components/injection.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { violation, type RuleCode, type RuleViolation } from "../graph/rule-error.js";
 import { budgetOf, BudgetScope, type BudgetMeta } from "./budget.js";
@@ -29,7 +29,7 @@ export const attachedBudgetOf = (
   const slot = overlays?.slots.get(workflow);
   if (slot !== undefined) return slot;
   const declaration = declarationOf(workflow);
-  return declaration?.kind === NodeKind.Workflow ? declaration.options.budget : undefined;
+  return declaration?.kind === ComponentKind.Workflow ? declaration.options.budget : undefined;
 };
 
 /**
@@ -94,7 +94,7 @@ export function executionBudgetFor(
 /** The `name` of a `@Workflow` class, else the class's own. */
 const workflowNameOf = (workflow: Class): string => {
   const declaration = declarationOf(workflow);
-  return declaration?.kind === NodeKind.Workflow ? declaration.options.name : workflow.name;
+  return declaration?.kind === ComponentKind.Workflow ? declaration.options.name : workflow.name;
 };
 
 const declared = (budgets: readonly Class[]): readonly BudgetMeta[] =>

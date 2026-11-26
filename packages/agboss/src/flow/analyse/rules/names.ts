@@ -1,6 +1,7 @@
+import type { FlowNodeKind } from "../../ast.js";
+import { ComponentKind } from "../../runtime/records.js";
 import type { DtoClass } from "../../../dto/types.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
 import type { ComponentDeclaration, InputFields } from "../../decorators/declaration.js";
 import {
   isValueShape,
@@ -9,7 +10,7 @@ import {
   type OutputShape,
   type ValueShape,
 } from "../../dto-wrappers.js";
-import { dtoNameProblem, kindSuffixProblem, NameKind, type NameProblem } from "../../names.js";
+import { dtoNameProblem, kindSuffixProblem, type NameProblem, type NameKind } from "../../names.js";
 import { DtoRegistry, dtoClashMessage } from "../../registry.js";
 import type { AnalysisContext } from "./context.js";
 
@@ -19,14 +20,14 @@ import type { AnalysisContext } from "./context.js";
  * (`[dto.name]`); DTO class names are unique, because they key checkpoints (`[dto.duplicate-name]`).
  */
 
-const NAME_KINDS: Readonly<Record<NodeKind, NameKind>> = {
-  [NodeKind.Start]: NameKind.WorkflowStart,
-  [NodeKind.Finish]: NameKind.WorkflowFinish,
-  [NodeKind.Agent]: NameKind.Agent,
-  [NodeKind.Action]: NameKind.Action,
-  [NodeKind.Router]: NameKind.Router,
-  [NodeKind.Workflow]: NameKind.Workflow,
-  [NodeKind.Question]: NameKind.ExternalTask,
+const NAME_KINDS: Readonly<Record<FlowNodeKind, NameKind>> = {
+  [ComponentKind.WorkflowStart]: ComponentKind.WorkflowStart,
+  [ComponentKind.WorkflowFinish]: ComponentKind.WorkflowFinish,
+  [ComponentKind.Agent]: ComponentKind.Agent,
+  [ComponentKind.Action]: ComponentKind.Action,
+  [ComponentKind.Router]: ComponentKind.Router,
+  [ComponentKind.Workflow]: ComponentKind.Workflow,
+  [ComponentKind.ExternalTask]: ComponentKind.ExternalTask,
 };
 
 /** The DTO classes inside a shape. */
@@ -51,21 +52,21 @@ const dtosOfFields = (
 /** The DTO classes a component declares: its input fields and its output. */
 export function declaredDtos(declaration: ComponentDeclaration): readonly DtoClass[] {
   switch (declaration.kind) {
-    case NodeKind.Start: {
+    case ComponentKind.WorkflowStart: {
       const { input } = declaration.options;
       return isValueShape(input) ? dtosOf(input) : dtosOfFields(input);
     }
-    case NodeKind.Agent:
-    case NodeKind.Action:
-    case NodeKind.Question: {
+    case ComponentKind.Agent:
+    case ComponentKind.Action:
+    case ComponentKind.ExternalTask: {
       const { input, output } = declaration.options;
       return [...dtosOfFields(input), ...(output === undefined ? [] : dtosOf(output))];
     }
-    case NodeKind.Finish:
+    case ComponentKind.WorkflowFinish:
       return dtosOf(declaration.options.output);
-    case NodeKind.Router:
+    case ComponentKind.Router:
       return dtosOfFields(declaration.options.input);
-    case NodeKind.Workflow:
+    case ComponentKind.Workflow:
       return [];
   }
 }
@@ -89,12 +90,10 @@ const fromProblem = (problem: NameProblem, node: string): RuleViolation =>
   violation(problem.code, problem.message, [node]);
 
 export function nameRules(context: AnalysisContext): readonly RuleViolation[] {
+  const named = (name: string, kind: NameKind) => ({ name, kind });
   const components = [
-    { name: context.workflow.name, kind: NameKind.Workflow },
-    ...[...context.graph.nodes.values()].map((node) => ({
-      name: node.name,
-      kind: NAME_KINDS[node.kind],
-    })),
+    named(context.workflow.name, ComponentKind.Workflow),
+    ...[...context.graph.nodes.values()].map((node) => named(node.name, NAME_KINDS[node.kind])),
   ].flatMap(({ name, kind }) => {
     const problem = kindSuffixProblem(name, kind);
     return problem === undefined ? [] : [fromProblem(problem, name)];

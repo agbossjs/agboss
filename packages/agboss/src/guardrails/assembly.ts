@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { Class } from "../components/injection.js";
 import { componentModelOf, type ModelResolver } from "../models/model-resolver.js";
 import {
@@ -8,7 +9,6 @@ import {
 } from "../components/policy-decorators.js";
 import type { PromptLoader } from "../components/prompt-render.js";
 import type { AgentMeta } from "../components/meta-types.js";
-import { NodeKind } from "../flow/ast.js";
 import { isCodeRouter } from "../flow/decorators/router.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { throwIfViolated } from "../graph/rule-error.js";
@@ -63,7 +63,7 @@ export interface GuardrailOwners {
 /** The agents and routers of the graph, each with what kind of model it has. */
 function elementsOf(agents: readonly AgentMeta[], graph: RuntimeGraph): GuardedElement[] {
   const routers = [...graph.nodes.values()].flatMap((node): GuardedElement[] => {
-    if (node.declaration.kind !== NodeKind.Router) return [];
+    if (node.declaration.kind !== ComponentKind.Router) return [];
     const { options } = node.declaration;
     const kind = isCodeRouter(options)
       ? GuardedElementKind.CodeRouter

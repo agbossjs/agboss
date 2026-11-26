@@ -3,6 +3,7 @@
  * hand so each weight, each kind of edge and each message is read exactly. The shard `assembly-rules` mutates
  * `steps.ts` whole.
  */
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { EdgeKind } from "../../../src/flow/analyse/flow-graph.js";
@@ -13,14 +14,13 @@ import {
   stepsRangeOf,
   stepsRules,
 } from "../../../src/flow/analyse/steps.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { branch, named, contextOf, edge, graphOf, join, node } from "./graph-fixture.js";
 
-const start = (name: string) => node(name, NodeKind.Start);
-const agent = (name: string) => node(name, NodeKind.Agent);
-const router = (name: string) => node(name, NodeKind.Router);
-const action = (name: string) => node(name, NodeKind.Action);
-const finish = (name: string) => node(name, NodeKind.Finish);
+const start = (name: string) => node(name, ComponentKind.WorkflowStart);
+const agent = (name: string) => node(name, ComponentKind.Agent);
+const router = (name: string) => node(name, ComponentKind.Router);
+const action = (name: string) => node(name, ComponentKind.Action);
+const finish = (name: string) => node(name, ComponentKind.WorkflowFinish);
 
 const FLOW = "flow-workflow";
 const found = (graph: ReturnType<typeof graphOf>, maxSteps?: unknown) =>

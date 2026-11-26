@@ -7,6 +7,8 @@
  * is a bound of 0 at run time (`tests/flow/runtime/money-runtime-units.test.ts`): the two agree, and fail closed.
  * No message names a value's text.
  */
+import type { FlowNodeKind } from "../../../src/flow/ast.js";
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { Application } from "../../../src/application/application.js";
@@ -15,7 +17,6 @@ import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { countLimitRules } from "../../../src/flow/analyse/rules/options.js";
 import type { AnalysisContext } from "../../../src/flow/analyse/rules/context.js";
 import type { FlowNode } from "../../../src/flow/analyse/flow-graph.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { oneOf } from "../../../src/flow/dto-wrappers.js";
@@ -236,15 +237,15 @@ const contextOf = (nodes: readonly FlowNode[], defaults?: object): AnalysisConte
     graph: { nodes: new Map(nodes.map((node) => [node.name, node])) },
   }) as never;
 
-const nodeOf = (name: string, kind: NodeKind, options: object): FlowNode =>
+const nodeOf = (name: string, kind: FlowNodeKind, options: object): FlowNode =>
   ({ name, kind, declaration: { kind, options: { name, ...options } } }) as never;
 
 describe("#1373: a router and a question step have a maxVisits that is a whole number from 0, too", () => {
   it.each(BAD)("%s on a router and on a question step", (_kind, value, shown) => {
     const found = countLimitRules(
       contextOf([
-        nodeOf("pick-router", NodeKind.Router, { maxVisits: value }),
-        nodeOf("ask-question", NodeKind.Question, { maxVisits: value }),
+        nodeOf("pick-router", ComponentKind.Router, { maxVisits: value }),
+        nodeOf("ask-question", ComponentKind.ExternalTask, { maxVisits: value }),
       ]),
     );
 
@@ -260,13 +261,13 @@ describe("#1373: a router and a question step have a maxVisits that is a whole n
   it("a router and a question step hold no maxToolCalls or maxRetries: only an agent does", () => {
     const found = countLimitRules(
       contextOf([
-        nodeOf("pick-router", NodeKind.Router, {
+        nodeOf("pick-router", ComponentKind.Router, {
           maxVisits: 2,
           maxToolCalls: "x",
           maxRetries: "x",
         }),
-        nodeOf("ask-question", NodeKind.Question, { maxVisits: 0, maxToolCalls: "x" }),
-        nodeOf("send-action", NodeKind.Action, { maxVisits: "x", maxToolCalls: "x" }),
+        nodeOf("ask-question", ComponentKind.ExternalTask, { maxVisits: 0, maxToolCalls: "x" }),
+        nodeOf("send-action", ComponentKind.Action, { maxVisits: "x", maxToolCalls: "x" }),
       ]),
     );
 
@@ -274,7 +275,7 @@ describe("#1373: a router and a question step have a maxVisits that is a whole n
   });
 
   it("an unset limit, a workflow with no defaults and one with other defaults are all fine", () => {
-    expect(countLimitRules(contextOf([nodeOf("a-agent", NodeKind.Agent, {})]))).toEqual([]);
+    expect(countLimitRules(contextOf([nodeOf("a-agent", ComponentKind.Agent, {})]))).toEqual([]);
     expect(countLimitRules(contextOf([], { tools: { maxResultSize: 1024 } }))).toEqual([]);
     expect(countLimitRules(contextOf([], { models: { temperature: 0 } }))).toEqual([]);
   });

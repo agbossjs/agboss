@@ -3,12 +3,13 @@
  * a subclass, a parent), which nodes after one spend, the exact message and the nodes it names, and a join's handler.
  * The shard `assembly-rules` mutates `limit-handlers.ts` of the rules whole.
  */
+import type { FlowNodeKind } from "../../../src/flow/ast.js";
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { EdgeKind } from "../../../src/flow/analyse/flow-graph.js";
 import type { AnalysisContext } from "../../../src/flow/analyse/rules/context.js";
 import { catchesLimit, limitHandlerRules } from "../../../src/flow/analyse/rules/limit-handlers.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { AGBossError } from "../../../src/core/errors.js";
 import { edge, graphOf, node } from "./graph-fixture.js";
 
@@ -16,18 +17,18 @@ const TAIL =
   " — after a limit a side path leads only to actions and finishes (no model call past a limit); catch a narrower class, or end the side path with toAction(…) / toFinish(…)";
 
 const kinds = [
-  ["agent", NodeKind.Agent],
-  ["router", NodeKind.Router],
-  ["child", NodeKind.Workflow],
-  ["question", NodeKind.Question],
+  ["agent", ComponentKind.Agent],
+  ["router", ComponentKind.Router],
+  ["child", ComponentKind.Workflow],
+  ["task", ComponentKind.ExternalTask],
 ] as const;
 
 /** A step `A` whose `.onError(error, …)` leads to `H`, an action; `H` goes on to the nodes given. */
-const handled = (error: unknown, after: readonly (readonly [string, NodeKind])[] = []) => {
+const handled = (error: unknown, after: readonly (readonly [string, FlowNodeKind])[] = []) => {
   const nodes = [
-    node("A", NodeKind.Agent),
-    node("H", NodeKind.Action),
-    node("F", NodeKind.Finish),
+    node("A", ComponentKind.Agent),
+    node("H", ComponentKind.Action),
+    node("F", ComponentKind.WorkflowFinish),
     ...after.map(([name, kind]) => node(name, kind)),
   ];
   const edges = [
@@ -86,7 +87,7 @@ describe("#1366: what a side path after a limit reaches", () => {
   });
 
   it("names a subclass handler and a parent handler, and skips one of an unrelated class", () => {
-    const after = [["M", NodeKind.Agent]] as const;
+    const after = [["M", ComponentKind.Agent]] as const;
 
     expect(rules(handled(LimitError.Steps, after))[0]?.message).toContain(
       ".onError(LimitError.Steps, …)",
@@ -98,8 +99,8 @@ describe("#1366: what a side path after a limit reaches", () => {
   it("lists every node reached, sorted, and each once", () => {
     const found = rules(
       handled(LimitError, [
-        ["zeta", NodeKind.Agent],
-        ["alpha", NodeKind.Router],
+        ["zeta", ComponentKind.Agent],
+        ["alpha", ComponentKind.Router],
       ]),
     );
 
@@ -112,7 +113,7 @@ describe("#1366: what a side path after a limit reaches", () => {
   it("reads only the side path the handler enters, not the rest of the flow", () => {
     const context = handled(LimitError);
     const other = graphOf(
-      [...context.graph.nodes.values(), node("Z", NodeKind.Agent)],
+      [...context.graph.nodes.values(), node("Z", ComponentKind.Agent)],
       [...context.graph.edges, edge("A", "Z")],
       [],
     );
@@ -121,14 +122,14 @@ describe("#1366: what a side path after a limit reaches", () => {
   });
 
   it("takes the edge of this handler's error from this node, not another's", () => {
-    const base = handled(LimitError, [["M", NodeKind.Agent]]);
+    const base = handled(LimitError, [["M", ComponentKind.Agent]]);
     const wrongError = graphOf(
       [...base.graph.nodes.values()],
       [edge("A", "H", EdgeKind.Error, { error: RangeError }), edge("H", "M")],
       [],
     );
     const wrongNode = graphOf(
-      [...base.graph.nodes.values(), node("B", NodeKind.Agent)],
+      [...base.graph.nodes.values(), node("B", ComponentKind.Agent)],
       [edge("B", "H", EdgeKind.Error, { error: LimitError }), edge("H", "M")],
       [],
     );
@@ -155,7 +156,7 @@ describe("#1366: what a side path after a limit reaches", () => {
   });
 
   it("reports one problem once when two handlers say the same", () => {
-    const one = handled(LimitError, [["M", NodeKind.Agent]]);
+    const one = handled(LimitError, [["M", ComponentKind.Agent]]);
     const twice = {
       ...one,
       walked: {
@@ -170,11 +171,11 @@ describe("#1366: what a side path after a limit reaches", () => {
 
 describe("#1366: a join's handler", () => {
   const launch = { launcher: "L", call: "inParallel", listed: ["B1", "B2"], branches: [] };
-  const joined = (error: unknown, after: readonly (readonly [string, NodeKind])[]) => ({
+  const joined = (error: unknown, after: readonly (readonly [string, FlowNodeKind])[]) => ({
     graph: graphOf(
       [
-        node("L", NodeKind.Agent),
-        node("H", NodeKind.Action),
+        node("L", ComponentKind.Agent),
+        node("H", ComponentKind.Action),
         ...after.map(([name, kind]) => node(name, kind)),
       ],
       [
@@ -187,7 +188,7 @@ describe("#1366: a join's handler", () => {
   });
 
   it("names a join's side path that reaches a model call, by the launch", () => {
-    expect(rules(joined(LimitError, [["M", NodeKind.Agent]]))).toEqual([
+    expect(rules(joined(LimitError, [["M", ComponentKind.Agent]]))).toEqual([
       {
         code: "graph.limit-handler-uses-model",
         message: `the join of L → inParallel(B1, B2): .onError(LimitError, …) can catch a limit and reaches M${TAIL}`,
@@ -197,7 +198,7 @@ describe("#1366: a join's handler", () => {
   });
 
   it("takes the join error edge of this launch, this error and this kind only", () => {
-    const base = joined(LimitError, [["M", NodeKind.Agent]]);
+    const base = joined(LimitError, [["M", ComponentKind.Agent]]);
     const nodes = [...base.graph.nodes.values()];
     const otherError = graphOf(
       nodes,
@@ -215,8 +216,8 @@ describe("#1366: a join's handler", () => {
   });
 
   it("finds nothing past a handler that is no limit's, or a join error edge of another launch", () => {
-    expect(rules(joined(RangeError, [["M", NodeKind.Agent]]))).toEqual([]);
-    const other = joined(LimitError, [["M", NodeKind.Agent]]);
+    expect(rules(joined(RangeError, [["M", ComponentKind.Agent]]))).toEqual([]);
+    const other = joined(LimitError, [["M", ComponentKind.Agent]]);
     const elsewhere = graphOf(
       [...other.graph.nodes.values()],
       [edge("L", "H", EdgeKind.JoinError, { error: LimitError, launch: {} }), edge("H", "M")],

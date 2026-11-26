@@ -1,10 +1,10 @@
+import { ComponentKind } from "../../flow/runtime/records.js";
 import { InterruptKind, interruptOf, type InterruptRequest } from "../interrupt-requests.js";
 import { InterruptMode } from "../interrupt-types.js";
-import type { ExecutionLeases, HeldExecutionLease } from "../execution-leases.js";
+import type { ExecutionLeases, HeldExecutionLease, LeaseTake } from "../execution-leases.js";
 import type { Class } from "../../components/injection.js";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import { ExecutionPausedError, ExecutionStoppedError } from "../../app/lease-stopped.js";
-import { NodeKind } from "../../flow/ast.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import type {
   ChildExecutionQueueRepository,
@@ -15,7 +15,6 @@ import { ExecutionRecordStatus } from "../../infrastructure/execution-record.rep
 import type { ExecutionTreeRepository } from "../../infrastructure/execution-tree.repository.js";
 import { seconds, type Milliseconds } from "../../units/index.js";
 import { LeaseTakeoverReason } from "../../infrastructure/execution-audit-log.repository.js";
-import type { LeaseTake } from "../execution-leases.js";
 import type { BuiltApp } from "../create-app.js";
 import type { RuntimePiiPolicy } from "../../pii/runtime-policy.js";
 import { inChainOf } from "../pii-chain.js";
@@ -164,7 +163,7 @@ export function childRegistryOf(workflows: readonly BuiltApp[]): ChildRegistry {
     if (byName.has(deps.config.name)) return;
     byName.set(deps.config.name, deps);
     for (const node of deps.graph.nodes.values()) {
-      if (node.kind !== NodeKind.Workflow || node.component === deps.graph.type) continue;
+      if (node.kind !== ComponentKind.Workflow || node.component === deps.graph.type) continue;
       const child = deps.childDepsOf?.(node.component);
       if (child !== undefined) visit(child);
     }
@@ -173,7 +172,8 @@ export function childRegistryOf(workflows: readonly BuiltApp[]): ChildRegistry {
   for (const workflow of workflows) byName.set(workflow.deps.config.name, workflow.deps);
   for (const workflow of workflows) {
     for (const node of workflow.deps.graph.nodes.values()) {
-      if (node.kind !== NodeKind.Workflow || node.component === workflow.deps.graph.type) continue;
+      if (node.kind !== ComponentKind.Workflow || node.component === workflow.deps.graph.type)
+        continue;
       const child = workflow.deps.childDepsOf?.(node.component);
       if (child !== undefined) visit(child);
     }

@@ -1,7 +1,8 @@
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { StepError } from "../../src/core/error-families/step-errors.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { NodeKind, StepKind, type FlowPath } from "../../src/flow/ast.js";
+import { StepKind, type FlowPath } from "../../src/flow/ast.js";
 import { skip } from "../../src/flow/builder.js";
 import { flowLines } from "../../src/flow/print.js";
 import {
@@ -21,7 +22,7 @@ import { onStart, onAction, toAction, toAgent, toFinish, toRouter } from "../hel
 
 const stepsOf = (): readonly { readonly kind: StepKind }[] => {
   const declaration = declarationOf(InParallelWorkflow);
-  if (declaration?.kind !== NodeKind.Workflow) throw new TypeError("not a workflow");
+  if (declaration?.kind !== ComponentKind.Workflow) throw new TypeError("not a workflow");
   return declaration.options.flow[0]?.steps ?? [];
 };
 
@@ -31,9 +32,9 @@ describe("#1279a: .inParallel([…]) in the AST", () => {
     expect(step).toMatchObject({
       kind: StepKind.InParallel,
       branches: [
-        { target: FirstAction, targetKind: NodeKind.Action, skip: [] },
-        { target: SecondAction, targetKind: NodeKind.Action, skip: [StepError] },
-        { target: ThirdAgent, targetKind: NodeKind.Agent, skip: [] },
+        { target: FirstAction, targetKind: ComponentKind.Action, skip: [] },
+        { target: SecondAction, targetKind: ComponentKind.Action, skip: [StepError] },
+        { target: ThirdAgent, targetKind: ComponentKind.Agent, skip: [] },
       ],
     });
   });
@@ -109,13 +110,13 @@ describe("#1279a: .inParallel([…]) in the AST", () => {
     expect(step).toMatchObject({
       kind: StepKind.InParallel,
       branches: [
-        { target: FirstAction, targetKind: NodeKind.Action },
+        { target: FirstAction, targetKind: ComponentKind.Action },
         {
           target: ChooserRouter,
-          targetKind: NodeKind.Router,
+          targetKind: ComponentKind.Router,
           chooses: [
-            { target: ChosenAAction, targetKind: NodeKind.Action },
-            { target: ChosenBAction, targetKind: NodeKind.Action },
+            { target: ChosenAAction, targetKind: ComponentKind.Action },
+            { target: ChosenBAction, targetKind: ComponentKind.Action },
           ],
         },
       ],

@@ -1,7 +1,7 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { Mocked } from "vitest";
 import type { Class, Token } from "../components/injection.js";
 import type { ContainerOptions } from "../components/container/container.js";
-import { NodeKind } from "../flow/ast.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import { actionOutputClassOf } from "./action-output.js";
 import { ActionCallRecorder, type ActionScript } from "./action-script.js";
@@ -85,7 +85,7 @@ export class TestMocks {
   /** The recorded calls of an action of the application (it still runs). */
   mockAction(action: Class): ActionScript {
     const node = this.nodes.find((item) => item.component === action);
-    if (node?.kind !== NodeKind.Action) {
+    if (node?.kind !== ComponentKind.Action) {
       throw new TestSetupError({
         message: `mockAction(${action.name}): not an action of this application`,
       });

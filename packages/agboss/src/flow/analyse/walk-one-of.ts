@@ -1,5 +1,6 @@
+import { ComponentKind } from "../runtime/records.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { NodeKind, type OneOfStep, type OnFinishStep, type Step } from "../ast.js";
+import type { OneOfStep, OnFinishStep, Step } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
 import type { ComponentName } from "../registry.js";
 import { EdgeKind, outputOf, valueWrite } from "./flow-graph.js";
@@ -80,7 +81,8 @@ export function walkOnFinish(
   if (current === undefined) return;
   recorder.onFinishes.push({ node: current, step });
   const declaration = declarationOf(step.finish);
-  const finish = declaration?.kind === NodeKind.Finish ? declaration.options : undefined;
+  const finish =
+    declaration?.kind === ComponentKind.WorkflowFinish ? declaration.options : undefined;
   const take =
     finish === undefined ? {} : { writes: [valueWrite(finish.output, true)], caseKey: finish.name };
   const inner = branchCursor(cursor, current, take);

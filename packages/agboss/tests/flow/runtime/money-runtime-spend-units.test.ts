@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { StepError } from "../../../src/core/error-families/step-errors.js";
 import { usd } from "../../../src/units/index.js";
 /**
@@ -8,7 +9,6 @@ import { usd } from "../../../src/units/index.js";
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { childRecordOf, type EndedChild } from "../../../src/flow/runtime/child-exit.js";
 import { ChildExecutionStatus } from "../../../src/flow/runtime/child-records.js";
 import {
@@ -91,7 +91,7 @@ describe("#1366: what a visit's outcome and its code's services record", () => {
   });
 
   const limits = (remaining: number) => ({ budgets: { remaining: () => remaining } }) as never;
-  const node = { id: "n", kind: NodeKind.Agent } as never;
+  const node = { id: "n", kind: ComponentKind.Agent } as never;
 
   it("a service's spend is counted at once on the node's path and kept in the order it was reported", () => {
     vi.mocked(countedServiceSpend).mockImplementation(
@@ -152,7 +152,7 @@ describe("#1366: the lost passes a step records", () => {
     const reportUsage = vi.fn();
     const recorded = vi.fn();
     const site = {
-      node: { id: "n", kind: NodeKind.Agent },
+      node: { id: "n", kind: ComponentKind.Agent },
       nodeId: "n#2",
       config: configOf(),
       runId: "run-1",
@@ -181,7 +181,7 @@ describe("#1366: the lost passes a step records", () => {
   });
 
   it("a step that calls no model, or whose task no lost pass concerns, records none", () => {
-    const action = siteOf({ node: { id: "n", kind: NodeKind.Action } });
+    const action = siteOf({ node: { id: "n", kind: ComponentKind.Action } });
     const noLost = siteOf({ config: {} });
     const noServices = siteOf({ services: undefined });
 
@@ -213,7 +213,7 @@ describe("#1366: the lost passes a step records", () => {
     );
     const services: UsageRecord[] = [];
     const run = {
-      node: { id: "n", kind: NodeKind.Agent },
+      node: { id: "n", kind: ComponentKind.Agent },
       ticket: { nodeId: "n#2" },
       config: configOf(),
       state: { runId: "run-1", path: ["a"] },
@@ -329,12 +329,12 @@ describe("#1366: which passes were lost, and which step records them", () => {
 
   it("a router that a model decides records them, one that a class decides, and a step of code, do not", () => {
     const model = siteOf({
-      kind: NodeKind.Router,
-      declaration: { kind: NodeKind.Router, options: { decidedBy: "model" } },
+      kind: ComponentKind.Router,
+      declaration: { kind: ComponentKind.Router, options: { decidedBy: "model" } },
     });
     const code = siteOf({
-      kind: NodeKind.Router,
-      declaration: { kind: NodeKind.Router, options: { decidedBy: "code" } },
+      kind: ComponentKind.Router,
+      declaration: { kind: ComponentKind.Router, options: { decidedBy: "code" } },
     });
 
     recordLostPasses(model.site);

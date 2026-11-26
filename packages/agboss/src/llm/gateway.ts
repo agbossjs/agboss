@@ -37,7 +37,7 @@ export type ChatModelUser =
   | { readonly kind: "pii-policy"; readonly policy: string }
   /** A model reply interpreter (#267 PR 3), with what it reads (a test's `when(…)` matches it). */
   | {
-      readonly kind: "reply-interpreter";
+      readonly kind: "channel-interpreter";
       readonly interpreter: string;
       readonly input: ReplyInterpreterInput;
     }

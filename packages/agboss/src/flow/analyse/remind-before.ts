@@ -1,10 +1,10 @@
+import { ComponentKind } from "../runtime/records.js";
 import { PAUSE_TIMERS_EVERY } from "../../application/pause-timers.js";
 import { isRemindBefore } from "../../channels/channel-rules.js";
 import { pauseTargetOf, type PauseTargetOptions } from "../../channels/pause-targets.js";
 import type { Class } from "../../components/injection.js";
 import { componentOf } from "../../components/metadata.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { NodeKind } from "../ast.js";
 import type { AnalysisContext } from "./rules/context.js";
 
 /**
@@ -20,7 +20,7 @@ const belowTickMessage = (target: string, remindBefore: number): string =>
 /** The tools of the agents of the workflow, each class once. */
 function toolsOf(context: AnalysisContext): readonly Class[] {
   const tools = [...context.graph.nodes.values()].flatMap((node) =>
-    node.declaration.kind === NodeKind.Agent ? (node.declaration.options.tools ?? []) : [],
+    node.declaration.kind === ComponentKind.Agent ? (node.declaration.options.tools ?? []) : [],
   );
   return [...new Set(tools)];
 }
@@ -29,7 +29,7 @@ function toolsOf(context: AnalysisContext): readonly Class[] {
 function targetsOf(context: AnalysisContext): readonly PauseTargetOptions[] {
   const fromSteps = [...context.graph.nodes.values()].flatMap((node) => {
     const options =
-      node.kind === NodeKind.Question ? pauseTargetOf(node.component)?.options : undefined;
+      node.kind === ComponentKind.ExternalTask ? pauseTargetOf(node.component)?.options : undefined;
     return options === undefined ? [] : [options];
   });
   const fromTools = toolsOf(context).flatMap((cls) => {

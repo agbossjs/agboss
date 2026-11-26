@@ -1,5 +1,5 @@
+import { ComponentKind } from "../runtime/records.js";
 import { actionDeclarationOf } from "../analyse/compensation.js";
-import { NodeKind } from "../ast.js";
 import { TablesImport, type ImportTable } from "./imports.js";
 import { outputText, trackedText, propertyName } from "./shapes.js";
 import type { AnalysedWorkflow } from "./tables.js";
@@ -27,7 +27,7 @@ export function offPathUndoActions(
   const found = new Map<string, UndoActionEntry>();
   for (const { analysis } of workflows) {
     for (const node of analysis.graph.nodes.values()) {
-      if (node.declaration.kind !== NodeKind.Action) continue;
+      if (node.declaration.kind !== ComponentKind.Action) continue;
       const undo = node.declaration.options.compensateWith;
       const declaration = actionDeclarationOf(undo);
       if (undo === undefined || declaration === undefined) continue;

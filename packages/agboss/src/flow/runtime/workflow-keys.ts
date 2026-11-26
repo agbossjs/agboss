@@ -4,12 +4,11 @@ import type { WorkflowIdentity } from "./step-frame.js";
 import { configSnapshot } from "../../run/versions.js";
 import { versionOf } from "../../turns/index.js";
 import type { ErrorRecord } from "../../core/error-record.js";
-import { NodeKind } from "../ast.js";
 import type { HandledErrorRecord } from "./child-records.js";
 import type { RuntimeGraph } from "./graph-model.js";
-import { componentKindOf, componentRecordsOf } from "./join-keys.js";
+import { componentRecordsOf } from "./join-keys.js";
 import { bareRecordOf } from "./records.js";
-import type { ComponentKind, ComponentRecord } from "./records.js";
+import { ComponentKind, type ComponentRecord } from "./records.js";
 
 /**
  * The join keys of one workflow at run time (#268 S93): its `configHash` — the one key of the
@@ -56,8 +55,8 @@ export function recordOfNode(
   { components, graph }: ComponentRecords,
   name: string,
 ): ComponentRecord {
-  const kind = graph.nodes.get(name)?.kind ?? NodeKind.Workflow;
-  return recordOfComponent(components, name, componentKindOf(kind));
+  const kind = graph.nodes.get(name)?.kind ?? ComponentKind.Workflow;
+  return recordOfComponent(components, name, kind);
 }
 
 /** A failure a side path took: the node that failed and the first node of the side path. */

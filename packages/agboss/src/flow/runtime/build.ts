@@ -1,3 +1,4 @@
+import { ComponentKind } from "./records.js";
 import { END, Send, START, StateGraph, type BaseCheckpointSaver } from "@langchain/langgraph";
 import { answerReadingOf, loopPoliciesOf } from "./loop-policies.js";
 import { agentDefinitions } from "../../graph/agent-definitions.js";
@@ -15,7 +16,6 @@ import { agentRunner, type AgentLoops } from "./runners/agent.js";
 import type { GraphDeps } from "../../graph/deps.js";
 import type { Class } from "../../components/injection.js";
 import { settledSaverOf, type BudgetMeter } from "../../budgets/execution-budgets.js";
-import { NodeKind } from "../ast.js";
 import { isCodeRouterNode, type RuntimeNode } from "./graph-model.js";
 import { lazyQuestionRunner, type NodeRunner } from "./node-runner.js";
 import { actionRunner } from "./runners/action.js";
@@ -102,29 +102,29 @@ interface Parts {
 
 function runnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Parts): NodeRunner {
   switch (node.kind) {
-    case NodeKind.Start:
+    case ComponentKind.WorkflowStart:
       return startRunner();
-    case NodeKind.Finish:
+    case ComponentKind.WorkflowFinish:
       return finishRunner(node);
-    case NodeKind.Action:
+    case ComponentKind.Action:
       return actionRunner(node, deps);
-    case NodeKind.Router: {
+    case ComponentKind.Router: {
       if (isCodeRouterNode(node)) return codeRouterRunner(node, deps);
       const router = deps.routers.find((loaded) => loaded.name === node.id);
       if (router === undefined) throw new UnknownAgentError(`No router texts for ${node.id}`);
       return routerRunner(node, router, deps.routerFor(router), deps, parts.budgets);
     }
-    case NodeKind.Agent:
-    case NodeKind.Workflow:
+    case ComponentKind.Agent:
+    case ComponentKind.Workflow:
       return subgraphRunnerOf(node, deps, parts);
-    case NodeKind.Question:
+    case ComponentKind.ExternalTask:
       return lazyQuestionRunner(node, deps, parts.budgets);
   }
 }
 
 /** The runner of a node that runs a graph of its own: an agent's loop, a child workflow (#263). */
 function subgraphRunnerOf(node: RuntimeNode, deps: GraphDeps<string>, parts: Parts): NodeRunner {
-  if (node.kind === NodeKind.Agent) {
+  if (node.kind === ComponentKind.Agent) {
     const loops = parts.loops.get(node.id);
     if (loops === undefined) throw new UnknownAgentError(`Unknown agent: ${node.id}`);
     return agentRunner(node, loops, deps);
@@ -148,7 +148,7 @@ function childGraphsOf(
 ): ReadonlyMap<string, ChildGraph> {
   const children = new Map<string, ChildGraph>();
   for (const node of deps.graph.nodes.values()) {
-    if (node.kind !== NodeKind.Workflow) continue;
+    if (node.kind !== ComponentKind.Workflow) continue;
     if (node.component === deps.graph.type) {
       children.set(node.id, recursiveChildOf(deps, self));
       continue;

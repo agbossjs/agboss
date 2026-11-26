@@ -1,6 +1,7 @@
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { StepError } from "../../src/core/error-families/step-errors.js";
 import { describe, expect, it } from "vitest";
-import { NodeKind, StepKind, type FlowPath } from "../../src/flow/ast.js";
+import { StepKind, type FlowPath } from "../../src/flow/ast.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { flowLines } from "../../src/flow/print.js";
 import { workflowOf } from "../../src/components/assemble.js";
@@ -20,7 +21,7 @@ import { onRouter, onStart, toWorkflow } from "./fixtures/paths.js";
 
 const flowOf = (workflow: abstract new () => unknown): readonly FlowPath[] => {
   const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow) throw new TypeError("not a workflow");
+  if (declaration?.kind !== ComponentKind.Workflow) throw new TypeError("not a workflow");
   return declaration.options.flow;
 };
 
@@ -32,9 +33,9 @@ describe("#263: a child workflow in the AST", () => {
     expect(flowOf(JobOfferWorkflow)[0]?.steps).toContainEqual({
       kind: StepKind.To,
       target: CompanyReviewWorkflow,
-      targetKind: NodeKind.Workflow,
+      targetKind: ComponentKind.Workflow,
     });
-    expect(own?.source).toEqual({ kind: NodeKind.Workflow, node: CompanyReviewWorkflow });
+    expect(own?.source).toEqual({ kind: ComponentKind.Workflow, node: CompanyReviewWorkflow });
   });
 
   it("forEachItem(toWorkflow(W), …): one child per item, its options as written", () => {
@@ -43,7 +44,7 @@ describe("#263: a child workflow in the AST", () => {
     );
     expect(launch).toMatchObject({
       kind: StepKind.ForEachItem,
-      branch: { target: CompanyReviewWorkflow, targetKind: NodeKind.Workflow, skip: [] },
+      branch: { target: CompanyReviewWorkflow, targetKind: ComponentKind.Workflow, skip: [] },
       maxConcurrency: 3,
       takeFirst: 50,
     });
@@ -77,7 +78,7 @@ describe("#263: a child workflow in the AST", () => {
 describe("#263: a workflow with a child assembles", () => {
   it("the parent assembles with its child as a node (no flow.child-not-runnable since PR 2)", async () => {
     const bundle = await workflowOf(JobOfferWorkflow);
-    expect(bundle.graph.nodes.get("company-review-workflow")?.kind).toBe(NodeKind.Workflow);
+    expect(bundle.graph.nodes.get("company-review-workflow")?.kind).toBe(ComponentKind.Workflow);
   });
 
   it("the child alone assembles: it is an ordinary workflow", async () => {

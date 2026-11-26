@@ -29,7 +29,9 @@ export type PauseTargetRuleCode =
   | "channel-listener.missing-handler"
   | "channel-listener.unknown-hook"
   | "channel-interpreter.not-an-interpreter"
-  | "channel-interpreter.no-interpret-method";
+  | "channel-interpreter.no-interpret-method"
+  // a decision model cannot read an external task's answer (#267 PR 3), reported at each workflow's assembly
+  | "channel-interpreter.decision-model";
 
 /**
  * Codes of the parallel launches `.inParallel([…])` and `.forEachItem(…)` (#1279, #1280), and of a

@@ -110,7 +110,7 @@ export const questionPauseOf = (
   step: "spending-limit-question-external-task",
   target: "spending-limit-external-task",
   channel: "spending-limit-channel",
-  component: bareRecordOf("spending-limit-question-external-task", ComponentKind.Question),
+  component: bareRecordOf("spending-limit-question-external-task", ComponentKind.ExternalTask),
   input: { item: "laptop", priceUsd: 1200, nested: { tags: ["it", "q4"] } },
 });
 
@@ -124,7 +124,7 @@ export const kindOnlyPausesOf = (): readonly PauseRecord[] => {
     { ...questionPauseOf("pause-k1", "run-1:q:1"), component: undefined },
     {
       ...pauseOf("pause-k2", "run-1:clerk-agent:1:call-9"),
-      component: bareRecordOf("clerk-agent", ComponentKind.Question),
+      component: bareRecordOf("clerk-agent", ComponentKind.ExternalTask),
     },
   ];
 };

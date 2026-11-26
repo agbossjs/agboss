@@ -1,8 +1,8 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { CostReport } from "../finops/usage.js";
 import { hydrated } from "../dto/hydrate.js";
 import { strictMatchOf } from "../dto/schema.js";
 import { listItemClassesOf, plainOutputClassOf } from "../flow/finish-output.js";
-import { NodeKind } from "../flow/ast.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { finishLineParts } from "../flow/runtime/history.js";
 import { ExecutionRecordStatus } from "../infrastructure/execution-record.repository.js";
@@ -28,7 +28,7 @@ function hydratedOutput(
   output: unknown,
 ): unknown {
   const declaration = graph.nodes.get(finish)?.declaration;
-  if (declaration?.kind !== NodeKind.Finish) return output;
+  if (declaration?.kind !== ComponentKind.WorkflowFinish) return output;
   const dto = plainOutputClassOf(declaration.options.output);
   if (dto !== undefined) return hydrated(dto, output);
   const items = listItemClassesOf(declaration.options.output);

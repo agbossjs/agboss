@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { Class } from "../components/injection.js";
 import { budgetOf } from "../budgets/budget.js";
 import { budgetsOfApplication } from "../budgets/budget-rules.js";
@@ -5,7 +6,6 @@ import { BudgetOverlays, type BudgetOverlay } from "../budgets/budget-overlay.js
 import type { FoldedConfig } from "../config/fold-config.js";
 import { ProfileError, ProfileErrorReason } from "../config/profile-error.js";
 import { slotsOf } from "../config/workflow-overlay.js";
-import { NodeKind } from "../flow/ast.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { usd } from "../units/index.js";
@@ -22,7 +22,7 @@ function budgetSlotsOf(folded: FoldedConfig, options: ApplicationOptions): Map<C
   const slots = new Map<Class, Class>();
   for (const workflow of withChildWorkflows(options.workflows)) {
     const declaration = declarationOf(workflow);
-    if (declaration?.kind !== NodeKind.Workflow) continue;
+    if (declaration?.kind !== ComponentKind.Workflow) continue;
     const { budget } = slotsOf(folded, declaration.options.name);
     if (budget !== undefined) slots.set(workflow, budget);
   }

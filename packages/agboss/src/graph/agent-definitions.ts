@@ -1,7 +1,7 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import type { AgentSettingsOf, AgentsConfigOf } from "../config/types.js";
 import { AnswerFiles } from "../files/model-files.js";
-import { NodeKind } from "../flow/ast.js";
 import { answerToolsOf, NO_ANSWER_TOOLS, type AnswerTools } from "../flow/runtime/answer-tools.js";
 import { resolveAgentLimits, type AgentDefinition, type AgentJudge } from "./agent-loop/index.js";
 import type { GraphDeps } from "./deps.js";
@@ -46,7 +46,7 @@ function answerToolsFor<TName extends string>(
   const declaration = deps.graph.nodes.get(name)?.declaration;
   // the files of its answer are picked by number from the ones it saw (#899 §8), unless the developer allowed any
   const isPicking = files?.answerFiles === AnswerFiles.SeenInVisit;
-  return declaration?.kind === NodeKind.Agent
+  return declaration?.kind === ComponentKind.Agent
     ? answerToolsOf(declaration.options.output, isPicking)
     : NO_ANSWER_TOOLS;
 }

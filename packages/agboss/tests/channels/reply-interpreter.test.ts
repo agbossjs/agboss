@@ -148,7 +148,7 @@ describe("#267 AC8: a model interpreter reads a free-text reply", () => {
     const done = await app.resume({ pauseId: payoutPauseId(), reply: "fine" }, manager);
 
     expect(done.spend.byCaller).toMatchObject({
-      "reply-interpreter:payout-reply-interpreter": 0.02,
+      "channel-interpreter:payout-reply-interpreter": 0.02,
     });
     const tenantToday = {
       budget: "test-tenant-daily-budget",

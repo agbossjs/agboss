@@ -1,5 +1,5 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { cascadeDefaults } from "../config/defaults.js";
-import { NodeKind } from "../flow/ast.js";
 import type { WorkflowDefaults } from "../flow/decorators/workflow.js";
 import type { RuntimeGraph } from "../flow/runtime/graph-model.js";
 import { throwIfViolated } from "../graph/rule-error.js";
@@ -57,7 +57,7 @@ export function piiPartsOf(
   resolver?: ModelResolver,
 ): AssembledPii {
   const routers = [...graph.nodes.values()].flatMap((node) =>
-    node.declaration.kind === NodeKind.Router ? [node.declaration.options] : [],
+    node.declaration.kind === ComponentKind.Router ? [node.declaration.options] : [],
   );
   const { pii, violations } = piiAssemblyOf({
     workflowName: bundle.name,

@@ -1,4 +1,4 @@
-import { NodeKind } from "../../flow/ast.js";
+import { ComponentKind } from "../../flow/runtime/records.js";
 import type { CompensationEntry, CompensationReason } from "../../flow/compensation.js";
 import { COMPENSATION_TIMEOUT } from "../../flow/compensation.js";
 import type { ExecutionFacts, FrameLease } from "../../flow/context/frame.js";
@@ -44,7 +44,7 @@ export function depsOfNamespace(deps: GraphDeps<string>, namespace: string): Gra
     const parts = segment.split(":");
     // Stryker disable next-line StringLiteral: `split` always gives a first part, so the fallback is never read
     const node = current.graph.nodes.get(parts[0] ?? "");
-    if (node?.kind !== NodeKind.Workflow) break;
+    if (node?.kind !== ComponentKind.Workflow) break;
     if (node.component !== current.graph.type)
       current = current.childDepsOf?.(node.component) ?? current;
   }

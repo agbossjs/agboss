@@ -1,5 +1,5 @@
+import { ComponentKind } from "../runtime/records.js";
 import type { Class } from "../../components/injection.js";
-import { NodeKind } from "../ast.js";
 import { declarationOf, type ActionDeclaration } from "../decorators/declaration.js";
 import type { ComponentName } from "../registry.js";
 import type { FlowGraph, FlowNode } from "./flow-graph.js";
@@ -22,7 +22,7 @@ export interface UndoableAction {
 export function actionDeclarationOf(component: Class | undefined): ActionDeclaration | undefined {
   if (component === undefined) return undefined;
   const declaration = declarationOf(component);
-  return declaration?.kind === NodeKind.Action ? declaration : undefined;
+  return declaration?.kind === ComponentKind.Action ? declaration : undefined;
 }
 
 /** An undoable action: its own declaration, and its undo action's class and declaration. */
@@ -55,7 +55,7 @@ export const componentLabel = (component: Class | undefined): string =>
 export function compensatingNodes(graph: FlowGraph): readonly FlowNode[] {
   return [...graph.nodes.values()].filter((node) => {
     const { declaration } = node;
-    if (declaration.kind !== NodeKind.Action) return false;
+    if (declaration.kind !== ComponentKind.Action) return false;
     return "compensateWith" in declaration.options || "committedBy" in declaration.options;
   });
 }

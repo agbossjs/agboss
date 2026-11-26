@@ -42,7 +42,7 @@ a checkpoint against a release:
 | Key                                      | Where                                                         | What                                                                                                                                      |
 | ---------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `configHash`                             | `event.workflow`, `executionContext.workflow`, records        | the one key of the workflow: the fingerprint of its config, flow and every text its models read                                           |
-| `component.kind`                         | `event.step.component`, `finish`, errors, handled errors      | `ComponentKind`: `WorkflowStart`, `Agent`, `Router`, `Action`, `WorkflowFinish`, `Workflow`, `Budget`, …                                  |
+| `component.kind`                         | `event.step.component`, `finish`, errors, handled errors      | `ComponentKind`, stored as the decorator's kebab-case name (`agent`, `external-task`, `channel-interpreter`, …)                       |
 | `component.promptHash`                   | the same                                                      | the hash of what its model is told (an agent's instructions, a model router's prompt and routes); `undefined` without a model             |
 | `component.schemaHash`                   | the same                                                      | the hash of what it reads and writes (`input` fields, `output`), each DTO by its JSON Schema's hash; `undefined` when it declares neither |
 | `step.toolLoopIteration`                 | `event.step`, `executionContext.step`, `record.pauses[].step` | an agent's model call in the visit, from 1 — during the call and the tool calls its move asks for; `undefined` elsewhere                  |
@@ -418,7 +418,7 @@ PauseResolution`, `askedAt`, `resolvedAt`, `decision`),
 the decision masked like the rest of the record ([Pauses → who answered](Pauses#who-answered-resultrecordpauses)).
 `onExecutionResume` still names each decision a pass takes and its `actor`. A reply
 interpreter's model call (#267 PR 3) is traced under the pause's execution (its tenant and root
-execution in the trace's metadata) and its cost is in `spend` under `reply-interpreter:<name>` —
+execution in the trace's metadata) and its cost is in `spend` under `channel-interpreter:<name>` —
 not an agent model call (no `onModelStart` / `onModelEnd`). It runs in the pause's execution frame
 (its tenant for the rate limits) and its model reads through the application's and the workflow's
 PII policies. The record's `pauses` come from the execution records

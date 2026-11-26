@@ -1,5 +1,5 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { ComponentOptions } from "../components/component-options.js";
-import { NodeKind } from "../flow/ast.js";
 import { maxConcurrencyUnder } from "../flow/decorators/workflow.js";
 import { stepsRangeOf } from "../flow/analyse/steps.js";
 import type { WorstCase } from "../flow/analyse/worst-case.js";
@@ -60,7 +60,7 @@ export const worstCaseLimitsOf = (limits: DescribedLimits): WorstCaseLimits => (
 /** `maxConcurrency 6 (set)` — for a workflow that launches children: it has a tree. */
 function concurrencyLines(bundle: AssembledWorkflow, limits: DescribedLimits): string[] {
   const hasChildren = [...bundle.graph.nodes.values()].some(
-    (node) => node.kind === NodeKind.Workflow,
+    (node) => node.kind === ComponentKind.Workflow,
   );
   if (!hasChildren) return [];
   const source = limits.isMaxConcurrencySet ? "set" : "default";
