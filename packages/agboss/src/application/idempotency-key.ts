@@ -1,6 +1,5 @@
-import { ConfigError } from "../core/error-families/config-errors.js";
 import { IdempotencyError } from "../core/error-families/effect-errors.js";
-import { missingVariable } from "../environments/environment-rules.js";
+import { missingVariableError } from "../environments/environment-rules.js";
 import type { OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
 import { OptionalSecretReference, variableOfSecretRef } from "../environments/secret.js";
 import type { FingerprintKeys } from "../infrastructure/fenced-effect-key.js";
@@ -37,11 +36,9 @@ function storageSecretOf(
   // never a key of the framework's own: a declared secret that is not set fails the start
   if (raw !== undefined && raw !== "") return raw;
   if (isOptionalRef(ref)) return undefined;
-  throw new ConfigError.Environment({
-    message: missingVariable(
-      `${application}: @DatabaseStorage({ ${option} }) has no value — ${variable} is not set`,
-    ),
-  });
+  throw missingVariableError(
+    `${application}: @DatabaseStorage({ ${option} }) has no value — ${variable} is not set`,
+  );
 }
 
 /** Whether a reference is `secret.optional(…)`: it may be unset. */

@@ -1,7 +1,6 @@
-import { ConfigError } from "../core/error-families/config-errors.js";
 import { inspect } from "node:util";
 import type { OptionalSecretRef, SecretRef } from "./env-ref.js";
-import { missingVariable } from "./environment-rules.js";
+import { missingVariableError } from "./environment-rules.js";
 
 /** What a `Secret` prints as, everywhere: logs, traces, JSON, `agboss describe`, error messages. */
 export const SECRET_MASK = "***";
@@ -40,11 +39,9 @@ export class Secret {
   /** The value itself — the only way to it; read it where it is used, never to store or print it. */
   reveal(): string {
     if (this.#value === undefined) {
-      throw new ConfigError.Environment({
-        message: missingVariable(
-          `the secret from ${this.#variable} is not resolved: read it from the application's defineEnv values (deps: [appEnv]), not from the reference`,
-        ),
-      });
+      throw missingVariableError(
+        `the secret from ${this.#variable} is not resolved: read it from the application's defineEnv values (deps: [appEnv]), not from the reference`,
+      );
     }
     return this.#value;
   }

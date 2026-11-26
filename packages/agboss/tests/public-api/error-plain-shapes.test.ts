@@ -30,12 +30,14 @@ describe("#906 D1: the platform classes stay", () => {
 
   it("an environment error's code is config.environment; its message names the rule", () => {
     const environment = new ConfigError.Environment({
+      envCode: "environment.missing-variable",
       message: "[environment.missing-variable] STRIPE_KEY is not set",
     });
 
     expect(environment).toBeInstanceOf(AGBossError);
     expect(environment.code).toBe("config.environment");
     expect(environment.message).toContain("[environment.missing-variable]");
+    expect(environment.envCode).toBe("environment.missing-variable");
   });
 
   it("a test failure's message starts with its code; its subclasses carry their facts", () => {

@@ -1,5 +1,5 @@
 import { ConfigError } from "../core/error-families/config-errors.js";
-import { missingVariable } from "../environments/environment-rules.js";
+import { missingVariableError } from "../environments/environment-rules.js";
 import type { OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
 import { OptionalSecretReference, variableOfSecretRef } from "../environments/secret.js";
 import { violation } from "../graph/rule-error.js";
@@ -65,11 +65,9 @@ function storageSecretOf(
   const variable = variableOfSecretRef(ref);
   const value = variableIn(source.env, variable) ?? fallback;
   if (value !== undefined || ref instanceof OptionalSecretReference) return value;
-  throw new ConfigError.Environment({
-    message: missingVariable(
-      `${source.application}: @DatabaseStorage({ ${option} }) has no value — ${variable} is not set`,
-    ),
-  });
+  throw missingVariableError(
+    `${source.application}: @DatabaseStorage({ ${option} }) has no value — ${variable} is not set`,
+  );
 }
 
 /** `[pii.secret-required]`: something tokenizes and no key is named. Names only, never a value. */

@@ -1,6 +1,6 @@
 import { ConfigError } from "../core/error-families/config-errors.js";
 import type { EnvContract, EnvSpec, InferEnv, ReservedEnvKey, SecretRef } from "./env-ref.js";
-import { invalidValue, missingVariable } from "./environment-rules.js";
+import { invalidValueError, missingVariableError } from "./environment-rules.js";
 import {
   isResolvedSecret,
   OptionalSecretReference,
@@ -9,6 +9,9 @@ import {
   variableOfSecret,
 } from "./secret.js";
 import { VariablePresence, VariableReference } from "./variables.js";
+import { overriddenOf, overridesOf, type EnvOverrides } from "./overrides.js";
+
+export { processEnvWith, type EnvOverrides } from "./overrides.js";
 
 /**
  * `defineEnv` (#1324): the one place an application reads its process variables. It returns a dictionary of
@@ -55,12 +58,6 @@ export function defineEnv<const TSpec extends EnvSpec>(spec: {
   return Object.freeze(dictionary) as EnvContract<TSpec>;
 }
 
-/** Values given in place of the process's, per key (a test's, a profile's). */
-export interface EnvOverrides<TContract extends EnvContract> {
-  readonly contract: TContract;
-  readonly values: Readonly<Partial<Record<keyof TContract & string, unknown>>>;
-}
-
 /** `configureEnv(appEnv, { region: "eu" })`: overrides tied to one `defineEnv`, so two never collide on a key. */
 export const configureEnv = <TContract extends EnvContract>(
   contract: TContract,
@@ -91,6 +88,7 @@ function secretValueOf(
   const isOptional = ref instanceof OptionalSecretReference;
   const variable = isOptional ? ref.variable : variableOfSecret(ref);
   const raw = present(processEnv, variable);
+  if (raw === undefined && !isOptional && problems.deferred) return ref;
   if (raw === undefined && !isOptional) problems.missing.push(`${variable} is not set (${key})`);
   return raw === undefined ? undefined : resolvedSecret(variable, raw);
 }
@@ -121,6 +119,10 @@ function valueOf(
   processEnv: NodeJS.ProcessEnv,
   problems: Problems,
 ): unknown {
+  // a `configureEnv` value stands in for the process's, wherever the reference is read: in a
+  // `defineEnv`, a storage's driver, a model provider's, a mesh's, an A2A agent's or an MCP server's options
+  const given = overridesOf(processEnv);
+  if (given?.has(ref)) return overriddenOf(ref, given.get(ref), key, problems);
   if (ref instanceof Secret || ref instanceof OptionalSecretReference)
     return secretValueOf(ref, processEnv, problems, key);
   return ref instanceof VariableReference
@@ -133,16 +135,21 @@ class Problems {
   readonly missing: string[] = [];
   readonly invalid: string[] = [];
 
+  /** `deferred`: a secret whose variable is unset stays an unresolved `Secret` (types and assembly need no key, #266). */
+  constructor(readonly deferred = false) {}
+
   throwIfAny(): void {
     if (this.missing.length > 0)
-      throw new ConfigError.Environment({
-        message: this.missing.map(missingVariable).join("; "),
-      });
+      throw missingVariableError(this.missing.join("; [environment.missing-variable] "));
     if (this.invalid.length > 0)
-      throw new ConfigError.Environment({
-        message: this.invalid.map(invalidValue).join("; "),
-      });
+      throw invalidValueError(this.invalid.join("; [environment.invalid-value] "));
   }
+}
+
+/** How `resolveEnv` treats what it cannot resolve. */
+export interface ResolveEnvOptions {
+  /** `deferred`: a secret whose variable is unset stays an unresolved `Secret`, no problem (types and describe need no key). */
+  readonly secrets?: "required" | "deferred";
 }
 
 /**
@@ -153,26 +160,21 @@ export function resolveEnv<TContract extends EnvContract>(
   contract: TContract,
   processEnv: NodeJS.ProcessEnv,
   overrides?: EnvOverrides<TContract>,
+  options: ResolveEnvOptions = {},
 ): InferEnv<TContract> {
-  const problems = new Problems();
+  const problems = new Problems(options.secrets === "deferred");
   const given: Readonly<Record<string, unknown>> = overrides?.values ?? {};
   const values = Object.fromEntries(
     Object.entries(contract).map(([key, ref]) => [
       key,
       Object.hasOwn(given, key)
-        ? overriddenOf(ref, given[key])
+        ? overriddenOf(ref, given[key], key, problems)
         : valueOf(key, ref, processEnv, problems),
     ]),
   );
   problems.throwIfAny();
   return Object.freeze(values) as InferEnv<TContract>;
 }
-
-/** An override: a text given for a secret becomes a `Secret`; any other value is the value. */
-const overriddenOf = (ref: unknown, value: unknown): unknown =>
-  typeof value === "string" && (ref instanceof Secret || ref instanceof OptionalSecretReference)
-    ? resolvedSecret("(override)", value)
-    : value;
 
 /** Whether `value` is an object literal (or one without a prototype): what a settings object is. */
 const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -217,3 +219,13 @@ export function resolveReferences(
   problems.throwIfAny();
   return Object.freeze(resolved);
 }
+
+/** A container's `envOf` for a process's variables (default: the real one): what `deps: [appEnv]` reads. */
+export const envOfProcess =
+  (processEnv: NodeJS.ProcessEnv = process.env) =>
+  (contract: EnvContract): unknown =>
+    resolveEnv(contract, processEnv);
+
+/** A container's `envOf` with secrets left unresolved: `agboss check` and `describe` need no key (#266). */
+export const deferredEnvOf = (contract: EnvContract): unknown =>
+  resolveEnv(contract, process.env, undefined, { secrets: "deferred" });

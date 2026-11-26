@@ -51,6 +51,9 @@ describe("#906 D1: every error class has a literal code on its instance", () => 
     expectTypeOf<CassetteMissingError["code"]>().toEqualTypeOf<"test.cassette-missing">();
     expectTypeOf<AppCloseTimeoutError["code"]>().toEqualTypeOf<"test.close-timeout">();
     expectTypeOf<ConfigError.Environment["code"]>().toEqualTypeOf<"config.environment">();
+    expectTypeOf<ConfigError.Environment["envCode"]>().toEqualTypeOf<
+      "environment.missing-variable" | "environment.invalid-value" | undefined
+    >();
   });
 
   it("a store set's refusal narrows over its first problem's rule", () => {

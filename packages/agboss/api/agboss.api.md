@@ -1724,7 +1724,9 @@ export namespace ConfigError {
     export type CircuitBreakerPolicy = ErrorVariant<ConfigErrorKind.CircuitBreakerPolicy, "config.circuit-breaker-policy">;
     export type Component = ErrorVariant<ConfigErrorKind.Component, "config.component">;
     export type Dto = ErrorVariant<ConfigErrorKind.Dto, "config.dto">;
-    export type Environment = ErrorVariant<ConfigErrorKind.Environment, "config.environment">;
+    export type Environment = ErrorVariant<ConfigErrorKind.Environment, "config.environment"> & {
+        readonly envCode?: "environment.missing-variable" | "environment.invalid-value" | undefined;
+    };
     export type EvalCase = ErrorVariant<ConfigErrorKind.EvalCase, "config.eval-case"> & {
         readonly suite?: string | undefined;
         readonly issues?: readonly EvalCaseIssue[] | undefined;
@@ -10347,8 +10349,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/core/result.ts - (ae-undocumented) Missing documentation for "value".
 // src/core/result.ts - (ae-undocumented) Missing documentation for "ok".
 // src/core/result.ts - (ae-undocumented) Missing documentation for "error".
-// src/environments/define-env.ts - (ae-undocumented) Missing documentation for "contract".
-// src/environments/define-env.ts - (ae-undocumented) Missing documentation for "values".
 // src/environments/define-env.ts - (ae-undocumented) Missing documentation for "kind".
 // src/environments/define-env.ts - (ae-undocumented) Missing documentation for "secret".
 // src/environments/define-env.ts - (ae-undocumented) Missing documentation for "bearer".
@@ -10365,6 +10365,8 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/environments/env-ref.ts - (ae-undocumented) Missing documentation for "variable".
 // src/environments/env-ref.ts - (ae-undocumented) Missing documentation for "[optionalSecretRefBrand]".
 // src/environments/env-ref.ts - (ae-undocumented) Missing documentation for "variable".
+// src/environments/overrides.ts - (ae-undocumented) Missing documentation for "contract".
+// src/environments/overrides.ts - (ae-undocumented) Missing documentation for "values".
 // src/environments/secret.ts - (ae-undocumented) Missing documentation for "toString".
 // src/environments/secret.ts - (ae-undocumented) Missing documentation for "toJSON".
 // src/environments/secret.ts - (ae-undocumented) Missing documentation for "[inspect.custom]".

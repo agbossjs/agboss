@@ -110,6 +110,7 @@ describe("#1324b: resolveEnv reads the process once, typed", () => {
 
     expect(error).toBeInstanceOf(ConfigError.Environment);
     expect(error.message).toContain("[environment.missing-variable] REGION is not set");
+    expect(error.envCode).toBe("environment.missing-variable");
     for (const variable of ["REGION", "RATIO", "DEADLINE", "HISTORY_TTL", "API_KEY"])
       expect(error.message).toContain(variable);
     expect(error.message).not.toContain("TOKEN");
@@ -121,6 +122,7 @@ describe("#1324b: resolveEnv reads the process once, typed", () => {
     );
 
     expect(error.message).toContain("[environment.invalid-value] DEADLINE is not a duration");
+    expect(error.envCode).toBe("environment.invalid-value");
     expect(error.message).toContain("DEADLINE is not a duration");
     expect(error.message).toContain("AUDIT_TTL is not a duration");
     expect(error.message).toContain("PORT is not an integer");

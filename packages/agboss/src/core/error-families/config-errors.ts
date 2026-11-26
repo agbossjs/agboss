@@ -107,7 +107,10 @@ export declare namespace ConfigError {
    * or whose value does not fit `[environment.invalid-value]` — the message names the rule and the
    * variable, never a value.
    */
-  export type Environment = ErrorVariant<ConfigErrorKind.Environment, "config.environment">;
+  export type Environment = ErrorVariant<ConfigErrorKind.Environment, "config.environment"> & {
+    /** The rule it breaks, as the message's `[…]` names it: an unset variable, or a value that does not fit. */
+    readonly envCode?: "environment.missing-variable" | "environment.invalid-value" | undefined;
+  };
   /** A profile is not valid. */
   export type Profile = ErrorVariant<ConfigErrorKind.Profile, "config.profile">;
   /** A model provider is not valid. */
