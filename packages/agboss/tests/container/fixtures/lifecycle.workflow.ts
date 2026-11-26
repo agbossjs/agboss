@@ -129,9 +129,7 @@ export class SearchWorkflowFinish {}
   name: "lifecycle-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(SearchWorkflowStart)
-    .toAgent(ScoutAgent)
-    .toFinish(SearchWorkflowFinish)],
+  flow: [onStart(SearchWorkflowStart).toAgent(ScoutAgent).toFinish(SearchWorkflowFinish)],
   providers: [JobIndexService, ConnectionPoolProvider],
 })
 export class LifecycleWorkflow {}
@@ -181,9 +179,7 @@ export class BrokenScoutAgent {}
   name: "broken-lifecycle-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(SearchWorkflowStart)
-    .toAgent(BrokenScoutAgent)
-    .toFinish(SearchWorkflowFinish)],
+  flow: [onStart(SearchWorkflowStart).toAgent(BrokenScoutAgent).toFinish(SearchWorkflowFinish)],
   providers: [BrokenPoolProvider],
 })
 export class BrokenLifecycleWorkflow {}

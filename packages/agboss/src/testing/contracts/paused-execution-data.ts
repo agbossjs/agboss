@@ -180,6 +180,15 @@ export const seenNow = async (
   return found === undefined ? { trailLength: 0, isSent: false } : seenOf(found);
 };
 
+/** A channel's decision at once over the pause as the store holds it now (`seen` read at this moment). */
+export const decideNow = async (
+  store: Pick<PausedExecutionRepository, "findByTenantIdAndPauseId" | "decideByTenantIdAndPauseId">,
+  pauseId: string,
+  answer: PauseAnswer,
+  at: Date,
+): Promise<boolean> =>
+  store.decideByTenantIdAndPauseId("default", pauseId, answer, at, await seenNow(store, pauseId));
+
 /** A reassignment (or the like) with `seen` read at this moment. */
 export const withSeenNow = async <C extends object>(
   store: Pick<PausedExecutionRepository, "findByTenantIdAndPauseId">,

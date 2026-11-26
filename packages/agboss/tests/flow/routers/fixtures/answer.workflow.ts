@@ -128,10 +128,8 @@ export class AskRouter {
     onStart(AskWorkflowStart)
       .toRouter(AskRouter)
       .onError(LedgerDownError, toFinish(HeldWorkflowFinish))
-      .onRoute(toAction(LeftAction)
-        .toFinish(DoneWorkflowFinish))
-      .onRoute(toAction(RightAction)
-        .toFinish(DoneWorkflowFinish)),
+      .onRoute(toAction(LeftAction).toFinish(DoneWorkflowFinish))
+      .onRoute(toAction(RightAction).toFinish(DoneWorkflowFinish)),
   ],
 })
 export class AskWorkflow {}
@@ -154,10 +152,8 @@ export class AskApplication {}
     onStart(AskWorkflowStart)
       .toRouter(AskRouter)
       .onError(StepError, toFinish(RefusedWorkflowFinish))
-      .onRoute(toAction(LeftAction)
-        .toFinish(DoneWorkflowFinish))
-      .onRoute(toAction(RightAction)
-        .toFinish(DoneWorkflowFinish)),
+      .onRoute(toAction(LeftAction).toFinish(DoneWorkflowFinish))
+      .onRoute(toAction(RightAction).toFinish(DoneWorkflowFinish)),
   ],
 })
 export class AskCaughtWorkflow {}

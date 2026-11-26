@@ -25,6 +25,7 @@ import {
   pauseOf,
   RECIPIENTS,
   pausedRunOf,
+  decideNow,
 } from "../../src/testing/contracts/paused-execution-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 
@@ -131,7 +132,7 @@ describe("#939: closeTreePauses", () => {
     const { pauses, answers, ends } = storesOf();
     await pauses.findOrCreateByStepKey(pauseOf("p-wait", "run-1:clerk-agent:1:call-1"));
     await pauses.findOrCreateByStepKey(pauseOf("p-done", "run-1:clerk-agent:1:call-2"));
-    await pauses.decideByTenantIdAndPauseId("default", "p-done", APPROVED_BY_MANAGER, AT);
+    await decideNow(pauses, "p-done", APPROVED_BY_MANAGER, AT);
     const end = { cause: new ExecutionCancelledError() };
 
     await closeTreePauses(ends, SITE, end, AT);

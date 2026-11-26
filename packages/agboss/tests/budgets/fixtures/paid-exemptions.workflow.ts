@@ -92,9 +92,7 @@ export class HeldLimitWorkflowStart {}
       .toAction(NoteOrderAction)
       .onError(
         LimitError.Budget,
-        toAction(HoldOrderAction)
-          .toAction(NotifyOrderAction)
-          .toFinish(LimitNotedWorkflowFinish),
+        toAction(HoldOrderAction).toAction(NotifyOrderAction).toFinish(LimitNotedWorkflowFinish),
       )
       .toFinish(LimitNotedWorkflowFinish),
   ],
@@ -145,8 +143,7 @@ export class RefundStepWorkflowFinish {}
       .toAction(CheckOrderAction)
       .onError(OrderDeclinedError, toAction(RefundOrderAction))
       .toAction(RefundOrderAction),
-    onAction(RefundOrderAction)
-      .toFinish(RefundStepWorkflowFinish),
+    onAction(RefundOrderAction).toFinish(RefundStepWorkflowFinish),
   ],
 })
 export class RefundStepWorkflow {}
@@ -196,8 +193,7 @@ export class NestedLimitWorkflowFinish {}
         toAction(RejectOrderAction)
           .onError(
             OrderDeclinedError,
-            toAction(NotifyOrderAction)
-              .toFinish(NestedLimitWorkflowFinish),
+            toAction(NotifyOrderAction).toFinish(NestedLimitWorkflowFinish),
           )
           .toFinish(RefundStepWorkflowFinish),
       )
@@ -222,8 +218,7 @@ export class RefundToldWorkflowFinish {}
       .toAction(BookOrderAction)
       .toAction(CheckOrderAction)
       .toAction(RefundOrderAction)
-      .onError(LimitError.Budget, toAction(TellOrderAction)
-        .toFinish(RefundToldWorkflowFinish))
+      .onError(LimitError.Budget, toAction(TellOrderAction).toFinish(RefundToldWorkflowFinish))
       .toFinish(RefundStepWorkflowFinish),
   ],
 })

@@ -81,9 +81,7 @@ export function workflowWith(name: string, providers: readonly Provider[] = []):
       tools: { maxToolCalls: 2 },
     },
     memory: Window1Memory,
-    flow: [onStart(Start)
-      .toAgent(Worker)
-      .toFinish(Finish)],
+    flow: [onStart(Start).toAgent(Worker).toFinish(Finish)],
     providers: [AuditService, ...providers],
   })
   class ObservedWorkflow {}

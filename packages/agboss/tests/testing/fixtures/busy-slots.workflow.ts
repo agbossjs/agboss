@@ -1,12 +1,5 @@
 import { Text, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import {
-  Agent,
-  Workflow,
-  WorkflowFinish,
-  WorkflowStart,
-  inline,
-  Ttl,
-} from "../../../src/index.js";
+import { Agent, Workflow, WorkflowFinish, WorkflowStart, inline, Ttl } from "../../../src/index.js";
 import { Application } from "../../../src/application/application.js";
 import { TEST_BUDGETS } from "../../flow/fixtures/budgets.js";
 import { onStart } from "../../helpers/flow.js";
@@ -51,9 +44,7 @@ export class ChunkWorkflowFinish {}
   name: "chunk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(ChunkWorkflowStart)
-    .toAgent(ChunkWorkerAgent)
-    .toFinish(ChunkWorkflowFinish)],
+  flow: [onStart(ChunkWorkflowStart).toAgent(ChunkWorkerAgent).toFinish(ChunkWorkflowFinish)],
 })
 export class ChunkWorkflow {}
 

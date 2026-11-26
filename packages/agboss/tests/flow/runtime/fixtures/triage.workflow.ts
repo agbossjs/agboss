@@ -116,13 +116,10 @@ export class TicketStart {}
     onStart(TicketStart)
       .toAction(ClassifyAction)
       .toOneOf([
-        toAction(TakeBugAction)
-          .toAction(ReportFinishAction),
-        toAction(TakeQuestionAction)
-          .toAction(ReportFinishAction),
+        toAction(TakeBugAction).toAction(ReportFinishAction),
+        toAction(TakeQuestionAction).toAction(ReportFinishAction),
       ]),
-    onAction(ReportFinishAction)
-      .toFinish(ReportFinish),
+    onAction(ReportFinishAction).toFinish(ReportFinish),
   ],
 })
 export class TriageWorkflow {}

@@ -90,11 +90,7 @@ const MODEL_PROVIDERS = [TestDecisionsProvider, LocalModelProvider];
   name: "memory-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskStart)
-    .toAgent(Recaller)
-    .toAgent(Windowed)
-    .toAgent(Noter)
-    .toFinish(Answer)],
+  flow: [onStart(TaskStart).toAgent(Recaller).toAgent(Windowed).toAgent(Noter).toFinish(Answer)],
   defaults: DEFAULTS,
   memory: Window4Memory,
 })
@@ -130,9 +126,7 @@ export class DeskMemory {}
   name: "compacting-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskStart)
-    .toAgent(Recaller)
-    .toFinish(Recalled)],
+  flow: [onStart(TaskStart).toAgent(Recaller).toFinish(Recalled)],
   defaults: DEFAULTS,
   memory: DeskMemory,
 })

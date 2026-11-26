@@ -390,8 +390,7 @@ export class SlowExpiryWorkflowStart {}
       .toExternalTask(SlowManagerExternalTask)
       .onError(
         StepError.PauseExpired,
-        toAction(SlowEscalationAction)
-          .toFinish(ExpiryWorkflowFinish),
+        toAction(SlowEscalationAction).toFinish(ExpiryWorkflowFinish),
       )
       .toAction(RecordExpiryAction)
       .toFinish(ExpiryWorkflowFinish),

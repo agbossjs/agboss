@@ -67,8 +67,7 @@ export class PickAgainRouter {
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(PickLoopWorkflowStart)
-      .toAgent(ItemPickerAgent),
+    onStart(PickLoopWorkflowStart).toAgent(ItemPickerAgent),
     onAgent(ItemPickerAgent)
       .toWorkflow(ItemCheckWorkflow)
       .toRouter(PickAgainRouter)

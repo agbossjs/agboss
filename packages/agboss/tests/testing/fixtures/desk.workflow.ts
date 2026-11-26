@@ -102,8 +102,7 @@ export const NOTES_DIR = tmpdir();
 
 const FILESYSTEM_SERVER = join(
   dirname(
-    createRequire(import.meta.url)
-      .resolve("@modelcontextprotocol/server-filesystem/package.json"),
+    createRequire(import.meta.url).resolve("@modelcontextprotocol/server-filesystem/package.json"),
   ),
   "dist",
   "index.js",
@@ -248,10 +247,8 @@ export class MainRouter {}
   flow: [
     onStart(ChatStart)
       .toRouter(MainRouter)
-      .onRoute(toAgent(Support)
-        .toFinish(Reply))
-      .onRoute(toAgent(Writer)
-        .toFinish(Reply))
+      .onRoute(toAgent(Support).toFinish(Reply))
+      .onRoute(toAgent(Writer).toFinish(Reply))
       .onRoute(toFinish(NoReply)),
   ],
   defaults: {

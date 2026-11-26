@@ -133,15 +133,12 @@ export class LoopWorkflowFinish {}
   memory: Window5Memory,
   executionLimits: { maxSteps: 30 },
   flow: [
-    onStart(LoopWorkflowStart)
-      .toAgent(LoopResearcherAgent)
-      .toAgent(LoopWriterAgent),
+    onStart(LoopWorkflowStart).toAgent(LoopResearcherAgent).toAgent(LoopWriterAgent),
     onAgent(LoopWriterAgent)
       .toAgent(LoopReviewerAgent)
       .toOneOf([
         toAgent(LoopWriterAgent),
-        toAgent(LoopPublisherAgent)
-          .toFinish(LoopWorkflowFinish),
+        toAgent(LoopPublisherAgent).toFinish(LoopWorkflowFinish),
       ]),
   ],
 })
@@ -251,8 +248,7 @@ export class JobsRouter {}
   memory: Window5Memory,
   executionLimits: { maxSteps: 20 },
   flow: [
-    onStart(JobsWorkflowStart)
-      .toAgent(ProfileAgent),
+    onStart(JobsWorkflowStart).toAgent(ProfileAgent),
     onAgent(ProfileAgent)
       .toAgent(SearchAgent)
       .toAgent(ScoreAgent)

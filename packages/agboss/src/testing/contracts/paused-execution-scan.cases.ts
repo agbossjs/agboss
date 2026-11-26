@@ -8,6 +8,7 @@ import {
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
 import {
+  decideNow,
   APPROVED_BY_MANAGER,
   DECIDED_ANSWER,
   expiringPauseOf,
@@ -103,7 +104,7 @@ export const SCAN_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
       await first.resolveByTenantIdAndPauseId("acme", "p1", APPROVED_BY_MANAGER, NINE, {
         listeners: [],
       });
-      await first.decideByTenantIdAndPauseId("default", "p2", DECIDED_ANSWER, NINE);
+      await decideNow(first, "p2", DECIDED_ANSWER, NINE);
       await first.cancelByTenantIdAndPauseId("acme", "p3", PauseResolution.Cancelled, NINE, {
         listeners: [],
       });
@@ -126,7 +127,7 @@ export const SCAN_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
           target: n % 2 === 0 ? "other-tool-approval" : "refund-tool-approval",
         });
       await first.findOrCreateByStepKey(dueAt(5, "acme"));
-      await first.decideByTenantIdAndPauseId("default", "p4", DECIDED_ANSWER, NINE);
+      await decideNow(first, "p4", DECIDED_ANSWER, NINE);
       const page = (
         filter: Parameters<Store["findPageByTenantId"]>[1],
         limit = 10,
@@ -153,8 +154,7 @@ export const SCAN_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
     name: "records removed between two pages: the next page skips none",
     run: async ({ first, second }: Instances): Promise<void> => {
       for (const n of [0, 1, 2, 3, 4]) await first.findOrCreateByStepKey(dueAt(n));
-      for (const n of [0, 1])
-        await first.decideByTenantIdAndPauseId("default", `p${String(n)}`, DECIDED_ANSWER, NINE);
+      for (const n of [0, 1]) await decideNow(first, `p${String(n)}`, DECIDED_ANSWER, NINE);
       const statuses = [PauseStatus.Pending, PauseStatus.Taken];
       const one = await second.findPageByTenantId("default", { statuses }, 2);
 

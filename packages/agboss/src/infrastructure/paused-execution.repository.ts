@@ -9,6 +9,7 @@ import type {
   PauseRecipients,
   PauseReassignmentChange,
   PauseScanAfter,
+  PauseSeen,
   PauseTimeoutChange,
   SetAsideMailbox,
 } from "./pause-notices.js";
@@ -129,14 +130,19 @@ export abstract class PausedExecutionRepository {
 
   /**
    * Atomic: its channel decided at once (`ChannelOutcome.decided`) — the pause goes from `Pending`
-   * to `Taken` with `answer` (`PauseResolution.Decided`); `false` when it was not pending. The
-   * pause was never sent: no notice (I8).
+   * to `Taken` with `answer` (`PauseResolution.Decided`) **only while `expiresAt` is absent or after
+   * `at`** (as `resolve…`: a decision at or after the deadline is the expiry's) **and the pause is
+   * still the one `seen` names** (`seenOf` of the record the step sent: the same trail length,
+   * deadline, assignees and `isSent`) — an expiry's in-place reassignment during the first send makes
+   * the channel's decision stale, never taken; `false` otherwise (not pending, past its deadline,
+   * changed since, or none). The pause was never sent: no notice (I8).
    */
   abstract decideByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
     answer: PauseAnswer,
     at: Date,
+    seen: PauseSeen,
   ): Promise<boolean>;
 
   /**

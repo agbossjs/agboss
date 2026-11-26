@@ -48,12 +48,9 @@ export class CompanyGraderAgent {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(QuickGradeWorkflowStart)
-      .toAgent(CompanyGraderAgent),
-    onStart(FullGradeWorkflowStart)
-      .toAgent(CompanyGraderAgent),
-    onAgent(CompanyGraderAgent)
-      .toFinish(CompanyGradedWorkflowFinish),
+    onStart(QuickGradeWorkflowStart).toAgent(CompanyGraderAgent),
+    onStart(FullGradeWorkflowStart).toAgent(CompanyGraderAgent),
+    onAgent(CompanyGraderAgent).toFinish(CompanyGradedWorkflowFinish),
   ],
 })
 export class TwinGradeWorkflow {}

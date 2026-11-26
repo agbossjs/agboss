@@ -56,9 +56,7 @@ export class JudgedDeskFinish {}
   name: "judged-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(JudgedDeskStart)
-    .toAgent(JudgedDeskAgent)
-    .toFinish(JudgedDeskFinish)],
+  flow: [onStart(JudgedDeskStart).toAgent(JudgedDeskAgent).toFinish(JudgedDeskFinish)],
 })
 export class JudgedDeskWorkflow {}
 

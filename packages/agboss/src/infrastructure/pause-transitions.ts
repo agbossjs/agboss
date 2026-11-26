@@ -1,6 +1,12 @@
 import { decidedOnExpiryPause, expiredPause, untakenPause } from "./pause-closers.js";
 import type { PlannedNotice } from "./pause-mailboxes.js";
-import { PauseNoticeKind, type PauseNoticeFacts, type PauseRecipients } from "./pause-notices.js";
+import {
+  PauseNoticeKind,
+  type PauseNoticeFacts,
+  type PauseRecipients,
+  type PauseSeen,
+} from "./pause-notices.js";
+import { isSeenAs } from "./pause-seen.js";
 import {
   closedNotices,
   inFirstSendNotices,
@@ -73,14 +79,18 @@ export function resolveChange(
 /**
  * `Pending → Taken` with the answer its channel gave at once (`PauseResolution.Decided`), only while
  * `expiresAt` is after `at` like `resolveChange` (I2): an answer at or after the deadline is
- * the expiry's. The pause was never sent: no notice (I8).
+ * the expiry's — and only while the pause is still the one the channel was sent (`seen`): an
+ * expiry's in-place reassignment during the first send makes its decision stale. No notice (I8).
  */
 export function decideChange(
   pause: PauseRecord,
   answer: PauseAnswer,
   at: Date,
+  seen: PauseSeen,
 ): PauseChange | undefined {
-  return isOpenAt(pause, at) ? { pause: decidedPause(pause, answer, at), notices: [] } : undefined;
+  return isOpenAt(pause, at) && isSeenAs(pause, seen)
+    ? { pause: decidedPause(pause, answer, at), notices: [] }
+    : undefined;
 }
 
 /** `Pending → Cancelled`; a cancel or a tree end at or after `expiresAt` records `Expired` (I3). */

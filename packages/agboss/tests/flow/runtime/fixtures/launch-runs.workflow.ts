@@ -109,15 +109,13 @@ export class PlanLoopRouter {
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(PlanLoopWorkflowStart)
-      .toAgent(LoopPlannerAgent),
+    onStart(PlanLoopWorkflowStart).toAgent(LoopPlannerAgent),
     onAgent(LoopPlannerAgent)
       .inParallel([toAgent(LoopCriticAgent), toAgent(LoopCriticAgent)])
       .join()
       .toRouter(PlanLoopRouter)
       .onRoute(toAgent(LoopPlannerAgent))
-      .onRoute(toAction(CritiquesAction)
-        .toFinish(CritiquesWorkflowFinish)),
+      .onRoute(toAction(CritiquesAction).toFinish(CritiquesWorkflowFinish)),
   ],
 })
 export class PlanLoopWorkflow {}
@@ -242,16 +240,14 @@ export class TiredLoopRouter {
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(TiredWorkflowStart)
-      .toAgent(TiredPlannerAgent),
+    onStart(TiredWorkflowStart).toAgent(TiredPlannerAgent),
     onAgent(TiredPlannerAgent)
       .inParallel([toAgent(TiredCriticAgent), toAgent(TiredCriticAgent)])
       .join()
       .onError(LimitError.Visits, toFinish(TiredWorkflowFinish))
       .toRouter(TiredLoopRouter)
       .onRoute(toAgent(TiredPlannerAgent))
-      .onRoute(toAction(CritiquesAction)
-        .toFinish(CritiquesWorkflowFinish)),
+      .onRoute(toAction(CritiquesAction).toFinish(CritiquesWorkflowFinish)),
   ],
 })
 export class TiredWorkflow {}

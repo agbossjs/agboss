@@ -83,12 +83,9 @@ export class TopicsRouter implements RouterHandler<TopicsRouter> {
   flow: [
     onStart(TopicsWorkflowStart)
       .toRouter(TopicsRouter)
-      .onRoute(toAgent(OrderTopicAgent)
-        .toFinish(TopicsWorkflowFinish))
-      .onRoute(toAgent(RefundTopicAgent)
-        .toFinish(TopicsWorkflowFinish))
-      .onRoute(toAgent(DeliveryTopicAgent)
-        .toFinish(TopicsWorkflowFinish)),
+      .onRoute(toAgent(OrderTopicAgent).toFinish(TopicsWorkflowFinish))
+      .onRoute(toAgent(RefundTopicAgent).toFinish(TopicsWorkflowFinish))
+      .onRoute(toAgent(DeliveryTopicAgent).toFinish(TopicsWorkflowFinish)),
   ],
 })
 export class TopicsWorkflow {}

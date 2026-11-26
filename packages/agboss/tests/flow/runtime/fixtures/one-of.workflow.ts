@@ -109,13 +109,9 @@ export class OneOfTicketStart {}
     onStart(OneOfTicketStart)
       .toAction(SortAction)
       .toOneOf([
-        toAction(BugReportAction)
-          .toFinish(OneOfReportFinish),
-        toAction(PingOneOfAction)
-          .toAction(QuestionReportAction)
-          .toFinish(OneOfReportFinish),
-        toAction(OtherReportAction)
-          .toFinish(OneOfReportFinish),
+        toAction(BugReportAction).toFinish(OneOfReportFinish),
+        toAction(PingOneOfAction).toAction(QuestionReportAction).toFinish(OneOfReportFinish),
+        toAction(OtherReportAction).toFinish(OneOfReportFinish),
       ]),
   ],
 })

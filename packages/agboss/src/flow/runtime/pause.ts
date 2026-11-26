@@ -19,7 +19,9 @@ import { PauseExpirySignal } from "./pause-expiry-failure.js";
 import { askOfPause, assertSameQuestion, livePauseAfter } from "./pause-chain.js";
 import { noticesWritten, recipientsIn } from "../../pause/index.js";
 import { openedPause, type PauseStepSite } from "./pause-open.js";
+import { markAsked } from "./pause-asked.js";
 import { pauseTallyOf } from "../../pause/pause-tally.js";
+import { seenOf } from "../../infrastructure/pause-seen.js";
 import type { ComponentRecord } from "./records.js";
 
 /**
@@ -213,29 +215,33 @@ async function takenAfterLostWrite(
   const { tenantId } = site.frame.execution.tenant;
   const fresh = (await site.pauses.findByTenantIdAndPauseId(tenantId, pause.pauseId)) ?? pause;
   const live = await livePauseAfter(site.pauses, fresh);
-  if (live.status === PauseStatus.Pending) return undefined;
+  if (live.status === PauseStatus.Pending) {
+    // the same pause, unmarked: this pass asked its channel, an expiry changed it in place meanwhile
+    if (live.pauseId === pause.pauseId && !live.isSent) await markAsked(site, pause);
+    return undefined;
+  }
   return settledAnswer(site, live);
 }
 
 /**
  * The decision the channel gave at once: validated, recorded as `Decided`, logged — only when the
- * store's compare-and-set took it. A pause answered, withdrawn or moved while `send` ran keeps what
- * closed it: the step takes that (`takenAfterLostWrite`), never the channel's decision.
+ * store's compare-and-set took it, over the pause as sent (`seenOf`). A pause answered, withdrawn,
+ * moved or changed while `send` ran keeps that: the step takes it (`takenAfterLostWrite`).
  */
 async function answeredAtOnce(
   site: PauseStepSite,
   pause: PauseRecord,
   given: unknown,
 ): Promise<StepAnswer | undefined> {
-  const { pauses, frame } = site;
   const decision = site.validate(given);
   const answer = { decision, actor: undefined };
   const at = site.clock.now();
-  const isDecided = await pauses.decideByTenantIdAndPauseId(
-    frame.execution.tenant.tenantId,
+  const isDecided = await site.pauses.decideByTenantIdAndPauseId(
+    site.frame.execution.tenant.tenantId,
     pause.pauseId,
     answer,
     at,
+    seenOf(pause),
   );
   if (!isDecided) return takenAfterLostWrite(site, pause);
   await logPauseAnswer(site.answers, decidedPause(pause, answer, at), PauseResolution.Decided);

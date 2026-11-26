@@ -137,9 +137,7 @@ export class OnceLocalWorkflowFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(OnceLocalWorkflowStart)
-      .toWorkflow(OnceRootWorkflow)
-      .toFinish(OnceLocalWorkflowFinish),
+    onStart(OnceLocalWorkflowStart).toWorkflow(OnceRootWorkflow).toFinish(OnceLocalWorkflowFinish),
   ],
 })
 export class OnceLocalWorkflow {}
@@ -190,8 +188,7 @@ export class OnceBudgetRouter {
       .toAction(PaidBookingAction)
       .toAction(OverspendAction)
       .toRouter(OnceBudgetRouter)
-      .onRoute(toAction(ConfirmBookingAction)
-        .toFinish(OnceBudgetWorkflowFinish)),
+      .onRoute(toAction(ConfirmBookingAction).toFinish(OnceBudgetWorkflowFinish)),
   ],
 })
 export class OnceBudgetWorkflow {}
@@ -259,8 +256,7 @@ export class OnceLevelWorkflowFinish {}
       .toAction(PaidBookingAction)
       .toAction(LevelItemAction)
       .toOneOf([
-        toWorkflow(() => OnceLevelWorkflow)
-          .toFinish(OnceLevelWorkflowFinish),
+        toWorkflow(() => OnceLevelWorkflow).toFinish(OnceLevelWorkflowFinish),
         toFinish(OnceLevelWorkflowFinish),
       ]),
   ],

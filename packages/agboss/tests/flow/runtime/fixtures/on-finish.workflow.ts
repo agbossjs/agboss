@@ -121,10 +121,8 @@ export class KycExpiredFinish {}
       .toAction(KycCheckAction)
       .toOneOf([
         toFinish(KycVerifiedFinish),
-        toAction(RejectFraudAction)
-          .toFinish(KycFraudFinish),
-        toAction(RejectLapsedAction)
-          .toFinish(KycExpiredFinish),
+        toAction(RejectFraudAction).toFinish(KycFraudFinish),
+        toAction(RejectLapsedAction).toFinish(KycExpiredFinish),
       ]),
   ],
 })
@@ -193,12 +191,9 @@ export class TurnedAwayFinish {}
   flow: [
     onStart(OnboardStart)
       .toWorkflow(KycWorkflow)
-      .onFinish(KycVerifiedFinish, toAction(OpenAccountAction)
-        .toFinish(OnboardedFinish))
-      .onFinish(KycFraudFinish, toAction(BlockUserAction)
-        .toFinish(TurnedAwayFinish))
-      .onFinish(KycExpiredFinish, toAction(RetryLaterAction)
-        .toFinish(TurnedAwayFinish)),
+      .onFinish(KycVerifiedFinish, toAction(OpenAccountAction).toFinish(OnboardedFinish))
+      .onFinish(KycFraudFinish, toAction(BlockUserAction).toFinish(TurnedAwayFinish))
+      .onFinish(KycExpiredFinish, toAction(RetryLaterAction).toFinish(TurnedAwayFinish)),
   ],
 })
 export class OnboardWorkflow {}

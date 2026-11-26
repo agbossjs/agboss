@@ -68,9 +68,7 @@ export class DecisionJudged {}
   name: "chat-decider-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskStart)
-    .toAgent(ChatJudged)
-    .toFinish(Reply)],
+  flow: [onStart(TaskStart).toAgent(ChatJudged).toFinish(Reply)],
   defaults: DEFAULTS,
 })
 export class ChatDeciderDesk {}
@@ -89,9 +87,7 @@ export class ChatDeciderDeskApplication {}
   name: "decision-chatter-desk-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskStart)
-    .toAgent(DecisionJudged)
-    .toFinish(Reply)],
+  flow: [onStart(TaskStart).toAgent(DecisionJudged).toFinish(Reply)],
   defaults: DEFAULTS,
 })
 export class DecisionChatterDesk {}
@@ -157,8 +153,7 @@ export class Triage {}
     onStart(TaskStart)
       .toAgent(Intake)
       .toRouter(Triage)
-      .onRoute(toAgent(Coder)
-        .toFinish(Reply))
+      .onRoute(toAgent(Coder).toFinish(Reply))
       .onRoute(toFinish(AsIs)),
   ],
   defaults: DEFAULTS,

@@ -100,9 +100,7 @@ const defaults = { models: { temperature: 0, maxTokens: TokenLimit.ModelMax } };
   name: "sound-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(SoundStart)
-    .toAgent(SoundAgent)
-    .toFinish(SoundFinish)],
+  flow: [onStart(SoundStart).toAgent(SoundAgent).toFinish(SoundFinish)],
   defaults,
   memory: Window1Memory,
 })
@@ -113,9 +111,7 @@ export class SoundWorkflow {}
   name: "broken-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(BrokenStart)
-    .toAgent(SoundAgent)
-    .toFinish(BrokenFinish)],
+  flow: [onStart(BrokenStart).toAgent(SoundAgent).toFinish(BrokenFinish)],
   defaults,
   memory: Window1Memory,
   modelProvider: BrokenModels,
@@ -126,9 +122,7 @@ export class BrokenWorkflow {}
   name: "broken-agent-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(BrokenStart)
-    .toAgent(BrokenAgent)
-    .toFinish(BrokenFinish)],
+  flow: [onStart(BrokenStart).toAgent(BrokenAgent).toFinish(BrokenFinish)],
   defaults,
   memory: Window1Memory,
   modelProvider: SoundModels,
@@ -205,9 +199,7 @@ export class ThirdAgent {}
   name: "named-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(SoundStart)
-    .toAgent(ThirdAgent)
-    .toFinish(SoundFinish)],
+  flow: [onStart(SoundStart).toAgent(ThirdAgent).toFinish(SoundFinish)],
   defaults,
   memory: Window1Memory,
   modelProvider: SecondModels,

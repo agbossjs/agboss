@@ -122,22 +122,17 @@ export class OfferFailedWorkflowFinish {}
 export class OfferSentWorkflowFinish {}
 
 export const offerPaths = [
-  onStart(OfferWorkflowStart)
-    .toAgent(DraftAgent)
-    .toAgent(ReviewerAgent),
+  onStart(OfferWorkflowStart).toAgent(DraftAgent).toAgent(ReviewerAgent),
 
-  onAgent(ReviewerAgent)
-    .toOneOf([
-      toAgent(EditorAgent)
-        .onError(
-          VisitsLimitExceededError,
-          toAction(NotifyRecruiterAction)
-            .toFinish(OfferFailedWorkflowFinish),
-        )
-        .toAgent(ReviewerAgent),
-      toAction(SendOfferAction)
-        .toFinish(OfferSentWorkflowFinish),
-    ]),
+  onAgent(ReviewerAgent).toOneOf([
+    toAgent(EditorAgent)
+      .onError(
+        VisitsLimitExceededError,
+        toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish),
+      )
+      .toAgent(ReviewerAgent),
+    toAction(SendOfferAction).toFinish(OfferSentWorkflowFinish),
+  ]),
 ] as const;
 
 @Workflow({

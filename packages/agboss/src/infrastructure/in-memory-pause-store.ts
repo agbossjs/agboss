@@ -6,6 +6,7 @@ import {
   type PauseTimeoutChange,
   type PauseReassignmentChange,
   type PauseRecipients,
+  type PauseSeen,
 } from "./pause-notices.js";
 import {
   PauseStatus,
@@ -93,8 +94,11 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
     pauseId: string,
     answer: PauseAnswer,
     at: Date,
+    seen: PauseSeen,
   ): Promise<boolean> {
-    const decided = this.book.change(tenantId, pauseId, (pause) => decideChange(pause, answer, at));
+    const decided = this.book.change(tenantId, pauseId, (pause) =>
+      decideChange(pause, answer, at, seen),
+    );
     return Promise.resolve(decided !== undefined);
   }
 

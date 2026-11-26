@@ -63,9 +63,7 @@ export class LimitedAgent {}
   name: "limited-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(ChatStart)
-    .toAgent(LimitedAgent)
-    .toFinish(Reply)],
+  flow: [onStart(ChatStart).toAgent(LimitedAgent).toFinish(Reply)],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     tools: { maxToolCalls: 1 },

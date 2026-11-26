@@ -78,9 +78,7 @@ export class FamilyReply {}
   name: "judge-family-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(FamilyTaskStart)
-    .toAgent(FamilyWriter)
-    .toFinish(FamilyReply)],
+  flow: [onStart(FamilyTaskStart).toAgent(FamilyWriter).toFinish(FamilyReply)],
   defaults: { router: { model: "typesafe/jev-1.13" } },
 })
 export class JudgeFamilyWorkflow {}

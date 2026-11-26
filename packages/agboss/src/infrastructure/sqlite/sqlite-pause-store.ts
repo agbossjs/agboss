@@ -4,6 +4,7 @@ import type {
   PauseNoticeKind,
   PauseRecipients,
   PauseReassignmentChange,
+  PauseSeen,
 } from "../pause-notices.js";
 import { timeoutChange } from "../pause-timeout-change.js";
 import {
@@ -98,8 +99,11 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     pauseId: string,
     answer: PauseAnswer,
     at: Date,
+    seen: PauseSeen,
   ): Promise<boolean> {
-    const decided = this.#change(tenantId, pauseId, (pause) => decideChange(pause, answer, at));
+    const decided = this.#change(tenantId, pauseId, (pause) =>
+      decideChange(pause, answer, at, seen),
+    );
     return Promise.resolve(decided !== undefined);
   }
 

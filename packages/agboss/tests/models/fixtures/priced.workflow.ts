@@ -65,10 +65,7 @@ export class Answer {}
   name: "priced-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskStart)
-    .toAgent(Summariser)
-    .toAgent(Writer)
-    .toFinish(Answer)],
+  flow: [onStart(TaskStart).toAgent(Summariser).toAgent(Writer).toFinish(Answer)],
   defaults: {
     models: { temperature: 0, maxTokens: TokenLimit.ModelMax },
     tools: { maxToolCalls: 2 },

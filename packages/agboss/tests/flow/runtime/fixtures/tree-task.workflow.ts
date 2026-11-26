@@ -131,8 +131,6 @@ export class TaskDoneWorkflowFinish {}
   name: "task-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskWorkflowStart)
-    .toAction(WorkAction)
-    .toFinish(TaskDoneWorkflowFinish)],
+  flow: [onStart(TaskWorkflowStart).toAction(WorkAction).toFinish(TaskDoneWorkflowFinish)],
 })
 export class TaskWorkflow {}

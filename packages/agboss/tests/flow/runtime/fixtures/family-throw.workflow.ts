@@ -3,13 +3,7 @@ import { ConfigError } from "../../../../src/core/error-families/config-errors.j
 import { StoreError } from "../../../../src/core/error-families/store-errors.js";
 import { StepError } from "../../../../src/core/error-families/step-errors.js";
 import { Enum, Text } from "../../../../src/dto/index.js";
-import {
-  Action,
-  Workflow,
-  WorkflowFinish,
-  WorkflowStart,
-  Ttl,
-} from "../../../../src/index.js";
+import { Action, Workflow, WorkflowFinish, WorkflowStart, Ttl } from "../../../../src/index.js";
 import { Application } from "../../../../src/application/application.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 import { onStart, toFinish } from "../../../helpers/flow.js";
@@ -105,9 +99,7 @@ export class RemoteCatchWorkflow {}
   name: "uncaught-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(UncaughtStart)
-    .toAction(RemoteCallAction)
-    .toFinish(FamilyDoneFinish)],
+  flow: [onStart(UncaughtStart).toAction(RemoteCallAction).toFinish(FamilyDoneFinish)],
 })
 export class UncaughtWorkflow {}
 

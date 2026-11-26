@@ -8,6 +8,7 @@ import {
 } from "../../infrastructure/paused-execution.repository.js";
 import type { ContractCase } from "./define.js";
 import {
+  decideNow,
   AFTER_DEADLINE,
   BEFORE_DEADLINE,
   CHANNEL_KEY,
@@ -30,7 +31,7 @@ export const REASSIGN_SEND_CASES: readonly ContractCase<PausedExecutionRepositor
         await first.findOrCreateByStepKey(expiringPauseOf(old, `run-1:s:${String(index)}`));
         const planned = await seenNow(second, old);
         const decide = (): Promise<boolean> =>
-          first.decideByTenantIdAndPauseId("default", old, DECIDED_ANSWER, BEFORE_DEADLINE);
+          decideNow(first, old, DECIDED_ANSWER, BEFORE_DEADLINE);
         const move = (): Promise<PauseRecord | undefined> =>
           second.reassignByTenantIdAndPauseId(
             "default",
@@ -137,6 +138,39 @@ export const REASSIGN_SEND_CASES: readonly ContractCase<PausedExecutionRepositor
       // planned against the sent pause: applies
       const sent = { ...unsent, isSent: true };
       expect((await change(second, sent, "pause-b"))?.reassignedFrom).toBe("pause-a");
+    },
+  },
+  {
+    name: "a channel's decision at once, given after an expiry changed the pause in place during the first send, is refused: the pause stays Pending with the new assignees and deadline, and is taken only by a decision over what it is now",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+      // what the step sent: the pause as it was before the send
+      const sent = await seenNow(first, "pause-a");
+      const later = "2026-01-05T12:00:00.000Z";
+      await reassignWith(
+        second,
+        "pause-a",
+        { assignees: ["manager"], due: { expiresAt: later } },
+        AFTER_DEADLINE,
+      );
+      const decidedAt = new Date(AFTER_DEADLINE.getTime() + 60_000);
+
+      expect(
+        await first.decideByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          DECIDED_ANSWER,
+          decidedAt,
+          sent,
+        ),
+      ).toBe(false);
+      const stored = await first.findByTenantIdAndPauseId("default", "pause-a");
+      expect(stored).toMatchObject({ status: PauseStatus.Pending, assignees: ["manager"] });
+      expect(stored?.answer).toBeUndefined();
+      expect(stored?.expiresAt).toBe(later);
+
+      // over the pause as it is now, the decision is taken
+      expect(await decideNow(second, "pause-a", DECIDED_ANSWER, decidedAt)).toBe(true);
     },
   },
 ];

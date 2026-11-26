@@ -95,8 +95,7 @@ export class DraftHistoryAction {
   async execute(input: InputOf<DraftHistoryAction>): Promise<OutputOf<DraftHistoryAction>> {
     const { current, previous } = input.drafts;
     return {
-      changes: [...previous, current].map((draft) => draft.text)
-        .join(" → "),
+      changes: [...previous, current].map((draft) => draft.text).join(" → "),
     };
   }
 }
@@ -109,16 +108,11 @@ export class DraftHistoryAction {
 export class DraftHistoryWorkflowFinish {}
 
 export const historyPaths = [
-  onStart(HistoryOfferWorkflowStart)
-    .toAgent(FirstDraftAgent)
-    .toAction(ReviewDraftAction),
-  onAction(ReviewDraftAction)
-    .toOneOf([
-      toAgent(DraftEditorAgent)
-        .toAction(ReviewDraftAction),
-      toAction(DraftHistoryAction)
-        .toFinish(DraftHistoryWorkflowFinish),
-    ]),
+  onStart(HistoryOfferWorkflowStart).toAgent(FirstDraftAgent).toAction(ReviewDraftAction),
+  onAction(ReviewDraftAction).toOneOf([
+    toAgent(DraftEditorAgent).toAction(ReviewDraftAction),
+    toAction(DraftHistoryAction).toFinish(DraftHistoryWorkflowFinish),
+  ]),
 ] as const;
 
 @Workflow({
