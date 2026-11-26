@@ -72,9 +72,14 @@ export {
   type StoredKeyFacts,
 } from "../infrastructure/fenced-effect-key.js";
 // the cancel as a fence (#909): the tree a key's cancel fences, the refusal a store throws with
-// `cancelFencedOf(key)`, and finding it in a cause chain
+// `cancelFencedOf(key)` (a pause's and a stop's: `pauseFencedOf(key)`, `stopFencedOf(key)`), and finding it in a cause chain
 export { cancelFencedErrorOf } from "../app/handed-over.js";
-export { cancelFencedOf, type CancelFencedKey } from "../app/cancel-fenced.js";
+export {
+  cancelFencedOf,
+  pauseFencedOf,
+  stopFencedOf,
+  type CancelFencedKey,
+} from "../app/cancel-fenced.js";
 export { cancelTreeOf } from "../infrastructure/issued-keys.js";
 // a store call whose outcome is unknown (#928): what a store throws when a command did not answer
 export * from "../infrastructure/store-call-timeout.js";

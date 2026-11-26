@@ -1,10 +1,9 @@
-import { cancelFencedOf } from "../../app/cancel-fenced.js";
+import { cancelFencedOf, pauseFencedOf, stopFencedOf } from "../../app/cancel-fenced.js";
 import type { DatabaseSync } from "node:sqlite";
 import { sqliteStatusLog, type NewStatusTransition } from "../../turns/index.js";
 import { z } from "zod";
 import { InterruptMode } from "../../app/interrupt-types.js";
 import {} from "../../app/lease-lost.js";
-import { ExecutionPauseFencedError, ExecutionStopFencedError } from "../../app/lease-stopped.js";
 import type { EffectKey } from "../effect-key.js";
 import { cancelTreeOf } from "../issued-keys.js";
 
@@ -76,10 +75,10 @@ export function checkSqliteCancel(database: DatabaseSync, key: EffectKey): void 
   if (fenced !== null) {
     const isStale =
       key.leaseExecutionId === rootExecutionId ? key.token <= fenced : fenced >= epoch;
-    if (isStale) throw ExecutionPauseFencedError.of(key);
+    if (isStale) throw pauseFencedOf(key);
   }
   // a cancelled tree's undo runs; a stopped one (`immediate`) has none, and nothing of it is written
-  if (!isCancelled && stopMode === InterruptMode.Immediate) throw ExecutionStopFencedError.of(key);
+  if (!isCancelled && stopMode === InterruptMode.Immediate) throw stopFencedOf(key);
   if (key.isCompensation === true) return;
   if (isCancelled) throw cancelFencedOf(key);
 }

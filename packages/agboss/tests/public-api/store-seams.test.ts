@@ -16,6 +16,14 @@ describe("#1324: the store seams", () => {
     expect(stores).not.toHaveProperty("SqliteCheckpointSaver");
   });
 
+  it("/stores exports the three fence refusals and not the pause and stop classes behind them", () => {
+    for (const name of ["cancelFencedOf", "pauseFencedOf", "stopFencedOf"]) {
+      expect(stores).toHaveProperty(name);
+    }
+    expect(stores).not.toHaveProperty("ExecutionPauseFencedError");
+    expect(stores).not.toHaveProperty("ExecutionStopFencedError");
+  });
+
   it("/testing/faults exports no checkpoint saver", () => {
     expect(faults).not.toHaveProperty("SqliteCheckpointSaver");
   });
