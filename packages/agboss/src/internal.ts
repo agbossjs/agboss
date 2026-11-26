@@ -24,7 +24,7 @@ export {
   type RuleExplanation,
 } from "./core/diagnostics/rule-catalog.js";
 export { diagnosticOfViolation } from "./graph/rule-diagnostic.js";
-export { describeServices, describeServicesWith } from "./describe/describe-workflow.js";
+export { describeServices } from "./describe/describe-workflow.js";
 export { workflowSnapshotOf, type WorkflowSnapshot } from "./describe/snapshot.js";
 export { contractsOf, type ApplicationContracts } from "./describe/contracts.js";
 export {
@@ -65,20 +65,8 @@ export {
   type WorstCaseRow,
 } from "./describe/worst-case-report.js";
 export type { WorstCase, WorstCaseChild } from "./flow/analyse/worst-case.js";
-export {
-  describedEnvironmentFor,
-  environmentFor,
-  selectedEnvironment,
-  type EnvironmentOwner,
-} from "./environments/load.js";
 export { referencedVariablesOf } from "./application/referenced-variables.js";
-export {
-  environmentVariablesOf,
-  resolveEnvironment,
-  SecretResolution,
-  type DescribedEnvironment,
-  type ProcessVariable,
-} from "./environments/resolve.js";
+export { VariableUse, type ProcessVariable } from "./environments/process-variable.js";
 export { compareBundleProfiles } from "./eval/compare-profiles.js";
 export { formatComparison } from "./eval/compare-report.js";
 export { evaluate } from "./eval/eval.js";
@@ -181,7 +169,6 @@ export { shortVersion, versionOf } from "./turns/index.js";
 export { isMcpFacade } from "./tools/index.js";
 export { applicationOf, type AssembledApplication } from "./application/assemble.js";
 export { migratedDatabaseOf, type DatabaseMigrationRun } from "./storage/storage-migrate.js";
-export { environmentOwnerOf } from "./application/create-app.js";
 export { startsOfApplication, type ApplicationStart } from "./application/application-starts.js";
 export { startInputIssuesOf } from "./flow/runtime/start-input-issues.js";
 // public in `@agboss/core/testing` too (#818); the CLI's `agboss studio` takes it from here

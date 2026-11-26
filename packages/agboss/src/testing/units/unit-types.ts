@@ -1,5 +1,5 @@
 import type { CostReport } from "../../finops/usage.js";
-import type { Environment } from "../../flow/generated-types.js";
+import type { TestEnvOverrides } from "../../application/env-overrides.js";
 import type { Milliseconds } from "../../units/index.js";
 import type { VirtualClock } from "../clock.js";
 import type { TurnFor } from "../script-types.js";
@@ -27,11 +27,11 @@ export interface UnitOptions<
    */
   readonly services?: readonly ServiceEntry[];
   /**
-   * The application's environment values (`applicationContext.environment`) the unit reads — only
-   * those (#644): `{ sqlitePath: ":memory:" }` for a SQLite store, never a `Secret` it does not read;
-   * default: none.
+   * The `defineEnv` values the unit reads through `deps: [appEnv]` — only those (#644, #1324b):
+   * `env: configureEnv(appEnv, { apiUrl: "http://fake" })`, never a variable of the process; the
+   * keys left out resolve from the process, as in the application.
    */
-  readonly environment?: Partial<Environment>;
+  readonly env?: TestEnvOverrides;
   /** Who the unit's calls are made for (`CallOptions.owner`): what a `RagScope.Owner` source reads. */
   readonly ownerId?: string;
 }

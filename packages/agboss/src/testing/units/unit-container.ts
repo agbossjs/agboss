@@ -20,6 +20,7 @@ import { bindingsOf } from "../services.js";
 import { bindUnitRag } from "./unit-rag.js";
 import type { UnitFencedEffects } from "./unit-fenced-effects.js";
 import type { UnitOptions } from "./unit-types.js";
+import { envOverridesOf, envResolverOf } from "../../application/env-overrides.js";
 
 /** What a unit runner's container is made of: the core values a component may depend on, the test's `services`. */
 const noRouterFactory = new UnavailableValue(
@@ -59,10 +60,12 @@ export function unitContainer(
     [StoreClock, new StoreClock(StoreTimeSource.Test, clock)],
   ]);
   const { replacements, values } = bindingsOf(options.services);
+  const overrides = envOverridesOf(options.env);
   const container: Container = createContainer(
     { modules: [], core, defaults: fencedEffects.defaults },
     {
       replacements,
+      envOf: envResolverOf(overrides, process.env),
       overrides: new Map([...values, ...(extra.values ?? [])]),
       onCreate: (instance) => {
         extra.created?.push(instance);

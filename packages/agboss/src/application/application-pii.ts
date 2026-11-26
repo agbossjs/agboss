@@ -47,19 +47,18 @@ const tokenizingOf = (assembled: AssembledApplication): readonly string[] => {
 
 /**
  * The application's PII key (#120, #1301): `@DatabaseStorage({ piiSecret })` (and the key it rotates
- * from), its `piiKeyField`, the test's key under `testWith` (never in production), else
+ * from), the test's key under `testWith` (never in production), else
  * a key of the instance for the logs — unless something tokenizes, which fails the start
  * (`[pii.secret-required]`).
  */
 export function applicationPiiKeyOf(
   assembled: AssembledApplication,
-  source: Pick<ApplicationKeySource, "environment" | "env" | "fallback" | "isInstanceKeyAllowed">,
+  source: Pick<ApplicationKeySource, "env" | "fallback" | "isInstanceKeyAllowed">,
 ): ApplicationPiiKey {
   const meta = assembled.storage?.database?.meta;
   const keys = applicationPseudonymKeysOf({
     ...source,
     application: assembled.name,
-    field: assembled.piiKeyField,
     secret: meta?.piiSecret,
     previousSecret: meta?.previousPiiSecret,
     tokenizing: tokenizingOf(assembled),

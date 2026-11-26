@@ -23,7 +23,7 @@ export interface EvalComparisonVariant {
 /** What a comparison takes: at least two variants, the first the baseline. */
 export interface CompareEvalSuiteOptions extends Pick<
   RunEvalSuiteOptions,
-  "runs" | "metamorphic" | "tracerProvider" | "processEnv" | "env"
+  "runs" | "metamorphic" | "tracerProvider" | "processEnv"
 > {
   readonly variants: readonly EvalComparisonVariant[];
 }

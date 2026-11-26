@@ -115,15 +115,8 @@ function brandBlocks(names: ImportTable): readonly string[] {
 }
 
 /** The whole file. */
-/** `Environment` extends each application's contract (#261): `applicationContext.environment`. */
-const environmentLines = (contracts: readonly string[]): readonly string[] =>
-  contracts.length === 0
-    ? []
-    : [`  interface Environment extends ${[...contracts].sort().join(", ")} {}`];
-
 export function printTypes(
   tables: TypeTables & {
-    readonly environments?: readonly string[];
     readonly pauseTargets?: TypeTable;
     readonly agentTools?: TypeTable;
     readonly judgeOutputs?: TypeTable;
@@ -133,7 +126,6 @@ export function printTypes(
   augmentations: readonly string[] = [],
 ): string {
   const declarations = [
-    ...environmentLines(tables.environments ?? []),
     ...namespaceLines([
       tableLines("ProducerOutputs", tables.producerOutputs),
       tableLines("Inputs", tables.inputs),

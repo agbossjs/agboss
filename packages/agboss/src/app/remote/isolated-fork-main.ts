@@ -32,7 +32,6 @@ process.once("disconnect", resolveEnded);
 const built = await builtApplicationOf(
   loaded.default as new () => unknown,
   {
-    ...(spec.environmentName === undefined ? {} : { env: spec.environmentName }),
     ...(spec.profile === undefined ? {} : { profile: spec.profile }),
   },
   {

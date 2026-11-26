@@ -1,36 +1,19 @@
 import { ConfigError } from "../../core/error-families/config-errors.js";
 import type { ResolvedSettings } from "../../storage/settings.js";
 import { Secret } from "../../environments/secret.js";
-import type { ApplicationContext } from "../../flow/context/application-context.js";
 import type { S3Location } from "./s3-client.js";
 import { prefixProblemOf } from "./s3-file-layout.js";
 
-/** What the store reads from the environment. */
+/** What the store reads from the object storage's `S3Driver` settings. */
 export function locationOf(
-  context: ApplicationContext,
   settings: ResolvedSettings | undefined,
 ): S3Location & { readonly prefix: string } {
-  if (settings !== undefined) return locationOfSettings(settings);
-  const text = (name: string): string | undefined => {
-    const value: unknown = Reflect.get(context.environment, name);
-    if (value instanceof Secret) return value.reveal();
-    return typeof value === "string" && value !== "" ? value : undefined;
-  };
-  const required = (name: string): string => {
-    const value = text(name);
-    if (value === undefined) throw new Error(`S3FileRepository needs ${name} in the environment`);
-    return value;
-  };
-  return {
-    bucket: required("a2aS3Bucket"),
-    region: required("a2aS3Region"),
-    endpoint: text("a2aS3Endpoint"),
-    credentials: {
-      accessKeyId: required("a2aS3AccessKeyId"),
-      secretAccessKey: required("a2aS3SecretAccessKey"),
-    },
-    prefix: checkedPrefix(text("a2aS3Prefix") ?? "agboss-a2a-files/"),
-  };
+  if (settings === undefined)
+    throw new ConfigError.Option({
+      message:
+        "S3FileRepository needs the application's @ObjectStorage({ driver: S3Driver({ bucket, … }) })",
+    });
+  return locationOfSettings(settings);
 }
 
 /** The location an `@ObjectStorage({ driver: S3Driver(…) })` resolved to. */

@@ -38,8 +38,6 @@ export interface EnvReaders extends EnvReader<string, string> {
   readonly integer: EnvReader<number, number>;
   readonly number: EnvReader<number>;
   readonly boolean: EnvReader<boolean, boolean>;
-  /** The old name of `env.boolean`; removed with the old environment files. */
-  readonly flag: EnvReader<boolean, boolean>;
   /** `30d`, `24h`, `15m`, `10s`: a finite duration. */
   readonly duration: EnvReader<Milliseconds>;
   /** A duration or `forever`; `{ allowNone: true }` adds `none`. */
@@ -120,7 +118,6 @@ const readers = Object.assign(text, {
   integer: readerOf(VariableKind.Integer, integerOf, "an integer"),
   number: readerOf(VariableKind.Text, numberOf, "a number"),
   boolean: readerOf(VariableKind.Flag, flagOf, "a flag (true, false, 1, 0)"),
-  flag: readerOf(VariableKind.Flag, flagOf, "a flag (true, false, 1, 0)"),
   duration: readerOf(VariableKind.Text, durationOf, "a duration (30d, 24h, 15m, 10s)"),
   ttl: ttlReader(),
   bytes: readerOf(VariableKind.Text, bytesOf, "a size (64kb, 10mb)"),

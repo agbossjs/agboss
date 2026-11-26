@@ -1,4 +1,3 @@
-import type { Environment } from "../flow/generated-types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { ProviderCalls } from "./calls/provider-calls.js";
 import { providerBaseUrlOf, providerHeadersOf, providerKeyOf } from "./provider-environment.js";
@@ -8,10 +7,8 @@ import { resilientFetch, type ProviderFetch, type ResilienceOptions } from "./re
 
 /** How connections are made: the environments, whether keys must be set, the shared calls, the raw client. */
 export interface ConnectionOptions {
-  /** The process: the variables of an environment passed as written (not resolved yet). */
+  /** The process: the variables the drivers' references are read from. */
   readonly env: NodeJS.ProcessEnv;
-  /** The application's environment: the providers' keys (`apiKey`) and base URLs (`baseUrlField`). */
-  readonly environment: Environment;
   /** False for `agboss check --models`: model lists are public, a missing key is not a problem there. */
   readonly requireKeys: boolean;
   /**
@@ -51,7 +48,7 @@ export function resilienceOf(
 }
 
 /**
- * A provider's connection: its base URL, its key from the application's environment, `fetch` with
+ * A provider's connection: its base URL, its key from its driver's references, `fetch` with
  * its timeout, rate limit, retry policy and circuit breaker. A transport provider's has no base URL
  * (`""`) and no key. While the breaker is open the chat model calls its fallback (`FallbackChatModel`).
  */

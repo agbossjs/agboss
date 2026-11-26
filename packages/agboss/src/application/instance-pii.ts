@@ -1,6 +1,5 @@
 import type { ApplicationContainer, ContainerOptions } from "../components/container/container.js";
 import type { Class } from "../components/injection.js";
-import type { Environment } from "../flow/generated-types.js";
 import type { RuntimeContexts } from "../flow/context/runtime-contexts.js";
 import { frameworkLogOf, type FrameworkLog } from "../infrastructure/logger.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -19,7 +18,6 @@ import type { InstanceSeams } from "./instance-seams.js";
 export interface InstancePiiSources {
   readonly shared: ApplicationContainer;
   readonly container: ContainerOptions;
-  readonly environment: Environment;
   readonly processEnv: NodeJS.ProcessEnv;
   readonly seams: InstanceSeams;
   readonly contexts: RuntimeContexts;
@@ -42,7 +40,6 @@ export function instancePiiOf(
 } {
   const { shared, infrastructure, seams } = sources;
   const piiKey = applicationPiiKeyOf(assembled, {
-    environment: sources.environment,
     env: sources.processEnv,
     fallback: seams.piiTestKey,
     isInstanceKeyAllowed: seams.piiInstanceKeys === true,

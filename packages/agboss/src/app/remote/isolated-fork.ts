@@ -19,7 +19,6 @@ const Spec = z.object({
   entry: z.string().min(1),
   tenantId: z.string().min(1),
   executionId: z.string().min(1),
-  environmentName: z.string().optional(),
   profile: z.union([z.string(), z.array(z.string())]).optional(),
   databasePath: z.string().min(1).optional(),
 });

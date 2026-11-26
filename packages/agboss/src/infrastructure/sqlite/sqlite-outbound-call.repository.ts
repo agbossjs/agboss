@@ -28,7 +28,7 @@ import { checkSqliteFence, raiseSqliteMark } from "./sqlite-fenced-effect.reposi
  * `outbound_calls`, beside `execution_leases` and the scopes' marks of the fenced effects (#500) —
  * every fenced method is one `BEGIN IMMEDIATE` transaction on the instance's connection: the key's
  * lease and the scope's mark checked, the mark raised, then the read or the write. Listed in
- * `@Application({ providers })` with `SqliteExecutionLeaseRepository`; needs `sqlitePath`.
+ * the application's `SqliteDriver` storage (with `SqliteExecutionLeaseRepository`).
  */
 @Injectable({ deps: [SqliteConnection, StoreClock] })
 export class SqliteOutboundCallRepository extends OutboundCallRepository {

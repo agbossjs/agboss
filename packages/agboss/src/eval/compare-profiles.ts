@@ -1,13 +1,10 @@
 import type { MeterProvider } from "@opentelemetry/api";
 import { createAppDeps, type AppDeps, type AppDepsOptions } from "../app/app-deps.js";
 import type { Class } from "../components/injection.js";
-import type { Environment } from "../flow/generated-types.js";
 import type { ModelGateway } from "../llm/gateway.js";
 import { ProfileError, ProfileErrorReason } from "../config/profile-error.js";
-import { environmentFor } from "../environments/load.js";
 import { applicationOf, type AssembledApplication } from "../application/assemble.js";
 import { startsOfApplication } from "../application/application-starts.js";
-import { environmentOwnerOf } from "../application/create-app.js";
 import type { ApplicationClass } from "../application/types.js";
 import { nameOf } from "../components/name-of.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -29,10 +26,6 @@ export interface ProfileComparison {
 export interface CompareProfilesOptions {
   /** The process environment: model provider keys, MCP servers, stores. Default: process.env. */
   readonly processEnv?: NodeJS.ProcessEnv;
-  /** The app's environment values, resolved; absent = none — an empty environment. */
-  readonly environment?: Environment;
-  /** The chosen environment's name; default `dev`. */
-  readonly environmentName?: string;
   /** The raw HTTP client under every model provider (default: global fetch; tests: a stub). */
   readonly providerFetch?: typeof fetch;
   /** Where the runs publish their metrics: an OpenTelemetry `MeterProvider`; absent = none. */
@@ -45,8 +38,6 @@ export interface CompareProfilesOptions {
    */
   readonly profiles: readonly string[];
   readonly tasks: readonly string[];
-  /** The environment name, as `createApp`'s `env`. */
-  readonly env?: string | undefined;
 }
 
 interface ProfileRun {
@@ -135,12 +126,6 @@ export async function compareProfilesWith<TApplication extends Class>(
   application: ApplicationClass<TApplication>,
   options: CompareProfilesOptions & { readonly gateway?: ModelGateway },
 ): Promise<ProfileComparison> {
-  const base = await applicationOf(application, { withoutIdempotencyKeys: true }, WHERE);
-  const environment = await environmentFor(
-    environmentOwnerOf(base),
-    options,
-    options.processEnv ?? process.env,
-  );
   // each profile is its own assembly of the application: its constants go on before the model cascade
   const workflowOf = async (profile: string): Promise<AssembledWorkflow> =>
     workflowOfStart(
@@ -156,11 +141,8 @@ export async function compareProfilesWith<TApplication extends Class>(
       ),
       options.start,
     );
-  return compareBundleProfiles(
-    workflowOf,
-    options.profiles,
-    { ...options, ...(environment === undefined ? {} : { environment }) },
-    () => Promise.resolve(options.tasks),
+  return compareBundleProfiles(workflowOf, options.profiles, options, () =>
+    Promise.resolve(options.tasks),
   );
 }
 

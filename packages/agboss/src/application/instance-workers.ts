@@ -30,18 +30,14 @@ export interface IsolatedParts {
   readonly child?: InstanceSeams["isolatedChild"] | undefined;
   /** How its supervisor starts a process; absent = a child process. */
   readonly launch?: ForkLauncher | undefined;
-  /** The environment the instance runs with: what a fork is started with. */
-  readonly environmentName?: string | undefined;
 }
 
 /** What an instance's seams and contexts give its isolated workers (#1286b). */
 export const isolatedPartsOf = (
   seams: Pick<InstanceSeams, "isolatedChild" | "isolatedLauncher">,
-  contexts: { readonly application: { readonly environmentName: string } },
 ): IsolatedParts => ({
   child: seams.isolatedChild,
   launch: seams.isolatedLauncher,
-  environmentName: contexts.application.environmentName,
 });
 
 /** What the workers read of the instance. */
@@ -137,7 +133,6 @@ export function isolatedSupervisorOf(
       log,
       spec: {
         entry,
-        environmentName: parts.isolated?.environmentName,
         profile: assembled.profileSelection,
         databasePath: temporaryDatabasePathOf(assembled),
       },

@@ -1,6 +1,6 @@
 import { ConfigError } from "../core/error-families/config-errors.js";
 import type { EnvContract, EnvSpec, InferEnv, ReservedEnvKey, SecretRef } from "./env-ref.js";
-import { EnvironmentErrorCode } from "./errors.js";
+import { invalidValue, missingVariable } from "./environment-rules.js";
 import {
   isResolvedSecret,
   OptionalSecretReference,
@@ -136,13 +136,11 @@ class Problems {
   throwIfAny(): void {
     if (this.missing.length > 0)
       throw new ConfigError.Environment({
-        envCode: EnvironmentErrorCode.MissingVariables,
-        message: this.missing.join("; "),
+        message: this.missing.map(missingVariable).join("; "),
       });
     if (this.invalid.length > 0)
       throw new ConfigError.Environment({
-        envCode: EnvironmentErrorCode.InvalidValue,
-        message: this.invalid.join("; "),
+        message: this.invalid.map(invalidValue).join("; "),
       });
   }
 }

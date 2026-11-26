@@ -22,7 +22,7 @@ const recordOf = (row: unknown): ExecutionAuditEventRecord =>
 /**
  * `ExecutionAuditLogRepository` on the application's SQLite file (#501): one row per event, its
  * record as JSON beside the columns it is found by, ordered by the time it happened and then by the
- * order it was saved. Listed in `@Application({ providers })`; needs `sqlitePath`.
+ * order it was saved. On the application's `@DatabaseStorage({ driver: SqliteDriver({ path }) })`.
  */
 @Injectable({ deps: [SqliteConnection] })
 export class SqliteExecutionAuditLogRepository extends ExecutionAuditLogRepository {

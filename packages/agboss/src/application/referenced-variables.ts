@@ -1,6 +1,7 @@
 import { componentOf } from "../components/metadata.js";
+import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import type { Class } from "../components/injection.js";
-import { processVariableOf, type ProcessVariable } from "../environments/resolve.js";
+import { processVariableOf, type ProcessVariable } from "../environments/process-variable.js";
 import { OptionalSecretReference, Secret } from "../environments/secret.js";
 import { VariableReference } from "../environments/variables.js";
 import type { AssembledApplication } from "./assemble.js";
@@ -67,7 +68,8 @@ export function referencedVariablesOf(assembled: AssembledApplication): readonly
     assembled.storage?.objects,
   ].flatMap((entry) => (entry === undefined ? [] : [[entry.cls.name, entry.meta] as const]));
   const components = componentsOf(assembled).flatMap((cls) => {
-    const meta = componentOf(cls);
+    // a model provider keeps its options apart from the component records: its driver holds the key and the URL
+    const meta = isModelProviderClass(cls) ? modelProviderOf(cls) : componentOf(cls);
     return meta === undefined ? [] : [[cls.name, meta] as const];
   });
   const variables = new Map<string, ProcessVariable>();

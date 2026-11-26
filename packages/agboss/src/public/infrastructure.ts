@@ -60,8 +60,6 @@ export { SqliteRateLimitRepository } from "../infrastructure/sqlite/sqlite-rate-
 export { SqliteFencedEffectRepository } from "../infrastructure/sqlite/sqlite-fenced-effect.repository.js";
 export { SqliteOutboundCallRepository } from "../infrastructure/sqlite/sqlite-outbound-call.repository.js";
 export { SqliteChildExecutionQueueRepository } from "../infrastructure/sqlite/sqlite-child-execution-queue.repository.js";
-// the Secret fields of an environment contract a key field names (#825)
-export type { SecretFieldOf } from "../application/application.js";
 // what a store class declares (#526, #825): its backend and how it checks the lease
 export type { StoreDescriptor } from "../infrastructure/execution-lease.repository.js";
 // the idempotent effect (#500, #1317): the service an app injects, the store's contract, its outcome

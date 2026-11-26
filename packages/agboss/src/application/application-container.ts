@@ -7,7 +7,6 @@ import {
 } from "../components/container/container.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class, Token } from "../components/injection.js";
-import type { Environment } from "../flow/generated-types.js";
 import { CONTEXT_TOKENS, contextValuesOf } from "../components/context-tokens.js";
 import {
   contextsOutsideExecution,
@@ -244,7 +243,6 @@ function applicationProvidersOf(bundle: AssembledWorkflow): ProviderModule {
 export function standaloneApplicationOf(
   bundle: AssembledWorkflow,
   options: {
-    readonly environment?: Environment | undefined;
     readonly processEnv?: NodeJS.ProcessEnv | undefined;
   },
   onCreate?: (instance: unknown) => void,
@@ -262,7 +260,7 @@ export function standaloneApplicationOf(
       clock,
       storage,
       componentOptions: bundle.componentOptions,
-      contexts: contextsOutsideExecution(bundle.config, options.environment, clock),
+      contexts: contextsOutsideExecution(bundle.config, clock),
     },
     container,
   );

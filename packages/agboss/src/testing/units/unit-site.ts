@@ -1,7 +1,6 @@
 import { type Container } from "../../components/container/container.js";
 import type { Class } from "../../components/injection.js";
 import { unitContainer, type UnitContainerExtras } from "./unit-container.js";
-import { NO_ENVIRONMENT_VALUES, unitEnvironmentOf } from "../../environments/resolve.js";
 import { CostReport, type UsageRecord } from "../../finops/usage.js";
 import { applicationContextOf } from "../../flow/context/application-context.js";
 import { ExecutionContext } from "../../flow/context/execution-context.js";
@@ -64,18 +63,14 @@ const UNIT_EXECUTION = "test-execution";
 export const callTimeoutOf = (timeout: Milliseconds | undefined): Pick<UnitFrame, "timeout"> =>
   timeout === undefined ? {} : { timeout: { delay: timeout, reason: timeoutError } };
 
-/** The application context of a unit test: `test-application` on the `test` environment. */
+/** The application context of a unit test: `test-application` on the `test` profile. */
 function unitContexts(clock: Clock, options: UnitOptions): RuntimeContexts {
   const application = applicationContextOf({
     name: "test-application",
     version: "0.0.0",
     instanceId: "test-instance",
     startedAt: clock.now(),
-    environmentName: "test",
-    environment:
-      options.environment === undefined
-        ? NO_ENVIRONMENT_VALUES
-        : unitEnvironmentOf(options.environment),
+    profiles: ["test"],
   });
   return {
     application,

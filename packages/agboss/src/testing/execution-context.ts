@@ -20,8 +20,6 @@ import {
   type TenantValues,
 } from "../flow/context/context-values.js";
 import { TenantContext } from "../flow/context/tenant-context.js";
-import { NO_ENVIRONMENT_VALUES } from "../environments/resolve.js";
-import type { Environment } from "../flow/generated-types.js";
 import { idempotencyKeyOf } from "../flow/context/idempotency.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { arbiterOf } from "../flow/decorators/arbiter.js";
@@ -130,9 +128,8 @@ export interface TestApplicationOptions {
   readonly name?: string;
   readonly version?: string;
   readonly instanceId?: string;
-  readonly environmentName?: string;
-  /** The environment's values (`applicationContext.environment`); default: none. */
-  readonly environment?: Environment;
+  /** The profiles the application runs with (`applicationContext.profiles`); default `["test"]`. */
+  readonly profiles?: readonly string[];
 }
 
 /** The context classes and values of a `testExecutionContext` (#261). */
@@ -159,8 +156,7 @@ const applicationOf = (options: TestApplicationOptions = {}): ApplicationContext
     version: options.version ?? "0.0.0",
     instanceId: options.instanceId ?? "test-instance",
     startedAt: new Date(0),
-    environmentName: options.environmentName ?? "test",
-    environment: options.environment ?? NO_ENVIRONMENT_VALUES,
+    profiles: options.profiles ?? ["test"],
   });
 
 /** The execution's own data: the values a unit test gave, read the same at any time. */

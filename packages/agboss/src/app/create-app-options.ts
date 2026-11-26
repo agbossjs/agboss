@@ -3,18 +3,13 @@ import type { ProfileSelection } from "../config/profile-names.js";
 import type { TracingAdapter } from "../tracing/types.js";
 
 /**
- * `createApp` options (#834): the environment, the profiles layered on the application, and where the
+ * `createApp` options (#834): the profiles layered on the application, and where the
  * instance publishes its metrics and its spans — nothing else. Infrastructure is listed in
  * `@Application({ providers })`; every other setting is an `@Application` option, and the seams a
  * test or a tool replaces (models, MCP transports, the process environment) are on the internal
  * build path only (`testWith`, the CLI).
  */
 export interface CreateAppOptions {
-  /**
-   * The environment: `environments/<env>.environment.ts` next to the application file (default
-   * `dev`) — of an application that declares `@Application({ environment })`.
-   */
-  readonly env?: string | undefined;
   /**
    * The profiles: `src/config/<name>.config.ts|yaml` next to the application file, layered left to
    * right over `base.config.*` — `"prod"`, `"prod,economy"` (or `"prod+economy"`) or

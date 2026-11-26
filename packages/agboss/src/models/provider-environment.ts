@@ -1,5 +1,4 @@
 import { Secret } from "../environments/secret.js";
-import type { Environment } from "../flow/generated-types.js";
 import { resolveReferences } from "../environments/define-env.js";
 import { isDriverOptions, type KeptModelProviderOptions } from "./model-provider.decorator.js";
 
@@ -10,9 +9,8 @@ import { isDriverOptions, type KeptModelProviderOptions } from "./model-provider
  * class authorises its own calls.
  */
 
-/** Where a provider's settings are read: the application's environment, the process for its references. */
+/** Where a provider's settings are read: the process, for the references of its driver. */
 export interface ProviderSettingSource {
-  readonly environment: Environment;
   readonly env: NodeJS.ProcessEnv;
 }
 

@@ -1,12 +1,11 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
+import { ConfigError } from "../../core/error-families/config-errors.js";
 import { Injectable } from "../../components/decorators.js";
 import { DATABASE_SETTINGS, type ResolvedSettings } from "../../storage/settings.js";
 import { sqliteSettingsOf } from "./sqlite-settings.js";
 import type { Class } from "../../components/injection.js";
-import { ApplicationContext } from "../../flow/context/application-context.js";
 import type { OnDestroy } from "../../components/container/lifecycle.js";
-import { EnvironmentField } from "../../environments/contract.js";
 import { classifiedDatabase } from "./sqlite-outcome.js";
 import { ensureBaselineSchema } from "./sqlite-baseline-schema.js";
 import { checkedSchemaVersion } from "./sqlite-schema-version.js";
@@ -31,7 +30,7 @@ export { SQLITE_SCHEMA_VERSION } from "./sqlite-schema-version.js";
 
 /**
  * The SQLite file of an application instance (#265 S32): one `DatabaseSync` (`node:sqlite`, loaded
- * on first use) on the environment's `sqlitePath`, shared by every SQLite implementation the
+ * on first use) on the `path` of the storage's `SqliteDriver`, shared by every SQLite implementation the
  * application lists — two instances open two connections to one file. `journal_mode=WAL` (readers never
  * block the writer; its switch on a new file, tried again while busy, the whole open bounded by the
  * busy timeout, #911), and every atomic operation in one `BEGIN IMMEDIATE` transaction. The driver is
@@ -42,9 +41,9 @@ export { SQLITE_SCHEMA_VERSION } from "./sqlite-schema-version.js";
  * Time values are parameters from the framework's clock, never SQLite's own.
  */
 
-/** What a SQLite implementation reads from the environment: `sqlitePath` (`:memory:` in tests). */
-const SqliteEnvironment = z.object({
-  sqlitePath: z.string().min(1, "sqlitePath is empty — a file path, or :memory: in tests"),
+/** What a SQLite implementation reads from its driver's settings: the `path` (`:memory:` in tests). */
+const SqliteSettings = z.object({
+  sqlitePath: z.string().min(1, "path is empty — a file path, or :memory: in tests"),
 });
 
 /** One row of `PRAGMA table_info`: a column's name. */
@@ -55,14 +54,12 @@ const ColumnRow = z.looseObject({ name: z.string() });
  * SQLite stores — and the DI token a subclass of a SQLite implementation names in its `deps`
  * (`@Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })`, #265 S70; a fencing
  * store's — the lease, fenced-effect and outbound-call stores — `[SqliteConnection, StoreClock,
- * ApplicationContext]`, #847: a `Clock` does not pass for its `StoreClock`).
+ * ApplicationContext]`, #847: a `Clock` does not pass for its `StoreClock`). Its file is the
+ * `path` of the application's `@DatabaseStorage({ driver: SqliteDriver({ path }) })`, and nothing else.
  */
-@Injectable({
-  deps: [ApplicationContext, DATABASE_SETTINGS],
-  environmentFields: { sqlitePath: EnvironmentField.text() },
-})
+@Injectable({ deps: [DATABASE_SETTINGS] })
 export class SqliteConnection implements OnDestroy {
-  /** The file (`sqlitePath`); `:memory:` keeps the database in this connection only. */
+  /** The file (`SqliteDriver`'s `path`); `:memory:` keeps the database in this connection only. */
   readonly path: string;
   readonly #prepared = new Set<string>();
   readonly #database: DatabaseSync;
@@ -70,16 +67,19 @@ export class SqliteConnection implements OnDestroy {
   readonly #attempt: CleanAttempt;
   readonly #served = new ServedGroups(this);
 
-  constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings) {
-    const parsed = SqliteEnvironment.safeParse(
-      settings === undefined ? applicationContext.environment : sqliteSettingsOf(settings),
-    );
+  constructor(settings?: ResolvedSettings) {
+    if (settings === undefined)
+      throw new ConfigError.Option({
+        message:
+          "the SQLite implementations need the application's @DatabaseStorage({ driver: SqliteDriver({ path }) }) — the file they open (`:memory:` in a unit test)",
+      });
+    const parsed = SqliteSettings.safeParse(sqliteSettingsOf(settings));
     if (!parsed.success) {
-      // Stryker disable next-line StringLiteral: equivalent: the environment has the one field, so there is one issue and nothing to join
+      // Stryker disable next-line StringLiteral: equivalent: the settings have the one field, so there is one issue and nothing to join
       const problems = parsed.error.issues.map((issue) => issue.message).join("; ");
-      throw new Error(
-        `the SQLite implementations need sqlitePath: string in the environment — ${problems}; set it in the environment's file, or in a unit test pass it: testUnit(X, { environment: { sqlitePath: ":memory:" } })`,
-      );
+      throw new ConfigError.Option({
+        message: `the SQLite implementations need SqliteDriver's path: string — ${problems}`,
+      });
     }
     // the wait for another process's lock fits the lease, or the instance does not start
     assertLockWaitBudget({ lease: EXECUTION_LEASE, holdCap: SQLITE_HOLD_CAP });
@@ -269,13 +269,13 @@ export function requireSqliteTransaction(): SqliteTransactionHandle {
   });
 }
 
-/** The SQLite implementations: listed, each needs `sqlitePath`; each instance opens its own connection. */
+/** The SQLite implementations: each needs the storage's `SqliteDriver`; each instance opens its own connection. */
 const sqliteImplementations = new WeakSet<Class>();
 
 /**
  * Marks a framework class as a SQLite implementation (internal): never reused by a later app of a
- * test (its rows are in the file, its connection is its instance's). Its `sqlitePath` is
- * `SqliteConnection`'s declared field (#511), checked through the class's `deps`.
+ * test (its rows are in the file, its connection is its instance's). Its file is the
+ * `SqliteDriver`'s `path`, which `SqliteConnection` reads from the storage's settings.
  */
 export function sqliteImplementation(implementation: Class, options: SqliteGateOptions = {}): void {
   sqliteImplementations.add(implementation);

@@ -146,7 +146,6 @@ export interface EvalRunReport {
   /** The workflow's fingerprint (`agboss describe --json`): what the runs ran on. */
   readonly configHash: string;
   readonly start: string;
-  readonly environment: string;
   /** How many times each case ran: the k of pass@k. */
   readonly runs: number;
   readonly cascade: EvalCascade;

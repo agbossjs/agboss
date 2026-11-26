@@ -85,9 +85,9 @@ export interface ExecutionFacts {
    */
   readonly correlationKey?: string | undefined;
   /**
-   * The application's idempotency keys (#825, `@Application({ idempotencyKeyField,
-   * previousIdempotencyKeyField })`): what a business key's fingerprint is keyed by — the same on
-   * every instance, and nothing else is keyed by them. None without `idempotencyKeyField`.
+   * The application's idempotency keys (#825, `@DatabaseStorage({ idempotencySecret,
+   * previousIdempotencySecret })`): what a business key's fingerprint is keyed by — the same on
+   * every instance, and nothing else is keyed by them. None without `idempotencySecret`.
    */
   readonly fingerprintKeys?: FingerprintKeys | undefined;
 }

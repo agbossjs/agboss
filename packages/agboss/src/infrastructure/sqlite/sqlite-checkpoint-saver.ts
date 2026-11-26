@@ -19,7 +19,7 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
  * LangGraph's `BaseCheckpointSaver` on the application's SQLite file (#265 S32, our own on
  * `node:sqlite` — no second driver): checkpoints and pending writes, serialized by `this.serde`,
  * each row tagged with its run's tenant (#261: `configurable.tenant_id`).
- * Listed in `@Application({ providers })` (needs `sqlitePath`) with `SqlitePausedExecutionRepository`, a
+ * On the application's `SqliteDriver` storage, with `SqlitePausedExecutionRepository`, a
  * pause survives a restart and is resumed on any instance; recovery continues a `running` tree from
  * its last checkpoint. Ecosystem savers (`PostgresSaver`, …) plug in the same way.
  */

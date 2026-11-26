@@ -32,8 +32,7 @@ import type { StoreDescriptor } from "../execution-lease.repository.js";
  * `A2ATaskRepository` on the application's SQLite file (#807): a task row and a row per accepted
  * message; the status as JSON. Every write that checks first is one `BEGIN IMMEDIATE`
  * transaction, so of two instances accepting one message exactly one saves it, and of two
- * compare-and-sets at one version exactly one writes. Listed in `@Application({ providers })`;
- * needs `sqlitePath`.
+ * compare-and-sets at one version exactly one writes. On the application's `@DatabaseStorage({ driver: SqliteDriver({ path }) })`.
  */
 @Injectable({ deps: [SqliteConnection] })
 export class SqliteA2ATaskRepository extends A2ATaskRepository {

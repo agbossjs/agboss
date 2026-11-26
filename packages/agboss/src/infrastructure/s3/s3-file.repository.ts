@@ -1,8 +1,6 @@
 import { fileConflict } from "../../files/file-errors.js";
 import { Injectable } from "../../components/decorators.js";
 import { OBJECT_SETTINGS, type ResolvedSettings } from "../../storage/settings.js";
-import { EnvironmentField } from "../../environments/contract.js";
-import { ApplicationContext } from "../../flow/context/application-context.js";
 import {
   FileRepository,
   isSameFile,
@@ -39,20 +37,10 @@ import {
  * `owners/<tenant>/<owner>/<saved at>/<file>` (its body the owner), what the sweep lists — every
  * key within S3's limits for every valid id (#904). Every instance reaches the
  * bucket: the store for files above 256 KB on shared leases. Pure `fetch` and Signature Version 4;
- * an S3-compatible store on `a2aS3Endpoint`. The bucket's own lifecycle rules are a safety net, never
+ * an S3-compatible store on the driver's `endpoint`. The bucket's own lifecycle rules are a safety net, never
  * the retention.
  */
-@Injectable({
-  deps: [ApplicationContext, Clock, OBJECT_SETTINGS],
-  environmentFields: {
-    a2aS3Bucket: EnvironmentField.text(),
-    a2aS3Region: EnvironmentField.text(),
-    a2aS3Endpoint: EnvironmentField.text({ optional: true }),
-    a2aS3Prefix: EnvironmentField.text({ optional: true }),
-    a2aS3AccessKeyId: EnvironmentField.secret(),
-    a2aS3SecretAccessKey: EnvironmentField.secret(),
-  },
-})
+@Injectable({ deps: [Clock, OBJECT_SETTINGS] })
 export class S3FileRepository extends FileRepository {
   static override readonly store: StoreDescriptor = { backend: "s3" };
 
@@ -60,14 +48,9 @@ export class S3FileRepository extends FileRepository {
   readonly #prefix: string;
   readonly #sweeps: S3FileSweeps;
 
-  constructor(
-    applicationContext: ApplicationContext,
-    clock: Clock,
-    settings: ResolvedSettings | undefined,
-    fetcher: typeof fetch = fetch,
-  ) {
+  constructor(clock: Clock, settings: ResolvedSettings | undefined, fetcher: typeof fetch = fetch) {
     super();
-    const location = locationOf(applicationContext, settings);
+    const location = locationOf(settings);
     this.#client = new S3Client(location, clock, fetcher);
     this.#prefix = location.prefix;
     this.#sweeps = new S3FileSweeps(this.#client, this.#prefix);

@@ -1,7 +1,6 @@
 import { ConfigError } from "../core/error-families/config-errors.js";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { ResolvedModelSettings } from "../config/types.js";
-import type { Environment } from "../flow/generated-types.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { ProviderCalls } from "../models/calls/provider-calls.js";
 import {
@@ -27,13 +26,12 @@ import { modelPricingOf } from "../models/workflow-models.js";
 import type { ModelPricing } from "../models/model-pricing.js";
 
 /**
- * What the production clients need: the process environment (base URLs), the application's
- * environment (keys), the instance's shared calls (rate limits, 429 pauses, breakers), the
+ * What the production clients need: the process environment (the `env(…)` / `secret(…)` references
+ * of the providers' drivers), the instance's shared calls (rate limits, 429 pauses, breakers), the
  * application's container for transport providers (#385) and, in tests, a raw client.
  */
 export interface ProviderClientOptions {
   readonly env: NodeJS.ProcessEnv;
-  readonly environment: Environment;
   /** Absent: no rate limit and no breaker (a recording). */
   readonly calls?: ProviderCalls;
   readonly send?: ProviderFetch;
@@ -68,7 +66,7 @@ export async function chatExtensionsFor(
  * The raw clients of the default gateway over model providers: the provider serving each model
  * makes its chat model (`chat`, or a transport's `complete`, #385) or answers its decision; a
  * breaker's fallback wraps the chat model. The key of every HTTP provider a model use needs is read
- * here, at startup, from the application's environment (`connectAtStart`, #716); another's on its
+ * here, at startup, from the process environment (`connectAtStart`, #716); another's on its
  * first call.
  */
 export function providerClients(

@@ -20,7 +20,7 @@ import {
 export interface DescribeApplicationOptions {
   /** The profiles layered on `base` (`"prod"`, `"prod,economy"`, `["prod", "economy"]`); default `dev`. */
   readonly profile?: ProfileSelection;
-  /** Where prompt variables' `env(…)` references are read from; default `process.env`. */
+  /** Where the `defineEnv` references are read from; default `process.env`. */
   readonly processEnv?: NodeJS.ProcessEnv;
   /** The application's path as the caller gave it, for the text's header. */
   readonly source?: string;
@@ -58,12 +58,7 @@ export async function describeWorkflow(
     throw new Error(
       `describeWorkflow: ${workflow.name} is not a workflow of ${assembled.name} — list it in @Application({ workflows }) or launch it as a child`,
     );
-  return workflowText(
-    found,
-    profileLabel(options.profile),
-    undefined,
-    childSourcesIn(assembled.workflows),
-  );
+  return workflowText(found, profileLabel(options.profile), childSourcesIn(assembled.workflows));
 }
 
 /** The application and each of its workflows as typed data — what `agboss describe --json` prints. */
@@ -74,9 +69,9 @@ export async function describeApplicationData(
   const assembled = await assemblyOf(application, options, "describeApplicationData");
   const children = childSourcesIn(assembled.workflows);
   return {
-    application: applicationDataOf(assembled, undefined),
+    application: applicationDataOf(assembled),
     workflows: assembled.workflows.map((workflow) =>
-      workflowDataOf(workflow, profileLabel(options.profile), undefined, children),
+      workflowDataOf(workflow, profileLabel(options.profile), children),
     ),
   };
 }

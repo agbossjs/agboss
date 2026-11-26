@@ -9,7 +9,6 @@ import {
   applicationDeclarationOf,
   type ApplicationOptions,
 } from "../../application/application.js";
-import { declaredFieldsOf } from "../../environments/contract.js";
 import { declarationOf } from "../decorators/declaration.js";
 import { ComponentRegistry, DtoRegistry, dtoClashMessage } from "../registry.js";
 import { ImportTable } from "./imports.js";
@@ -38,7 +37,7 @@ export interface FlowTypesRequest {
   readonly workflows: readonly Class[];
   /**
    * The project's `@Application` classes (#261): a workflow is checked with its application's
-   * `defaults`, each environment contract types `Environment`, and its declared context classes
+   * `defaults`, and its declared context classes
    * type `app.execute(…, { tenant, execution })` of its starts.
    */
   readonly applications?: readonly Class[];
@@ -97,13 +96,6 @@ function nameClashes(workflows: readonly AnalysedWorkflow[], names: ImportTable)
   }
   return found;
 }
-
-/** An application's contract; none for an untyped caller that left `environment` out. */
-const contractOf = (options: ApplicationOptions): Class[] => {
-  // `environment` is required by the type; untyped (JS) callers may still leave it out
-  const contract = (options as Partial<ApplicationOptions>).environment;
-  return contract === undefined ? [] : [contract];
-};
 
 /** The workflows analysed, each with the one application that lists it (its defaults, contexts). */
 interface CheckedWorkflows {
@@ -214,10 +206,6 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
   const channels = channelTablesOf(all, names, tables);
   brandWorkflows(all, checks, names);
   brandApplications(request.applications ?? [], all, names);
-  const contracts = [...new Set(applications.flatMap(contractOf))]
-    // an empty contract (an application with no settings) adds nothing to `Environment`
-    .filter((contract) => declaredFieldsOf(contract).length > 0)
-    .map((contract) => names.refPlain(contract));
   const contexts = contextTypesOf(
     tables.workflowStarts,
     checks.map((check, index) => ({
@@ -234,7 +222,6 @@ export function generateFlowTypes(request: FlowTypesRequest): FlowTypes {
       agentTools,
       judgeOutputs: judgeOutputsTableOf(request.components ?? [], names),
       workflowStarts: contexts.workflowStarts,
-      environments: contracts,
     },
     names,
     tablesModule,

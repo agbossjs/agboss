@@ -19,7 +19,7 @@ import { SqliteConnection, sqliteImplementation } from "./sqlite-connection.js";
  * `running` for this instance in one `BEGIN IMMEDIATE` transaction, so of two instances on one file
  * exactly one claims a child; a completion is one statement matching this instance's running row.
  * Times are the framework clock's milliseconds. Listed in `@Application({ providers })`; needs
- * `sqlitePath`.
+ * the application's `SqliteDriver` storage.
  */
 @Injectable({ deps: [SqliteConnection, Clock, ApplicationContext] })
 export class SqliteChildExecutionQueueRepository extends ChildExecutionQueueRepository {

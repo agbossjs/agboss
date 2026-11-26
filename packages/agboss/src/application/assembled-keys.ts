@@ -3,36 +3,17 @@ import type { AssembledWorkflow } from "../workflow.js";
 import type { ApplicationOptions } from "./application.js";
 import type { AssembledApplication } from "./assemble.js";
 import { assembledStorageOf } from "../storage/storage-assembly.js";
-import { listedClassesOf } from "./application-rules.js";
-import { declaredKeysOf, type DeclaredKeys } from "./key-field-rules.js";
 
 /**
- * The application's key fields as assembled (#120, #825): what its PII and idempotency keys are
- * read from, and the rule that an application whose components can write under a business key names
- * an idempotency key.
+ * The application's keys as assembled (#120, #825, #1321): the rule that an application whose
+ * components can write under a business key names an idempotency key (`@DatabaseStorage({ idempotencySecret })`).
  */
 
-/** What an assembled application keeps of its key fields (#120, #825). */
-export interface AssembledKeyFields {
-  /** `@Application({ piiKeyField })` (#120, #825): the environment field of its PII key. */
-  readonly piiKeyField?: string;
-  /**
-   * The other keys it declares, by field (#825): its model providers' `apiKey`s, the
-   * `Secret`s its listed classes read — what no key field may read the variable of.
-   */
-  readonly otherKeys?: DeclaredKeys;
-}
-
-/**
- * Its keys' settings (#120, #825): the policies of every workflow, the field of its PII key and the
- * fields of its idempotency keys.
- */
+/** Its keys' settings (#120): the PII policies of every workflow. */
 export const keyFieldsOf = (
   options: ApplicationOptions,
-): Pick<AssembledApplication, "piiPolicies" | "piiKeyField" | "otherKeys"> => ({
+): Pick<AssembledApplication, "piiPolicies"> => ({
   piiPolicies: options.piiPolicies ?? [],
-  otherKeys: declaredKeysOf(listedClassesOf(options)),
-  ...(options.piiKeyField === undefined ? {} : { piiKeyField: options.piiKeyField }),
 });
 
 /**

@@ -15,7 +15,6 @@ import type { Class, ResolvedAll, Token } from "./injection.js";
 import type { McpServerClient, ServerTools } from "./mcp-client.js";
 import { recordComponent } from "./metadata.js";
 import { recordInjectAs, type InjectAs, type PortInstances } from "./injection.js";
-import { declareEnvironmentFields, type EnvironmentFields } from "../environments/contract.js";
 
 /**
  * The shape of a tool (`@Tool`): `execute(input)` returns its output DTO, or a promise
@@ -112,13 +111,6 @@ export interface InjectableOptions<
    * over the application's).
    */
   readonly injectAs?: TPorts;
-  /**
-   * The fields of the environment contract the class reads (#511) — a store's connection:
-   * `{ postgresUrl: EnvironmentField.secret(), postgresPoolSize: EnvironmentField.integer({ optional: true }) }`.
-   * An application that lists it, or a class whose `deps` reach it, fails assembly with
-   * `[environment.missing-field]` when its contract lacks a required one.
-   */
-  readonly environmentFields?: EnvironmentFields;
 }
 
 /** A class the container creates for others (a judge, a client, a store's connection, …). */
@@ -130,9 +122,6 @@ export function Injectable<
     recordOptionKeys(value, "Injectable", options, INJECTABLE_KEYS);
     recordComponent(value, { kind: "injectable", meta: { deps: options.deps ?? [] } });
     recordInjectAs(value, options.injectAs);
-    if (options.environmentFields !== undefined) {
-      declareEnvironmentFields(value, options.environmentFields);
-    }
     return value;
   };
 }

@@ -1,13 +1,10 @@
 import { ConfigError } from "../core/error-families/config-errors.js";
 import { IdempotencyError } from "../core/error-families/effect-errors.js";
-import { EnvironmentErrorCode } from "../environments/errors.js";
+import { missingVariable } from "../environments/environment-rules.js";
 import type { OptionalSecretRef, SecretRef } from "../environments/env-ref.js";
 import { OptionalSecretReference, variableOfSecretRef } from "../environments/secret.js";
-import type { Environment } from "../flow/generated-types.js";
 import type { FingerprintKeys } from "../infrastructure/fenced-effect-key.js";
 import type { AssembledApplication } from "./assemble.js";
-import type { AssembledKeyFields } from "./assembled-keys.js";
-import { assertKeyVariablesApart } from "./key-variables.js";
 
 /**
  * The application's idempotency keys (#825, #1317, `@DatabaseStorage({ idempotencySecret,
@@ -41,8 +38,9 @@ function storageSecretOf(
   if (raw !== undefined && raw !== "") return raw;
   if (isOptionalRef(ref)) return undefined;
   throw new ConfigError.Environment({
-    envCode: EnvironmentErrorCode.MissingVariables,
-    message: `${application}: @DatabaseStorage({ ${option} }) has no value — ${variable} is not set`,
+    message: missingVariable(
+      `${application}: @DatabaseStorage({ ${option} }) has no value — ${variable} is not set`,
+    ),
   });
 }
 
@@ -124,15 +122,13 @@ function testEnvOf(
 
 /** An assembled application's idempotency keys (#825), as its instance's parts take them. */
 export function applicationIdempotencyKeysOf(
-  assembled: Pick<AssembledApplication, "name" | "storage" | "workflows"> & AssembledKeyFields,
-  environment: Environment,
+  assembled: Pick<AssembledApplication, "name" | "storage" | "workflows">,
   env: NodeJS.ProcessEnv,
   fallback?: FingerprintKeys,
 ): { readonly fingerprintKeys?: FingerprintKeys } {
   if (fallback !== undefined && env.NODE_ENV === "production") throw testKeysInProduction();
   const fromStorage = storageKeysOf(assembled, testEnvOf(assembled, env, fallback));
   if (fromStorage === undefined) assertSecretNotNeeded(assembled);
-  assertKeyVariablesApart(assembled.name, assembled, environment);
   if (fromStorage !== undefined) return { fingerprintKeys: fromStorage };
   // no storage declared (in-memory defaults): a test's keys, else none
   return assembled.storage?.database === undefined && fallback !== undefined

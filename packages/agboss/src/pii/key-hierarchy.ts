@@ -1,14 +1,13 @@
 import { createHmac, hkdfSync } from "node:crypto";
 
 /**
- * The PII key hierarchy (#1269). One root, the application's PII key (`@Application({ piiKeyField })`,
- * `PII_PSEUDONYM_KEY`; a key of the instance when none is set, S94; a policy's own `pseudonymKey` for
+ * The PII key hierarchy (#1269). One root, the application's PII key (`@DatabaseStorage({ piiSecret })`; a key of the instance when none is set, S94; a policy's own `pseudonymKey` for
  * its tokens), and below it one key per purpose: HKDF-SHA256 of the root under the purpose's own label.
  * No two purposes share a key, so one input never gives the same digest in two places (a token is never
  * a cache key, a cache key never a policy's hash), and no digest of one purpose tells anything of another.
  *
  * A purpose key is derived when it is used and never kept: not in a checkpoint, not in a cache, not in
- * a store. The one key an execution keeps is its own token key (#334, only without `piiKeyField`): it is
+ * a store. The one key an execution keeps is its own token key (#334, only without `piiSecret`): it is
  * the root of its pseudonyms alone, whose values its checkpoint holds anyway (`piiTokens`); every digest
  * kept beside it — a cached transcription's or redacted copy's key, a masked text's key, the policies'
  * hash — is under a purpose key of the application's (or the instance's) root, which no store holds.

@@ -1,7 +1,7 @@
 import { ConfigError } from "../core/error-families/config-errors.js";
 import { inspect } from "node:util";
 import type { OptionalSecretRef, SecretRef } from "./env-ref.js";
-import { EnvironmentErrorCode } from "./errors.js";
+import { missingVariable } from "./environment-rules.js";
 
 /** What a `Secret` prints as, everywhere: logs, traces, JSON, `agboss describe`, error messages. */
 export const SECRET_MASK = "***";
@@ -41,8 +41,9 @@ export class Secret {
   reveal(): string {
     if (this.#value === undefined) {
       throw new ConfigError.Environment({
-        envCode: EnvironmentErrorCode.NotFound,
-        message: `the secret from ${this.#variable} is not resolved: read it from the application's environment, not from the environment file`,
+        message: missingVariable(
+          `the secret from ${this.#variable} is not resolved: read it from the application's defineEnv values (deps: [appEnv]), not from the reference`,
+        ),
       });
     }
     return this.#value;

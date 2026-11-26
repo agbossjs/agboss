@@ -2499,7 +2499,7 @@ export abstract class SqliteClusterMirror extends ExecutionLeaseRepository imple
 
 // @public
 export class SqliteConnection implements OnDestroy {
-    constructor(applicationContext: ApplicationContext, settings?: ResolvedSettings);
+    constructor(settings?: ResolvedSettings);
     columnsOf(table: string): readonly string[];
     get database(): DatabaseSync;
     ensureSchema(name: string, ddl: string): void;
