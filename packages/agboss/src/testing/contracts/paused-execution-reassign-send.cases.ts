@@ -103,7 +103,12 @@ export const REASSIGN_SEND_CASES: readonly ContractCase<PausedExecutionRepositor
       const claims = await peeker(first)();
       expect(kindsOf(claims, "pause-a", CHANNEL_KEY)).toEqual(["reassigned"]);
       expect(kindsOf(claims, "pause-a", AUDIT)).toEqual(["opened", "reassigned"]);
+      // `opened` carries the deadline the channel was asked with, `reassigned` the change from it
+      expect(noticesOf(claims, "pause-a", AUDIT)[0]).toMatchObject({
+        expiresAt: DEADLINE.toISOString(),
+      });
       expect(noticesOf(claims, "pause-a", CHANNEL_KEY)[0]).toMatchObject({
+        previousExpiresAt: DEADLINE.toISOString(),
         previousTarget: "refund-tool-approval",
         previousChannel: "refund-approval-channel",
         expiresAt: "2026-01-05T12:00:00.000Z",

@@ -3,12 +3,13 @@ import { type PausedExecutionRepository } from "../../infrastructure/paused-exec
 import type { ContractCase } from "./define.js";
 import {
   CHANNEL_KEY,
+  DEADLINE,
   expiringPauseOf,
   MID,
   RECIPIENTS,
   withSeenNow,
 } from "./paused-execution-data.js";
-import { kindsOf, peeker } from "./paused-execution-mailboxes.js";
+import { kindsOf, noticesOf, peeker } from "./paused-execution-mailboxes.js";
 import {
   type Instances,
   R,
@@ -46,6 +47,18 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
       const claims = await peeker(first)();
       expect(kindsOf(claims, "pause-a", CHANNEL_KEY)).toEqual(["reassigned"]);
       expect(kindsOf(claims, "pause-a", AUDIT)).toEqual(["opened", "reassigned"]);
+      // what the channel's system needs to find and update its old item
+      const told = noticesOf(claims, "pause-a", CHANNEL_KEY)[0];
+      expect(told).toMatchObject({
+        writtenAt: MID.toISOString(),
+        assignees: ["deputy-3"],
+        expiresAt: DEADLINE.toISOString(),
+        previousExpiresAt: DEADLINE.toISOString(),
+        previousTarget: "refund-tool-approval",
+        previousChannel: "refund-approval-channel",
+        previousExternalRef: "JIRA-1",
+      });
+      expect(told).not.toHaveProperty("previousAssignees");
     },
   },
   {

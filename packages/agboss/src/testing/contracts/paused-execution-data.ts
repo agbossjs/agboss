@@ -146,6 +146,11 @@ export const expiringPauseOf = (
   stepKey = "run-1:clerk-agent:1:call-1",
 ): PauseRecord => ({
   ...pauseOf(pauseId, stepKey),
+  // as a pause opened under a deadline records it in its first entry (`openedEntryOf`)
+  trail: pauseOf(pauseId, stepKey).trail.map((entry) => ({
+    ...entry,
+    expiresAt: DEADLINE.toISOString(),
+  })),
   expiresAt: DEADLINE.toISOString(),
   expiryBound: PauseExpiryBound.Pause,
   remindAt: "2026-01-05T09:30:00.000Z",

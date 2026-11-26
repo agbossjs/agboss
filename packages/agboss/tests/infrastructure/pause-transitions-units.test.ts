@@ -561,6 +561,9 @@ describe("#1307: the reassignment a first send owes its channel (inFirstSendNoti
       ["channel:refund", PauseNoticeKind.Reassigned],
       ["listener:metrics", PauseNoticeKind.Reassigned],
     ]);
+    // `opened` says what the channel was asked with; `reassigned` the change from it
+    expect(told[0]?.notice).toMatchObject({ expiresAt: T11 });
+    expect(told[1]?.notice).not.toHaveProperty("previousExternalRef");
     expect(told[1]?.at).toEqual(new Date(T9));
     expect(told[1]?.notice).toMatchObject({
       expiresAt: T12,
@@ -583,12 +586,15 @@ describe("#1307: the reassignment a first send owes its channel (inFirstSendNoti
     // an `opened` entry is never the change, and the first `reassigned` after it is, whatever lies between
     const tripled = changedInPlace({
       trail: [
-        entry("opened"),
-        { ...entry("opened"), action: "timeout-changed" },
+        entry("opened", { expiresAt: T11 }),
+        { ...entry("opened", { expiresAt: T9 }), action: "timeout-changed" },
         entry("reassigned", { at: T9 }),
       ],
     });
-    expect(markSentChange(tripled, RECIPIENTS).notices[1]?.at).toEqual(new Date(T9));
+    const [, told] = markSentChange(tripled, RECIPIENTS).notices;
+    expect(told?.at).toEqual(new Date(T9));
+    // what the channel was asked with is the `opened` entry's, not a change between
+    expect(told?.notice).toMatchObject({ previousExpiresAt: T11 });
     expect(
       markSentChange(
         changedInPlace({ trail: [entry("reassigned"), entry("reassigned", { at: T9 })] }),
