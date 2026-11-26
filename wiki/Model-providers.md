@@ -410,7 +410,7 @@ structure and cost; `rateLimitPolicy` governs the provider API's capacity.
 ### `rateLimitPolicy`
 
 `RateLimitPolicy.of({ maxConcurrentCalls?, perMinute?: { calls?, tokens? }, balancing? })` — at
-least one limit, each a whole number ≥ 1; `RateLimitPolicyError` otherwise. **Without it there is
+least one limit, each a whole number ≥ 1; `ConfigError.RateLimitPolicy` otherwise. **Without it there is
 no limit**, as before #266.
 
 - **One limit for the whole application**: every execution, tenant, parallel branch and instance

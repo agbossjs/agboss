@@ -323,7 +323,7 @@ actions
 
 An execution that stops before a finish — an uncaught step failure, an uncaught limit
 (`LimitError.Budget`, `LimitError.Steps`, `LimitError.Visits`), `app.cancel`, a
-sibling's failure under `FailurePolicy.FailFast` — undoes its open undoable actions, newest first,
+sibling's failure — undoes its open undoable actions, newest first,
 before it ends (#340 PR 3): `CompensationReason.ExecutionFailed` for a failure or a limit,
 `ExecutionCancelled` for a cancel or a `FailFast` abort. Each undo runs as a failed join's does
 (above): its own frame and key, the clean-up signal, no slot, no budget check. Where it happens:

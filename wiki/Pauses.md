@@ -182,7 +182,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
   agent's: a `tokenize()` value is a token for the model, its answer is revealed before it is
   validated (the tool gets the real value), a token no map knows is a decline (the pause stays
   `Pending`), a `block` value in them throws `PiiError.Refused`.
-- **`DecidedBy.Code`** — `implements ReplyInterpreterHandler<Self>`: `interpret(input:
+- **`DecidedBy.Code`** — `implements ChannelInterpreterHandler<Self>`: `interpret(input:
   InputOf<Self>)` returns its outcome (#267 S124 b), sync or as a promise —
   `ChannelInterpretation.understood(decision)` (`OutputOf<Self>`, validated like any decision) or
   `ChannelInterpretation.notUnderstood({ reason })` for a reply it cannot read; a plain object does not

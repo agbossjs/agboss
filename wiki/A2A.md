@@ -436,7 +436,7 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
   peer — from an unaddressed server they are not rebuilt — and carrying `isRemote: true`); CANCELED → `A2AError.TaskCancelled`;
   INPUT_REQUIRED → `A2AError.TaskInterrupted` from `execute` (a remote pause is not a local one yet),
   the task from `send`; a JSON-RPC error → `A2AError.Protocol` (`rpcCode`); a refused caller →
-  `A2ACallerRejectedError`. Only codes: an agent's message, status text or body is never kept.
+  `A2AError.CallerRejected`. Only codes: an agent's message, status text or body is never kept.
 - **The mesh** rides as the extension `https://agboss.dev/a2a/mesh/v1`: `mesh: A2AMesh.Required`
   (the default with a `target.application`; a card without the extension is
   `A2AError.MeshUnsupported`, nothing sent) or `A2AMesh.IfSupported` (`result.peer.mesh: false`). The
