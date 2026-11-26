@@ -33,7 +33,7 @@ store packages (`@agboss/postgres`, `@agboss/mongodb`, `@agboss/redis`). The sto
 
 `@DatabaseStorage` requires `auditLogTtl` (a duration, `Ttl.Forever` or `Ttl.None`) and `ledgerEntriesTtl`
 (above the 30 s lease) — `[storage.ttl-invalid]` — and names its keys: `idempotencySecret`,
-`piiSecret` (reference 07), each a `secret(…)` of its own (`[storage.secret-shared]`). `retention.auditLog` and `retention.costLedgerEntries` beside `storage` are
+`piiSecret` (reference 07), each a `secret(…)` of its own — no other key of the application (a provider's `apiKey`, the mesh's `signingKey`) reads its variable (`[storage.secret-shared]`). `retention.auditLog` and `retention.costLedgerEntries` beside `storage` are
 `[storage.retention-conflict]`. A `@ClusterStorage` needs a database whose driver keeps durable lease
 rows (`[storage.cluster-needs-durable-lease-store]`) and a database beside it
 (`[storage.database-required]`). A class in `storage` without its decorator is
