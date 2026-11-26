@@ -46,10 +46,7 @@ function filterClauses(filter: PauseFilter): {
       filter.channel,
     );
   if (filter.assignee !== undefined)
-    add(
-      `CASE WHEN json_valid(p.pause) THEN EXISTS (SELECT 1 FROM json_each(p.pause, '$.assignees') WHERE value = ?) END`,
-      filter.assignee,
-    );
+    add("p.seq IN (SELECT seq FROM pause_assignees WHERE assignee = ?)", filter.assignee);
   if (filter.externalRef !== undefined)
     add(
       `CASE WHEN json_valid(p.pause) THEN json_extract(p.pause, '$.externalRef') END = ?`,
