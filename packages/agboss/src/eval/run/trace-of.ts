@@ -106,7 +106,13 @@ function stepOf(record: ExecutionStepRecord, calls: readonly ToolCallRecord[]): 
   };
 }
 
-const pauseOf = (pause: PauseAnswerRecord): EvalPauseTrace => ({
+/** What a trace reads of a resolved pause: the record's and the history's alike (their times are not read). */
+type TracedPause = Pick<
+  PauseAnswerRecord,
+  "executionId" | "step" | "target" | "resolution" | "actor" | "decision"
+>;
+
+const pauseOf = (pause: TracedPause): EvalPauseTrace => ({
   nodeId: pause.step.nodeId,
   target: pause.target,
   resolution: pause.resolution,
@@ -128,8 +134,8 @@ interface TracedParts {
   readonly path: readonly string[];
   readonly steps: readonly ExecutionStepRecord[];
   readonly toolCalls: readonly ToolCallRecord[];
-  readonly pauses: readonly PauseAnswerRecord[];
-  readonly children: readonly ChildExecutionRecord[];
+  readonly pauses: readonly TracedPause[];
+  readonly children: readonly ChildExecutionRecord<TracedPause>[];
 }
 
 function traceOf(parts: TracedParts): Omit<EvalTrajectory, "handledErrors" | "compensations"> {
@@ -143,7 +149,7 @@ function traceOf(parts: TracedParts): Omit<EvalTrajectory, "handledErrors" | "co
   };
 }
 
-function childOf(child: ChildExecutionRecord): EvalChildTrace {
+function childOf(child: ChildExecutionRecord<TracedPause>): EvalChildTrace {
   return {
     ...traceOf(child),
     handledErrors: [],

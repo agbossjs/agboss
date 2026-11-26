@@ -420,9 +420,9 @@ export interface ChildExecutionQueueWatch {
 }
 
 // @public
-export interface ChildExecutionRecord extends Omit<EndedChildRecord, "children"> {
-    readonly children: readonly ChildExecutionRecord[];
-    readonly pauses: readonly PauseAnswerRecord[];
+export interface ChildExecutionRecord<TPause = ExecutionPauseRecord> extends Omit<EndedChildRecord, "children"> {
+    readonly children: readonly ChildExecutionRecord<TPause>[];
+    readonly pauses: readonly TPause[];
 }
 
 // @public
@@ -971,7 +971,7 @@ export interface ExecutionHistoryQuery extends PageQuery {
 }
 
 // @public
-export interface ExecutionHistoryRecord extends ExecutionRecord {
+export interface ExecutionHistoryRecord extends ExecutionRecord<PauseAnswerRecord> {
     // (undocumented)
     readonly application: ApplicationRecord;
     readonly auditLog?: readonly ExecutionAuditEventRecord[];
@@ -1075,8 +1075,16 @@ export interface ExecutionOrigin extends MeshOrigin {
 }
 
 // @public
-export interface ExecutionRecord {
-    readonly children: readonly ChildExecutionRecord[];
+export interface ExecutionPauseRecord extends Omit<PauseAnswerRecord, "askedAt" | "resolvedAt" | "trail"> {
+    readonly askedAt: Date;
+    // (undocumented)
+    readonly resolvedAt: Date | undefined;
+    readonly trail: readonly PauseTrailEntry[];
+}
+
+// @public
+export interface ExecutionRecord<TPause = ExecutionPauseRecord> {
+    readonly children: readonly ChildExecutionRecord<TPause>[];
     readonly compensations: readonly CompensationRecord[];
     // (undocumented)
     readonly lastError?: ErrorRecord;
@@ -1085,7 +1093,7 @@ export interface ExecutionRecord {
     readonly outdatedValues: readonly OutdatedValueRecord[];
     // (undocumented)
     readonly path: readonly string[];
-    readonly pauses: readonly PauseAnswerRecord[];
+    readonly pauses: readonly TPause[];
     // (undocumented)
     readonly scope: readonly ScopeValueRecord[];
     // (undocumented)
@@ -1886,7 +1894,7 @@ export interface PauseAnswer {
 // @public
 export interface PauseAnswerRecord {
     readonly actor: PauseActor | undefined;
-    readonly askedAt: Date;
+    readonly askedAt: string;
     readonly assignees?: readonly string[];
     readonly channel?: string;
     readonly decision: unknown;
@@ -1898,12 +1906,12 @@ export interface PauseAnswerRecord {
     // (undocumented)
     readonly resolution: PauseResolution;
     // (undocumented)
-    readonly resolvedAt: Date | undefined;
+    readonly resolvedAt: string | undefined;
     readonly respondent: PauseRespondent;
     readonly step: StepRecord;
     readonly target: string;
     readonly toolCall?: unknown;
-    readonly trail: readonly PauseTrailEntry[];
+    readonly trail: readonly PauseTrailRecord[];
 }
 
 // @public
@@ -3127,6 +3135,7 @@ export interface WrittenLedgerMark {
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "lastError".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "spend".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolution".
+// src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "slot".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "reason".

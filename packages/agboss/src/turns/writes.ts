@@ -227,7 +227,7 @@ export function turnWrites(
 /** What a kept pause answer is keyed by: its step's key and when it was asked (the whole of it as JSON). */
 interface KeptPauseAnswer {
   readonly step: { readonly idempotencyKey: string };
-  readonly askedAt: Date;
+  readonly askedAt: string;
 }
 
 /** A pause answer as a Turn store keeps it: by its tree and its step key, the record as JSON. */
@@ -239,7 +239,6 @@ export const pauseAnswerEntryOf = (
   tenantId,
   rootExecutionId,
   stepKey: answer.step.idempotencyKey,
-  // the Turn store contract keeps the time as ISO 8601 text; P6b types it as a `Date` and drops this conversion
-  askedAt: answer.askedAt.toISOString(),
+  askedAt: answer.askedAt,
   record: JSON.stringify(answer),
 });

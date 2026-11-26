@@ -62,7 +62,7 @@ interface Stepping {
   readonly executionId: string;
   readonly workflow: { readonly name: string };
   readonly steps: readonly ExecutionStepRecord[];
-  readonly children: readonly ChildExecutionRecord[];
+  readonly children: readonly ChildExecutionRecord<unknown>[];
 }
 
 function modelCalls(application: string, execution: Stepping): ModelCall[] {

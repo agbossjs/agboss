@@ -83,15 +83,13 @@ function lateAnswerViolations(run: FaultRun): FaultViolation[] {
     record.pauses.flatMap((pause) => {
       const isReply = pause.resolution === PauseResolution.Replied;
       if (!isReply || pause.target !== EXPIRING_ROLE || pause.resolvedAt === undefined) return [];
-      const deadline = pause.askedAt.getTime() + FAULT_EXPIRES_IN;
-      return pause.resolvedAt.getTime() < deadline
+      const deadline = Date.parse(pause.askedAt) + FAULT_EXPIRES_IN;
+      return Date.parse(pause.resolvedAt) < deadline
         ? []
         : [
             violation(
               FaultInvariant.NoAnswerAfterDeadline,
-              `an answer of ${record.executionId}'s expiring pause was recorded at ${pause.resolvedAt.toISOString()}, its deadline ${new Date(
-                deadline,
-              ).toISOString()}`,
+              `an answer of ${record.executionId}'s expiring pause was recorded at ${pause.resolvedAt}, its deadline ${new Date(deadline).toISOString()}`,
             ),
           ];
     }),

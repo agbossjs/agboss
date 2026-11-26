@@ -19,7 +19,7 @@ export const answerOf = (
   responder: string,
   approved: boolean,
   key = STEP_KEY,
-  askedAt = new Date("2026-01-05T09:00:00.000Z"),
+  askedAt = "2026-01-05T09:00:00.000Z",
 ): PauseAnswerRecord => ({
   pauseId: undefined,
   executionId: "child-7",
@@ -45,7 +45,7 @@ export const answerOf = (
   actor: { id: responder, orgId: "holding-hq" },
   resolution: PauseResolution.Replied,
   askedAt,
-  resolvedAt: new Date("2026-01-05T09:05:00.000Z"),
+  resolvedAt: "2026-01-05T09:05:00.000Z",
   decision: { approved },
   input: { text: "10 USD" },
   toolCall: { callId: "call-1", tool: "charge", summary: "charge" },
@@ -165,13 +165,13 @@ const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
         "manager-1",
         true,
         "child-7:refund-agent:1:call-1",
-        new Date("2026-01-05T09:00:00.000Z"),
+        "2026-01-05T09:00:00.000Z",
       );
       const late = answerOf(
         "manager-2",
         true,
         "child-7:refund-agent:1:call-2",
-        new Date("2026-01-05T09:10:00.000Z"),
+        "2026-01-05T09:10:00.000Z",
       );
       await first.savePauseAnswer("acme", "root-1", early);
       await first.savePauseAnswer("acme", "root-1", late);

@@ -8,7 +8,7 @@ import { errorRecordOf } from "../core/error-record.js";
 import { CostReport, type UsageRecord } from "../finops/usage.js";
 import { compensationRecordsOf, type CompensationRecord } from "../flow/compensation.js";
 import { DEFAULT_CONTEXT_VALUES } from "../flow/context/context-values.js";
-import { withChildPauses } from "../flow/runtime/child-records.js";
+import { withChildPauses, withHistoryChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionStateType } from "../flow/runtime/state.js";
 import { nodeRecordIn } from "../flow/runtime/workflow-keys.js";
 import { finishPartOf } from "./history-finish.js";
@@ -147,7 +147,7 @@ const recordPartOf = (values: RecordedState, end: HistoryEnd) => ({
   outdatedValues: values.outdatedValues,
   ...(values.lastError === null ? {} : { lastError: values.lastError }),
   spend: CostReport.fromUsage([...values.usage, ...(end.lostUsage ?? [])]),
-  children: withChildPauses(values.children, []),
+  children: withHistoryChildPauses(values.children, []),
   pauses: [],
   compensations: compensationRecordsOf(values.compensations),
   toolCalls: values.toolCalls,
@@ -214,7 +214,7 @@ async function maskedRecordOf(
   const answered = {
     ...record,
     pauses: answers,
-    children: withChildPauses(record.children, answers),
+    children: withHistoryChildPauses(record.children, answers),
     // its calls that left the system (#505), masked with the record: results and failure texts too
     ...(calls === undefined ? {} : { outboundCalls: calls.map(shownCallOf) }),
   };

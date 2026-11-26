@@ -6,7 +6,7 @@ import type { StepRecord } from "../flow/context/execution-context.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import type { PauseActor } from "../channels/pause-contexts.js";
 import { PauseResolution, pauseKeyOf, type PauseTrailRecord } from "./pause-record.js";
-import { instantOf, instantOfOptional, trailEntryOf } from "./pause-record-instants.js";
+import { trailEntryOf } from "./pause-record-instants.js";
 import { PauseRespondent } from "../pause/respondent.js";
 
 const optionalText = z.string().optional();
@@ -160,14 +160,14 @@ export const PauseAnswerRecordSchema = z
     responder: z.never().optional(),
     asked: z.never().optional(),
     resolution: z.enum(PauseResolution),
-    askedAt: z.string().transform(instantOf),
-    resolvedAt: optionalText.transform(instantOfOptional),
+    askedAt: z.string(),
+    resolvedAt: optionalText,
     decision: z.unknown().optional(),
     input: z.unknown().optional(),
     toolCall: z.unknown().optional(),
     assignees: z.array(z.string()).optional(),
     externalRef: z.string().optional(),
-    trail: z.array(StoredTrailEntryDated),
+    trail: z.array(StoredTrailEntry),
     isTaken: z.literal(false).optional(),
   })
   .transform((stored): PauseAnswerRecord => ({

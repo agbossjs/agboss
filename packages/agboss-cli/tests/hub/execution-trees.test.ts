@@ -10,6 +10,7 @@ import {
   ChildExecutionStatus,
   ComponentKind,
   type ChildExecutionRecord,
+  type PauseAnswerRecord,
   type ExecutionHistoryRecord,
   type ToolCallRecord,
 } from "@agboss/core";
@@ -71,7 +72,7 @@ const originOf = (application: string, executionId: string, key: string) => ({
 const childOf = (
   executionId: string,
   toolCalls: readonly ToolCallRecord[],
-): ChildExecutionRecord => ({
+): ChildExecutionRecord<PauseAnswerRecord> => ({
   executionId,
   parentExecutionId: "a1",
   rootExecutionId: "a1",

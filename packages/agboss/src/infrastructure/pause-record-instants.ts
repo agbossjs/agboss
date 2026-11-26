@@ -1,3 +1,4 @@
+import type { ExecutionPauseRecord, PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import type { PauseTrailEntry } from "../channels/pause-contexts.js";
 import { earlierOf, isBefore, sameInstant } from "./instants.js";
 import type { PauseTrailRecord } from "./pause-record.js";
@@ -53,3 +54,11 @@ export const earlierText = (a: string, b: string): string => {
 /** The order of two times of records by instant (for `sort`): negative when `a` is earlier. */
 export const compareText = (a: string, b: string): number =>
   instantOf(a).getTime() - instantOf(b).getTime();
+
+/** A resolved pause the answer log keeps (texts) as `result.record.pauses` shows it (`Date`s). */
+export const executionPauseOf = (answer: PauseAnswerRecord): ExecutionPauseRecord => ({
+  ...answer,
+  askedAt: instantOf(answer.askedAt),
+  resolvedAt: instantOfOptional(answer.resolvedAt),
+  trail: trailEntriesOf(answer.trail),
+});

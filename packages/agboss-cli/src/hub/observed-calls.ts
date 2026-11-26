@@ -25,7 +25,7 @@ export interface ObservedCall {
 interface CallingExecution {
   readonly workflow: { readonly name: string };
   readonly toolCalls: readonly ToolCallRecord[];
-  readonly children: readonly ChildExecutionRecord[];
+  readonly children: readonly ChildExecutionRecord<unknown>[];
 }
 
 function callerCalls(application: string, execution: CallingExecution): ObservedCall[] {

@@ -40,7 +40,7 @@ const orderIdOf = (input: unknown): string =>
   typeof input === "object" && input !== null && "orderId" in input ? String(input.orderId) : "";
 
 /** A batch child's execution. */
-const childOf = (child: ChildExecutionRecord): OrderExecution => ({
+const childOf = (child: ChildExecutionRecord<unknown>): OrderExecution => ({
   orderId: orderIdOf(child.input),
   executionId: child.executionId,
   rootExecutionId: child.rootExecutionId,

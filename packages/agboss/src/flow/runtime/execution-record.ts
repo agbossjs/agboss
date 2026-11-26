@@ -4,7 +4,7 @@ import type { CostReport } from "../../finops/usage.js";
 import type { OutdatedValueRecord, ScopeValueRecord } from "./records.js";
 import type { ChildExecutionRecord } from "./child-records.js";
 import type { PauseActor, PauseTrailEntry } from "../../channels/pause-contexts.js";
-import type { PauseResolution } from "../../infrastructure/pause-record.js";
+import type { PauseResolution, PauseTrailRecord } from "../../infrastructure/pause-record.js";
 import type { StepRecord } from "../context/execution-context.js";
 import type { ToolCallRecord } from "./tool-calls.js";
 import type { ExecutionStepRecord } from "./step-records.js";
@@ -19,19 +19,19 @@ import { type PauseRespondent } from "../../pause/respondent.js";
  * tree and how (#267 S107).
  * `result.output` stays the business result only.
  */
-export interface ExecutionRecord {
+export interface ExecutionRecord<TPause = ExecutionPauseRecord> {
   readonly path: readonly string[];
   readonly scope: readonly ScopeValueRecord[];
   readonly outdatedValues: readonly OutdatedValueRecord[];
   readonly lastError?: ErrorRecord;
   readonly spend: CostReport;
   /** Its child executions that ended — finished, failed or cancelled — nested (#263). */
-  readonly children: readonly ChildExecutionRecord[];
+  readonly children: readonly ChildExecutionRecord<TPause>[];
   /**
    * Every pause of its tree that was resolved, in the order they were asked (#267 S107): the audit
    * trail of who answered what. A pause still pending is in `result.pending` only.
    */
-  readonly pauses: readonly PauseAnswerRecord[];
+  readonly pauses: readonly TPause[];
   /** The undo actions that ran (#340), in the order they ended (`result.compensations`). */
   readonly compensations: readonly CompensationRecord[];
   /** Its own agents' tool calls (#395), in call order; a child's are in its `ChildExecutionRecord`. */
@@ -49,7 +49,11 @@ export interface ExecutionRecord {
   readonly origin?: ExecutionOrigin;
 }
 
-/** One resolved pause as the execution record keeps it (#267 S107), masked like the rest of it. */
+/**
+ * One resolved pause as the execution record store keeps it (#267 S107), masked like the rest of it:
+ * its times are ISO 8601 texts, the `@agboss/core/stores` contract until P6b (#1307). What a caller
+ * reads in `result.record.pauses` is `ExecutionPauseRecord`, the same with `Date`s.
+ */
 export interface PauseAnswerRecord {
   /** Its id — `undefined` for a `PauseRespondent.Delegate` pause: only its channel has it (S100 b). */
   readonly pauseId: string | undefined;
@@ -69,9 +73,9 @@ export interface PauseAnswerRecord {
    */
   readonly actor: PauseActor | undefined;
   readonly resolution: PauseResolution;
-  /** When it was asked and resolved (the application's `Clock`). */
-  readonly askedAt: Date;
-  readonly resolvedAt: Date | undefined;
+  /** When it was asked and resolved (ISO 8601, the application's `Clock`). */
+  readonly askedAt: string;
+  readonly resolvedAt: string | undefined;
   /** What was decided, PII-masked; `undefined` when it was withdrawn or cancelled. */
   readonly decision: unknown;
   /**
@@ -87,10 +91,22 @@ export interface PauseAnswerRecord {
   /** The id its channel's system gave it (a ticket key), PII-masked. */
   readonly externalRef?: string;
   /** Its chain of custody, newest last, PII-masked: who opened and reassigned it, when, why. */
-  readonly trail: readonly PauseTrailEntry[];
+  readonly trail: readonly PauseTrailRecord[];
   /**
    * `false` when an answer was recorded and its run never applied it (its tree ended before the step
    * took it; I12): the answer and who gave it are kept. Absent: taken, or no answer.
    */
   readonly isTaken?: false;
+}
+
+/** One resolved pause as `result.record.pauses` shows it (#1307, G3): `PauseAnswerRecord` with its times as `Date`s. */
+export interface ExecutionPauseRecord extends Omit<
+  PauseAnswerRecord,
+  "askedAt" | "resolvedAt" | "trail"
+> {
+  /** When it was asked and resolved (the application's `Clock`). */
+  readonly askedAt: Date;
+  readonly resolvedAt: Date | undefined;
+  /** Its chain of custody, newest last, PII-masked: who opened and reassigned it, when, why. */
+  readonly trail: readonly PauseTrailEntry[];
 }
