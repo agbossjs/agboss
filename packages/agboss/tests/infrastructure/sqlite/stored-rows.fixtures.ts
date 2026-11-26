@@ -20,6 +20,9 @@ export const pauseJson = JSON.stringify({
   visitNumber: 1,
   copyNumber: 1,
   askedAt: "2026-01-05T09:00:00.000Z",
+  // the limits it was opened under (#1307, Q-D): a row without them is unreadable
+  firstAskedAt: "2026-01-05T09:00:00.000Z",
+  escalationLimits: {},
   kind: "approval",
   step: "clerk-agent",
   component: { name: "clerk-agent", kind: "agent" },
