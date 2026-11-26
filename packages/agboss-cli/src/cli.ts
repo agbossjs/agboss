@@ -20,7 +20,6 @@ import { KeptText } from "./cli/kept-text.js";
 import { loadChosenStart } from "./cli/cli-application.js";
 import { textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { costSummary, costTotal, costTrace } from "./cli/finops.js";
-import { envOption } from "./cli/environment.js";
 import { runInputOf } from "./cli/run-input.js";
 
 /** The reply streams to stdout (stderr under --json); tool use and the summary go to stderr. */
@@ -88,14 +87,13 @@ function report(context: CommandContext, app: App, result: ExecutionOutput, kept
 
 /**
  * `agboss run [--start <name>] ("<task>" | --input <json> | --input-file <file>) [--thread <id>]
- * [--profile <p>] [--env <id>]` — the input is checked against the start before the app starts.
+ * [--profile <p>]` — the input is checked against the start before the app starts.
  */
 export const handle: CommandHandler = async (context) => {
   const { application, start } = await loadChosenStart(context);
   const input = runInputOf(context, start);
   const app = await createAppWith(application, {
     profile: textOption(context.values, "profile"),
-    env: envOption(context),
     processEnv: context.io.env,
   });
   // the startup warnings are in the app's start log (its Logger); --json returns them too

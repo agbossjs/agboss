@@ -1,0 +1,7 @@
+import { configureEnv, defineConfig } from "@agboss/core";
+import { appEnv } from "./app.env.js";
+
+/** What `testWith` runs on by default (the `test` profile): never dev's addresses, so no test reaches the real API. */
+export default defineConfig({
+  env: configureEnv(appEnv, { apiUrl: "https://api.test.example.com" }),
+});

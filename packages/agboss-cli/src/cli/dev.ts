@@ -21,11 +21,10 @@ export interface CliEntry {
   readonly script: string;
 }
 
-/** What one pass runs: `agboss check --application <file> [--profile <name>] [--env <name>] [--strict]`. */
+/** What one pass runs: `agboss check --application <file> [--profile <name>] [--strict]`. */
 export interface PassOptions {
   readonly file: string;
   readonly profile: string | undefined;
-  readonly env: string | undefined;
   readonly strict: boolean;
 }
 
@@ -39,7 +38,6 @@ export const checkCommandOf = (entry: CliEntry, pass: PassOptions): CommandLine 
     "--application",
     pass.file,
     ...(pass.profile === undefined ? [] : ["--profile", pass.profile]),
-    ...(pass.env === undefined ? [] : ["--env", pass.env]),
     ...(pass.strict ? ["--strict"] : []),
   ],
 });

@@ -2,7 +2,6 @@ import { Application } from "@agboss/core";
 import { ApplicationDailyBudget } from "./budgets/application-daily.budget.js";
 import { ExecutionBudget } from "./budgets/execution.budget.js";
 import { TenantDailyBudget } from "./budgets/tenant-daily.budget.js";
-import { AppEnvironment } from "./environments/app.environment.js";
 import { PromptInjectionGuardrail } from "./guardrails/prompt-injection/prompt-injection.guardrail.js";
 import {
   DecisionsModelProvider,
@@ -15,12 +14,11 @@ import { {{pascal}}Workflow } from "./workflows/{{kebab}}/{{kebab}}.workflow.js"
  * `"agboss": { "application" }` in package.json): its workflows (`agboss generate workflow
  * <name>-workflow` adds one here), its infrastructure (`providers`: its model providers — every
  * model of a workflow reaches one of them through `modelProvider`; no repository listed → the built-in
- * in-memory defaults), every budget and its environment contract (`environments/` next to this file).
+ * in-memory defaults) and every budget; its settings are the profiles' (`config/` next to this file).
  */
 @Application({
   name: "{{kebab}}-application",
   version: "0.1.0",
-  environment: AppEnvironment,
   workflows: [{{pascal}}Workflow],
   modelProvider: OpenRouterModelProvider,
   providers: [OpenRouterModelProvider, DecisionsModelProvider],

@@ -20,7 +20,6 @@ import { loadChosenStart } from "./cli/cli-application.js";
 import { textOption, type CommandContext, type CommandHandler } from "./cli/context.js";
 import { costSummary, costTotal, costTrace } from "./cli/finops.js";
 import { onInterruptKey } from "./cli/keys.js";
-import { envOption } from "./cli/environment.js";
 import { askMessage } from "./cli/multiline.js";
 import { withSpinner, type SpinnerOutput } from "./cli/spinner.js";
 import { textStartOrFail } from "./cli/text-start.js";
@@ -113,12 +112,11 @@ async function converse(session: Session): Promise<void> {
 async function appOf(context: CommandContext, application: Class): Promise<App> {
   return createAppWith(application, {
     profile: textOption(context.values, "profile"),
-    env: envOption(context),
     processEnv: context.io.env,
   });
 }
 
-/** `agboss chat [--start <name>] [--thread <id>] [--profile <p>] [--env <id>]`. */
+/** `agboss chat [--start <name>] [--thread <id>] [--profile <p>]`. */
 export const handle: CommandHandler = async (context) => {
   const chosen = await loadChosenStart(context);
   const start = textStartOrFail(chosen.start);

@@ -10,13 +10,12 @@ import { DeskWorkflow } from "./desk/workflows/desk/desk.workflow.js";
 import { OrderDeskHealthCheck } from "./desk/health-checks/order-desk.health-check.js";
 import { DeskMetricsObserver } from "./desk/observers/desk-metrics.observer.js";
 import { DeskMetricsService } from "./desk/services/desk-metrics.service.js";
-import { AppEnvironment } from "./environments/app.environment.js";
 import { DeskDatabaseStorage } from "./storages/desk.database-storage.js";
 import { HarnessModelProvider } from "./model-providers/harness.model-provider.js";
 
 /**
  * The help desk as an application of its own — offline: its only model provider is the transport
- * `HarnessModelProvider` (#385), so `npx agboss run --application src/desk.application.ts --env test`
+ * `HarnessModelProvider` (#385), so `npx agboss run --application src/desk.application.ts`
  * and its eval suites run with no key and no network. `FlowPatternsApplication` lists the same
  * workflow beside OpenRouter. It serves the desk over A2A (`DeskA2AExpose`): the helpline of
  * `FlowPatternsApplication` is its consumer, checked by `agboss check --federation`. It keeps each
@@ -27,7 +26,6 @@ import { HarnessModelProvider } from "./model-providers/harness.model-provider.j
   name: "desk-application",
   modelProvider: HarnessModelProvider,
   version: "1.0.0",
-  environment: AppEnvironment,
   workflows: [DeskWorkflow],
   endpoints: [DeskA2AExpose], // served over A2A: `helpline-workflow` calls it
   observers: [DeskMetricsObserver],

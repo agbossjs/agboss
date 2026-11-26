@@ -30,9 +30,9 @@ export function firstFailureOfCase(found: EvalCaseReport): string {
   return "";
 }
 
-/** The header: the suite, its workflow, the config it ran on, cases × runs, the environment. */
+/** The header: the suite, its workflow, the config it ran on, cases × runs. */
 export const headerOf = (report: EvalRunReport): string =>
-  `${report.suite} · ${report.workflow.name} ${report.workflow.version} · config ${report.configHash.slice(0, 6)} · ${String(report.cases.length)} cases × ${String(report.runs)} runs · env ${report.environment}`;
+  `${report.suite} · ${report.workflow.name} ${report.workflow.version} · config ${report.configHash.slice(0, 6)} · ${String(report.cases.length)} cases × ${String(report.runs)} runs`;
 
 /** One row per case, under a header row; columns padded to the longest value. */
 export function caseLines(report: EvalRunReport): string[] {

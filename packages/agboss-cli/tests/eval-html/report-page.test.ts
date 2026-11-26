@@ -41,7 +41,6 @@ describe("#397 PR 1: the HTML report of a run artifact", () => {
       "<dt>Workflow</dt><dd>refunds-workflow 1.4.0</dd>",
       "<dt>Config</dt><dd>3f9a1c2b7d</dd>",
       "<dt>Start</dt><dd>refund-workflow-start</dd>",
-      "<dt>Environment</dt><dd>eval</dd>",
       "<dt>Runs per case (k)</dt><dd>3</dd>",
       "<dt>Cascade</dt><dd>stop-at-first-failure</dd>",
       "<dt>Took</dt><dd>3 min 5 s</dd>",

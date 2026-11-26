@@ -77,7 +77,7 @@ const singleWorstCase = (start: string, workflow: string, steps: number): string
 
 /** `agboss check`'s report of the framework's test-workflow fixture (`test-application`), as printed. */
 export const TEST_APPLICATION_REPORT = `${[
-  "test-application 1.0.0, environment dev",
+  "test-application 1.0.0, profiles dev",
   "",
   ...singleWorstCase("chat-workflow-start", "test-workflow", 2),
   "",
@@ -85,7 +85,7 @@ export const TEST_APPLICATION_REPORT = `${[
 
 /** `agboss check`'s report of the CLI's parts fixture (`parts-application`), as printed. */
 export const PARTS_APPLICATION_REPORT = `${[
-  "parts-application 1.0.0, environment dev",
+  "parts-application 1.0.0, profiles dev",
   "",
   ...singleWorstCase("five-parts-workflow-start", "parts-workflow", 1),
   "",

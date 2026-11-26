@@ -30,7 +30,8 @@ describe("#268 AC8: agboss create", () => {
         "src/budgets/application-daily.budget.ts",
         "src/budgets/tenant-daily.budget.ts",
         "src/budgets/execution.budget.ts",
-        "src/environments/app.environment.ts",
+        "src/config/app.env.ts",
+        "src/config/test.config.ts",
         "src/guardrails/prompt-injection/prompt-injection.guardrail.ts",
         "src/model-providers/openrouter.model-provider.ts",
         "src/services/api.service.ts",
@@ -120,10 +121,8 @@ describe("#268 AC8: agboss create", () => {
     expect(tool).toContain('import { ApiService } from "../services/api.service.js";');
     expect(tool).toContain("execute({ query }: SearchOrdersQueryDto): SearchOrdersResultDto {");
     const service = content("src/services/api.service.ts");
-    expect(service).toContain("@Injectable({ deps: [ApplicationContext] })");
-    expect(service).toContain(
-      "constructor(private readonly applicationContext: ApplicationContext) {}",
-    );
+    expect(service).toContain("@Injectable({ deps: [appEnv] })");
+    expect(service).toContain("constructor(private readonly config: InferEnv<typeof appEnv>) {}");
     expect(service).toContain("url(path: string): string {");
     expect(content("src/budgets/execution.budget.ts")).toContain(
       "export class ExecutionBudget implements BudgetHandler {",

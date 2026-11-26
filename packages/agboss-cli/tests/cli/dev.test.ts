@@ -33,14 +33,13 @@ describe("#268 AC6: what a pass runs", () => {
     expect(watchedFolderOf("/p/desk.application.ts")).toBe("/p");
   });
 
-  it("agboss check in a child: this Node, this CLI, the application by path, --profile, --env and --strict", () => {
+  it("agboss check in a child: this Node, this CLI, the application by path, --profile and --strict", () => {
     const entry = { execArgv: ["--import", "tsx"], script: "/cli/main.ts" };
 
     expect(
       checkCommandOf(entry, {
         file: "/p/src/a.application.ts",
         profile: undefined,
-        env: undefined,
         strict: false,
       }),
     ).toEqual({
@@ -55,8 +54,7 @@ describe("#268 AC6: what a pass runs", () => {
       ],
     });
     expect(
-      checkCommandOf(entry, { file: "/a.ts", profile: "prod,economy", env: "prod", strict: true })
-        .args,
+      checkCommandOf(entry, { file: "/a.ts", profile: "prod,economy", strict: true }).args,
     ).toEqual([
       "--import",
       "tsx",
@@ -66,8 +64,6 @@ describe("#268 AC6: what a pass runs", () => {
       "/a.ts",
       "--profile",
       "prod,economy",
-      "--env",
-      "prod",
       "--strict",
     ]);
   });

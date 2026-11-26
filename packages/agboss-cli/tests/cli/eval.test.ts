@@ -130,7 +130,7 @@ describe("#396 PR 2: agboss eval run", () => {
     expect(call.code).toBe(0);
     const lines = call.stdout.split("\n");
     expect(lines[0]).toMatch(
-      /^desk-eval-suite · lookup-workflow 1\.0\.0 · config \w{6} · 2 cases × 2 runs · env dev$/,
+      /^desk-eval-suite · lookup-workflow 1\.0\.0 · config \w{6} · 2 cases × 2 runs$/,
     );
     expect(lines.slice(1, 4)).toEqual([
       "case              pass@2  pass^2  runs  first failure",

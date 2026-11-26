@@ -17,7 +17,6 @@ import {
   type CommandContext,
   type CommandOutcome,
 } from "../cli/context.js";
-import { envOption } from "../cli/environment.js";
 import { CliError, usageError } from "../cli/errors.js";
 import { writeOutputFile } from "./output-file.js";
 import {
@@ -33,7 +32,7 @@ import { printRunTable } from "./run-report.js";
 /**
  * `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline
  * <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic]
- * [--profile <name>] [--env <name>]` (#396 PR 2, PR 3, PR 6 — failures injected into its model calls): the
+ * [--profile <name>]` (#396 PR 2, PR 3, PR 6 — failures injected into its model calls): the
  * application built as `createApp` builds it, the suite run on it — every case `--runs` times — its
  * table printed, each case against the baseline, the artifact written with `--report`, then its HTML
  * report with `--html` (#397 PR 1). The exit code says whether it ran — and, with
@@ -76,7 +75,6 @@ function suiteOf(context: CommandContext, suites: readonly FoundEvalSuite[]): Fo
 function buildOf(context: CommandContext, application: Class, chaos: ChaosOptions | undefined) {
   return builtApplicationOf(application, {
     ...(chaos === undefined ? {} : { chaos }),
-    env: envOption(context),
     profile: textOption(context.values, "profile"),
     processEnv: context.io.env,
   });

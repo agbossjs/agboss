@@ -2,22 +2,17 @@ import { ConfigError } from "@agboss/core";
 import {
   createStartComponents,
   describeServices,
-  environmentOwnerOf,
-  resolveEnvironment,
-  SecretResolution,
-  selectedEnvironment,
   contextsOutsideExecution,
   type AssembledApplication,
 } from "@agboss/core/internal";
 import type { CheckProblem } from "./check-problems.js";
 import type { CommandContext } from "./context.js";
 
-/** What the environment check reads: the application, the `--env` name and the process env. */
+/** What the environment check reads: the application and the process env. */
 export interface EnvironmentTarget {
   readonly context: CommandContext;
   readonly file: string;
   readonly assembled: AssembledApplication;
-  readonly envName: string | undefined;
   readonly env: NodeJS.ProcessEnv;
   /**
    * Whether the secrets' values are needed (`--models`, which connects); else the check reads the
@@ -26,14 +21,17 @@ export interface EnvironmentTarget {
   readonly needsSecrets: boolean;
 }
 
-/** `[di.missing-environment] …` → its code; another component error is the app's start failing. */
+/** `[di.missing-provider] …` → its code; another component error is the app's start failing. */
 const componentCode = (
   error: ConfigError.Component | ConfigError.Prompt | ConfigError.NoDefaultRouter,
 ): string => /^\[([a-z][\w.-]*)\]/.exec(error.message)?.[1] ?? "workflow.start";
 
+/** `[environment.missing-variable] …` → its rule. */
+const ruleOf = (message: string): string | undefined => /^\[([a-z][\w.-]*)\]/.exec(message)?.[1];
+
 const problemOf = (file: string, error: unknown): CheckProblem[] => {
   if (error instanceof ConfigError.Environment)
-    return [{ file, code: error.envCode ?? error.code, message: error.message }];
+    return [{ file, code: ruleOf(error.message) ?? error.code, message: error.message }];
   if (
     error instanceof ConfigError.Component ||
     error instanceof ConfigError.Prompt ||
@@ -44,27 +42,21 @@ const problemOf = (file: string, error: unknown): CheckProblem[] => {
 };
 
 /**
- * `agboss check` without running anything: the selected environment is found, every variable it
- * reads is set — its secrets only with `--models`, which connects (writing types and checking the
- * assembly need no key, #266) — and every component the app's start creates (tools, observers, judges, channels, …)
- * of every workflow gets its dependencies — `applicationContext.environment` the selected environment's values, empty
- * without one (#239, #261). The process variables `--env <name>` needs are the report's
- * (`check-report.ts`, #268 AC5).
+ * `agboss check` without running anything: every component the app's start creates (tools,
+ * observers, judges, channels, …) of every workflow gets its dependencies (#239, #261). The process
+ * variables the application needs are the report's (`check-report.ts`, #268 AC5); checking that
+ * they are set is `agboss check`'s `defineEnv` walk (#1324h).
  */
-export async function environmentProblems(target: EnvironmentTarget): Promise<CheckProblem[]> {
+export function environmentProblems(target: EnvironmentTarget): Promise<CheckProblem[]> {
   try {
-    const loaded = await selectedEnvironment(environmentOwnerOf(target.assembled), target.envName);
-    const secrets = target.needsSecrets ? SecretResolution.Required : SecretResolution.Deferred;
-    const environment =
-      loaded === undefined ? undefined : resolveEnvironment(loaded, target.env, secrets);
     const { router } = describeServices;
     for (const bundle of target.assembled.workflows)
       createStartComponents(bundle, {
         router,
-        contexts: contextsOutsideExecution(bundle.config, environment),
+        contexts: contextsOutsideExecution(bundle.config),
       });
-    return [];
+    return Promise.resolve([]);
   } catch (error) {
-    return problemOf(target.file, error);
+    return Promise.resolve(problemOf(target.file, error));
   }
 }

@@ -1,16 +1,17 @@
-import { ApplicationContext, Injectable } from "@agboss/core";
+import { Injectable, type InferEnv } from "@agboss/core";
+import { appEnv } from "../config/app.env.js";
 
 /**
- * The API this workflow's tools call. Its address comes from the application's environment —
- * `environments/<name>.environment.ts` next to the application file (`dev` unless `--env` names
- * another, `test` in tests) — read as `applicationContext.environment`.
+ * The API this workflow's tools call. Its address comes from `appEnv` (`../config/app.env.ts`): the
+ * variable `API_URL`, or what the selected profile sets (`config/test.config.ts` in tests) — read
+ * through `deps: [appEnv]`.
  */
-@Injectable({ deps: [ApplicationContext] })
+@Injectable({ deps: [appEnv] })
 export class ApiService {
-  constructor(private readonly applicationContext: ApplicationContext) {}
+  constructor(private readonly config: InferEnv<typeof appEnv>) {}
 
-  /** The full URL of `path` on the environment's API. */
+  /** The full URL of `path` on the API. */
   url(path: string): string {
-    return new URL(path, this.applicationContext.environment.apiUrl).href;
+    return new URL(path, this.config.apiUrl).href;
   }
 }

@@ -91,7 +91,6 @@ export function artifactOf(cases: readonly EvalCaseReport[], runs = 3): EvalRunR
     workflow: { name: "refunds-workflow", version: "1.4.0" },
     configHash: "3f9a1c2b7d",
     start: "refund-workflow-start",
-    environment: "eval",
     runs,
     cascade: EvalCascade.StopAtFirstFailure,
     startedAt: new Date("2026-01-05T09:00:00.000Z"),

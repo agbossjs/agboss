@@ -1,8 +1,8 @@
 /**
  * #268 AC5 — the report of `agboss check`: per start the worst case of one call, each number with
- * how it is made up, read from the decorators only (no `maxSpend()`); with `--env <name>` the
- * process variables that environment needs — names marked `value` / `secret` / optional, never a
- * value (M1: `agboss check --env dev` in flow-patterns, #489 — job-scout's `prod` before).
+ * how it is made up, read from the decorators only (no `maxSpend()`); then the process variables
+ * the application's `defineEnv` references need — names marked `value` / `secret` / optional, never
+ * a value (M1: `agboss check` in flow-patterns, #489 — job-scout's `prod` before).
  */
 import { fileURLToPath } from "node:url";
 import { mkdtempSync } from "node:fs";
@@ -24,7 +24,7 @@ describe("#268 AC5: the worst case per start, decorators only", () => {
     expect(call.code).toBe(0);
     expect(call.stdout).toContain(
       [
-        "report-application 2.0.0, environment dev",
+        "report-application 2.0.0, profiles dev",
         "",
         "Worst case of one batch-report-workflow-start call",
         "  workflow executions  51  1 batch-report-workflow + 50 item-report-workflow (maxItems 50)",
@@ -50,7 +50,7 @@ describe("#268 AC5: the worst case per start, decorators only", () => {
       ok: true,
       result: {
         report: {
-          title: "report-application 2.0.0, environment dev",
+          title: "report-application 2.0.0, profiles dev",
           starts: [
             {
               start: "batch-report-workflow-start",
@@ -70,9 +70,9 @@ describe("#268 AC5: the worst case per start, decorators only", () => {
   });
 });
 
-describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a value", () => {
-  it("flow-patterns' dev: the file's variables and the storage's (defineEnv), secret, optional and defaulted, no values (M1)", () => {
-    const call = agbossProcess(["check", "--env", "dev"], FLOW_PATTERNS, {
+describe("#489 AC2: #268 AC5 the process variables are listed by name, never a value", () => {
+  it("flow-patterns' dev: the storage's and the providers' (defineEnv), secret, optional and defaulted, no values (M1)", () => {
+    const call = agbossProcess(["check"], FLOW_PATTERNS, {
       OPENROUTER_API_KEY: "sk-or-not-printed",
       AGBOSS_SQLITE_PATH: ":memory:",
       PII_PSEUDONYM_KEY: "pii-key-not-printed",
@@ -82,7 +82,7 @@ describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a 
     expect(call.code).toBe(0);
     expect(call.stdout).toContain(
       [
-        "flow-patterns-application 1.0.0, environment dev",
+        "flow-patterns-application 1.0.0, profiles dev",
         "",
         "Worst case of one offer-workflow-start call",
         "  workflow executions  1   1 offer-workflow",
@@ -94,12 +94,12 @@ describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a 
     );
     expect(call.stdout).toContain(
       [
-        "dev environment needs 5 process variables:",
-        "  OPENROUTER_API_KEY         secret",
-        "  OPENROUTER_BASE_URL        value, optional",
+        "the application needs 5 process variables:",
         "  AGBOSS_SQLITE_PATH         value, has a default",
         "  AGBOSS_IDEMPOTENCY_SECRET  secret",
         "  PII_PSEUDONYM_KEY          secret",
+        "  OPENROUTER_BASE_URL        value, has a default",
+        "  OPENROUTER_API_KEY         secret",
         "",
       ].join("\n"),
     );
@@ -110,21 +110,20 @@ describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a 
     expect(call.stdout).not.toContain(".agboss/flow-patterns.sqlite");
   });
 
-  it("--json: the environment's variables as data", () => {
-    const call = agbossProcess(["check", "--env", "dev", "--json"], FLOW_PATTERNS);
+  it("--json: the variables as data", () => {
+    const call = agbossProcess(["check", "--json"], FLOW_PATTERNS);
 
     expect(envelope(call)).toMatchObject({
       ok: true,
       result: {
         report: {
           environment: {
-            name: "dev",
             variables: [
-              { variable: "OPENROUTER_API_KEY", use: "secret", required: true },
-              { variable: "OPENROUTER_BASE_URL", use: "value", optional: true },
               { variable: "AGBOSS_SQLITE_PATH", use: "value", required: false, optional: false },
               { variable: "AGBOSS_IDEMPOTENCY_SECRET", use: "secret", required: true },
               { variable: "PII_PSEUDONYM_KEY", use: "secret", required: true },
+              { variable: "OPENROUTER_BASE_URL", use: "value", required: false },
+              { variable: "OPENROUTER_API_KEY", use: "secret", required: true },
             ],
           },
         },
@@ -132,11 +131,10 @@ describe("#489 AC2: #268 AC5 --env lists the process variables by name, never a 
     });
   });
 
-  it("without --env no variables are listed; the title names the default environment", () => {
+  it("the title names the profiles the application runs with", () => {
     const call = agbossProcess(["check"], FLOW_PATTERNS);
 
     expect(call.code).toBe(0);
-    expect(call.stdout).toContain("flow-patterns-application 1.0.0, environment dev\n");
-    expect(call.stdout).not.toContain("process variable");
+    expect(call.stdout).toContain("flow-patterns-application 1.0.0, profiles dev\n");
   });
 });

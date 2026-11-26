@@ -36,9 +36,6 @@ budgets
 observers DeskMetricsObserver
 maxConcurrentSteps 16 (set) · agent, router and action steps of this instance at work at once
 channels none
-environment dev
-  openRouterApiKey = <missing OPENROUTER_API_KEY>
-  openRouterBaseUrl = <unset OPENROUTER_BASE_URL, optional>
 
 desk-workflow 1.0.0 · config <hash>
 guardrails

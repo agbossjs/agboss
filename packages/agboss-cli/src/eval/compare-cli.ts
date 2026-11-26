@@ -37,14 +37,10 @@ export const compareProfiles: CommandHandler = async (context) => {
       "--profiles needs at least two, e.g. base,<profile>",
     );
   // each profile is its own assembly of the application; layers of one are joined with +
-  const { environment } = await startWorkflowOf(context, "base");
   const comparison = await compareBundleProfiles(
     async (name) => (await startWorkflowOf(context, name.split("+"))).bundle,
     names,
-    {
-      processEnv: context.io.env,
-      ...(environment === undefined ? {} : { environment }),
-    },
+    { processEnv: context.io.env },
     (base) => tasksOf(context, base),
   );
   comparison.warnings.forEach((warning) => {

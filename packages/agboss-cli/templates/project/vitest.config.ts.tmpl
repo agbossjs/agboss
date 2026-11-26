@@ -5,7 +5,7 @@ import { agbossVitest } from "@agboss/core/testing/vitest";
  * Three kinds of tests, by file name: unit (`*.test.ts`, no models), integration
  * (`*.integration.test.ts`, recorded answers) and suites (`*.suite.test.ts`, real models).
  * `agbossVitest()` loads AGBoss through vite, in the tests' module graph (the files it loads by path
- * — the application, its environments — with their decorators), and registers the workflow
+ * — the application, its profiles — with their decorators), and registers the workflow
  * matchers: toFollowPath, toFinishWith, toHavePausedAt, …
  */
 export default defineConfig({

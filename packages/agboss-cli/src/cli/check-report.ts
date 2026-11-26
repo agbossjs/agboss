@@ -1,10 +1,6 @@
-import { ConfigError } from "@agboss/core";
 import {
   describedLimitsOf,
-  environmentOwnerOf,
-  environmentVariablesOf,
   referencedVariablesOf,
-  selectedEnvironment,
   worstCaseLimitsOf,
   worstCaseReportLines,
   worstCaseRowsOf,
@@ -16,8 +12,7 @@ import {
 /**
  * The report of `agboss check` (#268 AC5) — the same rule as the start log (#261): only what the
  * decorators say, no project code is called (no `maxSpend()`). Per start the worst case of one call,
- * each number with how it is made up; with `--env <name>` the process variables that environment
- * needs, by name, marked `value` / `secret` and optional — never a value. It is the list for
+ * each number with how it is made up; the process variables its `defineEnv` references need, by name, marked `value` / `secret` and optional — never a value. It is the list for
  * `--set-env-vars` / `--set-secrets` at deploy; the names in a secret manager are not known here.
  */
 
@@ -28,19 +23,18 @@ export interface StartReport {
   readonly rows: readonly WorstCaseRow[];
 }
 
-/** The environment's process variables as data. */
-export interface EnvironmentReport {
-  readonly name: string;
+/** The process variables the application's components read, as data. */
+export interface VariablesReport {
   readonly variables: readonly ProcessVariable[];
 }
 
 /** What `agboss check` reports besides its problems. */
 export interface CheckReport {
-  /** `job-scout-application 1.0.0, environment prod`. */
+  /** `job-scout-application 1.0.0, profiles base+prod`. */
   readonly title: string;
   readonly starts: readonly StartReport[];
-  /** With `--env` only. */
-  readonly environment?: EnvironmentReport;
+  /** The process variables the `defineEnv` references of the application name; absent when none. */
+  readonly environment?: VariablesReport;
   /** The report as printed. */
   readonly lines: readonly string[];
 }
@@ -51,78 +45,32 @@ const presenceLabel = (found: ProcessVariable): string => {
   return found.required ? "" : ", has a default";
 };
 
-/** `prod environment needs 3 process variables:`, then one aligned line per variable. */
-function environmentLines(report: EnvironmentReport): readonly string[] {
+/** `the application needs 3 process variables:`, then one aligned line per variable. */
+function variableLines(report: VariablesReport): readonly string[] {
   const { variables } = report;
   const count = variables.length;
   const width = Math.max(0, ...variables.map((found) => found.variable.length));
   return [
-    `${report.name} environment needs ${String(count)} process variable${count === 1 ? "" : "s"}${count === 0 ? "" : ":"}`,
+    `the application needs ${String(count)} process variable${count === 1 ? "" : "s"}:`,
     ...variables.map(
       (found) => `  ${found.variable.padEnd(width)}  ${found.use}${presenceLabel(found)}`,
     ),
   ];
 }
 
-/**
- * Every variable the application reads: the environment file's, then those its components name
- * through `defineEnv` references (the storage's file and secrets, an A2A agent's url, …), once each.
- */
-function variablesOf(
-  assembled: AssembledApplication,
-  loaded: Parameters<typeof environmentVariablesOf>[0],
-): readonly ProcessVariable[] {
-  const fromFile = environmentVariablesOf(loaded);
-  const named = new Set(fromFile.map((found) => found.variable));
-  return [
-    ...fromFile,
-    ...referencedVariablesOf(assembled).filter((found) => !named.has(found.variable)),
-  ];
-}
-
-/**
- * The `--env` environment's variables; none when it cannot be loaded — the environment check
- * reports why (`environment.not-found`, …).
- */
-async function environmentReportOf(
-  assembled: AssembledApplication,
-  envName: string,
-): Promise<EnvironmentReport | undefined> {
-  try {
-    const loaded = await selectedEnvironment(environmentOwnerOf(assembled), envName);
-    return loaded === undefined
-      ? undefined
-      : { name: loaded.name, variables: variablesOf(assembled, loaded) };
-  } catch (error) {
-    if (error instanceof ConfigError.Environment) return undefined;
-    throw error;
-  }
-}
-
-/** The environment the report is for: `--env`, else the default of an application that has one. */
-const environmentNameOf = (
-  assembled: AssembledApplication,
-  envName: string | undefined,
-): string | undefined =>
-  envName ?? (environmentOwnerOf(assembled).contract === undefined ? undefined : "dev");
-
 /** The check report of an assembled application. */
-export async function checkReportOf(
-  assembled: AssembledApplication,
-  envName: string | undefined,
-): Promise<CheckReport> {
-  const shownEnvironment = environmentNameOf(assembled, envName);
-  const title = `${assembled.name} ${assembled.version}${shownEnvironment === undefined ? "" : `, environment ${shownEnvironment}`}`;
+export function checkReportOf(assembled: AssembledApplication): CheckReport {
+  const title = `${assembled.name} ${assembled.version}${assembled.profiles.length === 0 ? "" : `, profiles ${assembled.profiles.join("+")}`}`;
   const cases = assembled.workflows.flatMap((workflow) => {
     const limits = describedLimitsOf(workflow);
     return limits.worstCases.map((worst) => ({ worst, limits: worstCaseLimitsOf(limits) }));
   });
-  const environment =
-    envName === undefined ? undefined : await environmentReportOf(assembled, envName);
+  const variables = referencedVariablesOf(assembled);
+  const environment = variables.length === 0 ? undefined : { variables };
   const lines = [
     title,
     ...cases.flatMap(({ worst, limits }) => ["", ...worstCaseReportLines(worst, limits)]),
-    ...(environment === undefined ? [] : ["", ...environmentLines(environment)]),
+    ...(environment === undefined ? [] : ["", ...variableLines(environment)]),
   ];
   return {
     title,

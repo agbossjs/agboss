@@ -43,17 +43,17 @@ const APPLICATION_SCRIPTS: Readonly<Record<string, string>> = {
   describe: "agboss describe",
   "rag:index": "agboss rag index",
   // writes .agboss/types.d.ts: the generated types the flow compiles against (#272) — no model
-  // key needed: without --models the check reads the environment's shape, not its secrets (#266)
+  // key needed: without --models the check reads the assembly, not the secrets (#266)
   types: "agboss check",
 };
 
 /**
- * The environments next to the application file, where the app looks for them (#239, #261): the
- * contract, dev, staging and test (tests run on it); and the service that reads it through
- * `ApplicationContext` — the project's tools use it — with its test.
+ * The project's `defineEnv` (`src/config/app.env.ts`) and its `test` profile (`src/config/`, next to the
+ * application file: tests run on it, #1324b); and the service that reads it through `deps: [appEnv]` —
+ * the project's tools use it — with its test.
  */
 function environmentFiles(project: Names): FileToWrite[] {
-  // the service's test runs on the application as testWith builds it (#891): its test environment
+  // the service's test runs on the application as testWith builds it (#891): on its test profile
   const variables = {
     application: `${project.pascal}Application`,
     applicationFrom: `../../${applicationPathOf(project).replace(/\.ts$/u, ".js")}`,
@@ -63,10 +63,8 @@ function environmentFiles(project: Names): FileToWrite[] {
     content: render(`project/${template}.tmpl`, variables),
   });
   return [
-    file("src/environments/app.environment.ts", "app.environment.ts"),
-    file("src/environments/dev.environment.ts", "dev.environment.ts"),
-    file("src/environments/staging.environment.ts", "staging.environment.ts"),
-    file("src/environments/test.environment.ts", "test.environment.ts"),
+    file("src/config/app.env.ts", "app.env.ts"),
+    file("src/config/test.config.ts", "test.config.ts"),
     file("src/services/api.service.ts", "api.service.ts"),
     file("tests/services/api.service.test.ts", "api.service.test.ts"),
   ];
@@ -98,7 +96,7 @@ function packageJsonOf(spec: WorkflowSpec, project: Names, workflow: Names): Fil
 
 /**
  * `agboss create <project>` (#268 AC8): a standalone project — its application
- * (`src/<project>.application.ts`, its path in package.json), the application's environments,
+ * (`src/<project>.application.ts`, its path in package.json), the application's environment and test profile,
  * budgets, model provider and guardrail, and its first workflow `<project>-workflow` in
  * `src/<project>/`, with its tests.
  */
