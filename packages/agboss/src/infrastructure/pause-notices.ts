@@ -1,5 +1,6 @@
 import type { PauseActor } from "../channels/pause-contexts.js";
 import type { PauseRespondent } from "../pause/respondent.js";
+import type { PauseLimitsOffer } from "./pause-limits-stored.js";
 import type {
   PauseClosedReason,
   PauseExpiryBound,
@@ -173,12 +174,10 @@ export interface PauseTimeoutChange {
   readonly actor?: PauseActor;
   /** Why, as the chain of custody keeps it: already masked by the pause's own workflow's PII policy. */
   readonly reason?: string;
-  /**
-   * The most `timeout-changed` entries the pause's chain of custody may hold (the targets'
-   * `escalationLimits.maxExtensions`, tightened along its chain): refused, atomically with the
-   * write, when the chain already holds that many.
+  /*
+   * The most `timeout-changed` entries the chain may hold is the record's own `escalationLimits.maxExtensions`:
+   * the store refuses, atomically with the write, a change once the chain holds that many (#1307, Q-D).
    */
-  readonly maxExtensions?: number;
 }
 
 /**
@@ -232,16 +231,12 @@ export interface PauseInPlaceReassignment {
   readonly due?: PauseDeadlineSet;
   /** An operator's new deadline: applied with the reassignment while the pause is open. */
   readonly timeout?: PauseDeadlineSet;
-  /**
-   * The most reassignments the pause's chain of custody may hold (the target's
-   * `escalationLimits.maxReassignments`, tightened along its chain): refused, atomically with the
-   * write, when the chain already holds that many.
+  /*
+   * The most reassignments and extensions the chain may hold are the record's own `escalationLimits`
+   * (#1307, Q-D): the store refuses, atomically with the write, a change past them.
    */
-  readonly maxReassignments?: number;
   /** The call set a deadline: it counts as an extension (a `timeout-changed` entry, refused at `maxExtensions`). */
   readonly countsAsExtension?: true;
-  /** The chain's `escalationLimits.maxExtensions`, checked in the same write when `countsAsExtension`. */
-  readonly maxExtensions?: number;
 }
 
 /** The replacement a `reassign…` makes (#946): its id and the addressee; the store copies the rest from the old pause. */
@@ -271,17 +266,22 @@ export interface PauseReplacement {
     readonly respondent: PauseRespondent;
     /** Absent: the target's pauses are asked of nobody (an owner's). */
     readonly channel?: string;
+    /**
+     * What the destination target offers of limits: the replacement carries the smaller of it and
+     * what the old pause carried, and the move is judged against that (#1307, Q-D).
+     */
+    readonly limits?: PauseLimitsOffer;
   };
-  /** As `PauseInPlaceReassignment.maxReassignments`. */
-  readonly maxReassignments?: number;
   /** The call set a deadline: it counts as an extension (a `timeout-changed` entry, refused at `maxExtensions`). */
   readonly countsAsExtension?: true;
-  /** The chain's `escalationLimits.maxExtensions`, checked in the same write when `countsAsExtension`. */
-  readonly maxExtensions?: number;
 }
 
 /** What `reassign…` takes: a replacement (it has the new pause's `pauseId`), or an in-place change. */
 export type PauseReassignmentChange = PauseReplacement | PauseInPlaceReassignment;
+
+/** What the destination target of a move offers of limits; none for a change in place or a replacement that does not move to another target. */
+export const offeredLimitsOf = (change: PauseReassignmentChange): PauseLimitsOffer | undefined =>
+  isInPlace(change) ? undefined : change.to?.limits;
 
 /** Whether a reassignment keeps the pause (it names no new `pauseId`). */
 export const isInPlace = (change: PauseReassignmentChange): change is PauseInPlaceReassignment =>

@@ -108,6 +108,8 @@ async function stored(
     status: PauseStatus.Pending,
     isSent: false,
     askedAt: clock.now().toISOString(),
+    firstAskedAt: clock.now().toISOString(),
+    escalationLimits: {},
     ...overrides,
   });
 }

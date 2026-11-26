@@ -1561,6 +1561,9 @@ export enum MirroredLeaseState {
 }
 
 // @public
+export function narrowedLimits(pause: PauseLimits, offer?: PauseLimitsOffer): PauseLimits;
+
+// @public
 export type NewA2ADirectMessage = Omit<A2ADirectMessageRecord, "state" | "reply" | "completedAt">;
 
 // @public
@@ -1960,6 +1963,12 @@ export abstract class PausedExecutionRepository {
 export const pausedRunOfValue: (value: unknown) => AgentExecutionOutput;
 
 // @public
+export interface PauseEscalationCounts {
+    readonly maxExtensions?: number;
+    readonly maxReassignments?: number;
+}
+
+// @public
 export interface PauseExpiry {
     // (undocumented)
     readonly answer?: PauseAnswer;
@@ -2003,8 +2012,6 @@ export interface PauseInPlaceReassignment {
     readonly assignees?: readonly string[];
     readonly countsAsExtension?: true;
     readonly due?: PauseDeadlineSet;
-    readonly maxExtensions?: number;
-    readonly maxReassignments?: number;
     readonly pauseId?: never;
     readonly reason?: string;
     readonly seen: PauseSeen;
@@ -2018,6 +2025,18 @@ export const pauseKeyOf: (tenantId: string, pauseId: string) => string;
 export enum PauseKind {
     Approval = "approval",
     ExternalTask = "external-task"
+}
+
+// @public
+export interface PauseLimits {
+    readonly escalationLimits: PauseEscalationCounts;
+    readonly maxExpiresAt?: string | undefined;
+}
+
+// @public
+export interface PauseLimitsOffer {
+    readonly escalationLimits?: PauseEscalationCounts | undefined;
+    readonly maxExpiresAt?: string | undefined;
 }
 
 // @public
@@ -2114,13 +2133,16 @@ export interface PauseRecord extends PauseSite {
     readonly boundAt?: string;
     readonly channel?: string;
     readonly closedFirst?: PauseFirstClose;
+    readonly escalationLimits: PauseEscalationCounts;
     readonly expiresAt?: string;
     readonly expiryBound?: PauseExpiryBound;
     readonly expiryProblem?: ExpiryProblem;
     readonly externalRef?: string;
+    readonly firstAskedAt: string;
     readonly input: Readonly<Record<string, unknown>>;
     readonly isSent: boolean;
     readonly kind: PauseKind;
+    readonly maxExpiresAt?: string;
     readonly pauseId: string;
     readonly reassignedFrom?: string;
     readonly reassignedTo?: string;
@@ -2145,8 +2167,6 @@ export interface PauseReplacement {
     readonly assignees?: readonly string[];
     readonly countsAsExtension?: true;
     readonly due?: PauseDeadlineSet;
-    readonly maxExtensions?: number;
-    readonly maxReassignments?: number;
     readonly pauseId: string;
     readonly reason?: string;
     readonly seen: PauseSeen;
@@ -2155,6 +2175,7 @@ export interface PauseReplacement {
         readonly target: string;
         readonly respondent: PauseRespondent;
         readonly channel?: string;
+        readonly limits?: PauseLimitsOffer;
     };
 }
 
@@ -2232,7 +2253,6 @@ export enum PauseStatus {
 export interface PauseTimeoutChange {
     readonly actor?: PauseActor;
     readonly expiresAt?: string;
-    readonly maxExtensions?: number;
     readonly previousExpiresAt?: string;
     readonly reason?: string;
     readonly remindAt?: string;

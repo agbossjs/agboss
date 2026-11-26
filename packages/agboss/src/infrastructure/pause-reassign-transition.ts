@@ -1,5 +1,6 @@
 import {
   isInPlace,
+  offeredLimitsOf,
   PauseNoticeKind,
   recipientKeysOf,
   type PauseInPlaceReassignment,
@@ -8,6 +9,7 @@ import {
   type PauseReplacement,
 } from "./pause-notices.js";
 import type { PauseRecord, PauseTrailRecord } from "./pause-record.js";
+import { narrowedLimits } from "./pause-limits-stored.js";
 import { reassignedPause, replacementPause, replacementStepKeyOf } from "./pause-replacement.js";
 import { isSeenAs } from "./pause-seen.js";
 import { closing, isDueAt, isOpenAt, type PauseChange } from "./pause-transitions.js";
@@ -16,8 +18,9 @@ import { closing, isDueAt, isOpenAt, type PauseChange } from "./pause-transition
  * `Pending → Cancelled / Reassigned` and the replacement made (#946), or the pause changed in place
  * (#1307d), only while the pause is open at `at`: no deadline, or one after it — a deadline at `at`
  * is over (I2); an expiry's reassignment (`due`) the other way round: only while the deadline is at
- * or before `at`. Never past `maxReassignments`: a chain of custody that holds that many
- * reassignments takes no more, in the same transaction as the write. The replacement keeps the
+ * or before `at`. Never past the record's `escalationLimits.maxReassignments` (narrowed by the
+ * destination of a move): a chain of custody that holds that many reassignments takes no more, in the
+ * same transaction as the write; a move to another target leaves the replacement with the narrowed limits. The replacement keeps the
  * deadline and the rest of the question, takes the next free `~r<n>` of the step's key among
  * `takenStepKeys` (the step keys of the tree), is unsent: its `opened` is written when its channel was
  * asked. The old pause's `closed` goes to its channel when it was sent and listens — the listeners
@@ -36,10 +39,13 @@ function isApplicable(pause: PauseRecord, change: PauseReassignmentChange, at: D
   if (!isSeenAs(pause, change.seen)) return false;
   const isExpiry = change.due !== undefined;
   if (isExpiry ? !isDueAt(pause, at) : !isOpenAt(pause, at)) return false;
+  // the limits are the record's own, narrowed by the destination of a move: never the application's present configuration
+  const { escalationLimits } = narrowedLimits(pause, offeredLimitsOf(change));
   // no limit named: no count reaches it
-  if (reassignmentsOf(pause) >= (change.maxReassignments ?? Infinity)) return false;
+  if (reassignmentsOf(pause) >= (escalationLimits.maxReassignments ?? Infinity)) return false;
   return !(
-    change.countsAsExtension === true && extensionsOf(pause) >= (change.maxExtensions ?? Infinity)
+    change.countsAsExtension === true &&
+    extensionsOf(pause) >= (escalationLimits.maxExtensions ?? Infinity)
   );
 }
 

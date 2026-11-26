@@ -87,7 +87,7 @@ export function pausesShard() {
   return {
     configFile: "vitest.mutation-pauses.config.ts",
     mutate: [
-      "src/infrastructure/{pause-answer-log,pause-bound,pause-closers,pause-closing,pause-log-repair,pause-mailboxes,pause-notice-plans,pause-notices,pause-reassign-transition,pause-record,pause-replacement,pause-scans,pause-seen,pause-timeout-change,pause-transitions}.ts",
+      "src/infrastructure/{pause-answer-log,pause-bound,pause-closers,pause-closing,pause-log-repair,pause-mailboxes,pause-notice-plans,pause-limits-stored,pause-notices,pause-reassign-transition,pause-record,pause-replacement,pause-scans,pause-seen,pause-timeout-change,pause-transitions}.ts",
       "src/infrastructure/in-memory-pause-{book,queries,store}.ts",
       // #1307: a refused decision at once marks the pause sent, so its listeners and channel are told
       "src/flow/runtime/pause-asked.ts",

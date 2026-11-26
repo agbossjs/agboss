@@ -5,6 +5,7 @@ import type { UsageRecord } from "../finops/usage.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import { lazyLoad } from "./clock.js";
 import type { PauseAnswerLog } from "./pause-answer-log.js";
+import type { PauseEscalationCounts } from "./pause-limits-stored.js";
 
 /**
  * One pause of an execution tree as the application records it (#267 S35): made once per waiting
@@ -248,6 +249,23 @@ export interface PauseRecord extends PauseSite {
   readonly isSent: boolean;
   /** When it was made, before its channel was asked (ISO 8601, the application's `Clock`). */
   readonly askedAt: string;
+  /**
+   * When the pause was first asked (ISO 8601): `askedAt` of its first pause, kept by every
+   * replacement. The total wait (`maxExpiresAt`) counts from it, never from a reassignment (#1307).
+   */
+  readonly firstAskedAt: string;
+  /**
+   * The latest instant the pause may wait until (ISO 8601): its target's `escalationLimits.maxTotalTimeout`
+   * counted from `firstAskedAt`, materialized when it was opened and only ever lowered (the smaller
+   * instant) by a move to another target (#1307, Q-D); absent: no such limit. Read from the record,
+   * never recomputed from the application's present configuration.
+   */
+  readonly maxExpiresAt?: string;
+  /**
+   * The most deadline changes and reassignments its chain may hold, materialized as `maxExpiresAt` is
+   * (`{}`: none). Always present: a record without it is not one this version wrote and is not read.
+   */
+  readonly escalationLimits: PauseEscalationCounts;
   /** The answer, once `Resolved` (or decided at once). */
   readonly answer?: PauseAnswer;
   /** How it was resolved; `undefined` while `Pending`. */

@@ -6728,13 +6728,16 @@ export interface PauseRecord extends PauseSite {
     readonly boundAt?: string;
     readonly channel?: string;
     readonly closedFirst?: PauseFirstClose;
+    readonly escalationLimits: PauseEscalationCounts;
     readonly expiresAt?: string;
     readonly expiryBound?: PauseExpiryBound;
     readonly expiryProblem?: ExpiryProblem;
     readonly externalRef?: string;
+    readonly firstAskedAt: string;
     readonly input: Readonly<Record<string, unknown>>;
     readonly isSent: boolean;
     readonly kind: PauseKind;
+    readonly maxExpiresAt?: string;
     readonly pauseId: string;
     readonly reassignedFrom?: string;
     readonly reassignedTo?: string;

@@ -190,22 +190,31 @@ describe("an in-place reassignment", () => {
     const held = sentPause({
       trail: [...pauseOf("p-1").trail, { action: "reassigned", at: T9, target: "t" }],
     });
-    expect(inPlace(held, { maxReassignments: 1 })).toBeUndefined();
-    expect(inPlace(held, { maxReassignments: 2 })).toBeDefined();
+    // the limit is the record's own
+    const limitedTo = (maxReassignments: number) =>
+      inPlace({ ...held, escalationLimits: { maxReassignments } }, {});
+    expect(limitedTo(1)).toBeUndefined();
+    expect(limitedTo(2)).toBeDefined();
+    expect(inPlace(held, {})).toBeDefined();
   });
 
-  it("is refused at maxExtensions only when it counts as an extension and names a limit", () => {
+  it("is refused at the record's maxExtensions only when it counts as an extension", () => {
     const extended = sentPause({
       trail: [...pauseOf("p-1").trail, { action: "timeout-changed", at: T9, target: "t" }],
     });
-    const limited = { maxExtensions: 1, timeout: { expiresAt: T12 } };
+    const timeout = { timeout: { expiresAt: T12 } };
+    const limitedTo = (maxExtensions?: number) => ({
+      ...extended,
+      escalationLimits: maxExtensions === undefined ? {} : { maxExtensions },
+    });
 
-    expect(inPlace(extended, { ...limited, countsAsExtension: true })).toBeUndefined();
-    expect(inPlace(extended, limited)).toBeDefined();
-    expect(inPlace(extended, { countsAsExtension: true })).toBeDefined();
-    expect(
-      inPlace(extended, { ...limited, maxExtensions: 2, countsAsExtension: true }),
-    ).toBeDefined();
+    expect(inPlace(limitedTo(1), { ...timeout, countsAsExtension: true })).toBeUndefined();
+    expect(inPlace(limitedTo(1), timeout)).toBeDefined();
+    // a change that sets no deadline is no extension: the limit does not reach it
+    expect(inPlace(limitedTo(1), {})).toBeDefined();
+    expect(inPlace(limitedTo(2), { ...timeout, countsAsExtension: true })).toBeDefined();
+    // no limit named: none reached
+    expect(inPlace(limitedTo(), { ...timeout, countsAsExtension: true })).toBeDefined();
   });
 });
 
@@ -238,5 +247,43 @@ describe("a replacement", () => {
     });
 
     expect(done?.notices).toEqual([]);
+  });
+
+  it("takes the smaller of the pause's limits and the destination's, and the move is judged against it (#1307, Q-D)", () => {
+    const pause = sentPause({
+      maxExpiresAt: T12,
+      escalationLimits: { maxExtensions: 4, maxReassignments: 2 },
+      trail: [...pauseOf("p-1").trail, { action: "reassigned", at: T9, target: "t" }],
+    });
+    const to = (limits: object) => ({
+      target: "tier-two",
+      respondent: "delegate" as never,
+      limits,
+    });
+    const move = (limits: object) =>
+      reassignChange(
+        pause,
+        { pauseId: "p-2", to: to(limits), seen: seenOf(pause) },
+        new Set(),
+        AT,
+        RECIPIENTS,
+      );
+
+    expect(
+      move({ maxExpiresAt: T11, escalationLimits: { maxExtensions: 9, maxReassignments: 5 } })
+        ?.inserted,
+    ).toMatchObject({
+      maxExpiresAt: T11,
+      escalationLimits: { maxExtensions: 4, maxReassignments: 2 },
+    });
+    // looser, or none: the pause's own stay
+    expect(move({})?.inserted).toMatchObject({
+      maxExpiresAt: T12,
+      escalationLimits: { maxExtensions: 4, maxReassignments: 2 },
+    });
+    // the chain already holds one reassignment: a destination that allows one refuses the move at once
+    expect(move({ escalationLimits: { maxReassignments: 1 } })).toBeUndefined();
+    // the old pause is closed untouched: its own record keeps what it had
+    expect(move({ maxExpiresAt: T11 })?.pause).toMatchObject({ maxExpiresAt: T12 });
   });
 });

@@ -75,6 +75,13 @@ export const StoredPause = z
     itemIndex: z.number().optional(),
     copyNumber: z.number(),
     askedAt: z.string(),
+    // #1307, Q-D: when it was first asked and the limits it was opened under, narrowed by moves; a record without them is not read
+    firstAskedAt: z.string(),
+    maxExpiresAt: z.string().optional(),
+    escalationLimits: z.strictObject({
+      maxExtensions: z.number().int().nonnegative().optional(),
+      maxReassignments: z.number().int().nonnegative().optional(),
+    }),
     kind: z.enum(PauseKind),
     step: z.string(),
     component: StoredComponent.optional(),

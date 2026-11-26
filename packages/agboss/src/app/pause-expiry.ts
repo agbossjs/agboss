@@ -24,7 +24,6 @@ import { callInFrame, NoticeTimeoutError } from "./pause-notice-call.js";
 import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
 import { trailOf } from "../flow/runtime/pause-chain.js";
 import { ownDepsOf } from "./own-deps.js";
-import { chainLimitsOf, maxExpiresAtOf } from "./pause-limits.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 
 /**
@@ -105,7 +104,7 @@ async function askedTarget(
   const tree = await pauseTreeOf(deps, pause, await treeStateOf(deps, pause.rootExecutionId));
   const frame = pauseFrameOf(deps, pause, tree);
   try {
-    const context = await expiredContextOf(parts, pause);
+    const context = expiredContextOf(pause);
     const value = await callInFrame(
       { frame, timeout, clock: parts.clock, interruption },
       async () => decide(context as never),
@@ -125,27 +124,18 @@ async function askedTarget(
 
 /**
  * What `onExpired` reads of the pause that ran out its deadline: `maxExpiresAt` is the latest
- * instant the chain's `maxTotalTimeout` limits let it wait until (absent: no limit), so a handler
- * can tell whether a reassignment still has room.
+ * instant the pause's record lets it wait until (its `maxTotalTimeout` limits, materialized when it was
+ * opened and narrowed by moves; absent: no limit), so a handler can tell whether a reassignment still has room.
  */
-async function expiredContextOf(
-  parts: TreeMoveParts,
-  pause: PauseRecord,
-): Promise<ExpiredContext<never>> {
-  const limit = await maxExpiresAtOf(
-    parts,
-    pause,
-    chainLimitsOf(parts.deps, pause),
-    pause.assignees,
-  );
+function expiredContextOf(pause: PauseRecord): ExpiredContext<never> {
   return {
     pauseKey: pauseKeyOf(pause.tenantId, pause.pauseId),
     input: pause.input as never,
     ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
     askedAt: new Date(pause.askedAt),
-    firstAskedAt: new Date(pause.trail[0]?.at ?? pause.askedAt),
+    firstAskedAt: new Date(pause.firstAskedAt),
     expiresAt: new Date(pause.expiresAt ?? pause.askedAt),
-    ...(limit === undefined ? {} : { maxExpiresAt: new Date(limit) }),
+    ...(pause.maxExpiresAt === undefined ? {} : { maxExpiresAt: new Date(pause.maxExpiresAt) }),
     ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
     ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
     trail: trailOf(pause),

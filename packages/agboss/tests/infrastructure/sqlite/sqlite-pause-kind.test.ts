@@ -27,6 +27,8 @@ const storedOf = (fields: Record<string, unknown>): string =>
     visitNumber: 1,
     copyNumber: 1,
     askedAt: "2026-01-05T09:00:00.000Z",
+    firstAskedAt: "2026-01-05T09:00:00.000Z",
+    escalationLimits: {},
     target: "refund-tool-approval",
     channel: "refund-approval-channel",
     respondent: "delegate",

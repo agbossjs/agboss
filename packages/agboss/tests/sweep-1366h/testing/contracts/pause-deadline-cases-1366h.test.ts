@@ -786,7 +786,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "the limit of changes is ignored",
     {
       extend: (pause, change, at, recipients) =>
-        timeoutChange(pause, { ...change, maxExtensions: undefined }, at, recipients),
+        timeoutChange({ ...pause, escalationLimits: {} }, change, at, recipients),
     },
   ],
   [
@@ -795,8 +795,11 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     {
       extend: (pause, change, at, recipients) =>
         timeoutChange(
-          pause,
-          { ...change, maxExtensions: (change.maxExtensions ?? 0) + 1 },
+          {
+            ...pause,
+            escalationLimits: { maxExtensions: (pause.escalationLimits.maxExtensions ?? 0) + 1 },
+          },
+          change,
           at,
           recipients,
         ),

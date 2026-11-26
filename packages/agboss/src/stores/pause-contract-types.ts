@@ -2,6 +2,12 @@
 export { closedAtOf, pauseClosedReasonOf } from "../infrastructure/pause-closing.js";
 export { PauseExpiryBound } from "../infrastructure/pause-record.js";
 export {
+  narrowedLimits,
+  type PauseEscalationCounts,
+  type PauseLimits,
+  type PauseLimitsOffer,
+} from "../infrastructure/pause-limits-stored.js";
+export {
   originalStepKeyOf,
   replacementStepKeyOf,
   type ReplacementKeyed,

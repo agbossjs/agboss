@@ -15,12 +15,15 @@ import type {
   PauseReplacement,
   PauseSeen,
 } from "../infrastructure/pause-notices.js";
+import type { PauseLimitsOffer } from "../infrastructure/pause-limits-stored.js";
 import type { TimeSpan } from "../units/working-time.js";
 import type { AppDeps } from "./app-deps.js";
 import { type CalendarParts } from "./pause-calendar.js";
 import {
-  chainLimitsOf,
+  countsOffered,
   limitExceeded,
+  limitsOf,
+  limitsOffered,
   timeoutChangesOf,
   type ChainLimits,
 } from "./pause-limits.js";
@@ -63,6 +66,8 @@ export interface ReassignDestination {
 /** What the store is given, and what the caller says of the pause afterwards. */
 export interface ReassignPlan extends ReassignDestination {
   readonly change: PauseReassignmentChange;
+  /** The limits the pause carries after the move: its record's, narrowed by the destination's (#1307, Q-D). */
+  readonly limits: ChainLimits;
 }
 
 const incompatible = (pause: PauseRecord, what: string): PauseError.IncompatibleTarget =>
@@ -157,46 +162,44 @@ const isTimeoutOnly = (ask: ReassignFacts, isSameTarget: boolean): boolean =>
   ask.assignees === undefined &&
   ask.channel === undefined;
 
-/** The fields every change carries: who for, who did it, why, and the chain's reassignment limit. */
-const commonOf = (plan: Omit<ReassignPlan, "change">, ask: ReassignFacts, limits: ChainLimits) =>
-  definedFields({
-    assignees: plan.assignees,
-    actor: ask.actor,
-    reason: ask.reason,
-    maxReassignments: limits.maxReassignments,
-  });
+/** The fields every change carries: who for, who did it, why. */
+const commonOf = (plan: PlanFacts, ask: ReassignFacts) =>
+  definedFields({ assignees: plan.assignees, actor: ask.actor, reason: ask.reason });
+
+/** What a plan is made of before its change. */
+type PlanFacts = Omit<ReassignPlan, "change" | "limits">;
 
 /** The deadline a change sets: an expiry's under the due guard (even when it sets none), an operator's open-guarded. */
-function deadlineOfChange(plan: Omit<ReassignPlan, "change">, ask: ReassignFacts) {
+function deadlineOfChange(plan: PlanFacts, ask: ReassignFacts) {
   if (ask.isExpiry) return { due: plan.deadline ?? {} };
   return plan.deadline === undefined ? {} : { timeout: plan.deadline };
 }
 
 /** The change the store applies for a plan. */
 function changeOf(
-  plan: Omit<ReassignPlan, "change">,
+  plan: PlanFacts,
   ask: ReassignFacts,
-  limits: ChainLimits,
+  offer: PauseLimitsOffer | undefined,
   pause: PauseRecord,
 ): PauseReassignmentChange & { readonly seen: PauseSeen } {
   const counts = ask.timeout !== undefined && !ask.isExpiry;
   const common = {
     seen: seenOf(pause),
-    ...commonOf(plan, ask, limits),
+    ...commonOf(plan, ask),
     ...deadlineOfChange(plan, ask),
     ...(counts ? { countsAsExtension: true as const } : {}),
-    ...definedFields({ maxExtensions: counts ? limits.maxExtensions : undefined }),
   };
   if (plan.isInPlace) return common satisfies PauseInPlaceReassignment;
   const to = {
     target: plan.target.name,
     respondent: plan.target.respondent,
-    ...definedFields({ channel: plan.channel?.name }),
+    // a move to another target narrows the pause's limits by the destination's, in the store's write
+    ...definedFields({ channel: plan.channel?.name, limits: offer }),
   };
   return { pauseId: newPauseId(), ...common, to } satisfies PauseReplacement;
 }
 
-/** The chain's reassignment limit, and its extension limit for a call that sets a deadline, not yet reached. */
+/** The reassignment limit, and the extension limit for a call that sets a deadline, not yet reached. */
 function assertWithinLimits(pause: PauseRecord, ask: ReassignFacts, limits: ChainLimits): void {
   const { maxReassignments, maxExtensions } = limits;
   if (maxReassignments !== undefined && reassignmentsOf(pause) >= maxReassignments)
@@ -214,8 +217,9 @@ export async function planOf(
   ask: ReassignFacts,
 ): Promise<ReassignPlan> {
   const to = destinationTarget(parts.deps, pause, from, ask.target);
-  const limits = chainLimitsOf(parts.deps, pause, [to]);
-  assertWithinLimits(pause, ask, limits);
+  // the record's limits, narrowed by the destination's counts when the pause moves to another target
+  const isMove = to !== from;
+  assertWithinLimits(pause, ask, limitsOf(pause, isMove ? countsOffered(to) : undefined));
   if (isTimeoutOnly(ask, to === from))
     throw new PauseError.InvalidTimeout({
       message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: a deadline alone is setPauseTimeout's change, not a reassignment's`,
@@ -224,11 +228,21 @@ export async function planOf(
   const askedChannel = [...to.channels.values()].find((one) => one.cls === ask.channel);
   const isInPlace =
     to === from && (ask.channel === undefined || askedChannel?.name === pause.channel);
-  const deadline = await deadlineAfter(parts, pause, { from, to }, assignees, ask, limits);
+  // the destination's total wait counts from the first asking, by its calendar for the assignees it will have
+  const offer = isMove ? await limitsOffered(parts, pause, to, assignees) : undefined;
+  const limits = limitsOf(pause, offer);
+  const deadline = await deadlineAfter(
+    parts,
+    pause,
+    { from, to },
+    assignees,
+    ask,
+    limits.maxExpiresAt,
+  );
   const channel = await channelAfter(pause, from, to, ask, {
     assignees,
     expiresAt: deadline?.expiresAt ?? pause.expiresAt,
   });
   const plan = { target: to, channel, assignees, isInPlace, deadline };
-  return { ...plan, change: changeOf(plan, ask, limits, pause) };
+  return { ...plan, limits, change: changeOf(plan, ask, offer, pause) };
 }
