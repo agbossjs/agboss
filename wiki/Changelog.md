@@ -5,11 +5,13 @@ Breaking changes and notable additions, newest first. The API reports
 
 ## Unreleased — 0.1.1: list pauses and pause metrics — `app.listPauses` (#943, part of #910)
 
-- **Added**: `app.listPauses({ tenantId, status?, role?, expiringBefore?, limit?, after? })` → `PausesPage`
-  (`ListedPause[]`, `next?`): a tenant's pauses a page at a time in the order they were made, by a cursor that
-  skips and repeats nothing when pauses open or close between pages; `pauseId` only for a `ThreadOwner` pause,
-  `pauseKey` always, `ask` masked by its workflow's observability policies, closed ones with `reason`,
-  `closedAt`, `answeredBy`. Invalid query: `DtoValidationError` (`PausesQuery`).
+- **Added**: `app.listPauses({ tenantId | allTenants, status?, target?, channel?, assignee?, externalRef?,
+  expiringBefore?, includePauseIds?, limit?, cursor? })` → `Page<ListedPause>` (`items`, `nextCursor?`; #1307e
+  reshaped #943's `PausesPage` `{ pauses, next }`, `role` and `after`): pauses a page at a time in the order they
+  were made, by a cursor bound to its query that skips and repeats nothing when pauses open or close between
+  pages; `pauseId` only for an `Owner` pause unless `includePauseIds: true`, `pauseKey` and `tenantId` always,
+  `input` masked by its workflow's observability policies, closed ones with `reason`, `closedAt`, `actor`.
+  Invalid query (or a field the query does not have): `ValidationError.DtoInvalid` (`PausesQuery`).
 - **Added**: metrics `agboss.instance.pauses.opened` / `.closed` / `.extended` / `.answers_not_taken`, the
   histogram `agboss.instance.pauses.time_to_answer` (seconds, `MetricKind.Histogram`) and the cluster gauges
   `agboss.cluster.pauses.notices.waiting` / `.dead` — [Metrics](Metrics).
