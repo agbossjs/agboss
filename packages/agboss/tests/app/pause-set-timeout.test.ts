@@ -419,7 +419,10 @@ describe("a first send still in flight", () => {
     const pauseId = told.sent[0] ?? "";
 
     const refused = await failureOf(app.setPauseTimeout({ pauseId, timeout: hours(10) }, operator));
-    expect((await pauseOf(app, pauseId)).isSent).toBe(false);
+    const unsent = await pauseOf(app, pauseId);
+    expect(unsent.isSent).toBe(false);
+    // nothing was written: its listeners can never hear `timeout-changed` before `opened`
+    expect(unsent.trail.map((entry) => entry.action)).toEqual(["opened"]);
     release();
     await running;
     const applied = await app.setPauseTimeout({ pauseId, timeout: hours(10) }, operator);

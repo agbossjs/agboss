@@ -1481,11 +1481,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed(
     "the facts a pause's record is made from, the checks of the hooks a target answers and the plan of a pause's notices, split from `pause-record-made.ts` and the pause stores (#1307, #1310) to keep each under the line limit: the first entry of the chain of custody, where a pause was asked, the shape of an `assign` and a `resolveTimeout` answer, and the notices a change plans; the limits and the permission of a reassignment and a timeout change are the `pauses` shard's (`pause-limits.ts`, `pause-reassign-plan.ts`, `pause-reassign-deadline.ts`, `pause-timeout.ts`, `timeout-request.ts`); matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; covered by tests/app/pause-reassign-targets.test.ts, tests/app/pause-reassignment.test.ts, tests/app/pause-extension.test.ts and tests/app/pause-expiry-reassign.test.ts",
-    [
-      "src/flow/runtime/pause-record-facts.ts",
-      "src/flow/runtime/pause-hooks.ts",
-      "src/infrastructure/pause-notice-plans.ts",
-    ],
+    ["src/flow/runtime/pause-record-facts.ts", "src/flow/runtime/pause-hooks.ts"],
   ),
   ...reviewed(
     "the types, the pause's calendar and the events of a pause's change, split out of `types.ts`, `pause-timeout.ts` and `pause-change-events.ts` (#1307, #1310): request and answer shapes, the working-time calendar asked for a deadline, and the event told after a reassignment; no spend, limit, lease or fence decision of their own; covered by tests/app/pause-reassign-targets.test.ts, tests/app/pause-extension.test.ts and tests/app/pause-working-time.test.ts",

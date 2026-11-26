@@ -3,6 +3,7 @@
  * (`resumedSpendOf`): its flow's usage, the spend of each open agent loop and the usage of the replies
  * being given — nothing of a pause no one answers now, nothing of another tenant's tree.
  */
+import { seenOf } from "../../src/infrastructure/pause-seen.js";
 import { MemorySaver, emptyCheckpoint, type StateSnapshot } from "@langchain/langgraph";
 import { describe, expect, it } from "vitest";
 import type { AppDeps } from "../../src/app/app-deps.js";
@@ -156,6 +157,7 @@ describe("#1356: the spend a continued child already has", () => {
       "p-answered",
       { decision: { approved: true }, actor: undefined, usage: [replyA] },
       new Date(),
+      seenOf(answered),
     );
     // answered by a person, being taken now: its reply's usage counts, once
     const replied = pauseOf("p-replied", "run-1:agent:2:call-2");
@@ -170,23 +172,24 @@ describe("#1356: the spend a continued child already has", () => {
     // pending, no answer yet: nothing to add
     await pauses.findOrCreateByStepKey(pauseOf("p-pending", "run-1:agent:3:call-3"));
     // not among the answers of this pass
-    await pauses.findOrCreateByStepKey(pauseOf("p-unasked", "run-1:agent:4:call-4"));
+    const unasked = pauseOf("p-unasked", "run-1:agent:4:call-4");
+    await pauses.findOrCreateByStepKey(unasked);
     await pauses.decideByTenantIdAndPauseId(
       TENANT,
       "p-unasked",
       { decision: { approved: true }, actor: undefined, usage: [replyUnasked] },
       new Date(),
+      seenOf(unasked),
     );
     // another tenant's tree with the same pause id
-    await pauses.findOrCreateByStepKey({
-      ...pauseOf("p-answered", "run-1:agent:1:call-1"),
-      tenantId: "other",
-    });
+    const foreign = { ...pauseOf("p-answered", "run-1:agent:1:call-1"), tenantId: "other" };
+    await pauses.findOrCreateByStepKey(foreign);
     await pauses.decideByTenantIdAndPauseId(
       "other",
       "p-answered",
       { decision: { approved: true }, actor: undefined, usage: [replyOther] },
       new Date(),
+      seenOf(foreign),
     );
     const graph = graphOf(
       [

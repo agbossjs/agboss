@@ -13,7 +13,7 @@ import {
 } from "../../src/infrastructure/pause-record.js";
 import { SqlitePausedExecutionRepository } from "../../src/infrastructure/sqlite/sqlite-paused-execution.repository.js";
 import { VirtualClock } from "../../src/testing/clock.js";
-import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
+import { pauseOf, withSeenNow } from "../../src/testing/contracts/paused-execution-data.js";
 import { seconds } from "../../src/units/index.js";
 import { connectionTo, temporarySqlitePath } from "./contracts/store-kinds.js";
 
@@ -103,14 +103,14 @@ describe.each(kinds)("#1356: the pause store %s", (_kind, make) => {
     const none = await store.reassignByTenantIdAndPauseId(
       "default",
       "p-none",
-      { pauseId: "p-x", assignees: ["anna"] },
+      await withSeenNow(store, "p-none", { pauseId: "p-x", assignees: ["anna"] }),
       at(10),
       NO_RECIPIENTS,
     );
     const made = await store.reassignByTenantIdAndPauseId(
       "default",
       "p-1",
-      { pauseId: "p-2", assignees: ["anna"] },
+      await withSeenNow(store, "p-1", { pauseId: "p-2", assignees: ["anna"] }),
       at(10),
       NO_RECIPIENTS,
     );
@@ -123,7 +123,7 @@ describe.each(kinds)("#1356: the pause store %s", (_kind, make) => {
       await store.reassignByTenantIdAndPauseId(
         "default",
         "p-none",
-        { pauseId: "p-1", assignees: ["anna"] },
+        await withSeenNow(store, "p-none", { pauseId: "p-1", assignees: ["anna"] }),
         at(10),
         NO_RECIPIENTS,
       ),
@@ -139,14 +139,14 @@ describe.each(kinds)("#1356: the pause store %s", (_kind, make) => {
     const made = await store.reassignByTenantIdAndPauseId(
       "default",
       "p-1",
-      { pauseId: "p-4", assignees: ["anna"] },
+      await withSeenNow(store, "p-1", { pauseId: "p-4", assignees: ["anna"] }),
       at(10),
       NO_RECIPIENTS,
     );
     const again = await store.reassignByTenantIdAndPauseId(
       "default",
       "p-4",
-      { pauseId: "p-5", assignees: ["ben"] },
+      await withSeenNow(store, "p-4", { pauseId: "p-5", assignees: ["ben"] }),
       at(11),
       NO_RECIPIENTS,
     );

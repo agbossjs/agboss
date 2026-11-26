@@ -1,8 +1,15 @@
 import { decidedOnExpiryPause, expiredPause, untakenPause } from "./pause-closers.js";
 import type { PlannedNotice } from "./pause-mailboxes.js";
-import { PauseNoticeKind, type PauseNoticeFacts, type PauseRecipients } from "./pause-notices.js";
+import {
+  PauseNoticeKind,
+  type PauseNoticeFacts,
+  type PauseRecipients,
+  type PauseSeen,
+} from "./pause-notices.js";
+import { isSeenAs } from "./pause-seen.js";
 import {
   closedNotices,
+  inFirstSendNotices,
   instantOf,
   noticesOf,
   openingNotices,
@@ -10,6 +17,7 @@ import {
 } from "./pause-notice-plans.js";
 import {
   cancelledPause,
+  decidedPause,
   PauseResolution,
   PauseStatus,
   resolvedPause,
@@ -56,15 +64,36 @@ export const isOpenAt = (pause: PauseRecord, at: Date): boolean =>
 export const isDueAt = (pause: PauseRecord, at: Date): boolean =>
   pause.status === PauseStatus.Pending && (pause.expiresAt ?? NEVER) <= at.toISOString();
 
-/** `Pending → Resolved` with the answer, only while `expiresAt` is after `at` (I1, I2). */
+/**
+ * `Pending → Resolved` with the answer, only while `expiresAt` is after `at` (I1, I2) and, when the
+ * caller names the pause its permit was asked over (`seen`), only while it is still that one.
+ */
 export function resolveChange(
   pause: PauseRecord,
   answer: PauseAnswer,
   at: Date,
   recipients: PauseRecipients,
+  seen?: PauseSeen,
 ): PauseChange | undefined {
-  return isOpenAt(pause, at)
+  return isOpenAt(pause, at) && (seen === undefined || isSeenAs(pause, seen))
     ? closing(pause, resolvedPause(pause, answer, at), at, recipients)
+    : undefined;
+}
+
+/**
+ * `Pending → Taken` with the answer its channel gave at once (`PauseResolution.Decided`), only while
+ * `expiresAt` is after `at` like `resolveChange` (I2): an answer at or after the deadline is
+ * the expiry's — and only while the pause is still the one the channel was sent (`seen`): an
+ * expiry's in-place reassignment during the first send makes its decision stale. No notice (I8).
+ */
+export function decideChange(
+  pause: PauseRecord,
+  answer: PauseAnswer,
+  at: Date,
+  seen: PauseSeen,
+): PauseChange | undefined {
+  return isOpenAt(pause, at) && isSeenAs(pause, seen)
+    ? { pause: decidedPause(pause, answer, at), notices: [] }
     : undefined;
 }
 
@@ -141,7 +170,8 @@ function withExternalRef(
 
 /**
  * The channel was asked (rule 2): `isSent` whatever the status, and — only when it was not yet —
- * `opened` to the listeners, then, when the pause closed meanwhile, its `closed` to the channel and
+ * `opened` to the listeners, then, when the pause was changed in place meanwhile (an expiry's
+ * reassignment while the first send ran), the `reassigned` it owes its channel and listeners, then, when the pause closed meanwhile, its `closed` to the channel and
  * the listeners, then its `answerNotTaken` when its answer was closed untaken (I8). The notices
  * carry the times the record knows (`askedAt`, `resolvedAt` / `expiresAt`), so `markSent`, which
  * has no `at`, reads no clock of its own.
@@ -154,7 +184,8 @@ export function markSentChange(
   if (pause.isSent) return { pause, notices: [] };
   const sent = { ...pause, isSent: true, ...withExternalRef(pause, externalRef) };
   const opened = openingNotices(pause, sent, recipients);
-  if (pause.status === PauseStatus.Pending) return { pause: sent, notices: opened };
+  if (pause.status === PauseStatus.Pending)
+    return { pause: sent, notices: [...opened, ...inFirstSendNotices(sent, recipients)] };
   const first = pause.closedFirst ?? pause;
   const closedAt = instantOf(first.resolvedAt ?? pause.askedAt);
   const untaken =

@@ -6,9 +6,9 @@ import {
   type PauseTimeoutChange,
   type PauseReassignmentChange,
   type PauseRecipients,
+  type PauseSeen,
 } from "./pause-notices.js";
 import {
-  decidedPause,
   PauseStatus,
   type PauseAnswer,
   type PauseCancellation,
@@ -19,6 +19,7 @@ import {
 import { reassignChange } from "./pause-reassign-transition.js";
 import {
   cancelChange,
+  decideChange,
   closeUntakenChange,
   expireChange,
   markSentChange,
@@ -82,9 +83,12 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
     answer: PauseAnswer,
     at: Date,
     recipients: PauseRecipients,
+    seen?: PauseSeen,
   ): Promise<PauseRecord | undefined> {
     return Promise.resolve(
-      this.book.change(tenantId, pauseId, (pause) => resolveChange(pause, answer, at, recipients)),
+      this.book.change(tenantId, pauseId, (pause) =>
+        resolveChange(pause, answer, at, recipients, seen),
+      ),
     );
   }
 
@@ -93,11 +97,10 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
     pauseId: string,
     answer: PauseAnswer,
     at: Date,
+    seen: PauseSeen,
   ): Promise<boolean> {
     const decided = this.book.change(tenantId, pauseId, (pause) =>
-      pause.status === PauseStatus.Pending
-        ? { pause: decidedPause(pause, answer, at), notices: [] }
-        : undefined,
+      decideChange(pause, answer, at, seen),
     );
     return Promise.resolve(decided !== undefined);
   }

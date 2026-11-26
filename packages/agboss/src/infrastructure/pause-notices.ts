@@ -216,8 +216,8 @@ export interface PauseDeadlineSet {
  * as `onPauseReassigned`. A `reassign…` call takes this when it has no `pauseId`.
  */
 export interface PauseInPlaceReassignment {
-  /** The state the change was planned against; absent: unguarded (a store's own test). The core always sets it. */
-  readonly seen?: PauseSeen;
+  /** The state the change was planned against: applied only while the pause is still exactly this (required, #1307). */
+  readonly seen: PauseSeen;
   /** None: the pause keeps its own. */
   readonly pauseId?: never;
   /** Who the pause is for now (one to 100 key's texts, none twice); absent: nobody in particular (released). */
@@ -247,7 +247,7 @@ export interface PauseInPlaceReassignment {
 /** The replacement a `reassign…` makes (#946): its id and the addressee; the store copies the rest from the old pause. */
 export interface PauseReplacement {
   /** As `PauseInPlaceReassignment.seen`. */
-  readonly seen?: PauseSeen;
+  readonly seen: PauseSeen;
   /** The new pause's id: a random 128-bit token the caller made (`newPauseId()`), never the old one's. */
   readonly pauseId: string;
   /** The addressees (key's texts, #589; one to 100, none twice): who the channel asks now; absent: nobody in particular. */

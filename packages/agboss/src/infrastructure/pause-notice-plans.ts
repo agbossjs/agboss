@@ -10,6 +10,7 @@ import {
   PauseClosedReason,
   PauseResolution,
   type PauseRecord,
+  type PauseTrailRecord,
   type PauseUntakenResolution,
 } from "./pause-record.js";
 import { definedFields } from "../core/defined-fields.js";
@@ -59,9 +60,28 @@ export function instantOf(text: string | undefined): Date {
 }
 
 /**
- * The notices of a pause whose channel was just asked: `opened` to the listeners; for a replacement
- * a reassignment made, `reassigned` to the listeners instead (its channel was sent it, the old
- * pause's channel was told `closed`), naming what it moved from — the entry before its own in the chain.
+ * A pause the channel was just sent that was changed in place meanwhile: its `opened` entry (the
+ * first of its trail, what the channel was asked with) and the first `reassigned` entry after it. A
+ * pause no reassignment made only — a replacement's own `reassigned` entry is told by `openingNotices`;
+ * `undefined` when it was not changed in place.
+ */
+function inPlaceChangeOf(
+  pause: PauseRecord,
+): { readonly asked: PauseTrailRecord; readonly changed: PauseTrailRecord } | undefined {
+  // every pause has its `opened` entry first
+  const [asked, ...rest] = pause.trail as [PauseTrailRecord, ...PauseTrailRecord[]];
+  const changed = rest.find((entry) => entry.action === "reassigned");
+  return pause.reassignedFrom !== undefined || changed === undefined
+    ? undefined
+    : { asked, changed };
+}
+
+/**
+ * The notices of a pause whose channel was just asked: `opened` to the listeners — with the deadline
+ * the channel was asked with, not one an in-place change set during the send (`inFirstSendNotices`
+ * tells that); for a replacement a reassignment made, `reassigned` to the listeners instead (its channel
+ * was sent it, the old pause's channel was told `closed`), naming what it moved from — the entry before
+ * its own in the chain.
  */
 export function openingNotices(
   pause: PauseRecord,
@@ -69,13 +89,15 @@ export function openingNotices(
   recipients: PauseRecipients,
 ): readonly PlannedNotice[] {
   const at = instantOf(pause.askedAt);
-  if (pause.reassignedFrom === undefined)
+  if (pause.reassignedFrom === undefined) {
+    const asked = inPlaceChangeOf(pause)?.asked ?? pause;
     return noticesOf(
       recipients,
       PauseNoticeKind.Opened,
       at,
-      definedFields({ expiresAt: pause.expiresAt }),
+      definedFields({ expiresAt: asked.expiresAt }),
     );
+  }
   const before = pause.trail.at(-2);
   return noticesOf(
     { listeners: recipients.listeners },
@@ -89,6 +111,35 @@ export function openingNotices(
       previousTarget: before?.target,
       previousChannel: before?.channel,
       previousExternalRef: before?.externalRef,
+    }),
+  );
+}
+
+/**
+ * The `reassigned` notice of a pause that was changed in place (its trail holds a `reassigned` entry
+ * after its own `opened`) while its first send was in flight, to the channel that was just sent it
+ * and to the listeners: the in-place change wrote none then (nobody was told of the pause yet). It
+ * names what the channel was asked with — the `opened` entry, the first of the trail — and what the
+ * pause is now. No `previousExternalRef`: a pause not yet sent has no reference.
+ */
+export function inFirstSendNotices(
+  sent: PauseRecord,
+  recipients: PauseRecipients,
+): readonly PlannedNotice[] {
+  const change = inPlaceChangeOf(sent);
+  if (change === undefined) return [];
+  const { asked, changed } = change;
+  return noticesOf(
+    recipients,
+    PauseNoticeKind.Reassigned,
+    instantOf(changed.at),
+    definedFields({
+      expiresAt: sent.expiresAt,
+      previousExpiresAt: asked.expiresAt,
+      assignees: sent.assignees,
+      previousAssignees: asked.assignees,
+      previousTarget: asked.target,
+      previousChannel: asked.channel,
     }),
   );
 }

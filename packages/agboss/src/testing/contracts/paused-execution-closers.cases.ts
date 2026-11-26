@@ -2,11 +2,14 @@ import { expect } from "vitest";
 import { NO_RECIPIENTS } from "../../infrastructure/pause-notices.js";
 import {
   PauseResolution,
+  PauseStatus,
   type PausedExecutionRepository,
 } from "../../infrastructure/paused-execution.repository.js";
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
 import {
+  decideNow,
+  AFTER_DEADLINE,
   APPROVED_BY_MANAGER,
   BEFORE_DEADLINE,
   DEADLINE,
@@ -35,7 +38,7 @@ export const CLOSER_RACE_CASES: readonly Case[] = [
             R,
           ),
         decide: (s: PausedExecutionRepository, id: string) =>
-          s.decideByTenantIdAndPauseId("default", id, DECIDED_ANSWER, BEFORE_DEADLINE),
+          decideNow(s, id, DECIDED_ANSWER, BEFORE_DEADLINE),
         expire: (s: PausedExecutionRepository, id: string) =>
           s.expireByTenantIdAndPauseId("default", id, {}, DEADLINE, R),
         expireAgain: (s: PausedExecutionRepository, id: string) =>
@@ -61,6 +64,28 @@ export const CLOSER_RACE_CASES: readonly Case[] = [
           `${one} vs ${other}`,
         ).toHaveLength(1);
       }
+    },
+  },
+  {
+    name: "a channel's decision at once is taken only while the deadline is ahead, as an answer is (I2): at or after it the pause stays Pending for its expiry",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+
+      // exactly at the deadline it is over, and after it
+      expect(await decideNow(second, "pause-a", DECIDED_ANSWER, DEADLINE)).toBe(false);
+      expect(await decideNow(second, "pause-a", DECIDED_ANSWER, AFTER_DEADLINE)).toBe(false);
+      const refused = await first.findByTenantIdAndPauseId("default", "pause-a");
+      expect(refused).toMatchObject({ status: PauseStatus.Pending });
+      expect(refused?.answer).toBeUndefined();
+      expect(refused?.resolution).toBeUndefined();
+
+      // the expiry takes it; a decision after the expiry is refused too, and the one before it applies
+      expect(
+        await first.expireByTenantIdAndPauseId("default", "pause-a", {}, AFTER_DEADLINE, R),
+      ).toMatchObject({ resolution: PauseResolution.Expired });
+      expect(await decideNow(second, "pause-a", DECIDED_ANSWER, BEFORE_DEADLINE)).toBe(false);
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-b", "run-1:s:1:call-2"));
+      expect(await decideNow(second, "pause-b", DECIDED_ANSWER, BEFORE_DEADLINE)).toBe(true);
     },
   },
 ];

@@ -8,6 +8,7 @@ import {
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
 import {
+  decideNow,
   AFTER_DEADLINE,
   DEADLINE,
   APPROVED_BY_MANAGER,
@@ -105,7 +106,7 @@ export const NOTICE_WRITE_CASES: readonly ContractCase<PausedExecutionRepository
     name: "a pause its channel decided at once gets no notice",
     run: async ({ first }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      await first.decideByTenantIdAndPauseId("default", "pause-a", DECIDED_ANSWER, MID);
+      await decideNow(first, "pause-a", DECIDED_ANSWER, MID);
 
       expect(await peeker(first)()).toEqual([]);
     },

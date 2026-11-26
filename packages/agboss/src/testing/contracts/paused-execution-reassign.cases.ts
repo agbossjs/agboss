@@ -6,6 +6,7 @@ import {
 } from "../../infrastructure/paused-execution.repository.js";
 import type { ContractCase } from "./define.js";
 import {
+  decideNow,
   AFTER_DEADLINE,
   APPROVED_BY_MANAGER,
   BEFORE_DEADLINE,
@@ -13,6 +14,7 @@ import {
   expiringPauseOf,
   MID,
   pauseOf,
+  seenNow,
 } from "./paused-execution-data.js";
 import {
   type Instances,
@@ -140,7 +142,7 @@ export const REASSIGN_CASES: readonly ContractCase<PausedExecutionRepository>[] 
         R,
       );
       await first.findOrCreateByStepKey(expiringPauseOf("pause-c", "run-1:s:1:c"));
-      await first.decideByTenantIdAndPauseId("default", "pause-c", APPROVED_BY_MANAGER, MID);
+      await decideNow(first, "pause-c", APPROVED_BY_MANAGER, MID);
       await first.findOrCreateByStepKey(expiringPauseOf("pause-d", "run-1:s:1:d"));
       const before = ids(await treeOf(first));
 
@@ -155,7 +157,7 @@ export const REASSIGN_CASES: readonly ContractCase<PausedExecutionRepository>[] 
         await second.reassignByTenantIdAndPauseId(
           "acme",
           "pause-d",
-          { pauseId: "pause-r7", assignees: ["deputy-3"] },
+          { pauseId: "pause-r7", assignees: ["deputy-3"], seen: await seenNow(second, "pause-d") },
           BEFORE_DEADLINE,
           R,
         ),

@@ -4,10 +4,10 @@ import type {
   PauseNoticeKind,
   PauseRecipients,
   PauseReassignmentChange,
+  PauseSeen,
 } from "../pause-notices.js";
 import { timeoutChange } from "../pause-timeout-change.js";
 import {
-  decidedPause,
   PauseStatus,
   type PauseAnswer,
   type PauseCancellation,
@@ -17,6 +17,7 @@ import {
 } from "../pause-record.js";
 import {
   cancelChange,
+  decideChange,
   closeUntakenChange,
   expireChange,
   markSentChange,
@@ -87,10 +88,10 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     answer: PauseAnswer,
     at: Date,
     recipients: PauseRecipients,
+    seen?: PauseSeen,
   ): Promise<PauseRecord | undefined> {
-    return Promise.resolve(
-      this.#change(tenantId, pauseId, (pause) => resolveChange(pause, answer, at, recipients)),
-    );
+    const resolve = (pause: PauseRecord) => resolveChange(pause, answer, at, recipients, seen);
+    return Promise.resolve(this.#change(tenantId, pauseId, resolve));
   }
 
   async decideByTenantIdAndPauseId(
@@ -98,13 +99,10 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     pauseId: string,
     answer: PauseAnswer,
     at: Date,
+    seen: PauseSeen,
   ): Promise<boolean> {
-    const decided = this.#change(tenantId, pauseId, (pause) =>
-      pause.status === PauseStatus.Pending
-        ? { pause: decidedPause(pause, answer, at), notices: [] }
-        : undefined,
-    );
-    return Promise.resolve(decided !== undefined);
+    const decide = (pause: PauseRecord) => decideChange(pause, answer, at, seen);
+    return Promise.resolve(this.#change(tenantId, pauseId, decide) !== undefined);
   }
 
   async cancelByTenantIdAndPauseId(

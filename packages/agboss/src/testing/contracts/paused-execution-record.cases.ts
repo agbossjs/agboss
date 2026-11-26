@@ -10,6 +10,7 @@ import { CostSource, type UsageRecord } from "../../finops/usage.js";
 import type { ContractCase } from "./define.js";
 import type { ContractInstances } from "./instance-context.js";
 import {
+  decideNow,
   APPROVED_BY_MANAGER,
   DECIDED_ANSWER,
   NINE,
@@ -39,12 +40,8 @@ export const PAUSE_RECORD_CASES: readonly ContractCase<PausedExecutionRepository
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(pauseOf("pause-a"));
 
-      expect(
-        await second.decideByTenantIdAndPauseId("default", "pause-a", DECIDED_ANSWER, NINE),
-      ).toBe(true);
-      expect(
-        await first.decideByTenantIdAndPauseId("default", "pause-a", DECIDED_ANSWER, TEN),
-      ).toBe(false);
+      expect(await decideNow(second, "pause-a", DECIDED_ANSWER, NINE)).toBe(true);
+      expect(await decideNow(first, "pause-a", DECIDED_ANSWER, TEN)).toBe(false);
 
       expect(await first.findByTenantIdAndPauseId("default", "pause-a")).toMatchObject({
         status: PauseStatus.Taken,
@@ -74,7 +71,7 @@ export const PAUSE_RECORD_CASES: readonly ContractCase<PausedExecutionRepository
       const keys = ["a", "b", "c", "d", "e"].map((id) => `run-1:clerk-agent:1:call-${id}`);
       for (const [index, key] of keys.entries())
         await first.findOrCreateByStepKey(pauseOf(`pause-${String(index)}`, key));
-      await first.decideByTenantIdAndPauseId("default", "pause-0", DECIDED_ANSWER, NINE);
+      await decideNow(first, "pause-0", DECIDED_ANSWER, NINE);
       await first.cancelByTenantIdAndPauseId(
         "default",
         "pause-1",
@@ -89,7 +86,7 @@ export const PAUSE_RECORD_CASES: readonly ContractCase<PausedExecutionRepository
         NINE,
         NO_RECIPIENTS,
       );
-      await first.decideByTenantIdAndPauseId("default", "pause-3", DECIDED_ANSWER, TEN);
+      await decideNow(first, "pause-3", DECIDED_ANSWER, TEN);
 
       await second.deleteByResolvedAtBefore(new Date("2026-01-05T09:30:00.000Z"));
 

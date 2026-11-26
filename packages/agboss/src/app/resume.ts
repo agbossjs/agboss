@@ -26,7 +26,8 @@ import { invalidDto } from "../dto/errors.js";
 import { ExecutionOperation } from "../core/observability.js";
 import type { ExecutionRequest } from "./run-events.js";
 import type { TreeMoves } from "./tree-moves.js";
-import { markAnswered, refusedAfterMark } from "./paused-runs.js";
+import { markAnswered, refusedAnswer } from "./paused-runs.js";
+import { seenOf } from "../infrastructure/pause-seen.js";
 import { noticesWritten, recipientsIn, type PauseNotices } from "../pause/index.js";
 import { pauseTallyOf } from "../pause/pause-tally.js";
 import { pauseClosed } from "./pause-closed.js";
@@ -225,11 +226,11 @@ export async function recordedAnswer(
     answer,
     at,
     recipientsIn(parts, pause),
+    // the pause the permit was asked over: an in-place change since makes the permit stale
+    seenOf(pause),
   );
   if (resolved === undefined) {
-    throw await (isMarked
-      ? refusedAfterMark(parts, pause)
-      : pauseClosed(parts.pauses, pause, parts.clock.now()));
+    throw await refusedAnswer(parts, pause, isMarked);
   }
   // its notices are written: looked for at once, before anything that may throw
   noticesWritten(parts);

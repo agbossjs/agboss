@@ -12,7 +12,12 @@ import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
 import { PauseStatus, type PauseRecord } from "../../src/infrastructure/pause-record.js";
 import { treeResumeOf } from "../../src/run/resume-map.js";
 import { livePauseOf, waitingPauseOf } from "../../src/run/waiting-pauses.js";
-import { DEADLINE, MID, pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
+import {
+  DEADLINE,
+  MID,
+  pauseOf,
+  withSeenNow,
+} from "../../src/testing/contracts/paused-execution-data.js";
 import type { AgentExecutionOutput } from "../../src/run/types.js";
 
 const record = (pauseId: string, extra: Partial<PauseRecord> = {}): PauseRecord => ({
@@ -61,7 +66,7 @@ describe("#946: a stored run's pending list names the live pause of a reassigned
     await pauses.reassignByTenantIdAndPauseId(
       "default",
       "p1",
-      { pauseId: "p2", assignees: ["deputy-3"] },
+      await withSeenNow(pauses, "p1", { pauseId: "p2", assignees: ["deputy-3"] }),
       MID,
       NO_RECIPIENTS,
     );

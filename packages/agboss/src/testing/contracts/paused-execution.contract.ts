@@ -6,7 +6,7 @@ import {
 import { NO_RECIPIENTS } from "../../infrastructure/pause-notices.js";
 import { pingOf, registerContract, type ContractCase } from "./define.js";
 import { nulCaseName, NUL_TEXT } from "./nul-text.js";
-import { DECIDED_ANSWER, NINE, pausedRunOf, pauseOf } from "./paused-execution-data.js";
+import { decideNow, DECIDED_ANSWER, NINE, pausedRunOf, pauseOf } from "./paused-execution-data.js";
 import { QUESTION_PAUSE_CASES } from "./paused-execution-question.cases.js";
 import { PAUSE_RECORD_CASES } from "./paused-execution-record.cases.js";
 import { PAUSE_TRANSITION_CASES } from "./paused-execution-resolution.cases.js";
@@ -22,6 +22,7 @@ import { REASSIGN_KEY_CASES } from "./paused-execution-reassign-key.cases.js";
 import { REASSIGN_CHANGE_CASES } from "./paused-execution-reassign-change.cases.js";
 import { REASSIGN_NOTICE_CASES } from "./paused-execution-reassign-notice.cases.js";
 import { REASSIGN_RACE_CASES } from "./paused-execution-reassign-race.cases.js";
+import { REASSIGN_SEND_CASES } from "./paused-execution-reassign-send.cases.js";
 import { NOTICE_ORDER_CASES } from "./paused-execution-order.cases.js";
 import { RETENTION_CASES } from "./paused-execution-retention.cases.js";
 import { SCAN_CASES } from "./paused-execution-scan.cases.js";
@@ -100,7 +101,7 @@ const STEP_KEY_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
     name: "#663: the step key of another tree finds none of its pauses — a pending one of its own is made",
     run: async ({ first, second }) => {
       await first.findOrCreateByStepKey(pauseOf("pause-a"));
-      await first.decideByTenantIdAndPauseId("default", "pause-a", DECIDED_ANSWER, NINE);
+      await decideNow(first, "pause-a", DECIDED_ANSWER, NINE);
       const otherTree = { ...pauseOf("pause-b"), rootExecutionId: "run-2" };
 
       const made = await second.findOrCreateByStepKey(otherTree);
@@ -154,7 +155,7 @@ const STEP_KEY_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
         true,
       );
       expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.isSent).toBe(true);
-      await second.decideByTenantIdAndPauseId("default", "pause-a", DECIDED_ANSWER, NINE);
+      await decideNow(second, "pause-a", DECIDED_ANSWER, NINE);
       expect(await first.markSentByTenantIdAndPauseId("default", "pause-a", NO_RECIPIENTS)).toBe(
         false,
       );
@@ -193,6 +194,7 @@ export function pausedExecutionContract(target: ContractTarget<PausedExecutionRe
           ...REASSIGN_CASES,
           ...REASSIGN_TRAIL_CASES,
           ...REASSIGN_RACE_CASES,
+          ...REASSIGN_SEND_CASES,
           ...REASSIGN_NOTICE_CASES,
           ...REASSIGN_CHANGE_CASES,
           ...REASSIGN_KEY_CASES,

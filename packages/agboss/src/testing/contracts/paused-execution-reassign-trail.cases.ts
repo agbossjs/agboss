@@ -6,8 +6,14 @@ import {
   PauseResolution,
   PauseStatus,
 } from "../../infrastructure/pause-record.js";
-import { AFTER_DEADLINE, DEADLINE, expiringPauseOf, MID } from "./paused-execution-data.js";
-import { type Instances, R } from "./paused-execution-reassign-data.js";
+import {
+  AFTER_DEADLINE,
+  DEADLINE,
+  expiringPauseOf,
+  MID,
+  withSeenNow,
+} from "./paused-execution-data.js";
+import { type Instances, R, reassignWith } from "./paused-execution-reassign-data.js";
 
 /** #1307d: what a reassignment writes into a pause's chain of custody and its pool of assignees. */
 export const REASSIGN_TRAIL_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
@@ -20,12 +26,12 @@ export const REASSIGN_TRAIL_CASES: readonly ContractCase<PausedExecutionReposito
       const replacement = await first.reassignByTenantIdAndPauseId(
         "default",
         "pause-a",
-        {
+        await withSeenNow(first, "pause-a", {
           pauseId: "pause-b",
           assignees: ["risk-1", "risk-2", "risk-3"],
           actor: { id: "counsel-4", orgId: "subsidiary-eu" },
           reason: "over the legal limit",
-        },
+        }),
         MID,
         R,
       );
@@ -65,16 +71,8 @@ export const REASSIGN_TRAIL_CASES: readonly ContractCase<PausedExecutionReposito
       };
 
       // before the deadline the pause is still open: an expiry's reassignment is not for it
-      expect(
-        await first.reassignByTenantIdAndPauseId("default", "pause-a", due, MID, R),
-      ).toBeUndefined();
-      const moved = await second.reassignByTenantIdAndPauseId(
-        "default",
-        "pause-a",
-        due,
-        AFTER_DEADLINE,
-        R,
-      );
+      expect(await reassignWith(first, "pause-a", due, MID, R)).toBeUndefined();
+      const moved = await reassignWith(second, "pause-a", due, AFTER_DEADLINE, R);
 
       expect(moved).toMatchObject({
         pauseId: "pause-b",
@@ -97,13 +95,7 @@ export const REASSIGN_TRAIL_CASES: readonly ContractCase<PausedExecutionReposito
       });
       // a second reassignment of the closed pause loses
       expect(
-        await first.reassignByTenantIdAndPauseId(
-          "default",
-          "pause-a",
-          { ...due, pauseId: "pause-c" },
-          AFTER_DEADLINE,
-          R,
-        ),
+        await reassignWith(first, "pause-a", { ...due, pauseId: "pause-c" }, AFTER_DEADLINE, R),
       ).toBeUndefined();
     },
   },

@@ -14,6 +14,7 @@ import {
   MID,
   RECIPIENTS,
   changeFromDeadline,
+  seenNow,
 } from "./paused-execution-data.js";
 import { type Instances, R, reassign, treeOf, winners } from "./paused-execution-reassign-data.js";
 
@@ -25,11 +26,13 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
       for (const [index, firstGoesFirst] of [true, false].entries()) {
         const old = `pause-${String(index)}`;
         await first.findOrCreateByStepKey(expiringPauseOf(old, `run-1:s:${String(index)}`));
+        // both planned against the same pause, as two instances' callers are
+        const planned = await seenNow(first, old);
         const one = (): Promise<PauseRecord | undefined> =>
           first.reassignByTenantIdAndPauseId(
             "default",
             old,
-            { pauseId: `${old}-one`, assignees: ["deputy-1"] },
+            { pauseId: `${old}-one`, assignees: ["deputy-1"], seen: planned },
             BEFORE_DEADLINE,
             RECIPIENTS,
           );
@@ -37,7 +40,7 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
           second.reassignByTenantIdAndPauseId(
             "default",
             old,
-            { pauseId: `${old}-two`, assignees: ["deputy-2"] },
+            { pauseId: `${old}-two`, assignees: ["deputy-2"], seen: planned },
             BEFORE_DEADLINE,
             RECIPIENTS,
           );
@@ -71,7 +74,15 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
             BEFORE_DEADLINE,
             RECIPIENTS,
           );
-        const move = (): Promise<PauseRecord | undefined> => reassign(second, old, `${old}-new`);
+        const planned = await seenNow(second, old);
+        const move = (): Promise<PauseRecord | undefined> =>
+          second.reassignByTenantIdAndPauseId(
+            "default",
+            old,
+            { pauseId: `${old}-new`, assignees: ["deputy-3"], seen: planned },
+            BEFORE_DEADLINE,
+            RECIPIENTS,
+          );
 
         // started in this order, both at once
         const started = answerFirst
@@ -139,37 +150,6 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
           )
         )?.assignees,
       ).toEqual(["deputy-4"]);
-    },
-  },
-  {
-    name: "a reassignment planned against an unsent pause is refused once its channel was marked asked — in place or as a replacement — and applies when planned against the sent pause",
-    run: async ({ first, second }: Instances): Promise<void> => {
-      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const unsent = { trailLength: 1, expiresAt: DEADLINE.toISOString(), isSent: false };
-      // the step's send returned meanwhile: its markSent landed between the plan and the write
-      await first.markSentByTenantIdAndPauseId("default", "pause-a", RECIPIENTS, "JIRA-1");
-      const change = (store: PausedExecutionRepository, seen: typeof unsent, pauseId?: string) =>
-        store.reassignByTenantIdAndPauseId(
-          "default",
-          "pause-a",
-          pauseId === undefined
-            ? { assignees: ["deputy-1"], seen }
-            : { pauseId, assignees: ["deputy-1"], seen },
-          BEFORE_DEADLINE,
-          RECIPIENTS,
-        );
-
-      expect(await change(second, unsent)).toBeUndefined();
-      expect(await change(second, unsent, "pause-b")).toBeUndefined();
-      const stored = await first.findByTenantIdAndPauseId("default", "pause-a");
-      expect(stored).toMatchObject({ status: PauseStatus.Pending, isSent: true });
-      expect(stored?.assignees).toBeUndefined();
-      expect(stored?.trail).toHaveLength(1);
-      expect(await first.findByTenantIdAndPauseId("default", "pause-b")).toBeUndefined();
-
-      // planned against the sent pause: applies
-      const sent = { ...unsent, isSent: true };
-      expect((await change(second, sent, "pause-b"))?.reassignedFrom).toBe("pause-a");
     },
   },
   {

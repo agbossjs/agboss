@@ -47,6 +47,8 @@ const pause = {
   respondent: PauseRespondent.Owner,
   kind: PauseKind.ExternalTask,
   status: PauseStatus.Pending,
+  isSent: true,
+  trail: [],
   ask: {},
 };
 

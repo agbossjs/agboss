@@ -9,6 +9,7 @@ import type {
   PauseRecipients,
   PauseReassignmentChange,
   PauseScanAfter,
+  PauseSeen,
   PauseTimeoutChange,
   SetAsideMailbox,
 } from "./pause-notices.js";
@@ -98,6 +99,8 @@ export abstract class PausedExecutionRepository {
    * Atomic: marks the pause's channel asked, whatever its status (a closed one too — a fast reply
    * or a cancel may have closed it while `send` was returning). Only when `isSent` was false, and
    * in one transaction with it, writes in this order: `opened` (with `expiresAt`) to the listeners;
+   * when the pause was changed in place meanwhile (a `reassigned` entry after its `opened`: an expiry's
+   * reassignment during the first send), a `reassigned` to the channel and the listeners (`inFirstSendNotices`);
    * when the pause is no longer `Pending`, its `closed` (reason and time by `pauseClosedReasonOf` /
    * `closedAtOf`) to the channel and the listeners — a cancel during `send` must still take the
    * channel's buttons off; when it is a closed-untaken one (`Cancelled` with an answer), its
@@ -118,6 +121,11 @@ export abstract class PausedExecutionRepository {
    * answer is ever recorded at or after the deadline, whatever the sweep did yet (I1, I2) — and
    * returns it; `undefined` when the pause is not pending, past its deadline, or none. A sent
    * pause's `closed` (`Answered`) goes in the same transaction to the channel and the listeners (I7).
+   * With `seen` (`seenOf` of the record the answer's `permitAnswer` was asked over: the same trail
+   * length, deadline, assignees and `isSent`) the write applies **only while the pause is still that**:
+   * an answer permitted for the assignees a pause had is never recorded after an in-place reassignment
+   * moved it to others (`undefined`, nothing written; the caller re-reads and retries). Absent: unguarded
+   * (an answer with no permit to compare against); the core's `app.resume` always sets it.
    */
   abstract resolveByTenantIdAndPauseId(
     tenantId: string,
@@ -125,18 +133,24 @@ export abstract class PausedExecutionRepository {
     answer: PauseAnswer,
     at: Date,
     recipients: PauseRecipients,
+    seen?: PauseSeen,
   ): Promise<PauseRecord | undefined>;
 
   /**
    * Atomic: its channel decided at once (`ChannelOutcome.decided`) — the pause goes from `Pending`
-   * to `Taken` with `answer` (`PauseResolution.Decided`); `false` when it was not pending. The
-   * pause was never sent: no notice (I8).
+   * to `Taken` with `answer` (`PauseResolution.Decided`) **only while `expiresAt` is absent or after
+   * `at`** (as `resolve…`: a decision at or after the deadline is the expiry's) **and the pause is
+   * still the one `seen` names** (`seenOf` of the record the step sent: the same trail length,
+   * deadline, assignees and `isSent`) — an expiry's in-place reassignment during the first send makes
+   * the channel's decision stale, never taken; `false` otherwise (not pending, past its deadline,
+   * changed since, or none). The pause was never sent: no notice (I8).
    */
   abstract decideByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
     answer: PauseAnswer,
     at: Date,
+    seen: PauseSeen,
   ): Promise<boolean>;
 
   /**
@@ -222,8 +236,9 @@ export abstract class PausedExecutionRepository {
    * while the deadline is at or before `at` (an expiry's reassignment), otherwise only while the pause is open;
    * `maxReassignments` refuses it, in the same transaction, once the chain holds that many `reassigned` entries.
    * A replacement made `to` another target or channel is `Pending` and unsent under it, with no `externalRef`.
-   * With `seen` the write applies only while the pause is still as it was planned against: the same
-   * trail length, deadline, assignees and `isSent` (a pause marked sent since is refused). With
+   * `seen` is required: the write applies only while the pause is still as it was planned against
+   * (`seenOf`: the same trail length, deadline, assignees and `isSent`; a pause marked sent since is
+   * refused), and a change without one applies to nothing. With
    * `countsAsExtension` a `timeout-changed` entry follows the `reassigned` one — on the replacement
    * as on a pause changed in place — and `maxExtensions` refuses the change, in the same transaction,
    * once the chain holds that many.
