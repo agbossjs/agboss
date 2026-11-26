@@ -14,7 +14,14 @@ import { Action } from "../../src/flow/decorators/action.js";
 import { Workflow } from "../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../src/flow/decorators/workflow-finish.js";
 import { WorkflowStart } from "../../src/flow/decorators/workflow-start.js";
-import { PauseError, PauseStatus, Ttl, ValidationError } from "../../src/index.js";
+import {
+  PauseError,
+  PauseStatus,
+  PiiKind,
+  PiiPolicy,
+  Ttl,
+  ValidationError,
+} from "../../src/index.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { PauseRespondent } from "../../src/pause/respondent.js";
 import { testWith } from "../../src/testing/index.js";
@@ -105,8 +112,16 @@ class RecordGatedAction {
   }
 }
 
+@PiiPolicy({
+  name: "gated-email-pii-policy",
+  description: "Hides e-mails",
+  rules: [PiiKind.Email.mask()],
+})
+class GatedEmailPolicy {}
+
 @Workflow({
   name: "gated-workflow",
+  piiPolicies: [GatedEmailPolicy],
   version: "1.0.0",
   historyTtl: Ttl.None,
   flow: [
@@ -277,6 +292,27 @@ describe("the chain of custody and the reason", () => {
   });
 });
 
+describe("the reason is masked by the pause's workflow's PII policy (#1307)", () => {
+  const EMAIL = "jane.roe@example.com";
+
+  test("the chain of custody keeps it masked; permitTimeoutChange read it as given", async ({
+    app,
+  }) => {
+    const pauseId = await opened(app);
+
+    await app.setPauseTimeout(
+      { pauseId, timeout: hours(5), reason: `asked by ${EMAIL}` },
+      operator,
+    );
+
+    const entry = (await pauseOf(app, pauseId)).trail.at(-1);
+    expect(entry?.reason).toBeDefined();
+    expect(entry?.reason).not.toContain(EMAIL);
+    expect(JSON.stringify((await pauseOf(app, pauseId)).trail)).not.toContain(EMAIL);
+    expect(told.permitted[0]?.reason).toContain(EMAIL);
+  });
+});
+
 describe("escalationLimits: maxExtensions and maxTotalTimeout", () => {
   test("maxExtensions: the fourth change of three is PauseError.EscalationLimitExceeded, nothing written", async ({
     app,
@@ -285,6 +321,7 @@ describe("escalationLimits: maxExtensions and maxTotalTimeout", () => {
     for (const timeout of [hours(10), hours(11), hours(12)])
       await app.setPauseTimeout({ pauseId, timeout }, operator);
     const before = await pauseOf(app, pauseId);
+    await until(() => told.changed.length === 3);
     told.changed.length = 0;
 
     const refused = await failureOf(app.setPauseTimeout({ pauseId, timeout: hours(13) }, operator));
