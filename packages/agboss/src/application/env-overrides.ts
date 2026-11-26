@@ -84,6 +84,19 @@ export function envResolverOf(
   return (contract) => resolveEnv(contract, carried);
 }
 
+/**
+ * `envResolverOf` for `agboss check`: the same values, but a required variable nothing sets is a
+ * placeholder and an unset secret stays unresolved (check needs no variable and no key, #266).
+ */
+export function deferredEnvResolverOf(
+  overrides: readonly EnvOverrides<EnvContract>[],
+  processEnv: NodeJS.ProcessEnv,
+): (contract: EnvContract) => unknown {
+  assertNoSecretOverrides(overrides);
+  const carried = processEnvWith(processEnv, mergedByContract(overrides));
+  return (contract) => resolveEnv(contract, carried, undefined, { secrets: "deferred" });
+}
+
 /** What a test's `env` option takes: one `configureEnv(appEnv, { … })` or a list of them. */
 export type TestEnvOverrides = EnvOverrides<EnvContract> | readonly EnvOverrides<EnvContract>[];
 

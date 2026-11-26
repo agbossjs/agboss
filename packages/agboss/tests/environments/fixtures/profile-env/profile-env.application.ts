@@ -13,12 +13,12 @@ import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
-import { profileEnv } from "./app.env.js";
+import { otherEnv, profileEnv } from "./app.env.js";
 
 /** Every `upstream` a tool of this application was built with, in order (a test reads and clears it). */
 export const built: string[] = [];
 
-class PingDto {}
+export class PingDto {}
 
 /** A tool on `deps: [profileEnv]`: its constructor records the address it got. */
 @Tool({
@@ -38,12 +38,28 @@ export class PingTool {
   }
 }
 
+/** Reads the same variable as `profileEnv.upstream`, but with no default: the variable is required. */
+@Tool({
+  name: "second-tool",
+  description: "Reads the upstream without a default",
+  input: PingDto,
+  output: PingDto,
+  deps: [otherEnv],
+})
+export class SecondTool {
+  constructor(readonly config: InferEnv<typeof otherEnv>) {}
+
+  execute(): Promise<PingDto> {
+    return Promise.resolve({});
+  }
+}
+
 @Agent({
   name: "ping-agent",
   description: "Pings",
   prompt: inline("Ping."),
   model: "test/ping",
-  tools: [PingTool],
+  tools: [PingTool, SecondTool],
 })
 export class PingAgent {}
 

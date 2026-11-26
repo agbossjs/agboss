@@ -50,7 +50,12 @@ describe("a workflow built on its own reads the profile's configureEnv", () => {
     await compareBundleProfiles(
       (profile) => workflowOn(profile === "base" ? undefined : profile),
       ["base", "staging"],
-      { processEnv: { PROFILE_ENV_REQUIRED: "from-process" } },
+      {
+        processEnv: {
+          PROFILE_ENV_REQUIRED: "from-process",
+          PROFILE_ENV_UPSTREAM: "https://dev.example",
+        },
+      },
       () => Promise.resolve([]),
     );
 

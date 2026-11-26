@@ -27,7 +27,7 @@ export interface StudioSource {
   readonly application: Class;
   /** The workflows' names, in the application's order: one graph each. */
   readonly workflows: readonly string[];
-  /** `--profile <name>`; undefined = the default (`dev`). */
+  /** `--profile <list>`; undefined = the default (`dev`). */
   readonly profile: string | undefined;
 }
 

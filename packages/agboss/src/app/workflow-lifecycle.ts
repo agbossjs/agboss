@@ -4,7 +4,8 @@ import type { Infrastructure } from "../infrastructure/contracts.js";
 import { FencedEffectRepository } from "../infrastructure/fenced-effect.repository.js";
 
 /**
- * A workflow on its own (no application's container: eval, replay, Studio) gets its fenced-effect
+ * A workflow on its own (no application's container yet: `agboss check` and `describe`; eval, replay,
+ * Studio and compare build one in `createAppDeps` and so take the other branch) gets its fenced-effect
  * store from the infrastructure built for it (#890: what `FencedEffects` runs on), a test's own
  * overrides over it.
  */

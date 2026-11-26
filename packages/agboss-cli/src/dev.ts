@@ -29,7 +29,7 @@ function runChild(context: CommandContext, line: CommandLine): Promise<void> {
 }
 
 /**
- * `agboss dev [--profile <name>] [--strict] [--application <path>]` (#268 AC6) — watch mode: the types
+ * `agboss dev [--profile <list>] [--strict] [--application <path>]` (#268 AC6) — watch mode: the types
  * regenerated and the assembly problems printed on every change of the application's sources,
  * until Ctrl+C.
  */

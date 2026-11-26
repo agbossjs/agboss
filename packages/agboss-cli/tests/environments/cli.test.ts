@@ -15,9 +15,27 @@ describe("#1324b: the profile selects the configuration; no command takes --env"
   });
 
   it("every workflow command takes --profile, and none lists --env", async () => {
-    const commands = ["chat", "run", "describe", "check", "eval", "studio", "dev", "rag"];
+    const commands = [
+      "chat",
+      "run",
+      "describe",
+      "check",
+      "eval",
+      "studio",
+      "dev",
+      "rag",
+      "replay",
+      "golden",
+      "executions",
+      "migrate",
+      "generate",
+      "eval run",
+      "eval score",
+    ];
     for (const command of commands) {
-      const help = JSON.stringify(envelope(await agboss(["help", command, "--json"])).result);
+      const help = JSON.stringify(
+        envelope(await agboss(["help", ...command.split(" "), "--json"])).result,
+      );
 
       expect(help, command).toContain('"flag":"--profile"');
       expect(help, command).not.toContain('"flag":"--env"');

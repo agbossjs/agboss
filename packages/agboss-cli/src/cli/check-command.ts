@@ -5,7 +5,7 @@ export const CHECK_COMMAND: CommandSpec = {
   summary:
     "every validation that needs no API key: assembly, graph rules, profiles, prompts (+ models)",
   usage:
-    "agboss check [--models] [--cassettes] [--federation <snapshot…>] [--strict] [--profile <name>] [--application <path>] [--json]",
+    "agboss check [--models] [--cassettes] [--federation <snapshot…>] [--strict] [--profile <list>] [--application <path>] [--json]",
   positionals: "<snapshot…> (with --federation: agboss describe --json files, or folders of them)",
   options: [
     APPLICATION,

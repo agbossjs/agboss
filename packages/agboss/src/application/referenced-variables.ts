@@ -5,7 +5,11 @@ import { piiPolicyMetaOf } from "../pii/policy-checks.js";
 import { componentOf } from "../components/metadata.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
 import type { Class } from "../components/injection.js";
-import { processVariableOf, type ProcessVariable } from "../environments/process-variable.js";
+import {
+  processVariableOf,
+  VariableUse,
+  type ProcessVariable,
+} from "../environments/process-variable.js";
 import { OptionalSecretReference, Secret } from "../environments/secret.js";
 import { VariableReference } from "../environments/variables.js";
 import type { AssembledApplication } from "./assemble.js";
@@ -120,26 +124,93 @@ export function referencesOf(assembled: AssembledApplication): readonly OwnedRef
   return [...own, ...deps];
 }
 
-/** The variables the application's components name, once each, in the order found. */
-export function referencedVariablesOf(assembled: AssembledApplication): readonly ProcessVariable[] {
-  const seen = new Set<object>();
-  const storage = [
-    assembled.storage?.database,
-    assembled.storage?.cluster,
-    assembled.storage?.objects,
-  ].flatMap((entry) => (entry === undefined ? [] : [[entry.cls.name, entry.meta] as const]));
-  const components = componentsOf(assembled).flatMap((cls) => {
-    // a model provider keeps its options apart from the component records: its driver holds the key and the URL
-    const meta = isModelProviderClass(cls) ? modelProviderOf(cls) : componentOf(cls);
-    return meta === undefined ? [] : [[cls.name, meta] as const];
-  });
-  const variables = new Map<string, ProcessVariable>();
-  const note = (path: string, reference: Reference): void => {
-    const found = processVariableOf(path, reference);
-    if (!variables.has(found.variable)) variables.set(found.variable, found);
+/** Two reads of one variable as one: required anywhere = required, a secret anywhere = a secret. */
+function mergedVariable(known: ProcessVariable, found: ProcessVariable): ProcessVariable {
+  return {
+    variable: known.variable,
+    field: known.field,
+    use:
+      known.use === VariableUse.Secret || found.use === VariableUse.Secret
+        ? VariableUse.Secret
+        : VariableUse.Value,
+    required: known.required || found.required,
+    optional: known.optional && found.optional,
   };
-  for (const [name, meta] of [...storage, ...components])
-    for (const [path, reference] of referencesIn(meta, name, seen)) note(path, reference);
-  for (const [path, reference] of envDepsOf(assembled)) note(path, reference);
+}
+
+/**
+ * The variables the application's components name, once each, in the order found: every reference
+ * of `referencesOf` (storages, components, the mesh, the PII policies, `deps: [appEnv]`). A variable
+ * read in several places is one entry that is required when any read requires it.
+ */
+export function referencedVariablesOf(assembled: AssembledApplication): readonly ProcessVariable[] {
+  const variables = new Map<string, ProcessVariable>();
+  for (const { path, reference } of referencesOf(assembled)) {
+    const found = processVariableOf(path, reference);
+    const known = variables.get(found.variable);
+    variables.set(found.variable, known === undefined ? found : mergedVariable(known, found));
+  }
   return [...variables.values()];
+}
+
+/** The references a selected profile gives a value through `configureEnv` (a secret never: a profile cannot carry one). */
+function providedReferencesOf(assembled: AssembledApplication): ReadonlySet<unknown> {
+  const provided = new Set<unknown>();
+  for (const { contract, values } of assembled.envOverrides)
+    for (const key of Object.keys(values)) provided.add(Reflect.get(contract, key));
+  return provided;
+}
+
+/**
+ * The required variables nothing sets: a required read — a reference with no default, or a secret —
+ * that neither the process's variables nor the selected profile's `configureEnv` (which gives a value
+ * to the references of its own `defineEnv` only) satisfy. Each variable once, as `referencedVariablesOf`
+ * lists it; a variable read in two places is unset when either place has nothing.
+ */
+export function unsetVariablesOf(
+  assembled: AssembledApplication,
+  processEnv: NodeJS.ProcessEnv,
+): readonly ProcessVariable[] {
+  const provided = providedReferencesOf(assembled);
+  const names = new Set<string>();
+  for (const { path, reference } of referencesOf(assembled)) {
+    const found = processVariableOf(path, reference);
+    if (found.required && !provided.has(reference) && (processEnv[found.variable] ?? "") === "")
+      names.add(found.variable);
+  }
+  return referencedVariablesOf(assembled).filter((found) => names.has(found.variable));
+}
+
+/** A variable that is set but is not what its reference reads: named, never its value. */
+export interface InvalidVariable {
+  readonly variable: string;
+  readonly field: string;
+  readonly expected: string;
+}
+
+/**
+ * Every referenced variable the process sets to something its reference cannot read (`PORT=abc` for
+ * `env.integer`): what `agboss check --strict` reports as `[environment.invalid-value]`. A variable a
+ * profile provides is read from the profile, not the process.
+ */
+export function invalidVariablesOf(
+  assembled: AssembledApplication,
+  processEnv: NodeJS.ProcessEnv,
+): readonly InvalidVariable[] {
+  const provided = providedReferencesOf(assembled);
+  const seen = new Set<string>();
+  const invalid: InvalidVariable[] = [];
+  for (const { path, reference } of referencesOf(assembled)) {
+    if (!(reference instanceof VariableReference) || provided.has(reference)) continue;
+    const raw = processEnv[reference.variable] ?? "";
+    if (raw === "" || seen.has(reference.variable)) continue;
+    seen.add(reference.variable);
+    if (reference.parser?.(raw) === undefined)
+      invalid.push({
+        variable: reference.variable,
+        field: path,
+        expected: reference.expected ?? "valid",
+      });
+  }
+  return invalid;
 }
