@@ -1013,8 +1013,9 @@ expired`, `closedAt` the deadline) — before a reply's interpreter reads anythi
 own compare-and-set (`expires_at > at`), so an answer and the expiry racing at the deadline leave
 exactly one winner, whatever the instances' clocks. Within seconds the tree moves.
 
-**What an expiry means** is the channel's call. A channel (`implements PauseExpiryHandler<Role>`)
-may answer `onPauseExpired(ask)` — `ask` is what `send` got — with:
+**What an expiry means** is the target's call. A `@ToolApproval` or `@ExternalTask` (`implements PauseExpiryHandler<Target>`)
+may answer `onExpired(ctx)` — `ctx` is an `ExpiredContext`: `input`, `expiresAt`, `firstAskedAt`, `maxExpiresAt` (the
+latest instant the chain's `maxTotalTimeout` lets it wait until; absent: no such limit), `trail` — with:
 
 - `PauseExpiration.fail()` (the default without the method): the step fails with `StepError.PauseExpired`
   (`step.pause-expired`: `step`, `stepKind`, `channel`, `kind`, `expiresAt`; never the pause's id) —
@@ -1022,17 +1023,20 @@ may answer `onPauseExpired(ask)` — `ask` is what `send` got — with:
   Inside an agent an expired approval, or a question the agent asked as a tool, fails the whole
   **agent step**, its spend kept, and none of the move's calls ran;
 - `PauseExpiration.decide(answer)`: the step goes on with that answer, validated like a resume's
-  and recorded as answered **by the channel** (`PauseResolution.DecidedOnExpiry`, the log's
-  `actor` is the channel's name); `onExecutionResume` says `ResumeReason.Expired`. An
+  and recorded as answered **by the expiry**, no person (`PauseResolution.DecidedOnExpiry`, the log's
+  `actor` none); `onExecutionResume` says `ResumeReason.Expired`. An
   approval decided `{ approved: true }` runs its tool with no person having looked — choose it
-  knowing that; `{ approved: false, reason }` is read by the model as a refusal by the channel.
-- `PauseExpiration.reassign({ assignees, timeout?, reason? })` (#1310): the pause goes on waiting, for
-  other assignees, under a new deadline (`timeout` after now, else the channel's `expiresIn`, never
+  knowing that; `{ approved: false, reason }` is read by the model as a refusal by the expiry.
+- `PauseExpiration.reassign({ target?, assignees?, timeout?, reason? })` (#1310): the pause goes on waiting, for
+  other assignees or under another target, under a new deadline (`timeout` after now, else the target's `timeout`, never
   past the run's or a quorum's bound). The old pause closes `reassigned`, a new one (a new id, the
-  old `trail` plus a `reassigned` entry, no reminder) is asked of the same channel by the re-send
+  old `trail` plus a `reassigned` entry, no reminder) is asked of the target's channel by the re-send
   look, and the tree rests paused again. A request that is not valid, or a deadline already past,
   expires the pause as `fail()`; a pause bound by the run's or a quorum's deadline is never
-  reassigned.
+  reassigned. A reassignment names **no channel** (the expiry is domain policy; the target's one
+  `@Channel`, or its `@ChannelSelector`, which reads the escalation in `ctx.trail`, carries it) and does
+  **not** call the target's `permitReassign`: that hook authorizes an outside `actor` of
+  `app.reassignPause`, an expiry has none, and `escalatesTo` already bounds the move.
 
 The handler runs under the tree's lease in the pause's frame under the tool's `timeout`, **once per
 expiry**: a crash before its decision was recorded may run it again, and one decision is recorded —
