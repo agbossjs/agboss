@@ -363,6 +363,34 @@ describe("escalationLimits: maxExtensions and maxTotalTimeout", () => {
   });
 });
 
+describe("permitTimeoutChange on a retry of the compare-and-set (#1307)", () => {
+  test("a call that loses the store's compare-and-set over the same pause is not permitted twice; one over a changed pause is", async ({
+    app,
+  }) => {
+    const pauseId = await opened(app);
+    const store = app.resolve(PausedExecutionRepository);
+    const real = store.changeTimeoutByTenantIdAndPauseId.bind(store);
+    vi.spyOn(store, "changeTimeoutByTenantIdAndPauseId").mockResolvedValueOnce(undefined);
+
+    await app.setPauseTimeout({ pauseId, timeout: hours(5) }, operator);
+
+    // lost once for no change of the pause: the hook said yes to this very pause already
+    expect(told.permitted).toHaveLength(1);
+
+    const write = vi.spyOn(store, "changeTimeoutByTenantIdAndPauseId");
+    write.mockImplementationOnce(async (...args) => {
+      await app.setPauseTimeout({ pauseId, timeout: hours(6) }, operator);
+      return real(...args);
+    });
+    told.permitted.length = 0;
+    await app.setPauseTimeout({ pauseId, timeout: hours(7) }, operator);
+
+    // another change landed in between: the pause is not the one the hook saw, so it is asked again
+    // (its own call, the other's, and the retry)
+    expect(told.permitted).toHaveLength(3);
+  });
+});
+
 describe("a first send still in flight", () => {
   test("is PauseError.UpdateContended: the channel would hear of the change before it heard of the pause; retry is safe once the send returned", async ({
     app,

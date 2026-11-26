@@ -6,7 +6,8 @@ import { checkedTimeout } from "../flow/runtime/pause-hooks.js";
 import type { PauseTarget } from "../flow/runtime/pause.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
-import { seenOf } from "../infrastructure/pause-seen.js";
+import { isAsSeen, seenOf } from "../infrastructure/pause-seen.js";
+import type { PauseSeen } from "../infrastructure/pause-notices.js";
 import { pauseKeyOf, PauseStatus, type PauseRecord } from "../infrastructure/pause-record.js";
 import { noticesWritten, recipientsIn } from "../pause/index.js";
 import { pauseTallyOf } from "../pause/pause-tally.js";
@@ -102,8 +103,10 @@ export const setPauseTimeoutOf =
     const request = checked(given);
     let pause = await pauseOf(parts.pauses, request, tenantId);
     const actor = await actorOf(parts, pause, call);
+    // what the hook already said yes to: asked again only when the pause is no longer that
+    const permitted: { seen?: PauseSeen } = {};
     for (let attempt = 1; attempt <= MAX_TIMEOUT_ATTEMPTS; attempt += 1) {
-      const changed = await changedOnce(parts, { pause, request, tenantId, actor });
+      const changed = await changedOnce(parts, { pause, request, tenantId, actor, permitted });
       if (changed !== undefined) return changed;
       // lost the compare-and-set: the expiry, an answer, a cancel or another change won — read what it left
       pause = await pauseOf(parts.pauses, request, tenantId);
@@ -168,14 +171,19 @@ async function changedOnce(
     readonly request: SetPauseTimeoutRequest;
     readonly tenantId: string;
     readonly actor: PauseActor | undefined;
+    readonly permitted: { seen?: PauseSeen };
   },
 ): Promise<PauseTimeoutChangeResult | undefined> {
-  const { pause, request, tenantId, actor } = call;
+  const { pause, request, tenantId, actor, permitted } = call;
   await assertOpen(parts, pause);
   const known = targetOf(parts.deps, pause);
   if (known !== undefined) assertNotInFirstSend(pause, known);
   const ask = { actor, timeout: request.timeout, reason: request.reason };
-  await assertTimeoutChangePermitted(parts.deps, pause, ask);
+  // a retry over the pause as the hook last saw it needs no second answer (a hook may have effects)
+  if (permitted.seen === undefined || !isAsSeen(pause, permitted.seen)) {
+    await assertTimeoutChangePermitted(parts.deps, pause, ask);
+    permitted.seen = seenOf(pause);
+  }
   // permitted: the target resolves
   const { expiresAt, remindAt, limits } = await deadlineAfter(
     parts,
@@ -188,6 +196,11 @@ async function changedOnce(
   // the call's start (#1148); the deadline itself keeps counting from `now`
   const at = parts.clock.now();
   await assertOpen(parts, pause);
+  // a calendar slower than the timeout: no other writer is to blame, and asking again would not help
+  if (expiresAt !== undefined && expiresAt <= at.toISOString())
+    throw new PauseError.WorkingCalendar({
+      message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: the deadline passed while the calendar was asked; use a longer timeout`,
+    });
   const changed = await parts.pauses.changeTimeoutByTenantIdAndPauseId(
     tenantId,
     pause.pauseId,

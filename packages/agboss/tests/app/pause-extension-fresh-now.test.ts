@@ -35,13 +35,15 @@ const DEADLINE = "2026-11-22T08:30:00.000Z";
 const slow = {
   clock: undefined as VirtualClock | undefined,
   takes: undefined as Milliseconds | undefined,
+  /** Every call takes `takes` (not once). */
+  always: false,
 };
 
 @WorkingCalendar({ name: "slow-working-calendar" })
 class SlowCalendar implements WorkingCalendarHandler {
   async addWorkingTime(request: WorkingCalendarContext): Promise<Date> {
     const takes = slow.takes;
-    slow.takes = undefined;
+    if (!slow.always) slow.takes = undefined;
     if (takes !== undefined) await slow.clock?.advance(takes);
     return WorkingWeek.of(TEL_AVIV).addWorkingTime(request);
   }
@@ -65,6 +67,7 @@ const test = testWith(desk.application);
 beforeEach(() => {
   desk.told.sent.length = 0;
   slow.takes = undefined;
+  slow.always = false;
   expiry.entered = 0;
   expiry.gate = Promise.resolve();
 });
@@ -135,5 +138,27 @@ describe("#1148: an extension in working time is decided when it is written", ()
     expect(extension.previousExpiresAt?.toISOString()).toBe(DEADLINE);
     expect(extension.expiresAt?.toISOString()).toBe("2026-11-23T08:00:00.000Z");
     expect((await pauseOf(app, pauseId)).expiresAt).toBe("2026-11-23T08:00:00.000Z");
+  });
+});
+
+describe("#1307: a calendar slower than the timeout", () => {
+  test("the deadline passed while it was asked: PauseError.WorkingCalendar at once, not eight lost races", async ({
+    app,
+    clock,
+  }) => {
+    const pauseId = await pausedThenSlow(app, clock, "2026-11-22T08:00:00.000Z", seconds(20));
+    slow.always = true;
+    const before = await pauseOf(app, pauseId);
+
+    // 1 working second from Sunday 10:00 IST, a calendar that takes 20 s each time
+    const refused: unknown = await app
+      .setPauseTimeout({ pauseId, timeout: workingHours(1 / 3600) }, manager)
+      .catch((error: unknown) => error);
+
+    expect(refused).toBeInstanceOf(PauseError.WorkingCalendar);
+    expect(refused).toMatchObject({
+      message: expect.stringContaining("passed while the calendar"),
+    });
+    expect(await pauseOf(app, pauseId)).toEqual(before);
   });
 });
