@@ -219,8 +219,8 @@ export class NotesApplication {}
 
 `agboss describe` prints each guardrail: `legal-advice-guardrail — input ≥0.8 · typesafe/jev-1.13
 (own) · refusal: LegalAdviceGuardrail.refusal() · on support-agent` (a fixed refusal as its text, a
-default model as `(defaults.guardrail)`); its model resolves to a provider by `serves` like every
-other (`guardrails.<name>` in `[model.unserved]`).
+default model as `(defaults.guardrail)`); its model reaches a provider by the `modelProvider` cascade like every
+other (`[model.missing-provider]`).
 
 ### Testing
 

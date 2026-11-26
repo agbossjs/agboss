@@ -4,7 +4,7 @@ import { VendorDto } from "../dto/vendor.dto.js";
 
 /**
  * The child's soft failure: a check that failed becomes a result of its own, so one failed vendor
- * does not cancel the others (FailFast) — the parent's join gets every vendor's result.
+ * does not cancel the others — the parent's join gets every vendor's result.
  */
 @Action({
   name: "mark-vendor-failed-action",

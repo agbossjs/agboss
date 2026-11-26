@@ -174,7 +174,7 @@ false`); a "not understood" call wins over an answer beside it. The framework's 
   yes / no). For an external task the model's answer tool is the target's `answer` DTO's, the system
   message asks for the fields the reply gives, and nothing is laid over a call. Either
   model's call goes through the provider its model
-  resolves to by `serves` (`[model.unserved]` like any model), is checked against the tree's budgets
+  reaches by the `modelProvider` cascade (`[model.missing-provider]` like any model), is checked against the tree's budgets
   before it is made (an exhausted one → `LimitError.Budget`, the pause untouched), is counted in
   their ledger at once and in the execution's `spend` when the step takes the answer — once — and is
   traced under the pause's execution (cost caller `channel-interpreter:<name>`). Its model reads the
@@ -782,7 +782,7 @@ List it in `@Application({ providers })`: the container creates it at start (its
 applied. An event carries the safe context — `pauseKey`, `tenantId`, `rootExecutionId`,
 `executionId`, `threadId`, `workflow`, `step`, `kind`, `channel`, `respondent`, the masked `ask`,
 `askedAt`, `expiresAt` — and `deliveryId`. Assembly rules: `[name.not-kebab-case]`,
-`[pause-listener.duplicate-name]`, `[pause-listener.not-a-handler]`;
+`[channel-listener.duplicate-name]`, `[channel-listener.missing-handler]`, `[channel-listener.unknown-hook]`;
 `agboss describe` lists the listeners.
 
 - **A correlation key, never the right to answer** — a `PauseRespondent.Delegate` pause's id is the
@@ -1185,7 +1185,7 @@ to another addressee of **the same channel** and returns `PauseReassignment { pa
 It is the same role's implementation that routes on `assignee` (a Slack user, an address, a queue): no other
 role, no other implementation, no change of the injection (`[di.ambiguous-implementation]` stays: a channel
 and its addressee are one thing), and no new deadline — the replacement keeps the deadline, its source and
-its reminder; extend it separately ("An extension" above).
+its reminder; change its timeout separately ("A timeout change" above).
 
 What the channel hears, in no fixed order:
 
@@ -1292,7 +1292,7 @@ once, by the instance that applied it; labels are the workflow, the target, the 
 ## Deadlines in working time (#944)
 
 "Approve within 2 hours" often means 2 **working** hours: a request at 17:30 on a Thursday in Tel Aviv
-is due at 10:30 on Sunday, not 19:30 the same evening; lunch and holidays do not count. `expiresIn`,
+is due at 10:30 on Sunday, not 19:30 the same evening; lunch and holidays do not count. A target's `timeout`,
 `remindBefore` and `setPauseTimeout`'s `timeout` take working durations — `workingHours(n)`,
 `workingMinutes(n)` from `@agboss/core/units`, a positive finite number (`RangeError` otherwise), at least
 `seconds(1)` as a deadline — beside plain `hours(n)`. A **calendar** turns "now + N working time" into a
@@ -1359,8 +1359,8 @@ interval (`22:00`–`06:00`) in one entry. Time zones go through `Intl` (no new 
 
 **Computed once.** The deadline is calculated when the pause opens, **before the channel is asked**, and
 stored in `expiresAt` (and `remindAt`); a re-entry of the step finds the record and never asks the calendar
-again. A calendar changed later — a new holiday, another grid — does **not** move open pauses; extend them
-instead. An extension computes its new deadline the same way: `calendar.add(now, expiresIn)`, in the pause's
+again. A calendar changed later — a new holiday, another grid — does **not** move open pauses; change their
+timeouts instead. A timeout change computes its new deadline the same way: `calendar.add(now, timeout)`, in the pause's
 frame. No working-time run deadline: `app.execute(…, { deadline })` stays wall-clock and, as always, the
 smaller deadline wins and a tie goes to the run — a working deadline later than the run's is fine, the run's
 applies (`expiryBound` `RunDeadline`).
@@ -1369,9 +1369,9 @@ applies (`expiryBound` `RunDeadline`).
 `remindAt` is walked **back** `remindBefore` of working time from the deadline along the resolved schedule
 (so a deadline the run's or a quorum's bound pulled in never leaves the reminder past it), and the units
 need not match (`workHours(4)` before a `workDays(3)` deadline); for a calendar of the project's own that
-only adds, `remindAt = calendar.add(askedAt, expiresIn − remindBefore)` and the two must count in one unit
+only adds, `remindAt = calendar.add(askedAt, timeout − remindBefore)` and the two must count in one unit
 (`mixed-units` otherwise). A working
-`expiresIn` with a plain `remindBefore`: `remindAt = expiresAt − remindBefore`; a **plain** `expiresIn` with a
+`timeout` with a plain `remindBefore`: `remindAt = expiresAt − remindBefore`; a **plain** `timeout` with a
 working `remindBefore` is `[pause.remind-before-working-without-working-timeout]` (a calendar can only add).
 `[pause.remind-before-invalid]` compares the working amounts when both are working. A reminder is kept only
 when `askedAt < remindAt < expiresAt`, checked after the run's or a quorum's deadline clamped `expiresAt` —
@@ -1384,7 +1384,7 @@ calendar any more is refused working time the same way. The pause is unchanged o
 decided at its own instant:** the deadline counts from the call's start, but whether the pause is still open
 is decided with the clock read after the calendar answered (and the store's compare-and-set takes that
 instant as its `at`). A deadline that passed while the calendar computed is not moved — `PauseError.Closed`,
-as for a plain extension, even when the expiry is still being handled (#1148).
+as for a plain timeout change, even when the expiry is still being handled (#1148).
 
 **A calendar that cannot answer fails closed.** A throw, a timeout (the calendar's `timeout`, `sec(30)` unless it says otherwise, on the application's
 clock), an answer that is not a valid `Date`, or a date not after `from`: the step fails and **nobody is
@@ -1393,7 +1393,7 @@ approval or question tool) with a `PauseError.WorkingCalendar` as its `cause` (`
 `calendar` its name, `problem`: `calendar-failed` | `calendar-timeout` | `not-a-date` | `not-after-start` | `invalid-schedule` | `mixed-units`;
 its message never holds the calendar's own error text, which is the cause only in-process); logged as
 `pause.working-calendar-failed`. The step's re-entry asks the calendar again (no record was made). An
-extension that meets the same rejects with that `PauseError.WorkingCalendar`. There is no fallback to wall-clock
+timeout change that meets the same rejects with that `PauseError.WorkingCalendar`. There is no fallback to wall-clock
 time: that would be a deadline nobody asked for, silently. A grid with no working time at all — an unknown
 time zone, no days, a bad interval, a break outside the hours, a malformed holiday, no working minute in a
 week — is `[working-calendar.invalid]` when the application starts. So is a working span the grid cannot

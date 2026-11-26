@@ -41,7 +41,7 @@ Use a profile anywhere: `agboss chat --profile scout-low-thinking` (also `agboss
 `agboss eval`, `agboss replay`, `agboss compare --profiles`), in code `createApp(App, { profile,
 profileRoot })` and in a test `testWith(App, { profile, profileRoot })` (#895). `base` means no
 profile. An unknown name is a `ProfileError` that lists the profiles that exist; a model a profile
-switches to one no listed provider serves is `[model.unserved]` at assembly. Every workflow of the
+switches to one its provider does not list is `[model.unknown-model]` at assembly. Every workflow of the
 application, the child workflows too, takes the profile, so each needs a file of that name.
 `profileRoot` is where `profiles/` is (default `process.cwd()`); in a monorepo or when the tests run
 from the repository root give the package directory with

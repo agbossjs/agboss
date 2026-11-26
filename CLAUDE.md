@@ -634,7 +634,7 @@ one LangGraph `StateGraph` and checked at assembly. `@Workflow({ historyTtl })` 
   copy is `critic-agent#2` in `result.path`, traces and events (`step.copyNumber` from 1, a per-item
   run's `step.itemIndex` from 0; every run of one launch is one visit of its node, so all share its
   `visitNumber` and `maxVisits` counts launches); the join's lists keep listed / item order. A failed branch aborts
-  its siblings (`FailFast`) and the join takes `.onError(E, …)` (class and cause chain) or fails
+  its siblings and the join takes `.onError(E, …)` (class and cause chain) or fails
   the execution with the branch's error; `.onError(E, skip())` on a branch drops only a `StepError`, a
   limit in a `skip()` branch fails the launch, and `app.cancel` cancels the whole execution — never a
   branch outcome, never taken by `.onError` (S21). A model router in a
@@ -767,7 +767,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   or in `RateLimitRepository` (`SharedTreeSlots`, `tree:<tenantId>:<rootExecutionId>` and
   `:subtree:<executionId>`, renewed while held, polled on the `Clock`) when the tree can launch on
   any instance (#333 PR 3, S8): a resume or a recovery rebuilds the queue from the
-  unfinished tasks; a waiter whose signal aborts (`FailFast`, a cancel) leaves it. `agboss describe`
+  unfinished tasks; a waiter whose signal aborts (a failed sibling, a cancel) leaves it. `agboss describe`
   prints `maxConcurrency 6 (set)` for a workflow that launches children.
 - **The instance's cap on steps (#332):** `@Application({ executionLimits: { maxConcurrentSteps } })` (a whole number from
   1, `[limits.max-concurrent-steps-invalid]`; unset → no cap) — how many agent, router and action
@@ -847,7 +847,7 @@ workflows: { placement } } })`, else `CurrentProcess`; `OtherWorker` is never cl
   `onCompensationStart` / `onCompensationEnd`, `toHaveCompensated(A, { by, reason?, status? })`.
   An execution that ends without a finish (#340 PR 3) undoes its open records the same way, newest
   first, before it ends — `ExecutionFailed` for an uncaught failure or limit, `ExecutionCancelled`
-  for a cancel or a launch's `FailFast`: a child in its parent's node before its error is raised, a
+  for a cancel or a failed sibling branch: a child in its parent's node before its error is raised, a
   root by the lease's holder after its pass fails (before its record is failed — `running` while
   the undo runs, #340 S7 —, its keys go and `onExecutionError`, whose `compensations` lists what
   ran), `app.cancel` of a paused tree after withdrawing its pauses and before it returns (an undo
@@ -1672,7 +1672,7 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   `calendar`; a channel's own `timeout` may only shorten); a working duration needs a `@WorkingCalendar` named by the target's
   `calendar` (`[calendar.required-for-working-duration]`; no application-wide calendar).
   **Free-text replies (#267 PR 3):** a target's `channelInterpreter` is a
-  `@ChannelInterpreter` (`-reply-interpreter`, one per target) that reads `app.resume({ pauseId, reply })`
+  `@ChannelInterpreter` (one per target) that reads `app.resume({ pauseId, reply })`
   with the pause's question — `{ ask, reply }` — into the target's answer, validated like a decision:
   a **model** interpreter (a class with a `prompt`, optional `model` / `modelProvider` through the cascade `@ChannelInterpreter` →
   `@Workflow` → `@Application`; a chat model, one answer tool — for an approval target its `overrideInput`
@@ -2259,12 +2259,14 @@ export default defineConfig({ env: configureEnv(appEnv, { auditUrl: "http://audi
 
 A problem is `ConfigError.Environment` (`config.environment`), every one at once, the message naming the rule, the
 variable and the key, never a value: `[environment.missing-variable] DATABASE_URL is not set (databaseUrl)`,
-`[environment.invalid-value] PORT is not an integer (port)`. `agboss check` lists the process variables of the
-application's `defineEnv` references, by name, marked value / secret (`optional`, `has a default`), never a value.
+`[environment.invalid-value] PORT is not an integer (port)`. `agboss check` needs no variable and no key (it builds on
+placeholders) and lists the process variables of the application's `defineEnv` references, by name, marked value / secret
+(`optional`, `has a default`, `not set`), never a value; `--strict` fails on a required one that is unset.
 `ApplicationContext` has `name`, `version`, `instanceId`, `startedAt`, `profiles` and `host` — no settings.
 Dev / prod parity: the same `providers` in every profile, only values differ. Model provider keys, a storage
 driver's connection and its keys are references of the driver (`secret("OPENROUTER_API_KEY")`, #266, #1313), read when the
-application starts; `agboss check` reads only the shape (the secrets with `--models`), so `npm run types` needs no key. A base URL is
+application starts; `agboss check` reads only the shape (`--strict` verifies the variables, a secret's only with `--models`),
+so `npm run types` needs no key. A base URL is
 `env("OPENROUTER_BASE_URL", { default })`. README → Environments has more.
 
 ### Judges and decision models
@@ -2320,10 +2322,10 @@ passed (a skipped one fails it, S2 Q6).
 
 ### Runs: context, limits, errors
 
-- `const app = await createApp(DeskApplication, { env })` (#261: always an `@Application`;
-  `createApp(Workflow)` does not compile; #834: its options are `env`, `profile` and
-  `meterProvider` only — a JS caller's other key is refused; the seams — `processEnv`, `gateway`,
-  `providerFetch`, MCP transports, the container's hooks — are the internal build path's,
+- `const app = await createApp(DeskApplication, { profile })` (#261: always an `@Application`;
+  `createApp(Workflow)` does not compile; #834, #1324: its options are `profile`, `meterProvider`,
+  `tracerProvider`, `handleSignals` and `processEnv` only — a JS caller's other key is refused; the seams —
+  `gateway`, `providerFetch`, MCP transports, the container's hooks — are the internal build path's,
   `createAppWith` / `builtApplicationOf` in `@agboss/core/internal`, what `testWith` and the CLI use;
   `AppDeps`, `createAppDeps`, `GraphDeps` and `ExecutionObserverManager` are internal too). How long
   each kind of row is kept is one `@Application({ retention: { pauseRecords, executionRecords } })`
@@ -2348,7 +2350,7 @@ tenant, execution, onStream, deadline })` (`deadline`, #398: `LimitError.Deadlin
   Each pause is a record (`PausedExecutionRepository`, S35) made by its step's idempotency key in
   its tree before `send` (#663: found by tenant, `rootExecutionId` and step key — never another
   tree's, so an id minted again asks again): `Pending` → `Resolved` (an answer) → `Taken` (its step went on), or `Cancelled`
-  (withdrawn: a `FailFast` sibling failed, the thread was cancelled, the tree ended) — an answer to
+  (withdrawn: a sibling branch failed, the thread was cancelled, the tree ended) — an answer to
   any but `Pending` → `PauseError.Closed` (`reason`; `NotPausedError` is the thread-level miss). `app.resume({ pauseId, reply }, …)` answers with free text
   instead (exactly one of `decision` / a non-empty `reply`, else `ValidationError.DtoInvalid`), read by the
   target's `@ChannelInterpreter` (Components above). Who answered each pause is in
@@ -2400,9 +2402,9 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `one-expiry-decision`, `no-paused-root-with-closed-pause`, `no-answer-after-deadline`.
   **Extension and reminder (#942):** `@ToolApproval({ remindBefore })` / `@ExternalTask({ remindBefore })` → the target's own `remindBefore` →
   `remindAtOf(expiresAt, remindBefore, askedAt)` in `newRecordOf` (`remindAt` only when after the ask; the effective `expiresAt`, so a
-  run-bound pause is reminded before the run's deadline); rules `[channel.remind-before-invalid]` (`channels/channel-rules.ts`) and the
-  warning `[channel.remind-before-exceeds-expiry]` (`flow/analyse/remind-before.ts`: a target's `timeout` ≤ its
-  `remindBefore`). `app.setPauseTimeout` (`app/pause-timeout.ts`, request checks `app/timeout-request.ts`; the workflow app's, routed by the composed app like `resume`; #1307):
+  run-bound pause is reminded before the run's deadline); rules `[pause.remind-before-invalid]` (`channels/pause-timing-rules.ts`) and the
+  warning `[pause.remind-before-below-tick]` (`flow/analyse/remind-before.ts`: a target's `remindBefore` shorter than the
+  pause timers' tick). `app.setPauseTimeout` (`app/pause-timeout.ts`, request checks `app/timeout-request.ts`; the workflow app's, routed by the composed app like `resume`; #1307):
   `{ pauseId, timeout: WorkingDuration | Milliseconds | Timeout.None, reason? }`, `actorOf` as an answer, then `PauseError.Closed` (closed or due), `assertNotInFirstSend` (`PauseError.UpdateContended`
   while `!isSent`, as a reassignment), `assertNotAnswerGuarded` (same file: a target with `permitAnswer` and no `permitTimeoutChange` / `permitReassign` refuses a change that is not a longer deadline / any reassignment with `PauseError.PermissionDenied` — H2, fail closed), `assertTimeoutChangePermitted` (`app/answer-permit.ts`: the target's `permitTimeoutChange`, fail closed to `PauseError.PermissionDenied`
   — `false`, a throw, an unresolvable target), the deadline `now + timeout` by the target's calendar (a shorter one is as good as a later one; `PauseError.InvalidTimeout` below `seconds(1)`), the
@@ -2994,8 +2996,8 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   (the default: one branch at a time, in listed / item order), `TestConcurrency.Real` (as in
   production, within `maxConcurrency`) or `TestConcurrency.inOrder([step(SkillsAgent),
 step(CheckAgent, { company: { name: "Acme" } })])` — completions in that order through gates
-  (`step(Node, partial)` is the matcher of `when`): a `FailFast`, a quorum or a cancel reproduced
-  on every run; a step waiting at its gate is cancelled at once by a `FailFast`, a decided quorum or
+  (`step(Node, partial)` is the matcher of `when`): a failing branch, a quorum or a cancel reproduced
+  on every run; a step waiting at its gate is cancelled at once by a failing sibling, a decided quorum or
   `app.cancel`; no branch can move and the next step is not waiting → `test.unreachable-step` at
   once; a step never reached fails the test at its end.
 - Units — one component on its own container (#262 S55, S62, S89), no `new`: `testUnit(Tool, {

@@ -433,7 +433,7 @@ every 10 s of waiting counting as one level deeper (the application's `Clock`). 
 `maxConcurrency` limits its subtree (a larger one is `[limits.child-concurrency-above-parent]`,
 a warning). Time in the queue does not count toward a quorum's `deadline`. The slots are in-process
 under the tree's lease: after a pause or a crash the next pass rebuilds the queue from the unfinished
-tasks, and a `FailFast` failure empties it. A slot is an execution, not model load — provider
+tasks, and a failing branch (which aborts its siblings) empties it. A slot is an execution, not model load — provider
 throughput is `rateLimitPolicy` ([Wiki → FinOps → Concurrency of a tree](https://github.com/agbossjs/agboss/wiki/FinOps#concurrency-of-a-tree-264)).
 
 The CLI works on the application whose path the project's `package.json` sets once —
@@ -696,16 +696,18 @@ export default defineConfig({
   Cloud Run a Secret Manager secret is bound to the variable at deploy
   (`--set-secrets=DATABASE_URL=database-url:3`); the framework calls no cloud SDK.
 - `agboss check` validates the application without running anything, creating every component the
-  start creates, so it fails exactly when the start would, and lists the process variables the
-  `defineEnv` references need — names only, each `value` or `secret`, `optional` or `has a default`
-  when unset is fine, never a value (the list for `--set-env-vars` / `--set-secrets` at deploy, #268).
+  start creates on placeholders for the variables nothing sets (it needs no variable and no key), and
+  lists the process variables the `defineEnv` references need — names only, each `value` or `secret`,
+  `optional` or `has a default` when unset is fine, `not set` where the process lacks one, never a
+  value (the list for `--set-env-vars` / `--set-secrets` at deploy, #268). `--strict` fails on a
+  required one that is unset (a secret's only together with `--models`).
 - Dev / prod parity (12-factor): the same `providers` — the same implementations and code — in
   every profile; only values differ.
 - Model provider keys are references of the driver (#1313): a driver reads its own settings —
   `OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY"), baseUrl: env("OPENROUTER_BASE_URL",
 { default: "https://openrouter.ai/api/v1" }) })` — from the process when the application starts. A
   missing key fails the start of an app that calls the provider, naming the variable, never a value;
-  `agboss check` (without `--models`) reads the shape and writes the types without one. The same holds
+  `agboss check` reads the shape and writes the types without one (`--strict --models` demands it). The same holds
   for the storage's keys (`piiSecret`, `idempotencySecret`) and its driver's connection. A test app
   scripts or replays its models and needs none.
 - `env.optional("X")` (`env.integer.optional`, `env.boolean.optional`) reads a variable that may be
@@ -955,10 +957,9 @@ chain; the testing API has no way to create a framework error.
 Parallel branches run one at a time in a test, in listed / item order (`TestConcurrency.Sequential`,
 the default); `TestConcurrency.Real` runs them as production does, and
 `TestConcurrency.inOrder([step(A), step(B)])` makes them complete in that order — a race, a
-`FailFast` or a quorum gives the same result on every run. One component is tested on its own with
-a unit runner: `testUnit`,
-`testUnit` — its own container (`overrides` replace classes by classes), the
-`environment`, the frame of its step (`executionContext.signal` with a `timeout`, `SpendRecorder`),
+a failing branch or a quorum gives the same result on every run. One component is tested on its own with
+a unit runner: `testUnit` — its own container (`services` replace classes by classes, `env` overrides
+the `defineEnv` variables), the frame of its step (`executionContext.signal` with a `timeout`, `SpendRecorder`),
 its model by script; each call gives `{ output, spend }`.
 
 <!-- snippet-context
@@ -1254,7 +1255,7 @@ anything else (Wiki → Pauses has the whole class).
 execution it waited in: the root's or a child's), step, target, respondent, channel?, actor (the person), resolution,
 askedAt, resolvedAt, decision }`, `PauseResolution.Decided`
 (`ChannelOutcome.decided`, no pause), `Replied` (`awaitReply()` + `app.resume`), `Withdrawn` (a
-`FailFast` sibling failed) or `Cancelled` (`app.cancel`, or the tree ended); the decision masked by
+sibling branch failed) or `Cancelled` (`app.cancel`, or the tree ended); the decision masked by
 the PII policies like the rest of the record, none when withdrawn or cancelled. Each child's record —
 `result.children` and `result.record.children` — lists the pauses its own steps asked as
 `ChildExecutionRecord.pauses` (#267 S124), a grandchild's in its own record; the root's
@@ -1358,11 +1359,11 @@ working, non-holiday local date; working time is the real elapsed time of those 
 own data; each target names its own `calendar`. A request at 17:30 on a Thursday in
 Tel Aviv (Sunday to Thursday, 09:00–18:00, lunch 13:00–14:00) is due Sunday 10:30. The deadline is computed
 once, when the pause opens, before the channel is asked, into `expiresAt` / `remindAt` — a calendar changed
-later does not move open pauses (extend them); a calendar that fails, times out or answers a bad date
+later does not move open pauses (change their timeouts); a calendar that fails, times out or answers a bad date
 fails the step (`StepError.ExternalTask` / `StepError.Agent`, cause `PauseError.WorkingCalendar`) and nobody is
-asked; the run's deadline stays wall-clock. A working `remindBefore` needs a working `expiresIn`
-(`[channel.remind-before-working-without-working-expiry]`); a working duration needs a calendar
-(`[channel.working-time-without-calendar]`); `[working-calendar.invalid]`.
+asked; the run's deadline stays wall-clock. A working `remindBefore` needs a working `timeout`
+(`[pause.remind-before-working-without-working-timeout]`); a working duration needs a calendar
+(`[calendar.required-for-working-duration]`); `[working-calendar.invalid]`.
 
 Before its first step an execution reads each of its budgets (README → FinOps): one exhausted —
 the tenant's day spent, say — refuses it with `LimitError.Budget` (`limit.budget`, an
@@ -1389,7 +1390,7 @@ go on and `cancel` still works. An execution tree is moved by one holder at a ti
 write, released when the pass ends). A `resume` first records its decision on its pause (`Pending →
 Resolved`, atomic) — of two resumes of one pause the second gets `PauseError.Closed`
 (`reason: "answered"`), as does an answer to a pause its step already took (`Taken`) or one closed
-(`Cancelled`: the thread was cancelled, a sibling branch failed under `FailFast`, its tree ended) —
+(`Cancelled`: the thread was cancelled, a sibling branch failed, its tree ended) —
 with the reason and when it closed, never the pause's id — then waits while another call or instance
 holds the lease; the holder continues with every recorded answer of the tree in one pass and, before
 the tree rests, takes the answers recorded meanwhile, so the waiting call returns the tree's current
@@ -1635,7 +1636,7 @@ const readiness: HealthReport = await app.checkReadiness(); // GET /readyz → 5
 In unit tests, `testExecutionContext({ … })` from
 `@agboss/core/testing` is a frozen `ExecutionContext`: `new PayOrder(testExecutionContext())`; its
 `tenant` and `tenant.application` are set with `{ tenantContext, tenant, application: {
-environment } }`.
+profiles } }`.
 
 Observers are `@Observer` classes registered only in `@Application({ observers: [...] })` (#261) —
 one instance each, created by the container at start with their `deps`, called for every execution
@@ -1710,7 +1711,7 @@ the decorators say — what started, and the worst case of one call of each star
 the startup warnings; no project code is called (no `maxSpend()`), nothing per tenant:
 
 ```text
-15:02:11 INFO  Started job-scout-application 1.0.0 — environment prod, host scout-7f3a, process 41237
+15:02:11 INFO  Started job-scout-application 1.0.0 — profiles prod, host scout-7f3a, process 41237
 15:02:11 INFO  Worst case of one chat-workflow-start call: 1 workflow execution, 1 at the same time, 12 agent and router steps
 ```
 

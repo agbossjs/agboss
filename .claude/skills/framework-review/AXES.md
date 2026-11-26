@@ -121,7 +121,7 @@ mark `n/a` with a reason rather than skipping silently.
 
 - Container/resolve overhead per run; cold start.
 - Portability: Node/Bun/Deno/edge, ESM/CJS, tree-shaking (esp. with `reflect-metadata`).
-- Typed configuration and environments (dev/staging/prod, per-tenant overrides).
+- Typed configuration and profiles (dev/staging/prod, per-tenant overrides).
 - Dependency weight & supply chain: transitive packages of the core; heavy deps in core that
   belong in optional entries.
 
