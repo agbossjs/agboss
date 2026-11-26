@@ -1,0 +1,57 @@
+/**
+ * #1307e 21.3: a field a listing's query does not have (a retired `after`, a `role`, a typo) is a
+ * `ValidationError.DtoInvalid`, never ignored — so a page loop cannot spin on page 1.
+ */
+import { describe, expect, it } from "vitest";
+import { ValidationError } from "../../src/core/error-families/effect-errors.js";
+import { createTestAppWith } from "../../src/testing/create-app-with.js";
+import { ScriptBook } from "../../src/testing/script-book.js";
+import { createScriptedGateway } from "../../src/testing/scripted-gateway.js";
+import type { AnyTenantApp } from "../../src/app/types.js";
+import { HistoryDeskApplication } from "../flow/fixtures/execution-history.fixture.js";
+
+const open = (): Promise<AnyTenantApp> =>
+  createTestAppWith(HistoryDeskApplication, {
+    processEnv: {},
+    handleSignals: false,
+    gateway: createScriptedGateway(new ScriptBook()),
+  });
+
+const rejection = async (call: Promise<unknown>): Promise<unknown> =>
+  call.then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+
+describe("#1307e 21.3: unknown query fields are refused by every listing", () => {
+  it("listExecutions refuses after, role, offset and a typo, naming the field", async () => {
+    const app = await open();
+    try {
+      for (const field of ["after", "role", "offset", "workflw"]) {
+        const error = await rejection(
+          app.listExecutions({ tenantId: "acme", [field]: "x" } as never),
+        );
+        expect(error, field).toBeInstanceOf(ValidationError.DtoInvalid);
+        expect(error).toMatchObject({ dto: "ExecutionsQuery" });
+        expect(JSON.stringify((error as ValidationError.DtoInvalid).issues)).toContain(field);
+      }
+      expect((await app.listExecutions({ tenantId: "acme", limit: 5 })).items).toEqual([]);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("pendingOutboundCallsOf refuses a field it does not have, as a rejection", async () => {
+    const app = await open();
+    try {
+      const error = await rejection(
+        app.pendingOutboundCallsOf({ tenantId: "acme", cursor: "1" } as never),
+      );
+      expect(error).toBeInstanceOf(ValidationError.DtoInvalid);
+      expect(error).toMatchObject({ dto: "PendingOutboundCallsQuery" });
+      expect((await app.pendingOutboundCallsOf({ tenantId: "acme", limit: 5 })).calls).toEqual([]);
+    } finally {
+      await app.close();
+    }
+  });
+});

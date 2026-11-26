@@ -1,4 +1,5 @@
 import { type DtoIssue, invalidDto } from "../dto/errors.js";
+import { unknownFieldIssues } from "./query-fields.js";
 import { tenantIdReason } from "../flow/context/context-values.js";
 import { PauseStatus } from "../infrastructure/pause-record.js";
 import type { PauseFilter } from "../infrastructure/pause-notices.js";
@@ -121,11 +122,7 @@ const FIELDS: ReadonlySet<string> = new Set([
   "cursor",
 ]);
 
-/** A field the query does not have (a retired `after`, a `role`) is refused, never ignored: a page loop would go on forever on it. */
-const checkFields = (query: object): readonly DtoIssue[] =>
-  Object.keys(query)
-    .filter((key) => !FIELDS.has(key))
-    .map((key) => ({ path: key, reason: "not a field of a pauses query" }));
+const checkFields = (query: object): readonly DtoIssue[] => unknownFieldIssues(query, FIELDS);
 
 const checkAssignee = checkText("assignee", "an assignee is a non-empty text");
 const checkReference = checkText("externalRef", "an external reference is a non-empty text");

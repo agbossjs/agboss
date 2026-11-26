@@ -1,5 +1,6 @@
 import type { ExecutionsQuery, AnyTenantApp } from "../app/types.js";
 import type { Page } from "../app/page.js";
+import { refuseUnknownFields } from "../app/query-fields.js";
 import { invalidDto } from "../dto/errors.js";
 import { tenantRead } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
@@ -21,6 +22,18 @@ const QUERY = "ExecutionsQuery";
 
 /** The most records one page holds. */
 const MAX_LIMIT = 1000;
+
+/** The fields of an `ExecutionsQuery`; any other is refused (#1307e, 21.3). */
+const FIELDS: ReadonlySet<string> = new Set([
+  "tenantId",
+  "allTenants",
+  "startedAfter",
+  "startedBefore",
+  "workflow",
+  "status",
+  "cursor",
+  "limit",
+]);
 
 /** What the listing reads after the tenant is decided. */
 export interface ExecutionListing {
@@ -79,6 +92,7 @@ export async function listExecutionsIn(
   history: ExecutionHistoryRepository,
   query: ExecutionsQuery,
 ): Promise<Page<ExecutionHistoryRecord>> {
+  refuseUnknownFields(QUERY, query, FIELDS);
   const paging = windowOf(query);
   const { allTenants, tenantId = DEFAULT_TENANT_ID } = query as ExecutionListing;
   const read = async (): Promise<Page<ExecutionHistoryRecord>> =>
