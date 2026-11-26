@@ -10,3 +10,5 @@ issue: 1307
 **`ListedPause.tenantId`** (#1307e): every listed pause names its tenant, so an `allTenants` page can be acted on (`resume`, `reassignPause`, `setPauseTimeout` need `{ tenantId }`). **`PauseError.UnknownPause` and two logs name a pause by its key** (`pauseKeyOf`), never its raw id: a pause id resumed under the wrong tenant no longer reaches an error message or a log.
 
 **One strict instant for listing filters** (#1307e): `expiringBefore` (`listPauses`) and `startedAfter` / `startedBefore` (`listExecutions`) take a valid `Date` or an ISO 8601 text WITH its zone (`2026-11-26T10:00:00Z`, `…+05:30`); `"5"`, `"Nov 26 2026"` and a time or a date without a zone are a `ValidationError.DtoInvalid` (they read differently on different hosts).
+
+**A listing's cursor is bound to its query** (#1307e): the `nextCursor` of `listPauses` and `listExecutions` seals the store's position with a hash of the tenant scope and the filters (not the page size). A cursor reused with another tenant, `allTenants` or other filters — or a forged one — is a `ValidationError.DtoInvalid` on `cursor` instead of a silent skip of rows. A cursor is opaque: pass it back as given.

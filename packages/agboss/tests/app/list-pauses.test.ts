@@ -222,7 +222,7 @@ describe("#943 AC1: listing pauses", () => {
     // a cursor of one tenant's page does not read another's rows
     const page = await app.listPauses({ tenantId: "tenant-a", limit: 1 });
     expect(page.items).toHaveLength(1);
-    const other = await app.listPauses({ tenantId: "tenant-b", cursor: "0" });
+    const other = await app.listPauses({ tenantId: "tenant-b" });
     expect(other.items.map((one) => one.threadId)).toEqual(["t-tenant-b-b1"]);
     expect(await failureOf(app.listPauses({ tenantId: "t\uD800" }))).toBeInstanceOf(
       ValidationError.DtoInvalid,
@@ -498,5 +498,37 @@ describe("#943 AC1: listing pauses", () => {
     expect(error).toBeInstanceOf(PauseError.UnknownPause);
     expect(JSON.stringify(error)).not.toContain(pauseId);
     expect((error as Error).message).toContain(pauseKeyOf("tenant-b", pauseId));
+  });
+
+  test("#1307e L2: a cursor belongs to the query that made it: another tenant, filter or a forged one is refused", async ({
+    app,
+  }) => {
+    await open(app, openFlow as never, "c1", "tenant-a");
+    await open(app, openFlow as never, "c2", "tenant-a");
+    await open(app, openFlow as never, "c3", "tenant-b");
+    const page = await app.listPauses({ tenantId: "tenant-a", limit: 1 });
+    const cursor = page.nextCursor ?? "";
+    expect(cursor).not.toBe("");
+
+    const same = await app.listPauses({ tenantId: "tenant-a", limit: 1, cursor });
+    expect(same.items.map((one) => one.threadId)).toEqual(["t-tenant-a-c2"]);
+    // the page size may change between pages
+    expect((await app.listPauses({ tenantId: "tenant-a", limit: 5, cursor })).items).toHaveLength(
+      1,
+    );
+    for (const other of [
+      { tenantId: "tenant-b" },
+      { allTenants: true },
+      { tenantId: "tenant-a", assignee: "ann" },
+      { tenantId: "tenant-a", status: PauseStatus.Taken },
+      { tenantId: "tenant-a", expiringBefore: "2030-01-01T00:00:00Z" },
+    ]) {
+      const error = await failureOf(app.listPauses({ ...other, cursor } as never));
+      expect(error, JSON.stringify(other)).toBeInstanceOf(ValidationError.DtoInvalid);
+    }
+    for (const forged of ["0", "1", "not-a-cursor", Buffer.from("{}").toString("base64url")]) {
+      const error = await failureOf(app.listPauses({ tenantId: "tenant-a", cursor: forged }));
+      expect(error, forged).toBeInstanceOf(ValidationError.DtoInvalid);
+    }
   });
 });

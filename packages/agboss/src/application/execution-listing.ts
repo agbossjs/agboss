@@ -1,6 +1,7 @@
 import type { ExecutionsQuery, AnyTenantApp } from "../app/types.js";
 import type { Page } from "../app/page.js";
 import { INSTANT_REASON, instantOf } from "../app/instant.js";
+import { openedCursor, queryHashOf, sealedCursor } from "../app/query-cursor.js";
 import { refuseUnknownFields } from "../app/query-fields.js";
 import { invalidDto } from "../dto/errors.js";
 import { tenantRead } from "../flow/context/context-values.js";
@@ -62,12 +63,15 @@ export async function getExecutionIn(
 }
 
 /** The page window of a query, checked: its limit, cursor and time bounds. */
-function windowOf(query: ExecutionsQuery): ExecutionHistoryQuery {
-  const { limit, cursor } = query;
+function windowOf(query: ExecutionsQuery, hash: string): ExecutionHistoryQuery {
+  const { limit, cursor: given } = query;
   if (limit !== undefined && !(Number.isInteger(limit) && limit >= 1 && limit <= MAX_LIMIT))
     refused("limit", `a page is a whole number of executions from 1 to ${String(MAX_LIMIT)}`);
-  if (cursor !== undefined && (typeof cursor !== "string" || cursor === ""))
+  if (given !== undefined && (typeof given !== "string" || given === ""))
     refused("cursor", "a cursor is the nextCursor of a page before: a non-empty text");
+  const opened = given === undefined ? undefined : openedCursor(given, hash);
+  if (opened?.problem !== undefined) refused("cursor", opened.problem);
+  const cursor = opened?.storeCursor;
   return {
     from: boundOf("startedAfter", query.startedAfter, new Date(0)),
     to: boundOf("startedBefore", query.startedBefore, new Date("9999-12-31T23:59:59.999Z")),
@@ -91,8 +95,15 @@ export async function listExecutionsIn(
   query: ExecutionsQuery,
 ): Promise<Page<ExecutionHistoryRecord>> {
   refuseUnknownFields(QUERY, query, FIELDS);
-  const paging = windowOf(query);
   const { allTenants, tenantId = DEFAULT_TENANT_ID } = query as ExecutionListing;
+  const hash = queryHashOf({
+    scope: allTenants === true ? null : tenantId,
+    from: query.startedAfter === undefined ? null : instantOf(query.startedAfter)?.toISOString(),
+    to: query.startedBefore === undefined ? null : instantOf(query.startedBefore)?.toISOString(),
+    workflow: query.workflow ?? null,
+    status: query.status === undefined ? null : ([] as unknown[]).concat(query.status),
+  });
+  const paging = windowOf(query, hash);
   const read = async (): Promise<Page<ExecutionHistoryRecord>> =>
     allTenants === true
       ? history.findAllByStartedAtBetween(paging)
@@ -105,7 +116,9 @@ export async function listExecutionsIn(
       : Promise.reject(error as Error),
   );
   const items = page.items.filter((record) => keeps(record, query));
-  return page.nextCursor === undefined ? { items } : { items, nextCursor: page.nextCursor };
+  return page.nextCursor === undefined
+    ? { items }
+    : { items, nextCursor: sealedCursor(page.nextCursor, hash) };
 }
 
 /** `app.getExecution` and `app.listExecutions` of an instance over its history store. */

@@ -356,7 +356,7 @@ is a `@ToolApproval` / `@ExternalTask` class or its name; `channel` a `@Channel`
 `assignees` of; `externalRef` the pause its channel gave that reference; `expiringBefore` a `Date` or an ISO 8601 text with its zone
 (a pause with no deadline is never listed by it); `limit` 1 to 1000 (default 100); `cursor` the `nextCursor`
 of the page before. Pauses come in the order they were made and the cursor is a position in that order — never an
-offset — so a pause that opens or closes between two pages makes no other pause skipped or repeated. A field the
+offset — so a pause that opens or closes between two pages makes no other pause skipped or repeated. A cursor is bound to the tenant scope and filters of the query that made it (the page size may change): with another scope or filter it is a `ValidationError.DtoInvalid`. A field the
 query does not have (the retired `after`, `role`) is refused, never ignored.
 
 A `ListedPause` shows `pauseId` as `result.pending` does (only an `Owner` pause's; a delegated pause's id stays

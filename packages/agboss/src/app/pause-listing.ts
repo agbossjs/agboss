@@ -10,6 +10,7 @@ import {
 } from "../infrastructure/pause-record.js";
 import type { Page } from "./page.js";
 import type { ListedPause } from "./types.js";
+import { openedCursor, queryHashOf, sealedCursor } from "./query-cursor.js";
 import { checked, QUERY_DTO } from "./pause-listing-query.js";
 import { PauseRespondent } from "../pause/respondent.js";
 
@@ -101,13 +102,19 @@ export async function listPausesIn(
   listing: PauseListing,
   query: unknown,
 ): Promise<Page<ListedPause>> {
-  const { tenantId, filter, limit, cursor, includePauseIds } = checked(query);
+  const { tenantId, filter, limit, cursor: given, includePauseIds } = checked(query);
+  // the cursor is bound to what this query selects (L2): another tenant or filter refuses it
+  const hash = queryHashOf({ tenantId, filter });
+  const opened = given === undefined ? undefined : openedCursor(given, hash);
+  if (opened?.problem !== undefined)
+    throw invalidDto({ dto: QUERY_DTO, issues: [{ path: "cursor", reason: opened.problem }] });
+  const cursor = opened?.storeCursor;
   const read =
     tenantId === undefined
       ? listing.pauses.findPageOfAllTenants(filter, limit, cursor)
       : listing.pauses.findPageByTenantId(tenantId, filter, limit, cursor);
   const page = await read.catch((error: unknown) => {
-    // a cursor the store does not read as one of its own
+    // a position the store does not read as one of its own
     if (cursor === undefined || !(error instanceof TypeError || error instanceof RangeError))
       throw error;
     const reason = "a cursor is the nextCursor of a page before, as it was given";
@@ -116,5 +123,5 @@ export async function listPausesIn(
   const items: ListedPause[] = [];
   for (const pause of page.pauses)
     items.push(await listedOf(pause, await listing.maskOf(pause), includePauseIds));
-  return page.next === undefined ? { items } : { items, nextCursor: page.next };
+  return page.next === undefined ? { items } : { items, nextCursor: sealedCursor(page.next, hash) };
 }

@@ -86,4 +86,18 @@ describe("#1307e 21.3: unknown query fields are refused by every listing", () =>
       await app.close();
     }
   });
+
+  it("#1307e L2: a listExecutions cursor is bound to its tenant and filters", async () => {
+    const app = await open();
+    try {
+      const forged = Buffer.from(JSON.stringify({ c: "1", h: "x" })).toString("base64url");
+      for (const cursor of ["1", "not-a-cursor", forged]) {
+        const error = await rejection(app.listExecutions({ tenantId: "acme", cursor }));
+        expect(error, cursor).toBeInstanceOf(ValidationError.DtoInvalid);
+        expect(error).toMatchObject({ dto: "ExecutionsQuery" });
+      }
+    } finally {
+      await app.close();
+    }
+  });
 });
