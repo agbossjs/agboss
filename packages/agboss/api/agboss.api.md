@@ -4973,7 +4973,7 @@ export namespace LimitError {
     }
     export type Deadline = PaidErrorVariant<LimitErrorKind.Deadline, "limit.deadline"> & Where & Pick<Counted, "limit" | "actual" | "key"> & {
         readonly deadline: Milliseconds;
-        readonly deadlineAt: string;
+        readonly deadlineAt: Date;
     };
     export type Depth = PaidErrorVariant<LimitErrorKind.Depth, "limit.depth"> & Where & Counted & {
         readonly workflow: string;
