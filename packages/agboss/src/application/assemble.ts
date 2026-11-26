@@ -21,6 +21,7 @@ import type { BudgetOverlays, OverlaidBudgets } from "../budgets/budget-overlay.
 import { applicationRuleViolations, budgetsOfApplication } from "./application-rules.js";
 import { carrierRuleViolations } from "./carrier-rules.js";
 import { assembledRetentionsOf, retentionOf } from "./retention.js";
+import { sharedStorageSecretViolations } from "./storage-secret-sharing.js";
 import { idempotencyKeyViolations, keyFieldsOf } from "./assembled-keys.js";
 import { storageFieldsOf, type StorageFields } from "../storage/storage-fields.js";
 import { crossWorkflowViolations } from "./workflow-rules.js";
@@ -221,7 +222,7 @@ export async function applicationOf(
   // its A2A contracts and the files where every instance reads them (#859, #1320), as the profiles leave them
   const files = carrierRuleViolations(options, applied.componentOptions);
   throwIfAny([...own, ...crossWorkflowViolations(assembled), ...keys, ...files], errors);
-  return {
+  const result: AssembledApplication = {
     application,
     name: options.name,
     version: options.version,
@@ -242,4 +243,7 @@ export async function applicationOf(
     hasTenantContext: options.tenantContext !== undefined,
     ...keyFieldsOf(options),
   };
+  // the storage's secrets are read by nothing else (#1324b): needs the assembled workflows and options
+  throwIfAny(sharedStorageSecretViolations(result), []);
+  return result;
 }
