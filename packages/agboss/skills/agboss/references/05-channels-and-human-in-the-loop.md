@@ -618,9 +618,12 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   `PauseExpiration.decide(answer)` — the step goes on with that answer, validated like a resume's,
   recorded as answered by the framework (`PauseResolution.DecidedOnExpiry`, `ResumeReason.Expired`;
   `decide({ approved: true })` runs the tool with no person having looked: choose it knowing that) — or
-  `PauseExpiration.reassign({ target?, channel?, assignees?, timeout?, reason? })` — the pause moves to
-  another target in `escalatesTo` (or another channel or pool of the same target) with a new deadline, the
-  tree rests paused (the escalation: "the manager did not answer, ask the director").
+  `PauseExpiration.reassign({ target?, assignees?, timeout?, reason? })` — the pause moves to
+  another target in `escalatesTo` (or another pool of the same target) with a new deadline, the
+  tree rests paused (the escalation: "the manager did not answer, ask the director"). It names no
+  channel (the new target's one, or its `@ChannelSelector`, carries it) and does not call `permitReassign`
+  (that authorizes an outside actor; an expiry has none). `ctx.maxExpiresAt` is the latest deadline the
+  chain's `maxTotalTimeout` allows.
   Without the method the expiry is `fail()`. The handler runs once per expiry — again only after a
   crash before its decision was recorded — so it must only read; a throw, a hang past the tool's
   `timeout`, a value that is no expiration or an invalid answer fails the expiry with an
