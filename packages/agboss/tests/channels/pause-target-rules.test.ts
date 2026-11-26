@@ -346,7 +346,7 @@ describe("#1310c: the rules of @ChannelListener and @ChannelInterpreter", () => 
   });
 });
 
-describe("#1307a: a permission hook nothing calls fails assembly (fail closed)", () => {
+describe("#1307a: every permission hook of a target is called by the runtime", () => {
   it("permitAnswer is called by app.resume (#1307c): a target defining it is clean", () => {
     class Gated {
       permitAnswer() {
@@ -363,8 +363,8 @@ describe("#1307a: a permission hook nothing calls fails assembly (fail closed)",
     expect(found([useOf(Gated)], [channelOf(Gated, "gated-channel")])).toEqual([]);
   });
 
-  it.each(["permitTimeoutChange"])(
-    "[pause.permit-hook-not-enforced]: %s on a target is refused until the runtime enforces it",
+  it.each(["permitTimeoutChange", "permitReassign"])(
+    "%s is called by the runtime (app.setPauseTimeout, app.reassignPause): a target defining it is clean",
     (hook) => {
       class Gated {
         [key: string]: unknown;
@@ -377,13 +377,7 @@ describe("#1307a: a permission hook nothing calls fails assembly (fail closed)",
         respondent: PauseRespondent.Delegate,
         timeout: hours(1),
       })(Gated);
-      expect(found([useOf(Gated)], [channelOf(Gated, "gated-channel")])).toEqual([
-        {
-          code: "pause.permit-hook-not-enforced",
-          message: `Gated (gated-tool-approval) defines ${hook}, which nothing calls yet — it would refuse nothing; remove it until the runtime enforces it`,
-          nodes: ["gated-tool-approval"],
-        },
-      ]);
+      expect(found([useOf(Gated)], [channelOf(Gated, "gated-channel")])).toEqual([]);
     },
   );
 

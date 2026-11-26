@@ -14,12 +14,14 @@ import {
   DEADLINE,
   expiringPauseOf,
   MID,
+  withSeen,
 } from "./paused-execution-data.js";
 
 /**
- * #1099: an extension is one compare-and-set over the deadline the caller read, to a later one, while
- * the pause is open — of two extensions at once one wins and the deadline never shortens; an extension
- * racing the expiry or an answer; the deadline's source reset to `Pause`.
+ * #1099, #1307: a timeout change is one compare-and-set over the deadline the caller read, while the
+ * pause is open — of two changes at once from one read one wins and the loser, reading again, applies
+ * over the winner's deadline; a change racing the expiry or an answer; the deadline's source reset to
+ * `Pause`. What a change may do (shorten, set, take away, `maxExtensions`) is `paused-execution-timeout.cases.ts`.
  */
 type Instances = ContractInstances<PausedExecutionRepository>;
 const R = NO_RECIPIENTS;
@@ -33,11 +35,11 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
     name: "an extension whose write happens after the deadline is refused, even to a deadline still ahead of it, nothing written (#1148)",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const extend = (at: Date) =>
-        second.extendByTenantIdAndPauseId(
+      const extend = async (at: Date) =>
+        second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
-          { expiresAt: EVEN_LATER, previousExpiresAt: FROM },
+          await withSeen(second, "pause-a", { expiresAt: EVEN_LATER, previousExpiresAt: FROM }),
           at,
           R,
         );
@@ -52,11 +54,11 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
     name: "extend only over the deadline the caller read: a stale `previousExpiresAt` is refused, nothing written (#1099)",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const extend = (expiresAt: string, previousExpiresAt: string) =>
-        second.extendByTenantIdAndPauseId(
+      const extend = async (expiresAt: string, previousExpiresAt: string) =>
+        second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
-          { expiresAt, previousExpiresAt },
+          await withSeen(second, "pause-a", { expiresAt, previousExpiresAt }),
           BEFORE_DEADLINE,
           R,
         );
@@ -70,44 +72,24 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
     },
   },
   {
-    name: "an extension not later than the stored deadline is refused, nothing written (#1099)",
-    run: async ({ first, second }: Instances): Promise<void> => {
-      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const extend = (expiresAt: string, previousExpiresAt: string) =>
-        second.extendByTenantIdAndPauseId(
-          "default",
-          "pause-a",
-          { expiresAt, previousExpiresAt },
-          BEFORE_DEADLINE,
-          R,
-        );
-
-      // the caller read the stored deadline right, but asks for the same or an earlier one
-      expect(await extend(FROM, FROM)).toBeUndefined();
-      expect(await extend("2026-01-05T09:59:00.000Z", FROM)).toBeUndefined();
-      expect(await extend(LATER, FROM)).toMatchObject({ expiresAt: LATER });
-      expect(await extend(LATER, LATER)).toBeUndefined();
-      expect(await extend("2026-01-05T10:30:00.000Z", LATER)).toBeUndefined();
-      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toBe(LATER);
-    },
-  },
-  {
-    name: "two concurrent extends from one read, the longer and the shorter, either order: one wins, the deadline never shortens (#1099)",
+    name: "two concurrent extends from one read, the longer and the shorter, either order: exactly one wins; the loser reads again and applies over the winner's deadline (#1099, #1307)",
     run: async ({ first, second }: Instances): Promise<void> => {
       for (const [index, longerFirst] of [true, false].entries()) {
         const pauseId = `pause-${String(index)}`;
         await first.findOrCreateByStepKey(expiringPauseOf(pauseId, `run-1:s:${String(index)}`));
-        const longer = first.extendByTenantIdAndPauseId(
+        // both read the pause before either writes: one read, two writers
+        const { seen } = await withSeen(first, pauseId, {});
+        const longer = first.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
-          { expiresAt: EVEN_LATER, previousExpiresAt: FROM },
+          { expiresAt: EVEN_LATER, previousExpiresAt: FROM, seen },
           BEFORE_DEADLINE,
           R,
         );
-        const shorter = second.extendByTenantIdAndPauseId(
+        const shorter = second.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
-          { expiresAt: LATER, previousExpiresAt: FROM },
+          { expiresAt: LATER, previousExpiresAt: FROM, seen },
           BEFORE_DEADLINE,
           R,
         );
@@ -121,17 +103,17 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
         // applies calls in order, either one on a store whose two instances race for real
         const longerWon = results[0] !== undefined;
         expect(stored).toBe(longerWon ? EVEN_LATER : LATER);
-        // the loser re-reads: after the longer one won nothing is later; after the shorter one won
-        // the longer one goes through, from the deadline it now reads
-        const retried = await second.extendByTenantIdAndPauseId(
+        // the loser re-reads and applies its own deadline over the winner's: shorter or longer, it goes through
+        const loserTo = longerWon ? LATER : EVEN_LATER;
+        const retried = await second.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
-          { expiresAt: EVEN_LATER, previousExpiresAt: stored ?? "" },
+          await withSeen(second, pauseId, { expiresAt: loserTo, previousExpiresAt: stored ?? "" }),
           BEFORE_DEADLINE,
           R,
         );
-        if (longerWon) expect(retried).toBeUndefined();
-        else expect(retried?.expiresAt).toBe(EVEN_LATER);
+        expect(retried?.expiresAt).toBe(loserTo);
+        expect((await first.findByTenantIdAndPauseId("default", pauseId))?.expiresAt).toBe(loserTo);
       }
     },
   },
@@ -140,11 +122,11 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
       await first.findOrCreateByStepKey(expiringPauseOf("pause-b", "run-1:s:1:call-2"));
-      const extend = (pauseId: string, at: Date) =>
-        first.extendByTenantIdAndPauseId(
+      const extend = async (pauseId: string, at: Date) =>
+        first.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
-          { expiresAt: LATER, previousExpiresAt: FROM },
+          await withSeen(first, pauseId, { expiresAt: LATER, previousExpiresAt: FROM }),
           at,
           R,
         );
@@ -183,10 +165,10 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
           boundAt: EVEN_LATER,
         });
 
-        const moved = await second.extendByTenantIdAndPauseId(
+        const moved = await second.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
-          { expiresAt: LATER, previousExpiresAt: FROM },
+          await withSeen(second, pauseId, { expiresAt: LATER, previousExpiresAt: FROM }),
           BEFORE_DEADLINE,
           R,
         );

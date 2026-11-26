@@ -1025,7 +1025,7 @@ export interface TestAgentOptions extends Omit<TestModuleOptions, "components"> 
 }
 
 // @public
-export interface TestApp extends Pick<AnyTenantApp, "execute" | "resume" | "extendPause" | "reassignPause" | "close" | "cancel" | "stop" | "pause" | "unpause" | "getStatusHistory" | "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf" | "listPauses" | "resolve"> {
+export interface TestApp extends Pick<AnyTenantApp, "execute" | "resume" | "setPauseTimeout" | "reassignPause" | "close" | "cancel" | "stop" | "pause" | "unpause" | "getStatusHistory" | "checkLiveness" | "checkReadiness" | "auditLogOf" | "outboundCallsOf" | "pendingOutboundCallsOf" | "listPauses" | "resolve"> {
     // (undocumented)
     readonly clock: VirtualClock;
     get<TToken extends Token>(token: TToken): Resolved<TToken>;

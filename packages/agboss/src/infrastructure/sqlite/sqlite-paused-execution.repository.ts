@@ -104,10 +104,10 @@ export class SqlitePausedExecutionRepository extends PausedExecutionRepository {
     return this.#store.closeUntakenByTenantIdAndPauseId(...args);
   }
 
-  extendByTenantIdAndPauseId(
-    ...args: Parameters<PausedExecutionRepository["extendByTenantIdAndPauseId"]>
+  changeTimeoutByTenantIdAndPauseId(
+    ...args: Parameters<PausedExecutionRepository["changeTimeoutByTenantIdAndPauseId"]>
   ): Promise<PauseRecord | undefined> {
-    return this.#store.extendByTenantIdAndPauseId(...args);
+    return this.#store.changeTimeoutByTenantIdAndPauseId(...args);
   }
 
   reassignByTenantIdAndPauseId(

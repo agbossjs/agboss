@@ -3,7 +3,7 @@ section: Fixed
 issue: 1148
 ---
 
-**`app.extendPause` with working time decides at the instant of its write** (#1148, #944 acceptance):
+**`app.setPauseTimeout` with working time decides at the instant of its write** (#1148, #944 acceptance):
 the working calendar may take seconds, and the compare-and-set used the clock read before it, so a
 deadline that passed meanwhile was still extended — even while the expiry was being handled. The write
 now takes the clock read after the calendar answered; a deadline that has passed is `PauseClosedError`,

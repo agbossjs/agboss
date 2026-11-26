@@ -67,12 +67,12 @@ describe("#942 AC3: the reminder", () => {
       expect((await pauseOf(first(apps)))?.remindAt).toBeUndefined();
 
       // extended after the reminder: a new deadline, a new reminder before it
-      const extension = await first(apps).extendPause(
-        { pauseId: pauseIdOf(), expiresIn: hours(24) },
+      const extension = await first(apps).setPauseTimeout(
+        { pauseId: pauseIdOf(), timeout: hours(24) },
         manager,
       );
       expect((await pauseOf(first(apps)))?.remindAt).toBe(
-        new Date(Date.parse(extension.expiresAt) - hours(2)).toISOString(),
+        new Date(Number(extension.expiresAt) - hours(2)).toISOString(),
       );
       await clock.advance(hours(21));
       expect(expiring()).toHaveLength(2);
@@ -82,7 +82,7 @@ describe("#942 AC3: the reminder", () => {
 
       const again = expiring().slice(2);
       expect(again.map((one) => one.receiver).sort()).toEqual(["channel", "listener"]);
-      for (const one of again) expect(one.expiresAt).toBe(extension.expiresAt);
+      for (const one of again) expect(one.expiresAt).toBe(extension.expiresAt?.toISOString());
       expect(new Set(expiring().map((one) => one.deliveryId)).size).toBe(4);
     },
   );
@@ -92,8 +92,8 @@ describe("#942 AC3: the reminder", () => {
     async ({ app, clock }) => {
       await execute(app, managerFlow.start, ORDER, THREAD);
       await clock.advance(hours(1));
-      const extension = await app.extendPause(
-        { pauseId: pauseIdOf(), expiresIn: hours(24) },
+      const extension = await app.setPauseTimeout(
+        { pauseId: pauseIdOf(), timeout: hours(24) },
         manager,
       );
 
@@ -102,7 +102,7 @@ describe("#942 AC3: the reminder", () => {
       await clock.advance(hours(1));
       await until(() => expiring().length === 2);
 
-      for (const one of expiring()) expect(one.expiresAt).toBe(extension.expiresAt);
+      for (const one of expiring()) expect(one.expiresAt).toBe(extension.expiresAt?.toISOString());
     },
   );
 

@@ -11,7 +11,7 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryPausedExecutionRepository } from "../../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import type {
-  PauseDeadlineChange,
+  PauseTimeoutChange,
   PauseRecipients,
 } from "../../../../src/infrastructure/pause-notices.js";
 import {
@@ -32,7 +32,7 @@ interface Tweaks {
   /** What an extension answers: the pause as found, the change, the time, and the real call. */
   readonly extend?: (
     found: Found,
-    change: PauseDeadlineChange,
+    change: PauseTimeoutChange,
     at: Date,
     real: () => Promise<Found>,
   ) => Promise<Found>;
@@ -80,14 +80,15 @@ class Instance extends InMemoryPausedExecutionRepository {
     return this.tweaks.find === undefined ? shown : this.tweaks.find(shown);
   }
 
-  override async extendByTenantIdAndPauseId(
+  override async changeTimeoutByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    change: PauseDeadlineChange,
+    change: PauseTimeoutChange,
     at: Date,
     recipients: PauseRecipients,
   ): Promise<Found> {
-    const real = () => super.extendByTenantIdAndPauseId(tenantId, pauseId, change, at, recipients);
+    const real = () =>
+      super.changeTimeoutByTenantIdAndPauseId(tenantId, pauseId, change, at, recipients);
     if (this.tweaks.extend === undefined) return real();
     const found = await super.findByTenantIdAndPauseId(tenantId, pauseId);
     return this.tweaks.extend(found, change, at, real);
@@ -170,7 +171,7 @@ const STEP = "findByTenantIdAndRootExecutionIdAndStepKey finds";
 
 const time = (iso: string | undefined): number => new Date(iso ?? "").getTime();
 /** The change names a deadline (a change without one is no extension). */
-const hasExpiry = (change: PauseDeadlineChange): boolean =>
+const hasExpiry = (change: PauseTimeoutChange): boolean =>
   Object.keys(change).includes("expiresAt");
 const isPending = (pause: PauseRecord): boolean => pause.status === PauseStatus.Pending;
 

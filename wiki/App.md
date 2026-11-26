@@ -336,15 +336,17 @@ listeners](Pauses#telling-the-channel-and-the-listeners-940)). The container cre
 its `onInit` / `onStart` run with the application's — one instance for every workflow. `agboss
 describe` lists the listeners and marks `includePauseIds`.
 
-## `app.extendPause({ pauseId, expiresIn }, { tenantId, ownerId | actor })` (#942)
+## `app.setPauseTimeout({ pauseId, timeout, reason? }, { tenantId, ownerId | actor })` (#942, #1307)
 
-Moves an open pause's deadline to `now + expiresIn` and returns `PauseExtension { pauseKey, expiresAt,
-previousExpiresAt }`. Who may: as an answer (the `ownerId` of a thread owner's pause, the `actor` of
-a channel's). The options are `PauseCallerOptions` — the caller fields only, no `signal` / `onStream` /
-`record`: nothing runs. Refused: a closed or expired pause (`PauseError.Closed`), a pause with no deadline,
-a deadline not later than the current one or past the one the pause was made under (`ValidationError.DtoInvalid`,
-`dto: "ExtendPauseRequest"`), another tenant's pause (`PauseError.UnknownPause`). Atomic in the store against
-the expiry look; no lease is taken. [Pauses → Extending a pause](Pauses#extending-a-pause-and-reminding-before-its-deadline-942).
+Moves an open pause's deadline to `now + timeout` — later or earlier — or takes it away
+(`timeout: Timeout.None`), and returns `PauseTimeoutChangeResult { expiresAt?, previousExpiresAt? }` (`Date`s; absent:
+no deadline). Who may: as an answer (the `ownerId` of a thread owner's pause, the `actor` of a channel's), and the
+target's `permitTimeoutChange` when it has one (fail closed: `PauseError.PermissionDenied`). The options are
+`PauseCallerOptions` — the caller fields only, no `signal` / `onStream` / `record`: nothing runs. Refused: a timeout
+below `seconds(1)` (`PauseError.InvalidTimeout`), a closed or expired pause (`PauseError.Closed`), a deadline past the one
+the pause was made under or past its `escalationLimits` (`PauseError.EscalationLimitExceeded`), a pause whose first
+send is still in flight (`PauseError.UpdateContended`), another tenant's pause (`PauseError.UnknownPause`). Atomic in
+the store against the expiry look; no lease is taken. [Pauses → Changing a pause's deadline](Pauses#changing-a-pauses-deadline-and-reminding-before-it-942).
 
 ## `app.listPauses({ tenantId | allTenants, status?, target?, channel?, assignee?, externalRef?, expiringBefore?, includePauseIds?, limit?, cursor? })` (#943, #1307)
 
@@ -376,7 +378,7 @@ with the union of every workflow's policies (fail closed).
 Moves an open pause to another addressee of the same channel — `send` again with a new `pauseId`,
 `ChannelAsk.assignees` and `ChannelAsk.replaces` (the old id), `onPauseClosed` told `reassigned` for the old
 message, in no fixed order — and returns `PauseReassignment { pauseKey }`: the new id goes to the channel only.
-Who may: as an answer; the options are `PauseCallerOptions`, as `extendPause`. The old id is `PauseError.Closed`
+Who may: as an answer; the options are `PauseCallerOptions`, as `setPauseTimeout`. The old id is `PauseError.Closed`
 (`reassigned`) from then on; the deadline is kept; the agent and the step do not run again. Refused: a closed
 or expired pause (`PauseError.Closed`), an `assignee` that is no key's text (`ValidationError.DtoInvalid`, `dto:
 "ReassignPauseRequest"`), another tenant's pause (`PauseError.UnknownPause`); of two reassignments, or a

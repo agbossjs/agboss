@@ -5,7 +5,7 @@ issue: 944
 
 **Deadlines in working time: `workingHours(n)`, calendars** (#944, #910): "approve within 2 hours" can
 mean 2 working hours. `expiresIn`, `remindBefore` (`@ChannelRole`, `.toQuestion(Role, { expiresIn })`,
-`@Tool({ expiresIn })`) and `extendPause`'s `expiresIn` take `workingHours(n)` / `workingMinutes(n)`
+`@Tool({ expiresIn })`) and `setPauseTimeout`'s `expiresIn` take `workingHours(n)` / `workingMinutes(n)`
 (`@agboss/core/units`, `WorkingDuration`, `isWorkingDuration`) beside `hours(n)`. A calendar turns "now + N
 working time" into a date: `@Application({ workingCalendar })` is the default, a role's
 `@ChannelRole({ workingCalendar })` overrides it — the built-in weekly grid `WorkingWeek.of({ timeZone,
@@ -17,7 +17,7 @@ before the channel is asked, into the stored `expiresAt` / `remindAt` (a re-entr
 an extension computes its new deadline the same way; a calendar changed later does not move open pauses. A
 working `remindBefore` before a working `expiresIn` is `calendar.add(askedAt, expiresIn − remindBefore)`;
 a plain `expiresIn` with a working `remindBefore` is refused at assembly on the role and on every override
-site (`[channel.remind-before-working-without-working-expiry]`) and by `extendPause` (`DtoValidationError`).
+site (`[channel.remind-before-working-without-working-expiry]`) and by `setPauseTimeout` (`DtoValidationError`).
 A calendar that throws, times out, answers no `Date` or a date not after `from` fails the step —
 `QuestionFailedError` / `AgentFailedError` with a `WorkingCalendarError` (`pause.working-calendar`,
 `problem`) as its cause, logged `pause.working-calendar-failed` — and nobody is asked; the run's deadline

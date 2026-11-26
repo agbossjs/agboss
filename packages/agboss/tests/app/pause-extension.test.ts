@@ -1,19 +1,19 @@
 /**
- * #942 AC1, AC2: an operator extends an open pause's deadline (`app.extendPause`) — the new
- * deadline holds on every instance and the channel and the listener hear "extended"; an extension
- * after the deadline is refused "expired", one past the run's deadline is refused with that
- * deadline; the respondent is checked as for an answer; extend and the expiry look at one tick: one wins.
+ * #942 AC1, AC2, #1307: an operator changes an open pause's deadline (`app.setPauseTimeout`) — the
+ * new deadline holds on every instance and the channel and the listener hear "timeout-changed"; a
+ * change after the deadline is refused "expired", one past the run's deadline is refused as a
+ * limit; the respondent is checked as for an answer; a change and the expiry look at one tick: one wins.
  */
 import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, vi } from "vitest";
-import { MAX_EXTEND_ATTEMPTS } from "../../src/app/pause-extension.js";
+import { MAX_TIMEOUT_ATTEMPTS } from "../../src/app/pause-timeout.js";
 import { PauseError, PauseClosedReason, PauseStatus, ValidationError } from "../../src/index.js";
 import { pauseKeyOf } from "../../src/infrastructure/pause-record.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
-import { hours, minutes, seconds } from "../../src/units/index.js";
+import { hours, minutes, seconds, Timeout } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
 import { until } from "../channels/fixtures/pause-scripts.js";
 import {
@@ -62,16 +62,15 @@ describe("#942 AC1: an operator extends an open approval", () => {
     const oldDeadline = paused.pending[0]?.expiresAt ?? "";
     await clock.advance(hours(1));
 
-    const extension = await instance(apps, 1).extendPause(
-      { pauseId: pauseIdOf(), expiresIn: hours(24) },
+    const extension = await instance(apps, 1).setPauseTimeout(
+      { pauseId: pauseIdOf(), timeout: hours(24) },
       manager,
     );
 
     const expected = new Date(clock.now().getTime() + hours(24)).toISOString();
     expect(extension).toEqual({
-      pauseKey: pauseKeyOf("default", pauseIdOf()),
-      expiresAt: expected,
-      previousExpiresAt: oldDeadline,
+      expiresAt: new Date(expected),
+      previousExpiresAt: new Date(oldDeadline),
     });
     // on every instance: the record says so, and the old deadline passes with the pause open
     expect((await pauseOf(instance(apps, 2), pauseIdOf())).expiresAt).toBe(expected);
@@ -83,9 +82,9 @@ describe("#942 AC1: an operator extends an open approval", () => {
     );
     expect(done.status).toBe("finished");
     // the channel and the listener heard "extended until …" once, with the old deadline too
-    await until(() => told.notices.filter((one) => one.kind === "extended").length === 2);
+    await until(() => told.notices.filter((one) => one.kind === "timeout-changed").length === 2);
     await clock.advance(seconds(30));
-    const extended = told.notices.filter((one) => one.kind === "extended");
+    const extended = told.notices.filter((one) => one.kind === "timeout-changed");
     expect(extended.map((one) => one.receiver).sort()).toEqual(["channel", "listener"]);
     for (const one of extended)
       expect(one).toMatchObject({ expiresAt: expected, previousExpiresAt: oldDeadline });
@@ -96,7 +95,7 @@ describe("#942 AC1: an operator extends an open approval", () => {
     await execute(instance(apps, 0), managerFlow.start, ORDER, THREAD);
     await clock.advance(hours(1));
 
-    await instance(apps, 0).extendPause({ pauseId: pauseIdOf(), expiresIn: hours(24) }, manager);
+    await instance(apps, 0).setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(24) }, manager);
 
     const pause = await pauseOf(instance(apps, 0), pauseIdOf());
     expect(pause.remindAt).toBe(
@@ -111,27 +110,27 @@ describe("#942 AC1: an operator extends an open approval", () => {
     const paused = await execute(app, ownerFlow.start, ORDER, { ...THREAD, ownerId: "alice" });
     const pauseId = paused.pending[0]?.pauseId ?? "";
     await clock.advance(hours(1));
-    const request = { pauseId, expiresIn: hours(24) };
+    const request = { pauseId, timeout: hours(24) };
 
-    expect(await failureOf(app.extendPause(request, { ownerId: "bob" }))).toBeInstanceOf(
+    expect(await failureOf(app.setPauseTimeout(request, { ownerId: "bob" }))).toBeInstanceOf(
       ExecutionError.ThreadOwnerMismatch,
     );
-    expect(await failureOf(app.extendPause(request, manager))).toBeInstanceOf(
+    expect(await failureOf(app.setPauseTimeout(request, manager))).toBeInstanceOf(
       PauseError.PermissionDenied,
     );
-    const extension = await app.extendPause(request, { ownerId: "alice" });
+    const extension = await app.setPauseTimeout(request, { ownerId: "alice" });
 
-    expect(extension.expiresAt).toBe(new Date(clock.now().getTime() + hours(24)).toISOString());
+    expect(extension.expiresAt).toEqual(new Date(clock.now().getTime() + hours(24)));
   });
 
   test("a Channel pause needs answeredBy: none, an empty one and ownerId are refused", async ({
     app,
   }) => {
     await execute(app, managerFlow.start, ORDER, THREAD);
-    const request = { pauseId: pauseIdOf(), expiresIn: hours(30) };
+    const request = { pauseId: pauseIdOf(), timeout: hours(30) };
 
     for (const options of [{}, { actor: { id: " " } }, { ownerId: "alice" }])
-      expect(await failureOf(app.extendPause(request, options as never))).toBeInstanceOf(
+      expect(await failureOf(app.setPauseTimeout(request, options as never))).toBeInstanceOf(
         PauseError.PermissionDenied,
       );
     expect((await pauseOf(app, pauseIdOf())).status).toBe(PauseStatus.Pending);
@@ -150,23 +149,23 @@ describe("#942 AC2: refused extensions", () => {
 
     await clock.advance(hours(24));
     const early = await failureOf(
-      app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(24) }, manager),
+      app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(24) }, manager),
     );
     spy.mockRestore();
     await clock.advance(seconds(10));
     await until(async () => (await pauseOf(app, pauseIdOf())).status !== PauseStatus.Pending);
     const late = await failureOf(
-      app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(24) }, manager),
+      app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(24) }, manager),
     );
 
     for (const refused of [early, late]) {
       expect(refused).toBeInstanceOf(PauseError.Closed);
       expect(refused).toMatchObject({ reason: PauseClosedReason.Expired, closedAt: deadline });
     }
-    expect(told.notices.filter((one) => one.kind === "extended")).toEqual([]);
+    expect(told.notices.filter((one) => one.kind === "timeout-changed")).toEqual([]);
   });
 
-  test("AC2: past the run deadline → ValidationError.DtoInvalid naming that deadline; exactly the run deadline is allowed", async ({
+  test("AC2: past the run deadline → PauseError.EscalationLimitExceeded; exactly the run deadline is allowed", async ({
     app,
   }) => {
     // the question's own 24 h, bound by a run that ends at hour 30
@@ -177,70 +176,78 @@ describe("#942 AC2: refused extensions", () => {
     ).toISOString();
 
     const refused = await failureOf(
-      app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(31) }, manager),
+      app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(31) }, manager),
     );
 
-    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
-    expect(refused).toMatchObject({ dto: "ExtendPauseRequest" });
-    expect((refused as Error).message).toContain(runDeadline);
+    expect(refused).toBeInstanceOf(PauseError.EscalationLimitExceeded);
     expect((await pauseOf(app, pauseIdOf())).expiresAt).not.toBe(runDeadline);
-    const allowed = await app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(30) }, manager);
-    expect(allowed.expiresAt).toBe(runDeadline);
-  });
-
-  test("AC2: no deadline → refused", async ({ app }) => {
-    await execute(app, openFlow.start, ORDER, THREAD);
-    const page = await app
-      .resolve(PausedExecutionRepository)
-      .findPageByTenantId("default", { statuses: [PauseStatus.Pending] }, 10);
-    const [pause] = page.pauses;
-
-    const refused = await failureOf(
-      app.extendPause({ pauseId: pause?.pauseId ?? "", expiresIn: hours(1) }, manager),
+    const allowed = await app.setPauseTimeout(
+      { pauseId: pauseIdOf(), timeout: hours(30) },
+      manager,
     );
-
-    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
-    expect(refused).toMatchObject({ dto: "ExtendPauseRequest" });
+    expect(allowed.expiresAt).toEqual(new Date(runDeadline));
   });
 
-  test("AC2: a shorter (or the same) deadline → refused", async ({ app }) => {
+  test("AC2: a shorter deadline is applied: from now, told with the one it replaced", async ({
+    app,
+    clock,
+  }) => {
+    const paused = await execute(app, managerFlow.start, ORDER, THREAD);
+    const oldDeadline = paused.pending[0]?.expiresAt ?? "";
+    await clock.advance(hours(1));
+
+    const changed = await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(2) }, manager);
+
+    const expected = new Date(clock.now().getTime() + hours(2));
+    expect(changed).toEqual({ expiresAt: expected, previousExpiresAt: new Date(oldDeadline) });
+    expect((await pauseOf(app, pauseIdOf())).expiresAt).toBe(expected.toISOString());
+    // the reminder 2 h before is not after now: none
+    expect((await pauseOf(app, pauseIdOf())).remindAt).toBeUndefined();
+    await until(() => told.notices.filter((one) => one.kind === "timeout-changed").length === 2);
+    for (const one of told.notices.filter((n) => n.kind === "timeout-changed"))
+      expect(one).toMatchObject({
+        expiresAt: expected.toISOString(),
+        previousExpiresAt: oldDeadline,
+      });
+  });
+
+  test("AC2: the same deadline again is a change too: the chain holds both", async ({ app }) => {
     await execute(app, managerFlow.start, ORDER, THREAD);
 
-    for (const expiresIn of [hours(1), hours(24)])
-      expect(
-        await failureOf(app.extendPause({ pauseId: pauseIdOf(), expiresIn }, manager)),
-      ).toMatchObject({
-        name: "ValidationError.DtoInvalid",
-        dto: "ExtendPauseRequest",
-      });
-    expect((await pauseOf(app, pauseIdOf())).expiresAt).toBeDefined();
+    for (const timeout of [hours(1), hours(1)])
+      await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout }, manager);
+
+    const trail = (await pauseOf(app, pauseIdOf())).trail;
+    expect(trail.filter((entry) => entry.action === "timeout-changed")).toHaveLength(2);
   });
 
-  test("AC2: an expiresIn that is no duration → refused, whatever the pause", async ({ app }) => {
+  test("AC2: a timeout that is no duration → PauseError.InvalidTimeout, whatever the pause", async ({
+    app,
+  }) => {
     await execute(app, managerFlow.start, ORDER, THREAD);
 
     for (const expiresIn of [0, -5, Infinity, Number.NaN, seconds(0.5), "24h", undefined])
       expect(
         await failureOf(
-          app.extendPause({ pauseId: pauseIdOf(), expiresIn: expiresIn as never }, manager),
+          app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: expiresIn as never }, manager),
         ),
-      ).toBeInstanceOf(ValidationError.DtoInvalid);
+      ).toBeInstanceOf(PauseError.InvalidTimeout);
   });
 
   test("AC2: another tenant's pause → PauseError.UnknownPause", async ({ app }) => {
     await execute(app, managerFlow.start, ORDER, { ...THREAD, tenant: { tenantId: "acme" } });
-    const request = { pauseId: pauseIdOf(), expiresIn: hours(30) };
+    const request = { pauseId: pauseIdOf(), timeout: hours(30) };
 
-    expect(await failureOf(app.extendPause(request, manager))).toBeInstanceOf(
+    expect(await failureOf(app.setPauseTimeout(request, manager))).toBeInstanceOf(
       PauseError.UnknownPause,
     );
     expect(
       await failureOf(
-        app.extendPause({ ...request, pauseId: "nope" }, { ...manager, tenantId: "acme" }),
+        app.setPauseTimeout({ ...request, pauseId: "nope" }, { ...manager, tenantId: "acme" }),
       ),
     ).toBeInstanceOf(PauseError.UnknownPause);
-    const extension = await app.extendPause(request, { ...manager, tenantId: "acme" });
-    expect(extension.pauseKey).toBe(pauseKeyOf("acme", pauseIdOf()));
+    const extension = await app.setPauseTimeout(request, { ...manager, tenantId: "acme" });
+    expect(extension.expiresAt).toBeInstanceOf(Date);
   });
 
   test("a closed pause (answered) → PauseError.Closed answered", async ({ app }) => {
@@ -248,11 +255,97 @@ describe("#942 AC2: refused extensions", () => {
     await app.resume({ pauseId: pauseIdOf(), decision: { approved: true } }, manager);
 
     const refused = await failureOf(
-      app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(30) }, manager),
+      app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(30) }, manager),
     );
 
     expect(refused).toBeInstanceOf(PauseError.Closed);
     expect(refused).toMatchObject({ reason: PauseClosedReason.Answered });
+  });
+});
+
+describe("#1307: who changed the deadline and why reach the channel and the listener", () => {
+  test("actor and reason are on both events; a change without a reason carries none", async ({
+    app,
+  }) => {
+    await execute(app, managerFlow.start, ORDER, THREAD);
+
+    await app.setPauseTimeout(
+      { pauseId: pauseIdOf(), timeout: hours(30), reason: "customer escalated" },
+      manager,
+    );
+    await until(() => told.notices.filter((one) => one.kind === "timeout-changed").length === 2);
+    const first = told.notices.filter((one) => one.kind === "timeout-changed");
+    await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(31) }, manager);
+    await until(() => told.notices.filter((one) => one.kind === "timeout-changed").length === 4);
+    const second = told.notices.filter((one) => one.kind === "timeout-changed").slice(2);
+
+    expect(first.map((one) => one.receiver).sort()).toEqual(["channel", "listener"]);
+    for (const one of first)
+      expect(one).toMatchObject({ actor: { id: "manager-17" }, reason: "customer escalated" });
+    for (const one of second) {
+      expect(one.actor).toMatchObject({ id: "manager-17" });
+      expect(one.reason).toBeUndefined();
+    }
+  });
+});
+
+describe("#1307: Timeout.None takes the deadline away, a timeout sets one again", () => {
+  test("no deadline, no reminder: the old deadline passes with the pause open; the channel and the listener are told only the deadline it had", async ({
+    app,
+    clock,
+  }) => {
+    const paused = await execute(app, managerFlow.start, ORDER, THREAD);
+    const oldDeadline = paused.pending[0]?.expiresAt ?? "";
+
+    const changed = await app.setPauseTimeout(
+      { pauseId: pauseIdOf(), timeout: Timeout.None },
+      manager,
+    );
+    await clock.advance(hours(30));
+
+    expect(changed).toEqual({ previousExpiresAt: new Date(oldDeadline) });
+    const pause = await pauseOf(app, pauseIdOf());
+    expect(pause.status).toBe(PauseStatus.Pending);
+    expect(pause.expiresAt).toBeUndefined();
+    expect(pause.remindAt).toBeUndefined();
+    await until(() => told.notices.filter((one) => one.kind === "timeout-changed").length === 2);
+    for (const one of told.notices.filter((n) => n.kind === "timeout-changed")) {
+      expect(one.previousExpiresAt).toBe(oldDeadline);
+      expect(one).not.toHaveProperty("expiresAt", expect.anything());
+    }
+    expect(told.notices.filter((one) => one.kind === "expiring")).toEqual([]);
+  });
+
+  test("a pause without a deadline is set one from now, with its reminder; it was told nothing of an earlier one", async ({
+    app,
+    clock,
+  }) => {
+    await execute(app, managerFlow.start, ORDER, THREAD);
+    await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: Timeout.None }, manager);
+    await clock.advance(hours(5));
+
+    const set = await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(10) }, manager);
+
+    const expected = new Date(clock.now().getTime() + hours(10));
+    expect(set).toEqual({ expiresAt: expected });
+    const pause = await pauseOf(app, pauseIdOf());
+    expect(pause.expiresAt).toBe(expected.toISOString());
+    expect(pause.remindAt).toBe(new Date(expected.getTime() - hours(2)).toISOString());
+    expect(pause.trail.filter((entry) => entry.action === "timeout-changed")).toHaveLength(2);
+  });
+
+  test("a pause bound by its run's deadline cannot lose it: Timeout.None is PauseError.EscalationLimitExceeded", async ({
+    app,
+  }) => {
+    await execute(app, managerFlow.start, ORDER, { ...THREAD, deadline: hours(30) });
+    const before = await pauseOf(app, pauseIdOf());
+
+    const refused = await failureOf(
+      app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: Timeout.None }, manager),
+    );
+
+    expect(refused).toBeInstanceOf(PauseError.EscalationLimitExceeded);
+    expect(await pauseOf(app, pauseIdOf())).toEqual(before);
   });
 });
 
@@ -261,9 +354,9 @@ describe("#942: the caller's options", () => {
     app,
   }) => {
     await execute(app, managerFlow.start, ORDER, THREAD);
-    const request = { pauseId: pauseIdOf(), expiresIn: hours(30) };
+    const request = { pauseId: pauseIdOf(), timeout: hours(30) };
 
-    const refused = await failureOf(app.extendPause(request, { actor: { id: "bob\uD800" } }));
+    const refused = await failureOf(app.setPauseTimeout(request, { actor: { id: "bob\uD800" } }));
 
     expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
     expect(refused).toMatchObject({ dto: "PauseCallerOptions" });
@@ -275,7 +368,7 @@ describe("#942: the caller's options", () => {
     await execute(app, managerFlow.start, ORDER, THREAD);
     const streamed: unknown[] = [];
 
-    const extension = await app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(30) }, {
+    const extension = await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(30) }, {
       actor: { id: "manager-17" },
       onStream: (event: unknown) => streamed.push(event),
     } as never);
@@ -293,7 +386,7 @@ describe("#942: what is refused first", () => {
     await app.resume({ pauseId: pauseIdOf(), decision: { approved: true } }, manager);
 
     const refused = await failureOf(
-      app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(1) }, manager),
+      app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(1) }, manager),
     );
 
     expect(refused).toBeInstanceOf(PauseError.Closed);
@@ -319,7 +412,7 @@ describe("#942: extend and the expiry look at the same tick: one wins (the store
       .mockResolvedValueOnce(stale);
 
     const refused = await failureOf(
-      app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(48) }, manager),
+      app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(48) }, manager),
     );
     look.mockRestore();
     await clock.advance(seconds(10));
@@ -327,7 +420,7 @@ describe("#942: extend and the expiry look at the same tick: one wins (the store
 
     expect(refused).toBeInstanceOf(PauseError.Closed);
     expect(refused).toMatchObject({ reason: PauseClosedReason.Expired });
-    expect(told.notices.filter((one) => one.kind === "extended")).toEqual([]);
+    expect(told.notices.filter((one) => one.kind === "timeout-changed")).toEqual([]);
     expect((await pauseOf(app, pauseIdOf())).expiresAt).toBe(read.expiresAt);
   });
 
@@ -337,7 +430,7 @@ describe("#942: extend and the expiry look at the same tick: one wins (the store
   }) => {
     await execute(app, managerFlow.start, ORDER, THREAD);
     await clock.advance(hours(23));
-    await app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(24) }, manager);
+    await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(24) }, manager);
 
     await clock.advance(hours(2));
 
@@ -353,7 +446,7 @@ describe("#942: extended to exactly the run's deadline: the tie goes to the run 
   }) => {
     await execute(app, managerFlow.start, ORDER, { ...THREAD, deadline: hours(30) });
     const runDeadline = new Date(clock.now().getTime() + hours(30)).toISOString();
-    await app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(30) }, manager);
+    await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(30) }, manager);
     expect((await pauseOf(app, pauseIdOf())).expiresAt).toBe(runDeadline);
 
     await clock.advance(hours(30));
@@ -367,9 +460,9 @@ describe("#942: extended to exactly the run's deadline: the tie goes to the run 
 
 describe("#1099: racing extensions: the store's compare-and-set decides, 'extended' is told by the winner only", () => {
   const extendedNotices = () =>
-    told.notices.filter((one) => one.kind === "extended" && one.receiver === "channel");
+    told.notices.filter((one) => one.kind === "timeout-changed" && one.receiver === "channel");
 
-  test("AC1: a longer and a shorter extension at once, from two instances: the deadline never shortens, every told deadline is the stored chain", async ({
+  test("AC1: a longer and a shorter change at once, from two instances: both apply, one after the other; every told deadline is the stored chain", async ({
     apps,
     clock,
   }) => {
@@ -378,28 +471,22 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
     await clock.advance(hours(1));
     const asked = (await pauseOf(instance(apps, 0), pauseIdOf())).expiresAt;
 
-    const [long, short] = await Promise.allSettled([
-      instance(apps, 0).extendPause({ pauseId: pauseIdOf(), expiresIn: hours(40) }, manager),
-      instance(apps, 1).extendPause({ pauseId: pauseIdOf(), expiresIn: hours(26) }, manager),
+    const [long, short] = await Promise.all([
+      instance(apps, 0).setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(40) }, manager),
+      instance(apps, 1).setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(26) }, manager),
     ]);
 
     const stored = (await pauseOf(instance(apps, 2), pauseIdOf())).expiresAt;
-    expect(long.status).toBe("fulfilled");
-    expect(stored).toBe(new Date(clock.now().getTime() + hours(40)).toISOString());
-    // the shorter one either went first (and the longer one moved from its deadline) or was refused
-    if (short.status === "rejected") {
-      expect(short.reason).toBeInstanceOf(ValidationError.DtoInvalid);
-      expect(long.status === "fulfilled" && long.value.previousExpiresAt).toBe(asked);
-    } else {
-      expect(long.status === "fulfilled" && long.value.previousExpiresAt).toBe(
-        short.value.expiresAt,
-      );
-      expect(short.value.previousExpiresAt).toBe(asked);
-    }
-    await until(() => extendedNotices().length === (short.status === "rejected" ? 1 : 2));
+    // one went first and the other moved from its deadline: the second one's is stored
+    const isLongFirst = short.previousExpiresAt?.toISOString() === long.expiresAt?.toISOString();
+    const [first, second] = isLongFirst ? [long, short] : [short, long];
+    expect(first.previousExpiresAt?.toISOString()).toBe(asked);
+    expect(second.previousExpiresAt?.toISOString()).toBe(first.expiresAt?.toISOString());
+    expect(stored).toBe(second.expiresAt?.toISOString());
+    await until(() => extendedNotices().length === 2);
     const told_ = extendedNotices().map((one) => one.expiresAt);
-    expect(told_).toEqual([...told_].sort());
     expect(told_.at(-1)).toBe(stored);
+    expect(told_).toEqual([first.expiresAt?.toISOString(), second.expiresAt?.toISOString()]);
   });
 
   test("AC2: a store whose extension always loses the compare-and-set: PauseError.UpdateContended (pause.update-contended) after 8 attempts, nothing told or written", async ({
@@ -410,13 +497,15 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
     await clock.advance(hours(1));
     const store = app.resolve(PausedExecutionRepository);
     const before = (await pauseOf(app, pauseIdOf())).expiresAt;
-    const losing = vi.spyOn(store, "extendByTenantIdAndPauseId").mockResolvedValue(undefined);
+    const losing = vi
+      .spyOn(store, "changeTimeoutByTenantIdAndPauseId")
+      .mockResolvedValue(undefined);
 
     const refused = await failureOf(
-      app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(26) }, manager),
+      app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(26) }, manager),
     );
 
-    expect(MAX_EXTEND_ATTEMPTS).toBe(8);
+    expect(MAX_TIMEOUT_ATTEMPTS).toBe(8);
     expect(refused).toBeInstanceOf(PauseError.UpdateContended);
     expect(refused).toMatchObject({
       code: "pause.update-contended",
@@ -430,32 +519,30 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
     expect(extendedNotices()).toHaveLength(0);
   });
 
-  test("AC2: a longer extension lands between the shorter one's read and its write: the shorter is refused 'not later', nothing of it is told or written", async ({
+  test("AC2: a longer change lands between the shorter one's read and its write: the shorter loses the compare-and-set, reads again and applies over the new deadline", async ({
     app,
     clock,
   }) => {
     await execute(app, managerFlow.start, ORDER, THREAD);
     await clock.advance(hours(1));
     const store = app.resolve(PausedExecutionRepository);
-    const write = store.extendByTenantIdAndPauseId.bind(store);
-    let racing: Promise<unknown> | undefined;
-    vi.spyOn(store, "extendByTenantIdAndPauseId").mockImplementationOnce(async (...args) => {
-      racing = app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(40) }, manager);
-      await racing;
+    const write = store.changeTimeoutByTenantIdAndPauseId.bind(store);
+    const longDeadline = new Date(clock.now().getTime() + hours(40));
+    vi.spyOn(store, "changeTimeoutByTenantIdAndPauseId").mockImplementationOnce(async (...args) => {
+      await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(40) }, manager);
       return write(...args);
     });
 
-    const refused = await failureOf(
-      app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(26) }, manager),
-    );
+    const short = await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(26) }, manager);
 
-    expect(refused).toBeInstanceOf(ValidationError.DtoInvalid);
-    expect(JSON.stringify(refused)).toContain("not later");
-    expect((await pauseOf(app, pauseIdOf())).expiresAt).toBe(
-      new Date(clock.now().getTime() + hours(40)).toISOString(),
-    );
-    await until(() => extendedNotices().length === 1);
-    expect(extendedNotices()).toHaveLength(1);
+    expect(short.previousExpiresAt).toEqual(longDeadline);
+    expect(short.expiresAt).toEqual(new Date(clock.now().getTime() + hours(26)));
+    expect((await pauseOf(app, pauseIdOf())).expiresAt).toBe(short.expiresAt?.toISOString());
+    await until(() => extendedNotices().length === 2);
+    expect(extendedNotices().map((one) => one.previousExpiresAt)).toEqual([
+      expect.any(String),
+      longDeadline.toISOString(),
+    ]);
   });
 
   test("AC2: a shorter extension lands between the longer one's read and its write: the longer one tries again and wins over the new deadline", async ({
@@ -465,22 +552,22 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
     await execute(app, managerFlow.start, ORDER, THREAD);
     await clock.advance(hours(1));
     const store = app.resolve(PausedExecutionRepository);
-    const write = store.extendByTenantIdAndPauseId.bind(store);
-    const shortDeadline = new Date(clock.now().getTime() + hours(26)).toISOString();
-    vi.spyOn(store, "extendByTenantIdAndPauseId").mockImplementationOnce(async (...args) => {
-      await app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(26) }, manager);
+    const write = store.changeTimeoutByTenantIdAndPauseId.bind(store);
+    const shortDeadline = new Date(clock.now().getTime() + hours(26));
+    vi.spyOn(store, "changeTimeoutByTenantIdAndPauseId").mockImplementationOnce(async (...args) => {
+      await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(26) }, manager);
       return write(...args);
     });
 
-    const long = await app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(40) }, manager);
+    const long = await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(40) }, manager);
 
-    expect(long.previousExpiresAt).toBe(shortDeadline);
-    expect(long.expiresAt).toBe(new Date(clock.now().getTime() + hours(40)).toISOString());
-    expect((await pauseOf(app, pauseIdOf())).expiresAt).toBe(long.expiresAt);
+    expect(long.previousExpiresAt).toEqual(shortDeadline);
+    expect(long.expiresAt).toEqual(new Date(clock.now().getTime() + hours(40)));
+    expect((await pauseOf(app, pauseIdOf())).expiresAt).toBe(long.expiresAt?.toISOString());
     await until(() => extendedNotices().length === 2);
     expect(extendedNotices().map((one) => one.previousExpiresAt)).toEqual([
       expect.any(String),
-      shortDeadline,
+      shortDeadline.toISOString(),
     ]);
   });
 
@@ -491,14 +578,14 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
     await execute(app, managerFlow.start, ORDER, THREAD);
     await clock.advance(hours(1));
     const store = app.resolve(PausedExecutionRepository);
-    const write = store.extendByTenantIdAndPauseId.bind(store);
-    vi.spyOn(store, "extendByTenantIdAndPauseId").mockImplementationOnce(async (...args) => {
+    const write = store.changeTimeoutByTenantIdAndPauseId.bind(store);
+    vi.spyOn(store, "changeTimeoutByTenantIdAndPauseId").mockImplementationOnce(async (...args) => {
       await app.resume({ pauseId: pauseIdOf(), decision: { approved: true } }, manager);
       return write(...args);
     });
 
     const refused = await failureOf(
-      app.extendPause({ pauseId: pauseIdOf(), expiresIn: hours(40) }, manager),
+      app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(40) }, manager),
     );
 
     expect(refused).toBeInstanceOf(PauseError.Closed);

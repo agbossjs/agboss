@@ -240,8 +240,8 @@ describe("#943 AC2: counted once, on the instance that applied the change", () =
     await execute(first, managerFlow.start, { orderId: "x", note: "n" }, { threadId: "x-1" });
     await clock.advance(hours(1));
 
-    await second.extendPause(
-      { pauseId: asked.sent[0]?.pauseId ?? "", expiresIn: hours(24) },
+    await second.setPauseTimeout(
+      { pauseId: asked.sent[0]?.pauseId ?? "", timeout: hours(24) },
       manager,
     );
 

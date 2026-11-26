@@ -1397,6 +1397,9 @@ export interface InvalidA2APageTokenErrorOptions {
 }
 
 // @public
+export const isAsSeen: (pause: PauseRecord, seen: PauseSeen | undefined) => boolean;
+
+// @public
 export function isKeyFingerprint(key: Pick<EffectKeyFields, "fingerprint" | "previousFingerprint">, stored: string | null | undefined): boolean;
 
 // @public
@@ -1898,15 +1901,6 @@ export enum PauseClosedReason {
 export function pauseClosedReasonOf(pause: PauseRecord, now: Date): PauseClosedReason | undefined;
 
 // @public
-export interface PauseDeadlineChange {
-    readonly actor?: PauseActor;
-    readonly expiresAt: string;
-    readonly maxExtensions?: number;
-    readonly previousExpiresAt: string;
-    readonly remindAt?: string;
-}
-
-// @public
 export interface PauseDeadlineSet {
     readonly expiresAt?: string;
     // (undocumented)
@@ -1924,6 +1918,7 @@ export interface PausedExecution extends ResumeVersions {
 export abstract class PausedExecutionRepository {
     abstract ackNotice(claim: PauseNoticeClaim, at: Date): Promise<PauseNoticeClaim | undefined>;
     abstract cancelByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseCancellation, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract changeTimeoutByTenantIdAndPauseId(tenantId: string, pauseId: string, change: PauseTimeoutChange, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract claimNoticesDue(at: Date, limit: number, claimFor: Milliseconds, recipients: readonly string[]): Promise<readonly PauseNoticeClaim[]>;
     abstract closeUntakenByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseUntakenResolution, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract countNotices(): Promise<PauseNoticeCounts>;
@@ -1932,7 +1927,6 @@ export abstract class PausedExecutionRepository {
     abstract deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
     abstract deleteByTenantIdAndThreadIdAndRunId(tenantId: string, threadId: string, runId: string): Promise<void>;
     abstract expireByTenantIdAndPauseId(tenantId: string, pauseId: string, expiry: PauseExpiry, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
-    abstract extendByTenantIdAndPauseId(tenantId: string, pauseId: string, change: PauseDeadlineChange, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract findAllByTenantIdAndRootExecutionId(tenantId: string, rootExecutionId: string): Promise<readonly PauseRecord[]>;
     abstract findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined>;
     abstract findByTenantIdAndRootExecutionIdAndStepKey(tenantId: string, rootExecutionId: string, stepKey: string): Promise<PauseRecord | undefined>;
@@ -2042,7 +2036,9 @@ export interface PauseMailbox {
 
 // @public
 export interface PauseNotice {
+    readonly actor?: PauseActor;
     readonly assignees?: readonly string[];
+    readonly changeReason?: string;
     readonly closedAt?: string;
     readonly errorCode?: string;
     readonly expiresAt?: string;
@@ -2084,10 +2080,10 @@ export enum PauseNoticeKind {
     AnswerNotTaken = "answer-not-taken",
     Closed = "closed",
     Expiring = "expiring",
-    Extended = "extended",
     JoinFailed = "join-failed",
     Opened = "opened",
-    Reassigned = "reassigned"
+    Reassigned = "reassigned",
+    TimeoutChanged = "timeout-changed"
 }
 
 // @public
@@ -2227,6 +2223,17 @@ export enum PauseStatus {
     Pending = "pending",
     Resolved = "resolved",
     Taken = "taken"
+}
+
+// @public
+export interface PauseTimeoutChange {
+    readonly actor?: PauseActor;
+    readonly expiresAt?: string;
+    readonly maxExtensions?: number;
+    readonly previousExpiresAt?: string;
+    readonly reason?: string;
+    readonly remindAt?: string;
+    readonly seen: PauseSeen;
 }
 
 // @public
@@ -2410,6 +2417,9 @@ export interface ScopeValueRecord {
     readonly valueId: string;
     readonly variant?: string;
 }
+
+// @public
+export const seenOf: (pause: PauseRecord) => PauseSeen;
 
 // @public
 export interface SetAsideMailbox {

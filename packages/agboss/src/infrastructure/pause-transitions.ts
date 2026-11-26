@@ -1,11 +1,6 @@
 import { decidedOnExpiryPause, expiredPause, untakenPause } from "./pause-closers.js";
 import type { PlannedNotice } from "./pause-mailboxes.js";
-import {
-  PauseNoticeKind,
-  type PauseDeadlineChange,
-  type PauseNoticeFacts,
-  type PauseRecipients,
-} from "./pause-notices.js";
+import { PauseNoticeKind, type PauseNoticeFacts, type PauseRecipients } from "./pause-notices.js";
 import {
   closedNotices,
   instantOf,
@@ -22,9 +17,7 @@ import {
   type PauseCancellation,
   type PauseExpiry,
   type PauseRecord,
-  type PauseTrailRecord,
   type PauseUntakenResolution,
-  PauseExpiryBound,
 } from "./pause-record.js";
 import { NEVER } from "./pause-scans.js";
 
@@ -116,66 +109,6 @@ export function closeUntakenChange(
   return {
     pause: untakenPause(pause, resolution, at),
     notices: pause.isSent ? untakenNotices(resolution, at, recipients) : [],
-  };
-}
-
-/**
- * A pending pause's deadline moved, never to a past time (I3), never earlier or equal (#1099), and
- * only from the deadline the caller read: whoever read an older one lost to a writer that moved it.
- */
-export function extendChange(
-  pause: PauseRecord,
-  extension: PauseDeadlineChange,
-  at: Date,
-  recipients: PauseRecipients,
-): PauseChange | undefined {
-  // a pause with no deadline gets none, and one that is not open takes no extension (I3)
-  if (
-    !isOpenAt(pause, at) ||
-    // Stryker disable next-line ConditionalExpression: the floors below hold a time of the pause's own, and no extension is after `undefined`, so a pause with no deadline is refused there too
-    pause.expiresAt === undefined
-  )
-    return undefined;
-  // from the deadline the caller read, to a time after it and after `at`: never to a past time (I3), never
-  // earlier or equal (#1099) — one comparison against both floors
-  const floors = [pause.expiresAt, at.toISOString()];
-  if (
-    pause.expiresAt !== extension.previousExpiresAt ||
-    !floors.every((floor) => extension.expiresAt > floor)
-  )
-    return undefined;
-  const changes = pause.trail.filter((entry) => entry.action === "timeout-changed").length;
-  if (extension.maxExtensions !== undefined && changes >= extension.maxExtensions) return undefined;
-  return {
-    pause: {
-      ...pause,
-      expiresAt: extension.expiresAt,
-      expiryBound: PauseExpiryBound.Pause,
-      remindAt: extension.remindAt,
-      trail: [...pause.trail, timeoutChangedEntryOf(pause, extension, at)],
-    },
-    notices: noticesOf(recipients, PauseNoticeKind.Extended, at, {
-      expiresAt: extension.expiresAt,
-      previousExpiresAt: pause.expiresAt,
-    }),
-  };
-}
-
-/** The entry a deadline change adds to the chain of custody: who moved it, when, to what. */
-function timeoutChangedEntryOf(
-  pause: PauseRecord,
-  extension: PauseDeadlineChange,
-  at: Date,
-): PauseTrailRecord {
-  return {
-    action: "timeout-changed",
-    at: at.toISOString(),
-    ...(extension.actor === undefined ? {} : { actor: extension.actor }),
-    target: pause.target,
-    ...(pause.channel === undefined ? {} : { channel: pause.channel }),
-    ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
-    expiresAt: extension.expiresAt,
-    ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
   };
 }
 

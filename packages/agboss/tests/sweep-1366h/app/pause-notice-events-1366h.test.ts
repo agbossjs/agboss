@@ -9,15 +9,17 @@ import { describe, expect, it } from "vitest";
 import {
   channelClosedOf,
   channelExpiringOf,
-  channelExtendedOf,
   channelNotTakenOf,
   listenerBaseOf,
   listenerClosedOf,
   listenerExpiringOf,
-  listenerExtendedOf,
   listenerNotTakenOf,
   listenerOpenedOf,
 } from "../../../src/app/pause-notices.js";
+import {
+  channelTimeoutChangedOf,
+  listenerTimeoutChangedOf,
+} from "../../../src/app/pause-timeout-events.js";
 import {
   PauseClosedReason,
   PauseResolution,
@@ -142,33 +144,90 @@ describe("#1366: a close's time and answer", () => {
 describe("#1366: deadlines", () => {
   it("expiring and extended events carry the notice's deadlines; one without them is refused", async () => {
     const extended = notice({
-      kind: PauseNoticeKind.Extended,
+      kind: PauseNoticeKind.TimeoutChanged,
       expiresAt: "2026-02-01T00:00:00.000Z",
       previousExpiresAt: "2026-01-20T00:00:00.000Z",
     });
     const deadline = { expiresAt: "2026-02-01T00:00:00.000Z" };
     const both = { ...deadline, previousExpiresAt: "2026-01-20T00:00:00.000Z" };
-    expect(channelExtendedOf(sources(answered, extended))).toMatchObject(both);
-    expect(await listenerExtendedOf(sources(answered, extended), false)).toMatchObject(both);
+    expect(channelTimeoutChangedOf(sources(answered, extended))).toMatchObject(both);
+    expect(await listenerTimeoutChangedOf(sources(answered, extended), false)).toMatchObject(both);
     expect(channelExpiringOf(sources(answered, extended))).toMatchObject(deadline);
     expect(await listenerExpiringOf(sources(answered, extended), false)).toMatchObject(deadline);
 
     const noDeadline = notice({ kind: PauseNoticeKind.Expiring });
-    const noPrevious = notice({ kind: PauseNoticeKind.Extended, expiresAt: deadline.expiresAt });
     expect(() => channelExpiringOf(sources(answered, noDeadline))).toThrow(TypeError);
-    expect(() => channelExtendedOf(sources(answered, noDeadline))).toThrow(TypeError);
-    expect(() => channelExtendedOf(sources(answered, noPrevious))).toThrow(TypeError);
     await expect(listenerExpiringOf(sources(answered, noDeadline), false)).rejects.toThrow(
-      TypeError,
-    );
-    await expect(listenerExtendedOf(sources(answered, noPrevious), false)).rejects.toThrow(
       TypeError,
     );
   });
 
+  it("a timeout change names only the deadlines there are: none before (set), none after (taken away)", async () => {
+    const set = notice({
+      kind: PauseNoticeKind.TimeoutChanged,
+      expiresAt: "2026-02-01T00:00:00.000Z",
+    });
+    const taken = notice({
+      kind: PauseNoticeKind.TimeoutChanged,
+      previousExpiresAt: "2026-01-20T00:00:00.000Z",
+    });
+
+    for (const [one, expected] of [
+      [set, { expiresAt: "2026-02-01T00:00:00.000Z" }],
+      [taken, { previousExpiresAt: "2026-01-20T00:00:00.000Z" }],
+    ] as const) {
+      const channel = channelTimeoutChangedOf(sources(answered, one));
+      const listener = await listenerTimeoutChangedOf(sources(answered, one), false);
+      for (const event of [channel, listener]) {
+        expect(event).toMatchObject(expected);
+        expect(
+          Object.keys(event)
+            .filter((key) => key.endsWith("ExpiresAt") || key === "expiresAt")
+            .sort(),
+        ).toEqual(Object.keys(expected).sort());
+      }
+    }
+  });
+
+  it("a late delivery names its own change: actor and reason come from the notice, not the chain's newest entry (#1307)", async () => {
+    const own = notice({
+      kind: PauseNoticeKind.TimeoutChanged,
+      expiresAt: "2026-02-01T00:00:00.000Z",
+      actor: { id: "first-operator" },
+      changeReason: "first reason",
+    });
+    // a second change by someone else is already on the chain when the first notice is delivered
+    const later = {
+      ...answered,
+      trail: [
+        ...answered.trail,
+        {
+          action: "timeout-changed" as const,
+          at: "2026-01-21T00:00:00.000Z",
+          actor: { id: "second-operator" },
+          reason: "second reason",
+          target: "t",
+        },
+      ],
+    };
+
+    const channel = channelTimeoutChangedOf(sources(later, own));
+    const listener = await listenerTimeoutChangedOf(sources(later, own), false);
+
+    for (const event of [channel, listener])
+      expect(event).toMatchObject({ actor: { id: "first-operator" }, reason: "first reason" });
+    // a change that named neither carries neither, whatever the chain holds
+    const bare = notice({ kind: PauseNoticeKind.TimeoutChanged });
+    expect(channelTimeoutChangedOf(sources(later, bare))).not.toHaveProperty("actor");
+    expect(channelTimeoutChangedOf(sources(later, bare))).not.toHaveProperty("reason");
+  });
+
   it("a listener's expiresAt is the notice's, else the pause's, else absent", async () => {
     const pause = { ...answered, expiresAt: "2026-03-01T00:00:00.000Z" };
-    const own = notice({ kind: PauseNoticeKind.Extended, expiresAt: "2026-02-01T00:00:00.000Z" });
+    const own = notice({
+      kind: PauseNoticeKind.TimeoutChanged,
+      expiresAt: "2026-02-01T00:00:00.000Z",
+    });
     const plain = notice({ kind: PauseNoticeKind.Opened });
 
     expect((await listenerBaseOf(sources(pause, own), false)).expiresAt).toBe(own.expiresAt);

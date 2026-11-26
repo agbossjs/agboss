@@ -1,3 +1,4 @@
+import { expect } from "vitest";
 import type { PausedExecution } from "../../app/paused-runs.js";
 import { ExecutionStatus } from "../../app/types.js";
 import { CostReport } from "../../finops/usage.js";
@@ -5,10 +6,12 @@ import {
   PauseStatus,
   type PauseAnswer,
   type PauseRecord,
+  type PausedExecutionRepository,
 } from "../../infrastructure/paused-execution.repository.js";
+import { seenOf } from "../../infrastructure/pause-seen.js";
 import { PauseKind } from "../../infrastructure/pause-record.js";
 import { PauseExpiryBound } from "../../infrastructure/pause-record.js";
-import type { PauseRecipients } from "../../infrastructure/pause-notices.js";
+import type { PauseRecipients, PauseTimeoutChange } from "../../infrastructure/pause-notices.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import { PauseRespondent } from "../../pause/respondent.js";
 
@@ -152,3 +155,22 @@ export const RECIPIENTS: PauseRecipients = {
 export const CHANNEL_KEY = "channel:refund-approval-channel";
 export const LISTENER_KEYS = ["listener:audit-listener", "listener:slack-listener"] as const;
 export const ALL_KEYS = [CHANNEL_KEY, ...LISTENER_KEYS] as const;
+
+/** A timeout change over the pause as the store holds it now: `seen` is read at this moment. */
+export const withSeen = async (
+  store: Pick<PausedExecutionRepository, "findByTenantIdAndPauseId">,
+  pauseId: string,
+  change: Omit<PauseTimeoutChange, "seen">,
+): Promise<PauseTimeoutChange> => {
+  const found = await store.findByTenantIdAndPauseId("default", pauseId);
+  if (found === undefined) return expect.fail(`pause ${pauseId} is found`);
+  return { ...change, seen: seenOf(found) };
+};
+
+/** A change of `pauseId` from `DEADLINE` (the one of `expiringPauseOf`) to `expiresAt`, over the pause as it is now. */
+export const changeFromDeadline = (
+  store: Pick<PausedExecutionRepository, "findByTenantIdAndPauseId">,
+  pauseId: string,
+  expiresAt: string,
+): Promise<PauseTimeoutChange> =>
+  withSeen(store, pauseId, { expiresAt, previousExpiresAt: DEADLINE.toISOString() });

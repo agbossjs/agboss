@@ -87,12 +87,12 @@ export function pausesShard() {
   return {
     configFile: "vitest.mutation-pauses.config.ts",
     mutate: [
-      "src/infrastructure/{pause-answer-log,pause-bound,pause-closers,pause-closing,pause-log-repair,pause-mailboxes,pause-notices,pause-reassign-transition,pause-record,pause-replacement,pause-scans,pause-transitions}.ts",
+      "src/infrastructure/{pause-answer-log,pause-bound,pause-closers,pause-closing,pause-log-repair,pause-mailboxes,pause-notices,pause-reassign-transition,pause-record,pause-replacement,pause-scans,pause-seen,pause-timeout-change,pause-transitions}.ts",
       "src/infrastructure/in-memory-pause-{book,queries,store}.ts",
       // #1307c: an answer is recorded only once its target's permitAnswer said true; fails closed
       "src/app/{answer-permit,answer-parts,pause-expiry-reassign}.ts",
-      // #1307, #1310: the limits and the permission of a reassignment and an extension — the chain's counts and total wait, the destination, the deadline a change sets, the request's checks
-      "src/app/{extend-request,pause-limits,pause-reassign-deadline,pause-reassign-plan,pause-reassign-support}.ts",
+      // #1307, #1310: the limits and the permission of a reassignment and a timeout change — the chain's counts and total wait, the destination, the deadline a change sets, the request's checks
+      "src/app/{timeout-request,pause-timeout,pause-limits,pause-reassign-deadline,pause-reassign-plan,pause-reassign-support}.ts",
     ],
   };
 }
@@ -115,7 +115,7 @@ export function pausesSqliteShard() {
 export function pauseNoticesShard() {
   return {
     configFile: "vitest.mutation-pause-notices.config.ts",
-    mutate: ["src/app/pause-notice-*.ts"],
+    mutate: ["src/app/pause-notice-*.ts", "src/app/pause-timeout-events.ts"],
   };
 }
 

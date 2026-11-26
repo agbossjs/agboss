@@ -25,7 +25,7 @@ describe("App<TApp> without a tenantContext", () => {
     void plain.cancel("t");
     void plain.cancel("t", { tenantId: "acme" });
     void plain.resume({ pauseId: "p", decision: {} });
-    void plain.extendPause({ pauseId: "p", expiresIn: 1000 as never });
+    void plain.setPauseTimeout({ pauseId: "p", timeout: 1000 as never });
     void plain.getExecution("e");
     void plain.listExecutions();
     void plain.listExecutions({ limit: 5, workflow: "w" });
@@ -42,7 +42,7 @@ describe("App<TApp> with a tenantContext, or one not branded", () => {
     // @ts-expect-error — a resume names its tenant
     void tenanted.resume({ pauseId: "p", decision: {} });
     // @ts-expect-error — an extension names its tenant
-    void tenanted.extendPause({ pauseId: "p", expiresIn: 1000 as never });
+    void tenanted.setPauseTimeout({ pauseId: "p", timeout: 1000 as never });
     // @ts-expect-error — a reassignment names its tenant
     void tenanted.reassignPause({ pauseId: "p", assignee: "d" });
     // @ts-expect-error — a read names its tenant

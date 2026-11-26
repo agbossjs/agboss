@@ -3,6 +3,19 @@
 Breaking changes and notable additions, newest first. The API reports
 (`packages/agboss/api/*.api.md`) hold the exact public surface of each entry.
 
+## Unreleased — 0.1.1: change a pause's deadline — `app.setPauseTimeout`, `Timeout.None`, `permitTimeoutChange` (#1307)
+
+- **Breaking**: `app.extendPause`, `ExtendPauseRequest` and `PauseExtension` are gone (0.1.1 never shipped them): `app.setPauseTimeout({ pauseId, timeout, reason? }, { actor })`
+  → `PauseTimeoutChangeResult { expiresAt?, previousExpiresAt? }` (`Date`s) moves the deadline to `now + timeout`, later **or earlier**, or
+  takes it away with `Timeout.None` (new, `@agboss/core`, beside `Ttl`). A `timeout` below `seconds(1)` is `PauseError.InvalidTimeout`; a deadline past the run's or
+  a quorum's, `maxTotalTimeout` or `maxExtensions` is `PauseError.EscalationLimitExceeded`; a pause whose first send is in flight is `PauseError.UpdateContended`.
+- **Changed**: a target's `permitTimeoutChange(ctx)` is enforced (only `true` permits; `false`, a throw or an unresolvable target is
+  `PauseError.PermissionDenied`), and `[pause.permit-hook-not-enforced]` is removed. The notice an extension wrote, `extended`, is `timeout-changed`
+  (no legacy reader: a pause store of your own writes and reads the new value), and its events carry `expiresAt?` / `previousExpiresAt?`.
+- **Changed — stores** (`@agboss/core/stores`): `extendByTenantIdAndPauseId` is `changeTimeoutByTenantIdAndPauseId`, `PauseDeadlineChange` is `PauseTimeoutChange`
+  (`expiresAt?`, `previousExpiresAt?`, `reason?`): the store no longer refuses an earlier deadline, keeps the compare-and-set over `previousExpiresAt` (absent: none) and
+  the `maxExtensions` count; PostgreSQL and MongoDB follow at their re-pin.
+
 ## Unreleased — 0.1.1: list pauses and pause metrics — `app.listPauses` (#943, part of #910)
 
 - **Added**: `app.listPauses({ tenantId | allTenants, status?, target?, channel?, assignee?, externalRef?,

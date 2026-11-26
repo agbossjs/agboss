@@ -182,7 +182,7 @@ export class MailHoldChannel {
 | `w.resolution` (`PauseResolution`)    | `event.reason` (`PauseClosedReason`: `Answered`, `Expired`, `Cancelled`, `Withdrawn`, `TreeEnded`)                                     |
 | called once, never after a crash      | at least once: **deduplicate by `event.deliveryId`**, and make the hook safe to run twice                                              |
 | the warning `channel.withdraw-failed` | `pause.notice-failed` (each failed attempt), `pause.notice-dead` (set aside after `retention.pauseRecords`)                            |
-| —                                     | `@ChannelListener` for a hook on every pause of the application; `PauseExpiration`, `remindBefore`, `app.extendPause` — [Pauses](Pauses) |
+| —                                     | `@ChannelListener` for a hook on every pause of the application; `PauseExpiration`, `remindBefore`, `app.setPauseTimeout` — [Pauses](Pauses) |
 
 **A pause target and its channel are two classes (#1307).** 0.1.0's `@ChannelRole` (an abstract class a
 `@Channel` `extends`) is split: the **target** says what is asked and who may answer, the **channel** only

@@ -1,8 +1,9 @@
 /**
- * #1099: two real processes on one SQLite file extend the same pauses at the same instants, one by
- * 30 h and one by 26 h. Whatever the interleaving, no pause ends with a deadline earlier than one a
- * caller was told, a caller told "extended" got a deadline that is on the chain of writes
- * (`previousExpiresAt` is what the store replaced), and the shorter one is refused or comes first.
+ * #1099, #1307: two real processes on one SQLite file change the timeout of the same pauses at the
+ * same instants, one to 30 h and one to 26 h. Whatever the interleaving, both are told, and what
+ * each was told is one chain of writes: the one that landed second names the deadline of the one that
+ * landed first as `previousExpiresAt` (the store replaced exactly that), and the stored deadline is
+ * the second one's — a deadline may shorten, but never one the chain does not show.
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -38,7 +39,7 @@ interface Told {
   readonly error?: string;
 }
 
-/** Starts two extending processes, releases both together once both are ready; what each told. */
+/** Starts two processes changing the timeout, releases both together once both are ready; what each told. */
 async function extendTogether(pauseIds: readonly string[]): Promise<readonly (readonly Told[])[]> {
   const children = [30, 26].map((span) =>
     startNode([
@@ -58,18 +59,18 @@ async function extendTogether(pauseIds: readonly string[]): Promise<readonly (re
   );
 }
 
-/** The shorter extension either went first (the long one moved from its deadline) or was refused. */
-function expectOnChain(long: Told | undefined, short: Told | undefined): void {
-  if (short?.ok !== true) {
-    expect(short).toMatchObject({ ok: false, error: "ValidationError.DtoInvalid" });
-    return;
-  }
-  expect(long?.previousExpiresAt).toBe(short.expiresAt);
-  expect((short.expiresAt ?? "") < (long?.expiresAt ?? "")).toBe(true);
+/** The two writes are one chain: the later names the earlier's deadline, and the later one is stored. */
+function expectOnChain(long: Told | undefined, short: Told | undefined, stored: string): void {
+  expect(long?.ok).toBe(true);
+  expect(short?.ok).toBe(true);
+  const isLongFirst = short?.previousExpiresAt === long?.expiresAt;
+  const [first, second] = isLongFirst ? [long, short] : [short, long];
+  expect(second?.previousExpiresAt).toBe(first?.expiresAt);
+  expect(stored).toBe(second?.expiresAt);
 }
 
-describe("#1099: two processes extend the same pauses at once", () => {
-  it("AC1: the stored deadline is the longer one for every pause, and every told deadline is on the chain", async () => {
+describe("#1099: two processes change the timeout of the same pauses at once", () => {
+  it("AC1: the stored deadline is the last write for every pause, and every told deadline is on the chain", async () => {
     const pauseIds = (await node("setup", String(PAUSES))) as string[];
     expect(pauseIds).toHaveLength(PAUSES);
 
@@ -79,10 +80,7 @@ describe("#1099: two processes extend the same pauses at once", () => {
     for (const pauseId of pauseIds) {
       const longTold = long?.find((one) => one.pauseId === pauseId);
       const shortTold = short?.find((one) => one.pauseId === pauseId);
-      // the 30 h extension is always later than the 26 h one: it is never refused for a shorter deadline
-      expect(longTold?.ok).toBe(true);
-      expect(stored[pauseId]).toBe(longTold?.expiresAt);
-      expectOnChain(longTold, shortTold);
+      expectOnChain(longTold, shortTold, stored[pauseId] ?? "");
     }
   }, 120_000);
 });

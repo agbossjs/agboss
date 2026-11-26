@@ -1315,10 +1315,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/app/history-sources.ts"],
   ),
   ...reviewed(
-    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 140 mutants, 131 killed in the final run; the 37 that had lived in the first run each got a test (30), an equivalence reason (4) or was classed message text (3); covered by tests/sweep-1366h/app/pause-extension-1366h.test.ts, tests/app/pause-working-time.test.ts, tests/app/pause-extension.test.ts, tests/app/pause-reminders.sqlite.test.ts; survivors listed in the #1366 round-8 notes",
-    ["src/app/pause-extension.ts"],
-  ),
-  ...reviewed(
     "holds spend, rate-limit or deadline sites (pause page limit 0; pause page limit over) and the listing's credential gate (which pause ids are shown, which tenant's pauses are read, which cursor is accepted) - not mutated by a shard: covered by tests/app/list-pauses.test.ts and the contract cases of the pause store; each sabotage was run by hand against tests/app/list-pauses.test.ts and the in-memory conformance run and fails them (#1307e review L8): `includePauseIds ? { pauseId }` to `true ? { pauseId }` in pause-listing.ts (2 tests fail; before H1 `|| includePauseIds` to `|| true`), `includePauseIds === true` to `true` (2), `allTenants === true ? undefined` to `allTenants !== undefined ? undefined` (1), the tenant check of `inScope` dropped in pause-scans.ts (9), the query hash of the cursor made constant (1); the page limit 0 and over 1000 sabotages (2 in the #1366 pattern sweep) fail one test each",
     ["src/app/pause-listing.ts", "src/app/pause-listing-query.ts"],
   ),
@@ -1475,7 +1471,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/flow/runtime/pause-record-made.ts"],
   ),
   ...reviewed(
-    "the facts a pause's record is made from, the checks of the hooks a target answers and the plan of a pause's notices, split from `pause-record-made.ts` and the pause stores (#1307, #1310) to keep each under the line limit: the first entry of the chain of custody, where a pause was asked, the shape of an `assign` and a `resolveTimeout` answer, and the notices a change plans; the limits and the permission of a reassignment and an extension are the `pauses` shard's (`pause-limits.ts`, `pause-reassign-plan.ts`, `pause-reassign-deadline.ts`, `extend-request.ts`); matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; covered by tests/app/pause-reassign-targets.test.ts, tests/app/pause-reassignment.test.ts, tests/app/pause-extension.test.ts and tests/app/pause-expiry-reassign.test.ts",
+    "the facts a pause's record is made from, the checks of the hooks a target answers and the plan of a pause's notices, split from `pause-record-made.ts` and the pause stores (#1307, #1310) to keep each under the line limit: the first entry of the chain of custody, where a pause was asked, the shape of an `assign` and a `resolveTimeout` answer, and the notices a change plans; the limits and the permission of a reassignment and a timeout change are the `pauses` shard's (`pause-limits.ts`, `pause-reassign-plan.ts`, `pause-reassign-deadline.ts`, `pause-timeout.ts`, `timeout-request.ts`); matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; covered by tests/app/pause-reassign-targets.test.ts, tests/app/pause-reassignment.test.ts, tests/app/pause-extension.test.ts and tests/app/pause-expiry-reassign.test.ts",
     [
       "src/flow/runtime/pause-record-facts.ts",
       "src/flow/runtime/pause-hooks.ts",
@@ -1483,9 +1479,9 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ],
   ),
   ...reviewed(
-    "the types, the pause's calendar and the events of a pause's change, split out of `types.ts`, `pause-extension.ts` and `pause-change-events.ts` (#1307, #1310): request and answer shapes, the working-time calendar asked for a deadline, and the event told after a reassignment; no spend, limit, lease or fence decision of their own; covered by tests/app/pause-reassign-targets.test.ts, tests/app/pause-extension.test.ts and tests/app/pause-working-time.test.ts",
+    "the types, the pause's calendar and the events of a pause's change, split out of `types.ts`, `pause-timeout.ts` and `pause-change-events.ts` (#1307, #1310): request and answer shapes, the working-time calendar asked for a deadline, and the event told after a reassignment; no spend, limit, lease or fence decision of their own; covered by tests/app/pause-reassign-targets.test.ts, tests/app/pause-extension.test.ts and tests/app/pause-working-time.test.ts",
     [
-      "src/app/extend-types.ts",
+      "src/app/timeout-types.ts",
       "src/app/reassign-types.ts",
       "src/app/pause-calendar.ts",
       "src/app/pause-reassigned-events.ts",

@@ -135,7 +135,7 @@ export interface ExecutionObserver {
   onChannelInterpreterEnd?(event: ChannelInterpreterEndEvent): void | Promise<void>;
   /** A look of the retention sweep ended: the rows each kind lost, how long it took and which stores failed. An event of the application: no `workflows` / `agents` filter lets it through. */
   onTtlSweep?(event: TtlSweepEvent): void | Promise<void>;
-  /** An operator moved a pause's deadline later (`app.extendPause`, #942): once, by the call that won; never the pause's id. */
+  /** An operator changed a pause's deadline: later, earlier, set or taken away (`app.setPauseTimeout`, #942): once, by the call that won; never the pause's id. */
   onPauseTimeoutChanged?(event: PauseTimeoutChangedEvent): void | Promise<void>;
   /** An operator moved a pause to another addressee (`app.reassignPause`, #946): once, by the call that won; never the pause's id or the assignee. */
   onPauseReassigned?(event: PauseReassignedEvent): void | Promise<void>;

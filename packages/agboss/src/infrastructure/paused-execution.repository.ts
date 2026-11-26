@@ -9,7 +9,7 @@ import type {
   PauseRecipients,
   PauseReassignmentChange,
   PauseScanAfter,
-  PauseDeadlineChange,
+  PauseTimeoutChange,
   SetAsideMailbox,
 } from "./pause-notices.js";
 import type {
@@ -183,17 +183,21 @@ export abstract class PausedExecutionRepository {
   ): Promise<PauseRecord | undefined>;
 
   /**
-   * Atomic: moves the deadline — only while `Pending`, `expiresAt` set and after `at`, only while
-   * that stored `expiresAt` is still `change.previousExpiresAt` (the one the caller read), and
-   * only to a `change.expiresAt` after `at` and after the stored one (never to a past time, never
-   * earlier: of two racing extensions the deadline does not shorten). Sets `expiresAt`, `expiryBound = Pause`
-   * and `remindAt` as given and writes `extended` (`expiresAt`, `previousExpiresAt`) in the same
-   * transaction. Returns the record, `undefined` when it does not apply (I3, I7).
+   * Atomic: changes the deadline (`app.setPauseTimeout`) — only while `Pending` and its `expiresAt`
+   * absent or after `at`, only while that stored `expiresAt` is still `change.previousExpiresAt`
+   * (the one the caller read; absent: none), and only to a `change.expiresAt` after `at` or to none
+   * (never to a past time; later and earlier are both allowed: of two racing changes the one that
+   * read the deadline the other wrote loses). Sets `expiresAt` (absent: none), `expiryBound = Pause` and
+   * `remindAt` as given, appends a `timeout-changed` entry (the actor and the already masked reason) to
+   * the chain of custody and writes `timeout-changed` (`expiresAt`, `previousExpiresAt`, each absent
+   * when there was none) in the same transaction. Refused, atomically with the write, when the chain
+   * already holds `change.maxExtensions` such entries. Returns the record, `undefined` when it does
+   * not apply (I3, I7).
    */
-  abstract extendByTenantIdAndPauseId(
+  abstract changeTimeoutByTenantIdAndPauseId(
     tenantId: string,
     pauseId: string,
-    change: PauseDeadlineChange,
+    change: PauseTimeoutChange,
     at: Date,
     recipients: PauseRecipients,
   ): Promise<PauseRecord | undefined>;

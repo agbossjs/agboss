@@ -283,8 +283,8 @@ export class TenantHolidaysCalendar implements WorkingCalendarHandler {
 
 A `@WorkingCalendar` class (its `name` is optional and kebab-case, `[name.not-kebab-case]`) is listed in
 `providers`, created once by the application's container, and called in the asking step's frame — its
-`ExecutionContext` (tenant, fields) — under the tool timeout; an extension calls it in the pause's frame.
-`WorkingTimeRequest` is `{ from, amount, tenantId, target }`: the pause's `askedAt` (an extension: now) on the
+`ExecutionContext` (tenant, fields) — under the tool timeout; a timeout change calls it in the pause's frame.
+`WorkingTimeRequest` is `{ from, amount, tenantId, target }`: the pause's `askedAt` (a timeout change: now) on the
 application's `Clock`, the working time to add, the tenant and the pause target's name. A class that is no
 listed `@WorkingCalendar` with `addWorkingTime`, and a grid that can never give working time, are
 `[working-calendar.invalid]` at start. What a calendar that fails does is in [Pauses → Deadlines in working
