@@ -229,10 +229,13 @@ describe("#850: a resume that died between recording its answer and moving the t
     );
     for (const one of apps) await one.ready();
     const paused = await execute(app, OrderWorkflowStart, { text: "charge" });
-    // the store refuses the resolve, as when another resume answered between the mark and it
+    // the store refuses the resolve while the pause is still open and the mark is made: the pause
+    // changed since the permit (UpdateContended: retry is safe); the root is left to recovery
     atTheResolve(() => Promise.resolve(undefined));
 
-    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(PauseError.Closed);
+    await expect(app.resume(answerOf(paused, approve))).rejects.toBeInstanceOf(
+      PauseError.UpdateContended,
+    );
     await clock.advance(seconds(31));
     await until(() => seen.resumes.length === 1, "the recovery of the root");
     const pending = await statusOfPause(answerOf(paused, approve).pauseId);
