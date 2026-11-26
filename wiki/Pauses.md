@@ -1250,8 +1250,8 @@ retention keeps a reassigned pause while its replacement is stored: the step's i
 is an operator's queue of pauses, `Page<ListedPause>` ([App](App#applistpauses-tenantid--alltenants-status-target-channel-assignee-externalref-expiringbefore-includepauseids-limit-cursor-943-1307)):
 by default one tenant's `Pending` ones, by target (a class or its name), assignee, external reference and deadline,
 100 a page, each pause exactly once across pages even while others open and close. A pause shows its `pauseKey`
-always and its `pauseId` only when the thread's owner answers it, unless `includePauseIds: true` is asked (default
-`false`: a delegated pause's id is the right to answer it); its `input` is masked by its workflow's policies; a
+and `tenantId` always and its `pauseId` only when `includePauseIds: true` is asked (default `false`: the id of
+any pause is the right to answer it; the thread's owner reads his from `result.pending`); its `input` is masked by its workflow's policies; a
 closed one carries `reason`, `closedAt` and who answered. "What expires in the next hour":
 `app.listPauses({ tenantId, expiringBefore: new Date(Date.now() + 3600e3) })`.
 

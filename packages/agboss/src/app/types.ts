@@ -369,9 +369,10 @@ export interface App<TApp = unknown> {
    * `expiringBefore` (`Date`, or an ISO 8601 text with its zone), at most `limit` (1 to 1000, default 100), from
    * the `cursor` of the page before; `nextCursor` is there while more may follow. The cursor is a
    * position in the order the pauses were made, so a pause that opens or closes between two pages
-   * never makes another skipped or repeated. A pause's id is shown as `result.pending` shows it
-   * (only a `ThreadOwner` pause's) unless `includePauseIds: true` is asked — the id of a delegated
-   * pause is the right to answer it, so hand it only to a caller who may; its `pauseKey` is always
+   * never makes another skipped or repeated. A pause's id is NOT shown
+   * unless `includePauseIds: true` is asked (then every item has it) — the id of any pause is the
+   * right to answer it (a thread without an `ownerId` is answered by the id alone), so hand it only
+   * to a caller who may; a thread's owner reads his pause's id from `result.pending`; its `pauseKey` is always
    * there. Its `ask` is masked by its workflow's observability policies. An application that
    * declares a `tenantContext` needs `{ tenantId }` or `{ allTenants: true }`, else it rejects with
    * `ValidationError.TenantRequired`; another tenant's pauses are never listed without `allTenants`.

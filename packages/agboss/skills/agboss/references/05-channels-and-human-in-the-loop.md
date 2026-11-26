@@ -372,8 +372,9 @@ several channels names a `@ChannelSelector({ target })` class (listed in `@Appli
 when a pause is made (`[channel.ambiguous-for-target]` without it).
 
 `app.listPauses({ tenantId | allTenants, target, channel, assignee, externalRef, status, expiringBefore, includePauseIds, cursor, limit })`
-pages the pauses (`Page<ListedPause>`: `items`, `nextCursor`); `target` is the class or its `name`. A delegated
-pause's `pauseId` (the right to answer it) is shown only with `includePauseIds: true` — never log it.
+pages the pauses (`Page<ListedPause>`: `items`, `nextCursor`); `target` is the class or its `name`. No pause's
+`pauseId` (the right to answer it) is listed unless `includePauseIds: true` (then every item has it) — never log
+it; an owner reads his from `result.pending`.
 
 ## Questions: the workflow asks, the answer goes on the path
 
@@ -418,7 +419,7 @@ import { SpendingLimitDto } from "../dto/spending-limit.dto.js";
   description: "Asks the budget owner for this purchase's limit",
   input: PurchaseDto,
   output: SpendingLimitDto,
-  respondent: PauseRespondent.Owner, // the thread's owner answers, by the listed pauseId
+  respondent: PauseRespondent.Owner, // the thread's owner answers, by the pauseId of result.pending
   timeout: days(3),
   maxVisits: 3, // the step's limit when it is asked again on a cycle
 })

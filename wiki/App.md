@@ -359,11 +359,12 @@ of the page before. Pauses come in the order they were made and the cursor is a 
 offset — so a pause that opens or closes between two pages makes no other pause skipped or repeated. A cursor is bound to the tenant scope and filters of the query that made it (the page size may change): with another scope or filter it is a `ValidationError.DtoInvalid`. A field the
 query does not have (the retired `after`, `role`) is refused, never ignored.
 
-A `ListedPause` shows `pauseId` as `result.pending` does (only an `Owner` pause's; a delegated pause's id stays
-with its channel), its `pauseKey` always, `kind`, `step`, `target`, `channel`, `assignees`, `externalRef`, `trail`,
+A `ListedPause` shows no `pauseId` by default (the listing is an operator's, possibly across tenants; the id of
+any pause is the right to answer it, and a thread started without an `ownerId` is answered by the id alone;
+a thread's owner reads his own id from `result.pending`, which is unchanged), its `pauseKey` and `tenantId` always, `kind`, `step`, `target`, `channel`, `assignees`, `externalRef`, `trail`,
 `status`, `rootExecutionId`, `threadId`, `askedAt`, `expiresAt`; a closed one also `reason` (`PauseClosedReason`),
 `closedAt` and `actor` (who answered; absent when its channel decided). `includePauseIds: true` (default `false`)
-shows the `pauseId` of the delegated pauses too, so an admin tool can act on a stuck pause: a pause's id is the
+shows the `pauseId` of every pause (`Owner` and delegated), so an admin tool can act on a stuck pause: a pause's id is the
 right to answer it, so ask for it only for a caller who may answer, and never put it in a log or a report. Its
 `input` is masked by the policies of the workflow it waits in. Another tenant's pauses are never listed without
 `allTenants`; an invalid query is a `ValidationError.DtoInvalid` (`dto: "PausesQuery"`). On the application the

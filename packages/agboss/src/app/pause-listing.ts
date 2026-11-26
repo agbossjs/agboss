@@ -37,9 +37,9 @@ async function listedOf(
 ): Promise<ListedPause> {
   const respondent = pauseRespondentOf(pause);
   return {
-    // the rule of `result.pending` (AC3): a Channel pause's id stays with its channel, unless the
-    // caller asked for ids (#1307e: an operator who may answer)
-    ...(respondent === PauseRespondent.Owner || includePauseIds ? { pauseId: pause.pauseId } : {}),
+    // a pause's id is its answer credential (AC3): shown only to a caller who asked for ids; a
+    // thread owner reads his own from `result.pending`, which is unchanged
+    ...(includePauseIds ? { pauseId: pause.pauseId } : {}),
     tenantId: pause.tenantId,
     respondent,
     step: pause.step,

@@ -181,7 +181,7 @@ describe("#943 AC1: listing pauses", () => {
     expect(keys).toHaveLength(30);
   });
 
-  test("AC1: a Channel pause: no pauseId, pauseKey set; a ThreadOwner one: pauseId", async ({
+  test("AC1: no listed pause has a pauseId by default (Channel or ThreadOwner), pauseKey set; result.pending still gives the owner's", async ({
     app,
   }) => {
     await open(app, managerFlow as never, "c1");
@@ -199,10 +199,13 @@ describe("#943 AC1: listing pauses", () => {
     expect(channel).not.toHaveProperty("pauseId");
     expect(channel).not.toHaveProperty("answeredBy");
     expect(thread).toMatchObject({
-      pauseId: owned.pending[0]?.pauseId,
       respondent: PauseRespondent.Owner,
       kind: PauseKind.ExternalTask,
     });
+    // H1: an Owner pause's id is a credential too (a thread without an ownerId is answered by it)
+    expect(thread).not.toHaveProperty("pauseId");
+    expect(owned.pending[0]?.pauseId).toBeTruthy();
+    expect(JSON.stringify(pauses)).not.toContain(owned.pending[0]?.pauseId ?? "never");
     for (const one of pauses) expectOpenShape(one);
     expect(JSON.stringify(channel)).not.toContain(sentId);
   });
@@ -431,7 +434,7 @@ describe("#943 AC1: listing pauses", () => {
     expect(await failureOf(app.listPauses({ target: Object }))).toBeInstanceOf(Error);
   });
 
-  test("#1307e AC3: pauseId of a delegated pause is shown only for includePauseIds: true, never in an error", async ({
+  test("#1307e AC3, H1: no pauseId (Owner or delegated) unless includePauseIds: true, then every item has one; never in an error", async ({
     app,
   }) => {
     await open(app, managerFlow as never, "c1");
@@ -443,10 +446,10 @@ describe("#943 AC1: listing pauses", () => {
     const shown = await allOf(app, { includePauseIds: true });
 
     for (const page of [byDefault, off]) {
-      expect(page.find((one) => one.respondent === PauseRespondent.Delegate)).not.toHaveProperty(
-        "pauseId",
-      );
+      expect(page).toHaveLength(2);
+      for (const one of page) expect(one).not.toHaveProperty("pauseId");
       expect(JSON.stringify(page)).not.toContain(sentId);
+      expect(JSON.stringify(page)).not.toContain(owned.pending[0]?.pauseId ?? "never");
     }
     expect(shown.find((one) => one.respondent === PauseRespondent.Delegate)?.pauseId).toBe(sentId);
     expect(shown.find((one) => one.respondent === PauseRespondent.Owner)?.pauseId).toBe(
