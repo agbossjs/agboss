@@ -545,7 +545,7 @@ describe("#943 AC1: listing pauses", () => {
       { tenantId: "tenant-a", status: PauseStatus.Taken },
       { tenantId: "tenant-a", expiringBefore: "2030-01-01T00:00:00Z" },
     ]) {
-      const error = await failureOf(app.listPauses({ ...other, cursor } as never));
+      const error = await failureOf(app.listPauses({ ...other, cursor }));
       expect(error, JSON.stringify(other)).toBeInstanceOf(ValidationError.DtoInvalid);
     }
     for (const forged of ["0", "1", "not-a-cursor", Buffer.from("{}").toString("base64url")]) {

@@ -146,7 +146,7 @@ function filterOf(query: object, statuses: readonly PauseStatus[]): PauseFilter 
   const field = (key: string): unknown => fieldOf(query, key);
   const target = targetOf(field("target"));
   const channel = channelOf(field("channel"));
-  const before = field("expiringBefore") as Date | string | undefined;
+  const before = instantOf(field("expiringBefore"));
   const [assignee, externalRef] = [field("assignee"), field("externalRef")] as (
     string | undefined
   )[];
@@ -154,7 +154,7 @@ function filterOf(query: object, statuses: readonly PauseStatus[]): PauseFilter 
     statuses,
     ...(target === undefined ? {} : { target }),
     ...(channel === undefined ? {} : { channel }),
-    ...(before === undefined ? {} : { expiresBefore: instantOf(before) as Date }),
+    ...(before === undefined ? {} : { expiresBefore: before }),
     ...(assignee === undefined ? {} : { assignee }),
     ...(externalRef === undefined ? {} : { externalRef }),
   };

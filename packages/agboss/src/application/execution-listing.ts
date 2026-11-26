@@ -62,16 +62,21 @@ export async function getExecutionIn(
   return tenantRead(tenantId, () => history.findByTenantIdAndExecutionId(tenantId, executionId));
 }
 
+/** The store's position inside the query's cursor, checked: a non-empty text of this very query. */
+function positionOf({ cursor }: ExecutionsQuery, hash: string): string | undefined {
+  if (cursor === undefined) return undefined;
+  if (typeof cursor !== "string" || cursor === "")
+    refused("cursor", "a cursor is the nextCursor of a page before: a non-empty text");
+  const opened = openedCursor(cursor, hash);
+  return opened.problem === undefined ? opened.storeCursor : refused("cursor", opened.problem);
+}
+
 /** The page window of a query, checked: its limit, cursor and time bounds. */
 function windowOf(query: ExecutionsQuery, hash: string): ExecutionHistoryQuery {
-  const { limit, cursor: given } = query;
+  const { limit } = query;
   if (limit !== undefined && !(Number.isInteger(limit) && limit >= 1 && limit <= MAX_LIMIT))
     refused("limit", `a page is a whole number of executions from 1 to ${String(MAX_LIMIT)}`);
-  if (given !== undefined && (typeof given !== "string" || given === ""))
-    refused("cursor", "a cursor is the nextCursor of a page before: a non-empty text");
-  const opened = given === undefined ? undefined : openedCursor(given, hash);
-  if (opened?.problem !== undefined) refused("cursor", opened.problem);
-  const cursor = opened?.storeCursor;
+  const cursor = positionOf(query, hash);
   return {
     from: boundOf("startedAfter", query.startedAfter, new Date(0)),
     to: boundOf("startedBefore", query.startedBefore, new Date("9999-12-31T23:59:59.999Z")),

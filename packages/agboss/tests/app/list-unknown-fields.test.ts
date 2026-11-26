@@ -28,9 +28,7 @@ describe("#1307e 21.3: unknown query fields are refused by every listing", () =>
     const app = await open();
     try {
       for (const field of ["after", "role", "offset", "workflw"]) {
-        const error = await rejection(
-          app.listExecutions({ tenantId: "acme", [field]: "x" } as never),
-        );
+        const error = await rejection(app.listExecutions({ tenantId: "acme", [field]: "x" }));
         expect(error, field).toBeInstanceOf(ValidationError.DtoInvalid);
         expect(error).toMatchObject({ dto: "ExecutionsQuery" });
         expect(JSON.stringify((error as ValidationError.DtoInvalid).issues)).toContain(field);
@@ -60,9 +58,7 @@ describe("#1307e 21.3: unknown query fields are refused by every listing", () =>
     try {
       for (const bad of ["5", "12", "Nov 26 2026", "2026-11-26T10:00", "2026-11-26", "", 5]) {
         for (const field of ["startedAfter", "startedBefore"]) {
-          const error = await rejection(
-            app.listExecutions({ tenantId: "acme", [field]: bad } as never),
-          );
+          const error = await rejection(app.listExecutions({ tenantId: "acme", [field]: bad }));
           expect(error, `${field} ${String(bad)}`).toBeInstanceOf(ValidationError.DtoInvalid);
         }
         const pauses = await rejection(
