@@ -21,6 +21,9 @@ import {
   span,
 } from "../flow/fixtures/pause-extension.fixture.js";
 
+/** A deadline as the record keeps it: ISO 8601 (`""`: none). */
+const isoOf = (at: Date | undefined): string => at?.toISOString() ?? "";
+
 const memory = testWith(ExtensionApplication, { instances: 3 });
 const ORDER = { orderId: "o-1" };
 const THREAD = { threadId: "remind-1" };
@@ -46,7 +49,7 @@ describe("#942 AC3: the reminder", () => {
       for (const app of apps) await app.ready();
       const paused = await execute(first(apps), managerFlow.start, ORDER, THREAD);
       const askedAt = clock.now().getTime();
-      const firstDeadline = paused.pending[0]?.expiresAt ?? "";
+      const firstDeadline = isoOf(paused.pending[0]?.expiresAt);
       expect((await pauseOf(first(apps)))?.remindAt).toBe(
         new Date(askedAt + hours(22)).toISOString(),
       );
@@ -113,15 +116,15 @@ describe("#942 AC3: the reminder", () => {
         ...THREAD,
         deadline: hours(10),
       });
-      const runDeadline = paused.pending[0]?.expiresAt ?? "";
+      const runDeadline = paused.pending[0]?.expiresAt ?? new Date(Number.NaN);
       expect((await pauseOf(app))?.remindAt).toBe(
-        new Date(Date.parse(runDeadline) - hours(2)).toISOString(),
+        new Date(runDeadline.getTime() - hours(2)).toISOString(),
       );
 
       await clock.advance(span(hours(8), seconds(10)));
       await until(() => expiring().length === 2);
 
-      for (const one of expiring()) expect(one.expiresAt).toBe(runDeadline);
+      for (const one of expiring()) expect(one.expiresAt).toBe(runDeadline.toISOString());
     },
   );
 

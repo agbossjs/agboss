@@ -1,3 +1,4 @@
+import { instantOf, isBeforeText, isDueAt } from "../infrastructure/pause-record-instants.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import { checkedCallers } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
@@ -63,7 +64,7 @@ export interface TimeoutParts extends Pick<AnswerParts, "owned"> {
 
 /** The pause open and not yet past its deadline, or why it is not. */
 async function assertOpen(parts: TimeoutParts, pause: PauseRecord): Promise<void> {
-  const isDue = pause.expiresAt !== undefined && pause.expiresAt <= parts.clock.now().toISOString();
+  const isDue = isDueAt(pause.expiresAt, parts.clock.now());
   if (pause.status !== PauseStatus.Pending || isDue)
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
 }
@@ -127,10 +128,10 @@ function assertWithinLimits(pause: PauseRecord, expiresAt: string | undefined): 
   if (limits.maxExtensions !== undefined && timeoutChangesOf(pause) >= limits.maxExtensions)
     throw limitExceeded(pause, "maxExtensions");
   const cap = limits.maxExpiresAt;
-  if (cap !== undefined && (expiresAt === undefined || expiresAt > cap))
+  if (cap !== undefined && (expiresAt === undefined || isBeforeText(cap, expiresAt)))
     throw limitExceeded(pause, "maxTotalTimeout");
   const { boundAt } = pause;
-  if (boundAt !== undefined && (expiresAt === undefined || expiresAt > boundAt))
+  if (boundAt !== undefined && (expiresAt === undefined || isBeforeText(boundAt, expiresAt)))
     throw limitExceeded(pause, "run or quorum deadline");
 }
 
@@ -185,7 +186,7 @@ async function permittedTarget(
 
 /** A calendar slower than the timeout: no other writer is to blame, and asking again would not help. */
 function assertAhead(pause: PauseRecord, expiresAt: string | undefined, at: Date): void {
-  if (expiresAt === undefined || expiresAt > at.toISOString()) return;
+  if (expiresAt === undefined || !isDueAt(expiresAt, at)) return;
   throw new PauseError.WorkingCalendar({
     message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: the deadline passed while the calendar was asked; use a longer timeout`,
   });
@@ -237,7 +238,7 @@ async function changedOnce(
     expiresAt,
   });
   return {
-    ...(expiresAt === undefined ? {} : { expiresAt: new Date(expiresAt) }),
-    ...(pause.expiresAt === undefined ? {} : { previousExpiresAt: new Date(pause.expiresAt) }),
+    ...(expiresAt === undefined ? {} : { expiresAt: instantOf(expiresAt) }),
+    ...(pause.expiresAt === undefined ? {} : { previousExpiresAt: instantOf(pause.expiresAt) }),
   };
 }

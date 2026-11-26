@@ -1,3 +1,4 @@
+import { instantOf } from "../infrastructure/pause-record-instants.js";
 import { definedFields } from "../core/defined-fields.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import type { PauseTarget } from "../flow/runtime/pause-channel.js";
@@ -53,7 +54,7 @@ export async function limitsOffered(
   const counts = countsOffered(to);
   if (span === undefined) return counts;
   const { add } = calendarOfTarget(parts, pause, to, assignees);
-  const maxExpiresAt = (await instantAfter(span, new Date(pause.firstAskedAt), add)).toISOString();
+  const maxExpiresAt = (await instantAfter(span, instantOf(pause.firstAskedAt), add)).toISOString();
   return { ...counts, maxExpiresAt };
 }
 

@@ -6,6 +6,7 @@ import type { StepRecord } from "../flow/context/execution-context.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 import type { PauseActor } from "../channels/pause-contexts.js";
 import { PauseResolution, pauseKeyOf, type PauseTrailRecord } from "./pause-record.js";
+import { instantOf, instantOfOptional, trailEntryOf } from "./pause-record-instants.js";
 import { PauseRespondent } from "../pause/respondent.js";
 
 const optionalText = z.string().optional();
@@ -45,6 +46,9 @@ export const StoredTrailEntry = z
       ...(reason === undefined ? {} : { reason }),
     };
   });
+
+/** One entry of a chain of custody as a public record holds it: its times as dates (JSON kept them as ISO 8601 texts). */
+export const StoredTrailEntryDated = StoredTrailEntry.transform(trailEntryOf);
 
 /**
  * The join keys a stored pause keeps of its waiting step (#268 S93), read back with defaults: a
@@ -156,14 +160,14 @@ export const PauseAnswerRecordSchema = z
     responder: z.never().optional(),
     asked: z.never().optional(),
     resolution: z.enum(PauseResolution),
-    askedAt: z.string(),
-    resolvedAt: optionalText,
+    askedAt: z.string().transform(instantOf),
+    resolvedAt: optionalText.transform(instantOfOptional),
     decision: z.unknown().optional(),
     input: z.unknown().optional(),
     toolCall: z.unknown().optional(),
     assignees: z.array(z.string()).optional(),
     externalRef: z.string().optional(),
-    trail: z.array(StoredTrailEntry),
+    trail: z.array(StoredTrailEntryDated),
     isTaken: z.literal(false).optional(),
   })
   .transform((stored): PauseAnswerRecord => ({

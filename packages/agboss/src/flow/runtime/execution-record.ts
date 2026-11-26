@@ -3,8 +3,8 @@ import type { ErrorRecord } from "../../core/error-record.js";
 import type { CostReport } from "../../finops/usage.js";
 import type { OutdatedValueRecord, ScopeValueRecord } from "./records.js";
 import type { ChildExecutionRecord } from "./child-records.js";
-import type { PauseActor } from "../../channels/pause-contexts.js";
-import type { PauseResolution, PauseTrailRecord } from "../../infrastructure/pause-record.js";
+import type { PauseActor, PauseTrailEntry } from "../../channels/pause-contexts.js";
+import type { PauseResolution } from "../../infrastructure/pause-record.js";
 import type { StepRecord } from "../context/execution-context.js";
 import type { ToolCallRecord } from "./tool-calls.js";
 import type { ExecutionStepRecord } from "./step-records.js";
@@ -69,9 +69,9 @@ export interface PauseAnswerRecord {
    */
   readonly actor: PauseActor | undefined;
   readonly resolution: PauseResolution;
-  /** When it was asked and resolved (ISO 8601, the application's `Clock`). */
-  readonly askedAt: string;
-  readonly resolvedAt: string | undefined;
+  /** When it was asked and resolved (the application's `Clock`). */
+  readonly askedAt: Date;
+  readonly resolvedAt: Date | undefined;
   /** What was decided, PII-masked; `undefined` when it was withdrawn or cancelled. */
   readonly decision: unknown;
   /**
@@ -87,7 +87,7 @@ export interface PauseAnswerRecord {
   /** The id its channel's system gave it (a ticket key), PII-masked. */
   readonly externalRef?: string;
   /** Its chain of custody, newest last, PII-masked: who opened and reassigned it, when, why. */
-  readonly trail: readonly PauseTrailRecord[];
+  readonly trail: readonly PauseTrailEntry[];
   /**
    * `false` when an answer was recorded and its run never applied it (its tree ended before the step
    * took it; I12): the answer and who gave it are kept. Absent: taken, or no answer.

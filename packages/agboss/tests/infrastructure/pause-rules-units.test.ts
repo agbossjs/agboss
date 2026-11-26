@@ -57,6 +57,7 @@ import {
 } from "../../src/infrastructure/pause-scans.js";
 import { pauseOf, questionPauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 import { PauseRespondent } from "../../src/pause/respondent.js";
+import { trailEntriesOf } from "../../src/infrastructure/pause-record-instants.js";
 
 const AT = new Date("2026-11-20T10:00:00.000Z");
 const T9 = "2026-11-20T09:00:00.000Z";
@@ -441,12 +442,12 @@ describe("#1356: the log entry of a pause's answer (#267 S107)", () => {
       resolution: PauseResolution.Replied,
       target: "refund-tool-approval",
       channel: "refund-approval-channel",
-      askedAt: "2026-01-05T09:00:00.000Z",
-      resolvedAt: T10,
+      askedAt: new Date("2026-01-05T09:00:00.000Z"),
+      resolvedAt: new Date(T10),
       decision: { approved: true },
       input: answered.input,
       toolCall: answered.toolCall,
-      trail: answered.trail,
+      trail: trailEntriesOf(answered.trail),
     });
     expect(entry.step).toMatchObject({
       nodeId: "clerk-agent",

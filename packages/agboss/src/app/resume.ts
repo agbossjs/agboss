@@ -1,3 +1,4 @@
+import { isDueAt } from "../infrastructure/pause-record-instants.js";
 import { assertNotExternallyPaused } from "./external-pause.js";
 import type { ExecutionLeases } from "./execution-leases.js";
 import { answerValidatorOf, type AnswerChecks } from "../channels/decision.js";
@@ -207,7 +208,7 @@ export async function recordedAnswer(
   const { tenantId } = pause;
   // refused at its deadline before the interpreter reads a reply or the tree is marked (#941, I2):
   // the store's compare-and-set is the final word
-  const isDue = pause.expiresAt !== undefined && pause.expiresAt <= parts.clock.now().toISOString();
+  const isDue = isDueAt(pause.expiresAt, parts.clock.now());
   if (pause.status !== PauseStatus.Pending || isDue)
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
   const { read, run } = await decisionOf(parts, pause, answerGivenBy(request));

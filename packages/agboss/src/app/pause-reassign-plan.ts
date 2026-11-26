@@ -1,3 +1,4 @@
+import { instantOf } from "../infrastructure/pause-record-instants.js";
 import { definedFields } from "../core/defined-fields.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import { canTakePausesOf, pauseTargetOf } from "../channels/pause-targets.js";
@@ -148,7 +149,7 @@ async function channelAfter(
     { input: pause.input, toolCall: pause.toolCall },
     {
       ...(opening.assignees === undefined ? {} : { assignees: opening.assignees }),
-      ...(opening.expiresAt === undefined ? {} : { expiresAt: new Date(opening.expiresAt) }),
+      ...(opening.expiresAt === undefined ? {} : { expiresAt: instantOf(opening.expiresAt) }),
       trail: pause.trail,
     },
   );

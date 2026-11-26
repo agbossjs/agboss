@@ -71,16 +71,30 @@ describe("#1366: a close's time and answer", () => {
       reason: PauseClosedReason.Cancelled,
     });
 
-    expect((await channelClosedOf(sources(answered, withClosed))).closedAt).toBe(CLOSED);
-    expect((await channelClosedOf(sources(answered, without))).closedAt).toBe(WRITTEN);
-    expect((await listenerClosedOf(sources(answered, withClosed), false)).closedAt).toBe(CLOSED);
-    expect((await listenerClosedOf(sources(answered, without), false)).closedAt).toBe(WRITTEN);
-    expect((await channelNotTakenOf(sources(answered, untaken(withClosed)))).at).toBe(CLOSED);
-    expect((await channelNotTakenOf(sources(answered, untaken(without)))).at).toBe(WRITTEN);
-    expect((await listenerNotTakenOf(sources(answered, untaken(withClosed)), false)).at).toBe(
+    expect((await channelClosedOf(sources(answered, withClosed))).closedAt.toISOString()).toBe(
       CLOSED,
     );
-    expect((await listenerNotTakenOf(sources(answered, untaken(without)), false)).at).toBe(WRITTEN);
+    expect((await channelClosedOf(sources(answered, without))).closedAt.toISOString()).toBe(
+      WRITTEN,
+    );
+    expect(
+      (await listenerClosedOf(sources(answered, withClosed), false)).closedAt.toISOString(),
+    ).toBe(CLOSED);
+    expect((await listenerClosedOf(sources(answered, without), false)).closedAt.toISOString()).toBe(
+      WRITTEN,
+    );
+    expect((await channelNotTakenOf(sources(answered, untaken(withClosed)))).at.toISOString()).toBe(
+      CLOSED,
+    );
+    expect((await channelNotTakenOf(sources(answered, untaken(without)))).at.toISOString()).toBe(
+      WRITTEN,
+    );
+    expect(
+      (await listenerNotTakenOf(sources(answered, untaken(withClosed)), false)).at.toISOString(),
+    ).toBe(CLOSED);
+    expect(
+      (await listenerNotTakenOf(sources(answered, untaken(without)), false)).at.toISOString(),
+    ).toBe(WRITTEN);
   });
 
   it("a close carries the answer only when it is answered or expired and an answer exists", async () => {
@@ -148,8 +162,8 @@ describe("#1366: deadlines", () => {
       expiresAt: "2026-02-01T00:00:00.000Z",
       previousExpiresAt: "2026-01-20T00:00:00.000Z",
     });
-    const deadline = { expiresAt: "2026-02-01T00:00:00.000Z" };
-    const both = { ...deadline, previousExpiresAt: "2026-01-20T00:00:00.000Z" };
+    const deadline = { expiresAt: new Date("2026-02-01T00:00:00.000Z") };
+    const both = { ...deadline, previousExpiresAt: new Date("2026-01-20T00:00:00.000Z") };
     expect(channelTimeoutChangedOf(sources(answered, extended))).toMatchObject(both);
     expect(await listenerTimeoutChangedOf(sources(answered, extended), false)).toMatchObject(both);
     expect(channelExpiringOf(sources(answered, extended))).toMatchObject(deadline);
@@ -173,8 +187,8 @@ describe("#1366: deadlines", () => {
     });
 
     for (const [one, expected] of [
-      [set, { expiresAt: "2026-02-01T00:00:00.000Z" }],
-      [taken, { previousExpiresAt: "2026-01-20T00:00:00.000Z" }],
+      [set, { expiresAt: new Date("2026-02-01T00:00:00.000Z") }],
+      [taken, { previousExpiresAt: new Date("2026-01-20T00:00:00.000Z") }],
     ] as const) {
       const channel = channelTimeoutChangedOf(sources(answered, one));
       const listener = await listenerTimeoutChangedOf(sources(answered, one), false);
@@ -230,8 +244,12 @@ describe("#1366: deadlines", () => {
     });
     const plain = notice({ kind: PauseNoticeKind.Opened });
 
-    expect((await listenerBaseOf(sources(pause, own), false)).expiresAt).toBe(own.expiresAt);
-    expect((await listenerOpenedOf(sources(pause, plain), false)).expiresAt).toBe(pause.expiresAt);
+    expect((await listenerBaseOf(sources(pause, own), false)).expiresAt?.toISOString()).toBe(
+      own.expiresAt,
+    );
+    expect((await listenerOpenedOf(sources(pause, plain), false)).expiresAt?.toISOString()).toBe(
+      pause.expiresAt,
+    );
     const none = await listenerOpenedOf(
       sources({ ...answered, expiresAt: undefined }, plain),
       false,

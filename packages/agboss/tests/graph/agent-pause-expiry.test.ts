@@ -121,7 +121,7 @@ describe("#941 AC5: an approval inside an agent expires", () => {
 
     const paused = await execute(app, AgentExpiryWorkflowStart, ORDER, THREAD);
 
-    expect(paused.pending[0]?.expiresAt).toBe(
+    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe(
       new Date(clock.now().getTime() + hours(4)).toISOString(),
     );
   });

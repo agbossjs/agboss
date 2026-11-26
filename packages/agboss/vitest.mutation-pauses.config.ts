@@ -13,9 +13,9 @@ export default defineConfig({
     setupFiles: ["./src/testing/setup.ts"],
     include: [
       "tests/infrastructure/store-conformance.in-memory.test.ts",
-      "tests/infrastructure/{pause-rules-units,pause-limits-stored,pause-mailboxes-units,pause-transitions-units,pause-reassign-transition-units,pause-store-units,pause-mailbox-store-units,recovery-log-repair,orphan-pauses,orphan-wakes,pause-record-kind,stored-pause-reading,recovery-wake-order}.test.ts",
+      "tests/infrastructure/{instants,pause-rules-units,pause-limits-stored,pause-mailboxes-units,pause-transitions-units,pause-reassign-transition-units,pause-store-units,pause-mailbox-store-units,recovery-log-repair,orphan-pauses,orphan-wakes,pause-record-kind,stored-pause-reading,recovery-wake-order}.test.ts",
       "tests/app/pause-{closed-error,decide-stale,expiry-*,extension,limits-stored,set-timeout,reassign-moved-extension,reassign-targets,reassignment*,reminders,working-time}.test.ts",
-      "tests/app/{tree-end-pauses,tree-end-pauses-units,list-pauses,pause-answer-log}.test.ts",
+      "tests/app/{tree-end-pauses,tree-end-pauses-units,list-pauses,pause-answer-log,pause-dates-public}.test.ts",
       "tests/metrics/pause-metrics.test.ts",
       // #1307, Q-D: where the limits are first written
       "tests/sweep-1366h/flow/pause-record-made-1366h.test.ts",

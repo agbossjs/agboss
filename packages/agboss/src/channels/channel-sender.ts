@@ -37,7 +37,7 @@ export interface ChannelSenderSend extends ChannelSenderAsk {
 /** A close as the framework builds it, typed per role by the channel's own signature. */
 export interface ChannelSenderClosed extends ChannelSenderAsk, PauseDeliveredEvent {
   readonly reason: PauseClosedReason;
-  readonly closedAt: string;
+  readonly closedAt: Date;
   readonly actor?: PauseActor;
   readonly answer?: unknown;
 }
@@ -45,15 +45,15 @@ export interface ChannelSenderClosed extends ChannelSenderAsk, PauseDeliveredEve
 /** An answer never applied, as the framework builds it. */
 export interface ChannelSenderNotTaken extends ChannelSenderAsk, PauseDeliveredEvent {
   readonly reason: PauseClosedReason.Cancelled | PauseClosedReason.TreeEnded;
-  readonly at: string;
+  readonly at: Date;
   readonly actor?: PauseActor;
   readonly answer: unknown;
 }
 
 /** A timeout change as the framework builds it (#942, #1307): each deadline absent when there is none. */
 export interface ChannelSenderTimeoutChanged extends ChannelSenderAsk, PauseDeliveredEvent {
-  readonly expiresAt?: string;
-  readonly previousExpiresAt?: string;
+  readonly expiresAt?: Date;
+  readonly previousExpiresAt?: Date;
   /** Who changed it; absent for the framework's own. */
   readonly actor?: PauseActor;
   /** Why, as the chain of custody keeps it (PII-masked). */
@@ -62,7 +62,7 @@ export interface ChannelSenderTimeoutChanged extends ChannelSenderAsk, PauseDeli
 
 /** A reminder as the framework builds it (#942). */
 export interface ChannelSenderExpiring extends ChannelSenderAsk, PauseDeliveredEvent {
-  readonly expiresAt: string;
+  readonly expiresAt: Date;
 }
 
 /** An in-place reassignment as the framework builds it (#1307d). */
@@ -73,8 +73,8 @@ export interface ChannelSenderReassigned extends ChannelSenderAsk, PauseDelivere
   readonly assignees?: readonly string[];
   readonly previousAssignees?: readonly string[];
   readonly externalRef?: string;
-  readonly expiresAt?: string;
-  readonly previousExpiresAt?: string;
+  readonly expiresAt?: Date;
+  readonly previousExpiresAt?: Date;
   readonly reason?: string;
 }
 
@@ -82,5 +82,5 @@ export interface ChannelSenderReassigned extends ChannelSenderAsk, PauseDelivere
 export interface ChannelSenderJoinFailed extends ChannelSenderAsk, PauseDeliveredEvent {
   readonly launch: string;
   readonly errorCode: string;
-  readonly at: string;
+  readonly at: Date;
 }

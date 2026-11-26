@@ -128,6 +128,6 @@ export interface PauseExpiredFacts {
   readonly channel?: string | undefined;
   /** What the pause waited for (`PauseKind`; `kind` is the variant's own). */
   readonly pauseKind?: PauseKind | undefined;
-  /** The deadline that passed (ISO 8601). */
-  readonly expiresAt?: string | undefined;
+  /** The deadline that passed; in the error's `details` an ISO 8601 text. */
+  readonly expiresAt?: Date | undefined;
 }

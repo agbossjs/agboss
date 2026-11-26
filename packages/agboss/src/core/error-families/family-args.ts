@@ -3,12 +3,15 @@ import type { VariantCommon, VariantSpec } from "./family.js";
 
 /** Plain JSON facts only (a text, a number, a boolean, a list of them): what a record keeps. */
 function detailsOf(facts: Readonly<Record<string, unknown>>): ErrorDetails {
+  // a `Date` fact is an ISO 8601 text on the record (G3: dates in memory, texts on the wire)
+  const asText = (value: unknown): unknown =>
+    value instanceof Date && !Number.isNaN(value.getTime()) ? value.toISOString() : value;
   const isPlain = (value: unknown): boolean =>
     value === null || ["string", "number", "boolean"].includes(typeof value);
   return Object.fromEntries(
-    Object.entries(facts).filter(
-      ([, value]) => isPlain(value) || (Array.isArray(value) && value.every(isPlain)),
-    ),
+    Object.entries(facts)
+      .map(([key, value]) => [key, asText(value)] as const)
+      .filter(([, value]) => isPlain(value) || (Array.isArray(value) && value.every(isPlain))),
   );
 }
 

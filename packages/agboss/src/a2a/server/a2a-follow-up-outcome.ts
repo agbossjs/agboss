@@ -28,7 +28,7 @@ export type KeptReply =
   | {
       readonly refused: "invalid-params" | "unsupported" | "not-found";
       readonly code: string;
-      /** `a2a.pause-closed`: why the pause closed, and when (ISO 8601). */
+      /** `a2a.pause-closed`: why the pause closed, and when (ISO 8601 on the wire). */
       readonly reason?: PauseClosedReason;
       readonly closedAt?: string;
     };
@@ -73,7 +73,7 @@ function refusedResume(error: unknown, isStillPending: boolean): KeptReply | und
       refused: "unsupported",
       code: PAUSE_CLOSED,
       reason: error.reason,
-      closedAt: error.closedAt,
+      closedAt: error.closedAt?.toISOString(),
     };
   // a thread-level miss: the tree no longer rests (a cancel dropped it) — no pause to name
   if (error instanceof NotPausedError)

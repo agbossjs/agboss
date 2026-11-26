@@ -19,7 +19,7 @@ const closed = () =>
     pauseId: "p-1",
     tenantId: "default",
     reason: PauseClosedReason.Answered,
-    closedAt: "2026-01-05T09:00:00.000Z",
+    closedAt: new Date("2026-01-05T09:00:00.000Z"),
   });
 
 function decisionWith(options: { resumed?: () => Promise<unknown>; ended?: boolean }) {

@@ -1,3 +1,4 @@
+import { timeText } from "./time-text.js";
 import type { ExpiryProblem, PauseClosedReason } from "../../infrastructure/pause-record.js";
 import { pauseKeyOf } from "../../infrastructure/pause-record.js";
 import type { WorkingCalendarProblem } from "../../calendar/working-calendar.js";
@@ -10,12 +11,12 @@ export const closedMessageOf = (
     readonly pauseId: string;
     readonly tenantId: string;
     readonly reason: PauseClosedReason;
-    readonly closedAt: string;
+    readonly closedAt: Date;
   }>,
 ): string =>
   facts.pauseId === undefined || facts.tenantId === undefined
     ? "the pause was closed before the answer came"
-    : `pause ${pauseKeyOf(facts.tenantId, facts.pauseId)} is closed: ${facts.reason ?? "closed"} at ${facts.closedAt ?? "an unknown time"}`;
+    : `pause ${pauseKeyOf(facts.tenantId, facts.pauseId)} is closed: ${facts.reason ?? "closed"} at ${timeText(facts.closedAt, "an unknown time")}`;
 
 /** What `PauseError.UpdateContended` says: the pause's key and how often the call lost. */
 export const updateContendedMessageOf = (

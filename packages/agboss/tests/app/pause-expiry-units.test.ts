@@ -43,6 +43,7 @@ const pause = (id: string, overrides: Record<string, unknown> = {}) => ({
   step: "desk-clerk-agent",
   kind: "external-task",
   ask: {},
+  trail: [],
   askedAt: "2026-01-01T00:00:00.000Z",
   expiresAt: "2026-01-01T11:00:00.000Z",
   expiryBound: PauseExpiryBound.Pause,

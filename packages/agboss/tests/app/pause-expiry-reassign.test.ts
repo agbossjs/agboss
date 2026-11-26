@@ -5,10 +5,11 @@
  * the tree resting paused all the while; a bad request, or a deadline already past, expires the
  * pause as `fail()`.
  */
-import { beforeEach, describe, expect } from "vitest";
+import { beforeEach, describe, expect, vi } from "vitest";
 import { PauseExpiration } from "../../src/channels/pause-expiration.js";
 import { ExecutionStatus, PauseResolution, PauseStatus } from "../../src/index.js";
-import { ExpiryProblem } from "../../src/infrastructure/pause-record.js";
+import { ExpiryProblem, NO_RECIPIENTS } from "../../src/infrastructure/pause-record.js";
+import { seenOf } from "../../src/infrastructure/pause-seen.js";
 import { testWith } from "../../src/testing/index.js";
 import { hours, minutes } from "../../src/units/index.js";
 import { execute } from "../helpers/flow.js";
@@ -122,5 +123,74 @@ describe("#1310a: an expiry reassigns the pause", () => {
       expiryProblem: ExpiryProblem.AnswerInvalid,
     });
     expect(all.some((one) => one.reassignedTo !== undefined)).toBe(false);
+  });
+
+  test("the store refuses the move while the pause is as it was planned: `failed` — it expires as fail(), not left for the next look", async ({
+    app,
+    clock,
+  }) => {
+    const paused = await execute(
+      app,
+      ExpiryWorkflowStart,
+      { orderId: "o-4" },
+      { threadId: "re-4" },
+    );
+    expiry.behavior = () => PauseExpiration.reassign({ assignees: ["d-1"], timeout: hours(2) });
+    vi.spyOn(expiryStore(), "reassignByTenantIdAndPauseId").mockResolvedValue(undefined);
+
+    await clock.advance(hours(24));
+    await until(() => expiry.asked.length === 1);
+    await clock.advance(minutes(1));
+
+    const [pause] = await expiryStore().findAllByTenantIdAndRootExecutionId(
+      "default",
+      paused.executionId,
+    );
+    expect(pause).toMatchObject({
+      status: PauseStatus.Cancelled,
+      resolution: PauseResolution.Expired,
+    });
+    expect(expiry.asked).toHaveLength(1);
+  });
+
+  test("the store refuses the move because another writer moved the deadline meanwhile: `lost` — the pause stays pending under that deadline", async ({
+    app,
+    clock,
+  }) => {
+    const paused = await execute(
+      app,
+      ExpiryWorkflowStart,
+      { orderId: "o-5" },
+      { threadId: "re-5" },
+    );
+    const store = expiryStore();
+    expiry.behavior = () => PauseExpiration.reassign({ assignees: ["d-1"], timeout: hours(2) });
+    vi.spyOn(store, "reassignByTenantIdAndPauseId").mockImplementation(async (...args) => {
+      const [tenantId, pauseId] = args;
+      const before = await store.findByTenantIdAndPauseId(tenantId, pauseId);
+      if (before === undefined) throw new Error("the pause is gone");
+      // an operator's change won the race: the same pause under a deadline a day later
+      await store.changeTimeoutByTenantIdAndPauseId(
+        tenantId,
+        pauseId,
+        {
+          seen: seenOf(before),
+          expiresAt: new Date(clock.now().getTime() + hours(24)).toISOString(),
+          previousExpiresAt: before.expiresAt,
+        },
+        new Date(Date.parse(before.expiresAt ?? "") - 1),
+        NO_RECIPIENTS,
+      );
+      return undefined;
+    });
+
+    await clock.advance(hours(24));
+    await until(() => expiry.asked.length === 1);
+    await clock.advance(minutes(1));
+
+    const [pause] = await store.findAllByTenantIdAndRootExecutionId("default", paused.executionId);
+    expect(pause?.status).toBe(PauseStatus.Pending);
+    expect(Date.parse(pause?.expiresAt ?? "")).toBeGreaterThan(clock.now().getTime());
+    expect(pause?.resolution).toBeUndefined();
   });
 });

@@ -508,7 +508,7 @@ after a crash — finds the same `pauseId`:
 
 An answer to anything but `Pending` → `PauseError.Closed` (`pause.closed`: `pauseId`, `tenantId`,
 `reason: PauseClosedReason` — `answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`,
-`reassigned` —, `closedAt`; its message names the pause by its `pauseKey`, never its id), checked
+`reassigned` —, `closedAt?: Date` (an ISO 8601 text in the error's `details`); its message names the pause by its `pauseKey`, never its id), checked
 before a reply's interpreter is called: a double click, a late answer to a withdrawn question. An
 answer that was recorded and then closed not taken is refused `answered`. `NotPausedError` stays for
 the thread-level paths only. Over [A2A](A2A) the same refusal is `-32004` with `a2a.pause-closed`. Each record also says how it was resolved (`PauseResolution`), with
@@ -564,7 +564,7 @@ resolved pause of the tree, in the order they were asked:
 | `target`, `respondent`  | the channel asked and who may answer                                                                                                                                                                             |
 | `actor`                 | who answered — the person: the `ownerId` / `actor` of `app.resume`; `undefined` when decided at once, withdrawn or cancelled (0.1.0's `responder` alias is gone, #1307d)                                         |
 | `resolution`            | `PauseResolution`                                                                                                                                                                                                |
-| `askedAt`, `resolvedAt` | ISO 8601, the application's `Clock`                                                                                                                                                                              |
+| `askedAt`, `resolvedAt` | `Date`, the application's `Clock`                                                                                                                                                                                 |
 | `decision`              | what was decided, masked by the application's PII policies; `undefined` when withdrawn or cancelled                                                                                                              |
 | `asked`                 | what was asked, masked (#688): an approval's call as the agent made it — its tool and own arguments, before any correction a reply made — or a question's ask; beside `decision` it makes every change auditable |
 
@@ -1019,7 +1019,7 @@ may answer `onExpired(ctx)` — `ctx` is an `ExpiredContext`: `input`, `expiresA
 latest instant the pause's stored `maxTotalTimeout` limit lets it wait until; absent: no such limit), `trail` — with:
 
 - `PauseExpiration.fail()` (the default without the method): the step fails with `StepError.PauseExpired`
-  (`step.pause-expired`: `step`, `stepKind`, `channel`, `kind`, `expiresAt`; never the pause's id) —
+  (`step.pause-expired`: `step`, `stepKind`, `channel`, `kind`, `expiresAt: Date`; never the pause's id) —
   `.onError(StepError.PauseExpired, …)` escalates, a question step's side path may ask the next person.
   Inside an agent an expired approval, or a question the agent asked as a tool, fails the whole
   **agent step**, its spend kept, and none of the move's calls ran;
@@ -1098,7 +1098,7 @@ export class DeskManagerChannel {
   // once per deadline, whatever the number of instances; at least once, so a chat message
   // that is sent twice must be harmless — deduplicate by event.deliveryId
   async onPauseExpiring(event: ChannelPauseExpiringEvent<DeskManagerExternalTask>): Promise<void> {
-    await this.chat.ask("manager", event.pauseId, `Order ${event.input.orderId}: answer by ${event.expiresAt}`);
+    await this.chat.ask("manager", event.pauseId, `Order ${event.input.orderId}: answer by ${event.expiresAt.toISOString()}`);
   }
 }
 
@@ -1116,7 +1116,7 @@ export class OnCallPauseListener implements ChannelListenerHandler {
   }
 
   async onPauseExpiring(event: ChannelListenerExpiringEvent): Promise<void> {
-    await this.chat.ask("on-call", event.pauseKey, `A ${event.channel} pause expires at ${event.expiresAt}`);
+    await this.chat.ask("on-call", event.pauseKey, `A ${event.channel} pause expires at ${event.expiresAt.toISOString()}`);
   }
 }
 ```
@@ -1429,7 +1429,7 @@ try {
   if (!(error instanceof PauseError.Closed)) throw error;
   const sorry =
     error.reason === PauseClosedReason.Expired
-      ? `Too late: the question closed at ${error.closedAt}`
+      ? `Too late: the question closed at ${error.closedAt?.toISOString() ?? "an unknown time"}`
       : error.reason === PauseClosedReason.Answered
         ? "Someone answered already"
         : `The question is closed (${error.reason})`;

@@ -30,7 +30,7 @@ const pauseIdOf = (): string => expiry.sent[0]?.pauseId ?? "";
 describe("#941 AC4: a late answer is refused: expired, with the deadline", () => {
   test("AC4: at expiresAt − 1 ms an answer is taken", async ({ app, clock }) => {
     const paused = await execute(app, ExpiryWorkflowStart, { orderId: "o-1" }, THREAD);
-    const deadline = Date.parse(paused.pending[0]?.expiresAt ?? "");
+    const deadline = paused.pending[0]?.expiresAt?.getTime() ?? Number.NaN;
     vi.spyOn(expiryStore(), "findPendingByExpiresAtBefore").mockResolvedValue([]);
 
     await clock.advance(seconds((deadline - clock.now().getTime() - 1) / 1000));

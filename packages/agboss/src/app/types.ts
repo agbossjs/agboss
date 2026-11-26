@@ -480,11 +480,11 @@ export interface ListedPause extends PendingPauseBase {
   readonly status: PauseStatus;
   readonly rootExecutionId: string;
   readonly threadId: string;
-  readonly askedAt: string;
-  readonly expiresAt?: string;
+  readonly askedAt: Date;
+  readonly expiresAt?: Date;
   /** Why a closed pause closed. */
   readonly reason?: PauseClosedReason;
-  readonly closedAt?: string;
+  readonly closedAt?: Date;
 }
 
 /** Which tree `app.auditLogOf` and `app.outboundCallsOf` read: the tenant's root execution. */

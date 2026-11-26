@@ -61,6 +61,8 @@ export const span = (...parts: readonly number[]): Milliseconds =>
 export const told = {
   /** Every extended / expiring notice, in order, redeliveries included. */
   notices: [] as Told[],
+  /** The timeout-changed and expiring events as the receivers got them (#1307, G3: their times are `Date`s). */
+  raw: [] as object[],
   /** Every ask the channels were sent. */
   sent: [] as ChannelAsk<ExtendManagerExternalTask>[],
   /** Every opened / closed notice a listener heard. */
@@ -80,6 +82,7 @@ export const told = {
 
 export function resetTold(): void {
   told.notices.length = 0;
+  told.raw.length = 0;
   told.sent.length = 0;
   told.other.length = 0;
   told.recorded.length = 0;
@@ -129,13 +132,14 @@ abstract class ExtendManagerChannelBase {
   onPauseTimeoutChanged(
     event: ChannelPauseTimeoutChangedEvent<ExtendManagerExternalTask>,
   ): Promise<void> {
+    told.raw.push(event);
     told.notices.push({
       receiver: "channel",
       kind: "timeout-changed",
       instance: this.context.instanceId,
       deliveryId: event.deliveryId,
-      expiresAt: event.expiresAt,
-      previousExpiresAt: event.previousExpiresAt,
+      expiresAt: event.expiresAt?.toISOString(),
+      previousExpiresAt: event.previousExpiresAt?.toISOString(),
       ...(event.actor === undefined ? {} : { actor: event.actor }),
       ...(event.reason === undefined ? {} : { reason: event.reason }),
     });
@@ -143,12 +147,13 @@ abstract class ExtendManagerChannelBase {
   }
 
   onPauseExpiring(event: ChannelPauseExpiringEvent<ExtendManagerExternalTask>): Promise<void> {
+    told.raw.push(event);
     told.notices.push({
       receiver: "channel",
       kind: "expiring",
       instance: this.context.instanceId,
       deliveryId: event.deliveryId,
-      expiresAt: event.expiresAt,
+      expiresAt: event.expiresAt.toISOString(),
     });
     return Promise.resolve();
   }
@@ -243,13 +248,14 @@ export class ExtensionPauseListener {
   }
 
   onPauseTimeoutChanged(event: ChannelListenerTimeoutChangedEvent): Promise<void> {
+    told.raw.push(event);
     told.notices.push({
       receiver: "listener",
       kind: "timeout-changed",
       instance: this.context.instanceId,
       deliveryId: event.deliveryId,
-      expiresAt: event.expiresAt,
-      previousExpiresAt: event.previousExpiresAt,
+      expiresAt: event.expiresAt?.toISOString(),
+      previousExpiresAt: event.previousExpiresAt?.toISOString(),
       ...(event.actor === undefined ? {} : { actor: event.actor }),
       ...(event.reason === undefined ? {} : { reason: event.reason }),
     });
@@ -257,12 +263,13 @@ export class ExtensionPauseListener {
   }
 
   onPauseExpiring(event: ChannelListenerExpiringEvent): Promise<void> {
+    told.raw.push(event);
     told.notices.push({
       receiver: "listener",
       kind: "expiring",
       instance: this.context.instanceId,
       deliveryId: event.deliveryId,
-      expiresAt: event.expiresAt,
+      expiresAt: event.expiresAt.toISOString(),
     });
     return Promise.resolve();
   }

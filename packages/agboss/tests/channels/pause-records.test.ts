@@ -102,8 +102,8 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
           respondent: PauseRespondent.Delegate,
           actor: { id: "manager-17" },
           resolution: PauseResolution.Replied,
-          askedAt: TEST_START,
-          resolvedAt: "2026-01-05T09:01:00.000Z",
+          askedAt: new Date(TEST_START),
+          resolvedAt: new Date("2026-01-05T09:01:00.000Z"),
           decision: { approved: false, reason: "ask <email>" },
           // #688: the call as asked, beside the decision on it
           input: { payee: "ann", amountCents: 1000 },
@@ -188,7 +188,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
           target: "transfer-tool-approval",
           actor: undefined,
           resolution: PauseResolution.Decided,
-          resolvedAt: TEST_START,
+          resolvedAt: new Date(TEST_START),
           decision: { approved: true },
         },
       ]);
@@ -295,7 +295,7 @@ describe("#267 S107: resolved pause records are kept retention.pauseRecords, the
       ]);
       expect(done.record?.pauses[0]).toMatchObject({
         actor: { id: "manager-17" },
-        askedAt: TEST_START,
+        askedAt: new Date(TEST_START),
       });
     },
   );

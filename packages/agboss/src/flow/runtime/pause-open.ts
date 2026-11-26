@@ -14,7 +14,7 @@ import {
 } from "../../calendar/calendar-call.js";
 import { rootFactsOf, type FrameSpec } from "../context/frame.js";
 import type { ChooseChannel, PauseChannel, PauseTarget, PendingOpening } from "./pause-channel.js";
-import { trailEntryOf } from "./pause-chain.js";
+import { trailEntryOf } from "../../infrastructure/pause-record-instants.js";
 import { assignedBy, resolvedTimeoutBy, type OpeningFacts } from "./pause-hooks.js";
 import type { OpeningHooks } from "./pause-record-facts.js";
 import { newRecordOf, type RemindAt } from "./pause-record-made.js";

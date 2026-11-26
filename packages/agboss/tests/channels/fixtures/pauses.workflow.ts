@@ -151,7 +151,7 @@ interface ClosedLike {
   readonly input: unknown;
   readonly reason: PauseClosedReason;
   readonly deliveryId: string;
-  readonly closedAt: string;
+  readonly closedAt: Date;
   readonly actor?: PauseActor | undefined;
   readonly answer?: unknown;
 }
@@ -177,7 +177,7 @@ async function recordClose(
     orderId: orderIdIn(event.input),
     reason: event.reason,
     deliveryId: event.deliveryId,
-    closedAt: event.closedAt,
+    closedAt: event.closedAt.toISOString(),
     ...(event.actor === undefined ? {} : { actor: event.actor }),
     answer: event.answer,
     executionId: executionContext.executionId,

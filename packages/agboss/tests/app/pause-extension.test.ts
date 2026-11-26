@@ -59,7 +59,7 @@ describe("#942 AC1: an operator extends an open approval", () => {
   test("AC1: extend: new deadline on the other instance; notices", async ({ apps, clock }) => {
     for (const app of apps) await app.ready();
     const paused = await execute(instance(apps, 0), managerFlow.start, ORDER, THREAD);
-    const oldDeadline = paused.pending[0]?.expiresAt ?? "";
+    const oldDeadline = paused.pending[0]?.expiresAt?.toISOString() ?? "";
     await clock.advance(hours(1));
 
     const extension = await instance(apps, 1).setPauseTimeout(
@@ -193,7 +193,7 @@ describe("#942 AC2: refused extensions", () => {
     clock,
   }) => {
     const paused = await execute(app, managerFlow.start, ORDER, THREAD);
-    const oldDeadline = paused.pending[0]?.expiresAt ?? "";
+    const oldDeadline = paused.pending[0]?.expiresAt?.toISOString() ?? "";
     await clock.advance(hours(1));
 
     const changed = await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(2) }, manager);
@@ -295,7 +295,7 @@ describe("#1307: Timeout.None takes the deadline away, a timeout sets one again"
     clock,
   }) => {
     const paused = await execute(app, managerFlow.start, ORDER, THREAD);
-    const oldDeadline = paused.pending[0]?.expiresAt ?? "";
+    const oldDeadline = paused.pending[0]?.expiresAt?.toISOString() ?? "";
 
     const changed = await app.setPauseTimeout(
       { pauseId: pauseIdOf(), timeout: Timeout.None },

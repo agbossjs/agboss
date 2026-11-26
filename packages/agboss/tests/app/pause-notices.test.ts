@@ -63,7 +63,7 @@ describe("#940: the events a receiver is told", () => {
       input: answered.input,
       toolCall: answered.toolCall,
       reason: PauseClosedReason.Answered,
-      closedAt: "2026-01-05T10:00:00.000Z",
+      closedAt: new Date("2026-01-05T10:00:00.000Z"),
       actor: { id: "manager-17" },
       answer: { approved: true, mail: "<email>" },
     });
@@ -87,7 +87,7 @@ describe("#940: the events a receiver is told", () => {
 
     expect(await channelNotTakenOf(sources(answered, untaken))).toMatchObject({
       reason: PauseClosedReason.TreeEnded,
-      at: "2026-01-05T10:00:00.000Z",
+      at: new Date("2026-01-05T10:00:00.000Z"),
       actor: { id: "manager-17" },
       answer: { mail: "<email>" },
     });

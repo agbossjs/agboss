@@ -493,7 +493,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ),
   ...reviewed("the application's configuration reading: no money decision", ["src/config/**"]),
   ...reviewed(
-    "the error families' declarations (#1325a): enums, types and a table of codes and sentences; their behaviour is `family.ts` and the hand-over guard `hand-over.ts`, both in the takeover shard; the sentences made of the facts of `ExecutionError` are `run-error-messages.ts`, message text only, asserted by tests/core/errors-units.test.ts; the pause errors' sentences are `pause-error-messages.ts`, asserted by tests/app/pause-closed-error.test-d.ts and tests/app/pause-extension-fresh-now.test.ts",
+    "the error families' declarations (#1325a): enums, types and a table of codes and sentences; their behaviour is `family.ts` and the hand-over guard `hand-over.ts`, both in the takeover shard; the sentences made of the facts of `ExecutionError` are `run-error-messages.ts`, message text only, asserted by tests/core/errors-units.test.ts; the pause errors' sentences are `pause-error-messages.ts`, asserted by tests/app/pause-closed-error.test-d.ts and tests/app/pause-extension-fresh-now.test.ts; the time a message names is `time-text.ts` (message text only, asserted by tests/core/error-details-dates.test.ts)",
     [
       "src/core/error-families/a2a-errors.ts",
       "src/core/error-families/config-error-messages.ts",
@@ -503,6 +503,7 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/core/error-families/limit-errors.ts",
       "src/core/error-families/outbound-call-errors.ts",
       "src/core/error-families/pause-errors.ts",
+      "src/core/error-families/time-text.ts",
       "src/core/error-families/remote-errors.ts",
       "src/core/error-families/pause-error-messages.ts",
       "src/core/error-families/run-error-facts.ts",

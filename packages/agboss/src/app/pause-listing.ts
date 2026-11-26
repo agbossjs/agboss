@@ -8,6 +8,7 @@ import {
   PauseStatus,
   type PauseRecord,
 } from "../infrastructure/pause-record.js";
+import { instantOf, trailEntriesOf } from "../infrastructure/pause-record-instants.js";
 import type { Page } from "./page.js";
 import type { ListedPause } from "./types.js";
 import { openedCursor, queryHashOf, sealedCursor } from "./query-cursor.js";
@@ -52,8 +53,8 @@ async function listedOf(
     status: pause.status,
     rootExecutionId: pause.rootExecutionId,
     threadId: pause.threadId,
-    askedAt: pause.askedAt,
-    ...(pause.expiresAt === undefined ? {} : { expiresAt: pause.expiresAt }),
+    askedAt: instantOf(pause.askedAt),
+    ...(pause.expiresAt === undefined ? {} : { expiresAt: instantOf(pause.expiresAt) }),
     ...closedPartOf(pause),
   };
 }
@@ -80,7 +81,7 @@ async function shownOf(
     ...(shown.toolCall === undefined ? {} : { toolCall: shown.toolCall }),
     ...(shown.assignees === undefined ? {} : { assignees: shown.assignees }),
     ...(shown.externalRef === undefined ? {} : { externalRef: shown.externalRef }),
-    trail: shown.trail,
+    trail: trailEntriesOf(shown.trail),
   };
 }
 
@@ -91,7 +92,7 @@ function closedPartOf(pause: PauseRecord): Pick<ListedPause, "reason" | "closedA
   const actor = pause.answer?.actor;
   return {
     reason: closedReasonOf(pause),
-    ...(closedAt === undefined ? {} : { closedAt }),
+    ...(closedAt === undefined ? {} : { closedAt: instantOf(closedAt) }),
     ...(actor === undefined ? {} : { actor }),
   };
 }

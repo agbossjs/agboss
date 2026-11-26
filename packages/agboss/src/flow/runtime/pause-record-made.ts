@@ -1,3 +1,4 @@
+import { compareText, isBeforeText } from "../../infrastructure/pause-record-instants.js";
 import { definedFields } from "../../core/defined-fields.js";
 import { executionsFromRootOf, type FrameSpec } from "../context/frame.js";
 import { idempotencyKeyOf } from "../context/idempotency.js";
@@ -79,9 +80,9 @@ export function boundedDeadlineOf(
     { at: own, bound: PauseExpiryBound.Pause },
   ].flatMap(({ at, bound }) => (at === undefined ? [] : [{ at, bound }]));
   // earliest first; on a tie the order above (run, quorum, own) decides
-  const [first] = [...bounds].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  const [first] = [...bounds].sort((a, b) => compareText(a.at, b.at));
   if (first === undefined) return {};
-  const [boundAt] = [run, quorum].flatMap((at) => (at === undefined ? [] : [at])).sort();
+  const [boundAt] = [run, quorum].filter((at) => at !== undefined).sort(compareText);
   return {
     expiresAt: first.at,
     expiryBound: first.bound,
@@ -173,7 +174,7 @@ async function addedReminderOf(
   const lead = expiresIn.amount - remindBefore.amount;
   if (expiresIn.unit !== remindBefore.unit || lead <= 0) return undefined;
   const remindAt = await add(at, { ...expiresIn, amount: lead });
-  return remindAt.getTime() > at.getTime() && remindAt.toISOString() < expiresAt
+  return remindAt.getTime() > at.getTime() && isBeforeText(remindAt.toISOString(), expiresAt)
     ? remindAt.toISOString()
     : undefined;
 }
@@ -194,7 +195,7 @@ async function openingDeadlineOf(
   const own = await ownDeadlineOf(expiresIn, at.now, at.add);
   // the target's total-wait limit caps the pause's own wait, never the run's or a quorum's bound
   const max = await ownDeadlineOf(target.escalationLimits?.maxTotalTimeout, at.now, at.add);
-  const isCapped = own !== undefined && max !== undefined && max < own;
+  const isCapped = own !== undefined && max !== undefined && isBeforeText(max, own);
   return { deadline: boundedDeadlineOf(frame, isCapped ? max : own), maxExpiresAt: max };
 }
 

@@ -1,6 +1,7 @@
 import type { PauseActor, PauseToolCallSummary } from "../channels/pause-contexts.js";
 import type { PauseNotice } from "../infrastructure/pause-notices.js";
-import type { PauseRecord } from "../infrastructure/pause-record.js";
+import { instantOf, trailEntriesOf } from "../infrastructure/pause-record-instants.js";
+import type { PauseRecord, PauseTrailRecord } from "../infrastructure/pause-record.js";
 import type { ChannelListenerEventBase } from "../pause/notice-events.js";
 
 /** What an event says of a pause's question and custody: split from `pause-notices.ts`. */
@@ -33,16 +34,15 @@ export async function listenedOf(
     assignees: pause.assignees,
     externalRef: pause.externalRef,
     trail: pause.trail,
-  })) as Pick<
-    ChannelListenerEventBase,
-    "input" | "toolCall" | "assignees" | "externalRef" | "trail"
-  >;
+  })) as Pick<ChannelListenerEventBase, "input" | "toolCall" | "assignees" | "externalRef"> & {
+    readonly trail: readonly PauseTrailRecord[];
+  };
   return {
     input: shown.input,
     ...(shown.toolCall === undefined ? {} : { toolCall: shown.toolCall }),
     ...(shown.assignees === undefined ? {} : { assignees: shown.assignees }),
     ...(shown.externalRef === undefined ? {} : { externalRef: shown.externalRef }),
-    trail: shown.trail,
+    trail: trailEntriesOf(shown.trail),
   };
 }
 
@@ -53,21 +53,21 @@ export const maskedActor = async (
 ): Promise<PauseActor> => (await sources.masked(actor)) as PauseActor;
 
 /** The deadline a notice names; a notice of a deadline always carries it (the store writes it). */
-export function deadlineOf(notice: PauseNotice): string {
+export function deadlineOf(notice: PauseNotice): Date {
   if (notice.expiresAt === undefined)
     throw new TypeError(`a ${notice.kind} notice names its deadline`);
-  return notice.expiresAt;
+  return instantOf(notice.expiresAt);
 }
 
 /** The deadlines a timeout change moved between; each is absent when the pause had, or has, none. */
 export function changedDeadlinesOf(notice: PauseNotice): {
-  readonly expiresAt?: string;
-  readonly previousExpiresAt?: string;
+  readonly expiresAt?: Date;
+  readonly previousExpiresAt?: Date;
 } {
   return {
-    ...(notice.expiresAt === undefined ? {} : { expiresAt: notice.expiresAt }),
+    ...(notice.expiresAt === undefined ? {} : { expiresAt: instantOf(notice.expiresAt) }),
     ...(notice.previousExpiresAt === undefined
       ? {}
-      : { previousExpiresAt: notice.previousExpiresAt }),
+      : { previousExpiresAt: instantOf(notice.previousExpiresAt) }),
   };
 }

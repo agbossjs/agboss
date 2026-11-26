@@ -7,13 +7,14 @@
  * moved to explicit instants; no machine zone is read.
  */
 import { beforeEach, describe, expect } from "vitest";
-import { PauseError, PauseStatus } from "../../src/index.js";
+import { PauseError, PauseStatus, WorkingCalendar } from "../../src/index.js";
+import type { WorkingCalendarContext } from "../../src/calendar/working-calendar.js";
 import { PauseExpiryBound } from "../../src/infrastructure/pause-record.js";
 import { PausedExecutionRepository } from "../../src/infrastructure/paused-execution.repository.js";
 import { callTool, testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
 import type { VirtualClock } from "../../src/testing/clock.js";
-import { hours, workingHours, workingMinutes } from "../../src/units/index.js";
+import { hours, seconds, workingHours, workingMinutes } from "../../src/units/index.js";
 import { WorkingWeek } from "../../src/index.js";
 import { execute } from "../helpers/flow.js";
 import { until } from "../channels/fixtures/pause-scripts.js";
@@ -60,7 +61,7 @@ describe("#944 AC1: the deadline in working time", () => {
 
     const paused = await execute(app, flow.start, ORDER, { threadId: "t-1" });
 
-    expect(paused.pending[0]?.expiresAt).toBe("2026-01-11T08:30:00.000Z");
+    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe("2026-01-11T08:30:00.000Z");
   });
 
   test("AC1: asked Sunday 12:30, across lunch → 15:30", async ({ app, clock }) => {
@@ -68,7 +69,7 @@ describe("#944 AC1: the deadline in working time", () => {
 
     const paused = await execute(app, flow.start, ORDER, { threadId: "t-1" });
 
-    expect(paused.pending[0]?.expiresAt).toBe("2026-01-11T13:30:00.000Z");
+    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe("2026-01-11T13:30:00.000Z");
   });
 
   test("AC1: the deadline is the stored absolute instant: every instance reads it, the pause expires there", async ({
@@ -119,7 +120,7 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     await moveTo(clock, "2026-01-11T07:31:00.000Z");
     await until(() => desk.told.expiring.length === 1);
 
-    expect(desk.told.expiring[0]?.expiresAt).toBe("2026-01-11T08:30:00.000Z");
+    expect(desk.told.expiring[0]?.expiresAt.toISOString()).toBe("2026-01-11T08:30:00.000Z");
   });
 
   test("AC4: setPauseTimeout by workingHours(8) is calendar.add(now, 8 h); its reminder 7 working hours from now", async ({
@@ -322,7 +323,7 @@ describe("#944: a role's own calendar over the application's", () => {
 
       const paused = await execute(app, newYork.start, ORDER, { threadId: "t-1" });
 
-      expect(paused.pending[0]?.expiresAt).toBe("2026-01-12T15:00:00.000Z");
+      expect(paused.pending[0]?.expiresAt?.toISOString()).toBe("2026-01-12T15:00:00.000Z");
     },
   );
 });
@@ -375,6 +376,75 @@ describe("#944: an agent's approval with a working-time deadline of its tool", (
       const [open] = (await app.resolve(PausedExecutionRepository).findOpenAfter(undefined, 10))
         .pauses;
       expect(open?.expiresAt).toBe("2026-01-12T08:00:00.000Z");
+    },
+  );
+});
+
+/** A calendar that takes ten seconds to answer once told to (a calendar call is bounded at thirty): the clock moves on while it is asked. */
+const slow = {
+  clock: undefined as VirtualClock | undefined,
+  isSlow: false,
+  /** What the slow calendar answers: the start plus this. */
+  answers: seconds(5),
+};
+
+@WorkingCalendar({ name: "wt-slow-calendar" })
+class SlowCalendar {
+  async addWorkingTime(request: WorkingCalendarContext): Promise<Date> {
+    if (!slow.isSlow) return new Date(request.from.getTime() + request.amount.amount);
+    await slow.clock?.advance(seconds(10));
+    return new Date(request.from.getTime() + slow.answers);
+  }
+}
+
+const slowDesk = workingApp("wt-slow", {
+  role: { expiresIn: workingHours(24), workingCalendar: SlowCalendar },
+  providers: [SlowCalendar],
+});
+const slowTest = testWith(slowDesk.application);
+
+describe("#1307: a change whose calendar answered after the deadline it computed", () => {
+  slowTest(
+    "is refused as PauseError.WorkingCalendar, the pause unchanged — not told as another writer's win",
+    async ({ app, clock }) => {
+      await app.ready();
+      slow.clock = clock;
+      await execute(app, slowDesk.start, ORDER, { threadId: "t-slow" });
+      const pauseId = slowDesk.told.sent.at(-1)?.pauseId ?? "";
+      const before = await pauseOf(app, pauseId);
+      // answers five seconds after the call began, ten seconds later
+      slow.answers = seconds(5);
+      slow.isSlow = true;
+
+      const refused: unknown = await app
+        .setPauseTimeout({ pauseId, timeout: workingHours(1) }, manager)
+        .catch((error: unknown) => error);
+      slow.isSlow = false;
+
+      expect(refused).toBeInstanceOf(PauseError.WorkingCalendar);
+      expect(refused).toMatchObject({
+        message: expect.stringContaining("the deadline passed while the calendar was asked"),
+      });
+      expect(await pauseOf(app, pauseId)).toEqual(before);
+    },
+  );
+
+  slowTest(
+    "a deadline the clock has not reached when the calendar answers is taken",
+    async ({ app, clock }) => {
+      await app.ready();
+      slow.clock = clock;
+      await execute(app, slowDesk.start, ORDER, { threadId: "t-slow-2" });
+      const pauseId = slowDesk.told.sent.at(-1)?.pauseId ?? "";
+      slow.isSlow = true;
+      const askedAt = clock.now();
+
+      // the calendar takes ten seconds and answers a minute after the call began: still ahead
+      slow.answers = seconds(60);
+      const changed = await app.setPauseTimeout({ pauseId, timeout: workingHours(4) }, manager);
+      slow.isSlow = false;
+
+      expect(changed.expiresAt?.getTime()).toBe(askedAt.getTime() + seconds(60));
     },
   );
 });

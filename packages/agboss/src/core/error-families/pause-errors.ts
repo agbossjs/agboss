@@ -56,8 +56,8 @@ export declare namespace PauseError {
     /** The tenant that has the pause: with the id it makes the `pauseKey` the message names. */
     readonly tenantId: string;
     readonly reason: PauseClosedReason;
-    /** When it closed (ISO 8601). */
-    readonly closedAt: string;
+    /** When it closed; in the error's `details` an ISO 8601 text. */
+    readonly closedAt?: Date | undefined;
   };
   /** The answer came from someone the pause does not wait for. */
   export type WrongRespondent = ErrorVariant<

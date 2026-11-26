@@ -8,6 +8,7 @@ import {
   PauseResolution,
   type PauseRecord,
 } from "./pause-record.js";
+import { instantOf, instantOfOptional, trailEntriesOf } from "./pause-record-instants.js";
 import { PauseRespondent } from "../pause/respondent.js";
 
 /**
@@ -69,8 +70,8 @@ function recordOf(
     respondent,
     actor,
     resolution,
-    askedAt: pause.askedAt,
-    resolvedAt: pause.resolvedAt,
+    askedAt: instantOf(pause.askedAt),
+    resolvedAt: instantOfOptional(pause.resolvedAt),
     decision: hasAnswer ? pause.answer?.decision : undefined,
     ...custodyOf(pause),
   };
@@ -84,7 +85,7 @@ const custodyOf = (
   ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
   ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
   ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
-  trail: pause.trail,
+  trail: trailEntriesOf(pause.trail),
 });
 
 /** Writes that a pause's answer was not taken into its tree's execution records (wins in any order). */

@@ -1,3 +1,4 @@
+import { instantOf } from "../infrastructure/pause-record-instants.js";
 import type { PauseChange } from "../flow/observers/pause-changes.js";
 import type { PauseRecord } from "../infrastructure/pause-record.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
@@ -56,8 +57,8 @@ export function toldTimeoutChanged(
       ...pauseChangeOf(pause),
       ...(previousExpiresAt === undefined
         ? {}
-        : { previousExpiresAt: new Date(previousExpiresAt) }),
-      ...(expiresAt === undefined ? {} : { expiresAt: new Date(expiresAt) }),
+        : { previousExpiresAt: instantOf(previousExpiresAt) }),
+      ...(expiresAt === undefined ? {} : { expiresAt: instantOf(expiresAt) }),
     }),
   );
 }
@@ -75,7 +76,7 @@ export function toldReassigned(
       ...(pause.channel === undefined ? {} : { previousChannel: pause.channel }),
       ...(replacement.expiresAt === undefined
         ? {}
-        : { expiresAt: new Date(replacement.expiresAt) }),
+        : { expiresAt: instantOf(replacement.expiresAt) }),
     }),
   );
 }

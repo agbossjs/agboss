@@ -1,3 +1,4 @@
+import { sameInstantText } from "../infrastructure/pause-record-instants.js";
 import type { ReassignExpiration } from "../channels/pause-expiration.js";
 import { isPauseTimeout } from "../channels/channel-rules.js";
 import type { PauseExpiry, PauseRecord } from "../infrastructure/pause-record.js";
@@ -122,7 +123,7 @@ async function refusedOnExpiry(
   const fresh = await stores.pauses.findByTenantIdAndPauseId(pause.tenantId, pause.pauseId);
   // a pause marked sent meanwhile is as it was planned for in all but that: the next look moves it
   return fresh?.status === PauseStatus.Pending &&
-    fresh.expiresAt === pause.expiresAt &&
+    sameInstantText(fresh.expiresAt, pause.expiresAt) &&
     fresh.isSent === pause.isSent
     ? "failed"
     : "lost";

@@ -1,3 +1,4 @@
+import { isBeforeText, isDueAt } from "../infrastructure/pause-record-instants.js";
 import { trailOf } from "../flow/runtime/pause-chain.js";
 import type { PauseTarget } from "../flow/runtime/pause-channel.js";
 import { checkedTimeout, resolvedTimeoutBy } from "../flow/runtime/pause-hooks.js";
@@ -46,9 +47,9 @@ function clamped(
   own: string | undefined,
   cap: string | undefined,
 ): { expiresAt?: string; expiryBound: PauseExpiryBound } {
-  const earlier = cap !== undefined && (own === undefined || cap < own) ? cap : own;
+  const earlier = cap !== undefined && (own === undefined || isBeforeText(cap, own)) ? cap : own;
   const { boundAt } = pause;
-  if (boundAt !== undefined && (earlier === undefined || boundAt < earlier))
+  if (boundAt !== undefined && (earlier === undefined || isBeforeText(boundAt, earlier)))
     return { expiresAt: boundAt, expiryBound: boundKindOf(pause) };
   return {
     ...(earlier === undefined ? {} : { expiresAt: earlier }),
@@ -73,8 +74,7 @@ export async function deadlineAfter(
   const { add, remind } = calendarOfTarget(parts, pause, to, assignees);
   const own = span === undefined ? undefined : (await instantAfter(span, now, add)).toISOString();
   const bound = clamped(pause, own, maxExpiresAt);
-  if (bound.expiresAt !== undefined && bound.expiresAt <= now.toISOString())
-    throw limitExceeded(pause, "maxTotalTimeout");
+  if (isDueAt(bound.expiresAt, now)) throw limitExceeded(pause, "maxTotalTimeout");
   return withReminder({ now, span, bound, to, calendar: { add, remind } });
 }
 

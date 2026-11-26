@@ -414,7 +414,7 @@ Who answered each pause, and how, is not an event of its own — it is in the ex
 (#267 S107): `result.record.pauses` (`{ includeRecord: true }` on `execute` / `resume`) lists every
 resolved pause of the tree in the order asked — `PauseAnswerRecord` (`pauseId` — none for a
 `PauseRespondent.Delegate` pause —, `step`, `role`, `answerer`, `actor` (the person), `resolution:
-PauseResolution`, `askedAt`, `resolvedAt`, `decision`),
+PauseResolution`, `askedAt`, `resolvedAt` (`Date`s), `decision`),
 the decision masked like the rest of the record ([Pauses → who answered](Pauses#who-answered-resultrecordpauses)).
 `onExecutionResume` still names each decision a pass takes and its `actor`. A reply
 interpreter's model call (#267 PR 3) is traced under the pause's execution (its tenant and root

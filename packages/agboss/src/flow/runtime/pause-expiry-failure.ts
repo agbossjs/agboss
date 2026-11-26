@@ -1,3 +1,4 @@
+import { instantOf, isBeforeText } from "../../infrastructure/pause-record-instants.js";
 import { StepError } from "../../core/error-families/step-errors.js";
 import { LimitError } from "../../core/error-families/limit-errors.js";
 import { PauseError } from "../../core/error-families/pause-errors.js";
@@ -62,7 +63,9 @@ export function isRunBound(pause: PauseRecord, runDeadlineAt: string | undefined
   if (effectiveBoundOf(pause) !== PauseExpiryBound.RunDeadline) return false;
   // a deadline recorded as the run's is the run's; only a tie of an extended pause is told apart
   if (pause.expiryBound === PauseExpiryBound.RunDeadline) return true;
-  return runDeadlineAt !== undefined && runDeadlineAt <= (pause.expiresAt ?? pause.askedAt);
+  return (
+    runDeadlineAt !== undefined && !isBeforeText(pause.expiresAt ?? pause.askedAt, runDeadlineAt)
+  );
 }
 
 /** The failure of a step whose pause expired. */
@@ -90,7 +93,7 @@ export function expiryFailureOf(pause: PauseRecord, site: ExpirySite): Error {
     target: pause.target,
     channel: pause.channel,
     pauseKind: pause.kind,
-    expiresAt,
+    expiresAt: instantOf(expiresAt),
     usage: site.usage,
     cause: causeOf(pause),
   });

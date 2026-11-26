@@ -7,6 +7,7 @@ import {
 } from "../infrastructure/paused-execution.repository.js";
 import { PauseKind, type WaitingPause } from "../pause/index.js";
 import { isApprovalPause, pauseRespondentOf } from "../infrastructure/pause-record.js";
+import { instantOf, trailEntriesOf } from "../infrastructure/pause-record-instants.js";
 import { finishedTaskIdsOf, runConfig } from "./paused.js";
 import { childGraphOf, waitingForOf } from "../flow/runtime/child-thread.js";
 
@@ -103,8 +104,8 @@ export function waitingPauseOf(pause: PauseRecord): WaitingPause {
     input: pause.input,
     ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
     ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
-    trail: pause.trail,
-    ...(pause.expiresAt === undefined ? {} : { expiresAt: pause.expiresAt }),
+    trail: trailEntriesOf(pause.trail),
+    ...(pause.expiresAt === undefined ? {} : { expiresAt: instantOf(pause.expiresAt) }),
   };
   return isApprovalPause(pause)
     ? { ...site, kind: PauseKind.Approval, toolCall: pause.toolCall }

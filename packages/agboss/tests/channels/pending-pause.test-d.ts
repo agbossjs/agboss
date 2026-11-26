@@ -9,7 +9,7 @@ import {
   type PendingQuestion,
   type PauseToolCallSummary,
 } from "../../src/index.js";
-import type { PauseTrailRecord } from "../../src/infrastructure/pause-record.js";
+import type { PauseTrailEntry } from "../../src/channels/pause-contexts.js";
 
 /**
  * The pause contract's types (#1307d): a pending pause says what it asks (`input`, an object, whatever
@@ -45,7 +45,7 @@ describe("AC1: a PendingPause is what it asks (`input`) and, for an approval, th
   it("who it is for, its external reference and its chain of custody are on every pending pause", () => {
     expectTypeOf<PendingPauseBase["assignees"]>().toEqualTypeOf<readonly string[] | undefined>();
     expectTypeOf<PendingPauseBase["externalRef"]>().toEqualTypeOf<string | undefined>();
-    expectTypeOf<PendingPauseBase["trail"]>().toEqualTypeOf<readonly PauseTrailRecord[]>();
+    expectTypeOf<PendingPauseBase["trail"]>().toEqualTypeOf<readonly PauseTrailEntry[]>();
   });
 });
 

@@ -54,7 +54,7 @@ describe("#712 AC1 / AC2: the agent's question call pauses like any pause", () =
         step: "buyer-agent",
         target: "approver-external-task",
         channel: "desk-approver-channel",
-        expiresAt: expect.any(String),
+        expiresAt: expect.any(Date),
         childExecutionId: undefined,
         itemIndex: undefined,
         // the requester is `sensitive`: masked in the record, the channel's ask and the result

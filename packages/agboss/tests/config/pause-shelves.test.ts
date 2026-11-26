@@ -34,13 +34,13 @@ describe("the external task shelf", () => {
   declared("declared: the pause waits a day", async ({ app, clock }) => {
     const paused = await execute(app, PurchaseWorkflowStart, { text: "laptop for 900" }, asking);
 
-    expect(paused.pending[0]?.expiresAt).toBe(at(clock, hours(24)));
+    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe(at(clock, hours(24)));
   });
 
   quick("a profile's timeout is the pause's deadline", async ({ app, clock }) => {
     const paused = await execute(app, PurchaseWorkflowStart, { text: "laptop for 900" }, asking);
 
-    expect(paused.pending[0]?.expiresAt).toBe(at(clock, hours(2)));
+    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe(at(clock, hours(2)));
   });
 });
 
@@ -49,14 +49,14 @@ describe("the tool approval shelf", () => {
     mockModel(ClerkAgent).thenReturn(callTool(RefundTool, { orderId: "A-1" }));
     const paused = await execute(app, RefundWorkflowStart, { text: "refund A-1" });
 
-    expect(paused.pending[0]?.expiresAt).toBe(at(clock, hours(4)));
+    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe(at(clock, hours(4)));
   });
 
   quick("a profile's timeout is the approval's deadline", async ({ app, clock, mockModel }) => {
     mockModel(ClerkAgent).thenReturn(callTool(RefundTool, { orderId: "A-1" }));
     const paused = await execute(app, RefundWorkflowStart, { text: "refund A-1" });
 
-    expect(paused.pending[0]?.expiresAt).toBe(at(clock, hours(1)));
+    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe(at(clock, hours(1)));
   });
 });
 

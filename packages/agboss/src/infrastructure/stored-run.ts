@@ -22,7 +22,7 @@ import {
   StoredToolCall,
 } from "./stored-record-parts.js";
 import { StoredPauseToolCall } from "./stored-pause.js";
-import { readStored, StoredComponent, StoredTrailEntry } from "./stored-step.js";
+import { readStored, StoredComponent, StoredTrailEntryDated } from "./stored-step.js";
 import { PauseRespondent } from "../pause/respondent.js";
 
 /**
@@ -122,7 +122,7 @@ const StoredWaiting = z
     toolCall: StoredPauseToolCall.optional(),
     assignees: z.array(text).optional(),
     externalRef: text.optional(),
-    trail: z.array(StoredTrailEntry),
+    trail: z.array(StoredTrailEntryDated),
   })
   .transform((stored, context): WaitingPause => {
     const { respondent, step, toolCall } = stored;

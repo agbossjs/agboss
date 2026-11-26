@@ -1886,7 +1886,7 @@ export interface PauseAnswer {
 // @public
 export interface PauseAnswerRecord {
     readonly actor: PauseActor | undefined;
-    readonly askedAt: string;
+    readonly askedAt: Date;
     readonly assignees?: readonly string[];
     readonly channel?: string;
     readonly decision: unknown;
@@ -1898,12 +1898,12 @@ export interface PauseAnswerRecord {
     // (undocumented)
     readonly resolution: PauseResolution;
     // (undocumented)
-    readonly resolvedAt: string | undefined;
+    readonly resolvedAt: Date | undefined;
     readonly respondent: PauseRespondent;
     readonly step: StepRecord;
     readonly target: string;
     readonly toolCall?: unknown;
-    readonly trail: readonly PauseTrailRecord[];
+    readonly trail: readonly PauseTrailEntry[];
 }
 
 // @public
@@ -2324,7 +2324,7 @@ export interface PendingPauseBase {
     readonly assignees?: readonly string[];
     readonly channel?: string;
     readonly childExecutionId: string | undefined;
-    readonly expiresAt?: string;
+    readonly expiresAt?: Date;
     readonly externalRef?: string;
     readonly input: Readonly<Record<string, unknown>>;
     readonly itemIndex: number | undefined;
@@ -2332,7 +2332,7 @@ export interface PendingPauseBase {
     readonly respondent: PauseRespondent;
     readonly step: string;
     readonly target: string;
-    readonly trail: readonly PauseTrailRecord[];
+    readonly trail: readonly PauseTrailEntry[];
 }
 
 // @public

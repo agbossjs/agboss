@@ -66,7 +66,7 @@ describe("#941 AC6: the run's deadline bounds a pause", () => {
       });
       expect(paused.status).toBe(ExecutionStatus.Paused);
       const expiresAt = new Date(clock.now().getTime() + minutes(5)).toISOString();
-      expect(paused.pending[0]?.expiresAt).toBe(expiresAt);
+      expect(paused.pending[0]?.expiresAt?.toISOString()).toBe(expiresAt);
 
       await clock.advance(minutes(5));
       await until(() => expiry.errors.length === 1);
@@ -162,7 +162,7 @@ describe("#941 AC6: the run's deadline bounds a pause", () => {
         { tenant: { tenantId: "acme" }, threadId: "child-deadline", deadline: minutes(5) },
       );
       const expiresAt = new Date(clock.now().getTime() + minutes(5)).toISOString();
-      expect(paused.pending[0]?.expiresAt).toBe(expiresAt);
+      expect(paused.pending[0]?.expiresAt?.toISOString()).toBe(expiresAt);
 
       await clock.advance(minutes(5));
       await until(() => seen.closed.length === 1);

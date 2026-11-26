@@ -66,7 +66,12 @@ async function refusedWith(run: Promise<unknown>) {
 }
 
 const closed = (reason: PauseClosedReason): PauseError.Closed =>
-  new PauseError.Closed({ pauseId: "p-1", tenantId: "acme", reason, closedAt: CLOSED_AT });
+  new PauseError.Closed({
+    pauseId: "p-1",
+    tenantId: "acme",
+    reason,
+    closedAt: new Date(CLOSED_AT),
+  });
 
 /** A script whose pause `p-1` waits (as the task's records say) and whose resume is refused as closed. */
 const refusing = (reason: PauseClosedReason): Script =>

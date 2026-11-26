@@ -129,7 +129,7 @@ describe("#1366: a pause with its own bound", () => {
     const error = expiryFailureOf(pause, siteOf());
 
     expect(error).toBeInstanceOf(StepError.PauseExpired);
-    expect((error as StepError.PauseExpired).expiresAt).toBe(EXPIRES);
+    expect((error as StepError.PauseExpired).expiresAt?.toISOString()).toBe(EXPIRES);
     expect((error as StepError.PauseExpired).channel).toBe("ops");
     expect((error as StepError.PauseExpired).cause).toBeInstanceOf(PauseError.ExpiryHandlerFailed);
     expect(
