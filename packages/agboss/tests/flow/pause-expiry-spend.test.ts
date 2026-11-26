@@ -84,7 +84,7 @@ describe("#1366: what a pause's expiry fails the step with", () => {
       site().site,
     );
 
-    expect(waited).toMatchObject({ deadline: 600_000, deadlineAt: AT });
+    expect(waited).toMatchObject({ deadline: 600_000, deadlineAt: new Date(AT) });
     expect(before).toMatchObject({ deadline: 0 });
   });
 });
