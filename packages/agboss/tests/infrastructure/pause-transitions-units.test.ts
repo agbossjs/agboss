@@ -15,7 +15,7 @@ import {
   remindChange,
   resolveChange,
 } from "../../src/infrastructure/pause-transitions.js";
-import { seenOf } from "../../src/infrastructure/pause-seen.js";
+import { isAsSeen, isSeenAs, seenOf } from "../../src/infrastructure/pause-seen.js";
 import { PauseNoticeKind } from "../../src/infrastructure/pause-notices.js";
 import {
   ExpiryProblem,
@@ -531,5 +531,134 @@ describe("#1356: when a closed record's retention is over", () => {
     expect(isExpiredPause(closed({ status: PauseStatus.Resolved }), AT)).toBe(false);
     expect(isExpiredPause(closed({ status: PauseStatus.Pending }), AT)).toBe(false);
     expect(isExpiredPause(closed({ resolvedAt: undefined }), AT)).toBe(false);
+  });
+});
+
+describe("#1307: the reassignment a first send owes its channel (inFirstSendNotices), and what `seen` compares", () => {
+  const entry = (action: "opened" | "reassigned", fields = {}) => ({
+    action,
+    at: T10,
+    target: "tier-one",
+    ...fields,
+  });
+  const changedInPlace = (fields: Partial<PauseRecord> = {}): PauseRecord =>
+    pending({
+      isSent: false,
+      expiresAt: T12,
+      assignees: ["deputy"],
+      trail: [
+        entry("opened", { channel: "refund", expiresAt: T11, assignees: ["clerk"] }),
+        entry("reassigned", { at: T9 }),
+      ],
+      ...fields,
+    });
+
+  it("a pause changed in place during its first send tells its channel and listeners `reassigned` after `opened`, from what the first entry holds", () => {
+    const told = markSentChange(changedInPlace(), RECIPIENTS).notices;
+
+    expect(told.map((one) => [one.recipient, one.notice.kind])).toEqual([
+      ["listener:metrics", PauseNoticeKind.Opened],
+      ["channel:refund", PauseNoticeKind.Reassigned],
+      ["listener:metrics", PauseNoticeKind.Reassigned],
+    ]);
+    expect(told[1]?.at).toEqual(new Date(T9));
+    expect(told[1]?.notice).toMatchObject({
+      expiresAt: T12,
+      previousExpiresAt: T11,
+      assignees: ["deputy"],
+      previousAssignees: ["clerk"],
+      previousTarget: "tier-one",
+      previousChannel: "refund",
+    });
+  });
+
+  it("no such notice for a pause never changed, one whose only entry is its own `opened`, a replacement, or one closed meanwhile", () => {
+    const kinds = (pause: PauseRecord) =>
+      markSentChange(pause, RECIPIENTS).notices.map((one) => one.notice.kind);
+
+    expect(kinds(pending({ isSent: false, trail: [entry("opened")] }))).toEqual(["opened"]);
+    expect(
+      kinds(pending({ isSent: false, trail: [entry("reassigned"), entry("opened")] })),
+    ).toEqual(["opened"]);
+    // an `opened` entry is never the change, and the first `reassigned` after it is, whatever lies between
+    const tripled = changedInPlace({
+      trail: [
+        entry("opened"),
+        { ...entry("opened"), action: "timeout-changed" as never },
+        entry("reassigned", { at: T9 }),
+      ],
+    });
+    expect(markSentChange(tripled, RECIPIENTS).notices[1]?.at).toEqual(new Date(T9));
+    expect(
+      markSentChange(
+        changedInPlace({ trail: [entry("reassigned"), entry("reassigned", { at: T9 })] }),
+        RECIPIENTS,
+      ).notices.map((one) => one.notice.kind),
+    ).toContain("reassigned");
+    expect(kinds(changedInPlace({ reassignedFrom: "p-0" }))).toEqual(["reassigned"]);
+    expect(kinds(changedInPlace({ status: PauseStatus.Cancelled }))).not.toContain("reassigned");
+  });
+
+  it("a pause is as seen only while each of trail length, assignees, deadline and isSent is the same", () => {
+    const pause = changedInPlace();
+    const seen = seenOf(pause);
+    const same = (other: Partial<PauseRecord>) => isAsSeen({ ...pause, ...other }, seen);
+
+    expect(same({})).toBe(true);
+    expect(same({ trail: [...pause.trail, entry("reassigned")] })).toBe(false);
+    expect(same({ expiresAt: T11 })).toBe(false);
+    expect(same({ isSent: true })).toBe(false);
+    expect(same({ assignees: ["other"] })).toBe(false);
+    expect(same({ assignees: ["deputy", "more"] })).toBe(false);
+    expect(same({ assignees: undefined })).toBe(false);
+    expect(
+      isAsSeen({ ...pause, assignees: undefined }, seenOf({ ...pause, assignees: undefined })),
+    ).toBe(true);
+    expect(isSeenAs(pause, undefined)).toBe(false);
+  });
+
+  it("`seen` names the assignees and the deadline only when the pause has them, and a longer, shorter or other pool is not the same pool", () => {
+    const bare = pending({ trail: [entry("opened")] });
+    const { assignees: noAssignees, expiresAt: noExpiresAt, ...rest } = bare;
+    const unset = { ...rest };
+
+    expect(noAssignees).toBeUndefined();
+    expect(noExpiresAt).toBeUndefined();
+    expect(seenOf(unset as PauseRecord)).toStrictEqual({ trailLength: 1, isSent: true });
+    const pooled = pending({ assignees: ["a"], expiresAt: T11 });
+    expect(seenOf(pooled)).toStrictEqual({
+      trailLength: pooled.trail.length,
+      isSent: true,
+      assignees: ["a"],
+      expiresAt: T11,
+    });
+    const asSeenWith = (
+      held: readonly string[] | undefined,
+      seenPool: readonly string[] | undefined,
+    ) =>
+      isAsSeen(
+        pending({ assignees: held }),
+        seenPool === undefined
+          ? { ...seenOf(pending()), assignees: undefined }
+          : { ...seenOf(pending()), assignees: seenPool },
+      );
+    expect(asSeenWith(["a"], ["a", "b"])).toBe(false);
+    expect(asSeenWith(["a", "b"], ["a"])).toBe(false);
+    expect(asSeenWith(["a", "x"], ["a", "y"])).toBe(false);
+    expect(asSeenWith(["a"], undefined)).toBe(false);
+    expect(asSeenWith(undefined, ["a"])).toBe(false);
+    expect(asSeenWith(["a", "b"], ["a", "b"])).toBe(true);
+  });
+
+  it("a channel's reference lands on the pause and its newest entry, and a send with none writes neither", () => {
+    const unsent = pending({ isSent: false, trail: [entry("opened")] });
+    const marked = markSentChange(unsent, RECIPIENTS, "JIRA-1").pause;
+    const plain = markSentChange(unsent, RECIPIENTS).pause;
+
+    expect(marked.externalRef).toBe("JIRA-1");
+    expect(marked.trail).toEqual([{ ...entry("opened"), externalRef: "JIRA-1" }]);
+    expect(plain).not.toHaveProperty("externalRef");
+    expect(plain.trail).toEqual(unsent.trail);
+    expect(markSentChange({ ...unsent, trail: [] }, RECIPIENTS, "JIRA-1").pause.trail).toEqual([]);
   });
 });
