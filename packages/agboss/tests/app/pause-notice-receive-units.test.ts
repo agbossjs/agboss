@@ -56,7 +56,7 @@ vi.mock("../../src/app/pause-notices.js", async (importOriginal) => ({
     return Promise.resolve("channel-closed-event");
   },
   channelNotTakenOf: () => Promise.resolve("channel-not-taken-event"),
-  channelExtendedOf: () => "channel-extended-event",
+  channelTimeoutChangedOf: () => "channel-extended-event",
   channelExpiringOf: () => "channel-expiring-event",
   listenerOpenedOf: (_sources: unknown, includePauseIds: boolean) =>
     Promise.resolve(`listener-opened-event:${String(includePauseIds)}`),
@@ -64,7 +64,7 @@ vi.mock("../../src/app/pause-notices.js", async (importOriginal) => ({
     Promise.resolve(`listener-closed-event:${String(includePauseIds)}`),
   listenerNotTakenOf: (_sources: unknown, includePauseIds: boolean) =>
     Promise.resolve(`listener-not-taken-event:${String(includePauseIds)}`),
-  listenerExtendedOf: (_sources: unknown, includePauseIds: boolean) =>
+  listenerTimeoutChangedOf: (_sources: unknown, includePauseIds: boolean) =>
     Promise.resolve(`listener-extended-event:${String(includePauseIds)}`),
   listenerExpiringOf: (_sources: unknown, includePauseIds: boolean) =>
     Promise.resolve(`listener-expiring-event:${String(includePauseIds)}`),

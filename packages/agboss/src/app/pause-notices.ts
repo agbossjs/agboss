@@ -18,7 +18,7 @@ import type { PauseNotice } from "../infrastructure/pause-notices.js";
 import type {
   ChannelSenderClosed,
   ChannelSenderExpiring,
-  ChannelSenderExtended,
+  ChannelSenderTimeoutChanged,
   ChannelSenderNotTaken,
 } from "../channels/channel-sender.js";
 import type {
@@ -137,8 +137,8 @@ export async function channelNotTakenOf(sources: EventSources): Promise<ChannelS
   };
 }
 
-/** The `extended` event of a channel (#942). */
-export function channelExtendedOf(sources: EventSources): ChannelSenderExtended {
+/** The `timeout-changed` event of a channel (#942). */
+export function channelTimeoutChangedOf(sources: EventSources): ChannelSenderTimeoutChanged {
   const { pause, notice, deliveryId } = sources;
   return {
     deliveryId,
@@ -223,8 +223,8 @@ export async function listenerNotTakenOf(
   };
 }
 
-/** The `extended` event of a listener (#942). */
-export async function listenerExtendedOf(
+/** The `timeout-changed` event of a listener (#942). */
+export async function listenerTimeoutChangedOf(
   sources: EventSources,
   includePauseIds: boolean,
 ): Promise<ChannelListenerTimeoutChangedEvent> {

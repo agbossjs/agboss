@@ -11,7 +11,7 @@ export interface ChannelSender {
   send(ask: ChannelSenderSend): Promise<unknown>;
   onPauseClosed?(event: ChannelSenderClosed): Promise<void>;
   onPauseAnswerNotTaken?(event: ChannelSenderNotTaken): Promise<void>;
-  onPauseTimeoutChanged?(event: ChannelSenderExtended): Promise<void>;
+  onPauseTimeoutChanged?(event: ChannelSenderTimeoutChanged): Promise<void>;
   onPauseExpiring?(event: ChannelSenderExpiring): Promise<void>;
   onPauseReassigned?(event: ChannelSenderReassigned): Promise<void>;
   onPauseJoinFailed?(event: ChannelSenderJoinFailed): Promise<void>;
@@ -51,7 +51,7 @@ export interface ChannelSenderNotTaken extends ChannelSenderAsk, PauseDeliveredE
 }
 
 /** A timeout change as the framework builds it (#942, #1307): each deadline absent when there is none. */
-export interface ChannelSenderExtended extends ChannelSenderAsk, PauseDeliveredEvent {
+export interface ChannelSenderTimeoutChanged extends ChannelSenderAsk, PauseDeliveredEvent {
   readonly expiresAt?: string;
   readonly previousExpiresAt?: string;
 }

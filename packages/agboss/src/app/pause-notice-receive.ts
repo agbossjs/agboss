@@ -17,13 +17,13 @@ import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
 import {
   channelClosedOf,
   channelExpiringOf,
-  channelExtendedOf,
+  channelTimeoutChangedOf,
   channelNotTakenOf,
   deliveryIdOf,
   hookOverridden,
   listenerClosedOf,
   listenerExpiringOf,
-  listenerExtendedOf,
+  listenerTimeoutChangedOf,
   listenerNotTakenOf,
   listenerOpenedOf,
   type EventSources,
@@ -64,7 +64,7 @@ type Hook = (sources: EventSources) => Promise<() => Promise<void>>;
 function laterChannelHook(sender: ChannelSender, kind: PauseNoticeKind): Hook | undefined {
   if (kind === PauseNoticeKind.TimeoutChanged && hookOverridden(sender, "onPauseTimeoutChanged"))
     return (sources) => {
-      const event = channelExtendedOf(sources);
+      const event = channelTimeoutChangedOf(sources);
       // Stryker disable next-line OptionalChaining: hookOverridden has seen that the sender's hook is a function
       return Promise.resolve(() => sender.onPauseTimeoutChanged?.(event) ?? Promise.resolve());
     };
@@ -110,7 +110,7 @@ function laterListenerHook(listener: ListenerReceiver, kind: PauseNoticeKind): H
   const { handler, includePauseIds } = listener;
   if (kind === PauseNoticeKind.TimeoutChanged && handler.onPauseTimeoutChanged !== undefined)
     return async (sources) => {
-      const event = await listenerExtendedOf(sources, includePauseIds);
+      const event = await listenerTimeoutChangedOf(sources, includePauseIds);
       // Stryker disable next-line OptionalChaining: the check above has seen that the handler's method is defined
       return () => handler.onPauseTimeoutChanged?.(event) ?? Promise.resolve();
     };

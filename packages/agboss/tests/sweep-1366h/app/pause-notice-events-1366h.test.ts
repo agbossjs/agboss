@@ -9,12 +9,12 @@ import { describe, expect, it } from "vitest";
 import {
   channelClosedOf,
   channelExpiringOf,
-  channelExtendedOf,
+  channelTimeoutChangedOf,
   channelNotTakenOf,
   listenerBaseOf,
   listenerClosedOf,
   listenerExpiringOf,
-  listenerExtendedOf,
+  listenerTimeoutChangedOf,
   listenerNotTakenOf,
   listenerOpenedOf,
 } from "../../../src/app/pause-notices.js";
@@ -148,8 +148,8 @@ describe("#1366: deadlines", () => {
     });
     const deadline = { expiresAt: "2026-02-01T00:00:00.000Z" };
     const both = { ...deadline, previousExpiresAt: "2026-01-20T00:00:00.000Z" };
-    expect(channelExtendedOf(sources(answered, extended))).toMatchObject(both);
-    expect(await listenerExtendedOf(sources(answered, extended), false)).toMatchObject(both);
+    expect(channelTimeoutChangedOf(sources(answered, extended))).toMatchObject(both);
+    expect(await listenerTimeoutChangedOf(sources(answered, extended), false)).toMatchObject(both);
     expect(channelExpiringOf(sources(answered, extended))).toMatchObject(deadline);
     expect(await listenerExpiringOf(sources(answered, extended), false)).toMatchObject(deadline);
 
@@ -174,8 +174,8 @@ describe("#1366: deadlines", () => {
       [set, { expiresAt: "2026-02-01T00:00:00.000Z" }],
       [taken, { previousExpiresAt: "2026-01-20T00:00:00.000Z" }],
     ] as const) {
-      const channel = channelExtendedOf(sources(answered, one));
-      const listener = await listenerExtendedOf(sources(answered, one), false);
+      const channel = channelTimeoutChangedOf(sources(answered, one));
+      const listener = await listenerTimeoutChangedOf(sources(answered, one), false);
       for (const event of [channel, listener]) {
         expect(event).toMatchObject(expected);
         expect(
