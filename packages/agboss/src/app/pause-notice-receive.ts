@@ -17,17 +17,16 @@ import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
 import {
   channelClosedOf,
   channelExpiringOf,
-  channelTimeoutChangedOf,
   channelNotTakenOf,
   deliveryIdOf,
   hookOverridden,
   listenerClosedOf,
   listenerExpiringOf,
-  listenerTimeoutChangedOf,
   listenerNotTakenOf,
   listenerOpenedOf,
   type EventSources,
 } from "./pause-notices.js";
+import { channelTimeoutChangedOf, listenerTimeoutChangedOf } from "./pause-timeout-events.js";
 
 /**
  * One notice told to one receiver (#940): the event built from the notice and the pause's record

@@ -54,6 +54,10 @@ export interface ChannelSenderNotTaken extends ChannelSenderAsk, PauseDeliveredE
 export interface ChannelSenderTimeoutChanged extends ChannelSenderAsk, PauseDeliveredEvent {
   readonly expiresAt?: string;
   readonly previousExpiresAt?: string;
+  /** Who changed it; absent for the framework's own. */
+  readonly actor?: PauseActor;
+  /** Why, as the chain of custody keeps it (PII-masked). */
+  readonly reason?: string;
 }
 
 /** A reminder as the framework builds it (#942). */

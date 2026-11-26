@@ -50,6 +50,8 @@ export interface Told {
   readonly deliveryId: string;
   readonly expiresAt?: string;
   readonly previousExpiresAt?: string;
+  readonly actor?: { readonly id: string };
+  readonly reason?: string;
 }
 
 /** The sum of durations, a duration: `span(hours(22), seconds(10))`. */
@@ -134,6 +136,8 @@ abstract class ExtendManagerChannelBase {
       deliveryId: event.deliveryId,
       expiresAt: event.expiresAt,
       previousExpiresAt: event.previousExpiresAt,
+      ...(event.actor === undefined ? {} : { actor: event.actor }),
+      ...(event.reason === undefined ? {} : { reason: event.reason }),
     });
     return Promise.resolve();
   }
@@ -246,6 +250,8 @@ export class ExtensionPauseListener {
       deliveryId: event.deliveryId,
       expiresAt: event.expiresAt,
       previousExpiresAt: event.previousExpiresAt,
+      ...(event.actor === undefined ? {} : { actor: event.actor }),
+      ...(event.reason === undefined ? {} : { reason: event.reason }),
     });
     return Promise.resolve();
   }

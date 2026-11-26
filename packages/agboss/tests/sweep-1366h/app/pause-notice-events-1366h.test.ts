@@ -9,15 +9,17 @@ import { describe, expect, it } from "vitest";
 import {
   channelClosedOf,
   channelExpiringOf,
-  channelTimeoutChangedOf,
   channelNotTakenOf,
   listenerBaseOf,
   listenerClosedOf,
   listenerExpiringOf,
-  listenerTimeoutChangedOf,
   listenerNotTakenOf,
   listenerOpenedOf,
 } from "../../../src/app/pause-notices.js";
+import {
+  channelTimeoutChangedOf,
+  listenerTimeoutChangedOf,
+} from "../../../src/app/pause-timeout-events.js";
 import {
   PauseClosedReason,
   PauseResolution,

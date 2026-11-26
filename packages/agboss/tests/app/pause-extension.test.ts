@@ -263,6 +263,32 @@ describe("#942 AC2: refused extensions", () => {
   });
 });
 
+describe("#1307: who changed the deadline and why reach the channel and the listener", () => {
+  test("actor and reason are on both events; a change without a reason carries none", async ({
+    app,
+  }) => {
+    await execute(app, managerFlow.start, ORDER, THREAD);
+
+    await app.setPauseTimeout(
+      { pauseId: pauseIdOf(), timeout: hours(30), reason: "customer escalated" },
+      manager,
+    );
+    await until(() => told.notices.filter((one) => one.kind === "timeout-changed").length === 2);
+    const first = told.notices.filter((one) => one.kind === "timeout-changed");
+    await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(31) }, manager);
+    await until(() => told.notices.filter((one) => one.kind === "timeout-changed").length === 4);
+    const second = told.notices.filter((one) => one.kind === "timeout-changed").slice(2);
+
+    expect(first.map((one) => one.receiver).sort()).toEqual(["channel", "listener"]);
+    for (const one of first)
+      expect(one).toMatchObject({ actor: { id: "manager-17" }, reason: "customer escalated" });
+    for (const one of second) {
+      expect(one.actor).toMatchObject({ id: "manager-17" });
+      expect(one.reason).toBeUndefined();
+    }
+  });
+});
+
 describe("#1307: Timeout.None takes the deadline away, a timeout sets one again", () => {
   test("no deadline, no reminder: the old deadline passes with the pause open; the channel and the listener are told only the deadline it had", async ({
     app,

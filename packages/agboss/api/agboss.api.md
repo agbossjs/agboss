@@ -1077,8 +1077,10 @@ export interface ChannelListenerReassignedEvent extends ChannelListenerEventBase
 
 // @public
 export interface ChannelListenerTimeoutChangedEvent extends ChannelListenerEventBase {
+    readonly actor?: PauseActor;
     readonly expiresAt?: string;
     readonly previousExpiresAt?: string;
+    readonly reason?: string;
 }
 
 // @public
@@ -1186,11 +1188,13 @@ export interface ChannelPauseReassignedEvent<TTarget> extends PauseDeliveredEven
 
 // @public
 export interface ChannelPauseTimeoutChangedEvent<TTarget> extends PauseDeliveredEvent {
+    readonly actor?: PauseActor;
     readonly expiresAt?: string;
     readonly input: PauseInputOf<TTarget>;
     // (undocumented)
     readonly pauseId: string;
     readonly previousExpiresAt?: string;
+    readonly reason?: string;
     readonly toolCall?: PauseToolCallSummary;
 }
 

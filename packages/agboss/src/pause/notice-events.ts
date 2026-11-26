@@ -65,6 +65,10 @@ export interface ChannelPauseTimeoutChangedEvent<TTarget> extends PauseDelivered
   readonly expiresAt?: string;
   /** The deadline it had (ISO 8601); absent: none. */
   readonly previousExpiresAt?: string;
+  /** Who changed it (`actor` of the call). */
+  readonly actor?: PauseActor;
+  /** Why, as the pause's chain of custody keeps it: masked by the workflow's PII policy. */
+  readonly reason?: string;
 }
 
 /** A pause this channel sent is about to expire (#942): `remindBefore` before its deadline. */
@@ -164,6 +168,10 @@ export interface ChannelListenerTimeoutChangedEvent extends ChannelListenerEvent
   readonly expiresAt?: string;
   /** The deadline it had (ISO 8601); absent: none. */
   readonly previousExpiresAt?: string;
+  /** Who changed it (`actor` of the call). */
+  readonly actor?: PauseActor;
+  /** Why, as the pause's chain of custody keeps it: masked by the workflow's PII policy. */
+  readonly reason?: string;
 }
 
 /** A pause is about to expire (#942): `remindBefore` before its deadline. */

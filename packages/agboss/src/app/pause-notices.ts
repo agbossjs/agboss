@@ -7,18 +7,11 @@ import {
   type PauseRecipients,
   type PauseRecord,
 } from "../infrastructure/pause-record.js";
-import {
-  askedOf,
-  deadlineOf,
-  listenedOf,
-  maskedActor,
-  changedDeadlinesOf,
-} from "./pause-notice-shape.js";
+import { askedOf, deadlineOf, listenedOf, maskedActor } from "./pause-notice-shape.js";
 import type { PauseNotice } from "../infrastructure/pause-notices.js";
 import type {
   ChannelSenderClosed,
   ChannelSenderExpiring,
-  ChannelSenderTimeoutChanged,
   ChannelSenderNotTaken,
 } from "../channels/channel-sender.js";
 import type {
@@ -26,7 +19,6 @@ import type {
   ChannelListenerClosedEvent,
   ChannelListenerEventBase,
   ChannelListenerExpiringEvent,
-  ChannelListenerTimeoutChangedEvent,
   ChannelListenerOpenedEvent,
 } from "../pause/notice-events.js";
 import { PauseRespondent } from "../pause/respondent.js";
@@ -137,17 +129,6 @@ export async function channelNotTakenOf(sources: EventSources): Promise<ChannelS
   };
 }
 
-/** The `timeout-changed` event of a channel (#942). */
-export function channelTimeoutChangedOf(sources: EventSources): ChannelSenderTimeoutChanged {
-  const { pause, notice, deliveryId } = sources;
-  return {
-    deliveryId,
-    pauseId: pause.pauseId,
-    ...askedOf(pause),
-    ...changedDeadlinesOf(notice),
-  };
-}
-
 /** The `expiring` event of a channel (#942). */
 export function channelExpiringOf(sources: EventSources): ChannelSenderExpiring {
   const { pause, notice, deliveryId } = sources;
@@ -221,16 +202,6 @@ export async function listenerNotTakenOf(
     ...(by === undefined ? {} : { actor: await maskedActor(sources, by) }),
     answer: await sources.masked(pause.answer?.decision),
   };
-}
-
-/** The `timeout-changed` event of a listener (#942). */
-export async function listenerTimeoutChangedOf(
-  sources: EventSources,
-  includePauseIds: boolean,
-): Promise<ChannelListenerTimeoutChangedEvent> {
-  const base = await listenerBaseOf(sources, includePauseIds);
-  const { notice } = sources;
-  return { ...base, ...changedDeadlinesOf(notice) };
 }
 
 /** The `expiring` event of a listener (#942). */

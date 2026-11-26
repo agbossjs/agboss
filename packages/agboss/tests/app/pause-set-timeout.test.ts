@@ -45,7 +45,12 @@ const told = {
   verdict: true as unknown,
   /** A first send waits for this to be released. */
   hold: undefined as Promise<void> | undefined,
-  changed: [] as { expiresAt?: string; previousExpiresAt?: string }[],
+  changed: [] as {
+    expiresAt?: string;
+    previousExpiresAt?: string;
+    actor?: { id: string };
+    reason?: string;
+  }[],
 };
 
 beforeEach(() => {
@@ -88,7 +93,12 @@ class GatedChannel {
     return ChannelOutcome.awaitReply();
   }
 
-  onPauseTimeoutChanged(event: { expiresAt?: string; previousExpiresAt?: string }): Promise<void> {
+  onPauseTimeoutChanged(event: {
+    expiresAt?: string;
+    previousExpiresAt?: string;
+    actor?: { id: string };
+    reason?: string;
+  }): Promise<void> {
     told.changed.push(event);
     return Promise.resolve();
   }
@@ -310,6 +320,11 @@ describe("the reason is masked by the pause's workflow's PII policy (#1307)", ()
     expect(entry?.reason).not.toContain(EMAIL);
     expect(JSON.stringify((await pauseOf(app, pauseId)).trail)).not.toContain(EMAIL);
     expect(told.permitted[0]?.reason).toContain(EMAIL);
+    // the channel is told the masked text, with who
+    await until(() => told.changed.length === 1);
+    expect(told.changed[0]?.reason).toBe(entry?.reason);
+    expect(JSON.stringify(told.changed)).not.toContain(EMAIL);
+    expect(told.changed[0]?.actor).toMatchObject({ id: "operator-1" });
   });
 });
 

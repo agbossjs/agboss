@@ -115,7 +115,7 @@ export function pausesSqliteShard() {
 export function pauseNoticesShard() {
   return {
     configFile: "vitest.mutation-pause-notices.config.ts",
-    mutate: ["src/app/pause-notice-*.ts"],
+    mutate: ["src/app/pause-notice-*.ts", "src/app/pause-timeout-events.ts"],
   };
 }
 
