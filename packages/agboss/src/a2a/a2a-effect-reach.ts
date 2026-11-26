@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { ApplicationOptions } from "../application/application.js";
 import { Idempotency } from "../app/idempotency.js";
 import { implementsContract } from "../components/container/registrations.js";
@@ -6,7 +7,6 @@ import { CONTEXT_TOKENS } from "../components/context-tokens.js";
 import { createdClassesOf, type Class, type Token } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { Clock, IdGenerator, StoreClock } from "../infrastructure/clock.js";
 import { CONTAINER_DEFAULTS } from "../infrastructure/contracts.js";
@@ -42,7 +42,7 @@ export function boundClassesOf(options: ApplicationOptions): readonly Class[] {
     createdClassesOf((list ?? []) as Parameters<typeof createdClassesOf>[0]);
   const workflows = withChildWorkflows(options.workflows).flatMap((workflow) => {
     const declared = declarationOf(workflow);
-    return declared?.kind === NodeKind.Workflow
+    return declared?.kind === ComponentKind.Workflow
       ? [...entries(declared.options.providers), ...entries(declared.options.services)]
       : [];
   });

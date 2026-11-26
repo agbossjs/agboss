@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { resolveTools, type AssembledWorkflow, type WorkflowServices } from "../workflow.js";
 import { DEFAULT_MAX_TOKENS, type Thinking } from "../config/types.js";
 import { memoryPlanOf, readerOf } from "../memory/plan.js";
@@ -6,7 +7,6 @@ import { reasoningLabel, reasoningOfThinking } from "../models/reasoning.js";
 import { flowLines } from "../flow/print.js";
 import { ModelKind } from "../models/model-kind.js";
 import { providerKindsOf } from "../models/resolution.js";
-import { NodeKind } from "../flow/ast.js";
 import { isCodeRouterNode } from "../flow/runtime/graph-model.js";
 import { childLines, inputLines } from "./inputs.js";
 import { recursionLines } from "./recursion.js";
@@ -91,7 +91,7 @@ function routerLines(bundle: AssembledWorkflow): string[] {
       `  ${router.name}  ${router.modelProvider !== undefined && kinds.get(router.modelProvider) === ModelKind.Decisions ? "decisions" : "llm"} ${router.model} ${routerModelSource(bundle, router)}${visitsLabel(router.maxVisits)} — ${router.description}`,
   );
   const code = [...bundle.graph.nodes.values()].flatMap((node) =>
-    node.declaration.kind === NodeKind.Router && isCodeRouterNode(node)
+    node.declaration.kind === ComponentKind.Router && isCodeRouterNode(node)
       ? [
           `  ${node.id}  code${visitsLabel(node.maxVisits)} — ${node.declaration.options.description}`,
         ]

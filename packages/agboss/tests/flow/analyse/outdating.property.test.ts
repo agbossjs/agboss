@@ -1,10 +1,11 @@
+import type { FlowNodeKind } from "../../../src/flow/ast.js";
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { inline, Ttl } from "../../../src/index.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowStartTextDto } from "../../../src/dto/standard/framework.js";
 import type { DtoClass } from "../../../src/dto/types.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { runDataflow, statesOf, type Dataflow } from "../../../src/flow/analyse/dataflow.js";
 import { resolveFields, type ResolvedField } from "../../../src/flow/analyse/fields.js";
 import {
@@ -82,7 +83,7 @@ const graphArbitrary: fc.Arbitrary<GraphSpec> = fc.integer({ min: 2, max: 4 }).c
 const named = (name: string): ComponentName => name as ComponentName;
 const slotOfDto = (dto: DtoClass): SlotKey => dto.name as SlotKey;
 
-function nodeOf(name: string, kind: NodeKind, component: Class): FlowNode {
+function nodeOf(name: string, kind: FlowNodeKind, component: Class): FlowNode {
   const declaration = declarationOf(component);
   if (declaration === undefined) throw new TypeError(`${name} is not decorated`);
   return { name: named(name), kind, component, declaration };
@@ -104,7 +105,7 @@ function agentNode(index: number, spec: AgentSpec): FlowNode {
   };
   @Agent(spec.readsEverything ? options : { ...options, input })
   class RandomAgent {}
-  return nodeOf(options.name, NodeKind.Agent, RandomAgent);
+  return nodeOf(options.name, ComponentKind.Agent, RandomAgent);
 }
 
 const START = "p-workflow-start";
@@ -142,8 +143,8 @@ function graphOf(spec: GraphSpec): FlowGraph {
     ),
   ];
   const nodes = [
-    nodeOf(START, NodeKind.Start, RandomWorkflowStart),
-    nodeOf(FINISH, NodeKind.Finish, RandomWorkflowFinish),
+    nodeOf(START, ComponentKind.WorkflowStart, RandomWorkflowStart),
+    nodeOf(FINISH, ComponentKind.WorkflowFinish, RandomWorkflowFinish),
     ...agents,
   ];
   return {
@@ -161,7 +162,7 @@ const workflowOptions = (() => {
   @Workflow({ name: "property-workflow", version: "1.0.0", historyTtl: Ttl.Forever, flow: [] })
   class PropertyWorkflow {}
   const declaration = declarationOf(PropertyWorkflow);
-  if (declaration?.kind !== NodeKind.Workflow) throw new TypeError("no workflow");
+  if (declaration?.kind !== ComponentKind.Workflow) throw new TypeError("no workflow");
   return declaration.options;
 })();
 
@@ -211,8 +212,9 @@ interface RunFindings {
 
 /** What a node reads: its fields, or every current value for an agent without `input` (rule 8). */
 function readsOf(run: Run, analysed: Analysed, node: FlowNode): readonly SlotKey[] {
-  if (node.kind === NodeKind.Start) return [];
-  return node.declaration.kind === NodeKind.Agent && node.declaration.options.input === undefined
+  if (node.kind === ComponentKind.WorkflowStart) return [];
+  return node.declaration.kind === ComponentKind.Agent &&
+    node.declaration.options.input === undefined
     ? run.currentSlots()
     : (analysed.fields.get(node.name) ?? []).map((field) => field.slot);
 }

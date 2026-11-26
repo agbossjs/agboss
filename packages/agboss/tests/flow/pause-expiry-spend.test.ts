@@ -44,7 +44,7 @@ function site() {
     usage,
     site: {
       step: "ask",
-      stepKind: ComponentKind.Question,
+      stepKind: ComponentKind.ExternalTask,
       state,
       usage,
       path: ["flow", "ask"],

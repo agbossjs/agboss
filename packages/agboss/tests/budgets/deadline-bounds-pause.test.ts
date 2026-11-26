@@ -192,7 +192,7 @@ describe("#941 V5: the step builds LimitError.Deadline itself when its own check
     }) as never;
   const place = (check: () => void) => ({
     step: "expiring-manager-external-task",
-    stepKind: ComponentKind.Question as const,
+    stepKind: ComponentKind.ExternalTask as const,
     state: [],
     usage: [],
     path: ["start", "expiring-manager-external-task"],

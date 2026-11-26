@@ -5,6 +5,7 @@
  * started on and a descendant on its workflow's own, and the application's clock and bound —
  * the built-in ones without.
  */
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { describe, expect, it, vi } from "vitest";
 import type { AppDeps } from "../../../src/app/app-deps.js";
 import {
@@ -12,7 +13,6 @@ import {
   undoSiteOf,
   type TreeUndoSites,
 } from "../../../src/app/compensation/tree-undo-sites.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { COMPENSATION_TIMEOUT, CompensationReason } from "../../../src/flow/compensation.js";
 import type { GraphDeps } from "../../../src/graph/deps.js";
 import { systemClock } from "../../../src/infrastructure/clock.js";
@@ -54,7 +54,7 @@ function depsNamed(
 const night = depsNamed("night-workflow", "3.0.0", {});
 const booking = depsNamed("booking-workflow", "2.0.0", {
   "night-workflow": {
-    kind: NodeKind.Workflow,
+    kind: ComponentKind.Workflow,
     component: { label: "night-workflow" },
   },
 });
@@ -66,12 +66,12 @@ const root = depsNamed(
   "1.0.0",
   {
     "booking-workflow": {
-      kind: NodeKind.Workflow,
+      kind: ComponentKind.Workflow,
       component: { label: "booking-workflow" },
     },
-    "desk-workflow": { kind: NodeKind.Workflow, component: DeskWorkflow },
-    "reserve-room-action": { kind: NodeKind.Action, component: Object },
-    "lost-workflow": { kind: NodeKind.Workflow, component: { label: "lost" } },
+    "desk-workflow": { kind: ComponentKind.Workflow, component: DeskWorkflow },
+    "reserve-room-action": { kind: ComponentKind.Action, component: Object },
+    "lost-workflow": { kind: ComponentKind.Workflow, component: { label: "lost" } },
   },
   { booking, night },
   DeskWorkflow,

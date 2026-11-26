@@ -1,5 +1,5 @@
+import { ComponentKind } from "../../runtime/records.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
 import { codeOfErrorClass, errorRecordOf, recordMatches } from "../../../core/error-record.js";
 import { LimitError } from "../../../core/error-families/limit-errors.js";
 import { usd } from "../../../units/index.js";
@@ -76,7 +76,7 @@ function widthViolations(context: AnalysisContext, launch: FlowLaunch): readonly
   const [branch] = launch.branches;
   // a child workflow takes its item through a start (`[graph.no-matching-start]`, #263)
   if (launch.form !== "for-each-item" || items === undefined || branch === undefined) return found;
-  if (branch.kind === NodeKind.Workflow) return found;
+  if (branch.kind === ComponentKind.Workflow) return found;
   const { element } = items;
   if (typeof element !== "function") return found;
   const reads = (context.fields.get(branch.node) ?? []).some(
@@ -130,7 +130,7 @@ function routerLaunchViolations(
   launch: FlowLaunch,
 ): readonly RuleViolation[] {
   const router = context.graph.nodes.get(launch.launcher);
-  if (router?.declaration.kind !== NodeKind.Router) return [];
+  if (router?.declaration.kind !== ComponentKind.Router) return [];
   // `toRouter(R).chooseMany([…])` (#1279b): the branches are R's routes, all chosen by it
   if (launch.chooser !== undefined)
     return routeSetViolations(router, router.declaration, launch.chooser.routes, CHOOSE_MANY);

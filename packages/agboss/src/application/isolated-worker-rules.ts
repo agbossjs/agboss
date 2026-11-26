@@ -1,4 +1,4 @@
-import { NodeKind } from "../flow/ast.js";
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { Class } from "../components/injection.js";
 import { ChildPlacement } from "../flow/child-placement.js";
 import {
@@ -31,7 +31,7 @@ export function isolatedChildrenOf(
   const children = new Set<Class>();
   for (const workflow of withChildWorkflows(options.workflows)) {
     const declaration = declarationOf(workflow);
-    if (declaration?.kind !== NodeKind.Workflow) continue;
+    if (declaration?.kind !== ComponentKind.Workflow) continue;
     for (const child of childWorkflowsOf(declaration.options.flow))
       if (
         placementOfWorkflow(child, applicationDefault, placements) === ChildPlacement.IsolatedWorker

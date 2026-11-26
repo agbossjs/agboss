@@ -1,7 +1,7 @@
+import { ComponentKind } from "./records.js";
 import type { ResolvedField } from "../analyse/fields.js";
 import type { ValueWrite } from "../analyse/flow-graph.js";
 import { slotOfField, slotOfWrite } from "../analyse/scope.js";
-import { NodeKind } from "../ast.js";
 import { isFieldMap } from "../decorators/declaration.js";
 import { Wrapper, type HistoryOf } from "../dto-wrappers.js";
 import { trackValue } from "../metadata.js";
@@ -50,7 +50,7 @@ export interface WriteSite {
 /** A map start's field values by their slot, so each field is found. */
 function startFieldValue(node: RuntimeNode, write: ValueWrite, given: NodeValue): unknown {
   const { declaration } = node;
-  if (declaration.kind !== NodeKind.Start) return given.value;
+  if (declaration.kind !== ComponentKind.WorkflowStart) return given.value;
   const { input } = declaration.options;
   if (!isFieldMap(input)) return given.value;
   const slot = slotOfWrite(write);

@@ -107,7 +107,7 @@ describe("#941 AC1: a pause nobody answers expires and the step fails", () => {
     expect(error).toMatchObject({
       code: "step.pause-expired",
       step: "expiring-short-manager-external-task",
-      stepKind: "question",
+      stepKind: "external-task",
       target: "expiring-short-manager-external-task",
       channel: "short-manager-expiry-channel",
       pauseKind: "external-task",

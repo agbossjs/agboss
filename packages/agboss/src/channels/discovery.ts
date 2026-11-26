@@ -1,6 +1,6 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { questionUsesOf, agentQuestionUsesOf } from "./question-uses.js";
 import { withChildWorkflows, flowClassesOf } from "../flow/analyse/child-workflow.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
@@ -64,10 +64,10 @@ function toolChannelOf(cls: Class): ToolChannel | undefined {
 /** The tools of the agents a workflow's flow names. */
 function toolsOfWorkflow(workflow: Class): readonly Class[] {
   const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow) return [];
+  if (declaration?.kind !== ComponentKind.Workflow) return [];
   return flowClassesOf(declaration.options.flow).flatMap((node) => {
     const agent = declarationOf(node);
-    return agent?.kind === NodeKind.Agent ? (agent.options.tools ?? []) : [];
+    return agent?.kind === ComponentKind.Agent ? (agent.options.tools ?? []) : [];
   });
 }
 

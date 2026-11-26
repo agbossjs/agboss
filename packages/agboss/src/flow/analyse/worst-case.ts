@@ -1,11 +1,10 @@
+import { ComponentKind } from "../runtime/records.js";
 import { itemBoundOf } from "./flow-graph.js";
-import { NodeKind } from "../ast.js";
 import { maxStepsOf } from "./steps.js";
 import type { ComponentName } from "../registry.js";
 import type { Class } from "../../components/injection.js";
 import { declarationOf } from "../decorators/declaration.js";
-import type { ExecutionLimitsOf } from "../decorators/workflow.js";
-import type { WorkflowExecutionLimits } from "../decorators/workflow.js";
+import type { ExecutionLimitsOf, WorkflowExecutionLimits } from "../decorators/workflow.js";
 import {
   EdgeKind,
   reachableFrom,
@@ -141,7 +140,7 @@ function widthOf(edge: FlowEdge): Width {
 /** The worst case of one execution of a child workflow: its worst start's. */
 function childCaseOf(workflow: Class, at: Place): WorstCase | undefined {
   const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow || at.above.includes(workflow)) return undefined;
+  if (declaration?.kind !== ComponentKind.Workflow || at.above.includes(workflow)) return undefined;
   const { graph } = walkFlow(declaration.options.flow, workflow);
   const below = { ...at, above: [...at.above, workflow], self: workflow, depth: at.depth + 1 };
   const cases = worstCasesBelow(graph, at.limitsOf(workflow), below);
@@ -171,7 +170,7 @@ function childrenFrom(
   const reached = reachableFrom([start], graph.edges);
   return graph.edges.reduce<ChildrenCase>((total, edge) => {
     const node = graph.nodes.get(edge.to);
-    if (!reached.has(edge.from) || node?.kind !== NodeKind.Workflow) return total;
+    if (!reached.has(edge.from) || node?.kind !== ComponentKind.Workflow) return total;
     const child =
       node.recursionOf === undefined
         ? childCaseOf(node.component, at)
@@ -230,7 +229,7 @@ function worstCaseFrom(
 /** A workflow class's `name`. */
 function workflowNameOf(workflow: Class): string {
   const declaration = declarationOf(workflow);
-  return declaration?.kind === NodeKind.Workflow ? declaration.options.name : workflow.name;
+  return declaration?.kind === ComponentKind.Workflow ? declaration.options.name : workflow.name;
 }
 
 /** The worst cases of a workflow at a place in the tree. */

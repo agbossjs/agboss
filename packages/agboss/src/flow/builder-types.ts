@@ -1,5 +1,6 @@
+import type { ErrorClass, FlowPath, SubPath } from "./ast.js";
+import type { ComponentKind } from "./runtime/records.js";
 import type { Class } from "../components/injection.js";
-import type { ErrorClass, FlowPath, NodeKind, SubPath } from "./ast.js";
 import type {
   GeneratedTypeError,
   InputOf,
@@ -52,25 +53,27 @@ export type SidePath = BuiltPath<SideHead>;
 
 /** How a message names each kind. */
 export interface KindLabels {
-  [NodeKind.Start]: "a workflow start";
-  [NodeKind.Finish]: "a workflow finish";
-  [NodeKind.Agent]: "an agent";
-  [NodeKind.Action]: "an action";
-  [NodeKind.Router]: "a router";
-  [NodeKind.Workflow]: "a workflow";
-  [NodeKind.Question]: "a question role";
+  [ComponentKind.WorkflowStart]: "a workflow start";
+  [ComponentKind.WorkflowFinish]: "a workflow finish";
+  [ComponentKind.Agent]: "an agent";
+  [ComponentKind.Action]: "an action";
+  [ComponentKind.Router]: "a router";
+  [ComponentKind.Workflow]: "a workflow";
+  [ComponentKind.ExternalTask]: "a question role";
 }
 
-export type KindLabel<TKind extends NodeKind> = KindLabels[TKind];
+export type KindLabel<TKind extends keyof KindLabels> = KindLabels[TKind];
 
 export interface WrongKind<TName extends string, TLabel extends string> {
   readonly __error: `${TName} is not ${TLabel}`;
 }
 
 /** `unknown` when the class is a branded component of the kind, else a readable error type. */
-export type KindCheck<TClass extends Class, TKind extends NodeKind, TLabel extends string> = [
-  NameOf<InstanceType<TClass>>,
-] extends [never]
+export type KindCheck<
+  TClass extends Class,
+  TKind extends keyof KindLabels,
+  TLabel extends string,
+> = [NameOf<InstanceType<TClass>>] extends [never]
   ? MissingGeneratedTypes
   : [KindOf<InstanceType<TClass>>] extends [never]
     ? WrongKind<NameOf<InstanceType<TClass>>, TLabel>
@@ -87,7 +90,11 @@ export type InputCheck<TInstance> = [InputOf<TInstance>] extends [GeneratedTypeE
   : unknown;
 
 /** A transition's target: the right kind, and an input the paths into it can fill. */
-export type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel extends string> =
+export type TargetCheck<
+  TClass extends Class,
+  TKind extends keyof KindLabels,
+  TLabel extends string,
+> =
   KindCheck<TClass, TKind, TLabel> extends infer TResult
     ? unknown extends TResult
       ? InputCheck<InstanceType<TClass>>
@@ -122,9 +129,9 @@ export type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInsta
   never,
 ]
   ? Transitions<THead>
-  : [KindOf<TInstance>] extends [NodeKind.Router]
+  : [KindOf<TInstance>] extends [ComponentKind.Router]
     ? RouterStep<THead, TInstance> & ChooseManyOf<THead, TInstance>
-    : [KindOf<TInstance>] extends [NodeKind.Start]
+    : [KindOf<TInstance>] extends [ComponentKind.WorkflowStart]
       ? ValueContinuation<ProducerOutputOf<TInstance>, THead>
       : ErrorHandling<TInstance, THead> &
           SkipOf<TInstance, THead> &
@@ -169,30 +176,33 @@ export type AfterValue<TValue, THead extends PathHead> = BuiltPath<THead> &
 
 export interface Transitions<THead extends PathHead> {
   toAgent<const TClass extends Class>(
-    target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>,
+    target: TClass & TargetCheck<TClass, ComponentKind.Agent, KindLabel<ComponentKind.Agent>>,
   ): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
   toRouter<const TClass extends Class>(
-    target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>,
+    target: TClass & TargetCheck<TClass, ComponentKind.Router, KindLabel<ComponentKind.Router>>,
   ): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
   toAction<const TClass extends Class>(
-    target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>,
+    target: TClass & TargetCheck<TClass, ComponentKind.Action, KindLabel<ComponentKind.Action>>,
   ): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
   toFinish<const TClass extends Class>(
-    target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>,
+    target: TClass &
+      TargetCheck<TClass, ComponentKind.WorkflowFinish, KindLabel<ComponentKind.WorkflowFinish>>,
   ): BuiltPath<NextHead<THead, InstanceType<TClass>>>;
   /**
    * A question role's step (#659): it reads the role's `ask` from the path, pauses on the role's
    * channel and gives its `answer`; `.onError(…)` right after takes a failed `send`.
    */
   toExternalTask<const TClass extends Class>(
-    target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>,
+    target: TClass &
+      TargetCheck<TClass, ComponentKind.ExternalTask, KindLabel<ComponentKind.ExternalTask>>,
   ): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
   /**
    * One child execution of `W` (#263) — the class, or `() => W` for one declared below (#1287, its own
    * `@Workflow` included): it enters through the start whose input takes the chain's value, gives one of its finishes' outputs — one class, or a `oneOf(…)` and a `.onFinish(F, …)` per finish — and its failure is caught by `.onError(…)` right after.
    */
   toWorkflow<const TRef extends TargetRef>(
-    target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>,
+    target: TRef &
+      TargetCheck<ClassOf<TRef>, ComponentKind.Workflow, KindLabel<ComponentKind.Workflow>>,
   ): AfterStep<InstanceType<ClassOf<TRef>>, NextHead<THead, InstanceType<ClassOf<TRef>>>>;
 }
 

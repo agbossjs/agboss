@@ -1,6 +1,7 @@
+import { ComponentKind } from "../../runtime/records.js";
 import type { Class } from "../../../components/injection.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind, type ChooseOneStep } from "../../ast.js";
+import type { ChooseOneStep } from "../../ast.js";
 import { declarationOf, type RouterDeclaration } from "../../decorators/declaration.js";
 import { isCodeRouter, routesOf } from "../../decorators/router.js";
 import type { FlowNode } from "../flow-graph.js";
@@ -105,12 +106,12 @@ function declarationRules(
 
 export function routerRules(context: AnalysisContext): readonly RuleViolation[] {
   const routers = [...context.graph.nodes.values()].flatMap((node) =>
-    node.declaration.kind === NodeKind.Router ? [{ node, declaration: node.declaration }] : [],
+    node.declaration.kind === ComponentKind.Router ? [{ node, declaration: node.declaration }] : [],
   );
   const choices = context.walked.choices.flatMap((site): readonly RuleViolation[] => {
     const node = context.graph.nodes.get(site.node);
     if (node === undefined) return [];
-    if (node.declaration.kind === NodeKind.Router)
+    if (node.declaration.kind === ComponentKind.Router)
       return choiceViolations(node, node.declaration, site);
     const message = `${node.name} is not a router — .onRoute(…) follows .toRouter(…) or onRouter(…)`;
     return [violation("graph.choose-from-non-router", message, [node.name])];

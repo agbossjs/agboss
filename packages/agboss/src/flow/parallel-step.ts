@@ -1,6 +1,7 @@
+import type { FlowNodeKind } from "./ast.js";
+import { ComponentKind } from "./runtime/records.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import {
-  NodeKind,
   StepKind,
   type ErrorClass,
   type ForEachItemStep,
@@ -44,15 +45,15 @@ export const isSkip = (value: unknown): value is Skip =>
 const syntaxError = (message: string): ConfigError.FlowSyntax =>
   new ConfigError.FlowSyntax({ message });
 
-const PARALLEL_KINDS: readonly NodeKind[] = [
-  NodeKind.Agent,
-  NodeKind.Action,
-  NodeKind.Workflow,
-  NodeKind.Question,
-  NodeKind.Router,
+const PARALLEL_KINDS: readonly FlowNodeKind[] = [
+  ComponentKind.Agent,
+  ComponentKind.Action,
+  ComponentKind.Workflow,
+  ComponentKind.ExternalTask,
+  ComponentKind.Router,
 ];
 
-const isParallelKind = (kind: NodeKind): kind is ParallelTargetKind =>
+const isParallelKind = (kind: FlowNodeKind): kind is ParallelTargetKind =>
   PARALLEL_KINDS.includes(kind);
 
 /** How the builder turns what it was given into a branch's path (a side path), or throws. */
@@ -72,7 +73,7 @@ export function chosenStepOf(
   branchOf: BranchOf,
 ): ToStep {
   const call = ".chooseMany([…])";
-  if (!isSubPath || last?.kind !== StepKind.To || last.targetKind !== NodeKind.Router)
+  if (!isSubPath || last?.kind !== StepKind.To || last.targetKind !== ComponentKind.Router)
     throw syntaxError(`${call} stands right after toRouter(R), in a branch of .inParallel([…])`);
   if (last.skip !== undefined || last.chooses !== undefined)
     throw syntaxError(`${call} stands once, right after toRouter(R)`);
@@ -81,7 +82,7 @@ export function chosenStepOf(
   const chosen = (branches as readonly unknown[]).map((branch) =>
     parallelBranchOf(branch, call, branchOf),
   );
-  if (chosen.some((branch) => branch.targetKind === NodeKind.Router))
+  if (chosen.some((branch) => branch.targetKind === ComponentKind.Router))
     throw syntaxError(`${call}: a router is no branch of a router's choice`);
   return { ...last, chooses: Object.freeze(chosen) };
 }
@@ -110,7 +111,7 @@ export function skippedStepOf({ last, isSubPath }: BranchSite, error: ErrorClass
 
 /** Why the one step of a branch cannot be one, when it cannot. */
 function stepProblem(step: ToStep): string | undefined {
-  if ((step.targetKind === NodeKind.Router) !== (step.chooses !== undefined))
+  if ((step.targetKind === ComponentKind.Router) !== (step.chooses !== undefined))
     return "a router is a branch as toRouter(R).chooseMany([…]), and only a router has chooseMany";
   return step.chooses !== undefined && step.skip !== undefined
     ? "a router's choice takes no skip()"

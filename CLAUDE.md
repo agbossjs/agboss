@@ -1652,7 +1652,7 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   `channel`, a re-entry never asks the selector again, and a selector that fails or names a class serving no channel of the
   target makes no pause (`ChannelSelectError`). A pause record has `target`, `channel?`, `respondent`; `PauseKind.Approval` /
   `PauseKind.ExternalTask`. **External tasks (#659):** a workflow question asked by a flow step — `.toExternalTask(Task)`
-  (`onExternalTask(Task)` for its own path; `NodeKind.Question`, the task its node; `maxVisits` its limit on a cycle): the step
+  (`onExternalTask(Task)` for its own path; `ComponentKind.ExternalTask`, the task its node; `maxVisits` its limit on a cycle): the step
   reads one `AskDto` from the path (its field `ask`, #802), asks the task's channel through the pause seam like an
   approval (`result.pending[i].kind === PauseKind.ExternalTask`, `input` the masked question, `step` the step; the record's `kind` is
   `PauseKind.ExternalTask`, stored, its `component.kind` `external-task`, no `callId`), and puts the answer on the path —
@@ -1716,7 +1716,7 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   `startedVersion`, `configHash`, no class); node events (agent, router, tool, model, knowledge base, guardrail,
   action, channel, judge, `onValuesOutdated`, `onLaunchItemsTruncated`,
   `onQuorumDecided`) add `step`
-  (`StepRecord`: `component` — its `ComponentRecord`, `{ name, kind, promptHash, schemaHash }`,
+  (`StepRecord`: `component` — its `ComponentRecord`, `{ name, kind, promptHash, schemaHash }`, `kind` a `ComponentKind`, the one enum of all 41 component kinds, each the kebab-case name of its decorator: `ExternalTask` is `external-task`, `ChannelInterpreter` `channel-interpreter`; `NodeKind` is gone, the flow engine's internal `FlowNodeKind` is the union of its seven flow kinds,
   the join keys of `describe --json` (#268 S93) —, `nodeId`, `visitNumber`, `copyNumber`,
   `itemIndex`, `idempotencyKey`, `callId`, `toolLoopIteration` (an agent's model call in the visit,
   from 1, during it and its move's tool calls), `validationAttempts` (its answers and tool arguments

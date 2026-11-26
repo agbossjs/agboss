@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { declaredExecutionLimitsOf } from "../../../src/flow/decorators/workflow.js";
 /**
  * #1366: the steps a flow's worst case counts against its `maxSteps` — the most steps of the flow when they fit
@@ -6,7 +7,6 @@ import { declaredExecutionLimitsOf } from "../../../src/flow/decorators/workflow
  */
 import { describe, expect, it } from "vitest";
 import { worstCasesOf } from "../../../src/flow/analyse/worst-case.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { graphOf, edge, node } from "./graph-fixture.js";
 
 const Desk = Object;
@@ -14,10 +14,10 @@ const Desk = Object;
 /** start -> agent A -> agent B -> finish: two working steps. */
 const graph = graphOf(
   [
-    node("S", NodeKind.Start),
-    node("A", NodeKind.Agent),
-    node("B", NodeKind.Agent),
-    node("F", NodeKind.Finish),
+    node("S", ComponentKind.WorkflowStart),
+    node("A", ComponentKind.Agent),
+    node("B", ComponentKind.Agent),
+    node("F", ComponentKind.WorkflowFinish),
   ],
   [edge("S", "A"), edge("A", "B"), edge("B", "F")],
   ["S"],

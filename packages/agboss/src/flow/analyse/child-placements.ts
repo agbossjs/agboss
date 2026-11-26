@@ -1,6 +1,6 @@
+import { ComponentKind } from "../runtime/records.js";
 import type { Class } from "../../components/injection.js";
 import {
-  NodeKind,
   QuorumKind,
   StepKind,
   type FlowPath,
@@ -37,11 +37,11 @@ class ChildWalk {
   private mentionBranches(step: InParallelStep | ForEachItemStep): void {
     const given = step.kind === StepKind.InParallel ? step.branches : [step.branch];
     for (const branch of given)
-      if (branch.targetKind === NodeKind.Workflow) this.found.add(branch.target);
+      if (branch.targetKind === ComponentKind.Workflow) this.found.add(branch.target);
   }
 
   private mention(step: ToStep): void {
-    if (step.targetKind === NodeKind.Workflow) this.found.add(step.target);
+    if (step.targetKind === ComponentKind.Workflow) this.found.add(step.target);
   }
 
   /** The sub-paths of a step; a route to a child workflow names it too. */
@@ -49,7 +49,8 @@ class ChildWalk {
     for (const path of subPathsOf(step)) this.steps(path.steps);
     if (step.kind !== StepKind.ChooseOne) return;
     for (const route of step.routes)
-      if (declarationOf(route.target)?.kind === NodeKind.Workflow) this.found.add(route.target);
+      if (declarationOf(route.target)?.kind === ComponentKind.Workflow)
+        this.found.add(route.target);
   }
 }
 
@@ -89,7 +90,8 @@ export function placementOfWorkflow(
   overrides: Placements | undefined,
 ): ChildPlacement {
   const declaration = declarationOf(workflow);
-  const own = declaration?.kind === NodeKind.Workflow ? declaration.options.placement : undefined;
+  const own =
+    declaration?.kind === ComponentKind.Workflow ? declaration.options.placement : undefined;
   return overrides?.get(workflow) ?? own ?? applicationDefault ?? ChildPlacement.CurrentProcess;
 }
 
@@ -108,7 +110,7 @@ export const launchesQueued = (nodes: Iterable<PlacedNode>): boolean =>
 /** The flow a `@Workflow` class declares; none for anything else. */
 const flowOf = (workflow: Class): readonly FlowPath[] => {
   const declaration = declarationOf(workflow);
-  return declaration?.kind === NodeKind.Workflow ? declaration.options.flow : [];
+  return declaration?.kind === ComponentKind.Workflow ? declaration.options.flow : [];
 };
 
 const treesQueued = new WeakMap<Class, Map<ChildPlacement | undefined, boolean>>();

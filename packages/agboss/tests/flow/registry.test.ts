@@ -1,7 +1,7 @@
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { describe, expect, it } from "vitest";
 import { Injectable } from "../../src/components/decorators.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
-import { NodeKind } from "../../src/flow/ast.js";
 import {
   ComponentRegistry,
   DtoRegistry,
@@ -24,7 +24,7 @@ describe("S5: components by name", () => {
     expect(registry.get("draft-agent")).toMatchObject({
       name: "draft-agent",
       component: DraftAgent,
-      declaration: { kind: NodeKind.Agent },
+      declaration: { kind: ComponentKind.Agent },
     });
     expect(registry.get("unknown-agent")).toBeUndefined();
     expect(registry.names).toEqual(["draft-agent", "editor-agent"]);

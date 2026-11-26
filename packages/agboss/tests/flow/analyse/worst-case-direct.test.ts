@@ -4,6 +4,8 @@
  * longest way on over the components and the warning's exact message. The shard `assembly-rules` mutates
  * `strongly-connected.ts` whole.
  */
+import type { FlowNodeKind } from "../../../src/flow/ast.js";
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { EdgeKind } from "../../../src/flow/analyse/flow-graph.js";
@@ -13,12 +15,11 @@ import {
   stronglyConnected,
   worstCaseStepsWarnings,
 } from "../../../src/flow/analyse/strongly-connected.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { branch, named, contextOf, edge, graphOf, join, node } from "./graph-fixture.js";
 
-const start = (name: string) => node(name, NodeKind.Start);
-const agent = (name: string, maxVisits?: unknown) => node(name, NodeKind.Agent, maxVisits);
-const finish = (name: string) => node(name, NodeKind.Finish);
+const start = (name: string) => node(name, ComponentKind.WorkflowStart);
+const agent = (name: string, maxVisits?: unknown) => node(name, ComponentKind.Agent, maxVisits);
+const finish = (name: string) => node(name, ComponentKind.WorkflowFinish);
 
 const successorsOf = (table: Record<string, string[]>) => (vertex: string) => table[vertex] ?? [];
 
@@ -55,7 +56,7 @@ describe("#1366: stronglyConnected and isCycle", () => {
 });
 
 /** S -> A <-> B -> F, with `maxVisits` on A. */
-const loop = (maxVisits: unknown, kind: NodeKind = NodeKind.Agent) =>
+const loop = (maxVisits: unknown, kind: FlowNodeKind = ComponentKind.Agent) =>
   graphOf(
     [start("S"), node("A", kind, maxVisits), agent("B"), finish("F")],
     [edge("S", "A"), edge("A", "B"), edge("B", "A"), edge("B", "F")],
@@ -76,11 +77,11 @@ describe("#1366: the most steps from a start", () => {
   });
 
   it("reads a router's and a question's maxVisits, and a value that is no count as 0", () => {
-    expect(boundedStepsFrom(loop(2, NodeKind.Router), named("S"))).toEqual({
+    expect(boundedStepsFrom(loop(2, ComponentKind.Router), named("S"))).toEqual({
       most: 5,
       loops: ["A (maxVisits 2)"],
     });
-    expect(boundedStepsFrom(loop(2, NodeKind.Question), named("S"))).toEqual({
+    expect(boundedStepsFrom(loop(2, ComponentKind.ExternalTask), named("S"))).toEqual({
       most: 5,
       loops: ["A (maxVisits 2)"],
     });
@@ -92,7 +93,7 @@ describe("#1366: the most steps from a start", () => {
 
   it("gives no bound to a loop no maxVisits stops, an action's maxVisits being none", () => {
     expect(boundedStepsFrom(loop(undefined), named("S"))).toBeUndefined();
-    expect(boundedStepsFrom(loop(3, NodeKind.Action), named("S"))).toBeUndefined();
+    expect(boundedStepsFrom(loop(3, ComponentKind.Action), named("S"))).toBeUndefined();
   });
 
   it("gives no bound to a loop with a free cycle beside its bounded node", () => {

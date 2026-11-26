@@ -1,3 +1,4 @@
+import type { ComponentKind } from "../runtime/records.js";
 import { ConfigError } from "../../core/error-families/config-errors.js";
 import { recordOptionKeys } from "../../components/option-keys.js";
 import { ARBITER_KEYS } from "../../components/decorator-options.js";
@@ -8,7 +9,6 @@ import type { Class, ResolvedAll, Token } from "../../components/injection.js";
 import type { PromptSource } from "../../components/prompt-source.js";
 import type { AnswersOf, DecisionQuestions, DecisionRequest } from "../../llm/decisions.js";
 import { METADATA_KEY } from "../../polyfills/symbol-metadata.js";
-import type { NodeKind } from "../ast.js";
 import { resolvedName } from "../names.js";
 import type { KindCheck } from "../builder-types.js";
 import type { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
@@ -172,14 +172,14 @@ export const hasArbiterModel = (options: ArbiterOptions): boolean =>
 export type ArbiterAnswerOf<TTarget extends Class> = [
   ProducerOutputOf<InstanceType<TTarget>>,
 ] extends [NoOutput]
-  ? [KindOf<InstanceType<TTarget>>] extends [NodeKind.Agent]
+  ? [KindOf<InstanceType<TTarget>>] extends [ComponentKind.Agent]
     ? WorkflowFinishTextDto
     : NoOutput
   : ProducerOutputOf<InstanceType<TTarget>>;
 
 /** What `@Arbitrate(…)` accepts: what a quorum branch is that gives an answer. */
 export type ArbitrableKind =
-  NodeKind.Agent | NodeKind.Action | NodeKind.Workflow | NodeKind.Question;
+  ComponentKind.Agent | ComponentKind.Action | ComponentKind.Workflow | ComponentKind.ExternalTask;
 
 /** One target's answer as the method reads it: its output, tracked as given by that target (#1274). */
 export type TrackedAnswerOf<TTarget extends Class> =

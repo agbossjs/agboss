@@ -1,6 +1,6 @@
+import { ComponentKind } from "../../runtime/records.js";
 import type { DtoClass } from "../../../dto/types.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
 import type { AgentDeclaration } from "../../decorators/declaration.js";
 import { Wrapper, type OutputShape } from "../../dto-wrappers.js";
 import { toKebabCase } from "../../names.js";
@@ -51,7 +51,7 @@ function agentViolations(
 
 export function modelRules(context: AnalysisContext): readonly RuleViolation[] {
   return [...context.graph.nodes.values()].flatMap((node) =>
-    node.declaration.kind === NodeKind.Agent
+    node.declaration.kind === ComponentKind.Agent
       ? agentViolations(context, node.name, node.declaration)
       : [],
   );

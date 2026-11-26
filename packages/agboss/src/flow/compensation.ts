@@ -1,5 +1,5 @@
+import { ComponentKind } from "./runtime/records.js";
 import type { ErrorRecord } from "../core/error-record.js";
-import { NodeKind } from "./ast.js";
 import type { StepRecord } from "./context/execution-context.js";
 import type { ComponentDeclaration } from "./decorators/declaration.js";
 import type { FrameSpec } from "./context/frame.js";
@@ -148,7 +148,7 @@ export const hasUndoableActions = (graph: {
 }): boolean =>
   [...graph.nodes.values()].some(
     ({ declaration }) =>
-      declaration.kind === NodeKind.Action && declaration.options.compensateWith !== undefined,
+      declaration.kind === ComponentKind.Action && declaration.options.compensateWith !== undefined,
   );
 
 /** A node as the check below reads it: its id and its declaration. */
@@ -167,11 +167,11 @@ export function touchesCompensations(
   entries: readonly CompensationEntry[],
 ): boolean {
   const { declaration } = node;
-  const isAction = declaration.kind === NodeKind.Action;
+  const isAction = declaration.kind === ComponentKind.Action;
   if (isAction && declaration.options.compensateWith !== undefined) return true;
   const open = entries.filter((entry) => entry.status === CompensationEntryStatus.Open);
   // a finish commits its open entries, or moves them up to its parent (#1281b)
-  if (declaration.kind === NodeKind.Finish) return open.length > 0;
+  if (declaration.kind === ComponentKind.WorkflowFinish) return open.length > 0;
   // a committer or an undo of the holder's own workflow only: a child's moved entry is not its node's
   const own = open.filter((entry) => entry.childPath === undefined);
   return (
@@ -295,7 +295,9 @@ export interface FailedJoinUndo {
  */
 export async function compensationsOfFailedJoin(site: JoinUnwindSite): Promise<FailedJoinUndo> {
   const kinds = site.ticket.branches.map((branch) => site.deps.graph.nodes.get(branch.node)?.kind);
-  const canLeave = kinds.some((kind) => kind === NodeKind.Action || kind === NodeKind.Workflow);
+  const canLeave = kinds.some(
+    (kind) => kind === ComponentKind.Action || kind === ComponentKind.Workflow,
+  );
   if (!canLeave) return {};
   const { canLeaveEntries } = await lazyLoad(import("./runtime/compensation/held-entries.js"));
   const isUndoable = site.ticket.branches.some((branch) => canLeaveEntries(site.deps, branch.node));

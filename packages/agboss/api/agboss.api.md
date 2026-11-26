@@ -517,7 +517,7 @@ export function Arbiter<const TDeps extends readonly Token[] = []>(options?: Cod
 // @public
 export type ArbiterAnswerOf<TTarget extends Class> = [
 ProducerOutputOf<InstanceType<TTarget>>
-] extends [NoOutput] ? [KindOf<InstanceType<TTarget>>] extends [NodeKind.Agent] ? WorkflowFinishTextDto : NoOutput : ProducerOutputOf<InstanceType<TTarget>>;
+] extends [NoOutput] ? [KindOf<InstanceType<TTarget>>] extends [ComponentKind.Agent] ? WorkflowFinishTextDto : NoOutput : ProducerOutputOf<InstanceType<TTarget>>;
 
 // @public
 export type ArbiterClass = Class;
@@ -565,7 +565,7 @@ export interface ArbiterStartEvent extends NodeEvent {
 }
 
 // @public
-type ArbitrableKind = NodeKind.Agent | NodeKind.Action | NodeKind.Workflow | NodeKind.Question;
+type ArbitrableKind = ComponentKind.Agent | ComponentKind.Action | ComponentKind.Workflow | ComponentKind.ExternalTask;
 
 // @public
 export function Arbitrate<const TTargets extends readonly [Class, ...Class[]]>(...targets: TTargets & ArbitrateChecks<TTargets>): ArbitrateDecorator<TTargets>;
@@ -683,7 +683,7 @@ type BranchesCheck<TBranches extends readonly unknown[]> = {
 };
 
 // @public
-type BranchKind = NodeKind.Agent | NodeKind.Action | NodeKind.Question | NodeKind.Workflow | NodeKind.Router;
+type BranchKind = ComponentKind.Agent | ComponentKind.Action | ComponentKind.ExternalTask | ComponentKind.Workflow | ComponentKind.Router;
 
 // @public
 export interface BranchRecord {
@@ -1662,22 +1662,47 @@ export interface ComponentDescriptor extends ComponentRecord {
 
 // @public
 export enum ComponentKind {
+    A2AAgent = "a2a-agent",
+    A2AEndpoint = "a2a-endpoint",
     Action = "action",
     Agent = "agent",
+    Application = "application",
     Arbiter = "arbiter",
     Budget = "budget",
-    ChannelInterpreter = "reply-interpreter",
+    Channel = "channel",
+    ChannelInterpreter = "channel-interpreter",
+    ChannelListener = "channel-listener",
+    ChannelSelector = "channel-selector",
+    ClusterStorage = "cluster-storage",
+    DatabaseStorage = "database-storage",
+    EvalSuite = "eval-suite",
+    ExternalTask = "external-task",
+    FileMasker = "file-masker",
+    FilePolicy = "file-policy",
+    FileTranscriber = "file-transcriber",
     Guardrail = "guardrail",
+    HealthCheck = "health-check",
+    HttpAuthenticator = "http-authenticator",
+    Injectable = "injectable",
     Judge = "judge",
+    McpEndpoint = "mcp-endpoint",
+    McpServer = "mcp-server",
     Memory = "memory",
+    Mesh = "mesh",
+    ModelProvider = "model-provider",
+    ObjectStorage = "object-storage",
+    Observer = "observer",
     PiiPolicy = "pii-policy",
-    Question = "question",
     Rag = "rag",
+    RagReranker = "rag-reranker",
     Router = "router",
     Tool = "tool",
+    ToolApproval = "tool-approval",
+    ToolInterceptor = "tool-interceptor",
     Workflow = "workflow",
     WorkflowFinish = "workflow-finish",
-    WorkflowStart = "workflow-start"
+    WorkflowStart = "workflow-start",
+    WorkingCalendar = "working-calendar"
 }
 
 // @public
@@ -1710,7 +1735,7 @@ export interface ComponentRecord {
 // @public (undocumented)
 interface ComponentSource {
     // (undocumented)
-    readonly kind: NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Workflow | NodeKind.Question;
+    readonly kind: ComponentKind.Agent | ComponentKind.Action | ComponentKind.Router | ComponentKind.Workflow | ComponentKind.ExternalTask;
     // (undocumented)
     readonly node: Class;
 }
@@ -4778,37 +4803,35 @@ export enum KeyTextRule {
 export function keyTextRuleOf(text: string): KeyTextRule | undefined;
 
 // @public
-type KindCheck<TClass extends Class, TKind extends NodeKind, TLabel extends string> = [
-NameOf<InstanceType<TClass>>
-] extends [never] ? MissingGeneratedTypes : [KindOf<InstanceType<TClass>>] extends [never] ? WrongKind<NameOf<InstanceType<TClass>>, TLabel> : [KindOf<InstanceType<TClass>>] extends [TKind] ? unknown : WrongKind<NameOf<InstanceType<TClass>>, TLabel>;
+type KindCheck<TClass extends Class, TKind extends keyof KindLabels, TLabel extends string> = [NameOf<InstanceType<TClass>>] extends [never] ? MissingGeneratedTypes : [KindOf<InstanceType<TClass>>] extends [never] ? WrongKind<NameOf<InstanceType<TClass>>, TLabel> : [KindOf<InstanceType<TClass>>] extends [TKind] ? unknown : WrongKind<NameOf<InstanceType<TClass>>, TLabel>;
 
 // @public (undocumented)
-type KindLabel<TKind extends NodeKind> = KindLabels[TKind];
+type KindLabel<TKind extends keyof KindLabels> = KindLabels[TKind];
 
 // @public
 interface KindLabels {
     // (undocumented)
-    [NodeKind.Finish]: "a workflow finish";
+    [ComponentKind.ExternalTask]: "a question role";
     // (undocumented)
-    [NodeKind.Start]: "a workflow start";
+    [ComponentKind.WorkflowFinish]: "a workflow finish";
     // (undocumented)
-    [NodeKind.Action]: "an action";
+    [ComponentKind.WorkflowStart]: "a workflow start";
     // (undocumented)
-    [NodeKind.Agent]: "an agent";
+    [ComponentKind.Action]: "an action";
     // (undocumented)
-    [NodeKind.Question]: "a question role";
+    [ComponentKind.Agent]: "an agent";
     // (undocumented)
-    [NodeKind.Router]: "a router";
+    [ComponentKind.Router]: "a router";
     // (undocumented)
-    [NodeKind.Workflow]: "a workflow";
+    [ComponentKind.Workflow]: "a workflow";
 }
 
 // @public
 type KindOf<T> = InstanceOrSelf<T> extends {
     readonly [agbossComponent]?: {
-        readonly kind: infer TKind extends NodeKind;
+        readonly kind: infer TKind extends ComponentKind;
     };
-} ? NodeKind extends TKind ? never : TKind : never;
+} ? ComponentKind extends TKind ? never : TKind : never;
 
 // @public
 export interface LabeledSpan {
@@ -5705,23 +5728,6 @@ export interface NodeEvent extends ExecutionEvent {
 }
 
 // @public
-export enum NodeKind {
-    // (undocumented)
-    Action = "action",
-    // (undocumented)
-    Agent = "agent",
-    // (undocumented)
-    Finish = "workflow-finish",
-    Question = "question",
-    // (undocumented)
-    Router = "router",
-    // (undocumented)
-    Start = "workflow-start",
-    // (undocumented)
-    Workflow = "workflow"
-}
-
-// @public
 export interface NodeValue {
     readonly finish?: string;
     // (undocumented)
@@ -5817,10 +5823,10 @@ export interface ObserverOptions<TDeps extends readonly Token[] = readonly Token
 }
 
 // @public
-export function onAction<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SourceHead>;
+export function onAction<const TClass extends Class>(source: TClass & KindCheck<TClass, ComponentKind.Action, KindLabel<ComponentKind.Action>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
-export function onAgent<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SourceHead>;
+export function onAgent<const TClass extends Class>(source: TClass & KindCheck<TClass, ComponentKind.Agent, KindLabel<ComponentKind.Agent>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
 export interface OnBeforeDestroy {
@@ -5877,7 +5883,7 @@ export interface OnErrorStep {
 }
 
 // @public
-export function onExternalTask<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, SourceHead>;
+export function onExternalTask<const TClass extends Class>(source: TClass & KindCheck<TClass, ComponentKind.ExternalTask, KindLabel<ComponentKind.ExternalTask>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
 export interface OnFinishStep {
@@ -5909,7 +5915,7 @@ export interface OnReady {
 }
 
 // @public
-export function onRouter<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SourceHead>;
+export function onRouter<const TClass extends Class>(source: TClass & KindCheck<TClass, ComponentKind.Router, KindLabel<ComponentKind.Router>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
 export interface OnStart {
@@ -5917,7 +5923,7 @@ export interface OnStart {
 }
 
 // @public
-export function onStart<const TClass extends Class>(source: TClass & KindCheck<TClass, NodeKind.Start, KindLabel<NodeKind.Start>>): AfterStep<InstanceType<TClass>, SourceHead>;
+export function onStart<const TClass extends Class>(source: TClass & KindCheck<TClass, ComponentKind.WorkflowStart, KindLabel<ComponentKind.WorkflowStart>>): AfterStep<InstanceType<TClass>, SourceHead>;
 
 // @public
 export interface OnStop {
@@ -5925,7 +5931,7 @@ export interface OnStop {
 }
 
 // @public
-export function onWorkflow<const TRef extends TargetRef>(source: TRef & KindCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<ClassOf<TRef>>, SourceHead>;
+export function onWorkflow<const TRef extends TargetRef>(source: TRef & KindCheck<ClassOf<TRef>, ComponentKind.Workflow, KindLabel<ComponentKind.Workflow>>): AfterStep<InstanceType<ClassOf<TRef>>, SourceHead>;
 
 // @public (undocumented)
 export function optional<const TInner extends OptionalInnerShape>(inner: TInner): OptionalWrapper<TInner>;
@@ -6370,7 +6376,7 @@ export interface ParallelOptions {
 }
 
 // @public
-export type ParallelTargetKind = NodeKind.Agent | NodeKind.Action | NodeKind.Workflow | NodeKind.Question | NodeKind.Router;
+export type ParallelTargetKind = ComponentKind.Agent | ComponentKind.Action | ComponentKind.Workflow | ComponentKind.ExternalTask | ComponentKind.Router;
 
 // @public
 export interface PassedJudgeVerdict {
@@ -6659,7 +6665,7 @@ export interface PauseExpiredFacts {
     // (undocumented)
     readonly step: string;
     // (undocumented)
-    readonly stepKind?: ComponentKind.Agent | ComponentKind.Question | undefined;
+    readonly stepKind?: ComponentKind.Agent | ComponentKind.ExternalTask | undefined;
     // (undocumented)
     readonly target?: string | undefined;
 }
@@ -7898,7 +7904,7 @@ export interface ShownModelMessage {
 }
 
 // @public
-type SideClaimsOf<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish] ? PlainDto<OutputOf<TInstance>> extends infer TOut ? [TOut] extends [GeneratedTypeError | MissingGeneratedTypes] ? never : TOut extends readonly unknown[] ? never : TOut : never : ClaimedDtosOf<InputOf<TInstance>>;
+type SideClaimsOf<TInstance> = [KindOf<TInstance>] extends [ComponentKind.WorkflowFinish] ? PlainDto<OutputOf<TInstance>> extends infer TOut ? [TOut] extends [GeneratedTypeError | MissingGeneratedTypes] ? never : TOut extends readonly unknown[] ? never : TOut : never : ClaimedDtosOf<InputOf<TInstance>>;
 
 // @public
 export interface SideHead<TClaims = unknown, TStart = unknown> {
@@ -8359,7 +8365,7 @@ export type StartOfPath<TPath> = TPath extends {
 // @public (undocumented)
 interface StartSource {
     // (undocumented)
-    readonly kind: NodeKind.Start;
+    readonly kind: ComponentKind.WorkflowStart;
     // (undocumented)
     readonly node: Class;
 }
@@ -8391,7 +8397,7 @@ export type Step = ToStep | OneOfStep | OnFinishStep | ChooseOneStep | OnErrorSt
 // @public (undocumented)
 type StepContinuation<TInstance, THead extends PathHead> = [KindOf<TInstance>] extends [
 never
-] ? Transitions<THead> : [KindOf<TInstance>] extends [NodeKind.Router] ? RouterStep<THead, TInstance> & ChooseManyOf<THead, TInstance> : [KindOf<TInstance>] extends [NodeKind.Start] ? ValueContinuation<ProducerOutputOf<TInstance>, THead> : ErrorHandling<TInstance, THead> & SkipOf<TInstance, THead> & OutputContinuation<ProducerOutputOf<TInstance>, THead> & WithFinishes<TInstance, THead>;
+] ? Transitions<THead> : [KindOf<TInstance>] extends [ComponentKind.Router] ? RouterStep<THead, TInstance> & ChooseManyOf<THead, TInstance> : [KindOf<TInstance>] extends [ComponentKind.WorkflowStart] ? ValueContinuation<ProducerOutputOf<TInstance>, THead> : ErrorHandling<TInstance, THead> & SkipOf<TInstance, THead> & OutputContinuation<ProducerOutputOf<TInstance>, THead> & WithFinishes<TInstance, THead>;
 
 // @public
 export interface StepCoordinates {
@@ -8825,7 +8831,7 @@ export interface TakeFirstOptions {
 }
 
 // @public
-type TargetCheck<TClass extends Class, TKind extends NodeKind, TLabel extends string> = KindCheck<TClass, TKind, TLabel> extends infer TResult ? unknown extends TResult ? InputCheck<InstanceType<TClass>> : TResult : never;
+type TargetCheck<TClass extends Class, TKind extends keyof KindLabels, TLabel extends string> = KindCheck<TClass, TKind, TLabel> extends infer TResult ? unknown extends TResult ? InputCheck<InstanceType<TClass>> : TResult : never;
 
 // @public
 export type TargetRef<TClass extends Class = Class> = TClass | (() => TClass);
@@ -8985,16 +8991,16 @@ export interface TimeWindow {
 }
 
 // @public
-export function toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
+export function toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, ComponentKind.Action, KindLabel<ComponentKind.Action>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
-export function toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
+export function toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, ComponentKind.Agent, KindLabel<ComponentKind.Agent>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
-export function toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
+export function toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, ComponentKind.ExternalTask, KindLabel<ComponentKind.ExternalTask>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
-export function toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
+export function toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, ComponentKind.WorkflowFinish, KindLabel<ComponentKind.WorkflowFinish>>): BuiltPath<SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
 export type Token = Class | InjectionToken<unknown> | EnvContract;
@@ -9205,7 +9211,7 @@ export interface ToolTimeoutErrorOptions {
 }
 
 // @public
-export function toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
+export function toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, ComponentKind.Router, KindLabel<ComponentKind.Router>>): AfterStep<InstanceType<TClass>, SideHead<SideClaimsOf<InstanceType<TClass>>, TClass>>;
 
 // @public
 export interface ToStep {
@@ -9215,8 +9221,7 @@ export interface ToStep {
     readonly skip?: readonly ErrorClass[];
     // (undocumented)
     readonly target: Class;
-    // (undocumented)
-    readonly targetKind: NodeKind;
+    readonly targetKind: ComponentKind.Agent | ComponentKind.Action | ComponentKind.Router | ComponentKind.Workflow | ComponentKind.ExternalTask | ComponentKind.WorkflowFinish;
 }
 
 // @public
@@ -9225,7 +9230,7 @@ export function totalCost(records: readonly {
 }[]): Usd;
 
 // @public
-export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<ClassOf<TRef>>, SideHead<SideClaimsOf<InstanceType<ClassOf<TRef>>>, ClassOf<TRef>>>;
+export function toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, ComponentKind.Workflow, KindLabel<ComponentKind.Workflow>>): AfterStep<InstanceType<ClassOf<TRef>>, SideHead<SideClaimsOf<InstanceType<ClassOf<TRef>>>, ClassOf<TRef>>>;
 
 // @public
 export interface TraceLinkContext {
@@ -9270,15 +9275,15 @@ export interface TranscriptionResult {
 // @public (undocumented)
 export interface Transitions<THead extends PathHead> {
     // (undocumented)
-    toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Action, KindLabel<NodeKind.Action>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
+    toAction<const TClass extends Class>(target: TClass & TargetCheck<TClass, ComponentKind.Action, KindLabel<ComponentKind.Action>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
     // (undocumented)
-    toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Agent, KindLabel<NodeKind.Agent>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
-    toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Question, KindLabel<NodeKind.Question>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
+    toAgent<const TClass extends Class>(target: TClass & TargetCheck<TClass, ComponentKind.Agent, KindLabel<ComponentKind.Agent>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
+    toExternalTask<const TClass extends Class>(target: TClass & TargetCheck<TClass, ComponentKind.ExternalTask, KindLabel<ComponentKind.ExternalTask>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
     // (undocumented)
-    toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Finish, KindLabel<NodeKind.Finish>>): BuiltPath<NextHead<THead, InstanceType<TClass>>>;
+    toFinish<const TClass extends Class>(target: TClass & TargetCheck<TClass, ComponentKind.WorkflowFinish, KindLabel<ComponentKind.WorkflowFinish>>): BuiltPath<NextHead<THead, InstanceType<TClass>>>;
     // (undocumented)
-    toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, NodeKind.Router, KindLabel<NodeKind.Router>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
-    toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, NodeKind.Workflow, KindLabel<NodeKind.Workflow>>): AfterStep<InstanceType<ClassOf<TRef>>, NextHead<THead, InstanceType<ClassOf<TRef>>>>;
+    toRouter<const TClass extends Class>(target: TClass & TargetCheck<TClass, ComponentKind.Router, KindLabel<ComponentKind.Router>>): AfterStep<InstanceType<TClass>, NextHead<THead, InstanceType<TClass>>>;
+    toWorkflow<const TRef extends TargetRef>(target: TRef & TargetCheck<ClassOf<TRef>, ComponentKind.Workflow, KindLabel<ComponentKind.Workflow>>): AfterStep<InstanceType<ClassOf<TRef>>, NextHead<THead, InstanceType<ClassOf<TRef>>>>;
 }
 
 // @public
@@ -10447,12 +10452,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "model".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costUsd".
 // src/finops/usage.ts - (ae-undocumented) Missing documentation for "costSource".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "Start".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "Finish".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "Agent".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "Action".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "Router".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "Workflow".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "To".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "ChooseOne".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "OnError".
@@ -10464,7 +10463,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "node".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "target".
-// src/flow/ast.ts - (ae-undocumented) Missing documentation for "targetKind".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "branches".
 // src/flow/ast.ts - (ae-undocumented) Missing documentation for "kind".
@@ -10508,7 +10506,7 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "action".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "router".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "workflow".
-// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "question".
+// src/flow/builder-types.ts - (ae-undocumented) Missing documentation for ""external-task"".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "KindLabel".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "WrongKind".
 // src/flow/builder-types.ts - (ae-undocumented) Missing documentation for "__error".

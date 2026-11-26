@@ -1,4 +1,5 @@
 import type { Class } from "../components/injection.js";
+import type { ComponentKind } from "./runtime/records.js";
 import type { Milliseconds, WorkingDuration } from "../units/index.js";
 
 /**
@@ -10,17 +11,18 @@ import type { Milliseconds, WorkingDuration } from "../units/index.js";
  * its launch's arbiter accepts (`arbitratedBy`, `JoinStep.quorum`).
  */
 
-/** What a node of the graph is. The values are the kind suffixes of component names. */
-export enum NodeKind {
-  Start = "workflow-start",
-  Finish = "workflow-finish",
-  Agent = "agent",
-  Action = "action",
-  Router = "router",
-  Workflow = "workflow",
-  /** A question role's step (#659): `.toExternalTask(Role)` — it pauses on the role's channel. */
-  Question = "question",
-}
+/**
+ * What a node of the graph is: the `ComponentKind`s a flow path can name. Internal to the flow
+ * engine (not exported from the public entry points), so a `switch (node.kind)` stays exhaustive.
+ */
+export type FlowNodeKind =
+  | ComponentKind.WorkflowStart
+  | ComponentKind.WorkflowFinish
+  | ComponentKind.Agent
+  | ComponentKind.Action
+  | ComponentKind.Router
+  | ComponentKind.Workflow
+  | ComponentKind.ExternalTask;
 
 /** What a step of a path does. */
 export enum StepKind {
@@ -46,13 +48,17 @@ export type ErrorClass<TError extends Error = Error> = abstract new (...args: ne
 export type PathSource = StartSource | ComponentSource;
 
 export interface StartSource {
-  readonly kind: NodeKind.Start;
+  readonly kind: ComponentKind.WorkflowStart;
   readonly node: Class;
 }
 
 export interface ComponentSource {
   readonly kind:
-    NodeKind.Agent | NodeKind.Action | NodeKind.Router | NodeKind.Workflow | NodeKind.Question;
+    | ComponentKind.Agent
+    | ComponentKind.Action
+    | ComponentKind.Router
+    | ComponentKind.Workflow
+    | ComponentKind.ExternalTask;
   readonly node: Class;
 }
 
@@ -63,7 +69,14 @@ export interface ComponentSource {
 export interface ToStep {
   readonly kind: StepKind.To;
   readonly target: Class;
-  readonly targetKind: NodeKind;
+  /** The kind of `target`: every flow kind but a start (spelled out, as `FlowNodeKind` is not public). */
+  readonly targetKind:
+    | ComponentKind.Agent
+    | ComponentKind.Action
+    | ComponentKind.Router
+    | ComponentKind.Workflow
+    | ComponentKind.ExternalTask
+    | ComponentKind.WorkflowFinish;
   /** `.onError(E, skip())` (#1279): written on a branch of `.inParallel([…])` / `.forEachItem(…)` only. */
   readonly skip?: readonly ErrorClass[];
   /** `toRouter(R).chooseMany([…])` (#1279b): the branches the router picks among; a branch of `.inParallel([…])` only. */
@@ -113,7 +126,11 @@ export type ArbiterClass = Class;
 
 /** What a branch of `.inParallel([…])` / `.forEachItem(…)` runs (#1279): any component a path enters. */
 export type ParallelTargetKind =
-  NodeKind.Agent | NodeKind.Action | NodeKind.Workflow | NodeKind.Question | NodeKind.Router;
+  | ComponentKind.Agent
+  | ComponentKind.Action
+  | ComponentKind.Workflow
+  | ComponentKind.ExternalTask
+  | ComponentKind.Router;
 
 /**
  * One branch of `.inParallel([…])` / the step of `.forEachItem(…)` (#1279, #1280): its target and

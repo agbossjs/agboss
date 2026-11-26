@@ -395,7 +395,7 @@ An **external task** — `@ExternalTask({ name: "…-external-task", description
 AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` on an empty class — is asked by a
 flow step: `.toExternalTask(Task)` (or `onExternalTask(Task)…` for its own
 path, a question asked again on a cycle; `maxVisits` its limit there). The task is the step's node
-(`NodeKind.Question`; its name ends with `-external-task`, `[name.kind-suffix]`); the step reads one
+(`ComponentKind.ExternalTask`; its name ends with `-external-task`, `[name.kind-suffix]`); the step reads one
 `AskDto` from the path (`[input.missing-on-path]` when none comes), asks its channel —
 `send({ pauseId, input })`, the `sensitive` fields masked — and gives the answer as its
 value for the steps after it. The channel is a `@Channel({ target: Task })` class; an `Owner` task with none
@@ -450,7 +450,7 @@ it calls it like any tool, and:
   never asked twice.
 - `result.pending[i]`: `kind: PauseKind.ExternalTask`, `step` the asking agent, `channel` the target,
   `ask` the masked question; the record's `kind` is `PauseKind.ExternalTask` and its `component` the
-  role (`kind: "question"`).
+  role (`kind: ComponentKind.ExternalTask`, stored as `"external-task"`).
 - The answer — a `decision` validated as the target's `answer` DTO, a reply its interpreter read into
   it, or the channel's `decided(answer)` — is the **call's result**: it goes through the tool-result
   path (the answer DTO's `sensitive` fields masked for the model, `maxResultSize`, `onToolStart` /

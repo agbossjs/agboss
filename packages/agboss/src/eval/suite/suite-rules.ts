@@ -1,10 +1,10 @@
+import { ComponentKind } from "../../flow/runtime/records.js";
 import { isCodeJudge } from "../../components/judge-decorators.js";
 import { checkedJudgeOf } from "../../components/judge-parts.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import { requireApplication } from "../../application/application.js";
 import { startsOfApplication } from "../../application/application-starts.js";
-import { NodeKind } from "../../flow/ast.js";
 import { outputClassesOf } from "../../flow/finish-output.js";
 import { checkWorkflow } from "../../flow/analyse/analyse.js";
 import { childWorkflowOf, withChildWorkflows } from "../../flow/analyse/child-workflow.js";
@@ -37,7 +37,7 @@ const CLASS_SUFFIX = "EvalSuite";
 /** A start's `name` (`refund-workflow-start`), its class name when it is not a start. */
 function startNameOf(start: Class): string {
   const declaration = declarationOf(start);
-  return declaration?.kind === NodeKind.Start ? declaration.options.name : start.name;
+  return declaration?.kind === ComponentKind.WorkflowStart ? declaration.options.name : start.name;
 }
 
 function nameViolations(suite: Class, meta: EvalSuiteMeta): RuleViolation[] {
@@ -89,7 +89,9 @@ function reachedOutputs(
   if (graph === undefined) return [];
   return [...reachableFrom([opened.entry], graph.edges)].flatMap((name) => {
     const declaration = graph.nodes.get(name)?.declaration;
-    return declaration?.kind === NodeKind.Finish ? outputClassesOf(declaration.options.output) : [];
+    return declaration?.kind === ComponentKind.WorkflowFinish
+      ? outputClassesOf(declaration.options.output)
+      : [];
   });
 }
 

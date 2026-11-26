@@ -1,5 +1,6 @@
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import type { Class } from "../../../src/components/injection.js";
-import { NodeKind, type PathSource } from "../../../src/flow/ast.js";
+import type { PathSource } from "../../../src/flow/ast.js";
 import {
   fromComponent,
   fromSource,
@@ -14,22 +15,22 @@ import {
  */
 
 export const onStart = (source: Class): PathBuilder<PathSource> =>
-  fromSource({ kind: NodeKind.Start, node: source });
+  fromSource({ kind: ComponentKind.WorkflowStart, node: source });
 
 export const onAgent = (source: Class): PathBuilder<PathSource> =>
-  fromComponent(NodeKind.Agent, source);
+  fromComponent(ComponentKind.Agent, source);
 
 export const onRouter = (source: Class): PathBuilder<PathSource> =>
-  fromComponent(NodeKind.Router, source);
+  fromComponent(ComponentKind.Router, source);
 
 export const onAction = (source: Class): PathBuilder<PathSource> =>
-  fromComponent(NodeKind.Action, source);
+  fromComponent(ComponentKind.Action, source);
 
 export const onWorkflow = (source: Class): PathBuilder<PathSource> =>
-  fromComponent(NodeKind.Workflow, source);
+  fromComponent(ComponentKind.Workflow, source);
 
 export const onExternalTask = (source: Class): PathBuilder<PathSource> =>
-  fromComponent(NodeKind.Question, source);
+  fromComponent(ComponentKind.ExternalTask, source);
 
 /** A side path of `.onError(E, …)` with nothing in it yet. */
 export const side = (): PathBuilder => subPathFrom({ kind: "side" });

@@ -1,6 +1,7 @@
+import type { FlowNodeKind, ErrorClass } from "../../ast.js";
+import { ComponentKind } from "../../runtime/records.js";
 import { LimitError } from "../../../core/error-families/limit-errors.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind, type ErrorClass } from "../../ast.js";
 import type { ComponentName } from "../../registry.js";
 import { EdgeKind, reachableFrom, type FlowEdge } from "../flow-graph.js";
 import { launchLabel } from "../join-groups.js";
@@ -29,7 +30,10 @@ function extendsClass(first: ErrorClass, second: ErrorClass): boolean {
 export const catchesLimit = (error: ErrorClass): boolean =>
   extendsClass(error, LimitError) || extendsClass(LimitError, error);
 
-const SPENDS_NOTHING: ReadonlySet<NodeKind> = new Set([NodeKind.Action, NodeKind.Finish]);
+const SPENDS_NOTHING: ReadonlySet<FlowNodeKind> = new Set([
+  ComponentKind.Action,
+  ComponentKind.WorkflowFinish,
+]);
 
 /** One side path catching a limit: where it stands, and its first nodes. */
 interface LimitHandler {

@@ -6,7 +6,6 @@ import { validate } from "../../../dto/schema.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { systemClock } from "../../../infrastructure/clock.js";
 import { PauseKind, pauseInputOf } from "../../../infrastructure/pause-record.js";
-import { NodeKind } from "../../ast.js";
 import { currentFrame } from "../../context/frame.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
 import type { RuntimeNode } from "../graph-model.js";
@@ -34,7 +33,7 @@ async function failedAsking(
   await at.budgets.refresh();
   throw expiryFailureOf(error.pause, {
     step: question,
-    stepKind: ComponentKind.Question,
+    stepKind: ComponentKind.ExternalTask,
     state: at.state.usage,
     usage: [],
     path: [...at.state.path, question],
@@ -59,7 +58,8 @@ export function questionRunner(
   budgets: BudgetMeter,
 ): NodeRunner {
   const { declaration } = node;
-  if (declaration.kind !== NodeKind.Question) throw new TypeError(`${node.id} is not a question`);
+  if (declaration.kind !== ComponentKind.ExternalTask)
+    throw new TypeError(`${node.id} is not a question`);
   const { output: answer, target: task } = declaration.options;
   const answered = (decision: unknown): unknown => validate(answer, decision);
   return async (state, config) => {

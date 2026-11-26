@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../runtime/records.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import { OneOfProblem } from "../one-of.js";
 import { childClassOf, EdgeKind, outputOf } from "../flow-graph.js";
@@ -5,7 +6,6 @@ import { childWorkflowOf } from "../child-workflow.js";
 import type { DtoClass } from "../../../dto/types.js";
 import { Wrapper, type OutputShape } from "../../dto-wrappers.js";
 import type { ComponentName } from "../../registry.js";
-import { NodeKind } from "../../ast.js";
 import { classLabel, shapeLabel } from "../labels.js";
 import type { AnalysisContext } from "./context.js";
 
@@ -69,7 +69,7 @@ function onFinishViolations(context: AnalysisContext): readonly RuleViolation[] 
   return [...byNode].flatMap(([name, sites]) => {
     const node = context.graph.nodes.get(name);
     const child =
-      node?.kind === NodeKind.Workflow ? childWorkflowOf(childClassOf(node)) : undefined;
+      node?.kind === ComponentKind.Workflow ? childWorkflowOf(childClassOf(node)) : undefined;
     if (child === undefined) {
       const message = `${name}: .onFinish(F, …) follows a child workflow — .toWorkflow(W)`;
       return [violation("flow.one-of-ambiguous", message, [name])];

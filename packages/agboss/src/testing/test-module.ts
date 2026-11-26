@@ -1,9 +1,9 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { UnitRun } from "./units/unit-types.js";
-import type { TestRunOptions } from "./slices.js";
+import type { TestRunOptions, ToolClassOf } from "./slices.js";
 import { Application, type ApplicationOptions } from "../application/application.js";
 import type { Class, Resolved, Token } from "../components/injection.js";
 import type { McpServerClient, ServerTools } from "../components/mcp-client.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { ToolOutput } from "../tools/index.js";
 import type { Mocked } from "vitest";
@@ -13,7 +13,6 @@ import { TestEnvironment, type TestWithOptions } from "./environment.js";
 import type { McpStub } from "./mcp-stubs.js";
 import type { ModelScript } from "./script-book.js";
 import type { ActionScript } from "./action-script.js";
-import type { ToolClassOf } from "./slices.js";
 import { TestSetupError } from "./errors.js";
 import type { ToolScript } from "./tool-script.js";
 import { createTestApp, type TestApp } from "./test-app.js";
@@ -75,7 +74,7 @@ export interface TestModule {
 }
 
 const isWorkflow = (component: Class): boolean =>
-  declarationOf(component)?.kind === NodeKind.Workflow;
+  declarationOf(component)?.kind === ComponentKind.Workflow;
 
 /** The test application the components make: a fresh class, never shared between modules. */
 function applicationOf(options: TestModuleOptions): Class {

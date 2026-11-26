@@ -1,9 +1,9 @@
+import type { ComponentKind } from "../flow/runtime/records.js";
 import type {
   ReplyInterpreterNotUnderstoodDto,
   WorkflowFinishTextDto,
 } from "../dto/standard/framework.js";
 import type { DtoClass } from "../dto/types.js";
-import type { NodeKind } from "../flow/ast.js";
 import type { HistoryOf } from "../flow/dto-wrappers.js";
 import type { WithoutTrack } from "../flow/metadata.js";
 import type {
@@ -148,17 +148,17 @@ export type TurnFor<TSelf> =
     ? ScriptedTurn
     : NameOf<TSelf> extends `${string}-reply-interpreter`
       ? ReplyInterpreterTurnFor<TSelf>
-      : KindOf<TSelf> extends NodeKind.Agent
+      : KindOf<TSelf> extends ComponentKind.Agent
         ? AgentTurnFor<TSelf>
-        : KindOf<TSelf> extends NodeKind.Router
+        : KindOf<TSelf> extends ComponentKind.Router
           ? RouterTurnFor<TSelf>
           : ScriptedTurn;
 
 /** What a node returns, as `toHaveReturned` names it: an agent's answer, an action's result. */
 export type ReturnedOf<TSelf> =
-  KindOf<TSelf> extends NodeKind.Agent
+  KindOf<TSelf> extends ComponentKind.Agent
     ? ProducerOutputOf<TSelf>
-    : KindOf<TSelf> extends NodeKind.Action
+    : KindOf<TSelf> extends ComponentKind.Action
       ? OutputOf<TSelf>
       : unknown;
 

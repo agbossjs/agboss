@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { ExecutionError } from "../core/error-families/run-errors.js";
 import { keyTextRuleOf } from "../core/errors.js";
 import type { HistoryTurn, ReaderMemory } from "../flow/runtime/history.js";
@@ -13,7 +14,6 @@ import {
   type MemoryReader,
 } from "../memory/plan.js";
 import { summaryTextsOf } from "../memory/stored-summaries.js";
-import { NodeKind } from "../flow/ast.js";
 import type { AgentExecutionDeps } from "./types.js";
 
 /**
@@ -187,7 +187,7 @@ function readersOf<TName extends string>(
   plan: MemoryPlan,
 ): readonly (readonly [string, MemoryReader])[] {
   const routers = [...deps.graph.nodes.values()].flatMap((node) =>
-    node.kind === NodeKind.Router && !plan.readers.has(node.id) ? [node.id] : [],
+    node.kind === ComponentKind.Router && !plan.readers.has(node.id) ? [node.id] : [],
   );
   return [...plan.readers, ...routers.map((name) => [name, readerOf(plan, name)] as const)];
 }

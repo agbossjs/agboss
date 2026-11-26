@@ -23,7 +23,6 @@ import { TenantContext } from "../flow/context/tenant-context.js";
 import { idempotencyKeyOf } from "../flow/context/idempotency.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { arbiterOf } from "../flow/decorators/arbiter.js";
-import { componentKindOf } from "../flow/runtime/join-keys.js";
 import { bareRecordOf, ComponentKind } from "../flow/runtime/records.js";
 import { FENCE, fenceOver } from "../flow/context/execution-fence.js";
 import type { Clock } from "../infrastructure/clock.js";
@@ -84,7 +83,7 @@ const KIND_OF_COMPONENT: Readonly<Partial<Record<string, ComponentKind>>> = {
 /** The kind of a unit test's component: its decorator's; a plain class is a code step (an action). */
 function kindOfClass(type: Class): ComponentKind {
   const declared = declarationOf(type)?.kind;
-  if (declared !== undefined) return componentKindOf(declared);
+  if (declared !== undefined) return declared;
   if (arbiterOf(type) !== undefined) return ComponentKind.Arbiter;
   const kind = componentOf(type)?.kind;
   return (kind === undefined ? undefined : KIND_OF_COMPONENT[kind]) ?? ComponentKind.Action;

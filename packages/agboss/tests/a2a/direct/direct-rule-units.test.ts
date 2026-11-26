@@ -6,6 +6,7 @@
  * workflow, an export, an expose) read past without a throw; a skill option of no reply; the start
  * of no listed workflow; every violation placed on the application.
  */
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { hours, minutes, Ttl } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { A2AEndpoint, A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
@@ -13,7 +14,6 @@ import { messageSkillViolations } from "../../../src/a2a/a2a-message-skill-rule.
 import type { ApplicationOptions } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../src/dto/index.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { declarationOf } from "../../../src/flow/decorators/declaration.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { WorkflowFinish } from "../../../src/flow/decorators/workflow-finish.js";
@@ -55,7 +55,8 @@ function skillOf(nodes: readonly Class[]): { readonly start: Class; readonly wor
   class Start {}
   let path = onStart(Start);
   for (const node of nodes)
-    path = declarationOf(node)?.kind === NodeKind.Agent ? path.toAgent(node) : path.toAction(node);
+    path =
+      declarationOf(node)?.kind === ComponentKind.Agent ? path.toAgent(node) : path.toAction(node);
   @Workflow({
     name: `${id}-workflow`,
     version: "1.0.0",

@@ -7,7 +7,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { declarationOf } from "../../../src/flow/decorators/declaration.js";
 import { Action } from "../../../src/index.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import {
   compensationsOfVisit,
   type CompensationEntry,
@@ -63,7 +62,7 @@ function visit(
   const site: VisitCompensationSite = {
     node: {
       id: "reserve-action",
-      kind: NodeKind.Action,
+      kind: ComponentKind.Action,
       component: ReserveAction,
       declaration: declarationOf(ReserveAction),
     } as never,

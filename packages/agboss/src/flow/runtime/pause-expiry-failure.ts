@@ -28,7 +28,7 @@ export class PauseExpirySignal extends Error {
 /** Where the failing step is: its name, its spend and where its execution is. */
 export interface ExpirySite {
   readonly step: string;
-  readonly stepKind: ComponentKind.Agent | ComponentKind.Question;
+  readonly stepKind: ComponentKind.Agent | ComponentKind.ExternalTask;
   /** The execution's spend so far (its state's records). */
   readonly state: readonly UsageRecord[];
   /** The failed step's own spend: an agent's loop; none for a question. */

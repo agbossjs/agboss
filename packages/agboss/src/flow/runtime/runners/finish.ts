@@ -1,7 +1,7 @@
+import { ComponentKind } from "../records.js";
 import { ExecutionError } from "../../../core/error-families/run-errors.js";
 import { validate } from "../../../dto/schema.js";
 import type { DtoClass } from "../../../dto/types.js";
-import { NodeKind } from "../../ast.js";
 import type { ListWrapper } from "../../dto-wrappers.js";
 import type { RuntimeNode } from "../graph-model.js";
 import type { NodeRunner } from "../node-runner.js";
@@ -43,7 +43,8 @@ function validList(node: RuntimeNode, output: ListWrapper, value: unknown): unkn
  */
 export function finishRunner(node: RuntimeNode): NodeRunner {
   const { declaration } = node;
-  if (declaration.kind !== NodeKind.Finish) throw new TypeError(`${node.id} is not a finish`);
+  if (declaration.kind !== ComponentKind.WorkflowFinish)
+    throw new TypeError(`${node.id} is not a finish`);
   const { output } = declaration.options;
   return (state) => {
     const built = passedThrough(node, state.scope);

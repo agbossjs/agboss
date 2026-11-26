@@ -3,6 +3,7 @@
  * agents answer with files, what a guardrail's or a judge's reader needs (each need once, strict when
  * any agent sets its types) and which agents give it files.
  */
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { describe, expect, it } from "vitest";
 import { FileDto } from "../../src/dto/standard/file.js";
 import { GuardrailSide } from "../../src/components/policy-decorators.js";
@@ -15,7 +16,6 @@ import {
 } from "../../src/files/file-readers.js";
 import { resolvedFilesOf, type ResolvedModelFiles } from "../../src/files/file-settings.js";
 import { FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
-import { NodeKind } from "../../src/flow/ast.js";
 import { oneOf } from "../../src/flow/dto-wrappers.js";
 import type { RuntimeGraph } from "../../src/flow/runtime/graph-model.js";
 import type { ElementGuardrails } from "../../src/guardrails/assembly.js";
@@ -39,7 +39,7 @@ const graphOf = (name: string, declaration: object): Graph => ({
   nodes: new Map([[name, { declaration }]]) as never,
 });
 
-const agentWith = (output: unknown): object => ({ kind: NodeKind.Agent, options: { output } });
+const agentWith = (output: unknown): object => ({ kind: ComponentKind.Agent, options: { output } });
 
 describe("answersWithFiles", () => {
   it("an agent whose output is a file DTO, a list of them or a variant with one, answers with files", () => {
@@ -52,7 +52,9 @@ describe("answersWithFiles", () => {
     expect(answersWithFiles(graphOf("a", agentWith(undefined)), "a")).toBe(false);
     expect(answersWithFiles(graphOf("a", agentWith(NoteDto)), "a")).toBe(false);
     expect(answersWithFiles(graphOf("a", agentWith(oneOf(NoteDto, NoteDto))), "a")).toBe(false);
-    expect(answersWithFiles(graphOf("a", { kind: NodeKind.Action, options: {} }), "a")).toBe(false);
+    expect(answersWithFiles(graphOf("a", { kind: ComponentKind.Action, options: {} }), "a")).toBe(
+      false,
+    );
     expect(answersWithFiles(graphOf("a", agentWith(ScanDto)), "other")).toBe(false);
   });
 });

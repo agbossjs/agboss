@@ -1,4 +1,4 @@
-import { NodeKind } from "../ast.js";
+import { ComponentKind } from "../runtime/records.js";
 import type { ComponentName } from "../registry.js";
 import type { ResolvedField } from "./fields.js";
 import type { FlowEdge, FlowGraph } from "./flow-graph.js";
@@ -37,7 +37,7 @@ export function provenanceOf(
   const readsEverything = new Set<ComponentName>();
   for (const node of graph.nodes.values()) {
     const { declaration } = node;
-    if (declaration.kind === NodeKind.Agent && declaration.options.input === undefined)
+    if (declaration.kind === ComponentKind.Agent && declaration.options.input === undefined)
       readsEverything.add(node.name);
   }
   return { fields, readsEverything };

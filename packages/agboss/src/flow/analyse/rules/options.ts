@@ -1,6 +1,6 @@
+import { ComponentKind } from "../../runtime/records.js";
 import { isCountLimit, shownLimit } from "../../../graph/count-limit.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
 import type { AgentExecutionLimits } from "../../decorators/agent.js";
 import type { FlowNode } from "../flow-graph.js";
 import type { AnalysisContext, LoadedModule } from "./context.js";
@@ -43,7 +43,7 @@ function spreadSources(options: object, modules: readonly LoadedModule[]): reado
 
 function spreadViolation(node: FlowNode, source: SpreadSource): RuleViolation | undefined {
   const spread = `${source.exportName} from ${source.module.file}`;
-  if (node.kind !== NodeKind.Agent) {
+  if (node.kind !== ComponentKind.Agent) {
     const message =
       `${node.name} spreads ${spread} — *.options.ts is for agents only; share logic through a ` +
       "service in deps";
@@ -122,9 +122,12 @@ function agentLimitProblems(
 export function countLimitRules(context: AnalysisContext): readonly RuleViolation[] {
   const nodes = [...context.graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
-    if (declaration.kind === NodeKind.Agent)
+    if (declaration.kind === ComponentKind.Agent)
       return [...agentLimitProblems(node.name, declaration.options.executionLimits)];
-    if (declaration.kind === NodeKind.Router || declaration.kind === NodeKind.Question)
+    if (
+      declaration.kind === ComponentKind.Router ||
+      declaration.kind === ComponentKind.ExternalTask
+    )
       return problemOf(node.name, "maxVisits", declaration.options.maxVisits, "maxVisits: 3");
     return [];
   });

@@ -1,10 +1,10 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { type Class } from "../components/index.js";
+import type { Class } from "../components/index.js";
 import { workflowInApplication } from "../application/workflow-application.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { AssembledWorkflow } from "../workflow.js";
 
@@ -13,7 +13,7 @@ import { registerTypeScript } from "./typescript.js";
 import { lazyLoad } from "../infrastructure/clock.js";
 
 const isWorkflowClass = (value: unknown): value is Class =>
-  typeof value === "function" && declarationOf(value)?.kind === NodeKind.Workflow;
+  typeof value === "function" && declarationOf(value)?.kind === ComponentKind.Workflow;
 
 /** The one exported `@Workflow` class of a module file (`--workflow ./src/x.workflow.ts`). */
 export async function loadWorkflowClass(

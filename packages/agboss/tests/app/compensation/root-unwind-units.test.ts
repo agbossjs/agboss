@@ -5,6 +5,7 @@
  * all under the call's lease, writes the undo's spend at once to the budgets its checkpoint keeps,
  * and ends with the cause — or `ExecutionError.CompensationFailed` when an undo failed.
  */
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { ExecutionError } from "../../../src/core/error-families/run-errors.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppDeps } from "../../../src/app/app-deps.js";
@@ -13,7 +14,6 @@ import type { ApplicationBudgets } from "../../../src/budgets/budget-check.js";
 import { CompensationRegistry } from "../../../src/flow/runtime/compensation/registry.js";
 import type { RuntimeGraph, RuntimeNode } from "../../../src/flow/runtime/graph-model.js";
 import type { TurnRecords } from "../../../src/turns/index.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import {
   COMPENSATION_TIMEOUT,
   CompensationReason,
@@ -66,14 +66,17 @@ const STATE = { runId: "root-1", threadId: "thread-1", tenantId: "acme", started
 const USAGE = recordToolCost("release-room-action", 0.25);
 
 const undoable = {
-  kind: NodeKind.Action,
-  declaration: { kind: NodeKind.Action, options: { compensateWith: Object } },
+  kind: ComponentKind.Action,
+  declaration: { kind: ComponentKind.Action, options: { compensateWith: Object } },
 };
-const plain = { kind: NodeKind.Action, declaration: { kind: NodeKind.Action, options: {} } };
+const plain = {
+  kind: ComponentKind.Action,
+  declaration: { kind: ComponentKind.Action, options: {} },
+};
 const childNode = {
-  kind: NodeKind.Workflow,
+  kind: ComponentKind.Workflow,
   component: "child",
-  declaration: { kind: NodeKind.Workflow, options: {} },
+  declaration: { kind: ComponentKind.Workflow, options: {} },
 };
 
 interface DepsOptions {

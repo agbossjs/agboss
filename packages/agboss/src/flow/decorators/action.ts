@@ -1,9 +1,9 @@
+import { ComponentKind } from "../runtime/records.js";
 import { recordOptionKeys } from "../../components/option-keys.js";
 import { ACTION_KEYS } from "../../components/decorator-options.js";
 import { callerFile } from "../../components/call-site.js";
 import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
-import { NodeKind } from "../ast.js";
 import type { Milliseconds } from "../../units/index.js";
 import type { OutputShape } from "../dto-wrappers.js";
 import { declared, recordDeclaration, type InputFields } from "./declaration.js";
@@ -68,7 +68,7 @@ export function Action<const TDeps extends readonly Token[] = []>(options: Actio
     value: TClass,
   ): TClass => {
     recordOptionKeys(value, "Action", options, ACTION_KEYS);
-    recordDeclaration(value, declared(NodeKind.Action, options, source, span));
+    recordDeclaration(value, declared(ComponentKind.Action, options, source, span));
     return value;
   };
 }

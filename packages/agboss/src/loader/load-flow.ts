@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -7,7 +8,6 @@ import type { Class } from "../components/injection.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { walkFlow } from "../flow/analyse/walk.js";
 import type { LoadedModule } from "../flow/analyse/rules/context.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { toolComponentNameOf } from "../flow/types/agent-tools.js";
 import { channelBrandOf } from "../flow/types/pause-target-tables.js";
@@ -41,7 +41,7 @@ export interface FlowLoadOptions {
 }
 
 const isFlowWorkflow = (value: unknown): value is Class =>
-  typeof value === "function" && declarationOf(value)?.kind === NodeKind.Workflow;
+  typeof value === "function" && declarationOf(value)?.kind === ComponentKind.Workflow;
 
 const isApplication = (value: unknown): value is Class =>
   typeof value === "function" && applicationDeclarationOf(value as Class) !== undefined;
@@ -60,7 +60,7 @@ const namespaceOf = async (file: string): Promise<Readonly<Record<string, unknow
 function componentFiles(workflows: readonly Class[]): readonly string[] {
   return withChildWorkflows(workflows).flatMap((workflow) => {
     const declaration = declarationOf(workflow);
-    if (declaration?.kind !== NodeKind.Workflow) return [];
+    if (declaration?.kind !== ComponentKind.Workflow) return [];
     const { nodes } = walkFlow(declaration.options.flow, workflow).graph;
     return [...nodes.values()].flatMap((node) =>
       node.declaration.source === undefined ? [] : [node.declaration.source],

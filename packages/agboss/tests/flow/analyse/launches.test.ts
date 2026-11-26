@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { LimitError } from "../../../src/core/error-families/limit-errors.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
@@ -6,7 +7,6 @@ import { Agent } from "../../../src/flow/decorators/agent.js";
 import { Workflow, type WorkflowOptions } from "../../../src/flow/decorators/workflow.js";
 import { listOf, oneOf, optional } from "../../../src/flow/dto-wrappers.js";
 import { workflowOf } from "../../../src/components/assemble.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { declarationOf } from "../../../src/flow/decorators/declaration.js";
 import { BrokenScreeningWorkflow } from "../fixtures/broken-launch.fixture.js";
 import {
@@ -389,6 +389,6 @@ describe("#273 PR 2: a launch assembles", () => {
 
 function flowOf(workflow: abstract new () => unknown): Flow {
   const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow) throw new TypeError("not a workflow");
+  if (declaration?.kind !== ComponentKind.Workflow) throw new TypeError("not a workflow");
   return declaration.options.flow;
 }

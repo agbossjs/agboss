@@ -1,6 +1,7 @@
+import type { FlowNodeKind } from "../flow/ast.js";
+import { ComponentKind } from "../flow/runtime/records.js";
 import { resolveTools, type AssembledWorkflow, type WorkflowServices } from "../workflow.js";
 import type { JsonSchema } from "../dto/schema.js";
-import { NodeKind } from "../flow/ast.js";
 import { dtoJsonSchemaOf, dtoSchemaHashOf } from "../flow/runtime/join-keys.js";
 import { toolKeysOf } from "../flow/runtime/tool-keys.js";
 import { configSnapshot, type ChildSnapshotSources } from "../run/versions.js";
@@ -92,7 +93,7 @@ function schemasOf(bundle: AssembledWorkflow, tools: readonly AnyTool[]): Schema
   return { dtos: Object.fromEntries(dtos), tools: Object.fromEntries(byTool) };
 }
 
-const namesOfKind = (bundle: AssembledWorkflow, kind: NodeKind): readonly string[] =>
+const namesOfKind = (bundle: AssembledWorkflow, kind: FlowNodeKind): readonly string[] =>
   [...bundle.graph.nodes.values()].filter((node) => node.kind === kind).map((node) => node.id);
 
 /**
@@ -106,8 +107,8 @@ export function workflowSnapshotOf(
 ): WorkflowSnapshot {
   return {
     configHash: versionOf(configSnapshot(bundle, children)),
-    starts: namesOfKind(bundle, NodeKind.Start),
-    finishes: namesOfKind(bundle, NodeKind.Finish),
+    starts: namesOfKind(bundle, ComponentKind.WorkflowStart),
+    finishes: namesOfKind(bundle, ComponentKind.WorkflowFinish),
     nodes: nodesOf(bundle),
     edges: edgesOf(bundle.graph),
     onError: errorHandlersOf(bundle.graph),

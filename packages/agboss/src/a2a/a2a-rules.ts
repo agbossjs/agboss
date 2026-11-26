@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import type { ComponentOptions } from "../components/component-options.js";
 import type { ApplicationOptions } from "../application/application.js";
@@ -5,7 +6,6 @@ import type { Class, Provider } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import { moduleOf } from "../components/module.js";
 import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { hasKindSuffix, kebabNameProblem, NameKind } from "../flow/names.js";
 import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
@@ -31,9 +31,9 @@ function contractNameViolations(name: string, decorator: string, where: string):
 function startsOf(workflows: readonly Class[]): ReadonlySet<Class> {
   const starts = withChildWorkflows(workflows).flatMap((workflow) => {
     const declaration = declarationOf(workflow);
-    if (declaration?.kind !== NodeKind.Workflow) return [];
+    if (declaration?.kind !== ComponentKind.Workflow) return [];
     return flowClassesOf(declaration.options.flow).filter(
-      (node) => declarationOf(node)?.kind === NodeKind.Start,
+      (node) => declarationOf(node)?.kind === ComponentKind.WorkflowStart,
     );
   });
   return new Set(starts);
@@ -104,7 +104,7 @@ function createdClassOf(provider: Provider): Class | undefined {
  */
 function providersOf(options: ApplicationOptions): ReadonlySet<Class> {
   const ofWorkflows = withChildWorkflows(options.workflows)
-    .filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow)
+    .filter((workflow) => declarationOf(workflow)?.kind === ComponentKind.Workflow)
     .flatMap((workflow) => moduleOf(workflow).providers ?? []);
   const created = [...(options.providers ?? []), ...ofWorkflows].map(createdClassOf);
   // Stryker disable next-line ArrayDeclaration: a value provider would add a string, which no component is declared on, so the check passes it by

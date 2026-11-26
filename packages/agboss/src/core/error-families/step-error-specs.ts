@@ -1,7 +1,7 @@
 import { plainly } from "./family.js";
 import { ComponentKind } from "../../flow/runtime/records.js";
 import type { PauseKind } from "../../infrastructure/pause-record.js";
-import { type JudgeRejection } from "../../graph/step-coordinates.js";
+import type { JudgeRejection } from "../../graph/step-coordinates.js";
 import {
   describe,
   qualityReason,
@@ -94,7 +94,7 @@ export const STEP_SPECS = {
       (f: { externalTask?: string } & Said) =>
         `Question "${f.externalTask ?? ""}" failed: ${describe(f.cause)}`,
       undefined,
-      stepOf(ComponentKind.Question, (f: { externalTask?: string }) => f.externalTask ?? ""),
+      stepOf(ComponentKind.ExternalTask, (f: { externalTask?: string }) => f.externalTask ?? ""),
     ],
     ["externalTask"],
     "an external task failed",
@@ -123,7 +123,7 @@ export interface StepDefaulted {
 /** What a pause that expired adds to its step's failure. */
 export interface PauseExpiredFacts {
   readonly step: string;
-  readonly stepKind?: ComponentKind.Agent | ComponentKind.Question | undefined;
+  readonly stepKind?: ComponentKind.Agent | ComponentKind.ExternalTask | undefined;
   readonly target?: string | undefined;
   readonly channel?: string | undefined;
   /** What the pause waited for (`PauseKind`; `kind` is the variant's own). */

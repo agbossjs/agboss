@@ -4,7 +4,6 @@ import type { UncompactedTurns } from "../memory/memory.decorator.js";
 import { promptTextOf } from "../components/prompt-render.js";
 import { DEFAULT_MAX_TOKENS } from "../config/types.js";
 import type { RagScope } from "../rag/types.js";
-import { NodeKind } from "../flow/ast.js";
 import { DecidedBy, isCodeRouter, routesOf } from "../flow/decorators/router.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
@@ -14,7 +13,7 @@ import {
   nodeRecordOf,
   type DescribedShape,
 } from "../flow/runtime/join-keys.js";
-import type { ComponentKind } from "../flow/runtime/records.js";
+import { ComponentKind } from "../flow/runtime/records.js";
 import { resolveAgentLimits } from "../graph/agent-loop/index.js";
 import { reasoningLabel, reasoningOfThinking } from "../models/reasoning.js";
 import { resolvedModelUsesOf } from "../models/resolution.js";
@@ -163,7 +162,7 @@ function routerOf(
   node: RuntimeNode,
   providers: ReadonlyMap<string, string>,
 ): RouterSnapshot | undefined {
-  if (node.declaration.kind !== NodeKind.Router) return undefined;
+  if (node.declaration.kind !== ComponentKind.Router) return undefined;
   const { options } = node.declaration;
   const loaded = bundle.routers.find((router) => router.name === node.id);
   const routes = routesOf(options).map((route) => {
@@ -198,7 +197,8 @@ export function nodesOf(bundle: AssembledWorkflow): readonly NodeSnapshot[] {
   return [...bundle.graph.nodes.values()].map((node) => {
     const record = nodeRecordOf(node, bundle);
     const description = descriptionOf(node);
-    const agent = node.kind === NodeKind.Agent ? agentOf(bundle, node.id, providers) : undefined;
+    const agent =
+      node.kind === ComponentKind.Agent ? agentOf(bundle, node.id, providers) : undefined;
     const router = routerOf(bundle, node, providers);
     const action = actionSnapshotOf(node);
     return {

@@ -1,8 +1,8 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { ApplicationOptions } from "../application/application.js";
 import type { Provider } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import type { DtoClass } from "../dto/types.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { hasFileAtAnyDepth, nestedFileFieldsOf } from "../dto/standard/file.js";
@@ -24,7 +24,7 @@ function exportedDtosOf(options: ApplicationOptions): readonly DtoClass[] {
     if (meta?.kind !== "a2a-endpoint") return [];
     return startsOfEndpoint(meta.meta).flatMap((start) => {
       const declaration = declarationOf(start);
-      if (declaration?.kind !== NodeKind.Start) return [];
+      if (declaration?.kind !== ComponentKind.WorkflowStart) return [];
       const { input } = declaration.options;
       const finishes = [...finishDtosOf(start, options.workflows).values()];
       return typeof input === "function" ? [input, ...finishes] : finishes;
@@ -50,7 +50,9 @@ const providersOf = (options: ApplicationOptions): readonly Provider[] => [
   ...(options.providers ?? []),
   ...options.workflows.flatMap((workflow) => {
     const declaration = declarationOf(workflow);
-    return declaration?.kind === NodeKind.Workflow ? (declaration.options.providers ?? []) : [];
+    return declaration?.kind === ComponentKind.Workflow
+      ? (declaration.options.providers ?? [])
+      : [];
   }),
 ];
 

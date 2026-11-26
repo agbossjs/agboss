@@ -1,3 +1,5 @@
+import type { FlowNodeKind, FlowPath } from "../ast.js";
+import { ComponentKind } from "./records.js";
 import { ExecutionCancelledError } from "../../core/errors.js";
 import { ExecutionError } from "../../core/error-families/run-errors.js";
 import type { Class } from "../../components/injection.js";
@@ -8,7 +10,6 @@ import { isHandOverRecord } from "../../core/error-families/hand-over.js";
 import type { FlowAnalysis } from "../analyse/analyse.js";
 import type { ResolvedField } from "../analyse/fields.js";
 import { EdgeKind, type FlowEdge, type FlowNode } from "../analyse/flow-graph.js";
-import { NodeKind, type FlowPath } from "../ast.js";
 import { isFieldMap, type ComponentDeclaration } from "../decorators/declaration.js";
 import { isCodeRouter } from "../decorators/router.js";
 import {
@@ -51,7 +52,7 @@ export interface NodeExits {
 export interface RuntimeNode {
   /** The LangGraph node id: the component's `name`. */
   readonly id: ComponentName;
-  readonly kind: NodeKind;
+  readonly kind: FlowNodeKind;
   readonly component: Class;
   readonly declaration: ComponentDeclaration;
   /** What it reads from the path scope (#270), resolved by the analyser. */
@@ -100,18 +101,18 @@ function exitsOf(edges: readonly FlowEdge[]): NodeExits {
 
 /** A router decided by its class's `route(input)` (`DecidedBy.Code`, #280). */
 export const isCodeRouterNode = (node: Pick<RuntimeNode, "declaration">): boolean =>
-  node.declaration.kind === NodeKind.Router && isCodeRouter(node.declaration.options);
+  node.declaration.kind === ComponentKind.Router && isCodeRouter(node.declaration.options);
 
 /** A node whose class the container creates — its code runs: an action, a code router. */
 export const isCodeNode = (node: Pick<RuntimeNode, "declaration">): boolean => {
   const { declaration } = node;
-  return declaration.kind === NodeKind.Action || isCodeRouterNode(node);
+  return declaration.kind === ComponentKind.Action || isCodeRouterNode(node);
 };
 
 /** The undo actions the graph's actions declare (#340): run by the runtime even off every path. */
 const compensatorsOf = (nodes: Iterable<RuntimeNode>): readonly Class[] =>
   [...nodes].flatMap(({ declaration }) =>
-    declaration.kind === NodeKind.Action && declaration.options.compensateWith !== undefined
+    declaration.kind === ComponentKind.Action && declaration.options.compensateWith !== undefined
       ? [declaration.options.compensateWith]
       : [],
   );
@@ -134,9 +135,9 @@ export const codeClassesOf = (
 ];
 
 const maxVisitsOf = (declaration: ComponentDeclaration): number | undefined =>
-  declaration.kind === NodeKind.Agent
+  declaration.kind === ComponentKind.Agent
     ? declaration.options.executionLimits?.maxVisits
-    : declaration.kind === NodeKind.Router || declaration.kind === NodeKind.Question
+    : declaration.kind === ComponentKind.Router || declaration.kind === ComponentKind.ExternalTask
       ? declaration.options.maxVisits
       : undefined;
 
@@ -146,7 +147,7 @@ const placementOf = (
   applicationPlacement: ChildPlacement | undefined,
   overrides: Placements | undefined,
 ): ChildPlacement | undefined => {
-  if (node.kind !== NodeKind.Workflow) return undefined;
+  if (node.kind !== ComponentKind.Workflow) return undefined;
   const placement = placementOfWorkflow(node.component, applicationPlacement, overrides);
   return isQueued(placement) ? placement : undefined;
 };

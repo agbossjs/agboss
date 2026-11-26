@@ -1,6 +1,7 @@
+import type { ComponentKind } from "./runtime/records.js";
 import type { Class } from "../components/injection.js";
 import type { LimitError } from "../core/error-families/limit-errors.js";
-import type { ArbiterClass, ErrorClass, NodeKind } from "./ast.js";
+import type { ArbiterClass, ErrorClass } from "./ast.js";
 import type {
   BuiltPath,
   PathHead,
@@ -131,7 +132,11 @@ export interface ItemsLaunched<THead extends PathHead> extends PerItemLaunched<T
 
 /** What a branch of a parallel step may start with: an agent, an action, a question role, a child workflow — or a router, which only `chooseMany([…])` completes. */
 export type BranchKind =
-  NodeKind.Agent | NodeKind.Action | NodeKind.Question | NodeKind.Workflow | NodeKind.Router;
+  | ComponentKind.Agent
+  | ComponentKind.Action
+  | ComponentKind.ExternalTask
+  | ComponentKind.Workflow
+  | ComponentKind.Router;
 
 /** `unknown` when the branch starts with a kind a parallel step runs, else a readable error. */
 export type BranchCheck<TPath> = [StartOfPath<TPath>] extends [never]

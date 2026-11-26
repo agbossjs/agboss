@@ -1,6 +1,7 @@
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import type { App, ExecutionOptions, ExecutionOutput, ResumeRequest } from "../../src/app/types.js";
 import type { Class } from "../../src/components/injection.js";
-import { NodeKind, type PathSource } from "../../src/flow/ast.js";
+import type { PathSource } from "../../src/flow/ast.js";
 import {
   fromComponent,
   fromSource,
@@ -17,19 +18,19 @@ import type { TargetRef } from "../../src/flow/target-ref.js";
  */
 
 export const onStart = (source: Class): PathBuilder<PathSource> =>
-  fromSource({ kind: NodeKind.Start, node: source });
+  fromSource({ kind: ComponentKind.WorkflowStart, node: source });
 
 export const onAgent = (source: Class): PathBuilder<PathSource> =>
-  fromComponent(NodeKind.Agent, source);
+  fromComponent(ComponentKind.Agent, source);
 
 export const onRouter = (source: Class): PathBuilder<PathSource> =>
-  fromComponent(NodeKind.Router, source);
+  fromComponent(ComponentKind.Router, source);
 
 export const onAction = (source: Class): PathBuilder<PathSource> =>
-  fromComponent(NodeKind.Action, source);
+  fromComponent(ComponentKind.Action, source);
 
 export const onWorkflow = (source: TargetRef): PathBuilder<PathSource> =>
-  fromComponent(NodeKind.Workflow, source);
+  fromComponent(ComponentKind.Workflow, source);
 
 export { skip } from "../../src/flow/parallel-step.js";
 

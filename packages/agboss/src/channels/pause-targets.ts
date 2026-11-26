@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { ConfigError } from "../core/error-families/config-errors.js";
 import { recordOptionKeys } from "../components/option-keys.js";
 import { EXTERNAL_TASK_KEYS, TOOL_APPROVAL_KEYS } from "../components/decorator-options.js";
@@ -5,7 +6,6 @@ import { callerFile } from "../components/call-site.js";
 import type { Class, ResolvedAll, Token } from "../components/injection.js";
 import type { DtoClass } from "../dto/types.js";
 import type { Milliseconds, WorkingDuration } from "../units/index.js";
-import { NodeKind } from "../flow/ast.js";
 import { declared, recordDeclaration } from "../flow/decorators/declaration.js";
 import { PauseRespondent } from "../pause/respondent.js";
 import type { PauseEscalationLimits } from "./pause-contexts.js";
@@ -188,7 +188,7 @@ function questionDeclarationOf(options: ExternalTaskOptions, source: string | un
     ...(maxVisits === undefined ? {} : { maxVisits }),
     target: options,
   };
-  return declared(NodeKind.Question, node, source);
+  return declared(ComponentKind.ExternalTask, node, source);
 }
 
 /** `respondent` of an untyped (JS) caller: the types rule other values out already. */

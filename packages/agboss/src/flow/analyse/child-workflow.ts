@@ -1,7 +1,8 @@
+import { ComponentKind } from "../runtime/records.js";
 import { ConfigError } from "../../core/error-families/config-errors.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
-import { NodeKind, QuorumKind, StepKind, type FlowPath, type Step } from "../ast.js";
+import { QuorumKind, StepKind, type FlowPath, type Step } from "../ast.js";
 import {
   declarationOf,
   isFieldMap,
@@ -89,16 +90,18 @@ export function finishesOf(flow: readonly FlowPath[]): readonly Class[] {
     .flatMap((path) => allSteps(path.steps))
     .flatMap((step): readonly Class[] => {
       if (step.kind === StepKind.To)
-        return step.targetKind === NodeKind.Finish ? [step.target] : [];
+        return step.targetKind === ComponentKind.WorkflowFinish ? [step.target] : [];
       return step.kind === StepKind.ChooseOne ? step.routes.map((route) => route.target) : [];
     });
-  return [...new Set(targets)].filter((target) => declarationOf(target)?.kind === NodeKind.Finish);
+  return [...new Set(targets)].filter(
+    (target) => declarationOf(target)?.kind === ComponentKind.WorkflowFinish,
+  );
 }
 
 function outputsOf(flow: readonly FlowPath[]): readonly (DtoClass | ListWrapper)[] {
   const outputs = finishesOf(flow).flatMap((finish) => {
     const declaration = declarationOf(finish);
-    return declaration?.kind === NodeKind.Finish ? [declaration.options.output] : [];
+    return declaration?.kind === ComponentKind.WorkflowFinish ? [declaration.options.output] : [];
   });
   const byLabel = new Map(outputs.map((output) => [shapeLabel(output), output]));
   return [...byLabel.values()].sort((first, second) =>
@@ -130,9 +133,9 @@ const outputShapeOf = (
 function summarise(declaration: WorkflowDeclaration): ChildWorkflow {
   const { flow, name } = declaration.options;
   const starts = flow.flatMap((path): readonly ChildStart[] => {
-    if (path.source.kind !== NodeKind.Start) return [];
+    if (path.source.kind !== ComponentKind.WorkflowStart) return [];
     const start = declarationOf(path.source.node);
-    return start?.kind === NodeKind.Start ? [startOf(path.source.node, start)] : [];
+    return start?.kind === ComponentKind.WorkflowStart ? [startOf(path.source.node, start)] : [];
   });
   const unique = [...new Map(starts.map((start) => [start.name, start])).values()].sort(
     (first, second) => first.name.localeCompare(second.name),
@@ -171,7 +174,7 @@ export function flowClassesOf(flow: readonly FlowPath[]): readonly Class[] {
  */
 export const childClassesOf = (flow: readonly FlowPath[], self?: Class): readonly Class[] =>
   flowClassesOf(flow).filter(
-    (target) => declarationOf(target)?.kind === NodeKind.Workflow && target !== self,
+    (target) => declarationOf(target)?.kind === ComponentKind.Workflow && target !== self,
   );
 
 /** The workflows and, depth first, every child workflow they launch, each once. */
@@ -181,7 +184,7 @@ export function withChildWorkflows(workflows: readonly Class[]): readonly Class[
     if (found.has(workflow)) return;
     found.add(workflow);
     const declaration = declarationOf(workflow);
-    if (declaration?.kind === NodeKind.Workflow)
+    if (declaration?.kind === ComponentKind.Workflow)
       childClassesOf(declaration.options.flow, workflow).forEach(visit);
   };
   workflows.forEach(visit);
@@ -199,7 +202,7 @@ export function childrenFirst(workflows: readonly Class[]): readonly Class[] {
     if (entered.has(workflow)) return;
     entered.add(workflow);
     const declaration = declarationOf(workflow);
-    if (declaration?.kind === NodeKind.Workflow)
+    if (declaration?.kind === ComponentKind.Workflow)
       childClassesOf(declaration.options.flow, workflow).forEach(visit);
     ordered.push(workflow);
   };
@@ -214,7 +217,7 @@ export function childWorkflowOf(workflow: Class): ChildWorkflow | undefined {
   const known = summaries.get(workflow);
   if (known !== undefined) return known;
   const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow) return undefined;
+  if (declaration?.kind !== ComponentKind.Workflow) return undefined;
   const child = summarise(declaration);
   summaries.set(workflow, child);
   return child;

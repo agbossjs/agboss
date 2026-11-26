@@ -1,4 +1,4 @@
-import { NodeKind } from "../flow/ast.js";
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { GraphDeps } from "../graph/deps.js";
 import { NO_OBSERVABILITY_MASK, type ObservabilityMask } from "../pii/observability-mask.js";
 
@@ -32,7 +32,7 @@ export type TreeDeps = Pick<GraphDeps<string>, "pii" | "graph" | "childDepsOf" |
 /** The deps of `parent`'s child workflow `name`: its own under `parent`'s chain. */
 function childNamed(parent: TreeDeps, name: string): TreeDeps | undefined {
   for (const node of parent.graph.nodes.values()) {
-    if (node.kind !== NodeKind.Workflow) continue;
+    if (node.kind !== ComponentKind.Workflow) continue;
     if (node.component === parent.graph.type) {
       if (parent.config.name === name) return parent;
       continue;
@@ -53,7 +53,7 @@ function treeMasksOf(deps: TreeDeps): readonly ObservabilityMask[] {
     // no policies: still no file bytes (#899 §0)
     masks.push(at.pii?.observability ?? NO_OBSERVABILITY_MASK);
     for (const node of at.graph.nodes.values()) {
-      if (node.kind !== NodeKind.Workflow || node.component === at.graph.type) continue;
+      if (node.kind !== ComponentKind.Workflow || node.component === at.graph.type) continue;
       const child = at.childDepsOf?.(node.component);
       if (child !== undefined) visit(child);
     }
@@ -182,7 +182,7 @@ function withNode(deps: TreeDeps, nodeId: string): readonly TreeDeps[] {
     seen.add(at);
     if (at.graph.nodes.has(nodeId)) found.push(at);
     for (const node of at.graph.nodes.values()) {
-      if (node.kind !== NodeKind.Workflow || node.component === at.graph.type) continue;
+      if (node.kind !== ComponentKind.Workflow || node.component === at.graph.type) continue;
       const child = at.childDepsOf?.(node.component);
       if (child !== undefined) visit(child);
     }

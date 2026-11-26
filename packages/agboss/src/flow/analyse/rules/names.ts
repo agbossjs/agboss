@@ -1,6 +1,7 @@
+import type { FlowNodeKind } from "../../ast.js";
+import { ComponentKind } from "../../runtime/records.js";
 import type { DtoClass } from "../../../dto/types.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
 import type { ComponentDeclaration, InputFields } from "../../decorators/declaration.js";
 import {
   isValueShape,
@@ -19,14 +20,14 @@ import type { AnalysisContext } from "./context.js";
  * (`[dto.name]`); DTO class names are unique, because they key checkpoints (`[dto.duplicate-name]`).
  */
 
-const NAME_KINDS: Readonly<Record<NodeKind, NameKind>> = {
-  [NodeKind.Start]: NameKind.WorkflowStart,
-  [NodeKind.Finish]: NameKind.WorkflowFinish,
-  [NodeKind.Agent]: NameKind.Agent,
-  [NodeKind.Action]: NameKind.Action,
-  [NodeKind.Router]: NameKind.Router,
-  [NodeKind.Workflow]: NameKind.Workflow,
-  [NodeKind.Question]: NameKind.ExternalTask,
+const NAME_KINDS: Readonly<Record<FlowNodeKind, NameKind>> = {
+  [ComponentKind.WorkflowStart]: NameKind.WorkflowStart,
+  [ComponentKind.WorkflowFinish]: NameKind.WorkflowFinish,
+  [ComponentKind.Agent]: NameKind.Agent,
+  [ComponentKind.Action]: NameKind.Action,
+  [ComponentKind.Router]: NameKind.Router,
+  [ComponentKind.Workflow]: NameKind.Workflow,
+  [ComponentKind.ExternalTask]: NameKind.ExternalTask,
 };
 
 /** The DTO classes inside a shape. */
@@ -51,21 +52,21 @@ const dtosOfFields = (
 /** The DTO classes a component declares: its input fields and its output. */
 export function declaredDtos(declaration: ComponentDeclaration): readonly DtoClass[] {
   switch (declaration.kind) {
-    case NodeKind.Start: {
+    case ComponentKind.WorkflowStart: {
       const { input } = declaration.options;
       return isValueShape(input) ? dtosOf(input) : dtosOfFields(input);
     }
-    case NodeKind.Agent:
-    case NodeKind.Action:
-    case NodeKind.Question: {
+    case ComponentKind.Agent:
+    case ComponentKind.Action:
+    case ComponentKind.ExternalTask: {
       const { input, output } = declaration.options;
       return [...dtosOfFields(input), ...(output === undefined ? [] : dtosOf(output))];
     }
-    case NodeKind.Finish:
+    case ComponentKind.WorkflowFinish:
       return dtosOf(declaration.options.output);
-    case NodeKind.Router:
+    case ComponentKind.Router:
       return dtosOfFields(declaration.options.input);
-    case NodeKind.Workflow:
+    case ComponentKind.Workflow:
       return [];
   }
 }

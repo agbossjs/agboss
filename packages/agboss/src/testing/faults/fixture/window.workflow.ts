@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../../flow/runtime/records.js";
 import {
   Action,
   Workflow,
@@ -9,7 +10,7 @@ import {
 import { Channel } from "../../../components/decorators.js";
 import { ChannelOutcome } from "../../../channels/channel-outcome.js";
 import type { Class } from "../../../components/injection.js";
-import { NodeKind, type PathSource } from "../../../flow/ast.js";
+import type { PathSource } from "../../../flow/ast.js";
 import { fromSource, type PathBuilder } from "../../../flow/path-builder.js";
 import {
   FaultApprovalAskDto,
@@ -39,7 +40,7 @@ import { Ttl } from "../../../index.js";
  */
 
 const onStart = (source: Class): PathBuilder<PathSource> =>
-  fromSource({ kind: NodeKind.Start, node: source });
+  fromSource({ kind: ComponentKind.WorkflowStart, node: source });
 
 @WorkflowStart({
   name: "fault-child-pause-workflow-start",

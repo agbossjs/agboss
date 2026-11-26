@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../runtime/records.js";
 import type { Class } from "../../../components/injection.js";
 import { isCodeJudge } from "../../../components/judge-decorators.js";
 import { componentOf } from "../../../components/metadata.js";
@@ -9,7 +10,6 @@ import {
   type KeptModelProviderOptions,
 } from "../../../models/model-provider.decorator.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
 import type { FlowGraph } from "../flow-graph.js";
 import type { AnalysisContext } from "./context.js";
 
@@ -123,7 +123,7 @@ export function sameFamilyWarnings(
 /** Every agent of a walked workflow, with its model. */
 export function agentsOf(graph: FlowGraph): JudgedAgent[] {
   return [...graph.nodes.values()].flatMap((node) =>
-    node.declaration.kind === NodeKind.Agent
+    node.declaration.kind === ComponentKind.Agent
       ? [
           {
             name: node.name,
@@ -139,7 +139,7 @@ export function agentsOf(graph: FlowGraph): JudgedAgent[] {
 export function judgeFamilyWarnings(context: AnalysisContext): readonly RuleViolation[] {
   return [...context.graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
-    if (declaration.kind !== NodeKind.Agent) return [];
+    if (declaration.kind !== ComponentKind.Agent) return [];
     const agent = {
       name: node.name,
       model: declaration.options.model,
@@ -158,7 +158,7 @@ export function judgeFamilyWarnings(context: AnalysisContext): readonly RuleViol
 export function judgeRetryWarnings(context: AnalysisContext): readonly RuleViolation[] {
   return [...context.graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
-    if (declaration.kind !== NodeKind.Agent) return [];
+    if (declaration.kind !== ComponentKind.Agent) return [];
     const { judges, executionLimits } = declaration.options;
     const maxRetries = executionLimits?.maxRetries;
     if ((judges ?? []).length === 0 || (maxRetries ?? 0) > 0) return [];

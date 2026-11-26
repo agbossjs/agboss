@@ -1,10 +1,10 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { UnknownToolError } from "./parts.js";
 import { workflowInApplication } from "../application/workflow-application.js";
 import type { Class } from "../components/injection.js";
 import { childrenFirst } from "../flow/analyse/child-workflow.js";
 import type { GraphDeps } from "../graph/deps.js";
 import type { AssembledWorkflow } from "../workflow.js";
-import { NodeKind } from "../flow/ast.js";
 import type { AnyTool } from "../tools/index.js";
 import type { DtoClass } from "../dto/types.js";
 
@@ -53,7 +53,8 @@ export async function standaloneChildrenOf(
 export function treeToolsOf(deps: GraphDeps<string>): (name: string) => AnyTool {
   const childrenOf = (of: GraphDeps<string>): readonly GraphDeps<string>[] =>
     [...of.graph.nodes.values()].flatMap((node) => {
-      const child = node.kind === NodeKind.Workflow ? of.childDepsOf?.(node.component) : undefined;
+      const child =
+        node.kind === ComponentKind.Workflow ? of.childDepsOf?.(node.component) : undefined;
       return child === undefined ? [] : [child];
     });
   const find = (of: GraphDeps<string>, name: string, seen: Set<Class>): AnyTool | undefined => {
@@ -89,9 +90,10 @@ export function treeQuestionAnswersOf(
     if (seen.has(of.graph.type)) return undefined;
     seen.add(of.graph.type);
     const own = of.config.name === at.workflow ? of.graph.nodes.get(at.node) : undefined;
-    if (own?.declaration.kind === NodeKind.Question) return own.declaration.options.output;
+    if (own?.declaration.kind === ComponentKind.ExternalTask) return own.declaration.options.output;
     for (const node of of.graph.nodes.values()) {
-      const child = node.kind === NodeKind.Workflow ? of.childDepsOf?.(node.component) : undefined;
+      const child =
+        node.kind === ComponentKind.Workflow ? of.childDepsOf?.(node.component) : undefined;
       const found = child === undefined ? undefined : find(child, at, seen);
       if (found !== undefined) return found;
     }
