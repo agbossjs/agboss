@@ -81,6 +81,14 @@ const startedBy = (phase: string): Line | undefined => lines().find((one) => one
 
 async function summary(extra: Record<string, unknown>): Promise<void> {
   const pids = [...new Set(lines().map((one) => one.pid))];
+  // a fork ends with its child, but a loaded machine reaps it a moment after the child's last line:
+  // sample `alive` once every fork is gone, bounded (one still alive after that is reported as alive)
+  for (
+    let wait = 0;
+    wait < 200 && pids.some((pid) => pid !== process.pid && isAlive(pid));
+    wait += 1
+  )
+    await sleep(50);
   await report({
     driver: { pid: process.pid, instanceId: here },
     lines: lines(),
