@@ -57,6 +57,16 @@ export const StoredAnswer = z
     ...(stored.usage === undefined ? {} : { usage: stored.usage }),
   }));
 
+/**
+ * An instant a limit is compared by as text: exactly what `toISOString()` writes (milliseconds, `Z`).
+ * A date a port round-tripped natively (no milliseconds, an offset) would sort as another instant, and
+ * a cap that sorts wrong is a cap that is not kept: it is unreadable instead.
+ */
+const StoredInstant = z.string().refine((value) => {
+  const at = new Date(value);
+  return !Number.isNaN(at.getTime()) && at.toISOString() === value;
+}, "not an ISO 8601 instant as toISOString writes it (milliseconds, Z)");
+
 /** The tool call an approval pause waits on. */
 export const StoredPauseToolCall = z.object({
   callId: z.string(),
@@ -75,6 +85,13 @@ export const StoredPause = z
     itemIndex: z.number().optional(),
     copyNumber: z.number(),
     askedAt: z.string(),
+    // #1307, Q-D: when it was first asked and the limits it was opened under, narrowed by moves; a record without them is not read
+    firstAskedAt: StoredInstant,
+    maxExpiresAt: StoredInstant.optional(),
+    escalationLimits: z.strictObject({
+      maxExtensions: z.number().int().nonnegative().optional(),
+      maxReassignments: z.number().int().nonnegative().optional(),
+    }),
     kind: z.enum(PauseKind),
     step: z.string(),
     component: StoredComponent.optional(),

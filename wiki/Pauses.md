@@ -1016,7 +1016,7 @@ exactly one winner, whatever the instances' clocks. Within seconds the tree move
 
 **What an expiry means** is the target's call. A `@ToolApproval` or `@ExternalTask` (`implements PauseExpiryHandler<Target>`)
 may answer `onExpired(ctx)` — `ctx` is an `ExpiredContext`: `input`, `expiresAt`, `firstAskedAt`, `maxExpiresAt` (the
-latest instant the chain's `maxTotalTimeout` lets it wait until; absent: no such limit), `trail` — with:
+latest instant the pause's stored `maxTotalTimeout` limit lets it wait until; absent: no such limit), `trail` — with:
 
 - `PauseExpiration.fail()` (the default without the method): the step fails with `StepError.PauseExpired`
   (`step.pause-expired`: `step`, `stepKind`, `channel`, `kind`, `expiresAt`; never the pause's id) —
@@ -1137,9 +1137,10 @@ pause's chain of custody as a `timeout-changed` entry. It is refused:
 - a `timeout` that is no duration of at least `seconds(1)` — `PauseError.InvalidTimeout`;
 - a pause that is closed, or already past its deadline — `PauseError.Closed` (`reason: expired`);
 - a deadline past the one the pause was made under — its run's (or a quorum's): exactly that deadline is
-  allowed, and a pause set to it expires there as the run's own, as one made with it does —, or past the chain's
+  allowed, and a pause set to it expires there as the run's own, as one made with it does —, or past the pause's
   `escalationLimits` (`maxTotalTimeout`, counted from the first asking; `maxExtensions`, every change counts, a
-  reassignment with a `timeout` too) — `PauseError.EscalationLimitExceeded`; `Timeout.None` is past any of them;
+  reassignment with a `timeout` too) — `PauseError.EscalationLimitExceeded`; `Timeout.None` is past any of them
+  (the limits are the pause's own, stored when it opened: see "The limits a pause carries" below);
 - a pause whose target guards its answers (`permitAnswer`) but declares no `permitTimeoutChange`, when the change is not a
   longer deadline (an earlier one, one where there was none, or `Timeout.None`) — `PauseError.PermissionDenied`: a shorter
   deadline would make the target's `onExpired` decide, perhaps `PauseExpiration.decide({ approved: true })`, without
@@ -1242,6 +1243,21 @@ const moved: PauseReassignment = await app.reassignPause(
 );
 console.log(moved.pauseKey); // the new pause's key: a correlation, it answers nothing
 ```
+
+**The limits a pause carries.** A target's `escalationLimits` are read **once, when the pause opens**, and kept on
+the pause record: `firstAskedAt`, `maxExpiresAt` (`maxTotalTimeout` counted from the first asking, by the target's
+calendar) and `escalationLimits` (`maxExtensions`, `maxReassignments`). Every check — `setPauseTimeout`,
+`reassignPause`, an expiry's `PauseExpiration.reassign`, the `maxExpiresAt` of `onExpired(ctx)` and the store's
+atomic count — reads the record, never the application's present configuration, so a deploy that renames or removes
+a target, or loosens or drops its limits, changes nothing for a pause already waiting (it is also why a target
+that left the chain's history cannot drop out of it). A move to **another target** narrows them: each limit becomes
+the smaller of the pause's own and the destination's, the destination's total wait counted from the first asking by
+its calendar for the new assignees — a laxer target frees nothing; a change in place, or to another channel of the
+same target, narrows nothing. A pause stored without these fields (not one this version wrote) is unreadable
+(`StoreError.UnreadableRecord`): the limits are never guessed — so **before upgrading, answer, cancel or let expire
+every pending pause**: the expiry, reminder and re-send scans stop at an unreadable row, and no pause behind it is
+expired or reminded until it is gone. The store itself also refuses, in the write, a deadline past `maxExpiresAt` (or
+none while a cap is set).
 
 **Races.** One transaction of the store makes the old pause `Reassigned` and the replacement `Pending` (unsent,
 the old deadline and question, the step key `<original>~r<n>` — a second reassignment is `~r2`, never

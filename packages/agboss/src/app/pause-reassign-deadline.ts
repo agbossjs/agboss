@@ -7,7 +7,7 @@ import type { PauseDeadlineSet } from "../infrastructure/pause-notices.js";
 import { PauseExpiryBound, type PauseRecord } from "../infrastructure/pause-record.js";
 import type { TimeSpan } from "../units/working-time.js";
 import { calendarOfTarget, type CalendarParts } from "./pause-calendar.js";
-import { limitExceeded, maxExpiresAtOf, type ChainLimits } from "./pause-limits.js";
+import { limitExceeded } from "./pause-limits.js";
 
 /**
  * The deadline a reassignment sets (#1307d): the call's `timeout`, else the destination's own
@@ -63,7 +63,7 @@ export async function deadlineAfter(
   moves: { readonly from: PauseTarget; readonly to: PauseTarget },
   assignees: readonly string[] | undefined,
   ask: DeadlineAsk,
-  limits: ChainLimits,
+  maxExpiresAt: string | undefined,
 ): Promise<PauseDeadlineSet | undefined> {
   const { from, to } = moves;
   // a pause that stays under its target keeps its deadline, unless the call says otherwise; an expiry always sets one
@@ -72,8 +72,7 @@ export async function deadlineAfter(
   const now = parts.clock.now();
   const { add, remind } = calendarOfTarget(parts, pause, to, assignees);
   const own = span === undefined ? undefined : (await instantAfter(span, now, add)).toISOString();
-  const cap = await maxExpiresAtOf(parts, pause, limits, assignees);
-  const bound = clamped(pause, own, cap);
+  const bound = clamped(pause, own, maxExpiresAt);
   if (bound.expiresAt !== undefined && bound.expiresAt <= now.toISOString())
     throw limitExceeded(pause, "maxTotalTimeout");
   return withReminder({ now, span, bound, to, calendar: { add, remind } });

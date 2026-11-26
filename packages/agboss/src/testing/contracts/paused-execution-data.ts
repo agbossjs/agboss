@@ -72,6 +72,8 @@ export const pauseOf = (pauseId: string, stepKey = "run-1:clerk-agent:1:call-1")
   status: PauseStatus.Pending,
   isSent: false,
   askedAt: "2026-01-05T09:00:00.000Z",
+  firstAskedAt: "2026-01-05T09:00:00.000Z",
+  escalationLimits: {},
 });
 
 /** What a channel decided at once. */
@@ -144,8 +146,10 @@ export const AFTER_DEADLINE = new Date(DEADLINE.getTime() + 1);
 export const expiringPauseOf = (
   pauseId: string,
   stepKey = "run-1:clerk-agent:1:call-1",
+  limits: Pick<PauseRecord, "maxExpiresAt" | "escalationLimits"> = { escalationLimits: {} },
 ): PauseRecord => ({
   ...pauseOf(pauseId, stepKey),
+  ...limits,
   // as a pause opened under a deadline records it in its first entry (`openedEntryOf`)
   trail: pauseOf(pauseId, stepKey).trail.map((entry) => ({
     ...entry,

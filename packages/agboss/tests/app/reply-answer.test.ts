@@ -39,6 +39,8 @@ const pause: PauseRecord = {
   isSent: true,
   trail: [],
   askedAt: "2026-01-05T09:00:00.000Z",
+  firstAskedAt: "2026-01-05T09:00:00.000Z",
+  escalationLimits: {},
 };
 
 /** The deps of a workflow on its own: no budgets, tracing on. */

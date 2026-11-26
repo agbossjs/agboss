@@ -23,13 +23,7 @@ import type { AppDeps } from "./app-deps.js";
 import { calendarOfTarget } from "./pause-calendar.js";
 import { toldTimeoutChanged } from "./pause-change-events.js";
 import { pauseClosed } from "./pause-closed.js";
-import {
-  chainLimitsOf,
-  limitExceeded,
-  maxExpiresAtOf,
-  timeoutChangesOf,
-  type ChainLimits,
-} from "./pause-limits.js";
+import { limitExceeded, limitsOf, timeoutChangesOf } from "./pause-limits.js";
 import { assertNotInFirstSend, maskedReason } from "./pause-reassign-support.js";
 import type { AnswerParts } from "./resume.js";
 import { actorOf, pauseOf } from "./resume.js";
@@ -122,41 +116,37 @@ export const setPauseTimeoutOf =
   };
 
 /**
- * The chain's limits the change to `expiresAt` (absent: no deadline) must keep, or the error that
- * refuses it: the count of changes, the total wait counted from the first asking, and the deadline
+ * The pause's own limits (stored on its record) the change to `expiresAt` (absent: no deadline) must
+ * keep, or the error that refuses it: the count of changes, the total wait counted from the first asking, and the deadline
  * of the run or quorum the pause was made under. A ceiling already behind `now` refuses every
  * deadline, as it is below any that is after `now`.
  */
-async function assertWithinLimits(
-  parts: TimeoutParts,
-  pause: PauseRecord,
-  expiresAt: string | undefined,
-): Promise<ChainLimits> {
-  const limits = chainLimitsOf(parts.deps, pause);
+function assertWithinLimits(pause: PauseRecord, expiresAt: string | undefined): void {
+  // the record's own limits: a deploy since the pause was opened changes none of them (#1307, Q-D)
+  const limits = limitsOf(pause);
   if (limits.maxExtensions !== undefined && timeoutChangesOf(pause) >= limits.maxExtensions)
     throw limitExceeded(pause, "maxExtensions");
-  const cap = await maxExpiresAtOf(parts, pause, limits, pause.assignees);
+  const cap = limits.maxExpiresAt;
   if (cap !== undefined && (expiresAt === undefined || expiresAt > cap))
     throw limitExceeded(pause, "maxTotalTimeout");
   const { boundAt } = pause;
   if (boundAt !== undefined && (expiresAt === undefined || expiresAt > boundAt))
     throw limitExceeded(pause, "run or quorum deadline");
-  return limits;
 }
 
-/** The deadline a timeout change sets and the reminder before it (each absent: none), and the chain's limits it keeps. */
+/** The deadline a timeout change sets and the reminder before it (each absent: none), within the pause's own limits. */
 async function deadlineAfter(
   parts: TimeoutParts,
   pause: PauseRecord,
   target: PauseTarget,
   timeout: SetPauseTimeoutRequest["timeout"],
-): Promise<{ expiresAt?: string; remindAt?: string; limits: ChainLimits }> {
+): Promise<{ expiresAt?: string; remindAt?: string }> {
   const now = parts.clock.now();
   const { add, remind } = calendarOfTarget(parts, pause, target, pause.assignees);
   const span = timeout === Timeout.None ? undefined : checkedTimeout(target, timeout);
   const expiresAt =
     span === undefined ? undefined : (await instantAfter(span, now, add)).toISOString();
-  const limits = await assertWithinLimits(parts, pause, expiresAt);
+  assertWithinLimits(pause, expiresAt);
   assertDeadlineNotGuarded(parts.deps, pause, expiresAt);
   const remindAt = await reminderOf(
     now,
@@ -165,7 +155,7 @@ async function deadlineAfter(
     add,
     remind,
   );
-  return { ...definedFields({ expiresAt, remindAt }), limits };
+  return definedFields({ expiresAt, remindAt });
 }
 
 /** The pause's target once it is permitted (a retry over the pause as the hook saw it is not asked again). */
@@ -216,7 +206,7 @@ async function changedOnce(
   const { timeout } = request;
   await assertOpen(parts, pause);
   const target = await permittedTarget(parts, call);
-  const { expiresAt, remindAt, limits } = await deadlineAfter(parts, pause, target, timeout);
+  const { expiresAt, remindAt } = await deadlineAfter(parts, pause, target, timeout);
   const reason = await maskedReason(parts.deps, pause, request.reason);
   // the calendar took time: whether the pause is still open is decided at this instant, not at
   // the call's start (#1148); the deadline itself keeps counting from `now`
@@ -234,7 +224,6 @@ async function changedOnce(
         remindAt,
         actor,
         reason,
-        maxExtensions: limits.maxExtensions,
       }),
     },
     at,

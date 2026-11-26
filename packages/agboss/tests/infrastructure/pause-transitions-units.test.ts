@@ -322,15 +322,11 @@ describe("#1356, #1307: a change of a deadline (#1099)", () => {
 
   it("not more often than the chain's limit: the count is the chain's timeout-changed entries", () => {
     const once = change(pending({ expiresAt: T11 }), T12);
+    // the limit is the record's own, never the change's
     const limited = (record: PauseRecord, maxExtensions: number) =>
       timeoutChange(
-        record,
-        {
-          expiresAt: T12,
-          previousExpiresAt: record.expiresAt ?? "",
-          seen: seenOf(record),
-          maxExtensions,
-        },
+        { ...record, escalationLimits: { maxExtensions } },
+        { expiresAt: T12, previousExpiresAt: record.expiresAt ?? "", seen: seenOf(record) },
         AT,
         RECIPIENTS,
       );

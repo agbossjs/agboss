@@ -1,3 +1,4 @@
+import { narrowedLimits } from "./pause-limits-stored.js";
 import type { PauseReplacement } from "./pause-notices.js";
 import {
   PauseResolution,
@@ -129,6 +130,8 @@ export function replacementPause(
     ...due,
     ...timeout,
     ...placeOf(pause, to),
+    // only ever smaller: what the old pause carried, and what a destination target offers
+    ...narrowedLimits(pause, to?.limits),
     pauseId,
     ...(assignees === undefined ? {} : { assignees }),
     stepKey,

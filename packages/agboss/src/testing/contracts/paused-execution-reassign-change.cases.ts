@@ -62,49 +62,36 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
     },
   },
   {
-    name: "an in-place change with no assignees releases the pause; maxReassignments refuses one past it atomically; a due change applies only to a due pause",
+    name: "an in-place change with no assignees releases the pause; the record's maxReassignments refuses one past it atomically; a due change applies only to a due pause",
     run: async ({ first, second }: Instances): Promise<void> => {
-      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const change = { assignees: ["deputy-3"], maxReassignments: 1 };
-      expect(
-        await second.reassignByTenantIdAndPauseId(
-          "default",
-          "pause-a",
-          await withSeenNow(second, "pause-a", change),
-          MID,
-          R,
-        ),
-      ).toMatchObject({ assignees: ["deputy-3"] });
-
-      // the chain holds one reassignment: no second one, whoever asks
-      expect(
-        await first.reassignByTenantIdAndPauseId(
-          "default",
-          "pause-a",
-          await withSeenNow(first, "pause-a", change),
-          MID,
-          R,
-        ),
-      ).toBeUndefined();
-      const released = await first.reassignByTenantIdAndPauseId(
-        "default",
-        "pause-a",
-        await withSeenNow(first, "pause-a", {}),
-        MID,
-        R,
+      await first.findOrCreateByStepKey(
+        expiringPauseOf("pause-a", "run-1:clerk-agent:1:call-1", {
+          escalationLimits: { maxReassignments: 1 },
+        }),
       );
-      expect(released?.assignees).toBeUndefined();
+      const reassign = async (store: Instances["first"], pauseId: string, change: object) =>
+        store.reassignByTenantIdAndPauseId(
+          "default",
+          pauseId,
+          await withSeenNow(store, pauseId, change),
+          MID,
+          R,
+        );
+      const change = { assignees: ["deputy-3"] };
+      expect(await reassign(second, "pause-a", change)).toMatchObject({ assignees: ["deputy-3"] });
+
+      // the chain holds one reassignment: no second one, whoever asks, whatever the change says
+      expect(await reassign(first, "pause-a", change)).toBeUndefined();
+      expect(await reassign(first, "pause-a", {})).toBeUndefined();
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.assignees).toEqual([
+        "deputy-3",
+      ]);
+      // a pause with no limit is released by a change with no assignees
+      await first.findOrCreateByStepKey(expiringPauseOf("pause-r", "run-1:clerk-agent:1:call-2"));
+      expect((await reassign(first, "pause-r", {}))?.assignees).toBeUndefined();
 
       // an expiry's change (due) is refused while the deadline is ahead
-      expect(
-        await first.reassignByTenantIdAndPauseId(
-          "default",
-          "pause-a",
-          await withSeenNow(first, "pause-a", { due: {} }),
-          MID,
-          R,
-        ),
-      ).toBeUndefined();
+      expect(await reassign(first, "pause-a", { due: {} })).toBeUndefined();
     },
   },
   {
@@ -145,8 +132,12 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
   {
     name: "a replacement made with a new deadline counts as an extension: a `timeout-changed` entry after its `reassigned`, and maxExtensions refuses the next one atomically, moved or in place",
     run: async ({ first, second }: Instances): Promise<void> => {
-      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const limited = { countsAsExtension: true as const, maxExtensions: 1 };
+      await first.findOrCreateByStepKey(
+        expiringPauseOf("pause-a", "run-1:clerk-agent:1:call-1", {
+          escalationLimits: { maxExtensions: 1 },
+        }),
+      );
+      const limited = { countsAsExtension: true as const };
       const to = { target: "tier-one-external-task", respondent: "delegate" as never };
 
       const made = await reassignWith(

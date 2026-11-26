@@ -178,6 +178,8 @@ describe("#267 S35: the pause step", () => {
       status: PauseStatus.Pending,
       isSent: true,
       askedAt: clock.now().toISOString(),
+      firstAskedAt: clock.now().toISOString(),
+      escalationLimits: {},
     });
     await pauses.cancelByTenantIdAndPauseId(
       made.tenantId,

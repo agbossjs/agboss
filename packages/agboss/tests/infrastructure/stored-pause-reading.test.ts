@@ -36,6 +36,8 @@ const PAUSE = {
   status: "resolved",
   isSent: true,
   askedAt: "2026-01-05T09:00:00.000Z",
+  firstAskedAt: "2026-01-05T09:00:00.000Z",
+  escalationLimits: {},
   resolution: "replied",
   resolvedAt: "2026-01-05T09:05:00.000Z",
   trail: [{ action: "opened", at: "2026-01-05T09:00:00.000Z", target: "refund-approval-channel" }],
@@ -78,6 +80,22 @@ describe("a store's parsed JSON is read through the core", () => {
     });
 
     expect(pause).toMatchObject({ expiresAt: "2026-01-06T00:00:00.000Z", closedFirst });
+  });
+
+  it("the limits it was opened under are read as written: the first asking, the cap, the counts", () => {
+    const pause = pauseRecordOfJson({
+      ...PAUSE,
+      firstAskedAt: "2026-01-04T09:00:00.000Z",
+      maxExpiresAt: "2026-01-09T09:00:00.000Z",
+      escalationLimits: { maxExtensions: 2, maxReassignments: 0 },
+    });
+
+    expect(pause).toMatchObject({
+      firstAskedAt: "2026-01-04T09:00:00.000Z",
+      maxExpiresAt: "2026-01-09T09:00:00.000Z",
+      escalationLimits: { maxExtensions: 2, maxReassignments: 0 },
+    });
+    expect(pauseRecordOfJson(PAUSE)).not.toHaveProperty("maxExpiresAt");
   });
 
   it.each([
@@ -143,6 +161,20 @@ describe("0.1.0 is refused, never defaulted", () => {
     ["0.1.0's answer.byChannel", { answer: { decision: 1, byChannel: true } }, "answer.byChannel"],
     ["no copyNumber", { copyNumber: undefined }, "copyNumber"],
     ["no askedAt", { askedAt: undefined }, "askedAt"],
+    // a record this version did not write has no limits to hold: unreadable, never "no limit" (Q-D)
+    ["no firstAskedAt", { firstAskedAt: undefined }, "firstAskedAt"],
+    ["a cap with no milliseconds", { maxExpiresAt: "2026-01-05T20:00:00Z" }, "maxExpiresAt"],
+    ["a cap with an offset", { maxExpiresAt: "2026-01-05T22:00:00.000+02:00" }, "maxExpiresAt"],
+    ["a cap that is no date", { maxExpiresAt: "tomorrow" }, "maxExpiresAt"],
+    [
+      "a first asking with an offset",
+      { firstAskedAt: "2026-01-05T09:00:00.000+00:00" },
+      "firstAskedAt",
+    ],
+    ["a cap that is null, not absent", { maxExpiresAt: null }, "maxExpiresAt"],
+    ["no escalationLimits", { escalationLimits: undefined }, "escalationLimits"],
+    ["a count that is not a number", { escalationLimits: { maxExtensions: "2" } }, "maxExtensions"],
+    ["a limit it does not know", { escalationLimits: { maxTotalTimeout: 5 } }, "escalationLimits"],
     [
       "an answer with 0.1.0's respondent",
       { answer: { decision: 1, respondent: "manager-17" } },

@@ -1,100 +1,65 @@
+import { definedFields } from "../core/defined-fields.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import type { PauseTarget } from "../flow/runtime/pause-channel.js";
 import { instantAfter } from "../flow/runtime/pause-record-made.js";
+import {
+  narrowedLimits,
+  type PauseEscalationCounts,
+  type PauseLimitsOffer,
+} from "../infrastructure/pause-limits-stored.js";
 import { pauseKeyOf, type PauseRecord } from "../infrastructure/pause-record.js";
-import type { TimeSpan } from "../units/working-time.js";
-import type { AppDeps } from "./app-deps.js";
 import { calendarOfTarget, type CalendarParts } from "./pause-calendar.js";
-import { ownDepsOf } from "./own-deps.js";
 
 /**
- * The escalation limits of a pause (#1307): what its targets' `escalationLimits` allow, tightened
- * along its chain of custody — each target the pause waited under (the destination of a reassignment
- * too) adds its limits, and a limit is the smallest of them all, so moving a pause to a laxer target
- * never loosens what the first one set. The total wait counts from the pause's first asking (the
- * chain's first entry), never from a reassignment. The counts (`maxExtensions`, `maxReassignments`)
- * are read from the chain and checked by the store atomically with the write too.
+ * The escalation limits of a pause (#1307, Q-D): the record's own — materialized when it was opened
+ * (`maxExpiresAt`, `escalationLimits`) and narrowed, never loosened, by each move to another target.
+ * Never recomputed from the application's present configuration: a deploy that renamed or removed a
+ * target, or loosened its limits, changes nothing for a pause already waiting. The total wait counts
+ * from the pause's first asking (`firstAskedAt`), never from a reassignment. The counts
+ * (`maxExtensions`, `maxReassignments`) are checked by the store atomically with the write too.
  */
 
-/** One limit on the total wait, with the target whose calendar counts it. */
-interface TotalCap {
-  readonly span: TimeSpan;
-  readonly owner: PauseTarget;
+/** What a pause's chain allows: the record's limits, or those after a move. */
+export interface ChainLimits extends PauseEscalationCounts {
+  /** The latest instant the pause may wait until (ISO 8601); absent: no limit on the total wait. */
+  readonly maxExpiresAt: string | undefined;
 }
 
-/** What a pause's targets allow together. */
-export interface ChainLimits {
-  readonly maxExtensions?: number;
-  readonly maxReassignments?: number;
-  readonly totals: readonly TotalCap[];
+/** The limits of `pause` as it holds them, optionally after taking what a destination `offer`s. */
+export function limitsOf(pause: PauseRecord, offer?: PauseLimitsOffer): ChainLimits {
+  const { maxExpiresAt, escalationLimits } = narrowedLimits(pause, offer);
+  return { ...escalationLimits, maxExpiresAt };
 }
 
-/** The target of that name in the pause's workflow now; `undefined`: a deploy removed it. */
-function targetNamed(deps: AppDeps, pause: PauseRecord, name: string): PauseTarget | undefined {
-  try {
-    return ownDepsOf(deps, pause.workflow).targetOf?.(name);
-  } catch {
-    return undefined;
-  }
-}
+/** The counts the destination `to` offers (a move to another target narrows the pause's by them). */
+export const countsOffered = (to: PauseTarget): PauseLimitsOffer => ({
+  escalationLimits: definedFields({
+    maxExtensions: to.escalationLimits?.maxExtensions,
+    maxReassignments: to.escalationLimits?.maxReassignments,
+  }),
+});
 
-const smallest = (values: readonly (number | undefined)[]): number | undefined => {
-  const given = values.filter((value): value is number => value !== undefined);
-  return given.length === 0 ? undefined : Math.min(...given);
-};
-
-/** The limits of the targets `pause` waited under, and of `more` (the destination of a change). */
-export function chainLimitsOf(
-  deps: AppDeps,
+/**
+ * What the destination `to` offers of limits: its counts, and the instant its `maxTotalTimeout`
+ * runs out counted from the pause's first asking, by its own calendar for `assignees`.
+ */
+export async function limitsOffered(
+  parts: CalendarParts,
   pause: PauseRecord,
-  more: readonly PauseTarget[] = [],
-): ChainLimits {
-  const names = new Set([pause.target, ...pause.trail.map((entry) => entry.target)]);
-  const known = [...names].flatMap((name) => {
-    const found = targetNamed(deps, pause, name);
-    return found === undefined ? [] : [found];
-  });
-  const targets = [...new Set([...known, ...more])];
-  const limits = targets.map((target) => target.escalationLimits);
-  const maxExtensions = smallest(limits.map((one) => one?.maxExtensions));
-  const maxReassignments = smallest(limits.map((one) => one?.maxReassignments));
-  return {
-    ...(maxExtensions === undefined ? {} : { maxExtensions }),
-    ...(maxReassignments === undefined ? {} : { maxReassignments }),
-    totals: targets.flatMap((owner) => {
-      const span = owner.escalationLimits?.maxTotalTimeout;
-      return span === undefined ? [] : [{ span, owner }];
-    }),
-  };
+  to: PauseTarget,
+  assignees: readonly string[] | undefined,
+): Promise<PauseLimitsOffer> {
+  const span = to.escalationLimits?.maxTotalTimeout;
+  const counts = countsOffered(to);
+  if (span === undefined) return counts;
+  const { add } = calendarOfTarget(parts, pause, to, assignees);
+  const maxExpiresAt = (await instantAfter(span, new Date(pause.firstAskedAt), add)).toISOString();
+  return { ...counts, maxExpiresAt };
 }
 
 /** How many times the pause's deadline was changed: the `timeout-changed` entries of its chain. */
 export const timeoutChangesOf = (pause: Pick<PauseRecord, "trail">): number =>
   pause.trail.filter((entry) => entry.action === "timeout-changed").length;
-
-/** The pause's first asking: its `opened` entry. */
-const firstAskedAtOf = (pause: PauseRecord): Date => new Date(pause.trail[0]?.at ?? pause.askedAt);
-
-/**
- * The latest instant the pause may wait until (ISO 8601): the smallest of what each limit on the total
- * wait counts from its first asking, by the calendar of the target that set it; `undefined`: no limit.
- */
-export async function maxExpiresAtOf(
-  parts: CalendarParts,
-  pause: PauseRecord,
-  limits: ChainLimits,
-  assignees: readonly string[] | undefined,
-): Promise<string | undefined> {
-  const from = firstAskedAtOf(pause);
-  const instants = await Promise.all(
-    limits.totals.map(async ({ span, owner }) =>
-      (
-        await instantAfter(span, from, calendarOfTarget(parts, pause, owner, assignees).add)
-      ).toISOString(),
-    ),
-  );
-  return instants.length === 0 ? undefined : instants.reduce((a, b) => (a < b ? a : b));
-}
 
 /** `PauseError.EscalationLimitExceeded`, naming the pause by its key and the limit by its name. */
 export const limitExceeded = (

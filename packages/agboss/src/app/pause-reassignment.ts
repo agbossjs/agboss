@@ -193,7 +193,7 @@ export const reassignPauseOf =
       recipientsIn(parts.deps.pause, pause),
     );
     if (changed === undefined)
-      throw await refusedReassignment(parts, pause, plan.change.maxReassignments);
+      throw await refusedReassignment(parts, pause, plan.limits.maxReassignments);
     noticesWritten(parts.deps.pause);
     // counted once, by the call whose transaction won
     if (!plan.isInPlace)

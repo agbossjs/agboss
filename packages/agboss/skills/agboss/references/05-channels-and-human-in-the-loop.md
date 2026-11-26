@@ -625,7 +625,7 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   tree rests paused (the escalation: "the manager did not answer, ask the director"). It names no
   channel (the new target's one, or its `@ChannelSelector`, carries it) and does not call `permitReassign`
   (that authorizes an outside actor; an expiry has none). `ctx.maxExpiresAt` is the latest deadline the
-  chain's `maxTotalTimeout` allows.
+  pause's stored `maxTotalTimeout` allows (read from the pause record, as every limit is).
   Without the method the expiry is `fail()`. The handler runs once per expiry — again only after a
   crash before its decision was recorded — so it must only read; a throw, a hang past the tool's
   `timeout`, a value that is no expiration or an invalid answer fails the expiry with an
@@ -657,8 +657,10 @@ timeout: hours(24), reason }, { actor })` (the `ownerId` for an owner's pause �
     `reason` (one to 500 characters, PII-masked) and the actor go to the pause's chain of custody as a `timeout-changed`
     entry. Refused: a `timeout` that is no duration of at least `seconds(1)` — `PauseError.InvalidTimeout` —, a closed
     pause or one past its deadline — `PauseError.Closed` (`reason: expired`) —, a deadline past the one of the run (or
-    quorum) the pause was made under (exactly that deadline is allowed) or past the chain's `escalationLimits`
-    (`maxTotalTimeout` counted from the first asking, `maxExtensions`; a reassignment with a `timeout` counts too) —
+    quorum) the pause was made under (exactly that deadline is allowed) or past the pause's `escalationLimits`
+    (`maxTotalTimeout` counted from the first asking, `maxExtensions`; a reassignment with a `timeout` counts too; they are
+    stored on the pause when it opens and narrowed, never loosened, by a move to another target: a deploy that changes
+    a target's limits changes nothing for a pause already waiting) —
     `PauseError.EscalationLimitExceeded`; `Timeout.None` is past any of them —, a pause whose first `send` is still
     in flight — `PauseError.UpdateContended`, retry once it returned —; a target with `permitAnswer` but no `permitTimeoutChange` refuses (`PauseError.PermissionDenied`) any change that is not a longer deadline — an earlier one, one where there was none, `Timeout.None` — and a target with `permitAnswer` but no `permitReassign` refuses `reassignPause`: declare the hook to allow it; a blank or too long `reason` is
     `ValidationError.DtoInvalid` (`dto: "SetPauseTimeoutRequest"`); another tenant's pause is `PauseError.UnknownPause`

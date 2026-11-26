@@ -908,7 +908,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
       "src/infrastructure/recovery.ts",
       "src/infrastructure/store-call-timeout.ts",
       "src/infrastructure/stored-history.ts",
-      "src/infrastructure/stored-pause.ts",
       "src/infrastructure/stored-run.ts",
       "src/infrastructure/stored-step.ts",
     ],
@@ -1476,10 +1475,6 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
   ...reviewed(
     "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 47 mutants, 44 killed in the final run; the 6 that had lived in the first run each got a test (4), an equivalence reason (1) or was classed message text (1); covered by tests/sweep-1366h/flow/runtime/pause-expiry-failure-1366h.test.ts, tests/flow/pause-expiry-spend.test.ts, tests/flow/pause-expiry-run-bound.test.ts, tests/channels/pause-expiry.test.ts; survivors listed in the #1366 round-8 notes",
     ["src/flow/runtime/pause-expiry-failure.ts"],
-  ),
-  ...reviewed(
-    "matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; the round-8 Stryker sweep mutated it whole over the unit project: 123 mutants, 111 killed in the final run; the 21 that had lived in the first run each got a test (10), an equivalence reason (11) or was classed message text (0); covered by tests/sweep-1366h/flow/pause-record-made-1366h.test.ts, tests/flow/pause-record-deadlines.test.ts, tests/app/pause-extension.test.ts, tests/app/pause-reminders.test.ts; survivors listed in the #1366 round-8 notes",
-    ["src/flow/runtime/pause-record-made.ts"],
   ),
   ...reviewed(
     "the facts a pause's record is made from, the checks of the hooks a target answers and the plan of a pause's notices, split from `pause-record-made.ts` and the pause stores (#1307, #1310) to keep each under the line limit: the first entry of the chain of custody, where a pause was asked, the shape of an `assign` and a `resolveTimeout` answer, and the notices a change plans; the limits and the permission of a reassignment and a timeout change are the `pauses` shard's (`pause-limits.ts`, `pause-reassign-plan.ts`, `pause-reassign-deadline.ts`, `pause-timeout.ts`, `timeout-request.ts`); matches the #1366 grep for money, limit or deadline words and is not mutated by a shard; covered by tests/app/pause-reassign-targets.test.ts, tests/app/pause-reassignment.test.ts, tests/app/pause-extension.test.ts and tests/app/pause-expiry-reassign.test.ts",

@@ -8,6 +8,7 @@ import {
   PauseStatus,
   type PauseRecord,
 } from "../../infrastructure/pause-record.js";
+import type { PauseEscalationCounts } from "../../infrastructure/pause-limits-stored.js";
 import { onlyChannelOf, type ChooseChannel, type PauseTarget } from "./pause-channel.js";
 import type { PauseQuestion } from "./pause.js";
 import { openedEntryOf, placeOf, type OpeningHooks } from "./pause-record-facts.js";
@@ -177,19 +178,44 @@ async function addedReminderOf(
     : undefined;
 }
 
-/** The deadline fields of a pause opened `now`: its own wait, capped by the target's total-wait limit, bounded by the run's and quorum's. */
+/**
+ * The deadline fields of a pause opened `now`: its own wait, capped by the target's total-wait limit,
+ * bounded by the run's and quorum's; and that limit's instant (`maxExpiresAt`, counted from `now`).
+ */
 async function openingDeadlineOf(
   frame: FrameSpec,
-  hooks: OpeningHooks,
+  target: PauseTarget,
   expiresIn: TimeSpan | undefined,
   at: { readonly now: Date; readonly add: AddWorkingTime },
-): Promise<Pick<PauseRecord, "expiresAt" | "expiryBound" | "boundAt">> {
+): Promise<{
+  readonly deadline: Pick<PauseRecord, "expiresAt" | "expiryBound" | "boundAt">;
+  readonly maxExpiresAt: string | undefined;
+}> {
   const own = await ownDeadlineOf(expiresIn, at.now, at.add);
   // the target's total-wait limit caps the pause's own wait, never the run's or a quorum's bound
-  const max = await ownDeadlineOf(hooks.maxTotalTimeout, at.now, at.add);
+  const max = await ownDeadlineOf(target.escalationLimits?.maxTotalTimeout, at.now, at.add);
   const isCapped = own !== undefined && max !== undefined && max < own;
-  return boundedDeadlineOf(frame, isCapped ? max : own);
+  return { deadline: boundedDeadlineOf(frame, isCapped ? max : own), maxExpiresAt: max };
 }
+
+/** When a pause opened `now` waits until, at most, and when it is reminded: its deadline fields, the total-wait limit and the reminder. */
+async function openingTimesOf(
+  opened: { readonly frame: FrameSpec; readonly target: PauseTarget; readonly hooks: OpeningHooks },
+  at: { readonly now: Date; readonly add: AddWorkingTime; readonly remind: RemindAt | undefined },
+) {
+  const { frame, target, hooks } = opened;
+  const expiresIn = hooks.timeout ?? target.timeout;
+  const { deadline, maxExpiresAt } = await openingDeadlineOf(frame, target, expiresIn, at);
+  const spans = { expiresAt: deadline.expiresAt, expiresIn };
+  const remindAt = await reminderOf(at.now, spans, target.remindBefore, at.add, at.remind);
+  return { deadline, maxExpiresAt, remindAt };
+}
+
+/** The counts of the target's `escalationLimits` a pause carries: the pause's own copy, narrowed by moves. */
+const countsOf = (target: PauseTarget): PauseEscalationCounts => {
+  const { maxExtensions, maxReassignments } = target.escalationLimits ?? {};
+  return definedFields({ maxExtensions, maxReassignments });
+};
 
 /** The record a step would make: a new id, `Pending`, not sent; working time asks the calendar (`add`). */
 export async function newRecordOf(
@@ -203,14 +229,9 @@ export async function newRecordOf(
   hooks: OpeningHooks = {},
 ): Promise<PauseRecord> {
   const now = clock.now();
-  const expiresIn = hooks.timeout ?? target.timeout;
-  const deadline = await openingDeadlineOf(frame, hooks, expiresIn, { now, add });
-  const remindAt = await reminderOf(
-    now,
-    { expiresAt: deadline.expiresAt, expiresIn },
-    target.remindBefore,
-    add,
-    remind,
+  const { deadline, maxExpiresAt, remindAt } = await openingTimesOf(
+    { frame, target, hooks },
+    { now, add, remind },
   );
   const { assignees } = hooks;
   const channel = await choose({
@@ -233,12 +254,16 @@ export async function newRecordOf(
     status: PauseStatus.Pending,
     isSent: false,
     askedAt: now.toISOString(),
+    // the limits are materialized here and read from the record from now on (#1307, Q-D)
+    firstAskedAt: now.toISOString(),
+    escalationLimits: countsOf(target),
     ...deadline,
     ...definedFields({
       channel: channel?.name,
       toolCall: question.toolCall,
       assignees,
       remindAt,
+      maxExpiresAt,
     }),
   };
 }

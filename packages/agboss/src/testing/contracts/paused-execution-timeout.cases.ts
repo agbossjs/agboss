@@ -85,8 +85,13 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
   {
     name: "a timeout change is written to the chain of custody with who and why, and counted against `maxExtensions` atomically with the write (#1307)",
     run: async ({ first, second }: Instances): Promise<void> => {
-      await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const change = async (expiresAt: string, previousExpiresAt: string, maxExtensions: number) =>
+      // the limit is the record's own: it was opened under `maxExtensions: 2`
+      await first.findOrCreateByStepKey(
+        expiringPauseOf("pause-a", "run-1:clerk-agent:1:call-1", {
+          escalationLimits: { maxExtensions: 2 },
+        }),
+      );
+      const change = async (expiresAt: string, previousExpiresAt: string) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
@@ -95,13 +100,12 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
             previousExpiresAt,
             actor: { id: "manager-17" },
             reason: "escalated",
-            maxExtensions,
           }),
           MID,
           R,
         );
 
-      const moved = await change(EARLIER, FROM, 2);
+      const moved = await change(EARLIER, FROM);
       expect(moved?.trail.at(-1)).toMatchObject({
         action: "timeout-changed",
         at: MID.toISOString(),
@@ -109,10 +113,9 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
         expiresAt: EARLIER,
         reason: "escalated",
       });
-      // the second change is the last one the limit of 2 allows; a third, or a limit of 1, is refused
-      expect(await change(LATER, EARLIER, 1)).toBeUndefined();
-      expect(await change(LATER, EARLIER, 2)).toMatchObject({ expiresAt: LATER });
-      expect(await change(EVEN_LATER, LATER, 2)).toBeUndefined();
+      // the second change is the last one the record's limit of 2 allows; a third is refused
+      expect(await change(LATER, EARLIER)).toMatchObject({ expiresAt: LATER });
+      expect(await change(EVEN_LATER, LATER)).toBeUndefined();
       const stored = await first.findByTenantIdAndPauseId("default", "pause-a");
       expect(stored?.expiresAt).toBe(LATER);
       expect(stored?.trail.filter((entry) => entry.action === "timeout-changed")).toHaveLength(2);
