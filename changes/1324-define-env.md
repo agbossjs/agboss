@@ -16,5 +16,3 @@ Also `configureEnv(appEnv, overrides)`, `bearer(secretRef)`, `ApplicationContext
   `EnvContract`, `env.text/number/boolean/duration/ttl/bytes/usd`, `secret.optional`, `Ttl`, `ApplicationContext.profiles`.
 - **Renamed (types):** `EnvironmentValueOptions` → `EnvOptions`, `EnvironmentValueReader` → `EnvReader`,
   `EnvironmentVariableReader` → `EnvReaders`.
-- **Still there until the flip (1324b-flip):** `AppEnvironment`, `EnvironmentField`, `EmptyEnvironment`, `env.flag`,
-  `ApplicationContext.environment` / `environmentName`, and the environment files.

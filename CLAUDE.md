@@ -25,7 +25,7 @@ models?, … })` with `OpenRouterDriver({ apiKey, baseUrl?, routing?, transforms
 apiKey?, path?, knownModels? })` (decision models: `DECISION_MODELS` — Jev, `openai/gpt-6-luna-decisions`, pplx-decider,
   Clef, … — probabilities and exact cost); the class body is empty. The key is a reference
   (`secret("OPENROUTER_API_KEY")`, `secret.optional`) and the base URL a text one (`env("OPENROUTER_BASE_URL", { default })`),
-  both read once when the application starts — never a literal, never a field of the environment contract. A
+  both read once when the application starts — never a literal. A
   provider's `name` is optional: kebab-case, the class name in kebab-case by default (`[name.not-kebab-case]`; #1343a).
   A **transport** provider (#385) `implements ModelProviderHandler` with `complete(request)` in place of `driver`
   (`driver` with `complete` → a compile error and `[model-provider.both-modes]`): `ModelProviderRequest` (`model`,
@@ -93,7 +93,7 @@ name, exit 2 with the starts listed and a `Did you mean "…"?`, nothing runs); 
 (`"<task>"`, a start taking `WorkflowStartTextDto`), `--input '<json>'` or `--input-file <file>`,
 checked against the start's `InputOf` field by field before anything starts; `describe`, `check`
 and `rag index [--rag <name>]` cover every workflow of the application. `agboss check` draws a broken assembly rule as `rustc` does (#1325c) — the flow step or decorator in the user's own source under `^^^` / `---`, a `= note:` and `= help:` from the skills' catalog — and `agboss explain <code>` (no application needed; `--list`) explains any rule or error code; an `AGBossError` prints as a report — `error.chain()`, `Location:`, `Span trace:`, `Stack backtrace:` per `AGBOSS_BACKTRACE=0|1|full` — that never prints `details`, a field, a foreign cause's message or a stored/model text. `eval` is made of subcommands
-(#396 S4): `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--env <name>]` runs an
+(#396 S4): `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>]` runs an
 `@EvalSuite` (found in the application's `eval-suites/*.eval-suite.ts`) on the application built as
 `createApp` builds it — each case `--runs` times, its history written and its turns run on one thread
 with the case's contexts, the checks under the cascade, pass@k / pass^k per case, `unstable` for pass@k
@@ -121,7 +121,7 @@ each case's `expectation`; version 1 artifacts are still read by the one reader 
 labeler replaced, atomically, and the page's calibration is `calibrateJudges` on every load; a POST needs
 the token in its form and the page's own origin; `eval.taxonomy-invalid`; #397 PR 5: "save as golden case" on a run
 with an `executionId` drafts its kept execution — the record on the run's thread, of the run's `tenantId`
-(#397 PR 5b) — (`--application`, `--env`: the history only, nothing runs) with
+(#397 PR 5b) — (`--application`: the history only, nothing runs) with
 `evalCaseDraftOf` and `withEvalCase` — one builder with `generate eval-case` — and writes it into the suite's file
 atomically, only while the file's ETag is the page's (else 409), never over a case of that name (409); an
 application without `retention.executionRecords`, none at all or one that does not load turns the button into why) — a `schemaVersion` 3 artifact also names its `profile`,
@@ -164,7 +164,7 @@ both draw each contract a snapshot declares as an edge consumer → producer and
 problems with their blast radius — the same `checkFederation` over each application's newest snapshot —
 and who calls an application whose latest eval run lost pass^k (#401 PR 7); no project, nothing runs; `agboss check` assembles the suites too (`eval-suites` in its checks). `agboss dev` reruns `agboss
 check` in a short-lived child on every change of the application's `src/` (debounced);
-`agboss studio [--env <name>] [--port N]` builds every workflow (children too) with `studioOf`
+`agboss studio [--profile <list>] [--port N]` builds every workflow (children too) with `studioOf`
 (`@agboss/core/testing`, #818: public — a test renders the graphs with it; the CLI takes it from `@agboss/core/internal`), writes `.agboss/studio.ts` + `.agboss/langgraph.json` and starts the LangGraph
 dev server on them — a child is a subgraph inside its parent (S37); a project has no `studio.ts` /
 `langgraph.json` of its own. The server is `src/cli/studio-server.ts` (#791), a child process doing
@@ -185,8 +185,8 @@ with their producers, its limits (`maxSteps`, `maxVisits`, `maxDepth`,
 `maxConcurrency`), `model → provider`, and each agent's memory, compaction and `uncompactedTurns`
 with where they came from (`(own)`, `(<workflow>)`, `(<application>)`, `(built-in)`). `agboss check` prints its report from the
 decorators only (no `maxSpend()`): per start the worst case of one call — executions, at the same
-time, steps of the tree, nesting depth — each with how it is made up; with `--env
-<name>` the process variables that environment needs, names marked `value` / `secret` (`optional`,
+time, steps of the tree, nesting depth — each with how it is made up; with the
+process variables of the application's `defineEnv` references, names marked `value` / `secret` (`optional`,
 `has a default`), never a value. `describe --json` / `check --json` carry the same as data;
 `describe --json` is also each workflow's declarative snapshot (#268 S93): `configHash` (the one join
 key — the same in `WorkflowRecord`, every execution event and the records), `starts`, `finishes`,
@@ -211,11 +211,11 @@ no model key): `npm run check` (`agboss check --strict --cassettes` on its offli
 cassette `tests/desk/workflows/desk/__snapshots__/desk-lookup.cassette.json` (recorded offline through the transport,
 #439; replayed by `tests/desk/workflows/desk/desk-cassette.test.ts`) against its prompts and schemas — and on its
 application's workflows `--federation` against the desk's fresh `describe --json`, then
-`--models` on `test`, then `eslint .` with `@agboss/core/eslint`, then `npm run eval:check` — the desk's
-eval suite run offline on `--env offline` against its baseline `eval/runs/desk-eval-suite.json`
+`--models`, then `eslint .` with `@agboss/core/eslint`, then `npm run eval:check` — the desk's
+eval suite run offline against its baseline `eval/runs/desk-eval-suite.json`
 with `--fail-on-regression`, `eval show --html` and `eval calibrate` on `eval/labels/`, then `npm
 run records:check` — the desk keeps its executions (`retention.executionRecords`, #401, in
-`.agboss/desk-offline.sqlite` on `offline`): one run, `agboss executions export`, `agboss generate
+`.agboss/desk-offline.sqlite`): one run, `agboss executions export`, `agboss generate
 eval-case --from-execution --dry-run` (#396 PR 8, what `eval ui`'s "Save as golden case" writes,
 #397 PR 5); `npm run snapshot` rewrites the desk's describe, `npm run eval` its baseline) ·
 `npm run describe`
@@ -233,7 +233,7 @@ an observer, a `@HealthCheck`, `maxConcurrentSteps` —, served over A2A (`@A2AE
 `@EvalSuite` with a code eval judge (#396); `src/intake/` a quorum by groups (`joinQuorumGroups`,
 tested under `TestConcurrency.inOrder` and `failWith(ModelFailure.RateLimited)`); the review loop's
 reviewer reads `historyOf(OfferDraftDto)`; `tests/approvals/workflows/offsite-booking/offsite-booking.workflow.test.ts` resumes a pause on a second
-instance (`testWith(App, { instances: 2, env: "instances" })`, one SQLite file per test — `tests/environments/support/instances-file.ts`, #550);
+instance (`testWith(App, { instances: 2 })`, one SQLite file per test through `AGBOSS_SQLITE_PATH` — `tests/environments/support/instances-file.ts`, #550);
 every unit runner runs on the patterns' components in the test that mirrors each
 (`tests/credit/routers/credit-limit/credit-limit.router.test.ts`, …), `src/model-providers/`: the driver providers of OpenRouter (chat) and of the Decisions API, and the offline transport `HarnessModelProvider` the desk agent names, #382–#385, #1313) · `npm test`.
 Real runs (#346, its README: the manual checks #263 M1, #264 M1, #267 M1): `dev` reads
@@ -514,18 +514,16 @@ budget's name, scope key and period, never by a workflow, so workflows sharing o
 ```ts file=src/desk/desk.application.ts
 // desk.application.ts — the application: its workflows, infrastructure (`providers`; `storage` unset →
 // the in-memory database), the explicit `modelProvider` of every model that names none, budgets,
-// the defaults of every workflow and the environment contract (`environments/` next to this file)
+// the defaults of every workflow
 import { Application } from "@agboss/core";
 import { ApplicationDailyBudget, ExecutionBudget, TenantDailyBudget } from "./budgets/application.budgets.js";
 import { DeskWorkflow } from "./desk.workflow.js";
-import { AppEnvironment } from "./environments/app.environment.js";
 import { DecisionsModelProvider } from "./model-providers/decisions.model-provider.js";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
 @Application({
   name: "desk-application",
   version: "1.0.0",
-  environment: AppEnvironment,
   workflows: [DeskWorkflow],
   modelProvider: OpenRouterModelProvider, // every chat model; the router names the decisions provider itself
   providers: [OpenRouterModelProvider, DecisionsModelProvider],
@@ -593,7 +591,7 @@ billing-agent --workflow desk-workflow`, `--agent billing-agent`; a name without
 rejected with a `Did you mean "…"?`, never completed; the workflow is found in the application of
 `package.json`, or `--application`); `agboss generate workflow onboarding-workflow` writes a new
 workflow beside the application file and lists it in `@Application({ workflows })`; `agboss create
-<project>` writes the application (`src/<project>.application.ts`, its environments, budgets, model
+<project>` writes the application (`src/<project>.application.ts`, its `src/environment.ts` (`defineEnv`) and `src/config/test.config.ts`, budgets, model
 provider and guardrail) and its first workflow `<project>-workflow` in `src/<project>/`. A project's `npm run types` (`agboss check`) writes
 `.agboss/types.d.ts` (git-ignored, regenerated on install); its `tsconfig.json` includes it.
 
@@ -1294,7 +1292,7 @@ export const quorumPaths = [
 
 - **One class per file, folders by kind:** `workflow-starts/`, `routers/`, `agents/`, `actions/`,
   `workflow-finishes/`, `arbiters/`, `guardrails/`, `tool-interceptors/`, `memories/`, `tools/`,
-  `services/`, `mcp/`, `rag/`, `rerankers/`, `a2a/`, `environments/`, `eval-suites/` (#396); files `*.workflow-start.ts`,
+  `services/`, `mcp/`, `rag/`, `rerankers/`, `a2a/`, `eval-suites/` (#396); files `*.workflow-start.ts`,
   `*.router.ts`, `*.agent.ts` (+ `*.prompt.md`), `*.action.ts`, `*.workflow-finish.ts`, `*.arbiter.ts`,
   `*.guardrail.ts`, `*.tool-interceptor.ts`, `*.memory.ts` (+
   `*.prompt.md`), `*.tool.ts`, `*.dto.ts`, `*.service.ts`, `*.server.ts` + `*.mcp.ts`, `*.rag.ts`, `*.reranker.ts`,
@@ -1457,7 +1455,7 @@ onOperation, onHeld }) → undo`; the pods, the cluster (`FaultCluster`), the ga
   the checkers are internal) runs the fixture application (`src/testing/faults/
 fixture/`: reserve with an undo, a fenced charge, a payment through `Idempotency.sendOnce` to the test's
   gateway, a batch of `AnyWorker` children) in real `node` pods on one database (the module
-  exports `faultStores`: providers, environment, business rows, and `storeTime` — #799:
+  exports `faultStores`: providers, storage, business rows, and `storeTime` — #799:
   `FaultStoreTime.Database` for stores on the database's own clock, read at 1, `FaultStoreTime.Host`
   for the pods' clock, read at `timeScale`; none refuses the pod, `[fault-suite.store-time]`), with SIGTERM / SIGKILL / SIGSTOP /
   SIGCONT and a TCP proxy per pod (a file database: a store outage), 32 scenarios (#811 AC4: on a
@@ -1516,15 +1514,8 @@ fixture/`: reserve with an undo, a fenced charge, a payment through `Idempotency
   (U+0000) included — a NUL case in each JSON-storing suite (#521: the SQLite record store keeps
   free text as JSON text, migration 14; PostgreSQL's `jsonb` / `text` need JSON as text); a test
   signs mesh envelopes as a peer with `signedMeshEnvelope({ issuer, signingKey, body, issuedAt,
-origin, callChain, … })` (`@agboss/core/testing`, the real client's `_meta["agboss.dev/mesh"]` value of an MCP call; an A2A call is signed by a test application's own `A2AClient`); and a class declares the environment fields it reads —
-  `@Injectable({ deps, environmentFields: { postgresUrl: EnvironmentField.secret(), postgresPoolSize:
-EnvironmentField.integer({ optional: true }) } })` (#834: made only by `EnvironmentField.text()`, `.integer()`, `.flag()`,
-  `.secret()`, a literal does not compile, a key that is not a camelCase field name is refused when
-  `@Injectable` runs) — checked at assembly for every class the application or
-  a workflow lists and every class their `deps` reach: a required one the contract lacks is
-  `[environment.missing-field]` (`… needs postgresUrl: Secret in AppEnvironment (read by
-PostgresConnection)`; a storage driver's `env(…)` / `secret(…)` references are not fields of the contract), one field of two types
-  `[environment.conflicting-field]`.
+origin, callChain, … })` (`@agboss/core/testing`, the real client's `_meta["agboss.dev/mesh"]` value of an MCP call; an A2A call is signed by a test application's own `A2AClient`). A class reads its settings from a `defineEnv`
+  (`deps: [appEnv]`); there are no declared environment fields.
 - **Time is the application's `Clock` (#262):** infrastructure too — `now()` and
   `sleep(delay, signal?)`; the system's unless `@Application({ providers })` lists a class that
   `extends Clock` (created first: it may not depend on the contexts, whose `startedAt` it gives).
@@ -2088,11 +2079,7 @@ target.skill)` with the export whose `skill` — the exported start's name — i
   component injects is the instance's with every message through the application's PII log mask.
   An image redactor's region with a target it was not asked for is painted and warned
   (`files.redactor-unknown-target`), never refused — only a region that cannot be painted refuses.
-  `piiKeyField` (#825, replaced by `piiSecret`) is typed `SecretFieldOf<TEnvironment>` — only a `Secret`
-  field of the contract compiles, as `@DatabaseStorage({ idempotencySecret })` does —, and a key field that is also a
-  model provider's key (`secret("OPENROUTER_API_KEY")` of its driver), a `Secret` a listed class reads or another key field is
-  `[application.pii-key-shared]` / `[application.idempotency-key-shared]`: a provider rotates its key
-  routinely, and every token (every fingerprint) would change with it. The PII key makes tokens and
+  The PII key makes tokens and
   business-key handles only — never a fingerprint (Business idempotency keys below). It is a root
   (#1269, Wiki → Guards → The PII key hierarchy): each use derives its own key by HKDF-SHA256 under a
   label of its own (`agboss/pii/pseudonym/v2` the tokens', `…/policy-hash/v2`, `agboss/files/cache-key/v2`,
@@ -2211,84 +2198,74 @@ export class NoLegalAdviceGuardrail {}
 
 ### Environments
 
-One set per application, in `environments/` next to the application file (#261). The contract is a
-plain class with declared fields only, declared once — `@Application({ environment: AppEnvironment })`
-above, optional (no settings → omit it, no environment file needed); a
-value in it fails assembly (`[environment.contract-value]`), a field a listed framework
-implementation reads and the contract lacks too (`[environment.missing-field]`):
-
-```ts file=src/desk/environments/app.environment.ts
-// environments/app.environment.ts — the contract (a secret is a `Secret` field: README → Environments)
-export class AppEnvironment {
-  auditUrl!: string;
-  retries!: number;
-}
-```
-
-**`defineEnv` (#1324b, the additive step of the new form):** `export const appEnv = defineEnv({ region: env("REGION"),
+The application's own settings are one `defineEnv` (#1324b) in a file next to the application
+(`src/desk/desk.env.ts`): the one reader of the process's variables, no environment files and no
+contract class. `export const appEnv = defineEnv({ region: env("REGION"),
 port: env.integer("PORT", { default: 8080 }), deadline: env.duration("DEADLINE"), history: env.ttl("HISTORY_TTL", {
 allowNone: true }), maxFile: env.bytes("MAX_FILE"), budget: env.usd("DAILY_BUDGET"), apiKey: secret("API_KEY"), token:
-secret.optional("TOKEN") })` is the one reader of the process's variables — `env` is `env.text`; the readers are
-`env.text`, `.integer`, `.number`, `.boolean` (`env.flag` is the same as `.boolean`), `.duration` (`30d`, `24h`, `15m`, `10s`),
+secret.optional("TOKEN") })`; `env` is `env.text`; the readers are
+`env.text`, `.integer`, `.number`, `.boolean`, `.duration` (`30d`, `24h`, `15m`, `10s`),
 `.ttl` (a duration or `forever`; `none` only with `{ allowNone: true }` → `Ttl.Forever` / `Ttl.None`, exported from the root
-and `/units`), `.bytes` (`64kb`, `10mb`) and `.usd`, each with `{ default }` and `.optional("VAR")`. It returns a frozen,
+and `/units`), `.bytes` (`64kb`, `10mb`) and `.usd`, each with `{ default }` and `.optional("VAR")` (unset is
+`undefined`). It returns a frozen,
 method-free, prototype-less dictionary (a key `then`, `__proto__`, `constructor` or `prototype` fails to compile and at
 definition) of references — `appEnv.apiKey` is a `SecretRef` that a component option takes — and a dependency token:
 `deps: [appEnv]` injects `InferEnv<typeof appEnv>`, resolved once per container (every missing or unparsable variable at
-once, named, never its value; a secret is a `Secret` read with `.reveal()`). `configureEnv(appEnv, { region: "us" })`
-gives overrides tied to one dictionary, `bearer(appEnv.apiKey)` an `Authorization: Bearer` source, and
-`ApplicationContext.profiles` lists the profiles the instance runs with. The old environment files still work beside it.
+once, named, never its value; a secret is a `Secret` read with `.reveal()`, printed as `***` everywhere else). `bearer(appEnv.apiKey)` is an
+`Authorization: Bearer` source. A `Secret` has no default and no literal.
 
-Each environment is a plain object typed by it (a missing field does not compile), in
-`<name>.environment.ts` — the file name is the environment's: `env("X")` (`env.integer`, `env.flag`,
-`{ default }`; `env.optional("X")` — unset is `undefined`, for an optional field) reads a process variable at start, `secret("X")` a `Secret` (no default, a literal
-does not compile). Tests run on `test` — no `test.environment.ts` fails the test, so it never reaches
-dev's addresses:
+```ts file=src/desk/desk.env.ts
+// desk.env.ts — the process variables of the application: references, never values
+import { defineEnv, env, secret } from "@agboss/core";
 
-```ts file=src/desk/environments/dev.environment.ts
-import { env } from "@agboss/core";
-import type { AppEnvironment } from "./app.environment.js";
-
-export const environment: AppEnvironment = {
+export const appEnv = defineEnv({
   auditUrl: env("AUDIT_URL", { default: "http://localhost:4000" }),
   retries: env.integer("AUDIT_RETRIES", { default: 3 }),
-};
+  auditToken: secret.optional("AUDIT_TOKEN"),
+});
 ```
 
-```ts file=src/desk/environments/test.environment.ts
-import type { AppEnvironment } from "./app.environment.js";
-
-export const environment: AppEnvironment = { auditUrl: "http://audit.test", retries: 0 };
-```
-
-Components read it as `applicationContext.environment` (`deps: [ApplicationContext]`, #261 PR 3 —
-there is no separate token), typed by the contract through `.agboss/types.d.ts`, never
-`process.env`; the chosen environment's name is `applicationContext.environmentName`. A `Secret`
-prints as `***` everywhere and only `.reveal()` gives the value:
+Components read it with `deps: [appEnv]` (typed `InferEnv<typeof appEnv>`), never `process.env`
+(`agboss/no-process-env`); in a test `testApp.get(appEnv)`:
 
 ```ts file=src/desk/services/audit.service.ts
-import { ApplicationContext, Injectable } from "@agboss/core";
+import { Injectable, type InferEnv } from "@agboss/core";
+import { appEnv } from "../desk.env.js";
 
-@Injectable({ deps: [ApplicationContext] })
+@Injectable({ deps: [appEnv] })
 export class AuditService {
-  constructor(private readonly applicationContext: ApplicationContext) {}
+  constructor(private readonly settings: InferEnv<typeof appEnv>) {}
 
   eventsUrl(): string {
-    return `${this.applicationContext.environment.auditUrl}/events`;
+    return `${this.settings.auditUrl}/events`;
   }
 }
 ```
 
-`--env <name>` / `createApp(App, { env })` / `testWith(App, { env })` pick one (default `dev`, tests
-`test`); a missing variable fails the start naming it, the field and the environment, never the value
-(`DATABASE_URL is not set (AppEnvironment.databaseUrl, prod)`); `agboss check --env <name>` lists the
-variables it needs, by name, marked value / secret, never a value. Dev / prod parity: the same `providers` in every
-environment, only values differ. Model provider keys are `Secret` fields of it too (#266): a
-`@ModelProvider`'s `apiKey` names the field (`"openRouterApiKey"`), a test environment may leave it
-out (models are scripted); `agboss check` reads only the contract's shape (its secrets with
-`--models`), so `npm run types` needs no key. A base URL is a text field the same way (`baseUrlField`;
-`env.optional("OPENROUTER_BASE_URL")`, no default: unset → the provider's `baseUrl`). README →
-Environments has more.
+Values per deployment are a **profile** (Wiki → Configuration): `src/config/<name>.config.ts|yaml` next to the
+application file, `export default defineConfig({ …, env: configureEnv(appEnv, { region: "us" }) })` —
+`configureEnv` gives overrides tied to one dictionary, a key it leaves out is read from the process.
+`createApp(App, { profile: "prod" })` (`"prod,economy"` or a list, layered left to right) and the CLI's
+`--profile` select them (default `dev`); `testWith(App)` runs on `test`, so a test never reaches dev's
+addresses. `testWith` / `testModule` / the unit runners take `env: configureEnv(appEnv, { auditUrl:
+"http://audit.test" })` (one or a list — the only thing `env` takes; the variable map is `processEnv`):
+
+```ts file=src/desk/config/test.config.ts
+import { configureEnv, defineConfig } from "@agboss/core";
+import { appEnv } from "../desk.env.js";
+
+export default defineConfig({ env: configureEnv(appEnv, { auditUrl: "http://audit.test", retries: 0 }) });
+```
+
+A problem is `ConfigError.Environment` (`config.environment`), every one at once, the message naming the rule, the
+variable and the key, never a value: `[environment.missing-variable] DATABASE_URL is not set (databaseUrl)`,
+`[environment.invalid-value] PORT is not an integer (port)`. `agboss check` lists the process variables of the
+application's `defineEnv` references, by name, marked value / secret (`optional`, `has a default`), never a value.
+`ApplicationContext` has `name`, `version`, `instanceId`, `startedAt`, `profiles` and `host` — no settings.
+Dev / prod parity: the same `providers` in every profile, only values differ. Model provider keys, a storage
+driver's connection and its keys are references of the driver (`secret("OPENROUTER_API_KEY")`, #266, #1313), read when the
+application starts; `agboss check` reads only the shape (the secrets with `--models`), so `npm run types` needs no key. A base URL is
+`env("OPENROUTER_BASE_URL", { default })`. README → Environments has more.
 
 ### Judges and decision models
 
@@ -2463,7 +2440,7 @@ askedAt, resolvedAt, decision, asked }`, the decision PII-masked, none when with
   `ExecutionContext` fields they fill — `threadId`, never `thread`. A thread with an `ownerId`
   rejects another owner (`ExecutionError.ThreadOwnerMismatch`).
 - **Context levels (#261 PR 3):** `ApplicationContext` (`name`, `version`, `instanceId`,
-  `startedAt`, `environmentName`, `environment`, `host`) → `TenantContext` (`tenantId`, `weight` —
+  `startedAt`, `profiles`, `host`) → `TenantContext` (`tenantId`, `weight` —
   a positive integer, default 1, for #266's `TenantWeighted` — and the project's fields) →
   `ExecutionContext` (`executionContext.tenant`, `.tenant.application` — the same objects).
   Each is its type and its DI token; a component takes the one of its level. The project extends a
@@ -2806,7 +2783,7 @@ const readiness: HealthReport = await app.checkReadiness();
   `ExecutionContextUnavailableError` (`context.unavailable`). No input, no metadata in it: domain
   data come through `input`. Units: a unit runner (`testUnit`, …, Testing below)
   runs the component in its step's frame; a class created by hand takes `testExecutionContext()` —
-  with `{ tenantContext, tenant, executionContext, execution, application: { environment } }` for
+  with `{ tenantContext, tenant, executionContext, execution, application: { profiles } }` for
   the levels. Framework code reads the
   run with the internal `extractRunContext` — never by parsing `configurable`.
 - **Spend of services that are not models** (#280 S43): `deps: [SpendRecorder]` in a `@Tool` /
@@ -2964,7 +2941,7 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   one clock: a lease, a pause resumed on the other instance, a rate-limit slot — the in-memory
   defaults are shared; the SQLite storage on `SqliteDriver.inMemory()` is **not**, each instance
   opens its own database, so a multi-instance test names one file, e.g. flow-patterns'
-  `instances` environment on a temp path, #458) and `leases` (#471: `leases.freeze(apps[0])` freezes
+  the `AGBOSS_SQLITE_PATH` of a temp file, #458) and `leases` (#471: `leases.freeze(apps[0])` freezes
   that instance's lease store calls and lease timers while its steps run on, `leases.thaw(…)`
   lets them go — a zombie writer on the `VirtualClock`); models answer by script — `replyWith(text)` or
   `replyWith(Dto, value, { cost })` (a structured answer, a class of the agent's output: checked by
@@ -2989,7 +2966,7 @@ typeof X.code;` — so `switch (error.code)` over a union of errors narrows
   `agbossVitest()` (`@agboss/core/testing/vitest`, #497): `server.deps.inline` gains `/@agboss\//`
   (#891: every `@agboss` package — a store package external to vitest loads a core of its own, its
   classes undecorated for the test's) — installed from npm the core is external to vitest, and every file it loads by path (the
-  application `testWith(W)` finds next to `W`, environments, eval suites) would bypass vite: no
+  application `testWith(W)` finds next to `W`, profile configs, eval suites) would bypass vite: no
   decorators, a second module graph — and `setupFiles` gains `@agboss/core/testing/setup` (once;
   the user's arrays merged, the rest passed through). Without it `testWith(W)` throws
   `TestSetupError` naming the fix when the application's import fails or lists another class named
@@ -3020,7 +2997,7 @@ step(CheckAgent, { company: { name: "Acme" } })])` — completions in that order
   `app.cancel`; no branch can move and the next step is not waiting → `test.unreachable-step` at
   once; a step never reached fails the test at its end.
 - Units — one component on its own container (#262 S55, S62, S89), no `new`: `testUnit(Tool, {
-services: [FakeSearchClient], environment })` → `await run(input, {
+services: [FakeSearchClient], env: configureEnv(appEnv, { … }) })` → `await run(input, {
 timeout: seconds(1) })` → `{ output, spend }` (a tool call's frame: `executionContext.signal`
   with the timeout, `SpendRecorder` into `spend`; input and output validated); the same shape for
   `testUnit` (a code router's `route()`, or a model router with `model: routeTo(X)`
@@ -3049,7 +3026,7 @@ isPassed }` (#799: every requirement probed and passed — G3 skipped without a 
 ### Imports
 
 An example (and any project) imports only the public entries: the root `@agboss/core` (decorators,
-DI, the path builder, settings, environments, observers, judges and decisions, `createApp`, errors,
+DI, the path builder, settings, profiles, observers, judges and decisions, `createApp`, errors,
 types), `@agboss/core/dto` (+ the DTO wrappers), `/units`, `/models`, `/stores` (#890: the store-implementer entry), `/describe` (the `agboss describe` report types), `/testing` (+ `/testing/setup`; `/testing/faults`, the fault suite; `/testing/vitest`, #497, the vitest preset `agbossVitest()`; `/testing/contracts`, #481, the store
 contract suites), and
 the integrations `/mcp`, `/rag`, `/a2a`, `/eval` (#396: `@EvalSuite` and the builders of

@@ -145,7 +145,7 @@ take it, never a workflow.
 Model providers are infrastructure too (#266, #1313): a `@ModelProvider({ driver, timeout, … })`
 class is an empty class whose **driver** (`OpenRouterDriver`, `OpenAiCompatibleDriver`,
 `DecisionsDriver`) speaks one protocol and holds the connection — base URL and key are settings of
-the driver (`secret("OPENROUTER_API_KEY")`, `env(…)`), not fields of the environment. There is no
+the driver (`secret("OPENROUTER_API_KEY")`, `env(…)`), not keys of the application's `defineEnv`. There is no
 built-in provider and no provider is picked by a model's name: `@Application({ modelProvider })` names
 the default one, and a workflow or a component overrides it with its own `modelProvider`
 (component → workflow → application). A component that names none and an application that names none
@@ -231,19 +231,10 @@ export class OpenRouterModelProvider {}
 export class DecisionsModelProvider {}
 ```
 
-```ts file=src/environments/app.environment.ts
-// src/environments/app.environment.ts — the fields of the application's own settings; the model
-// provider's key is not here: its driver reads secret("OPENROUTER_API_KEY") when the application starts
-export class AppEnvironment {
-  tenantName?: string;
-}
-```
-
 ```ts file=src/job-scout.application.ts
-// src/job-scout.application.ts — what createApp(JobScoutApplication, { env }) and testWith run
+// src/job-scout.application.ts — what createApp(JobScoutApplication, { profile }) and testWith run
 import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
-import { AppEnvironment } from "./environments/app.environment.js";
 import { JobScout } from "./job-scout.workflow.js";
 import { OpenRouterModelProvider } from "./model-providers/openrouter.model-provider.js";
 
@@ -272,7 +263,6 @@ export class ExecutionBudget implements BudgetHandler {
 @Application({
   name: "job-scout-application",
   version: "1.0.0",
-  environment: AppEnvironment,
   workflows: [JobScout], // app.execute(ChatWorkflowStart, …) runs the workflow of that start
   modelProvider: OpenRouterModelProvider, // the default of every component; a router of decision models names its own
   budgets: [ApplicationDailyBudget, TenantDailyBudget, ExecutionBudget], // checked before each step
@@ -460,7 +450,7 @@ npx agboss chat                                 # the application's one start; w
 npx agboss run --start chat-workflow-start "my resume src/data/sample-resume.md"
 npx agboss run --start <name> --input '<json>'  # a start taking a DTO: checked field by field first
 npx agboss describe [--json]                    # the application: workflows, starts, children, implementations — no API key
-npx agboss check --env prod                     # types, assembly, the worst case per start, prod's process variables
+npx agboss check                                # types, assembly, the worst case per start, the process variables it needs
 npx agboss dev                                  # watch mode: types regenerated, problems printed on change
 npx agboss studio                               # LangGraph Studio on every workflow — no studio.ts, no langgraph.json
 npx agboss --help                               # run, eval, replay, golden, compare, rag index
@@ -468,7 +458,7 @@ npx agboss --help                               # run, eval, replay, golden, com
 
 `agboss dev` reruns `agboss check` in a short-lived process on every change of the application's
 `src/` (debounced): `.agboss/types.d.ts` stays current and assembly problems show as you type.
-`agboss studio [--env <name>] [--port N]` builds every workflow of the application — the children
+`agboss studio [--profile <list>] [--port N]` builds every workflow of the application — the children
 too — writes the Studio config into the git-ignored `.agboss/` (`studio.ts`, `langgraph.json`) and
 starts LangGraph's dev server on it; a child workflow is drawn inside its parent (a subgraph,
 `forEachItem(toWorkflow(…))` included), and a problem — assembly, a missing variable — stops it before the
@@ -594,8 +584,21 @@ only `@agboss/core` — both enforced by ESLint.
 
 ## Environments
 
-One set per application, in `environments/` next to the application file (#261). The contract is a
-plain class with declared fields only, declared once in the application:
+The application's own settings are read in one place: `defineEnv` (#1324), in a file next to the
+application. It names the process variables the application reads, once — each an `env(…)` or a
+`secret(…)` reference — and is itself the dependency token a component injects:
+
+```ts file=src/audit/audit.env.ts
+// audit.env.ts — the process variables the application reads: references, no values
+import { defineEnv, env, secret } from "@agboss/core";
+
+export const auditEnv = defineEnv({
+  auditUrl: env("AUDIT_URL"), // a process variable, read when the app starts
+  databaseUrl: secret("DATABASE_URL"), // a Secret: only from a process variable, no default
+  port: env.integer("PORT", { default: 8080 }),
+  debug: env.boolean("DEBUG", { default: false }), // true / false / 1 / 0
+});
+```
 
 <!-- snippet-context
 import { Application, Workflow, WorkflowStart, onStart, WorkflowFinish, Ttl } from "@agboss/core";
@@ -638,111 +641,76 @@ export class AuditApplicationDailyBudget implements BudgetHandler {
 -->
 
 ```ts file=src/audit/audit.application.ts
-import { AppEnvironment } from "./environments/app.environment.js";
-
 @Application({
   name: "audit-application",
   version: "1.0.0",
-  environment: AppEnvironment, // the contract: environments/app.environment.ts
   workflows: [AuditWorkflow],
   budgets: [AuditApplicationDailyBudget, AuditTenantDailyBudget, AuditExecutionBudget],
 })
 export class AuditApplication {}
 ```
 
-```ts file=src/audit/environments/app.environment.ts
-// environments/app.environment.ts — the contract: fields only, no values
-import type { Secret } from "@agboss/core";
-
-export class AppEnvironment {
-  auditUrl!: string;
-  databaseUrl!: Secret;
-  port!: number;
-  debug!: boolean;
-}
-```
-
-Each environment is a plain object typed by the contract, in `<name>.environment.ts` — the file name
-is the environment's name (`--env prod` → `prod.environment.ts`):
-
-```ts file=src/audit/environments/prod.environment.ts
-import { env, secret } from "@agboss/core";
-import type { AppEnvironment } from "./app.environment.js";
-
-export const environment: AppEnvironment = {
-  auditUrl: env("AUDIT_URL"), // a process variable, read when the app starts
-  databaseUrl: secret("DATABASE_URL"), // a Secret: only from a process variable, no default
-  port: env.integer("PORT", { default: 8080 }),
-  debug: env.flag("DEBUG", { default: false }),
-};
-```
-
-```ts file=src/audit/environments/dev.environment.ts
-import { secret } from "@agboss/core";
-import type { AppEnvironment } from "./app.environment.js";
-
-export const environment: AppEnvironment = {
-  auditUrl: "http://localhost:4000", // a value in the file
-  databaseUrl: secret("DATABASE_URL"), // `.env`: e.g. pglite://memory — dev without Docker
-  port: 8080,
-  debug: true,
-};
-```
-
-- A field missing in an environment, a mistyped one or one the contract lacks does not compile; a
-  literal in a `Secret` field does not compile either, and a `Secret` is not a `string`. A value in
-  the contract (`auditUrl: string = "…"` — the environments are object literals, it would be
-  ignored) fails assembly: `[environment.contract-value] AppEnvironment.auditUrl has a value — the
-contract declares fields only; put the value in each environment`. A framework implementation
-  listed in `providers` whose field the contract lacks fails with `[environment.missing-field]`.
-- There are no wrappers: no `declare module`, no `export default`, no `defineEnvironment` /
-  `fromEnv`. `agboss check` writes `interface Environment extends AppEnvironment {}` into
-  `.agboss/types.d.ts`, so components read the values as `applicationContext.environment`
-  (`deps: [ApplicationContext]`, #261 — no separate token), typed by the contract — never
-  `process.env`; the chosen environment's name is `applicationContext.environmentName`:
+- **Components read the resolved values** with `deps: [auditEnv]`, typed `InferEnv<typeof auditEnv>`:
+  every missing or unparsable variable is reported at once when the application starts, never one
+  by one in a request — never `process.env` (`agboss/no-process-env` is a lint rule). A secret is a
+  `Secret`; in a test, `testApp.get(auditEnv)` gives what the components got:
 
 ```ts file=src/audit/services/audit-store.service.ts
-import { ApplicationContext, Injectable } from "@agboss/core";
+import { Injectable, type InferEnv } from "@agboss/core";
+import { auditEnv } from "../audit.env.js";
 
-@Injectable({ deps: [ApplicationContext] })
+@Injectable({ deps: [auditEnv] })
 export class AuditStoreService {
-  constructor(private readonly applicationContext: ApplicationContext) {}
+  constructor(private readonly settings: InferEnv<typeof auditEnv>) {}
 
   connectionString(): string {
-    return this.applicationContext.environment.databaseUrl.reveal(); // the only way to the value
+    return this.settings.databaseUrl.reveal(); // the only way to the value
   }
 }
 ```
 
+- **Values per deployment are a profile**, not a file of their own kind: `src/config/<name>.config.ts`
+  next to the application file sets them with `configureEnv`, and the selection is
+  `createApp(Application, { profile: "prod" })` (`"prod,economy"` or a list layer left to right), the
+  CLI's `--profile`, and `test` for `testWith(Application)` — a test never reaches dev's addresses
+  by accident. A key a profile leaves out is read from the process. See Wiki → Configuration:
+
+```ts file=src/audit/config/dev.config.ts
+import { configureEnv, defineConfig } from "@agboss/core";
+import { auditEnv } from "../audit.env.js";
+
+export default defineConfig({
+  env: configureEnv(auditEnv, { auditUrl: "http://localhost:4000", port: 8080, debug: true }),
+});
+```
+
+- A test overrides a few: `testWith(Application, { env: configureEnv(auditEnv, { auditUrl:
+"http://audit.test" }) })` — the option takes only `configureEnv` overrides (one or a list); the
+  process-variable map is `processEnv`.
+- **Errors** are `ConfigError.Environment` (`config.environment`), every problem at once, the
+  message naming the rule, the variable and the key, never a value:
+  `[environment.missing-variable] DATABASE_URL is not set (databaseUrl)`,
+  `[environment.invalid-value] PORT is not an integer (port)`.
 - A `Secret` prints as `***` everywhere it could be printed — logs, traces, JSON, `agboss describe`,
   error messages; only `.reveal()` gives the value. Secrets are process variables and only that: in
   Cloud Run a Secret Manager secret is bound to the variable at deploy
   (`--set-secrets=DATABASE_URL=database-url:3`); the framework calls no cloud SDK.
-- `agboss chat` (the application of `package.json`) loads `dev`;
-  `--env staging` loads `staging.environment.ts` (every command that loads the application takes `--env`). An unknown
-  name fails at once (exit 3) listing the available ones; a variable without a value or default fails
-  the start naming it, the field and the environment, never the value:
-  `DATABASE_URL is not set (AppEnvironment.databaseUrl, prod)`. `agboss check` validates the selected
-  environment without running anything, creating every component the start creates, so it fails
-  exactly when the start would; `agboss check --env prod` lists the process variables it needs,
-  marked value / secret; `agboss describe` shows the environment with secrets masked.
-- From code: `createApp(Application, { env: "staging" })`. Tests run on `test`:
-  `testWith(Application)` loads `test.environment.ts` and fails without it (a test never reaches
-  dev's addresses by accident); `testWith(Application, { env: "dev" })` names another.
+- `agboss check` validates the application without running anything, creating every component the
+  start creates, so it fails exactly when the start would, and lists the process variables the
+  `defineEnv` references need — names only, each `value` or `secret`, `optional` or `has a default`
+  when unset is fine, never a value (the list for `--set-env-vars` / `--set-secrets` at deploy, #268).
 - Dev / prod parity (12-factor): the same `providers` — the same implementations and code — in
-  every environment; only values differ.
-- `environment` is optional: an application with no settings omits it
-  and needs no environment file — its `dev` and `test` are `{}`. (An untyped caller without one gets an empty environment.)
-- Model provider keys are not fields of the environment contract (#1313): a driver reads its own
-  settings — `OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY"), baseUrl: env("OPENROUTER_BASE_URL",
+  every profile; only values differ.
+- Model provider keys are references of the driver (#1313): a driver reads its own settings —
+  `OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY"), baseUrl: env("OPENROUTER_BASE_URL",
 { default: "https://openrouter.ai/api/v1" }) })` — from the process when the application starts. A
   missing key fails the start of an app that calls the provider, naming the variable, never a value;
   `agboss check` (without `--models`) reads the shape and writes the types without one. The same holds
   for the storage's keys (`piiSecret`, `idempotencySecret`) and its driver's connection. A test app
   scripts or replays its models and needs none.
-- `env.optional("X")` (`env.integer.optional`, `env.flag.optional`) reads a variable that may be
-  unset — `undefined` then, for an optional field of the contract (`x?: string`); a set value is
-  still checked, and `agboss check --env` marks it `(optional)` (#266 S90).
+- `env.optional("X")` (`env.integer.optional`, `env.boolean.optional`) reads a variable that may be
+  unset — `undefined` then; a set value is still checked, and `agboss check` marks it `optional`
+  (#266 S90).
 
 ## Quality gates (judges)
 
@@ -1094,7 +1062,7 @@ execute(query: OrderQuery): Promise<OrderQuery> {
   executionContext.threadId; // the conversation (ExecutionOutput.threadId)
   executionContext.ownerId; // from execute(…, { ownerId }): who the thread belongs to
   executionContext.tenant.tenantId; // the organization, "default" when none is passed
-  executionContext.tenant.application.environmentName; // the application level, through the tenant
+  executionContext.tenant.application.name; // the application level, through the tenant
   executionContext.signal; // aborted by app.cancel(threadId) or the caller's signal
   executionContext.workflow; // { type, name, version, startedVersion }
   executionContext.step.idempotencyKey; // `${executionId}:${nodeId}:${visitNumber}[:${itemIndex}][:${callId}]`

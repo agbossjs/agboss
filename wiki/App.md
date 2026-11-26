@@ -33,7 +33,7 @@ export class JobScout {}
 -->
 
 ```ts file=job-scout.application.ts
-// job-scout.application.ts — its environments/ folder is next to this file
+// job-scout.application.ts — its config/ folder (the profiles) is next to this file
 import { Application, Budget, type BudgetHandler, BudgetPeriod, BudgetScope } from "@agboss/core";
 import { usd, type Usd } from "@agboss/core/units";
 import { JobScout } from "./job-scout.workflow.js";
@@ -78,7 +78,7 @@ import { JobScoutApplication } from "./job-scout.application.js";
 ```ts
 import { ExecutionStatus, createApp } from "@agboss/core";
 
-// optional: { env: "staging", profile: "scout-low-thinking" } or { profile: "prod,economy" }
+// optional: { profile: "scout-low-thinking" } or { profile: "prod,economy" }
 const app = await createApp(JobScoutApplication);
 
 const first = await app.execute(ChatWorkflowStart, { text: "save the first job" });
@@ -234,7 +234,7 @@ fast `ping()` (#300) — `app.checkReadiness()` calls it; a project's own implem
 ## At start: the log, the warnings, `describe`
 
 `createApp` logs once, through the application's `Logger` ([Observability → The framework's
-log](Observability#the-frameworks-log)): what started (application, version, environment, host,
+log](Observability#the-frameworks-log)): what started (application, version, profiles, host,
 process) and the worst case of one call of each start in counts — then the startup warnings,
 `app.warnings`: a config changed without a version bump, and the assembly warnings
 (`[application.in-memory-cost-ledger]`, `[application.in-memory-pauses]`; errors under
@@ -533,7 +533,6 @@ default. Infrastructure is not an option: it is listed in `@Application({ provid
 
 | Option                    | Default                                                                                           |
 | ------------------------- | ------------------------------------------------------------------------------------------------- |
-| `env`                     | `dev` — the environment file next to the application file ([Environments](Environments))          |
 | `processEnv`              | `process.env` (provider keys, the `env()` / `secret()` variables)                                 |
 | `gateway`                 | the application's model providers (`@Application({ providers })`, #266) — the one model-call seam |
 | `transport`               | MCP stdio / streamable HTTP from the server's config                                              |
@@ -541,7 +540,7 @@ default. Infrastructure is not an option: it is listed in `@Application({ provid
 | `clock`                   | the system clock (the built-in ledger's UTC day, the records' times)                              |
 | `newThreadId`, `newRunId` | random UUIDs                                                                                      |
 | `container`               | `overrides` (values instead of classes — test mocks), `onCreate`                                  |
-| `profile`                 | none ([Configuration → Profiles](Configuration#profiles-srcconfig-1318))                          |
+| `profile`                 | `dev` ([Configuration → Profiles](Configuration#profiles-srcconfig-1318), [Environments](Environments)) |
 
 `@agboss/core/testing` builds its apps with these: a scripted gateway, stubbed MCP servers, a test clock,
 deterministic ids — on the infrastructure the application lists.

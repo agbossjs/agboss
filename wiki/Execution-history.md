@@ -93,15 +93,15 @@ created by its driver, Spring Data names:
 ## Exporting it: `agboss executions export`
 
 ```bash
-agboss executions export --env prod --tenant acme --since 2026-10-16 --out hub/records/acme.jsonl
-agboss executions export --env prod --all-tenants --out hub/records/all.jsonl
+agboss executions export --tenant acme --since 2026-10-16 --out hub/records/acme.jsonl
+agboss executions export --all-tenants --out hub/records/all.jsonl
 ```
 
 ```text
 records: 1284 executions (acme) → hub/records/acme.jsonl
 ```
 
-- Opens the application's stores in the `--env` environment **without running anything**: no
+- Opens the application's stores **without running anything**: no
   workflow built, no recovery sweep, no execution moved.
 - One record per line, oldest start first, each self-describing:
   `{ "kind": "agboss.execution-record", "schema": 1, …record }`. The records are written as they were

@@ -26,7 +26,7 @@ skills show, and what `examples/flow-patterns` keeps to (checked by
 ```
 src/
   <app>.application.ts             the application — at the src/ root
-  environments/                    its environments — at the src/ root
+  config/                          its profiles (`<name>.config.ts`) and its `*.env.ts` — at the src/ root
   [<domain>/]                      optional, one level: holds kind folders only
     workflows/<w>/                 <w>.workflow.ts + its *.workflow-start.ts and *.workflow-finish.ts
     agents/<n>/                    <n>.agent.ts + <n>.prompt.md
@@ -107,7 +107,8 @@ One component per file, the kind in the name; `agboss create` / `agboss generate
 | `tool-interceptors/<name>.tool-interceptor.ts` | a `@ToolInterceptor` — before / after an agent's tool calls ([Tools](Tools#tool-interceptors)) |
 | `services/<name>.service.ts`                   | an `@Injectable` (like an Angular service)                               |
 | `helpers/<name>.helper.ts`                     | plain functions                                                          |
-| `environments/<name>.environment.ts`           | an environment's values ([Environments](Environments))                   |
+| `config/<name>.config.ts`                      | a profile's values ([Configuration](Configuration#profiles-srcconfig-1318)) |
+| `<app>.env.ts`                                 | the `defineEnv` of the application ([Environments](Environments))        |
 
 Prompts are `prompt` (inline) or `promptUrls` (files next to the component, read relative to the
 declaring module), plus `promptVariables`; `{{variables}}` are checked at assembly
@@ -579,8 +580,8 @@ export class Shop {} // money: the application's @Budgets (FinOps → Budgets)
   execution, [above](#the-execution-context)), `JudgeModel` (a judge's own model,
   [Judges](Judges-And-Quality-Gates)), `ROUTER_FACTORY` (router engines for cheap decisions inside
   components — their spend during a tool call is the tool's) and the context levels —
-  `ApplicationContext` (with the [environment](Environments), typed by
-  `@Application({ environment })`), `TenantContext` and the declared subclasses
+  `ApplicationContext` (`name`, `version`, `instanceId`, `startedAt`, `profiles`, `host`), the application's
+  [`defineEnv`](Environments) (`deps: [appEnv]`), `TenantContext` and the declared subclasses
   ([Context and Authorization](Context-And-Authorization)).
 - **One container per application instance, no scopes** (#261): it holds the providers of the
   `@Application` and of every workflow it lists, one instance per class (`OrdersService` listed by
@@ -599,7 +600,7 @@ export class Shop {} // money: the application's @Budgets (FinOps → Budgets)
 - **No `new`**: the container creates every instance. `providers` take classes; values go only with an
   `InjectionToken` — `provide(AuditRepository, new MemoryAuditRepository())` fails with
   `[di.instance-provider]`. One token with two different values (in two workflows, or twice in one)
-  fails with `[di.conflicting-values]` — use different tokens or an environment value.
+  fails with `[di.conflicting-values]` — use different tokens or a `defineEnv` value.
 - **Assembly** (`testWith` / `createApp`, before the first request): the dependency graph is checked
   and every instance is created once, dependencies first. A cycle, an unregistered provider
   (`Consumer: "TOKEN" is not registered …`), an undecorated class in `providers`

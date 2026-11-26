@@ -30,7 +30,7 @@ export default defineConfig({ test: agbossVitest({ include: ["tests/**/*.test.ts
 - `server.deps.inline` gains `/@agboss\//`. Installed from npm, `@agboss/core` is an external
   dependency of vitest: Node loads it, and every project file the core loads by path — the
   `*.application.ts` the framework's own `workflowOf(W)` (`@agboss/core/internal`) finds next to `W`,
-  the application's environments, eval suites — bypasses vite. Node cannot run their decorators, and
+  the application's profile configs, eval suites — bypasses vite. Node cannot run their decorators, and
   even through tsx they would be a second module graph, whose application lists another class object
   than the test's `W`. Inlined, the core and
   every file it loads go through vite, in the test's own graph. (In this monorepo the workspace link
@@ -1047,7 +1047,7 @@ Examples in the framework: `tests/components/compile-time.test.ts`, `tests/dto/t
 A component is tested without a workflow by its unit runner (#262 S55, S62, S89): each builds the
 component's own container — its `deps` resolved, `services: [Replacement]`
 replacing classes by classes (no `new`, no instance: `provide(Class, …)` stays
-`[di.instance-provider]`), the `environment` as `applicationContext.environment` — and runs every
+`[di.instance-provider]`), the `defineEnv` values (`env: configureEnv(appEnv, { … })`, read with `deps: [appEnv]`) — and runs every
 call in the frame of its step, as the flow would: an `ExecutionContext` of the execution
 `test-execution` (the component's step; the tenant and the execution's values the options give —
 `tenantContext` / `tenant`, `executionContext` / `execution`, as [`testExecutionContext`](#testexecutioncontext--)
@@ -1250,9 +1250,9 @@ no owner, a signal nobody aborts, workflow `test-workflow` (or the `@Workflow` c
 `workflow`), step `test-step` on its first visit (or `step: { component, visitNumber, callId,
 itemIndex, copyNumber }` — the step's name from the component's decorator). The idempotency key is
 built as at run time. The levels above (#261): the tenant `"default"` of an application
-`test-application` on the `test` environment — or `tenantContext` / `tenant`, `executionContext` /
+`test-application` on the `test` profile — or `tenantContext` / `tenant`, `executionContext` /
 `execution` (the project's subclasses and their values, checked by their decorators like at
-`execute`) and `application: { name, version, environmentName, environment }`; a service of the
+`execute`) and `application: { name, version, instanceId, profiles }`; a service of the
 tenant or application level takes `testExecutionContext({ … }).tenant` or `.tenant.application`.
 Its `fence` (#471) is a held lease of the execution: token 1, scope `<tenant>:test-execution`,
 confirmed until `clock` (a `VirtualClock` unless given) plus 30 s; `fence: { token,
@@ -1261,7 +1261,7 @@ leaseExecutionId, trustedUntil, isLost, renewNowFails }` sets each part — `isL
 or an error) only `renewNow()` (a store error right before a webhook). Every unit runner takes the
 same `fence` option, its `trustedUntil` on `run.clock`. A component's `Idempotency.runOnce` (#500) runs on the runner's held
 lease: the in-memory store by default, and every fenced-effect store the runner creates — the SQLite
-one too, on `environment: { sqlitePath: ":memory:" }` — gets the lease written into the lease store
+one too, on `SqliteDriver.inMemory()` — gets the lease written into the lease store
 it reads, at `fence.token` (`isLost` → released, so the effect is refused; past `trustedUntil` →
 expired). A second call of one runner is the step run again: `Replayed`.
 

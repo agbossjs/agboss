@@ -551,7 +551,7 @@ import { SupportHttpAuthenticator } from "./src/support/a2a/support.http-authent
 import { createServer } from "node:http";
 import { a2aHttpListener } from "@agboss/core/a2a";
 
-const app = await createApp(SupportApplication, { env: "prod" });
+const app = await createApp(SupportApplication, { profile: "prod" });
 createServer(
   a2aHttpListener(app, {
     endpoint: SupportA2AEndpoint, // listed in @Application({ endpoints })
@@ -994,4 +994,4 @@ application, expose } })`'s over MCP): a receiver of another name refuses it, si
 - Taking the tenant from an MCP or A2A request body: bind it from the authenticated caller (the
   authenticator reads headers and the socket only).
 - `new SupportHttpAuthenticator(…)` by hand: list it in `services`; the listener takes the
-  container's instance (its environment, hooks and test overrides).
+  container's instance (its `defineEnv`, hooks and test overrides).

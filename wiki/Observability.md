@@ -598,7 +598,7 @@ of earlier versions. A logger that throws is ignored.
 no budget amount), nothing per tenant — two kinds of lines, then the startup warnings:
 
 ```text
-15:02:11 INFO  Started job-scout-application 1.0.0 — environment prod, host scout-7f3a, process 41237
+15:02:11 INFO  Started job-scout-application 1.0.0 — profiles base+prod, host scout-7f3a, process 41237
 15:02:11 INFO  Worst case of one chat-workflow-start call: 1 workflow execution, 1 at the same time, 12 steps
 15:02:11 WARN  [application.in-memory-pauses] in-memory pauses: the pause records (PausedExecutionRepository) and the checkpoints (BaseCheckpointSaver) are kept in memory — another application instance cannot resume a pause and it is lost on restart — name a durable @DatabaseStorage in @Application({ storage }) [app.warning]
 ```

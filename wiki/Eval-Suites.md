@@ -246,7 +246,7 @@ issue at once — `case "x": tenant.plan — <reason>`, `turns[0].text`, `histor
 ## Running a suite: `agboss eval run`
 
 ```bash
-agboss eval run --suite refunds-eval-suite --runs 3 --env eval --report .artifacts/eval/main.json
+agboss eval run --suite refunds-eval-suite --runs 3 --report .artifacts/eval/main.json
 ```
 
 - **Where suites are found**: every `eval-suites/*.eval-suite.ts` under the folder of the
@@ -254,7 +254,7 @@ agboss eval run --suite refunds-eval-suite --runs 3 --env eval --report .artifac
   `@EvalSuite` classes whose `start` is one of the application's starts. `--suite` names one by its
   full name; with a single suite it may be left out. Several and none named, or a name none has →
   `eval.unknown-suite`, exit 2, the suites listed.
-- **The application** is built as `createApp` builds it, on the `--env` environment (default `dev`):
+- **The application** is built as `createApp` builds it:
   its services, its model providers, its stores and budgets. The suite is assembled first — its rules
   (`config.graph-rules`, exit 3), then its cases' values (`config.eval-case`, exit 3) — before any case runs.
 - **Each case runs `--runs` times** (k, default 1), one run after the other, each on a thread of its
@@ -315,7 +315,7 @@ against, so it says what it is and the version of its shape (#396 S3):
 | `suite`, `start`, `cascade`, `runs` | the suite's name and start, its cascade, k |
 | `application`, `workflow` | `{ name, version }` of each |
 | `configHash` | the workflow's fingerprint (`agboss describe --json`): what the runs ran on |
-| `environment` | the environment's name |
+| `profile` | the workflow profile the run was made on (`--profile`), when there was one |
 | `startedAt`, `endedAt` | ISO 8601, on the application's `Clock` |
 | `cases[]` | `name`, `caseHash` (the case as written, its tools' expectations, judges, the suite's checks and cascade — a changed case is not compared), `passed` (runs that passed), `runs`, `passAtK`, `passHatK`, `isUnstable`, `runResults[]`, `expectation?` (version 2: `EvalCaseExpectation` — `requiredTools` by name with their partial arguments, masked, `forbiddenTools`, `invariantTools`, `checks` in order) |
 | `cases[].runResults[]` | `run` (1…k), `threadId`, `tenantId` (version 4: the tenant its turns ran for — the case's, else the default one), `executionId` and `finish` of the last turn, `passed`, `checks[]`, `error?`, `spentUsd`, `trace?` (version 2, [below](#a-runs-trace-schemaversion-2-397)) |
@@ -344,7 +344,7 @@ runs: .agboss/eval
 
 A folder of run artifacts served until Ctrl+C — read-only but for the labels people give (below): the first page lists every `*.json`
 directly in the folder that is a run artifact, newest first — its suite, file, workflow, config,
-environment, start, pass@k, pass^k, unstable cases, regressions against its baseline, and per case a
+start, pass@k, pass^k, unstable cases, regressions against its baseline, and per case a
 dot per attempt linked to that run's page at that attempt — then the `.json` files that are not, with
 why. A run's page is the same report `--html` writes (within the same size bound), with a link back.
 It runs nothing, loads no application, needs no key; the folder is read again on every request.
@@ -403,7 +403,7 @@ its classes imported — and writes the case into the suite's file (the suite of
 the application's `eval-suites/`), then comes back to the run with *Saved as the case "…" of …*.
 
 The application is `package.json`'s (`"agboss": { "application" }`) or `--application <path>`, its
-stores opened on `--env <name>` (default `dev`) — nothing is built or run. The history is there
+stores opened — nothing is built or run. The history is there
 only with `@Application({ retention: { executionRecords } })` ([Execution history](Execution-history)):
 without it — and without an application, or with one that does not load, or for a suite the project
 does not have — the run says why in place of the button, and the labels still work.
@@ -458,7 +458,7 @@ headings, tables, `details`), every control reachable by keyboard. What it shows
 
 | Section | From the artifact |
 | --- | --- |
-| Header | the suite, the application and workflow with their versions, `configHash`, the start, the environment, k, the cascade, when it started and ended, how long it took |
+| Header | the suite, the application and workflow with their versions, `configHash`, the start, k, the cascade, when it started and ended, how long it took |
 | Summary | pass@k and pass^k (cases and share), cases, attempts (cases × k), unstable cases, judge calls and those the cascade skipped, the total spend |
 | Against the baseline | only for a run made with `--baseline` (#397 PR 2): the baseline's file, `configHash`, start and k, the regressed cases, the count of each verdict, and every case of either run — the baseline's passes, this run's, its verdict (`regressed` highlighted, `flaky on the baseline (quarantined)`, `changed (not compared)`), linked to its entry |
 | Unstable cases | only when there are some: each case with pass@k and not pass^k, its passed / k, linked to its row — candidates for deterministic code, not a longer prompt — and (#397 PR 2) **where its attempts part ways**: the runs' steps compared position by position, the first step whose node, input, decisions or tool calls differ (or, with the same steps, the output), linked to that step of the first run — `refund-agent (visit 1): the same input, other tool calls` |
@@ -484,7 +484,7 @@ as before, each run saying it has no timeline. Not yet on the page: labels and f
 ## Against a baseline: `--baseline <run.json>`
 
 ```bash
-agboss eval run --suite refunds-eval-suite --runs 3 --env eval --baseline main.json --fail-on-regression
+agboss eval run --suite refunds-eval-suite --runs 3 --baseline main.json --fail-on-regression
 ```
 
 A baseline is a run artifact — the `--report` of a run of `main` (S2 C1: there is no separate
@@ -520,7 +520,7 @@ baseline's `configHash`, `startedAt` and `runs`, `cases` (each `EvalCaseComparis
 ## Under failures: `--chaos`
 
 ```bash
-agboss eval run --suite refunds-eval-suite --runs 3 --env eval --chaos 0.2 --chaos-seed 7
+agboss eval run --suite refunds-eval-suite --runs 3 --chaos 0.2 --chaos-seed 7
 agboss eval run --suite refunds-eval-suite --chaos 0.2 --chaos-seed 7 --chaos-failures rate-limited,timeout
 ```
 

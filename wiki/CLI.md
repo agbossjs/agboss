@@ -12,7 +12,7 @@ cd support-desk && cp .env.example .env && npx agboss chat
 `agboss create <project>` writes **an application and its first workflow** (#268 AC8): the
 application `src/support-desk.application.ts` (`support-desk-application`; its path is
 `"agboss": { "application" }` in the project's `package.json`), beside it what every workflow shares —
-`environments/` (the contract, `dev`, `staging`, `test`), `budgets/` (`application-daily.budget.ts`, …),
+`environment.ts` (its `defineEnv`), `config/test.config.ts` (the `test` profile), `budgets/` (`application-daily.budget.ts`, …),
 `model-providers/openrouter.model-provider.ts`, `guardrails/prompt-injection.guardrail.ts` (listed in
 `@Application({ guardrails })`, its model `defaults.guardrail.model`) and `services/api.service.ts` —
 and the first workflow `support-desk-workflow` in `src/support-desk/`.
@@ -351,29 +351,29 @@ and `; `.) `agboss chat` sends what is typed as a text, so its start takes `Work
 
 | Command | What it does |
 | --- | --- |
-| `agboss chat [--start <name>]` | interactive chat (`--thread`, `--profile`, `--env`), on [`app`](App) |
+| `agboss chat [--start <name>]` | interactive chat (`--thread`, `--profile`), on [`app`](App) |
 | `agboss run [--start <name>] "task"` | one execution, the answer to stdout (`--input <json>` / `--input-file <file>` for a start taking a DTO), on [`app`](App) |
-| `agboss check [--env <name>]` | writes `.agboss/types.d.ts`, then assembles the whole application (every flow rule of every workflow at once), prints [the report](#the-check-report-268) — the worst case of one call of each start, with `--env` the process variables that environment needs — checks the environment (its secrets' values only with `--models`) — the components every workflow's start creates — and the prompts — exit 3 on any problem; a types file not written is always one (`[types.unexported-class]`, `[dto.duplicate-name]` across workflows, `[types.not-written]`, #371; `[types.no-flow]` — no workflow found to type: an application module outside `src/` that does not export its workflows, fixed by `export { MyWorkflow }` from it or by keeping it in `src/` beside its `*.workflow.ts` files, #376), never `ok`; a DTO clash inside one workflow names both files (#376); `--application` naming an application other than the one `package.json` sets, outside its `src/`, writes its types to `.agboss/types.<module path>.d.ts` and leaves the project's `.agboss/types.d.ts` — the IDE's types for the project's own application — untouched (#468); no key ([Workflow](Workflow#generated-types)) |
-| `agboss describe` | [the whole application](#describe-268): its tree of workflows, starts and children, each contract's implementation and why, the model providers, the channels, the budgets, the environment; then every workflow (the listed ones, then their child workflows) — no key. `--json`: `{ application: { name, version, tree, implementations, modelProviders, channels, budgets, executionBudgets, maxConcurrentSteps, … }, workflows: [ … ] }`, each workflow with its [declarative snapshot](#the-declarative-snapshot-268) |
+| `agboss check [--profile <list>]` | writes `.agboss/types.d.ts`, then assembles the whole application (every flow rule of every workflow at once), prints [the report](#the-check-report-268) — the worst case of one call of each start, the process variables the application's `defineEnv` references need — checks the variables (its secrets' values only with `--models`) — the components every workflow's start creates — and the prompts — exit 3 on any problem; a types file not written is always one (`[types.unexported-class]`, `[dto.duplicate-name]` across workflows, `[types.not-written]`, #371; `[types.no-flow]` — no workflow found to type: an application module outside `src/` that does not export its workflows, fixed by `export { MyWorkflow }` from it or by keeping it in `src/` beside its `*.workflow.ts` files, #376), never `ok`; a DTO clash inside one workflow names both files (#376); `--application` naming an application other than the one `package.json` sets, outside its `src/`, writes its types to `.agboss/types.<module path>.d.ts` and leaves the project's `.agboss/types.d.ts` — the IDE's types for the project's own application — untouched (#468); no key ([Workflow](Workflow#generated-types)) |
+| `agboss describe` | [the whole application](#describe-268): its tree of workflows, starts and children, each contract's implementation and why, the model providers, the channels, the budgets, the profiles; then every workflow (the listed ones, then their child workflows) — no key. `--json`: `{ application: { name, version, tree, implementations, modelProviders, channels, budgets, executionBudgets, maxConcurrentSteps, … }, workflows: [ … ] }`, each workflow with its [declarative snapshot](#the-declarative-snapshot-268) |
 | `agboss check --strict` | the same, every warning of the analyser (`[flow.path-too-deep]`, `[graph.child-without-failure-finish]`, `[judge.same-model-family]`, `[limits.max-steps-below-worst-case]`, `[limits.child-concurrency-above-parent]`, `[flow.committer-unreachable]`; #769: all of them, never a list of some) and the application's assembly warnings (`[application.in-memory-cost-ledger]`, `[application.in-memory-pauses]`, #261) errors — exit 3; without `--strict` they are printed as `warning: …` lines ([Workflow as a step](Workflow-as-a-step#errors)) |
 | `agboss check --models` | every model setting of every workflow of the application against what its resolved provider says the model supports, and OpenRouter's pinned hosts and quantizations against each served model's endpoints (`[model.no-matching-endpoint]`, #395) — all problems at once, exit 1 on any; no model call, but it connects, so the chosen environment's secrets must be set — a missing one names its variable ([Model providers](Model-providers#fail-fast-settings-must-fit-their-models)) |
 | `agboss check --cassettes` | also every VCR cassette under the working directory against the application's components (#395): a component whose prompt or schema hash changed since it was recorded, or one the application no longer has, is `[vcr.stale-cassette]` (exit 3) — fixed by `AGBOSS_VCR_MODE=record-stale npm test`, never by a hand edit; a version 1 cassette is a `hint:` line; no test runs, no key ([Testing](Testing#stale-cassettes-395)) |
 | `agboss check --federation <snapshot…>` | also the application's declared contracts against its neighbours' `agboss describe --json` snapshots — files or folders of them, read from disk, no network (#398 PR 4): `[federation.missing-target]`, `[federation.incompatible-schema]` (structural, with the consumer's workflows and tools it affects), `[federation.snapshot-schema]`, `[federation.duplicate-application]`, and with the project's own earlier snapshot `[federation.version-not-bumped]` (a warning, an error under `--strict`); exit 3 on a problem ([A2A](A2A#8-the-federation-check-398-pr-4)) |
 | `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]] [--metamorphic] [--profile <name>]` | run an `@EvalSuite` on the application: each case k times, its checks under the cascade, pass@k / pass^k per case, the run artifact ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run), #396), its HTML report (#397); each case against a baseline, exit 5 on a regression; failures injected into its model calls ([Eval suites](Eval-Suites#under-failures---chaos)) |
 | `agboss eval show <run.json> [--html <file>]` | a saved run artifact: its table, and with `--html` its self-contained HTML report — nothing runs, no key ([Eval suites](Eval-Suites#the-html-report---html-and-agboss-eval-show-397), #397) |
-| `agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>] [--taxonomy <file>] [--labeler <name>] [--application <path>] [--env <name>]` | a folder of run artifacts served on 127.0.0.1 behind the token it prints — the runs, their attempts, each run's report, labels of judge verdicts into `eval/labels/<suite>.jsonl` and κ, a run's kept execution saved as a golden case of its suite — until Ctrl+C; nothing runs ([Eval suites](Eval-Suites#browsing-runs-agboss-eval-ui-397), #397) |
+| `agboss eval ui [--dir <folder>] [--port N] [--labels-dir <folder>] [--taxonomy <file>] [--labeler <name>] [--application <path>]` | a folder of run artifacts served on 127.0.0.1 behind the token it prints — the runs, their attempts, each run's report, labels of judge verdicts into `eval/labels/<suite>.jsonl` and κ, a run's kept execution saved as a golden case of its suite — until Ctrl+C; nothing runs ([Eval suites](Eval-Suites#browsing-runs-agboss-eval-ui-397), #397) |
 | `agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]` | a saved run's judges against people's labels: pairwise Cohen's κ, a confusion matrix per labeler, the disagreements by the judge's metrics — nothing runs, no key ([Eval suites](Eval-Suites#calibrating-a-judge-agboss-eval-calibrate), #396) |
 | `agboss eval score` / `agboss replay` `[--start <name>]` | score recent runs of the start's workflow with Jev / re-run a prompt version |
 | `agboss golden add [--start <name>] --name <n>` | recent real tasks of the start's workflow as a golden set |
 | `agboss compare [--start <name>] --profiles base,<p>` | profiles side by side on the start's workflow ([Profiles and comparisons](Profiles-and-comparisons)) |
 | `agboss dev [--strict]` | watch mode: `agboss check` rerun in a short-lived process on every change of the application's `src/` — the types regenerated, the problems printed ([below](#watch-mode-and-studio-268)) |
 | `agboss studio [--port N]` | LangGraph Studio on every workflow of the application, a child drawn inside its parent — no `studio.ts` / `langgraph.json` in the project ([below](#watch-mode-and-studio-268)) |
-| `agboss executions export (--tenant <id> \| --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>] [--env <name>]` | the application's kept execution records (`@Application({ retention: { executionRecords } })`) as masked JSON Lines, `kind: "agboss.execution-record"` — its stores opened, nothing run; `records.tenant-required` (exit 2), `records.not-kept` (exit 3) ([Execution history](Execution-history#exporting-it-agboss-records-export)) |
+| `agboss executions export (--tenant <id> \| --all-tenants) --out <file.jsonl> [--since <date>] [--until <date>]` | the application's kept execution records (`@Application({ retention: { executionRecords } })`) as masked JSON Lines, `kind: "agboss.execution-record"` — its stores opened, nothing run; `records.tenant-required` (exit 2), `records.not-kept` (exit 3) ([Execution history](Execution-history#exporting-it-agboss-records-export)) |
 | `agboss hub show <path…> [--html <file>]` | many applications' describe snapshots, eval runs and exported executions read from files and folders (each by its marker) into one mesh — the applications, the calls between them, each one's health from its files, the trees across applications, the radar, the declared contracts with `check --federation`'s problems and their blast radius — and with `--html` one self-contained page; no project, nothing runs; `hub.input-schema`, `hub.duplicate-application`, `hub.input-not-found` (exit 3) ([Mesh Hub](Mesh-Hub)) |
 | `agboss hub ui <path…> [--port N]` | the same files served on 127.0.0.1 behind a printed token, on `eval ui`'s server and rules, read-only: the mesh page, a search of the kept executions and a JSON API; a bad `--port` exit 2, a bad file exit 3 ([Mesh Hub](Mesh-Hub#served-agboss-hub-ui)) |
 | `agboss rag index [--rag <name>] [--tenant <id>] [--scope <id>]` | build / update every knowledge base of the application for one scope — `--tenant` is required when a target `@Rag` declares a scope other than `Shared` (`rag.tenant-required`), and an `Owner` / `Custom` one needs `--scope` too (`rag.scope-required`), nothing built; a shared one is built with no scope, so a multi-tenant application never names a tenant for it; each once; Ctrl+C (SIGINT / SIGTERM) aborts the source's signal — exit 1, `rag.interrupted`, the knowledge base it was building left as it was (#891) (one bound by two agents too); `--rag` one by its full name — an unknown one is exit 2 with a `Did you mean "…"?` and the list ([Knowledge bases](Knowledge-bases)) |
 
-Every command that loads the application takes `--env <name>` and `--application <path>`; exit codes
+Every command that loads the application takes `--application <path>` (and `--profile <list>` where it builds the application); exit codes
 are 0 ok · 1 internal · 2 usage (an unknown option, start or knowledge base, an input that does not
 fit) · 3 invalid project (no application path, a module without one `@Application`, an assembly
 problem) · 4 conflict · 5 quality (`agboss eval run --fail-on-regression`: a case regressed against its
@@ -395,7 +395,7 @@ the folder of the `package.json` that holds the application, not the working dir
 
 - `agboss eval run [--suite <name>] [--runs <k>] [--report <run.json>] [--html <file>] [--baseline
   <run.json> [--fail-on-regression]] [--chaos <rate> --chaos-seed <n> [--chaos-failures <list>]]
-  [--metamorphic] [--profile <name>] [--env <name>]` — an eval suite on the
+  [--metamorphic] [--profile <name>]` — an eval suite on the
   application ([Eval suites](Eval-Suites#running-a-suite-agboss-eval-run)). Exit 0 when the suite
   ran, whatever its pass rates; 2 for `--runs` below 1 (`usage.option-value`), `eval.unknown-suite`,
   `eval.report-too-large` (the HTML page above 16 MB even without timelines; the artifact is written first), a `--baseline`
@@ -420,8 +420,8 @@ the folder of the `package.json` that holds the application, not the working dir
   (`usage.option-value`) or a `--taxonomy` file that is not one (`eval.taxonomy-invalid`), before it
   serves. `--labels-dir` (default `eval/labels`), `--taxonomy` (default `eval/failure-taxonomy.yaml`)
   and `--labeler` (default the system user) are for labelling
-  ([Eval suites](Eval-Suites#labelling-runs-397-pr-4)); `--application <path>` and `--env <name>`
-  name the application whose execution history *Save as golden case* reads — a run's kept
+  ([Eval suites](Eval-Suites#labelling-runs-397-pr-4)); `--application <path>`
+  names the application whose execution history *Save as golden case* reads — a run's kept
   execution written into its suite's file
   ([Eval suites](Eval-Suites#saving-a-run-as-a-golden-case-397-pr-5)).
 - `agboss eval calibrate --report <run.json> [--labels <labels.jsonl>]` (#396) — a saved run's
@@ -453,10 +453,10 @@ workflow added by `generate workflow` joins the same application and gets `chat:
 ```bash
 agboss dev                 # Ctrl+C to stop
 agboss studio              # http://localhost:2024, Studio opens in the browser
-agboss studio --env prod --port 2077
+agboss studio --profile prod --port 2077
 ```
 
-**`agboss dev [--strict] [--env <name>]`** watches the application's `src/` (the nearest folder of
+**`agboss dev [--strict] [--profile <list>]`** watches the application's `src/` (the nearest folder of
 that name above the application module, else the module's folder) and, on every change of a source,
 prompt, profile or JSON file — `node_modules/`, `dist/` and `.agboss/` aside — runs `agboss check` on
 the application in a **short-lived child process**: the ESM / tsx module cache cannot reload a graph
@@ -465,9 +465,9 @@ they appear. The changes of 200 ms are one pass; a change during a pass makes on
 passes never run at once. It runs one pass at start, prints `dev: watching src — Ctrl+C to stop`, then
 `dev: changed <files>` before each pass; Ctrl+C (or SIGTERM) waits for the pass that runs and exits 0.
 
-**`agboss studio [--port N] [--env <name>]`** needs no `studio.ts` and no `langgraph.json` in the
+**`agboss studio [--port N] [--profile <list>]`** needs no `studio.ts` and no `langgraph.json` in the
 project. It builds every workflow of the application — the listed ones and the child workflows they
-launch, on the chosen environment — as the server will, so an assembly problem or a missing variable
+launch, on the chosen profiles — as the server will, so an assembly problem or a missing variable
 stops it with exit 3 before any server starts; then it writes the git-ignored `.agboss/studio.ts` (one
 export per workflow, built by `studioOf` — public in `@agboss/core/testing`, #818, for a test that renders the graphs) and `.agboss/langgraph.json` (one graph
 per workflow, named by the workflow's full name; the project's `.env` when it has one) and runs
@@ -514,7 +514,7 @@ key, no network and no project code run (no `maxSpend()`):
 - **Budgets** by scope with their periods, and the execution budget of each workflow — its own or
   the default — which applies when it is the root of `app.execute`; nested, it spends from its
   root's. Then the observers, the instance's cap on steps (`maxConcurrentSteps 32 (set)`, or
-  `none (not set)`, #332), the assembly warnings and the environment (secrets masked).
+  `none (not set)`, #332), the assembly warnings and the profiles it runs with.
 - **Each workflow** — its guardrails and PII policies with their refusals (the text, or
   `ClassName.refusal()` when the class computes it), the paths as written, each node's inputs with
   their producers (`prepare-offer-action ← draft: editor-agent | draft-agent (latest), …`), each
@@ -575,7 +575,7 @@ workflow's `maxSteps` or its longest path, `maxDepth` of a workflow launching it
 `maxConcurrency` when it is lower than the executions alive at once:
 
 ```
-flow-patterns-application 1.0.0, environment prod
+flow-patterns-application 1.0.0, profiles base+prod
 
 Worst case of one vendor-screening-workflow-start call
   workflow executions     21  1 vendor-screening-workflow + 20 vendor-check-workflow (maxItems 20)
@@ -583,17 +583,17 @@ Worst case of one vendor-screening-workflow-start call
   steps  22  2 in vendor-screening-workflow (longest path) + 20 × 1 in vendor-check-workflow (longest path)
   nesting depth           2   vendor-screening-workflow → vendor-check-workflow
 
-prod environment needs 3 process variables:
+the application needs 3 process variables:
   OPENROUTER_API_KEY   secret
   OPENROUTER_BASE_URL  value, optional
   AGBOSS_SQLITE_PATH   value, has a default
 ```
 
-With `--env <name>` it lists the process variables that environment needs — names only, each
+It lists the process variables the application's `defineEnv` references need — names only, each
 `value` or `secret`, `optional` / `has a default` when it may stay unset, never a value
 ([Environments](Environments#the-cli)). `--json` carries the report as `result.report`: `title`,
 `starts` (`start`, `workflow`, `rows` of `measure`, `total`, `madeUp`) and `environment`
-(`name`, `variables`).
+(`variables`, absent when the application reads none).
 
 `agboss migrate imports [<path>…]` rewrites imports of the deprecated entries to the current ones (the list:
 `agboss help migrate`).

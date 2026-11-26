@@ -6,10 +6,10 @@ models only, [Model providers](Model-providers#register-them-in-the-application)
 fields in `@Workflow` (`maxSteps` among them), money in the application's `@Budget`s
 ([FinOps](FinOps#budgets)), agent fields in each `@Agent`, router fields in
 each `@Router`. Assembled and validated at startup; [profiles](Profiles-and-comparisons) override them
-without code. Secrets are never there — model provider keys are `Secret`s of the
-[environment](Environments) (`openRouterApiKey: secret("OPENROUTER_API_KEY")`, #266), like the app's
-own settings; a base URL is an optional field of it (`openRouterBaseUrl:
-env.optional("OPENROUTER_BASE_URL")`, unset → the provider's `baseUrl`). A provider's policies — `retryPolicy`, `rateLimitPolicy`, `circuitBreakerPolicy` — are
+without code. Secrets are never there — model provider keys are `secret(…)` references of the
+provider's driver (`OpenRouterDriver({ apiKey: secret("OPENROUTER_API_KEY") })`, #266, #1313, see
+[Environments](Environments)), like the app's own settings; a base URL is an `env(…)` reference of it
+(`env("OPENROUTER_BASE_URL", { default })`). A provider's policies — `retryPolicy`, `rateLimitPolicy`, `circuitBreakerPolicy` — are
 the provider's, app-wide ([Model providers](Model-providers#retry-rate-limit-and-circuit-breaker)).
 
 <!-- snippet-context
@@ -249,7 +249,7 @@ time](Pauses#deadlines-in-working-time-944)) — there is no application-wide de
 working duration on a target with no `calendar` is `[calendar.required-for-working-duration]`. The
 calendar is a `@WorkingCalendar` class, listed in `@Application({ providers })`, in one of two forms:
 
-```ts no-check: a fragment of an application — its workflows and environment are as in any application
+```ts no-check: a fragment of an application — its workflows are as in any application
 @Application({
   // …
   providers: [HolidayRepository, TenantHolidaysCalendar, SupportCalendar],
@@ -298,7 +298,6 @@ the application's `Clock`:
 <!-- snippet-context
 import { Application } from "@agboss/core";
 import { hours, minutes } from "@agboss/core/units";
-export class AppEnvironment {}
 export class ClaimsWorkflow {} // a @Workflow of its own
 -->
 
@@ -306,7 +305,6 @@ export class ClaimsWorkflow {} // a @Workflow of its own
 @Application({
   name: "claims-application",
   version: "1.0.0",
-  environment: AppEnvironment,
   workflows: [ClaimsWorkflow],
   retention: {
     pauseRecords: hours(24), // a resolved pause record (default hours(24))
@@ -355,7 +353,7 @@ bounds), so no timer of the framework overflows.
 
 ## `createApp` options (#834)
 
-`createApp(App, { env, profile, meterProvider, tracerProvider, handleSignals, processEnv })` — nothing
+`createApp(App, { profile, meterProvider, tracerProvider, handleSignals, processEnv })` — nothing
 else: infrastructure is `@Application({ providers })`, settings are `@Application` options, and a
 `MeterProvider` is a runtime object, so it comes here. `handleSignals` (default `false`; the CLI passes
 `true`) makes the instance close on SIGTERM / SIGINT, and `processEnv` (default `process.env`) is where
@@ -399,13 +397,14 @@ that holds the application — one file, no `.env.<name>`.
 
 ## Environments
 
-The app's own settings: one set per application, in `environments/` next to the application file —
-the contract a class with declared fields only (`@Application({ environment: AppEnvironment })`), each
-environment a typed object literal, secrets `Secret` fields from process variables. See
+The app's own settings: one `defineEnv` per application (`export const appEnv = defineEnv({ … })` of
+`env(…)` and `secret(…)` references), read with `deps: [appEnv]`; the values of a deployment are a
+profile above (`env: configureEnv(appEnv, { … })`), secrets `Secret`s from process variables. See
 [Environments](Environments).
 
-A framework implementation listed in `@Application({ providers })` may need a field of the
-contract: every SQLite implementation reads **`sqlitePath`** — the one file of the application's
-SQLite stores (`:memory:` in tests, `env("AGBOSS_SQLITE_PATH")` in production), required only when
-one is listed (`[environment.missing-field]` names the implementation and the contract). See
+The framework's own stores take their settings only from the application's storage: a SQLite store
+reads the one file of the application's `@DatabaseStorage` (`SqliteDriver({ path: env("AGBOSS_SQLITE_PATH") })`,
+`SqliteDriver.inMemory()` in tests). Listing a SQLite implementation in `providers` beside `storage` is
+`[storage.providers-conflict]`, and with no storage the SQLite stores fail the start naming the missing
+`@DatabaseStorage`. See
 [Several instances → SQLite](Several-instances#sqlite--several-instances-on-one-machine).

@@ -140,7 +140,7 @@ export class JobScoutDatabaseStorage {}
   continue a thread after a restart, `agboss eval` / `replay` / `golden` read the records of
   earlier runs (a workflow run on its own uses the infrastructure its application lists), a pause
   is resumed after a restart, and another instance on the file recovers a run whose process
-  died ([Recovery](#recovery)). [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) lists all seven (`sqlitePath` in dev:
+  died ([Recovery](#recovery)). [`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout) lists all seven (the storage's path in dev:
   `.agboss/job-scout.sqlite`, or `AGBOSS_SQLITE_PATH`); in this repository flow-patterns' two
   applications list them between them (`.agboss/flow-patterns.sqlite`).
 
@@ -202,8 +202,9 @@ export class AuditedSqliteExecutionLeaseRepository extends SqliteExecutionLeaseR
 }
 ```
 
-The subclass still needs `sqlitePath` (`[environment.missing-field]` names it) and shares the
-instance's one connection. The records the same way (#313) — a new thread's id comes from the
+The subclass takes its file from the application's `@DatabaseStorage` (it is listed instead of its base
+class in a storage's place, never beside `storage`: `[storage.providers-conflict]`; with no storage it fails
+the start naming the missing `@DatabaseStorage`) and shares the instance's one connection. The records the same way (#313) — a new thread's id comes from the
 `IdGenerator` it passes on ([App → Infrastructure](App#infrastructure)):
 
 <!-- snippet-context
@@ -258,7 +259,7 @@ state: agbossjs/agboss-examples `14-kubernetes-postgres-scaling` (#487).
 one PostgreSQL database, for pods on different machines with no shared disk. With all of them
 listed, a whole application runs on PostgreSQL alone: nothing of it is per pod. Each store is
 listed in `@Application({ providers })` like a SQLite one; they share one `pg` pool per instance
-(`PostgresConnection`, the environment's `postgresUrl: Secret`, optional `postgresPoolSize`).
+(`PostgresConnection`, the URL a `secret(…)` of `PostgresDriver({ url })`).
 
 | Contract                        | PostgreSQL implementation               | Shared across pods                                                    |
 | ------------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
@@ -285,7 +286,7 @@ contracts; each store's locking is in its doc comment, and a lease's expiry is d
 database's `clock_timestamp()`. The three fencing stores declare one backend, `"postgres"`. The
 schema is migrated explicitly by versioned files: `agboss-postgres migrate` as a Kubernetes Job once
 the old instances are stopped (**stop → migrate → deploy**, no rolling upgrade across a schema change —
-[ADR-0034](ADR-0034-Schema-upgrades-stop-the-old-version-first)), or `postgresSchemaSetup: SchemaSetup.MigrateOnStart` for one
+[ADR-0034](ADR-0034-Schema-upgrades-stop-the-old-version-first)), or the driver's `SchemaSetup.MigrateOnStart` for one
 instance (it refuses to start over a live lease: `StoreError.LiveLeases`, which `@agboss/postgres` throws as `PostgresLiveLeasesError`). Installing, wiring, migrations,
 connection limits and what the guarantees assume of the database: [Running-on-PostgreSQL](Running-on-PostgreSQL).
 
@@ -919,9 +920,8 @@ export class ChargeOrderAction {
   secret** (#825), `@DatabaseStorage({ idempotencySecret })`, a `Secret` used for nothing else — so
   it is the same in every execution and on every instance and gives no guessable request away, and
   rotating the PII key or a provider's key changes no fingerprint. It is required once a component
-  reaches `Idempotency` or a fenced-effect store (`[application.idempotency-key-required]`), never
-  another key (`[application.idempotency-key-shared]`), and a key made without it is
-  `IdempotencyError.SecretKeyMissing` — never an unkeyed SHA-256. The handle below is keyed by the PII
+  reaches `Idempotency` or a fenced-effect store (`[application.idempotency-key-required]`), and a
+  key made without it is `IdempotencyError.SecretKeyMissing` — never an unkeyed SHA-256. The handle below is keyed by the PII
   key — stable across executions: the storage's `piiSecret`, the same on every instance. The fingerprint stays in the store's row: no read, kept record, export, event or audit-log
   row shows it. **Rotating the idempotency secret** (#825): name the new one `idempotencySecret` and
   the old one `previousIdempotencySecret` — a fingerprint is then compared under both
@@ -1432,7 +1432,7 @@ export class ClaimSubtopicTool {
 
 A `tokenize()` token is an HMAC of the value (under the pseudonym key derived from the PII
 key, #1269), so one value is one token only under one key
-([Guards → PII policies](Guards#pii-policies), [the key hierarchy](Guards#the-pii-key-hierarchy)). With `@Application({ piiKeyField })` every instance
+([Guards → PII policies](Guards#pii-policies), [the key hierarchy](Guards#the-pii-key-hierarchy)). With `@DatabaseStorage({ piiSecret })` every instance
 has the same key: one value is one token everywhere. Without it (S94, #334) the key is the
 **execution's**: each root execution makes a random one when it starts and keeps it in its
 checkpoint (the state's `piiKey`, next to its token map `piiTokens`); its child workflows get it
@@ -1666,28 +1666,13 @@ What `@agboss/postgres` needed and the core now gives every store outside it:
 - **Its mesh tests sign as a peer with `signedMeshEnvelope`** (`@agboss/core/testing`, #521,
   [A2A](A2A#trusted-peers--signed-envelopes-398-pr-2)) — the real client's header, never a JWS built
   by hand.
-- **Its connection declares its environment fields**, checked at assembly like `sqlitePath`
-  ([Environments](Environments)):
-
-<!-- snippet-context
-import { ApplicationContext, EnvironmentField, Injectable } from "@agboss/core";
--->
-
-```ts
-@Injectable({
-  deps: [ApplicationContext],
-  environmentFields: {
-    postgresUrl: EnvironmentField.secret(),
-    postgresPoolSize: EnvironmentField.integer({ optional: true }),
-  },
-})
-export class PostgresConnection {
-  constructor(readonly applicationContext: ApplicationContext) {}
-}
-// a store with deps: [PostgresConnection, …] listed while the contract lacks postgresUrl:
-// [environment.missing-field] PostgresExecutionLeaseRepository needs postgresUrl: Secret in
-// AppEnvironment (read by PostgresConnection)
-```
+- **Its connection reads its settings from the application's storage driver**, nothing else (#1321): a
+  store package brings a driver made with `defineStorageDriver` (`@agboss/core/stores`), whose options
+  hold `env(…)` / `secret(…)` references read once when the application starts — `PostgresDriver({ url:
+  secret("DATABASE_URL") })` — and the stores it creates, with a connection of their own. The store
+  classes declare their backend (`static store = { backend }`); a store listed in `providers` beside
+  `storage` is `[storage.providers-conflict]`, and with no storage a store that needs its connection fails
+  the start naming the missing `@DatabaseStorage`.
 
 ## Testing several instances
 
@@ -1704,18 +1689,18 @@ client replaced by `mockService(…)`).
 
 **SQLite stores are shared only through a file** (#458). Each instance opens its own connection
 ([above](#sqlite--several-instances-on-one-machine)), and SQLite's `:memory:` is one database per connection: with
-`sqlitePath: ":memory:"` — the usual `test` environment — the two instances of
+`SqliteDriver.inMemory()` or `:memory:` — the usual test setup — the two instances of
 `testWith(App, { instances: 2 })` each get an empty database of their own, and a pause made on
-`app` is not found on `apps[1]`. A multi-instance test runs on an environment whose `sqlitePath` is
-a file, a fresh one per test process, as flow-patterns' `instances` environment does:
+`app` is not found on `apps[1]`. A multi-instance test runs on a storage whose path is
+a file, a fresh one per test, as flow-patterns' `instancesFilePerTest()` does — it sets the variable the
+storage's driver reads (`SqliteDriver({ path: env("AGBOSS_SQLITE_PATH") })`) before each test:
 
-```ts no-check: AppEnvironment is the project's environment contract (see Environments)
-// src/environments/instances.environment.ts
-export const environment: AppEnvironment = {
-  sqlitePath: join(mkdtempSync(join(tmpdir(), "app-instances-")), "stores.sqlite"),
-};
+```ts no-check: the project's own storage reads AGBOSS_SQLITE_PATH (see Environments)
+beforeEach(() => {
+  process.env.AGBOSS_SQLITE_PATH = join(mkdtempSync(join(tmpdir(), "app-instances-")), "stores.sqlite");
+});
 
-const test = testWith(App, { instances: 2, env: "instances" });
+const test = testWith(App, { instances: 2 });
 ```
 
 ```ts no-check: the application and its workflow are a project's own (see Testing)
@@ -1954,7 +1939,7 @@ for that lease and then returns the tree's current output.
 - **SQLite on one file serves one machine**: its locks are local, so instances on several machines
   need a networked store (your own implementation over Postgres, Redis, …). A file on a network
   share is not supported.
-- **SQLite in memory is not SQLite on disk**: `sqlitePath: ":memory:"` gives each connection its
+- **SQLite in memory is not SQLite on disk**: a `:memory:` path gives each connection its
   own database — instances do not share it, a restart (`recoverApp()`) starts empty, and there are
   no locks between writers. A test of several instances or of a restart on SQLite uses a
   temporary file.

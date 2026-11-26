@@ -92,7 +92,7 @@ More: [Example](Example) (covering [`agbossjs/agboss-examples`](https://github.c
 
 ### Public entries
 
-`agboss` (decorators, DI, flow DSL, settings, environments, observers, judges and decisions,
+`agboss` (decorators, DI, flow DSL, settings, profiles, observers, judges and decisions,
 `createApp`, errors, types), `@agboss/core/dto`, `/units`, `/models`, `/testing` (+
 `/testing/setup`), and the integrations `/mcp`, `/rag`, `/a2a`, `/memory`. The older entries are
 deprecated re-exports; `agboss migrate imports` rewrites them.
