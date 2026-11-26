@@ -359,6 +359,23 @@ describe("#1356, #1307: a change of a deadline (#1099)", () => {
     ).toBeUndefined();
   });
 
+  it("set exactly to the deadline the pause was made under it keeps that deadline's source; anywhere else the source is the pause's (L9)", () => {
+    const quorum = pending({
+      expiresAt: T11,
+      expiryBound: PauseExpiryBound.Quorum,
+      boundAt: T12,
+    });
+
+    expect(change(quorum, T12)?.pause.expiryBound).toBe(PauseExpiryBound.Quorum);
+    expect(
+      change({ ...quorum, expiryBound: PauseExpiryBound.RunDeadline }, T12)?.pause.expiryBound,
+    ).toBe(PauseExpiryBound.RunDeadline);
+    expect(change(quorum, "2026-11-20T11:30:00.000Z")?.pause.expiryBound).toBe(
+      PauseExpiryBound.Pause,
+    );
+    expect(change(quorum, undefined)?.pause.expiryBound).toBe(PauseExpiryBound.Pause);
+  });
+
   it("not a pause that is closed, or whose deadline passed", () => {
     expect(change(pending({ status: PauseStatus.Resolved, expiresAt: T11 }), T12)).toBeUndefined();
     expect(change(pending({ expiresAt: T10 }), T12)).toBeUndefined();

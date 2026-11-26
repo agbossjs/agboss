@@ -133,7 +133,12 @@ export function timeoutChange(
 ): PauseChange | undefined {
   if (!isOpenAt(pause, at)) return undefined;
   // from the deadline the caller read, to none or to a time after `at`: never to a past time (I3)
-  if (pause.expiresAt !== change.previousExpiresAt || change.seen === undefined || !isAsSeen(pause, change.seen)) return undefined;
+  if (
+    pause.expiresAt !== change.previousExpiresAt ||
+    change.seen === undefined ||
+    !isAsSeen(pause, change.seen)
+  )
+    return undefined;
   if (change.expiresAt !== undefined && change.expiresAt <= at.toISOString()) return undefined;
   const changes = pause.trail.filter((entry) => entry.action === "timeout-changed").length;
   if (change.maxExtensions !== undefined && changes >= change.maxExtensions) return undefined;
@@ -141,7 +146,7 @@ export function timeoutChange(
     pause: {
       ...pause,
       expiresAt: change.expiresAt,
-      expiryBound: PauseExpiryBound.Pause,
+      expiryBound: boundOf(pause, change),
       remindAt: change.remindAt,
       trail: [...pause.trail, timeoutChangedEntryOf(pause, change, at)],
     },
@@ -150,6 +155,17 @@ export function timeoutChange(
       ...(pause.expiresAt === undefined ? {} : { previousExpiresAt: pause.expiresAt }),
     }),
   };
+}
+
+/**
+ * The source of the deadline after a change: the pause's own — except one set exactly to the deadline
+ * the pause was made under, which keeps that deadline's source (a quorum's stays the quorum's, not the
+ * run's the tie of `effectiveBoundOf` would make it).
+ */
+function boundOf(pause: PauseRecord, change: PauseTimeoutChange): PauseExpiryBound {
+  const { expiryBound } = pause;
+  const isBound = change.expiresAt !== undefined && change.expiresAt === pause.boundAt;
+  return isBound && expiryBound !== undefined ? expiryBound : PauseExpiryBound.Pause;
 }
 
 /** The entry a deadline change adds to the chain of custody: who moved it, when, to what, why. */
