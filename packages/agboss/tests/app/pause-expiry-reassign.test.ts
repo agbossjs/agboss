@@ -84,6 +84,18 @@ describe("#1310a: an expiry reassigns the pause", () => {
     expect(again.status).toBe(ExecutionStatus.Finished);
   });
 
+  test("a chain with no maxTotalTimeout hands onExpired no maxExpiresAt", async ({
+    app,
+    clock,
+  }) => {
+    await execute(app, ExpiryWorkflowStart, { orderId: "o-3" }, { threadId: "re-3" });
+
+    await clock.advance(hours(24));
+    await until(() => expiry.asked.length === 1);
+
+    expect(expiry.asked[0]).not.toHaveProperty("maxExpiresAt");
+  });
+
   test("a request that is no valid reassignment expires the pause as fail(), the problem kept", async ({
     app,
     clock,

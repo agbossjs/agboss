@@ -86,7 +86,7 @@ class TierTwoTask {}
   output: ExpiryDecisionDto,
   respondent: PauseRespondent.Delegate,
   timeout: hours(24),
-  escalationLimits: { maxReassignments: 1, maxExtensions: 1 },
+  escalationLimits: { maxReassignments: 1, maxExtensions: 1, maxTotalTimeout: days(10) },
   escalatesTo: [TierTwoTask],
 })
 class TierOneTask {
@@ -600,6 +600,53 @@ describe("onExpired is the target's call", () => {
     // tier two's own four hours are counted from the expiry
     await clock.advance(minutes(1));
     expect(calls).toBe(1);
+  });
+
+  test("an automatic reassignment does not call permitReassign: it is the target's own policy, there is no actor (Q-F)", async ({
+    app,
+    clock,
+  }) => {
+    // a target whose permit refuses everything still escalates by its own expiry
+    told.permit = false;
+    let calls = 0;
+    told.onExpired = () => {
+      calls += 1;
+      return PauseExpiration.reassign({ target: TierTwoTask });
+    };
+    const { pauseId, rootId } = await opened(app);
+
+    await clock.advance(hours(24));
+    await until(() => calls === 1);
+    await clock.advance(minutes(1));
+    await until(() => told.sent.length === 2);
+
+    expect(told.permitCalls).toBe(0);
+    const all = await pausesOf(app, rootId);
+    expect(all.find((one) => one.reassignedFrom === pauseId)).toMatchObject({
+      target: "tier-two-external-task",
+      status: PauseStatus.Pending,
+    });
+  });
+
+  test("the context carries maxExpiresAt: the first asking plus the chain's maxTotalTimeout", async ({
+    app,
+    clock,
+  }) => {
+    const seen: ExpiredContext<TierOneTask>[] = [];
+    told.onExpired = (ctx) => {
+      seen.push(ctx);
+      return PauseExpiration.fail();
+    };
+    await opened(app);
+    const startedAt = clock.now().getTime();
+
+    await clock.advance(hours(24));
+    await until(() => seen.length === 1);
+
+    const ctx = seen[0];
+    expect(ctx?.maxExpiresAt).toBeInstanceOf(Date);
+    expect(ctx?.maxExpiresAt?.getTime()).toBe((ctx?.firstAskedAt.getTime() ?? 0) + days(10));
+    expect(ctx?.firstAskedAt.getTime()).toBeLessThanOrEqual(startedAt);
   });
 
   test("a target with no onExpired fails its expired pause", async ({ app, clock }) => {

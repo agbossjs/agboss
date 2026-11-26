@@ -112,6 +112,12 @@ export interface ExpiredContext<TTarget> {
   readonly firstAskedAt: Date;
   /** The deadline it ran out. */
   readonly expiresAt: Date;
+  /**
+   * The latest instant the pause may wait until: the smallest of the chain's `maxTotalTimeout`
+   * limits counted from `firstAskedAt`, by their calendars; absent: no such limit. A reassignment
+   * is never given a deadline past it.
+   */
+  readonly maxExpiresAt?: Date;
   readonly toolCall?: PauseToolCallSummary;
   readonly externalRef?: string;
   readonly trail: readonly PauseTrailEntry[];

@@ -4,11 +4,12 @@ import type { Milliseconds, WorkingDuration } from "../units/index.js";
 import type { ExpiredContext } from "./pause-contexts.js";
 
 /**
- * What a pause's deadline means (#941, D2): a channel may decide it —
- * `PauseExpiration.fail()` (the step fails with `StepError.PauseExpired`) or
+ * What a pause's deadline means (#941, D2, #1310): its `@ToolApproval` or `@ExternalTask` decides it
+ * in `onExpired` — `PauseExpiration.fail()` (the step fails with `StepError.PauseExpired`),
  * `PauseExpiration.decide(answer)` (the step goes on with that answer, recorded as answered by the
- * expiry). Without `onPauseExpired` a channel's pause fails. The expiry is the framework's call
- * once the deadline passed, never the channel's.
+ * expiry) or `PauseExpiration.reassign(…)` (the pause waits on under a new deadline). Without
+ * `onExpired` a target's pause fails. The expiry is the framework's call once the deadline passed,
+ * never the channel's: a reassignment is domain-only, it names no `@Channel`.
  */
 
 /** The two things an expiry can mean. */
@@ -27,7 +28,7 @@ export interface FailExpiration {
 }
 
 /** The expiry answers the pause. */
-export interface DecideExpiration<TAnswer> {
+export interface DecideExpiration<out TAnswer> {
   readonly kind: PauseExpirationKind.Decide;
   readonly answer: TAnswer;
 }
@@ -35,16 +36,16 @@ export interface DecideExpiration<TAnswer> {
 /**
  * The expiry hands the pause on (#1310a, #1307d): to other assignees, another channel or another
  * target, under a new deadline. A pause that stays with its target and channel is changed in place
- * (its id and `externalRef` kept); one moved is a new pause the new channel is sent. The rules are
- * `app.reassignPause`'s: the target must be of the same kind and DTOs, the chain's
+ * (its id and `externalRef` kept); one moved is a new pause the new channel is sent. It names no
+ * `@Channel`: the new target's only one, or its `@ChannelSelector` (which reads the escalation in
+ * `ctx.trail`), carries it. The rules are `app.reassignPause`'s, but its `permitReassign` is not
+ * asked (no outside actor asks; `escalatesTo` bounds the move): the target must be of the same kind and DTOs, the chain's
  * `escalationLimits` hold; a reassignment that cannot be made expires the pause as `fail()`.
  */
 export interface ReassignExpiration {
   readonly kind: PauseExpirationKind.Reassign;
   /** The `@ToolApproval` or `@ExternalTask` it waits under now; absent: its own. */
   readonly target?: Class;
-  /** The `@Channel` that carries it now; absent: its own, or the new target's. */
-  readonly channel?: Class;
   /**
    * Who it is for now: one to 100 key's texts, none twice. Absent: the target's `assign` decides when
    * it has one, otherwise a pause that stays with its target keeps them.
@@ -56,8 +57,12 @@ export interface ReassignExpiration {
   readonly reason?: string;
 }
 
-/** What `onExpired` returns for a target `TTarget`: its output type checks `decide`. */
-export type PauseExpiration<TTarget> =
+/**
+ * What `onExpired` returns for a target `TTarget`: its output type checks `decide`. Covariant in
+ * `TTarget` (a union alias takes no `out` annotation: it is inferred from the covariant
+ * `DecideExpiration<out TAnswer>`); bare `PauseExpiration` is `fail()` or `reassign(…)` only.
+ */
+export type PauseExpiration<TTarget = never> =
   FailExpiration | DecideExpiration<PauseOutputOf<TTarget>> | ReassignExpiration;
 
 const FAIL: FailExpiration = Object.freeze({ kind: PauseExpirationKind.Fail });
@@ -70,8 +75,8 @@ export const PauseExpiration = {
   },
   /**
    * The step goes on with `answer`, validated like a resume's, recorded as answered by the expiry
-   * (`answeredBy` is the channel's name). An approval decided `approved: true` runs its tool with
-   * no person having looked: the channel chooses that.
+   * (no `actor`, no `answeredBy`: no person answered). An approval decided `approved: true` runs its
+   * tool with no person having looked: the target chooses that.
    */
   decide<TAnswer>(answer: TAnswer): DecideExpiration<TAnswer> {
     return Object.freeze({ kind: PauseExpirationKind.Decide, answer });
@@ -84,7 +89,6 @@ export const PauseExpiration = {
    */
   reassign(options: {
     readonly target?: Class;
-    readonly channel?: Class;
     readonly assignees?: readonly string[];
     readonly timeout?: Milliseconds | WorkingDuration;
     readonly reason?: string;

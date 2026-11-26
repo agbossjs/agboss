@@ -2093,7 +2093,7 @@ export interface DecidedOutcome<TDecision> {
 }
 
 // @public
-export interface DecideExpiration<TAnswer> {
+export interface DecideExpiration<out TAnswer> {
     // (undocumented)
     readonly answer: TAnswer;
     // (undocumented)
@@ -3274,6 +3274,7 @@ export interface ExpiredContext<TTarget> {
     readonly firstAskedAt: Date;
     // (undocumented)
     readonly input: PauseInputOf<TTarget>;
+    readonly maxExpiresAt?: Date;
     readonly pauseKey: string;
     // (undocumented)
     readonly toolCall?: PauseToolCallSummary;
@@ -6678,7 +6679,7 @@ export interface PauseExecutionOptions {
 }
 
 // @public
-export type PauseExpiration<TTarget> = FailExpiration | DecideExpiration<PauseOutputOf<TTarget>> | ReassignExpiration;
+export type PauseExpiration<TTarget = never> = FailExpiration | DecideExpiration<PauseOutputOf<TTarget>> | ReassignExpiration;
 
 // @public
 export const PauseExpiration: {
@@ -6686,7 +6687,6 @@ export const PauseExpiration: {
     readonly decide: <TAnswer>(answer: TAnswer) => DecideExpiration<TAnswer>;
     readonly reassign: (options: {
         readonly target?: Class;
-        readonly channel?: Class;
         readonly assignees?: readonly string[];
         readonly timeout?: Milliseconds | WorkingDuration;
         readonly reason?: string;
@@ -7463,7 +7463,6 @@ export abstract class RateLimitRepository {
 // @public
 export interface ReassignExpiration {
     readonly assignees?: readonly string[];
-    readonly channel?: Class;
     // (undocumented)
     readonly kind: PauseExpirationKind.Reassign;
     readonly reason?: string;
