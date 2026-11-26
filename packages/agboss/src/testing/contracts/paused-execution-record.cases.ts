@@ -22,7 +22,7 @@ type Instances = ContractInstances<PausedExecutionRepository>;
 
 /** What reading a free-text reply cost: one call of a reply interpreter. */
 const INTERPRETER_CALL: UsageRecord = {
-  caller: "reply-interpreter:refund-reply-interpreter",
+  caller: "channel-interpreter:refund-reply-interpreter",
   model: "test/interpreter",
   provider: "test-provider",
   inputTokens: 10,

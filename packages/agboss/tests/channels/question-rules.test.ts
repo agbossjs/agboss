@@ -178,7 +178,7 @@ describe("#659 AC1: a question role's name and implementation", () => {
 });
 
 describe("#659 AC4: a question role's interpreter", () => {
-  it("AC4: a decision model cannot read a question's answer: [reply-interpreter.decision-model]", async () => {
+  it("AC4: a decision model cannot read a question's answer: [channel-interpreter.decision-model]", async () => {
     @ChannelInterpreter({
       name: "jev-limit-reply-interpreter",
       description: "d",
@@ -190,7 +190,7 @@ describe("#659 AC4: a question role's interpreter", () => {
 
     expect(await violationsOf(askingApplication("jev", role, [channel]))).toEqual([
       expect.objectContaining({
-        code: "reply-interpreter.decision-model",
+        code: "channel-interpreter.decision-model",
         message: expect.stringContaining(
           "TestDecisionsModelProvider is a decisions provider — it answers only yes / no (approved), but external task jev-limit-external-task asks for SpendingLimitAnswerDto",
         ),

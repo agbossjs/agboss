@@ -158,6 +158,23 @@ export class PayoutReplyInterpreter {}
 })
 export class DepositReplyInterpreter {}
 
+/** #1324 (24.1): an interpreter with the default name (`refund-channel-interpreter`), found by its kind. */
+@ChannelInterpreter({
+  description: "Reads a refund decision from a free-text reply",
+  model: "test/refund-reader",
+  prompt: inline("The agent answered a refund approval in free text."),
+})
+export class RefundChannelInterpreter {}
+
+/** #1324 (24.1): an interpreter named by hand, with no `interpreter` suffix at all. */
+@ChannelInterpreter({
+  name: "refund-reader",
+  description: "Reads a refund decision from a free-text reply, named by hand",
+  model: "test/refund-reader",
+  prompt: inline("The agent answered a refund approval in free text."),
+})
+export class NamedRefundReader {}
+
 /** The expense buttons' values, as the chat app sends them back: `{"approved":true}`, … */
 @Injectable()
 export class ExpenseButtonCodes {

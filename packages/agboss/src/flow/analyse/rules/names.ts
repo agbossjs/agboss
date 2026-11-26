@@ -10,7 +10,7 @@ import {
   type OutputShape,
   type ValueShape,
 } from "../../dto-wrappers.js";
-import { dtoNameProblem, kindSuffixProblem, NameKind, type NameProblem } from "../../names.js";
+import { dtoNameProblem, kindSuffixProblem, type NameProblem, type NameKind } from "../../names.js";
 import { DtoRegistry, dtoClashMessage } from "../../registry.js";
 import type { AnalysisContext } from "./context.js";
 
@@ -21,13 +21,13 @@ import type { AnalysisContext } from "./context.js";
  */
 
 const NAME_KINDS: Readonly<Record<FlowNodeKind, NameKind>> = {
-  [ComponentKind.WorkflowStart]: NameKind.WorkflowStart,
-  [ComponentKind.WorkflowFinish]: NameKind.WorkflowFinish,
-  [ComponentKind.Agent]: NameKind.Agent,
-  [ComponentKind.Action]: NameKind.Action,
-  [ComponentKind.Router]: NameKind.Router,
-  [ComponentKind.Workflow]: NameKind.Workflow,
-  [ComponentKind.ExternalTask]: NameKind.ExternalTask,
+  [ComponentKind.WorkflowStart]: ComponentKind.WorkflowStart,
+  [ComponentKind.WorkflowFinish]: ComponentKind.WorkflowFinish,
+  [ComponentKind.Agent]: ComponentKind.Agent,
+  [ComponentKind.Action]: ComponentKind.Action,
+  [ComponentKind.Router]: ComponentKind.Router,
+  [ComponentKind.Workflow]: ComponentKind.Workflow,
+  [ComponentKind.ExternalTask]: ComponentKind.ExternalTask,
 };
 
 /** The DTO classes inside a shape. */
@@ -90,12 +90,10 @@ const fromProblem = (problem: NameProblem, node: string): RuleViolation =>
   violation(problem.code, problem.message, [node]);
 
 export function nameRules(context: AnalysisContext): readonly RuleViolation[] {
+  const named = (name: string, kind: NameKind) => ({ name, kind });
   const components = [
-    { name: context.workflow.name, kind: NameKind.Workflow },
-    ...[...context.graph.nodes.values()].map((node) => ({
-      name: node.name,
-      kind: NAME_KINDS[node.kind],
-    })),
+    named(context.workflow.name, ComponentKind.Workflow),
+    ...[...context.graph.nodes.values()].map((node) => named(node.name, NAME_KINDS[node.kind])),
   ].flatMap(({ name, kind }) => {
     const problem = kindSuffixProblem(name, kind);
     return problem === undefined ? [] : [fromProblem(problem, name)];

@@ -47,7 +47,7 @@ describe("#644: testUnit — a code interpreter", () => {
 });
 
 describe("#644: testUnit — a chat-model interpreter", () => {
-  it("its answer tool: the answer, validated, its spend under reply-interpreter:<name>", async () => {
+  it("its answer tool: the answer, validated, its spend under channel-interpreter:<name>", async () => {
     const read = testUnit(BudgetOwnerQuestionExternalTask, {
       model: replyWith(
         SpendingLimitAnswerDto,
@@ -59,7 +59,7 @@ describe("#644: testUnit — a chat-model interpreter", () => {
     const { output, spend } = await read({ ask, reply: "fine, up to eight hundred" });
 
     expect(output).toEqual({ isUnderstood: true, answer: { approved: true, limitUsd: 800 } });
-    expect(spend.byCaller).toEqual({ "reply-interpreter:budget-owner-reply-interpreter": 0.001 });
+    expect(spend.byCaller).toEqual({ "channel-interpreter:budget-owner-reply-interpreter": 0.001 });
   });
 
   it("its not-understood tool, or an answer the role refuses: not understood", async () => {

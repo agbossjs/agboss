@@ -7,7 +7,7 @@ import { componentOf } from "../components/metadata.js";
 import { moduleOf } from "../components/module.js";
 import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { hasKindSuffix, kebabNameProblem, NameKind } from "../flow/names.js";
+import { hasKindSuffix, kebabNameProblem } from "../flow/names.js";
 import { isFiniteNumber, shownLimit } from "../graph/count-limit.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import type { A2AAgentMeta } from "./a2a-decorator.js";
@@ -128,7 +128,7 @@ function problemsOf(meta: A2AAgentMeta, finishes: readonly string[]): string[] {
     return ["lists finishes but has no output DTO — only a typed agent takes some of them"];
   if (finishes.length === 0)
     return ["lists no finish — leave target.finishes out to take every finish of the skill"];
-  const named = finishes.filter((finish) => !hasKindSuffix(finish, NameKind.WorkflowFinish));
+  const named = finishes.filter((finish) => !hasKindSuffix(finish, ComponentKind.WorkflowFinish));
   const repeated = finishes.filter((finish, index) => finishes.indexOf(finish) !== index);
   return [
     ...named.map((finish) => `"${finish}" is no @WorkflowFinish name (…-workflow-finish)`),

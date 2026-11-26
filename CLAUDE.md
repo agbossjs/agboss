@@ -1657,7 +1657,7 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   approval (`result.pending[i].kind === PauseKind.ExternalTask`, `input` the masked question, `step` the step; the record's `kind` is
   `PauseKind.ExternalTask`, stored, its `component.kind` `external-task`, no `callId`), and puts the answer on the path —
   `app.resume({ pauseId, decision })` validated as `AnswerDto`, `{ reply }` read by its interpreter
-  into it (a decision model there is `[reply-interpreter.decision-model]`), `decided(answer)` at
+  into it (a decision model there is `[channel-interpreter.decision-model]`), `decided(answer)` at
   once; a code node (no slot, no step of `maxSteps`, budget-checked like an action, its fence
   checked before `send`), a `send` that throws or an invalid `decided(…)` is `StepError.ExternalTask`
   (`step.external-task`, `externalTask` the step; `new StepError.ExternalTask({ externalTask, cause })`) for `.onError` right after it;
@@ -1691,7 +1691,7 @@ AnswerDto, respondent, timeout, channelInterpreter?, maxVisits? })` for a questi
   target a decision model too (an interpreter's model on a decisions provider) — approve / refuse only, one `Decision.boolean("approved")`, P(yes) > 0.5,
   no `reason` / `overrideInput` (#267 S124); the call checked against the tree's budgets, counted in their
   ledger at once and in the execution's spend when its step takes the answer, traced as
-  `reply-interpreter:<name>`) or a **code** interpreter (`@ChannelInterpreter({ deps? })`, `implements ChannelInterpreterHandler<Self>` —
+  `channel-interpreter:<name>`) or a **code** interpreter (`@ChannelInterpreter({ deps? })`, `implements ChannelInterpreterHandler<Self>` —
   `interpret(input: InputOf<Self>)` returns `ChannelInterpretation.understood(decision)` or
   `ChannelInterpretation.notUnderstood(reason)` (sync or a promise; a plain object does not
   compile; a `throw` is a crash only), `deps`, created by the container). Either kind reads in the pause's execution frame (its `ExecutionContext`:

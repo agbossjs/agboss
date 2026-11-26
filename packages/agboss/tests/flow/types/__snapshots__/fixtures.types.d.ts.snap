@@ -47,7 +47,7 @@ import type { AuditApplication, AuditBrokenWorkflow, AuditBrokenWorkflowStart, A
 import type { CandidateReviewWorkflow, CompanySearchWorkflow, DueDiligenceWorkflow, FitReviewWorkflow } from "../tests/flow/fixtures/quorum.fixture.js";
 import type { DeepResearchWorkflow, DeepResearchWorkflowStart, FailTopicAction, OutlineAgent, OutlineDepthRouter, OutlineWorkflow, OutlineWorkflowStart, ReportMergerAgent, ResearchFailedDto, ResearchFailedWorkflowFinish, ResearchReportDto, ResearchReportWorkflowFinish, ResearchTooBroadDto, ResearchTopicDto, SplitTopicAction, TopicResearcherAgent } from "../tests/flow/fixtures/recursion.fixture.js";
 import type { CardRefundsWorkflow, DoubledRefundsApplication, RefundCardInputDto, RefundCardOutputDto, RefundCardTool, RefundClerkAgent, RefundDeskToolApproval, RefundWorkflowFinish, RefundWorkflowStart, RuleRefundsApplication, SlackRefundsApplication, UnprovidedRefundsApplication, UnservedRefundsApplication } from "../tests/flow/fixtures/refunds.fixture.js";
-import type { BatchSummaryAgent, BookExpenseTool, BriefTreasuryApplication, DepositReplyInterpreter, DepositReturnDto, DepositToolApproval, ExpenseReplyInterpreter, ExpenseRequestDto, ExpenseToolApproval, PayOutTool, PayoutReplyInterpreter, PayoutRequestDto, PayoutToolApproval, ReturnDepositTool, SplitRequestsAction, TransferRequestDto, TransferTool, TransferToolApproval, TreasurerAgent, TreasuryApplication, TreasuryBatchWorkflow, TreasuryBatchWorkflowFinish, TreasuryBatchWorkflowStart, TreasuryDeskWorkflow, TreasuryDeskWorkflowFinish, TreasuryDeskWorkflowStart, TreasuryWorkflow, TreasuryWorkflowFinish, TreasuryWorkflowStart } from "../tests/flow/fixtures/replies.fixture.js";
+import type { BatchSummaryAgent, BookExpenseTool, BriefTreasuryApplication, DepositReplyInterpreter, DepositReturnDto, DepositToolApproval, ExpenseReplyInterpreter, ExpenseRequestDto, ExpenseToolApproval, NamedRefundReader, PayOutTool, PayoutReplyInterpreter, PayoutRequestDto, PayoutToolApproval, RefundChannelInterpreter, ReturnDepositTool, SplitRequestsAction, TransferRequestDto, TransferTool, TransferToolApproval, TreasurerAgent, TreasuryApplication, TreasuryBatchWorkflow, TreasuryBatchWorkflowFinish, TreasuryBatchWorkflowStart, TreasuryDeskWorkflow, TreasuryDeskWorkflowFinish, TreasuryDeskWorkflowStart, TreasuryWorkflow, TreasuryWorkflowFinish, TreasuryWorkflowStart } from "../tests/flow/fixtures/replies.fixture.js";
 import type { ApprovalDto, CritiqueDto, DraftDto, PlanDto, ResearchDto } from "../tests/flow/fixtures/review-dtos.js";
 import type { CritiqueAction, CritiqueRouter, PolishAgent, PolishApplication, PolishWorkflow, PolishedWorkflowFinish, PublisherAgent, ResearcherAgent, StoryApplication, StoryReviewerAgent, StoryWorkflow, StoryWorkflowFinish, StoryWorkflowStart, StoryWriterAgent } from "../tests/flow/fixtures/review.fixture.js";
 import type { EdgeOnceExternalTask, EdgeOnceInterpreter, EdgeOnceStart, EdgeOnceWorkflow, EdgeTwiceExternalTask, EdgeTwiceInterpreter, EdgeTwiceStart, EdgeTwiceWorkflow, FailFirstPlaceAction, PublicStarterWorkflow, PublicStarterWorkflowStart, SideQuestionEdgeApplication } from "../tests/flow/fixtures/side-question-edge.fixture.js";
@@ -2963,7 +2963,7 @@ declare module "../tests/flow/fixtures/pause-targets.fixture.js" {
     readonly [agbossDto]?: "PtLimitAskDto";
   }
   interface PtLimitChannelInterpreter {
-    readonly [agbossComponent]?: { readonly name: "pt-limit-channel-interpreter" };
+    readonly [agbossComponent]?: { readonly name: "pt-limit-channel-interpreter"; readonly kind: ComponentKind.ChannelInterpreter };
   }
   interface PtLimitExternalTask {
     readonly [agbossComponent]?: { readonly name: "pt-limit-external-task"; readonly kind: ComponentKind.ExternalTask };
@@ -3014,7 +3014,7 @@ declare module "../tests/flow/fixtures/question-tools.fixture.js" {
     readonly [agbossComponent]?: { readonly name: "approver-external-task"; readonly kind: ComponentKind.ExternalTask };
   }
   interface ApproverReplyInterpreter {
-    readonly [agbossComponent]?: { readonly name: "approver-reply-interpreter" };
+    readonly [agbossComponent]?: { readonly name: "approver-reply-interpreter"; readonly kind: ComponentKind.ChannelInterpreter };
   }
   interface BuyerAgent {
     readonly [agbossComponent]?: { readonly name: "buyer-agent"; readonly kind: ComponentKind.Agent };
@@ -3062,7 +3062,7 @@ declare module "../tests/flow/fixtures/questions.fixture.js" {
     readonly [agbossComponent]?: { readonly name: "budget-owner-question-external-task"; readonly kind: ComponentKind.ExternalTask };
   }
   interface BudgetOwnerReplyInterpreter {
-    readonly [agbossComponent]?: { readonly name: "budget-owner-reply-interpreter" };
+    readonly [agbossComponent]?: { readonly name: "budget-owner-reply-interpreter"; readonly kind: ComponentKind.ChannelInterpreter };
   }
   interface CheckLimitAction {
     readonly [agbossComponent]?: { readonly name: "check-limit-action"; readonly kind: ComponentKind.Action };
@@ -3113,7 +3113,7 @@ declare module "../tests/flow/fixtures/questions.fixture.js" {
     readonly [agbossComponent]?: { readonly name: "spending-limit-question-external-task"; readonly kind: ComponentKind.ExternalTask };
   }
   interface SpendingLimitReplyInterpreter {
-    readonly [agbossComponent]?: { readonly name: "spending-limit-reply-interpreter" };
+    readonly [agbossComponent]?: { readonly name: "spending-limit-reply-interpreter"; readonly kind: ComponentKind.ChannelInterpreter };
   }
 }
 
@@ -3578,7 +3578,7 @@ declare module "../tests/flow/fixtures/replies.fixture.js" {
     readonly [agbossTenantContext]?: false;
   }
   interface DepositReplyInterpreter {
-    readonly [agbossComponent]?: { readonly name: "deposit-reply-interpreter" };
+    readonly [agbossComponent]?: { readonly name: "deposit-reply-interpreter"; readonly kind: ComponentKind.ChannelInterpreter };
   }
   interface DepositReturnDto {
     readonly [agbossDto]?: "DepositReturnDto";
@@ -3587,7 +3587,7 @@ declare module "../tests/flow/fixtures/replies.fixture.js" {
     readonly [agbossComponent]?: { readonly name: "deposit-tool-approval" };
   }
   interface ExpenseReplyInterpreter {
-    readonly [agbossComponent]?: { readonly name: "expense-reply-interpreter" };
+    readonly [agbossComponent]?: { readonly name: "expense-reply-interpreter"; readonly kind: ComponentKind.ChannelInterpreter };
   }
   interface ExpenseRequestDto {
     readonly [agbossDto]?: "ExpenseRequestDto";
@@ -3595,8 +3595,11 @@ declare module "../tests/flow/fixtures/replies.fixture.js" {
   interface ExpenseToolApproval {
     readonly [agbossComponent]?: { readonly name: "expense-tool-approval" };
   }
+  interface NamedRefundReader {
+    readonly [agbossComponent]?: { readonly name: "refund-reader"; readonly kind: ComponentKind.ChannelInterpreter };
+  }
   interface PayoutReplyInterpreter {
-    readonly [agbossComponent]?: { readonly name: "payout-reply-interpreter" };
+    readonly [agbossComponent]?: { readonly name: "payout-reply-interpreter"; readonly kind: ComponentKind.ChannelInterpreter };
   }
   interface PayoutRequestDto {
     readonly [agbossDto]?: "PayoutRequestDto";
@@ -3606,6 +3609,9 @@ declare module "../tests/flow/fixtures/replies.fixture.js" {
   }
   interface PayoutToolApproval {
     readonly [agbossComponent]?: { readonly name: "payout-tool-approval" };
+  }
+  interface RefundChannelInterpreter {
+    readonly [agbossComponent]?: { readonly name: "refund-channel-interpreter"; readonly kind: ComponentKind.ChannelInterpreter };
   }
   interface ReturnDepositTool {
     readonly [agbossComponent]?: { readonly name: "return-deposit-tool" };
@@ -3725,7 +3731,7 @@ declare module "../tests/flow/fixtures/side-question-edge.fixture.js" {
     readonly [agbossComponent]?: { readonly name: "edge-once-external-task"; readonly kind: ComponentKind.ExternalTask };
   }
   interface EdgeOnceInterpreter {
-    readonly [agbossComponent]?: { readonly name: "edge-once-reply-interpreter" };
+    readonly [agbossComponent]?: { readonly name: "edge-once-reply-interpreter"; readonly kind: ComponentKind.ChannelInterpreter };
   }
   interface EdgeOnceStart {
     readonly [agbossComponent]?: { readonly name: "edge-once-workflow-start"; readonly kind: ComponentKind.WorkflowStart };
@@ -3737,7 +3743,7 @@ declare module "../tests/flow/fixtures/side-question-edge.fixture.js" {
     readonly [agbossComponent]?: { readonly name: "edge-twice-external-task"; readonly kind: ComponentKind.ExternalTask };
   }
   interface EdgeTwiceInterpreter {
-    readonly [agbossComponent]?: { readonly name: "edge-twice-reply-interpreter" };
+    readonly [agbossComponent]?: { readonly name: "edge-twice-reply-interpreter"; readonly kind: ComponentKind.ChannelInterpreter };
   }
   interface EdgeTwiceStart {
     readonly [agbossComponent]?: { readonly name: "edge-twice-workflow-start"; readonly kind: ComponentKind.WorkflowStart };

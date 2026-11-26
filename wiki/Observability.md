@@ -418,7 +418,7 @@ PauseResolution`, `askedAt`, `resolvedAt`, `decision`),
 the decision masked like the rest of the record ([Pauses → who answered](Pauses#who-answered-resultrecordpauses)).
 `onExecutionResume` still names each decision a pass takes and its `actor`. A reply
 interpreter's model call (#267 PR 3) is traced under the pause's execution (its tenant and root
-execution in the trace's metadata) and its cost is in `spend` under `reply-interpreter:<name>` —
+execution in the trace's metadata) and its cost is in `spend` under `channel-interpreter:<name>` —
 not an agent model call (no `onModelStart` / `onModelEnd`). It runs in the pause's execution frame
 (its tenant for the rate limits) and its model reads through the application's and the workflow's
 PII policies. The record's `pauses` come from the execution records

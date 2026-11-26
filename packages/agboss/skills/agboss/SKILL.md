@@ -38,7 +38,7 @@ remember (`thinking`, `timeoutMs`, `createApp(Workflow)`, `ctx`, zod schemas, `T
    (`agents/<name>/<name>.agent.ts` + `<name>.prompt.md`, `routers/<name>/<name>.router.ts`,
    `judges/<name>/<name>.judge.ts`, `arbiters/<name>/<name>.arbiter.ts`,
    `memories/<name>/<name>.memory.ts`, `guardrails/<name>/<name>.guardrail.ts`,
-   `reply-interpreters/<name>/<name>.reply-interpreter.ts`); every other entity is a single file in
+   `channel-interpreters/<name>/<name>.channel-interpreter.ts`); every other entity is a single file in
    its kind folder (`dto/<name>.dto.ts`, `tools/<name>.tool.ts`, `actions/<name>.action.ts`,
    `services/<name>.service.ts`, `repositories/<name>.repository.ts`, `schemas/<name>.schema.ts`,
    `sql/<name>.sql`, `errors/<name>.error.ts`, `observers/<name>.observer.ts`,

@@ -136,7 +136,7 @@ describe("#1366: a model interpreter's call is checked first", () => {
       {
         gateway: parts.gateway,
         model: "decision/model",
-        caller: "reply-interpreter:boss-reply-interpreter",
+        caller: "channel-interpreter:boss-reply-interpreter",
         pii: { pii: true },
       },
     ]);

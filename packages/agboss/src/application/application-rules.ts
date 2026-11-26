@@ -6,7 +6,7 @@ import type { OverlaidBudgets } from "../budgets/budget-overlay.js";
 import { createdClassesOf, type Class, type Provider } from "../components/injection.js";
 import { moduleOf } from "../components/module.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { kebabNameProblem, kindSuffixProblem, NameKind } from "../flow/names.js";
+import { kebabNameProblem, kindSuffixProblem, type NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
@@ -112,7 +112,7 @@ function budgetViolations(budgeted: ReturnType<typeof budgetedOf>): RuleViolatio
         ),
       ];
     }
-    return nameViolations(budget.name, cls, NameKind.Budget, "Budget");
+    return nameViolations(budget.name, cls, ComponentKind.Budget, "Budget");
   });
 }
 
@@ -181,7 +181,7 @@ export function applicationRuleViolations(
   budgetOverlays?: OverlaidBudgets["budgetOverlays"],
 ): RuleViolation[] {
   return [
-    ...nameViolations(options.name, application, NameKind.Application, "Application"),
+    ...nameViolations(options.name, application, ComponentKind.Application, "Application"),
     ...workflowListViolations(options),
     ...budgetViolations(budgetedOf(options, budgetOverlays)),
     ...budgetRuleViolations(budgetedOf(options, budgetOverlays)),

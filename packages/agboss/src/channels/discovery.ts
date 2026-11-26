@@ -106,7 +106,7 @@ export function targetsOfUses(uses: readonly ChannelUse[]): readonly FoundPauseT
 /**
  * The channel interpreters of a workflow's tree (#267 PR 3): the `channelInterpreter` of every pause
  * target its tools — its children's too — name, checked at assembly (`[name.kind-suffix]`,
- * `[channel-interpreter.not-an-interpreter]`, `[reply-interpreter.decision-model]` — a decision
+ * `[channel-interpreter.not-an-interpreter]`, `[channel-interpreter.decision-model]` — a decision
  * model for an external task, whose output needs more than `approved` —,
  * `[channel-interpreter.no-interpret-method]`) and kept with what they answer and, for a model
  * interpreter, its instructions loaded.
@@ -189,7 +189,7 @@ function declarationViolations({
   if (!decides || !isExternalTask(target.options)) return found;
   const answer = nameOf(answerOf(target));
   const message = `${options.name}: ${options.modelProvider?.name ?? "its provider"} is a decisions provider — it answers only yes / no (approved), but external task ${target.options.name} asks for ${answer}, whose fields a yes / no cannot give; name a chat model, or decide by code`;
-  return [...found, violation("reply-interpreter.decision-model", message, [options.name])];
+  return [...found, violation("channel-interpreter.decision-model", message, [options.name])];
 }
 
 /** Every interpreter rule over a workflow's pause-target uses. */

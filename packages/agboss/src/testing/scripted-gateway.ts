@@ -47,7 +47,7 @@ function componentKeyOf(
       return arbiterKeyOf(user.arbiter);
     case "pii-policy":
       return piiPolicyKeyOf(user.policy);
-    case "reply-interpreter":
+    case "channel-interpreter":
       return replyInterpreterKeyOf(user.interpreter);
     case "guardrail":
       return guardrailKeyOf(user.guardrail);
@@ -191,7 +191,7 @@ export function createScriptedGateway(
           clock,
           key: chatKeyOf(user),
           // what a reply interpreter reads: its `when({ reply })` matches it (no step frame)
-          ...(user.kind === "reply-interpreter" ? { input: { ...user.input } } : {}),
+          ...(user.kind === "channel-interpreter" ? { input: { ...user.input } } : {}),
         },
         settings,
       );

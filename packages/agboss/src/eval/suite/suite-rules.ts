@@ -17,7 +17,7 @@ import {
   sameFamilyWarnings,
   type JudgedAgent,
 } from "../../flow/analyse/rules/judge-family.js";
-import { kindSuffixProblem, NameKind } from "../../flow/names.js";
+import { kindSuffixProblem } from "../../flow/names.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import type { JudgeEvalCheck } from "./checks.js";
 import type { EvalSuiteMeta } from "./eval-suite.decorator.js";
@@ -42,7 +42,7 @@ function startNameOf(start: Class): string {
 
 function nameViolations(suite: Class, meta: EvalSuiteMeta): RuleViolation[] {
   const found: RuleViolation[] = [];
-  const problem = kindSuffixProblem(meta.name, NameKind.EvalSuite);
+  const problem = kindSuffixProblem(meta.name, ComponentKind.EvalSuite);
   if (problem !== undefined) found.push(violation(problem.code, problem.message, [meta.name]));
   const className = suite.name;
   if (className.length <= CLASS_SUFFIX.length || !className.endsWith(CLASS_SUFFIX))

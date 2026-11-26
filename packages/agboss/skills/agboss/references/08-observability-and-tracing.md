@@ -378,7 +378,7 @@ export class DeskApplication {}
   (`observer.failed`) and never fails the execution.
 - Not model calls of an agent (no `onModelStart` / `onModelEnd`): a model arbiter's, a reply
   interpreter's, a guardrail's, a compaction's — their cost is in `spend` under `arbiter:<name>`,
-  `reply-interpreter:<name>`, `guardrail:<name>`, `compaction:<name>`.
+  `channel-interpreter:<name>`, `guardrail:<name>`, `compaction:<name>`.
 
 ## Join keys
 

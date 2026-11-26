@@ -1364,7 +1364,7 @@ export interface TruncatedToolCallTurn<TName extends string = string> {
 }
 
 // @public
-export type TurnFor<TSelf> = IsKnown<TSelf> extends false ? ScriptedTurn : NameOf<TSelf> extends `${string}-reply-interpreter` ? ReplyInterpreterTurnFor<TSelf> : KindOf<TSelf> extends ComponentKind.Agent ? AgentTurnFor<TSelf> : KindOf<TSelf> extends ComponentKind.Router ? RouterTurnFor<TSelf> : ScriptedTurn;
+export type TurnFor<TSelf> = IsKnown<TSelf> extends false ? ScriptedTurn : [KindOf<TSelf>] extends [never] ? NameOf<TSelf> extends `${string}-${"channel" | "reply"}-interpreter` ? ReplyInterpreterTurnFor<TSelf> : ScriptedTurn : KindOf<TSelf> extends ComponentKind.ChannelInterpreter ? ReplyInterpreterTurnFor<TSelf> : KindOf<TSelf> extends ComponentKind.Agent ? AgentTurnFor<TSelf> : KindOf<TSelf> extends ComponentKind.Router ? RouterTurnFor<TSelf> : ScriptedTurn;
 
 // @public
 export interface UnitCallOptions {

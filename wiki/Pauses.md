@@ -113,7 +113,7 @@ export class RefundCardInputDto {
 
 ```ts
 @ChannelInterpreter({
-  name: "refund-reply-interpreter",
+  name: "refund-channel-interpreter",
   description: "Turns a manager's free-text reply into a refund decision",
   model: "moonshotai/kimi-k2.6",
   prompt:
@@ -170,14 +170,14 @@ false`); a "not understood" call wins over an answer beside it. The framework's 
   the question and the reply (the same input message, as the decision's state), the interpreter's
   `prompt` after the framework's question as its instructions; approved when P(yes) > 0.5, the
   answer `{ approved }` — never a `reason` or `overrideInput`; an external task's interpreter
-  on a decision model is `[reply-interpreter.decision-model]` (#659: its answer needs more than a
+  on a decision model is `[channel-interpreter.decision-model]` (#659: its answer needs more than a
   yes / no). For an external task the model's answer tool is the target's `answer` DTO's, the system
   message asks for the fields the reply gives, and nothing is laid over a call. Either
   model's call goes through the provider its model
   resolves to by `serves` (`[model.unserved]` like any model), is checked against the tree's budgets
   before it is made (an exhausted one → `LimitError.Budget`, the pause untouched), is counted in
   their ledger at once and in the execution's `spend` when the step takes the answer — once — and is
-  traced under the pause's execution (cost caller `reply-interpreter:<name>`). Its model reads the
+  traced under the pause's execution (cost caller `channel-interpreter:<name>`). Its model reads the
   question and the reply through the application's and the workflow's PII policies (#120), like an
   agent's: a `tokenize()` value is a token for the model, its answer is revealed before it is
   validated (the tool gets the real value), a token no map knows is a decline (the pause stays
@@ -200,8 +200,8 @@ InputOf<Self>)` returns its outcome (#267 S124 b), sync or as a promise —
   for a clearer answer, or answer with a `decision`. A `reply` for a target without `channelInterpreter` is
   `PauseError.ChannelInterpreterMissing` (`pause.channel-interpreter-missing`), the pause untouched.
 - Assembly checks, all at once with the channel rules: `[name.not-kebab-case]`,
-  `[reply-interpreter.not-an-interpreter]` (a `channelInterpreter` class without `@ChannelInterpreter`),
-  `[reply-interpreter.no-interpret-method]`, `[channel.shared-interpreter]` (one class in two roles).
+  `[channel-interpreter.not-an-interpreter]` (a `channelInterpreter` class without `@ChannelInterpreter`),
+  `[channel-interpreter.no-interpret-method]`, `[channel.shared-interpreter]` (one class in two roles).
 
 Both new forms side by side — a decision model for a deposit return, and an owner's buttons read by
 code:
@@ -233,7 +233,7 @@ export class DeskDoneDto {
 ```ts
 // approve / refuse on a decision model: one Decision.boolean("approved"), no reason, no overrideInput
 @ChannelInterpreter({
-  name: "deposit-reply-interpreter",
+  name: "deposit-channel-interpreter",
   description: "Reads whether a clerk's reply approves a deposit return",
   model: "typesafe/jev-1.13",
   modelProvider: DecisionsModelProvider, // a decision model: a provider with a DecisionsDriver
@@ -252,7 +252,7 @@ export class DepositToolApproval {}
 
 // by code: the chat app sends a button's value back — {"approved":true}; anything else is not understood
 @ChannelInterpreter({
-  name: "expense-reply-interpreter",
+  name: "expense-channel-interpreter",
   description: "Reads an expense button's value",
 })
 export class ExpenseReplyInterpreter implements ChannelInterpreterHandler<ExpenseReplyInterpreter> {
