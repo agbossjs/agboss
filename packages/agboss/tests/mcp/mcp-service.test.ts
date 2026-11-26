@@ -341,7 +341,9 @@ describe("McpService over an in-memory MCP transport", () => {
     expect(badStart).toMatchObject({ isError: true });
     expect(textOf(badStart)).toMatch(/^Error: .*text/);
     expect(badResume).toMatchObject({ isError: true });
-    expect(textOf(badResume)).toMatch(/missing/);
+    // the unknown pause is named by its key, never by the id the caller sent (#1307e, M2)
+    expect(textOf(badResume)).toMatch(/has no pause/);
+    expect(textOf(badResume)).not.toMatch(/missing/);
   });
 
   it("exporting a tool the workflow does not use fails when the server starts", async () => {

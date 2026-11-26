@@ -1319,6 +1319,15 @@ export const NON_SHARDED_SRC: Readonly<Record<string, string>> = Object.fromEntr
     ["src/app/pause-listing.ts", "src/app/pause-listing-query.ts"],
   ),
   ...reviewed(
+    "the listings' shared query rules (#1307e): the strict instant of a deadline filter, the cursor bound to its query, the refusal of unknown query fields and the name of a @Channel class - not mutated by a shard: covered by tests/app/list-pauses.test.ts and tests/app/list-unknown-fields.test.ts (an instant without a zone or in the host's reading, a cursor of another tenant or filter, a forged cursor and a retired field each fail one of them); listed for the reviewer",
+    [
+      "src/app/instant.ts",
+      "src/app/query-cursor.ts",
+      "src/app/query-fields.ts",
+      "src/channels/channel-name.ts",
+    ],
+  ),
+  ...reviewed(
     "holds spend, rate-limit or deadline sites (reassign due <) - not mutated: covered by tests/app/pause-reassignment.test.ts, each sabotage of it (1 in the #1366 pattern sweep) fails one of them; listed for the reviewer (#1366)",
     ["src/app/pause-reassignment.ts", "src/app/reassign-request.ts"],
   ),
