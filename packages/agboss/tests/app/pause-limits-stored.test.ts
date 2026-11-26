@@ -7,7 +7,7 @@
  * The live configuration here is the LOOSE one; a record "written by an earlier deploy" is the
  * opened pause with the limits and the chain of custody of that deploy.
  */
-import { describe, expect } from "vitest";
+import { beforeEach, describe, expect } from "vitest";
 import { Application } from "../../src/application/application.js";
 import { ChannelOutcome } from "../../src/channels/channel-outcome.js";
 import type { ExpiredContext } from "../../src/channels/pause-contexts.js";
@@ -24,7 +24,7 @@ import type { PauseRecord } from "../../src/infrastructure/pause-record.js";
 import { PauseRespondent } from "../../src/pause/respondent.js";
 import { testWith } from "../../src/testing/index.js";
 import type { TestApp } from "../../src/testing/test-app.js";
-import { days, hours } from "../../src/units/index.js";
+import { days, hours, minutes } from "../../src/units/index.js";
 import { until } from "../channels/fixtures/pause-scripts.js";
 import { TEST_BUDGETS } from "../flow/fixtures/budgets.js";
 import {
@@ -35,7 +35,12 @@ import {
 import { onStart } from "../flow/fixtures/paths.js";
 import { execute } from "../helpers/flow.js";
 
-const told = { sent: [] as string[], expired: [] as ExpiredContext<LooseTask>[] };
+const told = {
+  sent: [] as string[],
+  expired: [] as ExpiredContext<LooseTask>[],
+  /** Where `LooseTask.onExpired` sends its pauses; none: the pause fails. */
+  next: undefined as (new () => object) | undefined,
+};
 
 @ExternalTask({
   name: "stored-second-external-task",
@@ -48,6 +53,28 @@ const told = { sent: [] as string[], expired: [] as ExpiredContext<LooseTask>[] 
 class SecondTask {}
 
 @ExternalTask({
+  name: "stored-back-external-task",
+  description: "A laxer tier after the tight one: thirty days, ninety-nine of each",
+  input: ExpiryOrderDto,
+  output: ExpiryDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(4),
+  escalationLimits: { maxExtensions: 99, maxReassignments: 99, maxTotalTimeout: days(30) },
+})
+class BackTask {}
+
+@ExternalTask({
+  name: "stored-mid-external-task",
+  description: "A middle tier: thirty hours in total",
+  input: ExpiryOrderDto,
+  output: ExpiryDecisionDto,
+  respondent: PauseRespondent.Delegate,
+  timeout: hours(4),
+  escalationLimits: { maxExtensions: 5, maxReassignments: 5, maxTotalTimeout: hours(30) },
+})
+class MidTask {}
+
+@ExternalTask({
   name: "stored-tight-external-task",
   description: "A tight tier: ten hours in total, two reassignments, three changes",
   input: ExpiryOrderDto,
@@ -55,6 +82,7 @@ class SecondTask {}
   respondent: PauseRespondent.Delegate,
   timeout: hours(4),
   escalationLimits: { maxExtensions: 3, maxReassignments: 2, maxTotalTimeout: hours(10) },
+  escalatesTo: [BackTask],
 })
 class TightTask {}
 
@@ -66,12 +94,13 @@ class TightTask {}
   respondent: PauseRespondent.Delegate,
   timeout: hours(24),
   escalationLimits: { maxExtensions: 99, maxReassignments: 99, maxTotalTimeout: days(30) },
-  escalatesTo: [SecondTask, TightTask],
+  escalatesTo: [SecondTask, TightTask, MidTask],
 })
 class LooseTask {
   onExpired(ctx: ExpiredContext<LooseTask>) {
     told.expired.push(ctx);
-    return PauseExpiration.fail() as PauseExpiration<LooseTask>;
+    if (told.next === undefined) return PauseExpiration.fail() as PauseExpiration<LooseTask>;
+    return PauseExpiration.reassign({ target: told.next as never }) as PauseExpiration<LooseTask>;
   }
 }
 
@@ -85,6 +114,22 @@ class LooseChannel {
 
 @Channel({ name: "stored-tight-channel", description: "Asks", target: TightTask, ttl: days(1) })
 class TightChannel {
+  send(ask: { pauseId: string }) {
+    told.sent.push(ask.pauseId);
+    return Promise.resolve(ChannelOutcome.awaitReply());
+  }
+}
+
+@Channel({ name: "stored-back-channel", description: "Asks", target: BackTask, ttl: days(1) })
+class BackChannel {
+  send(ask: { pauseId: string }) {
+    told.sent.push(ask.pauseId);
+    return Promise.resolve(ChannelOutcome.awaitReply());
+  }
+}
+
+@Channel({ name: "stored-mid-channel", description: "Asks", target: MidTask, ttl: days(1) })
+class MidChannel {
   send(ask: { pauseId: string }) {
     told.sent.push(ask.pauseId);
     return Promise.resolve(ChannelOutcome.awaitReply());
@@ -154,13 +199,19 @@ class PlainWorkflow {}
   name: "stored-limits-application",
   version: "1.0.0",
   workflows: [StoredWorkflow, PlainWorkflow],
-  providers: [LooseChannel, SecondChannel, TightChannel],
+  providers: [LooseChannel, SecondChannel, TightChannel, BackChannel, MidChannel],
   budgets: TEST_BUDGETS,
 })
 class StoredApplication {}
 
 const test = testWith(StoredApplication);
 const operator = { actor: { id: "operator-1" } };
+
+beforeEach(() => {
+  told.sent.length = 0;
+  told.expired.length = 0;
+  told.next = undefined;
+});
 const store = (app: TestApp) => app.resolve(PausedExecutionRepository);
 
 async function opened(app: TestApp, start: typeof StoredStart | typeof PlainStart, thread: string) {
@@ -232,6 +283,68 @@ describe("a pause is opened with its limits materialized", () => {
       app.setPauseTimeout({ pauseId: moved?.pauseId ?? "", timeout: hours(10) }, operator),
     ).rejects.toBeInstanceOf(PauseError.EscalationLimitExceeded);
     await app.setPauseTimeout({ pauseId: moved?.pauseId ?? "", timeout: hours(9) }, operator);
+  });
+
+  test("a move on to a LAXER target and then another loosens nothing: the limits stay the tight tier's minimum", async ({
+    app,
+    clock,
+  }) => {
+    const first = await opened(app, StoredStart, "stored-back");
+    await clock.advance(hours(1));
+    await app.reassignPause({ pauseId: first.pauseId, target: TightTask }, operator);
+    const tree = () =>
+      store(app).findAllByTenantIdAndRootExecutionId("default", first.rootExecutionId);
+    const tight = (await tree()).find((one) => one.reassignedFrom === first.pauseId);
+
+    await app.reassignPause({ pauseId: tight?.pauseId ?? "", target: BackTask }, operator);
+    const back = (await tree()).find((one) => one.reassignedFrom === tight?.pauseId);
+
+    expect(back).toMatchObject({
+      target: "stored-back-external-task",
+      maxExpiresAt: new Date(Date.parse(first.firstAskedAt) + hours(10)).toISOString(),
+      escalationLimits: { maxExtensions: 3, maxReassignments: 2 },
+    });
+  });
+
+  test("a destination whose cap, counted from the first asking, is already past refuses the move and leaves the pause as it was", async ({
+    app,
+    clock,
+  }) => {
+    const first = await opened(app, StoredStart, "stored-past");
+    await clock.advance(hours(11));
+
+    await expect(
+      app.reassignPause({ pauseId: first.pauseId, target: TightTask }, operator),
+    ).rejects.toThrow("maxTotalTimeout");
+
+    const all = await store(app).findAllByTenantIdAndRootExecutionId(
+      "default",
+      first.rootExecutionId,
+    );
+    expect(all).toHaveLength(1);
+    expect(all[0]).toEqual(first);
+  });
+
+  test("an expiry's reassignment narrows too: the replacement carries the destination's smaller cap and counts", async ({
+    app,
+    clock,
+  }) => {
+    told.next = MidTask;
+    const first = await opened(app, StoredStart, "stored-expiry");
+
+    await clock.advance(hours(24));
+    await clock.advance(minutes(1));
+    await until(() => told.sent.length === 2);
+
+    const moved = (
+      await store(app).findAllByTenantIdAndRootExecutionId("default", first.rootExecutionId)
+    ).find((one) => one.reassignedFrom === first.pauseId);
+    expect(moved).toMatchObject({
+      target: "stored-mid-external-task",
+      firstAskedAt: first.firstAskedAt,
+      maxExpiresAt: new Date(Date.parse(first.firstAskedAt) + hours(30)).toISOString(),
+      escalationLimits: { maxExtensions: 5, maxReassignments: 5 },
+    });
   });
 
   test("a move to another target keeps what the pause had when the destination offers none (the smaller of the two, per field) and the replacement keeps firstAskedAt", async ({
