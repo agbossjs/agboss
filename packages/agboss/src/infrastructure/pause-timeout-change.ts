@@ -1,6 +1,7 @@
 import { PauseNoticeKind, type PauseRecipients, type PauseTimeoutChange } from "./pause-notices.js";
 import { noticesOf } from "./pause-notice-plans.js";
 import { PauseExpiryBound, type PauseRecord, type PauseTrailRecord } from "./pause-record.js";
+import { isWithinCap } from "./pause-limits-stored.js";
 import { isSeenAs } from "./pause-seen.js";
 import { isOpenAt, type PauseChange } from "./pause-transitions.js";
 
@@ -15,6 +16,8 @@ function isChangeable(pause: PauseRecord, change: PauseTimeoutChange, at: Date):
   if (!isOpenAt(pause, at)) return false;
   if (pause.expiresAt !== change.previousExpiresAt || !isSeenAs(pause, change.seen)) return false;
   if (change.expiresAt !== undefined && change.expiresAt <= at.toISOString()) return false;
+  // the total wait: the record's own cap, whatever the caller planned
+  if (!isWithinCap(pause.maxExpiresAt, change.expiresAt)) return false;
   const changes = pause.trail.filter((entry) => entry.action === "timeout-changed").length;
   // the limit is the record's own: never the caller's say, never the application's present configuration
   return changes < (pause.escalationLimits.maxExtensions ?? Infinity);

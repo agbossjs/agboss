@@ -9,7 +9,7 @@ import {
   type PauseReplacement,
 } from "./pause-notices.js";
 import type { PauseRecord, PauseTrailRecord } from "./pause-record.js";
-import { narrowedLimits } from "./pause-limits-stored.js";
+import { isWithinCap, narrowedLimits } from "./pause-limits-stored.js";
 import { reassignedPause, replacementPause, replacementStepKeyOf } from "./pause-replacement.js";
 import { isSeenAs } from "./pause-seen.js";
 import { closing, isDueAt, isOpenAt, type PauseChange } from "./pause-transitions.js";
@@ -40,7 +40,10 @@ function isApplicable(pause: PauseRecord, change: PauseReassignmentChange, at: D
   const isExpiry = change.due !== undefined;
   if (isExpiry ? !isDueAt(pause, at) : !isOpenAt(pause, at)) return false;
   // the limits are the record's own, narrowed by the destination of a move: never the application's present configuration
-  const { escalationLimits } = narrowedLimits(pause, offeredLimitsOf(change));
+  const { escalationLimits, maxExpiresAt } = narrowedLimits(pause, offeredLimitsOf(change));
+  // a deadline the change sets keeps the (narrowed) cap, atomically with the write
+  const deadline = change.due ?? change.timeout;
+  if (deadline !== undefined && !isWithinCap(maxExpiresAt, deadline.expiresAt)) return false;
   // no limit named: no count reaches it
   if (reassignmentsOf(pause) >= (escalationLimits.maxReassignments ?? Infinity)) return false;
   return !(

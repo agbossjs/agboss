@@ -42,6 +42,16 @@ const smallestCount = (...counts: readonly (number | undefined)[]): number | und
 const earliestInstant = (...instants: readonly (string | undefined)[]): string | undefined =>
   defined(instants).sort()[0];
 
+/**
+ * Whether a deadline a change sets keeps the cap: with a `maxExpiresAt`, only a deadline at or before
+ * it does — none at all is past any cap. The store judges it atomically with the write, over the cap
+ * its own record holds (narrowed by the move), whatever the caller planned.
+ */
+export const isWithinCap = (
+  maxExpiresAt: string | undefined,
+  expiresAt: string | undefined,
+): boolean => maxExpiresAt === undefined || (expiresAt !== undefined && expiresAt <= maxExpiresAt);
+
 /** The limits of `pause` after taking `offer` (none: unchanged): each field the smaller of the two. */
 export function narrowedLimits(pause: PauseLimits, offer?: PauseLimitsOffer): PauseLimits {
   const held = pause.escalationLimits;
