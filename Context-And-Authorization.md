@@ -178,7 +178,7 @@ come from is the project's choice; the framework loads nothing.
   required; with nothing declared `tenant: { tenantId?, weight? }` is optional (omitted → the
   tenant `"default"`) and passing `execution` does not compile.
 - Validated by the field decorators before the first step: invalid → the execution is rejected
-  with `dto.invalid` and `onExecutionRejected`; the message names the field, never the value
+  with `validation.dto-invalid` and `onExecutionRejected`; the message names the field, never the value
   (`invalid ClinicTenantContext: units[0].unitId: …`).
 - Frozen for the whole execution, kept in its checkpoint: a resume — `app.resume({ pauseId,
   decision }, { tenantId, ownerId | actor })` ([Pauses](Pauses)) — runs on the values it
@@ -189,9 +189,9 @@ come from is the project's choice; the framework loads nothing.
 
 The key of a thread is `tenantId` + `threadId`: another tenant's thread does not exist for the
 caller — `execute(…, { threadId })` and `app.cancel(threadId, { tenantId })` throw
-`UnknownThreadError` (with no hint that the id is taken elsewhere), `app.resume` of one of its pauses
-finds none (`UnknownPauseError`, as for an id that never existed; a pause that is closed is
-`PauseClosedError` with its `reason`, and `NotPausedError` is only for the thread-level paths). Inside the tenant `ownerId` stays the access key (`ThreadOwnerError`).
+`ExecutionError.UnknownThread` (with no hint that the id is taken elsewhere), `app.resume` of one of its pauses
+finds none (`PauseError.UnknownPause`, as for an id that never existed; a pause that is closed is
+`PauseError.Closed` with its `reason`, and `NotPausedError` is only for the thread-level paths). Inside the tenant `ownerId` stays the access key (`ExecutionError.ThreadOwnerMismatch`).
 Every record the framework stores carries `tenantId` — the execution records, the paused
 executions, the leases and the tree keys — and so does what it sends: a run's LangGraph `metadata`
 (`tenantId`, `executionId`, `rootExecutionId`, `threadId`, `workflowName`, `workflowVersion`) and
@@ -201,7 +201,7 @@ executions, the leases and the tree keys — and so does what it sends: a run's 
 ## Authorization in a tool
 
 A thread created with an `ownerId` belongs to it: `execute` on that thread, `resume` and `cancel` with
-another owner (or none) throw `ThreadOwnerError` (`run.thread-owner`) before anything runs or is
+another owner (or none) throw `ExecutionError.ThreadOwnerMismatch` (`execution.thread-owner-mismatch`) before anything runs or is
 read. Inside the execution a tool reads the owner as `executionContext.ownerId` and asks a service
 what that owner may do — the context holds identity, never permissions or secrets.
 

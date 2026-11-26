@@ -136,7 +136,7 @@ export class MainRouter {}
 | A line is a path | it starts with its source — `onStart(S)`, or `onAgent(X)` / `onRouter(R)` / `onAction(A)` / `onWorkflow(W)` / `onExternalTask(Q)` for a node reached from two or more places — then goes on with steps. The kind of every source and target is checked by the compiler (`onAgent(MainRouter)` does not compile) |
 | Nothing is written on an edge | what a step puts on the path (its **scope**) is derived from its declaration (#1270): a start its `input`, an agent, action, external task or child workflow its `output`, a text agent its reply. There is no `.returns(…)`; a later node reads the value by the class of its `input` field ([Path scope](Path-scope)) |
 | Transitions | `.toAgent(X)`, `.toRouter(R)`, `.toAction(A)`, `.toFinish(F)`, `.toWorkflow(W)` (a child workflow, #263), `.toExternalTask(Q)` (an `@ExternalTask`'s step: it pauses on the target's channels and gives its typed answer, #659, [Pauses](Pauses)) — each names its target's kind |
-| A child workflow | `.toWorkflow(W)` / `.onRoute(toWorkflow(W))` — one child; `.forEachItem(toWorkflow(W), { takeFirst, maxConcurrency })` — one child per item, joined; the child's start chosen per edge by class, its result one class that continues the path, or several finishes' outputs taken apart by `.toOneOf([…])` / `.onFinish(F, …)`. At run time a child is an execution of its own (its id, steps, no history) inside its parent's checkpoint and budgets; its uncaught failure is the parent's `ChildExecutionFailedError`. See [Workflow as a step](Workflow-as-a-step) |
+| A child workflow | `.toWorkflow(W)` / `.onRoute(toWorkflow(W))` — one child; `.forEachItem(toWorkflow(W), { takeFirst, maxConcurrency })` — one child per item, joined; the child's start chosen per edge by class, its result one class that continues the path, or several finishes' outputs taken apart by `.toOneOf([…])` / `.onFinish(F, …)`. At run time a child is an execution of its own (its id, steps, no history) inside its parent's checkpoint and budgets; its uncaught failure is the parent's `StepError.Child`. See [Workflow as a step](Workflow-as-a-step) |
 | A router's choice | `.toRouter(R).onRoute(toAgent(A)…).onRoute(toAgent(B)…).onRoute(toFinish(F))` (or `onRouter(R).onRoute(…)` in its own path): exactly the router's `routes`, one `.onRoute(…)` each (`[router.routes-mismatch]`), each continued to its end. How to choose stays in `@Router({ routes: [{ target, prompt }] })` ([Routers](Routers)) |
 | Branching by result | `.toOneOf([toX(…)…, toY(…)…])` after a step with a `oneOf(ADto, BDto)` output — one branch per variant, told apart by what its first node reads (a node with a field of that class) or, for a finish, by its output class; exhaustive (`[flow.one-of-not-exhaustive]`), no two branches for one variant (`[flow.one-of-ambiguous]`), also a compile error. Reordering the branches changes nothing |
 | Errors | `.onError(ErrorClass, toAction(…)… \| toAgent(…)… \| toRouter(…)… \| toExternalTask(Q)… \| toWorkflow(W)… \| toFinish(F))` right after the step that throws — a side path may start with a child workflow (#263 S85, [Workflow as a step](Workflow-as-a-step#a-child-as-an-error-handler-s85)) or with an external task's step (#933, [Pauses](Pauses): the failure is handled by asking; after a limit still only actions and finishes, `[graph.limit-handler-uses-model]`); see [Rollback](Rollback) |
@@ -204,7 +204,7 @@ export class OfferSentWorkflowFinish {}
 -->
 
 <!-- snippet-context
-import { Workflow, VisitsLimitExceededError, onAgent, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
+import { Workflow, LimitError, onAgent, onStart, toAction, toAgent, toFinish, Ttl } from "@agboss/core";
 import { DraftAgent, EditorAgent, NotifyRecruiterAction, OfferFailedWorkflowFinish, OfferSentWorkflowFinish, OfferWorkflowStart, ReviewerAgent, SendOfferAction } from "./offer.components.js";
 -->
 
@@ -223,7 +223,7 @@ import { DraftAgent, EditorAgent, NotifyRecruiterAction, OfferFailedWorkflowFini
         // the editor reads the requested changes: that tells this branch apart
         toAgent(EditorAgent) // maxVisits: 2 — the third edit is refused before its model call
           .onError(
-            VisitsLimitExceededError,
+            LimitError.Visits,
             toAction(NotifyRecruiterAction)
               .toFinish(OfferFailedWorkflowFinish), // no output → nothing on the path
           )
@@ -364,7 +364,7 @@ export const launchPaths = [
 | A branch is one step | its join continues it: a launched class continued elsewhere is `[launch.branch-continued]`. A chain of steps per item is a child workflow: `.forEachItem(toWorkflow(W), { takeFirst })` ([Workflow as a step](Workflow-as-a-step)) |
 | Several of one class | a single field reading a class the join gives as a list is `[input.several-on-path]` — declare `listOf(XDto)` |
 | Steps | the fewest steps count the copies of the agents that always run, never a per-item run; the worst case of one call counts every copy and every item run, capped by `maxSteps`; actions and external tasks count too (#1278) |
-| Errors | a branch's own failure is a `StepFailedError` (`step.failed`, its own code, above `step.agent`, `step.action`, `step.router`, `step.guard`) naming the step — `component`, `nodeId` (`critic-agent#2` for a copy), `visitNumber`, `itemIndex`; an action's exception is `ActionFailedError` with the original as `cause` ([Parallel launches at run time](#parallel-launches-at-run-time)) |
+| Errors | a branch's own failure is a `StepError` (`step`, the family's code, above `step.agent`, `step.action`, `step.router`, `step.guardrail`) naming the step — `component`, `nodeId` (`critic-agent#2` for a copy), `visitNumber`, `itemIndex`; an action's exception is `StepError.Action` with the original as `cause` ([Parallel launches at run time](#parallel-launches-at-run-time)) |
 
 ### Parallel launches at run time
 
@@ -381,7 +381,7 @@ its own, run once after every branch ended (#273 PR 2).
 | Limits | each branch counts against the execution's `maxSteps` (an agent's run is a step), its node's `maxVisits` (one launch is one visit of its node, however many copies or items — those are bounded by the listed targets and `takeFirst` / `maxItems`) and the money limits (with the spend of the siblings that already ended); a limit reached in a branch fails it like any failure |
 | Cancel | `app.cancel` (or the caller's signal) during a launch cancels the whole execution: every running branch is aborted and the call rejects with `ExecutionCancelledError` — never a branch outcome, never `Skip`ped, never taken by the join's `.onError(…)` (S21) |
 | `FailFast` | a failed branch aborts the launch: running siblings see their signal (`executionContext.signal`) abort, waiting ones never start — both end `BranchStatus.Cancelled`. Their spend still counts |
-| The join | every branch finished (or dropped out) → its values go into the scope at once, one outdating cascade; a branch failed → the most specific `.onError(E, …)` on the join by the error's class and cause chain (`.onError(ItemFailedError, …)` takes the domain error inside an `ActionFailedError`); none → the execution fails with the branch's error as it was thrown |
+| The join | every branch finished (or dropped out) → its values go into the scope at once, one outdating cascade; a branch failed → the most specific `.onError(E, …)` on the join by the error's class and cause chain (`.onError(ItemFailedError, …)` takes the domain error inside an `StepError.Action`); none → the execution fails with the branch's error as it was thrown |
 | Pause and recovery | LangGraph keeps each finished branch's writes: on `app.resume` only the paused branch goes on, and after a crash the instance that takes the tree over ([Several instances](Several-instances)) runs only the branches that had not ended |
 | `result.launches` | one `LaunchRecord` per joined launch, in order: `launch` (its id), `items`, `taken` (a route a router did not choose is left out), `branches` — each `{ nodeId, copyNumber, itemIndex?, status: BranchStatus.Finished \| Failed \| Skipped \| Cancelled, error? }` |
 
@@ -399,7 +399,7 @@ single answer is `optional(XDto)` for the next step — a step that requires it 
 with `[input.missing-on-path]`; a repeated class stays `listOf(XDto)` in every form.
 At run time the quorum is decided as answers arrive: once it is fixed the rest of the launch is
 cancelled, only counted answers enter the path scope (in counting order), and a quorum not reached
-is `QuorumNotReachedError` into the join's `.onError(…)` — [Parallel → At run time](Parallel#at-run-time).
+is `StepError.QuorumNotReached` into the join's `.onError(…)` — [Parallel → At run time](Parallel#at-run-time).
 
 ## Generated types
 
@@ -418,7 +418,7 @@ a generated project writes it on install (`npm run types`) and `agboss generate`
 ## Assembly rules
 
 Checked by `testWith` / `createApp` / `agboss check` before any model call; all violations are
-reported together in a `GraphRuleError` with stable codes: names end with their kind and are unique
+reported together in a `ConfigError.GraphRules` with stable codes: names end with their kind and are unique
 in the application (`[name.kind-suffix]`, `[graph.duplicate-node-name]`); DTO classes on paths end
 with `Dto` (`[dto.name]`); every input is
 on every path (`[input.missing-on-path]`); a router's choice lists its routes; the existing graph
@@ -458,9 +458,9 @@ class ChatApplication {}
 
 const test = testWith(ChatApplication); // an application, never the workflow itself
 
-test("a question about openings goes to the scout", async ({ app, mockLlm }) => {
-  mockLlm(MainRouter).thenReturn(routeTo(ScoutAgent));
-  mockLlm(ScoutAgent).thenReturn(replyWith(OpeningsDto, { openings: "Backend at Acme" }));
+test("a question about openings goes to the scout", async ({ app, mockModel }) => {
+  mockModel(MainRouter).thenReturn(routeTo(ScoutAgent));
+  mockModel(ScoutAgent).thenReturn(replyWith(OpeningsDto, { openings: "Backend at Acme" }));
 
   const result = await app.execute(IntakeWorkflowStart, { text: "any backend jobs?" });
 

@@ -27,8 +27,8 @@ the stored record. Working time depends on a calendar — days, hours, breaks, h
    elapsed time of the working instants. DST follows without special cases: a gap has no instants, an overlap
    counts both occurrences, `"24:00"` is the end of the local date. Time zones through `Intl`
    (`hourCycle: "h23"`), no dependency.
-4. **A calendar that cannot answer fails closed.** The step fails (`QuestionFailedError` / `AgentFailedError`,
-   cause `WorkingCalendarError`), nobody is asked, no record is made. A silent fallback to wall-clock time was
+4. **A calendar that cannot answer fails closed.** The step fails (`StepError.ExternalTask` / `StepError.Agent`,
+   cause `PauseError.WorkingCalendar`), nobody is asked, no record is made. A silent fallback to wall-clock time was
    rejected: it is a deadline nobody asked for.
 5. **A reminder cannot be subtracted by a calendar.** A working `remindBefore` needs a working `expiresIn`
    (`calendar.add(askedAt, expiresIn − remindBefore)`); a plain deadline with a working reminder is refused at

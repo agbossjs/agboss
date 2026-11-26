@@ -3,7 +3,7 @@
 A judge checks an agent's answer before it leaves the agent. A rejected answer goes back to the
 agent with the judge's `reason` — inside the agent's own loop, so the checkpoint history does not
 fill up with failed attempts — and once `maxRetries` retries are spent the run throws
-`QualityGateError` (`code: "step.agent.quality-gate"`, `rejections: [{ judge, reason }]`).
+`StepError.QualityGate` (`code: "step.agent.quality-gate"`, `rejections: [{ judge, reason }]`).
 
 ## A judge
 
@@ -101,7 +101,7 @@ export class GroundedJudge implements JudgeHandler<PlainTextDto> {
 }
 ```
 
-`decide` on a chat model or `invoke` on a decision model throws `ModelKindError` (`model.wrong-kind`).
+`decide` on a chat model or `invoke` on a decision model throws `ConfigError.ModelKind` (`config.model-kind`).
 
 ## A declarative judge: an empty class with a prompt
 
@@ -142,9 +142,9 @@ export class GroundedAnswerJudge {}
   none (`[judge.bad-prompt]`) fail assembly.
 - `model` and `modelProvider` are as on any model judge: the role of its provider when left out.
 - The execution's budgets are checked **before each model call** of a judge: once a judge's call spends them, the
-  next judge makes none and the run stops with `BudgetExceededError`.
+  next judge makes none and the run stops with `LimitError.Budget`.
 - In `testUnit` and in `testWith` a declarative judge nobody scripted **passes** (`replyWith` /
-  `decideWith({ verdict: … })` script it); it is still asked, so `mockLlm(Judge).requests` shows what it read.
+  `decideWith({ verdict: … })` script it); it is still asked, so `mockModel(Judge).requests` shows what it read.
 
 ## A code judge: no model
 
@@ -182,8 +182,8 @@ export class OneSentenceJudge implements JudgeHandler<PlainTextDto> {
 }
 ```
 
-In tests a code judge has no script — `mockLlm(OneSentenceJudge)` fails, naming why ("a code judge
-calls no model — mockOf() the services its judge() uses"); `testUnit(OneSentenceJudge)` runs it with
+In tests a code judge has no script — `mockModel(OneSentenceJudge)` fails, naming why ("a code judge
+calls no model — mockService() the services its judge() uses"); `testUnit(OneSentenceJudge)` runs it with
 no `model` (one is a `TestSetupError`) and no spend.
 
 ## A judge of a DTO answer
@@ -466,7 +466,7 @@ The judges are registered by the agent; list a judge's own dependencies in the w
 2. Every judge of the agent runs on it, each with its own copy (observers see `onJudgeStart` /
    `onJudgeEnd`, the verdict as `update`).
 3. A failed verdict's `reason` goes back to the agent's model (`- [<judge>] <reason>`), and the loop
-   runs again — until every judge passes or `maxRetries` retries are spent (`QualityGateError`,
+   runs again — until every judge passes or `maxRetries` retries are spent (`StepError.QualityGate`,
    `rejections` of the last answer).
 
 A model judge's calls read as the judged agent's model reads (#708): what `judgeModel.invoke` sends
@@ -478,9 +478,9 @@ answering agent's policies the same way — every copy of a launch (`critic-agen
 agent's, and an element no list names through the workflow's policies, never through none. An eval suite's judge runs outside any agent and is not
 masked.
 
-In tests, script a chat judge like an agent — `mockLlm(CorrectnessJudge).thenReturn(replyWith("PASS"))`
+In tests, script a chat judge like an agent — `mockModel(CorrectnessJudge).thenReturn(replyWith("PASS"))`
 — and a decision judge with its answers by question id:
-`mockLlm(GroundedJudge).thenReturn(decideWith({ grounded: 0.9, quality: 2 }))`. On its own,
+`mockModel(GroundedJudge).thenReturn(decideWith({ grounded: 0.9, quality: 2 }))`. On its own,
 `testUnit(AnswerGroundedJudge, …)({ variant: JobReportDto, output, task, attempt })` takes `output` as
 a plain object of the judge's DTO, typed by the judge — a `variant` with another class's value
 (`{ variant: OfferDto, output: { why } }`) does not compile ([Testing](Testing#unit-runners--one-component-on-its-own)).

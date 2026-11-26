@@ -11,12 +11,12 @@ Every project in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss
 
 | Project | Primary Engineering Proof |
 | :--- | :--- |
-| **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** | Clean `agboss create` project layout (`1 class = 1 file`, `src/workflows/hello-agboss/`, `src/agents/<name>/` with `.prompt.md`), real async HTTP service DI (`PricingCatalogService` passing `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with `202 Accepted` on pauses and `/health/live` + `/health/ready` probes), and symmetric `tests/` (`mockOf`, `testWith`). |
+| **[`01-hello-agboss`](https://github.com/agbossjs/agboss-examples/tree/main/01-hello-agboss)** | Clean `agboss create` project layout (`1 class = 1 file`, `src/workflows/hello-agboss/`, `src/agents/<name>/` with `.prompt.md`), real async HTTP service DI (`PricingCatalogService` passing `ExecutionContext.signal` + `step.idempotencyKey`), production HTTP server (`src/http/server.ts` with `202 Accepted` on pauses and `/health/live` + `/health/ready` probes), and symmetric `tests/` (`mockService`, `testWith`). |
 | **[`02-path-scope-proof`](https://github.com/agbossjs/agboss-examples/tree/main/02-path-scope-proof)** | Static dataflow proof across 4 cases (`01-missing-input`, `02-outdated-data`, `03-parallel-invalidation`, `04-uncompensated-action`) showing `[input.missing-on-path]`, `[input.outdated-on-path]`, `[launch.branch-outdates-sibling]`, and `[flow.uncompensated-action]` passing `tsc --noEmit` in raw LangGraph (`langgraph-broken/`) while caught before runtime by `agboss check` (`agboss-broken/` vs `agboss-fixed/`). |
-| **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** | Reversible `@PiiPolicy` (`tokenize()`, `revealPii: true`, `PiiRefusedError`), `@ToolInterceptor` (`reply`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction` vs policy drift, and 5-layer `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$). |
+| **[`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk)** | Reversible `@PiiPolicy` (`tokenize()`, `revealPii: true`, `PiiError.Refused`), `@ToolInterceptor` (`reply`, `block`), `@InputGuardrail` (`DecidedBy.Code`), `@OutputGuardrail`, in-memory BM25/TF-IDF `@Rag` (`InMemoryKnowledgeIndexService` + `RefundPolicyRetriever`), `PolicyAwareCompaction` vs policy drift, and 5-layer `@EvalSuite` with compact git-tracked `eval/baseline/main-baseline.json` and `agboss eval calibrate` (Cohen's $\kappa$). |
 | **[`04-travel-booking-saga`](https://github.com/agbossjs/agboss-examples/tree/main/04-travel-booking-saga)** | Reverse-order LIFO saga compensation (`@Action({ compensateWith, committedBy })`) across `payment-saga`, `budget-saga`, `quorum-saga` (`.joinQuorum({ min: 2, max: 2 })`), and `hitl-hold-saga` (the approval message closed by the channel's `onPauseClosed`, `NotPausedError`), idempotent external ledgers (`step.idempotencyKey`), SQLite WAL crash recovery, and HTTP `202 Accepted` pause adapter. |
-| **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** | Distributed child work-stealing (`.forEachItem(toWorkflow(ChunkWorkerWorkflow, { placement: ChildPlacement.AnyWorker })`, `SqliteChildExecutionQueueRepository`), recursive `() => Self` (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `IncompatibleResumeError`. |
-| **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** | 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AEndpoint` and `@McpTool` / `@McpEndpoint`, Ed25519 mesh envelope (A2A message metadata / MCP `_meta`), the billing Agent Card tested and called by the official SDK client, `MeshLoopDetectedError` & `HopsLimitExceededError`, MCP `_meta.callId` deduplication (`SqliteMeshRequestRepository`), and `agboss check --federation` Blast Radius. |
+| **[`05-cluster-work-stealing`](https://github.com/agbossjs/agboss-examples/tree/main/05-cluster-work-stealing)** | Distributed child work-stealing (`.forEachItem(toWorkflow(ChunkWorkerWorkflow, { placement: ChildPlacement.AnyWorker })`, `SqliteChildExecutionQueueRepository`), recursive `() => Self` (`maxDepth: 2`), 30s SQLite leases & fencing (`ExecutionLeaseLostError`), `maxConcurrentSteps: 2` backpressure (`HealthComponentKind.StepSlots`), `@HealthCheck`, and `ExecutionError.IncompatibleResume`. |
+| **[`06-enterprise-agent-mesh`](https://github.com/agbossjs/agboss-examples/tree/main/06-enterprise-agent-mesh)** | 3-service mesh (`apps/1-order-gateway`, `apps/2-billing-a2a`, `apps/3-catalog-mcp`) over `@A2AAgent` / `@A2AEndpoint` and `@McpTool` / `@McpEndpoint`, Ed25519 mesh envelope (A2A message metadata / MCP `_meta`), the billing Agent Card tested and called by the official SDK client, `LimitError.MeshLoop` & `LimitError.Hops`, MCP `_meta.callId` deduplication (`SqliteMeshRequestRepository`), and `agboss check --federation` Blast Radius. |
 | **[`07-langgraph-migration`](https://github.com/agbossjs/agboss-examples/tree/main/07-langgraph-migration)** | Side-by-side comparison of raw `@langchain/langgraph` (`before-langgraph/support.graph.ts` with 15-field `Annotation.Root` God State, string-keyed `addConditionalEdges`, unbounded `Send()`, dynamic prompt interpolation) vs AGBoss (`after-agboss/src/` + `after-agboss/tests/` with 10 narrow `@Dto`s, `@Router`, bounded `.toParallelAgents()`, `@Action`, `@Channel`, and `agboss check --strict`). |
 | **[`08-job-scout`](https://github.com/agbossjs/agboss-examples/tree/main/08-job-scout)** | A real multi-step agent, offline: resume → proposed search brief → Greenhouse jobs ranked by Jev → explained with the user's company notes (`@Rag`) → the chosen ones saved to a shortlist through the filesystem MCP server after the user approves the write — typed child workflows, per-item launches, a quorum and a budget; `check`, `test` and `demo` offline at $0 against the published `@agboss/core` (recorded cassettes, a fixture Greenhouse board), `demo:live` with `OPENROUTER_API_KEY`. |
 | **[`11-safe-payments`](https://github.com/agbossjs/agboss-examples/tree/main/11-safe-payments)** | Every payment race of [Payment scenarios](Payment-scenarios) (PS1–PS23) done wrong and done right against a fictional stub gateway at three support levels (`Full`, `NoLookup`, `NoKeys`), every number from the stub's own records; PS2 and PS5 also on two real processes, `SIGKILL`ed; each right assertion run on its wrong version (the bites); "check your own gateway call" by swapping one `PaymentOperations` class (#654). |
@@ -71,7 +71,7 @@ npm test
   `onAgent(ReviewerAgent).toOneOf([…])` is a path
   of its own, and the change requests are about the draft:
   a branch that reads `ChangesRequestedDto`. The editor has `maxVisits: 2`; the refused third visit is taken by
-  `.onError(VisitsLimitExceededError, toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish))`.
+  `.onError(LimitError.Visits, toAction(NotifyRecruiterAction).toFinish(OfferFailedWorkflowFinish))`.
   The reviewer reads `historyOf(OfferDraftDto, { maxPrevious: 1 })` — `{ current, previous }`, the draft and
   the one before it. Moving the `switch(…)` inline after `.toAgent(ReviewerAgent)` makes `agboss check` fail with
   `[flow.shared-node-inline]`.
@@ -79,8 +79,8 @@ npm test
   sends an order to order-intake-agent; credit-limit-router (`DecidedBy.Code`) decides in
   `route(input)` with `CreditService` and `ExecutionContext` through `deps` — a $50 order goes to
   charge-card-action, a $500 one to approval-agent. `CreditServiceUnavailableError` from the
-  service (the `RouterFailedError`'s cause) is taken by `.onError(…, toFinish(OrderHeldWorkflowFinish))`;
-  any other error fails the run with `RouterFailedError`.
+  service (the `StepError.Router`'s cause) is taken by `.onError(…, toFinish(OrderHeldWorkflowFinish))`;
+  any other error fails the run with `StepError.Router`.
 - **`src/desk/`** — the four extension points around one agent (#382–#385): `desk-agent` runs on
   `harness/desk`, served by `HarnessModelProvider` (`src/model-providers/`), a transport
   `@ModelProvider` whose `complete(request)` looks the `#<id>` order up, then quotes the tool — no
@@ -96,7 +96,7 @@ npm test
   answers offline (`offline`: the stores in memory, only the PII key read — the desk's PII policy
   makes tokens with it outside tests).
   The same agent carries the operational contracts: a code `@Judge` that reads the visit's
-  `toolCalls` (`maxRetries: 1`, then `QualityGateError`), a `@Rag` it searches through a tool
+  `toolCalls` (`maxRetries: 1`, then `StepError.QualityGate`), a `@Rag` it searches through a tool
   (`SearchShippingPolicyTool`), and the workflow a `PiiPolicyHandler` detector
   (`<customer-id:…>` in what the model reads); the application lists an observer, a `@HealthCheck`
   (`app.checkReadiness()`) and `maxConcurrentSteps: 16`. Each unit runner runs on the patterns' own components in the test that mirrors the
@@ -114,10 +114,10 @@ npm test
   (ask-desk-tool)`. `npm run snapshot` rewrites the desk's snapshot. `tests/desk/a2a/desk.a2a-expose.test.ts` serves
   the desk with the `a2aServer` fixture and calls it with the helpline's contract
   (`new A2AClient({ url, headers, contract })`); the consumer's own test replaces the remote with
-  `mockOf(DeskA2AAgent)`.
+  `mockService(DeskA2AAgent)`.
   The helpline also reads the customer policies (`data/policies/`) through the official filesystem
   [MCP](Mcp) server — `@McpServer` `policy-files` over stdio, its `read-policy-tool` a `@Tool` with the server in its `deps`;
-  `tests/helpline/workflows/helpline/helpline-mcp.test.ts` never starts it, `mcpOf(PolicyFilesServer)` answers `read_text_file`.
+  `tests/helpline/workflows/helpline/helpline-mcp.test.ts` never starts it, `mockMcp(PolicyFilesServer)` answers `read_text_file`.
 - **`src/intake/`** — a quorum by groups ([Parallel](Parallel), #279): a full legal check and a quick
   screen side by side, `.joinQuorumGroups({ deadline: seconds(30) }).onGroup([LegalCheckAgent],
   { priority: 1 }, …).onGroup([FastScreenAgent], { priority: 2 }, …)`. `tests/intake/workflows/intake/intake.workflow.test.ts` fixes the order the branches
@@ -152,7 +152,7 @@ npm test
   (`ChannelOutcome.awaitReply()`). The execution rests with two pauses in `result.pending`; every
   store of the application is SQLite, so they wait across processes. `npm run answer -- <pauseId…>
   [--decline]` answers waiting pauses from another process — two at once, or a second press that
-  gets `PauseClosedError`. In the tests, `testWith(FlowPatternsApplication, { instances: 2 })`
+  gets `PauseError.Closed`. In the tests, `testWith(FlowPatternsApplication, { instances: 2 })`
   pauses on one instance and resumes both pauses on the other ([Several instances](Several-instances)):
   the test sets `AGBOSS_SQLITE_PATH` to one fresh file for the instances' SQLite storage, since
   `:memory:` is one database per connection.

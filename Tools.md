@@ -54,12 +54,12 @@ JSON Schema, with each field's `prompt` as its description.
 
 ## Contract
 
-| Step of `tool.invoke(raw)`                         | On failure                                                    |
-| ---------------------------------------------------- | ----------------------------------------------------------------- |
-| input validated against the input DTO             | `error: invalid input: <path>: <issue>` (`jobs[2].url`) — `execute` is not called |
-| run is not started if the run is already cancelled | `error: <abort reason>`                                       |
-| `execute` under its `timeout` and the run's `AbortSignal` | `error: timed out after 10 s` / `error: <message>`          |
-| output validated against the output DTO           | `error: invalid output: …` — a contract bug of the tool       |
+| Step of `tool.invoke(raw)`                                | On failure                                                                        |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| input validated against the input DTO                     | `error: invalid input: <path>: <issue>` (`jobs[2].url`) — `execute` is not called |
+| run is not started if the run is already cancelled        | `error: <abort reason>`                                                           |
+| `execute` under its `timeout` and the run's `AbortSignal` | `error: timed out after 10 s` / `error: <message>`                                |
+| output validated against the output DTO                   | `error: invalid output: …` — a contract bug of the tool                           |
 
 Results are values — `ToolResult = { kind: "ok", value } | { kind: "error", message }` — never
 exceptions: the model sees `Tool error: …` and can recover.
@@ -193,10 +193,10 @@ export class Scout {}
 ```
 
 - `tools` lists classes — a missing or not-imported tool does not compile; at startup names are
-  re-checked against the registry (`UnknownAgentToolError`).
+  re-checked against the registry (`ConfigError.Component`).
 - The agent runs the framework's own loop ([Agents](Agents)): usage recorded per model call, the
-  execution's budgets checked before each call (one exhausted → `BudgetExceededError`), `maxToolCalls` → `agents.<name>.limits.toolCalls` (default 20) **fails
-  the run** with `LimitExceededError`; the loop's spend still reaches the budgets' counters.
+  execution's budgets checked before each call (one exhausted → `LimitError.Budget`), `maxToolCalls` → `agents.<name>.limits.toolCalls` (default 20) **fails
+  the run** with `LimitError`; the loop's spend still reaches the budgets' counters.
 - Each call runs as its own task with its own signal; parallel calls of one turn run concurrently.
   In the call, `executionContext.signal` is the call's (#280 S45): the execution's signal (cancel
   included) combined with a timer of the tool's `timeout` (default 30 s), cleared when the call ends — so
@@ -313,16 +313,16 @@ application's.
 **The before hooks decide**, in list order (outer first; an interceptor's `beforeAnyTool(call)` before its
 `@BeforeTool` method); the first decision that is not `allow()` ends the chain:
 
-| Decision                                   | The tool | The step                                                                                         |
-| ------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------ |
-| `ToolCallDecision.allow()`                 | runs     | goes on (the next interceptor decides first)                                                     |
-| `ToolCallDecision.allow({ input })`          | runs, with `input` | goes on (validated against the tool's input DTO again; the next hooks and the tool get it) |
-| `ToolCallDecision.reply(message)`          | not called | goes on: the model reads `message` as the call's text result in its loop and may try again      |
-| `ToolCallDecision.block(reason)`           | not called | fails at once: `ToolBlockedError` (`step.tool-blocked`, a `StepFailedError`: `agent`, `tool`, `interceptor`, `reason`) |
+| Decision                            | The tool           | The step                                                                                                               |
+| ----------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `ToolCallDecision.allow()`          | runs               | goes on (the next interceptor decides first)                                                                           |
+| `ToolCallDecision.allow({ input })` | runs, with `input` | goes on (validated against the tool's input DTO again; the next hooks and the tool get it)                             |
+| `ToolCallDecision.reply(message)`   | not called         | goes on: the model reads `message` as the call's text result in its loop and may try again                             |
+| `ToolCallDecision.block(reason)`    | not called         | fails at once: `StepError.ToolBlocked` (`step.tool-blocked`, a `StepError`: `agent`, `tool`, `interceptor`, `reason`) |
 
 A decision is built only by its factories (a plain object does not compile); in tests compare it
-with `toEqual(ToolCallDecision.reply(message))`. `.onError(ToolBlockedError, …)` (or
-`StepFailedError`) right after the agent takes a block; the error carries the loop's spend, so the
+with `toEqual(ToolCallDecision.reply(message))`. `.onError(StepError.ToolBlocked, …)` (or
+`StepError`) right after the agent takes a block; the error carries the loop's spend, so the
 record and the ledger keep it.
 
 **The after hooks replace the result**, in reverse order (inner interceptor first; its `@AfterTool`
@@ -344,8 +344,8 @@ message is cut and masked the same way.
 `timeout`). The interceptors themselves have no timer of their own.
 
 **Failures.** An interceptor that throws, returns no `ToolCallDecision` or an output its tool does
-not give fails the step: `AgentFailedError`, its error as the `cause` (`ScopeServiceDownError`,
-`TypeError`, `DtoValidationError`), so `.onError(DomainError, …)` takes it through the cause; the
+not give fails the step: `StepError.Agent`, its error as the `cause` (`ScopeServiceDownError`,
+`TypeError`, `ValidationError.DtoInvalid`), so `.onError(DomainError, …)` takes it through the cause; the
 tool does not run after a failed before hook.
 
 **What is intercepted**: an agent's calls to the project's `@Tool` classes — never
@@ -407,7 +407,7 @@ it("a city outside the tenant's goes back to the model", async () => {
 `beforeToolCall(Tool, input)` → `{ output: ToolCallDecision, spend }`, `afterToolCall(Tool, input,
 output)` → `{ output, spend }` (validated against the tool's output DTO); each call runs in the frame
 of a call to that tool (`step.callId` `test-call`) for the tenant and execution given; a method the
-class does not have is a `TestSetupError`, a broken rule a `GraphRuleError`.
+class does not have is a `TestSetupError`, a broken rule a `ConfigError.GraphRules`.
 
 ## For the model
 
@@ -436,7 +436,6 @@ npm run describe
     · note_save (write, local, waits for approval) ← NOTES_FILE — Save a note for the user.
 unassigned tools: none
 ```
-
 
 ## Approval channels
 
@@ -539,9 +538,9 @@ export class RefundCardTool {
 ```
 
 - **A pause target** (#1307) is what a pause waits under: `@ToolApproval({ name, description,
-  respondent, timeout, … })` for a tool call's approval (the question is the tool's input, the
+respondent, timeout, … })` for a tool call's approval (the question is the tool's input, the
   answer `ToolCallApprovalDecisionDto` with `overrideInput?`), `@ExternalTask({ name, description,
-  input, output, respondent, timeout, … })` for a step's or an agent's question (#659). A
+input, output, respondent, timeout, … })` for a step's or an agent's question (#659). A
   `@Tool({ approval })` names its approval; an external task is asked by a flow step —
   `.toExternalTask(Task)` ([Pauses](Pauses#a-question-the-workflow-asks-toexternaltasktask-659)) —
   or by an agent that lists it in its `tools` (#712). A `@Tool` naming an external task as its
@@ -624,7 +623,7 @@ test("counts the issues the API found", async () => {
 });
 ```
 
-In a workflow test the tool's dependencies are replaced with `mockOf(Service)`, and
+In a workflow test the tool's dependencies are replaced with `mockService(Service)`, and
 `app.runTool(CountIssues, input)` runs the tool alone with the app's real (or mocked)
 dependencies, in an execution of its own (its `ExecutionContext` reads `step.callId`
 `"tool-slice"`) ([Testing](Testing)).

@@ -81,13 +81,13 @@ console.log(result.threadId, result.executionId, result.pending.length);
 - **By its id, always** — one way, also when there is only one pause, and without a `threadId`: the
   pause is found by `(tenantId, pauseId)` anywhere in the execution tree (a parallel branch, a child
   at any depth) and the runtime wakes the chain up to the root. An unknown id, or another tenant's,
-  is the same `UnknownPauseError` (`pause.unknown-pause`), with no hint that the id exists elsewhere.
+  is the same `PauseError.UnknownPause` (`pause.unknown-pause`), with no hint that the id exists elsewhere.
 - **The rest keep waiting**: with other pauses left the execution pauses again with them
   (`status: Paused`, the rest in `pending`); the last answer lets it go on to its finish. The result
   carries `threadId` and `executionId`, so a webhook that needs them gets them back.
 - **The decision is validated before it is recorded**: a `ToolCallApprovalDecisionDto` —
   `approved`, `reason?`, `overrideInput?` (only with `approved: true`, and a valid input of the
-  tool) — else `DtoValidationError` and the pause keeps waiting. The same check applies to a
+  tool) — else `ValidationError.DtoInvalid` and the pause keeps waiting. The same check applies to a
   channel's `ChannelOutcome.decided(…)` (the step fails). Approved → the tool runs once (with the
   `overrideInput`, if given); rejected → the model reads `Tool error: the call was rejected by
   <who answered>[: <reason>]`.
@@ -135,7 +135,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
 ```
 
 - **Exactly one of `decision` or `reply`** — by types (`ResumeRequest = DecisionResumeRequest |
-  ReplyResumeRequest`) and at run time: both, or an empty `reply`, is `DtoValidationError` before the
+  ReplyResumeRequest`) and at run time: both, or an empty `reply`, is `ValidationError.DtoInvalid` before the
   pause is looked up. The credential (`ownerId` / `actor`) is checked as for a decision.
 - **The interpreter gets the pause's original question and the reply** — `{ ask, reply }`, where the
   amount to halve is in `ask.arguments` — and what it gives is validated like a decision (the target's
@@ -149,7 +149,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
   to $500" is `{ approved: true, overrideInput: { amountUsd: 500 } }`. Beside it the model has
   `answer-reply-interpreter-not-understood-dto` (`ReplyInterpreterNotUnderstoodDto { reason }`,
   `@agboss/core/dto`) for a reply that does not answer ("🤷", off topic): never a refusal — the pause
-  stays `Pending`, `UninterpretableReplyError.reason` is "the reply does not answer the question:
+  stays `Pending`, `PauseError.UninterpretableReply.reason` is "the reply does not answer the question:
   <its reason>", as a code interpreter's `notUnderstood`. One call per move (`parallel_tool_calls:
   false`); a "not understood" call wins over an answer beside it. The framework's instructions
   and tools (#688) make a one-line `prompt` enough on a cheap model: for a tool approval the
@@ -165,7 +165,7 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
   no list of another length; nested objects are laid over the call's —, and every decision's
   `overrideInput` pass the tool's own input strictly (an unknown key at any depth is refused,
   never dropped). The kept record keeps the call as asked (`asked`) beside the decision. Tests:
-  `mockLlm(I).thenReturn(replyWith(ReplyInterpreterNotUnderstoodDto, { reason }))`. **For a tool approval the model may be a decision
+  `mockModel(I).thenReturn(replyWith(ReplyInterpreterNotUnderstoodDto, { reason }))`. **For a tool approval the model may be a decision
   model** (Jev, #267 S124 a): it reads approve / refuse only — one `Decision.boolean("approved")` about
   the question and the reply (the same input message, as the decision's state), the interpreter's
   `prompt` after the framework's question as its instructions; approved when P(yes) > 0.5, the
@@ -175,13 +175,13 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
   message asks for the fields the reply gives, and nothing is laid over a call. Either
   model's call goes through the provider its model
   resolves to by `serves` (`[model.unserved]` like any model), is checked against the tree's budgets
-  before it is made (an exhausted one → `BudgetExceededError`, the pause untouched), is counted in
+  before it is made (an exhausted one → `LimitError.Budget`, the pause untouched), is counted in
   their ledger at once and in the execution's `spend` when the step takes the answer — once — and is
   traced under the pause's execution (cost caller `reply-interpreter:<name>`). Its model reads the
   question and the reply through the application's and the workflow's PII policies (#120), like an
   agent's: a `tokenize()` value is a token for the model, its answer is revealed before it is
   validated (the tool gets the real value), a token no map knows is a decline (the pause stays
-  `Pending`), a `block` value in them throws `PiiRefusedError`.
+  `Pending`), a `block` value in them throws `PiiError.Refused`.
 - **`DecidedBy.Code`** — `implements ReplyInterpreterHandler<Self>`: `interpret(input:
   InputOf<Self>)` returns its outcome (#267 S124 b), sync or as a promise —
   `ChannelInterpretation.understood(decision)` (`OutputOf<Self>`, validated like any decision) or
@@ -195,10 +195,10 @@ await app.resume({ pauseId: replyKey, reply: "ok, but only half" }, { tenantId: 
 - **The pause survives a bad reply**: interpretation runs before the pause is closed. A reply that
   cannot be read as a valid answer — a code interpreter's `notUnderstood`, a model that gave no
   answer, an answer invalid for the target, an interpreter that crashed — throws
-  `UninterpretableReplyError` (`pause.uninterpretable-reply`; `reason` — the interpreter's own, or
+  `PauseError.UninterpretableReply` (`pause.uninterpretable-reply`; `reason` — the interpreter's own, or
   the error's message — and `cause` when an error is behind it), and the pause stays `Pending`: ask
   for a clearer answer, or answer with a `decision`. A `reply` for a target without `channelInterpreter` is
-  `ReplyInterpreterMissingError` (`pause.channel-interpreter-missing`), the pause untouched.
+  `PauseError.ChannelInterpreterMissing` (`pause.channel-interpreter-missing`), the pause untouched.
 - Assembly checks, all at once with the channel rules: `[name.not-kebab-case]`,
   `[reply-interpreter.not-an-interpreter]` (a `channelInterpreter` class without `@ChannelInterpreter`),
   `[reply-interpreter.no-interpret-method]`, `[channel.shared-interpreter]` (one class in two roles).
@@ -356,7 +356,7 @@ the amount the agent asked", "only in the call's currency", "never below 0" are 
 and they hold only where every approval passes — whoever or whatever approved it, a button, a
 script, a model reading free text. Put them there: a tool interceptor's `@BeforeTool` / `beforeAnyTool` sees the
 call as it runs, after the approval and with any correction laid over it, and
-`ToolCallDecision.block(reason)` fails the step with `ToolBlockedError` before the tool runs; or
+`ToolCallDecision.block(reason)` fails the step with `StepError.ToolBlocked` before the tool runs; or
 the tool's (or action's) own check, and `min` / `max` on the input DTO's field for a plain bound,
 which the corrected call is validated against. This is deliberate, not a gap the framework leaves to fill later: "a raise",
 "another currency" or "too much" is a rule of the business, and only a check every approval passes
@@ -404,10 +404,10 @@ waits for `app.resume` (channel-less). Everything else is a pause like an approv
   `step` the question step, `input` the masked question; `ChannelOutcome.decided(answer)` goes on at once
   (`PauseResolution.Decided`).
 - `app.resume({ pauseId, decision })` — the decision validated as `AnswerDto` before anything is
-  recorded (`DtoValidationError`, the pause still pending); `{ pauseId, reply }` — read by the target's
-  interpreter into `AnswerDto` (not understood → `UninterpretableReplyError`, still pending; no
-  interpreter → `ReplyInterpreterMissingError`). Who may answer is the target's `respondent`, checked as above.
-- Exactly one answer wins (`PauseClosedError` for the second, at the same time too); another instance
+  recorded (`ValidationError.DtoInvalid`, the pause still pending); `{ pauseId, reply }` — read by the target's
+  interpreter into `AnswerDto` (not understood → `PauseError.UninterpretableReply`, still pending; no
+  interpreter → `PauseError.ChannelInterpreterMissing`). Who may answer is the target's `respondent`, checked as above.
+- Exactly one answer wins (`PauseError.Closed` for the second, at the same time too); another instance
   continues it from the checkpoint and the channel is not asked again; `app.cancel` withdraws it
   (its channel's `onPauseClosed` told); `retention.pauseRecords` and `result.record.pauses` as for any
   pause — the record's `kind` is `PauseKind.ExternalTask` (stored, never inferred), its step the
@@ -415,13 +415,13 @@ waits for `app.resume` (channel-less). Everything else is a pause like an approv
 - The step is code, no model: no step slot, not one of `maxSteps`; the execution's budgets are
   checked before it asks (a question when the money is gone asks nobody), its holder's fence right
   before `send` (a holder past its lease asks nothing). A `send` that throws, or a `decided(…)` that
-  is not an `AnswerDto`, is `QuestionFailedError` (`step.question`, a `StepFailedError`; `question`
+  is not an `AnswerDto`, is `StepError.ExternalTask` (`step.external-task`, a `StepError`; `question`
   the step, also in `details`) — `.onError(E, …)` right after `.toExternalTask(Task)` takes it.
 - **As an `.onError` side-path start (#933):** `.onError(E, toExternalTask(Task)…)` — an
   external task's step handles the failure (the escalation "the manager did not answer, ask the
   director"); it reads its `ask` from the path as it stood before the failed step, and its answer goes
   on the path. One task is one node: its `maxVisits` counts the main path and the side path together.
-  A side path that can catch a limit (`LimitExceededError`, `BudgetExceededError`, `AGBossError`, …)
+  A side path that can catch a limit (`LimitError`, `LimitError.Budget`, `AGBossError`, …)
   still leads only to actions and finishes: a question there is `[graph.limit-handler-uses-model]`
   (a reply interpreter may call a model).
 - The generated tables type the task as `{ input: AskDto; output: AnswerDto }`, so the channel's
@@ -458,10 +458,10 @@ it calls it like any tool, and:
 - Every guarantee of a question step holds: one answer wins, another instance resumes it, a cancel
   withdraws it, tenant and owner checks, an interpreter that does not understand keeps it pending.
 - The target's `maxVisits` bounds how many of its calls one visit of the agent asks: the next one fails
-  the step with `VisitsLimitExceededError` before it is asked. The budgets and the holder's fence
+  the step with `LimitError.Visits` before it is asked. The budgets and the holder's fence
   are checked before every ask (a budget another execution exhausted meanwhile asks nobody).
 - A `send` that throws, or a `decided(…)` that is not an `AnswerDto`, fails the agent's step
-  (`AgentFailedError`, the cause kept). A tool approval in `tools` is
+  (`StepError.Agent`, the cause kept). A tool approval in `tools` is
   `[channel.approval-role-as-tool]`. An agent loop with no pause seam reads a tool error.
 - Tests: `callTool(SpendingLimitExternalTask, { item, priceUsd })`, typed by the target's ask;
   `agboss describe` prints `asked at <agent>'s tool loop (<workflow>)`.
@@ -476,7 +476,7 @@ are `PauseRespondent.Owner` / `.Delegate` (#1307).
 
 | `respondent`                   | `resume` takes                                    | Its `pauseId`                                       |
 | ---------------------------- | ------------------------------------------------- | --------------------------------------------------- |
-| `PauseRespondent.Owner`  | the thread's `ownerId` (another → `ThreadOwnerError`) | listed in `result.pending`                      |
+| `PauseRespondent.Owner`  | the thread's `ownerId` (another → `ExecutionError.ThreadOwnerMismatch`) | listed in `result.pending`                      |
 | `PauseRespondent.Delegate`      | `actor: { id: "manager-17" }` — non-empty            | only in the channel's `ask.pauseId`                 |
 
 The channel's side authenticates who answers a `Channel` pause (Slack, a ticket system, an admin
@@ -505,7 +505,7 @@ after a crash — finds the same `pauseId`:
 | `Taken`       | its step took the decision and went on — or its channel decided at once                  |
 | `Cancelled`   | closed with no answer: a sibling failed under `FailFast`, its launch's quorum was decided, the thread was cancelled, the tree ended, or the deadline passed with nobody answering |
 
-An answer to anything but `Pending` → `PauseClosedError` (`pause.closed`: `pauseId`, `tenantId`,
+An answer to anything but `Pending` → `PauseError.Closed` (`pause.closed`: `pauseId`, `tenantId`,
 `reason: PauseClosedReason` — `answered`, `expired`, `cancelled`, `withdrawn`, `tree-ended`,
 `reassigned` —, `closedAt`; its message names the pause by its `pauseKey`, never its id), checked
 before a reply's interpreter is called: a double click, a late answer to a withdrawn question. An
@@ -534,7 +534,7 @@ passed is `expired` from that moment, before the expiry look has moved its tree.
 `@Application({ retention: { pauseRecords } })` after it was resolved — default `hours(24)` — and then
 removed by the [recovery sweep](Several-instances#recovery) (every 30 s, on the `Clock`) through
 `PausedExecutionRepository.deleteByResolvedAtBefore(cutoff)`. Within the window a late answer gets
-`PauseClosedError`; after it the id is unknown — `UnknownPauseError`. A `Pending` pause (and a
+`PauseError.Closed`; after it the id is unknown — `PauseError.UnknownPause`. A `Pending` pause (and a
 `Resolved` one no pass took yet) is never removed, however old. When the tree ends — finished,
 failed or cancelled — its stored paused run is removed (only that run's, never a later run of the
 thread) and every pause it still has is closed: a waiting one `Cancelled` (`PauseResolution.Cancelled`,
@@ -588,9 +588,9 @@ siblings' pauses are withdrawn — the tree goes on to the join (its `.onError(�
 execution fails with the branch's error) instead of waiting for answers nobody needs. The join
 runs in the pass that takes the withdrawal, and it still gets the error object the branch threw:
 `.onError(E, …)` matches by class and cause chain as always — `.onError(PaymentDeclinedError,
-…)` and `.onError(StepFailedError, …)` both take an agent that failed with a domain error, and
-without a handler the execution rejects with that same `AgentFailedError`. A channel whose `send`
-throws (not cancelled) fails the asking agent's step: `AgentFailedError`, the channel's error as its
+…)` and `.onError(StepError, …)` both take an agent that failed with a domain error, and
+without a handler the execution rejects with that same `StepError.Agent`. A channel whose `send`
+throws (not cancelled) fails the asking agent's step: `StepError.Agent`, the channel's error as its
 `cause` — never a tool error the model reads. A join's
 `deadline` counts elapsed time on the application's `Clock`, pauses included ([Parallel](Parallel)).
 
@@ -604,7 +604,7 @@ once a `.joinQuorum(…)` / `.joinQuorumGroups(…)` is decided — `max` counte
 deadline passed, it can no longer be reached, or it is found decided when a resume or a recovery
 rebuilds it — every pending pause of the launch's unfinished branches is withdrawn
 (`PauseResolution.Withdrawn`): the join runs in the same call, `result.pending` is empty and a late
-answer gets `PauseClosedError` (`reason: withdrawn`). A deadline that passes while the tree rests (every branch waiting,
+answer gets `PauseError.Closed` (`reason: withdrawn`). A deadline that passes while the tree rests (every branch waiting,
 nothing running) withdraws nothing until the tree moves again: the next pass — a resume, a recovery
 — finds the quorum decided, cancels the unfinished branches and withdraws their pauses then.
 
@@ -740,7 +740,7 @@ export class SlackRefundApprovalChannel {
   `send` threw). A pause opened before a listener was added has no `opened` for it (its mailbox did not
   exist); a receiver a deploy removed has its mailboxes set aside by the recovery sweep after the
   retention (`pause.notice-recipient-unknown`, once per mailbox) and its pauses removed with theirs.
-- Tests: `mockOf(SlackRefundApprovalChannel).onPauseClosed` records the calls; a contract that
+- Tests: `mockService(SlackRefundApprovalChannel).onPauseClosed` records the calls; a contract that
   resolves to a mocked implementation (a target, any `extends`) gets the mock too.
 
 ### `@ChannelListener`: every pause of the application
@@ -797,9 +797,9 @@ applied. An event carries the safe context — `pauseKey`, `tenantId`, `rootExec
 A pause asked in a **quorum** branch is bound by the quorum's deadline (`PauseExpiryBound.Quorum`, the smaller of
 it and the pause's own and the run's): at it the tree wakes by itself — no answer, no resume — and the quorum
 decides. The branch ends `BranchStatus.Expired`: it did not vote, never fails the launch, whatever its
-its `skip()`; `QuorumNotReachedError.expired` names the branches that expired. In a plain `.join()` an expired
+its `skip()`; `StepError.QuorumNotReached.expired` names the branches that expired. In a plain `.join()` an expired
 branch follows its `.onError(E, skip())`: a skipped one is dropped, else it fails the launch with the branch's
-`PauseExpiredError` for `.onError(PauseExpiredError, …)` and withdraws the branches still waiting. The side
+`StepError.PauseExpired` for `.onError(StepError.PauseExpired, …)` and withdraws the branches still waiting. The side
 path reads the answers already settled — each branch output as an `optional(XDto)` input of its first step —
 so it continues or escalates without asking anyone again. Each branch that had answered hears
 `onPauseJoinFailed` (`ChannelPauseJoinFailedEvent`: `launch`, `errorCode`, `at`; a listener's
@@ -826,10 +826,10 @@ deadline (`app.execute(…, { deadline })`, a mesh caller's remaining time): a t
 target's `timeout`.
 
 **A worked example: ask the manager for a day, then the director.** The tool approval has a deadline;
-the flow's `.onError(PauseExpiredError, …)` is the escalation — a question step on a side path.
+the flow's `.onError(StepError.PauseExpired, …)` is the escalation — a question step on a side path.
 
 ```ts file=desk-flow.ts
-import { Action, Application, Channel, ChannelOutcome, EmptyEnvironment, Injectable, PauseRespondent, PauseExpiredError, Workflow, WorkflowFinish, WorkflowStart, onStart, toExternalTask, type ActionHandler, type ChannelAsk, type InputOf, type OutputOf, toAction, toFinish, ExternalTask, ToolApproval, Ttl } from "@agboss/core";
+import { Action, Application, Channel, ChannelOutcome, EmptyEnvironment, Injectable, PauseRespondent, StepError, Workflow, WorkflowFinish, WorkflowStart, onStart, toExternalTask, type ActionHandler, type ChannelAsk, type InputOf, type OutputOf, toAction, toFinish, ExternalTask, ToolApproval, Ttl } from "@agboss/core";
 import { Bool, Text } from "@agboss/core/dto";
 import { hours } from "@agboss/core/units";
 
@@ -954,7 +954,7 @@ export class RecordEscalatedDeskAction implements ActionHandler<RecordEscalatedD
     onStart(DeskWorkflowStart)
       .toExternalTask(DeskManagerExternalTask)
       .onError(
-        PauseExpiredError,
+        StepError.PauseExpired,
         toExternalTask(DeskDirectorExternalTask)
           .toAction(RecordEscalatedDeskAction)
           .toFinish(DeskWorkflowFinish),
@@ -976,9 +976,9 @@ export class DeskWorkflow {}
 export class DeskApplication {}
 ```
 
-After 24 hours the manager's pause closes `expired`, the step fails with `PauseExpiredError`, the side
+After 24 hours the manager's pause closes `expired`, the step fails with `StepError.PauseExpired`, the side
 path asks the director (a pause of its own, with its own 24 hours) and its answer goes on to its own
-action. A question with no `.onError` for it fails the run with `PauseExpiredError`.
+action. A question with no `.onError` for it fails the run with `StepError.PauseExpired`.
 
 **A default answer instead of a failure.** The target that decides what "nobody answered" means
 implements `PauseExpiryHandler` — an `onExpired(ctx)` on the target class, not on its channel:
@@ -1010,7 +1010,7 @@ The step goes on with that answer as if the manager had answered, `actor` the
 target's name in the audit trail (`PauseResolution.DecidedOnExpiry`); `decide` is typed by the target's
 answer.
 
-**The deadline is hard.** An answer at or after it is refused with `PauseClosedError` (`reason:
+**The deadline is hard.** An answer at or after it is refused with `PauseError.Closed` (`reason:
 expired`, `closedAt` the deadline) — before a reply's interpreter reads anything, and in the store's
 own compare-and-set (`expires_at > at`), so an answer and the expiry racing at the deadline leave
 exactly one winner, whatever the instances' clocks. Within seconds the tree moves.
@@ -1018,9 +1018,9 @@ exactly one winner, whatever the instances' clocks. Within seconds the tree move
 **What an expiry means** is the channel's call. A channel (`implements PauseExpiryHandler<Role>`)
 may answer `onPauseExpired(ask)` — `ask` is what `send` got — with:
 
-- `PauseExpiration.fail()` (the default without the method): the step fails with `PauseExpiredError`
+- `PauseExpiration.fail()` (the default without the method): the step fails with `StepError.PauseExpired`
   (`step.pause-expired`: `step`, `stepKind`, `channel`, `kind`, `expiresAt`; never the pause's id) —
-  `.onError(PauseExpiredError, …)` escalates, a question step's side path may ask the next person.
+  `.onError(StepError.PauseExpired, …)` escalates, a question step's side path may ask the next person.
   Inside an agent an expired approval, or a question the agent asked as a tool, fails the whole
   **agent step**, its spend kept, and none of the move's calls ran;
 - `PauseExpiration.decide(answer)`: the step goes on with that answer, validated like a resume's
@@ -1039,13 +1039,13 @@ may answer `onPauseExpired(ask)` — `ask` is what `send` got — with:
 The handler runs under the tree's lease in the pause's frame under the tool's `timeout`, **once per
 expiry**: a crash before its decision was recorded may run it again, and one decision is recorded —
 so it must only read. A throw, a timeout, a value that is no `PauseExpiration` or an invalid answer
-makes the expiry `fail()` with an `ExpiryHandlerError` (`pause.expiry-handler-failed`, `problem`: `handler-failed`
+makes the expiry `fail()` with an `PauseError.ExpiryHandlerFailed` (`pause.expiry-handler-failed`, `problem`: `handler-failed`
 | `handler-timeout` | `answer-invalid`) as the cause; it is logged (`pause.expiry-handler-failed`,
 never the error's message). An instance that stops (`app.close()`) while a handler waits records no
 decision: another instance's look expires the pause.
 
 **A run's deadline bounds every pause.** A pause the run's deadline bound fails the run with
-`DeadlineExceededError` at the deadline — also while paused — and asks the channel nothing. A
+`LimitError.Deadline` at the deadline — also while paused — and asks the channel nothing. A
 mesh caller's remaining time bounds the receiver's pause; a child's pause the root's deadline.
 
 **A cancel always beats an expiry.** `app.cancel` after the deadline cancels the run and closes the
@@ -1125,14 +1125,14 @@ to `now + expiresIn` and returns `PauseExtension { pauseKey, expiresAt, previous
 optional `onPauseTimeoutChanged(event)` and a listener's `onPauseTimeoutChanged` hear "extended until `event.expiresAt`"
 (`previousExpiresAt` too), and the reminder is made again before the new deadline. It is refused:
 
-- a pause that is closed, or already past its deadline — `PauseClosedError` (`reason: expired`);
+- a pause that is closed, or already past its deadline — `PauseError.Closed` (`reason: expired`);
 - a pause with **no deadline** — none is ever added to it — and a new deadline that is not later than the
-  current one — `DtoValidationError` (`dto: "ExtendPauseRequest"`);
+  current one — `ValidationError.DtoInvalid` (`dto: "ExtendPauseRequest"`);
 - a deadline past the one the pause was made under — its run's (or a quorum's): exactly that deadline is
   allowed, and a pause extended to it expires there as the run's own, as one made with it does — also
-  `DtoValidationError`, naming that deadline;
-- another tenant's pause or an unknown id — `UnknownPauseError`.
-- eight lost races in a row against other extensions of the same pause — `PauseExtensionContendedError`
+  `ValidationError.DtoInvalid`, naming that deadline;
+- another tenant's pause or an unknown id — `PauseError.UnknownPause`.
+- eight lost races in a row against other extensions of the same pause — `PauseError.UpdateContended`
   (`pause.update-contended`; nothing changed, trying again is safe).
 
 ```ts
@@ -1153,7 +1153,7 @@ console.log(extension.expiresAt, extension.previousExpiresAt);
 The store applies the extension atomically: its compare-and-set applies it only while the pause is open, over
 the deadline the caller read (`PauseDeadlineChange.previousExpiresAt`) and to a deadline later than the stored
 one. So exactly one of an extension and an expiry at one tick wins, and of two extensions at once one wins and the
-other re-reads: it is refused ("not later", `DtoValidationError`) when the winner's deadline is at least as late,
+other re-reads: it is refused ("not later", `ValidationError.DtoInvalid`) when the winner's deadline is at least as late,
 and otherwise applied over the new deadline — the deadline never shortens, "extended" is told once by the writer
 that won, and `previousExpiresAt` is the deadline that write replaced. A store of your own does the same in its
 `extendByTenantIdAndPauseId` (the contract suite has the cases). An extended pause answered on any
@@ -1186,7 +1186,7 @@ The channel decides the order: it may take the buttons off the old message from 
 `replaces`) and treat the later `onPauseClosed(reassigned)` as a no-op, or the reverse. A `@ChannelListener`
 hears the old pause `closed` (`reason: reassigned`) and the replacement `opened`.
 
-What the old id does: `app.resume` with it is `PauseClosedError` (`reason: reassigned`, `closedAt` the time
+What the old id does: `app.resume` with it is `PauseError.Closed` (`reason: reassigned`, `closedAt` the time
 of the reassignment); the record is `Cancelled` / `PauseResolution.Reassigned` with `reassignedTo`. The
 deputy's answer, with the new id, goes on: the agent's model is not called again, its loop's state and spend
 are the ones it slept with, and `result.pending` lists the live pause. A quorum's or a group's branches are
@@ -1198,12 +1198,12 @@ without `includePauseIds`.
 
 It is refused:
 
-- a pause that is closed — `PauseClosedError` with the reason of its close — or whose deadline is at or before
+- a pause that is closed — `PauseError.Closed` with the reason of its close — or whose deadline is at or before
   the write (`reason: expired`, also when the look has not expired it yet);
 - an `assignee` that is no key's text (#589: non-empty, no control or invisible characters, NFC) —
-  `DtoValidationError` (`dto: "ReassignPauseRequest"`);
-- another tenant's pause or an unknown id — `UnknownPauseError`; a caller that may not answer it —
-  `ThreadOwnerError` / `PauseError.PermissionDenied`;
+  `ValidationError.DtoInvalid` (`dto: "ReassignPauseRequest"`);
+- another tenant's pause or an unknown id — `PauseError.UnknownPause`; a caller that may not answer it —
+  `ExecutionError.ThreadOwnerMismatch` / `PauseError.PermissionDenied`;
 - a pause its channel decided at once: it never waited, it is closed `answered`;
 - a pause whose channel is still being asked for the first time (its step's `send` has not returned) —
   `PauseError.UpdateContended` (`pause.update-contended`; nothing changed, trying again once the send returned
@@ -1230,7 +1230,7 @@ console.log(moved.pauseKey); // the new pause's key: a correlation, it answers n
 **Races.** One transaction of the store makes the old pause `Reassigned` and the replacement `Pending` (unsent,
 the old deadline and question, the step key `<original>~r<n>` — a second reassignment is `~r2`, never
 `~r1~r1`), and writes the old pause's `closed` notices: of two reassignments at once, or a reassignment and an
-answer, exactly one wins, and the loser gets `PauseClosedError` with the reason of the winner's close. A
+answer, exactly one wins, and the loser gets `PauseError.Closed` with the reason of the winner's close. A
 store of your own does the same in `reassignByTenantIdAndPauseId` (the contract suite has the cases).
 
 **A crash between the write and the new message.** After the transaction the call asks the channel in the
@@ -1312,7 +1312,7 @@ counted over the **union** of the schedules (overlapping hours once), working da
 schedule's own count, in its own zone. A holiday that must not go stale is a rule, `isHoliday(localDate)`
 (asked once per date a walk crosses), beside `holidays`. A schedule with no working time in a year (a rule
 that is always `true`) or an `anyOf([])` is refused: `[working-calendar.invalid]` at start for a declared
-week, `WorkingCalendarError` (`invalid-schedule`) at run time for a resolved one.
+week, `PauseError.WorkingCalendar` (`invalid-schedule`) at run time for a resolved one.
 
 **The grid's rule is pointwise.** An instant is working time when its local wall-clock time in `timeZone`,
 on its local date, lies in some `hours` interval `[from, to)` and in no `breaks` interval, and its local
@@ -1346,22 +1346,22 @@ otherwise none.
 
 **`extendPause` with working time.** `expiresAt = calendar.add(now, expiresIn)`, the reminder from `now` as
 above. A **plain** `expiresIn` for a pause whose target reminds in working time is refused with
-`DtoValidationError` (`dto: "ExtendPauseRequest"`, `.expiresIn`: "this target reminds in working time: extend
+`ValidationError.DtoInvalid` (`dto: "ExtendPauseRequest"`, `.expiresIn`: "this target reminds in working time: extend
 it with workingHours / workingMinutes"); a pause whose channel has no calendar any more is refused working
 time the same way. The pause is unchanged on every refusal. **The calendar may take seconds, the write is
 decided at its own instant:** the deadline counts from the call's start, but whether the pause is still open
 is decided with the clock read after the calendar answered (and the store's compare-and-set takes that
-instant as its `at`). A deadline that passed while the calendar computed is not moved — `PauseClosedError`,
+instant as its `at`). A deadline that passed while the calendar computed is not moved — `PauseError.Closed`,
 as for a plain extension, even when the expiry is still being handled (#1148).
 
 **A calendar that cannot answer fails closed.** A throw, a timeout (the calendar's `timeout`, `sec(30)` unless it says otherwise, on the application's
 clock), an answer that is not a valid `Date`, or a date not after `from`: the step fails and **nobody is
-asked, no pause record is made** — `QuestionFailedError` (a question step) or `AgentFailedError` (an agent's
-approval or question tool) with a `WorkingCalendarError` as its `cause` (`pause.working-calendar`;
+asked, no pause record is made** — `StepError.ExternalTask` (a question step) or `StepError.Agent` (an agent's
+approval or question tool) with a `PauseError.WorkingCalendar` as its `cause` (`pause.working-calendar`;
 `calendar` its name, `problem`: `calendar-failed` | `calendar-timeout` | `not-a-date` | `not-after-start` | `invalid-schedule` | `mixed-units`;
 its message never holds the calendar's own error text, which is the cause only in-process); logged as
 `pause.working-calendar-failed`. The step's re-entry asks the calendar again (no record was made). An
-extension that meets the same rejects with that `WorkingCalendarError`. There is no fallback to wall-clock
+extension that meets the same rejects with that `PauseError.WorkingCalendar`. There is no fallback to wall-clock
 time: that would be a deadline nobody asked for, silently. A grid with no working time at all — an unknown
 time zone, no days, a bad interval, a break outside the hours, a malformed holiday, no working minute in a
 week — is `[working-calendar.invalid]` when the application starts. So is a working span the grid cannot
@@ -1378,7 +1378,7 @@ than the walk would fail). The walk itself stays bounded (25 years plus the holi
 ## Late answers (#939, #941)
 
 A pause is answered once. Whoever comes later — a double click, a webhook that retries, a manager who
-saw the message a minute after the deadline — gets `PauseClosedError` (`pause.closed`), and nothing
+saw the message a minute after the deadline — gets `PauseError.Closed` (`pause.closed`), and nothing
 moves: the error says **why** the pause is closed, so the answering side can tell the person.
 
 <!-- snippet-context
@@ -1388,13 +1388,13 @@ declare const pauseId: string;
 -->
 
 ```ts
-import { PauseClosedError, PauseClosedReason } from "@agboss/core";
+import { PauseError, PauseClosedReason } from "@agboss/core";
 
 // the Slack webhook of "Approve": the pause may be closed by now
 try {
   await app.resume({ pauseId, decision: { approved: true } }, { tenantId: "acme", actor: { id: "manager-17" } });
 } catch (error) {
-  if (!(error instanceof PauseClosedError)) throw error;
+  if (!(error instanceof PauseError.Closed)) throw error;
   const sorry =
     error.reason === PauseClosedReason.Expired
       ? `Too late: the question closed at ${error.closedAt}`
@@ -1415,13 +1415,13 @@ try {
   ([Telling the channel and the listeners](#telling-the-channel-and-the-listeners-940)). Another answer
   to such a pause is refused `answered`: one answer was recorded already.
 - **After the retention** (`retention.pauseRecords`, 24 h) the record is gone and the id is unknown:
-  `UnknownPauseError`. Over [A2A](A2A) a late follow-up is `-32004` with `a2a.pause-closed`.
+  `PauseError.UnknownPause`. Over [A2A](A2A) a late follow-up is `-32004` with `a2a.pause-closed`.
 
 ## Concurrent answers
 
 A resume has two phases (Q58): **1. record the decision** — after the credential check and the
 validation, the root's record of a resting tree is made `running`, then the pause goes from
-`Pending` to `Resolved` atomically; a second resume of the same `pauseId` gets `PauseClosedError` and
+`Pending` to `Resolved` atomically; a second resume of the same `pauseId` gets `PauseError.Closed` and
 moves nothing. A resume whose process dies after phase 1 leaves a `running` root: recovery
 ([Several instances](Several-instances#recovery)) takes its lease and continues it with the recorded
 decision, once (#850). **2. move the tree** — the call takes the tree's
@@ -1443,14 +1443,14 @@ first.
 `app.resume(…)` in a test answers like a webhook: a `ThreadOwner` pause by
 `result.pending[0].pauseId`, a `Channel` pause by the `pauseId` your test implementation of the target
 was sent. `AutoApproveChannel` / `AutoRejectChannel` named on a tool decide at once (no pause), and
-`mockOf(Implementation).send.mockResolvedValue(ChannelOutcome.decided({ approved: true }))` scripts a
+`mockService(Implementation).send.mockResolvedValue(ChannelOutcome.decided({ approved: true }))` scripts a
 role's implementation ([Testing](Testing)). `testWith(App, { instances: 2 })` answers two pauses of
 one tree from two instances at once. A model reply interpreter is scripted by what it reads —
-`mockLlm(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`,
-one on a decision model by its yes / no — `mockLlm(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }))`
+`mockModel(RefundReplyInterpreter).when({ reply: "ok, but only half" }).thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true, … }))`,
+one on a decision model by its yes / no — `mockModel(DepositReplyInterpreter).thenReturn(decideWith({ approved: 0.9 }))`
 (#267 S124) — and a code one replaced with
-`mockOf(Interpreter).interpret.mockReturnValue(ChannelInterpretation.understood({ approved: true }))`
-(`mockLlm` of a code interpreter is a setup error: it calls no model). Retention is tested with `clock.advance(…)`: the sweep runs on the
+`mockService(Interpreter).interpret.mockReturnValue(ChannelInterpretation.understood({ approved: true }))`
+(`mockModel` of a code interpreter is a setup error: it calls no model). Retention is tested with `clock.advance(…)`: the sweep runs on the
 test's clock.
 
 ## Not yet

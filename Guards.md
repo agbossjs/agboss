@@ -121,14 +121,14 @@ export class TenantBlocklistGuardrail {
 Everything else is a model guardrail's: the refusal of a block is the one `blocked(refusal)` gives (it
 lives on that call's verdict, never on the shared instance — no `this.lastReason`), else the decorator's
 text, else the class's `refusal(content)`; a `blocked()` with none of the three fails closed
-(`GuardFailedError`). `check`
+(`StepError.Guardrail`). `check`
 reads the same text a model guardrail's model reads — **masked** (`<email:7f3a91>`, never the
 address) —, in the step's frame (its services and the execution through `deps`); the levels and
 `excludeGuardrails` are the same, and so are the placement rules (a model router takes the input
 ones, a code router none). `GuardrailVerdict.blocked()` fails the execution with the same
-`GuardrailBlockedError` and its refusal — `probability` 1, `threshold` 1; a pass is `probability` 0
+`GuardrailError.Blocked` and its refusal — `probability` 1, `threshold` 1; a pass is `probability` 0
 in `onGuardrailEnd`. A `check` that throws (its error the `cause`) or returns no `GuardrailVerdict`
-fails closed: `GuardFailedError`. No model call, no spend, no `guardrail:<name>` line. A code
+fails closed: `StepError.Guardrail`. No model call, no spend, no `guardrail:<name>` line. A code
 guardrail whose class has no `check(content)` method is `[guardrail.missing-handler]` at assembly.
 `agboss describe` prints `tenant-blocklist-guardrail — output · code · refusal: "The
 response contained restricted terms." · on support-agent`, and `configHash` covers its name, side,
@@ -147,7 +147,7 @@ A guardrail never reads the raw text: it is behind the model boundary like the m
 under a heading — `### message (to support-agent)` or `### answer (from support-agent)` — a decision
 model as one `Decision.boolean`, a chat model through the answer tool `answer-guardrail` (one boolean).
 Guardrails of one element run in list order; the first that blocks fails the execution with
-`GuardrailBlockedError` (`guardrail.blocked`):
+`GuardrailError.Blocked` (`guardrail.blocked`):
 
 | Field         | What                                                                                       |
 | ------------- | ------------------------------------------------------------------------------------------ |
@@ -158,7 +158,7 @@ Guardrails of one element run in list order; the first that blocks fails the exe
 | `threshold`   | its threshold                                                                              |
 
 A model that does not answer (a failed call, an unreadable answer) **fails closed**:
-`GuardFailedError` (`step.guard`, a `StepFailedError`) — nothing passes unchecked. Each check costs
+`StepError.Guardrail` (`step.guardrail`, a `StepError`) — nothing passes unchecked. Each check costs
 `guardrail:<name>` (category `guards` in the spend), counted in the execution's budgets; observers
 get `onGuardrailStart` (`input: { side, component, text }`, the masked text) and `onGuardrailEnd`
 (`update: { isBlocked, probability }`).
@@ -226,14 +226,14 @@ other (`guardrails.<name>` in `[model.unserved]`).
 ### Testing
 
 Under `testWith` an unscripted guardrail passes — content checks are not what most tests are about;
-`mockLlm(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` blocks (a chat-model
-guardrail is scripted the same way: P(yes) > 0.5 is `true`), and `mockLlm(G).requests` shows the
+`mockModel(LegalAdviceGuardrail).thenReturn(decideWith({ blocks: 0.9 }))` blocks (a chat-model
+guardrail is scripted the same way: P(yes) > 0.5 is `true`), and `mockModel(G).requests` shows the
 masked text it read. On its own, `testUnit(G, options)(text, { element })` checks one text —
 its rules first, its refusal computed in a step's frame — and gives `{ isBlocked, probability,
 refusal? }` ([Testing](Testing)). A code guardrail is never scripted: `testUnit(G)` runs its
 `check(text)` on its own container (a `model` option is a `TestSetupError`), `{ isBlocked: true,
-probability: 1, refusal }` or `{ isBlocked: false, probability: 0 }`; under `testWith`, `mockLlm(G)`
-says it calls no model — `mockOf()` the services its `check` uses.
+probability: 1, refusal }` or `{ isBlocked: false, probability: 0 }`; under `testWith`, `mockModel(G)`
+says it calls no model — `mockService()` the services its `check` uses.
 
 ### Before #120 PR 2
 
@@ -343,7 +343,7 @@ prefixes, IPv4 octets, coordinate ranges, SWIFT country codes. The kinds marked 
 in free text only the policy's `model` (a chat model; its calls are `pii:<policy>` in the spend, every
 model checked against the providers' `serves`) finds them, and a rule naming one without it is
 `[pii.kind-needs-model]`. A detection answer that is not the JSON asked for fails closed
-(`PiiDetectionFailedError`, `pii.detection-failed`): nothing goes to the model unmasked.
+(`PiiError.DetectionFailed`, `pii.detection-failed`): nothing goes to the model unmasked.
 
 ### Actions
 
@@ -382,7 +382,7 @@ not optional and not set fails the start, naming the variable — never its valu
 `block()` without
 a text takes `refusal(kind)` of the class (`implements PiiRefusal`, its services through `deps`);
 none → `[pii.missing-refusal]`, a method no rule uses → `[pii.unused-refusal]`. A block rule in an
-incoming message or in an answer fails the execution with `PiiRefusedError` (`pii.refused`,
+incoming message or in an answer fails the execution with `PiiError.Refused` (`pii.refused`,
 `kind`, `refusal` — the text to send instead); in tool arguments or a tool result it rejects only
 that call (the model reads `Tool error: the call was refused: …`).
 
@@ -466,7 +466,7 @@ workflow that launches another workflow fingerprints the application's and its o
 lists as `handedDown` — also when it has no agent or router of its own, such as an orchestrator
 root — and its root's hash covers every child's part (#336). So every policy in effect anywhere in
 a tree is in the root's `configHash`: a deploy that changes an inherited policy makes a tree paused
-inside the child `IncompatibleResumeError` unless the root's `onIncompatibleResume` accepts it. The policies in
+inside the child `ExecutionError.IncompatibleResume` unless the root's `onIncompatibleResume` accepts it. The policies in
 effect at each agent's and router's model — their rules and actions — are part of the workflow's
 config hash ([Turns and evaluation](Turns-and-evaluation#what-the-config-hash-covers-120-pr-4)): an
 `excludePiiPolicies` on one agent changes it. A declarative policy's `refusal(kind)` is checked on
@@ -502,6 +502,6 @@ kind field as `<field-name>`.
 
 Under `testWith` a `secret` (a policy's, or the storage's `piiSecret`) whose variable is unset gets a
 fixed test key (a `previousSecret` another one), and
-`mockLlm(ContactPiiPolicy)` scripts a policy's model detection like any model.
+`mockModel(ContactPiiPolicy)` scripts a policy's model detection like any model.
 
 **Standalone executable proof:** [`03-support-refund-desk`](https://github.com/agbossjs/agboss-examples/tree/main/03-support-refund-desk) in [`agbossjs/agboss-examples`](https://github.com/agbossjs/agboss-examples) — see [Example](Example#standalone-verified-applications-agbossjsagboss-examples).

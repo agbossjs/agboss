@@ -364,7 +364,7 @@ export class QuotesA2AEndpoint {}
   is accepted anew — its retention counts from the takeover — so a reply a takeover keeps is never
   thrown away under a waiting resend.
 - **The client.** `A2AClient` takes a `Message` answer without waiting for a task; a message with no
-  output it can read is `A2ARemoteCallError` `no-task`. For a skill whose card says `reply:
+  output it can read is `A2AError.Remote` `no-task`. For a skill whose card says `reply:
 "message"`, an ambiguous send is resent with its `messageId` only within the card's
   `messageIdempotencyRetention` (15 min when it declares none) — never the tasks' 24 h; past it the
   call fails closed, `OutboundCallError.Unreconciled`.
@@ -377,23 +377,23 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
 - **Discovery.** `url` is the agent's base URL: its card is read from
   `<url>/.well-known/agent-card.json` on first use and kept `cardTtl` (5 minutes). Before anything
   is sent it is checked: an A2A 1.0 interface on JSON-RPC or HTTP+JSON (a v0.3-only card is
-  `A2AProtocolError` with `protocolVersions: ["0.3.0"]`); the named `target.skill` among its skills
+  `A2AError.Protocol` with `protocolVersions: ["0.3.0"]`); the named `target.skill` among its skills
   (`[a2a.unknown-skill]`; optional with one skill); when an AGBoss peer declares the skill's schemas
   (the skills extension `https://agboss.dev/a2a/skills/v1`), the skill's input must accept the input
   DTO and the output DTO every finish output (`[a2a.schema-mismatch]`, compared like
-  [§8](#8-the-federation-check-398-pr-4)) — both `A2AContractError`.
+  [§8](#8-the-federation-check-398-pr-4)) — both `A2AError.Contract`.
 - **Some finishes only (#916).** By default a typed client's `output` covers every finish of its
   skill. `@A2AAgent({ target: { finishes: ["answer-workflow-finish"] } })` names the ones it takes:
   the card check compares only those, each a finish the card lists (`[a2a.unknown-finish]`,
-  `A2AContractError` with `rule: A2AContractRule.UnknownFinish`; at assembly already for a name no
+  `A2AError.Contract` with `rule: A2AContractRule.UnknownFinish`; at assembly already for a name no
   `@WorkflowFinish` could have, an empty list, a name twice or an agent with no `output`). A task
   that ends at another finish (its artifact's `metadata[skills-uri].finish`) fails the call with
-  `A2AUnexpectedFinishError` (`a2a.unexpected-finish`: `agent`, `finish`, `finishes`, `taskId`)
-  before its output is read — a step's side path takes it, `.onError(A2AUnexpectedFinishError, …)`;
+  `A2AError.UnexpectedFinish` (`a2a.unexpected-finish`: `agent`, `finish`, `finishes`, `taskId`)
+  before its output is read — a step's side path takes it, `.onError(A2AError.UnexpectedFinish, …)`;
   an answer that names no finish (a foreign agent's) is read as before. `agboss describe` prints
   `· finishes: …` on the agent's line, `--json` the import's `target.finishes`.
 - **Origins.** Every interface the card names must be on the `url`'s origin or one of
-  `allowedOrigins` (`["https://rpc.billing.example"]`), else `A2AOriginError`
+  `allowedOrigins` (`["https://rpc.billing.example"]`), else `A2AError.OriginRefused`
   (`a2a.origin-refused`): no request goes elsewhere — so the client's headers (`headers`,
   `getHeaders()`) never leave its origins — and a redirect off them is refused, never followed.
 - **The message.** `execute(input)` sends one `data` part (`application/json`; one `text` part for
@@ -424,22 +424,22 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
 - **Waiting** is a pure read, safe after any crash: `SubscribeToTask` when the card streams (a
   dropped stream is opened again, then polling), else `GetTask` polled on the `Clock` (250 ms
   doubling to 5 s). A task that works — an out-of-band pause included — is waited for up to the
-  execution's deadline or `call.timeout`: then a best-effort `CancelTask` and `A2ACallDeadlineError`
+  execution's deadline or `call.timeout`: then a best-effort `CancelTask` and `A2AError.Deadline`
   (`cancel: A2ACancelOutcome` — `canceled`, `not-canceled`, `refused`, `no-answer`). Every event and
-  read must be of the waited task (another id, a message in its stream: `A2ARemoteCallError`); a
+  read must be of the waited task (another id, a message in its stream: `A2AError.Remote`); a
   read that fails transiently (no answer, a 5xx, 408, 429, `-32603`) is tried again, by stream or
   poll alike, any other ends the wait; the caller's `onEvent` failing ends it with its own error. The call's `signal` ends the wait with its reason and cancels nothing.
 - **Outcomes.** COMPLETED → the output, read from the artifact an AGBoss finish marks
-  (`metadata[skills-uri].finish`) when the task has one, else from every artifact in order (none readable: `A2ARemoteCallError`, was `A2ARemoteError`);
-  FAILED / REJECTED → `A2ATaskFailedError` (an AGBoss peer's `limit.mesh-loop` / `limit.hops` → the
-  same `MeshLoopDetectedError` / `HopsLimitExceededError`, rebuilt only from an addressed, signed
-  peer — from an unaddressed server they are not rebuilt — and carrying `isRemote: true`); CANCELED → `A2ATaskCancelledError`;
-  INPUT_REQUIRED → `A2ATaskInterruptedError` from `execute` (a remote pause is not a local one yet),
-  the task from `send`; a JSON-RPC error → `A2AProtocolError` (`rpcCode`); a refused caller →
+  (`metadata[skills-uri].finish`) when the task has one, else from every artifact in order (none readable: `A2AError.Remote`, was `A2ARemoteError`);
+  FAILED / REJECTED → `A2AError.TaskFailed` (an AGBoss peer's `limit.mesh-loop` / `limit.hops` → the
+  same `LimitError.MeshLoop` / `LimitError.Hops`, rebuilt only from an addressed, signed
+  peer — from an unaddressed server they are not rebuilt — and carrying `isRemote: true`); CANCELED → `A2AError.TaskCancelled`;
+  INPUT_REQUIRED → `A2AError.TaskInterrupted` from `execute` (a remote pause is not a local one yet),
+  the task from `send`; a JSON-RPC error → `A2AError.Protocol` (`rpcCode`); a refused caller →
   `A2ACallerRejectedError`. Only codes: an agent's message, status text or body is never kept.
 - **The mesh** rides as the extension `https://agboss.dev/a2a/mesh/v1`: `mesh: A2AMesh.Required`
   (the default with a `target.application`; a card without the extension is
-  `A2AMeshUnsupportedError`, nothing sent) or `A2AMesh.IfSupported` (`result.peer.mesh: false`). The
+  `A2AError.MeshUnsupported`, nothing sent) or `A2AMesh.IfSupported` (`result.peer.mesh: false`). The
   envelope ([§6](#6-the-mesh--call-chains-hops-and-loops-398)) goes in
   `message.metadata[uri].envelope` with `A2A-Extensions` and `traceparent`, its `bodyHash` the
   message's canonical JSON without that entry (`meshBodyHashOf`); it is signed only with an
@@ -449,7 +449,7 @@ the 0.1.0 wire is gone, on both sides ([Upgrading to 0.1.1](Upgrading-to-0.1.1))
   the agent echoed the extension in its answer's `A2A-Extensions` (#810, spec §4.6) — an agent that
   does not is called without the mesh, said in the tool call's record (`remote: { application,
 executionId: <task id>, mesh: false }`) and in `agboss describe` (`a2a agents`: `mesh: required` /
-  `mesh: not guaranteed (foreign peer)`). The `price` is charged to the step (`a2a:<application>`)
+  `mesh: not guaranteed (foreign peer)`). The `costPerCall` is charged to the step (`a2a:<application>`)
   when the call is accepted — a call that later runs out of time or fails there is charged too; a
   call the agent refused before anything ran (its task `REJECTED` at the accept: a mesh loop, a
   chain past its `maxMeshHops`) is charged nothing, its price neither, on any pass, a takeover's
@@ -459,7 +459,7 @@ application, executionId, refused: true }`). Only an AGBoss agent the mesh rode 
   refusal is the agent's word, so it is fail-closed: such a task is never waited on and none of its
   output is used; the client reads it once more (`GetTask`) — still refused, the limit is thrown;
   anything else (working, completed) contradicts it, so the price is charged and the call fails
-  with `A2AProtocolError` — and a verified run
+  with `A2AError.Protocol` — and a verified run
   report's spend above it at the end (the report must name the call's task); a completed task with
   no run report the caller verifies — an untrusted caller, a peer that signs nothing, another body's
   or task's report — is charged the price alone and said so in the tool call's record (`remote: {
@@ -477,7 +477,7 @@ application, executionId, report: false }`, #844). **Exactly once across
 `testWith`'s `a2aServer({ endpoint, authenticator, base? })` serves the test's `app` through
 `a2aHttpListener` on `127.0.0.1:0` and returns `{ url }` (`A2ATestServer`); the loopback is open
 for it (no `allowNetwork` needed) and the server is closed at the test's end. The authenticator comes
-from the test app's container, so `FixedApiKeyDirectory` and `mockOf`
+from the test app's container, so `FixedApiKeyDirectory` and `mockService`
 reach it.
 
 ```ts no-check: ShopApplication and its workflow are not written out on this page
@@ -554,15 +554,15 @@ A refusal runs nothing (no observer event, no record), like a refused caller. A 
 `maxHops` counts applications (`hops` = the chain + the receiver); anything but a whole number
 from 1 is `[limits.max-mesh-hops-invalid]`. A resume is not checked: its execution has its chain.
 
-**On the caller** a `409` (MCP), or over A2A the `REJECTED` task's code and details ([§4](#4-the-client-side--a2a-v10-809)), is rethrown as `MeshLoopDetectedError` (`limit.mesh-loop`:
-`entry`, `chain`) or `HopsLimitExceededError` (`limit.hops`: `entry`, `chain`, `maxMeshHops`,
-`hops`) — both `LimitExceededError`s. `execute` does the same for a remote run that another hop's
+**On the caller** a `409` (MCP), or over A2A the `REJECTED` task's code and details ([§4](#4-the-client-side--a2a-v10-809)), is rethrown as `LimitError.MeshLoop` (`limit.mesh-loop`:
+`entry`, `chain`) or `LimitError.Hops` (`limit.hops`: `entry`, `chain`, `maxMeshHops`,
+`hops`) — both `LimitError`s. `execute` does the same for a remote run that another hop's
 limit stopped: a failed task carries the error's `code`, and for these two limits its `details`. A tool that meets one **fails its step** with it — the model never reads it (a retry
 would loop again) — so a whole chain `A → B → A` fails at every hop, deterministically; take it on
 the path (its side path leads to actions and finishes only, as for every limit):
 
 <!-- snippet-context
-import { inline, Agent, MeshLoopDetectedError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, Ttl } from "@agboss/core";
+import { inline, Agent, LimitError, Workflow, WorkflowFinish, WorkflowStart, onStart, toFinish, Ttl } from "@agboss/core";
 import { WorkflowFinishTextDto, WorkflowStartTextDto } from "@agboss/core/dto";
 @Agent({ name: "orders-agent", description: "Orders", prompt: inline("Answer."), model: "moonshotai/kimi-k2.6" })
 export class OrdersAgent {}
@@ -583,7 +583,7 @@ export class LoopedWorkflowFinish {}
     onStart(OrdersWorkflowStart)
       .toAgent(OrdersAgent) // its tool calls the billing application over A2A
       .onError(
-        MeshLoopDetectedError, // billing called back into orders-workflow-start
+        LimitError.MeshLoop, // billing called back into orders-workflow-start
         toFinish(LoopedWorkflowFinish),
       )
       .toFinish(OrdersWorkflowFinish),
@@ -692,8 +692,8 @@ What a trusted request gets — an untrusted one none of it:
 
 | From the caller                 | The receiver                                                                                                                                 |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `budget.remaining`              | one more execution budget, `caller-budget` — it only lowers its own: `BudgetExceededError` (`"limited"`)                                     |
-| `deadline.remaining`            | the execution's deadline, the smaller of it and its own: `DeadlineExceededError` (`limit.deadline`)                                          |
+| `budget.remaining`              | one more execution budget, `caller-budget` — it only lowers its own: `LimitError.Budget` (`"limited"`)                                     |
+| `deadline.remaining`            | the execution's deadline, the smaller of it and its own: `LimitError.Deadline` (`limit.deadline`)                                          |
 | `origin` and the chain's length | `executionContext.origin`, the execution record's `origin` and every observer event's — its resumes' and recoveries' too (`ExecutionOrigin`) |
 | its body and idempotency key    | the body checked, the request deduplicated                                                                                                   |
 
@@ -709,7 +709,7 @@ report is ignored: a caller never pays what an untrusted peer says.
 **The deadline** is yours too: `app.execute(Start, input, { deadline: seconds(30) })` — fixed on the
 `Clock` when the execution starts, kept in its state (a pause counts), checked where the budgets
 are: before every agent and router step and every model call (a call in flight is not cut short).
-`DeadlineExceededError` (`limit.deadline`: `deadline`, `deadlineAt`) is a `LimitExceededError`.
+`LimitError.Deadline` (`limit.deadline`: `deadline`, `deadlineAt`) is a `LimitError`.
 
 The envelope's `audience` and a contract price come with declared contracts ([§7](#7-declared-contracts-398-pr-3)).
 
@@ -733,7 +733,7 @@ its operation are read, **before the authenticator and before anything runs**:
    is as long as `maxMeshHops`, is accepted as a **`REJECTED` task** — `status.message.metadata[uri]
 = { code: "limit.mesh-loop" | "limit.hops", details: { entry, chain, maxMeshHops? } }`, nothing
    started, a resend of its `messageId` gets it again — which the AGBoss client rebuilds into the
-   same `MeshLoopDetectedError` / `HopsLimitExceededError`.
+   same `LimitError.MeshLoop` / `LimitError.Hops`.
 5. The execution runs with the envelope's chain, and a trusted caller's origin
    (`executionContext.origin`), budget (`caller-budget` — a step's spend past it fails the remote
    execution with `limit.budget`) and deadline. The card declares the extension
@@ -805,11 +805,11 @@ input, output } })` (`A2AClientContract`, #809); without its DTOs, `execute` thr
   `[a2a.no-contract]` (`send` needs none).
 - Names: kebab-case, no suffix needed (`[name.not-kebab-case]`); `target` is optional (#809: a foreign agent has no application) and names a
   `skill` (was `start`). Files: `a2a/<name>.a2a-agent.ts`.
-- **The price**: the calling tool's spend records the larger of `price` and the spend a
+- **The price**: the calling tool's spend records the larger of `costPerCall` and the spend a
   trusted peer's signed run report gives — the price alone without one — as `a2a:<application>`;
   nothing for a call the agent `REJECTED` before anything ran (#849).
 - **The audience**: the envelope's `audience` is `target.application` (over MCP an `@McpServer({
-target: { application, expose } })`'s). A receiver of another name refuses it, signed or not,
+target: { application, endpoint } })`'s). A receiver of another name refuses it, signed or not,
   before its authenticator — `401 { "code": "mesh.audience-mismatch" }` (MCP: an error result with that
   code): a call meant for one application is never run by another it was forwarded to. A signed
   envelope must name one (#809): a sender signs only with an audience, and a signed envelope without
@@ -860,7 +860,7 @@ export class BillingApplication {}
 - `[a2a.endpoint-description-required]` (a blank `description`), and two warnings, errors under
   `--strict`: `[a2a.skill-tags]` (a skill with no `skills: { [start]: { tags } }`; the card says the
   application's name) and `[a2a.unpriced-foreign-peer]` (an `@A2AAgent` without `target.application`
-  and without `price`: a foreign peer's spend is invisible to the budgets) (#812).
+  and without `costPerCall`: a foreign peer's spend is invisible to the budgets) (#812).
 
 **`describe --json`** — `application.contracts`:
 
@@ -868,12 +868,12 @@ export class BillingApplication {}
 {
   "exports": [
     {
-      "kind": "a2a", "expose": "billing", "version": "1.0.0",
+      "kind": "a2a", "endpoint": "billing", "version": "1.0.0",
       "skill": "billing-workflow-start", "workflow": "billing-workflow", "reply": "task", "cardFileFields": "extension",
       "input": { "dto": "InvoiceQuestionDto", "schemaHash": "600a…" },
       "outputs": [{ "finish": "billing-answer-workflow-finish", "dto": "InvoiceAnswerDto", "schemaHash": "6b22…" }]
     },
-    { "kind": "mcp", "expose": "billing-mcp-expose", "version": "1.0.0", "tool": "invoice-status-tool", "input": { "dto": "InvoiceQueryDto", "schemaHash": "380d…" } }
+    { "kind": "mcp", "endpoint": "billing-mcp-expose", "version": "1.0.0", "tool": "invoice-status-tool", "input": { "dto": "InvoiceQueryDto", "schemaHash": "380d…" } }
   ],
   "imports": [
     {
@@ -882,9 +882,9 @@ export class BillingApplication {}
       "usedBy": [{ "workflow": "orders-workflow", "tool": "ask-billing-tool" }],
       "input": { "dto": "InvoiceQuestionDto", "schemaHash": "600a…" },
       "output": { "dto": "InvoiceAnswerDto", "schemaHash": "6b22…" },
-      "price": 0.05
+      "costPerCall": 0.05
     },
-    { "kind": "a2a", "client": "weather-a2a-agent", "foreign": true, "target": null, "usedBy": [], "input": null, "output": null, "price": null },
+    { "kind": "a2a", "client": "weather-a2a-agent", "foreign": true, "target": null, "usedBy": [], "input": null, "output": null, "costPerCall": null },
     { "kind": "mcp", "server": "kb", "tool": "search", "target": null, "usedBy": [{ "workflow": "orders-workflow", "tool": "search-kb-tool" }], "input": { "…": "…" }, "output": { "…": "…" } }
   ],
   "schemas": { "InvoiceQuestionDto": { "schemaHash": "600a…", "jsonSchema": {} } }
@@ -913,11 +913,11 @@ npx agboss check --federation ../snapshots            # in this application, bef
 
 Every consumed contract whose target application is among the snapshots (or is this application)
 is checked against that application's exports — an `@A2AAgent`'s `target.application` and
-`target.skill` (paired with the export's `skill`, the exported start's name), an `@McpServer`'s `target: { application, expose }` and its tools:
+`target.skill` (paired with the export's `skill`, the exported start's name), an `@McpServer`'s `target: { application, endpoint }` and its tools:
 
 | Code                                 | When                                                                                                                                                                                                                               |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `[federation.missing-target]`        | the target application exports no such skill (or no such tool under that expose); never for a foreign `@A2AAgent`, which is skipped                                                                                                |
+| `[federation.missing-target]`        | the target application exports no such skill (or no such tool under that endpoint); never for a foreign `@A2AAgent`, which is skipped                                                                                                |
 | `[federation.incompatible-schema]`   | the export's input does not accept every value the consumer may send, or the consumer's output does not accept every value one of the export's finishes may give — of those its `target.finishes` names, when it names some (#916) |
 | `[federation.unknown-finish]`        | the consumer's `target.finishes` names a finish the export's start does not have (#916)                                                                                                                                            |
 | `[federation.snapshot-schema]`       | a file that is not an `agboss describe --json` output with `application.contracts` (or a path that does not exist)                                                                                                                 |
