@@ -2,13 +2,13 @@
  * #1356 (pauses shard) — every transition of a pause as the pure function it is (#935, #910): what it makes of the
  * record and which notices it writes with it, at the edges of the times it compares.
  */
+import { timeoutChange } from "../../src/infrastructure/pause-timeout-change.js";
 import { describe, expect, it } from "vitest";
 import {
   cancelChange,
   closeUntakenChange,
   closing,
   expireChange,
-  timeoutChange,
   isOpenAt,
   markSentChange,
   onceNotices,

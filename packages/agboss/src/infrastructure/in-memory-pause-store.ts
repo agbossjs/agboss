@@ -1,4 +1,5 @@
 import { InMemoryPauseBook } from "./in-memory-pause-book.js";
+import { timeoutChange } from "./pause-timeout-change.js";
 import { InMemoryPauseQueryRepository } from "./in-memory-pause-queries.js";
 import {
   isInPlace,
@@ -20,7 +21,6 @@ import {
   cancelChange,
   closeUntakenChange,
   expireChange,
-  timeoutChange,
   markSentChange,
   remindChange,
   resolveChange,

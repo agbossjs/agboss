@@ -5,6 +5,7 @@ import type {
   PauseRecipients,
   PauseReassignmentChange,
 } from "../pause-notices.js";
+import { timeoutChange } from "../pause-timeout-change.js";
 import {
   decidedPause,
   PauseStatus,
@@ -18,7 +19,6 @@ import {
   cancelChange,
   closeUntakenChange,
   expireChange,
-  timeoutChange,
   markSentChange,
   onceNotices,
   remindChange,

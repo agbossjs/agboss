@@ -163,6 +163,14 @@ export const withSeen = async (
   change: Omit<PauseTimeoutChange, "seen">,
 ): Promise<PauseTimeoutChange> => {
   const found = await store.findByTenantIdAndPauseId("default", pauseId);
-  expect(found, `pause ${pauseId} is found`).toBeDefined();
-  return { ...change, seen: seenOf(found as PauseRecord) };
+  if (found === undefined) return expect.fail(`pause ${pauseId} is found`);
+  return { ...change, seen: seenOf(found) };
 };
+
+/** A change of `pauseId` from `DEADLINE` (the one of `expiringPauseOf`) to `expiresAt`, over the pause as it is now. */
+export const changeFromDeadline = (
+  store: Pick<PausedExecutionRepository, "findByTenantIdAndPauseId">,
+  pauseId: string,
+  expiresAt: string,
+): Promise<PauseTimeoutChange> =>
+  withSeen(store, pauseId, { expiresAt, previousExpiresAt: DEADLINE.toISOString() });

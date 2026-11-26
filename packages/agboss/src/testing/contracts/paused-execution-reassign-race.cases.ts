@@ -13,7 +13,7 @@ import {
   expiringPauseOf,
   MID,
   RECIPIENTS,
-  withSeen,
+  changeFromDeadline,
 } from "./paused-execution-data.js";
 import { type Instances, R, reassign, treeOf, winners } from "./paused-execution-reassign-data.js";
 
@@ -186,10 +186,7 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
         await second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
-          await withSeen(second, "pause-a", {
-            expiresAt: "2026-01-05T12:00:00.000Z",
-            previousExpiresAt: DEADLINE.toISOString(),
-          }),
+          await changeFromDeadline(second, "pause-a", "2026-01-05T12:00:00.000Z"),
           MID,
           R,
         ),

@@ -9,6 +9,7 @@
  * compare-and-set of the deadline read, the shortening, the none-over-none, the chain's count, the open check or the
  * deadline's own time.
  */
+import { timeoutChange } from "../../../../src/infrastructure/pause-timeout-change.js";
 import { describe, expect, it } from "vitest";
 import { InMemoryPausedExecutionRepository } from "../../../../src/infrastructure/in-memory-paused-execution.repository.js";
 import type {
@@ -27,7 +28,6 @@ import {
 import {
   cancelChange,
   expireChange,
-  timeoutChange,
   resolveChange,
   type PauseChange,
 } from "../../../../src/infrastructure/pause-transitions.js";

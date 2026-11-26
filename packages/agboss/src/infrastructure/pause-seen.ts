@@ -27,3 +27,6 @@ export const isAsSeen = (pause: PauseRecord, seen: PauseSeen | undefined): boole
     pause.isSent === seen.isSent &&
     sameAssignees(pause.assignees, seen.assignees));
 
+/** Whether the pause is still the one `seen` names; a change without one is never as seen. */
+export const isSeenAs = (pause: PauseRecord, seen: PauseSeen | undefined): boolean =>
+  seen !== undefined && isAsSeen(pause, seen);

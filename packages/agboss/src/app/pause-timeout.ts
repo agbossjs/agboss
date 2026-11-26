@@ -6,7 +6,7 @@ import { checkedTimeout } from "../flow/runtime/pause-hooks.js";
 import type { PauseTarget } from "../flow/runtime/pause.js";
 import type { Clock } from "../infrastructure/clock.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
-import { isAsSeen, seenOf } from "../infrastructure/pause-seen.js";
+import { isSeenAs, seenOf } from "../infrastructure/pause-seen.js";
 import type { PauseSeen } from "../infrastructure/pause-notices.js";
 import { pauseKeyOf, PauseStatus, type PauseRecord } from "../infrastructure/pause-record.js";
 import { noticesWritten, recipientsIn } from "../pause/index.js";
@@ -163,6 +163,39 @@ async function deadlineAfter(
   return { ...definedFields({ expiresAt, remindAt }), limits };
 }
 
+/** The pause's target once it is permitted (a retry over the pause as the hook saw it is not asked again). */
+async function permittedTarget(
+  parts: TimeoutParts,
+  call: {
+    readonly pause: PauseRecord;
+    readonly request: SetPauseTimeoutRequest;
+    readonly actor: PauseActor | undefined;
+    readonly permitted: { seen?: PauseSeen };
+  },
+): Promise<PauseTarget> {
+  const { pause, request, actor, permitted } = call;
+  const known = targetOf(parts.deps, pause);
+  if (known !== undefined) assertNotInFirstSend(pause, known);
+  // a hook may have effects: a retry over the pause as it last saw it needs no second answer
+  if (!isSeenAs(pause, permitted.seen)) {
+    await assertTimeoutChangePermitted(parts.deps, pause, {
+      actor,
+      timeout: request.timeout,
+      reason: request.reason,
+    });
+    permitted.seen = seenOf(pause);
+  }
+  return targetOfPause(parts.deps, pause);
+}
+
+/** A calendar slower than the timeout: no other writer is to blame, and asking again would not help. */
+function assertAhead(pause: PauseRecord, expiresAt: string | undefined, at: Date): void {
+  if (expiresAt === undefined || expiresAt > at.toISOString()) return;
+  throw new PauseError.WorkingCalendar({
+    message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: the deadline passed while the calendar was asked; use a longer timeout`,
+  });
+}
+
 /** One try of a change over the pause as it was read; `undefined`: the compare-and-set was lost. */
 async function changedOnce(
   parts: TimeoutParts,
@@ -174,21 +207,13 @@ async function changedOnce(
     readonly permitted: { seen?: PauseSeen };
   },
 ): Promise<PauseTimeoutChangeResult | undefined> {
-  const { pause, request, tenantId, actor, permitted } = call;
+  const { pause, request, tenantId, actor } = call;
   await assertOpen(parts, pause);
-  const known = targetOf(parts.deps, pause);
-  if (known !== undefined) assertNotInFirstSend(pause, known);
-  const ask = { actor, timeout: request.timeout, reason: request.reason };
-  // a retry over the pause as the hook last saw it needs no second answer (a hook may have effects)
-  if (permitted.seen === undefined || !isAsSeen(pause, permitted.seen)) {
-    await assertTimeoutChangePermitted(parts.deps, pause, ask);
-    permitted.seen = seenOf(pause);
-  }
-  // permitted: the target resolves
+  const target = await permittedTarget(parts, call);
   const { expiresAt, remindAt, limits } = await deadlineAfter(
     parts,
     pause,
-    targetOfPause(parts.deps, pause),
+    target,
     request.timeout,
   );
   const reason = await maskedReason(parts.deps, pause, request.reason);
@@ -196,11 +221,7 @@ async function changedOnce(
   // the call's start (#1148); the deadline itself keeps counting from `now`
   const at = parts.clock.now();
   await assertOpen(parts, pause);
-  // a calendar slower than the timeout: no other writer is to blame, and asking again would not help
-  if (expiresAt !== undefined && expiresAt <= at.toISOString())
-    throw new PauseError.WorkingCalendar({
-      message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: the deadline passed while the calendar was asked; use a longer timeout`,
-    });
+  assertAhead(pause, expiresAt, at);
   const changed = await parts.pauses.changeTimeoutByTenantIdAndPauseId(
     tenantId,
     pause.pauseId,

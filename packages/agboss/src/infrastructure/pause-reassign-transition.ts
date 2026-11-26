@@ -4,7 +4,6 @@ import {
   recipientKeysOf,
   type PauseInPlaceReassignment,
   type PauseReassignmentChange,
-  type PauseSeen,
   type PauseRecipients,
   type PauseReplacement,
 } from "./pause-notices.js";
