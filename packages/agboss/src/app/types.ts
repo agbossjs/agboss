@@ -464,6 +464,8 @@ export interface PausesQuery extends PageQuery {
 /** One pause as `app.listPauses` shows it: `pauseId` per the rule of `result.pending`, `pauseKey` always. */
 export interface ListedPause extends PendingPauseBase {
   readonly kind: PauseKind;
+  /** The tenant the pause belongs to: what `resume`, `reassignPause` and `setPauseTimeout` need on a tenanted application (an `allTenants` listing holds several). */
+  readonly tenantId: string;
   /** The tool call an approval waits on, masked by the pause's workflow's observability policies. */
   readonly toolCall?: PauseToolCallSummary;
   /** Who answered a closed pause (`undefined` while open, or when its channel decided). */

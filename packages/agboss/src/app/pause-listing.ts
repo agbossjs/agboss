@@ -39,6 +39,7 @@ async function listedOf(
     // the rule of `result.pending` (AC3): a Channel pause's id stays with its channel, unless the
     // caller asked for ids (#1307e: an operator who may answer)
     ...(respondent === PauseRespondent.Owner || includePauseIds ? { pauseId: pause.pauseId } : {}),
+    tenantId: pause.tenantId,
     respondent,
     step: pause.step,
     target: pause.target,

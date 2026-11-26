@@ -5088,6 +5088,7 @@ export interface ListedPause extends PendingPauseBase {
     readonly rootExecutionId: string;
     // (undocumented)
     readonly status: PauseStatus;
+    readonly tenantId: string;
     // (undocumented)
     readonly threadId: string;
     readonly toolCall?: PauseToolCallSummary;

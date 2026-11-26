@@ -204,7 +204,9 @@ export class PauseNoticeDelivery {
         pause === undefined ? undefined : { pause, deps: await this.parts.rootOf(pause) };
       if (readable?.deps === undefined)
         // Stryker disable next-line StringLiteral: the message is never read: a failure is coded, never told (`problemOf`)
-        throw new PauseUnreadableError(`pause ${mailbox.pauseId} is not readable here`);
+        throw new PauseUnreadableError(
+          `pause ${pauseKeyOf(mailbox.tenantId, mailbox.pauseId)} is not readable here`,
+        );
       await receive(this.parts, readable.deps, {
         recipient: mailbox.recipient,
         pause: readable.pause,

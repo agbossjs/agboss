@@ -4,6 +4,7 @@
  * another tenant's never, the ask masked by the pause's workflow's policies.
  */
 import { beforeEach, describe, expect } from "vitest";
+import { PauseError } from "../../src/core/error-families/pause-errors.js";
 import {
   PauseRespondent,
   PauseClosedReason,
@@ -371,6 +372,7 @@ describe("#943 AC1: listing pauses", () => {
       "t-tenant-a-a1",
       "t-tenant-b-b1",
     ]);
+    expect(all.map((one) => one.tenantId)).toEqual(["default", "tenant-a", "tenant-b"]);
     const first = await app.listPauses({ allTenants: true, limit: 2 } as never);
     expect(first.items).toHaveLength(2);
     expect(first.nextCursor).toBeDefined();
@@ -474,5 +476,23 @@ describe("#943 AC1: listing pauses", () => {
       const error = await failureOf(app.listPauses({ channel: bad } as never));
       expect(error).toBeInstanceOf(ValidationError.DtoInvalid);
     }
+  });
+
+  test("#1307e M2: resuming an id under the wrong tenant tells the pause key, never the id", async ({
+    app,
+  }) => {
+    await open(app, managerFlow as never, "k1", "tenant-a");
+    const [listed] = await allOf(app, { tenantId: "tenant-a", includePauseIds: true });
+    const pauseId = listed?.pauseId ?? "";
+    expect(pauseId).not.toBe("");
+    expect(listed?.tenantId).toBe("tenant-a");
+
+    const error = await failureOf(
+      app.resume({ pauseId, decision: { approved: true } }, { tenantId: "tenant-b", ...manager }),
+    );
+
+    expect(error).toBeInstanceOf(PauseError.UnknownPause);
+    expect(JSON.stringify(error)).not.toContain(pauseId);
+    expect((error as Error).message).toContain(pauseKeyOf("tenant-b", pauseId));
   });
 });

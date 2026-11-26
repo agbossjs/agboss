@@ -50,7 +50,7 @@ export async function pauseOf(
   const pause = await pauses.findByTenantIdAndPauseId(tenantId, request.pauseId);
   if (pause === undefined) {
     throw new PauseError.UnknownPause({
-      message: `tenant ${tenantId} has no pause ${request.pauseId}`,
+      message: `tenant ${tenantId} has no pause ${pauseKeyOf(tenantId, request.pauseId)}`,
     });
   }
   return pause;

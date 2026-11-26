@@ -7,6 +7,7 @@ import {
   type PausedExecutionRepository,
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
+import { pauseKeyOf } from "../infrastructure/pause-record.js";
 import { pauseClosed } from "./pause-closed.js";
 import { ExecutionCancelledError } from "../core/errors.js";
 import { closeTreePauses } from "./tree-end-pauses.js";
@@ -124,7 +125,7 @@ export async function refusedAfterMark(
   pause: PauseRecord,
 ): Promise<Error> {
   const subject = { executionId: pause.rootExecutionId, tenantId: pause.tenantId };
-  const text = `the resume of pause ${pause.pauseId} was refused after it made execution ${pause.rootExecutionId} running again: recovery rests it at its pause`;
+  const text = `the resume of pause ${pauseKeyOf(pause.tenantId, pause.pauseId)} was refused after it made execution ${pause.rootExecutionId} running again: recovery rests it at its pause`;
   parts.log.warn("resume.refused-after-mark", text, subject);
   return pauseClosed(parts.pauses, pause, parts.clock.now());
 }
