@@ -48,6 +48,13 @@ export interface WorkflowServices {
   /** Framework wiring of the app's container: replacements (test mocks) and lifecycle. */
   readonly container?: ContainerOptions;
   /**
+   * Only `agboss check` and `describe` set it (#266): a `defineEnv` read through `deps: [appEnv]`
+   * resolves an unset required value to a placeholder and an unset secret to an unresolved one, as
+   * they need no variable and no key. Absent = strict: an unset required variable is
+   * `[environment.missing-variable]` (every run, `rag index` included).
+   */
+  readonly deferredEnv?: boolean;
+  /**
    * A model `@Reranker`'s chat model (#703), through the application's model gateway with the
    * workflow's chat defaults; absent where no gateway is (describe, the CLI's index).
    */

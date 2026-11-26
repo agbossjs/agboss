@@ -3,6 +3,7 @@ import {
   standaloneBudgetsOf,
   standaloneApplicationOf,
 } from "../application/application-container.js";
+import { profileEnvOf, withEnvOverrides } from "../application/env-overrides.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { createWorkflowDeps, type AppDeps, type AppDepsOptions } from "./app-deps.js";
 import { standaloneChildrenOf, type StandaloneChildren } from "./child-deps.js";
@@ -15,8 +16,10 @@ import { standaloneChildrenOf, type StandaloneChildren } from "./child-deps.js";
  */
 export async function createAppDeps(
   bundle: AssembledWorkflow,
-  options: AppDepsOptions = {},
+  given: AppDepsOptions = {},
 ): Promise<AppDeps> {
+  // the profiles' `configureEnv` values and the process's variables, for the storage and every workflow container alike
+  const options = withEnvOverrides(given, profileEnvOf(bundle));
   const opened: unknown[] = [];
   const { application, infrastructure } = standaloneApplicationOf(bundle, options, (instance) => {
     opened.push(instance);

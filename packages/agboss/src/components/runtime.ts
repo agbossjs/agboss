@@ -130,9 +130,12 @@ export const containerFor = (bundle: WorkflowMeta, services: WorkflowServices): 
     { modules: providerModulesOf(bundle), core },
     {
       ...services.container,
-      // no application's container (`agboss check`, `describe`): types and the tool graph need no key (#266) — a
-      // secret behind `deps: [appEnv]` stays unresolved, its variable named by the report instead of failing the build
-      ...(services.container === undefined ? { envOf: deferredEnvOf } : {}),
+      // `agboss check` and `describe` opt in (#266): types and the tool graph need no key and no variable — a
+      // secret behind `deps: [appEnv]` stays unresolved, its variable named by the report instead of failing the build.
+      // Every other path resolves strictly, from the container's `envOf` or the process's variables.
+      ...(services.deferredEnv === true && services.container?.envOf === undefined
+        ? { envOf: deferredEnvOf }
+        : {}),
       // a `@Rag` source gets its pipeline (scope, reranker, spend) when the container creates it
       onCreate: (instance) => {
         services.container?.onCreate?.(instance);

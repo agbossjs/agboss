@@ -93,15 +93,23 @@ function secretValueOf(
   return raw === undefined ? undefined : resolvedSecret(variable, raw);
 }
 
+/** What a typed reader accepts as its zero, tried in turn (`0`, `0s`, `0kb`, …). */
+const ZEROES = ["0", "0ms", "0s", "0b"] as const;
+
 /**
  * What a required variable that is unset stands for where no key and no variable is needed (`agboss
- * check`, `describe`): an empty text, zero, false — never a value of the process; the other
- * readers' (number, duration, bytes, …) have none.
+ * check`, `describe`): an empty text, 0, false, and for a typed reader (number, duration, bytes, usd,
+ * ttl) its own zero — never a value of the process, and always of the type the reference promises.
  */
 function placeholderOf(ref: VariableReference): unknown {
   if (ref.kind === VariableKind.Integer) return 0;
   if (ref.kind === VariableKind.Flag) return false;
-  return ref.expected === "text" ? "" : undefined;
+  if (ref.expected === "text") return "";
+  for (const zero of ZEROES) {
+    const parsed = ref.parser?.(zero);
+    if (parsed !== undefined) return parsed;
+  }
+  return undefined;
 }
 
 /** A variable key's value: its default when unset, its parsed text when set; or the problem. */

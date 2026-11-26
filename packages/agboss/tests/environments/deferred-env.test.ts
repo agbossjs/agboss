@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { defineEnv, resolveEnv } from "../../src/environments/define-env.js";
+import { Secret } from "../../src/environments/secret.js";
 import { env, secret } from "../../src/index.js";
 
 const contract = defineEnv({
@@ -13,6 +14,11 @@ const contract = defineEnv({
   debug: env.boolean("DEFERRED_DEBUG"),
   region: env("DEFERRED_REGION", { default: "eu" }),
   key: secret("DEFERRED_KEY"),
+  ratio: env.number("DEFERRED_RATIO"),
+  deadline: env.duration("DEFERRED_DEADLINE"),
+  history: env.ttl("DEFERRED_TTL"),
+  limit: env.bytes("DEFERRED_BYTES"),
+  budget: env.usd("DEFERRED_USD"),
 });
 
 describe("deferred resolution (check, describe)", () => {
@@ -23,7 +29,16 @@ describe("deferred resolution (check, describe)", () => {
     expect(values.port).toBe(0);
     expect(values.debug).toBe(false);
     expect(values.region).toBe("eu");
-    expect(JSON.stringify(values.key)).not.toContain("DEFERRED_KEY=");
+    // the secret stays unresolved: revealing it is the missing variable, never a placeholder
+    expect(values.key).toBeInstanceOf(Secret);
+    expect(() => (values.key as Secret).reveal()).toThrow(/DEFERRED_KEY/);
+  });
+
+  it("a typed reader gets a number of its own type, never undefined", () => {
+    const values = resolveEnv(contract, {}, undefined, { secrets: "deferred" });
+
+    for (const key of ["ratio", "deadline", "history", "limit", "budget"] as const)
+      expect(typeof values[key], key).toBe("number");
   });
 
   it("a set variable wins over the placeholder; a value that does not parse still fails", () => {
