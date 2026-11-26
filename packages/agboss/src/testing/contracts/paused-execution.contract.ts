@@ -19,6 +19,7 @@ import { TIMEOUT_CHANGE_CASES } from "./paused-execution-timeout.cases.js";
 import { REASSIGN_CASES } from "./paused-execution-reassign.cases.js";
 import { REASSIGN_TRAIL_CASES } from "./paused-execution-reassign-trail.cases.js";
 import { REASSIGN_KEY_CASES } from "./paused-execution-reassign-key.cases.js";
+import { CAP_CASES } from "./paused-execution-cap.cases.js";
 import { LIMITS_CASES } from "./paused-execution-limits.cases.js";
 import { REASSIGN_CHANGE_CASES } from "./paused-execution-reassign-change.cases.js";
 import { REASSIGN_NOTICE_CASES } from "./paused-execution-reassign-notice.cases.js";
@@ -203,7 +204,7 @@ export function pausedExecutionContract(target: ContractTarget<PausedExecutionRe
       },
       {
         title: "a pause carries the limits it was opened under, narrowed by moves (#1307, Q-D)",
-        cases: LIMITS_CASES,
+        cases: [...LIMITS_CASES, ...CAP_CASES],
       },
       { title: "notices are written with their change (notice)", cases: NOTICE_WRITE_CASES },
       { title: "notices keep their order per recipient (notice)", cases: NOTICE_ORDER_CASES },

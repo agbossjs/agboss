@@ -39,9 +39,16 @@ function isApplicable(pause: PauseRecord, change: PauseReassignmentChange, at: D
   if (!isSeenAs(pause, change.seen)) return false;
   const isExpiry = change.due !== undefined;
   if (isExpiry ? !isDueAt(pause, at) : !isOpenAt(pause, at)) return false;
-  // the limits are the record's own, narrowed by the destination of a move: never the application's present configuration
+  return isUnderLimits(pause, change);
+}
+
+/**
+ * Whether the change keeps the limits: the record's own, narrowed by the destination of a move — never
+ * the application's present configuration —, the counts and the cap on a deadline the change sets,
+ * atomically with the write.
+ */
+function isUnderLimits(pause: PauseRecord, change: PauseReassignmentChange): boolean {
   const { escalationLimits, maxExpiresAt } = narrowedLimits(pause, offeredLimitsOf(change));
-  // a deadline the change sets keeps the (narrowed) cap, atomically with the write
   const deadline = change.due ?? change.timeout;
   if (deadline !== undefined && !isWithinCap(maxExpiresAt, deadline.expiresAt)) return false;
   // no limit named: no count reaches it

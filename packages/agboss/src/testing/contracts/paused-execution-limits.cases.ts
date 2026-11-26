@@ -1,35 +1,15 @@
 import { expect } from "vitest";
 import { type PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import type { ContractCase } from "./define.js";
-import {
-  AFTER_DEADLINE,
-  DEADLINE,
-  expiringPauseOf,
-  MID,
-  withSeen,
-  withSeenNow,
-} from "./paused-execution-data.js";
+import { expiringPauseOf, MID, withSeenNow } from "./paused-execution-data.js";
 import { type Instances, reassignWith, treeOf } from "./paused-execution-reassign-data.js";
+import { CAP, FIRST, limitedPause, LOOSER, TIGHTER, TO } from "./paused-execution-limits-data.js";
 
 /**
  * #1307, Q-D: a pause carries the limits it was opened under (`firstAskedAt`, `maxExpiresAt`,
  * `escalationLimits`); a store keeps them as written, judges every count against them, and a move to
  * another target leaves the replacement with the smaller of them and the destination's offer.
  */
-
-const FIRST = "2026-01-05T08:00:00.000Z";
-const CAP = "2026-01-05T20:00:00.000Z";
-const LOOSER = "2026-01-06T20:00:00.000Z";
-const TIGHTER = "2026-01-05T15:00:00.000Z";
-const TO = { target: "tier-one-external-task", respondent: "delegate" as never };
-
-const limitedPause = (pauseId: string, stepKey = "run-1:clerk-agent:1:call-1") => ({
-  ...expiringPauseOf(pauseId, stepKey, {
-    maxExpiresAt: CAP,
-    escalationLimits: { maxExtensions: 4, maxReassignments: 3 },
-  }),
-  firstAskedAt: FIRST,
-});
 
 export const LIMITS_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
   {
@@ -199,75 +179,6 @@ export const LIMITS_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
           MID,
         ),
       ).toBeUndefined();
-    },
-  },
-  {
-    name: "a deadline past the record's maxExpiresAt (or none at all) is refused by the store itself, atomically, whatever the caller planned: a timeout change",
-    run: async ({ first, second }: Instances): Promise<void> => {
-      await first.findOrCreateByStepKey(limitedPause("pause-a"));
-      const change = async (expiresAt: string | undefined) =>
-        second.changeTimeoutByTenantIdAndPauseId(
-          "default",
-          "pause-a",
-          await withSeen(second, "pause-a", {
-            ...(expiresAt === undefined ? {} : { expiresAt }),
-            previousExpiresAt: DEADLINE.toISOString(),
-          }),
-          MID,
-          { listeners: [] },
-        );
-
-      expect(await change("2026-01-05T20:00:00.001Z")).toBeUndefined();
-      expect(await change(undefined)).toBeUndefined();
-      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toBe(
-        DEADLINE.toISOString(),
-      );
-      // exactly the cap is allowed; a pause with no cap takes none-at-all
-      expect(await change(CAP)).toMatchObject({ expiresAt: CAP });
-      await first.findOrCreateByStepKey(expiringPauseOf("pause-b", "run-1:s:1:call-2"));
-      expect(
-        await second.changeTimeoutByTenantIdAndPauseId(
-          "default",
-          "pause-b",
-          await withSeen(second, "pause-b", { previousExpiresAt: DEADLINE.toISOString() }),
-          MID,
-          { listeners: [] },
-        ),
-      ).toBeDefined();
-    },
-  },
-  {
-    name: "a deadline a reassignment sets keeps the cap too: in place, an operator's replacement narrowed by the destination, and an expiry's",
-    run: async ({ first, second }: Instances): Promise<void> => {
-      await first.findOrCreateByStepKey(limitedPause("pause-a"));
-      const inPlace = (expiresAt: string) =>
-        reassignWith(second, "pause-a", { assignees: ["x"], timeout: { expiresAt } }, MID);
-
-      expect(await inPlace("2026-01-05T20:00:00.001Z")).toBeUndefined();
-      expect(await inPlace(CAP)).toMatchObject({ expiresAt: CAP });
-
-      // the destination's tighter cap applies to the deadline of the move itself
-      await first.findOrCreateByStepKey(limitedPause("pause-b", "run-1:s:1:call-2"));
-      const to = { ...TO, limits: { maxExpiresAt: TIGHTER } };
-      const move = (pauseId: string, expiresAt: string) =>
-        reassignWith(first, "pause-b", { pauseId, to, timeout: { expiresAt } }, MID);
-      expect(await move("pause-c", CAP)).toBeUndefined();
-      expect(await first.findByTenantIdAndPauseId("default", "pause-c")).toBeUndefined();
-      expect(await move("pause-c", TIGHTER)).toMatchObject({ maxExpiresAt: TIGHTER });
-
-      // an expiry's reassignment that sets no deadline under a cap
-      await first.findOrCreateByStepKey(limitedPause("pause-d", "run-1:s:1:call-3"));
-      expect(
-        await reassignWith(second, "pause-d", { assignees: ["x"], due: {} }, AFTER_DEADLINE),
-      ).toBeUndefined();
-      expect(
-        await reassignWith(
-          second,
-          "pause-d",
-          { assignees: ["x"], due: { expiresAt: CAP } },
-          AFTER_DEADLINE,
-        ),
-      ).toMatchObject({ expiresAt: CAP });
     },
   },
 ];

@@ -100,7 +100,7 @@ class LooseTask {
   onExpired(ctx: ExpiredContext<LooseTask>) {
     told.expired.push(ctx);
     if (told.next === undefined) return PauseExpiration.fail() as PauseExpiration<LooseTask>;
-    return PauseExpiration.reassign({ target: told.next as never }) as PauseExpiration<LooseTask>;
+    return PauseExpiration.reassign({ target: told.next }) as PauseExpiration<LooseTask>;
   }
 }
 
