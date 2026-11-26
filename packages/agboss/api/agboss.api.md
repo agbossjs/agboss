@@ -6539,7 +6539,7 @@ export abstract class PausedExecutionRepository {
     abstract claimNoticesDue(at: Date, limit: number, claimFor: Milliseconds, recipients: readonly string[]): Promise<readonly PauseNoticeClaim[]>;
     abstract closeUntakenByTenantIdAndPauseId(tenantId: string, pauseId: string, resolution: PauseUntakenResolution, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract countNotices(): Promise<PauseNoticeCounts>;
-    abstract decideByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date): Promise<boolean>;
+    abstract decideByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date, seen: PauseSeen): Promise<boolean>;
     abstract deleteByResolvedAtBefore(cutoff: Date): Promise<void>;
     abstract deleteByTenantIdAndThreadId(tenantId: string, threadId: string): Promise<void>;
     abstract deleteByTenantIdAndThreadIdAndRunId(tenantId: string, threadId: string, runId: string): Promise<void>;
@@ -6563,7 +6563,7 @@ export abstract class PausedExecutionRepository {
     abstract reassignByTenantIdAndPauseId(tenantId: string, pauseId: string, replacement: PauseReassignmentChange, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
     abstract remindByTenantIdAndPauseId(tenantId: string, pauseId: string, at: Date, recipients: PauseRecipients): Promise<boolean>;
     abstract renewNotice(claim: PauseNoticeClaim, at: Date, claimFor: Milliseconds): Promise<PauseNoticeClaim | undefined>;
-    abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date, recipients: PauseRecipients): Promise<PauseRecord | undefined>;
+    abstract resolveByTenantIdAndPauseId(tenantId: string, pauseId: string, answer: PauseAnswer, at: Date, recipients: PauseRecipients, seen?: PauseSeen): Promise<PauseRecord | undefined>;
     abstract retryNotice(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): Promise<boolean>;
     abstract save(paused: PausedExecution): Promise<void>;
     abstract setAsideNotices(claim: PauseNoticeClaim, at: Date, problem: string): Promise<boolean>;

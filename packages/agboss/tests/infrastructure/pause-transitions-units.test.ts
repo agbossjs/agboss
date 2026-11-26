@@ -615,6 +615,7 @@ describe("#1307: the reassignment a first send owes its channel (inFirstSendNoti
       isAsSeen({ ...pause, assignees: undefined }, seenOf({ ...pause, assignees: undefined })),
     ).toBe(true);
     expect(isSeenAs(pause, undefined)).toBe(false);
+    expect(isAsSeen(pause, undefined)).toBe(false);
   });
 
   it("`seen` names the assignees and the deadline only when the pause has them, and a longer, shorter or other pool is not the same pool", () => {

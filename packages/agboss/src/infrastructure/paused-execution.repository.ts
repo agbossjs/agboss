@@ -99,6 +99,8 @@ export abstract class PausedExecutionRepository {
    * Atomic: marks the pause's channel asked, whatever its status (a closed one too — a fast reply
    * or a cancel may have closed it while `send` was returning). Only when `isSent` was false, and
    * in one transaction with it, writes in this order: `opened` (with `expiresAt`) to the listeners;
+   * when the pause was changed in place meanwhile (a `reassigned` entry after its `opened`: an expiry's
+   * reassignment during the first send), a `reassigned` to the channel and the listeners (`inFirstSendNotices`);
    * when the pause is no longer `Pending`, its `closed` (reason and time by `pauseClosedReasonOf` /
    * `closedAtOf`) to the channel and the listeners — a cancel during `send` must still take the
    * channel's buttons off; when it is a closed-untaken one (`Cancelled` with an answer), its
@@ -234,8 +236,9 @@ export abstract class PausedExecutionRepository {
    * while the deadline is at or before `at` (an expiry's reassignment), otherwise only while the pause is open;
    * `maxReassignments` refuses it, in the same transaction, once the chain holds that many `reassigned` entries.
    * A replacement made `to` another target or channel is `Pending` and unsent under it, with no `externalRef`.
-   * With `seen` the write applies only while the pause is still as it was planned against: the same
-   * trail length, deadline, assignees and `isSent` (a pause marked sent since is refused). With
+   * `seen` is required: the write applies only while the pause is still as it was planned against
+   * (`seenOf`: the same trail length, deadline, assignees and `isSent`; a pause marked sent since is
+   * refused), and a change without one applies to nothing. With
    * `countsAsExtension` a `timeout-changed` entry follows the `reassigned` one — on the replacement
    * as on a pause changed in place — and `maxExtensions` refuses the change, in the same transaction,
    * once the chain holds that many.
