@@ -122,9 +122,8 @@ with one of these limits answers the same way. The AGBoss client throws such a r
 
 **Trusted peers (#398 PR 2).** With `@Application({ mesh })` the envelope is signed
 ([A2A → Trusted peers](A2A#trusted-peers--signed-envelopes-398-pr-2)) and its `bodyHash` is the hash
-of the call's `JSON.stringify(arguments)`. The session names its peer — what the transport
-authenticated: `createMcpService(app, X).connect(transport, { peer: "orders-application" })` (and
-the same option of the HTTP session). A call whose envelope carries that peer's valid signature,
+of the call's `JSON.stringify(arguments)`. The peer is named by `mcpHttpListener`, from the signed mesh header it verified against the request
+(`X-AGBoss-Mesh`) against the `@Mesh({ peers })` public keys. `connectMcp` takes no `peer` option: the client signs its outgoing requests with its own `@Mesh({ signingKey })`, and the peer is only ever named on the serving side; a `connectMcpStdio` connection never names one, its caller is the host's. A call whose envelope carries that peer's valid signature,
 unexpired, for these arguments is trusted: it runs on the caller's budget (`caller-budget`),
 deadline and origin, and its result's `_meta["agboss.dev/report"]` is the signed run report the
 AGBoss client verifies and records (`mcp:<issuer>` spend, `ToolCallRecord.remote`). A bad signature,

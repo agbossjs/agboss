@@ -6,7 +6,7 @@
 
 - `app.execute(Start, input)` without `thread` = **first contact**: a new thread is created, its id
   comes back in the result (`thread`). The client sends it with every next question.
-- `app.execute(Start, input, { threadId })` with an id the tenant does not have → `UnknownThreadError` before any call.
+- `app.execute(Start, input, { threadId })` with an id the tenant does not have → `ExecutionError.UnknownThread` before any call.
 - Each model router and agent sees the last **`uncompactedTurns`** turns of the thread in full
   (finished executions only, oldest first), before its input message — see
   [Memory Management](Memory-Management).
@@ -109,7 +109,7 @@ and two sub-trees for what changes a model's input but lives outside its element
   rejected call), the knowledge bases' framing; a launch router's, a compaction's, an arbiter's and
   a guardrail's only in a workflow that has one.
 - `children` (#336) — only in a workflow that launches child workflows: every child reachable from
-  its flow, recursively, each once by name with its own snapshot (`ThisWorkflow` is never one: a
+  its flow, recursively, each once by name with its own snapshot (a workflow's thunk of its own class is never one: a
   recursive workflow is hashed once). A child's change — a prompt, a model, its flow, its version —
   is a change of every workflow above it, so a paused or running root whose child changed is
   incompatible ([Several instances → Recovery](Several-instances#recovery)).

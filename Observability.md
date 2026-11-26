@@ -232,7 +232,7 @@ export class LaunchAudit {
 A child workflow (#263, [Workflow as a step](Workflow-as-a-step#at-run-time)) is an execution of
 its own: `onExecutionStart` once when it is first entered (a resume or a recovery that continues it
 fires none), `onExecutionEnd` (`finish`, its own `spend`) when it ends at a finish, and
-`onExecutionError` when it fails or is cancelled (FailFast: `ExecutionCancelledError`) — each at
+`onExecutionError` when it fails or is cancelled (a sibling branch's failure: `ExecutionCancelledError`) — each at
 most once, by the pass that ended it (#562): an `AnyWorker` child's finish on the instance whose
 worker completed its queue row, a child on its parent's instance by the parent's pass that ran it,
 a remote child's failure by the parent's pass that saw it; a parent that re-enters its step after a

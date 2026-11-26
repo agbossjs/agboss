@@ -218,7 +218,7 @@ Under `EvalCascade.StopAtFirstFailure` a paid judge runs only on a run the free 
 
 When a case passes at least once in k runs but not every time (pass@k high, pass^k low), do not grow
 the prompt: move the check into deterministic code — a tool interceptor, a code guardrail
-(`decidedBy: DecidedBy.Code`, [Guards](Guards)), `DecidedBy.Code` on a `@Router` or an `@Arbiter`, or
+(`decidedBy: DecidedBy.Code`, [Guards](Guards)), `DecidedBy.Code` on a `@Router`, an `@Arbiter` with `@Arbitrate` methods, or
 an `@Action`.
 
 ## The rules

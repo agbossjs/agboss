@@ -22,7 +22,7 @@ flowchart LR
 - **workflow start** — where a run starts (`@WorkflowStart`); its validated input is its value.
 - **guardrails** — at the model boundary of each agent and model router (#120): input guardrails on
   what its model reads (masked), before the call; output guardrails on an agent's answer. A block
-  fails the run with `GuardrailBlockedError` and its refusal. See [Guards](Guards#guardrails).
+  fails the run with `GuardrailError.Blocked` and its refusal. See [Guards](Guards#guardrails).
 - **router** — a `@Router` node: asks its own model (Jev or a chat model, see [Routers](Routers)) to
   pick one of its routes from its input; a failed call or an unknown option **fails** the run
   (unless an `.onError` takes it).
@@ -34,7 +34,7 @@ flowchart LR
 - **workflow finish** — where a run finishes (`@WorkflowFinish`): its output — the latest value of its output type
   on the path, or what its `finish(input)` builds.
 - **limits** — steps (`maxSteps`), visits (`maxVisits`), spend per run and per day, checked before each working node;
-  hitting one **fails** the run (`LimitExceededError`) unless an `.onError` takes it. See [Workflow](Workflow), [FinOps](FinOps).
+  hitting one **fails** the run (`LimitError`) unless an `.onError` takes it. See [Workflow](Workflow), [FinOps](FinOps).
 - **application** (`@Application`, `createApp(App)` → `execute` / `resume` / `cancel` / `close` over every workflow of it, [App](App)) over the run layer
   (`src/run`: `executeAgent` / `resumeAgent`) — check the
   daily cap before the graph starts, record spend as it happens, write a Turn for every outcome

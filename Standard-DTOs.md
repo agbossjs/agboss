@@ -15,13 +15,10 @@ On paths and in `input` / `output` a DTO is wrapped by what it means (`@agboss/c
 
 | Wrapper | Where | |
 | --- | --- | --- |
-| `listOf(XDto)` / `listOf(oneOf(…))` | input, output, a start's input, `.returns(…)` | a list; a `listOf(oneOf(…))` is one polymorphic list — it never fills a `listOf(XDto)` field |
-| `oneOf(ADto, BDto, …)` | output of agents and actions | one of the classes; `.returns(oneOf(…)).switch(caseOf(…))` branches by it |
+| `listOf(XDto)` / `listOf(ADto, BDto, …)` | input, output, a start's input | a list; `listOf(ADto, BDto)` is one polymorphic list, each item one of the classes |
+| `oneOf(ADto, BDto, …)` | output of agents and actions | one of the classes; `.toOneOf([…])` continues with one branch per class; an action returns an instance of the class, which the framework recognises by its prototype |
 | `optional(XDto)` / `optional(listOf(XDto))` | input only | may be absent |
-| `historyOf(XDto, { limit })` | input only | `HistoryOf<Produced<XDto, P>>`: `{ current, previous }`, the earlier versions oldest first (at most `limit`) |
-| `variant(XDto, value)` | an action's result | names the class of a `oneOf` it returns — never guessed by shape |
-| `isVariant(value, XDto)` | code | narrows a `oneOf` value — also a judge's input or a `VariantOf` item, by its `variant` class (#262 S125) |
-| `VariantOf<A \| B>` | a `listOf(oneOf(…))` judge's `reply` items | `{ variant, value }`: the class an item validated as (from its answer tool) and its value |
+| `historyOf(XDto, { maxPrevious })` | input only | `HistoryOf<Tracked<XDto, P>>`: `{ current, previous }`, the earlier versions oldest first (at most `maxPrevious`) |
 
 ## Names: the hierarchy rule (#141)
 
@@ -42,6 +39,8 @@ On paths and in `input` / `output` a DTO is wrapped by what it means (`@agboss/c
 | `ToolCallApprovalAskDto`   | `callId`, `tool`, `arguments` (any JSON object), `summary` | a tool call waiting for approval — one call per pause             |
 | `ToolCallApprovalDecisionDto` | `approved`, `by` (who or what decided), `feedback?`, `overrideArguments?` | the decision on that call — what `app.resume` takes ([Pause seam](Pause-seam)) |
 | `ReplyInterpreterNotUnderstoodDto` | `reason` | what a model reply interpreter answers for a reply that does not answer its pause (#648) — never a refusal ([Pauses](Pauses)) |
+| `WorkflowFinishFileDto`    | `file` (`FileDto`)                                         | the file a run finishes with — output of a file `@WorkflowFinish` |
+| `WorkflowFinishFilesDto`   | `files` (`FileDto[]`, at least one)                        | the files a run finishes with, one part per file, in order        |
 | `NoInputDto`               | —                                                          | the input of a tool that takes nothing (`{}`)                     |
 | `PlainTextDto`             | `text`                                                     | plain text, e.g. a text-only MCP server tool's result             |
 | `RagSearchResultDto`       | `text`, `source`, `score?` (0…1)                           | a piece of text a knowledge base (`@Rag`) found for a query       |
@@ -63,12 +62,13 @@ Renamed in #270 (old names removed, not aliased): every standard DTO got the `Dt
 | `MoneyDto`      | `amount` (`DecimalString`, 2 digits: `"19.99"`), `currency` (ISO 4217: `USD`) | —                                           |
 | `DateRangeDto`  | `from`, `to` (`Date`: `2026-09-01`), `timeZone?` (IANA)                        | `from` ≤ `to` — days, both ends included    |
 | `DateTimeRangeDto` | `from`, `to` (`DateTime` with an offset)                                       | `from` < `to` — moments, offsets respected  |
-| `AttachmentDto` | `name`, `mediaType` (`application/pdf`), `url?`, `content?` (base64)           | exactly one of `url` and `content`          |
+| `FileDto`       | `mediaType` (`application/pdf`), `filename?`, and exactly one source: `fileId` (the application's file store), `inline` (base64, with `sha256` and `sizeBytes`) or `url` (http(s)) | exactly one of `fileId`, `inline` and `url` |
 | `AddressDto`    | `street`, `city`, `region?`, `postalCode?`, `country` (ISO 3166-1: `IL`)       | —                                           |
 | `PersonNameDto` | `given`, `family?`                                                             | —                                           |
 | `ContactInfoDto` | `email?`, `phone?` (E.164: `+972521234567`)                                    | at least one of `email` and `phone`         |
 | `RagSourceReferenceDto` | `title`, `url?`, `quote?` (≤ 300 characters) — where a statement in an answer comes from, in a knowledge base | — |
 
+- A field that holds a file is `@File()` (`@File({ optional: true })`; a list is `@List(FileDto, …)`), imported with `FileDto` from `@agboss/core/dto`. `FileDto.fromBytes(bytes, { mediaType })` and `FileDto.fromUrl(url, { mediaType })` build one; where it is shown (a prompt, a record, a trace) only its media type, name and size are ([Files for models](Files-for-models)).
 - Money is a **decimal string**, never a float: exact, and readable by people and the model; do
   arithmetic with a decimal library.
 - A cross-field violation is the same validation error as any other, with the field and the reason

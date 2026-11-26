@@ -49,7 +49,7 @@ replaced on every upgrade ([CLI → Project skills](CLI#project-skills-for-codin
 ```mermaid
 flowchart LR
   T([message]) --> B{daily limit left?}
-  B -- no --> X([LimitExceededError, no calls])
+  B -- no --> X([LimitError, no calls])
   B -- yes --> E[workflow start]
   E --> R{router · Jev<br/>input guardrails}
   R -- profiler / scout / … --> A[agent · Kimi<br/>input + output guardrails]

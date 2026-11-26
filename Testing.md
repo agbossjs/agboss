@@ -464,7 +464,7 @@ How a test runs the branches of a parallel launch (#262 S33) is its `concurrency
 Under `inOrder` each branch runs to its completion point — its node answered or threw — and waits
 at its gate; the listed steps complete strictly in list order, the unlisted branches after them in
 item order. A gate opens once the branch released before it has ended, so what a completion does — a
-`FailFast` abort, a quorum decided — lands before the next completes. `step(Node, partial?)` names a
+sibling branch's failure abort, a quorum decided — lands before the next completes. `step(Node, partial?)` names a
 branch with the matcher of `when(…)` (`PartialValues<InputOf<Node>>`; none = any branch of the node,
 a repeated step = the next copy); it never supplies an input.
 
@@ -472,7 +472,7 @@ a repeated step = the next copy); it never supplies an input.
   completes first and `SlowAgent`, waiting at its gate, ends `Cancelled`; listed the other way round,
   `SlowAgent` finishes. A quorum counts the listed steps in their order (`acceptedSequence`), and a
   branch still waiting when it is decided is cancelled at its gate.
-- **A waiting step listens to its signal:** a `FailFast`, a decided quorum or `app.cancel` ends it
+- **A waiting step listens to its signal:** a sibling branch's failure, a decided quorum or `app.cancel` ends it
   at once as `Cancelled`, whatever its place in the list.
 - **No silent hang:** when no branch can move and the next listed step is not waiting at its gate
   — a step the router never launched, or a slot `maxConcurrency` keeps for a branch that waits —
@@ -842,7 +842,7 @@ declare const result: ExecutionOutput;
 expect(result).toHaveChildExecutions(VendorCheckWorkflow, [
   { item: { name: "Acme" }, finish: VendorScoredWorkflowFinish },
   { item: { name: "Globex" }, failedWith: LimitError.Steps }, // in the cause chain
-  { item: { name: "Initech" }, cancelled: true }, // a sibling failed first (FailFast)
+  { item: { name: "Initech" }, cancelled: true }, // a sibling failed first (a sibling branch's failure)
 ]);
 expect(result).toHaveHandledError(StepError.Child, {
   at: VendorCheckWorkflow,

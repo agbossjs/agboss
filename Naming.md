@@ -16,7 +16,7 @@ PascalCase:
 | `@Workflow` | `screening-workflow` | `ScreeningWorkflow` |
 | `@WorkflowStart` / `@WorkflowFinish` | `chat-workflow-start` / `chat-workflow-finish` | `ChatWorkflowStart` / `ChatWorkflowFinish` |
 | `@Agent`, `@Router`, `@Action`, `@Arbiter` | `ranker-agent`, `main-router`, `enrich-company-action`, `in-range-arbiter` | `RankerAgent`, `MainRouter`, … |
-| `@Tool`, `@McpTool` | `save-shortlist-tool` | `SaveShortlistTool` |
+| `@Tool` | `save-shortlist-tool` | `SaveShortlistTool` |
 | `@Rag` | `jobs-rag` (its tool: `search-jobs-rag-tool`) | `JobsRag` |
 | `@Budget`, `@ModelProvider`, `@HealthCheck`, … | `tenant-daily-budget`, `openrouter-model-provider`, `crm-health-check` | … |
 
@@ -69,7 +69,7 @@ A project's tool follows the kind-suffix rule like every other component: `name:
 (`"save_shortlist" on @Tool — name it "save-shortlist-tool"`). A knowledge base's automatic tool is
 `search-<rag name>-tool`; the framework's answer tools are `answer-<dto>`. Tools of an external MCP
 server keep the names the server gives (`read_text_file`, in `@McpServer({ tools })`) — the model sees
-the `@McpTool` that calls them. Every name a model sees fits the providers' limit (OpenAI, Anthropic,
+the `@Tool` that calls them. Every name a model sees fits the providers' limit (OpenAI, Anthropic,
 Gemini): `[a-zA-Z0-9_-]`, at most 64 characters (`[tool.name-too-long]`, `[tool.name-invalid]`).
 [Tools](Tools#names).
 
