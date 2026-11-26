@@ -47,8 +47,10 @@ function clamped(
   own: string | undefined,
   cap: string | undefined,
 ): { expiresAt?: string; expiryBound: PauseExpiryBound } {
-  const earlier = cap !== undefined && (own === undefined || isBeforeText(cap, own)) ? cap : own;
+  // the cap only counts when it is earlier than the pause's own deadline, or the pause has none
+  const earlier = cap === undefined || (own !== undefined && !isBeforeText(cap, own)) ? own : cap;
   const { boundAt } = pause;
+  // the run's or quorum's bound takes it only when strictly earlier: a tie stays the pause's own
   if (boundAt !== undefined && (earlier === undefined || isBeforeText(boundAt, earlier)))
     return { expiresAt: boundAt, expiryBound: boundKindOf(pause) };
   return {

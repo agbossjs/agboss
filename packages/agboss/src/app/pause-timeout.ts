@@ -186,7 +186,8 @@ async function permittedTarget(
 
 /** A calendar slower than the timeout: no other writer is to blame, and asking again would not help. */
 function assertAhead(pause: PauseRecord, expiresAt: string | undefined, at: Date): void {
-  if (expiresAt === undefined || !isDueAt(expiresAt, at)) return;
+  // no deadline is never due: a change that takes the deadline away has nothing the calendar could be late for
+  if (!isDueAt(expiresAt, at)) return;
   throw new PauseError.WorkingCalendar({
     message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: the deadline passed while the calendar was asked; use a longer timeout`,
   });
