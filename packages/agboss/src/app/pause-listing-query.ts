@@ -2,6 +2,7 @@ import { type DtoIssue, invalidDto } from "../dto/errors.js";
 import { tenantIdReason } from "../flow/context/context-values.js";
 import { PauseStatus } from "../infrastructure/pause-record.js";
 import type { PauseFilter } from "../infrastructure/pause-notices.js";
+import { channelNameOf } from "../channels/channel-name.js";
 import { targetNameOf } from "../channels/pause-targets.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 
@@ -71,6 +72,12 @@ const checkTarget: Check = (target) =>
   typeof target === "function"
     ? []
     : checkText("target", "a target is a @ToolApproval / @ExternalTask class or its name")(target);
+const checkChannel: Check = (channel) =>
+  typeof channel === "function"
+    ? channelNameOf(channel as never) === undefined
+      ? issue("channel", "a channel is a @Channel class (this class is none) or its name")
+      : []
+    : checkText("channel", "a channel is a @Channel class or its name")(channel);
 const checkBefore: Check = (before) => {
   if (before === undefined) return [];
   const date =
@@ -96,11 +103,16 @@ const checkIncluded: Check = (value) =>
 const targetOf = (target: unknown): string | undefined =>
   typeof target === "function" ? targetNameOf(target as never) : (target as string | undefined);
 
+/** A channel given as a class, as its name (checked before); a name as itself. */
+const channelOf = (channel: unknown): string | undefined =>
+  typeof channel === "function" ? channelNameOf(channel as never) : (channel as string | undefined);
+
 const FIELDS: ReadonlySet<string> = new Set([
   "tenantId",
   "allTenants",
   "status",
   "target",
+  "channel",
   "assignee",
   "externalRef",
   "expiringBefore",
@@ -125,6 +137,7 @@ const problemsOf = (query: object, limit: unknown): readonly DtoIssue[] => {
     ...checkFields(query),
     ...checkScope(query),
     ...checkTarget(field("target")),
+    ...checkChannel(field("channel")),
     ...checkAssignee(field("assignee")),
     ...checkReference(field("externalRef")),
     ...checkBefore(field("expiringBefore")),
@@ -138,6 +151,7 @@ const problemsOf = (query: object, limit: unknown): readonly DtoIssue[] => {
 function filterOf(query: object, statuses: readonly PauseStatus[]): PauseFilter {
   const field = (key: string): unknown => fieldOf(query, key);
   const target = targetOf(field("target"));
+  const channel = channelOf(field("channel"));
   const before = field("expiringBefore") as Date | string | undefined;
   const [assignee, externalRef] = [field("assignee"), field("externalRef")] as (
     string | undefined
@@ -145,6 +159,7 @@ function filterOf(query: object, statuses: readonly PauseStatus[]): PauseFilter 
   return {
     statuses,
     ...(target === undefined ? {} : { target }),
+    ...(channel === undefined ? {} : { channel }),
     ...(before === undefined ? {} : { expiresBefore: new Date(before) }),
     ...(assignee === undefined ? {} : { assignee }),
     ...(externalRef === undefined ? {} : { externalRef }),

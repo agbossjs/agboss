@@ -19,7 +19,11 @@ const pending = [PauseStatus.Pending];
 const listedPause = (
   id: string,
   tenant: string,
-  held: { readonly assignees?: readonly string[]; readonly externalRef?: string },
+  held: {
+    readonly assignees?: readonly string[];
+    readonly externalRef?: string;
+    readonly channel?: string;
+  },
 ): PauseRecord => ({
   ...expiringPauseOf(id, `${tenant}:${id}:1`),
   tenantId: tenant,
@@ -34,7 +38,7 @@ async function seeded(store: PausedExecutionRepository): Promise<void> {
   await store.findOrCreateByStepKey(
     listedPause("p2", "default", { assignees: ["bob"], externalRef: "JIRA-2" }),
   );
-  await store.findOrCreateByStepKey(listedPause("p3", "default", {}));
+  await store.findOrCreateByStepKey(listedPause("p3", "default", { channel: "other-channel" }));
   await store.findOrCreateByStepKey(
     listedPause("p4", "acme", { assignees: ["ann"], externalRef: "JIRA-1" }),
   );
@@ -58,6 +62,26 @@ export const LIST_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
       expect(await of({ assignee: "bob", externalRef: "JIRA-2" })).toEqual(["p2"]);
       expect(await of({ assignee: "ann", externalRef: "JIRA-2" })).toEqual([]);
       expect(await of({})).toEqual(["p1", "p2", "p3"]);
+    },
+  },
+  {
+    name: "findPageByTenantId and findPageOfAllTenants filter channel (the name), alone and with other filters",
+    run: async ({ first, second }: Instances): Promise<void> => {
+      await seeded(first);
+      const of = async (filter: Partial<Filter>): Promise<readonly string[]> =>
+        ids(
+          (await second.findPageByTenantId("default", { statuses: pending, ...filter }, 10)).pauses,
+        );
+
+      expect(await of({ channel: "other-channel" })).toEqual(["p3"]);
+      expect(await of({ channel: "refund-approval-channel" })).toEqual(["p1", "p2"]);
+      expect(await of({ channel: "refund-approval-channel", assignee: "ann" })).toEqual(["p1"]);
+      expect(await of({ channel: "no-such-channel" })).toEqual([]);
+      const all = await second.findPageOfAllTenants(
+        { statuses: pending, channel: "refund-approval-channel" },
+        10,
+      );
+      expect(ids(all.pauses)).toEqual(["p1", "p2", "p4"]);
     },
   },
   {

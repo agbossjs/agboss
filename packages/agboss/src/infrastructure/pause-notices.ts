@@ -125,6 +125,8 @@ export interface PauseFilter {
   readonly target?: string;
   /** Only pauses whose `expiresAt` is before it. */
   readonly expiresBefore?: Date;
+  /** Only pauses asked through this channel (its name). */
+  readonly channel?: string;
   /** Only pauses with this one among their `assignees`. */
   readonly assignee?: string;
   /** Only the pause with this `externalRef`. */

@@ -40,6 +40,11 @@ function filterClauses(filter: PauseFilter): {
   if (filter.target !== undefined) add("p.target = ?", filter.target);
   if (filter.expiresBefore !== undefined)
     add("p.expires_at IS NOT NULL AND p.expires_at < ?", filter.expiresBefore.toISOString());
+  if (filter.channel !== undefined)
+    add(
+      `CASE WHEN json_valid(p.pause) THEN json_extract(p.pause, '$.channel') END = ?`,
+      filter.channel,
+    );
   if (filter.assignee !== undefined)
     add(
       `CASE WHEN json_valid(p.pause) THEN EXISTS (SELECT 1 FROM json_each(p.pause, '$.assignees') WHERE value = ?) END`,

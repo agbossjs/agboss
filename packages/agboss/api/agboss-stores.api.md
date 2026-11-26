@@ -1986,6 +1986,7 @@ export const pauseFencedOf: (key: CancelFencedKey) => AGBossError;
 // @public
 export interface PauseFilter {
     readonly assignee?: string;
+    readonly channel?: string;
     readonly expiresBefore?: Date;
     readonly externalRef?: string;
     readonly statuses: readonly PauseStatus[];

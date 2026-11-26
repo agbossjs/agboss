@@ -38,6 +38,7 @@ export function assertListing(filter: PauseFilter, limit: number): void {
 export const matchesFilter = (pause: PauseRecord, filter: PauseFilter): boolean =>
   filter.statuses.includes(pause.status) &&
   (filter.target === undefined || pause.target === filter.target) &&
+  (filter.channel === undefined || pause.channel === filter.channel) &&
   (filter.expiresBefore === undefined ||
     (pause.expiresAt ?? NEVER) < filter.expiresBefore.toISOString()) &&
   heldAs(pause, filter);

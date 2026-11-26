@@ -21,6 +21,7 @@ import { PausedExecutionRepository } from "../../src/infrastructure/paused-execu
 import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 import { until } from "../channels/fixtures/pause-scripts.js";
 import {
+  ListManagerChannel,
   ListManagerExternalTask,
   ListingApplication,
   asked,
@@ -417,6 +418,10 @@ describe("#943 AC1: listing pauses", () => {
     expect(await threads({ expiringBefore: "2026-01-05T10:00:00.001Z" })).toEqual(["thread-p1"]);
     expect(await threads({ expiringBefore: soon })).toEqual([]);
     expect(await threads({ target: ListManagerExternalTask })).toEqual([]);
+    expect(await threads({ channel: "refund-approval-channel", assignee: "ann" })).toEqual([
+      "thread-p1",
+    ]);
+    expect(await threads({ channel: "no-such-channel" })).toEqual([]);
     // a pause target class that is no target at all is a mistake, not an empty page
     expect(await failureOf(app.listPauses({ target: Object }))).toBeInstanceOf(Error);
   });
@@ -452,6 +457,22 @@ describe("#943 AC1: listing pauses", () => {
     for (const query of [{ after: "0" }, { role: "x" }, { next: "1" }]) {
       const error = await failureOf(app.listPauses(query as never));
       expect(error, JSON.stringify(query)).toBeInstanceOf(ValidationError.DtoInvalid);
+    }
+  });
+
+  test("#1307e 21.2: channel filters by a @Channel class or its name; a class that is no channel is refused", async ({
+    app,
+  }) => {
+    await open(app, managerFlow as never, "m1");
+    await open(app, financeFlow as never, "f1");
+    const threads = async (query: object): Promise<string[]> =>
+      (await allOf(app, query as never)).map((one) => one.threadId);
+
+    expect(await threads({ channel: ListManagerChannel })).toEqual(["t-default-m1"]);
+    expect(await threads({ channel: "list-manager-channel" })).toEqual(["t-default-m1"]);
+    for (const bad of [ListManagerExternalTask, Object, "", 7]) {
+      const error = await failureOf(app.listPauses({ channel: bad } as never));
+      expect(error).toBeInstanceOf(ValidationError.DtoInvalid);
     }
   });
 });

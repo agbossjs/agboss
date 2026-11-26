@@ -365,7 +365,7 @@ export interface App<TApp = unknown> {
   pendingOutboundCallsOf(query: PendingOutboundCallsQuery): Promise<OutboundCallPage>;
   /**
    * A page of pauses (#943, #1307e), oldest made first: by `status` (default `Pending`), `target`
-   * (a `@ToolApproval` / `@ExternalTask` class or its name), `assignee`, `externalRef` and
+   * (a `@ToolApproval` / `@ExternalTask` class or its name), `channel` (a `@Channel` class or its name), `assignee`, `externalRef` and
    * `expiringBefore` (`Date`, or an ISO 8601 text), at most `limit` (1 to 1000, default 100), from
    * the `cursor` of the page before; `nextCursor` is there while more may follow. The cursor is a
    * position in the order the pauses were made, so a pause that opens or closes between two pages
@@ -446,6 +446,8 @@ export interface PausesQuery extends PageQuery {
   readonly status?: PauseStatus | readonly PauseStatus[];
   /** Only pauses waiting under this pause target: its class, or its name. */
   readonly target?: Class | string;
+  /** Only pauses asked through this channel: its `@Channel` class, or its name. */
+  readonly channel?: Class | string;
   /** Only pauses assigned to this one (a pool's member counts). */
   readonly assignee?: string;
   /** Only the pause that carries this external reference (a ticket id of the channel). */

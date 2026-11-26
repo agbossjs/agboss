@@ -371,7 +371,7 @@ the thread's owner answers needs no channel: a `@ToolApproval` with `PauseRespon
 several channels names a `@ChannelSelector({ target })` class (listed in `@Application({ channelSelectors })`) whose `selectChannel(ctx)` picks one
 when a pause is made (`[channel.ambiguous-for-target]` without it).
 
-`app.listPauses({ tenantId | allTenants, target, assignee, externalRef, status, expiringBefore, includePauseIds, cursor, limit })`
+`app.listPauses({ tenantId | allTenants, target, channel, assignee, externalRef, status, expiringBefore, includePauseIds, cursor, limit })`
 pages the pauses (`Page<ListedPause>`: `items`, `nextCursor`); `target` is the class or its `name`. A delegated
 pause's `pauseId` (the right to answer it) is shown only with `includePauseIds: true` — never log it.
 

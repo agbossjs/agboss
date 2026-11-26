@@ -346,13 +346,13 @@ a deadline not later than the current one or past the one the pause was made und
 `dto: "ExtendPauseRequest"`), another tenant's pause (`PauseError.UnknownPause`). Atomic in the store against
 the expiry look; no lease is taken. [Pauses → Extending a pause](Pauses#extending-a-pause-and-reminding-before-its-deadline-942).
 
-## `app.listPauses({ tenantId | allTenants, status?, target?, assignee?, externalRef?, expiringBefore?, includePauseIds?, limit?, cursor? })` (#943, #1307)
+## `app.listPauses({ tenantId | allTenants, status?, target?, channel?, assignee?, externalRef?, expiringBefore?, includePauseIds?, limit?, cursor? })` (#943, #1307)
 
 An operator's queue of pauses, a page at a time: `Page<ListedPause>` (`{ items, nextCursor? }`, like `listExecutions`).
 The scope is the tenant (`tenantId`; `"default"` when the application has no `tenantContext` and none is named) or
 `allTenants: true` for every tenant's pauses, never both; an application with a `tenantContext` that names neither
 rejects with `ValidationError.TenantRequired`. `status` is one `PauseStatus` or a list (default `Pending`); `target`
-is a `@ToolApproval` / `@ExternalTask` class or its name; `assignee` keeps the pauses that one is among the
+is a `@ToolApproval` / `@ExternalTask` class or its name; `channel` a `@Channel` class or its name (a class that is no channel is a `ValidationError.DtoInvalid`); `assignee` keeps the pauses that one is among the
 `assignees` of; `externalRef` the pause its channel gave that reference; `expiringBefore` a `Date` or an ISO 8601
 text (a pause with no deadline is never listed by it); `limit` 1 to 1000 (default 100); `cursor` the `nextCursor`
 of the page before. Pauses come in the order they were made and the cursor is a position in that order — never an

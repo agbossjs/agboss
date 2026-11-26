@@ -6844,6 +6844,7 @@ export enum PauseRespondent {
 // @public
 export interface PausesQuery extends PageQuery {
     readonly assignee?: string;
+    readonly channel?: Class | string;
     readonly expiringBefore?: Date | string;
     readonly externalRef?: string;
     readonly includePauseIds?: boolean;
