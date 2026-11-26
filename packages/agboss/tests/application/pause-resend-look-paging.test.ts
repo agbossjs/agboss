@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { RESEND_PAGE, ResendLook } from "../../src/application/pause-resend-look.js";
 import { InMemoryPausedExecutionRepository } from "../../src/infrastructure/in-memory-paused-execution.repository.js";
 import { NO_RECIPIENTS } from "../../src/infrastructure/pause-notices.js";
-import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
+import { pauseOf, withSeenNow } from "../../src/testing/contracts/paused-execution-data.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { hours } from "../../src/units/index.js";
 
@@ -29,7 +29,10 @@ describe("#946: the re-send look reaches every stuck replacement", () => {
       await pauses.reassignByTenantIdAndPauseId(
         "default",
         old,
-        { pauseId: `new-${String(index).padStart(3, "0")}`, assignees: ["deputy"] },
+        await withSeenNow(pauses, old, {
+          pauseId: `new-${String(index).padStart(3, "0")}`,
+          assignees: ["deputy"],
+        }),
         new Date(start + index * 1000),
         NO_RECIPIENTS,
       );

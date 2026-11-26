@@ -11,7 +11,11 @@ import {
 import { seenOf } from "../../infrastructure/pause-seen.js";
 import { PauseKind } from "../../infrastructure/pause-record.js";
 import { PauseExpiryBound } from "../../infrastructure/pause-record.js";
-import type { PauseRecipients, PauseTimeoutChange } from "../../infrastructure/pause-notices.js";
+import type {
+  PauseRecipients,
+  PauseSeen,
+  PauseTimeoutChange,
+} from "../../infrastructure/pause-notices.js";
 import { bareRecordOf, ComponentKind } from "../../flow/runtime/records.js";
 import { PauseRespondent } from "../../pause/respondent.js";
 
@@ -166,6 +170,25 @@ export const withSeen = async (
   if (found === undefined) return expect.fail(`pause ${pauseId} is found`);
   return { ...change, seen: seenOf(found) };
 };
+
+/** What a reassignment is planned against: the pause as the store holds it now (none stored: a pause nothing is as seen of). */
+export const seenNow = async (
+  store: Pick<PausedExecutionRepository, "findByTenantIdAndPauseId">,
+  pauseId: string,
+): Promise<PauseSeen> => {
+  const found = await store.findByTenantIdAndPauseId("default", pauseId);
+  return found === undefined ? { trailLength: 0, isSent: false } : seenOf(found);
+};
+
+/** A reassignment (or the like) with `seen` read at this moment. */
+export const withSeenNow = async <C extends object>(
+  store: Pick<PausedExecutionRepository, "findByTenantIdAndPauseId">,
+  pauseId: string,
+  change: C,
+): Promise<C & { readonly seen: PauseSeen }> => ({
+  ...change,
+  seen: await seenNow(store, pauseId),
+});
 
 /** A change of `pauseId` from `DEADLINE` (the one of `expiringPauseOf`) to `expiresAt`, over the pause as it is now. */
 export const changeFromDeadline = (

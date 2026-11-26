@@ -20,12 +20,11 @@ export const seenOf = (pause: PauseRecord): PauseSeen => ({
 });
 
 /** Whether the pause is still the one the change was permitted and planned against (#1307). */
-export const isAsSeen = (pause: PauseRecord, seen: PauseSeen | undefined): boolean =>
-  seen === undefined ||
-  (pause.trail.length === seen.trailLength &&
-    pause.expiresAt === seen.expiresAt &&
-    pause.isSent === seen.isSent &&
-    sameAssignees(pause.assignees, seen.assignees));
+export const isAsSeen = (pause: PauseRecord, seen: PauseSeen): boolean =>
+  pause.trail.length === seen.trailLength &&
+  pause.expiresAt === seen.expiresAt &&
+  pause.isSent === seen.isSent &&
+  sameAssignees(pause.assignees, seen.assignees);
 
 /** Whether the pause is still the one `seen` names; a change without one is never as seen. */
 export const isSeenAs = (pause: PauseRecord, seen: PauseSeen | undefined): boolean =>

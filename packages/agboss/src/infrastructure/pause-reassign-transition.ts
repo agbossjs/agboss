@@ -9,7 +9,7 @@ import {
 } from "./pause-notices.js";
 import type { PauseRecord, PauseTrailRecord } from "./pause-record.js";
 import { reassignedPause, replacementPause, replacementStepKeyOf } from "./pause-replacement.js";
-import { isAsSeen } from "./pause-seen.js";
+import { isSeenAs } from "./pause-seen.js";
 import { closing, isDueAt, isOpenAt, type PauseChange } from "./pause-transitions.js";
 
 /**
@@ -33,7 +33,7 @@ export const reassignmentsOf = (pause: Pick<PauseRecord, "trail">): number =>
  * expiry's), and under its limit.
  */
 function isApplicable(pause: PauseRecord, change: PauseReassignmentChange, at: Date): boolean {
-  if (!isAsSeen(pause, change.seen)) return false;
+  if (!isSeenAs(pause, change.seen)) return false;
   const isExpiry = change.due !== undefined;
   if (isExpiry ? !isDueAt(pause, at) : !isOpenAt(pause, at)) return false;
   if (change.maxReassignments !== undefined && reassignmentsOf(pause) >= change.maxReassignments)

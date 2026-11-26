@@ -1397,7 +1397,7 @@ export interface InvalidA2APageTokenErrorOptions {
 }
 
 // @public
-export const isAsSeen: (pause: PauseRecord, seen: PauseSeen | undefined) => boolean;
+export const isAsSeen: (pause: PauseRecord, seen: PauseSeen) => boolean;
 
 // @public
 export function isKeyFingerprint(key: Pick<EffectKeyFields, "fingerprint" | "previousFingerprint">, stored: string | null | undefined): boolean;
@@ -2000,7 +2000,7 @@ export interface PauseInPlaceReassignment {
     readonly maxReassignments?: number;
     readonly pauseId?: never;
     readonly reason?: string;
-    readonly seen?: PauseSeen;
+    readonly seen: PauseSeen;
     readonly timeout?: PauseDeadlineSet;
 }
 
@@ -2142,7 +2142,7 @@ export interface PauseReplacement {
     readonly maxReassignments?: number;
     readonly pauseId: string;
     readonly reason?: string;
-    readonly seen?: PauseSeen;
+    readonly seen: PauseSeen;
     readonly timeout?: PauseDeadlineSet;
     readonly to?: {
         readonly target: string;

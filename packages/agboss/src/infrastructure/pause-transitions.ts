@@ -3,6 +3,7 @@ import type { PlannedNotice } from "./pause-mailboxes.js";
 import { PauseNoticeKind, type PauseNoticeFacts, type PauseRecipients } from "./pause-notices.js";
 import {
   closedNotices,
+  inFirstSendNotices,
   instantOf,
   noticesOf,
   openingNotices,
@@ -10,6 +11,7 @@ import {
 } from "./pause-notice-plans.js";
 import {
   cancelledPause,
+  decidedPause,
   PauseResolution,
   PauseStatus,
   resolvedPause,
@@ -66,6 +68,19 @@ export function resolveChange(
   return isOpenAt(pause, at)
     ? closing(pause, resolvedPause(pause, answer, at), at, recipients)
     : undefined;
+}
+
+/**
+ * `Pending → Taken` with the answer its channel gave at once (`PauseResolution.Decided`), only while
+ * `expiresAt` is after `at` like `resolveChange` (I2): an answer at or after the deadline is
+ * the expiry's. The pause was never sent: no notice (I8).
+ */
+export function decideChange(
+  pause: PauseRecord,
+  answer: PauseAnswer,
+  at: Date,
+): PauseChange | undefined {
+  return isOpenAt(pause, at) ? { pause: decidedPause(pause, answer, at), notices: [] } : undefined;
 }
 
 /** `Pending → Cancelled`; a cancel or a tree end at or after `expiresAt` records `Expired` (I3). */
@@ -141,7 +156,8 @@ function withExternalRef(
 
 /**
  * The channel was asked (rule 2): `isSent` whatever the status, and — only when it was not yet —
- * `opened` to the listeners, then, when the pause closed meanwhile, its `closed` to the channel and
+ * `opened` to the listeners, then, when the pause was changed in place meanwhile (an expiry's
+ * reassignment while the first send ran), the `reassigned` it owes its channel and listeners, then, when the pause closed meanwhile, its `closed` to the channel and
  * the listeners, then its `answerNotTaken` when its answer was closed untaken (I8). The notices
  * carry the times the record knows (`askedAt`, `resolvedAt` / `expiresAt`), so `markSent`, which
  * has no `at`, reads no clock of its own.
@@ -154,7 +170,8 @@ export function markSentChange(
   if (pause.isSent) return { pause, notices: [] };
   const sent = { ...pause, isSent: true, ...withExternalRef(pause, externalRef) };
   const opened = openingNotices(pause, sent, recipients);
-  if (pause.status === PauseStatus.Pending) return { pause: sent, notices: opened };
+  if (pause.status === PauseStatus.Pending)
+    return { pause: sent, notices: [...opened, ...inFirstSendNotices(sent, recipients)] };
   const first = pause.closedFirst ?? pause;
   const closedAt = instantOf(first.resolvedAt ?? pause.askedAt);
   const untaken =

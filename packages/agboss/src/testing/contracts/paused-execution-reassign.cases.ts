@@ -13,6 +13,7 @@ import {
   expiringPauseOf,
   MID,
   pauseOf,
+  seenNow,
 } from "./paused-execution-data.js";
 import {
   type Instances,
@@ -155,7 +156,7 @@ export const REASSIGN_CASES: readonly ContractCase<PausedExecutionRepository>[] 
         await second.reassignByTenantIdAndPauseId(
           "acme",
           "pause-d",
-          { pauseId: "pause-r7", assignees: ["deputy-3"] },
+          { pauseId: "pause-r7", assignees: ["deputy-3"], seen: await seenNow(second, "pause-d") },
           BEFORE_DEADLINE,
           R,
         ),

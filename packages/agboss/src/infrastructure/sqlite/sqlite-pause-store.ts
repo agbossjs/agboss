@@ -7,7 +7,6 @@ import type {
 } from "../pause-notices.js";
 import { timeoutChange } from "../pause-timeout-change.js";
 import {
-  decidedPause,
   PauseStatus,
   type PauseAnswer,
   type PauseCancellation,
@@ -17,6 +16,7 @@ import {
 } from "../pause-record.js";
 import {
   cancelChange,
+  decideChange,
   closeUntakenChange,
   expireChange,
   markSentChange,
@@ -99,11 +99,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
     answer: PauseAnswer,
     at: Date,
   ): Promise<boolean> {
-    const decided = this.#change(tenantId, pauseId, (pause) =>
-      pause.status === PauseStatus.Pending
-        ? { pause: decidedPause(pause, answer, at), notices: [] }
-        : undefined,
-    );
+    const decided = this.#change(tenantId, pauseId, (pause) => decideChange(pause, answer, at));
     return Promise.resolve(decided !== undefined);
   }
 

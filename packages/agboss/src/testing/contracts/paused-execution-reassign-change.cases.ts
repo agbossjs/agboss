@@ -1,9 +1,22 @@
 import { expect } from "vitest";
 import { type PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import type { ContractCase } from "./define.js";
-import { CHANNEL_KEY, expiringPauseOf, MID, RECIPIENTS } from "./paused-execution-data.js";
+import {
+  CHANNEL_KEY,
+  expiringPauseOf,
+  MID,
+  RECIPIENTS,
+  withSeenNow,
+} from "./paused-execution-data.js";
 import { kindsOf, peeker } from "./paused-execution-mailboxes.js";
-import { type Instances, R, AUDIT, treeOf, ids } from "./paused-execution-reassign-data.js";
+import {
+  type Instances,
+  R,
+  AUDIT,
+  treeOf,
+  ids,
+  reassignWith,
+} from "./paused-execution-reassign-data.js";
 
 /** #1307: a reassignment that keeps the pause (in place), and one made to another target. */
 export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
@@ -16,7 +29,7 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
       const moved = await second.reassignByTenantIdAndPauseId(
         "default",
         "pause-a",
-        { assignees: ["deputy-3"], reason: "on leave" },
+        await withSeenNow(second, "pause-a", { assignees: ["deputy-3"], reason: "on leave" }),
         MID,
         RECIPIENTS,
       );
@@ -41,19 +54,43 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
       const change = { assignees: ["deputy-3"], maxReassignments: 1 };
       expect(
-        await second.reassignByTenantIdAndPauseId("default", "pause-a", change, MID, R),
+        await second.reassignByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          await withSeenNow(second, "pause-a", change),
+          MID,
+          R,
+        ),
       ).toMatchObject({ assignees: ["deputy-3"] });
 
       // the chain holds one reassignment: no second one, whoever asks
       expect(
-        await first.reassignByTenantIdAndPauseId("default", "pause-a", change, MID, R),
+        await first.reassignByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          await withSeenNow(first, "pause-a", change),
+          MID,
+          R,
+        ),
       ).toBeUndefined();
-      const released = await first.reassignByTenantIdAndPauseId("default", "pause-a", {}, MID, R);
+      const released = await first.reassignByTenantIdAndPauseId(
+        "default",
+        "pause-a",
+        await withSeenNow(first, "pause-a", {}),
+        MID,
+        R,
+      );
       expect(released?.assignees).toBeUndefined();
 
       // an expiry's change (due) is refused while the deadline is ahead
       expect(
-        await first.reassignByTenantIdAndPauseId("default", "pause-a", { due: {} }, MID, R),
+        await first.reassignByTenantIdAndPauseId(
+          "default",
+          "pause-a",
+          await withSeenNow(first, "pause-a", { due: {} }),
+          MID,
+          R,
+        ),
       ).toBeUndefined();
     },
   },
@@ -66,11 +103,11 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
       const made = await second.reassignByTenantIdAndPauseId(
         "default",
         "pause-a",
-        {
+        await withSeenNow(second, "pause-a", {
           pauseId: "pause-b",
           to: { target: "tier-two-external-task", respondent: "delegate" as never, channel: "sap" },
           timeout: { expiresAt: "2026-01-05T12:00:00.000Z" },
-        },
+        }),
         MID,
         RECIPIENTS,
       );
@@ -99,8 +136,8 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
       const limited = { countsAsExtension: true as const, maxExtensions: 1 };
       const to = { target: "tier-one-external-task", respondent: "delegate" as never };
 
-      const made = await second.reassignByTenantIdAndPauseId(
-        "default",
+      const made = await reassignWith(
+        second,
         "pause-a",
         {
           pauseId: "pause-b",
@@ -109,7 +146,6 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
           ...limited,
         },
         MID,
-        RECIPIENTS,
       );
       expect(made?.trail.map((entry) => entry.action)).toEqual([
         "opened",
@@ -123,23 +159,10 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
         timeout: { expiresAt: "2026-01-05T14:00:00.000Z" },
         ...limited,
       };
+      const moved = { pauseId: "pause-c", to: { ...to, channel: "main" }, ...again };
+      expect(await reassignWith(first, "pause-b", moved, MID, R)).toBeUndefined();
       expect(
-        await first.reassignByTenantIdAndPauseId(
-          "default",
-          "pause-b",
-          { pauseId: "pause-c", to: { ...to, channel: "main" }, ...again },
-          MID,
-          R,
-        ),
-      ).toBeUndefined();
-      expect(
-        await first.reassignByTenantIdAndPauseId(
-          "default",
-          "pause-b",
-          { assignees: ["deputy-3"], ...again },
-          MID,
-          R,
-        ),
+        await reassignWith(first, "pause-b", { assignees: ["deputy-3"], ...again }, MID, R),
       ).toBeUndefined();
       expect(await first.findByTenantIdAndPauseId("default", "pause-c")).toBeUndefined();
       expect((await first.findByTenantIdAndPauseId("default", "pause-b"))?.expiresAt).toBe(

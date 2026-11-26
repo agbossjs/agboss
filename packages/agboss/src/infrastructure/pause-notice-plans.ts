@@ -92,3 +92,36 @@ export function openingNotices(
     }),
   );
 }
+
+/**
+ * The `reassigned` notice of a pause that was changed in place (its trail holds a `reassigned` entry
+ * after its own `opened`) while its first send was in flight, to the channel that was just sent it
+ * and to the listeners: the in-place change wrote none then (nobody was told of the pause yet). It
+ * names what the channel was asked on — the entry before the first change, as far as that entry
+ * records it (the `opened` entry holds the target and channel; the deadline and assignees only when
+ * it names them) — and what the pause is now. A replacement (`reassignedFrom`) has its own `reassigned` entry: its listeners hear that one.
+ */
+export function inFirstSendNotices(
+  sent: PauseRecord,
+  recipients: PauseRecipients,
+): readonly PlannedNotice[] {
+  if (sent.reassignedFrom !== undefined) return [];
+  const index = sent.trail.findIndex((entry, at) => at > 0 && entry.action === "reassigned");
+  const before = sent.trail[index - 1];
+  const changed = sent.trail[index];
+  if (before === undefined || changed === undefined) return [];
+  return noticesOf(
+    recipients,
+    PauseNoticeKind.Reassigned,
+    instantOf(changed.at),
+    definedFields({
+      expiresAt: sent.expiresAt,
+      previousExpiresAt: before.expiresAt,
+      assignees: sent.assignees,
+      previousAssignees: before.assignees,
+      previousTarget: before.target,
+      previousChannel: before.channel,
+      previousExternalRef: before.externalRef,
+    }),
+  );
+}

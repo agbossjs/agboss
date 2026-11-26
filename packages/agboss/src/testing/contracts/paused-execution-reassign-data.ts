@@ -1,5 +1,9 @@
 import { PauseExpiryBound } from "../../infrastructure/pause-record.js";
-import { NO_RECIPIENTS } from "../../infrastructure/pause-notices.js";
+import {
+  NO_RECIPIENTS,
+  type PauseReassignmentChange,
+  type PauseRecipients,
+} from "../../infrastructure/pause-notices.js";
 import {
   type PausedExecutionRepository,
   type PauseRecord,
@@ -10,6 +14,7 @@ import {
   expiringPauseOf,
   LISTENER_KEYS,
   RECIPIENTS,
+  withSeenNow,
 } from "./paused-execution-data.js";
 
 /** What the reassignment cases (#946) share: the stores, a quorum branch, the reassignment call. */
@@ -26,7 +31,7 @@ export const branchOf = (pauseId: string, stepKey = "run-1:clerk-agent:1:call-1"
   branchKeys: ["run-1:refund-one-workflow:1:0", "child-1:clerk-agent:1"],
 });
 
-export const reassign = (
+export const reassign = async (
   store: Store,
   pauseId: string,
   replacementId: string,
@@ -36,9 +41,28 @@ export const reassign = (
   store.reassignByTenantIdAndPauseId(
     "default",
     pauseId,
-    { pauseId: replacementId, assignees },
+    await withSeenNow(store, pauseId, { pauseId: replacementId, assignees }),
     at,
     RECIPIENTS,
+  );
+
+/** A reassignment as a caller makes it, before the plan names what it is made against. */
+type Unplanned<C> = C extends PauseReassignmentChange ? Omit<C, "seen"> : never;
+
+/** A reassignment of `pauseId` planned against the pause as it is now: `change` plus the `seen` read at this moment. */
+export const reassignWith = async (
+  store: Store,
+  pauseId: string,
+  change: Unplanned<PauseReassignmentChange>,
+  at: Date = BEFORE_DEADLINE,
+  recipients: PauseRecipients = RECIPIENTS,
+): Promise<PauseRecord | undefined> =>
+  store.reassignByTenantIdAndPauseId(
+    "default",
+    pauseId,
+    await withSeenNow(store, pauseId, change),
+    at,
+    recipients,
   );
 
 export const treeOf = async (store: Store): Promise<readonly PauseRecord[]> =>
