@@ -118,6 +118,64 @@ describe("#1324b golden: the stored fingerprint of a real application", () => {
   });
 });
 
+describe("#1324b golden: the production path, piiSecret and idempotencySecret under createApp", () => {
+  const folder = mkdtempSync(join(tmpdir(), "agboss-golden-prod-"));
+  afterAll(() => {
+    rmSync(folder, { recursive: true, force: true });
+  });
+
+  @DatabaseStorage({
+    name: "golden-production-storage",
+    driver: SqliteDriver({ path: env("GOLDEN_PROD_SQLITE_PATH") }),
+    auditLogTtl: hours(24),
+    ledgerEntriesTtl: hours(24),
+    idempotencySecret: secret("GOLDEN_PROD_IDEMPOTENCY"),
+    piiSecret: secret("GOLDEN_PROD_PII"),
+  })
+  class ProductionStorage {}
+
+  @Application({
+    name: "golden-production-application",
+    version: "1.0.0",
+    workflows: [BookOrderWorkflow],
+    storage: ProductionStorage,
+    budgets: TEST_BUDGETS,
+  })
+  class ProductionApplication {}
+
+  it("`order:42` and `{ amountUsd: 10 }` are stored under the digests main stores for these secrets, never the test's keys", async () => {
+    const file = join(folder, "production.sqlite");
+    const app = await createAppWith(ProductionApplication, {
+      processEnv: {
+        GOLDEN_PROD_SQLITE_PATH: file,
+        GOLDEN_PROD_IDEMPOTENCY: "probe-idem",
+        GOLDEN_PROD_PII: "probe-pii-secret",
+      },
+      handleSignals: false,
+    });
+    try {
+      await execute(app, BookOrderStart, { orderId: "42", amountUsd: 10 });
+    } finally {
+      await app.close();
+    }
+
+    const database = new DatabaseSync(file);
+    try {
+      const [row] = database
+        .prepare("SELECT business_key, facts FROM fenced_effect_business_results")
+        .all();
+      // literals captured on main before the flip, from `piiSecret` = "probe-pii-secret", `idempotencySecret` = "probe-idem"
+      expect(row?.business_key).toBe("i1pG_-d-zPej_9j539o2YSly_BPBwZFigBAK1oqoITo");
+      expect(String(row?.facts)).toContain(
+        "a4b7d9f19808f41d619d0e047f12081792d8537ac6491f837accd3bc56f87909",
+      );
+      expect(row?.business_key).not.toBe(GOLDEN_BUSINESS_KEY);
+    } finally {
+      database.close();
+    }
+  });
+});
+
 describe("#1324b golden: PII tokens", () => {
   const key = "shared-app-key";
 
