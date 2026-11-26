@@ -1,8 +1,9 @@
+import { ComponentKind } from "../runtime/records.js";
 import { LimitError } from "../../core/error-families/limit-errors.js";
 import { STEPS_PER_WORKING_NODE } from "../../graph/limits.js";
 import { isCountLimit, shownLimit } from "../../graph/count-limit.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { NodeKind, type ErrorClass } from "../ast.js";
+import type { ErrorClass } from "../ast.js";
 import type { ComponentName } from "../registry.js";
 import {
   EdgeKind,
@@ -29,10 +30,10 @@ import type { AnalysisContext } from "./rules/context.js";
  * analysis counts it, so a hand-set bound is never read lower than a run can need.
  */
 export const weightOf = (node: FlowNode | undefined): number =>
-  node?.kind === NodeKind.Agent ||
-  node?.kind === NodeKind.Router ||
-  node?.kind === NodeKind.Action ||
-  node?.kind === NodeKind.Question
+  node?.kind === ComponentKind.Agent ||
+  node?.kind === ComponentKind.Router ||
+  node?.kind === ComponentKind.Action ||
+  node?.kind === ComponentKind.ExternalTask
     ? 1
     : 0;
 
@@ -107,7 +108,7 @@ const fromStart = (graph: FlowGraph, start: ComponentName): Distances =>
 function toFinish(graph: FlowGraph): Distances {
   const seeds = new Map<ComponentName, number>();
   for (const node of graph.nodes.values())
-    if (node.kind === NodeKind.Finish) seeds.set(node.name, 0);
+    if (node.kind === ComponentKind.WorkflowFinish) seeds.set(node.name, 0);
   for (const edge of graph.edges) {
     if (catchesStepsLimit(edge.error)) seeds.set(edge.from, 0);
   }

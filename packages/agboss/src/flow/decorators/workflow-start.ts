@@ -1,10 +1,10 @@
+import { ComponentKind } from "../runtime/records.js";
 import { recordOptionKeys } from "../../components/option-keys.js";
 import { WORKFLOW_START_KEYS } from "../../components/decorator-options.js";
 import { callerFile } from "../../components/call-site.js";
 import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
-import { NodeKind } from "../ast.js";
 import type { ListWrapper, ValueShape } from "../dto-wrappers.js";
 import { declared, recordDeclaration } from "./declaration.js";
 
@@ -26,7 +26,7 @@ export function WorkflowStart(options: WorkflowStartOptions) {
   const span = captureCallSite();
   return <TClass extends Class>(value: TClass): TClass => {
     recordOptionKeys(value, "WorkflowStart", options, WORKFLOW_START_KEYS);
-    recordDeclaration(value, declared(NodeKind.Start, options, source, span));
+    recordDeclaration(value, declared(ComponentKind.WorkflowStart, options, source, span));
     return value;
   };
 }

@@ -1,10 +1,10 @@
+import { ComponentKind } from "../../flow/runtime/records.js";
 import { isCodeJudge } from "../../components/judge-decorators.js";
 import { checkedJudgeOf } from "../../components/judge-parts.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
 import { requireApplication } from "../../application/application.js";
 import { startsOfApplication } from "../../application/application-starts.js";
-import { NodeKind } from "../../flow/ast.js";
 import { outputClassesOf } from "../../flow/finish-output.js";
 import { checkWorkflow } from "../../flow/analyse/analyse.js";
 import { childWorkflowOf, withChildWorkflows } from "../../flow/analyse/child-workflow.js";
@@ -17,7 +17,7 @@ import {
   sameFamilyWarnings,
   type JudgedAgent,
 } from "../../flow/analyse/rules/judge-family.js";
-import { kindSuffixProblem, NameKind } from "../../flow/names.js";
+import { kindSuffixProblem } from "../../flow/names.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import type { JudgeEvalCheck } from "./checks.js";
 import type { EvalSuiteMeta } from "./eval-suite.decorator.js";
@@ -37,12 +37,12 @@ const CLASS_SUFFIX = "EvalSuite";
 /** A start's `name` (`refund-workflow-start`), its class name when it is not a start. */
 function startNameOf(start: Class): string {
   const declaration = declarationOf(start);
-  return declaration?.kind === NodeKind.Start ? declaration.options.name : start.name;
+  return declaration?.kind === ComponentKind.WorkflowStart ? declaration.options.name : start.name;
 }
 
 function nameViolations(suite: Class, meta: EvalSuiteMeta): RuleViolation[] {
   const found: RuleViolation[] = [];
-  const problem = kindSuffixProblem(meta.name, NameKind.EvalSuite);
+  const problem = kindSuffixProblem(meta.name, ComponentKind.EvalSuite);
   if (problem !== undefined) found.push(violation(problem.code, problem.message, [meta.name]));
   const className = suite.name;
   if (className.length <= CLASS_SUFFIX.length || !className.endsWith(CLASS_SUFFIX))
@@ -89,7 +89,9 @@ function reachedOutputs(
   if (graph === undefined) return [];
   return [...reachableFrom([opened.entry], graph.edges)].flatMap((name) => {
     const declaration = graph.nodes.get(name)?.declaration;
-    return declaration?.kind === NodeKind.Finish ? outputClassesOf(declaration.options.output) : [];
+    return declaration?.kind === ComponentKind.WorkflowFinish
+      ? outputClassesOf(declaration.options.output)
+      : [];
   });
 }
 

@@ -2,8 +2,8 @@
  * #1366: a workflow's cap on executions at once is its own `executionLimits.maxConcurrency`, else 10 — for a class that
  * is no workflow (undeclared or another kind) too, never a crash; the flow is recorded as plain paths.
  */
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { describe, expect, it } from "vitest";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { declarationOf } from "../../../src/flow/decorators/declaration.js";
 import {
   declaredExecutionLimitsOf,
@@ -49,12 +49,12 @@ describe("#1366: the cap of executions at once", () => {
       expect(declaredExecutionLimitsOf(other).maxConcurrency).toBeUndefined();
       expect(maxConcurrencyUnder(declaredExecutionLimitsOf, other)).toBe(10);
     }
-    expect(declarationOf(NotifyRecruiterAction)?.kind).toBe(NodeKind.Action);
+    expect(declarationOf(NotifyRecruiterAction)?.kind).toBe(ComponentKind.Action);
   });
 
   it("the flow is recorded as plain data: source and steps only", () => {
     const declaration = declarationOf(Capped);
-    const flow = declaration?.kind === NodeKind.Workflow ? declaration.options.flow : [];
+    const flow = declaration?.kind === ComponentKind.Workflow ? declaration.options.flow : [];
 
     expect(flow).toHaveLength(1);
     expect(Object.keys(flow[0] ?? {})).toEqual(["source", "steps"]);

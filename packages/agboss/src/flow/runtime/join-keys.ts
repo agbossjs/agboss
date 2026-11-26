@@ -3,7 +3,6 @@ import { schemaOf, type JsonSchema } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
 import { promptTextOf } from "../../components/prompt-render.js";
 import { versionOf } from "../../turns/index.js";
-import { NodeKind } from "../ast.js";
 import type { ComponentDeclaration, InputFieldShape } from "../decorators/declaration.js";
 import { isWrapper, Wrapper, type AnyWrapper, type OutputShape } from "../dto-wrappers.js";
 import type { RuntimeGraph, RuntimeNode } from "./graph-model.js";
@@ -17,20 +16,6 @@ import type { LoadedRouter } from "./routers.js";
  * a trace joins the declarative snapshot. A DTO enters a hash by its JSON Schema's hash: a field
  * renamed or retyped changes every component that reads or writes it.
  */
-
-/** The kind of each node's component. */
-const KIND_OF_NODE: Readonly<Record<NodeKind, ComponentKind>> = {
-  [NodeKind.Start]: ComponentKind.WorkflowStart,
-  [NodeKind.Finish]: ComponentKind.WorkflowFinish,
-  [NodeKind.Agent]: ComponentKind.Agent,
-  [NodeKind.Action]: ComponentKind.Action,
-  [NodeKind.Router]: ComponentKind.Router,
-  [NodeKind.Workflow]: ComponentKind.Workflow,
-  [NodeKind.Question]: ComponentKind.Question,
-};
-
-/** The component kind of a node kind. */
-export const componentKindOf = (kind: NodeKind): ComponentKind => KIND_OF_NODE[kind];
 
 /** The JSON Schema of a DTO as `describe --json` gives it: what is sent and accepted, no `$schema`. */
 export function dtoJsonSchemaOf(dto: DtoClass): JsonSchema {
@@ -97,21 +82,21 @@ export interface ComponentIo {
 /** A node's `input` and `output` from its declaration; a child workflow's node declares none. */
 export function componentIoOf(declaration: ComponentDeclaration): ComponentIo {
   switch (declaration.kind) {
-    case NodeKind.Start:
-    case NodeKind.Router:
+    case ComponentKind.WorkflowStart:
+    case ComponentKind.Router:
       return { input: declaration.options.input };
-    case NodeKind.Finish:
+    case ComponentKind.WorkflowFinish:
       return { output: declaration.options.output };
-    case NodeKind.Agent:
-    case NodeKind.Action:
-    case NodeKind.Question: {
+    case ComponentKind.Agent:
+    case ComponentKind.Action:
+    case ComponentKind.ExternalTask: {
       const { input, output } = declaration.options;
       return {
         ...(input === undefined ? {} : { input }),
         ...(output === undefined ? {} : { output }),
       };
     }
-    case NodeKind.Workflow:
+    case ComponentKind.Workflow:
       return {};
   }
 }
@@ -152,9 +137,9 @@ export const routerPromptOf = (router: LoadedRouter): object => ({
 });
 
 function promptHashOfNode(node: RuntimeNode, source: JoinKeySource): string | undefined {
-  if (node.kind === NodeKind.Agent)
+  if (node.kind === ComponentKind.Agent)
     return versionOf(promptTextOf(Reflect.get(source.prompts, node.id)) ?? "");
-  if (node.kind !== NodeKind.Router) return undefined;
+  if (node.kind !== ComponentKind.Router) return undefined;
   const router = source.routers.find((loaded) => loaded.name === node.id);
   return router === undefined ? undefined : versionOf(routerPromptOf(router));
 }
@@ -162,7 +147,7 @@ function promptHashOfNode(node: RuntimeNode, source: JoinKeySource): string | un
 /** One node's record: its name, kind and hashes. */
 export const nodeRecordOf = (node: RuntimeNode, source: JoinKeySource): ComponentRecord => ({
   name: node.id,
-  kind: componentKindOf(node.kind),
+  kind: node.kind,
   promptHash: promptHashOfNode(node, source),
   schemaHash: schemaHashOfIo(componentIoOf(node.declaration)),
 });

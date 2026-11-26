@@ -1,7 +1,8 @@
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { Application } from "../../../src/application/application.js";
 import { Channel, Injectable } from "../../../src/components/decorators.js";
-import { type ChannelAsk } from "../../../src/channels/channel-handler.js";
+import type { ChannelAsk } from "../../../src/channels/channel-handler.js";
 import { ChannelOutcome } from "../../../src/channels/channel-outcome.js";
 import { Bool, Text } from "../../../src/dto/index.js";
 import {
@@ -15,7 +16,7 @@ import {
   Ttl,
 } from "../../../src/index.js";
 import { InMemoryCheckpointSaver } from "../../../src/infrastructure/contracts.js";
-import { NodeKind, type PathSource } from "../../../src/flow/ast.js";
+import type { PathSource } from "../../../src/flow/ast.js";
 import { fromSource, type PathBuilder } from "../../../src/flow/path-builder.js";
 import type { Class } from "../../../src/components/injection.js";
 import {
@@ -42,7 +43,7 @@ import { days } from "../../../src/units/index.js";
  */
 
 const onStart = (source: Class): PathBuilder<PathSource> =>
-  fromSource({ kind: NodeKind.Start, node: source });
+  fromSource({ kind: ComponentKind.WorkflowStart, node: source });
 
 /** One checkpoint write as the saver was asked for it. */
 export interface CheckpointWrite {

@@ -1,7 +1,7 @@
+import { ComponentKind } from "../runtime/records.js";
 import type { WorkflowStartInput } from "../decorators/workflow-start.js";
 import { childWorkflowOf } from "../analyse/child-workflow.js";
 import { childClassOf, outputOf, reachableFrom, type FlowNode } from "../analyse/flow-graph.js";
-import { NodeKind } from "../ast.js";
 import type { ComponentName } from "../registry.js";
 import type { ImportTable } from "./imports.js";
 import { outputText, startInputText, startOutputText, valueText } from "./shapes.js";
@@ -29,7 +29,7 @@ function startOutputs(
     if (!graph.nodes.has(start)) continue;
     for (const reached of reachableFrom([start], graph.edges)) {
       const node = graph.nodes.get(reached);
-      if (node?.declaration.kind !== NodeKind.Finish) continue;
+      if (node?.declaration.kind !== ComponentKind.WorkflowFinish) continue;
       outputs.add(valueText(node.declaration.options.output, names));
       finishes.add(JSON.stringify(node.name));
     }

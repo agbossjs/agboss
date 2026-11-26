@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../../flow/runtime/records.js";
 import {
   ChildPlacement,
   Workflow,
@@ -8,7 +9,7 @@ import {
   Action,
 } from "../../../index.js";
 import type { Class } from "../../../components/injection.js";
-import { NodeKind, type PathSource } from "../../../flow/ast.js";
+import type { PathSource } from "../../../flow/ast.js";
 import { fromSource, subPathFrom, type PathBuilder } from "../../../flow/path-builder.js";
 import { FaultChargeAction, FaultReserveAction } from "./order.actions.js";
 import { FaultBatchDto, FaultOrderDto, FaultPaymentDto } from "./order.dto.js";
@@ -26,7 +27,7 @@ import { Ttl } from "../../../index.js";
  * `.agboss/types.d.ts` types its workflows (the same AST as the typed `start`).
  */
 const onStart = (source: Class): PathBuilder<PathSource> =>
-  fromSource({ kind: NodeKind.Start, node: source });
+  fromSource({ kind: ComponentKind.WorkflowStart, node: source });
 
 const toWorkflow = (target: Class): PathBuilder<undefined> =>
   subPathFrom({ kind: "side" })

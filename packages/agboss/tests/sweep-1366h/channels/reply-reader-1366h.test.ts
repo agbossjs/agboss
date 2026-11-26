@@ -94,12 +94,12 @@ describe("#1366: how the model is asked", () => {
   });
 
   it("the cost caller of an interpreter is its own name under reply-interpreter", async () => {
-    expect(replyInterpreterCaller("wire")).toBe("reply-interpreter:wire");
+    expect(replyInterpreterCaller("wire")).toBe("channel-interpreter:wire");
     const { gateway } = gatewayGiving(new AIMessage({ content: "hm" }));
 
     const out = await read(gateway);
 
-    expect(out.usage.at(-1)?.caller).toBe("reply-interpreter:wire-reply-interpreter");
+    expect(out.usage.at(-1)?.caller).toBe("channel-interpreter:wire-reply-interpreter");
   });
 
   it("the system text has no stray whitespace around it when the role has no instructions", async () => {

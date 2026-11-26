@@ -1,7 +1,8 @@
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { LimitError } from "../../src/core/error-families/limit-errors.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { NodeKind, StepKind, type FlowPath } from "../../src/flow/ast.js";
+import { StepKind, type FlowPath } from "../../src/flow/ast.js";
 import { toAction, toRouter, toAgent } from "../../src/flow/builder.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { listOf, optional } from "../../src/flow/dto-wrappers.js";
@@ -33,7 +34,7 @@ import { onAgent, onAction, onRouter, onStart, toFinish } from "./fixtures/paths
 
 const flowOf = (workflow: abstract new () => unknown): readonly FlowPath[] => {
   const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow) throw new TypeError("not a workflow");
+  if (declaration?.kind !== ComponentKind.Workflow) throw new TypeError("not a workflow");
   return declaration.options.flow;
 };
 
@@ -45,9 +46,9 @@ describe("#273: a launch and its join in the AST", () => {
     expect(launch).toMatchObject({
       kind: StepKind.InParallel,
       branches: [
-        { target: PlanResearcherAgent, targetKind: NodeKind.Agent, skip: [] },
-        { target: CriticAgent, targetKind: NodeKind.Agent, skip: [] },
-        { target: CriticAgent, targetKind: NodeKind.Agent, skip: [] },
+        { target: PlanResearcherAgent, targetKind: ComponentKind.Agent, skip: [] },
+        { target: CriticAgent, targetKind: ComponentKind.Agent, skip: [] },
+        { target: CriticAgent, targetKind: ComponentKind.Agent, skip: [] },
       ],
       maxConcurrency: 3,
     });
@@ -71,7 +72,7 @@ describe("#273: a launch and its join in the AST", () => {
   it("one target per item keeps its takeFirst; whether it has a list to run over is the analyser's", () => {
     const launch = stepsOf(ScreeningWorkflow).find((step) => step.kind === StepKind.ForEachItem);
     expect(launch).toMatchObject({
-      branch: { target: CompanyAuditAgent, targetKind: NodeKind.Agent },
+      branch: { target: CompanyAuditAgent, targetKind: ComponentKind.Agent },
       takeFirst: 50,
       maxConcurrency: 3,
     });
@@ -88,9 +89,9 @@ describe("#273: a launch and its join in the AST", () => {
     ]);
     expect(steps[1]).toMatchObject({
       branches: [
-        { targetKind: NodeKind.Action },
-        { targetKind: NodeKind.Action },
-        { targetKind: NodeKind.Action },
+        { targetKind: ComponentKind.Action },
+        { targetKind: ComponentKind.Action },
+        { targetKind: ComponentKind.Action },
       ],
     });
     expect(steps[2]).toEqual({ kind: StepKind.Join, onError: [] });

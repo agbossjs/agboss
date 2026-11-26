@@ -4,8 +4,8 @@
  * task line (so the next turn's thread memory), the history's input and children, the child's end
  * event. A `tokenize()` field is its token, a `mask()` field its mask; the caller keeps its values.
  */
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { describe, expect, it, vi } from "vitest";
-import { NodeKind } from "../../src/flow/ast.js";
 import { Application } from "../../src/application/application.js";
 import { DEFAULT_TENANT_ID } from "../../src/flow/context/tenant-context.js";
 import { displayMask } from "../../src/dto/redact.js";
@@ -211,7 +211,7 @@ describe("#1301 finding 2: a start DTO's sensitive fields are masked in what is 
           "s",
           {
             declaration: {
-              kind: NodeKind.Start,
+              kind: ComponentKind.WorkflowStart,
               options: {
                 input: {
                   one: DeskMessageDto,
@@ -251,7 +251,12 @@ describe("#1301 finding 2: a start DTO's sensitive fields are masked in what is 
         nodes: new Map([
           [
             "desk-workflow-start",
-            { declaration: { kind: NodeKind.Start, options: { input: DeskMessageDto } } },
+            {
+              declaration: {
+                kind: ComponentKind.WorkflowStart,
+                options: { input: DeskMessageDto },
+              },
+            },
           ],
         ]),
       },

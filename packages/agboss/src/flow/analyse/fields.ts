@@ -1,5 +1,5 @@
+import { ComponentKind } from "../runtime/records.js";
 import { WorkflowStartTextDto } from "../../dto/standard/framework.js";
-import { NodeKind } from "../ast.js";
 import type { InputFieldShape, InputFields } from "../decorators/declaration.js";
 import type { ComponentName } from "../registry.js";
 import { childFieldsOf, type ChildEntry } from "./children.js";
@@ -37,11 +37,11 @@ export const TEXT_AGENT_INPUT: InputFields = Object.freeze({ message: WorkflowSt
 function declaredFields(node: FlowNode): InputFields | undefined {
   const { declaration } = node;
   switch (declaration.kind) {
-    case NodeKind.Agent:
+    case ComponentKind.Agent:
       return declaration.options.input ?? TEXT_AGENT_INPUT;
-    case NodeKind.Action:
-    case NodeKind.Router:
-    case NodeKind.Question:
+    case ComponentKind.Action:
+    case ComponentKind.Router:
+    case ComponentKind.ExternalTask:
       return declaration.options.input;
     default:
       return undefined;
@@ -57,7 +57,7 @@ function resolveField(node: FlowNode, name: string, shape: InputFieldShape): Res
 /** A finish reads the latest value of its `output` type: one DTO, or a list of them. */
 function passThroughField(node: FlowNode): ResolvedField | undefined {
   const { declaration } = node;
-  if (declaration.kind !== NodeKind.Finish) return undefined;
+  if (declaration.kind !== ComponentKind.WorkflowFinish) return undefined;
   const { output } = declaration.options;
   const { slot, isList } = slotOfField(output);
   const label = `${node.name} (${shapeLabel(output)})`;
@@ -79,7 +79,7 @@ export function resolveFields(
 ): ReadonlyMap<ComponentName, readonly ResolvedField[]> {
   const byNode = new Map<ComponentName, readonly ResolvedField[]>();
   for (const node of graph.nodes.values()) {
-    if (node.kind === NodeKind.Workflow) {
+    if (node.kind === ComponentKind.Workflow) {
       byNode.set(node.name, childFieldsOf(children, node.name));
       continue;
     }

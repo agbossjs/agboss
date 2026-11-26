@@ -58,7 +58,6 @@ export type {
   Quorums,
 } from "../flow/quorum-types.js";
 export {
-  NodeKind,
   QuorumKind,
   StepKind,
   type ArbiterClass,

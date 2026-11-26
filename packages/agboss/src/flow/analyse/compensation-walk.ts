@@ -1,4 +1,4 @@
-import { NodeKind } from "../ast.js";
+import { ComponentKind } from "../runtime/records.js";
 import type { ComponentName } from "../registry.js";
 import type { UndoableAction } from "./compensation.js";
 import { EdgeKind, outgoingEdges, type FlowEdge, type FlowGraph } from "./flow-graph.js";
@@ -193,7 +193,8 @@ export function walkCompensations(
     if (seen.has(stateKey(arrived)) || seen.size >= MAX_STATES) continue;
     seen.add(stateKey(arrived));
     const state = undoing(arrived, undoables, found);
-    if (graph.nodes.get(state.node)?.kind === NodeKind.Finish) finishing(state, undoables, found);
+    if (graph.nodes.get(state.node)?.kind === ComponentKind.WorkflowFinish)
+      finishing(state, undoables, found);
     for (const edge of edges.get(state.node) ?? [])
       if (edge.kind !== EdgeKind.Launch) queue.push(leaving(state, edge, undoables));
   }

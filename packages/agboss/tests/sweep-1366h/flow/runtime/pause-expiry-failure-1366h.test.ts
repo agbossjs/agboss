@@ -38,7 +38,7 @@ const pauseOf = (changes: Partial<PauseRecord> = {}): PauseRecord =>
 
 const siteOf = (check: ExpirySite["budgets"]["check"] = () => undefined): ExpirySite => ({
   step: "ask-ops",
-  stepKind: ComponentKind.Question,
+  stepKind: ComponentKind.ExternalTask,
   state: [],
   usage: [],
   path: ["flow", "ask-ops"],

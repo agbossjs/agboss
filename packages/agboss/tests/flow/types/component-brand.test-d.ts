@@ -1,15 +1,15 @@
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { describe, expectTypeOf, it } from "vitest";
-import { NodeKind } from "../../../src/flow/ast.js";
 import type {
   AGBossTypes,
   InstanceOrSelf,
   KindOf,
   NameOf,
+  MissingGeneratedTypes,
 } from "../../../src/flow/generated-types.js";
 import type * as flow from "../../../src/public/flow.js";
 import type * as flowTypes from "../../../src/public/flow-types.js";
 import type { JudgeInput } from "../../../src/components/judge-decorators.js";
-import type { MissingGeneratedTypes } from "../../../src/flow/generated-types.js";
 import type { DeskAnswerDto, RefundRecordedJudge } from "../fixtures/eval-desk.fixture.js";
 import { ChargeCardAction, CreditWorkflowStart, DeskRouter } from "../fixtures/credit.fixture.js";
 
@@ -26,9 +26,9 @@ describe("#1324g: the brand carries the name and the kind", () => {
   });
 
   it("KindOf reads the declared kind of an instance and of a class", () => {
-    expectTypeOf<KindOf<ChargeCardAction>>().toEqualTypeOf<NodeKind.Action>();
-    expectTypeOf<KindOf<typeof DeskRouter>>().toEqualTypeOf<NodeKind.Router>();
-    expectTypeOf<KindOf<typeof CreditWorkflowStart>>().toEqualTypeOf<NodeKind.Start>();
+    expectTypeOf<KindOf<ChargeCardAction>>().toEqualTypeOf<ComponentKind.Action>();
+    expectTypeOf<KindOf<typeof DeskRouter>>().toEqualTypeOf<ComponentKind.Router>();
+    expectTypeOf<KindOf<typeof CreditWorkflowStart>>().toEqualTypeOf<ComponentKind.WorkflowStart>();
   });
 
   it("an unbranded class has neither a name nor a kind", () => {

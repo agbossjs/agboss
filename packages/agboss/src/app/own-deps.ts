@@ -1,4 +1,4 @@
-import { NodeKind } from "../flow/ast.js";
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { GraphDeps } from "../graph/deps.js";
 import { inChainOf } from "./pii-chain.js";
 
@@ -23,7 +23,8 @@ function allNamed(deps: GraphDeps<string>, name: string, found: GraphDeps<string
     return;
   }
   for (const node of deps.graph.nodes.values()) {
-    const child = node.kind === NodeKind.Workflow ? deps.childDepsOf?.(node.component) : undefined;
+    const child =
+      node.kind === ComponentKind.Workflow ? deps.childDepsOf?.(node.component) : undefined;
     if (child !== undefined) allNamed(child, name, found);
   }
 }

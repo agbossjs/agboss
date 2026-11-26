@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { requireApplication } from "../application/application.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import type { Class } from "../components/injection.js";
@@ -9,7 +10,6 @@ import {
   type FlowGraph,
 } from "../flow/analyse/flow-graph.js";
 import { startLabel } from "../flow/analyse/rules/children.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { ExecutionLimitsOf } from "../flow/decorators/workflow.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -83,10 +83,10 @@ function nodeOf(
   above: readonly Class[],
 ): DescribedWorkflowTree {
   const declaration = declarationOf(workflow);
-  const options = declaration?.kind === NodeKind.Workflow ? declaration.options : undefined;
+  const options = declaration?.kind === ComponentKind.Workflow ? declaration.options : undefined;
   const graph = source.graphOf(workflow);
   const children = [...(graph?.nodes.values() ?? [])].flatMap((node): DescribedChild[] => {
-    if (node.kind !== NodeKind.Workflow || graph === undefined) return [];
+    if (node.kind !== ComponentKind.Workflow || graph === undefined) return [];
     const launch = launchOf(graph.edges.filter((edge) => edge.to === node.name));
     if (node.recursionOf !== undefined) {
       const { maxDepth } = source.limitsOf(workflow);
@@ -119,7 +119,7 @@ function nodeOf(
 /** A workflow named in the tree without its children (a recursion: its parent again). */
 function leafOf(workflow: Class): DescribedWorkflowTree {
   const declaration = declarationOf(workflow);
-  const options = declaration?.kind === NodeKind.Workflow ? declaration.options : undefined;
+  const options = declaration?.kind === ComponentKind.Workflow ? declaration.options : undefined;
   return {
     name: options?.name ?? workflow.name,
     version: options?.version ?? "",

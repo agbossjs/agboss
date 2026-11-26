@@ -1,6 +1,7 @@
+import type { FlowNodeKind, PathSource } from "../ast.js";
+import { ComponentKind } from "../runtime/records.js";
 import type { Class } from "../../components/injection.js";
 import type { DtoClass } from "../../dto/types.js";
-import { NodeKind, type PathSource } from "../ast.js";
 import {
   Wrapper,
   type HistoryWrapper,
@@ -39,30 +40,30 @@ export function shapeLabel(shape: ValueShape | OutputShape | HistoryWrapper): st
 }
 
 /** The builder call each kind is entered with: `toAgent`, `toRouter`, `toAction`, `toFinish`. */
-const TO_CALLS: Readonly<Record<NodeKind, string>> = {
-  [NodeKind.Agent]: "toAgent",
-  [NodeKind.Router]: "toRouter",
-  [NodeKind.Action]: "toAction",
-  [NodeKind.Finish]: "toFinish",
-  [NodeKind.Workflow]: "toWorkflow",
-  [NodeKind.Question]: "toExternalTask",
-  [NodeKind.Start]: "onStart",
+const TO_CALLS: Readonly<Record<FlowNodeKind, string>> = {
+  [ComponentKind.Agent]: "toAgent",
+  [ComponentKind.Router]: "toRouter",
+  [ComponentKind.Action]: "toAction",
+  [ComponentKind.WorkflowFinish]: "toFinish",
+  [ComponentKind.Workflow]: "toWorkflow",
+  [ComponentKind.ExternalTask]: "toExternalTask",
+  [ComponentKind.WorkflowStart]: "onStart",
 };
 
-export const toCallOf = (kind: NodeKind): string => TO_CALLS[kind];
+export const toCallOf = (kind: FlowNodeKind): string => TO_CALLS[kind];
 
 /** The builder call an own path of a kind starts with: `onAgent`, `onRouter`, `onAction`, `onStart`. */
-const SOURCE_CALLS: Readonly<Record<NodeKind, string>> = {
-  [NodeKind.Agent]: "onAgent",
-  [NodeKind.Router]: "onRouter",
-  [NodeKind.Action]: "onAction",
-  [NodeKind.Finish]: "toFinish",
-  [NodeKind.Workflow]: "onWorkflow",
-  [NodeKind.Question]: "onExternalTask",
-  [NodeKind.Start]: "onStart",
+const SOURCE_CALLS: Readonly<Record<FlowNodeKind, string>> = {
+  [ComponentKind.Agent]: "onAgent",
+  [ComponentKind.Router]: "onRouter",
+  [ComponentKind.Action]: "onAction",
+  [ComponentKind.WorkflowFinish]: "toFinish",
+  [ComponentKind.Workflow]: "onWorkflow",
+  [ComponentKind.ExternalTask]: "onExternalTask",
+  [ComponentKind.WorkflowStart]: "onStart",
 };
 
-export const sourceCallOf = (kind: NodeKind): string => SOURCE_CALLS[kind];
+export const sourceCallOf = (kind: FlowNodeKind): string => SOURCE_CALLS[kind];
 
 /** A path as a message names it: `onStart(OfferWorkflowStart)`, `onAgent(ReviewerAgent)`. */
 export const pathLabel = (source: PathSource): string =>

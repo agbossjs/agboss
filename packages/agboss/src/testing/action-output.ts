@@ -1,5 +1,5 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { strictMatchOf } from "../dto/schema.js";
-import { NodeKind } from "../flow/ast.js";
 import { Wrapper, type OutputShape } from "../flow/dto-wrappers.js";
 import type { RuntimeNode } from "../flow/runtime/graph-model.js";
 import type { OutputClassOf } from "./action-script.js";
@@ -13,7 +13,7 @@ export function actionOutputClassOf(nodes: readonly RuntimeNode[]): OutputClassO
   const outputs = new Map<string, OutputShape>();
   for (const node of nodes) {
     const { declaration } = node;
-    if (declaration.kind !== NodeKind.Action) continue;
+    if (declaration.kind !== ComponentKind.Action) continue;
     const { output } = declaration.options;
     if (output !== undefined) outputs.set(node.id, output);
   }

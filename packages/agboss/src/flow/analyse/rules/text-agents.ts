@@ -1,10 +1,10 @@
+import { ComponentKind } from "../../runtime/records.js";
 import type { Class } from "../../../components/injection.js";
 import type { JudgeOutputShape } from "../../../components/judge-decorators.js";
 import { componentOf } from "../../../components/metadata.js";
 import { PlainTextDto, WorkflowFinishTextDto } from "../../../dto/standard/framework.js";
 import type { DtoClass } from "../../../dto/types.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
 import { Wrapper, type OneOfWrapper, type OutputShape } from "../../dto-wrappers.js";
 import { EdgeKind, isTextAgent, type FlowNode } from "../flow-graph.js";
 import { classLabel, dtoLabel, shapeLabel } from "../labels.js";
@@ -17,7 +17,7 @@ import type { AnalysisContext } from "./context.js";
  */
 
 const isTextFinish = (node: FlowNode | undefined): boolean =>
-  node?.declaration.kind === NodeKind.Finish &&
+  node?.declaration.kind === ComponentKind.WorkflowFinish &&
   (node.declaration.options.output === WorkflowFinishTextDto ||
     node.declaration.options.output === PlainTextDto);
 
@@ -99,7 +99,7 @@ function wrongOutput(
 export function judgeOutputRules(context: AnalysisContext): readonly RuleViolation[] {
   return [...context.graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
-    if (declaration.kind !== NodeKind.Agent) return [];
+    if (declaration.kind !== ComponentKind.Agent) return [];
     const { judges = [], output } = declaration.options;
     return judges.flatMap((judge) => wrongOutput(node, judge, output));
   });

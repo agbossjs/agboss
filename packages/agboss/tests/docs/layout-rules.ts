@@ -132,7 +132,7 @@ export const PROMPT_KINDS: Readonly<Record<string, string>> = {
   arbiters: ".arbiter.ts",
   memories: ".memory.ts",
   guardrails: ".guardrail.ts",
-  "reply-interpreters": ".reply-interpreter.ts",
+  "channel-interpreters": ".channel-interpreter.ts",
 };
 
 const WORKFLOW_FILES: readonly string[] = [

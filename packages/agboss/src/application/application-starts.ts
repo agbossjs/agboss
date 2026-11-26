@@ -1,5 +1,5 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { Class } from "../components/injection.js";
-import { NodeKind } from "../flow/ast.js";
 import { childWorkflowOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { WorkflowStartInput } from "../flow/decorators/workflow-start.js";
@@ -26,7 +26,7 @@ export interface ApplicationStart {
 
 function startOf(name: ComponentName, component: Class, workflow: string): ApplicationStart[] {
   const declaration = declarationOf(component);
-  if (declaration?.kind !== NodeKind.Start) return [];
+  if (declaration?.kind !== ComponentKind.WorkflowStart) return [];
   const { description, input } = declaration.options;
   return [{ name, description, workflow, component, input }];
 }

@@ -1,4 +1,4 @@
-import type { NodeKind } from "./ast.js";
+import type { ComponentKind } from "./runtime/records.js";
 import type { ExecutionOptions } from "../app/types.js";
 import type { ContextValues, TenantValues } from "./context/context-values.js";
 
@@ -6,13 +6,13 @@ export type { HistoryOf } from "./dto-wrappers.js";
 export type { Tracked } from "./metadata.js";
 // the brand `.agboss/types.d.ts` puts on an `@Application` class (#1324e)
 export { agbossTenantContext } from "../app/tenant-args.js";
-/** The kinds a brand carries (`NodeKind.Agent`): the generated file imports it from here. */
-export type { NodeKind };
+/** The kinds a brand carries (`ComponentKind.Agent`): the generated file imports it from here. */
+export type { ComponentKind };
 
 /**
  * The tables `.agboss/types.d.ts` fills by declaration merging (#272 S3, #270 → Generated types).
  * Every table is keyed by the component's `name`; every component class is branded with its name and
- * kind (`readonly [agbossComponent]?: { readonly name: "draft-agent"; readonly kind: NodeKind.Agent }`,
+ * kind (`readonly [agbossComponent]?: { readonly name: "draft-agent"; readonly kind: ComponentKind.Agent }`,
  * merged into the class's instance type), so empty
  * classes become distinct types. Before generation a lookup gives `MissingGeneratedTypes`, which
  * names the fix. Until PR 4 exports this module from `@agboss/core`, the generator (`flow/types/`) augments
@@ -172,9 +172,9 @@ export type InstanceOrSelf<T> = T extends abstract new (...args: never[]) => inf
 /** A component's kind from its brand; `never` when it is not branded or its brand has no kind. */
 export type KindOf<T> =
   InstanceOrSelf<T> extends {
-    readonly [agbossComponent]?: { readonly kind: infer TKind extends NodeKind };
+    readonly [agbossComponent]?: { readonly kind: infer TKind extends ComponentKind };
   }
-    ? NodeKind extends TKind
+    ? ComponentKind extends TKind
       ? never
       : TKind
     : never;

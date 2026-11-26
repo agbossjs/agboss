@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { secret } from "../../src/environments/secret.js";
 /**
  * #899 §4: what the files of an agent need of its models, checked at start against what the provider
@@ -9,7 +10,6 @@ import type { AgentsConfigOf } from "../../src/config/types.js";
 import { withNarrowedFiles } from "../../src/files/assemble-files.js";
 import { narrowedTypesOf } from "../../src/files/file-needs.js";
 import { guardrailReadersOf } from "../../src/files/file-readers.js";
-import { NodeKind } from "../../src/flow/ast.js";
 import { resolvedFilesOf } from "../../src/files/file-settings.js";
 import { FileSource, FileView, ModelFiles } from "../../src/files/model-files.js";
 import { checkedModelUses } from "../../src/models/check.js";
@@ -355,7 +355,7 @@ describe("AC4: a guardrail's or a judge's model that cannot take a file's type s
       nodes: new Map([
         [
           "reader-agent",
-          { declaration: { kind: NodeKind.Agent, options: { output: FetchedDto } } },
+          { declaration: { kind: ComponentKind.Agent, options: { output: FetchedDto } } },
         ],
       ]),
     } as never;

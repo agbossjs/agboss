@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { execFile } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -5,7 +6,6 @@ import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import type { Class } from "../../../src/components/injection.js";
 import type { LoadedModule } from "../../../src/flow/analyse/rules/context.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { declarationOf } from "../../../src/flow/decorators/declaration.js";
 import {
   GENERATED_TYPES_FILE,
@@ -15,7 +15,7 @@ import {
 import { loadFlowProject } from "../../../src/loader/load-flow.js";
 import { MAX_EXACT_INPUT_SHAPES } from "../../../src/flow/types/inputs.js";
 import { RouteForm, routerAnswerText, routeTargetsOf } from "../../../src/flow/types/tables.js";
-import { type RouterOptions } from "../../../src/flow/decorators/router.js";
+import type { RouterOptions } from "../../../src/flow/decorators/router.js";
 import { ChargeResultDto, SupportIntentDto } from "../fixtures/credit-dtos.js";
 import { Action } from "../../../src/flow/decorators/action.js";
 import { Text } from "../../../src/dto/index.js";
@@ -28,7 +28,7 @@ import {
 
 const routerOptionsOf = (router: Class): RouterOptions => {
   const declaration = declarationOf(router);
-  if (declaration?.kind !== NodeKind.Router) throw new TypeError("not a router");
+  if (declaration?.kind !== ComponentKind.Router) throw new TypeError("not a router");
   return declaration.options;
 };
 
@@ -66,7 +66,7 @@ async function fixtureModules(): Promise<readonly LoadedModule[]> {
 }
 
 const isFlowWorkflow = (value: unknown): value is Class =>
-  typeof value === "function" && declarationOf(value)?.kind === NodeKind.Workflow;
+  typeof value === "function" && declarationOf(value)?.kind === ComponentKind.Workflow;
 
 async function workflowsOf(files: readonly string[]): Promise<readonly Class[]> {
   const modules = await Promise.all(
@@ -176,7 +176,7 @@ describe("S39: DTO classes are branded too", () => {
       'declare module "../tests/flow/fixtures/markers.fixture.js" {\n  interface ApprovedVerdictDto {\n    readonly [agbossDto]?: "ApprovedVerdictDto";\n  }',
     );
     expect(text).toContain(
-      '  interface VerdictAgent {\n    readonly [agbossComponent]?: { readonly name: "verdict-agent"; readonly kind: NodeKind.Agent };\n  }',
+      '  interface VerdictAgent {\n    readonly [agbossComponent]?: { readonly name: "verdict-agent"; readonly kind: ComponentKind.Agent };\n  }',
     );
   });
 });
@@ -238,7 +238,7 @@ describe("#1324g: every decorated class is typed, a workflow reaches it or not",
     );
     expect(text).toContain('"approval-agent": never;');
     expect(text).toContain(
-      'readonly [agbossComponent]?: { readonly name: "charge-card-action"; readonly kind: NodeKind.Action };',
+      'readonly [agbossComponent]?: { readonly name: "charge-card-action"; readonly kind: ComponentKind.Action };',
     );
   });
 

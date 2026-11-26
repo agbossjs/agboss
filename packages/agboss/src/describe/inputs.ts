@@ -1,7 +1,7 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { inputShapesOf, type FlowAnalysis } from "../flow/analyse/analyse.js";
 import { StartChoice, type ChildChoice } from "../flow/analyse/children.js";
 import { entryLabel, startLabel } from "../flow/analyse/rules/children.js";
-import { NodeKind } from "../flow/ast.js";
 import type { ResolvedField } from "../flow/analyse/fields.js";
 import { launchCounts } from "./launch-counts.js";
 import { quorumCounts } from "./quorum-counts.js";
@@ -43,7 +43,7 @@ function fieldText(
 /** One line per node that reads the path scope (a child workflow's start: `childLines`). */
 export function inputLines(analysis: FlowAnalysis): readonly string[] {
   return [...analysis.fields].flatMap(([node, fields]) => {
-    if (analysis.graph.nodes.get(node)?.kind === NodeKind.Workflow) return [];
+    if (analysis.graph.nodes.get(node)?.kind === ComponentKind.Workflow) return [];
     const shapes = inputShapesOf(analysis, node);
     const declared = fields.filter((field) => !field.isPassThrough);
     if (declared.length === 0) return [];

@@ -73,7 +73,7 @@ describe("#659 AC2: a question pauses like any pause", () => {
       isSent: true,
       kind: PauseKind.ExternalTask,
       step: "spending-limit-question-external-task",
-      component: { name: "spending-limit-question-external-task", kind: "question" },
+      component: { name: "spending-limit-question-external-task", kind: "external-task" },
     });
   });
 
@@ -161,7 +161,7 @@ describe("#659 AC3: the typed answer reaches later nodes", () => {
         resolution: PauseResolution.Replied,
         decision: { approved: true, limitUsd: 950 },
         step: expect.objectContaining({
-          component: expect.objectContaining({ kind: "question" }),
+          component: expect.objectContaining({ kind: "external-task" }),
           callId: undefined,
         }),
       }),

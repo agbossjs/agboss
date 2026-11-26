@@ -1,3 +1,4 @@
+import { ComponentKind } from "./records.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { errorRecordOf, type ErrorRecord } from "../../core/error-record.js";
 import { carriedRecordsOf, carryRecords } from "./carried-records.js";
@@ -5,7 +6,6 @@ import type { ToolCallRecord } from "./tool-calls.js";
 import { extractRunContext } from "../../core/run-context.js";
 import type { UsageRecord } from "../../finops/usage.js";
 import { versionOf } from "../../turns/index.js";
-import { NodeKind } from "../ast.js";
 import type { FrameSpec } from "../context/frame.js";
 import { stepRecordOf } from "../observers/execution-event.js";
 import type { RuntimeNode } from "./graph-model.js";
@@ -49,7 +49,7 @@ export function visitTimerOf(
  * of its `input` fields (as the scope keeps it — JSON, the same in every pass).
  */
 function inputOf(site: VisitSite): unknown {
-  if (site.node.kind === NodeKind.Start) return site.state.startInput;
+  if (site.node.kind === ComponentKind.WorkflowStart) return site.state.startInput;
   const read = site.node.fields.flatMap((field): [string, unknown][] => {
     const record = site.state.scope[field.slot];
     return record === undefined ? [] : [[field.name, record.value]];

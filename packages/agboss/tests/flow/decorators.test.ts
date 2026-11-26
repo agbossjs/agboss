@@ -1,7 +1,7 @@
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { Window5Memory } from "../helpers/window-memory.js";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { NodeKind } from "../../src/flow/ast.js";
 import { onStart } from "../../src/flow/builder.js";
 import { Action } from "../../src/flow/decorators/action.js";
 import { Agent } from "../../src/flow/decorators/agent.js";
@@ -36,7 +36,7 @@ const thisFile = fileURLToPath(import.meta.url);
 describe("v2 decorators record kind, options and the declaring file", () => {
   it("@Agent records its options as written", () => {
     expect(declarationOf(EditorAgent)).toEqual({
-      kind: NodeKind.Agent,
+      kind: ComponentKind.Agent,
       options: {
         name: "editor-agent",
         description: "Rewrites the draft by the review notes",
@@ -57,14 +57,14 @@ describe("v2 decorators record kind, options and the declaring file", () => {
   });
 
   it("@WorkflowStart, @WorkflowFinish, @Action and @Router record their kinds", () => {
-    expect(declarationOf(OrderWorkflowStart)?.kind).toBe(NodeKind.Start);
+    expect(declarationOf(OrderWorkflowStart)?.kind).toBe(ComponentKind.WorkflowStart);
     expect(declarationOf(OrderWorkflowFinish)?.options).toMatchObject({
       name: "order-workflow-finish",
     });
     expect(declarationOf(OrderWorkflowFinish)?.options).not.toHaveProperty("input");
-    expect(declarationOf(NotifyRecruiterAction)?.kind).toBe(NodeKind.Action);
+    expect(declarationOf(NotifyRecruiterAction)?.kind).toBe(ComponentKind.Action);
     expect(declarationOf(MainRouter)).toMatchObject({
-      kind: NodeKind.Router,
+      kind: ComponentKind.Router,
       options: { name: "main-router", decidedBy: DecidedBy.Model, maxVisits: 3 },
     });
   });
@@ -77,8 +77,8 @@ describe("v2 decorators record kind, options and the declaring file", () => {
   });
 
   it("a declaration without a known file has no source", () => {
-    expect(declared(NodeKind.Start, { name: "x" }, undefined)).toEqual({
-      kind: NodeKind.Start,
+    expect(declared(ComponentKind.WorkflowStart, { name: "x" }, undefined)).toEqual({
+      kind: ComponentKind.WorkflowStart,
       options: { name: "x" },
     });
   });
@@ -100,11 +100,14 @@ describe("@Workflow records the flow as plain paths", () => {
   it("keeps each path's source and steps, not the builder objects", () => {
     const declaration = declarationOf(OfferWorkflow);
 
-    expect(declaration?.kind).toBe(NodeKind.Workflow);
-    const flow = declaration?.kind === NodeKind.Workflow ? declaration.options.flow : [];
+    expect(declaration?.kind).toBe(ComponentKind.Workflow);
+    const flow = declaration?.kind === ComponentKind.Workflow ? declaration.options.flow : [];
     expect(flow).toHaveLength(2);
     expect(Object.keys(flow[0] ?? {})).toEqual(["source", "steps"]);
-    expect(flow[0]?.source).toEqual({ kind: NodeKind.Start, node: expect.any(Function) });
+    expect(flow[0]?.source).toEqual({
+      kind: ComponentKind.WorkflowStart,
+      node: expect.any(Function),
+    });
     expect(declarationOf(ChatWorkflow)?.options).toMatchObject({
       name: "chat-workflow",
       version: "1.0.0",
@@ -158,7 +161,7 @@ describe("#261: @Workflow keeps its own services", () => {
 describe("#270 AC3: input declares types only", () => {
   it("input declares types only", () => {
     const declaration = declarationOf(EditorAgent);
-    const input = declaration?.kind === NodeKind.Agent ? declaration.options.input : undefined;
+    const input = declaration?.kind === ComponentKind.Agent ? declaration.options.input : undefined;
 
     for (const field of Object.values(input ?? {})) {
       expect(typeof field === "function" || isWrapper(field)).toBe(true);
@@ -198,10 +201,10 @@ describe("AC16: two classes of one agent share an options const", () => {
 
     expect(draft?.options.name).toBe("draft-reviewer-agent");
     expect(final?.options.name).toBe("final-reviewer-agent");
-    expect(draft?.kind === NodeKind.Agent ? draft.options.input : undefined).toBe(
+    expect(draft?.kind === ComponentKind.Agent ? draft.options.input : undefined).toBe(
       reviewerAgentOptions.input,
     );
-    expect(final?.kind === NodeKind.Agent ? final.options.input : undefined).toBe(
+    expect(final?.kind === ComponentKind.Agent ? final.options.input : undefined).toBe(
       reviewerAgentOptions.input,
     );
     expect(reviewerAgentOptions.input.article).toBe(ArticleDto);

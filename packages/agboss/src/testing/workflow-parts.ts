@@ -1,7 +1,7 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import type { Class, Provider } from "../components/injection.js";
 import { moduleOf } from "../components/module.js";
-import { NodeKind } from "../flow/ast.js";
 import { codeClassesOf, isCodeNode } from "../flow/runtime/graph-model.js";
 import { customCompactionClassesOf } from "../memory/custom-classes.js";
 import type { AssembledWorkflow } from "../workflow.js";
@@ -23,7 +23,7 @@ function workflowComponentsOf(bundle: AssembledWorkflow): Class[] {
   const providers = classesOf(moduleOf(bundle.graph.type).providers ?? []);
   const nodes = [...bundle.graph.nodes.values()];
   const agents = nodes.flatMap((node) =>
-    node.declaration.kind === NodeKind.Agent ? [node.declaration.options] : [],
+    node.declaration.kind === ComponentKind.Agent ? [node.declaration.options] : [],
   );
   const codeNodes = nodes.flatMap((node) => (isCodeNode(node) ? [node.component] : []));
   return [

@@ -1,5 +1,5 @@
+import { ComponentKind } from "../runtime/records.js";
 import type { DtoClass } from "../../dto/types.js";
-import { NodeKind } from "../ast.js";
 import type { ListWrapper } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
 import { childWorkflowOf, type ChildStart, type ChildWorkflow } from "./child-workflow.js";
@@ -86,7 +86,7 @@ function candidatesOf(child: ChildWorkflow, value: ChildEntry["value"]): readonl
 export function childEntriesOf(graph: FlowGraph): readonly ChildEntry[] {
   return graph.edges.flatMap((edge): readonly ChildEntry[] => {
     const node = graph.nodes.get(edge.to);
-    if (node?.kind !== NodeKind.Workflow) return [];
+    if (node?.kind !== ComponentKind.Workflow) return [];
     const child = childWorkflowOf(childClassOf(node));
     if (child === undefined) return [];
     const value = valueOf(edge);

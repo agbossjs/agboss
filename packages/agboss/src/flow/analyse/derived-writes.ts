@@ -1,5 +1,5 @@
+import { ComponentKind } from "../runtime/records.js";
 import { WorkflowFinishTextDto } from "../../dto/standard/framework.js";
-import { NodeKind } from "../ast.js";
 import { isValueShape, Wrapper, type ValueShape } from "../dto-wrappers.js";
 import { withSlices } from "./slices.js";
 import { isTextAgent, outputOf, valueWrite, type FlowNode, type ValueWrite } from "./flow-graph.js";
@@ -13,7 +13,7 @@ import { isTextAgent, outputOf, valueWrite, type FlowNode, type ValueWrite } fro
 
 /** The values a start gives: its input DTO or list, or one value per field of its map. */
 function startShapes(node: FlowNode): readonly ValueShape[] | undefined {
-  if (node.declaration.kind !== NodeKind.Start) return undefined;
+  if (node.declaration.kind !== ComponentKind.WorkflowStart) return undefined;
   const { input } = node.declaration.options;
   return isValueShape(input) ? [input] : Object.values(input);
 }
@@ -22,7 +22,7 @@ function startShapes(node: FlowNode): readonly ValueShape[] | undefined {
 export function derivedWrites(node: FlowNode): readonly ValueWrite[] {
   const fromStart = startShapes(node);
   if (fromStart !== undefined) return fromStart.map((shape) => valueWrite(shape, false));
-  if (node.kind === NodeKind.Router) return [];
+  if (node.kind === ComponentKind.Router) return [];
   if (isTextAgent(node)) return [valueWrite(WorkflowFinishTextDto, false)];
   const output = outputOf(node);
   if (output === undefined) return [];

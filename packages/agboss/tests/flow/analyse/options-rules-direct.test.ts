@@ -3,17 +3,18 @@
  * (`[limits.count-invalid]`, #1373: each field, each kind of node, the value shown by its kind) and the shared agent
  * options (`[agent.dynamic-options]`, #272 AC16). The shard `assembly-rules` mutates `options.ts` of the rules whole.
  */
+import type { FlowNodeKind } from "../../../src/flow/ast.js";
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { describe, expect, it } from "vitest";
 import type { AnalysisContext } from "../../../src/flow/analyse/rules/context.js";
 import { countLimitRules, optionsRules } from "../../../src/flow/analyse/rules/options.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import { graphOf, node } from "./graph-fixture.js";
 
 const shown = (found: readonly { code: string; message: string; nodes: readonly string[] }[]) =>
   found.map(({ code, message, nodes }) => ({ code, message, nodes }));
 
 /** A node of `kind` whose declaration carries `options`. */
-const withOptions = (name: string, kind: NodeKind, options: object) => ({
+const withOptions = (name: string, kind: FlowNodeKind, options: object) => ({
   ...node(name, kind),
   declaration: { kind, options },
 });
@@ -36,7 +37,7 @@ const count = (name: string, field: string, value: string, example: string) => (
 
 describe("#1366: the count limits of the components", () => {
   it("names an agent's maxVisits, maxToolCalls and maxRetries, each by its field", () => {
-    const agent = withOptions("busy-agent", NodeKind.Agent, {
+    const agent = withOptions("busy-agent", ComponentKind.Agent, {
       executionLimits: { maxVisits: -1, maxToolCalls: 2.5, maxRetries: Number.NaN },
     });
 
@@ -48,11 +49,11 @@ describe("#1366: the count limits of the components", () => {
   });
 
   it("names a router's and a question's maxVisits, and no other field of theirs", () => {
-    const router = withOptions("pick-router", NodeKind.Router, {
+    const router = withOptions("pick-router", ComponentKind.Router, {
       maxVisits: "x",
       maxToolCalls: -1,
     });
-    const question = withOptions("ask-question", NodeKind.Question, { maxVisits: null });
+    const question = withOptions("ask-question", ComponentKind.ExternalTask, { maxVisits: null });
 
     expect(shown(countLimitRules(contextOf([router, question])))).toEqual([
       count("pick-router", "maxVisits", "a string", "maxVisits: 3"),
@@ -61,8 +62,13 @@ describe("#1366: the count limits of the components", () => {
   });
 
   it("shows an object by its kind, and reads no limit of an action, a start or a finish", () => {
-    const agent = withOptions("odd-agent", NodeKind.Agent, { executionLimits: { maxVisits: {} } });
-    const action = withOptions("do-action", NodeKind.Action, { maxVisits: -1, maxRetries: -1 });
+    const agent = withOptions("odd-agent", ComponentKind.Agent, {
+      executionLimits: { maxVisits: {} },
+    });
+    const action = withOptions("do-action", ComponentKind.Action, {
+      maxVisits: -1,
+      maxRetries: -1,
+    });
 
     expect(shown(countLimitRules(contextOf([agent, action])))).toEqual([
       count("odd-agent", "executionLimits.maxVisits", "an object", "maxVisits: 3"),
@@ -70,10 +76,10 @@ describe("#1366: the count limits of the components", () => {
   });
 
   it("finds nothing in counts from 0, or in limits left out", () => {
-    const agent = withOptions("fine-agent", NodeKind.Agent, {
+    const agent = withOptions("fine-agent", ComponentKind.Agent, {
       executionLimits: { maxVisits: 0, maxModelCalls: 6, maxToolCalls: 10, maxRetries: 2 },
     });
-    const bare = withOptions("bare-agent", NodeKind.Agent, {});
+    const bare = withOptions("bare-agent", ComponentKind.Agent, {});
 
     expect(countLimitRules(contextOf([agent, bare]))).toEqual([]);
   });
@@ -99,7 +105,7 @@ describe("#1366: the shared agent options", () => {
     },
     retries: 2,
   };
-  const agentOf = (name: string, kind: NodeKind = NodeKind.Agent) =>
+  const agentOf = (name: string, kind: FlowNodeKind = ComponentKind.Agent) =>
     withOptions(name, kind, { ...shared });
   const spread = (name: string, file: string, exports: object = { sharedOptions: shared }) =>
     contextOf([agentOf(name)], { modules: [{ file, exports }] });
@@ -128,7 +134,7 @@ describe("#1366: the shared agent options", () => {
   });
 
   it("names an action or a router that spreads one, even from an *.options file", () => {
-    for (const kind of [NodeKind.Action, NodeKind.Router]) {
+    for (const kind of [ComponentKind.Action, ComponentKind.Router] as const) {
       const context = contextOf([agentOf("other-step", kind)], {
         modules: [{ file: "a/x.options.ts", exports: { sharedOptions: shared } }],
       });
@@ -177,7 +183,10 @@ describe("#1366: the shared agent options", () => {
   });
 
   it("reads an export that is undefined, and a null that no option holds in common", () => {
-    const withNull = withOptions("null-agent", NodeKind.Agent, { input: shared.input, gone: null });
+    const withNull = withOptions("null-agent", ComponentKind.Agent, {
+      input: shared.input,
+      gone: null,
+    });
     const modules = [
       { file: "a/y.ts", exports: { missing: undefined, empty: { gone: null }, count: 3 } },
     ];

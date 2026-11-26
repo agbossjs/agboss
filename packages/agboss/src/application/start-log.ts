@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { BaseCheckpointSaver } from "@langchain/langgraph";
 import { budgetOf, BudgetScope } from "../budgets/budget.js";
 import type { Class, Provider } from "../components/injection.js";
@@ -13,7 +14,6 @@ import { launchesQueued } from "../flow/analyse/child-placements.js";
 import type { AssembledWorkflow } from "../workflow.js";
 import { componentOf } from "../components/metadata.js";
 import type { DtoClass } from "../dto/types.js";
-import { NodeKind } from "../flow/ast.js";
 import { piiChainTexts } from "../describe/pii-policies.js";
 import { implementationsOf, isInMemory, notAtomicStoresOf } from "./implementations.js";
 import { inlineFilesWarningOf } from "../a2a/a2a-file-store-rule.js";
@@ -93,7 +93,7 @@ const notAtomic = (store: Class): AssemblyWarning => ({
 export const toolDtosOf = (workflow: AssembledWorkflow): readonly DtoClass[] =>
   [...workflow.graph.nodes.values()].flatMap((node) => {
     const { declaration } = node;
-    if (declaration.kind !== NodeKind.Agent) return [];
+    if (declaration.kind !== ComponentKind.Agent) return [];
     return (declaration.options.tools ?? []).flatMap((cls): readonly DtoClass[] => {
       const component = componentOf(cls);
       return component?.kind === "tool" ? [component.meta.input, component.meta.output] : [];

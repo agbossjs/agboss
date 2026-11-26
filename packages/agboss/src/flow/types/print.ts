@@ -1,4 +1,5 @@
-import { NodeKind } from "../ast.js";
+import { ComponentKind } from "../runtime/records.js";
+import { channelInterpreterOf } from "../../channels/channel-interpreter.js";
 import { declarationOf } from "../decorators/declaration.js";
 import { TablesImport, type ClassImport, type ImportTable } from "./imports.js";
 import type { TypeTable, TypeTables } from "./tables.js";
@@ -58,14 +59,19 @@ function dtoBrands(names: ImportTable): TypeTable {
 }
 
 const NODE_KIND_KEYS: ReadonlyMap<string, string> = new Map(
-  Object.entries(NodeKind).map(([key, value]) => [value, key]),
+  Object.entries(ComponentKind).map(([key, value]) => [value, key]),
 );
 
-/** `NodeKind.Agent` for a flow component's declared kind; undefined for a class that is not one. */
+/**
+ * `ComponentKind.Agent` for a flow component's declared kind, `ComponentKind.ChannelInterpreter` for a
+ * channel interpreter; undefined for any other class.
+ */
 function kindText(component: ClassImport["component"], names: ImportTable): string | undefined {
-  const kind = declarationOf(component)?.kind;
+  const kind =
+    declarationOf(component)?.kind ??
+    (channelInterpreterOf(component) === undefined ? undefined : ComponentKind.ChannelInterpreter);
   const key = kind === undefined ? undefined : NODE_KIND_KEYS.get(kind);
-  return key === undefined ? undefined : `${names.use(TablesImport.NodeKind)}.${key}`;
+  return key === undefined ? undefined : `${names.use(TablesImport.ComponentKind)}.${key}`;
 }
 
 /**

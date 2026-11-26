@@ -6,7 +6,6 @@ import { validate } from "../../../dto/schema.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { systemClock } from "../../../infrastructure/clock.js";
 import { PauseKind, pauseInputOf } from "../../../infrastructure/pause-record.js";
-import { NodeKind } from "../../ast.js";
 import { currentFrame } from "../../context/frame.js";
 import { reportNodeEvent } from "../../observers/execution-event.js";
 import type { RuntimeNode } from "../graph-model.js";
@@ -34,7 +33,7 @@ async function failedAsking(
   await at.budgets.refresh();
   throw expiryFailureOf(error.pause, {
     step: question,
-    stepKind: ComponentKind.Question,
+    stepKind: ComponentKind.ExternalTask,
     state: at.state.usage,
     usage: [],
     path: [...at.state.path, question],
@@ -59,7 +58,8 @@ export function questionRunner(
   budgets: BudgetMeter,
 ): NodeRunner {
   const { declaration } = node;
-  if (declaration.kind !== NodeKind.Question) throw new TypeError(`${node.id} is not a question`);
+  if (declaration.kind !== ComponentKind.ExternalTask)
+    throw new TypeError(`${node.id} is not an external task`);
   const { output: answer, target: task } = declaration.options;
   const answered = (decision: unknown): unknown => validate(answer, decision);
   return async (state, config) => {
@@ -67,7 +67,7 @@ export function questionRunner(
     const frame = currentFrame();
     const { pause, targetOf } = deps;
     if (pause === undefined || targetOf === undefined || frame === undefined)
-      throw new TypeError(`${node.id}: a question is asked only inside its application`);
+      throw new TypeError(`${node.id}: an external task is asked only inside its application`);
     // the question as the channel, the records and the events see it: `sensitive` fields masked
     const ask = pauseInputOf(redactedDto(task.input, input.fields.ask));
     const onSend = (): Promise<void> =>

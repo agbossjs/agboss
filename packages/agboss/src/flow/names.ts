@@ -1,4 +1,5 @@
 import type { DtoClass } from "../dto/types.js";
+import { ComponentKind } from "./runtime/records.js";
 
 /**
  * Name rules (#272 → Names, #270 → DTOs, #1343a): the name of a persisted component (workflow,
@@ -9,35 +10,32 @@ import type { DtoClass } from "../dto/types.js";
  */
 
 /** What a named component is; each value is the suffix its `name` ends with. */
-export enum NameKind {
-  WorkflowStart = "workflow-start",
-  WorkflowFinish = "workflow-finish",
-  Workflow = "workflow",
-  Agent = "agent",
-  Action = "action",
-  Router = "router",
-  Application = "application",
-  Budget = "budget",
-  EvalSuite = "eval-suite",
-  /** An `@ExternalTask` (#659, #1307): its step's node. */
-  ExternalTask = "external-task",
-  /** A `@ToolApproval` (#1307). */
-  ToolApproval = "tool-approval",
-}
+export type NameKind =
+  | ComponentKind.WorkflowStart
+  | ComponentKind.WorkflowFinish
+  | ComponentKind.Workflow
+  | ComponentKind.Agent
+  | ComponentKind.Action
+  | ComponentKind.Router
+  | ComponentKind.Application
+  | ComponentKind.Budget
+  | ComponentKind.EvalSuite
+  | ComponentKind.ExternalTask
+  | ComponentKind.ToolApproval;
 
 /** The decorator each kind is declared with, as a message names it. */
 const DECORATORS: Readonly<Record<NameKind, string>> = {
-  [NameKind.WorkflowStart]: "@WorkflowStart",
-  [NameKind.WorkflowFinish]: "@WorkflowFinish",
-  [NameKind.Workflow]: "@Workflow",
-  [NameKind.Agent]: "@Agent",
-  [NameKind.Action]: "@Action",
-  [NameKind.Router]: "@Router",
-  [NameKind.Application]: "@Application",
-  [NameKind.Budget]: "@Budget",
-  [NameKind.EvalSuite]: "@EvalSuite",
-  [NameKind.ExternalTask]: "@ExternalTask",
-  [NameKind.ToolApproval]: "@ToolApproval",
+  [ComponentKind.WorkflowStart]: "@WorkflowStart",
+  [ComponentKind.WorkflowFinish]: "@WorkflowFinish",
+  [ComponentKind.Workflow]: "@Workflow",
+  [ComponentKind.Agent]: "@Agent",
+  [ComponentKind.Action]: "@Action",
+  [ComponentKind.Router]: "@Router",
+  [ComponentKind.Application]: "@Application",
+  [ComponentKind.Budget]: "@Budget",
+  [ComponentKind.EvalSuite]: "@EvalSuite",
+  [ComponentKind.ExternalTask]: "@ExternalTask",
+  [ComponentKind.ToolApproval]: "@ToolApproval",
 };
 
 /** The stable codes of the name rules. */

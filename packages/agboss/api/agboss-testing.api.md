@@ -594,7 +594,9 @@ export interface InvalidToolCallTurn<TName extends string = string> {
 }
 
 // @public
-export type IsFlowNode<TInstance, TKind extends NodeKind> = [KindOf<TInstance>] extends [never] ? false : [KindOf<TInstance>] extends [TKind] ? true : false;
+export type IsFlowNode<TInstance, TKind extends keyof KindLabels> = [KindOf<TInstance>] extends [
+never
+] ? false : [KindOf<TInstance>] extends [TKind] ? true : false;
 
 // @public
 type IsKnown<TSelf> = [NameOf<TSelf>] extends [never] ? false : true;
@@ -839,7 +841,7 @@ export type ReturnedCheckOf<TSelf, TDto extends DtoClass> = IsKnown<TSelf> exten
 };
 
 // @public
-type ReturnedOf<TSelf> = KindOf<TSelf> extends NodeKind.Agent ? ProducerOutputOf<TSelf> : KindOf<TSelf> extends NodeKind.Action ? OutputOf<TSelf> : unknown;
+type ReturnedOf<TSelf> = KindOf<TSelf> extends ComponentKind.Agent ? ProducerOutputOf<TSelf> : KindOf<TSelf> extends ComponentKind.Action ? OutputOf<TSelf> : unknown;
 
 // @public
 type ReturnedValueOf<TReturned> = [TReturned] extends [NoOutput] ? WorkflowFinishTextDto : TReturned extends readonly (infer TElement)[] ? TElement : TReturned;
@@ -1362,7 +1364,7 @@ export interface TruncatedToolCallTurn<TName extends string = string> {
 }
 
 // @public
-export type TurnFor<TSelf> = IsKnown<TSelf> extends false ? ScriptedTurn : NameOf<TSelf> extends `${string}-reply-interpreter` ? ReplyInterpreterTurnFor<TSelf> : KindOf<TSelf> extends NodeKind.Agent ? AgentTurnFor<TSelf> : KindOf<TSelf> extends NodeKind.Router ? RouterTurnFor<TSelf> : ScriptedTurn;
+export type TurnFor<TSelf> = IsKnown<TSelf> extends false ? ScriptedTurn : [KindOf<TSelf>] extends [never] ? NameOf<TSelf> extends `${string}-${"channel" | "reply"}-interpreter` ? ReplyInterpreterTurnFor<TSelf> : ScriptedTurn : KindOf<TSelf> extends ComponentKind.ChannelInterpreter ? ReplyInterpreterTurnFor<TSelf> : KindOf<TSelf> extends ComponentKind.Agent ? AgentTurnFor<TSelf> : KindOf<TSelf> extends ComponentKind.Router ? RouterTurnFor<TSelf> : ScriptedTurn;
 
 // @public
 export interface UnitCallOptions {
@@ -1397,7 +1399,7 @@ export interface UnitRun<TOutput> {
 }
 
 // @public
-export type UnitRunnerOf<TClass extends Class> = IsFlowNode<InstanceType<TClass>, NodeKind.Router> extends true ? FailClosed<RouterRunner<Untracked<RecordedInputOf<InstanceType<TClass>>>, RouterAnswerOf<InstanceType<TClass>>>, RouterAnswerOf<InstanceType<TClass>>> : IsFlowNode<InstanceType<TClass>, NodeKind.Action> extends true ? ActionRunner<Untracked<ActionInputOf<InstanceType<TClass>>>, ActionOutputOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
+export type UnitRunnerOf<TClass extends Class> = IsFlowNode<InstanceType<TClass>, ComponentKind.Router> extends true ? FailClosed<RouterRunner<Untracked<RecordedInputOf<InstanceType<TClass>>>, RouterAnswerOf<InstanceType<TClass>>>, RouterAnswerOf<InstanceType<TClass>>> : IsFlowNode<InstanceType<TClass>, ComponentKind.Action> extends true ? ActionRunner<Untracked<ActionInputOf<InstanceType<TClass>>>, ActionOutputOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
     execute(input: never): unknown;
 } ? ToolRunner<Untracked<ToolInputOf<InstanceType<TClass>>>, ToolOutputOf<InstanceType<TClass>>> : InstanceType<TClass> extends {
     route(input: never): unknown;

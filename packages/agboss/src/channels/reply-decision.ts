@@ -11,7 +11,7 @@ import type { ModelReading, ReplyInterpreterInput, ReplyPii } from "./reply-read
  * the PII policies like a chat interpreter's), the interpreter's `prompt` as its instructions. The
  * answer is `{ approved }`, approved when P(yes) > 0.5 — never a `reason` or `overrideInput`
  * (every role is an approval role, #647, so any role may name one).
- * The call is counted under the interpreter's cost caller, `reply-interpreter:<name>`.
+ * The call is counted under the interpreter's cost caller, `channel-interpreter:<name>`.
  */
 
 /** The question's id: the answer's only field. */

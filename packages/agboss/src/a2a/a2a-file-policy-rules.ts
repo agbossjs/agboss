@@ -1,9 +1,9 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { ApplicationOptions } from "../application/application.js";
 import type { ComponentOptions } from "../components/component-options.js";
 import type { Class } from "../components/injection.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { NodeKind } from "../flow/ast.js";
 import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
 import { listItemClassesOf, plainOutputClassOf } from "../flow/finish-output.js";
 import { fileFieldsOf, inputClassOf } from "../dto/standard/file.js";
@@ -60,12 +60,12 @@ export function skillPolicyViolations(
 /** Whether a node of a flow takes or gives files: a start's input or a finish's output with a `FileDto` field, an agent with `files`. */
 function nodeUsesFiles(node: Class): boolean {
   const declaration = declarationOf(node);
-  if (declaration?.kind === NodeKind.Agent) return declaration.options.files !== undefined;
-  if (declaration?.kind === NodeKind.Start) {
+  if (declaration?.kind === ComponentKind.Agent) return declaration.options.files !== undefined;
+  if (declaration?.kind === ComponentKind.WorkflowStart) {
     const input = inputClassOf(declaration.options.input);
     return input !== undefined && fileFieldsOf(input).length > 0;
   }
-  if (declaration?.kind === NodeKind.Finish) {
+  if (declaration?.kind === ComponentKind.WorkflowFinish) {
     const output = plainOutputClassOf(declaration.options.output);
     const items = listItemClassesOf(declaration.options.output);
     return [...(output === undefined ? [] : [output]), ...items].some(
@@ -83,7 +83,7 @@ export function policyRequiredViolations(
   return withChildWorkflows(options.workflows).flatMap((workflow) => {
     const declaration = declarationOf(workflow);
     if (
-      declaration?.kind !== NodeKind.Workflow ||
+      declaration?.kind !== ComponentKind.Workflow ||
       carrier.workflowFilePolicy(workflow) !== undefined
     )
       return [];

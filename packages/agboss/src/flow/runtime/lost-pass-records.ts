@@ -1,8 +1,8 @@
+import { ComponentKind } from "./records.js";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { usd } from "../../units/index.js";
 import { CostSource, NO_PROVIDER, ZERO_USAGE, type UsageRecord } from "../../finops/usage.js";
 import { extractRunContext } from "../../core/run-context.js";
-import { NodeKind } from "../ast.js";
 import type { UnknownCostTally } from "../../core/observer-manager.js";
 import type { FrameServices } from "../context/frame.js";
 import { isCodeRouterNode, type RuntimeNode } from "./graph-model.js";
@@ -146,7 +146,8 @@ export const unknownCostRecordsOf = (
 
 /** A step whose visit calls a model: an agent's loop, a router decided by its model. */
 const callsModel = (node: RuntimeNode): boolean =>
-  node.kind === NodeKind.Agent || (node.kind === NodeKind.Router && !isCodeRouterNode(node));
+  node.kind === ComponentKind.Agent ||
+  (node.kind === ComponentKind.Router && !isCodeRouterNode(node));
 
 /** The step a visit records its lost passes for: its node, its id on the path, its task. */
 export interface LostPassSite {

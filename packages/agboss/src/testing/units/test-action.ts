@@ -1,7 +1,7 @@
+import { ComponentKind } from "../../flow/runtime/records.js";
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
-import { NodeKind } from "../../flow/ast.js";
 import {
   declarationOf,
   type InputFieldShape,
@@ -39,7 +39,7 @@ interface ExecutableAction {
 
 function actionOptionsOf(action: Class) {
   const declaration = declarationOf(action);
-  if (declaration?.kind !== NodeKind.Action)
+  if (declaration?.kind !== ComponentKind.Action)
     throw new TestSetupError({ message: `testUnit(${action.name}): not an @Action` });
   return declaration.options;
 }

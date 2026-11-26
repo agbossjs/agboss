@@ -1,5 +1,5 @@
+import { ComponentKind } from "../../runtime/records.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
 import type { ComponentName } from "../../registry.js";
 import type { FlowNode } from "../flow-graph.js";
 import { isCycle, stronglyConnected } from "../strongly-connected.js";
@@ -14,10 +14,11 @@ import type { AnalysisContext } from "./context.js";
 
 const isBounded = (node: FlowNode): boolean => {
   const { declaration } = node;
-  if (declaration.kind === NodeKind.Agent)
+  if (declaration.kind === ComponentKind.Agent)
     return declaration.options.executionLimits?.maxVisits !== undefined;
   return (
-    (declaration.kind === NodeKind.Router || declaration.kind === NodeKind.Question) &&
+    (declaration.kind === ComponentKind.Router ||
+      declaration.kind === ComponentKind.ExternalTask) &&
     declaration.options.maxVisits !== undefined
   );
 };

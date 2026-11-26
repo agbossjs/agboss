@@ -130,7 +130,7 @@ describe("#267 AC8: a model interpreter's call is traced", () => {
   it("the trace's callbacks see the call; its spend is under its own caller", async () => {
     const book = new ScriptBook();
     book
-      .scriptOf("reply-interpreter:wire-reply-interpreter")
+      .scriptOf("channel-interpreter:wire-reply-interpreter")
       .thenReturn(replyWith(ToolCallApprovalDecisionDto, { approved: true }));
     const trace = new SeenTrace();
     const interpreter = {
@@ -158,7 +158,7 @@ describe("#267 AC8: a model interpreter's call is traced", () => {
     expect(reading).toMatchObject({
       kind: "answered",
       answer: { approved: true },
-      usage: [{ caller: "reply-interpreter:wire-reply-interpreter", model: "test/wire-reader" }],
+      usage: [{ caller: "channel-interpreter:wire-reply-interpreter", model: "test/wire-reader" }],
     });
     expect(trace.starts).toEqual(["chat"]);
   });

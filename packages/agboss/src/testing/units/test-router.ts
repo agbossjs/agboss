@@ -1,7 +1,7 @@
+import { ComponentKind } from "../../flow/runtime/records.js";
 import type { ExecutionContext } from "../../flow/context/execution-context.js";
 import type { TenantContext } from "../../flow/context/tenant-context.js";
 import type { Class } from "../../components/injection.js";
-import { NodeKind } from "../../flow/ast.js";
 import { declarationOf } from "../../flow/decorators/declaration.js";
 import {
   isCodeRouter,
@@ -35,7 +35,7 @@ type UnitRouter =
 
 function routerOf(router: Class): UnitRouter {
   const declaration = declarationOf(router);
-  if (declaration?.kind !== NodeKind.Router)
+  if (declaration?.kind !== ComponentKind.Router)
     throw new TestSetupError({ message: `testUnit(${router.name}): not a @Router` });
   const { options } = declaration;
   return isCodeRouter(options) ? { options } : { options, model: { ...declaration, options } };

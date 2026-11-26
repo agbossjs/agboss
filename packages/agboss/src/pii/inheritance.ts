@@ -1,5 +1,5 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { Class } from "../components/injection.js";
-import { NodeKind } from "../flow/ast.js";
 import { childClassesOf } from "../flow/analyse/child-workflow.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 
@@ -35,7 +35,7 @@ interface WorkflowParts {
 
 function partsOf(workflow: Class): WorkflowParts | undefined {
   const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow) return undefined;
+  if (declaration?.kind !== ComponentKind.Workflow) return undefined;
   const { options } = declaration;
   return {
     name: options.name,

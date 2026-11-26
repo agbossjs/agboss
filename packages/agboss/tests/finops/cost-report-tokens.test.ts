@@ -44,7 +44,7 @@ describe("costCategoryOf: every caller prefix has a category", () => {
     ["file-transcriber:scans", CostCategory.Files],
     ["arbiter:quorum", CostCategory.Arbiters],
     ["channel-interpreter:mail", CostCategory.Pauses],
-    ["reply-interpreter:mail", CostCategory.Pauses],
+    ["channel-interpreter:mail", CostCategory.Pauses],
     ["guardrail:injection", CostCategory.Guardrails],
     ["judge:quality", CostCategory.Review],
     ["router:quality:main", CostCategory.Review],

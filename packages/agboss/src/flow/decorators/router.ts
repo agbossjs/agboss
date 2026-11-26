@@ -1,3 +1,4 @@
+import { ComponentKind } from "../runtime/records.js";
 import { recordOptionKeys } from "../../components/option-keys.js";
 import { ROUTER_KEYS } from "../../components/decorator-options.js";
 import type { PromptVariables } from "../../components/prompt-variables.js";
@@ -5,7 +6,6 @@ import type { PromptSource } from "../../components/prompt-source.js";
 import { callerFile } from "../../components/call-site.js";
 import { captureCallSite } from "../../core/diagnostics/source-span.js";
 import type { Class, ResolvedAll, Token } from "../../components/injection.js";
-import { NodeKind } from "../ast.js";
 import { resolveTarget, type TargetRef } from "../target-ref.js";
 import type { InputOf, MissingGeneratedTypes } from "../generated-types.js";
 import type { RouterHandler } from "../handlers.js";
@@ -154,7 +154,7 @@ export function Router(options: RouterOptions): <TClass extends Class>(value: TC
   const span = captureCallSite();
   return <TClass extends Class>(value: TClass): TClass => {
     recordOptionKeys(value, "Router", options, ROUTER_KEYS);
-    recordDeclaration(value, declared(NodeKind.Router, options, source, span));
+    recordDeclaration(value, declared(ComponentKind.Router, options, source, span));
     return value;
   };
 }

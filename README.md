@@ -1212,9 +1212,9 @@ through one answer tool, its `prompt` its instructions, the question and the rep
 message. For a tool approval the model may be a decision model (Jev, #267 S124): it reads approve / refuse only — one
 `Decision.boolean("approved")`, approved when P(yes) > 0.5, the answer `{ approved }` with no `reason`
 and no `overrideInput`; a question role (#659), whose answer needs more than a yes / no, cannot
-name one (`[reply-interpreter.decision-model]`). Either model's call goes through the provider
+name one (`[channel-interpreter.decision-model]`). Either model's call goes through the provider
 its `modelProvider` cascade names, is checked against the tree's budgets first, counted in their ledger at once
-and in the execution's spend when the step takes the answer, and traced (`reply-interpreter:<name>`).
+and in the execution's spend when the step takes the answer, and traced (`channel-interpreter:<name>`).
 A **code interpreter** has no `prompt` and no `model` — the class's `interpret(input)` (`implements
 ChannelInterpreterHandler<Self>`, `deps` like any component), created by the container, returns its
 outcome (#267 S124): `ChannelInterpretation.understood(decision)` — validated like any decision — or
@@ -1244,7 +1244,7 @@ export class RefundCardInputDto {
 import { inline } from "@agboss/core";
 import { hours } from "@agboss/core/units";
 @ChannelInterpreter({
-  name: "refund-reply-interpreter",
+  name: "refund-channel-interpreter",
   description: "Turns a manager's free-text reply into a refund decision",
   model: "moonshotai/kimi-k2.6", // a prompt and a model: a chat model reads the reply
   prompt: inline("The manager answered a refund approval in free text. Decide approve / reject."),
@@ -1285,7 +1285,7 @@ import { inline } from "@agboss/core";
 import { hours } from "@agboss/core/units";
 // approve / refuse on a decision model: one Decision.boolean("approved") — no reason, no overrideInput
 @ChannelInterpreter({
-  name: "deposit-reply-interpreter",
+  name: "deposit-channel-interpreter",
   description: "Reads whether a clerk's reply approves a deposit return",
   model: "typesafe/jev-1.13",
   modelProvider: DecisionsModelProvider, // a decision model: its provider's driver is DecisionsDriver

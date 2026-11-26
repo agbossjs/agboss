@@ -1,5 +1,5 @@
+import type { ComponentKind } from "./runtime/records.js";
 import type { Class } from "../components/injection.js";
-import type { NodeKind } from "./ast.js";
 import type { HistoryOf } from "./dto-wrappers.js";
 import type { WithoutTrack } from "./metadata.js";
 import type {
@@ -42,7 +42,7 @@ export type ClaimedDtosOf<TInput> = TInput extends GeneratedTypeError
         : never;
 
 /** What the entry consumer of a path starting with `TInstance` reads: a finish its output. */
-export type SideClaimsOf<TInstance> = [KindOf<TInstance>] extends [NodeKind.Finish]
+export type SideClaimsOf<TInstance> = [KindOf<TInstance>] extends [ComponentKind.WorkflowFinish]
   ? PlainDto<OutputOf<TInstance>> extends infer TOut
     ? [TOut] extends [GeneratedTypeError | MissingGeneratedTypes]
       ? never

@@ -1,6 +1,6 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { Class } from "../components/injection.js";
 import { withChildWorkflows } from "../flow/analyse/child-workflow.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 import type { ComponentOptions } from "../components/component-options.js";
 import { ttlMillisOf } from "../files/file-ttl.js";
@@ -21,7 +21,7 @@ export function fileCutoffsOf(
   const cutoffs = new Map<string, Date>();
   for (const workflow of withChildWorkflows(workflows)) {
     const declaration = declarationOf(workflow);
-    if (declaration?.kind !== NodeKind.Workflow) continue;
+    if (declaration?.kind !== ComponentKind.Workflow) continue;
     const ttl = ttlMillisOf(options.workflowFileLimits(workflow).ttl);
     if (Number.isFinite(ttl)) cutoffs.set(declaration.options.name, new Date(now.getTime() - ttl));
   }

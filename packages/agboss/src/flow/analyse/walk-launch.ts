@@ -1,6 +1,6 @@
+import { ComponentKind } from "../runtime/records.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
 import {
-  NodeKind,
   QuorumKind,
   StepKind,
   type ForEachItemStep,
@@ -82,7 +82,7 @@ export function walkLaunch(
     router === undefined
       ? cursor
       : walker.enter(
-          { kind: StepKind.To, target: router.target, targetKind: NodeKind.Router },
+          { kind: StepKind.To, target: router.target, targetKind: ComponentKind.Router },
           cursor,
           true,
         );

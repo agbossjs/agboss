@@ -1,10 +1,10 @@
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "../../../src/flow/analyse/analyse.js";
 import { childClassesOf } from "../../../src/flow/analyse/child-workflow.js";
 import { StepKind, type ToStep } from "../../../src/flow/ast.js";
 import { Workflow } from "../../../src/flow/decorators/workflow.js";
 import { fromComponent, subPathFrom } from "../../../src/flow/path-builder.js";
-import { NodeKind } from "../../../src/flow/ast.js";
 import {
   CountDoneWorkflowFinish,
   CountdownWorkflow,
@@ -35,7 +35,7 @@ describe("#1287: a thunk is not read while the path is built", () => {
     expect(() =>
       onStart(CountdownWorkflowStart).forEachItem(toWorkflow(neverReached), { takeFirst: 2 }),
     ).not.toThrow();
-    expect(() => fromComponent(NodeKind.Workflow, neverReached)).not.toThrow();
+    expect(() => fromComponent(ComponentKind.Workflow, neverReached)).not.toThrow();
   });
 
   it("the class is read once, on first use, and kept", () => {
@@ -65,7 +65,7 @@ describe("#1287: a thunk is not read while the path is built", () => {
     ];
     expect({ ...lazy }).toEqual({
       kind: StepKind.To,
-      targetKind: NodeKind.Workflow,
+      targetKind: ComponentKind.Workflow,
       target: CountdownWorkflow,
     });
   });
@@ -77,7 +77,7 @@ describe("#1287: a workflow that launches itself with a thunk", () => {
 
     expect(errors).toEqual([]);
     const node = analysis?.graph.nodes.get("countdown-workflow" as never);
-    expect(node).toMatchObject({ kind: NodeKind.Workflow, component: CountdownWorkflow });
+    expect(node).toMatchObject({ kind: ComponentKind.Workflow, component: CountdownWorkflow });
     expect(node?.recursionOf).toBe(CountdownWorkflow);
     expect(analysis?.graph.nodes.has("this-workflow" as never)).toBe(false);
   });

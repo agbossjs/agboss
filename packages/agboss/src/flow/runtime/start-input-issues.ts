@@ -1,9 +1,9 @@
+import { ComponentKind } from "./records.js";
 import { ValidationError } from "../../core/error-families/effect-errors.js";
 import type { Class } from "../../components/injection.js";
-import { type DtoIssue } from "../../dto/errors.js";
+import type { DtoIssue } from "../../dto/errors.js";
 import { validate } from "../../dto/schema.js";
 import type { DtoClass } from "../../dto/types.js";
-import { NodeKind } from "../ast.js";
 import { declarationOf, isFieldMap } from "../decorators/declaration.js";
 import { Wrapper, type ListWrapper, type ValueShape } from "../dto-wrappers.js";
 
@@ -55,7 +55,8 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 /** The issues of `payload` as the input of `start`; empty when it fits. */
 export function startInputIssuesOf(start: Class, payload: unknown): readonly DtoIssue[] {
   const declaration = declarationOf(start);
-  if (declaration?.kind !== NodeKind.Start) throw new TypeError(`${start.name} is not a start`);
+  if (declaration?.kind !== ComponentKind.WorkflowStart)
+    throw new TypeError(`${start.name} is not a start`);
   const { input } = declaration.options;
   if (!isFieldMap(input)) return fieldIssues(input, payload, "");
   if (!isRecord(payload)) return [{ path: "(root)", reason: "expected an object of fields" }];

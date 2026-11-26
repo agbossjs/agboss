@@ -30,7 +30,7 @@ src/
   [<domain>/]                      optional, one level: holds kind folders only
     workflows/<w>/                 <w>.workflow.ts + its *.workflow-start.ts and *.workflow-finish.ts
     agents/<n>/                    <n>.agent.ts + <n>.prompt.md
-    routers/<n>/  judges/<n>/  arbiters/<n>/  compactions/<n>/  guardrails/<n>/  reply-interpreters/<n>/
+    routers/<n>/  judges/<n>/  arbiters/<n>/  compactions/<n>/  guardrails/<n>/  channel-interpreters/<n>/
     dto/<n>.dto.ts                 one DTO per file (never dtos/)
     tools/  actions/  services/  repositories/  schemas/  sql/  errors/  budgets/  …
 tests/                             mirrors src/ (Testing → Three kinds of tests)

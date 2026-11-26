@@ -138,7 +138,7 @@ function readingsOf<TRole extends Class>(
  * `testUnit(Role, options)`: the role's interpreter created by its own container (a code
  * one's `deps`, `overrides`, the `environment`), a model one answering from `model` —
  * `replyWith(AnswerDto, { … })` for its answer tool, `replyWith(ReplyInterpreterNotUnderstoodDto,
- * { reason })` for "not understood" (`{ cost }` its spend, `reply-interpreter:<name>`); its rules
+ * { reason })` for "not understood" (`{ cost }` its spend, `channel-interpreter:<name>`); its rules
  * checked first, as at assembly.
  */
 export function replyInterpreterUnit<

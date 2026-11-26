@@ -1,3 +1,5 @@
+import type { FlowNodeKind } from "../flow/ast.js";
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { ComponentOptions } from "../components/component-options.js";
 import { cardFileFieldsOf } from "../a2a/files/a2a-file-options.js";
 import { A2AReply } from "../a2a/a2a-message-skill-rule.js";
@@ -11,7 +13,6 @@ import type { A2AAgentMeta } from "../a2a/a2a-decorator.js";
 import type { Class } from "../components/injection.js";
 import { componentOf } from "../components/metadata.js";
 import type { DtoClass } from "../dto/types.js";
-import { NodeKind } from "../flow/ast.js";
 import { mcpServerClassesOf } from "../components/assemble-tools.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import { usesOf, workflowPartsOf, type WorkflowParts } from "./contracts-parts.js";
@@ -65,7 +66,7 @@ class Dtos {
   }
 }
 
-const kindOf = (node: Class): NodeKind | undefined => declarationOf(node)?.kind;
+const kindOf = (node: Class): FlowNodeKind | undefined => declarationOf(node)?.kind;
 
 function a2aExportsOf(
   expose: Class,
@@ -77,12 +78,12 @@ function a2aExportsOf(
   return startsOfEndpoint(meta.meta).flatMap((start): A2AExportContract[] => {
     const workflow = parts.find((part) => part.nodes.includes(start));
     const declaration = declarationOf(start);
-    if (workflow === undefined || declaration?.kind !== NodeKind.Start) return [];
+    if (workflow === undefined || declaration?.kind !== ComponentKind.WorkflowStart) return [];
     const outputs = workflow.nodes
-      .filter((node) => kindOf(node) === NodeKind.Finish)
+      .filter((node) => kindOf(node) === ComponentKind.WorkflowFinish)
       .flatMap((node) => {
         const finish = declarationOf(node);
-        if (finish?.kind !== NodeKind.Finish) return [];
+        if (finish?.kind !== ComponentKind.WorkflowFinish) return [];
         const output = dtos.ofShape(finish.options.output);
         return output === null ? [] : [{ finish: finish.options.name, ...output }];
       });
@@ -112,7 +113,7 @@ function mcpExportsOf(expose: Class, dtos: Dtos): readonly McpExportContract[] {
     const start = declarationOf(exported);
     const tool = componentOf(exported);
     const base = { kind: "mcp" as const, endpoint: meta.meta.name, version: meta.meta.version };
-    if (start?.kind === NodeKind.Start)
+    if (start?.kind === ComponentKind.WorkflowStart)
       return [{ ...base, tool: start.options.name, input: dtos.ofShape(start.options.input) }];
     if (tool?.kind === "tool")
       return [{ ...base, tool: tool.meta.name, input: dtos.of(tool.meta.input) }];

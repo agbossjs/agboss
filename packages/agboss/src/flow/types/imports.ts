@@ -14,7 +14,7 @@ import type { ClassLocator } from "./locate.js";
 /** What the generated file imports from the tables module. */
 export enum TablesImport {
   ComponentBrand = "agbossComponent",
-  NodeKind = "NodeKind",
+  ComponentKind = "ComponentKind",
   DtoBrand = "agbossDto",
   TenantContextBrand = "agbossTenantContext",
   NoInput = "NoInput",

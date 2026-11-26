@@ -1,6 +1,6 @@
+import { ComponentKind } from "../../runtime/records.js";
 import type { Class } from "../../../components/injection.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
-import { NodeKind } from "../../ast.js";
 import { declarationOf } from "../../decorators/declaration.js";
 import { declaredExecutionLimitsOf, DEFAULT_MAX_CONCURRENCY } from "../../decorators/workflow.js";
 import { childClassesOf } from "../child-workflow.js";
@@ -59,7 +59,7 @@ function chainBack(from: Class, self: Class, seen: Set<Class>): readonly Class[]
   const declaration = declarationOf(from);
   // Stryker disable next-line OptionalChaining: equivalent: `childClassesOf` lists only classes that are workflows, so a declaration is always there; the check stays for a class that is not one
   switch (declaration?.kind) {
-    case NodeKind.Workflow:
+    case ComponentKind.Workflow:
       for (const child of childClassesOf(declaration.options.flow, from)) {
         const chain = chainBack(child, self, seen);
         if (chain !== undefined) return [from, ...chain];

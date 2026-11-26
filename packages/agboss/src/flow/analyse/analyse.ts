@@ -1,8 +1,8 @@
+import { ComponentKind } from "../runtime/records.js";
 import { ConfigError } from "../../core/error-families/config-errors.js";
 import type { Class } from "../../components/injection.js";
 import { cascadeDefaults } from "../../config/defaults.js";
 import { violation, type RuleViolation } from "../../graph/rule-error.js";
-import { NodeKind } from "../ast.js";
 import { declarationOf } from "../decorators/declaration.js";
 import {
   declaredExecutionLimitsOf,
@@ -154,7 +154,7 @@ const optionsFor = (
 /** Checks a workflow without throwing. */
 export function checkWorkflow(workflow: Class, options: AnalyseOptions = {}): FlowCheck {
   const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow) {
+  if (declaration?.kind !== ComponentKind.Workflow) {
     const message = `${classLabel(workflow)} has no @Workflow decorator — decorate it with @Workflow({ name, version, flow })`;
     return { errors: [violation("graph.not-a-node", message, [])], warnings: [] };
   }

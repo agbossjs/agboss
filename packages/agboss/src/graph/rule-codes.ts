@@ -203,8 +203,6 @@ export type RuleCode =
   | "pause.remind-before-working-without-working-timeout"
   | "working-calendar.invalid"
   | "working-calendar.duplicate-name"
-  // channel interpreters (#267 PR 3), reported at each workflow's assembly
-  | "reply-interpreter.decision-model"
   | "di.ambiguous-implementation"
   // typed judges (#262 PR 4, S115): every class an agent answers with is one its judges judge
   | "judge.wrong-output"

@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { channelsOf, checkChannels } from "../channels/channel-rules.js";
 import { channelSelectorOf } from "../channels/channel-selector.js";
 import { pauseCalendarOf } from "../calendar/calendar-source.js";
@@ -25,7 +26,6 @@ import {
 import type { PromptLoader } from "./prompt-render.js";
 import type { ModelResolver } from "../models/model-resolver.js";
 import { codeClassesOf, type RuntimeGraph } from "../flow/runtime/graph-model.js";
-import { NodeKind } from "../flow/ast.js";
 import type { AssembledMemories } from "../memory/assembly.js";
 import { customCompactionClassesOf } from "../memory/custom-classes.js";
 import type {
@@ -247,5 +247,5 @@ export const createdClassesOf = (
 /** The external tasks a workflow's flow asks (#659): its steps' classes. */
 export const questionRolesOf = (graph: Pick<RuntimeGraph, "nodes">): readonly Class[] =>
   [...graph.nodes.values()].flatMap((node) =>
-    node.kind === NodeKind.Question ? [node.component] : [],
+    node.kind === ComponentKind.ExternalTask ? [node.component] : [],
   );

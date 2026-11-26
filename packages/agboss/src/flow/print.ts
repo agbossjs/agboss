@@ -1,7 +1,7 @@
+import { ComponentKind } from "./runtime/records.js";
 import type { Class } from "../components/injection.js";
 import { sourceCallOf, toCallOf } from "./analyse/labels.js";
 import {
-  NodeKind,
   StepKind,
   type ChooseOneRoute,
   type FlowPath,
@@ -67,7 +67,7 @@ class Printer {
 
   /** `.onRoute(toAgent(A)` and the route's other steps, closed on its last line (#1278). */
   private route(route: ChooseOneRoute, depth: number): void {
-    const kind = declarationOf(route.target)?.kind ?? NodeKind.Agent;
+    const kind = declarationOf(route.target)?.kind ?? ComponentKind.Agent;
     this.line(depth, `.onRoute(${toCallOf(kind)}(${this.label(route.target)})`);
     this.steps(route.path.steps, depth + 1);
     this.closeLast(")");

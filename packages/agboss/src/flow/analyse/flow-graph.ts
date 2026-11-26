@@ -1,11 +1,6 @@
+import type { FlowNodeKind, ArbiterClass, ErrorClass, ParallelTargetKind, Quorum } from "../ast.js";
+import { ComponentKind } from "../runtime/records.js";
 import type { Class } from "../../components/injection.js";
-import {
-  NodeKind,
-  type ArbiterClass,
-  type ErrorClass,
-  type ParallelTargetKind,
-  type Quorum,
-} from "../ast.js";
 import type { ComponentDeclaration } from "../decorators/declaration.js";
 import type { ListWrapper, OutputShape, ValueShape } from "../dto-wrappers.js";
 import type { ComponentName } from "../registry.js";
@@ -157,7 +152,7 @@ export interface FlowEdge {
 /** A node of the graph: a decorated component and what its decorator recorded. */
 export interface FlowNode {
   readonly name: ComponentName;
-  readonly kind: NodeKind;
+  readonly kind: FlowNodeKind;
   readonly component: Class;
   readonly declaration: ComponentDeclaration;
   /** A recursion (#264, #1287): this node is the enclosing workflow itself, launched again. */
@@ -181,12 +176,12 @@ export interface FlowGraph {
 export function outputOf(node: FlowNode): OutputShape | undefined {
   const { declaration } = node;
   switch (declaration.kind) {
-    case NodeKind.Agent:
-    case NodeKind.Action:
-    case NodeKind.Finish:
-    case NodeKind.Question:
+    case ComponentKind.Agent:
+    case ComponentKind.Action:
+    case ComponentKind.WorkflowFinish:
+    case ComponentKind.ExternalTask:
       return declaration.options.output;
-    case NodeKind.Workflow:
+    case ComponentKind.Workflow:
       return childWorkflowOf(childClassOf(node))?.output;
     default:
       return undefined;
@@ -195,7 +190,7 @@ export function outputOf(node: FlowNode): OutputShape | undefined {
 
 /** An agent without `output` answers with text (#270 AC10). */
 export const isTextAgent = (node: FlowNode): boolean =>
-  node.declaration.kind === NodeKind.Agent && node.declaration.options.output === undefined;
+  node.declaration.kind === ComponentKind.Agent && node.declaration.options.output === undefined;
 
 /** A canonical, comparable key of an edge. */
 export function edgeKey(edge: FlowEdge): string {

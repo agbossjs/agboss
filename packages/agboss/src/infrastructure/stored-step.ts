@@ -60,7 +60,7 @@ export { parsedStoredJson };
 export const StoredComponent = z
   .object({
     name: z.string(),
-    kind: z.enum(ComponentKind).default(ComponentKind.Agent),
+    kind: z.enum(ComponentKind),
     promptHash: optionalText,
     schemaHash: optionalText,
   })

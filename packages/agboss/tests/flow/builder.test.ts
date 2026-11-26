@@ -1,6 +1,7 @@
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { NodeKind, StepKind, type Step } from "../../src/flow/ast.js";
+import { StepKind, type Step, type ToStep } from "../../src/flow/ast.js";
 import * as builder from "../../src/flow/builder.js";
 import {
   onStart,
@@ -86,7 +87,7 @@ function callUntyped(target: object, method: string, args: readonly unknown[]): 
   return result;
 }
 
-const to = (target: abstract new () => unknown, targetKind: NodeKind): Step => ({
+const to = (target: abstract new () => unknown, targetKind: ToStep["targetKind"]): Step => ({
   kind: StepKind.To,
   target,
   targetKind,
@@ -95,19 +96,19 @@ const to = (target: abstract new () => unknown, targetKind: NodeKind): Step => (
 describe("AC1: a path starts with its source's kind", () => {
   it("records start, agent, router and action sources", () => {
     expect(onStart(OfferWorkflowStart).source).toEqual({
-      kind: NodeKind.Start,
+      kind: ComponentKind.WorkflowStart,
       node: OfferWorkflowStart,
     });
     expect(builder.onAgent(ReviewerAgent).source).toEqual({
-      kind: NodeKind.Agent,
+      kind: ComponentKind.Agent,
       node: ReviewerAgent,
     });
     expect(builder.onRouter(MainRouter).source).toEqual({
-      kind: NodeKind.Router,
+      kind: ComponentKind.Router,
       node: MainRouter,
     });
     expect(builder.onAction(SendOfferAction).source).toEqual({
-      kind: NodeKind.Action,
+      kind: ComponentKind.Action,
       node: SendOfferAction,
     });
   });
@@ -117,19 +118,19 @@ describe("AC2: transitions name the target's kind", () => {
   it("records each step of a straight path in order (#272 example 2b)", () => {
     const [path] = articlePaths;
 
-    expect(path.source).toEqual({ kind: NodeKind.Start, node: ArticleWorkflowStart });
+    expect(path.source).toEqual({ kind: ComponentKind.WorkflowStart, node: ArticleWorkflowStart });
     expect(path.steps).toEqual([
-      to(ArticleDraftAgent, NodeKind.Agent),
-      to(DraftReviewerAgent, NodeKind.Agent),
-      to(WriterAgent, NodeKind.Agent),
-      to(FinalReviewerAgent, NodeKind.Agent),
-      to(ArticleWorkflowFinish, NodeKind.Finish),
+      to(ArticleDraftAgent, ComponentKind.Agent),
+      to(DraftReviewerAgent, ComponentKind.Agent),
+      to(WriterAgent, ComponentKind.Agent),
+      to(FinalReviewerAgent, ComponentKind.Agent),
+      to(ArticleWorkflowFinish, ComponentKind.WorkflowFinish),
     ]);
   });
 
   it("records toRouter and toAction with their kinds", () => {
-    expect(chatPaths[0].steps.at(-1)).toEqual(to(MainRouter, NodeKind.Router));
-    expect(orderPaths[0].steps[0]).toEqual(to(ReserveStockAction, NodeKind.Action));
+    expect(chatPaths[0].steps.at(-1)).toEqual(to(MainRouter, ComponentKind.Router));
+    expect(orderPaths[0].steps[0]).toEqual(to(ReserveStockAction, ComponentKind.Action));
   });
 });
 
@@ -137,7 +138,7 @@ describe("AC3 / AC5 / AC6: router own path, onRoute and toOneOf (#272 example 1)
   it("builds onRoute routes with their sub-paths and a toOneOf inside a route", () => {
     const [, mainRouterPath] = chatPaths;
 
-    expect(mainRouterPath.source).toEqual({ kind: NodeKind.Router, node: MainRouter });
+    expect(mainRouterPath.source).toEqual({ kind: ComponentKind.Router, node: MainRouter });
     expect(mainRouterPath.steps).toEqual([
       {
         kind: StepKind.ChooseOne,
@@ -149,8 +150,8 @@ describe("AC3 / AC5 / AC6: router own path, onRoute and toOneOf (#272 example 1)
                 {
                   kind: StepKind.OneOf,
                   branches: [
-                    { steps: [to(MainRouter, NodeKind.Router)] },
-                    { steps: [to(AskResumeWorkflowFinish, NodeKind.Finish)] },
+                    { steps: [to(MainRouter, ComponentKind.Router)] },
+                    { steps: [to(AskResumeWorkflowFinish, ComponentKind.WorkflowFinish)] },
                   ],
                 },
               ],
@@ -158,7 +159,7 @@ describe("AC3 / AC5 / AC6: router own path, onRoute and toOneOf (#272 example 1)
           },
           {
             target: ScoutAgent,
-            path: { steps: [to(ChatWorkflowFinish, NodeKind.Finish)] },
+            path: { steps: [to(ChatWorkflowFinish, ComponentKind.WorkflowFinish)] },
           },
           { target: NoReplyWorkflowFinish, path: { steps: [] } },
         ],
@@ -215,61 +216,61 @@ describe("AC7: onError side paths (#272 examples 2a and 3)", () => {
       branches: [
         {
           steps: [
-            to(EditorAgent, NodeKind.Agent),
+            to(EditorAgent, ComponentKind.Agent),
             {
               kind: StepKind.OnError,
               error: VisitsLimitExceededError,
               path: {
                 steps: [
-                  to(NotifyRecruiterAction, NodeKind.Action),
-                  to(OfferFailedWorkflowFinish, NodeKind.Finish),
+                  to(NotifyRecruiterAction, ComponentKind.Action),
+                  to(OfferFailedWorkflowFinish, ComponentKind.WorkflowFinish),
                 ],
               },
             },
-            to(ReviewerAgent, NodeKind.Agent),
+            to(ReviewerAgent, ComponentKind.Agent),
           ],
         },
         {
           steps: [
-            to(SendOfferAction, NodeKind.Action),
-            to(OfferSentWorkflowFinish, NodeKind.Finish),
+            to(SendOfferAction, ComponentKind.Action),
+            to(OfferSentWorkflowFinish, ComponentKind.WorkflowFinish),
           ],
         },
       ],
     });
     expect(offerPaths[0].steps).toEqual([
-      to(DraftAgent, NodeKind.Agent),
-      to(ReviewerAgent, NodeKind.Agent),
+      to(DraftAgent, ComponentKind.Agent),
+      to(ReviewerAgent, ComponentKind.Agent),
     ]);
   });
 
   it("nests an onError inside a side path for a failed rollback", () => {
     expect(orderPaths[0].steps).toEqual([
-      to(ReserveStockAction, NodeKind.Action),
-      to(ShipOrderAction, NodeKind.Action),
+      to(ReserveStockAction, ComponentKind.Action),
+      to(ShipOrderAction, ComponentKind.Action),
       {
         kind: StepKind.OnError,
         error: CarrierError,
         path: {
           steps: [
-            to(RefundCardAction, NodeKind.Action),
+            to(RefundCardAction, ComponentKind.Action),
             {
               kind: StepKind.OnError,
               error: PaymentProviderError,
               path: {
                 steps: [
-                  to(NotifyFinanceTeamAction, NodeKind.Action),
-                  to(OrderFailedWorkflowFinish, NodeKind.Finish),
+                  to(NotifyFinanceTeamAction, ComponentKind.Action),
+                  to(OrderFailedWorkflowFinish, ComponentKind.WorkflowFinish),
                 ],
               },
             },
-            to(ReleaseStockAction, NodeKind.Action),
-            to(OrderFailedWorkflowFinish, NodeKind.Finish),
+            to(ReleaseStockAction, ComponentKind.Action),
+            to(OrderFailedWorkflowFinish, ComponentKind.WorkflowFinish),
           ],
         },
       },
-      to(OrderAction, NodeKind.Action),
-      to(OrderWorkflowFinish, NodeKind.Finish),
+      to(OrderAction, ComponentKind.Action),
+      to(OrderWorkflowFinish, ComponentKind.WorkflowFinish),
     ]);
     expect(orderPaths[0].source.node).toBe(OrderWorkflowStart);
   });
@@ -285,7 +286,7 @@ describe("AC7: a side path may start with any transition", () => {
       {
         kind: StepKind.OnError,
         error: CarrierError,
-        path: { steps: [to(OrderFailedWorkflowFinish, NodeKind.Finish)] },
+        path: { steps: [to(OrderFailedWorkflowFinish, ComponentKind.WorkflowFinish)] },
       },
     ]);
   });
@@ -299,7 +300,7 @@ describe("AC7: a side path may start with any transition", () => {
       kind: StepKind.OnError,
       error: VisitsLimitExceededError,
       path: {
-        steps: [to(DraftAgent, NodeKind.Agent), to(ReviewerAgent, NodeKind.Agent)],
+        steps: [to(DraftAgent, ComponentKind.Agent), to(ReviewerAgent, ComponentKind.Agent)],
       },
     });
   });
@@ -320,13 +321,13 @@ describe("AC7: a side path may start with any transition", () => {
       error: VisitsLimitExceededError,
       path: {
         steps: [
-          to(MainRouter, NodeKind.Router),
+          to(MainRouter, ComponentKind.Router),
           {
             kind: StepKind.ChooseOne,
             routes: [
               {
                 target: ScoutAgent,
-                path: { steps: [to(ChatWorkflowFinish, NodeKind.Finish)] },
+                path: { steps: [to(ChatWorkflowFinish, ComponentKind.WorkflowFinish)] },
               },
               {
                 target: ProfilerAgent,
@@ -335,8 +336,8 @@ describe("AC7: a side path may start with any transition", () => {
                     {
                       kind: StepKind.OneOf,
                       branches: [
-                        { steps: [to(MainRouter, NodeKind.Router)] },
-                        { steps: [to(AskResumeWorkflowFinish, NodeKind.Finish)] },
+                        { steps: [to(MainRouter, ComponentKind.Router)] },
+                        { steps: [to(AskResumeWorkflowFinish, ComponentKind.WorkflowFinish)] },
                       ],
                     },
                   ],
@@ -362,8 +363,8 @@ describe("#299 S54: a branch holds its path only", () => {
           {
             kind: StepKind.OneOf,
             branches: [
-              { steps: [to(EditorAgent, NodeKind.Agent)] },
-              { steps: [to(OfferFailedWorkflowFinish, NodeKind.Finish)] },
+              { steps: [to(EditorAgent, ComponentKind.Agent)] },
+              { steps: [to(OfferFailedWorkflowFinish, ComponentKind.WorkflowFinish)] },
             ],
           },
         ],
@@ -383,7 +384,7 @@ describe("#299 S54: a branch holds its path only", () => {
           {
             kind: StepKind.OnFinish,
             finish: OfferFailedWorkflowFinish,
-            path: { steps: [to(EditorAgent, NodeKind.Agent)] },
+            path: { steps: [to(EditorAgent, ComponentKind.Agent)] },
           },
         ],
       }),
@@ -406,8 +407,10 @@ describe("paths are immutable", () => {
     const failed = shortlisted.toFinish(OfferFailedWorkflowFinish);
 
     expect(shortlisted.steps).toHaveLength(0);
-    expect(drafted.steps.at(-1)).toEqual(to(DraftAgent, NodeKind.Agent));
-    expect(failed.steps.at(-1)).toEqual(to(OfferFailedWorkflowFinish, NodeKind.Finish));
+    expect(drafted.steps.at(-1)).toEqual(to(DraftAgent, ComponentKind.Agent));
+    expect(failed.steps.at(-1)).toEqual(
+      to(OfferFailedWorkflowFinish, ComponentKind.WorkflowFinish),
+    );
     expect(Object.isFrozen(drafted.steps)).toBe(true);
     expect(Reflect.get(toAgent(EditorAgent), "source")).toBeUndefined();
   });
@@ -466,6 +469,6 @@ describe("AC4 / AC8: removed forms do not exist", () => {
   });
 
   it("toAction begins a side path with the action", () => {
-    expect(toAction(RefundCardAction).steps).toEqual([to(RefundCardAction, NodeKind.Action)]);
+    expect(toAction(RefundCardAction).steps).toEqual([to(RefundCardAction, ComponentKind.Action)]);
   });
 });

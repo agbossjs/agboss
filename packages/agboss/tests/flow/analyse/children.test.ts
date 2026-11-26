@@ -46,6 +46,7 @@ import {
 } from "../fixtures/starts.fixture.js";
 import { onAgent, onStart, toAction, toAgent, toFinish, toWorkflow } from "../fixtures/paths.js";
 import { inline, Ttl } from "../../../src/index.js";
+import { PtLimitExternalTask } from "../fixtures/pause-targets.fixture.js";
 import { TestDecisionsModelProvider } from "../../../src/testing/test-model-provider.js";
 
 /** #263 PR 1 — child workflows in the analyser: the start per edge, outputs, scope, warnings. */
@@ -477,6 +478,14 @@ describe("#263: the child's node in the graph", () => {
       code: "graph.wrong-kind",
       message:
         "toAgent(CompanyReviewWorkflow): company-review-workflow is a workflow, not an agent — use toWorkflow(CompanyReviewWorkflow)",
+    });
+  });
+
+  it('an external task mentioned as an agent is [graph.wrong-kind], named "an external task"', () => {
+    const path = picked().toAgent(PtLimitExternalTask).toOneOf(reviewCases());
+    expect(errorsOf([path])).toContainEqual({
+      code: "graph.wrong-kind",
+      message: expect.stringContaining("pt-limit-external-task is an external task, not an agent"),
     });
   });
 

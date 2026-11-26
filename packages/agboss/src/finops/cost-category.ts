@@ -35,7 +35,6 @@ const CATEGORY_BY_PREFIX: readonly (readonly [string, CostCategory])[] = [
   ["pii:", CostCategory.Pii],
   ["arbiter:", CostCategory.Arbiters],
   ["channel-interpreter:", CostCategory.Pauses],
-  ["reply-interpreter:", CostCategory.Pauses],
 ];
 
 /**

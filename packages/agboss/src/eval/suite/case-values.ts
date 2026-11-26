@@ -1,8 +1,9 @@
+import type { FlowNodeKind } from "../../flow/ast.js";
+import { ComponentKind } from "../../flow/runtime/records.js";
 import { ValidationError } from "../../core/error-families/effect-errors.js";
 import type { Class } from "../../components/injection.js";
-import { type DtoIssue } from "../../dto/errors.js";
+import type { DtoIssue } from "../../dto/errors.js";
 import { validOutput } from "../../flow/finish-output.js";
-import { NodeKind } from "../../flow/ast.js";
 import {
   executionFieldsOf,
   tenantFieldsOf,
@@ -45,7 +46,7 @@ function issuesOf(prefix: string, check: () => unknown): DtoIssue[] {
   }
 }
 
-const isKind = (cls: Class, kind: NodeKind): boolean => declarationOf(cls)?.kind === kind;
+const isKind = (cls: Class, kind: FlowNodeKind): boolean => declarationOf(cls)?.kind === kind;
 
 function turnIssues(start: Class, turns: readonly EvalTurn[], field: string): DtoIssue[] {
   return turns.flatMap((written, index) =>
@@ -56,11 +57,11 @@ function turnIssues(start: Class, turns: readonly EvalTurn[], field: string): Dt
 function pastTurnIssues(past: EvalPastTurn, prefix: string): DtoIssue[] {
   const { start, finish } = past;
   const found: DtoIssue[] = [];
-  if (isKind(start, NodeKind.Start))
+  if (isKind(start, ComponentKind.WorkflowStart))
     found.push(...prefixed(`${prefix}.input`, startInputIssuesOf(start, past.input)));
   else found.push({ path: `${prefix}.start`, reason: `${start.name} is not a @WorkflowStart` });
   const declaration = declarationOf(finish);
-  if (declaration?.kind === NodeKind.Finish) {
+  if (declaration?.kind === ComponentKind.WorkflowFinish) {
     const { output } = declaration.options;
     found.push(...issuesOf(`${prefix}.output`, () => validOutput(output, past.output)));
   } else

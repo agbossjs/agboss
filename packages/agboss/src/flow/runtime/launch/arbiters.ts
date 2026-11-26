@@ -1,10 +1,11 @@
+import { ComponentKind } from "../records.js";
 import { StepError } from "../../../core/error-families/step-errors.js";
 import type { ModelReadingMask } from "../../../pii/model-boundary.js";
 import type { Class } from "../../../components/injection.js";
 import { normalisePromptText } from "../../../components/prompt-render.js";
 import type { UsageRecord } from "../../../finops/usage.js";
 import { WorkflowFinishTextDto } from "../../../dto/standard/framework.js";
-import { NodeKind, type ArbiterClass } from "../../ast.js";
+import type { ArbiterClass } from "../../ast.js";
 import {
   answerMethodsOf,
   arbiterOf,
@@ -92,14 +93,13 @@ class Abandoned extends Error {}
 function trackedAnswer(answer: unknown, target: Class | undefined): unknown {
   if (target === undefined || typeof answer !== "object" || answer === null) return answer;
   if (Metadata.has(answer)) return answer;
-  const read = isTextAgent(target) ? asTextDto(answer) : answer;
-  return Metadata.with(read, { createdBy: target });
+  return Metadata.with(isTextAgent(target) ? asTextDto(answer) : answer, { createdBy: target });
 }
 
 /** A text agent (an `@Agent` without `output`) answers with its reply: a `WorkflowFinishTextDto` (#1283b). */
 const isTextAgent = (target: Class): boolean => {
   const declaration = declarationOf(target);
-  return declaration?.kind === NodeKind.Agent && declaration.options.output === undefined;
+  return declaration?.kind === ComponentKind.Agent && declaration.options.output === undefined;
 };
 
 /** The reply `{ text }` as the class the method's parameter names, so `answer instanceof WorkflowFinishTextDto` holds. */

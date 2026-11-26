@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { hours, Ttl } from "../../src/units/index.js";
 /**
  * #1269: the files of a workflow's agents resolved from their sources (#899 §1) — the application's own
@@ -23,7 +24,6 @@ import { FilePolicy } from "../../src/files/file-policy.js";
 import { FileRedactor, ModelImageRedactor } from "../../src/files/file-redactor.js";
 import { FileTranscriber, ModelFileTranscriber } from "../../src/files/file-transcriber.js";
 import { AnswerFiles, FileView, ModelFiles } from "../../src/files/model-files.js";
-import { NodeKind } from "../../src/flow/ast.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { InlineFileRepository } from "../../src/infrastructure/file.repository.js";
 import { InMemoryFileRepository } from "../../src/infrastructure/in-memory-file.repository.js";
@@ -133,7 +133,7 @@ function miniWorkflow(files?: ModelFiles, defaults?: WorkflowDefaults, filePolic
 
 const agentMetaOf = (agent: Class): AgentMeta => {
   const declaration = declarationOf(agent);
-  if (declaration?.kind !== NodeKind.Agent) throw new Error("not an agent");
+  if (declaration?.kind !== ComponentKind.Agent) throw new Error("not an agent");
   return declaration.options;
 };
 

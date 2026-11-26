@@ -1,8 +1,8 @@
+import { ComponentKind } from "../records.js";
 import { handedOverOf, recordedHandOver } from "../../../app/handed-over.js";
 import type { Class } from "../../../components/injection.js";
 import type { GraphDeps } from "../../../graph/deps.js";
 import { HandOverSite } from "../../../infrastructure/execution-audit-log.repository.js";
-import { NodeKind } from "../../ast.js";
 import { hasUndoableActions } from "../../compensation.js";
 import { CompensationEntryStatus, type CompensationEntry } from "../../compensation.js";
 import { rootFactsOf, type FrameSpec } from "../../context/frame.js";
@@ -171,7 +171,7 @@ const SAME = Symbol("same workflow");
 /** The deps of the child workflow a parent's node runs; `SAME` for a recursion. */
 function childOf(deps: ChildDepsSource, node: string): GraphDeps<string> | typeof SAME | undefined {
   const found = deps.graph.nodes.get(node);
-  if (found?.kind !== NodeKind.Workflow) return undefined;
+  if (found?.kind !== ComponentKind.Workflow) return undefined;
   if (found.component === deps.graph.type) return SAME;
   return deps.childDepsOf?.(found.component);
 }
@@ -190,7 +190,7 @@ export function canHoldEntries(deps: ChildDepsSource, seen = new Set<RuntimeGrap
 /** Whether a launched node can leave an entry to its join: an undoable action, a child that can hold one. */
 export function canLeaveEntries(deps: ChildDepsSource, node: string): boolean {
   const { declaration } = deps.graph.nodes.get(node) ?? {};
-  if (declaration?.kind === NodeKind.Action)
+  if (declaration?.kind === ComponentKind.Action)
     return declaration.options.compensateWith !== undefined;
   const child = childOf(deps, node);
   if (child === SAME) return hasUndoableActions(deps.graph);

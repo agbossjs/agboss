@@ -1,12 +1,12 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { movedRetentionViolations, retentionViolations } from "./retention.js";
 import { budgetOf } from "../budgets/budget.js";
 import { budgetRuleViolations, budgetsOfApplication } from "../budgets/budget-rules.js";
 import type { OverlaidBudgets } from "../budgets/budget-overlay.js";
 import { createdClassesOf, type Class, type Provider } from "../components/injection.js";
 import { moduleOf } from "../components/module.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
-import { kebabNameProblem, kindSuffixProblem, NameKind } from "../flow/names.js";
+import { kebabNameProblem, kindSuffixProblem, type NameKind } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { infrastructureContractOf } from "../infrastructure/contracts.js";
 import { isModelProviderClass, modelProviderOf } from "../models/model-provider.decorator.js";
@@ -73,7 +73,7 @@ function workflowListViolations(options: ApplicationOptions): RuleViolation[] {
     ];
   }
   return options.workflows.flatMap((workflow) =>
-    declarationOf(workflow)?.kind === NodeKind.Workflow
+    declarationOf(workflow)?.kind === ComponentKind.Workflow
       ? []
       : [
           violation(
@@ -112,7 +112,7 @@ function budgetViolations(budgeted: ReturnType<typeof budgetedOf>): RuleViolatio
         ),
       ];
     }
-    return nameViolations(budget.name, cls, NameKind.Budget, "Budget");
+    return nameViolations(budget.name, cls, ComponentKind.Budget, "Budget");
   });
 }
 
@@ -126,7 +126,7 @@ export const listedClassesOf = (options: ApplicationOptions): readonly Class[] =
     (cls) => !storageOwnedClassesOf(options).has(cls),
   ),
   ...withChildWorkflows(options.workflows)
-    .filter((workflow) => declarationOf(workflow)?.kind === NodeKind.Workflow)
+    .filter((workflow) => declarationOf(workflow)?.kind === ComponentKind.Workflow)
     .flatMap((workflow) => createdClassesOf(providersOf(moduleOf(workflow)))),
 ];
 
@@ -151,7 +151,7 @@ function infrastructureKindOf(cls: Class): string | undefined {
 function infrastructureViolations(options: ApplicationOptions): RuleViolation[] {
   // every workflow of the application: the listed ones and, transitively, their children (#263)
   return withChildWorkflows(options.workflows).flatMap((workflow) => {
-    if (declarationOf(workflow)?.kind !== NodeKind.Workflow) return [];
+    if (declarationOf(workflow)?.kind !== ComponentKind.Workflow) return [];
     const module = moduleOf(workflow);
     return createdClassesOf(providersOf(module)).flatMap((cls) => {
       const kind = infrastructureKindOf(cls);
@@ -181,7 +181,7 @@ export function applicationRuleViolations(
   budgetOverlays?: OverlaidBudgets["budgetOverlays"],
 ): RuleViolation[] {
   return [
-    ...nameViolations(options.name, application, NameKind.Application, "Application"),
+    ...nameViolations(options.name, application, ComponentKind.Application, "Application"),
     ...workflowListViolations(options),
     ...budgetViolations(budgetedOf(options, budgetOverlays)),
     ...budgetRuleViolations(budgetedOf(options, budgetOverlays)),

@@ -1,3 +1,4 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import { keptAlive, pauseCallsOf } from "./kept-alive-app.js";
 import { assemblyWarningsOf, logStart, warningText } from "./start-log.js";
 import { stopOf, type InstanceParts } from "./graceful-stop.js";
@@ -7,7 +8,6 @@ import { appWorkflowOf, rememberAppWorkflow } from "../app/app-workflow.js";
 import type { BuiltApp } from "../app/create-app.js";
 import type { AnyTenantApp } from "../app/types.js";
 import type { Class } from "../components/injection.js";
-import { NodeKind } from "../flow/ast.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
 import type { AssembledApplication } from "./assemble.js";
 import type { GracefulStop } from "./graceful-stop.js";
@@ -43,7 +43,7 @@ function startsOf(workflows: readonly BuiltApp[]): ReadonlyMap<Class, BuiltApp> 
   const starts = new Map<Class, BuiltApp>();
   for (const workflow of workflows) {
     for (const node of workflow.bundle.graph.nodes.values()) {
-      if (node.kind === NodeKind.Start) starts.set(node.component, workflow);
+      if (node.kind === ComponentKind.WorkflowStart) starts.set(node.component, workflow);
     }
   }
   return starts;

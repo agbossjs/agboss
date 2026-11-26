@@ -1,4 +1,5 @@
-import { NodeKind } from "../../../src/flow/ast.js";
+import type { FlowNodeKind } from "../../../src/flow/ast.js";
+import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import {
   EdgeKind,
   type FlowEdge,
@@ -9,7 +10,7 @@ import type { ComponentName } from "../../../src/flow/registry.js";
 import type { AnalysisContext } from "../../../src/flow/analyse/rules/context.js";
 
 /** A node as the step rules read it: its name, its kind and the `maxVisits` its declaration carries. */
-export const node = (name: string, kind: NodeKind, maxVisits?: unknown): FlowNode =>
+export const node = (name: string, kind: FlowNodeKind, maxVisits?: unknown): FlowNode =>
   ({
     name,
     kind,
@@ -18,7 +19,7 @@ export const node = (name: string, kind: NodeKind, maxVisits?: unknown): FlowNod
       options:
         maxVisits === undefined
           ? {}
-          : kind === NodeKind.Agent
+          : kind === ComponentKind.Agent
             ? { executionLimits: { maxVisits } }
             : { maxVisits },
     },

@@ -64,7 +64,7 @@ describe("#270 AC13: the generated file", () => {
     const text = readFileSync(typesOf(directory), "utf8");
     expect(text).toContain('"alpha-agent":');
     expect(text).toContain(
-      'readonly [agbossComponent]?: { readonly name: "alpha-agent"; readonly kind: NodeKind.Agent };',
+      'readonly [agbossComponent]?: { readonly name: "alpha-agent"; readonly kind: ComponentKind.Agent };',
     );
   });
 

@@ -1,14 +1,9 @@
+import { ComponentKind } from "../../src/flow/runtime/records.js";
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
 import { workflowOf } from "../../src/components/assemble.js";
 import { checkWorkflow } from "../../src/flow/analyse/analyse.js";
-import {
-  NodeKind,
-  QuorumKind,
-  StepKind,
-  type FlowPath,
-  type JoinStep,
-} from "../../src/flow/ast.js";
+import { QuorumKind, StepKind, type FlowPath, type JoinStep } from "../../src/flow/ast.js";
 import { declarationOf } from "../../src/flow/decorators/declaration.js";
 import { flowLines } from "../../src/flow/print.js";
 import { inputLines } from "../../src/describe/inputs.js";
@@ -35,7 +30,7 @@ import { onStart, toAction, toAgent, toFinish } from "./fixtures/paths.js";
 
 const flowOf = (workflow: abstract new () => unknown): readonly FlowPath[] => {
   const declaration = declarationOf(workflow);
-  if (declaration?.kind !== NodeKind.Workflow) throw new Error("not a workflow");
+  if (declaration?.kind !== ComponentKind.Workflow) throw new Error("not a workflow");
   return declaration.options.flow;
 };
 

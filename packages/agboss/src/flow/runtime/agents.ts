@@ -1,6 +1,6 @@
+import { ComponentKind } from "./records.js";
 import { withoutUndefined } from "../../types/defined.js";
 import type { AgentMeta } from "../../components/meta-types.js";
-import { NodeKind } from "../ast.js";
 import type { AgentDeclaration } from "../decorators/declaration.js";
 import type { RuntimeGraph } from "./graph-model.js";
 
@@ -44,6 +44,6 @@ function agentMetaOf(declaration: AgentDeclaration): AgentMeta {
 /** Every agent of the graph, by node order (sorted by name). */
 export function agentMetasOf(graph: RuntimeGraph): readonly AgentMeta[] {
   return [...graph.nodes.values()].flatMap((node) =>
-    node.declaration.kind === NodeKind.Agent ? [agentMetaOf(node.declaration)] : [],
+    node.declaration.kind === ComponentKind.Agent ? [agentMetaOf(node.declaration)] : [],
   );
 }

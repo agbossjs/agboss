@@ -1,6 +1,6 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { Class } from "../components/injection.js";
 import { flowClassesOf, withChildWorkflows } from "../flow/analyse/child-workflow.js";
-import { NodeKind } from "../flow/ast.js";
 import { declarationOf } from "../flow/decorators/declaration.js";
 
 /** Where a workflow's `@FilePolicy` (#1316) is read from its declaration. */
@@ -10,7 +10,7 @@ export function workflowOfStart(start: Class, workflows: readonly Class[]): Clas
   return withChildWorkflows(workflows).find((workflow) => {
     const declaration = declarationOf(workflow);
     return (
-      declaration?.kind === NodeKind.Workflow &&
+      declaration?.kind === ComponentKind.Workflow &&
       flowClassesOf(declaration.options.flow).includes(start)
     );
   });
@@ -22,5 +22,5 @@ export function workflowOfStart(start: Class, workflows: readonly Class[]): Clas
  */
 export function declaredFilePolicyOf(workflow: Class | undefined): Class | undefined {
   const declaration = workflow === undefined ? undefined : declarationOf(workflow);
-  return declaration?.kind === NodeKind.Workflow ? declaration.options.filePolicy : undefined;
+  return declaration?.kind === ComponentKind.Workflow ? declaration.options.filePolicy : undefined;
 }

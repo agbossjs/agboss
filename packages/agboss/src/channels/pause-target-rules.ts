@@ -1,8 +1,9 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { ProviderModule } from "../components/container/registrations.js";
 import type { Class } from "../components/injection.js";
 import type { ComponentOptions } from "../components/component-options.js";
 import { EXECUTION_LEASE } from "../app/lease-fence.js";
-import { kindSuffixProblem, NameKind } from "../flow/names.js";
+import { kindSuffixProblem } from "../flow/names.js";
 import { violation, type RuleViolation } from "../graph/rule-error.js";
 import { channelSelectorOf } from "./channel-selector.js";
 import type { ChannelUse } from "./discovery.js";
@@ -147,7 +148,7 @@ function escalationViolations(uses: readonly ChannelUse[]): RuleViolation[] {
 function nameViolations(uses: readonly ChannelUse[]): RuleViolation[] {
   return targetsOf(uses).flatMap(([, declaration]) => {
     if (declaration.kind !== "tool-approval") return [];
-    const problem = kindSuffixProblem(declaration.options.name, NameKind.ToolApproval);
+    const problem = kindSuffixProblem(declaration.options.name, ComponentKind.ToolApproval);
     return problem === undefined
       ? []
       : [violation(problem.code, problem.message, [declaration.options.name])];

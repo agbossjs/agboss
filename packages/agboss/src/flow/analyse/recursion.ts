@@ -1,4 +1,4 @@
-import { NodeKind } from "../ast.js";
+import { ComponentKind } from "../runtime/records.js";
 import { isCodeRouter } from "../decorators/router.js";
 import type { ComponentName } from "../registry.js";
 import {
@@ -92,8 +92,8 @@ function recurses(
 
 function deciderOf(node: FlowNode): RecursionDecider {
   const { declaration } = node;
-  if (declaration.kind === NodeKind.Agent) return RecursionDecider.Agent;
-  if (declaration.kind !== NodeKind.Router) return RecursionDecider.Data;
+  if (declaration.kind === ComponentKind.Agent) return RecursionDecider.Agent;
+  if (declaration.kind !== ComponentKind.Router) return RecursionDecider.Data;
   return isCodeRouter(declaration.options)
     ? RecursionDecider.CodeRouter
     : RecursionDecider.ModelRouter;

@@ -1,5 +1,6 @@
+import { ComponentKind } from "./runtime/records.js";
 import type { Class } from "../components/injection.js";
-import { NodeKind, type ComponentSource, type PathSource } from "./ast.js";
+import type { ComponentSource, PathSource } from "./ast.js";
 import { fromSource, type PathBuilder } from "./path-builder.js";
 import { withTarget, type TargetRef } from "./target-ref.js";
 
@@ -11,5 +12,7 @@ export const fromComponent = (
 ): PathBuilder<PathSource> =>
   // a child workflow may be named by a thunk (#1287), read when the path is analysed
   fromSource(
-    kind === NodeKind.Workflow ? withTarget("node", node, { kind }) : { kind, node: node as Class },
+    kind === ComponentKind.Workflow
+      ? withTarget("node", node, { kind })
+      : { kind, node: node as Class },
   );

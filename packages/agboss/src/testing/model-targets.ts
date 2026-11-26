@@ -1,9 +1,9 @@
+import { ComponentKind } from "../flow/runtime/records.js";
 import type { AssembledApplication } from "../application/assemble.js";
 import type { AssembledReplyInterpreter } from "../channels/discovery.js";
 import type { Class } from "../components/injection.js";
 import { isCodeJudge } from "../components/judge-decorators.js";
 import { componentOf } from "../components/metadata.js";
-import { NodeKind } from "../flow/ast.js";
 import { arbiterOf, hasArbiterModel } from "../flow/decorators/arbiter.js";
 import { isCodeRerankerClass } from "../rag/reranker.decorator.js";
 import { isCodeRouterNode, type RuntimeNode } from "../flow/runtime/graph-model.js";
@@ -50,8 +50,8 @@ const isCodeJudgeClass = (target: ModelTarget): boolean => {
 
 /** The script key of a node that calls a model (an agent or a model router; a code router calls none). */
 export function scriptKeyOf(node: RuntimeNode): string | undefined {
-  if (node.kind === NodeKind.Agent) return `agent:${node.id}`;
-  if (node.kind === NodeKind.Router && !isCodeRouterNode(node)) return routerKeyOf(node.id);
+  if (node.kind === ComponentKind.Agent) return `agent:${node.id}`;
+  if (node.kind === ComponentKind.Router && !isCodeRouterNode(node)) return routerKeyOf(node.id);
   return undefined;
 }
 

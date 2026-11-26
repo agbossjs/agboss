@@ -1,3 +1,4 @@
+import { ComponentKind } from "../runtime/records.js";
 import { recordOptionKeys } from "../../components/option-keys.js";
 import { WORKFLOW_KEYS } from "../../components/decorator-options.js";
 import type { PromptVariables } from "../../components/prompt-variables.js";
@@ -8,7 +9,7 @@ import type { CacheSetting, MaxTokens } from "../../config/settings-types.js";
 import type { FileDefaults } from "../../files/model-files.js";
 import type { Reasoning } from "../../models/reasoning.js";
 import type { Bytes, Milliseconds, Ttl } from "../../units/index.js";
-import { NodeKind, type FlowPath } from "../ast.js";
+import type { FlowPath } from "../ast.js";
 import type { ChildPlacement } from "../child-placement.js";
 import { declarationOf, declared, recordDeclaration } from "./declaration.js";
 
@@ -204,7 +205,7 @@ export function Workflow<const TName extends string, const TFlow extends readonl
   // inside its own `flow` would be a circular reference (TS2506, TS7022; its brand is generated)
   return (value: Class): void => {
     recordOptionKeys(value, "Workflow", options, WORKFLOW_KEYS);
-    recordDeclaration(value, declared(NodeKind.Workflow, recorded, source, span));
+    recordDeclaration(value, declared(ComponentKind.Workflow, recorded, source, span));
   };
 }
 
@@ -219,7 +220,7 @@ const NO_LIMITS: WorkflowExecutionLimits = Object.freeze({});
 /** `@Workflow({ executionLimits })` as the workflow declares it; empty for a class that is no workflow. */
 export const declaredExecutionLimitsOf: ExecutionLimitsOf = (workflow) => {
   const declaration = declarationOf(workflow);
-  return declaration?.kind === NodeKind.Workflow
+  return declaration?.kind === ComponentKind.Workflow
     ? (declaration.options.executionLimits ?? NO_LIMITS)
     : NO_LIMITS;
 };
@@ -227,7 +228,7 @@ export const declaredExecutionLimitsOf: ExecutionLimitsOf = (workflow) => {
 /** `@Workflow({ historyTtl })` as the workflow declares it; `undefined` when unset. */
 export function declaredHistoryTtlOf(workflow: Class): Milliseconds | Ttl | undefined {
   const declaration = declarationOf(workflow);
-  return declaration?.kind === NodeKind.Workflow ? declaration.options.historyTtl : undefined;
+  return declaration?.kind === ComponentKind.Workflow ? declaration.options.historyTtl : undefined;
 }
 
 /** A tree's concurrency cap under `limits`: the workflow's own, else the default 10. */

@@ -1,5 +1,6 @@
+import { ComponentKind } from "../runtime/records.js";
 import type { DtoClass } from "../../dto/types.js";
-import { NodeKind, StepKind, type OneOfStep, type SubPath, type ToStep } from "../ast.js";
+import { StepKind, type OneOfStep, type SubPath, type ToStep } from "../ast.js";
 import {
   declarationOf,
   type ComponentDeclaration,
@@ -56,15 +57,15 @@ const classesOf = (shapes: readonly InputFieldShape[]): readonly DtoClass[] =>
 /** The fields a declaration reads from the path; `undefined` for one that reads nothing. */
 function fieldShapesOf(declaration: ComponentDeclaration): readonly InputFieldShape[] | undefined {
   switch (declaration.kind) {
-    case NodeKind.Agent:
+    case ComponentKind.Agent:
       return Object.values(declaration.options.input ?? TEXT_AGENT_INPUT);
-    case NodeKind.Action:
-    case NodeKind.Router:
-    case NodeKind.Question: {
+    case ComponentKind.Action:
+    case ComponentKind.Router:
+    case ComponentKind.ExternalTask: {
       const { input } = declaration.options;
       return input === undefined ? undefined : Object.values(input);
     }
-    case NodeKind.Finish:
+    case ComponentKind.WorkflowFinish:
       return [declaration.options.output];
     default:
       return undefined;
@@ -83,11 +84,11 @@ const childReads = (step: ToStep): readonly DtoClass[] => {
 function entryReads(path: SubPath): readonly DtoClass[] {
   for (const step of path.steps) {
     if (step.kind !== StepKind.To) return [];
-    if (step.targetKind === NodeKind.Workflow) return childReads(step);
+    if (step.targetKind === ComponentKind.Workflow) return childReads(step);
     const declaration = declarationOf(step.target);
     const shapes = declaration === undefined ? undefined : fieldShapesOf(declaration);
     const readsNothing =
-      declaration?.kind === NodeKind.Action && (shapes === undefined || shapes.length === 0);
+      declaration?.kind === ComponentKind.Action && (shapes === undefined || shapes.length === 0);
     if (!readsNothing) return classesOf(shapes ?? []);
   }
   return [];

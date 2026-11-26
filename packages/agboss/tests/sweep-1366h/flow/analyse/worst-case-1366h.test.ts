@@ -1,3 +1,4 @@
+import { ComponentKind } from "../../../../src/flow/runtime/records.js";
 import { declaredExecutionLimitsOf } from "../../../../src/flow/decorators/workflow.js";
 /**
  * #1366: the worst case of one call of a start, computed from a graph built by hand whose child workflows are real:
@@ -15,7 +16,6 @@ import {
   type Limits,
   type WorstCase,
 } from "../../../../src/flow/analyse/worst-case.js";
-import { NodeKind } from "../../../../src/flow/ast.js";
 import { Workflow } from "../../../../src/flow/decorators/workflow.js";
 import { WorkflowStart } from "../../../../src/flow/decorators/workflow-start.js";
 import { declarationOf } from "../../../../src/flow/decorators/declaration.js";
@@ -58,7 +58,7 @@ class MixedWorkflow {}
 const workflowNode = (name: string, component: abstract new () => unknown): FlowNode =>
   ({
     name,
-    kind: NodeKind.Workflow,
+    kind: ComponentKind.Workflow,
     component,
     declaration: declarationOf(component),
   }) as never;
@@ -78,7 +78,11 @@ const launchEdge = (kind: EdgeKind, more: Record<string, unknown>): FlowEdge =>
 /** S -> A -> W, the last edge being `last`; the child is `component`. */
 const parentOf = (last: FlowEdge, component: abstract new () => unknown = MixedWorkflow) =>
   graphOf(
-    [node("S", NodeKind.Start), node("A", NodeKind.Agent), workflowNode("W", component)],
+    [
+      node("S", ComponentKind.WorkflowStart),
+      node("A", ComponentKind.Agent),
+      workflowNode("W", component),
+    ],
     [edge("S", "A"), last],
     ["S"],
   );
@@ -155,7 +159,11 @@ describe("#1366: a per-item child launch", () => {
 describe("#1366: a launch that is not per item", () => {
   it("names its limits without maxItems when only maxConcurrency is set, and counts no child", () => {
     const graph = graphOf(
-      [node("S", NodeKind.Start), node("A", NodeKind.Agent), node("B", NodeKind.Agent)],
+      [
+        node("S", ComponentKind.WorkflowStart),
+        node("A", ComponentKind.Agent),
+        node("B", ComponentKind.Agent),
+      ],
       [
         edge("S", "A"),
         edge("A", "B", EdgeKind.Join, {
@@ -176,7 +184,11 @@ describe("#1366: a launch that is not per item", () => {
 
   it("names maxItems without maxConcurrency when only maxItems is set", () => {
     const graph = graphOf(
-      [node("S", NodeKind.Start), node("A", NodeKind.Agent), node("B", NodeKind.Agent)],
+      [
+        node("S", ComponentKind.WorkflowStart),
+        node("A", ComponentKind.Agent),
+        node("B", ComponentKind.Agent),
+      ],
       [
         edge("S", "A"),
         edge("A", "B", EdgeKind.Join, {
@@ -191,7 +203,11 @@ describe("#1366: a launch that is not per item", () => {
 
   it("a call that launches nothing has no children, no parts and depth 0", () => {
     const graph = graphOf(
-      [node("S", NodeKind.Start), node("A", NodeKind.Agent), node("F", NodeKind.Finish)],
+      [
+        node("S", ComponentKind.WorkflowStart),
+        node("A", ComponentKind.Agent),
+        node("F", ComponentKind.WorkflowFinish),
+      ],
       [edge("S", "A"), edge("A", "F")],
       ["S"],
     );
@@ -240,7 +256,7 @@ describe("#1366: a child behind a join or beside the launch", () => {
 
   it("an edge into a node the graph does not have counts no child", () => {
     const graph = graphOf(
-      [node("S", NodeKind.Start), node("A", NodeKind.Agent)],
+      [node("S", ComponentKind.WorkflowStart), node("A", ComponentKind.Agent)],
       [edge("S", "A"), edge("A", "Missing")],
       ["S"],
     );
@@ -251,8 +267,8 @@ describe("#1366: a child behind a join or beside the launch", () => {
   it("a child launched from a step no start reaches counts nowhere", () => {
     const graph = graphOf(
       [
-        node("S", NodeKind.Start),
-        node("A", NodeKind.Agent),
+        node("S", ComponentKind.WorkflowStart),
+        node("A", ComponentKind.Agent),
         workflowNode("W", CompanyReviewWorkflow),
       ],
       [edge("S", "A"), edge("Z", "W")],
@@ -277,10 +293,10 @@ describe("#1366: the steps of a start", () => {
   it("a start whose loop nothing bounds takes maxSteps, capped, and says so", () => {
     const graph = graphOf(
       [
-        node("S", NodeKind.Start),
-        node("A", NodeKind.Agent),
-        node("B", NodeKind.Agent),
-        node("F", NodeKind.Finish),
+        node("S", ComponentKind.WorkflowStart),
+        node("A", ComponentKind.Agent),
+        node("B", ComponentKind.Agent),
+        node("F", ComponentKind.WorkflowFinish),
       ],
       [edge("S", "A"), edge("A", "B"), edge("B", "A"), edge("B", "F")],
       ["S"],
@@ -296,7 +312,11 @@ describe("#1366: the steps of a start", () => {
 
   it("a start that reaches a finish within maxSteps names no maxSteps among its parts", () => {
     const graph = graphOf(
-      [node("S", NodeKind.Start), node("A", NodeKind.Agent), node("F", NodeKind.Finish)],
+      [
+        node("S", ComponentKind.WorkflowStart),
+        node("A", ComponentKind.Agent),
+        node("F", ComponentKind.WorkflowFinish),
+      ],
       [edge("S", "A"), edge("A", "F")],
       ["S"],
     );

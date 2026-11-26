@@ -1,3 +1,4 @@
+import { ComponentKind } from "./records.js";
 import { LimitError } from "../../core/error-families/limit-errors.js";
 import type { HandledErrorRecord } from "./child-records.js";
 import type { BudgetMeter } from "../../budgets/execution-budgets.js";
@@ -5,7 +6,6 @@ import { totalCost, type UsageRecord } from "../../finops/usage.js";
 import { callerOfSpend } from "../../finops/explicit-caller.js";
 import type { ErrorRecord } from "../../core/error-record.js";
 import { countBoundOf } from "../../graph/count-limit.js";
-import { NodeKind } from "../ast.js";
 import { CompensationEntryStatus } from "../compensation.js";
 import type { RuntimeNode } from "./graph-model.js";
 import type { ExecutionStateType } from "./state.js";
@@ -119,10 +119,10 @@ export interface ExecutionLimits {
 
 /** The kinds whose visit is a step: agents, routers, actions and external tasks (#1278, D8). */
 export const isStepKind = (node: RuntimeNode): boolean =>
-  node.kind === NodeKind.Agent ||
-  node.kind === NodeKind.Router ||
-  node.kind === NodeKind.Action ||
-  node.kind === NodeKind.Question;
+  node.kind === ComponentKind.Agent ||
+  node.kind === ComponentKind.Router ||
+  node.kind === ComponentKind.Action ||
+  node.kind === ComponentKind.ExternalTask;
 
 /**
  * Whether the budgets hold this visit back: all but a start, a finish, and an action on a side path
@@ -130,8 +130,9 @@ export const isStepKind = (node: RuntimeNode): boolean =>
  * the side path owes — never an action by its name alone.
  */
 const isBudgeted = (state: ExecutionStateType, node: RuntimeNode): boolean => {
-  if (node.kind === NodeKind.Start || node.kind === NodeKind.Finish) return false;
-  if (node.kind !== NodeKind.Action) return true;
+  if (node.kind === ComponentKind.WorkflowStart || node.kind === ComponentKind.WorkflowFinish)
+    return false;
+  if (node.kind !== ComponentKind.Action) return true;
   const isAfterLimit = sidePathOf(state, node)?.isAfterLimit === true;
   return !(isAfterLimit || isOwedUndo(state, node));
 };

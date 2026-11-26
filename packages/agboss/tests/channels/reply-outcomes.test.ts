@@ -94,7 +94,7 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
     expect(done.record?.pauses[0]?.decision).toEqual({ approved: false });
   });
 
-  test("its call is counted under reply-interpreter:<name> in the execution's spend", async ({
+  test("its call is counted under channel-interpreter:<name> in the execution's spend", async ({
     app,
     mockModel,
   }) => {
@@ -110,7 +110,7 @@ describe("#267 S124 a: a decision model reads an approval's reply", () => {
     const done = await app.resume({ pauseId: depositPauseId(), reply: "yes" }, clerk);
 
     expect(done.spend.byCaller).toMatchObject({
-      "reply-interpreter:deposit-reply-interpreter": 0.003,
+      "channel-interpreter:deposit-reply-interpreter": 0.003,
     });
   });
 

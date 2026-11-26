@@ -1,6 +1,7 @@
+import { ComponentKind } from "../../runtime/records.js";
 import { violation, type RuleViolation } from "../../../graph/rule-error.js";
 import type { Class } from "../../../components/injection.js";
-import { NodeKind, type ArbiterClass } from "../../ast.js";
+import type { ArbiterClass } from "../../ast.js";
 import {
   answerMethodsOf,
   arbiterOf,
@@ -111,7 +112,7 @@ function voidBranches(
   return judging.launch.branches.flatMap(({ node }) => {
     const found = context.graph.nodes.get(node);
     const declaration = found?.declaration;
-    if (declaration?.kind !== NodeKind.Action || declaration.options.output !== undefined)
+    if (declaration?.kind !== ComponentKind.Action || declaration.options.output !== undefined)
       return [];
     const message = `${judging.name} judges ${targetClassOf(node)} (${launchLabel(judging.launch)}), an @Action without an output — give it an output, or leave it out of the launch`;
     return [violation("arbiter.branch-has-no-output", message, [judging.name])];
