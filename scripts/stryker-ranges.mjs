@@ -93,6 +93,11 @@ export function pausesShard() {
       "src/flow/runtime/pause-asked.ts",
       // #1307c: an answer is recorded only once its target's permitAnswer said true; fails closed
       "src/app/{answer-permit,answer-parts,pause-expiry-reassign}.ts",
+      // #1307, Q-D: where the limits are first written (the opening's deadline, cap and counts), read back (the expiry's context) and fail closed (the strict stored record)
+      "src/flow/runtime/pause-record-made.ts:181-269",
+      "src/flow/runtime/pause-open.ts",
+      "src/app/pause-expiry.ts:125-142",
+      "src/infrastructure/stored-pause.ts",
       // #1307, #1310: the limits and the permission of a reassignment and a timeout change — the chain's counts and total wait, the destination, the deadline a change sets, the request's checks
       "src/app/{timeout-request,pause-timeout,pause-limits,pause-reassign-deadline,pause-reassign-plan,pause-reassign-support}.ts",
     ],

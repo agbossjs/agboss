@@ -139,6 +139,24 @@ describe("#1366: the record a pause step makes", () => {
     expect(capped.expiresAt).toBe(record.maxExpiresAt);
   });
 
+  it("a cap with no wait of its own is no deadline: the pause waits for ever, under a cap that is recorded", async () => {
+    const target = {
+      ...targetOfChannel(channel),
+      escalationLimits: { maxTotalTimeout: hours(5) },
+    };
+
+    const record = await newRecordOf(
+      frameOf(stepOf("ask")),
+      target,
+      question,
+      new VirtualClock(ASKED),
+      noCalendar,
+    );
+
+    expect("expiresAt" in record).toBe(false);
+    expect(record.maxExpiresAt).toBe(new Date(ASKED.getTime() + hours(5)).toISOString());
+  });
+
   it("a target with no limits makes a record with an empty escalationLimits and no maxExpiresAt", async () => {
     const record = await newRecordOf(
       frameOf(stepOf("ask")),

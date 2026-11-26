@@ -479,6 +479,35 @@ describe("the limits are the record's, not the live configuration's", () => {
     expect(after?.maxExpiresAt).toBe(lax.maxExpiresAt);
   });
 
+  test("onExpired reads the pause as the record has it: assignees, the reference, the deadline, the cap and the first asking", async ({
+    app,
+    clock,
+  }) => {
+    const now = await opened(app, StoredStart, "stored-context-all");
+    const cap = new Date(clock.now().getTime() + days(3));
+    const record = await carried(app, now, {
+      maxExpiresAt: cap.toISOString(),
+      assignees: ["deputy-1"],
+      externalRef: "JIRA-7",
+    });
+
+    await clock.advance(hours(25));
+    await until(() => told.expired.length >= 2);
+
+    const ctx = told.expired.find((one) => one.externalRef === "JIRA-7");
+    expect(ctx).toMatchObject({
+      assignees: ["deputy-1"],
+      externalRef: "JIRA-7",
+      maxExpiresAt: cap,
+      firstAskedAt: new Date(record.firstAskedAt),
+      expiresAt: new Date(record.expiresAt ?? ""),
+    });
+    // a pause with none of them tells none: absent, not undefined-valued
+    const plain = told.expired.find((one) => one.externalRef !== "JIRA-7");
+    expect(plain).not.toHaveProperty("assignees");
+    expect(plain).not.toHaveProperty("externalRef");
+  });
+
   test("onExpired reads the stored maxExpiresAt and firstAskedAt", async ({ app, clock }) => {
     const now = await opened(app, StoredStart, "stored-context");
     const cap = new Date(clock.now().getTime() + days(3));

@@ -17,6 +17,10 @@ export default defineConfig({
       "tests/app/pause-{closed-error,decide-stale,expiry-*,extension,limits-stored,set-timeout,reassign-moved-extension,reassign-targets,reassignment*,reminders,working-time}.test.ts",
       "tests/app/{tree-end-pauses,tree-end-pauses-units,list-pauses,pause-answer-log}.test.ts",
       "tests/metrics/pause-metrics.test.ts",
+      // #1307, Q-D: where the limits are first written
+      "tests/sweep-1366h/flow/pause-record-made-1366h.test.ts",
+      "tests/flow/pause-record-deadlines.test.ts",
+      "tests/channels/pause-step{,-deadline,-working-time}.test.ts",
     ],
   },
 });
