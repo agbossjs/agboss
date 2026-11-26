@@ -1,17 +1,18 @@
 import { Agent, Application, Tool, Workflow, inline, Ttl } from "../../../../src/index.js";
 import type { InferEnv } from "../../../../src/index.js";
+import { WorkflowFinishTextDto, WorkflowStartTextDto } from "../../../../src/dto/index.js";
 import { TestModelProvider } from "../../../../src/testing/test-model-provider.js";
 import { TEST_BUDGETS } from "../../../flow/fixtures/budgets.js";
 import { onStart } from "../../../helpers/flow.js";
 import { profileEnv } from "./app.env.js";
-import { built, PingDto, PingFinish, PingStart } from "./profile-env.application.js";
+import { built, PingFinish, PingStart } from "./profile-env.application.js";
 
 /** A tool that needs a real address to be built: on a placeholder its constructor throws. */
 @Tool({
   name: "fussy-tool",
   description: "Parses its address when built",
-  input: PingDto,
-  output: PingDto,
+  input: WorkflowStartTextDto,
+  output: WorkflowFinishTextDto,
   deps: [profileEnv],
 })
 export class FussyTool {
@@ -19,8 +20,8 @@ export class FussyTool {
     built.push(new URL(config.required).href);
   }
 
-  execute(): Promise<PingDto> {
-    return Promise.resolve({});
+  execute(): Promise<WorkflowFinishTextDto> {
+    return Promise.resolve({ text: "" });
   }
 }
 

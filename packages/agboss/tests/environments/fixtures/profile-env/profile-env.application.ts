@@ -18,14 +18,12 @@ import { otherEnv, profileEnv } from "./app.env.js";
 /** Every `upstream` a tool of this application was built with, in order (a test reads and clears it). */
 export const built: string[] = [];
 
-export class PingDto {}
-
 /** A tool on `deps: [profileEnv]`: its constructor records the address it got. */
 @Tool({
   name: "ping-tool",
   description: "Pings the upstream",
-  input: PingDto,
-  output: PingDto,
+  input: WorkflowStartTextDto,
+  output: WorkflowFinishTextDto,
   deps: [profileEnv],
 })
 export class PingTool {
@@ -33,8 +31,8 @@ export class PingTool {
     built.push(config.upstream);
   }
 
-  execute(): Promise<PingDto> {
-    return Promise.resolve({});
+  execute(): Promise<WorkflowFinishTextDto> {
+    return Promise.resolve({ text: "" });
   }
 }
 
@@ -42,15 +40,15 @@ export class PingTool {
 @Tool({
   name: "second-tool",
   description: "Reads the upstream without a default",
-  input: PingDto,
-  output: PingDto,
+  input: WorkflowStartTextDto,
+  output: WorkflowFinishTextDto,
   deps: [otherEnv],
 })
 export class SecondTool {
   constructor(readonly config: InferEnv<typeof otherEnv>) {}
 
-  execute(): Promise<PingDto> {
-    return Promise.resolve({});
+  execute(): Promise<WorkflowFinishTextDto> {
+    return Promise.resolve({ text: "" });
   }
 }
 

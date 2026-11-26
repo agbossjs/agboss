@@ -31,7 +31,7 @@ describe("deferred resolution (check, describe)", () => {
     expect(values.region).toBe("eu");
     // the secret stays unresolved: revealing it is the missing variable, never a placeholder
     expect(values.key).toBeInstanceOf(Secret);
-    expect(() => (values.key as Secret).reveal()).toThrow(/DEFERRED_KEY/);
+    expect(() => values.key.reveal()).toThrow(/DEFERRED_KEY/);
   });
 
   it("a typed reader gets a number of its own type, never undefined", () => {

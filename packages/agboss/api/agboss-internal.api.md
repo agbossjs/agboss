@@ -489,7 +489,7 @@ export enum CostSource {
 }
 
 // @public
-export function createAppDeps(bundle: AssembledWorkflow, options?: AppDepsOptions): Promise<AppDeps>;
+export function createAppDeps(bundle: AssembledWorkflow, given?: AppDepsOptions): Promise<AppDeps>;
 
 // @public
 export function createAppWith(application: Class, options?: BuildApplicationOptions): Promise<AnyTenantApp>;
@@ -531,6 +531,9 @@ export interface DefaultSource {
 
 // @public
 export function defaultSourceOf(levels: DefaultsLevels, section: Section, field: string): DefaultSource | undefined;
+
+// @public
+export function deferredEnvResolverOf(overrides: readonly EnvOverrides<EnvContract>[], processEnv: NodeJS.ProcessEnv): (contract: EnvContract) => unknown;
 
 // @public
 export function describeAssembledApplication(assembled: AssembledApplication, description?: ApplicationDescription): string[];
@@ -765,6 +768,9 @@ export enum DurableExecutionStatus {
 
 // @public
 export function durableStatusOf(state: DurableExecutionState): A2ATaskStatus | undefined;
+
+// @public
+export function envResolverOf(overrides: readonly EnvOverrides<EnvContract>[], processEnv?: NodeJS.ProcessEnv): (contract: EnvContract) => unknown;
 
 // @public
 export type ErrorDetails = Readonly<Record<string, unknown>>;
@@ -1304,6 +1310,19 @@ export function inputLines(analysis: FlowAnalysis): readonly string[];
 export const INTERNAL_FAILURE = "internal";
 
 // @public
+export interface InvalidVariable {
+    // (undocumented)
+    readonly expected: string;
+    // (undocumented)
+    readonly field: string;
+    // (undocumented)
+    readonly variable: string;
+}
+
+// @public
+export function invalidVariablesOf(assembled: AssembledApplication, processEnv: NodeJS.ProcessEnv): readonly InvalidVariable[];
+
+// @public
 export const isExecutionCancelled: (error: unknown) => error is ExecutionCancelledError | ExecutionError.CancelFenced;
 
 // @public
@@ -1473,6 +1492,9 @@ export interface ProcessVariable {
     // (undocumented)
     readonly variable: string;
 }
+
+// @public
+export const profileEnvOf: (workflow: object) => AssembledApplication["envOverrides"];
 
 // @public
 export class ProfileError extends AGBossError {
@@ -1754,6 +1776,9 @@ export interface UnknownCostTally {
 export const unmasked: EventMask;
 
 // @public
+export function unsetVariablesOf(assembled: AssembledApplication, processEnv: NodeJS.ProcessEnv): readonly ProcessVariable[];
+
+// @public
 export enum VariableUse {
     // (undocumented)
     Secret = "secret",
@@ -1798,6 +1823,7 @@ export interface WorkflowServices {
     readonly container?: ContainerOptions;
     readonly contexts?: RuntimeContexts;
     readonly decide?: DecisionService;
+    readonly deferredEnv?: boolean | ((contract: EnvContract) => unknown);
     readonly rerankInstructions?: (reranker: string) => string;
     readonly rerankModel?: (reranker: RerankerModelUse) => ModelBinding;
     readonly router: (name: string) => RouterEngine;
@@ -1949,6 +1975,9 @@ export function writeFlowTypes(request: FlowTypesWrite): Promise<FlowTypesResult
 // src/application/create-app.ts - (ae-undocumented) Missing documentation for "workflows".
 // src/application/create-app.ts - (ae-undocumented) Missing documentation for "infrastructure".
 // src/application/execution-history-store.ts - (ae-undocumented) Missing documentation for "history".
+// src/application/referenced-variables.ts - (ae-undocumented) Missing documentation for "variable".
+// src/application/referenced-variables.ts - (ae-undocumented) Missing documentation for "field".
+// src/application/referenced-variables.ts - (ae-undocumented) Missing documentation for "expected".
 // src/config/check-profiles.ts - (ae-undocumented) Missing documentation for "profile".
 // src/config/check-profiles.ts - (ae-undocumented) Missing documentation for "file".
 // src/config/check-profiles.ts - (ae-undocumented) Missing documentation for "message".
