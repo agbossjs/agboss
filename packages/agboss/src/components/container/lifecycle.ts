@@ -53,6 +53,16 @@ export interface OnDestroy {
   onDestroy(): Promise<void> | void;
 }
 
+/**
+ * A connection's last resort at the stop (#954): called at once, synchronously, when the stop's end
+ * passed with its `onDestroy` still running — the stop abandons that hook and returns, so a socket
+ * an orderly close still holds is destroyed here. Not called when `onDestroy` returned in time. A
+ * throw is dropped. Store-author surface (`@agboss/core/stores`).
+ */
+export interface OnAbandon {
+  onAbandon(): void;
+}
+
 type HookName = "onInit" | "onStart" | "onReady" | "onStop" | "onBeforeDestroy" | "onDestroy";
 
 const hasHook = <THook extends HookName>(
@@ -104,7 +114,12 @@ export interface StopBound {
 }
 
 /** `work`, or — once `bound` ends first — nothing: `abandon`ed, its late failure dropped. */
-async function withinBound(work: Promise<void>, bound: StopBound, what: string): Promise<void> {
+async function withinBound(
+  work: Promise<void>,
+  bound: StopBound,
+  what: string,
+  instance: object,
+): Promise<void> {
   let release = (): void => undefined;
   const ended = new Promise<boolean>((resolve) => {
     // a hook that is done by the next turn of the loop is not abandoned
@@ -126,8 +141,20 @@ async function withinBound(work: Promise<void>, bound: StopBound, what: string):
     if (!abandoned) return;
     work.catch((): undefined => undefined);
     bound.abandon(what);
+    abandonedBy(instance);
   } finally {
     release();
+  }
+}
+
+/** The instance's `onAbandon`, when it has one: best effort, a throw dropped (#954). */
+function abandonedBy(instance: object): void {
+  const hook: unknown = Reflect.get(instance, "onAbandon");
+  if (typeof hook !== "function") return;
+  try {
+    Reflect.apply(hook, instance, []);
+  } catch {
+    // the stop has ended: nothing is left to tell
   }
 }
 
@@ -143,7 +170,7 @@ async function runAll(
     try {
       const running = Promise.resolve(instance[hook]());
       if (bound === undefined) await running;
-      else await withinBound(running, bound, `${hook} of ${componentName(instance)}`);
+      else await withinBound(running, bound, `${hook} of ${componentName(instance)}`, instance);
     } catch (error) {
       failures.push(hookFailure(instance, hook, error));
     }

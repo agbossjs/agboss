@@ -210,4 +210,90 @@ describe("#261 AC3: lifecycle hooks — errors", () => {
       }),
     ).rejects.toThrow("[di.hook-failed] BrokenPoolProvider.onInit failed: no database at start");
   });
+
+  // #954: the stop's end passed before the connection's onDestroy even began (a sweep's unanswered
+  // store call used the deadline) — its orderly close is abandoned, its socket is destroyed at once
+  describe("onAbandon (#954)", () => {
+    const bound = (aborted: boolean) => {
+      const ended = new AbortController();
+      if (aborted) ended.abort();
+      const abandoned: string[] = [];
+      return {
+        ended,
+        abandoned,
+        stop: {
+          signal: ended.signal,
+          abandon: (what: string) => abandoned.push(what),
+        },
+      };
+    };
+    const hanging = (log: string[]) => ({
+      onDestroy: () => {
+        log.push("onDestroy");
+        return new Promise<void>(() => undefined);
+      },
+      onAbandon: () => {
+        log.push("onAbandon");
+      },
+    });
+
+    it("the deadline already passed behind a hanging phase: onAbandon runs before the stop returns", async () => {
+      const log: string[] = [];
+      const { stop, abandoned } = bound(true);
+
+      await stopComponents([named("RedisConnection", hanging(log))], undefined, stop);
+
+      expect(log).toEqual(["onDestroy", "onAbandon"]);
+      expect(abandoned).toEqual(["onDestroy of RedisConnection"]);
+    });
+
+    it("the deadline passes while onDestroy waits: onAbandon runs then", async () => {
+      const log: string[] = [];
+      const { stop, ended } = bound(false);
+
+      const stopping = stopComponents([named("RedisConnection", hanging(log))], undefined, stop);
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(log).toEqual(["onDestroy"]);
+      ended.abort();
+      await stopping;
+
+      expect(log).toEqual(["onDestroy", "onAbandon"]);
+    });
+
+    it("onDestroy returned in time: onAbandon is not called", async () => {
+      const log: string[] = [];
+      const { stop } = bound(false);
+      const done = {
+        onDestroy: () => {
+          log.push("onDestroy");
+        },
+        onAbandon: () => {
+          log.push("onAbandon");
+        },
+      };
+
+      await stopComponents([named("RedisConnection", done)], undefined, stop);
+
+      expect(log).toEqual(["onDestroy"]);
+    });
+
+    it("a throwing onAbandon is dropped; the other hooks still run", async () => {
+      const log: string[] = [];
+      const { stop } = bound(true);
+      const broken = {
+        ...hanging(log),
+        onAbandon: () => {
+          throw new Error("already closed");
+        },
+      };
+
+      await stopComponents(
+        [named("RedisConnection", broken), named("Other", component(log, "other"))],
+        undefined,
+        stop,
+      );
+
+      expect(log).toContain("other.onDestroy");
+    });
+  });
 });
