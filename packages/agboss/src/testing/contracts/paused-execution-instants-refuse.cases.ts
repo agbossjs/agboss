@@ -47,6 +47,7 @@ export const INSTANT_REFUSAL_CASES: readonly Case[] = [
         askedAt: { ...made(), askedAt: INVALID() },
         firstAskedAt: { ...made(), firstAskedAt: INVALID() },
         expiresAt: { ...made(), expiresAt: INVALID() },
+        "expiresAt (year 10000)": { ...made(), expiresAt: new Date(Date.UTC(10000, 0, 1)) },
         remindAt: { ...made(), remindAt: INVALID() },
         maxExpiresAt: { ...made(), maxExpiresAt: INVALID() },
         boundAt: { ...made(), boundAt: INVALID() },

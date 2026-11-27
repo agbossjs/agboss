@@ -51,6 +51,11 @@ describe("assertValidInstant (#1307)", () => {
   it("accepts a Date of an instant and an absent time, refuses Invalid Date naming the field", () => {
     expect(isValidInstant(new Date(0))).toBe(true);
     expect(isValidInstant(BAD())).toBe(false);
+    expect(isValidInstant(new Date("9999-12-31T23:59:59.999Z"))).toBe(true);
+    expect(isValidInstant(new Date("0000-01-01T00:00:00.000Z"))).toBe(true);
+    expect(isValidInstant(new Date(Date.UTC(10000, 0, 1)))).toBe(false);
+    expect(isValidInstant(new Date(-1))).toBe(true);
+    expect(isValidInstant(new Date(Date.UTC(-1, 0, 1)))).toBe(false);
     expect(() => {
       assertValidInstant(new Date(0), "askedAt");
       assertValidInstant(undefined, "askedAt");
@@ -71,6 +76,15 @@ describe("assertValidInstant (#1307)", () => {
         assertValidInstant(BAD(), "resolvedAt", "pause answer");
       }).message,
     ).toContain("of a pause answer: nothing was written");
+  });
+});
+
+describe("a year outside 0000-9999 (#1307)", () => {
+  it("is refused as an Invalid Date is: the reader would not read its six-digit ISO text", () => {
+    const error = thrownBy(() => {
+      assertValidInstant(new Date(Date.UTC(10000, 0, 1)), "expiresAt");
+    });
+    expect(error.message).toContain("an Invalid Date was given for expiresAt");
   });
 });
 

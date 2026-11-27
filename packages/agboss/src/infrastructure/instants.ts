@@ -13,8 +13,12 @@ import { StoreError } from "../core/error-families/store-errors.js";
 export const sameInstant = (a: Date | undefined, b: Date | undefined): boolean =>
   (a?.getTime() ?? null) === (b?.getTime() ?? null);
 
-/** Whether a `Date` names an instant: an Invalid Date (`new Date(NaN)`) does not. */
-export const isValidInstant = (at: Date): boolean => !Number.isNaN(at.getTime());
+/** The one spelling of a time a store keeps as text: what `toISOString()` writes (four-digit year, milliseconds, `Z`). */
+const CANONICAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+/** Whether a `Date` names an instant a store can keep and read back: an Invalid Date (`new Date(NaN)`) does not, nor one outside the years 0000-9999 (its `toISOString()` is the six-digit `+010000-...` form the reader refuses). */
+export const isValidInstant = (at: Date): boolean =>
+  !Number.isNaN(at.getTime()) && CANONICAL.test(at.toISOString());
 
 /**
  * Refuses an Invalid Date a store was handed to keep (or a rule to apply): it would be written as
@@ -55,9 +59,6 @@ export const copyOf = (at: Date): Date => new Date(at.getTime());
 /** `copyOf` of a time that may be absent. */
 export const copyOfOptional = (at: Date | undefined): Date | undefined =>
   at === undefined ? undefined : copyOf(at);
-
-/** The one spelling of a time a store keeps as text: what `toISOString()` writes (four-digit year, milliseconds, `Z`). */
-const CANONICAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 /**
  * Whether a text is exactly what `toISOString()` writes for some instant: the only spelling a store's
