@@ -67,7 +67,9 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
       expect(await extend(LATER, FROM)).toMatchObject({ expiresAt: LATER });
       // the one that read the old deadline is late, even with a longer extension
       expect(await extend(EVEN_LATER, FROM)).toBeUndefined();
-      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toEqual(LATER);
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toEqual(
+        LATER,
+      );
       expect(await extend(EVEN_LATER, LATER)).toMatchObject({ expiresAt: EVEN_LATER });
     },
   },
@@ -108,12 +110,17 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
         const retried = await second.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
-          await withSeen(second, pauseId, { expiresAt: loserTo, previousExpiresAt: stored ?? FROM }),
+          await withSeen(second, pauseId, {
+            expiresAt: loserTo,
+            previousExpiresAt: stored ?? FROM,
+          }),
           BEFORE_DEADLINE,
           R,
         );
         expect(retried?.expiresAt).toEqual(loserTo);
-        expect((await first.findByTenantIdAndPauseId("default", pauseId))?.expiresAt).toEqual(loserTo);
+        expect((await first.findByTenantIdAndPauseId("default", pauseId))?.expiresAt).toEqual(
+          loserTo,
+        );
       }
     },
   },
@@ -144,7 +151,9 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
       expect([expired, extendedOrNot].filter((won) => won !== undefined)).toHaveLength(1);
       // the answer applies either way (before the extension: it refuses it; after: the pause is still open)
       expect(answered).toBeDefined();
-      expect(extendedB === undefined || extendedB.expiresAt?.getTime() === LATER.getTime()).toBe(true);
+      expect(extendedB === undefined || extendedB.expiresAt?.getTime() === LATER.getTime()).toBe(
+        true,
+      );
       const a = await first.findByTenantIdAndPauseId("default", "pause-a");
       expect(a?.status === PauseStatus.Pending ? a.expiresAt : undefined).toEqual(
         extendedOrNot === undefined ? undefined : LATER,

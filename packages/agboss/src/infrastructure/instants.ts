@@ -61,7 +61,8 @@ export const isCanonicalInstantText = (text: string): boolean => {
  * names it; the value is never in the error.
  */
 export const instantOfText = (text: string, field: string, record = "pause"): Date => {
-  if (!isCanonicalInstantText(text)) throw new StoreError.UnreadableRecord({ record, fields: field });
+  if (!isCanonicalInstantText(text))
+    throw new StoreError.UnreadableRecord({ record, fields: field });
   return new Date(text);
 };
 

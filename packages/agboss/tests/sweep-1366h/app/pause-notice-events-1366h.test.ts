@@ -71,14 +71,24 @@ describe("#1366: a close's time and answer", () => {
       reason: PauseClosedReason.Cancelled,
     });
 
-    expect((await channelClosedOf(sources(answered, withClosed))).closedAt.toISOString()).toBe(CLOSED.toISOString());
-    expect((await channelClosedOf(sources(answered, without))).closedAt.toISOString()).toBe(WRITTEN.toISOString());
+    expect((await channelClosedOf(sources(answered, withClosed))).closedAt.toISOString()).toBe(
+      CLOSED.toISOString(),
+    );
+    expect((await channelClosedOf(sources(answered, without))).closedAt.toISOString()).toBe(
+      WRITTEN.toISOString(),
+    );
     expect(
       (await listenerClosedOf(sources(answered, withClosed), false)).closedAt.toISOString(),
     ).toBe(CLOSED.toISOString());
-    expect((await listenerClosedOf(sources(answered, without), false)).closedAt.toISOString()).toBe(WRITTEN.toISOString());
-    expect((await channelNotTakenOf(sources(answered, untaken(withClosed)))).at.toISOString()).toBe(CLOSED.toISOString());
-    expect((await channelNotTakenOf(sources(answered, untaken(without)))).at.toISOString()).toBe(WRITTEN.toISOString());
+    expect((await listenerClosedOf(sources(answered, without), false)).closedAt.toISOString()).toBe(
+      WRITTEN.toISOString(),
+    );
+    expect((await channelNotTakenOf(sources(answered, untaken(withClosed)))).at.toISOString()).toBe(
+      CLOSED.toISOString(),
+    );
+    expect((await channelNotTakenOf(sources(answered, untaken(without)))).at.toISOString()).toBe(
+      WRITTEN.toISOString(),
+    );
     expect(
       (await listenerNotTakenOf(sources(answered, untaken(withClosed)), false)).at.toISOString(),
     ).toBe(CLOSED.toISOString());
@@ -234,9 +244,7 @@ describe("#1366: deadlines", () => {
     });
     const plain = notice({ kind: PauseNoticeKind.Opened });
 
-    expect((await listenerBaseOf(sources(pause, own), false)).expiresAt).toEqual(
-      own.expiresAt,
-    );
+    expect((await listenerBaseOf(sources(pause, own), false)).expiresAt).toEqual(own.expiresAt);
     expect((await listenerOpenedOf(sources(pause, plain), false)).expiresAt).toEqual(
       pause.expiresAt,
     );

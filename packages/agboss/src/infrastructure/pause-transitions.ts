@@ -37,7 +37,7 @@ import { isAtOrBefore, isBefore } from "./instants.js";
  */
 
 /** A change of a pause with the notices that go in the same transaction. */
-export interface PauseChange {
+export interface PauseTransition {
   readonly pause: PauseRecord;
   readonly notices: readonly PlannedNotice[];
   /** A pause the same transaction makes (#946: a reassignment's replacement), `Pending` and unsent. */
@@ -50,7 +50,7 @@ export const closing = (
   after: PauseRecord,
   at: Date,
   recipients: PauseRecipients,
-): PauseChange => ({
+): PauseTransition => ({
   pause: after,
   notices: before.isSent ? closedNotices(after, at, recipients) : [],
 });
@@ -76,7 +76,7 @@ export function resolveChange(
   at: Date,
   recipients: PauseRecipients,
   seen?: PauseSeen,
-): PauseChange | undefined {
+): PauseTransition | undefined {
   return isOpenAt(pause, at) && (seen === undefined || isSeenAs(pause, seen))
     ? closing(pause, resolvedPause(pause, answer, at), at, recipients)
     : undefined;
@@ -93,7 +93,7 @@ export function decideChange(
   answer: PauseAnswer,
   at: Date,
   seen: PauseSeen,
-): PauseChange | undefined {
+): PauseTransition | undefined {
   return isOpenAt(pause, at) && isSeenAs(pause, seen)
     ? { pause: decidedPause(pause, answer, at), notices: [] }
     : undefined;
@@ -105,7 +105,7 @@ export function cancelChange(
   resolution: PauseCancellation,
   at: Date,
   recipients: PauseRecipients,
-): PauseChange | undefined {
+): PauseTransition | undefined {
   if (pause.status !== PauseStatus.Pending) return undefined;
   const isExpired = resolution !== PauseResolution.Withdrawn && isDueAt(pause, at);
   const closed = isExpired
@@ -120,7 +120,7 @@ export function expireChange(
   expiry: PauseExpiry,
   at: Date,
   recipients: PauseRecipients,
-): PauseChange | undefined {
+): PauseTransition | undefined {
   if (!isDueAt(pause, at)) return undefined;
   const closed =
     expiry.answer === undefined
@@ -135,7 +135,7 @@ export function closeUntakenChange(
   resolution: PauseUntakenResolution,
   at: Date,
   recipients: PauseRecipients,
-): PauseChange | undefined {
+): PauseTransition | undefined {
   if (pause.status !== PauseStatus.Resolved) return undefined;
   return {
     pause: untakenPause(pause, resolution, at),
@@ -148,7 +148,7 @@ export function remindChange(
   pause: PauseRecord,
   at: Date,
   recipients: PauseRecipients,
-): PauseChange | undefined {
+): PauseTransition | undefined {
   if (!isOpenAt(pause, at) || pause.expiresAt === undefined) return undefined;
   if (pause.remindAt === undefined || isBefore(at, pause.remindAt)) return undefined;
   return {
@@ -182,7 +182,7 @@ export function markSentChange(
   pause: PauseRecord,
   recipients: PauseRecipients,
   externalRef?: string,
-): PauseChange {
+): PauseTransition {
   if (pause.isSent) return { pause, notices: [] };
   const sent = { ...pause, isSent: true, ...withExternalRef(pause, externalRef) };
   const opened = openingNotices(pause, sent, recipients);

@@ -12,7 +12,7 @@ import { afterEach, describe, expect, vi } from "vitest";
 import { ExecutionRecordRepository } from "../../src/infrastructure/execution-record.repository.js";
 import type { PauseAnswerRecord } from "../../src/flow/runtime/execution-record.js";
 import { createSqliteTurnStore } from "../../src/turns/sqlite-store.js";
-import { pauseAnswerEntryOf } from "../../src/turns/writes.js";
+import { pauseAnswerEntryOf } from "../../src/turns/pause-answer-writes.js";
 import { answerOf } from "../../src/testing/contracts/pause-answer-log.cases.js";
 import { testWith } from "../../src/testing/index.js";
 import { minutes } from "../../src/units/index.js";
@@ -36,10 +36,7 @@ afterEach(() => {
 
 describe("P6b: what the answer log's store is handed", () => {
   for (const zone of ["UTC", "Asia/Jerusalem", "America/New_York"])
-    test(`${zone}: Dates of the instants, and the record reads Dates`, async ({
-      app,
-      clock,
-    }) => {
+    test(`${zone}: Dates of the instants, and the record reads Dates`, async ({ app, clock }) => {
       process.env.TZ = zone;
       await app.ready();
       const store = app.resolve(ExecutionRecordRepository);
@@ -86,7 +83,7 @@ describe("P6b: what SQLite keeps of a time", () => {
       rmSync(dir, { recursive: true, force: true });
 
       expect(row).toMatchObject({ asked_at: "2026-03-29T00:30:00.123Z" });
-      expect(JSON.parse(String((row as { record: string }).record))).toMatchObject({
+      expect(JSON.parse((row as { record: string }).record)).toMatchObject({
         askedAt: "2026-03-29T00:30:00.123Z",
       });
     });

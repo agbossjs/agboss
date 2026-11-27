@@ -55,9 +55,7 @@ export function toldTimeoutChanged(
   return toldPauseChange(deps, pause, (observer) =>
     observer.onPauseTimeoutChanged({
       ...pauseChangeOf(pause),
-      ...(previousExpiresAt === undefined
-        ? {}
-        : { previousExpiresAt: copyOf(previousExpiresAt) }),
+      ...(previousExpiresAt === undefined ? {} : { previousExpiresAt: copyOf(previousExpiresAt) }),
       ...(expiresAt === undefined ? {} : { expiresAt: copyOf(expiresAt) }),
     }),
   );
@@ -74,9 +72,7 @@ export function toldReassigned(
       ...pauseChangeOf(replacement),
       previousTarget: pause.target,
       ...(pause.channel === undefined ? {} : { previousChannel: pause.channel }),
-      ...(replacement.expiresAt === undefined
-        ? {}
-        : { expiresAt: copyOf(replacement.expiresAt) }),
+      ...(replacement.expiresAt === undefined ? {} : { expiresAt: copyOf(replacement.expiresAt) }),
     }),
   );
 }

@@ -38,6 +38,9 @@ import {
   resetQuorumExpiry,
 } from "./fixtures/quorum-expiry.workflow.js";
 
+/** The milliseconds of a time a record may not have: NaN when it has none. */
+const ms = (at: Date | undefined): number => at?.getTime() ?? Number.NaN;
+
 const test = testWith(QuorumExpiryApplication);
 const score = (value: number) => replyWith(RefundScoreDto, { score: value });
 const ORDER = { orderId: "7" };
@@ -106,7 +109,7 @@ describe("AC1: min 2, max 3, two answered, the third never: at the deadline the 
 
     expect(pause?.expiryBound).toBe("quorum");
     expect(pause?.expiresAt).toBeDefined();
-    expect((pause?.expiresAt?.getTime() ?? Number.NaN) - (pause?.askedAt?.getTime() ?? Number.NaN)).toBe(hours(1));
+    expect(ms(pause?.expiresAt) - ms(pause?.askedAt)).toBe(hours(1));
   });
 
   test("AC1: groups — the priority group waits for its third member, the other group is complete", async ({

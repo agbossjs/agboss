@@ -47,7 +47,9 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
       expect(await change(LATER, EARLIER)).toMatchObject({ expiresAt: LATER });
       // a stale read of the deadline is refused whatever it asks
       expect(await change(EARLIER, FROM)).toBeUndefined();
-      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toEqual(LATER);
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toEqual(
+        LATER,
+      );
     },
   },
   {
@@ -209,7 +211,9 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
         );
 
       expect((await change(EARLIER, FROM, remindAt))?.remindAt).toEqual(remindAt);
-      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.remindAt).toEqual(remindAt);
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.remindAt).toEqual(
+        remindAt,
+      );
       expect((await change(LATER, EARLIER))?.remindAt).toBeUndefined();
       expect(
         (await first.findByTenantIdAndPauseId("default", "pause-a"))?.remindAt,

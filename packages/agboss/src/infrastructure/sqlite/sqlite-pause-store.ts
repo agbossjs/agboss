@@ -24,7 +24,7 @@ import {
   onceNotices,
   remindChange,
   resolveChange,
-  type PauseChange,
+  type PauseTransition,
 } from "../pause-transitions.js";
 import { oneRowChanged } from "./sqlite-connection.js";
 import { reassignedIn } from "./sqlite-pause-reassign.js";
@@ -212,7 +212,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
   #change(
     tenantId: string,
     pauseId: string,
-    plan: (current: PauseRecord) => PauseChange | undefined,
+    plan: (current: PauseRecord) => PauseTransition | undefined,
   ): PauseRecord | undefined {
     return this.connection.transaction(() => {
       const current = this.pauses.findById(tenantId, pauseId);

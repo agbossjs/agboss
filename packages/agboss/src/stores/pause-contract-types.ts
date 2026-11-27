@@ -29,7 +29,7 @@ export {
   markSentChange,
   remindChange,
   resolveChange,
-  type PauseChange,
+  type PauseTransition,
 } from "../infrastructure/pause-transitions.js";
 export { timeoutChange } from "../infrastructure/pause-timeout-change.js";
 export { reassignChange } from "../infrastructure/pause-reassign-transition.js";

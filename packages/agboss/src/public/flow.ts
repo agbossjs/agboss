@@ -154,10 +154,7 @@ export {
   type RouterAnswerOf,
 } from "../flow/generated-types.js";
 export type { ComponentRecord } from "../flow/runtime/records.js";
-export type {
-  ExecutionRecord,
-  PauseAnswerRecord,
-} from "../flow/runtime/execution-record.js";
+export type { ExecutionRecord, PauseAnswerRecord } from "../flow/runtime/execution-record.js";
 export {
   ComponentKind,
   OutdatedReason,

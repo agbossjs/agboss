@@ -83,7 +83,9 @@ describe("#944 AC1: the deadline in working time", () => {
     const paused = await execute(first, flow.start, ORDER, { threadId: "t-1" });
     const pauseId = sentId();
 
-    expect((await pauseOf(second, pauseId)).expiresAt).toEqual(new Date("2026-01-11T08:30:00.000Z"));
+    expect((await pauseOf(second, pauseId)).expiresAt).toEqual(
+      new Date("2026-01-11T08:30:00.000Z"),
+    );
     expect((await pauseOf(second, pauseId)).expiryBound).toBe(PauseExpiryBound.Pause);
   });
 
@@ -120,7 +122,9 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     await moveTo(clock, "2026-01-11T07:31:00.000Z");
     await until(() => desk.told.expiring.length === 1);
 
-    expect(desk.told.expiring[0]?.expiresAt.toISOString()).toEqual(new Date("2026-01-11T08:30:00.000Z").toISOString());
+    expect(desk.told.expiring[0]?.expiresAt.toISOString()).toEqual(
+      new Date("2026-01-11T08:30:00.000Z").toISOString(),
+    );
   });
 
   test("AC4: setPauseTimeout by workingHours(8) is calendar.add(now, 8 h); its reminder 7 working hours from now", async ({
@@ -135,7 +139,9 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     const extension = await app.setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager);
 
     // 30 min Thursday + 7.5 h Sunday (09:00–13:00, 14:00–17:30) → Sunday 17:30 IST = 15:30Z
-    expect(extension.expiresAt?.toISOString()).toEqual(new Date("2026-01-11T15:30:00.000Z").toISOString());
+    expect(extension.expiresAt?.toISOString()).toEqual(
+      new Date("2026-01-11T15:30:00.000Z").toISOString(),
+    );
     expect(extension.previousExpiresAt).toEqual(new Date("2026-01-11T08:30:00.000Z"));
     const pause = await pauseOf(app, pauseId);
     expect(pause.expiresAt).toEqual(new Date("2026-01-11T15:30:00.000Z"));
@@ -156,7 +162,9 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
 
     const extension = await second.setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager);
 
-    expect(extension.expiresAt?.toISOString()).toEqual(new Date("2026-01-11T15:30:00.000Z").toISOString());
+    expect(extension.expiresAt?.toISOString()).toEqual(
+      new Date("2026-01-11T15:30:00.000Z").toISOString(),
+    );
     expect((await pauseOf(first, pauseId)).expiresAt).toEqual(new Date("2026-01-11T15:30:00.000Z"));
     expect((await pauseOf(first, pauseId)).remindAt).toEqual(new Date("2026-01-11T14:30:00.000Z"));
   });
@@ -194,7 +202,9 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     // 1 working hour from Thursday 17:30 is Sunday 09:30 (07:30Z): before the current Sunday 10:30
     const changed = await app.setPauseTimeout({ pauseId, timeout: workingHours(1) }, manager);
 
-    expect(changed.expiresAt?.toISOString()).toEqual(new Date("2026-01-11T07:30:00.000Z").toISOString());
+    expect(changed.expiresAt?.toISOString()).toEqual(
+      new Date("2026-01-11T07:30:00.000Z").toISOString(),
+    );
     expect(changed.previousExpiresAt).toEqual(new Date("2026-01-11T08:30:00.000Z"));
     expect((await pauseOf(app, pauseId)).expiresAt).toEqual(new Date("2026-01-11T07:30:00.000Z"));
   });
@@ -296,7 +306,9 @@ describe("#944: the run's deadline stays wall-clock (#941 D8)", () => {
     expect(past).toBeInstanceOf(PauseError.EscalationLimitExceeded);
 
     const exact = await app.setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager);
-    expect(exact.expiresAt?.toISOString()).toEqual(new Date("2026-01-11T15:30:00.000Z").toISOString());
+    expect(exact.expiresAt?.toISOString()).toEqual(
+      new Date("2026-01-11T15:30:00.000Z").toISOString(),
+    );
   });
 });
 
@@ -349,7 +361,9 @@ describe("#944: setPauseTimeout with working time on a pause whose channel has n
     expect(await pauseOf(app, pauseId)).toEqual(before);
     // a plain extension of the same pause is as in #942
     const plain = await app.setPauseTimeout({ pauseId, timeout: hours(48) }, manager);
-    expect(plain.expiresAt?.getTime() ?? 0).toBeGreaterThan((before.expiresAt?.getTime() ?? Number.NaN));
+    expect(plain.expiresAt?.getTime() ?? 0).toBeGreaterThan(
+      before.expiresAt?.getTime() ?? Number.NaN,
+    );
   });
 });
 

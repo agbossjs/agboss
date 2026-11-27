@@ -26,6 +26,10 @@ import {
   span,
 } from "../flow/fixtures/pause-extension.fixture.js";
 
+/** The milliseconds of a time a record may not have: NaN when it has none. */
+const ms = (at: Date | undefined): number => at?.getTime() ?? Number.NaN;
+const iso = (at: Date | undefined): string | undefined => at?.toISOString();
+
 const test = testWith(ExtensionApplication, { instances: 3 });
 const ORDER = { orderId: "o-1" };
 const THREAD = { threadId: "extend-1" };
@@ -98,9 +102,7 @@ describe("#942 AC1: an operator extends an open approval", () => {
     await instance(apps, 0).setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(24) }, manager);
 
     const pause = await pauseOf(instance(apps, 0), pauseIdOf());
-    expect(pause.remindAt).toEqual(
-      new Date((pause.expiresAt?.getTime() ?? Number.NaN) - hours(2)),
-    );
+    expect(pause.remindAt).toEqual(new Date(ms(pause.expiresAt) - hours(2)));
   });
 
   test("a ThreadOwner pause: the owner extends, another owner is refused, answeredBy is refused", async ({
@@ -476,15 +478,15 @@ describe("#1099: racing extensions: the store's compare-and-set decides, 'extend
 
     const stored = (await pauseOf(instance(apps, 2), pauseIdOf())).expiresAt;
     // one went first and the other moved from its deadline: the second one's is stored
-    const isLongFirst = short.previousExpiresAt?.toISOString() === long.expiresAt?.toISOString();
+    const isLongFirst = iso(short.previousExpiresAt) === iso(long.expiresAt);
     const [first, second] = isLongFirst ? [long, short] : [short, long];
-    expect(first.previousExpiresAt?.toISOString()).toEqual(asked?.toISOString());
-    expect(second.previousExpiresAt?.toISOString()).toBe(first.expiresAt?.toISOString());
+    expect(iso(first.previousExpiresAt)).toEqual(iso(asked));
+    expect(iso(second.previousExpiresAt)).toBe(iso(first.expiresAt));
     expect(stored).toEqual(second.expiresAt);
     await until(() => extendedNotices().length === 2);
     const told_ = extendedNotices().map((one) => one.expiresAt);
-    expect(told_.at(-1)).toBe(stored?.toISOString());
-    expect(told_).toEqual([first.expiresAt?.toISOString(), second.expiresAt?.toISOString()]);
+    expect(told_.at(-1)).toBe(iso(stored));
+    expect(told_).toEqual([iso(first.expiresAt), iso(second.expiresAt)]);
   });
 
   test("AC2: a store whose extension always loses the compare-and-set: PauseError.UpdateContended (pause.update-contended) after 8 attempts, nothing told or written", async ({

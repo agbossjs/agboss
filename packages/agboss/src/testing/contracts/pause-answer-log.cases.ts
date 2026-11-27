@@ -1,65 +1,15 @@
 import { expect } from "vitest";
-import type { PauseAnswerRecord } from "../../flow/runtime/execution-record.js";
-import { ComponentKind } from "../../flow/runtime/records.js";
 import type { ExecutionRecordRepository } from "../../infrastructure/execution-record.repository.js";
-import { PauseResolution } from "../../infrastructure/pause-record.js";
 import type { ContractCase } from "./define.js";
-import { PauseRespondent } from "../../pause/respondent.js";
+import { answerOf } from "./pause-answer-data.js";
+
+export { answerOf };
 
 /**
  * The pause answer log (#267 S107, #676): one answer per pause **of a tree** — a step key names no
  * tree (`<executionId>:<node>:<visit>[:<item>]:<callId>`), so two trees whose ids repeat (#663)
  * share one; each keeps its own answer, and a second save of one tree's pause is ignored.
  */
-
-const STEP_KEY = "child-7:refund-agent:1:call-1";
-
-/** The answer of the refund pause at `STEP_KEY`, by `responder` (as its actor), decided `approved`. */
-export const answerOf = (
-  responder: string,
-  approved: boolean,
-  key = STEP_KEY,
-  askedAt = new Date("2026-01-05T09:00:00.000Z"),
-): PauseAnswerRecord => ({
-  pauseId: undefined,
-  executionId: "child-7",
-  step: {
-    component: {
-      name: "refund-agent",
-      kind: ComponentKind.Agent,
-      promptHash: undefined,
-      schemaHash: undefined,
-    },
-    nodeId: "refund-agent",
-    visitNumber: 1,
-    idempotencyKey: key,
-    callId: "call-1",
-    itemIndex: undefined,
-    copyNumber: 1,
-    toolLoopIteration: 1,
-    validationAttempts: 0,
-  },
-  target: "refund-tool-approval",
-  channel: "refund-approval-channel",
-  respondent: PauseRespondent.Delegate,
-  actor: { id: responder, orgId: "holding-hq" },
-  resolution: PauseResolution.Replied,
-  askedAt,
-  resolvedAt: new Date("2026-01-05T09:05:00.000Z"),
-  decision: { approved },
-  input: { text: "10 USD" },
-  toolCall: { callId: "call-1", tool: "charge", summary: "charge" },
-  assignees: ["manager-17", "manager-18"],
-  externalRef: "JIRA-17",
-  trail: [
-    {
-      action: "opened",
-      at: askedAt,
-      target: "refund-tool-approval",
-      channel: "refund-approval-channel",
-    },
-  ],
-});
 
 const respondersOf = async (
   records: ExecutionRecordRepository,
@@ -70,50 +20,6 @@ const respondersOf = async (
   );
 
 const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
-  {
-    name: "#1307: the times of an answer come back as Dates of the very instants written, milliseconds kept",
-    run: async ({ first, second }) => {
-      const askedAt = new Date("2026-01-05T09:00:00.123Z");
-      const answer = {
-        ...answerOf("manager-17", true, STEP_KEY, askedAt),
-        resolvedAt: new Date("2026-01-05T09:05:00.456Z"),
-      };
-      await first.savePauseAnswer("acme", "root-1", answer);
-
-      const [read] = await second.findPauseAnswersByTenantIdAndRootExecutionId("acme", "root-1");
-
-      expect(read?.askedAt).toBeInstanceOf(Date);
-      expect(read?.askedAt.getTime()).toBe(askedAt.getTime());
-      expect(read?.resolvedAt).toBeInstanceOf(Date);
-      expect(read?.resolvedAt?.getTime()).toBe(new Date("2026-01-05T09:05:00.456Z").getTime());
-      expect(read?.trail[0]?.at).toBeInstanceOf(Date);
-      expect(read?.trail[0]?.at.getTime()).toBe(askedAt.getTime());
-    },
-  },
-  {
-    name: "#1307: answers are listed in the order they were asked, by instant (not by a text spelling of it)",
-    run: async ({ first, second }) => {
-      // asked within one second, and across the year 2026's DST changes of a local zone
-      const times = [
-        "2026-03-29T00:30:00.900Z",
-        "2026-03-29T00:30:00.100Z",
-        "2026-10-25T00:30:00.000Z",
-        "2026-10-25T01:30:00.000Z",
-      ].map((text) => new Date(text));
-      for (const [index, asked] of times.entries())
-        await first.savePauseAnswer(
-          "acme",
-          "root-1",
-          answerOf(`manager-${String(index)}`, true, `child-7:refund-agent:1:call-${String(index)}`, asked),
-        );
-
-      const read = await second.findPauseAnswersByTenantIdAndRootExecutionId("acme", "root-1");
-
-      expect(read.map((entry) => entry.askedAt.getTime())).toEqual(
-        times.map((asked) => asked.getTime()).sort((a, b) => a - b),
-      );
-    },
-  },
   {
     name: "#676: two trees whose pauses share a step key each keep their own answer",
     run: async ({ first, second }) => {

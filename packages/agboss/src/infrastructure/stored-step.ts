@@ -19,7 +19,10 @@ const optionalText = z.string().optional();
  */
 export const StoredInstant = z
   .string()
-  .refine(isCanonicalInstantText, "not an ISO 8601 instant as toISOString writes it (milliseconds, Z)")
+  .refine(
+    isCanonicalInstantText,
+    "not an ISO 8601 instant as toISOString writes it (milliseconds, Z)",
+  )
   .transform((text) => new Date(text));
 
 /** Who acted on a pause: an id, and the organisation it acts for. */

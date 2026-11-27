@@ -45,7 +45,9 @@ export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
 
       expect(moved).toMatchObject({ expiresAt: LATER, expiryBound: PauseExpiryBound.Pause });
       expect(moved?.remindAt).toBeUndefined();
-      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toEqual(LATER);
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toEqual(
+        LATER,
+      );
     },
   },
   {

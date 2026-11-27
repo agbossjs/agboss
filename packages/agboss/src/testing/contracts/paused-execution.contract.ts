@@ -207,10 +207,7 @@ export function pausedExecutionContract(target: ContractTarget<PausedExecutionRe
         title: "a pause carries the limits it was opened under, narrowed by moves (#1307, Q-D)",
         cases: [...LIMITS_CASES, ...CAP_CASES],
       },
-      {
-        title: "times are Dates of the very millisecond, compared by instant (#1307)",
-        cases: INSTANT_CASES,
-      },
+      { title: "times are Dates, compared by instant (#1307)", cases: INSTANT_CASES },
       { title: "notices are written with their change (notice)", cases: NOTICE_WRITE_CASES },
       { title: "notices keep their order per recipient (notice)", cases: NOTICE_ORDER_CASES },
       { title: "every transition writes its notices or nothing (notice)", cases: TRANSITION_CASES },

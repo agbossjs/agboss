@@ -72,7 +72,9 @@ describe("#942 AC3: the reminder", () => {
         { pauseId: pauseIdOf(), timeout: hours(24) },
         manager,
       );
-      expect((await pauseOf(first(apps)))?.remindAt).toEqual(new Date(Number(extension.expiresAt) - hours(2)));
+      expect((await pauseOf(first(apps)))?.remindAt).toEqual(
+        new Date(Number(extension.expiresAt) - hours(2)),
+      );
       await clock.advance(hours(21));
       expect(expiring()).toHaveLength(2);
       await clock.advance(span(hours(1), minutes(5)));
@@ -101,7 +103,8 @@ describe("#942 AC3: the reminder", () => {
       await clock.advance(hours(1));
       await until(() => expiring().length === 2);
 
-      for (const one of expiring()) expect(one.expiresAt).toEqual(extension.expiresAt?.toISOString());
+      for (const one of expiring())
+        expect(one.expiresAt).toEqual(extension.expiresAt?.toISOString());
     },
   );
 

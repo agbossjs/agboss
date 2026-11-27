@@ -11,7 +11,8 @@ export function effectiveBoundOf(
 ): PauseExpiryBound | undefined {
   const { expiryBound, expiresAt, boundAt } = pause;
   // no deadline or no bound is no tie
-  const isTie = expiresAt !== undefined && boundAt !== undefined && isAtOrBefore(boundAt, expiresAt);
+  const isTie =
+    expiresAt !== undefined && boundAt !== undefined && isAtOrBefore(boundAt, expiresAt);
   return expiryBound === PauseExpiryBound.Pause && isTie
     ? PauseExpiryBound.RunDeadline
     : expiryBound;

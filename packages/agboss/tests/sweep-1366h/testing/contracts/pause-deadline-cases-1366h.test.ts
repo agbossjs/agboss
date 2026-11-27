@@ -29,7 +29,7 @@ import {
   cancelChange,
   expireChange,
   resolveChange,
-  type PauseChange,
+  type PauseTransition,
 } from "../../../../src/infrastructure/pause-transitions.js";
 import type { ContractCase } from "../../../../src/testing/contracts/define.js";
 import { DEADLINE_CASES } from "../../../../src/testing/contracts/paused-execution-deadline.cases.js";
@@ -42,7 +42,7 @@ type Who = "first" | "second";
 type Case = ContractCase<PausedExecutionRepository>;
 type Op = "resolve" | "cancel" | "expire" | "extend";
 /** A planned change that is answered but stored nowhere (`unstored`), or stored but answered nothing (`hidden`). */
-type Planned = PauseChange & { readonly unstored?: boolean; readonly hidden?: boolean };
+type Planned = PauseTransition & { readonly unstored?: boolean; readonly hidden?: boolean };
 
 const EPOCH = new Date(0);
 const FROM = new Date("2026-01-05T10:00:00.000Z");
@@ -278,7 +278,12 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     {
       cold: "second",
       resolve: (pause, answer, at, recipients) =>
-        resolveChange(pause, answer, shifted(at, at.getTime() === FROM.getTime() ? -1 : 0), recipients),
+        resolveChange(
+          pause,
+          answer,
+          shifted(at, at.getTime() === FROM.getTime() ? -1 : 0),
+          recipients,
+        ),
     },
   ],
   [
@@ -286,7 +291,12 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "an answer at the deadline is taken",
     {
       resolve: (pause, answer, at, recipients) =>
-        resolveChange(pause, answer, shifted(at, at.getTime() === FROM.getTime() ? -1 : 0), recipients),
+        resolveChange(
+          pause,
+          answer,
+          shifted(at, at.getTime() === FROM.getTime() ? -1 : 0),
+          recipients,
+        ),
     },
   ],
   [
@@ -309,7 +319,12 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "an answer at the deadline is taken",
     {
       resolve: (pause, answer, at, recipients) =>
-        resolveChange(pause, answer, shifted(at, at.getTime() === FROM.getTime() ? -1 : 0), recipients),
+        resolveChange(
+          pause,
+          answer,
+          shifted(at, at.getTime() === FROM.getTime() ? -1 : 0),
+          recipients,
+        ),
     },
   ],
   [
@@ -395,7 +410,12 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "an expiry before the deadline applies",
     {
       expire: (pause, expiry, at, recipients) =>
-        expireChange(pause, expiry, at.getTime() < FROM.getTime() ? new Date(FROM.getTime()) : at, recipients),
+        expireChange(
+          pause,
+          expiry,
+          at.getTime() < FROM.getTime() ? new Date(FROM.getTime()) : at,
+          recipients,
+        ),
     },
   ],
   [
@@ -557,7 +577,8 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "the first extension is answered as the pause was",
     {
       answers: {
-        extend: (answered, before) => (answered.expiresAt?.getTime() === LATER.getTime() ? before : answered),
+        extend: (answered, before) =>
+          answered.expiresAt?.getTime() === LATER.getTime() ? before : answered,
       },
     },
   ],
@@ -566,7 +587,8 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "the second extension is answered as the pause was",
     {
       answers: {
-        extend: (answered, before) => (answered.expiresAt?.getTime() === EVEN_LATER.getTime() ? before : answered),
+        extend: (answered, before) =>
+          answered.expiresAt?.getTime() === EVEN_LATER.getTime() ? before : answered,
       },
     },
   ],
@@ -878,7 +900,9 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     {
       slow: "first",
       extend: (pause, change, at, recipients) =>
-        pause.expiresAt?.getTime() === FROM.getTime() ? timeoutChange(pause, change, at, recipients) : undefined,
+        pause.expiresAt?.getTime() === FROM.getTime()
+          ? timeoutChange(pause, change, at, recipients)
+          : undefined,
     },
   ],
   [

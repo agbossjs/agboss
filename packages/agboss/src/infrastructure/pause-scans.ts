@@ -1,6 +1,6 @@
 import { definedOf } from "./clock.js";
 import { compareInstants, isBefore } from "./instants.js";
-import type { PauseFilter, PausePage } from "./pause-notices.js";
+import type { PauseFilter, PausePage, PauseScanAfter } from "./pause-notices.js";
 import type { PauseRecord } from "./pause-record.js";
 
 /**
@@ -104,3 +104,13 @@ export const firstByTime = (timed: readonly Timed[], limit: number): PauseRecord
     )
     .slice(0, limit)
     .map(({ pause }) => pause);
+
+/** Whether a pause at `time` comes after the keyset `after` in `(time, tenantId, pauseId)` order. */
+export const isPast = (
+  after: PauseScanAfter,
+  time: Date,
+  pause: Pick<PauseRecord, "tenantId" | "pauseId">,
+): boolean =>
+  (compareInstants(time, after.at) ||
+    compareText(pause.tenantId, after.tenantId) ||
+    compareText(pause.pauseId, after.pauseId)) > 0;

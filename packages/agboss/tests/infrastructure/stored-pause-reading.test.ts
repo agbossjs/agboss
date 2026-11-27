@@ -155,7 +155,13 @@ describe("#1307, P6b: the times of a pause are read as Dates, in the canonical s
       ],
     });
 
-    for (const at of [pause.askedAt, pause.firstAskedAt, pause.expiresAt, pause.remindAt, pause.boundAt])
+    for (const at of [
+      pause.askedAt,
+      pause.firstAskedAt,
+      pause.expiresAt,
+      pause.remindAt,
+      pause.boundAt,
+    ])
       expect(at).toBeInstanceOf(Date);
     expect(pause.expiresAt?.getTime()).toBe(Date.parse("2026-01-06T00:00:00.123Z"));
     expect(pause.remindAt?.getTime()).toBe(Date.parse("2026-01-05T23:00:00.456Z"));
@@ -172,32 +178,37 @@ describe("#1307, P6b: the times of a pause are read as Dates, in the canonical s
     "+010000-01-01T00:00:00.000Z",
     "tomorrow",
     "",
-  ])("a time spelled %j is unreadable in every field of the record, and the value is never echoed", (text) => {
-    const fields: Record<string, (value: string) => Record<string, unknown>> = {
-      askedAt: (value) => ({ askedAt: value }),
-      firstAskedAt: (value) => ({ firstAskedAt: value }),
-      resolvedAt: (value) => ({ resolvedAt: value }),
-      expiresAt: (value) => ({ expiresAt: value }),
-      remindAt: (value) => ({ remindAt: value }),
-      boundAt: (value) => ({ boundAt: value }),
-      maxExpiresAt: (value) => ({ maxExpiresAt: value }),
-      "closedFirst.resolvedAt": (value) => ({
-        closedFirst: { resolution: "replied", resolvedAt: value },
-      }),
-      "trail.0.at": (value) => ({ trail: [{ action: "opened", at: value, target: "t" }] }),
-      "trail.0.expiresAt": (value) => ({
-        trail: [{ action: "opened", at: "2026-01-05T09:00:00.000Z", target: "t", expiresAt: value }],
-      }),
-    };
+  ])(
+    "a time spelled %j is unreadable in every field of the record, and the value is never echoed",
+    (text) => {
+      const fields: Record<string, (value: string) => Record<string, unknown>> = {
+        askedAt: (value) => ({ askedAt: value }),
+        firstAskedAt: (value) => ({ firstAskedAt: value }),
+        resolvedAt: (value) => ({ resolvedAt: value }),
+        expiresAt: (value) => ({ expiresAt: value }),
+        remindAt: (value) => ({ remindAt: value }),
+        boundAt: (value) => ({ boundAt: value }),
+        maxExpiresAt: (value) => ({ maxExpiresAt: value }),
+        "closedFirst.resolvedAt": (value) => ({
+          closedFirst: { resolution: "replied", resolvedAt: value },
+        }),
+        "trail.0.at": (value) => ({ trail: [{ action: "opened", at: value, target: "t" }] }),
+        "trail.0.expiresAt": (value) => ({
+          trail: [
+            { action: "opened", at: "2026-01-05T09:00:00.000Z", target: "t", expiresAt: value },
+          ],
+        }),
+      };
 
-    for (const [field, change] of Object.entries(fields)) {
-      const read = (): unknown => pauseRecordOfJson({ ...PAUSE, ...change(text) });
+      for (const [field, change] of Object.entries(fields)) {
+        const read = (): unknown => pauseRecordOfJson({ ...PAUSE, ...change(text) });
 
-      expect(read, field).toThrow(StoreError.UnreadableRecord);
-      expect(read, field).toThrow(new RegExp(field.replace(".", "\\.")));
-      if (text.length > 3) expect(read, field).not.toThrow(text);
-    }
-  });
+        expect(read, field).toThrow(StoreError.UnreadableRecord);
+        expect(read, field).toThrow(new RegExp(field.replace(".", "\\.")));
+        if (text.length > 3) expect(read, field).not.toThrow(text);
+      }
+    },
+  );
 
   it("an answer-log entry's times are Dates and read in the canonical spelling only", () => {
     const entry = pauseAnswerRecordOfValue({

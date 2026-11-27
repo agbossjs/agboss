@@ -51,6 +51,8 @@ describe("#1366: a pause with another bound", () => {
 
   it("recorded as the pause's, not at its bound, or as a quorum's, is never the run's", () => {
     expect(isRunBound(extended({ boundAt: LATER }), AT.toISOString())).toBe(false);
-    expect(isRunBound(extended({ expiryBound: PauseExpiryBound.Quorum }), AT.toISOString())).toBe(false);
+    expect(isRunBound(extended({ expiryBound: PauseExpiryBound.Quorum }), AT.toISOString())).toBe(
+      false,
+    );
   });
 });

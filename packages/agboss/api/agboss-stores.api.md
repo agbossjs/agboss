@@ -372,6 +372,9 @@ export interface BusinessKeyOptions {
 }
 
 // @public
+export function cancelChange(pause: PauseRecord, resolution: PauseCancellation, at: Date, recipients: PauseRecipients): PauseTransition | undefined;
+
+// @public
 export const cancelFencedErrorOf: (error: unknown) => ExecutionError.CancelFenced | undefined;
 
 // @public
@@ -420,7 +423,7 @@ export interface ChildExecutionQueueWatch {
 }
 
 // @public
-export interface ChildExecutionRecord<TPause = ExecutionPauseRecord> extends Omit<EndedChildRecord, "children"> {
+export interface ChildExecutionRecord<TPause = PauseAnswerRecord> extends Omit<EndedChildRecord, "children"> {
     readonly children: readonly ChildExecutionRecord<TPause>[];
     readonly pauses: readonly TPause[];
 }
@@ -443,7 +446,10 @@ export interface ChildLaunchRecord {
 export const childThreadOf: (parentThreadId: string, executionId: string) => string;
 
 // @public
-export const closedAtOf: (pause: PauseRecord) => string | undefined;
+export const closedAtOf: (pause: PauseRecord) => Date | undefined;
+
+// @public
+export function closeUntakenChange(pause: PauseRecord, resolution: PauseUntakenResolution, at: Date, recipients: PauseRecipients): PauseTransition | undefined;
 
 // @public
 export const CLUSTER_LEASE_EXPIRY: Date;
@@ -775,6 +781,9 @@ export const DATABASE_SETTINGS: InjectionToken<ResolvedSettings | undefined>;
 export type DatabaseDriver = StorageDriver<StorageRole.Database>;
 
 // @public
+export function decideChange(pause: PauseRecord, answer: PauseAnswer, at: Date, seen: PauseSeen): PauseTransition | undefined;
+
+// @public
 export const DEFAULT_WATCH_LIVENESS: Milliseconds;
 
 // @public
@@ -971,7 +980,7 @@ export interface ExecutionHistoryQuery extends PageQuery {
 }
 
 // @public
-export interface ExecutionHistoryRecord extends ExecutionRecord<PauseAnswerRecord> {
+export interface ExecutionHistoryRecord extends ExecutionRecord {
     // (undocumented)
     readonly application: ApplicationRecord;
     readonly auditLog?: readonly ExecutionAuditEventRecord[];
@@ -1075,15 +1084,7 @@ export interface ExecutionOrigin extends MeshOrigin {
 }
 
 // @public
-export interface ExecutionPauseRecord extends Omit<PauseAnswerRecord, "askedAt" | "resolvedAt" | "trail"> {
-    readonly askedAt: Date;
-    // (undocumented)
-    readonly resolvedAt: Date | undefined;
-    readonly trail: readonly PauseTrailEntry[];
-}
-
-// @public
-export interface ExecutionRecord<TPause = ExecutionPauseRecord> {
+export interface ExecutionRecord<TPause = PauseAnswerRecord> {
     readonly children: readonly ChildExecutionRecord<TPause>[];
     readonly compensations: readonly CompensationRecord[];
     // (undocumented)
@@ -1211,6 +1212,9 @@ export abstract class ExecutionTreeRepository {
 export type ExecutionTreeValue = string | number | boolean | null | readonly ExecutionTreeValue[] | {
     readonly [field: string]: ExecutionTreeValue;
 };
+
+// @public
+export function expireChange(pause: PauseRecord, expiry: PauseExpiry, at: Date, recipients: PauseRecipients): PauseTransition | undefined;
 
 // @public
 export function expiredEntriesOf(entries: readonly LedgerEntry[], prunedBefore: Date | undefined, isHeld: (ledgerId: string) => boolean): readonly string[];
@@ -1358,6 +1362,9 @@ export enum IdempotencyRunStatus {
 export const idGeneratorNameOf: (idGenerator: object) => string;
 
 // @public
+export function inFirstSendNotices(sent: PauseRecord, recipients: PauseRecipients): readonly PlannedNotice[];
+
+// @public
 export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageRepository {
     // (undocumented)
     completeIfInFlight(key: A2ADirectMessageKey, attemptId: string, reply: A2ADirectMessageReply, completedAt: Date): Promise<A2ADirectMessageRecord | undefined>;
@@ -1415,6 +1422,9 @@ export class InMemoryCluster implements ClusterOutage {
 }
 
 // @public
+export const instantOfText: (text: string, field: string, record?: string) => Date;
+
+// @public
 export class InvalidA2APageTokenError extends AGBossError {
     constructor(options?: InvalidA2APageTokenErrorOptions);
     // (undocumented)
@@ -1433,7 +1443,16 @@ export interface InvalidA2APageTokenErrorOptions {
 export function isAsSeen(pause: PauseRecord, seen: PauseSeen | undefined): boolean;
 
 // @public
+export const isBefore: (a: Date, b: Date) => boolean;
+
+// @public
+export const isDueAt: (pause: PauseRecord, at: Date) => boolean;
+
+// @public
 export function isKeyFingerprint(key: Pick<EffectKeyFields, "fingerprint" | "previousFingerprint">, stored: string | null | undefined): boolean;
+
+// @public
+export const isOpenAt: (pause: PauseRecord, at: Date) => boolean;
 
 // @public
 export const isSeenAs: typeof isAsSeen;
@@ -1443,6 +1462,9 @@ export const isStoreOutcomeUnknown: (error: unknown) => error is StoreOutcomeUnk
 
 // @public
 export const isTerminalA2ATaskState: (state: A2ATaskState) => state is A2ATerminalTaskState;
+
+// @public
+export const isWithinCap: (maxExpiresAt: Date | undefined, expiresAt: Date | undefined) => boolean;
 
 // @public
 export type JsonPrimitive = string | number | boolean | null;
@@ -1527,6 +1549,9 @@ export enum LedgerState {
     RecordedElsewhere = "recorded-elsewhere",
     Written = "written"
 }
+
+// @public
+export function markSentChange(pause: PauseRecord, recipients: PauseRecipients, externalRef?: string): PauseTransition;
 
 // @public
 export interface MeshOrigin {
@@ -1659,6 +1684,9 @@ export const OBJECT_SETTINGS: InjectionToken<ResolvedSettings | undefined>;
 
 // @public
 export type ObjectDriver = StorageDriver<StorageRole.Objects>;
+
+// @public
+export function openingNotices(pause: PauseRecord, sent: PauseRecord, recipients: PauseRecipients): readonly PlannedNotice[];
 
 // @public
 export const originalStepKeyOf: (pause: ReplacementKeyed) => string;
@@ -1894,7 +1922,7 @@ export interface PauseAnswer {
 // @public
 export interface PauseAnswerRecord {
     readonly actor: PauseActor | undefined;
-    readonly askedAt: string;
+    readonly askedAt: Date;
     readonly assignees?: readonly string[];
     readonly channel?: string;
     readonly decision: unknown;
@@ -1906,12 +1934,12 @@ export interface PauseAnswerRecord {
     // (undocumented)
     readonly resolution: PauseResolution;
     // (undocumented)
-    readonly resolvedAt: string | undefined;
+    readonly resolvedAt: Date | undefined;
     readonly respondent: PauseRespondent;
     readonly step: StepRecord;
     readonly target: string;
     readonly toolCall?: unknown;
-    readonly trail: readonly PauseTrailRecord[];
+    readonly trail: readonly PauseTrailEntry[];
 }
 
 // @public
@@ -1941,10 +1969,10 @@ export function pauseClosedReasonOf(pause: PauseRecord, now: Date): PauseClosedR
 
 // @public
 export interface PauseDeadlineSet {
-    readonly expiresAt?: string;
+    readonly expiresAt?: Date;
     // (undocumented)
     readonly expiryBound?: PauseExpiryBound;
-    readonly remindAt?: string;
+    readonly remindAt?: Date;
 }
 
 // @public
@@ -2035,7 +2063,7 @@ export interface PauseFilter {
 // @public
 export interface PauseFirstClose {
     readonly resolution: PauseResolution;
-    readonly resolvedAt: string;
+    readonly resolvedAt: Date;
 }
 
 // @public
@@ -2063,20 +2091,20 @@ export enum PauseKind {
 // @public
 export interface PauseLimits {
     readonly escalationLimits: PauseEscalationCounts;
-    readonly maxExpiresAt?: string | undefined;
+    readonly maxExpiresAt?: Date | undefined;
 }
 
 // @public
 export interface PauseLimitsOffer {
     readonly escalationLimits?: PauseEscalationCounts | undefined;
-    readonly maxExpiresAt?: string | undefined;
+    readonly maxExpiresAt?: Date | undefined;
 }
 
 // @public
 export interface PauseMailbox {
     readonly attempts: number;
     readonly delivered: number;
-    readonly headWrittenAt?: string;
+    readonly headWrittenAt?: Date;
     readonly isDead: boolean;
     // (undocumented)
     readonly nextAttemptAt: Date;
@@ -2094,20 +2122,20 @@ export interface PauseNotice {
     readonly actor?: PauseActor;
     readonly assignees?: readonly string[];
     readonly changeReason?: string;
-    readonly closedAt?: string;
+    readonly closedAt?: Date;
     readonly errorCode?: string;
-    readonly expiresAt?: string;
+    readonly expiresAt?: Date;
     // (undocumented)
     readonly kind: PauseNoticeKind;
     readonly launch?: string;
     readonly previousAssignees?: readonly string[];
     readonly previousChannel?: string;
-    readonly previousExpiresAt?: string;
+    readonly previousExpiresAt?: Date;
     readonly previousExternalRef?: string;
     readonly previousTarget?: string;
     readonly reason?: PauseClosedReason;
     readonly seq: number;
-    readonly writtenAt: string;
+    readonly writtenAt: Date;
 }
 
 // @public
@@ -2161,34 +2189,34 @@ export interface PauseRecipients {
 // @public
 export interface PauseRecord extends PauseSite {
     readonly answer?: PauseAnswer;
-    readonly askedAt: string;
+    readonly askedAt: Date;
     readonly assignees?: readonly string[];
-    readonly boundAt?: string;
+    readonly boundAt?: Date;
     readonly channel?: string;
     readonly closedFirst?: PauseFirstClose;
     readonly escalationLimits: PauseEscalationCounts;
-    readonly expiresAt?: string;
+    readonly expiresAt?: Date;
     readonly expiryBound?: PauseExpiryBound;
     readonly expiryProblem?: ExpiryProblem;
     readonly externalRef?: string;
-    readonly firstAskedAt: string;
+    readonly firstAskedAt: Date;
     readonly input: Readonly<Record<string, unknown>>;
     readonly isSent: boolean;
     readonly kind: PauseKind;
-    readonly maxExpiresAt?: string;
+    readonly maxExpiresAt?: Date;
     readonly pauseId: string;
     readonly reassignedFrom?: string;
     readonly reassignedTo?: string;
-    readonly remindAt?: string;
+    readonly remindAt?: Date;
     readonly resolution?: PauseResolution;
-    readonly resolvedAt?: string;
+    readonly resolvedAt?: Date;
     readonly respondent: PauseRespondent;
     // (undocumented)
     readonly status: PauseStatus;
     readonly step: string;
     readonly target: string;
     readonly toolCall?: PauseToolCallSummary;
-    readonly trail: readonly PauseTrailRecord[];
+    readonly trail: readonly PauseTrailEntry[];
 }
 
 // @public
@@ -2237,7 +2265,7 @@ export enum PauseRespondent {
 
 // @public
 export interface PauseScanAfter {
-    readonly at: string;
+    readonly at: Date;
     // (undocumented)
     readonly pauseId: string;
     // (undocumented)
@@ -2247,7 +2275,7 @@ export interface PauseScanAfter {
 // @public
 export interface PauseSeen {
     readonly assignees?: readonly string[];
-    readonly expiresAt?: string;
+    readonly expiresAt?: Date;
     readonly isSent: boolean;
     readonly trailLength: number;
 }
@@ -2285,30 +2313,42 @@ export enum PauseStatus {
 // @public
 export interface PauseTimeoutChange {
     readonly actor?: PauseActor;
-    readonly expiresAt?: string;
-    readonly previousExpiresAt?: string;
+    readonly expiresAt?: Date;
+    readonly previousExpiresAt?: Date;
     readonly reason?: string;
-    readonly remindAt?: string;
+    readonly remindAt?: Date;
     readonly seen: PauseSeen;
 }
 
 // @public
-export interface PauseTrailRecord {
+export interface PauseTrailEntry {
     // (undocumented)
     readonly action: "opened" | "reassigned" | "timeout-changed" | "escalated";
+    // (undocumented)
     readonly actor?: PauseActor;
     // (undocumented)
     readonly assignees?: readonly string[];
-    readonly at: string;
+    // (undocumented)
+    readonly at: Date;
     // (undocumented)
     readonly channel?: string;
     // (undocumented)
-    readonly expiresAt?: string;
+    readonly expiresAt?: Date;
     // (undocumented)
     readonly externalRef?: string;
     // (undocumented)
     readonly reason?: string;
+    // (undocumented)
     readonly target: string;
+}
+
+// @public
+export interface PauseTransition {
+    readonly inserted?: PauseRecord;
+    // (undocumented)
+    readonly notices: readonly PlannedNotice[];
+    // (undocumented)
+    readonly pause: PauseRecord;
 }
 
 // @public
@@ -2347,6 +2387,16 @@ export interface PendingPauseBase {
 export interface PendingQuestion extends PendingPauseBase {
     // (undocumented)
     readonly kind: PauseKind.ExternalTask;
+}
+
+// @public
+export interface PlannedNotice {
+    // (undocumented)
+    readonly at: Date;
+    // (undocumented)
+    readonly notice: Omit<PauseNotice, "seq">;
+    // (undocumented)
+    readonly recipient: string;
 }
 
 // @public
@@ -2403,6 +2453,12 @@ export abstract class RateLimitRepository {
     abstract renew(rateLimitLease: RateLimitLease, lease: Milliseconds): Promise<boolean>;
 }
 
+// @public (undocumented)
+export function reassignChange(pause: PauseRecord, change: PauseReassignmentChange, takenStepKeys: ReadonlySet<string>, at: Date, recipients: PauseRecipients): PauseTransition | undefined;
+
+// @public
+export const reassignedPause: (pause: PauseRecord, replacementId: string, at: Date) => PauseRecord;
+
 // @public
 export function recipientKeysOf(recipients: PauseRecipients, kind: PauseNoticeKind): readonly string[];
 
@@ -2422,6 +2478,9 @@ export function recordTransitionOf(thread: {
 export const remainingOf: (expiresAt: Date, now: Date) => Milliseconds;
 
 // @public
+export function remindChange(pause: PauseRecord, at: Date, recipients: PauseRecipients): PauseTransition | undefined;
+
+// @public
 export interface ReplacementKeyed {
     // (undocumented)
     readonly reassignedFrom?: string | undefined;
@@ -2439,6 +2498,9 @@ export function replacementStepKeyOf(pause: ReplacementKeyed, taken: ReadonlySet
 export function replayedFromOf(key: EffectKey, stored: StoredKeyFacts): FencedEffectOrigin | undefined;
 
 // @public
+export function resolveChange(pause: PauseRecord, answer: PauseAnswer, at: Date, recipients: PauseRecipients, seen?: PauseSeen): PauseTransition | undefined;
+
+// @public
 export interface ResolvedSettings {
     // (undocumented)
     readonly [option: string]: unknown;
@@ -2452,6 +2514,9 @@ export interface ResumeVersions {
     // (undocumented)
     readonly workflowVersion: string;
 }
+
+// @public
+export const sameInstant: (a: Date | undefined, b: Date | undefined) => boolean;
 
 // @public
 export enum SchemaSetup {
@@ -2898,6 +2963,9 @@ export interface ThreadStatusTransition {
 }
 
 // @public
+export function timeoutChange(pause: PauseRecord, change: PauseTimeoutChange, at: Date, recipients: PauseRecipients): PauseTransition | undefined;
+
+// @public
 export interface TokenUsage {
     readonly cacheReadTokens: number;
     readonly cacheWriteTokens: number;
@@ -3066,6 +3134,15 @@ export interface WrittenLedgerMark {
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Paused".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Stopped".
 // src/app/types.ts - (ae-undocumented) Missing documentation for "Cancelled".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "action".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "at".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "actor".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "target".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "channel".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "assignees".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "expiresAt".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "externalRef".
+// src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "reason".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Input".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Output".
 // src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "OutcomeUnknown".
@@ -3135,7 +3212,6 @@ export interface WrittenLedgerMark {
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "lastError".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "spend".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolution".
-// src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "slot".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "reason".
@@ -3327,6 +3403,9 @@ export interface WrittenLedgerMark {
 // src/infrastructure/outbound-call-record.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/outbound-call-record.ts - (ae-undocumented) Missing documentation for "attempt".
 // src/infrastructure/outbound-call-record.ts - (ae-undocumented) Missing documentation for "attemptOwner".
+// src/infrastructure/pause-mailboxes.ts - (ae-undocumented) Missing documentation for "recipient".
+// src/infrastructure/pause-mailboxes.ts - (ae-undocumented) Missing documentation for "at".
+// src/infrastructure/pause-mailboxes.ts - (ae-undocumented) Missing documentation for "notice".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "kind".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "tenantId".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "pauseId".
@@ -3344,6 +3423,7 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "recipient".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "expiryBound".
 // src/infrastructure/pause-notices.ts - (ae-undocumented) Missing documentation for "actor".
+// src/infrastructure/pause-reassign-transition.ts - (ae-undocumented) Missing documentation for "reassignChange".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "Pause".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "RunDeadline".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "Quorum".
@@ -3363,15 +3443,11 @@ export interface WrittenLedgerMark {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "threadId".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "visitNumber".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "itemIndex".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "action".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "channel".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "assignees".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "expiresAt".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "externalRef".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "stepKey".
 // src/infrastructure/pause-replacement.ts - (ae-undocumented) Missing documentation for "reassignedFrom".
+// src/infrastructure/pause-transitions.ts - (ae-undocumented) Missing documentation for "pause".
+// src/infrastructure/pause-transitions.ts - (ae-undocumented) Missing documentation for "notices".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "store".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-a2a-direct-message.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".

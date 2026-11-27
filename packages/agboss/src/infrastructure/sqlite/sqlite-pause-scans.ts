@@ -67,7 +67,8 @@ export class SqlitePauseScans {
   ): readonly PauseRecord[] {
     // `after`: the keyset past the page before, in the order's own terms (#1070)
     const past = after === undefined ? "" : `AND (${column}, tenant_id, pause_id) > (?, ?, ?)`;
-    const keyset = after === undefined ? [] : [after.at.toISOString(), after.tenantId, after.pauseId];
+    const keyset =
+      after === undefined ? [] : [after.at.toISOString(), after.tenantId, after.pauseId];
     return this.database
       .prepare(
         `SELECT * FROM pauses WHERE status = ? AND ${column} IS NOT NULL AND ${column} <= ? ${past}
@@ -81,7 +82,8 @@ export class SqlitePauseScans {
   reassignedUnsent(cutoff: Date, limit: number, after?: PauseScanAfter): readonly PauseRecord[] {
     const asked = "CASE WHEN json_valid(pause) THEN json_extract(pause, '$.askedAt') END";
     const past = after === undefined ? "" : `AND (${asked}, tenant_id, pause_id) > (?, ?, ?)`;
-    const keyset = after === undefined ? [] : [after.at.toISOString(), after.tenantId, after.pauseId];
+    const keyset =
+      after === undefined ? [] : [after.at.toISOString(), after.tenantId, after.pauseId];
     return this.database
       .prepare(
         `SELECT * FROM pauses WHERE status = 'pending' AND is_sent = 0

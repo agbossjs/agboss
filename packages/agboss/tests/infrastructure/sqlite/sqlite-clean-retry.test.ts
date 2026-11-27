@@ -251,6 +251,7 @@ const OUTSIDE_THE_GATE: Readonly<Record<string, string>> = {
   "turns/configs.ts":
     "the turns store is its own file with its own DatabaseSync, not the application's connection",
   "turns/idle-threads.ts": "the turns store's own file (see turns/configs)",
+  "turns/pause-answer-writes.ts": "the turns store's own file (see turns/configs)",
   "turns/schema.ts": "the turns store's own file (see turns/configs)",
   "turns/sqlite-store.ts": "the turns store's own file (see turns/configs)",
   "turns/status-log.ts": "the turns store's own file (see turns/configs)",

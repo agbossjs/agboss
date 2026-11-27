@@ -28,7 +28,7 @@ import type {
 import { compareInstants } from "./instants.js";
 import { copiedPause } from "./pause-copies.js";
 import type { PauseRecord } from "./pause-record.js";
-import { onceNotices, type PauseChange } from "./pause-transitions.js";
+import { onceNotices, type PauseTransition } from "./pause-transitions.js";
 import type { PauseNoticeFacts, PauseRecipients } from "./pause-notices.js";
 import type { SequencedPause } from "./pause-scans.js";
 
@@ -70,7 +70,7 @@ export class InMemoryPauseBook {
   change(
     tenantId: string,
     pauseId: string,
-    plan: (current: PauseRecord) => PauseChange | undefined,
+    plan: (current: PauseRecord) => PauseTransition | undefined,
   ): PauseRecord | undefined {
     const key = JSON.stringify([tenantId, pauseId]);
     const stored = this.#pauses.get(key);

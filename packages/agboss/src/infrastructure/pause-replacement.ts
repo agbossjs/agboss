@@ -1,11 +1,7 @@
 import type { PauseTrailEntry } from "../channels/pause-contexts.js";
 import { narrowedLimits } from "./pause-limits-stored.js";
 import type { PauseReplacement } from "./pause-notices.js";
-import {
-  PauseResolution,
-  PauseStatus,
-  type PauseRecord,
-} from "./pause-record.js";
+import { PauseResolution, PauseStatus, type PauseRecord } from "./pause-record.js";
 
 /**
  * A reassigned pause and its replacement (#946): the records a reassignment makes and the step key a

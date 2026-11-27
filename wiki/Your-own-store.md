@@ -182,7 +182,7 @@ is `connection.requireTransaction()` of the `SqliteConnection` your repository w
 **A pause store keeps no rule of its own either.** `PausedExecutionRepository` is a set of compare-and-sets, and the
 rules are pure functions of `@agboss/core/stores`: `decideChange`, `resolveChange`, `cancelChange`, `expireChange`,
 `closeUntakenChange`, `remindChange`, `markSentChange`, `reassignChange`, `timeoutChange` — each takes the record you read
-(under a row lock, in a transaction, or by a conditional write that checks what you read) and returns a `PauseChange`
+(under a row lock, in a transaction, or by a conditional write that checks what you read) and returns a `PauseTransition`
 (`{ pause, notices, inserted? }`) or `undefined` when its condition does not hold — with `isOpenAt`, `isDueAt`,
 `isWithinCap`, `reassignedPause`, `openingNotices` and `inFirstSendNotices` beneath them. Write the record and the planned
 notices in one transaction; never restate a condition, a limit or a notice. A pause's times are **`Date`s in the

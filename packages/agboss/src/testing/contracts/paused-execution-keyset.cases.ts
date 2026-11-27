@@ -11,8 +11,7 @@ import { expiringPauseOf } from "./paused-execution-data.js";
 /** #1070: the due scan's keyset — a look that cannot move the first page still reaches the next. */
 type Instances = ContractInstances<PausedExecutionRepository>;
 
-const minute = (n: number): Date =>
-  new Date(`2026-01-05T10:${String(n).padStart(2, "0")}:00.000Z`);
+const minute = (n: number): Date => new Date(`2026-01-05T10:${String(n).padStart(2, "0")}:00.000Z`);
 const dueAt = (n: number, tenant: string): PauseRecord => ({
   ...expiringPauseOf(`p${String(n)}`, `run-1:s:1:${String(n)}`),
   tenantId: tenant,
@@ -31,9 +30,13 @@ const tied = (n: number): PauseRecord => ({
   stepKey: `run-1:s:1:t${String(n)}`,
 });
 const keys = (pauses: readonly PauseRecord[]): string[] =>
-  pauses.map((pause) => `${pause.tenantId}/${pause.pauseId}@${pause.expiresAt?.toISOString() ?? ""}`);
+  pauses.map(
+    (pause) => `${pause.tenantId}/${pause.pauseId}@${pause.expiresAt?.toISOString() ?? ""}`,
+  );
 const remindKeys = (pauses: readonly PauseRecord[]): string[] =>
-  pauses.map((pause) => `${pause.tenantId}/${pause.pauseId}@${pause.remindAt?.toISOString() ?? ""}`);
+  pauses.map(
+    (pause) => `${pause.tenantId}/${pause.pauseId}@${pause.remindAt?.toISOString() ?? ""}`,
+  );
 const keysetOf = (
   pause: PauseRecord | undefined,
   column: "expiresAt" | "remindAt" = "expiresAt",

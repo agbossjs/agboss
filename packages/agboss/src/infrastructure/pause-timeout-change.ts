@@ -5,7 +5,7 @@ import { PauseExpiryBound, type PauseRecord } from "./pause-record.js";
 import { isAtOrBefore, sameInstant } from "./instants.js";
 import { isWithinCap } from "./pause-limits-stored.js";
 import { isSeenAs } from "./pause-seen.js";
-import { isOpenAt, type PauseChange } from "./pause-transitions.js";
+import { isOpenAt, type PauseTransition } from "./pause-transitions.js";
 
 /** The change of a pending pause's deadline (`app.setPauseTimeout`, #1307): split from `pause-transitions.ts`. */
 
@@ -36,7 +36,7 @@ export function timeoutChange(
   change: PauseTimeoutChange,
   at: Date,
   recipients: PauseRecipients,
-): PauseChange | undefined {
+): PauseTransition | undefined {
   if (!isChangeable(pause, change, at)) return undefined;
   return {
     pause: {

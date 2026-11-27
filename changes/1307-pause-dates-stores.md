@@ -20,7 +20,7 @@ reference compare). The in-memory store copies the `Date`s it is given and hands
 `result.pending` copy the record's `Date`s too, so a `setTime` in user code moves nothing stored.
 
 `@agboss/core/stores` now exports the pure transitions every store applies, so a store of your own deletes its copies of the
-rules: `PauseChange`, `decideChange`, `resolveChange`, `cancelChange`, `expireChange`, `closeUntakenChange`, `remindChange`,
+rules: `PauseTransition`, `decideChange`, `resolveChange`, `cancelChange`, `expireChange`, `closeUntakenChange`, `remindChange`,
 `markSentChange`, `reassignChange`, `timeoutChange`, `isWithinCap`, `reassignedPause`, `openingNotices`, `inFirstSendNotices`,
 `isOpenAt`, `isDueAt` and the `PlannedNotice` they write. The pause contract of `storeConformance` has new cases that fail a
 store that truncates a time, reads text in the wrong zone, hands out the instance it holds or compares two `Date`s by

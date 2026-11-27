@@ -34,8 +34,7 @@ import {
 const test = testWith(ExpiryApplication);
 const ORDER = { orderId: "o-1" };
 const THREAD = { threadId: "expiry-1" };
-const AT = (clock: { now(): Date }, delay: number): Date =>
-  new Date(clock.now().getTime() + delay);
+const AT = (clock: { now(): Date }, delay: number): Date => new Date(clock.now().getTime() + delay);
 
 beforeEach(() => {
   resetExpiry();

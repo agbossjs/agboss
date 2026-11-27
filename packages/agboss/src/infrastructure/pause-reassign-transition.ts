@@ -13,7 +13,7 @@ import type { PauseRecord } from "./pause-record.js";
 import { isWithinCap, narrowedLimits } from "./pause-limits-stored.js";
 import { reassignedPause, replacementPause, replacementStepKeyOf } from "./pause-replacement.js";
 import { isSeenAs } from "./pause-seen.js";
-import { closing, isDueAt, isOpenAt, type PauseChange } from "./pause-transitions.js";
+import { closing, isDueAt, isOpenAt, type PauseTransition } from "./pause-transitions.js";
 
 /**
  * `Pending → Cancelled / Reassigned` and the replacement made (#946), or the pause changed in place
@@ -151,7 +151,7 @@ function inPlaceChange(
   change: PauseInPlaceReassignment,
   at: Date,
   recipients: PauseRecipients,
-): PauseChange {
+): PauseTransition {
   const after = reassignedInPlace(pause, change, at);
   return { pause: after, notices: inPlaceNotices(pause, after, at, recipients) };
 }
@@ -163,7 +163,7 @@ function replacementChange(
   takenStepKeys: ReadonlySet<string>,
   at: Date,
   recipients: PauseRecipients,
-): PauseChange {
+): PauseTransition {
   const stepKey = replacementStepKeyOf(pause, takenStepKeys);
   return {
     ...closing(pause, reassignedPause(pause, replacement.pauseId, at), at, channelOnly(recipients)),
@@ -177,7 +177,7 @@ export function reassignChange(
   takenStepKeys: ReadonlySet<string>,
   at: Date,
   recipients: PauseRecipients,
-): PauseChange | undefined {
+): PauseTransition | undefined {
   if (!isApplicable(pause, change, at)) return undefined;
   return isInPlace(change)
     ? inPlaceChange(pause, change, at, recipients)

@@ -67,7 +67,10 @@ export const REASSIGN_TRAIL_CASES: readonly ContractCase<PausedExecutionReposito
         pauseId: "pause-b",
         assignees: ["deputy-1"],
         reason: "no answer",
-        due: { expiresAt: new Date("2026-01-05T12:00:00.000Z"), expiryBound: PauseExpiryBound.Pause },
+        due: {
+          expiresAt: new Date("2026-01-05T12:00:00.000Z"),
+          expiryBound: PauseExpiryBound.Pause,
+        },
       };
 
       // before the deadline the pause is still open: an expiry's reassignment is not for it

@@ -187,7 +187,9 @@ describe("#1356: a mailbox row", () => {
       tenantId: "default",
       pauseId: "p-1",
       recipient: "channel:refund",
-      notices: [{ seq: 1, kind: PauseNoticeKind.Closed, writtenAt: new Date("2026-11-20T09:00:00.000Z") }],
+      notices: [
+        { seq: 1, kind: PauseNoticeKind.Closed, writtenAt: new Date("2026-11-20T09:00:00.000Z") },
+      ],
       delivered: 0,
       attempts: 2,
       nextAttemptAt: new Date("2026-11-20T10:00:00.000Z"),
